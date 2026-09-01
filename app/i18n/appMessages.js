@@ -2236,6 +2236,17 @@ const en = {
   "app.kpis.leadConversion": "Lead → quote conversion",
   "app.kpis.backlogWeeks": "Backlog",
   "app.kpis.backlogHint": "Weeks of accepted work still ahead of you, at this period's pace — not months. A residential shop with 2–6 weeks booked is in good shape.",
+  // ── app.kpis.reason.* — the handful of empty-state sentences that name a
+  // count. See app/app/analytics/kpis/page.js's REASON_I18N_KEYS: the number
+  // itself ({floor}/{sampleSize}/{remaining}) always comes from the KPI data,
+  // never typed here, so it can never drift from RATE_FLOOR/COUNT_FLOOR in
+  // lib/analytics/kpis.js.
+  "app.kpis.reason.noQuotesSent": "Send quotes and get {floor} of them decided — won or lost — and your win rate shows here.",
+  "app.kpis.reason.noWonQuotes": "Win {floor} quotes and your average job value shows here.",
+  "app.kpis.reason.noLeadsInPeriod": "No leads yet this period. Once {floor} leads have come in, this shows what share turn into quotes.",
+  "app.kpis.reason.noneDecidedYet": "Nothing's been decided yet this period. Once {floor} quotes are marked won or lost, your win rate shows here.",
+  "app.kpis.reason.belowFloor": "{sampleSize} of {floor} so far — {remaining} more and this becomes reliable.",
+  "app.kpis.reason.noThroughputReference": "There's a backlog, but no job with a priced quote was completed this period to measure a weekly pace against. Complete one and this fills in.",
   // ── app.kpis.moneyFlow.* — the Money flow section, added to this page
   // rather than a second dashboard. See the file header for why.
   "app.kpis.moneyFlow.title": "Money flow",
@@ -6547,6 +6558,12 @@ const fr = {
   "app.kpis.leadConversion": "Conversion prospect → devis",
   "app.kpis.backlogWeeks": "Carnet de commandes",
   "app.kpis.backlogHint": "Semaines de travail accepté qui vous attendent encore, au rythme de cette période — pas des mois. Une entreprise résidentielle avec 2 à 6 semaines réservées se porte bien.",
+  "app.kpis.reason.noQuotesSent": "Envoyez des devis et faites-en décider {floor} — gagnés ou perdus — pour voir votre taux de réussite ici.",
+  "app.kpis.reason.noWonQuotes": "Remportez {floor} devis et la valeur moyenne de vos chantiers s'affichera ici.",
+  "app.kpis.reason.noLeadsInPeriod": "Aucun prospect cette période. Une fois que {floor} prospects seront arrivés, ceci montrera la part convertie en devis.",
+  "app.kpis.reason.noneDecidedYet": "Rien n'a encore été décidé cette période. Une fois que {floor} devis seront marqués gagnés ou perdus, votre taux de réussite s'affichera ici.",
+  "app.kpis.reason.belowFloor": "{sampleSize} sur {floor} pour l'instant — {remaining} de plus et ce chiffre devient fiable.",
+  "app.kpis.reason.noThroughputReference": "Il y a des chantiers en réserve, mais aucun chantier avec un devis chiffré n'a été terminé cette période pour mesurer un rythme hebdomadaire. Terminez-en un et le chiffre apparaîtra.",
   "app.kpis.moneyFlow.title": "Flux de trésorerie",
   "app.kpis.moneyFlow.subtitle": "Ce qui est entré, ce qui est sorti, et ce qu'il reste pour cette période — jour par jour. Le revenu correspond aux paiements réellement reçus; les dépenses sont celles saisies ou importées, jamais une estimation de ce qui manque.",
   "app.kpis.moneyFlow.materialsTrapNote": "Ces chantiers montrent {buyList} acheté sur la liste de matériaux cette période, mais seulement {expense} a été saisi comme dépense. Le total des dépenses ci-dessous est réel — il n'inclut simplement pas ces achats. Saisissez-les comme dépenses, ou importez-les d'un relevé bancaire, pour voir le vrai chiffre.",

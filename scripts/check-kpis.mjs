@@ -144,8 +144,16 @@ ok("winRate: no quotes sent → null / no_quotes_sent",
   EMPTY.sales.winRate.value === null && EMPTY.sales.winRate.reason === "no_quotes_sent");
 ok("…and a real sentence rides along, not just the bare code",
   EMPTY.sales.winRate.reasonText === REASONS.no_quotes_sent && EMPTY.sales.winRate.reasonText.length > 10);
-ok("avgJobValue: no quotes sent → null / no_quotes_sent",
-  EMPTY.sales.avgJobValue.value === null && EMPTY.sales.avgJobValue.reason === "no_quotes_sent");
+ok("…and it carries RATE_FLOOR as data, so the page can say how many are needed",
+  EMPTY.sales.winRate.floor === RATE_FLOOR, EMPTY.sales.winRate.floor);
+// avgJobValue's "nothing to average" collapses to "no_won_quotes" whether
+// zero quotes exist or quotes exist but none are won yet — both need the SAME
+// next step (win COUNT_FLOOR of them), unlike winRate above which needs
+// DECIDED quotes (RATE_FLOOR) and so keeps its own "no_quotes_sent" split.
+ok("avgJobValue: no quotes sent → null / no_won_quotes (same next step as 'none won yet')",
+  EMPTY.sales.avgJobValue.value === null && EMPTY.sales.avgJobValue.reason === "no_won_quotes");
+ok("…and its floor is COUNT_FLOOR, not RATE_FLOOR — it's about WON quotes, not decided ones",
+  EMPTY.sales.avgJobValue.floor === COUNT_FLOOR, EMPTY.sales.avgJobValue.floor);
 ok("leadToQuoteConversion: no leads → null / no_leads_in_period",
   EMPTY.sales.leadToQuoteConversion.value === null &&
     EMPTY.sales.leadToQuoteConversion.reason === "no_leads_in_period");
@@ -332,6 +340,116 @@ ok(`${RATE_FLOOR - 1} leads is below the floor — counts survive, no rate print
     buildLeadToQuoteConversion({ leads: leads(RATE_FLOOR - 1, 5) }).sampleSize === RATE_FLOOR - 1);
 ok(`${RATE_FLOOR} leads clears the floor — the rate prints`,
   buildLeadToQuoteConversion({ leads: leads(RATE_FLOOR, 5) }).value === 50);
+
+// ── Every empty state's own copy: what the code SAYS at 0, 1, floor-1, floor,
+//    floor+1 rows, executed rather than reasoned about ─────────────────────
+//
+// The owner's actual ask ("state how many we need") is a copy change, and
+// copy is exactly the kind of thing that reads fine in a diff and is wrong at
+// the boundary. Printed here (not just asserted) so a reviewer can read the
+// real sentence a contractor would see at each count, per AGENTS.md's "execute
+// pure functions against hostile input" — this is that, for text.
+
+function decidedQuotes(n, wonCount) {
+  const rows = [];
+  for (let i = 0; i < n; i++) {
+    const won = i < wonCount;
+    rows.push(
+      quote({
+        status: won ? "accepted" : "declined",
+        sentAt: d("2026-05-01"),
+        acceptedAt: won ? d("2026-05-02") : null,
+        declinedAt: won ? null : d("2026-05-02"),
+        total: 1000,
+        acceptedTotal: won ? 1000 : null,
+      }),
+    );
+  }
+  return rows;
+}
+function salesAt(decided, won) {
+  return kpisCall({
+    sales: {
+      quotes: decidedQuotes(decided, won),
+      undatedCount: 0,
+      leads: [],
+      openJobs: [],
+      completedJobsForThroughput: [],
+    },
+  }).sales;
+}
+
+console.log("\n  winRate — 0, 1, floor-1, floor, floor+1 decided (all lost, so decided count = n exactly)\n");
+for (const n of [0, 1, RATE_FLOOR - 1, RATE_FLOOR, RATE_FLOOR + 1]) {
+  const { winRate } = salesAt(n, 0);
+  console.log(`    ${n} decided → ${winRate.value === null ? `null (${winRate.reason}): "${winRate.reasonText}"` : `${winRate.value}%`}`);
+  if (n === 0) {
+    ok(`winRate at 0 decided (0 sent): no_quotes_sent, floor ${RATE_FLOOR}`,
+      winRate.reason === "no_quotes_sent" && winRate.floor === RATE_FLOOR);
+  } else if (n < RATE_FLOOR) {
+    ok(`winRate at ${n} of ${RATE_FLOOR} decided: below_floor, sampleSize ${n}, ${RATE_FLOOR - n} remaining`,
+      winRate.reason === "below_floor" && winRate.sampleSize === n &&
+        winRate.floor === RATE_FLOOR && winRate.remaining === RATE_FLOOR - n,
+      winRate);
+  } else {
+    ok(`winRate at ${n} of ${RATE_FLOOR} decided: a real rate, no reason`,
+      winRate.value !== null && winRate.reason === null, winRate);
+  }
+}
+
+console.log("\n  avgJobValue — 0, 1, floor-1, floor, floor+1 WON (all decided quotes won)\n");
+for (const n of [0, 1, COUNT_FLOOR - 1, COUNT_FLOOR, COUNT_FLOOR + 1]) {
+  const { avgJobValue } = salesAt(n, n);
+  console.log(`    ${n} won → ${avgJobValue.value === null ? `null (${avgJobValue.reason}): "${avgJobValue.reasonText}"` : `$${avgJobValue.value}`}`);
+  if (n === 0) {
+    ok(`avgJobValue at 0 won: no_won_quotes, floor ${COUNT_FLOOR}`,
+      avgJobValue.reason === "no_won_quotes" && avgJobValue.floor === COUNT_FLOOR);
+  } else if (n < COUNT_FLOOR) {
+    ok(`avgJobValue at ${n} of ${COUNT_FLOOR} won: below_floor, sampleSize ${n}, ${COUNT_FLOOR - n} remaining`,
+      avgJobValue.reason === "below_floor" && avgJobValue.sampleSize === n &&
+        avgJobValue.floor === COUNT_FLOOR && avgJobValue.remaining === COUNT_FLOOR - n,
+      avgJobValue);
+  } else {
+    ok(`avgJobValue at ${n} of ${COUNT_FLOOR} won: a real value, no reason`,
+      avgJobValue.value !== null && avgJobValue.reason === null, avgJobValue);
+  }
+}
+
+console.log("\n  leadToQuoteConversion — 0, 1, floor-1, floor, floor+1 leads\n");
+for (const n of [0, 1, RATE_FLOOR - 1, RATE_FLOOR, RATE_FLOOR + 1]) {
+  const conv = buildLeadToQuoteConversion({ leads: leads(n, Math.min(n, 5)) });
+  console.log(`    ${n} leads → ${conv.value === null ? `null (${conv.reason}): "${conv.reasonText}"` : `${conv.value}%`}`);
+  if (n === 0) {
+    ok(`leadToQuoteConversion at 0 leads: no_leads_in_period, floor ${RATE_FLOOR}`,
+      conv.reason === "no_leads_in_period" && conv.floor === RATE_FLOOR);
+  } else if (n < RATE_FLOOR) {
+    ok(`leadToQuoteConversion at ${n} of ${RATE_FLOOR} leads: below_floor, sampleSize ${n}, ${RATE_FLOOR - n} remaining`,
+      conv.reason === "below_floor" && conv.sampleSize === n &&
+        conv.floor === RATE_FLOOR && conv.remaining === RATE_FLOOR - n,
+      conv);
+  } else {
+    ok(`leadToQuoteConversion at ${n} of ${RATE_FLOOR} leads: a real rate, no reason`,
+      conv.value !== null && conv.reason === null, conv);
+  }
+}
+
+console.log("\n  backlog — 0 vs. 1 completed, priced job this period (no floor: this one needs an action, not a count)\n");
+const backlogZero = buildBacklogWeeks({
+  openJobs: [{ id: "o1", quote: { status: "accepted", acceptedTotal: 4000, total: 4000 } }],
+  completedJobs: [],
+  weeksInPeriod: 2,
+});
+const backlogOne = buildBacklogWeeks({
+  openJobs: [{ id: "o1", quote: { status: "accepted", acceptedTotal: 4000, total: 4000 } }],
+  completedJobs: [{ id: "c1", quote: { status: "accepted", acceptedTotal: 2000, total: 2000 } }],
+  weeksInPeriod: 2,
+});
+console.log(`    0 completed → null (${backlogZero.reason}): "${backlogZero.reasonText}"`);
+console.log(`    1 completed → ${backlogOne.value} weeks`);
+ok("backlog with 0 completed, priced jobs this period: no_throughput_reference, and carries no floor",
+  backlogZero.reason === "no_throughput_reference" && backlogZero.floor === undefined);
+ok("backlog with exactly 1 completed, priced job this period: a real pace prints",
+  backlogOne.value !== null && backlogOne.reason === null, backlogOne);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Section 5 — the materials buy-list trap
@@ -548,7 +666,48 @@ ok("every REASONS entry (bar the one documented exception) was exercised by a fi
   missingReasons.length === 0, missingReasons);
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Section 10 — mutation pass: every guarantee above must be load-bearing
+// Section 10 — a reason string never hardcodes the floor as a literal
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The whole point of app/app/analytics/kpis/page.js's REASON_I18N_KEYS is that
+// the count comes from the `kpi()` envelope (`floor`/`sampleSize`/`remaining`)
+// and gets substituted at render time — never typed as a digit into the
+// sentence. This is the assertion with the longest life: it survives
+// RATE_FLOOR or COUNT_FLOOR changing value, survives new floor-bearing reasons
+// being added, and would catch a future edit that "simplifies" a sentence back
+// to `` `Send ${RATE_FLOOR} quotes...` `` — a JS template literal reads as
+// clean code and is exactly the drift AGENTS.md failure class 4 warns about:
+// the floor changes in one place and five sentences silently go stale.
+console.log("\n10. No REASONS text hardcodes a count — every number is a placeholder\n");
+
+const BARE_DIGIT = /\d/;
+for (const [code, text] of Object.entries(REASONS)) {
+  ok(`REASONS.${code} contains no bare digit`, !BARE_DIGIT.test(text), text);
+}
+// And the five that DO promise a number promise it as a named placeholder —
+// asserted by name so a typo in the token (`{Floor}`, `{flor}`) fails loudly
+// rather than silently rendering the literal braces on screen.
+const FLOOR_PLACEHOLDER_REASONS = {
+  no_quotes_sent: ["floor"],
+  no_won_quotes: ["floor"],
+  no_leads_in_period: ["floor"],
+  none_decided_yet: ["floor"],
+  below_floor: ["sampleSize", "floor", "remaining"],
+};
+for (const [code, tokens] of Object.entries(FLOOR_PLACEHOLDER_REASONS)) {
+  for (const token of tokens) {
+    ok(`REASONS.${code} names {${token}} as a placeholder`, REASONS[code].includes(`{${token}}`), REASONS[code]);
+  }
+}
+// no_throughput_reference is the one deliberately-uncounted reason (backlog
+// needs an action, not a floor to clear) — confirmed absent rather than just
+// un-asserted, so a future "helpfully" adding a number to it is a red flag,
+// not a silent pass.
+ok("no_throughput_reference names no placeholder at all — it's an action, not a count",
+  !/\{[a-zA-Z]+\}/.test(REASONS.no_throughput_reference), REASONS.no_throughput_reference);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Section 11 — mutation pass: every guarantee above must be load-bearing
 // ═══════════════════════════════════════════════════════════════════════════
 
 const MUTATING = !process.argv.includes("--no-mutate");
@@ -561,7 +720,7 @@ if (!MUTATING) {
   process.exit(fails.length ? 1 : 0);
 }
 
-console.log("\n10. Mutation pass — every guarantee above must actually be load-bearing\n");
+console.log("\n11. Mutation pass — every guarantee above must actually be load-bearing\n");
 
 const LIB = fileURLToPath(new URL("../lib/analytics/kpis.js", import.meta.url));
 const SELF = fileURLToPath(import.meta.url);
@@ -576,8 +735,20 @@ const MUTATIONS = [
     "prints a rate below the sample floor",
     (s) =>
       s.replace(
-        '  if (denominator < RATE_FLOOR) {\n    return kpi({ sampleSize: denominator, reason: belowFloorReason });\n  }\n',
+        '  if (denominator < RATE_FLOOR) {\n    return kpi({\n      sampleSize: denominator,\n      reason: belowFloorReason,\n      floor: RATE_FLOOR,\n      remaining: RATE_FLOOR - denominator,\n    });\n  }\n',
         "",
+      ),
+  ],
+  [
+    "drops the floor off a below-the-floor rate, so the page can't say how many more are needed",
+    (s) => s.replace("floor: RATE_FLOOR,\n      remaining: RATE_FLOOR - denominator,", "floor: null,"),
+  ],
+  [
+    "hardcodes the win-rate floor into the sentence instead of naming it as data",
+    (s) =>
+      s.replace(
+        'no_quotes_sent:\n    "Send quotes and get {floor} of them decided — won or lost — and your win rate shows here.",',
+        'no_quotes_sent: "Send quotes and get 10 of them decided — won or lost — and your win rate shows here.",',
       ),
   ],
   [
