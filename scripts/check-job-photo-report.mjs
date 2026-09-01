@@ -216,6 +216,61 @@ for (const lang of languages) {
     `noPhotosNote is translated for "${lang}"`);
 }
 
+section("9. An annotated photo's report entry embeds the FLATTENED preview, not the untouched original");
+
+// The evidence a client or insurer is actually handed: an issue photo with
+// an arrow drawn pointing at the water damage needs the arrow to show up
+// here, not just in the app (see lib/jobs/photoReport.js's own note on why
+// this reads through displayPhotoUrl() now). Built as a fresh fixture set
+// rather than reusing JOB_PHOTOS above so this section's assertions can't
+// accidentally pass against objects nothing here actually gave a
+// flattenedUrl to.
+const PHOTO_ANNOTATED = {
+  id: "g", jobId: "job1", url: "https://res.cloudinary.com/demo/image/upload/v1/g-original.jpg",
+  flattenedUrl: "https://res.cloudinary.com/demo/image/upload/v1/g-flattened.png",
+  stage: "issue", featured: false, caption: "damage, arrowed", createdAt: "2026-01-04T09:00:00Z",
+};
+const PHOTO_PLAIN = {
+  id: "h", jobId: "job1", url: "https://res.cloudinary.com/demo/image/upload/v1/h-original.jpg",
+  flattenedUrl: null,
+  stage: "issue", featured: false, caption: "no markup", createdAt: "2026-01-05T09:00:00Z",
+};
+const annotatedReport = buildPhotoReportData({
+  job: { title: "Kitchen repaint" },
+  client: { name: "Jane Homeowner" },
+  photos: [PHOTO_ANNOTATED, PHOTO_PLAIN],
+});
+const issuePhotosInReport = annotatedReport.groups.find((g) => g.stage === "issue")?.photos || [];
+const annotatedEntry = issuePhotosInReport.find((p) => p.caption === "damage, arrowed");
+const plainEntry = issuePhotosInReport.find((p) => p.caption === "no markup");
+
+ok(
+  Boolean(annotatedEntry) && annotatedEntry.url.includes("g-flattened.png"),
+  "the annotated photo's report entry embeds the FLATTENED asset",
+  annotatedEntry?.url,
+);
+ok(
+  Boolean(annotatedEntry) && !annotatedEntry.url.includes("g-original.jpg"),
+  "…and does NOT embed the untouched original once a flattened preview exists",
+);
+ok(
+  Boolean(plainEntry) && plainEntry.url.includes("h-original.jpg"),
+  "a photo with no annotation still embeds its own original — displayPhotoUrl() falls back, it doesn't require every photo to be annotated",
+  plainEntry?.url,
+);
+ok(
+  Boolean(annotatedEntry) && annotatedEntry.url.includes(`w_${REPORT_PHOTO_WIDTH}`),
+  "…and the flattened asset is STILL resized through REPORT_PHOTO_WIDTH, same as any other embedded photo — annotation doesn't bypass the resize cost control",
+  annotatedEntry?.url,
+);
+
+const PHOTO_ROUTE_PATH = "app/api/jobs/[id]/photo-report/pdf/route.js";
+const PHOTO_ROUTE = strip(readFileSync(PHOTO_ROUTE_PATH, "utf8"));
+ok(
+  /flattenedUrl:\s*true/.test(PHOTO_ROUTE),
+  "the report route's own db.jobPhoto.findMany select carries flattenedUrl — without it, displayPhotoUrl() would silently always fall back to the original",
+);
+
 console.log(`\n${fail === 0 ? "ALL PASS" : fail + " FAILED"}`);
 process.exit(fail ? 1 : 0);
 

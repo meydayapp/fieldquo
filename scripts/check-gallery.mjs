@@ -1,6 +1,8 @@
 // Executes lib/gallery/stages.js + albums.js — stage inference and public selection.
+import { readFileSync } from "node:fs";
 import { inferStage, STAGE_KEYS, normaliseStage, stageLabel } from "@/lib/gallery/stages";
 import { beforeAfterPairs, albums, galleryStrip, hasGallery } from "@/lib/gallery/albums";
+import { displayPhotoUrl } from "@/lib/jobs/photoAnnotation";
 
 let pass = 0, fail = 0;
 const ok = (n, c, got) => { if (c) { pass++; console.log(`  ✓ ${n}`); } else { fail++; console.log(`  ✗ ${n}${got !== undefined ? `  got: ${JSON.stringify(got)}` : ""}`); } };
@@ -91,6 +93,70 @@ console.log("\ngalleryStrip — capped, newest first");
 const lots = Array.from({ length: 50 }, (_, i) => P({ jobId: "j", stage: "finish", createdAt: t((i % 28) + 1) }));
 ok("respects the cap", galleryStrip(lots, 12).length === 12);
 ok("default cap 24", galleryStrip(lots).length === 24);
+
+// ── displayPhotoUrl() itself — executed, pure ────────────────────────────
+//
+// The function every public-facing reader in this file goes through below.
+// Already exercised more thoroughly in scripts/check-job-photos.mjs; this is
+// just the sanity check that the specific two calls this survives are what
+// they claim.
+console.log("\ndisplayPhotoUrl — the annotated preview wins when present");
+ok("flattened wins", displayPhotoUrl({ url: "https://x/a.jpg", flattenedUrl: "https://x/flat.png" }) === "https://x/flat.png");
+ok("falls back to the original", displayPhotoUrl({ url: "https://x/a.jpg", flattenedUrl: null }) === "https://x/a.jpg");
+
+// ── lib/site/jobPhotos.js — source-level: the two DB-touching public paths
+//    still exclude "issue"/unfeatured, AND now read through displayPhotoUrl
+// ═══════════════════════════════════════════════════════════════════════
+//
+// featuredUrls() and jobPhotoPairs() call db.jobPhoto directly, so — unlike
+// everything above — they can't be executed here without a real or stubbed
+// Prisma client (scripts/check-designer-reach.mjs's fake-db technique is the
+// precedent for doing that, at real cost in setup). Read instead, the same
+// way scripts/check-job-photo-report.mjs section 6 verifies a real route's
+// scoping: this is the ONE place in the codebase these two functions are
+// defined, so a regression here is a regression everywhere they're called
+// (the site's gallery block and its before/after slider).
+console.log("\nlib/site/jobPhotos.js — source-level: issue/unfeatured excluded, displayPhotoUrl used");
+const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+const JOB_PHOTOS_SRC = stripComments(readFileSync("lib/site/jobPhotos.js", "utf8"));
+
+const featuredUrlsAt = JOB_PHOTOS_SRC.indexOf("async function featuredUrls");
+const featuredUrlsEnd = JOB_PHOTOS_SRC.indexOf("\n}", featuredUrlsAt);
+const featuredUrlsBody = JOB_PHOTOS_SRC.slice(featuredUrlsAt, featuredUrlsEnd === -1 ? undefined : featuredUrlsEnd);
+ok(
+  "featuredUrls() still filters stage !== issue",
+  /stage:\s*\{\s*not:\s*["']issue["']\s*\}/.test(featuredUrlsBody),
+  featuredUrlsBody,
+);
+ok("featuredUrls() selects flattenedUrl", /flattenedUrl:\s*true/.test(featuredUrlsBody));
+ok(
+  "featuredUrls() reads through displayPhotoUrl(), not raw r.url",
+  /displayPhotoUrl\(/.test(featuredUrlsBody) && !/\.map\(\(r\)\s*=>\s*r\.url\)/.test(featuredUrlsBody),
+);
+
+const pairsAt = JOB_PHOTOS_SRC.indexOf("export async function jobPhotoPairs");
+const pairsBody = JOB_PHOTOS_SRC.slice(pairsAt);
+ok("jobPhotoPairs() selects flattenedUrl on the featured query", /flattenedUrl:\s*true/.test(pairsBody));
+ok(
+  "jobPhotoPairs() builds before/after through displayPhotoUrl(p.before)/(p.after), not p.before.url/p.after.url",
+  /displayPhotoUrl\(p\.before\)/.test(pairsBody) && /displayPhotoUrl\(p\.after\)/.test(pairsBody),
+);
+ok(
+  "…and the raw .before.url/.after.url shape is gone, not just supplemented",
+  !/before:\s*p\.before\.url/.test(pairsBody) && !/after:\s*p\.after\.url/.test(pairsBody),
+);
+// Defence in depth, unchanged by this feature: jobPhotoPairs() still hands
+// EVERY featured photo (issue included) to beforeAfterPairs(), which is what
+// actually excludes "issue" — via albums.js#publishable(), independently of
+// featuredUrls()'s own stage filter above. A photo annotated while staged
+// "issue" still can't reach this path BECAUSE of that, not because of
+// anything added here — confirmed already, executed, in section 2 of
+// scripts/check-job-photo-report.mjs ("albums() never returns the unfeatured
+// issue photo… or the FEATURED one either").
+ok(
+  "jobPhotoPairs() still hands beforeAfterPairs() the UNFILTERED featured set (the issue exclusion is that function's job, not a stage filter here)",
+  /where:\s*\{\s*companyId,\s*featured:\s*true\s*\}/.test(pairsBody.slice(0, pairsBody.indexOf("beforeAfterPairs"))),
+);
 
 console.log(`\n${fail === 0 ? "ALL PASS" : "FAILURES"} — ${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

@@ -882,5 +882,74 @@ ok(
   "the modal never hardcodes a published result itself — every result string comes back from the real API response",
 );
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   8. The photo annotator reaches PhotoAnnotatorEditor through its OWN,
+      independent ssr:false chain — not a repointed copy of the designer's
+   ═══════════════════════════════════════════════════════════════════════════
+
+   Same failure mode as section 1, different feature: PhotoAnnotatorEditor.js
+   imports "fabric" directly, so anything that reaches it from a
+   server-rendered path fails the real `next build` the identical way (see
+   PhotoAnnotatorLoader.js's own header, which names the same "Can't resolve
+   'jsdom'" failure DesignerLoader.js documents). The chain here is
+   JobPhotoCurator.js -> PhotoAnnotatorLoader.js (ssr:false) ->
+   PhotoAnnotatorEditor.js (imports "fabric"), deliberately NOT going through
+   any designer file — docs/PHOTO-ANNOTATION.md's reuse-vs-separate decision
+   means this feature's reachability must not depend on the marketing
+   designer's files staying in place. */
+
+section("8. The photo annotator reaches PhotoAnnotatorEditor through an unbroken, INDEPENDENT ssr:false chain");
+
+const CURATOR = "app/components/jobs/JobPhotoCurator.js";
+const ANNOTATOR_LOADER = "app/components/photoAnnotator/PhotoAnnotatorLoader.js";
+const ANNOTATOR_EDITOR = "app/components/photoAnnotator/PhotoAnnotatorEditor.js";
+
+for (const f of [CURATOR, ANNOTATOR_LOADER, ANNOTATOR_EDITOR]) {
+  ok(exists(f), `${f} exists`);
+}
+
+if (exists(CURATOR)) {
+  const curatorCode = stripComments(read(CURATOR));
+  ok(
+    /from\s+["']@\/app\/components\/photoAnnotator\/PhotoAnnotatorLoader["']/.test(curatorCode),
+    "JobPhotoCurator.js imports PhotoAnnotatorLoader — the documented entry point, not PhotoAnnotatorEditor.js directly",
+  );
+  ok(
+    !/from\s+["']@\/app\/components\/photoAnnotator\/PhotoAnnotatorEditor["']/.test(curatorCode),
+    "…and does NOT import PhotoAnnotatorEditor.js straight",
+  );
+  ok(
+    !/from\s+["']fabric["']/.test(curatorCode) && !/import\(\s*["']fabric["']\s*\)/.test(curatorCode),
+    "…and JobPhotoCurator.js itself never touches \"fabric\" — static or dynamic",
+  );
+  ok(/<PhotoAnnotatorLoader\b/.test(curatorCode), "…and actually renders <PhotoAnnotatorLoader> — the import isn't dead");
+}
+
+if (exists(ANNOTATOR_LOADER)) {
+  const loaderSrc = read(ANNOTATOR_LOADER);
+  const loaderCode = stripComments(loaderSrc);
+  ok(loaderSrc.trim().startsWith('"use client";'), "PhotoAnnotatorLoader.js opens with \"use client\"");
+  ok(/from\s+["']next\/dynamic["']/.test(loaderCode), "PhotoAnnotatorLoader.js imports next/dynamic");
+  ok(/ssr:\s*false/.test(loaderCode), "…and passes { ssr: false }");
+  ok(
+    /import\(\s*["']@\/app\/components\/photoAnnotator\/PhotoAnnotatorEditor["']\s*\)/.test(loaderCode),
+    "…dynamically importing PhotoAnnotatorEditor specifically",
+  );
+  // The one thing this chain must NOT do: reuse DesignerLoader.js or
+  // CampaignEditorLoader.js as a shortcut. Doing so would make this
+  // feature's SSR-safety depend on an unrelated feature's file staying put.
+  ok(
+    !/designer/i.test(loaderCode),
+    "…and the annotator's own ssr:false boundary does not route through anything under app/components/designer/",
+  );
+}
+
+if (exists(ANNOTATOR_EDITOR)) {
+  const editorSrc = read(ANNOTATOR_EDITOR);
+  const editorCode = stripComments(editorSrc);
+  ok(editorSrc.trim().startsWith('"use client";'), "PhotoAnnotatorEditor.js opens with \"use client\" (it imports fabric)");
+  ok(/from\s+["']fabric["']/.test(editorCode), "PhotoAnnotatorEditor.js imports fabric — the reason it needs the ssr:false wrapper at all");
+}
+
 console.log(`\n${checks} checks, ${fail} failure(s).`);
 process.exit(fail ? 1 : 0);
