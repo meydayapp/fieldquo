@@ -8,7 +8,42 @@ page, wiring its API and passing `check:all` proves the code exists. It does not
 prove anybody can find it. Every bug the owner found on 2026-08-30 lived in that
 gap.
 
-## In flight — 5 agents, night of 2026-08-31
+## Where things stand — 2026-09-01
+
+### Waiting on the owner
+- **Stripe live keys.** The last real launch blocker. Both live webhook
+  endpoints first, then all three env vars together, then the 8
+  Connect-onboarded contractors re-onboard. 11 test-mode subs re-subscribe.
+- **Prove a restore.** Check the Neon PITR window length in the console, add a
+  nightly `pg_dump` to storage Neon does not control, then restore into a
+  throwaway branch and time it. Only the last step proves anything.
+- **Open the app on a phone.** Every mobile fix is verified at code and build
+  level only. Nobody has watched a page render.
+- **Node 22 for the Neon skills CLI.** `npx neon@latest skills` needs 22.20+;
+  this machine has 20.19.0 and no other version installed. Not upgraded here —
+  changing the runtime is not a change to make unasked.
+
+### Closed since the last update
+`CRON_SECRET` is set (no live cron exposure) · the plan is Pro, so the
+schedules run as written including the 5-minute social publish · the schema is
+pushed to Neon with all data intact · the privacy officer is named.
+
+### Decisions taken, and built
+Payment schedules (the owner's halfway maths, verified to the day) · the Meta
+build (dormant until App Review) · the console write, as the paid migration
+service, with non-negotiable #3 rewritten to state the exception.
+
+### Still open, and named rather than dropped
+- The **dense-screens mobile sweep** — settings, analytics, the Marketing
+  Designer, `/platform`. Never done.
+- The **mobile regression check** that would stop any of this returning.
+- `prisma db push` with **no migration files**. PITR restores data; it gives no
+  down-path for a schema change. Worth moving to `prisma migrate`.
+- **Three ServiceTitan features genuinely absent**: technician scorecards (the
+  cheapest — the data is already there, it is an aggregation), inventory and
+  purchase orders (large), route optimisation (needs a routing service).
+
+## In flight## In flight — 5 agents, night of 2026-08-31
 
 | What | Where | State |
 |---|---|---|
