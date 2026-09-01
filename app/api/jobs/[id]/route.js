@@ -49,6 +49,12 @@ export async function GET(request, { params }) {
         orderBy: { scheduledAt: "asc" },
         include: { assignedTo: { select: { id: true, name: true } } },
       },
+      // Empty for every job whose company has no structured payment
+      // schedule — see lib/paymentSchedule/run.js. Internal staff view, so
+      // the full row (including amountCents) is fine to ship as-is, unlike
+      // the client-portal payload in app/api/portal/[token]/route.js, which
+      // allow-lists to label + amount only.
+      paymentStages: { orderBy: { seq: "asc" } },
     },
   });
 

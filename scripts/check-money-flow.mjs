@@ -14,9 +14,14 @@
 // boolean refusal. Section 9 is a GENERIC invariant walked over every figure
 // every fixture produced: `value === null` exactly when `available` is
 // false, and `available` is always false when a reason is attached. Section
-// 10 checks REASONS is the actual closed vocabulary. Section 11 mutates
-// lib/analytics/moneyFlow.js on disk, one bug at a time, and re-runs this
-// file as a subprocess to confirm each bug makes an assertion above fail —
+// 10 checks REASONS is the actual closed vocabulary. Section 12 does the
+// same for lib/invoices/computeInvoiceState.js, and Section 14 for
+// lib/paymentSchedule/engine.js — the payment-schedule engine's halfway
+// math, trigger resolution, cent-exact allocation and validity gate,
+// executed against the owner's own worked example, odd durations, missing
+// dates, a backwards range and a DST-spanning job. Section 11 mutates all
+// three files on disk, one bug at a time, and re-runs this file as a
+// subprocess to confirm each bug makes an assertion above fail —
 // check-kpis.mjs's own technique, and the same reason: a mutation that
 // ISN'T caught means the assertion guarding that line has no teeth.
 //
@@ -30,6 +35,16 @@ import { join } from "node:path";
 
 import { buildMoneyFlow, priorWindow, categoryBreakdown, REASONS } from "@/lib/analytics/moneyFlow";
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
+import {
+  jobDurationDays,
+  halfwayDate,
+  resolveStageDueDate,
+  validateSchedulePercentages,
+  allocateAmountCents,
+  computeSchedule,
+  isStageDue,
+  scheduleToText,
+} from "@/lib/paymentSchedule/engine";
 
 let pass = 0;
 const fails = [];
@@ -476,6 +491,184 @@ ok("amountPaid never goes negative even if refundedAmount somehow exceeds the pa
   OVER_REFUNDED.amountPaid === 0, OVER_REFUNDED);
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Section 14 — lib/paymentSchedule/engine.js: the halfway math and friends
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// This touches money on a schedule nobody is watching in real time (a cron
+// fires it, not a person clicking "charge"), which is the money-fixes brief's
+// own bar for "execute it against hostile input, don't just read it." Pure,
+// no database — same discipline as lib/servicePlans/schedule.js, mutation-
+// tested in Section 15 below the same way moneyFlow.js and
+// computeInvoiceState.js already are in this file.
+
+console.log("\n14. lib/paymentSchedule/engine.js — the halfway math and friends\n");
+
+const UTC2 = (s) => new Date(`${s}T00:00:00.000Z`);
+const isoOrNull = (d) => (d ? new Date(d).toISOString().slice(0, 10) : null);
+
+// ── The owner's own worked example, to the day ──────────────────────────────
+const SIX_DAY = halfwayDate(UTC2("2026-09-01"), UTC2("2026-09-06"));
+ok("6-day job (Sept 1 → Sept 6): halfway lands on Sept 3, exactly as the owner worked it out",
+  isoOrNull(SIX_DAY) === "2026-09-03", isoOrNull(SIX_DAY));
+ok("…and the duration behind it is 6 days, inclusive, not 5",
+  jobDurationDays(UTC2("2026-09-01"), UTC2("2026-09-06")) === 6);
+
+// ── A 1-day job: every date-based trigger collapses onto the same day ──────
+const ONE_DAY = { startDate: UTC2("2026-04-10"), endDate: UTC2("2026-04-10") };
+ok("1-day job: duration is 1, not 0", jobDurationDays(ONE_DAY.startDate, ONE_DAY.endDate) === 1);
+ok("1-day job: halfway falls on the start/end day itself",
+  isoOrNull(halfwayDate(ONE_DAY.startDate, ONE_DAY.endDate)) === "2026-04-10");
+for (const trig of ["job_start", "job_end", "halfway"]) {
+  const r = resolveStageDueDate(trig, ONE_DAY);
+  ok(`1-day job: ${trig} resolves to the same single date, not blocked`,
+    isoOrNull(r.dueDate) === "2026-04-10" && r.blockedReason === null, r);
+}
+
+// ── A 5-day job: the odd-duration rounding decision, exercised ─────────────
+// Sept 1 → Sept 5 inclusive = 5 days. 5/2 = 2.5, and this codebase rounds UP
+// (day 3 = Sept 3) rather than down (day 2 = Sept 2) — see engine.js's own
+// header for why: asking for the halfway payment only once MORE than half
+// the job is done, never before.
+const FIVE_DAY = halfwayDate(UTC2("2026-09-01"), UTC2("2026-09-05"));
+ok("5-day job: halfway rounds UP to day 3 (Sept 3), not day 2",
+  isoOrNull(FIVE_DAY) === "2026-09-03", isoOrNull(FIVE_DAY));
+
+// ── No end date: halfway and job_end are BLOCKED, visibly, never a guess ───
+const NO_END = { startDate: UTC2("2026-09-01"), endDate: null };
+const halfwayNoEnd = resolveStageDueDate("halfway", NO_END);
+ok("halfway with no end date: blocked as awaiting_end_date, dueDate stays null",
+  halfwayNoEnd.dueDate === null && halfwayNoEnd.blockedReason === "awaiting_end_date", halfwayNoEnd);
+const jobEndNoEnd = resolveStageDueDate("job_end", NO_END);
+ok("job_end with no end date: blocked the same way",
+  jobEndNoEnd.dueDate === null && jobEndNoEnd.blockedReason === "awaiting_end_date", jobEndNoEnd);
+const jobStartStillWorks = resolveStageDueDate("job_start", NO_END);
+ok("job_start with no end date: unaffected — it never needed one",
+  isoOrNull(jobStartStillWorks.dueDate) === "2026-09-01" && jobStartStillWorks.blockedReason === null);
+ok("on_invoice_created never blocks and never dates itself — it fires at creation, not off a clock",
+  resolveStageDueDate("on_invoice_created", NO_END).blockedReason === null &&
+    resolveStageDueDate("on_invoice_created", NO_END).dueDate === null);
+
+// ── No start date either: nothing date-based can resolve ────────────────────
+const NOTHING_SET = { startDate: null, endDate: null };
+ok("job_start with NO dates at all: blocked as awaiting_start_date",
+  resolveStageDueDate("job_start", NOTHING_SET).blockedReason === "awaiting_start_date");
+ok("halfway with NO dates at all: blocked on the start, not the end — start is checked first",
+  resolveStageDueDate("halfway", NOTHING_SET).blockedReason === "awaiting_start_date");
+
+// ── End before start: an invalid range, not a negative duration ────────────
+const BACKWARDS = { startDate: UTC2("2026-09-10"), endDate: UTC2("2026-09-01") };
+ok("jobDurationDays refuses a negative range rather than returning -8",
+  jobDurationDays(BACKWARDS.startDate, BACKWARDS.endDate) === null);
+ok("halfwayDate refuses the same range",
+  halfwayDate(BACKWARDS.startDate, BACKWARDS.endDate) === null);
+const jobEndBackwards = resolveStageDueDate("job_end", BACKWARDS);
+ok("job_end on a backwards range: blocked as invalid_date_range, not a nonsense date",
+  jobEndBackwards.dueDate === null && jobEndBackwards.blockedReason === "invalid_date_range", jobEndBackwards);
+const halfwayBackwards = resolveStageDueDate("halfway", BACKWARDS);
+ok("halfway on a backwards range: blocked the same way",
+  halfwayBackwards.dueDate === null && halfwayBackwards.blockedReason === "invalid_date_range", halfwayBackwards);
+
+// ── A job spanning the 2026 US DST change (March 8) ─────────────────────────
+// March 5 → March 12 is 8 days inclusive, straddling the spring-forward
+// transition. UTC-midnight arithmetic has no DST, so the answer must be
+// exactly what plain day-counting says regardless of where the server runs.
+const DST_START = UTC2("2026-03-05");
+const DST_END = UTC2("2026-03-12");
+ok("DST-spanning job: duration is a plain 8 days, unaffected by the clock change",
+  jobDurationDays(DST_START, DST_END) === 8);
+const dstHalfway = halfwayDate(DST_START, DST_END);
+// ceil(8/2) = day 4 = March 5 + 3 = March 8 — the transition day itself.
+ok("DST-spanning job: halfway lands on March 8 (day 4), the transition day, exactly as UTC arithmetic says",
+  isoOrNull(dstHalfway) === "2026-03-08", isoOrNull(dstHalfway));
+
+// ── Percentages: must sum to exactly 100, reported, never auto-corrected ───
+ok("30/40/15/15 sums to exactly 100",
+  validateSchedulePercentages([{ percentage: 30 }, { percentage: 40 }, { percentage: 15 }, { percentage: 15 }]).valid);
+const NINETY_NINE = validateSchedulePercentages([{ percentage: 50 }, { percentage: 49 }]);
+ok("99% is reported invalid, with the real sum attached — never silently accepted",
+  NINETY_NINE.valid === false && NINETY_NINE.sum === 99, NINETY_NINE);
+const HUNDRED_ONE = validateSchedulePercentages([{ percentage: 51 }, { percentage: 50 }]);
+ok("101% is reported invalid too — over-collecting is just as wrong as under",
+  HUNDRED_ONE.valid === false && HUNDRED_ONE.sum === 101, HUNDRED_ONE);
+
+// ── computeSchedule still resolves every stage on an invalid set ───────────
+// so a Settings screen can show the contractor WHY, not just a bare error.
+const invalidComputed = computeSchedule({
+  stages: [
+    { seq: 0, label: "Deposit", trigger: "on_invoice_created", percentage: 50 },
+    { seq: 1, label: "On completion", trigger: "job_end", percentage: 49 },
+  ],
+  job: { startDate: UTC2("2026-01-01"), endDate: UTC2("2026-01-10") },
+  totalCents: 100000,
+});
+ok("an invalid (99%) set is flagged invalid but still returns every stage, resolved",
+  invalidComputed.valid === false && invalidComputed.stages.length === 2, invalidComputed);
+
+// ── Zero-percent stage: no money, never a real request for it ──────────────
+const zeroStageAmounts = allocateAmountCents(
+  [{ seq: 0, percentage: 0 }, { seq: 1, percentage: 100 }],
+  100000,
+);
+ok("a 0% stage allocates exactly $0, the other absorbs the whole total",
+  zeroStageAmounts.find((s) => s.seq === 0).amountCents === 0 &&
+    zeroStageAmounts.find((s) => s.seq === 1).amountCents === 100000,
+  zeroStageAmounts);
+
+// ── A £0 quote: every stage is $0 regardless of its percentage ─────────────
+const zeroQuote = allocateAmountCents(
+  [{ seq: 0, percentage: 30 }, { seq: 1, percentage: 70 }],
+  0,
+);
+ok("a £0 quote: both stages allocate exactly $0, not a negative or NaN",
+  zeroQuote.every((s) => s.amountCents === 0), zeroQuote);
+
+// ── Remainder-exact allocation: the whole point of allocateAmountCents ─────
+// 33.333/33.333/33.334 against $100.00 (10000 cents) — none of the three
+// naive per-stage roundings sums back to 10000 on their own; the last stage
+// absorbing the remainder must make it exact regardless.
+const thirds = allocateAmountCents(
+  [{ seq: 0, percentage: 33.333 }, { seq: 1, percentage: 33.333 }, { seq: 2, percentage: 33.334 }],
+  10000,
+);
+ok("three near-equal stages still sum to EXACTLY the total, to the cent",
+  thirds.reduce((s, a) => s + a.amountCents, 0) === 10000, thirds);
+// The owner's real 30/40/15/15 example against an odd total that doesn't
+// divide evenly — $100.01 — to prove the remainder lands on the LAST stage
+// (seq 3, job_end) rather than getting lost or duplicated.
+const realSplit = allocateAmountCents(
+  [
+    { seq: 0, percentage: 30 },
+    { seq: 1, percentage: 40 },
+    { seq: 2, percentage: 15 },
+    { seq: 3, percentage: 15 },
+  ],
+  10001,
+);
+ok("30/40/15/15 against $100.01 sums to exactly 10001 cents",
+  realSplit.reduce((s, a) => s + a.amountCents, 0) === 10001, realSplit);
+
+// ── isStageDue: on_invoice_created never fires off a clock ──────────────────
+ok("on_invoice_created is never 'due' by date, however far in the past dueDate would read",
+  isStageDue({ trigger: "on_invoice_created", dueDate: UTC2("2020-01-01") }, { now: UTC2("2026-01-01") }) === false);
+ok("a job_end stage due yesterday IS due today",
+  isStageDue({ trigger: "job_end", dueDate: UTC2("2026-01-01") }, { now: UTC2("2026-01-02") }) === true);
+ok("a job_end stage due tomorrow is NOT due today",
+  isStageDue({ trigger: "job_end", dueDate: UTC2("2026-01-03") }, { now: UTC2("2026-01-02") }) === false);
+ok("a stage with no dueDate at all is never due",
+  isStageDue({ trigger: "job_end", dueDate: null }, { now: UTC2("2026-01-02") }) === false);
+
+// ── scheduleToText: keeps Company.paymentTerms honest, or writes nothing ───
+ok("a valid schedule renders the exact sentence parsePaymentSchedule already knows how to read",
+  scheduleToText([
+    { seq: 0, label: "Deposit", percentage: 30 },
+    { seq: 1, label: "Job start", percentage: 70 },
+  ]) === "30% Deposit, 70% Job start");
+ok("an invalid (non-100) schedule renders nothing — never overwrites paymentTerms with a broken sentence",
+  scheduleToText([{ seq: 0, label: "Deposit", percentage: 50 }]) === "");
+ok("an empty schedule renders nothing",
+  scheduleToText([]) === "");
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Section 11 — mutation pass: every guarantee above must be load-bearing
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -497,14 +690,21 @@ const LIB = fileURLToPath(new URL("../lib/analytics/moneyFlow.js", import.meta.u
 // carries the exact machinery (backup, mutate, re-run as a subprocess,
 // restore) a second pure-function mutation pass needs.
 const LIB2 = fileURLToPath(new URL("../lib/invoices/computeInvoiceState.js", import.meta.url));
+// lib/paymentSchedule/engine.js — Section 14's own guarantees, mutated the
+// same way, same reason: money moves off this file's arithmetic with no
+// person watching (a cron fires it), which is exactly the case the money-
+// fixes brief singles out for execution over reading.
+const LIB3 = fileURLToPath(new URL("../lib/paymentSchedule/engine.js", import.meta.url));
 const SELF = fileURLToPath(import.meta.url);
 const LOADER = fileURLToPath(new URL("./alias-loader.mjs", import.meta.url));
 
 const backupDir = mkdtempSync(join(tmpdir(), "money-flow-"));
 const ORIGINAL = readFileSync(LIB, "utf8");
 const ORIGINAL2 = readFileSync(LIB2, "utf8");
+const ORIGINAL3 = readFileSync(LIB3, "utf8");
 writeFileSync(join(backupDir, "moneyFlow.js.bak"), ORIGINAL);
 writeFileSync(join(backupDir, "computeInvoiceState.js.bak"), ORIGINAL2);
+writeFileSync(join(backupDir, "paymentScheduleEngine.js.bak"), ORIGINAL3);
 
 const MUTATIONS = [
   [
@@ -640,6 +840,60 @@ const MUTATIONS2 = [
   ],
 ];
 
+// lib/paymentSchedule/engine.js's own mutants — Section 14's guarantees,
+// mutated the same way, run in Section 16 below.
+const MUTATIONS3 = [
+  [
+    "the odd-duration halfway rounding flips from UP to DOWN — the 5-day job would land on day 2 (Sept 2) instead of day 3 (Sept 3), asking for the payment before the midpoint of the work",
+    (s) => s.replace(
+      "const halfwayDayIndex = Math.ceil(duration / 2); // round UP — see header",
+      "const halfwayDayIndex = Math.floor(duration / 2); // round UP — see header",
+    ),
+  ],
+  [
+    "jobDurationDays stops refusing a backwards range — a job ending before it starts would compute a NEGATIVE duration instead of null",
+    (s) => s.replace(
+      "  if (diff < 0) return null;\n  return diff + 1;",
+      "  return diff + 1;",
+    ),
+  ],
+  [
+    "job_end stops checking for a backwards range on its own — would resolve a due date even when start is after end",
+    (s) => s.replace(
+      'if (trigger === "job_end") {\n    if (!end) return { dueDate: null, blockedReason: "awaiting_end_date" };\n    if (start && daysBetweenUTC(start, end) < 0) {\n      return { dueDate: null, blockedReason: "invalid_date_range" };\n    }',
+      'if (trigger === "job_end") {\n    if (!end) return { dueDate: null, blockedReason: "awaiting_end_date" };',
+    ),
+  ],
+  [
+    "on_invoice_created stops being special-cased in isStageDue — a stale dueDate (there should never be one) would make it fire off a clock instead of only at creation",
+    (s) => s.replace(
+      'if (!stage || stage.trigger === "on_invoice_created") return false;',
+      "if (!stage) return false;",
+    ),
+  ],
+  [
+    "the last stage stops absorbing the rounding remainder in allocateAmountCents — 30/40/15/15 against an odd total would drift by a cent instead of landing exactly on it",
+    (s) => s.replace(
+      "cents[cents.length - 1] = Math.max(0, total - allocated);",
+      'cents[cents.length - 1] = Math.max(0, Math.round((num(ordered[ordered.length - 1]?.percentage) / 100) * total));',
+    ),
+  ],
+  [
+    "PERCENT_EPSILON widens enough to wave 99% and 101% through as valid",
+    (s) => s.replace(
+      "const PERCENT_EPSILON = 0.001;",
+      "const PERCENT_EPSILON = 5;",
+    ),
+  ],
+  [
+    "scheduleToText stops checking validity — would generate (and let a caller write to Company.paymentTerms) a sentence for a schedule that doesn't sum to 100",
+    (s) => s.replace(
+      "  const { valid } = validateSchedulePercentages(list);\n  if (!valid || list.length === 0) return \"\";",
+      '  if (list.length === 0) return "";',
+    ),
+  ],
+];
+
 // ── One mutation that was tried and is NOT in the list above ────────────────
 //
 // There is no line in this file that reads Invoice.total, invoiceId or
@@ -697,9 +951,15 @@ try {
   const r2 = runMutations(LIB2, ORIGINAL2, MUTATIONS2);
   caught += r2.caught;
   escaped.push(...r2.escaped);
+
+  console.log("\n16. lib/paymentSchedule/engine.js mutants\n");
+  const r3 = runMutations(LIB3, ORIGINAL3, MUTATIONS3);
+  caught += r3.caught;
+  escaped.push(...r3.escaped);
 } finally {
   writeFileSync(LIB, ORIGINAL);
   writeFileSync(LIB2, ORIGINAL2);
+  writeFileSync(LIB3, ORIGINAL3);
   rmSync(backupDir, { recursive: true, force: true });
 }
 ok(`all ${MUTATIONS.length} moneyFlow.js mutants caught`,
@@ -707,6 +967,9 @@ ok(`all ${MUTATIONS.length} moneyFlow.js mutants caught`,
   escaped.join(" | "));
 ok(`all ${MUTATIONS2.length} computeInvoiceState.js mutants caught`,
   !escaped.some((e) => MUTATIONS2.some(([l]) => e.startsWith(l))),
+  escaped.join(" | "));
+ok(`all ${MUTATIONS3.length} lib/paymentSchedule/engine.js mutants caught`,
+  !escaped.some((e) => MUTATIONS3.some(([l]) => e.startsWith(l))),
   escaped.join(" | "));
 pass += caught;
 

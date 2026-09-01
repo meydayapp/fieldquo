@@ -136,6 +136,19 @@ export async function GET(request, { params }) {
           tax: true,
           taxEnabled: true,
           createdAt: true,
+          // Payment-schedule stages this invoice carries — only the fields
+          // safe for a stranger's browser: a label and an amount, never the
+          // internal trigger/percentage/job link. `requested` only: a
+          // `pending` stage hasn't been asked for yet (nothing to show), and
+          // once `waived` there is nothing to pay. Lets PortalInvoice.js show
+          // "Deposit — $X due now" instead of the invoice's full remaining
+          // balance when the client arrived via a stage's own email link
+          // (?stage=<id>) — see lib/paymentSchedule/run.js.
+          jobPaymentStages: {
+            where: { status: "requested" },
+            orderBy: { seq: "asc" },
+            select: { id: true, label: true, amountCents: true },
+          },
         },
       },
       // `jobs` used to be fetched here (with its `visits`, technician ids and

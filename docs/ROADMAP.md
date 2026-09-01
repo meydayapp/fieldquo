@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 31 August 2026. **Update this file when you finish something.**
+Last updated: 31 August 2026 (payment schedule). **Update this file when you finish something.**
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
@@ -5863,3 +5863,55 @@ processors.
 **Not built:** the Settings screen to actually connect a Meta Business
 account (belongs with the OAuth layer), a scheduling UI for Facebook, and
 Instagram's own hold-and-post scheduling queue (see above).
+
+## Rule-based payment schedule — built, real invoices raised automatically
+
+Full writeup: [PAYMENT-SCHEDULE-BUILD.md](PAYMENT-SCHEDULE-BUILD.md) (the
+build log — math, edge cases, decisions) and
+[PAYMENT-SCHEDULE.md](PAYMENT-SCHEDULE.md) (the earlier research pass this
+was built from). Before this: 100% display (a free-text sentence parsed into
+cosmetic cards on the PDF/email, nothing behind it). Now: the billing half
+exists too.
+
+**What's real:** two new models, `PaymentScheduleStage` (a company's
+template — percentage + trigger + label) and `JobPaymentStage` (each job's
+frozen copy, with a computed `dueDate`/`blockedReason`/`status` and a link
+to the one invoice it's requesting payment against). Four triggers —
+`on_invoice_created` (the deposit, fires at quote acceptance), `job_start`,
+`halfway`, `job_end` — resolved by the pure engine in
+`lib/paymentSchedule/engine.js`, including the owner's own inclusive-
+counting halfway math (Sept 1 → Sept 6 → halfway Sept 3, executed and
+asserted). Settings → Company gets a "Payment schedule" editor
+(`PaymentScheduleEditor.js`) that locks the existing free-text field and
+generates its content instead, so the two can't disagree. Quote acceptance
+(`lib/quotes/quoteLifecycle.js`) creates a job's stage rows and fires the
+deposit synchronously — still exactly ONE invoice per job, per
+`lib/invoices/invoiceNumber.js`'s own prior "not several invoices" intent —
+requested in shares via a Stripe Checkout session capped to each stage's own
+amount (never the full balance), wired through the existing client portal.
+A daily cron (`app/api/cron/payment-schedule`) recomputes pending stages
+against a job's *current* dates — so a job that slips a week drags its
+pending money with it — and fires whichever are due. The job page shows
+each job's own schedule, including a named reason when a stage can't fire
+yet (no end date, invalid range) rather than silently never firing.
+
+**Existing companies: unaffected.** Zero `PaymentScheduleStage` rows (every
+company today) means `ensureInvoiceForQuote` runs exactly as it always has —
+one draft invoice, no schedule logic touched.
+
+**Not built, deliberately:** a "days before start" trigger (no resolved
+backfill policy — outside the owner's stated set for this session), a
+percent-complete trigger (no data source anywhere in the schema),
+auto-charging a saved card (every stage is invoice + emailed pay link,
+tier-1 only — the same default `lib/servicePlans/run.js` already proved
+stands alone), and richer per-stage rendering on the PDF/email themselves
+(the generated free-text sentence gets the existing cosmetic renderer
+in sync for free, with no changes to the `@react-pdf/renderer` component).
+
+**Verified:** `npx prisma validate` (no `db push` run — additive, nullable,
+new models only). `scripts/check-money-flow.mjs` extended (not a new script
+— kept off `check:all`'s chain per instruction) with 34 fixture assertions
+against the engine, hostile input included (a backwards date range, no
+dates at all, a job spanning the 2026 US DST change, 99%/101% schedules, a
+£0 quote), and 7 mutations, all caught. `npm run check:all` and
+`npm run build` both pass.

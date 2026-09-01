@@ -44,6 +44,7 @@ import { useRouter } from "next/navigation";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
+import PaymentScheduleCard from "./PaymentScheduleCard";
 
 const STATUS_STYLES = {
   scheduled:
@@ -425,6 +426,10 @@ export default function JobDetail({ jobId }) {
           </span>
         </div>
       )}
+
+      {/* Empty for every job whose company has no structured payment
+          schedule — see lib/paymentSchedule/run.js. */}
+      <PaymentScheduleCard stages={job.paymentStages} />
 
       {/* Client — the details someone needs before they set off */}
       <div

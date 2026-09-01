@@ -29,7 +29,7 @@ import { taxIdLine } from "@/lib/documents/taxId";
 import { documentIssueDate } from "@/lib/documents/issueDate";
 import { jsonBody } from "@/lib/jsonBody";
 
-export default function PortalInvoice({ token, invoiceId }) {
+export default function PortalInvoice({ token, invoiceId, stageId = null }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -62,7 +62,11 @@ export default function PortalInvoice({ token, invoiceId }) {
       const res = await fetch(`/api/portal/${token}/pay`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: jsonBody({ invoiceId }, "payment"),
+        // stageId is a HINT, not an amount — the server re-derives the
+        // figure from the JobPaymentStage row itself and caps it against the
+        // invoice's real balance (lib/stripe.js). The browser never sends
+        // money amounts (non-negotiable #5).
+        body: jsonBody({ invoiceId, stageId }, "payment"),
       });
       const d = await res.json().catch(() => null);
       if (!res.ok || !d?.checkoutUrl) {
@@ -109,10 +113,23 @@ export default function PortalInvoice({ token, invoiceId }) {
   // Measured, not assumed white — see the quote page for why.
   const accentOn = readableForeground(accent);
   const items = Array.isArray(invoice.lineItems) ? invoice.lineItems : [];
-  const due = Math.max(
+  const balance = Math.max(
     0,
     Number(invoice.total || 0) - Number(invoice.amountPaid || 0),
   );
+  // The payment-schedule stage this link is for, if any — only ever a
+  // `requested` stage (see the route's own select), and only ever DISPLAYED
+  // here. The server re-derives and caps the real charge from the same row
+  // when `pay()` posts stageId; this is not what makes that safe, it only
+  // makes the button say the true figure before the client gets there.
+  const stage = stageId
+    ? (invoice.jobPaymentStages || []).find((s) => s.id === stageId)
+    : null;
+  const stageAmount = stage ? Math.min(stage.amountCents / 100, balance) : null;
+  // What THIS page asks for: a stage's own share when one applies, otherwise
+  // the invoice's full remaining balance — unchanged from before this
+  // feature existed.
+  const due = stageAmount != null ? stageAmount : balance;
   const overdue =
     invoice.dueDate && due > 0.005 && new Date(invoice.dueDate) < new Date();
   // Same flag the portal index reads — the company may never have finished
@@ -288,7 +305,11 @@ export default function PortalInvoice({ token, invoiceId }) {
             style={{ backgroundColor: accent, color: accentOn }}
           >
             <span className="text-sm font-bold tracking-wide uppercase">
-              {due > 0.005 ? labels.balanceDue : copy.paidInFull}
+              {due > 0.005
+                ? stage
+                  ? stage.label
+                  : labels.balanceDue
+                : copy.paidInFull}
             </span>
             <span className="text-2xl font-bold tabular-nums">
               {money(due > 0.005 ? due : invoice.total)}

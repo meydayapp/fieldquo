@@ -9,7 +9,11 @@ import { getAppOrigin } from "@/lib/appUrl";
 export async function POST(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
   const _params = await params;
-  const { invoiceId } = await request.json();
+  // stageId is a HINT at which JobPaymentStage this checkout is for — never
+  // an amount. The amount below is always re-derived from that row (or,
+  // absent one, from the invoice's own balance) — non-negotiable #5, the
+  // browser never sends money amounts.
+  const { invoiceId, stageId } = await request.json();
   if (!invoiceId)
     return NextResponse.json(
       { error: "invoiceId is required" },
@@ -59,11 +63,40 @@ export async function POST(request, { params }) {
 
   const baseUrl = getAppOrigin(request);
 
+  // ── A stage's own share, re-derived here, never trusted from the browser ──
+  //
+  // stageId only NAMES which JobPaymentStage this checkout is for. The
+  // amount comes from that row's own amountCents, looked up server-side, and
+  // is refused unless the stage actually belongs to THIS invoice and is
+  // still `requested` (not already fired-and-since-superseded, not another
+  // invoice's stage guessed by id). Anything else falls through to the
+  // ordinary full-balance checkout — the behaviour before this feature
+  // existed, unchanged for every company with no structured schedule.
+  let amountCents;
+  if (stageId) {
+    const stage = await db.jobPaymentStage.findFirst({
+      // companyId, not just invoiceId — belt and braces the same way the
+      // invoice lookup above is scoped to client.id rather than trusting
+      // invoiceId alone. scripts/check-tenant-scope.mjs requires a by-id
+      // lookup on a tenant model to be company-scoped directly, not only
+      // provably-so through a chain of other scoped lookups.
+      where: {
+        id: stageId,
+        companyId: client.companyId,
+        invoiceId: invoice.id,
+        status: "requested",
+      },
+      select: { amountCents: true },
+    });
+    if (stage) amountCents = stage.amountCents;
+  }
+
   const session = await createInvoiceCheckoutSession({
     invoice,
     company,
     successUrl: `${baseUrl}/portal/${_params.token}?paid=true`,
     cancelUrl: `${baseUrl}/portal/${_params.token}`,
+    amountCents,
   });
 
   return NextResponse.json({ checkoutUrl: session.url });

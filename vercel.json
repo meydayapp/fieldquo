@@ -63,6 +63,10 @@
     {
       "path": "/api/cron/grace-warning",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/payment-schedule",
+      "schedule": "10 6 * * *"
     }
   ]
 }
