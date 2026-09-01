@@ -1,5 +1,14 @@
 // Throwaway. Renders the review email against the brand colours contractors actually pick.
+//
+// The survey rating row calls getAppOrigin() with no `request` (see
+// lib/appUrl.js) — same as scripts/check-consent-mechanisms.mjs's own
+// unsubscribeUrl() calls — so it needs NEXT_PUBLIC_APP_URL set before any
+// import touches it. Production always has this set; this script does not
+// run inside a request, so it has to set it itself.
+process.env.NEXT_PUBLIC_APP_URL = "https://app.fieldquo.test";
+
 import { buildReviewEmail, reviewCopy } from "@/lib/reviews/reviewEmail.js";
+import { surveyCopy } from "@/lib/reviews/satisfaction.js";
 
 let pass = 0, fail = 0;
 const ok = (n, c, got) => { if (c) { pass++; console.log(`  ✓ ${n}`); } else { fail++; console.log(`  ✗ ${n}${got !== undefined ? `  got: ${got}` : ""}`); } };
@@ -78,6 +87,56 @@ console.log("\nMissing data doesn't produce placeholder text");
 const bare = buildReviewEmail({ company: { name: "Acme", reviewUrl: "https://x.com/r" }, client: {} });
 ok("no client name -> plain greeting, no 'undefined'", !bare.html.includes("undefined"));
 ok("no logo -> falls back to the name, not a broken image", !bare.html.includes("<img") && bare.html.includes("Acme"));
+
+// ══ Satisfaction survey rating row ══════════════════════════════════════════
+//
+// AGENTS.md's "no second mailing system" put the survey's five tap-a-number
+// links inside THIS email rather than a new one — see reviewEmail.js's own
+// header. Everything below re-runs the exact hostile-brand-colour and
+// escaping checks above, but against the rating row specifically, because a
+// pairing that clears 4.5:1 on the "Leave a review" button proves nothing
+// about a DIFFERENT pairing (neutralPair, not fillPair) rendered a few lines
+// below it.
+console.log("\nSurvey rating row — optional, and absent by default");
+ok("no surveyToken -> no rating row at all", !bare.html.includes("/survey/"));
+const withSurvey = buildReviewEmail({ company: co, client: { name: "Sam" }, surveyToken: "abc123" });
+ok("surveyToken present -> five score links, 1 through 5", [1, 2, 3, 4, 5].every((n) => withSurvey.html.includes(`/survey/abc123?score=${n}`)));
+ok("no sixth link (0 or 6) leaks in", !withSurvey.html.includes("score=0") && !withSurvey.html.includes("score=6"));
+
+console.log("\nRating chip contrast across hostile brand colours (need >= 4.5:1) — a DIFFERENT pair than the button above (neutralPair, not fillPair)");
+for (const [name, hex] of Object.entries(HOSTILE)) {
+  const out = buildReviewEmail({
+    company: { name: "Acme Painting", brandColor: hex, reviewUrl: "https://g.page/r/x/review" },
+    client: { name: "Sam" },
+    surveyToken: "abc123",
+  });
+  // Two background:/color: pairs now exist in the HTML (the button, then the
+  // five identical chips) — the chip is the SECOND occurrence.
+  const pairs = [...out.html.matchAll(/background:(#[0-9a-fA-F]{6});color:(#[0-9a-fA-F]{6})/g)];
+  if (pairs.length < 2) { ok(`${name} — chip colours found`, false); continue; }
+  const [, chipBg, chipFg] = pairs[1];
+  const r = ratio(chipBg, chipFg);
+  ok(`${name.padEnd(20)} chip ${chipBg} on ${chipFg} = ${r.toFixed(2)}:1`, r >= 4.5, r.toFixed(2));
+}
+
+console.log("\nSurvey rating row — language and escaping");
+for (const lang of ["en", "fr"]) {
+  const h = buildReviewEmail({ company: co, client: { name: "Sam" }, language: lang, surveyToken: "abc123" }).html;
+  ok(`${lang}: prompt renders in that language`, h.includes(surveyCopy(lang).prompt));
+}
+const surveyXss = buildReviewEmail({
+  company: { ...co, name: '<script>alert("x")</script>' },
+  client: { name: '"><img src=x onerror=alert(1)>' },
+  surveyToken: "abc123",
+});
+ok("rating row present alongside an XSS attempt, and the name is still escaped",
+  surveyXss.html.includes("/survey/abc123") && !surveyXss.html.includes("<script>"));
+// safeUrl() on the survey link itself — same gate the review-request link
+// gets, since a token is server-minted and therefore trusted, but a caller
+// who somehow passes a hostile token must not get an executable href either.
+const hostileToken = buildReviewEmail({ company: co, client: {}, surveyToken: 'abc" onmouseover="alert(1)' });
+ok("a token containing quote/attribute-breaking characters never opens a new attribute",
+  !hostileToken.html.includes('onmouseover="alert'));
 
 console.log(`\n${fail === 0 ? "ALL PASS" : "FAILURES"} — ${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

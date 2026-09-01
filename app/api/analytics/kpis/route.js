@@ -15,7 +15,12 @@
 //   quotes: view_only        win rate, average job value (win-loss's own gate)
 //   jobs: view_only,
 //   company-wide (not
-//   seesOnlyAssignedJobs)    estimate accuracy, on-time completion, margin
+//   seesOnlyAssignedJobs)    estimate accuracy, on-time completion, margin,
+//                            customer satisfaction — piggybacks on this same
+//                            gate rather than adding one of its own; it reads
+//                            SatisfactionResponse rows scoped to the same
+//                            completedJobIds every other execution figure on
+//                            this page already uses
 //                            (estimate-accuracy's own gate, word for word)
 //   invoices: view_only      AR aging, revenue (receivables' own gate)
 //   requests: view_only      lead-to-quote conversion
@@ -251,7 +256,16 @@ export async function GET(request) {
     completedJobs.filter((j) => j.quoteId).map((j) => [j.quoteId, j.id]),
   );
 
-  const [expenses, timeEntries, jobMaterials, revenueInvoices, jobHoursGrouped, periodRevenueAgg, forecastResult] =
+  const [
+    expenses,
+    timeEntries,
+    jobMaterials,
+    revenueInvoices,
+    jobHoursGrouped,
+    satisfactionResponses,
+    periodRevenueAgg,
+    forecastResult,
+  ] =
     completedJobIds.length
       ? await Promise.all([
           db.expense.findMany({
@@ -300,6 +314,16 @@ export async function GET(request) {
             },
             _sum: { hours: true },
           }),
+          // Answered surveys for jobs completed in the period — sent, not
+          // necessarily answered, are excluded here rather than in
+          // lib/analytics/kpis.js's buildCsat(), same "pure function receives
+          // an already-correct population" split every other builder in this
+          // route follows. jobId is already scoped to completedJobIds, which
+          // is itself scoped to companyId, so there is no cross-tenant read.
+          db.satisfactionResponse.findMany({
+            where: { jobId: { in: completedJobIds }, respondedAt: { not: null } },
+            select: { score: true },
+          }),
           // Cash-basis revenue for the period — the SAME measure
           // lib/analytics/overview.js uses for "Revenue this month" (paid
           // invoices, by when they were marked paid), so this card and that
@@ -314,6 +338,7 @@ export async function GET(request) {
           calculateMinimumPrice({ companyId, targetMargin: 0.2 }),
         ])
       : [
+          [],
           [],
           [],
           [],
@@ -436,6 +461,7 @@ export async function GET(request) {
         },
       },
       cash: { invoices: allInvoices, payments: allPayments, asOf: new Date() },
+      customer: { satisfactionResponses },
     });
   } catch (err) {
     if (err?.status === 400 || err?.status === 409) {

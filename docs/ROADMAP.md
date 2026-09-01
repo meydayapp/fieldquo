@@ -2,10 +2,42 @@
 
 Last updated: 31 August 2026 (payment schedule). **Update this file when you finish something.**
 Last updated: 1 September 2026. **Update this file when you finish something.**
+Last updated: 1 September 2026 (customer satisfaction survey; Google reviews audit).
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Customer satisfaction survey, and the Google reviews audit that came first
+
+Full writeup: [CUSTOMER-SATISFACTION.md](CUSTOMER-SATISFACTION.md). The owner
+believed Google reviews import automatically; verified that isn't true (it
+never has been — see the "Google Business Profile review import" entry
+below, already researched and blocked) and audited it plainly before
+building anything.
+
+Built: a one-question (1–5, optional comment) satisfaction survey,
+white-labelled, riding the existing `review-requests` cron rather than a
+second mailing system — the five rating links live inside the same "how did
+we do?" email `lib/reviews/reviewEmail.js` already sends, at
+`/survey/[token]`. New additive model `SatisfactionResponse` (one per job,
+cascades away if the job is deleted). `lib/analytics/kpis.js` gained a real
+`buildCsat()` and `csat` is gone from `NOT_TRACKED` — the dashboard's
+"Customer" section is new. CASL: inherits the review-request email's own
+existing COMMERCIAL classification and consent machinery rather than needing
+a second decision, since it's literally the same send.
+
+Known trade-off, not hidden: a company with no `Company.reviewUrl` set
+collects no satisfaction data either, because the survey rides
+`shouldRequestReview`'s existing gate rather than a loosened one. Deliberately
+not built: any automatic escalation on a low score (a dashboard sentence
+only — *"N of these rated 1 or 2"* — no SMS/task/notification), and the
+Google Business Profile integration itself (still blocked, see below).
+
+`npx prisma db push` was NOT run — the schema change is additive/nullable and
+`npx prisma validate` passes; the real database has not been touched.
+`npm run check:all` and `npm run build` both verified in the foreground,
+both exit 0.
 
 ## Photo annotation — Apple Markup, on a job photo
 
@@ -5771,6 +5803,13 @@ not yet made, and even then it is not the feature it sounds like.** What did
 ship is the half that does not need Google: reviews can be typed in, pasted, or
 uploaded as CSV on `/app/settings/reviews`, and they reach the website. See
 `lib/reviews/testimonials.js` and `app/api/settings/testimonials/`.
+
+This verdict was re-confirmed, not re-derived, when the owner separately
+asked whether "Google reviews import" was properly implemented — it wasn't
+believed to be manual-only. See
+[CUSTOMER-SATISFACTION.md](CUSTOMER-SATISFACTION.md)'s Part 0 for that audit
+and the satisfaction survey built instead, which needs no Google approval at
+all.
 
 ### The two blockers, in the order they bite
 

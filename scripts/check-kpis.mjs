@@ -46,6 +46,7 @@ import {
   buildOnTimeCompletion,
   buildUtilisationRate,
   buildBlendedCostPerLead,
+  buildCsat,
   REASONS,
   NOT_TRACKED,
   RATE_FLOOR,
@@ -183,8 +184,17 @@ ok("arAging: no invoices ever → null / no_invoices, not $0.00",
   EMPTY.cash.arAging.value === null && EMPTY.cash.arAging.reason === "no_invoices");
 ok("revenueTrend: no payments ever → unavailable, not a flat line at zero",
   EMPTY.cash.revenueTrend.available === false);
-ok("NOT_TRACKED lists exactly the six metrics this file refuses to invent",
-  NOT_TRACKED.length === 6 && NOT_TRACKED.every((m) => typeof m.reason === "string" && m.reason.length > 20));
+ok("csat: no survey responses → null / no_survey_responses",
+  EMPTY.customer.csat.value === null && EMPTY.customer.csat.reason === "no_survey_responses",
+  EMPTY.customer.csat);
+// Five now, not six — customer satisfaction moved OUT of this list (it has a
+// real builder, buildCsat(), below) and nothing replaced it. A count that
+// silently drifted back up would mean a future edit re-added a "not tracked"
+// entry for something this file actually computes now.
+ok("NOT_TRACKED lists exactly the five metrics this file refuses to invent",
+  NOT_TRACKED.length === 5 && NOT_TRACKED.every((m) => typeof m.reason === "string" && m.reason.length > 20));
+ok("NOT_TRACKED no longer lists csat — it has a real builder now",
+  !NOT_TRACKED.some((m) => m.key === "csat"), NOT_TRACKED.map((m) => m.key));
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Section 2 — one job, missing rates, null overhead
@@ -488,6 +498,55 @@ ok("backlog with 0 completed, priced jobs this period: no_throughput_reference, 
   backlogZero.reason === "no_throughput_reference" && backlogZero.floor === undefined);
 ok("backlog with exactly 1 completed, priced job this period: a real pace prints",
   backlogOne.value !== null && backlogOne.reason === null, backlogOne);
+
+console.log("\n  csat — 0, 1, floor-1, floor, floor+1 answered surveys, all scoring 5\n");
+function csatAt(n, scores) {
+  const rows = [];
+  for (let i = 0; i < n; i++) rows.push({ score: scores[i] ?? 5 });
+  return buildCsat({ responses: rows });
+}
+for (const n of [0, 1, COUNT_FLOOR - 1, COUNT_FLOOR, COUNT_FLOOR + 1]) {
+  const c = csatAt(n, []);
+  console.log(`    ${n} answered → ${c.value === null ? `null (${c.reason}): "${c.reasonText}"` : `${c.value} / 5`}`);
+  if (n === 0) {
+    ok(`csat at 0 answered: no_survey_responses, floor ${COUNT_FLOOR}`,
+      c.reason === "no_survey_responses" && c.floor === COUNT_FLOOR && c.sampleSize === 0, c);
+  } else if (n < COUNT_FLOOR) {
+    ok(`csat at ${n} of ${COUNT_FLOOR} answered: below_floor, sampleSize ${n}, ${COUNT_FLOOR - n} remaining`,
+      c.reason === "below_floor" && c.sampleSize === n &&
+        c.floor === COUNT_FLOOR && c.remaining === COUNT_FLOOR - n, c);
+  } else {
+    ok(`csat at ${n} of ${COUNT_FLOOR} answered: a real average, no reason`,
+      c.value === 5 && c.reason === null && c.sampleSize === n, c);
+  }
+}
+// A mixed set right at the floor, so the average itself (not just "a value
+// exists") is checked — and the distribution/low-score counters that ride
+// along in `raw`, which nothing above exercises.
+const mixedAtFloor = csatAt(COUNT_FLOOR, [1, 2, 3, 4, 5]);
+ok(`csat: mixed scores [1,2,3,4,5] at exactly the floor averages to 3`,
+  mixedAtFloor.value === 3, mixedAtFloor);
+ok("csat: raw.counts records one response at each score",
+  mixedAtFloor.raw.counts[1] === 1 && mixedAtFloor.raw.counts[5] === 1, mixedAtFloor.raw);
+ok("csat: raw.lowScoreCount is scores 1+2 only, not 3",
+  mixedAtFloor.raw.lowScoreCount === 2, mixedAtFloor.raw);
+// Hostile rows: out-of-range and non-integer scores must be excluded from
+// both the sample and the average, not clamped into range or coerced to 0 —
+// see lib/reviews/satisfaction.js's parseScore for the same refusal on the
+// write side; this is the read side making the identical promise.
+const hostileCsat = buildCsat({
+  responses: [{ score: 0 }, { score: 6 }, { score: -1 }, { score: null }, { score: NaN }, { score: 3.5 }, { score: 5 }, { score: 5 }, { score: 5 }, { score: 5 }, { score: 5 }],
+});
+ok("csat: hostile rows (0, 6, -1, null, NaN, 3.5) excluded — only the five real 5s count, clearing the floor",
+  hostileCsat.sampleSize === 5 && hostileCsat.value === 5 && hostileCsat.reason === null, hostileCsat);
+// Same hostile set, one real score short of the floor — proves the hostile
+// rows aren't quietly padding the sample UP to reach it either.
+const hostileCsatBelowFloor = buildCsat({
+  responses: [{ score: 0 }, { score: 6 }, { score: -1 }, { score: null }, { score: NaN }, { score: 3.5 }, { score: 5 }, { score: 5 }, { score: 5 }, { score: 5 }],
+});
+ok("csat: same hostile set with only four real scores stays below_floor, not padded up by the junk",
+  hostileCsatBelowFloor.sampleSize === 4 && hostileCsatBelowFloor.value === null &&
+    hostileCsatBelowFloor.reason === "below_floor", hostileCsatBelowFloor);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Section 5 — the materials buy-list trap
@@ -848,6 +907,14 @@ const MUTATIONS = [
   [
     "prints a blended cost-per-lead with zero real leads instead of refusing",
     (s) => s.replace("if (counted <= 0) {", "if (false) {"),
+  ],
+  [
+    "drops the sample floor on customer satisfaction, printing an average from a single answer",
+    (s) => s.replace("if (scores.length < COUNT_FLOOR) {", "if (false) {"),
+  ],
+  [
+    "lets an out-of-range score (0, 6, a negative number) into the csat average",
+    (s) => s.replace(".filter((n) => Number.isInteger(n) && n >= 1 && n <= 5);", ".filter((n) => Number.isInteger(n));"),
   ],
 ];
 
