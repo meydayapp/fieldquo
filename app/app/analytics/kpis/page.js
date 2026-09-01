@@ -57,6 +57,45 @@ const AGING_LABELS = {
   days_90_plus: ["app.dash.aging.d90plus", "90+ days"],
 };
 
+// Reason codes lib/analytics/kpis.js's REASONS gives a real translation for
+// (five of them name a count off the KPI's own `sampleSize`/`floor`/
+// `remaining`; no_throughput_reference names an action instead — see that
+// file's REASONS header). Only these six need a translation key: every OTHER
+// reason code's English sentence has no placeholder to fill, so it renders
+// correctly straight from `reasonText` with no lookup at all, exactly as it
+// did before this map existed.
+//
+// There is deliberately no second copy of the English text here. `t()`'s
+// fallback argument is `data.reasonText` itself (kpis.js's own REASONS[code],
+// unsubstituted) — so the ENGLISH wording lives in exactly one place, and
+// this map only says which reason codes have a translation, not what they say.
+const REASON_I18N_KEYS = {
+  no_quotes_sent: "app.kpis.reason.noQuotesSent",
+  no_won_quotes: "app.kpis.reason.noWonQuotes",
+  no_leads_in_period: "app.kpis.reason.noLeadsInPeriod",
+  none_decided_yet: "app.kpis.reason.noneDecidedYet",
+  below_floor: "app.kpis.reason.belowFloor",
+  no_throughput_reference: "app.kpis.reason.noThroughputReference",
+};
+
+/**
+ * The sentence a card with no value shows, translated when the reason names a
+ * count (see REASON_I18N_KEYS above) and printed as-is otherwise. `data.floor`
+ * / `data.sampleSize` / `data.remaining` are lib/analytics/kpis.js's own
+ * numbers — never recomputed here — so a translated sentence can never show a
+ * different count than an English one would.
+ */
+function reasonMessage(t, data) {
+  if (!data?.reasonText) return null;
+  const key = REASON_I18N_KEYS[data.reason];
+  if (!key) return data.reasonText;
+  return t(key, data.reasonText, {
+    sampleSize: data.sampleSize,
+    floor: data.floor,
+    remaining: data.remaining,
+  });
+}
+
 /**
  * One KPI, rendered honestly.
  *
@@ -64,6 +103,7 @@ const AGING_LABELS = {
  * value, so a formatter cannot accidentally coerce null into "$0" or "0%".
  */
 function KpiTile({ label, data, format, hint }) {
+  const { t } = useTranslation();
   const hasValue = data && data.value !== null && data.value !== undefined;
   return (
     <div className="rounded-lg border border-border p-4">
@@ -87,7 +127,7 @@ function KpiTile({ label, data, format, hint }) {
         </div>
       ) : (
         <div className="mt-1 text-xs text-muted-foreground">
-          {data?.reasonText || "No data yet."}
+          {reasonMessage(t, data) || "No data yet."}
         </div>
       )}
       {hint && <p className="mt-2 text-xs text-muted-foreground">{hint}</p>}
@@ -649,7 +689,7 @@ export default function KpiDashboardPage() {
                           overdue: money(data.cash.arAging.overdueTotal),
                           count: data.cash.arAging.overdueCount,
                         })
-                    : data.cash.arAging.reasonText}
+                    : reasonMessage(t, data.cash.arAging)}
                 </div>
                 {agingRows.length > 0 && <BarComparison rows={agingRows} formatValue={money} />}
                 <Link href="/app/analytics/statements" className="mt-3 inline-block text-xs text-foreground underline">
