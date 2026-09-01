@@ -18,14 +18,23 @@
 // start + finish of the same job is the before/after the site pairs up.
 
 import { useEffect, useState, useCallback } from "react";
-import { Star, ImageIcon, Loader2, AlertTriangle } from "lucide-react";
+import { Star, ImageIcon, Loader2, AlertTriangle, PenLine } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import MediaUploader from "@/app/components/MediaUploader";
+import PhotoAnnotatorLoader from "@/app/components/photoAnnotator/PhotoAnnotatorLoader";
+import { displayPhotoUrl, isAnnotated } from "@/lib/jobs/photoAnnotation";
 
 export default function JobPhotoCurator({ jobId }) {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
+  // The photo currently open in the full-screen markup editor, or null.
+  // Kept as the whole photo object (not just an id) so PhotoAnnotatorEditor
+  // mounts with its annotationJson/annotationWidth/annotationHeight already
+  // in hand — no second fetch just to open the editor.
+  const [annotating, setAnnotating] = useState(null);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/jobs/${jobId}/photos`);
@@ -83,6 +92,7 @@ export default function JobPhotoCurator({ jobId }) {
   // photos. Absent and empty are different statements, and this rendered the
   // wrong one.
   return (
+    <>
     <section className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-center justify-between gap-2 mb-1">
         <h2 className="text-sm font-bold text-foreground flex items-center gap-1.5">
@@ -107,6 +117,8 @@ export default function JobPhotoCurator({ jobId }) {
               busy={busy === p.id}
               onFeature={() => patch(p.id, { featured: !p.featured })}
               onStage={(stage) => patch(p.id, { stage })}
+              onAnnotate={() => setAnnotating(p)}
+              onRemoveMarkup={() => patch(p.id, { clearAnnotation: true })}
             />
           ))}
         </div>
@@ -154,16 +166,43 @@ export default function JobPhotoCurator({ jobId }) {
         </p>
       </div>
     </section>
+
+    {/* Full-screen, mounted only while open — PhotoAnnotatorLoader is the
+        ssr:false boundary (see its own header); nothing in this component
+        or its parents ever touches "fabric" directly. */}
+    {annotating && (
+      <PhotoAnnotatorLoader
+        photo={annotating}
+        jobId={jobId}
+        onCancel={() => setAnnotating(null)}
+        onDone={async () => {
+          setAnnotating(null);
+          // Re-read rather than splicing the PATCH response into local
+          // state — the same reasoning the upload handler above already
+          // follows: the server decided flattenedUrl/annotationUpdatedAt,
+          // and the next page load should show exactly what this shows now.
+          await load();
+        }}
+      />
+    )}
+    </>
   );
 }
 
-function PhotoCard({ photo, stages, busy, onFeature, onStage }) {
+function PhotoCard({ photo, stages, busy, onFeature, onStage, onAnnotate, onRemoveMarkup }) {
+  const { t } = useTranslation();
   const isIssue = photo.stage === "issue";
+  const annotated = isAnnotated(photo);
   return (
     <div className="rounded-lg border border-border overflow-hidden bg-background">
       <div className="relative aspect-square bg-muted">
+        {/* Shows the FLATTENED preview when one exists (displayPhotoUrl falls
+            back to the untouched original otherwise) — the same URL choice
+            the public gallery and the photo report PDF make, so what staff
+            see here is what a client or a report will actually show. The
+            original itself is never touched; see docs/PHOTO-ANNOTATION.md. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={photo.url} alt={photo.caption || ""} className="w-full h-full object-cover" />
+        <img src={displayPhotoUrl(photo)} alt={photo.caption || ""} className="w-full h-full object-cover" />
         <button
           type="button"
           disabled={busy || isIssue}
@@ -181,8 +220,17 @@ function PhotoCard({ photo, stages, busy, onFeature, onStage }) {
             <Star size={14} fill={photo.featured ? "currentColor" : "none"} />
           )}
         </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onAnnotate}
+          title={t("app.photoAnnotator.openEditor", "Add markup")}
+          className="absolute top-1.5 left-1.5 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-sm bg-black/40 text-white disabled:opacity-50"
+        >
+          <PenLine size={14} />
+        </button>
       </div>
-      <div className="p-1.5">
+      <div className="p-1.5 space-y-1">
         <select
           value={photo.stage}
           disabled={busy}
@@ -193,6 +241,16 @@ function PhotoCard({ photo, stages, busy, onFeature, onStage }) {
             <option key={s.key} value={s.key}>{s.label}</option>
           ))}
         </select>
+        {annotated && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onRemoveMarkup}
+            className="w-full text-[10px] font-semibold text-muted-foreground hover:text-red-600 disabled:opacity-50 text-left"
+          >
+            {t("app.photoAnnotator.markedUp", "Marked up")} · {t("app.photoAnnotator.removeMarkup", "Remove")}
+          </button>
+        )}
       </div>
     </div>
   );

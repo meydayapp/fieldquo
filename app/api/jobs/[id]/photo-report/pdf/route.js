@@ -66,7 +66,10 @@ export async function POST(request, { params }) {
   // stageTimeline, not here.
   const photos = await db.jobPhoto.findMany({
     where: { jobId: id, companyId: member.companyId },
-    select: { id: true, url: true, stage: true, caption: true, createdAt: true },
+    // flattenedUrl travels with url so buildPhotoReportData's displayPhotoUrl()
+    // can embed a photo's markup — an issue shot's annotated evidence
+    // belongs in the record handed to a client or an insurer.
+    select: { id: true, url: true, flattenedUrl: true, stage: true, caption: true, createdAt: true },
   });
 
   const pdfBuffer = await renderJobPhotoReportPdfBuffer({

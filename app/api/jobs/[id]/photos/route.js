@@ -3,7 +3,8 @@
 // The photos on a job, and curating them for the website.
 //
 // GET   → this job's JobPhoto rows (with stage + featured), newest first.
-// PATCH → feature/unfeature a photo, change its stage, or set a caption.
+// PATCH → feature/unfeature a photo, change its stage, set a caption, OR
+//         save/clear its markup layer (see the annotation block below).
 //
 // Featuring is what lifts a photo onto the public site, so it's gated on the
 // same company scope every job route uses — a photo can only be curated by
@@ -12,10 +13,12 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { deleteAsset } from "@/lib/cloudinary";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { assignedJobWhere } from "@/lib/permissions/enforce";
 import { normaliseStage, STAGES } from "@/lib/gallery/stages";
+import { sanitiseAnnotationJson } from "@/lib/jobs/photoAnnotation";
 
 export async function GET(request, { params }) {
   const { id } = await params;
@@ -44,6 +47,15 @@ export async function GET(request, { params }) {
     orderBy: [{ stage: "asc" }, { createdAt: "desc" }],
     select: {
       id: true, url: true, stage: true, featured: true, caption: true, createdAt: true,
+      // The full markup layer comes along with the list, not through a
+      // second round-trip when someone taps "Annotate" — this route is
+      // already the one and only place JobPhotoCurator.js reads a job's
+      // photos from, and PhotoAnnotatorEditor.js opens against whichever
+      // photo object the curator already has in state. annotationJson is
+      // capped at MAX_ANNOTATION_JSON_BYTES (300KB) per photo, so this
+      // stays bounded even for a job with many annotated photos.
+      annotationJson: true, annotationWidth: true, annotationHeight: true,
+      flattenedUrl: true, annotationUpdatedAt: true,
     },
   });
 
@@ -126,6 +138,15 @@ export async function POST(request, { params }) {
     orderBy: [{ stage: "asc" }, { createdAt: "desc" }],
     select: {
       id: true, url: true, stage: true, featured: true, caption: true, createdAt: true,
+      // The full markup layer comes along with the list, not through a
+      // second round-trip when someone taps "Annotate" — this route is
+      // already the one and only place JobPhotoCurator.js reads a job's
+      // photos from, and PhotoAnnotatorEditor.js opens against whichever
+      // photo object the curator already has in state. annotationJson is
+      // capped at MAX_ANNOTATION_JSON_BYTES (300KB) per photo, so this
+      // stays bounded even for a job with many annotated photos.
+      annotationJson: true, annotationWidth: true, annotationHeight: true,
+      flattenedUrl: true, annotationUpdatedAt: true,
     },
   });
   return NextResponse.json({ added: rows.length, photos });
@@ -168,7 +189,11 @@ export async function PATCH(request, { params }) {
       jobId: id,
       ...(Object.keys(jobScope).length ? { job: jobScope } : {}),
     },
-    select: { id: true },
+    // flattenedPublicId of the CURRENT row — needed below to delete the old
+    // flattened asset when a save replaces it or a clear removes it, so
+    // Cloudinary accumulates at most one flattened asset per photo, not one
+    // per edit.
+    select: { id: true, flattenedPublicId: true },
   });
   if (!photo) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -176,6 +201,54 @@ export async function PATCH(request, { params }) {
   if (typeof body.featured === "boolean") data.featured = body.featured;
   if (typeof body.stage === "string") data.stage = normaliseStage(body.stage);
   if (typeof body.caption === "string") data.caption = body.caption.trim().slice(0, 200) || null;
+
+  // ── Markup layer: save or clear ─────────────────────────────────────────
+  //
+  // Two shapes a request can take, never both: `clearAnnotation: true`
+  // strips every annotation field back to null (the "remove markup" action,
+  // reachable both from inside the editor after deleting every object — see
+  // PhotoAnnotatorEditor.js's own note on why an empty canvas saves as a
+  // clear — and from a quick action on the photo card itself, without
+  // opening the editor at all). Otherwise, `annotationJson` present means a
+  // real save: re-validated here with sanitiseAnnotationJson() exactly like
+  // app/data/siteBlocks.js#sanitiseBlocks re-validates a website block list
+  // — never trust that a browser's own JSON.stringify produced something
+  // this route is willing to store and later loadFromJSON() back into a
+  // canvas.
+  let oldFlattenedPublicId = null;
+  if (body.clearAnnotation === true) {
+    data.annotationJson = null;
+    data.annotationWidth = null;
+    data.annotationHeight = null;
+    data.annotationUpdatedAt = null;
+    data.flattenedUrl = null;
+    data.flattenedPublicId = null;
+    oldFlattenedPublicId = photo.flattenedPublicId;
+  } else if (typeof body.annotationJson === "string" || body.flattenedUrl !== undefined) {
+    const sanitised = sanitiseAnnotationJson(body.annotationJson);
+    if (!sanitised.ok) {
+      return NextResponse.json({ error: sanitised.error }, { status: 400 });
+    }
+    const flattenedUrl = typeof body.flattenedUrl === "string" ? body.flattenedUrl.trim() : "";
+    if (!/^https:\/\//.test(flattenedUrl)) {
+      // Same https-only rule POST applies to the original photo URL — a
+      // data:/blob: URL here would file a flattenedUrl pointing at nothing
+      // once the browser tab that generated it is gone.
+      return NextResponse.json({ error: "The flattened image didn't upload correctly." }, { status: 400 });
+    }
+    const width = Number(body.annotationWidth);
+    const height = Number(body.annotationHeight);
+    if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+      return NextResponse.json({ error: "Missing the canvas size that markup was saved at." }, { status: 400 });
+    }
+    data.annotationJson = sanitised.json;
+    data.annotationWidth = Math.round(width);
+    data.annotationHeight = Math.round(height);
+    data.annotationUpdatedAt = new Date();
+    data.flattenedUrl = flattenedUrl;
+    data.flattenedPublicId = typeof body.flattenedPublicId === "string" ? body.flattenedPublicId.trim().slice(0, 300) || null : null;
+    oldFlattenedPublicId = photo.flattenedPublicId;
+  }
 
   if (!Object.keys(data).length) {
     return NextResponse.json({ error: "Nothing to change." }, { status: 400 });
@@ -197,8 +270,27 @@ export async function PATCH(request, { params }) {
   const updated = await db.jobPhoto.update({
     where: { id: photoId },
     data,
-    select: { id: true, stage: true, featured: true, caption: true },
+    select: {
+      id: true, stage: true, featured: true, caption: true,
+      annotationJson: true, annotationWidth: true, annotationHeight: true,
+      flattenedUrl: true, annotationUpdatedAt: true,
+    },
   });
+
+  // Best-effort cleanup, AFTER the row is safely updated — a Cloudinary
+  // hiccup deleting last edit's asset must never roll back or fail a save
+  // that otherwise succeeded. Skipped when the new row points at the SAME
+  // publicId (shouldn't happen — /api/upload always mints a fresh one — but
+  // guards against ever deleting the asset the row just started pointing
+  // at). Bounds Cloudinary storage to one flattened asset per photo rather
+  // than accumulating one per edit.
+  if (oldFlattenedPublicId && oldFlattenedPublicId !== data.flattenedPublicId) {
+    try {
+      await deleteAsset(oldFlattenedPublicId, "image");
+    } catch (err) {
+      console.error("[job-photos] failed to delete superseded flattened asset:", err?.message);
+    }
+  }
 
   return NextResponse.json({ ok: true, photo: updated });
 }

@@ -4625,6 +4625,32 @@ const en = {
 
   "app.tour.refer.linkTitle": "Share your link",
   "app.tour.refer.linkBody": "Send this to another business owner. They get a free month when they sign up — and once they're a paying customer, you earn credit worth a month of their plan.",
+
+  // ── Photo annotator — Apple Markup, on a job photo ──────────────────────
+  "app.photoAnnotator.openEditor": "Add markup",
+  "app.photoAnnotator.title": "Markup",
+  "app.photoAnnotator.cancel": "Cancel",
+  "app.photoAnnotator.done": "Done",
+  "app.photoAnnotator.undo": "Undo",
+  "app.photoAnnotator.redo": "Redo",
+  "app.photoAnnotator.delete": "Delete",
+  "app.photoAnnotator.zoomIn": "Zoom in",
+  "app.photoAnnotator.zoomOut": "Zoom out",
+  "app.photoAnnotator.textPlaceholder": "Note",
+  "app.photoAnnotator.discardConfirm": "Discard your changes to this photo's markup?",
+  "app.photoAnnotator.saveFailed": "Couldn't save that markup.",
+  "app.photoAnnotator.uploadFailed": "Couldn't save the flattened image.",
+  "app.photoAnnotator.markedUp": "Marked up",
+  "app.photoAnnotator.removeMarkup": "Remove",
+  "app.photoAnnotator.tool.select": "Select",
+  "app.photoAnnotator.tool.pencil": "Pencil",
+  "app.photoAnnotator.tool.pen": "Pen",
+  "app.photoAnnotator.tool.marker": "Marker",
+  "app.photoAnnotator.tool.highlighter": "Highlighter",
+  "app.photoAnnotator.tool.text": "Text",
+  "app.photoAnnotator.tool.arrow": "Arrow",
+  "app.photoAnnotator.tool.rectangle": "Rectangle",
+  "app.photoAnnotator.tool.ellipse": "Ellipse",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -9000,6 +9026,32 @@ const fr = {
 
   "app.tour.refer.linkTitle": "Partagez votre lien",
   "app.tour.refer.linkBody": "Envoyez-le à un autre propriétaire d'entreprise. Il reçoit un mois gratuit à l'inscription — et une fois qu'il devient client payant, vous gagnez un crédit équivalent à un mois de son forfait.",
+
+  // ── Photo annotator — Apple Markup, on a job photo ──────────────────────
+  "app.photoAnnotator.openEditor": "Ajouter une annotation",
+  "app.photoAnnotator.title": "Annotation",
+  "app.photoAnnotator.cancel": "Annuler",
+  "app.photoAnnotator.done": "Terminé",
+  "app.photoAnnotator.undo": "Annuler",
+  "app.photoAnnotator.redo": "Rétablir",
+  "app.photoAnnotator.delete": "Supprimer",
+  "app.photoAnnotator.zoomIn": "Zoom avant",
+  "app.photoAnnotator.zoomOut": "Zoom arrière",
+  "app.photoAnnotator.textPlaceholder": "Note",
+  "app.photoAnnotator.discardConfirm": "Abandonner les modifications apportées à l'annotation de cette photo ?",
+  "app.photoAnnotator.saveFailed": "Impossible d'enregistrer cette annotation.",
+  "app.photoAnnotator.uploadFailed": "Impossible d'enregistrer l'image aplatie.",
+  "app.photoAnnotator.markedUp": "Annotée",
+  "app.photoAnnotator.removeMarkup": "Retirer",
+  "app.photoAnnotator.tool.select": "Sélection",
+  "app.photoAnnotator.tool.pencil": "Crayon",
+  "app.photoAnnotator.tool.pen": "Stylo",
+  "app.photoAnnotator.tool.marker": "Marqueur",
+  "app.photoAnnotator.tool.highlighter": "Surligneur",
+  "app.photoAnnotator.tool.text": "Texte",
+  "app.photoAnnotator.tool.arrow": "Flèche",
+  "app.photoAnnotator.tool.rectangle": "Rectangle",
+  "app.photoAnnotator.tool.ellipse": "Ellipse",
 };
 
 
