@@ -44,6 +44,39 @@ import { countedNoun } from "../../lib/i18n/plurals.js";
 // Flat, dot-namespaced keys, matching messages.js. Flat means `t("app.nav.jobs")`
 // is one lookup, and grepping the key finds both the use and every translation.
 const en = {
+  // ── Payment schedule (Settings → Company, and the job page) ─────────────
+  "app.paymentSchedule.title": "Payment schedule",
+  "app.paymentSchedule.desc":
+    "Split what's owed across stages tied to the job itself — a deposit when the invoice goes out, the rest at job start, halfway, or completion. Off by default; turn it on by adding a stage below.",
+  "app.paymentSchedule.stageLabel": "Stage name",
+  "app.paymentSchedule.trigger": "When",
+  "app.paymentSchedule.percentage": "Percent",
+  "app.paymentSchedule.triggerOnInvoiceCreated": "Deposit — when the invoice is created and sent",
+  "app.paymentSchedule.triggerJobStart": "Job start",
+  "app.paymentSchedule.triggerHalfway": "Halfway through the job",
+  "app.paymentSchedule.triggerJobEnd": "Job end (completion)",
+  "app.paymentSchedule.addStage": "Add a stage",
+  "app.paymentSchedule.removeStage": "Remove this stage",
+  "app.paymentSchedule.total": "Total",
+  "app.paymentSchedule.totalMustBe100": "Stages must add up to exactly 100% before they can be saved.",
+  "app.paymentSchedule.save": "Save schedule",
+  "app.paymentSchedule.saved": "Saved",
+  "app.paymentSchedule.turnOff": "Turn off — go back to free text",
+  "app.paymentSchedule.turnOffConfirm":
+    "This clears every stage. Jobs already using this schedule keep what was already billed; new quotes will use the free-text terms below instead. Continue?",
+  "app.paymentSchedule.generatedNote":
+    "The payment terms below are generated from this schedule, so the document a client sees always matches what actually bills. Turn the schedule off to edit that text by hand again.",
+  "app.paymentSchedule.emptyState": "No stages yet — every quote gets one full invoice on acceptance, exactly as it always has.",
+  // ── Job page: this job's own frozen schedule ────────────────────────────
+  "app.job.paymentSchedule.title": "Payment schedule",
+  "app.job.paymentSchedule.pending": "Waiting",
+  "app.job.paymentSchedule.requested": "Requested",
+  "app.job.paymentSchedule.waived": "Waived (0%)",
+  "app.job.paymentSchedule.blockedStartDate": "Can't schedule yet — set a start date for this job",
+  "app.job.paymentSchedule.blockedEndDate": "Can't schedule yet — set an end date for this job",
+  "app.job.paymentSchedule.blockedInvalidRange": "The end date is before the start date — fix the job's dates",
+  "app.job.paymentSchedule.dueOn": "Due {date}",
+
   // ── Failed loads (lib/loadState.js + app/components/ListState.js) ──────
   // Shown INSTEAD of an empty state, never beside one. See loadState.js
   // for why "0 clients total" next to a red banner was the real bug.
@@ -4633,6 +4666,38 @@ const en = {
 // invoice are what a contractor in Gatineau writes on the document itself, and
 // the interface should use the same word as the paperwork.
 const fr = {
+  // ── Payment schedule — see the English block for the rule these serve. ──
+  "app.paymentSchedule.title": "Échéancier de paiement",
+  "app.paymentSchedule.desc":
+    "Répartissez ce qui est dû en étapes liées au chantier lui-même — un acompte à l'envoi de la facture, le reste au début, à mi-parcours ou à la fin. Désactivé par défaut; activez-le en ajoutant une étape ci-dessous.",
+  "app.paymentSchedule.stageLabel": "Nom de l'étape",
+  "app.paymentSchedule.trigger": "Quand",
+  "app.paymentSchedule.percentage": "Pourcentage",
+  "app.paymentSchedule.triggerOnInvoiceCreated": "Acompte — à la création et à l'envoi de la facture",
+  "app.paymentSchedule.triggerJobStart": "Début du chantier",
+  "app.paymentSchedule.triggerHalfway": "À mi-parcours du chantier",
+  "app.paymentSchedule.triggerJobEnd": "Fin du chantier (achèvement)",
+  "app.paymentSchedule.addStage": "Ajouter une étape",
+  "app.paymentSchedule.removeStage": "Retirer cette étape",
+  "app.paymentSchedule.total": "Total",
+  "app.paymentSchedule.totalMustBe100": "Les étapes doivent totaliser exactement 100 % avant de pouvoir être enregistrées.",
+  "app.paymentSchedule.save": "Enregistrer l'échéancier",
+  "app.paymentSchedule.saved": "Enregistré",
+  "app.paymentSchedule.turnOff": "Désactiver — revenir au texte libre",
+  "app.paymentSchedule.turnOffConfirm":
+    "Ceci efface toutes les étapes. Les chantiers déjà facturés selon cet échéancier gardent ce qui a déjà été facturé; les nouveaux devis utiliseront le texte libre ci-dessous. Continuer?",
+  "app.paymentSchedule.generatedNote":
+    "Les modalités de paiement ci-dessous sont générées à partir de cet échéancier, afin que le document vu par le client corresponde toujours à ce qui est réellement facturé. Désactivez l'échéancier pour modifier ce texte à la main.",
+  "app.paymentSchedule.emptyState": "Aucune étape pour l'instant — chaque devis produit une seule facture complète à l'acceptation, comme toujours.",
+  "app.job.paymentSchedule.title": "Échéancier de paiement",
+  "app.job.paymentSchedule.pending": "En attente",
+  "app.job.paymentSchedule.requested": "Demandé",
+  "app.job.paymentSchedule.waived": "Renoncé (0 %)",
+  "app.job.paymentSchedule.blockedStartDate": "Pas encore programmable — définissez une date de début pour ce chantier",
+  "app.job.paymentSchedule.blockedEndDate": "Pas encore programmable — définissez une date de fin pour ce chantier",
+  "app.job.paymentSchedule.blockedInvalidRange": "La date de fin précède la date de début — corrigez les dates du chantier",
+  "app.job.paymentSchedule.dueOn": "Dû le {date}",
+
   // ── Failed loads — see the English block for the rule these serve. ─────
   "app.load.title": "Le chargement a échoué",
   "app.load.reassure": "C’est un problème de chargement, pas des données manquantes — rien n’a été supprimé.",

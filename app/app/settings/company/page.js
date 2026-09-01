@@ -9,6 +9,7 @@ import MiniMap from "@/app/components/MiniMap";
 import BusinessHoursModal from "@/app/components/settings/BusinessHoursModal";
 import { SettingsDrillLink } from "@/app/components/settings/SettingsDrillDown";
 import OpeningHoursEditor from "@/app/components/settings/OpeningHoursEditor";
+import PaymentScheduleEditor from "./PaymentScheduleEditor";
 import { INDUSTRIES } from "@/app/data/industries";
 import {
   CURRENCIES,
@@ -485,6 +486,11 @@ export default function CompanySettingsPage() {
   // null = still loading, [] = loaded but nothing set yet.
   const [hours, setHours] = useState(null);
 
+  // Whether a structured payment schedule is active — decides whether the
+  // free-text "Payment terms" field below is editable or generated. null
+  // while still loading, so the field doesn't flash editable-then-locked.
+  const [scheduleActive, setScheduleActive] = useState(null);
+
   const timezones = getTimezones();
 
   useEffect(() => {
@@ -492,6 +498,13 @@ export default function CompanySettingsPage() {
       .then((r) => r.json())
       .then((data) => setHours(Array.isArray(data) ? data : []))
       .catch(() => setHours([]));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/settings/payment-schedule")
+      .then((r) => r.json())
+      .then((d) => setScheduleActive((d?.stages || []).length > 0))
+      .catch(() => setScheduleActive(false));
   }, []);
 
   useEffect(() => {
@@ -785,15 +798,42 @@ export default function CompanySettingsPage() {
           <input
             value={form.paymentTerms || ""}
             onChange={(e) => setForm({ ...form, paymentTerms: e.target.value })}
+            disabled={Boolean(scheduleActive)}
             placeholder="e.g. 50% deposit, balance on completion — or Net 30"
-            className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm"
+            className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm disabled:opacity-60"
           />
           <p className="mt-1 text-xs text-muted-foreground">
-            Read straight onto the document. A schedule it can parse renders as
-            cards; anything else prints as you wrote it. Left blank, the section
-            does not appear at all rather than inventing a schedule for you.
+            {scheduleActive
+              ? t(
+                  "app.paymentSchedule.generatedNote",
+                  "The payment terms below are generated from this schedule, so the document a client sees always matches what actually bills. Turn the schedule off to edit that text by hand again.",
+                )
+              : "Read straight onto the document. A schedule it can parse renders as cards; anything else prints as you wrote it. Left blank, the section does not appear at all rather than inventing a schedule for you."}
           </p>
         </div>
+      </SectionCard>
+
+      {/* The rule-based half: real invoices, raised automatically off the
+          job's own dates — not just a sentence printed on a document. See
+          app/api/settings/payment-schedule/route.js and
+          lib/paymentSchedule/run.js. Saving here also rewrites the free-text
+          field above, which is why that field locks once this is active —
+          one schedule, not two that can disagree. */}
+      <SectionCard
+        title={t("app.paymentSchedule.title", "Payment schedule")}
+        description={t(
+          "app.paymentSchedule.desc",
+          "Split what's owed across stages tied to the job itself — a deposit when the invoice goes out, the rest at job start, halfway, or completion. Off by default; turn it on by adding a stage below.",
+        )}
+      >
+        <PaymentScheduleEditor
+          canEdit={canEdit}
+          onSaved={(d) => {
+            setScheduleActive((d.stages || []).length > 0);
+            setForm((f) => ({ ...f, paymentTerms: d.generatedText || f.paymentTerms }));
+          }}
+          onCleared={() => setScheduleActive(false)}
+        />
       </SectionCard>
 
       {/* Industry & quote types — read-only reflection of what was picked at
