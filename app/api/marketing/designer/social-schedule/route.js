@@ -16,6 +16,9 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { getMetaConnection } from "@/lib/social/metaConnection";
+import { isSocialPublishingVisible } from "@/lib/social/metaSpecs";
+import { metaAppConfigured } from "@/lib/meta/client";
 
 // A generous but real bound on how far back/forward a single request can
 // ask for — the calendar only ever needs a few months around the visible
@@ -26,6 +29,15 @@ const MAX_RANGE_DAYS = 400;
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // Same gate the publish route's own GET exposes — the calendar page reads
+  // it from HERE rather than a second endpoint, since it needs this route
+  // regardless to render anything. `visible` is what the page uses to
+  // decide whether to render a real calendar or nothing at all; see
+  // app/app/marketing/designer/calendar/page.js.
+  const connection = await getMetaConnection(member.companyId);
+  const appConfigured = metaAppConfigured();
+  const visible = isSocialPublishingVisible({ isDemo: connection.mock, appConfigured });
 
   const { searchParams } = new URL(request.url);
   const now = new Date();
@@ -85,5 +97,5 @@ export async function GET(request) {
     take: 500,
   });
 
-  return NextResponse.json({ from, to, rows });
+  return NextResponse.json({ from, to, rows, visible, mock: Boolean(connection.mock), appConfigured });
 }
