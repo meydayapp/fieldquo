@@ -9,6 +9,7 @@ import { recordActivity } from "@/lib/activity/log";
 import { normaliseHours } from "@/lib/company/businessHours";
 import { clampWindow } from "@/lib/booking/arrivalWindow";
 import { currencyForCountry } from "@/lib/currency";
+import { containsMarkupCharacters } from "@/lib/security/rejectMarkupCharacters";
 
 /**
  * Coordinates for a stored address that has none.
@@ -235,6 +236,18 @@ export async function PATCH(request) {
     sitePublished,
     offerFinancing,
   } = body;
+
+  // This field reaches a `<script type="application/ld+json">` on the
+  // company's public site (app/site/[subdomain]/page.js). The sink escapes
+  // it (lib/security/scriptSafeJson.js) so this isn't the fix — it's a second
+  // layer that stops a NEW `<`/`>` from being typed in; see
+  // lib/security/rejectMarkupCharacters.js.
+  if (name !== undefined && containsMarkupCharacters(name)) {
+    return NextResponse.json(
+      { error: "Company name can't contain < or >" },
+      { status: 400 },
+    );
+  }
 
   // Validated before anything is written, so a bad cancellation window can't
   // land alongside a good logo change and leave the settings half-saved.

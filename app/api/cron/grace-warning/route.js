@@ -36,6 +36,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { requireCronSecret } from "@/lib/security/cronAuth";
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email/resend";
 import { getPlatformFrom } from "@/lib/email/platformSender";
@@ -53,9 +54,8 @@ import { graceWarningDecision } from "@/lib/billing/graceWarning";
 const BATCH = 500;
 
 export async function GET(request) {
-  if (request.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireCronSecret(request);
+  if (denied) return denied;
 
   const now = new Date();
   const origin = getAppOrigin(request);

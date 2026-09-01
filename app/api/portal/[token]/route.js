@@ -11,7 +11,23 @@ export async function GET(request, { params }) {
   const _params = await params;
   const client = await db.client.findUnique({
     where: { portalToken: _params.token },
-    include: {
+    // Allow-list, not `include`. This used to have no top-level `select` at
+    // all — every scalar on Client, Quote, Invoice and Job reached a
+    // homeowner's browser on an unauthenticated (token-only) endpoint,
+    // Quote.reviewNotes included, whose own schema comment says it must
+    // never reach a client-facing surface. An allow-list fails CLOSED when a
+    // field is added to one of these models tomorrow: it has to be named
+    // here to leave the building, where `include` would have shipped it by
+    // default. See docs/SECURITY-FIXES.md.
+    select: {
+      // Only what this route itself reads (resolveClientLanguage,
+      // taxStatement below) or hands straight back as `clientName`. Nothing
+      // else on Client — email, phone, address, notes, portalToken, type,
+      // contactName, city, createdAt — reaches this route at all now.
+      name: true,
+      language: true,
+      country: true, // resolveDocumentTax's jurisdiction lookup
+      province: true, // same
       company: {
         select: {
           name: true,
@@ -61,6 +77,23 @@ export async function GET(request, { params }) {
       quotes: {
         where: { status: { not: "draft" } },
         orderBy: { createdAt: "desc" },
+        // Exactly what ClientPortal.js renders per quote: the number, the
+        // total, the date, the status pill, and the share token that builds
+        // its "review" link. Everything else on Quote — reviewNotes (whose
+        // own schema comment says it must never reach a client-facing
+        // surface), aiReview, aiReviewedAt, aiVisionPasses, autoEstimated,
+        // needsReview, processNotes, declineReason, followUpCount,
+        // followUpSentAt, estimateSource, estimateData, composeSeconds,
+        // sourceCallId, createdById, assignedToId, reviewedById, and every
+        // other internal column — stays on the server.
+        select: {
+          id: true,
+          quoteNumber: true,
+          total: true,
+          createdAt: true,
+          status: true,
+          shareToken: true,
+        },
       },
       // ── Only invoices that have actually been ISSUED ──────────────────
       //
@@ -83,10 +116,35 @@ export async function GET(request, { params }) {
       // otherwise.
       invoices: {
         where: { OR: [{ sentAt: { not: null } }, { status: { not: "draft" } }] },
-        include: { payments: true },
         orderBy: { createdAt: "desc" },
+        // What PortalInvoice.js and ClientPortal.js render, plus taxEnabled
+        // and createdAt, which never leave this route — they only feed
+        // taxStatement() below to compute taxKind/taxAssumedRegion. The old
+        // `include: { payments: true }` shipped every Payment row (processor
+        // ids included) to the browser; nothing in either portal component
+        // reads `invoice.payments`, so it's dropped rather than narrowed.
+        select: {
+          id: true,
+          invoiceNumber: true,
+          total: true,
+          amountPaid: true,
+          dueDate: true,
+          lineItems: true,
+          notes: true,
+          subtotal: true,
+          discount: true,
+          tax: true,
+          taxEnabled: true,
+          createdAt: true,
+        },
       },
-      jobs: { include: { visits: true }, orderBy: { createdAt: "desc" } },
+      // `jobs` used to be fetched here (with its `visits`, technician ids and
+      // checklists) and shipped whole. Nothing in ClientPortal.js or
+      // PortalInvoice.js reads `data.jobs` — docs/TODO.md is explicit that
+      // "the client portal shows invoices only" is the current, intended
+      // scope. Dropped rather than select-narrowed: the correct allow-list
+      // for a field nothing reads is no field at all. Add it back with a
+      // real `select` the day the portal actually shows job status.
     },
   });
 
@@ -132,8 +190,22 @@ export async function GET(request, { params }) {
       asOf: invoice.createdAt,
       lang: resolveClientLanguage(client, client.company),
     });
+    // Explicit allow-list, not `...invoice`: taxEnabled and createdAt above
+    // are read to COMPUTE taxKind, not to be forwarded, and spreading the
+    // row would ship them to the browser anyway — the same "select is the
+    // real fix" reasoning as the query above, applied to the one place a
+    // field could still sneak back in after it.
     return {
-      ...invoice,
+      id: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      total: invoice.total,
+      amountPaid: invoice.amountPaid,
+      dueDate: invoice.dueDate,
+      lineItems: invoice.lineItems,
+      notes: invoice.notes,
+      subtotal: invoice.subtotal,
+      discount: invoice.discount,
+      tax: invoice.tax,
       taxKind: statement.kind,
       taxAssumedRegion: statement.assumed ? statement.assumedRegion : null,
     };
@@ -142,13 +214,13 @@ export async function GET(request, { params }) {
   return NextResponse.json({
     clientName: client.name,
     // Resolved once, server-side, so both portal components read the same
-    // language the client was written to elsewhere. client.language is a
-    // scalar on the row (no select narrowing above), so it's already loaded.
+    // language the client was written to elsewhere. client.language is
+    // selected explicitly above for exactly this.
     language: resolveClientLanguage(client, client.company),
     company: companyView,
     onlinePayments,
     quotes: client.quotes,
     invoices,
-    jobs: client.jobs,
+    // No `jobs` — see the comment on the query above.
   });
 }

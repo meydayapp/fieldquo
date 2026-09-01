@@ -636,9 +636,12 @@ console.log("\nwiring — a reconciler nothing runs is a dead control");
   ok("the reconciler cron is registered in vercel.json", Boolean(cron), cron?.schedule || "");
   ok("it runs at least hourly", /^\d+ \* \* \* \*$/.test(cron?.schedule || ""));
   ok("the route exists", fs.existsSync(path.join(ROOT, "app/api/cron/voice-reconcile/route.js")));
+  // Was a literal "process.env.CRON_SECRET" text match. Every cron route now
+  // calls the shared, fail-closed lib/security/cronAuth.js helper instead of
+  // hand-comparing the env var — see docs/SECURITY-FIXES.md.
   ok(
     "and is protected by CRON_SECRET like every other cron",
-    codeOf("app/api/cron/voice-reconcile/route.js").includes("process.env.CRON_SECRET"),
+    codeOf("app/api/cron/voice-reconcile/route.js").includes("requireCronSecret(request)"),
   );
   ok(
     "the platform console can see the pool",

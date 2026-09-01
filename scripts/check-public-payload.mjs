@@ -30,8 +30,42 @@
 // which is the failure mode worth catching.
 
 import { readFileSync } from "node:fs";
+import { execSync } from "node:child_process";
 import { join } from "node:path";
+import { register } from "node:module";
+import { pathToFileURL } from "node:url";
 import { ROOT, routeFiles, decomment, prismaCalls, objectValue } from "./tenantScopeScan.mjs";
+
+// Three of the sections below EXECUTE real product code (lib/security/
+// cronAuth.js, app/api/portal/[token]/route.js) rather than reading it —
+// AGENTS.md's own "run it against hostile input, don't just read it" rule,
+// and the only version of these three assertions worth having (a regex over
+// the source would have passed against the broken versions of all three
+// bugs this file now guards). Both modules pull in "next/server", which bare
+// node can't resolve at all (no package "exports" match — see
+// check-refusal-shape.mjs's header for the same problem), and the portal
+// route pulls in "@/lib/db", which would construct a real PrismaClient
+// against Neon at import time. Both are stubbed, once, for every section
+// below that needs them.
+const DB_STUB_URL = pathToFileURL(join(ROOT, "scripts/fixtures/dbStub.mjs")).href;
+const HOOKS = `
+export async function resolve(specifier, context, nextResolve) {
+  if (specifier === "@/lib/db") return { url: ${JSON.stringify(DB_STUB_URL)}, shortCircuit: true };
+  if (specifier === "next/server") return { url: "fq-stub:next", shortCircuit: true };
+  return nextResolve(specifier, context);
+}
+export async function load(url, context, nextLoad) {
+  if (url === "fq-stub:next")
+    return {
+      format: "module",
+      shortCircuit: true,
+      source:
+        "export const NextResponse = { json: (body, init) => ({ status: init?.status ?? 200, body, json: async () => body }) };",
+    };
+  return nextLoad(url, context);
+}
+`;
+register(`data:text/javascript,${encodeURIComponent(HOOKS)}`);
 
 let pass = 0;
 let fail = 0;
@@ -200,6 +234,281 @@ for (const [f, { what }] of Object.entries(TOKEN_MINTERS)) {
     "the service-plan authorisation link borrows the portal minter",
     /newPortalToken\(\)/.test(src) && !/Math\.random/.test(src),
   );
+}
+
+// ═══════════════ Every dangerouslySetInnerHTML site is accounted for (XSS) ═
+//
+// JSON.stringify does not escape "<", ">" or "&" — proven below by executing
+// it, not by reading about it — so `dangerouslySetInnerHTML={{ __html:
+// JSON.stringify(x) }}` inside a `<script>` tag lets a string value
+// containing "</script>" close the tag early and run whatever follows as
+// markup. app/site/[subdomain]/page.js's JSON-LD block puts company.name
+// straight into one, and signup is self-serve (non-negotiable #1) with no
+// escaping anywhere in the chain — so anyone on the internet could start a
+// trial, name their company `Acme</script><script>…`, and run arbitrary JS
+// in every visitor's browser.
+//
+// Fixed at the SINK (lib/security/scriptSafeJson.js), not only the source:
+// a sink fix protects every row already in the database and every future
+// field that flows through it; a source-only fix protects one column. Every
+// `dangerouslySetInnerHTML` in the repo is enumerated here from the
+// filesystem — not hand-kept — so a fourth one added tomorrow fails this
+// check by name instead of shipping unreviewed.
+
+console.log("\nEvery dangerouslySetInnerHTML site is accounted for (XSS)");
+
+{
+  const { scriptSafeJson } = await import("@/lib/security/scriptSafeJson");
+
+  const hostile = { name: "Acme</script><script>alert(1)</script>" };
+  const raw = JSON.stringify(hostile);
+  ok("proof: JSON.stringify alone leaves </script> intact", raw.includes("</script>"), raw);
+
+  const safe = scriptSafeJson(hostile);
+  ok("scriptSafeJson removes the literal closing tag", !safe.includes("</script>"), safe);
+  ok("...and neither < nor > survives unescaped at all", !/[<>]/.test(safe), safe);
+  ok(
+    "...yet a real JSON parser (what a search engine's JSON-LD reader is) decodes it back to the original string",
+    JSON.parse(safe).name === hostile.name,
+    JSON.parse(safe),
+  );
+}
+
+// Derived from disk, exactly like `publicRoutes` above — a hand-kept list is
+// the one that goes stale. Matches the JSX attribute itself (the `=` is
+// deliberate) rather than the bare word, so a file that only MENTIONS
+// dangerouslySetInnerHTML in a comment — this very script, or
+// lib/security/scriptSafeJson.js's own header — doesn't false-positive as an
+// unreviewed site.
+const dangerousHtmlFiles = execSync('grep -rl "dangerouslySetInnerHTML=" app lib', {
+  cwd: ROOT,
+  encoding: "utf8",
+})
+  .split("\n")
+  .filter(Boolean)
+  .sort();
+
+// Every known site, and why each one is or isn't a sink that needs
+// scriptSafeJson. `null` means "reviewed, carries no interpolated data" —
+// not "unreviewed".
+const KNOWN_DANGEROUS_HTML_SITES = {
+  "app/site/[subdomain]/page.js":
+    "Company fields (name, phone, email, address...) into JSON-LD. User-controlled, and the ONLY sink in this list that is.",
+  "app/layout.js":
+    "NO_FLASH — a hardcoded template-literal CONSTANT with no interpolation. Nothing from a request ever reaches it.",
+  "app/components/BrandTheme.js":
+    "CSS built from a company's brandColor, but only after isValidHex() — a value that fails the hex regex never reaches tokensToCss, so nothing free-form is ever concatenated into the <style> tag.",
+};
+
+ok(
+  "no unreviewed dangerouslySetInnerHTML site exists",
+  dangerousHtmlFiles.every((f) => f in KNOWN_DANGEROUS_HTML_SITES),
+  dangerousHtmlFiles.filter((f) => !(f in KNOWN_DANGEROUS_HTML_SITES)),
+);
+for (const f of Object.keys(KNOWN_DANGEROUS_HTML_SITES)) {
+  ok(`${f} still exists and still uses dangerouslySetInnerHTML`, dangerousHtmlFiles.includes(f));
+}
+
+{
+  const src = readFileSync(join(ROOT, "app/site/[subdomain]/page.js"), "utf8");
+  ok("the JSON-LD sink uses scriptSafeJson", /__html:\s*scriptSafeJson\(/.test(src));
+  ok("...and not a bare JSON.stringify feeding __html", !/__html:\s*JSON\.stringify\(/.test(src));
+}
+{
+  const src = readFileSync(join(ROOT, "app/layout.js"), "utf8");
+  // Isolate the NO_FLASH template literal itself (not the whole file — other
+  // unrelated template literals in app/layout.js, e.g. the className string,
+  // legitimately use `${}` and must not fail this) and check THAT substring
+  // for an interpolation.
+  const match = src.match(/const NO_FLASH = `([\s\S]*?)`;/);
+  ok("NO_FLASH is still defined as a template literal", Boolean(match), src.slice(0, 80));
+  ok(
+    "...and it stays a plain constant — no `${...}` interpolation crept in",
+    Boolean(match) && !match[1].includes("${"),
+    match?.[1],
+  );
+}
+{
+  const src = readFileSync(join(ROOT, "app/components/BrandTheme.js"), "utf8");
+  ok("BrandTheme still gates on isValidHex before deriving any CSS", /isValidHex\(brandColor\)/.test(src));
+}
+
+// ═══════════════ Every cron route fails CLOSED on a missing secret ════════
+//
+// app/api/cron/*/route.js used to compare against `` `Bearer
+// ${process.env.CRON_SECRET}` ``. Unset, that's the literal string "Bearer
+// undefined" — a fixed, guessable password, not "no valid value" — so a
+// deploy that forgot to set CRON_SECRET opened all 16 crons (email, outbound
+// AI calls, saved-card charges) to anyone who sent that exact header. Fixed
+// once, in lib/security/cronAuth.js's requireCronSecret(), used by every
+// cron route instead of sixteen copies of the comparison.
+//
+// Both halves are executed: the static half proves every cron route calls
+// the shared helper (so a 17th cron, or one that reverts to its own
+// comparison, is caught even before the runtime half would notice); the
+// runtime half proves the helper ITSELF denies an unset secret, denies a
+// wrong one, and allows the right one — the exact three cases a regex over
+// the source cannot tell apart.
+
+console.log("\nEvery cron route uses the shared, fail-closed secret check");
+
+const cronFiles = execSync('find app/api/cron -name route.js', { cwd: ROOT, encoding: "utf8" })
+  .split("\n")
+  .filter(Boolean)
+  .sort();
+ok("cron routes were found (the set isn't accidentally empty)", cronFiles.length >= 16, cronFiles.length);
+for (const f of cronFiles) {
+  const src = decomment(readFileSync(join(ROOT, f), "utf8"));
+  ok(`${f} calls requireCronSecret`, /requireCronSecret\(request\)/.test(src));
+  ok(`${f} no longer hand-compares CRON_SECRET`, !/process\.env\.CRON_SECRET/.test(src));
+}
+
+console.log("\n...and the helper itself fails closed, not merely looks like it does");
+
+{
+  const { requireCronSecret } = await import("@/lib/security/cronAuth");
+  const fakeRequest = (auth) => ({
+    headers: { get: (k) => (String(k).toLowerCase() === "authorization" ? auth : null) },
+  });
+
+  const prevSecret = process.env.CRON_SECRET;
+  const restoreSecret = () => {
+    if (prevSecret === undefined) delete process.env.CRON_SECRET;
+    else process.env.CRON_SECRET = prevSecret;
+  };
+
+  try {
+    delete process.env.CRON_SECRET;
+    // The exact string the old bug accepted as valid.
+    const deniedWhenUnset = requireCronSecret(fakeRequest("Bearer undefined"));
+    ok(
+      "an unset CRON_SECRET denies the literal string the old bug accepted",
+      deniedWhenUnset?.status === 401,
+      deniedWhenUnset,
+    );
+
+    const deniedWithNoHeaderEither = requireCronSecret(fakeRequest(null));
+    ok("an unset CRON_SECRET denies even with no header at all", deniedWithNoHeaderEither?.status === 401);
+
+    process.env.CRON_SECRET = "check-public-payload-test-secret";
+    const deniedWrong = requireCronSecret(fakeRequest("Bearer not-the-secret"));
+    ok("a configured secret denies the wrong value", deniedWrong?.status === 401, deniedWrong);
+
+    const deniedMissingHeader = requireCronSecret(fakeRequest(null));
+    ok("a configured secret denies a request with no Authorization header", deniedMissingHeader?.status === 401);
+
+    const allowed = requireCronSecret(fakeRequest("Bearer check-public-payload-test-secret"));
+    ok("a configured secret allows the matching value through (returns null)", allowed === null, allowed);
+  } finally {
+    restoreSecret();
+  }
+}
+
+// ═══════════════ The client portal's select is an allow-list, not `include` ═
+//
+// GET /api/portal/[token] used to fetch with no top-level `select` at all —
+// every scalar on Client, Quote, Invoice and Job reached a homeowner's
+// browser on an unauthenticated, token-only endpoint. Quote.reviewNotes
+// (whose own schema comment says it must never reach a client-facing
+// surface), aiReview, autoEstimated, needsReview, processNotes,
+// declineReason, and internal staff ids among them.
+//
+// A regex over route.js would only prove the word "select" appears
+// somewhere in the file — it was already narrow for `company`. The
+// assertion that actually matters is about the QUERY OBJECT Prisma receives
+// at runtime, so this executes the real route against a fixture client and
+// inspects the captured `db.client.findUnique` call — the same technique
+// scripts/check-trade-gate.mjs uses via scripts/fixtures/dbStub.mjs, whose
+// `reads` log (added for this check) records every read call's full args.
+
+console.log("\nThe client portal's Prisma query is an allow-list (no leaked internal fields)");
+
+{
+  const { rows, reads, resetDbStub } = await import("./fixtures/dbStub.mjs");
+  resetDbStub();
+  rows.client = [
+    {
+      portalToken: "check-public-payload-test-token",
+      name: "Test Client",
+      language: "en",
+      country: "CA",
+      province: "ON",
+      company: { name: "Acme", currency: "CAD" },
+      quotes: [],
+      invoices: [],
+    },
+  ];
+
+  const { GET } = await import(
+    pathToFileURL(join(ROOT, "app/api/portal/[token]/route.js")).href
+  );
+  const fakeRequest = { headers: { get: () => null } };
+  const res = await GET(fakeRequest, {
+    params: Promise.resolve({ token: "check-public-payload-test-token" }),
+  });
+  ok("the route executes against the fixture without throwing", res?.status === 200, res);
+
+  const call = reads.find((r) => r.model === "client" && r.action === "findUnique");
+  ok("db.client.findUnique was actually called", Boolean(call), reads);
+
+  const args = call?.args || {};
+  ok("the query uses `select`, not `include`", Boolean(args.select));
+
+  // Every `include` key found anywhere in the tree — at ANY level, `include`
+  // would mean an entire relation's scalars ship unfiltered, exactly the bug
+  // this guards against — checked globally, unlike the forbidden fields
+  // below, because no model here has a legitimate field named `include`.
+  const includeSites = [];
+  const walkForInclude = (node, path) => {
+    if (!node || typeof node !== "object") return;
+    for (const [k, v] of Object.entries(node)) {
+      if (k === "include") includeSites.push(path ? `${path}.include` : "include");
+      if (v && typeof v === "object") {
+        if (v.select) walkForInclude(v.select, path ? `${path}.${k}.select` : `${k}.select`);
+        if (v.include) walkForInclude(v.include, path ? `${path}.${k}.include` : `${k}.include`);
+      }
+    }
+  };
+  walkForInclude(args.select, "select");
+  ok("no `include` appears anywhere in the query (would bypass every select below it)", includeSites.length === 0, includeSites);
+
+  // Checked per BRANCH, not as one flattened key set: Company legitimately
+  // selects `email`/`phone` (the portal's own "contact us" line) and Invoice
+  // legitimately selects `notes` (the invoice memo PortalInvoice.js
+  // renders) — the same field names that are forbidden on Client and Quote
+  // respectively. Flattening would either miss a real leak or flag a real,
+  // reviewed field; keeping this scoped to the branch each name is actually
+  // forbidden on is what makes the assertion trustworthy either way.
+  const clientTopKeys = new Set(Object.keys(args.select || {}));
+  const quoteKeys = new Set(Object.keys(args.select?.quotes?.select || {}));
+  const invoiceKeys = new Set(Object.keys(args.select?.invoices?.select || {}));
+
+  const CLIENT_FORBIDDEN = ["email", "phone", "address", "notes", "contactName", "city", "portalToken", "type", "createdAt"];
+  const QUOTE_FORBIDDEN = [
+    "reviewNotes", "aiReview", "aiReviewedAt", "aiVisionPasses", "autoEstimated",
+    "needsReview", "processNotes", "declineReason", "followUpCount",
+    "followUpSentAt", "estimateSource", "estimateData", "composeSeconds",
+    "sourceCallId", "createdById", "assignedToId", "reviewedById",
+  ];
+  // `payments` is the Invoice relation nothing in either portal component
+  // reads — checked here rather than the Client list because it's an
+  // Invoice-shaped leak (whole Payment rows, processor ids included), not a
+  // same-named scalar collision like the ones above.
+  const INVOICE_FORBIDDEN = ["payments"];
+
+  const leakedClient = CLIENT_FORBIDDEN.filter((f) => clientTopKeys.has(f));
+  const leakedQuote = QUOTE_FORBIDDEN.filter((f) => quoteKeys.has(f));
+  const leakedInvoice = INVOICE_FORBIDDEN.filter((f) => invoiceKeys.has(f));
+
+  ok("no forbidden Client field is selected at the top level", leakedClient.length === 0, leakedClient);
+  ok("no forbidden Quote field is selected", leakedQuote.length === 0, leakedQuote);
+  ok("no forbidden Invoice field is selected", leakedInvoice.length === 0, leakedInvoice);
+  ok("`jobs` is not selected at all (nothing in the portal reads it — see the query's own comment)", !clientTopKeys.has("jobs"));
+
+  // The response itself, for the fields that are built in JS after the query
+  // (the invoice re-shape used to `...invoice`-spread the whole row).
+  const body = res?.body;
+  ok("the JSON response carries no `jobs` key", !("jobs" in (body || {})), body);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

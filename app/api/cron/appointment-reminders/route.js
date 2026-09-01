@@ -19,6 +19,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { requireCronSecret } from "@/lib/security/cronAuth";
 import { db } from "@/lib/db";
 import { sendSms, toE164 } from "@/lib/sms/twilioClient";
 import { appointmentReminderText } from "@/lib/sms/templates";
@@ -30,10 +31,8 @@ import { maySms } from "@/lib/sms/optOut";
 const HORIZON_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function GET(request) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireCronSecret(request);
+  if (denied) return denied;
 
   const now = new Date();
   const horizon = new Date(now.getTime() + HORIZON_MS);

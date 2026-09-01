@@ -16,13 +16,13 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { requireCronSecret } from "@/lib/security/cronAuth";
 import { heldBookings, reconcileBookingFee } from "@/lib/booking/reconcileBookingFee";
 import { recordError } from "@/lib/platform/errorLog";
 
 export async function GET(request) {
-  if (request.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireCronSecret(request);
+  if (denied) return denied;
 
   const held = await heldBookings();
   const tally = { checked: held.length, settled: 0, cancelled: 0, holding: 0, errors: 0 };
