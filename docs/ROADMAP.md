@@ -5863,3 +5863,65 @@ processors.
 **Not built:** the Settings screen to actually connect a Meta Business
 account (belongs with the OAuth layer), a scheduling UI for Facebook, and
 Instagram's own hold-and-post scheduling queue (see above).
+
+## Company-defined job-photo tags (CompanyCam parity, one more piece)
+
+Full design and status in `docs/PHOTO-TAGS.md` — this entry is the short
+version for the roadmap.
+
+The 1957-line entry above ("A job's photos could only arrive by text
+message") flagged this as still open from the CompanyCam comparison; its
+"no internal timeline, no photo report" half of that note is now stale —
+`JobPhotoTimeline.js` and `app/api/jobs/[id]/photo-report/pdf` shipped in a
+later pass this file didn't get updated for. What was actually still
+missing was the ask in this entry: a company's own process vocabulary
+("sanding", "priming", "top coat", "demo") on top of the fixed
+`start/progress/finish/issue` stages.
+
+**What's real:** two new, additive models — `JobPhotoTag` (company-scoped,
+name/colour/sortOrder/`active` retire-flag) and `JobPhotoTagOnPhoto` (the
+join). `stage` itself is untouched — same column, same four values, same
+privacy/pairing logic. A new Settings screen
+(`app/app/settings/job-photo-tags/page.js`) creates, renames, reorders, and
+retires tags, plus an idempotent "Add starter tags" button offering eight
+generic process words — nothing is added unless it's clicked, same rule
+`prisma/seed-checklists.js` states for the checklist library. Tags are
+applied per photo as chips in `JobPhotoCurator.js` (including on
+crew-texted photos) and filterable in `JobPhotoTimeline.js`, including
+retired tags still worn by a photo. `PATCH /api/jobs/[id]/photos` gained a
+`tagIds` sync, diffed against the current set, entirely separate from
+`stage`.
+
+**The model decision, proven, not just argued:** a contractor CAN name a
+tag "Issue" — nothing rejects the word. `scripts/check-gallery.mjs` proves
+both directions execute correctly: a `stage: "issue"` photo carrying an
+"Issue" tag still never reaches the public gallery, and a `stage: "finish"`
+photo carrying an "issue"-named tag stays fully public. The privacy
+boundary and before/after pairing are entirely properties of `stage`; a tag
+is decoration next to them, never a substitute. Two source-scan assertions
+pin `featuredUrls()` (`lib/site/jobPhotos.js`) and the `tagIds` sync against
+ever reading a tag to decide `stage`-driven behaviour — 17 new/changed
+assertions, four guards mutation-tested by hand (dropped the issue filter,
+made tag-sync assign `stage`, let a retired tag be newly attached, let
+retiring silently strip an already-attached tag), all four caught, all
+reverted from a backup copy rather than `git checkout`.
+
+**Deliberately NOT done:** custom tags do not participate in
+`lib/crew/inbox.js`'s `inferStage()` text inference — an unbounded,
+company-specific vocabulary guessed from an SMS has no equivalent safety net
+to the four fixed, tested stage outcomes, and a wrong tag guess has no
+signal it was ever guessed. Tags stay an explicit, human action everywhere a
+photo can be tagged. Also not done: tags on the public website gallery or
+the photo-report PDF (not asked for), activity-log entries for tag
+mutations, and a real `companyId: null` shared tag library with its own
+seed script (the starter set is a JS constant + adopt action instead — see
+`docs/PHOTO-TAGS.md` for the full reasoning, including why: this session
+cannot run `prisma db push` or edit `package.json` to wire up a seed
+script, and eight short words don't carry the weight the ~250-row checklist
+library does).
+
+**Flagged for whichever parallel effort needs it:** a field named `active`
+on `JobPhotoTag`, and a field named `tags` on `JobPhoto` — in case the
+photo-annotation or photo-comments work landing alongside this also wants
+either name on the same models. Nothing here touches `JobPhoto.caption`,
+`JobPhoto.featured`, or `JobPhoto.stage`.
