@@ -340,6 +340,11 @@ const PLATFORM_MAY_WRITE = {
   member:
     "The demo-sandbox login only, and only into a Company whose isDemo is true.",
   demoHostAvailability: "A platform admin's own demo calendar.",
+  migrationRequest:
+    "The paid data-migration service's OWN record of a request — FieldQuo's " +
+    "side of the conversation (status, price, who's assigned), the same shape " +
+    "as demoHostAvailability. Not the company's quote/invoice/job/client data; " +
+    "see the section below for the ONE declared path that touches those.",
   feedback: "Answering a support message the customer sent us.",
   platformErrorLog:
     "FieldQuo's own error log. It carries a companyId to say where an error came " +
@@ -381,10 +386,99 @@ for (const [model, reason] of Object.entries(PLATFORM_MAY_WRITE)) {
   ok(`${model} says why the console may write it`, reason.length > 30);
 }
 
-// The four the product owner named explicitly. Asserted by value, not by
-// absence from a list, so renaming the list can never quietly admit them.
+// The four the product owner named explicitly, for every route UNDER
+// app/api/platform DIRECTLY. Still true and still asserted by value: no
+// platform route file inlines a write to any of these four models — every
+// one of them goes through the ONE declared indirection below instead.
 for (const forbidden of ["quote", "invoice", "job", "client"])
   ok(`the console may never write a ${forbidden}`, !PLATFORM_MAY_WRITE[forbidden]);
+
+// ═══════ 4b. The ONE declared exception to #3 — the paid migration service ═
+//
+// The owner sanctioned a superadmin CREATING new Client/Quote rows inside a
+// company's tenant, narrowly: only for an accepted, PAID MigrationRequest,
+// only as a superadmin, only additive (create, never update/delete an
+// existing row), and only through lib/migrations/writes.js — see that
+// file's header and docs/MIGRATION-SERVICE.md for the full reasoning and
+// what still may NOT be written (Invoice, Job — not built).
+//
+// This is intentionally a SEPARATE assertion from the platform-route sweep
+// above rather than a widened PLATFORM_MAY_WRITE entry: PLATFORM_MAY_WRITE
+// would make quote/client legal for EVERY app/api/platform route, which is
+// exactly the "general console capability" the brief said this must not
+// become. Scoping the exception to one named file keeps the blanket
+// forbidden-list assertion above meaningfully true.
+console.log("\nThe ONE declared exception: lib/migrations/writes.js (the paid migration service)");
+
+const MIGRATION_WRITE_PATH_MAY_WRITE = {
+  client:
+    "A migrated legacy client, created inside the requesting company's own " +
+    "tenant. writeMigratedClient() re-checks canWrite() on a freshly-read " +
+    "MigrationRequest inside its own transaction, and logs a MigrationWrite " +
+    "row in the same transaction.",
+  quote:
+    "A migrated legacy quote (status: draft, no scope groups/costing) — same " +
+    "gate and same audit-logging as client, above.",
+  // MigrationRequest carries a companyId (it belongs to one company's
+  // request), so the delegate scan below sees it as tenant-shaped — but it
+  // is FieldQuo's OWN record about the request, the same reasoning
+  // PLATFORM_MAY_WRITE gives it above. The only write here is the courtesy
+  // `paid -> in_progress` advance on a request's first write, an UPDATE to
+  // this record's own status column, never to a company's quote/client.
+  migrationRequest:
+    "The status advance from 'paid' to 'in_progress' on the first write — " +
+    "the request's own bookkeeping, not the company's business data. See " +
+    "the identical reasoning for this model in PLATFORM_MAY_WRITE above.",
+};
+
+const writesSrc = decomment(
+  readFileSync(join(ROOT, "lib/migrations/writes.js"), "utf8"),
+);
+const writesRe = /\btx\s*\.\s*([A-Za-z0-9_]+)\s*\.\s*(create|createMany|update|updateMany|delete|deleteMany|upsert)\s*\(/g;
+const migrationWrites = [];
+let wm;
+while ((wm = writesRe.exec(writesSrc))) {
+  if (!delegates.has(wm[1])) continue; // migrationRequest/migrationWrite — its own bookkeeping, not tenant data
+  migrationWrites.push({ model: wm[1], op: wm[2] });
+}
+
+ok(
+  "lib/migrations/writes.js writes SOMETHING (this check isn't vacuously true)",
+  migrationWrites.length > 0,
+  migrationWrites,
+);
+const undeclaredMigrationWrites = migrationWrites.filter(
+  (w) => !MIGRATION_WRITE_PATH_MAY_WRITE[w.model],
+);
+ok(
+  "every tenant-model write in lib/migrations/writes.js is declared above",
+  undeclaredMigrationWrites.length === 0,
+  undeclaredMigrationWrites,
+);
+// Only CREATE on the company's own business data (client/quote) — an
+// update/delete there would mean the sanctioned exception had quietly grown
+// the ability to touch a record that already existed, which is precisely
+// the line non-negotiable #3's exception must not cross. MigrationRequest is
+// excluded from this rule on purpose: it's the request's OWN status column
+// (see its entry above), not a company's quote/client, and advancing it is
+// the one legitimate UPDATE this file makes.
+const nonCreateMigrationWrites = migrationWrites.filter(
+  (w) => w.model !== "migrationRequest" && w.op !== "create",
+);
+ok(
+  "every client/quote write is a CREATE — never update/delete an existing row",
+  nonCreateMigrationWrites.length === 0,
+  nonCreateMigrationWrites,
+);
+// And the two the owner actually asked for are the ones present — a silent
+// widening to Invoice or Job (not built — see docs/MIGRATION-SERVICE.md)
+// would need its own declaration and its own reasoning, same as everywhere
+// else in this file.
+for (const forbidden of ["invoice", "job"])
+  ok(
+    `lib/migrations/writes.js does NOT write ${forbidden} (not built yet)`,
+    !migrationWrites.some((w) => w.model === forbidden),
+  );
 
 // ═══════════════ 5. Non-negotiable #2 — impersonation, twice ═══════════════
 
