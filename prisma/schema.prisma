@@ -1038,6 +1038,7 @@ model Company {
   eventTypes            EventType[]
   funnels               Funnel[]
   jobs                  Job[]
+  satisfactionResponses SatisfactionResponse[]
   jobChecklistTemplates JobChecklistTemplate[]
   leadRequests          LeadRequest[]
   materials             Material[]
@@ -1776,14 +1777,15 @@ model Client {
   portalToken String?    @unique
   createdAt   DateTime   @default(now())
 
-  quotes        Quote[]
-  invoices      Invoice[]
-  jobs          Job[]
-  referralLinks ReferralLink[]
-  appointments  Appointment[]
-  tasks         Task[]
-  pamphletStops PamphletStop[]
-  servicePlans  ServicePlan[]
+  quotes                Quote[]
+  invoices              Invoice[]
+  jobs                  Job[]
+  referralLinks         ReferralLink[]
+  appointments          Appointment[]
+  tasks                 Task[]
+  pamphletStops         PamphletStop[]
+  servicePlans          ServicePlan[]
+  satisfactionResponses SatisfactionResponse[]
 }
 
 enum ClientType {
@@ -3389,6 +3391,17 @@ model Job {
   completedAt       DateTime?
   reviewRequestedAt DateTime?
 
+  /// The one-question satisfaction rating (1–5, optional comment), sent
+  /// alongside the same review-request email rather than a second mailing
+  /// system — see lib/reviews/reviewEmail.js and
+  /// app/api/cron/review-requests/route.js. One per job, created (not
+  /// necessarily answered) the moment that email goes out; cascades away if
+  /// the job itself is deleted, which is correct — a deleted job (only
+  /// possible with no logged hours or tasks, see the DELETE handler in
+  /// app/api/jobs/[id]/route.js) has no work left to have been satisfied or
+  /// not with.
+  satisfactionResponse SatisfactionResponse?
+
   /// Put away, not deleted.
   ///
   /// Deliberately NOT a JobStatus value. Status says what happened to the
@@ -3456,6 +3469,78 @@ model Job {
   /// ChangeOrder's own header for why this is a deliberate log a person
   /// writes, never inferred from a quote or invoice edit.
   changeOrders ChangeOrder[]
+}
+
+/// The client-facing satisfaction survey: one rating (1–5), one optional
+/// comment. Created when the review-request cron emails a completed job's
+/// client — see app/api/cron/review-requests/route.js and
+/// lib/reviews/reviewEmail.js — rather than as a second cron/mailing system.
+///
+/// ── Distinct from Testimonial, on purpose ───────────────────────────────────
+///
+/// A Testimonial is words a contractor chooses to publish. This is never
+/// published anywhere — it is FieldQuo's own private signal, read only by
+/// lib/analytics/kpis.js's csat KPI and (eventually, on a low score) the
+/// contractor who did the job. The two must never be confused: importing a
+/// low SatisfactionResponse score into the public Testimonial table would be
+/// exactly the "control that appears to work" this codebase keeps getting
+/// swept for, in reverse — publishing something nobody agreed to publish.
+///
+/// ── One per job ──────────────────────────────────────────────────────────
+///
+/// `jobId` is unique. The once-only guard already lives on Job.reviewRequestedAt
+/// (the cron claims the SEND, not the survey row), so this row is created —
+/// not necessarily answered — the moment the email goes out, and an upsert
+/// keyed on jobId keeps a retried cron run from minting a second token for
+/// the same job.
+model SatisfactionResponse {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  jobId     String  @unique
+  job       Job     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  /// Nullable, and SetNull rather than Cascade: a client record being merged
+  /// or cleaned up should not take a company's own satisfaction history with
+  /// it — the score and comment are the company's data, not the client's.
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  /// The credential in the survey link — same construction as
+  /// MarketingSubscriber.unsubscribeToken and Client.portalToken: 32 CSPRNG
+  /// bytes, base64url, unique per row rather than derived from anything, so a
+  /// leaked token resolves to exactly one job's survey and nothing else.
+  token String @unique
+
+  /// The language the survey was SENT in — resolveClientLanguage() at send
+  /// time, not read live when the client finally taps it. Same AGENTS.md
+  /// non-negotiable #6 the covering email already follows: a page a client is
+  /// looking at keeps the language it was handed, even if their saved
+  /// preference or the company default changes between send and reply.
+  language String @default("en")
+
+  /// 1–5. Null until answered — NEVER 0. lib/analytics/kpis.js's csat builder
+  /// treats "nobody has answered yet" and "a real low score" as different
+  /// sentences on purpose (AGENTS.md failure class 5), so this column must
+  /// never be defaulted to a number.
+  score Int?
+
+  /// Optional. Capped and trimmed by lib/reviews/satisfaction.js before it
+  /// ever reaches this column — the same "the server decides the shape"
+  /// discipline lib/reviews/testimonials.js already applies to a pasted
+  /// review.
+  comment String? @db.Text
+
+  /// Set once, on the first accepted submission. A second POST with the same
+  /// token (a reused link, a double-tap, a retried request) is a no-op — same
+  /// "idempotent claims don't move a timestamp that's already true" rule as
+  /// Job.reviewRequestedAt and MarketingSubscriber.unsubscribedAt.
+  respondedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  /// The query the csat KPI actually runs: a company's answered responses,
+  /// joined through the job to find which ones fall in the reporting period.
+  @@index([companyId, respondedAt])
 }
 
 /// One line of a job's sourcing list: what to buy, how much, and whether it has

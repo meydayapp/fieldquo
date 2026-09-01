@@ -49,6 +49,7 @@ import {
   buildReworkCallbackRate,
   buildChangeOrderRate,
   mergeCallbackReasons,
+  buildCsat,
   REASONS,
   NOT_TRACKED,
   RATE_FLOOR,
@@ -193,10 +194,28 @@ ok("reworkCallbackRate: no completed jobs → null / no_completed_jobs",
 ok("changeOrderRate: no completed jobs → null / no_completed_jobs",
   EMPTY.quality.changeOrderRate.value === null &&
     EMPTY.quality.changeOrderRate.reason === "no_completed_jobs");
-ok("NOT_TRACKED lists exactly the four metrics this file refuses to invent (rework/callback and change-order rate moved off this list)",
-  NOT_TRACKED.length === 4 && NOT_TRACKED.every((m) => typeof m.reason === "string" && m.reason.length > 20));
-ok("…and neither moved-off metric is still named on it",
-  !NOT_TRACKED.some((m) => m.key === "reworkCallbackRate" || m.key === "changeOrderRate"));
+ok("csat: no survey responses → null / no_survey_responses",
+  EMPTY.customer.csat.value === null && EMPTY.customer.csat.reason === "no_survey_responses",
+  EMPTY.customer.csat);
+// THREE, and the number is the assertion.
+//
+// This list only ever shrinks, and two agents shrank it in parallel: one moved
+// rework/callback and change-order off once JobVisit.returnReason and the
+// ChangeOrder model existed, the other moved customer satisfaction off once
+// SatisfactionResponse did. Each wrote an assertion for ITS OWN arithmetic —
+// "exactly four" and "exactly five" — and both were stale the moment the two
+// branches met. Merged into one, so there is a single count to update and no
+// second copy to drift.
+//
+// A count that silently drifts back UP is the failure worth catching: it would
+// mean somebody re-added a "not tracked" panel for a metric this file now
+// genuinely computes, which is a lie told on a dashboard.
+ok("NOT_TRACKED lists exactly the three metrics this file still refuses to invent",
+  NOT_TRACKED.length === 3 && NOT_TRACKED.every((m) => typeof m.reason === "string" && m.reason.length > 20),
+  NOT_TRACKED.map((m) => m.key));
+ok("…and none of the four that earned a real builder is still named on it",
+  !NOT_TRACKED.some((m) => ["reworkCallbackRate", "changeOrderRate", "csat"].includes(m.key)),
+  NOT_TRACKED.map((m) => m.key));
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Section 2 — one job, missing rates, null overhead
@@ -500,6 +519,55 @@ ok("backlog with 0 completed, priced jobs this period: no_throughput_reference, 
   backlogZero.reason === "no_throughput_reference" && backlogZero.floor === undefined);
 ok("backlog with exactly 1 completed, priced job this period: a real pace prints",
   backlogOne.value !== null && backlogOne.reason === null, backlogOne);
+
+console.log("\n  csat — 0, 1, floor-1, floor, floor+1 answered surveys, all scoring 5\n");
+function csatAt(n, scores) {
+  const rows = [];
+  for (let i = 0; i < n; i++) rows.push({ score: scores[i] ?? 5 });
+  return buildCsat({ responses: rows });
+}
+for (const n of [0, 1, COUNT_FLOOR - 1, COUNT_FLOOR, COUNT_FLOOR + 1]) {
+  const c = csatAt(n, []);
+  console.log(`    ${n} answered → ${c.value === null ? `null (${c.reason}): "${c.reasonText}"` : `${c.value} / 5`}`);
+  if (n === 0) {
+    ok(`csat at 0 answered: no_survey_responses, floor ${COUNT_FLOOR}`,
+      c.reason === "no_survey_responses" && c.floor === COUNT_FLOOR && c.sampleSize === 0, c);
+  } else if (n < COUNT_FLOOR) {
+    ok(`csat at ${n} of ${COUNT_FLOOR} answered: below_floor, sampleSize ${n}, ${COUNT_FLOOR - n} remaining`,
+      c.reason === "below_floor" && c.sampleSize === n &&
+        c.floor === COUNT_FLOOR && c.remaining === COUNT_FLOOR - n, c);
+  } else {
+    ok(`csat at ${n} of ${COUNT_FLOOR} answered: a real average, no reason`,
+      c.value === 5 && c.reason === null && c.sampleSize === n, c);
+  }
+}
+// A mixed set right at the floor, so the average itself (not just "a value
+// exists") is checked — and the distribution/low-score counters that ride
+// along in `raw`, which nothing above exercises.
+const mixedAtFloor = csatAt(COUNT_FLOOR, [1, 2, 3, 4, 5]);
+ok(`csat: mixed scores [1,2,3,4,5] at exactly the floor averages to 3`,
+  mixedAtFloor.value === 3, mixedAtFloor);
+ok("csat: raw.counts records one response at each score",
+  mixedAtFloor.raw.counts[1] === 1 && mixedAtFloor.raw.counts[5] === 1, mixedAtFloor.raw);
+ok("csat: raw.lowScoreCount is scores 1+2 only, not 3",
+  mixedAtFloor.raw.lowScoreCount === 2, mixedAtFloor.raw);
+// Hostile rows: out-of-range and non-integer scores must be excluded from
+// both the sample and the average, not clamped into range or coerced to 0 —
+// see lib/reviews/satisfaction.js's parseScore for the same refusal on the
+// write side; this is the read side making the identical promise.
+const hostileCsat = buildCsat({
+  responses: [{ score: 0 }, { score: 6 }, { score: -1 }, { score: null }, { score: NaN }, { score: 3.5 }, { score: 5 }, { score: 5 }, { score: 5 }, { score: 5 }, { score: 5 }],
+});
+ok("csat: hostile rows (0, 6, -1, null, NaN, 3.5) excluded — only the five real 5s count, clearing the floor",
+  hostileCsat.sampleSize === 5 && hostileCsat.value === 5 && hostileCsat.reason === null, hostileCsat);
+// Same hostile set, one real score short of the floor — proves the hostile
+// rows aren't quietly padding the sample UP to reach it either.
+const hostileCsatBelowFloor = buildCsat({
+  responses: [{ score: 0 }, { score: 6 }, { score: -1 }, { score: null }, { score: NaN }, { score: 3.5 }, { score: 5 }, { score: 5 }, { score: 5 }, { score: 5 }],
+});
+ok("csat: same hostile set with only four real scores stays below_floor, not padded up by the junk",
+  hostileCsatBelowFloor.sampleSize === 4 && hostileCsatBelowFloor.value === null &&
+    hostileCsatBelowFloor.reason === "below_floor", hostileCsatBelowFloor);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Section 4b — rework/callback rate and change-order rate, at the boundary
@@ -1016,14 +1084,14 @@ const MUTATIONS = [
   [
     "drops the second reason on a job carrying both rework and warranty",
     (s) => s.replace("if (hasWarranty) warrantyCount += 1;", "// dropped"),
-  ],
-  [
     "counts a job with zero change orders as having one",
     (s) => s.replace("if (orders.length > 0) jobsWithChangeOrder += 1;", "jobsWithChangeOrder += 1;"),
-  ],
-  [
     "mergeCallbackReasons attaches a reason with no jobId instead of skipping it",
     (s) => s.replace("if (!jobId || !reason) return;", "if (!reason) return;"),
+    "drops the sample floor on customer satisfaction, printing an average from a single answer",
+    (s) => s.replace("if (scores.length < COUNT_FLOOR) {", "if (false) {"),
+    "lets an out-of-range score (0, 6, a negative number) into the csat average",
+    (s) => s.replace(".filter((n) => Number.isInteger(n) && n >= 1 && n <= 5);", ".filter((n) => Number.isInteger(n));"),
   ],
 ];
 

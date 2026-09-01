@@ -76,6 +76,7 @@ const REASON_I18N_KEYS = {
   none_decided_yet: "app.kpis.reason.noneDecidedYet",
   below_floor: "app.kpis.reason.belowFloor",
   no_throughput_reference: "app.kpis.reason.noThroughputReference",
+  no_survey_responses: "app.kpis.reason.noSurveyResponses",
 };
 
 /**
@@ -318,6 +319,18 @@ export default function KpiDashboardPage() {
   }, [estimateDims]);
 
   const ganttRows = data?.execution?.onTimeCompletion?.jobs || [];
+
+  // Score distribution for the customer section's mini bar chart. Only built
+  // once the KPI itself has a real value — `raw.counts` exists on the
+  // below-floor/no-data envelopes too (buildCsat only omits it below the
+  // floor), but a chart under the floor would show real-looking bars under a
+  // card that just said "not enough data yet", which is the exact
+  // contradiction AGENTS.md's empty-state discipline exists to prevent.
+  const csatRows = useMemo(() => {
+    const counts = data?.customer?.csat?.value !== null ? data?.customer?.csat?.raw?.counts : null;
+    if (!counts) return [];
+    return [1, 2, 3, 4, 5].map((n) => ({ key: String(n), label: String(n), value: counts[n] || 0 }));
+  }, [data]);
 
   // "Other" and "Uncategorised" are moneyFlow.js's own bucket names (English
   // constants, not user data) and get translated here; every other row is a
@@ -893,6 +906,45 @@ export default function KpiDashboardPage() {
                   </p>
                 )}
               </div>
+            </div>
+          </section>
+
+          {/* ── Customer ─────────────────────────────────────────────────── */}
+          <section>
+            <SectionHeading
+              title={t("app.kpis.customer.title", "Customer")}
+              subtitle={t(
+                "app.kpis.customer.subtitle",
+                "What clients say after the work is done — one question, sent alongside the review-request email.",
+              )}
+            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <KpiTile
+                label={t("app.kpis.csat", "Customer satisfaction")}
+                data={data.customer.csat}
+                format={(v) => `${v} / 5`}
+                hint={t(
+                  "app.kpis.csatHint",
+                  "Average of the one-question survey sent after a job. Only companies with a review link set today collect this — it rides the same email.",
+                )}
+              />
+              {csatRows.length > 0 && (
+                <div className="rounded-lg border border-border p-4">
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
+                    {t("app.kpis.csatBreakdown", "Answers by score")}
+                  </div>
+                  <BarComparison rows={csatRows} formatValue={(v) => v} />
+                  {data.customer.csat.raw?.lowScoreCount > 0 && (
+                    <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                      {t(
+                        "app.kpis.csatLowScoreNote",
+                        "{count} of these rated 1 or 2 — worth a follow-up call.",
+                        { count: data.customer.csat.raw.lowScoreCount },
+                      )}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </section>
 

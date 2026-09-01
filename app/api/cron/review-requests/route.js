@@ -21,6 +21,19 @@
 // The trade is that a send failing after the claim means that customer is
 // never asked. That's the right way round: not asking costs a review, asking
 // twice costs the relationship.
+//
+// ══ The satisfaction survey rides this same claim ══════════════════════════
+//
+// A SatisfactionResponse row is upserted (keyed on the job's own unique
+// jobId) right after the review-request claim succeeds, and its token is
+// handed to buildReviewEmail() so the rating row can link somewhere. Upsert,
+// not create, because the row must survive the "email isn't configured yet"
+// branch below re-releasing the claim and trying again next hour — a second
+// upsert on the same job is then a no-op that keeps the SAME token rather
+// than minting (and orphaning) a new one. See lib/reviews/satisfaction.js and
+// docs/CUSTOMER-SATISFACTION.md for why this rides the review-request cron
+// instead of a second one: it also means a company with no reviewUrl set
+// collects no satisfaction data either, a known trade-off written up there.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -30,6 +43,7 @@ import { sendEmail } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
 import { shouldRequestReview, clampDelay, MAX_DELAY_HOURS } from "@/lib/reviews/request";
 import { buildReviewEmail } from "@/lib/reviews/reviewEmail";
+import { newSurveyToken } from "@/lib/reviews/satisfactionTokens";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { ensureSubscriber, unsubscribeHeaders } from "@/lib/marketing/unsubscribe";
 
@@ -120,11 +134,32 @@ export async function GET(request) {
       if (claim.count === 0) { note("Another run got there first."); continue; }
 
       const language = resolveClientLanguage({ client, company });
+
+      // Upsert rather than create: see the file header for why a retried run
+      // (the "email isn't configured yet" branch below releases the claim)
+      // must find and reuse the SAME token instead of minting a second one.
+      // `update: {}` is deliberately a no-op — an existing row is never
+      // touched, so a survey already answered before a hypothetical retry
+      // keeps its score and comment.
+      const survey = await db.satisfactionResponse.upsert({
+        where: { jobId: job.id },
+        create: {
+          companyId: company.id,
+          jobId: job.id,
+          clientId: client?.id || null,
+          token: newSurveyToken(),
+          language,
+        },
+        update: {},
+        select: { token: true },
+      });
+
       const email = buildReviewEmail({
         company,
         client,
         language,
         unsubscribeToken: subscriber?.unsubscribeToken,
+        surveyToken: survey.token,
         request,
       });
       if (!email) { note("Couldn't build the email."); continue; }
