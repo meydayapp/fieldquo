@@ -8,6 +8,7 @@ import { ArrowLeft, Search } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
+import { CALLBACK_REASONS, CALLBACK_REASON_LABEL_KEYS } from "@/lib/jobs/callbackReasons";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -18,6 +19,10 @@ export default function NewJobPage() {
   const searchParams = useSearchParams();
   // Support being opened pre-scoped to a client (e.g. from a client page).
   const presetClientId = searchParams.get("clientId");
+  // Opened from a job's own page as "log a callback job" — see
+  // Job.originalJobId's own comment for why a big-enough return gets its own
+  // job rather than one more visit on the original.
+  const originalJobId = searchParams.get("originalJobId");
 
   const [clients, setClients] = useState([]);
   const [clientSearch, setClientSearch] = useState("");
@@ -25,9 +30,27 @@ export default function NewJobPage() {
   const [title, setTitle] = useState("");
   const [recurring, setRecurring] = useState(false);
   const [recurrenceRule, setRecurrenceRule] = useState("");
+  const [originalJob, setOriginalJob] = useState(null);
+  const [callbackReason, setCallbackReason] = useState("");
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!originalJobId) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/jobs/${originalJobId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setOriginalJob(data);
+        if (!title) setTitle(t("app.jobNew.callbackTitle", "Callback: {title}", { title: data.title }));
+      } catch {
+        /* the banner below just won't have a title — the form still works */
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    })();
+  }, [originalJobId]);
 
   // The same rule POST /api/jobs enforces. It refused correctly and this screen
   // did not: QA reached the full form by direct URL, filled it in, and the save
@@ -70,6 +93,10 @@ export default function NewJobPage() {
       setError(t("app.jobNew.titleRequired"));
       return;
     }
+    if (originalJobId && !callbackReason) {
+      setError(t("app.jobNew.callbackReasonRequired", "Say why this is a callback."));
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/jobs", {
@@ -80,6 +107,7 @@ export default function NewJobPage() {
           title,
           recurring,
           recurrenceRule: recurring ? recurrenceRule : null,
+          ...(originalJobId && { originalJobId, callbackReason }),
         }),
       });
       const data = await res.json();
@@ -196,6 +224,38 @@ export default function NewJobPage() {
             </>
           )}
         </div>
+
+        {originalJobId && (
+          <div className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 space-y-3">
+            <p className="text-sm text-amber-800 dark:text-amber-200">
+              {t(
+                "app.jobNew.callbackBanner",
+                "This job is a callback for {title} — it will show on that job's page, and count toward the rework/callback rate on the KPI dashboard.",
+                { title: originalJob?.title || originalJobId },
+              )}
+            </p>
+            <div>
+              <label className="text-sm font-medium text-foreground block mb-1">
+                {t("app.jobNew.callbackReason", "Why are you going back?")} <span className="text-red-500">*</span>
+              </label>
+              <select
+                className={inputClass}
+                value={callbackReason}
+                onChange={(e) => setCallbackReason(e.target.value)}
+              >
+                <option value="">{t("app.jobNew.selectReason", "Select a reason")}</option>
+                {CALLBACK_REASONS.map((reason) => {
+                  const [key, fallback] = CALLBACK_REASON_LABEL_KEYS[reason];
+                  return (
+                    <option key={reason} value={reason}>
+                      {t(key, fallback)}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          </div>
+        )}
 
         <div>
           <label className="text-sm font-medium text-foreground block mb-1">

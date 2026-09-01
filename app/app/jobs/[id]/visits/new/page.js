@@ -23,6 +23,7 @@ import {
   normalizeChecklistItems,
   PHASE_LABELS,
 } from "@/lib/jobs/checklistItems";
+import { CALLBACK_REASONS, CALLBACK_REASON_LABEL_KEYS } from "@/lib/jobs/callbackReasons";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm bg-card focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -40,6 +41,11 @@ export default function NewVisitPage() {
   const [assignedToId, setAssignedToId] = useState("");
   const [notes, setNotes] = useState("");
   const [chosenIds, setChosenIds] = useState([]);
+  // A return to the SAME job — see JobVisit.returnReason's own comment for
+  // when this is the right shape versus a whole new callback job.
+  const [isReturn, setIsReturn] = useState(false);
+  const [returnReason, setReturnReason] = useState("");
+  const [returnNotes, setReturnNotes] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -120,6 +126,10 @@ export default function NewVisitPage() {
       setError("Pick a date and time for the visit.");
       return;
     }
+    if (isReturn && !returnReason) {
+      setError(t("app.job.returnReasonRequired", "Say why you're going back."));
+      return;
+    }
 
     setSaving(true);
     try {
@@ -134,6 +144,8 @@ export default function NewVisitPage() {
           // empty list into null so "no checklist" stays distinguishable from
           // "a checklist with nothing on it".
           checklistItems,
+          returnReason: isReturn ? returnReason : null,
+          returnNotes: isReturn ? returnNotes.trim() || null : null,
         }),
       });
       if (!res.ok) {
@@ -234,6 +246,61 @@ export default function NewVisitPage() {
               placeholder="Gate code, where to park, who to ask for"
               className={inputClass}
             />
+          </div>
+
+          <div className="border-t border-border pt-4">
+            <label className="flex items-center gap-2.5 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={isReturn}
+                onChange={(e) => {
+                  setIsReturn(e.target.checked);
+                  if (!e.target.checked) setReturnReason("");
+                }}
+              />
+              {t("app.job.isReturnVisit", "This is a return to fix or check something from earlier on this job")}
+            </label>
+            {isReturn && (
+              <div className="mt-3 space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    {t("app.job.returnReason", "Why are you going back?")}
+                  </label>
+                  <select
+                    value={returnReason}
+                    onChange={(e) => setReturnReason(e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="">{t("app.jobNew.selectReason", "Select a reason")}</option>
+                    {CALLBACK_REASONS.map((reason) => {
+                      const [key, fallback] = CALLBACK_REASON_LABEL_KEYS[reason];
+                      return (
+                        <option key={reason} value={reason}>
+                          {t(key, fallback)}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    {t("app.job.returnNotes", "What the client reported, or what you found")}
+                  </label>
+                  <textarea
+                    value={returnNotes}
+                    onChange={(e) => setReturnNotes(e.target.value)}
+                    rows={2}
+                    className={inputClass}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {t(
+                    "app.job.returnVisitHint",
+                    "This counts toward the rework/callback rate on the KPI dashboard, unless you mark it \"not our fault.\"",
+                  )}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
