@@ -62,6 +62,7 @@ import BrandTheme from "@/app/components/BrandTheme";
 import { moneyFormatter } from "@/lib/format/money";
 import { paymentMethodLabel } from "@/lib/payments/methodLabels";
 import { documentLabels } from "@/lib/i18n/documentLabels";
+import { documentIssueDate } from "@/lib/documents/issueDate";
 import { taxStatement } from "@/lib/tax/documentTax";
 import TaxUnresolvedModal from "@/app/components/tax/TaxUnresolvedModal";
 import LifecycleBanners from "./LifecycleBanners";
@@ -714,7 +715,13 @@ export default function InvoiceDetailPage() {
           </div>
 
           <dl className="text-sm space-y-1 sm:text-right">
-            <Fact label={labels.date} value={formatDate(invoice.createdAt)} />
+            {/* sentAt over createdAt when the invoice has actually gone out —
+                see lib/documents/issueDate.js. Otherwise the office would read
+                a March date on an invoice the client only received in May. */}
+            <Fact
+              label={labels.date}
+              value={formatDate(documentIssueDate(invoice))}
+            />
             {/* Only when there is one. A due date is the thing the overdue
                 banner is measured against, and an absent one is why that
                 banner correctly says nothing. */}

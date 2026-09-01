@@ -332,6 +332,28 @@ export default function JobPanel({
               : t("app.invoiceJob.linkedViaQuote")}
           </p>
 
+          {/* The work's own dates, when the job has them — so somebody
+              billing or chasing from this screen can see the job is already
+              scheduled without the visit list making it look otherwise. Set
+              from the job page itself; this panel doesn't duplicate that
+              form, same rule as the visit picker below it. */}
+          {job.startDate && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t("app.job.workDates", "Work scheduled")}:{" "}
+              <span className="font-medium text-foreground">
+                {formatDate(job.startDate)}
+              </span>
+              {job.endDate && (
+                <>
+                  {" – "}
+                  <span className="font-medium text-foreground">
+                    {formatDate(job.endDate)}
+                  </span>
+                </>
+              )}
+            </p>
+          )}
+
           <div className="mt-3">
             <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-1">
               {t("app.invoiceJob.visits")}

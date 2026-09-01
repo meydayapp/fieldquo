@@ -17,6 +17,7 @@ import {
   resolveTaskBySource,
 } from "@/lib/tasks/autoCreate";
 import { recordActivity } from "@/lib/activity/log";
+import { validateJobDates, parseDateOrNull } from "@/lib/jobs/validateJobDates";
 
 // Next 16: params is a Promise.
 export async function GET(request, { params }) {
@@ -95,7 +96,32 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await request.json();
-  const { title, status, recurring, recurrenceRule, archived } = body;
+  const { title, status, recurring, recurrenceRule, archived, startDate, endDate } = body;
+
+  // ── The job's own start/end, validated against the row's REAL resulting
+  // state ──────────────────────────────────────────────────────────────────
+  //
+  // Merged with what the row already has for whichever field this PATCH
+  // didn't touch — a request that only sends `endDate` still has to make
+  // sense next to whatever `startDate` already is, not be validated alone and
+  // let a bad combination through one field at a time. `undefined` means "not
+  // in this request, keep the existing value"; an explicit `null` clears it.
+  const isBlank = (v) => v === null || v === undefined || v === "";
+  const nextStart = startDate !== undefined ? parseDateOrNull(startDate) : existing.startDate;
+  const nextEnd = endDate !== undefined ? parseDateOrNull(endDate) : existing.endDate;
+  // A blank value clears the field on purpose (`nextStart`/`nextEnd` above is
+  // already null for it) — this only catches a value that was SENT and isn't
+  // blank but still failed to parse, e.g. a malformed string.
+  if (startDate !== undefined && !isBlank(startDate) && nextStart === null) {
+    return NextResponse.json({ error: "That start date couldn't be read." }, { status: 400 });
+  }
+  if (endDate !== undefined && !isBlank(endDate) && nextEnd === null) {
+    return NextResponse.json({ error: "That end date couldn't be read." }, { status: 400 });
+  }
+  const dateCheck = validateJobDates({ startDate: nextStart, endDate: nextEnd });
+  if (!dateCheck.ok) {
+    return NextResponse.json({ error: dateCheck.error }, { status: 400 });
+  }
 
   // Stamp when the work actually finished.
   //
@@ -107,15 +133,30 @@ export async function PATCH(request, { params }) {
   const completing = status === "completed" && existing.status !== "completed";
   const reopening = status !== undefined && status !== "completed" && existing.completedAt;
 
+  // Giving the job a start date IS scheduling it — the same rule
+  // POST /api/jobs/[id]/visits already applies for a first visit. Only fires
+  // from `unscheduled`, so a completed/in-progress/cancelled job that later
+  // gets its dates corrected isn't dragged backwards to "scheduled" — and
+  // only when this request isn't ALSO setting a status itself, so an explicit
+  // status change in the same PATCH is never silently overridden by this one.
+  const schedulingByDate =
+    status === undefined &&
+    existing.status === "unscheduled" &&
+    !existing.startDate &&
+    nextStart;
+
   const updated = await db.job.update({
     where: { id: id },
     data: {
       ...(title !== undefined && { title }),
       ...(status !== undefined && { status }),
+      ...(schedulingByDate && { status: "scheduled" }),
       ...(completing && { completedAt: new Date() }),
       ...(reopening && { completedAt: null }),
       ...(recurring !== undefined && { recurring }),
       ...(recurrenceRule !== undefined && { recurrenceRule }),
+      ...(startDate !== undefined && { startDate: nextStart }),
+      ...(endDate !== undefined && { endDate: nextEnd }),
       // Archiving is a separate axis from status — see Job.archivedAt. A job
       // can be archived whatever state the work is in, and unarchiving is
       // just as available, because nothing was destroyed.
@@ -156,6 +197,15 @@ export async function PATCH(request, { params }) {
   // Filing a job away also settles "schedule this job" — you are not going to
   // book work you have just put in the drawer.
   if (existing.quoteId && archived === true && !existing.archivedAt) {
+    await resolveTaskBySource(`quote_accepted:${existing.quoteId}`);
+  }
+
+  // Giving the job dates settles the same "schedule this job" task that a
+  // first visit already closes — see POST /api/jobs/[id]/visits. Fires
+  // whenever a start date newly appears, not only when it happens to also
+  // flip the status: a job someone already nudged to "scheduled" by hand
+  // still had the task open if nobody had booked a visit yet.
+  if (existing.quoteId && !existing.startDate && nextStart) {
     await resolveTaskBySource(`quote_accepted:${existing.quoteId}`);
   }
 

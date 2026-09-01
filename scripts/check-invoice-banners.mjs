@@ -232,6 +232,24 @@ t("a PAST unassigned visit is history, not a prompt",
   }),
   []);
 t("a scheduled, staffed job raises nothing", ids({ invoice: base, job }), []);
+t("a job with no visits but its OWN start/end date → no false 'needs a visit' claim",
+  ids({
+    invoice: base,
+    job: { ...job, visits: [], startDate: "2026-09-01", endDate: "2026-09-14" },
+  }).includes("jobUnscheduled"),
+  false);
+t("...raises nothing at all — dates are a complete answer, not a lesser one",
+  ids({
+    invoice: base,
+    job: { ...job, visits: [], startDate: "2026-09-01", endDate: "2026-09-14" },
+  }),
+  []);
+t("a start date with no end yet STILL counts as scheduled",
+  ids({
+    invoice: base,
+    job: { ...job, visits: [], startDate: "2026-09-01", endDate: null },
+  }).includes("jobUnscheduled"),
+  false);
 
 console.log("\nOrder: money before housekeeping");
 const messy = { ...late, client: { name: "ZZ", email: null } };

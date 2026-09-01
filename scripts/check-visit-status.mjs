@@ -28,6 +28,8 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { visitActions, VISIT_STATUS_LABELS, mayMoveVisit } from "../lib/jobs/visitStatus.js";
+import { validateJobDates, parseDateOrNull } from "../lib/jobs/validateJobDates.js";
+import { isVisitOutsideJobRange } from "../lib/jobs/visitInRange.js";
 
 let fail = 0;
 const ok = (c, m, d) => {
@@ -138,6 +140,125 @@ ok(
     /visit\.assignedToId !== null/.test(ROUTE) &&
     /hasLevel\(full, "schedule", "edit_all"\)/.test(ROUTE),
   "the route still asks those same three questions — if it stops, the UI above is now guessing",
+);
+
+// ══ 6. A visit isn't the only way off "unscheduled" ════════════════════════
+//
+// The job page used to offer exactly one door out of `unscheduled` —
+// "Schedule a visit" — for work that has no site trip at all, only a start
+// and end date. Job.startDate/endDate is the second door; this section checks
+// the validator hostile input can't get past, and that the route and the
+// banner actually wired it up rather than adding a column nobody reads.
+
+section("6. Job.startDate/endDate — the second way off \"unscheduled\"");
+
+ok(validateJobDates({ startDate: null, endDate: null }).ok === true, "no dates at all is valid — nothing to say yet");
+ok(
+  validateJobDates({ startDate: new Date("2026-03-01"), endDate: null }).ok === true,
+  "a start with no end is valid — the work has begun and isn't finished yet",
+);
+{
+  const r = validateJobDates({ startDate: null, endDate: new Date("2026-03-01") });
+  ok(r.ok === false, "an end with no start is refused", r);
+}
+{
+  const r = validateJobDates({
+    startDate: new Date("2026-03-10"),
+    endDate: new Date("2026-03-01"),
+  });
+  ok(r.ok === false, "an end before its own start is refused", r);
+}
+ok(
+  validateJobDates({
+    startDate: new Date("2026-03-01"),
+    endDate: new Date("2026-03-01"),
+  }).ok === true,
+  "a same-day start and end is valid — a one-day job",
+);
+{
+  // Exactly the 366-day ceiling (a real project spanning one calendar year,
+  // leap day included) must still be accepted — only OVER it is refused.
+  const start = new Date("2026-01-01");
+  const end = new Date(start.getTime() + 366 * 86400000);
+  ok(validateJobDates({ startDate: start, endDate: end }).ok === true, "366 days — the ceiling itself — is accepted");
+  const tooFar = new Date(start.getTime() + 367 * 86400000);
+  const r = validateJobDates({ startDate: start, endDate: tooFar });
+  ok(r.ok === false, "367 days is refused as almost certainly a typo'd year", r);
+}
+{
+  const r = validateJobDates({ startDate: new Date("2026-01-01"), endDate: "not-a-date" });
+  ok(r.ok === false, "an unparseable end date is refused, not silently dropped", r);
+}
+ok(parseDateOrNull("") === null, "an empty string clears the field rather than throwing");
+ok(parseDateOrNull(null) === null, "null clears the field");
+ok(parseDateOrNull("banana") === null, "garbage input parses to null for the route to turn into a 400");
+ok(
+  parseDateOrNull("2026-03-01T00:00:00.000Z") instanceof Date,
+  "a real ISO string still parses to a Date",
+);
+
+const JOB_ROUTE = read("app/api/jobs/[id]/route.js");
+ok(
+  /validateJobDates\(/.test(JOB_ROUTE),
+  "PATCH /api/jobs/[id] actually calls the validator rather than trusting the body",
+);
+ok(
+  /schedulingByDate/.test(JOB_ROUTE) && /status === "unscheduled"/.test(JOB_ROUTE),
+  "setting a start date flips the job off \"unscheduled\", mirroring the visits route",
+);
+ok(
+  /existing\.quoteId && !existing\.startDate && nextStart/.test(JOB_ROUTE),
+  "giving the job dates also resolves the \"schedule this job\" task, same as a first visit does",
+);
+
+// The banner an invoice shows for its job ("204 Avro Cir has no visit
+// booked") is exactly the "needs a visit" claim the owner reported as wrong
+// for a job that only needs its own dates — see lib/invoices/lifecycle.js and
+// scripts/check-invoice-banners.mjs for the fix to the claim itself. This
+// checks the other half: the API route that feeds that banner has to
+// actually SELECT startDate/endDate, or the fixed logic sees `undefined`
+// forever and the false claim comes right back.
+const LIFECYCLE_ROUTE = read("app/api/invoices/[id]/lifecycle/route.js");
+ok(
+  /const JOB_SELECT = \{[\s\S]*?startDate: true,[\s\S]*?endDate: true,[\s\S]*?\}/.test(LIFECYCLE_ROUTE),
+  "the invoice lifecycle route's JOB_SELECT loads startDate/endDate, not just visits",
+);
+
+// isVisitOutsideJobRange: a nudge, never a rule — see lib/jobs/visitInRange.js.
+// `new Date(null)` is a real, valid date (1970-01-01), not NaN, which is
+// exactly the trap that made an early version of this flag EVERY visit on
+// EVERY job that simply had no date range set yet — "after 1970" is not a
+// warning anyone needs. These cases exist specifically to keep that from
+// coming back.
+ok(isVisitOutsideJobRange({ scheduledAt: "2026-03-05T14:00:00Z" }, { startDate: "2026-03-01", endDate: "2026-03-10" }) === false, "a visit inside the range is not flagged");
+ok(isVisitOutsideJobRange({ scheduledAt: "2026-02-28T14:00:00Z" }, { startDate: "2026-03-01", endDate: "2026-03-10" }) === true, "a visit before the start is flagged");
+ok(isVisitOutsideJobRange({ scheduledAt: "2026-03-11T00:30:00Z" }, { startDate: "2026-03-01", endDate: "2026-03-10" }) === true, "a visit after the end is flagged");
+ok(isVisitOutsideJobRange({ scheduledAt: "2026-03-10T23:00:00Z" }, { startDate: "2026-03-01", endDate: "2026-03-10" }) === false, "late in the day on the end date still counts as on-range — day comparison, not timestamp");
+ok(isVisitOutsideJobRange({ scheduledAt: "2026-06-01T00:00:00Z" }, { startDate: "2026-03-01", endDate: null }) === false, "an open-ended job (no end date yet) never flags a later visit as \"after\" a bound that doesn't exist");
+ok(isVisitOutsideJobRange({ scheduledAt: "2026-03-05T00:00:00Z" }, { startDate: null, endDate: null }) === false, "a job with no dates at all flags nothing — null must not read as epoch 1970");
+ok(isVisitOutsideJobRange({ scheduledAt: null }, { startDate: "2026-03-01", endDate: "2026-03-10" }) === false, "a visit missing its own scheduledAt is not flagged");
+ok(isVisitOutsideJobRange({ scheduledAt: "garbage" }, { startDate: "2026-03-01", endDate: "2026-03-10" }) === false, "an unparseable visit date is not flagged");
+ok(isVisitOutsideJobRange(null, { startDate: "2026-03-01" }) === false, "a null visit doesn't throw");
+ok(isVisitOutsideJobRange({ scheduledAt: "2026-03-05" }, null) === false, "a null job doesn't throw");
+
+const JOB_DETAIL = read("app/app/jobs/[id]/JobDetail.js");
+ok(
+  /isVisitOutsideJobRange/.test(JOB_DETAIL) &&
+    /outsideRange|visitOutsideRange/i.test(JOB_DETAIL),
+  "the job page actually surfaces the flag, not only computes it",
+);
+ok(
+  /job\.status === "unscheduled"/.test(JOB_DETAIL),
+  "the \"needs a date\" banner is still keyed off the same status a date OR a visit both resolve",
+);
+ok(
+  /startDate/.test(JOB_DETAIL) && /endDate/.test(JOB_DETAIL),
+  "the job page actually reads startDate/endDate rather than only visits — the banner would otherwise still point at just one door",
+);
+ok(
+  /\/edit/.test(JOB_DETAIL.slice(JOB_DETAIL.indexOf("needs a date") - 400, JOB_DETAIL.indexOf("needs a date") + 800)) ||
+    /jobs\/\$\{jobId\}\/edit/.test(JOB_DETAIL),
+  "the banner (or the page around it) offers a path to the edit page where dates are set, not only \"schedule a visit\"",
 );
 
 console.log(

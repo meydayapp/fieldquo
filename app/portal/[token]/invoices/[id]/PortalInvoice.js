@@ -26,6 +26,7 @@ import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import { offlinePaymentLines } from "@/lib/payments/offlinePaymentNote";
 import { taxIdLine } from "@/lib/documents/taxId";
+import { documentIssueDate } from "@/lib/documents/issueDate";
 import { jsonBody } from "@/lib/jsonBody";
 
 export default function PortalInvoice({ token, invoiceId }) {
@@ -180,6 +181,16 @@ export default function PortalInvoice({ token, invoiceId }) {
               <div className="font-mono text-sm text-[#2d2520] mt-1">
                 {invoice.invoiceNumber}
               </div>
+              {/* The one date this document was missing entirely — the number
+                  and the amount owed were here, but nothing said which day the
+                  bill was actually raised. sentAt over createdAt: an invoice
+                  drafted in March and emailed in May is a May invoice to the
+                  household reading it — see lib/documents/issueDate.js. */}
+              {documentIssueDate(invoice) && (
+                <div className="text-xs text-[#2d2520]/55 mt-1">
+                  {labels.date} {date(documentIssueDate(invoice))}
+                </div>
+              )}
               {invoice.dueDate && (
                 <div
                   className={`text-xs mt-1 ${overdue ? "text-red-700" : "text-[#2d2520]/55"}`}

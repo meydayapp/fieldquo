@@ -81,6 +81,12 @@ const JOB_SELECT = {
   status: true,
   completedAt: true,
   quoteId: true,
+  // Read so selectInvoiceBanners can tell "no visit booked yet" apart from "no
+  // visit booked, and doesn't need one — the work has its own dates". Without
+  // this the jobUnscheduled banner would keep firing on a job that HAS an
+  // answer, because the column it needed to check was never loaded.
+  startDate: true,
+  endDate: true,
   visits: {
     orderBy: { scheduledAt: "asc" },
     select: {
