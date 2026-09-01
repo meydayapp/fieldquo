@@ -8,6 +8,27 @@ page, wiring its API and passing `check:all` proves the code exists. It does not
 prove anybody can find it. Every bug the owner found on 2026-08-30 lived in that
 gap.
 
+## In flight — 5 agents, night of 2026-08-31
+
+| What | Where | State |
+|---|---|---|
+| Meta ad spend + insights | `lib/meta/`, marketing KPIs | building |
+| Publish a design to Instagram / Facebook | Marketing Designer | building |
+| Mobile sweep — client-facing pages | `app/quote`, `book`, `q`, `portal`, `site` | building |
+| Mobile sweep — back office | `app/app/**` | building |
+| KPI empty states | — | **landed** |
+
+### Lost, and re-dispatched
+
+Five agents ran a long time on the night of 2026-08-30 and produced **no
+branch and no commits**: four mobile sweeps and the crisis rule. The crisis
+rule has since been rebuilt and landed. Two of the four mobile sweeps are
+re-dispatched above; the dense-screens sweep (settings, analytics, designer,
+platform) and the mobile regression check are still outstanding.
+
+The lesson is procedural: an agent reporting a long run is not evidence of
+work. Check `git rev-list --count main..<branch>` before believing a summary.
+
 ## In flight
 
 Nothing. Everything dispatched overnight has landed and been verified.
