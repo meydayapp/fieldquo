@@ -1,20 +1,48 @@
 // app/api/marketing/designer/designs/[id]/publish/route.js
 //
-// POST — publish a rendered MarketingDesign asset to the company's connected
-// Facebook Page and/or Instagram account, one platform at a time so a
-// Facebook success and an Instagram failure never masquerade as a single
-// pass/fail. GET — connection status plus this design's publish history, so
-// the modal can show "already posted this today" instead of inviting a
-// duplicate.
+// POST — publish (or schedule) a rendered MarketingDesign asset to the
+// company's connected Facebook Page and/or Instagram account, one platform
+// at a time so a Facebook success and an Instagram failure never masquerade
+// as a single pass/fail. GET — connection status, visibility, and this
+// design's publish history, so the modal can show "already posted this
+// today" instead of inviting a duplicate.
 //
 // This route never trusts the browser's word that a connection exists — it
 // re-checks lib/social/metaConnection.js itself, same as every money amount
 // in this codebase is re-priced server-side rather than taken from the
 // client (AGENTS.md non-negotiable #5, the identical discipline applied to
 // "are we actually allowed to do this" instead of "what does this cost").
-// In this build getMetaConnection() always returns connected: false — see
-// that file's own header for why, and what must change for this route to
-// start actually posting.
+// For a real company, getMetaConnection() still always returns
+// connected: false — see that file's own header for why, and what must
+// change for this route to start actually posting. For a DEMO company
+// (Company.isDemo) it returns a fabricated connected:true, mock:true
+// connection instead — see "mock" below.
+//
+// ══ Hidden until Meta approves the app (docs/SOCIAL-SCHEDULING.md) ═════════
+//
+// `visible` gates the whole feature for a REAL company: it is true only once
+// META_APP_ID/META_APP_SECRET exist (metaAppConfigured(), lib/meta/client.js)
+// — real configuration, not a hand-set flag. A demo company is always
+// visible, because it never needs Meta at all. This route refuses with 403
+// when !visible, same as the UI hides the Publish button entirely for that
+// case (CampaignEditor.js) — both the client-side hiding AND this
+// server-side refusal exist, because AGENTS.md's rule is "hiding a button is
+// not access control."
+//
+// ══ Scheduling ══════════════════════════════════════════════════════════
+//
+// `scheduledFor`, when present, branches per platform:
+//   - Instagram: ALWAYS queued (status "scheduled"), never touches Meta at
+//     schedule time — Instagram has no native scheduling parameter, and
+//     creating a container now would let it expire (24h lifetime) long
+//     before a post scheduled days out ever fires. The cron
+//     (app/api/cron/social-scheduled-publish/route.js) creates the
+//     container AND publishes, together, at fire time.
+//   - Facebook, real company: handed to Meta's own native scheduler right
+//     now (POST /{page-id}/photos, published:false + scheduled_publish_time)
+//     — Meta holds and fires it; this route and the cron do nothing more.
+//   - Facebook, DEMO (mock) company: also queued, exactly like Instagram —
+//     there is no real Meta scheduler for a mock post to hand off to.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -24,10 +52,21 @@ import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { uploadBuffer } from "@/lib/cloudinary";
 import { ratio as ratioByKey } from "@/lib/marketing/ratios";
-import { validateCaption, INSTAGRAM_COMPLIANT_RATIO_KEY } from "@/lib/social/metaSpecs";
+import {
+  validateCaption,
+  isValidFacebookScheduleTime,
+  isSocialPublishingVisible,
+} from "@/lib/social/metaSpecs";
+import { metaAppConfigured } from "@/lib/meta/client";
 import { getMetaConnection } from "@/lib/social/metaConnection";
-import { publishToInstagram, publishToFacebook, PublishRefusal } from "@/lib/social/publishDesign";
+import {
+  publishToInstagram,
+  publishToFacebook,
+  validateInstagramSchedule,
+  PublishRefusal,
+} from "@/lib/social/publishDesign";
 import * as metaGraphClient from "@/lib/social/metaGraphClient";
+import * as mockMetaGraphClient from "@/lib/social/mockMetaGraphClient";
 
 function requireMarketingManager(role) {
   // Same axis as every other write in this area — see
@@ -53,6 +92,12 @@ const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
 
 const PLATFORMS = new Set(["facebook", "instagram"]);
 
+// The only two failures a demo operator can ask the mock client to produce —
+// see lib/social/mockMetaGraphClient.js's header. Anything else in the body
+// is ignored, and NOTHING here is ever honored for a real (non-mock)
+// connection: see the `isMock ? simulateFailure : null` gate below.
+const SIMULATABLE_FAILURES = new Set(["rate_limited", "container_error"]);
+
 export async function GET(request, { params }) {
   const { id } = await params;
   const { member, response } = await memberOrRefusal(request);
@@ -70,7 +115,13 @@ export async function GET(request, { params }) {
     }),
   ]);
 
+  const appConfigured = metaAppConfigured();
+  const visible = isSocialPublishingVisible({ isDemo: connection.mock, appConfigured });
+
   return NextResponse.json({
+    visible,
+    appConfigured,
+    mock: Boolean(connection.mock),
     connected: Boolean(connection?.connected),
     pageName: connection?.pageName || null,
     instagramUsername: connection?.instagramUsername || null,
@@ -94,6 +145,26 @@ export async function POST(request, { params }) {
 
   const design = await loadOwned(member.companyId, id);
   if (!design) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // ── The hide-until-approved gate, enforced here too ──────────────────────
+  //
+  // CampaignEditor.js doesn't render the Publish button at all for a real
+  // company until metaAppConfigured() is true (see that file). This is the
+  // server-side half — a hidden button is not access control, and a direct
+  // POST must refuse the identical way the UI never offers it. One
+  // connection fetch here, reused for the rest of this request instead of
+  // queried twice.
+  const connection = await getMetaConnection(member.companyId);
+  const visible = isSocialPublishingVisible({ isDemo: connection.mock, appConfigured: metaAppConfigured() });
+  if (!visible) {
+    return NextResponse.json(
+      {
+        error: "not_available",
+        message: "Instagram and Facebook publishing isn't available on this deployment yet.",
+      },
+      { status: 403 },
+    );
+  }
 
   let body;
   try {
@@ -130,6 +201,31 @@ export async function POST(request, { params }) {
     );
   }
 
+  // ── scheduledFor: absent/null/"" means publish now ───────────────────────
+  //
+  // Parsed with the platform-agnostic bare `new Date(...)` constructor —
+  // never manual offset arithmetic — specifically so a DST transition
+  // between "now" and the chosen moment can't shift the boundary by an
+  // hour: epoch milliseconds (what Date stores and compares) have no
+  // timezone to fall out of step with. The browser sends an ISO string with
+  // its own offset baked in (see PublishModal.js), so this reconstructs the
+  // exact instant the contractor picked, in whatever timezone they're in.
+  let scheduledFor = null;
+  if (body?.scheduledFor !== undefined && body?.scheduledFor !== null && body?.scheduledFor !== "") {
+    const parsed = new Date(body.scheduledFor);
+    if (Number.isNaN(parsed.getTime())) {
+      return NextResponse.json(
+        { error: "invalid_schedule", message: "That isn't a valid date and time." },
+        { status: 400 },
+      );
+    }
+    scheduledFor = parsed;
+  }
+
+  // Demo-only, and only ever honored per-platform below when that
+  // platform's connection is the mock — see SIMULATABLE_FAILURES above.
+  const simulateFailure = SIMULATABLE_FAILURES.has(body?.simulateFailure) ? body.simulateFailure : null;
+
   const dataUrl = typeof body?.imageBase64 === "string" ? body.imageBase64 : "";
   const base64 = dataUrl.includes(",") ? dataUrl.slice(dataUrl.indexOf(",") + 1) : dataUrl;
   if (!base64) {
@@ -151,13 +247,13 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: "Image is too large." }, { status: 413 });
   }
 
-  const connection = await getMetaConnection(member.companyId);
   if (!connection?.connected) {
     // No upload, no Meta call — refused before anything is spent proving a
-    // point the connection check already answers. This is the ONLY response
-    // this route can honestly give in the current build; see
+    // point the connection check already answers. For a real company this
+    // is the ONLY response this route can honestly give today; see
     // lib/social/metaConnection.js's header for what has to land before it
-    // can be anything else.
+    // can be anything else. A demo company never reaches this branch —
+    // getMetaConnection() always returns connected:true for one.
     return NextResponse.json(
       {
         error: "not_connected",
@@ -169,7 +265,11 @@ export async function POST(request, { params }) {
   }
 
   // Uploaded once, reused for every requested platform — a contractor
-  // posting to both gets one image, not two separately-encoded copies.
+  // posting to both gets one image, not two separately-encoded copies. Also
+  // reused by a SCHEDULED post: the image is rendered and uploaded now, at
+  // schedule time, precisely so a scheduled row's fire time (days later,
+  // possibly after the design itself is edited or deleted) still has the
+  // exact pixels that were previewed and confirmed.
   let uploaded;
   try {
     uploaded = await uploadBuffer(buffer, {
@@ -195,24 +295,66 @@ export async function POST(request, { params }) {
       member,
       design,
       ratioKey,
+      scheduledFor,
+      simulateFailure,
     });
   }
 
   const anyPublished = Object.values(results).some((r) => r.status === "published");
+  const anyScheduled = Object.values(results).some((r) => r.status === "scheduled");
   await recordActivity(member, {
-    action: "marketing.social_publish",
+    action: scheduledFor ? "marketing.social_schedule" : "marketing.social_publish",
     entityType: "settings",
     entityId: design.id,
     summary: anyPublished
       ? `Published "${design.name}" to ${platforms.join(", ")}`
-      : `Attempted to publish "${design.name}" to ${platforms.join(", ")}`,
-    metadata: { platforms, results: Object.fromEntries(Object.entries(results).map(([k, v]) => [k, v.status])) },
+      : anyScheduled
+        ? `Scheduled "${design.name}" for ${platforms.join(", ")} at ${scheduledFor?.toISOString()}`
+        : `Attempted to publish "${design.name}" to ${platforms.join(", ")}`,
+    metadata: { platforms, scheduledFor, results: Object.fromEntries(Object.entries(results).map(([k, v]) => [k, v.status])) },
   }).catch(() => {});
 
   return NextResponse.json({ results });
 }
 
-async function publishOnePlatform({ platform, connection, imageUrl, width, height, fileSizeBytes, caption, member, design, ratioKey }) {
+// Maps validateInstagramSchedule()'s/the Facebook window check's error
+// vocabulary onto the SAME per-platform result codes an immediate publish
+// already returns (invalid_caption, invalid_image) plus the one new one
+// (invalid_schedule) — so the modal doesn't need a second failure shape to
+// render just because the request was a schedule instead of a publish.
+const CAPTION_ERROR_CODES = new Set(["empty", "too_long", "too_many_hashtags", "too_many_mentions"]);
+const IMAGE_ERROR_CODES = new Set(["no_dimensions", "aspect_ratio", "file_too_large"]);
+
+function scheduleFailureFrom(errors) {
+  if (errors.some((e) => CAPTION_ERROR_CODES.has(e))) {
+    return new PublishRefusal("invalid_caption", "Fix the caption before scheduling.", { errors });
+  }
+  if (errors.some((e) => IMAGE_ERROR_CODES.has(e))) {
+    return new PublishRefusal("invalid_image", "This image doesn't meet Instagram's requirements.", { errors });
+  }
+  return new PublishRefusal("invalid_schedule", "Choose a valid date and time to schedule this post.", { errors });
+}
+
+async function publishOnePlatform({
+  platform,
+  connection,
+  imageUrl,
+  width,
+  height,
+  fileSizeBytes,
+  caption,
+  member,
+  design,
+  ratioKey,
+  scheduledFor,
+  simulateFailure,
+}) {
+  const isMock = Boolean(connection.mock);
+  const client = isMock ? mockMetaGraphClient : metaGraphClient;
+  // Never honored for a real connection — a real company posting this field
+  // in the body is simply ignored, same as any other unrecognised input.
+  const effectiveSimulateFailure = isMock ? simulateFailure : null;
+
   const row = await db.socialPublish.create({
     data: {
       companyId: member.companyId,
@@ -221,10 +363,46 @@ async function publishOnePlatform({ platform, connection, imageUrl, width, heigh
       platform,
       caption,
       imageUrl,
+      width,
+      height,
+      isMock,
+      scheduledFor: scheduledFor || null,
       status: "pending",
     },
   });
 
+  // Instagram is ALWAYS queued when scheduled — it has no native scheduling
+  // parameter, and creating a container now would leave it to expire before
+  // a distant scheduledFor ever arrives. A demo (mock) connection queues
+  // Facebook too, for the reason this file's header explains: there is no
+  // real Meta scheduler standing behind a fabricated connection to hand a
+  // post to. Both cases below reuse validateInstagramSchedule()'s exact
+  // window/caption/image logic — or, for Facebook, the identical
+  // isValidFacebookScheduleTime() a real Facebook schedule is about to be
+  // held to a few lines further down — WITHOUT ever calling `client`.
+  const queueOnly = Boolean(scheduledFor) && (platform === "instagram" || isMock);
+  if (queueOnly) {
+    const check =
+      platform === "instagram"
+        ? validateInstagramSchedule({ caption, width, height, fileSizeBytes, scheduledFor, now: new Date() })
+        : {
+            ok: isValidFacebookScheduleTime(scheduledFor),
+            errors: isValidFacebookScheduleTime(scheduledFor) ? [] : ["invalid_schedule"],
+          };
+
+    if (!check.ok) {
+      return failRow(row, scheduleFailureFrom(check.errors), platform);
+    }
+
+    await db.socialPublish.update({ where: { id: row.id }, data: { status: "scheduled" } });
+    return { status: "scheduled", scheduledFor };
+  }
+
+  // Everything else: an immediate publish on either platform, OR a REAL
+  // Facebook schedule — Meta's own /{page-id}/photos endpoint holds that one
+  // for us the instant this call succeeds, so nothing further has to touch
+  // it (the scheduling cron explicitly skips real, non-mock Facebook rows —
+  // see app/api/cron/social-scheduled-publish/route.js).
   try {
     const result =
       platform === "instagram"
@@ -235,42 +413,54 @@ async function publishOnePlatform({ platform, connection, imageUrl, width, heigh
             width,
             height,
             fileSizeBytes,
-            client: metaGraphClient,
+            client,
+            simulateFailure: effectiveSimulateFailure,
           })
         : await publishToFacebook({
             connection,
             imageUrl,
             caption,
             fileSizeBytes,
-            client: metaGraphClient,
+            scheduledPublishTime: scheduledFor || undefined,
+            client,
+            simulateFailure: effectiveSimulateFailure,
           });
 
     await db.socialPublish.update({
       where: { id: row.id },
       data: {
-        status: "published",
+        // "published" or, for a real Facebook schedule, "scheduled" — never
+        // hardcoded "published" here, which used to be the bug: before this
+        // was wired to a UI, a scheduled Facebook result's `status` field
+        // was silently overwritten to "published" the instant the *native
+        // scheduling call itself* succeeded, which is not the same fact.
+        status: result.status,
         externalContainerId: result.containerId || null,
         externalPostId: result.postId,
-        publishedAt: new Date(),
+        publishedAt: result.status === "published" ? new Date() : null,
       },
     });
 
-    return { status: "published", postId: result.postId };
+    return { status: result.status, postId: result.postId, scheduledFor: scheduledFor || null };
   } catch (err) {
-    if (err instanceof PublishRefusal) {
-      const status = err.code === "rate_limited" ? "rate_limited" : "failed";
-      await db.socialPublish.update({
-        where: { id: row.id },
-        data: { status, errorMessage: err.message, externalContainerId: err.containerId || null },
-      });
-      return { status, code: err.code, message: err.message, rate: err.rate };
-    }
+    return failRow(row, err, platform);
+  }
+}
 
-    console.error("[marketing/designer/publish]", platform, err);
+async function failRow(row, err, platform) {
+  if (err instanceof PublishRefusal) {
+    const status = err.code === "rate_limited" ? "rate_limited" : "failed";
     await db.socialPublish.update({
       where: { id: row.id },
-      data: { status: "failed", errorMessage: "Unexpected error" },
+      data: { status, errorMessage: err.message, externalContainerId: err.containerId || null },
     });
-    return { status: "failed", code: "unexpected", message: "Something went wrong. Nothing was posted." };
+    return { status, code: err.code, message: err.message, rate: err.rate };
   }
+
+  console.error("[marketing/designer/publish]", platform, err);
+  await db.socialPublish.update({
+    where: { id: row.id },
+    data: { status: "failed", errorMessage: "Unexpected error" },
+  });
+  return { status: "failed", code: "unexpected", message: "Something went wrong. Nothing was posted." };
 }
