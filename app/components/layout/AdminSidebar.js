@@ -34,6 +34,7 @@ import {
   Gauge,
   Eye,
   UserCog,
+  ShieldAlert,
   ListTodo,
   CreditCard,
   Settings,
@@ -142,6 +143,11 @@ const NAV_GROUPS = [
       { key: "app.nav.timesheets", href: "/app/settings/team/timesheets", icon: Clock },
       // Top-level, not buried in settings: everyone uses it, not just admins.
       { key: "app.nav.timeOff", href: "/app/time-off", icon: CalendarClock },
+      // Same shelf as the rest of the crew's own records — a near-miss is
+      // worth logging exactly as fast as clocking in. See lib/permissions.js's
+      // "safety" category for who this hides from (report_own is the floor,
+      // not `none`, so this row shows for a Crew member too).
+      { key: "app.nav.safety", href: "/app/safety", icon: ShieldAlert },
     ],
   },
   {

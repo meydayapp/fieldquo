@@ -28,6 +28,7 @@ import { requireCostBasisWrite } from "@/lib/permissions/costBasis";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { assetCharge } from "@/lib/accounting/depreciation";
 import { recordActivity } from "@/lib/activity/log";
+import { isAssetCategory } from "@/lib/costing/assetLifeSuggestions";
 
 const SELECT = {
   id: true,
@@ -40,6 +41,7 @@ const SELECT = {
   active: true,
   debtId: true,
   notes: true,
+  category: true,
   debt: { select: { id: true, name: true, monthlyPayment: true } },
 };
 
@@ -101,6 +103,10 @@ export async function PATCH(request, { params }) {
   }
 
   if (body?.active !== undefined) data.active = !!body.active;
+
+  if (body?.category !== undefined) {
+    data.category = body.category && isAssetCategory(body.category) ? body.category : null;
+  }
 
   if (Object.keys(data).length === 0)
     return NextResponse.json({ error: "Nothing to change." }, { status: 400 });

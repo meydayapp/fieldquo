@@ -54,7 +54,8 @@ export default function JobCosting({ jobId }) {
   const nothingRecorded =
     !actual.expenses.total &&
     !actual.labour.approvedHours &&
-    !actual.labour.pendingHours;
+    !actual.labour.pendingHours &&
+    !actual.equipment?.total;
   if (nothingRecorded && comparison.revenue == null) return null;
 
   // Currency comes from the endpoint, which reads it off the company. Not a
@@ -119,6 +120,42 @@ export default function JobCosting({ jobId }) {
             "Overhead is this job's share of what the business costs to run — your fixed costs spread across the jobs you take on.",
           )}
         </p>
+      )}
+
+      {/* ── Equipment logged against this job ────────────────────────────
+          Null when nothing was logged — see EquipmentUseLog.js and the
+          double-count note on lib/costing/actualJobCost.js. Two very
+          different sentences depending on `includedInOverhead`:
+          `true` means the overhead figure ABOVE already carries this —
+          shown as information, never implied to be additional cost.
+          `false` means it genuinely raised the total, because nothing else
+          here was capturing depreciation at all. */}
+      {actual.equipment && actual.equipment.total > 0 && (
+        <div className="mt-4 pt-4 border-t border-border">
+          <p className="text-xs text-muted-foreground">
+            {actual.equipment.includedInOverhead
+              ? t(
+                  "app.jobCosting.equipmentInOverhead",
+                  "Equipment logged on this job ({amount}) is already covered by the overhead share above — it isn't added again.",
+                  { amount: money(actual.equipment.total) },
+                )
+              : t(
+                  "app.jobCosting.equipmentAdded",
+                  "Equipment logged on this job added {amount} to the total above — set up Settings → Overhead and this stops being counted twice.",
+                  { amount: money(actual.equipment.total) },
+                )}
+          </p>
+          {actual.equipment.byAsset.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {actual.equipment.byAsset.map((a) => (
+                <div key={a.assetId} className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">{a.name || "—"}</span>
+                  <span className="tabular-nums text-muted-foreground">{money(a.cost)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Profit against the price the client agreed. Deliberately NOT against

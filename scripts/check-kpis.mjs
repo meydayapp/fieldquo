@@ -210,12 +210,24 @@ ok("csat: no survey responses → null / no_survey_responses",
 // A count that silently drifts back UP is the failure worth catching: it would
 // mean somebody re-added a "not tracked" panel for a metric this file now
 // genuinely computes, which is a lie told on a dashboard.
-ok("NOT_TRACKED lists exactly the three metrics this file still refuses to invent",
-  NOT_TRACKED.length === 3 && NOT_TRACKED.every((m) => typeof m.reason === "string" && m.reason.length > 20),
+ok("NOT_TRACKED lists exactly the two metrics this file still refuses to invent",
+  NOT_TRACKED.length === 2 && NOT_TRACKED.every((m) => typeof m.reason === "string" && m.reason.length > 20),
   NOT_TRACKED.map((m) => m.key));
 ok("…and none of the four that earned a real builder is still named on it",
-  !NOT_TRACKED.some((m) => ["reworkCallbackRate", "changeOrderRate", "csat"].includes(m.key)),
+  !NOT_TRACKED.some((m) => ["reworkCallbackRate", "changeOrderRate", "csat", "safetyIncidentRate"].includes(m.key)),
   NOT_TRACKED.map((m) => m.key));
+
+// A fourth branch removed safetyIncidentRate and wrote its own "exactly five"
+// count, the same way the previous three each wrote their own. That is now
+// four stale arithmetic assertions produced by four agents who could not see
+// each other. The single count above is the one that survives; this one is
+// deleted rather than corrected, because two counts of the same array is how
+// the drift started.
+//
+// equipmentUtilisation deliberately STAYS on the list. AssetUseLog exists, but
+// utilisation is its own report rather than a per-period rate — forcing it
+// into one would invent a claim about how many days a tool SHOULD have been
+// out that nothing in the product states.
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Section 2 — one job, missing rates, null overhead

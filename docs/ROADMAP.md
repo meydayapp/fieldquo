@@ -6231,3 +6231,54 @@ gated at `jobs:view_create_edit` (`canCurate` in `JobPhotoCurator.js`), so
 the tag-toggle control is gated behind `canCurate` too — an ungated one would
 403 for Crew, the same dead-control failure the panel's upload and annotate
 controls were each fixed for once already.
+
+## Safety incidents and equipment depreciation — built
+
+Full writeup: [SAFETY-AND-EQUIPMENT.md](SAFETY-AND-EQUIPMENT.md). Before
+this: `lib/analytics/kpis.js`'s `NOT_TRACKED` named both as having no data
+source at all.
+
+**Safety:** `SafetyIncident` — kind (near-miss defaults over injury),
+location, an optional job link, `workStopped`, and a `regulatoryNote` that is
+free text the COMPANY writes, never a computed compliance claim (no statute,
+authority or deadline is named anywhere in this feature — unverified). A new
+`safety` permission category (floor is `report_own`, not `none` — a crew
+member can always report their own). No `DELETE` route, ever. Reuses
+`JobPhoto` for evidence, hardcoded to `stage: "issue"` so it can never reach
+a public surface. `/app/safety` — report form, status filter, a follow-up
+panel gated on `view_edit_all`. KPI: incidents per 1,000 approved labour
+hours, floored at 500 hours of exposure (not an incident count — see the
+writeup for why), explicitly NOT an OSHA/CNESST/WSIB rate.
+
+**Equipment:** read `lib/accounting/depreciation.js` and
+`lib/analytics/minimumPrice.js` FIRST, per instruction — and confirmed
+overhead already spreads every asset's depreciation evenly across every job
+once a company sets Settings → Overhead's capacity. So `AssetUseLog` (logged
+cheaply from the job page, next to `JobMaterials`) feeds
+`lib/costing/equipmentUsage.js`, and `actualJobCost.js` only ADDS that figure
+to a job's total when overhead is unknown — otherwise it's reported as
+information only (`includedInOverhead: true`), the same double-count rule
+`depreciation.js` already uses for the truck-loan case. `Asset.category` adds
+a SUGGESTED (never auto-applied — pre-fills a blank field once, never
+overwrites a typed value) life expectancy via
+`lib/costing/assetLifeSuggestions.js`.
+
+**Not built:** an "involved worker" picker on the incident form (API-ready,
+UI deferred to keep the report fast); the equipment utilisation REPORT's own
+screen (`GET /api/assets/utilisation` exists, no page renders it yet);
+detection of the same asset logged on two jobs the same day (named as a gap,
+executed and asserted, not silently handled).
+
+**Verified:** `npx prisma validate` (no `db push` — additive, nullable, new
+models only: `SafetyIncident`, `AssetUseLog`, `Asset.category`,
+`JobPhoto.safetyIncidentId`). `scripts/check-depreciation.mjs` (175/175) and
+`scripts/check-job-costing.mjs` extended with the equipment double-count
+guard against real numbers ($9,000/60mo spray rig, zero-life, past-life,
+disposed, not-in-service, same-asset-two-jobs), both mutation-tested by hand
+and reverted. `scripts/check-kpis.mjs` (187/187, `NOT_TRACKED` count updated
+6→5). `scripts/check-tenant-scope.mjs` (121/121, `assetId` and
+`involvedWorkerId` added as proven foreign keys). `check-cost-basis.mjs`,
+`check-access-editor.mjs`, `check-access-labels.mjs`, `check-crew-access.mjs`,
+`check-role-vocabulary.mjs`, `check-nav-audit.mjs`, `check-sidebar.mjs`,
+`check-translations.mjs` (all gated languages complete) — no regressions.
+`npm run check:all` and `npm run build` both pass.

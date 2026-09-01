@@ -67,6 +67,7 @@ import {
   doubleCountWarning,
 } from "@/lib/accounting/depreciation";
 import { billStatus, summariseBills } from "@/lib/accounting/bills";
+import { dailyAssetRate, equipmentCostForJob, STANDARD_WORKDAY_HOURS } from "@/lib/costing/equipmentUsage";
 
 let pass = 0;
 const fails = [];
@@ -688,6 +689,135 @@ for (const input of [null, undefined, "nonsense", 7, [null, undefined]]) {
   ok("burnRate really does convert one_time at zero", /one_time:\s*0/.test(burnSrc));
   ok("the bills panel says out loud that it doesn't move the floor",
     /billsNotCounted/.test(pageSrc));
+}
+
+// ═══════════════ 9. Equipment use → a per-job charge, before double-counting
+//                    is even considered (that half is check-job-costing.mjs)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// lib/costing/equipmentUsage.js turns a logged AssetUseLog row into a dollar
+// figure for ONE job. It has no idea whether that figure is safe to add to
+// the job's total — lib/costing/actualJobCost.js decides that, based on
+// whether the company's overhead already carries it (see that file's
+// comment and scripts/check-job-costing.mjs). This section only proves the
+// allocation arithmetic itself is honest against the same hostile shapes
+// lib/accounting/depreciation.js is already proven against above: a zero
+// life, an asset already past its life, one disposed, and one not yet in
+// service.
+console.log("\nEquipment use, allocated per job — the arithmetic in isolation");
+{
+  // $9,000 over 5 years, bought two years before NOW — squarely in service.
+  // monthlyDepreciation = 9000 / 60 = $150/mo; spread over an average month
+  // (365.25 / 12 = 30.4375 days) that is $4.9281.../day.
+  const SPRAY_RIG = {
+    id: "spray-rig",
+    name: "Spray rig",
+    cost: 9000,
+    salvageValue: 0,
+    inServiceDate: D("2024-08-28T00:00:00Z"), // 2 years before NOW
+    usefulLifeMonths: 60,
+    disposedOn: null,
+    active: true,
+  };
+  const ZERO_LIFE = { ...SPRAY_RIG, id: "zero-life", usefulLifeMonths: 0 };
+  const PAST_ITS_LIFE = {
+    id: "worn-out",
+    name: "Old compressor",
+    cost: 3000,
+    salvageValue: 0,
+    inServiceDate: D("2016-08-28T00:00:00Z"), // 10 years before NOW
+    usefulLifeMonths: 12, // fully depreciated ages ago
+    disposedOn: null,
+    active: true,
+  };
+  const DISPOSED = {
+    id: "sold-ladder",
+    name: "Extension ladder",
+    cost: 5000,
+    salvageValue: 0,
+    inServiceDate: D("2025-08-28T00:00:00Z"),
+    usefulLifeMonths: 24,
+    disposedOn: D("2026-07-28T00:00:00Z"), // sold a month before NOW
+    active: true,
+  };
+  const NOT_YET_IN_SERVICE = {
+    ...SPRAY_RIG,
+    id: "not-yet",
+    inServiceDate: D("2027-01-01T00:00:00Z"), // after NOW
+  };
+
+  const rig = dailyAssetRate(SPRAY_RIG, NOW);
+  const expectedDailyRate = 150 / (365.25 / 12); // $150/mo ÷ 30.4375 avg days/mo
+  ok("spray rig daily rate ≈ $4.93 (150 / 30.4375)", Math.abs(rig.rate - expectedDailyRate) < 1e-9, rig);
+  ok("…charged, in service", rig.reason === "in_service", rig);
+
+  const zero = dailyAssetRate(ZERO_LIFE, NOW);
+  ok("zero useful life charges $0/day, not Infinity", zero.rate === 0 && zero.reason === "incomplete", zero);
+
+  const worn = dailyAssetRate(PAST_ITS_LIFE, NOW);
+  ok("fully depreciated charges $0/day", worn.rate === 0 && worn.reason === "fully_depreciated", worn);
+
+  const sold = dailyAssetRate(DISPOSED, NOW);
+  ok("disposed before NOW charges $0/day", sold.rate === 0 && sold.reason === "disposed", sold);
+
+  const future = dailyAssetRate(NOT_YET_IN_SERVICE, NOW);
+  ok("not yet in service charges $0/day", future.rate === 0 && future.reason === "not_in_service", future);
+
+  // Two logged days for the same asset on the same job: one with no hours
+  // (a full day — see AssetUseLog.hours), one at 4 of 8 standard hours (half
+  // a day). $4.93 + $2.46 = $7.39, and the per-asset breakdown accumulates
+  // both rows into one line rather than two.
+  const job = equipmentCostForJob({
+    useLogs: [
+      { hours: null, asset: SPRAY_RIG },
+      { hours: 4, asset: SPRAY_RIG },
+    ],
+    asOf: NOW,
+  });
+  ok("a full day (no hours logged) charges the whole daily rate", job.byAsset[0] !== undefined, job);
+  ok("total across two logged days = $7.39", job.total === 7.39, job);
+  ok("half a day (4 of 8 hours) is half the rate, not the full rate",
+    job.total < 2 * 4.93, job);
+  ok("one row in the breakdown per asset, not per log entry", job.byAsset.length === 1, job);
+  ok("accumulated days = 1.5", job.byAsset[0].days === 1.5, job);
+
+  // Hours past a standard workday cap at ONE day, never more — an 11-hour day
+  // on the tools does not charge 1.375 days of wear.
+  const longDay = equipmentCostForJob({ useLogs: [{ hours: 11, asset: SPRAY_RIG }], asOf: NOW });
+  ok(`hours above ${STANDARD_WORKDAY_HOURS}/day cap at one full day`, longDay.total === 4.93, longDay);
+
+  // A row pointing at an asset that cannot be charged still appears with
+  // $0 and a reason — the same "$0 says why" discipline assetCharge itself
+  // keeps, so a screen never shows a silent zero.
+  const worthless = equipmentCostForJob({ useLogs: [{ hours: null, asset: PAST_ITS_LIFE }], asOf: NOW });
+  ok("a fully depreciated asset logs a $0, explained row, not an omitted one",
+    worthless.total === 0 && worthless.byAsset[0].reason === "fully_depreciated" && worthless.byAsset[0].chargeable === false,
+    worthless);
+
+  // Junk rows — no asset, an asset with no id — are ignored rather than
+  // thrown on or silently coerced into a $0 asset with an empty id.
+  const junk = equipmentCostForJob({ useLogs: [null, {}, { hours: 3 }, { asset: {} }], asOf: NOW });
+  ok("hostile/junk use-log rows contribute nothing and don't throw",
+    junk.total === 0 && junk.byAsset.length === 0, junk);
+
+  ok("no rows at all is $0, not NaN", equipmentCostForJob({ useLogs: [], asOf: NOW }).total === 0);
+  ok("called with nothing at all is still $0, not a throw", equipmentCostForJob().total === 0);
+
+  // ── The honesty gap, executed and named ──────────────────────────────────
+  //
+  // Nothing in this file (or in AssetUseLog) stops the SAME physical asset
+  // being logged on TWO DIFFERENT jobs the SAME day — a company that only has
+  // one spray rig cannot actually have it on two roofs at once, but this
+  // function only ever sees ONE job's rows and has no way to know the other
+  // job logged it too. Both jobs are charged the full day, independently.
+  // Documented in docs/SAFETY-AND-EQUIPMENT.md as a known limitation rather
+  // than silently "handled" — see that file for why detecting it would need
+  // a company-wide query this per-job function deliberately doesn't make.
+  const jobA = equipmentCostForJob({ useLogs: [{ hours: null, asset: SPRAY_RIG }], asOf: NOW });
+  const jobB = equipmentCostForJob({ useLogs: [{ hours: null, asset: SPRAY_RIG }], asOf: NOW });
+  ok("the SAME asset logged on two jobs the same day is charged in full on BOTH — a named gap, not a crash",
+    jobA.total === 4.93 && jobB.total === 4.93 && jobA.total === jobB.total,
+    { jobA, jobB });
 }
 
 console.log(

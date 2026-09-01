@@ -37,6 +37,7 @@ import {
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { assetCharge } from "@/lib/accounting/depreciation";
 import { recordActivity } from "@/lib/activity/log";
+import { isAssetCategory } from "@/lib/costing/assetLifeSuggestions";
 
 const SELECT = {
   id: true,
@@ -49,6 +50,7 @@ const SELECT = {
   active: true,
   debtId: true,
   notes: true,
+  category: true,
   debt: { select: { id: true, name: true, monthlyPayment: true } },
 };
 
@@ -183,6 +185,12 @@ export async function POST(request) {
       inServiceDate,
       debtId,
       notes: typeof body?.notes === "string" ? body.notes.trim() || null : null,
+      // A recognised key or null — never whatever string the browser sent.
+      // lib/costing/assetLifeSuggestions.js is the ONLY place that offers a
+      // life-months SUGGESTION for a category, and it never writes
+      // usefulLifeMonths itself; the form above already required the person
+      // to type or accept one before this request could be sent.
+      category: isAssetCategory(body?.category) ? body.category : null,
     },
     select: SELECT,
   });

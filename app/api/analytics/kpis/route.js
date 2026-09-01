@@ -36,6 +36,15 @@
 // client/crew segments behind their own dials — a KPI dashboard that shows
 // four of six cards and silently drops two is exactly the "control that
 // appears to work" AGENTS.md forbids, so this is all-or-nothing.
+//
+// The safety incident rate rides the SAME jobCosting gate, deliberately not a
+// separate check against the "safety" category — Dispatcher holds
+// safety:view_edit_all but is refused this whole page by jobCosting already,
+// and adding a second passing gate here would let a Dispatcher see incident
+// counts on a page every OTHER card on it says they may not open. Full detail
+// on individual incidents (who, what happened) still lives behind
+// GET /api/safety-incidents, gated on "safety" on its own — this page only
+// ever returns a rate and a raw count, never a name or a description.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -150,8 +159,17 @@ export async function GET(request) {
     createdBy: { select: { name: true } },
   };
 
-  const [quotesInRange, undatedQuoteCount, leads, openJobs, workers, allInvoices, allPayments] =
-    await Promise.all([
+  const [
+    quotesInRange,
+    undatedQuoteCount,
+    leads,
+    openJobs,
+    workers,
+    allInvoices,
+    allPayments,
+    safetyIncidentsInRange,
+    approvedHoursAgg,
+  ] = await Promise.all([
       db.quote.findMany({
         where: { companyId, status: { in: QUOTE_OUT_STATUSES }, sentAt: { gte, lte } },
         select: QUOTE_SELECT,
@@ -197,6 +215,26 @@ export async function GET(request) {
       db.payment.findMany({
         where: { invoice: { companyId } },
         select: { invoiceId: true, amount: true, date: true },
+      }),
+      // The safety rate's numerator — every incident REPORTED in the period,
+      // not scoped to completed jobs or any one job: someone can be hurt on a
+      // job that never finishes, or with no job at all. See lib/analytics/safety.js.
+      db.safetyIncident.findMany({
+        where: { companyId, occurredAt: { gte, lte } },
+        select: { kind: true, workStopped: true },
+      }),
+      // The denominator — approved hours company-wide in the period, scoped
+      // through the worker the same way TimeEntry always is (it carries no
+      // companyId of its own). Not filtered to completed-job hours: the
+      // exposure a rate divides by is every hour worked, whether or not the
+      // job it was logged against has finished.
+      db.timeEntry.aggregate({
+        where: {
+          status: "approved",
+          clockIn: { gte, lte },
+          worker: { companyId },
+        },
+        _sum: { hours: true },
       }),
     ]);
 
@@ -523,6 +561,10 @@ export async function GET(request) {
       quality: { reworkJobs, changeOrderJobs },
       cash: { invoices: allInvoices, payments: allPayments, asOf: new Date() },
       customer: { satisfactionResponses },
+      safety: {
+        incidents: safetyIncidentsInRange,
+        approvedHours: Number(approvedHoursAgg._sum.hours || 0),
+      },
     });
   } catch (err) {
     if (err?.status === 400 || err?.status === 409) {
