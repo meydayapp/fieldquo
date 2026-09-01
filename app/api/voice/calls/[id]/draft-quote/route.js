@@ -114,17 +114,9 @@ export async function POST(request, { params }) {
     if (!result.ok) {
       if (result.notFound)
         return NextResponse.json({ error: "Not found" }, { status: 404 });
-      // A crisis call flags itself for review here too, not only on the
-      // automatic path — a member who presses this button on a company whose
-      // automatic drafting is off (no AI configured, or over quota when the
-      // call finished) must not be the one place this signal is lost. Same
-      // flag lib/voice/autoDraft.js sets, same queue the receptionist screen
-      // already reads.
-      if (result.reason === DRAFT_REASONS.CRISIS_DETECTED) {
-        await db.voiceCall
-          .updateMany({ where: { id, companyId: member.companyId }, data: { needsReview: true } })
-          .catch(() => {});
-      }
+      // A crisis mention no longer produces a refusal reason here — it flags
+      // needsReview inline, inside draftQuoteFromCall, and still drafts the
+      // quote. See lib/ai/crisisRule.js, "why these two no longer refuse".
       return reasonResponse(result.reason);
     }
 

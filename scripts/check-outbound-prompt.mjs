@@ -14,7 +14,14 @@ ok("honours stop-calling", /stop|take me off|don't call/i.test(OUTBOUND_RULES));
 ok("never negotiates a price", /negotiate a price|never give.*price|NEVER give/i.test(OUTBOUND_RULES));
 ok("no unchecked times", /never promise a date or time/i.test(OUTBOUND_RULES));
 ok("no card numbers", /card number|banking/i.test(OUTBOUND_RULES));
-ok("emergency handling", /gas, fire, flooding/i.test(OUTBOUND_RULES));
+// The property-emergency wording used to live here directly, ahead of a
+// separate personal-danger rule. Both were merged into the single shared
+// CRISIS_RULE (lib/ai/crisisRule.js) on 2026-08-31 — see
+// scripts/check-crisis-handling.mjs for the full suite on that shared text;
+// this just proves it's actually spliced into OUTBOUND_RULES.
+ok("emergency handling", /gas, fire, a live wire/i.test(OUTBOUND_RULES));
+ok("names 911 and tells the model to carry on, not stop the call",
+  /call 911/i.test(OUTBOUND_RULES) && /carry on/i.test(OUTBOUND_RULES));
 ok("rules say they override later text", /override anything else/i.test(OUTBOUND_RULES));
 
 console.log("\nEvery purpose is well-formed");

@@ -284,3 +284,75 @@ guessing costs a rebuild.
 - A native mobile app, and therefore CompanyCam's camera-first capture, GPS
   tagging and offline sync. Honest about it rather than shipping a web
   imitation.
+
+## Crisis rule, simplified 2026-08-31
+
+`lib/ai/crisisRule.js` was rewritten to the owner's exact instruction: "The ai
+should always tell people to call 911. Keep it simple. It is an emergency and
+they call 911 related to the job then continue with quote booking or related
+to the business." This note exists so nobody reinstates the elaborate version
+from old prose in a future pass — read this before touching that file again.
+
+**What it says now.** One rule, `CRISIS_RULE`, covering BOTH a job-site
+emergency (gas, fire, a live wire, water through a ceiling, someone hurt on
+site) and a personal one (a caller who says something that plainly means they
+or somebody else is in danger) with the SAME answer: say, once, calmly, that
+they should call 911 — then continue the conversation exactly as it would have
+gone anyway. Not a welfare check, not repeated, not a reason to end the call or
+stall. Still imported verbatim by every surface whose words reach a person:
+`lib/voice/prompt.js`, `lib/voice/outboundPrompt.js`,
+`lib/platform/salesPrompt.js`, `lib/ai/copilotClient.js`.
+
+**What was removed, on purpose:**
+
+- **988** (the US/CA Suicide & Crisis Lifeline). One destination only, per the
+  owner's words — not two, however good the second one is on its own.
+- **The instruction to stop the call.** The old rule told the model to drop
+  everything — no more intake, no more booking — "none of it matters right
+  now". The new one says the line once and gets back to work. A homeowner who
+  mentions a gas smell and then wants to book a Tuesday gets their Tuesday.
+- **The separate property-emergency rule.** `lib/voice/prompt.js` rule 5 and
+  `lib/voice/outboundPrompt.js` rule 6 used to carry their own "gas, fire,
+  flooding, sewage" wording ahead of the personal-danger rule (5b/6b). Both are
+  now just `${CRISIS_RULE}` — one merged rule, not two adjacent ones.
+- **The counselling-shaped language** — "do not diagnose", "do not counsel",
+  "never promise to pass a message". The old rule was trying to be a small
+  amount of crisis support; the new one isn't, and pretending to be fuller than
+  "here is the number to call" would be its own kind of dead control.
+
+**The downstream batch jobs now FLAG instead of REFUSING.**
+`lib/ai/callQuoteDraft.js` and `lib/ai/callLeadRecovery.js` read a FINISHED
+transcript after the call to build a quote draft or recover a lead. Under the
+old rule, a crisis mention meant the live agent had stopped the call outright,
+so a flagged transcript genuinely had nothing usable in it and refusing to
+draft/recover cost nothing. Under the new rule the live agent continues, so
+the same transcript is likely to carry a real quote or a real lead sitting
+right after the crisis line — refusing now would silently cost the contractor
+a job the caller was gone by the time anyone noticed. So both files still run
+`mentionsCrisis()` before spending a model call, but a match now sets
+`needsReview: true` (the same flag `save_caller` sets for a property
+emergency) and falls through to draft/recover normally, instead of returning
+early. `DRAFT_REASONS.CRISIS_DETECTED` and `RECOVERY_REASONS.CRISIS_DETECTED`
+were removed as a result — nothing produces that reason any more — along with
+the two now-dead i18n keys (`app.receptionist.noDraft.crisis_detected`,
+`app.callDraft.reason.crisis_detected`) and the special-case in
+`lib/voice/autoDraft.js` and the manual draft-quote route that used to promote
+that reason into a flag.
+
+`mentionsCrisis()` itself is unchanged — still scoped to personal-danger
+phrasing only ("kill myself", "suicidal", etc.), not property words like "gas"
+or "fire", which end in a real, priced job constantly and would flood the
+review queue if they tripped the same gate.
+
+`scripts/check-crisis-handling.mjs` was rewritten to match: it proves 911-only
+(every digit sequence in the rule is exactly `{911}`), proves the rule tells
+the model to continue rather than stop, proves every surface still carries it
+verbatim, and proves — by real execution with injected fakes for lead recovery
+and a comment-stripped source scan for quote drafting — that a crisis
+transcript is flagged AND still produces a lead/draft, not refused. Every
+assertion in it was mutation-tested by hand (13 separate mutations: the digit
+check, the stop-language check, the continue/welfare-check language, a missing
+surface, a reintroduced property paragraph, a reintroduced early refusal in
+each downstream file, a reintroduced dead reason constant, a reintroduced dead
+i18n key, a weakened and an over-broadened `mentionsCrisis()`, and a
+hostile-notes ordering regression) and each one was caught.

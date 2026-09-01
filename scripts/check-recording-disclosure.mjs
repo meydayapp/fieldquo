@@ -70,7 +70,12 @@ for (const [rule, phrase] of [
   ["never a price", "NEVER give a price"],
   ["never an unchecked time", "NEVER promise a date or time"],
   ["AI disclosed on request", "whether you are a person, an AI"],
-  ["emergencies", "call the relevant emergency number"],
+  // The emergency rule's exact wording changed 2026-08-31 (merged with the
+  // personal-danger rule into one shared CRISIS_RULE — see
+  // lib/ai/crisisRule.js and scripts/check-crisis-handling.mjs), so this
+  // checks for the phrase that actually survived the rewrite rather than the
+  // old rule's specific words.
+  ["emergencies", "call 911"],
   ["no card details", "Do not take payment details"],
 ]) {
   ok(PROMPT.includes(phrase), `${rule} survives`);
