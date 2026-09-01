@@ -93,10 +93,41 @@ export const BLOCK_TYPES = [
 ];
 
 // Merge fields available for {{token}} substitution at send time — shown in
-// the editor as insertable hints. Not every field applies to every template
-// type (e.g. {{invoiceTotal}} only makes sense on invoice/receipt emails),
-// but the renderer just leaves unknown/blank tokens as empty strings rather
-// than erroring, so showing the full list everywhere is harmless.
+// the editor as insertable hints.
+//
+// ── "Harmless" was the wrong word, and it cost two chips ───────────────────
+//
+// This comment used to end: "the renderer just leaves unknown/blank tokens as
+// empty strings rather than erroring, so showing the full list everywhere is
+// harmless." The first half is true — applyMergeFields does
+// `mergeData[token] ?? ""`. The conclusion does not follow.
+//
+// An empty string is WORSE than a visible {{token}}, not better. A homeowner
+// reading "Please send a deposit of  to secure your booking" sees a typo, not
+// a bug, so nobody reports it — and it went out under the contractor's brand,
+// which is the one thing this product promises to protect.
+//
+// Two chips were offered that NO send path has ever supplied:
+//   depositAmount — there is no deposit feature to derive it from. Staged
+//                   payments are roughly 10% built (display only) — see
+//                   docs/PAYMENT-SCHEDULE.md. Restore this chip when the
+//                   thing it names exists.
+// invoiceUrl was the same until this change. It is back, because the fix was
+// to SUPPLY it: the follow-up cron now deep-links to the invoice inside the
+// client portal. The default "Payment received" template already shipped a
+// "View your invoice" button bound to it, so that button had an empty href —
+// a link to nowhere in a homeowner's inbox, under the contractor's brand.
+//
+// Both removed rather than faked. scripts/check-follow-up-flow.mjs now asserts
+// every token here is supplied by at least one real send path, so a chip that
+// nothing populates cannot be offered again.
+//
+// Still true, and deliberately left alone: not every field applies to every
+// template type. A marketing campaign supplies only the six client/company
+// fields, so an entity token in a campaign renders empty. That is a narrower
+// problem than the one fixed here — the token IS real, it just has no entity
+// in that context — and scoping the palette per template kind is a separate
+// change. Recorded so it is not mistaken for solved.
 export const MERGE_FIELDS = [
   { token: "clientName", label: "Client name" },
   { token: "clientAddress", label: "Client / job address" },
@@ -115,7 +146,6 @@ export const MERGE_FIELDS = [
   { token: "projectStartDate", label: "Project start date" },
   { token: "projectEndDate", label: "Project end date" },
   { token: "jobTitle", label: "Job title" },
-  { token: "depositAmount", label: "Deposit amount" },
   { token: "amountPaid", label: "Amount paid" },
 ];
 

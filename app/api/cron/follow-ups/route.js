@@ -22,6 +22,7 @@ import {
   renderSubject,
 } from "@/lib/email/renderTemplateSections";
 import { getAppOrigin } from "@/lib/appUrl";
+import { ensurePortalToken, portalInvoiceUrl } from "@/lib/clientPortal";
 import { ensureSubscriber, unsubscribeHeaders } from "@/lib/marketing/unsubscribe";
 import { TRIGGER_META } from "@/lib/followUps/triggers";
 
@@ -131,7 +132,10 @@ function stageFor(entityType, entity) {
   return 0;
 }
 
-function mergeDataFor(entityType, entity, request) {
+// `portalToken` is resolved by the caller, not looked up here, so this stays
+// synchronous and pure. It is the client's portal token — minting one is a
+// WRITE, and a write does not belong inside a formatter.
+function mergeDataFor(entityType, entity, request, portalToken) {
   const base = {
     clientName: entity.client?.contactName || entity.client?.name || "",
     clientAddress: entity.client?.address || "",
@@ -167,6 +171,14 @@ function mergeDataFor(entityType, entity, request) {
       dueDate: entity.dueDate
         ? new Date(entity.dueDate).toLocaleDateString()
         : "",
+      // The default "Payment received" template ships a "View your invoice"
+      // button whose url is {{invoiceUrl}}, and nothing had ever supplied it.
+      // mergeIntoAttr resolves an unknown token to "", so that button rendered
+      // with an EMPTY href — a link to nowhere, in a homeowner's inbox, under
+      // the contractor's brand. Deep-linked to the invoice rather than the
+      // portal home for the reason portalInvoiceUrl's own comment gives: a
+      // client landing on a list has to hunt for the thing they came to pay.
+      invoiceUrl: portalToken ? portalInvoiceUrl(portalToken, entity.id, request) : "",
       projectStartDate: entity.startDate
         ? new Date(entity.startDate).toLocaleDateString()
         : "",
@@ -253,7 +265,18 @@ export async function GET(request) {
         unsubscribeToken = subscriber?.unsubscribeToken || null;
       }
 
-      const mergeData = mergeDataFor(finder.entityType, entity, request);
+      // Minted here rather than inside mergeDataFor: it is a write, it is
+      // idempotent, and it only runs for an invoice send that is already
+      // committed to going out (the followUpLog claim above succeeded). A
+      // client who never opens the link simply carries an unused token, which
+      // is what ensurePortalToken already does for the invoice email.
+      let portalToken = null;
+      if (finder.entityType === "invoice") {
+        portalToken = await ensurePortalToken(db, entity.clientId, entity.companyId).catch(
+          () => null,
+        );
+      }
+      const mergeData = mergeDataFor(finder.entityType, entity, request, portalToken);
       const html = renderTemplateSections(rule.template.sections, mergeData, {
         company: entity.company || {},
         theme: rule.template.theme || null,

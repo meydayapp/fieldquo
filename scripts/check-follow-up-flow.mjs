@@ -38,6 +38,7 @@ import {
 } from "../lib/followUps/flow.js";
 import { DURATION_UNIT_KEYS } from "../lib/i18n/duration.js";
 import { APP_MESSAGES } from "../app/i18n/appMessages.js";
+import { MERGE_FIELDS } from "../app/data/emailTemplateBlocks.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
@@ -208,6 +209,47 @@ ok(
   "steps on one trigger are ordered by when they fire, not when they were made",
   ordered[0].steps.map((s) => s.id).join(",") === "soon,mid,late",
 );
+
+// ══ Every chip in the editor is a token something actually supplies ═══════
+//
+// The merge-field palette used to carry a comment saying it was "harmless" to
+// offer every token everywhere, because applyMergeFields resolves an unknown
+// one to "". The conclusion did not follow. An empty string is WORSE than a
+// visible {{token}}: a homeowner reading "Please send a deposit of  to secure
+// your booking" sees a typo, not a bug, so nobody reports it — and it went out
+// under the contractor's brand.
+//
+// Two chips were offered that no send path had ever supplied. `invoiceUrl` was
+// the worse one, because the default "Payment received" template ships a "View
+// your invoice" button bound to it, so that button rendered with an empty href.
+// It is now supplied. `depositAmount` was removed instead: there is no deposit
+// feature to derive it from (docs/PAYMENT-SCHEDULE.md — staged payments are
+// display-only today).
+//
+// Checked against the SEND PATHS rather than against a list, so adding a chip
+// without teaching something to fill it fails here.
+const MERGE_SOURCES = [
+  "app/api/cron/follow-ups/route.js",
+  "app/api/marketing/campaigns/[id]/send/route.js",
+];
+const supplied = new Set();
+for (const rel of MERGE_SOURCES) {
+  const src = fs
+    .readFileSync(path.join(ROOT, rel), "utf8")
+    .replace(/^\s*\/\/.*$/gm, " ");
+  for (const m of src.matchAll(/^\s{4,}([a-zA-Z][A-Za-z0-9]*):/gm)) supplied.add(m[1]);
+}
+for (const { token } of MERGE_FIELDS) {
+  ok(
+    `{{${token}}} is supplied by a real send path`,
+    supplied.has(token),
+    supplied.has(token)
+      ? ""
+      : "offered as a chip in the template editor and filled by nothing — it " +
+        "renders as an empty string in a real email, which reads as a typo " +
+        "rather than a bug and so never gets reported",
+  );
+}
 
 console.log(
   `\n${checks} checks, ${failures} failure(s).${failures ? "" : " Diagram matches the cron."}\n`,
