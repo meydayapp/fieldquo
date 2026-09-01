@@ -155,6 +155,12 @@ function makeStore() {
   const campaigns = [];
   const designs = [];
   const layouts = [];
+  // Only populated by the scheduling section's own tests below — the
+  // per-ratio persistence tests above never create a SocialPublish row, so
+  // this stays empty for them and their updateMany calls (the design
+  // DELETE route's own "cancel any still-scheduled rows first" step)
+  // legitimately match zero rows.
+  const socialPublishes = [];
   let seq = 1;
   const nextId = (p) => `${p}${seq++}`;
 
@@ -244,9 +250,39 @@ function makeStore() {
         return { ...row };
       },
     },
+    // Just enough of SocialPublish for the design DELETE route's own
+    // "cancel still-scheduled rows first" step (see
+    // app/api/marketing/designer/designs/[id]/route.js) — create/updateMany
+    // only, matched by designId. Real publish/schedule behaviour is
+    // exercised separately in section 6 against publishDesign.js directly,
+    // not through this fake store.
+    socialPublish: {
+      async create({ data }) {
+        const row = { id: nextId("sp"), createdAt: new Date(), updatedAt: new Date(), ...data };
+        socialPublishes.push(row);
+        return { ...row };
+      },
+      async updateMany({ where, data }) {
+        let count = 0;
+        for (const row of socialPublishes) {
+          if (row.designId === where.designId && row.status === where.status) {
+            Object.assign(row, data, { updatedAt: new Date() });
+            count++;
+          }
+        }
+        return { count };
+      },
+    },
+    // Real Prisma runs the array's operations inside one transaction; this
+    // fake has no isolation to offer, so it just awaits each in order —
+    // enough to exercise "both writes happen, and happen using the SAME
+    // fake store" without pretending to test atomicity itself.
+    async $transaction(ops) {
+      return Promise.all(ops);
+    },
   };
 
-  return { db, campaigns, designs, layouts };
+  return { db, campaigns, designs, layouts, socialPublishes };
 }
 
 const store = makeStore();

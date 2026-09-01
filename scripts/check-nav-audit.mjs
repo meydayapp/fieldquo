@@ -230,6 +230,7 @@ const DRILL_INS = {
   "/app/marketing/[id]": "campaign detail — opened from the Marketing list",
   "/app/marketing/spend": "opened from the Marketing hub's own Marketing spend button — a manual entry screen and the blended cost-per-lead figure, not a place someone browses to from the sidebar",
   "/app/marketing/designer/[id]": "the canvas editor for one ad creative — opened from the Designer index, and never linked directly because a design has no meaning outside the campaign that owns it",
+  "/app/marketing/designer/calendar": "opened from the campaign editor's own Calendar button (CampaignEditor.js) — and only rendered there once socialVisible is true (docs/SOCIAL-SCHEDULING.md), so it deliberately has no sidebar row that could reach it before Meta's app is configured",
   "/app/marketing/subscribers": "opened from the Marketing list and from a campaign's own detail view",
   "/app/payroll/[id]": "one pay run — opened from the Payroll list",
   "/app/plans/[id]": "one plan — opened from the Plans list",
