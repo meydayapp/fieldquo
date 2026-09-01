@@ -24,6 +24,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { SALARY_FREQUENCIES } from "@/lib/overhead/salaryInput";
+import { ASSET_CATEGORIES, assetCategory, suggestedLifeMonths } from "@/lib/costing/assetLifeSuggestions";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasToggle, hasLevel } from "@/lib/permissions/enforce";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
@@ -138,6 +139,7 @@ function OverheadEditor() {
     usefulLifeMonths: "",
     inServiceDate: "",
     debtId: "",
+    category: "",
   });
   const [billForm, setBillForm] = useState({ category: "", amount: "", dueDate: "" });
   const [salaryForm, setSalaryForm] = useState({
@@ -252,6 +254,7 @@ function OverheadEditor() {
         // was left blank.
         ...(assetForm.inServiceDate ? { inServiceDate: assetForm.inServiceDate } : {}),
         debtId: assetForm.debtId || null,
+        category: assetForm.category || null,
       }),
     });
     if (res.ok) {
@@ -262,6 +265,7 @@ function OverheadEditor() {
         usefulLifeMonths: "",
         inServiceDate: "",
         debtId: "",
+        category: "",
       });
       await Promise.all([loadAssets(), loadMinPrice()]);
     } else {
@@ -1117,7 +1121,14 @@ function OverheadEditor() {
                 className="bg-card border border-border rounded-lg p-3 space-y-2 text-sm"
               >
                 <div className="flex items-center justify-between gap-3">
-                  <span className="truncate">{a.name}</span>
+                  <span className="truncate">
+                    {a.name}
+                    {a.category && assetCategory(a.category) && (
+                      <span className="ml-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+                        {t(assetCategory(a.category).labelKey)}
+                      </span>
+                    )}
+                  </span>
                   <span className="flex items-center gap-3 shrink-0">
                     <span className="font-semibold tabular-nums">
                       ${Number(a.monthlyDepreciation).toLocaleString()}
@@ -1235,6 +1246,40 @@ function OverheadEditor() {
               onChange={(e) => setAssetForm({ ...assetForm, salvageValue: e.target.value })}
               className="w-full border border-border rounded px-3 py-2 text-sm bg-background text-foreground mt-1"
             />
+          </label>
+          <label className="text-[11px] text-muted-foreground">
+            {/* A CATEGORY, never a life. Picking one only pre-fills the field
+                below when it is still blank — see the onChange handler — and
+                changing category again after typing a life never overwrites
+                what was typed. The suggestion is offered once, at the moment
+                it can only help, never re-applied behind the person's back. */}
+            {t("app.setOverhead.assetCategory", "Type of equipment (optional)")}
+            <select
+              value={assetForm.category}
+              onChange={(e) => {
+                const category = e.target.value;
+                const suggestion = suggestedLifeMonths(category);
+                setAssetForm((prev) => ({
+                  ...prev,
+                  category,
+                  usefulLifeMonths:
+                    prev.usefulLifeMonths === "" && suggestion ? String(suggestion) : prev.usefulLifeMonths,
+                }));
+              }}
+              className="w-full border border-border rounded px-2 py-2 text-sm bg-card text-foreground mt-1"
+            >
+              <option value="">{t("app.setOverhead.assetCategoryNone", "Not set")}</option>
+              {ASSET_CATEGORIES.map((c) => (
+                <option key={c.key} value={c.key}>
+                  {t(c.labelKey)}
+                </option>
+              ))}
+            </select>
+            {assetForm.category && suggestedLifeMonths(assetForm.category) && (
+              <span className="block mt-1 text-[10px] text-muted-foreground normal-case">
+                {t("app.assets.categorySuggestion")}
+              </span>
+            )}
           </label>
           <label className="text-[11px] text-muted-foreground">
             {/* Months, not years, and no default. Guessing five years for a
