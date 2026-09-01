@@ -1352,6 +1352,7 @@ model Company {
   crewMessages CrewInboundMessage[]
   crewLine     CrewInboxNumber?
   jobPhotos JobPhoto[]
+  jobPhotoTags JobPhotoTag[]
 
   /// Per-company AVAILABILITY overrides. Not to be confused with the adoption
   /// booleans above (aiCopilotEnabled, crewInboxEnabled, outboundCallsEnabled,
@@ -7006,6 +7007,11 @@ model JobPhoto {
   createdAt DateTime @default(now())
 
   comments JobPhotoComment[]
+  /// Company-defined labels — "sanding", "priming", "top coat". Purely
+  /// descriptive, additive to `stage`, never a substitute for it. See
+  /// JobPhotoTag's own comment for why this is a separate table rather than
+  /// a widened `stage` column.
+  tags JobPhotoTagOnPhoto[]
 
   @@index([companyId, featured])
   @@index([jobId, stage])
@@ -7077,6 +7083,70 @@ model JobPhotoMention {
 
   @@index([memberId, createdAt])
   @@index([commentId])
+}
+
+/// A company-defined label for job photos — "sanding", "priming", "top coat",
+/// "demo" — layered ON TOP of JobPhoto.stage, never a replacement for it.
+///
+/// ── Why a separate model rather than widening `stage` ──────────────────────
+///
+/// start/progress/finish/issue are not labels, they're product logic that must
+/// not bend to what a contractor types: start+finish drive
+/// lib/gallery/albums.js's beforeAfterPairs, and issue is a hard privacy
+/// boundary enforced independently in TWO places — the API refuses
+/// `featured: true` on one (app/api/jobs/[id]/photos/route.js) and
+/// featuredUrls() filters `stage: { not: "issue" }` at read time
+/// (lib/site/jobPhotos.js). If a company's free-form vocabulary lived in that
+/// same column, a company could create a custom value that reads like
+/// "before"/"after"/"issue" to a human but isn't one of the four the pairing
+/// and privacy code actually checks for equality — or, worse, one that IS one
+/// of those four strings and silently inherits behaviour nobody asked for. A
+/// tag stored here can never occupy the `stage` column, so it structurally
+/// cannot trip either piece of logic — not because this file remembers to
+/// guard it, but because nothing that guards stage ever reads this table. See
+/// lib/gallery/tags.js and docs/PHOTO-TAGS.md for the full reasoning and the
+/// tests that pin it down.
+model JobPhotoTag {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  name  String
+  /// Hex, optional — a chip with no colour just renders neutral.
+  color String?
+  /// Manual ordering in the picker and the settings list; lower shows first.
+  sortOrder Int @default(0)
+
+  /// Retiring, not deleting — the same pattern Worker.active uses for a
+  /// person who leaves. A tag already on 200 photos must not vanish from them
+  /// just because the company stopped using it going forward: retiring drops
+  /// it from the picker offered on NEW photos, and existing JobPhotoTagOnPhoto
+  /// rows (and the tag's own name/colour) are untouched.
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  photos JobPhotoTagOnPhoto[]
+
+  @@index([companyId, active])
+}
+
+/// The join: which tags sit on which photo. A photo can carry several tags; a
+/// tag can sit on many photos. A row here surviving its tag being retired, or
+/// its photo being featured/unfeatured/re-staged, is the point — this table
+/// only ever records "this label is on this photo", nothing about whether
+/// either one is currently active or public.
+model JobPhotoTagOnPhoto {
+  id      String      @id @default(cuid())
+  photoId String
+  photo   JobPhoto    @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  tagId   String
+  tag     JobPhotoTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([photoId, tagId])
+  @@index([tagId])
 }
 
 // ============================================================

@@ -49,6 +49,7 @@ import {
   Clock,
   Palette,
   Tags,
+  Tag,
   Boxes,
   Map,
   TrendingUp,
@@ -145,6 +146,7 @@ const GROUPS = [
       { key: "app.settings.pdfTemplates", href: "/app/settings/templates", icon: FileText },
       { key: "app.settings.translations", href: "/app/settings/translations", icon: Globe },
       { key: "app.settings.checklists", href: "/app/settings/checklists", icon: ListChecks },
+      { key: "app.settings.jobPhotoTags", href: "/app/settings/job-photo-tags", icon: Tag },
     ],
   },
   {
