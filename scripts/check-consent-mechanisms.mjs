@@ -488,6 +488,248 @@ console.log("\nAn opted-out number is refused by every client-facing SMS send pa
   );
 }
 
+/* ══════════════ a marketing campaign can't double-send on retry ═══════════
+ *
+ * A commercial email campaign is exactly the CASL-governed send this file's
+ * other checks are about — and it had its own gap: nothing recorded which
+ * subscriber had already been mailed, so a request that died mid-loop (a
+ * Neon cold-start P1001 is the everyday version of this — see AGENTS.md)
+ * left `sentAt` unset and a resend re-emailed everyone already reached.
+ *
+ * Executed against the real send loop (sendCampaignEmails, split out of
+ * app/api/marketing/campaigns/[id]/send/route.js's POST specifically so it
+ * can run here without a session) and a scripted db
+ * (scripts/fixtures/dbStub.mjs) — "a retry skips whoever already got it" is
+ * a property of a create() racing a unique constraint, and reading the loop
+ * cannot tell you whether that property actually holds.
+ *
+ * Three specifiers need swapping before the route module can even load, same
+ * technique as scripts/check-designer-reach.mjs and friends: "@/lib/db" and
+ * "@/lib/email/resend" (a real PrismaClient and a real Resend client would
+ * need Neon and a network) redirected to the real, shared
+ * scripts/fixtures/dbStub.mjs and emailStub.mjs — not copies, so `rows`/
+ * `writes`/`sent` mutated below are the exact instances the route reads —
+ * and "next/server" (bare node can't resolve it at all) to a minimal
+ * NextResponse.json shim. Registered from inside this script rather than via
+ * another --import on the npm script's command line, so this file's own
+ * db-stub-loader.mjs doesn't need wiring into package.json at all.
+ *
+ * The email stub matters beyond letting the module load: real
+ * lib/email/resend.js already no-ops without RESEND_API_KEY, which is enough
+ * to execute the send path, but a no-op records nothing — it can't tell "sent
+ * once" from "sent twice" after the fact. `sent` (scripts/fixtures/
+ * emailStub.mjs) is what makes THE property this bug is about — nobody gets
+ * mailed twice — something the assertions below can actually check, rather
+ * than only checking that the delivery-row bookkeeping is self-consistent.
+ */
+{
+  const { register } = await import("node:module");
+  const dbStubUrl = new URL("./fixtures/dbStub.mjs", import.meta.url).href;
+  const emailStubUrl = new URL("./fixtures/emailStub.mjs", import.meta.url).href;
+  const hooks = `
+    export async function resolve(specifier, context, nextResolve) {
+      if (specifier === "@/lib/db") return { url: ${JSON.stringify(dbStubUrl)}, shortCircuit: true };
+      if (specifier === "@/lib/email/resend") return { url: ${JSON.stringify(emailStubUrl)}, shortCircuit: true };
+      if (specifier === "next/server") return { url: "fq-stub:next", shortCircuit: true };
+      return nextResolve(specifier, context);
+    }
+    export async function load(url, context, nextLoad) {
+      if (url === "fq-stub:next") {
+        return {
+          format: "module",
+          shortCircuit: true,
+          source: "export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };",
+        };
+      }
+      return nextLoad(url, context);
+    }
+  `;
+  register(`data:text/javascript,${encodeURIComponent(hooks)}`);
+
+  const { sendCampaignEmails } = await import(
+    "@/app/api/marketing/campaigns/[id]/send/route.js"
+  );
+  const { rows, writes, resetDbStub, failNext } = await import("./fixtures/dbStub.mjs");
+  const { sent, failFor, resetEmailStub } = await import("./fixtures/emailStub.mjs");
+
+  const template = { id: "tpl1", sections: [], subject: "Hello {{clientName}}", theme: null };
+  const company = { id: "co1", name: "Acme Painting", email: "owner@example.com" };
+
+  function makeSubscribers(n, prefix = "sub") {
+    return Array.from({ length: n }, (_, i) => ({
+      id: `${prefix}${i + 1}`,
+      companyId: "co1",
+      email: `${prefix}${i + 1}@example.com`,
+      name: `Subscriber ${i + 1}`,
+      subscribed: true,
+      // Pre-minted so ensureSubscriberToken's update() branch is never
+      // exercised here — that helper has nothing to do with the property
+      // under test, and the dbStub's generic update() doesn't persist (see
+      // its own comment), so relying on it here would test a stub quirk
+      // rather than the send loop.
+      unsubscribeToken: "tok",
+    }));
+  }
+
+  // ── 1. A campaign that already carries deliveries from a prior (crashed)
+  //      attempt does not re-mail anyone that attempt already reached ──────
+  {
+    resetDbStub();
+    resetEmailStub();
+    const subs = makeSubscribers(5);
+    rows.marketingSubscriber.push(...subs);
+    const campaign = {
+      id: "campA", companyId: "co1", type: "email",
+      sentAt: null, status: "draft", recipientCount: null,
+      template, company,
+    };
+    rows.marketingCampaign.push(campaign);
+    // Exactly what a request dying right after committing two claims (but
+    // before reaching the final campaign.update) would leave behind.
+    rows.marketingCampaignDelivery.push(
+      { id: "d1", campaignId: "campA", subscriberId: "sub1", sentAt: new Date() },
+      { id: "d2", campaignId: "campA", subscriberId: "sub2", sentAt: new Date() },
+    );
+
+    const res = await sendCampaignEmails({ campaign, companyId: "co1", request: null });
+    const body = res.body;
+
+    const newClaims = writes.filter(
+      (w) => w.model === "marketingCampaignDelivery" && w.action === "create",
+    );
+    ok("resume: exactly 3 NEW claims are made (not 5)", newClaims.length === 3, newClaims.length);
+    ok(
+      "resume: the 2 already-delivered subscribers are NOT among the new claims",
+      !newClaims.some((w) => w.data.subscriberId === "sub1" || w.data.subscriberId === "sub2"),
+    );
+    ok(
+      "resume: the 3 new claims are exactly the previously-unreached subscribers",
+      new Set(newClaims.map((w) => w.data.subscriberId)).size === 3 &&
+        newClaims.every((w) => ["sub3", "sub4", "sub5"].includes(w.data.subscriberId)),
+    );
+    ok("resume: all 5 subscribers now have a delivery row", rows.marketingCampaignDelivery.length === 5, rows.marketingCampaignDelivery.length);
+    ok("resume: the campaign is reported complete (sentAt set)", Boolean(body.campaign?.sentAt));
+    ok("resume: not reported as partial", body.partial === false, body.partial);
+    ok("resume: recipientCount is the full 5, not just this attempt's 3", body.campaign?.recipientCount === 5, body.campaign?.recipientCount);
+    // The property that actually matters — not just that the ledger balances,
+    // but that Resend itself was only ever handed the 3 unreached addresses.
+    ok("resume: sendEmail was called exactly 3 times, not 5", sent.length === 3, sent.length);
+    ok(
+      "resume: sendEmail was never called for the 2 already-delivered subscribers",
+      !sent.some((m) => m.to === "sub1@example.com" || m.to === "sub2@example.com"),
+      sent.map((m) => m.to),
+    );
+  }
+
+  // ── 2. A claim that fails mid-loop (the DB dies on THIS subscriber) does
+  //      not abort the request, is left pending, and is safely retryable ──
+  {
+    resetDbStub();
+    resetEmailStub();
+    const subs = makeSubscribers(3, "mid");
+    rows.marketingSubscriber.push(...subs);
+    const campaign = {
+      id: "campB", companyId: "co1", type: "email",
+      sentAt: null, status: "draft", recipientCount: null,
+      template, company,
+    };
+    rows.marketingCampaign.push(campaign);
+
+    // Force the FIRST delivery claim in this pass to throw once — standing
+    // in for the connection dying on exactly that subscriber.
+    failNext.model = "marketingCampaignDelivery";
+    failNext.times = 1;
+
+    const res1 = await sendCampaignEmails({ campaign, companyId: "co1", request: null });
+    const body1 = res1.body;
+
+    ok("mid-loop failure: the request still completes (does not throw/crash)", res1.status === 200, res1.status);
+    ok("mid-loop failure: reported partial, not sent", body1.partial === true && !body1.campaign?.sentAt);
+    ok("mid-loop failure: exactly 2 of 3 delivered this pass", body1.campaign?.recipientCount === 2, body1.campaign?.recipientCount);
+    ok("mid-loop failure: campaign status is 'partial'", body1.campaign?.status === "partial", body1.campaign?.status);
+    ok("mid-loop failure: the failed subscriber has no delivery row left behind", rows.marketingCampaignDelivery.length === 2, rows.marketingCampaignDelivery.length);
+
+    // A real retry re-POSTs the same campaign (sentAt is still null, so the
+    // route-level guard doesn't block it). failNext is exhausted, so this
+    // pass succeeds for whoever's left. Snapshot `writes.length` first so
+    // "new claims" means claims made in THIS pass, not a guess about how
+    // many pass 1 left behind.
+    const writesBeforeRetry = writes.length;
+    const res2 = await sendCampaignEmails({ campaign, companyId: "co1", request: null });
+    const body2 = res2.body;
+    const secondPassClaims = writes
+      .slice(writesBeforeRetry)
+      .filter((w) => w.model === "marketingCampaignDelivery" && w.action === "create");
+    ok("retry: exactly 1 new claim on the retry (the one that failed before)", secondPassClaims.length === 1, secondPassClaims.length);
+    ok("retry: the campaign now reports fully sent", Boolean(body2.campaign?.sentAt) && body2.partial === false);
+    ok("retry: recipientCount is 3, never 4 — nobody got mailed twice", body2.campaign?.recipientCount === 3, body2.campaign?.recipientCount);
+    // The property a delivery-row count alone can't prove: across BOTH the
+    // failed pass and the retry combined, sendEmail was invoked exactly once
+    // per subscriber. If a claim failure were ever allowed to fall through to
+    // an actual send (rather than skipping), this would show mid1 twice.
+    ok("mid-loop + retry: sendEmail was invoked exactly 3 times in total, never more", sent.length === 3, sent.length);
+    const addressCounts = sent.reduce((m, x) => (m[x.to] = (m[x.to] || 0) + 1, m), {});
+    ok(
+      "mid-loop + retry: every one of the 3 addresses was mailed exactly once, none twice",
+      Object.values(addressCounts).every((n) => n === 1) && Object.keys(addressCounts).length === 3,
+      addressCounts,
+    );
+  }
+
+  // ── 3. A send that Resend itself reports failed (a bounce, not a DB
+  //      outage) releases its claim rather than counting as delivered ──────
+  {
+    resetDbStub();
+    resetEmailStub();
+    const subs = makeSubscribers(3, "bnc");
+    rows.marketingSubscriber.push(...subs);
+    const campaign = {
+      id: "campC", companyId: "co1", type: "email",
+      sentAt: null, status: "draft", recipientCount: null,
+      template, company,
+    };
+    rows.marketingCampaign.push(campaign);
+    failFor.add("bnc2@example.com");
+
+    const res = await sendCampaignEmails({ campaign, companyId: "co1", request: null });
+    const body = res.body;
+
+    ok("bounce: reported partial, not sent", body.partial === true && !body.campaign?.sentAt);
+    ok("bounce: only the 2 successful sends are counted", body.campaign?.recipientCount === 2, body.campaign?.recipientCount);
+    ok(
+      "bounce: the claim for the bounced address was released, not left behind",
+      !rows.marketingCampaignDelivery.some((d) => d.subscriberId === "bnc2"),
+      rows.marketingCampaignDelivery,
+    );
+    ok("bounce: sendEmail was attempted for all 3, including the one that bounced", sent.length + 1 === 3, sent.length);
+
+    // Once the address stops bouncing (a real-world fix, or just a different
+    // template), a resend reaches exactly the one subscriber still pending.
+    failFor.clear();
+    const before = sent.length;
+    const res2 = await sendCampaignEmails({ campaign, companyId: "co1", request: null });
+    ok("bounce retry: the campaign now completes", Boolean(res2.body.campaign?.sentAt) && res2.body.partial === false);
+    ok("bounce retry: exactly 1 new send, not a re-send of the other 2", sent.length - before === 1, sent.length - before);
+  }
+
+  // ── 4. A campaign that's already fully sent is rejected by the route-level
+  //      guard (unchanged one-shot behaviour for the FINISHED case) ────────
+  {
+    const routeSrc = readSrc("app/api/marketing/campaigns/[id]/send/route.js");
+    ok(
+      "the POST guard still refuses a campaign whose sentAt is already set",
+      /if \(campaign\.sentAt\) \{\s*\n\s*return NextResponse\.json\(/.test(routeSrc),
+    );
+    ok(
+      "the guard runs BEFORE sendCampaignEmails is ever called",
+      routeSrc.indexOf("if (campaign.sentAt)") < routeSrc.indexOf("sendCampaignEmails({"),
+    );
+  }
+
+  resetDbStub();
+  resetEmailStub();
+}
+
 /* ═══════════════════════════════ summary ═══════════════════════════════ */
 
 console.log(`\n${pass} passed, ${fail} failed`);

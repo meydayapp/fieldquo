@@ -3105,13 +3105,27 @@ model MarketingCampaign {
 
   // Email-blast campaigns (type = email): which template to send and to how
   // many subscribers, set once Send is clicked on the campaign detail page.
+  //
+  // `sentAt` means what it says: EVERY currently-subscribed recipient has a
+  // MarketingCampaignDelivery row. It is written only once the send loop in
+  // app/api/marketing/campaigns/[id]/send/route.js finishes with nobody left
+  // to email — never partway through — so the "already sent, can't re-send"
+  // guard on that route only ever blocks a truly-finished campaign. A send
+  // that dies mid-loop (a Neon cold start, a crash) leaves sentAt null and
+  // some subscribers with a delivery row and some without; the route is
+  // designed to be re-POSTed in that state and skips whoever already has one
+  // (@@unique on MarketingCampaignDelivery is the enforcement, not this
+  // comment). recipientCount is the running total delivered so far, across
+  // however many attempts it took — read alongside deliveries.count, not
+  // instead of it, so the UI can tell "sent" from "partially sent".
   templateId     String?
   template       DocumentTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
   sentAt         DateTime?
   recipientCount Int?
 
-  stops   PamphletStop[]
-  designs MarketingDesign[]
+  stops       PamphletStop[]
+  designs     MarketingDesign[]
+  deliveries  MarketingCampaignDelivery[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3223,7 +3237,43 @@ model MarketingSubscriber {
   /// WILL change, and the defence has to be what THIS person actually saw.
   unsubscribeDisclosure String?
 
+  deliveries MarketingCampaignDelivery[]
+
   @@unique([companyId, email])
+}
+
+/// One row per (campaign, subscriber) that a "send" actually reached — the
+/// resumability ledger app/api/marketing/campaigns/[id]/send/route.js reads
+/// before emailing anyone and writes right after Resend confirms the send.
+///
+/// Why this exists: before it, nothing recorded who had already been mailed,
+/// so a send that died mid-loop (a Neon cold start is the everyday version of
+/// this — see AGENTS.md's "Neon scales to zero" note) left campaign.sentAt
+/// unset, the "already sent" guard didn't fire, and the contractor's only
+/// available next move — click Send again — re-emailed everyone already
+/// reached. A commercial email under CASL that arrives twice is a compliance
+/// problem, not just an annoyance, so the fix has to make resending SAFE
+/// rather than merely explain why it's dangerous.
+///
+/// The @@unique is the actual guard, not a convenience index: the send route
+/// creates this row as a claim BEFORE calling Resend and treats a unique-
+/// constraint violation on that create as "already handled, skip" — which
+/// also protects against two overlapping requests for the same campaign
+/// (a double-click, or a retry racing the original) both sending to the same
+/// person. If the send itself then fails, the route deletes its own claim so
+/// a later resend can try that subscriber again — a row here is a promise
+/// that the email actually left, not that an attempt was made.
+model MarketingCampaignDelivery {
+  id         String              @id @default(cuid())
+  campaignId String
+  campaign   MarketingCampaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  subscriberId String
+  subscriber MarketingSubscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+
+  sentAt DateTime @default(now())
+
+  @@unique([campaignId, subscriberId])
+  @@index([campaignId])
 }
 
 /// One phone number's current SMS opt-out status for one company.
@@ -3313,6 +3363,12 @@ enum MarketingCampaignStatus {
   draft
   active
   completed
+  /// An email send that started but did not reach every subscribed recipient
+  /// in one pass — some deliveries exist, sentAt is still null. Distinct from
+  /// "completed" on purpose: the send route re-POSTs safely from here (it
+  /// skips whoever already has a MarketingCampaignDelivery row), but the UI
+  /// must not tell the contractor the campaign is done when it isn't.
+  partial
 }
 
 enum PamphletStopStatus {

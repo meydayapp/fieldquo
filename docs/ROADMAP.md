@@ -930,6 +930,82 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Two independent fixes: the signed quote PDF now actually shows the
+  signature, and marketing campaigns can no longer double-send on retry.**
+  `app/api/public/quotes/[token]/route.js`, `lib/documentSections/
+  SignatureSection.js`, `lib/i18n/documentLabels.js`,
+  `app/api/marketing/campaigns/[id]/send/route.js`, `prisma/schema.prisma`
+  (new `MarketingCampaignDelivery` model, new `MarketingCampaignStatus.partial`
+  value), `app/components/marketing/EmailCampaignDetail.js`,
+  `app/app/marketing/page.js`, `scripts/check-document-money.mjs`,
+  `scripts/check-consent-mechanisms.mjs`, `scripts/fixtures/dbStub.mjs`,
+  `scripts/fixtures/emailStub.mjs` (new). Full writeup:
+  `docs/SIGNED-PDF-AND-CAMPAIGNS.md`.
+
+  **Signature.** `lib/documentSections/SignatureSection.js` already drew the
+  signed mark, name, date and audit line (IP + document hash) when a quote's
+  PDF was rendered with `data.signature` present — that machinery was fully
+  built and already wired into the default `quote_pdf` sections. The bug was
+  one line upstream: the acceptance route rendered the approved-quote PDF
+  from the `quote` object it had loaded BEFORE the same request wrote the
+  signature to the database, so `data.signature` was always the pre-signing
+  value (undefined) at render time, and the section silently took its
+  "unsigned" branch on the one PDF this endpoint exists to send signed. Fixed
+  by threading the just-built `signatureRecord` into the renderer explicitly.
+  Both the client and the company (owners/admins) already received the
+  attached PDF on acceptance — that part didn't need building, only the
+  signature actually being visible on the copy both of them got. Also fixed
+  in the same pass: the block's labels ("Approval", "Signature", "Date
+  signed"…) were hardcoded English on a document whose language is fixed at
+  creation (non-negotiable #6) — now sourced from `documentLabels()`,
+  translated into all six shipped languages.
+
+  **Campaign double-send.** Nothing recorded which subscriber had already
+  been mailed for a campaign, so a request that died mid-loop (a Neon
+  cold-start P1001 is the everyday version of this) left `sentAt` unset, the
+  "already sent" guard didn't fire on a retry, and the contractor's only
+  available next move — click Send again — re-emailed everyone already
+  reached. `MarketingCampaignDelivery` is the fix: one row per (campaign,
+  subscriber) actually mailed, with a `@@unique([campaignId, subscriberId])`
+  that the send route uses as a claim-before-send guard — a duplicate
+  `create()` fails exactly the way a real double-send attempt should. If the
+  send itself then fails (a bounce, a template error), the claim is deleted
+  so a later attempt can try that subscriber again; a delivery row is a
+  promise the email actually left, never that an attempt was merely made.
+  `sentAt` is now written only when every currently-subscribed recipient has
+  a delivery row — a partial send instead sets `status: "partial"`, which
+  `EmailCampaignDetail.js` reads to show "Partially sent — resume" rather
+  than leaving the contractor to guess from a bare recipient count.
+
+  Both fixes were executed, not just read: `scripts/check-document-money.mjs`
+  renders through the labels/route wiring via source assertions (mutation-
+  tested — reverting either the signature thread-through or the hardcoded-
+  English regression was caught); a one-off throwaway script (copy-to-.jsx,
+  per AGENTS.md's own workaround for JSX-in-`.js` under `tsx`, deleted after)
+  actually called `renderToBuffer` on signed/unsigned/invoice/French cases
+  and read the resulting PDF bytes back — the signature image, name, date,
+  IP, hash and translated heading were all confirmed present. The campaign
+  fix has `sendCampaignEmails` (the loop, split out of `POST` so it's callable
+  without a session) exercised for real in
+  `scripts/check-consent-mechanisms.mjs` against a scripted db and a scripted
+  Resend client (`scripts/fixtures/dbStub.mjs`, `emailStub.mjs`) — a resumed
+  send after a simulated mid-loop DB death, and a bounce that releases its
+  claim, both proven to mail each recipient exactly once, never twice, by
+  counting actual `sendEmail` invocations rather than trusting the delivery
+  ledger to be self-consistent. Every new assertion in both scripts was
+  mutation-tested by hand (the thread-through reverted, the English hardcoded
+  back in, a translation deleted, the claim-release removed, the completion
+  check hardcoded to `true`, the `sentAt` guard deleted) and each mutation
+  was caught.
+
+  **Not done / needs a human with DB credentials:** `npx prisma db push`
+  against the real Neon database — this worktree has no `DATABASE_URL` and
+  could only validate the schema and regenerate the Prisma client locally.
+  Nothing in this repo can render a PDF to a screen or open the campaign
+  detail UI in a browser; the PDF assertions read the byte stream, and the UI
+  change (`EmailCampaignDetail.js`'s "partial" banner) was read carefully but
+  not visually verified.
+
 - **A caller who is a danger to themselves is now handled — everywhere a
   model's words reach a person, not just the receptionist.
   `lib/ai/crisisRule.js` (new), `lib/voice/prompt.js`,

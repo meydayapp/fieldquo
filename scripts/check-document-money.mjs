@@ -85,5 +85,74 @@ for (const f of ["HeaderSection", "ClientInfoSection"]) {
   t(`${f} is date-only and needs no currency`, !/\bmoney\(/.test(s));
 }
 
+// ── The signed quote's PDF actually shows the signature ────────────────────
+//
+// An acceptance email used to attach a PDF with no signature on it: the
+// section that draws the drawn mark, name, date, IP and document hash
+// (lib/documentSections/SignatureSection.js) was already built and wired into
+// the default quote_pdf sections, but the acceptance route rendered the PDF
+// from a `quote` object that was loaded from the database BEFORE this same
+// request wrote the signature to it — so `data.signature` was always
+// undefined at render time, and the section quietly took its "unsigned"
+// branch. Fixed by threading the just-built signature record into the
+// renderer explicitly rather than trusting the stale row.
+//
+// Also: the labels around the signature block ("Approval", "Signature",
+// "Date signed", "Electronically signed"…) used to be hardcoded English on a
+// document whose language is fixed at creation (AGENTS.md non-negotiable
+// #6) — a French quote's signed copy would read the block in English forever.
+console.log("\nThe signed quote's PDF shows the signature, in the document's own language");
+{
+  const sig = read("../lib/documentSections/SignatureSection.js");
+  t("SignatureSection imports documentLabels rather than hardcoding English",
+    /import\s*\{[^}]*documentLabels[^}]*\}\s*from\s*"@\/lib\/i18n\/documentLabels"/.test(sig));
+  // The give-away for a hardcoded string sneaking back in: a bare English
+  // word as JSX text where a `{labels.…}` expression belongs. Whitespace/
+  // newline-tolerant (`>\s*word\s*<`) because this file's JSX text nodes sit
+  // on their own line between the opening and closing tags, not inline —
+  // a plain substring check like `.includes(">Approval<")` would miss that
+  // shape and pass even on the original, never-fixed hardcoded version.
+  for (const word of ["Approval", "Signature", "Name", "Date signed"]) {
+    const re = new RegExp(`>\\s*${word}\\s*<`);
+    t(`SignatureSection does not hardcode "${word}" as JSX text`, !re.test(sig));
+  }
+  t("the blank-field labels come from the labels object, not a literal array",
+    !/\["Signature", "Name", "Date"\]/.test(sig));
+  t("the audit line reads labels.signatureElectronicallySigned",
+    /labels\.signatureElectronicallySigned/.test(sig));
+
+  const n = (key) => (readFileSync(new URL("../lib/i18n/documentLabels.js", import.meta.url), "utf8").match(new RegExp(`${key}:`, "g")) || []).length;
+  for (const key of [
+    "signatureApproval", "signatureAcceptWithTotal", "signatureAcceptNoTotal",
+    "signatureFieldLabel", "signatureNameFieldLabel", "signatureDateFieldLabel",
+    "signatureDateSignedLabel", "signatureElectronicallySigned", "signatureFromIp",
+    "signatureDocumentRef",
+  ]) {
+    t(`${key} is translated in all 6 document languages`, n(key), 6);
+  }
+
+  const route = read("../app/api/public/quotes/[token]/route.js");
+  t("dispatchDecisionEmails accepts the just-built signature record",
+    /async function dispatchDecisionEmails\([^)]*signatureRecord[^)]*\)/.test(route));
+  t("the acceptance handler passes signatureRecord to dispatchDecisionEmails",
+    /dispatchDecisionEmails\(updated, quote, decision, priced, signatureRecord\)/.test(route));
+  t("renderApprovedQuotePdf accepts the signature record",
+    /async function renderApprovedQuotePdf\([^)]*signatureRecord[^)]*\)/.test(route));
+  t("renderApprovedQuotePdf is called with the signature record",
+    /renderApprovedQuotePdf\(\s*quote,\s*updated\.companyId,\s*priced,\s*language,\s*signatureRecord,?\s*\)/.test(route));
+  t("the PDF's data payload carries the signature (falling back to the stored row)",
+    /signature:\s*signatureRecord\s*\|\|\s*quote\.signature\s*\|\|\s*null/.test(route));
+
+  // Both sides keep a copy of what was agreed to: the same rendered
+  // `attachments` (built once, from `pdfBuffer`) is passed to the internal
+  // owners/admins notification AND the client's confirmation — not just one
+  // of the two resend.emails.send() calls this function makes on acceptance.
+  const sendCalls = [...route.matchAll(/resend\.emails\.send\(\{([\s\S]*?)\}\);/g)].map((m) => m[1]);
+  t("exactly two emails are sent from the acceptance/decline path", sendCalls.length, 2);
+  const withAttachments = sendCalls.filter((c) => /\battachments\b/.test(c));
+  t("both the internal (company) email and the client email attach the signed PDF",
+    withAttachments.length, 2);
+}
+
 console.log(fail ? `\n${fail} FAILED\n` : "\nALL PASS — one money format, in the company's own currency\n");
 process.exit(fail ? 1 : 0);

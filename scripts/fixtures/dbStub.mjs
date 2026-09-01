@@ -37,10 +37,24 @@ export const rows = {
   // company with nothing saved under Settings would be in.
   companyServiceCategory: [],
   materialRecipeSetting: [],
+  // Marketing campaign sends (app/api/marketing/campaigns/[id]/send) — added
+  // so the resumable-send guard can be exercised as real code, not read off
+  // the source: "a retry skips whoever already has a delivery row" is a
+  // property of a query racing a unique constraint, the same class of claim
+  // the voiceCallTask/callConsent rows above exist to make executable.
+  marketingCampaign: [],
+  marketingSubscriber: [],
+  marketingCampaignDelivery: [],
 };
 
 /** Every write the product attempted, in order: { model, action, data }. */
 export const writes = [];
+
+// Lets a check force the NEXT `create` on a given model to throw once — the
+// scriptable stand-in for "the database connection died right here" (a Neon
+// cold-start P1001 is the everyday version of this; see AGENTS.md). Reset
+// between checks the same as `rows` and `writes`.
+export const failNext = { model: null, times: 0 };
 
 export function resetDbStub() {
   rows.instantQuoteConfig = [];
@@ -52,7 +66,12 @@ export function resetDbStub() {
   rows.company = [];
   rows.companyServiceCategory = [];
   rows.materialRecipeSetting = [];
+  rows.marketingCampaign = [];
+  rows.marketingSubscriber = [];
+  rows.marketingCampaignDelivery = [];
   writes.length = 0;
+  failNext.model = null;
+  failNext.times = 0;
 }
 
 // Prisma's `where` on a compound unique arrives as { companyId_trade: {...} };
@@ -80,12 +99,27 @@ function matches(row, where = {}) {
   });
 }
 
+// `failNext` support: throws once, then clears itself, when the model being
+// created matches. Applied at the very top of `create` — before the write is
+// recorded or the unique check below runs — so it stands in for a DB call
+// that failed before anything committed, which is the only honest way to
+// model a dropped connection.
+function maybeFailCreate(name) {
+  if (failNext.model === name && failNext.times > 0) {
+    failNext.times--;
+    const err = new Error(`dbStub: forced failure for ${name}.create`);
+    throw err;
+  }
+}
+
 function model(name) {
   return {
     findUnique: async ({ where } = {}) => rows[name].find((r) => matches(r, where)) || null,
     findFirst: async ({ where } = {}) => rows[name].find((r) => matches(r, where)) || null,
     findMany: async ({ where } = {}) => rows[name].filter((r) => matches(r, where)),
+    count: async ({ where } = {}) => rows[name].filter((r) => matches(r, where)).length,
     create: async ({ data } = {}) => {
+      maybeFailCreate(name);
       writes.push({ model: name, action: "create", data });
       const row = { id: `${name}_${rows[name].length + 1}`, ...data };
       rows[name].push(row);
@@ -94,6 +128,41 @@ function model(name) {
     update: async ({ where, data } = {}) => {
       writes.push({ model: name, action: "update", where, data });
       return { ...(rows[name].find((r) => matches(r, where)) || {}), ...data };
+    },
+    delete: async ({ where } = {}) => {
+      const idx = rows[name].findIndex((r) => matches(r, where));
+      const removed = idx === -1 ? null : rows[name].splice(idx, 1)[0];
+      writes.push({ model: name, action: "delete", where });
+      return removed;
+    },
+  };
+}
+
+// MarketingCampaignDelivery's whole reason to exist is the
+// @@unique([campaignId, subscriberId]) in prisma/schema.prisma — the send
+// route's claim-before-send guard depends on a duplicate `create` actually
+// failing, the same way Postgres would refuse the second insert. The generic
+// `model()` create() above has no notion of uniqueness, so this wraps it with
+// exactly the one constraint that matters here rather than building a general
+// unique-index simulator nothing else needs yet.
+function uniqueCreateModel(name, uniqueFields) {
+  const base = model(name);
+  return {
+    ...base,
+    create: async ({ data } = {}) => {
+      maybeFailCreate(name);
+      const dup = rows[name].some((r) => uniqueFields.every((f) => r[f] === data[f]));
+      if (dup) {
+        const err = new Error(
+          `dbStub: unique constraint on ${name}(${uniqueFields.join(", ")})`,
+        );
+        err.code = "P2002";
+        throw err;
+      }
+      writes.push({ model: name, action: "create", data });
+      const row = { id: `${name}_${rows[name].length + 1}`, ...data };
+      rows[name].push(row);
+      return row;
     },
   };
 }
@@ -111,6 +180,12 @@ export const db = new Proxy(
     company: model("company"),
     companyServiceCategory: model("companyServiceCategory"),
     materialRecipeSetting: model("materialRecipeSetting"),
+    marketingCampaign: model("marketingCampaign"),
+    marketingSubscriber: model("marketingSubscriber"),
+    marketingCampaignDelivery: uniqueCreateModel("marketingCampaignDelivery", [
+      "campaignId",
+      "subscriberId",
+    ]),
   },
   {
     get(target, prop) {

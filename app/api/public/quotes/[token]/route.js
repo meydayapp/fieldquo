@@ -496,7 +496,7 @@ export async function POST(request, { params }) {
   // Best-effort: a mail failure must not make the client think their approval
   // didn't register.
   try {
-    await dispatchDecisionEmails(updated, quote, decision, priced);
+    await dispatchDecisionEmails(updated, quote, decision, priced, signatureRecord);
   } catch (err) {
     console.error("[public quote] notification failed:", err);
   }
@@ -559,7 +559,7 @@ export async function POST(request, { params }) {
 // The PDF engine (@react-pdf/renderer) is imported lazily here, never at module
 // top: the far commoner path through this file is a stranger's GET, which has
 // no business loading a rendering engine to format a percentage.
-async function dispatchDecisionEmails(updated, quote, decision, priced) {
+async function dispatchDecisionEmails(updated, quote, decision, priced, signatureRecord) {
   const { Resend } = await import("resend");
   const { lazyClient } = await import("@/lib/lazyClient");
   const { SENDER_SELECT } = await import("@/lib/email/resend");
@@ -612,6 +612,7 @@ async function dispatchDecisionEmails(updated, quote, decision, priced) {
         updated.companyId,
         priced,
         language,
+        signatureRecord,
       );
     } catch (err) {
       console.error("[public quote] approved PDF render failed:", err?.message);
@@ -719,7 +720,15 @@ async function dispatchDecisionEmails(updated, quote, decision, priced) {
 // The accepted subtotal/tax/total are threaded in so the signed copy shows the
 // figure the client actually agreed to — extras included — not the pre-add-on
 // quote total sitting on the row.
-async function renderApprovedQuotePdf(quote, companyId, priced, language) {
+//
+// `signatureRecord` is threaded in explicitly rather than read off `quote`:
+// `quote` was loaded by loadQuote() BEFORE this same request wrote the
+// signature to the database, so quote.signature is still the pre-signing
+// value (usually undefined). Without this, SignatureSection's `data.signature
+// ? renderSigned : renderBlank` branch always takes the blank path on the
+// very PDF this endpoint exists to send — the signature is real and stored,
+// it just never reached the renderer.
+async function renderApprovedQuotePdf(quote, companyId, priced, language, signatureRecord) {
   const { renderDocumentPdfBuffer } =
     await import("@/app/admin/lib/pdf/renderDocumentPdf");
   const { getDefaultSections } =
@@ -749,6 +758,7 @@ async function renderApprovedQuotePdf(quote, companyId, priced, language) {
       subtotal: priced.subtotal,
       tax: priced.tax,
       total: priced.total,
+      signature: signatureRecord || quote.signature || null,
     },
     company: fullCompany,
   });

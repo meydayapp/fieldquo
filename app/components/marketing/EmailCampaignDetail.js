@@ -91,6 +91,28 @@ export default function EmailCampaignDetail({ campaign, onSent }) {
             {campaign.recipientCount === 1 ? "" : "s"} on{" "}
             {new Date(campaign.sentAt).toLocaleString()}.
           </div>
+        ) : campaign.status === "partial" ? (
+          // A previous send didn't reach everyone — a crash, a cold-start DB
+          // error, whatever. `campaign.recipientCount` is how many already
+          // have the campaign (never re-emailed); "Resume send" only mails
+          // whoever's left, via the same MarketingCampaignDelivery-guarded
+          // route. sentAt stays unset until this actually finishes, so this
+          // state — not "Sent" — is what shows until it does.
+          <div className="border border-amber-200 bg-amber-50 rounded-lg p-4 space-y-3">
+            <p className="text-sm text-amber-800">
+              Partially sent — {campaign.recipientCount ?? 0} of{" "}
+              {subscribedCount ?? campaign.recipientCount ?? 0} subscribed recipients have
+              this campaign. The rest haven&apos;t been emailed yet.
+            </p>
+            {error && <p className="text-sm text-red-700">{error}</p>}
+            <button
+              onClick={handleSend}
+              disabled={sending}
+              className="bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
+            >
+              {sending ? "Sending…" : "Resume send"}
+            </button>
+          </div>
         ) : confirming ? (
           <div className="border border-amber-200 bg-amber-50 rounded-lg p-4 space-y-3">
             <p className="text-sm text-amber-800">
