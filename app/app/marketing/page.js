@@ -30,6 +30,11 @@ const STATUS_STYLES = {
   draft: "bg-muted text-muted-foreground",
   active: "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300",
   completed: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
+  // An email send that didn't reach every subscriber yet — see
+  // app/api/marketing/campaigns/[id]/send/route.js. Amber rather than the
+  // "completed" blue: this campaign is not done, and the card should read
+  // that way at a glance, not just on the detail page.
+  partial: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300",
 };
 
 const inputClass =
