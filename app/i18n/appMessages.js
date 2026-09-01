@@ -192,6 +192,7 @@ const en = {
   "app.nav.teamSchedule": "Team calendar",
   "app.nav.timesheets": "Timesheets",
   "app.nav.timeOff": "Time Off",
+  "app.nav.safety": "Safety",
 
   "app.nav.group.money": "Money",
   "app.nav.payroll": "Payroll",
@@ -4797,6 +4798,65 @@ const en = {
   "app.photoAnnotator.tool.arrow": "Arrow",
   "app.photoAnnotator.tool.rectangle": "Rectangle",
   "app.photoAnnotator.tool.ellipse": "Ellipse",
+
+  // ── Safety incidents (app/app/safety/page.js) ───────────────────────────
+  "app.safety.title": "Safety",
+  "app.safety.subtitle":
+    "Injuries and near-misses. A near-miss is worth reporting exactly like an injury — it's how you learn before someone gets hurt.",
+  "app.safety.reportButton": "Report",
+  "app.safety.kind.near_miss": "Near-miss",
+  "app.safety.kind.injury": "Injury",
+  "app.safety.kind.property_damage": "Property damage",
+  "app.safety.kind.other": "Other",
+  "app.safety.status.open": "Open",
+  "app.safety.status.reviewed": "Reviewed",
+  "app.safety.status.closed": "Closed",
+  "app.safety.filter.all": "All",
+  "app.safety.workStoppedBadge": "Work stopped",
+  "app.safety.reportedBy": "Reported by {name}",
+  "app.safety.list.empty": "Nothing reported",
+  "app.safety.list.emptyBody": "That's a good thing — this is where it'll show up if it happens.",
+  "app.safety.form.kind": "What kind of incident",
+  "app.safety.form.occurredAt": "When it happened",
+  "app.safety.form.description": "What happened",
+  "app.safety.form.descriptionPlaceholder": "In your own words — short is fine.",
+  "app.safety.form.location": "Where",
+  "app.safety.form.locationPlaceholder": "e.g. second floor bathroom, the yard",
+  "app.safety.form.job": "Job (optional)",
+  "app.safety.form.jobNone": "Not tied to a job",
+  "app.safety.form.workStopped": "Work stopped because of this",
+  "app.safety.form.regulatoryNote": "Reporting note (optional)",
+  "app.safety.form.regulatoryNotePlaceholder":
+    "Anything about reporting this to a provincial authority — FieldQuo doesn't decide that for you.",
+  "app.safety.form.regulatoryNoteHelp":
+    "FieldQuo doesn't know your province's reporting rules or deadlines — this is a place to write down what you decide, not a compliance check.",
+  "app.safety.form.submit": "File report",
+  "app.safety.form.submitting": "Filing…",
+  "app.safety.form.cancel": "Cancel",
+  "app.safety.form.error": "Couldn't file that report.",
+  "app.safety.form.success": "Filed. Add a photo of the scene if you have one — optional.",
+  "app.safety.form.done": "Done",
+  "app.safety.photos.error": "Couldn't attach that photo.",
+  "app.safety.followUp.title": "Follow up",
+  "app.safety.followUp.notesPlaceholder": "What was done about it",
+  "app.safety.followUp.save": "Save",
+  "app.safety.followUp.error": "Couldn't save the follow-up.",
+
+  // ── Asset categories (lib/costing/assetLifeSuggestions.js) — a SUGGESTION
+  // for usefulLifeMonths on the add-asset form, never applied silently. See
+  // that file's header for where the numbers come from and their limits.
+  "app.assets.category.vehicle": "Vehicle",
+  "app.assets.category.trailer": "Trailer",
+  "app.assets.category.powerTool": "Power tool",
+  "app.assets.category.handTool": "Hand tool",
+  "app.assets.category.ladderScaffold": "Ladder / scaffolding",
+  "app.assets.category.sprayEquipment": "Spray equipment",
+  "app.assets.category.compressorGenerator": "Compressor / generator",
+  "app.assets.category.measuringElectronic": "Measuring / electronic tool",
+  "app.assets.category.safetyEquipment": "Safety equipment",
+  "app.assets.category.other": "Other",
+  "app.assets.categorySuggestion":
+    "Typical range for this category — a starting point, not a rule. Confirm or change it before saving.",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -4931,6 +4991,7 @@ const fr = {
   "app.nav.teamSchedule": "Calendrier de l'équipe",
   "app.nav.timesheets": "Feuilles de temps",
   "app.nav.timeOff": "Congés",
+  "app.nav.safety": "Sécurité",
 
   "app.nav.group.money": "Finances",
   "app.nav.payroll": "Paie",
@@ -9341,6 +9402,63 @@ const fr = {
   "app.photoAnnotator.tool.arrow": "Flèche",
   "app.photoAnnotator.tool.rectangle": "Rectangle",
   "app.photoAnnotator.tool.ellipse": "Ellipse",
+
+  // ── Safety incidents (app/app/safety/page.js) ───────────────────────────
+  "app.safety.title": "Sécurité",
+  "app.safety.subtitle":
+    "Blessures et incidents évités de justesse. Un incident évité de justesse mérite d'être signalé exactement comme une blessure — c'est ainsi qu'on apprend avant que quelqu'un soit blessé.",
+  "app.safety.reportButton": "Signaler",
+  "app.safety.kind.near_miss": "Évité de justesse",
+  "app.safety.kind.injury": "Blessure",
+  "app.safety.kind.property_damage": "Dommage matériel",
+  "app.safety.kind.other": "Autre",
+  "app.safety.status.open": "Ouvert",
+  "app.safety.status.reviewed": "Examiné",
+  "app.safety.status.closed": "Fermé",
+  "app.safety.filter.all": "Tous",
+  "app.safety.workStoppedBadge": "Travaux arrêtés",
+  "app.safety.reportedBy": "Signalé par {name}",
+  "app.safety.list.empty": "Rien de signalé",
+  "app.safety.list.emptyBody": "C'est une bonne chose — c'est ici que ça apparaîtra si ça arrive.",
+  "app.safety.form.kind": "Quel type d'incident",
+  "app.safety.form.occurredAt": "Quand c'est arrivé",
+  "app.safety.form.description": "Ce qui s'est passé",
+  "app.safety.form.descriptionPlaceholder": "Dans vos propres mots — court, c'est bien.",
+  "app.safety.form.location": "Où",
+  "app.safety.form.locationPlaceholder": "p. ex. salle de bain à l'étage, la cour",
+  "app.safety.form.job": "Chantier (optionnel)",
+  "app.safety.form.jobNone": "Non lié à un chantier",
+  "app.safety.form.workStopped": "Les travaux ont été arrêtés à cause de ça",
+  "app.safety.form.regulatoryNote": "Note sur le signalement (optionnel)",
+  "app.safety.form.regulatoryNotePlaceholder":
+    "Toute information sur le signalement à une autorité provinciale — FieldQuo ne décide pas ça pour vous.",
+  "app.safety.form.regulatoryNoteHelp":
+    "FieldQuo ne connaît pas les règles ni les délais de signalement de votre province — c'est un endroit pour noter votre propre décision, pas une vérification de conformité.",
+  "app.safety.form.submit": "Envoyer le rapport",
+  "app.safety.form.submitting": "Envoi en cours…",
+  "app.safety.form.cancel": "Annuler",
+  "app.safety.form.error": "Impossible d'envoyer ce rapport.",
+  "app.safety.form.success": "Envoyé. Ajoutez une photo des lieux si vous en avez une — optionnel.",
+  "app.safety.form.done": "Terminé",
+  "app.safety.photos.error": "Impossible d'ajouter cette photo.",
+  "app.safety.followUp.title": "Suivi",
+  "app.safety.followUp.notesPlaceholder": "Ce qui a été fait à ce sujet",
+  "app.safety.followUp.save": "Enregistrer",
+  "app.safety.followUp.error": "Impossible d'enregistrer le suivi.",
+
+  // ── Catégories d'équipement (lib/costing/assetLifeSuggestions.js) ───────
+  "app.assets.category.vehicle": "Véhicule",
+  "app.assets.category.trailer": "Remorque",
+  "app.assets.category.powerTool": "Outil électrique",
+  "app.assets.category.handTool": "Outil manuel",
+  "app.assets.category.ladderScaffold": "Échelle / échafaudage",
+  "app.assets.category.sprayEquipment": "Équipement de pulvérisation",
+  "app.assets.category.compressorGenerator": "Compresseur / génératrice",
+  "app.assets.category.measuringElectronic": "Outil de mesure / électronique",
+  "app.assets.category.safetyEquipment": "Équipement de sécurité",
+  "app.assets.category.other": "Autre",
+  "app.assets.categorySuggestion":
+    "Durée typique pour cette catégorie — un point de départ, pas une règle. Confirmez-la ou changez-la avant d'enregistrer.",
 };
 
 
