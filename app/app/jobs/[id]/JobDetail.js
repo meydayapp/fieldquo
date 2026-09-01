@@ -20,6 +20,7 @@ import JobTasks from "@/app/components/jobs/JobTasks";
 import Link from "next/link";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import JobPhotoCurator from "@/app/components/jobs/JobPhotoCurator";
+import EquipmentUseLog from "@/app/components/jobs/EquipmentUseLog";
 import JobPhotoTimeline from "@/app/components/jobs/JobPhotoTimeline";
 import SuggestedTasks from "@/app/components/jobs/SuggestedTasks";
 import VisitChecklist from "@/app/components/jobs/VisitChecklist";
@@ -503,6 +504,12 @@ export default function JobDetail({ jobId }) {
           the quote's takeoff — seen from the other end: the cost panel asks
           whether the price covers it, this asks whether it has been bought. */}
       <JobMaterials jobId={job.id} />
+
+      {/* Which of the company's own equipment came along. Sits next to the
+          buy list for the same reason: it's the other thing a crew brings to
+          a job besides materials, and it's just as cheap to tick off. See
+          the component's own header for why no dollar figure shows here. */}
+      <EquipmentUseLog jobId={job.id} />
 
       {/* And what has to be DONE on it. Sits beside the buy list because the
           owner named them in one breath — "materials to buy, tasks from the

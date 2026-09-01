@@ -4859,6 +4859,17 @@ const en = {
   "app.assets.category.other": "Other",
   "app.assets.categorySuggestion":
     "Typical range for this category — a starting point, not a rule. Confirm or change it before saving.",
+
+  // ── Equipment use log (app/components/jobs/EquipmentUseLog.js) ──────────
+  "app.jobEquipment.title": "Equipment used",
+  "app.jobEquipment.add": "Log equipment",
+  "app.jobEquipment.empty": "Nothing logged yet.",
+  "app.jobEquipment.error": "Couldn't log that.",
+  "app.jobEquipment.pickAsset": "Which piece of equipment",
+  "app.jobEquipment.hoursOptional": "Hours (optional)",
+  "app.jobEquipment.hoursShort": "h",
+  "app.jobEquipment.save": "Log it",
+  "app.jobEquipment.cancel": "Cancel",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -9463,6 +9474,17 @@ const fr = {
   "app.assets.category.other": "Autre",
   "app.assets.categorySuggestion":
     "Durée typique pour cette catégorie — un point de départ, pas une règle. Confirmez-la ou changez-la avant d'enregistrer.",
+
+  // ── Journal d'utilisation de l'équipement ────────────────────────────────
+  "app.jobEquipment.title": "Équipement utilisé",
+  "app.jobEquipment.add": "Enregistrer l'équipement",
+  "app.jobEquipment.empty": "Rien d'enregistré pour l'instant.",
+  "app.jobEquipment.error": "Impossible d'enregistrer ça.",
+  "app.jobEquipment.pickAsset": "Quel équipement",
+  "app.jobEquipment.hoursOptional": "Heures (optionnel)",
+  "app.jobEquipment.hoursShort": "h",
+  "app.jobEquipment.save": "Enregistrer",
+  "app.jobEquipment.cancel": "Annuler",
 };
 
 
