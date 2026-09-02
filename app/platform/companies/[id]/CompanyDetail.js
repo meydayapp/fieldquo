@@ -35,6 +35,7 @@ import CompanyHistory from "./CompanyHistory";
 import CompanyActivity from "./CompanyActivity";
 import CompanyHealth from "./CompanyHealth";
 import CompanyActions from "./CompanyActions";
+import CompanyDisputeEvidence from "./CompanyDisputeEvidence";
 
 const STATUS_STYLES = {
   active: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900",
@@ -563,6 +564,11 @@ export default function CompanyDetail({ companyId }) {
         trialEndsAt={company.trialEndsAt}
         onDone={load}
       />
+
+      {/* The case FieldQuo can make if they charge back — assembled on demand,
+          never submitted. Sits after the support actions because it is the
+          thing you reach for when the relationship has already gone wrong. */}
+      <CompanyDisputeEvidence companyId={companyId} companyName={company.name} />
 
       {/* Action trail — who did what inside the company's own app */}
       <CompanyActivity companyId={companyId} />
