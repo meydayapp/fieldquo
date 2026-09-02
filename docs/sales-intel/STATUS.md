@@ -46,6 +46,62 @@ exit 0, schema pushed and verified, row counts unchanged.
 
 ---
 
+## Phase 2 — landed overnight 2026-09-01
+
+| Thing | State |
+|---|---|
+| Phase 2 schema — 18 models | pushed, verified |
+| Platform-wide suppression list (email / phone / domain) | done, 260 checks |
+| Sales calling window, Canada's rules, prospect's timezone | done |
+| Pipeline task runner — atomic claim, reclaim, backoff | done, 123 checks |
+| FieldQuo capability matrix — 27 in, 11 excluded | done, 182 checks |
+| Opportunity + confidence engines | done |
+| Weekly payout batches | done, 32 checks |
+| Four live voice bugs | fixed, 89 checks |
+| FieldQuo's own AI + voice spend, at cost | done |
+| Rep work mailbox, separate from login | done |
+| Rep signup link + per-day counts | done |
+
+### Three bugs found in MY shipped work, by the agents reviewing it
+
+1. **`deliverOutreach` had no opt-out check at all.** The gate was
+   `leadIsOptedOut`, called by two routes — so any third caller of the send
+   function bypassed the opt-out entirely. The check now lives inside the send.
+2. **Those routes never loaded `lead.phone`.** So "opt out by phone, then
+   receive an email" would have silently passed even with the guard in place.
+3. **`check-sales-outreach.mjs` contained an assertion encoding the bug** —
+   it asserted that an opt-out reached only the receiving rep. A check that
+   proves the wrong behaviour is worse than no check. Inverted.
+
+Also: `app/api/settings/referral/invite/route.js` was never in the audit and
+sends over FieldQuo's shared number. Its own comment said "there's no 'this
+company's opt-out list' for this recipient to be on" — true of the tenant list,
+and a hole the moment FieldQuo had one of its own. Now guarded.
+
+### Where the capability agent corrected the brief
+
+- **There are no plan-tier differences to note.** Solo/Crew/Shop/Scale differ in
+  seats, crew and price and in NOTHING else — asserted by `check:feature-matrix`
+  against the seat ladder. What varies is metered usage, so "AI included" would
+  have been a false claim about our own pricing.
+- **"Limited published hours" was unbuildable as specified.** That needs an
+  hours count and no column holds one; inventing a threshold is the exact
+  padding-absent-data failure `businessHours.js` exists to prevent. The rule
+  fires on NO published hours at all — a real reading of a real page.
+- **"Only pitch what FieldQuo does better than the competitor" needs a
+  competitor feature map that is not sourced.** Asserting Jobber's feature list
+  from memory would put an unverified third-party claim in a rep's script.
+  Inverted into a claim about US — is this table stakes any FSM would carry? —
+  which can only remove talking points, never invent one.
+
+**11 capabilities were EXCLUDED**, each with the reason in code and on screen:
+no live chat exists at all; the Marketing Designer is built but no page mounts
+it; social publishing has no Meta connection; custom fields are written and
+never read; warm transfer saves a column nothing reads. Payroll, contractor
+payouts and client financing are real but deliberately kept out of a cold-call
+script — partial, and a rep summarising their limits on a phone is how an
+unkeepable promise gets made.
+
 ## Phase 2 — Sales intelligence, prospecting, telephony, copilot
 
 Specified 2026-09-01. The spec's own §64 says to audit before writing code, so
