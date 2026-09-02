@@ -289,6 +289,7 @@ ok("every DRILL_INS entry still names a real route", goneDrillIns.length === 0,
 const PLATFORM_DRILL_INS = {
   "/platform/companies/[id]": "company detail — opened from the Companies list",
   "/platform/migrations/[id]": "one migration request — opened from the Migrations list, and the only screen that can quote it or write into the company's tenant",
+  "/platform/sales/campaigns/[id]": "one discovery campaign — opened from the Discovery campaigns list, and the only screen carrying its funnel and its needs-review queue",
 };
 const PLATFORM_EXCLUSIONS = {
   "/platform/login": "sign-in screen — PlatformSidebar hides itself here on purpose (see its own early return), so there is no nav to reach it FROM; it's where an unauthenticated staffer lands",

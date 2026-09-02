@@ -82,6 +82,7 @@ import {
   GitBranch,
   SlidersHorizontal,
   Fingerprint,
+  Radar,
 } from "lucide-react";
 
 const HOME_ITEM = { label: "Dashboard", href: "/platform", icon: LayoutDashboard, exact: true };
@@ -157,6 +158,11 @@ const GROUPS = [
       // Filing them with "who holds a platform login" would put the people
       // beside the console's own keys, which is a different question.
       { label: "Sales reps", href: "/platform/sales/reps", icon: UserRoundCheck },
+      // Where the prospects come from. Placed directly under the reps because
+      // it is the screen that fills their queue: a campaign is one territory,
+      // one trade and one target, and the single-trade queue it produces is
+      // the whole reason it is a campaign rather than a filter.
+      { label: "Discovery campaigns", href: "/platform/sales/campaigns", icon: Radar },
       // What a rep is allowed to promise. Next to the reps rather than under
       // Billing, even though it reads like a feature list: a row here is not a
       // thing FieldQuo sells at a price, it is a sentence somebody says on a

@@ -92,6 +92,88 @@ exit 0, schema pushed and verified, row counts unchanged.
 | Rep work mailbox, separate from login | done |
 | Rep signup link + per-day counts | done |
 
+### Discovery — Overture places become Prospect rows · BUILT 2026-09-02
+
+`DISCOVER_BUSINESSES` is the first of the eight pipeline stages with a real
+handler. `scripts/check-sales-discovery.mjs` — 314 checks, 74 mutations tested,
+all caught — is in `check:all`.
+
+**DuckDB CANNOT run inside a Vercel function, and the alternative shipped
+instead.** Four independent reasons, any one fatal: the measured scan is ~60
+seconds and no `maxDuration` is exported anywhere in this repo; a multi-threaded
+Parquet scan over 9.76 GiB is sized for a workstation; `@duckdb/node-api` is a
+native addon of tens of megabytes whose `httpfs` extension is downloaded and
+verified at RUN time; and re-scanning a city per campaign answers a question
+whose answer changes twelve times a year. So `npm run overture:snapshot` runs
+the DuckDB **CLI** offline — nothing entered `package.json` — writes an NDJSON
+snapshot with a manifest naming the release, and the campaign's
+`providerConfig.snapshotUrl` points at it. **A campaign cannot discover
+anything until somebody has produced its snapshot**, the screen says exactly
+that, and the handler refuses with that sentence rather than reporting an empty
+result.
+
+**The release is looked up, never hard-coded.** An anonymous S3 listing —
+plain `fetch`, no SDK, no account — and a beta prefix or a truncated listing
+yields null rather than a stale month.
+
+**Classifier precision, hand-checked on a stratified draw of 120 rows out of
+222,337 classified:** retailer **93.3%** (56/60), contractor **98.3%** (59/60).
+Overall shape: 91.6% contractor, 2.8% retailer, 5.6% needs review. Every one of
+Benjamin Moore, Dulux, Betonel, Sherwin-Williams, PPG and Sico is rejected —
+including the Benjamin Moore rows filed as `painting` with no alternate
+category at all, which no structural rule can catch.
+
+**The first version scored 73% and had to be rebuilt.** It treated
+`wholesale_store` / `building_supply_store` as decisive and rejected Whistle
+Stop Fence Co, A1 Quality Decks, Hudson Valley HVAC and Cleveland Air Comfort —
+contractors that sell what they install. A structural retail signal is now a
+QUESTION; only the NAME (a chain, or supply / wholesale / distribution) decides
+alone. `home_improvement_store` as an alternate is measured NOISE — 6,128 of the
+nine core categories' rows carry it, including CertaPro Painters and Wow 1 Day
+Painting — and is deliberately in none of the lists.
+
+**A freshness bug found by running the real extractor, not by reading.** EVERY
+Overture row carries a derived `/properties/confidence` source whose
+`update_time` is the RELEASE BUILD DATE. "Newest source" therefore reported
+today for every row in the dataset — "Eco Painting Plus", last actually touched
+in September 2015, would have shown as refreshed three weeks ago, which is the
+exact opposite of what carrying the field is for. Only record-level
+contributions now count. After the fix, 13 of 111 Ottawa painting rows are
+correctly flagged as over two years old.
+
+**A second bug the check found:** `Number(null)` is `0` and `0` is finite, so a
+row with no coordinates survived the radius guard and had its distance measured
+from the equator.
+
+**Live, end to end, against the current release (`2026-08-19.0`):** Ottawa
+painting, 25 km radius — 89 found, 11 not usable for this campaign, 7 shops
+rejected, 1 needs review, **70 accepted contractors, 67 ready to call**. That
+matches the independent measurement's "70 painting contractors in the City of
+Ottawa" almost exactly.
+
+**Decisions worth not re-litigating:**
+
+- `Prospect.tradeKey` is NOT a `ServiceCategory` key. A catalogue key is a
+  QUOTE TYPE and a painting contractor sells two of them; the catalogue itself
+  already refused to pick one as primary. `lib/sales/discovery/trades.js`
+  declares a coarser unit over catalogue keys, and the check asserts every one
+  it names is real.
+- `hasWebsite` stays NULL when the source lists no website — never `false`.
+  Overture's website fill is 92.7%, so an empty column is a gap in the
+  directory as often as a gap in the market. The funnel line reads "No website
+  listed by the source", and only a crawl may make the stronger claim.
+- `confidence` is stored and never gated on, per the measurement. The check
+  asserts no WHERE clause names it.
+- Only an exact `(provider, record id)` match removes anything. A phone, domain
+  or name+locality match FLAGS. The database's own unique index is the dedupe
+  guarantee; `skipDuplicates` was rejected because it would count a row as
+  accepted that was never written.
+
+**Still open:** territories can be created with a campaign and reused, but
+there is no screen to rename or re-draw one — stated on the page rather than
+hinted at with a control that would fail. The other seven pipeline stages are
+somebody else's work.
+
 ### The mobile check, and what it honestly proves
 
 `check:mobile` now runs over all of `app/platform` and `app/sales` — 55 files,

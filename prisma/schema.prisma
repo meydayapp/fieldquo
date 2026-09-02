@@ -8347,13 +8347,62 @@ model Prospect {
   /// Google's own category strings, unmapped. Mapping them to FieldQuo trades
   /// is a separate, revisable decision and must not overwrite the source.
   sourceCategories String[] @default([])
-  /// The FieldQuo trade this was discovered as. Null when nothing mapped —
-  /// never a guess.
+  /// The FieldQuo trade this was discovered as, as a key of DISCOVERY_TRADES
+  /// in lib/sales/discovery/trades.js. Null when nothing mapped — never a
+  /// guess. NOT a ServiceCategory key: that space is quote types, and a
+  /// painting contractor sells two of them. trades.js's header argues it.
   tradeKey         String?
 
   googleRating      Decimal? @db.Decimal(2, 1)
   googleReviewCount Int?
+  /// What the SOURCE said about whether this business is trading, verbatim.
+  ///
+  /// Null means the source said nothing, and nothing may read that as "open".
+  /// Overture's `operating_status` is only ever `open` or NULL — measured, no
+  /// `closed` value exists at all — so some of these businesses have shut and
+  /// the directory does not know it. Provider-neutral on purpose: this is the
+  /// same question whoever answers it.
   businessStatus    String?
+
+  // ── Provenance: which source, which record, which release ──────────────
+  //
+  // Not decoration. "Why do we think this phone number is theirs" has to be
+  // answerable a year later, and for a directory source the answer is a
+  // (release, record id) pair that can be looked up in a file that still
+  // exists. A prospect with no release stamped on it cannot be re-checked
+  // against the data it came from, and a monthly-refreshed source makes that
+  // a real question rather than a hypothetical one.
+
+  /// The BusinessDiscoveryProvider key — "overture". Null for a prospect that
+  /// nothing discovered (a hand-typed row).
+  sourceProvider   String?
+  /// The provider's own stable id for the record.
+  sourceRecordId   String?
+  /// The dataset release this came from, e.g. "2026-08-19.0". Overture ships
+  /// monthly, so this is what says WHEN the world looked like this.
+  sourceRelease    String?
+  /// Which contributor inside the source supplied it — meta, Microsoft,
+  /// Foursquare. Kept because the fill rates and the staleness differ sharply
+  /// between them.
+  sourceDataset    String?
+  /// The source's own confidence. STORED AND NEVER FILTERED ON: measured, it
+  /// is 98.9% phone fill in the lowest bucket against 100.0% in the highest,
+  /// and for Foursquare rows it is a per-source constant with three distinct
+  /// values across 2,279 records. It is a provenance tag, not a probability.
+  sourceConfidence Decimal? @db.Decimal(6, 5)
+  /// When the SOURCE last refreshed this record. Null means it did not say —
+  /// never now(). 11.6% of the measured sample is pre-2020, and a rep needs to
+  /// see that before dialling.
+  sourceUpdatedAt  DateTime?
+
+  /// contractor | retailer | needs_review — see lib/sales/discovery/classify.js.
+  /// Separate from `status` because it is a fact about what KIND of business
+  /// this is, which does not change as the prospect moves through the pipeline.
+  classification       String?
+  /// The one sentence the review screen shows. Stored rather than recomputed
+  /// so a later change to the rules cannot silently rewrite why an existing
+  /// row was rejected.
+  classificationReason String?
 
   /// FALSE is a finding, not a blank. The brief is explicit that a business
   /// with a Google profile and no website is a strong prospect, not a
@@ -8415,10 +8464,16 @@ model Prospect {
   corrections   ProspectCorrection[]
   leads         SalesLead[]
 
+  /// One row per (provider, record). The database refuses a second copy of the
+  /// same source record rather than the ingest remembering not to write one —
+  /// a read-then-write dedupe loses the race between two overlapping cron
+  /// ticks, and the schema is the only place that cannot.
+  @@unique([sourceProvider, sourceRecordId])
   @@index([status])
   @@index([assignedRepId, status])
   @@index([territoryId, status])
   @@index([campaignId])
+  @@index([campaignId, classification])
   @@index([phoneE164])
   @@index([domain])
 }
@@ -8764,14 +8819,48 @@ model ProspectCampaign {
   /// the first campaign at the one source that cannot legally serve it.
   discoveryProvider String?
 
+  /// Settings the chosen provider needs and no other provider would understand
+  /// — Overture's snapshot URL, a future vendor's list id. Provider-specific
+  /// by design: putting `snapshotUrl` on the model itself would bake one
+  /// provider's transport into a provider-neutral table, and the next provider
+  /// would add a second column nothing else reads.
+  ///
+  /// It lives here and not in an environment variable because of the owner's
+  /// standing rule: every setting is editable from the superadmin UI. An env
+  /// var would make a campaign's source something only a redeploy can change.
+  providerConfig Json?
+
+  /// queued cursor for the next discovery page, in the provider's own dialect.
+  /// Null before a run starts and again when the provider says there is no
+  /// more — which is what makes "finished" distinguishable from "stalled".
+  discoveryCursor String?
+
   status String @default("draft")
 
   /// Counters, so the admin screen can show progress without scanning rows.
+  ///
+  /// The funnel these serve is spec §56: found → duplicates removed →
+  /// accepted → no website → ready → needs review. Every one is incremented in
+  /// the same transaction as the write it counts, so a crashed run cannot
+  /// leave a total that disagrees with the rows.
   foundCount      Int @default(0)
   duplicateCount  Int @default(0)
   acceptedCount   Int @default(0)
   readyCount      Int @default(0)
   needsReviewCount Int @default(0)
+  /// Classified as a shop or a supplier and NOT written as a prospect. Counted
+  /// rather than stored: the decision is deterministic and re-runnable from the
+  /// same release, so nothing is lost, and a rep's queue never contains a row
+  /// whose only purpose is to be skipped.
+  rejectedCount   Int @default(0)
+  /// Accepted, and the SOURCE listed no website. Not the same claim as
+  /// `Prospect.hasWebsite = false`, which only the crawler may make.
+  noWebsiteCount  Int @default(0)
+  /// Rows that could not go into THIS campaign's queue: the source category
+  /// maps to no FieldQuo trade, or maps to a different one, or the row carried
+  /// no name or id. Reported so a gap in the trade map shows up as a number
+  /// instead of as a quietly smaller campaign.
+  unmappedCount   Int @default(0)
 
   startedAt   DateTime?
   completedAt DateTime?

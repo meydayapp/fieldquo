@@ -102,6 +102,8 @@ const STRICT_FILES = [
   "app/platform/sales/rules/page.js",
   "app/platform/sales/confidence/page.js",
   "app/platform/sales/signatures/page.js",
+  "app/platform/sales/campaigns/page.js",
+  "app/platform/sales/campaigns/[id]/page.js",
 ];
 
 /**
