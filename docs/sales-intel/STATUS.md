@@ -85,6 +85,40 @@ exit 0, schema pushed and verified, row counts unchanged.
 | Rep work mailbox, separate from login | done |
 | Rep signup link + per-day counts | done |
 
+### SMS: a "Reply STOP" that went nowhere
+
+The sharpest catch of the night, and it had legal teeth rather than merely
+being a bug.
+
+`buyPlatformNumber` hard-wires the CREW webhook. A sales number bought as-is
+would have pointed at `/api/crew/inbound`, resolved to nobody, and **dropped
+every STOP with a silent 200**. So the message would have carried a "Reply
+STOP" line with nothing behind it — an unsubscribe that does not unsubscribe,
+which is both the dead-control failure AGENTS.md forbids and a CASL/TCPA
+problem. Fixed with a purpose-aware webhook URL.
+
+Two more distinctions that mattered:
+
+- **STOP must NOT reverse on START here.** The tenant path does reverse it,
+  because carriers expect that. The sales path must not, because
+  `lib/sales/suppression.js` deliberately has no self-service removal — an
+  opt-out binds FieldQuo and only a superadmin lifts it, with a reason.
+- **The SMS window is NOT the voice window.** I told the agent to reuse
+  `lib/sales/callingWindow.js` and it correctly reused only the timezone
+  helper. CASL governs commercial texts and has no time-of-day rule; the CRTC
+  09:00–21:30 / 10:00–18:00 hours are for telemarketing *telecommunications*.
+  What binds a text is the TCPA's flat 08:00–21:00 local window. Reusing the
+  voice bounds would have been simultaneously non-compliant and needlessly
+  restrictive.
+
+Also: **nothing in the product knew where a prospect is.** Neither `SalesLead`
+nor `Prospect` had a timezone, so any window at all would have blocked every
+send. `SalesLead.timeZone` is now stated by the rep and never inferred from an
+area code — a mobile number's area code is not where its owner lives.
+
+**Eight SMS paths existed, not the one I named in the brief.** All eight now
+carry `companyId` so the demo guard can re-derive it at call time.
+
 ### Three bugs found in MY shipped work, by the agents reviewing it
 
 1. **`deliverOutreach` had no opt-out check at all.** The gate was
