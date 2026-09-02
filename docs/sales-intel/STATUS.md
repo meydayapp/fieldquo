@@ -259,54 +259,32 @@ email-only.
 An opt-out binds FieldQuo, not a rep's copy of a row. An agent is building the
 platform-wide list now.
 
-### The four things that could stop this, in order
+### Answered by the audit — no longer open questions
 
-1. **Google Places terms and caching.** §19–20 want 1,000 businesses
-   discovered, stored and cached as a prospecting database. Google has
-   historically restricted caching of Places content, and prohibited using it
-   to build a competing database. If that still holds, the discovery source
-   has to change, not the caching strategy. Being researched.
-2. **Telemarketing law.** Outbound cold calling into Canada and the US needs
-   DNC handling, calling-hour rules and caller identification sorted BEFORE
-   the first call, not in a compliance pass at the end. Whether B2B is exempt
-   is exactly the question being researched.
+Recorded as ANSWERS so nobody re-raises them as risks. That happened once
+already and it wastes the owner's attention.
 
-   **Entity facts, confirmed by the owner 2026-09-01 — these change the
-   position and must not be re-guessed:**
+- **Canada — cleared.** B2B is exempt from the DNCL rules; registration is free
+  and mandatory anyway. Window 09:00–21:30 weekdays, 10:00–18:00 weekends, in
+  the PROSPECT's timezone. Identify with a callback number. Internal
+  do-not-call list kept 3 years + 14 days.
+- **US — cleared.** B2B is almost entirely exempt from the TSR; the $23,425/yr
+  Registry subscription is very likely unnecessary. TCPA still applies to
+  prerecorded voice and autodialling to mobiles, so: a human dials, one at a
+  time.
+- **Twilio — cleared.** Area-code-matched caller ID is permitted on numbers
+  actually bought and answered, which is what the design does. Falsifying
+  origin is enforced mechanically (error 21210) and nothing here attempts it.
+  Registration in both countries satisfies the bundle requirements.
+- **Rep location — not a legal issue.** Destination rules govern; the regulator
+  reaches the company.
 
-   - **The Ukrainian reps are FieldQuo EMPLOYEES.** Not an agency, not
-     contractors. So FieldQuo calls on its OWN behalf — first-party. Under
-     Canada's Unsolicited Telecommunications Rules the "telemarketer" and the
-     "client" are the same entity here, which is a different obligation set
-     from an agency dialling for a client.
-   - **FieldQuo is a registered entity in BOTH Canada and the USA.**
+**The one open human task:** `crtc.gc.ca` blocked every automated fetch, so a
+person must open the rules page before anyone pays for anything or ships a
+calling window.
 
-   What that buys, structurally:
-
-   - **Standing to subscribe to both DNC lists.** A foreign entity with no
-     local registration cannot straightforwardly do this. FieldQuo can.
-   - **Local numbers are genuinely local.** Carriers commonly require an
-     in-country business address to sell local numbers, Canada especially. A
-     Canadian-registered FieldQuo holding a 613 number and calling Ottawa
-     from it is presenting its own real number in its own country. That was
-     always the design — §25 already forbids spoofing — but it is now local
-     presence in fact, not a workaround.
-   - **One accountable entity.** One registration, one DNC subscription, one
-     set of scripts, and employee training that is actually enforceable.
-
-   What it does NOT change: the destination country's rules apply to a call
-   placed to a number in that country regardless of where the rep is sitting.
-   The rep's location is a carrier-policy and call-quality question, not a
-   legal exemption. Being confirmed with sources rather than assumed.
-
-   Adjacent, and NOT a build problem: employing staff in Ukraine through a
-   Canadian/US entity raises employer-of-record and permanent-establishment
-   questions. Worth an accountant's confirmation; nothing here depends on it.
-3. **Twilio's own policy** on area-code-matched caller ID and on a rep placing
-   calls from outside North America.
-4. **Cost.** Discovery, crawling and AI analysis per prospect, then telephony
-   plus transcription plus AI per call. Needs a real number before it runs at
-   1,000-prospect scale.
+**Still genuinely open:** the discovery source (see the blocker above), and
+cost at volume.
 
 ### Decisions already taken (Phase 2)
 
