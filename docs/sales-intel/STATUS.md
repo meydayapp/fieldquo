@@ -51,8 +51,41 @@ exit 0, schema pushed and verified, row counts unchanged.
 Specified 2026-09-01. The spec's own §64 says to audit before writing code, so
 that is what is happening.
 
-**Now:** three read-only audits running — telephony reuse, jobs/AI/data model,
-and compliance plus external API terms. Nothing is being built.
+**Now:** two read-only audits still running — jobs/AI/data model, and
+compliance plus external API terms. Nothing is being built.
+
+### Telephony audit — DONE (`AUDIT-telephony.md`)
+
+**Two vendors are wired and neither carries a human's voice.** Retell places
+outbound calls but both legs are the provider's — there is no human leg and no
+browser token anywhere. Twilio is SMS and a number catalogue only: no Voice
+SDK, no `calls.create`, no access tokens, and the only TwiML in the repo is an
+empty document. So §23's browser calling is genuinely new, not an extension.
+
+**The best reuse finding:** `PlatformVoiceCall` already exists, and exists
+*precisely because FieldQuo must not become a Company row*. That is the
+pattern the sales build extends rather than inventing a parallel one.
+
+**The hard constraint:** sales numbers must NOT live in `VoicePhoneNumber`.
+Its `companyId` is a required FK and `heldNumber()` enforces one-per-company —
+a pool is structurally the thing that code treats as a bug. Putting them there
+would make the rent cron bill a non-company, make `derivedSpend` count sales
+minutes as tenant burn, and report a false billing leak per number.
+
+**A product risk worth deciding early:** reps would draw on the SHARED Retell
+concurrency pool that tenants' receptionists depend on. Slots beyond the
+included allowance are a paid fixed cost (`platformEconomics.js`), so rep
+calling either starves customer calls or increases that bill. Needs a decision
+before reps dial at volume.
+
+### Live bugs found in passing (not Phase 2 — today)
+
+1. `FIELDQUO_SALES_NUMBER` already reports as an unheld billing leak on the
+   platform console.
+2. `recordSalesCall` bypasses `transcriptFrom()`, so sales transcripts silently
+   lose tool calls.
+3. `reconcileCalls` maps from `voicePhoneNumber` only, so a dropped webhook on
+   a sales call is **lost permanently** — no retry, no recovery path.
 
 **Next:** the 18-section plan §64 asks for, then phasing.
 
