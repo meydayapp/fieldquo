@@ -233,6 +233,16 @@ section("Trade map — every FieldQuo trade it names is a real one");
   ok("every catalogue key named here exists in TRADE_CATALOG",
     discoveryTradeKeys().every((k) =>
       DISCOVERY_TRADES[k].categoryKeys.every((c) => Object.prototype.hasOwnProperty.call(TRADE_CATALOG, c))));
+  // Shape only, and honestly so: existence in Overture's 2,118-row taxonomy
+  // cannot be proved without the dataset. A category that does not exist
+  // matches zero rows and looks exactly like a category with no businesses in
+  // it — another agent lost four keys that way on this same dataset the same
+  // day. trades.js records the verification and the query that redoes it.
+  ok("every source category is a plausible taxonomy key (shape, not existence)",
+    mappedSourceCategories().every((c) => /^[a-z][a-z0-9_]{2,63}$/.test(c)),
+    JSON.stringify(mappedSourceCategories().filter((c) => !/^[a-z][a-z0-9_]{2,63}$/.test(c))));
+  ok("no source category is capitalised, spaced or hyphenated — the three ways one gets mistyped",
+    mappedSourceCategories().every((c) => c === c.toLowerCase() && !/[\s-]/.test(c)));
   ok("mappedSourceCategories is sorted and unique",
     JSON.stringify(mappedSourceCategories()) ===
       JSON.stringify([...new Set(mappedSourceCategories())].sort()));
