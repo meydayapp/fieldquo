@@ -67,7 +67,12 @@ export default function VoiceNumbersPage() {
     );
 
   const { deployment, lines, orphans, counts, providerError, multiHolders } = data;
-  const unheld = lines.filter((l) => l.unheld);
+  // Three groups, not two. A line nobody holds is only a leak when it is not
+  // deliberately FieldQuo's own — the sales line and the shared test line are
+  // supposed to be held by nobody, and filing them under the alarm made the
+  // alarm mean nothing.
+  const leaks = lines.filter((l) => l.leak);
+  const ourOwn = lines.filter((l) => l.fieldquoOwn);
   const holders = lines.filter((l) => !l.unheld);
 
   return (
@@ -110,10 +115,11 @@ export default function VoiceNumbersPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
         <Stat label="At Retell" value={counts.atProvider} />
         <Stat label="Held by a company" value={counts.held} />
-        <Stat label="Nobody holds" value={counts.unheld} bad={counts.unheld > 0} />
+        <Stat label="FieldQuo's own" value={counts.fieldquoOwn} />
+        <Stat label="Nobody holds" value={counts.leak} bad={counts.leak > 0} />
         <Stat label="Said released" value={counts.markedReleased} bad={counts.markedReleased > 0} />
         <Stat label="Gone at Retell" value={counts.orphaned} bad={counts.orphaned > 0} />
       </div>
@@ -127,18 +133,34 @@ export default function VoiceNumbersPage() {
           Retell bills this account for every one of these every month and no tenant is
           being charged rent for any of them. Retell&apos;s invoice is the authority on
           what each costs; releasing one is permanent and is done in the Retell dashboard
-          after checking there is genuinely no company behind it.
+          after checking there is genuinely no company behind it. FieldQuo&apos;s own lines
+          are listed separately below — they are held by nobody on purpose.
         </p>
-        {unheld.length === 0 ? (
+        {leaks.length === 0 ? (
           <p className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
             {deployment.voiceConfigured && !providerError
-              ? "None. Every number Retell holds is held by a company."
+              ? "None. Every number Retell holds is held by a company, or is FieldQuo's own."
               : "Nothing to compare — the provider side wasn't read."}
           </p>
         ) : (
-          unheld.map((l) => <NumberRow key={l.e164} line={l} copy={copy} copied={copied} />)
+          leaks.map((l) => <NumberRow key={l.e164} line={l} copy={copy} copied={copied} />)
         )}
       </section>
+
+      {/* ── Ours, on purpose ─────────────────────────────────────────────── */}
+      {ourOwn.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-sm font-bold text-foreground">FieldQuo&apos;s own lines</h2>
+          <p className="text-xs text-muted-foreground">
+            No company holds these and none should — a VoicePhoneNumber row for either
+            would divert a contractor&apos;s callers, which the sales readiness screen
+            reports as its own alarm. FieldQuo pays for them deliberately.
+          </p>
+          {ourOwn.map((l) => (
+            <NumberRow key={l.e164} line={l} copy={copy} copied={copied} />
+          ))}
+        </section>
+      )}
 
       {/* ── The other direction ───────────────────────────────────────────── */}
       {orphans.length > 0 && (
@@ -253,6 +275,8 @@ function Company({ companyId, name }) {
 
 /** Why nobody holds this number, in the terms that decide what to do about it. */
 const UNHELD_COPY = {
+  fieldquo_own:
+    "FieldQuo's own line, held by nobody on purpose. It has no VoicePhoneNumber row because there is no company for it to belong to — see FIELDQUO_SALES_NUMBER and RETELL_TEST_NUMBER. Not a leak, and nothing to do.",
   no_row:
     "No row of ours has ever mentioned this number. Either a purchase that completed at Retell and died before writing its row, or a number bought by hand in the Retell dashboard.",
   marked_released:
@@ -262,7 +286,10 @@ const UNHELD_COPY = {
 };
 
 function NumberRow({ line, copy, copied }) {
-  const alarm = line.unheld;
+  // Red is the alarm colour and is reserved for the alarm. A line held by
+  // nobody BECAUSE IT IS OURS is a normal state, and painting it red was the
+  // whole complaint: the console said "billing leak" about the sales phone.
+  const alarm = line.leak;
   return (
     <div
       className={`rounded-xl border p-4 ${
@@ -281,6 +308,11 @@ function NumberRow({ line, copy, copied }) {
               charged
             </span>
           </>
+        ) : line.fieldquoOwn ? (
+          <span className="text-xs font-medium text-foreground inline-flex items-center gap-1">
+            <Phone size={12} /> FieldQuo&apos;s own{" "}
+            {line.ownLabel === "test" ? "test line" : "sales line"}
+          </span>
         ) : (
           <span className="text-xs font-medium text-red-700 dark:text-red-400 inline-flex items-center gap-1">
             <PhoneOff size={12} /> nobody holds this
@@ -298,7 +330,11 @@ function NumberRow({ line, copy, copied }) {
 
       {line.unheld && (
         <p className="text-sm text-foreground mt-2 flex items-start gap-1.5">
-          <AlertTriangle size={14} className="text-red-600 shrink-0 mt-0.5" />
+          {line.fieldquoOwn ? (
+            <Check size={14} className="text-emerald-600 shrink-0 mt-0.5" />
+          ) : (
+            <AlertTriangle size={14} className="text-red-600 shrink-0 mt-0.5" />
+          )}
           {UNHELD_COPY[line.unheldReason] ||
             `No live row holds this number (last row: ${line.unheldReason}).`}
         </p>

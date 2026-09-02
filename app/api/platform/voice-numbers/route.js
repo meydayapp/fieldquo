@@ -31,6 +31,8 @@ import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { voiceConfigured, listAllNumbers } from "@/lib/voice/retell";
 import { auditVoiceNumbers } from "@/lib/voice/numberAudit";
+import { salesNumbers } from "@/lib/platform/salesCall";
+import { sharedTestNumbers, toE164 } from "@/lib/voice/numbers";
 
 export async function GET(request) {
   const admin = await getCurrentPlatformAdmin(request);
@@ -69,7 +71,29 @@ export async function GET(request) {
     orderBy: { createdAt: "desc" },
   });
 
-  const audit = auditVoiceNumbers({ providerNumbers: items, rows, now: new Date() });
+  // ── FieldQuo's own lines, named rather than alarmed about ────────────────
+  //
+  // Both are real Retell numbers that no company holds and none ever should, so
+  // both landed in the "nobody holds this — FieldQuo pays for nothing" column
+  // and read as a billing leak. They are not one; they are the sales line
+  // (lib/platform/salesCall.js explains why it cannot be a VoicePhoneNumber
+  // row) and the shared receptionist test line. Told to the audit rather than
+  // filtered out here, because a number that vanishes from a reconciliation
+  // page is a number nobody can check.
+  const ourNumbers = [
+    ...salesNumbers().map((e164) => ({ e164, label: "sales" })),
+    ...sharedTestNumbers()
+      .map(toE164)
+      .filter(Boolean)
+      .map((e164) => ({ e164, label: "test" })),
+  ];
+
+  const audit = auditVoiceNumbers({
+    providerNumbers: items,
+    rows,
+    ourNumbers,
+    now: new Date(),
+  });
 
   // ── Companies holding more than one ────────────────────────────────────────
   //

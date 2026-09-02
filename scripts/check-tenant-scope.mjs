@@ -87,11 +87,13 @@ const GLOBAL_BY_DESIGN = {
       "A cron sweeps every tenant by design — it is authenticated by CRON_SECRET, " +
       "has no member and no company. The row comes from its own findMany.",
   },
-  "app/api/cron/voice-outbound/route.js": {
-    voiceCallTask:
-      "Same: a cron over the whole queue. Each task is a row this run just " +
-      "selected, and marking it done is not a lookup by a caller-supplied id.",
-  },
+  // /api/cron/voice-outbound used to be declared here for `voiceCallTask`. Its
+  // queue loop moved to lib/voice/drainOutbound.js when the claim was added, so
+  // the route touches no tenant model at all and a declaration for it is now
+  // stale — which this file's own staleness rule catches, correctly. The
+  // guarantee the declaration made (every write keys off an id from this run's
+  // own findMany, never a caller-supplied one) is asserted where the code now
+  // lives, in scripts/check-voice-task-claim.mjs.
   "app/api/cron/renewal-reminders/route.js": {
     subscription:
       "Same shape again: a cron over every FieldQuo subscription, authenticated " +

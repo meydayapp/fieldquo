@@ -625,7 +625,10 @@ ok(/status: 500/.test(hook.slice(hook.indexOf("isSalesNumber(ourNumber)"), hook.
 const callSrc = read("lib/platform/salesCall.js");
 ok(!/db\.voiceCall\b|db\.company\b|db\.quote\b/.test(codeOnly(callSrc)),
    "the recorder writes no tenant model");
-ok(/db\.platformVoiceCall\.upsert/.test(codeOnly(callSrc)),
+// `prisma.` rather than `db.`: the client is injectable now, because
+// lib/voice/reconcileCalls.js reconciles sales calls too and executes against a
+// fake one. `prisma = db` is still the production default.
+ok(/prisma\.platformVoiceCall\.upsert/.test(codeOnly(callSrc)),
    "it writes PlatformVoiceCall, which has no company at all");
 ok(/db\.voicePhoneNumber\s*\n?\s*\.findMany/.test(codeOnly(callSrc).replace(/\s+/g, " ").replace("db.voicePhoneNumber .findMany", "db.voicePhoneNumber\n.findMany")) ||
    /db\.voicePhoneNumber/.test(codeOnly(callSrc)),
