@@ -1410,10 +1410,18 @@ model Company {
   /// operator is a core FieldQuo customer.
   worksAloneAt DateTime?
 
-  /// The first moment getOnboardingStatus() returned complete. Computed
-  /// freshly on every read and never stored until now, which was fine while
-  /// nothing needed the DATE — a sales commission milestone does, and
-  /// recomputing "are they done?" tells you nothing about when.
+  /// The first moment getOnboardingStatus() returned complete. Computed freshly
+  /// on every read and never stored until now, which was fine while nothing
+  /// needed the DATE — recomputing "are they done?" tells you nothing about
+  /// when, and the instant it flips is the only time that answer is knowable.
+  ///
+  /// NOT a commission trigger, and must never become one. An earlier draft of
+  /// this comment said a sales milestone needed it; the owner settled the
+  /// opposite on 2026-09-01 (docs/sales/PLAN.md §5) — milestone 1 pays on
+  /// Stripe Connect activation ALONE, because a one-person shop has no crew to
+  /// invite and gating on completion would pay nothing on an entire class of
+  /// legitimate sale. Kept because "when did this company finish setting up"
+  /// is worth knowing on its own.
   onboardingCompletedAt DateTime?
 
   salesAttribution SalesAttribution?
