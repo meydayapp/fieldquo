@@ -209,6 +209,28 @@ politeness cannot use. That has to be a database column.
 **A gap in what shipped last week:** `lib/sales/outreachSender.js` has no send
 caps at all, so campaign volume limits do not exist yet.
 
+### STANDING RULES — apply to everything, not just the next thing
+
+Set by the owner 2026-09-02. These are not per-task requirements; they are
+conditions every screen has to meet before it counts as done.
+
+1. **Every setting and every rule is editable from the superadmin UI.** Not a
+   seed script, not a constant, not a database row somebody edits by hand.
+   Confidence weights, lead-score weights, technology signatures, capability
+   mappings, opportunity rules, refresh intervals, playbooks, objection
+   responses, experiment configuration, territories, phone pools, QA
+   scorecards, AI prompt versions. The spec says this at §47 and it is easy to
+   half-do: shipping the table and the seed, and calling it configurable
+   because a superadmin *could* edit the row. That is not a UI.
+2. **Mobile friendly — both surfaces.** The superadmin console AND the sales
+   rep view. The rep one matters most: a rep checks their queue and their
+   numbers on a phone, and the whole point of the portal is low administrative
+   overhead. A screen that needs a laptop adds overhead.
+
+A screen that fails either of these is not finished, whatever its check script
+says. Neither is caught by `check:all` today, which is exactly why they are
+written here.
+
 ### SETTLED BY THE SPEC — read this before proposing anything
 
 These are decisions the owner already made in the Phase 2 document. They are
