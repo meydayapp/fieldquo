@@ -67,6 +67,38 @@ and compliance plus external API terms. Nothing is being built.
    DNC handling, calling-hour rules and caller identification sorted BEFORE
    the first call, not in a compliance pass at the end. Whether B2B is exempt
    is exactly the question being researched.
+
+   **Entity facts, confirmed by the owner 2026-09-01 — these change the
+   position and must not be re-guessed:**
+
+   - **The Ukrainian reps are FieldQuo EMPLOYEES.** Not an agency, not
+     contractors. So FieldQuo calls on its OWN behalf — first-party. Under
+     Canada's Unsolicited Telecommunications Rules the "telemarketer" and the
+     "client" are the same entity here, which is a different obligation set
+     from an agency dialling for a client.
+   - **FieldQuo is a registered entity in BOTH Canada and the USA.**
+
+   What that buys, structurally:
+
+   - **Standing to subscribe to both DNC lists.** A foreign entity with no
+     local registration cannot straightforwardly do this. FieldQuo can.
+   - **Local numbers are genuinely local.** Carriers commonly require an
+     in-country business address to sell local numbers, Canada especially. A
+     Canadian-registered FieldQuo holding a 613 number and calling Ottawa
+     from it is presenting its own real number in its own country. That was
+     always the design — §25 already forbids spoofing — but it is now local
+     presence in fact, not a workaround.
+   - **One accountable entity.** One registration, one DNC subscription, one
+     set of scripts, and employee training that is actually enforceable.
+
+   What it does NOT change: the destination country's rules apply to a call
+   placed to a number in that country regardless of where the rep is sitting.
+   The rep's location is a carrier-policy and call-quality question, not a
+   legal exemption. Being confirmed with sources rather than assumed.
+
+   Adjacent, and NOT a build problem: employing staff in Ukraine through a
+   Canadian/US entity raises employer-of-record and permanent-establishment
+   questions. Worth an accountant's confirmation; nothing here depends on it.
 3. **Twilio's own policy** on area-code-matched caller ID and on a rep placing
    calls from outside North America.
 4. **Cost.** Discovery, crawling and AI analysis per prospect, then telephony
