@@ -739,32 +739,42 @@ ok(scopeOfWorkFacts(undefined).hasScope === false, "undefined scopeGroups — sa
   );
 }
 
-console.log("\nparseModelJson — a model asked for strict JSON still sends malformed output sometimes\n");
-ok(parseModelJson('{"caption":"Fresh coat.","hashtags":["#kitchen"]}').caption === "Fresh coat.", "well-formed JSON parses");
-ok(parseModelJson("```json\n{\"caption\":\"Done.\",\"hashtags\":[]}\n```").caption === "Done.", "a markdown-fenced reply is unwrapped first");
-ok(parseModelJson("Sure! Here's a caption: Fresh cabinets.").caption === "", "prose instead of JSON — degrades to empty, never throws");
+console.log("\nparseModelJson — the guards that a schema cannot express, kept\n");
+
+// parseModelJson now takes the OBJECT complete() validated against
+// CAPTION_SCHEMA, not the raw reply string: the fence, the JSON.parse and the
+// "did the two keys arrive" question moved into provider.js's schema mode and
+// are executed there by scripts/check-ai-structured-output.mjs.
+//
+// Everything below is what STAYED, and every one of these is a limit the
+// strict subset has no keyword for — maxLength, pattern and maxItems are all
+// on its unsupported list. It is also still fed shapes the vendor promises
+// are impossible, because the promise belongs to one vendor and this function
+// decides what goes out under a contractor's own name.
+ok(parseModelJson({ caption: "Fresh coat.", hashtags: ["#kitchen"] }).caption === "Fresh coat.", "a validated object passes straight through");
+ok(parseModelJson("Sure! Here's a caption: Fresh cabinets.").caption === "", "a bare string — degrades to empty, never throws");
 ok(parseModelJson("").caption === "" && parseModelJson(null).caption === "" && parseModelJson(undefined).caption === "", "empty/null/undefined input all degrade to empty");
-ok(parseModelJson("[1,2,3]").caption === "", "a JSON array instead of an object degrades to empty");
-ok(parseModelJson('{"caption":123,"hashtags":[]}').caption === "", "a non-string caption is dropped, not coerced to \"123\"");
-ok(parseModelJson('{"caption":"ok","hashtags":"#kitchen"}').hashtags.length === 0, "hashtags sent as a bare string (not an array) — treated as none, not split into characters");
+ok(parseModelJson([1, 2, 3]).caption === "", "an array instead of an object degrades to empty");
+ok(parseModelJson({ caption: 123, hashtags: [] }).caption === "", "a non-string caption is dropped, not coerced to \"123\"");
+ok(parseModelJson({ caption: "ok", hashtags: "#kitchen" }).hashtags.length === 0, "hashtags sent as a bare string (not an array) — treated as none, not split into characters");
 ok(
-  JSON.stringify(parseModelJson('{"caption":"ok","hashtags":["kitchen remodel","#Already-Tagged!"]}').hashtags) === '["#kitchenremodel","#AlreadyTagged"]',
+  JSON.stringify(parseModelJson({ caption: "ok", hashtags: ["kitchen remodel", "#Already-Tagged!"] }).hashtags) === '["#kitchenremodel","#AlreadyTagged"]',
   "hashtags missing '#' or carrying punctuation/spaces are normalised into one clean token",
 );
 ok(
-  parseModelJson(JSON.stringify({ caption: "ok", hashtags: Array.from({ length: 500 }, (_, i) => `#tag${i}`) })).hashtags.length === 30,
+  parseModelJson({ caption: "ok", hashtags: Array.from({ length: 500 }, (_, i) => `#tag${i}`) }).hashtags.length === 30,
   "500 hashtags from a runaway model reply are capped at Instagram's own 30-hashtag limit",
 );
 ok(
-  parseModelJson('{"caption":"ok","hashtags":["#Kitchen","#kitchen","#KITCHEN"]}').hashtags.length === 1,
+  parseModelJson({ caption: "ok", hashtags: ["#Kitchen", "#kitchen", "#KITCHEN"] }).hashtags.length === 1,
   "the same hashtag repeated in different cases is deduplicated",
 );
 ok(
-  parseModelJson(JSON.stringify({ caption: "x".repeat(3000), hashtags: [] })).caption.length === 2200,
+  parseModelJson({ caption: "x".repeat(3000), hashtags: [] }).caption.length === 2200,
   "an over-length caption is capped at Instagram's 2200-character limit, not sent through uncapped",
 );
 {
-  parseModelJson('{"caption":"ok","hashtags":[],"__proto__":{"polluted":true}}');
+  parseModelJson(JSON.parse('{"caption":"ok","hashtags":[],"__proto__":{"polluted":true}}'));
   ok({}.polluted === undefined, "a __proto__ key in the model's JSON reply does not pollute Object.prototype");
 }
 

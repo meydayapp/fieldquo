@@ -6517,3 +6517,116 @@ and reverted. `scripts/check-kpis.mjs` (187/187, `NOT_TRACKED` count updated
 `check-role-vocabulary.mjs`, `check-nav-audit.mjs`, `check-sidebar.mjs`,
 `check-translations.mjs` (all gated languages complete) — no regressions.
 `npm run check:all` and `npm run build` both pass.
+
+---
+
+## Structured AI output — `complete()` gets a schema mode (2026-09-02)
+
+Item 1 of `docs/construction/AUDIT-port-candidates.md`'s port plan, and the
+precondition for the sales-intelligence work that was hand-coercing model JSON.
+
+**The precondition, fixed first.** `complete()` returned `""` for eight
+different situations — no key, a vendor throw, a 401, a retired model ID, a
+rate limit, a refusal, a reply truncated by `max_completion_tokens`, and a
+model with genuinely nothing to say — and only one of them logged anything.
+The file's own header already warned that "a retired model therefore looks
+exactly like a model with nothing to say". The soft return is KEPT (a copilot
+that 500s a page on a vendor blip is worse than one that says nothing); what
+changed is that the reason is now named: every path logs one, an optional
+`onError` reports it, and `AI_FAILURE` is an exported vocabulary. EMPTY is a
+distinct, legitimate outcome — not a failure — because a caller that treated
+it as one would refund credit it should have charged.
+
+**Structured outputs.** `complete({ schema })` sends OpenAI's
+`response_format: { type: "json_schema", json_schema: { strict: true, … } }`
+and returns `{ ok, data }` / `{ ok, reason, message }` instead of a string.
+Callers pass PLAIN JSON Schema — the same vendor-neutral convention
+`copilotTools.js` already uses for `input_schema` — and the OpenAI envelope
+exists only inside `provider.js`. `lib/ai/jsonSchema.js` (no dependency, no
+zod) lints a schema against the strict subset BEFORE the request, so a schema
+the vendor would 400 on costs nothing, and re-validates the parsed reply
+AFTER, so a provider change cannot silently weaken the guarantee.
+
+**Migrated:** `visionPass.js`, `quoteReview.js`, `callTranscriptDigest.js`,
+`marketingCopy.js`, `funnels/generate.js`, `tasks/suggestFromJob.js` (whose
+prompt changed from a bare array to `{ tasks: [...] }` — strict mode requires
+an object root). **Left, with reasons in the code:** `callQuoteDraft.js` (its
+intake fields are company-defined, and strict mode's all-required rule would
+force a value for every field, destroying `coerceIntakeValue`'s "not knowing
+survives as not knowing"), `voice/knowledgeDraft.js` (`wording` is a map keyed
+by question id — an open map is exactly what `additionalProperties: false`
+forbids), `site/generateSite.js` and `i18n/translateContent.js`.
+`stripJsonFence` stays exported and working for all four.
+
+**No arithmetic moved to the model.** No schema declares a price, total,
+amount or quantity; `check:ai-structured-output` asserts that per file.
+`assembleInsights` still reads no number out of the model's JSON, and every
+hand-coercion the strict subset cannot express (`maxLength`, `minLength`,
+`maxItems`, `minimum` are all unsupported keywords) was kept, not deleted.
+
+**Cost.** No retry on schema rejection — it would double the cost of the call
+most likely to be failing, against a quota checked once before the first.
+Metering happens before the content is judged, so a refused or mismatched
+reply is still recorded; a vendor throw is not, because nothing was billed.
+
+**Verified:** `npm run build` and `npm run check:all` pass. New
+`scripts/check-ai-structured-output.mjs` (152 assertions) stubs the vendor at
+the module resolver and drives the SHIPPED `complete()` through every outcome;
+mutation-tested against 14 breakages including two meta-mutations proving the
+string assertions are function-scoped and that `indexOf` returning -1 does not
+false-pass. `check-digest-transcripts.mjs` and `check-designer.mjs` updated
+for the new parse boundary and still pass.
+
+
+---
+
+## Change orders now reach a total — 2 September 2026
+
+`docs/construction/AUDIT-existing.md` graded change orders PARTIAL: *"a log,
+not a financial instrument."* Correct. `priceDelta` was written by a working
+form, rendered in a list, summed into `raw.totalPriceDelta` — and read by one
+test script. Job costing computed `revenue: job.quote?.total` and nothing
+else, so every job's margin was wrong by the value of every agreed change.
+Nothing under `lib/invoices/` or `app/api/invoices/` mentioned `changeOrder`,
+so agreed extra work was never billed and the contractor ate it.
+
+**One function owns the money.** `lib/jobs/changeOrderValue.js`. The job
+panel, the invoice and the KPI all call it; `buildChangeOrderRate`'s own loop
+over `priceDelta` was deleted so the two cannot be a second opinion about the
+same dollars.
+
+**The job page shows a split, never a blend** — quoted, plus approved changes,
+equals contract value, as three figures. A job with no quote keeps a *null*
+contract value: unknown plus $500 is unknown, and stating $500 would print a
+margin against a contract nobody agreed.
+
+**`ChangeOrder` gained a `status`** (`pending`/`approved`/`rejected`,
+defaulting to `approved` so existing rows keep their documented meaning) and
+an `invoiceId`. `docs/CALLBACKS-AND-CHANGE-ORDERS.md` had deliberately
+declined both; the addendum there explains why the premise changed once the
+number started moving money. Append-only survives — the new PATCH moves the
+status and nothing else, and refuses once the change order is on an invoice.
+
+**Billing is explicit, draft invoices only.** `POST
+/api/jobs/[id]/change-orders/bill` adds approved unbilled changes as line
+items, at the tax rate the invoice already charged (read off the document, not
+re-resolved — the effective rate is identical before and after), inside one
+transaction that re-reads and re-decides. A sent invoice is refused with a
+reason the screen prints, because amending one means the version snapshot
+`PATCH /api/invoices/[id]` already owns and a second copy of that rule on the
+money path is failure class #4. **Open for the owner:** should approved
+changes bill automatically instead? Built the reversible one; the question is
+in the write-up.
+
+**`JobPaymentStage.amountCents` deliberately untouched.** Recomputing it would
+change a deposit already emailed as a pay link, re-base a percentage the
+client's own payment-terms document is written against, and leave requested
+and pending stages summing to neither total. The shortfall is *said* on the
+job page instead.
+
+**Verified:** `npm run build` exit 0; `npx prisma db push` applied.
+`scripts/check-change-order-money.mjs` (`npm run check:change-order-money`,
+wired into `check:all`) — 179 assertions, 12 mutants of the pure module all
+caught, plus 6 hand-applied mutants of the wiring, all caught. `check:all` is
+red on 14 `app.clock.*` translation keys from another agent's in-flight
+time-clock work, not from this change; every other check in the list passes.

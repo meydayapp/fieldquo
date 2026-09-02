@@ -41,8 +41,17 @@ const provider = readFileSync("lib/ai/provider.js", "utf8");
 
 section("1. The notes reach the caller");
 
-ok(/"photoNotes":/.test(lib), "the prompt still asks for them");
-ok(/photoNotes: Array\.isArray\(parsed\.photoNotes\)/.test(lib), "writingPass still parses them");
+// The prompt asks for them AND the schema requires them — since the migration
+// to complete()'s schema mode, "photoNotes" is enforced at the vendor with
+// `strict: true` rather than only requested in English. Both are asserted:
+// dropping either one is how the field goes missing again.
+ok(/"photoNotes"/.test(lib), "the prompt still asks for them");
+ok(/photoNotes: \{\s*\n?\s*type: "array"/.test(lib), "…and WRITING_SCHEMA declares it as an array of strings");
+ok(/required: \[[^\]]*"photoNotes"[^\]]*\]/.test(lib), "…and lists it in `required`, so the vendor cannot omit it");
+// The trim/filter is the part a schema CANNOT express — minLength is outside
+// the strict subset — so a model returning [""] would still put a blank bullet
+// on the panel without it.
+ok(/parsed\.photoNotes\.map\(\(n\) => n\.trim\(\)\)\.filter\(Boolean\)/.test(lib), "writingPass still trims and drops blank notes");
 // The whole bug, in one assertion.
 ok(/photoNotes: writing\.photoNotes \|\| \[\],/.test(lib), "reviewQuote RETURNS them — this is the line that was missing");
 ok(/photosRead: writing\.photosRead/.test(lib), "…with the number of photos actually read");

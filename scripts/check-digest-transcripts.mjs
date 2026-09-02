@@ -271,7 +271,7 @@ ok("the injected sentence is inside the fence, not outside it as a real instruct
 // And even if the model OBEYED it and echoed an instruction-shaped line back
 // as a "note", parseModelOutput refuses it — the second line of defence, the
 // same one lib/ai/callLeadRecovery.js relies on via looksLikeInstruction.
-const poisonedReply = JSON.stringify({
+const poisonedReply = ({
   calls: [
     {
       callIndex: 0,
@@ -300,32 +300,45 @@ const twoCallSet = [
 ];
 
 // A call index that was never sent.
-const outOfRange = parseModelOutput(JSON.stringify({ calls: [{ callIndex: 7, notes: ["should never attach"] }] }), twoCallSet);
+const outOfRange = parseModelOutput({ calls: [{ callIndex: 7, notes: ["should never attach"] }] }, twoCallSet);
 ok("an out-of-range callIndex is dropped, not attached to call 0 by accident", outOfRange.notesByQuoteId.get("qa").length === 0 && outOfRange.notesByQuoteId.get("qb").length === 0);
 
 // Non-string / empty / whitespace notes.
-const junkNotes = parseModelOutput(JSON.stringify({ calls: [{ callIndex: 0, notes: [42, null, "", "   ", "real one"] }] }), twoCallSet);
+const junkNotes = parseModelOutput({ calls: [{ callIndex: 0, notes: [42, null, "", "   ", "real one"] }] }, twoCallSet);
 ok("junk note entries are dropped, the real one kept", junkNotes.notesByQuoteId.get("qa").length === 1 && junkNotes.notesByQuoteId.get("qa")[0] === "real one");
 
 // Over-length note is truncated, not dropped whole.
 const longNote = "x".repeat(MAX_NOTE_CHARS + 500);
-const truncated = parseModelOutput(JSON.stringify({ calls: [{ callIndex: 0, notes: [longNote] }] }), twoCallSet);
+const truncated = parseModelOutput({ calls: [{ callIndex: 0, notes: [longNote] }] }, twoCallSet);
 ok(`a note longer than MAX_NOTE_CHARS (${MAX_NOTE_CHARS}) is truncated to it`, truncated.notesByQuoteId.get("qa")[0].length === MAX_NOTE_CHARS);
 
 // More notes than the per-call cap.
 const tooMany = parseModelOutput(
-  JSON.stringify({ calls: [{ callIndex: 0, notes: Array.from({ length: 10 }, (_, i) => `note ${i}`) }] }),
+  { calls: [{ callIndex: 0, notes: Array.from({ length: 10 }, (_, i) => `note ${i}`) }] },
   twoCallSet,
 );
 ok(`notes per call are capped at MAX_NOTES_PER_CALL (${MAX_NOTES_PER_CALL})`, tooMany.notesByQuoteId.get("qa").length === MAX_NOTES_PER_CALL);
 
-// Malformed JSON, and a completely different shape.
+// A completely different shape.
+//
+// parseModelOutput now takes the OBJECT provider.js already validated against
+// DIGEST_SCHEMA, not the raw string — the fence-stripping, the JSON.parse and
+// the "is this even the right shape" question all moved into complete()'s
+// schema mode, and are executed there by scripts/check-ai-structured-output.mjs
+// against exactly these hostile shapes.
+//
+// These cases are kept anyway, all of them, and that is the point: this
+// function must survive input the vendor's `strict: true` says it can never
+// receive, because a provider swap, a proxy, or a vendor regression is the one
+// scenario where the guarantee is not there and this is the last line of code
+// before a phone recording reaches a page an owner reads.
 for (const [label, raw] of [
-  ["empty string", ""],
-  ["not JSON at all", "the model said something conversational instead"],
-  ["JSON but wrong shape", JSON.stringify({ summary: "everyone loved it" })],
-  ["calls not an array", JSON.stringify({ calls: "nope" })],
-  ["a markdown-fenced reply", "```json\n" + JSON.stringify({ calls: [{ callIndex: 0, notes: ["fenced note"] }] }) + "\n```"],
+  ["null", null],
+  ["undefined", undefined],
+  ["a bare string", "the model said something conversational instead"],
+  ["a wrong shape", { summary: "everyone loved it" }],
+  ["calls not an array", { calls: "nope" }],
+  ["calls holding junk", { calls: [null, 7, "x", { callIndex: "abc", notes: ["nope"] }, { callIndex: 1.5, notes: ["nope"] }, { callIndex: 0, notes: "nope" }] }],
 ]) {
   let threw = null;
   let out = null;
@@ -336,20 +349,25 @@ for (const [label, raw] of [
   }
   ok(`"${label}" never throws`, threw === null, threw?.message);
   ok(`"${label}" — every candidate still gets an (empty or real) notes array`, out && out.notesByQuoteId.size === twoCallSet.length);
+  ok(`"${label}" — and no note was invented from it`, out && [...out.notesByQuoteId.values()].every((v) => v.length === 0));
 }
-// The markdown-fenced case specifically should still have parsed through.
-const fenced = parseModelOutput(
-  "```json\n" + JSON.stringify({ calls: [{ callIndex: 0, notes: ["fenced note"] }] }) + "\n```",
-  twoCallSet,
-);
-ok("a markdown-fenced reply is still read, via stripJsonFence", fenced.notesByQuoteId.get("qa")[0] === "fenced note");
+
+// One deliberate leniency, asserted rather than left to be rediscovered: a
+// callIndex arriving as the STRING "0" is still read as call 0, because the
+// range check is `Number()` then `Number.isInteger()`. Under strict mode the
+// vendor guarantees an integer so this never fires in production; it is kept
+// because tightening it would only turn a recoverable reply into a dropped
+// note, and the range check — the part that stops a note landing on the wrong
+// homeowner's quote — is unaffected either way.
+const stringIndex = parseModelOutput({ calls: [{ callIndex: "0", notes: ["still read"] }] }, twoCallSet);
+ok("a stringly-typed callIndex is still resolved to the right call, not to call 0 by accident", stringIndex.notesByQuoteId.get("qa")[0] === "still read" && stringIndex.notesByQuoteId.get("qb").length === 0);
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("6. Findings are computed in code — the model cannot smuggle a statistic in");
 // ═══════════════════════════════════════════════════════════════════════════
 
 // A model that tries to answer with a conclusion or a count instead of quotes.
-const modelTriedToConclude = JSON.stringify({
+const modelTriedToConclude = ({
   calls: [
     { callIndex: 0, notes: ["real thing said on call 0"] },
     { callIndex: 1, notes: [] },
@@ -491,7 +509,7 @@ function scriptedQuotesAndCalls() {
     db: { quote: quoteModel, voiceCall: voiceCallModel },
     isAiConfigured: () => true,
     checkAiQuota: async () => { order.push("quota"); return { allowed: false, reason: "over cap" }; },
-    complete: async () => { order.push("vendor"); return "{}"; },
+    complete: async () => { order.push("vendor"); return { ok: true, data: { calls: [] } }; },
     recordAiUsage: async () => { order.push("usage"); },
   });
   ok("quota was checked", order.includes("quota"), order);
@@ -506,12 +524,18 @@ function scriptedQuotesAndCalls() {
 {
   const order = [];
   const { quoteModel, voiceCallModel } = scriptedQuotesAndCalls();
-  const reply = JSON.stringify({
-    calls: [
-      { callIndex: 0, notes: ["Caller said our price beat Acme's by $300."] },
-      { callIndex: 1, notes: [] },
-    ],
-  });
+  // The shape complete() returns in schema mode: a discriminated result, not
+  // a string. `ok: false` is a DIFFERENT value from an empty answer now, and
+  // 8e below asserts the caller tells them apart.
+  const reply = {
+    ok: true,
+    data: {
+      calls: [
+        { callIndex: 0, notes: ["Caller said our price beat Acme's by $300."] },
+        { callIndex: 1, notes: [] },
+      ],
+    },
+  };
   let usagePayload = null;
   const out = await buildCallInsights({
     companyId: "co1",
@@ -538,6 +562,35 @@ function scriptedQuotesAndCalls() {
   ok("byOutcome tallies match the two candidates", out.byOutcome.won.read === 1 && out.byOutcome.lost.read === 1, out.byOutcome);
 }
 
+// 8e. The vendor answered but the reply did not survive schema validation.
+// complete() hands back { ok: false, reason }; this must land as "nothing was
+// read", with the candidates still listed — never as a crash, and never as a
+// silently empty section that looks like the model had nothing to say.
+{
+  for (const reason of ["schema_mismatch", "refused", "vendor_error", "empty", "truncated"]) {
+    const { quoteModel, voiceCallModel } = scriptedQuotesAndCalls();
+    let out = null;
+    let threw = null;
+    try {
+      out = await buildCallInsights({
+        companyId: "co1",
+        from: new Date("2026-06-01"),
+        to: new Date("2026-06-30"),
+        db: { quote: quoteModel, voiceCall: voiceCallModel },
+        isAiConfigured: () => true,
+        checkAiQuota: async () => ({ allowed: true }),
+        complete: async () => ({ ok: false, reason, message: "n/a" }),
+        recordAiUsage: async () => {},
+      });
+    } catch (err) {
+      threw = err;
+    }
+    ok(`a "${reason}" result never throws`, threw === null, threw?.message);
+    ok(`…and reports the section honestly rather than blank`, out?.hasData === true && out?.aiRead === false && out?.reason === REASONS.MODEL_EMPTY, out?.reason);
+    ok(`…with both candidates still visible and no invented notes`, out?.calls.length === 2 && out.calls.every((c) => c.notes.length === 0), out?.calls);
+  }
+}
+
 // 8c. AI not configured on this deployment → quota is never even checked,
 // and the section still names why.
 {
@@ -550,7 +603,7 @@ function scriptedQuotesAndCalls() {
     db: { quote: quoteModel, voiceCall: voiceCallModel },
     isAiConfigured: () => false,
     checkAiQuota: async () => { order.push("quota"); return { allowed: true }; },
-    complete: async () => { order.push("vendor"); return "{}"; },
+    complete: async () => { order.push("vendor"); return { ok: true, data: { calls: [] } }; },
     recordAiUsage: async () => { order.push("usage"); },
   });
   ok("no quota check, no vendor call, on a deployment with no AI key", order.length === 0, order);
