@@ -24,6 +24,7 @@ import { sendEmail } from "@/lib/email/resend";
 import { getAppOrigin } from "@/lib/appUrl";
 import { sendSms, toE164 } from "@/lib/sms/twilioClient";
 import { REFEREE_BONUS_MONTHS } from "@/lib/referrals";
+import { checkSuppression } from "@/lib/sales/suppression";
 
 
 // Generous for genuine word-of-mouth, useless for bulk. A contractor
@@ -101,6 +102,38 @@ export async function POST(request) {
     }),
   ]);
 
+  // ── FieldQuo's own do-not-contact list ──────────────────────────────────
+  //
+  // This route was the second outbound path to a stranger that FieldQuo
+  // operates, and the audit did not name it. The message goes out over
+  // FieldQuo's shared Twilio number and from invites@fieldquo.com — the
+  // contractor names the recipient, but it is FieldQuo doing the contacting,
+  // and a person who told FieldQuo to stop has told it about this too.
+  //
+  // The comment below on the SMS branch used to say there is no opt-out list
+  // this recipient could be on, and it was right when it was written. There is
+  // one now, so it is checked, in the request that sends, before the daily cap
+  // — a suppressed contact should not consume a company's quota either.
+  //
+  // Note what this is NOT: it is not maySms(), which is tenant-scoped and asks
+  // a different question about a different relationship. Both can apply to
+  // different recipients; neither substitutes for the other.
+  const suppression = await checkSuppression(db, {
+    email,
+    phone,
+    channel: channel === "sms" ? "sms" : "email",
+  });
+  if (suppression.suppressed) {
+    return NextResponse.json(
+      {
+        error:
+          "That person has asked FieldQuo not to contact them, so we can't send " +
+          "them an invite. Sharing your link with them directly is up to them to act on.",
+      },
+      { status: 409 },
+    );
+  }
+
   if (sentToday >= DAILY_LIMIT) {
     return NextResponse.json(
       {
@@ -138,11 +171,21 @@ export async function POST(request) {
       // (companyId, phone) for a COMPANY's own client, and the recipient here
       // is a prospective FieldQuo signup the contractor is referring — not
       // this company's customer, and this sends from the shared system
-      // number rather than the company's own client-facing line. There's no
-      // "this company's opt-out list" for this recipient to be on. Rate
+      // number rather than the company's own client-facing line. Rate
       // limiting and dedup (above) are this route's own abuse controls.
+      //
+      // What HAS changed since that was written: there is now a
+      // FieldQuo-level do-not-contact list, and it is checked above, because
+      // the sender here is FieldQuo. This paragraph used to end "there's no
+      // 'this company's opt-out list' for this recipient to be on", which was
+      // true of the tenant list and became a hole once FieldQuo had one of its
+      // own.
       const text = `${greeting}${company.name} uses FieldQuo for quotes and invoices and thinks you'd like it. ${REFEREE_BONUS_MONTHS} month${REFEREE_BONUS_MONTHS === 1 ? "" : "s"} free: ${url}`;
-      const result = await sendSms({ to: phone, body: text });
+      // companyId, matching the email branch below — this is the path the
+      // audit named: a rep on a demo account types a live prospect's mobile in
+      // and a stranger gets a real text about a company that does not exist.
+      // See lib/sms/demoSms.js.
+      const result = await sendSms({ to: phone, body: text, companyId: company.id });
       if (!result.success) throw new Error(result.error || "SMS failed");
       providerMessageId = result.sid;
     } else {

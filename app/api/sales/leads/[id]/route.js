@@ -17,10 +17,10 @@ import { outreachStatus } from "@/lib/sales/outreachSender";
 import {
   isLeadStatus,
   isPlausibleEmail,
-  leadOptedOut,
   leadWhere,
   sanitiseHeaderText,
 } from "@/lib/sales/outreach";
+import { contactOptedOut } from "@/lib/sales/outreachInbound";
 
 /** The shape both handlers return, so the screen never sees two versions of a lead. */
 const LEAD_SELECT = {
@@ -74,13 +74,22 @@ export async function GET(request, { params }) {
   // lib/sales/gate.js gives 401 for three different failures.
   if (!lead) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
-  const inbound = lead.threads.flatMap((t) => t.messages).filter((m) => m.direction === "in");
+  // Asked through contactOptedOut so the screen and the send path cannot
+  // disagree. It still recomputes from the messages (see leadOptedOut's note
+  // on why that half is derived rather than stored) — it now also reads
+  // FieldQuo's platform-wide list, which is where an opt-out given by phone,
+  // or to a different rep holding the same prospect, actually lives.
+  const optOut = await contactOptedOut(db, {
+    leadId: lead.id,
+    email: lead.email,
+    phone: lead.phone,
+    channel: "email",
+  });
 
   return NextResponse.json({
     lead,
-    // Recomputed from the messages every time — see leadOptedOut's note on why
-    // this is derived rather than stored.
-    optedOut: leadOptedOut(inbound),
+    optedOut: optOut.optedOut,
+    optedOutReason: optOut.reason,
     outreach: await outreachStatus(rep),
   });
 }

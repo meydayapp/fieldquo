@@ -17,7 +17,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireOutreachRep } from "@/lib/sales/outreachGate";
 import { deliverOutreach, outreachStatus } from "@/lib/sales/outreachSender";
-import { leadIsOptedOut } from "@/lib/sales/outreachInbound";
+import { contactOptedOut } from "@/lib/sales/outreachInbound";
 import { leadWhere, threadListWhere } from "@/lib/sales/outreach";
 
 export async function GET(request) {
@@ -52,22 +52,27 @@ export async function POST(request) {
   const body = await request.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Expected a JSON body." }, { status: 400 });
 
+  // `phone` is selected even though this is the email path: a prospect who
+  // said "stop" on the phone has stopped the email too, and the suppression
+  // lookup can only ask about a number it was given. Leaving it out was the
+  // gap that would have made a phone opt-out invisible to the mail path.
   const lead = await db.salesLead.findFirst({
     where: leadWhere(rep.id, body.leadId),
-    select: { id: true, email: true, status: true, businessName: true },
+    select: { id: true, email: true, phone: true, status: true, businessName: true },
   });
   if (!lead) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
-  if (await leadIsOptedOut(db, rep.id, lead.id)) {
-    return NextResponse.json(
-      {
-        error:
-          "This prospect asked not to be emailed again. That request stands — " +
-          "call them if you have another reason to be in touch.",
-        optedOut: true,
-      },
-      { status: 409 },
-    );
+  // Asked here so the rep gets the reason on the screen they are looking at.
+  // deliverOutreach asks again immediately before the send — see its header
+  // for why the second ask is the one that counts.
+  const optOut = await contactOptedOut(db, {
+    leadId: lead.id,
+    email: lead.email,
+    phone: lead.phone,
+    channel: "email",
+  });
+  if (optOut.optedOut) {
+    return NextResponse.json({ error: optOut.reason, optedOut: true }, { status: 409 });
   }
 
   const result = await deliverOutreach({

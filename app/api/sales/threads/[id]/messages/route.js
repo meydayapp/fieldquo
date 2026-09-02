@@ -11,7 +11,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireOutreachRep } from "@/lib/sales/outreachGate";
 import { deliverOutreach } from "@/lib/sales/outreachSender";
-import { leadIsOptedOut } from "@/lib/sales/outreachInbound";
+import { contactOptedOut } from "@/lib/sales/outreachInbound";
 import { threadWhere } from "@/lib/sales/outreach";
 
 export async function POST(request, { params }) {
@@ -28,21 +28,22 @@ export async function POST(request, { params }) {
       id: true,
       subject: true,
       replyToken: true,
-      lead: { select: { id: true, email: true, status: true, businessName: true } },
+      // `phone` for the same reason as the new-thread route: a phone opt-out
+      // closes the email channel, and the lookup can only ask about a number
+      // it was handed.
+      lead: { select: { id: true, email: true, phone: true, status: true, businessName: true } },
     },
   });
   if (!thread) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
-  if (await leadIsOptedOut(db, rep.id, thread.lead.id)) {
-    return NextResponse.json(
-      {
-        error:
-          "This prospect asked not to be emailed again. That request stands — " +
-          "call them if you have another reason to be in touch.",
-        optedOut: true,
-      },
-      { status: 409 },
-    );
+  const optOut = await contactOptedOut(db, {
+    leadId: thread.lead.id,
+    email: thread.lead.email,
+    phone: thread.lead.phone,
+    channel: "email",
+  });
+  if (optOut.optedOut) {
+    return NextResponse.json({ error: optOut.reason, optedOut: true }, { status: 409 });
   }
 
   const result = await deliverOutreach({

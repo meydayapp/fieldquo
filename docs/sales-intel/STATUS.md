@@ -54,6 +54,45 @@ that is what is happening.
 **Now:** the compliance audit is still running. A separate agent is fixing four
 live voice bugs found during the audits. Nothing of Phase 2 is being built.
 
+### Platform suppression list — BUILT (checklist item 10 and 11)
+
+The audit's largest compliance build item. `SalesSuppression` and
+`SalesSuppressionEvent` are pushed and verified: FieldQuo-wide, keyed
+independently on normalised email, E.164 phone and registrable domain, and
+scoped to nothing — no `companyId`, no `salesRepId`. An unqualified "stop"
+closes every channel, because a phone opt-out has to stop the email too.
+
+- **Enforced on both outbound paths.** `lib/sales/outreachSender.js`'s
+  `deliverOutreach` re-reads the list immediately before `sendEmail`, on the
+  `canWrite()` discipline. The second path was **not in the audit**:
+  `app/api/settings/referral/invite/route.js` sends over FieldQuo's own Twilio
+  number and `invites@fieldquo.com`, and its own comment said there was no
+  opt-out list the recipient could be on. There is one now, and it is checked.
+- **`leadOptedOut` is superseded, not deleted.** `leadIsOptedOut` (rep-scoped,
+  email-only) is gone; `contactOptedOut` reads the platform list first and then
+  the inbound messages of **every** lead sharing the address. The derived
+  signal is kept because replies filed before the list existed still carry a
+  real opt-out. An inbound "unsubscribe" now writes the suppression in the same
+  transaction as the message, keyed on the address FieldQuo wrote to — never on
+  the reply's forgeable `From`.
+- **Retention.** Three years and fourteen days, computed on the calendar (not
+  `3 * 365`) and stored per row as `retainUntil`. Removal is a superadmin-only
+  soft `removedAt` with a mandatory reason; nothing deletes, and the required
+  relation to `SalesSuppressionEvent` makes the database refuse a delete too.
+- **Screen.** `/platform/suppressions` — search, add, bulk import, remove with
+  a reason. Superadmin only. No "coming soon" panel; every control works.
+- **Calling window** (checklist item 12, the rule only). `lib/sales/
+  callingWindow.js` — 09:00–21:30 weekdays, 10:00–18:00 weekends, in the
+  prospect's own zone, refusing outright when the zone is unknown. Separate
+  module from `lib/voice/outbound.js`'s `CALL_WINDOW`, which is untouched and
+  correct for homeowners. **Nothing dials yet.**
+- `scripts/check-sales-suppression.mjs`, in `check:all`. 260 checks, 21
+  mutations tested and all caught.
+
+Still open from the audit's checklist: 13 (consent basis per prospect), 14–15
+(call script and per-call log), 16 (recording retention), and every `[OWNER]`
+item — the DNCL registration above all.
+
 ### Jobs / AI / data-model audit — DONE (`AUDIT-jobs-ai-model.md`)
 
 **Most of a job queue already exists, split across two files that never met.**

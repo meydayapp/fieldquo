@@ -58,7 +58,7 @@ import {
   verifyInboundSecret,
   visibleReplyText,
 } from "@/lib/sales/outreach";
-import { fileInboundMessage, leadIsOptedOut } from "@/lib/sales/outreachInbound";
+import { contactOptedOut, fileInboundMessage } from "@/lib/sales/outreachInbound";
 import { outreachReadiness } from "@/lib/sales/outreachReadiness";
 import { REP_OUTREACH_WRITES } from "@/lib/sales/outreachGate";
 import { contrastRatio } from "@/lib/brand/colour";
@@ -152,9 +152,52 @@ function functionBody(src, name) {
 // than about a line of source. Unscripted access throws by name, the same rule
 // scripts/fixtures/dbStub.mjs states — a check must never pass because a query
 // silently answered "nothing".
-function fakeDb({ threads = [], messages = [] } = {}) {
-  const state = { threads: [...threads], messages: [...messages], writes: [] };
+function fakeDb({ threads = [], messages = [], leads = [] } = {}) {
+  const state = {
+    threads: [...threads],
+    messages: [...messages],
+    leads: [...leads],
+    // FieldQuo's own do-not-contact list. Scripted here because filing an
+    // inbound "unsubscribe" now writes to it in the SAME transaction as the
+    // message — see lib/sales/outreachInbound.js. Before that change an
+    // opt-out reached only this rep's copy of the prospect, which is the bug
+    // scripts/check-sales-suppression.mjs was written around.
+    suppressions: [],
+    events: [],
+    writes: [],
+  };
   const client = {
+    salesSuppression: {
+      findUnique: async ({ where }) =>
+        state.suppressions.find(
+          (r) => r.kind === where.kind_value.kind && r.value === where.kind_value.value,
+        ) || null,
+      findMany: async ({ where = {} }) =>
+        where.OR
+          ? state.suppressions.filter((r) => where.OR.some((c) => r.kind === c.kind && r.value === c.value))
+          : [...state.suppressions],
+      upsert: async ({ where, create, update }) => {
+        const found = state.suppressions.find(
+          (r) => r.kind === where.kind_value.kind && r.value === where.kind_value.value,
+        );
+        state.writes.push({ model: "salesSuppression", action: "upsert", where, data: found ? update : create });
+        if (found) {
+          Object.assign(found, update);
+          return found;
+        }
+        const row = { id: `sup_${state.suppressions.length + 1}`, ...create };
+        state.suppressions.push(row);
+        return row;
+      },
+    },
+    salesSuppressionEvent: {
+      create: async ({ data }) => {
+        state.writes.push({ model: "salesSuppressionEvent", action: "create", data });
+        const row = { id: `ev_${state.events.length + 1}`, ...data };
+        state.events.push(row);
+        return row;
+      },
+    },
     salesThread: {
       findUnique: async ({ where }) =>
         state.threads.find((t) => t.replyToken === where.replyToken) || null,
@@ -186,6 +229,10 @@ function fakeDb({ threads = [], messages = [] } = {}) {
             if (where.thread.leadId !== undefined && t.leadId !== where.thread.leadId) return false;
             if (where.thread.salesRepId !== undefined && t.salesRepId !== where.thread.salesRepId) {
               return false;
+            }
+            if (where.thread.lead?.email !== undefined) {
+              const lead = state.leads.find((l) => l.id === t.leadId);
+              if (!lead || lead.email !== where.thread.lead.email) return false;
             }
           }
           return true;
@@ -458,6 +505,9 @@ const THREAD = {
   replyToken: token,
   lastMessageAt: new Date("2026-08-30T09:00:00Z"),
   salesRep: { email: "emilio@fieldquo.com" },
+  // The address FieldQuo actually wrote to. An opt-out is keyed on this and
+  // never on the reply's forgeable From — see fileInboundMessage.
+  lead: { id: "lead_1", email: "prospect@acme.com", phone: null },
 };
 
 {
@@ -521,8 +571,25 @@ const THREAD = {
   const db = fakeDb({ threads: [{ ...THREAD }] });
   const result = await fileInboundMessage(db, parseInboundEmail({ from: "a@b.com", to: `x+${token}@y.com`, text: "unsubscribe", "message-id": "<m5>" }));
   ok("an opt-out reply files AND is reported as one", result.filed && result.optOut === true, result);
-  ok("leadIsOptedOut then refuses on the rep's own lead", await leadIsOptedOut(db, "rep_1", "lead_1"));
-  ok("...and says nothing about another rep's lead", !(await leadIsOptedOut(db, "rep_2", "lead_1")));
+  ok("...and is written to FieldQuo's own do-not-contact list", result.suppressed === true, result);
+  ok("the sending rep is refused", (await contactOptedOut(db, { leadId: "lead_1", email: "prospect@acme.com" })).optedOut);
+
+  // ══ This assertion used to say the OPPOSITE, and the opposite was a bug ══
+  //
+  // It read: "…and says nothing about another rep's lead", asserting that
+  // leadIsOptedOut(db, "rep_2", "lead_1") returned false — i.e. that an
+  // opt-out silenced only the rep who received it. SalesLead has no unique
+  // constraint on email, so two reps genuinely can hold the same prospect,
+  // and that behaviour meant one of them kept emailing somebody who had
+  // asked FieldQuo to stop. The compliance audit named it
+  // (docs/sales-intel/AUDIT-compliance.md §5); an opt-out binds FieldQuo,
+  // not a rep's copy of a row. The check now asserts the fix.
+  const otherRep = await contactOptedOut(db, { leadId: "lead_99", email: "prospect@acme.com" });
+  ok("A SECOND rep holding the same prospect is refused too", otherRep.optedOut, otherRep);
+  ok("...via the platform list, not via that rep's own messages", otherRep.via === "suppression", otherRep);
+
+  const stranger = await contactOptedOut(db, { leadId: "lead_2", email: "someone.else@acme.com" });
+  ok("a different person at the same company is NOT swept up", stranger.optedOut === false);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -554,9 +621,9 @@ const ROUTES = [
   ["app/api/sales/leads/[id]/link/route.js", "GET", ["requireOutreachRep", "leadWhere(rep.id", "candidates(rep.id)"]],
   ["app/api/sales/leads/[id]/link/route.js", "POST", ["requireOutreachRep", "leadWhere(rep.id", "assignedCompanyWhere(rep.id"]],
   ["app/api/sales/threads/route.js", "GET", ["requireOutreachRep", "threadListWhere(rep.id"]],
-  ["app/api/sales/threads/route.js", "POST", ["requireOutreachRep", "leadWhere(rep.id", "leadIsOptedOut(db, rep.id"]],
+  ["app/api/sales/threads/route.js", "POST", ["requireOutreachRep", "leadWhere(rep.id", "contactOptedOut(db,"]],
   ["app/api/sales/threads/[id]/route.js", "GET", ["requireOutreachRep", "threadWhere(rep.id"]],
-  ["app/api/sales/threads/[id]/messages/route.js", "POST", ["requireOutreachRep", "threadWhere(rep.id", "leadIsOptedOut(db, rep.id"]],
+  ["app/api/sales/threads/[id]/messages/route.js", "POST", ["requireOutreachRep", "threadWhere(rep.id", "contactOptedOut(db,"]],
 ];
 
 for (const [file, method, required] of ROUTES) {

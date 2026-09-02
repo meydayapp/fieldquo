@@ -77,6 +77,8 @@ import {
   Gauge,
   ArrowUpDown,
   UserRoundCheck,
+  Ban,
+  ListChecks,
 } from "lucide-react";
 
 const HOME_ITEM = { label: "Dashboard", href: "/platform", icon: LayoutDashboard, exact: true };
@@ -152,6 +154,21 @@ const GROUPS = [
       // Filing them with "who holds a platform login" would put the people
       // beside the console's own keys, which is a different question.
       { label: "Sales reps", href: "/platform/sales/reps", icon: UserRoundCheck },
+      // What a rep is allowed to promise. Next to the reps rather than under
+      // Billing, even though it reads like a feature list: a row here is not a
+      // thing FieldQuo sells at a price, it is a sentence somebody says on a
+      // phone call, and the person who edits it is thinking about the call.
+      // Every recommendation a prospect ever gets has a foreign key into this
+      // table, so it needs to be somewhere findable rather than reachable only
+      // from whichever screen happens to link it.
+      { label: "Capability matrix", href: "/platform/sales/capabilities", icon: ListChecks },
+      // FieldQuo's OWN do-not-contact list — the people who told us to stop.
+      // Filed with the sales rows rather than under Support because it is
+      // read by the outbound paths those rows drive, not by a support agent
+      // answering a ticket. It is emphatically NOT a tenant's opt-out list:
+      // CallConsent and MarketingSubscriber are a company's relationship with
+      // a homeowner and are not visible from the console at all.
+      { label: "Do-not-contact", href: "/platform/suppressions", icon: Ban },
     ],
   },
   {

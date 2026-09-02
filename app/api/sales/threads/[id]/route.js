@@ -13,7 +13,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireOutreachRep } from "@/lib/sales/outreachGate";
 import { outreachStatus } from "@/lib/sales/outreachSender";
-import { leadOptedOut, threadWhere } from "@/lib/sales/outreach";
+import { threadWhere } from "@/lib/sales/outreach";
+import { contactOptedOut } from "@/lib/sales/outreachInbound";
 
 export async function GET(request, { params }) {
   const { rep, refusal } = await requireOutreachRep(request);
@@ -34,6 +35,7 @@ export async function GET(request, { params }) {
           businessName: true,
           contactName: true,
           email: true,
+          phone: true,
           status: true,
         },
       },
@@ -54,9 +56,22 @@ export async function GET(request, { params }) {
 
   if (!thread) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
+  // The screen must reach the same verdict the send path enforces, through
+  // the same function. Reading it from this thread's messages alone was the
+  // narrow version: it could not see an opt-out this prospect gave another rep
+  // by phone, so the compose box stayed open on a person FieldQuo may not
+  // write to and the send failed at the last moment instead.
+  const optOut = await contactOptedOut(db, {
+    leadId: thread.lead.id,
+    email: thread.lead.email,
+    phone: thread.lead.phone,
+    channel: "email",
+  });
+
   return NextResponse.json({
     thread,
-    optedOut: leadOptedOut(thread.messages),
+    optedOut: optOut.optedOut,
+    optedOutReason: optOut.reason,
     outreach: await outreachStatus(rep),
   });
 }
