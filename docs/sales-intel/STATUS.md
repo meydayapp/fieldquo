@@ -184,6 +184,81 @@ work on Twilio rather than on Retell.
 
 **Next:** the 18-section plan §64 asks for, then phasing.
 
+### ⛔ BLOCKER — Google Places cannot be the discovery source
+
+**Read this before anything else.** Compliance audit, 2026-09-01, sourced.
+
+The Maps Platform ToS (last modified 2026-08-26) is not ambiguous:
+
+- **§3.2.3(a)(iii)** names *"copy and save business names, addresses, or user
+  reviews"* as an example of prohibited scraping. That is the Prospect table.
+- **§3.2.3(d)(iii)** bars use *"in a listings or directory service or to create
+  or augment an advertising product."* That is this product.
+- **§3.2.3(c)(vii)** bars using Maps Content to *"train, test, validate or
+  fine-tune"* models. That is the AI analysis step.
+- Service Specific Terms §14.3 permit caching **lat/lng only, 30 days**.
+  `place_id` may be stored indefinitely. Nothing else.
+
+No retention setting, attribution or refresh policy fixes this. It is not a
+caching problem to tune; it is the wrong source.
+
+**And the blast radius is the live product, not the experiment.** §5.2(d)
+permits immediate suspension of the key — the same key that powers address
+autocomplete, the mini-maps, distance matrix, and the Solar roof measurement.
+A suspension would take working contractor-facing features down alongside a
+prospecting trial.
+
+**Recommended replacement: Overture Places** — CDLA-Permissive v2.0, ~59M
+POIs, commercial use permitted. Google Places can stay as a live,
+`place_id`-only verification step, which its own terms allow.
+
+**This is the owner's decision** and nothing has been built on either option.
+The schema is deliberately neutral: `ProspectCampaign.discoveryProvider` has
+NO default, so a campaign must name its source rather than inherit the one
+that cannot legally serve it.
+
+### Cold calling is available, and cheaper than expected
+
+- **Canada:** B2B is exempt from the National DNCL *rules*, but registration
+  at `lnnte-dncl.gc.ca` is **free and mandatory anyway, even for exempt
+  callers**. The Telemarketing Rules still bind: **09:00–21:30 weekdays,
+  10:00–18:00 weekends, in the PROSPECT's timezone**, identification with a
+  callback number, and an internal do-not-call list kept **three years and
+  fourteen days**.
+- **US:** 16 CFR 310.6(b)(7) exempts B2B from the TSR almost entirely, so the
+  $23,425/yr Registry subscription is very likely unnecessary. But the **TCPA
+  has no B2B exemption for prerecorded/artificial-voice or autodialled calls
+  to mobiles**, and small contractors answer on mobiles. The constraint that
+  keeps this simple: a human dials, one call at a time.
+- **The reps' location is not a legal issue.** The destination country's rules
+  govern, and because FieldQuo is registered in both countries the regulator
+  reaches the company. One live item to watch: FCC NPRM FCC-26-16A1
+  (27 March 2026) would require disclosing that an agent is outside the US —
+  a proposal, not a rule, currently aimed at telecom providers, and Ukraine is
+  not on its adversary-nation list.
+- **Twilio:** local caller ID is permitted only on numbers actually bought and
+  answered; falsifying origin is enforced mechanically (error 21210). Being
+  registered in both countries satisfies the bundle requirements.
+- **Canada's rules are under open review right now** (CRTC 2026-132) — the B2B
+  exemption could move.
+
+**Sourcing caveat, stated rather than hidden:** `crtc.gc.ca` sits behind bot
+protection that blocked every automated fetch. The agent stopped rather than
+working around it — the same standard it recommends for crawling. CRTC figures
+came via search extraction. **A human should open the rules page before anyone
+pays for anything or ships a calling window.**
+
+### No platform suppression list exists — being built tonight
+
+Searched properly: nothing. `CallConsent` and `MarketingSubscriber` are
+tenant-scoped. The one sales opt-out, `leadOptedOut()`, is scoped to a single
+`SalesLead`, and `SalesLead` has no unique constraint on email — so two reps
+can hold the same prospect and an opt-out silences only one of them. It is also
+email-only.
+
+An opt-out binds FieldQuo, not a rep's copy of a row. An agent is building the
+platform-wide list now.
+
 ### The four things that could stop this, in order
 
 1. **Google Places terms and caching.** §19–20 want 1,000 businesses
