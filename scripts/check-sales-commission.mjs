@@ -20,6 +20,7 @@ import {
   qualifiesForRetention,
   balanceCents,
   splitPayable,
+  departedRepStillEarns,
 } from "../lib/sales/commission.js";
 
 let passed = 0;
@@ -78,27 +79,33 @@ ok(
 ok("nothing at all does not", !qualifiesForFirstPayment(null));
 
 console.log("\nMilestone 3 — still paying after the window");
-const firstPaid = new Date("2026-06-01T00:00:00Z");
+// The clock starts at SUBSCRIPTION START — trial included, per the owner's own
+// wording: "$65 after the company still is subscribed after 60 days (including
+// trial)". The first payment lands a month later because the first month is
+// free, and anchoring on it would pay roughly a trial-length late.
+const subStart = new Date("2026-06-01T00:00:00Z");
+const firstPaid = new Date("2026-07-01T00:00:00Z");
 const day60 = new Date("2026-07-31T00:00:00Z");
 const day59 = new Date("2026-07-29T00:00:00Z");
 const ACTIVE = { status: "active", canceledAt: null, refundedAmountCents: 0, refundedAt: null, disputeStatus: null };
 
 ok(
   "60 days on an active subscription qualifies",
-  qualifiesForRetention({ firstPaymentAt: firstPaid, subscription: ACTIVE, now: day60 }).qualifies,
+  qualifiesForRetention({ subscriptionStartedAt: subStart, firstPaymentAt: firstPaid, subscription: ACTIVE, now: day60 }).qualifies,
 );
 ok(
   "59 days does not",
-  !qualifiesForRetention({ firstPaymentAt: firstPaid, subscription: ACTIVE, now: day59 }).qualifies,
+  !qualifiesForRetention({ subscriptionStartedAt: subStart, firstPaymentAt: firstPaid, subscription: ACTIVE, now: day59 }).qualifies,
 );
 ok(
   "no first payment means there is nothing to count from",
-  qualifiesForRetention({ firstPaymentAt: null, subscription: ACTIVE, now: day60 }).reason ===
+  qualifiesForRetention({ subscriptionStartedAt: subStart, firstPaymentAt: null, subscription: ACTIVE, now: day60 }).reason ===
     "no_first_payment",
 );
 ok(
   "a cancelled subscription does not qualify",
   !qualifiesForRetention({
+    subscriptionStartedAt: subStart,
     firstPaymentAt: firstPaid,
     subscription: { ...ACTIVE, canceledAt: new Date("2026-07-01") },
     now: day60,
@@ -107,6 +114,7 @@ ok(
 ok(
   "past_due is not 'still paying' — their card is declining right now",
   !qualifiesForRetention({
+    subscriptionStartedAt: subStart,
     firstPaymentAt: firstPaid,
     subscription: { ...ACTIVE, status: "past_due" },
     now: day60,
@@ -115,6 +123,7 @@ ok(
 ok(
   "trialing is not 'still paying' either",
   !qualifiesForRetention({
+    subscriptionStartedAt: subStart,
     firstPaymentAt: firstPaid,
     subscription: { ...ACTIVE, status: "trialing" },
     now: day60,
@@ -124,6 +133,7 @@ ok(
 ok(
   "a refunded subscription does not qualify",
   qualifiesForRetention({
+    subscriptionStartedAt: subStart,
     firstPaymentAt: firstPaid,
     subscription: { ...ACTIVE, refundedAmountCents: 9900, refundedAt: new Date("2026-07-02") },
     now: day60,
@@ -132,6 +142,7 @@ ok(
 ok(
   "a LOST chargeback does not qualify",
   qualifiesForRetention({
+    subscriptionStartedAt: subStart,
     firstPaymentAt: firstPaid,
     subscription: { ...ACTIVE, disputeStatus: "lost" },
     now: day60,
@@ -139,6 +150,7 @@ ok(
 );
 // An open dispute may still be won. Denying it would be as wrong as paying it.
 const open = qualifiesForRetention({
+  subscriptionStartedAt: subStart,
   firstPaymentAt: firstPaid,
   subscription: { ...ACTIVE, disputeStatus: "warning_needs_response" },
   now: day60,
@@ -147,6 +159,7 @@ ok("an OPEN dispute is held, not denied", !open.qualifies && open.holdUntilResol
 ok(
   "a dispute WON does not block the milestone",
   qualifiesForRetention({
+    subscriptionStartedAt: subStart,
     firstPaymentAt: firstPaid,
     subscription: { ...ACTIVE, disputeStatus: "won" },
     now: day60,
@@ -157,6 +170,7 @@ ok(
 ok(
   "an annual subscriber qualifies at 60 days despite no second payment",
   qualifiesForRetention({
+    subscriptionStartedAt: subStart,
     firstPaymentAt: firstPaid,
     subscription: { ...ACTIVE, billingInterval: "year" },
     now: day60,
@@ -165,12 +179,61 @@ ok(
 ok(
   "a configurable window is honoured, not hard-coded to 60",
   !qualifiesForRetention({
+    subscriptionStartedAt: subStart,
     firstPaymentAt: firstPaid,
     subscription: ACTIVE,
     retentionDays: 90,
     now: day60,
   }).qualifies,
 );
+
+// The bug this catches: anchoring on first payment instead of subscription
+// start pays roughly a trial-length late. At day 60 from signup the customer
+// has paid once, thirty days ago — a first-payment anchor would say "too
+// early" and hold the milestone for another month.
+ok(
+  "the clock runs from SUBSCRIPTION START, not first payment",
+  qualifiesForRetention({
+    subscriptionStartedAt: subStart,
+    firstPaymentAt: firstPaid,
+    subscription: ACTIVE,
+    now: day60,
+  }).qualifies,
+);
+ok(
+  "no subscription start means no clock at all",
+  qualifiesForRetention({
+    subscriptionStartedAt: null,
+    firstPaymentAt: firstPaid,
+    subscription: ACTIVE,
+    now: day60,
+  }).reason === "no_subscription_start",
+);
+// A trial is INCLUDED in the sixty days, so a customer 45 days past signup and
+// 15 days past their first charge has not reached it.
+ok(
+  "the trial counts toward the sixty days",
+  !qualifiesForRetention({
+    subscriptionStartedAt: subStart,
+    firstPaymentAt: firstPaid,
+    subscription: ACTIVE,
+    now: new Date("2026-07-16T00:00:00Z"),
+  }).qualifies,
+);
+
+console.log("\nCommission amounts are flat — $20 / $40 / $65, total $125");
+ok("activation is $20", amountForMilestone(PLAN, MILESTONES.ACTIVATION) === 2000);
+ok("first payment is $40", amountForMilestone(PLAN, MILESTONES.FIRST_PAYMENT) === 4000);
+ok("retention is $65", amountForMilestone(PLAN, MILESTONES.RETENTION) === 6500);
+// One payment for one acquisition, staged. Not three separate jobs.
+ok(
+  "the three stages total $125",
+  amountForMilestone(PLAN, MILESTONES.ACTIVATION) +
+    amountForMilestone(PLAN, MILESTONES.FIRST_PAYMENT) +
+    amountForMilestone(PLAN, MILESTONES.RETENTION) ===
+    12500,
+);
+ok("a departed rep still earns a milestone their company reaches", departedRepStillEarns());
 
 console.log("\nIdempotency keys");
 ok(

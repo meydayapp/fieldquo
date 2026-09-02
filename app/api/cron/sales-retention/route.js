@@ -80,6 +80,12 @@ export async function GET(request) {
             refundedAt: true,
             refundedAmountCents: true,
             disputeStatus: true,
+            // The clock for this milestone. createdAt is the row written at
+            // checkout.session.completed — TRIAL START, not first charge —
+            // which is what "still subscribed after 60 days (including
+            // trial)" means. Anchoring on the first payment instead would pay
+            // roughly a trial-length late.
+            createdAt: true,
           },
         }),
         db.salesRep.findUnique({
@@ -89,6 +95,9 @@ export async function GET(request) {
       ]);
 
       const verdict = qualifiesForRetention({
+        subscriptionStartedAt: subscription?.createdAt || null,
+        // Still required, but as a condition rather than the clock: sixty days
+        // in on a one-month trial means they have been charged.
         firstPaymentAt: fp.occurredAt,
         subscription,
         // The plan's own window, not a constant. 60 is a policy, and a rep
