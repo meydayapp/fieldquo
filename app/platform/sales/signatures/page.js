@@ -2,19 +2,24 @@
 //
 // Technology fingerprints — whose software a business is already running.
 //
-// ══ The first thing this screen says is that nothing reads it yet ════════
+// ══ The banner that said nothing read this has come down ═════════════════
 //
-// There is no crawler in this repo. `TechnologySignature` has a table and no
-// consumer, no seed and no detector, and a screen that let somebody add a
-// Jobber signature and walked away would imply prospects were about to be
-// fingerprinted. They are not. The banner says so in the product's own words,
-// permanently, until a detector ships — a `Coming soon` panel is honest and a
-// control that quietly does nothing is not.
+// It was true when this screen shipped: `TechnologySignature` had a table, an
+// editor and no consumer. lib/sales/intel/technology.js is the consumer now,
+// and the DETECT_TECHNOLOGY pipeline stage writes `ProspectTechnology` from
+// what it matches — so leaving the banner up would have been the same dishonesty
+// pointing the other way.
 //
-// What the screen DOES do is real: it is the only way to write these rows, and
-// the standing rule is that every rule is editable from the superadmin UI
-// rather than from a seed script or a hand-edited row. The configuration is
-// ready before the detector, which is the right order.
+// What is left is narrower and computed rather than asserted: a detector needs
+// crawled pages, so the route counts prospects with a `lastCrawledAt` and the
+// screen says "these are live and nothing has been crawled yet" only while
+// that count is zero. A sentence derived from the database cannot go stale the
+// way the old hard-coded one did.
+//
+// The screen is still the only way to write these rows, which is the standing
+// rule: every rule editable from the superadmin UI, not from a seed script.
+// The seed button below is the same function the script runs, put where
+// somebody can see it.
 //
 // ══ isCompetitor is not a label ══════════════════════════════════════════
 //
@@ -83,9 +88,12 @@ export default function PlatformSalesSignaturesPage() {
   const isSuperadmin = me?.role === "superadmin";
   const signatures = data?.signatures || [];
   const patternKinds = data?.patternKinds || [];
+  // How each STARTER signature was verified, keyed by code. Empty for a row
+  // somebody wrote by hand, which is correct: nobody vouched for it.
+  const sourcing = data?.sourcing || {};
 
-  async function send(url, options, successNotice) {
-    setBusy(url);
+  async function send(url, options, successNotice, busyKey) {
+    setBusy(busyKey || url);
     setError("");
     setNotice("");
     try {
@@ -100,6 +108,21 @@ export default function PlatformSalesSignaturesPage() {
     } finally {
       setBusy("");
     }
+  }
+
+  async function seed() {
+    await send(
+      "/api/platform/sales/signatures",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "seed" }),
+      },
+      (r) =>
+        `${r.counts.created} signature${r.counts.created === 1 ? "" : "s"} loaded, ` +
+        `${r.counts.existing} already here and left alone.`,
+      "seed",
+    );
   }
 
   function beginAdd() {
@@ -203,13 +226,15 @@ export default function PlatformSalesSignaturesPage() {
 
       {data?.detectionsPending && (
         <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl p-4 text-sm text-amber-800 dark:text-amber-300 space-y-1">
-          <div className="font-semibold">Nothing reads these patterns yet.</div>
+          <div className="font-semibold">These patterns are live. Nothing has been crawled yet.</div>
           <p>
-            There is no crawler in FieldQuo today, so no prospect is being
-            fingerprinted and adding a signature here will not start it. What
-            you write is the configuration the detector will read when it
-            ships — which is the right order — and it changes nothing until
-            then. Detections found before a signature existed are unaffected.
+            The detector reads them — it matches script sources, iframe and link
+            hosts, meta tags, cookie names and markup, and writes what it finds
+            against the prospect. What it has not had is anything to look at: no
+            prospect has been crawled, so no detection exists. Run a campaign
+            and the fingerprinting happens on the pages it fetches. Detections
+            found before a signature was edited keep citing the version that
+            found them.
           </p>
         </div>
       )}
@@ -258,10 +283,30 @@ export default function PlatformSalesSignaturesPage() {
           <Loader2 size={16} className="animate-spin" /> Loading…
         </div>
       ) : signatures.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-6 text-sm text-muted-foreground">
-          No signatures yet. There is no seed for this table — nothing here was
-          written from code, so the list being empty is the true state rather
-          than a screen that failed to load.
+        <div className="bg-card border border-border rounded-xl p-6 text-sm text-muted-foreground space-y-3">
+          <p>
+            No signatures yet, so nothing is being fingerprinted. The starter
+            set covers the field-service platforms a contractor is most likely
+            to already run — Jobber, Housecall Pro, ServiceTitan, Workiz,
+            Markate — plus the booking, chat, review, payment and website tools
+            that sit beside them.
+          </p>
+          <p>
+            Loading them is additive: a signature you later edit or switch off
+            keeps your changes if you load them again. Three ship switched OFF
+            because their fingerprint could not be verified against real markup,
+            and each says so on its own card.
+          </p>
+          {isSuperadmin && (
+            <button
+              onClick={seed}
+              disabled={Boolean(busy)}
+              className={`${BTN} w-full sm:w-auto bg-inverted text-inverted-foreground`}
+            >
+              {busy === "seed" ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+              Load the starter signatures
+            </button>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
@@ -297,6 +342,26 @@ export default function PlatformSalesSignaturesPage() {
                       </span>
                     </div>
                   </div>
+
+                  {sourcing[s.code] && (
+                    <details className="text-xs">
+                      <summary className="cursor-pointer font-semibold text-foreground min-h-[44px] flex items-center">
+                        How this fingerprint was verified
+                      </summary>
+                      {/* The starter row's sourcing, not this row's. Said out
+                          loud because a superadmin who edits the patterns has
+                          made the note untrue, and a note that quietly kept
+                          vouching for somebody else's edit would be worse than
+                          none. */}
+                      <p className="mt-2 text-muted-foreground leading-relaxed">
+                        {sourcing[s.code]}
+                      </p>
+                      <p className="mt-2 text-muted-foreground">
+                        This describes the starter signature. If you have edited the
+                        patterns below, it no longer describes them.
+                      </p>
+                    </details>
+                  )}
 
                   <details className="text-xs">
                     <summary className="cursor-pointer font-semibold text-foreground min-h-[44px] flex items-center">
@@ -463,9 +528,18 @@ function SignatureForm({ draft, setDraft, patternKinds, onSave, onCancel, busy, 
           save refuses anything else and says which entry is wrong.
         </p>
         <p className="text-xs text-muted-foreground mt-1">
-          How a pattern is matched is deliberately not decided here: no detector
-          exists yet, and inventing the semantics on this screen is how the
-          detector ends up disagreeing with the rules it was given.
+          How each kind is matched: <span className="font-mono">script_src</span>,{" "}
+          <span className="font-mono">iframe_host</span> and{" "}
+          <span className="font-mono">link</span> match a HOST (exact or a
+          subdomain — never a substring, so a lookalike domain cannot spoof one),
+          plus a path fragment when you write one.{" "}
+          <span className="font-mono">meta</span> takes{" "}
+          <span className="font-mono">name=value</span> or a bare value.{" "}
+          <span className="font-mono">cookie</span> is an exact cookie name.{" "}
+          <span className="font-mono">html</span> and{" "}
+          <span className="font-mono">text</span> are case-insensitive substrings
+          — and on their own they can never produce a detection, because a page
+          that merely mentions a competitor is not running one.
         </p>
       </div>
 

@@ -122,10 +122,11 @@ Three findings worth keeping:
 - **`ConfidenceRule.version` is the honest exception** — nothing stamps a
   confidence version onto a stored figure, so it is a change counter and the
   screen says so rather than implying a provenance trail it cannot deliver.
-- **`TechnologySignature` has no consumer at all** — no detector, no crawler.
-  The screen carries a permanent banner saying nothing reads `patterns` yet,
-  and validates shape only. Behaving as though editing a pattern started
-  fingerprinting would be a feature flag for a feature that does not exist.
+- **`TechnologySignature` had no consumer at all** — no detector, no crawler.
+  The screen carried a permanent banner saying nothing read `patterns`, and
+  validated shape only. **Superseded 2026-09-02: it has a consumer now.** See
+  "Fingerprinting and capability detection" below; the banner has come down and
+  what replaced it is computed from the database rather than hard-coded.
 
 **My brief was wrong about translations.** Zero of the 30 existing `/platform`
 pages use i18n — the console is English-only by convention — so adding `t()` to
@@ -322,6 +323,98 @@ politeness cannot use. That has to be a database column.
 
 **A gap in what shipped last week:** `lib/sales/outreachSender.js` has no send
 caps at all, so campaign volume limits do not exist yet.
+
+### Fingerprinting and capability detection — BUILT (2026-09-02)
+
+`TechnologySignature` has a consumer. `lib/sales/intel/technology.js` matches
+its `patterns` deterministically (§58 — a model guessing at a competitor would
+be confidently wrong in a sales conversation), and two pipeline stages,
+`DETECT_TECHNOLOGY` and `ANALYZE_CAPABILITIES`, write `ProspectTechnology` and
+`ProspectCapability` from what it finds. `scripts/check-sales-fingerprint.mjs`
+executes it: 280 assertions, 31 mutations tested, all 31 caught.
+
+**The null-versus-false rule, in one sentence.** A capability is `false` only
+when at least one page actually rendered, no page in the crawl was blocked or
+errored, the crawl did not say of itself that it was incomplete, and — for a
+capability whose signal lives beyond the front page — the crawler visited more
+than the front page; everything else is `null`. One function,
+`absenceEligibility()`, decides it and nothing else may.
+
+Three corollaries that are easy to get wrong and are executed rather than
+assumed:
+
+- **A 200 with a body and no links is not a rendered page.** That is the
+  fingerprint of a JavaScript-rendered site handed to a crawler that does not
+  execute JavaScript, and reading it as "nothing on offer" is a false absence
+  arriving through a different door.
+- **A null never overwrites a known value.** "We could not look today" must not
+  erase "we looked last week and there was a booking page." A `false` and a
+  `true` do overwrite, because both are real new observations.
+- **A website that will not load is not a business without a website.** That
+  inversion is the most damaging one available, because NO_WEBSITE is the
+  highest-priority non-competitor rule there is.
+
+**19 starter signatures, and the standard they were held to.** Nothing was
+typed from memory: a wrong Jobber detection puts a false claim in a rep's
+script and the contractor knows which software they pay for. Each row carries a
+`sourced` note saying how it was confirmed — the vendor's own code, a live
+fetch of the endpoint, markup found on a real third-party site, or two
+independent open fingerprint databases agreeing.
+
+- **Verified and active (16).** Jobber, Housecall Pro, ServiceTitan, Workiz and
+  Markate as COMPETITORS; Calendly, Acuity, Podium, Birdeye, Tawk.to, Intercom,
+  the Facebook chat plugin, Stripe, Square, Wix, Squarespace, GoDaddy and
+  WordPress as adjacent.
+- **Shipped INACTIVE (3), with the reason on the row.** Joist has no
+  customer-facing website embed at all — nothing for a crawler to see. Thumbtack
+  and Angi publish no first-party widget; every "Thumbtack reviews widget" on
+  offer is a third-party scraper, so a script pattern would fingerprint the
+  scraper rather than Thumbtack.
+
+**A website builder is NOT a competitor.** Marking Wix as one would make
+`evaluateRule` refuse every table-stakes capability for a contractor whose site
+is on Wix — deleting every real talking point they have. `isCompetitor` answers
+one question: does this product do FieldQuo's job (quote, schedule, invoice,
+get paid)?
+
+**Loose patterns cannot produce a detection alone.** `html` and `text` are
+substring matches over a page's own words, and a blog post titled "why we left
+Jobber" contains the string. A signature matched only on loose kinds is capped
+below the detection threshold — the same shape as `confidence.js`'s
+FUZZY_CEILING. The stated cost: a "Powered by Markate" footer with no Markate
+script produces no detection.
+
+**Two corrections to shipped work.**
+
+1. `PROVIDER_BY_KIND.ANALYZE_CAPABILITIES` was `openai`. The stage calls no
+   model, so it charged the tightest budget in the pipeline — the lane this
+   file's own arithmetic identifies as what makes a 1,000-prospect campaign
+   take two days — to protect a vendor it never talks to. Now `local`.
+2. `check-sales-rule-admin.mjs` asserted that the signatures route hard-coded
+   `detectionsPending: true` and that the screen said "Nothing reads these
+   patterns yet". Both became false the moment a detector shipped, so the check
+   was proving the wrong behaviour. Inverted, and strengthened: the banner must
+   now be COMPUTED (from a count of prospects with a `lastCrawledAt`) rather
+   than asserted, because a hard-coded claim about the world is exactly what
+   went stale.
+
+**Where the brief was wrong, and what was built instead.** It named twelve
+capability codes; the vocabulary is `OBSERVABLE_CAPABILITY_CODES` in
+`capabilities.js`, declared on the READING side so a rule cannot condition on a
+code no detector emits. `EMAIL_ONLY_CONTACT` is not a code — "only" is composed
+by a rule out of `EMAIL_CONTACT` true and `LEAD_CAPTURE_FORM` false, which is
+how `rules.js` already spells it. `CONTACT_FORM` and `QUOTE_REQUEST_FORM` are
+one code, `LEAD_CAPTURE_FORM`, because no rule distinguishes them and a
+detector cannot honestly tell them apart. `FINANCING` and `SMS_CONTACT` have no
+code and are NOT emitted: a row nothing reads is the first recurring failure
+class.
+
+**Still open.** `cookie` patterns are matched correctly and the current crawler
+captures no cookies, so they are inert until it does. Detector thresholds
+(`DETECTION_THRESHOLD`, `LOOSE_CEILING`, `MIN_PAGES_FOR_DEEP`) are constants
+rather than superadmin settings — the same position `confidence.js`'s
+`MATCH_THRESHOLD` and `FUZZY_CEILING` hold, which standing rule 1 has so far
+accepted. If the owner wants them on a screen, that is a small build.
 
 ### STANDING RULES — apply to everything, not just the next thing
 

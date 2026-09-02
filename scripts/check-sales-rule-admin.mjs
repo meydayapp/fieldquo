@@ -548,13 +548,31 @@ section("Next 16 — params is a Promise in every dynamic handler");
 section("The screens say what is true");
 // ═══════════════════════════════════════════════════════════════════════════
 {
-  // No detector exists. A signatures screen that did not say so would be a
-  // feature flag for a feature that does not exist.
+  // A detector exists now — lib/sales/intel/technology.js — so the two
+  // assertions that used to live here (that the route hard-coded
+  // `detectionsPending: true`, and that the screen said "Nothing reads these
+  // patterns yet") were asserting the OPPOSITE of what is true. A check that
+  // proves the wrong behaviour is worse than no check, which is the lesson
+  // STATUS.md already records from check-sales-outreach.mjs. Inverted.
+  //
+  // What replaces them is the stronger property: the banner must be COMPUTED
+  // rather than asserted. A hard-coded `true` is exactly what went stale.
   const sigRoute = read(ROUTES.signatures);
-  ok("the signatures route carries detectionsPending", /detectionsPending:\s*true/.test(sigRoute));
+  ok(
+    "the signatures route no longer hard-codes detectionsPending",
+    !/detectionsPending:\s*true/.test(sigRoute),
+    sigRoute.match(/detectionsPending[^\n]*/)?.[0],
+  );
+  ok(
+    "…it derives it from a count of prospects actually crawled",
+    /crawledProspects\s*===\s*0/.test(sigRoute) && /lastCrawledAt/.test(sigRoute),
+  );
   const sigPage = read(PAGES.signatures);
   ok("…and the screen renders it", /detectionsPending/.test(sigPage));
-  ok("…saying that nothing reads the patterns yet", /Nothing reads these patterns yet/.test(sigPage));
+  ok(
+    "…saying the patterns are live and nothing has been crawled",
+    /These patterns are live\. Nothing has been crawled yet\./.test(sigPage),
+  );
 
   // Each screen must state its own version policy, because the two policies
   // genuinely differ and a reader cannot guess which one they are looking at.
