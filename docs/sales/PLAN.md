@@ -459,6 +459,10 @@ own habits is to make the team step dismissible the way tax registration
 already is — "I work alone" is a statement, and recording it is honest, whereas
 leaving a permanent nag treats a solo shop as an incomplete company.
 
+**Built.** See §5b for the shape it took (a statement recorded in Settings, not
+a dismissal on the card) and `scripts/check-onboarding-solo.mjs` for the
+executable proof that `complete` is now reachable for a one-person company.
+
 ---
 
 ## 16. Correction: onboarding completeness IS a definite signal
@@ -514,6 +518,16 @@ milestone 1 can honestly gate on it.** That reopens the decision recorded in
 recomputed on every read with no stored moment, so a commission milestone needs
 `Company.onboardingCompletedAt` stamped the first time it computes true.
 
+**Built, with one correction to the paragraph above.** The reopening closed the
+other way: §5 is settled at Connect activation alone, and onboarding
+completeness must never be part of milestone 1. So `Company.worksAloneAt` and
+`Company.onboardingCompletedAt` both exist and are wired —
+`getOnboardingStatus()` drops the team step when the box is ticked, and stamps
+the completion date once, on the transition, guarded by
+`updateMany({ where: { onboardingCompletedAt: null } })` so two simultaneous
+dashboard loads cannot both write it. The date is read by the platform console
+(Companies → company → Account → "Setup completed"), NOT by any payout.
+
 ### Dead code found while verifying this
 
 `OnboardingProgress.js` has a `dismissTaxRegistration()` handler posting to
@@ -523,3 +537,9 @@ recomputed on every read with no stored moment, so a commission milestone needs
 branch are unreachable. Leftovers from the design the comment describes
 rejecting. The working path is the Settings checkbox via
 `/api/settings/business-info`.
+
+**Removed.** The handler, the button, the `onStatusChange` prop the dashboard
+passed it, the POST route and its three orphaned translation keys are all gone;
+`/api/onboarding-status` is GET-only. `scripts/check-tax-id.mjs` used to assert
+that endpoint was correct and now asserts it does not exist, so the column has
+one door.

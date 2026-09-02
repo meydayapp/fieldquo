@@ -7,41 +7,19 @@ import { CheckCircle2, Circle, UserPlus } from "lucide-react";
 import CircularProgress from "./CircularProgress";
 import AddEmployeeModal from "@/app/components/team/AddEmployeeModal";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { reportResponseError, showError } from "@/lib/clientErrors";
 
-export default function OnboardingProgress({
-  status,
-  onEmployeeAdded,
-  onStatusChange,
-}) {
+// This card used to carry a "Not registered" button beside the tax step, and a
+// dismissTaxRegistration() posting to POST /api/onboarding-status. Neither ever
+// ran: the button was gated on `step.dismissible`, and lib/onboarding.js sets
+// that to false — deliberately, because the answer belongs in Settings beside
+// the field it is about, where it is recorded as a statement instead of waved
+// away. Both are gone, along with the endpoint they called. The two steps that
+// can stop applying (tax registration, and "invite your team" for a one-person
+// shop) do so by not being in `status.steps` at all, so this component's whole
+// job is to render what the server sent.
+export default function OnboardingProgress({ status, onEmployeeAdded }) {
   const [showAddEmployee, setShowAddEmployee] = useState(false);
-  const [dismissing, setDismissing] = useState(false);
   const { t } = useTranslation();
-
-  // The server decides whether the step may go; this only asks. On failure the
-  // step stays visible and the error surfaces — a dismiss button that appears
-  // to work and leaves the step there next reload is exactly the failure this
-  // codebase keeps getting swept for.
-  async function dismissTaxRegistration() {
-    setDismissing(true);
-    try {
-      const res = await fetch("/api/onboarding-status", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dismiss: "tax_registration" }),
-      });
-      if (!res.ok) {
-        await reportResponseError(res, t("app.onboarding.taxRegSkipFailed"));
-        return;
-      }
-      onStatusChange?.(await res.json());
-    } catch {
-      // Network-level failure — there is no Response to read a message off.
-      showError(t("app.onboarding.taxRegSkipFailed"));
-    } finally {
-      setDismissing(false);
-    }
-  }
 
   if (!status?.steps?.length || status.complete) return null;
 
@@ -123,17 +101,6 @@ export default function OnboardingProgress({
                       {t("app.onboarding.taxRegLabel", { name })}
                     </span>
                   </Link>
-                  {!step.done && step.dismissible && (
-                    <button
-                      type="button"
-                      onClick={dismissTaxRegistration}
-                      disabled={dismissing}
-                      title={t("app.onboarding.taxRegSkipTitle")}
-                      className="text-xs font-semibold text-muted-foreground border border-border rounded-full px-3 py-1.5 shrink-0 hover:bg-muted disabled:opacity-50"
-                    >
-                      {t("app.onboarding.taxRegSkip")}
-                    </button>
-                  )}
                 </div>
                 {!step.done && (
                   <p className="text-xs text-muted-foreground mt-1 ml-[30px]">

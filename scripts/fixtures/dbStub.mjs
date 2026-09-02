@@ -45,6 +45,16 @@ export const rows = {
   marketingCampaign: [],
   marketingSubscriber: [],
   marketingCampaignDelivery: [],
+  // The three rosters/plans getOnboardingStatus() counts. Added so
+  // check-onboarding-solo.mjs can execute the real function instead of reading
+  // it: "a one-person company can finish onboarding" is a claim about a step
+  // ARRAY that gets built from five queries, and every previous attempt to
+  // assert that by regex would have passed on the version that couldn't.
+  member: [],
+  pendingTeamProfile: [],
+  // No `include` support here, so a fixture row carries its plan inline:
+  // { companyId, plan: { maxUsers: 20 } }.
+  subscription: [],
 };
 
 /** Every write the product attempted, in order: { model, action, data }. */
@@ -79,6 +89,9 @@ export function resetDbStub() {
   rows.marketingCampaign = [];
   rows.marketingSubscriber = [];
   rows.marketingCampaignDelivery = [];
+  rows.member = [];
+  rows.pendingTeamProfile = [];
+  rows.subscription = [];
   writes.length = 0;
   reads.length = 0;
   failNext.model = null;
@@ -155,6 +168,21 @@ function model(name) {
       writes.push({ model: name, action: "update", where, data });
       return { ...(rows[name].find((r) => matches(r, where)) || {}), ...data };
     },
+    // The one finder-shaped WRITE, and the only method here that mutates
+    // `rows`. That asymmetry with update() above is deliberate rather than an
+    // oversight: updateMany exists in the product to make a guard atomic —
+    // `where: { id, onboardingCompletedAt: null }` is what stops two
+    // simultaneous dashboard loads both stamping a completion date — and a
+    // stub that recorded the write without applying it would answer "no row
+    // matched" the same way whether the guard worked or not. Applying it means
+    // a check can call the real function twice and watch the second call find
+    // nothing to do. Returns Prisma's own `{ count }`.
+    updateMany: async ({ where, data } = {}) => {
+      writes.push({ model: name, action: "updateMany", where, data });
+      const hits = rows[name].filter((r) => matches(r, where));
+      for (const row of hits) Object.assign(row, data);
+      return { count: hits.length };
+    },
     delete: async ({ where } = {}) => {
       const idx = rows[name].findIndex((r) => matches(r, where));
       const removed = idx === -1 ? null : rows[name].splice(idx, 1)[0];
@@ -208,6 +236,9 @@ export const db = new Proxy(
     materialRecipeSetting: model("materialRecipeSetting"),
     marketingCampaign: model("marketingCampaign"),
     marketingSubscriber: model("marketingSubscriber"),
+    member: model("member"),
+    pendingTeamProfile: model("pendingTeamProfile"),
+    subscription: model("subscription"),
     marketingCampaignDelivery: uniqueCreateModel("marketingCampaignDelivery", [
       "campaignId",
       "subscriberId",

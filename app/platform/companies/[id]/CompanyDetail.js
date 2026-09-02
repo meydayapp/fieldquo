@@ -537,6 +537,15 @@ export default function CompanyDetail({ companyId }) {
           <Field label="Referral code" value={company.referralCode} mono />
           <Field label="Referred by" value={company.referredByCode} mono />
           <Field label="Created" value={formatDate(company.createdAt)} />
+          {/* Stamped once, the first time lib/onboarding.js computes a
+              complete checklist, and never moved after that — completeness is
+              recomputed on every read and answers nothing about WHEN, which is
+              the question support is usually asking. A dash means they haven't
+              finished, not that the date was lost. */}
+          <Field
+            label="Setup completed"
+            value={formatDate(company.onboardingCompletedAt)}
+          />
           <Field label="Last change" value={formatDate(company.updatedAt)} />
         </Group>
       </div>

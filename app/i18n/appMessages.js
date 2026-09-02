@@ -3276,6 +3276,10 @@ const en = {
   "app.setTeam.worksAloneHint":
     "Takes “Invite your team” off your setup checklist. Untick it the day you take somebody on.",
   "app.setTeam.errWorksAlone": "Couldn't save that. Try again in a moment.",
+  "app.setTeam.worksAlone": "It's just me — no crew right now.",
+  "app.setTeam.worksAloneHint":
+    "Takes “Invite your team” off your setup checklist. Untick it the day you take somebody on.",
+  "app.setTeam.errWorksAlone": "Couldn't save that. Try again in a moment.",
   "app.setTeam.seatsUsed": "seats used",
   "app.setTeam.crewIncluded": "crew — included free",
   "app.setTeam.countAdministrators": "Administrators",
@@ -4264,9 +4268,6 @@ const en = {
   "app.taxReg.why.nz": "If you are GST registered, the details you give a client have to include your GST number.",
   "app.taxReg.why.generic": "If you are registered for VAT or a sales tax, your clients usually need the number on the invoice.",
   "app.onboarding.taxRegLabel": "Add your {name}",
-  "app.onboarding.taxRegSkip": "Not registered",
-  "app.onboarding.taxRegSkipTitle": "I don’t have one — stop asking",
-  "app.onboarding.taxRegSkipFailed": "We couldn’t hide that step. Try again in a moment.",
   "app.setCompany.taxRegDisclaimer": "FieldQuo prints what you enter here on your documents. It does not register you and does not file anything for you.",
   "app.setCompany.taxRegNotRegistered": "I don't have one — my business isn't registered for this.",
 
@@ -8020,6 +8021,11 @@ const fr = {
     "Retire « Invitez votre équipe » de votre liste de configuration. Décochez-la le jour où vous embauchez.",
   "app.setTeam.errWorksAlone":
     "Impossible d'enregistrer. Réessayez dans un instant.",
+  "app.setTeam.worksAlone": "Je travaille seul — aucune équipe pour l'instant.",
+  "app.setTeam.worksAloneHint":
+    "Retire « Invitez votre équipe » de votre liste de configuration. Décochez-la le jour où vous embauchez.",
+  "app.setTeam.errWorksAlone":
+    "Impossible d'enregistrer. Réessayez dans un instant.",
   "app.setTeam.seatsUsed": "sièges utilisés",
   "app.setTeam.crewIncluded": "équipiers — inclus gratuitement",
   "app.setTeam.countAdministrators": "Administrateurs",
@@ -8980,9 +8986,6 @@ const fr = {
   "app.taxReg.why.nz": "Si vous êtes inscrit à la GST, les informations remises au client doivent inclure votre numéro de GST.",
   "app.taxReg.why.generic": "Si vous êtes inscrit à la TVA ou à une taxe de vente, vos clients ont généralement besoin du numéro sur la facture.",
   "app.onboarding.taxRegLabel": "Ajoutez votre {name}",
-  "app.onboarding.taxRegSkip": "Non inscrit",
-  "app.onboarding.taxRegSkipTitle": "Je n’en ai pas — ne plus demander",
-  "app.onboarding.taxRegSkipFailed": "Impossible de masquer cette étape. Réessayez dans un instant.",
   "app.setCompany.taxRegDisclaimer": "FieldQuo imprime ce que vous saisissez ici sur vos documents. Il ne vous inscrit nulle part et ne produit aucune déclaration.",
   "app.setCompany.taxRegNotRegistered": "Je n'en ai pas — mon entreprise n'est pas inscrite.",
 
@@ -12823,9 +12826,6 @@ const es = {
   "app.taxReg.why.nz": "Si estás registrado en GST, los datos que entregas al cliente deben incluir tu número de GST.",
   "app.taxReg.why.generic": "Si estás registrado para el IVA o un impuesto sobre ventas, tus clientes suelen necesitar el número en la factura.",
   "app.onboarding.taxRegLabel": "Añade tu {name}",
-  "app.onboarding.taxRegSkip": "No registrado",
-  "app.onboarding.taxRegSkipTitle": "No tengo uno: deja de preguntar",
-  "app.onboarding.taxRegSkipFailed": "No pudimos ocultar ese paso. Inténtalo de nuevo en un momento.",
   "app.setCompany.taxRegDisclaimer": "FieldQuo imprime lo que escribas aquí en tus documentos. No te registra ni presenta nada por ti.",
   "app.setCompany.taxRegNotRegistered": "No tengo uno — mi empresa no está registrada.",
   // ── Painting takeoff ─────────────────────────────────────────────────────
@@ -16300,9 +16300,6 @@ const uk = {
   "app.taxReg.why.nz": "Якщо ви зареєстровані платником GST, дані для клієнта мають містити ваш номер GST.",
   "app.taxReg.why.generic": "Якщо ви зареєстровані платником ПДВ або податку з продажу, клієнтам зазвичай потрібен цей номер у рахунку.",
   "app.onboarding.taxRegLabel": "Додайте свій {name}",
-  "app.onboarding.taxRegSkip": "Не зареєстрований",
-  "app.onboarding.taxRegSkipTitle": "У мене його немає — більше не запитувати",
-  "app.onboarding.taxRegSkipFailed": "Не вдалося приховати цей крок. Спробуйте ще раз за мить.",
   "app.setCompany.taxRegDisclaimer": "FieldQuo друкує те, що ви тут вводите, у ваших документах. Він не реєструє вас і нічого за вас не подає.",
   "app.setCompany.taxRegNotRegistered": "У мене його немає — мій бізнес не зареєстрований.",
   // ── Painting takeoff ─────────────────────────────────────────────────────
@@ -19731,9 +19728,6 @@ const pa = {
   "app.taxReg.why.nz": "ਜੇ ਤੁਸੀਂ GST ਰਜਿਸਟਰਡ ਹੋ, ਤਾਂ ਗਾਹਕ ਨੂੰ ਦਿੱਤੀ ਜਾਣਕਾਰੀ ਵਿੱਚ ਤੁਹਾਡਾ GST ਨੰਬਰ ਹੋਣਾ ਚਾਹੀਦਾ ਹੈ।",
   "app.taxReg.why.generic": "ਜੇ ਤੁਸੀਂ VAT ਜਾਂ ਸੇਲਜ਼ ਟੈਕਸ ਲਈ ਰਜਿਸਟਰਡ ਹੋ, ਤਾਂ ਗਾਹਕਾਂ ਨੂੰ ਆਮ ਤੌਰ ’ਤੇ ਇਨਵੌਇਸ ਉੱਤੇ ਇਹ ਨੰਬਰ ਚਾਹੀਦਾ ਹੁੰਦਾ ਹੈ।",
   "app.onboarding.taxRegLabel": "ਆਪਣਾ {name} ਜੋੜੋ",
-  "app.onboarding.taxRegSkip": "ਰਜਿਸਟਰਡ ਨਹੀਂ",
-  "app.onboarding.taxRegSkipTitle": "ਮੇਰੇ ਕੋਲ ਨਹੀਂ ਹੈ — ਦੁਬਾਰਾ ਨਾ ਪੁੱਛੋ",
-  "app.onboarding.taxRegSkipFailed": "ਅਸੀਂ ਉਹ ਕਦਮ ਲੁਕਾ ਨਹੀਂ ਸਕੇ। ਕੁਝ ਪਲਾਂ ਬਾਅਦ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
   "app.setCompany.taxRegDisclaimer": "FieldQuo ਇੱਥੇ ਲਿਖੀ ਗੱਲ ਤੁਹਾਡੇ ਦਸਤਾਵੇਜ਼ਾਂ ਉੱਤੇ ਛਾਪਦਾ ਹੈ। ਇਹ ਤੁਹਾਨੂੰ ਰਜਿਸਟਰ ਨਹੀਂ ਕਰਦਾ ਅਤੇ ਤੁਹਾਡੇ ਵੱਲੋਂ ਕੁਝ ਵੀ ਫ਼ਾਈਲ ਨਹੀਂ ਕਰਦਾ।",
   "app.setCompany.taxRegNotRegistered": "ਮੇਰੇ ਕੋਲ ਇਹ ਨਹੀਂ ਹੈ — ਮੇਰਾ ਕਾਰੋਬਾਰ ਇਸ ਲਈ ਰਜਿਸਟਰਡ ਨਹੀਂ ਹੈ।",
   // ── Painting takeoff ─────────────────────────────────────────────────────
@@ -23170,9 +23164,6 @@ const tl = {
   "app.taxReg.why.nz": "Kung GST registered ka, dapat kasama ang iyong GST number sa impormasyong ibinibigay mo sa kliyente.",
   "app.taxReg.why.generic": "Kung rehistrado ka sa VAT o sales tax, kadalasang kailangan ng mga kliyente ang numero sa invoice.",
   "app.onboarding.taxRegLabel": "Idagdag ang iyong {name}",
-  "app.onboarding.taxRegSkip": "Hindi rehistrado",
-  "app.onboarding.taxRegSkipTitle": "Wala akong ganito — huwag nang itanong",
-  "app.onboarding.taxRegSkipFailed": "Hindi namin naitago ang hakbang na iyon. Subukan ulit maya-maya.",
   "app.setCompany.taxRegDisclaimer": "Ini-print ng FieldQuo sa iyong mga dokumento ang inilagay mo rito. Hindi ka nito irerehistro at wala itong isinusumite para sa iyo.",
   "app.setCompany.taxRegNotRegistered": "Wala akong ganito — hindi rehistrado ang negosyo ko para dito.",
   // ── Painting takeoff ─────────────────────────────────────────────────────

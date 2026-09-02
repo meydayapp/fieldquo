@@ -169,39 +169,48 @@ for (const [label, rel] of [
   t(`${label} does not check for a tax number`, !/taxId/.test(read(rel)));
 }
 
-const ROUTE = read("../app/api/onboarding-status/route.js");
-t("the dismiss endpoint exists", /export async function POST/.test(ROUTE));
-// Hiding the button is not access control — the server re-checks the country
-// rather than trusting a flag that came back from GET.
-t("...and re-checks the jurisdiction server-side",
-  /taxRegistrationFor\(company\.country\)\.dismissible/.test(ROUTE));
-t("...and writes the column", /taxRegistrationDismissedAt/.test(ROUTE));
-// Asserts the PROPERTY, not one spelling of it. This grepped for
-// `requirePermission` and so failed the day the gate got STRICTER — the route
-// moved off `user:manage` (which supervisors hold) onto the "owner-admin"
-// capability, because dismissing "this company has no tax number" is a
-// statement about its legal registration, not a rostering decision. A check
-// that fails on a better gate trains people to edit the check.
-t(
-  "...behind a permission check",
-  /requirePermission\(member\.role|holdsCapability\(member\.role/.test(ROUTE),
-);
-// The refusal has to be true, since it is the only thing the reader gets. It
-// said "Only owners and admins" for months while checking a permission
-// supervisors hold.
-t(
-  "...whose refusal names the set it actually enforces",
-  !/"owner-admin"/.test(ROUTE) ||
-    /Only owners and admins can change setup steps/.test(ROUTE),
-);
+// ── There is no dismiss ENDPOINT, and there must not be one ────────────────
+//
+// These five assertions used to guard POST /api/onboarding-status: that it
+// existed, re-checked the jurisdiction, wrote the column, sat behind a
+// permission check, and refused in the words it meant. All true, and all about
+// code nothing could reach — the only caller was a button gated on
+// `step.dismissible`, which lib/onboarding.js sets to false on the one step
+// that ever carried the flag. The endpoint was removed rather than wired up,
+// because the design it belonged to is the one the comment beside
+// `dismissible: false` argues against: a dismiss button records that somebody
+// wanted the ask gone, and the checkbox records WHY.
+//
+// So the claim flips. Not "the endpoint is correct" — "there is no second door
+// to this column", leaving the Settings checkbox above (already asserted
+// against both the page and the route that saves it) as the only way to say it.
+// Comments are stripped first: this file's own prose names the endpoint it is
+// asserting the absence of, and a check that reads its own explanation as
+// evidence is worse than no check.
+const stripComments = (src) =>
+  src
+    .split("\n")
+    .filter((line) => {
+      const l = line.trim();
+      return !(l.startsWith("//") || l.startsWith("*") || l.startsWith("/*"));
+    })
+    .join("\n");
+const ROUTE = stripComments(read("../app/api/onboarding-status/route.js"));
+t("the onboarding-status route is read-only — no dismiss endpoint",
+  !/export async function (POST|PATCH|PUT|DELETE)/.test(ROUTE));
+t("...and does not write the column behind the checkbox's back",
+  !/taxRegistrationDismissedAt/.test(ROUTE));
 t("the column exists in the schema",
   /taxRegistrationDismissedAt\s+DateTime\?/.test(read("../prisma/schema.prisma")));
 
-const CARD = read("../app/components/dashboard/OnboardingProgress.js");
+const CARD = stripComments(read("../app/components/dashboard/OnboardingProgress.js"));
 t("the card renders the local name", /t\(step\.nameKey\)/.test(CARD));
 t("the card renders the reason", /t\(step\.whyKey\)/.test(CARD));
-t("dismiss failures are reported, not swallowed",
-  /reportResponseError\(res/.test(CARD) && /showError\(/.test(CARD));
+// The dead button's real cost was that it looked like the feature: anyone
+// asking "can they skip this?" found a control, not the checkbox. Nothing on
+// the card may offer to dismiss a step again.
+t("the card offers no dismiss control",
+  !/step\.dismissible/.test(CARD) && !/\/api\/onboarding-status"[\s\S]{0,120}POST/.test(CARD));
 
 console.log("\nCompany Settings labels the field the way the country does");
 const SETTINGS = read("../app/app/settings/company/page.js");
