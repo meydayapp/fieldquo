@@ -56,7 +56,17 @@ export default function TeamOverviewPage() {
   const crewCap = seats.crewCap ?? null;
   const seatsFull = seatCap != null && seats.used >= seatCap;
   const crewFull = crewCap != null && (seats.crew ?? 0) >= crewCap;
+  // Seats and crew are billed apart but counted together here, because the
+  // question is "is anyone else on this roster?", not "what does it cost?".
+  // Both halves already include pending invitations — an invited-not-accepted
+  // hire is somebody, one click early.
+  const anyoneElse = (seats.used ?? 0) + (seats.crew ?? 0) > 1;
   const [loading, setLoading] = useState(true);
+  // "It's just me — no crew right now." Read from and written to
+  // /api/settings/business-info, the same door the tax "I don't have one"
+  // answer uses; only the checkbox lives here, beside the roster it describes.
+  const [worksAlone, setWorksAlone] = useState(false);
+  const [savingWorksAlone, setSavingWorksAlone] = useState(false);
   const [savingUserId, setSavingUserId] = useState(null);
   const [error, setError] = useState("");
   // The pending invite awaiting a confirmation, and the one being cancelled.
@@ -89,11 +99,17 @@ export default function TeamOverviewPage() {
       // with userId: null is schedulable and payable — QA found one sitting in
       // a $232.17 pay-run line — and did not appear on this page at all.
       fetch("/api/workers").then((r) => (r.ok ? r.json() : [])),
-    ]).then(([memberData, pendingData, grantData, workerData]) => {
+      // Just for worksAloneAt. Failing soft to null leaves the checkbox
+      // unticked, which is the same thing an unanswered company looks like —
+      // and the onboarding step it hides is a reminder, never a gate, so a
+      // failed read here costs nothing but the tick.
+      fetch("/api/settings/business-info").then((r) => (r.ok ? r.json() : null)),
+    ]).then(([memberData, pendingData, grantData, workerData, companyData]) => {
       setMembers(Array.isArray(memberData) ? memberData : []);
       setPending(Array.isArray(pendingData.pending) ? pendingData.pending : []);
       setSeats(pendingData.seats || { used: 0, limit: null });
       setGrants(grantData);
+      setWorksAlone(Boolean(companyData?.worksAloneAt));
       // Archived (active: false) is excluded too — this section's whole claim
       // is "they can be scheduled and paid right now", which is exactly what
       // stops being true the moment somebody is archived. Without this an
@@ -130,6 +146,35 @@ export default function TeamOverviewPage() {
       setError(err.message);
     } finally {
       setSavingUserId(null);
+    }
+  }
+
+  // ── "It's just me — no crew right now" ─────────────────────────────────
+  //
+  // Saved through the same route the tax "I don't have one" checkbox uses, on
+  // the same permission (user:manage) and into the same activity log. The
+  // optimistic tick is reverted on failure rather than left standing: this box
+  // removes a step from the owner's dashboard checklist, so a tick that didn't
+  // save would show up as the step coming back on the next load with no
+  // explanation.
+  async function saveWorksAlone(next) {
+    setSavingWorksAlone(true);
+    setWorksAlone(next);
+    setError("");
+    try {
+      const res = await fetch("/api/settings/business-info", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ worksAlone: next }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || t("app.setTeam.errWorksAlone"));
+      setWorksAlone(Boolean(data?.worksAloneAt));
+    } catch (err) {
+      setWorksAlone(!next);
+      setError(err.message);
+    } finally {
+      setSavingWorksAlone(false);
     }
   }
 
@@ -532,6 +577,41 @@ export default function TeamOverviewPage() {
               </span>
             )}
           </div>
+        )}
+
+        {/* ── "It's just me — no crew right now" ──────────────────────────
+            A statement about the business, recorded beside the roster it is
+            about — not a dismiss button on the onboarding card. Ticking it
+            drops "Invite your team" from the setup checklist, which is
+            otherwise the one step a one-person shop can never tick: it needs
+            a second person, and `complete` needs every step, so a solo
+            contractor carried that card forever.
+
+            Hidden once anyone else is on the roster, the same way the tax
+            checkbox hides once a number is entered: there is nothing to
+            declare the absence of, and a ticked "it's just me" beside a list
+            of three people is a contradiction the screen shouldn't be able to
+            show. lib/onboarding.js reaches the same conclusion server-side, so
+            an owner who hires and never comes back here still gets the step
+            back — the roster is the fact, this is only the claim.
+
+            Gated on user:manage, which is what the PATCH enforces. */}
+        {canAdd && !anyoneElse && (
+          <label className="mt-4 flex items-start gap-2.5 text-sm text-muted-foreground">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={worksAlone}
+              disabled={savingWorksAlone}
+              onChange={(e) => saveWorksAlone(e.target.checked)}
+            />
+            <span>
+              {t("app.setTeam.worksAlone")}{" "}
+              <span className="block text-xs">
+                {t("app.setTeam.worksAloneHint")}
+              </span>
+            </span>
+          </label>
         )}
       </div>
 

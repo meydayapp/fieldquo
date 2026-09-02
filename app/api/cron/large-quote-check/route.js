@@ -4,12 +4,11 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { requireCronSecret } from "@/lib/security/cronAuth";
 import { db } from "@/lib/db";
-import { Resend } from "resend";
-import { lazyClient } from "@/lib/lazyClient";
-
-// Lazy: `new Resend()` throws on a missing key, and at module scope that
-// fires during `next build` when Next imports routes to collect page data.
-const resend = lazyClient(() => new Resend(process.env.RESEND_API_KEY));
+// Through the shared sender rather than a Resend client of its own. The lazy
+// client that used to live here is gone: lib/email/resend.js is now the only
+// module that constructs one, so the demo interception has a single seam
+// instead of fourteen. See that file's header.
+import { sendEmail } from "@/lib/email/resend";
 
 // Vercel Cron hits this on a schedule and emails admins about quotes above
 // their company's threshold.
@@ -65,7 +64,11 @@ export async function GET(request) {
     for (const quote of largeQuotes) {
       for (const admin of admins) {
         if (!admin.user.email) continue;
-        await resend.emails.send({
+        await sendEmail({
+          // The company this notice is about, so a demo company's staff notice
+          // is simulated like everything else it sends. sendEmail re-reads the
+          // row; this is an id, not a verdict.
+          companyId: rule.companyId,
           from: `${rule.company.name} <notifications@fieldquo.com>`,
           to: admin.user.email,
           subject: `Large quote created: $${Number(quote.total).toLocaleString()}`,

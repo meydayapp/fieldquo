@@ -89,6 +89,12 @@ export async function GET(request) {
       taxIdNumber: true,
       taxRegistrationDismissedAt: true,
       autoApplyLocalTax: true,
+      // "It's just me — no crew right now". Written from here (see the PATCH)
+      // and read by Settings > Team, which renders the checkbox, and by
+      // lib/onboarding.js, which drops the "Invite your team" step while it
+      // holds. Company Settings does not render it — the statement belongs
+      // beside the roster it is about, not beside the tax fields.
+      worksAloneAt: true,
       // Three-state; see the schema comment. Null must survive the round trip
       // to the settings form, because "not answered" is what the control has
       // to be able to show.
@@ -217,6 +223,7 @@ export async function PATCH(request) {
     taxIdName,
     taxIdNumber,
     taxRegistrationDismissed,
+    worksAlone,
     autoApplyLocalTax,
     vatRegistered,
     currency,
@@ -372,6 +379,19 @@ export async function PATCH(request) {
         : taxRegistrationDismissed !== undefined && {
             taxRegistrationDismissedAt: taxRegistrationDismissed ? new Date() : null,
           }),
+      // "It's just me — no crew right now", from the checkbox on Settings >
+      // Team. Same shape as the tax answer above and for the same reason: a
+      // timestamp rather than a boolean, so the record says WHEN they said it.
+      //
+      // No counterpart to the "entering a number clears the flag" clause
+      // above, because nothing this route writes can contradict it — hiring
+      // happens through the members routes, not here. That contradiction is
+      // settled at READ time instead: lib/onboarding.js only honours the claim
+      // while the roster still says one person, so an owner who hires and
+      // never comes back to untick this gets the team step back anyway.
+      ...(worksAlone !== undefined && {
+        worksAloneAt: worksAlone ? new Date() : null,
+      }),
       // Only true and false are written; anything else (including the string
       // "" the radio group sends for "not answered") stores null. That is what
       // keeps the third state reachable — a company that answered and then

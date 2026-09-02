@@ -29,16 +29,12 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { Resend } from "resend";
-import { lazyClient } from "@/lib/lazyClient";
+import { sendEmail } from "@/lib/email/resend";
 import { getAppOrigin } from "@/lib/appUrl";
 import { mergeClientDesign } from "@/lib/kitchen/pricing";
 import { resolveSender } from "@/lib/email/companySender";
 import { formatCompanyDateTime } from "@/lib/format/companyDate";
 
-// Lazy — see lib/lazyClient.js. A module-scope `new Resend()` breaks the
-// production build when RESEND_API_KEY isn't present at build time.
-const resend = lazyClient(() => new Resend(process.env.RESEND_API_KEY));
 
 /**
  * Everything a price could hide in, removed.
@@ -197,7 +193,11 @@ export async function PATCH(request, { params }) {
       // inbox, so it should look like their own system talking to them.
       const { from, replyTo } = await resolveSender(quote.company || {}, quote.companyId);
 
-      await resend.emails.send({
+      await sendEmail({
+        // A demo company's own staff notice is simulated too. Nothing here is
+        // client-facing, but the seam is the company, not the audience — see
+        // lib/email/demoMail.js.
+        companyId: quote.companyId,
         from,
         replyTo,
         to,

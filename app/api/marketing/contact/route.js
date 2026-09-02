@@ -3,12 +3,13 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { Resend } from "resend";
-import { lazyClient } from "@/lib/lazyClient";
-
-// Lazy — see lib/lazyClient.js. A module-scope `new Resend()` breaks the
-// production build when RESEND_API_KEY isn't present at build time.
-const resend = lazyClient(() => new Resend(process.env.RESEND_API_KEY));
+// Through the shared sender. There is no tenant here — this is FieldQuo's own
+// sales inbox, not a company's mail — so no companyId is passed and the demo
+// interception in lib/email/resend.js correctly never fires. It still goes
+// through sendEmail because that file is now the only place a Resend client
+// exists, and an exception "just for this one" is how the other thirteen
+// started.
+import { sendEmail } from "@/lib/email/resend";
 
 // Public — FieldQuo's own sales/demo-request lead, distinct from a tenant company's
 // LeadRequest. Stored on PlatformAdmin's side conceptually, but since there's no
@@ -22,7 +23,7 @@ export async function POST(request) {
     return NextResponse.json({ error: "email is required" }, { status: 400 });
   }
 
-  await resend.emails.send({
+  const result = await sendEmail({
     from: "FieldQuo <hello@fieldquo.com>",
     to: process.env.SALES_NOTIFICATION_EMAIL || "emilio@fieldquo.com",
     subject: `New demo request${name ? ` from ${name}` : ""}`,
@@ -33,6 +34,19 @@ export async function POST(request) {
       <p><strong>Source:</strong> ${source || "unknown"}</p>
     `,
   });
+
+  // sendEmail returns its failures rather than throwing, so the 500 the old
+  // `resend.emails.send()` produced on a bad key has to be produced here. A
+  // silent `success: true` on a lead that reached nobody is the exact failure
+  // class AGENTS.md names: a control that appears to work and doesn't.
+  if (result?.error) {
+    const message =
+      typeof result.error === "string" ? result.error : result.error?.message || "Send failed";
+    return NextResponse.json(
+      { error: `Couldn't pass that on — ${message}. Email hello@fieldquo.com directly.` },
+      { status: 502 },
+    );
+  }
 
   return NextResponse.json({ success: true }, { status: 201 });
 }

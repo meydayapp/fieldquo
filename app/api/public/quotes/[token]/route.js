@@ -560,12 +560,9 @@ export async function POST(request, { params }) {
 // top: the far commoner path through this file is a stranger's GET, which has
 // no business loading a rendering engine to format a percentage.
 async function dispatchDecisionEmails(updated, quote, decision, priced, signatureRecord) {
-  const { Resend } = await import("resend");
-  const { lazyClient } = await import("@/lib/lazyClient");
-  const { SENDER_SELECT } = await import("@/lib/email/resend");
+  const { sendEmail, SENDER_SELECT } = await import("@/lib/email/resend");
   const { resolveSender } = await import("@/lib/email/companySender");
 
-  const resend = lazyClient(() => new Resend(process.env.RESEND_API_KEY));
   const accepted = decision === "accepted";
 
   const [company, members] = await Promise.all([
@@ -659,7 +656,11 @@ async function dispatchDecisionEmails(updated, quote, decision, priced, signatur
         ? `<p><strong>Approved total: ${fmt(priced.total)}</strong></p>`
         : "";
 
-    await resend.emails.send({
+    await sendEmail({
+      // updated.companyId, not a value carried in from the request: this route
+      // is reached by a stranger holding a share token, and the tenant is
+      // whatever the quote row says it is.
+      companyId: updated.companyId,
       from,
       to,
       subject,
@@ -703,7 +704,8 @@ async function dispatchDecisionEmails(updated, quote, decision, priced, signatur
       .filter((l) => l !== "")
       .join("\n");
 
-    await resend.emails.send({
+    await sendEmail({
+      companyId: updated.companyId,
       from,
       replyTo,
       to: clientTo,

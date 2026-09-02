@@ -3272,6 +3272,10 @@ const en = {
   "app.setTeam.openWorkers": "Open Workers",
   "app.setTeam.errSave": "Couldn't save.",
   "app.setTeam.errRole": "Couldn't change role.",
+  "app.setTeam.worksAlone": "It's just me — no crew right now.",
+  "app.setTeam.worksAloneHint":
+    "Takes “Invite your team” off your setup checklist. Untick it the day you take somebody on.",
+  "app.setTeam.errWorksAlone": "Couldn't save that. Try again in a moment.",
   "app.setTeam.seatsUsed": "seats used",
   "app.setTeam.crewIncluded": "crew — included free",
   "app.setTeam.countAdministrators": "Administrators",
@@ -8011,6 +8015,11 @@ const fr = {
   "app.setTeam.openWorkers": "Ouvrir Travailleurs",
   "app.setTeam.errSave": "Impossible d'enregistrer.",
   "app.setTeam.errRole": "Impossible de modifier le rôle.",
+  "app.setTeam.worksAlone": "Je travaille seul — aucune équipe pour l'instant.",
+  "app.setTeam.worksAloneHint":
+    "Retire « Invitez votre équipe » de votre liste de configuration. Décochez-la le jour où vous embauchez.",
+  "app.setTeam.errWorksAlone":
+    "Impossible d'enregistrer. Réessayez dans un instant.",
   "app.setTeam.seatsUsed": "sièges utilisés",
   "app.setTeam.crewIncluded": "équipiers — inclus gratuitement",
   "app.setTeam.countAdministrators": "Administrateurs",

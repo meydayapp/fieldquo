@@ -1,0 +1,240 @@
+#!/usr/bin/env node
+//
+// scripts/check-sales-commission.mjs
+//
+// The rules that decide whether FieldQuo pays a sales rep, executed rather than
+// read. AGENTS.md is explicit that most of the real bugs in this repo were
+// found this way, and these functions decide who gets money.
+//
+// The cases below are not invented. Each one is a specific way this could pay
+// wrongly, and several are traps found while reading the existing Stripe
+// integration rather than imagined afterwards.
+import {
+  MILESTONES,
+  commissionRef,
+  reversalRef,
+  amountForMilestone,
+  qualifiesForActivation,
+  qualifiesForFirstPayment,
+  qualifiesForRetention,
+  balanceCents,
+  splitPayable,
+} from "../lib/sales/commission.js";
+
+let passed = 0;
+const failures = [];
+function ok(name, cond, detail = "") {
+  if (cond) {
+    passed++;
+    console.log("  ✓ " + name);
+  } else {
+    failures.push(name + (detail ? ` — ${detail}` : ""));
+    console.log("  ✗ " + name + (detail ? ` — ${detail}` : ""));
+  }
+}
+
+const PLAN = {
+  activationCents: 2000,
+  firstPaymentCents: 4000,
+  retentionCents: 6500,
+  retentionDays: 60,
+};
+
+console.log("\nMilestone 1 — the company can actually take money");
+ok("a Connect-enabled company qualifies", qualifiesForActivation({ stripeChargesEnabled: true }));
+ok("one that cannot take charges does not", !qualifiesForActivation({ stripeChargesEnabled: false }));
+ok("null is not a yes", !qualifiesForActivation({ stripeChargesEnabled: null }));
+ok("a missing company is not a yes", !qualifiesForActivation(null));
+// The whole reason this milestone is Connect-only. A solo shop can never
+// complete onboarding (the team step is seatsUsed > 1), so anything that folded
+// completeness in here would pay nothing on an entire class of real sale.
+ok(
+  "onboarding completeness is NOT consulted — a solo shop still qualifies",
+  qualifiesForActivation({ stripeChargesEnabled: true, onboardingCompletedAt: null }),
+);
+
+console.log("\nMilestone 2 — money actually collected, once");
+ok(
+  "a real first payment qualifies",
+  qualifiesForFirstPayment({ billing_reason: "subscription_create", amount_paid: 9900 }),
+);
+// The trap. checkout.session.completed fires at trial start with nothing
+// collected, creates the Subscription row and flips onboardingStatus to active.
+ok(
+  "a $0 invoice does NOT — the first month is free and referrals grant more",
+  !qualifiesForFirstPayment({ billing_reason: "subscription_create", amount_paid: 0 }),
+);
+ok(
+  "a renewal does not (that is not the FIRST payment)",
+  !qualifiesForFirstPayment({ billing_reason: "subscription_cycle", amount_paid: 9900 }),
+);
+ok("a manual invoice does not", !qualifiesForFirstPayment({ billing_reason: "manual", amount_paid: 9900 }));
+ok("a missing amount does not", !qualifiesForFirstPayment({ billing_reason: "subscription_create" }));
+ok(
+  "a non-numeric amount does not",
+  !qualifiesForFirstPayment({ billing_reason: "subscription_create", amount_paid: "lots" }),
+);
+ok("nothing at all does not", !qualifiesForFirstPayment(null));
+
+console.log("\nMilestone 3 — still paying after the window");
+const firstPaid = new Date("2026-06-01T00:00:00Z");
+const day60 = new Date("2026-07-31T00:00:00Z");
+const day59 = new Date("2026-07-29T00:00:00Z");
+const ACTIVE = { status: "active", canceledAt: null, refundedAmountCents: 0, refundedAt: null, disputeStatus: null };
+
+ok(
+  "60 days on an active subscription qualifies",
+  qualifiesForRetention({ firstPaymentAt: firstPaid, subscription: ACTIVE, now: day60 }).qualifies,
+);
+ok(
+  "59 days does not",
+  !qualifiesForRetention({ firstPaymentAt: firstPaid, subscription: ACTIVE, now: day59 }).qualifies,
+);
+ok(
+  "no first payment means there is nothing to count from",
+  qualifiesForRetention({ firstPaymentAt: null, subscription: ACTIVE, now: day60 }).reason ===
+    "no_first_payment",
+);
+ok(
+  "a cancelled subscription does not qualify",
+  !qualifiesForRetention({
+    firstPaymentAt: firstPaid,
+    subscription: { ...ACTIVE, canceledAt: new Date("2026-07-01") },
+    now: day60,
+  }).qualifies,
+);
+ok(
+  "past_due is not 'still paying' — their card is declining right now",
+  !qualifiesForRetention({
+    firstPaymentAt: firstPaid,
+    subscription: { ...ACTIVE, status: "past_due" },
+    now: day60,
+  }).qualifies,
+);
+ok(
+  "trialing is not 'still paying' either",
+  !qualifiesForRetention({
+    firstPaymentAt: firstPaid,
+    subscription: { ...ACTIVE, status: "trialing" },
+    now: day60,
+  }).qualifies,
+);
+// The gap that made this milestone unevaluable until this session.
+ok(
+  "a refunded subscription does not qualify",
+  qualifiesForRetention({
+    firstPaymentAt: firstPaid,
+    subscription: { ...ACTIVE, refundedAmountCents: 9900, refundedAt: new Date("2026-07-02") },
+    now: day60,
+  }).reason === "refunded",
+);
+ok(
+  "a LOST chargeback does not qualify",
+  qualifiesForRetention({
+    firstPaymentAt: firstPaid,
+    subscription: { ...ACTIVE, disputeStatus: "lost" },
+    now: day60,
+  }).reason === "chargeback",
+);
+// An open dispute may still be won. Denying it would be as wrong as paying it.
+const open = qualifiesForRetention({
+  firstPaymentAt: firstPaid,
+  subscription: { ...ACTIVE, disputeStatus: "warning_needs_response" },
+  now: day60,
+});
+ok("an OPEN dispute is held, not denied", !open.qualifies && open.holdUntilResolved === true);
+ok(
+  "a dispute WON does not block the milestone",
+  qualifiesForRetention({
+    firstPaymentAt: firstPaid,
+    subscription: { ...ACTIVE, disputeStatus: "won" },
+    now: day60,
+  }).qualifies,
+);
+// Annual billing is live, and an annual subscriber has made NO second payment
+// at day 60. A "have they paid again" test would deny every annual sale.
+ok(
+  "an annual subscriber qualifies at 60 days despite no second payment",
+  qualifiesForRetention({
+    firstPaymentAt: firstPaid,
+    subscription: { ...ACTIVE, billingInterval: "year" },
+    now: day60,
+  }).qualifies,
+);
+ok(
+  "a configurable window is honoured, not hard-coded to 60",
+  !qualifiesForRetention({
+    firstPaymentAt: firstPaid,
+    subscription: ACTIVE,
+    retentionDays: 90,
+    now: day60,
+  }).qualifies,
+);
+
+console.log("\nIdempotency keys");
+ok(
+  "one key per company per milestone",
+  commissionRef("c1", MILESTONES.ACTIVATION) === "commission:c1:activation",
+);
+ok(
+  "two milestones on one company do not collide",
+  commissionRef("c1", MILESTONES.ACTIVATION) !== commissionRef("c1", MILESTONES.FIRST_PAYMENT),
+);
+ok(
+  "two companies on one milestone do not collide",
+  commissionRef("c1", MILESTONES.ACTIVATION) !== commissionRef("c2", MILESTONES.ACTIVATION),
+);
+// The pair IS the history: both rows must be able to exist.
+ok(
+  "a reversal has its own namespace, so it can coexist with what it reverses",
+  reversalRef("c1", MILESTONES.ACTIVATION) !== commissionRef("c1", MILESTONES.ACTIVATION),
+);
+
+console.log("\nAmounts");
+ok("activation reads from the plan", amountForMilestone(PLAN, MILESTONES.ACTIVATION) === 2000);
+ok("first payment reads from the plan", amountForMilestone(PLAN, MILESTONES.FIRST_PAYMENT) === 4000);
+ok("retention reads from the plan", amountForMilestone(PLAN, MILESTONES.RETENTION) === 6500);
+ok("an unknown milestone has no amount", amountForMilestone(PLAN, "bonus") === null);
+// A guessed default would pay an invented figure, which is worse than paying
+// late — the console shows the missing plan and a human sets it.
+ok("no plan means no amount, never a default", amountForMilestone(null, MILESTONES.ACTIVATION) === null);
+
+console.log("\nBalance is summed, never stored");
+ok("an empty ledger is zero", balanceCents([]) === 0);
+ok("nonsense input is zero", balanceCents(null) === 0);
+ok(
+  "a reversal falls out of the same sum with no special case",
+  balanceCents([{ amountCents: 2000 }, { amountCents: -2000 }]) === 0,
+);
+ok(
+  "earnings add",
+  balanceCents([{ amountCents: 2000 }, { amountCents: 4000 }, { amountCents: 6500 }]) === 12500,
+);
+ok("a malformed row does not poison the sum", balanceCents([{ amountCents: 2000 }, {}]) === 2000);
+
+const split = splitPayable([
+  { amountCents: 2000, payoutBatchId: null },
+  { amountCents: 4000, payoutBatchId: null },
+  { amountCents: 6500, payoutBatchId: "batch1" },
+]);
+ok("what is payable excludes what is already batched", split.payableCents === 6000, String(split.payableCents));
+ok("and reports the batched total separately", split.batchedCents === 6500);
+// A reversal landing after a batch closed must reduce what is payable NEXT,
+// rather than silently reopening a closed batch.
+const afterReversal = splitPayable([
+  { amountCents: 6500, payoutBatchId: "batch1" },
+  { amountCents: -6500, payoutBatchId: null },
+]);
+ok(
+  "a reversal after a batch closed reduces the NEXT payout",
+  afterReversal.payableCents === -6500,
+  String(afterReversal.payableCents),
+);
+
+console.log("");
+if (failures.length) {
+  console.error(`FAILED — ${failures.length} of ${passed + failures.length}`);
+  for (const f of failures) console.error("  ✗ " + f);
+  process.exit(1);
+}
+console.log(`PASSED — ${passed}/${passed} assertions`);

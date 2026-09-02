@@ -334,9 +334,6 @@ export default function DashboardPage() {
       {/* Onboarding checklist — only shown while incomplete */}
       <OnboardingProgress
         status={onboarding}
-        // The dismiss POST returns the recomputed status, so the card re-renders
-        // from the server's view rather than a locally-guessed one.
-        onStatusChange={setOnboarding}
         onEmployeeAdded={() => {
           // no-store, same as the first load: this refetch exists precisely
           // because the numbers just changed, and a cached copy would show the

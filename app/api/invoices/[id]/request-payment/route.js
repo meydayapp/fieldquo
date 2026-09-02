@@ -10,11 +10,9 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
 import { db } from "@/lib/db";
-import { lazyClient } from "@/lib/lazyClient";
 import { memberOrRefusal } from "@/lib/apiMember";
-import { SENDER_SELECT } from "@/lib/email/resend";
+import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
 import { ensurePortalToken, portalUrl } from "@/lib/clientPortal";
 import { buildInvoiceEmail } from "@/lib/email/invoiceEmail";
@@ -24,8 +22,6 @@ import {
   requireLevel,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
-
-const resend = lazyClient(() => new Resend(process.env.RESEND_API_KEY));
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -125,7 +121,15 @@ export async function POST(request, { params }) {
     }),
   });
 
-  await resend.emails.send({
+  // Through sendEmail rather than a Resend client of its own — see that
+  // file's header for why there is now exactly one. The result is CHECKED,
+  // which the old `await resend.emails.send(...)` never had to be because it
+  // threw; sendEmail returns its failures instead, and an unchecked call here
+  // would stamp sentAt on an invoice the client never received. That is the
+  // precise bug the comment below spends four paragraphs warning about,
+  // reintroduced by the refactor that was meant to be mechanical.
+  const result = await sendEmail({
+    companyId: member.companyId,
     from,
     replyTo,
     to: invoice.client.email,
@@ -133,6 +137,21 @@ export async function POST(request, { params }) {
     html,
     text,
   });
+
+  if (result?.skipped) {
+    return NextResponse.json(
+      {
+        error:
+          "Email isn't configured on this deployment yet — RESEND_API_KEY is missing, so nothing was sent.",
+      },
+      { status: 503 },
+    );
+  }
+  if (result?.error) {
+    const message =
+      typeof result.error === "string" ? result.error : result.error?.message || "Send failed";
+    return NextResponse.json({ error: `The email couldn't be sent. ${message}` }, { status: 502 });
+  }
 
   // ── Chasing payment IS issuing the invoice ────────────────────────────────
   //
