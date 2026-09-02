@@ -95,6 +95,12 @@ const SURFACES = [
   // most — a rep reads it on a phone — and it is small and new enough to hold
   // to baseline today.
   { dir: "app/sales", tier: "baseline" },
+  // The time clock. Not a console screen at all — it is the one page an hourly
+  // worker opens on their own phone, standing in a driveway, and it gained a
+  // job picker. Held to STRICT from the day it did: a screen written mobile
+  // first has no excuse for a gap list, and the honest way to widen this check
+  // is to add screens that pass it rather than to soften a rule.
+  { dir: "app/app/clock", tier: "strict" },
 ];
 
 /** Files held to every rule. New screens are added here, not to a gap list. */
@@ -104,6 +110,7 @@ const STRICT_FILES = [
   "app/platform/sales/signatures/page.js",
   "app/platform/sales/campaigns/page.js",
   "app/platform/sales/campaigns/[id]/page.js",
+  "app/app/clock/page.js",
 ];
 
 /**

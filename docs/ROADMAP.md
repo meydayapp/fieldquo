@@ -1299,6 +1299,12 @@ and the time clock. So a company can learn "this job took 40 hours" and can
 **never** learn "we take 0.93 h per opening". `JobVisit.checklistItems` is
 free-form JSON, which is the closest thing to a task taxonomy we have.
 
+Note the JOB dimension is real as of 2026-09-02 and was not before: the
+self-serve clock wrote no `jobId` at all, so "this job took 40 hours" was
+itself unavailable for any hour a crew punched on their own phone. See the
+entry at the top of Recently completed. The task dimension below is still
+missing, and still the long-lead item.
+
 This is the **longest-lead, lowest-visibility** item in the whole roadmap: the
 data has to be captured against a structured task taxonomy _before_ it
 accumulates, or a year of actuals is worthless. It should be done before the
@@ -1334,6 +1340,44 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
+
+- **The self-serve time clock can say which job an hour was worked on, and
+  job costing can say how many hours reached no job at all.
+  `lib/timeclock/jobChoices.js` (new), `lib/costing/unattributedHours.js`
+  (new), `app/api/time-clock/route.js`, `app/app/clock/page.js`,
+  `app/api/jobs/[id]/costing/route.js`, `app/components/jobs/JobCosting.js`,
+  `scripts/check-time-clock-job.mjs` + `scripts/fixtures/timeClockDb.mjs` +
+  `scripts/timeclock-stub-{loader,hooks}.mjs` (new).**
+
+  `POST /api/time-clock` created a `TimeEntry` with no `jobId`. Job costing
+  reads `where: { jobId }`, so every hour punched from a phone was invisible to
+  the job it was worked on — labour understated by however much a crew clocks
+  itself in, which is most of it. Payroll never noticed, because payroll groups
+  by worker. Found by `docs/construction/AUDIT-routing-geo.md` §1.3, which
+  ranked it the highest-value item in that document.
+
+  The picker offers the jobs the worker's own visits point at, plus their other
+  open jobs, through `assignedJobWhere` — the product's existing definition of
+  "their jobs", reused rather than restated, so the clock screen is not a wider
+  door onto the client book than `/app/jobs` is. It defaults to the day's only
+  visit and to nothing at all when there are two or more: a guess would be
+  wrong half the time and asking is the only honest option. "No job" stays a
+  first-class answer — travel, the yard and a morning of quoting are real
+  hours, and a mandatory field would produce invented attributions rather than
+  better ones. A "switch job" action closes the open entry and opens a new one
+  rather than re-pointing hours already worked, so a morning on one job does
+  not become a morning on another because that is where you are at noon.
+
+  Existing rows were deliberately NOT backfilled. Instead the job panel reports,
+  as its own figure and never folded into the labour total, how many hours in
+  this job's window are recorded against no job at all — company-wide, hours
+  only, never money. Absence of a statement is not a statement.
+
+  **No geolocation, and none possible.** The audit established that a browser
+  cannot clock anyone in on arrival: the Geolocation spec delivers only to
+  fully-active visible documents, it extends `Navigator` and not
+  `WorkerNavigator`, and Geofencing was withdrawn in 2017. Nothing on the screen
+  implies otherwise and no coordinate is stored. `docs/construction/AUDIT-routing-geo.md` §3.
 
 - **Internal comments and @mentions on job photos, with the crew-upload gate
   they surfaced fixed along the way. Full writeup:
