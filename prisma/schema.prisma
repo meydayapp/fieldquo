@@ -791,6 +791,25 @@ model Subscription {
   /// before their card is charged.
   renewalReminderSentAt DateTime?
 
+  // ── Refunds and disputes on FieldQuo's OWN charge ────────────────────────
+  //
+  // lib/stripe/settleChargeEvent.js receives charge.refunded and all three
+  // dispute events and hands them to recordStripeRefund, which only recognises
+  // a refund landing on an Invoice Payment — a CONNECT-side charge, a homeowner
+  // paying a contractor. A subscription invoice has no Payment row, so every
+  // one of those events took the "not one of ours" branch and did nothing.
+  //
+  // The consequence was that a contractor could charge back their FieldQuo
+  // subscription and the product would never know. These columns are the other
+  // half. Written as absolute values from Stripe's own cumulative figures, never
+  // incremented, so a replayed webhook is a genuine no-op.
+  refundedAt          DateTime?
+  refundedAmountCents Int       @default(0)
+  /// Stripe's own dispute status, stored verbatim rather than collapsed to a
+  /// boolean: "warning_needs_response" and "lost" are different facts, and a
+  /// commission reversal should not treat an open dispute as a settled loss.
+  disputeStatus       String?
+  disputedAt          DateTime?
 }
 
 /// The Marketing Designer's starter-template gallery (app/components/designer/,
@@ -1377,6 +1396,30 @@ model Company {
   /// it. See the PaymentScheduleStage/JobPaymentStage models.
   paymentScheduleStages PaymentScheduleStage[]
   jobPaymentStages      JobPaymentStage[]
+  /// "It's just me — no crew right now." A statement about the business, not a
+  /// preference about the UI, which is why it lives here beside the fields it
+  /// is about rather than as a dismiss button on the onboarding card — the
+  /// same division taxRegistrationDismissedAt already makes, and for the
+  /// reason written out in lib/onboarding.js: dismissing says "stop showing me
+  /// this", while ticking a box records WHY, and an owner can come back and
+  /// change it the day they hire someone.
+  ///
+  /// Load-bearing: without it the "Invite your team" step is `seatsUsed > 1`
+  /// and `complete` requires every step, so a one-person company could never
+  /// finish onboarding — permanently, not merely for a while. A van-run solo
+  /// operator is a core FieldQuo customer.
+  worksAloneAt DateTime?
+
+  /// The first moment getOnboardingStatus() returned complete. Computed
+  /// freshly on every read and never stored until now, which was fine while
+  /// nothing needed the DATE — a sales commission milestone does, and
+  /// recomputing "are they done?" tells you nothing about when.
+  onboardingCompletedAt DateTime?
+
+  salesAttribution SalesAttribution?
+  salesRepDemo     SalesRep?
+  salesAttributionTouches SalesAttributionTouch[]
+  salesCommissionEntries  SalesCommissionEntry[]
 }
 
 /// Configuration for the bio-link page at /l/<slug> — the single link an
@@ -5750,6 +5793,14 @@ enum CustomFieldType {
 
 enum PlatformAdminRole {
   support
+  // Present because lib/platform/permissions.js has always defined a full
+  // eight-permission `admin` tier, and POST /api/platform/admins has always
+  // accepted "admin" — its own 400 message advertises it. The enum never had
+  // it, so that path validated the input and then threw on the write. Adding
+  // the member makes the code truthful rather than deleting a tier somebody
+  // designed; nothing is granted by its existence, since no row has this role
+  // until a superadmin sets it.
+  admin
   superadmin
 }
 
@@ -7774,4 +7825,234 @@ model ServicePlanAuthorisation {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Sales portal
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// FieldQuo's own reps, the companies they brought in, and what they are owed.
+// None of this belongs to a tenant, and a contractor can never see any of it.
+//
+// ── Why a SalesRep is not a Member, and not a PlatformAdmin ────────────────
+//
+// Not a Member: the whole tenant stack resolves one session to one company via
+// session.activeOrganizationId, and Member is @@unique([userId, companyId]). A
+// rep is the opposite shape — one identity across MANY companies, read-mostly.
+// Making a rep a Member of each attributed company would spend that customer's
+// licensed seats and put FieldQuo staff inside a contractor's tenant, which is
+// the thing non-negotiable #2 exists to prevent.
+//
+// Not a PlatformAdmin either, though that is the closer analogue. A platform
+// token is checked by a long tail of /api/platform/* routes, some of which
+// only ask "is there an admin?"; issuing reps the same credential would grant
+// them whatever the least careful of those routes grants. So this is a third
+// identity with its own table and its own cookie scope, exactly as
+// PlatformAdmin is a third one beside User — same reasoning, one level along.
+
+model SalesRep {
+  id           String  @id @default(cuid())
+  email        String  @unique
+  name         String
+  /// Null until the invite is accepted. A rep exists — and can be attributed
+  /// to — from the moment they are added, the same way a PendingTeamProfile
+  /// holds a seat before anyone clicks a link.
+  passwordHash String?
+
+  /// The slug in their link: /signup?sales=<code>. Its own namespace, because
+  /// ?ref= and the referralCode POST field are already claimed by the promo and
+  /// referral waterfall in app/api/companies/route.js.
+  code String @unique
+
+  active     Boolean   @default(true)
+  invitedAt  DateTime  @default(now())
+  acceptedAt DateTime?
+  startedAt  DateTime?
+  /// Set when they leave. Deliberately not a delete: their attributions and
+  /// their ledger are history, and history does not stop being true.
+  endedAt    DateTime?
+
+  inviteTokenHash String?   @unique
+  inviteExpiresAt DateTime?
+
+  commissionPlanId String?
+  commissionPlan   SalesCommissionPlan? @relation(fields: [commissionPlanId], references: [id])
+
+  /// One resettable demo tenant per rep. @unique so two reps cannot be pointed
+  /// at the same demo and reset it out from under each other mid-walkthrough.
+  demoCompanyId String?  @unique
+  demoCompany   Company? @relation(fields: [demoCompanyId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  attributions      SalesAttribution[]
+  touches           SalesAttributionTouch[]
+  commissionEntries SalesCommissionEntry[]
+  payoutBatches     SalesPayoutBatch[]
+
+  @@index([active])
+}
+
+/// What a rep earns, per milestone. A row rather than constants so the numbers
+/// can change for new reps without rewriting what existing ones were promised —
+/// an entry records the amount it was written with, never a lookup at payout.
+model SalesCommissionPlan {
+  id     String  @id @default(cuid())
+  name   String
+  active Boolean @default(true)
+
+  activationCents   Int @default(2000)
+  firstPaymentCents Int @default(4000)
+  retentionCents    Int @default(6500)
+  /// Days after the first successful payment before the retention milestone can
+  /// be earned. Configurable because 60 is a policy, not a fact.
+  retentionDays     Int @default(60)
+
+  createdAt DateTime @default(now())
+  reps      SalesRep[]
+}
+
+/// Which rep brought a company in. One row per company, ever.
+///
+/// A separate row rather than columns on Company because "locked, correctable
+/// and audited" is history, and a column has none. Corrections supersede rather
+/// than overwrite — see SalesAttributionAudit.
+model SalesAttribution {
+  id String @id @default(cuid())
+
+  companyId String  @unique
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  salesRepId String
+  salesRep   SalesRep @relation(fields: [salesRepId], references: [id])
+
+  /// "link" | "manual" | "admin"
+  source     String
+  capturedAt DateTime @default(now())
+  /// Attribution locks the moment it is captured. Nothing in the product moves
+  /// it; a superadmin correction writes a new row and an audit trail.
+  lockedAt   DateTime @default(now())
+
+  createdAt DateTime @default(now())
+
+  @@index([salesRepId])
+}
+
+/// A second rep touching a company that is already attributed.
+///
+/// Recorded rather than refused, deliberately, and this is the important part:
+/// a contractor's ability to sign up must never depend on FieldQuo's commission
+/// bookkeeping. It also means whichever policy is chosen later — split, first
+/// touch, last touch — has the evidence it needs, instead of the losing rep's
+/// involvement having been thrown away at the door.
+model SalesAttributionTouch {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  salesRepId String
+  salesRep   SalesRep @relation(fields: [salesRepId], references: [id])
+
+  source String
+  note   String?
+  at     DateTime @default(now())
+
+  @@index([companyId])
+  @@index([salesRepId])
+}
+
+/// Every change to an attribution, by whom and why. Written in the same
+/// transaction as the change itself — the discipline MigrationWrite established
+/// for the one other place FieldQuo staff may write into tenant-adjacent data.
+model SalesAttributionAudit {
+  id String @id @default(cuid())
+
+  companyId     String
+  fromRepId     String?
+  toRepId       String?
+  actorAdminId  String
+  reason        String
+  at            DateTime @default(now())
+
+  @@index([companyId])
+}
+
+/// The commission ledger. Append-only.
+///
+/// Modelled on VoiceCreditEntry, which is the codebase's existing answer to
+/// "money that must survive a replayed webhook": a unique ref, a balance that is
+/// SUMMED rather than stored, and reversals written as new negative rows rather
+/// than edits. An amount already paid is never rewritten — computeInvoiceState
+/// makes the same argument on the invoice side, that overloading a status or a
+/// figure makes it lie.
+model SalesCommissionEntry {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  salesRepId String
+  salesRep   SalesRep @relation(fields: [salesRepId], references: [id])
+
+  /// "activation" | "first_payment" | "retention"
+  milestone  String
+  amountCents Int
+
+  /// Idempotency. `commission:<companyId>:<milestone>` for an earning, and a
+  /// distinct reversal ref for its undo, so a webhook delivered twice cannot
+  /// pay twice and a reversal cannot land twice either.
+  ref String
+
+  /// "earned" | "reversed" | "under_review"
+  status String @default("earned")
+
+  /// Stamped from Stripe's own event timestamp where there is one, never
+  /// new Date() — the discipline canceledAt already uses, so a replay months
+  /// later cannot move when something happened.
+  occurredAt DateTime @default(now())
+
+  stripeEventId String?
+
+  payoutBatchId String?
+  payoutBatch   SalesPayoutBatch? @relation(fields: [payoutBatchId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([companyId, ref])
+  @@index([salesRepId, status])
+  @@index([payoutBatchId])
+}
+
+/// A week's worth of a rep's earnings, closed for payment.
+///
+/// No money moves from this build. A batch closes, is exported, and is marked
+/// paid by a human — paying reps automatically is a separate decision with its
+/// own compliance surface, and nothing in the brief requires it on day one.
+model SalesPayoutBatch {
+  id String @id @default(cuid())
+
+  salesRepId String
+  salesRep   SalesRep @relation(fields: [salesRepId], references: [id])
+
+  /// UTC day boundaries, via lib/analytics/periodPresets.js, so "the week
+  /// closed on Sunday" means the same instant for every rep.
+  periodStart DateTime
+  periodEnd   DateTime
+
+  /// "open" | "ready" | "paid"
+  status String @default("open")
+
+  /// A record of what was owed when the batch closed. NOT the figure paid from
+  /// — the ledger is re-summed at payment time, so a reversal landing after the
+  /// close is reflected instead of being papered over by a cached total.
+  totalCentsAtClose Int @default(0)
+
+  paidAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  entries SalesCommissionEntry[]
+
+  @@unique([salesRepId, periodStart])
+  @@index([status])
 }
