@@ -10,7 +10,43 @@ Last updated: 1 September 2026 (customer satisfaction survey; Google reviews aud
 
 Last updated: 1 September 2026 (demo containment: email and benchmarks).
 
+Last updated: 1 September 2026 (outbound call claim; sales-call reconciliation).
+
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The outbound queue claims what it dials
+
+Shipped. `/api/cron/voice-outbound` selected `status: "queued"` rows and wrote
+their outcome back afterwards with nothing claimed in between, so two
+overlapping invocations placed the same call twice — a real, billed phone call
+to a real person, bounded only by the schedule.
+
+- **The claim.** The loop moved to `lib/voice/drainOutbound.js` and claims by
+  guarded `updateMany`, the same compare-and-set `grace-warning` and
+  `autoTopup` use. `VoiceCallTask.status` already documented `queued → calling`
+  and `enqueueOutbound` already treated `calling` as live; no column was added.
+- **The reclaim.** A claim that dies is reclaimable after ten minutes. Retell's
+  `create-phone-call` takes no idempotency key, so there is no token to replay
+  the way auto top-up replays its Stripe one — `findPlacedCallForTask` asks the
+  provider whether a call carrying this task's id already exists, adopts it if
+  so, and dials only on a clear no. An unreadable provider is never a no.
+- **Reconciliation covers FieldQuo's own line.** `reconcileVoiceCalls` mapped
+  every call through `VoicePhoneNumber`, so a dropped webhook on the sales line
+  had no second path. It is now recognised second, after the tenant lookup —
+  the shape `subscriptionChargeEvent` used for subscription refunds.
+- **Sales transcripts keep their tool calls.** Both sales paths share one field
+  mapping through `transcriptFrom`; `recordSalesCall` read `transcript_object`,
+  which drops them.
+- **The console stops calling our own phone a leak.** `auditVoiceNumbers`
+  separates `unheld` (the fact) from `leak` (the judgement), and is told which
+  numbers are FieldQuo's own. A tenant row for our sales number still wins.
+- `npm run check:voice-task-claim` executes all five, and is in `check:all`.
+
+**Not done:** nothing dials from a second process today, but the same missing
+claim exists on any future "call now" button that reads a task and acts on it
+— it must go through `drainOutboundQueue`, not around it.
 
 ---
 
