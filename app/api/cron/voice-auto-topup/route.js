@@ -53,7 +53,12 @@ export async function GET(request) {
   // and the rows are few enough that asking runAutoTopup about each is cheaper
   // than being clever.
   const rows = await db.voiceAutoTopup.findMany({
-    where: { enabled: true },
+    // A demo never charges. This is the ONE path that spends without anybody
+    // present to stop it — an off-session PaymentIntent against a saved card,
+    // on a schedule — so it is filtered in the query rather than skipped in the
+    // loop, keeping `considered` honest, the same reasoning
+    // app/api/cron/crew-line-rent uses for shared_test loans.
+    where: { enabled: true, company: { isDemo: false } },
     orderBy: { lastChargeAt: { sort: "asc", nulls: "first" } },
     take: BATCH,
     select: { companyId: true },

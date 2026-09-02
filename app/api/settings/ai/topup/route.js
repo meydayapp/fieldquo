@@ -25,7 +25,7 @@ import { memberOrRefusalPlain } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { getAppOrigin } from "@/lib/appUrl";
 import { getOrCreateStripeCustomer } from "@/lib/platform/stripeBilling";
-import { normaliseTopup, balanceFor, POOLS } from "@/lib/voice/credits";
+import { normaliseTopup, balanceFor, POOLS, creditDemoTopup } from "@/lib/voice/credits";
 import { creditAiTopup } from "@/lib/ai/topup";
 
 async function requireAdmin(request) {
@@ -53,6 +53,30 @@ export async function POST(request) {
   if (!company) return NextResponse.json({ error: "Company not found" }, { status: 404 });
 
   const origin = getAppOrigin(request);
+
+  // ── A sales demo never reaches Stripe ─────────────────────────────────────
+  //
+  // The company row was just read fresh above, so `isDemo` is this row's own
+  // statement about itself rather than anything the request claimed.
+  //
+  // Without this a rep on a walkthrough could open a real Stripe Checkout and
+  // put a real card through it, and the credits screen is one of the screens a
+  // demo is FOR. The credit is granted straight to the ledger under a kind that
+  // names it simulated (lib/voice/credits.js's creditDemoTopup), so a demo
+  // account's statement can never be mistaken for one where money moved.
+  //
+  // A local URL is returned in `checkoutUrl` because the caller navigates to
+  // whatever it gets — so the rep sees the same click-then-land-on-the-balance
+  // flow a paying customer sees, minus the payment. The param deliberately is
+  // NOT the one the success handler reads; that one triggers a Stripe session
+  // lookup, which would fail on an id that never existed.
+  if (company.isDemo) {
+    await creditDemoTopup({ companyId: member.companyId, cents, pool: POOLS.AI });
+    return NextResponse.json({
+      checkoutUrl: `${origin}/app/settings/ai-credit?demo_topup=1`,
+      simulated: true,
+    });
+  }
 
   let session;
   try {
