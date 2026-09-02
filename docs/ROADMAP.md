@@ -158,6 +158,59 @@ one to a different rep.
 
 ---
 
+## Sales outreach — the rep's own mailbox, and FieldQuo's copy of the thread
+
+Full write-up: [SALES-OUTREACH.md](SALES-OUTREACH.md). The owner asked for BOTH
+halves — a rep sends and receives from a real mailbox they own, AND the
+conversation hangs off the prospect inside FieldQuo. Neither is the source of
+truth for the other.
+
+- **Outbound** — the rep composes at `/sales/leads/<id>`, FieldQuo sends through
+  the existing Resend integration From the rep's own address, with a Reply-To
+  carrying the thread's `replyToken`, and stores the message as a `SalesMessage`
+  with the provider's id. The row is written **only** after Resend returns an
+  id: a "sent" row for mail that never left is the bug AGENTS.md opens with.
+- **The From constraint, which is the load-bearing thing to know.** Resend only
+  sends from a domain verified on the account, and `platformSender` deliberately
+  prefers a `send.` subdomain — so a deployment can be healthily sending quotes
+  from `quotes@send.fieldquo.com` while `emilio@fieldquo.com` is an address
+  Resend refuses. `lib/sales/outreachSender.js` asks Resend per rep and reports
+  it; there is **no fallback to the platform sender**, because a sales email
+  arriving from `quotes@` would read as sent while the reply went somewhere
+  nobody looks. Verifying the root domain in Resend is a setup step, not code.
+- **Inbound** — `POST /api/webhooks/inbound-sales-email`, provider-agnostic and
+  documented, behind a shared secret that mirrors `requireCronSecret`
+  (timing-safe; **unset denies**). It matches on `replyToken` only — never on
+  the sender, for the reason `app/api/crew/inbound/route.js` already wrote down.
+  The rep's mailbox has to be told to forward; that rule is the one thing the
+  product cannot do for itself, and the portal says so instead of pretending.
+- **Nothing is rendered that does not work.** `lib/sales/outreachReadiness.js`
+  is the single verdict both the screens and the send route read: a missing
+  mailing address, an unchosen reply mode or an unverified sender domain
+  removes the compose box entirely and names the fix; a missing inbound secret
+  leaves it in place with the honest "replies aren't being filed yet" notice.
+- **CASL** — every message carries FieldQuo's name, `SALES_MAILING_ADDRESS` and
+  a reply-to-unsubscribe line, and an inbound "unsubscribe" switches that lead
+  off in the UI and in both send routes (re-checked from the database in the
+  same request). The verdict is derived from the messages, so nothing can drift.
+  **Named gap:** the consent BASIS is not recorded per lead — that needs a
+  column on `SalesLead`, which this change was not allowed to add.
+- **Pipeline** — five statuses, and `POST /api/sales/leads/<id>/link` joins a
+  lead to the company it became. Only a company already attributed to that rep
+  can be named, re-read at write time; the rep never writes the attribution.
+
+Three env vars: `SALES_MAILING_ADDRESS`, `SALES_REPLY_ADDRESSING`,
+`SALES_INBOUND_SECRET` — all three in `docs/VERCEL.md` with what breaks without
+them. `npm run check:sales-outreach` — 257 assertions, mostly executed against
+hostile input (a forged secret, an unknown token, a reply from a different
+address, a quoted footer that must not read as an opt-out); 18 mutations, all
+caught.
+
+Not built: the screens are English-only while the rest of the portal is
+translated — a real half-and-half, named here rather than left to be noticed.
+
+---
+
 ## Business costs — payroll, fixed costs, marketing spend and backlog, on the KPI dashboard
 
 Full writeup: [FINANCE-DASHBOARD.md](FINANCE-DASHBOARD.md), which opens with

@@ -8,12 +8,20 @@
 // small lie, and the sign-out button on it would be a control with nothing to
 // sign out of.
 //
-// Deliberately not a sidebar. One screen does not need navigation, and a rail
-// with a single row is the "group of one" the nav audit flags everywhere else.
-// When a second screen lands, this is where the rail goes.
+// Deliberately not a sidebar. A rail with a single row is the "group of one"
+// the nav audit flags everywhere else — so when this file was written, with one
+// screen in the portal, it said "when a second screen lands, this is where the
+// rail goes".
+//
+// It landed: leads and conversations (docs/SALES-OUTREACH.md). Three tabs in
+// the header rather than a sidebar, because three is not a sidebar's worth and
+// a rep works one screen at a time. The alternative — leaving the rail out —
+// would have shipped two screens with no way to reach them, which is the
+// "route with no caller" failure scripts/check-route-callers.mjs exists for.
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogOut, BadgeDollarSign } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -78,6 +86,32 @@ export default function SalesShell({ children }) {
             </button>
           </div>
         </div>
+        <nav className="max-w-5xl mx-auto px-4 sm:px-6 flex gap-1 -mb-px">
+          {[
+            { href: "/sales", label: t("app.salesPortal.myCompanies") },
+            { href: "/sales/leads", label: t("app.salesPortal.navLeads") },
+            { href: "/sales/threads", label: t("app.salesPortal.navConversations") },
+          ].map((tab) => {
+            // Exact match for the portal root, prefix for the rest: /sales is a
+            // prefix of every other tab, so "starts with" would light all three
+            // at once and the rail would never say where you are.
+            const active =
+              tab.href === "/sales" ? pathname === "/sales" : pathname.startsWith(tab.href);
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                className={`px-3 py-2 text-sm font-medium border-b-2 ${
+                  active
+                    ? "border-[#ff5a00] text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {tab.label}
+              </Link>
+            );
+          })}
+        </nav>
       </header>
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">{children}</main>
     </div>

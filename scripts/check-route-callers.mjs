@@ -119,6 +119,12 @@ const EXTERNAL_CALLERS = {
   "/api/platform/billing/webhook":
     "Stripe Billing's own endpoint for FieldQuo's subscriptions — a separate " +
     "integration from Connect above, registered separately in Stripe.",
+  "/api/webhooks/inbound-sales-email":
+    "A sales rep's own mailbox forwards replies here — the rule is configured " +
+    "at the mail provider, so no in-app caller can exist. Authenticated by a " +
+    "shared secret (SALES_INBOUND_SECRET), which DENIES when unset. The " +
+    "contract, and the forwarding rule the owner has to set up, are written " +
+    "out in docs/SALES-OUTREACH.md.",
   "/api/meta-ads/callback":
     "Meta's OAuth redirect target — set as this app's redirect_uri in Meta's " +
     "App Dashboard (see docs/META-ADS-BUILD.md), never fetched by our own " +

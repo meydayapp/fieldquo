@@ -5004,6 +5004,8 @@ const en = {
     "FieldQuo sales team only. A company account won't sign you in here.",
   "app.salesPortal.signedInAs": "Signed in as {name}",
   "app.salesPortal.myCompanies": "My companies",
+  "app.salesPortal.navLeads": "My leads",
+  "app.salesPortal.navConversations": "Conversations",
   "app.salesPortal.intro":
     "The companies credited to you. Read-only — attribution and commission are recorded by FieldQuo's own systems, never from this screen.",
   "app.salesPortal.empty": "No companies are credited to you yet.",
@@ -9761,6 +9763,8 @@ const fr = {
     "Réservé à l'équipe des ventes de FieldQuo. Un compte d'entreprise ne donne pas accès à ce portail.",
   "app.salesPortal.signedInAs": "Connecté en tant que {name}",
   "app.salesPortal.myCompanies": "Mes entreprises",
+  "app.salesPortal.navLeads": "Mes prospects",
+  "app.salesPortal.navConversations": "Conversations",
   "app.salesPortal.intro":
     "Les entreprises qui vous sont attribuées. En lecture seule — l'attribution et les commissions sont enregistrées par les systèmes de FieldQuo, jamais depuis cet écran.",
   "app.salesPortal.empty": "Aucune entreprise ne vous est encore attribuée.",
