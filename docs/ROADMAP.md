@@ -12,6 +12,70 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Sales attribution — which rep brought a company in (capture only)
+
+Plan: [sales/PLAN.md](sales/PLAN.md) §4. The models were already pushed; this
+is the code that fills them.
+
+`lib/sales/attribution.js` is the only place the rules live: pure
+`decideAttribution()` / `decideCorrection()` taking loaded rows, plus a thin
+transactional wrapper — the `lib/marketing/jobPhotoContext.js` shape, for the
+reason AGENTS.md gives (the real bugs here are found by executing a pure
+function against hostile input, not by reading it).
+
+Three doors, one waterfall, first non-null wins and then locks:
+
+- **link** — `/signup?sales=CODE`, posted as its own `salesCode` field.
+  `?ref=` and `referralCode` stay exactly as they were: that field is already a
+  two-way promo→referral fallthrough, and a rep code joining that queue would
+  make a mistyped promo code pay a commission. Best-effort in
+  `app/api/companies/route.js` — every refusal still completes the signup, and
+  a *presented* code that attributed nobody is written to `PlatformErrorLog`
+  rather than silently dropped.
+- **manual** — `POST /api/platform/sales/attribution`. On the PLATFORM surface,
+  superadmin only, **not** the rep's own portal as the plan imagined:
+  `lib/sales/gate.js` refuses every non-GET on `/api/sales`, and PLAN §10 says
+  a rep has no write path to `SalesAttribution`. Those and the brief can't all
+  be true; this took the safe side rather than quietly reopening a write door a
+  security design had just closed. Reopening it is a product decision.
+- **admin** — `POST /api/platform/sales/attribution/[companyId]/correct`.
+  Superadmin, reason required. New attribution row + the outgoing rep kept as a
+  `SalesAttributionTouch` + a `SalesAttributionAudit` row, all in ONE
+  transaction, the `lib/migrations/writes.js` discipline. The old row is
+  deleted rather than flagged because `companyId` is `@unique` with no
+  `supersededById` column — nothing is lost, the pointer moves and the history
+  is written forward first.
+
+**A second rep's touch is recorded, never refused**, including when it loses a
+`@unique` race (the retry re-reads and files the touch, so a lost race and an
+ordinary second touch end identically). A rep can't be attributed to a company
+whose signup email matches theirs, or one they're a `Member` of — both re-read
+fresh inside the writing transaction.
+
+Signup-draft gap closed while in `app/signup/page.js`: neither code was in the
+`sessionStorage` draft. A refresh was never the problem (both history calls
+pass two arguments, so the query string survives); leaving by a link — Terms,
+Login — and returning by a fresh navigation restored the whole draft with the
+code gone. Both `salesCode` and `referralCode` now persist, a live query
+parameter still beats a stale draft, and the referral banner re-validates off
+the restored code instead of only on mount.
+
+**Null attribution is permanent and correct for all 31 pre-existing companies.**
+Nothing invents one, and an ordinary signup with no code is not logged as a miss.
+
+`scripts/check-sales-attribution.mjs` — 181 assertions, executed against
+hostile input (unknown code, inactive/departed rep, the same code twice, two
+reps racing, self-dealing by email and by membership, a promo code in the sales
+field, an empty code, markup, an oversized code); 19 mutations, all caught,
+including one proving the source rules are scoped to a single named function.
+
+Not built: the platform console screen that calls the manual and correction
+routes (entered in `check-route-callers.mjs`'s `NO_FRONT_DOOR` with the reason,
+not hidden), and removing an attribution outright — a superadmin can only move
+one to a different rep.
+
+---
+
 ## Business costs — payroll, fixed costs, marketing spend and backlog, on the KPI dashboard
 
 Full writeup: [FINANCE-DASHBOARD.md](FINANCE-DASHBOARD.md), which opens with

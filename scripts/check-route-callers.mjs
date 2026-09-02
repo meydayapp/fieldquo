@@ -169,6 +169,15 @@ const NO_FRONT_DOOR = {
     "An HTTP wrapper around lib/ai/quoteSuggestions.js, which IS used — " +
     "lib/ai/quoteReview.js imports getSuggestedAddOns and calls it in " +
     "process. The feature ships; this door onto it is redundant.",
+  "/api/platform/sales/attribution":
+    "Sales attribution: read one company's attribution, attribute one by " +
+    "hand, and correct one. The rules and the writes are real and covered by " +
+    "scripts/check-sales-attribution.mjs; what does not exist yet is the " +
+    "platform console screen that calls them, which belongs to the sales " +
+    "portal UI rather than to the capture work. The capture path that IS " +
+    "reached today is the one that matters most — /signup?sales=CODE, via " +
+    "app/api/companies/route.js, which needs no screen of its own. Remove " +
+    "this entry when the console screen lands.",
   "/api/cron/social-scheduled-publish":
     "Fires every due scheduled Instagram/demo-mock social post — see " +
     "docs/SOCIAL-SCHEDULING.md. Genuinely unreachable today: this worktree " +

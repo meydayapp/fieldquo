@@ -469,6 +469,20 @@ export default function SignupPage() {
   // referral cookie from a link someone clicked last month shouldn't silently
   // attach itself to an unrelated signup.
   const [referralCode, setReferralCode] = useState("");
+  // The FieldQuo sales rep whose link this is: /signup?sales=<code>.
+  //
+  // Its OWN parameter and its own POST field. ?ref= is already the promo /
+  // referral namespace, and those two are told apart by trying one and falling
+  // through to the other — a rep code cannot join that queue without a
+  // mistyped promo code becoming a commission. See app/api/companies/route.js.
+  //
+  // Deliberately NOT validated against the server the way ?ref= is below, and
+  // nothing on this page renders because of it. There is nothing to promise
+  // the contractor (the commission is FieldQuo's business, not theirs), so a
+  // banner would be an offer nobody made — and a public endpoint answering
+  // "is this rep code real" would let anyone enumerate FieldQuo's sales roster.
+  // The server resolves it and stays silent about the result.
+  const [salesCode, setSalesCode] = useState("");
   // Where to return after checkout, when signup began from a flow like "add this
   // quote to your project" (?next=/q/<token>). Internal paths only.
   const [nextPath, setNextPath] = useState("");
@@ -539,17 +553,34 @@ export default function SignupPage() {
 
   useEffect(() => {
     const code = new URLSearchParams(window.location.search).get("ref");
-    if (!code) return;
-    setReferralCode(code);
-
-    // Confirm the code is real before promising anything. A typo'd link
-    // should not produce a banner claiming free months that the API then
-    // silently declines to grant.
-    fetch(`/api/public/refer/${encodeURIComponent(code)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d?.valid && setReferrer(d))
-      .catch(() => {});
+    if (code) setReferralCode(code);
   }, []);
+
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get("sales");
+    if (code) setSalesCode(code);
+  }, []);
+
+  // Confirm the referral code is real before promising anything. A typo'd link
+  // should not produce a banner claiming free months that the API then
+  // silently declines to grant.
+  //
+  // Keyed on `referralCode` rather than run once on mount, because the code no
+  // longer only ever arrives from the query string — it is restored from the
+  // draft too (see below), and a mount-only fetch would restore the code
+  // silently and drop the banner the visitor had already been shown. Same
+  // input, same promise, however they got back here.
+  useEffect(() => {
+    if (!referralCode) return;
+    let cancelled = false;
+    fetch(`/api/public/refer/${encodeURIComponent(referralCode)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => !cancelled && d?.valid && setReferrer(d))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [referralCode]);
 
   const [plans, setPlans] = useState([]);
   const [plansLoading, setPlansLoading] = useState(true);
@@ -696,6 +727,29 @@ export default function SignupPage() {
         // as a commitment nobody made.
         if (draft?.billingInterval === "year" || draft?.billingInterval === "month")
           setBillingInterval(draft.billingInterval);
+        // ── The codes, and the exact way they used to be lost ─────────────
+        //
+        // Neither code was in the draft. A plain REFRESH was never the
+        // problem: both tagCurrentEntry and goToStep call
+        // replaceState/pushState with two arguments, so the URL and its query
+        // string are never touched and the capture effects above re-run on
+        // mount with ?ref= / ?sales= still there.
+        //
+        // What loses them is leaving /signup by a LINK — Terms, Privacy, Login
+        // — and coming back by a fresh navigation to a bare /signup. The whole
+        // draft restores, the query string does not, and the code is gone with
+        // no sign anything happened: the referral's free month simply doesn't
+        // land, and the rep who earned the signup isn't attributed.
+        //
+        // The query string still WINS when it is present, which is why this
+        // checks it rather than restoring unconditionally: someone who arrives
+        // on a second rep's link after abandoning the first one's meant the
+        // link they just clicked, not the one in a stale draft. These two
+        // effects and the draft read are all mount effects, and the draft read
+        // is declared last, so without this guard it would overwrite them.
+        const query = new URLSearchParams(window.location.search);
+        if (draft?.referralCode && !query.get("ref")) setReferralCode(draft.referralCode);
+        if (draft?.salesCode && !query.get("sales")) setSalesCode(draft.salesCode);
         // Applied later, once we know whether the account behind it still
         // exists — see the resume effect below.
         draftStepRef.current = draft?.step || null;
@@ -721,6 +775,15 @@ export default function SignupPage() {
           showAllServices,
           billingInterval,
           step,
+          // Not personal data in the sense the header's password note is
+          // about: these are the codes on the link that sent them here, not
+          // anything the visitor typed about themselves. They die with the tab
+          // like the rest of the draft, which is the right lifetime for them
+          // too — a rep's code surviving into next week's unrelated signup on
+          // a shared van laptop is exactly what the ?ref= comment above
+          // rejects a cookie for.
+          referralCode,
+          salesCode,
         }),
       );
     } catch {
@@ -736,6 +799,8 @@ export default function SignupPage() {
     showAllServices,
     billingInterval,
     step,
+    referralCode,
+    salesCode,
   ]);
 
   // ── Browser history ─────────────────────────────────────────────────────
@@ -1083,6 +1148,9 @@ export default function SignupPage() {
           // under an annual label.
           billingInterval: effectiveInterval,
           referralCode: referralCode || undefined,
+          // Its own field, never folded into referralCode — see the third
+          // namespace note in app/api/companies/route.js.
+          salesCode: salesCode || undefined,
           next: nextPath || undefined,
         }),
       });

@@ -19,6 +19,7 @@ import { seedDefaultTemplates } from "@/lib/email/seedDefaultTemplates";
 import { getAppOrigin, isInternalPath } from "@/lib/appUrl";
 import { applySignupReferral, REFEREE_BONUS_MONTHS } from "@/lib/referrals";
 import { redeemPromoCode } from "@/lib/platform/promoCodes";
+import { captureSalesAttribution, isAttributionMiss } from "@/lib/sales/attribution";
 import { isSupported, DEFAULT_LANGUAGE } from "@/app/i18n/languages";
 import { currencyForCountry } from "@/lib/currency";
 import { billingBasis } from "@/lib/signup/funnel";
@@ -76,6 +77,16 @@ export async function POST(request) {
     serviceCategoryIds,
     // Carried through from /refer/<code> or ?ref=<code>. See lib/referrals.
     referralCode,
+    // ── A THIRD namespace, deliberately not sharing the field above ────────
+    //
+    // Carried through from a FieldQuo sales rep's own link, /signup?sales=CODE.
+    // `referralCode` is already a two-way waterfall (platform promo, then
+    // contractor referral) and the two are told apart by trying one and
+    // falling through. A rep code cannot join that queue: it grants the
+    // company nothing, so "try it as a promo, then as a referral, then as a
+    // rep" would mean a mistyped promo code silently attributing a commission.
+    // Separate field, separate resolution, no fallthrough in either direction.
+    salesCode,
     // Where to send the user after checkout — set when signup began from a flow
     // like "add this quote to your project". Validated to an internal path below.
     next,
@@ -300,6 +311,48 @@ export async function POST(request) {
     promo === null
       ? await applySignupReferral({ company, code: referralCode })
       : null;
+
+  // ── Which FieldQuo rep brought this company in ──────────────────────────
+  //
+  // Independent of the promo/referral pair above: a company can arrive on a
+  // rep's link AND carry a promo code, and both are true at once. Nothing here
+  // reads `referralCode` and nothing above reads `salesCode`.
+  //
+  // Best-effort in the strongest sense — a contractor's signup must never
+  // depend on FieldQuo's commission bookkeeping, so every outcome this can
+  // produce (unknown code, a second rep touching a company that is already
+  // attributed, a rep selling to themselves, the database being unhappy) ends
+  // with the signup carrying on. A miss is LOGGED rather than swallowed: a
+  // rep's printed link being wrong for a month is exactly the failure a silent
+  // no-op hides, and it is the same failure the referral credit lookup already
+  // had (docs/sales/PLAN.md §11.9).
+  //
+  // No attribution is reported back to the browser. There is nothing to
+  // promise the contractor — the rep's commission is FieldQuo's business, not
+  // theirs — and the signup page renders no banner for it.
+  try {
+    const attributed = await captureSalesAttribution({
+      companyId: company.id,
+      rawCode: salesCode,
+      source: "link",
+    });
+    if (isAttributionMiss(attributed.outcome)) {
+      await recordError({
+        area: "sales_attribution",
+        code: attributed.outcome,
+        message: `Sales code presented at signup did not attribute: ${attributed.outcome}`,
+        companyId: company.id,
+        detail: { detail: attributed.detail, salesRepId: attributed.salesRepId },
+      });
+    }
+  } catch (err) {
+    await recordError({
+      area: "sales_attribution",
+      code: "capture_failed",
+      message: `Sales attribution capture threw during signup: ${err?.message}`,
+      companyId: company.id,
+    }).catch(() => {});
+  }
 
   // ── The org: external, and cannot join the transaction above ────────────
   //

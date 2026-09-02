@@ -374,6 +374,15 @@ const EXPECTED_BODY = [
   "serviceCategoryIds",
   "billingInterval",
   "referralCode",
+  // Added 2026-09-01 with sales attribution. Its OWN key, deliberately not
+  // folded into referralCode: that field is already a two-way waterfall (a
+  // platform promo code, then a contractor referral code) resolved by trying
+  // one and falling through to the other, and a FieldQuo rep's code joining
+  // that queue would mean a mistyped promo code silently attributing a
+  // commission. See lib/sales/attribution.js and
+  // scripts/check-sales-attribution.mjs, which asserts the two namespaces stay
+  // separate at this boundary.
+  "salesCode",
   "next",
 ];
 ok(
