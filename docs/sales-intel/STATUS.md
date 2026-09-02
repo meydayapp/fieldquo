@@ -184,7 +184,69 @@ work on Twilio rather than on Retell.
 
 **Next:** the 18-section plan §64 asks for, then phasing.
 
-### ⛔ BLOCKER — Google Places cannot be the discovery source
+### ✅ DISCOVERY SOURCE — ANSWERED: Overture, and it is free
+
+**The rejection was a misunderstanding, verified empirically rather than
+argued.** Overture membership ($3M / $300k / $3k / $0) buys governance
+influence — a vote on prioritisation. Data access is not a member benefit
+anywhere on that page. The agent proved it by doing it: anonymous,
+unauthenticated listing of `s3://overturemaps-us-west-2/release/` succeeded,
+and the current places theme measures **16 Parquet files, 9.76 GiB, $0**.
+
+**The share-alike fear does not apply to the theme we need.** ODbL covers
+base/buildings/division/transportation. The **places** theme is
+CDLA-Permissive-2.0 / Apache-2.0 / CC0 and contains no OSM data. CDLA's only
+obligation attaches to *sharing* data, and it says outright that it imposes no
+restriction on the use of Results — a definition that includes model outputs,
+which is the exact activity Google's §3.2.3(c)(vii) forbids.
+
+Taxonomy confirmed by downloading and grepping the 2,118-category CSV:
+`painting`, `plumbing`, `hvac_services`, `roofing`, `landscaping`,
+`flooring_contractors`, `cabinet_sales_service`, `carpenter`, `electrician` are
+first-class `home_service` categories. Schema carries phones, websites, emails,
+socials, addresses and a confidence field. No rating or review count.
+
+### Google is not just prohibited — it is structurally incapable
+
+This outranks the licence question and settles it twice over. On the CURRENT
+Places API (New):
+
+- **Nearby Search caps at 20 results with NO pagination token at all.**
+- Text Search returns *"a maximum of 60 results across all pages"*.
+- The Places Aggregate API — the product built to answer "what is in this
+  area" — returns place IDs only, and only when the count is 100 or lower.
+
+Grid-searching one trade in Ottawa is ~2,790 requests, about **$89, still
+incomplete**, and is precisely the systematic extraction the terms name. So
+Google could not enumerate a city's contractors even if it were allowed to.
+It stays as a live `place_id`-only verification step, which its terms permit.
+
+### The one honest gap in that recommendation
+
+Overture's `phones` and `websites` COLUMNS exist; how often they are POPULATED
+for North American trades is unmeasured — that needs the 9.76 GiB pulled and
+counted, which was outside a read-only remit. **That is the first
+implementation step, not an assumption.** A ~$150 Data Axle list is worth
+buying as a BENCHMARK to measure Overture's real coverage against a paid one —
+not as a source.
+
+Also unverified and worth asking in writing before any purchase: whether Data
+Axle's list licence permits AI processing and perpetual re-use. That is the
+clause that would make a bought list useless here.
+
+### Ruled out, with the clause that decides it
+
+- **Yelp / Yellow Pages / Google-derived scrapers — PROHIBITED.** Yelp §5(b)
+  names it outright: *"use it to update or create your own database of business
+  listing information"*, and §9.4 bans putting Yelp content into a generative
+  model at all.
+- **OpenStreetMap — dead on coverage, not licence.** 6,400 `craft=painter`
+  objects on the entire planet.
+- **Registries — unfit.** StatCan ODBus has no phone, no website, no email.
+- **Foursquare OS Places — permitted but redundant.** Its rows are already
+  inside Overture, and since Oct 2025 it needs a portal account.
+
+### Superseded — kept because the reasoning still matters
 
 **Read this before anything else.** Compliance audit, 2026-09-01, sourced.
 
