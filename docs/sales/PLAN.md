@@ -164,24 +164,61 @@ bookkeeping.
 
 ---
 
-## 5. Milestone 1 — $20 on Stripe Connect completion
+## 5. Milestone 1 — $20 on Stripe Connect activation  ·  DECIDED
 
-`Company.stripeChargesEnabled` is real, is maintained by the `account.updated`
-webhook (`app/api/stripe/webhook/route.js:64`), and already has production
-precedent as a payout gate inside `grantReferrerCredit()`. Use it.
+**Decided by the owner, 1 Sept 2026: Stripe Connect activation alone. Onboarding
+completeness is not part of this milestone and must never be added to it.**
 
-**"Completed business onboarding" is the half that doesn't exist.**
-`getOnboardingStatus()` computes completeness fresh on every read, with no
-`completedAt` column and no event when it flips true. Two options:
+The reasoning is the owner's and it is stronger than the recommendation it
+replaced. Checking `lib/onboarding.js` after the fact shows the "onboarding
+complete" option was not merely stricter — it was **unsatisfiable for a whole
+segment**:
 
-- **(a) Recommended.** Define milestone 1 as `stripeChargesEnabled` alone. It
-  is the honest, event-backed signal, and it is the one that means the
-  contractor can actually take money.
-- **(b)** Add a `Company.onboardingCompletedAt` stamped the first time
-  `getOnboardingStatus()` returns complete, and require both.
+```
+lib/onboarding.js:109   done: seatsUsed > 1,          // the "team" step
+lib/onboarding.js:183   complete: doneCount === steps.length
+```
 
-(a) unless you want the stricter bar — this is a product decision, not a
-technical one.
+`seatsUsed` is active members plus pending invites. A one-person shop has
+exactly 1, forever, so the team step never ticks and `complete` is never true.
+Not unlikely — impossible. Since a solo operator run from a van is a core
+FieldQuo customer, option (b) would have paid **zero** commission on an entire
+class of legitimate sale. That is the kind of rule that looks conservative and
+is actually just wrong.
+
+**What `stripeChargesEnabled` proves, precisely.** It is set from Stripe's own
+`account.updated` webhook and means Stripe has run its KYC: government ID
+verification, business details, and a real bank account attached. It is the
+signal that the contractor can actually take a homeowner's money — which is
+also the closest thing the product has to "this is a real business."
+
+### The fraud trade, stated plainly so nobody re-litigates it later
+
+`lib/referrals/index.js` deliberately pays the referrer on the referred
+company's **first payment**, not at signup, because "twenty throwaway addresses
+would earn a couple of free years." Milestone 1 pays $20 during the trial,
+before FieldQuo has collected a cent. **The two programmes now have different
+fraud postures on purpose.** Do not "harmonise" them.
+
+What makes the trade defensible is that Connect activation is expensive to fake
+in a way an email address is not:
+
+- Stripe verifies a government ID and a bank account. Twenty throwaway
+  addresses cannot produce twenty verified identities.
+- Stripe runs its own fraud screening on the account before enabling charges.
+- The friction is borne by the *contractor*, not by us, and it is friction they
+  have to accept anyway to use the product.
+
+What it does **not** prove, and what the controls in §9 therefore exist for:
+
+- That the business has any customers, or will ever pay FieldQuo a dollar.
+- That the person who verified is unconnected to the rep. A rep recruiting
+  relatives to complete Connect and split $20 is the residual surface, and it
+  is a velocity-and-duplicates problem, not an identity problem — Stripe does
+  not expose the verified identity to us, so we cannot match on it.
+
+Exposure is bounded and knowable: $20 × activations, per rep, before any
+revenue. That is what the review threshold in §9 is sized against.
 
 ---
 
@@ -399,9 +436,25 @@ rediscovers them as fact.
 
 ## What needs a decision from you
 
-1. Milestone 1 = `stripeChargesEnabled` alone, or also "onboarding complete"? (§5)
+1. ~~Milestone 1 gate~~ — **decided: Stripe Connect activation alone.** (§5)
 2. Annual subscribers and the 60-day milestone. (§11.1)
 3. Two reps, one company — split, first-touch, or last-touch? (§11.6)
 4. Flat commission across all four plan tiers? (§11.5)
 5. Does a departed rep keep earning milestone 3? (§11.4)
 6. How much of a contractor's data may a rep see? (§10)
+
+---
+
+## 15. Separate bug, found while confirming §5
+
+A solo contractor can never finish the onboarding checklist. The "team" step is
+`done: seatsUsed > 1` and `complete` requires every step, but only
+`tax_registration` is dismissible (`app/api/onboarding-status/route.js`) — so a
+one-person company is shown an "Invite your team" item it can never tick and a
+progress figure that can never reach 100%.
+
+This is not the sales portal's problem, but it is the same finding: a control
+offered to someone who cannot act on it. The fix that matches the codebase's
+own habits is to make the team step dismissible the way tax registration
+already is — "I work alone" is a statement, and recording it is honest, whereas
+leaving a permanent nag treats a solo shop as an incomplete company.
