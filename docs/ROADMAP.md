@@ -8,7 +8,39 @@ Last updated: 1 September 2026 (callbacks and change orders). **Update this file
 
 Last updated: 1 September 2026 (customer satisfaction survey; Google reviews audit).
 
+Last updated: 1 September 2026 (demo containment: email and benchmarks).
+
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## Demo containment — a demo account cannot reach the real world
+
+Shipped. The third and fourth ways a sales demo leaked out, after the number
+(`lib/voice/demoLine.js`) and the money (`lib/demo/simulatedSpend.js`).
+
+- **Email.** `lib/email/resend.js` is now the ONLY module that constructs a
+  Resend client; thirteen routes and libraries that each built their own were
+  converted to `sendEmail`, because a guard in one of fourteen send paths
+  protects nothing. `sendEmail` takes a `companyId` — never a boolean — and
+  re-reads the row through `isDemoCompany()`. A demo's send is recorded exactly
+  as a real one (status, `sentAt`, activity row, follow-up eligibility) and only
+  the vendor call is replaced, by `lib/email/demoMail.js`, which writes the
+  whole letter to `ActivityLog` so `/app/activity` can show the rep what would
+  have gone out. FieldQuo's own mail (auth, the marketing contact form, the demo
+  booking form) passes no `companyId` and is untouched.
+- **Benchmarks.** `lib/analytics/pricingBenchmark.js` and
+  `lib/pricing/benchmarkData.js` both read across tenants and neither excluded
+  demos. The second is the more serious: it had no opt-in gate at all, and
+  fixtures clearing `MIN_COHORT` defeat the k-anonymity floor rather than merely
+  skewing a mean.
+- `npm run check:demo-email` holds all of it, and is in `check:all`.
+
+**Not done, and the obvious next one:** SMS. `lib/sms/twilioClient.js` has no
+demo guard, and `app/api/settings/referral/invite/route.js` will text a real
+prospect's phone from a demo account today. Same fix, same shape — a single
+vendor seam, `companyId` re-read at call time — but it is a separate change and
+wants the owner's word on what a simulated text should show the rep.
 
 ---
 
