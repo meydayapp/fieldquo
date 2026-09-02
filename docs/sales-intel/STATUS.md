@@ -63,9 +63,27 @@ a stale-claim timeout, and token reuse so a reclaim keeps its idempotency key.
 Together that IS the pipeline table — it does not need inventing, it needs
 joining up.
 
-**A thousand prospects is about a day**, drained in small batches on the
-existing cron cadence. If discovery must finish in an hour, crons are the wrong
-substrate and that is a real decision rather than a tuning exercise.
+**A thousand prospects is about TWO days, not one.** Corrected after the runner
+was actually built and the arithmetic done properly:
+
+- 6 ticks/hour × 24 = 144 invocations/day. At a batch of 25 that is a ceiling
+  of 3,600 tasks/day.
+- A 1,000-prospect campaign is roughly 7 tasks per prospect plus discovery
+  paging — about 7,050 tasks.
+- 7,050 / 3,600 ≈ **1.96 days**, plus a tail, because a prospect's stage N+1
+  cannot be enqueued until stage N finishes.
+- **The binding lane is OpenAI**: three of the eight stages share one budget of
+  10 per run = 1,440/day against 3,000 tasks, so that lane alone is 2.08 days.
+
+Getting to one day needs a batch of 50 AND the OpenAI ceiling raised past 21
+per run. That was deliberately NOT decided by the agent, because it depends on
+how long one invocation may run and **no `maxDuration` is exported anywhere in
+this repo** — every function runs at whatever the Vercel dashboard says, which
+code cannot read. Nobody invented a number, which is right.
+
+Since the owner has confirmed volume is set in the admin UI and runs
+overnight, two days is not obviously a problem. It is recorded so the
+expectation is honest rather than discovered later.
 
 **Structured AI output does not exist here yet.** There is no schema library
 and no `response_format`/`json_schema` anywhere — today it is prompted JSON,
