@@ -76,6 +76,7 @@ import {
   Webhook,
   Gauge,
   ArrowUpDown,
+  UserRoundCheck,
 } from "lucide-react";
 
 const HOME_ITEM = { label: "Dashboard", href: "/platform", icon: LayoutDashboard, exact: true };
@@ -144,6 +145,13 @@ const GROUPS = [
       // Sits next to the bookings it produces: this screen IS the marketing
       // hero's calendar, and reading one without the other explains nothing.
       { label: "Demo availability", href: "/platform/demo-availability", icon: CalendarClock },
+      // FieldQuo's own salespeople — invite one, deactivate one, see how many
+      // companies each brought in. In this group rather than under Admin
+      // because a rep's job IS the demo funnel above: they book the demo, they
+      // give the walkthrough, and one of these ten fixture accounts is theirs.
+      // Filing them with "who holds a platform login" would put the people
+      // beside the console's own keys, which is a different question.
+      { label: "Sales reps", href: "/platform/sales/reps", icon: UserRoundCheck },
     ],
   },
   {

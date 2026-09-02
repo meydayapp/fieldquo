@@ -12,6 +12,56 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Sales portal — a rep can sign in and see their own book
+
+Plan: [sales/PLAN.md](sales/PLAN.md) §2 and §10, [sales/RESEARCH-auth-rbac.md](sales/RESEARCH-auth-rbac.md).
+
+**A SalesRep is a THIRD identity**, beside `User` (a tenant's staff) and
+`PlatformAdmin` (the console). Not a `Member` — that stack resolves one session
+to one company and a rep is one identity across many. Not a `PlatformAdmin`
+either: a platform token is checked by a long tail of `/api/platform/*` routes,
+some of which only ask "is there an admin?", so issuing reps the same credential
+grants them whatever the least careful of those grants.
+
+- `lib/sales/auth.js` — its own `sales-token` cookie, signed with the SAME
+  `PLATFORM_JWT_SECRET` (a second env var is a second thing that can be unset —
+  `currentPlatformAdmin.js`'s header is the story of the first one) and carrying
+  a **mandatory** `scope: "sales"` claim. The rejection is **mutual**: the sales
+  verifier refuses a token without that scope, and `getCurrentPlatformAdmin`
+  refuses any token that carries a scope at all. Both directions are executed in
+  `npm run check:sales-auth`.
+- `lib/sales/gate.js` — `requireSalesRep()`. Re-reads the `SalesRep` row on
+  EVERY request (a 12-hour JWT otherwise outlives a deactivation by half a day)
+  and refuses every non-read method. `REP_FORBIDDEN_WRITES` names the tables a
+  rep may never write: attribution, commission entries, payout batches,
+  subscriptions, payments, and their own row.
+- `lib/sales/scope.js` — `assignedCompanyWhere(salesRepId)`. The shape of
+  `assignedJobWhere()`, but it scopes the **tenant boundary itself** rather than
+  rows inside an already-scoped tenant, so it never returns `{}` and its
+  refusing case filters on the relation rather than on `id`.
+- **Invite flow** — `/platform/sales/reps` reads like `/app/settings/team`:
+  name, email, Invite, Deactivate. None of the tenant machinery underneath
+  (seat checks, Better Auth org invitations, `MemberRole` clamping) applies to
+  FieldQuo hiring its own staff. Only the SHA-256 hash of the invite token is
+  stored, with a 7-day expiry; the invitee sets their own password. This is a
+  **new pattern for FieldQuo staff** — `POST /api/platform/admins` still has a
+  superadmin type the password and hand it over out of band.
+- **Middleware** — a `/sales` gate placed after the platform gates and before
+  the `/app` one; `/sales` and `/api/sales` join the impersonation gate's
+  exclusion list beside `/platform`. The block's own comment says what each
+  neighbour would break if it moved.
+- **What a rep reads** — company name, signup date, Connect activation,
+  onboarding completion, subscription status, and recorded milestones. Not the
+  contractor's quotes, clients, revenue or documents. The list is
+  `REP_COMPANY_SELECT`, asserted exactly.
+- Reps are **deactivated, never deleted**: their attributions and ledger are
+  history.
+
+`npm run check:sales-auth` — 134 assertions, executed rather than read, and
+mutation-tested (17 deliberate breaks, each confirmed to fail the check).
+
+---
+
 ## Sales attribution — which rep brought a company in (capture only)
 
 Plan: [sales/PLAN.md](sales/PLAN.md) §4. The models were already pushed; this

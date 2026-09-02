@@ -14,6 +14,17 @@
 // Everything else in this file — the /platform page gate, the /app
 // better-auth gate — is unchanged.
 //
+// ── A third staff surface: /sales ──────────────────────────────────────────
+//
+// FieldQuo's own sales reps sign in at /sales with their OWN cookie
+// (`sales-token`), verified against its own scope claim. The gate for it sits
+// after the platform gates and before the /app one; the block itself explains
+// what each of those neighbours would break if it moved. The two things worth
+// knowing from up here: /sales joins the impersonation gate's exclusion list
+// for the same reason /platform is on it, and the platform gates now reject a
+// token carrying a scope claim, so the two credentials can never be read as
+// each other. See lib/sales/auth.js.
+//
 // ── One gate that deliberately is NOT here ─────────────────────────────────
 //
 // Feature availability (lib/features/) is enforced in lib/currentMember.js for
@@ -52,6 +63,7 @@ import {
   allowsWrites,
 } from "@/lib/platform/impersonationToken";
 import { subdomainFromHost } from "@/lib/site/subdomain";
+import { SALES_COOKIE, carriesScope, verifySalesToken } from "@/lib/sales/auth";
 
 const PLATFORM_SECRET = new TextEncoder().encode(
   process.env.PLATFORM_JWT_SECRET,
@@ -102,6 +114,18 @@ const SUBDOMAIN_PASSTHROUGH = [
   // to cancel, at the exact moment the alternative is not turning up.
   "/visit",
 ];
+
+// The sales portal's own unauthenticated doors, and the complete list of them.
+//
+// Same shape as /api/platform/auth: a sign-in route that cannot require a
+// session, plus the invite route, which is reached by somebody who by
+// definition has no account yet. Everything else under /api/sales needs the
+// cookie.
+//
+// A prefix rather than exact paths, matching how /api/platform/auth is
+// handled — but the prefix is one segment deeper (`/api/sales/auth/`) so that
+// adding a route under /api/sales cannot accidentally land inside the hole.
+const SALES_AUTH_PREFIX = "/api/sales/auth";
 
 const PLATFORM_BILLING_PASSTHROUGH = [
   "/api/platform/billing/webhook",
@@ -178,11 +202,23 @@ export async function middleware(request) {
   // access to the platform console's own APIs. Only superadmins can obtain
   // one today, so it isn't currently exploitable, but "not exploitable yet"
   // is not the same as correct.
-  const isPlatformSurface =
-    pathname.startsWith("/platform") || pathname.startsWith("/api/platform");
+  //
+  // /sales and /api/sales join that exclusion for the identical reason, and
+  // the exclusion is written down EXPLICITLY rather than left to the fact that
+  // "/sales" doesn't start with "/app". It nearly does not matter today — the
+  // block's inner condition also tests `pathname.startsWith("/api")`, which
+  // /api/sales satisfies — and that is precisely the point: without this name
+  // on this list, an impersonation cookie would carry a support session into
+  // the rep API before the sales-token gate below ever ran. Same bug the
+  // paragraph above records for /platform, one staff surface later.
+  const isStaffSurface =
+    pathname.startsWith("/platform") ||
+    pathname.startsWith("/api/platform") ||
+    pathname.startsWith("/sales") ||
+    pathname.startsWith("/api/sales");
 
   const impersonationToken = request.cookies.get(IMPERSONATION_COOKIE)?.value;
-  if (impersonationToken && !isPlatformSurface) {
+  if (impersonationToken && !isStaffSurface) {
     const claims = await verifyImpersonationToken(impersonationToken);
 
     if (
@@ -241,7 +277,17 @@ export async function middleware(request) {
     }
 
     try {
-      await jwtVerify(platformToken, PLATFORM_SECRET);
+      const { payload } = await jwtVerify(platformToken, PLATFORM_SECRET);
+      // A sales rep's token is signed with this same secret — see
+      // lib/sales/auth.js for why one secret beats a second env var that can
+      // be unset — so the signature alone does not say WHICH staff identity
+      // minted it. The scope claim does, and it is refused here as well as in
+      // getCurrentPlatformAdmin. Two independent checks, deliberately, for the
+      // same reason assertReadOnly duplicates the impersonation gate: the
+      // second one must not agree with the first by copying it.
+      if (carriesScope(payload)) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
       return NextResponse.next();
     } catch {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -261,7 +307,17 @@ export async function middleware(request) {
     }
 
     try {
-      await jwtVerify(platformToken, PLATFORM_SECRET);
+      const { payload } = await jwtVerify(platformToken, PLATFORM_SECRET);
+      // Same mutual rejection as the API gate above. A rep who somehow had
+      // their token planted in the platform cookie gets the login screen, not
+      // the console.
+      if (carriesScope(payload)) {
+        const response = NextResponse.redirect(
+          new URL("/platform/login", request.url),
+        );
+        response.cookies.set("platform-token", "", { maxAge: 0, path: "/" });
+        return response;
+      }
       return NextResponse.next();
     } catch {
       const response = NextResponse.redirect(
@@ -270,6 +326,73 @@ export async function middleware(request) {
       response.cookies.set("platform-token", "", { maxAge: 0, path: "/" });
       return response;
     }
+  }
+
+  // ── Sales portal (FieldQuo's own reps) ──────────────────────────────────
+  //
+  // ── Why HERE, and not one line earlier or later ───────────────────────
+  //
+  // This file's order is load-bearing, and this block was placed by working
+  // out what each neighbour would break if it moved.
+  //
+  //   · AFTER the subdomain rewrite, which must stay first. A stranger
+  //     reading sunset.fieldquo.com has no session and must never be asked
+  //     for one; that rewrite returns before any gate runs. /sales is not a
+  //     subdomain-reachable surface, so this block is a pure pass-through on
+  //     a tenant host — but only because the rewrite already returned.
+  //
+  //   · AFTER the impersonation gate, and named in its exclusion list above.
+  //     If a support session's cookie could satisfy this gate, a read-only
+  //     customer-support token would become a rep session. That is the exact
+  //     bug the /platform exclusion was written for.
+  //
+  //   · AFTER both platform gates, and this is the ordering that actually
+  //     matters. Those two run on their own path prefixes and this one runs
+  //     on its own, so nothing here can weaken them — which is the whole
+  //     point of putting it after rather than folding a `|| /sales` into
+  //     them. One gate answering for two identities is how a rep's
+  //     credential ends up satisfying "is there an admin?".
+  //
+  //   · BEFORE the /app gate. That gate asks only "does a Better Auth
+  //     session cookie exist" — not for whom. A signed-in contractor's
+  //     employee must never fall through into the rep portal because they
+  //     happen to be signed in to something.
+  if (pathname.startsWith("/api/sales")) {
+    // Sign-in and invite acceptance. Whoever is clicking an invite link has no
+    // account yet by definition, so requiring one would close the only door in.
+    if (
+      pathname === SALES_AUTH_PREFIX ||
+      pathname.startsWith(`${SALES_AUTH_PREFIX}/`)
+    ) {
+      return NextResponse.next();
+    }
+
+    const salesToken = request.cookies.get(SALES_COOKIE)?.value;
+    // verifySalesToken REQUIRES scope: "sales" — a platform admin's token
+    // presented here is rejected, exactly as a rep's is rejected above. The
+    // rejection is mutual or it is nothing.
+    if (!(await verifySalesToken(salesToken))) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    return NextResponse.next();
+  }
+
+  if (pathname.startsWith("/sales")) {
+    if (pathname === "/sales/login" || pathname.startsWith("/sales/invite")) {
+      return NextResponse.next();
+    }
+
+    const salesToken = request.cookies.get(SALES_COOKIE)?.value;
+    if (!(await verifySalesToken(salesToken))) {
+      const response = NextResponse.redirect(
+        new URL("/sales/login", request.url),
+      );
+      // Clear an expired one so the rep isn't stuck in a half-state — the same
+      // treatment the platform page gate gives its own stale cookie.
+      response.cookies.set(SALES_COOKIE, "", { maxAge: 0, path: "/" });
+      return response;
+    }
+    return NextResponse.next();
   }
 
   // ── Company app (Better Auth) ───────────────────────────────────────────
@@ -290,6 +413,11 @@ export const config = {
     "/app/:path*",
     "/platform",
     "/platform/:path*",
+    // The catch-all at the bottom already covers these; they are named anyway,
+    // beside /app and /platform, so the file lists every gated surface in one
+    // place rather than leaving one of the three to be inferred from a regex.
+    "/sales",
+    "/sales/:path*",
     // Widened from /api/platform/* to all of /api. The read-only support gate
     // above has to sit in front of every company API route, not just the
     // platform ones — otherwise a support session could POST to /api/quotes.
