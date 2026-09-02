@@ -42,6 +42,28 @@ const PLAN = {
   retentionDays: 60,
 };
 
+
+/**
+ * "A appears before B", where a MISSING A is a failure rather than a pass.
+ *
+ * The naive form is `src.indexOf(a) < src.indexOf(b)`, and it has a false pass
+ * that mutation testing found in three checks at once: indexOf returns -1 when
+ * the needle is absent, and -1 is less than every real index. So deleting the
+ * guard entirely satisfies the assertion that the guard comes first.
+ *
+ * Both needles must be present AND ordered.
+ *
+ * The needle also has to be the CALL and not the identifier. `requireCronSecret`
+ * appears in the import line too, which sits above everything — so searching for
+ * the bare name finds the import, reports it as "before the query", and passes
+ * on a route whose guard has been deleted. Search for `requireCronSecret(` .
+ */
+function orderedIn(src, a, b) {
+  const ia = src.indexOf(a);
+  const ib = src.indexOf(b);
+  return ia >= 0 && ib >= 0 && ia < ib;
+}
+
 console.log("\nMilestone 1 — the company can actually take money");
 ok("a Connect-enabled company qualifies", qualifiesForActivation({ stripeChargesEnabled: true }));
 ok("one that cannot take charges does not", !qualifiesForActivation({ stripeChargesEnabled: false }));
@@ -353,7 +375,7 @@ const cronSrc = readFileSync("app/api/cron/sales-retention/route.js", "utf8");
 ok("the retention sweep demands the cron secret", cronSrc.includes("requireCronSecret(request)"));
 ok(
   "it refuses before doing any work",
-  cronSrc.indexOf("requireCronSecret") < cronSrc.indexOf("salesCommissionEntry.findMany"),
+  orderedIn(cronSrc, "requireCronSecret(request)", "salesCommissionEntry.findMany"),
 );
 ok(
   "it uses the shared rule rather than its own date maths",

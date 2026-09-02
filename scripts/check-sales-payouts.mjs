@@ -20,6 +20,28 @@ function ok(name, cond, detail = "") {
   if (cond) { passed++; console.log("  ✓ " + name); }
   else { failures.push(name + (detail ? ` — ${detail}` : "")); console.log("  ✗ " + name + (detail ? ` — ${detail}` : "")); }
 }
+
+/**
+ * "A appears before B", where a MISSING A is a failure rather than a pass.
+ *
+ * The naive form is `src.indexOf(a) < src.indexOf(b)`, and it has a false pass
+ * that mutation testing found in three checks at once: indexOf returns -1 when
+ * the needle is absent, and -1 is less than every real index. So deleting the
+ * guard entirely satisfies the assertion that the guard comes first.
+ *
+ * Both needles must be present AND ordered.
+ *
+ * The needle also has to be the CALL and not the identifier. `requireCronSecret`
+ * appears in the import line too, which sits above everything — so searching for
+ * the bare name finds the import, reports it as "before the query", and passes
+ * on a route whose guard has been deleted. Search for `requireCronSecret(` .
+ */
+function orderedIn(src, a, b) {
+  const ia = src.indexOf(a);
+  const ib = src.indexOf(b);
+  return ia >= 0 && ib >= 0 && ia < ib;
+}
+
 const iso = (d) => d.toISOString();
 
 console.log("\nThe week is Monday to Monday, in UTC");
@@ -120,7 +142,7 @@ ok(
 
 const cron = readFileSync("app/api/cron/sales-payouts/route.js", "utf8");
 ok("the cron demands its secret", cron.includes("requireCronSecret(request)"));
-ok("before any work", cron.indexOf("requireCronSecret") < cron.indexOf("salesRep.findMany"));
+ok("before any work", orderedIn(cron, "requireCronSecret(request)", "salesRep.findMany"));
 ok("it closes LAST week, never the live one", cron.includes("previousWeekBounds"));
 // A rep who left last Wednesday still earned what they earned before Wednesday.
 ok(
