@@ -135,10 +135,19 @@ model PlatformSmsNumber {
   ///             number of its own. What TWILIO_PHONE_NUMBER used to name.
   /// shared_test the line lent to one company at a time so a contractor can
   ///             prove crew texting works before buying anything.
+  /// sales       FieldQuo's OWN first-party number, which its sales reps text
+  ///             their signup link from. Deliberately NOT reused from `system`:
+  ///             that number sends on behalf of tenants, so a STOP arriving at
+  ///             it means "stop texting me about my kitchen quote", and a STOP
+  ///             arriving at a sales number means "stop selling me software".
+  ///             One number carrying both makes the two indistinguishable, and
+  ///             honouring either as the other is the wrong answer. Same
+  ///             argument lib/company/businessHours.js makes about two things
+  ///             allowed to disagree.
   ///
-  /// One number can be both, and on a small deployment usually is — which is
-  /// exactly what the env var did. Kept as separate rows rather than flags so
-  /// splitting them later is a purchase, not a migration.
+  /// system and shared_test can be one number, and on a small deployment
+  /// usually are — which is exactly what the env var did. Kept as separate rows
+  /// rather than flags so splitting them later is a purchase, not a migration.
   purpose String @default("system")
 
   /// Cleared rather than deleted when a number is handed back, so the ledger of
@@ -7931,6 +7940,7 @@ model SalesRep {
   payoutBatches     SalesPayoutBatch[]
   leads             SalesLead[]
   threads           SalesThread[]
+  smsMessages       SalesSmsMessage[]
 
   @@index([active])
 }
@@ -8126,6 +8136,22 @@ model SalesLead {
   email        String?
   phone        String?
 
+  /// The prospect's IANA time zone, as the rep states it after speaking to
+  /// them. Nullable, and NOT defaulted to anything.
+  ///
+  /// It exists because texting has a legal clock on it — see
+  /// lib/sales/smsWindow.js — and the clock is the RECIPIENT's, not ours. A
+  /// rep in Kyiv and a prospect in Vancouver are ten hours apart, so FieldQuo's
+  /// own local time is the single most dangerous substitute available. Absent
+  /// means absent: the send is refused with that stated, rather than evaluated
+  /// against an invented zone. AGENTS.md failure class #5.
+  ///
+  /// Written from the one place that has the answer — the rep who just had the
+  /// person on the phone — rather than inferred from an area code, which is
+  /// wrong for every ported mobile and for the area codes that straddle two
+  /// zones.
+  timeZone String?
+
   /// "new" | "contacted" | "demoed" | "signed" | "lost"
   status String  @default("new")
   notes  String?
@@ -8145,9 +8171,65 @@ model SalesLead {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  threads SalesThread[]
+  threads     SalesThread[]
+  smsMessages SalesSmsMessage[]
 
   @@index([salesRepId, status])
+}
+
+/// One text message a rep sent a prospect from FieldQuo's own sales number.
+///
+/// ══ Why this is not a SalesMessage on a SalesThread ════════════════════════
+///
+/// SalesThread is an EMAIL conversation: it carries a subject and a `replyToken`
+/// that is @unique because an inbound reply is matched by it. A text has
+/// neither, and a synthetic thread invented to hold one would appear in the
+/// rep's conversation list offering a compose box that emails — a control that
+/// looks like a reply to the text and is not. Writing phone numbers into
+/// `fromAddress`/`toAddress` would also make every query that means "email"
+/// silently mean "email or SMS".
+///
+/// ══ Why there is no inbound direction ══════════════════════════════════════
+///
+/// A prospect texting STOP back is handled where it matters — as a row on
+/// FieldQuo's do-not-contact list (SalesSuppression), keyed on the phone
+/// number, which binds FieldQuo rather than one rep's copy of a lead. Filing
+/// the inbound message here as well would need a lead to attach it to, and
+/// SalesLead.phone is neither unique nor normalised, so two reps holding the
+/// same prospect makes that attachment a guess. A field written by a guess is
+/// worse than no field.
+model SalesSmsMessage {
+  id String @id @default(cuid())
+
+  salesRepId String
+  salesRep   SalesRep @relation(fields: [salesRepId], references: [id], onDelete: Cascade)
+
+  leadId String
+  lead   SalesLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  /// E.164 both ways. The `from` is stored rather than derived at read time
+  /// because FieldQuo's sales number can be released and replaced, and "which
+  /// number did this actually go out from" is the question a carrier complaint
+  /// asks.
+  fromE164 String
+  toE164   String
+
+  /// Exactly what was sent, footer included. The CASL identification and
+  /// mailing address are part of the message, so a copy without them would not
+  /// evidence the thing it exists to evidence.
+  body String
+
+  /// Twilio's message SID. Present because the row is written only after the
+  /// provider accepted the message — same rule lib/sales/outreachSender.js
+  /// applies to email: a row saying "sent" for a text that never left is the
+  /// class of bug AGENTS.md opens with.
+  providerId String?
+
+  sentAt    DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([salesRepId, sentAt])
+  @@index([leadId, sentAt])
 }
 
 model SalesThread {

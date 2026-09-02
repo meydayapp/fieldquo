@@ -105,6 +105,10 @@ export async function PATCH(request, { params }) {
 
       await sendSms({
         to: visit.job.client.phone,
+        // Simulated for a demo tenant rather than sent — see lib/sms/demoSms.js.
+        // The status change, the row and the activity trail all still happen,
+        // so a rep demoing "on my way" sees the whole flow work.
+        companyId: visit.job.companyId,
         // The company's own wording when they set it, the built-in otherwise.
         // renderMessage falls back safely if a stored template is invalid, so a
         // bad edit can never ship a raw "{token}" to a customer.

@@ -467,6 +467,9 @@ export async function POST(request) {
     const sent = await sendSms({
       to,
       from: line.e164,
+      // A demo company's "worker" is a seeded row whose phone is a plausible
+      // NANP number belonging to somebody. See lib/sms/demoSms.js.
+      companyId: member.companyId,
       body:
         "This is your FieldQuo crew line. Reply to this text with a photo and " +
         "it'll file to the job you're on today.",

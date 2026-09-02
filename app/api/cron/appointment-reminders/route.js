@@ -102,6 +102,10 @@ export async function GET(request) {
       // The company's own number when they have one; the shared system number
       // (with the company name in the body) otherwise.
       from: appt.company.smsFromNumber || undefined,
+      // A demo's seeded clients carry plausible NANP numbers, not @example.com
+      // addresses — so this cron would have texted them for real. See
+      // lib/sms/demoSms.js.
+      companyId: appt.company.id,
     });
 
     if (result.success) sent++;

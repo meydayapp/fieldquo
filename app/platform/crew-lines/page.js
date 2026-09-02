@@ -340,6 +340,14 @@ function LineRow({ line }) {
  * company at a time. On a small deployment one number is usually both, which is
  * exactly what the single env var used to be — but they are bought as separate
  * rows so splitting them later is a purchase, not a migration.
+ *
+ * `sales` is the one that must NOT be shared with either. FieldQuo's reps text
+ * their signup link from it, and a STOP arriving at a sales number means "stop
+ * selling me software" where a STOP at the system number means "stop texting me
+ * about my kitchen quote". One number carrying both makes those two
+ * indistinguishable at the moment they arrive. It is also the only purpose
+ * whose inbound webhook points at /api/sms/inbound rather than the crew
+ * endpoint — see webhookUrlFor in lib/crew/platformNumber.js.
  */
 function BuyNumberPanel({ onChanged }) {
   const [areaCode, setAreaCode] = useState("");
@@ -419,6 +427,7 @@ function BuyNumberPanel({ onChanged }) {
           >
             <option value="system">System — outbound From</option>
             <option value="shared_test">Shared test line — lent out</option>
+            <option value="sales">Sales — FieldQuo&apos;s reps text from it</option>
           </select>
         </label>
         <button
@@ -476,7 +485,14 @@ function BuyNumberPanel({ onChanged }) {
         <div className="mt-3 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3">
           <p className="text-sm text-foreground">
             Buy <strong>{confirming.display || confirming.e164}</strong> as the{" "}
-            <strong>{purpose === "system" ? "system outbound number" : "shared test line"}</strong>?
+            <strong>
+              {purpose === "system"
+                ? "system outbound number"
+                : purpose === "sales"
+                  ? "sales number FieldQuo's reps text from"
+                  : "shared test line"}
+            </strong>
+            ?
             FieldQuo is billed monthly by Twilio from the moment it exists.
           </p>
           <div className="mt-2 flex gap-2">

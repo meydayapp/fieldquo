@@ -12,6 +12,17 @@
 // it is exactly the class of bug AGENTS.md keeps naming: a control that
 // appears to work and doesn't.
 //
+// ══ And one number with no company behind it ═══════════════════════════
+//
+// FieldQuo's own sales number posts here too. It is a PlatformSmsNumber with
+// purpose "sales" — no tenant, no Company row — so the lookup below can never
+// resolve it, and before this branch existed a prospect replying STOP to a
+// rep's text would have been dropped with a silent 200. That opt-out binds
+// FieldQuo rather than any one company, so it is written to the platform-wide
+// do-not-contact list instead of to SmsOptOut, which is per-tenant. See
+// handleSalesInboundSms in lib/sales/salesSms.js, including why START does NOT
+// reverse it there while it does here.
+//
 // ══ Which number, which company ════════════════════════════════════════
 //
 // Resolved from `To` against Company.smsFromNumber, which is now @unique in
@@ -74,6 +85,7 @@ import { verifyTwilioWebhook } from "@/lib/sms/verifyTwilioWebhook";
 import { classifyInboundSms } from "@/lib/sms/optOutKeywords";
 import { recordSmsOptOut, recordSmsOptIn } from "@/lib/sms/optOut";
 import { sendSms } from "@/lib/sms/twilioClient";
+import { handleSalesInboundSms } from "@/lib/sales/salesSms";
 import { recordError } from "@/lib/platform/errorLog";
 
 function twiml() {
@@ -113,10 +125,32 @@ export async function POST(request) {
     where: { smsFromNumber: to },
     select: { id: true, name: true },
   });
-  // Not a company's client-facing number (a stray webhook, the shared
-  // system number, a stale row). Nothing to do — silent 200 so Twilio
-  // doesn't retry, same as crew/inbound's "not ours" case.
-  if (!company) return twiml();
+
+  // ── Not a tenant's number. It may be FieldQuo's OWN sales number ─────────
+  //
+  // A sales number is a PlatformSmsNumber with purpose "sales", which has no
+  // tenant behind it at all, so the lookup above can never find it. The STOP
+  // that arrives there is FieldQuo's to honour — it binds the company, not one
+  // rep's copy of a lead — and it is written to the platform-wide
+  // do-not-contact list rather than to SmsOptOut, which is per-tenant and would
+  // silence exactly one company. See lib/sales/salesSms.js.
+  //
+  // Handled here rather than at a route of its own because this endpoint
+  // already does the two hard parts: it verifies the Twilio signature, and it
+  // is the URL a number's messaging webhook points at. A second public webhook
+  // would be a second signature check to keep correct.
+  if (!company) {
+    await handleSalesInboundSms({ to, from, body }).catch(async (err) => {
+      await recordError({
+        area: "sales_sms",
+        message: `Inbound sales SMS handling threw: ${err.message}`,
+        detail: { to, from },
+      }).catch(() => {});
+    });
+    // Whether it was ours or a stray webhook, Twilio gets the same empty 200 —
+    // a retry would not change the answer.
+    return twiml();
+  }
 
   const verdict = classifyInboundSms(body);
   if (!verdict) return twiml(); // not a keyword — this route isn't an inbox
@@ -125,7 +159,10 @@ export async function POST(request) {
     if (verdict === "opt_out") {
       await recordSmsOptOut({ companyId: company.id, phone: from, body });
       if (shouldSendOwnConfirmation()) {
-        await sendSms({ to: from, from: to, body: optOutConfirmation(company.name) }).catch((err) =>
+        // companyId, so a demo tenant simulates the confirmation instead of
+        // sending it. The opt-out itself is recorded above either way — the
+        // record is the part that must be real, and it is.
+        await sendSms({ to: from, from: to, body: optOutConfirmation(company.name), companyId: company.id }).catch((err) =>
           recordError({
             area: "sms_opt_out",
             message: `Opt-out confirmation text failed: ${err.message}`,
@@ -136,7 +173,7 @@ export async function POST(request) {
     } else {
       await recordSmsOptIn({ companyId: company.id, phone: from, body });
       if (shouldSendOwnConfirmation()) {
-        await sendSms({ to: from, from: to, body: optInConfirmation(company.name) }).catch((err) =>
+        await sendSms({ to: from, from: to, body: optInConfirmation(company.name), companyId: company.id }).catch((err) =>
           recordError({
             area: "sms_opt_out",
             message: `Opt-in confirmation text failed: ${err.message}`,

@@ -72,7 +72,11 @@ async function settleCrewSpend({ line, to, from, reply }) {
       // To the crew member who texted, FROM the crew line they texted.
       // `from` here is a CREW member (staff), not a client — not gated by
       // lib/sms/optOut.js's maySms(), which is the client opt-out list.
-      const sent = await sendSms({ to: from, from: to, body: reply }).catch(() => null);
+      // companyId is what makes a demo tenant's reply simulated rather than
+      // sent (lib/sms/demoSms.js). The ledger charge below still runs on the
+      // simulated SID, deliberately: a demo of crew texting that showed no
+      // per-message cost would demonstrate a product FieldQuo does not sell.
+      const sent = await sendSms({ to: from, from: to, body: reply, companyId: line.companyId }).catch(() => null);
       if (sent?.success && sent.sid) {
         await chargeOutboundCrewReply({
           companyId: line.companyId,

@@ -32,6 +32,7 @@ import { fetchJson } from "@/lib/fetchJson";
 import { jsonBody } from "@/lib/jsonBody";
 import { LEAD_STATUSES, LEAD_STATUS_LABELS } from "@/lib/sales/outreachPipeline";
 import OutreachNotice from "../OutreachNotice";
+import SignupLinkSms from "../SignupLinkSms";
 
 function when(value) {
   if (!value) return "";
@@ -261,6 +262,14 @@ export default function SalesLeadPage({ params }) {
           Save notes
         </button>
       </div>
+
+      {/* ── The signup link, by text ────────────────────────────────────────
+          Its own component with its own fetch, because it asks a different
+          question than the rest of this screen: whether FieldQuo holds a sales
+          number, whether the mailing address is set, and what time it is where
+          the prospect is. It decides for itself whether to render a button —
+          see its header. */}
+      <SignupLinkSms leadId={id} />
 
       {/* ── Conversations ──────────────────────────────────────────────────── */}
       <div className="space-y-3">

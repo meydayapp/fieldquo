@@ -742,13 +742,20 @@ for (const [file, reason] of Object.entries(FORBIDDEN_WRITE_BY_DESIGN)) {
 // Checked per exported handler rather than per file: a file with a compliant
 // GET and a POST that forgot would pass a file-wide match.
 //
-// Two gates are accepted, and only two. requireSalesRep is the read-only one
-// this change owns; requireOutreachRep is the outreach change's narrow
-// exception. Both are asserted just below to re-read the row and to answer
-// through the SAME canAuthenticate — which is what keeps "a deactivated rep
-// cannot authenticate" true across the whole portal rather than only on the
-// routes this file wrote.
-const SALES_GATES = ["requireSalesRep", "requireOutreachRep"];
+// Three gates are accepted, and only three. requireSalesRep is the read-only
+// one this change owns; requireOutreachRep is the outreach change's narrow
+// exception; requireSmsRep is the texting one. Each is asserted just below to
+// re-read the row and to answer through the SAME canAuthenticate — which is
+// what keeps "a deactivated rep cannot authenticate" true across the whole
+// portal rather than only on the routes this file wrote.
+//
+// This list growing is meant to be a deliberate act, and it was one: adding a
+// gate had to be a visible edit here rather than a silent one over there,
+// which is exactly what happened — check:sales-auth refused the SMS route
+// until this line named its gate. The bar for the next entry is the one
+// lib/sales/smsGate.js's header argues: a NAMED, short, explicit list of what
+// that gate permits, not a mode parameter on an existing gate.
+const SALES_GATES = ["requireSalesRep", "requireOutreachRep", "requireSmsRep"];
 for (const file of salesRoutes) {
   if (file.startsWith("app/api/sales/auth/")) continue; // unauthenticated by design
   const src = read(file);
@@ -766,6 +773,7 @@ for (const file of salesRoutes) {
 for (const [module, fn] of [
   ["lib/sales/gate.js", "export async function requireSalesRep("],
   ["lib/sales/outreachGate.js", "export async function requireOutreachRep("],
+  ["lib/sales/smsGate.js", "export async function requireSmsRep("],
 ]) {
   if (!existsSync(join(ROOT, module))) continue;
   const body = namedFunctionBody(read(module), fn);

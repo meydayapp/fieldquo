@@ -26,6 +26,8 @@ exit 0, schema pushed and verified, row counts unchanged.
 | Commission ledger + milestones 1, 2, 3 | done |
 | 60-day retention sweep (cron, 09:20 UTC) | done |
 | Rep outreach — send from own mailbox, replies filed | done |
+| Demo accounts cannot text real people (8 paths) | done |
+| Rep can text their signup link, with STOP handled | done, blocked on a number |
 
 ### Phase 1 — still open
 
@@ -36,9 +38,30 @@ exit 0, schema pushed and verified, row counts unchanged.
 - **Does not block sending**: `SALES_INBOUND_SECRET` plus the mailbox
   forwarding rule; without it the portal honestly says replies are not being
   filed.
-- **SMS has the same demo hole email had.** `lib/sms/twilioClient.js` has no
-  demo guard — referral invite will text a real prospect from a demo account
-  today. Named, not built.
+- **Blocks reps texting** (owner action): FieldQuo holds no `sales`-purpose
+  number. Buy one in the platform console under Crew lines with the purpose set
+  to “Sales”. It must NOT be the `system` number: that one sends on behalf of
+  contractors, so a STOP arriving there means “stop texting me about my kitchen
+  quote” and cannot be honoured as a sales opt-out. Until one exists the send
+  panel renders no button and names this as the missing thing.
+  `SALES_MAILING_ADDRESS` is the same setting the email footer needs — CASL
+  requires it in a commercial text too, and nothing sends without it.
+- **SMS demo hole — CLOSED.** `lib/sms/twilioClient.js` now substitutes at the
+  vendor seam exactly as `lib/email/resend.js` does, and all eight tenant-scoped
+  send paths pass `companyId`. A demo's text is recorded as an
+  `sms.simulated` ActivityLog row and never reaches Twilio; the product still
+  records everything a real send would have, so a walkthrough still works.
+  `scripts/check-sales-sms.mjs` executes it.
+- **SMS timing is NOT the calling window** — checked rather than assumed.
+  CASL governs commercial texts and imposes no time-of-day rule; the CRTC
+  09:00–21:30 / 10:00–18:00 hours are for telemarketing *telecommunications*
+  (voice/fax). What binds a text is the TCPA's 08:00–21:00 local window, which
+  the FCC and the courts apply to texts as to calls and which has no B2B
+  exemption for mobiles. So `lib/sales/smsWindow.js` is a third window, flat
+  across the week, and reuses `callingWindow.js`'s `localTimeIn` rather than its
+  bounds. Consequence worth knowing: `SalesLead.timeZone` is required before a
+  text can go out, is stated by the rep, and is never inferred from an area
+  code.
 - Outreach screens are English-only while the rest of the portal is translated.
 - Weekly payout batches: the model exists, the closer does not.
 - Rep dashboards, leaderboard, CAC, cohorts, fraud review — Phase 5 of the
