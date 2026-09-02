@@ -31,10 +31,17 @@ exit 0, schema pushed and verified, row counts unchanged.
 
 ### Phase 1 — still open
 
-- **Blocks reps sending mail** (owner action): verify the reps' root mail
-  domain in Resend; set `SALES_MAILING_ADDRESS`; set
-  `SALES_REPLY_ADDRESSING` to `plus` or `plain` (no default on purpose — a
-  wrong choice bounces replies to the prospect).
+- **Sending is NOT blocked by DNS.** An earlier version of this file said the
+  reps' root domain had to be verified. That was my error: a provider needs a
+  verified DOMAIN to send FROM and does not need a mailbox there. From is on
+  the verified sending subdomain; Reply-To is the rep's real mailbox, which
+  needs nothing verified because nothing sends from it. Verifying the root
+  domain is optional polish, not a blocker.
+- **Owner actions, three values:** `SALES_MAILING_ADDRESS` (the business postal
+  address CASL requires); `SALES_REPLY_ADDRESSING` = `plus` or `plain`, decided
+  by emailing `contact+test@fieldquo.com` and seeing whether it arrives;
+  `SALES_INBOUND_SECRET` = `openssl rand -hex 32`, same value in the mailbox
+  forwarding rule.
 - **Does not block sending**: `SALES_INBOUND_SECRET` plus the mailbox
   forwarding rule; without it the portal honestly says replies are not being
   filed.
