@@ -126,6 +126,9 @@ export default function InvoiceDetailPage() {
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
   const [justSent, setJustSent] = useState("");
+  // See the same pair on the quote page: a demo's send writes every field a
+  // real one does, so this flag is the only thing that keeps the banner honest.
+  const [justSentSimulated, setJustSentSimulated] = useState(false);
   const [creditingId, setCreditingId] = useState("");
   // Which JobPanel form a banner asked to open. A counter is appended so
   // pressing the same banner twice re-opens it after the user closed it —
@@ -249,6 +252,7 @@ export default function InvoiceDetailPage() {
       if (!res.ok)
         throw new Error(data?.error || t("app.invoiceDetail.sendError"));
       setJustSent(data.to);
+      setJustSentSimulated(data.simulated === true);
       setTimeout(() => setJustSent(""), 6000);
       await refresh();
     } catch (err) {
@@ -434,8 +438,11 @@ export default function InvoiceDetailPage() {
       {justSent && (
         <div className="bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-900 rounded-lg px-4 py-3 flex items-center gap-2.5 text-sm text-green-800 dark:text-green-300">
           <Check size={16} className="shrink-0" />
-          {t("app.invoiceDetail.emailedTo")}{" "}
-          <span className="font-medium">{justSent}</span>.
+          <span>
+            {t("app.invoiceDetail.emailedTo")}{" "}
+            <span className="font-medium">{justSent}</span>.
+            {justSentSimulated && <> {t("app.demo.notEmailed")}</>}
+          </span>
         </div>
       )}
 

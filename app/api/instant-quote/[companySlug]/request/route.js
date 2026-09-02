@@ -165,6 +165,9 @@ export async function POST(request, { params }) {
         language: emailLanguage,
       });
       await sendEmail({
+        // A demo's instant-quote page is a real public URL a stranger can
+        // fill in. The lead is still created; only the letter is simulated.
+        companyId: company.id,
         to: email,
         subject,
         html,

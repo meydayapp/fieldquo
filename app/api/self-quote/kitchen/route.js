@@ -26,13 +26,11 @@ import { createScoredLead } from "@/lib/leads/createLead";
 import { normaliseFinish, describeFinish } from "@/lib/kitchen/finishes";
 import { KINDS } from "@/lib/kitchen/geometry";
 import { resolveSender } from "@/lib/email/companySender";
-import { Resend } from "resend";
-import { lazyClient } from "@/lib/lazyClient";
+import { sendEmail } from "@/lib/email/resend";
 import { getAppOrigin } from "@/lib/appUrl";
 import { recordConsent, DISCLOSURE } from "@/lib/voice/outbound";
 import { KITCHEN_DESIGN_KEY } from "@/lib/kitchen/access";
 
-const resend = lazyClient(() => new Resend(process.env.RESEND_API_KEY));
 
 /** Elements this build understands, capped, with only the fields we draw. */
 function cleanDesign(input) {
@@ -215,7 +213,10 @@ export async function POST(request) {
       // a 404 is worse than emailing no link at all — it reads as the product
       // being broken at the exact moment a new enquiry arrives.
       const link = `${getAppOrigin(request)}/app/leads`;
-      await resend.emails.send({
+      await sendEmail({
+        // A demo's public self-quote page is a real, reachable URL. The
+        // notice this sends is internal, but the company is the seam.
+        companyId: company.id,
         from,
         replyTo,
         to,

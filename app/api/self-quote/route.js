@@ -175,6 +175,7 @@ export async function POST(request) {
         submittedAt: lead.createdAt,
       });
       await sendEmail({
+        companyId: company.id,
         to: email,
         subject,
         html,

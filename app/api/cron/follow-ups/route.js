@@ -283,6 +283,10 @@ export async function GET(request) {
       });
 
       await sendEmail({
+        // The quote/invoice's own company. A demo's follow-up cron still runs,
+        // still writes its FollowUpLog, still stops on reply — it just never
+        // chases a real homeowner on behalf of a company that doesn't exist.
+        companyId: entity.companyId,
         to,
         // template.name is the internal label ("Quote follow-up (default)") —
         // only fall back to it if no client-facing subject is set.

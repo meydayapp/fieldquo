@@ -143,7 +143,11 @@ export async function GET(request) {
     // sendEmail never throws — { id } | { error } | { skipped } — so the
     // three outcomes need checking, not a try/catch (AGENTS.md recurring
     // failure class #2).
-    const result = await sendEmail({ from, to, subject, html });
+    // FieldQuo's own letter to a tenant, so it still carries the tenant. A
+    // seeded demo has no card and no real subscription, and mailing a live
+    // address about the billing of a company that does not exist is the same
+    // leak in a duller wrapper.
+    const result = await sendEmail({ companyId: sub.companyId, from, to, subject, html });
 
     if (result?.error || result?.skipped) {
       // ── Revert the claim ──────────────────────────────────────────────

@@ -968,6 +968,7 @@ const en = {
   "app.quoteDetail.callAddPhone": "Add a phone number",
   "app.quoteDetail.callError": "We couldn't queue that call. Try again in a moment.",
   "app.quoteDetail.sentTo": "Sent to",
+  "app.demo.notEmailed": "Demo account — nothing was actually emailed. Open Activity to see what would have gone out.",
   "app.quoteDetail.confirmSend": "Send this quote to {email}?",
   "app.quoteDetail.confirmSendTitle": "Send this quote?",
   "app.quoteDetail.confirmFollowUpTitle": "Send a follow-up?",
@@ -3276,10 +3277,6 @@ const en = {
   "app.setTeam.worksAloneHint":
     "Takes “Invite your team” off your setup checklist. Untick it the day you take somebody on.",
   "app.setTeam.errWorksAlone": "Couldn't save that. Try again in a moment.",
-  "app.setTeam.worksAlone": "It's just me — no crew right now.",
-  "app.setTeam.worksAloneHint":
-    "Takes “Invite your team” off your setup checklist. Untick it the day you take somebody on.",
-  "app.setTeam.errWorksAlone": "Couldn't save that. Try again in a moment.",
   "app.setTeam.seatsUsed": "seats used",
   "app.setTeam.crewIncluded": "crew — included free",
   "app.setTeam.countAdministrators": "Administrators",
@@ -4979,6 +4976,64 @@ const en = {
     "Equipment logged on this job ({amount}) is already covered by the overhead share above — it isn't added again.",
   "app.jobCosting.equipmentAdded":
     "Equipment logged on this job added {amount} to the total above — set up Settings → Overhead and this stops being counted twice.",
+
+  // ── Sales portal (/sales) — FieldQuo's own reps ─────────────────────────
+  //
+  // Translated, even though the audience is FieldQuo staff rather than a
+  // customer. /platform deliberately isn't (see check-nav-audit.mjs's own note
+  // on why the console's rows are plain English), and the difference is who
+  // reads each one: the console is read by the handful of people who build
+  // this, while reps are hired into a market where half the contractors sign
+  // their quotes in French. A staff surface that is English-only is a decision;
+  // one that is half-translated is the bug this catalogue exists to prevent.
+  //
+  // Subscription statuses are spelled out rather than printed raw. "past_due"
+  // on screen is the same failure ROLE_LABELS exists to stop — the database's
+  // vocabulary leaking into a sentence a person reads.
+  "app.salesPortal.title": "Sales portal",
+  "app.salesPortal.signIn": "Sign in",
+  "app.salesPortal.signOut": "Sign out",
+  "app.salesPortal.email": "Email",
+  "app.salesPortal.password": "Password",
+  "app.salesPortal.signingIn": "Signing in…",
+  "app.salesPortal.loginIntro":
+    "FieldQuo sales team only. A company account won't sign you in here.",
+  "app.salesPortal.signedInAs": "Signed in as {name}",
+  "app.salesPortal.myCompanies": "My companies",
+  "app.salesPortal.intro":
+    "The companies credited to you. Read-only — attribution and commission are recorded by FieldQuo's own systems, never from this screen.",
+  "app.salesPortal.empty": "No companies are credited to you yet.",
+  "app.salesPortal.loading": "Loading…",
+  "app.salesPortal.retry": "Try again",
+  "app.salesPortal.colCompany": "Company",
+  "app.salesPortal.colSignedUp": "Signed up",
+  "app.salesPortal.colSubscription": "Subscription",
+  "app.salesPortal.colMilestones": "Milestones",
+  "app.salesPortal.demoBadge": "Demo",
+  "app.salesPortal.noMilestones": "None recorded",
+  "app.salesPortal.milestoneActivation": "Activated",
+  "app.salesPortal.milestoneFirstPayment": "First payment",
+  "app.salesPortal.milestoneRetention": "Still paying",
+  "app.salesPortal.statusReversed": "reversed",
+  "app.salesPortal.statusUnderReview": "under review",
+  "app.salesPortal.subNone": "No subscription",
+  "app.salesPortal.subTrialing": "Trial",
+  "app.salesPortal.subActive": "Active",
+  "app.salesPortal.subPastDue": "Past due",
+  "app.salesPortal.subCanceled": "Cancelled",
+  "app.salesPortal.chargesEnabled": "Taking payments",
+  "app.salesPortal.chargesPending": "Stripe setup unfinished",
+  "app.salesPortal.inviteHeading": "Set your password",
+  "app.salesPortal.inviteIntro":
+    "You've been added to the FieldQuo sales team as {email}.",
+  "app.salesPortal.inviteChecking": "Checking your invitation…",
+  "app.salesPortal.invitePassword": "Choose a password",
+  "app.salesPortal.inviteConfirm": "Type it again",
+  "app.salesPortal.inviteMinLength": "At least {n} characters.",
+  "app.salesPortal.inviteMismatch": "Those two passwords don't match.",
+  "app.salesPortal.inviteSubmit": "Set password and sign in",
+  "app.salesPortal.inviteSaving": "Setting up…",
+  "app.salesPortal.backToSignIn": "Go to sign in",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -5820,6 +5875,7 @@ const fr = {
   "app.quoteDetail.callAddPhone": "Ajouter un numéro de téléphone",
   "app.quoteDetail.callError": "Nous n'avons pas pu mettre cet appel en file. Réessayez dans un instant.",
   "app.quoteDetail.sentTo": "Envoyée à",
+  "app.demo.notEmailed": "Compte de démonstration — aucun courriel n'a réellement été envoyé. Ouvrez Activité pour voir ce qui serait parti.",
   "app.quoteDetail.confirmSend": "Envoyer cette soumission à {email} ?",
   "app.quoteDetail.confirmSendTitle": "Envoyer cette soumission ?",
   "app.quoteDetail.confirmFollowUpTitle": "Envoyer un rappel ?",
@@ -8021,11 +8077,6 @@ const fr = {
     "Retire « Invitez votre équipe » de votre liste de configuration. Décochez-la le jour où vous embauchez.",
   "app.setTeam.errWorksAlone":
     "Impossible d'enregistrer. Réessayez dans un instant.",
-  "app.setTeam.worksAlone": "Je travaille seul — aucune équipe pour l'instant.",
-  "app.setTeam.worksAloneHint":
-    "Retire « Invitez votre équipe » de votre liste de configuration. Décochez-la le jour où vous embauchez.",
-  "app.setTeam.errWorksAlone":
-    "Impossible d'enregistrer. Réessayez dans un instant.",
   "app.setTeam.seatsUsed": "sièges utilisés",
   "app.setTeam.crewIncluded": "équipiers — inclus gratuitement",
   "app.setTeam.countAdministrators": "Administrateurs",
@@ -9689,6 +9740,52 @@ const fr = {
     "L'équipement enregistré sur ce chantier ({amount}) est déjà couvert par la part de frais généraux ci-dessus — il n'est pas ajouté une deuxième fois.",
   "app.jobCosting.equipmentAdded":
     "L'équipement enregistré sur ce chantier a ajouté {amount} au total ci-dessus — configurez Paramètres → Frais généraux pour que ce ne soit plus compté deux fois.",
+
+  // ── Portail des ventes (/sales) — voir le bloc anglais pour la règle. ───
+  "app.salesPortal.title": "Portail des ventes",
+  "app.salesPortal.signIn": "Se connecter",
+  "app.salesPortal.signOut": "Se déconnecter",
+  "app.salesPortal.email": "Courriel",
+  "app.salesPortal.password": "Mot de passe",
+  "app.salesPortal.signingIn": "Connexion…",
+  "app.salesPortal.loginIntro":
+    "Réservé à l'équipe des ventes de FieldQuo. Un compte d'entreprise ne donne pas accès à ce portail.",
+  "app.salesPortal.signedInAs": "Connecté en tant que {name}",
+  "app.salesPortal.myCompanies": "Mes entreprises",
+  "app.salesPortal.intro":
+    "Les entreprises qui vous sont attribuées. En lecture seule — l'attribution et les commissions sont enregistrées par les systèmes de FieldQuo, jamais depuis cet écran.",
+  "app.salesPortal.empty": "Aucune entreprise ne vous est encore attribuée.",
+  "app.salesPortal.loading": "Chargement…",
+  "app.salesPortal.retry": "Réessayer",
+  "app.salesPortal.colCompany": "Entreprise",
+  "app.salesPortal.colSignedUp": "Inscription",
+  "app.salesPortal.colSubscription": "Abonnement",
+  "app.salesPortal.colMilestones": "Jalons",
+  "app.salesPortal.demoBadge": "Démo",
+  "app.salesPortal.noMilestones": "Aucun enregistré",
+  "app.salesPortal.milestoneActivation": "Activée",
+  "app.salesPortal.milestoneFirstPayment": "Premier paiement",
+  "app.salesPortal.milestoneRetention": "Toujours abonnée",
+  "app.salesPortal.statusReversed": "annulé",
+  "app.salesPortal.statusUnderReview": "en révision",
+  "app.salesPortal.subNone": "Aucun abonnement",
+  "app.salesPortal.subTrialing": "Essai",
+  "app.salesPortal.subActive": "Actif",
+  "app.salesPortal.subPastDue": "En retard de paiement",
+  "app.salesPortal.subCanceled": "Annulé",
+  "app.salesPortal.chargesEnabled": "Encaisse les paiements",
+  "app.salesPortal.chargesPending": "Configuration Stripe inachevée",
+  "app.salesPortal.inviteHeading": "Choisissez votre mot de passe",
+  "app.salesPortal.inviteIntro":
+    "Vous avez été ajouté à l'équipe des ventes de FieldQuo avec l'adresse {email}.",
+  "app.salesPortal.inviteChecking": "Vérification de votre invitation…",
+  "app.salesPortal.invitePassword": "Choisissez un mot de passe",
+  "app.salesPortal.inviteConfirm": "Saisissez-le de nouveau",
+  "app.salesPortal.inviteMinLength": "Au moins {n} caractères.",
+  "app.salesPortal.inviteMismatch": "Les deux mots de passe ne concordent pas.",
+  "app.salesPortal.inviteSubmit": "Enregistrer et se connecter",
+  "app.salesPortal.inviteSaving": "Configuration…",
+  "app.salesPortal.backToSignIn": "Aller à la connexion",
 };
 
 
@@ -10293,6 +10390,7 @@ const es = {
   "app.quoteDetail.callAddPhone": "Añadir un número de teléfono",
   "app.quoteDetail.callError": "No pudimos poner esa llamada en cola. Inténtalo de nuevo en un momento.",
   "app.quoteDetail.sentTo": "Enviada a",
+  "app.demo.notEmailed": "Cuenta de demostración: no se envió ningún correo. Abre Actividad para ver lo que se habría enviado.",
   "app.quoteDetail.confirmSend": "¿Enviar esta cotización a {email}?",
   "app.quoteDetail.confirmSendTitle": "¿Enviar esta cotización?",
   "app.quoteDetail.confirmFollowUpTitle": "¿Enviar un recordatorio?",
@@ -13757,6 +13855,7 @@ const uk = {
   "app.quoteDetail.callAddPhone": "Додати номер телефону",
   "app.quoteDetail.callError": "Не вдалося поставити дзвінок у чергу. Спробуйте ще раз за мить.",
   "app.quoteDetail.sentTo": "Надіслано на",
+  "app.demo.notEmailed": "Демонстраційний обліковий запис — лист насправді не надіслано. Відкрийте «Активність», щоб побачити, що мало піти.",
   "app.quoteDetail.confirmSend": "Надіслати цей кошторис на {email}?",
   "app.quoteDetail.confirmSendTitle": "Надіслати цей кошторис?",
   "app.quoteDetail.confirmFollowUpTitle": "Надіслати нагадування?",
@@ -17198,6 +17297,7 @@ const pa = {
   "app.quoteDetail.callAddPhone": "ਫ਼ੋਨ ਨੰਬਰ ਜੋੜੋ",
   "app.quoteDetail.callError": "ਅਸੀਂ ਉਹ ਕਾਲ ਕਤਾਰ ਵਿੱਚ ਨਹੀਂ ਪਾ ਸਕੇ। ਥੋੜ੍ਹੀ ਦੇਰ ਬਾਅਦ ਫਿਰ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
   "app.quoteDetail.sentTo": "ਭੇਜਿਆ ਗਿਆ",
+  "app.demo.notEmailed": "ਡੈਮੋ ਖਾਤਾ — ਅਸਲ ਵਿੱਚ ਕੋਈ ਈਮੇਲ ਨਹੀਂ ਭੇਜੀ ਗਈ। ਜੋ ਭੇਜਿਆ ਜਾਣਾ ਸੀ ਉਹ ਦੇਖਣ ਲਈ ਸਰਗਰਮੀ ਖੋਲ੍ਹੋ।",
   "app.quoteDetail.confirmSend": "ਇਹ ਹਵਾਲਾ {email} ਨੂੰ ਭੇਜਣਾ ਹੈ?",
   "app.quoteDetail.confirmSendTitle": "ਇਹ ਹਵਾਲਾ ਭੇਜਣਾ ਹੈ?",
   "app.quoteDetail.confirmFollowUpTitle": "ਯਾਦ-ਪੱਤਰ ਭੇਜਣਾ ਹੈ?",
@@ -20634,6 +20734,7 @@ const tl = {
   "app.quoteDetail.callAddPhone": "Magdagdag ng numero ng telepono",
   "app.quoteDetail.callError": "Hindi namin na-queue ang tawag na iyon. Subukan ulit maya-maya.",
   "app.quoteDetail.sentTo": "Naipadala kay",
+  "app.demo.notEmailed": "Demo account — walang aktwal na na-email. Buksan ang Activity para makita ang sana'y ipinadala.",
   "app.quoteDetail.confirmSend": "Ipadala ang quote na ito sa {email}?",
   "app.quoteDetail.confirmSendTitle": "Ipadala ang quote na ito?",
   "app.quoteDetail.confirmFollowUpTitle": "Magpadala ng follow-up?",

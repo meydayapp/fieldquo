@@ -146,8 +146,14 @@ console.log("\nThe signed quote's PDF shows the signature, in the document's own
   // Both sides keep a copy of what was agreed to: the same rendered
   // `attachments` (built once, from `pdfBuffer`) is passed to the internal
   // owners/admins notification AND the client's confirmation — not just one
-  // of the two resend.emails.send() calls this function makes on acceptance.
-  const sendCalls = [...route.matchAll(/resend\.emails\.send\(\{([\s\S]*?)\}\);/g)].map((m) => m[1]);
+  // of the two sends this function makes on acceptance.
+  //
+  // Matched on sendEmail rather than resend.emails.send: this route built its
+  // own Resend client until lib/email/resend.js became the single seam the
+  // demo interception sits at (see scripts/check-demo-email.mjs). The property
+  // asserted here — two sends, both carrying the attachment — is unchanged;
+  // only the name of the call is.
+  const sendCalls = [...route.matchAll(/sendEmail\(\{([\s\S]*?)\}\);/g)].map((m) => m[1]);
   t("exactly two emails are sent from the acceptance/decline path", sendCalls.length, 2);
   const withAttachments = sendCalls.filter((c) => /\battachments\b/.test(c));
   t("both the internal (company) email and the client email attach the signed PDF",

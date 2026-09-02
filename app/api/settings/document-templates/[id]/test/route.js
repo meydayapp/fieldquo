@@ -135,6 +135,9 @@ export async function POST(request, { params }) {
   const subject = renderSubject(template.subject, mergeData, template.name);
 
   const result = await sendEmail({
+    // A test send takes a free-text address from the form, so it is the
+    // easiest way of all to put a demo's letter in a real inbox.
+    companyId: member.companyId,
     to: String(to).trim(),
     subject: `[Test] ${subject}`,
     html,

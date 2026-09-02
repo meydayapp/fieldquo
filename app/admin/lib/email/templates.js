@@ -234,6 +234,12 @@ export async function sendBookingConfirmationEmail({ to, company, ...rest }) {
   const { subject, html } = buildBookingConfirmationEmail(rest);
 
   return sendEmail({
+    // The tenant, so a demo company's booking confirmation is simulated rather
+    // than mailed to whoever booked. Every caller passes the full row (see
+    // lib/booking/finalizeBooking.js and app/api/visit/[token]/*) — a partial
+    // `{ name }` would leave this undefined and the send real, which is why
+    // sendEmail is given the ID rather than a boolean somebody computed here.
+    companyId: company?.id,
     to,
     subject,
     html,
@@ -360,13 +366,19 @@ export async function sendVisitCancelledEmails(params) {
  */
 async function sendBothCopies(company, letters) {
   const sender = senderFor(company || { name: company?.name || "" });
+  // Both halves carry the tenant. The company's own copy is simulated for a
+  // demo too — not because a contractor's inbox needs protecting, but because
+  // splitting the rule ("client mail is faked, staff mail is real") gives a
+  // demo two behaviours where it should have one, and the first person to add
+  // a third letter has to guess which side it lands on.
+  const sendingCompanyId = company?.id;
 
   const [client, office] = await Promise.all([
     letters.client.to
-      ? sendEmail({ ...letters.client, ...sender }).catch((err) => ({ error: err?.message }))
+      ? sendEmail({ companyId: sendingCompanyId, ...letters.client, ...sender }).catch((err) => ({ error: err?.message }))
       : Promise.resolve({ skipped: true }),
     letters.company.to
-      ? sendEmail({ ...letters.company, ...sender }).catch((err) => ({ error: err?.message }))
+      ? sendEmail({ companyId: sendingCompanyId, ...letters.company, ...sender }).catch((err) => ({ error: err?.message }))
       : Promise.resolve({ skipped: true }),
   ]);
 

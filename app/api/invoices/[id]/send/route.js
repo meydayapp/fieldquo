@@ -151,7 +151,7 @@ export async function POST(request, { params }) {
     }),
   });
 
-  const result = await sendEmail({ to, subject, html, text, from, replyTo });
+  const result = await sendEmail({ companyId: member.companyId, to, subject, html, text, from, replyTo });
 
   if (result?.skipped) {
     return NextResponse.json(
@@ -205,5 +205,13 @@ export async function POST(request, { params }) {
   // second reminder about the same debt.
   await taskForSentInvoice(invoice.id);
 
-  return NextResponse.json({ ...updated, to, messageId: result?.id || null });
+  // See the same line in app/api/quotes/[id]/send/route.js: a demo's send is
+  // recorded exactly like a real one, so this flag is the only thing that can
+  // stop the UI claiming an email arrived.
+  return NextResponse.json({
+    ...updated,
+    to,
+    messageId: result?.id || null,
+    simulated: result?.simulated === true,
+  });
 }

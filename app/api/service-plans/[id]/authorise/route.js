@@ -11,11 +11,10 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
+
 import { db } from "@/lib/db";
-import { lazyClient } from "@/lib/lazyClient";
 import { memberOrRefusal } from "@/lib/apiMember";
-import { SENDER_SELECT } from "@/lib/email/resend";
+import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
 import { getAppOrigin } from "@/lib/appUrl";
 import { newPortalToken } from "@/lib/clientPortal";
@@ -31,7 +30,6 @@ import { plannedOccurrenceCount } from "@/lib/servicePlans/schedule";
 import { revokeAuthorisation } from "@/lib/servicePlans/authorisation";
 import { buildAuthorisationRequestEmail } from "@/lib/email/servicePlanEmail";
 
-const resend = lazyClient(() => new Resend(process.env.RESEND_API_KEY));
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -138,7 +136,11 @@ export async function POST(request, { params }) {
     url,
   });
 
-  await resend.emails.send({
+  // Checked, not fired and forgotten: sendEmail returns its failures instead
+  // of throwing, and `sent: true` on a mandate request the client never
+  // received is a lie the contractor will wait on.
+  const result = await sendEmail({
+    companyId: member.companyId,
     from,
     replyTo,
     to: plan.client.email,
@@ -146,6 +148,21 @@ export async function POST(request, { params }) {
     html,
     text,
   });
+
+  if (result?.skipped) {
+    return NextResponse.json(
+      {
+        error:
+          "Email isn't configured on this deployment yet — RESEND_API_KEY is missing, so nothing was sent.",
+      },
+      { status: 503 },
+    );
+  }
+  if (result?.error) {
+    const message =
+      typeof result.error === "string" ? result.error : result.error?.message || "Send failed";
+    return NextResponse.json({ error: `The email couldn't be sent. ${message}` }, { status: 502 });
+  }
 
   return NextResponse.json({ sent: true, to: plan.client.email, url });
 }

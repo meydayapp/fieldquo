@@ -169,6 +169,7 @@ export async function GET(request) {
       // try/catch here would have caught nothing while every customer was
       // marked as asked.
       const result = await sendEmail({
+        companyId: company.id,
         to: client.email,
         subject: email.subject,
         html: email.html,

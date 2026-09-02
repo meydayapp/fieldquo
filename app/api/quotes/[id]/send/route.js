@@ -293,7 +293,7 @@ export async function POST(request, { params }) {
     });
   }
 
-  const result = await sendEmail({ to, subject, html, text, from, replyTo, attachments });
+  const result = await sendEmail({ companyId: member.companyId, to, subject, html, text, from, replyTo, attachments });
 
   // sendEmail returns { skipped } rather than throwing when RESEND_API_KEY is
   // absent. Treating that as success is how a deployment with no mail
@@ -372,7 +372,18 @@ export async function POST(request, { params }) {
     metadata: { to, total: quote.total },
   });
 
-  return NextResponse.json({ ...updated, to, messageId: result?.id || null });
+  // `simulated` is the ONE thing about a demo send that differs from a real
+  // one, and it is reported rather than inferred: everything else in this
+  // response (status, sentAt, sentToEmail) is deliberately identical, so the
+  // browser has no other way to tell — and a green "Sent to
+  // prospect@theirfirm.com" over a letter that never left is the failure
+  // AGENTS.md names first.
+  return NextResponse.json({
+    ...updated,
+    to,
+    messageId: result?.id || null,
+    simulated: result?.simulated === true,
+  });
 }
 
 /**

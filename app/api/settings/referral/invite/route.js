@@ -18,15 +18,13 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
 import { db } from "@/lib/db";
-import { lazyClient } from "@/lib/lazyClient";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { sendEmail } from "@/lib/email/resend";
 import { getAppOrigin } from "@/lib/appUrl";
 import { sendSms, toE164 } from "@/lib/sms/twilioClient";
 import { REFEREE_BONUS_MONTHS } from "@/lib/referrals";
 
-const resend = lazyClient(() => new Resend(process.env.RESEND_API_KEY));
 
 // Generous for genuine word-of-mouth, useless for bulk. A contractor
 // recommending FieldQuo to peers sends a handful; a spammer wants thousands.
@@ -148,13 +146,28 @@ export async function POST(request) {
       if (!result.success) throw new Error(result.error || "SMS failed");
       providerMessageId = result.sid;
     } else {
-      const sent = await resend.emails.send({
+      // companyId is passed even though this letter is FieldQuo's, not the
+      // company's: the recipient is a real stranger the CONTRACTOR named, and
+      // a demo account referring a live prospect is the same leak as a demo
+      // quoting one. The invite still records as sent so the rep sees the
+      // whole flow — see lib/email/demoMail.js.
+      const sent = await sendEmail({
+        companyId: company.id,
         from: FROM,
         to: email,
         subject: `${company.name} thinks you'd like FieldQuo`,
         html: inviteHtml({ companyName: company.name, url, recipientName }),
       });
-      providerMessageId = sent?.data?.id || null;
+      // sendEmail returns failures rather than throwing, and the catch below
+      // is what turns a failed send into status: "failed" on the
+      // ReferralInvite row. Without this the row would claim "sent".
+      if (sent?.error) {
+        throw new Error(
+          typeof sent.error === "string" ? sent.error : sent.error?.message || "Send failed",
+        );
+      }
+      if (sent?.skipped) throw new Error("Email isn't configured on this deployment.");
+      providerMessageId = sent?.id || null;
     }
   } catch (err) {
     error = err?.message || "Send failed";

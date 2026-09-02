@@ -190,6 +190,10 @@ export default function QuoteDetailPage() {
   const [callResult, setCallResult] = useState(null);
   const [sending, setSending] = useState(""); // "" | "quote" | "follow_up"
   const [justSent, setJustSent] = useState("");
+  // Whether the last send was intercepted because this is a demo company. Kept
+  // beside justSent rather than folded into it: the banner still names the
+  // address, and only the claim about delivery changes.
+  const [justSentSimulated, setJustSentSimulated] = useState(false);
   // The send refused because an optional email section is switched on with
   // nothing in it. Held as state rather than flattened into `error`, because
   // the 409 carries the two ways out and a red banner cannot offer a button.
@@ -407,6 +411,7 @@ export default function QuoteDetailPage() {
       // one action the user most wants confirmation of.
       setQuote((q) => ({ ...q, ...data }));
       setJustSent(data.to);
+      setJustSentSimulated(data.simulated === true);
       setTimeout(() => setJustSent(""), 6000);
     } catch (err) {
       setError(err.message);
@@ -751,6 +756,13 @@ export default function QuoteDetailPage() {
           <span>
             {t("app.quoteDetail.sentTo")}{" "}
             <span className="font-medium">{justSent}</span>.
+            {/* Said in the same breath as the address, not in a separate
+                banner elsewhere on the page: the sentence the rep reads is
+                "Sent to <address>", and the correction has to reach them
+                before they look away. */}
+            {justSentSimulated && (
+              <> {t("app.demo.notEmailed")}</>
+            )}
           </span>
         </div>
       )}

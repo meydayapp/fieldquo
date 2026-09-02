@@ -184,6 +184,10 @@ export async function sendCampaignEmails({ campaign, companyId, request }) {
         campaign.name,
       );
       const result = await sendEmail({
+        // A campaign is the highest-volume client-facing path in the product —
+        // one press of Send reaches every subscriber at once, which is the
+        // worst possible thing for a demo account to be able to do for real.
+        companyId: campaign.companyId,
         to: sub.email,
         subject,
         html,

@@ -391,7 +391,11 @@ async function runNotify({ mention, crewLine, sendSms, maySms, canReply = true, 
       maySms: maySms || (async () => true),
       crewSpendFor: async () => ({ canReply }),
       chargeOutboundCrewReply: async () => ({}),
-      resend: { emails: { send: async () => { if (!resendOk) throw new Error("resend down"); } } },
+      // The seam is sendEmail now, not a Resend client — lib/email/resend.js is
+      // the only module that constructs one. `{ error }` rather than a throw,
+      // because that is how sendEmail actually reports a rejected message, and
+      // a fake that only throws would stop exercising the commoner failure.
+      sendEmail: async () => (resendOk ? { id: "re_1" } : { error: "resend down" }),
     },
   );
   return updates[0]?.data;
