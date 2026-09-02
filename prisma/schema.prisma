@@ -8098,6 +8098,13 @@ model SalesLead {
   status String  @default("new")
   notes  String?
 
+  /// The discovered business this lead came from, when it came from discovery
+  /// at all. Nullable because a rep meeting someone at a trade show has a lead
+  /// with no Prospect behind it, and forcing one would mean inventing a
+  /// discovery record that never happened.
+  prospectId String?
+  prospect   Prospect? @relation(fields: [prospectId], references: [id])
+
   /// Set when this prospect actually signs up, so a rep's pipeline and their
   /// attribution are the same story rather than two lists that disagree.
   convertedCompanyId String?   @unique
@@ -8162,4 +8169,560 @@ model SalesMessage {
   createdAt DateTime @default(now())
 
   @@index([threadId, sentAt])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Sales intelligence — prospects, evidence, opportunities
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ── The one architectural rule everything here serves ──────────────────────
+//
+// A FACT, an INFERENCE and a RECOMMENDATION are three different things and
+// never share a column. That is the brief's §2 and it is the reason this is
+// six tables instead of a wide Prospect row with a hundred nullable fields.
+//
+//   ProspectEvidence     — something observed. Has a source and a URL.
+//   ProspectCapability   — a normalised yes/no/unknown, derived from evidence.
+//   ProspectInference    — a conclusion evidence SUPPORTS but does not prove.
+//   ProspectOpportunity  — something FieldQuo might sell, citing evidence.
+//
+// The failure this prevents is the one the brief names outright: turning "the
+// site shows several vans and a team page" into `employeeCount = 12`. An
+// inference that gets written into a fact column is indistinguishable from a
+// fact a week later, and a rep reads it aloud to a prospect who then corrects
+// them. So the layers are separate in the database, not merely in the UI.
+//
+// ── Why Prospect is NOT SalesLead ─────────────────────────────────────────
+//
+// SalesLead.salesRepId is required and cascade-deletes with the rep: it is
+// structurally "my pipeline", cannot exist before assignment, and dies when
+// the rep leaves. A Prospect is org-wide, exists in the thousands, is mostly
+// unworked, and carries provenance a typed-in lead never has.
+//
+// The decisive argument is money. SalesLead.convertedCompanyId is @unique — a
+// SECOND path from a prospect to a company would give the commission ledger
+// two disagreeing answers about who is attributed. So they are joined by a
+// nullable FK on SalesLead and nothing is denormalised across it.
+
+model Prospect {
+  id String @id @default(cuid())
+
+  // ── Identity, in the order deduplication trusts it ──────────────────────
+  //
+  // Deterministic identifiers first, fuzzy matching only after. A Place ID is
+  // proof; a similar company name two streets apart is a question.
+  googlePlaceId String? @unique
+  /// E.164. Normalised on write so a match is a match — see lib/phone.
+  phoneE164     String?
+  /// Registrable domain, lowercased, no scheme and no www.
+  domain        String?
+
+  businessName String
+  /// What the source called it, before normalisation. Kept because a
+  /// deduplication argument is unreadable without the original strings.
+  rawName      String?
+
+  addressLine String?
+  city        String?
+  province    String?
+  postalCode  String?
+  country     String?
+  latitude    Decimal? @db.Decimal(9, 6)
+  longitude   Decimal? @db.Decimal(9, 6)
+
+  /// Google's own category strings, unmapped. Mapping them to FieldQuo trades
+  /// is a separate, revisable decision and must not overwrite the source.
+  sourceCategories String[] @default([])
+  /// The FieldQuo trade this was discovered as. Null when nothing mapped —
+  /// never a guess.
+  tradeKey         String?
+
+  googleRating      Decimal? @db.Decimal(2, 1)
+  googleReviewCount Int?
+  businessStatus    String?
+
+  /// FALSE is a finding, not a blank. The brief is explicit that a business
+  /// with a Google profile and no website is a strong prospect, not a
+  /// discard — so this is three-valued: true, false, or null for "not yet
+  /// looked".
+  hasWebsite Boolean?
+  websiteUrl String?
+
+  status String @default("discovered")
+
+  territoryId String?
+  territory   SalesTerritory? @relation(fields: [territoryId], references: [id])
+
+  campaignId String?
+  campaign   ProspectCampaign? @relation(fields: [campaignId], references: [id])
+
+  /// Set when a human says never contact this business. Distinct from status
+  /// so it survives every pipeline transition.
+  doNotContactAt     DateTime?
+  doNotContactReason String?
+
+  /// A possible duplicate is FLAGGED, never auto-deleted. Merging destroys
+  /// provenance, and a wrong merge is unrecoverable.
+  possibleDuplicateOfId String?
+
+  lastCrawledAt            DateTime?
+  lastGoogleRefreshAt      DateTime?
+  lastOpportunityAnalysisAt DateTime?
+  /// Hash of the crawled content, so an unchanged site is not re-analysed.
+  contentHash              String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  evidence      ProspectEvidence[]
+  capabilities  ProspectCapability[]
+  technologies  ProspectTechnology[]
+  inferences    ProspectInference[]
+  opportunities ProspectOpportunity[]
+  scores        ProspectScore[]
+  corrections   ProspectCorrection[]
+  leads         SalesLead[]
+
+  @@index([status])
+  @@index([territoryId, status])
+  @@index([campaignId])
+  @@index([phoneE164])
+  @@index([domain])
+}
+
+/// Something we OBSERVED. The bottom of the stack; everything above cites it.
+///
+/// First-class rather than a JSON blob on Prospect because the question this
+/// exists to answer — "why does FieldQuo think this company has no online
+/// booking?" — is a join, and a blob cannot be joined to a recommendation.
+model ProspectEvidence {
+  id String @id @default(cuid())
+
+  prospectId String
+  prospect   Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  /// What kind of observation: "page_content" | "script_src" | "iframe_host" |
+  /// "google_field" | "form" | "link" | "meta" | "schema_org" | "transcript"
+  type String
+  /// Where it came from: "google" | "website" | "bbb" | "registry" | "call"
+  source    String
+  sourceUrl String?
+
+  /// The observation as found, and as normalised. Both, because a fingerprint
+  /// argument that shows only the normalised form is unreviewable.
+  rawValue        String?
+  normalizedValue String?
+
+  observedAt DateTime @default(now())
+  confidence Decimal  @default(1.0) @db.Decimal(3, 2)
+
+  /// Which detector produced this, and which version of it. Without the
+  /// version, an improvement to a detector silently rewrites history.
+  detector        String?
+  detectorVersion String?
+
+  createdAt DateTime @default(now())
+
+  @@index([prospectId, type])
+  @@index([prospectId, source])
+}
+
+/// A normalised capability: does this business have online booking, live chat,
+/// online payment, and so on.
+///
+/// `value` is deliberately nullable. "Not detected" and "definitely absent"
+/// are different claims, and collapsing them is how a rep ends up telling a
+/// contractor they have no booking page when they have one the crawler could
+/// not reach.
+model ProspectCapability {
+  id String @id @default(cuid())
+
+  prospectId String
+  prospect   Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  /// ONLINE_BOOKING, INSTANT_ESTIMATE, LIVE_CHAT, ONLINE_PAYMENT, ...
+  code  String
+  value Boolean?
+
+  confidence Decimal @default(0.5) @db.Decimal(3, 2)
+  /// Evidence ids. A recommendation that cites this can walk back to what was
+  /// actually seen.
+  evidenceIds String[] @default([])
+
+  detectedAt      DateTime @default(now())
+  detectorVersion String?
+
+  @@unique([prospectId, code])
+  @@index([code, value])
+}
+
+/// A technology fingerprint — Jobber, Housecall Pro, Calendly, a chat widget.
+///
+/// Competitor detection changes the entire sales conversation, so this is its
+/// own table rather than a capability: a capability answers "can they book
+/// online", this answers "with whose software".
+model ProspectTechnology {
+  id String @id @default(cuid())
+
+  prospectId String
+  prospect   Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  /// The signature that matched, by code.
+  technologyCode String
+  /// True when this technology is a FieldQuo competitor rather than an
+  /// adjacent tool. Stored rather than derived so the classification can
+  /// change without rewriting detections.
+  isCompetitor   Boolean @default(false)
+
+  confidence  Decimal  @default(0.5) @db.Decimal(3, 2)
+  evidenceIds String[] @default([])
+
+  detectedAt       DateTime @default(now())
+  signatureVersion String?
+
+  @@unique([prospectId, technologyCode])
+  @@index([technologyCode])
+}
+
+/// A conclusion the evidence SUPPORTS but does not prove.
+///
+/// Its own table so nothing can accidentally read an inference as a fact. The
+/// canonical example is company size: several vans in a photo and a team page
+/// support "small team", and they do not support "eleven employees". `value`
+/// is therefore a CLASSIFICATION, never a number.
+model ProspectInference {
+  id String @id @default(cuid())
+
+  prospectId String
+  prospect   Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  /// "company_scale" | "organization_structure" | "decision_maker" | ...
+  kind String
+  /// SOLO_LIKELY, SMALL_BUSINESS, FRANCHISE_LIKELY, ... A bucket, not a count.
+  value String
+
+  confidence  Decimal  @default(0.5) @db.Decimal(3, 2)
+  evidenceIds String[] @default([])
+
+  /// Where the claim came from. A prospect SAYING "we have six technicians" on
+  /// a recorded call is first-party and outranks any web inference — this is
+  /// what lets that supersede rather than sit beside it.
+  source     String   @default("derived")
+  observedAt DateTime @default(now())
+
+  modelVersion String?
+
+  @@unique([prospectId, kind])
+  @@index([kind, value])
+}
+
+/// Something FieldQuo might sell, and why.
+///
+/// Every row cites evidence. A recommendation with no evidenceIds is the
+/// generic sales filler the brief exists to prevent, so the absence is
+/// visible rather than plausible.
+model ProspectOpportunity {
+  id String @id @default(cuid())
+
+  prospectId String
+  prospect   Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  /// FK by code to the FieldQuo capability matrix — never a free-text feature
+  /// name, so nothing can recommend a capability the product does not have.
+  capabilityCode String
+  capability     FieldQuoCapability @relation(fields: [capabilityCode], references: [code])
+
+  rank       Int     @default(0)
+  confidence Decimal @default(0.5) @db.Decimal(3, 2)
+
+  /// Human-readable, generated from the rule that fired. Shown to the rep.
+  reason      String
+  evidenceIds String[] @default([])
+
+  /// Which rule produced it, so a bad recommendation is traceable to a rule
+  /// rather than to "the AI".
+  ruleCode    String?
+  ruleVersion String?
+
+  generatedAt DateTime @default(now())
+
+  @@unique([prospectId, capabilityCode])
+  @@index([capabilityCode])
+}
+
+/// How worth calling this prospect is. Separate from confidence: confidence is
+/// how sure we are of the DATA, this is how attractive the PROSPECT is.
+///
+/// Versioned rows rather than a column, so changing the scoring model does not
+/// make last month's analytics unreadable.
+model ProspectScore {
+  id String @id @default(cuid())
+
+  prospectId String
+  prospect   Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  score Int
+  /// [{ label, weight }] — the shape LeadRequest.scoreReasons already uses, so
+  /// a score is explainable in the UI without a second convention.
+  reasons Json?
+
+  scoringVersion String
+  computedAt     DateTime @default(now())
+
+  @@index([prospectId, computedAt])
+  @@index([score])
+}
+
+/// A human saying the machine got it wrong.
+///
+/// A confirmed correction outranks automated inference — that is the point.
+/// Kept as its own row rather than an in-place edit so the detector that was
+/// wrong can be found and fixed, which an overwrite would hide.
+model ProspectCorrection {
+  id String @id @default(cuid())
+
+  prospectId String
+  prospect   Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  /// Which thing was corrected: "capability:ONLINE_BOOKING",
+  /// "technology:JOBBER", "inference:company_scale", "field:phoneE164"
+  target String
+
+  originalValue  String?
+  correctedValue String?
+  reason         String?
+
+  correctedByAdminId String?
+  correctedByRepId   String?
+  correctedAt        DateTime @default(now())
+
+  @@index([prospectId])
+  @@index([target])
+}
+
+// ── Configuration the owner can change without a deploy ────────────────────
+
+/// What FieldQuo can actually provide. The ONLY source of truth for what may
+/// be recommended, which is what makes "never recommend a capability FieldQuo
+/// does not have" enforceable rather than aspirational — ProspectOpportunity
+/// has a foreign key to it.
+model FieldQuoCapability {
+  id   String @id @default(cuid())
+  code String @unique
+  name String
+  description String?
+
+  active        Boolean @default(true)
+  salesPriority Int     @default(0)
+
+  /// What must be observed before this may be recommended.
+  requiredEvidence Json?
+  /// Capability codes that make this one irrelevant.
+  incompatibilities String[] @default([])
+  recommendedTalkingPoints Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  opportunities ProspectOpportunity[]
+}
+
+/// A technology fingerprint, as data rather than code — so a new competitor
+/// can be detected without redeploying the crawler.
+model TechnologySignature {
+  id   String @id @default(cuid())
+  code String @unique
+  name String
+
+  isCompetitor Boolean @default(false)
+  active       Boolean @default(true)
+
+  /// [{ kind: "script_src"|"iframe_host"|"html"|"link"|"meta", pattern, weight }]
+  /// Matched deterministically. The brief is explicit that fingerprinting is
+  /// NOT an AI task — a model guessing at a competitor would be confidently
+  /// wrong in a sales conversation.
+  patterns Json
+
+  version   String   @default("1")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Weights behind a confidence figure, editable by a superadmin.
+model ConfidenceRule {
+  id     String  @id @default(cuid())
+  signal String  @unique
+  weight Decimal @db.Decimal(4, 3)
+  category String?
+  enabled  Boolean @default(true)
+  version  String  @default("1")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// When a capability gap becomes a recommendation.
+model OpportunityRule {
+  id   String @id @default(cuid())
+  code String @unique
+  name String
+
+  capabilityCode String
+  /// The conditions, as data: which prospect capabilities/technologies must
+  /// hold. Deterministic — AI may phrase the reason, never decide it.
+  conditions Json
+  /// Template for the human-readable reason. Interpolated from evidence, so a
+  /// reason cannot claim something no evidence supports.
+  reasonTemplate String
+
+  priority Int     @default(0)
+  active   Boolean @default(true)
+  version  String  @default("1")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SalesTerritory {
+  id   String @id @default(cuid())
+  name String @unique
+
+  country  String?
+  province String?
+  city     String?
+
+  /// A radius territory works with what the codebase already has —
+  /// haversineKm in lib/booking/travel.js is pure and needs no API key.
+  /// Polygons and postcode sets are deliberately not modelled yet.
+  centerLat Decimal? @db.Decimal(9, 6)
+  centerLng Decimal? @db.Decimal(9, 6)
+  radiusKm  Int?
+
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  prospects Prospect[]
+  campaigns ProspectCampaign[]
+}
+
+/// One discovery run: "1,000 painting contractors in Ottawa".
+model ProspectCampaign {
+  id   String @id @default(cuid())
+  name String
+
+  territoryId String?
+  territory   SalesTerritory? @relation(fields: [territoryId], references: [id])
+
+  tradeKey String?
+  keywords String[] @default([])
+  targetCount Int    @default(100)
+
+  /// NO DEFAULT, deliberately. The obvious default was "google", and the
+  /// compliance audit of 2026-09-01 found that the Maps Platform ToS
+  /// (§3.2.3(a)(iii), §3.2.3(d)(iii)) prohibits copying and saving business
+  /// names and addresses, and prohibits building a directory or augmenting an
+  /// advertising product — which is precisely this table. Worse, §5.2(d)
+  /// permits immediate suspension, and the same key powers address
+  /// autocomplete, the maps and the Solar roof measurement in the live
+  /// product.
+  ///
+  /// So a campaign must NAME its source rather than inherit one, and a null
+  /// here means nobody has chosen yet. A default would have quietly pointed
+  /// the first campaign at the one source that cannot legally serve it.
+  discoveryProvider String?
+
+  status String @default("draft")
+
+  /// Counters, so the admin screen can show progress without scanning rows.
+  foundCount      Int @default(0)
+  duplicateCount  Int @default(0)
+  acceptedCount   Int @default(0)
+  readyCount      Int @default(0)
+  needsReviewCount Int @default(0)
+
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  prospects Prospect[]
+
+  @@index([status])
+}
+
+/// The generic pipeline task.
+///
+/// Modelled on VoiceCallTask, which already has the right shape — status,
+/// notBefore, attempts, lastError, and an index on (status, notBefore) — and
+/// on lib/voice/autoTopup.js, which already has the atomic claim, a stale-claim
+/// timeout, and token reuse so a reclaim keeps its idempotency key. Those two
+/// were written for different features and never met; together they are this.
+///
+/// A queue library was rejected: it would be a second scheduling mechanism
+/// whose failures look nothing like the nineteen crons already here.
+model SalesPipelineTask {
+  id String @id @default(cuid())
+
+  /// DISCOVER_BUSINESSES, ENRICH_BUSINESS, CRAWL_WEBSITE, DETECT_TECHNOLOGY,
+  /// ANALYZE_CAPABILITIES, DETECT_OPPORTUNITIES, CALCULATE_LEAD_SCORE, ...
+  kind String
+
+  prospectId String?
+  campaignId String?
+
+  /// Everything the task needs, so a runner never re-derives inputs that may
+  /// have changed since it was queued.
+  payload Json?
+
+  /// queued | claimed | done | failed | abandoned
+  status String @default("queued")
+
+  /// Do not run before this. Carries the backoff.
+  notBefore DateTime @default(now())
+
+  attempts  Int     @default(0)
+  lastError String?
+
+  /// Who holds the claim and when it goes stale. A claim that dies mid-flight
+  /// must become reclaimable, or one crashed run wedges the task forever.
+  claimedAt    DateTime?
+  claimToken   String?
+  claimExpires DateTime?
+
+  /// Idempotency across a reclaim: the token is REUSED rather than reissued,
+  /// so retrying cannot produce a second side effect at a provider.
+  idempotencyKey String? @unique
+
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([status, notBefore])
+  @@index([kind, status])
+  @@index([prospectId])
+  @@index([campaignId])
+}
+
+/// Per-host crawl politeness.
+///
+/// A database row and not lib/rateLimit.js, whose own header says it lives in
+/// lambda memory — which is exactly what cross-invocation crawl politeness
+/// cannot use. Two lambdas hammering one contractor's site is how FieldQuo's
+/// crawler gets blocked and deserves to be.
+model CrawlHostPolicy {
+  id   String @id @default(cuid())
+  host String @unique
+
+  /// Parsed robots.txt outcome. Null means not yet fetched — NOT "allowed".
+  robotsAllowed   Boolean?
+  robotsFetchedAt DateTime?
+  crawlDelayMs    Int?
+
+  lastRequestAt DateTime?
+  requestCount  Int       @default(0)
+
+  /// Set when a host asks us to stop, by 429 or by robots. Respected until it
+  /// expires rather than retried on the next run.
+  blockedUntil DateTime?
+  blockReason  String?
+
+  updatedAt DateTime @updatedAt
 }
