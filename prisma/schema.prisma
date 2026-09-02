@@ -288,6 +288,20 @@ model PlatformVoiceCall {
 
   @@index([createdAt])
   @@index([startedAt])
+
+  /// FieldQuo's OWN cost for this call, from the provider's own figure.
+  ///
+  /// Missing until now, which meant FieldQuo's sales minutes were priced
+  /// nowhere while every tenant minute was measured to four decimal places.
+  /// Nullable and left null when the provider gives no figure — absence is
+  /// recorded as unknown, never padded with a hand-typed per-minute estimate,
+  /// because a guess written here is indistinguishable from a reading a month
+  /// later. Same reasoning as VoiceCall.providerCostCents; see
+  /// lib/voice/providerCost.js.
+  ///
+  /// There is no revenue counterpart, and there should not be. A tenant call
+  /// has a spread; this one is pure cost — FieldQuo selling to itself.
+  providerCostCents Decimal? @db.Decimal(12, 4)
 }
 
 model PlatformAuditLog {
@@ -7867,6 +7881,24 @@ model SalesRep {
   /// holds a seat before anyone clicks a link.
   passwordHash String?
 
+  /// The mailbox this rep SENDS from. Deliberately separate from `email`,
+  /// which is how they sign in and where their invite went.
+  ///
+  /// Two reasons, and the second is the one that would have bitten. A mailbox
+  /// is BOUGHT — the owner adds a rep before the inbox exists, so there is a
+  /// real window where a rep has a login and no address to send from. And a
+  /// login address may be personal or pre-existing; sending cold outreach from
+  /// it would put a stranger's reply somewhere the portal cannot see, and
+  /// possibly somewhere the rep does not want it.
+  ///
+  /// **There is deliberately no fallback to `email`.** A missing work mailbox
+  /// must block sending and say so, because the alternative — quietly sending
+  /// from the login address — is a send that reads as successful while the
+  /// reply goes somewhere nobody is watching. That is the same reasoning
+  /// lib/sales/outreachSender.js gives for refusing to fall back to the
+  /// platform sender.
+  workEmail String? @unique
+
   /// The slug in their link: /signup?sales=<code>. Its own namespace, because
   /// ?ref= and the referralCode POST field are already claimed by the promo and
   /// referral waterfall in app/api/companies/route.js.
@@ -8725,4 +8757,248 @@ model CrawlHostPolicy {
   blockReason  String?
 
   updatedAt DateTime @updatedAt
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FieldQuo's own do-not-contact list
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ── Why none of the existing consent tables could hold this ────────────────
+//
+// CallConsent and MarketingSubscriber are both `companyId`-scoped, and that is
+// not an accident of implementation — they model a TENANT's relationship with
+// a HOMEOWNER. FieldQuo cold-calling a contractor is a different party, a
+// different audience and a different legal basis; writing it into either table
+// would either need a fake Company row for FieldQuo (which lib/platform/
+// salesCall.js already refused to create, for the same reason) or a nullable
+// companyId that every existing tenant-scoped query would then have to
+// remember to exclude.
+//
+// The compliance audit (docs/sales-intel/AUDIT-compliance.md §5) searched for
+// a platform-level list properly and found nothing in any channel. This is it.
+//
+// ── The principle, in one line ─────────────────────────────────────────────
+//
+// An opt-out binds FieldQuo, not one rep's copy of a row. `SalesLead` has no
+// unique constraint on email, so two reps can hold the same prospect; the
+// pre-existing `leadOptedOut()` silenced one rep's copy and left the other
+// free to keep emailing. Nothing here is scoped to a rep, a lead, a campaign
+// or a company.
+
+/// An instruction to FieldQuo never to make contact again.
+///
+/// Keyed three ways, independently, because the channels are not independent:
+/// a prospect who says "stop calling me" on the phone has also said stop to
+/// the email, and a lookup that only knew their number would keep writing.
+model SalesSuppression {
+  id String @id @default(cuid())
+
+  /// "email" | "phone" | "domain" — see SUPPRESSION_KINDS in
+  /// lib/sales/suppressionRules.js, which is the only place that normalises a
+  /// value into one of these.
+  kind String
+  /// The NORMALISED key. Lowercased address, E.164 number, or registrable
+  /// domain with no scheme and no www. Never the raw string a human typed —
+  /// `Bob <BOB@Acme.com>` and `bob@acme.com` have to collide, or the list
+  /// answers "not suppressed" to the same person twice.
+  value String
+
+  /// Exactly what was given to us, before normalisation. Kept because a
+  /// regulator asking "who asked you to stop, and what did they say" is
+  /// answered by the original strings, not by our canonical form.
+  rawValue String?
+
+  /// Which channels this closes: "email", "phone", "sms". A list rather than a
+  /// boolean because a narrow request ("stop emailing, you can still call")
+  /// is a real thing a person says, and recording it as a blanket stop would
+  /// be padding absent data with a default — AGENTS.md failure class #5.
+  ///
+  /// NO schema default, deliberately. The widening happens in code, where it
+  /// can be argued: an unqualified "stop" is written as every channel, because
+  /// over-suppression is the safe failure and under-suppression is the fine.
+  channels String[]
+
+  /// How the request reached us: "reply" | "call" | "sms" | "form" |
+  /// "manual" | "import" | "regulator". Part of the evidence, not decoration —
+  /// the Canadian internal-DNC obligation is about honouring a REQUEST, so
+  /// where the request came from is the thing being retained.
+  source String
+  /// Free text, in the person's own terms where we have them.
+  reason String?
+  /// A URL that evidences the request, when there is one.
+  evidenceUrl String?
+
+  /// Where this came from, as loose pointers rather than foreign keys.
+  ///
+  /// Deliberately NOT relations: a FK with a cascade would let deleting a
+  /// SalesRep (and with them their cascaded leads, threads and messages)
+  /// delete the do-not-call record that outlives them by three years. The
+  /// pointer going stale is the acceptable failure; the row vanishing is not.
+  salesLeadId    String?
+  prospectId     String?
+  salesMessageId String?
+
+  /// When the person actually asked. The retention clock runs from here, not
+  /// from createdAt — a list imported later must not restart it.
+  requestedAt DateTime @default(now())
+
+  /// The date before which this row must not be deleted by anything, ever.
+  /// Computed once and STORED so the obligation is legible in the row rather
+  /// than only in a function somewhere. See internalDncRetainUntil() in
+  /// lib/sales/suppressionRules.js for where three years and fourteen days
+  /// comes from.
+  retainUntil DateTime
+
+  /// Who recorded it. Both nullable: a rep filing a reply and a superadmin
+  /// pasting a regulator's list are both real, and an automated write from the
+  /// inbound mail handler has neither.
+  createdBySalesRepId String?
+  createdByAdminId    String?
+
+  /// ── Removal is a soft state, and superadmin-only ────────────────────────
+  ///
+  /// The row is never deleted. `removedAt` lifts the block; the record of the
+  /// original request stays, which is what the retention obligation is about.
+  /// A removal with no reason is refused in code — see unsuppress().
+  removedAt       DateTime?
+  removedByAdminId String?
+  removedReason   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Required (not optional) on purpose: Prisma's default referential action
+  /// for a required relation is Restrict, so a SalesSuppression that has ever
+  /// been touched cannot be deleted even by a hand-written query. The
+  /// retention obligation gets a constraint, not only a convention.
+  events SalesSuppressionEvent[]
+
+  /// One row per key. An add for a key that already exists reopens and
+  /// re-evidences that row rather than creating a second one that a lookup
+  /// might or might not find.
+  @@unique([kind, value])
+  /// The send-time lookup: several keys at once, live rows only.
+  @@index([kind, value, removedAt])
+  @@index([removedAt])
+  @@index([requestedAt])
+}
+
+/// Every add, re-add and removal, append-only.
+///
+/// SalesSuppression carries the CURRENT state and is mutated by a re-add; this
+/// is the history that mutation would otherwise overwrite. Separate for the
+/// same reason ProspectCorrection is separate from Prospect: an in-place edit
+/// hides the sequence, and the sequence is the evidence.
+model SalesSuppressionEvent {
+  id String @id @default(cuid())
+
+  suppressionId String
+  suppression   SalesSuppression @relation(fields: [suppressionId], references: [id])
+
+  /// "suppressed" | "resuppressed" | "removed"
+  action String
+
+  source   String?
+  reason   String?
+  channels String[]
+
+  actorAdminId    String?
+  actorSalesRepId String?
+
+  occurredAt DateTime @default(now())
+
+  @@index([suppressionId, occurredAt])
+  @@index([action, occurredAt])
+}
+
+
+/// FieldQuo's OWN AI spend, at cost.
+///
+/// ══ Why this is not AiUsage ═══════════════════════════════════════════════
+///
+/// AiUsage.companyId is NOT NULL and recordAiUsage returns null without one,
+/// so every model call FieldQuo makes for itself — the sales copilot, prospect
+/// analysis, research briefs — is currently invisible. There is precedent for
+/// spending unmetered (anonymous Jennifer calls the model with no metering at
+/// all, deliberately), but a prospecting pipeline running at volume is a
+/// different proposition: nobody notices a slow leak until the invoice.
+///
+/// Making AiUsage.companyId nullable was the obvious alternative and was
+/// rejected. Every read of that table is "this company, this month", its index
+/// says so, and a nullable tenant key would put FieldQuo's own spend inside
+/// queries that mean "a customer's usage" — the same conflation
+/// PlatformVoiceCall exists to avoid, one table along.
+///
+/// ══ At cost, not at price ═════════════════════════════════════════════════
+///
+/// costMicros is what the VENDOR charges, in millionths of a dollar, the same
+/// unit and the same reasoning AiUsage uses: one call can cost $0.0004 and
+/// summing floats over thousands of rows accumulates error into a number
+/// someone will hold against an invoice.
+///
+/// There is no revenue column and there must not be one. A tenant's AI usage
+/// has a spread between what FieldQuo pays and what it charges; this has none.
+/// FieldQuo is spending its own money on its own sales operation.
+model PlatformAiUsage {
+  id String @id @default(cuid())
+
+  /// Which part of the sales system spent this — "prospect_analysis",
+  /// "research_brief", "call_summary", "coaching". Lets a spike be traced to a
+  /// stage rather than to "AI", which is the whole point of measuring.
+  area  String
+  model String
+
+  promptTokens     Int @default(0)
+  completionTokens Int @default(0)
+  totalTokens      Int @default(0)
+
+  /// Millionths of a dollar. Null is NOT zero — it means the vendor gave no
+  /// figure and nothing invented one.
+  costMicros Int?
+
+  /// What it was spent on, when that is knowable. Both nullable: a coaching
+  /// pass belongs to a call, not a prospect.
+  prospectId String?
+  campaignId String?
+
+  /// Who or what triggered it. Null for background pipeline work.
+  salesRepId String?
+
+  /// Idempotency, so a retried pipeline task cannot double-count spend.
+  ref String? @unique
+
+  createdAt DateTime @default(now())
+
+  @@index([area, createdAt])
+  @@index([campaignId])
+}
+
+/// A ceiling on what a prospecting run may spend before it stops and asks.
+///
+/// checkAiQuota has no untenanted equivalent — it gates on a company's plan,
+/// and FieldQuo has no plan. Without something here, a misconfigured campaign
+/// spends until someone reads a bill.
+///
+/// Deliberately a STOP, not a warning. A budget that only warns is a budget
+/// that gets exceeded, and the pipeline is unattended overnight by design.
+model PlatformAiBudget {
+  id String @id @default(cuid())
+
+  /// "campaign" | "daily" | "global"
+  scope   String
+  /// The campaign id for a campaign budget; null for daily and global.
+  scopeId String?
+
+  limitMicros Int
+  /// Summed from PlatformAiUsage rather than stored, so the ledger and the
+  /// budget cannot disagree. Kept here only as a cached read for the console,
+  /// and never the thing a spend decision is made against.
+  cachedSpentMicros Int @default(0)
+  cachedAt          DateTime?
+
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([scope, scopeId])
 }
