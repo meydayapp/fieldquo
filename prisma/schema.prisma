@@ -7889,6 +7889,8 @@ model SalesRep {
   touches           SalesAttributionTouch[]
   commissionEntries SalesCommissionEntry[]
   payoutBatches     SalesPayoutBatch[]
+  leads             SalesLead[]
+  threads           SalesThread[]
 
   @@index([active])
 }
@@ -8055,4 +8057,101 @@ model SalesPayoutBatch {
 
   @@unique([salesRepId, periodStart])
   @@index([status])
+}
+
+// ── A rep's own outreach ───────────────────────────────────────────────────
+//
+// The owner wants BOTH halves: a rep sends and receives from their own real
+// mailbox (10 of them cost $121.27 CAD a year, so per-rep addresses are not the
+// constraint they usually are), AND the conversation is attached to the
+// prospect inside FieldQuo rather than living only in that mailbox.
+//
+// Outbound is easy to capture: the rep composes in the portal, FieldQuo sends
+// it, so FieldQuo has it. Inbound is the half that needs the mail provider's
+// help — the rep's mailbox forwards a copy to an inbound endpoint, which files
+// it against the thread. That is why SalesMessage carries a direction and a
+// provider id rather than assuming every message was one we sent.
+//
+// None of this is tenant data. A prospect is FieldQuo's lead, not a
+// contractor's client, and a Client row would put it inside somebody's tenant.
+
+model SalesLead {
+  id String @id @default(cuid())
+
+  salesRepId String
+  salesRep   SalesRep @relation(fields: [salesRepId], references: [id], onDelete: Cascade)
+
+  businessName String
+  contactName  String?
+  email        String?
+  phone        String?
+
+  /// "new" | "contacted" | "demoed" | "signed" | "lost"
+  status String  @default("new")
+  notes  String?
+
+  /// Set when this prospect actually signs up, so a rep's pipeline and their
+  /// attribution are the same story rather than two lists that disagree.
+  convertedCompanyId String?   @unique
+  convertedAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  threads SalesThread[]
+
+  @@index([salesRepId, status])
+}
+
+model SalesThread {
+  id String @id @default(cuid())
+
+  salesRepId String
+  salesRep   SalesRep @relation(fields: [salesRepId], references: [id], onDelete: Cascade)
+
+  leadId String
+  lead   SalesLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  subject String
+
+  /// The token that makes an inbound reply findable. Put in the outbound
+  /// message's Reply-To and References so a reply carries it back, because
+  /// matching on the sender's address alone breaks the moment a prospect
+  /// replies from their phone with a different address — the same reasoning
+  /// app/api/crew/inbound/route.js gives for never keying on the sender.
+  replyToken String @unique
+
+  lastMessageAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  messages SalesMessage[]
+
+  @@index([salesRepId, lastMessageAt])
+}
+
+model SalesMessage {
+  id String @id @default(cuid())
+
+  threadId String
+  thread   SalesThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  /// "out" | "in"
+  direction String
+
+  fromAddress String
+  toAddress   String
+  subject     String
+  body        String
+
+  /// Null for an inbound message we merely received. Present for one we sent,
+  /// so a delivery failure can be traced back to the provider's own record.
+  providerId String?
+
+  /// When the message actually happened, from the provider's own header where
+  /// there is one — not when we wrote the row.
+  sentAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+
+  @@index([threadId, sentAt])
 }
