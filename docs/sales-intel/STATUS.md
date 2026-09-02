@@ -51,8 +51,50 @@ exit 0, schema pushed and verified, row counts unchanged.
 Specified 2026-09-01. The spec's own §64 says to audit before writing code, so
 that is what is happening.
 
-**Now:** two read-only audits still running — jobs/AI/data model, and
-compliance plus external API terms. Nothing is being built.
+**Now:** the compliance audit is still running. A separate agent is fixing four
+live voice bugs found during the audits. Nothing of Phase 2 is being built.
+
+### Jobs / AI / data-model audit — DONE (`AUDIT-jobs-ai-model.md`)
+
+**Most of a job queue already exists, split across two files that never met.**
+`VoiceCallTask` has the status machine, `notBefore`, `attempts`, `lastError`
+and the right index. `lib/voice/autoTopup.js` has the compare-and-set claim,
+a stale-claim timeout, and token reuse so a reclaim keeps its idempotency key.
+Together that IS the pipeline table — it does not need inventing, it needs
+joining up.
+
+**A thousand prospects is about a day**, drained in small batches on the
+existing cron cadence. If discovery must finish in an hour, crons are the wrong
+substrate and that is a real decision rather than a tuning exercise.
+
+**Structured AI output does not exist here yet.** There is no schema library
+and no `response_format`/`json_schema` anywhere — today it is prompted JSON,
+fence-stripping and hand-coercion across six callers. §59 asks for validated
+structured output, so that is new work, not a convention to follow.
+
+**FieldQuo's own AI spend is invisible.** `AiUsage.companyId` is NOT NULL and
+`recordAiUsage` returns null without one. There is precedent for spending
+unmetered (anonymous Jennifer calls the model with no metering, deliberately),
+but a prospecting pipeline spending at volume needs a budget ceiling that
+`checkAiQuota` has no untenanted equivalent for.
+
+**Prospect and SalesLead are TWO things, joined by a nullable FK.** The
+decisive argument is money, not taste: `SalesLead.convertedCompanyId` is
+`@unique`, and a second path from `Prospect` to `Company` would give the
+commission ledger two disagreeing answers about who is attributed. One entity
+would also force a rep-owned, cascade-deleted row to hold org-wide discovered
+data.
+
+**No territory model exists at all.** Geography is nullable coordinates on five
+models. `haversineKm`/`hasPoint` in `lib/booking/travel.js` are pure and
+reusable, so a radius territory works today; polygons or postcode sets are new.
+
+**No crawling exists**, and the existing rate limiter cannot serve it: it is
+inbound-only and lives in lambda memory, which is precisely what per-host crawl
+politeness cannot use. That has to be a database column.
+
+**A gap in what shipped last week:** `lib/sales/outreachSender.js` has no send
+caps at all, so campaign volume limits do not exist yet.
 
 ### Telephony audit — DONE (`AUDIT-telephony.md`)
 
