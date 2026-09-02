@@ -114,11 +114,33 @@ a pool is structurally the thing that code treats as a bug. Putting them there
 would make the rent cron bill a non-company, make `derivedSpend` count sales
 minutes as tenant burn, and report a false billing leak per number.
 
-**A product risk worth deciding early:** reps would draw on the SHARED Retell
-concurrency pool that tenants' receptionists depend on. Slots beyond the
-included allowance are a paid fixed cost (`platformEconomics.js`), so rep
-calling either starves customer calls or increases that bill. Needs a decision
-before reps dial at volume.
+**Vendor split, settled by the owner 2026-09-01 — do not re-open:**
+
+> Twilio carries the humans. Retell carries the AI receptionist.
+
+I had raised Retell concurrency contention as a risk. That was my error: it
+assumed rep calling would ride Retell. It should not. Retell is a per-minute AI
+voice agent — the wrong tool and the wrong price for a human rep talking to a
+prospect. Twilio Voice is materially cheaper per minute and has no concurrency
+slots to contend for.
+
+Consequences of the split:
+
+- **The Retell concurrency pool tenants depend on is untouched by sales.** The
+  risk I raised does not exist under this architecture.
+- **Twilio is already wired** — credentials, number search, webhooks — for SMS
+  and the number catalogue. The account and plumbing exist; Voice does not.
+- **`lib/voice/numberSearch.js` is directly reusable for the pool.**
+  `areaCodeOf` with N11 rejection, `defaultAreaCode` that returns null rather
+  than inventing, and `isStillAvailable` returning true/false/**null** are
+  exactly what caller-ID selection needs.
+- **Live transcription changes shape.** It would come from Twilio Media
+  Streams into an STT provider, not from Retell. Cleaner: the AI receptionist
+  and the copilot stop sharing a vendor.
+
+Still true from the audit: Twilio has NO Voice today — no SDK, no
+`calls.create`, no access tokens. Browser calling is new work. It is just new
+work on Twilio rather than on Retell.
 
 ### Live bugs found in passing (not Phase 2 — today)
 
