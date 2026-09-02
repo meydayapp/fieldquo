@@ -164,7 +164,7 @@ bookkeeping.
 
 ---
 
-## 5. Milestone 1 — $20 on Stripe Connect activation  ·  DECIDED
+## 5. Milestone 1 — $20  ·  REOPENED, see 5b
 
 **Decided by the owner, 1 Sept 2026: Stripe Connect activation alone. Onboarding
 completeness is not part of this milestone and must never be added to it.**
@@ -458,3 +458,68 @@ offered to someone who cannot act on it. The fix that matches the codebase's
 own habits is to make the team step dismissible the way tax registration
 already is — "I work alone" is a statement, and recording it is honest, whereas
 leaving a permanent nag treats a solo shop as an incomplete company.
+
+---
+
+## 16. Correction: onboarding completeness IS a definite signal
+
+An earlier note in this analysis said "completed business onboarding" might
+need defining before it could be measured. **That was wrong**, and the owner
+was right to push back. It is defined, in `lib/onboarding.js`, as seven
+concrete booleans:
+
+| key | check |
+|---|---|
+| `logo` | `!!company.logoUrl` |
+| `business_info` | phone AND address AND city AND province |
+| `services` | at least one enabled category |
+| `pricing` | a typed `defaultRate` OR a trade that ships priced |
+| `payments` | `!!company.stripeChargesEnabled` |
+| `team` | `seatsUsed > 1` (members + pending invites) |
+| `tax_registration` | number saved — or absent from the list entirely if dismissed |
+
+**`payments` is already one of the seven.** Onboarding-complete is therefore
+not an alternative to the Connect signal; it is that signal plus six others.
+
+Two things checked rather than assumed:
+
+- The `logo` label promises "logo and brand color" but only reads `logoUrl`.
+  This is **not** a bug: `brandColor` is `String? @default("#06356b")`, so every
+  company has one from creation and checking it would always pass.
+- The consequence for a solo shop is worse than a nag.
+  `OnboardingProgress.js:46` is `if (!status?.steps?.length || status.complete)
+  return null` — the card hides **only** on `complete`. A one-person company
+  sees that checklist on its dashboard permanently.
+
+### 5b. The solo checkbox, and what it unlocks
+
+The precedent is in the same file, and its comment already argues the design
+(lines 124–140): *"A step nobody can finish is worse than no step; a step
+nobody can get rid of is the same bug wearing a hat."* It also settles where
+the control belongs — Settings, beside the field, **not** a dismiss button on
+the card, because dismissing says "stop showing me this" while ticking a box
+records *why*, and an owner can change it when they hire.
+
+So, following that precedent exactly:
+
+- `Company.worksAloneAt DateTime?`, named after `taxRegistrationDismissedAt`.
+- A checkbox in Settings > Team: "It's just me — no crew right now."
+- When set, the `team` step is **not pushed into the array at all**, exactly
+  as `tax_registration` isn't. Not greyed out, not ticked — absent.
+- Verified: no such concept exists today under any other name.
+
+**With that in place, `complete` becomes reachable for every company, and
+milestone 1 can honestly gate on it.** That reopens the decision recorded in
+§5. The remaining technical work is unchanged and small: `complete` is
+recomputed on every read with no stored moment, so a commission milestone needs
+`Company.onboardingCompletedAt` stamped the first time it computes true.
+
+### Dead code found while verifying this
+
+`OnboardingProgress.js` has a `dismissTaxRegistration()` handler posting to
+`POST /api/onboarding-status`, but the button renders only when
+`step.dismissible` is truthy and `lib/onboarding.js:173` sets
+`dismissible: false`. The button never renders; the handler and that POST
+branch are unreachable. Leftovers from the design the comment describes
+rejecting. The working path is the Settings checkbox via
+`/api/settings/business-info`.
