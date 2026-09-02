@@ -463,7 +463,68 @@ incomplete**, and is precisely the systematic extraction the terms name. So
 Google could not enumerate a city's contractors even if it were allowed to.
 It stays as a live `place_id`-only verification step, which its terms permit.
 
-### The one honest gap in that recommendation
+### MEASURED — the fill rates are real, and they are good
+
+Done for $0 in about sixty seconds. No 9.76 GiB download: a bbox predicate
+prunes row groups and skipping geometry cuts the payload, so one filtered scan
+over the remote Parquet produced a 32 MB local file. Release `2026-08-19.0`.
+
+| | Ontario | New York |
+|---|---:|---:|
+| Businesses across 9 trades | 10,934 | 10,588 |
+| **% with a phone** | **99.6** | **99.6** |
+| **% phone AND street address** | **96.1** | **97.2** |
+| % with a website | 92.7 | 91.4 |
+| % with an email | 49.0 | 48.1 |
+| **Cold-callable records** | **10,512** | **10,290** |
+
+New York was chosen because it borders Ontario at a comparable population, so
+the counts compare directly. **The two regions agreeing to within a point on
+every metric is the strongest available evidence that these are properties of
+the dataset rather than one region's sourcing.**
+
+A 1,000-business pull yields ~996 with a phone and ~961 cold-callable. Email is
+the only genuinely half-empty field, and it is bimodal — 0.0% for cabinet
+businesses in both regions.
+
+**Ottawa: 70 painting contractors in the city, 69 with a phone** (91 and 88
+counting alternate categories). Across all trades the Ottawa area has 2,802
+callable records.
+
+### Three findings that contradict the obvious reading
+
+- **`confidence` is near-useless here.** 98.9% phone fill in the LOWEST bucket
+  against 100.0% in the highest, and it is a per-source constant — Foursquare
+  emits 3 distinct values across 2,279 rows. Do not filter on it.
+- **There is no closed flag.** `operating_status` is only ever `open` or NULL;
+  Overture does not inherit Foursquare's `date_closed`.
+- **45% of phones are bare digits, 54% E.164.** Normalisation is real ingest
+  work, not an afterthought.
+
+### The $150 should not be spent
+
+Both vendors run record counts **free before purchase**, and Data Axle
+Reference Solutions is **free with a public library card** (1.5M Canadian
+companies). The benchmark the audit wanted to buy is already available at zero
+cost. Neither vendor publishes field-level fill rates — LeadsPlease's "98%" is
+postal deliverability, not fill.
+
+The audit's own pricing was also corrected: its LeadsPlease figure quoted the
+EMAIL list. The mailing list, the one carrying the phone number, is 9–25¢, so
+50,000 is about $4,500 rather than $12,000 — overstated 2.7×.
+
+### The question that replaces it: enumeration DEPTH
+
+Fill rate is answered. What is not is whether 70–91 painters is most of
+Ottawa's painters. Coverage is internally consistent across Ontario cities
+(painting runs 2–4.6% of home-service everywhere), but no external denominator
+was obtainable. **StatCan table 33-10-0661 is the right source and nobody has
+checked it yet.**
+
+That is now the only open question about the discovery source, and it is a
+counting exercise rather than a design decision.
+
+### Superseded — the gap this replaces
 
 Overture's `phones` and `websites` COLUMNS exist; how often they are POPULATED
 for North American trades is unmeasured — that needs the 9.76 GiB pulled and
