@@ -79,6 +79,9 @@ import {
   UserRoundCheck,
   Ban,
   ListChecks,
+  GitBranch,
+  SlidersHorizontal,
+  Fingerprint,
 } from "lucide-react";
 
 const HOME_ITEM = { label: "Dashboard", href: "/platform", icon: LayoutDashboard, exact: true };
@@ -162,6 +165,17 @@ const GROUPS = [
       // table, so it needs to be somewhere findable rather than reachable only
       // from whichever screen happens to link it.
       { label: "Capability matrix", href: "/platform/sales/capabilities", icon: ListChecks },
+      // The three tables that decide what a rep is told about a prospect, next
+      // to the matrix they all depend on. They are here rather than under
+      // Admin for the same reason the matrix is: a row in any of them is a
+      // sentence somebody says on a phone call, and whoever edits one is
+      // thinking about the call, not about the console's own configuration.
+      //
+      // Rules first: it is the one somebody opens after reading the matrix and
+      // asking "so when does a rep actually get told this".
+      { label: "Opportunity rules", href: "/platform/sales/rules", icon: GitBranch },
+      { label: "Confidence weights", href: "/platform/sales/confidence", icon: SlidersHorizontal },
+      { label: "Technology signatures", href: "/platform/sales/signatures", icon: Fingerprint },
       // FieldQuo's OWN do-not-contact list — the people who told us to stop.
       // Filed with the sales rows rather than under Support because it is
       // read by the outbound paths those rows drive, not by a support agent
