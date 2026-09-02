@@ -15,8 +15,18 @@
 // is a statement we have no business making.
 
 import { useEffect, useState } from "react";
-import { Receipt, Clock, AlertTriangle, Building2 } from "lucide-react";
+import { Receipt, Clock, AlertTriangle, Building2, Unlink } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+
+/** A window's end, in the reader's own locale. Dates only — the hour a window
+ *  opened is noise on a figure measured in days. */
+function fmtDay(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? ""
+    : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
 
 export default function JobCosting({ jobId }) {
   const { t } = useTranslation();
@@ -39,6 +49,19 @@ export default function JobCosting({ jobId }) {
   if (!data?.actual) return null;
 
   const { actual, comparison } = data;
+  // Null on an older cached response, and null from the route whenever there is
+  // no honest window to measure — both mean "say nothing", which is why this is
+  // read defensively rather than defaulted to a zero.
+  const unattributed = data.unattributed || null;
+  // Always an object from the route; defaulted here only so an older cached
+  // response can't crash the panel mid-deploy.
+  const contract = data.contract || {
+    quotedTotal: comparison.revenue,
+    quotedTotalKnown: comparison.revenue != null,
+    approvedChanges: 0,
+    currentContractValue: comparison.revenue,
+  };
+  const hasChanges = Number(contract.approvedChanges) !== 0;
 
   // ── Why this no longer hides itself when nothing is recorded ────────────
   //
@@ -56,7 +79,18 @@ export default function JobCosting({ jobId }) {
     !actual.labour.approvedHours &&
     !actual.labour.pendingHours &&
     !actual.equipment?.total;
-  if (nothingRecorded && comparison.revenue == null) return null;
+  // Approved changes on a job with no quote are a real statement too — "$500
+  // of agreed extra work, and no quoted total to add it to" is exactly the
+  // sentence a contractor needs — so their presence keeps the panel open even
+  // when the contract value itself is unknown.
+  // Untagged hours in this job's window keep it open too, and this is the case
+  // the whole unattributed figure was written for: a job somebody worked all
+  // week that shows nothing, because every punch came off a phone and landed on
+  // no job at all. Hiding the panel there hides the one sentence that explains
+  // why the job looks untouched.
+  const hasUnattributed = Boolean(unattributed && unattributed.hours > 0);
+  if (nothingRecorded && comparison.revenue == null && !hasChanges && !hasUnattributed)
+    return null;
 
   // Currency comes from the endpoint, which reads it off the company. Not a
   // prop with a CAD default — the job page doesn't load the company, so the
@@ -83,11 +117,16 @@ export default function JobCosting({ jobId }) {
           label={t("app.jobCosting.expenses", "Expenses")}
           value={money(actual.expenses.total)}
         />
+        {/* "on this job" is not padding. This figure counts only hours somebody
+            TAGGED to this job — the query behind it is `where: { jobId }` — so
+            the sentence has to say so. A bare "{hours}h approved" reads as all
+            the labour there was, which is exactly the impression the
+            unattributed note further down exists to correct. */}
         <Stat
           icon={<Clock size={14} />}
           label={t("app.jobCosting.labour", "Labour")}
           value={money(actual.labour.cost)}
-          note={t("app.jobCosting.hoursApproved", "{hours}h approved", {
+          note={t("app.jobCosting.hoursApproved", "{hours}h approved on this job", {
             hours: actual.labour.approvedHours,
           })}
         />
@@ -158,6 +197,50 @@ export default function JobCosting({ jobId }) {
         </div>
       )}
 
+      {/* ── Quoted + agreed changes = what the job is worth now ────────────
+          Three figures, never one. A single blended "revenue" would hide the
+          fact the job grew, which is the thing worth knowing when the margin
+          moves. Rendered only when there ARE approved changes: a "+$0.00"
+          row on every ordinary job is noise, and the single "Quoted" figure
+          below is already the whole truth for those. */}
+      {hasChanges && (
+        <div className="mt-4 pt-4 border-t border-border grid sm:grid-cols-3 gap-4">
+          <Stat
+            label={t("app.jobCosting.quotedTotal", "Quoted")}
+            value={
+              contract.quotedTotalKnown
+                ? money(contract.quotedTotal)
+                : t("app.jobCosting.noQuote", "No quote")
+            }
+          />
+          <Stat
+            label={t("app.jobCosting.approvedChanges", "Approved changes")}
+            value={`${Number(contract.approvedChanges) > 0 ? "+" : ""}${money(contract.approvedChanges)}`}
+          />
+          <Stat
+            label={t("app.jobCosting.contractValue", "Contract value now")}
+            value={
+              contract.currentContractValue == null
+                ? "—"
+                : money(contract.currentContractValue)
+            }
+            strong
+          />
+        </div>
+      )}
+
+      {/* Absence of a quoted total is not a zero — see the API route. Said out
+          loud, because a change order sitting next to a "—" contract value is
+          otherwise just a gap on the screen. */}
+      {hasChanges && !contract.quotedTotalKnown && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {t(
+            "app.jobCosting.noQuoteNote",
+            "This job has no quote behind it, so there's no contract value to add these changes to. The changes themselves are still owed.",
+          )}
+        </p>
+      )}
+
       {/* Profit against the price the client agreed. Deliberately NOT against
           an estimate: the quote's estimate isn't stored, and recomputing it
           today against a changed price book would produce a variance that
@@ -165,7 +248,11 @@ export default function JobCosting({ jobId }) {
       {comparison.profit !== null && (
         <div className="mt-4 pt-4 border-t border-border grid sm:grid-cols-3 gap-4">
           <Stat
-            label={t("app.jobCosting.quoted", "Quoted")}
+            label={
+              hasChanges
+                ? t("app.jobCosting.contractValue", "Contract value now")
+                : t("app.jobCosting.quoted", "Quoted")
+            }
             value={money(comparison.revenue)}
           />
           <Stat
@@ -203,6 +290,40 @@ export default function JobCosting({ jobId }) {
                 { hours: actual.labour.unratedHours },
               )}
           </span>
+        </div>
+      )}
+
+      {/* ── Hours that reached no job at all ──────────────────────────────
+          NOT this job's hours, and the wording must never suggest otherwise.
+          It is a company-wide count over the window this job ran in, and it is
+          here because the labour figure above is a `where: { jobId }` query:
+          every hour nobody tagged is missing from it, and from every other
+          job's panel too. Until the self-serve clock could set a job, that was
+          most of the hours a crew punched.
+
+          Rendered as information, never added to a total. An invented
+          attribution would be worse than a named gap — which is also why the
+          rows that predate the fix were left alone rather than backfilled. */}
+      {unattributed && unattributed.hours > 0 && (
+        <div className="mt-4 pt-4 border-t border-border">
+          <div className="flex items-start gap-2 text-xs text-muted-foreground">
+            <Unlink size={13} className="shrink-0 mt-0.5" />
+            <span>
+              {t(
+                "app.jobCosting.unattributedNote",
+                "{hours}h of your team's time between {from} and {to} isn't linked to any job, so it isn't in this job's costs — or any other job's.",
+                {
+                  hours: unattributed.hours,
+                  from: fmtDay(unattributed.from),
+                  to: fmtDay(unattributed.to),
+                },
+              )}{" "}
+              {t(
+                "app.jobCosting.unattributedFix",
+                "Tag those entries to a job on the timesheet and they'll land here.",
+              )}
+            </span>
+          </div>
         </div>
       )}
 

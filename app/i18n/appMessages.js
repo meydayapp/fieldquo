@@ -72,6 +72,10 @@ const en = {
   "app.job.paymentSchedule.pending": "Waiting",
   "app.job.paymentSchedule.requested": "Requested",
   "app.job.paymentSchedule.waived": "Waived (0%)",
+  // Said out loud because the stage amounts are frozen on purpose — see
+  // PaymentScheduleCard.js for the three reasons recomputing them would move
+  // real money.
+  "app.job.paymentSchedule.changeOrderNote": "These stages are percentages of the accepted quote and don't include {amount} of agreed changes. That's collected on the invoice balance, not by a stage.",
   "app.job.paymentSchedule.blockedStartDate": "Can't schedule yet — set a start date for this job",
   "app.job.paymentSchedule.blockedEndDate": "Can't schedule yet — set an end date for this job",
   "app.job.paymentSchedule.blockedInvalidRange": "The end date is before the start date — fix the job's dates",
@@ -134,9 +138,21 @@ const en = {
   "app.jobCosting.title": "What this job has cost",
   "app.jobCosting.expenses": "Expenses",
   "app.jobCosting.labour": "Labour",
-  "app.jobCosting.hoursApproved": "{hours}h approved",
+  "app.jobCosting.hoursApproved": "{hours}h approved on this job",
+  "app.jobCosting.unattributedNote":
+    "{hours}h of your team's time between {from} and {to} isn't linked to any job, so it isn't in this job's costs — or any other job's.",
+  "app.jobCosting.unattributedFix":
+    "Tag those entries to a job on the timesheet and they'll land here.",
   "app.jobCosting.totalCost": "Total cost",
   "app.jobCosting.quoted": "Quoted",
+  // The split the job panel shows once a change order has been agreed: the
+  // quote, the changes, and what the job is worth now. Three figures, never
+  // one blended total — see JobCosting.js.
+  "app.jobCosting.quotedTotal": "Quoted",
+  "app.jobCosting.approvedChanges": "Approved changes",
+  "app.jobCosting.contractValue": "Contract value now",
+  "app.jobCosting.noQuote": "No quote",
+  "app.jobCosting.noQuoteNote": "This job has no quote behind it, so there's no contract value to add these changes to. The changes themselves are still owed.",
   "app.jobCosting.profit": "Left after costs",
   "app.jobCosting.margin": "Margin",
   "app.jobCosting.pendingNote": "{hours}h are still waiting for approval and aren't counted yet.",
@@ -919,6 +935,33 @@ const en = {
   "app.changeOrder.save": "Save",
   "app.changeOrder.saving": "Saving…",
   "app.changeOrder.saveFailed": "Couldn't log that.",
+  // ── Status, and the money it decides ────────────────────────────────────
+  // Added when change orders started reaching the contract value and the
+  // invoice. Before that, "logged" and "agreed" were the same thing and there
+  // was nothing to label.
+  "app.changeOrder.agreedLabel": "Has the client agreed to this?",
+  "app.changeOrder.agreedYes": "Yes — count it toward this job's contract value",
+  "app.changeOrder.agreedNo": "Not yet — record it, and change nothing until it is",
+  "app.changeOrder.statusPending": "Not yet agreed — affects nothing",
+  "app.changeOrder.statusRejected": "Rejected — affects nothing",
+  "app.changeOrder.statusUnknown": "Unknown status — affects nothing",
+  "app.changeOrder.approve": "Mark agreed",
+  "app.changeOrder.reject": "Reject",
+  "app.changeOrder.reopen": "Back to pending",
+  "app.changeOrder.decideFailed": "Couldn't change that.",
+  "app.changeOrder.approvedTotal": "Agreed changes",
+  "app.changeOrder.pendingTotal": "Awaiting agreement",
+  "app.changeOrder.billedOn": "Billed on {invoice}",
+  "app.changeOrder.unbilled": "Not yet invoiced",
+  "app.changeOrder.billTitle": "{amount} of agreed changes isn't on an invoice yet",
+  "app.changeOrder.bill": "Add to {invoice}",
+  "app.changeOrder.billing": "Adding…",
+  "app.changeOrder.billConfirm": "Add {amount} to {invoice}? Its total becomes {total}.",
+  "app.changeOrder.billFailed": "Couldn't add those to the invoice.",
+  "app.changeOrder.reasonNoInvoice": "There's no invoice on this job yet. These become billable once one is raised.",
+  "app.changeOrder.reasonInvoiceSent": "{invoice} has already been sent, so FieldQuo won't change it on its own. Amend it from the invoice page to bill these.",
+  "app.changeOrder.reasonTaxRate": "{invoice} charges tax but has nothing to work the rate out from, so these can't be added automatically. Add them on the invoice itself.",
+  "app.changeOrder.reasonAlreadyOn": "These are already on {invoice}.",
 
   "app.timesheets.title": "Timesheets",
   "app.timesheets.subtitle": "Log, review and approve hours.",
@@ -4209,6 +4252,24 @@ const en = {
   "app.clock.noneToday": "No entries yet today.",
   "app.clock.open": "Open",
   "app.clock.reviewNote": "Your hours go to your manager to review and approve.",
+  "app.clock.untitledJob": "Untitled job",
+  "app.clock.jobLabel": "Which job?",
+  "app.clock.noJob": "No job — travel, yard, quoting",
+  "app.clock.groupToday": "Scheduled for you today",
+  "app.clock.groupOther": "Your other open jobs",
+  "app.clock.onJob": "On {job}",
+  "app.clock.noJobEntry": "Not linked to a job",
+  "app.clock.suggestedNote":
+    "You're scheduled here today — change it if you're somewhere else.",
+  "app.clock.pickOneNote":
+    "You have {count} jobs scheduled today — pick the one you're starting.",
+  "app.clock.noVisitNote":
+    "Nothing scheduled for you today. Pick a job if you're on one — otherwise leave it blank.",
+  "app.clock.truncatedNote": "Only your most recent jobs are listed.",
+  "app.clock.switchTitle": "Moved to another job?",
+  "app.clock.switchAction": "Switch job",
+  "app.clock.switchNote":
+    "Your hours so far stay where they are. A new entry starts from now.",
 
   // ── added by i18n-screens workflow ──
   "app.nav.scheduler": "Assign shifts",
@@ -5075,6 +5136,7 @@ const fr = {
   "app.job.paymentSchedule.pending": "En attente",
   "app.job.paymentSchedule.requested": "Demandé",
   "app.job.paymentSchedule.waived": "Renoncé (0 %)",
+  "app.job.paymentSchedule.changeOrderNote": "Ces étapes sont des pourcentages de la soumission acceptée et n'incluent pas {amount} d'avenants acceptés. Ce montant est encaissé sur le solde de la facture, pas par une étape.",
   "app.job.paymentSchedule.blockedStartDate": "Pas encore programmable — définissez une date de début pour ce chantier",
   "app.job.paymentSchedule.blockedEndDate": "Pas encore programmable — définissez une date de fin pour ce chantier",
   "app.job.paymentSchedule.blockedInvalidRange": "La date de fin précède la date de début — corrigez les dates du chantier",
@@ -5122,9 +5184,18 @@ const fr = {
   "app.jobCosting.title": "Ce que ce projet a coûté",
   "app.jobCosting.expenses": "Dépenses",
   "app.jobCosting.labour": "Main-d'œuvre",
-  "app.jobCosting.hoursApproved": "{hours} h approuvées",
+  "app.jobCosting.hoursApproved": "{hours} h approuvées sur ce chantier",
+  "app.jobCosting.unattributedNote":
+    "{hours} h de temps de votre équipe entre le {from} et le {to} ne sont rattachées à aucun chantier; elles ne figurent donc pas dans les coûts de ce chantier — ni dans ceux d'un autre.",
+  "app.jobCosting.unattributedFix":
+    "Rattachez ces entrées à un chantier dans la feuille de temps et elles apparaîtront ici.",
   "app.jobCosting.totalCost": "Coût total",
   "app.jobCosting.quoted": "Soumissionné",
+  "app.jobCosting.quotedTotal": "Soumissionné",
+  "app.jobCosting.approvedChanges": "Avenants acceptés",
+  "app.jobCosting.contractValue": "Valeur du contrat",
+  "app.jobCosting.noQuote": "Aucune soumission",
+  "app.jobCosting.noQuoteNote": "Ce chantier n'a aucune soumission, il n'y a donc pas de valeur de contrat à laquelle ajouter ces avenants. Ces montants restent dus.",
   "app.jobCosting.profit": "Reste après les coûts",
   "app.jobCosting.margin": "Marge",
   "app.jobCosting.pendingNote": "{hours} h attendent encore une approbation et ne sont pas comptées.",
@@ -5840,6 +5911,29 @@ const fr = {
   "app.changeOrder.save": "Enregistrer",
   "app.changeOrder.saving": "Enregistrement…",
   "app.changeOrder.saveFailed": "Impossible d'enregistrer.",
+  "app.changeOrder.agreedLabel": "Le client a-t-il accepté ce changement ?",
+  "app.changeOrder.agreedYes": "Oui — le compter dans la valeur du contrat de ce chantier",
+  "app.changeOrder.agreedNo": "Pas encore — l'enregistrer sans rien changer d'autre",
+  "app.changeOrder.statusPending": "Pas encore accepté — sans effet",
+  "app.changeOrder.statusRejected": "Refusé — sans effet",
+  "app.changeOrder.statusUnknown": "Statut inconnu — sans effet",
+  "app.changeOrder.approve": "Marquer comme accepté",
+  "app.changeOrder.reject": "Refuser",
+  "app.changeOrder.reopen": "Remettre en attente",
+  "app.changeOrder.decideFailed": "Impossible de modifier.",
+  "app.changeOrder.approvedTotal": "Avenants acceptés",
+  "app.changeOrder.pendingTotal": "En attente d'acceptation",
+  "app.changeOrder.billedOn": "Facturé sur {invoice}",
+  "app.changeOrder.unbilled": "Pas encore facturé",
+  "app.changeOrder.billTitle": "{amount} d'avenants acceptés ne figurent sur aucune facture",
+  "app.changeOrder.bill": "Ajouter à {invoice}",
+  "app.changeOrder.billing": "Ajout…",
+  "app.changeOrder.billConfirm": "Ajouter {amount} à {invoice} ? Son total devient {total}.",
+  "app.changeOrder.billFailed": "Impossible de les ajouter à la facture.",
+  "app.changeOrder.reasonNoInvoice": "Ce chantier n'a pas encore de facture. Ces avenants deviendront facturables dès qu'une facture sera créée.",
+  "app.changeOrder.reasonInvoiceSent": "{invoice} a déjà été envoyée ; FieldQuo ne la modifiera pas de lui-même. Modifiez-la depuis la page de la facture pour les facturer.",
+  "app.changeOrder.reasonTaxRate": "{invoice} applique une taxe sans base permettant d'en déduire le taux ; l'ajout automatique est impossible. Ajoutez-les directement sur la facture.",
+  "app.changeOrder.reasonAlreadyOn": "Ils figurent déjà sur {invoice}.",
 
   "app.timesheets.title": "Feuilles de temps",
   "app.timesheets.subtitle": "Enregistrez, révisez et approuvez les heures.",
@@ -8999,6 +9093,24 @@ const fr = {
   "app.clock.noneToday": "Aucune entrée aujourd'hui.",
   "app.clock.open": "En cours",
   "app.clock.reviewNote": "Vos heures sont transmises à votre gestionnaire pour révision et approbation.",
+  "app.clock.untitledJob": "Chantier sans titre",
+  "app.clock.jobLabel": "Quel chantier?",
+  "app.clock.noJob": "Aucun chantier — déplacement, cour, soumissions",
+  "app.clock.groupToday": "Prévu pour vous aujourd'hui",
+  "app.clock.groupOther": "Vos autres chantiers en cours",
+  "app.clock.onJob": "Sur {job}",
+  "app.clock.noJobEntry": "Rattaché à aucun chantier",
+  "app.clock.suggestedNote":
+    "Vous êtes prévu ici aujourd'hui — changez-le si vous êtes ailleurs.",
+  "app.clock.pickOneNote":
+    "Vous avez {count} chantiers prévus aujourd'hui — choisissez celui que vous commencez.",
+  "app.clock.noVisitNote":
+    "Rien de prévu pour vous aujourd'hui. Choisissez un chantier si vous êtes sur un — sinon, laissez vide.",
+  "app.clock.truncatedNote": "Seuls vos chantiers les plus récents sont listés.",
+  "app.clock.switchTitle": "Vous avez changé de chantier?",
+  "app.clock.switchAction": "Changer de chantier",
+  "app.clock.switchNote":
+    "Vos heures jusqu'ici restent où elles sont. Une nouvelle entrée commence maintenant.",
 
   // ── added by i18n-screens workflow ──
   "app.nav.scheduler": "Attribuer les quarts",

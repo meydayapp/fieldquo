@@ -16,6 +16,8 @@ import { hasToggle, assignedJobWhere } from "@/lib/permissions/enforce";
 import { actualJobCost, compareJobCost } from "@/lib/costing/actualJobCost";
 import { equipmentCostForJob } from "@/lib/costing/equipmentUsage";
 import { calculateMinimumPrice } from "@/lib/analytics/minimumPrice";
+import { unattributedLabourForJob } from "@/lib/costing/unattributedHours";
+import { contractValue } from "@/lib/jobs/changeOrderValue";
 
 export async function GET(request, { params }) {
   // Next 16: `params` is a Promise.
@@ -57,6 +59,15 @@ export async function GET(request, { params }) {
       // the variance is measured against. The cost itself is no longer read
       // here — see the note below.
       quote: { select: { id: true, total: true } },
+      // ── Why revenue is no longer just the quote ──────────────────────────
+      //
+      // This route used to compute `revenue: job.quote?.total` and nothing
+      // else. A job quoted at $10,000 with $4,000 of agreed change orders
+      // reported $10,000, so the margin on the job page was wrong by the full
+      // value of every change — silently, and always in the direction that
+      // flatters the job. Only APPROVED rows count; see
+      // lib/jobs/changeOrderValue.js.
+      changeOrders: { select: { priceDelta: true, status: true, invoiceId: true } },
       // Returned so the panel formats in the company's billing currency. The
       // job endpoint doesn't load the company, and defaulting to CAD in the
       // component is exactly the bug that put "$2100.00" on client documents.
@@ -76,6 +87,11 @@ export async function GET(request, { params }) {
         hours: true,
         status: true,
         workerId: true,
+        // The timestamps bound the window the unattributed figure below is
+        // measured over. Cheap here; the alternative is a second query for
+        // dates this row already carries.
+        clockIn: true,
+        clockOut: true,
         worker: { select: { hourlyRate: true } },
       },
     }),
@@ -134,6 +150,26 @@ export async function GET(request, { params }) {
     equipment,
   });
 
+  // ── The hours that reached no job at all ─────────────────────────────────
+  //
+  // `actual.labour` above is, by construction, only the hours somebody
+  // ATTRIBUTED — the query it comes from is `where: { jobId: job.id }`. Until
+  // the self-serve clock learned to set a job, that query missed every hour
+  // punched from a phone, and the panel showed the shortfall as if it were the
+  // figure. This is the other half of the sentence: company-wide, over the
+  // window this job ran in, how many hours are recorded against NO job and are
+  // therefore in nobody's costing, including this one's.
+  //
+  // Deliberately not folded into the labour total. Adding it would be inventing
+  // an attribution; omitting it silently is the bug being fixed. It is a
+  // separate figure with its own sentence — see lib/costing/unattributedHours.js
+  // and the panel's own note. Null when there is no honest window to measure.
+  const unattributed = await unattributedLabourForJob(db, {
+    companyId: member.companyId,
+    jobId: job.id,
+    attributed: timeEntries,
+  }).catch(() => null);
+
   // ── The estimate IS stored now ───────────────────────────────────────────
   //
   // This used to pass `estimatedCost: null` with a long comment explaining that
@@ -164,15 +200,33 @@ export async function GET(request, { params }) {
   });
   const estimatedCost = quotedCost ? quotedCost.totalCost : null;
 
+  // Quoted, plus what was agreed since, equals what the job is now worth —
+  // returned as three separate figures, not one blended "revenue". A single
+  // number would hide the thing a contractor most needs to see: that the job
+  // grew, and by how much. The panel renders all three.
+  //
+  // currentContractValue is null when there is no quote behind the job at all,
+  // even if change orders exist: unknown plus $500 is still unknown, and
+  // stating $500 would put a margin on the page against a contract value
+  // nobody ever agreed.
+  const contract = contractValue({
+    quotedTotal: job.quote?.total ?? null,
+    changeOrders: job.changeOrders,
+  });
+
   const comparison = compareJobCost({
     estimatedCost,
     actualCost: actual.total,
-    revenue: job.quote?.total == null ? null : Number(job.quote.total),
+    revenue: contract.currentContractValue,
   });
 
   return NextResponse.json({
     actual,
+    // Hours in this window that belong to no job. Its own key, never merged
+    // into `actual.labour` — see the note where it is computed.
+    unattributed,
     comparison,
+    contract,
     // When the estimate was taken. A variance against a figure snapshotted
     // eight months ago is still a fair comparison, but the reader deserves to
     // know that is what they are looking at.

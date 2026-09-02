@@ -41,6 +41,16 @@ Vocabulary used below:
 
 ## 1. Change orders — PARTIAL
 
+> **Follow-up, 2026-09-02:** the money half of this verdict has since been
+> built — job costing now shows quoted + approved changes = contract value,
+> `ChangeOrder` gained a `status` and an `invoiceId`, and approved changes can
+> be billed onto a draft invoice by an explicit action. The client-facing half
+> (approval, signature, PDF, portal) is still absent, and billing onto an
+> already-SENT invoice still has to be done by hand. See the addendum in
+> `docs/CALLBACKS-AND-CHANGE-ORDERS.md` and
+> `scripts/check-change-order-money.mjs`. Everything below is the state as
+> audited, left unedited so the evidence still reads as evidence.
+
 **The owner is right that they exist.** They are more real than most things in
 this audit: a model, a route, a screen, a KPI, and a written design rationale.
 What they are *not* is a number that moves money.

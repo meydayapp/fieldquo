@@ -400,7 +400,12 @@ export async function GET(request) {
           // undercount the very jobs this metric exists to catch.
           db.changeOrder.findMany({
             where: { jobId: { in: completedJobIds } },
-            select: { jobId: true, priceDelta: true },
+            // `status` because only an APPROVED change order is money — see
+            // lib/jobs/changeOrderValue.js, which buildChangeOrderRate now
+            // sums through. Omitting it would silently read every row as
+            // approved (the legacy rule for rows written before the column)
+            // and put rejected changes into the KPI's dollar figure.
+            select: { jobId: true, priceDelta: true, status: true },
           }),
         ])
       : [
@@ -516,7 +521,7 @@ export async function GET(request) {
   const changeOrdersByJob = new Map();
   for (const co of changeOrders) {
     if (!changeOrdersByJob.has(co.jobId)) changeOrdersByJob.set(co.jobId, []);
-    changeOrdersByJob.get(co.jobId).push({ priceDelta: co.priceDelta });
+    changeOrdersByJob.get(co.jobId).push({ priceDelta: co.priceDelta, status: co.status });
   }
   const changeOrderJobs = completedJobs.map((job) => ({
     id: job.id,

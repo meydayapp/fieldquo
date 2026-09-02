@@ -466,7 +466,10 @@ export default function JobDetail({ jobId }) {
 
       {/* Empty for every job whose company has no structured payment
           schedule — see lib/paymentSchedule/run.js. */}
-      <PaymentScheduleCard stages={job.paymentStages} />
+      {/* changeOrders so the card can say that its frozen stage amounts don't
+          cover agreed changes — see the card's own header for why the stages
+          are deliberately NOT recomputed. */}
+      <PaymentScheduleCard stages={job.paymentStages} changeOrders={job.changeOrders} />
 
       {/* Client — the details someone needs before they set off */}
       <div

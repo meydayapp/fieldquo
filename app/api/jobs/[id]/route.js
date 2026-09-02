@@ -58,7 +58,16 @@ export async function GET(request, { params }) {
       // Scope changes agreed after acceptance — see ChangeOrder's own header.
       // Same "internal staff view" reasoning as paymentStages above: nothing
       // here reaches the client-portal payload.
-      changeOrders: { orderBy: { createdAt: "desc" }, include: { createdBy: { select: { id: true, name: true } } } },
+      // `invoice` so the panel can name the document a change order was billed
+      // on rather than a bare "billed" the contractor cannot act on.
+      changeOrders: {
+        orderBy: { createdAt: "desc" },
+        include: {
+          createdBy: { select: { id: true, name: true } },
+          decidedBy: { select: { id: true, name: true } },
+          invoice: { select: { id: true, invoiceNumber: true, status: true } },
+        },
+      },
       // Both directions of a callback: what this job was a return FOR, and
       // what returns THIS job has already spawned.
       originalJob: { select: { id: true, title: true, completedAt: true } },

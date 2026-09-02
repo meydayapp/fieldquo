@@ -12,6 +12,7 @@
 
 import { Clock, Send, CircleSlash, AlertCircle } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { paymentScheduleShortfall } from "@/lib/jobs/changeOrderValue";
 
 function formatDateOnly(value) {
   if (!value) return "";
@@ -49,8 +50,31 @@ function StatusIcon({ stage }) {
   return <Clock size={15} className="text-muted-foreground" />;
 }
 
-export default function PaymentScheduleCard({ stages }) {
+export default function PaymentScheduleCard({ stages, changeOrders }) {
   const { t } = useTranslation();
+  // ── Why the stages are NOT recomputed when a change order is agreed ───────
+  //
+  // JobPaymentStage.amountCents is frozen at creation, and its comment gives
+  // the reason: "the total it is a percentage OF cannot change
+  // post-acceptance". A change order falsifies that premise — and recomputing
+  // is still the wrong fix, for three reasons that all move real money:
+  //
+  //   * a `requested` stage has already emailed the client a pay link for a
+  //     specific amount, and re-deriving it would make the email and the
+  //     system disagree about what was asked for;
+  //   * the percentages sum to 100 of the ACCEPTED total, which is the number
+  //     the payment-terms document the client read is written against
+  //     (lib/documents/paymentSchedule.js). Silently re-basing a "30% deposit"
+  //     on a bigger contract changes a deposit the client already saw;
+  //   * recomputing only the pending stages leaves the set summing to neither
+  //     total — an already-requested stage on the old base beside pending ones
+  //     on the new base is arithmetic nobody can reconcile.
+  //
+  // So the schedule keeps its numbers, the change orders are collected on the
+  // invoice balance (every stage shares ONE invoice — see the model header),
+  // and the shortfall is SAID rather than left for a contractor to notice that
+  // the stages no longer add up to what they are owed.
+  const shortfall = paymentScheduleShortfall({ stages, changeOrders });
   if (!Array.isArray(stages) || stages.length === 0) return null;
 
   return (
@@ -98,6 +122,16 @@ export default function PaymentScheduleCard({ stages }) {
             </div>
           ))}
       </div>
+
+      {shortfall.applies && (
+        <p className="mt-2.5 pt-2.5 border-t border-border text-xs text-muted-foreground">
+          {t(
+            "app.job.paymentSchedule.changeOrderNote",
+            "These stages are percentages of the accepted quote and don't include {amount} of agreed changes. That's collected on the invoice balance, not by a stage.",
+            { amount: money(shortfall.approvedChangeCents) },
+          )}
+        </p>
+      )}
     </div>
   );
 }

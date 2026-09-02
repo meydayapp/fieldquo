@@ -1558,6 +1558,7 @@ model User {
   jobVisitsAssigned     JobVisit[]             @relation("JobVisitAssignee")
   jobMaterialsPurchased JobMaterial[]          @relation("JobMaterialPurchaser")
   changeOrdersCreated   ChangeOrder[]          @relation("ChangeOrderCreatedBy")
+  changeOrdersDecided   ChangeOrder[]          @relation("ChangeOrderDecidedBy")
   shiftOverrides        Shift[]                @relation("ShiftAvailabilityOverride")
   workerProfile         Worker?
   campaignsAssigned     MarketingCampaign[]    @relation("CampaignAssignee")
@@ -2403,6 +2404,8 @@ model Invoice {
   /// stage of it points back here, ONE invoice shared by all of them. See
   /// JobPaymentStage's own header for why this is a list, not one each.
   jobPaymentStages JobPaymentStage[]
+  /// Scope changes billed ON this invoice — see ChangeOrder.invoiceId.
+  changeOrders     ChangeOrder[]
 
   @@index([companyId, jobId])
 }
@@ -3770,11 +3773,56 @@ model ChangeOrder {
   /// would be a truer-looking number standing on a guess.
   priceDelta Decimal @db.Decimal(12, 2)
 
+  /// pending | approved | rejected — the closed set in
+  /// lib/jobs/changeOrderValue.js's CHANGE_ORDER_STATUSES.
+  ///
+  /// This model shipped WITHOUT a status, deliberately: the owner's framing
+  /// was "a change agreed mid-job", already agreed by the time anyone logs
+  /// it, so there was nothing to approve inside the record
+  /// (docs/CALLBACKS-AND-CHANGE-ORDERS.md, "What was not built"). That
+  /// reasoning held exactly as long as the number went nowhere. It now
+  /// reaches the job's contract value and can be put on an invoice a
+  /// homeowner pays, and a figure that moves money needs a state that says
+  /// "yes, bill this" separately from "somebody jotted it down" — plus a way
+  /// back from a mis-typed one, on a model with no edit and no delete.
+  ///
+  /// Defaults to `approved`, NOT to `pending`: every row written before this
+  /// column existed was, by the model's own documented meaning, already
+  /// agreed with the client. Defaulting them to pending would restate history
+  /// — it would tell a contractor that changes they agreed months ago were
+  /// never agreed. New rows get whatever the form's own explicit choice says.
+  status String @default("approved")
+
+  /// Who moved it out of `pending`, and when. Null while nothing has been
+  /// decided — an undecided change order has no decision to attribute, and a
+  /// createdAt standing in for one would be a date nobody chose.
+  decidedAt   DateTime?
+  decidedById String?
+  decidedBy   User?     @relation("ChangeOrderDecidedBy", fields: [decidedById], references: [id])
+
+  /// The invoice this change order was billed on, set by
+  /// POST /api/jobs/[id]/change-orders/bill. Billed is EXACTLY
+  /// `invoiceId != null` — there is deliberately no second `billedAt` flag,
+  /// because two columns that both mean "billed" are two columns that can
+  /// disagree (the same reasoning JobPaymentStage gives for not tracking
+  /// "paid" beside the invoice's own balance).
+  ///
+  /// SetNull: deleting a draft invoice un-bills its change orders, which is
+  /// the right answer — the work is agreed and owed again, and the job page
+  /// starts saying so.
+  ///
+  /// Always the ROOT invoice (parentInvoiceId null). Amending a sent invoice
+  /// creates a new version row with a new id; pointing at the version would
+  /// leave the link dangling behind the next amendment.
+  invoiceId String?
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
   createdById String?
   createdBy   User?    @relation("ChangeOrderCreatedBy", fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
 
   @@index([jobId])
+  @@index([invoiceId])
 }
 
 model JobChecklistTemplate {

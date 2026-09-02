@@ -323,3 +323,199 @@ assertions without mutation (up from 172), 232 with (up from 158+14).
   via `node scripts/check-translations.mjs`, exit 0.
 - **A `prisma db push`.** Per the task's own instruction — schema validated
   with `npx prisma validate` only; the database has not been migrated.
+
+---
+
+# Addendum, 2026-09-02 — making the number reach a total
+
+`docs/construction/AUDIT-existing.md` graded change orders **PARTIAL**, and the
+grading was right: *"an honest internal audit trail with a rate metric. Not a
+change order in the ServiceTitan sense, where the document changes the contract
+value and flows to the invoice."*
+
+Three independent facts behind that verdict, all re-derived before anything was
+built:
+
+1. `app/api/jobs/[id]/costing/route.js` computed `revenue: job.quote?.total` and
+   nothing else. A job quoted at $10,000 with $4,000 of agreed changes reported
+   $10,000, so the margin on the job page was wrong by the full value of every
+   change — always in the direction that flatters the job.
+2. Nothing under `lib/invoices/`, `lib/documentSections/` or
+   `app/api/invoices/` mentioned `changeOrder`. Agreed extra work was never
+   billed. The contractor ate it.
+3. `raw.totalPriceDelta` in `lib/analytics/kpis.js` was summed and read by
+   `scripts/check-kpis.mjs` and by nothing else — a dead field inside an
+   otherwise working feature.
+
+## What now happens to the money
+
+**One function owns it.** `lib/jobs/changeOrderValue.js` is the only place that
+decides what a change order is worth. The job panel, the invoice and the KPI all
+call it, so they cannot arrive at three answers — the KPI's own loop over
+`priceDelta` was deleted and replaced with a call to `changeOrderSummary`.
+
+**The job page shows a split, never a blend.** Quoted, plus approved changes,
+equals contract value — three figures. A single "revenue" number would hide the
+thing worth knowing: that the job grew. The three-figure row renders only when
+there ARE approved changes; an ordinary job still shows one "Quoted" figure
+rather than a `+$0.00` line.
+
+**A job with no quote has no contract value.** Unknown plus $500 is unknown, so
+`currentContractValue` stays null and the $500 is reported on its own with a
+sentence saying why there is nothing to add it to. Returning $500 would state a
+contract value nobody agreed and print a margin against it — the padding
+AGENTS.md's rule 5 forbids.
+
+## The status the original build deliberately left out
+
+This document argued, correctly, that a `status` was a product decision nobody
+had asked for: *"the owner's framing was 'a change agreed mid-job' — already
+agreed by the time it's logged."*
+
+That reasoning held exactly as long as the number went nowhere. It now reaches a
+contract value and can be put on an invoice a homeowner pays, and a figure that
+does that needs a state saying "yes, bill this" separately from "somebody jotted
+it down" — plus a way back from a mis-typed one, on a model with no edit and no
+delete.
+
+- `ChangeOrder.status` — `pending` | `approved` | `rejected`, defaulting to
+  **`approved`**, not `pending`. Every row written before the column existed
+  was, by this model's own documented meaning, already agreed. Defaulting them
+  to pending would tell a contractor that changes they agreed months ago were
+  never agreed.
+- An **absent** status reads as approved (the legacy rule). A **present but
+  unrecognised** status is a different fact and affects no total anywhere —
+  something wrote a value this code has never heard of, and the money-safe
+  reading of that is "affects nothing".
+- The log form now asks, rather than assumes: *"Has the client agreed to this?"*
+- `PATCH /api/jobs/[id]/change-orders/[changeOrderId]` moves the status and
+  nothing else. `description` and `priceDelta` stay immutable — append-only
+  survives; a decision is a record, not a rewrite. It refuses outright once the
+  change order has been billed: its money is on a document, and un-approving it
+  would leave the invoice charging for something the system says was never
+  agreed. The correction for that is what it always was — a second change order
+  with a negative `priceDelta`.
+
+## Billing: explicit, and loud about it
+
+`POST /api/jobs/[id]/change-orders/bill` adds approved, unbilled change orders
+to the job's invoice as line items and links them (`ChangeOrder.invoiceId`, the
+column this document previously declined to add *because nothing would populate
+or read it* — something does now).
+
+**Explicit, not automatic.** An invoice is a document a homeowner reads and
+pays; money appearing on it because a row was written on another screen is the
+"money moved by surprise" this codebase refuses. The counter-argument is real —
+not billing is what the contractor is losing money to today — so the mitigation
+is that the job page states the unbilled total in an amber panel, and the
+confirmation prints the amount and the new invoice total before anything moves.
+See "The open question" below.
+
+**Draft invoices only, and the refusal is honest.** Editing a *sent* invoice
+means snapshotting a new version, carrying costing, photos and the `changeLog`
+forward — `PATCH /api/invoices/[id]` already does all of that, and a second copy
+of that rule sitting on the money path is AGENTS.md failure class #4. So this
+route refuses a sent invoice with a reason the screen prints ("INV-… has already
+been sent, so FieldQuo won't change it on its own — amend it from the invoice
+page"), and the `GET` on the same route returns the same reason, so the button is
+never rendered as available in the first place. Not a dead control; a stated
+limit. **Named gap:** billing a change order onto an already-sent invoice still
+has to be done by hand on the invoice, and the change order stays marked
+unbilled if you do. Closing it properly means extracting the amendment into a
+shared `lib/invoices/` helper both routes call.
+
+**Tax is read off the invoice, never re-resolved.** `Invoice` has no rate column
+— `tax` is an absolute amount — so the rate this document already charged is
+`tax / (subtotal - discount)`, and the added work is charged at exactly that.
+The invariant, asserted numerically: **the invoice's effective tax rate is
+identical before and after.** Re-resolving through `lib/tax/documentTax.js`
+could charge a different rate from the one already printed on the client's own
+document. When the rate cannot be read — tax owed with no positive base — the
+route refuses rather than guessing, because guessing here moves real money.
+
+**Once.** The write re-reads the invoice and the change orders inside the
+transaction and re-decides from scratch; the `GET` that rendered the button is a
+snapshot. Lines carry `changeOrderId`, so a line already on the document is not
+added a second time even if the link column is somehow missing.
+
+## Payment stages: deliberately NOT touched
+
+`JobPaymentStage.amountCents` is frozen, and its comment gives the premise a
+change order falsifies — *"the total it is a percentage OF cannot change
+post-acceptance."* The premise is indeed false now. **Recomputing is still the
+wrong fix**, for three reasons that each move real money:
+
+- a `requested` stage has already emailed the client a pay link for a specific
+  amount; re-deriving it makes the email and the system disagree about what was
+  asked for;
+- the percentages sum to 100 of the **accepted** total, which is the number the
+  payment-terms document the client read is written against
+  (`lib/documents/paymentSchedule.js`, regenerated into `Company.paymentTerms`).
+  Silently re-basing a "30% deposit" on a bigger contract changes a deposit the
+  client already saw;
+- recomputing only the `pending` stages leaves the set summing to neither total
+  — an already-requested stage on the old base beside pending ones on the new
+  base is arithmetic nobody can reconcile.
+
+So `amountCents` is untouched, and the consequence is **said out loud** instead:
+`PaymentScheduleCard` prints "these stages are percentages of the accepted quote
+and don't include $X of agreed changes — that's collected on the invoice
+balance, not by a stage." That is consistent with the model's own design (every
+stage points at ONE invoice, and `Invoice.amountPaid`/`amountDue` are already
+the running balance), and it means the gap is visible rather than left for a
+contractor to discover that the stages no longer add up to what they are owed.
+
+## The open question, for the owner
+
+**Should an approved change order appear on the next invoice automatically?**
+
+Built: explicit. It is the reversible one — a draft invoice can be deleted, the
+`SetNull` hands the change orders straight back, and nothing reaches a client
+without somebody reading the number first. Automatic is the safer failure for
+the *contractor* and the more dangerous one for the *client relationship*, and
+picking it silently inside a route is not a decision to take without asking.
+
+A middle option exists if explicit turns out to be ignored in practice: have
+`ensureInvoiceForQuote` fold approved change orders in **at invoice creation**
+(the invoice is a draft at that moment, so nothing has been sent), and keep the
+explicit action for anything agreed afterwards. That was not built because in
+the ordinary pipeline the invoice is created at quote acceptance, *before* any
+change order can exist, so it would fire almost never — it only helps the manual
+"Convert to invoice" override.
+
+## Verification
+
+`scripts/check-change-order-money.mjs` — `npm run check:change-order-money`,
+wired into `check:all`. 179 assertions. Every figure is executed against hostile
+input: no change orders; one approved; one pending; one rejected; a negative
+delta; several summing past the quote; a change order on a job with no quote;
+and a `priceDelta` that is null, undefined, absent, NaN, ±Infinity, `"abc"`,
+`""`, `"300"` and a Decimal-like object.
+
+12 mutants of `lib/jobs/changeOrderValue.js`, all caught (pending counted as
+approved; unrecognised counted as approved; rejected folded into the approved
+total; a contract value invented for a job with no quote; the split blended
+away; `num` letting NaN through; the billed guard dropped; tax not charged; a
+tax rate guessed; the `changeOrderId` provenance key dropped; a shortfall
+reported on a job with no schedule; rounding removed). A further six mutants of
+the wiring — the costing route reverting to `job.quote?.total`, `JobCosting`
+dropping the changes figure, the bill route trusting its pre-flight read, the
+PATCH letting a billed change order move, `kpis.js` growing its own second
+opinion back, and the schedule card going quiet — were applied by hand and all
+six failed the check. Backups were `cp`, never `git checkout`.
+
+Every source rule is scoped to ONE brace-matched named function, and ordering
+rules go through `orderedIn`, which refuses unless **both** strings are present
+— `src.indexOf(a) < src.indexOf(b)` is a false pass when `a` is absent, because
+`indexOf` returns `-1`.
+
+`lib/marketing/competitors.js` was checked and deliberately **not** changed:
+`FIELDQUO_CAPABILITIES` has no `change_orders` key, and the only occurrence of
+"change orders" in the file is inside Projul's own `addsOverPreviousTier` list —
+a description of *their* Core+ tier, not a FieldQuo claim. No comparison page
+asserts anything about change orders in either direction, so none of them starts
+lying. Adding a `weHaveTheyDont` claim ("Projul puts change orders in its
+$7,188/yr tier; we have them on every plan") is now factually available, but it
+would rest on an `UNVERIFIED`, owner-relayed feature list — and that file's own
+header warns against exactly that asymmetry. It is a sales decision, not a
+correctness one.

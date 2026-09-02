@@ -4,7 +4,7 @@ Last updated: 31 August 2026 (payment schedule). **Update this file when you fin
 Last updated: 1 September 2026. **Update this file when you finish something.**
 Last updated: 1 September 2026 (business costs). **Update this file when you finish something.**
 
-Last updated: 1 September 2026 (callbacks and change orders). **Update this file when you finish something.**
+Last updated: 2 September 2026 (change-order money reaches the total). **Update this file when you finish something.**
 
 Last updated: 1 September 2026 (customer satisfaction survey; Google reviews audit).
 
