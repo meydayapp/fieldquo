@@ -317,12 +317,36 @@ cost at volume.
 - **A rep cannot attribute a company to themselves.** Manual attribution is
   superadmin-only today.
 
-## Decisions waiting on the owner (Phase 1)
+## Decisions taken 2026-09-01 (evening) — Phase 1
 
-1. **Can a rep claim a company themselves?** Today every phone-closed deal
-   needs a superadmin. Recommendation: rep submits a claim, superadmin
-   approves — keeps the property that nobody writes their own ledger.
-2. Two reps, one company — split, first touch, or last touch?
+**A rep gets a signup link, and the link IS the claim.** `/signup?sales=CODE`,
+the same shape as the contractor referral link. So "can a rep claim a company
+themselves" stops being a question rather than getting an answer: there is
+nothing to claim, because attribution happens when the COMPANY acts. The
+property that mattered survives untouched — a rep still has no write path to
+`SalesAttribution` and cannot pay themselves by asserting a relationship that
+did not happen.
+
+It also gives the owner the number he actually wanted: "Daniel signed up ten
+companies today" is a count of attribution rows, computed rather than stored,
+so it cannot drift from the rows it describes.
+
+**The sales link grants the contractor NOTHING extra.** Just the normal trial —
+no free month, no credit, no banner on the signup page. Verified in
+`app/api/companies/route.js`: `salesCode` is resolved independently of the
+promo/referral waterfall, and nothing in that path grants a reward. The
+referral programme gives a month; this does not. The rep side tracks it for
+compensation, and that is the whole difference.
+
+**Two reps, one company: prevented upstream, not arbitrated afterwards.** The
+owner's point is operational rather than accounting — a contractor must not be
+phoned by two reps in one week. So `Prospect` now carries `assignedRepId`,
+`assignedAt` and `claimExpiresAt`: a rep claims before calling, and an unworked
+claim lapses so one rep cannot freeze the list by claiming two hundred and
+calling nine. Attribution at signup still decides who is paid; ownership stops
+the collision happening at all.
+
+## Decisions waiting on the owner (Phase 1)
 3. Flat commission across all four plan tiers?
 4. Does a departed rep keep earning the 60-day milestone?
 5. How much of a contractor's data may a rep see? (Default today: name,

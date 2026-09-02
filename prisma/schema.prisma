@@ -8288,6 +8288,24 @@ model Prospect {
   campaignId String?
   campaign   ProspectCampaign? @relation(fields: [campaignId], references: [id])
 
+  // ── Ownership: one rep works a prospect at a time ─────────────────────
+  //
+  // The owner's reason is the operational one rather than the accounting one:
+  // two reps must not phone the same contractor. Attribution at signup already
+  // decides who gets PAID — the link carries the code and the row locks — but
+  // that resolves the money after the fact and does nothing about the
+  // contractor answering the same pitch twice in a week.
+  //
+  // So ownership is claimed BEFORE the call, and released when the rep is done
+  // or when the claim goes stale. Stale rather than permanent because a rep who
+  // claims two hundred prospects and calls nine of them would otherwise freeze
+  // the list for everyone else.
+  assignedRepId String?
+  assignedAt    DateTime?
+  /// When an unworked claim lapses back to the pool. Null for a prospect that
+  /// has actually been worked — a real conversation is not a lease.
+  claimExpiresAt DateTime?
+
   /// Set when a human says never contact this business. Distinct from status
   /// so it survives every pipeline transition.
   doNotContactAt     DateTime?
@@ -8316,6 +8334,7 @@ model Prospect {
   leads         SalesLead[]
 
   @@index([status])
+  @@index([assignedRepId, status])
   @@index([territoryId, status])
   @@index([campaignId])
   @@index([phoneE164])
