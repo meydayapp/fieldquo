@@ -85,8 +85,16 @@ it.
 **Recommendation: a sales rep is FieldQuo staff, so it joins the platform-admin
 family.**
 
-- Add `sales_rep` to `PlatformAdminRole` — **after fixing bug C**, so the enum
-  is corrected once rather than extended while broken.
+- ~~Add `sales_rep` to `PlatformAdminRole`.~~ **Wrong, and not built.**
+  `RESEARCH-auth-rbac.md` §1 argued against it and was right: a platform token
+  is checked by a long tail of `/api/platform/*` routes, some of which only ask
+  whether an admin exists, so a rep sharing that role would silently gain
+  whatever the least careful of them grants. `SalesRep` is its own model with
+  its own `sales-token` cookie carrying a mandatory scope, and platform
+  verification refuses any token carrying a scope at all — mutual rejection,
+  enforced in four places. The `PlatformAdminRole` enum was still fixed
+  (bug C), because `admin` was a real tier the database could not store; that
+  fix is unrelated to sales reps.
 - New `SalesRep` profile row: `platformAdminId`, `code` (their attribution
   slug), `commissionPlanId`, `demoCompanyId`, `startedAt`, `active`.
 - New screen `/platform/sales/reps` that *looks and reads* like
