@@ -96,6 +96,37 @@ politeness cannot use. That has to be a database column.
 **A gap in what shipped last week:** `lib/sales/outreachSender.js` has no send
 caps at all, so campaign volume limits do not exist yet.
 
+### SETTLED BY THE SPEC — read this before proposing anything
+
+These are decisions the owner already made in the Phase 2 document. They are
+NOT open questions, and an audit finding does not reopen one. I got this wrong
+twice on 2026-09-01 — treating an agent's finding as authoritative over the
+brief — so they are written down here where an agent brief can point at them.
+
+| § | Settled |
+|---|---|
+| 23 | **Twilio is the telephony provider**, behind a provider interface so Telnyx could replace it. Retell is the AI receptionist and is not the rep-calling path. |
+| 25 | **No caller-ID spoofing.** Only numbers FieldQuo controls and is authorised to present. |
+| 2 | Fact / inference / AI-recommendation stay separate in the database AND the UI. |
+| 5 | **No website is a SIGNAL, not a disqualifier.** Those prospects stay in the pipeline. |
+| 6 | Do **not** architect around scraping LinkedIn. Unknown owner stays null. |
+| 7 | Do **not** assume BBB offers an unrestricted public API. |
+| 11 | **Never recommend a capability FieldQuo does not actually have.** |
+| 18 | Deterministic rules-based lead score first. No invented conversion probabilities before there is data. |
+| 29 | STT behind an abstraction. No hard-coded model names or prices. |
+| 38 | Reps must **not** choose their own experiment variant — assignment is stored before the call. |
+| 39 | No declaring a winner without the sample size to support it. |
+| 43 | Territory assignment rules-based first; no opaque ML. |
+| 52 | No hard-coded vendor prices. Configurable pricing tables. |
+| 58 | **Deterministic software for what software can determine.** AI only where interpretation is genuinely valuable. The §58 lists are the boundary. |
+| 59 | Structured, validated AI output. Generated prose never mutates a CRM field directly. |
+| 62 | Provider interfaces around Google, Twilio, OpenAI. |
+| 64 | Audit before code. |
+
+**Working rule that follows:** when an audit finding and the spec disagree, the
+spec wins until the owner says otherwise. Report the tension; do not resolve it
+by quietly adopting the finding.
+
 ### Telephony audit — DONE (`AUDIT-telephony.md`)
 
 **Two vendors are wired and neither carries a human's voice.** Retell places
