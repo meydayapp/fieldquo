@@ -85,6 +85,56 @@ exit 0, schema pushed and verified, row counts unchanged.
 | Rep work mailbox, separate from login | done |
 | Rep signup link + per-day counts | done |
 
+### The mobile check, and what it honestly proves
+
+`check:mobile` now runs over all of `app/platform` and `app/sales` — 55 files,
+measured clean, with an empty known-gaps list. It proves the ABSENCE of six
+mechanical hazards: containers wider than a phone, a `<table>` outside an
+`overflow-x-auto` wrapper, `whitespace-nowrap` with nothing to scroll in,
+anything defeating the deliberate iOS 16px input rule (including moving that
+rule inside `@layer`, which would silently disarm it), touch targets under
+36px, and fixed-height dialogs.
+
+It does **not** prove a layout is usable, that anything fits at 375px, or that
+controls are labelled — there is no browser and no rendered box. Class names
+assembled at runtime are counted as SKIPS and never passed. Two heuristics are
+labelled as heuristics: the scroll-ancestor lookback cannot see a wrapper in a
+parent component, so it fails safe rather than passing wrongly; and the floor
+is 36px rather than Apple's 44, because 44 would fail most existing console
+buttons and get the rule deleted. New screens use 44.
+
+### Rule consoles: three tables a superadmin could only edit by hand
+
+`OpportunityRule`, `ConfidenceRule` and `TechnologySignature` now have screens.
+Three findings worth keeping:
+
+- **A rule is versioned when the edit changes what it DECIDES**, not when it
+  changes a label. Results stamp `ruleVersion`/`signatureVersion`, so mutating
+  conditions in place would make a stored row cite something that no longer
+  exists.
+- **`ConfidenceRule.version` is the honest exception** — nothing stamps a
+  confidence version onto a stored figure, so it is a change counter and the
+  screen says so rather than implying a provenance trail it cannot deliver.
+- **`TechnologySignature` has no consumer at all** — no detector, no crawler.
+  The screen carries a permanent banner saying nothing reads `patterns` yet,
+  and validates shape only. Behaving as though editing a pattern started
+  fingerprinting would be a feature flag for a feature that does not exist.
+
+**My brief was wrong about translations.** Zero of the 30 existing `/platform`
+pages use i18n — the console is English-only by convention — so adding `t()` to
+three superadmin screens would have been inconsistent, not correct.
+
+### A check that printed ALL PASS while skipping 20 assertions
+
+Found by mutation-testing the check itself, not by reading it. `ok()` returned
+`undefined` on its passing branch, so `if (!ok(...)) continue` silently skipped
+twenty handler assertions and still reported success. 146 → 166 checks once
+fixed.
+
+That is the fifth false-pass of this kind in this project, and every one was
+found the same way: by breaking the code and watching whether the check
+noticed. A check nobody has tried to fool is a claim, not evidence.
+
 ### SMS: a "Reply STOP" that went nowhere
 
 The sharpest catch of the night, and it had legal teeth rather than merely
