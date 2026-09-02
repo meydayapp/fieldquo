@@ -645,6 +645,54 @@ incomplete**, and is precisely the systematic extraction the terms name. So
 Google could not enumerate a city's contractors even if it were allowed to.
 It stays as a live `place_id`-only verification step, which its terms permit.
 
+### MARKET SIZE — measured, then corrected upward 48%
+
+**775,628 field-service businesses** across Canada and the US with a findable
+location. 79,736 CA + 695,892 US, 99% with a phone.
+
+| | Canada | USA |
+|---|---:|---:|
+| All businesses in the dataset | 1,561,927 | 16,194,652 |
+| **Field-service addressable** | **79,736** | **695,892** |
+
+**The first number I produced was 522,123 and it was wrong, by my own error.**
+I hand-typed category keys from memory instead of reading Overture's 2,118-row
+taxonomy. Four of them — `pest_control`, `garage_door_services`,
+`window_installation`, `flooring_contractors` — **do not exist and silently
+matched zero rows**. Whole categories were missed outright:
+`construction_services` (62,584), `countertop_installation` (16,231),
+`masonry_concrete` (11,703), `builders` (11,266), `handyman` (7,571),
+`paving_contractor` (7,545), plus appliance repair, carpet cleaning, pool
+cleaning and fencing.
+
+The owner caught it with a Fermi check rather than a query: Jobber alone claims
+200,000+ home-service pros, so a 522K universe would give one vendor a quarter
+of the market. **A category key that matches nothing looks exactly like a
+category with no businesses in it.** Anything selecting from this taxonomy must
+be generated from the taxonomy file, never typed.
+
+**775,628 is still not the whole market, and the gap is structural.** Overture
+indexes businesses with a FINDABLE LOCATION — a Google, Meta or Foursquare
+listing. The US has roughly 460,000 specialty-trade contractors WITH EMPLOYEES
+but around 2.5 million non-employer construction businesses: one-van sole
+traders with no premises and often no listing anywhere. Those are real FieldQuo
+customers and no POI dataset will have them.
+
+So the honest framing is that this is **the reachable market**, which is the
+more useful number anyway: a business with no listing has no phone number for a
+rep to dial. Whether 775K is most of the reachable market or a third of it is
+the enumeration-depth question, still open, checkable against StatCan and
+Census establishment counts.
+
+### The architectural consequence of a bank this size
+
+Ingesting is cheap; enriching is not. At ~3,600 tasks/day and ~7 tasks per
+fully-researched prospect, 775K prospects is ~1,500 days. So the design
+separates **the bank** (large, cheap, name/phone/address/category/website only)
+from **the worked set** (what a campaign promotes into crawling and analysis —
+hundreds or low thousands). `Prospect.status` already carries that distinction,
+which is why a row can sit at `discovered` indefinitely at almost no cost.
+
 ### MEASURED — the fill rates are real, and they are good
 
 Done for $0 in about sixty seconds. No 9.76 GiB download: a bbox predicate
