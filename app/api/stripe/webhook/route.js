@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { db } from "@/lib/db";
+import { earnMilestone, MILESTONES } from "@/lib/sales/commission";
 import { recordStripePayment } from "@/lib/invoices/recordStripePayment";
 import { settleOccurrenceFromIntent } from "@/lib/servicePlans/run";
 import { settleCheckoutSession } from "@/lib/stripe/settleCheckoutSession";
@@ -70,6 +71,47 @@ export async function POST(request) {
           stripeChargesEnabled: account.charges_enabled,
         },
       });
+
+      // ── Sales milestone 1 ───────────────────────────────────────────────
+      //
+      // This is the moment a contractor becomes able to take a homeowner's
+      // money, and it is the ONLY condition on the activation milestone. Not
+      // "onboarding complete": lib/onboarding.js's team step is seatsUsed > 1
+      // and complete requires every step, so before Company.worksAloneAt
+      // existed a one-person shop could never satisfy it — and a van-run solo
+      // operator is a core FieldQuo customer, so that gate would have paid
+      // nothing on an entire class of legitimate sale.
+      //
+      // Read AFTER the update above rather than from account.charges_enabled
+      // directly, so the milestone and the column can never disagree: one
+      // read of one row is the single source of truth for both.
+      //
+      // earnMilestone is a no-op for a company no rep brought in, which is
+      // every company that existed before the sales portal. That is a
+      // permanent, correct state, not a gap.
+      if (account.charges_enabled) {
+        const company = await db.company.findFirst({
+          where: { stripeAccountId: account.id },
+          select: { id: true, stripeChargesEnabled: true },
+        });
+        if (company?.stripeChargesEnabled) {
+          await earnMilestone({
+            companyId: company.id,
+            milestone: MILESTONES.ACTIVATION,
+            stripeEventId: event.id,
+            // Stripe's own second-precision timestamp, never new Date(), so a
+            // replay months later cannot move when this happened — the same
+            // discipline canceledAt already follows.
+            occurredAt: event.created ? new Date(event.created * 1000) : null,
+          }).catch((err) => {
+            // A commission must never break the webhook that keeps
+            // stripeChargesEnabled in sync. Losing that column is a broken
+            // product; losing a commission row is a reconcilable bookkeeping
+            // miss, and the nightly sweep re-checks anyway.
+            console.error("[sales] activation milestone failed:", err?.message);
+          });
+        }
+      }
       break;
     }
 

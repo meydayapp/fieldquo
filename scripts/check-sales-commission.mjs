@@ -9,6 +9,7 @@
 // The cases below are not invented. Each one is a specific way this could pay
 // wrongly, and several are traps found while reading the existing Stripe
 // integration rather than imagined afterwards.
+import { readFileSync } from "node:fs";
 import {
   MILESTONES,
   commissionRef,
@@ -229,6 +230,85 @@ ok(
   "a reversal after a batch closed reduces the NEXT payout",
   afterReversal.payableCents === -6500,
   String(afterReversal.payableCents),
+);
+
+// ── The wiring ────────────────────────────────────────────────────────────
+//
+// The rules above are worthless if a webhook re-implements them by hand. These
+// assertions are about WHERE they are called from, and each is scoped to one
+// named function, because a guard string matching elsewhere in the same file
+// is a false pass — that happened earlier in this work and a check that cannot
+// fail reads as proof.
+function fnBody(file, name) {
+  const src = readFileSync(file, "utf8");
+  const m = new RegExp(`(?:export\\s+)?(?:async\\s+)?function\\s+${name}\\b`).exec(src);
+  if (!m) return null;
+  const next = src.indexOf("\nexport ", m.index + m[0].length);
+  return src.slice(m.index, next === -1 ? src.length : next);
+}
+
+console.log("\nWhere the rules are called from");
+
+const billing = fnBody("lib/platform/stripeBilling.js", "syncSubscriptionFromStripeEvent");
+ok("the billing webhook exists to check", billing !== null);
+ok(
+  "milestone 2 calls qualifiesForFirstPayment rather than re-deriving it",
+  billing?.includes("qualifiesForFirstPayment(obj)"),
+);
+// The whole point of the shared rule: a hand-rolled condition here could
+// satisfy billing_reason and forget amount_paid, paying on a free month.
+ok(
+  "and does NOT hand-roll billing_reason for the milestone",
+  !/earnMilestone[\s\S]{0,400}billing_reason/.test(billing || ""),
+);
+ok(
+  "an out-of-order invoice is LOGGED, not silently dropped",
+  /found no subscription row/.test(billing || ""),
+);
+ok(
+  "the milestone cannot break the webhook that syncs billing state",
+  /earnMilestone\([\s\S]{0,600}\.catch\(/.test(billing || ""),
+);
+
+const connect = fnBody("app/api/stripe/webhook/route.js", "POST");
+ok("the Connect webhook exists to check", connect !== null);
+ok(
+  "milestone 1 is recorded from account.updated",
+  connect?.includes("MILESTONES.ACTIVATION"),
+);
+// Read back from the row, so the column and the milestone cannot disagree.
+ok(
+  "and reads the stored column rather than trusting the event body alone",
+  /company\?\.stripeChargesEnabled/.test(connect || ""),
+);
+ok(
+  "milestone 1 never consults onboarding completeness",
+  !/onboardingCompletedAt/.test(connect || ""),
+);
+
+const cronSrc = readFileSync("app/api/cron/sales-retention/route.js", "utf8");
+ok("the retention sweep demands the cron secret", cronSrc.includes("requireCronSecret(request)"));
+ok(
+  "it refuses before doing any work",
+  cronSrc.indexOf("requireCronSecret") < cronSrc.indexOf("salesCommissionEntry.findMany"),
+);
+ok(
+  "it uses the shared rule rather than its own date maths",
+  cronSrc.includes("qualifiesForRetention("),
+);
+ok(
+  "it honours the plan's own window instead of hard-coding 60",
+  cronSrc.includes("commissionPlan?.retentionDays"),
+);
+ok(
+  "a held dispute is counted apart from a skip",
+  cronSrc.includes("verdict.holdUntilResolved"),
+);
+
+const vercel = JSON.parse(readFileSync("vercel.json", "utf8"));
+ok(
+  "the sweep is actually scheduled — an unscheduled cron never runs",
+  (vercel.crons || []).some((c) => c.path === "/api/cron/sales-retention"),
 );
 
 console.log("");
