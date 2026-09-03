@@ -317,19 +317,56 @@ export async function POST(request) {
   }
 
   // do_not_contact
+  //
+  // ══ What this writes, and the list it deliberately does NOT ══════════════
+  //
+  // A row-level fact: Prospect.doNotContactAt on the one prospect this rep
+  // holds. It does not write SalesSuppression, and that is queueGate.js's
+  // rule, not an omission — "a rep marking one prospect do-not-contact is a
+  // fact about that prospect, not an entry on the platform list", and
+  // scripts/check-sales-auth.mjs holds this route to REP_QUEUE_WRITES to keep
+  // it that way.
+  //
+  // The platform list is written by the CALL path instead. lib/sales/calls/
+  // gate.js argues why the seam falls there: the rep on the phone is the one
+  // who HEARS "take me off your list", so the `do_not_call` disposition writes
+  // both — the row flag and a SalesSuppression on the number, in one
+  // transaction, narrowed to the phone channel.
+  //
+  // The two are a real pair and the screen now says so. Until 2026-09-03 this
+  // control was labelled "Why should nobody contact them again?" and promised
+  // "Only a superadmin can lift it" — both untrue of what it writes. It binds
+  // one ROW, so the same business re-ingested from a second register is a new
+  // row and is callable, which multi-source campaigns made the ordinary case
+  // rather than the edge one. And nothing lifts this column at all: the
+  // superadmin-with-a-written-reason rule belongs to `unsuppress`, on the list
+  // this action never touches.
   const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, MAX_REASON) : "";
   if (!reason) {
     return bad(
       "Say why. A do-not-contact with no reason cannot be reviewed later, and this one is permanent.",
     );
   }
+  // Never overwritten once set, and the WHERE is what enforces it rather than
+  // a comment: a second request must not move the date and lose when the
+  // business actually asked. lib/sales/calls/store.js states the same rule and
+  // reads first for it; here the condition can ride along in the update, which
+  // is also the only form that is safe against two tabs.
   const done = await db.prospect.updateMany({
-    where: mine,
-    // Never overwritten once set: a second "do not contact" must not move the
-    // date and lose when the business actually asked.
+    where: { ...mine, doNotContactAt: null },
     data: { doNotContactAt: now, doNotContactReason: reason },
   });
-  if (done.count === 0) return notFound();
+  if (done.count === 0) {
+    // Zero means one of two things and they are not the same answer. Already
+    // recorded is a SUCCESS — the rep asked for a state the row is already in,
+    // and 404 would read as "that didn't work", which invites a second press
+    // and a support ticket. Not this rep's row is the 404.
+    const already = await db.prospect.findFirst({
+      where: { ...mine, doNotContactAt: { not: null } },
+      select: { id: true },
+    });
+    if (!already) return notFound();
+  }
   return NextResponse.json(await queueBody(rep, { tradeKey: body.tradeKey || "" }));
 }
 

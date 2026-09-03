@@ -8576,8 +8576,16 @@ model Prospect {
   latitude    Decimal? @db.Decimal(9, 6)
   longitude   Decimal? @db.Decimal(9, 6)
 
-  /// Google's own category strings, unmapped. Mapping them to FieldQuo trades
-  /// is a separate, revisable decision and must not overwrite the source.
+  /// What the SOURCE called this business, verbatim and unmapped, namespaced by
+  /// provider (`rbq:9`, an Overture slug). Mapping them to a FieldQuo trade is a
+  /// separate, revisable decision and must never overwrite the source's words.
+  ///
+  /// A code here is NOT a trade, and for the Quebec register it is not even a
+  /// claim about one: RBQ publishes what a licence PERMITS its holder to do, and
+  /// the median licence carries sixteen or seventeen permissions — 81% include
+  /// interior finishing. So the set identifies no single trade, which is why
+  /// tradeDetect reads the contractor's website instead. The superadmin screen
+  /// shows every code and says this in as many words.
   sourceCategories String[] @default([])
   /// The FieldQuo trade this was discovered as, as a key of DISCOVERY_TRADES
   /// in lib/sales/discovery/trades.js. Null when nothing mapped — never a
@@ -8717,6 +8725,12 @@ model Prospect {
   /// ticks, and the schema is the only place that cannot.
   @@unique([sourceProvider, sourceRecordId])
   @@index([licenceNumber])
+  /// GIN, not B-tree: the category filter is Prisma `has`, which compiles to
+  /// `@> ARRAY[$1]`, and a B-tree cannot answer containment on an array column.
+  /// It does NOT help the facet aggregate that builds the picker's option list —
+  /// that unnests every row by design, which is why a failure there disables the
+  /// picker rather than the page.
+  @@index([sourceCategories], type: Gin)
   @@index([status])
   @@index([assignedRepId, status])
   @@index([territoryId, status])

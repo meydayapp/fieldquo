@@ -64,10 +64,14 @@ import {
   prospectView,
   queueWhere,
   signalsFor,
+  sourceCategoryParts,
+  sourceCategoryView,
   SIGNAL_BY_EVIDENCE_TYPE,
+  SOURCE_CATEGORY_HEADING,
 } from "@/lib/sales/prospectView";
 import { SIGNALS, seedConfidenceRules } from "@/lib/sales/intel/confidence";
 import { REP_QUEUE_WRITES } from "@/lib/sales/queueGate";
+import { DISPOSITIONS } from "@/lib/sales/calls/dispositions";
 import { OBSERVABLE_CAPABILITY_CODES } from "@/lib/sales/intel/capabilities";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -912,6 +916,32 @@ ok(
   );
 }
 
+/**
+ * Is this query argument scoped to the row this rep holds?
+ *
+ * `where: mine` was the whole test until 2026-09-03, when the do-not-contact
+ * action grew a second condition — `{ ...mine, doNotContactAt: null }`, so a
+ * second press cannot move the date — and a correctly scoped write started
+ * failing. Widening to "mentions mine" would have been the wrong repair: the
+ * spread is order-sensitive, and `{ ...mine, assignedRepId: null }` mentions it
+ * while handing the rep every prospect in the pool.
+ *
+ * So: `mine` has to be the FIRST thing in the where, and nothing after it may
+ * re-declare either key `mine` supplies. That is strictly stronger than the
+ * string it replaces, not weaker.
+ */
+function scopedToRep(arg) {
+  if (/\.\.\.claimCandidateWhere\(/.test(arg)) return true;
+  if (/where:\s*mine\b/.test(arg)) return true;
+  const spread = arg.match(/where:\s*\{\s*\.\.\.mine\b([\s\S]*?)\}/);
+  if (!spread) return false;
+  // Anything that would override the id or the rep, after the spread that set
+  // them. Nested objects are fine — `doNotContactAt: { not: null }` names
+  // neither key — so this looks for the keys themselves at any depth and lets
+  // the presence of one fail the query rather than trying to reason about it.
+  return !/\b(id|assignedRepId)\s*:/.test(spread[1]);
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    11. The routes
    ═══════════════════════════════════════════════════════════════════════ */
@@ -1042,7 +1072,7 @@ ok(
     // appears in the CLAIM's data block, so a whole-body regex passes while
     // release, worked and do-not-contact are all unscoped.
     const writes = argsOf(postBody || "", "db.prospect.updateMany(");
-    const unscoped = writes.filter((w) => !/\.\.\.claimCandidateWhere\(|where: mine/.test(w));
+    const unscoped = writes.filter((w) => !scopedToRep(w));
     ok(
       "every write in POST is scoped — either to the rep's own row or to the availability condition",
       writes.length >= 4 && unscoped.length === 0,
@@ -1057,7 +1087,9 @@ ok(
       ...argsOf(queueRoute, "db.prospect.findFirst("),
       ...argsOf(queueRoute, "db.prospect.count("),
     ];
-    const unscoped = reads.filter((r) => !/queueWhere\(rep\.id|claimCandidateWhere\(/.test(r));
+    const unscoped = reads.filter(
+      (r) => !/queueWhere\(rep\.id|claimCandidateWhere\(/.test(r) && !scopedToRep(r),
+    );
     ok(
       "every Prospect read in the queue route is scoped to the rep or to the claimable pool",
       reads.length >= 4 && unscoped.length === 0,
@@ -1080,6 +1112,66 @@ ok(
     "a do-not-contact needs a stated reason",
     /if \(!reason\)/.test(postBody || ""),
   );
+  {
+    // ── The date cannot be moved by a second press ─────────────────────────
+    //
+    // The rule was stated in a comment and enforced by nothing: `updateMany`
+    // with a plain `where: mine` overwrote `doNotContactAt` every time, losing
+    // when the business actually asked — the one fact the column exists to
+    // hold, and the one a regulator would ask for. lib/sales/calls/store.js
+    // states the same rule and reads first for it. Here it rides in the WHERE.
+    const dncWrite = argsOf(postBody || "", "db.prospect.updateMany(").find((w) =>
+      /doNotContactAt: now/.test(w),
+    );
+    ok("the do-not-contact write is findable", Boolean(dncWrite));
+    ok(
+      "…and it refuses to move a date that is already set",
+      /where: \{ \.\.\.mine, doNotContactAt: null \}/.test(dncWrite || ""),
+      dncWrite?.slice(0, 200),
+    );
+    ok(
+      "…and a row already recorded is a success, not a 404 that invites a second press",
+      /if \(done\.count === 0\)[\s\S]{0,400}?if \(!already\) return notFound\(\);/.test(
+        postBody || "",
+      ),
+    );
+  }
+  {
+    // ── The screen may not promise what the route does not write ───────────
+    //
+    // This control writes Prospect.doNotContactAt and NOTHING else —
+    // queueGate.js excludes SalesSuppression on purpose and REP_QUEUE_WRITES
+    // above asserts it stays excluded. The screen said "Why should nobody
+    // contact them again?" and "Only a superadmin can lift it". Neither was
+    // true of a row flag: the same business re-ingested from a second register
+    // is a new row and is callable, and nothing anywhere lifts this column —
+    // the superadmin-with-a-reason rule belongs to `unsuppress`, on the list
+    // this action never touches.
+    //
+    // Asserted on the QUEUE PAGE's source rather than on a translated string
+    // because this page is rep-facing and English-only, the same reason the
+    // page carries its copy inline.
+    const page = read("app/sales/queue/page.js");
+    ok(
+      "the queue's do-not-contact does not claim the platform list",
+      !/nobody contact them again/.test(page),
+    );
+    ok(
+      "…and does not claim a superadmin lift it has no part in",
+      !/Only a superadmin can lift it/.test(page),
+    );
+    ok(
+      "…and names the disposition that DOES bind every rep and channel",
+      /Asked not to be called again/.test(page) &&
+        /binds every rep and every channel/.test(page),
+    );
+    ok(
+      "…and the disposition it names is a real one that writes a suppression",
+      DISPOSITIONS.do_not_call?.label === "Asked not to be called again" &&
+        DISPOSITIONS.do_not_call?.doNotContact === true,
+      DISPOSITIONS.do_not_call?.label,
+    );
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1108,6 +1200,605 @@ section("12. Nothing filters on a status the pipeline never writes");
     { orphans, writtenStatuses: [...writtenStatuses] },
   );
   ok("…and there are statuses to offer", offered.length >= 3, offered);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   13. The source's own categories reach the screen, and are not called a trade
+   ═══════════════════════════════════════════════════════════════════════ */
+section("13. Every source category is shown, labelled as what it is");
+
+// A real RBQ authorisation set: the thirteen-code general-contractor bundle
+// plus four that actually distinguish this licence. Seventeen, which is the
+// measured median — see lib/sales/discovery/rbq/licence.js's header. The point
+// of the number is that a screen which truncates "the first three" would drop
+// `rbq:16` (electrical), the one code here a rep could act on.
+const RBQ_SEVENTEEN = [
+  "rbq:1.1", "rbq:1.2", "rbq:1.3", "rbq:2.5", "rbq:2.7", "rbq:3.2", "rbq:4.2",
+  "rbq:5.2", "rbq:6.2", "rbq:7", "rbq:8", "rbq:9", "rbq:11.2", "rbq:12",
+  "rbq:13.5", "rbq:16", "rbq:17.2",
+];
+
+{
+  const view = sourceCategoryView({
+    sourceProvider: "rbq",
+    sourceCategories: RBQ_SEVENTEEN,
+    tradeKey: null,
+  });
+  const shown = view.groups.flatMap((g) => g.rows);
+
+  ok("a prospect with 17 source categories reports 17", view.count === 17, view.count);
+  ok(
+    "…and all 17 are handed to the screen, not the first three",
+    shown.length === 17,
+    shown.length,
+  );
+  ok(
+    "…and every one of the 17 raw strings survives verbatim",
+    shown.map((r) => r.raw).join("|") === RBQ_SEVENTEEN.join("|"),
+    shown.map((r) => r.raw),
+  );
+  ok(
+    "…including the one a 'first three' truncation would have dropped",
+    shown.some((r) => r.raw === "rbq:16"),
+    shown.map((r) => r.raw).slice(0, 4),
+  );
+  ok(
+    "the RBQ codes are presented as an authorisation, never as a listing",
+    view.groups.length === 1 && view.groups[0].kind === "authorisation",
+    view.groups.map((g) => g.kind),
+  );
+  ok(
+    "the code is kept typeable — namespace split off, code left as the register prints it",
+    shown.find((r) => r.raw === "rbq:13.5")?.code === "13.5",
+    shown.find((r) => r.raw === "rbq:13.5"),
+  );
+  // The register publishes `9`, not `9 — travaux de finition`. Guessing the
+  // forty subcategory titles from memory is AGENTS.md failure class 5 with a
+  // legal document as the thing being padded.
+  ok(
+    "no title is invented for a code the source published without one",
+    shown.every((r) => r.description === null),
+    shown.filter((r) => r.description !== null),
+  );
+  ok(
+    "…and the screen is told to say so, with the lookup that does answer it",
+    typeof view.groups[0].untitled === "string" && view.groups[0].untitled.length > 20,
+    view.groups[0].untitled,
+  );
+}
+
+{
+  // A directory listing: the source's string IS the description, slugged.
+  const view = sourceCategoryView({
+    sourceProvider: "overture",
+    sourceCategories: ["painting", "carpet_installation"],
+  });
+  const rows = view.groups.flatMap((g) => g.rows);
+  ok(
+    "a slugged source string is read back as words",
+    rows.find((r) => r.raw === "carpet_installation")?.description === "carpet installation",
+    rows,
+  );
+  ok(
+    "…with the raw string kept beside it, because that is what gets typed",
+    rows.find((r) => r.raw === "carpet_installation")?.raw === "carpet_installation",
+    rows,
+  );
+  ok(
+    "a string that de-slugs to itself gets no second line rather than a duplicate one",
+    rows.find((r) => r.raw === "painting")?.description === null,
+    rows,
+  );
+  ok(
+    "…and the untitled hint is NOT shown for a group that does carry descriptions",
+    view.groups[0].untitled === null,
+    view.groups[0].untitled,
+  );
+  ok(
+    "a directory listing is presented as a listing, not an authorisation",
+    view.groups[0].kind === "listing",
+    view.groups[0].kind,
+  );
+}
+
+{
+  // Absence is a statement, and there are two different absences.
+  const said = sourceCategoryView({ sourceProvider: "overture", sourceCategories: [] });
+  const never = sourceCategoryView({ sourceProvider: null, sourceCategories: [] });
+
+  ok("a prospect with no categories is not `known`", said.known === false, said);
+  ok(
+    "…and says so in words rather than rendering an empty box",
+    typeof said.emptyText === "string" && said.emptyText.length > 20,
+    said.emptyText,
+  );
+  ok(
+    "…naming the source that said nothing",
+    /Overture/i.test(said.emptyText || ""),
+    said.emptyText,
+  );
+  ok(
+    "a hand-typed row with no source at all gets a DIFFERENT sentence",
+    typeof never.emptyText === "string" && never.emptyText !== said.emptyText,
+    { said: said.emptyText, never: never.emptyText },
+  );
+  ok(
+    "…and neither absence produces a group to render",
+    said.groups.length === 0 && never.groups.length === 0,
+    { said: said.groups.length, never: never.groups.length },
+  );
+  ok(
+    "a prospect that never had the field at all does not throw",
+    sourceCategoryView({}).count === 0 && sourceCategoryView().count === 0,
+  );
+}
+
+{
+  // normalise.js concatenates the source's primary category onto its
+  // alternates, so a provider that repeats the primary produces two identical
+  // strings. Both must survive — a screen promising "every category" that
+  // de-duplicates is showing fewer than it says — and they must not collide
+  // as React keys, which is how the second one would vanish anyway.
+  const dup = sourceCategoryView({
+    sourceProvider: "overture",
+    sourceCategories: ["painting", "painting"],
+  });
+  const dupRows = dup.groups.flatMap((g) => g.rows);
+  ok("a repeated category is shown twice, not silently de-duplicated", dup.count === 2, dup.count);
+  ok(
+    "…and the two carry distinct keys, so neither is dropped when rendered",
+    dupRows.length === 2 && dupRows[0].key !== dupRows[1].key,
+    dupRows.map((r) => r.key),
+  );
+  ok(
+    "the screen keys rows on that key rather than on the raw string",
+    /key=\{row\.key\}/.test(platformPage),
+    platformPage.match(/.{0,20}key=\{row\..{0,10}/)?.[0],
+  );
+}
+
+{
+  // A namespace is only a namespace if we know it. Otherwise `https://x`
+  // reads as namespace `https`, and the code shown is not the string stored.
+  const parts = sourceCategoryParts("https://example.test/x");
+  ok(
+    "an unknown prefix is left in the code rather than eaten as a namespace",
+    parts.namespace === null && parts.code === "https://example.test/x",
+    parts,
+  );
+  // These strings arrive verbatim from a third-party CSV, and every plain
+  // object answers to `constructor` — so a lookup that is not an own-property
+  // check would have split this one and rendered an undefined source label.
+  for (const poisoned of ["constructor:9", "toString:9", "__proto__:9"]) {
+    const p = sourceCategoryParts(poisoned);
+    ok(
+      `a category named ${poisoned.split(":")[0]} is not mistaken for a known namespace`,
+      p.namespace === null && p.code === poisoned,
+      p,
+    );
+  }
+  const poisonedView = sourceCategoryView({
+    sourceProvider: "rbq",
+    sourceCategories: ["constructor:9"],
+  });
+  ok(
+    "…and it still renders with a real note rather than an undefined one",
+    typeof poisonedView.groups[0]?.note === "string" && poisonedView.groups[0].kind === "listing",
+    poisonedView.groups[0],
+  );
+}
+
+// ── Nothing under this heading calls a category a trade ──────────────────
+//
+// The whole reason `tradeKey` is null on an RBQ row. The rule has two halves,
+// because a blanket ban on the word would forbid the sentence that does the
+// work: a LABEL may not contain it at all, and a NOTE may only contain it
+// under a negation.
+{
+  const labels = [SOURCE_CATEGORY_HEADING.title];
+  const notes = [SOURCE_CATEGORY_HEADING.note];
+  for (const fixture of [
+    { sourceProvider: "rbq", sourceCategories: RBQ_SEVENTEEN },
+    { sourceProvider: "overture", sourceCategories: ["painting", "carpet_installation"] },
+  ]) {
+    const view = sourceCategoryView(fixture);
+    if (view.emptyText) notes.push(view.emptyText);
+    for (const g of view.groups) {
+      if (g.sourceLabel) labels.push(g.sourceLabel);
+      labels.push(g.kind);
+      if (g.note) notes.push(g.note);
+      if (g.untitled) notes.push(g.untitled);
+    }
+  }
+  for (const view of [
+    sourceCategoryView({ sourceProvider: "overture", sourceCategories: [] }),
+    sourceCategoryView({}),
+  ]) {
+    if (view.emptyText) notes.push(view.emptyText);
+  }
+
+  ok("there are labels and notes to check", labels.length >= 4 && notes.length >= 5, {
+    labels: labels.length,
+    notes: notes.length,
+  });
+  const labelSaysTrade = labels.filter((s) => /trade/i.test(s));
+  ok(
+    "no label, heading or kind under this section calls a category a trade",
+    labelSaysTrade.length === 0,
+    labelSaysTrade,
+  );
+
+  // A note MAY say "never a trade". It may not say "the trade is". So every
+  // occurrence has to sit downstream of a negation in the same breath.
+  const unnegated = [];
+  for (const note of notes) {
+    for (const m of note.matchAll(/trade/gi)) {
+      const before = note.slice(Math.max(0, m.index - 40), m.index);
+      if (!/\b(no|not|never|neither|nothing|rather than)\b/i.test(before)) {
+        unnegated.push(note.slice(Math.max(0, m.index - 40), m.index + 20));
+      }
+    }
+  }
+  ok(
+    "…and every mention of a trade in the explanations is a denial that this is one",
+    unnegated.length === 0,
+    unnegated,
+  );
+
+  // The negation matcher, asserted before anything trusts it — the same
+  // discipline the brace matcher gets at the top of this file.
+  {
+    const negated = (s) =>
+      [...s.matchAll(/trade/gi)].every((m) =>
+        /\b(no|not|never|neither|nothing|rather than)\b/i.test(s.slice(Math.max(0, m.index - 40), m.index)),
+      );
+    ok("the negation matcher accepts a denial", negated("these are never a trade"));
+    ok("…and rejects a claim", !negated("the trade this business works in"));
+  }
+}
+
+// ── The screen actually renders them ─────────────────────────────────────
+{
+  const body = bodyOf(platformPage, "function SourceCategories");
+  ok("the categories section is a real component on the screen", Boolean(body));
+  ok(
+    "the detail view renders it rather than defining it and forgetting it",
+    /<SourceCategories\b/.test(platformPage),
+    platformPage.match(/.{0,40}<SourceCategories.{0,40}/)?.[0],
+  );
+  ok(
+    "it is fed from the route's own presenter output",
+    /view=\{p\.sourceCategoriesView\}/.test(platformPage),
+    platformPage.match(/.{0,30}sourceCategoriesView.{0,30}/)?.[0],
+  );
+  ok(
+    "the section maps over every row the presenter returned",
+    /\.rows\.map\(/.test(body || ""),
+    body?.slice(0, 200),
+  );
+  // `>{expr}<` and not just `{expr}`: the first draft of these two matched
+  // `key={row.raw}`, so replacing the rendered code with `{row.code}` — losing
+  // the `rbq:` namespace a person needs to know which register it is — passed.
+  // A React key is not a rendered value.
+  ok(
+    "…rendering the raw code, which is the thing a superadmin types into the RBQ lookup",
+    />\{row\.raw\}</.test(body || ""),
+    body?.slice(0, 300),
+  );
+  ok(
+    "…and the description underneath when the source gave one",
+    />\{row\.description\}</.test(body || ""),
+    body?.slice(0, 300),
+  );
+  ok(
+    "the section truncates nothing — no slice, no take, no “+N more”",
+    !/\.slice\(|\.splice\(|more\b/.test(body || ""),
+    (body || "").match(/.{0,40}(\.slice\(|\.splice\(|more\b).{0,20}/)?.[0],
+  );
+  ok(
+    "an empty set renders the presenter's sentence, not an empty box",
+    />\{view\.emptyText\}</.test(body || ""),
+    body?.slice(0, 300),
+  );
+  ok(
+    "the heading comes from the shared module rather than being retyped in JSX",
+    /SOURCE_CATEGORY_HEADING\.title/.test(body || "") &&
+      /SOURCE_CATEGORY_HEADING/.test(platformPage.match(/import \{[^}]*\} from "@\/lib\/sales\/prospectView"/)?.[0] || ""),
+    body?.slice(0, 300),
+  );
+  ok(
+    "the group's honest note is rendered too, not just the codes",
+    />\{g\.note\}</.test(body || ""),
+    body?.slice(0, 400),
+  );
+  // The shape this task was called in to fix: returned by the API for months,
+  // rendered as a comma-joined line nobody can read or type.
+  ok(
+    "the cramped provenance one-liner is gone, not left duplicating the section",
+    !/sourceCategories\?\.join|sourceCategories\)\.join/.test(platformPage),
+    platformPage.match(/.{0,40}sourceCategories.{0,30}join.{0,20}/)?.[0],
+  );
+  ok(
+    "the detail route sends the presented view, not only the bare array",
+    /sourceCategoriesView: sourceCategoryView\(/.test(platformDetail),
+    platformDetail.match(/.{0,40}sourceCategoriesView.{0,40}/)?.[0],
+  );
+}
+
+// ── Triage: the filter, and the population only it can reach ─────────────
+{
+  ok(
+    "the list route reads a source category off the query string",
+    /searchParams\.get\("sourceCategory"\)/.test(platformList),
+    platformList.match(/.{0,30}sourceCategory.{0,40}/)?.[0],
+  );
+  ok(
+    "…and filters on the array in Postgres, not by fetching and filtering in JS",
+    /where\.sourceCategories = \{ has: sourceCategory \}/.test(platformList),
+    platformList.match(/.{0,40}where\.sourceCategories.{0,40}/)?.[0],
+  );
+  ok(
+    "the option list is built from the rows themselves, so a picked value cannot match nothing",
+    /unnest\("sourceCategories"\)/.test(platformList),
+    platformList.match(/.{0,40}unnest.{0,40}/)?.[0],
+  );
+  ok(
+    "…and the 'no such category exists' claim is gated on that list being complete",
+    /sourceCategoryOptionsComplete/.test(platformList) &&
+      /data\.sourceCategoryOptionsComplete &&/.test(platformPage),
+    platformPage.match(/.{0,60}sourceCategoryOptionsComplete.{0,40}/)?.[0],
+  );
+  ok(
+    "a failure to build the option list is reported, never returned as an empty vocabulary",
+    /sourceCategoryOptionsError/.test(platformList) && /sourceCategoryOptionsError/.test(platformPage),
+    platformList.match(/.{0,40}sourceCategoryOptionsError.{0,30}/)?.[0],
+  );
+  // A separate control, never a second spelling of the trade one — the rows
+  // this reaches have no trade by design.
+  const labelText = platformPage.match(/htmlFor="f-source-category"\s*>\s*([^<]+)/)?.[1]?.trim();
+  ok("the filter has its own labelled control", Boolean(labelText), labelText);
+  ok(
+    "…whose label does not call a category a trade",
+    Boolean(labelText) && !/trade/i.test(labelText),
+    labelText,
+  );
+  ok(
+    "…and it is a search-as-you-type, not a flat select of ninety opaque codes",
+    // `\s` before the attribute: without it, `data-list=` — which wires the
+    // input to nothing — matched and this passed.
+    /\slist="f-source-category-options"/.test(platformPage) &&
+      /<datalist id="f-source-category-options">/.test(platformPage) &&
+      /<input\b[^>]*id="f-source-category"/.test(platformPage),
+    platformPage.match(/.{0,40}f-source-category-options.{0,30}/)?.[0],
+  );
+  // Scoped to the datalist's own body: a suggestion list wired to a literal
+  // `[]` renders the element, satisfies every assertion above, and offers
+  // nothing to pick — which is the "control that appears to work" AGENTS.md
+  // names as the rule that matters most.
+  {
+    const open = platformPage.indexOf('<datalist id="f-source-category-options">');
+    const close = platformPage.indexOf("</datalist>", open);
+    const block = open === -1 || close === -1 ? "" : platformPage.slice(open, close);
+    ok(
+      "…and the suggestions are the categories the payload actually reported",
+      /sourceCategoryOptions\b/.test(block) && /\.map\(/.test(block),
+      block.slice(0, 200),
+    );
+  }
+}
+
+// ── The same filter, EXECUTED against the shipped route ──────────────────
+//
+// The assertion that matters: a prospect the trade filter cannot see — every
+// Quebec licence-holder, because `tradeKey` is null by design — comes back
+// when filtered on one of its authorisations. A regex over the route can show
+// the `has` is written; only running it shows the row arrives.
+{
+  const { register } = await import("node:module");
+  const prospects = [
+    {
+      id: "p_rbq",
+      businessName: "Licence with no trade",
+      tradeKey: null,
+      sourceCategories: RBQ_SEVENTEEN,
+      status: "discovered",
+      hasWebsite: null,
+      technologies: [],
+      scores: [],
+      territory: null,
+      campaign: null,
+      googleRating: null,
+      googleReviewCount: null,
+      lastCrawledAt: null,
+      assignedRepId: null,
+      claimExpiresAt: null,
+      doNotContactAt: null,
+    },
+    {
+      id: "p_other",
+      businessName: "A painter the directory did categorise",
+      tradeKey: "painting",
+      sourceCategories: ["painting"],
+      status: "discovered",
+      hasWebsite: null,
+      technologies: [],
+      scores: [],
+      territory: null,
+      campaign: null,
+      googleRating: null,
+      googleReviewCount: null,
+      lastCrawledAt: null,
+      assignedRepId: null,
+      claimExpiresAt: null,
+      doNotContactAt: null,
+    },
+  ];
+
+  /** Only the operators this route uses, and `has` really applied. */
+  const matches = (row, where = {}) =>
+    Object.entries(where).every(([key, value]) => {
+      if (key === "AND") return value.every((w) => matches(row, w));
+      if (key === "OR") return value.some((w) => matches(row, w));
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        if ("has" in value) return (row[key] || []).includes(value.has);
+        if ("hasSome" in value) return (row[key] || []).some((v) => value.hasSome.includes(v));
+        if ("not" in value) return row[key] !== value.not;
+        if ("contains" in value) return String(row[key] ?? "").includes(value.contains);
+        // An operator this stub does not model must NOT quietly pass — that is
+        // how a filter becomes a no-op and every assertion below goes green.
+        throw new Error(`stub: unmodelled filter on ${key}: ${JSON.stringify(value)}`);
+      }
+      return row[key] === value;
+    });
+
+  const seen = [];
+  globalThis.__FQ_PROSPECT_DB = {
+    prospect: {
+      findMany: async (args = {}) => {
+        seen.push(args.where);
+        return prospects.filter((p) => matches(p, args.where));
+      },
+      count: async (args = {}) => prospects.filter((p) => matches(p, args.where)).length,
+      groupBy: async () => [],
+    },
+    salesTerritory: { findMany: async () => [] },
+    prospectCampaign: { findMany: async () => [] },
+    prospectScore: { count: async () => 0 },
+    $queryRaw: async () => [
+      { category: "rbq:9", n: 44134 },
+      { category: "painting", n: 12 },
+    ],
+  };
+
+  register(
+    `data:text/javascript,${encodeURIComponent(`
+      export async function resolve(specifier, context, nextResolve) {
+        if (specifier === "@/lib/db") return { url: "fq-prospect:db", shortCircuit: true };
+        if (specifier === "next/server") return { url: "fq-prospect:next", shortCircuit: true };
+        if (specifier === "@/lib/sales/intel/configAdmin")
+          return { url: "fq-prospect:admin", shortCircuit: true };
+        return nextResolve(specifier, context);
+      }
+      export async function load(url, context, nextLoad) {
+        if (url === "fq-prospect:db")
+          return { format: "module", shortCircuit: true,
+            source: "export const db = globalThis.__FQ_PROSPECT_DB;" };
+        if (url === "fq-prospect:next")
+          return { format: "module", shortCircuit: true,
+            source: "export const NextResponse = { json: (body, init) => ({ status: init?.status ?? 200, body }) };" };
+        if (url === "fq-prospect:admin")
+          return { format: "module", shortCircuit: true,
+            source: "export const superadminOrRefusal = async () => ({ admin: { role: 'superadmin' }, refusal: null });" };
+        return nextLoad(url, context);
+      }
+    `)}`,
+  );
+
+  const { GET } = await import("../app/api/platform/sales/prospects/route.js");
+  const call = async (qs) =>
+    (await GET({ url: `https://x.test/api/platform/sales/prospects?${qs}` })).body;
+
+  const filtered = await call("sourceCategory=rbq%3A9");
+  ok(
+    "the category filter returns the prospect whose tradeKey is null",
+    filtered.prospects.length === 1 && filtered.prospects[0].id === "p_rbq",
+    filtered.prospects.map((p) => p.id),
+  );
+  ok(
+    "…and that prospect really does have no trade to filter it by",
+    filtered.prospects[0]?.tradeKey === null && filtered.prospects[0]?.tradeLabel === null,
+    filtered.prospects[0],
+  );
+  // Without this, a filter that silently did nothing would pass the one above.
+  ok(
+    "…and the filter EXCLUDES a prospect that does not carry the category",
+    !filtered.prospects.some((p) => p.id === "p_other") && filtered.total === 1,
+    { ids: filtered.prospects.map((p) => p.id), total: filtered.total },
+  );
+  ok(
+    "the query Prisma was given used `has` on the array column",
+    seen.some((w) => w?.sourceCategories?.has === "rbq:9"),
+    seen,
+  );
+  ok(
+    "…and filtering on a category never quietly constrains the trade as well",
+    seen.every((w) => !("tradeKey" in (w || {}))),
+    seen,
+  );
+  // The gap this control exists to close, executed rather than asserted in prose.
+  const byTrade = await call("tradeKey=painting");
+  ok(
+    "the trade filter cannot reach that prospect — which is why this control exists",
+    byTrade.prospects.length === 1 && byTrade.prospects[0].id === "p_other",
+    byTrade.prospects.map((p) => p.id),
+  );
+
+  const unfiltered = await call("");
+  ok(
+    "with no category filter both prospects are listed",
+    unfiltered.prospects.length === 2,
+    unfiltered.prospects.map((p) => p.id),
+  );
+  ok(
+    "each row reports how many source categories it carries, so the set is findable",
+    unfiltered.prospects.find((p) => p.id === "p_rbq")?.sourceCategoryCount === 17,
+    unfiltered.prospects.map((p) => [p.id, p.sourceCategoryCount]),
+  );
+  ok(
+    "the picker's options carry the row counts that make a category triageable",
+    unfiltered.sourceCategoryOptions?.[0]?.category === "rbq:9" &&
+      unfiltered.sourceCategoryOptions[0].count === 44134,
+    unfiltered.sourceCategoryOptions,
+  );
+  ok(
+    "a complete option list says so, so the screen may call an unknown string a typo",
+    unfiltered.sourceCategoryOptionsComplete === true &&
+      unfiltered.sourceCategoryOptionsError === null,
+    {
+      complete: unfiltered.sourceCategoryOptionsComplete,
+      error: unfiltered.sourceCategoryOptionsError,
+    },
+  );
+
+  // A vocabulary too big to send whole. `complete` has to be COMPUTED — a
+  // hardcoded `true` passes the assertion above, and the page uses that flag
+  // to tell a superadmin a category does not exist, which would then be a lie
+  // about every category past the cap.
+  globalThis.__FQ_PROSPECT_DB.$queryRaw = async () =>
+    Array.from({ length: 401 }, (_, i) => ({ category: `c${i}`, n: 401 - i }));
+  const capped = await call("");
+  ok(
+    "an option list longer than the cap is trimmed to it",
+    capped.sourceCategoryOptions.length === 400,
+    capped.sourceCategoryOptions.length,
+  );
+  ok(
+    "…and is reported as INCOMPLETE, so the screen may not call an unlisted category a typo",
+    capped.sourceCategoryOptionsComplete === false,
+    capped.sourceCategoryOptionsComplete,
+  );
+
+  // And when the aggregate fails, the LIST still works and the screen is told.
+  globalThis.__FQ_PROSPECT_DB.$queryRaw = async () => {
+    throw new Error("statement timeout");
+  };
+  const degraded = await call("");
+  ok(
+    "a failed option aggregate does not take the list of prospects down with it",
+    degraded.prospects.length === 2,
+    degraded.prospects.length,
+  );
+  ok(
+    "…and it is reported as a failure rather than as an empty vocabulary",
+    degraded.sourceCategoryOptions.length === 0 &&
+      typeof degraded.sourceCategoryOptionsError === "string" &&
+      degraded.sourceCategoryOptionsComplete === false,
+    {
+      options: degraded.sourceCategoryOptions.length,
+      error: degraded.sourceCategoryOptionsError,
+      complete: degraded.sourceCategoryOptionsComplete,
+    },
+  );
 }
 
 console.log(`\n${pass + failures.length} checks, ${failures.length} failure(s).`);

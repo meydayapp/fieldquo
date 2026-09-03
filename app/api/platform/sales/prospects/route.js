@@ -44,6 +44,75 @@ import {
 
 const PAGE_SIZE = 50;
 
+/**
+ * How many distinct source categories the picker will list.
+ *
+ * Two sources put roughly 40 RBQ codes and 46 mapped Overture strings in this
+ * column today, and the column takes whatever a future provider says. The cap
+ * exists so a provider with a 2,000-entry taxonomy cannot turn one filter
+ * control into a 2,000-row payload — and when it bites, the response SAYS the
+ * list is partial rather than letting the screen imply an exhaustive one.
+ */
+const CATEGORY_OPTION_LIMIT = 400;
+
+/**
+ * Every distinct source category on a row, commonest first, with row counts.
+ *
+ * ══ Why the options come from the DATA and not from a hand-typed list ══════
+ *
+ * trades.js's header records the failure this avoids, hit on this same
+ * dataset: four hand-typed category keys did not exist in the source's
+ * taxonomy and quietly matched nothing, which looks identical to a real
+ * category that no business is in. Nothing in the code can tell those apart —
+ * so the picker offers ONLY strings that are actually on a row, and a value
+ * chosen from it can never come back empty.
+ *
+ * Raw because Prisma has no groupBy over the elements of a String[].
+ * Unfiltered on purpose: this is the vocabulary of the whole bank, and scoping
+ * it to the current filters would hide every category the current filters
+ * exclude — which is the one thing a person widening a search needs to see.
+ * It is the same shape of whole-table aggregate as the statusCounts groupBy.
+ *
+ * ══ Why a failure here is not a failure of the page ═══════════════════════
+ *
+ * This is an aid to picking a value; the list of prospects is the product. A
+ * whole-table aggregate is the query most likely to time out as the bank
+ * grows, and taking the screen down with it would be the wrong trade. So it
+ * degrades — and SAYS it degraded, in the payload, rather than returning an
+ * empty list that reads as "no prospect has a category". The one claim that
+ * depends on this being exhaustive ("no such category exists") is gated on
+ * `complete`, which a failure never sets.
+ */
+async function sourceCategoryFacets() {
+  try {
+    // One more than the cap, so the response can tell "exactly 400" from
+    // "at least 400" without a second count.
+    const rows = await db.$queryRaw`
+      SELECT c AS category, COUNT(*)::int AS n
+      FROM "Prospect", LATERAL unnest("sourceCategories") AS c
+      GROUP BY c
+      ORDER BY COUNT(*) DESC, c ASC
+      LIMIT ${CATEGORY_OPTION_LIMIT + 1}
+    `;
+    return {
+      options: rows
+        .slice(0, CATEGORY_OPTION_LIMIT)
+        .map((r) => ({ category: String(r.category), count: Number(r.n) })),
+      complete: rows.length <= CATEGORY_OPTION_LIMIT,
+      error: null,
+    };
+  } catch (err) {
+    // Logged rather than swallowed. A silent catch here is how a broken query
+    // survives for months behind a control that looks merely unpopulated.
+    console.error("[platform/sales/prospects] source-category facets failed:", err);
+    return {
+      options: [],
+      complete: false,
+      error: "The list of categories could not be built. You can still type one to filter on it.",
+    };
+  }
+}
+
 function trimmed(value, max = 120) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
@@ -62,6 +131,9 @@ export async function GET(request) {
   const competitor = trimmed(url.searchParams.get("competitor"), 20);
   const claim = trimmed(url.searchParams.get("claim"), 20);
   const contact = trimmed(url.searchParams.get("contact"), 20);
+  // 120 is the width normalise.js slices these to before writing them, so a
+  // longer needle could never match a stored value anyway.
+  const sourceCategory = trimmed(url.searchParams.get("sourceCategory"), 120);
   const minScoreRaw = Number(url.searchParams.get("minScore"));
   const minScore = Number.isFinite(minScoreRaw) ? Math.floor(minScoreRaw) : null;
   const page = Math.max(0, Math.floor(Number(url.searchParams.get("page")) || 0));
@@ -96,6 +168,20 @@ export async function GET(request) {
     where.claimExpiresAt = { lt: now };
   }
 
+  // ══ Filtering on a source category, and why it is its own control ═══════
+  //
+  // The trade filter cannot reach these rows. An RBQ prospect has `tradeKey`
+  // null BY DESIGN — the register authorises a median of sixteen or seventeen
+  // subcategories, so no code identifies a trade and the pipeline refuses to
+  // guess one — which means every Quebec licence-holder is invisible to
+  // `f-trade` today. That is the population this control exists to reach, so
+  // it is a SEPARATE filter and never a second way to spell the trade one.
+  //
+  // `has` against the Postgres array rather than fetching and filtering in JS:
+  // the point is to page 50 of 54,264, and a JS filter would have to read all
+  // of them to count the total.
+  if (sourceCategory) where.sourceCategories = { has: sourceCategory };
+
   if (contact === "dnc") where.doNotContactAt = { not: null };
   else if (contact === "callable") where.doNotContactAt = null;
 
@@ -116,7 +202,8 @@ export async function GET(request) {
     ];
   }
 
-  const [rows, total, territories, campaigns, scoredCount, statusCounts] = await Promise.all([
+  const [rows, total, territories, campaigns, scoredCount, statusCounts, categoryFacets] =
+    await Promise.all([
     db.prospect.findMany({
       where,
       orderBy: [{ createdAt: "desc" }],
@@ -128,6 +215,7 @@ export async function GET(request) {
         city: true,
         province: true,
         tradeKey: true,
+        sourceCategories: true,
         status: true,
         classification: true,
         hasWebsite: true,
@@ -157,6 +245,7 @@ export async function GET(request) {
     // that rather than render a score filter that silently empties the list.
     db.prospectScore.count(),
     db.prospect.groupBy({ by: ["status"], _count: { _all: true } }),
+    sourceCategoryFacets(),
   ]);
 
   return NextResponse.json({
@@ -166,6 +255,11 @@ export async function GET(request) {
       where: [p.city, p.province].filter(Boolean).join(", ") || null,
       tradeKey: p.tradeKey,
       tradeLabel: p.tradeKey ? DISCOVERY_TRADES[p.tradeKey]?.label || p.tradeKey : null,
+      // The COUNT, not the strings. A row in this list says the whole set is
+      // on the record and worth opening; seventeen codes rendered in a card
+      // that also carries eight pills is a wide row on a phone, and the
+      // detail screen is where the set is actually readable.
+      sourceCategoryCount: p.sourceCategories.length,
       status: p.status,
       statusLabel: PROSPECT_STATUS_LABELS[p.status] || p.status,
       classification: p.classification,
@@ -194,5 +288,21 @@ export async function GET(request) {
     // Reported so the screen can disable the score filter and SAY why, rather
     // than offering a control that filters everything out.
     scoredCount,
+    // Every distinct category on a row, commonest first, with how many rows
+    // carry it. The count is the triage figure: `rbq:9` on four licences in
+    // five is not a filter worth applying, and the picker should say so before
+    // someone applies it rather than after.
+    sourceCategoryOptions: categoryFacets.options,
+    // Whether that list is the WHOLE vocabulary. The screen may only tell a
+    // person "no such category exists" when this is true — otherwise the
+    // honest answer is that it is not among the commonest ones.
+    sourceCategoryOptionsComplete: categoryFacets.complete,
+    // Null unless the aggregate actually failed. An empty option list with no
+    // error means the bank genuinely holds no categories; an empty one WITH an
+    // error means we could not look, and those are different sentences.
+    sourceCategoryOptionsError: categoryFacets.error,
+    // Echoed so the empty state can name what was actually filtered on, rather
+    // than the value in a box the person may have edited since.
+    sourceCategory: sourceCategory || null,
   });
 }

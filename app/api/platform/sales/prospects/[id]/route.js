@@ -27,7 +27,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { superadminOrRefusal } from "@/lib/sales/intel/configAdmin";
 import { DISCOVERY_TRADES } from "@/lib/sales/discovery/trades";
-import { CLAIM_HOURS, prospectView } from "@/lib/sales/prospectView";
+import { CLAIM_HOURS, prospectView, sourceCategoryView } from "@/lib/sales/prospectView";
 
 export async function GET(request, { params }) {
   const { refusal } = await superadminOrRefusal(request);
@@ -112,6 +112,12 @@ export async function GET(request, { params }) {
       },
       possibleDuplicateOfId: prospect.possibleDuplicateOfId,
       sourceCategories: prospect.sourceCategories,
+      // The same array, split into what a screen may SAY about it. Assembled
+      // here rather than in the component for the reason this file's header
+      // gives: what a row is allowed to claim is decided in prospectView.js,
+      // and a page that grouped and labelled these itself would be a second
+      // opinion about whether an authorisation is a trade.
+      sourceCategoriesView: sourceCategoryView(prospect),
       assignedRep: rep,
       assignedAt: prospect.assignedAt,
       claimExpiresAt: prospect.claimExpiresAt,

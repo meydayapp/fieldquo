@@ -41,9 +41,10 @@ import {
   Loader2,
   Search,
   ShieldAlert,
+  Tags,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
-import { LAYER_HEADINGS } from "@/lib/sales/prospectView";
+import { LAYER_HEADINGS, SOURCE_CATEGORY_HEADING } from "@/lib/sales/prospectView";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -57,6 +58,7 @@ const BLANK_FILTERS = {
   territoryId: "",
   campaignId: "",
   tradeKey: "",
+  sourceCategory: "",
   status: "",
   website: "",
   competitor: "",
@@ -307,6 +309,67 @@ export default function PlatformProspectsPage() {
             </select>
           </div>
 
+          {/* ══ Source category: a filter the trade one cannot stand in for ══
+              A prospect with no `tradeKey` is invisible to the control above,
+              and that is most of Quebec: an RBQ licence authorises a median of
+              sixteen or seventeen subcategories, so nothing identifies a trade
+              and the pipeline refuses to guess one. Those rows are reachable
+              here and nowhere else.
+
+              ══ Why a search box and not a <select> ══
+              Two sources already put ~40 RBQ codes and ~46 Overture strings in
+              this column and a third adds its own. A flat select of ninety
+              opaque codes is a scroll wheel on a phone with no way to jump to
+              `rbq:13.5`, and it grows worse with every provider. The datalist
+              types, filters natively, and degrades to a plain text input where
+              it is unsupported — where the control still works, because the
+              server matches the string either way.
+
+              The options are every category ACTUALLY on a row, so a value
+              picked from this list can never come back empty. */}
+          <div>
+            <label className={LABEL} htmlFor="f-source-category">
+              Source category
+            </label>
+            <input
+              id="f-source-category"
+              className={FIELD}
+              list="f-source-category-options"
+              value={filters.sourceCategory}
+              onChange={(e) => setFilters({ ...filters, sourceCategory: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") apply();
+              }}
+              placeholder={
+                data?.sourceCategoryOptions?.[0]
+                  ? `Type to search — e.g. ${data.sourceCategoryOptions[0].category}`
+                  : "Type to search"
+              }
+            />
+            <datalist id="f-source-category-options">
+              {(data?.sourceCategoryOptions || []).map((o) => (
+                <option key={o.category} value={o.category}>
+                  {o.count} prospect{o.count === 1 ? "" : "s"}
+                </option>
+              ))}
+            </datalist>
+            {/* Three states, and the third is not the second. An empty list
+                because the bank holds no categories, and an empty list because
+                the aggregate failed, are different facts — and the typing
+                still filters in both cases, so neither disables the control. */}
+            <p className="mt-1 text-xs text-muted-foreground">
+              {data?.sourceCategoryOptionsError
+                ? data.sourceCategoryOptionsError
+                : data?.sourceCategoryOptions?.length
+                  ? `${data.sourceCategoryOptions.length}` +
+                    `${data.sourceCategoryOptionsComplete ? "" : "+"}` +
+                    " categories are on a record, commonest first. These are the source's own" +
+                    " strings — a licence authorising cabinets says the holder MAY fit cabinets," +
+                    " not that they do."
+                  : "Nothing discovered so far carries a source category, so there is nothing to pick from yet."}
+            </p>
+          </div>
+
           <div>
             <label className={LABEL} htmlFor="f-status">
               Status
@@ -467,6 +530,19 @@ export default function PlatformProspectsPage() {
                 That is a real answer, not a failure — an empty result here usually means the campaign that
                 would have produced these rows has not run.
               </p>
+              {/* The one empty result that is NOT a real answer: a mistyped
+                  category matches zero rows and looks exactly like a category
+                  nobody has. Only sayable when the option list is the whole
+                  vocabulary — see sourceCategoryOptionsComplete. */}
+              {data.sourceCategory &&
+              data.sourceCategoryOptionsComplete &&
+              !(data.sourceCategoryOptions || []).some((o) => o.category === data.sourceCategory) ? (
+                <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
+                  No record anywhere carries the category &ldquo;{data.sourceCategory}&rdquo; — it is not one
+                  of the {(data.sourceCategoryOptions || []).length} in the bank, so this is a spelling to
+                  check rather than a gap in the data.
+                </p>
+              ) : null}
             </div>
           ) : null}
 
@@ -506,6 +582,15 @@ export default function PlatformProspectsPage() {
                       </Pill>
                     )}
                     {p.score === null ? <Pill tone="unknown">No lead score</Pill> : <Pill tone="has">Score {p.score}</Pill>}
+                    {/* Neutral tone, and a count rather than the strings. It
+                        says the set is on the record and where to read it; it
+                        does not say what the business does, which is the one
+                        thing seventeen authorisations cannot tell you. */}
+                    {p.sourceCategoryCount ? (
+                      <Pill tone="unknown">
+                        {p.sourceCategoryCount} source categor{p.sourceCategoryCount === 1 ? "y" : "ies"}
+                      </Pill>
+                    ) : null}
                     {p.contact.callable ? null : <Pill tone="gap">{p.contact.title}</Pill>}
                     {p.claim.state === "unclaimed" ? null : <Pill tone="unknown">{p.claim.state.replace(/_/g, " ")}</Pill>}
                   </div>
@@ -537,6 +622,78 @@ export default function PlatformProspectsPage() {
         </>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Every category the source used, all of them, with the code kept readable.
+ *
+ * ══ Why the whole list and never the first three ═══════════════════════════
+ *
+ * A Quebec RBQ licence carries sixteen or seventeen authorisations and the
+ * informative one is as likely to be sixteenth as first — a licence authorised
+ * for roofing AND interior finishing AND cabinets is a real thing a rep can
+ * act on, and truncating it hides exactly the combination that made it worth
+ * reading. So: no "+14 more", no primary, no sort by anything that would imply
+ * a ranking the source did not give.
+ *
+ * ══ Why the raw code is on the screen ══════════════════════════════════════
+ *
+ * A superadmin checking a row against the RBQ's own public lookup types the
+ * code. A description alone, however readable, cannot be typed into anything.
+ * So the code is the primary text and any description sits under it, never the
+ * other way round.
+ *
+ * ══ Mobile ════════════════════════════════════════════════════════════════
+ *
+ * Seventeen rows in one column is long, and long is correct here — this is the
+ * screen someone opened BECAUSE they wanted the whole set. What it must not be
+ * is wide, so each entry wraps (`break-all` on the code: `rbq:13.5` has no
+ * space to break at) and nothing sits in a row that pushes the page sideways.
+ */
+function SourceCategories({ view }) {
+  // An older cached payload, or a route that stopped sending it. Rendering an
+  // empty box here would read as "the source said nothing", which is a claim.
+  if (!view) return null;
+
+  return (
+    <section className={CARD}>
+      <h3 className="text-base font-semibold text-foreground">
+        <Tags size={16} className="inline mr-1" />
+        {SOURCE_CATEGORY_HEADING.title}
+        {view.count ? ` (${view.count})` : ""}
+      </h3>
+      <p className="text-xs text-muted-foreground">{SOURCE_CATEGORY_HEADING.note}</p>
+
+      {view.known ? null : (
+        <p className="text-sm text-foreground break-words">{view.emptyText}</p>
+      )}
+
+      {view.groups.map((g) => (
+        <div key={g.namespace || "unnamespaced"} className="space-y-2 pt-2">
+          {g.sourceLabel ? (
+            <h4 className="text-sm font-medium text-foreground break-words">{g.sourceLabel}</h4>
+          ) : null}
+          <p className="text-xs text-muted-foreground break-words">{g.note}</p>
+          {/* Said only while it is true of every code in the group — see
+              sourceCategoryView. The RBQ extract publishes the code without
+              its title, and no table in this repo invents one. */}
+          {g.untitled ? (
+            <p className="text-xs text-muted-foreground break-words">{g.untitled}</p>
+          ) : null}
+          <ul className="space-y-2">
+            {g.rows.map((row) => (
+              <li key={row.key} className="flex flex-col gap-0.5">
+                <span className="font-mono text-sm text-foreground break-all">{row.raw}</span>
+                {row.description ? (
+                  <span className="text-xs text-muted-foreground break-words">{row.description}</span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </section>
   );
 }
 
@@ -749,7 +906,10 @@ function ProspectDetail({ detail }) {
             {p.provenance.confidence === null ? "not stated" : p.provenance.confidence}
             {" — a provenance tag, never filtered on."}
           </li>
-          <li>Categories the source used: {p.sourceCategories?.join(", ") || "none"}</li>
+          {/* The categories themselves have a section of their own below.
+              Seventeen RBQ codes comma-joined into a provenance line is the
+              shape of "returned by the API and displayed nowhere" — present
+              enough to look answered, too cramped to read or to type. */}
           <li>
             Classified as {p.classification || "nothing"}
             {p.classificationReason ? ` — ${p.classificationReason}` : ""}
@@ -759,6 +919,9 @@ function ProspectDetail({ detail }) {
           ) : null}
         </ul>
       </section>
+
+      {/* ── What the source called this ─────────────────────────────────── */}
+      <SourceCategories view={p.sourceCategoriesView} />
 
       {/* ── The raw observations ────────────────────────────────────────── */}
       <section className={CARD}>

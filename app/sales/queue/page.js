@@ -615,14 +615,14 @@ export default function SalesQueuePage() {
             {dncOpen ? (
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-foreground" htmlFor="q-dnc">
-                  Why should nobody contact them again?
+                  Why should we stop working this one?
                 </label>
                 <input
                   id="q-dnc"
                   className={FIELD}
                   value={dncReason}
                   onChange={(e) => setDncReason(e.target.value)}
-                  placeholder="They asked to be taken off the list"
+                  placeholder="Sold the business — the new owner is not interested"
                 />
                 <button
                   type="button"
@@ -634,7 +634,14 @@ export default function SalesQueuePage() {
                   Record do-not-contact
                 </button>
                 <p className="text-xs text-muted-foreground">
-                  Permanent, and it survives every pipeline stage. Only a superadmin can lift it.
+                  Permanent on this prospect — it survives every pipeline stage
+                  and there is no control anywhere that lifts it. It does not
+                  put the number on FieldQuo&apos;s do-not-contact list: if they
+                  said it on the phone, close the call with{" "}
+                  <span className="font-medium text-foreground">
+                    Asked not to be called again
+                  </span>{" "}
+                  instead. That one binds every rep and every channel.
                 </p>
               </div>
             ) : (
