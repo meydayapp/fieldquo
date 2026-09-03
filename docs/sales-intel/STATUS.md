@@ -1083,3 +1083,63 @@ concurrent agents and is temporarily invalid in the working tree —
 `notificationDeliveries` appears twice on `Company` and `RecordEdit` has no
 opposite relation. Adding a third change under them is how the merges went
 wrong earlier today. This lands once the tree settles.
+
+---
+
+## Sales enablement documents — BUILT 2026-09-03
+
+Three documents in `docs/sales/`, grounded in code rather than in what a SaaS
+deck usually says. Nothing was asserted that could not be traced to a file.
+
+| File | What it is |
+|---|---|
+| `docs/sales/SOP.md` | How a rep works a lead end to end, using only controls that exist |
+| `docs/sales/ONBOARDING-AND-COMP.md` | Hiring, the three milestones, and worked examples |
+| `docs/sales/FEATURES.md` | All 76 features, the 9 limits, the 12 exclusions, the competitors |
+
+**The compensation examples were computed by executing `lib/sales/commission.js`
+and `lib/sales/payouts.js`**, not by reasoning about them — including the
+boundary cases (an entry at exactly the window end is excluded by the half-open
+range; a reversal nets against the same week).
+
+### Findings worth acting on
+
+1. **The calling window is not enforced.** `withinSalesCallingHours` has no
+   production caller — grep finds only `scripts/check-sales-suppression.mjs`.
+   The queue's dial control is a bare `tel:` link with no window check. The SMS
+   window IS enforced. Until this is wired, the rep obeys 09:00–21:30 / 10:00–
+   18:00 by hand, and the SOP says so in a warning box.
+2. **The playbook is unreachable by the people it was written for.** Nine call
+   stages and eight objection responses exist; every consumer is a `/platform`
+   screen. `grep -rn playbook app/sales/` is empty.
+3. **`SalesCommissionPlan.retentionDays`'s doc comment is wrong.** It says
+   "Days after the first successful payment"; the code anchors on subscription
+   start, which is precisely the bug `qualifiesForRetention()` records fixing.
+4. **`feature.languages.limits` is now stale.** `app/i18n/featurePages/` gained
+   `de`, `zh` and `it`, and the limit sentence still names only Spanish,
+   Ukrainian, Punjabi and Tagalog as pending — so it understates how much is
+   unreleased. Owned by the i18n agent; not touched here.
+5. **The "eight sentences" comment is wrong in two files.** There are nine
+   `feature.*.limits`. `app/i18n/featurePages/index.js` and `en.js` both say
+   eight. Not touched here.
+6. **The compare pages expire on 2026-11-27.** `STALE_AFTER_DAYS = 90` against
+   2026-08-28 reads. Jobber's promo already expired 2026-08-31.
+7. **The "They start cheaper than we do" panel fires on the Housecall Pro page
+   too**, but the surrounding copy reads as though QuoteIQ is the only one.
+
+### Screenshots — NOT produced, and why
+
+`app/components/layout/MobileTabBar.js:96` has a code comment containing the
+literal `pb-[env(...)]`. Tailwind v4 scans comments, emits
+`padding-bottom: env(...)`, PostCSS fails, and **every route returns 500** — `/`,
+`/features`, `/pricing`, `/compare` all confirmed. Almost certainly a
+production build blocker too. The sibling `pb-[calc(4rem+...)]` reference has
+the same defect. Not fixed here: that file is another agent's live work.
+
+Separately, `/app`, `/platform` and `/sales` all 307 to their login pages and no
+credentials were entered. `FEATURES.md` carries the deck structure with 14
+placeholders naming the exact route and both viewports (1440×900 and 375×812).
+
+**Blocked, as instructed:** the PDF export and the resource-section UI were not
+built — the PDF renderer cannot draw Cyrillic yet, which also blocks the
+Ukrainian and Russian versions. Translations were not attempted.
