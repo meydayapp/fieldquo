@@ -778,10 +778,27 @@ ok(
   !dashCode.includes("overview?.revenue"),
 );
 ok("…nor `overview?.quotesSent || 0`", !dashCode.includes("overview?.quotesSent"));
+// ── This used to grep for `{overview && (` and an indexOf ordering ─────────
+//
+// Two problems, and the dashboard rebuild surfaced both. It asserted an
+// IMPLEMENTATION (one particular guard expression typed inline) rather than
+// the guarantee, and it compared two indexOf results — which passes trivially
+// when the first marker is absent, since -1 is less than everything.
+//
+// The guarantee itself is unchanged and is now stronger: the tiles render from
+// lib/dashboard/rank.js's view model, every metric carries `known`, and
+// scripts/check-dashboard-rank.mjs section 6 EXECUTES that function with
+// `overview: null` — the state a 403 leaves behind — and asserts that not one
+// money figure comes back as a number. That is the thing this line was
+// reaching for by grepping.
+//
+// What is still worth asserting HERE is the wiring: the page hands the raw
+// payloads to the view model, and never reaches around it to read a money
+// figure straight off a body that may not exist.
 ok(
   "the money tiles render only from a body the server actually sent",
-  dashCode.indexOf("{overview && (") !== -1 &&
-    dashCode.indexOf("app.dash.revenueThisMonth") > dashCode.indexOf("{overview && ("),
+  /buildDashboardRank\(\{\s*overview,\s*money,\s*upcomingCount\s*\}\)/.test(dashCode) &&
+    !/\boverview\.(revenue|quotesSent|conversionRate)\b/.test(dashCode),
 );
 
 // The 403-vs-outage decision, lifted out and RUN. A refusal must leave no

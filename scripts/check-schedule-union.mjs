@@ -107,9 +107,25 @@ t("...and neither is a client booking",
 t("a visit links to its job instead", /app\/jobs\/\$\{appt\.jobId\}/.test(cal));
 
 const dash = read("../app/app/page.js");
+// ── These two used to grep for `countUpcoming(all)` and `{upcomingCount}` ──
+//
+// The dashboard's top was rebuilt: the local is named `appointmentsData` now,
+// and the tile renders from lib/dashboard/rank.js's view model instead of from
+// a variable interpolated in place. Both literals vanished; neither behaviour
+// did, and the tile still shows the whole upcoming list rather than the length
+// of the five-row preview beside it.
+//
+// So the assertions were the thing that was wrong, and they are corrected the
+// same way the ownScheduleFilter one above already was: state what must be
+// true — the count is not taken from the sliced preview, and it reaches the
+// tile — rather than which identifier somebody happened to type.
+const rank = read("../lib/dashboard/rank.js");
 t("the dashboard counts the full list, not the 5-row preview",
-  /countUpcoming\(all\)/.test(dash));
-t("...and the tile renders that count", /\{upcomingCount\}/.test(dash));
+  /countUpcoming\(/.test(dash) &&
+    !/countUpcoming\([^)]*\bslice\b/.test(dash) &&
+    !/countUpcoming\(\s*upcomingAppointments/.test(dash));
+t("...and that count reaches the tile, through the ranked view model",
+  /upcomingCount/.test(dash) && /upcomingCount/.test(rank) && /id: "booked"/.test(rank));
 
 console.log("\nThe stale 'schedule the job' task gets closed");
 const visits = read("../app/api/jobs/[id]/visits/route.js");

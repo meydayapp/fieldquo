@@ -1,37 +1,50 @@
 // app/app/page.js
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { countUpcoming } from "@/lib/schedule/jobVisits";
 import { formatDuration } from "@/lib/i18n/duration";
 import Link from "next/link";
-import {
-  FileText,
-  Receipt,
-  Calendar,
-  TrendingUp,
-  ArrowRight,
-  CheckCircle2,
-  Circle,
-  AlertCircle,
-  Mail,
-  Phone,
-  MapPin,
-} from "lucide-react";
+import { Receipt, Calendar, TrendingUp, ArrowRight, Mail, Phone, MapPin } from "lucide-react";
 
 import { isInternalPath } from "@/lib/appUrl";
 import OnboardingProgress from "@/app/components/dashboard/OnboardingProgress";
 import RevenueGoalCard from "@/app/components/dashboard/RevenueGoalCard";
 import AwaitingPayment from "@/app/components/dashboard/AwaitingPayment";
-import NeedsYou from "@/app/components/dashboard/NeedsYou";
+import NeedsToday from "@/app/components/dashboard/NeedsToday";
+import HeroRevenue from "@/app/components/dashboard/HeroRevenue";
+import SecondaryMetrics from "@/app/components/dashboard/SecondaryMetrics";
 import MigrationNotice from "@/app/components/dashboard/MigrationNotice";
+import { Figure, FigureText } from "@/app/components/dashboard/Figure";
+import { CARD_CLIPPED, INSET } from "@/app/components/dashboard/surface";
 
+import { buildDashboardRank } from "@/lib/dashboard/rank";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
 import { fetchList, fetchArray } from "@/lib/loadState";
 import { reportResponseError } from "@/lib/clientErrors";
 import { formatMoney } from "@/lib/currency";
 import ListState from "@/app/components/ListState";
+
+// ── What this page ranks, and why it ranks at all ──────────────────────────
+//
+// It used to open with three identically-sized tiles and four identically-
+// sized panels. Everything was equally important, so nothing was — and two
+// overdue invoices sat inside a panel called "Money owed", below three other
+// panels, described only as a count. Nobody reading it could tell what needed
+// doing.
+//
+// The order now is: what needs a person today, the one figure the business
+// runs on, four supporting figures, then everything else. Nothing was deleted
+// to make room — the aging detail, the received-money chart, the goal card,
+// recent quotes and the appointments list are all still here, below.
+//
+// The decisions that ranking involves — is this figure known, is there an
+// honest comparison, is the sample big enough to print a percentage — are NOT
+// made in this file. They are in lib/dashboard/rank.js, a pure function, so
+// scripts/check-dashboard-rank.mjs can execute every one of them against a
+// company with nothing, a company with one overdue invoice, and a member the
+// endpoints refuse.
 
 // ── The aging ladder's words ───────────────────────────────────────────────
 //
@@ -108,7 +121,12 @@ export default function DashboardPage() {
   const [recentQuotes, setRecentQuotes] = useState(null);
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
   // Separate from the preview list above, which is capped at five.
-  const [upcomingCount, setUpcomingCount] = useState(0);
+  //
+  // `null`, not 0. /api/appointments failing left this reading 0 — the same
+  // fabrication one tile to the left, from the same cause: a count that was
+  // never sent, rendered as a fact. A number here only ever comes from an
+  // array the server actually returned; anything else leaves the tile absent.
+  const [upcomingCount, setUpcomingCount] = useState(null);
   const [loading, setLoading] = useState(true);
   const [onboardingError, setOnboardingError] = useState("");
 
@@ -278,14 +296,15 @@ export default function DashboardPage() {
         // /api/appointments now returns job visits alongside appointments, so
         // both of these finally count the crew work a company actually
         // schedules — this tile read 0 against jobs that plainly had visits.
-        const all = Array.isArray(appointmentsData) ? appointmentsData : [];
-        // The COUNT is the whole upcoming list. It used to be the length of
-        // the sliced preview, so a company with twelve visits ahead of them
-        // read "5" — the tile silently topped out at the size of the list
-        // below it.
-        setUpcomingCount(countUpcoming(all));
+        //
+        // A body that is not an array is a refusal or a failure, and the count
+        // stays null for it. The COUNT is also the whole upcoming list: it used
+        // to be the length of the sliced preview, so a company with twelve
+        // visits ahead of them read "5".
+        if (!Array.isArray(appointmentsData)) return;
+        setUpcomingCount(countUpcoming(appointmentsData));
         setUpcomingAppointments(
-          all
+          appointmentsData
             .filter((a) => new Date(a.scheduledAt) > new Date())
             .slice(0, 5),
         );
@@ -294,14 +313,76 @@ export default function DashboardPage() {
       .finally(() => setLoading(false));
   }, [loadOverview, loadRecentQuotes]);
 
+  // The ranking, decided once per render from the two payloads. Pure, and
+  // tested by scripts/check-dashboard-rank.mjs rather than by looking at it.
+  const rank = useMemo(
+    () => buildDashboardRank({ overview, money, upcomingCount }),
+    [overview, money, upcomingCount],
+  );
+
+  // ── The one comparison on this page that is genuinely computable ─────────
+  //
+  // Built here rather than inside the hero component because the key and its
+  // English fallback have to stay in this file: scripts/check-dashboard.mjs
+  // section 6 reads it to prove the panel states the change and never adds
+  // advice to it.
+  //
+  // buildRevenueTrend compares the last two COMPLETE months, so this is never
+  // a part-month measured against a whole one — that would manufacture a
+  // collapse on the 2nd of every month. `headline` is null when the window
+  // holds fewer than two complete months, and this renders nothing for a null:
+  // a first-month company gets the figure and no trend, never an invented one.
+  //
+  // Built as an ELEMENT rather than a string, so the money inside it is
+  // wrapped by the same <FigureText> every other figure on this page goes
+  // through. A sentence assembled into a bare string here and rendered
+  // somewhere else is the one path by which a figure escapes the tabular
+  // digits — scripts/check-dashboard-rank.mjs section 8 closes it.
+  const trendSentence = useMemo(() => {
+    const h = money?.revenue?.headline;
+    if (!h) return null;
+    if (h.deltaPct === null) {
+      return (
+        <FigureText className="mt-2 text-xs text-foreground">
+          {t(
+            "app.dash.revenue.fromNothing",
+            "{month}: {amount}. Nothing was received in {priorMonth}.",
+            {
+              month: monthLabel(h.month),
+              amount: formatMoney(h.amount, money.currency),
+              priorMonth: monthLabel(h.priorMonth),
+            },
+          )}
+        </FigureText>
+      );
+    }
+    return (
+      <FigureText className="mt-2 text-xs text-foreground">
+        {t(...(TREND_SENTENCE[h.direction] || TREND_SENTENCE.flat), {
+          month: monthLabel(h.month),
+          amount: formatMoney(h.amount, money.currency),
+          pct: h.deltaPct,
+          priorMonth: monthLabel(h.priorMonth),
+        })}
+      </FigureText>
+    );
+  }, [money, t]);
+
+  const sparklineMonths = useMemo(() => {
+    const series = rank.hero.received?.series;
+    if (!Array.isArray(series) || series.length < 2) return null;
+    return [monthLabel(series[0].month), monthLabel(series[series.length - 1].month)];
+  }, [rank.hero.received]);
+
   if (loading) {
     return (
       <div className="p-4 sm:p-6 max-w-6xl mx-auto">
         <div className="animate-pulse space-y-4">
-          <div className="h-8 w-48 bg-accent rounded" />
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="h-8 w-48 bg-accent" />
+          <div className="h-28 bg-accent" />
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-24 bg-accent rounded-lg" />
+              <div key={i} className="h-24 bg-accent" />
             ))}
           </div>
         </div>
@@ -310,7 +391,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-8">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6 sm:space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-foreground">{t("app.dash.title")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
@@ -318,16 +399,23 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* What the automation did that still needs a person — a quote it
-          priced, a call it took, a visit it booked. Above everything else
-          because it is the only content on this page that is waiting on the
-          reader; the panels below are figures, which keep. Renders itself away
-          when there is nothing, and each of its three lines is independently
-          absent, so a quiet company sees the dashboard it saw yesterday. */}
-      <NeedsYou />
+      {/* ── 1. What is waiting on a person ──────────────────────────────────
+          Above everything, because it is the only content on this page that is
+          waiting on the reader — the panels below are figures, and figures
+          keep. Overdue invoices by name and amount, then the three things the
+          automation did that still need somebody. Renders itself away when
+          there is nothing, so a quiet company is not accused of a backlog it
+          does not have. */}
+      <NeedsToday
+        needs={rank.needsToday}
+        onChase={chase}
+        chasing={chasing}
+        chaseError={chaseError}
+        chaseNote={chaseNote}
+      />
 
       {onboardingError && (
-        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm px-4 py-3">
           Onboarding status unavailable: {onboardingError}
         </div>
       )}
@@ -346,7 +434,7 @@ export default function DashboardPage() {
 
       {/* The money figures failed to load — but were not refused. One
           rendering of a failed load for the whole app, reassurance sentence
-          and retry included. Above the grid rather than inside it, because a
+          and retry included. Above the hero rather than inside it, because a
           full-width panel occupying one grid cell reads as a broken tile. */}
       {overviewErrorKey && (
         <ListState
@@ -359,55 +447,54 @@ export default function DashboardPage() {
         </ListState>
       )}
 
-      {/* KPI cards.
-          The first three are all read off /api/analytics/overview, so they
-          render only from a body it actually sent. `overview` is null while
-          unknown, refused or failed — and ListCount's rule applies to a tile
-          as much as to a header: the honest rendering of a number you were
-          refused is no number. Upcoming visits comes from /api/appointments
-          and is unaffected by any of this. */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {overview && (
-          <>
-            <div className="bg-card border border-border rounded-xl p-5">
-              <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                <TrendingUp size={16} /> {t("app.dash.revenueThisMonth")}
-              </div>
-              <div className="text-2xl font-bold text-foreground mt-2">
-                ${(overview.revenue || 0).toLocaleString()}
-              </div>
-            </div>
-            <div className="bg-card border border-border rounded-xl p-5">
-              <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                <FileText size={16} /> {t("app.dash.quotesSent")}
-              </div>
-              <div className="text-2xl font-bold text-foreground mt-2">
-                {overview.quotesSent || 0}
-              </div>
-            </div>
-            <div className="bg-card border border-border rounded-xl p-5">
-              <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                <Receipt size={16} /> {t("app.dash.conversionRate")}
-              </div>
-              <div className="text-2xl font-bold text-foreground mt-2">
-                {overview.conversionRate != null
-                  ? `${Math.round(overview.conversionRate * 100)}%`
-                  : "—"}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                {t("app.dash.conversionRateCaption", "% of sent quotes clients accepted")}
-              </div>
-            </div>
-          </>
+      {/* ── 2. The hero figure ──────────────────────────────────────────────
+          Absent, not zeroed, for a member the overview endpoint refused. */}
+      <HeroRevenue
+        hero={rank.hero}
+        trendSentence={trendSentence}
+        monthLabels={sparklineMonths}
+        t={t}
+      />
+
+      {/* ── 3. The four that support it ─────────────────────────────────────
+          2×2 at every width including a phone. Each tile is independently
+          absent — a member with showPricing off sees the one tile that is not
+          money rather than three tiles reading zero. */}
+      <SecondaryMetrics metrics={rank.metrics} t={t} />
+
+      <div className="flex flex-wrap gap-3">
+        {/* Same rule POST /api/quotes enforces — see app/app/quotes/page.js.
+            The other two lead to screens a view_only member can genuinely use. */}
+        {canCreateQuote && (
+          <Link
+            href="/app/quotes/new"
+            className="bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
+          >
+            {t("app.dash.newQuote", "+ New Quote")}
+          </Link>
         )}
-        <div className="bg-card border border-border rounded-xl p-5">
-          <div className="flex items-center gap-2 text-muted-foreground text-sm">
-            <Calendar size={16} /> {t("app.dash.upcomingVisits")}
-          </div>
-          <div className="text-2xl font-bold text-foreground mt-2">
-            {upcomingCount}
-          </div>
-        </div>
+        <Link
+          href="/app/clients"
+          className="border border-border px-4 py-2.5 rounded-full text-sm font-semibold"
+        >
+          {t("app.dash.viewClients")}
+        </Link>
+        <Link
+          href="/app/appointments"
+          className="border border-border px-4 py-2.5 rounded-full text-sm font-semibold"
+        >
+          {t("app.dash.scheduleAppointment")}
+        </Link>
+      </div>
+
+      {/* ── 4. Everything else ──────────────────────────────────────────────
+          Demoted, not deleted. The aging detail, the received-money chart with
+          its period selector, the goal, the held bookings, recent quotes and
+          the appointments list are all still here and all still work. */}
+      <div className="border-t border-foreground/15 pt-5">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {t("app.dash.rest.title", "The detail")}
+        </h2>
       </div>
 
       {/* The money panels failed to load — but were not refused. Same shape,
@@ -423,21 +510,133 @@ export default function DashboardPage() {
         </ListState>
       )}
 
-      {/* ── Money owed, with age ────────────────────────────────────────────
-          Absent for anyone the endpoint refused: no panel, no zero, no
-          apology. `money` is null until the server sends a body. */}
-      {money?.receivables && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+      {/* ── What has actually come in, month by month ───────────────────────
+          The hero figure above totals invoices marked paid; this counts
+          PAYMENTS. Two different questions, and the caption says which one this
+          is rather than letting the two quietly disagree. */}
+      {money?.revenue && (
+        <div id="money-received" className={CARD_CLIPPED}>
+          <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b border-foreground/15 gap-3">
             <h2 className="font-semibold text-foreground flex items-center gap-2">
-              <Receipt size={16} className="text-muted-foreground" />
+              <TrendingUp size={16} className="text-muted-foreground" aria-hidden="true" />
+              {t("app.dash.revenue.title", "Money received")}
+            </h2>
+            <div className="flex gap-1.5">
+              {(money.periods || []).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setTrendMonths(p)}
+                  className={`text-xs font-semibold rounded-full px-3 py-2 min-h-[36px] border tabular-nums ${
+                    trendMonths === p
+                      ? "bg-inverted text-inverted-foreground border-transparent"
+                      : "border-border text-muted-foreground"
+                  }`}
+                >
+                  {t("app.dash.revenue.monthsOption", "{count}m", { count: p })}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {!money.revenue.available ? (
+            <p className="px-4 sm:px-5 py-6 text-sm text-muted-foreground">
+              {t(
+                "app.dash.revenue.none",
+                "No payments have been recorded yet, so there is no trend to show.",
+              )}
+            </p>
+          ) : (
+            <div className="px-4 sm:px-5 py-4">
+              {/* The month-on-month sentence that used to live here has been
+                  promoted into the hero card, beside the sparkline drawn from
+                  this same series — one source, two views, and the sentence
+                  said twice on one page would be one sentence too many. It is
+                  still built in this file (see `trendSentence`), because it
+                  states the change and refuses to add advice to it, and that is
+                  what scripts/check-dashboard.mjs section 6 reads this file to
+                  prove. */}
+              {money.revenue.series.every((s) => s.amount === 0) ? (
+                <p className="text-sm text-muted-foreground">
+                  {t(
+                    "app.dash.revenue.noneInPeriod",
+                    "No payments were received in this period.",
+                  )}
+                </p>
+              ) : (
+                <>
+                  <div className="flex items-end gap-2 h-32">
+                    {money.revenue.series.map((s, _i, series) => {
+                      const max = Math.max(...series.map((r) => r.amount));
+                      // A month with nothing in it gets no bar at all. A
+                      // minimum-height stub would draw money that never
+                      // arrived.
+                      const pct =
+                        max > 0 && s.amount > 0
+                          ? Math.max(4, (s.amount / max) * 100)
+                          : 0;
+                      return (
+                        <div
+                          key={s.month}
+                          className="flex-1 flex flex-col justify-end h-full"
+                          title={`${monthLabel(s.month)} — ${formatMoney(s.amount, money.currency)}`}
+                        >
+                          <div
+                            // The current month is not finished, so its bar is
+                            // drawn differently and labelled — comparing it to
+                            // a full month at a glance is the mistake this
+                            // prevents.
+                            className={
+                              s.partial ? "bg-muted-foreground" : "bg-primary"
+                            }
+                            style={{ height: `${pct}%` }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <FigureText as="div" className="mt-2 flex gap-2">
+                    {money.revenue.series.map((s) => (
+                      <div
+                        key={s.month}
+                        className="flex-1 text-[10px] text-muted-foreground text-center truncate"
+                      >
+                        {monthLabel(s.month)}
+                      </div>
+                    ))}
+                  </FigureText>
+                  <p className="text-xs text-muted-foreground mt-3">
+                    {t(
+                      "app.dash.revenue.caption",
+                      "Payments recorded, by the month they were received. The revenue figure at the top of the page totals invoices marked paid, which is a different measure.",
+                    )}
+                    {money.revenue.series.some((s) => s.partial)
+                      ? ` ${t("app.dash.revenue.partial", "The last bar is the current month, still in progress.")}`
+                      : ""}
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Money owed, with age ────────────────────────────────────────────
+          The aging detail, demoted below the fold — the overdue rows it used to
+          bury are now named at the top of the page. Absent for anyone the
+          endpoint refused: no panel, no zero, no apology. */}
+      {money?.receivables && (
+        <div className={CARD_CLIPPED}>
+          <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b border-foreground/15">
+            <h2 className="font-semibold text-foreground flex items-center gap-2">
+              <Receipt size={16} className="text-muted-foreground" aria-hidden="true" />
               {t("app.dash.owed.title", "Money owed")}
             </h2>
             <Link
               href="/app/invoices"
               className="text-sm text-muted-foreground flex items-center gap-1"
             >
-              {t("app.action.viewAll")} <ArrowRight size={14} />
+              {t("app.action.viewAll")} <ArrowRight size={14} aria-hidden="true" />
             </Link>
           </div>
 
@@ -445,14 +644,14 @@ export default function DashboardPage() {
               billed, everything paid, and a real balance are three different
               things to say — AGENTS.md failure class 5. */}
           {money.receivables.noInvoices ? (
-            <p className="px-5 py-6 text-sm text-muted-foreground">
+            <p className="px-4 sm:px-5 py-6 text-sm text-muted-foreground">
               {t(
                 "app.dash.owed.noInvoices",
                 "No invoices yet, so nothing is owed to you.",
               )}
             </p>
           ) : money.receivables.nothingOutstanding ? (
-            <p className="px-5 py-6 text-sm text-muted-foreground">
+            <p className="px-4 sm:px-5 py-6 text-sm text-muted-foreground">
               {t(
                 "app.dash.owed.nothing",
                 "Nothing outstanding — every invoice you have sent has been settled.",
@@ -460,83 +659,68 @@ export default function DashboardPage() {
             </p>
           ) : (
             <>
-              <div className="px-5 py-4 border-b border-border">
-                <div className="text-3xl font-bold text-foreground">
+              <div className="px-4 sm:px-5 py-4 border-b border-foreground/15">
+                <Figure className="block text-3xl font-bold text-foreground">
                   {formatMoney(money.receivables.total, money.currency)}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
+                </Figure>
+                <FigureText className="text-xs text-muted-foreground mt-1">
                   {t(
                     "app.dash.owed.caption",
                     "Across {count} unpaid invoices. Counts the latest version of each invoice, less the payments recorded against it.",
                     { count: money.receivables.count },
                   )}
-                </p>
+                </FigureText>
                 {money.receivables.overdueCount > 0 && (
-                  <p className="text-xs text-destructive mt-1">
+                  <FigureText className="text-xs text-destructive mt-1">
                     {t("app.dash.owed.pastDue", "{amount} of that is past due.", {
                       amount: formatMoney(
                         money.receivables.overdueTotal,
                         money.currency,
                       ),
                     })}
-                  </p>
+                  </FigureText>
                 )}
               </div>
 
               {/* The aging strip. Only rungs with something on them — five
                   empty boxes would be four claims nobody made. */}
-              <div className="px-5 py-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 border-b border-border">
+              <div className="px-4 sm:px-5 py-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 border-b border-foreground/15">
                 {money.receivables.aging
                   .filter((b) => b.count > 0)
                   .map((b) => (
-                    <div
-                      key={b.id}
-                      className="border border-border rounded-lg px-3 py-2"
-                    >
-                      <div className="text-[11px] text-muted-foreground">
+                    <div key={b.id} className={`${INSET} px-3 py-2`}>
+                      <FigureText className="text-[11px] text-muted-foreground">
                         {t(...AGING_LABEL[b.id])}
-                      </div>
-                      <div
-                        className={`text-sm font-semibold ${
+                      </FigureText>
+                      <Figure
+                        className={`block text-sm font-semibold ${
                           b.overdue ? "text-destructive" : "text-foreground"
                         }`}
                       >
                         {formatMoney(b.amount, money.currency)}
-                      </div>
+                      </Figure>
                     </div>
                   ))}
                 {money.receivables.undatedCount > 0 && (
-                  <div className="border border-border rounded-lg px-3 py-2">
+                  <div className={`${INSET} px-3 py-2`}>
                     <div className="text-[11px] text-muted-foreground">
                       {t("app.dash.aging.undated", "No due date")}
                     </div>
-                    <div className="text-sm font-semibold text-foreground">
+                    <Figure className="block text-sm font-semibold text-foreground">
                       {formatMoney(
                         money.receivables.undatedTotal,
                         money.currency,
                       )}
-                    </div>
+                    </Figure>
                   </div>
                 )}
               </div>
 
-              {chaseError && (
-                <p className="mx-5 mt-3 text-xs text-destructive flex items-start gap-1.5">
-                  <AlertCircle size={13} className="mt-0.5 shrink-0" />
-                  {chaseError}
-                </p>
-              )}
-              {chaseNote && (
-                <p className="mx-5 mt-3 text-xs text-muted-foreground">
-                  {chaseNote}
-                </p>
-              )}
-
-              <div className="divide-y divide-border">
+              <div className="divide-y divide-foreground/10">
                 {money.receivables.invoices.slice(0, 6).map((inv) => (
                   <div
                     key={inv.id}
-                    className="px-5 py-3 flex items-start justify-between gap-3"
+                    className="px-4 sm:px-5 py-3 flex items-start justify-between gap-3"
                   >
                     <div className="min-w-0">
                       <div className="text-sm font-medium text-foreground truncate">
@@ -546,13 +730,13 @@ export default function DashboardPage() {
                           invoice with no due date says exactly that instead of
                           being aged from the day it was raised. */}
                       {inv.dueState === "overdue" ? (
-                        <div className="text-xs font-semibold text-destructive">
+                        <FigureText className="text-xs font-semibold text-destructive">
                           {t(
                             "app.dash.owed.daysPastDue",
                             "{days} days past due",
                             { days: inv.daysPastDue },
                           )}
-                        </div>
+                        </FigureText>
                       ) : inv.dueState === "undated" ? (
                         <div className="text-xs text-muted-foreground">
                           {t(
@@ -561,29 +745,29 @@ export default function DashboardPage() {
                           )}
                         </div>
                       ) : (
-                        <div className="text-xs text-muted-foreground">
+                        <FigureText className="text-xs text-muted-foreground">
                           {t("app.dash.owed.dueOn", "Due {date}", {
                             date: new Date(inv.dueDate).toLocaleDateString(
                               undefined,
                               { month: "short", day: "numeric" },
                             ),
                           })}
-                        </div>
+                        </FigureText>
                       )}
-                      <div className="text-xs text-muted-foreground">
+                      <FigureText className="text-xs text-muted-foreground">
                         {inv.invoiceNumber}
                         {inv.amended
                           ? ` · ${t("app.dash.owed.amended", "amended, v{version}", { version: inv.version })}`
                           : ""}
-                      </div>
+                      </FigureText>
                       {inv.partiallyPaid && (
-                        <div className="text-xs text-muted-foreground">
+                        <FigureText className="text-xs text-muted-foreground">
                           {t("app.invoiceLifecycle.partiallyPaid", {
                             paid: formatMoney(inv.paid, money.currency),
                             total: formatMoney(inv.total, money.currency),
                             due: formatMoney(inv.owed, money.currency),
                           })}
-                        </div>
+                        </FigureText>
                       )}
                       {/* Contact details, subject to clientsProperties. A
                           member on name_address_only keeps the name and the
@@ -597,32 +781,38 @@ export default function DashboardPage() {
                         <div className="mt-1 space-y-0.5">
                           {inv.client?.email && (
                             <div className="text-xs text-muted-foreground flex items-center gap-1.5 truncate">
-                              <Mail size={11} className="shrink-0" />
+                              <Mail size={11} className="shrink-0" aria-hidden="true" />
                               {inv.client.email}
                             </div>
                           )}
                           {inv.client?.phone && (
-                            <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-                              <Phone size={11} className="shrink-0" />
+                            <FigureText
+                              as="div"
+                              className="text-xs text-muted-foreground flex items-center gap-1.5"
+                            >
+                              <Phone size={11} className="shrink-0" aria-hidden="true" />
                               {inv.client.phone}
-                            </div>
+                            </FigureText>
                           )}
                         </div>
                       )}
                       {inv.client?.address && (
-                        <div className="text-xs text-muted-foreground flex items-center gap-1.5 truncate">
-                          <MapPin size={11} className="shrink-0" />
+                        <FigureText
+                          as="div"
+                          className="text-xs text-muted-foreground flex items-center gap-1.5 truncate"
+                        >
+                          <MapPin size={11} className="shrink-0" aria-hidden="true" />
                           {[inv.client.address, inv.client.city]
                             .filter(Boolean)
                             .join(", ")}
-                        </div>
+                        </FigureText>
                       )}
                     </div>
 
                     <div className="shrink-0 text-right">
-                      <div className="text-sm font-semibold text-foreground">
+                      <Figure className="block text-sm font-semibold text-foreground">
                         {formatMoney(inv.owed, money.currency)}
-                      </div>
+                      </Figure>
                       {/* ── The reminder really sends ─────────────────────────
                           POST /api/invoices/[id]/request-payment emails the
                           client a portal link through Resend and stamps sentAt
@@ -633,14 +823,20 @@ export default function DashboardPage() {
                           address, and that sentence is shown rather than
                           swallowed — which is why the button still renders for
                           a member whose access hides the email: they may chase,
-                          they simply cannot see the address they are chasing. */}
+                          they simply cannot see the address they are chasing.
+
+                          Also on the overdue rows at the top of the page. Two
+                          entry points, one handler and one route: the rows up
+                          there are the ones that are LATE, and this list also
+                          carries invoices that are not late yet, which a
+                          contractor still nudges. */}
                       {money.canRemind &&
                         (inv.client?.email || inv.client?.restricted) && (
                           <button
                             type="button"
                             onClick={() => chase(inv)}
                             disabled={chasing === inv.id}
-                            className="mt-1 text-xs font-semibold border border-border rounded-full px-3 py-1.5 disabled:opacity-50"
+                            className="mt-1 text-xs font-semibold border border-border rounded-full px-3 py-2 min-h-[36px] disabled:opacity-50"
                           >
                             {t("app.invoiceLifecycle.actionChase")}
                           </button>
@@ -664,18 +860,20 @@ export default function DashboardPage() {
               {money.receivables.count > 6 && (
                 <Link
                   href="/app/invoices"
-                  className="block px-5 py-3 text-xs text-muted-foreground underline"
+                  className="block px-4 sm:px-5 py-3 text-xs text-muted-foreground underline"
                 >
-                  {t("app.dash.owed.more", "{count} more not shown here", {
-                    count: money.receivables.count - 6,
-                  })}
+                  <FigureText as="span">
+                    {t("app.dash.owed.more", "{count} more not shown here", {
+                      count: money.receivables.count - 6,
+                    })}
+                  </FigureText>
                 </Link>
               )}
 
-              <div className="px-5 py-3 border-t border-border space-y-1">
+              <div className="px-4 sm:px-5 py-3 border-t border-foreground/15 space-y-1">
                 {/* What the automation will do on its own — true either way,
                     and the reason the manual button is not the only answer. */}
-                <p className="text-xs text-muted-foreground">
+                <FigureText className="text-xs text-muted-foreground">
                   {money.automaticReminder
                     ? t(
                         "app.dash.owed.autoReminder",
@@ -698,20 +896,20 @@ export default function DashboardPage() {
                         "app.dash.owed.noAutoReminder",
                         "No automatic overdue reminder is set up, so nothing chases these on its own.",
                       )}
-                </p>
+                </FigureText>
                 {/* Figures that are knowably short say so. Silence here would
                     make an incomplete total look whole. */}
                 {money.receivables.notPlaced > 0 && (
-                  <p className="text-xs text-muted-foreground">
+                  <FigureText className="text-xs text-muted-foreground">
                     {t(
                       "app.dash.owed.notPlaced",
                       "{count} invoice(s) carry no date at all and are not counted above.",
                       { count: money.receivables.notPlaced },
                     )}
-                  </p>
+                  </FigureText>
                 )}
                 {money.receivables.creditsTotal < 0 && (
-                  <p className="text-xs text-muted-foreground">
+                  <FigureText className="text-xs text-muted-foreground">
                     {t(
                       "app.dash.owed.credits",
                       "{count} invoice(s) have been overpaid by {amount} in total. That is money you hold, not money owed to you, so it is not in the figure above.",
@@ -723,158 +921,10 @@ export default function DashboardPage() {
                         ),
                       },
                     )}
-                  </p>
+                  </FigureText>
                 )}
               </div>
             </>
-          )}
-        </div>
-      )}
-
-      {/* ── What has actually come in, month by month ───────────────────────
-          The tile above totals invoices marked paid; this counts PAYMENTS. Two
-          different questions, and the caption says which one this is rather
-          than letting the two quietly disagree. */}
-      {money?.revenue && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border gap-3">
-            <h2 className="font-semibold text-foreground flex items-center gap-2">
-              <TrendingUp size={16} className="text-muted-foreground" />
-              {t("app.dash.revenue.title", "Money received")}
-            </h2>
-            <div className="flex gap-1.5">
-              {(money.periods || []).map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setTrendMonths(p)}
-                  className={`text-xs font-semibold rounded-full px-3 py-1.5 border ${
-                    trendMonths === p
-                      ? "bg-inverted text-inverted-foreground border-transparent"
-                      : "border-border text-muted-foreground"
-                  }`}
-                >
-                  {t("app.dash.revenue.monthsOption", "{count}m", { count: p })}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {!money.revenue.available ? (
-            <p className="px-5 py-6 text-sm text-muted-foreground">
-              {t(
-                "app.dash.revenue.none",
-                "No payments have been recorded yet, so there is no trend to show.",
-              )}
-            </p>
-          ) : (
-            <div className="px-5 py-4">
-              {/* ── The commentary, and what it deliberately does not do ─────
-                  It states the change and stops. No "focus on new sales
-                  opportunities": advice generated from one number is a
-                  horoscope, and one sentence of it makes every real figure on
-                  the panel less believable.
-
-                  The comparison is between the last two COMPLETE months. An
-                  unfinished month measured against a finished one would
-                  manufacture a collapse on the 2nd of every month. */}
-              {money.revenue.headline &&
-                (money.revenue.headline.deltaPct === null ? (
-                  <p className="text-sm text-foreground">
-                    {t(
-                      "app.dash.revenue.fromNothing",
-                      "{month}: {amount}. Nothing was received in {priorMonth}.",
-                      {
-                        month: monthLabel(money.revenue.headline.month),
-                        amount: formatMoney(
-                          money.revenue.headline.amount,
-                          money.currency,
-                        ),
-                        priorMonth: monthLabel(
-                          money.revenue.headline.priorMonth,
-                        ),
-                      },
-                    )}
-                  </p>
-                ) : (
-                  <p className="text-sm text-foreground">
-                    {t(
-                      ...(TREND_SENTENCE[money.revenue.headline.direction] ||
-                        TREND_SENTENCE.flat),
-                      {
-                        month: monthLabel(money.revenue.headline.month),
-                        amount: formatMoney(
-                          money.revenue.headline.amount,
-                          money.currency,
-                        ),
-                        pct: money.revenue.headline.deltaPct,
-                        priorMonth: monthLabel(
-                          money.revenue.headline.priorMonth,
-                        ),
-                      },
-                    )}
-                  </p>
-                ))}
-
-              {money.revenue.series.every((s) => s.amount === 0) ? (
-                <p className="text-sm text-muted-foreground mt-2">
-                  {t(
-                    "app.dash.revenue.noneInPeriod",
-                    "No payments were received in this period.",
-                  )}
-                </p>
-              ) : (
-                <>
-                  <div className="mt-4 flex items-end gap-2 h-32">
-                    {money.revenue.series.map((s, _i, series) => {
-                      const max = Math.max(...series.map((r) => r.amount));
-                      // A month with nothing in it gets no bar at all. A
-                      // minimum-height stub would draw money that never
-                      // arrived.
-                      const pct =
-                        max > 0 && s.amount > 0
-                          ? Math.max(4, (s.amount / max) * 100)
-                          : 0;
-                      return (
-                        <div
-                          key={s.month}
-                          className="flex-1 flex flex-col justify-end h-full"
-                          title={`${monthLabel(s.month)} — ${formatMoney(s.amount, money.currency)}`}
-                        >
-                          <div
-                            // The current month is not finished, so its bar is
-                            // drawn differently and labelled — comparing it to
-                            // a full month at a glance is the mistake this
-                            // prevents.
-                            className={`rounded-t ${s.partial ? "bg-muted-foreground" : "bg-primary"}`}
-                            style={{ height: `${pct}%` }}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="mt-2 flex gap-2">
-                    {money.revenue.series.map((s) => (
-                      <div
-                        key={s.month}
-                        className="flex-1 text-[10px] text-muted-foreground text-center truncate"
-                      >
-                        {monthLabel(s.month)}
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-3">
-                    {t(
-                      "app.dash.revenue.caption",
-                      "Payments recorded, by the month they were received. The revenue tile above totals invoices marked paid, which is a different measure.",
-                    )}
-                    {money.revenue.series.some((s) => s.partial)
-                      ? ` ${t("app.dash.revenue.partial", "The last bar is the current month, still in progress.")}`
-                      : ""}
-                  </p>
-                </>
-              )}
-            </div>
           )}
         </div>
       )}
@@ -891,31 +941,6 @@ export default function DashboardPage() {
         }
       />
 
-      <div className="flex flex-wrap gap-3">
-        {/* Same rule POST /api/quotes enforces — see app/app/quotes/page.js.
-            The other two lead to screens a view_only member can genuinely use. */}
-        {canCreateQuote && (
-          <Link
-            href="/app/quotes/new"
-            className="bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
-          >
-            + New Quote
-          </Link>
-        )}
-        <Link
-          href="/app/clients"
-          className="border border-border px-4 py-2.5 rounded-full text-sm font-semibold"
-        >
-          {t("app.dash.viewClients")}
-        </Link>
-        <Link
-          href="/app/appointments"
-          className="border border-border px-4 py-2.5 rounded-full text-sm font-semibold"
-        >
-          {t("app.dash.scheduleAppointment")}
-        </Link>
-      </div>
-
       {/* Bookings held for a visit fee that hasn't landed. They have no
           Appointment by design, so they appear on no calendar — this is the one
           place they are visible at all. Renders itself away when empty. */}
@@ -928,14 +953,14 @@ export default function DashboardPage() {
       <MigrationNotice />
 
       <div className="grid lg:grid-cols-2 gap-6">
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+        <div className={CARD_CLIPPED}>
+          <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b border-foreground/15">
             <h2 className="font-semibold text-foreground">{t("app.dash.recentQuotes")}</h2>
             <Link
               href="/app/quotes"
               className="text-sm text-muted-foreground flex items-center gap-1"
             >
-              {t("app.action.viewAll")} <ArrowRight size={14} />
+              {t("app.action.viewAll")} <ArrowRight size={14} aria-hidden="true" />
             </Link>
           </div>
           {/* `recentQuotes` is null until GET /api/quotes answers, so
@@ -949,7 +974,7 @@ export default function DashboardPage() {
             onRetry={loadRecentQuotes}
             isEmpty={Array.isArray(recentQuotes) && recentQuotes.length === 0}
             empty={
-              <p className="px-5 py-6 text-sm text-muted-foreground">
+              <p className="px-4 sm:px-5 py-6 text-sm text-muted-foreground">
                 {canCreateQuote ? (
                   <Link href="/app/quotes/new" className="text-foreground underline">
                     {t("app.dash.noQuotesCta", "No quotes yet — create your first quote")}
@@ -963,62 +988,65 @@ export default function DashboardPage() {
               </p>
             }
           >
-            <div className="divide-y divide-border">
+            <div className="divide-y divide-foreground/10">
               {(recentQuotes ?? []).map((q) => (
                 <Link
                   key={q.id}
                   href={`/app/quotes/${q.id}`}
-                  className="flex items-center justify-between px-5 py-3 hover:bg-muted"
+                  className="flex items-center justify-between px-4 sm:px-5 py-3 hover:bg-muted"
                 >
-                  <div>
-                    <div className="text-sm font-medium text-foreground">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-foreground truncate">
                       {q.client?.name}
                     </div>
-                    <div className="text-xs text-muted-foreground">{q.quoteNumber}</div>
+                    <FigureText className="text-xs text-muted-foreground">
+                      {q.quoteNumber}
+                    </FigureText>
                   </div>
-                  <div className="text-sm font-semibold text-foreground">
-                    ${Number(q.total).toLocaleString()}
-                  </div>
+                  <Figure className="text-sm font-semibold text-foreground shrink-0">
+                    {formatMoney(q.total, money?.currency)}
+                  </Figure>
                 </Link>
               ))}
             </div>
           </ListState>
         </div>
 
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-            <h2 className="font-semibold text-foreground">
+        <div className={CARD_CLIPPED}>
+          <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b border-foreground/15">
+            <h2 className="font-semibold text-foreground flex items-center gap-2">
+              <Calendar size={16} className="text-muted-foreground" aria-hidden="true" />
               {t("app.dash.upcomingAppointments")}
             </h2>
             <Link
               href="/app/appointments"
               className="text-sm text-muted-foreground flex items-center gap-1"
             >
-              View all <ArrowRight size={14} />
+              {t("app.action.viewAll")} <ArrowRight size={14} aria-hidden="true" />
             </Link>
           </div>
-          <div className="divide-y divide-border">
+          <div className="divide-y divide-foreground/10">
             {upcomingAppointments.length === 0 && (
-              <p className="px-5 py-6 text-sm text-muted-foreground">
+              <p className="px-4 sm:px-5 py-6 text-sm text-muted-foreground">
                 <Link href="/app/appointments" className="text-foreground underline">
                   {t("app.dash.nothingScheduledCta", "Nothing scheduled yet — book an appointment")}
                 </Link>
               </p>
             )}
             {upcomingAppointments.map((a) => (
-              <div key={a.id} className="px-5 py-3">
+              <div key={a.id} className="px-4 sm:px-5 py-3">
                 <div className="text-sm font-medium text-foreground">
                   {a.client?.name}
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  {new Date(a.scheduledAt).toLocaleString("en-US", {
+                <FigureText className="text-xs text-muted-foreground">
+                  {new Date(a.scheduledAt).toLocaleString(undefined, {
                     weekday: "short",
                     month: "short",
                     day: "numeric",
                     hour: "numeric",
                     minute: "2-digit",
                   })}
-                </div>
+                </FigureText>
               </div>
             ))}
           </div>

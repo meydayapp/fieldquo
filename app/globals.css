@@ -136,6 +136,22 @@
   --chart-3: #2f6fb5;
   --chart-4: #ff8c47;
   --chart-5: #8aa9cc;
+  /* ── Square corners, deliberately, and this is the one that decides ───────
+   *
+   * The whole Tailwind radius scale above is `calc(var(--radius) * n)`, so
+   * every `rounded-sm` through `rounded-4xl` in this codebase resolves to 0 —
+   * including the three widest rungs, which shadcn does not ship and which
+   * somebody added here specifically so that `rounded-2xl` and friends would
+   * collapse too. That is a decision, not a default left unedited.
+   *
+   * It is worth stating because the classes and the token had been
+   * disagreeing in silence: the dashboard carried `rounded-xl` eight times and
+   * rendered square, because this line had already won. Those classes are gone
+   * now (see app/components/dashboard/surface.js) rather than this line being
+   * changed, because `rounded-*` appears 3,098 times across the product and
+   * giving this a value restyles all of it.
+   *
+   * `rounded-full` is unaffected — it is 9999px, not a rung on this scale. */
   --radius: 0;
   /* ── Sidebar states: a three-rung ladder, measured ────────────────────────
    *
