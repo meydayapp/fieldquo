@@ -86,12 +86,36 @@ const CREW = {
 };
 
 /**
- * A calendar day's worth of instants, anchored to a fixed date so the check
- * does not change meaning depending on when it runs. Noon local, so the
- * day-boundary maths is exercised without straddling one by accident.
+ * A calendar day's worth of instants. Noon local, so the day-boundary maths is
+ * exercised without straddling one by accident.
+ *
+ * Anchored to TODAY, not to a fixed calendar date. It was `2026-09-02`, with a
+ * comment saying a fixed anchor stopped the check changing meaning depending on
+ * when it ran — a good instinct that is wrong for this particular route, which
+ * calls `new Date()` itself and accepts no clock. Against a real now, a frozen
+ * anchor means the seeded visits are "today" on exactly one calendar day: this
+ * passed on 2 September 2026 and failed on the 3rd, reporting a defect in code
+ * nobody had touched.
+ *
+ * The date is read in TZ rather than UTC because the route computes its day
+ * bounds in the company's zone — taking the UTC date would put the anchor on
+ * the wrong day for the four hours before local midnight.
  */
-const TODAY_NOON = new Date("2026-09-02T16:00:00.000Z"); // 12:00 EDT
-const at = (hhmm) => new Date(`2026-09-02T${hhmm}:00.000Z`);
+const TODAY_ISO = new Intl.DateTimeFormat("en-CA", {
+  timeZone: TZ,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+}).format(new Date());
+const TODAY_NOON = new Date(`${TODAY_ISO}T16:00:00.000Z`); // 12:00 in TZ
+
+// dayBoundsInZone() is a pure function of the instant it is given, so the
+// assertions about it keep a FROZEN date — that is the case where pinning the
+// calendar is right, and the expected ISO strings below are only meaningful
+// against a known day. Only the route tests, which race a real `new Date()`,
+// need TODAY_NOON.
+const FIXED_NOON = new Date("2026-09-02T16:00:00.000Z"); // 12:00 EDT, 2 Sep 2026
+const at = (hhmm) => new Date(`${TODAY_ISO}T${hhmm}:00.000Z`);
 
 function seed({ visits = [], jobs = [], entries = [], worker = true } = {}) {
   reset();
@@ -135,7 +159,7 @@ const readJson = async (res) => ({ status: res.status, body: await res.json() })
 section("The day boundary is the COMPANY's, not the server's");
 // ═══════════════════════════════════════════════════════════════════════════
 {
-  const { start, next } = dayBoundsInZone(TODAY_NOON, TZ);
+  const { start, next } = dayBoundsInZone(FIXED_NOON, TZ);
   eq("Toronto's 2 Sep starts at 04:00Z", start.toISOString(), "2026-09-02T04:00:00.000Z");
   eq("...and ends at 04:00Z on the 3rd", next.toISOString(), "2026-09-03T04:00:00.000Z");
 
@@ -149,7 +173,7 @@ section("The day boundary is the COMPANY's, not the server's");
   const eom = dayBoundsInZone(new Date("2026-09-30T16:00:00.000Z"), TZ);
   eq("30 Sep rolls to 1 Oct, not 31 Sep", eom.next.toISOString(), "2026-10-01T04:00:00.000Z");
 
-  const utc = dayBoundsInZone(TODAY_NOON, "UTC");
+  const utc = dayBoundsInZone(FIXED_NOON, "UTC");
   eq("a UTC company's day starts at 00:00Z", utc.start.toISOString(), "2026-09-02T00:00:00.000Z");
 
   // ── The pair that survives whatever zone the runner happens to be in ─────
