@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
 import { parsePlanFields } from "@/lib/billing/planFields";
+import { isSellable } from "@/lib/platform/sellablePlans";
 
 export async function GET(request) {
   const admin = await getCurrentPlatformAdmin(request);
@@ -75,10 +76,17 @@ export async function POST(request) {
         seats: plan.seats,
         crewSeats: plan.crewSeats,
         maxUsers: plan.maxUsers,
-        // Whether it can actually be sold. A plan with no Stripe price id
-        // renders on the public page and fails at checkout, so the log should
-        // say which kind was created.
-        sellable: Boolean(plan.stripePriceId),
+        // Whether it can actually be sold — the SAME predicate the public
+        // pricing page filters on, not a third guess beside it.
+        //
+        // This was `Boolean(plan.stripePriceId)`, which recorded every plan
+        // FieldQuo has ever created as unsellable while all of them sold: the
+        // id stopped gating checkout when stripeBilling.js moved to inline
+        // `price_data`. What genuinely produces an unsellable row here is a
+        // blank price (Plan.priceMonthly defaults to 0 and parsePlanFields
+        // only refuses negatives) or a private plan — so that is what gets
+        // logged.
+        sellable: isSellable(plan),
       },
     },
   });

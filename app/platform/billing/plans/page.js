@@ -32,6 +32,9 @@ import {
 import { count } from "@/app/components/platform/MetricCard";
 import { fetchJson } from "@/lib/fetchJson";
 import { currencyLabel } from "@/lib/pricing/ladder";
+// The card says what THIS says, and nothing else, about whether a plan can be
+// bought. See the note on PlanCard's status line.
+import { planStatus } from "@/lib/platform/sellablePlans";
 
 const BLANK = {
   name: "",
@@ -403,9 +406,23 @@ export default function PlatformPlansPage() {
               />
             </Field>
 
+            {/* ── What this field is actually for ─────────────────────────
+                The hint said "without it, checkout can't bill this plan",
+                which stopped being true when both checkout builders moved to
+                inline `price_data` (lib/platform/stripeBilling.js, point 2).
+                Every production plan has a blank id and every one of them
+                bills.
+
+                Its remaining job is the reverse direction: recoverPlanId()
+                maps a Stripe subscription back to a Plan row by price id when
+                the checkout session carries no planId metadata — which only
+                helps for a subscription started from the Stripe dashboard
+                against a catalog price, because a session opened by FieldQuo
+                gets an ad-hoc Price Stripe mints itself. Blank is the normal
+                state and costs nothing. */}
             <Field
               label="Stripe price ID — monthly"
-              hint="From the Stripe dashboard — without it, checkout can't bill this plan"
+              hint="Optional. Checkout prices this plan from the monthly figure above, not from Stripe's catalogue — this id only helps match a subscription created in the Stripe dashboard back to this plan."
             >
               <input
                 value={draft.stripePriceId ?? ""}
@@ -419,7 +436,7 @@ export default function PlatformPlansPage() {
 
             <Field
               label="Stripe price ID — annual"
-              hint="Only needed if this tier has an annual price"
+              hint="Optional, same as above. The annual price field is what decides whether the 1-year commitment is offered — not this."
             >
               <input
                 value={draft.stripePriceIdAnnual ?? ""}
@@ -570,6 +587,7 @@ function Group({ title, note, plans, usage, usageKnown, busy, onEdit, onRemove, 
 }
 
 function PlanCard({ plan: p, subscribers, usageKnown, busy, onEdit, onRemove }) {
+  const status = planStatus(p);
   return (
     <div className="bg-card border border-border rounded-xl p-5 flex flex-col">
       <div className="flex items-start justify-between gap-2">
@@ -623,18 +641,31 @@ function PlanCard({ plan: p, subscribers, usageKnown, busy, onEdit, onRemove }) 
             ? `${count(subscribers)} ${subscribers === 1 ? "company" : "companies"}`
             : "Company count unavailable"}
         </div>
-        {!p.stripePriceId && (
-          <div className="text-amber-700 dark:text-amber-300 text-xs">
-            No Stripe price ID — checkout will fail
+        {/* ── One status line, and it is not written here ──────────────────
+            This card used to print "No Stripe price ID — checkout will fail"
+            and "Annual price with no Stripe ID — annual checkout will fail".
+            Both were false on every plan that has ever existed: neither
+            checkout builder has looked a Stripe Price up by id since
+            stripeBilling.js started building `price_data` inline, so all four
+            production plans — none of which has ever carried an id — sell
+            perfectly on both cadences.
+
+            They were false because they were a second opinion about a
+            question lib/platform/sellablePlans.js already answers for the
+            public pricing page. Deriving the sentence from THAT is what stops
+            the two drifting again, and it is why the text lives in a module a
+            check script can execute. */}
+        {status.text && (
+          <div
+            className={
+              status.tone === "warning"
+                ? "text-amber-700 dark:text-amber-300 text-xs"
+                : "text-muted-foreground text-xs"
+            }
+          >
+            {status.text}
           </div>
         )}
-        {p.priceAnnual !== null &&
-          p.priceAnnual !== undefined &&
-          !p.stripePriceIdAnnual && (
-            <div className="text-amber-700 dark:text-amber-300 text-xs">
-              Annual price with no Stripe ID — annual checkout will fail
-            </div>
-          )}
       </dl>
 
       <div className="flex gap-2 mt-4">

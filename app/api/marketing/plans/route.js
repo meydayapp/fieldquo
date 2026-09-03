@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { partitionPlans } from "@/lib/platform/sellablePlans";
+import { partitionPlans, withheldReasons } from "@/lib/platform/sellablePlans";
 import { recordError } from "@/lib/platform/errorLog";
 
 // Public — the signup page needs to show plans without a session. This is
@@ -42,50 +42,71 @@ export async function GET() {
       // needs both numbers to say what the plan actually is.
       seats: true,
       crewSeats: true,
-      // Both selected only to decide whether the plan may be OFFERED, and
-      // both stripped before the response — a price id is an internal
-      // identifier and this endpoint is public.
+      // Selected only to decide whether the plan may be OFFERED, and stripped
+      // before the response — whether a rate was negotiated for one company is
+      // nobody else's business and this endpoint is public.
       //
       // isPublic MUST be selected. isSellable treats a missing column as
       // "not stated" rather than "private", so that a narrow select can't
       // silently empty the pricing page — which means omitting it here would
       // have leaked the bespoke plan instead.
-      stripePriceId: true,
+      //
+      // stripePriceId is NOT selected any more. It was here because isSellable
+      // used to test it; it no longer does (checkout builds `price_data`
+      // inline), so selecting an internal identifier into a public handler and
+      // then remembering to strip it again was a leak waiting for the day
+      // somebody edits the spread below.
       isPublic: true,
     },
   });
 
-  // A plan with no Stripe price renders fine and fails at checkout. Offering
-  // it is worse than not listing it: the visitor blames their card, retries,
-  // and every retry has been creating another company record.
+  // A plan with no usable price renders fine and 500s at checkout — Stripe
+  // will not create a recurring line for 0, and Plan.priceMonthly defaults to
+  // 0. Offering such a row is worse than not listing it: the visitor blames
+  // their card and retries.
   const { sellable, withheld, allWithheld } = partitionPlans(plans);
 
   // ── Nobody was being told ────────────────────────────────────────────────
   //
-  // The platform admin screen has printed "No Stripe price ID — checkout will
+  // The platform admin screen printed "No Stripe price ID — checkout will
   // fail" on every plan card for weeks. Nothing turned that into a signal
-  // anyone would see, so the pricing page kept offering four plans that could
-  // not be bought, and the first person to find out was the customer whose
-  // checkout failed.
+  // anyone would see — and the sentence was wrong anyway, so the one person
+  // who did read it went looking in the Stripe dashboard.
+  //
+  // This alert repeated the same wrong explanation ("all N are missing a
+  // Stripe price ID"). It now names the actual reason per plan, from the same
+  // function that withheld them, so the operator is sent to the field that
+  // fixes it: a blank monthly price, or a plan marked private.
   //
   // Recorded once per request rather than per plan: the fault is "there is
   // nothing to sell", not four separate faults. Best-effort — a logging
   // failure must never take down the page that sells the product.
   if (allWithheld) {
+    const reasons = withheldReasons(withheld);
     recordError({
       area: "billing",
       code: "no_sellable_plans",
       message:
-        `The pricing page has nothing to offer: all ${withheld.length} plan(s) ` +
-        "are missing a Stripe price ID, so checkout cannot open. Visitors are " +
-        "being shown the contact fallback.",
-      detail: { planNames: withheld.map((p) => p.name) },
+        `The pricing page has nothing to offer: none of the ${withheld.length} ` +
+        "plan(s) can be bought. Visitors are being shown the contact fallback. " +
+        reasons
+          .map(
+            (r) =>
+              `${r.name}: ${
+                r.reason === "private"
+                  ? "marked private"
+                  : "no usable monthly price"
+              }`,
+          )
+          .join("; "),
+      detail: { withheld: reasons },
     }).catch(() => {});
   }
 
   return NextResponse.json({
-    // Both internal fields dropped — the public payload carries neither.
-    plans: sellable.map(({ stripePriceId, isPublic, ...plan }) => plan),
+    // isPublic dropped — it is an internal decision, not a plan attribute a
+    // visitor has any use for. (stripePriceId is no longer selected at all.)
+    plans: sellable.map(({ isPublic, ...plan }) => plan),
     // The signup page needs to tell "we have no plans configured" apart from
     // "these plans exist but none can be bought right now". They look
     // identical as an empty array and mean completely different things.
