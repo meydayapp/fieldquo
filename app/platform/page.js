@@ -353,18 +353,84 @@ export default function PlatformDashboardPage() {
             The old card showed $1,335 MRR while not one subscription could
             raise a charge — every plan was missing its Stripe price. The gap
             between these two numbers is the most actionable thing on the page:
-            it is exactly the revenue that is one configuration fix away. */}
-        {data.outlook?.nothingCollectable && (
-          <div className="mb-3 rounded-lg border border-amber-300 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 px-4 py-3">
-            <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
-              None of these {count(data.outlook.nominalCount)} subscriptions can
-              actually be charged.
+            it is exactly the revenue that is one configuration fix away.
+
+            ── Two things this banner used to get wrong ──────────────────
+            1. It said the blocked money was "blocked on plans with no Stripe
+               price". `isCollectable` has not consulted `stripePriceId` since
+               that field stopped gating checkout, so the sentence was false
+               for every row it could ever appear over — including rows whose
+               price id was set and visible on the next screen. The reason now
+               comes from lib/platform/revenueOutlook.js's `blockedReason`, the
+               same function that decided the row was blocked.
+            2. It only fired when NOTHING was collectable. One blocked
+               subscription out of five printed no banner at all, and the
+               reader's only clue was a "4 of 5 subscriptions can bill" note
+               that named neither the one nor the why. Any blocked row shows
+               now; the tone is what changes when it is all of them.
+
+            The list itself is the point. `outlook.blocked` has always carried
+            company, plan and reason and nothing has ever rendered it — a total
+            with no breakdown tells a superadmin that something is wrong and
+            not which thing, which is the half that costs an afternoon. */}
+        {data.outlook?.blocked?.length > 0 && (
+          <div
+            className={`mb-3 rounded-lg border px-4 py-3 ${
+              data.outlook.nothingCollectable
+                ? "border-red-300 dark:border-red-900 bg-red-50 dark:bg-red-950/40"
+                : "border-amber-300 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40"
+            }`}
+          >
+            <p
+              className={`text-sm font-semibold ${
+                data.outlook.nothingCollectable
+                  ? "text-red-900 dark:text-red-200"
+                  : "text-amber-900 dark:text-amber-200"
+              }`}
+            >
+              {data.outlook.nothingCollectable
+                ? `None of these ${count(data.outlook.nominalCount)} subscriptions can actually be charged.`
+                : `${count(data.outlook.blocked.length)} of ${count(data.outlook.nominalCount)} active subscriptions can't be charged.`}
             </p>
-            <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">
-              {money(data.outlook.blockedMrr, { compact: true })}/mo is blocked
-              on plans with no Stripe price. Add the prices and this becomes
-              real revenue.
-            </p>
+            {/* The money is stated only when there IS money. A $0 plan is the
+                commonest blocked row there is and it contributes nothing to
+                blockedMrr, so an unconditional line printed "$0/mo is blocked"
+                over a real fault — a fabricated zero standing where a blank
+                belonged. AGENTS.md: absence of a statement is not a
+                statement. */}
+            {data.outlook.blockedMrr > 0 && (
+              <p
+                className={`text-xs mt-0.5 ${
+                  data.outlook.nothingCollectable
+                    ? "text-red-800 dark:text-red-300"
+                    : "text-amber-800 dark:text-amber-300"
+                }`}
+              >
+                {money(data.outlook.blockedMrr, { compact: true })}/mo of the
+                total above cannot be raised.
+              </p>
+            )}
+            <ul className="mt-2 space-y-1">
+              {data.outlook.blocked.map((b, i) => (
+                <li
+                  key={`${b.company}-${b.plan}-${i}`}
+                  className={`text-xs ${
+                    data.outlook.nothingCollectable
+                      ? "text-red-800 dark:text-red-300"
+                      : "text-amber-800 dark:text-amber-300"
+                  }`}
+                >
+                  <span className="font-semibold">{b.company}</span> · {b.plan}
+                  {/* Only when there is one. A $0 plan printing "$0/mo" beside
+                      its own diagnosis reads as a rounding error rather than
+                      as the fault the sentence goes on to name. */}
+                  {b.monthly > 0
+                    ? ` · ${money(b.monthly, { compact: true })}/mo`
+                    : ""}{" "}
+                  — {b.reason}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

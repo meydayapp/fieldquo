@@ -283,7 +283,8 @@ export default function DemoAvailabilityPage() {
                                   setDrafts((d) => removeWindow(d, admin.id, row.index))
                                 }
                                 aria-label={`Remove ${label} ${row.startTime}–${row.endTime}`}
-                                className="p-1.5 rounded-lg text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+                                // red-600 on red-50 is 4.36:1; red-700 is 5.87:1.
+                                className="p-1.5 rounded-lg text-muted-foreground hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40"
                               >
                                 <Trash2 size={14} />
                               </button>

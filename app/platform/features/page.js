@@ -319,7 +319,8 @@ export default function PlatformFeaturesPage() {
                         }
                         disabled={busy === `o:${o.id}`}
                         aria-label={`Clear override for ${o.company?.name || o.companyId}`}
-                        className="ml-auto p-1.5 rounded-lg text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 disabled:opacity-40"
+                        // red-600 on red-50 is 4.36:1; red-700 is 5.87:1.
+                        className="ml-auto p-1.5 rounded-lg text-muted-foreground hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 disabled:opacity-40"
                       >
                         {busy === `o:${o.id}` ? (
                           <Loader2 size={14} className="animate-spin" />

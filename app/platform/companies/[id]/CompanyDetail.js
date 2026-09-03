@@ -18,6 +18,7 @@ import {
   Loader2,
   Eye,
   Ban,
+  RotateCcw,
   Users,
   Mail,
   Globe,
@@ -208,11 +209,25 @@ export default function CompanyDetail({ companyId }) {
             disabled={busy}
             className={`inline-flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60 ${
               isChurned
-                ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                : "border border-red-300 text-red-700 dark:text-red-300 hover:bg-red-50 dark:bg-red-950/40"
+                ? // emerald-600 is #009966 in Tailwind v4's oklch palette, which
+                  // is 3.65:1 under white — a filled button whose own label
+                  // misses the floor. emerald-700 is 5.36:1 and 800 on hover
+                  // keeps the state change visible. Measured, not picked.
+                  "bg-emerald-700 text-white hover:bg-emerald-800"
+                : // `dark:bg-red-950/40` was written where `dark:hover:bg-` was
+                  // meant, and it is not a cosmetic slip in either direction.
+                  // Tailwind v4 emits `dark:` after `hover:` at equal
+                  // specificity, so in dark mode the wash was permanent and the
+                  // hover did nothing at all — the same dead hover the rail
+                  // audit found (check-platform-console.mjs). Had it resolved
+                  // the other way, red-300 on red-50 is 1.75:1 and the label
+                  // would have vanished under the cursor. The variant it wanted
+                  // is dark:hover:.
+                  "border border-red-300 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/40"
             }`}
           >
-            <Ban size={14} />
+            {/* A ban sign on "Reactivate" said the opposite of the button. */}
+            {isChurned ? <RotateCcw size={14} /> : <Ban size={14} />}
             {isChurned ? "Reactivate" : "Suspend"}
           </button>
         </div>

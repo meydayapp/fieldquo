@@ -237,7 +237,7 @@ export default function AuditLogPage() {
                         churned", which is what you actually need. */}
                     {row.details && Object.keys(row.details).length > 0 && (
                       <details className="mt-2">
-                        <summary className="text-xs text-muted-foreground cursor-pointer hover:text-muted-foreground">
+                        <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
                           Details
                         </summary>
                         <pre className="mt-1 text-xs bg-muted border border-border rounded p-2 overflow-x-auto text-muted-foreground">

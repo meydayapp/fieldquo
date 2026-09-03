@@ -681,7 +681,16 @@ function PlanCard({ plan: p, subscribers, usageKnown, busy, onEdit, onRemove }) 
           title={
             subscribers > 0 ? "Companies are on this plan" : "Delete plan"
           }
-          className="border border-border text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-red-50 dark:bg-red-950/40 hover:text-red-600 dark:text-red-400 disabled:opacity-40"
+          // `dark:bg-` and `dark:text-` where `dark:hover:` was meant. In dark
+          // mode that gave a delete button a permanent red wash and red label —
+          // armed-looking at rest, and identical before and after the cursor
+          // arrives, because Tailwind v4 emits `dark:` after `hover:` at equal
+          // specificity so the hover fill never won. Light mode meanwhile had
+          // no fill until hover. Two themes disagreeing about the idle state of
+          // a destructive control.
+          // hover:text-red-600 is #e7000b on red-50, which measures 4.36:1 —
+          // just under the floor. red-700 is 5.87:1.
+          className="border border-border text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-700 dark:hover:text-red-400 disabled:opacity-40"
         >
           <Trash2 size={14} />
         </button>

@@ -258,7 +258,7 @@ export default function PlatformFeedbackPage() {
                 </div>
 
                 <details className="mt-3">
-                  <summary className="text-xs text-muted-foreground cursor-pointer hover:text-muted-foreground">
+                  <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
                     Internal notes
                   </summary>
                   <textarea

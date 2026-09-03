@@ -101,7 +101,11 @@ export default function DemosPage() {
           <button
             disabled={busyId === b.id}
             onClick={() => setStatus(b.id, "cancelled")}
-            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-border text-red-600 hover:bg-red-50 disabled:opacity-50"
+            // No dark variant at all, so both halves were wrong in dark mode:
+            // red-600 measures 3.54:1 on --card, and the hover fill painted a
+            // near-white pill onto a dark page. red-700/red-400 is 6.42:1 and
+            // 5.84:1 on the surface each actually lands on.
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-border text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 disabled:opacity-50"
           >
             Cancel
           </button>

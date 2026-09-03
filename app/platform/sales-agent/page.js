@@ -532,10 +532,25 @@ export default function PlatformSalesAgentPage() {
             </table>
           </div>
         )}
+        {/* ── The reason here was the third copy of a claim that stopped
+            being true ────────────────────────────────────────────────────
+            This said "no Stripe price id, or not public". The count comes
+            from partitionPlans, whose test is `isPublic !== false &&
+            supportsInterval(plan, "month")` — a Stripe price id is not
+            consulted, and has not been since it stopped gating checkout
+            (lib/platform/sellablePlans.js). Naming it sent whoever read this
+            to a Stripe dashboard for a fault that lives on the plan form one
+            click away, which is why the link goes there. */}
         {knowledge.withheldPlanCount > 0 && (
           <p className="text-xs text-muted-foreground mt-2">
-            {knowledge.withheldPlanCount} plan(s) held back — no Stripe price id,
-            or not public. The agent is told its list is partial.
+            {knowledge.withheldPlanCount} plan(s) held back — no monthly price
+            above 0, or marked private. The agent is told its list is partial.{" "}
+            <Link
+              href="/platform/billing/plans"
+              className="font-semibold text-foreground underline underline-offset-2"
+            >
+              See which
+            </Link>
           </p>
         )}
       </section>
