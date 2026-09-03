@@ -512,14 +512,24 @@ export async function POST(request) {
       successUrl: `${baseUrl}/app?welcome=true&session_id={CHECKOUT_SESSION_ID}${
         isInternalPath(next) ? `&next=${encodeURIComponent(next)}` : ""
       }`,
-      // Back to BILLING, not back to /signup. By the time Stripe can cancel,
-      // everything above has already run — the company, the membership and the
-      // org all exist — so /signup is the one page that can't help: it would
-      // greet them as a signed-in owner and offer to set up an *additional*
-      // business, which is how you end up with two companies and one contractor.
-      // Account & Billing is where the same plans are listed and where "Choose
-      // plan" starts checkout again.
-      cancelUrl: `${baseUrl}/app/settings/account-billing`,
+      // ── Back to /signup, which can now help ─────────────────────────────
+      //
+      // This used to point at Account & Billing, and the reasoning was sound
+      // at the time: by the time Stripe can cancel, the company, the
+      // membership and the org all exist, and /signup would have greeted them
+      // as a signed-in owner and offered to set up an *additional* business —
+      // two companies and one contractor.
+      //
+      // That is no longer what /signup does. It asks /api/signup/resume first
+      // and recognises this exact person: a company that was created and never
+      // paid for. It lands them on the plan step with their own details filled
+      // in, and its Continue opens checkout for the company they already have
+      // instead of posting this route again. See lib/signup/setupGate.js.
+      //
+      // And Account & Billing is no longer the shorter road anyway: /app is
+      // gated on this very payment now, so cancelling used to land them there
+      // only to be redirected straight back out to /signup. One hop, not two.
+      cancelUrl: `${baseUrl}/signup`,
     });
   } catch (err) {
     await recordError({

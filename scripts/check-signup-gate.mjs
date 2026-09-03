@@ -585,6 +585,22 @@ console.log("\nThe gate is actually wired in\n");
   );
 }
 
+// ── Cancelling checkout lands somewhere that can finish it ───────────────
+//
+// The cancelUrl used to be /app/settings/account-billing, on the reasoning
+// that /signup would offer a signed-in owner a SECOND business. True then;
+// false now, and /app is gated on this very payment — so that destination
+// would bounce them straight back out to /signup anyway. One hop, not two.
+{
+  const companies = read("app/api/companies/route.js");
+  const post = functionBody(companies, "POST");
+  ok(
+    "cancelling Stripe checkout returns to the page that can resume it",
+    /cancelUrl: `\$\{baseUrl\}\/signup`/.test(post),
+    "sending them to /app when /app is what they have not paid for is a redirect through a door they cannot open",
+  );
+}
+
 // ── The Stripe evidence ──────────────────────────────────────────────────
 {
   const evidence = read("lib/billing/checkoutEvidence.js");
