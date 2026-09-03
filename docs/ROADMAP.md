@@ -1,18 +1,63 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 31 August 2026 (payment schedule). **Update this file when you finish something.**
-Last updated: 1 September 2026. **Update this file when you finish something.**
-Last updated: 1 September 2026 (business costs). **Update this file when you finish something.**
-
-Last updated: 2 September 2026 (change-order money reaches the total). **Update this file when you finish something.**
-
-Last updated: 1 September 2026 (customer satisfaction survey; Google reviews audit).
-
-Last updated: 1 September 2026 (demo containment: email and benchmarks).
-
-Last updated: 1 September 2026 (outbound call claim; sales-call reconciliation).
+Last updated: 2 September 2026 (three languages; PDF, currency and plural bugs found).
+**Update this line when you finish something — replace it, don't append.** Seven
+stacked "Last updated" lines had accumulated here, each agent adding one rather
+than editing the last, which left the file unable to answer the single question
+it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## Three more interface languages, and three bugs found underneath (2 September 2026)
+
+German, Italian and Mandarin (Simplified) are integrated in `app/i18n/appMessages.js`
+at **4,897/4,897 keys each** — `appCoverage()` returns exactly 1 for all three.
+All three are in `APP_REVIEW_PENDING` beside es/uk/pa/tl, so `APP_LANGUAGES`
+still offers **English and French only**. That is the honest state: a language
+shows with a "needs review" label and a per-key English fallback until a fluent
+speaker clears it, and every agent produced a prioritised money-and-legal list
+for that review (1,084 keys de, 389 tier-A it, 912 zh).
+
+Register was chosen, not discovered: `Sie`, `Lei`, and `вы` for the Russian pass
+now running. A native speaker should confirm each — switching later is a full
+re-pass, not a find-and-replace.
+
+**Four checks hardcoded "six languages" and failed when three arrived** —
+`check-tax-id`, `check-booking-fee`, `check-voice-metering` and
+`check-invoice-status`. All four now count `APP_MESSAGES` instead. They still
+fail when a language is MISSING a key, which is the fault worth catching; they
+no longer fail when a language is added, which is not. One of the four was
+written earlier the same session by the agent that then criticised the pattern.
+
+### Three live bugs the translation work uncovered
+
+None was in scope. All three are client-facing.
+
+1. **PDFs corrupt every non-Latin language.** `Font.register` is called nowhere;
+   every PDF surface pins Helvetica, which carries Latin-1 only. Ukrainian and
+   Punjabi are offered as *document* languages (`LANGUAGES` in
+   `app/i18n/languages.js`) and the pickers are live, so this is reachable
+   today. Each code point is truncated to its low byte — proven by rendering
+   real PDFs and decoding the `TJ` operators: `Підготовлено` draws as
+   `.V43>B>2;5=>`. It does not throw. A homeowner opens the contractor's own
+   branded quote and reads junk. **Blocks any Cyrillic PDF, including the
+   Ukrainian and Russian sales documents the owner asked for.**
+
+2. **Currency hard-coded in 11 places** across `PaintAreas.js`,
+   `TradeTakeoff.js` and the invoice editor — a literal `$` in JSX.
+   FieldQuo supports EUR, GBP and CHF with Connect enabled, and
+   `lib/currency.js` already exports `formatMoney()`. A British painter sees
+   `$1,234.00`.
+
+3. **Plural suffixes are wrong in three shipped languages.** Ten call sites
+   hardcode `count === 1 ? "" : "s"`, correct for English and Spanish only.
+   French renders "0 jours" where CLDR says "0 jour" — live, in a
+   human-reviewed language. Tagalog's every count is category "one", so every
+   one of those strings carries a wrong `s`. `lib/i18n/plurals.js` already
+   solves this and its header names the exact failure; ten call sites went
+   around it.
 
 ---
 
