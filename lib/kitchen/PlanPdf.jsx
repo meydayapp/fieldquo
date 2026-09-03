@@ -28,6 +28,12 @@
 import React from "react";
 import { Svg, Rect, Line, Circle, Path, Polygon, Text as SvgText, G } from "@react-pdf/renderer";
 import { planShapes, elevationShapes, scaleBarShapes, legendShapes, PLAN_COLORS } from "./planShapes";
+// Every <SvgText> below names the font explicitly. Text inside an <Svg> takes
+// fontFamily as a PROP and @react-pdf defaults that prop to "Helvetica"
+// independently of the enclosing <Page> style — so the plan title, which is
+// the translated `kitchenPlan` label, kept truncating "План кухні" to bytes
+// long after the rest of the page had moved to Noto.
+import { PDF_FONT } from "@/lib/documents/pdfFont";
 
 /** Every shape type planShapes can emit. Kept in sync with PlanSvg's switch. */
 export const SUPPORTED_SHAPES = ["rect", "line", "circle", "path", "polygon", "text"];
@@ -122,6 +128,7 @@ function shapeNode(s, key) {
           fill={s.fill}
           // @react-pdf wants a number, and silently renders nothing useful for
           // a CSS-ish string.
+          fontFamily={PDF_FONT}
           fontSize={Number(s.size) || 8}
           textAnchor={s.anchor}
           // Rotation is applied via a transform on the element, same as SVG, but
@@ -172,6 +179,7 @@ export function PlanPdf({ design, width = 480, title, subtitle }) {
             x={-pad + 4}
             y={-pad - headTop + 14}
             fill={PLAN_COLORS.ink}
+            fontFamily={PDF_FONT}
             fontSize={13}
             textAnchor="start"
           >
@@ -183,6 +191,7 @@ export function PlanPdf({ design, width = 480, title, subtitle }) {
             x={-pad + 4}
             y={-pad - headTop + 25}
             fill={PLAN_COLORS.inkMuted}
+            fontFamily={PDF_FONT}
             fontSize={9}
             textAnchor="start"
           >
@@ -213,6 +222,7 @@ export function ElevationPdf({ design, wallId, width = 150 }) {
           x={-pad + 2}
           y={-pad - 4}
           fill={PLAN_COLORS.ink}
+          fontFamily={PDF_FONT}
           fontSize={7}
           textAnchor="start"
         >
