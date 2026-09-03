@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { signUp } from "@/lib/auth-client";
+import { signUp, signOut } from "@/lib/auth-client";
 import { TRIAL_PRICE, trialLabel } from "@/lib/pricing";
 import {
   firstStep,
@@ -48,6 +48,14 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 function monthsFree(n) {
   const count = Number(n) || 0;
   return `${count} ${count === 1 ? "month" : "months"} free`;
+}
+
+// "3 days" / "1 day". Used only by the resumed-payment line, which quotes what
+// is left of a free month that started when the company was created — so it
+// has to be able to say one day without saying "1 days".
+function dayCount(n) {
+  const count = Number(n) || 0;
+  return `${count} ${count === 1 ? "day" : "days"}`;
 }
 
 // Prices on this page are whole dollars in a stated currency, and the currency
@@ -500,6 +508,22 @@ export default function SignupPage() {
   // the moment this page creates an account, and explaining "you already have
   // an account" to someone who just watched us make one reads as a bug.
   const [resumedSignup, setResumedSignup] = useState(false);
+  // ── The THIRD signed-in state: a company that was never paid for ────────
+  //
+  // /api/companies commits the Company and the owner's membership and only
+  // then opens Stripe Checkout, so closing that tab leaves a complete company
+  // with no card. app/app/layout.js now sends whoever can pay for it back
+  // here instead of into a dashboard they haven't bought.
+  //
+  // Distinct from `alreadyOnFieldquo`, which is a company that IS paid for and
+  // gets the "one business to a login" wall. Distinct from `accountReady`,
+  // which is a login with no company at all. All three are signed in and none
+  // of them wants the same screen.
+  //
+  // Holds the company's own details, because the sessionStorage draft that
+  // normally carries the address dies with the tab — and the address is what
+  // decides which currency the plan cards are priced in.
+  const [finishCheckout, setFinishCheckout] = useState(null);
   // Both of the above start unknown. Nothing may resume until the answer is in:
   // guessing "signed out" and then correcting would flash the account step at
   // someone who already has an account.
@@ -510,6 +534,27 @@ export default function SignupPage() {
 
     (async () => {
       try {
+        // ── Asked FIRST, because it is the only unambiguous question ──────
+        //
+        // "Is this a company that was created and never paid for, and may this
+        // caller pay for it?" One server-side answer. The pair of endpoints
+        // below cannot produce it: /api/settings/subscription returns a null
+        // status both for a company with no subscription AND for anyone who
+        // isn't a billing admin, so inferring from it would put a Continue to
+        // Payment button in front of an estimator whose POST then 403s. See
+        // app/api/signup/resume/route.js.
+        //
+        // Anything other than a clean `resume: true` falls through to the
+        // existing checks — a network blip must not turn a paid-up company
+        // into one being asked to pay again.
+        const resume = await fetch("/api/signup/resume")
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null);
+        if (resume?.resume && resume.company) {
+          if (!cancelled) setFinishCheckout(resume.company);
+          return;
+        }
+
         // business-info is COMPANY-scoped, so its answer separates the two
         // signed-in states: 200 means a company exists (they're adding another
         // business), and 401 means specifically that no company could be
@@ -648,7 +693,25 @@ export default function SignupPage() {
   const hasSelection = Boolean(selectedPlanId);
   // "There is already a login behind this" — true whether they're resuming an
   // abandoned signup or adding a second business. Both skip account CREATION.
-  const accountExists = Boolean(accountReady || alreadyOnFieldquo);
+  // finishCheckout counts too: they are signed in, their company exists, and
+  // the only thing left is the card. Without it the funnel would open on the
+  // account step and offer them a login they are currently using.
+  const accountExists = Boolean(accountReady || alreadyOnFieldquo || finishCheckout);
+
+  // ── What is actually left of the free month, for a resumed payment ──────
+  //
+  // Company.trialEndsAt is stamped at creation and may well be in the past by
+  // the time somebody comes back to pay. /api/platform/billing/checkout reads
+  // the same column and only sends trial days to Stripe while it is in the
+  // future, so this is not a second opinion about the offer — it is the same
+  // one, said out loud on the screen that takes the card.
+  const resumeTrialDaysLeft = finishCheckout?.trialEndsAt
+    ? Math.ceil(
+        (new Date(finishCheckout.trialEndsAt).getTime() - Date.now()) /
+          (24 * 60 * 60 * 1000),
+      )
+    : null;
+  const resumeTrialLive = resumeTrialDaysLeft != null && resumeTrialDaysLeft > 0;
 
   // ── Where they are, and therefore what money they see ───────────────────
   //
@@ -882,6 +945,35 @@ export default function SignupPage() {
     setStep(target);
   }
 
+  // ── The company's own details, for a resume with no draft ───────────────
+  //
+  // The sessionStorage draft dies with the tab, so somebody finishing their
+  // payment from a different device — or a week later, or after clearing the
+  // browser — arrives with an empty form. On the plan step that is not
+  // cosmetic: billingBasis(form) reads the country, and no country means the
+  // step renders "Where is your business?" and a button back to a form whose
+  // Continue posts /api/companies, which refuses with 409 because the company
+  // already exists. A dead end.
+  //
+  // So the stored company fills the gaps. `f.x || value`, never a blind
+  // overwrite: whatever they typed in this tab is a fresher statement than
+  // what is in the database, and the draft effect above has already run by
+  // the time this does (it is synchronous on mount; the fetch that sets
+  // finishCheckout is not).
+  useEffect(() => {
+    if (!finishCheckout) return;
+    setForm((f) => ({
+      ...f,
+      companyName: f.companyName || finishCheckout.name || "",
+      phone: f.phone || finishCheckout.phone || "",
+      address: f.address || finishCheckout.address || "",
+      city: f.city || finishCheckout.city || "",
+      province: f.province || finishCheckout.province || "",
+      country: f.country || finishCheckout.country || "",
+      language: f.language || finishCheckout.language || f.language,
+    }));
+  }, [finishCheckout]);
+
   // Resume, once we know both who they are and which plans exist.
   const resumedRef = useRef(false);
 
@@ -901,6 +993,24 @@ export default function SignupPage() {
     // question.
     if (!hydrated || !entryChecked) return;
     resumedRef.current = true;
+
+    // ── Finishing a payment: straight to the plan step ────────────────────
+    //
+    // resumeStep is not consulted, and deliberately. Its whole job is to clamp
+    // a visitor to the furthest step their ANSWERS support — no login, no
+    // company details, no trades picked — and every one of those is already
+    // committed to the database here. Judging them by a draft that may not
+    // exist would park somebody whose company has been running for weeks on
+    // "tell us your trades", where Continue leads to a POST that 409s.
+    //
+    // Replaced into history rather than pushed, same as below: arriving at the
+    // payment step is not a navigation they made.
+    if (finishCheckout) {
+      entryStepRef.current = "plan";
+      tagCurrentEntry("plan", depthRef.current);
+      setStep("plan");
+      return;
+    }
 
     // The live step wins once they've moved, so this also covers the race where
     // someone clicks Continue faster than the entry check comes back: a signed-in
@@ -928,6 +1038,7 @@ export default function SignupPage() {
     hydrated,
     entryChecked,
     accountExists,
+    finishCheckout,
     step,
     form,
     selectedIndustries,
@@ -1107,6 +1218,20 @@ export default function SignupPage() {
     );
   }
 
+  // Through better-auth's own client, not a raw fetch to /api/auth/sign-out:
+  // the raw call clears the cookie and leaves the client-side session store
+  // still reporting a logged-in user, so MarketingHeader keeps rendering the
+  // avatar until something forces a refetch. Same reasoning as AdminSidebar.
+  async function handleSignOut() {
+    await signOut({
+      fetchOptions: {
+        onSuccess: () => {
+          window.location.href = "/login";
+        },
+      },
+    });
+  }
+
   async function handleFinish() {
     setError("");
 
@@ -1126,6 +1251,51 @@ export default function SignupPage() {
       return;
     }
     setSubmitting(true);
+
+    // ── Resuming: the company exists, so /api/companies would refuse ───────
+    //
+    // That route's "one business per login" guard 409s on any session that
+    // already has a membership, which is exactly this person. It has to — the
+    // alternative is a second company beside the one they abandoned. So the
+    // resumed flow opens checkout for the company they already have, through
+    // the same route Account & Billing's "Choose plan" uses, with the same
+    // billing-admin gate app/api/signup/resume already applied before this
+    // button was rendered at all.
+    //
+    // It sends the CADENCE and the plan id, never a price (non-negotiable #5),
+    // and the route reprices from its own Plan row and refuses "year" outright
+    // for a plan with no annual price.
+    if (finishCheckout) {
+      try {
+        const res = await fetch("/api/platform/billing/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            planId: selectedPlanId,
+            interval: effectiveInterval,
+          }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.checkoutUrl) {
+          setError(
+            data?.error ||
+              "We couldn't open checkout. Try again, or get in touch and we'll finish it with you.",
+          );
+          return;
+        }
+        // Nothing to clear from sessionStorage here: the draft describes a
+        // company that was created weeks ago, and handleFinish already removed
+        // it on the run that created it. Clearing it again would be tidying
+        // something that isn't there.
+        window.location.href = data.checkoutUrl;
+        return;
+      } catch (err) {
+        setError(err?.message || "We couldn't open checkout.");
+        return;
+      } finally {
+        setSubmitting(false);
+      }
+    }
 
     try {
       const res = await fetch("/api/companies", {
@@ -1202,20 +1372,61 @@ export default function SignupPage() {
         eyebrow={
           entryChecked && alreadyOnFieldquo
             ? t("auth.signup.eyebrowExisting", "Add a business")
-            : t("auth.signup.eyebrow", "Start your free month")
+            : entryChecked && finishCheckout
+              ? t("app.signup.finish.eyebrow", "Finish setting up")
+              : t("auth.signup.eyebrow", "Start your free month")
         }
-        title="Start your free trial"
+        title={
+          finishCheckout
+            ? t("app.signup.finish.title", "One step left")
+            : "Start your free trial"
+        }
         subtitle={
-          <>
-            {/* Off the trialLabel helper, never a hardcoded number — this line
-                had drifted to "$1" while the system actually charges $0. */}
-            {trialLabel()}
-            {" — "}
-            {t(
-              "auth.signup.subtitle",
-              "set up your business, pick your trades, then choose a plan.",
-            )}
-          </>
+          finishCheckout ? (
+            /* ── Never the blanket "first month free" here ────────────────
+               trialLabel() states the offer a NEW signup gets. Somebody
+               resuming may have had that month already: /api/platform/billing/
+               checkout only carries trial days onto Stripe while trialEndsAt is
+               still in the future, so promising a free month to a company that
+               abandoned checkout in July would be a promise the charge does not
+               keep. The company's own trialEndsAt decides which sentence they
+               read, and there is no third sentence for "we don't know" —
+               the API sends the column or the company doesn't resume. */
+            resumeTrialLive ? (
+              t(
+                "app.signup.finish.subtitleTrial",
+                "{company} is set up — it just needs a card before you can use it. Your free month has {days} left, so nothing is charged today.",
+                {
+                  company: finishCheckout.name,
+                  // The noun comes out of the catalogue, not out of a template
+                  // literal — "3 days" inside an otherwise French sentence is
+                  // exactly what the catalogue exists to stop.
+                  days: `${resumeTrialDaysLeft} ${t(
+                    resumeTrialDaysLeft === 1
+                      ? "app.signup.finish.day"
+                      : "app.signup.finish.days",
+                  )}`,
+                },
+              )
+            ) : (
+              t(
+                "app.signup.finish.subtitle",
+                "{company} is set up — it just needs a card before you can use it.",
+                { company: finishCheckout.name },
+              )
+            )
+          ) : (
+            <>
+              {/* Off the trialLabel helper, never a hardcoded number — this line
+                  had drifted to "$1" while the system actually charges $0. */}
+              {trialLabel()}
+              {" — "}
+              {t(
+                "auth.signup.subtitle",
+                "set up your business, pick your trades, then choose a plan.",
+              )}
+            </>
+          )
         }
         rail={
           entryChecked ? (
@@ -1282,6 +1493,41 @@ export default function SignupPage() {
                 </a>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ── Why they are here rather than on the dashboard ───────────────
+            They pressed something that goes to /app and landed on a signup
+            page instead. Unexplained, that reads as the product losing their
+            account — which is precisely the complaint the resumed-signup
+            banner below was written to answer, and this is the same failure
+            one step further along the funnel. Says what is missing, and names
+            the business so nobody thinks they've been thrown into somebody
+            else's signup. */}
+        {finishCheckout && (
+          <div className="max-w-md mx-auto mb-6 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+            <p>
+              {t(
+                "app.signup.finish.banner",
+                "{company} was set up, but checkout was never finished — so there's no card on the account and nothing to open yet. Choose a plan below and you're in.",
+                { company: finishCheckout.name },
+              )}
+            </p>
+            {/* ── The way out ─────────────────────────────────────────────
+                They were redirected here from /app and every route under
+                /app sends them straight back, so the header's avatar (which
+                links to /app) returns them to this page. Without this there
+                is no way to leave the account at all — being unable to sign
+                out of something you cannot use is its own kind of broken, and
+                it is the same reason lib/billing/access.js keeps /api/auth on
+                the allow-list for a locked company. */}
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="mt-2 text-sm font-semibold underline underline-offset-2"
+            >
+              {t("app.signup.finish.signOut", "Sign out of this account")}
+            </button>
           </div>
         )}
 
@@ -1770,7 +2016,18 @@ export default function SignupPage() {
 
                 {hasSelection && charge && (
                   <div className="text-sm text-muted-foreground mt-4">
-                    {trialLabel(pricing.trialTotal)}, then{" "}
+                    {/* trialLabel() states the offer a NEW signup gets. A
+                        company resuming an abandoned checkout may have spent
+                        that month already — see the subtitle above — and
+                        /api/platform/billing/checkout will not send Stripe any
+                        trial days once trialEndsAt has passed. Saying "first
+                        month free" over a charge that lands today is the exact
+                        shape of promise this codebase forbids. */}
+                    {finishCheckout
+                      ? resumeTrialLive
+                        ? `Free for another ${dayCount(resumeTrialDaysLeft)}, then `
+                        : "Billed from today: "
+                      : `${trialLabel(pricing.trialTotal)}, then `}
                     <span className="font-semibold text-foreground">
                       {symbol}
                       {money(charge.amount)}
@@ -1789,15 +2046,26 @@ export default function SignupPage() {
                   {submitting ? "Setting up..." : "Continue to Payment"}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    goBackToStep(previousStep("plan", { accountExists }))
-                  }
-                  className="w-full mt-3 text-sm text-muted-foreground hover:text-foreground"
-                >
-                  ← Back
-                </button>
+                {/* ── No Back when this is a resumed payment ───────────────
+                    The earlier steps edit a company that already exists, and
+                    nothing on this page writes to it — /api/companies refuses
+                    a session that already has a membership (409), which is
+                    what stops an abandoned signup from quietly minting a
+                    second business. So Back would lead to three screens of
+                    fields whose changes go nowhere: a control that appears to
+                    work and doesn't. Company Settings is where those details
+                    are edited, and it is on the other side of this payment. */}
+                {!finishCheckout && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      goBackToStep(previousStep("plan", { accountExists }))
+                    }
+                    className="w-full mt-3 text-sm text-muted-foreground hover:text-foreground"
+                  >
+                    ← Back
+                  </button>
+                )}
               </div>
             )}
           </div>

@@ -5110,6 +5110,74 @@ const en = {
   "app.jobEquipment.save": "Log it",
   "app.jobEquipment.cancel": "Cancel",
 
+  // ── Daily log (app/components/jobs/DailyLog*.js) ────────────────────────
+  //
+  // Crew-facing, and written on a phone at the end of a shift — so the copy is
+  // short and says what it does. "Save the day" is the button rather than
+  // "Save" because this panel saves on its own; the button is for the person
+  // who wants to know it landed.
+  "app.dailyLog.title": "Daily log",
+  "app.dailyLog.today": "Today",
+  "app.dailyLog.yesterday": "Yesterday",
+  "app.dailyLog.pickDay": "Pick a day",
+  "app.dailyLog.whatHappened": "What happened today",
+  "app.dailyLog.textPlaceholder":
+    "Where the crew got to, what went in, anything the office needs to know.",
+  "app.dailyLog.crewCount": "Crew on site",
+  "app.dailyLog.hoursOnSite": "Hours on site",
+  "app.dailyLog.weather": "Weather",
+  "app.dailyLog.weatherPlaceholder": "Rain from 2pm",
+  "app.dailyLog.delays": "Delays or blockers",
+  "app.dailyLog.delaysPlaceholder": "Waiting on the electrician, materials short",
+  // Every optional field says so, because a blank one stays null and null is
+  // not zero — see lib/jobs/dailyLog.js.
+  "app.dailyLog.optional": "Optional",
+  "app.dailyLog.save": "Save the day",
+  "app.dailyLog.saving": "Saving…",
+  "app.dailyLog.saved": "Saved",
+  "app.dailyLog.unsaved": "Not saved yet",
+  "app.dailyLog.autosaveNote": "Saves on its own as you type.",
+  "app.dailyLog.saveError": "Couldn't save the daily log.",
+  "app.dailyLog.loadError": "Couldn't load this job's daily logs.",
+  "app.dailyLog.photosToday": "{count} photos",
+  "app.dailyLog.tasksToday": "{count} to-dos finished",
+  "app.dailyLog.seedPhotos": "{count} photos filed today.",
+  "app.dailyLog.seedTasks": "Finished today:",
+  "app.dailyLog.recent": "Recent days",
+  "app.dailyLog.crewShort": "{count} crew",
+  "app.dailyLog.hoursShort": "{count}h",
+
+  // ── Job documents (app/components/jobs/JobDocuments.js) ─────────────────
+  "app.jobDocuments.title": "Documents",
+  "app.jobDocuments.add": "Add a document",
+  "app.jobDocuments.empty":
+    "No documents on this job yet — plans, permits, warranties.",
+  // Separate from `empty`, deliberately: "there are none" and "we couldn't
+  // find out" are different statements.
+  "app.jobDocuments.unknown": "Couldn't load the documents on this job.",
+  "app.jobDocuments.loadError": "Couldn't load this job's documents.",
+  "app.jobDocuments.uploadError": "Couldn't upload that file.",
+  "app.jobDocuments.fileError": "Couldn't file that document.",
+  "app.jobDocuments.revise": "New version",
+  "app.jobDocuments.revisingNote":
+    'New version of "{name}". The old one stays on the job — nothing is replaced.',
+  "app.jobDocuments.revision": "Rev {n}",
+  "app.jobDocuments.history": "History",
+  "app.jobDocuments.namePlaceholder": "What is it? (optional)",
+  "app.jobDocuments.kindLabel": "Document type",
+  "app.jobDocuments.upload": "Upload",
+  "app.jobDocuments.uploading": "Uploading…",
+  "app.jobDocuments.cancel": "Cancel",
+  // A count, never a list — see the panel's own comment.
+  "app.jobDocuments.hidden": "{count} more hidden by your access level",
+  "app.jobDocuments.kind.plan": "Plan",
+  "app.jobDocuments.kind.permit": "Permit",
+  "app.jobDocuments.kind.contract": "Contract",
+  "app.jobDocuments.kind.warranty": "Warranty",
+  "app.jobDocuments.kind.photo": "Photo",
+  "app.jobDocuments.kind.invoice": "Invoice",
+  "app.jobDocuments.kind.other": "Other",
+
   // ── Equipment section on JobCosting.js — see the double-count note on
   // lib/costing/actualJobCost.js for why these two sentences differ.
   "app.jobCosting.equipmentInOverhead":
@@ -5140,6 +5208,7 @@ const en = {
     "FieldQuo sales team only. A company account won't sign you in here.",
   "app.salesPortal.signedInAs": "Signed in as {name}",
   "app.salesPortal.myCompanies": "My companies",
+  "app.salesPortal.navQueue": "Queue",
   "app.salesPortal.navLeads": "My leads",
   "app.salesPortal.navConversations": "Conversations",
   "app.salesPortal.intro":
@@ -5219,6 +5288,9 @@ const en = {
   // is the failure this whole catalogue exists to prevent.
   "app.signup.finish.day": "day",
   "app.signup.finish.days": "days",
+  // Redirected here from /app, where every route sends them back — without
+  // this there is no way to leave an account they cannot use.
+  "app.signup.finish.signOut": "Sign out of this account",
   "app.signup.finish.banner":
     "{company} was set up, but checkout was never finished — so there's no card on the account and nothing to open yet. Choose a plan below and you're in.",
 
@@ -10044,6 +10116,65 @@ const fr = {
   "app.jobEquipment.save": "Enregistrer",
   "app.jobEquipment.cancel": "Annuler",
 
+  // ── Journal de chantier (app/components/jobs/DailyLog*.js) ──────────────
+  "app.dailyLog.title": "Journal de chantier",
+  "app.dailyLog.today": "Aujourd'hui",
+  "app.dailyLog.yesterday": "Hier",
+  "app.dailyLog.pickDay": "Choisir une journée",
+  "app.dailyLog.whatHappened": "Ce qui s'est passé aujourd'hui",
+  "app.dailyLog.textPlaceholder":
+    "Où l'équipe s'est rendue, ce qui a été posé, tout ce que le bureau doit savoir.",
+  "app.dailyLog.crewCount": "Personnes sur place",
+  "app.dailyLog.hoursOnSite": "Heures sur place",
+  "app.dailyLog.weather": "Météo",
+  "app.dailyLog.weatherPlaceholder": "Pluie à partir de 14 h",
+  "app.dailyLog.delays": "Retards ou blocages",
+  "app.dailyLog.delaysPlaceholder":
+    "En attente de l'électricien, manque de matériaux",
+  "app.dailyLog.optional": "Optionnel",
+  "app.dailyLog.save": "Enregistrer la journée",
+  "app.dailyLog.saving": "Enregistrement…",
+  "app.dailyLog.saved": "Enregistré",
+  "app.dailyLog.unsaved": "Pas encore enregistré",
+  "app.dailyLog.autosaveNote": "S'enregistre tout seul pendant que vous écrivez.",
+  "app.dailyLog.saveError": "Impossible d'enregistrer le journal.",
+  "app.dailyLog.loadError": "Impossible de charger les journaux de ce chantier.",
+  "app.dailyLog.photosToday": "{count} photos",
+  "app.dailyLog.tasksToday": "{count} tâches terminées",
+  "app.dailyLog.seedPhotos": "{count} photos versées aujourd'hui.",
+  "app.dailyLog.seedTasks": "Terminé aujourd'hui :",
+  "app.dailyLog.recent": "Journées récentes",
+  "app.dailyLog.crewShort": "{count} pers.",
+  "app.dailyLog.hoursShort": "{count} h",
+
+  // ── Documents du chantier (app/components/jobs/JobDocuments.js) ─────────
+  "app.jobDocuments.title": "Documents",
+  "app.jobDocuments.add": "Ajouter un document",
+  "app.jobDocuments.empty":
+    "Aucun document sur ce chantier — plans, permis, garanties.",
+  "app.jobDocuments.unknown": "Impossible de charger les documents de ce chantier.",
+  "app.jobDocuments.loadError": "Impossible de charger les documents de ce chantier.",
+  "app.jobDocuments.uploadError": "Impossible de téléverser ce fichier.",
+  "app.jobDocuments.fileError": "Impossible de classer ce document.",
+  "app.jobDocuments.revise": "Nouvelle version",
+  "app.jobDocuments.revisingNote":
+    "Nouvelle version de « {name} ». L'ancienne reste au dossier — rien n'est remplacé.",
+  "app.jobDocuments.revision": "Rév. {n}",
+  "app.jobDocuments.history": "Historique",
+  "app.jobDocuments.namePlaceholder": "De quoi s'agit-il ? (optionnel)",
+  "app.jobDocuments.kindLabel": "Type de document",
+  "app.jobDocuments.upload": "Téléverser",
+  "app.jobDocuments.uploading": "Téléversement…",
+  "app.jobDocuments.cancel": "Annuler",
+  "app.jobDocuments.hidden": "{count} de plus masqués par votre niveau d'accès",
+  "app.jobDocuments.kind.plan": "Plan",
+  "app.jobDocuments.kind.permit": "Permis",
+  "app.jobDocuments.kind.contract": "Contrat",
+  "app.jobDocuments.kind.warranty": "Garantie",
+  "app.jobDocuments.kind.photo": "Photo",
+  "app.jobDocuments.kind.invoice": "Facture",
+  "app.jobDocuments.kind.other": "Autre",
+
   "app.jobCosting.equipmentInOverhead":
     "L'équipement enregistré sur ce chantier ({amount}) est déjà couvert par la part de frais généraux ci-dessus — il n'est pas ajouté une deuxième fois.",
   "app.jobCosting.equipmentAdded":
@@ -10060,6 +10191,7 @@ const fr = {
     "Réservé à l'équipe des ventes de FieldQuo. Un compte d'entreprise ne donne pas accès à ce portail.",
   "app.salesPortal.signedInAs": "Connecté en tant que {name}",
   "app.salesPortal.myCompanies": "Mes entreprises",
+  "app.salesPortal.navQueue": "File d'appels",
   "app.salesPortal.navLeads": "Mes prospects",
   "app.salesPortal.navConversations": "Conversations",
   "app.salesPortal.intro":
@@ -10118,6 +10250,7 @@ const fr = {
     "{company} est configurée — il ne manque qu'une carte pour pouvoir l'utiliser. Il reste {days} à votre mois gratuit : rien n'est facturé aujourd'hui.",
   "app.signup.finish.day": "jour",
   "app.signup.finish.days": "jours",
+  "app.signup.finish.signOut": "Se déconnecter de ce compte",
   "app.signup.finish.banner":
     "{company} a bien été créée, mais le paiement n'a jamais été complété — il n'y a donc aucune carte au dossier et rien à ouvrir pour l'instant. Choisissez un forfait ci-dessous et c'est réglé.",
 

@@ -7,6 +7,7 @@ import ImpersonationBanner from "@/app/components/ImpersonationBanner";
 import BillingBanner from "@/app/components/layout/BillingBanner";
 import SeatSharingBanner from "@/app/components/layout/SeatSharingBanner";
 import AccountLocked from "@/app/components/layout/AccountLocked";
+import SetupIncomplete from "@/app/components/layout/SetupIncomplete";
 import ErrorToast from "@/app/components/ErrorToast";
 import AppTours from "@/app/components/AppTours";
 import JenniferPanel from "@/app/components/jennifer/JenniferPanel";
@@ -18,6 +19,8 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { getCurrentMember } from "@/lib/currentMember";
 import { featureMapForCompany, navFlagsFrom } from "@/lib/features/gate";
+import { setupGateDecision } from "@/lib/signup/setupGate";
+import { stripeSubscriptionExists } from "@/lib/billing/checkoutEvidence";
 
 // Everything under /app is per-user and behind the session check in
 // middleware.js, so there is nothing meaningful to statically prerender —
@@ -189,19 +192,43 @@ async function resolveCallerPermissions() {
 }
 
 /**
- * Signed in, with no company — the abandoned-signup state.
+ * Has this person finished signing up — INCLUDING paying for it?
  *
- * Signup creates the account (Better Auth) at one step and the company at
- * another: POST /api/companies, wired to "Continue to Payment" on the LAST
- * step (app/signup/page.js handleFinish). Stop in between and the User row
- * exists with no Company and no Member, which is a real and reachable state,
- * not a corruption.
+ * ── Two ways to arrive here without a subscription ─────────────────────────
  *
- * Those people used to get the whole back office — full nav, every panel — on
- * top of nothing. Every company-scoped API answers 401 because there genuinely
- * is no company, so the dashboard rendered a developer's sentence ("No active
- * company membership could be resolved") above twenty empty cards. Send them
- * back to finish setup instead: /signup detects this same state and resumes.
+ * Signup creates the account (Better Auth) at one step, the company at
+ * another (POST /api/companies, wired to "Continue to Payment" on the LAST
+ * step of app/signup/page.js), and the Stripe Checkout session at a third —
+ * inside that same route, ~200 lines after the Company row is committed. So
+ * there are two real, reachable stopping points, not one:
+ *
+ *   · stop before "Continue to Payment"  → a User with no Company and no
+ *     Member. Those people used to get the whole back office on top of
+ *     nothing: every company-scoped API answers 401 because there genuinely is
+ *     no company, so the dashboard rendered a developer's sentence ("No active
+ *     company membership could be resolved") above twenty empty cards.
+ *
+ *   · stop ON Stripe's checkout page      → a fully-formed company, an owner
+ *     membership, and no card. This one waved straight through to the
+ *     dashboard, because the only question asked here was whether
+ *     `member.companyId` existed. Ten live companies were in that state, one
+ *     of them with a quote in it. The owner's ruling: "they still need to put
+ *     a credit card… the dashboard should be [locked] until the sign up steps
+ *     INCLUDING the stripe payment".
+ *
+ * ── Where the decision lives ───────────────────────────────────────────────
+ *
+ * The rules are in lib/signup/setupGate.js, which is pure, so
+ * scripts/check-signup-gate.mjs executes the whole matrix — impersonation, a
+ * demo fixture, a locked company, a cancelled one, an invited employee —
+ * rather than reading it. This function's job is only to GATHER: nothing here
+ * decides anything except which questions are worth the round trip.
+ *
+ * `member.billingAccess` is already computed by getCurrentMember under
+ * skipBillingGate, and its `reason` is "no_subscription" exactly when
+ * accessFor() saw no Subscription row. Reading it costs nothing and, more to
+ * the point, means this gate and the lock screen can never disagree about what
+ * state a company is in — they are reading one answer, not two.
  *
  * Not in middleware.js, for the reason its header already gives for the feature
  * gate: middleware only knows whether a session cookie exists, and getting from
@@ -211,8 +238,8 @@ async function resolveCallerPermissions() {
  * No loop risk: /signup is not under /app, so this layout never renders for it.
  *
  * Never throws. Failing to resolve this must not take the app down, and the
- * safe direction is "don't redirect" — briefly showing a broken dashboard costs
- * a reload, while bouncing a real member out of their own account does not.
+ * safe direction is "let them in" — briefly showing a broken dashboard costs a
+ * reload, while bouncing a real member out of their own account does not.
  */
 async function getSetupRedirect() {
   try {
@@ -223,24 +250,66 @@ async function getSetupRedirect() {
       { headers: h, method: "GET", url: "" },
       { skipBillingGate: true },
     );
-    if (member?.companyId) return null;
+
+    if (member?.companyId) {
+      // Only a company with no Subscription row at all is in question, and
+      // that is the one case worth a second query. Everything else — active,
+      // trialing, past_due, cancelled, locked — is the billing gate's, and
+      // answering early keeps this off the hot path for every paying company.
+      if (member.billingAccess?.reason !== "no_subscription") return null;
+
+      const company = await db.company.findUnique({
+        where: { id: member.companyId },
+        select: { id: true, isDemo: true, createdAt: true },
+      });
+
+      // Decided twice, deliberately in this order: once WITHOUT asking Stripe,
+      // so the common cases (impersonation, a demo fixture, a company created
+      // in the last hour) never pay for a network call, and again with the
+      // evidence only if the first pass would otherwise turn someone away.
+      const base = {
+        impersonating: Boolean(member.impersonation),
+        hasSession: true,
+        companyId: member.companyId,
+        membershipExists: true,
+        billingReason: member.billingAccess?.reason || null,
+        role: member.role,
+        isDemo: Boolean(company?.isDemo),
+        companyCreatedAt: company?.createdAt || null,
+        // Unknown so far. setupGateDecision reads null as "let them in", so a
+        // first pass that still says allow is an allow we can trust.
+        stripeSubscription: null,
+      };
+
+      const provisional = setupGateDecision(base);
+      if (provisional.action === "allow") return null;
+
+      // Now it matters. Stripe has the subscription object the moment checkout
+      // completes — before our webhook lands — which is what keeps somebody
+      // who has just paid from being bounced out of the page they paid to
+      // reach. See lib/billing/checkoutEvidence.js.
+      const stripeSubscription = await stripeSubscriptionExists(company);
+      const decision = setupGateDecision({ ...base, stripeSubscription });
+
+      if (decision.action === "redirect") return decision.path;
+      if (decision.action === "setup_incomplete") return { setupIncomplete: true };
+      return null;
+    }
 
     const session = await auth.api.getSession({ headers: h });
-    // No session at all — middleware.js already sends this to /login. Nothing
-    // to add, and redirecting to /signup would be the wrong door.
-    if (!session?.user?.id) return null;
+    const membership = session?.user?.id
+      ? await db.member.findFirst({
+          where: { userId: session.user.id, active: true },
+          select: { id: true },
+        })
+      : null;
 
-    // Only when there is genuinely no membership. A Member row that exists but
-    // won't resolve (a company missing its authOrgId, say) is a different
-    // fault, and sending that person to /signup would invite them to create a
-    // SECOND company alongside the one they already belong to.
-    const membership = await db.member.findFirst({
-      where: { userId: session.user.id, active: true },
-      select: { id: true },
+    const decision = setupGateDecision({
+      hasSession: Boolean(session?.user?.id),
+      companyId: null,
+      membershipExists: Boolean(membership),
     });
-    if (membership) return null;
-
-    return "/signup";
+    return decision.action === "redirect" ? decision.path : null;
   } catch (err) {
     console.error("[AppLayout] couldn't resolve the setup state:", err);
     return null;
@@ -261,10 +330,32 @@ export default async function AppLayout({ children }) {
       getSetupRedirect(),
     ]);
 
-  // Before the lock check: a company that doesn't exist can't be behind on its
-  // bill. redirect() throws NEXT_REDIRECT, so it stays outside the try/catch
-  // that getSetupRedirect keeps around its own lookups.
-  if (setupPath) redirect(setupPath);
+  // Before the lock check: a company that doesn't exist, or one that never
+  // reached Stripe at all, can't be behind on its bill. In practice the two
+  // can't both be true — "locked" needs a Subscription row and this needs the
+  // absence of one (see lib/signup/setupGate.js) — so the order is a
+  // statement of intent rather than a tie-break.
+  //
+  // redirect() throws NEXT_REDIRECT, so it stays outside the try/catch that
+  // getSetupRedirect keeps around its own lookups.
+  if (typeof setupPath === "string") redirect(setupPath);
+
+  // ── Signed up, never paid, and not the person who can pay ───────────────
+  //
+  // An invited employee of a company that stopped on Stripe's checkout page.
+  // A redirect to /signup would offer them a business of their own beside the
+  // one they were invited to, so they get a screen instead. Wrapped in the
+  // language provider because it is the only thing they will see — the same
+  // provider the rest of the shell gets, just without the shell.
+  if (setupPath?.setupIncomplete) {
+    return (
+      <div className="min-h-screen bg-background">
+        <LanguageProvider initialLanguage={language} fromAccount={Boolean(language)}>
+          <SetupIncomplete companyName={company?.name} />
+        </LanguageProvider>
+      </div>
+    );
+  }
 
   // ── Locked ──────────────────────────────────────────────────────────────
   //
