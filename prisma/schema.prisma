@@ -5150,6 +5150,28 @@ model Expense {
   // company would collide, which is exactly the point: that's Plaid
   // redelivering a transaction it already sent.
   @@unique([companyId, externalId])
+
+  // ── The receipt this expense came from ──────────────────────────────────
+  //
+  // Expense had NO attachment column, which mattered more than it looked:
+  // job costing sums Expense by projectId (plus TimeEntry and AssetUseLog) and
+  // reads JobMaterial not at all. So a receipt captured against a JobMaterial
+  // would prefill a sourcing row while the job's actual cost never moved —
+  // the same shape as the change order whose priceDelta reached no total.
+  //
+  // The receipt belongs on the row job costing actually reads.
+  receiptUrl       String?
+  receiptCapturedAt DateTime?
+  /// What the model READ off the receipt, verbatim, before anyone edited it.
+  /// Kept so "the model said $412.80 and someone changed it to $421.80" stays
+  /// answerable — an extraction silently overwritten is indistinguishable from
+  /// one that was right.
+  receiptExtract   Json?
+  /// The merchant as printed. Free text on purpose: a supplier ENTITY is
+  /// Supplier, and forcing every corner-shop purchase to create one would make
+  /// the supplier list useless.
+  vendorName       String?
+  supplierId       String?
 }
 
 // One CSV upload, reviewed and committed in one sitting. Exists for two
