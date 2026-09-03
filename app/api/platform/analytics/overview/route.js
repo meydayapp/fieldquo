@@ -43,6 +43,10 @@ import {
   awaitingCheckoutWhere,
   trialingSubscriptionWhere,
 } from "@/lib/platform/trialCounting";
+import {
+  completedSignupWhere,
+  incompleteSignupWhere,
+} from "@/lib/signup/abandoned";
 
 /** Sales demo companies are not customers. See lib/demo/seedDemo.js. */
 const NOT_DEMO = { isDemo: false };
@@ -122,6 +126,7 @@ export async function GET(request) {
 
   const [
     totalCompanies,
+    incompleteSignups,
     trialingSubscriptionCompanies,
     awaitingCheckoutCompanies,
     churnedThisMonth,
@@ -145,7 +150,22 @@ export async function GET(request) {
     // FieldQuo — would be wrong by ten from the day they were created. Applied
     // at every count rather than subtracted at the end, because a percentage
     // computed from a padded denominator is wrong in a way nobody spots.
-    db.company.count({ where: NOT_DEMO }),
+    // ── And an abandoned checkout is not a company either ──────────────────
+    //
+    // Same argument as the demo filter above, one step further. Ten non-demo
+    // companies have no Subscription row at all: they were created by
+    // app/api/companies/route.js at line ~271 and never reached
+    // createTrialCheckoutSession at line ~493, so nobody ever gave a card. The
+    // owner's ruling is that they "should not have been signed up yet", and
+    // this tile is the one number that claims how many businesses are on
+    // FieldQuo — with them in it, the claim was overstated by a third.
+    //
+    // Excluded, never deleted, and never merged: every row stays exactly where
+    // it is and gets its own screen (/platform/signups). See
+    // lib/signup/abandoned.js for why the Subscription row is the whole test
+    // and onboardingStatus cannot be.
+    db.company.count({ where: { ...NOT_DEMO, ...completedSignupWhere() } }),
+    db.company.count({ where: { ...NOT_DEMO, ...incompleteSignupWhere() } }),
     // ── "On trial" is two populations, counted separately ──────────────────
     //
     // The rule and the reasoning live in lib/platform/trialCounting.js; the
@@ -290,7 +310,12 @@ export async function GET(request) {
 
     // Counts
     activeSubscriptionCount: activeOnly.length,
+    // Companies that finished checkout. NOT every Company row — see the count
+    // above. `incompleteSignups` ships beside it rather than being subtracted
+    // silently, so a reader can take the number apart, which is the discipline
+    // trialBreakdown already established below.
     totalCompanies,
+    incompleteSignups,
     // Companies inside an unpaid free month, and the two ways to be in one.
     // The breakdown ships with the total so the banner can state what it
     // counted — see lib/platform/trialCounting.js.

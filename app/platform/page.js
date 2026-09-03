@@ -133,6 +133,11 @@ export default function PlatformDashboardPage() {
     );
   }
 
+  // `totalCompanies` now means "finished checkout" — an abandoned signup is no
+  // longer in the denominator. See the count in
+  // app/api/platform/analytics/overview/route.js: with those ten rows counted,
+  // this percentage was computed against a population a third of which had
+  // never given a card, so it understated the trial share of the real book.
   const trialShare =
     data.totalCompanies > 0
       ? Math.round((data.trialCompanies / data.totalCompanies) * 100)
@@ -406,7 +411,10 @@ export default function PlatformDashboardPage() {
           <MetricCard
             label="Paying companies"
             value={count(data.outlook?.collectableCount ?? data.activeSubscriptionCount)}
-            note={`of ${count(data.totalCompanies)} total`}
+            // "companies" now means companies that finished checkout. The ten
+            // that never did are counted on their own below and on
+            // /platform/signups, not folded into this denominator.
+            note={`of ${count(data.totalCompanies)} companies`}
           />
           {/* "Trialing subscriptions", not "In trial". This tile counts
               SUBSCRIPTION rows Stripe calls trialing; the banner lower down
@@ -547,8 +555,8 @@ export default function PlatformDashboardPage() {
               <p className="text-sm text-amber-800 dark:text-amber-300 mt-1">
                 {count(data.trialBreakdown?.trialingSubscription ?? 0)} trialing in
                 Stripe · {count(data.trialBreakdown?.awaitingCheckout ?? 0)} signed up,
-                not through checkout yet. {trialShare}% of all companies — these are
-                the ones worth calling.
+                not through checkout yet. {trialShare}% of companies that finished
+                checkout — these are the ones worth calling.
               </p>
             </div>
             <Link
@@ -556,6 +564,38 @@ export default function PlatformDashboardPage() {
               className="inline-flex items-center gap-2 bg-amber-900 text-white text-sm font-semibold px-4 py-2 rounded-lg"
             >
               View companies <ArrowRight size={14} />
+            </Link>
+          </div>
+        </section>
+      )}
+
+      {/* ── Incomplete signups ───────────────────────────────────────────────
+          Separate from the trial banner above it, and that separation is the
+          whole point. Everything in that banner has either given a card or is
+          in a Stripe trial that will ask for one. Everything in this one closed
+          the checkout tab and was counted as a customer anyway — on this
+          dashboard, on the company list, and in every adoption rate. They are
+          out of those numbers now and in this one instead. */}
+      {data.incompleteSignups > 0 && (
+        <section>
+          <div className="bg-card border border-border rounded-xl p-5 flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <div className="font-semibold text-foreground">
+                {count(data.incompleteSignups)}{" "}
+                {data.incompleteSignups === 1 ? "person" : "people"} started a signup
+                and never finished it
+              </div>
+              <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+                No card, no subscription, not counted as companies anywhere above.
+                Nothing has been deleted. They are the warmest leads FieldQuo has:
+                they wanted this enough to type their business in.
+              </p>
+            </div>
+            <Link
+              href="/platform/signups"
+              className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg"
+            >
+              Who they are <ArrowRight size={14} />
             </Link>
           </div>
         </section>

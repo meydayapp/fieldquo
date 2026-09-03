@@ -75,6 +75,13 @@ export async function GET(request) {
       "Slug",
       "Email",
       "Status",
+      // A column of its own rather than something a reader is expected to
+      // infer from "Subscription status" being blank. Ten rows in this export
+      // are people who never reached the end of Stripe Checkout, and every
+      // count on the console now excludes them — an export that did not say
+      // which ones would be the copy somebody totals up and gets a different
+      // answer from the dashboard.
+      "Finished checkout",
       "Signed up",
       "Plan",
       "Subscription status",
@@ -92,6 +99,7 @@ export async function GET(request) {
       c.slug,
       c.email,
       c.onboardingStatus,
+      c.subscription ? "yes" : "no",
       isoDate(c.createdAt),
       c.subscription?.plan?.name || "",
       c.subscription?.status || "",

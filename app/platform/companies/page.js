@@ -17,6 +17,13 @@ const STATUS_FILTERS = [
   { value: "active", label: "Active" },
   { value: "pending", label: "Trial / pending" },
   { value: "churned", label: "Churned" },
+  // A different axis from the three above — no Subscription row rather than an
+  // onboardingStatus. Server-side, like the rest (see statusWhere in
+  // app/api/platform/companies/route.js). The dedicated screen at
+  // /platform/signups carries the contact details and the nudge state; this
+  // filter exists so somebody already IN the company list can see the same
+  // population without having to know that screen is there.
+  { value: "incomplete", label: "Never finished checkout" },
 ];
 
 const STATUS_STYLES = {
@@ -152,9 +159,29 @@ export default function PlatformCompaniesPage() {
                       >
                         {c.onboardingStatus}
                       </span>
+                      {/* The row's own status badge says "pending", which is
+                          what onboardingStatus holds for a company that never
+                          reached Stripe — and it says the same for one that is
+                          mid-onboarding with a card on file. This badge is what
+                          separates them, on the row, without opening anything.
+                          Keyed off the subscription the API already includes,
+                          not off a second query or a guess. */}
+                      {!c.subscription && (
+                        <span className="text-xs px-2 py-0.5 rounded-full border bg-muted text-muted-foreground border-border">
+                          Never finished checkout
+                        </span>
+                      )}
                       {/* Expiring trials are the single most actionable thing
-                          on this screen, so they get called out inline. */}
-                      {daysLeft !== null && daysLeft >= 0 && daysLeft <= 7 && (
+                          on this screen, so they get called out inline —
+                          but only for a company that actually has a
+                          subscription. Printing "Trial ends in 3d" beside
+                          "Never finished checkout" is two badges contradicting
+                          each other about the same row, and the second one is
+                          the true statement: nothing ends, because nothing
+                          started. Company.trialEndsAt is stamped at signup,
+                          before checkout, so it is set on every abandoned
+                          signup in the database. */}
+                      {c.subscription && daysLeft !== null && daysLeft >= 0 && daysLeft <= 7 && (
                         <span className="text-xs px-2 py-0.5 rounded-full border bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900">
                           Trial ends in {daysLeft}d
                         </span>

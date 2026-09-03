@@ -5194,6 +5194,51 @@ const en = {
   "app.staleWrite.overwrite": "Save mine anyway",
   "app.staleWrite.overwriteBusy": "Saving…",
   "app.staleWrite.overwriteHint": "This replaces the saved changes with what's on your screen.",
+
+  // ── Signed up, never paid ────────────────────────────────────────────────
+  //
+  // /api/companies commits the Company and the owner's Member row and only
+  // then opens Stripe Checkout, so closing that tab leaves a real company with
+  // no card. app/app/layout.js now sends whoever can pay for it back to
+  // /signup's plan step (lib/signup/setupGate.js) instead of into a dashboard
+  // nobody bought.
+  //
+  // Two subtitles, not one, because the free month may already be spent:
+  // /api/platform/billing/checkout only carries trial days onto Stripe while
+  // Company.trialEndsAt is in the future, and telling a company that abandoned
+  // checkout in July that their first month is free would be a promise the
+  // charge does not keep.
+  "app.signup.finish.eyebrow": "Finish setting up",
+  "app.signup.finish.title": "One step left",
+  "app.signup.finish.subtitle":
+    "{company} is set up — it just needs a card before you can use it.",
+  "app.signup.finish.subtitleTrial":
+    "{company} is set up — it just needs a card before you can use it. Your free month has {days} left, so nothing is charged today.",
+  // The noun is a key rather than part of the sentence, so {days} can be
+  // interpolated without smuggling an English word into a French page — which
+  // is the failure this whole catalogue exists to prevent.
+  "app.signup.finish.day": "day",
+  "app.signup.finish.days": "days",
+  "app.signup.finish.banner":
+    "{company} was set up, but checkout was never finished — so there's no card on the account and nothing to open yet. Choose a plan below and you're in.",
+
+  // ── The same state, seen by someone who cannot fix it ───────────────────
+  //
+  // An invited employee of a company that never paid. Deliberately NOT sent to
+  // /signup: that page sets up a NEW business, and offering an estimator one
+  // beside the company they were invited to is the failure the setup gate's
+  // comment has warned about since it was written. See
+  // app/components/layout/SetupIncomplete.js.
+  "app.setup.incomplete.title": "This account isn't set up yet",
+  "app.setup.incomplete.body":
+    "This business started setting up FieldQuo but never finished adding a payment method, so there's nothing here to work in yet.",
+  "app.setup.incomplete.bodyNamed":
+    "{name} started setting up FieldQuo but never finished adding a payment method, so there's nothing here to work in yet.",
+  "app.setup.incomplete.whoCanFix":
+    "Whoever owns the account needs to sign in and finish choosing a plan. Once they do, everything here opens up for you straight away — you won't need a new invitation.",
+  "app.setup.incomplete.signOut": "Sign out",
+  "app.setup.incomplete.stuck": "Think this is wrong?",
+  "app.setup.incomplete.contact": "Get in touch",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -10063,6 +10108,30 @@ const fr = {
   "app.staleWrite.overwrite": "Enregistrer la mienne quand même",
   "app.staleWrite.overwriteBusy": "Enregistrement…",
   "app.staleWrite.overwriteHint": "Cela remplace les modifications enregistrées par ce qui est à votre écran.",
+
+  // ── Inscription commencée, jamais payée — voir le bloc anglais. ─────────
+  "app.signup.finish.eyebrow": "Terminer la configuration",
+  "app.signup.finish.title": "Une dernière étape",
+  "app.signup.finish.subtitle":
+    "{company} est configurée — il ne manque qu'une carte pour pouvoir l'utiliser.",
+  "app.signup.finish.subtitleTrial":
+    "{company} est configurée — il ne manque qu'une carte pour pouvoir l'utiliser. Il reste {days} à votre mois gratuit : rien n'est facturé aujourd'hui.",
+  "app.signup.finish.day": "jour",
+  "app.signup.finish.days": "jours",
+  "app.signup.finish.banner":
+    "{company} a bien été créée, mais le paiement n'a jamais été complété — il n'y a donc aucune carte au dossier et rien à ouvrir pour l'instant. Choisissez un forfait ci-dessous et c'est réglé.",
+
+  // ── Le même état, vu par quelqu'un qui ne peut pas le régler. ───────────
+  "app.setup.incomplete.title": "Ce compte n'est pas encore configuré",
+  "app.setup.incomplete.body":
+    "Cette entreprise a commencé sa configuration sur FieldQuo, mais n'a jamais ajouté de moyen de paiement — il n'y a donc encore rien ici sur quoi travailler.",
+  "app.setup.incomplete.bodyNamed":
+    "{name} a commencé sa configuration sur FieldQuo, mais n'a jamais ajouté de moyen de paiement — il n'y a donc encore rien ici sur quoi travailler.",
+  "app.setup.incomplete.whoCanFix":
+    "Le propriétaire du compte doit se connecter et terminer le choix d'un forfait. Dès que ce sera fait, tout s'ouvrira ici pour vous immédiatement — vous n'aurez pas besoin d'une nouvelle invitation.",
+  "app.setup.incomplete.signOut": "Se déconnecter",
+  "app.setup.incomplete.stuck": "Vous pensez qu'il y a une erreur?",
+  "app.setup.incomplete.contact": "Écrivez-nous",
 };
 
 

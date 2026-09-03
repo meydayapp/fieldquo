@@ -4,6 +4,27 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
+import { incompleteSignupWhere } from "@/lib/signup/abandoned";
+
+/**
+ * The status filter, which is TWO questions wearing one parameter.
+ *
+ * `active` / `pending` / `churned` are Company.onboardingStatus. `incomplete`
+ * is not — it is "no Subscription row", which is a different axis entirely and
+ * cannot be expressed as an onboardingStatus because that column says "active"
+ * about a company still inside its free month and "pending" about all ten
+ * abandoned signups (see lib/platform/trialCounting.js, which found the same
+ * trap).
+ *
+ * Resolved here rather than by the screen so the list page filters server-side
+ * like every other filter it offers — a client-side version would say "12
+ * companies" over a page showing 3.
+ */
+function statusWhere(status) {
+  if (!status) return {};
+  if (status === "incomplete") return incompleteSignupWhere();
+  return { onboardingStatus: status };
+}
 
 export async function GET(request) {
   const admin = await getCurrentPlatformAdmin(request);
@@ -16,7 +37,7 @@ export async function GET(request) {
 
   const companies = await db.company.findMany({
     where: {
-      ...(status && { onboardingStatus: status }),
+      ...statusWhere(status),
       ...(q && { name: { contains: q, mode: "insensitive" } }),
     },
     include: {

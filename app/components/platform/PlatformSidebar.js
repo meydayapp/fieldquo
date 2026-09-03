@@ -101,6 +101,7 @@ import {
   Webhook,
   Gauge,
   ArrowUpDown,
+  DoorOpen,
   UserRoundCheck,
   Ban,
   ListChecks,
@@ -118,6 +119,13 @@ const GROUPS = [
     label: "Companies",
     items: [
       { label: "Companies", href: "/platform/companies", icon: Building2 },
+      // Directly under Companies, because it is the population Companies now
+      // deliberately excludes from its counts: somebody who started a signup
+      // and never gave a card. Filed here rather than under "Demos & sales"
+      // even though a rep is who calls them — the row IS a company record, and
+      // the person looking for it is thinking "who signed up and didn't
+      // finish", which is a question about the customer list.
+      { label: "Incomplete signups", href: "/platform/signups", icon: DoorOpen },
       {
         label: "Subscriptions",
         href: "/platform/billing/subscriptions",
