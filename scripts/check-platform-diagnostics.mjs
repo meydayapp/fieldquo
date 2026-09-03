@@ -305,18 +305,22 @@ for (const d of [unset, rejected, limited, timedOut, unreachable, cold]) {
 
 console.log("\n══ 2. no message can carry a secret's value ══\n");
 
-// A real-shaped key, planted everywhere a value could enter a message: the
+// Two invented keys, planted everywhere a value could enter a message: the
 // environment, the vendor's own error text, and the error's body.
 //
-// Assembled from pieces rather than written out. Both values are invented and
-// have never been credentials, but a literal `sk_live_…` in a tracked file is
-// indistinguishable from a leaked one to GitHub's push protection, which
-// blocked a push on this line. The runtime values are unchanged, so the
-// scrubber is still tested against the exact prefixes it matches on
-// (lib/platform/diagnostics.js) — the shape has to survive, only the literal
-// does not.
-const KEY = "key" + "_9f3ac41be27d5a06cc18eb7742d0";
-const TOKEN = "sk" + "_live" + "_4d9a2f77b1c3e8560aa4bb91";
+// Both must be REAL-SHAPED or this proves nothing — scrubSecrets matches on
+// shape, so a fixture reading "fake-key" never engages the pattern and the test
+// passes while the scrubber does nothing.
+//
+// Real-shaped, but deliberately not shaped like any VENDOR's key. The rule in
+// lib/platform/diagnostics.js is `(?:sk|pk|rk|key|token)[-_]` + 12 or more — it
+// is vendor-agnostic, so `token_` exercises exactly the branch `sk_live_` would
+// have. An earlier version of this file used `sk_live_`, which is Stripe's live
+// secret prefix; GitHub push protection blocked the push and a human had to be
+// asked to approve a "secret" that never existed. A test for leaked
+// credentials should not train anyone to click past credential warnings.
+const KEY = "key_9f3ac41be27d5a06cc18eb7742d0";
+const TOKEN = "token_4d9a2f77b1c3e8560aa4bb91";
 const env = { RETELL_API_KEY: KEY, TWILIO_AUTH_TOKEN: TOKEN, DATABASE_URL: "postgres://u:p@h/db" };
 
 const hostile = [
