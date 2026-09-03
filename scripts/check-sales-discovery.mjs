@@ -84,6 +84,7 @@ import {
   buildDedupeIndex,
   dedupeKeys,
   duplicateReason,
+  cityKey,
   fuzzyKey,
   matchExisting,
   nameKey,
@@ -451,7 +452,7 @@ section("HOSTILE: a name with markup in it");
     !/script/i.test(cleanBusinessName("<script>alert(1)</script>Acme Painting") || ""));
   ok("a name that is nothing but markup becomes null, not an empty required column",
     cleanBusinessName("<b></b>   ") === null);
-  ok("control characters are removed", cleanBusinessName("Acme Painting") === "Acme Painting");
+  ok("control characters are removed", cleanBusinessName("Acme\u0000\u001fPainting") === "Acme Painting");
   const marked = shaped({ name: "<b>Acme &amp; Sons</b>" });
   ok("the stored name is cleaned", marked.prospect.businessName === "Acme & Sons");
   ok("...and the SOURCE spelling is kept, because a dedupe argument needs it",
@@ -646,6 +647,81 @@ section("Name keys ignore noise words and word order, and refuse to be empty");
     "...and the noise-word rule still returns null rather than an empty key",
     nameKey("The Company Ltd") === null,
   );;
+
+  // ── French, because RBQ is the biggest bank in this system ──────────────
+  //
+  // 54,264 Quebec businesses, named in French. The noise-word list was English
+  // only, so "Ltée" and "Enr." counted as identity while "Ltd" and "Inc" did
+  // not, and the elided articles the apostrophe leaves behind — the bare "l"
+  // of "L'Entreprise", the bare "d" of "d'Émile" — counted as words. Two
+  // spellings of one Quebec contractor scored as two contractors.
+  ok(
+    "Ltee and Enr are dropped exactly as Ltd and Inc are",
+    nameKey("Rénovations Lévis Ltée") === nameKey("Renovations Levis Inc"),
+    nameKey("Rénovations Lévis Ltée"),
+  );
+  ok(
+    "the French article is noise, the same as 'The'",
+    nameKey("Les Toitures Beauport") === nameKey("Toitures Beauport"),
+  );
+  ok(
+    "an elided article does not survive as a one-letter word",
+    nameKey("L'Atelier d'Émile") === nameKey("Atelier Émile") &&
+      nameKey("L'Atelier d'Émile") === "atelier emile",
+    nameKey("L'Atelier d'Émile"),
+  );
+  ok(
+    "a French name of nothing but noise is NULL, like its English counterpart",
+    nameKey("Les Entreprises Ltée") === null,
+  );
+  ok(
+    "a French identity word is NOT dropped",
+    nameKey("Toitures Beauport") !== null &&
+      nameKey("Toitures Beauport") !== nameKey("Toitures Lévis"),
+  );
+
+  // ── The city half of the fuzzy key ─────────────────────────────────────
+  //
+  // The accent fix landed in nameKey and stopped there. `fuzzyKey` pasted the
+  // city on raw and lowercased, so "Québec" and "Quebec" produced one name key
+  // and then two different fuzzy keys — the pair still never met, which is the
+  // whole point of the key. Every accented locality in the province was in
+  // that state.
+  ok(
+    "an accented city and its unaccented spelling are one locality",
+    fuzzyKey({ businessName: "Toitures Nord", city: "Québec" }) ===
+      fuzzyKey({ businessName: "Toitures Nord", city: "Quebec" }),
+    fuzzyKey({ businessName: "Toitures Nord", city: "Québec" }),
+  );
+  ok(
+    "St- and Saint- are the same town, because the two registers disagree",
+    cityKey("St-Jérôme") === cityKey("Saint-Jerome"),
+    cityKey("St-Jérôme"),
+  );
+  ok(
+    "Ste- expands too",
+    cityKey("Ste-Foy") === cityKey("Sainte-Foy"),
+  );
+  ok(
+    "hyphens and spaces are the same separator",
+    cityKey("Trois-Rivières") === cityKey("Trois Rivieres"),
+  );
+  ok(
+    "word ORDER still separates two localities that share words",
+    cityKey("Saint-Jean-sur-Richelieu") !== cityKey("Richelieu sur Jean Saint"),
+  );
+  ok(
+    "two genuinely different towns keep different keys",
+    cityKey("Lévis") !== cityKey("Laval"),
+  );
+  ok(
+    "a city of nothing but punctuation is NULL, not an empty key everything shares",
+    cityKey("  -- ") === null && cityKey(null) === null,
+  );
+  ok(
+    "...and a null city still refuses to build a fuzzy key",
+    fuzzyKey({ businessName: "Toitures Nord", city: "  -- " }) === null,
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
