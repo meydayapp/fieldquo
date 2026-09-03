@@ -58,6 +58,58 @@ billing, AIA applications, AR/AP ledgers).
 
 ---
 
+## THE QUEUE — every requested item, with a state
+
+Added 2026-09-02 after the owner pointed out that requested-but-unstarted work
+was living in conversation instead of in a file. That is the failure this
+section exists to prevent: a board that shows what shipped and what was decided
+still loses the thing nobody has begun.
+
+**Rule: an item enters here the moment it is asked for, not when it starts.**
+
+### Running now
+
+| # | Item | Agent |
+|---|---|---|
+| 1 | Sales rep admin — code field, work email, number, KPIs, leads | running |
+| 2 | Platform diagnostics — "couldn't check" messages, orphan number, Twilio var | running |
+| 3 | Abandoned signups — recovery email, flag for a call, stop counting | running |
+| 4 | Signup gate — no dashboard until checkout completes | running |
+
+### Ready to start — no schema needed
+
+| # | Item | Note |
+|---|---|---|
+| 5 | Widen `check:mobile` to the contractor app | It walks only `/platform`, `/sales`, `/app/clock` today. I told the owner it covered "the app surfaces". It does not. |
+| 6 | Receipt extraction | Unblocked: structured outputs landed. Target is `JobMaterial.actualCost`, whose schema comment already says "what the receipt said". `Expense` has no attachment column. |
+
+### Blocked on the schema settling — NOT forgotten
+
+`prisma/schema.prisma` has been contested all session, invalid twice, and two
+commits already carry mixed authorship because agents swept each other's
+models. These need columns, so they wait for one hand-written schema pass.
+
+| # | Item | Needs |
+|---|---|---|
+| 7 | **Site address on Job/JobVisit** | The prerequisite for routing, arrival detection and client-site equipment. Nothing geographic is buildable without it. |
+| 8 | Document management | Absent entirely. `lib/documents/` is PDF rendering. |
+| 9 | Client-site equipment + warranty history | No warranty period exists anywhere in the product. |
+| 10 | Stock, purchase orders, suppliers | `Material.reorderThreshold` is written and never read. Clusters with #6. |
+| 11 | Daily logs | ~80% of the ingredients exist. Cheapest win: `JobVisit.notes` has a write path and a renderer and nothing sends it. |
+| 12 | Fleet | A vehicle is an `Asset` with `category: "vehicle"`. No VIN, odometer or maintenance. |
+| 13 | `Subscription.billingStartedAt` | The honest fix for trial state — see `docs/sales-intel/STATUS.md`. |
+| 14 | BlockNote editor → JSON → Postgres, autosave | Decided 2026-09-02: no realtime, $0/mo. Pairs with the stale-write guard — autosave without a conflict check is a faster way to overwrite a colleague. |
+
+### Waiting on the owner
+
+| # | Item |
+|---|---|
+| 15 | `SALES_MAILING_ADDRESS`, `SALES_REPLY_ADDRESSING`, `SALES_INBOUND_SECRET` |
+| 16 | Geocoded coordinates stored indefinitely — deleting data is his call |
+| 17 | Crew coordinates stored with no notice, consent or purpose — same |
+| 18 | Whether RFIs are in scope (a market decision: commercial subcontractors or not) |
+| 19 | Whether supervisors see the money notifications |
+
 ## Under audit now (nothing being built)
 
 1. **What FieldQuo already has** — change orders, documents, daily logs, time
