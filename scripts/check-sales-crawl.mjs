@@ -1323,7 +1323,21 @@ async function main() {
   // that handlers/index.js registers it — not that this file did.
   ok("CRAWL_WEBSITE is no longer a placeholder", registry.isPlaceholder("CRAWL_WEBSITE") === false);
   const handlerMod = await import("@/lib/sales/pipeline/handlers/crawlWebsite");
-  ok("…and getHandler returns the real one", registry.getHandler("CRAWL_WEBSITE") === handlerMod.handleCrawlWebsite);
+  // Identity was the right test until the stage gained a successor. The
+  // registration now wraps handleCrawlWebsite in withChain() so that finishing
+  // a crawl — or permanently refusing one — queues DETECT_TECHNOLOGY; see
+  // lib/sales/pipeline/chain.js. So what is proved here is the property that
+  // actually matters: the registered function is not the placeholder, and it
+  // DELEGATES to this module's handler rather than replacing it.
+  const registered = registry.getHandler("CRAWL_WEBSITE");
+  ok("…and getHandler returns this module's handler, wrapped by the pipeline chain", typeof registered === "function" && registered !== handlerMod.handleCrawlWebsite);
+  {
+    // No prospect id: both refuse identically, and the wrapper queues nothing
+    // because there is no prospect to queue anything for.
+    const direct = await handlerMod.handleCrawlWebsite({ task: {}, payload: {}, db: fakeDb });
+    const through = await registered({ task: {}, payload: {}, db: fakeDb });
+    ok("…passing its result through unchanged", JSON.stringify(through) === JSON.stringify(direct), { direct, through });
+  }
   ok(
     "…and handlerStatus reports it implemented",
     registry.handlerStatus().find((h) => h.kind === "CRAWL_WEBSITE")?.implemented === true,

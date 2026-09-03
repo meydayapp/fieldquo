@@ -15,8 +15,8 @@
 //
 // ══ Accept and reject are not symmetrical ═════════════════════════════════
 //
-// ACCEPT moves the row into the working queue and leaves everything else
-// alone. REJECT does NOT delete it: `doNotContactAt` is set instead, which the
+// ACCEPT moves the row into the working queue and queues the research that
+// makes it a queue worth having — see the note on the enqueue below. REJECT does NOT delete it: `doNotContactAt` is set instead, which the
 // schema comment says survives every pipeline transition. Deleting would let
 // the next month's re-ingest rediscover the same paint store and put it back
 // in front of a rep, so the decision has to outlive the row's status.
@@ -30,6 +30,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { superadminOrRefusal } from "@/lib/sales/intel/configAdmin";
 import { isCallReady } from "@/lib/sales/discovery/normalise";
+import { enqueuePipelineTask } from "@/lib/sales/pipeline/tasks";
 
 export async function POST(request, { params }) {
   const { admin, refusal } = await superadminOrRefusal(request);
@@ -117,6 +118,31 @@ export async function POST(request, { params }) {
       },
     });
   });
+
+  // ── Research the row a human just accepted ──────────────────────────────
+  //
+  // Outside the transaction on purpose: the review is decided and audited
+  // whether or not the queue accepts the task, and a failed enqueue must not
+  // roll back a superadmin's decision.
+  //
+  // It has to happen HERE and not only in the discovery handler. Discovery
+  // promotes prospects at `discovered`, and a `needs_review` row only reaches
+  // that status when somebody accepts it — often days after the campaign
+  // finished paging, when no discovery task will ever run again. Without this
+  // line the accept button would move a row into a queue that nothing was
+  // going to look at, which is a control that appears to work.
+  //
+  // The same campaign-scoped key the discovery fan-out uses, so accepting a
+  // row a later page would also have promoted queues one task, not two.
+  if (decision === "accept") {
+    await enqueuePipelineTask({
+      kind: "ENRICH_BUSINESS",
+      prospectId: prospect.id,
+      campaignId: prospect.campaignId,
+      payload: { prospectId: prospect.id },
+      idempotencyKey: `enrich:${prospect.campaignId || "none"}:${prospect.id}`,
+    });
+  }
 
   return NextResponse.json({ ok: true });
 }
