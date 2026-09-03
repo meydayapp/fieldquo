@@ -6832,12 +6832,22 @@ the live database with a throwaway script (Decimal round-trip, Json params, the
 composite unique refusing a second delivery, the `["in_app"]` default, a scoped
 `updateMany`) that was then deleted. `npx next build` exit 0.
 `scripts/check-notifications.mjs` (`npm run check:notifications`, wired into
-`check:all`) — **183 assertions, exit 0**, executing the real catalog, resolver,
+`check:all`) — **204 assertions, exit 0**, executing the real catalog, resolver,
 `notifyEvent` and both route handlers against a scripted database and a cast
-built from the shipped permission presets. **15 mutants applied, all 15
+built from the shipped permission presets. **17 mutants applied, all 17
 caught**; one of them (dropping `skipDuplicates`) was initially caught only by a
 structural assertion, so the idempotency test was rewritten to replay the
 arguments the product actually used rather than arguments written in the test.
+
+One mutant found a real fault in this work rather than confirming a guard: five
+declared `params` — `source`, `temperature`, `settled`, `autoApproved`,
+`origin` — were being stored and rendered by nothing, which is the exact
+failure this change had just removed from `NotificationRule.channel`, one file
+over. `source` and the raw `estimateSource` are open vocabularies and were
+dropped (the screen the row opens already shows them); the rest are rendered by
+`noteKeysFor()` as a translated second line, and the check now asserts that
+every declared param of every type is either interpolated by the sentence or
+consumed there. A param can no longer be added without something reading it.
 
 **Not built, deliberately:** push, SMS, digests, a per-user preferences UI, the
 "a document was changed by someone else" event (audit tier 3 — the single
