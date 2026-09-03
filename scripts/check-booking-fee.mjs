@@ -33,6 +33,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { APP_MESSAGES } from "@/app/i18n/appMessages";
 import { effectiveBookingFeeCents, FEE_HOLD_MINUTES, feeHoldCutoff } from "@/lib/booking/fee";
 import { settleBookingFee } from "@/lib/booking/settleBookingFee";
 import { reconcileBookingFee } from "@/lib/booking/reconcileBookingFee";
@@ -419,9 +420,14 @@ console.log("\nEvery new string is translated");
     "app.booking.checkUnreachable",
     "app.booking.checkFailed",
   ];
+  const catalogues = Object.keys(APP_MESSAGES).length;
   for (const k of keys) {
     const n = messages.split(`"${k}":`).length - 1;
-    ok(`${k} present in all 6 catalogues`, n === 6, `(found ${n})`);
+    ok(
+      `${k} present in all ${catalogues} catalogues`,
+      n === catalogues,
+      `(found ${n})`,
+    );
   }
 }
 

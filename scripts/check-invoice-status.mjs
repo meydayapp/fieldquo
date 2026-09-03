@@ -3,7 +3,7 @@
 // Run: node --import ./scripts/alias-loader.mjs scripts/check-invoice-status.mjs
 //
 // Every InvoiceStatus renders as a coloured chip with a translated label, in
-// all six languages, on both pages that show one.
+// every language the catalogue carries, on both pages that show one.
 //
 // ── What this is guarding against, concretely ──────────────────────────────
 //
@@ -25,6 +25,7 @@
 // of prisma/schema.prisma and treated as the only authority.
 
 import { readFileSync } from "node:fs";
+import { APP_MESSAGES } from "@/app/i18n/appMessages";
 import {
   INVOICE_STATUS_PRESENTATION,
   INVOICE_TONE_CLASSES,
@@ -82,12 +83,18 @@ for (const s of STATUSES) {
 
 // ── 4. The labels exist, in every language ─────────────────────────────────
 //
-// appMessages.js is six dictionaries in one file. Counting occurrences across
-// the whole file is the assertion that catches a key added to English only —
-// the failure that ships an English word into a Punjabi office.
+// appMessages.js is one dictionary per language in a single file. Counting
+// occurrences across the whole file is the assertion that catches a key added
+// to English only — the failure that ships an English word into a Punjabi
+// office.
 const messages = read("app/i18n/appMessages.js");
-const LANGS = (messages.match(/^const (en|fr|es|uk|pa|tl) = \{$/gm) || []).length;
-ok(LANGS === 6, `found all six language blocks (got ${LANGS})`);
+// Derived from APP_MESSAGES, not from a list of codes typed here. The first
+// version of this check hardcoded /^const (en|fr|es|uk|pa|tl) = \{$/ and broke
+// the day three languages were added — a false failure that says nothing about
+// invoice statuses. Counting the catalogue itself still fails when a language
+// is MISSING one of these labels, which is the fault worth catching.
+const LANGS = Object.keys(APP_MESSAGES).length;
+ok(LANGS >= 6, `found the language catalogue (got ${LANGS})`);
 for (const s of STATUSES) {
   const { labelKey } = invoiceStatusPresentation(s);
   const n = messages.split(`"${labelKey}":`).length - 1;

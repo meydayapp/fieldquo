@@ -32,6 +32,7 @@
 // of the logic passes forever while the copy rots.
 
 import fs from "node:fs";
+import { APP_MESSAGES } from "@/app/i18n/appMessages";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -662,9 +663,10 @@ console.log("\nwiring — a reconciler nothing runs is a dead control");
     "the call-length cap is explained to the contractor",
     read("app/app/settings/voice/page.js").includes("app.setVoice.callCap"),
   );
+  const catalogues = Object.keys(APP_MESSAGES).length;
   ok(
-    "in all six catalogues",
-    (messages.split('"app.setVoice.callCap":').length - 1) === 6,
+    `in all ${catalogues} catalogues`,
+    (messages.split('"app.setVoice.callCap":').length - 1) === catalogues,
   );
   ok(
     "both new env vars are documented",

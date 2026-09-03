@@ -55,7 +55,11 @@ t("...and the portal API actually loads the columns",
 console.log("\nThe hint no longer promises invoices only");
 const MSGS = read("../app/i18n/appMessages.js");
 const hints = [...MSGS.matchAll(/"app\.setCompany\.taxIdHint": "((?:[^"\\]|\\.)*)"/g)].map((m) => m[1]);
-t("all six locales present", hints.length, 6);
+t(
+  "every locale has the hint",
+  hints.length,
+  Object.keys(APP_MESSAGES).length,
+);
 t("none still says 'invoices' alone in English",
   !/^Tax ID name and number will appear on invoices\.$/.test(hints[0]));
 t("the English hint mentions quotes too", /quotes/i.test(hints[0]));
