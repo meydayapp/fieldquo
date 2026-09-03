@@ -14,8 +14,11 @@ import es from "./es";
 import uk from "./uk";
 import pa from "./pa";
 import tl from "./tl";
+import de from "./de";
+import zh from "./zh";
+import it from "./it";
 
-export const INDUSTRY_MESSAGES = { en, fr, es, uk, pa, tl };
+export const INDUSTRY_MESSAGES = { en, fr, es, uk, pa, tl, de, zh, it };
 
 /**
  * Resolves industry page content for a language, falling back field by field

@@ -112,13 +112,16 @@ import es from "./es.js";
 import uk from "./uk.js";
 import pa from "./pa.js";
 import tl from "./tl.js";
+import de from "./de.js";
+import zh from "./zh.js";
+import it from "./it.js";
 
 // Extensions included on purpose, and relative rather than "@/": this module is
 // reached by scripts/check-translations.mjs under plain node, whose ESM
 // resolver has neither the bundler's alias map nor its extension guessing. The
 // same reasoning is spelled out on the import in appMessages.js, where leaving
 // it off silently broke the coverage gate.
-export const FEATURE_PAGE_MESSAGES = { en, fr, es, uk, pa, tl };
+export const FEATURE_PAGE_MESSAGES = { en, fr, es, uk, pa, tl, de, zh, it };
 
 /** Every key English carries — the list the coverage check holds the rest to. */
 export const FEATURE_PAGE_MESSAGE_KEYS = Object.keys(en);
