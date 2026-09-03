@@ -143,9 +143,14 @@ const SURFACES = [
   // check existed.
   { dir: "app/platform", tier: "baseline" },
   // The sales rep view. The standing rule calls this the one that matters
-  // most — a rep reads it on a phone — and it is small and new enough to hold
-  // to baseline today.
-  { dir: "app/sales", tier: "baseline" },
+  // most — a rep reads it on a phone. Held at BASELINE until 2026-09-03 with a
+  // note that it was "small and new enough" to do better; measured on that
+  // date, the whole surface failed strict on exactly four buttons in four
+  // files (a 20px sign-out, a 20px retry, and three 26px pipeline chips). All
+  // four were fixed rather than exempted, so the tier moved. Fifteen files,
+  // every rule, no gap list — which is the only honest way to widen this
+  // check.
+  { dir: "app/sales", tier: "strict" },
   // The time clock. Not a console screen at all — it is the one page an hourly
   // worker opens on their own phone, standing in a driveway, and it gained a
   // job picker. Held to STRICT from the day it did: a screen written mobile

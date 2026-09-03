@@ -166,7 +166,9 @@ export default function SalesLeadsPage() {
             <button
               key={s.value}
               onClick={() => setStatus(s.value)}
-              className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${
+              // min-h-[44px] on the chip itself, not on a wrapper: the mobile
+              // rule reads one tag, and so does a thumb.
+              className={`inline-flex items-center min-h-[44px] text-xs font-semibold px-3 rounded-full border ${
                 status === s.value
                   ? "bg-inverted text-inverted-foreground border-inverted"
                   : "border-border text-muted-foreground"

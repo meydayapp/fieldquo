@@ -46,8 +46,14 @@ export default function SalesLoginPage() {
     <div className="min-h-screen flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-2 mb-6">
-          <BadgeDollarSign size={16} className="text-[#ff5a00]" />
-          <span className="text-xs font-bold uppercase tracking-[0.18em] text-[#ff5a00]">
+          {/* text-brand-accent-text, not the raw #ff5a00 this had. SalesShell
+              was fixed for exactly this in the console-contrast sweep and this
+              page was missed — it is the copy nobody looks at. Measured: raw
+              #ff5a00 on the --muted ground this page sits on is 2.80:1 in
+              light mode, under the 4.5:1 floor; --brand-accent-text is 4.57:1
+              light and 5.61:1 dark. The invite screen had the same line. */}
+          <BadgeDollarSign size={16} className="text-brand-accent-text" />
+          <span className="text-xs font-bold uppercase tracking-[0.18em] text-brand-accent-text">
             {t("app.salesPortal.title")}
           </span>
         </div>

@@ -1,57 +1,80 @@
 // app/sales/page.js
 //
-// A rep's own book. The whole portal, for now, and deliberately narrow.
+// The portal's front door: what a rep should do next, and their own numbers.
 //
-// ══ What is on this screen, and what is not ══════════════════════════════
+// ══ What was here before, and why it moved ═══════════════════════════════
 //
-// Name, signup date, subscription status, whether Stripe has let them start
-// taking money, and which commission milestones have actually been recorded.
-// That is the complete list, and it is the same list as REP_COMPANY_SELECT in
-// lib/sales/scope.js — because a rep is paid on whether a company activated,
-// subscribed and stayed, and nothing else answers that.
+// The attributed-companies table, now at /sales/companies. It is a good screen
+// and it was the wrong front door: it answers "did the ones I closed stick?",
+// which is a month-end question, while a rep opening this portal is standing
+// outside a shop between calls asking "who is waiting on me". Two different
+// questions, so two screens rather than one screen with a scoreboard bolted on.
 //
-// NOT here: the contractor's quotes, clients, revenue, job costing, phone
-// numbers or documents. None of them bear on a commission, and all of them
-// belong to the contractor. A rep is FieldQuo staff, not staff of the company
-// they sold to.
+// ══ Four independent loads, and one of them failing is not a zero ════════
 //
-// ══ Nothing on this page writes ══════════════════════════════════════════
+// Every card fetches its own endpoint and holds its own state. That is more
+// code than one aggregating call and it is the shape the data forces: there is
+// no /api/sales/home, this work may not add one (the API surface belongs to
+// another brief), and — more importantly — a rep on a driveway connection gets
+// three cards and one honest "couldn't load" instead of a blank page. Nothing
+// here ever renders 0 for a load that failed; `null` and `0` are different
+// values all the way from the fetch to the sentence at the top. lib/loadState.js
+// argues the general case; app/sales/nextAction.js is where it is enforced.
 //
-// There is no button here that changes anything, which is the honest shape
-// rather than a limitation: /api/sales refuses every non-read method before a
-// handler sees it (lib/sales/gate.js), so a control that appeared to correct an
-// attribution would be a control that 403s. When corrections ship they belong
-// on the superadmin's screen, where the audit row can be written beside them.
+// ══ The signup link finally has a reader ═════════════════════════════════
+//
+// /api/sales/me has returned `signupLink` and `signups` since it was written
+// and NOTHING rendered either — the first recurring failure class in
+// AGENTS.md, a field written and never read, sitting on the one artefact a rep
+// actually hands to a contractor. Both are on this screen now.
+//
+// ══ English, like the four screens beside it ═════════════════════════════
+//
+// The shell and /sales/companies are translated; queue, leads, threads and
+// notes are not (docs/sales-intel/STATUS.md records the decision). This is a
+// working screen next to those four, so it follows them. The keys it would
+// need are listed in the report that shipped it, ready to add to
+// app/i18n/appMessages.js — that catalogue is gated on English and French
+// only, so translating this surface is a smaller job than it looks.
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertCircle, Loader2, CheckCircle2, CircleDashed } from "lucide-react";
+import Link from "next/link";
+import {
+  AlertCircle,
+  ArrowRight,
+  CheckCircle2,
+  ClipboardCopy,
+  Clock,
+  Loader2,
+  Mail,
+  Phone,
+  RefreshCw,
+  Users,
+} from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
-import { useTranslation } from "@/app/hooks/useTranslation";
+import {
+  LAPSE_WARNING_HOURS,
+  nextAction,
+  queueSummary,
+  repliesWaiting,
+  untouchedLeads,
+} from "./nextAction";
+import OutreachNotice from "./leads/OutreachNotice";
 
-// Literal keys in a lookup table rather than a key built by concatenating a
-// prefix onto the milestone name, so check-translations.mjs can see them. Its
-// own header says computed keys are invisible to that scan, and a milestone
-// label that renders as its own key is exactly the failure it exists for.
-// (The comment is careful not to spell such a key out either — the scan reads
-// source text, comments included, so an example in prose would be reported as
-// an undefined key. It was, on the first run.)
-const MILESTONE_KEYS = {
-  activation: "app.salesPortal.milestoneActivation",
-  first_payment: "app.salesPortal.milestoneFirstPayment",
-  retention: "app.salesPortal.milestoneRetention",
-};
+const CARD = "rounded-xl border border-border bg-card p-4 space-y-3";
+const BTN =
+  "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
 
-const SUBSCRIPTION_KEYS = {
-  trialing: "app.salesPortal.subTrialing",
-  active: "app.salesPortal.subActive",
-  past_due: "app.salesPortal.subPastDue",
-  canceled: "app.salesPortal.subCanceled",
-};
-
-export default function SalesPortalPage() {
-  const { t, language } = useTranslation();
-  const [companies, setCompanies] = useState(null);
+/**
+ * One fetch, one piece of state, three outcomes.
+ *
+ * `data === null && error === ""` is "still loading"; `error` set is "we asked
+ * and did not get an answer". Kept as one hook so no card can accidentally
+ * collapse the two into a falsy check and render an empty list for a failure.
+ */
+function useEndpoint(url) {
+  const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -59,159 +82,318 @@ export default function SalesPortalPage() {
     setLoading(true);
     setError("");
     try {
-      const data = await fetchJson("/api/sales/companies");
-      setCompanies(data.companies || []);
+      setData(await fetchJson(url));
     } catch (err) {
-      // The failed load replaces the list rather than sitting beside an empty
-      // state — lib/loadState.js's rule: "0 companies" next to a red banner is
-      // the real bug, because one of the two is a lie.
-      setCompanies(null);
-      setError(err.message);
+      // The failed load REPLACES the data. Leaving a stale payload beside a
+      // red banner is how a screen shows yesterday's number as today's.
+      setData(null);
+      setError(err?.message || "That didn’t load.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [url]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const formatDate = (value) =>
-    value
-      ? new Date(value).toLocaleDateString(language, {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        })
-      : "—";
+  return { data, error, loading, reload: load };
+}
+
+/** A card that says what failed and offers the one control that can fix it. */
+function CardError({ message, onRetry }) {
+  return (
+    <div className="flex items-start gap-2 text-sm">
+      <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-600 dark:text-red-400" />
+      <div className="min-w-0 space-y-2">
+        <p className="text-foreground break-words">{message}</p>
+        <button type="button" onClick={onRetry} className={`${BTN} border border-border text-foreground`}>
+          <RefreshCw size={15} /> Try again
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A number, or the reason there isn't one. Never a zero standing in for either.
+ */
+function Figure({ value, label, loading }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-2xl font-semibold text-foreground tabular-nums">
+        {loading ? (
+          <Loader2 size={18} className="animate-spin inline text-muted-foreground" />
+        ) : value === null || value === undefined ? (
+          <span className="text-base font-medium text-muted-foreground">Not loaded</span>
+        ) : (
+          value
+        )}
+      </p>
+      <p className="text-xs text-muted-foreground break-words">{label}</p>
+    </div>
+  );
+}
+
+export default function SalesHomePage() {
+  const me = useEndpoint("/api/sales/me");
+  // No trade filter: the home screen wants the rep's whole book and the whole
+  // pool, which is what this route returns when nothing is named.
+  const queue = useEndpoint("/api/sales/queue");
+  const leads = useEndpoint("/api/sales/leads");
+  const threads = useEndpoint("/api/sales/threads");
+
+  const [copied, setCopied] = useState(false);
+
+  const q = queueSummary(queue.data);
+  const replies = repliesWaiting(threads.data?.threads);
+  const untouched = untouchedLeads(leads.data?.counts);
+
+  const action = nextAction({
+    repliesWaiting: replies,
+    prospectsToCall: q.toCall,
+    freeToClaim: q.freeToClaim,
+    newLeads: untouched,
+  });
+
+  const stillLoading = me.loading || queue.loading || leads.loading || threads.loading;
+  const signupLink = me.data?.signupLink || null;
+  // Clipboard access is absent on an insecure origin and in some in-app
+  // browsers. The button only exists where the API does; the link itself is in
+  // a selectable field either way, so nothing is unreachable without it.
+  const canCopy =
+    typeof navigator !== "undefined" && typeof navigator.clipboard?.writeText === "function";
+
+  async function copyLink() {
+    if (!signupLink || !canCopy) return;
+    try {
+      await navigator.clipboard.writeText(signupLink);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // A refused clipboard permission is not a success. Say nothing rather
+      // than showing "Copied" over a clipboard that still holds something else.
+      setCopied(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">
-          {t("app.salesPortal.myCompanies")}
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-          {t("app.salesPortal.intro")}
+      <header className="space-y-1">
+        {/* Not "Good morning" — this is read at 07:00 and at 20:00 and the
+            portal has no idea which, so it says nothing it cannot know. */}
+        <h1 className="text-xl font-semibold text-foreground break-words">Your day</h1>
+        <p className="text-sm text-muted-foreground">
+          Everything below is yours alone. Nothing here is another rep&rsquo;s book.
         </p>
-      </div>
+      </header>
 
-      {error && (
-        <div className="bg-card border border-border rounded-xl p-4 text-sm text-foreground flex items-start gap-2">
-          <AlertCircle size={16} className="shrink-0 mt-0.5 text-red-600" />
-          <div className="min-w-0">
-            <p>{error}</p>
-            <button
-              onClick={load}
-              className="mt-2 text-sm font-semibold underline underline-offset-2"
+      {/* ── The one sentence ────────────────────────────────────────────────
+          Its own card, at the top, because it is the reason the screen exists.
+          When a card below it failed to load, this says so instead of ranking
+          the rungs it can still see — see app/sales/nextAction.js. */}
+      <section
+        className={`rounded-xl border p-4 space-y-3 ${
+          action.code === "unknown"
+            ? "border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40"
+            : "border-border bg-card"
+        }`}
+      >
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">Next</p>
+        {stillLoading && action.code === "unknown" ? (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 size={16} className="animate-spin" /> Working out what&rsquo;s waiting on you…
+          </p>
+        ) : (
+          <>
+            <p
+              className={`text-lg font-semibold break-words ${
+                action.code === "unknown"
+                  ? "text-amber-900 dark:text-amber-200"
+                  : "text-foreground"
+              }`}
             >
-              {t("app.salesPortal.retry")}
-            </button>
-          </div>
-        </div>
-      )}
+              {action.headline}
+            </p>
+            <p
+              className={`text-sm break-words ${
+                action.code === "unknown"
+                  ? "text-amber-900 dark:text-amber-200"
+                  : "text-muted-foreground"
+              }`}
+            >
+              {action.detail}
+            </p>
+            {action.href && (
+              <Link href={action.href} className={`${BTN} bg-primary text-primary-foreground w-full`}>
+                {action.cta} <ArrowRight size={16} />
+              </Link>
+            )}
+          </>
+        )}
+      </section>
 
-      {loading && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 size={16} className="animate-spin" />
-          {t("app.salesPortal.loading")}
-        </div>
-      )}
+      {/* Outreach readiness, from whichever of the two lists answered. Both
+          routes compute it; taking the first that arrived avoids claiming
+          sending is fine because the other request is still in flight. */}
+      <OutreachNotice outreach={leads.data?.outreach || threads.data?.outreach} />
 
-      {!loading && companies && companies.length === 0 && (
-        <div className="bg-card border border-border rounded-xl p-8 text-center text-sm text-muted-foreground">
-          {t("app.salesPortal.empty")}
+      {/* ── Conversations ─────────────────────────────────────────────────── */}
+      <section className={CARD}>
+        <div className="flex items-center gap-2">
+          <Mail size={16} className="text-muted-foreground shrink-0" />
+          <h2 className="text-base font-semibold text-foreground">Conversations</h2>
         </div>
-      )}
+        {threads.error ? (
+          <CardError message={threads.error} onRetry={threads.reload} />
+        ) : (
+          <>
+            <div className="flex gap-6">
+              <Figure value={replies} label="waiting on your reply" loading={threads.loading} />
+              <Figure
+                value={threads.data?.threads ? threads.data.threads.length : null}
+                label="open threads"
+                loading={threads.loading}
+              />
+            </div>
+            <Link href="/sales/threads" className={`${BTN} border border-border text-foreground w-full`}>
+              Open conversations
+            </Link>
+          </>
+        )}
+      </section>
 
-      {!loading && companies && companies.length > 0 && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted">
-                <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
-                  <th className="px-4 py-3 font-semibold">
-                    {t("app.salesPortal.colCompany")}
-                  </th>
-                  <th className="px-4 py-3 font-semibold">
-                    {t("app.salesPortal.colSignedUp")}
-                  </th>
-                  <th className="px-4 py-3 font-semibold">
-                    {t("app.salesPortal.colSubscription")}
-                  </th>
-                  <th className="px-4 py-3 font-semibold">
-                    {t("app.salesPortal.colMilestones")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {companies.map((c) => (
-                  <tr key={c.id} className="border-t border-border align-top">
-                    <td className="px-4 py-3">
-                      <span className="font-medium text-foreground">{c.name}</span>
-                      {c.isDemo && (
-                        <span className="ml-2 text-[10px] uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded border border-border text-muted-foreground">
-                          {t("app.salesPortal.demoBadge")}
-                        </span>
-                      )}
-                      <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                        {c.chargesEnabled ? (
-                          <>
-                            <CheckCircle2 size={12} className="shrink-0" />
-                            {t("app.salesPortal.chargesEnabled")}
-                          </>
-                        ) : (
-                          <>
-                            <CircleDashed size={12} className="shrink-0" />
-                            {t("app.salesPortal.chargesPending")}
-                          </>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                      {formatDate(c.signedUpAt)}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                      {c.subscriptionStatus &&
-                      SUBSCRIPTION_KEYS[c.subscriptionStatus]
-                        ? t(SUBSCRIPTION_KEYS[c.subscriptionStatus])
-                        : t("app.salesPortal.subNone")}
-                    </td>
-                    <td className="px-4 py-3">
-                      {/* An empty ledger renders as "none recorded", not as
-                          three greyed-out "not yet" pills. A milestone that
-                          nothing has written is an absent statement, and
-                          drawing a timeline for it invents one. */}
-                      {c.milestones.length === 0 ? (
-                        <span className="text-muted-foreground">
-                          {t("app.salesPortal.noMilestones")}
-                        </span>
-                      ) : (
-                        <div className="flex flex-wrap gap-1.5">
-                          {c.milestones.map((m, i) => (
-                            <span
-                              key={`${m.milestone}-${i}`}
-                              className="text-xs px-2 py-0.5 rounded-full border border-border text-foreground"
-                            >
-                              {MILESTONE_KEYS[m.milestone]
-                                ? t(MILESTONE_KEYS[m.milestone])
-                                : m.milestone}
-                              {m.status === "reversed" &&
-                                ` · ${t("app.salesPortal.statusReversed")}`}
-                              {m.status === "under_review" &&
-                                ` · ${t("app.salesPortal.statusUnderReview")}`}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {/* ── The queue ─────────────────────────────────────────────────────── */}
+      <section className={CARD}>
+        <div className="flex items-center gap-2">
+          <Phone size={16} className="text-muted-foreground shrink-0" />
+          <h2 className="text-base font-semibold text-foreground">Your queue</h2>
         </div>
-      )}
+        {queue.error ? (
+          <CardError message={queue.error} onRetry={queue.reload} />
+        ) : (
+          <>
+            <div className="flex gap-6">
+              <Figure value={q.toCall} label="claimed, not called yet" loading={queue.loading} />
+              <Figure value={q.freeToClaim} label="free to claim" loading={queue.loading} />
+            </div>
+            {/* Rendered only when it is true. A permanently visible "0 lapse
+                soon" trains a rep to stop reading the line that matters. */}
+            {q.lapsingSoon ? (
+              <p className="flex items-start gap-2 text-sm text-amber-900 dark:text-amber-200 break-words">
+                <Clock size={15} className="mt-0.5 shrink-0" />
+                {q.lapsingSoon} {q.lapsingSoon === 1 ? "claim lapses" : "claims lapse"} within{" "}
+                {LAPSE_WARNING_HOURS} hours and go back in the pool.
+              </p>
+            ) : null}
+            <Link href="/sales/queue" className={`${BTN} border border-border text-foreground w-full`}>
+              Open the queue
+            </Link>
+          </>
+        )}
+      </section>
+
+      {/* ── Leads ─────────────────────────────────────────────────────────── */}
+      <section className={CARD}>
+        <div className="flex items-center gap-2">
+          <Users size={16} className="text-muted-foreground shrink-0" />
+          <h2 className="text-base font-semibold text-foreground">My leads</h2>
+        </div>
+        {leads.error ? (
+          <CardError message={leads.error} onRetry={leads.reload} />
+        ) : (
+          <>
+            <div className="flex gap-6">
+              <Figure value={untouched} label="added, not contacted" loading={leads.loading} />
+              <Figure
+                value={leads.data?.counts ? (leads.data.counts.contacted ?? 0) : null}
+                label="contacted"
+                loading={leads.loading}
+              />
+            </div>
+            <Link href="/sales/leads" className={`${BTN} border border-border text-foreground w-full`}>
+              Open my leads
+            </Link>
+          </>
+        )}
+      </section>
+
+      {/* ── The rep's own numbers ─────────────────────────────────────────── */}
+      <section className={CARD}>
+        <h2 className="text-base font-semibold text-foreground">Signups you brought in</h2>
+        {me.error ? (
+          <CardError message={me.error} onRetry={me.reload} />
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-6">
+              <Figure value={me.data?.signups?.today ?? null} label="today (UTC)" loading={me.loading} />
+              <Figure
+                value={me.data?.signups?.thisWeek ?? null}
+                label="this week (UTC, from Monday)"
+                loading={me.loading}
+              />
+              <Figure value={me.data?.signups?.total ?? null} label="all time" loading={me.loading} />
+            </div>
+            <p className="text-xs text-muted-foreground break-words">
+              {/* lib/sales/repStats.js fixes the day boundary at UTC on purpose,
+                  and its own comment asks the UI to say so rather than let a rep
+                  read it as their local midnight. */}
+              Counted in UTC so every rep and the office agree on what &ldquo;today&rdquo; means — your
+              local evening may already be tomorrow here.
+            </p>
+            <Link href="/sales/companies" className={`${BTN} border border-border text-foreground w-full`}>
+              What happened to them
+            </Link>
+          </>
+        )}
+      </section>
+
+      {/* ── The signup link ───────────────────────────────────────────────── */}
+      <section className={CARD}>
+        <h2 className="text-base font-semibold text-foreground">Your signup link</h2>
+        {me.error ? (
+          <CardError message={me.error} onRetry={me.reload} />
+        ) : me.loading ? (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 size={16} className="animate-spin" /> Loading…
+          </p>
+        ) : signupLink ? (
+          <>
+            <p className="text-sm text-muted-foreground break-words">
+              A company that signs up through this is attributed to you at signup. Nothing else
+              claims a company — there is no form anywhere that lets a rep assert one.
+            </p>
+            {/* readOnly, not disabled: a disabled input cannot be selected, and
+                selecting the text is the fallback when there is no clipboard. */}
+            <input
+              readOnly
+              value={signupLink}
+              onFocus={(e) => e.target.select()}
+              aria-label="Your signup link"
+              className="w-full border border-border rounded-lg px-3 py-2.5 min-h-[44px] text-base bg-muted text-foreground"
+            />
+            {canCopy && (
+              <button type="button" onClick={copyLink} className={`${BTN} border border-border text-foreground w-full`}>
+                {copied ? <CheckCircle2 size={16} /> : <ClipboardCopy size={16} />}
+                {copied ? "Copied" : "Copy the link"}
+              </button>
+            )}
+            {me.data?.code && (
+              <p className="text-xs text-muted-foreground break-words">
+                Your code is <span className="font-mono">{me.data.code}</span>. It is fixed — a
+                changed code would quietly stop crediting the links already printed on a card.
+              </p>
+            )}
+          </>
+        ) : (
+          // signupLinkFor() returns null when it has no origin or no code, and
+          // a half-built URL handed to a contractor is worse than none.
+          <p className="text-sm text-muted-foreground break-words">
+            No signup link could be built for your account. Ask a superadmin to check your rep code
+            on the Reps screen — nothing is shown here rather than a link that would not attribute.
+          </p>
+        )}
+      </section>
     </div>
   );
 }

@@ -184,7 +184,9 @@ export default function SalesLeadPage({ params }) {
             key={s}
             disabled={busy}
             onClick={() => patch({ status: s })}
-            className={`text-xs font-semibold px-3 py-1.5 rounded-full border disabled:opacity-60 ${
+            // 44px: these five chips are how a rep moves a lead through the
+            // pipeline one-handed, and they were 26px tall.
+            className={`inline-flex items-center min-h-[44px] text-xs font-semibold px-3 rounded-full border disabled:opacity-60 ${
               lead.status === s
                 ? "bg-inverted text-inverted-foreground border-inverted"
                 : "border-border text-muted-foreground"
@@ -215,7 +217,7 @@ export default function SalesLeadPage({ params }) {
         ) : candidates === null ? (
           <button
             onClick={loadCandidates}
-            className="text-sm font-semibold px-3 py-1.5 rounded-lg border border-border"
+            className="inline-flex items-center min-h-[44px] text-sm font-semibold px-3 rounded-lg border border-border"
           >
             Link a signup
           </button>
@@ -257,7 +259,7 @@ export default function SalesLeadPage({ params }) {
         <button
           disabled={busy || notes === (lead.notes || "")}
           onClick={() => patch({ notes })}
-          className="text-sm font-semibold px-3 py-1.5 rounded-lg border border-border disabled:opacity-50"
+          className="inline-flex items-center min-h-[44px] text-sm font-semibold px-3 rounded-lg border border-border disabled:opacity-50"
         >
           Save notes
         </button>

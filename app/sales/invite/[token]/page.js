@@ -86,8 +86,12 @@ export default function SalesInvitePage({ params }) {
     <div className="min-h-screen flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-2 mb-6">
-          <BadgeDollarSign size={16} className="text-[#ff5a00]" />
-          <span className="text-xs font-bold uppercase tracking-[0.18em] text-[#ff5a00]">
+          {/* Tokenised for contrast — see the same block in
+              app/sales/login/page.js. Raw #ff5a00 on this page's --muted ground
+              measures 2.80:1; --brand-accent-text measures 4.57:1 / 5.61:1.
+              This is the first FieldQuo screen a new hire ever sees. */}
+          <BadgeDollarSign size={16} className="text-brand-accent-text" />
+          <span className="text-xs font-bold uppercase tracking-[0.18em] text-brand-accent-text">
             {t("app.salesPortal.title")}
           </span>
         </div>

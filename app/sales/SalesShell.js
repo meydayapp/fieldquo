@@ -13,11 +13,13 @@
 // screen in the portal, it said "when a second screen lands, this is where the
 // rail goes".
 //
-// It landed: leads and conversations (docs/SALES-OUTREACH.md). Three tabs in
-// the header rather than a sidebar, because three is not a sidebar's worth and
-// a rep works one screen at a time. The alternative — leaving the rail out —
-// would have shipped two screens with no way to reach them, which is the
-// "route with no caller" failure scripts/check-route-callers.mjs exists for.
+// It landed: leads and conversations (docs/SALES-OUTREACH.md), then the queue,
+// then notes, then the Today screen — six. Still tabs in the header rather than
+// a sidebar: a rep works one screen at a time on a phone, and a rail costs
+// horizontal space a 375px screen does not have. The alternative — leaving the
+// rail out — would have shipped screens with no way to reach them, which is the
+// "route with no caller" failure scripts/check-route-callers.mjs exists for,
+// and which scripts/check-sales-home.mjs now asserts for this whole surface.
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -64,7 +66,10 @@ export default function SalesShell({ children }) {
   return (
     <div className="min-h-screen bg-muted">
       <header className="bg-card border-b border-border">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
+        {/* py-2, not py-4: the sign-out button below is now a 44px target, so
+            the old padding would have added 24px of dead chrome to the top of
+            every phone screen in the portal. */}
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-between gap-4">
           {/* text-brand-accent-text, not the raw #ff5a00 this used to hardcode.
               Raw orange on --card measures 3.13:1 in light mode — under the
               4.5:1 floor. --brand-accent-text is the darkened value globals.css
@@ -85,18 +90,27 @@ export default function SalesShell({ children }) {
                 {t("app.salesPortal.signedInAs", { name: me.name })}
               </span>
             )}
+            {/* min-h-[44px]: it was a 20px-tall text button, which is the one
+                target on this header and the one a thumb misses. Height only —
+                no padding — so the header does not grow. */}
             <button
               onClick={signOut}
-              className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+              className="inline-flex items-center gap-2 min-h-[44px] text-sm font-medium text-muted-foreground hover:text-foreground"
             >
               <LogOut size={14} />
               {t("app.salesPortal.signOut")}
             </button>
           </div>
         </div>
-        <nav className="max-w-5xl mx-auto px-4 sm:px-6 flex gap-1 -mb-px">
+        {/* Six tabs is past what fits on a 375px screen, so the rail scrolls
+            sideways rather than wrapping onto a second line that pushes the
+            content down. overflow-x-auto is also what lets the strict
+            nowrap rule pass honestly rather than by deleting the nowrap. */}
+        <nav className="max-w-5xl mx-auto px-4 sm:px-6 flex gap-1 -mb-px overflow-x-auto">
           {[
-            { href: "/sales", label: t("app.salesPortal.myCompanies") },
+            // The front door, and the only tab that answers "what do I do
+            // next". English literal for the same reason "Notes" is one, below.
+            { href: "/sales", label: "Today" },
             // The prospecting queue, before the rep's own typed-in leads:
             // it is the screen a rep opens first in the morning, and the one
             // the whole discovery pipeline exists to fill.
@@ -109,9 +123,13 @@ export default function SalesShell({ children }) {
             // opening an English page is a worse inconsistency than an English
             // tab. It becomes a key the day the notes screens are translated.
             { href: "/sales/notes", label: "Notes" },
+            // The attributed-companies book. It was the portal root until the
+            // Today screen took that slot; it keeps its translated label
+            // because the screen behind THIS one is still translated.
+            { href: "/sales/companies", label: t("app.salesPortal.myCompanies") },
           ].map((tab) => {
             // Exact match for the portal root, prefix for the rest: /sales is a
-            // prefix of every other tab, so "starts with" would light all three
+            // prefix of every other tab, so "starts with" would light all six
             // at once and the rail would never say where you are.
             const active =
               tab.href === "/sales" ? pathname === "/sales" : pathname.startsWith(tab.href);
@@ -119,7 +137,11 @@ export default function SalesShell({ children }) {
               <Link
                 key={tab.href}
                 href={tab.href}
-                className={`px-3 py-2 text-sm font-medium border-b-2 ${
+                // shrink-0 rather than whitespace-nowrap: it keeps every tab at
+                // its content width inside the scrolling rail without asserting
+                // a nowrap the strict mobile rule would then have to reason
+                // about across a hundred lines of array literal.
+                className={`shrink-0 px-3 py-2 text-sm font-medium border-b-2 ${
                   active
                     ? // The underline is a non-text indicator, so 3:1 against the
                       // card is the applicable floor and raw orange clears it at
