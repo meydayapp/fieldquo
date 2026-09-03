@@ -408,8 +408,14 @@ export default function PlatformDashboardPage() {
             value={count(data.outlook?.collectableCount ?? data.activeSubscriptionCount)}
             note={`of ${count(data.totalCompanies)} total`}
           />
+          {/* "Trialing subscriptions", not "In trial". This tile counts
+              SUBSCRIPTION rows Stripe calls trialing; the banner lower down
+              counts COMPANIES in a free month, which also includes the ones
+              that never reached checkout and so have no subscription row at
+              all. The two are different numbers on purpose and used to be
+              labelled as if they were the same one. */}
           <MetricCard
-            label="In trial"
+            label="Trialing subscriptions"
             value={count(data.outlook?.trials?.count ?? 0)}
             note={
               data.outlook?.trials?.lapsed
@@ -532,10 +538,17 @@ export default function PlatformDashboardPage() {
           <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl p-5 flex items-start justify-between gap-4 flex-wrap">
             <div>
               <div className="font-semibold text-amber-900 dark:text-amber-200">
-                {count(data.trialCompanies)} companies on trial
+                {count(data.trialCompanies)} companies in an unpaid free month
               </div>
+              {/* The split is printed, not just the total. This number was
+                  wrong for months behind the label "companies on trial" and
+                  nobody could tell, because there was no way to take it apart
+                  and ask which companies it meant. */}
               <p className="text-sm text-amber-800 dark:text-amber-300 mt-1">
-                {trialShare}% of all companies. These are the ones worth calling.
+                {count(data.trialBreakdown?.trialingSubscription ?? 0)} trialing in
+                Stripe · {count(data.trialBreakdown?.awaitingCheckout ?? 0)} signed up,
+                not through checkout yet. {trialShare}% of all companies — these are
+                the ones worth calling.
               </p>
             </div>
             <Link

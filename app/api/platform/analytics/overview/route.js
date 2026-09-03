@@ -39,6 +39,10 @@ import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
 import { buildRevenueOutlook } from "@/lib/platform/revenueOutlook";
+import {
+  awaitingCheckoutWhere,
+  trialingSubscriptionWhere,
+} from "@/lib/platform/trialCounting";
 
 /** Sales demo companies are not customers. See lib/demo/seedDemo.js. */
 const NOT_DEMO = { isDemo: false };
@@ -118,8 +122,8 @@ export async function GET(request) {
 
   const [
     totalCompanies,
-    activeCompanies,
-    trialCompanies,
+    trialingSubscriptionCompanies,
+    awaitingCheckoutCompanies,
     churnedThisMonth,
     activeSubscriptions,
     quotesThisMonth,
@@ -142,10 +146,28 @@ export async function GET(request) {
     // at every count rather than subtracted at the end, because a percentage
     // computed from a padded denominator is wrong in a way nobody spots.
     db.company.count({ where: NOT_DEMO }),
-    db.company.count({ where: { ...NOT_DEMO, onboardingStatus: "active" } }),
-    db.company.count({
-      where: { ...NOT_DEMO, onboardingStatus: "pending", trialEndsAt: { gte: now } },
-    }),
+    // ── "On trial" is two populations, counted separately ──────────────────
+    //
+    // The rule and the reasoning live in lib/platform/trialCounting.js; the
+    // short version is that the previous query keyed on `onboardingStatus`,
+    // which flips to "active" at trial START, so it excluded the companies it
+    // existed to find and returned 1 where the honest answer was 6.
+    //
+    // Two counts rather than one because the SPLIT is what makes the number
+    // readable: "in a Stripe trial" and "signed up, not through checkout yet"
+    // are different phone calls. The branches are disjoint (one requires a
+    // subscription row, the other its absence), so the total is their sum and
+    // no third query is needed.
+    //
+    // `activeCompanies` used to sit on this line, counting
+    // onboardingStatus === "active". It is gone rather than fixed: nothing in
+    // the repo ever read it — the dashboard's "Paying companies" tile comes
+    // from outlook.collectableCount — and by the reasoning above its name was
+    // a claim the query could not support, since every trialing company is
+    // "active" too. A dead field asserting something false is worse than no
+    // field.
+    db.company.count({ where: { ...NOT_DEMO, ...trialingSubscriptionWhere() } }),
+    db.company.count({ where: { ...NOT_DEMO, ...awaitingCheckoutWhere(now) } }),
     // Approximate — see the note on Company.updatedAt. Any edit to a churned
     // company pulls it back into this window.
     db.company.count({
@@ -269,8 +291,14 @@ export async function GET(request) {
     // Counts
     activeSubscriptionCount: activeOnly.length,
     totalCompanies,
-    activeCompanies,
-    trialCompanies,
+    // Companies inside an unpaid free month, and the two ways to be in one.
+    // The breakdown ships with the total so the banner can state what it
+    // counted — see lib/platform/trialCounting.js.
+    trialCompanies: trialingSubscriptionCompanies + awaitingCheckoutCompanies,
+    trialBreakdown: {
+      trialingSubscription: trialingSubscriptionCompanies,
+      awaitingCheckout: awaitingCheckoutCompanies,
+    },
     churnedThisMonth,
     quotesThisMonth,
     jobsThisMonth,

@@ -39,6 +39,31 @@
 // a lone "Overview" group holding one row is the "group of one" this exact
 // audit flags everywhere else.
 //
+// ── Colours: the --sidebar-* family, not a private palette ──────────────────
+//
+// This rail used to paint itself `bg-[#1A1917]` (the EMAIL header neutral from
+// lib/email/emailTheme.js, which had drifted onto a nav surface) and write on
+// it with `text-muted-foreground` — a token whose whole job is muted text on a
+// LIGHT background. In light mode that measured 2.72:1, and the group headings
+// at `/70` measured 1.97:1. The owner's report was not "hard to read", it was
+// "I thought there was no menu". Two further consequences of the same drift:
+// `bg-card/10` as the selected fill is white-at-10% in light mode and
+// #111d31-at-10% in dark, i.e. 1.00:1 against this rail — in dark mode the
+// selected row had no fill at all; and `hover:text-muted-foreground` on a row
+// already painted `text-muted-foreground` meant hovering changed nothing.
+//
+// Fixed by putting the rail on the same ladder AdminSidebar uses rather than
+// inventing values for a one-off background. The near-black is gone: every
+// hover and selected fill in globals.css was solved against --sidebar in both
+// themes (idle 1.00 -> hover 1.61 -> selected 3.88 light, 1.00 -> 1.69 -> 5.76
+// dark), and re-solving that ladder against #1A1917 would have meant three new
+// colours nobody had measured. Navy is also what the console's own pages sit
+// beside everywhere else. app/platform/login/page.js moved with it so the two
+// dark surfaces of the console are one colour.
+//
+// Measured, not eyeballed: scripts/check-platform-console.mjs recomputes every
+// pairing from the hex in globals.css and fails under 4.5:1 in EITHER theme.
+//
 // No collapse/disclosure here, unlike the two /app sidebars — twenty rows in
 // six short groups reads fine without folding, and building that machinery
 // for a console with no walkthrough to protect and no check exercising it
@@ -266,8 +291,8 @@ export default function PlatformSidebar() {
         href={item.href}
         className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium ${
           isActive(item)
-            ? "bg-card/10 text-white"
-            : "text-muted-foreground hover:bg-card/5 hover:text-muted-foreground"
+            ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold"
+            : "text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         }`}
       >
         <Icon size={16} className="shrink-0" />
@@ -277,10 +302,16 @@ export default function PlatformSidebar() {
   }
 
   return (
-    <aside className="w-60 shrink-0 bg-[#1A1917] text-muted-foreground min-h-screen px-3 py-6 flex flex-col overflow-y-auto">
-      <div className="px-3 mb-6 flex items-center gap-2">
-        <ShieldCheck size={16} className="text-[#ff5a00]" />
-        <span className="text-xs font-bold uppercase tracking-[0.18em] text-[#ff5a00]">
+    <aside className="w-60 shrink-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border min-h-screen px-3 py-6 flex flex-col overflow-y-auto">
+      {/* Orange as a FILL, not as text. #ff5a00 measures 5.62:1 on the old
+          near-black but only 3.88:1 on --sidebar, so moving the rail to navy
+          would have quietly pushed the wordmark under the floor — the exact
+          "contrast assumed rather than measured" trade the rest of this fix is
+          about. globals.css says the same thing about --brand-accent: as a fill
+          with dark text on it, it is 5.59:1 and safe in both themes. */}
+      <div className="mx-3 mb-6 px-2 py-1 rounded-md bg-sidebar-primary text-sidebar-primary-foreground inline-flex items-center gap-2 self-start">
+        <ShieldCheck size={16} />
+        <span className="text-xs font-bold uppercase tracking-[0.18em]">
           Platform
         </span>
       </div>
@@ -290,7 +321,7 @@ export default function PlatformSidebar() {
 
         {GROUPS.map((group) => (
           <div key={group.label}>
-            <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/70">
+            <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-muted-foreground">
               {group.label}
             </div>
             <div className="space-y-1">
@@ -304,7 +335,7 @@ export default function PlatformSidebar() {
 
       <button
         onClick={signOut}
-        className="flex items-center gap-3 px-3 py-2.5 mt-4 rounded-lg text-sm font-medium text-muted-foreground hover:bg-card/5 hover:text-muted-foreground"
+        className="flex items-center gap-3 px-3 py-2.5 mt-4 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
       >
         <LogOut size={16} />
         Sign out

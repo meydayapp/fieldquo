@@ -40,7 +40,12 @@ export default function PlatformLoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#1A1917] flex items-center justify-center p-6">
+    // bg-sidebar, not the old bg-[#1A1917]: that hex is the EMAIL header
+    // neutral, and PlatformSidebar has moved onto the --sidebar ladder, so a
+    // near-black sign-in page would be the console's only surface still using
+    // it. Nothing but the card sits on this backdrop, so it carries no text
+    // pairing of its own.
+    <div className="min-h-screen bg-sidebar flex items-center justify-center p-6">
       <form
         onSubmit={submit}
         className="w-full max-w-sm bg-card rounded-2xl p-8"

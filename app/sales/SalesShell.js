@@ -65,9 +65,17 @@ export default function SalesShell({ children }) {
     <div className="min-h-screen bg-muted">
       <header className="bg-card border-b border-border">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
+          {/* text-brand-accent-text, not the raw #ff5a00 this used to hardcode.
+              Raw orange on --card measures 3.13:1 in light mode — under the
+              4.5:1 floor. --brand-accent-text is the darkened value globals.css
+              defines for exactly this case (5.09:1 light, 6.49:1 dark). This
+              header is NOT the sidebar problem the audit expected to find here:
+              it sits on --card, a light surface, so its
+              text-muted-foreground below is the correct token and measures
+              6.46:1 / 7.78:1. The orange was the only thing failing. */}
           <div className="flex items-center gap-2 min-w-0">
-            <BadgeDollarSign size={16} className="text-[#ff5a00] shrink-0" />
-            <span className="text-xs font-bold uppercase tracking-[0.18em] text-[#ff5a00]">
+            <BadgeDollarSign size={16} className="text-brand-accent-text shrink-0" />
+            <span className="text-xs font-bold uppercase tracking-[0.18em] text-brand-accent-text">
               {t("app.salesPortal.title")}
             </span>
           </div>
@@ -103,7 +111,12 @@ export default function SalesShell({ children }) {
                 href={tab.href}
                 className={`px-3 py-2 text-sm font-medium border-b-2 ${
                   active
-                    ? "border-[#ff5a00] text-foreground"
+                    ? // The underline is a non-text indicator, so 3:1 against the
+                      // card is the applicable floor and raw orange clears it at
+                      // 3.13:1 — tokenised, not darkened, because darkening the
+                      // rule would break the one colour the brand is recognised by
+                      // for no accessibility gain.
+                      "border-brand-accent text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
               >
