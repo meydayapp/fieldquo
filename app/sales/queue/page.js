@@ -384,6 +384,19 @@ export default function SalesQueuePage() {
                   </a>
                 ) : null}
 
+                {/* Neither a decision nor the inputs to make one. Only reachable
+                    if a stale bundle meets a newer API or the reverse, and the
+                    honest answer is still an answer — a blank space here would
+                    be the silent version of the dead control. */}
+                {!compliance ? (
+                  <Notice
+                    tone="unknown"
+                    icon={CircleHelp}
+                    title="We cannot confirm this call is allowed."
+                    fix="This screen could not work out which calling rules apply. Reload it."
+                  />
+                ) : null}
+
                 {(compliance?.blockers || []).map((b) => (
                   <Notice
                     key={b.code}
