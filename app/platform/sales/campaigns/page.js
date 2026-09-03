@@ -6,9 +6,36 @@
 //
 // The owner's reasoning, which the form states rather than hides: a rep who
 // says the same script forty times gets better at it; one who switches trade
-// every call never does. So a campaign is territory AND trade, the queue that
-// comes out is single-trade, and there is no "all trades" option to pick by
-// accident.
+// every call never does. So a campaign is territory AND trade, and the queue
+// that comes out is single-trade.
+//
+// ══ …and why there is now an "every trade" box anyway ═════════════════════
+//
+// UPDATED 2026-09-03. The argument above was right about the QUEUE and was
+// being used to decide the BANK, which is a different question. What a rep is
+// handed and what FieldQuo may know are not the same thing, and the owner's ask
+// — "extract leads of all the contractors, doesn't matter painter, roofer,
+// hvac, plumber" — is entirely about the second one.
+//
+// So the box is a statement about banking, and it changes NOTHING about the
+// queue. `claimCandidateWhere()` filters on an exact trade key and has never
+// heard of a campaign: a roofer banked by an all-trades campaign is claimable
+// from the roofing queue and from no other, and a painting queue cannot contain
+// it by construction rather than by anyone remembering to filter. That is
+// proved by execution in scripts/check-bank-all-trades.mjs, because it is the
+// one property a rep's trust in the queue rests on.
+//
+// It is a separate CHECKBOX rather than an "All trades" row in the trade menu.
+// A menu entry sits one keystroke from "Painting" and is chosen by accident;
+// this one has to be ticked, and it says what it costs while being ticked.
+//
+// ══ Why the target field now talks about money ════════════════════════════
+//
+// Banking a row is a row. Researching one is about seven pipeline tasks against
+// a platform ceiling of ~3,600 a day, so promoting a 54,264-row register in
+// full would be 105 days of every tenant's pipeline. `targetCount` bounds the
+// promotion as well as the discovery, and the form says so where the number is
+// typed rather than leaving it to be found out afterwards.
 //
 // ══ Why the sources have no default ═══════════════════════════════════════
 //
@@ -68,6 +95,9 @@ const LABEL = "block text-sm font-medium text-foreground mb-1";
 const BLANK = {
   name: "",
   tradeKey: "",
+  // Not ticked. Banking every trade is the bigger, more expensive thing to do
+  // and it is chosen deliberately, the same way a source is.
+  allTrades: false,
   targetCount: "500",
   // A SET, empty. Not "" and not one preticked box — see the header.
   discoverySources: [],
@@ -180,8 +210,10 @@ export default function PlatformSalesCampaignsPage() {
       <header className="space-y-2">
         <h1 className="text-xl font-semibold text-foreground">Discovery campaigns</h1>
         <p className="text-sm text-muted-foreground">
-          One territory, one trade, one target. The queue a campaign produces is single-trade on purpose — a
-          rep who says the same script forty times gets better at it.
+          One territory, one target, and either one trade or every trade. The queue a campaign produces is
+          single-trade either way — a rep who says the same script forty times gets better at it, and a
+          prospect is claimed by exact trade. “Every trade” widens what FieldQuo banks, not what a rep is
+          handed.
         </p>
       </header>
 
@@ -228,6 +260,7 @@ export default function PlatformSalesCampaignsPage() {
               id="c-trade"
               className={FIELD}
               value={draft.tradeKey}
+              disabled={draft.allTrades}
               onChange={(e) => setDraft({ ...draft, tradeKey: e.target.value })}
             >
               <option value="">Choose a trade…</option>
@@ -238,8 +271,36 @@ export default function PlatformSalesCampaignsPage() {
               ))}
             </select>
             <p className="mt-1 text-xs text-muted-foreground">
-              A business whose category maps to a different trade is counted and skipped, never quietly added.
+              {draft.allTrades
+                ? "Every trade is banked, so nothing is skipped for being the wrong one."
+                : "A business whose category maps to a different trade is counted and skipped, never quietly added."}
             </p>
+
+            {/* Ticking this CLEARS the trade rather than keeping it in state.
+                A form that still holds "painting" behind a disabled select is a
+                form whose payload disagrees with what is on screen, and the
+                route refuses a campaign that claims both. */}
+            <label
+              className="mt-3 flex items-start gap-3 min-h-[44px] cursor-pointer"
+              htmlFor="c-all-trades"
+            >
+              <input
+                id="c-all-trades"
+                type="checkbox"
+                className="mt-1 h-5 w-5 shrink-0"
+                checked={draft.allTrades}
+                onChange={(e) => setDraft({ ...draft, allTrades: e.target.checked, tradeKey: "" })}
+              />
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-foreground">Bank every trade</span>
+                <span className="block text-xs text-muted-foreground break-words">
+                  Painters, roofers, HVAC, plumbers, electricians, paving, flooring, drywall, insulation —
+                  every trade the source returns is written, each under its own trade. This does not put
+                  anything in the wrong queue: a rep’s queue is claimed by exact trade, so a roofer banked
+                  here can only ever be handed to somebody working the roofing queue.
+                </span>
+              </span>
+            </label>
           </div>
 
           <div>
@@ -255,7 +316,10 @@ export default function PlatformSalesCampaignsPage() {
             />
             <p className="mt-1 text-xs text-muted-foreground">
               Counted against accepted contractors, not against rows found — so paint stores never count
-              towards the target.
+              towards the target. It is also the research budget: at most this many of this campaign’s
+              prospects are ever promoted into crawling and analysis, which is roughly seven pipeline tasks
+              each against about 3,600 a day for the whole platform. Banking is not bounded by it — rows keep
+              being written and cost a row each.
             </p>
           </div>
 
@@ -512,6 +576,10 @@ export default function PlatformSalesCampaignsPage() {
                   <span className="inline-flex items-center gap-1">
                     <MapPin size={12} /> {c.territory?.name || "no territory"}
                   </span>
+                  {/* "All trades" and "Painting" are different campaigns with
+                      different costs. A list showing neither makes them look
+                      like the same thing. */}
+                  <span className="break-words">{c.tradeLabel}</span>
                   <span className="inline-flex items-center gap-1">
                     <Target size={12} /> {c.progress.accepted} of {c.progress.target}
                   </span>

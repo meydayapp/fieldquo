@@ -9055,8 +9055,40 @@ model ProspectCampaign {
   territoryId String?
   territory   SalesTerritory? @relation(fields: [territoryId], references: [id])
 
+  /// The trade this campaign banks, or null when `allTrades` is set. Exactly
+  /// one of the two is a statement; neither is a campaign that cannot run, and
+  /// both the create route and runDiscoverBusinesses refuse it rather than
+  /// picking one.
   tradeKey String?
+
+  /// "Bank every trade this source returns" — the owner's ask, stated
+  /// explicitly rather than inferred from `tradeKey` being null.
+  ///
+  /// A BOOLEAN and not a null trade key, because absence is not a statement
+  /// (AGENTS.md's fifth failure class). A row whose `tradeKey` is null because
+  /// nobody chose one and a row whose trade is deliberately "all of them" want
+  /// opposite behaviour, and telling them apart from one nullable column is
+  /// impossible — the safe reading (bank nothing) makes the feature dead, and
+  /// the unsafe one silently banks 54,264 licence-holders into the research
+  /// pipeline. So the deliberate choice carries its own column.
+  ///
+  /// What it changes, exactly: `planIngest` stops skipping a business whose
+  /// category maps to a DIFFERENT trade — that row is written with ITS OWN
+  /// trade key and counted as accepted. What it does NOT change: a rep's queue
+  /// is still single-trade, because claimCandidateWhere() filters on an exact
+  /// trade key and knows nothing about campaigns. A roofer banked here is
+  /// claimable from the ROOFING queue and from no other.
+  allTrades Boolean @default(false)
+
   keywords String[] @default([])
+
+  /// How many prospects the campaign is FOR. Two things measure against it,
+  /// and they are different: `campaignProgress` stops discovery at this many
+  /// ACCEPTED rows, and `researchBudget` caps how many of this campaign's
+  /// prospects may ever be promoted into crawling and analysis. Banking is
+  /// cheap and researching is not — about seven pipeline tasks per prospect
+  /// against a platform ceiling of ~3,600 tasks/day — so the expensive half is
+  /// bounded by a number a human typed.
   targetCount Int    @default(100)
 
   /// Where the business comes from — a SET, because the owner's rule is that

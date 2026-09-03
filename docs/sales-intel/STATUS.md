@@ -4,8 +4,8 @@ The single place that says what is done, what is moving, and what is waiting.
 Updated whenever something lands. If this file disagrees with a memory or a
 summary, this file wins.
 
-Last updated: 2026-09-03, after trade inference from a prospect's own website
-and the bank/queue split in the discovery ingest.
+Last updated: 2026-09-03, after all-trades campaigns — banking every trade, a
+research budget on the expensive half, and the queue still single-trade.
 
 ---
 
@@ -265,6 +265,55 @@ so it needs the owner's yes and its own measurement.
 and sixth time in this project. `check-sales-discovery.mjs` asserted the
 unmapped row was skipped; `check-rbq-provider.mjs` asserted an RBQ business was
 skipped and "no prospect is written". Both encoded the bug.
+
+### Banking every trade · BUILT 2026-09-03 · NEEDS `prisma db push`
+
+`scripts/check-bank-all-trades.mjs` — 123 assertions, 12 mutations tested, all
+12 caught — is in `check:all`.
+
+The owner's ask: *"extract leads of all the contractors. doesn't matter
+painter, roofer, hvac, plumber, electricians, paving, asphalt, flooring,
+drywall, insulation — all of them."* That is a statement about the BANK. The
+single-trade rule is a statement about the QUEUE, it is still true, and nothing
+below weakens it.
+
+**`ProspectCampaign.allTrades Boolean @default(false)` is new and is NOT
+pushed** — the owner owns the schema. Until `npx prisma db push` runs, ticking
+the new box on the campaign form fails at the write. A boolean rather than
+"tradeKey null means all trades", because absence is not a statement: a row
+nobody finished configuring and a row that deliberately means every trade want
+opposite behaviour, and the unsafe reading of one nullable column banks a
+province by accident. `lib/sales/discovery/trades.js`'s `campaignTradeScope()`
+is the ONE place the two columns become one answer; `neither` is its own state
+and `runDiscoverBusinesses` refuses it terminally.
+
+**Where an other-trade row lands in the funnel: `accepted`, with its own trade
+key.** Not `banked`. `bankedCount` still means exactly "kept without a trade" —
+the row nobody can call. A roofer banked by an all-trades campaign is a real
+prospect with `tradeKey: "roofing"`, and `found = unmapped + duplicates +
+rejected + needsReview + accepted` is unchanged in both modes. `planIngest`
+needed no new branch: its skip was already conditional on the campaign naming a
+trade, and an all-trades campaign names none.
+
+**Queue safety is the assertion everything else rests on, and it is proved by
+execution**: the shipped ingest writes a page of five trades into a store, and
+`claimCandidateWhere()` is then run against the rows it actually wrote, for
+every shipped trade. No trade's queue contains a row of another trade; the
+trade-less bank row is in no queue at all. Mutating the claim query to drop its
+trade filter, or to pass a missing key through instead of the `__none__`
+sentinel, fails the check.
+
+**Promotion was NOT safe and is now gated — this was the real risk.**
+`promoteToResearch` promoted every row a campaign held at `discovered`, bounded
+only by the page size, so a bank-everything campaign would have queued an
+ENRICH task per row and each routes onward to a crawl. At ~3,600 tasks/day and
+~7 tasks per prospect, the RBQ's 54,264 rows would be 105 days of the entire
+platform's pipeline, started by one Start button. Promotion is now bounded by
+`targetCount` — the number a human typed — counted from `SalesPipelineTask`
+rather than trusted from a payload, with rows that HAVE a trade promoted first
+so a trade-less register import cannot starve the trade the campaign asked for.
+Banking stays unbounded. The campaign screen shows "N of T queued for research"
+and says when the budget is spent, and the task note says it too.
 
 ### The mobile check, and what it honestly proves
 

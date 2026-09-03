@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 3 September 2026 (per-language DOCUMENT tables filled: pa/tl site chrome shipped, de/it ready for the picker).
+Last updated: 3 September 2026 (discovery campaigns can bank every trade; the rep's queue stays single-trade; `allTrades` awaits `prisma db push`).
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,27 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## A discovery campaign can bank every trade (3 September 2026)
+
+The owner asked for leads from every trade at once — painter, roofer, HVAC,
+plumber, electrician, paving, flooring, drywall, insulation. A campaign can now
+say "every trade" instead of naming one, and it banks each business under its
+OWN trade.
+
+**A rep's queue is unchanged and still single-trade.** A prospect is claimed by
+exact trade key, so a roofer banked by an all-trades campaign is reachable from
+the roofing queue and from no other. That is proved by running the shipped
+claim query against the rows the shipped ingest wrote —
+`npm run check:bank-all-trades`, in `check:all`.
+
+**Two things need the owner.** `ProspectCampaign.allTrades` is added to
+`schema.prisma` and NOT pushed: run `npx prisma db push` before using the new
+box, or ticking it fails at the write. And promoting a bank into research is
+now capped by the campaign's target, because banking a row costs a row while
+researching one costs about seven pipeline tasks — 54,264 licence-holders
+promoted in full would be 105 days of the whole platform's pipeline. Details in
+`docs/sales-intel/STATUS.md`.
 
 ## The document tables now lead the picker (3 September 2026)
 

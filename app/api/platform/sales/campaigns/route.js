@@ -39,7 +39,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { superadminOrRefusal } from "@/lib/sales/intel/configAdmin";
 import { discoveryProviders, getDiscoveryProvider } from "@/lib/sales/discovery/providers";
-import { discoveryTradeKeys, DISCOVERY_TRADES } from "@/lib/sales/discovery/trades";
+import { campaignTradeLabel, discoveryTradeKeys, DISCOVERY_TRADES } from "@/lib/sales/discovery/trades";
 import { campaignProgress, funnelRows } from "@/lib/sales/discovery/funnel";
 import {
   describeSources,
@@ -70,6 +70,10 @@ export async function GET(request) {
       const sources = describeSources(c, { getProvider: getDiscoveryProvider });
       return {
         ...c,
+        // Named on the LIST and not only inside the campaign: "All trades" and
+        // "Painting" are different campaigns with different costs, and a list
+        // that shows neither makes them look like the same thing.
+        tradeLabel: campaignTradeLabel(c),
         // Serialised here rather than in the page, so the list and the detail
         // screen cannot disagree about what "62%" means.
         progress: campaignProgress(c),
@@ -114,14 +118,33 @@ export async function POST(request) {
   if (!name) return bad("A campaign needs a name — it is what the list is scanned by.");
   if (name.length > MAX_NAME) return bad(`Keep the campaign name under ${MAX_NAME} characters.`);
 
+  // ── One trade, or every trade, and never neither and never both ─────────
+  //
+  // The queue argument is unchanged and still true: a rep who says the same
+  // script forty times gets better at it, so what a rep is HANDED is
+  // single-trade. All-trades is a statement about the BANK — what FieldQuo may
+  // know — and it changes nothing about the queue, because
+  // claimCandidateWhere() filters on an exact trade key and has never heard of
+  // a campaign. A roofer banked by an all-trades campaign is claimable from the
+  // roofing queue and from no other.
+  //
+  // Both at once is refused rather than resolved. Two statements that disagree
+  // is exactly the state campaignTradeScope() exists to keep out of the
+  // database, and picking one here would leave the screen showing "Painting"
+  // over a campaign that banked a province.
+  const allTrades = body?.allTrades === true;
   const tradeKey = String(body?.tradeKey ?? "").trim();
-  if (!tradeKey) {
+  if (allTrades && tradeKey) {
+    return bad("Pick one trade or tick every trade — a campaign that says both says nothing.");
+  }
+  if (!allTrades && !tradeKey) {
     return bad(
       "A campaign targets one trade. A rep who says the same script forty times gets better at it; " +
-        "one who switches trade every call never does.",
+        "one who switches trade every call never does. Tick “every trade” if you are building the bank " +
+        "rather than a queue.",
     );
   }
-  if (!DISCOVERY_TRADES[tradeKey]) return bad(`"${tradeKey}" is not a trade this build discovers.`);
+  if (tradeKey && !DISCOVERY_TRADES[tradeKey]) return bad(`"${tradeKey}" is not a trade this build discovers.`);
 
   const targetCount = Math.floor(Number(body?.targetCount));
   if (!Number.isFinite(targetCount) || targetCount < 1 || targetCount > MAX_TARGET) {
@@ -197,7 +220,10 @@ export async function POST(request) {
       data: {
         name,
         territoryId,
-        tradeKey,
+        // Null rather than "" for an all-trades campaign: the column means "the
+        // one trade this campaign banks", and an empty string is not a trade.
+        tradeKey: allTrades ? null : tradeKey,
+        allTrades,
         targetCount,
         // The plural fields only. `discoveryProvider` and `providerConfig`
         // are read for campaigns created before this change and are never
@@ -217,7 +243,10 @@ export async function POST(request) {
         details: {
           campaignId: campaign.id,
           name: campaign.name,
-          tradeKey,
+          // Both, always. "tradeKey: null" alone in an audit log cannot say
+          // whether somebody chose every trade or the row was written wrong.
+          tradeKey: allTrades ? null : tradeKey,
+          allTrades,
           targetCount,
           sources: selection.keys,
           // Which obligations this campaign just took on, recorded at the

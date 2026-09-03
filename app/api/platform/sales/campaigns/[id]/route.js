@@ -33,7 +33,8 @@ import {
   sourceStateFor,
   startProblems,
 } from "@/lib/sales/discovery/sources";
-import { discoveryTradeLabel } from "@/lib/sales/discovery/trades";
+import { campaignTradeLabel } from "@/lib/sales/discovery/trades";
+import { researchBudget } from "@/lib/sales/pipeline/handlers/discoverBusinesses";
 import { campaignProgress, funnelProblems, funnelRows } from "@/lib/sales/discovery/funnel";
 import { stalenessOf } from "@/lib/sales/discovery/normalise";
 import { duplicateReason } from "@/lib/sales/discovery/dedupe";
@@ -58,7 +59,7 @@ export async function GET(request, { params }) {
   // three sources is the one that cannot run.
   const sources = describeSources(campaign, { getProvider: getDiscoveryProvider });
 
-  const [review, flagged, tasks] = await Promise.all([
+  const [review, flagged, tasks, researchQueued] = await Promise.all([
     db.prospect.findMany({
       where: { campaignId: id, status: "needs_review" },
       orderBy: { createdAt: "asc" },
@@ -89,6 +90,11 @@ export async function GET(request, { params }) {
       where: { campaignId: id, kind: "DISCOVER_BUSINESSES" },
       _count: { _all: true },
     }),
+    // How much of the research budget has been spent. Banking is cheap and
+    // researching is ~7 pipeline tasks a prospect, so a campaign can go on
+    // banking long after it has stopped promoting — and a screen that showed
+    // only the funnel would present that as a campaign still working its rows.
+    db.salesPipelineTask.count({ where: { campaignId: id, kind: "ENRICH_BUSINESS" } }),
   ]);
 
   const lastError = await db.salesPipelineTask.findFirst({
@@ -105,8 +111,15 @@ export async function GET(request, { params }) {
       // The edit form re-sends the whole value rather than reading it back.
       providerConfig: undefined,
       sourceConfigs: undefined,
-      tradeLabel: discoveryTradeLabel(campaign.tradeKey),
+      tradeLabel: campaignTradeLabel(campaign),
       progress: campaignProgress(campaign),
+      // The bound on the expensive half, stated as a number rather than left to
+      // be discovered when a campaign quietly stops promoting.
+      research: {
+        queued: researchQueued,
+        target: Math.max(0, Math.floor(Number(campaign.targetCount) || 0)),
+        remaining: researchBudget({ targetCount: campaign.targetCount, spent: researchQueued }),
+      },
       funnel: funnelRows(campaign),
       funnelProblems: funnelProblems(campaign),
       sourceKeys: campaignSourceKeys(campaign),

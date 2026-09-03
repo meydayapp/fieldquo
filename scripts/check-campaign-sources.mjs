@@ -530,6 +530,16 @@ function makeStore(campaign) {
           .filter((t) => (where.prospectId?.in ? where.prospectId.in.includes(t.prospectId) : true))
           .map((t) => ({ ...t }));
       },
+      // How much of the campaign's research budget has been spent. Answered by
+      // the store because the shipped handler asks it — a stub that answered
+      // undefined here would make an unbounded promotion pass.
+      async count({ where = {} } = {}) {
+        return tasks.filter(
+          (t) =>
+            (where.kind ? t.kind === where.kind : true) &&
+            (where.campaignId ? t.campaignId === where.campaignId : true),
+        ).length;
+      },
       async findUnique({ where }) {
         const found = tasks.find((t) => t.idempotencyKey && t.idempotencyKey === where.idempotencyKey);
         return found ? { ...found } : null;

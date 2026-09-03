@@ -166,6 +166,18 @@ export default function PlatformSalesCampaignPage({ params }) {
           {campaign.progress.accepted} of {campaign.progress.target} accepted
           {campaign.progress.percent === null ? "" : ` (${campaign.progress.percent}%)`} · {campaign.status}
         </p>
+        {/* Banking and researching are different budgets and only one of them
+            costs the platform anything. Shown because a campaign that has
+            banked its way past its target goes on banking and stops promoting,
+            and that has to read as a bound rather than as a stall. */}
+        {campaign.research ? (
+          <p className="text-xs text-muted-foreground">
+            {campaign.research.queued} of {campaign.research.target} queued for research
+            {campaign.research.remaining
+              ? ""
+              : " — the research budget is spent. Rows are still banked; nothing more is promoted into crawling."}
+          </p>
+        ) : null}
       </header>
 
       {error ? (
