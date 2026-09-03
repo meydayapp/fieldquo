@@ -56,6 +56,10 @@ import { hasLevel } from "@/lib/permissions/enforce";
 import { reportResponseError } from "@/lib/clientErrors";
 import { jsonBody } from "@/lib/jsonBody";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
+import {
+  invoiceStatusClasses,
+  invoiceStatusPresentation,
+} from "@/lib/invoices/statusPresentation";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import ClientMediaTile from "@/app/components/ClientMediaTile";
 import BrandTheme from "@/app/components/BrandTheme";
@@ -69,12 +73,7 @@ import LifecycleBanners from "./LifecycleBanners";
 import JobPanel from "./JobPanel";
 import CostPanel from "./CostPanel";
 
-const STATUS_STYLES = {
-  draft: "bg-muted text-muted-foreground",
-  sent: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
-  paid: "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300",
-  overdue: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300",
-};
+
 
 export default function InvoiceDetailPage() {
   const { t, language } = useTranslation();
@@ -476,9 +475,14 @@ export default function InvoiceDetailPage() {
               {invoice.invoiceNumber}
             </h1>
             <span
-              className={`text-xs px-2 py-1 rounded-full ${STATUS_STYLES[invoice.status]}`}
+              className={`text-xs px-2 py-1 rounded-full ${invoiceStatusClasses(invoice.status)}`}
             >
-              {t(`app.status.${invoice.status}`, invoice.status)}
+              {invoiceStatusPresentation(invoice.status).labelKey
+                  ? t(
+                      invoiceStatusPresentation(invoice.status).labelKey,
+                      invoice.status,
+                    )
+                  : invoice.status}
             </span>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
@@ -688,9 +692,14 @@ export default function InvoiceDetailPage() {
                 )}
               </h2>
               <span
-                className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full ${STATUS_STYLES[invoice.status]}`}
+                className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full ${invoiceStatusClasses(invoice.status)}`}
               >
-                {t(`app.status.${invoice.status}`, invoice.status)}
+                {invoiceStatusPresentation(invoice.status).labelKey
+                  ? t(
+                      invoiceStatusPresentation(invoice.status).labelKey,
+                      invoice.status,
+                    )
+                  : invoice.status}
               </span>
             </div>
           </div>

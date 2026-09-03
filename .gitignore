@@ -43,3 +43,8 @@ next-env.d.ts
 # Bundled output of scripts/check-takeoff-render.jsx — written and deleted by
 # `npm run check:takeoff-render`, never committed.
 .takeoff-render.cjs
+
+# Installed skill payloads (npx skills add). skills-lock.json is committed and
+# is the reproducible record; this directory is 6.7 MB of vendored third-party
+# content that `npx skills install` restores — the node_modules pattern.
+.claude/skills/

@@ -7,15 +7,14 @@ import { Receipt, Plus, Search, ArrowRight } from "lucide-react";
 import { fetchArray } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 
+import {
+  invoiceStatusClasses,
+  invoiceStatusPresentation,
+} from "@/lib/invoices/statusPresentation";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
-const STATUS_STYLES = {
-  draft: "bg-muted text-muted-foreground",
-  sent: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
-  paid: "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300",
-  overdue: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300",
-};
+
 
 export default function InvoicesPage() {
   const { t } = useTranslation();
@@ -193,9 +192,16 @@ export default function InvoicesPage() {
                       {inv.invoiceNumber}
                     </span>
                     <span
-                      className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STATUS_STYLES[inv.status]}`}
+                      className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${invoiceStatusClasses(
+                        inv.status,
+                      )}`}
                     >
-                      {inv.status}
+                      {invoiceStatusPresentation(inv.status).labelKey
+                        ? t(
+                            invoiceStatusPresentation(inv.status).labelKey,
+                            inv.status,
+                          )
+                        : inv.status}
                     </span>
                   </div>
                   <div className="text-sm text-muted-foreground truncate">
