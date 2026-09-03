@@ -68,10 +68,10 @@ export default function Hero() {
     <section className="bg-linear-to-b from-muted to-card">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-12 text-center">
         <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground leading-tight">
-          {t("hero.title")}
+          {t("hero.subtitle")}
         </h1>
         <p className="mt-5 text-lg text-muted-foreground max-w-2xl mx-auto">
-          {t("hero.subtitle")}
+          {t("hero.title")}
         </p>
 
         {/* ── The ask ────────────────────────────────────────────────────────
@@ -85,8 +85,7 @@ export default function Hero() {
 
             Brand accent, matching the nav's signup button, so the one action
             the page is for looks the same wherever a visitor meets it. */}
-        <div className="mt-9 flex flex-col sm:flex-row sm:items-start sm:justify-center gap-4 sm:gap-5">
-          <div className="flex flex-col items-center">
+        <div className="mt-9 flex flex-col sm:flex-row sm:items-center sm:justify-center gap-3 sm:gap-4">
           <Link
             href="/signup"
             className="inline-flex items-center justify-center gap-2 min-h-[44px] bg-brand-accent text-brand-accent-foreground px-8 py-4 rounded-full text-base font-semibold hover:brightness-95 transition"
@@ -95,35 +94,53 @@ export default function Hero() {
             <ArrowRight size={18} />
           </Link>
 
-          {/* NOT hero.noCard. That key says "No credit card required" in nine
-              languages and it is FALSE: /api/companies creates the company and
-              then opens Stripe Checkout, and app/app/layout.js sends an owner
-              whose company has no subscription back to pay before it will show
-              them a dashboard. You cannot use FieldQuo without a card. The
-              offer that IS true is the free first month (TRIAL_PRICE = 0), and
-              pricing.firstMonth / pricing.free already state it in all nine —
-              they are the same two strings PricingCard prints over the price.
-              Joined with a separator rather than composed into a sentence,
-              because word order is not ours to assume across nine languages. */}
-            <p className="mt-3 text-sm text-muted-foreground">
-              {t("pricing.firstMonth")} ·{" "}
-              <span className="font-semibold text-foreground">
-                {t("pricing.free")}
-              </span>
-            </p>
-          </div>
-
-          {/* Book a live demo — a real 30-min slot beats "we'll email you
-              back", which is where most demo requests quietly die. Secondary
-              and BESIDE the trial rather than under it: two brand-accent
-              buttons stacked is a hero with no primary action, but two buttons
-              in a row with one filled and one outlined reads as a choice. */}
-          <DemoBooking variant="secondary" />
+          {/* hero.ctaSecondary — written and translated into all nine
+              languages, and rendered by nothing until now. It points at the
+              feature strip this page already draws rather than at /features: a
+              visitor who is not ready to sign up wants to SEE the product, and
+              answering that with more prose on another route is how a hero
+              loses them. Outlined, so the trial stays unambiguously primary. */}
+          <a
+            href="#what-it-does"
+            className="inline-flex items-center justify-center gap-2 min-h-[44px] border border-border bg-card text-foreground px-7 py-3.5 rounded-full text-base font-semibold hover:border-foreground/40 transition"
+          >
+            {t("hero.ctaSecondary")}
+          </a>
         </div>
+
+        {/* NOT hero.noCard. That key says "No credit card required" in nine
+            languages and it is FALSE: /api/companies creates the company and
+            then opens Stripe Checkout, and app/app/layout.js sends an owner
+            whose company has no subscription back to pay before it will show a
+            dashboard. The offer that IS true is the free first month
+            (TRIAL_PRICE = 0), and pricing.firstMonth / pricing.free already say
+            it in all nine — the same two strings PricingCard prints over the
+            price. Joined with a separator rather than composed into a sentence,
+            because word order is not ours to assume across nine languages. */}
+        <p className="mt-4 text-sm text-muted-foreground">
+          {t("pricing.firstMonth")} ·{" "}
+          <span className="font-semibold text-foreground">
+            {t("pricing.free")}
+          </span>
+        </p>
+
+        {/* The demo is kept and demoted, not deleted. A 30-minute sales call is
+            the wrong FIRST ask for a self-serve product whose first month is
+            free — it was the only styled control in this hero, which is what
+            made the page ask for a meeting instead of a signup. It is still the
+            right SECOND ask for the visitor who wants to talk to somebody, and
+            those visitors convert, so it keeps its own panel and loses only its
+            prominence. */}
+        <DemoBooking variant="quiet" />
       </div>
 
-      {/* Tabbed feature preview */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+      {/* Tabbed feature preview — the target of hero.ctaSecondary above, hence
+          the id. scroll-mt keeps the heading clear of the sticky nav instead of
+          landing underneath it. */}
+      <div
+        id="what-it-does"
+        className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 scroll-mt-24"
+      >
         <div className="flex justify-center gap-2 mb-8 flex-wrap">
           {TABS.map((tab) => {
             const Icon = tab.icon;

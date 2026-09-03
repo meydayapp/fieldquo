@@ -158,12 +158,22 @@ export default function DemoBooking({ variant = "primary" }) {
   // Collapsed — the default, and what most visitors see.
   if (!open) {
     return (
-      <div className="flex flex-col items-center">
+      <div className={variant === "quiet" ? "mt-5" : "flex flex-col items-center"}>
         <button
           type="button"
           onClick={() => setOpen(true)}
           className={
-            variant === "secondary"
+            variant === "quiet"
+              ? // A line of text, not a control. The hero already has two
+                // buttons and a third would restart the problem this variant
+                // exists to fix — the demo was the ONLY styled control here,
+                // which is what made a self-serve product ask for a meeting.
+                // Underlined rather than coloured, so it reads as a link at a
+                // glance without competing with the brand accent above; the
+                // 44px minimum is kept because a thumb does not know it is
+                // looking at text.
+                "inline-flex items-center justify-center gap-2 min-h-[44px] text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground transition"
+              : variant === "secondary"
               ? // Outline on the card the hero fades into. text-foreground on
                 // --card is 15.6:1 light and 14.4:1 dark; the border carries
                 // the shape, so nothing here depends on a fill.
@@ -174,7 +184,13 @@ export default function DemoBooking({ variant = "primary" }) {
           <CalendarDays size={18} />
           {t("hero.demo.openCta", "Book a demo or a call back")}
         </button>
-        <p className="mt-3 text-sm text-muted-foreground">
+        <p
+          className={
+            variant === "quiet"
+              ? "mt-1 text-xs text-muted-foreground"
+              : "mt-3 text-sm text-muted-foreground"
+          }
+        >
           {t(
             "hero.demo.openHint",
             "30 minutes, live, no slides. Or leave your number and we'll ring you.",
