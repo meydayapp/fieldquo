@@ -97,8 +97,18 @@ export default function SalesShell({ children }) {
         <nav className="max-w-5xl mx-auto px-4 sm:px-6 flex gap-1 -mb-px">
           {[
             { href: "/sales", label: t("app.salesPortal.myCompanies") },
+            // The prospecting queue, before the rep's own typed-in leads:
+            // it is the screen a rep opens first in the morning, and the one
+            // the whole discovery pipeline exists to fill.
+            { href: "/sales/queue", label: t("app.salesPortal.navQueue") },
             { href: "/sales/leads", label: t("app.salesPortal.navLeads") },
             { href: "/sales/threads", label: t("app.salesPortal.navConversations") },
+            // English, and not a t() key, deliberately. The screen behind it is
+            // English — docs/sales-intel/STATUS.md records that the outreach
+            // surfaces are, while the shell is translated — and a translated tab
+            // opening an English page is a worse inconsistency than an English
+            // tab. It becomes a key the day the notes screens are translated.
+            { href: "/sales/notes", label: "Notes" },
           ].map((tab) => {
             // Exact match for the portal root, prefix for the rest: /sales is a
             // prefix of every other tab, so "starts with" would light all three

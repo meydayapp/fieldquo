@@ -755,7 +755,19 @@ for (const [file, reason] of Object.entries(FORBIDDEN_WRITE_BY_DESIGN)) {
 // until this line named its gate. The bar for the next entry is the one
 // lib/sales/smsGate.js's header argues: a NAMED, short, explicit list of what
 // that gate permits, not a mode parameter on an existing gate.
-const SALES_GATES = ["requireSalesRep", "requireOutreachRep", "requireSmsRep"];
+// requireQueueRep joined the list on 2026-09-02, and this comment is the
+// deliberate act the paragraph above asks for. It clears the same bar the SMS
+// gate did: its own file, its own header arguing why it is not a widening of
+// any of the three, and a NAMED, one-model list of what it permits
+// (REP_QUEUE_WRITES = ["prospect"]) which scripts/check-prospect-ui.mjs
+// asserts the queue route does not exceed. What it guards is a rep CLAIMING a
+// prospect before phoning them, so two reps never ring the same contractor.
+const SALES_GATES = [
+  "requireSalesRep",
+  "requireOutreachRep",
+  "requireSmsRep",
+  "requireQueueRep",
+];
 for (const file of salesRoutes) {
   if (file.startsWith("app/api/sales/auth/")) continue; // unauthenticated by design
   const src = read(file);
@@ -774,6 +786,7 @@ for (const [module, fn] of [
   ["lib/sales/gate.js", "export async function requireSalesRep("],
   ["lib/sales/outreachGate.js", "export async function requireOutreachRep("],
   ["lib/sales/smsGate.js", "export async function requireSmsRep("],
+  ["lib/sales/queueGate.js", "export async function requireQueueRep("],
 ]) {
   if (!existsSync(join(ROOT, module))) continue;
   const body = namedFunctionBody(read(module), fn);

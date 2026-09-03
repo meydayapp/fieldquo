@@ -5311,6 +5311,288 @@ const en = {
   "app.setup.incomplete.signOut": "Sign out",
   "app.setup.incomplete.stuck": "Think this is wrong?",
   "app.setup.incomplete.contact": "Get in touch",
+
+  // ══ Purchasing: suppliers, purchase orders, stock ═══════════════════════
+  //
+  // One area, three panels — see app/app/purchasing/page.js for why they are
+  // not three nav rows. The vocabulary is deliberately trade English: a
+  // contractor says "raise an order" and "what turned up", not "procurement".
+  "app.nav.purchasing": "Purchasing",
+  "app.purchasing.title": "Purchasing",
+  "app.purchasing.subtitle":
+    "Who you buy from, what you have on order, and what is on the shelf.",
+  "app.purchasing.noAccess":
+    "Purchasing is part of the expenses permission. Ask an owner or admin to give you access to everyone's expenses.",
+  "app.purchasing.cancel": "Cancel",
+  "app.purchasing.tab.orders": "Orders",
+  "app.purchasing.tab.stock": "Stock",
+  "app.purchasing.tab.suppliers": "Suppliers",
+
+  "app.purchasing.suppliers.heading": "Suppliers",
+  "app.purchasing.suppliers.add": "Add a supplier",
+  "app.purchasing.suppliers.namePlaceholder": "Supplier name",
+  "app.purchasing.suppliers.accountPlaceholder": "Your account number there",
+  "app.purchasing.suppliers.contactPlaceholder": "Who you deal with",
+  "app.purchasing.suppliers.phonePlaceholder": "Phone",
+  "app.purchasing.suppliers.save": "Save",
+  "app.purchasing.suppliers.empty":
+    "No suppliers yet. Adding them is what turns \"who did we buy this from\" into \"what did we spend there this year\".",
+  // "Retire", not "Delete" — the route has no DELETE, and every purchase
+  // order raised against a supplier keeps pointing at it.
+  "app.purchasing.suppliers.retire": "Retire",
+  "app.purchasing.suppliers.restore": "Bring back",
+  "app.purchasing.suppliers.saveFailed": "That didn't save. Try again.",
+
+  "app.purchasing.orders.heading": "Purchase orders",
+  "app.purchasing.orders.new": "New order",
+  "app.purchasing.orders.noSupplier": "No supplier",
+  "app.purchasing.orders.linePlaceholder": "What are you ordering?",
+  "app.purchasing.orders.qtyPlaceholder": "Qty",
+  "app.purchasing.orders.unitCostPlaceholder": "Each",
+  "app.purchasing.orders.addLine": "Add a line",
+  "app.purchasing.orders.totalNote":
+    "The expected total is worked out from the lines on the server. Leave a price blank if you don't know it yet — the order will show as unpriced rather than as costing nothing.",
+  "app.purchasing.orders.raise": "Raise the order",
+  "app.purchasing.orders.empty": "No purchase orders yet.",
+  "app.purchasing.orders.progress": "{complete} of {lines} lines fully in",
+  "app.purchasing.orders.unpriced": "unpriced",
+  "app.purchasing.orders.saveFailed": "That didn't save. Try again.",
+  "app.purchasing.orders.deliveryFailed": "That delivery didn't record. Try again.",
+  "app.purchasing.orders.lineProgress": "{received} of {ordered} {unit}",
+  "app.purchasing.orders.receivedFor": "How many of {line} turned up",
+  "app.purchasing.orders.overDelivered":
+    "More turned up than was ordered: {lines}. It has gone into stock — decide whether it gets paid for.",
+  "app.purchasing.orders.markSent": "Mark as sent",
+  "app.purchasing.orders.recordDelivery": "Record what turned up",
+  "app.purchasing.orders.cancelOrder": "Cancel the order",
+
+  "app.purchasing.status.draft": "Draft",
+  "app.purchasing.status.sent": "Sent",
+  "app.purchasing.status.partial": "Part delivered",
+  "app.purchasing.status.received": "All in",
+  "app.purchasing.status.cancelled": "Cancelled",
+
+  "app.purchasing.stock.heading": "On the shelf",
+  "app.purchasing.stock.empty":
+    "No materials set up yet. Stock levels are added up from movements, so they appear once there is something to count.",
+  "app.purchasing.stock.lowHeading": "Below the reorder level",
+  "app.purchasing.stock.noThreshold": "No reorder level set",
+  "app.purchasing.stock.threshold": "Reorder at {n}",
+  "app.purchasing.stock.withoutThreshold":
+    "{n} materials have no reorder level, so nothing can be said about whether they are running low.",
+  "app.purchasing.stock.recordHeading": "Record a movement",
+  "app.purchasing.stock.pickMaterial": "Which material?",
+  "app.purchasing.stock.quantityPlaceholder": "How many",
+  "app.purchasing.stock.notePlaceholder": "Note (optional)",
+  "app.purchasing.stock.record": "Record it",
+  "app.purchasing.stock.saveFailed": "That didn't record. Try again.",
+  "app.purchasing.stock.adjustmentHint":
+    "A correction can be negative — type a minus sign if the count came up short. Nothing is edited or deleted; the correction is added to the ledger.",
+  "app.purchasing.stock.kind.received": "Received",
+  "app.purchasing.stock.kind.returned": "Returned to stock",
+  "app.purchasing.stock.kind.used": "Used on a job",
+  "app.purchasing.stock.kind.wastage": "Wastage",
+  "app.purchasing.stock.kind.adjustment": "Correction after a count",
+
+  // ── The receipt scan ────────────────────────────────────────────────────
+  //
+  // "Photos only" is stated before a file is chosen, never as a failure
+  // afterwards. See lib/receipts/media.js for the two reasons a PDF cannot be
+  // read on this path.
+  "app.receipt.heading": "Read it off the receipt",
+  "app.receipt.photosOnly":
+    "A photo of the receipt — JPEG, PNG or straight off your phone. PDFs can't be read yet.",
+  "app.receipt.upload": "Add a photo of the receipt",
+  "app.receipt.read": "Read this receipt",
+  "app.receipt.reading": "Reading…",
+  "app.receipt.failed":
+    "Couldn't read that receipt. Try a straighter, brighter photo with the whole receipt in frame.",
+  "app.receipt.printedSubtotal": "Subtotal printed on the receipt",
+  "app.receipt.printedTax": "Tax printed on the receipt",
+  "app.receipt.printedTotal": "Total printed on the receipt",
+  "app.receipt.itemsTotal": "The lines added up",
+  "app.receipt.unreadableAmount": "couldn't read",
+  // The gap is reported, never corrected. A discount at the till, a bag fee,
+  // or a line lost in a fold are all things a person should look at.
+  "app.receipt.mismatch":
+    "The lines add up to {amount} more or less than the printed total. Both are shown as read — check which one is right before entering a cost.",
+  // Named separately from the total, because on a receipt that prints a
+  // subtotal that is what the lines are compared against — telling someone the
+  // lines "don't match the total" on a receipt whose total includes tax sends
+  // them hunting for a discrepancy that is just the sales tax.
+  "app.receipt.mismatchSubtotal":
+    "The lines add up to {amount} more or less than the subtotal printed on the receipt. Both are shown as read — check which one is right before entering a cost.",
+  "app.receipt.totalsDisagree":
+    "The subtotal and tax printed on this receipt don't add up to its printed total. Both are shown exactly as they were read.",
+  "app.receipt.someUnreadable":
+    "Some line amounts couldn't be read, so they haven't been added up.",
+  "app.receipt.noPrintedTotal":
+    "No total could be read on this receipt. Nothing has been added up in its place.",
+  "app.receipt.agrees": "The lines match the printed total.",
+  "app.receipt.kept":
+    "Kept what you already entered for {fields}. The receipt's figure is shown above if you want to use it instead.",
+  "app.receipt.field.actualCost": "cost",
+  "app.receipt.field.supplier": "supplier",
+  "app.receipt.field.purchasedAt": "date",
+  "app.receipt.use": "Use these",
+  "app.receipt.simulated":
+    "This is a demo company, so nothing was sent to the AI — these figures are an example.",
+
+
+  // ══ Client-site equipment, warranties, and the vans ═══════════════════════
+  //
+  // Two features, one vocabulary. `ClientEquipment` is the CUSTOMER's furnace;
+  // `VehicleDetail` hangs off the contractor's own `Asset`. They share the
+  // four expiry states below because "is this still covered" is one question
+  // asked about two subjects — and they share nothing else, because a
+  // homeowner's boiler is not a depreciating asset of the contractor's.
+  //
+  // The one rule these strings exist to hold: a MISSING date reads as "not
+  // recorded", never as expired. That is the difference between a renewal call
+  // and an insult, and it is why "unknown" has its own sentence everywhere
+  // rather than borrowing the expired one.
+  "app.expiry.expired": "Expired",
+  "app.expiry.dueSoon": "Due soon",
+  "app.expiry.ok": "In date",
+  "app.expiry.unknown": "Not recorded",
+
+  "app.nav.clientEquipment": "Client equipment",
+  "app.nav.fleet": "Vehicles",
+
+  "app.equipment.title": "Equipment & warranties",
+  "app.equipment.add": "Add",
+  "app.equipment.addTitle": "Add equipment",
+  "app.equipment.editTitle": "Edit equipment",
+  "app.equipment.empty":
+    "Nothing recorded here yet. Add the furnace, the panel, the unit \u2014 whatever you'd want to know about on the next call.",
+  "app.equipment.namePlaceholder": "Furnace, panel, water heater\u2026",
+  "app.equipment.nameRequired": "Give it a name.",
+  "app.equipment.manufacturer": "Manufacturer",
+  "app.equipment.modelNumber": "Model number",
+  "app.equipment.serialNumber": "Serial number",
+  "app.equipment.siteAddress": "Where it is (if not the main address)",
+  "app.equipment.installedAt": "Installed",
+  "app.equipment.warrantyEndsAt": "Warranty covers until",
+  "app.equipment.warrantyBlankHint":
+    "Leave the warranty date blank if you don't know it. It'll show as \"not recorded\" \u2014 never as out of warranty.",
+  "app.equipment.warrantyProvider": "Who's covering it",
+  "app.equipment.installedByJob": "Installed on which job",
+  "app.equipment.noJob": "Not linked to a job",
+  "app.equipment.notes": "Notes \u2014 access, quirks, what to bring",
+  "app.equipment.saveFailed": "Couldn't save that.",
+  "app.equipment.confirmDelete":
+    "Delete this equipment and its service history? That can't be undone.",
+  "app.equipment.deleteFailed": "Couldn't delete that.",
+  "app.equipment.noDetails": "No make or model recorded",
+  "app.equipment.badgeUnknown": "Warranty unknown",
+  "app.equipment.badgeExpired": "Out of warranty",
+  "app.equipment.badgeSoon": "Warranty ending",
+  "app.equipment.badgeOk": "In warranty",
+  "app.equipment.warrantyUnknown": "Warranty not recorded",
+  "app.equipment.warrantyEnded": "Cover ended {date}",
+  "app.equipment.warrantyUntil": "Covered until {date}",
+  "app.equipment.history": "Service history",
+  "app.equipment.noVisits": "No visits logged",
+  "app.equipment.visitTally": "{count} visits \u00b7 {covered} under warranty",
+  "app.equipment.undated": "Undated",
+  "app.equipment.coveredTag": "covered",
+  "app.equipment.logVisit": "Log a service visit",
+  "app.equipment.whatWasDone": "What was done",
+  "app.equipment.wasCovered": "This visit was covered by the warranty",
+  "app.equipment.describeRequired": "Say what was done.",
+  "app.equipment.logFailed": "Couldn't log that visit.",
+  "app.equipment.logIt": "Log it",
+
+  "app.equipmentList.title": "Warranties running out",
+  "app.equipmentList.intro":
+    "Equipment you've installed whose cover has ended or is about to. This is a call list.",
+  "app.equipmentList.window": "Next {days} days",
+  "app.equipmentList.tally":
+    "{expired} out of warranty \u00b7 {dueSoon} ending soon \u00b7 {unknown} with no warranty date recorded",
+  "app.equipmentList.emptyTitle": "Nothing coming up in this window",
+  "app.equipmentList.emptyBody":
+    "Equipment with no warranty date isn't listed here \u2014 a blank date means nobody recorded one, not that cover has ended.",
+  "app.equipmentList.unnamedClient": "Client",
+  "app.equipmentList.email": "Email",
+
+  "app.fleet.title": "Vehicles",
+  "app.fleet.intro":
+    "What's due, what's expiring, and who has the van. What each one cost lives in the asset register.",
+  "app.fleet.add": "Add",
+  "app.fleet.addTitle": "Add a vehicle",
+  "app.fleet.editTitle": "Edit vehicle",
+  "app.fleet.addDetails": "Add fleet details",
+  "app.fleet.pickVehicle": "Pick which vehicle this is.",
+  "app.fleet.whichVehicle": "Which vehicle",
+  "app.fleet.saveFailed": "Couldn't save that.",
+  "app.fleet.deleteFailed": "Couldn't remove that.",
+  "app.fleet.noAssetsTitle": "Every vehicle in the register already has a record",
+  "app.fleet.noAssetsBody":
+    "A van has to be in the asset register first \u2014 that's the row that carries what it cost and how it depreciates.",
+  "app.fleet.goToRegister": "Add a vehicle to the register",
+  "app.fleet.askOwner":
+    "Ask an owner or admin to add it \u2014 the register sits with the company's costs.",
+  "app.fleet.plate": "Plate",
+  "app.fleet.makeModel": "Make and model",
+  "app.fleet.vin": "VIN",
+  "app.fleet.year": "Year",
+  "app.fleet.odometer": "Odometer (km)",
+  "app.fleet.odometerPlaceholder": "Leave blank if you don't know",
+  "app.fleet.driver": "Who has it",
+  "app.fleet.noDriver": "Nobody in particular",
+  "app.fleet.inactive": "no longer active",
+  "app.fleet.withDriver": "with {name}",
+  "app.fleet.insuranceExpires": "Insurance expires",
+  "app.fleet.registrationExpires": "Registration expires",
+  "app.fleet.serviceDueAt": "Next service due (date)",
+  "app.fleet.serviceDueKm": "Next service due (km)",
+  "app.fleet.serviceKmHint":
+    "A service due at a mileage only counts down once the odometer above is filled in.",
+  "app.fleet.unnamed": "Unnamed vehicle",
+  "app.fleet.noIdentifiers": "No plate or model recorded",
+  "app.fleet.noDetailsYet":
+    "In the asset register, but no plate, mileage or renewal dates recorded.",
+  "app.fleet.badgeOverdue": "Something's lapsed",
+  "app.fleet.badgeDue": "Something's due",
+  "app.fleet.badgeOk": "Nothing due",
+  "app.fleet.badgeUnknown": "Nothing recorded",
+  "app.fleet.orphanWarning":
+    "The asset record behind this vehicle was deleted. The dates below are still real \u2014 keep them, or remove this record once the van's gone.",
+  "app.fleet.insurance": "Insurance",
+  "app.fleet.registration": "Registration",
+  "app.fleet.serviceDate": "Service (by date)",
+  "app.fleet.serviceKm": "Service (by mileage)",
+  "app.fleet.kmUnknown": "Not enough recorded",
+  "app.fleet.kmRemaining": "{km} km to go",
+  "app.fleet.dateUnknown": "No date recorded",
+  "app.fleet.notRecorded": "Not recorded",
+  "app.fleet.cost": "Cost",
+  "app.fleet.bookValue": "Book value now",
+  "app.fleet.removeRecord": "Remove fleet record",
+  "app.fleet.confirmDelete":
+    "Remove this vehicle's fleet record? The asset itself, and its depreciation, stay exactly as they are.",
+  "app.fleet.dueTitle": "Due or expiring",
+  "app.fleet.emptyTitle": "No vehicles in the register",
+  "app.fleet.emptyBody":
+    "A van shows up here once it's in the asset register \u2014 that's the row carrying what it cost and how it depreciates.",
+  "app.fleet.maintenance": "Maintenance",
+  "app.fleet.noMaintenance": "Nothing logged yet.",
+  "app.fleet.logWork": "Log work",
+  "app.fleet.logIt": "Log it",
+  "app.fleet.logFailed": "Couldn't log that.",
+  "app.fleet.describeRequired": "Say what was done.",
+  "app.fleet.whatWasDone": "What was done",
+  "app.fleet.odometerAtService": "Odometer then (km) \u2014 optional",
+  "app.fleet.costOptional": "What it cost \u2014 leave blank if unknown",
+  "app.fleet.odometerMoved": "The van's odometer was updated to match this entry.",
+  "app.fleet.confirmRemoveEntry":
+    "Delete this entry? The odometer reading it set stays as it is \u2014 the van really did do those kilometres.",
+  "app.fleet.kind.service": "Service",
+  "app.fleet.kind.repair": "Repair",
+  "app.fleet.kind.tyres": "Tyres",
+  "app.fleet.kind.inspection": "Inspection",
+  "app.fleet.kind.other": "Other",
+
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -10265,6 +10547,263 @@ const fr = {
   "app.setup.incomplete.signOut": "Se déconnecter",
   "app.setup.incomplete.stuck": "Vous pensez qu'il y a une erreur?",
   "app.setup.incomplete.contact": "Écrivez-nous",
+
+  // ══ Achats : fournisseurs, bons de commande, stock ══════════════════════
+  "app.nav.purchasing": "Achats",
+  "app.purchasing.title": "Achats",
+  "app.purchasing.subtitle":
+    "Chez qui vous achetez, ce qui est commandé, et ce qu'il reste sur la tablette.",
+  "app.purchasing.noAccess":
+    "Les achats font partie de la permission « dépenses ». Demandez à un propriétaire ou un admin l'accès aux dépenses de tout le monde.",
+  "app.purchasing.cancel": "Annuler",
+  "app.purchasing.tab.orders": "Commandes",
+  "app.purchasing.tab.stock": "Stock",
+  "app.purchasing.tab.suppliers": "Fournisseurs",
+
+  "app.purchasing.suppliers.heading": "Fournisseurs",
+  "app.purchasing.suppliers.add": "Ajouter un fournisseur",
+  "app.purchasing.suppliers.namePlaceholder": "Nom du fournisseur",
+  "app.purchasing.suppliers.accountPlaceholder": "Votre numéro de compte chez eux",
+  "app.purchasing.suppliers.contactPlaceholder": "Votre contact",
+  "app.purchasing.suppliers.phonePlaceholder": "Téléphone",
+  "app.purchasing.suppliers.save": "Enregistrer",
+  "app.purchasing.suppliers.empty":
+    "Aucun fournisseur pour l'instant. C'est ce qui transforme « chez qui on a acheté ça » en « combien on a dépensé là cette année ».",
+  "app.purchasing.suppliers.retire": "Retirer",
+  "app.purchasing.suppliers.restore": "Remettre",
+  "app.purchasing.suppliers.saveFailed": "Ça n'a pas été enregistré. Réessayez.",
+
+  "app.purchasing.orders.heading": "Bons de commande",
+  "app.purchasing.orders.new": "Nouvelle commande",
+  "app.purchasing.orders.noSupplier": "Aucun fournisseur",
+  "app.purchasing.orders.linePlaceholder": "Qu'est-ce que vous commandez ?",
+  "app.purchasing.orders.qtyPlaceholder": "Qté",
+  "app.purchasing.orders.unitCostPlaceholder": "Unité",
+  "app.purchasing.orders.addLine": "Ajouter une ligne",
+  "app.purchasing.orders.totalNote":
+    "Le total prévu est calculé à partir des lignes, côté serveur. Laissez un prix vide si vous ne le connaissez pas encore — la commande s'affichera comme non chiffrée plutôt que comme gratuite.",
+  "app.purchasing.orders.raise": "Créer la commande",
+  "app.purchasing.orders.empty": "Aucun bon de commande pour l'instant.",
+  "app.purchasing.orders.progress": "{complete} lignes sur {lines} complètes",
+  "app.purchasing.orders.unpriced": "non chiffré",
+  "app.purchasing.orders.saveFailed": "Ça n'a pas été enregistré. Réessayez.",
+  "app.purchasing.orders.deliveryFailed": "La livraison n'a pas été enregistrée. Réessayez.",
+  "app.purchasing.orders.lineProgress": "{received} sur {ordered} {unit}",
+  "app.purchasing.orders.receivedFor": "Combien de {line} sont arrivés",
+  "app.purchasing.orders.overDelivered":
+    "Il est arrivé plus que commandé : {lines}. C'est entré en stock — à vous de décider si c'est payé.",
+  "app.purchasing.orders.markSent": "Marquer comme envoyée",
+  "app.purchasing.orders.recordDelivery": "Enregistrer ce qui est arrivé",
+  "app.purchasing.orders.cancelOrder": "Annuler la commande",
+
+  "app.purchasing.status.draft": "Brouillon",
+  "app.purchasing.status.sent": "Envoyée",
+  "app.purchasing.status.partial": "Partiellement livrée",
+  "app.purchasing.status.received": "Tout reçu",
+  "app.purchasing.status.cancelled": "Annulée",
+
+  "app.purchasing.stock.heading": "Sur la tablette",
+  "app.purchasing.stock.empty":
+    "Aucun matériau configuré. Les niveaux sont additionnés à partir des mouvements — ils apparaissent dès qu'il y a quelque chose à compter.",
+  "app.purchasing.stock.lowHeading": "Sous le seuil de réapprovisionnement",
+  "app.purchasing.stock.noThreshold": "Aucun seuil défini",
+  "app.purchasing.stock.threshold": "Réapprovisionner à {n}",
+  "app.purchasing.stock.withoutThreshold":
+    "{n} matériaux n'ont aucun seuil : on ne peut donc rien dire sur le fait qu'ils manquent bientôt.",
+  "app.purchasing.stock.recordHeading": "Enregistrer un mouvement",
+  "app.purchasing.stock.pickMaterial": "Quel matériau ?",
+  "app.purchasing.stock.quantityPlaceholder": "Combien",
+  "app.purchasing.stock.notePlaceholder": "Note (optionnel)",
+  "app.purchasing.stock.record": "Enregistrer",
+  "app.purchasing.stock.saveFailed": "Ça n'a pas été enregistré. Réessayez.",
+  "app.purchasing.stock.adjustmentHint":
+    "Une correction peut être négative — mettez un signe moins si le compte est en dessous. Rien n'est modifié ni supprimé : la correction s'ajoute au registre.",
+  "app.purchasing.stock.kind.received": "Reçu",
+  "app.purchasing.stock.kind.returned": "Retourné en stock",
+  "app.purchasing.stock.kind.used": "Utilisé sur un chantier",
+  "app.purchasing.stock.kind.wastage": "Perte",
+  "app.purchasing.stock.kind.adjustment": "Correction après comptage",
+
+  "app.receipt.heading": "Lire le reçu",
+  "app.receipt.photosOnly":
+    "Une photo du reçu — JPEG, PNG ou directement de votre téléphone. Les PDF ne peuvent pas encore être lus.",
+  "app.receipt.upload": "Ajouter une photo du reçu",
+  "app.receipt.read": "Lire ce reçu",
+  "app.receipt.reading": "Lecture…",
+  "app.receipt.failed":
+    "Impossible de lire ce reçu. Reprenez la photo bien droite, bien éclairée, avec le reçu au complet.",
+  "app.receipt.printedSubtotal": "Sous-total imprimé sur le reçu",
+  "app.receipt.printedTax": "Taxes imprimées sur le reçu",
+  "app.receipt.printedTotal": "Total imprimé sur le reçu",
+  "app.receipt.itemsTotal": "Somme des lignes",
+  "app.receipt.unreadableAmount": "illisible",
+  "app.receipt.mismatch":
+    "Les lignes donnent {amount} d'écart avec le total imprimé. Les deux sont affichés tels que lus — vérifiez lequel est le bon avant de saisir un coût.",
+  "app.receipt.mismatchSubtotal":
+    "Les lignes donnent {amount} d'écart avec le sous-total imprimé. Les deux sont affichés tels que lus — vérifiez lequel est le bon avant de saisir un coût.",
+  "app.receipt.totalsDisagree":
+    "Le sous-total et les taxes imprimés sur ce reçu ne donnent pas le total imprimé. Les deux sont affichés exactement tels que lus.",
+  "app.receipt.someUnreadable":
+    "Certains montants de ligne n'ont pas pu être lus : ils n'ont donc pas été additionnés.",
+  "app.receipt.noPrintedTotal":
+    "Aucun total n'a pu être lu sur ce reçu. Rien n'a été calculé à sa place.",
+  "app.receipt.agrees": "Les lignes correspondent au total imprimé.",
+  "app.receipt.kept":
+    "Ce que vous aviez déjà saisi pour {fields} a été conservé. Le montant du reçu est affiché plus haut si vous préférez l'utiliser.",
+  "app.receipt.field.actualCost": "le coût",
+  "app.receipt.field.supplier": "le fournisseur",
+  "app.receipt.field.purchasedAt": "la date",
+  "app.receipt.use": "Utiliser ces valeurs",
+  "app.receipt.simulated":
+    "Cette entreprise est une démo : rien n'a été envoyé à l'IA — ces chiffres sont un exemple.",
+
+
+  // ══ Équipement chez le client, garanties, et les véhicules ═══════════════
+  //
+  // Voir le bloc anglais pour la règle : une date ABSENTE se lit « non
+  // consignée », jamais « expirée ».
+  "app.expiry.expired": "Expirée",
+  "app.expiry.dueSoon": "Bient\u00f4t \u00e9chue",
+  "app.expiry.ok": "En vigueur",
+  "app.expiry.unknown": "Non consign\u00e9e",
+
+  "app.nav.clientEquipment": "\u00c9quipement client",
+  "app.nav.fleet": "V\u00e9hicules",
+
+  "app.equipment.title": "\u00c9quipement et garanties",
+  "app.equipment.add": "Ajouter",
+  "app.equipment.addTitle": "Ajouter de l'\u00e9quipement",
+  "app.equipment.editTitle": "Modifier l'\u00e9quipement",
+  "app.equipment.empty":
+    "Rien de consign\u00e9 ici pour l'instant. Ajoutez la fournaise, le panneau, l'appareil \u2014 tout ce que vous voudriez savoir au prochain appel.",
+  "app.equipment.namePlaceholder": "Fournaise, panneau, chauffe-eau\u2026",
+  "app.equipment.nameRequired": "Donnez-lui un nom.",
+  "app.equipment.manufacturer": "Fabricant",
+  "app.equipment.modelNumber": "Num\u00e9ro de mod\u00e8le",
+  "app.equipment.serialNumber": "Num\u00e9ro de s\u00e9rie",
+  "app.equipment.siteAddress": "O\u00f9 il se trouve (si ce n'est pas l'adresse principale)",
+  "app.equipment.installedAt": "Install\u00e9 le",
+  "app.equipment.warrantyEndsAt": "Garantie valide jusqu'au",
+  "app.equipment.warrantyBlankHint":
+    "Laissez la date de garantie vide si vous ne la connaissez pas. Elle s'affichera comme \u00ab non consign\u00e9e \u00bb \u2014 jamais comme hors garantie.",
+  "app.equipment.warrantyProvider": "Qui couvre la garantie",
+  "app.equipment.installedByJob": "Install\u00e9 lors de quel travail",
+  "app.equipment.noJob": "Aucun travail li\u00e9",
+  "app.equipment.notes": "Notes \u2014 acc\u00e8s, particularit\u00e9s, quoi apporter",
+  "app.equipment.saveFailed": "Impossible d'enregistrer.",
+  "app.equipment.confirmDelete":
+    "Supprimer cet \u00e9quipement et son historique d'entretien? C'est irr\u00e9versible.",
+  "app.equipment.deleteFailed": "Impossible de supprimer.",
+  "app.equipment.noDetails": "Aucune marque ni mod\u00e8le consign\u00e9",
+  "app.equipment.badgeUnknown": "Garantie inconnue",
+  "app.equipment.badgeExpired": "Hors garantie",
+  "app.equipment.badgeSoon": "Garantie qui se termine",
+  "app.equipment.badgeOk": "Sous garantie",
+  "app.equipment.warrantyUnknown": "Garantie non consign\u00e9e",
+  "app.equipment.warrantyEnded": "Couverture termin\u00e9e le {date}",
+  "app.equipment.warrantyUntil": "Couvert jusqu'au {date}",
+  "app.equipment.history": "Historique d'entretien",
+  "app.equipment.noVisits": "Aucune visite consign\u00e9e",
+  "app.equipment.visitTally": "{count} visites \u00b7 {covered} sous garantie",
+  "app.equipment.undated": "Sans date",
+  "app.equipment.coveredTag": "couverte",
+  "app.equipment.logVisit": "Consigner une visite d'entretien",
+  "app.equipment.whatWasDone": "Ce qui a \u00e9t\u00e9 fait",
+  "app.equipment.wasCovered": "Cette visite \u00e9tait couverte par la garantie",
+  "app.equipment.describeRequired": "Dites ce qui a \u00e9t\u00e9 fait.",
+  "app.equipment.logFailed": "Impossible de consigner cette visite.",
+  "app.equipment.logIt": "Consigner",
+
+  "app.equipmentList.title": "Garanties qui se terminent",
+  "app.equipmentList.intro":
+    "L'\u00e9quipement que vous avez install\u00e9 dont la couverture est termin\u00e9e ou sur le point de l'\u00eatre. C'est une liste d'appels.",
+  "app.equipmentList.window": "Prochains {days} jours",
+  "app.equipmentList.tally":
+    "{expired} hors garantie \u00b7 {dueSoon} qui se terminent bient\u00f4t \u00b7 {unknown} sans date de garantie consign\u00e9e",
+  "app.equipmentList.emptyTitle": "Rien \u00e0 venir dans cette p\u00e9riode",
+  "app.equipmentList.emptyBody":
+    "L'\u00e9quipement sans date de garantie n'appara\u00eet pas ici \u2014 une date vide veut dire que personne ne l'a consign\u00e9e, pas que la couverture est termin\u00e9e.",
+  "app.equipmentList.unnamedClient": "Client",
+  "app.equipmentList.email": "Courriel",
+
+  "app.fleet.title": "V\u00e9hicules",
+  "app.fleet.intro":
+    "Ce qui est d\u00fb, ce qui expire, et qui a le camion. Ce que chacun a co\u00fbt\u00e9 se trouve dans le registre des actifs.",
+  "app.fleet.add": "Ajouter",
+  "app.fleet.addTitle": "Ajouter un v\u00e9hicule",
+  "app.fleet.editTitle": "Modifier le v\u00e9hicule",
+  "app.fleet.addDetails": "Ajouter les d\u00e9tails du v\u00e9hicule",
+  "app.fleet.pickVehicle": "Choisissez de quel v\u00e9hicule il s'agit.",
+  "app.fleet.whichVehicle": "Quel v\u00e9hicule",
+  "app.fleet.saveFailed": "Impossible d'enregistrer.",
+  "app.fleet.deleteFailed": "Impossible de retirer.",
+  "app.fleet.noAssetsTitle": "Chaque v\u00e9hicule du registre a d\u00e9j\u00e0 une fiche",
+  "app.fleet.noAssetsBody":
+    "Un camion doit d'abord \u00eatre au registre des actifs \u2014 c'est la ligne qui porte ce qu'il a co\u00fbt\u00e9 et son amortissement.",
+  "app.fleet.goToRegister": "Ajouter un v\u00e9hicule au registre",
+  "app.fleet.askOwner":
+    "Demandez \u00e0 un propri\u00e9taire ou \u00e0 un admin de l'ajouter \u2014 le registre rel\u00e8ve des co\u00fbts de l'entreprise.",
+  "app.fleet.plate": "Plaque",
+  "app.fleet.makeModel": "Marque et mod\u00e8le",
+  "app.fleet.vin": "NIV",
+  "app.fleet.year": "Ann\u00e9e",
+  "app.fleet.odometer": "Odom\u00e8tre (km)",
+  "app.fleet.odometerPlaceholder": "Laissez vide si vous ne le savez pas",
+  "app.fleet.driver": "Qui l'a",
+  "app.fleet.noDriver": "Personne en particulier",
+  "app.fleet.inactive": "n'est plus actif",
+  "app.fleet.withDriver": "avec {name}",
+  "app.fleet.insuranceExpires": "Assurance expire le",
+  "app.fleet.registrationExpires": "Immatriculation expire le",
+  "app.fleet.serviceDueAt": "Prochain entretien (date)",
+  "app.fleet.serviceDueKm": "Prochain entretien (km)",
+  "app.fleet.serviceKmHint":
+    "Un entretien pr\u00e9vu \u00e0 un kilom\u00e9trage ne d\u00e9compte que si l'odom\u00e8tre ci-dessus est rempli.",
+  "app.fleet.unnamed": "V\u00e9hicule sans nom",
+  "app.fleet.noIdentifiers": "Aucune plaque ni mod\u00e8le consign\u00e9",
+  "app.fleet.noDetailsYet":
+    "Au registre des actifs, mais aucune plaque, aucun kilom\u00e9trage ni date de renouvellement consign\u00e9s.",
+  "app.fleet.badgeOverdue": "Quelque chose est \u00e9chu",
+  "app.fleet.badgeDue": "Quelque chose s'en vient",
+  "app.fleet.badgeOk": "Rien \u00e0 venir",
+  "app.fleet.badgeUnknown": "Rien de consign\u00e9",
+  "app.fleet.orphanWarning":
+    "La fiche d'actif derri\u00e8re ce v\u00e9hicule a \u00e9t\u00e9 supprim\u00e9e. Les dates ci-dessous restent r\u00e9elles \u2014 gardez-les, ou retirez cette fiche une fois le camion parti.",
+  "app.fleet.insurance": "Assurance",
+  "app.fleet.registration": "Immatriculation",
+  "app.fleet.serviceDate": "Entretien (par date)",
+  "app.fleet.serviceKm": "Entretien (par kilom\u00e9trage)",
+  "app.fleet.kmUnknown": "Pas assez d'information consign\u00e9e",
+  "app.fleet.kmRemaining": "{km} km restants",
+  "app.fleet.dateUnknown": "Aucune date consign\u00e9e",
+  "app.fleet.notRecorded": "Non consign\u00e9",
+  "app.fleet.cost": "Co\u00fbt",
+  "app.fleet.bookValue": "Valeur comptable actuelle",
+  "app.fleet.removeRecord": "Retirer la fiche de v\u00e9hicule",
+  "app.fleet.confirmDelete":
+    "Retirer la fiche de ce v\u00e9hicule? L'actif lui-m\u00eame, et son amortissement, restent exactement tels quels.",
+  "app.fleet.dueTitle": "\u00c9chu ou \u00e0 venir",
+  "app.fleet.emptyTitle": "Aucun v\u00e9hicule au registre",
+  "app.fleet.emptyBody":
+    "Un camion appara\u00eet ici une fois inscrit au registre des actifs \u2014 la ligne qui porte ce qu'il a co\u00fbt\u00e9 et son amortissement.",
+  "app.fleet.maintenance": "Entretien",
+  "app.fleet.noMaintenance": "Rien de consign\u00e9 pour l'instant.",
+  "app.fleet.logWork": "Consigner des travaux",
+  "app.fleet.logIt": "Consigner",
+  "app.fleet.logFailed": "Impossible de consigner.",
+  "app.fleet.describeRequired": "Dites ce qui a \u00e9t\u00e9 fait.",
+  "app.fleet.whatWasDone": "Ce qui a \u00e9t\u00e9 fait",
+  "app.fleet.odometerAtService": "Odom\u00e8tre \u00e0 ce moment (km) \u2014 facultatif",
+  "app.fleet.costOptional": "Ce que \u00e7a a co\u00fbt\u00e9 \u2014 laissez vide si inconnu",
+  "app.fleet.odometerMoved": "L'odom\u00e8tre du v\u00e9hicule a \u00e9t\u00e9 mis \u00e0 jour selon cette entr\u00e9e.",
+  "app.fleet.confirmRemoveEntry":
+    "Supprimer cette entr\u00e9e? La lecture d'odom\u00e8tre qu'elle a \u00e9tablie reste telle quelle \u2014 le v\u00e9hicule a bel et bien fait ces kilom\u00e8tres.",
+  "app.fleet.kind.service": "Entretien",
+  "app.fleet.kind.repair": "R\u00e9paration",
+  "app.fleet.kind.tyres": "Pneus",
+  "app.fleet.kind.inspection": "Inspection",
+  "app.fleet.kind.other": "Autre",
+
 };
 
 
