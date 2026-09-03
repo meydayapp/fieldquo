@@ -104,6 +104,7 @@ import {
   UserRoundCheck,
   Ban,
   ListChecks,
+  TrendingUp,
   GitBranch,
   SlidersHorizontal,
   Fingerprint,
@@ -183,6 +184,14 @@ const GROUPS = [
       // Filing them with "who holds a platform login" would put the people
       // beside the console's own keys, which is a different question.
       { label: "Sales reps", href: "/platform/sales/reps", icon: UserRoundCheck },
+      // Directly under the reps, because it is the same people counted. The
+      // owner asked "where do i see the sales KPIs? and insights.. and the
+      // leads?" and the honest answer was nowhere: SalesAttribution,
+      // SalesCommissionEntry, SalesPayoutBatch and SalesLead all existed with
+      // no screen over any of them. A row here rather than a panel on the reps
+      // page because the two answer different questions — that one is "who
+      // works here and can they send", this one is "what did they sell".
+      { label: "Sales performance", href: "/platform/sales/performance", icon: TrendingUp },
       // Where the prospects come from. Placed directly under the reps because
       // it is the screen that fills their queue: a campaign is one territory,
       // one trade and one target, and the single-trade queue it produces is

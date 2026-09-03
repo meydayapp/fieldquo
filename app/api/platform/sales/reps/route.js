@@ -26,13 +26,19 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
-import {
-  codeFromName,
-  inviteExpiry,
-  isValidCode,
-  newInviteToken,
-} from "@/lib/sales/invite";
+import { getAppOrigin } from "@/lib/appUrl";
+import { inviteExpiry, newInviteToken } from "@/lib/sales/invite";
 import { sendSalesInviteEmail } from "@/lib/sales/inviteEmail";
+import {
+  NUMBER_CAPABILITIES,
+  codeCandidates,
+  codeProblem,
+  normaliseWorkEmail,
+  salesNumberState,
+  workEmailProblem,
+} from "@/lib/sales/repAdmin";
+import { signupLinkFor } from "@/lib/sales/repStats";
+import { outreachStatus } from "@/lib/sales/outreachSender";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -62,12 +68,19 @@ export async function GET(request) {
       id: true,
       name: true,
       email: true,
+      // The mailbox they SEND from. Returned so the screen can show whether one
+      // exists AND offer to set it — it had neither before, which made
+      // SalesRep.workEmail a column with no way to fill it while
+      // lib/sales/outreachSender.js refused every send for want of it.
+      workEmail: true,
       code: true,
       active: true,
       invitedAt: true,
       acceptedAt: true,
       endedAt: true,
       inviteExpiresAt: true,
+      commissionPlanId: true,
+      commissionPlan: { select: { id: true, name: true } },
       // The count is what makes "deactivate, never delete" legible on the
       // screen: a rep with attributions has history that stops being reachable
       // if the row goes.
@@ -76,20 +89,76 @@ export async function GET(request) {
     orderBy: [{ active: "desc" }, { name: "asc" }],
   });
 
-  return NextResponse.json(
-    reps.map((r) => ({
+  const origin = getAppOrigin(request);
+
+  // ── Whether each rep can actually send, from the SAME function the rep's
+  //    own portal asks ─────────────────────────────────────────────────────
+  //
+  // outreachStatus() and not a local "does workEmail exist" test. Two opinions
+  // about whether sending works is how a console reports a rep as ready while
+  // their compose box refuses to render — the admin would then be looking at a
+  // green tick and the rep at a blocker, and the rep would be right. The
+  // verified-domain lookup behind it is cached for ten minutes across all reps,
+  // so this is one Resend call per page load, not one per rep.
+  const sending = await Promise.all(
+    reps.map((r) =>
+      outreachStatus(r).catch((err) => ({
+        canSend: false,
+        blockers: [
+          {
+            code: "status_unavailable",
+            title: "Couldn't work out whether this rep can send.",
+            fix: `Reading the sending configuration failed: ${err?.message || "no reason given"}. Nothing has changed.`,
+          },
+        ],
+        warnings: [],
+      })),
+    ),
+  );
+
+  // FieldQuo's own sales texting number — one, shared, not per rep. See
+  // NUMBER_CAPABILITIES for why there is no per-rep picker beside it.
+  let salesNumber;
+  try {
+    const row = await db.platformSmsNumber.findFirst({
+      where: { purpose: "sales", active: true },
+      orderBy: { createdAt: "asc" },
+      select: { e164: true },
+    });
+    salesNumber = salesNumberState({ e164: row?.e164 || null });
+  } catch {
+    // "Could not look" is a third state, distinct from "holds none" — reporting
+    // a failed query as an empty table would tell a superadmin to go and buy a
+    // number they may already own.
+    salesNumber = salesNumberState({ lookupFailed: true });
+  }
+
+  return NextResponse.json({
+    reps: reps.map((r, i) => ({
       id: r.id,
       name: r.name,
       email: r.email,
+      workEmail: r.workEmail,
       code: r.code,
+      // Built from this deployment's own origin, so a preview hands out a
+      // preview link instead of quietly pointing testers at production.
+      signupLink: signupLinkFor(origin, r.code),
       active: r.active,
       invitedAt: r.invitedAt,
       acceptedAt: r.acceptedAt,
       endedAt: r.endedAt,
       inviteExpiresAt: r.inviteExpiresAt,
+      commissionPlan: r.commissionPlan ? r.commissionPlan.name : null,
       companyCount: r._count.attributions,
+      sending: {
+        canSend: sending[i].canSend,
+        blockers: sending[i].blockers,
+        warnings: sending[i].warnings,
+      },
     })),
-  );
+    salesNumber,
+    numberCapabilities: NUMBER_CAPABILITIES,
+  });
 }
 
 export async function POST(request) {
@@ -100,6 +169,12 @@ export async function POST(request) {
   const name = String(body.name || "").trim();
   const email = String(body.email || "").toLowerCase().trim();
   const wantedCode = String(body.code || "").toLowerCase().trim();
+  // Optional at creation, and that is the sequence of events rather than
+  // laxity: a mailbox is bought, so the owner adds a rep on Monday and the
+  // inbox exists on Thursday. What must not happen is the gap being silent —
+  // outreachStatus() blocks every send while it is absent and the screen says
+  // so in those words.
+  const workEmail = normaliseWorkEmail(body.workEmail);
 
   if (!name || !email) {
     return NextResponse.json(
@@ -113,15 +188,15 @@ export async function POST(request) {
       { status: 400 },
     );
   }
-  if (wantedCode && !isValidCode(wantedCode)) {
-    return NextResponse.json(
-      {
-        error:
-          "A code is lowercase letters, numbers and hyphens, 2–31 characters — it ends up in a link somebody reads off a card.",
-      },
-      { status: 400 },
-    );
-  }
+  // Both problems come from lib/sales/repAdmin.js so the sentence the field
+  // goes red with on the screen is literally the sentence the server refuses
+  // with. A field validated twice with two wordings is two rules pretending to
+  // be one.
+  const badCode = codeProblem(wantedCode);
+  if (badCode) return NextResponse.json({ error: badCode }, { status: 400 });
+
+  const badMailbox = workEmailProblem(workEmail, email);
+  if (badMailbox) return NextResponse.json({ error: badMailbox }, { status: 400 });
 
   const existing = await db.salesRep.findUnique({ where: { email } });
   if (existing) {
@@ -131,27 +206,53 @@ export async function POST(request) {
     );
   }
 
+  if (workEmail) {
+    // @unique, and a collision here is not a race worth retrying past: two reps
+    // sharing an outbound mailbox means either one's replies land in a thread
+    // attributed to the other.
+    const mailboxTaken = await db.salesRep.findUnique({ where: { workEmail } });
+    if (mailboxTaken) {
+      return NextResponse.json(
+        { error: `${workEmail} is already another rep's work mailbox.` },
+        { status: 409 },
+      );
+    }
+  }
+
   // The code is @unique. Rather than a read-then-write that two concurrent
   // superadmins can both walk through, this lets the constraint decide and
   // retries with a suffix — the same reasoning lib/voice/credits.js gives for
   // preferring an index over a check.
-  const base = wantedCode || codeFromName(name);
+  //
+  // The candidate sequence comes from lib/sales/repAdmin.js because the SCREEN
+  // uses the same function to prefill the field. Two implementations of "what
+  // is the next free code" would show the admin `dana-2` and store `dana-3`,
+  // and the difference would be invisible until somebody printed a card.
+  const candidates = wantedCode ? [wantedCode] : codeCandidates(name);
   const { token, hash } = newInviteToken();
 
   let rep = null;
   let lastError = null;
-  for (let attempt = 0; attempt < 5 && !rep; attempt++) {
-    const code = attempt === 0 ? base : `${base}-${attempt + 1}`;
+  for (const code of candidates) {
+    if (rep) break;
     try {
       rep = await db.salesRep.create({
         data: {
           name,
           email,
+          workEmail,
           code,
           inviteTokenHash: hash,
           inviteExpiresAt: inviteExpiry(),
         },
-        select: { id: true, name: true, email: true, code: true, active: true },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          workEmail: true,
+          code: true,
+          active: true,
+        },
       });
     } catch (err) {
       lastError = err;
@@ -168,10 +269,17 @@ export async function POST(request) {
   }
 
   if (!rep) {
+    // `meta.target` names the constraint that fired. Reporting "that code is
+    // taken" over a work-mailbox collision would send a superadmin to change
+    // the wrong field, which is the sort of wrong-but-plausible error message
+    // that costs ten minutes every time.
+    const target = String(lastError?.meta?.target || "");
     const taken =
-      lastError?.code === "P2002"
-        ? "That code is already taken — choose another."
-        : "Couldn't create the sales rep.";
+      lastError?.code !== "P2002"
+        ? "Couldn't create the sales rep."
+        : target.includes("workEmail")
+          ? "That work mailbox is already assigned to another rep."
+          : "That code is already taken — choose another.";
     return NextResponse.json({ error: taken }, { status: 409 });
   }
 
@@ -204,6 +312,11 @@ export async function POST(request) {
         salesRepId: rep.id,
         email: rep.email,
         code: rep.code,
+        // Recorded because it decides who a prospect ends up talking to, and
+        // because "who assigned this mailbox" is the question asked after a
+        // reply lands in the wrong inbox.
+        workEmail: rep.workEmail || null,
+        codeSource: wantedCode ? "chosen_by_admin" : "generated",
         emailSent: outcome.sent,
         ...(outcome.error ? { emailError: outcome.error } : {}),
       },
@@ -211,7 +324,13 @@ export async function POST(request) {
   });
 
   return NextResponse.json(
-    { ...rep, invite: { sent: outcome.sent, error: outcome.error || null } },
+    {
+      ...rep,
+      // Returned with the row so the screen can show the link the moment the
+      // rep exists, rather than after a refetch — the link IS the rep's job.
+      signupLink: signupLinkFor(getAppOrigin(request), rep.code),
+      invite: { sent: outcome.sent, error: outcome.error || null },
+    },
     { status: 201 },
   );
 }

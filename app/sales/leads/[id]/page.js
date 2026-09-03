@@ -326,8 +326,13 @@ export default function SalesLeadPage({ params }) {
             New email to {lead.email}
           </div>
           <p className="text-xs text-muted-foreground">
-            Sent from your own address, {outreach.from}. Their reply reaches your
-            mailbox and is filed here. FieldQuo&apos;s name and mailing address
+            {/* `outreach.from` is the WORK mailbox now, not the sign-in
+                address — see lib/sales/outreachSender.js's repSendingAddress.
+                Saying "your own address" over a mailbox a superadmin assigned
+                would be the sentence a rep reads before wondering where a
+                reply went. */}
+            Sent from your work mailbox, {outreach.from}. Their reply reaches it
+            and is filed here. FieldQuo&apos;s name and mailing address
             and an unsubscribe line are added to the bottom — CASL requires both
             in a commercial email.
           </p>

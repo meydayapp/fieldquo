@@ -4,7 +4,8 @@ The single place that says what is done, what is moving, and what is waiting.
 Updated whenever something lands. If this file disagrees with a memory or a
 summary, this file wins.
 
-Last updated: 2026-09-01, after Phase 1 shipped and the Phase 2 audit began.
+Last updated: 2026-09-02, after the sales rep console and the first sales
+dashboard shipped.
 
 ---
 
@@ -497,6 +498,97 @@ captures no cookies, so they are inert until it does. Detector thresholds
 rather than superadmin settings — the same position `confidence.js`'s
 `MATCH_THRESHOLD` and `FUZZY_CEILING` hold, which standing rule 1 has so far
 accepted. If the owner wants them on a screen, that is a small build.
+
+### The five gaps the owner found on the rep screen · BUILT 2026-09-02
+
+He added a rep and asked, verbatim: *"asks me for a name email and code? what
+is the code for? where do i enter their work email? where can i assign them a
+number for callbacks etc? where do i see the sales KPIs? and insights.. and the
+AI and the leads?"* Every one was real. `scripts/check-sales-admin.mjs` — 218
+checks, 34 mutations tested, all caught — is in `check:all`.
+
+**The worst of them was a column with no writer AND no reader.**
+`SalesRep.workEmail` is documented at length as the mailbox a rep sends from,
+with an explicit "there is deliberately no fallback to `email`". Nothing in the
+console could set it, and `lib/sales/outreachSender.js` was reading `rep.email`
+anyway — so the rule was written down in three places and enforced in none, and
+a rep whose login is a personal Gmail would have sent cold outreach from it and
+collected the replies there. Both halves are wired now: the console assigns it,
+`outreachStatus()` blocks every send without one under its own blocker code
+(`no_work_mailbox`, not the vaguer `rep_email_invalid`), and the From, Reply-To,
+CASL footer and stored copy all address from it. The inbound echo check in
+`outreachInbound.js` moved with it — matching only the login address would have
+silently reopened the double-filing bug that check exists to close.
+
+**The code is generated, shown, and overridable.** It was a bare text field with
+no explanation, which is how two reps end up sharing a slug and one rep's link
+credits the other. `lib/sales/repAdmin.js`'s `codeCandidates()` is used by BOTH
+the screen (to prefill) and the create route (to retry past a unique-constraint
+collision), so the value shown and the value stored cannot diverge. It is fixed
+after creation, deliberately: the link is on a card by then, and an edit whose
+real effect is "quietly stop some of your signups counting" is a destructive
+operation labelled as cosmetic.
+
+**Numbers: one honest answer and one honest refusal.** Texting the signup link
+is real and SHARED — `salesSmsNumber()` is `findFirst({ purpose: "sales" })`,
+one first-party number for the whole operation, and that is the compliance
+posture rather than an omission: a STOP there stops every rep at once. A per-rep
+voice callback number is NOT built and no picker is rendered for it:
+`FIELDQUO_SALES_NUMBER` is one env var naming FieldQuo's own line, and no model
+links a phone number to a rep. `NUMBER_CAPABILITIES` says both on screen.
+
+**`/platform/sales/performance` is the first sales dashboard.** Signups per rep
+(today / this week / period / lifetime, UTC Monday weeks via the rep portal's
+own `bucketSignups`), milestones reached, commission earned vs reversed vs paid
+vs owed, the acquisition funnel, the leads pipeline, and every attributed
+company with what it is doing now. Ranked by signups this week — not commission
+(it lags sixty days and answers a finance question), not lifetime totals (a rep
+hired in March outranks everyone forever), not conversion rate (most reps sit
+under the floor and sorting by nulls sorts by nothing).
+
+**Three honesty properties it holds, each mutation-tested:**
+
+- **No percentage below `RATE_FLOOR`**, imported from `lib/analytics/kpis.js`
+  rather than restated. Below ten outcomes the screen prints "3 of 4" and how
+  many more are needed. The page does no division of its own — the check
+  asserts there is no `* 100` in it.
+- **A figure that cannot be computed is `NOT_TRACKED` with the missing input
+  named**, never a zero. Cost per acquisition (nothing holds what a rep costs —
+  a commission plan is per-sale, not salary), calls and talk time (there is no
+  human calling path; Twilio Voice does not exist in this repo), time to close
+  (`SalesLead.createdAt` is when a rep typed it in, so the metric would improve
+  when reps got slower at paperwork), pipeline value (a lead carries no deal
+  size and inventing one is what §18 rules out).
+- **Commission is summed from the ledger, reversals included.**
+  `SalesPayoutBatch.totalCentsAtClose` is never read, per its own schema
+  comment; the check asserts the string does not appear in the module.
+
+**A distortion found while building it, and reported rather than smoothed
+over.** `earnMilestone()` writes nothing at all for a rep with no commission
+plan — correctly, since paying an invented figure is worse than paying late —
+so every company that rep brought in is invisible to the ledger-sourced funnel
+stages. The funnel counts those stages anyway and carries the caveat with the
+number of blind companies. Activation does not have the problem: it is read off
+`Company.stripeChargesEnabled`, the same predicate `qualifiesForActivation()`
+uses, and is a fact rather than a ledger row.
+
+**Where this brief was wrong.** It said `resolveSendingIdentity` in
+`lib/sales/outreachIdentity.js` already blocked sending. That function has no
+caller anywhere in `app/` or `lib/` — only its own check script imports it — so
+it blocked nothing. Worse, it and the shipped sender disagree about the From
+address: `outreachIdentity.js` (and this file, above) say From is a derived
+address on the verified sending subdomain with Reply-To pointing at the rep's
+real mailbox, while `outreachSender.js` sends From the mailbox directly and
+therefore needs the ROOT domain verified. **That is an open product decision and
+was NOT resolved here** — the minimal change was made instead (the sender now
+reads `workEmail` rather than `email`), which makes the console's statement
+true without picking a side on the addressing architecture. Somebody has to
+choose, and choosing changes what DNS has to be verified before a rep can send.
+
+**Still open.** The rep-facing dashboard (a rep seeing their own numbers) is a
+separate job — `/api/sales/me` already returns link and counts, and nothing
+renders a scoreboard from them. A rep's own commission balance is likewise not
+on any screen they can reach.
 
 ### STANDING RULES — apply to everything, not just the next thing
 

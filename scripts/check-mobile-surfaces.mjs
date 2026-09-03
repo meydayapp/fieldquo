@@ -110,6 +110,12 @@ const STRICT_FILES = [
   "app/platform/sales/signatures/page.js",
   "app/platform/sales/campaigns/page.js",
   "app/platform/sales/campaigns/[id]/page.js",
+  // Rewritten from a six-column table into a card per rep on the day it gained
+  // a signup link, a work mailbox and a sending verdict — six columns of that
+  // is a horizontal scroll on every phone. Held to strict from that rewrite:
+  // the honest way to widen this check is to fix a file and move it.
+  "app/platform/sales/reps/page.js",
+  "app/platform/sales/performance/page.js",
   "app/app/clock/page.js",
 ];
 

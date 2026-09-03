@@ -701,7 +701,13 @@ const blocked = [
   ["an invented reply mode", { ...READY, replyAddressing: "clever" }, "reply_addressing_unset"],
   ["no mailing address", { ...READY, mailingAddress: "" }, "mailing_address_unset"],
   ["a whitespace mailing address", { ...READY, mailingAddress: "   " }, "mailing_address_unset"],
-  ["a rep with no email", { ...READY, repEmail: "" }, "rep_email_invalid"],
+  // An ABSENT work mailbox is its own blocker now, not "invalid". The two
+  // are different things to go and fix — one is a mailbox nobody has bought
+  // yet and is assigned in the platform console, the other is a typo — and
+  // outreachReadiness names them separately so the console can say which.
+  // This line asserted the older, vaguer code; a check that proves the wrong
+  // behaviour is worse than no check.
+  ["a rep with no work mailbox", { ...READY, repEmail: "" }, "no_work_mailbox"],
   ["a rep with an injected email", { ...READY, repEmail: "a@b.com\r\nBcc: x@y.com" }, "rep_email_invalid"],
 ];
 for (const [label, input, code] of blocked) {
