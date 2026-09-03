@@ -1031,24 +1031,41 @@ commercial electronic messages, with narrow implied-consent exceptions.
 
 Two things are true and worth separating:
 
-- **Voice calls are not CECs.** CASL covers *electronic messages* — email, SMS,
-  instant messaging. A phone call to a business is governed by the CRTC's
-  Unsolicited Telecommunications Rules and the National DNCL instead, which is
-  a different regime with a business-to-business exemption. **This matters
-  enormously for source selection**: it means a phone number is a materially
-  more usable contact channel than an email address for this product, which
-  reinforces the ranking in §2.
+- **VERIFIED — CASL's subject matter is electronic messages, not calls.** ISED's
+  own page (`ised-isde.canada.ca/site/canada-anti-spam-legislation/en`) defines
+  a commercial electronic message as one that encourages *"participation in a
+  commercial activity whether or not there is an expectation of profit"*, and
+  enumerates the conduct it covers as unsolicited **email**, **text messages**,
+  software installation and false electronic representations. Voice calls are
+  not among them.
+- **UNVERIFIED — which regime governs the calls instead, and on what terms.**
+  Telemarketing calls in Canada fall under the CRTC's Unsolicited
+  Telecommunications Rules and the National DNCL rather than CASL, and that
+  regime is generally understood to treat business-to-business calls
+  differently from consumer calls. **I could not confirm the scope or the B2B
+  exemption from a primary source** — `crtc.gc.ca` returned **403** to every
+  automated fetch. I am recording this as an open question rather than
+  asserting a rule I did not read, because the exemption's exact conditions are
+  the whole question and getting them approximately right is not good enough.
+
+  **If the B2B position is what it is generally taken to be, it matters
+  enormously for source selection** — a phone number would be a materially more
+  usable channel than an email address for this product, which is the direction
+  the §2 ranking already points. That is a reason to get the question answered
+  properly, not a reason to assume the answer.
 - **Email is the constrained one.** The relevant implied-consent route is
   "conspicuous publication" — broadly, an address published without a statement
   refusing commercial messages, where the message is relevant to the person's
   business role.
 
-**UNVERIFIED — I did not retrieve the CRTC's own wording**, and the precise
-conditions of the conspicuous-publication exemption, and specifically **whether
-an address obtained from a government open-data file counts as "conspicuously
-published" by the business**, is exactly the kind of question that turns on
-legal judgement rather than published wording. `SOURCE-CANADA.md` §7.2 already
-flags CASL as needing a lawyer and I am not overriding that here.
+**UNVERIFIED — I did not retrieve the CRTC's own wording on conspicuous
+publication.** Whether an address obtained from a *government open-data file*
+counts as "conspicuously published" **by the business** is the crux, and it is
+not obvious in either direction: the business published the address to a
+regulator, not to the world, and the regulator is the one who made it public.
+That turns on legal judgement rather than published wording.
+`SOURCE-CANADA.md` §7.2 already flags CASL as needing a lawyer and I am not
+overriding that here.
 
 **Practically it barely arises.** Across every non-Quebec source in this
 document there are **66 email addresses** in total (Winnipeg's sewer and water
@@ -1095,7 +1112,13 @@ restriction, not a permission.
    (§3.2). A phone call, not an engineering task.
 7. **Newfoundland's full dataset catalogue** (§3.6, §8).
 8. **The CRTC's exact wording** on conspicuous publication and whether open-data
-   email addresses fall within it (§7.2).
+   email addresses fall within it (§7.2). `crtc.gc.ca` returns **403** to
+   automated fetches, so this needs a human with a browser or a lawyer.
+9. **Whether the voice-call regime's business-to-business exemption applies**
+   to cold-calling contractors from a licence register (§7.2). Same 403.
+   Low urgency for Canada outside Quebec, since only Surrey yields callable
+   rows — but it gates the Quebec provider's dialling, so it should be
+   answered there.
 
 ---
 
