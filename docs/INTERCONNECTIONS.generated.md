@@ -3,7 +3,7 @@
 ## The entity graph
 
 Every model, and what points at it. Generated from `prisma/schema.prisma`, so
-it cannot drift from the code. 180 models.
+it cannot drift from the code. 186 models.
 
 **Read it before adding anything.** The question it answers is "what already
 touches this, and what would my change touch" — which is the question that was
@@ -18,27 +18,27 @@ tenancy, so it carries no information.
 | Entity | Pointed at by | From |
 |---|---:|---|
 | **Job** | 14 | AssetUseLog, ChangeOrder, Invoice, JobDailyLog, JobDocument, JobMaterial, JobPaymentStage, JobPhoto, JobVisit, SafetyIncident +4 |
+| **Prospect** | 11 | ProspectCapability, ProspectCorrection, ProspectEvidence, ProspectInference, ProspectOpportunity, ProspectScore, ProspectTalkingPoint, ProspectTechnology, SalesLead, SalesPlaybookAssignment +1 |
 | **Quote** | 11 | Appointment, Booking, Invoice, Job, JobPaymentStage, LeadRequest, QuoteAddOn, QuoteCosting, QuoteImport, QuoteScopeGroup +1 |
 | **Client** | 10 | Appointment, ClientEquipment, Invoice, Job, PamphletStop, Quote, ReferralLink, SatisfactionResponse, ServicePlan, Task |
 | **Worker** | 10 | LeaveBalance, LeaveRequest, PayRunLine, Payout, SafetyIncident, Salary, Shift, TimeEntry, User, WorkerSalaryComponent |
-| **Prospect** | 8 | ProspectCapability, ProspectCorrection, ProspectEvidence, ProspectInference, ProspectOpportunity, ProspectScore, ProspectTechnology, SalesLead |
-| **SalesRep** | 8 | Company, SalesAttribution, SalesAttributionTouch, SalesCommissionEntry, SalesLead, SalesPayoutBatch, SalesSmsMessage, SalesThread |
+| **SalesRep** | 9 | Company, SalesAttribution, SalesAttributionTouch, SalesCommissionEntry, SalesLead, SalesPayoutBatch, SalesRepNote, SalesSmsMessage, SalesThread |
 | **Invoice** | 6 | ChangeOrder, InvoiceCosting, JobPaymentStage, Payment, ServicePlanOccurrence, Task |
 | **Member** | 5 | AssetUseLog, JobPhotoComment, JobPhotoMention, NotificationDelivery, SafetyIncident |
 | **ServiceCategory** | 5 | CompanyServiceCategory, JobChecklistTemplate, LeadRequest, QuickAddItem, QuoteScopeGroup |
 | **MarketingCampaign** | 3 | MarketingCampaignDelivery, MarketingDesign, PamphletStop |
 | **PlatformAdmin** | 3 | DemoBooking, DemoHostAvailability, PlatformAuditLog |
+| **SalesLead** | 3 | SalesRepNote, SalesSmsMessage, SalesThread |
 | **VoiceAgent** | 3 | Company, VoiceCall, VoicePhoneNumber |
 | **DocumentTemplate** | 2 | FollowUpRule, MarketingCampaign |
 | **Funnel** | 2 | FunnelEvent, FunnelResponse |
 | **JobPhoto** | 2 | JobPhotoComment, JobPhotoTagOnPhoto |
 | **LeadRequest** | 2 | LeadNote, Quote |
 | **LeavePolicy** | 2 | LeaveBalance, LeaveRequest |
-| **MarketingDesign** | 2 | MarketingDesignLayout, SocialPublish |
 
 ### Every model, both directions
 
-<details><summary>180 models — expand</summary>
+<details><summary>186 models — expand</summary>
 
 | Model | Points at | Pointed at by |
 |---|---|---|
@@ -121,7 +121,7 @@ tenancy, so it carries no information.
 | `PlatformAuditLog` | PlatformAdmin | — |
 | `PlatformPromoCode` | — | PlatformPromoRedemption |
 | `PlatformPromoRedemption` | PlatformPromoCode | — |
-| `Prospect` | ProspectCampaign, SalesTerritory | ProspectCapability, ProspectCorrection, ProspectEvidence, ProspectInference, ProspectOpportunity, ProspectScore, ProspectTechnology, SalesLead |
+| `Prospect` | ProspectCampaign, SalesTerritory | ProspectCapability, ProspectCorrection, ProspectEvidence, ProspectInference, ProspectOpportunity, ProspectScore, ProspectTalkingPoint, ProspectTechnology, SalesLead, SalesPlaybookAssignment, SalesRepNote |
 | `ProspectCampaign` | SalesTerritory | Prospect |
 | `ProspectCapability` | Prospect | — |
 | `ProspectCorrection` | Prospect | — |
@@ -129,6 +129,7 @@ tenancy, so it carries no information.
 | `ProspectInference` | Prospect | — |
 | `ProspectOpportunity` | FieldQuoCapability, Prospect | — |
 | `ProspectScore` | Prospect | — |
+| `ProspectTalkingPoint` | Prospect | — |
 | `ProspectTechnology` | Prospect | — |
 | `PurchaseOrder` | Supplier | PurchaseOrderLine |
 | `PurchaseOrderLine` | PurchaseOrder | — |
@@ -146,15 +147,19 @@ tenancy, so it carries no information.
 | `SalesAttributionTouch` | SalesRep | — |
 | `SalesCommissionEntry` | SalesPayoutBatch, SalesRep | — |
 | `SalesCommissionPlan` | — | SalesRep |
-| `SalesLead` | Prospect, SalesRep | SalesSmsMessage, SalesThread |
+| `SalesLead` | Prospect, SalesRep | SalesRepNote, SalesSmsMessage, SalesThread |
 | `SalesMessage` | SalesThread | — |
 | `SalesPayoutBatch` | SalesRep | SalesCommissionEntry |
-| `SalesRep` | SalesCommissionPlan | Company, SalesAttribution, SalesAttributionTouch, SalesCommissionEntry, SalesLead, SalesPayoutBatch, SalesSmsMessage, SalesThread |
+| `SalesPlaybook` | — | SalesPlaybookExperiment |
+| `SalesPlaybookAssignment` | Prospect, SalesPlaybookExperiment | — |
+| `SalesPlaybookExperiment` | SalesPlaybook | SalesPlaybookAssignment |
+| `SalesRep` | SalesCommissionPlan | Company, SalesAttribution, SalesAttributionTouch, SalesCommissionEntry, SalesLead, SalesPayoutBatch, SalesRepNote, SalesSmsMessage, SalesThread |
+| `SalesRepNote` | Prospect, SalesLead, SalesRep, SalesThread | — |
 | `SalesSmsMessage` | SalesLead, SalesRep | — |
 | `SalesSuppression` | — | SalesSuppressionEvent |
 | `SalesSuppressionEvent` | SalesSuppression | — |
 | `SalesTerritory` | — | Prospect, ProspectCampaign |
-| `SalesThread` | SalesLead, SalesRep | SalesMessage |
+| `SalesThread` | SalesLead, SalesRep | SalesMessage, SalesRepNote |
 | `SatisfactionResponse` | Client, Job | Job |
 | `ServiceCategory` | — | CompanyServiceCategory, JobChecklistTemplate, LeadRequest, QuickAddItem, QuoteScopeGroup |
 | `ServicePlan` | Client, ServicePlanAuthorisation | ServicePlanAuthorisation, ServicePlanOccurrence |
