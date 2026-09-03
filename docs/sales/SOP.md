@@ -341,6 +341,16 @@ You stop being involved, and the milestones run on their own.
 Amounts, the exact qualification rules and worked examples are in
 `docs/sales/ONBOARDING-AND-COMP.md`.
 
+**What a given rate of production actually pays, week by week, is in
+`docs/sales/VOLUME-SCENARIOS.md`** — seven scenarios from 1 to 7 signups a
+weekday, each with the ramp to steady state, the prospect throughput the
+pipeline has to supply, and what gives way first at that rate. Read it before
+agreeing to a number. The short version: **steady state is roughly
+`signups per weekday × $300 a week`**, it is not reached until week 9–13,
+and **the first twelve weeks pay 57–60% of twelve steady weeks** at every rate.
+Six and seven a day are above what the enrichment pipeline can currently feed at
+a 1% conversion rate; the arithmetic is in that file's §3.
+
 **Two things worth knowing on a call:**
 
 - A contractor who cancels during the free month never produces a first
@@ -401,7 +411,12 @@ Opt-out          Permanent. Superadmin-only removal, written reason.
 
 Milestones       Activated $20 · First payment $40 · Still paying $65 = $125
 Retention clock  60 days from SUBSCRIPTION START, trial included
+                 (day 61 if the subscription started after 09:20 UTC)
 Payouts          Mondays 10:07 UTC, previous UTC week, paid by a human
+
+Steady state     signups per weekday × $300/week, reached week 9-13
+First payouts    activation week 1 · first payment week 5 · retention week 9
+                 Full tables: docs/sales/VOLUME-SCENARIOS.md
 ```
 
 **The one sentence to carry into every call:** never promise a control that
