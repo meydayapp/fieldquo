@@ -2,14 +2,26 @@
 //
 // The discovery campaigns, for the superadmin screen that creates them.
 //
-// ══ Why a campaign names its own source ═══════════════════════════════════
+// ══ Why a campaign names its own sources ══════════════════════════════════
 //
-// `ProspectCampaign.discoveryProvider` has NO default. The schema comment
+// `ProspectCampaign.discoverySources` has NO default. The schema comment
 // explains it at length: the obvious default was Google, and the Maps Platform
 // ToS forbids storing business names and addresses and forbids building a
 // directory at all — so a default would have quietly pointed the first
 // campaign at the one source that cannot legally serve it. This route
-// therefore REFUSES a campaign with no provider rather than filling one in.
+// therefore REFUSES a campaign with no source rather than filling one in.
+//
+// A campaign names a SET, per the owner's rule that "where the business comes
+// from should be a checkbox to allow multiple sources". Two things this route
+// is careful about as a result:
+//
+//   - a source that CANNOT RUN is refused rather than saved. RBQ reports
+//     itself unavailable today (the register carries no website column, so
+//     nothing can ever establish a trade for its rows), and a campaign saved
+//     with it ticked would render a Start button that fails on click.
+//   - the config is keyed per source. Both shipped sources have a field called
+//     `snapshotUrl`, so one blob for several sources means the second reads
+//     the first one's file — a wrong dataset under the right provider name.
 //
 // ══ Why the territory can be created here ═════════════════════════════════
 //
@@ -29,6 +41,13 @@ import { superadminOrRefusal } from "@/lib/sales/intel/configAdmin";
 import { discoveryProviders, getDiscoveryProvider } from "@/lib/sales/discovery/providers";
 import { discoveryTradeKeys, DISCOVERY_TRADES } from "@/lib/sales/discovery/trades";
 import { campaignProgress, funnelRows } from "@/lib/sales/discovery/funnel";
+import {
+  describeSources,
+  readSourceConfigs,
+  readSourceSelection,
+  startProblems,
+  unavailableReasonOf,
+} from "@/lib/sales/discovery/sources";
 
 const MAX_NAME = 120;
 const MAX_TARGET = 50_000;
@@ -47,18 +66,27 @@ export async function GET(request) {
   ]);
 
   return NextResponse.json({
-    campaigns: campaigns.map((c) => ({
-      ...c,
-      // Serialised here rather than in the page, so the list and the detail
-      // screen cannot disagree about what "62%" means.
-      progress: campaignProgress(c),
-      funnel: funnelRows(c),
-      // Never the whole config: a provider's settings can hold a signed URL,
-      // and a list endpoint has no reason to hand one out.
-      providerConfigured: Boolean(
-        getDiscoveryProvider(c.discoveryProvider)?.describeConfig(c.providerConfig || {})?.ok,
-      ),
-    })),
+    campaigns: campaigns.map((c) => {
+      const sources = describeSources(c, { getProvider: getDiscoveryProvider });
+      return {
+        ...c,
+        // Serialised here rather than in the page, so the list and the detail
+        // screen cannot disagree about what "62%" means.
+        progress: campaignProgress(c),
+        funnel: funnelRows(c),
+        // Never the whole config, and not the summary either: a source's
+        // settings can hold a signed URL, and a list endpoint has no reason to
+        // hand out even the host it points at. Names and readiness only.
+        sources: sources.map((s) => ({
+          key: s.key,
+          label: s.label,
+          ready: s.configOk,
+          blocked: s.state.blocked,
+          ended: s.state.ended,
+        })),
+        sourcesReady: sources.length > 0 && sources.every((s) => s.configOk),
+      };
+    }),
     territories,
     providers: discoveryProviders(),
     trades: discoveryTradeKeys().map((key) => ({
@@ -100,24 +128,46 @@ export async function POST(request) {
     return bad(`How many prospects? A whole number between 1 and ${MAX_TARGET}.`);
   }
 
-  const providerKey = String(body?.discoveryProvider ?? "").trim();
-  const provider = getDiscoveryProvider(providerKey);
-  if (!provider) {
-    return bad(
-      providerKey
-        ? `No discovery provider named "${providerKey}" is registered.`
-        : "A campaign has to name its discovery source. There is deliberately no default — see the note on the form.",
-    );
+  // ── The sources, and their per-source settings ─────────────────────────
+  //
+  // Validated against a DRAFT campaign row rather than against the request, so
+  // the create path and the start path ask exactly the same question of
+  // exactly the same shape. Two validators for one rule is how a campaign gets
+  // saved that the start button then refuses.
+  const selection = readSourceSelection(body);
+  if (selection.error) return bad(selection.error);
+
+  const unknown = selection.keys.filter((key) => !getDiscoveryProvider(key));
+  if (unknown.length) {
+    return bad(`No discovery source named ${unknown.map((k) => `"${k}"`).join(", ")} is registered.`);
   }
 
-  const providerConfig = body?.providerConfig && typeof body.providerConfig === "object" ? body.providerConfig : {};
-  const described = provider.describeConfig(providerConfig);
-  if (!described.ok) {
+  // Refused rather than saved-and-disabled. A source that cannot run whatever
+  // it is configured with makes every control downstream of it a control that
+  // appears to work and does not.
+  const unavailable = selection.keys
+    .map((key) => ({ key, reason: unavailableReasonOf(getDiscoveryProvider(key)) }))
+    .filter((s) => s.reason);
+  if (unavailable.length) {
     return NextResponse.json(
-      { error: "This campaign could never discover anything, so it was not saved.", problems: described.problems },
+      {
+        error: "One of the sources you ticked cannot run, so the campaign was not saved.",
+        problems: unavailable.map((s) => `${s.key}: ${s.reason}`),
+      },
       { status: 400 },
     );
   }
+
+  const sourceConfigs = readSourceConfigs(body, selection.keys);
+  const draft = { discoverySources: selection.keys, sourceConfigs };
+  const sourceProblems = startProblems(draft, { getProvider: getDiscoveryProvider });
+  if (sourceProblems.length) {
+    return NextResponse.json(
+      { error: "This campaign could never discover anything, so it was not saved.", problems: sourceProblems },
+      { status: 400 },
+    );
+  }
+  const describedSources = describeSources(draft, { getProvider: getDiscoveryProvider });
 
   const territoryInput = shapeTerritory(body);
   if (territoryInput.error) return bad(territoryInput.error);
@@ -149,8 +199,12 @@ export async function POST(request) {
         territoryId,
         tradeKey,
         targetCount,
-        discoveryProvider: provider.key,
-        providerConfig,
+        // The plural fields only. `discoveryProvider` and `providerConfig`
+        // are read for campaigns created before this change and are never
+        // written again — a column that had to name one of three sources
+        // would lie about the other two. See the schema comment.
+        discoverySources: selection.keys,
+        sourceConfigs,
         status: "draft",
       },
       include: { territory: true },
@@ -165,12 +219,17 @@ export async function POST(request) {
           name: campaign.name,
           tradeKey,
           targetCount,
-          provider: provider.key,
+          sources: selection.keys,
+          // Which obligations this campaign just took on, recorded at the
+          // moment somebody accepted them. Ticking three sources is ticking
+          // three licences, and an audit log that recorded only the keys would
+          // not show that the choice was made with the terms on screen.
+          licences: describedSources.map((s) => `${s.key}: ${s.licence?.name || "unstated"}`),
           territoryId,
-          // The config's SUMMARY, not the config. A snapshot URL can be
+          // Each config's SUMMARY, not the config. A snapshot URL can be
           // signed, and an audit log is the last place a credential should
           // land.
-          providerConfig: described.summary,
+          sourceConfigs: Object.fromEntries(describedSources.map((s) => [s.key, s.summary])),
         },
       },
     });

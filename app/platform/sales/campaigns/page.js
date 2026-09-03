@@ -10,14 +10,37 @@
 // comes out is single-trade, and there is no "all trades" option to pick by
 // accident.
 //
-// ══ Why the source has no default ═════════════════════════════════════════
+// ══ Why the sources have no default ═══════════════════════════════════════
 //
-// `ProspectCampaign.discoveryProvider` has no default in the schema and the
-// form has no preselected option, for the reason its schema comment gives at
+// `ProspectCampaign.discoverySources` has no default in the schema and the
+// form has nothing preticked, for the reason its schema comment gives at
 // length: the obvious default was Google, whose terms forbid storing business
 // names and addresses and forbid building a directory — and whose key also
 // powers address autocomplete and the Solar roof measurement in the live
 // product. Choosing a source is choosing a licence.
+//
+// ══ Which is why the boxes are checkboxes and each one states its terms ════
+//
+// The owner's rule: "where the business comes from should be a checkbox to
+// allow multiple sources, not one or the other." A single campaign draws from
+// Overture AND a licence register in one run, and the same painter arriving
+// from both is flagged rather than merged.
+//
+// The single `<select>` this replaces carried the licence argument by being
+// singular: one choice, one licence, taken deliberately. Ticking three boxes
+// takes on three different sets of terms in one gesture — CC-BY makes
+// attribution a CONDITION of the grant, CDLA-Permissive puts its obligation on
+// the data rather than on what is built from it — so each box states its own
+// licence next to itself. Not in a tooltip and not on a second screen: the
+// obligation has to be legible at the moment it is taken on, or the property
+// the single-select was protecting is gone.
+//
+// A source that CANNOT run is rendered disabled with the reason beside it,
+// never as a tickable box. RBQ is one today — the register carries no website
+// column, so nothing can ever establish a trade for its rows. A disabled
+// checkbox with a sentence is honest; a tickable one that produces a Start
+// button which fails on click is the dead control AGENTS.md opens by
+// forbidding.
 //
 // ══ What is deliberately NOT here ═════════════════════════════════════════
 //
@@ -46,8 +69,12 @@ const BLANK = {
   name: "",
   tradeKey: "",
   targetCount: "500",
-  discoveryProvider: "",
-  providerConfig: {},
+  // A SET, empty. Not "" and not one preticked box — see the header.
+  discoverySources: [],
+  // Keyed by source, because both shipped sources have a field called
+  // `snapshotUrl` and one flat object would put Overture's file behind the
+  // register's name.
+  sourceConfigs: {},
   territoryId: "",
   territoryName: "",
   country: "",
@@ -91,7 +118,30 @@ export default function PlatformSalesCampaignsPage() {
     load();
   }, [load]);
 
-  const provider = (data?.providers || []).find((p) => p.key === draft.discoveryProvider) || null;
+  const providers = data?.providers || [];
+
+  /**
+   * Tick or untick one source.
+   *
+   * Unticking DROPS that source's settings. Keeping them would leave a
+   * snapshot URL in the payload for a source the campaign does not draw from,
+   * which the server would discard anyway — and a form whose state disagrees
+   * with what it sends is how a "saved" setting turns out never to have been
+   * saved.
+   */
+  function toggleSource(key, ticked) {
+    setDraft((current) => {
+      const chosen = current.discoverySources.filter((k) => k !== key);
+      const configs = { ...current.sourceConfigs };
+      if (ticked) {
+        chosen.push(key);
+        configs[key] = configs[key] || {};
+      } else {
+        delete configs[key];
+      }
+      return { ...current, discoverySources: chosen, sourceConfigs: configs };
+    });
+  }
 
   async function create() {
     setSaving(true);
@@ -209,54 +259,91 @@ export default function PlatformSalesCampaignsPage() {
             </p>
           </div>
 
-          <div>
-            <label className={LABEL} htmlFor="c-provider">
-              Where the businesses come from
-            </label>
-            <select
-              id="c-provider"
-              className={FIELD}
-              value={draft.discoveryProvider}
-              onChange={(e) => setDraft({ ...draft, discoveryProvider: e.target.value, providerConfig: {} })}
-            >
-              <option value="">Choose a source…</option>
-              {(data?.providers || []).map((p) => (
-                <option key={p.key} value={p.key}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-muted-foreground">
-              There is deliberately no default. Choosing a source is choosing a licence, and the obvious
-              default is the one whose terms forbid this exact use.
+          <fieldset className="space-y-3">
+            <legend className={LABEL}>Where the businesses come from</legend>
+            <p className="text-xs text-muted-foreground">
+              Tick as many as you want — a campaign can draw from several at once, and the same business
+              arriving from two of them is flagged rather than merged. There is deliberately no default.
+              Choosing a source is choosing a licence, and the obvious default is the one whose terms forbid
+              this exact use. Every box below states the terms it comes with; ticking three takes on three.
             </p>
-          </div>
 
-          {provider ? (
-            <div className="space-y-4 rounded-lg border border-border p-3">
-              <p className="text-xs text-muted-foreground">{provider.description}</p>
-              {(provider.configFields || []).map((field) => (
-                <div key={field.name}>
-                  <label className={LABEL} htmlFor={`cfg-${field.name}`}>
-                    {field.label}
-                    {field.required ? " (required)" : ""}
+            {providers.length === 0 ? (
+              <p className="text-sm text-muted-foreground">This build ships no discovery sources.</p>
+            ) : null}
+
+            {providers.map((p) => {
+              const ticked = draft.discoverySources.includes(p.key);
+              const blocked = Boolean(p.unavailable);
+              return (
+                <div key={p.key} className="rounded-lg border border-border p-3 space-y-2">
+                  <label
+                    className={`flex items-start gap-3 min-h-[44px] ${blocked ? "opacity-60" : "cursor-pointer"}`}
+                    htmlFor={`src-${p.key}`}
+                  >
+                    <input
+                      id={`src-${p.key}`}
+                      type="checkbox"
+                      className="mt-1 h-5 w-5 shrink-0"
+                      checked={ticked}
+                      disabled={blocked}
+                      onChange={(e) => toggleSource(p.key, e.target.checked)}
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium text-foreground break-words">{p.label}</span>
+                      <span className="block text-xs text-muted-foreground break-words">{p.description}</span>
+                    </span>
                   </label>
-                  <input
-                    id={`cfg-${field.name}`}
-                    className={FIELD}
-                    value={draft.providerConfig?.[field.name] || ""}
-                    onChange={(e) =>
-                      setDraft({
-                        ...draft,
-                        providerConfig: { ...draft.providerConfig, [field.name]: e.target.value },
-                      })
-                    }
-                  />
-                  {field.help ? <p className="mt-1 text-xs text-muted-foreground">{field.help}</p> : null}
+
+                  {/* The licence, against the box, always — not behind the tick.
+                      A superadmin comparing sources is comparing obligations. */}
+                  {p.licence ? (
+                    <p className="text-xs text-muted-foreground break-words">
+                      <span className="font-medium text-foreground">Licence: {p.licence.name}</span>
+                      {p.licence.url ? ` (${p.licence.url})` : ""} — {p.licence.obligation}
+                      {p.licence.attribution ? ` The notice: “${p.licence.attribution}”` : ""}
+                    </p>
+                  ) : null}
+
+                  {/* Disabled, with the reason beside it. A tickable box here
+                      would save a campaign whose Start button could only fail. */}
+                  {blocked ? (
+                    <p className="rounded-lg px-2 py-1 text-xs bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 break-words">
+                      Cannot be used yet: {p.unavailable}
+                    </p>
+                  ) : null}
+
+                  {ticked && !blocked && (p.configFields || []).length ? (
+                    <div className="space-y-4 border-t border-border pt-3">
+                      {(p.configFields || []).map((field) => (
+                        <div key={field.name}>
+                          <label className={LABEL} htmlFor={`cfg-${p.key}-${field.name}`}>
+                            {field.label}
+                            {field.required ? " (required)" : ""}
+                          </label>
+                          <input
+                            id={`cfg-${p.key}-${field.name}`}
+                            className={FIELD}
+                            value={draft.sourceConfigs?.[p.key]?.[field.name] || ""}
+                            onChange={(e) =>
+                              setDraft({
+                                ...draft,
+                                sourceConfigs: {
+                                  ...draft.sourceConfigs,
+                                  [p.key]: { ...(draft.sourceConfigs?.[p.key] || {}), [field.name]: e.target.value },
+                                },
+                              })
+                            }
+                          />
+                          {field.help ? <p className="mt-1 text-xs text-muted-foreground">{field.help}</p> : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
-              ))}
-            </div>
-          ) : null}
+              );
+            })}
+          </fieldset>
 
           <div>
             <label className={LABEL} htmlFor="c-territory">
@@ -428,7 +515,11 @@ export default function PlatformSalesCampaignsPage() {
                   <span className="inline-flex items-center gap-1">
                     <Target size={12} /> {c.progress.accepted} of {c.progress.target}
                   </span>
-                  <span>{c.discoveryProvider || "no source"}</span>
+                  <span className="break-words">
+                    {(c.sources || []).length
+                      ? (c.sources || []).map((s) => s.label).join(" + ")
+                      : "no source"}
+                  </span>
                 </p>
               </div>
               <ArrowRight size={16} className="mt-1 shrink-0 text-muted-foreground" />
@@ -438,11 +529,30 @@ export default function PlatformSalesCampaignsPage() {
               <span className={`rounded-full px-2 py-1 text-xs ${STATUS_TONE[c.status] || STATUS_TONE.draft}`}>
                 {c.status}
               </span>
-              {c.providerConfigured ? null : (
+              {c.sourcesReady ? null : (
                 <span className="rounded-full px-2 py-1 text-xs bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200">
-                  needs a source file before it can run
+                  {(c.sources || []).length
+                    ? `needs settings for ${(c.sources || [])
+                        .filter((s) => !s.ready)
+                        .map((s) => s.label)
+                        .join(", ")}`
+                    : "no source chosen"}
                 </span>
               )}
+              {/* A source that stopped for a reason is named on the LIST, not
+                  only inside the campaign. A campaign reading "completed"
+                  while one of its two sources died is the silent drop this
+                  whole change exists to prevent. */}
+              {(c.sources || [])
+                .filter((s) => s.blocked)
+                .map((s) => (
+                  <span
+                    key={s.key}
+                    className="rounded-full px-2 py-1 text-xs bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200"
+                  >
+                    {s.label} stopped
+                  </span>
+                ))}
             </div>
 
             {c.progress.percent === null ? null : (

@@ -7166,3 +7166,78 @@ the statute edges, plus a permanent negative control that no sales path reaches
 `lib/voice/outboundCall.js`. That unreachability is what keeps 47 U.S.C.
 227(b)(1)(A)(iii) — autodialled and artificial-voice calls to wireless numbers,
 with no business exemption — out of scope.
+
+## A campaign draws from SEVERAL discovery sources (3 September 2026)
+
+The owner's words: *"where the business comes from should be a checkbox to
+allow multiple sources, not one or the other."* One campaign now runs Overture
+AND a licence register AND a bought list, in one pass.
+
+### What is now there
+
+- **`ProspectCampaign.discoverySources String[] @default([])`** — a set, still
+  with no default and still empty until somebody chooses. `sourceConfigs Json?`
+  keys settings BY SOURCE, and `sourceState Json?` keys the cursor, the end
+  state, the failure count and the last error the same way.
+  `discoveryProvider` / `providerConfig` / `discoveryCursor` are **kept and
+  read** as the fallback for every campaign created before this date, and are
+  never written again. `prisma db push` moves no data, so dropping them would
+  have deleted the only record of what those campaigns were discovering.
+- **The form is checkboxes, and every box states its licence.** The single
+  `<select>` carried the licence argument by being singular — one choice, one
+  licence, taken deliberately. Ticking three boxes takes on three sets of terms
+  at once, so `registerDiscoveryProvider` now THROWS on a source that does not
+  state `{ name, url, obligation }`, and the checkbox renders it. RBQ's CC-BY
+  says attribution is a condition of the grant; Overture's CDLA-Permissive puts
+  its obligation on the data rather than on what is built from it. Those are
+  different obligations and the form says so.
+- **A source that cannot run is disabled, with the reason beside it.** Providers
+  may declare `unavailableReason()`; RBQ does, because the register carries no
+  website column, so nothing can ever establish a trade for its rows. The create
+  route refuses to save it ticked and the start route refuses to run it. A
+  `Coming soon` panel is honest; a tickable box that produces a Start button
+  which fails on click is not.
+- **The pipeline takes one page from each open source, in order.** Sequentially,
+  never in parallel: cross-source duplicate detection is a database lookup, so
+  two sources fetched at once cannot see each other's rows and the duplicate
+  would be invisible rather than merely un-flagged.
+
+### One source failing does NOT abort the run
+
+It skips that source for this page and continues — and never silently. The
+failing source keeps its cursor (so nothing is lost), records its reason and
+time on the campaign, and counts a failure; after five consecutive failures it
+is BLOCKED with its sentence, and a settings or registration problem blocks it
+at once rather than after five identical attempts. Aborting protects nothing —
+the cursor is unadvanced either way — and costs the healthy source, whose task
+chain would be abandoned after five attempts because a different vendor's host
+answered 502. What needed protecting was the truth of "finished", so **a
+campaign cannot complete while any source is still open**, and `blocked` is a
+different state from `ended` on the screen.
+
+### What `foundCount` counts
+
+**Source rows, not distinct businesses.** One painter listed by both Overture
+and a register is two rows and both are written — the second with
+`possibleDuplicateOfId` set. Merging destroys provenance, a wrong merge is
+unrecoverable, and the cross-source match is the fuzzy tail (a source record id
+cannot match across providers), which fires on 0.6% of rows and is wrong 52.5%
+of the time it does. The funnel row now says this in words, and the flagged
+count on the campaign screen is where it shows up.
+
+### Still open
+
+- **`npx prisma db push` has NOT been run** — the schema change is in
+  `prisma/schema.prisma` and the owner owns the push. Until it runs, creating a
+  campaign will fail on the missing columns.
+- Nothing backfills `discoverySources` from `discoveryProvider`. The fallback
+  makes that unnecessary; a one-line UPDATE would make the old columns
+  droppable later.
+- The per-source state is a merge-write, not a lock. Two overlapping discovery
+  tasks for one campaign could lose one source's cursor update — the counters
+  next to it use `{ increment }` and cannot. The idempotency key makes it
+  unlikely rather than impossible.
+
+`npm run check:campaign-sources` — 170 assertions, executed: two stub sources
+and a fake store driving the shipped handler, plus fourteen mutations of the
+shipped files, every one caught.

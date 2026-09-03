@@ -1011,6 +1011,10 @@ section("The provider interface: another provider is addable without touching th
     label: "Fixture",
     description: "test only",
     configFields: [],
+    // Required since sources became a set: several can be ticked at once, so
+    // each has to say what ticking it costs. scripts/check-campaign-sources.mjs
+    // is where that requirement is asserted; here it is just satisfied.
+    licence: { name: "Fixture licence", url: "https://example.test/licence", obligation: "test only" },
     describeConfig: () => ({ ok: true, problems: [], summary: "fixture" }),
     fetchPage: async () => ({ release: null, businesses: [], nextCursor: null }),
   });
@@ -1135,12 +1139,21 @@ section("runDiscoverBusinesses: the campaign's status is re-read at run time");
     ok("the campaign is loaded from the database, not read off the payload",
       /prospectCampaign\.findUnique/.test(code));
     ok("the status gate uses the loaded row", /RUNNABLE_STATUSES\.includes\(campaign\.status\)/.test(code));
-    ok("a missing provider is TERMINAL, not retried for six hours",
-      /getDiscoveryProvider[\s\S]{0,400}retry:\s*false/.test(code));
-    ok("a transport failure IS retried", /page\?\.error[\s\S]{0,200}retry:\s*true/.test(code));
+    // Rewritten when a campaign gained a SET of sources. The three rules are
+    // the same three decisions, asked of one source inside the loop rather
+    // than of the campaign as a whole. Behaviour is asserted by execution in
+    // scripts/check-campaign-sources.mjs; these stay positional, on the
+    // shipped file, because a source rule catches the edit that deletes a
+    // branch outright.
+    ok("a source this build does not ship is BLOCKED, not retried for six hours",
+      /if \(!provider\)[\s\S]{0,300}block\(/.test(code));
+    ok("a transport failure keeps the cursor and counts against that source",
+      /page\?\.error[\s\S]{0,400}failures:\s*count/.test(code));
+    ok("...and a page on which NOTHING ran is retryable, as it was with one source",
+      /!ingested && failures\.length[\s\S]{0,300}retry:\s*retryable/.test(code));
     ok("the next page is enqueued", /enqueuePipelineTask/.test(code));
-    ok("...keyed on the cursor, so a double finish queues one task",
-      /idempotencyKey:\s*`discover:\$\{campaign\.id\}:\$\{page\.nextCursor\}`/.test(code));
+    ok("...keyed on where EVERY source got to, so a double finish queues one task",
+      /idempotencyKey:\s*`discover:\$\{campaign\.id\}:\$\{cursorFingerprint\(merged\)\}`/.test(code));
     ok("nothing reports done:true on an empty result without saying why",
       !/businesses\.length === 0[\s\S]{0,80}done:\s*true/.test(code));
   }
@@ -1174,8 +1187,8 @@ section("The Start button ENQUEUES — a status change alone is a dead control")
     // `>= 0` is load-bearing. Without it, DELETING the config check makes
     // indexOf return -1, and -1 is less than anything — so removing the guard
     // passed the rule that exists to require it. Found by mutation testing.
-    const configAt = code.indexOf("describeConfig", startAt);
-    ok("a campaign whose provider cannot run is refused before the status moves",
+    const configAt = code.indexOf("startProblems", startAt);
+    ok("a campaign whose sources cannot run is refused before the status moves",
       configAt >= 0 && configAt < running);
   }
   // Scoped to PATCH. Asserting over the whole file passed while PATCH read
@@ -1218,12 +1231,15 @@ section("The campaign screens render nothing that does not work");
 {
   const list = read("app/platform/sales/campaigns/page.js");
   const detail = read("app/platform/sales/campaigns/[id]/page.js");
-  ok("the create form offers no default source — choosing one is choosing a licence",
-    /Choose a source…/.test(list) && !/defaultValue="overture"/.test(list));
+  // Nothing preticked and nothing preselected. The form is checkboxes now —
+  // several sources at once — so the rule is about the initial SET being
+  // empty, and about no box arriving checked by default.
+  ok("the create form ticks no source by default — choosing one is choosing a licence",
+    /discoverySources: \[\]/.test(list) && !/defaultChecked/.test(list) && !/defaultValue="overture"/.test(list));
   ok("the list says outright that a territory console is not built",
     /not built yet/.test(list));
-  ok("the detail screen hides Start when the provider is missing, rather than failing on click",
-    /providerMissing \? null : \(/.test(detail));
+  ok("the detail screen hides Start when a source cannot run, rather than failing on click",
+    /startProblems\.length \? null : \(/.test(detail));
   ok("the detail screen surfaces a funnel that does not reconcile",
     /funnelProblems/.test(detail) && /do not reconcile/.test(detail));
   ok("both screens use fetchJson, so a failed request cannot be swallowed",

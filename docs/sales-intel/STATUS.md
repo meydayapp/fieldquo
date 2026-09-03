@@ -108,10 +108,16 @@ verified at RUN time; and re-scanning a city per campaign answers a question
 whose answer changes twelve times a year. So `npm run overture:snapshot` runs
 the DuckDB **CLI** offline — nothing entered `package.json` — writes an NDJSON
 snapshot with a manifest naming the release, and the campaign's
-`providerConfig.snapshotUrl` points at it. **A campaign cannot discover
+`sourceConfigs.overture.snapshotUrl` points at it. **A campaign cannot discover
 anything until somebody has produced its snapshot**, the screen says exactly
 that, and the handler refuses with that sentence rather than reporting an empty
 result.
+
+Keyed per source since 2026-09-03, when a campaign gained a SET of sources:
+every source shipped so far has a config field called `snapshotUrl`, so one
+blob for several sources means the second source reads the first source's file.
+`providerConfig` is still READ for campaigns created before that date, and is
+no longer written.
 
 **The release is looked up, never hard-coded.** An anonymous S3 listing —
 plain `fetch`, no SDK, no account — and a beta prefix or a truncated listing
@@ -1045,9 +1051,18 @@ POIs, commercial use permitted. Google Places can stay as a live,
 `place_id`-only verification step, which its own terms allow.
 
 **This is the owner's decision** and nothing has been built on either option.
-The schema is deliberately neutral: `ProspectCampaign.discoveryProvider` has
-NO default, so a campaign must name its source rather than inherit the one
-that cannot legally serve it.
+The schema is deliberately neutral: `ProspectCampaign.discoverySources` has
+NO default and starts EMPTY, so a campaign must name its sources rather than
+inherit the one that cannot legally serve it.
+
+A campaign names several sources at once, per the owner's rule that "where the
+business comes from should be a checkbox to allow multiple sources, not one or
+the other". That makes the licence question plural rather than singular:
+ticking three boxes takes on three sets of terms, so every registered source
+must state its own licence (registration throws otherwise) and each checkbox
+renders it. The same painter arriving from two sources is FLAGGED, never
+merged — a source record id cannot match across providers, so the match falls
+to the fuzzy tail, which is wrong 52.5% of the time it fires.
 
 ### Cold calling is available, and cheaper than expected
 

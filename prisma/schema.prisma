@@ -9059,35 +9059,68 @@ model ProspectCampaign {
   keywords String[] @default([])
   targetCount Int    @default(100)
 
-  /// NO DEFAULT, deliberately. The obvious default was "google", and the
-  /// compliance audit of 2026-09-01 found that the Maps Platform ToS
-  /// (§3.2.3(a)(iii), §3.2.3(d)(iii)) prohibits copying and saving business
-  /// names and addresses, and prohibits building a directory or augmenting an
-  /// advertising product — which is precisely this table. Worse, §5.2(d)
-  /// permits immediate suspension, and the same key powers address
-  /// autocomplete, the maps and the Solar roof measurement in the live
-  /// product.
+  /// Where the business comes from — a SET, because the owner's rule is that
+  /// "where the business comes from should be a checkbox to allow multiple
+  /// sources, not one or the other". One campaign draws from Overture AND a
+  /// licence register AND a bought list, in one run.
   ///
-  /// So a campaign must NAME its source rather than inherit one, and a null
-  /// here means nobody has chosen yet. A default would have quietly pointed
-  /// the first campaign at the one source that cannot legally serve it.
+  /// NO DEFAULT, deliberately, and an EMPTY list rather than one. The obvious
+  /// default was "google", and the compliance audit of 2026-09-01 found that
+  /// the Maps Platform ToS (§3.2.3(a)(iii), §3.2.3(d)(iii)) prohibits copying
+  /// and saving business names and addresses, and prohibits building a
+  /// directory or augmenting an advertising product — which is precisely this
+  /// table. Worse, §5.2(d) permits immediate suspension, and the same key
+  /// powers address autocomplete, the maps and the Solar roof measurement in
+  /// the live product.
+  ///
+  /// So a campaign must NAME its sources rather than inherit any, and an empty
+  /// list means nobody has chosen yet. Choosing a source is choosing a
+  /// LICENCE, and choosing three is taking on three sets of terms at once —
+  /// which is why lib/sales/discovery/provider.js refuses to register a source
+  /// that does not state its own.
+  discoverySources String[] @default([])
+
+  /// Settings each chosen source needs, KEYED BY SOURCE — `{ "overture":
+  /// { "snapshotUrl": "…" }, "rbq": { "snapshotUrl": "…" } }`.
+  ///
+  /// Keyed rather than one blob because both shipped sources have a config
+  /// field called `snapshotUrl`. A single blob for several sources means the
+  /// second source reads the first source's file: a wrong dataset ingested
+  /// under the right provider name, with nothing anywhere saying so.
+  ///
+  /// Source-specific by design: putting `snapshotUrl` on the model itself
+  /// would bake one provider's transport into a provider-neutral table, and
+  /// the next provider would add a second column nothing else reads. It lives
+  /// here and not in an environment variable because of the owner's standing
+  /// rule: every setting is editable from the superadmin UI.
+  sourceConfigs Json?
+
+  /// Where each source got to, keyed the same way — `{ "overture": { "cursor":
+  /// "1200", "ended": false, "blocked": null, "failures": 0, "lastError":
+  /// null, "lastErrorAt": null } }`.
+  ///
+  /// One cursor cannot serve several sources: they page independently, in
+  /// their own dialects, and one running out says nothing about the others.
+  /// `ended` and `blocked` are separate states on purpose — a campaign whose
+  /// second source died is NOT a campaign that found everything there was, and
+  /// only `blocked` makes that visible. See lib/sales/discovery/sources.js.
+  sourceState Json?
+
+  /// ── The three columns below are READ and no longer WRITTEN ─────────────
+  ///
+  /// Every campaign created before 2026-09-03 carries its single source here
+  /// and nowhere else, and `prisma db push` moves no data — so dropping them
+  /// would delete the only record of what those campaigns were discovering.
+  /// lib/sales/discovery/sources.js falls back to all three when the plural
+  /// fields above are empty, which is what makes an existing single-source
+  /// campaign keep running unchanged.
+  ///
+  /// Writing BOTH the old and the new shape was rejected: `discoveryProvider`
+  /// would then have to hold one of three sources, and a column that names one
+  /// of three lies about the other two.
   discoveryProvider String?
-
-  /// Settings the chosen provider needs and no other provider would understand
-  /// — Overture's snapshot URL, a future vendor's list id. Provider-specific
-  /// by design: putting `snapshotUrl` on the model itself would bake one
-  /// provider's transport into a provider-neutral table, and the next provider
-  /// would add a second column nothing else reads.
-  ///
-  /// It lives here and not in an environment variable because of the owner's
-  /// standing rule: every setting is editable from the superadmin UI. An env
-  /// var would make a campaign's source something only a redeploy can change.
-  providerConfig Json?
-
-  /// queued cursor for the next discovery page, in the provider's own dialect.
-  /// Null before a run starts and again when the provider says there is no
-  /// more — which is what makes "finished" distinguishable from "stalled".
-  discoveryCursor String?
+  providerConfig    Json?
+  discoveryCursor   String?
 
   status String @default("draft")
 

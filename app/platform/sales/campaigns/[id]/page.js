@@ -59,7 +59,11 @@ export default function PlatformSalesCampaignPage({ params }) {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [problems, setProblems] = useState([]);
-  const [config, setConfig] = useState({});
+  // Keyed by source. A campaign can draw from several, and one `config` object
+  // shared between them would put the source you edited second on top of the
+  // one you edited first — both shipped sources have a field called
+  // `snapshotUrl`.
+  const [configs, setConfigs] = useState({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -134,6 +138,12 @@ export default function PlatformSalesCampaignPage({ params }) {
   }
 
   const runnable = campaign.status === "draft" || campaign.status === "paused";
+  const sources = data.sources || [];
+  // Every reason Start is not offered, in sentences the server produced — so
+  // the screen and the route cannot disagree about whether this campaign can
+  // run. A hidden button and a 400 that says why are the same decision made
+  // twice; this makes it once.
+  const startProblems = data.startProblems || [];
 
   return (
     <div className="p-4 max-w-3xl mx-auto space-y-6">
@@ -149,7 +159,8 @@ export default function PlatformSalesCampaignPage({ params }) {
       <header className="space-y-2">
         <h1 className="text-xl font-semibold text-foreground break-words">{campaign.name}</h1>
         <p className="text-sm text-muted-foreground">
-          {campaign.tradeLabel} · {campaign.territory?.name || "no territory"} · {campaign.discoveryProvider}
+          {campaign.tradeLabel} · {campaign.territory?.name || "no territory"} ·{" "}
+          {(campaign.sourceKeys || []).join(" + ") || "no source"}
         </p>
         <p className="text-sm text-foreground">
           {campaign.progress.accepted} of {campaign.progress.target} accepted
@@ -175,17 +186,13 @@ export default function PlatformSalesCampaignPage({ params }) {
         </div>
       ) : null}
 
-      {data.providerMissing ? (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 p-3 text-sm text-amber-900 dark:text-amber-200">
-          This campaign names the source <strong>{campaign.discoveryProvider}</strong>, which this build does
-          not ship. Nothing can run until that is resolved, so no Start button is shown.
-        </div>
-      ) : null}
-
-      {data.config && !data.config.ok ? (
+      {startProblems.length ? (
         <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 p-3 text-sm text-amber-900 dark:text-amber-200 space-y-1">
-          {data.config.problems.map((p) => (
-            <p key={p}>{p}</p>
+          <p className="font-medium">This campaign cannot start:</p>
+          {startProblems.map((p) => (
+            <p key={p} className="break-words">
+              {p}
+            </p>
           ))}
         </div>
       ) : null}
@@ -200,7 +207,7 @@ export default function PlatformSalesCampaignPage({ params }) {
       ) : null}
 
       {/* ── Controls ───────────────────────────────────────────────────── */}
-      {data.providerMissing ? null : (
+      {startProblems.length ? null : (
         <div className="flex flex-col sm:flex-row gap-2">
           {runnable ? (
             <button
@@ -230,39 +237,99 @@ export default function PlatformSalesCampaignPage({ params }) {
         </div>
       )}
 
-      {/* ── The source file ────────────────────────────────────────────── */}
-      {data.provider?.configFields?.length ? (
-        <section className="rounded-xl border border-border bg-card p-4 space-y-3">
-          <h2 className="text-base font-semibold text-foreground">Source settings</h2>
-          <p className="text-xs text-muted-foreground">
-            Currently: {data.config?.summary || "not set"}
+      {/* ── The sources, one card each ─────────────────────────────────── */}
+      {/*
+          One card per source rather than one "Source settings" panel. Three
+          things have to be per-source or they are wrong: the LICENCE (ticking
+          two sources takes on two sets of terms), the SETTINGS (both shipped
+          sources have a field called `snapshotUrl`, so one shared panel writes
+          one source's file behind the other's name), and the POSITION — a
+          source that ran out and a source that died are different outcomes,
+          and a campaign that showed only "completed" would hide the second.
+      */}
+      {sources.map((source) => (
+        <section key={source.key} className="rounded-xl border border-border bg-card p-4 space-y-3">
+          <h2 className="text-base font-semibold text-foreground break-words">{source.label}</h2>
+
+          {source.licence ? (
+            <p className="text-xs text-muted-foreground break-words">
+              <span className="font-medium text-foreground">Licence: {source.licence.name}</span>
+              {source.licence.url ? ` (${source.licence.url})` : ""} — {source.licence.obligation}
+              {source.licence.attribution ? ` The notice: “${source.licence.attribution}”` : ""}
+            </p>
+          ) : null}
+
+          {source.registered ? null : (
+            <p className="text-sm text-amber-900 dark:text-amber-200 break-words">
+              This build does not ship a source called “{source.key}”. Nothing can run for it, and it is
+              listed here rather than dropped because the campaign did name it.
+            </p>
+          )}
+
+          {source.unavailable ? (
+            <p className="text-sm text-amber-900 dark:text-amber-200 break-words">{source.unavailable}</p>
+          ) : null}
+
+          <p className="text-xs text-muted-foreground break-words">
+            {source.state.blocked
+              ? `Stopped: ${source.state.blocked}`
+              : source.state.ended
+                ? "Finished — the source had no more rows."
+                : source.state.lastError
+                  ? `Still going. Last attempt failed (${source.state.failures} in a row): ${source.state.lastError}`
+                  : source.state.cursor
+                    ? `Reading, at ${source.state.cursor}.`
+                    : "Not started."}
           </p>
-          {data.provider.configFields.map((field) => (
-            <div key={field.name}>
-              <label className="block text-sm font-medium text-foreground mb-1" htmlFor={`cfg-${field.name}`}>
-                {field.label}
-              </label>
-              <input
-                id={`cfg-${field.name}`}
-                className={FIELD}
-                value={config[field.name] ?? ""}
-                onChange={(e) => setConfig({ ...config, [field.name]: e.target.value })}
-                placeholder="Paste the new value to replace what is stored"
-              />
-              {field.help ? <p className="mt-1 text-xs text-muted-foreground">{field.help}</p> : null}
-            </div>
-          ))}
-          <button
-            type="button"
-            className={`${BTN} border border-border text-foreground`}
-            onClick={() => act("configure", { providerConfig: config })}
-            disabled={Boolean(busy)}
-          >
-            {busy === "configure" ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
-            Save source settings
-          </button>
+
+          {source.registered && !source.unavailable && (source.configFields || []).length ? (
+            <>
+              <p className="text-xs text-muted-foreground break-words">
+                Currently: {source.config?.summary || "not set"}
+              </p>
+              {(source.config?.problems || []).map((p) => (
+                <p key={p} className="text-xs text-amber-900 dark:text-amber-200 break-words">
+                  {p}
+                </p>
+              ))}
+              {source.configFields.map((field) => (
+                <div key={field.name}>
+                  <label
+                    className="block text-sm font-medium text-foreground mb-1"
+                    htmlFor={`cfg-${source.key}-${field.name}`}
+                  >
+                    {field.label}
+                  </label>
+                  <input
+                    id={`cfg-${source.key}-${field.name}`}
+                    className={FIELD}
+                    value={configs[source.key]?.[field.name] ?? ""}
+                    onChange={(e) =>
+                      setConfigs({
+                        ...configs,
+                        [source.key]: { ...(configs[source.key] || {}), [field.name]: e.target.value },
+                      })
+                    }
+                    placeholder="Paste the new value to replace what is stored"
+                  />
+                  {field.help ? <p className="mt-1 text-xs text-muted-foreground">{field.help}</p> : null}
+                </div>
+              ))}
+              <button
+                type="button"
+                className={`${BTN} border border-border text-foreground`}
+                onClick={() =>
+                  act("configure", { sourceKey: source.key, providerConfig: configs[source.key] || {} })
+                }
+                disabled={Boolean(busy)}
+              >
+                {busy === "configure" ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+                Save {source.label} settings
+              </button>
+            </>
+          ) : null}
         </section>
-      ) : null}
+      ))}
 
       {/* ── The funnel ─────────────────────────────────────────────────── */}
       <section className="rounded-xl border border-border bg-card p-4 space-y-3">
@@ -310,9 +377,11 @@ export default function PlatformSalesCampaignPage({ params }) {
         ) : null}
         {data.flaggedDuplicates ? (
           <p className="text-xs text-muted-foreground">
-            {data.flaggedDuplicates} prospect{data.flaggedDuplicates === 1 ? " is" : "s are"} flagged as a
-            possible duplicate. They are kept and workable — merging destroys provenance, and a wrong merge
-            cannot be undone.
+            {data.flaggedDuplicates} prospect{data.flaggedDuplicates === 1 ? " is" : "s are"} flagged as
+            possibly the same business as another row — which is the common case when a campaign draws from
+            more than one source, because a source record id cannot match across two sources and the match
+            falls to phone, domain or name-and-town. They are kept and workable: merging destroys provenance,
+            a wrong merge cannot be undone, and that fuzzy match is wrong about half the time it fires.
           </p>
         ) : null}
       </section>
