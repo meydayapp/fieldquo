@@ -84,6 +84,7 @@ import {
   readSnapshot,
 } from "@/lib/sales/discovery/rbq/snapshot";
 import { NO_TRADE_REFUSAL, __clearRbqSnapshotCache, parseCursor, rbqProvider } from "@/lib/sales/discovery/rbq/provider";
+import { claimCandidateWhere } from "@/lib/sales/prospectView";
 import { getDiscoveryProvider } from "@/lib/sales/discovery/providers";
 import { shapeProblems } from "@/lib/sales/discovery/provider";
 import { tradeForCategories, duplicateSourceCategories } from "@/lib/sales/discovery/trades";
@@ -645,14 +646,23 @@ section("The consequence of an unset trade is counted, not hidden");
   );
   const { plans, counters } = planIngest([business], { provider: "rbq", release: "2026-09-03", tradeKey: null }, null);
 
-  // This is the finding the report turns on, asserted so it cannot regress
-  // into a silent zero: an RBQ row is COUNTED as unmapped and skipped, and the
-  // campaign funnel therefore shows found === unmapped and accepted === 0.
+  // INVERTED 2026-09-03. The old version asserted `action === "skip"` and "no
+  // prospect is written", which was true of the ingest as it stood and is the
+  // exact behaviour that made this source unusable. What is asserted now is
+  // the pair that has to hold TOGETHER, because either half alone is a bug:
+  // the row is WRITTEN (or the register is worthless), and it is written with
+  // NO TRADE and not counted as accepted (or a Quebec licence-holder lands in
+  // a painting queue on the strength of an authorisation code).
   ok("an RBQ business is counted as found", counters.foundCount === 1);
   ok("...and as unmapped, because it has no trade", counters.unmappedCount === 1);
-  ok("...and is skipped for that stated reason", plans[0].action === "skip" && plans[0].reason === "no_trade",
+  ok("...and is written to the bank rather than thrown away", plans[0].action === "insert",
     JSON.stringify([plans[0].action, plans[0].reason]));
-  ok("...and no prospect is written", counters.acceptedCount === 0 && counters.needsReviewCount === 0);
+  ok("...with tradeKey null — never inferred from an authorisation code",
+    plans[0].row.tradeKey === null);
+  ok("...and counted as banked rather than accepted",
+    counters.bankedCount === 1 && counters.acceptedCount === 0 && counters.needsReviewCount === 0);
+  ok("...so it can reach no rep's queue: claimCandidateWhere needs an exact trade key",
+    claimCandidateWhere({ tradeKey: plans[0].row.tradeKey }).tradeKey === "__none__");
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

@@ -704,8 +704,19 @@ section("A page of hostile rows: the outcomes AND the counters, together");
   ok("...and it is flagged via the phone, the strongest deterministic key it shares",
     byId("r5").duplicateVia === "phone");
   ok("the null operating_status is stored as null", byId("r6").row.businessStatus === null);
-  ok("the unmapped category is counted and skipped, never guessed into a trade",
-    byId("r7").action === "skip" && byId("r7").reason === "no_trade");
+  // INVERTED 2026-09-03, when the bank and the queue stopped being one
+  // condition. The old assertion here read `action === "skip"`, which encoded
+  // the behaviour the RBQ register made untenable: a row whose category maps
+  // to no trade was thrown away entirely. It is now WRITTEN with a null trade
+  // — and the half that must never change is asserted beside it, because that
+  // is the half a rep feels: no trade key, so claimCandidateWhere() can never
+  // hand it to anybody, and not counted as accepted.
+  ok("the unmapped category is written to the bank rather than thrown away",
+    byId("r7").action === "insert");
+  ok("...with NO trade — never guessed into the nearest one",
+    byId("r7").row.tradeKey === null);
+  ok("...and it is not counted as accepted, so it cannot fill a campaign's target",
+    counters.bankedCount === 1);
   ok("the markup name is cleaned before storage",
     byId("r8").row.businessName === "Markup & Sons Painting");
   ok("a different trade is skipped so the queue stays single-trade",

@@ -4,8 +4,8 @@ The single place that says what is done, what is moving, and what is waiting.
 Updated whenever something lands. If this file disagrees with a memory or a
 summary, this file wins.
 
-Last updated: 2026-09-02, after the sales rep console and the first sales
-dashboard shipped.
+Last updated: 2026-09-03, after trade inference from a prospect's own website
+and the bank/queue split in the discovery ingest.
 
 ---
 
@@ -174,6 +174,91 @@ Ottawa" almost exactly.
 there is no screen to rename or re-draw one — stated on the page rather than
 hinted at with a control that would fail. The other seven pipeline stages are
 somebody else's work.
+
+### Trade inference, and the bank/queue split · BUILT 2026-09-03
+
+`scripts/check-trade-inference.mjs` — 154 assertions, 35 mutations tested, all
+35 caught — is in `check:all`.
+
+**Two things that were one condition are now two.** `planIngest` used to skip a
+business whose category mapped to no FieldQuo trade. Its comment defended that
+correctly and was defending the wrong scope: "a single-trade queue is the whole
+point of the campaign, and one roofer in a painting queue is what makes a rep
+stop trusting it" is a statement about what a rep may be HANDED, not about what
+FieldQuo may KNOW. A trade-less business is now WRITTEN, with `tradeKey: null`,
+at `status: discovered` — the bank. It reaches no rep because
+`claimCandidateWhere()` filters on an exact trade key and substitutes
+`__none__` when handed nothing. The check proves BOTH halves, because either
+alone is a bug. A business mapping to a DIFFERENT trade is still skipped
+outright and that was deliberately not touched.
+
+**`ProspectCampaign.bankedCount` is new and is a SUBSET of `unmappedCount`**,
+not a stage. `found = unmapped + duplicates + rejected + needsReview +
+accepted` is unchanged, and `campaignProgress` still measures a target against
+`acceptedCount` — otherwise a campaign for 1,000 painters would report itself
+finished having produced no painter. The funnel line reads "Kept without a
+trade", because "the trade map has a gap and we kept 54,000 licence-holders"
+and "we threw 54,000 rows away" are different outcomes that one number cannot
+tell apart.
+
+**`lib/sales/intel/tradeDetect.js` reads the trade off the business's own
+site**, inside `ANALYZE_CAPABILITIES` and therefore on the `local` lane. No
+model is called: a title, a schema.org `@type`, a service-page URL and a nav
+label are what §58 means by deterministic.
+
+- **Three-valued, and the scale is not invented here.** It falls out of
+  `confidence.js`: confirmed ⇔ `verifying === true || sampleSize >= 2`, weak ⇔
+  one soft signal (its own `single_soft_signal` reason), unknown ⇔ nothing.
+  `usable()` already dedupes by signal name, so nine nav links saying "Roofing"
+  are one `detection.link`.
+- **Prose can never manufacture a trade.** The DECISION is computed from
+  structural signals only — schema.org, title/meta, URL, nav label. A roofer's
+  page saying "we also do siding" produces a roofing candidate and no siding
+  one. Body text is recorded and raises the reported confidence of a trade
+  already established; it can neither create a candidate nor break a tie.
+- **Multi-trade resolves by MARGIN, and a tie is a named state.** The leader
+  takes the prospect only if it beats the runner-up on the strongest evidence
+  class present. A tie writes `ProspectInference { kind: "trade", value:
+  "MULTI_TRADE" }` and NO `tradeKey`. Stated cost: a genuine roofing-and-siding
+  firm giving both equal billing stays out of both queues.
+- **`Prospect.tradeKey` is FILLED, never overwritten**, guarded on the value
+  read (`updateMany where tradeKey: null`). Changing it would move a prospect
+  between queues, possibly out from under the rep holding it. A site that
+  disagrees with the directory is reported in the task note and left alone.
+- **French is not optional.** The source that motivated this is Quebec's. A
+  Montreal roofer's site says *couvreur* and *toiture* and never says
+  "roofing"; accents are folded on both sides.
+- **Only eight schema.org types exist for this**, and they are every subtype
+  schema.org publishes under `HomeAndConstructionBusiness`. `MovingCompany` is
+  the ninth and is deliberately absent — FieldQuo sells no moving trade.
+  Nothing was invented: a hand-typed `SidingContractor` would match zero pages
+  for ever, which is trades.js's recorded failure arriving in a new file.
+- **The supplier veto is NARROW, on classify.js's measured lesson.** Only a
+  schema.org Store subtype or a distributor word in the site's own title
+  decides. A shopping cart does NOT, because a fence company that sells panels
+  online is exactly the contractor classify.js's 73% first version threw away.
+
+**Measured on a 15-site sample: 10 resolved, 5 deliberately did not** — a paint
+distributor, an equal-billing roofing-and-siding firm, a generic "Groupe
+Bertrand inc." with no trade word in its structure, a site with one structural
+signal only, and a site that would not load.
+
+**RBQ is still `ok: false`, and the refusal now says something true.** Half its
+old premise died with this change (rows are no longer skipped). The half that
+did not: **the register carries no website column at all** — `licence.js` ships
+`websites: []` — so `routeAfterEnrich` sends every RBQ prospect straight past
+the crawler and the detector never gets a page to read. Starting an RBQ
+campaign today would bank 54,264 licences that nothing built here can ever make
+callable. **That is an open product decision and was NOT taken:** the register
+carries an email on 87.0% of licences, and a registrable domain derived from
+`Courriel` minus the free-mail providers would give the crawler something to
+fetch — but a wrong domain puts a rep on a call opening with the wrong trade,
+so it needs the owner's yes and its own measurement.
+
+**Two checks were proving the wrong behaviour and were inverted**, the fifth
+and sixth time in this project. `check-sales-discovery.mjs` asserted the
+unmapped row was skipped; `check-rbq-provider.mjs` asserted an RBQ business was
+skipped and "no prospect is written". Both encoded the bug.
 
 ### The mobile check, and what it honestly proves
 

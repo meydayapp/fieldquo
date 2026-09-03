@@ -9115,6 +9115,19 @@ model ProspectCampaign {
   /// no name or id. Reported so a gap in the trade map shows up as a number
   /// instead of as a quietly smaller campaign.
   unmappedCount   Int @default(0)
+  /// A SUBSET of `unmappedCount`: the rows whose category mapped to no trade
+  /// and which were written to the bank anyway, with `Prospect.tradeKey` null.
+  ///
+  /// Not part of the funnel's arithmetic — `found` still equals unmapped +
+  /// duplicates + rejected + needsReview + accepted — because these rows were
+  /// already counted as dropped from THIS campaign's queue. They are counted
+  /// separately because "the trade map has a gap and we kept 54,000 licence
+  /// holders" and "we threw 54,000 rows away" are different outcomes that
+  /// `unmappedCount` alone cannot distinguish. A banked row is not callable:
+  /// claimCandidateWhere() filters on an exact trade key, so nothing with a
+  /// null one reaches a rep until lib/sales/intel/tradeDetect.js establishes
+  /// a trade from the business's own website.
+  bankedCount     Int @default(0)
 
   startedAt   DateTime?
   completedAt DateTime?
