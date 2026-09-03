@@ -1,0 +1,207 @@
+// lib/sales/playbook/schema.pending.prisma
+//
+// NOT READ BY PRISMA. Prisma reads prisma/schema.prisma and nothing else; this
+// file is a parking space, and lib/sales/playbook/store.js points at it in the
+// message it shows when the tables are absent.
+//
+// Paste these five models into prisma/schema.prisma — beside the other sales
+// intelligence models, after `OpportunityRule` — then:
+//
+//     npx prisma validate && npx prisma db push && npx prisma generate
+//
+// Nothing else has to change. store.js probes the generated client for the
+// delegates, so every write control in the console appears on its own the
+// moment they exist.
+//
+// They are not in the schema already because it was being edited concurrently
+// by other work when this was built, and a third simultaneous edit is how the
+// merges went wrong earlier in the day (STATUS.md, "Blocked, not forgotten").
+
+/// One conversation shape, selected DETERMINISTICALLY.
+///
+/// `selectorKey` is a key of SELECTOR_KEYS in lib/sales/playbook/selectors.js —
+/// a closed vocabulary, not free text. That is what makes §58 enforceable
+/// rather than aspirational: a rep asking "why am I saying this?" gets a rule
+/// key and the observations it read, and a selector nothing implements is
+/// refused at write time instead of becoming a playbook that never opens.
+///
+/// `stages` is [{ stageKey, say, prompts[] }] over the nine fixed stages in
+/// lib/sales/playbook/stages.js. Deliberately JSON rather than a child table:
+/// nothing queries a stage, the nine always travel together, and a child table
+/// would make "the playbook a rep read" a join that can come back partial.
+model SalesPlaybook {
+  id   String @id @default(cuid())
+  key  String @unique
+  name String
+
+  /// Closed vocabulary — see selectors.js. Never free text.
+  selectorKey String
+
+  /// Higher opens first. Ties break on `key`, so the answer does not depend on
+  /// the order Postgres returned the rows in.
+  priority Int @default(0)
+
+  stages Json
+
+  active  Boolean @default(true)
+  /// Bumped when an edit changes what the playbook SAYS or when it opens.
+  /// Renaming it does not bump. Same rule as OpportunityRule.version.
+  version String  @default("1")
+
+  createdByAdminId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  experiments SalesPlaybookExperiment[]
+
+  @@index([active, priority])
+}
+
+/// What to say when they push back. Configurable data, never generated.
+///
+/// `contextSelectorKey` is optional and, when set, is the same closed selector
+/// vocabulary: it attaches THIS prospect's observations to the response when
+/// it matches. A null context means the response is the general answer — it is
+/// still shown, because hiding the answer to the commonest objection for want
+/// of evidence hides it exactly when a rep needs it.
+model SalesObjection {
+  code  String @id
+  label String
+
+  /// The words a prospect actually says. Matched as lower-cased substrings —
+  /// no stemming: a near-match opens the wrong answer and the rep reads it out.
+  cues String[] @default([])
+
+  response String
+
+  contextSelectorKey String?
+
+  priority Int     @default(0)
+  active   Boolean @default(true)
+  version  String  @default("1")
+
+  createdByAdminId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([active, priority])
+}
+
+/// An A/B test over one playbook's wording. §38.
+///
+/// `hypothesis` is REQUIRED and that is the point: written down before the
+/// test runs, so whatever the numbers do afterwards cannot be read as though
+/// it had been predicted.
+///
+/// There is no `winnerVariantKey` column and there must not be one. §39 forbids
+/// declaring a winner without the sample, and a column for a verdict is how a
+/// verdict gets recorded early — see summariseExperiment, which returns counts
+/// and a permanent "no winner is declared here".
+model SalesPlaybookExperiment {
+  id  String @id @default(cuid())
+  key String @unique
+
+  name       String
+  hypothesis String
+
+  playbookKey String
+  playbook    SalesPlaybook @relation(fields: [playbookKey], references: [key], onDelete: Cascade)
+
+  /// [{ key, label, weight, stages: [{ stageKey, say, prompts }] }]
+  /// A variant may only OVERRIDE one of the nine stages. It cannot add or
+  /// remove one: two variants that do not cover the same nine stages are not
+  /// comparable, which is the one thing an experiment needs them to be.
+  variants Json
+
+  active    Boolean   @default(false)
+  startedAt DateTime?
+  stoppedAt DateTime?
+
+  createdByAdminId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  assignments SalesPlaybookAssignment[]
+
+  @@index([active, playbookKey])
+}
+
+/// Which arm one prospect is in. Written BEFORE the call — §38.
+///
+/// `assignedBy` is stored and is always "system" today. It exists so that if
+/// a manual override is ever added it has to be RECORDED as one rather than
+/// becoming indistinguishable from a system assignment, which would make every
+/// historical result unreadable.
+///
+/// The row is never recomputed. Editing the weights must not move prospects
+/// between arms retroactively — a stored assignment is a fact about what a rep
+/// actually read out.
+model SalesPlaybookAssignment {
+  id String @id @default(cuid())
+
+  experimentId String
+  experiment   SalesPlaybookExperiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+
+  prospectId String
+  prospect   Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  variantKey String
+  /// The hash bucket the assignment came out of, kept so an assignment can be
+  /// re-derived and checked rather than taken on trust.
+  bucket     Int?
+
+  /// Who was looking at it when it was assigned. NOT who chose it — nobody
+  /// chooses it.
+  salesRepId String?
+  assignedBy String  @default("system")
+  assignedAt DateTime @default(now())
+
+  @@unique([experimentId, prospectId])
+  @@index([experimentId, variantKey])
+}
+
+/// One evidence-cited sentence a rep says about one prospect.
+///
+/// `capabilityCode` is the chain: it names a ProspectOpportunity for the same
+/// prospect, which carries a foreign key to FieldQuoCapability and a non-empty
+/// evidenceIds. lib/sales/playbook/talkingPoints.js refuses to produce a row
+/// whose chain is broken, so a claim with nothing behind it cannot be stored.
+///
+/// `source` is "ai" or "rule". Kept because the two are answerable for in
+/// different ways: a rule sentence is a superadmin's words, an AI sentence is a
+/// rephrasing of them, and a complaint about one is not a complaint about the
+/// other.
+model ProspectTalkingPoint {
+  id String @id @default(cuid())
+
+  prospectId String
+  prospect   Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  playbookKey String
+  stageKey    String
+
+  capabilityCode String
+  text           String
+
+  /// "ai" | "rule"
+  source String @default("rule")
+  /// The model that wrote it, when one did. Null for a rule sentence.
+  model  String?
+
+  /// Copied from the opportunity at generation time, so the point stays
+  /// explainable after the rule that produced it is edited.
+  evidenceIds String[] @default([])
+  ruleCode    String?
+  ruleVersion String?
+
+  generatedAt DateTime @default(now())
+
+  @@index([prospectId, playbookKey])
+}
+
+// ── One line to add to two existing models ─────────────────────────────────
+//
+// Prisma needs the opposite side of each relation. On `model Prospect`:
+//
+//     playbookAssignments SalesPlaybookAssignment[]
+//     talkingPoints       ProspectTalkingPoint[]
