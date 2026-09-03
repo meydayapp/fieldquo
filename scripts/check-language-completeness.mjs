@@ -69,26 +69,6 @@ const CATALOGUE_ONLY = {
     tablesComplete: false,
     why: "no CJK font is registered in lib/documents/pdfFont.js, so a Chinese quote PDF would render as mojibake",
   },
-  // de and it are held back for a DIFFERENT reason from zh, and the difference
-  // matters: their script renders fine — Noto Sans covers German umlauts and
-  // Italian accents, and check:pdf-fonts now draws all 46 labels of both and
-  // reads them back off the page.
-  //
-  // The document furniture that was missing is no longer missing. All four
-  // tables below carry complete German and Italian blocks, key-for-key with
-  // English, and the parity assertions further down prove it on every run
-  // rather than on somebody's say-so. What remains is one line each in
-  // app/i18n/languages.js — the deliberate last step, and the product owner's
-  // to take, because `LANGUAGES` is what puts a language in front of a
-  // customer. Delete these two entries in the same commit that adds them.
-  de: {
-    tablesComplete: true,
-    why: "the four document tables are complete and verified; adding \"de\" to LANGUAGES is the last step and is the owner's call, not a gap",
-  },
-  it: {
-    tablesComplete: true,
-    why: "the four document tables are complete and verified; adding \"it\" to LANGUAGES is the last step and is the owner's call, not a gap",
-  },
 };
 
 // Offered, plus anything held back that claims its tables are done.

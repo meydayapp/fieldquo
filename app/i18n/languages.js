@@ -31,6 +31,8 @@ export const LANGUAGES = [
   { code: "uk", label: "УК", name: "Ukrainian", nativeName: "Українська", dir: "ltr" },
   { code: "pa", label: "ਪਾ", name: "Punjabi", nativeName: "ਪੰਜਾਬੀ", dir: "ltr" },
   { code: "tl", label: "TL", name: "Tagalog", nativeName: "Tagalog", dir: "ltr" },
+  { code: "de", label: "DE", name: "German", nativeName: "Deutsch", dir: "ltr" },
+  { code: "it", label: "IT", name: "Italian", nativeName: "Italiano", dir: "ltr" },
 ];
 
 export const LANGUAGE_CODES = LANGUAGES.map((l) => l.code);
