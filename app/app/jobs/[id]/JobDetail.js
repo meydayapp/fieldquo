@@ -29,6 +29,8 @@ import { visitStatusLabel } from "@/lib/jobs/visitStatus";
 import { isVisitOutsideJobRange } from "@/lib/jobs/visitInRange";
 import { callbackReasonLabel } from "@/lib/jobs/callbackReasons";
 import ChangeOrders from "@/app/components/jobs/ChangeOrders";
+import JobDocuments from "@/app/components/jobs/JobDocuments";
+import DailyLog from "@/app/components/jobs/DailyLog";
 import {
   ArrowLeft,
   Pencil,
@@ -560,6 +562,18 @@ export default function JobDetail({ jobId }) {
           notes" — and because they answer the two halves of the same question
           somebody asks in the van. */}
       <JobTasks jobId={job.id} />
+
+      {/* The paperwork — plans, permits, warranties. Sits with the buy list
+          and the to-dos because it answers the third thing asked in the van:
+          what does the drawing say. A revision never overwrites its
+          predecessor; see the component's own header. */}
+      <JobDocuments jobId={job.id} />
+
+      {/* What actually happened, one row per day. Above Visits deliberately:
+          a visit is what was PLANNED for a day and this is what came of it,
+          and the audit found the two had never met — JobVisit.notes is a
+          pre-visit brief nothing ever sends. */}
+      <DailyLog jobId={job.id} />
 
       <div
         data-tour="job-visits"

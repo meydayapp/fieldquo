@@ -92,13 +92,53 @@ models. These need columns, so they wait for one hand-written schema pass.
 | # | Item | Needs |
 |---|---|---|
 | 7 | **Site address on Job/JobVisit** | The prerequisite for routing, arrival detection and client-site equipment. Nothing geographic is buildable without it. |
-| 8 | Document management | Absent entirely. `lib/documents/` is PDF rendering. |
+| 8 | ~~Document management~~ | **SHIPPED 2026-09-02.** `JobDocument`, `lib/jobs/documents.js`, `app/api/jobs/[id]/documents`, `JobDocuments.js` on the job page. Upload through the existing `/api/upload`; a revision supersedes rather than overwrites; contracts and invoices withheld from anyone without `showPricing`. No delete anywhere. `npm run check:daily-log`. |
 | 9 | Client-site equipment + warranty history | No warranty period exists anywhere in the product. |
 | 10 | Stock, purchase orders, suppliers | `Material.reorderThreshold` is written and never read. Clusters with #6. |
-| 11 | Daily logs | ~80% of the ingredients exist. Cheapest win: `JobVisit.notes` has a write path and a renderer and nothing sends it. |
+| 11 | ~~Daily logs~~ | **SHIPPED 2026-09-02.** `JobDailyLog`, `lib/jobs/dailyLog.js`, `app/api/jobs/[id]/daily-logs`, `DailyLog.js` on the job page. One row per job per day enforced by the unique index; the day is a calendar day the browser names, so filing yesterday at 6am lands on yesterday; autosave behind the stale-write guard; the day opens seeded from its photos and finished to-dos. `JobVisit.notes` is still a pre-visit brief with no caller — deliberately left alone rather than repurposed. |
 | 12 | Fleet | A vehicle is an `Asset` with `category: "vehicle"`. No VIN, odometer or maintenance. |
 | 13 | `Subscription.billingStartedAt` | The honest fix for trial state — see `docs/sales-intel/STATUS.md`. |
-| 14 | BlockNote editor → JSON → Postgres, autosave | Decided 2026-09-02: no realtime, $0/mo. Pairs with the stale-write guard — autosave without a conflict check is a faster way to overwrite a colleague. |
+| 14 | BlockNote editor → JSON → Postgres, autosave | **HALF SHIPPED, and the missing half is the editor.** JSON → Postgres and autosave-behind-the-guard are done (item 11). BlockNote is NOT installed — see below. A textarea ships in its place, writing real BlockNote JSON. |
+
+#### BlockNote could not be installed — the registry, not the code (2026-09-02)
+
+Checked before installing, as the brief asked. Both facts the brief stated are
+TRUE of `@blocknote/core@0.54.0`: `yjs` is an optional peer, and
+`@blocknote/shadcn` targets `@base-ui/react`. The package still does not
+install:
+
+```
+npm error Could not resolve dependency:
+npm error peerOptional @y/y@"^14.0.0-rc.23" from @blocknote/core@0.54.0
+```
+
+`@y/y`'s `latest` dist-tag is **14.0.0-rc.7**, which does not satisfy the
+`^14.0.0-rc.23` range BlockNote asks for. npm resolves an optional peer against
+`latest`, finds nothing usable, and fails the whole tree — so `npm install`
+ERESOLVEs on a clean checkout. Two ways round it, both rejected:
+
+- `overrides: { "@y/y": "14.0.0-rc.24" }` — verified to work (56 packages, no
+  yjs installed at all). It pins a **prerelease of a CRDT library this product
+  deliberately does not use**, in the file every other dependency resolves
+  through, to work around a vendor's mis-set dist-tag. Nobody will remember why
+  in three months.
+- `--legacy-peer-deps` — changes resolution for **every** package in the repo,
+  and would have to be set on Vercel too.
+
+The last version that installs unaided is **0.51.4**, and it is worse: `yjs`,
+`y-prosemirror`, `y-protocols` and `lib0` are hard dependencies there (the
+realtime stack `AUDIT-realtime-hosting.md` costed and rejected), and its
+`@blocknote/shadcn` is the **Radix** build, which this codebase does not use.
+It also drags a second `lucide-react` (0.525 against our 1.23) and a second
+`tailwind-merge` (2.x against our 3.x).
+
+**What ships instead:** a textarea. What is NOT given up is the storage format —
+`lib/jobs/dailyLog.js`'s `textToBody()` writes genuine BlockNote paragraph JSON
+into `JobDailyLog.body` and `bodyToText()` reads it back (including nested
+children and inline links, so a real BlockNote document round-trips today). The
+column holds what the schema says it holds, and dropping the editor in later is
+a change to `DailyLogEditor.js` with **no data migration**. Re-try when `@y/y`
+publishes a `latest` that satisfies its own consumers.
 
 ### Waiting on the owner
 
