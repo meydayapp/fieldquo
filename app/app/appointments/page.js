@@ -325,7 +325,7 @@ export default function AppointmentsPage() {
             <button
               key={s}
               onClick={() => setFilter(s)}
-              className={`shrink-0 rounded-full px-3 py-1.5 text-sm border ${
+              className={`shrink-0 inline-flex items-center min-h-[44px] rounded-full px-4 text-sm border ${
                 filter === s
                   ? "bg-inverted text-inverted-foreground border-inverted"
                   : "border-border"
@@ -371,7 +371,7 @@ export default function AppointmentsPage() {
                 const now = new Date();
                 setMonthAnchor(new Date(now.getFullYear(), now.getMonth(), 1));
               }}
-              className="px-2.5 py-1.5 rounded-lg border border-border text-xs font-medium hover:bg-muted"
+              className="inline-flex items-center min-h-[44px] px-3 rounded-lg border border-border text-xs font-medium hover:bg-muted"
             >
               {t("app.time.today")}
             </button>
@@ -514,7 +514,7 @@ export default function AppointmentsPage() {
           </span>
           <button
             onClick={() => setSelectedDay("")}
-            className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+            className="inline-flex items-center gap-1 min-h-[44px] px-2 -mx-2 text-muted-foreground hover:text-foreground"
           >
             <X size={13} /> {t("app.action.clear")}
           </button>
@@ -629,7 +629,7 @@ export default function AppointmentsPage() {
                   // over details that are already on screen is a small version
                   // of the same lie as a button that doesn't do the thing.
                   title={isOpen ? undefined : t("app.appts.toggleDetails")}
-                  className="w-full text-left rounded focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="w-full min-h-[44px] text-left rounded focus:outline-none focus:ring-2 focus:ring-ring"
                 >
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-medium truncate">
@@ -770,7 +770,7 @@ export default function AppointmentsPage() {
                   {appt.jobId && (
                     <Link
                       href={`/app/jobs/${appt.jobId}`}
-                      className="text-sm font-medium underline underline-offset-2 shrink-0"
+                      className="inline-flex items-center min-h-[44px] text-sm font-medium underline underline-offset-2 shrink-0"
                     >
                       {t("app.appts.openJob")}
                     </Link>
@@ -819,7 +819,7 @@ export default function AppointmentsPage() {
                   <button
                     type="button"
                     onClick={() => assign(appt.id, myUserId)}
-                    className="text-sm font-medium underline underline-offset-2 shrink-0"
+                    className="inline-flex items-center min-h-[44px] text-sm font-medium underline underline-offset-2 shrink-0"
                   >
                     {t("app.appts.assignToMe", "Assign to me")}
                   </button>
@@ -1135,7 +1135,11 @@ function NewAppointmentModal({ members, onClose, onCreated }) {
       <div className="bg-card rounded-t-2xl sm:rounded-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold">New Appointment</h2>
-          <button onClick={onClose} className="text-muted-foreground">
+          <button
+            onClick={onClose}
+            aria-label={t("app.action.close", "Close")}
+            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] -mr-2 text-muted-foreground"
+          >
             <X size={18} />
           </button>
         </div>

@@ -32,6 +32,7 @@
 
 import { formatAppMoney } from "@/lib/format/money";
 import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
+import { AnswerSwitch, VoiceStatusBar } from "./AnswerSwitch";
 // The SAME builder that writes the snapshot into the database when the box is
 // ticked. Importable here only because it has no server imports at all —
 // lib/voice/credits.js, where the thresholds live, reaches Prisma, so the
@@ -900,6 +901,21 @@ export default function VoiceSettingsPage() {
           {t("app.setVoice.subtitle", "Answers the calls you can't, takes the details, and books visits against your real availability. It never quotes a price.")}
         </p>
       </div>
+
+      {/* Summary before detail. The seven numbered cards below are the order
+          for SETTING THIS UP; they are the wrong order for every visit after
+          that, when the only question is whether an AI is currently picking up
+          the business line. Same control as step 4, not a copy — see
+          AnswerSwitch. */}
+      <VoiceStatusBar
+        enabled={Boolean(agent?.enabled)}
+        canEnable={canEnable}
+        number={number}
+        readyMessage={readyMessage}
+        busy={busy}
+        t={t}
+        onToggle={() => save({ enabled: !agent?.enabled })}
+      />
 
       {/* Honest about the deployment rather than failing mysteriously when
           someone presses a button. */}
@@ -1826,19 +1842,13 @@ export default function VoiceSettingsPage() {
             : readyMessage
         }
       >
-        <button
-          type="button"
-          disabled={busy || (!agent?.enabled && !canEnable)}
-          onClick={() => save({ enabled: !agent?.enabled })}
-          className={`inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold disabled:opacity-40 ${
-            agent?.enabled
-              ? "bg-emerald-600 text-white"
-              : "bg-inverted text-inverted-foreground"
-          }`}
-        >
-          {busy ? <Loader2 size={16} className="animate-spin" /> : <Headset size={16} />}
-          {agent?.enabled ? t("app.setVoice.answerOn", "It's answering — turn off") : t("app.setVoice.answerOff", "Start answering calls")}
-        </button>
+        <AnswerSwitch
+          enabled={Boolean(agent?.enabled)}
+          canEnable={canEnable}
+          busy={busy}
+          t={t}
+          onToggle={() => save({ enabled: !agent?.enabled })}
+        />
         <BlockedReason show={!agent?.enabled && !canEnable} message={readyMessage} />
 
         {/* ── What a caller gets when this is off ─────────────────────────

@@ -214,6 +214,10 @@ const STRICT_FILES = [
   "app/app/jobs/[id]/edit/page.js",
   "app/app/jobs/[id]/visits/new/page.js",
   "app/app/schedule/page.js",
+  // Six targets under 36px on a screen that already had 44px month arrows
+  // nine lines above 32px filter chips — the same file disagreeing with
+  // itself. Fixed, then listed, which is the way this list is meant to grow.
+  "app/app/appointments/page.js",
   "app/app/quotes/page.js",
   "app/app/quotes/new/page.js",
   "app/app/quotes/[id]/page.js",
