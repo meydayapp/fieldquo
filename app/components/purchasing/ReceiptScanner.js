@@ -137,6 +137,12 @@ export default function ReceiptScanner({ materialId, draft, onApply, onClose }) 
               {scan.receipt.transactionDate ? ` · ${scan.receipt.transactionDate}` : ""}
             </p>
           )}
+          {/* Rendered, not merely extracted. A field a schema collects and no
+              screen shows is failure class #1, and a schema is the easiest
+              place in this codebase to grow one. */}
+          {scan.receipt.summary && (
+            <p className="text-xs text-muted-foreground">{scan.receipt.summary}</p>
+          )}
 
           <ul className="divide-y divide-border rounded border border-border">
             {rec.lines.map((line) => (
@@ -218,6 +224,38 @@ export default function ReceiptScanner({ materialId, draft, onApply, onClose }) 
           {rec.verdict === "agrees" && (
             <p className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400">
               <Check size={13} /> {t("app.receipt.agrees")}
+            </p>
+          )}
+
+          {/* The rest of the field list, shown rather than merely collected.
+              Every one of these is on the paper and none of them is money, so
+              they sit under the figures instead of competing with them. */}
+          {(scan.receipt.receiptNumber ||
+            scan.receipt.paymentMethod ||
+            scan.receipt.currencyCode ||
+            scan.receipt.merchantAddress ||
+            scan.receipt.merchantContact) && (
+            <p className="text-xs text-muted-foreground">
+              {[
+                scan.receipt.receiptNumber,
+                scan.receipt.paymentMethod,
+                scan.receipt.currencyCode,
+                scan.receipt.merchantAddress,
+                scan.receipt.merchantContact,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          )}
+
+          {/* What the photo did not show clearly enough to read. Named, so a
+              second photo can be aimed at the part that was missing rather
+              than taken again at random. */}
+          {scan.receipt.unreadable.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {t("app.receipt.couldNotRead", {
+                fields: scan.receipt.unreadable.join(", "),
+              })}
             </p>
           )}
 

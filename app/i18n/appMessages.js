@@ -5429,6 +5429,7 @@ const en = {
   "app.receipt.noPrintedTotal":
     "No total could be read on this receipt. Nothing has been added up in its place.",
   "app.receipt.agrees": "The lines match the printed total.",
+  "app.receipt.couldNotRead": "Couldn't read from the photo: {fields}. A second photo aimed at that part usually gets it.",
   "app.receipt.kept":
     "Kept what you already entered for {fields}. The receipt's figure is shown above if you want to use it instead.",
   "app.receipt.field.actualCost": "cost",
@@ -10648,6 +10649,7 @@ const fr = {
   "app.receipt.noPrintedTotal":
     "Aucun total n'a pu être lu sur ce reçu. Rien n'a été calculé à sa place.",
   "app.receipt.agrees": "Les lignes correspondent au total imprimé.",
+  "app.receipt.couldNotRead": "Impossible de lire sur la photo : {fields}. Une deuxième photo cadrée sur cette partie suffit en général.",
   "app.receipt.kept":
     "Ce que vous aviez déjà saisi pour {fields} a été conservé. Le montant du reçu est affiché plus haut si vous préférez l'utiliser.",
   "app.receipt.field.actualCost": "le coût",

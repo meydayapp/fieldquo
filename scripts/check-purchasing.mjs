@@ -508,6 +508,28 @@ function numericFields(node, path = "", found = []) {
 const numeric = numericFields(RECEIPT_SCHEMA);
 ok("the schema declares NO numeric field anywhere", numeric.length === 0, numeric.join(", "));
 
+// ── Every extracted field is READ somewhere ─────────────────────────────
+//
+// A schema is the cheapest place in this codebase to grow a field that never
+// reaches a screen — AGENTS.md failure class #1, and this one is easier to
+// commit than most because the field arrives well-formed and looks finished.
+// Five fields did exactly that on the first pass (merchantAddress,
+// merchantContact, receiptNumber, paymentMethod, currencyCode) and
+// `fileDisplayName` was removed outright, because nothing stores the receipt
+// image and a display name for a file nobody keeps has nowhere to go.
+const readers = [
+  read("app/components/purchasing/ReceiptScanner.js"),
+  read("app/api/receipts/scan/route.js"),
+  read("lib/receipts/reconcile.js"),
+].join("\n");
+const unread = Object.keys(RECEIPT_SCHEMA.properties).filter((key) => !readers.includes(key));
+ok("every field the schema collects is read by something", unread.length === 0, unread.join(", "));
+// ...and the canned demo receipt is the same shape, so a field added to one
+// and not the other shows up here rather than as a blank line in a demo.
+const demoKeys = Object.keys(simulatedExtraction()).sort().join(",");
+const schemaKeys = Object.keys(RECEIPT_SCHEMA.properties).sort().join(",");
+ok("the demo receipt carries exactly the schema's fields", demoKeys === schemaKeys, `${demoKeys}\n      vs ${schemaKeys}`);
+
 const extractSrc = read("lib/receipts/extract.js");
 ok("the prompt forbids adding anything up", /NEVER add anything up/.test(extractSrc));
 ok("the prompt forbids deriving a missing line amount", /NEVER work out a missing line amount/.test(extractSrc));
