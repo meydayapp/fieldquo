@@ -80,7 +80,14 @@ async function getAppLanguage() {
 }
 
 /**
- * The company's own name, for the locked-out screen.
+ * The two company-level facts the shell itself needs: the name, for the
+ * locked-out screen, and the billing currency, for every amount rendered under
+ * it (CompanyPreferencesProvider).
+ *
+ * The currency is resolved HERE rather than left to the provider's own fetch so
+ * that the first paint is already right. The provider does fetch it as a
+ * fallback, but a GBP company would then read CA$ for a frame and watch it
+ * change — a money figure that restates itself is worse than one that is late.
  *
  * This used to fetch brandColor/brandColors too, because the layout wrapped the
  * whole back office in BrandTheme. It no longer does: the brand colour is for
@@ -92,19 +99,21 @@ async function getAppLanguage() {
  *
  * Still its own tiny query rather than reusing a page's data: the layout
  * renders before any page. Never throws — a name lookup failing must not take
- * the app down, and the locked screen reads fine without it.
+ * the app down, and the locked screen reads fine without it. A currency that
+ * fails to load stays null, which documentFormatters reads as the schema
+ * default; it never becomes an invented "USD".
  */
-async function getCompanyName() {
+async function getCompanyShell() {
   try {
     const member = await getCurrentMember({ headers: await headers() });
     if (!member?.companyId) return null;
 
     return await db.company.findUnique({
       where: { id: member.companyId },
-      select: { name: true },
+      select: { name: true, currency: true },
     });
   } catch (err) {
-    console.error("[AppLayout] couldn't load the company name:", err);
+    console.error("[AppLayout] couldn't load the company shell:", err);
     return null;
   }
 }
@@ -319,7 +328,7 @@ async function getSetupRedirect() {
 export default async function AppLayout({ children }) {
   const [company, language, locked, featureFlags, callerPermissions, setupPath] =
     await Promise.all([
-      getCompanyName(),
+      getCompanyShell(),
       getAppLanguage(),
       getLockState(),
       getFeatureFlags(),
@@ -376,7 +385,7 @@ export default async function AppLayout({ children }) {
 
   return (
     // No data-brand here on purpose. The company's colour themes what a CLIENT
-    // reads, not the back office — see getCompanyName above. Individual /app
+    // reads, not the back office — see getCompanyShell above. Individual /app
     // screens that PREVIEW a client-facing document wrap that region in their
     // own data-brand + BrandTheme, which is why the hook is a per-surface
     // decision rather than a shell-wide one.
@@ -408,7 +417,7 @@ export default async function AppLayout({ children }) {
           in Settings got English back on any browser that had previously visited
           the marketing site. */}
       <LanguageProvider initialLanguage={language} fromAccount={Boolean(language)}>
-      <CompanyPreferencesProvider>
+      <CompanyPreferencesProvider initialCurrency={company?.currency || null}>
       {/* Wraps `children` as well as the rail, because the SETTINGS sidebar is
           rendered by a nested layout further down the tree and needs the same
           map. Resolving it twice would be two more queries for the same answer. */}

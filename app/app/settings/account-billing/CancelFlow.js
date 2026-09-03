@@ -62,6 +62,9 @@ import { Loader2, X, ArrowLeft, Check, AlertTriangle } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { consequenceItems } from "@/lib/billing/cancelConsequences";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { formatAppMoney } from "@/lib/format/money";
+import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 
 const REASONS = [
   { key: "too_expensive", label: "It costs too much right now" },
@@ -74,15 +77,20 @@ const REASONS = [
   { key: "other", label: "Something else" },
 ];
 
-const money = (n) =>
-  `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
-
-/** Cents, with the cents shown — these are $4.00 rentals, not $18,000 of won work. */
+/**
+ * Cents off the VOICE CREDIT ledger — number rentals and the unspent balance.
+ *
+ * Denominated in USD and now saying so: the top-up collects US dollars
+ * (lib/voice/creditCurrency.js), so "$4.00" on a CAD account is about $5.55 of
+ * the contractor's own money. This screen is the last thing they read before
+ * cancelling, which is the worst possible place to understate what they lose.
+ *
+ * Deliberately NOT the same formatter as the won-work figures below: those are
+ * the company's own billing currency. Two ledgers, two currencies, one screen —
+ * conflating them is the whole reason this helper is separate.
+ */
 const cents = (c) =>
-  `$${(Number(c || 0) / 100).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  formatAppMoney(Number(c || 0) / 100, CREDIT_CURRENCY, "en");
 
 /**
  * One consequence, in words.
@@ -99,7 +107,10 @@ const cents = (c) =>
  * is invisible to it — an undefined key would then render as its own name on a
  * screen somebody reads once, in the worst minute of their relationship with us.
  */
-function itemText(item, t) {
+// `money` is a parameter for the same reason `cents` is not: cents is the USD
+// credit ledger and is fixed, while these invoice figures are the COMPANY's
+// own currency, which this module cannot know.
+function itemText(item, t, money) {
   switch (item.key) {
     case "numberKept":
       return t("app.cancelFlow.numberKept", "{number} is not handed back. We keep renting it and {amount} a month keeps coming out of your phone credit — {balance} left. Once the credit can't cover it you get {days} days' notice and then the number is released for good, and it can't be got back. Release it yourself first if you'd rather pick the moment.", {
@@ -144,6 +155,7 @@ function itemText(item, t) {
 }
 
 export default function CancelFlow({ open, onClose, onCancelled, periodEnd, formatDate }) {
+  const money = useCompanyMoney();
   const { t } = useTranslation();
   const [step, setStep] = useState("why");
   const [reason, setReason] = useState(null);
@@ -433,7 +445,7 @@ export default function CancelFlow({ open, onClose, onCancelled, periodEnd, form
                 </div>
                 <ul className="mt-2 space-y-2 text-sm text-amber-900 dark:text-amber-200 list-disc pl-5">
                   {items.map((item, i) => (
-                    <li key={`${item.key}-${item.number || i}`}>{itemText(item, t)}</li>
+                    <li key={`${item.key}-${item.number || i}`}>{itemText(item, t, money)}</li>
                   ))}
                 </ul>
               </div>

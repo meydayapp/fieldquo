@@ -22,6 +22,7 @@ import {
   groupUnits,
 } from "@/app/data/cabinetPricing";
 import { formatAppMoney } from "@/lib/format/money";
+import { currencyMeta } from "@/lib/currency";
 import { cabinetAddOnLines } from "@/lib/pricing/tradeScope";
 
 // Kept as a plain list rather than a lookup: the internal primer-coats rule in
@@ -41,6 +42,11 @@ const WOOD_SPECIES = [
 // decides which count has to be non-zero before the upgrade can be ticked —
 // offering drawer slides on a job with no drawers is a control that does
 // nothing when you use it.
+//
+// `hint` takes the formatter as its second argument rather than writing a
+// dollar sign, because this list is module-level and the currency is a prop:
+// a literal "$" here priced a Manchester kitchen in dollars on a screen whose
+// totals two rows down already said £.
 const ADD_ONS = [
   {
     key: "handleHoles",
@@ -51,7 +57,7 @@ const ADD_ONS = [
     countsKey: "handleHoles",
     defaultUnits: (d, dr) => d + dr,
     unitWord: "pieces",
-    hint: (a) => `$${Number(a.handleHolesPerDoor) || 0} per piece`,
+    hint: (a, money) => `${money(a.handleHolesPerDoor)} per piece`,
   },
   {
     key: "softCloseHinges",
@@ -60,7 +66,7 @@ const ADD_ONS = [
     countsKey: "softCloseHinges",
     defaultUnits: (d) => d,
     unitWord: "doors",
-    hint: (a) => `$${Number(a.softCloseHingesPerDoor) || 0} per door`,
+    hint: (a, money) => `${money(a.softCloseHingesPerDoor)} per door`,
   },
   {
     key: "drawerSlides",
@@ -69,7 +75,7 @@ const ADD_ONS = [
     countsKey: "drawerSlides",
     defaultUnits: (d, dr) => dr,
     unitWord: "drawers",
-    hint: (a) => `$${Number(a.drawerSlidesPerDrawer) || 0} per drawer`,
+    hint: (a, money) => `${money(a.drawerSlidesPerDrawer)} per drawer`,
   },
   {
     key: "twoTone",
@@ -80,8 +86,8 @@ const ADD_ONS = [
     countsKey: "tone",
     defaultUnits: (d, dr) => d + dr,
     unitWord: "pieces",
-    hint: (a) =>
-      `$${Number(a.twoToneFlat) || 0} + $${Number(a.twoTonePerUnit) || 0} per unit`,
+    hint: (a, money) =>
+      `${money(a.twoToneFlat)} + ${money(a.twoTonePerUnit)} per unit`,
   },
   {
     key: "threeTone",
@@ -90,8 +96,8 @@ const ADD_ONS = [
     countsKey: "tone",
     defaultUnits: (d, dr) => d + dr,
     unitWord: "pieces",
-    hint: (a) =>
-      `$${Number(a.threeToneFlat) || 0} + $${Number(a.threeTonePerUnit) || 0} per unit`,
+    hint: (a, money) =>
+      `${money(a.threeToneFlat)} + ${money(a.threeTonePerUnit)} per unit`,
   },
 ];
 
@@ -118,6 +124,9 @@ export default function UnitPricingFields({
   // The trade's rate card, for the add-on prices.
   book,
 }) {
+  // One bound formatter for the whole component. Currency is the company's,
+  // locale is "en" — the same pair every other builder panel passes.
+  const money = (n) => formatAppMoney(n, currency, "en");
   const units = groupUnits(group);
   const finalPrice = finalUnitPrice(group);
   const iv = group.intakeValues || {};
@@ -184,8 +193,11 @@ export default function UnitPricingFields({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Field label="Base price / unit">
           <div className="relative mt-1">
+            {/* The company's own symbol. A hardcoded "$" in front of a field
+                whose total renders as £ is the same number stated twice, in
+                two currencies. */}
             <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-              $
+              {currencyMeta(currency).symbol}
             </span>
             <input
               type="number"
@@ -220,12 +232,12 @@ export default function UnitPricingFields({
         </Field>
         <Field label="Upcharge">
           <div className="mt-1 px-3 py-1.5 bg-muted border border-border rounded text-sm text-center text-foreground">
-            +${upcharge}
+            +{money(upcharge)}
           </div>
         </Field>
         <Field label="Final / unit">
           <div className="mt-1 px-3 py-1.5 bg-inverted rounded text-sm font-semibold text-center text-inverted-foreground">
-            {formatAppMoney(finalPrice, currency, "en")}
+            {money(finalPrice)}
           </div>
         </Field>
       </div>
@@ -247,7 +259,7 @@ export default function UnitPricingFields({
               }`}
             >
               {lvl.label}
-              {lvl.upcharge ? ` (+$${lvl.upcharge})` : ""}
+              {lvl.upcharge ? ` (+${money(lvl.upcharge)})` : ""}
             </button>
           ))}
         </div>
@@ -403,7 +415,7 @@ export default function UnitPricingFields({
                   </span>
                   <span className="shrink-0 text-sm font-medium tabular-nums">
                     {amount > 0 ? (
-                      formatAppMoney(amount, currency, "en")
+                      money(amount)
                     ) : (
                       <span className="font-normal text-muted-foreground">
                         —
@@ -413,7 +425,7 @@ export default function UnitPricingFields({
                 </span>
                 <span className="block text-xs text-muted-foreground">
                   {applicable
-                    ? addOn.hint(book?.addOns || {})
+                    ? addOn.hint(book?.addOns || {}, money)
                     : addOn.needsDrawers
                       ? "Enter a drawer count above"
                       : "Enter a door count above"}
@@ -463,7 +475,7 @@ export default function UnitPricingFields({
           <div className="flex justify-between pt-2 text-sm">
             <span className="text-muted-foreground">Add-ons</span>
             <span className="font-semibold tabular-nums">
-              {formatAppMoney(addOnTotal, currency, "en")}
+              {money(addOnTotal)}
             </span>
           </div>
         )}
@@ -472,11 +484,11 @@ export default function UnitPricingFields({
       <div className="flex items-center justify-between bg-muted border border-border rounded-lg px-4 py-2.5">
         <span className="text-sm text-muted-foreground">
           {units} unit{units === 1 ? "" : "s"} ×{" "}
-          {formatAppMoney(finalPrice, currency, "en")}
+          {money(finalPrice)}
           {addOnTotal > 0 && " + add-ons"}
         </span>
         <span className="text-base font-bold text-foreground">
-          {formatAppMoney(units * finalPrice + addOnTotal, currency, "en")}
+          {money(units * finalPrice + addOnTotal)}
         </span>
       </div>
     </div>

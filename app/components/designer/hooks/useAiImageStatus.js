@@ -8,6 +8,8 @@
 // that drifts out of sync with app/api/designer/ai-image-status/route.js's
 // actual response shape.
 import { useEffect, useState } from "react";
+import { formatAppMoney } from "@/lib/format/money";
+import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
 
 /**
  * @returns {{
@@ -81,7 +83,11 @@ export function useAiImageStatus(active) {
 /** Cents to a dollar string, for the price/balance lines the coordinator
  * asked refusals to always show. */
 export function centsToDollars(cents) {
-  return `$${(Math.max(0, Number(cents) || 0) / 100).toFixed(2)}`;
+  // US dollars, and the string says so. The AI image balance is the same
+  // USD credit ledger as voice (lib/voice/creditCurrency.js), so a bare "$"
+  // in a refusal quoted a Canadian contractor a price about 40% below what
+  // their card would be charged.
+  return formatAppMoney(Math.max(0, Number(cents) || 0) / 100, CREDIT_CURRENCY, "en");
 }
 
 const REASON_COPY = {

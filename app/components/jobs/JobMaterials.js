@@ -24,12 +24,13 @@ import { reportResponseError } from "@/lib/clientErrors";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
 import ReceiptScanner from "@/app/components/purchasing/ReceiptScanner";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 
-const money = (v) => `$${(Number(v) || 0).toFixed(2)}`;
 const inputClass =
   "w-full border border-border rounded px-2 py-1 text-sm bg-background";
 
 export default function JobMaterials({ jobId }) {
+  const money = useCompanyMoney();
   // The same question the route asks, asked of the same grid. Every write here
   // needs jobs:view_create_edit, and without this every viewer got a page full
   // of checkboxes that 403 on the first tap — a control that appears to work

@@ -21,8 +21,17 @@ import { ArrowLeft, Trash2, Plus, Loader2, AlertCircle, History } from "lucide-r
 import MediaUploader from "@/app/components/MediaUploader";
 import InvoiceCostSection from "@/app/components/invoices/InvoiceCostSection";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import {
+  useCompanyMoney,
+  useCompanyPreferences,
+} from "@/app/providers/CompanyPreferencesProvider";
+import { currencyMeta } from "@/lib/currency";
 
-const money = (n) => (Number.isFinite(Number(n)) ? Number(n) : 0);
+// `num`, not `money`. It coerces; it does not format — and while it was called
+// `money`, three call sites wrapped it in a hardcoded dollar sign and a
+// toFixed(2): the wrong currency AND an ungrouped number, on an invoice a
+// Dublin contractor bills in euros. Formatting is useCompanyMoney, below.
+const num = (n) => (Number.isFinite(Number(n)) ? Number(n) : 0);
 const blankItem = () => ({
   description: "",
   quantity: 1,
@@ -33,6 +42,8 @@ const blankItem = () => ({
 
 export default function EditInvoicePage() {
   const { t } = useTranslation();
+  const money = useCompanyMoney();
+  const { currency } = useCompanyPreferences();
   const { id } = useParams();
   const router = useRouter();
 
@@ -71,7 +82,7 @@ export default function EditInvoicePage() {
         );
         setNotes(inv.notes || "");
         setClientPhotos(Array.isArray(inv.clientPhotos) ? inv.clientPhotos : []);
-        setDiscount(money(inv.discount));
+        setDiscount(num(inv.discount));
         setDueDate(
           inv.dueDate ? new Date(inv.dueDate).toISOString().slice(0, 10) : "",
         );
@@ -79,7 +90,7 @@ export default function EditInvoicePage() {
         // Back out the rate this invoice was written with rather than reading
         // the company's current one — an old invoice shouldn't reprice itself
         // because the company's tax setting changed since.
-        const base = money(inv.subtotal) - money(inv.discount);
+        const base = num(inv.subtotal) - num(inv.discount);
         // The stored flag, not `tax > 0`. Reconstructing the switch from the
         // amount made "tax applies at 0%" unrepresentable and, worse, made it
         // indistinguishable from "no tax on this one" — so the client read
@@ -87,7 +98,7 @@ export default function EditInvoicePage() {
         // `!== false` so a row that predates the column reads as on, matching
         // the column default.
         setTaxEnabled(inv.taxEnabled !== false);
-        setTaxRate(base > 0 ? +((money(inv.tax) / base) * 100).toFixed(4) : 0);
+        setTaxRate(base > 0 ? +((num(inv.tax) / base) * 100).toFixed(4) : 0);
       } catch (err) {
         if (!cancelled) setError(err.message);
       } finally {
@@ -102,9 +113,9 @@ export default function EditInvoicePage() {
   const isDraft = invoice?.status === "draft";
 
   const totals = useMemo(() => {
-    const subtotal = lineItems.reduce((s, li) => s + money(li.amount), 0);
-    const base = Math.max(0, subtotal - money(discount));
-    const tax = taxEnabled ? base * (money(taxRate) / 100) : 0;
+    const subtotal = lineItems.reduce((s, li) => s + num(li.amount), 0);
+    const base = Math.max(0, subtotal - num(discount));
+    const tax = taxEnabled ? base * (num(taxRate) / 100) : 0;
     return { subtotal, tax, total: base + tax };
   }, [lineItems, discount, taxRate, taxEnabled]);
 
@@ -117,7 +128,7 @@ export default function EditInvoicePage() {
         // computing at render) is what the create page does and what the PDF
         // renderer reads, so the stored shape has to stay consistent.
         if (field === "quantity" || field === "rate") {
-          next.amount = money(next.quantity) * money(next.rate);
+          next.amount = num(next.quantity) * num(next.rate);
         }
         return next;
       }),
@@ -141,12 +152,12 @@ export default function EditInvoicePage() {
             .filter((li) => String(li.description || "").trim())
             .map((li) => ({
               ...li,
-              quantity: money(li.quantity) || 1,
-              rate: money(li.rate),
-              amount: money(li.amount),
+              quantity: num(li.quantity) || 1,
+              rate: num(li.rate),
+              amount: num(li.amount),
             })),
           subtotal: totals.subtotal,
-          discount: money(discount),
+          discount: num(discount),
           tax: totals.tax,
           // Sent, not inferred. The switch above finally writes something.
           taxEnabled,
@@ -215,9 +226,9 @@ export default function EditInvoicePage() {
         </div>
       )}
 
-      {money(invoice.amountPaid) > 0 && (
+      {num(invoice.amountPaid) > 0 && (
         <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
-          ${money(invoice.amountPaid).toFixed(2)} {t("app.invoiceEdit.amountPaidWarn")}
+          {money(num(invoice.amountPaid))} {t("app.invoiceEdit.amountPaidWarn")}
         </div>
       )}
 
@@ -262,7 +273,7 @@ export default function EditInvoicePage() {
                 />
                 <div className="relative flex-1 sm:flex-none sm:w-28 min-w-0 shrink-0">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                    $
+                    {currencyMeta(currency).symbol}
                   </span>
                   <input
                     type="number"
@@ -274,7 +285,7 @@ export default function EditInvoicePage() {
                   />
                 </div>
                 <span className="w-24 sm:w-28 text-right text-sm font-medium text-foreground shrink-0">
-                  ${money(item.amount).toFixed(2)}
+                  {money(num(item.amount))}
                 </span>
                 <button
                   onClick={() =>
@@ -303,7 +314,7 @@ export default function EditInvoicePage() {
           email; see app/components/invoices/InvoiceCostSection.js. */}
       <InvoiceCostSection
         invoiceId={id}
-        subtotal={totals.subtotal - money(discount)}
+        subtotal={totals.subtotal - num(discount)}
         value={costing}
         onChange={setCosting}
       />
@@ -402,8 +413,8 @@ export default function EditInvoicePage() {
 
         <div className="pt-4 border-t border-border space-y-1 text-sm">
           <Row label={t("app.invoiceEdit.subtotal")} value={totals.subtotal} />
-          {money(discount) > 0 && (
-            <Row label={t("app.invoiceEdit.discount")} value={-money(discount)} />
+          {num(discount) > 0 && (
+            <Row label={t("app.invoiceEdit.discount")} value={-num(discount)} />
           )}
           {/* Tax on with nothing charged is not "$0.00" — the send route
               refuses to post that (lib/tax/documentTax.js), so it must not
@@ -423,7 +434,7 @@ export default function EditInvoicePage() {
           )}
           <div className="flex justify-between font-semibold text-foreground text-base pt-1">
             <span>{t("app.invoiceEdit.total")}</span>
-            <span>${totals.total.toFixed(2)}</span>
+            <span>{money(totals.total)}</span>
           </div>
         </div>
       </div>
@@ -449,10 +460,11 @@ export default function EditInvoicePage() {
 }
 
 function Row({ label, value }) {
+  const money = useCompanyMoney();
   return (
     <div className="flex justify-between text-muted-foreground">
       <span>{label}</span>
-      <span>${value.toFixed(2)}</span>
+      <span>{money(value)}</span>
     </div>
   );
 }

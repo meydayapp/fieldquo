@@ -12,11 +12,12 @@
 // One Num, doing both.
 "use client";
 
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
+
 export const inputClass =
   "w-full mt-1 border border-border rounded px-2 py-1.5 text-sm";
 
 export const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
-export const money = (v) => num(v).toFixed(2);
 export const asList = (v) => (Array.isArray(v) ? v : []);
 
 export function Field({ label, children, className = "" }) {
@@ -86,9 +87,16 @@ export function Num({
 /**
  * A scope option: tick it and it prices itself.
  *
- * The label carries the arithmetic — "$2.50/sqft × 300 = $750" — because the
+ * The label carries the arithmetic — "£2.50/sqft × 300 = £750" — because the
  * question an estimator is actually asking is what adding this does to the
  * number, and a bare checkbox makes them open a calculator to find out.
+ *
+ * The amount is formatted in the COMPANY's currency, not a hardcoded dollar.
+ * The `money` this file used to export was `num(v).toFixed(2)` and every caller
+ * wrote a literal `$` in front of it, so a British painter priced their own
+ * takeoff in dollars — and toFixed doesn't group either, so "$12500.00" sat
+ * next to a shared-formatter "$12,500.00" on the same screen. Same failure
+ * lib/format/money.js was written about; same fix.
  */
 export function OptionRow({
   checked,
@@ -99,6 +107,7 @@ export function OptionRow({
   children,
   disabled = false,
 }) {
+  const money = useCompanyMoney();
   return (
     <div className="flex items-start gap-2 py-1.5 border-b border-border last:border-0">
       <input
@@ -117,7 +126,7 @@ export function OptionRow({
           </span>
           <span className="shrink-0 text-sm font-medium tabular-nums">
             {amount > 0 ? (
-              `$${money(amount)}`
+              money(amount)
             ) : (
               <span className="font-normal text-muted-foreground">—</span>
             )}

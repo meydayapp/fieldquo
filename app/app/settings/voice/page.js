@@ -1501,7 +1501,7 @@ export default function VoiceSettingsPage() {
                       ))}
                     {pricing.freeTrialAvailable && (
                       <p className="text-xs text-muted-foreground">
-                        {t("app.setVoice.trialWithNumber", "{amount} of credit is added with your first number. The number's {rental}/month rental comes out of it, so you start with the rest.", { amount: `$${((pricing.freeTrialCents ?? 0) / 100).toFixed(2)}`, rental: `$${((pricing.monthlyCents ?? 400) / 100).toFixed(2)}` })}
+                        {t("app.setVoice.trialWithNumber", "{amount} of credit is added with your first number. The number's {rental}/month rental comes out of it, so you start with the rest.", { amount: money(pricing.freeTrialCents ?? 0), rental: money(pricing.monthlyCents ?? 400) })}
                       </p>
                     )}
                   </div>

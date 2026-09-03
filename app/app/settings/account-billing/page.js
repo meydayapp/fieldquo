@@ -16,9 +16,7 @@ import {
   annualSaving,
   isBillingInterval,
 } from "@/lib/billing/interval";
-function money(n) {
-  return `$${Number(n || 0).toLocaleString()}`;
-}
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 
 // ── What a plan actually gets you, in one line ─────────────────────────────
 //
@@ -79,6 +77,7 @@ export default function AccountBillingPage() {
 }
 
 function AccountBillingScreen() {
+  const money = useCompanyMoney();
   const { t } = useTranslation();
   const { formatDate } = useCompanyPreferences();
   const [subscription, setSubscription] = useState(null);

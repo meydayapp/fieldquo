@@ -30,6 +30,8 @@ import {
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { jsonBody } from "@/lib/jsonBody";
+import { formatAppMoney } from "@/lib/format/money";
+import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
 
 const money = (n) =>
   Number(n ?? 0).toLocaleString("en-CA", {
@@ -557,7 +559,8 @@ export default function SuggestAddOns({
                     {p.photosRead} photo{p.photosRead === 1 ? "" : "s"} read
                     {typeof p.costCents === "number" && (
                       <>
-                        {" · "}${(p.costCents / 100).toFixed(2)}
+                        {" · "}
+                        {formatAppMoney(p.costCents / 100, CREDIT_CURRENCY, "en")}
                       </>
                     )}
                   </p>

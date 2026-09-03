@@ -290,7 +290,7 @@ export default function CostMarginPanel({
                   <option key={w.id} value={w.id}>
                     {w.name}
                     {w.hourlyRate != null
-                      ? ` — $${w.hourlyRate}/hr`
+                      ? ` — ${money(w.hourlyRate)}/hr`
                       : " — no rate set"}
                   </option>
                 ))}

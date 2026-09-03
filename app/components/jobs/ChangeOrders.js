@@ -31,18 +31,20 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { useHasLevel, useHasToggle } from "@/app/providers/PermissionProvider";
 import { reportResponseError } from "@/lib/clientErrors";
 import { changeOrderStatus, changeOrderSummary } from "@/lib/jobs/changeOrderValue";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 
-// Matches JobMaterials.js's own choice for a job-internal figure — this panel
-// never leaves /app, so a locale-aware currency lookup (which would mean a
-// second fetch just for a symbol) isn't worth it here either.
-const money = (v) => {
-  const n = Number(v) || 0;
-  return `${n < 0 ? "-" : ""}$${Math.abs(n).toFixed(2)}`;
-};
-
-const signed = (v) => `${Number(v) > 0 ? "+" : ""}${money(v)}`;
+// `signed` takes the formatter rather than closing over a module-level one.
+//
+// The old comment here said a currency lookup "would mean a second fetch just
+// for a symbol" and so hardcoded a dollar. That stopped being true: the /app
+// layout already resolves the company's currency and hands it to every screen
+// under it (CompanyPreferencesProvider), at no extra request. Meanwhile a
+// change order is a number the CLIENT signs off — quoting a Bristol homeowner
+// "+$450.00" on work priced in pounds is not a cosmetic slip.
+const signed = (v, money) => `${Number(v) > 0 ? "+" : ""}${money(v)}`;
 
 export default function ChangeOrders({ jobId, changeOrders, onChanged }) {
+  const money = useCompanyMoney();
   const { t } = useTranslation();
   // Two separate hook calls, combined afterward — `&&` between the calls
   // themselves would make the second one conditional, which breaks the rules
@@ -206,14 +208,14 @@ export default function ChangeOrders({ jobId, changeOrders, onChanged }) {
           <span className="text-muted-foreground">
             {t("app.changeOrder.approvedTotal", "Agreed changes")}:{" "}
             <span className="font-semibold text-foreground tabular-nums">
-              {signed(summary.approvedTotal)}
+              {signed(summary.approvedTotal, money)}
             </span>
           </span>
           {summary.counts.pending > 0 && (
             <span className="text-muted-foreground">
               {t("app.changeOrder.pendingTotal", "Awaiting agreement")}:{" "}
               <span className="font-semibold text-foreground tabular-nums">
-                {signed(summary.pendingTotal)}
+                {signed(summary.pendingTotal, money)}
               </span>
             </span>
           )}
@@ -251,7 +253,7 @@ export default function ChangeOrders({ jobId, changeOrders, onChanged }) {
                             : "text-foreground"
                       }`}
                     >
-                      {signed(co.priceDelta)}
+                      {signed(co.priceDelta, money)}
                     </span>
                     <div className="text-xs mt-0.5">
                       {status === "approved" && co.invoiceId && (
@@ -345,7 +347,7 @@ export default function ChangeOrders({ jobId, changeOrders, onChanged }) {
                 {t(
                   "app.changeOrder.billTitle",
                   "{amount} of agreed changes isn't on an invoice yet",
-                  { amount: signed(billing.unbilled.total) },
+                  { amount: signed(billing.unbilled.total, money) },
                 )}
               </p>
 
@@ -370,7 +372,7 @@ export default function ChangeOrders({ jobId, changeOrders, onChanged }) {
                       "app.changeOrder.billConfirm",
                       "Add {amount} to {invoice}? Its total becomes {total}.",
                       {
-                        amount: signed(billing.preview?.added),
+                        amount: signed(billing.preview?.added, money),
                         invoice: invoiceLabel,
                         total: money(billing.preview?.newTotal),
                       },

@@ -32,9 +32,9 @@ import {
   OptionRow,
   inputClass,
   num,
-  money,
   asList,
 } from "./fields";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import PaverDesigner from "./PaverDesigner";
 import PaintAreas from "./PaintAreas";
 import LabourPanel from "./LabourPanel";
@@ -147,6 +147,7 @@ const STAIR_ELEMENTS = [
 ];
 
 function StairSection({ section, index, book, canRemove, onChange, onRemove }) {
+  const money = useCompanyMoney();
   const level = section.complexityLevel || "standard";
   const rates = book?.complexity?.[level] || {};
   const set = (patch) => onChange({ ...section, ...patch });
@@ -228,7 +229,7 @@ function StairSection({ section, index, book, canRemove, onChange, onRemove }) {
               </div>
               <div className="col-span-3 sm:col-span-2 text-right text-sm tabular-nums">
                 {on ? (
-                  `$${money(qty * num(rate))}`
+                  money(qty * num(rate))
                 ) : (
                   <span className="text-muted-foreground">—</span>
                 )}
@@ -266,6 +267,7 @@ function StairSection({ section, index, book, canRemove, onChange, onRemove }) {
 }
 
 function StairsTakeoff({ takeoff, book, onChange }) {
+  const money = useCompanyMoney();
   const sections = Array.isArray(takeoff.sections) ? takeoff.sections : [];
   const setSections = (next) => onChange({ ...takeoff, sections: next });
 
@@ -319,7 +321,7 @@ function StairsTakeoff({ takeoff, book, onChange }) {
         )}
         {takeoff.basement && (
           <span className="text-xs text-muted-foreground">
-            treads @ ${money(book?.basementTreadPrice)}
+            treads @ {money(book?.basementTreadPrice)}
           </span>
         )}
       </div>
@@ -330,6 +332,7 @@ function StairsTakeoff({ takeoff, book, onChange }) {
 /* ── Countertop ────────────────────────────────────────────────────────── */
 
 function CountertopTakeoff({ takeoff, book, onChange }) {
+  const money = useCompanyMoney();
   const items = Array.isArray(takeoff.items) ? takeoff.items : [];
   const markup = takeoff.markupPct ?? book?.defaultMarkupPct ?? 0;
   const setItem = (i, patch) =>
@@ -447,7 +450,7 @@ function CountertopTakeoff({ takeoff, book, onChange }) {
               </div>
               <div className="col-span-4 sm:col-span-3 text-right text-sm font-medium tabular-nums">
                 {price > 0 ? (
-                  `$${money(price)}`
+                  money(price)
                 ) : (
                   <span className="text-muted-foreground font-normal">—</span>
                 )}
@@ -468,7 +471,7 @@ function CountertopTakeoff({ takeoff, book, onChange }) {
           )}{" "}
           · internal only
         </span>
-        <span className="font-semibold">${money(total)}</span>
+        <span className="font-semibold">{money(total)}</span>
       </div>
     </div>
   );
@@ -477,6 +480,7 @@ function CountertopTakeoff({ takeoff, book, onChange }) {
 /* ── Garage doors ──────────────────────────────────────────────────────── */
 
 function DoorRows({ label, entries, picks, onChange }) {
+  const money = useCompanyMoney();
   const set = (id, patch) =>
     onChange(picks.map((p) => (p.id === id ? { ...p, ...patch } : p)));
 
@@ -514,7 +518,7 @@ function DoorRows({ label, entries, picks, onChange }) {
                 {entry.label}
               </span>
               <span className="ml-2 text-xs text-muted-foreground tabular-nums">
-                ${money(entry.price)}
+                {money(entry.price)}
               </span>
             </div>
             <div className="col-span-4 sm:col-span-2">
@@ -533,7 +537,7 @@ function DoorRows({ label, entries, picks, onChange }) {
             </div>
             <div className="col-span-4 sm:col-span-2 text-right text-sm font-medium tabular-nums">
               {amount > 0 ? (
-                `$${money(amount)}`
+                money(amount)
               ) : (
                 <span className="text-muted-foreground font-normal">—</span>
               )}
@@ -551,6 +555,7 @@ function DoorRows({ label, entries, picks, onChange }) {
 // its own line. A company that unticks the box and has no install rate set
 // would otherwise quote supply-only labour at nothing and never see it.
 function GarageDoorTakeoff({ takeoff, book, onChange }) {
+  const money = useCompanyMoney();
   const installIncluded = takeoff.installIncluded !== false;
   const installRate = num(book?.installPricePerDoor);
   const doorCount = asList(takeoff.doors).reduce(
@@ -576,7 +581,7 @@ function GarageDoorTakeoff({ takeoff, book, onChange }) {
           <span className="mt-0.5 block text-xs text-muted-foreground">
             {installIncluded
               ? "Each door is quoted as supplied and fitted."
-              : `Doors are quoted supply-only (less $${money(installRate)} each) and installation is charged as its own line.`}
+              : `Doors are quoted supply-only (less ${money(installRate)} each) and installation is charged as its own line.`}
           </span>
         </span>
       </label>
@@ -681,6 +686,7 @@ const ROOM_TYPES = [
 ];
 
 function PaintRoom({ room, index, book, canRemove, onChange, onRemove }) {
+  const money = useCompanyMoney();
   const level = room.complexityLevel || "standard";
   const c = book?.complexity?.[level] || {};
   const set = (patch) => onChange({ ...room, ...patch });
@@ -744,7 +750,7 @@ function PaintRoom({ room, index, book, canRemove, onChange, onRemove }) {
           label="Walls"
           hint={
             sqft > 0
-              ? `${sqft} sqft × $${money(c.wallPricePerSqft)}/sqft`
+              ? `${sqft} sqft × ${money(c.wallPricePerSqft)}/sqft`
               : "Enter the floor area above to price this"
           }
           amount={wallAmount}
@@ -753,21 +759,21 @@ function PaintRoom({ room, index, book, canRemove, onChange, onRemove }) {
           checked={room.ceiling}
           onToggle={(v) => set({ ceiling: v })}
           label="Ceiling"
-          hint={`$${money(c.ceilingPrice)} for the room`}
+          hint={`${money(c.ceilingPrice)} for the room`}
           amount={room.ceiling ? num(c.ceilingPrice) : 0}
         />
         <OptionRow
           checked={room.trim}
           onToggle={(v) => set({ trim: v })}
           label="Trim & baseboards"
-          hint={`$${money(c.trimPrice)} for the room`}
+          hint={`${money(c.trimPrice)} for the room`}
           amount={room.trim ? num(c.trimPrice) : 0}
         />
         <OptionRow
           checked={room.doors}
           onToggle={(v) => set({ doors: v })}
           label="Interior doors"
-          hint={`$${money(c.doorPrice)} each`}
+          hint={`${money(c.doorPrice)} each`}
           amount={doorAmount}
         >
           <div className="mt-1 w-28">
@@ -781,7 +787,7 @@ function PaintRoom({ room, index, book, canRemove, onChange, onRemove }) {
           checked={room.closets}
           onToggle={(v) => set({ closets: v })}
           label="Closet interiors"
-          hint={`$${money(c.closetPrice)} each`}
+          hint={`${money(c.closetPrice)} each`}
           amount={closetAmount}
         >
           <div className="mt-1 w-28">
@@ -809,13 +815,14 @@ function PaintRoom({ room, index, book, canRemove, onChange, onRemove }) {
 
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">Room total</span>
-        <span className="font-semibold tabular-nums">${money(total)}</span>
+        <span className="font-semibold tabular-nums">{money(total)}</span>
       </div>
     </div>
   );
 }
 
 function InteriorPaintTakeoff({ takeoff, book, onChange }) {
+  const money = useCompanyMoney();
   // The discriminator. A takeoff written before the area/substrate model landed
   // has no `model` key and keeps the complexity-grid form below, so reopening
   // an existing quote shows the form it was written in — reprice-on-open would
@@ -869,7 +876,7 @@ function InteriorPaintTakeoff({ takeoff, book, onChange }) {
           checked={takeoff.popcornRemoval}
           onToggle={(v) => onChange({ ...takeoff, popcornRemoval: v })}
           label="Popcorn / stipple ceiling removal"
-          hint={`$${money(g.popcornRemovalPricePerSqft)}/sqft`}
+          hint={`${money(g.popcornRemovalPricePerSqft)}/sqft`}
           amount={popcornAmount}
         >
           <div className="mt-1 w-32">
@@ -883,7 +890,7 @@ function InteriorPaintTakeoff({ takeoff, book, onChange }) {
           checked={takeoff.furnitureMoving}
           onToggle={(v) => onChange({ ...takeoff, furnitureMoving: v })}
           label="Furniture moving & protection"
-          hint={`$${money(g.furnitureMovingPrice)} flat`}
+          hint={`${money(g.furnitureMovingPrice)} flat`}
           amount={takeoff.furnitureMoving ? num(g.furnitureMovingPrice) : 0}
         />
       </div>
@@ -894,6 +901,7 @@ function InteriorPaintTakeoff({ takeoff, book, onChange }) {
 /* ── Exterior painting ─────────────────────────────────────────────────── */
 
 function ExteriorPaintTakeoff({ takeoff, book, onChange }) {
+  const money = useCompanyMoney();
   // Same discriminator, same reason, as InteriorPaintTakeoff above.
   if (takeoff?.model === "area_substrate")
     return (
@@ -947,7 +955,7 @@ function ExteriorPaintTakeoff({ takeoff, book, onChange }) {
               checked={pick.enabled}
               onToggle={(v) => setItem(bookItem.id, { enabled: v })}
               label={bookItem.label}
-              hint={`$${money(base)} / ${bookItem.unit}`}
+              hint={`${money(base)} / ${bookItem.unit}`}
               amount={amount}
             >
               <div className="mt-1 grid grid-cols-2 gap-2">
@@ -983,14 +991,14 @@ function ExteriorPaintTakeoff({ takeoff, book, onChange }) {
           checked={takeoff.pressureWashing}
           onToggle={(v) => onChange({ ...takeoff, pressureWashing: v })}
           label="Pressure washing"
-          hint={`$${money(e.pressureWashingPrice)} flat — full exterior wash before painting`}
+          hint={`${money(e.pressureWashingPrice)} flat — full exterior wash before painting`}
           amount={takeoff.pressureWashing ? num(e.pressureWashingPrice) : 0}
         />
         <OptionRow
           checked={takeoff.priming}
           onToggle={(v) => onChange({ ...takeoff, priming: v })}
           label="Priming"
-          hint={`$${money(e.primePricePerSqft)}/sqft — bare wood, colour change, weathered surfaces`}
+          hint={`${money(e.primePricePerSqft)}/sqft — bare wood, colour change, weathered surfaces`}
           amount={primeAmount}
         >
           <div className="mt-1 w-32">
@@ -1031,6 +1039,7 @@ const FINISH_TYPES = [
 ];
 
 function FloorSection({ section, index, book, canRemove, onChange, onRemove }) {
+  const money = useCompanyMoney();
   const level = section.complexityLevel || "standard";
   const c = book?.complexity?.[level] || {};
   const set = (patch) => onChange({ ...section, ...patch });
@@ -1103,12 +1112,12 @@ function FloorSection({ section, index, book, canRemove, onChange, onRemove }) {
           Refinishing
           <span className="ml-2 text-xs text-muted-foreground">
             {sqft > 0
-              ? `${sqft} sqft × $${money(c.pricePerSqft)}/sqft`
+              ? `${sqft} sqft × ${money(c.pricePerSqft)}/sqft`
               : "Enter the square footage above"}
           </span>
         </span>
         <span className="font-medium tabular-nums">
-          {refinish > 0 ? `$${money(refinish)}` : "—"}
+          {refinish > 0 ? money(refinish) : "—"}
         </span>
       </div>
 
@@ -1117,42 +1126,42 @@ function FloorSection({ section, index, book, canRemove, onChange, onRemove }) {
           checked={section.stainChange}
           onToggle={(v) => set({ stainChange: v })}
           label="Stain colour change"
-          hint={`$${money(c.stainChangePricePerSqft)}/sqft`}
+          hint={`${money(c.stainChangePricePerSqft)}/sqft`}
           amount={stain}
         />
         <OptionRow
           checked={section.gapFilling}
           onToggle={(v) => set({ gapFilling: v })}
           label="Gap filling"
-          hint={`$${money(c.gapFillingPricePerSqft)}/sqft`}
+          hint={`${money(c.gapFillingPricePerSqft)}/sqft`}
           amount={gaps}
         />
         <OptionRow
           checked={section.waterDamageRepair}
           onToggle={(v) => set({ waterDamageRepair: v })}
           label="Water damage repair"
-          hint={`$${money(c.waterDamagePrice)} flat`}
+          hint={`${money(c.waterDamagePrice)} flat`}
           amount={section.waterDamageRepair ? num(c.waterDamagePrice) : 0}
         />
         <OptionRow
           checked={section.furnitureMoving}
           onToggle={(v) => set({ furnitureMoving: v })}
           label="Furniture moving"
-          hint={`$${money(c.furnitureMovingPrice)} flat`}
+          hint={`${money(c.furnitureMovingPrice)} flat`}
           amount={section.furnitureMoving ? num(c.furnitureMovingPrice) : 0}
         />
         <OptionRow
           checked={section.stairBlending}
           onToggle={(v) => set({ stairBlending: v })}
           label="Stair blending"
-          hint={`$${money(c.stairBlendingPrice)} flat`}
+          hint={`${money(c.stairBlendingPrice)} flat`}
           amount={section.stairBlending ? num(c.stairBlendingPrice) : 0}
         />
       </div>
 
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">Area total</span>
-        <span className="font-semibold tabular-nums">${money(total)}</span>
+        <span className="font-semibold tabular-nums">{money(total)}</span>
       </div>
     </div>
   );
@@ -1203,6 +1212,7 @@ function FlooringTakeoff({ takeoff, book, onChange }) {
 /* ── Driveway sealing ──────────────────────────────────────────────────── */
 
 function DrivewaySealingTakeoff({ takeoff, book, onChange }) {
+  const money = useCompanyMoney();
   const level = takeoff.complexityLevel || "standard";
   const c = book?.complexity?.[level] || {};
   const e = book?.extras || {};
@@ -1238,12 +1248,12 @@ function DrivewaySealingTakeoff({ takeoff, book, onChange }) {
           Sealing — {coats} coat{coats === 1 ? "" : "s"}
           <span className="ml-2 text-xs text-muted-foreground">
             {sqft > 0
-              ? `${sqft} sqft × $${money(num(c.sealPricePerSqft) * multiplier)}/sqft`
+              ? `${sqft} sqft × ${money(num(c.sealPricePerSqft) * multiplier)}/sqft`
               : "Enter the driveway area above"}
           </span>
         </span>
         <span className="font-medium tabular-nums">
-          {sealAmount > 0 ? `$${money(sealAmount)}` : "—"}
+          {sealAmount > 0 ? money(sealAmount) : "—"}
         </span>
       </div>
 
@@ -1259,7 +1269,7 @@ function DrivewaySealingTakeoff({ takeoff, book, onChange }) {
           checked={takeoff.premiumSealer}
           onToggle={(v) => set({ premiumSealer: v })}
           label="Premium sealer"
-          hint={`$${money(e.premiumSealerPerSqft)}/sqft`}
+          hint={`${money(e.premiumSealerPerSqft)}/sqft`}
           amount={
             takeoff.premiumSealer ? sqft * num(e.premiumSealerPerSqft) : 0
           }
@@ -1270,8 +1280,8 @@ function DrivewaySealingTakeoff({ takeoff, book, onChange }) {
           label="Crack filling"
           hint={
             includedFt > 0
-              ? `$${money(e.crackFillPerFt)}/linear ft after the first ${includedFt} ft`
-              : `$${money(e.crackFillPerFt)}/linear ft`
+              ? `${money(e.crackFillPerFt)}/linear ft after the first ${includedFt} ft`
+              : `${money(e.crackFillPerFt)}/linear ft`
           }
           amount={crackAmount}
         >
@@ -1293,21 +1303,21 @@ function DrivewaySealingTakeoff({ takeoff, book, onChange }) {
           checked={takeoff.pressureWash}
           onToggle={(v) => set({ pressureWash: v })}
           label="Pressure wash"
-          hint={`$${money(e.pressureWashPerSqft)}/sqft`}
+          hint={`${money(e.pressureWashPerSqft)}/sqft`}
           amount={takeoff.pressureWash ? sqft * num(e.pressureWashPerSqft) : 0}
         />
         <OptionRow
           checked={takeoff.stainTreatment}
           onToggle={(v) => set({ stainTreatment: v })}
           label="Oil / grease stain treatment"
-          hint={`$${money(e.stainTreatmentPrice)} flat — sealer will not bond over oil`}
+          hint={`${money(e.stainTreatmentPrice)} flat — sealer will not bond over oil`}
           amount={takeoff.stainTreatment ? num(e.stainTreatmentPrice) : 0}
         />
         <OptionRow
           checked={takeoff.travelSurcharge}
           onToggle={(v) => set({ travelSurcharge: v })}
           label="Travel beyond 30 km"
-          hint={`$${money(e.travelSurchargePrice)} flat`}
+          hint={`${money(e.travelSurchargePrice)} flat`}
           amount={takeoff.travelSurcharge ? num(e.travelSurchargePrice) : 0}
         />
       </div>
@@ -1331,6 +1341,7 @@ function DrivewaySealingTakeoff({ takeoff, book, onChange }) {
 // because "3,100 sq ft" and "$625" side by side look like a per-foot rate that
 // went wrong. The band label is the thing that reaches the client's document.
 function HomeInspectionTakeoff({ takeoff, book, onChange }) {
+  const money = useCompanyMoney();
   const set = (patch) => onChange({ ...takeoff, ...patch });
   const sqft = num(takeoff.sqft);
   const band = inspectionBandFor(book?.bands, sqft);
@@ -1380,7 +1391,7 @@ function HomeInspectionTakeoff({ takeoff, book, onChange }) {
           </span>
         </span>
         <span className="font-medium tabular-nums">
-          {bandPrice > 0 ? `$${money(bandPrice)}` : "—"}
+          {bandPrice > 0 ? money(bandPrice) : "—"}
         </span>
       </div>
 
@@ -1394,7 +1405,7 @@ function HomeInspectionTakeoff({ takeoff, book, onChange }) {
             </span>
           </span>
           <span className="font-medium tabular-nums">
-            ${money(oversizeThousands * per1000)}
+            {money(oversizeThousands * per1000)}
           </span>
         </div>
       )}
@@ -1426,7 +1437,7 @@ function HomeInspectionTakeoff({ takeoff, book, onChange }) {
                     // codebase keeps finding.
                     `No price set — ticking this adds nothing to the quote. ${entry?.note || ""}`.trim()
                   : [
-                      `$${money(rate)} ${entry?.unit ? `/ ${entry.unit}` : "each"}`,
+                      `${money(rate)} ${entry?.unit ? `/ ${entry.unit}` : "each"}`,
                       entry?.note,
                     ]
                       .filter(Boolean)
@@ -1449,7 +1460,7 @@ function HomeInspectionTakeoff({ takeoff, book, onChange }) {
           label={warranty.label || "Warranty inspection"}
           hint={
             warrantyRate > 0
-              ? `$${money(warrantyRate)} per visit${warranty.note ? ` · ${warranty.note}` : ""}`
+              ? `${money(warrantyRate)} per visit${warranty.note ? ` · ${warranty.note}` : ""}`
               : "No price set — ticking this adds nothing to the quote."
           }
           amount={warrantyRate > 0 ? visits * warrantyRate : 0}
@@ -1479,6 +1490,7 @@ const PAVING_SURFACES = [
 ];
 
 function PavingTakeoff({ takeoff, book, onChange, siteImageUrl }) {
+  const money = useCompanyMoney();
   const level = takeoff.complexityLevel || "standard";
   // The hours come from the same tier and access answers the estimator has
   // already given above — see lib/pricing/paverLabour.js for why the panel does
@@ -1532,7 +1544,7 @@ function PavingTakeoff({ takeoff, book, onChange, siteImageUrl }) {
             <Field key={key} label={`${label} (sqft)`}>
               <Num value={takeoff[key]} onChange={(v) => set({ [key]: v })} />
               <div className="mt-1 text-xs text-muted-foreground">
-                ${money(rate)}/sqft installed
+                {money(rate)}/sqft installed
               </div>
             </Field>
           );
@@ -1545,7 +1557,7 @@ function PavingTakeoff({ takeoff, book, onChange, siteImageUrl }) {
           onChange={(v) => set({ wallFaceSqft: v })}
         />
         <div className="mt-1 text-xs text-muted-foreground">
-          ${money(book?.wallPricePerFaceSqft)}/sqft of wall face — its base,
+          {money(book?.wallPricePerFaceSqft)}/sqft of wall face — its base,
           structural units, capping and any steps built into it. Measured by
           face area rather than length, because that is how it is invoiced.
         </div>
@@ -1580,7 +1592,7 @@ function PavingTakeoff({ takeoff, book, onChange, siteImageUrl }) {
           >
             {Object.entries(options).map(([key, opt]) => (
               <option key={key} value={key}>
-                {opt.label} — ${money(opt.costPerSqft)}/sqft
+                {opt.label} — {money(opt.costPerSqft)}/sqft
               </option>
             ))}
           </select>
@@ -1612,10 +1624,10 @@ function PavingTakeoff({ takeoff, book, onChange, siteImageUrl }) {
           installed rate, so only the excess is billable — charging the whole
           paver price bills the stone twice. */}
       <p className="text-xs text-muted-foreground">
-        ${money(allowance)}/sqft of paver is already included in the installed
+        {money(allowance)}/sqft of paver is already included in the installed
         rate.{" "}
         {uplift > 0
-          ? `This one costs $${money(paverCost)}, so $${money(uplift)}/sqft is added.`
+          ? `This one costs ${money(paverCost)}, so ${money(uplift)}/sqft is added.`
           : "This one is inside the allowance, so nothing is added."}
       </p>
 
@@ -1624,7 +1636,7 @@ function PavingTakeoff({ takeoff, book, onChange, siteImageUrl }) {
           checked={takeoff.removeExisting}
           onToggle={(v) => set({ removeExisting: v })}
           label="Remove and dispose of the existing surface"
-          hint={`$${money(e.removeExistingPerSqft)}/sqft`}
+          hint={`${money(e.removeExistingPerSqft)}/sqft`}
           amount={
             takeoff.removeExisting
               ? totalSqft * num(e.removeExistingPerSqft)
@@ -1635,21 +1647,21 @@ function PavingTakeoff({ takeoff, book, onChange, siteImageUrl }) {
           checked={takeoff.poorAccess}
           onToggle={(v) => set({ poorAccess: v })}
           label="Restricted site access"
-          hint={`$${money(e.poorAccessPerSqft)}/sqft — no machine route, wheelbarrow distance`}
+          hint={`${money(e.poorAccessPerSqft)}/sqft — no machine route, wheelbarrow distance`}
           amount={takeoff.poorAccess ? totalSqft * num(e.poorAccessPerSqft) : 0}
         />
         <OptionRow
           checked={takeoff.curvesCuts}
           onToggle={(v) => set({ curvesCuts: v })}
           label="Curves, borders and cutting"
-          hint={`$${money(e.curvesCutsPerSqft)}/sqft`}
+          hint={`${money(e.curvesCutsPerSqft)}/sqft`}
           amount={takeoff.curvesCuts ? totalSqft * num(e.curvesCutsPerSqft) : 0}
         />
         <OptionRow
           checked={takeoff.sealing}
           onToggle={(v) => set({ sealing: v })}
           label="Sealing"
-          hint={`$${money(e.sealingPerSqft)}/sqft`}
+          hint={`${money(e.sealingPerSqft)}/sqft`}
           amount={takeoff.sealing ? totalSqft * num(e.sealingPerSqft) : 0}
         />
         <OptionRow
@@ -1684,6 +1696,7 @@ function PavingTakeoff({ takeoff, book, onChange, siteImageUrl }) {
 /* ── Snow removal ──────────────────────────────────────────────────────── */
 
 function SnowRemovalTakeoff({ takeoff, book, onChange }) {
+  const money = useCompanyMoney();
   const e = book?.extras || {};
   const season = book?.season || {};
   const set = (patch) => onChange({ ...takeoff, ...patch });
@@ -1728,7 +1741,7 @@ function SnowRemovalTakeoff({ takeoff, book, onChange }) {
                 </span>
                 <span className="mt-0.5 block text-xs text-muted-foreground">
                   {num(p.driveways?.[takeoff.drivewaySize]) > 0
-                    ? `$${money(p.driveways[takeoff.drivewaySize])} for the season`
+                    ? `${money(p.driveways[takeoff.drivewaySize])} for the season`
                     : "No rate set for this driveway"}
                 </span>
               </button>
@@ -1746,7 +1759,7 @@ function SnowRemovalTakeoff({ takeoff, book, onChange }) {
           {Object.entries(drives).map(([key, price]) => (
             <option key={key} value={key}>
               {DRIVEWAY_LABELS[key] || key}
-              {num(price) > 0 ? ` — $${money(price)}` : " — no rate set"}
+              {num(price) > 0 ? ` — ${money(price)}` : " — no rate set"}
             </option>
           ))}
         </select>
@@ -1764,7 +1777,7 @@ function SnowRemovalTakeoff({ takeoff, book, onChange }) {
         Season runs {season.startsLabel} to {season.endsLabel}, covering up to{" "}
         {num(season.snowfallLimitCm)} cm or {num(season.eventLimit)} events of{" "}
         {num(season.eventThresholdCm)} cm+, whichever comes first. Past that the
-        overage fee of ${money(book?.overageFee)} applies — charged when the
+        overage fee of {money(book?.overageFee)} applies — charged when the
         season runs long, not quoted up front.
       </p>
 
@@ -1773,7 +1786,7 @@ function SnowRemovalTakeoff({ takeoff, book, onChange }) {
           checked={takeoff.shovelling}
           onToggle={(v) => set({ shovelling: v })}
           label="Walkway and steps"
-          hint={`$${money(plan.shovelling)} for the season, on the ${plan.label || "chosen"} plan`}
+          hint={`${money(plan.shovelling)} for the season, on the ${plan.label || "chosen"} plan`}
           amount={
             takeoff.shovelling && !shovelBlocked ? num(plan.shovelling) : 0
           }
@@ -1782,7 +1795,7 @@ function SnowRemovalTakeoff({ takeoff, book, onChange }) {
           checked={takeoff.salting}
           onToggle={(v) => set({ salting: v })}
           label="Salting"
-          hint={`$${money(e.saltPerApplication)} per application`}
+          hint={`${money(e.saltPerApplication)} per application`}
           amount={saltAmount}
         >
           <div className="mt-1 w-32">
@@ -1796,7 +1809,7 @@ function SnowRemovalTakeoff({ takeoff, book, onChange }) {
           checked={takeoff.newClient}
           onToggle={(v) => set({ newClient: v })}
           label="New client discount"
-          hint={`−$${money(book?.newClientDiscount)}, shown to the client as its own line`}
+          hint={`−${money(book?.newClientDiscount)}, shown to the client as its own line`}
           amount={0}
         />
       </div>
@@ -1817,7 +1830,7 @@ function SnowRemovalTakeoff({ takeoff, book, onChange }) {
         />
         <div className="mt-1 text-xs text-muted-foreground">
           {num(e.perVisitPrice) > 0
-            ? `$${money(e.perVisitPrice)} per visit — $${money(visitAmount)}`
+            ? `${money(e.perVisitPrice)} per visit — ${money(visitAmount)}`
             : "No per-visit rate is set, so these will not be billed."}
         </div>
       </Field>
@@ -1853,6 +1866,7 @@ function SnowRemovalTakeoff({ takeoff, book, onChange }) {
  *   client's quote, the PDF or the email — the line items above do that.
  */
 function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
+  const money = useCompanyMoney();
   const set = (patch) => onChange({ ...takeoff, ...patch });
   const [measuring, setMeasuring] = useState(false);
   const [measureNote, setMeasureNote] = useState("");
@@ -1999,7 +2013,7 @@ function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
           >
             {Object.entries(materials).map(([key, m]) => (
               <option key={key} value={key}>
-                {m.label} — ${money(m.pricePerSquare)}/sq
+                {m.label} — {money(m.pricePerSquare)}/sq
               </option>
             ))}
           </select>
@@ -2042,7 +2056,7 @@ function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
                 suffix="ft"
               />
               <p className="mt-0.5 text-[11px] text-muted-foreground">
-                {num(rate) > 0 ? `$${money(rate)}/ft` : "not priced"}
+                {num(rate) > 0 ? `${money(rate)}/ft` : "not priced"}
               </p>
             </Field>
           ))}
@@ -2065,7 +2079,7 @@ function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
                   onChange={(v) => set({ [field]: v })}
                 />
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  ${money(entry.price)} each
+                  {money(entry.price)} each
                 </p>
               </Field>
             );
@@ -2115,6 +2129,7 @@ function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
  * happens, so the field says which it wants.
  */
 function SidingTakeoff({ takeoff, book, onChange }) {
+  const money = useCompanyMoney();
   const set = (patch) => onChange({ ...takeoff, ...patch });
   const materials = book?.materials || {};
   const materialKey = takeoff.materialKey || book?.defaultMaterial || "";
@@ -2144,13 +2159,13 @@ function SidingTakeoff({ takeoff, book, onChange }) {
           >
             {Object.entries(materials).map(([key, m]) => (
               <option key={key} value={key}>
-                {m.label} — ${money(m.pricePerSqft)}/sqft
+                {m.label} — {money(m.pricePerSqft)}/sqft
               </option>
             ))}
           </select>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
             {material && sqft > 0
-              ? `$${money(sqft * num(material.pricePerSqft))} installed`
+              ? `${money(sqft * num(material.pricePerSqft))} installed`
               : "Installed, cladding and labour"}
           </p>
         </Field>
@@ -2177,14 +2192,14 @@ function SidingTakeoff({ takeoff, book, onChange }) {
           checked={takeoff.tearOff}
           onToggle={(v) => set({ tearOff: v })}
           label="Strip and dispose of existing cladding"
-          hint={`$${money(book?.tearOffPerSqft)}/sqft`}
+          hint={`${money(book?.tearOffPerSqft)}/sqft`}
           amount={takeoff.tearOff ? sqft * num(book?.tearOffPerSqft) : 0}
         />
         <OptionRow
           checked={takeoff.housewrap}
           onToggle={(v) => set({ housewrap: v })}
           label="House wrap and weather barrier"
-          hint={`$${money(book?.housewrapPerSqft)}/sqft`}
+          hint={`${money(book?.housewrapPerSqft)}/sqft`}
           amount={takeoff.housewrap ? sqft * num(book?.housewrapPerSqft) : 0}
         />
       </div>
@@ -2198,7 +2213,7 @@ function SidingTakeoff({ takeoff, book, onChange }) {
             suffix="sqft"
           />
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            ${money(book?.rotRepairPerSqft)}/sqft — reconcile on the invoice
+            {money(book?.rotRepairPerSqft)}/sqft — reconcile on the invoice
           </p>
         </Field>
         <Field label="Trim">
@@ -2209,7 +2224,7 @@ function SidingTakeoff({ takeoff, book, onChange }) {
             suffix="ft"
           />
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            ${money(book?.trimPerLf)}/ft
+            {money(book?.trimPerLf)}/ft
           </p>
         </Field>
         <Field label="Fascia">
@@ -2220,7 +2235,7 @@ function SidingTakeoff({ takeoff, book, onChange }) {
             suffix="ft"
           />
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            ${money(book?.fasciaPerLf)}/ft
+            {money(book?.fasciaPerLf)}/ft
           </p>
         </Field>
         <Field label="Soffit">
@@ -2231,7 +2246,7 @@ function SidingTakeoff({ takeoff, book, onChange }) {
             suffix="sqft"
           />
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            ${money(book?.soffitPerSqft)}/sqft
+            {money(book?.soffitPerSqft)}/sqft
           </p>
         </Field>
       </div>
@@ -2284,6 +2299,7 @@ const GUTTER_WORK_HINTS = {
  * already contain the height), and exactly one of the two minimums applies.
  */
 function GutterTakeoff({ takeoff, book, onChange }) {
+  const money = useCompanyMoney();
   const set = (patch) => onChange({ ...takeoff, ...patch });
 
   // Own-property lookups, not truthiness: these arrive from stored JSON, and
@@ -2399,7 +2415,7 @@ function GutterTakeoff({ takeoff, book, onChange }) {
               never appears. */}
           <p className="mt-0.5 text-[11px] text-muted-foreground">
             {isClean && cleanRate > 0
-              ? `Cleaning is $${money(cleanRate)}/ft at this height — access is already inside that rate${
+              ? `Cleaning is ${money(cleanRate)}/ft at this height — access is already inside that rate${
                   heightPct > 0
                     ? `. Guard, downspout and cable lines are install work and carry +${Math.round(heightPct * 100)}% separately`
                     : ""
@@ -2428,7 +2444,7 @@ function GutterTakeoff({ takeoff, book, onChange }) {
                     : num(m.pricePerFt);
                 return (
                   <option key={key} value={key}>
-                    {m.label} — ${money(rate)}/ft
+                    {m.label} — {money(rate)}/ft
                   </option>
                 );
               })}
@@ -2438,7 +2454,7 @@ function GutterTakeoff({ takeoff, book, onChange }) {
                 ? "Supplied and installed, hung to a fall"
                 : useBundled
                   ? "Replacement rate — taking the old run down and away is inside it"
-                  : `This profile has no separate replacement rate, so removal is charged on its own line at $${money(book?.removalPerFt)}/ft`}
+                  : `This profile has no separate replacement rate, so removal is charged on its own line at ${money(book?.removalPerFt)}/ft`}
             </p>
           </Field>
           {workType === "install" && (
@@ -2447,7 +2463,7 @@ function GutterTakeoff({ takeoff, book, onChange }) {
                 checked={takeoff.removeExisting}
                 onToggle={(v) => set({ removeExisting: v })}
                 label="Take down and dispose of what is up there"
-                hint={`$${money(book?.removalPerFt)}/ft — tick only if something is coming down that the new run does not replace`}
+                hint={`${money(book?.removalPerFt)}/ft — tick only if something is coming down that the new run does not replace`}
                 amount={
                   takeoff.removeExisting ? ft * num(book?.removalPerFt) : 0
                 }
@@ -2467,7 +2483,7 @@ function GutterTakeoff({ takeoff, book, onChange }) {
             <option value="">No guard</option>
             {Object.entries(guards).map(([key, g]) => (
               <option key={key} value={key}>
-                {g.label} — ${money(g.pricePerFt)}/ft
+                {g.label} — {money(g.pricePerFt)}/ft
               </option>
             ))}
           </select>
@@ -2485,7 +2501,7 @@ function GutterTakeoff({ takeoff, book, onChange }) {
           />
           <p className="mt-0.5 text-[11px] text-muted-foreground">
             {guard && guardFt > 0
-              ? `$${money(guardFt * num(guard.pricePerFt))} — guard is install work, so the access surcharge applies to it`
+              ? `${money(guardFt * num(guard.pricePerFt))} — guard is install work, so the access surcharge applies to it`
               : ft > 0
                 ? `The run above is ${ft} ft; guard only the elevations being sold`
                 : "Guarded footage, which is rarely the whole house"}
@@ -2504,7 +2520,7 @@ function GutterTakeoff({ takeoff, book, onChange }) {
             onChange={(v) => set({ downspoutsInstalled: v })}
           />
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            ${money(book?.downspouts?.installEach)} each
+            {money(book?.downspouts?.installEach)} each
           </p>
         </Field>
         <Field label="Downspouts flushed">
@@ -2513,7 +2529,7 @@ function GutterTakeoff({ takeoff, book, onChange }) {
             onChange={(v) => set({ downspoutsFlushed: v })}
           />
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            ${money(book?.downspouts?.flushEach)} each — flow tested
+            {money(book?.downspouts?.flushEach)} each — flow tested
           </p>
         </Field>
         <Field label="Sections resealed or refastened">
@@ -2522,7 +2538,7 @@ function GutterTakeoff({ takeoff, book, onChange }) {
             onChange={(v) => set({ repairSections: v })}
           />
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            ${money(book?.repairs?.perSectionPrice)} per section
+            {money(book?.repairs?.perSectionPrice)} per section
             {workType === "repair"
               ? " — this is what a repair visit is priced by"
               : ""}
@@ -2536,7 +2552,7 @@ function GutterTakeoff({ takeoff, book, onChange }) {
             suffix="ft"
           />
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            ${money(book?.extras?.heatCablePerFt)}/ft, supplied and installed
+            {money(book?.extras?.heatCablePerFt)}/ft, supplied and installed
           </p>
         </Field>
       </div>
@@ -2546,7 +2562,7 @@ function GutterTakeoff({ takeoff, book, onChange }) {
           checked={takeoff.soffitFasciaRinse}
           onToggle={(v) => set({ soffitFasciaRinse: v })}
           label="Soffit and fascia rinse"
-          hint={`$${money(book?.extras?.soffitFasciaRinsePrice)} flat — the published figure is a MINIMUM, not a rate, so a large house is more`}
+          hint={`${money(book?.extras?.soffitFasciaRinsePrice)} flat — the published figure is a MINIMUM, not a rate, so a large house is more`}
           amount={
             takeoff.soffitFasciaRinse
               ? num(book?.extras?.soffitFasciaRinsePrice)
@@ -2577,18 +2593,18 @@ function GutterTakeoff({ takeoff, book, onChange }) {
                   {l.description}
                   {l.unit !== "flat" && (
                     <span className="ml-2 text-xs text-muted-foreground">
-                      {l.quantity} {l.unit} × ${money(l.rate)}
+                      {l.quantity} {l.unit} × {money(l.rate)}
                     </span>
                   )}
                 </span>
                 <span className="shrink-0 font-medium tabular-nums">
-                  ${money(l.amount)}
+                  {money(l.amount)}
                 </span>
               </div>
             ))}
             <div className="flex items-baseline justify-between gap-2 px-3 py-1.5 text-sm font-medium">
               <span>Scope total</span>
-              <span className="tabular-nums">${money(total)}</span>
+              <span className="tabular-nums">{money(total)}</span>
             </div>
           </>
         )}
@@ -2619,6 +2635,7 @@ function GutterTakeoff({ takeoff, book, onChange }) {
  * R60 in one and R30 in the other.
  */
 function InsulationTakeoff({ takeoff, book, onChange }) {
+  const money = useCompanyMoney();
   const set = (patch) => onChange({ ...takeoff, ...patch });
   const materials = book?.materials || {};
   const materialKey = takeoff.materialKey || book?.defaultMaterial || "";
@@ -2799,14 +2816,14 @@ function InsulationTakeoff({ takeoff, book, onChange }) {
           checked={takeoff.airSeal}
           onToggle={(v) => set({ airSeal: v })}
           label="Air seal before insulating"
-          hint={`$${money(e.airSealPerSqft)}/sqft — blowing over the leaks is the most common way an attic job fails to perform`}
+          hint={`${money(e.airSealPerSqft)}/sqft — blowing over the leaks is the most common way an attic job fails to perform`}
           amount={takeoff.airSeal ? sqft * num(e.airSealPerSqft) : 0}
         />
         <OptionRow
           checked={takeoff.removeExisting}
           onToggle={(v) => set({ removeExisting: v })}
           label="Remove existing insulation"
-          hint={`$${money(e.removalPerSqft)}/sqft — wet, compacted or contaminated`}
+          hint={`${money(e.removalPerSqft)}/sqft — wet, compacted or contaminated`}
           amount={takeoff.removeExisting ? sqft * num(e.removalPerSqft) : 0}
         />
         {/* Only for the materials that actually need one. Closed-cell foam is
@@ -2817,7 +2834,7 @@ function InsulationTakeoff({ takeoff, book, onChange }) {
             checked={takeoff.vapourBarrier !== false}
             onToggle={(v) => set({ vapourBarrier: v })}
             label="Vapour barrier"
-            hint={`$${money(e.vapourBarrierPerSqft)}/sqft — ${material.label} is vapour-permeable and needs one`}
+            hint={`${money(e.vapourBarrierPerSqft)}/sqft — ${material.label} is vapour-permeable and needs one`}
             amount={
               takeoff.vapourBarrier !== false
                 ? sqft * num(e.vapourBarrierPerSqft)
@@ -2834,7 +2851,7 @@ function InsulationTakeoff({ takeoff, book, onChange }) {
           onChange={(v) => set({ baffles: v })}
         />
         <p className="mt-0.5 text-[11px] text-muted-foreground">
-          ${money(e.baffleEach)} each
+          {money(e.baffleEach)} each
         </p>
       </Field>
 

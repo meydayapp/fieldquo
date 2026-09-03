@@ -36,7 +36,8 @@ import {
   PAINT_QUANTITY_DRIVERS,
   PAINT_MEASUREMENT_STYLES,
 } from "@/lib/pricing/paintTakeoff";
-import { Field, Num, inputClass, money, asList } from "./fields";
+import { Field, Num, inputClass, asList } from "./fields";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 
 const own = (map, key) =>
   map && key && Object.prototype.hasOwnProperty.call(map, key)
@@ -48,6 +49,7 @@ const hoursText = (h) => `${h} h`;
 /* ── One substrate row ─────────────────────────────────────────────────── */
 
 function SubstrateRow({ row, priced, book, t, onChange, onRemove }) {
+  const money = useCompanyMoney();
   const def = own(book?.substrates, row?.key);
   if (!def) return null;
   const set = (patch) => onChange({ ...row, ...patch });
@@ -68,7 +70,7 @@ function SubstrateRow({ row, priced, book, t, onChange, onRemove }) {
           className="flex-1 min-w-0 border border-border rounded px-2 py-1 text-sm font-medium"
         />
         <span className="shrink-0 text-sm font-semibold tabular-nums">
-          {priced ? `$${money(priced.amount)}` : "—"}
+          {priced ? money(priced.amount) : "—"}
         </span>
         <button
           type="button"
@@ -193,13 +195,13 @@ function SubstrateRow({ row, priced, book, t, onChange, onRemove }) {
 
       {priced && (
         <div className="text-xs text-muted-foreground tabular-nums">
-          {hoursText(priced.displayHours)} · ${money(priced.labour)}{" "}
+          {hoursText(priced.displayHours)} · {money(priced.labour)}{" "}
           {t("app.paint.labourWord", "labour")}
           {priced.noProduct
             ? ` · ${t("app.paint.noProductShort", "no product")}`
             : priced.unpriced
               ? ` · ${priced.gallons.toFixed(2)} gal · ${t("app.paint.unpriced", "no price on this product yet")}`
-              : ` · ${priced.gallons.toFixed(2)} gal · $${money(priced.material)}`}
+              : ` · ${priced.gallons.toFixed(2)} gal · ${money(priced.material)}`}
         </div>
       )}
       {formula && (
@@ -214,6 +216,7 @@ function SubstrateRow({ row, priced, book, t, onChange, onRemove }) {
 /* ── One area ──────────────────────────────────────────────────────────── */
 
 function AreaCard({ area, index, priced, book, t, onChange, onRemove }) {
+  const money = useCompanyMoney();
   const set = (patch) => onChange({ ...area, ...patch });
   const substrates = asList(area.substrates);
   const style = area.measurement || "area";
@@ -241,7 +244,7 @@ function AreaCard({ area, index, priced, book, t, onChange, onRemove }) {
           className="flex-1 min-w-0 border border-border rounded px-2 py-1.5 text-sm font-medium"
         />
         <span className="shrink-0 text-sm font-semibold tabular-nums">
-          ${money(priced?.total ?? 0)}
+          {money(priced?.total ?? 0)}
         </span>
         <button
           type="button"
@@ -457,10 +460,10 @@ function AreaCard({ area, index, priced, book, t, onChange, onRemove }) {
         <div className="flex justify-between text-sm border-t border-border pt-2">
           <span className="text-muted-foreground">
             {t("app.paint.areaTotal", "Area total")} ·{" "}
-            {hoursText(priced.displayHours)} @ ${money(priced.hourlySellRate)}/h
+            {hoursText(priced.displayHours)} @ {money(priced.hourlySellRate)}/h
           </span>
           <span className="font-semibold tabular-nums">
-            ${money(priced.total)}
+            {money(priced.total)}
           </span>
         </div>
       )}
@@ -471,6 +474,7 @@ function AreaCard({ area, index, priced, book, t, onChange, onRemove }) {
 /* ── The takeoff ───────────────────────────────────────────────────────── */
 
 export default function PaintAreas({ takeoff, book, onChange }) {
+  const money = useCompanyMoney();
   const { t } = useTranslation();
   const areas = asList(takeoff?.areas);
   // One call, not a reimplementation. The screen and the quote must agree, and
@@ -526,17 +530,17 @@ export default function PaintAreas({ takeoff, book, onChange }) {
             <span className="text-muted-foreground">
               {t("app.paint.totalLabour", "Labour")}
             </span>
-            <span className="tabular-nums">${money(result.labour)}</span>
+            <span className="tabular-nums">{money(result.labour)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">
               {t("app.paint.totalMaterial", "Materials")}
             </span>
-            <span className="tabular-nums">${money(result.material)}</span>
+            <span className="tabular-nums">{money(result.material)}</span>
           </div>
           <div className="flex justify-between font-semibold border-t border-border pt-2">
             <span>{t("app.paint.totalScope", "Included scope")}</span>
-            <span className="tabular-nums">${money(result.total)}</span>
+            <span className="tabular-nums">{money(result.total)}</span>
           </div>
 
           {result.unpricedCount > 0 && (
@@ -577,7 +581,7 @@ export default function PaintAreas({ takeoff, book, onChange }) {
               {result.optionalAreas.map((a) => (
                 <div key={`a-${a.label}`} className="flex justify-between text-xs">
                   <span className="text-muted-foreground">{a.label}</span>
-                  <span className="tabular-nums">${money(a.total)}</span>
+                  <span className="tabular-nums">{money(a.total)}</span>
                 </div>
               ))}
               {result.optionalSubstrates.map((s, i) => (
@@ -585,7 +589,7 @@ export default function PaintAreas({ takeoff, book, onChange }) {
                   <span className="text-muted-foreground">
                     {s.area} — {s.label}
                   </span>
-                  <span className="tabular-nums">${money(s.amount)}</span>
+                  <span className="tabular-nums">{money(s.amount)}</span>
                 </div>
               ))}
               <p className="text-xs text-muted-foreground mt-1">

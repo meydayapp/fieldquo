@@ -6,8 +6,10 @@ import Link from "next/link";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 
 export default function BenchmarkPage() {
+  const money = useCompanyMoney();
   const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -170,13 +172,13 @@ export default function BenchmarkPage() {
                 <div>
                   <div className="text-xs text-muted-foreground">{t("app.benchmark.yourAverage", "Your average")}</div>
                   <div className="font-semibold">
-                    ${row.yourAvgPrice.toLocaleString()}
+                    {money(row.yourAvgPrice)}
                   </div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">{t("app.benchmark.platformAverage", "Platform average")}</div>
                   <div className="font-semibold">
-                    ${row.platformAvgPrice.toLocaleString()}
+                    {money(row.platformAvgPrice)}
                   </div>
                 </div>
                 <div className={`flex items-center gap-1 ${tone}`}>

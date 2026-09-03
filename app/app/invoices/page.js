@@ -14,9 +14,11 @@ import {
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 
 
 export default function InvoicesPage() {
+  const money = useCompanyMoney();
   const { t } = useTranslation();
   // The bottom rung — GET /api/invoices refuses below it. See the quotes list.
   const canView = useHasLevel("invoices", "view_only");
@@ -63,7 +65,9 @@ export default function InvoicesPage() {
   // stronger and more wrong claim than printing nothing — so the tiles stay
   // null and render the em dash they already have for "we were not told".
   const pricingHidden = Boolean(invoices?.some((i) => i.pricingHidden));
-  const money =
+  // Named `summary`, not `money`: `money` is now the formatter this page
+  // renders every figure through, and one identifier cannot be both.
+  const summary =
     invoices && !pricingHidden
       ? {
           totalBilled: invoices.reduce((sum, i) => sum + Number(i.total || 0), 0),
@@ -78,11 +82,11 @@ export default function InvoicesPage() {
         }
       : null;
 
-  // "$1,234.50", or "—" when we were not told.
+  // "£1,234.50" in the company's own currency, or "—" when we were not told.
+  // The em-dash branch is load-bearing: a summary the API declined to send is
+  // not a company that billed nothing, and rendering zero would say it did.
   const dollars = (value) =>
-    value === null || value === undefined
-      ? "—"
-      : `$${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    value === null || value === undefined ? "—" : money(value);
 
   // Rendered INSTEAD of the screen, not around it: nothing loads, and the
   // panel names who to ask. A list that is empty because the server refused it
@@ -111,19 +115,19 @@ export default function InvoicesPage() {
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="text-xs text-muted-foreground">{t("app.invoices.totalBilled")}</div>
           <div className="text-xl font-bold text-foreground mt-1">
-            {dollars(money?.totalBilled)}
+            {dollars(summary?.totalBilled)}
           </div>
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="text-xs text-muted-foreground">{t("app.status.paid")}</div>
           <div className="text-xl font-bold text-green-600 dark:text-green-400 mt-1">
-            {dollars(money?.paidAmount)}
+            {dollars(summary?.paidAmount)}
           </div>
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="text-xs text-muted-foreground">{t("app.invoices.outstanding")}</div>
           <div className="text-xl font-bold text-amber-600 dark:text-amber-400 mt-1">
-            {dollars(money?.outstanding)}
+            {dollars(summary?.outstanding)}
           </div>
         </div>
       </div>
@@ -216,9 +220,7 @@ export default function InvoicesPage() {
                   {inv.pricingHidden ? (
                     <span className="text-muted-foreground font-normal">—</span>
                   ) : (
-                    `$${Number(inv.total).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                    })}`
+                    money(inv.total)
                   )}
                 </span>
                 <ArrowRight size={16} className="text-muted-foreground" />

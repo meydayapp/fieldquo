@@ -13,6 +13,7 @@
 import { Clock, Send, CircleSlash, AlertCircle } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { paymentScheduleShortfall } from "@/lib/jobs/changeOrderValue";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 
 function formatDateOnly(value) {
   if (!value) return "";
@@ -22,13 +23,6 @@ function formatDateOnly(value) {
     day: "numeric",
     year: "numeric",
   });
-}
-
-function money(cents) {
-  return `$${(Number(cents || 0) / 100).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
 }
 
 const BLOCKED_KEY = {
@@ -51,6 +45,7 @@ function StatusIcon({ stage }) {
 }
 
 export default function PaymentScheduleCard({ stages, changeOrders }) {
+  const money = useCompanyMoney();
   const { t } = useTranslation();
   // ── Why the stages are NOT recomputed when a change order is agreed ───────
   //
@@ -117,7 +112,7 @@ export default function PaymentScheduleCard({ stages, changeOrders }) {
                 </div>
               </div>
               <div className="shrink-0 font-medium tabular-nums text-foreground">
-                {money(stage.amountCents)}
+                {money(Number(stage.amountCents || 0) / 100)}
               </div>
             </div>
           ))}
@@ -128,7 +123,7 @@ export default function PaymentScheduleCard({ stages, changeOrders }) {
           {t(
             "app.job.paymentSchedule.changeOrderNote",
             "These stages are percentages of the accepted quote and don't include {amount} of agreed changes. That's collected on the invoice balance, not by a stage.",
-            { amount: money(shortfall.approvedChangeCents) },
+            { amount: money(Number(shortfall.approvedChangeCents || 0) / 100) },
           )}
         </p>
       )}

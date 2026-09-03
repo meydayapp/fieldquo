@@ -16,10 +16,8 @@ import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
 import { formatDateOnly } from "@/lib/format/companyDate";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 
-function money(n) {
-  return `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
 // Period boundaries are calendar days at midnight UTC — see the note in
 // lib/format/companyDate.js. approvedAt/paidAt are real instants and read in
 // the viewer's own timezone.
@@ -35,6 +33,7 @@ const STATUS_STYLE = {
 };
 
 export default function PayRunPage() {
+  const money = useCompanyMoney();
   const { t } = useTranslation();
   const { id } = useParams();
   const [run, setRun] = useState(null);

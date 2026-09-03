@@ -22,6 +22,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 // see the note on BookkeepingExportCard for why the row's own gate can't
 // answer them.
 import { useHasLevel, useHasToggle } from "@/app/providers/PermissionProvider";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 
 // Curated presets so the category select is useful out of the box, but this
 // is still a free-text field underneath (matching your existing Expense.category
@@ -43,21 +44,6 @@ const CATEGORY_PRESETS = [
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
-
-function money(n) {
-  // Two decimals, like every other money value in the app. This rounded to
-  // whole dollars, so a $125.50 expense — stored correctly — displayed as
-  // "$126" on the tile, in job-related spend and in the category breakdown.
-  // Someone reconciling a receipt against this screen finds a number that
-  // isn't on the receipt.
-  // Number(n || 0) let a non-numeric string through: "abc" is truthy, so the
-  // `|| 0` never fired and the tile rendered "$NaN". Finite check instead.
-  const v = Number(n);
-  return `$${(Number.isFinite(v) ? v : 0).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
 
 function monthLabel(date) {
   return date.toLocaleString("en-US", { month: "long", year: "numeric" });
@@ -87,6 +73,7 @@ function KpiCard({ label, value, sub, icon: Icon, tone = "gray" }) {
 }
 
 function BreakdownBars({ items, total }) {
+  const money = useCompanyMoney();
   const { t } = useTranslation();
   if (!items.length) {
     return <p className="text-sm text-muted-foreground">{t("app.setExpenses.noneRecorded")}</p>;
@@ -121,6 +108,7 @@ function BreakdownBars({ items, total }) {
 }
 
 function TrendChart({ trend }) {
+  const money = useCompanyMoney();
   const max = Math.max(...trend.map((t) => t.total), 1);
   return (
     <div className="flex items-end gap-3 h-32">
@@ -362,6 +350,7 @@ function BookkeepingExportCard() {
 }
 
 export default function ExpenseTrackingPage() {
+  const money = useCompanyMoney();
   const { t } = useTranslation();
   const { formatDate } = useCompanyPreferences();
   const [monthDate, setMonthDate] = useState(() => new Date());

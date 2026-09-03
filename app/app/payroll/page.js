@@ -30,6 +30,7 @@ import { fetchJson } from "@/lib/fetchJson";
 import { formatDateOnly } from "@/lib/format/companyDate";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 const REGIONS = [
   { key: "CA", label: "Canada" },
   { key: "US", label: "United States" },
@@ -49,9 +50,6 @@ const STATUS_STYLE = {
   cancelled: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300",
 };
 
-function money(n) {
-  return `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
 // Two formatters on purpose. Pay period boundaries are calendar days stored at
 // midnight UTC, so a local formatter shows the day before — see the note in
 // lib/format/companyDate.js. paidAt is a real instant (someone clicked a button
@@ -82,6 +80,7 @@ function fallbackPeriod() {
 }
 
 export default function PayrollPage() {
+  const money = useCompanyMoney();
   const { t } = useTranslation();
   const [runs, setRuns] = useState(null);
   const [canRun, setCanRun] = useState(false);

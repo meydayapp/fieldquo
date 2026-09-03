@@ -35,6 +35,7 @@ import { showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 
 const CALC_META = {
   fixed: {
@@ -65,10 +66,6 @@ function blankComponent() {
     appliesToAll: true,
     statutory: false,
   };
-}
-
-function money(n) {
-  return `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
 }
 
 // The band editor. Kept simple: an ordered list where the last row's "up to" is
@@ -150,6 +147,7 @@ export default function PayrollSettingsPage() {
 }
 
 function PayrollSettingsScreen() {
+  const money = useCompanyMoney();
   const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");

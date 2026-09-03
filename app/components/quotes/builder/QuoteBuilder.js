@@ -99,6 +99,7 @@ import { explainTaxSource } from "@/lib/tax/resolveTaxRate";
 import { jsonBody } from "@/lib/jsonBody";
 import { resolveDocumentTax } from "@/lib/tax/documentTax";
 import { quoteTotals, round2 } from "@/lib/quotes/totals";
+import { formatAppMoney } from "@/lib/format/money";
 import { defaultValidUntil } from "@/lib/quotes/validUntil";
 import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
 import { LANGUAGES } from "@/app/i18n/languages";
@@ -1950,7 +1951,7 @@ export function QuoteBuilderForm({
                   >
                     <span className="min-w-0 truncate">{item.description}</span>
                     <span className="tabular-nums shrink-0">
-                      ${num(item.amount).toFixed(2)}
+                      {formatAppMoney(item.amount, companyCurrency, "en")}
                     </span>
                   </div>
                 ))}

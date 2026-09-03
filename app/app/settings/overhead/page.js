@@ -28,6 +28,11 @@ import { ASSET_CATEGORIES, assetCategory, suggestedLifeMonths } from "@/lib/cost
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasToggle, hasLevel } from "@/lib/permissions/enforce";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
+import { formatAppMoney } from "@/lib/format/money";
+import {
+  useCompanyMoney,
+  useCompanyPreferences,
+} from "@/app/providers/CompanyPreferencesProvider";
 
 const FIXED_COST_FREQUENCIES = ["weekly", "monthly", "yearly"];
 
@@ -47,25 +52,20 @@ const ASSET_REASON_FALLBACK = {
   incomplete: "Add what it cost, when it went into service and how long it'll last, and this will start counting.",
 };
 
-function money(n) {
-  return `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
-}
-
 // The utilisation endpoint states its own currency rather than assuming one,
-// so its figures are printed in it. Falls back to money() above when the
-// company has none recorded — an unlabelled number beats a wrong symbol.
-function moneyIn(n, currency) {
+// so its figures are printed in it; `fallback` is the company's own, for the
+// endpoint that answered without one.
+//
+// This used to fall back to a private `money()` that hardcoded a dollar sign —
+// under a comment claiming an unlabelled number beats a wrong symbol, which is
+// the opposite of what it did. Both now go through the shared formatter, so
+// one screen cannot print two groupings of the same number.
+//
+// Null stays null: the caller decides what absence reads as, and a cost the
+// endpoint could not compute must not render as zero spend.
+function moneyIn(n, currency, fallback) {
   if (n == null) return null;
-  if (!currency) return money(n);
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(Number(n));
-  } catch {
-    return money(n);
-  }
+  return formatAppMoney(n, currency || fallback || null, "en");
 }
 
 // Hours, printed as hours. Null stays null so the caller decides what absence
@@ -103,6 +103,8 @@ export default function OverheadPage() {
 }
 
 function OverheadEditor() {
+  const money = useCompanyMoney();
+  const { currency: companyCurrency } = useCompanyPreferences();
   const { t } = useTranslation();
   const caller = usePermissions();
   // The bills panel is a company-wide payables list, so it takes the
@@ -667,7 +669,7 @@ function OverheadEditor() {
               >
                 {utilisation.unabsorbedCost == null
                   ? t("app.setOverhead.utilUnknown")
-                  : moneyIn(utilisation.unabsorbedCost, utilisation.currency)}
+                  : moneyIn(utilisation.unabsorbedCost, utilisation.currency, companyCurrency)}
               </div>
             </div>
             <div className="rounded-lg border border-border px-3 py-2">
@@ -761,7 +763,7 @@ function OverheadEditor() {
                       {hours(r.unabsorbedHours) ?? "—"}
                     </td>
                     <td className="py-2 text-right tabular-nums text-foreground">
-                      {moneyIn(r.unabsorbedCost, utilisation.currency) ?? "—"}
+                      {moneyIn(r.unabsorbedCost, utilisation.currency, companyCurrency) ?? "—"}
                     </td>
                   </tr>
                 ))}
@@ -810,7 +812,7 @@ function OverheadEditor() {
               </span>
               <span className="flex items-center gap-3 shrink-0">
                 <span className="font-semibold tabular-nums">
-                  ${Number(f.amount).toLocaleString()}/
+                  {money(f.amount)}/
                   {t(`app.setOverhead.${f.frequency}`, f.frequency)}
                 </span>
                 <button
@@ -892,7 +894,7 @@ function OverheadEditor() {
               <span className="truncate">{s.name}</span>
               <span className="flex items-center gap-3 shrink-0">
                 <span className="font-semibold tabular-nums">
-                  ${Number(s.amount).toLocaleString()}/
+                  {money(s.amount)}/
                   {t(`app.setOverhead.${s.frequency}`, s.frequency)}
                   {/* The hours are half the number: $25/hr means nothing on its
                       own, and the row would look identical to a $25 monthly
@@ -1010,7 +1012,7 @@ function OverheadEditor() {
               </span>
               <span className="flex items-center gap-3 shrink-0">
                 <span className="font-semibold tabular-nums">
-                  ${Number(d.monthlyPayment).toLocaleString()}
+                  {money(d.monthlyPayment)}
                   {t("app.setOverhead.perMo")}
                 </span>
                 <button
@@ -1131,7 +1133,7 @@ function OverheadEditor() {
                   </span>
                   <span className="flex items-center gap-3 shrink-0">
                     <span className="font-semibold tabular-nums">
-                      ${Number(a.monthlyDepreciation).toLocaleString()}
+                      {money(a.monthlyDepreciation)}
                       {t("app.setOverhead.perMo")}
                     </span>
                     <button
@@ -1405,7 +1407,7 @@ function OverheadEditor() {
                   </span>
                   <span className="flex items-center gap-3 shrink-0">
                     <span className="font-semibold tabular-nums">
-                      ${Number(b.amount).toLocaleString()}
+                      {money(b.amount)}
                     </span>
                     <button
                       type="button"

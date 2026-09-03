@@ -7,8 +7,10 @@ import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvide
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 
 function PayrollPageScreen() {
+  const money = useCompanyMoney();
   const { t } = useTranslation();
   const { formatDate } = useCompanyPreferences();
   const [payouts, setPayouts] = useState([]);
@@ -125,7 +127,7 @@ function PayrollPageScreen() {
             </div>
             <div className="text-right">
               <div className="text-sm font-semibold">
-                ${Number(p.amount).toLocaleString()}
+                {money(p.amount)}
               </div>
               <div className="text-xs capitalize text-muted-foreground">{p.status}</div>
             </div>

@@ -10,6 +10,7 @@ import ListState from "@/app/components/ListState";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 const STATUS_STYLES = {
   draft: "bg-muted text-muted-foreground",
   sent: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
@@ -18,6 +19,7 @@ const STATUS_STYLES = {
 };
 
 export default function QuotesPage() {
+  const money = useCompanyMoney();
   const { t } = useTranslation();
   // ── The control, at exactly the level the API enforces ──────────────────
   //
@@ -232,9 +234,7 @@ export default function QuotesPage() {
                   {q.pricingHidden ? (
                     <span className="text-muted-foreground font-normal">—</span>
                   ) : (
-                    `$${Number(q.total).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                    })}`
+                    money(q.total)
                   )}
                 </span>
                 <ArrowRight size={16} className="text-muted-foreground" />

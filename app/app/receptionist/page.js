@@ -33,8 +33,14 @@ import { useHasLevel } from "@/app/providers/PermissionProvider";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import CallQuoteDraft from "./CallQuoteDraft";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { formatAppMoney } from "@/lib/format/money";
+import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
 
-const money = (c) => `$${(Number(c || 0) / 100).toFixed(2)}`;
+// US dollars, explicitly. These cents come off the voice credit ledger,
+// which is denominated in USD (lib/voice/creditCurrency.js) — a bare "$" on
+// a CAD account reads as about 40% less than the call actually cost.
+const money = (c) =>
+  formatAppMoney(Number(c || 0) / 100, CREDIT_CURRENCY, "en");
 
 // What the booking badge says, per mode.
 //

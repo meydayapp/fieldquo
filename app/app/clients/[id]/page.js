@@ -29,15 +29,13 @@ import { reportResponseError, showError } from "@/lib/clientErrors";
 import { formatAddress } from "@/lib/format/address";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
 import ClientEquipment from "@/app/components/clients/ClientEquipment";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
-function money(n) {
-  return `$${Number(n || 0).toLocaleString()}`;
-}
-
 export default function ClientDetailPage() {
+  const money = useCompanyMoney();
   const { t } = useTranslation();
   const { id } = useParams();
   const [client, setClient] = useState(null);

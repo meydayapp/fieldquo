@@ -19,6 +19,7 @@ import {
   detectDateFormat,
   detectSignConvention,
 } from "@/lib/expenses/csvImport";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 
 // ── Why parsing happens twice — once here, once on the server ─────────────
 //
@@ -31,14 +32,6 @@ import {
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
-
-function money(n) {
-  const v = Number(n);
-  return `$${(Number.isFinite(v) ? v : 0).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
 
 const MAPPING_FIELDS = ["date", "description", "amount", "debit", "credit", "category"];
 
@@ -367,6 +360,7 @@ function describeDateFormat(descriptor) {
 // ─────────────────────────────────────────────────────────────────────────
 
 function ReviewStep({ file, mapping, dateFormat, signMode, defaultCategory, jobs, onBack, onDone }) {
+  const money = useCompanyMoney();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

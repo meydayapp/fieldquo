@@ -17,6 +17,27 @@
 // preferences fetch that fails must degrade to "the old behaviour", never to
 // blank dates on a page full of them.
 //
+// ── The billing currency lives here too ─────────────────────────────────────
+//
+// Same argument, one step worse. Roughly forty back-office screens render an
+// amount, and almost none of them had the company's currency to hand — so they
+// each wrote `$${n.toFixed(2)}` and a British painter read `$1,234.00` on their
+// own quote. Threading a prop into forty pages would mean forty chances to miss
+// one; the currency is a company-level fact that every /app screen needs, which
+// is exactly what this provider already is.
+//
+// `initialCurrency` comes from the layout's own company query, so the FIRST
+// paint is already correct. Without it a GBP company would render CA$ for a
+// frame and then swap — a money figure that changes value under the reader is
+// worse than one that arrives late.
+//
+// `money()` binds the currency and the "en" reader locale, matching what
+// LineItemsTable / CostMarginPanel / UnitPricingFields already pass by hand.
+// Currency belongs to the company, locale to the reader (see lib/format/money.js);
+// the back office has never varied the locale, and making it vary here — while
+// the four components above still hardcode "en" — would put two groupings of
+// the same number on one screen. That is a separate change, all at once.
+//
 // ── Internal only ───────────────────────────────────────────────────────────
 //
 // Nothing under /q, /portal, /book or /quote should consume this. Those are
@@ -31,13 +52,27 @@ import {
   formatCompanyDateTime,
   DEFAULT_DATE_FORMAT,
 } from "@/lib/format/companyDate";
+import { moneyFormatter } from "@/lib/format/money";
 
 const CompanyPreferencesContext = createContext(null);
 
-const FALLBACK = { dateFormat: DEFAULT_DATE_FORMAT, weekStartsOn: 0 };
+// `currency: null` rather than "CAD". Null is what documentFormatters already
+// reads as "the schema default", and writing CAD here would be this file
+// asserting a company bills in Canadian dollars when it has not been told
+// anything — the padding-absent-data-with-defaults trap. The layout supplies
+// the real value; the fetch below is the fallback for a client that mounted
+// without one.
+const FALLBACK = {
+  dateFormat: DEFAULT_DATE_FORMAT,
+  weekStartsOn: 0,
+  currency: null,
+};
 
-export default function CompanyPreferencesProvider({ children }) {
-  const [prefs, setPrefs] = useState(FALLBACK);
+export default function CompanyPreferencesProvider({ children, initialCurrency = null }) {
+  const [prefs, setPrefs] = useState({
+    ...FALLBACK,
+    currency: initialCurrency || null,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -45,10 +80,14 @@ export default function CompanyPreferencesProvider({ children }) {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (cancelled || !d) return;
-        setPrefs({
+        setPrefs((p) => ({
           dateFormat: d.dateFormat || DEFAULT_DATE_FORMAT,
           weekStartsOn: Number(d.weekStartsOn) === 1 ? 1 : 0,
-        });
+          // A fetch that answers without a currency must not blank the one the
+          // server already handed us — "the field is absent" is not "the
+          // company has no currency".
+          currency: d.currency || p.currency || null,
+        }));
       })
       // Swallowed: the fallback is already in state and is the behaviour
       // every screen had before this existed.
@@ -63,6 +102,7 @@ export default function CompanyPreferencesProvider({ children }) {
       ...prefs,
       formatDate: (v) => formatCompanyDate(v, prefs.dateFormat),
       formatDateTime: (v) => formatCompanyDateTime(v, prefs.dateFormat),
+      money: moneyFormatter(prefs.currency, "en"),
     }),
     [prefs],
   );
@@ -87,6 +127,25 @@ export function useCompanyPreferences() {
       ...FALLBACK,
       formatDate: (v) => formatCompanyDate(v, FALLBACK.dateFormat),
       formatDateTime: (v) => formatCompanyDateTime(v, FALLBACK.dateFormat),
+      money: moneyFormatter(FALLBACK.currency, "en"),
     }
   );
+}
+
+/**
+ * Just the money formatter, for the many components that want nothing else.
+ *
+ *   const money = useCompanyMoney();
+ *   …{money(row.amount)}…          // "£1,234.00", never a hardcoded "$"
+ *
+ * Its own hook because the alternative call sites reach for is a private
+ * `const money = (n) => `$${n.toFixed(2)}`` — six of those is how this bug
+ * happened the first time (lib/format/money.js has the post-mortem). One
+ * import, one line, no props to thread.
+ *
+ * Safe outside the provider: the formatter falls back to the schema default,
+ * so a component rendered in a test harness formats rather than throwing.
+ */
+export function useCompanyMoney() {
+  return useCompanyPreferences().money;
 }

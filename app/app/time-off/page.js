@@ -33,6 +33,7 @@ import { fetchJson } from "@/lib/fetchJson";
 import { formatDateOnly, isoDateOnly } from "@/lib/format/companyDate";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 const STATUS_STYLE = {
   pending: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300",
   approved: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300",
@@ -55,12 +56,6 @@ const date = (d) => formatDateOnly(d);
 function range(a, b) {
   const sameDay = isoDateOnly(a) === isoDateOnly(b);
   return sameDay ? date(a) : `${date(a)} → ${date(b)}`;
-}
-function money(n) {
-  return `$${Number(n || 0).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
 }
 function iso(d) {
   return d.toISOString().slice(0, 10);
@@ -267,6 +262,7 @@ function MyTimeOff({ data, reload }) {
 }
 
 function BalanceCard({ balance }) {
+  const money = useCompanyMoney();
   const { t } = useTranslation();
   const isMoney = balance.policy?.accrualMethod === "percent_of_gross";
   return (
@@ -318,6 +314,7 @@ function BalanceCard({ balance }) {
 }
 
 function RequestForm({ policies, balances, onDone, onCancel }) {
+  const money = useCompanyMoney();
   const { t } = useTranslation();
   const today = iso(new Date());
   const [form, setForm] = useState({
@@ -601,6 +598,7 @@ function RequestRow({ request, reload, canCancel, canReview, showWho }) {
 // ── Team ───────────────────────────────────────────────────────────────────
 
 function TeamTimeOff({ data, reload }) {
+  const money = useCompanyMoney();
   const { t } = useTranslation();
   if (!data) {
     return (

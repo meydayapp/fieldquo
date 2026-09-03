@@ -25,6 +25,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasToggle } from "@/lib/permissions/enforce";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 
 const CATEGORY_META = {
   cabinet_refinishing: {
@@ -59,7 +60,10 @@ const EXAMPLE_KITCHEN = { doors: 24, drawers: 8, label: "a 24-door, 8-drawer kit
  * rate is zero/unset; a wrong example is worse than none (AGENTS.md — a
  * dead/misleading control is not a small thing).
  */
-function consumableExample(subKey, cfg) {
+// `money` is a parameter, not an import: this builds a worked EXAMPLE in
+// prose, and a hardcoded dollar sign in it priced a Zurich cabinet shop's
+// sandpaper in a currency they have never billed in.
+function consumableExample(subKey, cfg, money) {
   const units = EXAMPLE_KITCHEN.doors + EXAMPLE_KITCHEN.drawers;
   if (!cfg) return null;
   if (subKey === "tape") {
@@ -67,7 +71,7 @@ function consumableExample(subKey, cfg) {
     const costPerRoll = Number(cfg.costPerRoll);
     if (!(perUnits > 0) || !Number.isFinite(costPerRoll)) return null;
     const rolls = Math.ceil(units / perUnits);
-    return `${EXAMPLE_KITCHEN.label} (${units} pieces) needs ${rolls} roll${rolls === 1 ? "" : "s"} of tape — $${(rolls * costPerRoll).toFixed(2)}.`;
+    return `${EXAMPLE_KITCHEN.label} (${units} pieces) needs ${rolls} roll${rolls === 1 ? "" : "s"} of tape — ${money(rolls * costPerRoll)}.`;
   }
   if (subKey === "maskingFilm") {
     const perJob = Number(cfg.perJob) || 0;
@@ -75,12 +79,12 @@ function consumableExample(subKey, cfg) {
     const costPerRoll = Number(cfg.costPerRoll);
     if (!(perUnits > 0) || !Number.isFinite(costPerRoll)) return null;
     const rolls = perJob + Math.ceil(units / perUnits);
-    return `Same kitchen needs ${perJob} base roll${perJob === 1 ? "" : "s"} + ${Math.ceil(units / perUnits)} more = ${rolls} roll${rolls === 1 ? "" : "s"} of masking film — $${(rolls * costPerRoll).toFixed(2)}.`;
+    return `Same kitchen needs ${perJob} base roll${perJob === 1 ? "" : "s"} + ${Math.ceil(units / perUnits)} more = ${rolls} roll${rolls === 1 ? "" : "s"} of masking film — ${money(rolls * costPerRoll)}.`;
   }
   if (subKey === "sandpaper") {
     const perUnit = Number(cfg.perUnit);
     if (!Number.isFinite(perUnit)) return null;
-    return `Same kitchen: ${units} pieces × $${perUnit.toFixed(2)} = $${(units * perUnit).toFixed(2)} in sandpaper.`;
+    return `Same kitchen: ${units} pieces × ${money(perUnit)} = ${money(units * perUnit)} in sandpaper.`;
   }
   return null;
 }
@@ -133,6 +137,7 @@ export default function MaterialCostsPage() {
 }
 
 function MaterialCostsEditor() {
+  const money = useCompanyMoney();
   const { t } = useTranslation();
   const [recipes, setRecipes] = useState(null);
   const [drafts, setDrafts] = useState({});
@@ -355,9 +360,9 @@ function MaterialCostsEditor() {
                         ))}
                         {/* Computed from THIS company's own numbers above, not
                             a canned example — see consumableExample(). */}
-                        {consumableExample(subKey, draft.consumables?.[subKey]) && (
+                        {consumableExample(subKey, draft.consumables?.[subKey], money) && (
                           <p className="text-[10px] text-muted-foreground bg-muted rounded px-2 py-1.5 leading-snug">
-                            {consumableExample(subKey, draft.consumables?.[subKey])}
+                            {consumableExample(subKey, draft.consumables?.[subKey], money)}
                           </p>
                         )}
                       </div>
