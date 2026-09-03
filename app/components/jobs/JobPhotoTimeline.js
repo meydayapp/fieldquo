@@ -69,6 +69,28 @@ export default function JobPhotoTimeline({ jobId, jobTitle }) {
     load().finally(() => setLoading(false));
   }, [load]);
 
+  // Filter options come from tags actually WORN by a photo on this job — not
+  // the company's active-tag picker list — so a retired tag still shows up
+  // here if a photo on this job carries it. Filtering must not go blind the
+  // moment a tag is retired; it just stops being offered on the CURATOR's
+  // picker for new photos (see JobPhotoCurator.js).
+  //
+  // This sits ABOVE the `loading` early return on purpose. It used to sit
+  // below it, which meant the first render (photos still null, loading true)
+  // returned before reaching this hook and the second render called it —
+  // one more hook than the render before, i.e. React error #310, which took
+  // the whole job page down behind the error boundary. `photos` is null until
+  // the fetch lands, so the `|| []` guard is what makes hoisting it safe.
+  const tagOptions = useMemo(() => {
+    const byId = new Map();
+    for (const p of photos || []) {
+      for (const tg of p.tags || []) {
+        if (!byId.has(tg.id)) byId.set(tg.id, tg);
+      }
+    }
+    return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [photos]);
+
   async function downloadReport() {
     setDownloading(true);
     try {
@@ -104,21 +126,6 @@ export default function JobPhotoTimeline({ jobId, jobTitle }) {
   }
 
   const total = (photos || []).length;
-
-  // Filter options come from tags actually WORN by a photo on this job — not
-  // the company's active-tag picker list — so a retired tag still shows up
-  // here if a photo on this job carries it. Filtering must not go blind the
-  // moment a tag is retired; it just stops being offered on the CURATOR's
-  // picker for new photos (see JobPhotoCurator.js).
-  const tagOptions = useMemo(() => {
-    const byId = new Map();
-    for (const p of photos || []) {
-      for (const tg of p.tags || []) {
-        if (!byId.has(tg.id)) byId.set(tg.id, tg);
-      }
-    }
-    return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [photos]);
 
   const filteredPhotos = filterByTag(photos || [], tagFilter);
   const visiblePhotos = tagFilter ? filteredPhotos : photos || [];
