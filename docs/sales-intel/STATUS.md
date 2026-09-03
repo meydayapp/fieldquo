@@ -946,3 +946,48 @@ the collision happening at all.
 4. Does a departed rep keep earning the 60-day milestone?
 5. How much of a contractor's data may a rep see? (Default today: name,
    signup date, milestone states, subscription status. Nothing else.)
+
+---
+
+## QUEUED — record when billing actually started
+
+Owner, 2026-09-02: *"we should know when the billing start… nobody ever cleared
+[trialEndsAt] when billing started."*
+
+He is right, and it is the bug that made my own "6 companies on trial" wrong:
+one of those six is a PAYING company still carrying a `trialEndsAt` nobody
+ever superseded.
+
+**`Subscription` today records:**
+
+| column | means |
+|---|---|
+| `createdAt` | the row was written — that is `checkout.session.completed`, i.e. TRIAL START |
+| `trialEndsAt` | when the trial was SCHEDULED to end |
+| `status` | Stripe's current word for it |
+| `currentPeriodEnd` | the end of the period being billed now |
+
+**Nothing records the moment billing began.** So "when did this customer start
+paying us?" cannot be answered from the subscription row at all.
+
+**The fix, and why it is not "clear trialEndsAt":** clearing destroys the record
+of when the trial was meant to end, which is evidence in any argument about a
+charge. Add `Subscription.billingStartedAt`, stamped at the same instant
+milestone 2 fires — `invoice.payment_succeeded` with
+`billing_reason: "subscription_create"` AND `amount_paid > 0`, which is already
+the one moment the codebase agrees means "the first real money arrived"
+(`lib/sales/commission.js`). Stamp from Stripe's own timestamp, never
+`new Date()`, so a replayed webhook cannot move it.
+
+Then:
+
+- "on trial" becomes `billingStartedAt == null`, which needs no interpretation.
+- "when did they start paying" is answerable for every company, not only the
+  ones a rep is attributed to.
+- `trialEndsAt` keeps meaning what it always meant.
+
+**Blocked, not forgotten:** `prisma/schema.prisma` is currently held by two
+concurrent agents and is temporarily invalid in the working tree —
+`notificationDeliveries` appears twice on `Company` and `RecordEdit` has no
+opposite relation. Adding a third change under them is how the merges went
+wrong earlier today. This lands once the tree settles.
