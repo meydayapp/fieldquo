@@ -115,6 +115,33 @@ ok("and usage metering is separate from it", otherOpenAI !== null);
 const demo = src("lib/demo/simulatedSpend.js");
 ok("one helper answers 'is this a demo'", demo !== null && /isDemoCompany/.test(demo));
 
+console.log("\nFLOW 8 — the generated entity graph is current");
+// A generated map that is not regenerated is a hand-written map with extra
+// steps. This compares the committed section against a fresh generation.
+import { execSync } from "node:child_process";
+let regen = "";
+try {
+  execSync("node scripts/gen-interconnections.mjs", { stdio: "pipe" });
+  regen = readFileSync("docs/INTERCONNECTIONS.generated.md", "utf8");
+} catch {
+  regen = "";
+}
+const committed = src("docs/INTERCONNECTIONS.md") || "";
+ok("the graph regenerates", regen.length > 0);
+// Compare the model count rather than the whole text: a relation added to an
+// existing pair changes a cell, and demanding byte-equality would fail on
+// whitespace nobody cares about.
+// Anchored to the generated table's three-column shape. An earlier version
+// matched any row opening with a backticked name and picked up a row from the
+// three-valued-fields table above — off by exactly one, which is the most
+// annoying kind of wrong.
+const countOf = (t) => (t.match(/^\| `\w+` \| [^|]*\| [^|]*\|$/gm) || []).length;
+ok(
+  "and the committed graph has the same number of models as the schema",
+  countOf(committed) === countOf(regen),
+  `committed ${countOf(committed)} vs schema ${countOf(regen)}`,
+);
+
 console.log("");
 if (failures.length) {
   console.error(`FAILED — ${failures.length} of ${passed + failures.length}`);

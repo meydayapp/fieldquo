@@ -8172,6 +8172,7 @@ model SalesRep {
   smsMessages       SalesSmsMessage[]
 
   @@index([active])
+  repNotes SalesRepNote[]
 }
 
 /// What a rep earns, per milestone. A row rather than constants so the numbers
@@ -8404,6 +8405,7 @@ model SalesLead {
   smsMessages SalesSmsMessage[]
 
   @@index([salesRepId, status])
+  repNotes SalesRepNote[]
 }
 
 /// One text message a rep sent a prospect from FieldQuo's own sales number.
@@ -8485,6 +8487,7 @@ model SalesThread {
   messages SalesMessage[]
 
   @@index([salesRepId, lastMessageAt])
+  repNotes SalesRepNote[]
 }
 
 model SalesMessage {
@@ -8705,6 +8708,7 @@ model Prospect {
   @@index([campaignId, classification])
   @@index([phoneE164])
   @@index([domain])
+  repNotes SalesRepNote[]
 }
 
 /// Something we OBSERVED. The bottom of the stack; everything above cites it.
@@ -9865,4 +9869,52 @@ model VehicleMaintenance {
   createdAt   DateTime @default(now())
 
   @@index([vehicleId, performedAt])
+}
+
+/// A sales rep's own note. The Notion-shaped surface, minus the editor that
+/// would not install — see lib/sales/notes/body.js for why.
+///
+/// NOT tenant data: a rep is not a member of any company, so there is no
+/// companyId here and there must never be one. The scoping column is
+/// salesRepId, exactly as lib/sales/scope.js argues for a rep's company list —
+/// the fragment IS the boundary, not a filter behind one.
+model SalesRepNote {
+  id String @id @default(cuid())
+
+  salesRepId String
+  salesRep   SalesRep @relation(fields: [salesRepId], references: [id], onDelete: Cascade)
+
+  title String @default("")
+
+  /// What `body` holds. Named rather than assumed so a richer editor can land
+  /// later without having to guess at the rows written before it.
+  body       String @default("")
+  bodyFormat String @default("text")
+
+  /// Optional parents, and ALL THREE may be null. A rep jotting during a call
+  /// has not decided what the note is about yet, and forcing a parent would
+  /// mean inventing one — the same reasoning SalesLead.prospectId gives.
+  ///
+  /// SetNull rather than Cascade: deleting a lead must not delete the rep's
+  /// notes about it. What survives is the note plus parentLabel.
+  leadId     String?
+  lead       SalesLead?   @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  threadId   String?
+  thread     SalesThread? @relation(fields: [threadId], references: [id], onDelete: SetNull)
+  prospectId String?
+  prospect   Prospect?    @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+
+  /// The parent's name, frozen when the note was attached. Same reasoning as
+  /// ActivityLog.actorName: when the lead is deleted the FK goes null, and
+  /// "this was about Acme Painting" is the one fact worth keeping.
+  parentLabel String?
+
+  /// Soft. Nothing hard-deletes a note.
+  archivedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([salesRepId, updatedAt])
+  @@index([leadId])
 }
