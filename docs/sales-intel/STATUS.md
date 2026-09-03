@@ -763,18 +763,78 @@ of the market. **A category key that matches nothing looks exactly like a
 category with no businesses in it.** Anything selecting from this taxonomy must
 be generated from the taxonomy file, never typed.
 
-**775,628 is still not the whole market, and the gap is structural.** Overture
-indexes businesses with a FINDABLE LOCATION — a Google, Meta or Foursquare
-listing. The US has roughly 460,000 specialty-trade contractors WITH EMPLOYEES
-but around 2.5 million non-employer construction businesses: one-van sole
-traders with no premises and often no listing anywhere. Those are real FieldQuo
-customers and no POI dataset will have them.
+**775,628 is NOT the market. It is roughly 19% of it, and calling it the
+market was a category error — a worse mistake than the 522,123 arithmetic.**
 
-So the honest framing is that this is **the reachable market**, which is the
-more useful number anyway: a business with no listing has no phone number for a
-rep to dial. Whether 775K is most of the reachable market or a third of it is
-the enumeration-depth question, still open, checkable against StatCan and
-Census establishment counts.
+The owner supplied the government counts. Overture is a *lead-discovery
+source*; the official registers are the denominator, and they are five times
+larger:
+
+| NAICS 23, Construction | Employers | Non-employers | Total |
+|---|---:|---:|---:|
+| Canada (ISED / StatCan, 2025) | 159,514 | 255,892 | **415,406** |
+| USA (Census CBP + NES, 2023) | 814,557 | ~2,875,590 | **~3.73 M** |
+| **Combined** | ~974,000 | ~3.16 M | **~4.12 M** |
+
+Our own Overture figure against that: **79,736 of 415,406 in Canada — 19.2%**.
+The US ratio is the same shape. So the coverage gap is not a tuning problem and
+no amount of taxonomy fixing closes it.
+
+**And 4.12 M is itself conservative for FieldQuo**, because NAICS 23 excludes
+trades this product explicitly serves: landscaping and lawn care (Canada's
+NAICS 5617 adds 76,839 on its own; US landscaping employers alone are 117,969),
+snow and ice removal, janitorial, pressure washing, pest control (NAICS 561710),
+pool maintenance, appliance repair, locksmiths, tree care.
+
+**Why Overture misses four in five.** It indexes businesses with a findable
+POI. A contractor who works from home, hides their address, has no storefront,
+operates through Facebook only, or is incorporated under a name different from
+the one on the van is registered with a government and invisible to a map.
+Roughly three-quarters of US construction establishments have no payroll at all.
+
+### The correct framing, and the counts to keep separate
+
+Never report one number. Track:
+
+- **Government-known** — the ~4.12 M above. The denominator.
+- **Discoverable online** — 775,628 today, from Overture.
+- **Contactable** — has a phone, site or email.
+- **Verified active** — licence current, or recent permit activity.
+- **Qualified prospects** — what a campaign has actually worked.
+
+`Prospect.status` already carries the last three distinctions. What was wrong
+was the vocabulary above it, not the schema.
+
+### The multi-source registry this implies — owner's plan, recorded
+
+One identity spine, many evidence layers, nothing destructively merged:
+
+| Layer | Source | Contributes |
+|---|---|---|
+| Spine | Overture Places (CDLA-permissive, bulk) | name, category, address, coords, sometimes phone/site |
+| Canada expansion | StatCan **ODBus** (~450k records, Open Government Licence) | name, address, NAICS, licence number and type, status |
+| Licences | Provincial/state/municipal boards — Quebec **RBQ** publishes a daily bulk CSV (~54k active); California **CSLB**, Florida DBPR, Texas TDLR, Arizona ROC | legal name, trade class, licence status, expiry — often better than a map pin |
+| Work evidence | Municipal permit data | proves a business is trading, not merely registered |
+| Legal identity | OpenCorporates (140+ registries) | entity behind a trade name, jurisdiction, status |
+| Paid accelerator | Data Axle (~1.1 M CA, ~13–18 M US locations) | phone, site, size — evaluate on a 10–20 region sample BEFORE buying, and only with a licence that permits storage and prospecting |
+| Enrichment | The business's own website | email, services, service area, booking URL |
+| Verification | Google Places, **on demand only** | current status, hours, rating |
+
+**Google is an enricher, never the census, and this is a licensing constraint
+rather than a preference.** Text Search returns 20 per page and about 60 with
+pagination, capped at a 50 km radius; Google does not permit building a rival
+directory from Places content. The **Place ID may be stored indefinitely** —
+other fields may not. So: match a business from a source we own, keep its Place
+ID, and fetch live details at the moment a rep opens the record.
+
+**Store source, licence, retrieval time and confidence per FIELD**, and never
+let a website overwrite a government record. One canonical business, many
+source rows beneath it.
+
+Highest-yield next step is licence bulk files — Quebec RBQ, California CSLB,
+Florida DBPR, Texas TDLR — not another Places sweep. They add firms that never
+appear as a clean POI, and they carry trade class from an official codebook
+rather than from Overture's taxonomy.
 
 ### The architectural consequence of a bank this size
 
@@ -1130,8 +1190,8 @@ range; a reversal nets against the same week).
 ### Screenshots — NOT produced, and why
 
 `app/components/layout/MobileTabBar.js:96` has a code comment containing the
-literal `pb-[env(...)]`. Tailwind v4 scans comments, emits
-`padding-bottom: env(...)`, PostCSS fails, and **every route returns 500** — `/`,
+a literal `pb-` arbitrary-value class with an ellipsis inside. Tailwind v4 scans comments, emits
+an invalid `padding-bottom` declaration, PostCSS fails, and **every route returns 500** — `/`,
 `/features`, `/pricing`, `/compare` all confirmed. Almost certainly a
 production build blocker too. The sibling `pb-[calc(4rem+...)]` reference has
 the same defect. Not fixed here: that file is another agent's live work.

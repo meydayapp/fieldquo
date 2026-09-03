@@ -341,9 +341,9 @@ blockers, in order of severity:
 
 **1. The dev server currently returns HTTP 500 on every route.** Not an auth
 problem — a build failure. `app/components/layout/MobileTabBar.js:96` contains
-a code comment reading `// pb-[env(...)] carries the safe-area inset...`.
+a code comment that contained an arbitrary-value padding class with an ellipsis inside it (Tailwind scans comments, and `.md` files, as class candidates).
 Tailwind v4 scans raw file text including comments, matches the literal
-candidate `pb-[env(...)]`, and emits `padding-bottom: env(...)` into the
+candidate from that comment, and emits an invalid `padding-bottom` into the
 generated stylesheet, which is not valid CSS. PostCSS fails, `app/layout.js`
 fails, and `/`, `/features`, `/pricing` and `/compare` were all confirmed
 returning 500. `grep -rn 'env(\.\.\.)' app lib` returns exactly that one
