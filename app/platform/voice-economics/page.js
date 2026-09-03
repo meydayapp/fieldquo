@@ -63,17 +63,30 @@ export default function VoiceEconomicsPage() {
   const [state, setState] = useState("loading");
   const [errorText, setErrorText] = useState(null);
 
+  // ── The bug behind "Couldn't read the voice numbers just now" ────────────
+  //
+  // This read `const res = await fetchJson(...); if (!res.ok) { ... }`.
+  // fetchJson RETURNS THE PARSED BODY and THROWS on failure — it has no `.ok`
+  // (see lib/fetchJson.js, and every other caller in this codebase). So `res.ok`
+  // was undefined on a perfectly successful response, the error branch ran
+  // every single time, `res.error` was undefined too, and the fallback string
+  // was the only thing this page could ever display. The message was not vague
+  // about a real failure; it was unconditional, and there was never a failure.
+  //
+  // Which is why naming the cause is not a copy exercise: the reason the old
+  // sentence could not say why is that there was no why to say.
   const load = useCallback(async () => {
     setState("loading");
     setErrorText(null);
-    const res = await fetchJson(`/api/platform/voice-economics?days=${days}`);
-    if (!res.ok) {
-      setErrorText(res.error || "Couldn't read the voice numbers just now.");
+    try {
+      setData(await fetchJson(`/api/platform/voice-economics?days=${days}`));
+      setState("ready");
+    } catch (err) {
+      // fetchJson already turns a status into a sentence, and the route sends
+      // its own named diagnosis in `error` for the ones it can explain better.
+      setErrorText(err.message);
       setState("error");
-      return;
     }
-    setData(res.data);
-    setState("ready");
   }, [days]);
 
   useEffect(() => {
@@ -148,9 +161,14 @@ export default function VoiceEconomicsPage() {
             <h2 className="font-semibold text-foreground">The shared call pool</h2>
             {!c ? (
               <p className="text-sm text-muted-foreground mt-2">
-                The provider didn&rsquo;t report a concurrency limit, so this is
-                unknown — not zero. The margin below is missing whatever the
-                paid slots cost.
+                {/* The reason, which the route now keeps rather than catching
+                    to null. "The provider didn't report a limit" covered an
+                    unset key, a refused key, a rate limit and a timeout with
+                    one sentence and four different remedies. */}
+                {data.concurrencyProblem?.message ||
+                  "Retell answered without a concurrency limit in it."}{" "}
+                So this is unknown — not zero — and the margin below is missing
+                whatever the paid slots cost.
               </p>
             ) : (
               <>
@@ -212,6 +230,17 @@ export default function VoiceEconomicsPage() {
                 {data.fixed?.concurrencyLimit === null &&
                   " The concurrency bill is missing entirely."}
               </span>
+            </p>
+          )}
+
+          {/* Empty is an answer, and it is not the same answer as a failed
+              read. A column of zeros with nothing said about it is the shape
+              that has been misread as breakage on this codebase before — see
+              scripts/check-empty-vs-error.mjs. */}
+          {data.emptyNote && (
+            <p className="text-sm text-muted-foreground">
+              {data.emptyNote.message} The zeros below are a fact, not a failure —
+              and number rentals still cost what they cost.
             </p>
           )}
 

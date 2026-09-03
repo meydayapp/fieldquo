@@ -33,6 +33,7 @@ import {
   mayRepair,
   summarise,
 } from "@/lib/voice/webhookAudit";
+import { describeFailure, describeVendorFailure } from "@/lib/platform/diagnostics";
 
 const DAYS = 7;
 
@@ -71,7 +72,20 @@ async function inspect(agentId, expected) {
   } catch (err) {
     // A failed READ is "unknown", never "wrong". Repairing on the strength of a
     // timeout would rewrite a healthy agent because the network hiccupped.
-    return { agentId, holds: null, state: "unknown", reason: "unreadable", message: err?.message || null };
+    //
+    // WHICH failure, though, decides what the reader does next: a 401 means the
+    // key is wrong and every row below will say the same thing, a timeout means
+    // press Refresh, and a 404 means Retell answered and does not have this
+    // agent — which is not an unreadable agent at all, it is a missing one.
+    // "the provider didn't answer when we asked" was said about all three.
+    const problem = describeVendorFailure(err, { vendor: "Retell", envVar: "RETELL_API_KEY" });
+    return {
+      agentId,
+      holds: null,
+      state: "unknown",
+      reason: "unreadable",
+      problem,
+    };
   }
 }
 
@@ -89,8 +103,19 @@ export async function GET(request) {
   const stable = originIsStable(origin);
   const repair = mayRepair({ originStable: stable, expected });
 
+  // The agent list is a database read, and Neon's cold start is a real failure
+  // mode with a real remedy. Uncaught it becomes a 500 HTML page and the
+  // browser reports a generic "something went wrong on our end".
+  let toCheck;
+  try {
+    toCheck = await agentsToCheck();
+  } catch (err) {
+    const problem = describeFailure(err, { vendor: "the database" });
+    return NextResponse.json({ error: problem.message, ...problem }, { status: 503 });
+  }
+
   const rows = [];
-  for (const a of await agentsToCheck()) {
+  for (const a of toCheck) {
     const inbound = await inspect(a.providerAgentId, expected);
     const outbound = await inspect(a.outboundProviderAgentId, expected);
     rows.push({
@@ -186,7 +211,7 @@ export async function POST(request) {
           agentId,
           changed: false,
           state: "failed",
-          message: err?.message || null,
+          problem: describeVendorFailure(err, { vendor: "Retell", envVar: "RETELL_API_KEY" }),
         });
       }
     }

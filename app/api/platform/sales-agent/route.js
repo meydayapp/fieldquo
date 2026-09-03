@@ -27,6 +27,9 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { getAppOrigin } from "@/lib/appUrl";
+// Kept out of this file deliberately: it reads VoicePhoneNumber, and
+// check-sales-agent asserts this route names no tenant model at all.
+import { salesNumberCandidates } from "@/lib/platform/salesNumberCandidates";
 import {
   buildSalesAgentConfig,
   checkSalesReadiness,
@@ -62,8 +65,13 @@ export async function GET(request) {
     recentSalesCalls(50),
   ]);
 
+  // Only when there is nothing set. On a healthy screen this is a provider
+  // round-trip that could tell nobody anything.
+  const candidates = readiness.number ? null : await salesNumberCandidates();
+
   return NextResponse.json({
     readiness,
+    candidates,
     linkOrder: READINESS_LINKS,
     knowledge: config.knowledge,
     // The literal strings, not a summary of them. The question this screen

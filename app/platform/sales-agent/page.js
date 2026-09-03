@@ -35,11 +35,13 @@
 // this page changes with it.
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import {
   Loader2,
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
+  Clock,
   HelpCircle,
   PhoneCall,
   Info,
@@ -47,7 +49,8 @@ import {
   RefreshCw,
   Save,
 } from "lucide-react";
-import { LINK_LABEL, REASON_TEXT } from "@/lib/voice/readinessCopy";
+import { LINK_LABEL } from "@/lib/voice/readinessCopy";
+import { platformLinkText } from "@/lib/platform/salesReadinessCopy";
 
 const STATE_STYLE = {
   ok: {
@@ -61,6 +64,14 @@ const STATE_STYLE = {
   unknown: {
     tone: "border-border bg-muted text-muted-foreground",
     Icon: HelpCircle,
+  },
+  // A link that could not be judged because an earlier one is broken. Same
+  // "we are claiming nothing" grey as `unknown` — it is exactly as unknown as
+  // it was — but a different icon and a different sentence, so a column of them
+  // reads as one problem with consequences rather than six separate ones.
+  waiting: {
+    tone: "border-border bg-muted/60 text-muted-foreground",
+    Icon: Clock,
   },
 };
 
@@ -150,7 +161,7 @@ export default function PlatformSalesAgentPage() {
     );
   }
 
-  const { readiness, knowledge, prompt, greeting, tools, calls, contactUrl } = data;
+  const { readiness, candidates, knowledge, prompt, greeting, tools, calls, contactUrl } = data;
   const dirty = notes !== (data.notes || "") || enabled !== Boolean(data.enabled);
 
   return (
@@ -189,6 +200,61 @@ export default function PlatformSalesAgentPage() {
         }
       />
 
+      {/* ── The fix's ingredients, not just its instructions ───────────────
+          "Set FIELDQUO_SALES_NUMBER to a number bought on the Retell account"
+          leaves the owner to work out WHICH on another screen — where the
+          likeliest answer is currently filed under "billing leak". Only numbers
+          no company holds are listed: suggesting a contractor's number would
+          divert their callers to this agent. */}
+      {candidates && (
+        <div className="rounded-xl border border-border bg-muted p-4 text-sm text-muted-foreground">
+          {candidates.problem ? (
+            <p>
+              Couldn&apos;t list what Retell holds, so no candidate can be
+              suggested. {candidates.problem.message}
+            </p>
+          ) : candidates.numbers.length === 0 ? (
+            <p>
+              {candidates.checked
+                ? "Retell holds no number that isn't already held by a company, so there is nothing to point the variable at yet. Buy one on the Retell dashboard first."
+                : "RETELL_API_KEY isn't set, so nothing was asked of Retell — this list is empty because nobody looked, not because the account is empty."}
+            </p>
+          ) : (
+            <>
+              <p className="text-foreground font-medium">
+                Retell holds {candidates.numbers.length} number
+                {candidates.numbers.length === 1 ? "" : "s"} no company holds. If one of
+                these is meant to be the sales line, that is the value to set.
+              </p>
+              <ul className="mt-2 space-y-1">
+                {candidates.numbers.map((n) => (
+                  <li key={n.e164} className="tabular-nums text-foreground">
+                    {n.e164}
+                    <span className="text-muted-foreground font-normal">
+                      {n.nickname ? ` · “${n.nickname}” at Retell` : ""}
+                      {n.answering
+                        ? " · already answering with an agent"
+                        : " · no agent attached"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2">
+                {candidates.complete === false
+                  ? "Retell had more numbers than this read fetched, so this list may be short. "
+                  : ""}
+                They are listed on{" "}
+                <Link href="/platform/voice-numbers" className="underline">
+                  /platform/voice-numbers
+                </Link>{" "}
+                as numbers FieldQuo pays for and nobody uses — which is what an
+                unclaimed sales line looks like from that side.
+              </p>
+            </>
+          )}
+        </div>
+      )}
+
       {readiness.numberProblems.length > 0 && (
         <section className="space-y-2">
           {readiness.numberProblems.map((p) => (
@@ -217,16 +283,18 @@ export default function PlatformSalesAgentPage() {
         </h2>
         <ul className="space-y-2">
           {readiness.links.map((l) => {
-            const s = STATE_STYLE[l.state] || STATE_STYLE.unknown;
+            // A waiting link is drawn as a consequence, not as its own alarm.
+            // The state is still `unknown` — nothing here upgrades an unknown
+            // into a verdict; only the presentation changes.
+            const { text, waiting } = platformLinkText(l);
+            const s = (waiting ? STATE_STYLE.waiting : STATE_STYLE[l.state]) || STATE_STYLE.unknown;
             const Icon = s.Icon;
             return (
               <li key={l.id} className={`rounded-lg border p-3 flex items-start gap-3 ${s.tone}`}>
                 <Icon size={16} className="shrink-0 mt-0.5" />
                 <div className="min-w-0">
                   <p className="text-sm font-medium">{LINK_LABEL[l.id] || l.id}</p>
-                  <p className="text-sm mt-0.5">
-                    {REASON_TEXT[l.reasonKey] || l.reason}
-                  </p>
+                  <p className="text-sm mt-0.5">{text}</p>
                   {l.state === "fail" && (
                     <p className="text-xs mt-1 opacity-80">{OWNER[l.fixer] || l.fixer}</p>
                   )}

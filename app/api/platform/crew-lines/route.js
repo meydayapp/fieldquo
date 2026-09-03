@@ -39,6 +39,8 @@ import {
 } from "@/lib/crew/platformNumber";
 import { searchLocalNumbers } from "@/lib/voice/numberSearch";
 import { auditCrewLines } from "@/lib/crew/lineAudit";
+import { sharedLineAdvice } from "@/lib/crew/sharedLineAdvice";
+import { describeFailure, describeVendorFailure } from "@/lib/platform/diagnostics";
 
 export async function GET(request) {
   const admin = await getCurrentPlatformAdmin(request);
@@ -57,16 +59,36 @@ export async function GET(request) {
     try {
       numbers = await listSmsCapableNumbers({ limit: 100 });
     } catch (err) {
-      // Surfaced verbatim. This reader is the one person for whom a Twilio
-      // error code is the useful form of the answer.
-      numbersError = err.message;
+      // Named rather than surfaced verbatim — see the same change on
+      // /api/platform/voice-numbers. The status and the remedy are what this
+      // reader needs; the vendor's prose is the one part that can carry a
+      // credential onto a screen, and it is scrubbed either way.
+      numbersError = describeVendorFailure(err, {
+        vendor: "Twilio",
+        envVar: "TWILIO_ACCOUNT_SID",
+      });
     }
   }
 
-  const rows = await db.crewInboxNumber.findMany({
-    include: { company: { select: { name: true, crewInboxEnabled: true } } },
-    orderBy: { createdAt: "desc" },
-  });
+  let rows;
+  try {
+    rows = await db.crewInboxNumber.findMany({
+      include: { company: { select: { name: true, crewInboxEnabled: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+  } catch (err) {
+    const problem = describeFailure(err, { vendor: "the database" });
+    return NextResponse.json({ error: problem.message, ...problem }, { status: 503 });
+  }
+
+  // Read once. Both the fact and the advice below turn on them, and two reads
+  // could disagree if a purchase landed between them.
+  const bought = await platformNumbers();
+  const envNumber = sharedTestLineE164();
+  // Whether the provider was actually consulted — `numbers` is empty both when
+  // the account holds nothing and when nothing was asked, and those two must
+  // never produce the same sentence.
+  const askedTwilio = configured && !numbersError;
 
   const audit = auditCrewLines({
     numbers,
@@ -93,9 +115,22 @@ export async function GET(request) {
       // What FieldQuo has actually BOUGHT, as opposed to what configuration
       // names. The two disagreeing is the entire failure this page reports:
       // TWILIO_PHONE_NUMBER named +17372212163 while the account owned nothing.
-      platformNumbers: await platformNumbers(),
-      sharedLineEnv: sharedTestLineE164(),
-      sharedLineHeld: numbers.some((n) => n.e164 === sharedTestLineE164()),
+      platformNumbers: bought,
+      sharedLineEnv: envNumber,
+      // Three-state, and the third state is the point: `null` is "Twilio was
+      // never asked", which is not the same as "the account does not hold it".
+      // Reported as false, it would accuse a perfectly good number of not
+      // existing every time the credentials were missing.
+      sharedLineHeld: askedTwilio ? numbers.some((n) => n.e164 === envNumber) : null,
+      // What to DO about it, decided from what was actually found rather than
+      // left to the reader. See lib/crew/sharedLineAdvice.js.
+      sharedLine: sharedLineAdvice({
+        envValue: envNumber,
+        envHeld: askedTwilio ? numbers.some((n) => n.e164 === envNumber) : null,
+        boughtSharedTest: bought.find((n) => n.purpose === "shared_test")?.e164 || null,
+        boughtSystem: bought.find((n) => n.purpose === "system")?.e164 || null,
+        heldCount: numbers.length,
+      }),
     },
     numbersError,
     ...audit,

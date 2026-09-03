@@ -24,10 +24,29 @@ const REASON_COPY = {
   points_elsewhere: "still pointed at a deployment that no longer exists",
   never_set: "never had a webhook URL written at all",
   empty: "has an empty webhook URL",
-  unreadable: "the provider didn't answer when we asked",
+  // Deliberately empty: the row carries its own named diagnosis now, and one
+  // generic sentence covering an unset key, a 401, a 429 and a timeout was the
+  // whole complaint. See `problem` on each agent in the route.
+  unreadable: "",
   no_expected_url: "we can't tell what it should be from here",
   matches: "",
 };
+
+/**
+ * The reason most of the unreadable agents give, when they agree.
+ *
+ * Returns null when they DON'T agree — a mixture of causes is not one headline,
+ * and inventing one would be the same overreach as inventing a verdict.
+ */
+function dominantProblem(rows = []) {
+  const messages = rows
+    .flatMap((r) => r.agents || [])
+    .filter((a) => a?.state === "unknown" && a?.problem?.message)
+    .map((a) => a.problem.message);
+  if (messages.length === 0) return null;
+  const first = messages[0];
+  return messages.every((m) => m === first) ? first : null;
+}
 
 export default function VoiceWebhooksPage() {
   const [data, setData] = useState(null);
@@ -36,17 +55,23 @@ export default function VoiceWebhooksPage() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
 
+  // ── The bug behind "Couldn't check the agents just now" ──────────────────
+  //
+  // Identical to the one on /platform/voice-economics, copied along with the
+  // shape: `if (!res.ok)` against fetchJson, which returns the parsed BODY and
+  // throws on failure. `.ok` was always undefined, so the error branch was the
+  // only branch, and the fallback string was the only thing this page could
+  // render. Nothing was ever wrong with the agents; nothing was ever checked.
   const load = useCallback(async () => {
     setState("loading");
     setErrorText(null);
-    const res = await fetchJson("/api/platform/voice-webhooks");
-    if (!res.ok) {
-      setErrorText(res.error || "Couldn't check the agents just now.");
+    try {
+      setData(await fetchJson("/api/platform/voice-webhooks"));
+      setState("ready");
+    } catch (err) {
+      setErrorText(err.message);
       setState("error");
-      return;
     }
-    setData(res.data);
-    setState("ready");
   }, []);
 
   useEffect(() => {
@@ -56,19 +81,23 @@ export default function VoiceWebhooksPage() {
   async function repair() {
     setBusy(true);
     setResult(null);
-    const res = await fetchJson("/api/platform/voice-webhooks", { method: "POST" });
-    setBusy(false);
-    if (!res.ok) {
-      setResult({ ok: false, text: res.error || "Nothing was changed." });
-      return;
+    try {
+      const body = await fetchJson("/api/platform/voice-webhooks", { method: "POST" });
+      setResult({
+        ok: true,
+        text:
+          `${body.repaired} repaired, ${body.alreadyOk} already correct` +
+          (body.failed ? `, ${body.failed} couldn't be done` : "") +
+          ".",
+      });
+      load();
+    } catch (err) {
+      // The route's own refusal sentence when it has one — "run this from the
+      // live site" is the most likely, and it is a reason, not a fault.
+      setResult({ ok: false, text: err.message });
+    } finally {
+      setBusy(false);
     }
-    setResult({
-      ok: true,
-      text: `${res.data.repaired} repaired, ${res.data.alreadyOk} already correct${
-        res.data.failed ? `, ${res.data.failed} couldn't be done` : ""
-      }.`,
-    });
-    load();
   }
 
   const s = data?.summary;
@@ -113,6 +142,15 @@ export default function VoiceWebhooksPage() {
             <p className="text-xs text-muted-foreground mt-1.5 font-mono break-all">
               this deployment: {data.expected}
             </p>
+
+            {/* One cause, said once. When the key is refused every agent is
+                unreadable for the same reason, and repeating it per row buries
+                the fact that it is a single fix. */}
+            {s.unknown > 0 && dominantProblem(data.rows) && (
+              <p className="text-sm text-amber-800 dark:text-amber-300 mt-2">
+                {dominantProblem(data.rows)}
+              </p>
+            )}
 
             {/* The refusal, explained rather than greyed out. Repairing from a
                 preview would point every live agent at an address that stops
@@ -178,7 +216,12 @@ export default function VoiceWebhooksPage() {
                     {row.agents.map((a) => (
                       <li key={a.agentId} className="text-xs flex flex-wrap gap-x-2">
                         <span className={STATE_COPY[a.state]?.tone}>{STATE_COPY[a.state]?.label}</span>
-                        {REASON_COPY[a.reason] ? (
+                        {/* The named cause wins over the generic reason: a 401
+                            and a timeout used to read the same, and one of them
+                            means every other row says it too. */}
+                        {a.problem?.message ? (
+                          <span className="text-muted-foreground">— {a.problem.message}</span>
+                        ) : REASON_COPY[a.reason] ? (
                           <span className="text-muted-foreground">— {REASON_COPY[a.reason]}</span>
                         ) : null}
                         {a.state === "wrong" && a.holds ? (

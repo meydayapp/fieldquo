@@ -100,8 +100,8 @@ export default function VoiceNumbersPage() {
 
       {providerError && (
         <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm text-foreground">
-          Retell refused the number list: {providerError}. Nothing below can be trusted as
-          a comparison — the provider side is missing, not empty.
+          {providerError.message} Nothing below can be trusted as a comparison — the
+          provider side is missing, not empty.
         </div>
       )}
 
@@ -143,7 +143,15 @@ export default function VoiceNumbersPage() {
               : "Nothing to compare — the provider side wasn't read."}
           </p>
         ) : (
-          leaks.map((l) => <NumberRow key={l.e164} line={l} copy={copy} copied={copied} />)
+          leaks.map((l) => (
+            <NumberRow
+              key={l.e164}
+              line={l}
+              copy={copy}
+              copied={copied}
+              actions={<LeakActions line={l} deployment={deployment} />}
+            />
+          ))
         )}
       </section>
 
@@ -285,7 +293,84 @@ const UNHELD_COPY = {
     "The only row for this number is marked failed, so nothing on our side believes it exists — while Retell bills for it.",
 };
 
-function NumberRow({ line, copy, copied }) {
+/**
+ * What to actually DO about a number nobody holds.
+ *
+ * ── Why this is prose and not buttons ──────────────────────────────────────
+ *
+ * The owner's complaint about this page was that it states a fact — "nobody
+ * holds this", answering with an agent — and says nothing about what to do with
+ * it. The temptation is a Release button. There is a working release path
+ * (lib/voice/numberRelease.js, which calls the provider and then reads the
+ * number back before it will call it gone), so it could be wired.
+ *
+ * It is not, for two reasons that both outrank the convenience. The route this
+ * page reads is read-only by deliberate design — a release is irreversible, the
+ * number goes back on a carrier's shelf, and the commonest cause of an unheld
+ * number is a half-finished purchase whose company is about to be identified.
+ * And a button that fires and then has to report "released at Retell, but our
+ * row still says otherwise" is worse than a sentence: the brief for this work
+ * put it as "a button that half-releases a number is worse than a sentence".
+ *
+ * So: the three real options, which is which, and what each costs or saves.
+ *
+ * ── The order is the point ─────────────────────────────────────────────────
+ *
+ * Claiming comes first because it is reversible and because it is the likeliest
+ * answer for exactly the number the owner asked about: a toll-free line
+ * answering with an agent, on the same account, while /platform/sales-agent
+ * reports no number. Releasing comes last because it cannot be undone.
+ */
+function LeakActions({ line, deployment }) {
+  const couldBeSales = !deployment.salesNumberSet;
+  return (
+    <div className="mt-3 rounded-lg border border-border bg-background p-3 text-sm text-foreground">
+      <p className="font-semibold">What to do with it</p>
+      <ul className="mt-1.5 space-y-2 text-muted-foreground">
+        {couldBeSales && (
+          <li>
+            <span className="text-foreground font-medium">
+              Claim it as FieldQuo&apos;s own sales line.
+            </span>{" "}
+            <code className="px-1 rounded bg-muted text-xs">
+              {deployment.salesNumberVar}
+            </code>{" "}
+            is not set, and{" "}
+            <Link href="/platform/sales-agent" className="underline">
+              /platform/sales-agent
+            </Link>{" "}
+            is reporting that it has no number to answer on
+            {line.answering ? " — while this one is already answering with an agent" : ""}. If
+            this is that number, set the variable to{" "}
+            <span className="tabular-nums text-foreground">{line.e164}</span> in Vercel and
+            redeploy. Costs nothing extra: FieldQuo is already paying for it. It stops
+            being reported here as a leak and becomes one of FieldQuo&apos;s own lines.
+          </li>
+        )}
+        <li>
+          <span className="text-foreground font-medium">Leave it, for now.</span> Free, and
+          the right answer while there is any chance a half-finished purchase belongs to a
+          company that has not been found yet — check the row&apos;s reason above. The cost
+          of waiting is one more month of rent on Retell&apos;s invoice.
+        </li>
+        <li>
+          <span className="text-foreground font-medium">
+            Release it, in the Retell dashboard.
+          </span>{" "}
+          Phone Numbers → this number → Delete. Stops the monthly rental from the next
+          billing cycle; Retell&apos;s invoice is the authority on how much, which is why
+          no figure is quoted here. <span className="text-foreground">Permanent</span> — the
+          number goes back on the carrier&apos;s shelf and cannot be recovered. There is no
+          button for it on this page on purpose: releasing is irreversible, and a control
+          that released at the provider and left our own rows disagreeing would be worse
+          than this paragraph.
+        </li>
+      </ul>
+    </div>
+  );
+}
+
+function NumberRow({ line, copy, copied, actions = null }) {
   // Red is the alarm colour and is reserved for the alarm. A line held by
   // nobody BECAUSE IT IS OURS is a normal state, and painting it red was the
   // whole complaint: the console said "billing leak" about the sales phone.
@@ -369,6 +454,8 @@ function NumberRow({ line, copy, copied }) {
           </div>
         )}
       </dl>
+
+      {actions}
     </div>
   );
 }

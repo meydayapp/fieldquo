@@ -31,8 +31,9 @@ import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { voiceConfigured, listAllNumbers } from "@/lib/voice/retell";
 import { auditVoiceNumbers } from "@/lib/voice/numberAudit";
-import { salesNumbers } from "@/lib/platform/salesCall";
+import { salesNumbers, SALES_NUMBER_ENV } from "@/lib/platform/salesCall";
 import { sharedTestNumbers, toE164 } from "@/lib/voice/numbers";
+import { describeFailure, describeVendorFailure } from "@/lib/platform/diagnostics";
 
 export async function GET(request) {
   const admin = await getCurrentPlatformAdmin(request);
@@ -49,9 +50,20 @@ export async function GET(request) {
       items = listed.items;
       complete = listed.complete;
     } catch (err) {
-      // Surfaced verbatim. The reader of this page is the one person for whom a
-      // Retell error message is the useful form of the answer.
-      providerError = err.message;
+      // ── Named, not surfaced verbatim ──────────────────────────────────────
+      //
+      // This used to pass `err.message` straight to the browser, on the
+      // argument that the reader of this page is the one person for whom a
+      // Retell error message is the useful form of the answer. Half true: the
+      // STATUS is useful to him, the remedy more so, and the vendor's own prose
+      // is the one part that is neither — an API's instinct on an auth failure
+      // is to echo what it rejected, and what it rejected is our key. So the
+      // sentence is built from a closed template plus a status number, and
+      // whatever the vendor said is scrubbed before it can reach a screen.
+      providerError = describeVendorFailure(err, {
+        vendor: "Retell",
+        envVar: "RETELL_API_KEY",
+      });
     }
   }
 
@@ -65,11 +77,20 @@ export async function GET(request) {
   // would report every one of them as an "orphan" (held on our side, absent at
   // the provider), which is what this page exists to flag as a billing leak.
   // For a simulated row it is not one; it is the entire design.
-  const rows = await db.voicePhoneNumber.findMany({
-    where: { simulated: false },
-    include: { company: { select: { name: true } } },
-    orderBy: { createdAt: "desc" },
-  });
+  let rows;
+  try {
+    rows = await db.voicePhoneNumber.findMany({
+      where: { simulated: false },
+      include: { company: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+  } catch (err) {
+    // Without our own rows there is no comparison to make, and reporting every
+    // number Retell holds as unheld would be the alarm this page exists for,
+    // fired at the whole account. Refuse the read and say why.
+    const problem = describeFailure(err, { vendor: "the database" });
+    return NextResponse.json({ error: problem.message, ...problem }, { status: 503 });
+  }
 
   // ── FieldQuo's own lines, named rather than alarmed about ────────────────
   //
@@ -134,6 +155,17 @@ export async function GET(request) {
       // False when the pagination hit its stop. The page has to say so — a
       // partial list read as a whole account reports real numbers as orphaned.
       listComplete: complete,
+      // ── The other half of a two-screen story ─────────────────────────────
+      //
+      // A toll-free number Retell bills FieldQuo for that no company holds is
+      // reported here as a billing leak, and /platform/sales-agent is at the
+      // same moment reporting that it has no number to answer on. Those are
+      // very often ONE fact: a sales line bought and never named in
+      // configuration. Neither screen mentioned the other, so the owner was
+      // asked to decide about an orphan with no idea it might be the thing the
+      // other page is waiting for.
+      salesNumberVar: SALES_NUMBER_ENV,
+      salesNumberSet: salesNumbers().length > 0,
     },
     providerError,
     ...audit,

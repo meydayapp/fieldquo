@@ -23,6 +23,11 @@ import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { voiceEconomics, slotBreakEvenMinutes } from "@/lib/voice/platformEconomics";
 import { costForSeconds, monthlyCentsFor, CENTS_PER_MINUTE } from "@/lib/voice/credits";
 import { getConcurrency, voiceConfigured } from "@/lib/voice/retell";
+import {
+  describeFailure,
+  describeVendorFailure,
+  describeEmpty,
+} from "@/lib/platform/diagnostics";
 
 /** What a number of that type costs US per month, in cents. Retell's list price. */
 const PROVIDER_NUMBER_COST_CENTS = { local: 200, toll_free: 500 };
@@ -34,7 +39,17 @@ export async function GET(request) {
   const days = Math.min(365, Math.max(1, Number(new URL(request.url).searchParams.get("days")) || 30));
   const from = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-  const [calls, numbers] = await Promise.all([
+  // ── The database can fail, and it fails in a way worth naming ────────────
+  //
+  // Neon scales to zero, so the first read after an idle spell can come back
+  // P1001 and the next one succeed. Uncaught, that becomes a Next HTML error
+  // page, which the browser reports as "Something went wrong on our end (500)"
+  // — the exact shape of message this whole change exists to remove. Caught, it
+  // says which of "press Refresh" and "something is actually broken" applies.
+  let calls;
+  let numbers;
+  try {
+    [calls, numbers] = await Promise.all([
     db.voiceCall.findMany({
       where: { startedAt: { gte: from }, durationSec: { gt: 0 } },
       select: {
@@ -47,16 +62,42 @@ export async function GET(request) {
       where: { status: "active" },
       select: { numberType: true },
     }),
-  ]);
+    ]);
+  } catch (err) {
+    const problem = describeFailure(err, { vendor: "the database" });
+    return NextResponse.json({ error: problem.message, ...problem }, { status: 503 });
+  }
 
   // ── Concurrency comes from the provider, or not at all ──────────────────
   //
   // Never defaulted to 20. A guessed limit reports zero paid slots and a margin
   // that looks better than it is, and the whole reason this endpoint exists is
   // that a fixed cost assumed away is the one that surprises you.
+  //
+  // ── And the reason it is null is not thrown away ────────────────────────
+  //
+  // This was `.catch(() => null)`. The screen then said "The provider didn't
+  // report a concurrency limit" for four completely different situations — no
+  // key set, a key Retell refused, a rate limit, and a timeout — which have
+  // four different remedies and one of which is not a problem at all. The
+  // typed kind comes off the RetellError that lib/voice/retell.js already
+  // built; all that was missing was somebody keeping it.
   let concurrency = null;
-  if (voiceConfigured()) {
-    concurrency = await getConcurrency().catch(() => null);
+  let concurrencyProblem = null;
+  if (!voiceConfigured()) {
+    concurrencyProblem = describeVendorFailure(
+      { kind: "not_configured" },
+      { vendor: "Retell", envVar: "RETELL_API_KEY" },
+    );
+  } else {
+    try {
+      concurrency = await getConcurrency();
+    } catch (err) {
+      concurrencyProblem = describeVendorFailure(err, {
+        vendor: "Retell",
+        envVar: "RETELL_API_KEY",
+      });
+    }
   }
 
   const model = voiceEconomics({
@@ -88,6 +129,16 @@ export async function GET(request) {
     // The sentence that answers "should I raise the price to cover
     // concurrency?" — a slot costs $8 and carries this many minutes of margin.
     slotBreakEvenMinutes: marginPerMinute === null ? null : slotBreakEvenMinutes(marginPerMinute),
+    // WHY the concurrency block is null, when it is. Null with no reason is the
+    // shrug; null with a reason is a next step.
+    concurrencyProblem,
+    // ── An empty window is an ANSWER ────────────────────────────────────────
+    //
+    // Sent as its own note rather than left to be inferred from a column of
+    // zeros. The failure this codebase repeats is rendering "the read found
+    // nothing" and "the read failed" identically, and zeros are the shape that
+    // invites it — see scripts/check-empty-vs-error.mjs.
+    emptyNote: calls.length === 0 ? describeEmpty({ subject: `no calls in the last ${days} days` }) : null,
     concurrency: concurrency
       ? {
           inUse: concurrency.current_concurrency ?? null,

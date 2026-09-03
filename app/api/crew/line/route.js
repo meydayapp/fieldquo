@@ -48,11 +48,11 @@ import { canSetUpCrewTexting, CREW_SETUP_DENIAL } from "@/lib/crew/access";
 import { recordActivity } from "@/lib/activity/log";
 import { getAppOrigin } from "@/lib/appUrl";
 import { sendSms, toE164, twilioConfigured } from "@/lib/sms/twilioClient";
-import {
-  crewInboxCapability,
-  crewSignatureConfigured,
-  sharedTestLineE164,
-} from "@/lib/crew/capability";
+import { crewInboxCapability, crewSignatureConfigured } from "@/lib/crew/capability";
+// The bought row, then the env var — not the env var alone. See sharedTestLine:
+// a number bought here with purpose "shared_test" was previously written and
+// read by nothing, so the panel that sells one changed nothing a tenant sees.
+import { sharedTestLine } from "@/lib/crew/platformNumber";
 import { purchaseCrewLine } from "@/lib/crew/line";
 import { searchLocalNumbers, defaultAreaCode } from "@/lib/voice/numberSearch";
 import { CREW_LINE_MONTHLY_CENTS } from "@/lib/voice/credits";
@@ -390,7 +390,11 @@ export async function POST(request) {
     // already owns. A contractor cannot name an arbitrary number: claimCrewLine
     // verifies ownership at the provider, because "point our webhook at a number
     // somebody else controls" is not a setup step, it's an invitation.
-    const e164 = toE164(body?.e164) || sharedTestLineE164();
+    // Resolved once. Asking twice could return two different numbers if a
+    // purchase landed between the two reads, and the row would then be labelled
+    // "dedicated" while holding the shared line.
+    const shared = await sharedTestLine();
+    const e164 = toE164(body?.e164) || shared.e164;
     if (!e164) {
       return NextResponse.json(
         {
@@ -405,7 +409,7 @@ export async function POST(request) {
       companyId: member.companyId,
       e164,
       origin: getAppOrigin(request),
-      source: e164 === sharedTestLineE164() ? "shared_test" : "dedicated",
+      source: e164 === shared.e164 ? "shared_test" : "dedicated",
     });
     if (!result.ok) {
       return NextResponse.json({ error: result.reason }, { status: result.status || 400 });

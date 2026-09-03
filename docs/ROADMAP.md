@@ -16,6 +16,56 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## The console's failure messages name a cause (2 September 2026)
+
+Shipped. Three platform screens reported failures the owner could do nothing
+with — "Couldn't read the voice numbers just now", "Couldn't check the agents
+just now", and six rows of "We couldn't check this one. Nothing is claimed
+either way." His words: "i have no idea what to do with that information."
+
+- **Two of the three were not vague, they were unconditional.**
+  `/platform/voice-economics` and `/platform/voice-webhooks` both wrote
+  `const res = await fetchJson(...); if (!res.ok)`. `fetchJson` returns the
+  parsed BODY and throws; `.ok` was always undefined, so the error branch ran
+  on every successful response and the fallback string was the only thing
+  either page could ever render. Nothing was ever wrong; nothing was ever
+  checked. Both now try/catch and report the thrown message.
+- **The vendor boundary keeps its own diagnosis.** `RetellError` carries a
+  `kind` (`not_configured`, `rejected`, `rate_limited`, `timeout`,
+  `unreachable`, …) because status 0 meant both "no key" and "no network",
+  which are the two failures with the most different remedies in the file.
+  `lib/platform/diagnostics.js` turns one into an English sentence naming the
+  variable, the status and the next step. `getConcurrency().catch(() => null)`
+  was where that information was being thrown away.
+- **A chain points at the first break.** `resolveReadiness` links now carry
+  `blockedBy`, resolved transitively to the first genuinely failed link, so the
+  six shrugs on `/platform/sales-agent` became "Waiting on Your number" and the
+  one row that matters is the one in red. Nothing is upgraded — a waiting link
+  is exactly as unknown as it was. Added as a FIELD, not a new reason, so the
+  six translated tenant sentences are untouched.
+- **No message can carry a credential.** Every sentence is built from a closed
+  template plus an env var NAME and a status number; vendor prose is scrubbed.
+  `/platform/voice-numbers` and `/platform/crew-lines` stopped surfacing raw
+  provider messages.
+- **The orphan number and the phantom Twilio variable.**
+  `/platform/voice-numbers` now says what to DO about a number nobody holds —
+  claim it as the sales line (`FIELDQUO_SALES_NUMBER` is unset and
+  `/platform/sales-agent` is waiting for exactly this), leave it, or release it
+  in the Retell dashboard. Prose, not a button: a half-release is worse than a
+  sentence. `/platform/crew-lines` recommends one action for
+  `TWILIO_PHONE_NUMBER` from what was actually found — see
+  `lib/crew/sharedLineAdvice.js`.
+- **A purpose that was written and read by nothing.** Buying a number with
+  purpose `shared_test` changed nothing: `sharedTestLineE164()` read only the
+  env var. `sharedTestLine()` now prefers the bought row, which is what makes
+  "unset the variable" honest advice.
+
+`scripts/check-platform-diagnostics.mjs` (166 assertions) executes all of it —
+unset var, 401, 429, timeout, P1001, empty-but-successful, a chain missing at
+link 2, and a planted key value against every message.
+
+---
+
 ## The outbound queue claims what it dials
 
 Shipped. `/api/cron/voice-outbound` selected `status: "queued"` rows and wrote

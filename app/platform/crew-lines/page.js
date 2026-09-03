@@ -120,7 +120,7 @@ export default function CrewLinesPage() {
 
       {numbersError && (
         <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm text-foreground">
-          Twilio refused the number list: {numbersError}
+          {numbersError.message}
         </div>
       )}
 
@@ -161,17 +161,28 @@ export default function CrewLinesPage() {
 
       <BuyNumberPanel onChanged={load} />
 
-      {/* The env var names a number; naming is not owning. Probing the account
-          once found it holding none, which is the whole reason every path here
-          asks Twilio instead of trusting configuration. */}
-      {deployment.sharedLineEnv && !deployment.sharedLineHeld && (
-        <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm text-foreground">
-          <code className="px-1 py-0.5 rounded bg-background border border-border text-xs">
-            TWILIO_PHONE_NUMBER
-          </code>{" "}
-          names {deployment.sharedLineEnv}, and this Twilio account does not hold an
-          SMS-capable number with that address. The &quot;shared test line&quot; that
-          variable describes is not there to lend.
+      {/* The env var names a number; naming is not owning. This used to state
+          that fact and stop, which the owner reasonably answered with "I have no
+          idea what to do with that information". Three things are possible —
+          buy it, repoint it, unset it — and which one is right depends on what
+          FieldQuo has actually bought, so the decision is made in
+          lib/crew/sharedLineAdvice.js rather than left on the screen. */}
+      {deployment.sharedLine && (
+        <div
+          className={`rounded-xl border p-4 text-sm text-foreground ${
+            deployment.sharedLine.tone === "warn"
+              ? "border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30"
+              : "border-border bg-card"
+          }`}
+        >
+          <p className="font-bold">
+            <code className="px-1 py-0.5 rounded bg-background border border-border text-xs">
+              TWILIO_PHONE_NUMBER
+            </code>{" "}
+            — {deployment.sharedLine.headline}
+          </p>
+          <p className="mt-1.5 text-muted-foreground">{deployment.sharedLine.why}</p>
+          <p className="mt-1.5">{deployment.sharedLine.action}</p>
         </div>
       )}
 
