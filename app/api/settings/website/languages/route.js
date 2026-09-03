@@ -82,10 +82,14 @@ export async function PUT(request) {
   }
 
   const body = await request.json().catch(() => ({}));
-  // Only languages the product can actually deliver a whole site in. Punjabi and
-  // Tagalog are declared in the language list but have no site copy behind them
-  // (see lib/site/siteCopy.js), so offering them here would publish a page with
-  // an English frame around translated content.
+  // Only languages the product can actually deliver a whole site in —
+  // SITE_LANGUAGES is the intersection of "has chrome in lib/site/siteCopy.js"
+  // and "is offered in app/i18n/languages.js". Punjabi and Tagalog were the
+  // reason this filter exists: they were in the language list with no site copy
+  // behind them, so enabling one published a page with an English frame around
+  // translated content. They have copy now; the filter still earns its keep,
+  // because a language can also be complete in the copy tables and not yet
+  // offered (de and it, today).
   const wanted = (Array.isArray(body.languages) ? body.languages : [])
     .map((c) => String(c || "").toLowerCase())
     .filter((c) => SITE_LANGUAGES.includes(c));

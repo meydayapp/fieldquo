@@ -16,7 +16,7 @@
 //
 // Run: node --import ./scripts/alias-loader.mjs scripts/check-document-money.mjs
 
-import { documentFormatters } from "@/lib/i18n/documentLabels";
+import { documentFormatters, DOCUMENT_LABELS } from "@/lib/i18n/documentLabels";
 import { readFileSync } from "node:fs";
 
 let fail = 0;
@@ -121,14 +121,23 @@ console.log("\nThe signed quote's PDF shows the signature, in the document's own
   t("the audit line reads labels.signatureElectronicallySigned",
     /labels\.signatureElectronicallySigned/.test(sig));
 
-  const n = (key) => (readFileSync(new URL("../lib/i18n/documentLabels.js", import.meta.url), "utf8").match(new RegExp(`${key}:`, "g")) || []).length;
+  // This counted occurrences of `key:` in the source and compared them to a
+  // hardcoded 6, which went stale the day German and Italian were added to the
+  // table — and read "translated in all 6 … got=8" while failing, which points
+  // at the wrong thing entirely. Ask the table, and name the language that is
+  // actually short.
+  const short = (key) =>
+    Object.entries(DOCUMENT_LABELS)
+      .filter(([, tbl]) => typeof tbl[key] !== "string" || !tbl[key].trim())
+      .map(([code]) => code);
+  const langCount = Object.keys(DOCUMENT_LABELS).length;
   for (const key of [
     "signatureApproval", "signatureAcceptWithTotal", "signatureAcceptNoTotal",
     "signatureFieldLabel", "signatureNameFieldLabel", "signatureDateFieldLabel",
     "signatureDateSignedLabel", "signatureElectronicallySigned", "signatureFromIp",
     "signatureDocumentRef",
   ]) {
-    t(`${key} is translated in all 6 document languages`, n(key), 6);
+    t(`${key} is translated in all ${langCount} document languages`, short(key).join(",") || "none", "none");
   }
 
   const route = read("../app/api/public/quotes/[token]/route.js");

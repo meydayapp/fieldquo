@@ -1,12 +1,67 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 2 September 2026 (three languages; PDF, currency and plural bugs found).
+Last updated: 3 September 2026 (per-language DOCUMENT tables filled: pa/tl site chrome shipped, de/it ready for the picker).
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The document tables now lead the picker (3 September 2026)
+
+`app/i18n/languages.js` is two things at once — the interface picker AND the
+**document** language list — so a code cannot go in it until a homeowner can be
+sent a whole quote in that language. Four hand-written tables decide that:
+`lib/i18n/documentLabels.js` (subtotal, tax, **balance due**),
+`lib/i18n/clientDocCopy.js` (the quote-approval page, the portal, the self-quote
+form, the visit page), `lib/i18n/emailCopy.js` (the covering email) and
+`lib/site/siteCopy.js` (the tenant website's chrome). All four are filled.
+
+**Punjabi and Tagalog were a live defect, now fixed.** Both were in `LANGUAGES`
+with no `siteCopy` block, so a Punjabi contractor's public site rendered
+generated Punjabi content inside English chrome — the exact half-translated page
+that file's header says it exists to prevent. 59 keys each, taking their
+vocabulary from the CLIENT-facing tables rather than from `appMessages.js`: the
+app catalogue writes a quote as "ਕੋਟੇਸ਼ਨ" for a contractor at a desk, and every
+document a homeowner receives says "ਹਵਾਲਾ". One concept, one word, along the
+whole client path. Tagalog likewise keeps the polite `ninyo`/`po` of the client
+copy rather than the informal `mo`/`ka` the app uses with staff.
+
+**German and Italian are complete and NOT YET OFFERED.** All four tables carry
+full `de`/`it` blocks (46 + 171 + 28 + 59 keys, key-for-key with English),
+formal `Sie` and `Lei` to match the app catalogues, money words lifted from them
+so the invoice and the screen agree — Zwischensumme / Subtotale, "Offener Saldo"
+/ "Saldo da pagare". `check:pdf-fonts` draws all 46 labels of each and reads
+them back off the page. The remaining step is one line each in `LANGUAGES`, and
+it is the owner's: `SITE_LANGUAGES` now intersects with `LANGUAGE_CODES`
+specifically so filling a table cannot switch a language on as a side effect.
+
+**`check:language-completeness` is wired into `check:all`** (98 assertions). It
+enumerates the nine edits adding a language takes, and records why a
+catalogue-only language is held back — Mandarin for the missing CJK face, de/it
+for the owner's last step — with a `tablesComplete` flag that is enforced rather
+than asserted in prose.
+
+### Three checks that were green for the wrong reason
+
+- `check-language-completeness` grepped each table for `^\s*(de|"de"):`. Adding
+  German means adding `de: "de-DE"` to the *locale* map in the same file, which
+  satisfies that regex from inside a different object — so the check would have
+  passed on a document whose labels were entirely English. It imports the real
+  tables now, and compares key sets.
+- `check-pdf-fonts` folded only the `fi`/`fl` ligatures. Noto Sans also ligates
+  **`ff`**, so "Offener Saldo" came back as "O�ener Saldo" and stranded every
+  later label. Latent in English the whole time — "off" folds the same way; no
+  label had happened to contain it. The five clusters (ffi, ffl, ff, fi, fl) were
+  read off a rendered page, not guessed. It also asserted the catalogue matched
+  `LANGUAGE_CODES` *exactly*, which contradicts tables-lead-picker; it now
+  asserts every offered language has a table.
+- `check-kitchen-section` and `check-document-money` counted `key:` occurrences
+  in the source against a hardcoded 6 — the same class of failure the 2 September
+  pass fixed in four other checks, in two it missed. Both ask the table now.
 
 ---
 

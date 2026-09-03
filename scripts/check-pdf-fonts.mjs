@@ -187,20 +187,39 @@ function decodePdf(buf) {
 // whitespace, so " Payment terms as stated." is drawn without its leading
 // space. That is a layout fact, not a missing glyph, and failing on it would
 // train a reader to ignore this check.
-// Ligature glyphs cannot be read back. Noto Sans ships `fi`/`fl` ligatures and
-// its OpenType liga feature fires, so "filed" reaches the page as f-i-l-e-d
+// Ligature glyphs cannot be read back. Noto Sans ships f-ligatures and its
+// OpenType liga feature fires, so "filed" reaches the page as f-i-l-e-d
 // minus one glyph — a single ligature glyph that is NOT in the font's cmap,
 // because ligatures are reached through GSUB. The decoder therefore has no
 // character to map it to and emits U+FFFD. The PDF is correct; the reverse
 // mapping is what is lossy.
 //
-// So the same fold is applied to both sides: every f-i / f-l pair becomes the
+// So the same fold is applied to both sides: every ligated cluster becomes the
 // same replacement character before comparing. That keeps all 46 labels in
-// scope rather than excluding the ones containing "fi", and gives up only the
-// ability to tell an fi ligature from an fl one — which no bug in this area
+// scope rather than excluding the ones that contain one, and gives up only the
+// ability to tell one ligature from another — which no bug in this area
 // would turn on. Truncation to low bytes, the failure this check exists to
 // catch, produces ordinary Latin-1 characters and is untouched by the fold.
-const foldLigatures = (s) => s.replace(/f[il]/g, "\uFFFD");
+//
+// ── The set is ffi, ffl, ff, fi, fl — measured off the page, not assumed ───
+//
+// This folded only `f[il]` until German arrived, and then "Offener Saldo" came
+// back as "O<FFFD>ener Saldo" and stranded every label after it (the walk
+// below is a cursor: one unmatched label takes the rest of them with it). The
+// German is not the problem — "off" folds the same way, so the gap was latent
+// in English the whole time and no label had happened to contain "ff".
+//
+// The five clusters were read off a rendered page rather than guessed at,
+// because the alternation order has to match what the shaper actually did:
+// "ffi" comes back as ONE glyph, so `ff` must not win first, and "Schifffahrt"
+// comes back as "Schi<FFFD>fahrt" — the first two f's ligated, the third left
+// alone. A leftmost-longest alternation reproduces exactly that.
+//
+// Out of scope here but worth knowing: the absent ToUnicode entry is also what
+// a reader uses for copy-paste and search, so searching a German invoice for
+// "Offener" finds nothing. That is a property of the font subset, not of this
+// catalogue — French "À confirmer" has had it since Noto Sans went in.
+const foldLigatures = (s) => s.replace(/ffi|ffl|ff|fi|fl/g, "\uFFFD");
 
 const bag = (s) =>
   [...foldLigatures(s.trim().normalize("NFKC"))]
@@ -221,13 +240,30 @@ async function main() {
   // Not a sample. Every key of every language table, drawn in both the
   // regular and the bold family, and read back off the page. A sample is how
   // you ship a font that covers "Total" and not "Проміжний підсумок".
-  section("1. every documentLabels string, all six languages, regular + bold");
+  section("1. every documentLabels string, every language in the table, regular + bold");
 
   const langs = Object.keys(DOCUMENT_LABELS);
+  // ── Superset, not equality, and that is the point ─────────────────────────
+  //
+  // This asserted the two sets were EXACTLY equal, which held only while the
+  // catalogue and the picker were edited in the same commit. They are not
+  // meant to move together: a language is added to the four document tables
+  // FIRST and to app/i18n/languages.js LAST, because `LANGUAGES` is the
+  // document language list — offering German before the tables are filled
+  // means a German interface issuing an invoice whose "Zwischensumme" is still
+  // English. scripts/check-language-completeness.mjs owns that sequencing and
+  // records why each held-back language is held back.
+  //
+  // So the relation to assert is one-way. A table missing for an OFFERED
+  // language is a real bug and still fails here. A table that exists for a
+  // language the picker does not offer yet is the intended halfway state, and
+  // every one of its labels is still rendered and read back below — which is
+  // exactly the evidence you want before turning the picker on.
+  const unfonted = LANGUAGE_CODES.filter((c) => !langs.includes(c));
   ok(
-    langs.length === LANGUAGE_CODES.length && LANGUAGE_CODES.every((c) => langs.includes(c)),
-    `the catalogue covers exactly the languages the pickers offer (${LANGUAGE_CODES.join(", ")})`,
-    langs,
+    unfonted.length === 0,
+    `every offered language has a label table (${LANGUAGE_CODES.join(", ")})`,
+    unfonted,
   );
 
   for (const lang of langs) {

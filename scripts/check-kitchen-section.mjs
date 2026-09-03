@@ -15,6 +15,10 @@
 // real PDF and reads the text back off the page.
 
 import { readFileSync } from "node:fs";
+// documentLabels.js imports nothing, so plain node can load it without the
+// alias loader — and asking the real table beats counting `kitchenPlan:` in the
+// source, which is what this did until German and Italian arrived.
+import { DOCUMENT_LABELS } from "../lib/i18n/documentLabels.js";
 let fail=0; const ok=(c,m)=>{console.log((c?"✓ ":"✗ ")+m); if(!c)fail++;};
 
 // Re-implemented from source rather than imported: the module pulls in
@@ -29,7 +33,7 @@ ok(/wrap=\{false\}/.test(src),
 ok(/return "";/.test(src.slice(src.indexOf("renderEmailHtml"))),
    "renderEmailHtml returns nothing — Outlook drops complex SVG entirely, and a half-rendered drawing is worse than a line saying it's attached");
 ok(!/\|\| "Kitchen plan"/.test(src),
-   "no English fallback on the heading — the label exists in all six languages, and a fallback would hide a missing one");
+   "no English fallback on the heading — the label exists in every language, and a fallback would hide a missing one");
 
 const designFrom = (data) => {
   const d = data?.scopeDetails;
@@ -54,9 +58,20 @@ ok(/kitchen_plan: kitchenPlan/.test(reg), "registered in SECTION_REGISTRY");
 ok(/kitchen_plan: \{/.test(met), "described in SECTION_META — the registry asserts these stay in sync at import time");
 
 // The label, in every language the product ships documents in.
-const labels = readFileSync("lib/i18n/documentLabels.js", "utf8");
-const n = (labels.match(/kitchenPlan:/g) || []).length;
-ok(n === 6, `the heading is translated in all ${n} document languages`);
+//
+// This counted `kitchenPlan:` in the source and compared it to a hardcoded 6,
+// which is two bugs in one line: the number goes stale the moment a language is
+// added (German and Italian did exactly that), and the failure message
+// interpolated the count it had just rejected, so it read "translated in all 8"
+// while failing. Ask the table instead, and name what is actually missing.
+const missingKitchenPlan = Object.entries(DOCUMENT_LABELS)
+  .filter(([, t]) => typeof t.kitchenPlan !== "string" || !t.kitchenPlan.trim())
+  .map(([code]) => code);
+ok(
+  missingKitchenPlan.length === 0,
+  `the heading is translated in every document language (${Object.keys(DOCUMENT_LABELS).length})` +
+    (missingKitchenPlan.length ? ` — missing: ${missingKitchenPlan.join(", ")}` : ""),
+);
 
 console.log(`\n${fail===0?"ALL PASS":fail+" FAILED"}`);
 process.exit(fail?1:0);
