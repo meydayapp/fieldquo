@@ -7048,3 +7048,66 @@ with three vans asks what is due, what is expiring, and who has the van.
   hidden, but the delete route could clean up as it goes.
 - `check:mobile` walks only `/platform`, `/sales` and `/app/clock`, so neither
   new screen is covered by it. Both are built to the same rules.
+
+## Sales calling hours — enforced (3 September 2026)
+
+`lib/sales/callingWindow.js` had **no production caller**. Its only importer
+was a check script. `app/sales/queue/page.js` rendered
+`href={`tel:${current.phoneE164}`}` with no window test of any kind, so a rep
+could dial at three in the morning and nothing stopped or warned them. Every
+static check was green throughout, because each one proved code correct and
+none proved it reached.
+
+### What is now there
+
+- **`lib/sales/callingRules.js`** — the jurisdictions as a table, keyed by
+  country and subdivision, each row carrying a window, any per-24h cap, a
+  citation, a registration flag and — the load-bearing field — `verified`.
+  Verified today: Canada (CRTC, 09:00–21:30 weekday / 10:00–18:00 weekend),
+  Oklahoma and Florida (08:00–20:00, max 3 calls per 24h on the same subject),
+  Washington (08:00–20:00 on the RCW 19.158.110(4) basis, since RCW 80.36.390
+  excludes B2B but does not lift the other statute), and Nevada — read, and
+  imposing nothing, which is a *finding* and not a gap.
+- **`salesCallReadiness()`** — one entry point, three outcomes. `allowed`,
+  `refused`, and `unknown` for "we cannot confirm this is allowed". Unverified
+  rows (Texas, Maryland, New York, Mississippi, Louisiana, Indiana, Arizona,
+  Connecticut) and unlisted states both return `unknown`. **There is no
+  permissive federal default**, because there is no federal rule: 16 CFR
+  310.6(b)(7) exempts B2B from the whole TSR and 16 CFR 310.4(c) is
+  residence-limited.
+- **The queue screen has no `tel:` string of its own.** The href comes from
+  `dialHref()`, which cannot return one from a refusal or an unknown, and the
+  screen re-asks the gate every thirty seconds against the *server's* clock so
+  the window closing does not leave a live-looking button behind.
+
+### The two approximations, named
+
+- A prospect's clock is derived from the **state or province on their address**,
+  not their area code — `SalesLead.timeZone`'s schema comment already argues why
+  an area code is wrong for every ported mobile. Where a subdivision spans two
+  zones (Florida, Ontario, Texas, ten others) the answer is the *agreement* of
+  every candidate zone, and a disagreement produces `unknown` rather than the
+  populous half. Cost: about an hour at each end of the day in a split
+  subdivision. A time zone stated on a `SalesLead` overrides all of it.
+- Sub-municipal exceptions (Lloydminster, Blanc-Sablon, West Wendover) are named
+  in comments and **not** listed, because listing one would cost an hour of
+  lawful calling across a whole province to be right about one town.
+
+### Still open
+
+- **The 3-calls-per-24h cap is reported, not enforced.** Nothing records a call
+  attempt; a `SalesCallAttempt` model is proposed but not pushed. Until it
+  exists the gate puts the cap in `unenforced` and the screen says so in the
+  rep's own words beside a working button.
+- **Registration is a warning, not a refusal.** Canada's National DNCL
+  (free, mandatory even for exempt callers), Washington RCW 19.158.050 and Texas
+  ch. 302 all require a filing before the first call. Nothing in code can know
+  whether it has happened; flip `registration.done` in the table when it has.
+- Suppression (`SalesSuppression`) is still not consulted by the queue —
+  `contactability()` reads only `Prospect.doNotContactAt`.
+
+`npm run check:sales-calling-window` — 166 assertions, mostly executed against
+the statute edges, plus a permanent negative control that no sales path reaches
+`lib/voice/outboundCall.js`. That unreachability is what keeps 47 U.S.C.
+227(b)(1)(A)(iii) — autodialled and artificial-voice calls to wireless numbers,
+with no business exemption — out of scope.

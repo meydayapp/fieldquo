@@ -49,9 +49,32 @@
 //
 // Single column, full-width controls, 44px targets, no table and no modal.
 // This file is in scripts/check-mobile-surfaces.mjs's STRICT list.
+//
+// ══ There is no `tel:` string in this file, and that is deliberate ════════
+//
+// Until 2026-09-03 this page rendered `href={`tel:${current.phoneE164}`}` with
+// no check of any kind, so a rep could dial an Oklahoma contractor at three in
+// the morning against a statute with a $500 trebled private right of action.
+// The href is now built by dialHref() in lib/sales/callingRules.js, which
+// cannot return one from a refusal or an unknown. Adding a condition around
+// the old link would have been one careless edit from regressing, and a check
+// script arguing with JSX about which branch a string sits in has produced a
+// false pass in this project before. Taking the string away entirely makes the
+// rule executable instead of textual —
+// scripts/check-sales-calling-window.mjs calls dialHref with each decision and
+// reads the answer, and separately asserts no `tel:` anywhere under app/sales.
+//
+// ══ The decision is re-asked on a timer ═══════════════════════════════════
+//
+// The window closes while the page is open. A decision computed by the server
+// at 19:59 and left on screen until midnight is a dial button that looks live
+// and is not — the same dead control in the other direction. So the page
+// re-evaluates the same pure function every thirty seconds, against the
+// SERVER's clock plus elapsed time rather than the rep's own, because a laptop
+// an hour fast would otherwise open the window an hour early.
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   Ban,
@@ -59,6 +82,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleHelp,
+  Clock,
   Loader2,
   Phone,
   Plus,
@@ -67,6 +91,7 @@ import {
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { LAYER_HEADINGS } from "@/lib/sales/prospectView";
+import { CALL_ALLOWED, CALL_REFUSED, dialHref, salesCallReadiness } from "@/lib/sales/callingRules";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -98,6 +123,29 @@ function Pill({ tone = "unknown", children }) {
   );
 }
 
+/**
+ * One reason a call cannot go ahead, or one caveat on a call that can.
+ *
+ * `tone` follows the same three-state discipline the pills do, and for the
+ * harder version of the same reason. "It is 21:00 in Tulsa" is a finding and
+ * gets the amber a finding gets; "nobody has read Colorado's statute" is not a
+ * finding at all, and giving it the same colour would tell a rep we checked.
+ * The dashed muted box is the one this page already uses for `unknown`.
+ */
+function Notice({ tone, icon: Icon, title, fix }) {
+  return (
+    <div className={`rounded-lg border p-3 text-sm ${TONE_CLASS[tone] || TONE_CLASS.unknown}`}>
+      <div className="flex items-start gap-2">
+        <Icon size={16} className="mt-0.5 shrink-0" />
+        <div className="min-w-0">
+          <p className="font-semibold break-words">{title}</p>
+          {fix ? <p className="break-words">{fix}</p> : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function LayerHeader({ layer }) {
   const heading = LAYER_HEADINGS[layer];
   return (
@@ -118,6 +166,15 @@ export default function SalesQueuePage() {
   const [dncOpen, setDncOpen] = useState(false);
   const [dncReason, setDncReason] = useState("");
 
+  // What the server's clock read, and what ours read at the same moment. The
+  // difference is applied to every window re-evaluation below.
+  const [clock, setClock] = useState(null);
+
+  const stampClock = useCallback((body) => {
+    const serverMs = body?.serverNow ? Date.parse(body.serverNow) : NaN;
+    setClock(Number.isFinite(serverMs) ? { serverMs, localMs: Date.now() } : null);
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -125,13 +182,15 @@ export default function SalesQueuePage() {
       const params = new URLSearchParams();
       if (tradeKey) params.set("tradeKey", tradeKey);
       if (prospectId) params.set("prospectId", prospectId);
-      setData(await fetchJson(`/api/sales/queue?${params.toString()}`));
+      const body = await fetchJson(`/api/sales/queue?${params.toString()}`);
+      stampClock(body);
+      setData(body);
     } catch (err) {
       setError(err?.message || "Could not load your queue.");
     } finally {
       setLoading(false);
     }
-  }, [tradeKey, prospectId]);
+  }, [tradeKey, prospectId, stampClock]);
 
   useEffect(() => {
     load();
@@ -151,6 +210,7 @@ export default function SalesQueuePage() {
         // not an error. Say it, and leave the queue as it was.
         setError(body.message);
       } else {
+        stampClock(body);
         setData(body);
         setProspectId(body?.current?.id || "");
       }
@@ -166,6 +226,31 @@ export default function SalesQueuePage() {
   const current = data?.current || null;
   const items = data?.queue?.items || [];
   const index = current ? items.findIndex((i) => i.id === current.id) : -1;
+
+  // A counter, not a clock. The real time is read fresh below; this only
+  // exists to make the render happen again while the page sits open.
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const compliance = useMemo(() => {
+    if (!current) return null;
+    const ctx = current.callingContext;
+    // No context means an older response shape; fall back to the server's own
+    // answer rather than deciding nothing was said about it.
+    if (!ctx) return current.compliance || null;
+    const nowMs = clock ? clock.serverMs + (Date.now() - clock.localMs) : Date.now();
+    return salesCallReadiness({
+      prospect: { country: ctx.country, province: ctx.province },
+      timeZone: ctx.timeZone,
+      now: new Date(nowMs),
+    });
+    // `tick` is here to re-run this every thirty seconds; it is not read.
+  }, [current, clock, tick]);
+
+  const href = dialHref(compliance, current?.phoneE164);
 
   return (
     <div className="space-y-6">
@@ -273,14 +358,7 @@ export default function SalesQueuePage() {
                 "No trade or territory on this record"}
             </p>
 
-            {current.contact.callable ? (
-              <a
-                href={`tel:${current.phoneE164}`}
-                className={`${BTN} bg-primary text-primary-foreground w-full`}
-              >
-                <Phone size={16} /> Call {current.phoneE164}
-              </a>
-            ) : (
+            {!current.contact.callable ? (
               <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/40 p-3 text-sm text-red-800 dark:text-red-200">
                 <div className="flex items-start gap-2">
                   <Ban size={16} className="mt-0.5 shrink-0" />
@@ -292,6 +370,54 @@ export default function SalesQueuePage() {
                     </p>
                   </div>
                 </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {/* The dial control exists only when dialHref returns one, and
+                    it returns one only from an `allowed` decision. There is no
+                    greyed-out version: a control that looks broken teaches a
+                    rep to press it harder, so the space it would occupy carries
+                    the rule and the hour instead. */}
+                {href ? (
+                  <a href={href} className={`${BTN} bg-primary text-primary-foreground w-full`}>
+                    <Phone size={16} /> Call {current.phoneE164}
+                  </a>
+                ) : null}
+
+                {(compliance?.blockers || []).map((b) => (
+                  <Notice
+                    key={b.code}
+                    tone={compliance.decision === CALL_REFUSED ? "gap" : "unknown"}
+                    icon={compliance.decision === CALL_REFUSED ? Clock : CircleHelp}
+                    title={
+                      compliance.decision === CALL_REFUSED
+                        ? b.title
+                        : `We cannot confirm this call is allowed. ${b.title}`
+                    }
+                    fix={b.fix}
+                  />
+                ))}
+
+                {/* Said beside a working button on purpose. A cap nothing
+                    counts, and a registration nobody has filed, are facts about
+                    THIS call — burying them in a document is how they stop
+                    being true. */}
+                {(compliance?.unenforced || []).map((u) => (
+                  <Notice key={u.code} tone="gap" icon={ShieldAlert} title={u.title} fix={u.fix} />
+                ))}
+                {(compliance?.warnings || []).map((w) => (
+                  <Notice key={w.code} tone="gap" icon={ShieldAlert} title={w.title} fix={w.fix} />
+                ))}
+
+                {compliance?.decision === CALL_ALLOWED && compliance.windowText ? (
+                  <p className="text-xs text-muted-foreground break-words">
+                    {compliance.jurisdiction?.name}: {compliance.windowText}. Judged in{" "}
+                    {compliance.zoneSource === "stated"
+                      ? "the time zone recorded on their lead"
+                      : `the time zone their address implies (${compliance.zones.join(", ")})`}
+                    .
+                  </p>
+                ) : null}
               </div>
             )}
 

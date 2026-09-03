@@ -48,6 +48,7 @@ import {
   prospectView,
   queueWhere,
 } from "@/lib/sales/prospectView";
+import { salesCallReadiness } from "@/lib/sales/callingRules";
 
 const ACTIONS = ["claim", "release", "worked", "do_not_contact"];
 const MAX_REASON = 300;
@@ -118,6 +119,18 @@ async function queueBody(rep, { tradeKey = null, prospectId = null } = {}) {
         scores: { orderBy: { computedAt: "desc" }, take: 1 },
         evidence: { orderBy: { observedAt: "desc" }, take: 400 },
         territory: { select: { id: true, name: true } },
+        // The calling window is stated in the PROSPECT's local time, and the
+        // only place anybody has ever written one down is SalesLead.timeZone —
+        // set by the rep who had them on the phone, from the texting screen.
+        // Read across every rep's lead rather than this rep's: a time zone is a
+        // fact about the business, not about who owns the row, and a split
+        // state such as Florida cannot be resolved without one.
+        leads: {
+          where: { timeZone: { not: null } },
+          orderBy: { updatedAt: "desc" },
+          take: 1,
+          select: { timeZone: true },
+        },
       },
     });
 
@@ -151,6 +164,27 @@ async function queueBody(rep, { tradeKey = null, prospectId = null } = {}) {
         territory: full.territory,
         websiteUrl: full.websiteUrl,
         phoneE164: full.phoneE164,
+        // ── Whether this may be dialled, and where the screen re-asks ──────
+        //
+        // `compliance` is the answer at the moment this response was built, so
+        // the API is honest to anything that reads it. `callingContext` is what
+        // the SCREEN needs to ask the same question again a minute later,
+        // because a decision computed at 19:59 and rendered until midnight is
+        // exactly the dead control AGENTS.md forbids, wearing a live coat.
+        //
+        // attemptsLast24h is deliberately not passed: nothing records a call
+        // attempt yet, and salesCallReadiness reports that gap rather than
+        // pretending the Oklahoma and Florida caps are being counted.
+        compliance: salesCallReadiness({
+          prospect: full,
+          timeZone: full.leads[0]?.timeZone || null,
+          now,
+        }),
+        callingContext: {
+          country: full.country,
+          province: full.province,
+          timeZone: full.leads[0]?.timeZone || null,
+        },
       };
     }
   }
@@ -162,6 +196,11 @@ async function queueBody(rep, { tradeKey = null, prospectId = null } = {}) {
     queue,
     current,
     claimHours: CLAIM_HOURS,
+    // The screen re-evaluates the calling window on a timer, and it must not do
+    // that against the rep's own machine clock: a laptop an hour fast would
+    // open the window an hour early in a jurisdiction with a private right of
+    // action. This is the clock the offset is taken from.
+    serverNow: now.toISOString(),
   };
 }
 
