@@ -176,24 +176,33 @@ export default function PrivacyPage() {
         We use the following third-party services to run FieldQuo. Each
         receives only the categories of information its role requires.
       </p>
-      <table>
-        <thead>
-          <tr>
-            <th>Service</th>
-            <th>What it does</th>
-            <th>What reaches it</th>
-          </tr>
-        </thead>
-        <tbody>
-          {PROCESSORS.map((p) => (
-            <tr key={p.id}>
-              <td>{p.name}</td>
-              <td>{p.role}</td>
-              <td>{p.dataShared}</td>
+      {/* Three prose columns cannot fit a 375px phone, and LegalDocument's
+          [&_table]:w-full does not save them — a table narrower than its cells'
+          min-content pushes the BODY sideways instead, which takes the whole
+          policy with it. The wrapper scrolls, the min-w keeps the columns from
+          collapsing into one word per line, and the negative margin lets the
+          scroll region reach the screen edge so the cut-off column reads as
+          scrollable rather than clipped. */}
+      <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+        <table className="min-w-[560px]">
+          <thead>
+            <tr>
+              <th>Service</th>
+              <th>What it does</th>
+              <th>What reaches it</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {PROCESSORS.map((p) => (
+              <tr key={p.id}>
+                <td>{p.name}</td>
+                <td>{p.role}</td>
+                <td>{p.dataShared}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       <p>
         We do not sell personal information, and we do not share a company's
         client data with any other company on FieldQuo. The one exception is

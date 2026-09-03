@@ -47,7 +47,9 @@ export default function ResourcesTeaser() {
             <Link
               key={r.href}
               href={r.href}
-              className="bg-card border border-border rounded-xl p-6 hover:border-border hover:shadow-sm transition-all"
+              // hover:border-border on an element already border-border: a
+              // hover state that changed nothing. See FeaturesIndustries.
+              className="bg-card border border-border rounded-xl p-6 hover:border-primary/40 hover:shadow-sm transition-all"
             >
               <r.icon size={22} className="text-foreground mb-3" />
               <div className="font-medium text-foreground">{t(r.labelKey)}</div>

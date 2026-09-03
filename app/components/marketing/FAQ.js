@@ -25,8 +25,13 @@ export default function FAQ() {
                 className="bg-card border border-border rounded-xl overflow-hidden"
               >
                 <button
+                  type="button"
                   onClick={() => setOpenIndex(isOpen ? null : i)}
-                  className="w-full flex items-center justify-between px-5 py-4 text-left"
+                  // The chevron rotates and nothing told a screen reader why.
+                  // The answer below is mounted/unmounted rather than hidden,
+                  // so aria-expanded is the only signal the row has a state.
+                  aria-expanded={isOpen}
+                  className="w-full flex items-center justify-between gap-3 min-h-[44px] px-5 py-4 text-left"
                 >
                   <span className="font-medium text-foreground">
                     {t(`faq.items.${faq.id}.q`)}

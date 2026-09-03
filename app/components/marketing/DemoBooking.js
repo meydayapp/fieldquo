@@ -39,7 +39,11 @@ import {
 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
-export default function DemoBooking() {
+// `variant` styles the collapsed trigger only — the panel it opens is the same
+// either way. "secondary" exists because the hero gained a brand-accent trial
+// CTA above this one, and two accent buttons stacked leave a hero with no
+// primary action. Anywhere this is the only ask, "primary" is still right.
+export default function DemoBooking({ variant = "primary" }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState("slot"); // slot | callback
@@ -154,11 +158,18 @@ export default function DemoBooking() {
   // Collapsed — the default, and what most visitors see.
   if (!open) {
     return (
-      <div className="mt-8">
+      <div className="mt-6">
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-2 bg-brand-accent text-brand-accent-foreground px-7 py-3.5 rounded-full text-base font-semibold hover:brightness-95 transition"
+          className={
+            variant === "secondary"
+              ? // Outline on the card the hero fades into. text-foreground on
+                // --card is 15.6:1 light and 14.4:1 dark; the border carries
+                // the shape, so nothing here depends on a fill.
+                "inline-flex items-center justify-center gap-2 min-h-[44px] border border-border bg-card text-foreground px-7 py-3.5 rounded-full text-base font-semibold hover:border-foreground/40 transition"
+              : "inline-flex items-center justify-center gap-2 min-h-[44px] bg-brand-accent text-brand-accent-foreground px-7 py-3.5 rounded-full text-base font-semibold hover:brightness-95 transition"
+          }
         >
           <CalendarDays size={18} />
           {t("hero.demo.openCta", "Book a demo or a call back")}
@@ -201,7 +212,7 @@ export default function DemoBooking() {
             type="button"
             onClick={() => setOpen(false)}
             aria-label={t("hero.demo.close", "Close")}
-            className="shrink-0 -m-1 p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="shrink-0 -m-1 flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <X size={16} />
           </button>
@@ -218,7 +229,7 @@ export default function DemoBooking() {
               key={m.key}
               type="button"
               onClick={() => { setMode(m.key); setError(""); }}
-              className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
+              className={`flex items-center justify-center gap-1.5 min-h-[44px] rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
                 mode === m.key
                   ? "bg-card text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -281,7 +292,7 @@ export default function DemoBooking() {
               key={d.day}
               type="button"
               onClick={() => { setDayIdx(i); setSlot(null); }}
-              className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold ${
+              className={`shrink-0 inline-flex items-center min-h-[44px] rounded-lg border px-3 py-1.5 text-xs font-semibold ${
                 i === dayIdx
                   ? "border-foreground bg-inverted text-inverted-foreground"
                   : "border-border text-muted-foreground hover:text-foreground"
@@ -299,7 +310,7 @@ export default function DemoBooking() {
               key={s.iso}
               type="button"
               onClick={() => setSlot(s)}
-              className={`rounded-lg border px-2 py-2 text-xs font-medium ${
+              className={`inline-flex items-center justify-center min-h-[44px] rounded-lg border px-2 py-2 text-xs font-medium ${
                 slot?.iso === s.iso
                   ? "border-foreground bg-inverted text-inverted-foreground"
                   : "border-border text-foreground hover:border-foreground/40"

@@ -3,7 +3,8 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { FileText, Calendar, Receipt, BarChart3 } from "lucide-react";
+import Link from "next/link";
+import { FileText, Calendar, Receipt, BarChart3, ArrowRight } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import DemoBooking from "./DemoBooking";
 
@@ -73,9 +74,49 @@ export default function Hero() {
           {t("hero.subtitle")}
         </p>
 
+        {/* ── The ask ────────────────────────────────────────────────────────
+            Until this landed the homepage never asked for the signup at all.
+            Every other marketing page has a /signup link; this one had none —
+            the only route was the nav bar, which on a phone is behind the
+            hamburger. hero.cta has existed in all nine languages the whole
+            time, rendered by nothing. A conversion page that never asks is the
+            dead-control rule in its mirror image: the copy was written, the
+            button was not.
+
+            Brand accent, matching the nav's signup button, so the one action
+            the page is for looks the same wherever a visitor meets it. */}
+        <div className="mt-9 flex flex-col items-center">
+          <Link
+            href="/signup"
+            className="inline-flex items-center justify-center gap-2 min-h-[44px] bg-brand-accent text-brand-accent-foreground px-8 py-4 rounded-full text-base font-semibold hover:brightness-95 transition"
+          >
+            {t("hero.cta")}
+            <ArrowRight size={18} />
+          </Link>
+
+          {/* NOT hero.noCard. That key says "No credit card required" in nine
+              languages and it is FALSE: /api/companies creates the company and
+              then opens Stripe Checkout, and app/app/layout.js sends an owner
+              whose company has no subscription back to pay before it will show
+              them a dashboard. You cannot use FieldQuo without a card. The
+              offer that IS true is the free first month (TRIAL_PRICE = 0), and
+              pricing.firstMonth / pricing.free already state it in all nine —
+              they are the same two strings PricingCard prints over the price.
+              Joined with a separator rather than composed into a sentence,
+              because word order is not ours to assume across nine languages. */}
+          <p className="mt-3 text-sm text-muted-foreground">
+            {t("pricing.firstMonth")} ·{" "}
+            <span className="font-semibold text-foreground">
+              {t("pricing.free")}
+            </span>
+          </p>
+        </div>
+
         {/* Book a live demo — a real 30-min slot beats "we'll email you back",
-            which is where most demo requests quietly die. */}
-        <DemoBooking />
+            which is where most demo requests quietly die. Secondary now that
+            the trial CTA sits above it: two brand-accent buttons stacked is a
+            hero with no primary action at all. */}
+        <DemoBooking variant="secondary" />
       </div>
 
       {/* Tabbed feature preview */}

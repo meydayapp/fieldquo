@@ -262,7 +262,7 @@ export default function MarketingHeader() {
             )}
             <button
               type="button"
-              className="p-2"
+              className="-mr-2 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg"
               onClick={() => setMobileOpen(true)}
               aria-label="Open menu"
             >
@@ -277,12 +277,17 @@ export default function MarketingHeader() {
         <div className="fixed inset-0 z-50 bg-card lg:hidden overflow-y-auto">
           <div className="flex items-center justify-between h-16 px-4 border-b border-border">
             {mobilePanel ? (
+              // "← Back" was hardcoded English on a site translated into six
+              // languages, and common.back has existed in all six the whole
+              // time. The arrow stays outside the string: it is direction, not
+              // words, and a translator has no reason to be handed one.
               <button
                 type="button"
                 onClick={() => setMobilePanel(null)}
-                className="text-sm font-medium text-muted-foreground"
+                className="-ml-3 inline-flex items-center gap-1 min-h-[44px] px-3 text-sm font-medium text-muted-foreground"
               >
-                ← Back
+                <ChevronDown size={16} className="rotate-90" />
+                {t("common.back")}
               </button>
             ) : (
               <Link href="/" onClick={closeMobile} className="font-bold">
@@ -290,7 +295,12 @@ export default function MarketingHeader() {
               </Link>
             )}
 
-            <button type="button" onClick={closeMobile} aria-label="Close menu">
+            <button
+              type="button"
+              onClick={closeMobile}
+              aria-label="Close menu"
+              className="-mr-2 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg text-foreground"
+            >
               <X size={22} />
             </button>
           </div>

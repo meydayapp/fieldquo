@@ -35,7 +35,10 @@ export default function FeaturesIndustries() {
             <Link
               key={f.href}
               href={f.href}
-              className="border border-border rounded-xl p-6 hover:border-border hover:shadow-sm transition-all"
+              // hover:border-border on an element already border-border was a
+              // hover state that changed nothing — it read as deliberate and
+              // did not exist. Same failure as a dead button, one layer down.
+              className="border border-border rounded-xl p-6 hover:border-primary/40 hover:shadow-sm transition-all"
             >
               <f.icon size={24} className="text-foreground mb-3" />
               <div className="font-medium text-foreground">
@@ -53,7 +56,13 @@ export default function FeaturesIndustries() {
             <Link
               key={ind.slug}
               href={`/industries/${ind.slug}`}
-              className="text-sm bg-muted border border-border px-4 py-2 rounded-full hover:border-border hover:bg-muted"
+              // Was `hover:border-border hover:bg-muted` on an element already
+              // carrying both — twelve links with literally no hover feedback,
+              // and this strip is what a visitor scans to answer "is this for
+              // me?". bg-card is #ffffff against --muted #eef3f9, so the change
+              // is visible; foreground on card measures 15.6:1 light, 14.4:1
+              // dark, both above the 4.5:1 floor.
+              className="inline-flex items-center min-h-[44px] text-sm bg-muted border border-border px-4 py-2 rounded-full transition-colors hover:border-primary/40 hover:bg-card"
             >
               {ind.label}
             </Link>

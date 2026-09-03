@@ -16,6 +16,12 @@
 // the rep view matters most, but the crew member standing in a driveway is on
 // app/app. app/app is now walked in full.
 //
+// The same correction ran again on 2026-09-03 for the PUBLIC marketing site.
+// app/(marketing) and app/components/marketing were outside every mobile check
+// there is — eight scripts read that tree for pricing and content correctness,
+// none for layout — so the pages a stranger judges the product by, on a phone,
+// in a driveway, were the least checked in the repo. Both are walked now.
+//
 // It still does not walk app/components/**. Roughly a third of the /app UI
 // lives there (the drawers, the uploaders, the shared panels) and none of it
 // is checked. That is a REAL remaining gap, named here rather than left for
@@ -107,6 +113,32 @@ const section = (t) => console.log(`\n${t}`);
  * touching to cover a new surface.
  */
 const SURFACES = [
+  // The public marketing site — the one surface a person who is not a customer
+  // ever sees, most of them on a phone. It was outside every mobile check
+  // until 2026-09-03: eight scripts read app/(marketing) for pricing and
+  // content correctness and not one of them looked at layout, so the page that
+  // decides whether anybody becomes a customer was the least checked in the
+  // repo.
+  //
+  // Baseline, and the reason is a false positive rather than a gap: at strict
+  // the nowrap rule fails four `whitespace-nowrap` spans in AddOnStack.js and
+  // ComparisonPage.js, and all four are CORRECT — a money amount or a credit
+  // count, inside a `flex flex-wrap` parent that wraps it to its own line. The
+  // rule reads one element and cannot see the wrapping parent, which its own
+  // header says it cannot. Promoting the tree would mean either weakening the
+  // rule or breaking prices that are right, so it stays baseline and the
+  // reason is written down instead of rediscovered.
+  //
+  // One real hazard was found and fixed on the way in: privacy/page.js had a
+  // three-column processor table with no scroll wrapper, which scrolls the
+  // BODY sideways on a 375px phone and takes the whole policy with it.
+  { dir: "app/(marketing)", tier: "baseline" },
+  // The marketing components — the header, the hero, the demo booker, the
+  // language switcher. STRICT, because they were fixed first and then listed:
+  // the mobile drawer's close button was a bare 22px icon, its "Back" was a
+  // 20px text node, the demo booker's day and time chips were 28px and 32px,
+  // and the language pills were 24px. Six languages, six pills, on a phone.
+  { dir: "app/components/marketing", tier: "strict" },
   // The superadmin console. Baseline: it is 30 screens written before this
   // check existed.
   { dir: "app/platform", tier: "baseline" },
@@ -899,7 +931,7 @@ for (const file of STRICT_FILES) {
 // again — silently narrowing the walk to keep the run green would now have to
 // delete a printed sentence, which is a thing a reviewer can notice.
 const NOT_SCANNED = [
-  ["app/components/** (except mobile/, layout/)", "~148 files — the drawers, uploaders and shared panels a phone screen renders. The job PHOTO surfaces (JobPhotoCurator/Timeline/Comments) are in here and are as phone-critical as anything in the strict list."],
+  ["app/components/** (except mobile/, layout/, marketing/)", "~148 files — the drawers, uploaders and shared panels a phone screen renders. The job PHOTO surfaces (JobPhotoCurator/Timeline/Comments) are in here and are as phone-critical as anything in the strict list."],
   ["app/components/jobs/**", "an agent is writing DailyLog* here right now. Adding it mid-write would check a half-file and break somebody else's build."],
   ["app/components/purchasing/**, app/components/fleet/**", "same — being created as this ran."],
   ["(not a gap) app/app/purchasing/**, app/app/fleet/**", "listed only to say they need no listing: app/app is walked as a TREE, so a screen added under it is checked the run after it lands. purchasing/page.js appeared while this was being written and was picked up with no edit here."],
