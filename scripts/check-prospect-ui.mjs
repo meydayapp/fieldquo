@@ -237,6 +237,37 @@ const queueRoute = codeOnly(read("app/api/sales/queue/route.js"));
 const queueGate = codeOnly(read("lib/sales/queueGate.js"));
 const viewSrc = codeOnly(read("lib/sales/prospectView.js"));
 
+// ── The "Has none" filter, and the fact that decides whether it may be offered
+//
+// `hasWebsite` is three-valued, and nothing in the codebase writes `false`:
+// normalise.js writes true-or-null, crawlSite.js writes only true, and
+// enrichBusiness.js refuses on purpose — a directory omitting a website is a
+// gap in the DIRECTORY, and a rep opening with "I see you have no website" to
+// somebody who has one is the most expensive sentence this pipeline can make.
+//
+// So an enabled "Has none" filter could only ever return zero rows, and zero
+// rows there reads as "every prospect has a website" — a confident wrong answer
+// from a control that cannot work.
+//
+// This assertion is CONDITIONAL, so it retires itself: the day a writer for
+// `hasWebsite: false` exists, the filter must be re-enabled, and this flips to
+// demanding exactly that instead of forbidding it.
+{
+  const writers = ["lib/sales/discovery/normalise.js", "lib/sales/crawl/crawlSite.js",
+                   "lib/sales/pipeline/handlers/enrichBusiness.js", "lib/sales/intel/capabilityDetect.js"]
+    .map((f) => codeOnly(read(f)))
+    .filter((src) => /hasWebsite:\s*[^,;}\n]*\bfalse\b/.test(src));
+  const canProveAbsence = writers.length > 0;
+  const optionDisabled = /<option value="no"[^>]*\sdisabled/.test(platformPage);
+  ok(
+    canProveAbsence
+      ? "something writes hasWebsite:false, so the 'Has none' filter is offered again"
+      : "nothing writes hasWebsite:false, so the 'Has none' filter is disabled rather than silently empty",
+    canProveAbsence ? optionDisabled === false : optionDisabled === true,
+    `writers=${writers.length} disabled=${optionDisabled}`,
+  );
+}
+
 const sidebar = read("app/components/platform/PlatformSidebar.js");
 ok(
   "the superadmin screen is reachable from the platform sidebar",

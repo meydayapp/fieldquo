@@ -339,12 +339,17 @@ export default function PlatformProspectsPage() {
             >
               <option value="">Any</option>
               <option value="yes">Has one</option>
-              <option value="no">Has none — we looked</option>
+              <option value="no" disabled>
+                Has none — nothing can prove this yet
+              </option>
               <option value="unknown">Not checked</option>
             </select>
             <p className="mt-1 text-xs text-muted-foreground">
               &ldquo;Has none&rdquo; and &ldquo;not checked&rdquo; are separate on purpose. The source listing
-              no website is a gap in the directory as often as a gap in the market.
+              no website is a gap in the directory as often as a gap in the market — which is
+              why nothing writes &ldquo;has none&rdquo; from a listing alone. Only a search that looked
+              and failed could, and none runs today, so that option is switched off rather than
+              quietly returning nothing.
             </p>
           </div>
 
@@ -587,6 +592,14 @@ function ProspectDetail({ detail }) {
               <span className={`text-sm break-words ${f.known ? "text-foreground" : "text-muted-foreground italic"}`}>
                 {f.text}
               </span>
+              {/* The second line a fact is allowed to carry. Two facts use it and
+                  both are obligations rather than observations: the CC-BY credit
+                  Quebec's licence register requires, and the CASL reason email is
+                  closed on a register-sourced row. Rendered because a notice the
+                  presenter returns and the page drops is not a notice. */}
+              {f.detail ? (
+                <span className="text-xs text-muted-foreground break-words">{f.detail}</span>
+              ) : null}
             </li>
           ))}
         </ul>
