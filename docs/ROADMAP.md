@@ -16,6 +16,59 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Purchasing, stock and the receipt scan (2 September 2026)
+
+Shipped. `Supplier`, `PurchaseOrder`, `PurchaseOrderLine` and `StockMovement`
+went into the schema by hand; this is everything that reads and writes them.
+
+**Suppliers** — `/app/purchasing`, gated on `expenses: view_record_edit_all`
+(lib/purchasing/access.js says why it reuses that ladder rather than inventing
+a `purchasing` category). Retire, never delete: every purchase order raised
+against a supplier keeps pointing at it.
+
+**Purchase orders** — numbered per company, so two companies both having PO-001
+is correct and the in-company race is handled by retrying on the unique index.
+`expectedTotal` is computed on the server from the lines, in cents, and is
+`null` rather than a partial sum when any line is unpriced. Taking delivery is
+its own endpoint because the status is DERIVED from the lines — there is no
+"mark as received" button, which is what stops the badge on the list
+disagreeing with the lines under it. A delivery note carries an idempotency key
+that becomes `StockMovement.ref`, so a retry on a yard connection answers
+"already recorded" instead of booking the stock twice.
+
+**Stock** — summed from `StockMovement`, never stored. A correction is a
+movement (`adjustment`, the one kind allowed to be negative), so the wrong
+count and the fix both survive. This is what finally reads
+`Material.reorderThreshold`, which had been written and read by nothing since
+it was added. A material with no threshold reports `null`, not "fine".
+
+**Receipt scan** — `/api/receipts/scan`, entered from the material tick-off
+control on a job. The model TRANSCRIBES: every amount in the schema is a
+string, so `lib/receipts/reconcile.js` does every sum and the model has nowhere
+to put an arithmetic answer even if it wanted one. The lines are compared to
+the printed SUBTOTAL when one exists — comparing them to the total would report
+a mismatch of exactly the tax on nearly every receipt — and subtotal + tax vs
+total is checked separately. A discrepancy is shown, never corrected, and no
+one-tap cost is offered while it stands. A figure a person typed is never
+overwritten (`lib/receipts/prefill.js`, used on both sides). Photos only: a PDF
+is refused with the reason and with what to do instead, because
+`lib/ai/provider.js` emits `image_url` and `/api/upload` stores a PDF as an
+untransformable Cloudinary `raw` asset. Demo companies get a substituted
+extraction and never reach the vendor. Quota checked before, usage recorded
+after — on every outcome, because the vendor bills on every outcome.
+
+`npm run check:purchasing` — 161 assertions, mutation-tested against 30 breaks,
+all 30 caught.
+
+**Not done, and deliberately:** the scan writes nothing (the person confirms
+and the existing materials PATCH writes); it is metered through the AI token
+quota rather than the credit wallet, which would have meant editing
+`lib/ai/imageEconomics.js` and `lib/voice/credits.js` — a pricing decision for
+the owner. `Expense` still has no attachment column, so receipts against
+expenses remain the two-job item the audit described.
+
+---
+
 ## The console's failure messages name a cause (2 September 2026)
 
 Shipped. Three platform screens reported failures the owner could do nothing

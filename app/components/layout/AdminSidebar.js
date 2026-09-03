@@ -36,6 +36,9 @@ import {
   UserCog,
   ShieldAlert,
   ListTodo,
+  ShoppingCart,
+  Truck,
+  ShieldCheck,
   CreditCard,
   Settings,
   LifeBuoy,
@@ -131,6 +134,13 @@ const NAV_GROUPS = [
     key: "app.nav.group.people",
     items: [
       { key: "app.nav.clients", href: "/app/clients", icon: Users },
+      // The CUSTOMER's kit — their furnace, their panel — and whose warranty
+      // is about to run out. Next to Clients because that is what it is a fact
+      // about, and deliberately NOT next to Vehicles below: the contractor's
+      // own van is `Asset` and a different subject entirely. The two labels
+      // ("Client equipment" / "Vehicles") say which is which without needing
+      // the group headings to do it.
+      { key: "app.nav.clientEquipment", href: "/app/equipment", icon: ShieldCheck },
       // ── HR in one place ─────────────────────────────────────────────────
       //
       // "Manage Team" lived ONLY under Settings, so hiring someone meant
@@ -156,6 +166,19 @@ const NAV_GROUPS = [
     items: [
       { key: "app.nav.payroll", href: "/app/payroll", icon: Wallet },
       { key: "app.nav.expenses", href: "/app/settings/expense-tracking", icon: Wallet },
+      // Suppliers, purchase orders and stock. In Money rather than Work
+      // because buying is spending — it is gated on the same `expenses`
+      // ladder as the row above it, and a contractor looking for "what did we
+      // spend at Northline this year" looks here, not in the job pipeline.
+      { key: "app.nav.purchasing", href: "/app/purchasing", icon: ShoppingCart },
+      // The vans. In Money for the same reason Purchasing is: a vehicle is an
+      // `Asset` whose depreciation already sits in this group's cost basis
+      // (the register lives inside Settings → Overhead, which the construction
+      // audit called out as a discoverability problem), and the audience for
+      // "insurance lapses Thursday" is the same person who reads Expenses.
+      // Gated on the same `user:manage` its API requires, so the row and the
+      // endpoint never disagree about who gets in.
+      { key: "app.nav.fleet", href: "/app/fleet", icon: Truck },
     ],
   },
   // Insights used to live inside Money, and that was a mislabel rather than a

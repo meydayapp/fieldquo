@@ -19,10 +19,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Check, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Camera, Check, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
+import ReceiptScanner from "@/app/components/purchasing/ReceiptScanner";
 
 const money = (v) => `$${(Number(v) || 0).toFixed(2)}`;
 const inputClass =
@@ -44,6 +45,10 @@ export default function JobMaterials({ jobId }) {
   const [busyId, setBusyId] = useState(null);
   const [expanded, setExpanded] = useState(null);
   const [draft, setDraft] = useState({ actualCost: "", supplier: "" });
+  // Which line's receipt scanner is open. One at a time, and only inside the
+  // expansion that already asks for a cost — the scan exists to fill in those
+  // two boxes, so it belongs where they are rather than as a separate screen.
+  const [scanning, setScanning] = useState(null);
   const [adding, setAdding] = useState(false);
   const [newLine, setNewLine] = useState({ name: "", qty: 1, unit: "each" });
   const [error, setError] = useState("");
@@ -101,6 +106,7 @@ export default function JobMaterials({ jobId }) {
         });
         setDraft({ actualCost: "", supplier: "" });
         setExpanded(null);
+        setScanning(null);
       }
     } finally {
       setBusyId(null);
@@ -237,6 +243,7 @@ export default function JobMaterials({ jobId }) {
                     {/* The receipt, asked for AFTER the tick is offered rather
                         than before it. Skipping it still ticks the line. */}
                     {open && !bought && (
+                      <>
                       <div className="mt-2 flex flex-wrap items-end gap-2">
                         {/* PATCH refuses a posted actualCost without the
                             jobCosting toggle (403, not a silent drop), so
@@ -285,12 +292,52 @@ export default function JobMaterials({ jobId }) {
                         </button>
                         <button
                           type="button"
-                          onClick={() => setExpanded(null)}
+                          onClick={() => {
+                            setExpanded(null);
+                            setScanning(null);
+                          }}
                           className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
                         >
                           Cancel
                         </button>
                       </div>
+
+                      {/* Offered only where a cost box is offered. The scan
+                          returns money and nothing else, and the server
+                          refuses it (403) for a member without the jobCosting
+                          toggle — so rendering the button for them would be a
+                          control that appears to work and doesn't. */}
+                      {!m.costHidden && scanning !== m.id && (
+                        <button
+                          type="button"
+                          onClick={() => setScanning(m.id)}
+                          className="mt-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          <Camera size={13} /> Scan the receipt
+                        </button>
+                      )}
+
+                      {!m.costHidden && scanning === m.id && (
+                        <ReceiptScanner
+                          materialId={m.id}
+                          draft={draft}
+                          onClose={() => setScanning(null)}
+                          onApply={({ values }) => {
+                            // PREFILL, never replace: `values` already carries
+                            // whatever was typed for any field a person had
+                            // filled in. See lib/receipts/prefill.js.
+                            setDraft((d) => ({
+                              actualCost:
+                                values.actualCost == null
+                                  ? d.actualCost
+                                  : String(values.actualCost),
+                              supplier: values.supplier ?? d.supplier,
+                            }));
+                            setScanning(null);
+                          }}
+                        />
+                      )}
+                      </>
                     )}
                   </div>
 
