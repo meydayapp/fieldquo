@@ -45,6 +45,7 @@ export async function POST(request) {
     action: "generate",
     payload: { prompt },
     note: `AI-generated image — "${prompt.slice(0, 80)}"`,
+    role: member.role,
   });
 
   if (!result.ok) {
@@ -55,6 +56,10 @@ export async function POST(request) {
         priceCents: result.priceCents,
         balanceCents: result.balanceCents,
         shortfallCents: result.shortfallCents,
+        // The closed tier list and whether THIS member may buy — see
+        // lib/ai/topupOffer.js. Null on every refusal that money cannot fix,
+        // so the dialog opens on exactly the one it can.
+        topup: result.topup ?? null,
       },
       // 402 for "would cost money you don't have", 403 for everything else
       // this seam can refuse for — never a bare 500 for a refusal the caller

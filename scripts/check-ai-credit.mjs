@@ -542,9 +542,23 @@ section("6. Refusals distinguish not-configured, zero balance, and unreachable S
   ok("the unified view reports whether the AI vendor is configured on this deployment",
     /vendorConfigured:\s*isAiConfigured\(\)/.test(creditRoute));
 
+  // ── Follow the reason to where it is now produced ────────────────────────
+  //
+  // The Checkout session moved out of this route into lib/ai/topupIntent.js on
+  // 2026-09-02, so the dialog over the designer's canvas and the settings page
+  // could not build two different ones. The route no longer holds the literal;
+  // it FORWARDS the reason the shared module returns. This asserts both halves
+  // rather than following the string into its new home and asserting less: the
+  // module still distinguishes an unreachable Stripe by name, and both routes
+  // still pass a reason through instead of collapsing it into a bare 500.
+  const topupIntent = code(read("lib/ai/topupIntent.js"));
+  ok("an unreachable Stripe is still named, not collapsed into a generic failure",
+    /reason: "stripe_unavailable"/.test(topupIntent));
+
   const topupRoute = code(read("app/api/settings/ai/topup/route.js"));
+  const inlineTopupRoute = code(read("app/api/ai/topup/route.js"));
   ok("a Stripe failure buying AI credit is its own reason, not a generic 500",
-    /reason: "stripe_unavailable"/.test(topupRoute));
+    /reason: result\.reason/.test(topupRoute) && /reason: result\.reason/.test(inlineTopupRoute));
 
   const bundleRoute = code(read("app/api/settings/ai/bundle/route.js"));
   ok("…and the same is true starting a bundle plan",

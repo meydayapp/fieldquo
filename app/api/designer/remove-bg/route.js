@@ -43,6 +43,7 @@ export async function POST(request) {
     action: "remove-bg",
     payload: { image },
     note: "AI background removal",
+    role: member.role,
   });
 
   if (!result.ok) {
@@ -53,6 +54,10 @@ export async function POST(request) {
         priceCents: result.priceCents,
         balanceCents: result.balanceCents,
         shortfallCents: result.shortfallCents,
+        // The closed tier list and whether THIS member may buy — see
+        // lib/ai/topupOffer.js. Null on every refusal that money cannot fix,
+        // so the dialog opens on exactly the one it can.
+        topup: result.topup ?? null,
       },
       { status: result.reason === "insufficient_balance" ? 402 : 403 },
     );

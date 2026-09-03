@@ -33,9 +33,21 @@
 //     above the input it's explaining, so a company that can't afford this
 //     yet still sees "here's the prompt box, here's why it's off" as one
 //     panel instead of an error page hiding a dead control.
-import { useState } from "react";
+//
+// ── 2026-09-02: the reason was honest and still a dead end ─────────────────
+//
+// The owner opened this panel, was told he had no AI credit, and had nowhere
+// to go: the sentence named the shortfall to the cent and the screen offered
+// no way to pay it. That is the same failure one step past the one fixed
+// above — a control that correctly explains itself and still cannot be got
+// past. The refusal now carries a top-up offer (lib/ai/topupOffer.js) and this
+// panel opens app/components/ai/AiCreditTopupDialog.js on it, from BOTH the
+// pre-click status and a 402 on submit, because the balance can drain between
+// the two.
+import { useCallback, useState } from "react";
 import { AlertTriangle, Loader } from "lucide-react";
 
+import { useTranslation } from "@/app/hooks/useTranslation";
 import { ToolSidebarClose } from "@/app/components/designer/ToolSidebarClose";
 import { ToolSidebarHeader } from "@/app/components/designer/ToolSidebarHeader";
 import {
@@ -43,6 +55,10 @@ import {
   centsToDollars,
   disabledReasonText,
 } from "@/app/components/designer/hooks/useAiImageStatus";
+import {
+  AiCreditTopupDialog,
+  useAiCreditTopup,
+} from "@/app/components/ai/AiCreditTopupDialog";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -61,12 +77,35 @@ const PROMPT_EXAMPLES = [
  * @param {(tool: import("@/lib/designer/constants").ActiveTool) => void} props.onChangeActiveTool
  */
 export function AiSidebar({ editor, activeTool, onChangeActiveTool }) {
+  const { t } = useTranslation();
   const active = activeTool === "ai";
-  const { status, loading } = useAiImageStatus(active);
+  const { status, loading, refresh } = useAiImageStatus(active);
 
   const [value, setValue] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  // Coming back from Stripe, the panel is closed and `value` is empty — a
+  // fresh mount of the whole editor. Reopening the tool is what makes the
+  // trip feel like one interruption rather than two: the prompt is where they
+  // left it, the balance is topped up, and the button is live. What is NOT
+  // done here is pressing it for them; see AiCreditTopupDialog.js's rule 3.
+  const onResume = useCallback(
+    (pending) => {
+      if (typeof pending?.prompt === "string") setValue(pending.prompt);
+      onChangeActiveTool("ai");
+    },
+    [onChangeActiveTool],
+  );
+
+  const topup = useAiCreditTopup({
+    pendingKey: "designer.ai",
+    onResume,
+    // The status endpoint, not the payment result, is what re-enables the
+    // button. "Paid" and "affordable" are different facts and only the second
+    // one is this panel's business.
+    onCredited: refresh,
+  });
 
   const onClose = () => onChangeActiveTool("select");
 
@@ -84,6 +123,14 @@ export function AiSidebar({ editor, activeTool, onChangeActiveTool }) {
       });
       const data = await res.json();
       if (!res.ok) {
+        // 402 is "you're short by exactly this much", and the body carries the
+        // offer. Handled here as well as on the pre-click status because
+        // another image or a photo review can drain the balance in between —
+        // and a refusal at that moment is the one most likely to read as a bug.
+        if (res.status === 402 && data?.topup) {
+          topup.open(data);
+          return;
+        }
         setError(data.error || "Couldn't generate that image.");
         return;
       }
@@ -120,9 +167,26 @@ export function AiSidebar({ editor, activeTool, onChangeActiveTool }) {
         {!loading && (
           <form onSubmit={onSubmit} className="space-y-4 p-4">
             {!status?.allowed && (
-              <div className="flex items-start gap-2 rounded-lg border bg-muted/50 p-3 text-xs text-muted-foreground">
-                <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-                <span>{disabledReasonText(status)}</span>
+              <div className="space-y-2 rounded-lg border bg-muted/50 p-3">
+                <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                  <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                  <span>{disabledReasonText(status)}</span>
+                </div>
+                {/* Only where money is the problem, and only where the reason
+                    came with an offer. A "feature switched off" or "vendor not
+                    wired" refusal gets no button, because buying credit would
+                    change nothing about either. */}
+                {status?.topup && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-9 w-full"
+                    onClick={() => topup.open(status)}
+                  >
+                    {t("app.aiTopup.buyCredit", "Add AI credit")}
+                  </Button>
+                )}
               </div>
             )}
             <div className="space-y-1.5">
@@ -150,6 +214,11 @@ export function AiSidebar({ editor, activeTool, onChangeActiveTool }) {
         )}
       </div>
       <ToolSidebarClose onClick={onClose} />
+      {/* Rendered inside the panel, which is `hidden` when another tool is
+          selected — and that is correct: every path that opens this dialog
+          either happens while the panel is active or reopens it first
+          (onResume above). */}
+      <AiCreditTopupDialog {...topup.dialogProps} capturePending={() => ({ prompt: value })} />
     </aside>
   );
 }

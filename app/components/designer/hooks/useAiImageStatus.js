@@ -20,6 +20,14 @@ import { useEffect, useState } from "react";
  *     balanceCents: number,
  *     shortfallCents: number,
  *     reason: string,
+ *     // Present ONLY when reason === "insufficient_balance" — a closed list
+ *     // of top-up tiers (ids and labels, never amounts) plus whether this
+ *     // member may buy at all. See lib/ai/topupOffer.js. Null on every other
+ *     // refusal, because money does not fix a switched-off feature or an
+ *     // unwired vendor, and offering a payment for either would take money
+ *     // that changes nothing.
+ *     topup: null | { tiers: Array<{id: string, label: string, covers: boolean}>,
+ *                     recommendedId: string, canBuy: boolean },
  *   },
  *   refresh: () => void,
  * }}
@@ -51,6 +59,10 @@ export function useAiImageStatus(active) {
             balanceCents: 0,
             shortfallCents: 0,
             reason: "unavailable",
+            // No offer on a failed status check either. We do not know that
+            // money is the problem, and a top-up button here would charge a
+            // card against a guess.
+            topup: null,
           });
         }
       })

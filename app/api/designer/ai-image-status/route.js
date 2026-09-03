@@ -19,6 +19,9 @@ export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
-  const status = await statusForCompany(member.companyId);
+  // The role decides `topup.canBuy` — buying credit needs "user:manage" while
+  // generating an image does not, so a crew member gets a truthful "ask an
+  // owner" instead of a button that lands on a 403.
+  const status = await statusForCompany(member.companyId, member.role);
   return NextResponse.json(status);
 }

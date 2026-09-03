@@ -14,9 +14,24 @@
 // app/api/designer/remove-bg/route.js. Same status-before-click pattern as
 // AiSidebar: the button renders disabled with the reason rather than
 // clicking through to a refusal.
-import { useState } from "react";
+//
+// ── 2026-09-02: adopting the shared top-up dialog ──────────────────────────
+//
+// The same dead end AiSidebar.js's header describes was here too, from the
+// same hook and the same endpoint. It is fixed the same way — by adopting
+// app/components/ai/AiCreditTopupDialog.js rather than by growing a second
+// copy of the flow, which is the one that would rot.
+//
+// The one honest difference: there is nothing to restore. AiSidebar can put a
+// typed prompt back; this panel's input is a SELECTION on a fabric canvas, and
+// a selection does not survive a page load. So `capturePending` is omitted and
+// the trip back reopens the panel with its own "Select a photo first" state —
+// true, and better than landing on a closed toolbar with no sign that anything
+// happened. Faking a restored selection would be the dishonest version.
+import { useCallback, useState } from "react";
 import { AlertTriangle, Loader } from "lucide-react";
 
+import { useTranslation } from "@/app/hooks/useTranslation";
 import { ToolSidebarClose } from "@/app/components/designer/ToolSidebarClose";
 import { ToolSidebarHeader } from "@/app/components/designer/ToolSidebarHeader";
 import {
@@ -24,6 +39,10 @@ import {
   centsToDollars,
   disabledReasonText,
 } from "@/app/components/designer/hooks/useAiImageStatus";
+import {
+  AiCreditTopupDialog,
+  useAiCreditTopup,
+} from "@/app/components/ai/AiCreditTopupDialog";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -35,11 +54,19 @@ import { Button } from "@/components/ui/button";
  * @param {(tool: import("@/lib/designer/constants").ActiveTool) => void} props.onChangeActiveTool
  */
 export function RemoveBgSidebar({ editor, activeTool, onChangeActiveTool }) {
+  const { t } = useTranslation();
   const active = activeTool === "remove-bg";
-  const { status, loading } = useAiImageStatus(active);
+  const { status, loading, refresh } = useAiImageStatus(active);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  const onResume = useCallback(() => onChangeActiveTool("remove-bg"), [onChangeActiveTool]);
+  const topup = useAiCreditTopup({
+    pendingKey: "designer.removeBg",
+    onResume,
+    onCredited: refresh,
+  });
 
   const selectedObject = editor?.selectedObjects[0];
   // fabric's own field for "the <img> element this fabric.Image was built
@@ -62,6 +89,11 @@ export function RemoveBgSidebar({ editor, activeTool, onChangeActiveTool }) {
       });
       const data = await res.json();
       if (!res.ok) {
+        // Same 402 contract as /api/designer/generate — see AiSidebar.js.
+        if (res.status === 402 && data?.topup) {
+          topup.open(data);
+          return;
+        }
         setError(data.error || "Couldn't remove that background.");
         return;
       }
@@ -110,7 +142,22 @@ export function RemoveBgSidebar({ editor, activeTool, onChangeActiveTool }) {
               <img src={imageSrc} alt="Selected" className="h-full w-full object-cover" />
             </div>
             {!status?.allowed && (
-              <p className="text-xs text-muted-foreground">{disabledReasonText(status)}</p>
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">{disabledReasonText(status)}</p>
+                {/* Only where money is the problem — `topup` is null on every
+                    other refusal, because buying credit fixes none of them. */}
+                {status?.topup && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-9 w-full"
+                    onClick={() => topup.open(status)}
+                  >
+                    {t("app.aiTopup.buyCredit", "Add AI credit")}
+                  </Button>
+                )}
+              </div>
             )}
             <Button
               disabled={!status?.allowed || submitting}
@@ -124,6 +171,7 @@ export function RemoveBgSidebar({ editor, activeTool, onChangeActiveTool }) {
         </div>
       )}
       <ToolSidebarClose onClick={onClose} />
+      <AiCreditTopupDialog {...topup.dialogProps} />
     </aside>
   );
 }

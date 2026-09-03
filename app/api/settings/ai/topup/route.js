@@ -16,17 +16,25 @@
 // is what routes the credit to the AI wallet rather than the phone one
 // (lib/voice/credits.js's poolForKind). There is no `pool` argument anywhere
 // in this file on purpose — see that file's header for why.
+//
+// ── The Checkout session and the confirmation now live in a shared module ───
+//
+// app/api/ai/topup/route.js serves the same purchase from a dialog over the
+// designer's canvas, and it has to come BACK to that canvas rather than to
+// this settings page. Two routes each building their own Checkout Session
+// would be two demo branches and two metadata shapes; both call
+// lib/ai/topupIntent.js instead. The parameters Stripe receives are unchanged
+// — scripts/check-ai-topup-inline.mjs diffs them against the shape this file
+// used to build inline.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { stripe } from "@/lib/stripe";
 import { memberOrRefusalPlain } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { getAppOrigin } from "@/lib/appUrl";
-import { getOrCreateStripeCustomer } from "@/lib/platform/stripeBilling";
-import { normaliseTopup, balanceFor, POOLS, creditDemoTopup } from "@/lib/voice/credits";
-import { creditAiTopup } from "@/lib/ai/topup";
+import { normaliseTopup } from "@/lib/voice/credits";
+import { startAiTopup, confirmAiTopup } from "@/lib/ai/topupIntent";
 
 async function requireAdmin(request) {
   const { member, refusal } = await memberOrRefusalPlain(request);
@@ -54,66 +62,39 @@ export async function POST(request) {
 
   const origin = getAppOrigin(request);
 
-  // ── A sales demo never reaches Stripe ─────────────────────────────────────
-  //
-  // The company row was just read fresh above, so `isDemo` is this row's own
-  // statement about itself rather than anything the request claimed.
-  //
-  // Without this a rep on a walkthrough could open a real Stripe Checkout and
-  // put a real card through it, and the credits screen is one of the screens a
-  // demo is FOR. The credit is granted straight to the ledger under a kind that
-  // names it simulated (lib/voice/credits.js's creditDemoTopup), so a demo
-  // account's statement can never be mistaken for one where money moved.
-  //
-  // A local URL is returned in `checkoutUrl` because the caller navigates to
-  // whatever it gets — so the rep sees the same click-then-land-on-the-balance
-  // flow a paying customer sees, minus the payment. The param deliberately is
-  // NOT the one the success handler reads; that one triggers a Stripe session
-  // lookup, which would fail on an id that never existed.
-  if (company.isDemo) {
-    await creditDemoTopup({ companyId: member.companyId, cents, pool: POOLS.AI });
-    return NextResponse.json({
-      checkoutUrl: `${origin}/app/settings/ai-credit?demo_topup=1`,
-      simulated: true,
-    });
-  }
+  // The demo branch, the Checkout session and the Stripe-unavailable refusal
+  // all live in startAiTopup now — see this file's header. `returnPath` is
+  // omitted rather than passed as "/app/settings/ai-credit", so the default in
+  // that function stays the one place the settings landing is written down.
+  const result = await startAiTopup({ company, cents, origin });
 
-  let session;
-  try {
-    const customerId = await getOrCreateStripeCustomer(company);
-    session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      customer: customerId,
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: { name: "FieldQuo — AI credit top-up" },
-            unit_amount: cents,
-          },
-          quantity: 1,
-        },
-      ],
-      // Same two load-bearing keys as the voice route: `companyId` checked on
-      // the way back so a stranger visiting the success URL can't credit
-      // somebody else's account, and `kind` is what the webhook dispatches on.
-      metadata: { companyId: member.companyId, kind: "ai_topup", cents: String(cents) },
-      success_url: `${origin}/app/settings/ai-credit?aitopup={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/app/settings/ai-credit`,
-    });
-  } catch (err) {
+  if (!result.ok) {
     // Distinguished from every other refusal on this route on purpose — see
     // AGENTS.md's rule about honest empty states. "Couldn't reach Stripe" is
     // not the same fact as "you don't have permission" or "pick a real
     // amount", and collapsing them into one generic 500 is how a contractor
     // ends up guessing which one applies to them.
     return NextResponse.json(
-      { error: "Couldn't reach the payment provider just now. Nothing was charged.", reason: "stripe_unavailable" },
+      { error: "Couldn't reach the payment provider just now. Nothing was charged.", reason: result.reason },
       { status: 502 },
     );
   }
 
-  return NextResponse.json({ checkoutUrl: session.url });
+  // A demo gets a LOCAL url in `checkoutUrl` because this page's caller
+  // navigates to whatever it gets — so the rep sees the same
+  // click-then-land-on-the-balance flow a paying customer sees, minus the
+  // payment. The param deliberately is NOT the one the success handler reads;
+  // that one triggers a Stripe session lookup, which would fail on an id that
+  // never existed. The dialog does not navigate at all on this branch, which
+  // is why the simulated flag rather than the URL is what it reads.
+  if (result.simulated) {
+    return NextResponse.json({
+      checkoutUrl: `${origin}/app/settings/ai-credit?demo_topup=1`,
+      simulated: true,
+    });
+  }
+
+  return NextResponse.json({ checkoutUrl: result.checkoutUrl });
 }
 
 export async function GET(request) {
@@ -121,23 +102,23 @@ export async function GET(request) {
   if (error) return NextResponse.json({ error }, { status });
 
   const sessionId = new URL(request.url).searchParams.get("session_id");
-  if (!sessionId) return NextResponse.json({ error: "No session" }, { status: 400 });
+  const result = await confirmAiTopup({ sessionId, companyId: member.companyId, member });
 
-  let session;
-  try {
-    session = await stripe.checkout.sessions.retrieve(sessionId);
-  } catch {
+  if (!result.ok) {
+    if (result.reason === "no_session") {
+      return NextResponse.json({ error: "No session" }, { status: 400 });
+    }
+    if (result.reason === "wrong_company") {
+      return NextResponse.json({ error: "That payment isn't for this account." }, { status: 403 });
+    }
     return NextResponse.json(
-      { error: "Couldn't confirm that payment just now.", reason: "stripe_unavailable" },
+      { error: "Couldn't confirm that payment just now.", reason: result.reason },
       { status: 502 },
     );
   }
 
-  if (session?.metadata?.companyId !== member.companyId) {
-    return NextResponse.json({ error: "That payment isn't for this account." }, { status: 403 });
-  }
-
-  const result = await creditAiTopup(session, { member });
-
-  return NextResponse.json({ ...result, balance: await balanceFor(member.companyId, db, POOLS.AI) });
+  // `balance` is kept as well as `balanceCents` because this page has read
+  // `balance` since the route was written, and renaming a field the screen
+  // already uses to make two callers match is how a balance stops rendering.
+  return NextResponse.json({ ...result, balance: result.balanceCents });
 }

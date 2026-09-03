@@ -55,11 +55,42 @@ const RULES = [
     spend: "stripe.checkout.sessions.create(",
   },
   {
-    file: "app/api/settings/ai/topup/route.js",
-    fn: "POST",
+    // ── The AI top-up's guard moved, and the rule followed it ──────────────
+    //
+    // On 2026-09-02 the Checkout session moved out of
+    // app/api/settings/ai/topup/route.js into lib/ai/topupIntent.js, so the
+    // top-up dialog that opens over the designer's canvas and the settings
+    // page could not build two different ones — and, more to the point here,
+    // could not grow two different demo branches. This rule follows the guard
+    // to where it now sits; the ABSENT list below is what makes that safe, by
+    // proving neither route can still reach Stripe on its own.
+    file: "lib/ai/topupIntent.js",
+    fn: "startAiTopup",
     what: "an AI top-up never reaches Stripe Checkout",
     guard: "company.isDemo",
-    spend: "stripe.checkout.sessions.create(",
+    spend: "stripeClient.checkout.sessions.create(",
+  },
+];
+
+/**
+ * The other half of moving a guard into a shared module: the callers must have
+ * no way round it.
+ *
+ * A rule that follows a guard into a helper proves the helper is safe and says
+ * nothing about whether the two routes still open their own Checkout session
+ * beside it. These assert the ABSENCE of that — which is the only shape that
+ * can catch a future edit adding one back "just for this case".
+ */
+const ABSENT = [
+  {
+    file: "app/api/settings/ai/topup/route.js",
+    what: "the settings top-up reaches Stripe only through the guarded module",
+    needle: "checkout.sessions.create(",
+  },
+  {
+    file: "app/api/ai/topup/route.js",
+    what: "the in-place top-up dialog's route reaches Stripe only through the guarded module",
+    needle: "checkout.sessions.create(",
   },
 ];
 
@@ -136,6 +167,21 @@ for (const rule of RULES) {
   }
 }
 
+for (const rule of ABSENT) {
+  let src;
+  try {
+    src = readFileSync(rule.file, "utf8");
+  } catch {
+    failures.push(`${rule.file} — cannot be read. ${rule.what}`);
+    continue;
+  }
+  if (src.includes(rule.needle)) {
+    failures.push(
+      `${rule.file} — opens its own Stripe Checkout (\`${rule.needle}\`) instead of going through the guarded module. ${rule.what}`,
+    );
+  }
+}
+
 for (const rule of PRESENT) {
   let src;
   try {
@@ -159,5 +205,5 @@ if (failures.length) {
 }
 
 console.log(
-  `check:demo-spend passed — ${RULES.length} ordered guards, ${PRESENT.length} structural guarantees.`,
+  `check:demo-spend passed — ${RULES.length} ordered guards, ${ABSENT.length} closed side doors, ${PRESENT.length} structural guarantees.`,
 );
