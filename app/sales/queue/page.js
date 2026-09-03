@@ -84,7 +84,6 @@ import {
   CircleHelp,
   Clock,
   Loader2,
-  Phone,
   Plus,
   ShieldAlert,
   Undo2,
@@ -92,6 +91,7 @@ import {
 import { fetchJson } from "@/lib/fetchJson";
 import { LAYER_HEADINGS } from "@/lib/sales/prospectView";
 import { CALL_ALLOWED, CALL_REFUSED, dialHref, salesCallReadiness } from "@/lib/sales/callingRules";
+import CallPanel from "./CallPanel";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -377,11 +377,23 @@ export default function SalesQueuePage() {
                     it returns one only from an `allowed` decision. There is no
                     greyed-out version: a control that looks broken teaches a
                     rep to press it harder, so the space it would occupy carries
-                    the rule and the hour instead. */}
+                    the rule and the hour instead.
+
+                    CallPanel is what renders it now. The href is still built
+                    here and still built by dialHref, so this file gains no dial
+                    string of its own — but pressing the button POSTs to
+                    /api/sales/calls first, which re-asks the same gate with the
+                    per-24h cap actually counted and writes the attempt row
+                    before anything rings. The href is the handset fallback and
+                    is followed only after that POST returns. */}
                 {href ? (
-                  <a href={href} className={`${BTN} bg-primary text-primary-foreground w-full`}>
-                    <Phone size={16} /> Call {current.phoneE164}
-                  </a>
+                  <CallPanel
+                    prospectId={current.id}
+                    phoneE164={current.phoneE164}
+                    businessName={current.businessName}
+                    fallbackHref={href}
+                    onWorked={load}
+                  />
                 ) : null}
 
                 {/* Neither a decision nor the inputs to make one. Only reachable

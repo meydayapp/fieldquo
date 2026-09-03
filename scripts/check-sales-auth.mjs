@@ -767,6 +767,11 @@ const SALES_GATES = [
   "requireOutreachRep",
   "requireSmsRep",
   "requireQueueRep",
+  // The fifth. A call writes SalesCallAttempt, SalesRepActivity and — the
+  // reason it is its own list rather than a widening of the queue's —
+  // SalesSuppression, because the rep on the phone is the person who hears
+  // "take me off your list". lib/sales/calls/gate.js argues it at length.
+  "requireCallingRep",
 ];
 for (const file of salesRoutes) {
   if (file.startsWith("app/api/sales/auth/")) continue; // unauthenticated by design
@@ -787,6 +792,7 @@ for (const [module, fn] of [
   ["lib/sales/outreachGate.js", "export async function requireOutreachRep("],
   ["lib/sales/smsGate.js", "export async function requireSmsRep("],
   ["lib/sales/queueGate.js", "export async function requireQueueRep("],
+  ["lib/sales/calls/gate.js", "export async function requireCallingRep("],
 ]) {
   if (!existsSync(join(ROOT, module))) continue;
   const body = namedFunctionBody(read(module), fn);

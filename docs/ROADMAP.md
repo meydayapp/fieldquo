@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 3 September 2026 (discovery campaigns can bank every trade; the rep's queue stays single-trade; `allTrades` awaits `prisma db push`).
+Last updated: 3 September 2026 (sales call handling — dispositions, agent state, in-browser calling and a live floor board; two Prisma models await `prisma db push`).
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -7124,6 +7124,80 @@ with three vans asks what is due, what is expiring, and who has the van.
   hidden, but the delete route could clean up as it goes.
 - `check:mobile` walks only `/platform`, `/sales` and `/app/clock`, so neither
   new screen is covered by it. Both are built to the same rules.
+
+## Sales call handling — dispositions, agent state, in-browser calls (3 September 2026)
+
+Full write-up: `docs/sales-intel/CALL-HANDLING.md`. Informed by a read of
+OMniLeads (LGPL-3.0, design only — nothing copied; it is Django/Asterisk and
+this is Next.js/Prisma).
+
+### The hole this closes
+
+A dial produced **no record at all**. The calling gate shipped the day before
+with the Oklahoma and Florida three-per-24-hours caps in `unenforced`, telling
+the rep in their own words that nothing was counting. `attemptsLast24h` is now
+computed and passed into `salesCallReadiness()`; it returns `null` — never
+zero — while the table is absent, so the gate keeps reporting rather than
+silently claiming a rule it cannot keep.
+
+### What is there
+
+- **Ten dispositions, as a table**, each declaring what it does to the claim.
+  "Not interested" is WORKED, not released — a released row goes back in the
+  pool and a second rep rings the same annoyed contractor. A release is always
+  paired with `needs_review`, so a dead number is not handed to the next rep.
+- **The attempt row is written at the DIAL**, not at the outcome, because the
+  cap counts calls and not conversations. It is counted by NUMBER, not by
+  prospect: dedupe FLAGS duplicates rather than merging them, so per-row
+  counting would turn a three-call cap into a six-call one.
+- **"Asked not to be called again" writes `SalesSuppression`** in the same
+  transaction as the outcome, phone channel only — a narrower request recorded
+  narrowly.
+- **Agent state**: off / available / on a call / writing up / paused with a
+  named reason. Every state is DECLARED, never observed, and presence goes
+  STALE rather than staying true when a laptop closes.
+- **In-browser calling.** Twilio carries it; the rep talks through a headset and
+  the prospect sees a local number FieldQuo owns. The number dialled comes off
+  our own row, never from the request; the token identity comes from the gate,
+  never from a body field; an attempt older than 120 seconds cannot be bridged.
+  Recording is OFF and the reason is consent law, said out loud.
+- **A live floor board** at `/platform/sales/floor`, superadmin only, read-only.
+- **`lib/sales/team.js`** — the three-tier scope computed ONCE rather than
+  copied to every screen. The middle tier is "team lead", not "supervisor":
+  that word is already a tenant Member role labelled "Manager" on screen, and
+  `check:role-vocabulary` exists because two names for one role once read as a
+  privilege escalation.
+- **Progressive and predictive dialling are built, named and refused** behind
+  two switches, neither of which defaults on.
+
+### `npm run check:sales-call-handling`
+
+264 assertions in `check:all`. 24 mutations, each confirmed applied before the
+run was trusted, all caught — including two that survived a first draft and
+exposed real weaknesses: a lazy `[\s\S]*?` that reached a matching field
+further down the file, and a guard asserted by its words rather than its shape
+(`if (false && existing.disposition)` contains the words and does nothing).
+
+### The owner owns the schema
+
+`lib/sales/calls/schema.pending.prisma` — `SalesCallAttempt`,
+`SalesRepActivity`, `SalesRep.managerId`, four columns on `PlatformVoiceCall`,
+one on `PlatformSmsNumber`. Nothing here ran `prisma db push`.
+`lib/sales/calls/store.js` probes the generated client, so every control turns
+itself on the day they land. When they do, `check-sales-calling-window.mjs`'s
+`SalesCallAttempt` tripwire flips — that is what it is for.
+
+### Still open
+
+1. An inbound "take me off your list" does not reach `SalesSuppression`. SMS
+   handles STOP; voice does not. The only live compliance gap this work found.
+2. Suppression still is not consulted at CLAIM time (the dial path now is).
+3. The team-lead tier is inert until `SalesRep.managerId` exists — deliberately
+   not half-built.
+4. Claims that lapse unworked are not counted; counting them needs a
+   claim-event log, which is an owner decision.
+
+---
 
 ## Sales calling hours — enforced (3 September 2026)
 

@@ -1,0 +1,339 @@
+// lib/sales/calls/schema.pending.prisma
+//
+// NOT READ BY PRISMA. Prisma reads prisma/schema.prisma and nothing else; this
+// is a parking space, exactly like lib/sales/playbook/schema.pending.prisma,
+// and lib/sales/calls/store.js points at it in the message it shows while the
+// tables are absent.
+//
+// The owner holds the schema. Nothing in this session ran `prisma db push`.
+//
+// To land it: paste the models below into prisma/schema.prisma beside the
+// other sales models, add the four one-line relation backs listed at the
+// bottom, then:
+//
+//     npx prisma validate && npx prisma db push && npx prisma generate
+//
+// Nothing else has to change. store.js probes the generated client for the
+// delegates, so the disposition control, the cap enforcement and the team
+// screens turn themselves on the moment the models exist — and stay honestly
+// absent until then.
+//
+// ── One thing to do in the same commit ────────────────────────────────────
+//
+// scripts/check-sales-calling-window.mjs carries a tripwire that ASSERTS
+// `SalesCallAttempt` is not in prisma/schema.prisma. It is not stale and it is
+// not in the way: its message is "if this fails, wire the cap up". Adding the
+// model flips it, and the assertion beside it — that the queue route passes
+// `attemptsLast24h` — is what replaces it. Both are already written; see that
+// file's "the cap" section.
+
+/// One press of the call button.
+///
+/// ── Written at the DIAL, not at the outcome ──────────────────────────────
+///
+/// Oklahoma and Florida cap CALLS to the same business on the same subject at
+/// three per 24 hours — not conversations. A rep who dials five times and
+/// fills one outcome in has made five calls, so the row exists before there is
+/// anything to say about it and `disposition` starts null. An attempt with no
+/// disposition is a real, visible state, not a gap.
+///
+/// ── Two ways a call can be placed, and only one of them is measurable ────
+///
+/// `dialChannel` says which. A `handset` dial is a `tel:` handoff: the
+/// operating system takes the call and nothing reports back, so every provider
+/// column below stays null forever on those rows. A `browser` dial is bridged
+/// through Twilio, and the provider reports ring, answer, hangup and price.
+///
+/// The columns are nullable rather than absent BECAUSE the two coexist. What
+/// must never happen is a report that averages them together and calls the
+/// result talk time — a handset row is not a zero-second call, it is a call
+/// nobody timed. lib/sales/calls/reporting.js counts the measured rows and
+/// prints the denominator beside every duration for exactly that reason.
+model SalesCallAttempt {
+  id String @id @default(cuid())
+
+  /// Who dialled. Restrict, not Cascade: a rep leaving must not delete the
+  /// evidence that a business was called. Same reasoning SalesSuppression
+  /// gives for keeping loose pointers instead of cascading foreign keys.
+  salesRepId String
+  salesRep   SalesRep @relation(fields: [salesRepId], references: [id])
+
+  /// The prospect the rep was looking at, when there was one. Nullable and
+  /// SetNull: a rep ringing a lead they typed in themselves has no Prospect,
+  /// and deleting one must not delete the call record.
+  prospectId String?
+  prospect   Prospect? @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+
+  /// The rep's own lead, when there is one.
+  leadId String?
+  lead   SalesLead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  /// The number as dialled, E.164, normalised on write.
+  ///
+  /// THE CAP IS COUNTED ON THIS COLUMN, not on prospectId. Prospect dedupe
+  /// FLAGS duplicates rather than merging them — `possibleDuplicateOfId`,
+  /// "merging destroys provenance" — so one business can hold two rows, and
+  /// counting per row would turn a three-call cap into a six-call one by
+  /// accident.
+  toE164 String
+
+  /// The number presented to them. Null on a handset dial, because nothing in
+  /// FieldQuo knows what a rep's own phone presents. Not defaulted to the sales
+  /// line: that would record a caller ID that was never shown.
+  fromE164 String?
+
+  /// "out" | "in". Inbound rows are written by the sales-line handler when a
+  /// contractor rings back, so "how many times have we spoken" is one query.
+  direction String @default("out")
+
+  /// "browser" | "handset". Which door the call went through, and therefore
+  /// whether any of the provider columns below can ever be filled. Defaulted
+  /// to handset so a row written by an older path is not silently claimed as
+  /// measured.
+  dialChannel String @default("handset")
+
+  dialledAt DateTime @default(now())
+
+  // ── What the carrier reported. Browser dials only ─────────────────────
+  //
+  // Every one of these is nullable and stays null on a handset row. None is
+  // ever defaulted to zero: "not measured" and "zero seconds" are different
+  // facts and collapsing them is what turns an honest gap into a false chart.
+
+  /// Twilio's CallSid for the PSTN leg. @unique so the three status callbacks
+  /// for one call (initiated, answered, completed) land on one row and a
+  /// provider retry cannot duplicate it — the same reason
+  /// PlatformVoiceCall.providerCallId is unique.
+  providerCallSid String? @unique
+  /// Twilio's own final status: completed, busy, no-answer, failed, canceled.
+  /// Kept verbatim and NOT mapped onto a disposition: what the network says
+  /// and what the rep says are two different statements about one call, and
+  /// merging them loses the case where they disagree.
+  providerStatus  String?
+  /// When it started ringing, when it was answered, when it ended.
+  ringingAt   DateTime?
+  answeredAt  DateTime?
+  endedAt     DateTime?
+  /// Billed seconds, from the provider. This IS talk time, on these rows only.
+  talkSeconds Int?
+  /// Seconds the rep had the prospect on hold, summed from hold events.
+  holdSeconds Int?
+  /// FieldQuo's own cost for this call, both legs, from the provider's figure.
+  /// Null when the provider gave none — never a hand-typed per-minute
+  /// estimate, for the reason VoiceCall.providerCostCents gives.
+  providerCostCents Decimal? @db.Decimal(12, 4)
+
+  // ── The gate's answer, frozen at the moment of the dial ────────────────
+  //
+  // "Was this call lawful when it was made" has to be answerable a year later,
+  // after CALLING_JURISDICTIONS has been edited and a state has moved from
+  // unverified to verified. Recomputing it then would answer a different
+  // question. So the decision travels with the row.
+
+  /// The CALLING_JURISDICTIONS key that was applied — "US-OK", "CA", and so on.
+  /// Null only for a lead with no jurisdiction, which cannot produce an
+  /// allowed decision and therefore cannot produce a row today.
+  jurisdictionCode String?
+  /// Always "allowed" — dialHref() cannot return a target from anything else.
+  /// Stored rather than assumed so the invariant is auditable in the data
+  /// instead of only in the code that wrote it.
+  decisionAtDial   String  @default("allowed")
+  /// The window as it read on screen, e.g. "08:00–20:00".
+  windowText       String?
+  /// The zone the window was evaluated in, and whether a human stated it or it
+  /// was derived from the subdivision. The two are not equally good and the
+  /// difference must survive.
+  prospectTimeZone String?
+  timeZoneSource   String?
+
+  // ── What the rep says happened ────────────────────────────────────────
+  //
+  // Null until they say. A DISPOSITIONS key from lib/sales/calls/dispositions.js
+  // — a closed vocabulary, checked in code, deliberately not a superadmin table
+  // because each value carries a claim transition with it.
+
+  disposition     String?
+  dispositionAt   DateTime?
+  dispositionNote String?
+
+  /// Set only by the `callback` disposition. The claim's lease is extended to
+  /// cover it, which is why dispositions.js bounds how far out it may be.
+  callbackAt DateTime?
+
+  // ── What was said, so an experiment can be read afterwards ────────────
+  //
+  // SalesPlaybookExperiment and SalesPlaybookAssignment already store which
+  // arm a prospect is in, BEFORE the call, per spec §38 — and there has been
+  // nothing to measure them against. These four columns are that missing half.
+  // Copied at dial time rather than joined at read time: editing a playbook
+  // must not retroactively change what a rep is recorded as having read.
+
+  playbookKey     String?
+  playbookVersion String?
+  experimentKey   String?
+  variantKey      String?
+
+  createdAt DateTime @default(now())
+
+  /// The cap query, and the only index that has to be fast: every dial runs it.
+  @@index([toE164, dialledAt])
+  @@index([salesRepId, dialledAt])
+  @@index([prospectId, dialledAt])
+  @@index([disposition])
+}
+
+// ── On `model PlatformSmsNumber` ──────────────────────────────────────────
+//
+// Two additions, and one honest admission.
+//
+// The sales floor needs numbers to CALL from — local ones, because a
+// contractor in Tulsa answers a 918 number and lets an unknown one ring out.
+// The telephony audit is explicit that these must not live in
+// `VoicePhoneNumber`: its `companyId` is a required FK and `heldNumber()`
+// enforces one per company, so a pool is structurally the thing that code
+// treats as a bug, and putting them there would make the rent cron bill a
+// non-company and report a false billing leak per number.
+//
+// `PlatformSmsNumber` is the only tenant-free number model there is, so a
+// voice number goes here with `purpose: "sales_voice"`. The admission: the
+// model's NAME has outgrown it — it is a platform number table now, not an SMS
+// one. Renaming it is a schema decision the owner owns, and inventing a second
+// tenant-free number table to avoid the rename would be the parallel system
+// AGENTS.md warns about. So: same table, new purpose, and this note so nobody
+// concludes from the name that voice numbers must live somewhere else.
+//
+//     /// The voice webhook, for a "sales_voice" number. Null for every other
+//     /// purpose — an SMS number with a voice URL would answer calls nobody
+//     /// meant it to answer.
+//     voiceUrl String?
+//
+// `purpose` gains one documented value, "sales_voice", beside system,
+// shared_test and sales. No schema change — it is already a plain String.
+
+/// What a rep is doing right now, and the log of what they were doing.
+///
+/// ── One model, not two ────────────────────────────────────────────────────
+///
+/// A contact centre usually keeps a live agent-status row and a separate
+/// activity log, because a predictive dialler has to read the live one
+/// thousands of times a second. FieldQuo has no dialler reading it: the only
+/// consumer is a person looking at a screen. So this is the LOG, and "what are
+/// they doing right now" is its most recent row — one table that cannot
+/// disagree with itself, rather than two that can. The same argument
+/// lib/voice/credits.js makes for summing a balance instead of storing one.
+///
+/// ── Nothing infers a state ────────────────────────────────────────────────
+///
+/// Every row is written because a rep pressed something, or because they
+/// dialled, or because their session ended. Nothing writes "available" because
+/// a page loaded, and nothing writes "offline" on a guess about a browser that
+/// stopped polling — a stale row says when it was written and the screen says
+/// how old it is. Inventing presence is AGENTS.md failure class 5 pointed at a
+/// person's timesheet.
+model SalesRepActivity {
+  id String @id @default(cuid())
+
+  salesRepId String
+  salesRep   SalesRep @relation(fields: [salesRepId], references: [id], onDelete: Cascade)
+
+  /// A REP_STATES key from lib/sales/calls/agentState.js. Closed vocabulary.
+  state String
+
+  /// Why, for `paused` only — a PAUSE_REASONS key. Null for every other state,
+  /// and refused as a value on any other state, so "paused" without a reason
+  /// cannot exist and "available, reason: lunch" cannot either.
+  pauseReason String?
+
+  /// The attempt that caused it, for `on_call` and `after_call`. Loose pointer
+  /// on purpose, like SalesSuppression's: the activity log outliving an
+  /// attempt row is an acceptable failure, the log vanishing is not.
+  callAttemptId String?
+
+  startedAt DateTime @default(now())
+  /// Written when the NEXT row is opened, so a period has a real length rather
+  /// than one computed from the gap to whatever row happened to sort next.
+  /// Null on the current row, which is how "right now" is found.
+  endedAt   DateTime?
+
+  /// Last time the rep's browser said it was still there. Beaten every 60s by
+  /// the portal shell.
+  ///
+  /// This exists so the supervisor board can tell "available" from "said they
+  /// were available before the laptop lid closed". Without it an open row is
+  /// true forever and the board confidently reports a rep who went home. It is
+  /// NOT used to close the row or to infer a state — nothing writes "offline"
+  /// on a guess about a browser that stopped talking. It only ages the claim,
+  /// and livePresence() turns that age into a third answer beside the state.
+  heartbeatAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  /// The live lookup: one rep's open row, and a team's open rows.
+  @@index([salesRepId, startedAt])
+  @@index([endedAt, startedAt])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Columns to ADD to models that already exist
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── On `model SalesRep` ───────────────────────────────────────────────────
+//
+// The reporting line lib/sales/notes/visibility.js records the absence of, in
+// as many words: "There is no reporting line on SalesRep... a manager tier here
+// would mean inventing an org chart." This is that org chart, in one column,
+// shaped after Worker.manager @relation("WorkerReports") which leave approval
+// already uses — the same shape rather than a new one, so nobody has to learn
+// a second way FieldQuo expresses "reports to".
+//
+// SetNull, not Cascade: a team lead leaving must not delete their reports.
+// Nothing in the database can stop A reporting to B reporting to A; the cycle
+// guard is in lib/sales/team.js and is executed by the check script.
+//
+//     managerId String?
+//     manager   SalesRep?  @relation("SalesRepReports", fields: [managerId], references: [id], onDelete: SetNull)
+//     reports   SalesRep[] @relation("SalesRepReports")
+//
+//     @@index([managerId])
+//
+// and the two relation backs for the models above:
+//
+//     callAttempts SalesCallAttempt[]
+//     activity     SalesRepActivity[]
+
+// ── On `model Prospect` ───────────────────────────────────────────────────
+//
+//     callAttempts SalesCallAttempt[]
+
+// ── On `model SalesLead` ──────────────────────────────────────────────────
+//
+//     callAttempts SalesCallAttempt[]
+
+// ── On `model PlatformVoiceCall` ──────────────────────────────────────────
+//
+// An inbound call to FieldQuo's own sales line currently lands with fromE164
+// and nothing else — the schema's own comment calls it "the only contact
+// detail a sales call leaves behind". These columns are the match, and what
+// they are allowed to mean is the important part:
+//
+//   A caller ID is FORGEABLE. Unlike SalesThread.replyToken, which is a secret
+//   we issued and is therefore proof, a matched number is a HINT. It may
+//   annotate a call and route it to the rep who already holds the claim. It
+//   may never authenticate anybody, lift a suppression, move a claim, or
+//   credit an attribution. lib/sales/calls/inboundMatch.js enforces that and
+//   its header argues it.
+//
+//     prospectId  String?
+//     prospect    Prospect?  @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+//     salesLeadId String?
+//     salesLead   SalesLead? @relation(fields: [salesLeadId], references: [id], onDelete: SetNull)
+//     /// How the match was made — "phone_e164" today. Null when nothing matched,
+//     /// which is the common case and is not a failure.
+//     matchedBy   String?
+//     matchedAt   DateTime?
+//
+//     @@index([fromE164])
+//
+// plus the relation backs, on Prospect and SalesLead respectively:
+//
+//     inboundCalls PlatformVoiceCall[]

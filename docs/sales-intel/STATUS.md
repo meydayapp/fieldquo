@@ -1352,3 +1352,79 @@ placeholders naming the exact route and both viewports (1440×900 and 375×812).
 **Blocked, as instructed:** the PDF export and the resource-section UI were not
 built — the PDF renderer cannot draw Cyrillic yet, which also blocks the
 Ukrainian and Russian versions. Translations were not attempted.
+
+---
+
+## Sales call handling — BUILT 2026-09-03
+
+Full design and the reasoning behind every decision:
+**`docs/sales-intel/CALL-HANDLING.md`**. Read that rather than this summary if
+you are about to change any of it.
+
+A dial produced no record at all before this. The Oklahoma and Florida
+three-per-24-hours caps were reported to the rep as `unenforced` on screen
+because nothing counted attempts. That is now the only thing standing between
+the gate and enforcing them: `attemptsLast24h` is wired and passed, and it
+returns `null` — never zero — while the table is absent.
+
+### What landed
+
+| Thing | State |
+|---|---|
+| Disposition vocabulary, ten outcomes, each with its claim transition | done |
+| Attempt recorded at the DIAL, not at the outcome — the cap counts calls | done |
+| Cap counted by NUMBER, not by prospect (dedupe flags, never merges) | done |
+| do-not-call writes `SalesSuppression` in the same transaction, phone channel only | done |
+| Agent state: off / available / on a call / writing up / paused-with-reason | done |
+| Presence goes STALE rather than staying true when a laptop closes | done |
+| In-browser calling — token, TwiML bridge, status callback, live timer, mute | done |
+| Local caller ID from numbers FieldQuo owns; no path constructs one | done |
+| Superadmin floor board, `/platform/sales/floor`, 15s refresh | done |
+| Three-tier scope computed ONCE (`lib/sales/team.js`) | done |
+| Progressive/predictive dialling built, named, refused behind two switches | done |
+| `check:sales-call-handling` in `check:all` — 264 assertions | done |
+| 24 mutations, each confirmed applied, all caught | done |
+
+### The schema is HANDED OVER, not pushed
+
+`lib/sales/calls/schema.pending.prisma` — two models
+(`SalesCallAttempt`, `SalesRepActivity`), `SalesRep.managerId`, four columns on
+`PlatformVoiceCall`, one on `PlatformSmsNumber`. `lib/sales/calls/store.js`
+probes the generated client, so every control turns itself on the day they
+land and stays honestly absent until then. Same pattern as
+`lib/sales/playbook/store.js`.
+
+When they land, `check-sales-calling-window.mjs`'s `SalesCallAttempt` tripwire
+flips — that is what it is for, and its replacement assertion is already
+written.
+
+### Three env vars
+
+`TWILIO_SALES_TWIML_APP_SID` (browser calling; note an access token needs the
+API KEY pair, not the auth token), `SALES_DIAL_MODE`,
+`SALES_AUTOMATED_DIAL_ENABLED`. All in `docs/VERCEL.md`.
+
+### Still open, highest first
+
+1. **An inbound "take me off your list" does not reach `SalesSuppression`.**
+   The transcript sits in `PlatformVoiceCall` and nobody acts on it. SMS
+   handles STOP; voice does not. This is the one live compliance gap the work
+   found.
+2. **Suppression is still not consulted at CLAIM time** — `claimCandidateWhere`
+   reads `Prospect.doNotContactAt` only. Already on the roadmap; the dial path
+   is now guarded, the claim is not.
+3. **The team-lead tier is inert.** Written, tested, and refuses everything
+   until `SalesRep.managerId` exists and `TEAM_LEAD_NOTE_VISIBILITY_FROM` is
+   set. Deliberately not half-built.
+4. **Claims that lapse unworked are not counted** — re-claiming overwrites the
+   holder. Counting them needs a claim-event log, which is an owner decision.
+
+### The decision the owner should settle
+
+**May a team lead release a stuck claim, and may they hand it to a named rep?**
+The design allows release and refuses named transfer, on the grounds that
+choosing who gets the conversation is a lever on who gets paid. The honest
+counter-argument is that a lead can release it and tell that rep to claim next,
+so the refusal may buy nothing. Nothing is built either way. If the answer is
+"they may reassign", it needs an audit row — the same reasoning
+`SalesPlaybookAssignment.assignedBy` records.

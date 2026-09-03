@@ -113,6 +113,16 @@ const EXTERNAL_CALLERS = {
     "Twilio posts here on every inbound SMS to a company number. The URL is " +
     "set in the Twilio console, not in this repo, so no in-app caller can " +
     "exist. Signature-verified in lib/sms/verifyTwilioWebhook.js.",
+  "/api/rep-dial/bridge":
+    "Twilio fetches this for TwiML when a rep's browser places an outgoing " +
+    "call. The URL is set on the TwiML Application named by " +
+    "TWILIO_SALES_TWIML_APP_SID, in the Twilio console, so no in-app caller " +
+    "can exist. Signature-verified through the same " +
+    "lib/sms/verifyTwilioWebhook.js the inbound SMS routes use, and it dials " +
+    "the number off our own SalesCallAttempt row rather than anything in the " +
+    "request. Its sibling /api/rep-dial/status IS referenced in this repo — " +
+    "the bridge builds the statusCallback URL — which is why only this one " +
+    "needs an entry.",
   "/api/stripe/webhook":
     "Stripe posts here for Connect and payment events. The endpoint is " +
     "registered in the Stripe dashboard, so no in-app caller can exist.",

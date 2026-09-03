@@ -105,6 +105,7 @@ import {
   UserRoundCheck,
   Ban,
   ListChecks,
+  Headphones,
   TrendingUp,
   NotebookPen,
   GitBranch,
@@ -202,6 +203,11 @@ const GROUPS = [
       // no screen over any of them. A row here rather than a panel on the reps
       // page because the two answer different questions — that one is "who
       // works here and can they send", this one is "what did they sell".
+      // What the floor is doing RIGHT NOW, as opposed to what it sold. Placed
+      // above performance because it is the screen somebody opens at 10am and
+      // performance is the one they open on a Monday: one is a board you watch,
+      // the other is a period you read.
+      { label: "Sales floor", href: "/platform/sales/floor", icon: Headphones },
       { label: "Sales performance", href: "/platform/sales/performance", icon: TrendingUp },
       // Beside performance, because it is the same question asked the other
       // way round: performance is what a rep sold, this is what they heard.
