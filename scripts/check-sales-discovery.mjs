@@ -624,7 +624,28 @@ section("Name keys ignore noise words and word order, and refuse to be empty");
     nameKey("The Company Ltd") === null);
   ok("a fuzzy key needs a locality — otherwise every ABC Plumbing collides",
     fuzzyKey({ businessName: "Acme Painting", city: null }) === null);
-  ok("markup does not defeat the key", nameKey("<b>Acme</b> Painting") === nameKey("Acme Painting"));
+  ok("markup does not defeat the key", nameKey("<b>Acme</b> Painting") === nameKey("Acme Painting"))
+  // Accents FOLD, they do not split the word. Without an NFD pass the
+  // [^a-z0-9] filter turns every accented letter into a space, and since the
+  // words are then sorted the fragments come back reordered — "Québec" became
+  // "bec qu" and "Rénovations Lévis" became "l novations r vis". No French
+  // business name matched its own duplicate, which is most of Quebec, much of
+  // New Brunswick and a good deal of eastern Ontario, live against the
+  // Overture bank. Nothing covered nameKey at all, which is how it survived.
+  ok(
+    "accented and unaccented spellings are one business",
+    nameKey("Québec Rénovations") === nameKey("Quebec Renovations"),
+    nameKey("Québec Rénovations"),
+  );
+  ok(
+    "an accent does not split a word into fragments",
+    nameKey("Québec") === "quebec",
+    nameKey("Québec"),
+  );
+  ok(
+    "...and the noise-word rule still returns null rather than an empty key",
+    nameKey("The Company Ltd") === null,
+  );;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
