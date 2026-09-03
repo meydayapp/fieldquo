@@ -27,7 +27,12 @@ const PLATFORM_PROVIDED = new Set(["NODE_ENV", "VERCEL_URL"]);
 // in VERCEL.md would be worse than omitting them: it tells the owner to set a
 // Vercel env var that does nothing, on the one page they consult to work out why
 // a deploy is misbehaving. Exempt, like the platform-provided set above.
-const LOCAL_ONLY = new Set(["ADMIN_EMAIL", "NEW_ADMIN_PASSWORD"]);
+const LOCAL_ONLY = new Set([
+  "ADMIN_EMAIL",
+  "NEW_ADMIN_PASSWORD",
+  "TMPDIR",
+  "PYFTSUBSET",
+]);
 
 function walk(dir, out = []) {
   let entries;

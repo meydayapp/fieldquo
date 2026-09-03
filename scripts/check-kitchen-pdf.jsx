@@ -18,6 +18,9 @@
 import React from "react";
 import zlib from "node:zlib";
 import { Document, Page, View, Text, renderToBuffer, StyleSheet } from "@react-pdf/renderer";
+import { registerPdfFonts } from "@/lib/documents/pdfFont";
+
+registerPdfFonts();
 import { PlanPdf, ElevationPdf } from "../lib/kitchen/PlanPdf.jsx";
 
 let fail = 0;

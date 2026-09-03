@@ -48,3 +48,7 @@ next-env.d.ts
 # is the reproducible record; this directory is 6.7 MB of vendored third-party
 # content that `npx skills install` restores — the node_modules pattern.
 .claude/skills/
+
+# Local Python venv for scripts/build-pdf-fonts.mjs (fontTools/pyftsubset).
+# Tooling, not source — the generated .js font files are what ship.
+.venv/

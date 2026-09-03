@@ -30,6 +30,7 @@ import { documentTheme, ruleColor } from "@/lib/documents/theme";
 import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
 import { PdfSection as FooterPdfSection } from "@/lib/documentSections/FooterSection";
 import { buildPhotoReportData } from "@/lib/jobs/photoReport";
+import { registerPdfFonts, PDF_FONT, PDF_FONT_BOLD } from "@/lib/documents/pdfFont";
 
 /**
  * @param job      { title }
@@ -52,6 +53,8 @@ export async function renderJobPhotoReportPdfBuffer({
   photos,
   language,
 }) {
+  registerPdfFonts();
+
   const data = buildPhotoReportData({ job, client, photos });
   const t = documentTheme(company);
   const labels = documentLabels(language);
@@ -59,7 +62,7 @@ export async function renderJobPhotoReportPdfBuffer({
 
   const doc = (
     <Document>
-      <Page size="LETTER" style={{ padding: 40, fontFamily: "Helvetica" }} wrap>
+      <Page size="LETTER" style={{ padding: 40, fontFamily: PDF_FONT }} wrap>
         {/* The brand rule, same two-weight treatment HeaderSection uses, so a
             photo report and a quote from the same company read as one family
             of documents rather than two different products. */}
@@ -94,7 +97,7 @@ export async function renderJobPhotoReportPdfBuffer({
               <Text
                 style={{
                   fontSize: 15,
-                  fontFamily: "Helvetica-Bold",
+                  fontFamily: PDF_FONT_BOLD,
                   color: t.accentText,
                   marginBottom: 4,
                 }}
@@ -113,7 +116,7 @@ export async function renderJobPhotoReportPdfBuffer({
             <Text
               style={{
                 fontSize: 18,
-                fontFamily: "Helvetica-Bold",
+                fontFamily: PDF_FONT_BOLD,
                 letterSpacing: 2,
                 color: t.accentText,
               }}
@@ -123,7 +126,7 @@ export async function renderJobPhotoReportPdfBuffer({
             <Text
               style={{
                 fontSize: 11,
-                fontFamily: "Helvetica-Bold",
+                fontFamily: PDF_FONT_BOLD,
                 color: t.ink,
                 marginBottom: 3,
               }}
@@ -148,7 +151,7 @@ export async function renderJobPhotoReportPdfBuffer({
           >
             {data.clientName && (
               <Text
-                style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: t.ink }}
+                style={{ fontSize: 10, fontFamily: PDF_FONT_BOLD, color: t.ink }}
               >
                 {data.clientName}
               </Text>
@@ -175,7 +178,7 @@ export async function renderJobPhotoReportPdfBuffer({
               <Text
                 style={{
                   fontSize: 9,
-                  fontFamily: "Helvetica-Bold",
+                  fontFamily: PDF_FONT_BOLD,
                   color: t.ink,
                   marginBottom: 6,
                   letterSpacing: 0.6,

@@ -1,6 +1,7 @@
 // app/admin/lib/pdf/renderDocumentPdf.js
 import { Document, Page, renderToBuffer } from "@react-pdf/renderer";
 import { getSectionModule } from "@/lib/documentSections/registry";
+import { registerPdfFonts, PDF_FONT } from "@/lib/documents/pdfFont";
 
 // `language` is the language the DOCUMENT was written in — taken from
 // Quote.language / Invoice.language, which are set once at creation and never
@@ -15,6 +16,8 @@ export async function renderDocumentPdfBuffer({
   company,
   language,
 }) {
+  registerPdfFonts();
+
   const lang = language || company?.defaultLanguage || "en";
 
   const ordered = [...sections].sort(
@@ -23,7 +26,7 @@ export async function renderDocumentPdfBuffer({
 
   const doc = (
     <Document>
-      <Page size="LETTER" style={{ padding: 40, fontFamily: "Helvetica" }}>
+      <Page size="LETTER" style={{ padding: 40, fontFamily: PDF_FONT }}>
         {ordered.map((section, i) => {
           const mod = getSectionModule(section.type);
           const PdfSection = mod.PdfSection;
