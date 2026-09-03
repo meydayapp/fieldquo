@@ -40,6 +40,8 @@
 // Run: node --import ./scripts/alias-loader.mjs scripts/check-dashboard-rank.mjs
 
 import { readFileSync } from "node:fs";
+// register() installs the scripted-database loader used in section 4b.
+import { register } from "node:module";
 import {
   buildDashboardRank,
   overdueInvoices,
@@ -66,6 +68,12 @@ const ok = (label, condition, detail) => {
 // lands on the previous day west of Greenwich and quietly changes every age.
 const AS_OF = new Date("2026-08-29T12:00:00Z");
 const at = (iso) => new Date(`${iso}T12:00:00Z`);
+
+// The REAL clock. Section 4b executes lib/analytics/overview.js, which calls
+// new Date() internally and takes no asOf — so the month boundaries this
+// check reasons about have to be derived from the same now the module sees.
+// AS_OF above stays frozen for everything that accepts an explicit date.
+const NOW = new Date();
 
 const inv = (over = {}) => ({
   id: over.id,
@@ -100,6 +108,10 @@ const overviewPayload = (over = {}) => ({
   quotesAccepted: 0,
   conversionRate: null,
   priorConversionRate: null,
+  // Both priors are null by default because that is what the route sends for a
+  // company with no comparable prior month — see lib/analytics/overview.js.
+  priorRevenue: null,
+  priorQuotesSent: null,
   goal: null,
   canEditGoal: false,
   ...over,
@@ -232,6 +244,9 @@ const withPrior = buildDashboardRank({
     quotesAccepted: 5,
     conversionRate: 5 / 14,
     priorConversionRate: 0.25,
+    // 12 sent last month: above RATE_FLOOR, so the prior is printable. Without
+    // this the delta is refused no matter how healthy the current month looks.
+    priorQuotesSent: 12,
   }),
   money: null,
   upcomingCount: 0,
@@ -242,6 +257,281 @@ ok(
   "...and conversion compares in points, not as a ratio of ratios",
   Math.round(withPrior.metrics.find((m) => m.id === "conversion").delta.deltaAbs * 100) === 11,
   Math.round(withPrior.metrics.find((m) => m.id === "conversion").delta?.deltaAbs * 100),
+);
+
+// ── The floor applies to the PRIOR as well ────────────────────────────────
+//
+// A current month of 14 sent quotes clears RATE_FLOOR and prints a rate. Last
+// month's 3 do not. Before priorQuotesSent was on the wire this side could not
+// tell — it saw only "0.25" and compared against it, so a rate one decision
+// could move by 33 points sat beside a floored one wearing the same percent
+// sign. The delta is the claim, and the claim is what gets refused.
+const thinPrior = buildDashboardRank({
+  overview: overviewPayload({
+    quotesSent: 14,
+    quotesAccepted: 5,
+    conversionRate: 5 / 14,
+    priorConversionRate: 1 / 3,
+    priorQuotesSent: 3,
+  }),
+  money: null,
+  upcomingCount: 0,
+});
+const thinPriorConv = thinPrior.metrics.find((m) => m.id === "conversion");
+ok(
+  "a prior below the floor produces no delta",
+  thinPriorConv.delta === null,
+  JSON.stringify(thinPriorConv.delta),
+);
+ok(
+  "...while the current rate itself is still printed",
+  thinPriorConv.percent !== null && thinPriorConv.belowFloor === false,
+  `percent=${thinPriorConv.percent} belowFloor=${thinPriorConv.belowFloor}`,
+);
+
+// An unknowable prior is refused the same way as a too-small one. A payload
+// carrying a rate but not its denominator cannot be judged, and a comparison
+// this file cannot check is one it does not print.
+const unknowablePrior = buildDashboardRank({
+  overview: overviewPayload({
+    quotesSent: 14,
+    quotesAccepted: 5,
+    conversionRate: 5 / 14,
+    priorConversionRate: 0.25,
+    priorQuotesSent: null,
+  }),
+  money: null,
+  upcomingCount: 0,
+});
+const unknowableConv = unknowablePrior.metrics.find((m) => m.id === "conversion");
+ok("a prior rate with no sample behind it is not compared against", unknowableConv.delta === null);
+// The delta alone cannot tell these two apart — both refuse — so the sample is
+// asserted directly. An absent prior must stay ABSENT through this function:
+// rank.js's num() is Number()-based and Number(null) is 0, so a value routed
+// through it would arrive as a zero and be refused for the wrong reason. While
+// RATE_FLOOR is 10 the visible outcome is identical, which is exactly why a
+// mutation that removed the null branch survived until this assertion existed.
+ok(
+  "...and the missing sample stays null rather than becoming a zero",
+  unknowableConv.priorSample === null,
+  JSON.stringify(unknowableConv.priorSample),
+);
+ok(
+  "a known small sample is reported as the number it is",
+  thinPriorConv.priorSample === 3,
+  JSON.stringify(thinPriorConv.priorSample),
+);
+
+// A prior of exactly zero revenue is a REAL answer and must still compare —
+// the null rule is about a month that did not happen, not a month that earned
+// nothing. compare() renders this as "up" with no percentage.
+const fromZero = buildDashboardRank({
+  overview: overviewPayload({ revenue: 2400, priorRevenue: 0 }),
+  money: null,
+  upcomingCount: 0,
+});
+ok(
+  "a genuine $0 last month still produces a comparison",
+  fromZero.hero.delta?.direction === "up",
+  JSON.stringify(fromZero.hero.delta),
+);
+ok(
+  "...with no percentage, because you cannot divide by nothing",
+  fromZero.hero.delta?.deltaPct === null,
+  fromZero.hero.delta?.deltaPct,
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+console.log("\n4b. The route actually SENDS the priors it is asked for\n");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Everything above proves rank.js renders a delta when a prior is handed to it.
+// None of it proves anything hands one over — and for months nothing did.
+// `rank.js` asked for `overview.priorRevenue`, the payload had no such key, the
+// `?? null` swallowed it, and the page rendered a figure with no comparison
+// while every fixture in this file went green. A fixture proving the consumer
+// works is exactly the check that passes while the feature is missing.
+//
+// So this section executes lib/analytics/overview.js against a scripted
+// database and reads what comes back.
+
+const startOfMonthNow = new Date(NOW.getFullYear(), NOW.getMonth(), 1);
+const startOfLastMonthNow = new Date(NOW.getFullYear(), NOW.getMonth() - 1, 1);
+
+// Which window a query is asking about, decided by the SHAPE of the where —
+// a prior window is the only one with an upper bound. Matching on exact dates
+// would make this check fail at midnight on the 1st for reasons that have
+// nothing to do with the code.
+const windowOf = (where = {}) => {
+  const range = where.updatedAt || where.createdAt || where.date || {};
+  if (range.lt) return "prior";
+  if (range.gte && range.gte.getMonth() === 0 && range.gte.getDate() === 1 &&
+      range.gte < startOfMonthNow) return "ytd";
+  return "current";
+};
+
+const calls = [];
+const scripted = (rows) => ({
+  quote: {
+    async count(args = {}) {
+      calls.push({ model: "quote", op: "count", where: args.where });
+      const w = windowOf(args.where);
+      const status = args.where?.status;
+      const accepted = status === "accepted";
+      return rows.quotes[`${w}${accepted ? "Accepted" : "Sent"}`] ?? 0;
+    },
+  },
+  invoice: {
+    async aggregate(args = {}) {
+      calls.push({ model: "invoice", op: "aggregate", where: args.where, _sum: args._sum });
+      const w = windowOf(args.where);
+      return { _sum: { total: rows.revenue[w] ?? 0 }, _count: rows.invoiceCount?.[w] ?? 0 };
+    },
+  },
+  expense: {
+    async aggregate() {
+      calls.push({ model: "expense", op: "aggregate" });
+      return { _sum: { amount: 0 } };
+    },
+  },
+  company: {
+    async findUnique(args = {}) {
+      calls.push({ model: "company", op: "findUnique", select: args.select });
+      return rows.company;
+    },
+  },
+});
+
+globalThis.__FQ_OVERVIEW_DB = null;
+register(
+  "data:text/javascript," +
+    encodeURIComponent(`
+      export async function resolve(spec, ctx, next) {
+        if (spec === "@/lib/db") return { url: "fq-overview:db", shortCircuit: true };
+        return next(spec, ctx);
+      }
+      export async function load(url, ctx, next) {
+        if (url === "fq-overview:db") {
+          return { format: "module", shortCircuit: true,
+            source: "export const db = new Proxy({}, { get: (_t, p) => globalThis.__FQ_OVERVIEW_DB[p] });" };
+        }
+        return next(url, ctx);
+      }
+    `),
+  import.meta.url,
+);
+
+const { getAnalyticsOverview } = await import("@/lib/analytics/overview.js");
+
+const runOverview = async (rows) => {
+  calls.length = 0;
+  globalThis.__FQ_OVERVIEW_DB = scripted(rows);
+  return getAnalyticsOverview({ companyId: "co_1" });
+};
+
+// ── An established company: both priors are real numbers ──────────────────
+const established = await runOverview({
+  quotes: { currentSent: 14, currentAccepted: 5, priorSent: 12, priorAccepted: 3 },
+  revenue: { current: 8400, prior: 5290, ytd: 41000 },
+  invoiceCount: { current: 6 },
+  company: { revenueGoalAnnual: null, createdAt: new Date(2024, 0, 1) },
+});
+
+ok("the payload carries priorRevenue", "priorRevenue" in established);
+ok("...as last month's figure", established.priorRevenue === 5290, established.priorRevenue);
+ok("the payload carries priorQuotesSent", "priorQuotesSent" in established);
+ok("...as last month's SENT count", established.priorQuotesSent === 12, established.priorQuotesSent);
+
+// The measure, not just the number. A prior drawn from the payments-received
+// series would compare two different questions and report the difference
+// between the definitions as a change in the business.
+const priorRevenueQuery = calls.find(
+  (c) => c.model === "invoice" && c.op === "aggregate" && c.where?.updatedAt?.lt,
+);
+ok("last month's revenue is read from invoices", Boolean(priorRevenueQuery));
+ok(
+  "...on the same `paid` measure as the current month",
+  priorRevenueQuery?.where?.status === "paid",
+  priorRevenueQuery?.where?.status,
+);
+ok(
+  "...summing the same column",
+  priorRevenueQuery?._sum?.total === true,
+  JSON.stringify(priorRevenueQuery?._sum),
+);
+ok(
+  "...and no payment row is consulted anywhere in this payload",
+  !calls.some((c) => c.model === "payment"),
+  calls.map((c) => c.model).join(","),
+);
+ok(
+  "the company row is read for createdAt, not re-queried for it",
+  calls.filter((c) => c.model === "company").length === 1 &&
+    calls.find((c) => c.model === "company").select?.createdAt === true,
+);
+
+// ── A company that traded all month and took nothing: 0, not null ─────────
+const quiet = await runOverview({
+  quotes: { currentSent: 14, currentAccepted: 5, priorSent: 11, priorAccepted: 2 },
+  revenue: { current: 3000, prior: 0, ytd: 3000 },
+  invoiceCount: { current: 2 },
+  company: { revenueGoalAnnual: null, createdAt: new Date(2024, 0, 1) },
+});
+ok("a real zero last month is reported as 0", quiet.priorRevenue === 0, quiet.priorRevenue);
+ok("...not as null", quiet.priorRevenue !== null);
+
+// ── A company that did not exist for all of last month: null, not 0 ───────
+//
+// The distinction the whole gate exists for. Signed up halfway through last
+// month, so last month is half a month; "up 180%" against it would be an
+// artefact of the signup date, shown to the one person least able to tell.
+const newborn = await runOverview({
+  quotes: { currentSent: 14, currentAccepted: 5, priorSent: 4, priorAccepted: 1 },
+  revenue: { current: 8400, prior: 1200, ytd: 9600 },
+  invoiceCount: { current: 6 },
+  company: {
+    revenueGoalAnnual: null,
+    createdAt: new Date(
+      startOfLastMonthNow.getFullYear(),
+      startOfLastMonthNow.getMonth(),
+      15,
+    ),
+  },
+});
+ok("a partial prior month yields no priorRevenue", newborn.priorRevenue === null, newborn.priorRevenue);
+ok("...no priorQuotesSent", newborn.priorQuotesSent === null, newborn.priorQuotesSent);
+ok("...and no priorConversionRate either", newborn.priorConversionRate === null, newborn.priorConversionRate);
+ok(
+  "...so the dashboard renders the figure with no delta at all",
+  buildDashboardRank({ overview: newborn, money: null, upcomingCount: 0 }).hero.delta === null,
+);
+
+// ── End to end: the real payload drives a real delta ──────────────────────
+const ranked = buildDashboardRank({ overview: established, money: null, upcomingCount: 0 });
+ok(
+  "an established company's hero shows a month-on-month change",
+  ranked.hero.delta?.direction === "up" && Math.round(ranked.hero.delta.deltaAbs) === 3110,
+  JSON.stringify(ranked.hero.delta),
+);
+ok(
+  "...and quotes sent shows one too",
+  ranked.metrics.find((m) => m.id === "quotesSent").delta?.deltaAbs === 2,
+  JSON.stringify(ranked.metrics.find((m) => m.id === "quotesSent").delta),
+);
+
+// ── The gate the route must keep ──────────────────────────────────────────
+//
+// These aggregates ARE money. The route's showPricing gate is what keeps them
+// from a member who is refused every figure they are built from.
+const OVERVIEW_ROUTE = readFileSync("app/api/analytics/overview/route.js", "utf8");
+ok(
+  "the overview route still gates on showPricing",
+  /requireToggle\(\s*full,\s*"showPricing"/.test(OVERVIEW_ROUTE),
+);
+ok(
+  "...before it reaches the aggregates",
+  OVERVIEW_ROUTE.indexOf('requireToggle') > -1 &&
+    OVERVIEW_ROUTE.indexOf('getAnalyticsOverview(') > OVERVIEW_ROUTE.indexOf('requireToggle'),
 );
 
 // The received-money series makes the same refusal one level down: the
