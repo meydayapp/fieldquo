@@ -28,6 +28,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import { formatAddress } from "@/lib/format/address";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
+import ClientEquipment from "@/app/components/clients/ClientEquipment";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -58,6 +59,12 @@ export default function ClientDetailPage() {
   const canEditClient = useHasLevel("clientsProperties", "full_edit");
   const canCreateQuote = useHasLevel("quotes", "view_create_edit");
   const canCreateJob = useHasLevel("jobs", "view_create_edit");
+  // The equipment panel reads serial numbers, install dates and a service
+  // history for this property — "full client and property info", which is the
+  // level GET /api/clients/[id]/equipment refuses below. Drawn only for
+  // someone the endpoint will answer; a Crew member on name_address_only gets
+  // no panel rather than an empty one and a 403 in the console.
+  const canSeeEquipment = useHasLevel("clientsProperties", "full_view");
 
   async function load() {
     try {
@@ -283,6 +290,12 @@ export default function ClientDetailPage() {
           </Link>
         )}
       </div>
+
+      {/* What's installed at this property, and what's still covered.
+          Placed above the document lists deliberately: on a service call the
+          question is "what's in this house and is it under warranty", and the
+          quotes and invoices are the paperwork that follows from it. */}
+      {canSeeEquipment && <ClientEquipment clientId={client.id} jobs={jobs} />}
 
       {/* Related records */}
       <RelatedList

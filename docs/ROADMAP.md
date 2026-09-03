@@ -6957,3 +6957,49 @@ consumed there. A param can no longer be added without something reading it.
 feature most likely to ruin the feed), grouping, and every tier-2 event. Task
 completion is explicitly excluded: a ticked checkbox is not news, and a feed
 that fires on everything hides the chargeback.
+
+## Client-site equipment + warranties, and fleet — built (2 September 2026)
+
+Both came out of `docs/construction/AUDIT-existing.md`, which graded them
+**ABSENT** (#10) and **PARTIAL** (#7). The audit's exact words on the first:
+"No warranty period exists anywhere in the product."
+
+### What is now there
+
+- **`ClientEquipment` / `ClientEquipmentService`** — the CUSTOMER's furnace,
+  panel or unit, with an install date, a warranty end date, a warranty
+  provider, the job that installed it, and a service history whose
+  `underWarranty` flag records whether a visit was covered or billed. Panel on
+  the client page; `/app/equipment` is the cross-client **call list** of
+  warranties running out, which is the commercial point of the feature.
+- **`VehicleDetail` / `VehicleMaintenance`** — VIN, plate, make/model, year,
+  odometer *with the date it was read*, assigned driver, insurance and
+  registration expiry, next service due by date **or** by kilometres, and a
+  maintenance log. `/app/fleet`, with a due-and-expiring panel first.
+
+### The rule both features are built around
+
+**A missing date is UNKNOWN. It is never "expired".** `lib/expiry/window.js`
+is the one implementation, shared by four dates across two features, and
+`scripts/check-equipment-fleet.mjs` executes it: a blank warranty must not
+render as out of warranty, and a null odometer must not be read as 0 — which
+would make a van 6,000 km overdue for a service look 84,000 km away from one.
+
+### Deliberately not built
+
+Telematics, live GPS and route history. `docs/construction/AUDIT-routing-geo.md`
+already established that a browser cannot do background location, so a "where
+is the van" map is right only while somebody has the tab open. A contractor
+with three vans asks what is due, what is expiring, and who has the van.
+
+### What is still open
+
+- A van must exist in the asset register (`Asset`) before it can get a fleet
+  record. The fleet screen never creates an `Asset`, because that row moves the
+  company's price floor. Consequence: a **leased** van, which is not a capital
+  asset, has nowhere to live today.
+- `DELETE /api/assets/[id]` still knows nothing about `VehicleDetail`
+  (no foreign key between them). Orphans are surfaced and removable rather than
+  hidden, but the delete route could clean up as it goes.
+- `check:mobile` walks only `/platform`, `/sales` and `/app/clock`, so neither
+  new screen is covered by it. Both are built to the same rules.

@@ -181,3 +181,49 @@ UI, not of infrastructure.
   talk to a model vendor. Its use of **zod** is separately interesting, because
   FieldQuo has no schema-validation library at all and its structured AI output
   is currently prompted JSON plus hand-coercion.
+
+---
+
+## Shipped from the audit: client-site equipment, and fleet (2 September 2026)
+
+Audit rows #10 (**ABSENT**) and #7 (**PARTIAL**). Full write-up in
+`docs/ROADMAP.md`; the parts that belong in this file:
+
+**#10 is closed.** `ClientEquipment` + `ClientEquipmentService` hold the
+customer's kit and its service history, and `/app/equipment` is the call list
+of warranties running out. The audit's sentence — "No warranty period exists
+anywhere in the product" — is no longer true, and the `JobVisit.returnReason`
+comment at `prisma/schema.prisma` that says the same thing ("grepped for one
+before writing this — there isn't one") is now **stale and should be
+corrected** by whoever next touches that model. It is not corrected here
+because the schema was declared off-limits for this change.
+
+**#7 is closed on the fleet questions and deliberately not on the rest.**
+`VehicleDetail` hangs off `Asset` by `assetId`, so the depreciation feeding
+job-costing overhead is untouched. What it answers: which van, what mileage,
+when is it due, who has it, and what has been done to it. What it does not, on
+purpose: telematics, live GPS, route history — `AUDIT-routing-geo.md` settled
+that a browser cannot do background location, and ServiceTitan's fleet product
+is aimed at a 200-truck operation, not a painter with three vans.
+
+**The discoverability complaint in #7 is also addressed**: the asset register
+was reachable only through Settings → Overhead. There is now a **Vehicles** row
+in the sidebar (Money group), and a **Client equipment** row next to Clients.
+
+### Two gates, not one
+
+A plate, an odometer and an insurance renewal are OPERATIONS (`user:manage`).
+What the van COST is the cost basis (`lib/permissions/costBasis.js`,
+`fixedCosts`). A dispatcher gets the screen and not the truck loan. Asserted as
+a pair in `scripts/check-equipment-fleet.mjs`, along with `write ⇒ read`.
+
+### Known gaps, named rather than left to be found
+
+- A van has to be an `Asset` first. A **leased** van is not a capital asset and
+  has nowhere to live.
+- `DELETE /api/assets/[id]` does not clear the `VehicleDetail` behind a deleted
+  asset — there is no foreign key between them. Orphans are shown, flagged, and
+  removable from the fleet screen rather than silently dropped, because a
+  lapsed insurance date is still a real fact about a real van.
+- `check:mobile` covers only `/platform`, `/sales` and `/app/clock`. Neither
+  new screen is covered by it.
