@@ -965,7 +965,9 @@ export default function VoiceSettingsPage() {
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           {/* "Balance" and not just a bare number: it sits right above the
               purchase buttons, and a lone "$10.50" there reads as a price. */}
-          <span className="text-sm font-medium text-muted-foreground">Balance:</span>
+          <span className="text-sm font-medium text-muted-foreground">
+            {t("app.setAiCredit.balance", "Balance:")}
+          </span>
           <span className="text-2xl font-bold text-foreground">{money(credit.cents)}</span>
           <span className="text-sm text-muted-foreground">
             ({t("app.setVoice.about", "about")} {credit.minutes} {t("app.setVoice.minute", "minute")}{credit.minutes === 1 ? "" : "s"})
