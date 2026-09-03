@@ -8610,6 +8610,21 @@ model Prospect {
   sourceProvider   String?
   /// The provider's own stable id for the record.
   sourceRecordId   String?
+  /// Names the business actually trades under, from a register's own
+  /// alternate-name column. 15,098 of Quebec's 54,264 RBQ licences — 27.8% —
+  /// trade under a name their registered name does not contain: licence
+  /// 1104-8618-06 is "Plancher Nobel", "Tapis L. Émard Ltée", "Emard
+  /// Couvre-Planchers" and "Décor Tapis Émard", and the registered name says
+  /// nothing about flooring. A rep searching "Plancher Nobel" has to find that
+  /// row, and dedupe has to see these before deciding two rows are two
+  /// businesses. Empty array means the source offered none — it does NOT mean
+  /// the business trades only under its registered name.
+  tradingNames     String[] @default([])
+  /// The regulator's own licence number, as a human types it. Deliberately
+  /// duplicated from sourceRecordId: that column is provider-opaque and may be
+  /// a composite, while this is the string a superadmin pastes into the RBQ's
+  /// public lookup to check a row against the source.
+  licenceNumber    String?
   /// The dataset release this came from, e.g. "2026-08-19.0". Overture ships
   /// monthly, so this is what says WHEN the world looked like this.
   sourceRelease    String?
@@ -8701,6 +8716,7 @@ model Prospect {
   /// a read-then-write dedupe loses the race between two overlapping cron
   /// ticks, and the schema is the only place that cannot.
   @@unique([sourceProvider, sourceRecordId])
+  @@index([licenceNumber])
   @@index([status])
   @@index([assignedRepId, status])
   @@index([territoryId, status])
@@ -8748,6 +8764,9 @@ model ProspectEvidence {
 
   @@index([prospectId, type])
   @@index([prospectId, source])
+  /// contactBasisFor() resolves an address's provenance by exact match here,
+  /// on every send. Without this it is a full scan of the evidence table.
+  @@index([rawValue])
 }
 
 /// A normalised capability: does this business have online booking, live chat,
