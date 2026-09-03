@@ -431,7 +431,7 @@ export default async function AppLayout({ children }) {
             normal flow rather than beside it as a flex column. */}
         <div className="lg:flex">
           <AdminSidebar />
-          {/* pb-[calc(4rem+...)] reserves exactly what MobileTabBar occupies
+          {/* The bottom padding reserves exactly what MobileTabBar occupies
               below `lg` — its fixed 4rem (h-16) content row plus the same
               safe-area inset it pads itself with — so the last thing on a
               page is never rendered underneath the bar. lg:pb-0 undoes it

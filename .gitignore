@@ -52,3 +52,11 @@ next-env.d.ts
 # Local Python venv for scripts/build-pdf-fonts.mjs (fontTools/pyftsubset).
 # Tooling, not source — the generated .js font files are what ship.
 .venv/
+
+# Agent worktrees — 25 full copies of this repo, 7.4 GB, created by isolated
+# agent runs. Not source, and NOT merely clutter: Tailwind v4 scans raw file
+# text for class candidates and honours .gitignore, so an old copy of a file
+# here keeps feeding the CSS build a class that the real file no longer has.
+# A stale `pb-[env(...)]` in a code COMMENT here broke `next dev` on every
+# route for days, and editing the live file could not fix it.
+.claude/worktrees/

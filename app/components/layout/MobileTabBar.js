@@ -93,9 +93,9 @@ export default function MobileTabBar() {
   );
 
   return (
-    // pb-[env(...)] carries the safe-area inset as extra space BELOW the
+    // The bottom padding below carries the safe-area inset as extra space BELOW
     // fixed-height row of buttons, rather than being squeezed inside it — see
-    // the matching pb-[calc(4rem+...)] on <main> in app/app/layout.js, which
+    // the matching bottom padding on <main> in app/app/layout.js, which
     // has to reserve the identical two numbers or content sits under this bar.
     //
     // Depends on <html> having `viewport-fit=cover` for env() to resolve to
