@@ -553,7 +553,7 @@ console.log("\n── Six languages, named from the source of truth ────
 
 {
   const { text } = rendered.get("languages");
-  ok(`the product carries six languages (${LANGUAGES.length})`, LANGUAGES.length === 6);
+  ok(`the product carries its languages (${LANGUAGES.length})`, LANGUAGES.length >= 6);
   for (const l of LANGUAGES) {
     ok(`the languages page names ${l.name}`, text.includes(l.name));
     ok(`...in its own script (${l.nativeName})`, text.includes(l.nativeName));
@@ -1151,6 +1151,37 @@ const said_ = (language, key) => String(MESSAGES[language]?.[key] ?? "");
    than thirty characters — a paragraph left in English is a forgotten key
    wearing the loanword argument. */
 const KEPT_AS_ENGLISH = [
+  {
+    language: "de",
+    key: "featurePage.marketing.label",
+    reason:
+      "'Marketing' IS the German word — Duden lists it as a standard German " +
+      "noun, and every German trade publication uses it. Writing 'Vermarktung' " +
+      "here would be translating a word that does not need it and would " +
+      "disagree with the nav, which already ships 'Marketing' in German.",
+  },
+  {
+    language: "it",
+    key: "featurePage.marketing.label",
+    reason:
+      "The same: 'marketing' is standard Italian, in the Treccani dictionary " +
+      "as an English loanword in ordinary use. 'Commercializzazione' is a " +
+      "different and clumsier concept.",
+  },
+  {
+    language: "de",
+    key: "featurePage.fieldquo-ai.label",
+    reason:
+      "'FieldQuo AI' — a brand name, on the do-not-translate list for the same " +
+      "reason the Tagalog entry below gives. Translating it renames the product.",
+  },
+  {
+    language: "it",
+    key: "featurePage.fieldquo-ai.label",
+    reason:
+      "'FieldQuo AI' — brand name, as above. Italian would say 'IA' for the " +
+      "acronym, but not inside a product name.",
+  },
   {
     language: "tl",
     key: "featurePage.fieldquo-ai.label",

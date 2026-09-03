@@ -108,6 +108,27 @@ const said_ = (language, key, field) =>
    ═══════════════════════════════════════════════════════════════════════════ */
 const KEPT_AS_ENGLISH = [
   {
+    language: "de",
+    key: "dashboard",
+    field: "name",
+    reason:
+      "The German app already ships app.dash.title = 'Dashboard'. German " +
+      "business software uses the loanword, and translating it here would make " +
+      "the marketing page name a screen the product does not call that. Its " +
+      "summary beside it is German throughout, so this is not a forgotten key.",
+  },
+  {
+    language: "it",
+    key: "dashboard",
+    field: "name",
+    reason:
+      "Italian has a real alternative — 'cruscotto' — which is why this one is " +
+      "argued rather than assumed. The Italian app ships app.dash.title = " +
+      "'Dashboard', so translating only the marketing label would leave the " +
+      "page pointing at a screen by a name the screen does not use. Consistency " +
+      "with the shipped product wins; revisit both together if the app moves.",
+  },
+  {
     language: "tl",
     key: "dashboard",
     field: "name",
