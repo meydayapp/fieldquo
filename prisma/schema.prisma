@@ -833,6 +833,18 @@ model Subscription {
   /// commission reversal should not treat an open dispute as a settled loss.
   disputeStatus       String?
   disputedAt          DateTime?
+
+  /// The moment real money first arrived — stamped when invoice.payment_succeeded
+  /// fires with billing_reason "subscription_create" AND amount_paid > 0, which
+  /// is already the one event this codebase agrees means the first real charge
+  /// (lib/sales/commission.js). From Stripe's own timestamp, never new Date(),
+  /// so a replayed webhook cannot move it.
+  ///
+  /// Why this rather than clearing trialEndsAt: clearing destroys the record of
+  /// when the trial was MEANT to end, which is evidence in any argument about a
+  /// charge. With this column "on trial" is `billingStartedAt == null` — no
+  /// interpretation, no join, and trialEndsAt goes on meaning what it meant.
+  billingStartedAt DateTime?
 }
 
 /// The Marketing Designer's starter-template gallery (app/components/designer/,
@@ -1486,6 +1498,13 @@ model Company {
   salesRepDemo     SalesRep?
   salesAttributionTouches SalesAttributionTouch[]
   salesCommissionEntries  SalesCommissionEntry[]
+  jobDocuments          JobDocument[]
+  jobDailyLogs          JobDailyLog[]
+  clientEquipment       ClientEquipment[]
+  suppliers             Supplier[]
+  purchaseOrders        PurchaseOrder[]
+  stockMovements        StockMovement[]
+  vehicleDetails        VehicleDetail[]
 }
 
 /// Configuration for the bio-link page at /l/<slug> — the single link an
@@ -1907,6 +1926,7 @@ model Client {
   pamphletStops         PamphletStop[]
   servicePlans          ServicePlan[]
   satisfactionResponses SatisfactionResponse[]
+  equipment ClientEquipment[]
 }
 
 enum ClientType {
@@ -3601,6 +3621,38 @@ model Job {
   /// Which of the company's equipment was logged on this job, and for how
   /// long. See AssetUseLog and lib/costing/equipmentUsage.js.
   assetUseLogs AssetUseLog[]
+
+  // ── Where the work actually happens ─────────────────────────────────────
+  //
+  // The single absence underneath four separate features. Until now a job's
+  // only address was the CLIENT's billing address, so:
+  //
+  //   · lib/crew/attribution.js's GPS matcher could never fire — inbox.js
+  //     hands it `lat: undefined` for every candidate, because no job has a
+  //     coordinate to compare against;
+  //   · client-site equipment history had nowhere to hang ("this furnace, at
+  //     this address" needs the address);
+  //   · route optimisation was not buildable at all. You cannot route to a
+  //     job whose location you do not store;
+  //   · and arrival detection had nothing to detect arrival AT.
+  //
+  // Nullable, and null means NOT ASKED rather than "same as the client".
+  // Defaulting to the billing address is the tempting shortcut and it is
+  // wrong: a property manager's billing address is an office, and sending a
+  // crew there is worse than sending them nowhere.
+  siteAddress    String?
+  siteCity       String?
+  siteProvince   String?
+  sitePostalCode String?
+  siteLatitude   Decimal? @db.Decimal(9, 6)
+  siteLongitude  Decimal? @db.Decimal(9, 6)
+  /// When the coordinates were resolved. Google's terms cap how long a
+  /// geocode may be cached, so a stamp is not housekeeping — it is what makes
+  /// a retention rule enforceable. See docs/construction/AUDIT-routing-geo.md.
+  siteGeocodedAt DateTime?
+
+  jobDocuments  JobDocument[]
+  dailyLogs     JobDailyLog[]
 }
 
 /// The client-facing satisfaction survey: one rating (1–5), one optional
@@ -9460,4 +9512,335 @@ model NotificationDelivery {
   /// with skipDuplicates leans on exactly this index.
   @@unique([eventId, memberId])
   @@index([companyId, memberId, readAt, createdAt])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Field operations — documents, daily logs, equipment, purchasing, fleet
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// A file that belongs to a job.
+///
+/// Document MANAGEMENT, which the product did not have. `lib/documents/` is
+/// document RENDERING — it builds a quote PDF. Those are different things and
+/// the name has been misleading anyone who went looking.
+///
+/// Deliberately hung off Job rather than a free-floating folder tree. A
+/// contractor's documents are about a job; a general drive is a different
+/// product and an empty one is worse than none.
+model JobDocument {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  jobId     String
+  job       Job     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  name String
+  /// "plan" | "permit" | "contract" | "warranty" | "photo" | "invoice" | "other"
+  kind String  @default("other")
+  url  String
+  /// Bytes as the provider reported them. Null when it did not say — never
+  /// zero, which would read as an empty file.
+  sizeBytes Int?
+  mimeType  String?
+
+  /// Superseding rather than overwriting: a revised drawing is a NEW row that
+  /// points at the one it replaces, so "which plan were we working from in
+  /// March" stays answerable. Overwriting a URL loses exactly that.
+  supersedesId String?  @unique
+  supersedes   JobDocument? @relation("DocumentRevision", fields: [supersedesId], references: [id])
+  supersededBy JobDocument? @relation("DocumentRevision")
+
+  uploadedById String?
+  uploadedAt   DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([companyId, jobId])
+  @@index([jobId, kind])
+}
+
+/// What happened on a job on a given day.
+///
+/// The ingredients already existed and never met: JobPhoto has photos, tasks
+/// have completion comments, JobVisit.notes has a write path with no caller.
+/// This is the row that ties a day together.
+///
+/// One log per job per day, enforced — two half-written logs for one Tuesday is
+/// how a daily log stops being a record.
+model JobDailyLog {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  jobId     String
+  job       Job     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  /// The DAY being reported on, at UTC midnight — not when it was written. A
+  /// crew member filling yesterday's log at 6am is normal and must not create
+  /// a second Tuesday.
+  logDate DateTime
+
+  /// BlockNote's JSON document. Decided 2026-09-02: BlockNote → JSON →
+  /// Postgres with autosave, no realtime — see docs/construction/
+  /// AUDIT-realtime-hosting.md for the costing of the alternatives.
+  body Json?
+  /// Plain text extracted from `body`, for search. Derived, never authored —
+  /// two sources of truth for the same words is how they drift.
+  bodyText String?
+
+  weather      String?
+  crewCount    Int?
+  hoursOnSite  Decimal? @db.Decimal(6, 2)
+  delays       String?
+
+  authorUserId String?
+  authorName   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([jobId, logDate])
+  @@index([companyId, logDate])
+}
+
+/// A piece of equipment AT a client's site — the furnace, the panel, the unit.
+///
+/// Not `Asset`, which is FieldQuo's customer's own kit (a van, a sprayer) and
+/// carries depreciation. This is the customer's CUSTOMER's equipment, and the
+/// thing that makes it worth storing is the warranty: "installed 2019, covered
+/// to 2029, serviced three times" is what turns a cold call into a renewal.
+///
+/// No warranty period existed anywhere in the product before this.
+model ClientEquipment {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  clientId  String
+  client    Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  name         String
+  manufacturer String?
+  modelNumber  String?
+  serialNumber String?
+
+  /// Where it physically is. A client can have three properties.
+  siteAddress String?
+
+  installedAt DateTime?
+  /// Null means UNKNOWN, not "no warranty". A blank warranty date must never
+  /// be rendered as "out of warranty" — that is a claim nobody made, and it is
+  /// the difference between a renewal call and an insult.
+  warrantyEndsAt   DateTime?
+  warrantyProvider String?
+  warrantyNotes    String?
+
+  installedByJobId String?
+  notes            String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  services ClientEquipmentService[]
+
+  @@index([companyId, clientId])
+  @@index([companyId, warrantyEndsAt])
+}
+
+/// A visit to a piece of equipment. The service history behind the warranty.
+model ClientEquipmentService {
+  id String @id @default(cuid())
+
+  equipmentId String
+  equipment   ClientEquipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  jobId       String?
+  servicedAt  DateTime
+  description String
+  /// Set when this visit was covered rather than billed — the fact a warranty
+  /// exists to record.
+  underWarranty Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([equipmentId, servicedAt])
+}
+
+/// Who a contractor buys from.
+///
+/// Purchasing existed as free text on a Bill. A supplier as an ENTITY is what
+/// makes "what did we spend at this merchant this year" and "which PO is this
+/// receipt against" answerable.
+model Supplier {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  name        String
+  accountRef  String?
+  contactName String?
+  email       String?
+  phone       String?
+  address     String?
+  notes       String?
+  active      Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  purchaseOrders PurchaseOrder[]
+
+  @@index([companyId, active])
+}
+
+model PurchaseOrder {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id])
+  jobId      String?
+
+  /// Per company, not global. Two companies both having PO-001 is correct.
+  number String
+
+  /// "draft" | "sent" | "partial" | "received" | "cancelled"
+  status String @default("draft")
+
+  /// What was agreed. Actual cost lives on the receipt/bill — the gap between
+  /// the two is the number a contractor wants and cannot currently get.
+  expectedTotal Decimal? @db.Decimal(12, 2)
+  currency      String?
+
+  orderedAt  DateTime?
+  expectedAt DateTime?
+  receivedAt DateTime?
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lines PurchaseOrderLine[]
+
+  @@unique([companyId, number])
+  @@index([companyId, status])
+}
+
+model PurchaseOrderLine {
+  id String @id @default(cuid())
+
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  materialId  String?
+  description String
+  quantity    Decimal  @db.Decimal(12, 3)
+  unit        String?
+  unitCost    Decimal? @db.Decimal(12, 4)
+
+  /// Partial deliveries are the normal case, so received is its own quantity
+  /// rather than a boolean.
+  quantityReceived Decimal @default(0) @db.Decimal(12, 3)
+
+  createdAt DateTime @default(now())
+
+  @@index([purchaseOrderId])
+}
+
+/// A movement of stock. The level is SUMMED from these, never stored.
+///
+/// Same reasoning as the voice credit ledger and the commission ledger: a
+/// stored quantity is a second opinion that drifts from the movements, and the
+/// one nobody looks at is the one that rots. `Material.reorderThreshold`
+/// already exists and has never been read by anything — this is what finally
+/// gives it something to compare against.
+model StockMovement {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  materialId String
+
+  /// Signed. Positive is in, negative is out — so the level is one sum with no
+  /// special cases, and a correction is a movement rather than an edit.
+  quantity Decimal @db.Decimal(12, 3)
+
+  /// "received" | "used" | "returned" | "adjustment" | "wastage"
+  kind String
+
+  jobId           String?
+  purchaseOrderId String?
+  note            String?
+
+  /// Idempotency for anything machine-written (a PO receipt, an import).
+  ref String? @unique
+
+  occurredAt DateTime @default(now())
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([companyId, materialId, occurredAt])
+}
+
+/// A vehicle, beyond what Asset carries.
+///
+/// A van is already an Asset with category "vehicle", which handles what it
+/// cost and how it depreciates. What Asset cannot answer is anything a fleet
+/// question asks: which van, what mileage, when is it due, who has it.
+///
+/// Hung off Asset rather than replacing it, so the depreciation already in the
+/// job-costing overhead keeps working untouched.
+model VehicleDetail {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// One row per vehicle Asset.
+  assetId String @unique
+
+  vin          String?
+  plate        String?
+  makeModel    String?
+  year         Int?
+  odometerKm   Int?
+  odometerAtUtc DateTime?
+
+  assignedToUserId String?
+
+  insuranceExpiresAt DateTime?
+  registrationExpiresAt DateTime?
+  nextServiceDueKm   Int?
+  nextServiceDueAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  maintenance VehicleMaintenance[]
+
+  @@index([companyId])
+}
+
+model VehicleMaintenance {
+  id String @id @default(cuid())
+
+  vehicleId String
+  vehicle   VehicleDetail @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  /// "service" | "repair" | "tyres" | "inspection" | "other"
+  kind        String
+  description String
+  odometerKm  Int?
+  costCents   Int?
+  supplierId  String?
+
+  performedAt DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([vehicleId, performedAt])
 }
