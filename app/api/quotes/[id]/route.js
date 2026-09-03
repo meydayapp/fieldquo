@@ -31,6 +31,12 @@ import {
 } from "../costingWrite";
 import { syncTakeoffAddOns } from "@/lib/quotes/takeoffAddOns";
 import { canUseKitchenDesigner } from "@/lib/kitchen/access";
+import {
+  parseExpectedVersion,
+  versionWhere,
+  runGuardedWrite,
+  settleGuardedWrite,
+} from "@/lib/concurrency/staleWrite";
 
 export async function GET(request, { params }) {
   // Next 16: params is a Promise. Read synchronously it's undefined, so every
@@ -112,6 +118,15 @@ export async function GET(request, { params }) {
 
 // Quotes are edited directly, not versioned — unlike invoices, there's no signed
 // commitment yet before acceptance, so a straight PATCH is the right model.
+//
+// That reasoning is about VERSION HISTORY and it still holds. It was silent on
+// CONCURRENT WRITERS, which is a different problem and the one that was
+// actually losing work: an estimator prices a quote in a driveway while the
+// owner reviews the same quote in the office, and whoever saves second wipes
+// the other silently. The quote is the document in this product most worth
+// money, so it is the first to carry the stale-write guard — see
+// lib/concurrency/staleWrite.js. Callers that send no expectedUpdatedAt are
+// unaffected.
 export async function PATCH(request, { params }) {
   const { id } = await params;
 
@@ -189,6 +204,19 @@ export async function PATCH(request, { params }) {
     // unassign a quote a colleague is already carrying.
     assignedToId,
   } = body;
+
+  // The version the browser is editing FROM. Absent means this caller doesn't
+  // participate and the save behaves exactly as it did before the guard
+  // existed; unreadable is a 400, never a silent downgrade to unguarded.
+  let expected = null;
+  try {
+    expected = parseExpectedVersion(body?.expectedUpdatedAt);
+  } catch (err) {
+    return NextResponse.json(
+      { error: err.message, code: err.code },
+      { status: err.status || 400 },
+    );
+  }
 
   // Reassigning to someone else requires quote:assign, same as create. Taking
   // it for yourself, or clearing it, doesn't.
@@ -298,40 +326,79 @@ export async function PATCH(request, { params }) {
   // whose group the GC deleted — so a removed subcontractor line can't leave a
   // dangling "imported" state on the sub's side. One transaction so a partial
   // write can't leave groups and imports disagreeing.
-  const updated = await db.$transaction(async (tx) => {
-    await tx.quote.update({
-      where: { id },
-      data: {
-        ...scalarData,
-        // Upsert: the panel is often filled in long after the quote was first
-        // saved, so there is frequently no row to update yet.
-        //
-        // shouldWriteQuoteCosting holds the three-case rule, including the one
-        // that matters most here — a PATCH that said nothing about costing
-        // leaves the existing row exactly where it was.
-        ...(shouldWriteQuoteCosting({
-          costingSent: costing !== undefined,
-          may: mayCost(full),
-          hasExistingRow: Boolean(existing.costing),
-          row: costingRow,
-        }) && {
-          costing: { upsert: { create: costingRow, update: costingRow } },
-        }),
-      },
-    });
-    if (scopeGroups) {
-      await reconcileScopeGroups(tx, id, scopeGroups);
-      await reconcileImportsForQuote(tx, id);
-    }
-    return tx.quote.findUnique({
-      where: { id },
-      include: {
-        client: true,
-        scopeGroups: { include: { category: true } },
-        assignedTo: { select: { id: true, name: true } },
-      },
-    });
+  //
+  // ── Where the stale-write guard sits ────────────────────────────────────
+  //
+  // Inside the WHERE of the real write, not in an `if` above it. An `if` has a
+  // window between reading the version and writing over it, which is precisely
+  // the race being closed; the codebase's existing claims (the review-request
+  // cron, lib/migrations/payment.js) put their guard in the where for the same
+  // reason. Prisma raises P2025 when nothing matches, and runGuardedWrite
+  // re-reads to tell "a colleague saved first" apart from "this write failed
+  // for some unrelated reason" before it blames anybody.
+  //
+  // Inside the transaction, so a lost race rolls the scope groups and the
+  // costing row back with it rather than leaving half a save behind.
+  const outcome = await runGuardedWrite({
+    expected,
+    readVersion: () =>
+      db.quote.findFirst({
+        where: { id, companyId: member.companyId },
+        select: { updatedAt: true },
+      }),
+    write: () => db.$transaction(async (tx) => {
+      await tx.quote.update({
+        where: { id, ...versionWhere(expected) },
+        data: {
+          ...scalarData,
+          // Upsert: the panel is often filled in long after the quote was first
+          // saved, so there is frequently no row to update yet.
+          //
+          // shouldWriteQuoteCosting holds the three-case rule, including the one
+          // that matters most here — a PATCH that said nothing about costing
+          // leaves the existing row exactly where it was.
+          ...(shouldWriteQuoteCosting({
+            costingSent: costing !== undefined,
+            may: mayCost(full),
+            hasExistingRow: Boolean(existing.costing),
+            row: costingRow,
+          }) && {
+            costing: { upsert: { create: costingRow, update: costingRow } },
+          }),
+        },
+      });
+      if (scopeGroups) {
+        await reconcileScopeGroups(tx, id, scopeGroups);
+        await reconcileImportsForQuote(tx, id);
+      }
+      return tx.quote.findUnique({
+        where: { id },
+        include: {
+          client: true,
+          scopeGroups: { include: { category: true } },
+          assignedTo: { select: { id: true, name: true } },
+        },
+      });
+    }),
   });
+
+  // Refusals first: a 409 here means the write never happened, so nothing
+  // below it (the takeoff sync, the post-decision hooks) may run.
+  const refusal = await settleGuardedWrite(outcome, {
+    client: db,
+    companyId: member.companyId,
+    entityType: "quote",
+    entityId: id,
+    label: "quote",
+    expected,
+    member,
+    // The version this save PRODUCED, so the next conflict can prove it was
+    // this person who produced it. See the RecordEdit model comment.
+    versionAt: outcome.result?.updatedAt,
+  });
+  if (refusal) return NextResponse.json(refusal.body, { status: refusal.status });
+
+  const updated = outcome.result;
 
   // The takeoff's optional scope, rewritten to match what was just saved. A
   // takeoff-sourced add-on is a VIEW of the takeoff, so editing the room has to

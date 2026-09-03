@@ -193,6 +193,31 @@ const en = {
   // AdminSidebar already renders — see app/components/layout/MobileTabBar.js.
   "app.nav.more": "More",
 
+  // ── The notification feed (app/components/layout/NotificationBell.js) ────
+  //
+  // `app.notif.type.*` are the SENTENCES a feed row renders. They live here,
+  // in the reader's own catalogue, rather than being composed at write time and
+  // stored on the row — which is why NotificationEvent has `params` and no
+  // `title` column. Two reasons, both in that model's own comment: a stored
+  // English sentence can never be read in French, and a stored sentence is
+  // composed by somebody who does not know who will read it, so a figure inside
+  // one is DELIVERED rather than merely displayed. Money is never in these
+  // strings; the amount is a separate column the server withholds.
+  "app.notif.title": "Notifications",
+  "app.notif.open": "Notifications",
+  "app.notif.openWithCount": "Notifications — {count} unread",
+  "app.notif.markAllRead": "Mark all read",
+  "app.notif.loading": "Loading…",
+  "app.notif.empty": "Nothing yet. Approvals, payments, new enquiries and chargebacks land here.",
+  "app.notif.loadFailed": "Couldn't load your notifications.",
+  "app.notif.markFailed": "Couldn't mark those as read.",
+  "app.notif.type.payment.disputed": "Money taken back on invoice {invoiceNumber} — {clientName}",
+  "app.notif.type.quote.accepted": "{clientName} approved quote {quoteNumber}",
+  "app.notif.type.invoice.paid": "{clientName} paid invoice {invoiceNumber}",
+  "app.notif.type.lead.created": "New enquiry from {leadName}",
+  "app.notif.type.leave.requested": "{workerName} requested {days} day(s) of {policyName}",
+  "app.notif.type.quote.needsReview": "Estimate {quoteNumber} for {clientName} is waiting for sign-off",
+
   "app.nav.group.work": "Work",
   "app.nav.requests": "Leads",
   "app.nav.quotes": "Quotes",
@@ -5101,6 +5126,24 @@ const en = {
   "app.salesPortal.inviteSubmit": "Set password and sign in",
   "app.salesPortal.inviteSaving": "Setting up…",
   "app.salesPortal.backToSignIn": "Go to sign in",
+
+  // ── Stale write: somebody else saved while you had this open ───────────
+  //
+  // Shown by app/components/StaleWriteBanner.js when a save is refused with
+  // code "stale_write" (lib/concurrency/staleWrite.js). Three titles rather
+  // than one interpolated name: the server refuses to guess a name it cannot
+  // prove, and "you, on another device" is a genuinely different and much
+  // calmer situation than "a colleague overwrote you".
+  "app.staleWrite.titleNamed": "{name} saved changes while you had this open",
+  "app.staleWrite.titleUnknown": "Someone on your team saved changes while you had this open",
+  "app.staleWrite.titleYou": "You saved this somewhere else while you had it open here",
+  "app.staleWrite.bodyWhen": "That version was saved {when}, after this screen loaded.",
+  "app.staleWrite.body": "That version was saved after this screen loaded.",
+  "app.staleWrite.keptSafe": "Nothing you typed has been lost — it's all still on this screen, unsaved.",
+  "app.staleWrite.review": "Open the saved version in a new tab",
+  "app.staleWrite.overwrite": "Save mine anyway",
+  "app.staleWrite.overwriteBusy": "Saving…",
+  "app.staleWrite.overwriteHint": "This replaces the saved changes with what's on your screen.",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -5229,6 +5272,23 @@ const fr = {
   "app.nav.home": "Accueil",
   "app.nav.ai": "FieldQuo IA",
   "app.nav.more": "Plus",
+
+  // Voir le bloc anglais correspondant : ces phrases sont assemblées à la
+  // LECTURE, dans la langue du lecteur, jamais figées à l'écriture.
+  "app.notif.title": "Notifications",
+  "app.notif.open": "Notifications",
+  "app.notif.openWithCount": "Notifications — {count} non lue(s)",
+  "app.notif.markAllRead": "Tout marquer comme lu",
+  "app.notif.loading": "Chargement…",
+  "app.notif.empty": "Rien pour l’instant. Approbations, paiements, nouvelles demandes et rétrofacturations arrivent ici.",
+  "app.notif.loadFailed": "Impossible de charger vos notifications.",
+  "app.notif.markFailed": "Impossible de marquer ces éléments comme lus.",
+  "app.notif.type.payment.disputed": "Somme reprise sur la facture {invoiceNumber} — {clientName}",
+  "app.notif.type.quote.accepted": "{clientName} a approuvé le devis {quoteNumber}",
+  "app.notif.type.invoice.paid": "{clientName} a payé la facture {invoiceNumber}",
+  "app.notif.type.lead.created": "Nouvelle demande de {leadName}",
+  "app.notif.type.leave.requested": "{workerName} a demandé {days} jour(s) de {policyName}",
+  "app.notif.type.quote.needsReview": "L’estimation {quoteNumber} pour {clientName} attend une validation",
 
   "app.nav.group.work": "Travail",
   "app.nav.requests": "Prospects",
@@ -9911,6 +9971,18 @@ const fr = {
   "app.salesPortal.inviteSubmit": "Enregistrer et se connecter",
   "app.salesPortal.inviteSaving": "Configuration…",
   "app.salesPortal.backToSignIn": "Aller à la connexion",
+
+  // ── Écriture périmée — voir le bloc anglais pour la règle. ──────────────
+  "app.staleWrite.titleNamed": "{name} a enregistré des modifications pendant que vous aviez ceci ouvert",
+  "app.staleWrite.titleUnknown": "Quelqu'un de votre équipe a enregistré des modifications pendant que vous aviez ceci ouvert",
+  "app.staleWrite.titleYou": "Vous avez enregistré ceci ailleurs pendant que vous l'aviez ouvert ici",
+  "app.staleWrite.bodyWhen": "Cette version a été enregistrée {when}, après le chargement de cet écran.",
+  "app.staleWrite.body": "Cette version a été enregistrée après le chargement de cet écran.",
+  "app.staleWrite.keptSafe": "Rien de ce que vous avez saisi n'a été perdu — tout est encore à l'écran, non enregistré.",
+  "app.staleWrite.review": "Ouvrir la version enregistrée dans un nouvel onglet",
+  "app.staleWrite.overwrite": "Enregistrer la mienne quand même",
+  "app.staleWrite.overwriteBusy": "Enregistrement…",
+  "app.staleWrite.overwriteHint": "Cela remplace les modifications enregistrées par ce qui est à votre écran.",
 };
 
 

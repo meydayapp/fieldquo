@@ -1087,12 +1087,15 @@ model Company {
   leadRequests          LeadRequest[]
   materials             Material[]
   notificationRules     NotificationRule[]
+  notificationEvents    NotificationEvent[]
+  notificationDeliveries NotificationDelivery[]
   jobPhotoComments      JobPhotoComment[]
   jobPhotoMentions      JobPhotoMention[]
   aiDigests             AiDigest[]
   subscription          Subscription?
   instantQuoteConfigs   InstantQuoteConfig[]
   activityLogs          ActivityLog[]
+  recordEdits           RecordEdit[]
   payRuns               PayRun[]
   salaryComponentDefs   SalaryComponent[]
   workingHours          WorkingHours[]
@@ -1599,6 +1602,10 @@ model Member {
   safetyIncidentsReported SafetyIncident[] @relation("SafetyIncidentReportedBy")
   safetyIncidentsReviewed SafetyIncident[] @relation("SafetyIncidentReviewedBy")
   assetUseLogsLogged      AssetUseLog[]
+
+  // The feed's read state hangs off the Member, not the User — see the comment
+  // on NotificationDelivery for why a user in two companies must not share one.
+  notificationDeliveries NotificationDelivery[]
 
   @@unique([userId, companyId])
 }
@@ -5822,13 +5829,33 @@ model MaterialPriceEntry {
 // NOTIFICATIONS / AI
 // ============================================================
 
+// ── `channel` is gone, deliberately ────────────────────────────────────────
+//
+// It was written by POST and PATCH on app/api/settings/notification-rules and
+// read by NOTHING — AGENTS.md failure class #1, sitting in the exact table the
+// notification feed extends. It defaulted to "email"; every row in production
+// held that default, so removing it destroys no statement anybody made.
+//
+// Removed rather than wired, for two reasons:
+//
+//   1. Wiring it would mean honouring channel="sms", and SMS to staff costs the
+//      contractor money per message (chargeOutboundCrewReply) and needs a
+//      connected CrewInboxNumber. A dropdown that silently produces silence for
+//      a company with no crew line is the dead control this codebase keeps
+//      being swept for.
+//   2. A channel preference is a PER-PERSON question ("don't email me, I read
+//      the feed") and this table is company-level — one admin cannot mute what
+//      another wants. The table cannot express the setting, so the column was
+//      never going to become real here.
+//
+// The feed's own delivery record is NotificationDelivery.channels, which is
+// per-person and written with what actually went out.
 model NotificationRule {
   id        String   @id @default(cuid())
   companyId String
   company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   type      String
   threshold Decimal? @db.Decimal(12, 2)
-  channel   String   @default("email")
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 }
@@ -6458,6 +6485,54 @@ model InstantQuoteConfig {
   updatedAt DateTime @updatedAt
 
   @@unique([companyId, trade])
+}
+
+/// Who produced the CURRENT stored version of one record — the "who" behind
+/// the stale-write banner (lib/concurrency/staleWrite.js).
+///
+/// ── Why this is not a column on Quote/Invoice/Job ──────────────────────────
+///
+/// The obvious shape is `updatedById` beside `updatedAt`, and it is wrong here
+/// for one reason: only the GUARDED routes would ever set it. Every other
+/// writer — a lifecycle hook, the public quote-acceptance route, a cron sweep
+/// — bumps `updatedAt` and leaves `updatedById` pointing at whoever last used
+/// a guarded route. The banner would then name a colleague who did not make
+/// the change, confidently and wrongly, which is worse than not knowing.
+///
+/// So the editor is recorded together with the exact version they produced.
+/// `versionAt` is the record's `updatedAt` AFTER that write. The banner names
+/// a person only when `versionAt` still equals the record's current
+/// `updatedAt`; anything else means somebody or something not covered here
+/// wrote last, and the banner says "someone on your team" rather than
+/// inventing a name (AGENTS.md failure class #5 — absence of a statement is
+/// not a statement).
+///
+/// One row per record, replaced on each guarded write: this is "who holds the
+/// current version", not a history. The history is ActivityLog, below.
+model RecordEdit {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// Matches the `entity` string the route passes to the guard, e.g. "quote".
+  /// Not an enum: adding a guarded model is a code change in one place, and a
+  /// Postgres enum would make it a db push as well.
+  entityType String
+  entityId   String
+
+  /// Nullable because the User row can be deleted later; `editorName` is
+  /// resolved and frozen at write time for exactly that case, the same way
+  /// ActivityLog.actorName is.
+  editorUserId String?
+  editorName   String?
+
+  /// The record's `updatedAt` immediately after the write this row describes.
+  versionAt DateTime
+
+  createdAt DateTime @default(now())
+
+  @@unique([companyId, entityType, entityId])
+  @@index([companyId, createdAt])
 }
 
 // A tenant-side audit trail: who did what inside a company's own app. This is
@@ -9239,4 +9314,118 @@ model PlatformAiBudget {
   updatedAt DateTime @updatedAt
 
   @@unique([scope, scopeId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE NOTIFICATION FEED — docs/construction/AUDIT-notifications.md §8.1
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// One notable thing that happened inside one company. Written once, no matter
+/// how many people are told — "the quote was accepted" is one row and "Ann and
+/// Bo were told" is two NotificationDelivery rows.
+///
+/// Deliberately NOT ActivityLog. That table records who DID what for audit, is
+/// owner/admin-only, and swallows its own write failures by design
+/// (lib/activity/log.js) — acceptable for a trail you consult, wrong for the
+/// only record that somebody was told a chargeback landed.
+///
+/// ── Why there is no `title` string here ──────────────────────────────────
+///
+/// The audit sketched a `title`/`body` composed at write time, like
+/// ActivityLog.summary. Two things make that the wrong shape, and both are
+/// AGENTS.md rules:
+///
+///   1. A stored English sentence is a stored English sentence. Non-negotiable
+///      #6 is about documents, but the /app interface is translated (en + fr,
+///      gated by check:translations) and a feed row composed at write time can
+///      never be read in French.
+///   2. A pre-composed string is composed by somebody who does not know who
+///      will read it. Put a dollar figure in it and it is DELIVERED to whoever
+///      can read the row — redacting at render is already too late, which is
+///      the GET /api/clients failure enforce.js's REDACTION section was written
+///      after. §10.8 of the audit says it plainly: not "redacted for", not
+///      delivered to.
+///
+/// So the row stores the TYPE and structured `params` (a catalog-declared
+/// allowlist of key names — see lib/notifications/catalog.js), and the sentence
+/// is built at read time from the reader's own message catalogue. Money never
+/// enters `params`: it lives in `amount`, which lib/notifications/render.js
+/// joins in only for a reader the catalog says may see money.
+model NotificationEvent {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// A key of NOTIFICATION_TYPES in lib/notifications/catalog.js. Reuses
+  /// ActivityLog's dotted vocabulary where one already exists ("quote.accepted",
+  /// "leave.requested") so the two never invent two names for one thing.
+  type String
+
+  /// What it happened to. entityType drives the link the feed row opens; both
+  /// are null for an event that has no destination screen.
+  entityType String?
+  entityId   String?
+
+  /// Catalog-declared, money-free parameters for the sentence — a quote number,
+  /// a client's name, a worker's name. Anything not on the type's declared
+  /// `params` list is dropped by notifyEvent before the row is written, so a
+  /// careless caller cannot smuggle a price in here.
+  params Json?
+
+  /// The figure, structurally, so it can be withheld. Null for every type whose
+  /// catalog entry does not set `money: true`.
+  amount   Decimal? @db.Decimal(12, 2)
+  currency String?
+
+  /// Who caused it. Null is a real answer rather than a gap — "the homeowner
+  /// approved it" and "Stripe told us" have no member.
+  actorUserId String?
+  actorName   String?
+
+  createdAt DateTime @default(now())
+
+  deliveries NotificationDelivery[]
+
+  @@index([companyId, createdAt])
+  @@index([companyId, type, createdAt])
+}
+
+/// One person's copy of one event. The read state lives here and nowhere else.
+///
+/// Keyed to the MEMBER, not the User. Read state is per (person, company): a
+/// user who belongs to two companies must not carry one company's read state
+/// into the other. User.uiState is the counter-example — it is user-global, and
+/// putting read state there would leak it across tenants for anybody with two
+/// memberships (audit §6.1).
+model NotificationDelivery {
+  id      String            @id @default(cuid())
+  eventId String
+  event   NotificationEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  /// Denormalised so every query on this model can be companyId-scoped without
+  /// a join — which is what scripts/check-tenant-scope.mjs requires of every
+  /// single-record lookup once a model carries a companyId at all.
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  memberId String
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  readAt DateTime?
+
+  /// Delivered-state, mirroring JobPhotoMention.notifiedVia: which channels
+  /// this copy actually went out on. ["in_app"] is the whole of v1 — there is
+  /// no push (no service worker, no VAPID, and iOS Safari cannot subscribe
+  /// outside a Home Screen install this product never prompts for) and no new
+  /// email, because the events that already email still email from where they
+  /// always did and a feed must not double-notify.
+  channels String[] @default(["in_app"])
+
+  createdAt DateTime @default(now())
+
+  /// Fan-out is idempotent. A retried Stripe webhook or a double-submitted form
+  /// must not put the same acceptance in somebody's feed twice — createMany
+  /// with skipDuplicates leans on exactly this index.
+  @@unique([eventId, memberId])
+  @@index([companyId, memberId, readAt, createdAt])
 }

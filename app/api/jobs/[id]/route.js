@@ -18,6 +18,12 @@ import {
 } from "@/lib/tasks/autoCreate";
 import { recordActivity } from "@/lib/activity/log";
 import { validateJobDates, parseDateOrNull } from "@/lib/jobs/validateJobDates";
+import {
+  parseExpectedVersion,
+  versionWhere,
+  runGuardedWrite,
+  settleGuardedWrite,
+} from "@/lib/concurrency/staleWrite";
 
 // Next 16: params is a Promise.
 export async function GET(request, { params }) {
@@ -121,6 +127,21 @@ export async function PATCH(request, { params }) {
   const body = await request.json();
   const { title, status, recurring, recurrenceRule, archived, startDate, endDate } = body;
 
+  // The version the browser is editing FROM. See lib/concurrency/staleWrite.js.
+  // The job page and the schedule board both write this row, from two
+  // different screens that are routinely open at the same time — the office
+  // moves a date while the field marks it complete — which is exactly the
+  // collision the guard exists for. Absent means unguarded.
+  let expected = null;
+  try {
+    expected = parseExpectedVersion(body?.expectedUpdatedAt);
+  } catch (err) {
+    return NextResponse.json(
+      { error: err.message, code: err.code },
+      { status: err.status || 400 },
+    );
+  }
+
   // ── The job's own start/end, validated against the row's REAL resulting
   // state ──────────────────────────────────────────────────────────────────
   //
@@ -168,27 +189,52 @@ export async function PATCH(request, { params }) {
     !existing.startDate &&
     nextStart;
 
-  const updated = await db.job.update({
-    where: { id: id },
-    data: {
-      ...(title !== undefined && { title }),
-      ...(status !== undefined && { status }),
-      ...(schedulingByDate && { status: "scheduled" }),
-      ...(completing && { completedAt: new Date() }),
-      ...(reopening && { completedAt: null }),
-      ...(recurring !== undefined && { recurring }),
-      ...(recurrenceRule !== undefined && { recurrenceRule }),
-      ...(startDate !== undefined && { startDate: nextStart }),
-      ...(endDate !== undefined && { endDate: nextEnd }),
-      // Archiving is a separate axis from status — see Job.archivedAt. A job
-      // can be archived whatever state the work is in, and unarchiving is
-      // just as available, because nothing was destroyed.
-      ...(archived !== undefined && {
-        archivedAt: archived ? new Date() : null,
+  const outcome = await runGuardedWrite({
+    expected,
+    readVersion: () =>
+      db.job.findFirst({
+        where: { id, companyId: member.companyId },
+        select: { updatedAt: true },
       }),
-    },
-    include: { client: true },
+    write: () => db.job.update({
+      where: { id: id, ...versionWhere(expected) },
+      data: {
+        ...(title !== undefined && { title }),
+        ...(status !== undefined && { status }),
+        ...(schedulingByDate && { status: "scheduled" }),
+        ...(completing && { completedAt: new Date() }),
+        ...(reopening && { completedAt: null }),
+        ...(recurring !== undefined && { recurring }),
+        ...(recurrenceRule !== undefined && { recurrenceRule }),
+        ...(startDate !== undefined && { startDate: nextStart }),
+        ...(endDate !== undefined && { endDate: nextEnd }),
+        // Archiving is a separate axis from status — see Job.archivedAt. A job
+        // can be archived whatever state the work is in, and unarchiving is
+        // just as available, because nothing was destroyed.
+        ...(archived !== undefined && {
+          archivedAt: archived ? new Date() : null,
+        }),
+      },
+      include: { client: true },
+    }),
   });
+
+  // Refusals first: everything below reacts to a change that, on a 409, never
+  // happened — closing the "schedule this job" task for a status flip that was
+  // rejected would be worse than the lost write.
+  const refusal = await settleGuardedWrite(outcome, {
+    client: db,
+    companyId: member.companyId,
+    entityType: "job",
+    entityId: id,
+    label: "job",
+    expected,
+    member,
+    versionAt: outcome.result?.updatedAt,
+  });
+  if (refusal) return NextResponse.json(refusal.body, { status: refusal.status });
+
+  const updated = outcome.result;
 
   // Finishing the work is the moment to ask for the review, so leave a note on
   // the to-do list. Only on the FIRST flip — `completing` is already the

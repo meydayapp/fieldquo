@@ -19,6 +19,12 @@ import {
   requireCost,
   isEmptyCosting,
 } from "../costingWrite";
+import {
+  parseExpectedVersion,
+  versionWhere,
+  runGuardedWrite,
+  settleGuardedWrite,
+} from "@/lib/concurrency/staleWrite";
 
 // Next 16: params is a Promise — same fix as the quotes route.
 export async function GET(request, { params }) {
@@ -112,6 +118,19 @@ export async function PATCH(request, { params }) {
     costing,
   } = body;
 
+  // The version the browser is editing FROM. See lib/concurrency/staleWrite.js.
+  // Absent means unguarded and behaves exactly as it did before; unreadable is
+  // a 400, never a silent downgrade.
+  let expected = null;
+  try {
+    expected = parseExpectedVersion(body?.expectedUpdatedAt);
+  } catch (err) {
+    return NextResponse.json(
+      { error: err.message, code: err.code },
+      { status: err.status || 400 },
+    );
+  }
+
   const isDraft = existing.status === "draft";
 
   // Costed against subtotal minus discount — the pre-tax money the work has to
@@ -145,42 +164,75 @@ export async function PATCH(request, { params }) {
       : null;
 
   if (isDraft) {
-    const updated = await db.invoice.update({
-      where: { id: id },
-      data: {
-        ...(lineItems !== undefined && { lineItems }),
-        ...(subtotal !== undefined && { subtotal }),
-        ...(discount !== undefined && { discount }),
-        ...(tax !== undefined && { tax }),
-        ...(taxEnabled !== undefined && { taxEnabled: Boolean(taxEnabled) }),
-        ...(total !== undefined && { total }),
-        ...(dueDate !== undefined && { dueDate: new Date(dueDate) }),
-        ...(notes !== undefined && { notes }),
-        ...(status !== undefined && { status }),
-        ...(clientPhotos !== undefined && {
-          clientPhotos: normaliseMediaList(clientPhotos),
+    // ── Guarded, because a draft invoice IS overwritten in place ──────────
+    //
+    // The versioned path below is not guarded, and that is deliberate rather
+    // than unfinished: once an invoice has been sent, this route stops
+    // updating the row and snapshots a NEW version instead, so a second
+    // editor's save cannot erase the first one's — both versions exist. (That
+    // path has its own concurrency bug — two simultaneous saves read the same
+    // `latestVersion` and mint two rows with the same version number — but it
+    // is a different bug with a different fix, a unique constraint on
+    // (parentInvoiceId, version), and pretending `updatedAt` addresses it
+    // would be a guard that appears to work and doesn't.)
+    const outcome = await runGuardedWrite({
+      expected,
+      readVersion: () =>
+        db.invoice.findFirst({
+          where: { id, companyId: member.companyId },
+          select: { updatedAt: true },
         }),
-        // Upsert: the panel may be filled in long after the invoice was
-        // raised, so there is often no row to update yet.
-        //
-        // An empty block writes only when there is already a row to empty —
-        // that is someone deleting the crew, and refusing it would be a Save
-        // button that doesn't save. With no row it means the panel was never
-        // touched, and there is nothing to record.
-        ...(costingRow &&
-          (existing.costing || !isEmptyCosting(costingRow)) && {
-            costing: {
-              upsert: { create: costingRow, update: costingRow },
-            },
+      write: () => db.invoice.update({
+        where: { id: id, ...versionWhere(expected) },
+        data: {
+          ...(lineItems !== undefined && { lineItems }),
+          ...(subtotal !== undefined && { subtotal }),
+          ...(discount !== undefined && { discount }),
+          ...(tax !== undefined && { tax }),
+          ...(taxEnabled !== undefined && { taxEnabled: Boolean(taxEnabled) }),
+          ...(total !== undefined && { total }),
+          ...(dueDate !== undefined && { dueDate: new Date(dueDate) }),
+          ...(notes !== undefined && { notes }),
+          ...(status !== undefined && { status }),
+          ...(clientPhotos !== undefined && {
+            clientPhotos: normaliseMediaList(clientPhotos),
           }),
-      },
-      include: { client: true },
+          // Upsert: the panel may be filled in long after the invoice was
+          // raised, so there is often no row to update yet.
+          //
+          // An empty block writes only when there is already a row to empty —
+          // that is someone deleting the crew, and refusing it would be a Save
+          // button that doesn't save. With no row it means the panel was never
+          // touched, and there is nothing to record.
+          ...(costingRow &&
+            (existing.costing || !isEmptyCosting(costingRow)) && {
+              costing: {
+                upsert: { create: costingRow, update: costingRow },
+              },
+            }),
+        },
+        include: { client: true },
+      }),
     });
+
+    const refusal = await settleGuardedWrite(outcome, {
+      client: db,
+      companyId: member.companyId,
+      entityType: "invoice",
+      entityId: id,
+      label: "invoice",
+      expected,
+      member,
+      versionAt: outcome.result?.updatedAt,
+    });
+    if (refusal)
+      return NextResponse.json(refusal.body, { status: refusal.status });
+
     // Same shape GET returns. Permission to edit an invoice is not permission
     // to read the client's private fields — those are a separate dial — and a
     // save response that carried more than the refetch would put data on screen
     // that vanishes on reload.
-    return NextResponse.json(redactInvoice(full, updated));
+    return NextResponse.json(redactInvoice(full, outcome.result));
   }
 
   // ── What costing the NEW version row gets ────────────────────────────────

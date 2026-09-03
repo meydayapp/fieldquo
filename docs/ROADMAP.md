@@ -6674,3 +6674,72 @@ wired into `check:all`) — 179 assertions, 12 mutants of the pure module all
 caught, plus 6 hand-applied mutants of the wiring, all caught. `check:all` is
 red on 14 `app.clock.*` translation keys from another agent's in-flight
 time-clock work, not from this change; every other check in the list passes.
+
+---
+
+## Optimistic concurrency — the "someone else changed this" banner (2 September 2026)
+
+The owner asked for "a banner notifying when a document has been updated by
+someone else in the team". `docs/construction/AUDIT-realtime-hosting.md` §7
+found what that request actually is: **99 `PATCH`/`PUT` routes and no
+optimistic concurrency anywhere.** Two people open the same quote, both save,
+and the second save silently overwrites the first — no error, no warning, no
+record. That is live data loss, and it is not fixed by realtime editing.
+
+**The mechanism.** `lib/concurrency/staleWrite.js`. The client sends the
+`updatedAt` it loaded as `expectedUpdatedAt`; the guard is spread into the
+Prisma `where` of the real write (`where: { id, ...versionWhere(expected) }`),
+so there is no window between checking a version and overwriting it — the same
+compare-and-set grain the review-request cron and `lib/migrations/payment.js`
+already use. A miss returns **409 with `code: "stale_write"`**, distinguishable
+from the several unrelated 409s this API already answers.
+
+**Missing means unguarded, on purpose.** A request with no `expectedUpdatedAt`
+behaves exactly as it did before. That is what makes the migration gradual —
+the 96 untouched routes and every unwired screen keep working — and
+`scripts/check-stale-write.mjs` asserts it rather than assuming it. A
+*malformed* version is a 400, never a silent downgrade.
+
+**Guarded: quotes, draft invoices, jobs.** Ranked by what a lost write costs.
+The sent-invoice path is deliberately NOT guarded — it snapshots a new version
+row instead of overwriting, so nothing is lost there (it has a different
+concurrency bug: two saves read the same `latestVersion` and mint duplicate
+version numbers; the fix is a unique constraint on `(parentInvoiceId, version)`
+and it is not this change).
+
+**The brief for this work said "every model already has `updatedAt`". It does
+not** — 64 of 167 do. `Client`, `Product`, `JobVisit`, `ChangeOrder`, `Expense`
+and `Bill` have no such column, which is why they are not in the guarded set;
+adding `@updatedAt` to a populated table is a migration, not a free win.
+
+**Who changed it** comes from a new `RecordEdit` row — one per record, carrying
+the editor and the `versionAt` that write produced. A name is shown ONLY when
+`versionAt` still equals the record's current `updatedAt`; any other writer (a
+lifecycle hook, the public quote-acceptance route, a cron) moves `updatedAt`
+without leaving a row, and the banner then says "someone on your team" rather
+than blaming the last person who happened to use a guarded screen. Not a
+column on Quote/Invoice/Job for exactly that reason — see the model comment.
+
+**What the user sees**: `app/components/StaleWriteBanner.js`, wired into the
+quote builder. Who, when (relative, in their language), an explicit "nothing
+you typed has been lost", a link that opens the saved version in a new tab, and
+"Save mine anyway" — which re-submits **still guarded**, against the version the
+server just named. There is no force flag anywhere in this feature, and no
+merge or diff: a quote is line items and costing rows, and a half-built merge
+is the same data loss with more steps.
+
+**Verified:** `npm run build` exit 0. `npx prisma validate` clean; `RecordEdit`
+confirmed present in the live database with its composite unique index and
+cascade FK. `scripts/check-stale-write.mjs` (`npm run check:stale-write`, wired
+into `check:all`) — 136 assertions, exit 0, executing the shipped module
+(which imports nothing, so there is no stub loader and no copy). **17 mutants
+applied and all 17 caught**; four of them were MISSED on the first pass and the
+check was strengthened until they weren't — including one where the banner's
+overwrite button was made unconditional and a token-anywhere assertion passed
+happily.
+
+**Left for later, named rather than half-built:** the other 96 routes; a
+`sessionStorage` stash so unsaved work survives a tab crash (today it survives
+the refusal, which is the part that matters, but not a closed tab); and the
+invoice/job screens, which are server-guarded but do not yet send a version, so
+they behave exactly as before.

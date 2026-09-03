@@ -50,6 +50,8 @@ import MediaUploader from "@/app/components/MediaUploader";
 import OnboardingTour from "@/app/components/OnboardingTour";
 import HelpButton from "@/app/components/HelpButton";
 import SendConfirmModal from "@/app/components/SendConfirmModal";
+import StaleWriteBanner from "@/app/components/StaleWriteBanner";
+import { readStaleConflict } from "@/lib/concurrency/staleWriteClient";
 import { fetchJson } from "@/lib/fetchJson";
 import { startComposeTimer } from "@/lib/analytics/composeTimer";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -825,12 +827,35 @@ export function QuoteBuilderForm({
   const [saving, setSaving] = useState("");
   const [error, setError] = useState("");
   const errorRef = useRef(null);
+
+  // ── The stale-write guard's client half ─────────────────────────────────
+  //
+  // `version` is the quote's `updatedAt` as this screen loaded it. It rides
+  // along on every PATCH; the server refuses the write if the stored value has
+  // moved, which is what stops this form — which posts EVERY field, including
+  // the ones nobody touched — from silently overwriting a colleague's save.
+  // See lib/concurrency/staleWrite.js.
+  //
+  // Null on a create, and on an edit where the load somehow returned no
+  // timestamp: missing means unguarded, which is the same behaviour this
+  // screen had before the guard existed. Never invented.
+  const [version, setVersion] = useState(start.quote?.updatedAt ?? null);
+  const [conflict, setConflict] = useState(null);
+  const conflictRef = useRef(null);
   const [showTour, setShowTour] = useState(false);
   const [pendingSend, setPendingSend] = useState(null);
 
   // See the banner's own note further down: it renders at the top of a very
   // long page and the Save buttons are at the bottom, so a refusal set here
   // was invisible from where it was triggered.
+  // Same reason as the error banner below it: the Save buttons are at the
+  // bottom of a page several screens long, and a refusal nobody can see is a
+  // refusal that failed silently.
+  useEffect(() => {
+    if (conflict)
+      conflictRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [conflict]);
+
   useEffect(() => {
     if (error) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [error]);
@@ -1369,8 +1394,20 @@ export function QuoteBuilderForm({
     }
   }
 
-  async function runSave(action, { confirmed = false } = {}) {
+  /**
+   * @param {string} action  "draft" | "sent" | "review"
+   * @param {object} [opts]
+   * @param {boolean} [opts.confirmed]      the send dialog was answered
+   * @param {string}  [opts.againstVersion] deliberately re-apply on top of the
+   *   version the server just named in a stale-write refusal. Still GUARDED:
+   *   if a third save landed while the banner was on screen, this conflicts
+   *   again rather than forcing. There is no unguarded overwrite here.
+   */
+  async function runSave(action, { confirmed = false, againstVersion } = {}) {
     setError("");
+    // Cleared as the retry starts, not on success — leaving last attempt's
+    // banner up during a save that may well succeed reads as a failure.
+    setConflict(null);
 
     if (!isEdit) {
       if (!selectedClient) {
@@ -1441,14 +1478,40 @@ export function QuoteBuilderForm({
           // silently re-post the assignee and trip quote:assign for someone
           // who never meant to reassign anything.
           ...(assignedToTouched && { assignedToId: assignedToId || null }),
+          // The version this screen is editing FROM. Omitted entirely when
+          // there isn't one — the route reads a missing field as "unguarded"
+          // and behaves exactly as it did before, which is what lets the rest
+          // of the app migrate to this one screen at a time.
+          ...((againstVersion ?? version)
+            ? { expectedUpdatedAt: againstVersion ?? version }
+            : {}),
         }),
       });
+      // BEFORE res.json(): readStaleConflict clones the response, and clone()
+      // throws once the body has been consumed — the same trap
+      // lib/clientErrors.js documents. Reading it after would make every
+      // conflict fall through to the generic red banner.
+      const stale = await readStaleConflict(res);
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         setSaving("");
+        // A stale write gets the banner, not the red error box, and NOTHING on
+        // this form is reset — everything typed is still on screen, which is
+        // what the banner tells them and what makes "Save mine anyway" a real
+        // recovery rather than a re-type.
+        if (stale) {
+          // The action is carried so "Save mine anyway" re-runs the button
+          // they actually pressed — re-applying a "Save & send" as a plain
+          // draft would quietly not send the quote.
+          setConflict({ ...stale, action });
+          return;
+        }
         setError(data?.error || t("app.quoteEdit.saveError"));
         return;
       }
+      // The version this save produced, so a second save from this same screen
+      // is guarded against whatever lands between the two.
+      if (data?.updatedAt) setVersion(data.updatedAt);
       quote = data;
     } else {
       // Stopped here rather than on unmount: the work is finished at Save, and
@@ -1607,6 +1670,26 @@ export function QuoteBuilderForm({
       {isEdit && !canEditScope && (
         <div className="bg-muted border border-border rounded-xl px-4 py-3 text-sm text-muted-foreground">
           {t("app.quoteEdit.linesLocked")}
+        </div>
+      )}
+
+      {/* Somebody else saved while this screen was open. Above the red error
+          banner because it is not an error: nothing is broken and nothing has
+          been lost — it is a decision to make, and the banner carries both
+          ways out. See app/components/StaleWriteBanner.js. */}
+      {conflict && (
+        <div ref={conflictRef}>
+          <StaleWriteBanner
+            conflict={conflict}
+            href={quoteId ? `/app/quotes/${quoteId}` : undefined}
+            busy={Boolean(saving)}
+            onOverwrite={() =>
+              runSave(conflict.action, {
+                confirmed: true,
+                againstVersion: conflict.currentUpdatedAt,
+              })
+            }
+          />
         </div>
       )}
 
