@@ -1107,7 +1107,7 @@ export default function InvoiceDetailPage() {
                   <button
                     onClick={() => handleVisitCredit(c.bookingId, false)}
                     disabled={creditingId === c.bookingId}
-                    className="text-xs font-semibold px-3 py-1.5 rounded-full border border-border disabled:opacity-60 inline-flex items-center gap-1.5"
+                    className="text-xs font-semibold px-3 py-1.5 min-h-[44px] rounded-full border border-border disabled:opacity-60 inline-flex items-center gap-1.5"
                   >
                     {creditingId === c.bookingId && (
                       <Loader2 size={13} className="animate-spin" />
@@ -1127,7 +1127,7 @@ export default function InvoiceDetailPage() {
                   <button
                     onClick={() => handleVisitCredit(c.bookingId, true)}
                     disabled={creditingId === c.bookingId}
-                    className="text-xs font-semibold px-3 py-1.5 rounded-full bg-inverted text-inverted-foreground disabled:opacity-60 inline-flex items-center gap-1.5"
+                    className="text-xs font-semibold px-3 py-1.5 min-h-[44px] rounded-full bg-inverted text-inverted-foreground disabled:opacity-60 inline-flex items-center gap-1.5"
                   >
                     {creditingId === c.bookingId && (
                       <Loader2 size={13} className="animate-spin" />

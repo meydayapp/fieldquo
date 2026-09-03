@@ -360,7 +360,16 @@ export default function ClientDetailPage() {
               <h2 className="text-lg font-semibold text-foreground">
                 {t("app.clientDetail.edit")}
               </h2>
-              <button onClick={() => setEditing(false)}>
+              {/* An 18px glyph was the whole tap target — the one control that
+                  gets a client out of this sheet, and the hardest to hit on a
+                  phone. Negative margin keeps the icon where it was drawn
+                  while the hit area grows around it. */}
+              <button
+                type="button"
+                aria-label={t("app.action.close", "Close")}
+                onClick={() => setEditing(false)}
+                className="-m-2 p-2 min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
+              >
                 <X size={18} className="text-muted-foreground" />
               </button>
             </div>

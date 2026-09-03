@@ -118,7 +118,12 @@ export default function TeamSchedulePage() {
                     {ROLE_LABEL[m.role] || m.role}
                   </p>
                 </div>
-                <div className="ml-auto flex items-center gap-3">
+                {/* flex-wrap, because at 375px the name, the "no availability"
+                    sentence and this pill do not fit on one line — and the
+                    pill was holding itself open with whitespace-nowrap, which
+                    pushes the CARD wide rather than wrapping. Letting the row
+                    break puts the pill on its own line instead. */}
+                <div className="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
                   {!m.hasAvailability && (
                     <span className="text-xs text-muted-foreground">{t("app.schedule.noAvailability")}</span>
                   )}
@@ -129,7 +134,7 @@ export default function TeamSchedulePage() {
                   {canManage && m.userId && (
                     <Link
                       href={`/app/settings/availability?userId=${encodeURIComponent(m.userId)}`}
-                      className="text-xs font-semibold border border-border rounded-full px-3 py-1.5 hover:bg-muted whitespace-nowrap"
+                      className="inline-flex items-center min-h-[44px] text-xs font-semibold border border-border rounded-full px-3 py-1.5 hover:bg-muted"
                     >
                       {m.hasAvailability ? "Edit hours" : "Set hours"}
                     </Link>

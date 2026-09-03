@@ -1283,7 +1283,7 @@ export default function QuoteDetailPage() {
                 <button
                   type="button"
                   onClick={() => setCostEditorOpen(true)}
-                  className="mt-2 text-xs font-medium underline"
+                  className="mt-2 inline-flex items-center min-h-[44px] text-xs font-medium underline"
                 >
                   {t("app.quoteDetail.costItNow", "Cost it now")}
                 </button>
@@ -1495,7 +1495,7 @@ export default function QuoteDetailPage() {
               <button
                 type="button"
                 onClick={() => setCostEditorOpen(true)}
-                className="mt-3 text-xs font-medium text-muted-foreground underline hover:text-foreground"
+                className="mt-3 inline-flex items-center min-h-[44px] text-xs font-medium text-muted-foreground underline hover:text-foreground"
               >
                 {costing.saved
                   ? t("app.quoteDetail.editCosting", "Change the costing")

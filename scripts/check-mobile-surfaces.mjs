@@ -7,19 +7,37 @@
 // queue in a van; a screen that needs a laptop adds the administrative
 // overhead the portal exists to remove.
 //
+// ══ THE SCOPE WAS A LIE, AND THIS IS THE CORRECTION ══════════════════════
+//
+// Until 2026-09-02 this walked app/platform, app/sales and app/app/clock, and
+// was described to the owner as covering "the app surfaces". It did not. Every
+// screen a contractor opens all day — jobs, the schedule, quotes, invoices,
+// clients, settings — was unchecked, which is the worse failure of the two:
+// the rep view matters most, but the crew member standing in a driveway is on
+// app/app. app/app is now walked in full.
+//
+// It still does not walk app/components/**. Roughly a third of the /app UI
+// lives there (the drawers, the uploaders, the shared panels) and none of it
+// is checked. That is a REAL remaining gap, named here rather than left for
+// somebody to discover the way this one was.
+//
 // ══ WHAT THIS PROVES, AND WHAT IT CANNOT ═════════════════════════════════
 //
 // Read this before trusting it. It is a hazard detector, not a usability
-// test. It proves the ABSENCE of six specific, mechanically detectable
+// test. It proves the ABSENCE of seven specific, mechanically detectable
 // mistakes. It cannot prove:
 //
 //   * that a layout is usable, readable, or reachable one-handed;
 //   * that anything actually fits at 375px — that needs a browser, a font, and
 //     a rendered box, none of which exist here;
-//   * that text contrasts (scripts/check-contrast.mjs does colour, and only
-//     for the document theme);
+//   * that text contrasts IN GENERAL. One narrow colour rule lives here (a
+//     theme-flipping text token parked on a fixed surface — see the section
+//     at the bottom) because it is the same shape as the rest: a mechanical
+//     mismatch, measured, not a judgement about a design;
 //   * that a control is reachable at all — a page can pass every rule below
 //     and still be a wall of unlabelled icons;
+//   * that a colour pair INHERITED across elements is readable — the colour
+//     rule below reads one element at a time and says so;
 //   * anything about a class name assembled at run time from a value this
 //     script cannot see. Those are COUNTED and reported, never silently
 //     passed, because "0 problems" over an unreported skip pile is the false
@@ -27,7 +45,8 @@
 //
 // A green run means: no fixed-width container, no unscrollable table, no
 // nowrap outside a scroll container, nothing defeating the iOS 16px input
-// rule, no sub-36px touch target, and no fixed-height modal. That is worth
+// rule, no sub-36px touch target, no fixed-height modal, and no text token
+// measured under 4.5:1 on the fixed surface it was written onto. That is worth
 // having and it is not "mobile friendly".
 //
 // ══ Two tiers, and why the strict one is a short list ════════════════════
@@ -101,6 +120,22 @@ const SURFACES = [
   // first has no excuse for a gap list, and the honest way to widen this check
   // is to add screens that pass it rather than to soften a rule.
   { dir: "app/app/clock", tier: "strict" },
+  // The contractor's back office — 139 files, the ones a crew opens forty
+  // times a day. Baseline for the whole tree, because holding 139 pre-existing
+  // screens to strict would have produced ~90 failures on day one and the rule
+  // would have been switched off by Friday. The phone-critical screens are
+  // named in STRICT_FILES below, each one FIXED first rather than exempted.
+  { dir: "app/app", tier: "baseline" },
+  // The mobile primitives themselves. Three files, written for a phone, and
+  // they pass strict as written — so they go in strict, not on a gap list.
+  { dir: "app/components/mobile", tier: "strict" },
+  // The chrome every /app screen carries: the rail, the mobile tab bar, the
+  // banners. Baseline — MobileTabBar's tab buttons put min-h-[44px] on the
+  // inner <span> that draws the pill rather than on the <button>, which the
+  // touch-target rule cannot see because it reads one tag. Failing a bar that
+  // is genuinely 44px tall would be the false failure that gets a check
+  // deleted. Everything else here is held.
+  { dir: "app/components/layout", tier: "baseline" },
 ];
 
 /** Files held to every rule. New screens are added here, not to a gap list. */
@@ -116,7 +151,51 @@ const STRICT_FILES = [
   // the honest way to widen this check is to fix a file and move it.
   "app/platform/sales/reps/page.js",
   "app/platform/sales/performance/page.js",
+  // The two screens the sales-intelligence pipeline was missing. Written
+  // mobile-first — a rep reads the queue in a driveway, on a phone — so they go
+  // straight into the strict list rather than into a gap list.
+  "app/platform/sales/prospects/page.js",
+  "app/sales/queue/page.js",
   "app/app/clock/page.js",
+
+  // ── The contractor's phone, ranked ──────────────────────────────────────
+  //
+  // Not every /app screen — the ones somebody opens standing up. The order a
+  // crew actually uses: find the job, read the job, look at the week, check
+  // the quote, check the invoice, look up the client. A settings screen a
+  // bookkeeper opens once a year on a laptop is NOT the same priority and is
+  // deliberately left at baseline; pretending otherwise would have meant ~90
+  // failures and a switched-off rule.
+  //
+  // Five of these needed a fix before they could be listed (a 32px filter
+  // chip, a nowrap pill, an 18px close button, two underline buttons, two
+  // invoice pills). The rest already passed — measured, not assumed.
+  "app/app/jobs/page.js",
+  "app/app/jobs/[id]/page.js",
+  "app/app/jobs/[id]/JobDetail.js",
+  "app/app/jobs/[id]/PaymentScheduleCard.js",
+  "app/app/jobs/[id]/edit/page.js",
+  "app/app/jobs/[id]/visits/new/page.js",
+  "app/app/schedule/page.js",
+  "app/app/quotes/page.js",
+  "app/app/quotes/new/page.js",
+  "app/app/quotes/[id]/page.js",
+  "app/app/quotes/[id]/edit/page.js",
+  "app/app/invoices/page.js",
+  "app/app/invoices/[id]/page.js",
+  "app/app/clients/page.js",
+  "app/app/clients/new/page.js",
+  "app/app/clients/[id]/page.js",
+  // app/app/layout.js — the shell all of the above render inside — passes
+  // strict today and is deliberately NOT listed. It is being rewritten by
+  // another agent as this lands (122 lines changed while this file was being
+  // written), and holding a file under active edit to a stricter tier than its
+  // neighbours breaks somebody else's build for a rule they never opted into.
+  // It stays covered at baseline like the rest of app/app. Promote it once the
+  // shell settles — it needs no fix, only a quieter moment.
+  "app/components/mobile/AppBar.js",
+  "app/components/mobile/BottomSheet.js",
+  "app/components/mobile/TouchFeedback.js",
 ];
 
 /**
@@ -235,11 +314,21 @@ function classText(tag, consts) {
  * Is this position inside a horizontally scrolling container?
  *
  * A HEURISTIC and stated as one. It looks back a bounded window for a scroll
- * class and then asserts nothing has been CLOSED since — if an element closed
- * between the wrapper and here, we have left it. It cannot see a wrapper that
- * lives in another component, so a table wrapped by its parent reads as
- * unwrapped: a false FAILURE, which is the safe direction, and the reason
- * KNOWN_GAPS exists rather than a looser rule.
+ * class and then asks whether we are still inside that element, by counting
+ * tags. It cannot see a wrapper that lives in another component, so a table
+ * wrapped by its parent reads as unwrapped: a false FAILURE, which is the safe
+ * direction, and the reason KNOWN_GAPS exists rather than a looser rule.
+ *
+ * ── Why counting, and not "has anything closed" ──────────────────────────
+ * The first version returned false the moment it saw a `</` after the scroll
+ * class. That is wrong for the commonest correct markup there is: a scroll
+ * wrapper holding a header row AND a body row as SIBLINGS. The header closes,
+ * so everything after it read as outside the wrapper — app/app/settings/team
+ * failed on a min-w that is inside its overflow-x-auto and always was.
+ * A sibling that opens and closes is BALANCED; only a NET excess of closings
+ * means we left the container. Self-closing tags are subtracted because they
+ * open and close in one token and would otherwise pad the opening count and
+ * hide a real escape.
  */
 const SCROLL_CLASS = /overflow-x-auto|overflow-x-scroll|overflow-auto/g;
 
@@ -248,7 +337,9 @@ function insideScrollContainer(src, index, window = 700) {
   const m = [...before.matchAll(SCROLL_CLASS)];
   if (m.length === 0) return false;
   const after = before.slice(m[m.length - 1].index);
-  return !after.includes("</");
+  const opens = (after.match(/<[A-Za-z]/g) || []).length - (after.match(/\/>/g) || []).length;
+  const closes = (after.match(/<\//g) || []).length;
+  return closes <= opens;
 }
 
 /** The `<table>` this position sits in, if any. */
@@ -262,6 +353,195 @@ function enclosingTableIndex(src, index) {
 
 function gapFor(file, rule) {
   return KNOWN_GAPS.find((g) => g.file === file && g.rule === rule);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Colour: a theme token measured on the surface it was actually written onto
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ── Why a colour rule lives in a mobile check ────────────────────────────
+// It doesn't, really — it lives here because it is the same SHAPE as the
+// other rules: a mechanical mismatch between two strings in one class list,
+// decidable without rendering anything. The platform sidebar audit found
+// `text-muted-foreground` on a hardcoded dark background at 2.72:1, and no
+// mobile rule would ever have caught it. check-sidebar.mjs proves the sidebar
+// PALETTE; nothing proved that a screen used it correctly.
+//
+// ── What it does, and the two things it deliberately will not do ─────────
+// For one element carrying both a background class and a text class, it looks
+// both colours up in app/globals.css — PARSED, never hardcoded here, so a
+// palette edit re-measures instead of going stale — and computes WCAG
+// contrast in the LIGHT theme and again in the DARK one. Under 4.5:1 in
+// either is a failure.
+//
+//   1. It ignores `hover:` / `focus:` / `active:` variants entirely. A hover
+//      fill almost always comes with its own hover text colour, and pairing a
+//      hover background against the BASE text is how this rule would produce
+//      its first false failure. app/components/layout/SettingsSidebar.js is
+//      exactly that case: text-muted-foreground on hover:bg-sidebar-panel-
+//      accent is 4.16:1 in light, but hover:text-foreground lands on it, at
+//      11.25:1. Measuring the wrong pair there would have been a bug.
+//   2. It skips any class with an opacity modifier (`bg-sidebar/80`). What a
+//      65%-alpha bar over a backdrop-blur actually composites to is not a
+//      number this file can know, and inventing one would be padding absent
+//      data with a default.
+//
+// Both are COUNTED as skips, like every other thing this script cannot read.
+//
+// ── And the limit that matters most ──────────────────────────────────────
+// It only sees a pair written on ONE element. Colour inherits; the rail sets
+// bg-sidebar on the <aside> and text-sidebar-muted-foreground four levels
+// down, and this rule cannot connect them — mutation-tested and confirmed:
+// wrecking --sidebar-muted-foreground does NOT fail this run, while wrecking
+// --sidebar-foreground (which IS written same-element) does. So it catches
+// the mistake at the point somebody TYPES both classes together, which is
+// where the platform sidebar bug was typed, and it does not audit a palette.
+// check-sidebar.mjs is what proves the sidebar ladder itself.
+
+/** `--token: #hex;` pairs inside one CSS block. */
+function cssTokens(css, selector) {
+  const at = css.search(new RegExp(`(^|\\n)\\s*${selector}\\s*\\{`));
+  if (at === -1) return new Map();
+  const open = css.indexOf("{", at);
+  let d = 0;
+  let end = -1;
+  for (let i = open; i < css.length; i++) {
+    if (css[i] === "{") d++;
+    else if (css[i] === "}" && --d === 0) {
+      end = i;
+      break;
+    }
+  }
+  const out = new Map();
+  for (const m of css.slice(open, end).matchAll(/--([\w-]+):\s*(#[0-9a-fA-F]{3,8})\s*;/g)) {
+    out.set(m[1], m[2]);
+  }
+  return out;
+}
+
+function relativeLuminance(hex) {
+  const h = hex.replace("#", "");
+  const full = h.length === 3 ? [...h].map((c) => c + c).join("") : h.slice(0, 6);
+  const [r, g, b] = [0, 2, 4]
+    .map((i) => parseInt(full.slice(i, i + 2), 16) / 255)
+    .map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrast(a, b) {
+  const [x, y] = [relativeLuminance(a), relativeLuminance(b)];
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+
+const THEME_CSS = readFileSync(join(ROOT, "app/globals.css"), "utf8");
+const LIGHT_TOKENS = cssTokens(THEME_CSS, ":root");
+const DARK_TOKENS = new Map([...LIGHT_TOKENS, ...cssTokens(THEME_CSS, "\\.dark")]);
+
+/**
+ * Backgrounds worth measuring: the ones a text token can be WRONG on.
+ *
+ * Every entry is a token defined in globals.css, plus plain black. Tailwind
+ * palette classes (bg-neutral-900 and friends) are not here because app/app
+ * uses none opaquely today — every `bg-black` in the tree is a `/40` modal
+ * scrim, which rule 2 above skips anyway. If one appears, it will show up as
+ * an UNMEASURED background in the run summary rather than passing silently.
+ */
+const MEASURED_BACKGROUNDS = new Map([
+  ["bg-sidebar", "sidebar"],
+  ["bg-sidebar-accent", "sidebar-accent"],
+  ["bg-sidebar-primary", "sidebar-primary"],
+  ["bg-sidebar-panel-accent", "sidebar-panel-accent"],
+  ["bg-inverted", "inverted"],
+  ["bg-card", "card"],
+  ["bg-popover", "popover"],
+  ["bg-muted", "muted"],
+  ["bg-accent", "accent"],
+  ["bg-secondary", "secondary"],
+  ["bg-background", "background"],
+]);
+
+const MEASURED_TEXT = new Map([
+  ["text-foreground", "foreground"],
+  ["text-muted-foreground", "muted-foreground"],
+  ["text-card-foreground", "card-foreground"],
+  ["text-popover-foreground", "popover-foreground"],
+  ["text-secondary-foreground", "secondary-foreground"],
+  ["text-accent-foreground", "accent-foreground"],
+  ["text-inverted-foreground", "inverted-foreground"],
+  ["text-sidebar-foreground", "sidebar-foreground"],
+  ["text-sidebar-muted-foreground", "sidebar-muted-foreground"],
+  ["text-sidebar-accent-foreground", "sidebar-accent-foreground"],
+  ["text-sidebar-primary-foreground", "sidebar-primary-foreground"],
+  ["text-primary", "primary"],
+  ["text-destructive", "destructive"],
+  ["text-brand-accent-text", "brand-accent-text"],
+]);
+
+const CONTRAST_FLOOR = 4.5;
+
+/**
+ * One class list split into the branches that can actually be on screen AT
+ * ONCE.
+ *
+ * classText() concatenates every ternary branch, which is right for a rule
+ * that forbids a string anywhere and CATASTROPHIC for one that pairs two
+ * strings: `bg-inverted text-inverted-foreground : text-muted-foreground` is
+ * the standard selected/unselected chip in this repo, and reading it as one
+ * list would report muted-foreground on inverted (1.88:1) on a dozen screens
+ * that are correct. So each `cond ? "A" : "B"` contributes the static text
+ * plus A, and the static text plus B, as SEPARATE lists.
+ */
+function classBranches(raw, consts) {
+  const resolve = (s) => s.replace(/\$\{([A-Za-z_$][\w$]*)\}/g, (_, n) => consts.get(n) ?? "");
+  const ternaries = [...raw.matchAll(/\?\s*["'`]([^"'`]*)["'`]\s*:\s*["'`]([^"'`]*)["'`]/g)];
+  // The text outside every `${...}` — the classes that are always present.
+  const stat = resolve(raw.replace(/\$\{[\s\S]*?\}/g, " "));
+  if (ternaries.length === 0) return [stat];
+  return ternaries.flatMap((m) => [`${stat} ${resolve(m[1])}`, `${stat} ${resolve(m[2])}`]);
+}
+
+/**
+ * Opaque backgrounds carrying a theme text token that this file has no hex
+ * for — a Tailwind palette class, an arbitrary hex, anything new. Reported by
+ * name at the end of the run. Silence over an unmeasured pair is exactly the
+ * false confidence the header warns about.
+ */
+const unmeasuredBackgrounds = new Set();
+
+/** The measurable bg/text pair on one element, ignoring state variants. */
+function contrastViolations(classList) {
+  const words = classList.split(/\s+/).filter(Boolean);
+  // Rule 1: a state variant is a different pair; rule 2: alpha is unknowable.
+  const plain = words.filter((w) => !w.includes(":") && !w.includes("/"));
+  const bgs = plain.filter((w) => MEASURED_BACKGROUNDS.has(w));
+  const texts = plain.filter((w) => MEASURED_TEXT.has(w));
+  if (texts.length > 0 && bgs.length === 0) {
+    for (const w of plain) {
+      if (/^bg-(?:\[|[a-z]+-\d{2,3}$|black$|white$)/.test(w)) unmeasuredBackgrounds.add(w);
+    }
+  }
+  if (bgs.length !== 1 || texts.length === 0) return [];
+  const bgToken = MEASURED_BACKGROUNDS.get(bgs[0]);
+  const bad = [];
+  for (const textClass of texts) {
+    const fgToken = MEASURED_TEXT.get(textClass);
+    for (const [theme, table] of [
+      ["light", LIGHT_TOKENS],
+      ["dark", DARK_TOKENS],
+    ]) {
+      const fg = table.get(fgToken);
+      const bg = table.get(bgToken);
+      if (!fg || !bg) continue;
+      const r = contrast(fg, bg);
+      if (r < CONTRAST_FLOOR) {
+        bad.push(
+          `${textClass} on ${bgs[0]} is ${r.toFixed(2)}:1 in ${theme} ` +
+            `(${fg} on ${bg}) — under ${CONTRAST_FLOOR}:1`,
+        );
+      }
+    }
+  }
+  return bad;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -391,7 +671,13 @@ const RULES = [
     title: "no dialog trapped at a fixed height",
     run(src) {
       const bad = [];
-      for (const m of src.matchAll(/\bh-\[(\d+)px\]/g)) {
+      // `(?<![\w-])h-` and not `min-h-`/`max-h-`: `\bh-\[` matched the tail of
+      // BOTH of those, because a word boundary sits between `-` and `h`. It
+      // flagged `min-h-[380px]` — a floor that content grows past, cutting off
+      // nothing — and it would have flagged `max-h-[400px]`, which is the very
+      // remedy the message below recommends. A rule that fails its own fix
+      // teaches people to delete the rule.
+      for (const m of src.matchAll(/(?<![\w-])h-\[(\d+)px\]/g)) {
         if (Number(m[1]) >= 300) {
           bad.push(`h-[${m[1]}px] — a short screen cannot reach what this cuts off; use max-h-[…vh]`);
         }
@@ -408,6 +694,27 @@ const RULES = [
         }
       }
       return bad;
+    },
+  },
+
+  {
+    id: "token-on-wrong-surface",
+    tier: "baseline",
+    title: "no text token measured under 4.5:1 on its own background",
+    run(src, { consts, skip }) {
+      const bad = [];
+      // Every className in the file, not just the ones on a known tag: the
+      // pairing can sit on any element, and the tag name is irrelevant to it.
+      for (const m of src.matchAll(/className=(?:"([^"]*)"|\{`([\s\S]*?)`\}|\{"([^"]*)"\})/g)) {
+        const raw = m[1] ?? m[2] ?? m[3] ?? "";
+        for (const branch of classBranches(raw, consts)) bad.push(...contrastViolations(branch));
+      }
+      // A className built by a helper or held in a variable is unreadable
+      // here, exactly as it is for the touch-target rule. Counted, not passed.
+      for (const m of src.matchAll(/className=\{([^}"'`]*)\}/g)) {
+        if (/[A-Za-z_$]/.test(m[1])) skip();
+      }
+      return [...new Set(bad)];
     },
   },
 ];
@@ -532,7 +839,7 @@ function iosZoomFix() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 console.log("Mobile surfaces — hazards that are mechanically detectable\n");
-console.log("This proves the ABSENCE of six specific mistakes. It does not prove");
+console.log("This proves the ABSENCE of seven specific mistakes. It does not prove");
 console.log("a layout is usable at 375px. See the header before quoting it.\n");
 
 iosZoomFix();
@@ -581,6 +888,30 @@ for (const file of STRICT_FILES) {
   // A strict entry pointing at a renamed file would silently stop checking it.
   ok(`${file} exists`, existsSync(join(ROOT, file)));
   ok(`${file} is inside a scanned surface`, seen.has(file));
+}
+
+// ── What is NOT scanned, printed every run ────────────────────────────────
+//
+// This is the correction to the mistake in the header. The old scope was
+// described as "the app surfaces" and covered three directories; nothing in
+// the output said otherwise, so nobody could see the difference between "no
+// hazards" and "not looked at". These lines exist so that never happens
+// again — silently narrowing the walk to keep the run green would now have to
+// delete a printed sentence, which is a thing a reviewer can notice.
+const NOT_SCANNED = [
+  ["app/components/** (except mobile/, layout/)", "~148 files — the drawers, uploaders and shared panels a phone screen renders. The job PHOTO surfaces (JobPhotoCurator/Timeline/Comments) are in here and are as phone-critical as anything in the strict list."],
+  ["app/components/jobs/**", "an agent is writing DailyLog* here right now. Adding it mid-write would check a half-file and break somebody else's build."],
+  ["app/components/purchasing/**, app/components/fleet/**", "same — being created as this ran."],
+  ["(not a gap) app/app/purchasing/**, app/app/fleet/**", "listed only to say they need no listing: app/app is walked as a TREE, so a screen added under it is checked the run after it lands. purchasing/page.js appeared while this was being written and was picked up with no edit here."],
+  ["app/quote, app/book, app/portal, app/site, app/embed", "the client-facing surfaces. A homeowner in a driveway on a bad connection is the harder case, and no rule here has ever looked at it."],
+];
+section("NOT scanned — named, because an unstated gap is how the last one happened");
+for (const [where, why] of NOT_SCANNED) console.log(`  · ${where}\n      ${why}`);
+if (unmeasuredBackgrounds.size) {
+  console.log(
+    `  · ${unmeasuredBackgrounds.size} opaque background(s) carrying a theme text token with no hex in this file — ` +
+      `NOT measured: ${[...unmeasuredBackgrounds].sort().join(", ")}`,
+  );
 }
 
 console.log(

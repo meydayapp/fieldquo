@@ -107,13 +107,17 @@ export default function JobsPage() {
       </div>
 
       <div className="flex items-center justify-between flex-wrap gap-3">
+        {/* min-h-[44px] on each chip, not py-2: these are the controls a crew
+            member taps while holding a phone in one hand, and px-3 py-1.5 came
+            out at 32px — under even the 36px floor this repo settled on. The
+            row scrolls, so a taller chip costs nothing horizontally. */}
         <div data-tour="jobs-filters" className="flex gap-2 overflow-x-auto pb-1">
           {["all", "unscheduled", "scheduled", "in_progress", "completed", "cancelled"].map(
             (s) => (
               <button
                 key={s}
                 onClick={() => setFilter(s)}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-sm border ${
+                className={`shrink-0 inline-flex items-center min-h-[44px] rounded-full px-3 py-1.5 text-sm border ${
                   filter === s
                     ? "bg-inverted text-inverted-foreground border-inverted"
                     : "border-border text-muted-foreground"
@@ -133,7 +137,7 @@ export default function JobsPage() {
           <span className="shrink-0 w-px bg-border mx-1 self-stretch" aria-hidden />
           <button
             onClick={() => setShowArchived((v) => !v)}
-            className={`shrink-0 rounded-full px-3 py-1.5 text-sm border ${
+            className={`shrink-0 inline-flex items-center min-h-[44px] rounded-full px-3 py-1.5 text-sm border ${
               showArchived
                 ? "bg-inverted text-inverted-foreground border-inverted"
                 : "border-border text-muted-foreground"
