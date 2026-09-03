@@ -559,10 +559,25 @@ ok("a Stripe failure after that point is recoverable, not a dead end", () => {
   // page that offers to build a SECOND business.
   assert.match(SIGNUP, /code: "checkout_failed"/);
   assert.match(SIGNUP, /recoverable: true/);
-  assert.match(SIGNUP, /cancelUrl: `\$\{baseUrl\}\/app\/settings\/account-billing`/);
+  // ── This assertion was inverted on 2026-09-02, and the reason matters ──
+  //
+  // It used to demand /app/settings/account-billing and FORBID /signup, on the
+  // grounds that /signup would greet a signed-in owner and offer to set up an
+  // ADDITIONAL business. That was true of /signup as it stood.
+  //
+  // It is not true any more. /signup now asks /api/signup/resume first and
+  // recognises exactly this person, landing them on the plan step with their
+  // own company. And lib/signup/setupGate.js bounces a no-subscription company
+  // off every /app route — so the old destination is now a redirect back to
+  // the new one, with a flash of a page they cannot use in between.
+  //
+  // The CONCERN the old assertion encoded is unchanged and still asserted
+  // above: a Stripe failure after the company exists must be recoverable
+  // rather than a dead end. Only the address of the recovery moved.
+  assert.match(SIGNUP, /cancelUrl: `\$\{baseUrl\}\/signup`/);
   assert.ok(
-    !/cancelUrl: `\$\{baseUrl\}\/signup/.test(SIGNUP),
-    "checkout cancel sends the owner back to /signup, which offers a second company",
+    !/cancelUrl: `\$\{baseUrl\}\/app\/settings\/account-billing`/.test(SIGNUP),
+    "cancel sends the owner to a page the setup gate will bounce them off",
   );
 });
 
