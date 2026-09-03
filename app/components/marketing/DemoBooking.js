@@ -158,7 +158,7 @@ export default function DemoBooking({ variant = "primary" }) {
   // Collapsed — the default, and what most visitors see.
   if (!open) {
     return (
-      <div className="mt-6">
+      <div className="flex flex-col items-center">
         <button
           type="button"
           onClick={() => setOpen(true)}

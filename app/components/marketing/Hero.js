@@ -85,7 +85,8 @@ export default function Hero() {
 
             Brand accent, matching the nav's signup button, so the one action
             the page is for looks the same wherever a visitor meets it. */}
-        <div className="mt-9 flex flex-col items-center">
+        <div className="mt-9 flex flex-col sm:flex-row sm:items-start sm:justify-center gap-4 sm:gap-5">
+          <div className="flex flex-col items-center">
           <Link
             href="/signup"
             className="inline-flex items-center justify-center gap-2 min-h-[44px] bg-brand-accent text-brand-accent-foreground px-8 py-4 rounded-full text-base font-semibold hover:brightness-95 transition"
@@ -104,19 +105,21 @@ export default function Hero() {
               they are the same two strings PricingCard prints over the price.
               Joined with a separator rather than composed into a sentence,
               because word order is not ours to assume across nine languages. */}
-          <p className="mt-3 text-sm text-muted-foreground">
-            {t("pricing.firstMonth")} ·{" "}
-            <span className="font-semibold text-foreground">
-              {t("pricing.free")}
-            </span>
-          </p>
-        </div>
+            <p className="mt-3 text-sm text-muted-foreground">
+              {t("pricing.firstMonth")} ·{" "}
+              <span className="font-semibold text-foreground">
+                {t("pricing.free")}
+              </span>
+            </p>
+          </div>
 
-        {/* Book a live demo — a real 30-min slot beats "we'll email you back",
-            which is where most demo requests quietly die. Secondary now that
-            the trial CTA sits above it: two brand-accent buttons stacked is a
-            hero with no primary action at all. */}
-        <DemoBooking variant="secondary" />
+          {/* Book a live demo — a real 30-min slot beats "we'll email you
+              back", which is where most demo requests quietly die. Secondary
+              and BESIDE the trial rather than under it: two brand-accent
+              buttons stacked is a hero with no primary action, but two buttons
+              in a row with one filled and one outlined reads as a choice. */}
+          <DemoBooking variant="secondary" />
+        </div>
       </div>
 
       {/* Tabbed feature preview */}
