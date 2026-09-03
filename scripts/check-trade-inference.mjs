@@ -597,7 +597,13 @@ for (const [label, input] of [
 
 section("10. ANALYZE_CAPABILITIES writes the trade");
 
-function stubDb({ prospect = { id: "p1", tradeKey: null, hasWebsite: null, websiteUrl: "https://x.test" } } = {}) {
+function stubDb({
+  prospect = { id: "p1", tradeKey: null, hasWebsite: null, websiteUrl: "https://x.test" },
+  // The `derived_site` inference row, or null. Null is the normal case and the
+  // one every fixture below wants: these prospects have a websiteUrl, so their
+  // site was published by the source and its identity was never in question.
+  derivedSite = null,
+} = {}) {
   const written = { evidence: [], capabilities: [], inferences: [], deleted: [], tradeUpdates: [] };
   let nextId = 0;
   const tx = {
@@ -634,6 +640,13 @@ function stubDb({ prospect = { id: "p1", tradeKey: null, hasWebsite: null, websi
     prospectTechnology: { findMany: async () => [] },
     prospectCapability: { findMany: async () => [] },
     prospectEvidence: { findMany: async () => [] },
+    // ANALYZE_CAPABILITIES asks whether this prospect's website was DERIVED
+    // rather than published — Quebec's RBQ register carries no website column,
+    // so lib/sales/discovery/rbq/derivedSite.js guesses one and the trade may
+    // only be established from a guessed site the site itself corroborates.
+    // The default is null, which is every prospect whose source published a
+    // website; a fixture that wants the derived path says so.
+    prospectInference: { findUnique: async () => derivedSite },
     $transaction: async (fn) => fn(tx),
   };
 }

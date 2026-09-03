@@ -48,6 +48,11 @@ import {
   startLicence,
 } from "../lib/sales/discovery/rbq/licence.js";
 import { RBQ_PROVIDER_KEY, RBQ_SNAPSHOT_FORMAT } from "../lib/sales/discovery/rbq/snapshot.js";
+import {
+  countEmailDomains,
+  deriveCandidateSite,
+  derivedSiteEvidence,
+} from "../lib/sales/discovery/rbq/derivedSite.js";
 
 const args = new Map();
 for (let i = 2; i < process.argv.length; i += 2) {
@@ -130,6 +135,24 @@ async function main() {
   let badWidth = 0;
   let filteredOut = 0;
 
+  // ── Every licence in the file, for the used-once rule ONLY ──────────────
+  //
+  // One `{ licence, email }` per licence number, populated BEFORE the region
+  // and municipality filters and BEFORE --limit, because the used-once rule is
+  // a claim about the whole register and counting it after a filter inverts
+  // its meaning. A domain shared by one Montreal licence and one Laval licence
+  // is used TWICE; inside a `--region Montréal` snapshot it would look used
+  // ONCE, and the filter an operator reaches for first would be the one that
+  // manufactured a derivable domain out of a shared one.
+  //
+  // Two fields per licence and deduped by number, so this costs a few
+  // megabytes against the 341 MB being streamed past it.
+  const allForCounting = new Map();
+  const noteForCounting = (id, email) => {
+    if (!id || allForCounting.has(id)) return;
+    allForCounting.set(id, { licence: id, email });
+  };
+
   for await (const line of rl) {
     if (!line) continue;
     if (!header) {
@@ -155,6 +178,9 @@ async function main() {
     const row = {};
     for (let i = 0; i < header.length; i++) row[header[i]] = fields[i];
 
+    // Before the filters. See `allForCounting` above — this is the whole point.
+    noteForCounting(row[RBQ_COLUMNS.licence], row[RBQ_COLUMNS.email]);
+
     if (REGION && fold(row[RBQ_COLUMNS.region]) !== fold(REGION)) {
       filteredOut++;
       continue;
@@ -172,6 +198,29 @@ async function main() {
   }
 
   const licences = [...byLicence.values()];
+
+  // ── Stamp the derived-site hypothesis ───────────────────────────────────
+  //
+  // A DOMAIN, not a URL and not a website. It rides on the snapshot record and
+  // licence.js turns it into `derivedWebsite`, which ingest writes as a
+  // ProspectInference. It must never reach `websites` — see derivedSite.js's
+  // header for the two ways this could quietly become a fact and why neither
+  // is allowed to.
+  const domainCounts = countEmailDomains([...allForCounting.values()]);
+  let derived = 0;
+  for (const licence of licences) {
+    const candidate = deriveCandidateSite(licence, domainCounts);
+    if (!candidate) continue;
+    licence.candidateDomain = candidate.domain;
+    licence.candidateEmail = candidate.email;
+    licence.candidateBasis = candidate.basis;
+    // Composed HERE, not in licence.js: derivedSite.js imports parseRbqEmails
+    // from licence.js, so licence.js calling back into it would be a cycle.
+    // This script is the one place that already imports both.
+    licence.candidateStatement = derivedSiteEvidence(candidate);
+    derived++;
+  }
+
   const manifest = {
     fieldquoSnapshot: RBQ_SNAPSHOT_FORMAT,
     provider: RBQ_PROVIDER_KEY,
@@ -202,6 +251,17 @@ async function main() {
   console.log(`  phone   ${withPhone} (${pct(withPhone)})`);
   console.log(`  email   ${withEmail} (${pct(withEmail)})`);
   console.log(`  address ${withAddress} (${pct(withAddress)})`);
+  // Named "candidate site", never "website": what this counts is how many
+  // licences we are prepared to GUESS a domain for, and the operator reading
+  // this line must not go away believing the register published them.
+  console.log(
+    `  candidate site ${derived} (${pct(derived)}) — derived from the licence email, a guess until the site agrees`,
+  );
+  if (filteredOut || LIMIT !== null) {
+    console.log(
+      `  (the used-once rule was counted over all ${allForCounting.size} licences read, not over the ${licences.length} kept)`,
+    );
+  }
   console.log(`\nWrote ${OUT}. Host it somewhere the deployment can GET, and put that URL on the campaign.`);
 }
 

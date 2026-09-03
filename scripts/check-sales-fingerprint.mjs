@@ -900,7 +900,20 @@ ok("ANALYZE_CAPABILITIES spends nothing either — it calls no model", PROVIDER_
    end to end without Postgres. Fails loudly on anything unexpected rather than
    returning undefined, because a stub that silently answers everything makes a
    broken handler pass. */
-function stubDb({ signatures = SEEDED, evidence = [], prospect = { id: "p1" }, capabilities = [], technologies = [] } = {}) {
+function stubDb({
+  signatures = SEEDED,
+  evidence = [],
+  prospect = { id: "p1" },
+  capabilities = [],
+  technologies = [],
+  // The `derived_site` inference ANALYZE_CAPABILITIES reads before it may
+  // establish a trade. Null is the normal case — a prospect whose source
+  // PUBLISHED a website, which is every fixture in this file. It is non-null
+  // only for Quebec's RBQ register, which lists no website at all and has one
+  // guessed from the licence email (lib/sales/discovery/rbq/derivedSite.js);
+  // a guessed site may not set a trade until it corroborates itself.
+  derivedSite = null,
+} = {}) {
   const written = { evidence: [], technologies: [], capabilities: [], deleted: [] };
   let nextId = 0;
   const tx = {
@@ -930,9 +943,19 @@ function stubDb({ signatures = SEEDED, evidence = [], prospect = { id: "p1" }, c
         return create;
       },
     },
+    prospectInference: {
+      upsert: async ({ create }) => {
+        written.capabilities.push(create);
+        return create;
+      },
+    },
+    prospect: {
+      updateMany: async () => ({ count: 0 }),
+    },
   };
   return {
     written,
+    prospectInference: { findUnique: async () => derivedSite },
     technologySignature: { findMany: async () => signatures.filter((s) => s.active !== false) },
     prospectEvidence: { findMany: async () => evidence },
     prospect: { findUnique: async () => prospect },

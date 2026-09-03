@@ -83,7 +83,7 @@ import {
   manifestProblems,
   readSnapshot,
 } from "@/lib/sales/discovery/rbq/snapshot";
-import { NO_TRADE_REFUSAL, __clearRbqSnapshotCache, parseCursor, rbqProvider } from "@/lib/sales/discovery/rbq/provider";
+import { RBQ_YIELD_NOTE, __clearRbqSnapshotCache, parseCursor, rbqProvider } from "@/lib/sales/discovery/rbq/provider";
 import { claimCandidateWhere } from "@/lib/sales/prospectView";
 import { getDiscoveryProvider } from "@/lib/sales/discovery/providers";
 import { shapeProblems } from "@/lib/sales/discovery/provider";
@@ -543,18 +543,51 @@ section("The provider is registered, and refuses honestly");
   const badScheme = rbqProvider.describeConfig({ snapshotUrl: "s3://bucket/f.ndjson" });
   ok("s3:// is refused, because the snapshot is fetched over HTTP", !badScheme.ok);
 
+  // ── The flip, 2026-09-03 ──────────────────────────────────────────────
+  //
+  // This assertion used to read "a perfectly good snapshot URL is STILL
+  // refused". It was true for as long as an RBQ campaign could only produce a
+  // dead end — no website column, so no crawl, so no trade, so nothing that
+  // could ever reach a rep. lib/sales/discovery/rbq/derivedSite.js closed
+  // that, and scripts/check-rbq-derived-site.mjs is where the closing is
+  // proved. The URL branches above still run, which is exactly why the
+  // refusal was written LAST: lifting it leaves a config validator that has
+  // been exercised all along rather than one nothing ever reached.
   const good = rbqProvider.describeConfig({ snapshotUrl: "https://x.test/f.ndjson" });
-  ok("a perfectly good snapshot URL is STILL refused, on the trade question",
-    !good.ok && good.problems.length === 1 && good.problems[0] === NO_TRADE_REFUSAL,
-    JSON.stringify(good.problems.length));
-  ok("...and the refusal says why, in numbers", NO_TRADE_REFUSAL.includes("81%") && NO_TRADE_REFUSAL.includes("77%"));
-  ok("...and the summary still describes the snapshot, so the field was validated",
+  ok("a good snapshot URL is now ACCEPTED — the source can run",
+    good.ok === true && good.problems.length === 0,
+    JSON.stringify(good.problems));
+  ok("...and the summary describes the snapshot, so the field was validated",
     good.summary === "x.test/f.ndjson", good.summary);
+  ok("...and the source no longer reports itself unavailable",
+    rbqProvider.unavailableReason() === null,
+    String(rbqProvider.unavailableReason()).slice(0, 60));
+
+  // The yield is not silence. 2% of the register becomes callable and the
+  // superadmin ticking the box has to be told that BEFORE they tick it, or the
+  // form has quietly promised 54,264 contractors and will deliver 1,100.
+  ok("the yield note is rendered on the description the campaign form shows",
+    rbqProvider.description.includes(RBQ_YIELD_NOTE),
+    "a number defined and never rendered is the first failure class");
+  ok("...and it says why a trade is not read off an authorisation, in numbers",
+    RBQ_YIELD_NOTE.includes("81%") && RBQ_YIELD_NOTE.includes("77%"));
+  ok("...and it says how many licences actually become callable",
+    /1,100/.test(RBQ_YIELD_NOTE) && /54,264/.test(RBQ_YIELD_NOTE),
+    "the honest half is the denominator");
+  ok("...and it names the corroboration, so nobody reads the domain as published",
+    /DERIVED/.test(RBQ_YIELD_NOTE) && /phone or\s+address/.test(RBQ_YIELD_NOTE.replace(/\s+/g, " ")));
 
   const body = functionBody(read("lib/sales/discovery/rbq/provider.js"), "describeConfig(config = {})");
-  ok("the trade refusal is the LAST branch of describeConfig",
-    body.lastIndexOf("NO_TRADE_REFUSAL") > body.indexOf("protocol"),
-    "a refusal placed first would leave the URL validation never exercised");
+  ok("the URL branches still run BEFORE the acceptance",
+    body.indexOf("protocol") !== -1 && body.indexOf("protocol") < body.lastIndexOf("ok: true"),
+    "an acceptance placed first would leave the URL validation never exercised");
+  // "describeConfig accepts exactly once" belongs here and is NOT here, on
+  // purpose. This file reads source RAW, and the comment beside the acceptance
+  // in provider.js contains the literal `ok: true` — so a count over the raw
+  // text counted two and failed on prose. That is the exact false-pass class
+  // this repo has been bitten by, arriving as a false FAIL for once. The
+  // assertion lives in scripts/check-rbq-derived-site.mjs, which strips
+  // comments before matching.
 
   ok("parseCursor defends against garbage",
     parseCursor(null) === 0 && parseCursor("-4") === 0 && parseCursor("abc") === 0 && parseCursor("12") === 12);
@@ -746,6 +779,96 @@ section("CASL: a register is not consent");
     "an import here puts the Postgres driver in the rep queue's browser bundle");
   ok("...and prospectView takes it from there, not from suppressionRules",
     read("lib/sales/prospectView.js").includes('from "@/lib/sales/contactBasis"'));
+
+  // ── The property, not the path ────────────────────────────────────────
+  //
+  // The two assertions above were written when the CASL rule tripped this
+  // chain, and they check the ONE module that tripped it. They did not stop it
+  // happening again: hours later `DERIVED_SITE_INFERENCE_KIND` was defined in
+  // lib/sales/discovery/normalise.js — a topical home for it — and prospectView
+  // importing one bare string from there reached suppressionRules ->
+  // lib/voice/numbers -> lib/db -> pg, and `npm run build` failed on the rep's
+  // queue page for the second time in a day.
+  //
+  // A check written to stop something, that did not stop it, is the more
+  // important half of that bug. So this walks the WHOLE transitive graph
+  // rather than naming a module: whatever anybody imports next, from wherever
+  // they put it, the build cannot be broken this way without failing here
+  // first — and failing with the chain printed, which is the thing that takes
+  // twenty minutes to work out by hand.
+  const CLIENT_ROOTS = ["lib/sales/prospectView.js"];
+  const FORBIDDEN = ["@/lib/db", "lib/db"];
+
+  const resolveSpecifier = (spec, fromFile) => {
+    let rel;
+    if (spec.startsWith("@/")) rel = spec.slice(2);
+    else if (spec.startsWith(".")) {
+      const dir = path.dirname(fromFile);
+      rel = path.normalize(path.join(dir, spec));
+    } else return null; // a package, not ours
+    for (const suffix of ["", ".js", ".mjs", "/index.js"]) {
+      const candidate = `${rel}${suffix}`;
+      if (fs.existsSync(path.join(ROOT, candidate)) && fs.statSync(path.join(ROOT, candidate)).isFile()) {
+        return candidate;
+      }
+    }
+    return null;
+  };
+
+  const importsOf = (file) => {
+    const src = read(file);
+    const out = [];
+    // `import ... from "x"`, `export ... from "x"` and bare `import "x"`. The
+    // re-export form matters: normalise.js re-exports the kind string, and a
+    // scanner blind to `export … from` would call this graph clean.
+    for (const m of src.matchAll(/(?:^|\n)\s*(?:import|export)[^;\n]*?from\s+["']([^"']+)["']/g)) out.push(m[1]);
+    for (const m of src.matchAll(/(?:^|\n)\s*import\s+["']([^"']+)["']/g)) out.push(m[1]);
+    return out;
+  };
+
+  for (const root of CLIENT_ROOTS) {
+    const seen = new Set([root]);
+    const queue = [[root, [root]]];
+    let offending = null;
+    while (queue.length && !offending) {
+      const [file, trail] = queue.shift();
+      for (const spec of importsOf(file)) {
+        if (FORBIDDEN.includes(spec)) {
+          offending = [...trail, spec];
+          break;
+        }
+        const next = resolveSpecifier(spec, file);
+        if (!next || seen.has(next)) continue;
+        seen.add(next);
+        queue.push([next, [...trail, next]]);
+      }
+    }
+    ok(`${root} never reaches lib/db, at any import depth`,
+      offending === null,
+      offending ? offending.join("  ->  ") : `${seen.size} modules walked`);
+  }
+
+  // The walker itself, proved on a graph that IS dirty. Without this the loop
+  // above passes for ever the day `resolveSpecifier` stops resolving anything
+  // — which is the vacuous-pass class this repo keeps being bitten by.
+  {
+    const probe = "lib/sales/discovery/ingest.js"; // imports @/lib/db directly
+    ok("...and the walker actually detects a module that DOES import lib/db",
+      importsOf(probe).includes("@/lib/db"),
+      "if this fails the walk above proves nothing");
+    ok("...and resolves an @/ specifier to a real file",
+      resolveSpecifier("@/lib/sales/inferenceKinds", "lib/sales/prospectView.js") ===
+        "lib/sales/inferenceKinds.js");
+    ok("...and resolves a relative one",
+      resolveSpecifier("./normalise", "lib/sales/discovery/ingest.js") ===
+        "lib/sales/discovery/normalise.js");
+    ok("...and follows `export … from`, which is how a re-export hides a chain",
+      importsOf("lib/sales/discovery/normalise.js").includes("@/lib/sales/inferenceKinds"));
+  }
+
+  ok("the shared inference kind lives in a module with no imports at all",
+    !/^\s*import\s/m.test(read("lib/sales/inferenceKinds.js")),
+    "the same property contactBasis.js holds, for the same reason");
 
   const licenceSrc = read("lib/sales/discovery/rbq/licence.js");
   ok("the provider still ingests the Courriel column",

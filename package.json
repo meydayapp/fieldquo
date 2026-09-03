@@ -323,6 +323,7 @@
     "@prisma/client": "^7.8.0",
     "@react-google-maps/api": "^2.20.8",
     "@react-pdf/renderer": "^4.5.1",
+    "@twilio/voice-sdk": "^2.18.4",
     "bcryptjs": "^3.0.3",
     "better-auth": "^1.6.23",
     "class-variance-authority": "^0.7.1",

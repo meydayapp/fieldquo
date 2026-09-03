@@ -215,9 +215,19 @@ section("A source that cannot run says so, and says the SAME thing twice");
     /CDLA-Permissive/.test(shipped.find((p) => p.key === "overture")?.licence?.name || "") &&
       /No attribution is required/i.test(shipped.find((p) => p.key === "overture")?.licence?.obligation || ""));
 
-  ok("RBQ reports itself unavailable, so its checkbox can be disabled before any config exists",
-    Boolean(shipped.find((p) => p.key === "rbq")?.unavailable));
-  ok("...and Overture does not", shipped.find((p) => p.key === "overture")?.unavailable === null);
+  // Both shipped sources can run as of 2026-09-03. The RBQ reported itself
+  // unavailable until lib/sales/discovery/rbq/derivedSite.js gave the crawler
+  // a domain to fetch; scripts/check-rbq-derived-site.mjs is where that is
+  // proved, and this file's job is the INVARIANT below rather than the verdict.
+  ok("neither shipped source reports itself unavailable",
+    shipped.every((p) => p.unavailable === null),
+    shipped.filter((p) => p.unavailable).map((p) => p.key).join(", "));
+  // The hook survives with nobody using it, deliberately: it is the only way
+  // to grey a checkbox out before there is any config to judge, and the next
+  // source that genuinely cannot run needs somewhere to say so. Asserted so
+  // that "unused" cannot quietly become "deleted".
+  ok("...but the hook is still THERE, for the next source that cannot",
+    typeof getDiscoveryProvider("rbq")?.unavailableReason === "function");
 
   // The invariant that keeps the two statements from drifting: a source that
   // reports itself unavailable must ALSO refuse a perfect config. If somebody
@@ -385,11 +395,22 @@ section("A source that cannot run stops the campaign starting");
     },
   };
   const problems = startProblems(bothTicked, { getProvider });
-  ok("a campaign with the RBQ ticked cannot start, even with a perfect snapshot URL", problems.length > 0);
+  // This read "a campaign with the RBQ ticked cannot start" until 2026-09-03.
+  // It can now, and the branch that used to make it impossible has to be
+  // exercised on something real or the whole section passes vacuously — so the
+  // RBQ's own snapshot URL is removed below and the refusal is asserted there.
+  ok("a campaign with both sources properly configured can start", problems.length === 0,
+    problems.join(" | ").slice(0, 120));
+
+  const rbqUnconfigured = startProblems(
+    { discoverySources: ["overture", "rbq"], sourceConfigs: { overture: { snapshotUrl: "https://a.test/f.ndjson" } } },
+    { getProvider },
+  );
+  ok("an RBQ with no snapshot URL still stops the campaign", rbqUnconfigured.length > 0);
   ok("...and the reason names the SOURCE, not just 'a source'",
-    problems.some((p) => p.startsWith("RBQ")), problems[0]?.slice(0, 60));
-  ok("...and it is the register's own refusal, not a made-up sentence",
-    problems.some((p) => /no website column/.test(p)));
+    rbqUnconfigured.some((p) => p.startsWith("RBQ")), rbqUnconfigured[0]?.slice(0, 60));
+  ok("...and it is the provider's own sentence, not a made-up one",
+    rbqUnconfigured.some((p) => /snapshot URL/.test(p)));
 
   ok("the same campaign WITHOUT the RBQ can start",
     startProblems({ discoverySources: ["overture"], sourceConfigs: bothTicked.sourceConfigs }, { getProvider }).length === 0);
@@ -436,8 +457,20 @@ section("A source that cannot run stops the campaign starting");
     described.map((s) => s.key).join() === "overture,rbq");
   ok("...each with its own licence, so a checkbox can render its own terms",
     described.every((s) => s.licence?.name));
-  ok("...and the unrunnable one is marked, with a reason to render beside it",
-    described[1].unavailable && described[1].configOk === false && described[0].configOk === true);
+  // This read "...and the unrunnable one is marked" until 2026-09-03, and the
+  // unrunnable one was the RBQ. It is runnable now — a domain derived from the
+  // licence email gives the crawler a page, and tradeDetect.js can establish a
+  // trade from it — so the assertion is updated DELIBERATELY rather than left
+  // to fall green as a side effect of the flip.
+  //
+  // The marking MECHANISM is what mattered here and it is still proved, on the
+  // `two_faced` stub twenty lines above: a source reporting itself unavailable
+  // is forced to configOk:false despite its own ok:true. That stub exists
+  // precisely so the property does not depend on a shipped source happening to
+  // be broken — which was always the fragile part of testing it this way.
+  ok("...and both shipped sources are runnable, so neither is marked",
+    described.every((s) => s.unavailable === null && s.configOk === true),
+    described.map((s) => `${s.key}: unavailable=${s.unavailable} ok=${s.configOk}`).join(" | "));
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
