@@ -61,18 +61,48 @@ async function accountStanding(companyId) {
   }
 }
 
+/**
+ * How many feed notifications this member has not read.
+ *
+ * Served from HERE for the same reason account standing is, and the header
+ * above is the precedent this follows verbatim: the app shell already calls
+ * /api/ui-state on every load, and a second endpoint would be a second round
+ * trip on every page. The bell seeds itself from this and only then starts its
+ * own poll (see NotificationBell.js), so a page load costs no extra request.
+ *
+ * Keyed to the MEMBER, not the user whose uiState the rest of this route
+ * serves. That difference is the point: uiState is user-global — a person in
+ * two companies shares one — and read state must not cross a tenant boundary.
+ * A support session (member.id null) has no rows of its own and gets 0.
+ *
+ * Never throws: the bell is chrome, and a count failing must not take out the
+ * tours it shares an endpoint with.
+ */
+async function unreadNotifications(member) {
+  try {
+    if (!member?.id || !member?.companyId) return 0;
+    return await db.notificationDelivery.count({
+      where: { companyId: member.companyId, memberId: member.id, readAt: null },
+    });
+  } catch (err) {
+    console.error("[ui-state] couldn't count notifications:", err);
+    return 0;
+  }
+}
+
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
   if (!member.userId)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const [user, account] = await Promise.all([
+  const [user, account, unreadCount] = await Promise.all([
     db.user.findUnique({
       where: { id: member.userId },
       select: { uiState: true },
     }),
     accountStanding(member.companyId),
+    unreadNotifications(member),
   ]);
 
   const seenTours = Array.isArray(user?.uiState?.seenTours)
@@ -81,7 +111,12 @@ export async function GET(request) {
   const dismissedNotices = Array.isArray(user?.uiState?.dismissedNotices)
     ? user.uiState.dismissedNotices
     : [];
-  return NextResponse.json({ seenTours, dismissedNotices, account });
+  return NextResponse.json({
+    seenTours,
+    dismissedNotices,
+    account,
+    notifications: { unread: unreadCount },
+  });
 }
 
 // Mark one tour as seen, or dismiss one notice. Idempotent in both directions,

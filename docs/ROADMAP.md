@@ -6743,3 +6743,104 @@ happily.
 the refusal, which is the part that matters, but not a closed tab); and the
 invoice/job screens, which are server-guarded but do not yet send a version, so
 they behave exactly as before.
+
+---
+
+## The notification feed — tier 1, in-app only (2 September 2026)
+
+Built to `docs/construction/AUDIT-notifications.md` §8 and §9. That document is
+still the design; this records what shipped and where it diverged.
+
+**The reason it exists** is one event. A refund or a chargeback went through
+`lib/stripe/settleChargeEvent.js` and told **nobody** — no email, no SMS, no
+`recordActivity`, no `recordError`. Money left a contractor's account, a Stripe
+evidence clock started, and the first they knew was whenever they next opened
+the Stripe dashboard. That one event justifies the build; the other five are
+what make people look at the feed often enough to see it.
+
+**Six events, and their audiences.** Declared once, in
+`lib/notifications/catalog.js`, and read by one resolver
+(`lib/notifications/recipients.js`) — not a sixth copy of the
+`role: { in: ["owner","admin"] }` query the audit found in five places:
+
+| Event | Emitted at | Audience |
+|---|---|---|
+| `payment.disputed` — chargeback or refund | `lib/stripe/settleChargeEvent.js`, one added call | `payments` toggle → owner + admin |
+| `quote.accepted` | `app/api/public/quotes/[token]/route.js` | `quotes: view_only` + showPricing → owner, admin, **estimator** |
+| `invoice.paid` | `lib/invoices/recordStripePayment.js` | `invoices: view_only` + showPricing → owner, admin, estimator |
+| `lead.created` — new enquiry, **all six inbound sources** | `lib/leads/createLead.js`, ONE hook | `requests: view_only` → owner, admin, manager, dispatcher, estimator |
+| `leave.requested` — calling in sick | `app/api/leave/route.js` | `user:manage` → owner, admin, supervisors |
+| `quote.needsReview` — estimate awaiting sign-off | `lib/estimate/createEstimateQuote.js`, the ONE place `Quote.needsReview` is set | `quote:approve-estimate` → owner, admin, supervisors |
+
+**Fails closed, unlike `hasLevel`.** `hasLevel()` returns true three separate
+ways — unknown category, no permissions object, category absent from the grid —
+which is right for gating a route and wrong as the sole test for what goes in a
+feed (`app/api/settings/notification-rules/route.js:35-44` already refuses to
+route through it for that reason). `satisfiesAudience` re-derives the same
+ladder with every fall-through inverted, and refuses any audience whose
+category, level, capability or toggle it cannot find in the real vocabulary.
+The check script runs the two side by side so the difference is demonstrated,
+not asserted.
+
+**Money is never in a stored string.** `NotificationEvent` has no `title`,
+`body` or `summary` column at all — it stores a `type` and a catalog-declared
+allowlist of `params`, and the sentence is assembled at READ time from the
+reader's own message catalogue. The figure lives in its own `amount` column,
+withheld at fan-out (a `money: true` type never reaches a `showPricing:false`
+member — not "redacted for", not delivered to) and again at render, because a
+grid can be edited after a delivery row exists. This is a deliberate divergence
+from the audit's sketched `title` string: a stored sentence cannot be read in
+French, and a figure inside one is *delivered* to whoever can read the row.
+
+**Read state lives on `NotificationDelivery.memberId`**, never `User.uiState` —
+which is user-global and would carry one company's read state into another for
+anybody with two memberships. `@@unique([eventId, memberId])` makes fan-out
+idempotent, so a retried Stripe webhook cannot deliver twice.
+
+**Delivery is in-app only.** No push: there is no service worker, no
+`web-push`, no VAPID, and iOS Safari can only subscribe from a Home Screen
+install this product never prompts for — so push cannot reach an iPhone user at
+all today. No channel toggle is offered, because a switch that cannot deliver is
+the dead control AGENTS.md's first rule is about. **And the feed sends no email
+of its own**: the four existing "email the owners and admins" blocks are
+untouched and still send from exactly where they always did, so nothing can
+double-notify. Audit §8.4 proposes folding those behind `notifyEvent` and calls
+it the biggest risk in the feature; this sidesteps it rather than taking it on.
+
+**The bell** is in `AdminSidebar`'s mobile top bar and its desktop rail, so it
+is on every `/app` screen. The unread count rides the existing `/api/ui-state`
+call on load (that route's own header sets the precedent), then a **gated**
+60-second poll of a count-only endpoint that stops entirely while the tab is
+hidden. `JenniferPanel`'s shape, at a twelfth of its rate.
+
+**`NotificationRule.channel` is removed.** It was written by POST and PATCH and
+read by nothing — failure class #1 in the table the feed extends. Every row in
+production held the `"email"` default, so nothing anybody stated was lost. Not
+wired, because honouring `channel: "sms"` would mean silence for any company
+without a connected `CrewInboxNumber`, and because a channel preference is a
+per-person question this company-level table cannot express.
+
+**Supervisors: an open product question, answered conservatively.** The owner
+said "managers, admins, owners" and named managers first, so supervisors get all
+three operational events. Whether they get the MONEY events is audit §11.1 and
+nobody has decided; `supervisors: false` on the three money types is the
+reversible direction, and flipping it is one line per type in the catalog.
+**This wants a decision.**
+
+**Verified:** `npx prisma validate` clean; both tables confirmed reachable in
+the live database with a throwaway script (Decimal round-trip, Json params, the
+composite unique refusing a second delivery, the `["in_app"]` default, a scoped
+`updateMany`) that was then deleted. `npx next build` exit 0.
+`scripts/check-notifications.mjs` (`npm run check:notifications`, wired into
+`check:all`) — **183 assertions, exit 0**, executing the real catalog, resolver,
+`notifyEvent` and both route handlers against a scripted database and a cast
+built from the shipped permission presets. **15 mutants applied, all 15
+caught**; one of them (dropping `skipDuplicates`) was initially caught only by a
+structural assertion, so the idempotency test was rewritten to replay the
+arguments the product actually used rather than arguments written in the test.
+
+**Not built, deliberately:** push, SMS, digests, a per-user preferences UI, the
+"a document was changed by someone else" event (audit tier 3 — the single
+feature most likely to ruin the feed), grouping, and every tier-2 event. Task
+completion is explicitly excluded: a ticked checkbox is not news, and a feed
+that fires on everything hides the chargeback.

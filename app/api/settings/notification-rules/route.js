@@ -68,7 +68,7 @@ export async function POST(request) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const { type, threshold, channel, active } = body;
+  const { type, threshold, active } = body;
 
   const meta = RULE_TYPES[type];
   if (!meta) {
@@ -94,7 +94,6 @@ export async function POST(request) {
   const data = {
     type,
     threshold: meta.needsThreshold ? Number(threshold) : null,
-    channel: channel || "email",
     active: active !== false,
   };
 
@@ -118,9 +117,7 @@ export async function PATCH(request) {
     return NextResponse.json(body, { status });
   }
 
-  const { id, threshold, active, channel } = await request
-    .json()
-    .catch(() => ({}));
+  const { id, threshold, active } = await request.json().catch(() => ({}));
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
   const existing = await db.notificationRule.findFirst({
@@ -136,7 +133,6 @@ export async function PATCH(request) {
         threshold: threshold === null ? null : Number(threshold),
       }),
       ...(active !== undefined && { active: Boolean(active) }),
-      ...(channel !== undefined && { channel }),
     },
   });
 

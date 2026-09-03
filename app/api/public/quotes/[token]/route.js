@@ -15,6 +15,7 @@ import { getAppOrigin } from "@/lib/appUrl";
 import { formatMoney } from "@/lib/currency";
 import { attachServiceSettings } from "@/lib/documents/loadServiceSettings";
 import { onQuoteAccepted, onQuoteDeclined } from "@/lib/quotes/quoteLifecycle";
+import { notifyEvent } from "@/lib/notifications/notify";
 import { recordActivity } from "@/lib/activity/log";
 import { buildSignatureRecord } from "@/lib/documents/signatureAudit";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
@@ -526,6 +527,39 @@ export async function POST(request, { params }) {
           },
         },
       );
+
+      // ── The feed entry, ALONGSIDE the email above — never instead of it ──
+      //
+      // dispatchDecisionEmails already emailed owner+admin with the signed PDF
+      // attached, and that is unchanged: this sends no mail of its own (see
+      // the note at the foot of lib/notifications/catalog.js on why v1 adds no
+      // channel), so an acceptance still produces exactly one email.
+      //
+      // What the feed adds is a copy that does not need a mail client open in
+      // a driveway, and — because the audience comes from the catalog rather
+      // than from another `role: { in: ["owner","admin"] }` query — one that
+      // can reach an estimator the email never did.
+      //
+      // Not awaited, inside the same best-effort block as the activity row:
+      // the client's approval is already committed, and nothing here may make
+      // it look like it failed.
+      notifyEvent({
+        companyId: updated.companyId,
+        type: "quote.accepted",
+        entityId: updated.id,
+        params: {
+          quoteNumber: updated.quoteNumber || "",
+          clientName: quote.client?.name || "",
+        },
+        // Structural, and withheld from anyone without showPricing at BOTH
+        // fan-out and render. The composed string carries no figure at all —
+        // that is the whole reason params and amount are separate columns.
+        amount: priced.total ?? null,
+        // The homeowner approved it. There is no member, and null is a real
+        // answer rather than a gap.
+        actorUserId: null,
+        actorName: "Client (approval link)",
+      }).catch(() => {});
     } catch (err) {
       console.error("[public quote] job/invoice/activity failed:", err);
     }

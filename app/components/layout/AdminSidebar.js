@@ -58,6 +58,7 @@ import {
 } from "@/lib/permissions/nav";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import FeatureRowBadge from "@/app/components/layout/FeatureRowBadge";
+import NotificationBell from "@/app/components/layout/NotificationBell";
 
 // Grouped, not flat.
 //
@@ -438,7 +439,19 @@ export default function AdminSidebar() {
     return (
       <div className="flex flex-col h-full">
         {/* Logo -> Dashboard/Home */}
-        <div className="px-5 py-5 border-b border-sidebar-border flex items-center justify-between">
+        {/* Stacks when the rail is collapsed. The rail is w-[76px] there, and a
+            26px logo beside a 44px bell inside px-5 comes to 124px — the bell
+            would hang off the edge or squash the logo. Dropping the bell
+            instead was the other option and it is worse: a collapsed rail is
+            the state somebody leaves the app in all day, and an unread count
+            you cannot see is the whole feature switched off by a layout. */}
+        <div
+          className={`py-5 border-b border-sidebar-border flex ${
+            showLabel
+              ? "px-5 flex-row items-center justify-between"
+              : "px-2 flex-col items-center gap-2"
+          }`}
+        >
           {/* onDark composes the icon with live text rather than the flat
               artwork — the wordmark's navy would disappear against navy
               chrome. Collapsed shows the icon alone. */}
@@ -447,6 +460,13 @@ export default function AdminSidebar() {
           ) : (
             <Logo variant="icon" href="/app" height={26} priority />
           )}
+          {/* Desktop only. Below `lg` this rail is a drawer you have to open,
+              and the bell lives in the sticky top bar instead — see the mount
+              down there. Rendering both would put two bells on one phone
+              screen the moment the drawer opened. */}
+          <div className="hidden lg:block">
+            <NotificationBell />
+          </div>
           <button
             type="button"
             onClick={() => setMobileOpen(false)}
@@ -771,6 +791,16 @@ export default function AdminSidebar() {
           <Menu size={20} />
         </button>
         <Logo variant="horizontal" href="/app" height={22} onDark priority />
+        {/* Pushed to the right edge, and NOT inside the drawer: a bell you have
+            to open a menu to see is a bell that never gets looked at. This bar
+            renders on every /app screen below `lg` (AdminSidebar is mounted by
+            the layout, and app/components/mobile/AppBar.js — which the audit
+            expected to replace it on detail screens — has no callers anywhere
+            in the codebase), so the count is visible from a quote, a job and an
+            invoice as well as from a list. */}
+        <div className="ml-auto">
+          <NotificationBell />
+        </div>
       </div>
 
       {/* Desktop sidebar */}

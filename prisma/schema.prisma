@@ -972,6 +972,38 @@ model Company {
   trialEndsAt            DateTime?
   shareAnonymizedPricing Boolean          @default(false)
 
+  /// ── The abandoned-signup recovery nudge ──────────────────────────────────
+  ///
+  /// app/api/companies/route.js creates this row at ~line 271 and only reaches
+  /// Stripe Checkout at ~line 493, so an abandoned checkout leaves a fully
+  /// working tenant with no Subscription. Ten such companies exist. These two
+  /// columns are what lets FieldQuo send exactly ONE "we noticed you didn't
+  /// finish" email per person — see lib/signup/abandoned.js.
+  ///
+  /// signupNudgeSentAt means "a recovery email covering THIS ADDRESS has gone
+  /// out", not "an email was addressed to this row". Four of the five "sunset"
+  /// companies share one inbox; stamping only the row that was mailed would
+  /// have sent that person the same letter four days running. Every sibling
+  /// company at the address is stamped in the same updateMany as the send.
+  signupNudgeSentAt DateTime?
+
+  /// The unsubscribe token carried by that one email. Stored random rather
+  /// than derived from the address with a secret — the reasoning
+  /// lib/marketing/unsubscribe.js already wrote down: a leaked secret must
+  /// unsubscribe one row, not every recipient at once. Null until the email is
+  /// actually built, so a token existing is evidence a letter was composed.
+  ///
+  /// NOT @unique, and the omission is deliberate rather than an oversight:
+  /// adding a unique constraint is the one change `prisma db push` refuses
+  /// without --accept-data-loss, and this column shipped while two other
+  /// agents held this file — running that flag against the live database to
+  /// constrain a column that is entirely NULL is not a trade worth making.
+  /// The token is 32 CSPRNG bytes and every write is freshly generated, so
+  /// the lookup uses findFirst and a collision is not a state this can reach.
+  /// Add @unique the next time this model is migrated deliberately.
+  signupNudgeOptOutToken String?
+  @@index([signupNudgeOptOutToken])
+
   // Boilerplate "what happens next" copied onto every new quote — timelines,
   // site access, payment schedule, warranty, who to call. Written once in
   // Settings, then editable per quote. Seeding it rather than rendering it

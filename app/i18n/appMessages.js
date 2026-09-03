@@ -44,6 +44,41 @@ import { countedNoun } from "../../lib/i18n/plurals.js";
 // Flat, dot-namespaced keys, matching messages.js. Flat means `t("app.nav.jobs")`
 // is one lookup, and grepping the key finds both the use and every translation.
 const en = {
+  // ── The abandoned-signup recovery email ─────────────────────────────────
+  //
+  // Not an interface string: this is the one letter FieldQuo sends to somebody
+  // who started a signup and never reached the end of Stripe Checkout. It
+  // lives in the APP catalogue rather than the marketing one because the
+  // recipient already chose a language — Company.defaultLanguage, set during
+  // the signup they abandoned — and that choice is what this reads. English
+  // and French are the two complete catalogues here (see the file header); the
+  // other four fall back per key, which for a ten-string letter is a plain
+  // English email rather than a half-translated one.
+  //
+  // Every sentence is deliberately short on promises: nothing here says "reply
+  // and we'll answer", because these go out from the platform sender and that
+  // is not a mailbox anybody reads. The help link goes to /contact, which is a
+  // form that reaches a person. See lib/email/signupRecoveryEmail.js.
+  "app.signupRecovery.subject": "Need a hand finishing your FieldQuo setup?",
+  "app.signupRecovery.heading": "You're one step from being set up",
+  "app.signupRecovery.intro":
+    "You started setting up your business on FieldQuo and stopped at the last step — the card details. Nothing was charged, and nothing else is missing.",
+  "app.signupRecovery.introNamed":
+    "You started setting up {company} on FieldQuo and stopped at the last step — the card details. Nothing was charged, and nothing else is missing.",
+  "app.signupRecovery.reassure":
+    "Everything you typed in is still there, exactly as you left it. Picking it back up takes about a minute.",
+  "app.signupRecovery.offer":
+    "If something got in the way — the price, a question about how it works, or the checkout itself not behaving — we would rather hear it than guess.",
+  "app.signupRecovery.cta": "Finish setting up",
+  "app.signupRecovery.noCharge":
+    "Your first month is free. The card is what starts it, not what gets charged.",
+  "app.signupRecovery.help": "Tell us what got in the way",
+  // CASL s.6(2) identification: who this is, plus a way to reach us. The
+  // mailing address is printed beside this line by the builder and comes from
+  // SALES_MAILING_ADDRESS — never from here, and never invented.
+  "app.signupRecovery.identify": "FieldQuo · fieldquo.com",
+  "app.signupRecovery.optOut": "Stop hearing from FieldQuo",
+
   // ── Payment schedule (Settings → Company, and the job page) ─────────────
   "app.paymentSchedule.title": "Payment schedule",
   "app.paymentSchedule.desc":
@@ -211,6 +246,21 @@ const en = {
   "app.notif.empty": "Nothing yet. Approvals, payments, new enquiries and chargebacks land here.",
   "app.notif.loadFailed": "Couldn't load your notifications.",
   "app.notif.markFailed": "Couldn't mark those as read.",
+  // The secondary line under a feed row — lib/notifications/render.js's
+  // noteKeysFor(). Every one of these renders a param the main sentence does
+  // not interpolate, which is what stops a declared param being stored and read
+  // by nothing.
+  "app.notif.kind.refund": "Refunded",
+  "app.notif.kind.dispute": "Chargeback — Stripe has a deadline",
+  "app.notif.note.settled": "Paid in full",
+  "app.notif.note.balanceLeft": "Balance still owing",
+  "app.notif.note.autoApproved": "Auto-approved — nothing to action",
+  "app.notif.note.needsApproval": "Waiting for approval",
+  "app.notif.note.fromCall": "From a phone call",
+  "app.notif.note.fromForm": "From the instant-quote form",
+  "app.notif.temp.hot": "Hot lead",
+  "app.notif.temp.warm": "Warm lead",
+  "app.notif.temp.cold": "Cold lead",
   "app.notif.type.payment.disputed": "Money taken back on invoice {invoiceNumber} — {clientName}",
   "app.notif.type.quote.accepted": "{clientName} approved quote {quoteNumber}",
   "app.notif.type.invoice.paid": "{clientName} paid invoice {invoiceNumber}",
@@ -5152,6 +5202,25 @@ const en = {
 // invoice are what a contractor in Gatineau writes on the document itself, and
 // the interface should use the same word as the paperwork.
 const fr = {
+  // ── Abandoned-signup recovery email — see the English block for the rule
+  //    these serve, and for why nothing here promises a reply. ─────────────
+  "app.signupRecovery.subject": "Besoin d'un coup de main pour terminer votre inscription à FieldQuo?",
+  "app.signupRecovery.heading": "Il ne vous reste qu'une étape",
+  "app.signupRecovery.intro":
+    "Vous avez commencé à configurer votre entreprise sur FieldQuo et vous vous êtes arrêté à la dernière étape — les informations de carte. Rien n'a été facturé, et il ne manque rien d'autre.",
+  "app.signupRecovery.introNamed":
+    "Vous avez commencé à configurer {company} sur FieldQuo et vous vous êtes arrêté à la dernière étape — les informations de carte. Rien n'a été facturé, et il ne manque rien d'autre.",
+  "app.signupRecovery.reassure":
+    "Tout ce que vous avez saisi est toujours là, exactement comme vous l'avez laissé. Reprendre prend environ une minute.",
+  "app.signupRecovery.offer":
+    "Si quelque chose vous a bloqué — le prix, une question sur le fonctionnement, ou le paiement qui n'a pas voulu aboutir — nous préférons l'entendre plutôt que de le deviner.",
+  "app.signupRecovery.cta": "Terminer la configuration",
+  "app.signupRecovery.noCharge":
+    "Votre premier mois est gratuit. La carte sert à démarrer, pas à être facturée.",
+  "app.signupRecovery.help": "Dites-nous ce qui vous a bloqué",
+  "app.signupRecovery.identify": "FieldQuo · fieldquo.com",
+  "app.signupRecovery.optOut": "Ne plus recevoir de courriels de FieldQuo",
+
   // ── Payment schedule — see the English block for the rule these serve. ──
   "app.paymentSchedule.title": "Échéancier de paiement",
   "app.paymentSchedule.desc":
@@ -5283,6 +5352,17 @@ const fr = {
   "app.notif.empty": "Rien pour l’instant. Approbations, paiements, nouvelles demandes et rétrofacturations arrivent ici.",
   "app.notif.loadFailed": "Impossible de charger vos notifications.",
   "app.notif.markFailed": "Impossible de marquer ces éléments comme lus.",
+  "app.notif.kind.refund": "Remboursé",
+  "app.notif.kind.dispute": "Rétrofacturation — Stripe impose un délai",
+  "app.notif.note.settled": "Payée en totalité",
+  "app.notif.note.balanceLeft": "Solde encore dû",
+  "app.notif.note.autoApproved": "Approuvé automatiquement — rien à faire",
+  "app.notif.note.needsApproval": "En attente d’approbation",
+  "app.notif.note.fromCall": "Issu d’un appel téléphonique",
+  "app.notif.note.fromForm": "Issu du formulaire d’estimation instantanée",
+  "app.notif.temp.hot": "Piste chaude",
+  "app.notif.temp.warm": "Piste tiède",
+  "app.notif.temp.cold": "Piste froide",
   "app.notif.type.payment.disputed": "Somme reprise sur la facture {invoiceNumber} — {clientName}",
   "app.notif.type.quote.accepted": "{clientName} a approuvé le devis {quoteNumber}",
   "app.notif.type.invoice.paid": "{clientName} a payé la facture {invoiceNumber}",

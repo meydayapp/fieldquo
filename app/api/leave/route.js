@@ -16,6 +16,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { can } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
+import { notifyEvent } from "@/lib/notifications/notify";
 import {
   countWorkingDays,
   remainingBalance,
@@ -294,6 +295,37 @@ export async function POST(request) {
     summary: `${worker.name} requested ${days} day(s) of ${policy.name}${policy.requiresApproval ? "" : " (auto-approved)"}`,
     metadata: { days, policy: policy.name, startDate, endDate },
   });
+
+  // ── "Somebody calling in sick" — the owner's own words, and until now it
+  //    reached nobody ─────────────────────────────────────────────────────
+  //
+  // LeaveRequest, LeavePolicy, balances, the reporting line, a screen at
+  // /app/time-off and an activity row on all four transitions all existed. The
+  // one missing piece was telling a human.
+  //
+  // The audience is `user:manage` (owner, admin, supervisor), NOT the computed
+  // approver, and that is deliberate — see the comment on "leave.requested" in
+  // lib/notifications/catalog.js. Two reasons in short: a sick day is usually on
+  // an auto-approving policy so there is nothing to approve, only somebody's
+  // day to re-plan; and lib/org/leaveRouting.js recomputes routing on every READ
+  // precisely so it is never frozen, which a delivery row naming one approver
+  // would undo. The row links to the screen that computes the live answer.
+  //
+  // `member` is the requester, so notifyEvent's own actor filter drops them
+  // from their own feed — a manager booking their own leave is not news to them.
+  notifyEvent({
+    companyId: member.companyId,
+    type: "leave.requested",
+    entityId: created.id,
+    params: {
+      workerName: worker.name || "",
+      policyName: policy.name || "",
+      days,
+      // Whether anybody has to act, or this is purely "Dana is out on Tuesday".
+      autoApproved: !policy.requiresApproval,
+    },
+    actorUserId: member.userId || null,
+  }).catch(() => {});
 
   // Tell them where it went. "Submitted" and "submitted to Dana, because Sam is
   // away this week" are different amounts of reassurance, and the second one is
