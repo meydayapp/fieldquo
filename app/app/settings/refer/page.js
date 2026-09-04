@@ -7,13 +7,18 @@
 // referredByCode was never written and the list was permanently empty.
 //
 // The distinction this page now makes carefully: signing up earns the NEW
-// company their three months, but earns the referrer nothing until that
-// company actually pays. Blurring that produces exactly one support
-// conversation — "I referred three people, where are my nine months?"
+// company their free month, but earns the referrer nothing until that company
+// actually pays. Blurring that produces exactly one support conversation —
+// "I referred three people, where are my months?"
+//
+// "three months" above was correct until 2026-08-27, when the owner cut both
+// sides of the reward to one (AGENTS.md non-negotiable #1, and
+// REFEREE_BONUS_MONTHS / REFERRER_BONUS_MONTHS in lib/referrals/index.js). The
+// comment was left saying three, which is how a reader would have "fixed" the
+// code to match it.
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { formatMoney } from "@/lib/currency";
 import {
   Copy,
   Check,
@@ -139,8 +144,21 @@ function ReferScreen() {
       </div>
     );
 
-  const currency = data.currency || "CAD";
-  const creditEarned = formatMoney((data.creditEarnedCents || 0) / 100, currency);
+  // ── The reward is a month, and has been since 2026-08-27 ────────────────
+  //
+  // This card read `formatMoney(data.creditEarnedCents / 100)`. Nothing has
+  // written ReferralCredit.creditCents on a referrer row since the reward
+  // became a free month — grantReferrerCredit says so out loud: "creditCents/
+  // currency stay null on new rows. The two historical rows that carry them
+  // predate this and are left exactly as they are." So the sum is 0 for every
+  // company on the current scheme, and a business with ten rewarded referrals
+  // was shown "$0.00 credit earned" as a confident fact, off data the server
+  // was holding correctly all along.
+  //
+  // `rewardedCount` is that data: how many referred companies have actually
+  // paid. One free month each (REFERRER_BONUS_MONTHS), applied by
+  // extendAccess as a trial_end deferral — not a credit on an invoice.
+  const rewardedCount = Number(data.rewardedCount) || 0;
 
   // The invite the user sends from their OWN app. Mirrors the spirit of the
   // server SMS copy (identify the product, name the free months, end on the
@@ -364,11 +382,24 @@ function ReferScreen() {
         <div className="flex items-center gap-2 mb-1">
           <Gift size={16} className="text-muted-foreground" />
           <h2 className="text-base font-semibold text-foreground">
-            {t("app.refer.creditEarned", { amount: creditEarned })}
+            {/* The One/Other pair already exists in all nine catalogues and had
+                no call site — written for this reward and left behind when the
+                card was money. Selected the same way this page already selects
+                shareMessageBonusOne/Other twenty lines up. */}
+            {t(
+              rewardedCount === 1
+                ? "app.refer.monthEarnedOne"
+                : "app.refer.monthsEarnedOther",
+              { count: rewardedCount },
+            )}
           </h2>
         </div>
         <p className="text-sm text-muted-foreground">
-          {t("app.refer.creditEarnedNote")}
+          {/* Not creditEarnedNote, which says "Applied to your next invoice".
+              A deferred trial_end is not a line on an invoice. earnedNote is
+              the one that describes what actually happens, and it is likewise
+              already translated everywhere and unused. */}
+          {t("app.refer.earnedNote")}
         </p>
       </div>
 

@@ -89,6 +89,7 @@ const PAGES = {
   metaAds: "app/app/settings/meta-ads/page.js",
   overhead: "app/app/settings/overhead/page.js",
   leadForm: "app/app/settings/lead-form/page.js",
+  refer: "app/app/settings/refer/page.js",
 };
 
 const src = Object.fromEntries(
@@ -281,10 +282,48 @@ ok(
   /setFunnelsError\(await reportResponseError\(res\)\)/.test(src.leadForm),
 );
 
-// ── 7. Two destructive controls that did not say so ───────────────────────
+// ── 7. Seven destructive controls that did not say so ─────────────────────
 //
-// Both are one click, both are permanent, and both sat beside siblings on the
-// same settings section that DO confirm.
+// Every one is a bare trash icon wired straight to a DELETE — no soft flag, no
+// undo — sitting beside siblings on the same settings section that DO confirm.
+//
+// The five on Overhead are each an input to the company's price floor, which
+// moves the instant the row goes. That screen already knew: the asset card's
+// own note reads "Disposal, not deletion. The months it was in service really
+// did cost the business money; deleting the row would rewrite that history" —
+// two lines above a trash button doing exactly that deletion.
+for (const fn of [
+  "removeBill",
+  "removeFixedCost",
+  "removeSalary",
+  "removeDebt",
+]) {
+  ok(
+    `overhead: ${fn} asks before deleting`,
+    new RegExp(`async function ${fn}\\(id, label\\) \\{\\s*if \\(!confirmDelete\\(label\\)\\) return;`).test(
+      src.overhead,
+    ),
+  );
+}
+ok(
+  "overhead: removeAsset asks, and points at Dispose instead",
+  /async function removeAsset\(id, label\) \{[\s\S]{0,400}window\.confirm[\s\S]{0,400}deleteAssetConfirm/.test(
+    src.overhead,
+  ) && /return;\s*\}\s*const res = await fetch\(`\/api\/assets/.test(src.overhead),
+);
+// Every trash button must pass the label the dialog names. A confirm that says
+// "Delete undefined?" is worse than no confirm.
+for (const call of [
+  "removeFixedCost(f.id, f.category)",
+  "removeSalary(s.id, s.name)",
+  "removeDebt(d.id, d.name)",
+  "removeAsset(a.id, a.name)",
+  "removeBill(b.id, b.category)",
+]) {
+  ok(`overhead: the button passes a name to ${call.split("(")[0]}`, src.overhead.includes(call));
+}
+
+// ── 7b. The two on the price book ─────────────────────────────────────────
 ok(
   "deleting a price-book row asks first",
   /function handleDelete[\s\S]{0,900}window\.confirm[\s\S]{0,600}method: "DELETE"/.test(
@@ -303,6 +342,43 @@ ok(
 ok(
   "products distinguishes an empty search from an empty catalogue",
   /search\.trim\(\)[\s\S]{0,200}app\.setProducts\.emptyList/.test(src.products),
+);
+
+// ── 9. Refer: a money figure for a reward that is not money ───────────────
+//
+// The card read `formatMoney(data.creditEarnedCents / 100)`. Nothing has
+// written ReferralCredit.creditCents on a referrer row since the reward became
+// a free month — grantReferrerCredit says "creditCents/currency stay null on
+// new rows". So the sum is 0 for every company on the current scheme, and a
+// business with ten rewarded referrals was shown "$0.00 credit earned" as a
+// fact, off data (`rewardedCount`) the server was sending correctly all along.
+// Both halves, with AND: a `||` here would pass on either one alone, which is
+// how an assertion ends up looking strict and testing nothing. Comments are
+// stripped first, so the write-up above does not satisfy it.
+ok(
+  "refer no longer reads the dead creditCents column",
+  !/creditEarnedCents/.test(src.refer),
+);
+ok(
+  "...and formats no money on this page at all",
+  !/formatMoney\(/.test(src.refer),
+);
+ok(
+  "...and counts the referrals that were actually rewarded",
+  /const rewardedCount = Number\(data\.rewardedCount\) \|\| 0;/.test(src.refer),
+);
+ok(
+  "...through the plural pair, not a bare number",
+  /rewardedCount === 1[\s\S]{0,120}app\.refer\.monthEarnedOne[\s\S]{0,120}app\.refer\.monthsEarnedOther/.test(
+    src.refer,
+  ),
+);
+// creditEarnedNote says "Applied to your next invoice". A deferred trial_end
+// is not a line on an invoice; earnedNote is the sentence that fits.
+ok(
+  "...and describes the reward as an account extension, not an invoice credit",
+  /app\.refer\.earnedNote/.test(src.refer) &&
+    !/app\.refer\.creditEarnedNote/.test(src.refer),
 );
 
 // ── Report ─────────────────────────────────────────────────────────────────

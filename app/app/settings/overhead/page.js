@@ -354,7 +354,40 @@ function OverheadEditor() {
     else await reportResponseError(res);
   }
 
-  async function removeAsset(id) {
+  // ── Five delete buttons, none of which asked ──────────────────────────
+  //
+  // Every row on this page is an input to the company's price floor, and every
+  // one of them was a bare trash icon wired straight to a DELETE. There is no
+  // soft flag and no undo on any of the five, and the floor moves the instant
+  // the row goes.
+  //
+  // The screen already knew: the asset card's own note says "Disposal, not
+  // deletion. The months it was in service really did cost the business money;
+  // deleting the row would rewrite that history" — two lines above a trash
+  // button that does exactly that deletion.
+  //
+  // One helper rather than five confirms, so the sentence cannot drift between
+  // them, and it names the row so the dialog is about a thing rather than about
+  // a click. `what` is already translated by the caller.
+  function confirmDelete(what) {
+    return window.confirm(
+      t("app.setOverhead.deleteConfirm", "Delete {what}? This can't be undone, and your price floor changes straight away.", {
+        what,
+      }),
+    );
+  }
+
+  async function removeAsset(id, label) {
+    // Assets get their own sentence: disposal is the non-destructive answer
+    // and it is right there on the same card, so the dialog says so rather
+    // than letting someone reach for delete because it looks tidier.
+    if (
+      !window.confirm(
+        t("app.setOverhead.deleteAssetConfirm", "Delete {what}? Its whole depreciation history goes with it. If you've sold or retired it, mark it disposed instead — that keeps what it already cost you.", { what: label }),
+      )
+    ) {
+      return;
+    }
     const res = await fetch(`/api/assets/${id}`, { method: "DELETE" });
     if (res.ok) await Promise.all([loadAssets(), loadMinPrice()]);
     else await reportResponseError(res);
@@ -391,7 +424,8 @@ function OverheadEditor() {
     else await reportResponseError(res);
   }
 
-  async function removeBill(id) {
+  async function removeBill(id, label) {
+    if (!confirmDelete(label)) return;
     const res = await fetch(`/api/bills/${id}`, { method: "DELETE" });
     if (res.ok) await loadBills();
     else await reportResponseError(res);
@@ -437,7 +471,8 @@ function OverheadEditor() {
     }
   }
 
-  async function removeFixedCost(id) {
+  async function removeFixedCost(id, label) {
+    if (!confirmDelete(label)) return;
     const res = await fetch(`/api/overhead/fixed-costs/${id}`, { method: "DELETE" });
     if (res.ok) {
       setFixedCosts((prev) => prev.filter((f) => f.id !== id));
@@ -475,7 +510,8 @@ function OverheadEditor() {
     }
   }
 
-  async function removeSalary(id) {
+  async function removeSalary(id, label) {
+    if (!confirmDelete(label)) return;
     const res = await fetch(`/api/salaries/${id}`, { method: "DELETE" });
     if (res.ok) {
       setSalaries((prev) => prev.filter((s) => s.id !== id));
@@ -513,7 +549,8 @@ function OverheadEditor() {
     }
   }
 
-  async function removeDebt(id) {
+  async function removeDebt(id, label) {
+    if (!confirmDelete(label)) return;
     const res = await fetch(`/api/debt/${id}`, { method: "DELETE" });
     if (res.ok) {
       setDebts((prev) => prev.filter((d) => d.id !== id));
@@ -887,7 +924,7 @@ function OverheadEditor() {
                 </span>
                 <button
                   type="button"
-                  onClick={() => removeFixedCost(f.id)}
+                  onClick={() => removeFixedCost(f.id, f.category)}
                   aria-label={t("app.action.remove")}
                   className="text-muted-foreground hover:text-red-600"
                 >
@@ -975,7 +1012,7 @@ function OverheadEditor() {
                 </span>
                 <button
                   type="button"
-                  onClick={() => removeSalary(s.id)}
+                  onClick={() => removeSalary(s.id, s.name)}
                   aria-label={t("app.action.remove")}
                   className="text-muted-foreground hover:text-red-600"
                 >
@@ -1087,7 +1124,7 @@ function OverheadEditor() {
                 </span>
                 <button
                   type="button"
-                  onClick={() => removeDebt(d.id)}
+                  onClick={() => removeDebt(d.id, d.name)}
                   aria-label={t("app.action.remove")}
                   className="text-muted-foreground hover:text-red-600"
                 >
@@ -1210,7 +1247,7 @@ function OverheadEditor() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => removeAsset(a.id)}
+                      onClick={() => removeAsset(a.id, a.name)}
                       aria-label={t("app.action.remove")}
                       className="text-muted-foreground hover:text-red-600"
                     >
@@ -1492,7 +1529,7 @@ function OverheadEditor() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => removeBill(b.id)}
+                      onClick={() => removeBill(b.id, b.category)}
                       aria-label={t("app.action.remove")}
                       className="text-muted-foreground hover:text-red-600"
                     >
