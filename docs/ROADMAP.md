@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 3 September 2026 (the i18n backlog closed — 26 pending call sites wired, 40 keys added in all nine app languages, `navHome` added to the site chrome, and four catalogue sentences that described behaviour the code does not have reworded; the Meta App Review artefacts and the sales-call schema before that).
+Last updated: 3 September 2026 (US state contractor licence boards as discovery sources — California, Washington and Oregon, 340,655 active licences, 117,686 of them reaching a FieldQuo trade from the licence class alone; the i18n backlog and the Meta App Review artefacts before that).
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -227,6 +227,40 @@ gained its missing `dark:` half and a retry wired to the page's own loader
 (Neon scales to zero; P1001 on the first request after idle used to cost you
 the month, the day and every open row), and the modal's one hardcoded
 "New Appointment" now goes through `t()`.
+
+---
+
+## US contractor licence boards as discovery sources (3 September 2026)
+
+The highest-value English-language lead source FieldQuo was not using. Full
+write-up and the state-by-state table, with every number measured from a file
+that was actually downloaded: `docs/sales-intel/SOURCE-US-LICENCE-BOARDS.md`.
+
+**Three states ship as providers** — California CSLB (219,255 licences),
+Washington L&I (75,917) and Oregon CCB (45,483) — from ONE shared reader with
+per-state config in `lib/sales/discovery/usBoard/boards.js`. **117,686 of those
+licences reach a FieldQuo trade from the licence classification alone**, with a
+phone number on 99.9% of them and no crawl involved. Quebec's RBQ, the best
+source before today, yields about 1,100.
+
+**The class is only sometimes a trade, and the check enforces the difference.**
+Two thirds of every US register holds the board's *unrestricted* class —
+California's `B General Building` is 80,142 licences — which permits any work
+and identifies nobody. It is refused, along with classes that name two trades
+("Floor Covering and Counter Tops"), and `scripts/check-us-boards.mjs` asserts
+neither can ever be mapped. Where a class IS decisive it is used: C-33 really
+is "Painting and Decorating Contractor" and nothing else.
+
+**No US board publishes an email address or a website** — 0.00%, measured on
+all three. These are phone sources.
+
+**Blocked on the owner:** California and Oregon had no row in
+`CALLING_JURISDICTIONS` when this landed, so their prospects refuse with
+`jurisdiction_unread` — 98,566 trade-classified California contractors nobody
+may call until somebody reads the statute. Washington is read but its row still
+says the RCW 19.158.050 registration and bond are outstanding. And
+`lib/sales/contactBasis.js` needs one entry per board; it was deliberately not
+edited, because its entries are legal positions rather than configuration.
 
 ---
 

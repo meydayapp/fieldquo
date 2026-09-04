@@ -4,8 +4,9 @@ The single place that says what is done, what is moving, and what is waiting.
 Updated whenever something lands. If this file disagrees with a memory or a
 summary, this file wins.
 
-Last updated: 2026-09-03, after all-trades campaigns — banking every trade, a
-research budget on the expensive half, and the queue still single-trade.
+Last updated: 2026-09-03, after the US licence boards — California, Washington
+and Oregon as discovery providers, 117,686 contractors with a phone and a trade,
+and two states nobody may legally call yet.
 
 ---
 
@@ -92,6 +93,61 @@ exit 0, schema pushed and verified, row counts unchanged.
 | FieldQuo's own AI + voice spend, at cost | done |
 | Rep work mailbox, separate from login | done |
 | Rep signup link + per-day counts | done |
+
+### US state licence boards — three providers · BUILT 2026-09-03
+
+`docs/sales-intel/SOURCE-US-LICENCE-BOARDS.md` has the state-by-state table and
+every measured number. `scripts/check-us-boards.mjs` — 262 checks, 12 mutations
+tested, all caught — is in `check:all`.
+
+**California, Washington and Oregon publish free bulk licence files, and all
+three now ship as discovery providers.** 340,655 active licences between them,
+and **117,686 of them reach a FieldQuo trade straight out of the licence
+classification** — no crawl, no inference. RBQ, the best source before today,
+yields roughly 1,100.
+
+| | licences | phone | email | reach a trade |
+|---|---:|---:|---:|---:|
+| California CSLB | 219,255 | 99.90% | **0%** | **98,566 (44.9%)** |
+| Washington L&I | 75,917 | 99.97% | **0%** | **17,650 (23.3%)** |
+| Oregon CCB | 45,483 | 99.97% | **0%** | **1,470 (3.2%)** |
+
+Three findings worth keeping:
+
+1. **No US board publishes an email or a website.** Measured at 0.00% on all
+   three. California states the statutory reason itself — "Email addresses are
+   not provided (Business & Professions Code Section 27)". So these are phone
+   sources, and the RBQ's derived-website route has nothing to derive from.
+2. **The unrestricted class identifies nobody, exactly as Quebec's
+   authorisation set does.** 80,142 California licences, 51,755 Washington and
+   39,525 Oregon hold nothing but it. It is refused, and the check enforces the
+   refusal so a future agent cannot "fix" the yield by mapping it.
+3. **A US class IS decisive where it names one trade** — C-33 really is
+   "Painting and Decorating" — which is the difference from Quebec and the
+   reason the yield is two orders of magnitude better.
+
+**Two things are blocked on the owner, and the first is worth the most:**
+
+- **California and Oregon have no row in `CALLING_JURISDICTIONS`** (at the time
+  this landed — another agent was filling that table concurrently). Until they
+  do, all 219,255 California prospects return `CALL_UNKNOWN` and nobody may
+  call them. Washington IS read, but its row carries
+  `registration.required: true, done: false` — RCW 19.158.050 wants a
+  Department of Licensing registration and a bond **before the first call**.
+- **`lib/sales/contactBasis.js` has no entry for the three boards**, so they
+  return `undetermined` on every channel and `sourceLabel` is null — the
+  prospect screen will show the raw provider key. That file was deliberately
+  not edited: its entries are legal positions about US law, which is the
+  owner's to state.
+
+Also recorded rather than built: **Tennessee** (33,833 records, phone 98.2%,
+**email 96.3%** — the only US board with one; needs a parser for its
+crammed single-cell address), **Minnesota** (25,233, phone 95%),
+**Alabama** (9,175, phone 99.9%), **Virginia** (88,669 rows, 84% email, **no
+phone by policy**), and **Nevada** (19,101, directory only, no export).
+**Texas publishes daily files its own robots.txt disallows** — a policy
+question, not an engineering one. **Arizona and Florida** are behind Cloudflare
+and are recorded UNVERIFIED; neither challenge was attempted.
 
 ### Discovery — Overture places become Prospect rows · BUILT 2026-09-02
 
