@@ -322,6 +322,7 @@ tenancy, so it carries no information.
 | `PlatformAuditLog` | PlatformAdmin | — |
 | `PlatformPromoCode` | — | PlatformPromoRedemption |
 | `PlatformPromoRedemption` | PlatformPromoCode | — |
+| `PlatformVoiceCall` | Prospect, SalesLead | — |
 | `Prospect` | ProspectCampaign, SalesTerritory | ProspectCapability, ProspectCorrection, ProspectEvidence, ProspectInference, ProspectOpportunity, ProspectScore, ProspectTalkingPoint, ProspectTechnology, SalesLead, SalesPlaybookAssignment, SalesRepNote |
 | `ProspectCampaign` | SalesTerritory | Prospect |
 | `ProspectCapability` | Prospect | — |
@@ -346,6 +347,7 @@ tenancy, so it carries no information.
 | `SalaryComponent` | — | WorkerSalaryComponent |
 | `SalesAttribution` | SalesRep | Company |
 | `SalesAttributionTouch` | SalesRep | — |
+| `SalesCallAttempt` | Prospect, SalesLead, SalesRep | — |
 | `SalesCommissionEntry` | SalesPayoutBatch, SalesRep | — |
 | `SalesCommissionPlan` | — | SalesRep |
 | `SalesLead` | Prospect, SalesRep | SalesRepNote, SalesSmsMessage, SalesThread |
@@ -355,6 +357,7 @@ tenancy, so it carries no information.
 | `SalesPlaybookAssignment` | Prospect, SalesPlaybookExperiment | — |
 | `SalesPlaybookExperiment` | SalesPlaybook | SalesPlaybookAssignment |
 | `SalesRep` | SalesCommissionPlan | Company, SalesAttribution, SalesAttributionTouch, SalesCommissionEntry, SalesLead, SalesPayoutBatch, SalesRepNote, SalesSmsMessage, SalesThread |
+| `SalesRepActivity` | SalesRep | — |
 | `SalesRepNote` | Prospect, SalesLead, SalesRep, SalesThread | — |
 | `SalesSmsMessage` | SalesLead, SalesRep | — |
 | `SalesSuppression` | — | SalesSuppressionEvent |

@@ -29,6 +29,10 @@ const PLATFORM_PROVIDED = new Set(["NODE_ENV", "VERCEL_URL"]);
 // a deploy is misbehaving. Exempt, like the platform-provided set above.
 const LOCAL_ONLY = new Set([
   "ADMIN_EMAIL",
+  // VERBOSE=1 makes check:app-catalogue print every absent key instead of the
+  // per-area counts. Typed at the terminal by whoever is working through the
+  // translation backlog; setting it in Vercel would do nothing at all.
+  "VERBOSE",
   "NEW_ADMIN_PASSWORD",
   "TMPDIR",
   "PYFTSUBSET",
