@@ -8,6 +8,7 @@ import { Users, Plus, Search, Phone, MapPin, ArrowRight , Upload } from "lucide-
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchArray } from "@/lib/loadState";
 import ListState, { ListCount } from "@/app/components/ListState";
+import { useHasLevel } from "@/app/providers/PermissionProvider";
 
 export default function ClientsPage() {
   const { t } = useTranslation();
@@ -19,6 +20,8 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [errorKey, setErrorKey] = useState("");
+  // The level both write routes behind the buttons below already take.
+  const canWriteClients = useHasLevel("clientsProperties", "full_edit");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -56,24 +59,32 @@ export default function ClientsPage() {
               : t("app.clients.count", { count: clients?.length })}
           </ListCount>
         </div>
-        <div className="flex items-center gap-2">
-          {/* /app/clients/import worked and was linked from NOTHING — a
-              contractor switching from another system had a CSV importer they
-              could only reach by typing the URL. It belongs beside "New
-              client", which is where someone with a list to load looks. */}
-          <Link
-            href="/app/clients/import"
-            className="flex items-center gap-2 border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
-          >
-            <Upload size={16} /> {t("app.clients.import")}
-          </Link>
-          <Link
-            href="/app/clients/new"
-            className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
-          >
-            <Plus size={16} /> {t("app.clients.new")}
-          </Link>
-        </div>
+        {/* Both writes require clientsProperties: full_edit — the level POST
+            /api/clients and POST /api/clients/import have always taken, and
+            the one AdminSidebar's quick-add already asks for. This pair was
+            offered to everyone, so a member at view_only followed them into a
+            form or a CSV preview and was refused at the end of it. Both target
+            pages now refuse on arrival as well; this only stops offering. */}
+        {canWriteClients && (
+          <div className="flex items-center gap-2">
+            {/* /app/clients/import worked and was linked from NOTHING — a
+                contractor switching from another system had a CSV importer they
+                could only reach by typing the URL. It belongs beside "New
+                client", which is where someone with a list to load looks. */}
+            <Link
+              href="/app/clients/import"
+              className="flex items-center gap-2 border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
+            >
+              <Upload size={16} /> {t("app.clients.import")}
+            </Link>
+            <Link
+              href="/app/clients/new"
+              className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
+            >
+              <Plus size={16} /> {t("app.clients.new")}
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* The search box stays mounted through every state — hiding it on error
@@ -109,7 +120,11 @@ export default function ClientsPage() {
             <p className="text-sm text-muted-foreground">
               {search ? t("app.clients.noMatch") : t("app.clients.emptyTitle")}
             </p>
-            {!search && (
+            {/* Same gate as the header pair. "Add your first client" is a
+                worse dead end than the buttons above it — it is the only thing
+                on an empty screen, so following it and being refused leaves
+                somebody with nowhere else to have gone. */}
+            {!search && canWriteClients && (
               <Link
                 href="/app/clients/new"
                 className="text-sm font-medium text-foreground underline mt-2 inline-block"

@@ -1,4 +1,16 @@
 // app/app/clients/import/page.js
+//
+// ── Refused before the CSV, not after it ───────────────────────────────────
+//
+// POST /api/clients/import requires clientsProperties: full_edit and always
+// did. This screen asked nobody. A member at view_only reached it from the
+// Import button on the clients list — which was shown to everyone — chose a
+// file, watched four hundred rows parse and preview, pressed Import, and got a
+// 403. That is the same shape /app/jobs/new was fixed for: "QA reached the full
+// form by direct URL, filled it in, and the save came back 403."
+//
+// Both halves, because hiding a button is not access control: the list no
+// longer offers the link, and this is the door a bookmark still opens.
 "use client";
 
 import { useState } from "react";
@@ -7,10 +19,16 @@ import Papa from "papaparse";
 import { Upload } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useHasLevel } from "@/app/providers/PermissionProvider";
+import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 
 export default function ImportClientsPage() {
   const router = useRouter();
   const { t } = useTranslation();
+  // The exact level the route takes. "accessLevel" rather than a role name:
+  // this is refused by THIS member's dial, not by a tier, and telling them to
+  // ask an owner when a manager can grant it sends them to the wrong person.
+  const canImport = useHasLevel("clientsProperties", "full_edit");
   const [rows, setRows] = useState([]);
   const [fileName, setFileName] = useState("");
   const [importing, setImporting] = useState(false);
@@ -59,6 +77,10 @@ export default function ImportClientsPage() {
       setImporting(false);
     }
   }
+
+  // Before the file picker, and before anything is parsed — NoAccessPanel
+  // renders INSTEAD of the page, which is the whole point of it.
+  if (!canImport) return <NoAccessPanel capability="accessLevel" />;
 
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">

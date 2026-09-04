@@ -57,9 +57,15 @@ import Papa from "papaparse";
 import { Upload, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { fetchJson } from "@/lib/fetchJson";
+import { useHasLevel } from "@/app/providers/PermissionProvider";
+import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 
 export default function ImportLeadsPage() {
   const router = useRouter();
+  // The level POST /api/leads/import already takes. Asked here so a member
+  // without it reads a sentence instead of parsing a CSV, previewing it and
+  // then being refused — the same fix /app/clients/import needed beside it.
+  const canImport = useHasLevel("requests", "view_create_edit");
   const [rows, setRows] = useState([]);
   const [fileName, setFileName] = useState("");
   const [importing, setImporting] = useState(false);
@@ -102,6 +108,8 @@ export default function ImportLeadsPage() {
     name: r.name || r.Name || r["Full Name"] || r.contact || "—",
     contact: r.email || r.Email || r.phone || r.Phone || "no contact",
   }));
+
+  if (!canImport) return <NoAccessPanel capability="accessLevel" />;
 
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">

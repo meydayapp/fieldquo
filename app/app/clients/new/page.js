@@ -11,6 +11,8 @@ import CountrySelect from "@/app/components/CountrySelect";
 import { formatPhoneInput } from "@/lib/validation";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useHasLevel } from "@/app/providers/PermissionProvider";
+import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -18,6 +20,13 @@ const inputClass =
 export default function NewClientPage() {
   const router = useRouter();
   const { t } = useTranslation();
+  // POST /api/clients requires clientsProperties: full_edit — the same level
+  // AdminSidebar's quick-add already gates on (NAV_REQUIREMENTS,
+  // "app.quickAdd.client"). This form did not ask, so a member at view_only
+  // could fill in a homeowner's name, phone, address and notes and only then be
+  // refused. The list no longer offers the button; this is the door a bookmark
+  // still opens.
+  const canCreate = useHasLevel("clientsProperties", "full_edit");
   const [form, setForm] = useState({
     type: "individual",
     name: "",
@@ -78,6 +87,8 @@ export default function NewClientPage() {
       setSaving(false);
     }
   }
+
+  if (!canCreate) return <NoAccessPanel capability="accessLevel" />;
 
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
