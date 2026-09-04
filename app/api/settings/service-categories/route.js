@@ -69,15 +69,39 @@ export async function GET(request) {
       isSystem: c.isSystem,
       customFields: c.customFields || null,
       enabled: setting?.enabled ?? false,
-      // No `pricingModel`: see the PATCH below. The column still exists but
-      // nothing reads it, so returning it only invited a new caller to.
-      unit: setting?.unit ?? defaultTradeRate(c.key)?.unit ?? null,
+      // No `pricingModel`: see the PATCH below. The column is not returned
+      // because nothing should be EDITING it here; lib/pricing/benchmarkData.js
+      // does still read it off old rows.
+      //
+      // What this company actually stored, not the resolved answer — see the
+      // `inheritedUnit` note under defaultRate.
+      unit: setting?.unit ?? null,
+      inheritedUnit: defaultTradeRate(c.key)?.unit ?? null,
       // ── The three money fields, present only for members who may see money ──
       //
       // `defaultRate` is the opening rate for a trade with no price book, when
       // this company has not set its own. Read-time only — nothing writes it,
       // so a company keeps inheriting changes to the default and the benchmark
       // data stays built from rates real companies chose. See defaultTradeRate.
+      //
+      // ── Which is why the fallback is no longer resolved INTO it ───────────
+      //
+      // It used to be: `setting?.defaultRate ?? defaultTradeRate(c.key)?.rate`.
+      // The settings screen cannot tell a stored rate from an inherited one
+      // once they arrive in the same field, so it echoed the resolved number
+      // back on save — and the PATCH below writes `defaultRate` unconditionally.
+      // One press of Save, with nothing typed into any box, materialised
+      // electrical $80, plumbing $95, lawn_care $82 and residential_cleaning
+      // $65 into CompanyServiceCategory, which is exactly the two things the
+      // comment above forbids: the company stops inheriting improvements, and
+      // benchmarkData.js:116 (`defaultRate: { not: null }`) starts counting
+      // FieldQuo's own opening numbers as rates real companies chose.
+      //
+      // So the stored value and the inherited one travel as separate fields.
+      // The screen shows `inheritedRate` as the input's PLACEHOLDER, which is
+      // how RateCard.js has always handled the structured book: "Clearing a
+      // field removes it from the patch instead, so the trade goes back to
+      // inheriting."
       //
       // `priceBook` is the trade's structured rates: code defaults with this
       // company's sparse overrides merged in. `rateOverrides` is sent alongside
@@ -96,8 +120,8 @@ export async function GET(request) {
       // `rate`.
       ...(showMoney
         ? {
-            defaultRate:
-              setting?.defaultRate ?? defaultTradeRate(c.key)?.rate ?? null,
+            defaultRate: setting?.defaultRate ?? null,
+            inheritedRate: defaultTradeRate(c.key)?.rate ?? null,
             priceBook: getPriceBook(c.key, setting?.rates) || null,
             rateOverrides: setting?.rates ?? null,
           }
@@ -196,7 +220,21 @@ export async function POST(request) {
 //
 // The CompanyServiceCategory.pricingModel column is left in place: dropping it
 // is a data migration, not a code change. Existing rows keep whatever they
-// last stored, and nothing looks at it.
+// last stored.
+//
+// The sentence that used to end this paragraph — "and nothing looks at it" —
+// was wrong, and wrong in the direction that gets a column deleted. The peer
+// benchmark reads it: lib/pricing/benchmarkData.js:120 selects it and :163
+// falls back to `pricingModelUnit(r.pricingModel)` when a row has no `unit`.
+// So a column no screen has written since this field was removed is still
+// labelling units in the benchmark, off whatever was last stored. Nothing
+// WRITES it any more, which is the accurate half.
+//
+// `defaultRate` is written from what the client sends, and the client now
+// sends null when the trade is inheriting — see the GET's note on
+// `inheritedRate`. Before that it echoed the resolved fallback back, so one
+// press of Save with nothing typed pinned four trades to today's catalogue
+// number for good.
 export async function PATCH(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;

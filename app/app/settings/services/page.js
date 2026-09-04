@@ -513,10 +513,24 @@ export default function ServiceSettingsPage() {
                 so the basis is stated and the numbers live in one place. */}
               {c.enabled && !priced && !c.pricingHidden && (
                 <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:shrink-0 pl-9 sm:pl-0">
+                  {/* ── Inherited shows as a PLACEHOLDER, never as a value ──
+                      The GET used to resolve the catalogue fallback into
+                      `defaultRate`, so the box displayed 80 for electrical and
+                      the save below echoed it back — pinning four trades to
+                      today's opening rate on a Save where nothing was typed.
+                      tradePriceBooks.js says that must not happen: a pinned
+                      row stops inheriting improvements, and benchmarkData.js
+                      then counts FieldQuo's own number as a rate a real
+                      company chose. RateCard.js next door has always done it
+                      this way for the structured book. */}
                   <input
                     type="number"
                     step="0.01"
-                    placeholder={t("app.setServices.ratePlaceholder")}
+                    placeholder={
+                      c.inheritedRate != null
+                        ? String(c.inheritedRate)
+                        : t("app.setServices.ratePlaceholder")
+                    }
                     value={c.defaultRate ?? ""}
                     onChange={(e) =>
                       update(c.id, {
@@ -535,7 +549,9 @@ export default function ServiceSettingsPage() {
                   <input
                     type="text"
                     list="fq-unit-suggestions"
-                    placeholder={t("app.setServices.unitPlaceholder")}
+                    placeholder={
+                      c.inheritedUnit || t("app.setServices.unitPlaceholder")
+                    }
                     value={c.unit ?? ""}
                     onChange={(e) => update(c.id, { unit: e.target.value })}
                     className="border rounded px-2 py-1 text-sm w-28"
