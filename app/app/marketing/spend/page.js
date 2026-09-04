@@ -150,7 +150,22 @@ export default function MarketingSpendPage() {
     }
   }
 
+  // ── A trash icon is not a confirmation ───────────────────────────────────
+  //
+  // This fired an immediate DELETE from a small icon on a table row, with no
+  // step in between and no undo behind it. Every other destructive path in
+  // these files has at least a modal. A spend row is hand-entered history that
+  // the blended cost-per-lead figure above is computed from, so losing one
+  // silently changes a number somebody is about to make a decision on.
   async function handleDelete(id) {
+    // i18n PENDING app.marketingSpend.confirmDelete
+    if (
+      !window.confirm(
+        "Delete this spend entry? The cost-per-lead figures above are worked out from these rows.",
+      )
+    ) {
+      return;
+    }
     try {
       await fetchJson(`/api/marketing-spend/${id}`, { method: "DELETE" });
       await load();

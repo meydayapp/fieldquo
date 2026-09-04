@@ -52,8 +52,17 @@ import { crewPanelBlocks } from "@/lib/crew/panelBlocks";
 // settings screen was fixed for — a contractor read "$30.00", pressed buy, and
 // Stripe took around forty Canadian ones. Same formatter, same currency
 // constant, so the two screens cannot drift.
-const money = (cents) =>
-  formatAppMoney(Number(cents || 0) / 100, CREDIT_CURRENCY, "en");
+// `Number(cents || 0)` turned any figure that failed to arrive into a
+// confident $0.00 — and one of the places this renders is the confirmation
+// panel shown immediately before a monthly charge is agreed to. "$0.00 a month"
+// on the last screen before money moves is the worst possible reading of an
+// absent number, so an absent one now renders as nothing and the caller's own
+// guard decides what to say. A real 0 is finite and still prints.
+const money = (cents) => {
+  const n = Number(cents);
+  if (!Number.isFinite(n)) return "";
+  return formatAppMoney(n / 100, CREDIT_CURRENCY, "en");
+};
 
 export default function CrewInboxPage() {
   const { t } = useTranslation();
@@ -879,7 +888,14 @@ function BuyLine({ t, busy, onBought }) {
       )}
 
       <SendConfirmModal
-        isOpen={Boolean(confirming)}
+        // A known PRICE is part of the precondition, not just a chosen number.
+        // The dialog's own comment says both facts are named because this is
+        // the last screen before the money moves — so if the price is not one
+        // of them, there is nothing here to agree to. Today /api/crew/line
+        // always sends monthlyCents; this makes that a requirement rather than
+        // a habit, because the failure mode is a monthly charge agreed to
+        // against a blank.
+        isOpen={Boolean(confirming) && Number.isFinite(Number(price?.monthlyCents))}
         busy={buying}
         icon={<Phone size={24} className="text-foreground" />}
         // The two facts being committed to: which number, and what it costs.

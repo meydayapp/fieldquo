@@ -558,7 +558,13 @@ export default function TasksPage() {
                     {task.dueDate && (
                       <span>
                         {t("app.tasks.due")}{" "}
-                        {new Date(task.dueDate).toLocaleDateString("en-CA", {
+                        {/* Not "en-CA". The reader's locale and the company's
+                            date format both live in CompanyPreferences, which
+                            every other screen on the app already goes through —
+                            crew-inbox formats the same field that way. A
+                            hardcoded locale prints a Canadian date at a Punjabi
+                            crew in Surrey and an American one in Boston. */}
+                        {new Date(task.dueDate).toLocaleDateString(undefined, {
                           month: "short",
                           day: "numeric",
                         })}
