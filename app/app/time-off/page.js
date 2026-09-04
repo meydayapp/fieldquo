@@ -373,7 +373,7 @@ function BalanceCard({ balance }) {
           </div>
           {balance.pendingDays > 0 && (
             <div className="flex justify-between text-amber-600 dark:text-amber-400">
-              <span>Awaiting approval</span>
+              <span>{t("app.timeOff.awaitingApproval")}</span>
               <span>{balance.pendingDays}</span>
             </div>
           )}
@@ -763,8 +763,8 @@ function TeamTimeOff({ data, reload }) {
                 <tr>
                   <th className="px-3 py-2">{t("app.timeOff.person")}</th>
                   <th className="px-3 py-2">{t("app.timeOff.policy")}</th>
-                  <th className="px-3 py-2 text-right">Accrued</th>
-                  <th className="px-3 py-2 text-right">Taken</th>
+                  <th className="px-3 py-2 text-right">{t("app.timeOff.accrued")}</th>
+                  <th className="px-3 py-2 text-right">{t("app.timeOff.taken")}</th>
                   <th className="px-3 py-2 text-right">{t("app.timeOff.left")}</th>
                 </tr>
               </thead>
