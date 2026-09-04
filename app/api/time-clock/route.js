@@ -27,6 +27,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember } from "@/lib/permissions/enforce";
 import { clockJobOptions, clockableJobWhere, dayBoundsInZone } from "@/lib/timeclock/jobChoices";
+import { todayHoursFrom } from "@/lib/timeclock/todayHours";
 
 // The worker record tied to the signed-in user, or null if they were never
 // added under Workers (an admin has to create that link first).
@@ -109,12 +110,13 @@ export async function GET(request) {
 
   // Today's total: booked hours on closed entries, plus live elapsed on the
   // open one so the number the person sees matches the timer ticking above it.
-  let todayHours = 0;
-  for (const e of today) {
-    if (e.clockOut && e.hours != null) todayHours += Number(e.hours);
-    else if (!e.clockOut) todayHours += (Date.now() - new Date(e.clockIn).getTime()) / 3600000;
-  }
-  todayHours = Math.round(todayHours * 100) / 100;
+  //
+  // lib/timeclock/todayHours.js, not two lines here. The clock screen has to
+  // keep this same promise against a one-second heartbeat that never refetches,
+  // and its copy of this arithmetic had rotted into `(todayHours || 0) + 0` —
+  // a figure frozen at page load beside a timer that kept ticking. One
+  // function, called from both sides, cannot disagree with itself.
+  const todayHours = todayHoursFrom(today);
 
   return NextResponse.json({
     worker,

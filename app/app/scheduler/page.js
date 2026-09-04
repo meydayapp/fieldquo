@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
+import { fetchList } from "@/lib/loadState";
+import ListState from "@/app/components/ListState";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
 
@@ -47,6 +49,7 @@ export default function SchedulerPage() {
   const { t } = useTranslation();
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [data, setData] = useState(null);
+  const [errorKey, setErrorKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [modal, setModal] = useState(null); // { dateStr } when adding
@@ -58,32 +61,60 @@ export default function SchedulerPage() {
     [weekStart],
   );
 
+  // ── A week that failed to load is not a week with no shifts ────────────
+  //
+  // This returned early on a non-ok response and left `data` untouched, which
+  // produced two different wrong screens depending on when it failed:
+  //
+  //   * On the first load, `data` stayed null and all seven day cards rendered
+  //     "No shifts scheduled." A rota that could not be fetched read as a rota
+  //     nobody had written.
+  //   * On week navigation, `weekStart` and the date headings advanced while
+  //     `data` kept the PREVIOUS week's shifts — so last Tuesday's crew was
+  //     drawn under next Tuesday's date. Silently wrong data is worse than an
+  //     empty state, because nothing about it looks wrong.
+  //
+  // `setData(null)` closes the second and the error key closes the first.
   const load = useCallback(async () => {
-    const res = await fetch(
+    const result = await fetchList(
       `/api/shifts?from=${weekStart.toISOString()}&to=${weekEnd.toISOString()}`,
     );
-    if (!res.ok) {
-      await reportResponseError(
-        res,
-        t("app.scheduler.loadError", "Couldn't load the schedule."),
-      );
+    if (result.aborted) return;
+    if (!result.ok) {
+      setData(null);
+      setErrorKey(result.errorKey);
       return;
     }
-    setData(await res.json());
-  }, [weekStart, weekEnd, t]);
+    setErrorKey("");
+    setData(result.data);
+  }, [weekStart, weekEnd]);
 
   useEffect(() => {
     setLoading(true);
     load().finally(() => setLoading(false));
   }, [load]);
 
+  // `manager` comes from the API and means user:view — "may see the whole
+  // rota". It is the right gate for READING everyone's week: the subtitle and
+  // the missing-hours reminder below both stay on it.
   const isManager = data?.manager;
-  // `manager` comes from the API and means user:manage — "may run a crew".
-  // DELETE /api/shifts/[id] asks a narrower question: schedule at
-  // edit_delete_all, the level above the one the Dispatcher preset grants. So
-  // a Dispatcher drafted and published a week and was also shown a ✕ that
-  // could only 403. Same grid, same level, asked here too.
   const caller = usePermissions();
+  // ── Reading the rota and writing it are different questions ──────────────
+  //
+  // Add shift and Publish week were both gated on `isManager` — user:view —
+  // while POST /api/shifts and POST /api/shifts/publish each require
+  // schedule at edit_all. A supervisor whose schedule dial is set to view_own
+  // or edit_own still holds user:view, so they got the Add button, the modal,
+  // the whole-company worker dropdown, typed a shift, and lost it to
+  // "You can only change your own schedule."
+  //
+  // The file already asked this question properly for DELETE (below) and never
+  // carried it across to the two controls that create. Same grid, same level
+  // the routes ask, asked here too.
+  const canEditSchedule = hasLevel(caller, "schedule", "edit_all");
+  // DELETE /api/shifts/[id] asks a narrower question again: edit_delete_all,
+  // the level above the one the Dispatcher preset grants. So a Dispatcher
+  // drafted and published a week and was also shown a ✕ that could only 403.
   const canDeleteShift = hasLevel(caller, "schedule", "edit_delete_all");
   const shiftsByDay = useMemo(() => {
     const map = {};
@@ -176,7 +207,11 @@ export default function SchedulerPage() {
         </span>
       </div>
 
-      {isManager && (
+      {/* Gated on canEditSchedule, not isManager — POST /api/shifts and
+          POST /api/shifts/publish both require schedule at edit_all, and
+          isManager only means user:view. See the comment above the two
+          constants. */}
+      {canEditSchedule && (
         <div className="flex items-center gap-2 mb-4">
           <button
             data-tour="scheduler-add"
@@ -246,7 +281,15 @@ export default function SchedulerPage() {
         </div>
       )}
 
-      {loading ? (
+      {errorKey ? (
+        /* The week could not be read. Seven cards saying "No shifts
+           scheduled." would be seven claims nobody made — and on a week that
+           was navigated to, the cards would carry the PREVIOUS week's shifts
+           under the new dates. One panel, one sentence, one retry. */
+        <ListState loading={false} isEmpty={false} errorKey={errorKey} onRetry={load}>
+          {null}
+        </ListState>
+      ) : loading ? (
         <div className="min-h-[30vh] grid place-items-center">
           <Loader2 className="animate-spin text-muted-foreground" />
         </div>
@@ -276,10 +319,14 @@ export default function SchedulerPage() {
                       </span>
                     )}
                   </h3>
-                  {isManager && (
+                  {/* Same route, same level. This one is also a 44px target
+                      now: it was a bare 16px icon with no padding, and it is
+                      the fastest way to add a shift to a given day. */}
+                  {canEditSchedule && (
                     <button
+                      type="button"
                       onClick={() => setModal({ dateStr: key })}
-                      className="text-muted-foreground hover:text-foreground"
+                      className="-mr-2 inline-flex size-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
                       aria-label={t("app.scheduler.addShift")}
                     >
                       <Plus size={16} />

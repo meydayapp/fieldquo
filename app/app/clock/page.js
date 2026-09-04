@@ -30,6 +30,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Clock, LogIn, LogOut, Loader2, Briefcase, ArrowRightLeft } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
+import { fetchList } from "@/lib/loadState";
+import ListState from "@/app/components/ListState";
+import { todayHoursFrom } from "@/lib/timeclock/todayHours";
 
 function fmtClock(d) {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -48,6 +51,7 @@ function fmtTime(iso) {
 export default function TimeClockPage() {
   const { t } = useTranslation();
   const [data, setData] = useState(null);
+  const [errorKey, setErrorKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(() => new Date());
@@ -58,19 +62,38 @@ export default function TimeClockPage() {
   const touched = useRef(false);
   const tick = useRef(null);
 
+  // ── A failed load must not read as "you're clocked out" ──────────────
+  //
+  // This returned early on a non-ok response and left `data` at null. Every
+  // figure below is derived with `?.`, so the page then rendered the FULL
+  // clocked-out screen: "You're clocked out.", 0.00 hours today, "No entries
+  // yet today.", and a green Clock in button. A worker who was on the clock
+  // pressed it and got a 409 from POST /api/time-clock ("You're already
+  // clocked in — clock out first."), and the only correction was a toast,
+  // which goes away.
+  //
+  // That is lib/loadState.js's bug wearing `null` instead of `[]`: a state
+  // that cannot say "not known" gets read as a claim. So the failure is held,
+  // and the render stops at it.
   const load = useCallback(async () => {
-    const res = await fetch("/api/time-clock");
-    if (!res.ok) {
-      await reportResponseError(res, t("app.clock.loadError", "Couldn't load the time clock."));
+    const result = await fetchList("/api/time-clock");
+    if (result.aborted) return;
+    if (!result.ok) {
+      // Back to "not known" rather than left holding a stale punch — a retry
+      // that fails must not keep last minute's clocked-in state on screen.
+      setData(null);
+      setErrorKey(result.errorKey);
       return;
     }
-    const next = await res.json();
-    setData(next);
+    setErrorKey("");
+    setData(result.data);
     // The day's only visit is filled in for them. Only before they have chosen
     // anything: re-applying it on every reload would silently undo a deliberate
     // "no job", which is the sort of control that looks like it works.
-    if (!touched.current && next?.suggestedJobId) setJobId(next.suggestedJobId);
-  }, [t]);
+    if (!touched.current && result.data?.suggestedJobId) {
+      setJobId(result.data.suggestedJobId);
+    }
+  }, []);
 
   useEffect(() => {
     load().finally(() => setLoading(false));
@@ -113,6 +136,23 @@ export default function TimeClockPage() {
     );
   }
 
+  // The load failed. Stop here rather than deriving a whole shift from a body
+  // that never arrived — the shared panel, its "nothing has been deleted"
+  // sentence and its retry, exactly as every other refused load on the app.
+  if (errorKey) {
+    return (
+      <div className="max-w-md mx-auto p-4 sm:p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Clock size={20} className="text-foreground" />
+          <h1 className="text-2xl font-bold text-foreground">{t("app.clock.title")}</h1>
+        </div>
+        <ListState loading={false} isEmpty={false} errorKey={errorKey} onRetry={load}>
+          {null}
+        </ListState>
+      </div>
+    );
+  }
+
   // Not linked to a worker record — say so plainly instead of a dead button.
   if (data && data.worker === null) {
     return (
@@ -129,9 +169,12 @@ export default function TimeClockPage() {
   const open = data?.open;
   const clockedIn = Boolean(open);
   const elapsedMs = open ? now.getTime() - new Date(open.clockIn).getTime() : 0;
-  const liveToday = clockedIn
-    ? Math.round(((data.todayHours || 0) + 0) * 100) / 100
-    : data?.todayHours || 0;
+  // Today's total, recomputed on every heartbeat rather than read once from
+  // the payload. `data.todayHours` is correct at request time and frozen
+  // afterwards — this screen never refetches — so it showed 07:12:33 elapsed
+  // beside 0.02 hours today. Same function the route uses; the reasoning, and
+  // why the open entry has to come from today's ROWS, is in that file.
+  const liveToday = todayHoursFrom(data?.today, now);
 
   const options = data?.jobOptions || [];
   const todayOptions = options.filter((o) => o.today);
@@ -283,9 +326,14 @@ export default function TimeClockPage() {
       <div className="mt-4 rounded-2xl border border-border bg-card p-5">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold text-foreground">{t("app.clock.today")}</h2>
-          <span className="text-sm font-semibold text-foreground tabular-nums">
-            {t("app.clock.hoursValue", { hours: (liveToday || 0).toFixed(2) })}
-          </span>
+          {/* Number.isFinite, not `|| 0`: a genuine 0.00 is a real answer and
+              must print, while a figure that never arrived must not become
+              one. The load-failure gate above means this is belt and braces. */}
+          {Number.isFinite(liveToday) && (
+            <span className="text-sm font-semibold text-foreground tabular-nums">
+              {t("app.clock.hoursValue", { hours: liveToday.toFixed(2) })}
+            </span>
+          )}
         </div>
         {!data?.today?.length ? (
           <p className="mt-2 text-sm text-muted-foreground">{t("app.clock.noneToday")}</p>
