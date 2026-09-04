@@ -114,6 +114,17 @@ const money = (c) =>
 // `id` is an anchor target, not decoration: /app/crew-inbox links to
 // #credit so "where did my credit go" lands on the statement rather than at
 // the top of a long settings page.
+//
+// ── `step` is optional, and that is the point ──────────────────────────────
+//
+// It used to be seven literal props with no condition attached, so a
+// contractor who set this up in March still opened a numbered seven-step
+// wizard in September to change one greeting. Numbering is a first-run
+// affordance; rendering it forever tells someone who finished months ago that
+// they are still partway through something. Every call site now passes
+// `setupDone ? null : "n."` — the cards, their order and their contents are
+// untouched, which is the whole change. See `setupDone` below for what counts
+// as finished and why it is not `enabled`.
 function Card({ title, hint, children, step, dataTour, id }) {
   return (
     <section id={id} data-tour={dataTour} className="bg-card border border-border rounded-xl p-5">
@@ -828,7 +839,7 @@ export default function VoiceSettingsPage() {
     );
   }
 
-  const { agent, number, credit, pricing, sources, configured, readiness, numberChoice, demo } = data;
+  const { agent, number, credit, pricing, sources, configured, readiness, numberChoice, demo, hasAnsweredCall } = data;
   // The route builds this sentence where there is no t(), so it travels as a
   // key plus its values with the English attached as the fallback.
   // Bracketed lines the phone will skip. Computed with the SAME function
@@ -843,6 +854,39 @@ export default function VoiceSettingsPage() {
   // request the route would refuse cannot disagree — and `readiness.message` is
   // the reason, which is the half that was missing entirely.
   const canEnable = Boolean(readiness?.ready);
+
+  // ── Is first run over? ────────────────────────────────────────────────────
+  //
+  // The seven cards below are numbered while somebody is still setting this
+  // up, and unnumbered afterwards. Nothing else about them changes: same
+  // cards, same order, same contents. The order is argued in the comments on
+  // each one and it stays exactly as it is — credit first because a number's
+  // first month comes out of that balance, the switch after the two things it
+  // refuses to work without.
+  //
+  // Two facts, either of which ends first run, and neither of which can be
+  // undone by an ordinary day's use:
+  //
+  //   `hasAnsweredCall`  the receptionist has taken at least one inbound call.
+  //                      Proof the whole chain worked once; no later event
+  //                      takes it back. Computed in the GET — see its comment
+  //                      for why not `providerAgentId`, which is written by
+  //                      the number purchase and so is true far too early.
+  //   `agent.enabled`    it is answering right now. Included because a company
+  //                      that switched it on five minutes ago has finished
+  //                      setting it up and has simply not been rung yet.
+  //
+  // Deliberately NOT `canEnable`: that goes false the moment the balance
+  // dips below one call, and a page that re-numbers itself into a wizard
+  // because the credit ran low is telling a three-year customer to start over.
+  // Running low is what the status bar and card 1 are for.
+  //
+  // The one case that re-numbers is a company that turned it on, was never
+  // called, and turned it off again — which is a company still trying this
+  // out, and the one this page should still be guiding.
+  const setupDone = Boolean(hasAnsweredCall) || Boolean(agent?.enabled);
+  // Written once so the seven call sites cannot drift into six.
+  const stepNo = (n) => (setupDone ? null : n);
 
   // The 30 free trial minutes are a real balance granted with the first number
   // (see lib/voice/credits.js — grantFreeTrial). When that grant is still
@@ -974,7 +1018,7 @@ export default function VoiceSettingsPage() {
       <Card
         id="credit"
         dataTour="voice-credit"
-        step="1."
+        step={stepNo("1.")}
         title={t("app.setVoice.creditTitle", "Credit")}
         hint={t("app.setVoice.creditHint", "{cents}¢ a minute, rounded up, one minute minimum. Your number's monthly rental comes out of this same credit.", { cents: credit.centsPerMinute })}
       >
@@ -985,8 +1029,17 @@ export default function VoiceSettingsPage() {
             {t("app.setAiCredit.balance", "Balance:")}
           </span>
           <span className="text-2xl font-bold text-foreground">{money(credit.cents)}</span>
+          {/* ── The "s" used to be outside the t() ─────────────────────────
+              `{t("app.setVoice.minute")}{minutes === 1 ? "" : "s"}` bolts an
+              ENGLISH plural onto a translated word: German rendered "Minutes",
+              Italian "minutos". `app.duration.minutes` is a countedNoun — it
+              prints the number and declines the word by the catalogue's own
+              language, which is why the count is no longer interpolated
+              separately here. See lib/i18n/plurals.js for the four languages
+              that disagree with n === 1. */}
           <span className="text-sm text-muted-foreground">
-            ({t("app.setVoice.about", "about")} {credit.minutes} {t("app.setVoice.minute", "minute")}{credit.minutes === 1 ? "" : "s"})
+            ({t("app.setVoice.about", "about")}{" "}
+            {t("app.duration.minutes", { value: credit.minutes })})
           </span>
           {credit.low && (
             <span className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400">
@@ -1129,7 +1182,7 @@ export default function VoiceSettingsPage() {
       {/* ── 2. A number ─────────────────────────────────────────────────── */}
       <Card
         dataTour="voice-number"
-        step="2."
+        step={stepNo("2.")}
         title={t("app.setVoice.numberTitle", "Your number")}
         hint={t("app.setVoice.numberHint", "What the receptionist answers on.")}
       >
@@ -1564,7 +1617,7 @@ export default function VoiceSettingsPage() {
 
       {/* ── 3. What it says ─────────────────────────────────────────────── */}
       <Card
-        step="3."
+        step={stepNo("3.")}
         title={t("app.setVoice.saysTitle", "What it says")}
         hint={t("app.setVoice.saysHint", "It will never give a price, promise a time it hasn't checked, or claim to be a person.")}
       >
@@ -1828,7 +1881,7 @@ export default function VoiceSettingsPage() {
       {/* ── 4. The switch ───────────────────────────────────────────────── */}
       <Card
         dataTour="voice-answer"
-        step="4."
+        step={stepNo("4.")}
         title={t("app.setVoice.answerTitle", "Answer my calls")}
         hint={
           canEnable
@@ -1895,7 +1948,7 @@ export default function VoiceSettingsPage() {
           different consent story from placing one they didn't. Off by default;
           the same number-and-credit floor as answering. */}
       <Card
-        step="5."
+        step={stepNo("5.")}
         title={t("app.setVoice.outboundTitle", "Call clients back automatically")}
         hint={t("app.setVoice.outboundHint", "The assistant rings clients who asked to be contacted — after you send them a quote, to confirm a booked visit the day before, and to follow up on a new enquiry. Always within calling hours, and anyone who says stop is taken off for good.")}
       >
@@ -1964,7 +2017,7 @@ export default function VoiceSettingsPage() {
           where the number, whether it is really wired at the provider, and a
           test text are all one surface. A link is honest; the switch was not. */}
       <Card
-        step="6."
+        step={stepNo("6.")}
         title={t("app.setVoice.crewTitle", "Let the crew text in photos and updates")}
         hint={t("app.setVoice.crewHint", "Your crew send photos or a quick note to your number, and it files them to the right job automatically — asking which one when the day has more than one.")}
       >
@@ -1997,7 +2050,7 @@ export default function VoiceSettingsPage() {
           rather than inventing a pass. See lib/voice/readiness.js. */}
       {number && (
         <Card
-          step="7."
+          step={stepNo("7.")}
           title={t("app.setVoice.chain.title", "Check it end to end")}
           hint={t("app.setVoice.chain.hint", "This asks the phone service itself about every step between somebody dialling and a lead landing here. Nothing below is taken from our own records.")}
         >

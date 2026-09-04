@@ -1,7 +1,7 @@
 // app/(app)/appointments/page.js
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Plus,
@@ -31,12 +31,17 @@ import { navRowAllowed } from "@/lib/permissions/nav";
 import { useSession } from "@/lib/auth-client";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
-const STATUS_STYLES = {
-  scheduled: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
-  needs_supervisor: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300",
-  completed: "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300",
-  cancelled: "bg-muted text-muted-foreground",
-};
+// The four-key STATUS_STYLES that used to sit here is now
+// lib/appointments/statusLabels.js, exhaustive over all THREE vocabularies this
+// calendar merges. It was only ever keyed on AppointmentStatus, so every
+// unconverted booking fell through to grey with the word "pending payment"
+// printed beside it — see that file's header.
+import {
+  APPOINTMENT_FILTERS,
+  appointmentFilterLabel,
+  appointmentStatusClasses,
+  appointmentStatusLabel,
+} from "@/lib/appointments/statusLabels";
 
 // dayKey, monthGrid, localeFormat, localeDateTime now live in
 // lib/calendar/monthGrid.js — extracted from here so
@@ -160,7 +165,12 @@ export default function AppointmentsPage() {
   // from /api/settings/members does not say which row is you.
   const { data: session } = useSession();
   const myUserId = session?.user?.id || null;
-  const [appointments, setAppointments] = useState([]);
+  // `null` until the fetch answers, and NOT `[]`. The filter chips carry
+  // counts, and a count is a claim: rendering "Scheduled 0" while the request
+  // is still in flight — or after it failed — states as fact the one thing the
+  // page does not yet know. Same null-versus-empty rule `team` below already
+  // follows, applied to the list the whole screen is built from.
+  const [appointments, setAppointments] = useState(null);
   const [members, setMembers] = useState([]);
   // List 2. `null` means "not yours to see" — the server's answer, not a
   // guess made here — and TeamSchedule renders nothing for it.
@@ -192,24 +202,36 @@ export default function AppointmentsPage() {
       return next;
     });
 
-  useEffect(() => {
+  // ── One loader, called on mount AND by the error banner's button ─────────
+  //
+  // A named function rather than an inline effect body so the retry can call
+  // the same thing the page loaded with. Neon scales to zero and the first
+  // request after an idle period can fail with P1001 — a genuinely transient
+  // failure whose only cure was reloading the whole route, which throws away
+  // the month, the day selection and every open row. See AGENTS.md's
+  // environment note; this is the page that names it.
+  //
+  // `useCallback` with no dependencies: it reads nothing from render scope, so
+  // it is stable, and the mount effect below can depend on it honestly rather
+  // than carrying an eslint-disable.
+  const load = useCallback(async () => {
+    setError("");
+    setLoading(true);
     // Was a bare Promise.all(...).then(): if either request 500'd, r.json()
     // threw, the .then never ran, and setLoading(false) never fired — the page
     // sat on its skeleton forever with nothing to report.
-    (async () => {
-      try {
-        const [appts, mem] = await Promise.all([
-          fetchJson("/api/appointments"),
-          fetchJson("/api/settings/members"),
-        ]);
-        setAppointments(appts);
-        setMembers(mem);
-      } catch (err) {
-        setError(err.message || "Could not load appointments");
-      } finally {
-        setLoading(false);
-      }
-    })();
+    try {
+      const [appts, mem] = await Promise.all([
+        fetchJson("/api/appointments"),
+        fetchJson("/api/settings/members"),
+      ]);
+      setAppointments(appts);
+      setMembers(mem);
+    } catch (err) {
+      setError(err.message || "Could not load appointments");
+    } finally {
+      setLoading(false);
+    }
 
     // Fetched separately, and deliberately so: the crew list is secondary, and
     // a failure fetching it must not blank the calendar the person actually
@@ -221,23 +243,49 @@ export default function AppointmentsPage() {
     // team: telling an employee their "team schedule" failed would imply an
     // entitlement they do not have, which is the same lie as rendering the
     // empty heading.
+    //
+    // Not awaited, for the same reason it is a second request: the calendar
+    // must render as soon as its own data lands.
     fetchJson("/api/schedule/team")
       .then((d) => {
         setTeam(d.canSeeTeam ? d.team : null);
         setTeamBasis(d.basis || null);
       })
-      .catch(() => setError("Part of the calendar couldn't be loaded. Try refreshing."));
+      .catch(() => setError("Part of the calendar couldn't be loaded."));
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // `appointments` is null until the fetch answers. Everything downstream of
+  // this line wants a list, and every one of them treats "nothing yet" and
+  // "nothing at all" identically — correctly, because both render an empty
+  // calendar. The ONE place the difference matters is the chip counts below,
+  // which read `appointments` itself rather than this.
+  const entries = appointments || [];
 
   // Status-filtered, and the source for BOTH surfaces. A calendar showing
   // cancelled visits the list below has hidden would have the two disagreeing
   // about what's booked, on the same screen.
   const filtered =
-    filter === "all"
-      ? appointments
-      : appointments.filter((a) => a.status === filter);
+    filter === "all" ? entries : entries.filter((a) => a.status === filter);
 
-  const legs = useMemo(() => legsByAppointment(appointments), [appointments]);
+  // How many rows each chip would show — counted over the SAME list the chip
+  // would filter, so the number and the result cannot disagree. Null while the
+  // list has never loaded: `0` is a statement, and "Cancelled 0" printed over a
+  // failed request is a confident lie about a calendar nobody has read yet.
+  const filterCounts = useMemo(() => {
+    if (!appointments) return null;
+    const counts = { all: appointments.length };
+    for (const s of APPOINTMENT_FILTERS) {
+      if (s === "all") continue;
+      counts[s] = appointments.filter((a) => a.status === s).length;
+    }
+    return counts;
+  }, [appointments]);
+
+  const legs = useMemo(() => legsByAppointment(appointments || []), [appointments]);
 
   const byDay = useMemo(() => {
     const map = new Map();
@@ -320,25 +368,56 @@ export default function AppointmentsPage() {
           a filter row sitting under the grid it controls reads as belonging to
           the list alone. */}
       <div data-tour="appts-filters" className="flex gap-2 overflow-x-auto pb-2 mb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
-        {["all", "scheduled", "needs_supervisor", "completed", "cancelled"].map(
-          (s) => (
-            <button
-              key={s}
-              onClick={() => setFilter(s)}
-              className={`shrink-0 inline-flex items-center min-h-[44px] rounded-full px-4 text-sm border ${
-                filter === s
-                  ? "bg-inverted text-inverted-foreground border-inverted"
-                  : "border-border"
-              }`}
-            >
-              {s.replace("_", " ")}
-            </button>
-          ),
-        )}
+        {APPOINTMENT_FILTERS.map((s) => (
+          <button
+            key={s}
+            onClick={() => setFilter(s)}
+            aria-pressed={filter === s}
+            className={`shrink-0 inline-flex items-center gap-2 min-h-[44px] rounded-full px-4 text-sm border ${
+              filter === s
+                ? "bg-inverted text-inverted-foreground border-inverted"
+                : "border-border"
+            }`}
+          >
+            {/* Was `s.replace("_", " ")` — "needs supervisor", lowercase and
+                English on a French screen. See lib/appointments/statusLabels.js
+                for why this is a shared module and not a map in this file. */}
+            {appointmentFilterLabel(s, t)}
+            {/* The count, only once there is one. `filterCounts` is null until
+                the list loads, and a chip reading "0" over a request that never
+                answered is the confident-zero failure — so the chip simply
+                carries no number until it has one to carry. */}
+            {filterCounts && (
+              <span
+                className={`tabular-nums text-xs font-semibold rounded-full px-1.5 py-0.5 ${
+                  filter === s ? "bg-inverted-foreground/15" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {filterCounts[s]}
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
+      {/* The `dark:` half was missing on all three classes, so in a dark cab
+          this was a bright light-red slab — byte-identical to the team
+          schedule's, which is how it got here. The button is the point: Neon
+          scales to zero and the first request after idle can fail with P1001,
+          and the only cure on offer was reloading the route and losing the
+          month, the selected day and every open row. */}
       {error && (
-        <p className="text-sm rounded-lg bg-red-50 text-red-700 border border-red-200 px-3 py-2 mb-4">{error}</p>
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm rounded-lg bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-900 px-3 py-2 mb-4">
+          <p className="min-w-0">{error}</p>
+          <button
+            type="button"
+            onClick={load}
+            disabled={loading}
+            className="shrink-0 inline-flex items-center min-h-[44px] px-3 rounded-lg border border-red-300 dark:border-red-800 font-medium disabled:opacity-50"
+          >
+            {t("app.action.retry", "Try again")}
+          </button>
+        </div>
       )}
 
       {/* ── The month ─────────────────────────────────────────────────────
@@ -462,9 +541,9 @@ export default function AppointmentsPage() {
                       {items.slice(0, 2).map((a) => (
                         <span
                           key={a.id}
-                          className={`block truncate rounded px-1 py-0.5 text-[10px] leading-tight ${
-                            STATUS_STYLES[a.status] || "bg-muted"
-                          }`}
+                          className={`block truncate rounded px-1 py-0.5 text-[10px] leading-tight ${appointmentStatusClasses(
+                            a.status,
+                          )}`}
                         >
                           {new Date(a.scheduledAt).toLocaleTimeString([], {
                             hour: "numeric",
@@ -528,7 +607,13 @@ export default function AppointmentsPage() {
         </div>
       )}
 
-      {!loading && shown.length === 0 && (
+      {/* `appointments &&`, not just `!loading`. "No appointments in this view"
+          is a statement about the calendar, and a request that never answered
+          entitles nobody to make it — the banner above already says what
+          happened and offers the retry. This is the same restricted-versus-
+          empty-versus-never-loaded split AppointmentDetails further down makes
+          by hand; the list itself had been collapsing two of the three. */}
+      {!loading && appointments && shown.length === 0 && (
         <div className="glass-effect rounded-lg p-6 text-center text-sm text-muted-foreground">
           {t("app.appts.empty")}
         </div>
@@ -635,12 +720,18 @@ export default function AppointmentsPage() {
                   <span className="font-medium truncate">
                     {appt.client?.name}
                   </span>
+                  {/* Was `String(status).replace("_", " ")` — the raw column
+                      value, lowercase and untranslated, on the badge a
+                      dispatcher reads first. The default stays "scheduled":
+                      an Appointment row cannot have a null status, but a
+                      pre-column JobVisit can, and "Scheduled" is what
+                      lib/schedule/jobVisits.js already substitutes for it. */}
                   <span
-                    className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${
-                      STATUS_STYLES[appt.status] || "bg-muted text-muted-foreground"
-                    }`}
+                    className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${appointmentStatusClasses(
+                      appt.status || "scheduled",
+                    )}`}
                   >
-                    {String(appt.status || "scheduled").replace("_", " ")}
+                    {appointmentStatusLabel(appt.status || "scheduled", t)}
                   </span>
                   {/* Job visits now appear on this calendar alongside
                       appointments (they used to be invisible here entirely).
@@ -1134,7 +1225,10 @@ function NewAppointmentModal({ members, onClose, onCreated }) {
     <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
       <div className="bg-card rounded-t-2xl sm:rounded-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold">New Appointment</h2>
+          {/* The only hardcoded English string in 1,217 lines, and it was the
+              modal's own heading. `app.appts.new` is the same words the button
+              that opens this dialog already carries — one concept, one word. */}
+          <h2 className="font-semibold">{t("app.appts.new", "New Appointment")}</h2>
           <button
             onClick={onClose}
             aria-label={t("app.action.close", "Close")}

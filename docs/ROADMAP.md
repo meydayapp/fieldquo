@@ -1,12 +1,68 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 3 September 2026 (sales call handling — dispositions, agent state, in-browser calling and a live floor board; two Prisma models await `prisma db push`).
+Last updated: 3 September 2026 (voice settings stops being a wizard once setup is over, and the appointments calendar stops printing raw column values; sales call handling before that — two Prisma models still await `prisma db push`).
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The voice wizard becomes a settings page (3 September 2026)
+
+`/app/settings/voice` rendered seven NUMBERED setup steps unconditionally,
+forever, so a contractor who set the receptionist up in March opened a
+seven-step wizard in September to change one greeting. The numbering is now
+dropped once first run is over. Nothing else moves: same seven cards, same
+order, same contents — the order is argued in comments on each card and it is
+right.
+
+**"First run is over" is a fact that cannot un-happen.** The GET now answers
+`hasAnsweredCall` — has an inbound call ever reached this company — and the
+page ORs it with `agent.enabled` for the company that switched on five minutes
+ago and hasn't been rung yet. Deliberately not `canEnable`: that goes false
+whenever the balance dips below one call, and a page that re-numbers itself
+into a wizard because credit ran low tells a three-year customer to start over.
+`check:voice-setup-steps` pulls both expressions out of the source and RUNS
+them against that truth table, because `if (false && hasAnsweredCall)` contains
+all the right words.
+
+**The credit line's English "s" is gone.** `{t("…minute")}{n === 1 ? "" : "s"}`
+rendered "Minutes" in German and "minutos" in Italian. It uses the existing
+`app.duration.minutes` counted noun now, asserted by executing the catalogue
+entry in all nine languages. Three more of the same shape survive on that page
+(`app.setVoice.outboundQueued` and two in `CallbackReport`) — each passes
+`plural` as a value into a `{count} call{plural}` string, which is the same
+English rule wearing a placeholder. Fixing them needs new counted-noun keys.
+
+## Appointments: three status vocabularies, one badge (3 September 2026)
+
+The calendar printed `String(status).replace("_", " ")` — `needs supervisor`,
+lowercase and English in a French office, the same failure the invoices list
+shipped when a chargeback printed `partially_refunded`. Now
+`lib/appointments/statusLabels.js`, in the shape of
+`lib/invoices/statusPresentation.js`.
+
+**The quiet half was the colour.** `STATUS_STYLES` had four keys matching
+`enum AppointmentStatus` exactly, which looks exhaustive and is not: this
+calendar merges Appointments, Bookings (`pending_payment`, `confirmed`) and
+JobVisits (`on_the_way`, `in_progress`, `canceled`). Every unconverted booking
+had been falling through to plain grey with "pending payment" beside it.
+`check:appointment-status` drives the map against all three vocabularies read
+from `prisma/schema.prisma` and `lib/jobs/visitStatus.js`.
+
+`on_the_way` is the one status with no catalogue key anywhere in the product;
+it carries readable English and the check pins it as the ONLY hole, so a second
+cannot be added quietly. The key it wants is `app.status.onTheWay`.
+
+Alongside: the filter chips carry counts (null until the list loads — `0` over
+a failed request is a claim about a calendar nobody has read), the error banner
+gained its missing `dark:` half and a retry wired to the page's own loader
+(Neon scales to zero; P1001 on the first request after idle used to cost you
+the month, the day and every open row), and the modal's one hardcoded
+"New Appointment" now goes through `t()`.
 
 ---
 

@@ -119,7 +119,7 @@ export async function GET(request) {
   const { member, error, status } = await requireAdmin(request, { read: true });
   if (error) return NextResponse.json({ error }, { status });
 
-  const [agent, number, cents, entries, company, queuedCalls, trialUsed, autoTopup, callbackReport] = await Promise.all([
+  const [agent, number, cents, entries, company, queuedCalls, trialUsed, autoTopup, callbackReport, firstAnsweredCall] = await Promise.all([
     db.voiceAgent.findUnique({ where: { companyId: member.companyId } }),
     // heldNumber, not activeNumber. The screen has to show a row stuck on the
     // old `provisioning` default: that number was bought, it exists at the
@@ -158,6 +158,31 @@ export async function GET(request) {
     // "It's calling clients" is accurate and unactionable — see the header of
     // lib/voice/quoteCallbackReport.js.
     quoteCallbackReport(member.companyId),
+    // ── Has this receptionist ever actually answered? ────────────────────
+    //
+    // The settings page renders seven NUMBERED setup steps, and numbered steps
+    // are a first-run affordance. Deciding first-run is over needs a fact that
+    // cannot un-happen, and none of the obvious candidates is one:
+    //
+    //   `agent.enabled`  flips off when an owner switches the phone off for a
+    //                    week, and re-numbering the page then reads as "start
+    //                    again" — the exact failure the numbering causes in
+    //                    the first place, just later.
+    //   `readiness.ready` goes false whenever the balance dips below a call.
+    //                    Running low is not un-setting-up.
+    //   `providerAgentId` is written by the number purchase itself, so it is
+    //                    true before the greeting has been written or the
+    //                    switch ever touched — too early, in the direction
+    //                    that hides guidance from someone still setting up.
+    //
+    // One inbound call that reached us is proof the whole chain worked once,
+    // and no later event takes it back. `findFirst` rather than `count`: the
+    // page asks a yes/no question, and a company with 4,000 calls should not
+    // pay for counting them to answer it. Indexed on [companyId, createdAt].
+    db.voiceCall.findFirst({
+      where: { companyId: member.companyId, direction: "inbound" },
+      select: { id: true },
+    }),
   ]);
 
   // What a quote for this company's instantly-priced trades needs, in its own
@@ -318,6 +343,14 @@ export async function GET(request) {
           greetingNamesOther: greetingNamesAnotherBusiness(agent.greeting, company?.name),
         }
       : null,
+    // Whether the receptionist has ever taken a call — the page's "is first run
+    // over?" fact, computed here because it is a database question. See the
+    // findFirst above for why this and not `enabled`, `ready` or `provisioned`.
+    //
+    // A boolean, not the row: nothing on the screen shows WHICH call, and
+    // shipping an id the page does not render is a field written and never
+    // read, which is failure class 1 in AGENTS.md.
+    hasAnsweredCall: Boolean(firstAnsweredCall),
     // ── How it sounds ─────────────────────────────────────────────────────
     //
     // OUTSIDE `agent`, on purpose. A company that has never opened this screen
