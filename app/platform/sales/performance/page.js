@@ -50,6 +50,8 @@ import { fetchJson } from "@/lib/fetchJson";
 // somebody needs to retry. periodPresets.js is pure and has no imports of its
 // own, so this costs the client bundle nothing.
 import { PERIOD_PRESETS } from "@/lib/analytics/periodPresets";
+import { statusMeta } from "@/lib/platform/subscriptionStatus";
+import { centsOrNull, UNKNOWN } from "@/lib/platform/metricFormat";
 
 const FIELD =
   "w-full border border-border rounded-lg px-3 py-2.5 min-h-[44px] text-base bg-card text-foreground disabled:opacity-60";
@@ -57,9 +59,23 @@ const CARD = "rounded-xl border border-border bg-card p-4";
 const TH = "px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground";
 const TD = "px-3 py-3 text-sm text-foreground align-top";
 
-/** Cents to dollars. Never a bare division in JSX — a stray one prints $12.3456. */
+/**
+ * Cents to dollars. Never a bare division in JSX — a stray one prints $12.3456.
+ *
+ * `Number(cents) || 0` fabricated a zero here, on the four tiles that say what
+ * FieldQuo owes its own reps. Commission owed, reversed, paid, earned: a field
+ * that did not arrive printed a confident $0.00, and zero is finite, so nothing
+ * downstream could tell afterwards — "we owe nobody anything" and "the ledger
+ * did not load" were the same pixels on the screen somebody runs payroll off.
+ * Note `Number([])` is 0 as well, so the type is checked before Number() rather
+ * than after. That test is centsOrNull in lib/platform/metricFormat.js — the
+ * module this cannot simply call for the whole job, because its money() is
+ * fixed to CAD and these are the commission ledger's own cents — imported so a
+ * check can execute the rule against hostile input rather than grep for it.
+ */
 function money(cents) {
-  const n = Number(cents) || 0;
+  const n = centsOrNull(cents);
+  if (n === null) return UNKNOWN;
   return `${n < 0 ? "-" : ""}$${Math.abs(n / 100).toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -427,7 +443,21 @@ export default function SalesPerformancePage() {
                             <div className="text-xs text-muted-foreground">via {a.source}</div>
                           </td>
                           <td className={TD}>
-                            <div>{a.subscriptionStatus || "No subscription"}</div>
+                            {/* The fourth copy of the status map, avoided.
+                                `past_due` printed raw here, in the same weight
+                                as "active", on the table a superadmin reads to
+                                see what happened to a rep's book — and a
+                                company that IS past due is the one row on it
+                                that matters. statusMeta also keeps "no status"
+                                and "a status we do not recognise" apart, which
+                                `|| "No subscription"` could not. */}
+                            <span
+                              className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full border ${statusMeta(a.subscriptionStatus).className}`}
+                            >
+                              {a.subscriptionStatus
+                                ? statusMeta(a.subscriptionStatus).label
+                                : "No subscription"}
+                            </span>
                             <div className="text-xs text-muted-foreground">
                               {a.planName || "No plan"} ·{" "}
                               {a.chargesEnabled ? "can take payments" : "cannot take payments yet"}

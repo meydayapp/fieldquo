@@ -24,28 +24,60 @@ import {
   Ban,
   CheckCircle2,
 } from "lucide-react";
+import PlatformWriteGate, {
+  usePlatformAdmin,
+} from "@/app/components/platform/PlatformWriteGate";
+// The state machine, imported rather than re-typed. This file used to carry
+// four hand-copied Sets — WRITABLE, QUOTABLE, CANCELLABLE, COMPLETABLE — of
+// exactly the states lib/migrations/state.js already decides. They happened to
+// agree today. They are the copy nobody looks at, on the one screen in the
+// product that writes inside a company's tenant, where "the screen and the
+// route disagree about whether writing is legal" is the entire failure mode
+// canWrite() exists to prevent (AGENTS.md failure class 4, non-negotiable #3).
+import {
+  canCancel,
+  canComplete,
+  canQuote,
+  canWrite,
+  describeStatus,
+} from "@/lib/migrations/state";
 
 const bad = async (res) => {
   const body = await res.json().catch(() => null);
   throw new Error(body?.error || `Request failed (${res.status}).`);
 };
 
+/**
+ * The quoted price, in the currency FieldQuo actually quoted it in.
+ *
+ * An absent currency is NAMED rather than assumed to be CAD. The old default
+ * printed "CA$4,000.00" over a figure that may have been agreed in USD — the
+ * same fabrication the chargeback panel was fixed for last pass, on a number
+ * a company is about to be charged.
+ */
 function money(cents, currency) {
   if (!Number.isFinite(cents)) return "—";
+  if (!currency) return `${(cents / 100).toFixed(2)} (currency not recorded)`;
   try {
-    return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "CAD" }).format(cents / 100);
+    return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(cents / 100);
   } catch {
-    return `${(cents / 100).toFixed(2)} ${currency || ""}`;
+    return `${(cents / 100).toFixed(2)} ${currency}`;
   }
 }
 
-const WRITABLE = new Set(["paid", "in_progress"]);
-const QUOTABLE = new Set(["requested", "scheduled"]);
-const CANCELLABLE = new Set(["requested", "scheduled", "quoted", "accepted", "paid", "in_progress"]);
-const COMPLETABLE = new Set(["paid", "in_progress"]);
-
 export default function MigrationDetail({ migrationId: id }) {
-  const [me, setMe] = useState(null);
+  // The shared gate, not `me?.role === "superadmin"` after a fetch. Same reason
+  // the six /platform/sales editors were moved onto it: a failed identity call
+  // left `me` null, and this screen then drew nothing at all — no quote form,
+  // no cancel, no write panel and no sentence — for a real superadmin whose
+  // /api/platform/me happened to fail. Never-loaded rendered as restricted.
+  //
+  // Each gate names the permission ITS OWN route enforces, not one blanket
+  // "superadmin?" — the three actions on this page go through three different
+  // entries in lib/platform/permissions.js (migration:quote, migration:write,
+  // migration:cancel), all three superadmin-only today, and a screen that
+  // collapsed them would stop matching the routes the day one is delegated.
+  const { status: roleStatus, error: roleError, can } = usePlatformAdmin();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
@@ -53,13 +85,8 @@ export default function MigrationDetail({ migrationId: id }) {
   const load = useCallback(async () => {
     setError("");
     try {
-      const [meRes, detailRes] = await Promise.all([
-        fetch("/api/platform/me"),
-        fetch(`/api/platform/migrations/${id}`),
-      ]);
-      if (!meRes.ok) await bad(meRes);
+      const detailRes = await fetch(`/api/platform/migrations/${id}`);
       if (!detailRes.ok) await bad(detailRes);
-      setMe(await meRes.json());
       setData(await detailRes.json());
     } catch (err) {
       setError(err.message);
@@ -89,13 +116,20 @@ export default function MigrationDetail({ migrationId: id }) {
   }
 
   const { request, company, people } = data;
-  const isSuperadmin = me?.role === "superadmin";
 
   const personLabel = (kind, personId) => {
     if (!personId) return null;
     const row = kind === "user" ? people.users[personId] : people.admins[personId];
     return row?.name || row?.email || personId;
   };
+
+  // Every gate on this page asks lib/migrations/state.js, so the screen and
+  // the route are answering the same question from the same module.
+  const writable = canWrite(request.status);
+  const quotable = canQuote(request.status);
+  const cancellable = canCancel(request.status);
+  const completable = canComplete(request.status);
+  const anyAction = quotable || cancellable || completable || writable;
 
   return (
     <div className="p-6 max-w-3xl space-y-6">
@@ -114,7 +148,7 @@ export default function MigrationDetail({ migrationId: id }) {
           )}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Data migration request &middot; {request.status.replace("_", " ")} &middot; opened{" "}
+          Data migration request &middot; {describeStatus(request.status)} &middot; opened{" "}
           {new Date(request.createdAt).toLocaleDateString()}
         </p>
       </div>
@@ -152,11 +186,23 @@ export default function MigrationDetail({ migrationId: id }) {
         </section>
       )}
 
-      {QUOTABLE.has(request.status) && isSuperadmin && (
-        <QuoteForm id={id} currentCurrency={request.currency} onSaved={(r) => { setData((d) => ({ ...d, request: r })); }} />
+      {quotable && (
+        <PlatformWriteGate
+          status={roleStatus}
+          allowed={can("migration:quote")}
+          action="Pricing a migration"
+          who="superadmins"
+          error={roleError}
+        >
+          <QuoteForm
+            id={id}
+            currentCurrency={request.currency || company?.currency}
+            onSaved={(r) => { setData((d) => ({ ...d, request: r })); }}
+          />
+        </PlatformWriteGate>
       )}
 
-      {!QUOTABLE.has(request.status) && request.priceCents != null && (
+      {!quotable && request.priceCents != null && (
         <section className="bg-card border border-border rounded-xl p-5 space-y-1">
           <h2 className="font-semibold text-foreground">Quote</h2>
           <p className="text-2xl font-bold text-foreground">{money(request.priceCents, request.currency)}</p>
@@ -187,57 +233,61 @@ export default function MigrationDetail({ migrationId: id }) {
         </ul>
       </section>
 
-      {WRITABLE.has(request.status) && isSuperadmin && (
-        <WritePanel
-          id={id}
-          writes={request.writes || []}
-          people={people}
-          setError={setError}
-          setNote={setNote}
-          reload={load}
-        />
+      {writable && (
+        <PlatformWriteGate
+          status={roleStatus}
+          allowed={can("migration:write")}
+          action="Writing into a company's account"
+          who="superadmins"
+          error={roleError}
+        >
+          <WritePanel
+            id={id}
+            writes={request.writes || []}
+            people={people}
+            companyCurrency={company?.currency}
+            setError={setError}
+            setNote={setNote}
+            reload={load}
+          />
+        </PlatformWriteGate>
       )}
 
-      {!WRITABLE.has(request.status) && request.writes?.length > 0 && (
+      {!writable && request.writes?.length > 0 && (
         <section className="bg-card border border-border rounded-xl p-5 space-y-2">
           <h2 className="font-semibold text-foreground">What was written</h2>
           <WritesList writes={request.writes} people={people} />
         </section>
       )}
 
-      {isSuperadmin && (CANCELLABLE.has(request.status) || COMPLETABLE.has(request.status)) && (
-        <section className="flex items-center gap-2">
-          {COMPLETABLE.has(request.status) && (
-            <ActionButton
-              label="Mark completed"
-              icon={CheckCircle2}
-              onClick={async () => {
-                const res = await fetch(`/api/platform/migrations/${id}/complete`, { method: "POST" });
-                if (!res.ok) return setError((await res.json().catch(() => ({})))?.error || "Failed");
-                setNote("Marked completed.");
-                await load();
-              }}
-            />
-          )}
-          {CANCELLABLE.has(request.status) && (
-            <ActionButton
-              label="Cancel"
-              icon={Ban}
-              destructive
-              onClick={async () => {
-                const reason = window.prompt("Reason for cancelling (optional):") || "";
-                const res = await fetch(`/api/platform/migrations/${id}/cancel`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ reason }),
-                });
-                if (!res.ok) return setError((await res.json().catch(() => ({})))?.error || "Failed");
-                setNote("Cancelled.");
-                await load();
-              }}
-            />
-          )}
-        </section>
+      {(cancellable || completable) && (
+        <PlatformWriteGate
+          status={roleStatus}
+          allowed={can("migration:write") && can("migration:cancel")}
+          action="Closing out or cancelling a migration"
+          who="superadmins"
+          error={roleError}
+        >
+          <TerminalActions
+            id={id}
+            status={request.status}
+            cancellable={cancellable}
+            completable={completable}
+            writable={writable}
+            setError={setError}
+            setNote={setNote}
+            reload={load}
+          />
+        </PlatformWriteGate>
+      )}
+
+      {/* A migration in a state with nothing left to do says so, rather than
+          ending in whitespace that reads as a screen still loading. */}
+      {!anyAction && (
+        <p className="text-sm text-muted-foreground">
+          This migration is {describeStatus(request.status)}. Nothing can be
+          priced, written or changed from here — the record stays as it is.
+        </p>
       )}
     </div>
   );
@@ -264,6 +314,176 @@ function ActionButton({ label, icon: Icon, onClick, destructive }) {
       {busy ? <Loader2 size={13} className="animate-spin" /> : <Icon size={13} />}
       {label}
     </button>
+  );
+}
+
+/**
+ * Mark completed, and cancel — the two irreversible ends of the state machine.
+ *
+ * ── The bug this replaced ──────────────────────────────────────────────────
+ *
+ * Cancel read `window.prompt("Reason for cancelling (optional):") || ""` and
+ * then posted regardless. window.prompt returns null when the person presses
+ * Escape or the dialog's own Cancel button — so backing out of the prompt
+ * CANCELLED THE MIGRATION, with an empty reason, on the one action in this
+ * product that revokes a company's paid-for write window. The `|| ""` that
+ * caused it is the same shape as `Number(value || 0)`: a falsy value with a
+ * meaning, coalesced into one without.
+ *
+ * ── And what the button did not say ────────────────────────────────────────
+ *
+ * It said "Cancel", next to a save button, on a screen full of forms. From
+ * `paid` or `in_progress` it closes canWrite() immediately and FieldQuo issues
+ * no refund on its own (docs/MIGRATION-SERVICE.md, "what was not built") — so
+ * the consequence is named before the click rather than discovered after it,
+ * and a reason is asked for in the page rather than in a browser dialog that
+ * cannot explain itself.
+ */
+function TerminalActions({
+  id,
+  status,
+  cancellable,
+  completable,
+  writable,
+  setError,
+  setNote,
+  reload,
+}) {
+  const [confirming, setConfirming] = useState(null); // "cancel" | "complete"
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function run(kind) {
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch(
+        `/api/platform/migrations/${id}/${kind === "cancel" ? "cancel" : "complete"}`,
+        kind === "cancel"
+          ? {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ reason }),
+            }
+          : { method: "POST" },
+      );
+      if (!res.ok) {
+        setError((await res.json().catch(() => ({})))?.error || "That didn't work.");
+        return;
+      }
+      setNote(
+        kind === "cancel"
+          ? "Cancelled. The write path is closed; no refund has been issued by FieldQuo."
+          : "Marked completed. The write path is closed.",
+      );
+      setConfirming(null);
+      setReason("");
+      await reload();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (confirming) {
+    const isCancel = confirming === "cancel";
+    return (
+      <section
+        className={`rounded-xl border p-5 space-y-3 ${
+          isCancel
+            ? "border-red-300 dark:border-red-900 bg-red-50 dark:bg-red-950/40"
+            : "border-border bg-card"
+        }`}
+      >
+        <h2 className={`font-semibold ${isCancel ? "text-red-900 dark:text-red-200" : "text-foreground"}`}>
+          {isCancel ? "Cancel this migration?" : "Mark this migration completed?"}
+        </h2>
+        <p className={`text-sm ${isCancel ? "text-red-800 dark:text-red-300" : "text-muted-foreground"}`}>
+          {isCancel ? (
+            <>
+              This is terminal — a cancelled migration cannot be reopened.
+              {writable ? (
+                <>
+                  {" "}
+                  It has been paid for and the write path is open right now:
+                  cancelling closes it immediately, and{" "}
+                  <strong>FieldQuo does not issue a refund automatically</strong>{" "}
+                  — that is a Stripe Billing action taken outside this product.
+                </>
+              ) : (
+                <> Nothing already written into the company&apos;s account is removed.</>
+              )}
+            </>
+          ) : (
+            <>
+              This is terminal. Writing into this company&apos;s account stops
+              here, for you as well as for everyone else — bringing in more
+              records later means a new migration request. Anything already
+              written stays.
+            </>
+          )}
+        </p>
+        {isCancel && (
+          <div>
+            <label htmlFor="cancel-reason" className="block text-xs font-medium text-muted-foreground mb-1">
+              Why (recorded against you in the audit log, and shown to nobody else)
+            </label>
+            <input
+              id="cancel-reason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+            />
+          </div>
+        )}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => run(confirming)}
+            className={`inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-lg disabled:opacity-60 ${
+              isCancel ? "bg-red-700 text-white" : "bg-inverted text-inverted-foreground"
+            }`}
+          >
+            {busy ? <Loader2 size={13} className="animate-spin" /> : <Ban size={13} />}
+            {isCancel ? "Cancel the migration" : "Mark it completed"}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              setConfirming(null);
+              setReason("");
+            }}
+            className="text-sm px-3 py-1.5 rounded-lg border border-border text-foreground disabled:opacity-60"
+          >
+            Leave it alone
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="flex items-center gap-2">
+      {completable && (
+        <ActionButton
+          label="Mark completed"
+          icon={CheckCircle2}
+          onClick={() => setConfirming("complete")}
+        />
+      )}
+      {cancellable && (
+        <ActionButton
+          label={writable ? "Cancel — closes the write path" : "Cancel this migration"}
+          icon={Ban}
+          destructive
+          onClick={() => setConfirming("cancel")}
+        />
+      )}
+      <span className="text-xs text-muted-foreground">
+        Both are terminal from {describeStatus(status)}.
+      </span>
+    </section>
   );
 }
 
@@ -373,7 +593,7 @@ function WritesList({ writes, people }) {
   );
 }
 
-function WritePanel({ id, writes, people, setError, setNote, reload }) {
+function WritePanel({ id, writes, people, companyCurrency, setError, setNote, reload }) {
   const [clients, setClients] = useState(null);
   const [clientsError, setClientsError] = useState("");
 
@@ -424,6 +644,7 @@ function WritePanel({ id, writes, people, setError, setNote, reload }) {
         clients={clients}
         clientsError={clientsError}
         onRetryClients={loadClients}
+        companyCurrency={companyCurrency}
         setError={setError}
         setNote={setNote}
         reload={reload}
@@ -488,11 +709,33 @@ function AddClientForm({ id, setError, setNote, onCreated }) {
   );
 }
 
-function AddQuoteForm({ id, clients, clientsError, onRetryClients, setError, setNote, reload }) {
+/**
+ * A historical quote, recorded inside the company's own tenant.
+ *
+ * The total box said "Total ($)". A Quote row carries no currency of its own —
+ * every screen and PDF renders it in the COMPANY's currency (lib/currency.js) —
+ * so on a euro contractor's migration that "$" named the wrong money on the one
+ * form that writes a figure into their books. The company's currency is on the
+ * detail payload; it is printed here instead of a dollar sign. When it is
+ * genuinely absent the label says so rather than picking one.
+ */
+function AddQuoteForm({
+  id,
+  clients,
+  clientsError,
+  onRetryClients,
+  companyCurrency,
+  setError,
+  setNote,
+  reload,
+}) {
   const [clientId, setClientId] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
+  const totalLabel = companyCurrency
+    ? `Total (${companyCurrency})`
+    : "Total (this company's currency)";
 
   async function submit(e) {
     e.preventDefault();
@@ -543,7 +786,8 @@ function AddQuoteForm({ id, clients, clientsError, onRetryClients, setError, set
           required
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          placeholder="Total ($)"
+          placeholder={totalLabel}
+          aria-label={totalLabel}
           className="border border-border rounded-lg px-3 py-1.5 text-sm"
         />
       </div>

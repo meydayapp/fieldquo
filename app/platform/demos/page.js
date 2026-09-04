@@ -11,6 +11,37 @@ import { useEffect, useState } from "react";
 import { Loader2, CalendarCheck, Mail, Phone, Building2 } from "lucide-react";
 
 const TZ = "America/Toronto";
+
+// DemoBooking.status is a String column, not an enum, and the PATCH here only
+// ever writes one of these three (see the route's own allow-list). It was
+// printed raw into a pill — "cancelled", "completed", grey either way — so the
+// call that HAPPENED and the call that was called off read identically at a
+// glance on a sales calendar. A value from anywhere else says it is unknown
+// rather than being shown as if it were expected.
+const STATUS_META = {
+  booked: { label: "Booked", className: "border-border text-muted-foreground" },
+  completed: {
+    label: "Done",
+    className:
+      "border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300",
+  },
+  cancelled: {
+    label: "Cancelled",
+    className:
+      "border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300",
+  },
+};
+
+function statusMeta(status) {
+  return (
+    STATUS_META[status] || {
+      label: `Unrecognised: ${status}`,
+      className:
+        "border-purple-300 dark:border-purple-900 bg-purple-50 dark:bg-purple-950/40 text-purple-800 dark:text-purple-200",
+    }
+  );
+}
+
 const whenFmt = new Intl.DateTimeFormat("en-US", {
   timeZone: TZ, weekday: "short", month: "short", day: "numeric",
   hour: "numeric", minute: "2-digit", hour12: true, timeZoneName: "short",
@@ -22,9 +53,13 @@ export default function DemosPage() {
   const [busyId, setBusyId] = useState("");
 
   async function load() {
+    setError("");
     try {
       const res = await fetch("/api/platform/demos");
-      if (!res.ok) throw new Error("Couldn't load demo bookings.");
+      if (!res.ok) {
+        const detail = await res.json().catch(() => null);
+        throw new Error(detail?.error || `Couldn't load demo bookings (${res.status}).`);
+      }
       setData(await res.json());
     } catch (err) {
       setError(err.message);
@@ -52,13 +87,36 @@ export default function DemosPage() {
     }
   }
 
-  if (error) {
-    return <div className="p-6 text-sm text-red-600">{error}</div>;
-  }
+  // The error used to REPLACE the whole page, so a failed "Mark done" wiped the
+  // calendar an agent was reading between calls and left them a red sentence
+  // with no way back. It is a banner over the list now, and the list only
+  // disappears when there is genuinely nothing loaded to show. (text-red-600
+  // also had no dark variant — 3.54:1 on --card, the same measurement the
+  // Cancel button below was fixed for and this line was not.)
+  const banner = error ? (
+    <div className="rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-300 flex items-center justify-between gap-3">
+      <span>{error}</span>
+      <button onClick={load} className="font-semibold underline underline-offset-2 shrink-0">
+        Try again
+      </button>
+    </div>
+  ) : null;
+
   if (!data) {
     return (
-      <div className="p-6 text-sm text-muted-foreground inline-flex items-center gap-2">
-        <Loader2 size={14} className="animate-spin" /> Loading…
+      <div className="max-w-3xl p-4 sm:p-6 space-y-4">
+        {banner}
+        {!error && (
+          <div className="text-sm text-muted-foreground inline-flex items-center gap-2">
+            <Loader2 size={14} className="animate-spin" /> Loading…
+          </div>
+        )}
+        {error && (
+          <p className="text-sm text-muted-foreground">
+            No bookings are shown because none could be read. Nothing has been
+            cancelled — check again before telling anyone their slot is gone.
+          </p>
+        )}
       </div>
     );
   }
@@ -70,8 +128,10 @@ export default function DemosPage() {
           <CalendarCheck size={15} className="text-muted-foreground" />
           {whenFmt.format(new Date(b.scheduledAt))}
           {b.status !== "booked" && (
-            <span className="text-xs px-2 py-0.5 rounded-full border border-border text-muted-foreground">
-              {b.status}
+            <span
+              className={`text-xs font-medium px-2 py-0.5 rounded-full border ${statusMeta(b.status).className}`}
+            >
+              {statusMeta(b.status).label}
             </span>
           )}
         </div>
@@ -122,6 +182,8 @@ export default function DemosPage() {
           Product demos booked from the marketing site. Times are Eastern.
         </p>
       </div>
+
+      {banner}
 
       <section>
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">

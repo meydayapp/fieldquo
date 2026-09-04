@@ -6,6 +6,16 @@
 // Impersonation entries are visually distinct because they're the ones that
 // matter most: they're the moments a staff member had access to a customer's
 // real client data, and the entry is the only record that it happened.
+//
+// That sentence was FALSE for as long as this page existed. The amber rule was
+// keyed on the action `impersonate`, which nothing writes — the real values are
+// `impersonation_started` and `impersonation_ended` — so the class of entry the
+// screen was designed around rendered in the same grey as everything else, with
+// the generic icon, labelled "impersonation started" by a fallback that
+// replaced underscores with spaces. Four more of the thirty-six actions this
+// product writes were named here; the rest had no wording at all. The map now
+// lives in lib/platform/auditActions.js, where check:platform-truth holds it to
+// what the routes actually write, in both directions.
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -20,47 +30,49 @@ import {
   Ban,
   Pencil,
   Plus,
+  Building2,
+  HelpCircle,
 } from "lucide-react";
+import { describeAuditAction } from "@/lib/platform/auditActions";
 
-// Actions worth recognising on sight. Anything unmapped falls back to a
-// neutral style rather than being hidden — a new action type should still
-// show up, just without special treatment.
-const ACTION_META = {
-  impersonate: {
-    label: "Signed in as company",
+// The palette lives here and the vocabulary lives in the module, so the check
+// can import the vocabulary without a bare-node parser meeting a class list.
+// Each tone is a class of thing somebody scans this table for; see that file.
+const TONES = {
+  access: {
     Icon: LogIn,
-    className: "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-900",
+    className:
+      "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-900",
   },
-  company_suspended: {
-    label: "Suspended company",
+  tenant: {
+    Icon: Building2,
+    className:
+      "bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-900",
+  },
+  danger: {
     Icon: Ban,
-    className: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900",
+    className:
+      "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900",
   },
-  company_deletion_requested: {
-    label: "Requested deletion",
-    Icon: Ban,
-    className: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900",
-  },
-  company_updated: {
-    label: "Updated company",
-    Icon: Pencil,
-    className: "bg-muted text-foreground border-border",
-  },
-  company_created: {
-    label: "Created company",
+  good: {
     Icon: Plus,
-    className: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900",
+    className:
+      "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900",
+  },
+  neutral: { Icon: Pencil, className: "bg-muted text-foreground border-border" },
+  // Purple, not grey, for the same reason subscriptionStatus.js uses purple:
+  // an action the log can hold and this console cannot name is a bug, and the
+  // grey fallback it used to get is precisely what hid the impersonation rows.
+  unknown: {
+    Icon: HelpCircle,
+    className:
+      "bg-purple-50 dark:bg-purple-950/40 text-purple-800 dark:text-purple-200 border-purple-300 dark:border-purple-900",
   },
 };
 
 function meta(action) {
-  return (
-    ACTION_META[action] || {
-      label: action.replace(/_/g, " "),
-      Icon: ScrollText,
-      className: "bg-muted text-foreground border-border",
-    }
-  );
+  const { label, tone } = describeAuditAction(action);
+  return { label, ...(TONES[tone] || TONES.unknown) };
 }
 
 function formatWhen(value) {
@@ -97,6 +109,12 @@ export default function AuditLogPage() {
       }
       setData(await res.json());
     } catch (err) {
+      // The failed load REPLACES the rows. Leaving the old payload here made
+      // the empty state below fire on a failure, so a request that never
+      // arrived rendered as "Nothing logged yet" — a claim that no member of
+      // staff has ever touched a customer's account, printed under a red
+      // banner saying we could not find out.
+      setData(null);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -174,7 +192,23 @@ export default function AuditLogPage() {
         <div className="flex items-center gap-2 text-sm text-muted-foreground py-8">
           <Loader2 size={16} className="animate-spin" /> Loading…
         </div>
-      ) : !data?.rows?.length ? (
+      ) : !data ? (
+        // Four states, four sentences. This one is "we asked and did not get an
+        // answer", and it deliberately does not look like an empty log.
+        <div className="bg-card border border-border rounded-xl p-10 text-center">
+          <AlertCircle size={28} className="text-muted-foreground mx-auto" />
+          <p className="mt-3 text-sm text-muted-foreground">
+            The log could not be read, so nothing is shown. This is not an empty
+            log — no entry has been deleted.
+          </p>
+          <button
+            onClick={load}
+            className="mt-3 text-sm font-semibold text-foreground underline underline-offset-2"
+          >
+            Try again
+          </button>
+        </div>
+      ) : !data.rows?.length ? (
         <div className="bg-card border border-border rounded-xl p-10 text-center">
           <ScrollText size={28} className="text-muted-foreground mx-auto" />
           <p className="mt-3 text-sm text-muted-foreground">

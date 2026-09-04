@@ -106,8 +106,15 @@ export default function SalesLoginPage() {
             />
           </div>
 
+          {/* dark:text-red-300, not a bare red-700. This is the only string
+              on the screen somebody NEEDS to read, and in dark mode red-700
+              (#b91c1c) measures 2.61:1 on --card (#111d31) — under half the
+              4.5:1 floor. red-300 is 8.89:1 there; light mode keeps red-700 at
+              6.47:1 on white. Every other error line in this portal already
+              pairs them; these two auth screens are the copies nobody looked
+              at, the same way the brand colour on the line above was. */}
           {error && (
-            <p className="text-sm text-red-700" role="alert">
+            <p className="text-sm text-red-700 dark:text-red-300" role="alert">
               {error}
             </p>
           )}

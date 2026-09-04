@@ -47,12 +47,21 @@ export default function PlatformDemoPage() {
   const [password, setPassword] = useState("");
   const [loginMsg, setLoginMsg] = useState(null);
 
+  // `loadFailed` is a state of its own. Without it a failed GET left `data`
+  // null, `demos` fell back to [], and the page printed "No demo accounts yet"
+  // with instructions to run the seed script — telling an agent between calls
+  // that their demos are gone, and inviting them to re-seed over demos that
+  // are in fact still there.
+  const [loadFailed, setLoadFailed] = useState(false);
+
   const load = useCallback(async () => {
     const res = await fetch("/api/platform/demo");
     if (!res.ok) {
+      setLoadFailed(true);
       await reportResponseError(res, "Couldn't load the demo accounts.");
       return;
     }
+    setLoadFailed(false);
     setData(await res.json());
   }, []);
 
@@ -177,7 +186,25 @@ export default function PlatformDemoPage() {
         </p>
       </div>
 
-      {demos.length === 0 && (
+      {loadFailed && (
+        <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-8 text-center">
+          <p className="text-sm font-medium text-foreground">
+            The demo accounts could not be read.
+          </p>
+          <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+            They have not been deleted and no seed is needed — this is a failed
+            request. Do not run the seed script on the strength of this screen.
+          </p>
+          <button
+            onClick={load}
+            className="mt-3 text-sm font-semibold text-foreground underline underline-offset-2"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
+      {!loadFailed && demos.length === 0 && (
         <div className="rounded-xl border border-border bg-card p-8 text-center">
           <p className="text-sm font-medium text-foreground">No demo accounts yet</p>
           <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
@@ -208,15 +235,32 @@ export default function PlatformDemoPage() {
                     {d._count.quotes} quotes, {d._count.jobs} jobs, {d._count.clients} clients
                   </p>
                 </div>
+                {/* ── Reset is the MORE destructive of the two, and had the
+                    weaker guard ─────────────────────────────────────────────
+                    Switching the trade asks twice and prints the counts;
+                    Reset — which calls resetDemo() and clears exactly the same
+                    quotes, jobs, clients and invoices — went on the first
+                    click, labelled with one neutral word, with the only
+                    warning in a `title` attribute that a touch device never
+                    shows and a mouse shows after half a second of hovering.
+                    Same speed bump as its sibling now, for the same reason:
+                    the destructive thing must not be the easy one. */}
                 <button
                   type="button"
                   disabled={busy === d.id}
-                  onClick={() => act(d.id, { companyId: d.id }, "POST")}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm text-foreground hover:bg-muted disabled:opacity-50"
-                  title="Clear this demo's data, keeping its current trade"
+                  onClick={() =>
+                    hasContent && confirming !== `${d.id}:reset`
+                      ? setConfirming(`${d.id}:reset`)
+                      : act(d.id, { companyId: d.id }, "POST")
+                  }
+                  className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm hover:bg-muted disabled:opacity-50 ${
+                    confirming === `${d.id}:reset`
+                      ? "border-amber-500 text-amber-700 dark:text-amber-400 font-semibold"
+                      : "border-border text-foreground"
+                  }`}
                 >
                   {busy === d.id ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
-                  Reset
+                  {confirming === `${d.id}:reset` ? "Press again to clear it" : "Reset"}
                 </button>
               </div>
 
@@ -373,7 +417,10 @@ export default function PlatformDemoPage() {
                     <AlertTriangle size={13} className="shrink-0 mt-0.5" />
                     This clears {d._count.quotes} quotes, {d._count.jobs} jobs and{" "}
                     {d._count.clients} clients on this demo. The login and the{" "}
-                    <code>{d.slug}</code> address stay the same.
+                    <code>{d.slug}</code> address stay the same
+                    {confirming === `${d.id}:reset`
+                      ? `, and so does the trade (${d.demoIndustry || "none set"}).`
+                      : "."}
                   </p>
                 )}
               </div>

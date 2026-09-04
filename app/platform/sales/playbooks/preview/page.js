@@ -39,8 +39,15 @@ const FIELD =
 
 export default function PlaybookPreviewPage() {
   const [query, setQuery] = useState("");
-  const [candidates, setCandidates] = useState([]);
+  // null until a search has actually come back. `[]` meant "we looked and found
+  // nobody" and "you have not searched yet" were the same value, and since the
+  // list only renders when it is non-empty, a search that matched nothing drew
+  // NOTHING — the spinner stopped and the screen did not change, which reads as
+  // a broken button rather than as an answer.
+  const [candidates, setCandidates] = useState(null);
   const [searching, setSearching] = useState(false);
+  const [searchedFor, setSearchedFor] = useState("");
+  const [totalMatches, setTotalMatches] = useState(null);
   const [prospectId, setProspectId] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -55,7 +62,17 @@ export default function PlaybookPreviewPage() {
         `/api/platform/sales/prospects?q=${encodeURIComponent(query)}`,
       );
       setCandidates(data.prospects || []);
+      // The route has always sent `total` and nothing has ever read it, while
+      // this list silently cuts to twenty — so a search matching three hundred
+      // prospects looked exactly like one matching twenty.
+      setTotalMatches(Number.isFinite(data.total) ? data.total : null);
+      setSearchedFor(query);
     } catch (err) {
+      // A failed search is not an empty pool. Back to "not asked" so the "no
+      // matches" line below cannot fire on a request that never arrived.
+      setCandidates(null);
+      setSearchedFor("");
+      setTotalMatches(null);
       setError(err.message);
     } finally {
       setSearching(false);
@@ -139,7 +156,15 @@ export default function PlaybookPreviewPage() {
           {searching ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />} Search
         </button>
 
-        {candidates.length > 0 && (
+        {candidates !== null && candidates.length === 0 && (
+          <p className="text-sm text-muted-foreground pt-2 break-words">
+            No prospect matches &ldquo;{searchedFor}&rdquo;. This searches by
+            business name, phone and domain — a prospect nobody has crawled yet
+            is still findable by name.
+          </p>
+        )}
+
+        {candidates !== null && candidates.length > 0 && (
           <ul className="space-y-2 pt-2">
             {candidates.slice(0, 20).map((p) => (
               <li key={p.id}>
@@ -162,6 +187,12 @@ export default function PlaybookPreviewPage() {
                 </button>
               </li>
             ))}
+            {totalMatches !== null && totalMatches > candidates.slice(0, 20).length && (
+              <li className="text-xs text-muted-foreground break-words">
+                Showing {candidates.slice(0, 20).length} of {totalMatches} matches — narrow the
+                search rather than scrolling, since the rest are not on this page.
+              </li>
+            )}
           </ul>
         )}
       </div>

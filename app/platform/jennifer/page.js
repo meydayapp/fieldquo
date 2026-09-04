@@ -23,6 +23,21 @@ const STATUSES = [
   { value: "resolved", label: "Resolved" },
 ];
 
+/**
+ * The same words the filter buttons use, for the open conversation.
+ *
+ * The detail pane printed `conversation.status` raw — "escalated" — while the
+ * button one row up, already highlighted, said "Needs a reply". Two vocabularies
+ * for one value on a screen somebody opens with a contractor waiting, which is
+ * the exact shape fixed on the money screens last pass. An unknown value says
+ * it is unknown rather than being tidied into a word.
+ */
+function statusLabel(status) {
+  const known = STATUSES.find((s) => s.value === status);
+  if (known) return known.label;
+  return status ? `Unrecognised status: ${status}` : "No status";
+}
+
 function ageInDays(d) {
   return Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
 }
@@ -53,6 +68,9 @@ export default function PlatformJenniferPage() {
       if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || `Request failed (${res.status}).`);
       setData(await res.json());
     } catch (err) {
+      // "Nothing here." is a claim that no contractor is waiting on a reply.
+      // It used to be printed under the banner saying the list failed to load.
+      setData(null);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -63,15 +81,24 @@ export default function PlatformJenniferPage() {
     loadList();
   }, [loadList]);
 
+  // Its own error, not the page banner. A failed detail load left
+  // `conversation` null with `detailLoading` false, and null IS the loading
+  // state in the pane below — so the reading pane sat on "Loading…" for ever,
+  // with a red line at the top of the page that read as being about the list.
+  // Three states in the pane now, and a retry inside it.
+  const [detailError, setDetailError] = useState("");
+
   const loadDetail = useCallback(async (id) => {
     setDetailLoading(true);
+    setDetailError("");
     try {
       const res = await fetch(`/api/platform/jennifer/conversations/${id}`);
       if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || "Couldn't load conversation.");
       const body = await res.json();
       setConversation(body.conversation);
     } catch (err) {
-      setError(err.message);
+      setConversation(null);
+      setDetailError(err.message || "Couldn't load that conversation.");
     } finally {
       setDetailLoading(false);
     }
@@ -124,6 +151,7 @@ export default function PlatformJenniferPage() {
               setStatus(s.value);
               setSelectedId(null);
               setConversation(null);
+              setDetailError("");
             }}
             className={`px-3 py-2 rounded-lg text-sm font-medium border ${
               status === s.value
@@ -149,7 +177,21 @@ export default function PlatformJenniferPage() {
             <div className="flex items-center gap-2 text-sm text-muted-foreground py-8">
               <Loader2 size={16} className="animate-spin" /> Loading…
             </div>
-          ) : !data?.rows?.length ? (
+          ) : !data ? (
+            <div className="bg-card border border-border rounded-xl p-10 text-center">
+              <AlertCircle size={28} className="text-muted-foreground mx-auto" />
+              <p className="mt-3 text-sm text-muted-foreground">
+                This list could not be read. Somebody may well be waiting on a
+                reply — nothing has been resolved or removed.
+              </p>
+              <button
+                onClick={loadList}
+                className="mt-3 text-sm font-semibold text-foreground underline underline-offset-2"
+              >
+                Try again
+              </button>
+            </div>
+          ) : !data.rows?.length ? (
             <div className="bg-card border border-border rounded-xl p-10 text-center">
               <MessageCircle size={28} className="text-muted-foreground mx-auto" />
               <p className="mt-3 text-sm text-muted-foreground">Nothing here.</p>
@@ -185,9 +227,22 @@ export default function PlatformJenniferPage() {
         <div className="bg-card border border-border rounded-xl p-5 min-h-[24rem]">
           {!selectedId ? (
             <p className="text-sm text-muted-foreground">Select a conversation to read it.</p>
-          ) : detailLoading || !conversation ? (
+          ) : detailLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 size={16} className="animate-spin" /> Loading…
+            </div>
+          ) : detailError || !conversation ? (
+            <div className="text-sm space-y-2">
+              <p className="flex items-start gap-2 text-red-700 dark:text-red-300">
+                <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                {detailError || "That conversation could not be read."}
+              </p>
+              <button
+                onClick={() => loadDetail(selectedId)}
+                className="text-sm font-semibold text-foreground underline underline-offset-2"
+              >
+                Try again
+              </button>
             </div>
           ) : (
             <div className="flex flex-col h-full">
@@ -200,7 +255,7 @@ export default function PlatformJenniferPage() {
                     {conversation.companyName}
                   </Link>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Status: {conversation.status}
+                    {statusLabel(conversation.status)}
                     {conversation.escalationReason ? ` — ${conversation.escalationReason}` : ""}
                   </p>
                 </div>

@@ -399,7 +399,15 @@ export default function PlatformSalesAgentPage() {
                       <span className="ml-2 font-normal text-muted-foreground">
                         {c.startedAt ? new Date(c.startedAt).toLocaleString() : "—"}
                         {c.durationSec ? ` · ${Math.round(c.durationSec)}s` : ""}
-                        {c.disposition ? ` · ${c.disposition}` : ""}
+                        {/* Labelled as the provider's word, not dressed up as
+                            one of ours. VoiceCall.disposition is Retell's
+                            `disconnection_reason` verbatim (see
+                            lib/voice/reconcileCalls.js) — there is no FieldQuo
+                            vocabulary behind it, so mapping it to friendly
+                            English would be inventing meaning. Saying whose
+                            word it is costs nothing and stops `user_hangup`
+                            reading as a status this product defines. */}
+                        {c.disposition ? ` · ended: ${c.disposition} (provider)` : ""}
                       </span>
                     </p>
                     <p className="text-sm text-muted-foreground mt-1">

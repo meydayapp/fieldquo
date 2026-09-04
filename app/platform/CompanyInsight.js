@@ -32,6 +32,9 @@ const POSITION = {
 function display(metric) {
   if (metric.value === null) return "—";
   switch (metric.key) {
+    // The "$" is this company's own money AND the cohort median's, and the
+    // cohort is every currency at once. Left as it is on purpose: see the
+    // options written out beside money() in lib/platform/metricFormat.js.
     case "medianQuoteValue":
       return `$${Number(metric.value).toLocaleString()}`;
     case "medianComposeSeconds":

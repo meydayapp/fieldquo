@@ -81,6 +81,10 @@ export default function PlatformFeedbackPage() {
       }
       setData(await res.json());
     } catch (err) {
+      // Replaced, not left behind. The empty state below is a claim about the
+      // support queue — "Nothing open." — and it used to fire on a failed
+      // request, directly under the red banner saying the request failed.
+      setData(null);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -166,7 +170,21 @@ export default function PlatformFeedbackPage() {
         <div className="flex items-center gap-2 text-sm text-muted-foreground py-8">
           <Loader2 size={16} className="animate-spin" /> Loading…
         </div>
-      ) : !data?.rows?.length ? (
+      ) : !data ? (
+        <div className="bg-card border border-border rounded-xl p-10 text-center">
+          <AlertCircle size={28} className="text-muted-foreground mx-auto" />
+          <p className="mt-3 text-sm text-muted-foreground">
+            The queue could not be read. Nothing has been closed or deleted —
+            this is a failed request, not an empty queue.
+          </p>
+          <button
+            onClick={load}
+            className="mt-3 text-sm font-semibold text-foreground underline underline-offset-2"
+          >
+            Try again
+          </button>
+        </div>
+      ) : !data.rows?.length ? (
         <div className="bg-card border border-border rounded-xl p-10 text-center">
           <MessageSquare size={28} className="text-muted-foreground mx-auto" />
           <p className="mt-3 text-sm text-muted-foreground">

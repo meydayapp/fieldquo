@@ -23,6 +23,11 @@ import {
 import { fetchJson } from "@/lib/fetchJson";
 import CompanyInsight from "./CompanyInsight";
 
+// The bare "$" is knowingly wrong when the book is not all one currency: these
+// are sums across tenants, and a euro invoice is in the total. Not fixed here
+// because which fix is right is a product decision — the three options and what
+// each costs are written out beside money() in lib/platform/metricFormat.js.
+// Same caveat applies to CompanyInsight.js and to app/platform/page.js.
 const money = (n) =>
   n === null || n === undefined
     ? "—"

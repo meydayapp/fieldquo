@@ -42,7 +42,7 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { count, money, UNKNOWN } from "../lib/platform/metricFormat.js";
+import { centsOrNull, count, money, UNKNOWN } from "../lib/platform/metricFormat.js";
 import { numberOrNull } from "../lib/platform/numericField.js";
 import { planMoney } from "../lib/pricing/ladder.js";
 import { STATUSES } from "../lib/platform/subscriptionStatus.js";
@@ -155,6 +155,31 @@ for (const [name, value] of [
   ok(`planMoney(${name}) does not invent a price`, planMoney(value, "CAD") === UNKNOWN,
     String(planMoney(value, "CAD")));
 }
+
+// /platform/sales/performance formats the COMMISSION ledger's cents, so it
+// cannot use money() (en-CA/CAD) and wrote its own — reproducing the exact bug
+// this section exists for, `Number(cents) || 0`, on the four tiles that say
+// what FieldQuo owes its own reps. The test it needed is exported now so it
+// can be run rather than grepped for.
+ok("centsOrNull(0) is a real zero", centsOrNull(0) === 0);
+ok("centsOrNull(-4500) keeps a reversal negative", centsOrNull(-4500) === -4500);
+for (const [name, value] of [
+  ["undefined", undefined],
+  ["null", null],
+  ["empty string", ""],
+  ["an array", []],
+  ["an object", {}],
+  ["a word", "owed"],
+  ["NaN", NaN],
+]) {
+  ok(`centsOrNull(${name}) is not a commission of zero`, centsOrNull(value) === null,
+    String(centsOrNull(value)));
+}
+const performance = stripComments(read("app/platform/sales/performance/page.js"));
+ok("the commission screen uses it rather than its own coalesce",
+  performance.includes("centsOrNull(cents)") && !/Number\(cents\) \|\| 0/.test(performance));
+ok("and prints a past-due company as past due, not as `past_due`",
+  performance.includes("statusMeta(a.subscriptionStatus)"));
 
 // Absence must be visible as FORM, not only as a glyph: an em dash in the same
 // heavy black as a real figure still reads as a number at a glance.
@@ -281,6 +306,29 @@ const GATED = [
     file: "app/platform/companies/[id]/CompanyDisputeEvidence.js",
     route: "app/api/platform/companies/[id]/dispute-evidence/route.js",
     permission: "billing:manage",
+  },
+  // The third pass, and the one that matters most: the migration console is
+  // the only screen in the product that creates rows inside a company's own
+  // tenant (non-negotiable #3's sanctioned exception). It hand-rolled
+  // `me?.role === "superadmin"` after a fetch, so a failed identity call drew
+  // NO quote form, NO write panel and NO cancel, with nothing said, to a real
+  // superadmin. Three entries because its three actions go through three
+  // different permissions, and a screen that collapsed them into one would
+  // stop matching its routes the day one of them is delegated.
+  {
+    file: "app/platform/migrations/[id]/MigrationDetail.js",
+    route: "app/api/platform/migrations/[id]/quote/route.js",
+    permission: "migration:quote",
+  },
+  {
+    file: "app/platform/migrations/[id]/MigrationDetail.js",
+    route: "app/api/platform/migrations/[id]/writes/clients/route.js",
+    permission: "migration:write",
+  },
+  {
+    file: "app/platform/migrations/[id]/MigrationDetail.js",
+    route: "app/api/platform/migrations/[id]/cancel/route.js",
+    permission: "migration:cancel",
   },
 ];
 
@@ -565,6 +613,11 @@ const LISTS = [
   ["app/platform/companies/page.js", "companies"],
   ["app/platform/billing/plans/page.js", "plans"],
   ["app/platform/billing/promotions/page.js", "promotions"],
+  // The third pass. This one is the worst of the set: /platform/suppressions
+  // started at [], so a failed search printed "Nobody is on the list yet" on
+  // FieldQuo's own do-not-contact list — a sentence that reads as permission
+  // to contact everybody, produced by a request that never arrived.
+  ["app/platform/suppressions/page.js", "rows"],
 ];
 for (const [file, state] of LISTS) {
   const src = stripComments(read(file));
@@ -589,6 +642,19 @@ const claims = [
   ["app/platform/companies/page.js", "no company has been"],
   ["app/platform/billing/plans/page.js", "not an empty rate card"],
   ["app/platform/billing/promotions/page.js", "no promotion has been switched off"],
+  // The third pass. Seven more, each a claim about something a person was
+  // about to act on: an audit log with nothing in it, a support queue with
+  // nothing open, nobody waiting on Jennifer, nobody on the do-not-contact
+  // list, no demo accounts (under instructions to re-run the seed), nobody
+  // available to run a demo, and no company waiting on a paid migration.
+  ["app/platform/audit-log/page.js", "This is not an empty"],
+  ["app/platform/feedback/page.js", "not an empty queue"],
+  ["app/platform/jennifer/page.js", "nothing has been resolved or removed"],
+  ["app/platform/suppressions/page.js", "not an empty list and it is not a clearance"],
+  ["app/platform/demo/page.js", "Do not run the seed script"],
+  ["app/platform/demo-availability/page.js", "empty calendar — whatever is stored"],
+  ["app/platform/migrations/page.js", "nothing has been cancelled"],
+  ["app/platform/demos/page.js", "check again before telling anyone their slot is gone"],
 ];
 for (const [file, phrase] of claims) {
   ok(`${file.replace("app/platform/", "")} separates "failed" from "none"`,
@@ -645,6 +711,173 @@ for (const p of granted) {
 ok("the superadmin description names the tenant-write power",
   worded.has("migration:write") &&
     /migration:write[\s\S]{0,200}sanctioned exception/.test(team));
+
+console.log("\n── 7. The audit log names what the product writes ─────────────");
+
+// ── Why this is scanned and not listed ────────────────────────────────────
+//
+// /platform/audit-log carried a five-entry ACTION_META keyed on `impersonate`,
+// a value NOTHING in this codebase has ever written — lib/platform/impersonate.js
+// writes `impersonation_started` and `impersonation_ended`. So the one class of
+// entry the screen's own header calls "the ones that matter most" rendered in
+// the neutral grey fallback for the life of the page, and thirty-six other
+// actions had no wording at all.
+//
+// A hand-typed list of expected actions in this file would have been written by
+// reading the same page and would have contained the same wrong key. So the
+// actions are EXTRACTED from every `platformAuditLog.create` in the repo — the
+// literals and both arms of each ternary — and matched against the module in
+// both directions. Adding a write with no wording fails here; so does keeping
+// wording for a write that no longer exists.
+const { AUDIT_ACTIONS, describeAuditAction } = await import(
+  "../lib/platform/auditActions.js"
+);
+
+function walk(dir, out = []) {
+  for (const name of fs.readdirSync(path.join(ROOT, dir))) {
+    const rel = `${dir}/${name}`;
+    const stat = fs.statSync(path.join(ROOT, rel));
+    if (stat.isDirectory()) walk(rel, out);
+    else if (name.endsWith(".js")) out.push(rel);
+  }
+  return out;
+}
+
+// ── How the scan avoids three traps it walked straight into first ─────────
+//
+// 1. It reads FILES that write audit rows, not the create call sites: two
+//    routes build their entries into an array first and spread them into
+//    `data`, so nothing near `platformAuditLog.create` names the action.
+// 2. It advances by indexOf rather than a global regex with a fixed window.
+//    A 240-character window consumed by one match swallowed the NEXT
+//    `action:` in the same object — sales_rep_work_mailbox_set went missing
+//    exactly that way, which is the "lazy window reaching a field further
+//    down" trap this file's header warns about.
+// 3. It takes only the literals in an action POSITION — straight after
+//    `action:`, or after a ternary's `?` / `:`. Reading every string in the
+//    span picked up "suspended" out of the CONDITION
+//    `onboardingStatus === "suspended"` and reported it as an action.
+const AUDIT_FILES = [...walk("app/api"), ...walk("lib")].filter((f) =>
+  read(f).includes("platformAuditLog.create"),
+);
+const written = new Set();
+for (const file of AUDIT_FILES) {
+  const src = stripComments(read(file));
+  let from = src.indexOf("action:");
+  while (from !== -1) {
+    const slice = src.slice(from + "action:".length, from + 247);
+    const stop = slice.search(/\n\s*(?:[a-zA-Z_$][\w$]*\s*:\s|\}|\))/);
+    const seg = stop === -1 ? slice : slice.slice(0, stop);
+    for (const lit of seg.matchAll(/(?:^|[?:])\s*"([a-z_]+)"/g)) written.add(lit[1]);
+    from = src.indexOf("action:", from + 1);
+  }
+}
+const writeSites = AUDIT_FILES.length;
+
+// A scan that finds nothing passes every "is it described?" loop below without
+// running one, so the scan itself is asserted first.
+ok("the audit writers were found at all", writeSites > 20, `${writeSites} files`);
+ok("and their action names were readable", written.size > 40, `${written.size} actions`);
+
+// The regression itself, named: this key is what the screen used to look for.
+ok('nothing writes the action "impersonate"', !written.has("impersonate"));
+ok("and the real impersonation actions are written",
+  written.has("impersonation_started") && written.has("impersonation_ended"));
+
+for (const action of [...written].sort()) {
+  ok(`"${action}" has wording on the audit log`, Boolean(AUDIT_ACTIONS[action]));
+}
+for (const action of Object.keys(AUDIT_ACTIONS)) {
+  ok(`"${action}" is an action something actually writes`, written.has(action));
+}
+
+// Impersonation is the class the page's header singles out. It must be its own
+// tone, not folded into the ordinary edits, or the sentence is false again.
+ok("impersonation reads as access, not as an ordinary edit",
+  AUDIT_ACTIONS.impersonation_started.tone === "access" &&
+    AUDIT_ACTIONS.impersonation_ended.tone === "access");
+// Writing inside a tenant is the other class worth seeing without reading.
+ok("the migration rows are toned apart from ordinary console edits",
+  AUDIT_ACTIONS.migration_quoted.tone === "tenant");
+
+ok("an unrecognised action says it is unrecognised",
+  describeAuditAction("something_new").label.includes("Unrecognised") &&
+    describeAuditAction("something_new").known === false);
+
+const auditPage = stripComments(read("app/platform/audit-log/page.js"));
+ok("the page reads the shared vocabulary",
+  auditPage.includes("describeAuditAction"));
+// The fallback that hid the bug: replacing underscores made an unhandled action
+// look handled, which is why nobody noticed the amber rule never fired.
+ok("and no longer tidies an unknown action into a sentence",
+  !/action\.replace\(/.test(auditPage));
+for (const tone of new Set(Object.values(AUDIT_ACTIONS).map((a) => a.tone))) {
+  ok(`the page has a treatment for the "${tone}" tone`,
+    new RegExp(`\\b${tone}:\\s*\\{`).test(auditPage));
+}
+
+console.log("\n── 8. The migration console asks the state machine ────────────");
+
+// Non-negotiable #3's one sanctioned exception. This screen decides whether to
+// DRAW the controls that write inside a company's tenant; the routes decide
+// whether to honour them. Both must be answering out of lib/migrations/state.js
+// — the screen used to carry four hand-copied Sets of the same states, which is
+// the copy that rots, on the one page where rotting means the console offers a
+// write the route will refuse (or, worse, stops offering one it would allow).
+const migrationDetail = stripComments(
+  read("app/platform/migrations/[id]/MigrationDetail.js"),
+);
+for (const fn of ["canWrite", "canQuote", "canCancel", "canComplete", "describeStatus"]) {
+  ok(`MigrationDetail imports ${fn} rather than re-deriving it`,
+    new RegExp(`\\b${fn}\\b`).test(
+      migrationDetail.slice(0, migrationDetail.indexOf("export default")),
+    ));
+}
+for (const set of ["WRITABLE", "QUOTABLE", "CANCELLABLE", "COMPLETABLE"]) {
+  ok(`the hand-copied ${set} set is gone`,
+    !new RegExp(`const ${set}\\s*=`).test(migrationDetail));
+}
+
+// ── The prompt that cancelled on Cancel ───────────────────────────────────
+//
+// `window.prompt("Reason for cancelling (optional):") || ""` and then POST
+// regardless. window.prompt returns null when a person presses Escape or the
+// dialog's own Cancel — so backing out of the prompt cancelled the migration,
+// on the action that revokes a paid-for write window and issues no refund.
+ok("cancelling no longer runs through a browser prompt",
+  !/window\.prompt/.test(migrationDetail));
+ok("and the consequence is named before the click, not after it",
+  /does not issue a refund automatically/.test(read(
+    "app/platform/migrations/[id]/MigrationDetail.js",
+  )));
+ok("both terminal actions confirm rather than firing on the first press",
+  /setConfirming\("cancel"\)/.test(migrationDetail) &&
+    /setConfirming\("complete"\)/.test(migrationDetail));
+
+// The tenant's own currency, on the form that writes a total into their books.
+// A Quote row has no currency of its own — every surface renders it in the
+// COMPANY's — so "Total ($)" named the wrong money for a euro contractor.
+ok("the historical-quote total is labelled in the company's currency",
+  /Total \(\$\{companyCurrency\}\)/.test(migrationDetail) ||
+    /`Total \(\$\{companyCurrency\}\)`/.test(migrationDetail));
+ok("and the detail route actually sends that currency",
+  /currency: true/.test(stripComments(read("app/api/platform/migrations/[id]/route.js"))));
+ok("an absent currency is named rather than assumed to be CAD",
+  /currency not recorded/.test(migrationDetail) &&
+    !/currency \|\| "CAD"/.test(migrationDetail));
+
+// The list beside it: nine statuses typed out where the state machine already
+// holds them, and `status.replace("_", " ")` standing in for a label.
+const migrationList = stripComments(read("app/platform/migrations/page.js"));
+ok("the status filters are built from MIGRATION_STATUSES",
+  /MIGRATION_STATUSES\.map/.test(migrationList));
+ok("and a row's status is described, not underscore-swapped",
+  /describeStatus\(r\.status\)/.test(migrationList) &&
+    !/status\.replace\(/.test(migrationList));
+// Green means canWrite() on this list, and nothing else. `completed` shared it
+// for a while, which is the one distinction the screen exists to make.
+ok("only the writable statuses are green",
+  /completed: "bg-slate/.test(migrationList));
 
 console.log(`\n${checks} checks, ${failures} failure(s).`);
 process.exit(failures ? 1 : 0);

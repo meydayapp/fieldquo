@@ -51,8 +51,14 @@ function formatDate(value) {
 }
 
 export default function PlatformSuppressionsPage() {
-  const [rows, setRows] = useState([]);
-  const [total, setTotal] = useState(0);
+  // null, not []. A failed search used to leave the initial empty array in
+  // place, so the panel below printed "Nobody is on the list yet. Anyone who
+  // replies to a sales email asking to stop is added automatically." — which
+  // on THIS screen is the sentence "FieldQuo may contact everybody", written
+  // out of a request that never arrived. The one empty state in the product
+  // where being wrong is a compliance problem rather than a cosmetic one.
+  const [rows, setRows] = useState(null);
+  const [total, setTotal] = useState(null);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -70,8 +76,10 @@ export default function PlatformSuppressionsPage() {
       if (q) params.set("q", q);
       const data = await fetchJson(`/api/platform/suppressions?${params}`);
       setRows(data.rows || []);
-      setTotal(data.total || 0);
+      setTotal(Number.isFinite(data.total) ? data.total : null);
     } catch (err) {
+      setRows(null);
+      setTotal(null);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -353,6 +361,24 @@ export default function PlatformSuppressionsPage() {
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 size={14} className="animate-spin" /> Loading…
         </div>
+      ) : rows === null ? (
+        <div className="bg-card border border-border rounded-xl p-8 text-center text-sm space-y-2">
+          <p className="text-foreground font-medium">
+            The do-not-contact list could not be read.
+          </p>
+          <p className="text-muted-foreground max-w-xl mx-auto">
+            This is not an empty list and it is not a clearance to contact
+            anybody. The list is still enforced at the moment of every send —
+            the send paths read the database, not this screen — so nothing here
+            failing has changed who FieldQuo may write to.
+          </p>
+          <button
+            onClick={() => load(query)}
+            className="text-sm font-semibold text-foreground underline underline-offset-2"
+          >
+            Try again
+          </button>
+        </div>
       ) : rows.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-8 text-center text-sm text-muted-foreground">
           {query
@@ -422,7 +448,9 @@ export default function PlatformSuppressionsPage() {
         three years and fourteen days from the request, which is Canada&apos;s internal
         do-not-call retention rule. Nothing prunes these rows, and removing somebody is a
         soft removal — the record of what they asked for stays.
-        {total > rows.length ? ` Showing ${rows.length} of ${total}.` : ""}
+        {rows && total !== null && total > rows.length
+          ? ` Showing ${rows.length} of ${total}.`
+          : ""}
       </p>
     </div>
   );

@@ -172,8 +172,12 @@ export default function SalesInvitePage({ params }) {
               />
             </div>
 
+            {/* Paired for dark mode — see the same block in
+                app/sales/login/page.js. Measured: red-700 on --card is 2.61:1
+                dark, red-300 is 8.89:1. This one is read by a new hire whose
+                password did not take, on their first minute with FieldQuo. */}
             {error && (
-              <p className="text-sm text-red-700" role="alert">
+              <p className="text-sm text-red-700 dark:text-red-300" role="alert">
                 {error}
               </p>
             )}

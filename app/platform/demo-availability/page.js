@@ -76,8 +76,13 @@ export default function DemoAvailabilityPage() {
       setMe(data.me);
       setDrafts(Object.fromEntries(data.admins.map((a) => [a.id, draftFrom(a)])));
     } catch (err) {
+      // "failed", not []. An empty array rendered as a page with no admins on
+      // it at all, sitting above the panel that explains "Nobody available
+      // means no slots" — so a request that did not arrive read as a calendar
+      // with nothing in it, on the screen that decides what the marketing site
+      // offers the public.
       setError(err.message);
-      setAdmins([]);
+      setAdmins("failed");
     }
   }, []);
 
@@ -118,6 +123,28 @@ export default function DemoAvailabilityPage() {
     return (
       <div className="text-sm text-muted-foreground inline-flex items-center gap-2 py-8">
         <Loader2 size={16} className="animate-spin" /> Loading…
+      </div>
+    );
+  }
+
+  if (admins === "failed") {
+    return (
+      <div className="max-w-4xl space-y-4">
+        <h1 className="text-2xl font-bold text-foreground">Demo availability</h1>
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-4 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
+          <AlertCircle size={16} className="shrink-0 mt-0.5" /> {error}
+        </div>
+        <p className="text-sm text-muted-foreground max-w-2xl">
+          Nobody&apos;s hours could be read, so none are shown. This is not an
+          empty calendar — whatever is stored is still what the marketing site
+          offers, and nothing has been cleared.
+        </p>
+        <button
+          onClick={load}
+          className="text-sm font-semibold text-foreground underline underline-offset-2"
+        >
+          Try again
+        </button>
       </div>
     );
   }
