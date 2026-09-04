@@ -49,3 +49,87 @@ export const PRODUCT_FEATURES = {
     ],
   },
 };
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   The catalogue keys these four pages resolve through
+   ═══════════════════════════════════════════════════════════════════════════
+
+   Same shape as featurePageKey/featurePageStrings/featurePageCopy in
+   app/data/featurePages.js, and for the same reason: the prefix is decided in
+   one place, so the renderer, the nine translation modules and the check that
+   compares them cannot come to disagree about what a key is called.
+
+   ── What is NOT here: the label ────────────────────────────────────────────
+
+   `label` is deliberately absent from productPageStrings(). It already exists
+   as `product.<slug>.label` in app/i18n/messages.js, in all nine languages,
+   because the header dropdown, the footer and the homepage feature band all
+   render it. Copying it into a second catalogue would be a second wording of
+   the same word, and the one nobody looks at is the one that rots. The page
+   renders t(`product.${slug}.label`) instead, and
+   scripts/check-product-pages.mjs pins the English of that key to
+   PRODUCT_FEATURES[slug].label so the two can never drift apart.
+
+   ── What IS here: the description ──────────────────────────────────────────
+
+   `product.<slug>.description` in messages.js is the ONE-LINE nav summary
+   ("Build and send professional quotes in minutes"). It is not this page's
+   opening paragraph, which is three times longer and says different things.
+   Rendering the nav line under the headline would print "Send a professional
+   quote in minutes" above "Build and send professional quotes in minutes" —
+   so the paragraph gets a key of its own. */
+
+/** The catalogue key for one prose field of one product page. */
+export function productPageKey(slug, field) {
+  return `productPage.${slug}.${field}`;
+}
+
+/**
+ * Every translatable string on one product page, as {field, english}.
+ *
+ * One list, read by the resolver below and by scripts/check-product-pages.mjs,
+ * so "every prose field" means the same thing in both places.
+ */
+export function productPageStrings(feature) {
+  return [
+    { field: "headline", english: feature.headline },
+    { field: "description", english: feature.description },
+    ...feature.bullets.map((b, i) => ({ field: `bullet.${i + 1}`, english: b })),
+  ];
+}
+
+/** Every prose key on every product page, in page order. */
+export const PRODUCT_PAGE_TEXT_KEYS = Object.freeze(
+  Object.entries(PRODUCT_FEATURES).flatMap(([slug, feature]) =>
+    productPageStrings(feature).map(({ field }) => productPageKey(slug, field)),
+  ),
+);
+
+/**
+ * One product page with every sentence said in the reader's language.
+ *
+ * `say(key, english)` is passed in rather than a language code, matching
+ * featurePageCopy(): the caller owns the resolution chain, and the English
+ * from THIS file travels along as the last honest step, so a language with a
+ * hole prints the proved English sentence rather than
+ * `productPage.quoting.headline`.
+ *
+ * `say` is optional because generateMetadata() has no React context and must
+ * not gain one — a crawler indexing a French <title> because the last visitor
+ * switched languages is worse than an untranslated one. Same decision as
+ * /industries/[slug] and /features/[slug].
+ */
+export function productPageCopy(slug, say) {
+  const feature = PRODUCT_FEATURES[slug];
+  if (!feature) return undefined;
+
+  const said = (field, english) =>
+    typeof say === "function" ? say(productPageKey(slug, field), english) : english;
+
+  return {
+    ...feature,
+    headline: said("headline", feature.headline),
+    description: said("description", feature.description),
+    bullets: feature.bullets.map((b, i) => said(`bullet.${i + 1}`, b)),
+  };
+}

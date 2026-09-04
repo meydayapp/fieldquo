@@ -1,14 +1,25 @@
 // app/(marketing)/product/[slug]/page.js
+//
+// Server half: routing, static params and metadata. All rendering lives in
+// ProductPageContent, which is a client component because translation is in
+// React context. generateMetadata and generateStaticParams cannot move there,
+// which is why the page is split rather than simply marked "use client" —
+// the same split as /industries/[slug] and /features/[slug].
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import { CheckCircle2 } from "lucide-react";
 import { PRODUCT_FEATURES } from "@/app/data/productFeatures";
 import { marketingMetadata } from "@/lib/marketing/metadata";
+import ProductPageContent from "./ProductPageContent";
 
 export function generateStaticParams() {
   return Object.keys(PRODUCT_FEATURES).map((slug) => ({ slug }));
 }
 
+// Metadata stays English. It is what search engines index, and serving a
+// French title to an English crawler because the last visitor switched
+// languages would be worse than not translating it. Proper multilingual SEO
+// needs locale-prefixed routes (/fr/product/...), which is a routing change
+// rather than a copy change — the same decision recorded on /industries/[slug]
+// and /features/[slug], and scoped out at the end of docs/ROADMAP.md.
 export async function generateMetadata({ params }) {
   const { slug } = await params;
   const feature = PRODUCT_FEATURES[slug];
@@ -28,47 +39,7 @@ export default async function ProductFeaturePage({ params }) {
   // that sweep.
   const { slug } = await params;
 
-  const feature = PRODUCT_FEATURES[slug];
-  if (!feature) return notFound();
+  if (!PRODUCT_FEATURES[slug]) return notFound();
 
-  return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-      <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-        {feature.label}
-      </p>
-      <h1 className="mt-2 text-3xl sm:text-4xl font-bold text-foreground">
-        {feature.headline}
-      </h1>
-      <p className="mt-4 text-lg text-muted-foreground max-w-2xl">
-        {feature.description}
-      </p>
-
-      <ul className="mt-8 space-y-3 max-w-xl">
-        {feature.bullets.map((b) => (
-          <li key={b} className="flex items-start gap-3">
-            <CheckCircle2
-              size={20}
-              className="text-green-600 shrink-0 mt-0.5"
-            />
-            <span className="text-foreground">{b}</span>
-          </li>
-        ))}
-      </ul>
-
-      <div className="mt-10 flex gap-3">
-        <Link
-          href="/signup"
-          className="bg-primary text-primary-foreground px-6 py-3 rounded-full text-sm font-semibold"
-        >
-          Start Free Trial
-        </Link>
-        <Link
-          href="/pricing"
-          className="border border-border px-6 py-3 rounded-full text-sm font-semibold"
-        >
-          See Pricing
-        </Link>
-      </div>
-    </div>
-  );
+  return <ProductPageContent slug={slug} />;
 }

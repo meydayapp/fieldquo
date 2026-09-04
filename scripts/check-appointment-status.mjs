@@ -31,7 +31,7 @@
 
 import { readFileSync } from "node:fs";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
-import { VISIT_STATUS_LABELS } from "@/lib/jobs/visitStatus";
+import { VISIT_STATUS_LABELS, visitStatusLabel } from "@/lib/jobs/visitStatus";
 import {
   APPOINTMENT_FILTERS,
   APPOINTMENT_STATUS_PRESENTATION,
@@ -61,6 +61,15 @@ const readRaw = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8")
 const strip = (s) =>
   s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 const read = (p) => strip(readRaw(p));
+
+// A `t` that records what it was asked for and hands back a marker. Declared
+// here rather than beside its first use because two sections need it, and a
+// const used above its declaration is a TDZ crash, not a failed assertion.
+const seen = [];
+const fakeT = (key) => {
+  seen.push(key);
+  return `[${key}]`;
+};
 
 const PAGE = "app/app/appointments/page.js";
 const src = read(PAGE);
@@ -149,22 +158,47 @@ for (const s of ALL) {
   ok(n === LANGS, `"${labelKey}" is translated ${LANGS}× (found ${n})`);
 }
 
-// ── 5. Exactly one status has no key, and it is the named one ──────────────
+// ── 5. No status is left without a key ─────────────────────────────────────
 //
-// `on_the_way` has no catalogue entry anywhere in the product — lib/jobs/
-// visitStatus.js hardcodes its English too. That is a real gap, recorded here
-// rather than papered over by borrowing "In progress", which means something
-// else to a crew member. Pinning the count is what stops a SECOND hole being
-// added quietly: the next status without a key fails here.
+// `on_the_way` was the one hole: no catalogue entry existed for it anywhere in
+// the product, so it shipped English-only rather than borrowing "In progress",
+// which means something else to a crew member. `app.status.onTheWay` exists
+// now and is wired up, so the tolerance is gone: the next status added without
+// a key fails the build here rather than reaching a French office in English.
 const holes = Object.entries(APPOINTMENT_STATUS_PRESENTATION)
   .filter(([, v]) => !v.labelKey)
   .map(([k]) => k);
-ok(holes.length === 1, `exactly one status lacks a catalogue key (got ${holes.length}: ${holes})`);
-ok(holes[0] === "on_the_way", `the one hole is on_the_way (got ${holes[0]})`);
+ok(holes.length === 0, `every status carries a catalogue key (holes: ${JSON.stringify(holes)})`);
 ok(
-  appointmentStatusPresentation("on_the_way").en === "On the way",
-  "the hole still carries readable English rather than a raw column value",
+  appointmentStatusPresentation("on_the_way").labelKey === "app.status.onTheWay",
+  "on_the_way is wired to its own key, not borrowed from another status",
 );
+
+// ── 5b. The two modules cannot disagree about the same visit ───────────────
+//
+// A JobVisit shows on the job page (lib/jobs/visitStatus.js) and on this
+// calendar, and both used to hold their own words: this one said "needs
+// supervisor", that one said "On the way" in French. Shared keys are only a
+// fix while they stay shared, so the overlap is asserted rather than trusted.
+for (const [status, entry] of Object.entries(VISIT_STATUS_LABELS)) {
+  const [visitKey] = entry;
+  ok(
+    Array.isArray(entry) && typeof visitKey === "string" && visitKey.startsWith("app."),
+    `visitStatus.js holds a KEY for "${status}", not an English word (got ${JSON.stringify(entry)})`,
+  );
+  const { labelKey } = appointmentStatusPresentation(status);
+  ok(
+    labelKey === visitKey,
+    `the job page and the calendar name "${status}" with one key (${visitKey} vs ${labelKey})`,
+  );
+}
+// And the same word actually comes out of both, given the same `t`.
+for (const status of VISIT_STATUSES) {
+  ok(
+    visitStatusLabel(status, fakeT) === appointmentStatusLabel(status, fakeT),
+    `"${status}" renders identically on both screens`,
+  );
+}
 
 // Every entry carries English regardless, so a language missing the key still
 // gets a word rather than a snake_case one.
@@ -194,11 +228,6 @@ ok(
 // The label really is the catalogue's, not the English fallback, when a `t` is
 // supplied. A shared module that ignores its `t` is a translated label in
 // source and an English one on screen.
-const seen = [];
-const fakeT = (key) => {
-  seen.push(key);
-  return `[${key}]`;
-};
 for (const s of ALL) {
   const { labelKey } = appointmentStatusPresentation(s);
   if (!labelKey) continue;

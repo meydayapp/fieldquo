@@ -32,10 +32,28 @@ all the right words.
 **The credit line's English "s" is gone.** `{t("…minute")}{n === 1 ? "" : "s"}`
 rendered "Minutes" in German and "minutos" in Italian. It uses the existing
 `app.duration.minutes` counted noun now, asserted by executing the catalogue
-entry in all nine languages. Three more of the same shape survive on that page
-(`app.setVoice.outboundQueued` and two in `CallbackReport`) — each passes
-`plural` as a value into a `{count} call{plural}` string, which is the same
-English rule wearing a placeholder. Fixing them needs new counted-noun keys.
+entry in all nine languages.
+
+**Three more of the same shape survive on that page and are BLOCKED on copy**
+— `app.setVoice.outboundQueued`, and `outboundCalled` / `outboundWhyNone` in
+`CallbackReport`. Each passes `plural` as a value into a
+`{count} call{plural}` string, which is the same English rule wearing a
+placeholder. They cannot be switched to a counted noun without new SENTENCE
+keys, because the counted noun brings the number with it and every existing
+entry has its own `{count}` slot with the stem baked in beside it.
+
+Reading all nine of each shows why this is a copy decision and not a mechanical
+edit. Chinese has a stray `{plural}` after the full stop, so it renders
+"还有 3 通电话等着拨出。s" today — a bare Latin "s" in a Chinese office, and the
+worst of the three. Ukrainian dropped `{plural}` and always says the genitive
+plural, so one queued call reads "1 дзвінків". German and Italian already
+escaped by restructuring to "Wartende Anrufe: {count}." — no plural slot at
+all, grammatical at every count, and the shape the replacements probably want.
+And French doubles `{plural}` onto a past participle
+("soumission{plural} déjà appelée{plural}"), which a counted noun in a
+`{count}` slot cannot inflect, so those two sentences need rewording rather
+than translating. All three call sites are guarded above zero, so the
+French-at-zero fault is unreachable; Chinese is not.
 
 ## Appointments: three status vocabularies, one badge (3 September 2026)
 
@@ -53,9 +71,28 @@ had been falling through to plain grey with "pending payment" beside it.
 `check:appointment-status` drives the map against all three vocabularies read
 from `prisma/schema.prisma` and `lib/jobs/visitStatus.js`.
 
-`on_the_way` is the one status with no catalogue key anywhere in the product;
-it carries readable English and the check pins it as the ONLY hole, so a second
-cannot be added quietly. The key it wants is `app.status.onTheWay`.
+`on_the_way` shipped as the one status with no catalogue key anywhere in the
+product. `app.status.onTheWay` exists in all nine now, so the tolerance is
+gone: the check asserts there is NO hole, and the next status added without a
+key fails the build.
+
+**`lib/jobs/visitStatus.js` reads the same keys.** It held English strings, so
+a visit badge said "On the way" in a French office — on the one screen the
+office watches a state the homeowner is texted about. It carries
+`[key, English fallback]` pairs now, the shape `lib/jobs/statusLabels.js`
+already used, and `visitStatusLabel(status, t)` resolves them. One caller
+(`JobDetail.js`), which now passes its `t`. Same keys as the appointments
+calendar, deliberately: one visit, two screens, one vocabulary — and
+`check:appointment-status` asserts the two modules produce identical words for
+every shared status rather than trusting them to.
+
+Its unknown-status fallback changed with it. It answered "Scheduled" for
+anything it did not recognise, which is the invoices bug in miniature —
+borrowing another status's word states something false about somebody's day,
+and it made this file disagree with the calendar about the same row. An
+unrecognised value now tidies the raw text; a MISSING one still reads as
+Scheduled, because the column is `String @default("scheduled")` and absence
+really does mean the default.
 
 Alongside: the filter chips carry counts (null until the list loads — `0` over
 a failed request is a claim about a calendar nobody has read), the error banner

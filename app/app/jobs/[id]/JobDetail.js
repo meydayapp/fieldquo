@@ -638,7 +638,11 @@ export default function JobDetail({ jobId }) {
                             "bg-muted text-muted-foreground border-border"
                           }`}
                         >
-                          {visitStatusLabel(v.status)}
+                          {/* `t` passed, not omitted: this badge rendered the
+                              map's English in every office. Same key the
+                              appointments calendar reads for the same visit —
+                              see lib/jobs/visitStatus.js. */}
+                          {visitStatusLabel(v.status, t)}
                         </span>
                         {outsideRange && (
                           <span className="text-xs px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300">

@@ -27,7 +27,7 @@
 // the badge map actually know about?
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { visitActions, VISIT_STATUS_LABELS, mayMoveVisit } from "../lib/jobs/visitStatus.js";
+import { visitActions, VISIT_STATUS_LABELS, visitStatusLabel, mayMoveVisit } from "../lib/jobs/visitStatus.js";
 import { validateJobDates, parseDateOrNull } from "../lib/jobs/validateJobDates.js";
 import { isVisitOutsideJobRange } from "../lib/jobs/visitInRange.js";
 
@@ -80,6 +80,74 @@ for (const status of offered) {
   ok(
     Object.prototype.hasOwnProperty.call(VISIT_STATUS_LABELS, status),
     `"${status}" has a human label rather than rendering raw`,
+  );
+}
+
+// ══ 2b. That label is a KEY, and the page actually resolves it ═════════════
+//
+// This map held English strings, so the badge said "On the way" in a French
+// office — a state a crew member is texted about, on the one screen the office
+// watches it from. Two halves have to hold: the map carries a translation key,
+// and the one caller passes a `t` to resolve it. Either alone is a screen that
+// still renders English.
+
+section("2b. The visit badge is translated, not English out of lib/");
+
+for (const [status, entry] of Object.entries(VISIT_STATUS_LABELS)) {
+  ok(
+    Array.isArray(entry) && typeof entry[0] === "string" && entry[0].startsWith("app."),
+    `"${status}" carries a translation key, not a bare English word`,
+    entry,
+  );
+  ok(
+    typeof entry?.[1] === "string" && entry[1].length > 0,
+    `"${status}" keeps an English fallback for a language missing the key`,
+    entry,
+  );
+}
+
+// Resolved through a `t`, not returned as the fallback regardless — a label
+// function that ignores its `t` is a translated map and an English screen.
+const asked = [];
+const fakeT = (key, fallback) => {
+  asked.push(key);
+  return `[${key}|${fallback}]`;
+};
+ok(
+  visitStatusLabel("on_the_way", fakeT) === "[app.status.onTheWay|On the way]",
+  "visitStatusLabel routes through t() rather than returning its own English",
+  visitStatusLabel("on_the_way", fakeT),
+);
+ok(asked.length > 0, "t() was actually consulted", asked);
+
+// A missing status really is scheduled — the column is
+// `String @default("scheduled")`, so absence means the default.
+ok(
+  visitStatusLabel(null, fakeT) === "[app.status.scheduled|Scheduled]",
+  "a missing status still reads as Scheduled, which is what the default means",
+  visitStatusLabel(null, fakeT),
+);
+// An UNKNOWN one is a different fact and must not borrow another status's
+// word. This used to answer "Scheduled" for anything it did not recognise,
+// which made it disagree with lib/appointments/statusLabels.js about the very
+// same visit.
+ok(
+  visitStatusLabel("abducted_by_aliens", fakeT) === "abducted by aliens",
+  "an unrecognised status falls back to the tidied raw value, not to Scheduled",
+  visitStatusLabel("abducted_by_aliens", fakeT),
+);
+
+// The one caller has to pass its `t`. Without this, every assertion above is
+// true of a file nobody translates.
+{
+  const detailSrc = read("app/app/jobs/[id]/JobDetail.js");
+  ok(
+    /visitStatusLabel\(v\.status,\s*t\)/.test(detailSrc),
+    "the job page passes its t into visitStatusLabel",
+  );
+  ok(
+    !/visitStatusLabel\([^,)]*\)/.test(detailSrc),
+    "no caller left calling visitStatusLabel without a t",
   );
 }
 

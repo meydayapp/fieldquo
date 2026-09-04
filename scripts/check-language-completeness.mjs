@@ -2,7 +2,14 @@
 //
 //   npm run check:language-completeness
 //
-// Adding a language is nine edits, not one. This is the list.
+// Adding a language is ten edits, not one. This is the list.
+//
+// The count is not decoration. It went from nine to ten when
+// app/i18n/productPages/ was added — a third per-language DIRECTORY, for the
+// four /product/<slug> pages the header, the footer and the homepage feature
+// cards all link to. The whole point of this file is that the list is
+// complete, so a new per-language directory that does not appear in it turns
+// this check into a reassuring lie. Add the step when you add the directory.
 //
 // ══ Why this exists ════════════════════════════════════════════════════════
 //
@@ -10,7 +17,7 @@
 // nothing else. The build stayed green, `check:translations` stayed green, and
 // the language picker still showed six languages — because the picker reads
 // `LANGUAGES` in app/i18n/languages.js, which nobody had touched. Four of the
-// nine steps were done and the five that a customer would actually notice were
+// steps were done and the five that a customer would actually notice were
 // not.
 //
 // docs/INTERCONNECTIONS.md could not have caught it. That map is GENERATED from
@@ -107,9 +114,20 @@ for (const code of pickerCodes) {
 // ── 3. Every per-language FILE exists for every catalogue language ─────────
 //
 // These are directories of one module per language. A missing file is a hard
-// import error at build time for featurePages/industries, which is why they
-// were the steps that did get done — the ones below fail silently instead.
-for (const dir of ["app/i18n/featurePages", "app/i18n/industries"]) {
+// import error at build time for featurePages/industries/productPages, which
+// is why they were the steps that did get done — the ones below fail silently
+// instead.
+//
+// productPages is the newest and the one most likely to be forgotten: it was
+// added last, its four pages are small, and nothing in the app imports it
+// except the page itself. scripts/check-product-pages.mjs holds its CONTENTS
+// to all nine languages; this asserts the file is there at all, which is the
+// question that fails first.
+for (const dir of [
+  "app/i18n/featurePages",
+  "app/i18n/industries",
+  "app/i18n/productPages",
+]) {
   for (const code of catalogueCodes) {
     ok(
       `${dir}/${code}.js exists`,
