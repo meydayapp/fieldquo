@@ -43,6 +43,22 @@
 //     — Meta holds and fires it; this route and the cron do nothing more.
 //   - Facebook, DEMO (mock) company: also queued, exactly like Instagram —
 //     there is no real Meta scheduler for a mock post to hand off to.
+//
+// ══ Nothing publishes or schedules without a human approval ═══════════════
+//
+// A design must carry a live approval — approvedAt, plus a fingerprint that
+// still matches the layouts and words on the row RIGHT NOW
+// (lib/marketing/approvalFingerprint.js). Re-derived here, on this request,
+// from the current rows; never trusted from the browser and never from an
+// earlier read. The same discipline lib/migrations/state.js's canWrite()
+// applies to a paid migration, for the same reason: consent given a moment
+// ago about different content is not consent now.
+//
+// The CAPTION comes off the design, not out of the request body. A body
+// carrying a different one is refused rather than silently overridden —
+// otherwise what ships is not what was approved, which is the whole failure
+// this gate exists to prevent, reintroduced through the one field somebody
+// could still type into.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -59,6 +75,7 @@ import {
 } from "@/lib/social/metaSpecs";
 import { metaAppConfigured } from "@/lib/meta/client";
 import { getMetaConnection } from "@/lib/social/metaConnection";
+import { approvalState } from "@/lib/marketing/approvalFingerprint";
 import {
   publishToInstagram,
   publishToFacebook,
@@ -77,7 +94,15 @@ function requireMarketingManager(role) {
 async function loadOwned(companyId, id) {
   const design = await db.marketingDesign.findUnique({
     where: { id },
-    include: { campaign: { select: { id: true, name: true } } },
+    include: {
+      campaign: { select: { id: true, name: true } },
+      // The layouts are loaded on the PUBLISH path, not only on a read,
+      // because the approval fingerprint is computed over them — an approval
+      // can only be re-checked against the artwork as it stands, and that
+      // means reading it here rather than remembering that it once matched.
+      layouts: { select: { ratioKey: true, json: true, width: true, height: true } },
+      approvedBy: { select: { name: true } },
+    },
   });
   if (!design || design.companyId !== companyId) return null;
   return design;
@@ -126,6 +151,19 @@ export async function GET(request, { params }) {
     pageName: connection?.pageName || null,
     instagramUsername: connection?.instagramUsername || null,
     history,
+    // The approval, computed the same way POST computes it, so the dialog
+    // shows exactly the state the server will act on rather than its own
+    // guess at it.
+    approval: {
+      state: approvalState(design, design.layouts).state,
+      approvedAt: design.approvedAt,
+      approvedByName: design.approvedBy?.name || null,
+    },
+    // The words that would go out. Read-only on the publish screen: the place
+    // to change them is the design, which withdraws the approval — see
+    // app/api/marketing/designer/designs/[id]/route.js's PATCH.
+    caption: design.caption || "",
+    hashtags: design.hashtags || [],
   });
 }
 
@@ -189,7 +227,46 @@ export async function POST(request, { params }) {
     );
   }
 
-  const caption = typeof body?.caption === "string" ? body.caption.trim() : "";
+  // ── The approval gate ───────────────────────────────────────────────────
+  //
+  // Before the image is decoded, before anything is uploaded, and long before
+  // Meta is called: an unapproved asset is not publishable, and neither is one
+  // whose artwork or words changed after it was approved. Recomputed from the
+  // rows loaded on THIS request.
+  const approval = approvalState(design, design.layouts);
+  if (!approval.ok) {
+    return NextResponse.json(
+      {
+        error: approval.state === "stale" ? "approval_stale" : "not_approved",
+        message:
+          approval.state === "stale"
+            ? "This design changed after it was approved. Review it and approve it again before posting."
+            : "This design hasn't been approved yet. Review it and approve it before posting.",
+        approval: { state: approval.state },
+      },
+      { status: 409 },
+    );
+  }
+
+  // ── The caption is the design's, not the request's ──────────────────────
+  //
+  // A body carrying a different caption is REFUSED, not quietly overridden:
+  // a silent override would post the approved words to a person who believes
+  // they sent different ones, and a silent acceptance would post words nobody
+  // approved. Refusing says which of the two happened. An absent caption in
+  // the body is fine — that is a caller that already agrees.
+  const caption = design.caption ? design.caption.trim() : "";
+  if (typeof body?.caption === "string" && body.caption.trim() !== caption) {
+    return NextResponse.json(
+      {
+        error: "approval_stale",
+        message: "The caption changed since this was approved. Save it on the design and approve it again.",
+        approval: { state: "stale" },
+      },
+      { status: 409 },
+    );
+  }
+
   const captionCheck = validateCaption(caption);
   // Instagram's own limits are the tighter of the two and are enforced here
   // for BOTH platforms when Instagram is one of the targets, so one caption

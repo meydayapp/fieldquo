@@ -44,8 +44,35 @@
 // panel opens app/components/ai/AiCreditTopupDialog.js on it, from BOTH the
 // pre-click status and a 402 on submit, because the balance can drain between
 // the two.
-import { useCallback, useState } from "react";
-import { AlertTriangle, Loader } from "lucide-react";
+//
+// ── 2026-09-03: start from one of YOUR photos ──────────────────────────────
+//
+// The reference-image path existed end to end and no screen could reach it:
+// lib/ai/provider.js's generateImage() routes to images.edit when a reference
+// is present, lib/ai/images.js fetches and resizes the photo, and
+// lib/designer/aiImageAdapter.js already forwarded
+// `payload.referencePhotoUrl` — background removal is that same edit path
+// with a fixed prompt, which is how we know it works. What was missing was a
+// control to supply one, and a route that passed it on
+// (app/api/designer/generate/route.js built `{ prompt }` and dropped the
+// rest).
+//
+// Two sources, because contractors have photos in two places: one already on
+// the canvas (a job photo they dragged in), and one on the phone in their
+// hand. Both end up as a Cloudinary URL from this deployment's own uploader,
+// which is what the route insists on before it will fetch anything
+// server-side.
+//
+// ── Why the prompt hint is three lines and not a tutorial ─────────────────
+//
+// Contractors write bad briefs — "make me an ad" — and the fix people reach
+// for is a wall of prompt-engineering advice nobody reads. The three lines
+// below say what this tool actually does, in the order it matters: it edits
+// the photo you attach, it does not know your prices, and it is not the way
+// to make a before/after (the job-post composer on the designer index is).
+// Every one of them is a fact about this build, not a technique.
+import { useCallback, useRef, useState } from "react";
+import { AlertTriangle, ImagePlus, Loader, X } from "lucide-react";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { ToolSidebarClose } from "@/app/components/designer/ToolSidebarClose";
@@ -79,6 +106,53 @@ export function AiSidebar({ editor, activeTool, onChangeActiveTool }) {
   const [value, setValue] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  // The photo the generation is built FROM, or null for an unconditioned
+  // generation — which is what this panel did before and still does when
+  // nothing is attached.
+  const [reference, setReference] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [picking, setPicking] = useState(false);
+  const fileInputRef = useRef(null);
+
+  // Photos already on the canvas, read at the moment the picker is opened
+  // rather than kept in state — the canvas mutates on every drag and this
+  // only needs the answer when somebody looks. Same reasoning as
+  // CampaignEditor.js's getCanvasPhotoUrls().
+  const canvasPhotos = () => {
+    const objects = editor?.canvas?.getObjects?.() || [];
+    return [
+      ...new Set(
+        objects
+          .filter((o) => o.type === "image" && typeof o.getSrc === "function")
+          .map((o) => o.getSrc())
+          .filter((src) => typeof src === "string" && /^https:\/\//.test(src)),
+      ),
+    ].slice(0, 12);
+  };
+
+  async function handleUpload(e) {
+    const file = e.target.files?.[0];
+    // Cleared immediately so choosing the SAME file twice still fires change.
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    setError("");
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: form });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(data?.error || t("app.aiImage.uploadFailed", "That photo wouldn't upload."));
+        return;
+      }
+      setReference(data.url);
+    } catch {
+      setError(t("app.aiImage.networkError"));
+    } finally {
+      setUploading(false);
+    }
+  }
 
   // Coming back from Stripe, the panel is closed and `value` is empty — a
   // fresh mount of the whole editor. Reopening the tool is what makes the
@@ -114,7 +188,9 @@ export function AiSidebar({ editor, activeTool, onChangeActiveTool }) {
       const res = await fetch("/api/designer/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: value }),
+        // referencePhotoUrl, when attached, is what routes this at the vendor
+        // to images.edit instead of images.generate — see the route.
+        body: JSON.stringify({ prompt: value, referencePhotoUrl: reference || undefined }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -192,6 +268,93 @@ export function AiSidebar({ editor, activeTool, onChangeActiveTool }) {
                 )}
               </div>
             )}
+            {/* ── The photo this is built FROM ───────────────────────────
+                Attached: the vendor EDITS this picture. Empty: it invents
+                one from the words alone. Both are real behaviours of this
+                button, so the panel names which one is about to happen
+                instead of leaving it to be discovered from the result. */}
+            <div className="space-y-1.5">
+              <Label>{t("app.aiImage.referenceLabel", "Start from a photo")}</Label>
+              {reference ? (
+                <div className="flex items-center gap-2 rounded-lg border p-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={reference}
+                    alt={t("app.aiImage.referenceAlt", "The photo this image will be built from")}
+                    className="size-14 rounded object-cover"
+                  />
+                  <p className="flex-1 text-xs text-muted-foreground">
+                    {t("app.aiImage.referenceAttached", "Your photo will be edited, not replaced.")}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setReference(null)}
+                    aria-label={t("app.aiImage.referenceRemove", "Remove this photo")}
+                    className="flex size-9 items-center justify-center text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-9 flex-1"
+                    disabled={uploading || submitting}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {uploading ? (
+                      <Loader className="size-3.5 animate-spin" />
+                    ) : (
+                      <ImagePlus className="size-3.5" />
+                    )}
+                    {t("app.aiImage.referenceUpload", "Upload")}
+                  </Button>
+                  {/* Only offered when there IS something to pick. A picker
+                      over an empty canvas is a button that opens nothing. */}
+                  {canvasPhotos().length > 0 && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-9 flex-1"
+                      disabled={submitting}
+                      onClick={() => setPicking((v) => !v)}
+                    >
+                      {t("app.aiImage.referenceFromCanvas", "Use one on the canvas")}
+                    </Button>
+                  )}
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleUpload}
+                className="hidden"
+              />
+              {picking && !reference && (
+                <div className="grid grid-cols-3 gap-2">
+                  {canvasPhotos().map((url) => (
+                    <button
+                      key={url}
+                      type="button"
+                      onClick={() => {
+                        setReference(url);
+                        setPicking(false);
+                      }}
+                      className="overflow-hidden rounded border"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt="" className="h-16 w-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="space-y-1.5">
               <Label htmlFor="ai-image-prompt">{t("app.aiImage.promptLabel")}</Label>
               <Textarea
@@ -207,6 +370,23 @@ export function AiSidebar({ editor, activeTool, onChangeActiveTool }) {
               <p className="text-xs text-muted-foreground">
                 {t("app.aiImage.notOnDocuments")}
               </p>
+              {/* Three facts about this build, not prompt-engineering advice
+                  — see this file's header for why it stops at three. */}
+              <ul className="space-y-1 text-xs text-muted-foreground">
+                <li>
+                  {reference
+                    ? t(
+                        "app.aiImage.hintWithPhoto",
+                        "Say what to change about the photo — \u201cput this door on a plain white background\u201d.",
+                      )
+                    : t(
+                        "app.aiImage.hintNoPhoto",
+                        "With no photo attached it invents one. Attach a real photo if the picture is meant to be your work.",
+                      )}
+                </li>
+                <li>{t("app.aiImage.hintNoPrices", "It doesn\u2019t know your prices or your service area \u2014 type any number you want on it yourself.")}</li>
+                <li>{t("app.aiImage.hintUseJobPost", "For a before/after from a real job, use \u201cMake a post from a job\u201d on the designer list instead.")}</li>
+              </ul>
             </div>
             <Button disabled={!status?.allowed || submitting} type="submit" className="w-full">
               {submitting ? t("app.aiImage.generating") : t("app.aiImage.generate")}

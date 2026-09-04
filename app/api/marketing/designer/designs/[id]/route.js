@@ -85,9 +85,19 @@ export async function DELETE(request, { params }) {
   return NextResponse.json({ ok: true });
 }
 
-// Rename only — the layout content is written exclusively through
-// .../layouts/[ratio], never through this route, so a PATCH here can never
-// become the second way in scripts/check-feature-flags.mjs warns about.
+// Rename, and the post's own words — the layout ARTWORK is still written
+// exclusively through .../layouts/[ratio], never through this route, so a
+// PATCH here can never become the second way in scripts/check-feature-flags.mjs
+// warns about.
+//
+// `caption`/`hashtags` are part of what gets published, so editing either
+// WITHDRAWS an existing approval rather than quietly keeping it. That is the
+// whole point of the gate: an approval that survives the words changing is a
+// sign-off on words nobody read (lib/marketing/approvalFingerprint.js).
+// Withdrawing here as well as failing the fingerprint check at publish time
+// is deliberate belt-and-braces — the fingerprint is the enforcement, this is
+// what makes the screen tell the truth the moment the caption is saved
+// instead of at the moment somebody tries to post.
 export async function PATCH(request, { params }) {
   const { id } = await params;
   const { member, response } = await memberOrRefusal(request);
@@ -112,14 +122,59 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const name = typeof body?.name === "string" ? body.name.trim() : "";
-  if (!name) {
+  // Every field is optional EXCEPT that at least one must be present. A PATCH
+  // naming nothing is a caller bug, and treating it as "clear everything"
+  // would be a destructive operation labelled as cosmetic.
+  const hasName = typeof body?.name === "string";
+  const hasCaption = typeof body?.caption === "string";
+  const hasHashtags = Array.isArray(body?.hashtags);
+
+  if (!hasName && !hasCaption && !hasHashtags) {
+    return NextResponse.json(
+      { error: "Nothing to update: send name, caption or hashtags." },
+      { status: 400 },
+    );
+  }
+
+  const name = hasName ? body.name.trim() : null;
+  if (hasName && !name) {
     return NextResponse.json({ error: "name is required" }, { status: 400 });
   }
 
+  // Normalised the same way lib/ai/marketingCopy.js's parseModelJson does —
+  // one leading #, word characters only, deduped case-insensitively — so a
+  // hashtag typed by hand and one written by the model are the same shape by
+  // the time either is fingerprinted or posted.
+  let hashtags = null;
+  if (hasHashtags) {
+    const seen = new Set();
+    hashtags = [];
+    for (const raw of body.hashtags) {
+      if (typeof raw !== "string") continue;
+      const word = raw.replace(/^#+/, "").replace(/[^\w]/g, "");
+      if (!word) continue;
+      const tag = `#${word}`;
+      if (seen.has(tag.toLowerCase())) continue;
+      seen.add(tag.toLowerCase());
+      hashtags.push(tag);
+      if (hashtags.length >= 30) break;
+    }
+  }
+
+  const wordsChanged = hasCaption || hasHashtags;
+
   const updated = await db.marketingDesign.update({
     where: { id },
-    data: { name },
+    data: {
+      ...(hasName && { name }),
+      ...(hasCaption && { caption: body.caption.slice(0, 4000) }),
+      ...(hasHashtags && { hashtags }),
+      // A rename alone leaves the approval standing — the fingerprint
+      // deliberately excludes the name (see approvalFingerprint.js), because
+      // invalidating a sign-off over a title is how people learn to
+      // re-approve without looking.
+      ...(wordsChanged && { approvedAt: null, approvedById: null, approvedFingerprint: null }),
+    },
     include: { layouts: true },
   });
 

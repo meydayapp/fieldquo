@@ -18,6 +18,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
+import { approvalState } from "@/lib/marketing/approvalFingerprint";
 
 // Same gate as every other marketing-management route (campaigns, stops,
 // send) — reusing user:manage rather than inventing a second permission
@@ -32,10 +33,35 @@ const DESIGN_LIST_SELECT = {
   campaignId: true,
   createdAt: true,
   updatedAt: true,
+  caption: true,
+  hashtags: true,
+  approvedAt: true,
+  approvedFingerprint: true,
+  sourceJobId: true,
   layouts: {
-    select: { ratioKey: true, width: true, height: true, updatedAt: true },
+    // `json` is selected and NEVER returned — see toListRow() below. It is
+    // here because the approval state cannot be answered without it: an
+    // approval is only meaningful against the artwork it was given for, and
+    // "approved" versus "approved, then edited" is the difference between a
+    // real sign-off and a rubber stamp. Answering it server-side keeps the
+    // browser from having to download five canvas documents per design to
+    // render a badge.
+    select: { ratioKey: true, json: true, width: true, height: true, updatedAt: true },
   },
 };
+
+/**
+ * The row the screen actually gets: everything above except the canvas
+ * documents, plus the approval state computed from them.
+ */
+function toListRow(design) {
+  const { layouts, approvedFingerprint, ...rest } = design;
+  return {
+    ...rest,
+    layouts: layouts.map(({ json, ...l }) => l), // eslint-disable-line no-unused-vars
+    approval: approvalState({ ...design, approvedFingerprint }, layouts).state,
+  };
+}
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -64,9 +90,14 @@ export async function GET(request) {
     },
     orderBy: { updatedAt: "desc" },
     select: DESIGN_LIST_SELECT,
+    // Bounded because this now loads every layout's canvas document to
+    // compute the approval state. A company with two hundred old designs
+    // should not pay for all of them to render one screen; the list is
+    // newest-first, which is the order somebody is looking in.
+    take: 100,
   });
 
-  return NextResponse.json({ designs });
+  return NextResponse.json({ designs: designs.map(toListRow) });
 }
 
 export async function POST(request) {
@@ -115,5 +146,5 @@ export async function POST(request) {
     select: DESIGN_LIST_SELECT,
   });
 
-  return NextResponse.json(design, { status: 201 });
+  return NextResponse.json(toListRow(design), { status: 201 });
 }

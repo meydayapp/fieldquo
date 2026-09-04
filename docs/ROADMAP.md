@@ -1,12 +1,91 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 3 September 2026 (US state contractor licence boards as discovery sources — California, Washington and Oregon, 340,655 active licences, 117,686 of them reaching a FieldQuo trade from the licence class alone; the i18n backlog and the Meta App Review artefacts before that).
+Last updated: 3 September 2026 (the Marketing Designer composes a before/after post out of a job's real photos, and nothing can be scheduled or posted until a person approves it; the US state licence boards and the Meta App Review artefacts before that).
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## Marketing Designer: posts made of real job photos, and an approval gate (3 September 2026)
+
+**What the owner asked for.** He showed a before/after Instagram carousel he
+made for his own cabinet business: two real job photos side by side, labelled
+BEFORE and AFTER, a big headline, and a footer reading "CABINET REFINISHING ·
+OTTAWA". Not a text-to-image generation — a COMPOSITION of photographs the
+contractor already took, carrying that job's own facts. Generalised to every
+trade, plus: "once an asset is created in the marketing page it should allow the
+content to be approved and ready to send or schedule to be posted or be sent to
+the ads."
+
+**The composition.** `lib/marketing/jobPost.js` — pure, no fabric, no db —
+returns a fabric canvas document that saves straight into
+`MarketingDesignLayout`. The model writes two SENTENCES (a headline and a
+caption, through `lib/ai/marketingCopy.js`); it chooses no layout, names no
+service, decides which photo is the "before" not at all, and emits no colour.
+That is `lib/site/generateSite.js`'s boundary applied to a post, and the reason
+is the same: constrain the model to prose and the worst case is bland copy.
+Every path falls back to `factualHeadline()`, built from the job's own scope of
+work, so AI being down, over quota or broken produces a plainer post rather than
+none — `check:job-post` asserts structurally that the whole AI stretch of the
+route contains no early return.
+
+Which photos, and the layout, come from data: `lib/marketing/jobPostSource.js`
+takes the earliest `start` beside the latest `finish` (lib/gallery/albums.js's
+rule, without its `featured` gate — a person picked this job by name), and never
+an `issue` photo, filtered at the database in two independent places because the
+no-AI path is the one least likely to be exercised by hand. The frame decides
+the arrangement: side by side in a square or a banner, stacked in a Story, where
+two side-by-side panels would each be narrower than a thumb.
+
+Two things worth knowing about the fabric document, both of which fail silently
+if they drift: every image carries `crossOrigin: "anonymous"` (without it
+`toDataURL()` throws on a tainted canvas at publish time), and its `width`/
+`height` are only true because `filledUrl()` asks Cloudinary for exactly that
+size — the composition never sees the file. Both are executed assertions, not
+comments.
+
+**The approval gate.** `MarketingDesign` now carries the post's own words
+(`caption`, `hashtags` — previously typed into the publish dialog and never
+stored, which is precisely what made an approval impossible: there was nothing
+persistent to approve) plus `approvedAt`, `approvedById` and
+`approvedFingerprint`. The fingerprint (`lib/marketing/approvalFingerprint.js`)
+is a hash of the layouts and the words. The publish route recomputes it from the
+current rows on every request and refuses on a mismatch, so there are three
+states, not two: approved, never approved, and **stale** — approved, then
+edited. A boolean would have let a Tuesday sign-off publish Wednesday's words
+with somebody's name on it. Renaming a design deliberately does NOT invalidate
+the approval; a title is not what gets published.
+
+The gate lives in `ApprovalModal.js` and NOT inside the publish dialog, because
+publishing is hidden entirely for a real company until Meta's App Review clears
+— a gate nobody can reach is not a gate.
+
+**Straight about Meta.** Approve → schedule → queued is real. Posting to
+Instagram or a Facebook Page is still blocked on `pages_manage_posts` /
+`instagram_content_publish`, so for a real company the publish button is absent
+(unchanged) and the approval screen says in plain words what it is waiting on.
+The ads hand-off could NOT be built honestly — `ads_management` is behind the
+same review, and the Meta integration here reads insights only — so what ships
+is what actually works: download every size, copy the caption, and a sentence
+saying FieldQuo cannot create the ad. Reading the company's own Instagram feed
+to learn its house style needs `instagram_basic`, also review-gated, and is not
+built.
+
+**The bug underneath all of it.** `referencePhotoUrl` was implemented end to end
+— `provider.js` routes to `images.edit`, `images.js` fetches and resizes,
+`aiImageAdapter.js` forwards it — accepted by
+`app/api/marketing/designer/images/route.js`, which has ZERO fetch call sites,
+and discarded by `app/api/designer/generate/route.js`, which is the route every
+sidebar posts to. The live route now carries it (validated with `isUploadedUrl`
+before the server will fetch anything), and `AiSidebar.js` has the control to
+supply one: upload, or pick a photo already on the canvas. **Recommendation, not
+done:** `app/api/marketing/designer/images/route.js`'s only distinction was
+accepting a reference photo. Now that the live route accepts one, that endpoint
+has no reason to exist — deleting it is a product call, not this session's.
 
 ---
 

@@ -1657,6 +1657,9 @@ model User {
   shiftOverrides        Shift[]                @relation("ShiftAvailabilityOverride")
   workerProfile         Worker?
   campaignsAssigned     MarketingCampaign[]    @relation("CampaignAssignee")
+  // Who signed off on a marketing asset before it could be scheduled or
+  // posted — see MarketingDesign.approvedAt.
+  designsApproved       MarketingDesign[]      @relation("MarketingDesignApprover")
   pamphletStopsAssigned PamphletStop[]         @relation("PamphletStopAssignee")
   leadsAssigned         LeadRequest[]          @relation("LeadAssignee")
   leadNotes             LeadNote[]             @relation("LeadNoteAuthor")
@@ -3608,6 +3611,10 @@ model Job {
 
   galleryPhotos JobPhoto[]
 
+  /// Marketing assets composed from this job's photos — see
+  /// MarketingDesign.sourceJobId for why this is SetNull and not Cascade.
+  marketingDesigns MarketingDesign[] @relation("MarketingDesignSourceJob")
+
   /// Back-relation for the office to-do list. A Task is internal admin ("ask
   /// them for a review"); a JobVisit is work at an address. Deliberately not
   /// merged with `visits` — conflating the two is exactly the confusion this
@@ -4088,6 +4095,50 @@ model MarketingDesign {
 
   name String
 
+  /// The job whose photos this asset was composed from — see
+  /// lib/marketing/jobPostSource.js. Null for a design somebody built by hand
+  /// in the canvas editor, which is most of them.
+  ///
+  /// SetNull rather than Cascade: deleting a job must not delete the marketing
+  /// asset made out of its photos, which by then may already have been posted.
+  /// The asset stops being able to say WHICH job it came from and carries on
+  /// existing, which is the honest outcome.
+  sourceJobId String?
+  sourceJob   Job?    @relation("MarketingDesignSourceJob", fields: [sourceJobId], references: [id], onDelete: SetNull)
+
+  /// ── The post's own words ────────────────────────────────────────────────
+  ///
+  /// The caption and hashtags that go OUT with this asset, held on the asset
+  /// itself rather than typed into the publish dialog and lost. That was the
+  /// old shape and it is what made an approval step impossible: there was
+  /// nothing persistent to approve. `SocialPublish.caption` still records what
+  /// each individual attempt actually posted — that is a different fact (what
+  /// shipped, not what the current draft says, the same distinction that
+  /// field's own comment already draws) and neither replaces the other.
+  caption  String?  @db.Text
+  hashtags String[] @default([])
+
+  /// ── The approval gate (AGENTS.md: never ship a control that appears to
+  /// work and doesn't) ─────────────────────────────────────────────────────
+  ///
+  /// Nothing may be scheduled or published until a person has looked at the
+  /// rendered asset and said yes. Enforced server-side in
+  /// app/api/marketing/designer/designs/[id]/publish/route.js, not by hiding
+  /// a button.
+  ///
+  /// `approvedFingerprint` is what makes the approval mean something after the
+  /// fact. It is a hash of the exact layouts and words that were on screen at
+  /// the moment somebody approved (lib/marketing/approvalFingerprint.js). The
+  /// publish route recomputes it from the CURRENT rows and refuses on a
+  /// mismatch — because "approved last Tuesday" says nothing about a design
+  /// that was edited on Wednesday, and an approval that silently survives the
+  /// content changing underneath it is worse than no approval at all: it is a
+  /// sign-off somebody's name is on for words they never read.
+  approvedAt          DateTime?
+  approvedById        String?
+  approvedBy          User?     @relation("MarketingDesignApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedFingerprint String?
+
   layouts         MarketingDesignLayout[]
   socialPublishes SocialPublish[]
 
@@ -4096,6 +4147,7 @@ model MarketingDesign {
 
   @@index([companyId])
   @@index([campaignId])
+  @@index([sourceJobId])
 }
 
 // One row per aspect ratio the design has been adjusted for.

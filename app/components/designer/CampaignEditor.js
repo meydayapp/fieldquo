@@ -64,11 +64,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { fabric } from "fabric";
-import { ArrowLeft, CalendarDays, Download, Share2, TriangleAlert } from "lucide-react";
+import { ArrowLeft, BadgeCheck, CalendarDays, Download, Share2, TriangleAlert } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
 import DesignerLoader from "@/app/components/designer/DesignerLoader";
 import PublishModal from "@/app/components/designer/PublishModal";
+import ApprovalModal from "@/app/components/designer/ApprovalModal";
 import { JSON_KEYS } from "@/lib/designer/constants";
 import { downloadFile } from "@/lib/designer/utils";
 import {
@@ -157,6 +158,14 @@ export function CampaignEditor({ design, onBack }) {
   const [editorInstance, setEditorInstance] = useState(undefined);
   const [downloading, setDownloading] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
+  const [approvalOpen, setApprovalOpen] = useState(false);
+  // "approved" | "stale" | "not_approved" | null (not known yet).
+  //
+  // null is a real third value, not a stand-in for "not approved": a failed
+  // fetch must not paint an Approved design as unapproved, which would invite
+  // somebody to press a button they already pressed. The badge renders nothing
+  // until the answer arrives.
+  const [approvalState, setApprovalState] = useState(null);
   // Whether Instagram/Facebook publishing is visible AT ALL for this
   // company — see docs/SOCIAL-SCHEDULING.md, "hidden until approved."
   // Starts false (not "loading") deliberately: AGENTS.md's rule is "either
@@ -167,6 +176,30 @@ export function CampaignEditor({ design, onBack }) {
   // publish GET the modal itself calls when opened — one more request on
   // mount, not a second endpoint to keep in sync with it.
   const [socialVisible, setSocialVisible] = useState(false);
+
+  // The approval state for the toolbar badge. Its OWN request rather than a
+  // field on the publish GET — that route is about Meta, and for a real
+  // company with no Meta app configured the whole publish surface is hidden,
+  // while approval is reachable regardless. Hanging one off the other would
+  // have made the approval badge disappear for exactly the companies that
+  // still need to approve things.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/marketing/designer/designs/${design.id}/approval`);
+        if (cancelled || !res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setApprovalState(data.state);
+      } catch {
+        // Left at null — "not known" — for the reason the state's own comment
+        // gives. A network blip must not relabel an approved design.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [design.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -432,6 +465,28 @@ export function CampaignEditor({ design, onBack }) {
           {downloading ? t("app.marketingDesigner.downloading") : t("app.marketingDesigner.downloadAll")}
         </button>
 
+        {/* Always rendered, for every company, whatever Meta has approved —
+            the gate has to be reachable or it isn't a gate. See
+            ApprovalModal.js's header for why approval does not live inside
+            the publish dialog. */}
+        <button
+          type="button"
+          onClick={() => setApprovalOpen(true)}
+          disabled={!editorInstance}
+          data-tour="designer-approve"
+          className="flex items-center gap-2 border border-border text-foreground px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap disabled:opacity-60 shrink-0"
+        >
+          <BadgeCheck
+            size={13}
+            className={approvalState === "approved" ? "text-emerald-600 dark:text-emerald-400" : undefined}
+          />
+          {approvalState === "approved"
+            ? t("app.marketingDesigner.approval.badgeApproved", "Approved")
+            : approvalState === "stale"
+              ? t("app.marketingDesigner.approval.badgeStale", "Re-approve")
+              : t("app.marketingDesigner.approval.badgeReview", "Review & approve")}
+        </button>
+
         {/* Both rendered ONLY when socialVisible — docs/SOCIAL-SCHEDULING.md's
             "hide until Meta approves the app" — rather than always-visible-
             but-disabled or always-visible-but-honest-in-the-modal. That was
@@ -497,9 +552,30 @@ export function CampaignEditor({ design, onBack }) {
           onClose={() => setPublishOpen(false)}
           design={design}
           preparePublishAsset={preparePublishAsset}
-          getCanvasPhotoUrls={getCanvasPhotoUrls}
+          onOpenApproval={() => {
+            setPublishOpen(false);
+            setApprovalOpen(true);
+          }}
         />
       )}
+
+      {/* NOT gated on socialVisible — see the toolbar button above. The words
+          and the sign-off are the contractor's own business; Meta's App
+          Review only decides where the finished thing can go. */}
+      <ApprovalModal
+        isOpen={approvalOpen}
+        onClose={() => setApprovalOpen(false)}
+        design={design}
+        preparePublishAsset={preparePublishAsset}
+        getCanvasPhotoUrls={getCanvasPhotoUrls}
+        onDownloadAll={handleDownloadAll}
+        socialVisible={socialVisible}
+        onOpenPublish={() => {
+          setApprovalOpen(false);
+          setPublishOpen(true);
+        }}
+        onStateChange={setApprovalState}
+      />
     </div>
   );
 }

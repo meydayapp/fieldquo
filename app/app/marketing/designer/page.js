@@ -14,7 +14,7 @@
 // versa; they are the same row.
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Palette, Plus, Trash2, ImageOff } from "lucide-react";
+import { BadgeCheck, Camera, ImageOff, Loader2, Palette, Plus, Trash2, TriangleAlert } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { fetchList } from "@/lib/loadState";
@@ -47,6 +47,58 @@ export default function MarketingDesignerPage() {
   const [creatingCampaign, setCreatingCampaign] = useState(false);
   const [newDesignName, setNewDesignName] = useState({});
   const [creatingDesignFor, setCreatingDesignFor] = useState(null);
+
+  // ── "Make a post from a job" ────────────────────────────────────────────
+  //
+  // The jobs are fetched ONCE, on first open, and shared by every campaign
+  // card — the list is the same whichever campaign the post lands in, and
+  // re-fetching it per card would be the same request three times on one
+  // screen. `null` is "not asked yet", `[]` is "asked, and this company has
+  // no job with a publishable photo" — two different things, and the second
+  // one gets a sentence rather than a spinner that never stops.
+  const [jobs, setJobs] = useState(null);
+  const [jobsLoading, setJobsLoading] = useState(false);
+  const [pickerFor, setPickerFor] = useState(null);
+  const [composing, setComposing] = useState(null);
+
+  const openPicker = useCallback(async (campaignId) => {
+    setPickerFor((prev) => (prev === campaignId ? null : campaignId));
+    if (jobs !== null || jobsLoading) return;
+    setJobsLoading(true);
+    try {
+      const res = await fetch("/api/marketing/designer/job-post");
+      if (!res.ok) {
+        await reportResponseError(res);
+        return;
+      }
+      const data = await res.json();
+      setJobs(Array.isArray(data.jobs) ? data.jobs : []);
+    } finally {
+      setJobsLoading(false);
+    }
+  }, [jobs, jobsLoading]);
+
+  async function composeFromJob(campaignId, jobId) {
+    setComposing(jobId);
+    try {
+      const res = await fetch("/api/marketing/designer/job-post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaignId, jobId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        // The route's own message when it has one — "that job has no photos
+        // we can publish yet" says what to do; a generic failure does not.
+        showError(data?.message || t("app.marketingDesigner.createError"));
+        return;
+      }
+      const design = await res.json();
+      router.push(`/app/marketing/designer/${design.id}`);
+    } finally {
+      setComposing(null);
+    }
+  }
 
   const load = useCallback(async () => {
     setErrorKey("");
@@ -248,6 +300,35 @@ export default function MarketingDesignerPage() {
                             <p className="text-sm font-medium text-foreground truncate">
                               {d.name}
                             </p>
+                            {/* Three states, because "changed since it was
+                                approved" is not "never approved" — telling
+                                somebody the second when the first is true
+                                sends them looking for a button they already
+                                pressed. See
+                                lib/marketing/approvalFingerprint.js. */}
+                            <span className="mt-1 flex items-center gap-1 text-xs">
+                              {d.approval === "approved" && (
+                                <>
+                                  <BadgeCheck size={12} className="text-emerald-700 dark:text-emerald-400" />
+                                  <span className="text-emerald-700 dark:text-emerald-400">
+                                    {t("app.marketingDesigner.approval.badgeApproved", "Approved")}
+                                  </span>
+                                </>
+                              )}
+                              {d.approval === "stale" && (
+                                <>
+                                  <TriangleAlert size={12} className="text-amber-700 dark:text-amber-400" />
+                                  <span className="text-amber-700 dark:text-amber-400">
+                                    {t("app.marketingDesigner.approval.badgeStale", "Re-approve")}
+                                  </span>
+                                </>
+                              )}
+                              {d.approval === "not_approved" && (
+                                <span className="text-muted-foreground">
+                                  {t("app.marketingDesigner.approval.badgeNotApproved", "Not approved")}
+                                </span>
+                              )}
+                            </span>
                             {/* Format names come from AD_RATIOS untranslated,
                                 the same way the editor's own ratio switcher
                                 and SettingsSidebar render them: "Instagram
@@ -326,6 +407,91 @@ export default function MarketingDesignerPage() {
                     })}
                   </div>
                 )}
+
+                {/* ── Make a post out of work already done ─────────────
+                    The photos the crew already took, with the job's own
+                    scope of work behind the words. The other button below
+                    opens an empty canvas; this one opens a finished post. */}
+                <div className="mb-3">
+                  <button
+                    type="button"
+                    onClick={() => openPicker(c.id)}
+                    className="flex items-center gap-2 border border-border text-foreground px-3 py-2.5 rounded-full text-sm font-semibold min-h-[44px]"
+                  >
+                    <Camera size={14} />
+                    {t("app.marketingDesigner.jobPost.open", "Make a post from a job")}
+                  </button>
+
+                  {pickerFor === c.id && (
+                    <div className="mt-2 border border-border rounded-lg p-3">
+                      <p className="text-xs text-muted-foreground mb-2">
+                        {t(
+                          "app.marketingDesigner.jobPost.hint",
+                          "Pick a job. FieldQuo puts its before and after photos side by side, writes the words from that job\u2019s scope of work, and puts your trade and town along the bottom. Nothing is invented \u2014 photos flagged as an issue are never used.",
+                        )}
+                      </p>
+
+                      {jobsLoading && (
+                        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Loader2 size={12} className="animate-spin" />
+                          {t("app.marketingDesigner.jobPost.loading", "Looking through your jobs\u2026")}
+                        </p>
+                      )}
+
+                      {!jobsLoading && jobs?.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          {t(
+                            "app.marketingDesigner.jobPost.none",
+                            "No job has a photo we can publish yet. Tag a start and a finish shot on a job and it will show up here.",
+                          )}
+                        </p>
+                      )}
+
+                      {!jobsLoading && jobs && jobs.length > 0 && (
+                        <ul className="space-y-2">
+                          {jobs.map((j) => (
+                            <li
+                              key={j.id}
+                              className="flex items-center gap-3 border border-border rounded-lg p-2"
+                            >
+                              <span className="flex gap-1 shrink-0">
+                                {j.preview.map((url) => (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    key={url}
+                                    src={url}
+                                    alt=""
+                                    className="h-12 w-12 rounded object-cover"
+                                  />
+                                ))}
+                              </span>
+                              <span className="flex-1 min-w-0">
+                                <span className="block text-sm text-foreground truncate">
+                                  {j.title}
+                                </span>
+                                <span className="block text-xs text-muted-foreground">
+                                  {j.beforeAfter
+                                    ? t("app.marketingDesigner.jobPost.hasPair", "Before and after")
+                                    : t("app.marketingDesigner.jobPost.singleOnly", "One photo \u2014 no before/after on this job")}
+                                </span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => composeFromJob(c.id, j.id)}
+                                disabled={composing !== null}
+                                className="border border-border rounded-full px-3 py-2 text-xs font-semibold disabled:opacity-60 min-h-[44px] shrink-0"
+                              >
+                                {composing === j.id
+                                  ? t("app.marketingDesigner.jobPost.making", "Making\u2026")
+                                  : t("app.marketingDesigner.jobPost.make", "Make it")}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 <div className="flex items-center gap-2">
                   <input

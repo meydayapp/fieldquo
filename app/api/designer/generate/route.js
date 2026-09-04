@@ -12,11 +12,38 @@
 // same wallet the Remove-background route uses. Refusals carry the price,
 // the balance and the shortfall, per the coordinator's explicit instruction:
 // never "something went wrong".
+//
+// ══ referencePhotoUrl — the capability that was built and never reachable ══
+//
+// The whole reference-image chain already existed: provider.js's
+// generateImage() routes to images.edit when a reference buffer is present,
+// lib/ai/images.js downloads and resizes the photo, and
+// aiImageAdapter.js:requestAiImage already forwards
+// `payload.referencePhotoUrl`. Background removal is that same edit path with
+// a fixed prompt, which is how we know it works end to end today.
+//
+// This route built `payload: { prompt }` and dropped the rest on the floor, so
+// no contractor could ever start from a photograph — while
+// app/api/marketing/designer/images/route.js, which DID accept one, has zero
+// fetch call sites anywhere in the app. The capability was wired to the route
+// nobody calls and discarded by the route everybody calls. Carrying it here is
+// the fix; see AiSidebar.js for the attach/pick control that supplies it.
+//
+// ── Why the URL is checked before it is forwarded ─────────────────────────
+//
+// lib/ai/images.js FETCHES this URL server-side. An arbitrary string here is a
+// server-side request to wherever the browser said, and the bytes come back
+// into the contractor's own advert. isUploadedUrl() confines it to files that
+// went through /api/upload on this deployment's own Cloudinary cloud — which
+// is also what makes `resizedUrl()` (and so the whole "resize before sending"
+// cost argument in images.js) apply at all, since that transformation is a
+// no-op on a URL Cloudinary doesn't serve.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requestAiImage } from "@/lib/designer/aiImageAdapter";
+import { isUploadedUrl } from "@/lib/jobs/documents";
 
 const REFUSAL_MESSAGE = {
   feature_unavailable: "AI image generation isn't switched on for this account.",
@@ -40,11 +67,33 @@ export async function POST(request) {
     return NextResponse.json({ error: "Describe the image you want." }, { status: 400 });
   }
 
+  // Absent means an unconditioned generation, which is what this route did
+  // before and still does. Present-but-not-ours is REFUSED rather than
+  // silently ignored: quietly generating something unconditioned from a prompt
+  // written about a photo the contractor attached is the control that appears
+  // to work — they'd get a picture, it just wouldn't be of their kitchen.
+  const rawReference = typeof body?.referencePhotoUrl === "string" ? body.referencePhotoUrl.trim() : "";
+  if (rawReference && !isUploadedUrl(rawReference, { cloudName: process.env.CLOUDINARY_CLOUD_NAME })) {
+    return NextResponse.json(
+      {
+        error: "That photo isn't one of this account's uploads. Upload it here first, then try again.",
+        reason: "reference_not_uploaded",
+      },
+      { status: 400 },
+    );
+  }
+  const referencePhotoUrl = rawReference || null;
+
   const result = await requestAiImage({
     companyId: member.companyId,
     action: "generate",
-    payload: { prompt },
-    note: `AI-generated image — "${prompt.slice(0, 80)}"`,
+    // requestAiImage already forwards referencePhotoUrl into
+    // generateMarketingImage — see lib/designer/aiImageAdapter.js:214. This
+    // route was the only thing in the chain not passing it along.
+    payload: { prompt, referencePhotoUrl },
+    note: referencePhotoUrl
+      ? `AI image from a photo — "${prompt.slice(0, 80)}"`
+      : `AI-generated image — "${prompt.slice(0, 80)}"`,
     role: member.role,
   });
 

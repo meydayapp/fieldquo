@@ -18,6 +18,16 @@
 // there is more to confirm: which account, which image, and a caption with
 // real length limits, not just a recipient string.
 //
+// ══ Nothing here composes; it confirms ════════════════════════════════════
+//
+// The caption is READ-ONLY on this screen and comes off the design, which is
+// the same string the server publishes — see the publish route, which refuses
+// a body carrying a different one rather than silently preferring either. The
+// place to write the words is ApprovalModal.js, because editing them withdraws
+// the approval, and a screen that can silently un-approve the thing it is
+// about to post is a gate with a hole in it. "Edit the words" below opens that
+// dialog instead of turning this textarea back on.
+//
 // ══ Why the Publish button can render even though nothing can publish yet ══
 //
 // lib/social/metaConnection.js's getMetaConnection() always returns
@@ -38,8 +48,8 @@ import {
   Clock,
   FlaskConical,
   Loader2,
+  PencilLine,
   Send,
-  Sparkles,
   TriangleAlert,
   X,
 } from "lucide-react";
@@ -106,13 +116,10 @@ const CAPTION_ERROR_KEYS = {
  * @param {() => void} props.onClose
  * @param {{id:string,name:string,campaign?:{name?:string}}} props.design
  * @param {(ratioKey: string) => Promise<{dataUrl:string,width:number,height:number}|null>} props.preparePublishAsset
- * @param {() => string[]} props.getCanvasPhotoUrls  every photo URL currently
- *   on the canvas — see CampaignEditor.js's own comment on this function.
- *   Backs the "Generate with AI" caption button below; optional so this
- *   modal doesn't break if a future caller doesn't wire it, in which case
- *   the button simply doesn't render (see the render guard below it).
+ * @param {() => void} [props.onOpenApproval]  hands the person over to the
+ *   screen where the words are actually edited and the sign-off happens.
  */
-export default function PublishModal({ isOpen, onClose, design, preparePublishAsset, getCanvasPhotoUrls }) {
+export default function PublishModal({ isOpen, onClose, design, preparePublishAsset, onOpenApproval }) {
   const { t } = useTranslation();
 
   const [connection, setConnection] = useState(null); // null = loading
@@ -120,7 +127,13 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
   const [asset, setAsset] = useState(null);
   const [assetLoading, setAssetLoading] = useState(false);
   const [assetFailed, setAssetFailed] = useState(false);
+  // Read-only here — set from the design when this opens, never typed into.
+  // See this file's header.
   const [caption, setCaption] = useState("");
+  // "approved" | "stale" | "not_approved" | null. Null while the connection
+  // request is still out; the submit button stays off until it lands, which
+  // is the safe direction for a control that posts publicly.
+  const [approval, setApproval] = useState(null);
   const [platforms, setPlatforms] = useState({ facebook: false, instagram: false });
   const [submitting, setSubmitting] = useState(false);
   const [results, setResults] = useState(null); // { facebook?: {...}, instagram?: {...} }
@@ -134,22 +147,11 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
   // since the API refuses this field outright unless connection.mock.
   const [mockFailure, setMockFailure] = useState("none");
 
-  // The AI caption generator's own, separate busy/error/result state — kept
-  // apart from submitting/submitError above because generating a caption and
-  // publishing the post are two independent actions a person can retry
-  // independently; conflating them would grey out the wrong control while
-  // the other one runs.
-  const [copyGenerating, setCopyGenerating] = useState(false);
-  const [copyError, setCopyError] = useState("");
-  const [copyMeta, setCopyMeta] = useState(null); // last generateMarketingCopy() result
-
   // Reset per-open, not per-unmount — the modal is kept mounted (isOpen
   // just returns null) so CampaignEditor doesn't remount PublishModal, and
   // therefore doesn't lose editorInstance wiring, every time it's toggled.
   useEffect(() => {
     if (!isOpen) return;
-    setCopyError("");
-    setCopyMeta(null);
     setResults(null);
     setSubmitError("");
     setConnection(null);
@@ -168,6 +170,10 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
       const data = await res.json();
       if (cancelled) return;
       setConnection(data);
+      // Both come from the SAME response the server will act on, rather than
+      // from a second request that could disagree with it.
+      setApproval(data.approval?.state ?? null);
+      setCaption(data.caption || "");
       setPlatforms({
         facebook: Boolean(data.connected),
         instagram: Boolean(data.connected && data.instagramUsername),
@@ -237,62 +243,22 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
       (!platforms.facebook || isValidFacebookScheduleTime(scheduledForDate)) &&
       (!platforms.instagram || isValidScheduleTime(scheduledForDate)));
 
+  // The client half of the approval gate. The SERVER half — recomputing the
+  // fingerprint from the current rows and refusing on a mismatch — is the one
+  // that enforces it (AGENTS.md: hiding a button is not access control). This
+  // exists so the reason is visible before the click rather than as a 409
+  // afterwards.
+  const approved = approval === "approved";
+
   const canSubmit =
     connection?.connected &&
+    approved &&
     anyPlatform &&
     captionOk &&
     imageOk &&
     scheduleOk &&
     Boolean(asset) &&
     !submitting;
-
-  // ── "Generate with AI" — the AI context bridge, reached from the one ────
-  //     place a caption actually gets typed
-  //
-  // Deliberately reads the canvas at the MOMENT this is pressed (a function
-  // call, not a prop kept in sync) — see CampaignEditor.js's
-  // getCanvasPhotoUrls() header. Grounded via POST /api/designer/copy →
-  // lib/ai/marketingCopy.js, which is the only thing between "generate a
-  // caption" and a caption claiming work that was never done — see that
-  // file's own header for the argument. This button does not know or care
-  // whether the result is grounded; it shows whatever the server reports
-  // (`copyMeta.grounded`) so the person composing the post can see for
-  // themselves whether it was written from real scope-of-work data or is
-  // generic copy because none was found.
-  async function handleGenerateCopy() {
-    const photoUrls = getCanvasPhotoUrls?.() || [];
-    if (!photoUrls.length) {
-      setCopyError(t("app.marketingDesigner.publishModal.copyNoPhotos"));
-      return;
-    }
-    setCopyGenerating(true);
-    setCopyError("");
-    try {
-      const res = await fetch("/api/designer/copy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ photoUrls }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        setCopyError(data?.error || t("app.marketingDesigner.publishModal.copyError"));
-        return;
-      }
-      if (!data.photosUsed) {
-        // Every photo on the canvas was excluded (issue-tagged, or the
-        // request carried nothing usable at all) — a real, distinct answer
-        // from "the vendor failed", so it gets its own sentence rather than
-        // the generic error above.
-        setCopyError(t("app.marketingDesigner.publishModal.copyNoUsablePhotos"));
-        return;
-      }
-      const hashtagLine = data.hashtags?.length ? `\n\n${data.hashtags.join(" ")}` : "";
-      setCaption(`${data.caption}${hashtagLine}`.trim());
-      setCopyMeta(data);
-    } finally {
-      setCopyGenerating(false);
-    }
-  }
 
   async function handlePublish() {
     if (!canSubmit) return;
@@ -390,6 +356,40 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
 
         {connection?.connected && !done && (
           <div className="space-y-4">
+            {/* The approval, stated before anything else on the screen. Not a
+                disabled button with a tooltip: the reason sits above the
+                controls it explains and carries the way out of it, the same
+                shape scripts/check-paid-refusals.mjs holds the AI refusals
+                to. Only the SERVER decides whether this posts — see canSubmit
+                above. */}
+            {approval !== "approved" && (
+              <div className="rounded-lg border border-border bg-muted p-3 space-y-2">
+                <p className="flex items-start gap-2 text-sm text-foreground">
+                  <TriangleAlert size={14} className="mt-0.5 shrink-0" />
+                  <span>
+                    {approval === "stale"
+                      ? t(
+                          "app.marketingDesigner.publishModal.approvalStale",
+                          "This design changed after it was approved. Review it again before it goes out.",
+                        )
+                      : t(
+                          "app.marketingDesigner.publishModal.approvalNeeded",
+                          "This post hasn't been approved yet. Nothing can be scheduled or posted until somebody has looked at it.",
+                        )}
+                  </span>
+                </p>
+                {onOpenApproval && (
+                  <button
+                    type="button"
+                    onClick={onOpenApproval}
+                    className="w-full rounded-full border border-border px-4 py-2.5 text-sm font-semibold"
+                  >
+                    {t("app.marketingDesigner.approval.badgeReview", "Review & approve")}
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Platform choice */}
             <div>
               <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
@@ -493,35 +493,23 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
                 </span>
               </div>
 
-              {/* Only rendered when the caller actually wired the canvas
-                  reader — see this component's own prop doc. Not gated on
-                  anything else: unlike Publish, generating a caption doesn't
-                  need Meta connected at all. */}
-              {getCanvasPhotoUrls && (
+              {/* Read-only. What ships is what was approved — the server
+                  refuses a request whose caption differs from the design's,
+                  so an editable box here would be a control that appears to
+                  work and doesn't. */}
+              <p className="w-full rounded-lg border border-border bg-muted p-2.5 text-sm whitespace-pre-wrap break-words text-foreground">
+                {caption || t("app.marketingDesigner.publishModal.captionPlaceholder")}
+              </p>
+              {onOpenApproval && (
                 <button
                   type="button"
-                  onClick={handleGenerateCopy}
-                  disabled={copyGenerating}
-                  className="mb-1.5 inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs font-medium text-foreground disabled:opacity-60"
+                  onClick={onOpenApproval}
+                  className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground"
                 >
-                  {copyGenerating ? (
-                    <Loader2 size={12} className="animate-spin" />
-                  ) : (
-                    <Sparkles size={12} />
-                  )}
-                  {copyGenerating
-                    ? t("app.marketingDesigner.publishModal.copyGenerating")
-                    : t("app.marketingDesigner.publishModal.copyGenerate")}
+                  <PencilLine size={12} />
+                  {t("app.marketingDesigner.publishModal.editWords", "Edit the words")}
                 </button>
               )}
-
-              <textarea
-                value={caption}
-                onChange={(e) => setCaption(e.target.value)}
-                placeholder={t("app.marketingDesigner.publishModal.captionPlaceholder")}
-                rows={4}
-                className="w-full rounded-lg border border-border bg-background p-2.5 text-sm resize-none"
-              />
               {wantsInstagram && !captionCheck.ok && caption.length > 0 && (
                 <ul className="mt-1 space-y-0.5">
                   {captionCheck.errors
@@ -532,30 +520,6 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
                       </li>
                     ))}
                 </ul>
-              )}
-              {copyError && (
-                <p className="mt-1 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                  <TriangleAlert size={12} className="shrink-0" />
-                  {copyError}
-                </p>
-              )}
-              {/* Honesty about what the caption is actually grounded in —
-                  the same instinct as showing a price/balance on a refusal
-                  rather than "something went wrong": the person composing a
-                  post under their own brand can see whether this came from
-                  real scope-of-work data or is generic copy, before they
-                  post it. */}
-              {copyMeta && !copyError && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {copyMeta.grounded
-                    ? t("app.marketingDesigner.publishModal.copyGrounded")
-                    : t("app.marketingDesigner.publishModal.copyGeneric")}
-                  {copyMeta.photosExcludedIssue > 0 &&
-                    " " +
-                      t("app.marketingDesigner.publishModal.copyExcludedIssue", {
-                        count: copyMeta.photosExcludedIssue,
-                      })}
-                </p>
               )}
             </div>
 
