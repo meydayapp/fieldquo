@@ -3148,8 +3148,8 @@ const en = {
   "app.refer.monthEarnedOne": "{count} free month earned",
   "app.refer.monthsEarnedOther": "{count} free months earned",
   "app.refer.earnedNote": "Added to your account automatically when a business you referred makes their first payment.",
-  "app.refer.creditIntro": "Refer another business and earn account credit toward your bill — one month of their plan, once they're a paying customer.",
-  "app.refer.creditBigger": "The bigger the team you refer, the bigger your credit — refer a large company and it can be worth more than a month of your own plan.",
+  "app.refer.creditIntro": "Refer another business and get another month of FieldQuo free, once they're a paying customer.",
+  "app.refer.creditBigger": "Both sides get the same thing — a month of FieldQuo. It doesn't matter how big the business you refer is.",
   "app.refer.creditEarned": "{amount} credit earned",
   "app.refer.creditEarnedNote": "Applied to your next invoice once the business you referred has completed setup, verified payments, and paid. They get a free month too.",
   "app.refer.creditedBadge": "Credited",
@@ -5931,6 +5931,21 @@ const en = {
   "app.copilot.outTitle": "This month's FieldQuo AI allowance is used up.",
   "app.copilot.outBody": "It resets at the start of next month, and everything else in FieldQuo carries on as normal. Get in touch if you need a bigger allowance before then.",
   "app.copilot.send": "Send",
+
+  // ── Confirmations for deletes that were one click, and two refusals ──
+  //
+  // Five of the seven are confirm dialogs on controls that had none: five
+  // one-click deletes on Overhead and Products, and a Reset on Material
+  // Costs. AGENTS.md names "destructive operations labelled as cosmetic" as
+  // a recurring failure class here, and each of these says what actually
+  // goes — the depreciation history, the price floor, the entered rates.
+  "app.setMaterialCosts.resetConfirm": "Reset these material costs to FieldQuo's starting numbers? Every rate you've entered for this category is deleted and can't be recovered.",
+  "app.setProducts.deleteConfirm": "Delete {name}? Its price and description are removed for good — quotes already written keep the numbers they were built with.",
+  "app.setProducts.noSearchMatch": "Nothing matches that search.",
+  "app.setLeadForm.funnelDesc": "A tap-through lead funnel — share the link on an ad, or put it on your site.",
+  "app.setLeadForm.funnelsRestricted": "Lead funnels are managed by an owner or admin — ask one of them for the link.",
+  "app.setOverhead.deleteConfirm": "Delete {what}? This can't be undone, and your price floor changes straight away.",
+  "app.setOverhead.deleteAssetConfirm": "Delete {what}? Its whole depreciation history goes with it. If you've sold or retired it, mark it disposed instead — that keeps what it already cost you.",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -8812,8 +8827,8 @@ const fr = {
   "app.refer.monthEarnedOne": "{count} mois gratuit gagné",
   "app.refer.monthsEarnedOther": "{count} mois gratuits gagnés",
   "app.refer.earnedNote": "Ajouté automatiquement à votre compte lorsqu'une entreprise que vous avez parrainée effectue son premier paiement.",
-  "app.refer.creditIntro": "Parrainez une autre entreprise et gagnez un crédit sur votre facture — un mois de leur forfait, une fois qu'ils deviennent clients payants.",
-  "app.refer.creditBigger": "Plus l'équipe que vous parrainez est grande, plus votre crédit est important — parrainer une grande entreprise peut valoir plus qu'un mois de votre propre forfait.",
+  "app.refer.creditIntro": "Parrainez une autre entreprise et obtenez un mois de FieldQuo gratuit de plus, une fois qu'elle devient cliente payante.",
+  "app.refer.creditBigger": "Les deux parties reçoivent la même chose — un mois de FieldQuo. Peu importe la taille de l'entreprise que vous parrainez.",
   "app.refer.creditEarned": "Crédit gagné : {amount}",
   "app.refer.creditEarnedNote": "Appliqué à votre prochaine facture une fois que l'entreprise parrainée a terminé sa configuration, vérifié ses paiements et payé. Elle obtient aussi un mois gratuit.",
   "app.refer.creditedBadge": "Crédité",
@@ -11417,6 +11432,14 @@ const fr = {
   "app.copilot.outTitle": "Le quota FieldQuo AI de ce mois-ci est épuisé.",
   "app.copilot.outBody": "Il est remis à zéro au début du mois prochain, et tout le reste de FieldQuo continue de fonctionner normalement. Écrivez-nous si vous avez besoin d'un quota plus élevé d'ici là.",
   "app.copilot.send": "Envoyer",
+
+  "app.setMaterialCosts.resetConfirm": "Réinitialiser ces coûts de matériaux aux valeurs de départ de FieldQuo ? Tous les taux saisis pour cette catégorie seront supprimés et irrécupérables.",
+  "app.setProducts.deleteConfirm": "Supprimer {name} ? Son prix et sa description sont retirés définitivement — les soumissions déjà rédigées conservent les montants avec lesquels elles ont été établies.",
+  "app.setProducts.noSearchMatch": "Aucun résultat pour cette recherche.",
+  "app.setLeadForm.funnelDesc": "Un entonnoir de prospects à parcourir — partagez le lien dans une annonce ou placez-le sur votre site.",
+  "app.setLeadForm.funnelsRestricted": "Les entonnoirs de prospects sont gérés par un propriétaire ou un administrateur — demandez-leur le lien.",
+  "app.setOverhead.deleteConfirm": "Supprimer {what} ? Cette action est irréversible et votre prix plancher change immédiatement.",
+  "app.setOverhead.deleteAssetConfirm": "Supprimer {what} ? Tout son historique d'amortissement disparaît avec lui. Si vous l'avez vendu ou mis hors service, marquez-le plutôt comme cédé — cela conserve ce qu'il vous a déjà coûté.",
 };
 
 
@@ -13469,8 +13492,8 @@ const es = {
   "app.refer.monthEarnedOne": "{count} mes gratis ganado",
   "app.refer.monthsEarnedOther": "{count} meses gratis ganados",
   "app.refer.earnedNote": "Se añade automáticamente a tu cuenta cuando un negocio que referiste realiza su primer pago.",
-  "app.refer.creditIntro": "Refiere a otro negocio y gana crédito en tu factura — un mes de su plan, una vez que sea cliente de pago.",
-  "app.refer.creditBigger": "Cuanto mayor sea el equipo que refieras, mayor será tu crédito — referir a una empresa grande puede valer más que un mes de tu propio plan.",
+  "app.refer.creditIntro": "Recomienda a otro negocio y consigue otro mes de FieldQuo gratis, en cuanto sea cliente de pago.",
+  "app.refer.creditBigger": "Ambas partes reciben lo mismo — un mes de FieldQuo. Da igual el tamaño del negocio que recomiendes.",
   "app.refer.creditEarned": "Crédito ganado: {amount}",
   "app.refer.creditEarnedNote": "Se aplica a tu próxima factura una vez que el negocio referido complete la configuración, verifique los pagos y pague. Ellos también reciben un mes gratis.",
   "app.refer.creditedBadge": "Acreditado",
@@ -17248,6 +17271,14 @@ const es = {
   "app.copilot.outTitle": "La cuota de FieldQuo AI de este mes se ha agotado.",
   "app.copilot.outBody": "Se reinicia a principios del mes que viene, y todo lo demás en FieldQuo sigue funcionando con normalidad. Escríbenos si necesitas una cuota mayor antes de entonces.",
   "app.copilot.send": "Enviar",
+
+  "app.setMaterialCosts.resetConfirm": "¿Restablecer estos costes de materiales a los valores iniciales de FieldQuo? Todas las tarifas que hayas introducido para esta categoría se eliminan y no se pueden recuperar.",
+  "app.setProducts.deleteConfirm": "¿Eliminar {name}? Su precio y su descripción se quitan de forma definitiva — los presupuestos ya redactados conservan las cifras con las que se hicieron.",
+  "app.setProducts.noSearchMatch": "Nada coincide con esa búsqueda.",
+  "app.setLeadForm.funnelDesc": "Un embudo de clientes potenciales paso a paso — comparte el enlace en un anuncio o ponlo en tu web.",
+  "app.setLeadForm.funnelsRestricted": "Los embudos de clientes potenciales los gestiona un propietario o un administrador — pídeles el enlace.",
+  "app.setOverhead.deleteConfirm": "¿Eliminar {what}? No se puede deshacer, y tu precio mínimo cambia de inmediato.",
+  "app.setOverhead.deleteAssetConfirm": "¿Eliminar {what}? Se va con él todo su historial de amortización. Si lo has vendido o retirado, márcalo como dado de baja — así se conserva lo que ya te costó.",
 };
 
 const uk = {
@@ -19331,8 +19362,8 @@ const uk = {
   "app.refer.monthEarnedOne": "Отримано {count} безкоштовний місяць",
   "app.refer.monthsEarnedOther": "Отримано {count} безкоштовних місяців",
   "app.refer.earnedNote": "Додається до вашого облікового запису автоматично, коли бізнес, якого ви запросили, робить перший платіж.",
-  "app.refer.creditIntro": "Запросіть інший бізнес і отримайте кредит на свій рахунок — один місяць їхнього плану, щойно вони стануть платними клієнтами.",
-  "app.refer.creditBigger": "Чим більша команда, яку ви запрошуєте, тим більший ваш кредит — запрошення великої компанії може коштувати більше, ніж місяць вашого власного плану.",
+  "app.refer.creditIntro": "Порекомендуйте інший бізнес і отримайте ще один безкоштовний місяць FieldQuo, щойно він стане платним клієнтом.",
+  "app.refer.creditBigger": "Обидві сторони отримують те саме — місяць FieldQuo. Розмір бізнесу, який ви порекомендували, значення не має.",
   "app.refer.creditEarned": "Отримано кредит: {amount}",
   "app.refer.creditEarnedNote": "Зараховується до вашого наступного рахунку, щойно запрошений бізнес завершить налаштування, підтвердить платежі та сплатить. Вони теж отримують безкоштовний місяць.",
   "app.refer.creditedBadge": "Зараховано",
@@ -20982,6 +21013,14 @@ const uk = {
   "app.safety.form.jobsUnavailable": "Не вдалося завантажити список робіт, тож цей випадок буде зафіксовано без прив'язки до роботи. Перезавантажте сторінку, перш ніж повідомляти, якщо він стосується конкретної роботи.",
   "app.marketingSpend.confirmDelete": "Видалити цей запис витрат? Показники вартості за звернення вище розраховуються саме з цих рядків.",
   "app.marketingSpend.summaryUnavailable": "Наразі не вдалося обчислити ці показники. Нічого не втрачено — витрати, які ви внесли, наведено нижче.",
+
+  "app.setMaterialCosts.resetConfirm": "Скинути ці витрати на матеріали до початкових значень FieldQuo? Усі введені вами ставки для цієї категорії буде видалено без можливості відновлення.",
+  "app.setProducts.deleteConfirm": "Видалити {name}? Ціну й опис буде прибрано остаточно — уже складені кошториси збережуть ті числа, з якими їх зробили.",
+  "app.setProducts.noSearchMatch": "Нічого не знайдено за цим запитом.",
+  "app.setLeadForm.funnelDesc": "Покроковий сценарій для залучення клієнтів — поділіться посиланням в оголошенні або розмістіть його на сайті.",
+  "app.setLeadForm.funnelsRestricted": "Сценаріями залучення керує власник або адміністратор — попросіть у них посилання.",
+  "app.setOverhead.deleteConfirm": "Видалити {what}? Це незворотно, і ваша мінімальна ціна зміниться одразу.",
+  "app.setOverhead.deleteAssetConfirm": "Видалити {what}? Разом із ним зникне вся історія амортизації. Якщо ви його продали або вивели з експлуатації, позначте як списаний — так збережеться те, у що він вам уже обійшовся.",
 };
 
 const pa = {
@@ -23025,8 +23064,8 @@ const pa = {
   "app.refer.monthEarnedOne": "{count} ਮੁਫ਼ਤ ਮਹੀਨਾ ਕਮਾਇਆ",
   "app.refer.monthsEarnedOther": "{count} ਮੁਫ਼ਤ ਮਹੀਨੇ ਕਮਾਏ",
   "app.refer.earnedNote": "ਜਦੋਂ ਤੁਹਾਡੇ ਵੱਲੋਂ ਰੈਫ਼ਰ ਕੀਤਾ ਕਾਰੋਬਾਰ ਆਪਣਾ ਪਹਿਲਾ ਭੁਗਤਾਨ ਕਰਦਾ ਹੈ ਤਾਂ ਇਹ ਆਪਣੇ ਆਪ ਤੁਹਾਡੇ ਖਾਤੇ ਵਿੱਚ ਜੁੜ ਜਾਂਦਾ ਹੈ।",
-  "app.refer.creditIntro": "ਕਿਸੇ ਹੋਰ ਕਾਰੋਬਾਰ ਨੂੰ ਰੈਫ਼ਰ ਕਰੋ ਅਤੇ ਆਪਣੇ ਬਿੱਲ 'ਤੇ ਕ੍ਰੈਡਿਟ ਕਮਾਓ — ਉਹਨਾਂ ਦੇ ਪਲਾਨ ਦਾ ਇੱਕ ਮਹੀਨਾ, ਜਦੋਂ ਉਹ ਭੁਗਤਾਨ ਕਰਨ ਵਾਲੇ ਗਾਹਕ ਬਣ ਜਾਂਦੇ ਹਨ।",
-  "app.refer.creditBigger": "ਜਿੰਨੀ ਵੱਡੀ ਟੀਮ ਤੁਸੀਂ ਰੈਫ਼ਰ ਕਰੋਗੇ, ਓਨਾ ਵੱਡਾ ਤੁਹਾਡਾ ਕ੍ਰੈਡਿਟ — ਵੱਡੀ ਕੰਪਨੀ ਰੈਫ਼ਰ ਕਰਨ ਨਾਲ ਇਹ ਤੁਹਾਡੇ ਆਪਣੇ ਪਲਾਨ ਦੇ ਇੱਕ ਮਹੀਨੇ ਤੋਂ ਵੱਧ ਦੀ ਹੋ ਸਕਦੀ ਹੈ।",
+  "app.refer.creditIntro": "ਕਿਸੇ ਹੋਰ ਕਾਰੋਬਾਰ ਨੂੰ ਰੈਫ਼ਰ ਕਰੋ ਅਤੇ FieldQuo ਦਾ ਇੱਕ ਹੋਰ ਮਹੀਨਾ ਮੁਫ਼ਤ ਪਾਓ, ਜਦੋਂ ਉਹ ਭੁਗਤਾਨ ਕਰਨ ਵਾਲਾ ਗਾਹਕ ਬਣ ਜਾਵੇ।",
+  "app.refer.creditBigger": "ਦੋਵਾਂ ਧਿਰਾਂ ਨੂੰ ਇੱਕੋ ਜਿਹਾ ਮਿਲਦਾ ਹੈ — FieldQuo ਦਾ ਇੱਕ ਮਹੀਨਾ। ਜਿਸ ਕਾਰੋਬਾਰ ਨੂੰ ਤੁਸੀਂ ਰੈਫ਼ਰ ਕਰਦੇ ਹੋ, ਉਸ ਦਾ ਆਕਾਰ ਮਾਇਨੇ ਨਹੀਂ ਰੱਖਦਾ।",
   "app.refer.creditEarned": "ਕਮਾਇਆ ਕ੍ਰੈਡਿਟ: {amount}",
   "app.refer.creditEarnedNote": "ਤੁਹਾਡੇ ਅਗਲੇ ਚਲਾਨ 'ਤੇ ਲਾਗੂ ਹੁੰਦਾ ਹੈ ਜਦੋਂ ਰੈਫ਼ਰ ਕੀਤਾ ਕਾਰੋਬਾਰ ਸੈੱਟਅੱਪ ਪੂਰਾ ਕਰਦਾ, ਭੁਗਤਾਨ ਦੀ ਪੁਸ਼ਟੀ ਕਰਦਾ ਅਤੇ ਭੁਗਤਾਨ ਕਰਦਾ ਹੈ। ਉਹਨਾਂ ਨੂੰ ਵੀ ਇੱਕ ਮੁਫ਼ਤ ਮਹੀਨਾ ਮਿਲਦਾ ਹੈ।",
   "app.refer.creditedBadge": "ਕ੍ਰੈਡਿਟ ਹੋਇਆ",
@@ -24673,6 +24712,14 @@ const pa = {
   "app.safety.form.jobsUnavailable": "ਤੁਹਾਡੀ ਕੰਮਾਂ ਦੀ ਸੂਚੀ ਲੋਡ ਨਹੀਂ ਹੋ ਸਕੀ, ਇਸ ਲਈ ਇਹ ਘਟਨਾ ਕਿਸੇ ਵੀ ਕੰਮ ਨਾਲ ਜੁੜੇ ਬਿਨਾਂ ਦਰਜ ਹੋਵੇਗੀ। ਜੇ ਇਹ ਕਿਸੇ ਕੰਮ ਨਾਲ ਸਬੰਧਤ ਹੈ ਤਾਂ ਰਿਪੋਰਟ ਕਰਨ ਤੋਂ ਪਹਿਲਾਂ ਪੰਨਾ ਮੁੜ ਲੋਡ ਕਰੋ।",
   "app.marketingSpend.confirmDelete": "ਇਹ ਖਰਚੇ ਦੀ ਐਂਟਰੀ ਮਿਟਾਉਣੀ ਹੈ? ਉੱਪਰ ਦਿੱਤੇ ਪ੍ਰਤੀ ਲੀਡ ਲਾਗਤ ਦੇ ਅੰਕੜੇ ਇਨ੍ਹਾਂ ਹੀ ਕਤਾਰਾਂ ਤੋਂ ਕੱਢੇ ਜਾਂਦੇ ਹਨ।",
   "app.marketingSpend.summaryUnavailable": "ਇਸ ਵੇਲੇ ਇਹ ਅੰਕੜੇ ਕੱਢੇ ਨਹੀਂ ਜਾ ਸਕੇ। ਕੁਝ ਵੀ ਗੁਆਚਿਆ ਨਹੀਂ — ਤੁਹਾਡੇ ਵੱਲੋਂ ਦਰਜ ਕੀਤਾ ਖਰਚਾ ਹੇਠਾਂ ਦਿੱਤਾ ਹੈ।",
+
+  "app.setMaterialCosts.resetConfirm": "ਇਹਨਾਂ ਸਮੱਗਰੀ ਲਾਗਤਾਂ ਨੂੰ FieldQuo ਦੇ ਸ਼ੁਰੂਆਤੀ ਅੰਕੜਿਆਂ 'ਤੇ ਰੀਸੈੱਟ ਕਰਨਾ ਹੈ? ਇਸ ਸ਼੍ਰੇਣੀ ਲਈ ਤੁਹਾਡੇ ਵੱਲੋਂ ਦਰਜ ਹਰ ਦਰ ਮਿਟ ਜਾਵੇਗੀ ਅਤੇ ਵਾਪਸ ਨਹੀਂ ਆ ਸਕੇਗੀ।",
+  "app.setProducts.deleteConfirm": "{name} ਮਿਟਾਉਣਾ ਹੈ? ਇਸ ਦੀ ਕੀਮਤ ਅਤੇ ਵੇਰਵਾ ਪੱਕੇ ਤੌਰ 'ਤੇ ਹਟ ਜਾਣਗੇ — ਪਹਿਲਾਂ ਬਣੇ ਕੋਟ ਉਹੀ ਅੰਕੜੇ ਰੱਖਣਗੇ ਜਿਨ੍ਹਾਂ ਨਾਲ ਉਹ ਬਣੇ ਸਨ।",
+  "app.setProducts.noSearchMatch": "ਇਸ ਖੋਜ ਨਾਲ ਕੁਝ ਨਹੀਂ ਮਿਲਿਆ।",
+  "app.setLeadForm.funnelDesc": "ਟੈਪ ਕਰਕੇ ਅੱਗੇ ਵਧਣ ਵਾਲਾ ਲੀਡ ਫ਼ਨਲ — ਲਿੰਕ ਕਿਸੇ ਇਸ਼ਤਿਹਾਰ ਵਿੱਚ ਸਾਂਝਾ ਕਰੋ ਜਾਂ ਆਪਣੀ ਸਾਈਟ 'ਤੇ ਲਗਾਓ।",
+  "app.setLeadForm.funnelsRestricted": "ਲੀਡ ਫ਼ਨਲ ਮਾਲਕ ਜਾਂ ਐਡਮਿਨ ਸੰਭਾਲਦੇ ਹਨ — ਲਿੰਕ ਲਈ ਉਹਨਾਂ ਵਿੱਚੋਂ ਕਿਸੇ ਨੂੰ ਕਹੋ।",
+  "app.setOverhead.deleteConfirm": "{what} ਮਿਟਾਉਣਾ ਹੈ? ਇਹ ਵਾਪਸ ਨਹੀਂ ਹੋ ਸਕਦਾ, ਅਤੇ ਤੁਹਾਡੀ ਘੱਟੋ-ਘੱਟ ਕੀਮਤ ਤੁਰੰਤ ਬਦਲ ਜਾਵੇਗੀ।",
+  "app.setOverhead.deleteAssetConfirm": "{what} ਮਿਟਾਉਣਾ ਹੈ? ਇਸ ਦੇ ਨਾਲ ਇਸ ਦਾ ਸਾਰਾ ਘਸਾਈ ਦਾ ਇਤਿਹਾਸ ਵੀ ਚਲਾ ਜਾਵੇਗਾ। ਜੇ ਤੁਸੀਂ ਇਸ ਨੂੰ ਵੇਚ ਦਿੱਤਾ ਜਾਂ ਵਰਤੋਂ ਤੋਂ ਹਟਾ ਦਿੱਤਾ ਹੈ, ਤਾਂ ਇਸ ਨੂੰ ਨਿਪਟਾਇਆ ਗਿਆ ਵਜੋਂ ਨਿਸ਼ਾਨ ਲਗਾਓ — ਇਸ ਨਾਲ ਜੋ ਖਰਚ ਹੋ ਚੁੱਕਾ ਹੈ ਉਹ ਬਚਿਆ ਰਹਿੰਦਾ ਹੈ।",
 };
 
 const tl = {
@@ -26724,8 +26771,8 @@ const tl = {
   "app.refer.monthEarnedOne": "{count} librong buwan na nakuha",
   "app.refer.monthsEarnedOther": "{count} librong buwan na nakuha",
   "app.refer.earnedNote": "Awtomatikong idaragdag sa iyong account kapag nagbayad sa unang pagkakataon ang negosyong ni-refer mo.",
-  "app.refer.creditIntro": "Mag-refer ng ibang negosyo at kumita ng credit sa iyong bill — isang buwan ng kanilang plano, kapag naging bayad nang kliyente sila.",
-  "app.refer.creditBigger": "Mas malaki ang team na i-refer mo, mas malaki ang iyong credit — ang pag-refer ng malaking kumpanya ay puwedeng mas malaki pa sa isang buwan ng sarili mong plano.",
+  "app.refer.creditIntro": "Mag-refer ng ibang negosyo at makakuha ng isa pang buwan ng FieldQuo nang libre, kapag naging bayad na customer sila.",
+  "app.refer.creditBigger": "Pareho ang nakukuha ng dalawang panig — isang buwan ng FieldQuo. Hindi mahalaga kung gaano kalaki ang negosyong ni-refer mo.",
   "app.refer.creditEarned": "Kinita na credit: {amount}",
   "app.refer.creditEarnedNote": "Ilalapat sa iyong susunod na invoice kapag natapos ng na-refer na negosyo ang setup, na-verify ang bayad, at nagbayad. May libreng buwan din sila.",
   "app.refer.creditedBadge": "Na-credit",
@@ -28371,6 +28418,14 @@ const tl = {
   "app.safety.form.jobsUnavailable": "Hindi na-load ang listahan ng iyong mga trabaho, kaya maitatala ang insidenteng ito nang walang nakakabit na trabaho. Mag-reload muna bago i-ulat kung may kinalaman ito sa isang trabaho.",
   "app.marketingSpend.confirmDelete": "Tanggalin ang gastos na ito? Ang cost-per-lead sa itaas ay kinukuwenta mula mismo sa mga row na ito.",
   "app.marketingSpend.summaryUnavailable": "Hindi makuwenta ang mga tala na ito ngayon. Walang nawala — nakalista sa ibaba ang mga gastos na naipasok mo.",
+
+  "app.setMaterialCosts.resetConfirm": "I-reset ang mga gastos sa materyales na ito sa panimulang numero ng FieldQuo? Mabubura ang bawat rate na inilagay mo para sa kategoryang ito at hindi na mababawi.",
+  "app.setProducts.deleteConfirm": "Burahin ang {name}? Tuluyang maaalis ang presyo at deskripsyon nito — ang mga quote na nagawa na ay mananatili sa mga numerong ginamit sa mga ito.",
+  "app.setProducts.noSearchMatch": "Walang tugma sa paghahanap na iyon.",
+  "app.setLeadForm.funnelDesc": "Isang tap-through na lead funnel — i-share ang link sa isang ad, o ilagay sa site mo.",
+  "app.setLeadForm.funnelsRestricted": "Ang mga lead funnel ay hawak ng may-ari o admin — humingi sa kanila ng link.",
+  "app.setOverhead.deleteConfirm": "Burahin ang {what}? Hindi na ito mababawi, at agad magbabago ang iyong price floor.",
+  "app.setOverhead.deleteAssetConfirm": "Burahin ang {what}? Kasama nitong mawawala ang buong depreciation history. Kung naibenta o naretiro mo na ito, markahan na lang itong disposed — mananatili niyan ang nagastos mo na rito.",
 };
 
 const de = {
@@ -31106,8 +31161,8 @@ const de = {
   "app.refer.monthEarnedOne": "{count} Gratismonat erhalten",
   "app.refer.monthsEarnedOther": "{count} Gratismonate erhalten",
   "app.refer.earnedNote": "Wird Ihrem Konto automatisch gutgeschrieben, sobald ein von Ihnen empfohlener Betrieb seine erste Zahlung leistet.",
-  "app.refer.creditIntro": "Empfehlen Sie einen anderen Betrieb und erhalten Sie Guthaben auf Ihre Rechnung — einen Monat seines Tarifs, sobald er zahlender Kunde ist.",
-  "app.refer.creditBigger": "Je größer das Team, das Sie empfehlen, desto größer Ihr Guthaben — empfehlen Sie einen großen Betrieb, kann es mehr wert sein als ein Monat Ihres eigenen Tarifs.",
+  "app.refer.creditIntro": "Empfehlen Sie ein anderes Unternehmen und erhalten Sie einen weiteren Monat FieldQuo gratis, sobald es zahlender Kunde ist.",
+  "app.refer.creditBigger": "Beide Seiten bekommen dasselbe — einen Monat FieldQuo. Wie groß das empfohlene Unternehmen ist, spielt keine Rolle.",
   "app.refer.creditEarned": "{amount} Guthaben erhalten",
   "app.refer.creditEarnedNote": "Wird auf Ihre nächste Rechnung angerechnet, sobald der von Ihnen empfohlene Betrieb die Einrichtung abgeschlossen, Zahlungen verifiziert und bezahlt hat. Er erhält ebenfalls einen Gratismonat.",
   "app.refer.creditedBadge": "Gutgeschrieben",
@@ -33513,6 +33568,14 @@ const de = {
   "app.copilot.outTitle": "Das FieldQuo-AI-Kontingent dieses Monats ist aufgebraucht.",
   "app.copilot.outBody": "Es wird zu Beginn des nächsten Monats zurückgesetzt, und alles andere in FieldQuo läuft normal weiter. Melden Sie sich, wenn Sie vorher ein größeres Kontingent brauchen.",
   "app.copilot.send": "Senden",
+
+  "app.setMaterialCosts.resetConfirm": "Diese Materialkosten auf die Startwerte von FieldQuo zurücksetzen? Jeder Satz, den Sie für diese Kategorie eingegeben haben, wird gelöscht und ist nicht wiederherstellbar.",
+  "app.setProducts.deleteConfirm": "{name} löschen? Preis und Beschreibung werden endgültig entfernt — bereits geschriebene Angebote behalten die Zahlen, mit denen sie erstellt wurden.",
+  "app.setProducts.noSearchMatch": "Zu dieser Suche gibt es nichts.",
+  "app.setLeadForm.funnelDesc": "Ein Schritt-für-Schritt-Trichter für Anfragen — teilen Sie den Link in einer Anzeige oder stellen Sie ihn auf Ihre Website.",
+  "app.setLeadForm.funnelsRestricted": "Anfrage-Trichter verwaltet ein Inhaber oder Administrator — fragen Sie eine dieser Personen nach dem Link.",
+  "app.setOverhead.deleteConfirm": "{what} löschen? Das lässt sich nicht rückgängig machen, und Ihre Preisuntergrenze ändert sich sofort.",
+  "app.setOverhead.deleteAssetConfirm": "{what} löschen? Die gesamte Abschreibungshistorie geht mit. Wenn Sie es verkauft oder ausgemustert haben, markieren Sie es stattdessen als abgegangen — das bewahrt, was es Sie bereits gekostet hat.",
 };
 
 const zh = {
@@ -36248,8 +36311,8 @@ const zh = {
   "app.refer.monthEarnedOne": "已挣到 {count} 个免费月",
   "app.refer.monthsEarnedOther": "已挣到 {count} 个免费月",
   "app.refer.earnedNote": "你推荐的商家第一次付款后，会自动加到你的账户上。",
-  "app.refer.creditIntro": "推荐另一家商家，就能拿到抵扣账单的账户余额——等他成为付费客户，金额相当于他套餐的一个月。",
-  "app.refer.creditBigger": "你推荐的团队越大，拿到的余额越多——推荐一家大公司，金额可能比你自己一个月的套餐还多。",
+  "app.refer.creditIntro": "推荐另一家企业，等对方成为付费客户后，你就多得一个月免费的 FieldQuo。",
+  "app.refer.creditBigger": "双方拿到的是同一样东西 — 一个月的 FieldQuo。你推荐的企业规模多大都一样。",
   "app.refer.creditEarned": "已挣到 {amount} 余额",
   "app.refer.creditEarnedNote": "等你推荐的商家完成设置、验证收款并付款之后，这笔余额会抵在你的下一份账单上。他们也会得到一个免费月。",
   "app.refer.creditedBadge": "已入账",
@@ -38655,6 +38718,14 @@ const zh = {
   "app.copilot.outTitle": "本月的 FieldQuo AI 额度已用完。",
   "app.copilot.outBody": "额度将在下月初重置，FieldQuo 的其他功能一切照常。如果在那之前需要更大的额度，请与我们联系。",
   "app.copilot.send": "发送",
+
+  "app.setMaterialCosts.resetConfirm": "把这些材料成本重置为 FieldQuo 的初始数值？你为此类别输入的每一项单价都会被删除，且无法恢复。",
+  "app.setProducts.deleteConfirm": "删除 {name}？它的价格和描述将被永久移除 — 已经写好的报价单仍保留当初使用的数字。",
+  "app.setProducts.noSearchMatch": "没有符合该搜索的内容。",
+  "app.setLeadForm.funnelDesc": "一步步点选的获客漏斗 — 把链接放在广告里，或者放到你的网站上。",
+  "app.setLeadForm.funnelsRestricted": "获客漏斗由所有者或管理员管理 — 向他们要链接。",
+  "app.setOverhead.deleteConfirm": "删除 {what}？此操作无法撤销，你的最低价会立即改变。",
+  "app.setOverhead.deleteAssetConfirm": "删除 {what}？它的整个折旧记录会一并消失。如果你已经把它卖掉或停用，请改标记为已处置 — 这样能保留它已经花掉的成本。",
 };
 
 const it = {
@@ -41535,8 +41606,8 @@ const it = {
   "app.refer.monthEarnedOne": "{count} mese gratis maturato",
   "app.refer.monthsEarnedOther": "{count} mesi gratis maturati",
   "app.refer.earnedNote": "Aggiunto automaticamente al suo account quando un'impresa che ha segnalato effettua il primo pagamento.",
-  "app.refer.creditIntro": "Segnali un'altra impresa e maturi credito sul suo conto — un mese del loro piano, una volta che diventano clienti paganti.",
-  "app.refer.creditBigger": "Più grande è il team che segnala, più grande è il suo credito — segnali un'impresa grande e può valere più di un mese del suo stesso piano.",
+  "app.refer.creditIntro": "Segnali un'altra impresa e ottenga un altro mese di FieldQuo gratis, non appena diventa cliente pagante.",
+  "app.refer.creditBigger": "Entrambe le parti ricevono la stessa cosa — un mese di FieldQuo. Non conta quanto sia grande l'impresa che segnala.",
   "app.refer.creditEarned": "{amount} di credito maturato",
   "app.refer.creditEarnedNote": "Applicato alla sua prossima fattura quando l'impresa segnalata ha completato la configurazione, verificato i pagamenti e pagato. Anche loro ricevono un mese gratis.",
   "app.refer.creditedBadge": "Accreditato",
@@ -44092,6 +44163,14 @@ const it = {
   "app.copilot.outTitle": "Il contingente FieldQuo AI di questo mese è esaurito.",
   "app.copilot.outBody": "Si ripristina all'inizio del mese prossimo e tutto il resto di FieldQuo continua a funzionare normalmente. Scrivici se ti serve un contingente più ampio prima di allora.",
   "app.copilot.send": "Invia",
+
+  "app.setMaterialCosts.resetConfirm": "Ripristinare questi costi dei materiali ai valori iniziali di FieldQuo? Ogni tariffa inserita per questa categoria viene eliminata e non è recuperabile.",
+  "app.setProducts.deleteConfirm": "Eliminare {name}? Prezzo e descrizione vengono rimossi definitivamente — i preventivi già scritti mantengono i numeri con cui sono stati creati.",
+  "app.setProducts.noSearchMatch": "Nessun risultato per questa ricerca.",
+  "app.setLeadForm.funnelDesc": "Un percorso guidato per raccogliere contatti — condivida il link in un annuncio o lo metta sul suo sito.",
+  "app.setLeadForm.funnelsRestricted": "I percorsi per i contatti sono gestiti da un titolare o da un amministratore — chieda a loro il link.",
+  "app.setOverhead.deleteConfirm": "Eliminare {what}? L'operazione è irreversibile e il suo prezzo minimo cambia subito.",
+  "app.setOverhead.deleteAssetConfirm": "Eliminare {what}? Con esso sparisce tutta la cronologia di ammortamento. Se lo ha venduto o dismesso, lo segni invece come ceduto — così resta ciò che le è già costato.",
 };
 
 export const APP_MESSAGES = { en, fr, es, uk, pa, tl, de, zh, it };
