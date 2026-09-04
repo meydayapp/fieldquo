@@ -393,9 +393,27 @@ export const COMPARE_CHROME = {
     "a feature that stops working stops being advertised.",
 
   ctaTitle: "First month free, and you can read the price before you start",
+  // ══ This said "No card to start", and that was false ══════════════════════
+  //
+  // /api/companies commits the Company and then opens Stripe Checkout
+  // (createTrialCheckoutSession), and app/app/layout.js sends an owner whose
+  // company has no subscription back to pay before it will show a dashboard. A
+  // card IS taken at signup; what is true is that it is not charged for thirty
+  // days (subscription_data.trial_period_days, and TRIAL_PRICE = 0).
+  //
+  // scripts/check-marketing-cta.mjs was written to ban exactly this sentence
+  // and could not see it: its ban was scoped to the `hero.noCard` catalogue key
+  // and to the files the HOMEPAGE imports, while this is a hand-written English
+  // literal on /compare and on all nine /compare/[slug] pages — the surface a
+  // shopper reads while deciding. That check now reads the whole marketing tree
+  // for the claim itself rather than for one key.
+  //
+  // The replacement is the wording app/i18n/industries/en.js already uses for
+  // the same promise, so the site makes one statement about the card rather
+  // than two.
   ctaBody:
-    "No card to start, no call to book, and the price is on the pricing page " +
-    "rather than behind a form.",
+    "No call to book, and the price is on the pricing page rather than behind " +
+    "a form. Your first month is free — your card isn't charged until it ends.",
   ctaButton: "Start your free month",
   ctaSecondary: "See the pricing",
 

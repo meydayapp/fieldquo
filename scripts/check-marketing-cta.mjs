@@ -45,12 +45,22 @@
 // English, and that no marketing file renders a claim the billing flow does
 // not keep.
 //
+// That last clause was FALSE until 2026-09-03 and is worth naming, because the
+// header asserting it is how it went unnoticed: the no-card ban was scoped to
+// one catalogue key across the files the HOMEPAGE imports, so
+// app/(marketing)/compare/compareCopy.js could carry "No card to start" as an
+// inline English literal — on /compare and all nine /compare/[slug] pages — and
+// run green. Section 3b is the rule that makes the sentence true: the claim is
+// hunted by its words across the whole marketing tree, and the key ban is
+// generalised to every key in the catalogue rather than the one where the bug
+// was first found.
+//
 // It cannot prove the CTA is visible, above the fold, contrasted, or
 // persuasive. A key assembled at run time — t(`hero.tabs.${key}.label`) — is
 // unreadable here; those are COUNTED and reported, never silently passed.
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { MESSAGES } from "../app/i18n/messages.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -277,6 +287,171 @@ if (noCardValue === undefined) {
         "charged until it ends.\"",
     );
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 3b. The same claim, made WITHOUT the key — the hole this rule had
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Everything above polices ONE catalogue key across the files the HOMEPAGE
+// imports. This file's own header claimed it proved "no marketing file renders
+// a claim the billing flow does not keep", and it did not: on 2026-09-03
+// app/(marketing)/compare/compareCopy.js carried
+//
+//     ctaBody: "No card to start, no call to book, …"
+//
+// as a hand-written English literal, rendered on /compare and on every
+// /compare/[slug] page — the surface a shopper reads while choosing between us
+// and a competitor. It is the identical false claim, and it was invisible here
+// twice over: it is not `hero.noCard`, and compareCopy.js is not a file the
+// homepage imports.
+//
+// So the claim is now hunted by its WORDS across the whole marketing tree, and
+// the key rule is generalised to every key in the catalogue rather than the one
+// key where the bug was first found. Both halves matter: a string can be
+// written inline, and a string can be written in the catalogue and pulled in by
+// a key nobody thought to ban.
+section("The claim itself, anywhere in the marketing tree");
+
+/**
+ * Every .js under the marketing surfaces, so a new page is covered on the day
+ * it lands rather than on the day somebody remembers to list it.
+ */
+function treeFiles(dir) {
+  const out = [];
+  const walk = (abs) => {
+    for (const entry of readdirSync(abs)) {
+      const full = join(abs, entry);
+      if (statSync(full).isDirectory()) walk(full);
+      else if (entry.endsWith(".js")) out.push(relative(ROOT, full));
+    }
+  };
+  const start = join(ROOT, dir);
+  if (existsSync(start)) walk(start);
+  return out;
+}
+
+const MARKETING_TREE = [
+  ...treeFiles("app/(marketing)"),
+  ...treeFiles("app/components/marketing"),
+];
+
+ok(
+  "the marketing tree was found and is not empty",
+  MARKETING_TREE.length > 10,
+  `only ${MARKETING_TREE.length} files — the walk is reading the wrong directory, and an ` +
+    "empty walk passes every rule below without reading anything",
+);
+
+/**
+ * Comments removed, INCLUDING trailing ones.
+ *
+ * Load-bearing: this file's own ban is explained in prose in Hero.js's header,
+ * which contains the false sentence verbatim as the thing being refused. A scan
+ * over raw source reports the explanation as the offence — the second
+ * false-pass trap in AGENTS.md, in its inverted form. `[^:]//` so a URL inside
+ * a string is not mistaken for the start of a comment.
+ */
+const codeOnly = (src) =>
+  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+
+{
+  const offenders = [];
+  for (const file of MARKETING_TREE) {
+    const src = codeOnly(read(file));
+    const hit = src.match(CLAIMS_NO_CARD);
+    if (hit) offenders.push(`${file} — "${hit[0]}"`);
+  }
+  ok(
+    "no marketing file writes the no-card claim as a literal string",
+    offenders.length === 0,
+    offenders.join("; ") +
+      " — a card IS taken at signup (/api/companies opens Stripe Checkout). The honest " +
+      "wording for the same promise is \"Your first month is free — your card isn't " +
+      "charged until it ends.\"",
+  );
+}
+
+{
+  // The generalised form of the hero.noCard rule: ANY key whose English value
+  // makes the claim, referenced by ANY file in the tree. Self-retiring in the
+  // same way — correct the catalogue value and this stops objecting to the key.
+  const guiltyKeys = Object.keys(EN).filter((k) => CLAIMS_NO_CARD.test(String(EN[k] ?? "")));
+  const offenders = [];
+  for (const file of MARKETING_TREE) {
+    const src = codeOnly(read(file));
+    for (const key of guiltyKeys) {
+      if (new RegExp(`["'\`]${key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["'\`]`).test(src)) {
+        offenders.push(`${file} renders ${key}`);
+      }
+    }
+  }
+  ok(
+    `no marketing file renders a catalogue key that makes the claim (${guiltyKeys.length} such key(s) in English)`,
+    offenders.length === 0,
+    offenders.join("; "),
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 3c. No marketing page is a copy of another marketing page
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// app/(marketing)/careers/page.js was app/(marketing)/about/page.js: the file
+// was copied, the component renamed, and the BODY never rewritten — so
+// /careers rendered "About FieldQuo" and the About paragraph, byte for byte,
+// under a <title> promising careers. A previous pass spotted it, wrote the
+// finding into the file's header, and shipped the duplicate anyway.
+//
+// This is the ninth recurring failure class in AGENTS.md — copy-paste instead
+// of a shared helper, where "the copy is the one that rots, because it's the
+// one nobody looks at" — in the form where the copy is a whole PAGE. Nothing
+// in the repo could see it: every check here reads one page at a time, and a
+// duplicate is only visible by comparing two.
+//
+// Compared on the rendered body, not on the file: metadata, imports and the
+// component's own name are all expected to differ between two pages that are
+// otherwise the same document, and comparing whole files would have called
+// these two distinct.
+section("No marketing page renders another page's body");
+
+{
+  const PAGES = MARKETING_TREE.filter((f) => f.endsWith("page.js"));
+  const bodies = new Map();
+  const dupes = [];
+  let compared = 0;
+
+  for (const file of PAGES) {
+    const src = codeOnly(read(file));
+    const at = src.indexOf("export default function");
+    if (at === -1) continue; // not a component page; nothing to compare
+    const body = src
+      .slice(at)
+      // The component's NAME is the one difference a rename is allowed to
+      // make. Normalised away, or the rename alone would clear this rule
+      // while leaving the identical page behind — which is exactly what
+      // happened to /careers.
+      .replace(/export default function\s+\w+/, "export default function")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!body) continue;
+    compared++;
+    if (bodies.has(body)) dupes.push(`${file} is identical to ${bodies.get(body)}`);
+    else bodies.set(body, file);
+  }
+
+  ok(
+    "enough marketing pages were read to compare",
+    compared > 5,
+    `only ${compared} page bodies parsed — nothing is being compared`,
+  );
+  ok(
+    `no two of the ${compared} marketing page bodies are identical`,
+    dupes.length === 0,
+    dupes.join("; ") +
+      " — one of them is a copy that was never rewritten, and it is serving the " +
+      "wrong page to whoever followed the link",
+  );
 }
 
 // The free first month is the part that IS true, and it is only true while
