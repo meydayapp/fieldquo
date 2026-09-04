@@ -139,6 +139,151 @@ export function hasRecipe(categoryKey) {
   return Boolean(MATERIAL_RECIPES[categoryKey]);
 }
 
+// ── The keys a zero would turn into Infinity ───────────────────────────────
+//
+// Every one of these is a DIVISOR in lib/costing/estimateJobCost.js:
+//
+//   gallons     = (area × coats) ÷ primerCoverageSqftPerGal          (L161)
+//   gallons     = (area × coats) ÷ topCoatCoverageSqftPerGal         (L171)
+//   tape rolls  = ceil(units ÷ consumables.tape.perUnits)            (L212)
+//   film rolls  = base + ceil(units ÷ consumables.maskingFilm.perUnits) (L223)
+//   $/quart     = hardenerCostPerGal ÷ hardenerQuartsPerGal          (L~197)
+//   gallons     = (area × coats) ÷ wallCoverageSqftPerGal            (L316)
+//   gallons     = trimLf ÷ trimCoverageLfPerGal                      (L326)
+//   hours       = area ÷ wallProductionRateSqftPerHour               (L341)
+//   hours       = trimLf ÷ trimProductionRateLfPerHour               (L357)
+//
+// A number input cleared to "" arrives as `Number("") === 0` — see
+// updateField in app/app/settings/material-costs/page.js — and the settings
+// screen said "Saved".
+//
+// ── The symptom is quiet, which is what makes it expensive ────────────────
+//
+// The arithmetic yields Infinity, but estimateJobCost.js was hardened against
+// Infinity a while back: round2() returns 0 for anything non-finite. So the
+// panel does NOT read "$Infinity" and nothing throws. The primer line comes
+// back `qty: null, cost: 0` — a material the job certainly consumes, priced at
+// nothing — and unpricedCount stays 0, so no warning fires either. Measured on
+// a 24-door, 8-drawer kitchen with the coverage and tape fields cleared:
+// materials fell from $1,126 to $494. The shop then quotes off a cost basis
+// 56% too low and the margin signal agrees with it.
+//
+// Zero is not "free" for any of these; it is "this quantity is undefined",
+// which is a different thing and has to be refused at the edge rather than
+// absorbed downstream. Everything NOT in this set may legitimately be zero: a
+// shop that does no pressure washing sets washingHours to 0, and a company
+// that gets its masking film free sets costPerRoll to 0.
+const DIVISOR_KEYS = new Set([
+  "primerCoverageSqftPerGal",
+  "topCoatCoverageSqftPerGal",
+  "hardenerQuartsPerGal",
+  "wallCoverageSqftPerGal",
+  "trimCoverageLfPerGal",
+  "wallProductionRateSqftPerHour",
+  "trimProductionRateLfPerHour",
+  // Nested under `consumables`; matched on the leaf key, which is unique to
+  // the two roll-based consumables. `sandpaper.perUnit` is a multiplier and
+  // is deliberately absent.
+  "perUnits",
+]);
+
+/**
+ * The boundary between "what a browser sent" and the cost brain.
+ *
+ * MaterialRecipeSetting.overrides was written straight through: whatever JSON
+ * the PUT carried became the row, and getRecipe() merged it over the shipped
+ * defaults on every cost estimate. Two things followed.
+ *
+ *   1. A cleared coverage field stored 0 and made every subsequent job cost
+ *      Infinity — silently, because the number lands in an internal Cost &
+ *      Margin panel rather than anywhere that would throw.
+ *   2. Any key at all was accepted. `{ label: "…", sqftPerDoor: -999 }` merged
+ *      cleanly, so a value that has no control on the screen and no business
+ *      being overridden could still end up shadowing the default forever.
+ *
+ * RECIPE_EDITABLE_FIELDS above already claims to decide "which keys are legal
+ * to save as overrides", and the settings page's own comment says the field
+ * configs live here "so the API route and this page can't drift apart". Both
+ * were aspirational — the route never imported either. This makes them true.
+ *
+ * ── Why unknown keys are dropped but known ones are refused ────────────────
+ *
+ * A key absent from the base recipe cannot be read by anything, so dropping it
+ * changes no behaviour and needs no error. A key that IS read and arrives
+ * unusable is different: the contractor typed something, and silently clamping
+ * it to a number they did not choose would be the same lie as storing the zero.
+ * They get told which field, by name.
+ *
+ * Keys whose default is not a number (label, model, threeCoatSpecies) pass
+ * through only when the type matches, so an override can never change the
+ * SHAPE the estimator iterates.
+ *
+ * @returns {{overrides: object, errors: string[]}}
+ */
+export function sanitiseRecipeOverrides(categoryKey, overrides) {
+  const base = MATERIAL_RECIPES[categoryKey];
+  if (!base) return { overrides: {}, errors: ["Unknown categoryKey"] };
+  if (!overrides || typeof overrides !== "object" || Array.isArray(overrides)) {
+    return { overrides: {}, errors: [] };
+  }
+
+  const errors = [];
+
+  // Labels for the error sentences come from the same field configs the form
+  // renders, so the message names the field the way the screen does.
+  const labelFor = (key, parentKey) => {
+    const list = parentKey
+      ? CONSUMABLE_EDITABLE_FIELDS[parentKey] || []
+      : Object.values(RECIPE_EDITABLE_FIELDS).flat();
+    return list.find((f) => f.key === key)?.label || key;
+  };
+
+  const clean = (input, baseline, parentKey) => {
+    const out = {};
+    for (const [key, value] of Object.entries(input)) {
+      const def = baseline?.[key];
+      // Not in the shipped recipe → nothing reads it. Drop, no complaint.
+      if (def === undefined) continue;
+
+      if (def !== null && typeof def === "object" && !Array.isArray(def)) {
+        if (value && typeof value === "object" && !Array.isArray(value)) {
+          out[key] = clean(value, def, NESTED_KEYS.includes(key) ? null : key);
+        }
+        continue;
+      }
+
+      if (typeof def === "number") {
+        const n = typeof value === "number" ? value : Number(value);
+        if (value === null || value === "" || !Number.isFinite(n)) {
+          errors.push(`${labelFor(key, parentKey)} needs a number.`);
+          continue;
+        }
+        if (n < 0) {
+          errors.push(`${labelFor(key, parentKey)} can't be negative.`);
+          continue;
+        }
+        if (DIVISOR_KEYS.has(key) && n === 0) {
+          errors.push(`${labelFor(key, parentKey)} has to be more than zero.`);
+          continue;
+        }
+        out[key] = n;
+        continue;
+      }
+
+      // Non-numeric default: pass through only on an exact type match, so the
+      // estimator never finds a string where it iterates an array.
+      if (Array.isArray(def)) {
+        if (Array.isArray(value)) out[key] = value.filter((v) => typeof v === "string");
+        continue;
+      }
+      if (typeof value === typeof def) out[key] = value;
+    }
+    return out;
+  };
+
+  return { overrides: clean(overrides, base, null), errors };
+}
+
 // The fields Settings > Material Costs exposes for a given recipe model —
 // drives both the edit form and which keys are legal to save as overrides.
 export const RECIPE_EDITABLE_FIELDS = {

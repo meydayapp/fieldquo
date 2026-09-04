@@ -144,6 +144,11 @@ function MaterialCostsEditor() {
   const [savingKey, setSavingKey] = useState(null);
   const [savedFlash, setSavedFlash] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Distinct from `recipes === null`. A toast is dismissible and gone in
+  // seconds; what was left behind was a page title over nothing at all, which
+  // reads as "this company has no material costs" — the one thing the screen
+  // must not say when it has no idea.
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -152,14 +157,16 @@ function MaterialCostsEditor() {
         if (!res.ok) {
           // Was silent: a failed load hung on the skeleton forever and
           // swallowed the error. Don't feed a 4xx/5xx body into the setters.
-          await reportResponseError(res);
+          await reportResponseError(res, setLoadError);
           return;
         }
         const data = await res.json();
         setRecipes(data);
         setDrafts(JSON.parse(JSON.stringify(data)));
       } catch {
-        showError(t("app.error.network", "Couldn't load material costs. Check your connection and retry."));
+        const msg = t("app.error.network", "Couldn't load material costs. Check your connection and retry.");
+        setLoadError(msg);
+        showError(msg);
       } finally {
         setLoading(false);
       }
@@ -197,6 +204,21 @@ function MaterialCostsEditor() {
   }
 
   async function handleReset(categoryKey) {
+    // ── Destructive, and it read as cosmetic ─────────────────────────────
+    //
+    // "Reset to defaults" is small grey text beside a green "Custom" chip,
+    // and it DELETEs the whole MaterialRecipeSetting row: every per-gallon
+    // cost, coverage rate and coat count this shop punched in, replaced by
+    // FieldQuo's TrueFinish-derived starting numbers. There is no undo and
+    // nothing anywhere else holds a copy. AGENTS.md: a destructive operation
+    // has to say so before it happens.
+    const confirmed = window.confirm(
+      t(
+        "app.setMaterialCosts.resetConfirm",
+        "Reset these material costs to FieldQuo's starting numbers? Every rate you've entered for this category is deleted and can't be recovered.",
+      ),
+    );
+    if (!confirmed) return;
     setSavingKey(categoryKey);
     const res = await fetch(
       `/api/settings/material-recipes?categoryKey=${categoryKey}`,
@@ -233,15 +255,30 @@ function MaterialCostsEditor() {
         </p>
       </div>
 
+      {/* ── Four states, not two ───────────────────────────────────────────
+          The comment that used to sit here said `recipes` is "only null while
+          loading, which the guard above already returns early for, so by here
+          it's always an object". That was wrong, and it was load-bearing: on a
+          403 or a 500 the loader reports the error and returns, `finally` sets
+          loading false, and `recipes` stays null. Every branch below is gated
+          on a non-null `recipes`, so the whole screen collapsed to a title
+          over white space — no cards, no notice, and only a toast that fades.
+
+          Now: failed and empty are different sentences, and neither is
+          reachable from the other. */}
+      {loadError && (
+        <div className="rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {loadError}
+        </div>
+      )}
+
       {/* The API omits a category the company neither sells nor has ever
           overridden (lib/settings/tradeGate.js). If that leaves NOTHING —
           this company sells neither Cabinet Refinishing nor Exterior
           Painting — the map below renders zero cards, and a blank page under
           a header is exactly the "screen that appears to work and doesn't"
-          AGENTS.md names. `recipes` is only null while loading, which the
-          guard above already returns early for, so by here it's always an
-          object — possibly empty. */}
-      {recipes && Object.keys(recipes).length === 0 && (
+          AGENTS.md names. */}
+      {!loadError && recipes && Object.keys(recipes).length === 0 && (
         <div className="rounded-xl border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
           {t("app.setMaterialCosts.noneApplicable")}
         </div>

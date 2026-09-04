@@ -27,7 +27,11 @@ import {
   requireCostBasisRead,
   requireCostBasisWrite,
 } from "@/lib/permissions/costBasis";
-import { MATERIAL_RECIPES, getRecipe } from "@/app/data/materialRecipes";
+import {
+  MATERIAL_RECIPES,
+  getRecipe,
+  sanitiseRecipeOverrides,
+} from "@/app/data/materialRecipes";
 import {
   materialCostsVisibleCategories,
   canUseMaterialCostsCategory,
@@ -126,12 +130,37 @@ export async function PUT(request) {
     );
   }
 
+  // ── The blob was stored exactly as it arrived ────────────────────────────
+  //
+  // Every sibling settings route that takes free-form JSON sanitises it
+  // (links, website, quote-email, service-categories); this one did not, and
+  // it is the one whose values are DIVISORS. A cleared "Primer coverage
+  // (sqft/gal)" arrives as 0 — `Number("") === 0` in the page's onChange —
+  // and the save flashed a green "Saved".
+  //
+  // It does not blow up: estimateJobCost.js's round2() already turns the
+  // resulting Infinity into 0. That is what makes it expensive. The primer
+  // line comes back with no quantity and no cost, unpricedCount stays 0, and
+  // a 24-door kitchen's materials quietly drop from $1,126 to $494 — a cost
+  // basis 56% too low, with the margin signal agreeing.
+  //
+  // Refused rather than clamped: the contractor typed something, and quietly
+  // substituting a number they did not choose is the same class of lie as
+  // storing the zero. sanitiseRecipeOverrides names the offending field.
+  const { overrides: clean, errors } = sanitiseRecipeOverrides(
+    categoryKey,
+    overrides,
+  );
+  if (errors.length) {
+    return NextResponse.json({ error: errors.join(" ") }, { status: 400 });
+  }
+
   const saved = await db.materialRecipeSetting.upsert({
     where: {
       companyId_categoryKey: { companyId: member.companyId, categoryKey },
     },
-    update: { overrides },
-    create: { companyId: member.companyId, categoryKey, overrides },
+    update: { overrides: clean },
+    create: { companyId: member.companyId, categoryKey, overrides: clean },
   });
 
   return NextResponse.json({
