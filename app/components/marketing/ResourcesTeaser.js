@@ -2,7 +2,12 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, HelpCircle, MessageCircleQuestion } from "lucide-react";
+import {
+  BookOpen,
+  HelpCircle,
+  MessageCircleQuestion,
+  ArrowRight,
+} from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 // Labels reuse footer.links.* — Help Center, FAQ and Contact us appear in
@@ -49,10 +54,21 @@ export default function ResourcesTeaser() {
               href={r.href}
               // hover:border-border on an element already border-border: a
               // hover state that changed nothing. See FeaturesIndustries.
-              className="bg-card border border-border rounded-xl p-6 hover:border-primary/40 hover:shadow-sm transition-all"
+              //
+              // h-full + flex-col so the three cards match height whatever the
+              // description does in a given language — Help Centre's is two
+              // lines in German and one in English, and three cards of three
+              // different heights read as a rendering fault.
+              className="group flex h-full flex-col bg-card border border-border rounded-xl p-6 hover:border-primary/40 hover:shadow-sm transition-all"
             >
               <r.icon size={22} className="text-foreground mb-3" />
-              <div className="font-medium text-foreground">{t(r.labelKey)}</div>
+              <div className="flex items-center gap-1.5 font-medium text-foreground">
+                {t(r.labelKey)}
+                <ArrowRight
+                  size={15}
+                  className="transition-transform group-hover:translate-x-0.5"
+                />
+              </div>
               <div className="text-sm text-muted-foreground mt-1">{t(r.descKey)}</div>
             </Link>
           ))}

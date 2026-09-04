@@ -20,9 +20,16 @@ export default function FAQ() {
           {FAQS.map((faq, i) => {
             const isOpen = openIndex === i;
             return (
+              // The open row was drawn identically to the five closed ones —
+              // the only signal it was open was that text had appeared, which
+              // on a phone is off-screen by the time you have scrolled to read
+              // it. Border and shadow, not a fill: a fill would be a new
+              // text/background pairing to measure, and this needs none.
               <div
                 key={faq.id}
-                className="bg-card border border-border rounded-xl overflow-hidden"
+                className={`bg-card border rounded-xl overflow-hidden transition-colors ${
+                  isOpen ? "border-primary/40 shadow-sm" : "border-border"
+                }`}
               >
                 <button
                   type="button"
@@ -38,11 +45,14 @@ export default function FAQ() {
                   </span>
                   <ChevronDown
                     size={18}
-                    className={`shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                    className={`shrink-0 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`}
                   />
                 </button>
                 {isOpen && (
-                  <div className="px-5 pb-4 text-muted-foreground text-sm leading-relaxed">
+                  // A rule between the question and its answer, inset to the
+                  // same padding as the text: without it the answer reads as a
+                  // second line of the question rather than the reply to it.
+                  <div className="mx-5 border-t border-border pt-4 pb-5 text-muted-foreground text-sm leading-relaxed">
                     {t(`faq.items.${faq.id}.a`)}
                   </div>
                 )}
