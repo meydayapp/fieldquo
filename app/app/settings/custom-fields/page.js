@@ -4,10 +4,29 @@
 //
 // It came up twice that nobody could tell. A custom field adds one extra box to
 // a record FieldQuo doesn't ship a box for — "Gate code" on a property, "PO
-// number" on an invoice, "Ticket expiry" on a team member. Defining it here
-// makes it appear on every record of that type, for everyone in the company.
-// The page defines the boxes; it does not hold anyone's answers. The subtitle
-// now says that in one sentence rather than leaving it to be inferred.
+// number" on an invoice, "Ticket expiry" on a team member.
+//
+// ── The box does not exist yet, and this page used to say it did ────────────
+//
+// The sentence here read "makes it appear on every record of that type, for
+// everyone in the company". It appears on no record. `db.customFieldValue` has
+// ZERO call sites in the whole repo, no form renders a CustomField, and
+// prisma/schema.prisma says so itself above CustomFieldValue: "Not wired up to
+// any of those forms yet … the model just exists so the data has somewhere to
+// live once that integration happens."
+//
+// So this was a form that saved definitions nothing would ever show — the
+// written-and-never-read defect, with an Add button on it. AGENTS.md: "If you
+// can't finish it this session, don't render it — a Coming soon panel is
+// honest; a dead button is not."
+//
+// Wiring the fields into the client, property, quote, job, invoice and team
+// forms (plus a value read/write path) is a feature, not a fix, so it is NOT
+// done here. What is done: the page says plainly that nothing shows these yet,
+// and it stops taking new definitions. Existing ones stay listed and can still
+// be removed, because a company that defined some should be able to see and
+// clear them. Delete the notice and restore `canDefine` on the Add control the
+// day a record form renders one.
 //
 // ── Read-only, not hidden ──────────────────────────────────────────────────
 //
@@ -74,10 +93,15 @@ const FIELD_TYPES = [
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
+// No record form reads a CustomField anywhere in the product. Kept as a named
+// constant rather than inlined so the day that changes, one edit re-enables the
+// Add control and removes the notice together — they must never disagree.
+const FIELDS_REACH_RECORDS = false;
+
 export default function CustomFieldsPage() {
   const { t } = useTranslation();
   const access = useSettingsAccess();
-  const canDefine = access.canChange("user:manage");
+  const canDefine = access.canChange("user:manage") && FIELDS_REACH_RECORDS;
   const [fields, setFields] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalEntityType, setModalEntityType] = useState(null);
@@ -179,7 +203,23 @@ export default function CustomFieldsPage() {
         </p>
       </div>
 
-      {!canDefine && (
+      {/* One coherent block, not a reason floating above a greyed-out form:
+          the form is gone, and this says why. */}
+      {!FIELDS_REACH_RECORDS && (
+        <div className="rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 px-4 py-3">
+          <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+            {/* AGENTS.md, verbatim: "a Coming soon panel is honest; a dead
+                button is not". Sitting directly above the existing
+                app.setCustomFields.purpose sentence, which describes what a
+                custom field WILL do, this reads as the future tense that
+                sentence needed and could not have without a new key. The
+                fuller explanation is in the report as a key to add. */}
+            {t("app.state.comingSoon")}
+          </p>
+        </div>
+      )}
+
+      {FIELDS_REACH_RECORDS && !access.canChange("user:manage") && (
         <ReadOnlyNotice
           capability="user:manage"
           what={t("app.setCustomFields.readOnlyWhat")}
@@ -232,8 +272,14 @@ export default function CustomFieldsPage() {
                           <span className="text-sm text-foreground">
                             {f.label}
                           </span>
-                          <span className="ml-2 text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full capitalize">
-                            {f.fieldType}
+                          {/* Was `{f.fieldType}` with a CSS capitalize — the
+                              raw CustomFieldType enum value, untranslated. */}
+                          <span className="ml-2 text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
+                            {t(
+                              `app.setCustomFields.type.${f.fieldType}`,
+                              FIELD_TYPES.find((ft) => ft.value === f.fieldType)?.label ||
+                                f.fieldType,
+                            )}
                           </span>
                           {f.required && (
                             <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">
@@ -241,7 +287,7 @@ export default function CustomFieldsPage() {
                             </span>
                           )}
                         </div>
-                        {canDefine && (
+                        {access.canChange("user:manage") && (
                           <button
                             onClick={() => handleDelete(f.id)}
                             className="text-muted-foreground hover:text-red-500"

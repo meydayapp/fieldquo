@@ -1,30 +1,58 @@
 // app/components/settings/BusinessHoursModal.js
 //
-// Wraps your existing /api/availability endpoint (already GET/PATCH
-// [{ dayOfWeek, startTime, endTime, timezone }]) in a modal, since Company
-// Settings wants "Edit" -> popup rather than the full standalone
-// /app/settings/availability page. That page can stay as-is or redirect
-// here later — this doesn't change the API contract at all.
+// ── This is ONE PERSON'S booking availability, not the company's hours ──────
+//
+// The file name is now the only thing left saying "business hours", and it is
+// wrong. PATCH /api/availability with no `userId` resolves the target to
+// `member.userId` (app/api/availability/route.js), so everything here writes
+// the SIGNED-IN USER'S AvailabilitySchedule rows and nobody else's.
+//
+// Until this pass the modal was titled "Business Hours" and said it set
+// availability "for online booking, team members, and request forms". It sets
+// nothing for team members. That is the exact bug AGENTS.md lists by name —
+// "a card titled Business Hours that actually edited one user's booking
+// calendar" — surviving inside the component the card rename went around.
+//
+// Company opening hours are a different column with a different audience:
+// Company.businessHours, edited by OpeningHoursEditor, published to the public
+// site and to Google. The two are ALLOWED to disagree, and conflating them
+// publishes an estimator's day off as a company closure. See
+// lib/company/businessHours.js.
+//
+// Renaming rather than deleting: the standalone /app/settings/availability
+// page edits both this and WorkingHours and can set them for a colleague, so
+// this modal is the quick path from Company settings, not a second source of
+// truth.
 "use client";
 
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { orderedWeekdays } from "@/lib/format/companyDate";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function BusinessHoursModal({ isOpen, onClose, onSaved }) {
+  const { t } = useTranslation();
   const { weekStartsOn } = useCompanyPreferences();
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // The save deletes every row for this user before writing the new set, so a
+  // read that failed and rendered as "closed all week" would delete the week
+  // on the next Save — with a 200 back. `res.json()` succeeds on a 403 or 500
+  // (Next sends `{ error: … }`), which the old unchecked chain turned into
+  // `[]` via the Array.isArray guard. Refuse instead.
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
     setLoading(true);
+    setLoadFailed(false);
     fetch("/api/availability")
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("availability"))))
       .then((data) => setSchedules(Array.isArray(data) ? data : []))
+      .catch(() => setLoadFailed(true))
       .finally(() => setLoading(false));
   }, [isOpen]);
 
@@ -71,7 +99,10 @@ export default function BusinessHoursModal({ isOpen, onClose, onSaved }) {
       // Silently discarding someone's input is worse than any error message.
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        throw new Error(data?.error || "Couldn't save your business hours.");
+        throw new Error(
+          data?.error ||
+            t("app.setAvailability.saveError"),
+        );
       }
       setError("");
       onSaved?.(schedules);
@@ -94,19 +125,22 @@ export default function BusinessHoursModal({ isOpen, onClose, onSaved }) {
       >
         <div className="flex items-center justify-between mb-1">
           <h2 className="text-lg font-semibold text-foreground">
-            Business Hours
+            {t("app.setCompany.bookingTitle")}
           </h2>
-          <button onClick={onClose} aria-label="Close">
+          <button onClick={onClose} aria-label={t("app.action.close")}>
             <X size={18} className="text-muted-foreground" />
           </button>
         </div>
         <p className="text-sm text-muted-foreground mb-4">
-          Sets your default availability for online booking, team members, and
-          request forms.
+          {t("app.setCompany.bookingDesc")}
         </p>
 
         {loading ? (
           <div className="h-64 bg-muted rounded-xl animate-pulse" />
+        ) : loadFailed ? (
+          <div className="rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+            {t("app.error.network")}
+          </div>
         ) : (
           <div className="border border-border rounded-xl divide-y divide-border">
             {orderedWeekdays(weekStartsOn).map(({ label, index: dayOfWeek }) => {
@@ -147,7 +181,7 @@ export default function BusinessHoursModal({ isOpen, onClose, onSaved }) {
                         }
                         className="bg-transparent text-sm text-foreground outline-none"
                       />
-                      <span className="text-muted-foreground text-sm">to</span>
+                      <span className="text-muted-foreground text-sm">{t("app.setAvailability.to")}</span>
                       <input
                         type="time"
                         value={day.endTime}
@@ -158,7 +192,7 @@ export default function BusinessHoursModal({ isOpen, onClose, onSaved }) {
                       />
                     </div>
                   ) : (
-                    <span className="text-xs text-muted-foreground">Closed</span>
+                    <span className="text-xs text-muted-foreground">{t("app.setAvailability.notScheduled")}</span>
                   )}
                 </div>
               );
@@ -177,14 +211,14 @@ export default function BusinessHoursModal({ isOpen, onClose, onSaved }) {
             onClick={onClose}
             className="flex-1 border border-border text-foreground py-2.5 rounded-lg text-sm font-semibold"
           >
-            Cancel
+            {t("app.action.cancel")}
           </button>
           <button
             onClick={handleSave}
-            disabled={saving || loading}
+            disabled={saving || loading || loadFailed}
             className="flex-1 bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
           >
-            {saving ? "Saving..." : "Save"}
+            {saving ? t("app.action.saving") : t("app.action.save")}
           </button>
         </div>
       </div>

@@ -37,7 +37,9 @@ export async function GET(request) {
   const [company, products] = await Promise.all([
     db.company.findUnique({
       where: { id: member.companyId },
-      select: { defaultLanguage: true, sendLanguages: true },
+      // sendLanguages is NOT selected: this route resolves one language from the
+    // query string and only needs the source to compare against.
+    select: { defaultLanguage: true },
     }),
     db.product.findMany({
       where: { companyId: member.companyId, active: true },
@@ -68,6 +70,12 @@ export async function GET(request) {
       // unfinished on a quote, so it counts as missing.
       missing: !entry?.name || (Boolean(p.description) && !entry?.description),
       reviewed: Boolean(entry?.reviewed),
+      // `reviewedAt` was stamped on every save and read by nothing, anywhere —
+      // the written-and-never-read defect AGENTS.md names first. Projected now
+      // so the row can say WHEN a human last checked this wording: "reviewed"
+      // with no date is the same badge whether that happened this morning or
+      // before the price list changed.
+      reviewedAt: entry?.reviewedAt || null,
     };
   });
 

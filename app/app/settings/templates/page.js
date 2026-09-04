@@ -25,6 +25,7 @@ import {
   Loader2,
   AlertCircle,
 } from "lucide-react";
+import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 const PDF_TYPES = [
@@ -48,6 +49,11 @@ export default function PdfTemplatesPage() {
   const [name, setName] = useState("");
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
+  // Deleting a layout is permanent and the trash icon was a single tap. Worse
+  // for the one marked "In use": removing it silently reverts every future
+  // quote and invoice PDF to the shipped layout, which is a change to what
+  // clients receive, made from a screen that looks like housekeeping.
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   const load = useCallback(async () => {
     setError("");
@@ -107,7 +113,9 @@ export default function PdfTemplatesPage() {
       );
       if (!res.ok) {
         const d = await res.json().catch(() => null);
-        throw new Error(d?.error || "Couldn't set that as the default.");
+        throw new Error(
+          d?.error || t("app.error.network"),
+        );
       }
       await load();
     } catch (err) {
@@ -126,8 +134,11 @@ export default function PdfTemplatesPage() {
       });
       if (!res.ok) {
         const d = await res.json().catch(() => null);
-        throw new Error(d?.error || "Couldn't delete that.");
+        throw new Error(
+          d?.error || t("app.error.network"),
+        );
       }
+      setConfirmDelete(null);
       await load();
     } catch (err) {
       setError(err.message);
@@ -260,7 +271,7 @@ export default function PdfTemplatesPage() {
                         </span>
                         {tpl.isDefault && (
                           <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-inverted text-inverted-foreground shrink-0">
-                            <Star size={9} /> In use
+                            <Star size={9} /> {t("app.status.active")}
                           </span>
                         )}
                       </div>
@@ -283,15 +294,15 @@ export default function PdfTemplatesPage() {
                       <Link
                         href={`/app/settings/templates/${tpl.id}/edit`}
                         className="text-muted-foreground hover:text-foreground"
-                        aria-label="Edit template"
+                        aria-label={t("app.action.edit")}
                       >
                         <Pencil size={15} />
                       </Link>
                       <button
-                        onClick={() => remove(tpl)}
+                        onClick={() => setConfirmDelete(tpl)}
                         disabled={Boolean(busyId)}
                         className="text-muted-foreground hover:text-red-600 dark:text-red-400 disabled:opacity-50"
-                        aria-label="Delete template"
+                        aria-label={t("app.action.delete")}
                       >
                         <Trash2 size={15} />
                       </button>
@@ -312,6 +323,24 @@ export default function PdfTemplatesPage() {
           </div>
         );
       })}
+
+      {/* The message names the consequence, and names it differently for the
+          layout that is live — "you can make another" and "every PDF from now
+          on changes" are not the same warning. */}
+      <DeleteConfirmModal
+        isOpen={Boolean(confirmDelete)}
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={() => remove(confirmDelete)}
+        busy={busyId === confirmDelete?.id}
+        title={t("app.action.delete")}
+        // The one distinction that matters is whether this is the LIVE layout,
+        // and app.editPdf.currentlyInUse already carries that sentence in nine
+        // languages. New copy would have needed new keys, which this pass does
+        // not own — see the report for the two sentences worth adding.
+        itemName={`${confirmDelete?.name || ""}${
+          confirmDelete?.isDefault ? t("app.editPdf.currentlyInUse") : ""
+        }`}
+      />
     </div>
   );
 }

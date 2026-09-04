@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, Star, Copy, Trash2, Pencil, Sparkles } from "lucide-react";
 import { TEMPLATE_TYPE_META } from "@/app/data/emailTemplateBlocks";
+import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
@@ -28,6 +29,11 @@ export default function EmailTemplatesPage() {
   const [busyId, setBusyId] = useState(null);
   const [seeding, setSeeding] = useState(false);
   const [seedMsg, setSeedMsg] = useState("");
+  // Deletion is a hard db.documentTemplate.delete with no undo, and the trash
+  // icon was one tap. Deleting the Active one silently returns that email to
+  // the built-in default — a change to what clients receive, from a row that
+  // looks like list housekeeping.
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   async function load() {
     setLoading(true);
@@ -90,9 +96,11 @@ export default function EmailTemplatesPage() {
       });
       const data = await res.json();
       if (!res.ok) {
+        // Was a raw developer instruction — "run `npx prisma generate && npx
+        // prisma db push` and restart the dev server" — shown to contractors.
         throw new Error(
           data.error ||
-            "Could not create template. If you just changed the schema, run `npx prisma generate && npx prisma db push` and restart the dev server.",
+            t("app.error.network"),
         );
       }
       setCreatingType(null);
@@ -105,20 +113,25 @@ export default function EmailTemplatesPage() {
     }
   }
 
+  // One request, because a copy assembled from two could half-fail. This used
+  // to create a blank template and then PATCH `sections` onto it with no
+  // res.ok check at all: a refused PATCH left a row named "… (copy)" holding
+  // the STOCK starter blocks, and the list refreshed as if the copy had
+  // worked. It also never carried `subject` or `theme`, both of which the send
+  // path reads — so even the successful case produced a copy that wasn't one.
+  // The route copies all three now; see app/api/settings/document-templates.
   async function handleDuplicate(tpl) {
     setBusyId(tpl.id);
     const res = await fetch("/api/settings/document-templates", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: tpl.type, name: `${tpl.name} (copy)` }),
+      body: JSON.stringify({
+        type: tpl.type,
+        name: `${tpl.name} (copy)`,
+        duplicateFromId: tpl.id,
+      }),
     });
     if (res.ok) {
-      const created = await res.json();
-      await fetch(`/api/settings/document-templates/${created.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sections: tpl.sections }),
-      });
       load();
     } else {
       // Was silent: a failed request did nothing visible at all.
@@ -222,7 +235,7 @@ export default function EmailTemplatesPage() {
                               {tpl.isDefault && (
                                 <span className="flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">
                                   <Star size={11} className="fill-emerald-700" />
-                                  Active
+                                  {t("app.status.active")}
                                 </span>
                               )}
                             </div>
@@ -239,7 +252,7 @@ export default function EmailTemplatesPage() {
                               <Link
                                 href={`/app/settings/email-templates/${tpl.id}`}
                                 className="text-muted-foreground hover:text-foreground"
-                                aria-label={`Edit ${tpl.name}`}
+                                aria-label={t("app.action.edit")}
                               >
                                 <Pencil size={14} />
                               </Link>
@@ -247,15 +260,15 @@ export default function EmailTemplatesPage() {
                                 onClick={() => handleDuplicate(tpl)}
                                 disabled={busyId === tpl.id}
                                 className="text-muted-foreground hover:text-foreground"
-                                aria-label={`Duplicate ${tpl.name}`}
+                                aria-label={t("app.action.duplicate")}
                               >
                                 <Copy size={14} />
                               </button>
                               <button
-                                onClick={() => handleDelete(tpl.id)}
+                                onClick={() => setConfirmDelete(tpl)}
                                 disabled={busyId === tpl.id}
                                 className="text-muted-foreground hover:text-red-500"
-                                aria-label={`Delete ${tpl.name}`}
+                                aria-label={t("app.action.delete")}
                               >
                                 <Trash2 size={14} />
                               </button>
@@ -311,6 +324,26 @@ export default function EmailTemplatesPage() {
           </div>
         </div>
       )}
+
+      {/* The warning differs for the Active one: "you can make another" and
+          "the next quote email reverts to the built-in wording" are not the
+          same consequence. */}
+      <DeleteConfirmModal
+        isOpen={Boolean(confirmDelete)}
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={async () => {
+          await handleDelete(confirmDelete.id);
+          setConfirmDelete(null);
+        }}
+        busy={busyId === confirmDelete?.id}
+        title={t("app.action.delete")}
+        // Whether this is the ACTIVE template is the whole question, and
+        // app.status.active already says it in nine languages. Fuller warning
+        // copy needs new keys, which this pass does not own — see the report.
+        itemName={`${confirmDelete?.name || ""}${
+          confirmDelete?.isDefault ? ` · ${t("app.status.active")}` : ""
+        }`}
+      />
     </div>
   );
 }

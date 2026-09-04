@@ -72,15 +72,35 @@ export default function LanguageSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
   const [error, setError] = useState("");
+  // `res.json()` succeeds on a 403 or a 500 — Next sends `{ error: … }` — so
+  // the old unchecked chain here never reached its .catch. It read `undefined`
+  // and rendered "Company default: English" as a statement about the business,
+  // to a company whose default is French. Absence of an answer is not an
+  // answer; the screen refuses instead. Same shape as the Company screen — see
+  // scripts/check-settings-load-guards.mjs.
+  const [loadError, setLoadError] = useState("");
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     fetch("/api/settings/language")
-      .then((r) => r.json())
+      .then((r) =>
+        r.ok
+          ? r.json()
+          : r
+              .json()
+              .catch(() => ({}))
+              .then((body) => Promise.reject(new Error(body?.error || ""))),
+      )
       .then((data) => {
-        setPersonal(data.language ?? null);
-        setCompanyDefault(data.defaultLanguage || "en");
+        setPersonal(data?.language ?? null);
+        setCompanyDefault(data?.defaultLanguage || "en");
+        setLoaded(true);
       })
-      .catch(() => setError(t("app.langSettings.loadError", "Couldn't load language settings.")))
+      .catch((err) =>
+        setLoadError(
+          err?.message || t("app.langSettings.loadError", "Couldn't load language settings."),
+        ),
+      )
       .finally(() => setLoading(false));
   }, []);
 
@@ -118,6 +138,30 @@ export default function LanguageSettingsPage() {
       <div className="max-w-3xl p-4 sm:p-6 space-y-4 animate-pulse">
         <div className="h-8 bg-accent rounded w-1/3" />
         <div className="h-48 bg-accent rounded-xl" />
+      </div>
+    );
+  }
+
+  // Refuse rather than answer. "Company default: English" printed off a failed
+  // GET is a statement about the business, and the buttons under it would make
+  // it true.
+  if (loadError || !loaded) {
+    return (
+      <div className="max-w-3xl p-4 sm:p-6 space-y-4">
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <Globe size={20} className="text-muted-foreground" />
+          {t("app.langSettings.title", "Language")}
+        </h1>
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
+          {loadError || t("app.langSettings.loadError", "Couldn't load language settings.")}
+        </div>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-muted min-h-11"
+        >
+          {t("app.action.retry")}
+        </button>
       </div>
     );
   }

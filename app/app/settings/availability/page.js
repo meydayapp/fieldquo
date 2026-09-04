@@ -103,6 +103,9 @@ export default function AvailabilityPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  // "We couldn't read your hours" and "you have no hours" are different
+  // screens, and on this page the difference is somebody's calendar.
+  const [loadFailed, setLoadFailed] = useState(false);
 
   // ── Whose hours ──────────────────────────────────────────────────────────
   //
@@ -147,17 +150,46 @@ export default function AvailabilityPage() {
     if (session?.user?.id) setMeId(session.user.id);
   }, [session]);
 
+  // ── Why a failed GET here refuses instead of showing an empty week ───────
+  //
+  // Both saves REPLACE the week wholesale — /api/availability deleteMany's
+  // every row before the `if (schedules.length > 0)` guard, and /api/working-
+  // hours does the same inside its transaction. That is correct for a real
+  // edit: a partial patch would leave a deleted day behind.
+  //
+  // It is catastrophic after a failed read. Both fetches used to swallow a
+  // non-ok response into `[]`, `.finally` cleared `loading` regardless, and the
+  // screen drew fourteen days of "Not scheduled" — identical to a person who
+  // genuinely has none. `anyInvalid` is false for an empty array, so Save was
+  // enabled. One cold-start 500 (AGENTS.md: Neon scales to zero, the first
+  // connection after idle can fail with P1001) plus one Save deleted the
+  // person's booking calendar and their working-hours baseline, returned 200,
+  // and flashed a green tick. It also drops them off the public booking page,
+  // which counts schedule rows (lib/booking/bookableMembers.js).
+  //
+  // So the load records whether each read actually SUCCEEDED, and the editor
+  // does not render until both did.
   const load = useCallback((userId) => {
     const q = userId ? `?userId=${encodeURIComponent(userId)}` : "";
     setLoading(true);
+    setLoadFailed(false);
     return Promise.all([
-      fetch(`/api/availability${q}`).then((r) => (r.ok ? r.json() : [])),
-      fetch(`/api/working-hours${q}`).then((r) => (r.ok ? r.json() : { workingHours: [] })),
+      fetch(`/api/availability${q}`).then((r) =>
+        r.ok ? r.json().then((d) => ({ ok: true, d })) : { ok: false },
+      ),
+      fetch(`/api/working-hours${q}`).then((r) =>
+        r.ok ? r.json().then((d) => ({ ok: true, d })) : { ok: false },
+      ),
     ])
       .then(([avail, work]) => {
-        setBookable(Array.isArray(avail) ? avail : []);
-        setWorking(Array.isArray(work?.workingHours) ? work.workingHours : []);
+        if (!avail.ok || !work.ok) {
+          setLoadFailed(true);
+          return;
+        }
+        setBookable(Array.isArray(avail.d) ? avail.d : []);
+        setWorking(Array.isArray(work.d?.workingHours) ? work.d.workingHours : []);
       })
+      .catch(() => setLoadFailed(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -210,6 +242,10 @@ export default function AvailabilityPage() {
     t("app.setAvailability.thisPerson", "This person");
 
   async function handleSave() {
+    // Belt and braces. The editor is not rendered on a failed load, so this
+    // cannot normally be reached — but the consequence of it being reached is
+    // a wholesale delete, which is not a thing to guard in one place only.
+    if (loadFailed) return;
     if (anyInvalid) {
       showError(t("app.setAvailability.fixTimes", "Fix the highlighted times — each day needs a start before its end."));
       return;
@@ -242,6 +278,33 @@ export default function AvailabilityPage() {
 
   if (loading) {
     return <div className="p-4 sm:p-6 max-w-2xl mx-auto animate-pulse h-64 bg-accent rounded-xl" />;
+  }
+
+  if (loadFailed) {
+    return (
+      <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-4">
+        <h1 className="text-2xl font-bold text-foreground">
+          {t("app.setAvailability.yourHours", "Your hours")}
+        </h1>
+        <div className="rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {t("app.error.network")}
+        </div>
+        <p className="text-sm text-muted-foreground">
+          {/* Says the same thing the refusal exists for, out of strings that
+              already ship in nine languages: these hours are separate from
+              opening hours, and with none set you are not bookable — so an
+              empty week is never a safe thing to guess at. */}
+          {t("app.setAvailability.noBookable")}
+        </p>
+        <button
+          type="button"
+          onClick={() => load(targetId)}
+          className="border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-muted min-h-11"
+        >
+          {t("app.action.retry")}
+        </button>
+      </div>
+    );
   }
 
   return (

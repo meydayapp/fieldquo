@@ -95,18 +95,41 @@ export default function BrandingPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  // A failed load must not become a form. `res.json()` succeeds on a 403 or a
+  // 500 — Next sends `{ error: … }` — so the old unchecked `.then(r =>
+  // r.json())` here never reached its .catch: it read `undefined` off the error
+  // body and filled the form with defaults. Save then PATCHed those defaults
+  // over the real company: logoUrl "", logoPublicId "", brandColor back to
+  // #06356b, brandColors null. That is the company's logo deleted and their
+  // brand colour replaced with ours, on every quote, invoice, PDF, email and
+  // website page, from one failed GET. Same failure the Company screen was
+  // fixed for; see scripts/check-settings-load-guards.mjs.
+  const [loadError, setLoadError] = useState("");
+  // Separate from `!loadError`: the form renders only once a GET has actually
+  // come back. Neither state alone is "we know what their brand is".
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     fetch("/api/settings/business-info")
-      .then((r) => r.json())
+      .then((r) =>
+        r.ok
+          ? r.json()
+          : r
+              .json()
+              .catch(() => ({}))
+              .then((body) => Promise.reject(new Error(body?.error || ""))),
+      )
       .then((data) => {
-        setLogoUrl(data.logoUrl || "");
-        setLogoPublicId(data.logoPublicId || "");
-        setBrandColor(data.brandColor || "#06356b");
-        setSecondary(data.brandColors?.secondary || "");
-        setNeutral(data.brandColors?.neutral || "");
+        setLogoUrl(data?.logoUrl || "");
+        setLogoPublicId(data?.logoPublicId || "");
+        setBrandColor(data?.brandColor || "#06356b");
+        setSecondary(data?.brandColors?.secondary || "");
+        setNeutral(data?.brandColors?.neutral || "");
+        setLoaded(true);
       })
-      .catch(() => setError(t("app.setBranding.loadError")))
+      .catch((err) =>
+        setLoadError(err?.message || t("app.setBranding.loadError")),
+      )
       .finally(() => setLoading(false));
   }, []);
 
@@ -186,6 +209,27 @@ export default function BrandingPage() {
           <div className="h-6 w-40 bg-accent rounded" />
           <div className="h-40 bg-accent rounded-xl" />
         </div>
+      </div>
+    );
+  }
+
+  // A refusal, not a greyed-out form. Rendering the pickers with defaults and
+  // an error above them reads as "your brand is navy blue" — and the Save
+  // button beside them would make that true.
+  if (loadError || !loaded) {
+    return (
+      <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-4">
+        <h1 className="text-2xl font-bold text-foreground">{t("app.settings.branding")}</h1>
+        <div className="rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {loadError || t("app.setBranding.loadError")}
+        </div>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-muted min-h-11"
+        >
+          {t("app.action.retry")}
+        </button>
       </div>
     );
   }

@@ -669,12 +669,28 @@ export default function EmailTemplateEditorPage() {
     if (!testEmail.trim()) return;
     setSendingTest(true);
     setTestMsg(null);
-    // Save first so the test reflects the latest edits.
-    await fetch(`/api/settings/document-templates/${id}`, {
+    // Save first so the test reflects the latest edits — and STOP if that save
+    // was refused. The PATCH has two real refusal paths (403 for a role without
+    // user:manage, 400 for an unknown section type), and the return value used
+    // to be discarded: the test then went out from the STORED template and the
+    // screen said "Test sent" in green. A test of something other than what is
+    // on screen is worse than no test, because it is believed.
+    const savedRes = await fetch(`/api/settings/document-templates/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, subject, sections, theme }),
     });
+    if (!savedRes.ok) {
+      const saveErr = await savedRes.json().catch(() => ({}));
+      setTestMsg({
+        ok: false,
+        text:
+          saveErr.error ||
+          t("app.emailEditor.testError"),
+      });
+      setSendingTest(false);
+      return;
+    }
     const res = await fetch(`/api/settings/document-templates/${id}/test`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

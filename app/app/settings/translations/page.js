@@ -28,10 +28,14 @@ import {
   Sparkles,
 } from "lucide-react";
 import { LANGUAGES } from "@/app/i18n/languages";
+import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function TranslationsPage() {
   const { t } = useTranslation();
+  // Company.dateFormat, not a locale guess — the same formatter the rest of
+  // /app uses, so "reviewed on" reads the way every other date here does.
+  const { formatDate } = useCompanyPreferences();
   const [language, setLanguage] = useState("fr");
   const [data, setData] = useState(null);
   const [drafts, setDrafts] = useState({});
@@ -261,7 +265,15 @@ export default function TranslationsPage() {
 
       {data?.aiAvailable && data?.canDraft && data.missing > 0 && (
         <p className="text-xs text-muted-foreground">
-          {t("app.translations.draftNote", "Drafts land in the boxes below. Nothing is saved, and nothing reaches a client, until you read each one and mark it reviewed.")}
+          {/* Was "nothing reaches a client until you mark it reviewed". True of
+              THIS button, which only fills boxes — and false in general: a
+              service created while automatic translation is on is already
+              carrying machine wording, and lib/i18n/translateContent.js
+              serves it to a client document without consulting `reviewed`.
+              Gating the render on `reviewed` would blank existing documents
+              back to the source language, which is a product decision, not a
+              copy fix. So the sentence is now true instead. */}
+          {t("app.translations.draftNote")}
         </p>
       )}
 
@@ -335,11 +347,18 @@ export default function TranslationsPage() {
                     </span>
                   ) : item.reviewed ? (
                     <span className="inline-flex items-center gap-1.5 text-xs text-green-700 dark:text-green-300">
-                      <Check size={12} /> {t("app.translations.reviewed", "Reviewed")}
+                      {/* The date is the point. "Reviewed" alone is the same
+                          badge whether a person checked this wording this
+                          morning or before the services were renamed — and
+                          `reviewedAt` was stamped on every save and read by
+                          nothing, anywhere. */}
+                      <Check size={12} />{" "}
+                      {t("app.translations.reviewed")}
+                      {item.reviewedAt ? ` · ${formatDate(item.reviewedAt)}` : ""}
                     </span>
                   ) : (
                     <span className="text-xs text-muted-foreground">
-                      {t("app.translations.draftedNotRead", "Drafted — not read yet")}
+                      {t("app.translations.draftedNotRead")}
                     </span>
                   )}
                 </div>
