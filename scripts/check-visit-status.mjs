@@ -27,7 +27,15 @@
 // the badge map actually know about?
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { visitActions, VISIT_STATUS_LABELS, visitStatusLabel, mayMoveVisit } from "../lib/jobs/visitStatus.js";
+import {
+  visitActions,
+  VISIT_STATUS_LABELS,
+  VISIT_STATUS_TONE,
+  VISIT_TONE_CLASSES,
+  visitStatusLabel,
+  visitStatusClasses,
+  mayMoveVisit,
+} from "../lib/jobs/visitStatus.js";
 import { validateJobDates, parseDateOrNull } from "../lib/jobs/validateJobDates.js";
 import { isVisitOutsideJobRange } from "../lib/jobs/visitInRange.js";
 
@@ -183,11 +191,63 @@ ok(
 section("4. Every reachable status is styled on the job page");
 
 const DETAIL = read("app/app/jobs/[id]/JobDetail.js");
-const stylesBlock = DETAIL.slice(DETAIL.indexOf("const STATUS_STYLES"));
-const styled = [...stylesBlock.slice(0, stylesBlock.indexOf("};")).matchAll(/^\s*([a-z_]+):/gm)].map((m) => m[1]);
+
+// ── Was: scrape `const STATUS_STYLES` out of JobDetail.js ─────────────────
+//
+// That map has been lifted into visitStatusClasses(), so the scrape found
+// nothing, `indexOf` returned -1, and the parse produced []. It failed loudly
+// here only by luck: the assertion asks whether a status IS styled, so an
+// empty parse fails. Phrased the other way round — "no status is unstyled" —
+// [] would have passed vacuously forever.
+//
+// So it drives the shipped function instead of reading a page's source. A
+// styling rule that lives in a module is testable; one scraped out of JSX is
+// only testable until somebody moves it.
+ok(
+  Object.keys(VISIT_STATUS_TONE).length >= 5,
+  "the visit tone map is populated — an empty one would pass every check below vacuously",
+  Object.keys(VISIT_STATUS_TONE),
+);
 for (const status of offered) {
-  ok(styled.includes(status), `"${status}" has a badge style, not the grey fallback`, styled);
+  const cls = visitStatusClasses(status);
+  ok(
+    typeof cls === "string" && /bg-/.test(cls) && !/undefined|null/.test(cls),
+    `"${status}" yields real chip classes`,
+    cls,
+  );
+  // The grey fallback is `off`, which is what a CANCELLED visit gets. A live
+  // status landing there is the bug this section has always been about: the
+  // moment a visit could be put on the way, its badge looked cancelled.
+  ok(
+    status === "cancelled" || status === "canceled" || cls !== VISIT_TONE_CLASSES.off,
+    `"${status}" has a badge style of its own, not the grey a cancelled visit gets`,
+    cls,
+  );
 }
+// The one the old comment singled out, pinned by name: purple, not amber,
+// because `in_progress` is an amber JOB status and the two chips sit inches
+// apart on this page.
+ok(
+  visitStatusClasses("on_the_way") === VISIT_TONE_CLASSES.moving,
+  "on_the_way keeps its own colour rather than borrowing in_progress's amber",
+);
+// Every literal colour ramp carries its dark: half — a bare bg-*-50 is a
+// bright slab in a dark cab.
+for (const [tone, cls] of Object.entries(VISIT_TONE_CLASSES)) {
+  for (const util of cls.match(/(?:^|\s)(?:bg|text|border)-[a-z]+-\d{2,3}(?:\/\d+)?/g) || []) {
+    const [prefix] = util.trim().split("-");
+    ok(
+      new RegExp(`dark:${prefix}-`).test(cls),
+      `visit tone "${tone}" pairs ${util.trim()} with a dark: ${prefix}`,
+    );
+  }
+}
+// And the page reads it rather than keeping a private copy — the whole reason
+// the map moved.
+ok(
+  !/const STATUS_STYLES/.test(DETAIL),
+  "JobDetail.js keeps no private status map to drift from the module",
+);
 ok(
   !/v\.status\?\.replace\(/.test(DETAIL),
   "the visit badge uses the shared label, not a raw underscore-strip",
