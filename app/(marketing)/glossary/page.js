@@ -132,7 +132,14 @@ export default function GlossaryIndexPage() {
           <h2 className="text-2xl sm:text-3xl font-bold text-white">
             Quotes, invoices and scheduling in your own name
           </h2>
-          <p className="mt-3 text-muted-foreground">
+          {/* NOT text-muted-foreground. That token is #4d6076 and is picked to
+              sit on the light --card and --muted washes; on --primary (#06356b)
+              it measures 1.88:1 — grey on navy. /features/[slug] already prints
+              its ctaBody as text-primary-foreground/80, which is 8.31:1 on the
+              same navy, so this matches it rather than inventing a third value.
+              scripts/check-marketing-contrast.mjs measures the pairing rather
+              than trusting this comment. */}
+          <p className="mt-3 text-primary-foreground/80">
             Set up your pricing, send one quote, and see whether it saves you
             the evening. That&apos;s the whole test.
           </p>

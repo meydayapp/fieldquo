@@ -186,7 +186,15 @@ export default async function GlossaryTermPage({ params }) {
           <h2 className="text-2xl sm:text-3xl font-bold text-white">
             Every document in your name, not ours
           </h2>
-          <p className="mt-3 text-muted-foreground">
+          {/* NOT text-muted-foreground. That token is #4d6076 and is picked to
+              sit on the light --card and --muted washes; on --primary (#06356b)
+              it measures 1.88:1 — grey on navy, and the sentence carrying the
+              offer was the least readable thing in the block. /features/[slug]
+              already prints its ctaBody as text-primary-foreground/80, which is
+              8.31:1 on the same navy, so this matches it rather than inventing
+              a third value. scripts/check-marketing-contrast.mjs measures the
+              pairing rather than trusting this comment. */}
+          <p className="mt-3 text-primary-foreground/80">
             Quotes, invoices and scheduling for field-service businesses. Your
             first month is free — your card isn&apos;t charged until it ends.
           </p>

@@ -129,7 +129,13 @@ export default function IndustryPageContent({ slug, videoId }) {
           <h2 className="text-2xl sm:text-3xl font-bold text-white">
             {fill(chrome.ctaTitle)}
           </h2>
-          <p className="mt-3 text-muted-foreground">{chrome.ctaBody}</p>
+          {/* NOT text-muted-foreground. That token is #4d6076, chosen to sit
+              on the light --card/--muted washes; on --primary (#06356b) it
+              measures 1.88:1, which is grey-on-navy and effectively invisible.
+              /features/[slug] already prints its own ctaBody as
+              text-primary-foreground/80 — 8.31:1 on the same navy — so this
+              matches it rather than inventing a third value. */}
+          <p className="mt-3 text-primary-foreground/80">{chrome.ctaBody}</p>
           <Link
             href="/signup"
             className="mt-6 inline-flex items-center gap-2 bg-card text-foreground px-6 py-3 rounded-full text-sm font-semibold hover:bg-muted"
