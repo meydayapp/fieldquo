@@ -28,6 +28,7 @@ import Link from "next/link";
 import {
   INPUT_FIELDS,
   ASSUMPTIONS,
+  CURRENCY_NOTE,
   LINE_BUILDERS,
   NOT_COUNTED,
   AI_WITHOUT_AN_UPGRADE,
@@ -43,12 +44,23 @@ const EMPTY = Object.fromEntries(INPUT_FIELDS.map((f) => [f.key, ""]));
 // is the smallest possible version of a control that lies, and it is the one
 // that survives longest because nobody re-counts a sentence.
 const QUESTION_COUNT = INPUT_FIELDS.filter((f) => f.required).length;
+// Counted separately for the same reason, and it is a NEW way this sentence
+// could go wrong: until quoteDeskMinutes there were no optional questions, so
+// "N answers" and "N boxes" happened to be the same number. They are not any
+// more, and a header saying "eight answers" over nine boxes is the exact
+// defect the note above describes, arrived at from the other direction.
+const OPTIONAL_COUNT = INPUT_FIELDS.filter((f) => !f.required).length;
 const LINE_COUNT = LINE_BUILDERS.length;
 
 const PLACEHOLDERS = {
   seats: "e.g. 2",
   crew: "e.g. 4",
   quotesPerMonth: "e.g. 16",
+  // Deliberately NOT the fallback coefficient's own 120. A placeholder showing
+  // the number we would have used reads as a pre-filled answer, and this file's
+  // header is explicit that a placeholder shows the shape of an answer and is
+  // never submitted as one.
+  quoteDeskMinutes: "e.g. 90",
   projectsPerMonth: "e.g. 8",
   averageProjectValue: "e.g. 5000",
   adminHoursPerWeek: "e.g. 4",
@@ -142,16 +154,25 @@ export default function SavingsCalculator() {
           What would FieldQuo be worth to you?
         </h1>
         <p className="mt-4 text-lg text-muted-foreground">
-          {QUESTION_COUNT} answers, {LINE_COUNT} line items, and every coefficient behind
-          them published further down the page — including where each one came from and
-          which end of a range we took. We have deliberately left out the things we cannot
-          put an honest number on, and they are listed too.
+          {QUESTION_COUNT} answers plus {OPTIONAL_COUNT} you can give us if you know it,{" "}
+          {LINE_COUNT} line items, and every coefficient behind them published further down
+          the page — including where each one came from and which end of a range we took.
+          We have deliberately left out the things we cannot put an honest number on, and
+          they are listed too.
         </p>
       </header>
 
       {/* ── The questions ──────────────────────────────────────────────── */}
       <section className="mt-10 rounded-2xl border border-border p-6 sm:p-8">
         <h2 className="text-lg font-semibold text-foreground">Your business</h2>
+        {/* The currency answer, at the point the question is asked.
+            Two of these boxes take money and neither of them carried a unit;
+            the full statement below the total was the page's only mention of
+            currency, and it does not render until an estimate exists — so a
+            visitor typed money into two fields having been told nothing. */}
+        <p className="mt-2 text-sm text-muted-foreground">
+          {CURRENCY_NOTE.short}
+        </p>
         <div className="mt-6 grid gap-5 sm:grid-cols-2">
           {INPUT_FIELDS.map((field) => (
             <Field
@@ -228,11 +249,13 @@ export default function SavingsCalculator() {
                 </p>
               ) : null}
 
+              {/* Was a hand-written paragraph saying most of this in its own
+                  words, while /pricing said it in different ones. One
+                  exported string now, so the two cannot drift — and this is
+                  the copy that carries the concrete half the calculator's
+                  version was missing. */}
               <p className="mt-4 text-sm text-muted-foreground">
-                All figures are in your own money. Our prices are the same number in
-                Canadian and US dollars rather than a conversion, and which one you are
-                billed in comes from the business address you give at signup — this page
-                has no way of knowing it, and does not guess.
+                {CURRENCY_NOTE.long}
               </p>
             </div>
 

@@ -71,6 +71,7 @@ import { SEAT_LADDER, tierFor, defaultAnnualPrice } from "@/lib/pricing/ladder";
 import {
   ASSUMPTIONS,
   ASSUMPTION_BASIS,
+  CURRENCY_NOTE,
   INPUT_FIELDS,
   LINE_BUILDERS,
   NOT_COUNTED,
@@ -181,9 +182,15 @@ const CEILINGS = {
   cost_of_money: 0.12,
   quote_recovery_share: 0.1,
   gross_margin: 0.5,
-  // An hour of pure desk work on an average estimate is the top of what the
-  // reported ranges support without a survey of our own.
-  quote_desk_minutes_today: 60,
+  // Was 60, on the grounds that an hour was the top of what the scraped
+  // reported ranges supported. The row no longer rests on those: FieldQuo's
+  // owner prices jobs for a living and puts the same desk work — no travel in
+  // it — at about two hours, and the row now says so and says whose figure it
+  // is. The ceiling moves with the source rather than pinning the row to a
+  // provenance it no longer has, and it stays a ceiling: three hours of pure
+  // desk work on an average residential estimate is past anything anybody has
+  // told us, and reaching it would be the drift this file exists to catch.
+  quote_desk_minutes_today: 150,
 };
 for (const [key, ceiling] of Object.entries(CEILINGS)) {
   const row = assumptionRow(key);
@@ -204,10 +211,18 @@ ok(
 // triples that line, and reads on the page as a more confident product claim
 // rather than as a bigger number.
 const FLOORS = {
-  // The bottom of the reported with-templates range. Claiming a quote takes
-  // less time than the fastest contractor who reported one is not a product
-  // claim, it is a different product.
-  quote_desk_minutes_fieldquo: 10,
+  // Was 10 — "the bottom of the reported with-templates range". That floor was
+  // derived from a range describing OTHER software's templates, which is the
+  // provenance the row itself has now dropped.
+  //
+  // At one minute the floor sits ON the value, and that is deliberate rather
+  // than lazy: it is a PIN, not a bound. There is no headroom left below this
+  // row, so the next edit that shaves it has to come here and rewrite this
+  // comment, which is the whole mechanism — the failure this block exists to
+  // catch is a coefficient creeping downward one plausible edit at a time
+  // without anybody having to argue for it. A row this far down cannot creep;
+  // it can only be moved on purpose.
+  quote_desk_minutes_fieldquo: 1,
 };
 for (const [key, floor] of Object.entries(FLOORS)) {
   const row = assumptionRow(key);
@@ -228,9 +243,16 @@ ok(
   const today = assumptionRow("quote_desk_minutes_today").value;
   const after = assumptionRow("quote_desk_minutes_fieldquo").value;
   ok("a quote takes less desk time with us than without", after < today, `${after} vs ${today}`);
+  // Was "inside half an hour", which was the spread when both ends came from
+  // scraped reported ranges. Both ends have since been re-sourced — the today
+  // figure to the owner's own operating experience, the with-us figure to a
+  // count of our real builder path — and the spread they produce is about two
+  // hours. Pinned at two and a half so the pair still cannot drift open, which
+  // is the only thing this assertion was ever for: the SPREAD is what
+  // multiplies, and pinning each end separately does not pin their difference.
   ok(
-    "and the minutes claimed back stay inside half an hour",
-    today - after <= 30,
+    "and the minutes claimed back stay inside two and a half hours",
+    today - after <= 150,
     today - after,
   );
 }
@@ -703,10 +725,56 @@ for (const tier of SEAT_LADDER) {
   ]) {
     ok(`the calculator never prints ${what}`, !re.test(view), view.match(re)?.[0]);
   }
+  // ── And it has to SAY what money the figures are in ──────────────────────
+  //
+  // This assertion used to look for one hand-written phrase in the component.
+  // It passed while the page was still wrong, and the owner found the bug it
+  // could not see: that paragraph rendered only inside the `result.ready`
+  // branch, so a visitor met two boxes asking for money — an hourly cost and
+  // an average job value — with no unit on either and no mention of currency
+  // anywhere on the page until they had already answered.
+  //
+  // So the string moved into the module as CURRENCY_NOTE and this now checks
+  // three separate things instead of one substring: that the note names the
+  // policy, that the always-rendered half is rendered OUTSIDE the ready
+  // branch, and that both money questions carry the unit on the question
+  // itself. A phrase match could never have caught any of those.
   ok(
-    "it says instead where the currency is actually decided",
-    view.includes("business address you give at signup"),
+    "the currency note says which two currencies and what decides between them",
+    /Canadian/.test(CURRENCY_NOTE.long) &&
+      /US /.test(CURRENCY_NOTE.long) &&
+      /business address/.test(CURRENCY_NOTE.long),
+    CURRENCY_NOTE.long,
   );
+  ok(
+    "and says the page does not convert",
+    /convert|conversion/i.test(CURRENCY_NOTE.long) && /convert/i.test(CURRENCY_NOTE.short),
+  );
+  ok("the calculator renders the long form beside the total", view.includes("CURRENCY_NOTE.long"));
+  {
+    // The half that has to be on screen BEFORE an estimate exists. Located by
+    // position rather than by presence: `result.ready` is where the page
+    // splits, and a note rendered after it is a note the visitor answering the
+    // questions never sees. That is the bug, stated as a position.
+    const readyAt = view.indexOf("!result.ready");
+    const shortAt = view.indexOf("CURRENCY_NOTE.short");
+    ok(
+      "and renders the short form above the ready/not-ready split, where the money questions are",
+      shortAt !== -1 && readyAt !== -1 && shortAt < readyAt,
+      `short at ${shortAt}, split at ${readyAt}`,
+    );
+  }
+  {
+    const money = INPUT_FIELDS.filter((f) => f.money === true);
+    ok("both money questions are flagged as money", money.length === 2, money.map((f) => f.key).join(","));
+    for (const f of money) {
+      ok(
+        `${f.key}: the question itself says which money, not just a note further down`,
+        /money you invoice in/.test(f.help),
+        f.help,
+      );
+    }
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -918,16 +986,23 @@ for (const [label, raw] of HOSTILE) {
   //
   // A calculator that cannot print a negative comparison is an advertisement
   // with a form on it. This shape — a one-man band with an hour of paperwork a
-  // week, two small jobs and two quotes — genuinely does not get its money
-  // back, and the page says so.
+  // week, two small jobs and one quote a month — genuinely does not get its
+  // money back, and the page says so.
+  //
+  // The shape had to shrink when quote_desk_minutes_today was re-sourced from
+  // 45 to 120: the old one (two quotes at $25/h) crossed into paying for
+  // itself, which is the coefficient change showing up in the one assertion
+  // that exists to prove the page can still say no. Kept comfortably negative
+  // rather than tuned to the edge, so the next honest coefficient move does
+  // not silently delete this guarantee.
   const notWorthIt = estimateSavings({
     seats: 1,
     crew: 0,
-    quotesPerMonth: 2,
+    quotesPerMonth: 1,
     projectsPerMonth: 2,
-    averageProjectValue: 200,
+    averageProjectValue: 150,
     adminHoursPerWeek: 1,
-    hourlyCost: 25,
+    hourlyCost: 20,
     tools: "separate_apps",
   });
   ok(
@@ -996,7 +1071,9 @@ section("Worked example");
   const r = estimateSavings(SANE);
   const revenue = 8 * 12 * 5000; // 480,000
 
-  const quoteWriting = Math.floor((16 * 12 * (45 - 15) * 45) / 60); // 4,320
+  // SANE deliberately does NOT answer quoteDeskMinutes, so this is the
+  // fallback path: the published row supplies the figure. 120 − 5.
+  const quoteWriting = Math.floor((16 * 12 * (120 - 1) * 45) / 60); // 17,136
   const underBilling = Math.floor(revenue * 0.012); // 5,760
   const changeOrders = Math.floor(revenue * 0.014); // 6,720
   const chased = Math.floor((16 - 8) * 12 * 5000 * 0.04 * 0.3); // 5,760
@@ -1004,7 +1081,7 @@ section("Worked example");
   const sooner = Math.floor(revenue * (5 / 365) * 0.08); // 526
 
   const line = (key) => r.lines.find((l) => l.key === key)?.amount;
-  ok("pricing a job: 16 quotes × 12 × 30 min × 45/h", line("quote_writing") === quoteWriting, line("quote_writing"));
+  ok("pricing a job: 16 quotes × 12 × 119 min × 45/h", line("quote_writing") === quoteWriting, line("quote_writing"));
   ok("under-billing: 480,000 × 1.2%", line("under_billing") === underBilling, line("under_billing"));
   ok("extras never billed: 480,000 × 1.4%", line("change_orders") === changeOrders, line("change_orders"));
   ok("quotes chased: 480,000 unwon × 4% × 30% margin", line("quotes_chased") === chased, line("quotes_chased"));
@@ -1029,6 +1106,65 @@ section("Worked example");
     "money arriving sooner is worth the wait, not the money",
     line("invoice_sooner") < revenue * 0.01,
   );
+
+  // ── The visitor's own figure, when they give one ─────────────────────────
+  //
+  // The whole point of the new question: quotesPerMonth's help says "we ask
+  // rather than assume", and until now the minutes beside it were assumed.
+  // Three things have to hold and none of them is provable by reading the
+  // source — the answer has to REPLACE the coefficient, the workings have to
+  // SAY which of the two produced the figure (a total built on our number and
+  // one built on theirs are different claims), and a contractor who is already
+  // faster than we are has to be told this line does not apply to him rather
+  // than shown a clamped zero.
+  {
+    const answered = estimateSavings({ ...SANE, quoteDeskMinutes: 200 });
+    const expected = Math.floor((16 * 12 * (200 - 1) * 45) / 60);
+    const got = answered.lines.find((l) => l.key === "quote_writing");
+    ok("an answered figure replaces the published one", got?.amount === expected, got?.amount);
+    ok(
+      "and the workings say the number came from the visitor",
+      /figure you gave us/.test(got?.workings || ""),
+      got?.workings,
+    );
+
+    const unanswered = r.lines.find((l) => l.key === "quote_writing");
+    ok(
+      "while a blank box says out loud that the figure is ours",
+      /you left the box blank/.test(unanswered?.workings || ""),
+      unanswered?.workings,
+    );
+
+    // Faster than us: the arithmetic would go negative, be clamped to zero,
+    // and print "−N minutes saved on each" — a line arguing against itself.
+    const alreadyFast = estimateSavings({ ...SANE, quoteDeskMinutes: 1 });
+    const refused = alreadyFast.omitted.find((o) => o.key === "quote_writing");
+    ok(
+      "a contractor already faster than us gets the line refused, with the reason",
+      Boolean(refused) && /nothing on this line/.test(refused?.reason || ""),
+      refused?.reason,
+    );
+    ok(
+      "and no quote-writing line is printed for him at all",
+      !alreadyFast.lines.some((l) => l.key === "quote_writing"),
+    );
+
+    // The out-of-range machinery has to cover the new box too, or a typo in it
+    // produces a confident total instead of a refusal.
+    const absurd = estimateSavings({ ...SANE, quoteDeskMinutes: 100000 });
+    ok(
+      "an absurd answer in the new box refuses the whole estimate",
+      absurd.ready === false && absurd.outOfRange.includes("quoteDeskMinutes"),
+      JSON.stringify(absurd.outOfRange),
+    );
+
+    // And a blank one must NOT: this is the only optional question on the
+    // page, and requiring it by accident would break every existing visitor.
+    ok(
+      "a blank answer in the new box does not block the estimate",
+      estimateSavings({ ...SANE, quoteDeskMinutes: "" }).ready === true,
+    );
+  }
 
   // And the cost side, on the same answers.
   ok("three seats and five crew fit a real rung", r.cost.fits === true);
@@ -1089,6 +1225,17 @@ section("The page prints the honest parts");
   ok(
     "and counts the line items the same way",
     /LINE_BUILDERS\.length/.test(view) && /\{LINE_COUNT\}/.test(view),
+  );
+  // The third count, and the one that only started existing when the page
+  // gained its first optional question. "Eight answers" over NINE boxes is the
+  // same defect as "seven answers" over eight, reached from the other side:
+  // the required count stayed right and stopped describing the form.
+  ok(
+    "and counts the optional questions, which are no longer zero",
+    INPUT_FIELDS.some((f) => !f.required) &&
+      /INPUT_FIELDS\.filter\(\(f\) => !f\.required\)\.length/.test(view) &&
+      /\{OPTIONAL_COUNT\}/.test(view),
+    `${INPUT_FIELDS.filter((f) => !f.required).length} optional field(s)`,
   );
   {
     // Comments stripped, as with the currency scan: the comment beside the
