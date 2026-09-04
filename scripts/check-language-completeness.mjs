@@ -217,6 +217,93 @@ ok(
   "a CJK font appears to be registered — revisit CATALOGUE_ONLY.zh above",
 );
 
+
+// ── 6. No key is written twice inside one language block ───────────────────
+//
+// ══ Why an OBJECT check cannot find this ═══════════════════════════════════
+//
+// Every other assertion in this file imports APP_MESSAGES and asks the real
+// objects. That is the right instrument for "is the key there" and the wrong
+// one for "is it there twice": JavaScript resolves a duplicate literal key at
+// parse time, the later one wins silently, and `Object.keys` reports one. The
+// object cannot answer a question about the source that produced it, so this
+// one assertion reads the source — the only place in this file that does.
+//
+// ══ What it caught, and why the harmless version is the warning ════════════
+//
+// app.setTeam.worksAlone, .worksAloneHint and .errWorksAlone were each written
+// twice in en, fr and de. Both copies were IDENTICAL, so nothing rendered
+// wrong and nothing failed; twelve dead lines sat in the file and the catalogue
+// reported full coverage, correctly.
+//
+// They got there because two agents spliced keys into the same blocks in the
+// same minute, through a shared .git/index, and neither splice conflicted with
+// the other — git was never asked to merge anything.
+//
+// The harmless case is the one worth failing on, because the harmful case is
+// indistinguishable from it until a customer reads it. When the two copies
+// DISAGREE, the later literal wins, the earlier translation is gone, and every
+// coverage measure in this repo still says 100% — check:app-catalogue counts
+// what the object holds, and the object holds exactly one value. There is no
+// second signal.
+//
+// The scan is deliberately literal: a `  "key":` line at block depth. Every
+// entry in this catalogue is written that way, the parse is checked against the
+// object below so a formatting change cannot make it silently vacuous, and a
+// regex that tried to be clever about nesting would be the thing that breaks.
+{
+  const src = read("app/i18n/appMessages.js");
+  const perBlock = new Map(); // code -> Map(key -> count)
+  let current = null;
+
+  for (const line of src.split("\n")) {
+    const opens = line.match(/^const ([a-z]{2}) = \{$/);
+    if (opens) {
+      current = opens[1];
+      perBlock.set(current, new Map());
+      continue;
+    }
+    if (line === "};") {
+      current = null;
+      continue;
+    }
+    if (!current) continue;
+    const entry = line.match(/^ {2}"([^"]+)":/);
+    if (!entry) continue;
+    const seen = perBlock.get(current);
+    seen.set(entry[1], (seen.get(entry[1]) || 0) + 1);
+  }
+
+  // The parse has to be proved before anything is concluded from it. A regex
+  // that stopped matching would report zero duplicates forever, which is the
+  // shape of a check that passes because it looked at nothing.
+  ok(
+    "the source scan found every language block",
+    perBlock.size === catalogueCodes.length,
+    `scanned ${perBlock.size}, catalogue has ${catalogueCodes.length}`,
+  );
+  for (const code of catalogueCodes) {
+    const scanned = perBlock.get(code)?.size ?? 0;
+    const real = Object.keys(APP_MESSAGES[code] || {}).length;
+    ok(
+      `the "${code}" block parses to the same key set the object holds`,
+      scanned === real,
+      `source ${scanned} vs object ${real} — the line pattern has stopped matching`,
+    );
+  }
+
+  for (const [code, seen] of perBlock) {
+    const twice = [...seen.entries()].filter(([, n]) => n > 1).map(([k]) => k);
+    ok(
+      `"${code}" writes every key exactly once`,
+      twice.length === 0,
+      twice.length
+        ? `${twice.length} written twice: ${twice.slice(0, 6).join(", ")} — the later literal wins and the earlier value is unreachable, while every coverage measure still reports it as present`
+        : undefined,
+    );
+  }
+}
+
 if (failures.length) {
   console.error(
     `check:language-completeness FAILED — ${failures.length} problem(s).\n` +
