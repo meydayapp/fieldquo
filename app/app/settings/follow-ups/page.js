@@ -28,6 +28,12 @@ export default function FollowUpsPage() {
   const [rules, setRules] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
+  // A refused load used to leave both lists at [] and then render three
+  // statements at once: "you need an email template first", "no follow-up
+  // rules yet", and a disabled New-rule button. All three are claims about the
+  // company, and the app had simply been told no. Every one of them is now
+  // gated on this.
+  const [loadError, setLoadError] = useState("");
   const [showNew, setShowNew] = useState(false);
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState(null);
@@ -49,20 +55,23 @@ export default function FollowUpsPage() {
       // Was silent: a failed load cleared loading only on success and never
       // parsed an error, so any non-ok/rejection hung the skeleton forever.
       if (!rulesRes.ok) {
-        await reportResponseError(rulesRes);
+        setLoadError(await reportResponseError(rulesRes));
         return;
       }
       if (!templatesRes.ok) {
-        await reportResponseError(templatesRes);
+        setLoadError(await reportResponseError(templatesRes));
         return;
       }
       const rulesData = await rulesRes.json();
       const templatesData = await templatesRes.json();
       setRules(Array.isArray(rulesData) ? rulesData : []);
       setTemplates(Array.isArray(templatesData) ? templatesData : []);
+      setLoadError("");
     } catch {
       // Network-level rejection (offline, DNS, aborted): no Response to read.
-      showError("Couldn't load follow-up rules. Check your connection and retry.");
+      const msg = t("app.load.network");
+      setLoadError(msg);
+      showError(msg);
     } finally {
       setLoading(false);
     }
@@ -165,7 +174,7 @@ export default function FollowUpsPage() {
         </div>
         <button
           onClick={openNew}
-          disabled={eligibleTemplates.length === 0}
+          disabled={loadError ? true : eligibleTemplates.length === 0}
           title={
             eligibleTemplates.length === 0
               ? t("app.setFollowUps.needTemplateTooltip")
@@ -177,7 +186,13 @@ export default function FollowUpsPage() {
         </button>
       </div>
 
-      {eligibleTemplates.length === 0 && (
+      {loadError && (
+        <p className="text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-lg px-4 py-3">
+          {loadError}
+        </p>
+      )}
+
+      {!loadError && eligibleTemplates.length === 0 && (
         <p className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg px-4 py-3">
           {t("app.setFollowUps.needTemplatePre")}{" "}
           <a href="/app/settings/email-templates" className="underline">
@@ -192,7 +207,7 @@ export default function FollowUpsPage() {
           rules, so the plain empty sentence below is what a new company sees. */}
       <FlowDiagram rules={rules} />
 
-      {rules.length === 0 ? (
+      {loadError ? null : rules.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("app.setFollowUps.empty")}</p>
       ) : (
         <div className="bg-card border border-border rounded-xl divide-y divide-border">

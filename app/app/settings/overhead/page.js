@@ -127,6 +127,11 @@ function OverheadEditor() {
   // scripts/check-empty-vs-error.mjs exists to stop.
   const [assets, setAssets] = useState(null);
   const [bills, setBills] = useState(null);
+  // A refused or failed read is a fourth state. Without these, `null` meant
+  // both "not asked yet" and "asked and refused", and the render could only
+  // pick one — a placeholder that pulses forever, or a claim of zero.
+  const [assetsError, setAssetsError] = useState("");
+  const [billsError, setBillsError] = useState("");
   const [billSummary, setBillSummary] = useState(null);
   // Hours paid for that never reached a job. Null until the server answers,
   // and null again on a refusal — the panel renders itself away rather than
@@ -171,10 +176,19 @@ function OverheadEditor() {
   const loadMinPrice = useCallback(async () => {
     try {
       const res = await fetch("/api/analytics/minimum-price");
-      const data = await res.json();
       // A 400 here is the "no capacity set" answer, not a failure — it carries
-      // needsCapacity and a message written for the person reading it.
-      setMinPrice(data);
+      // needsCapacity and a message written for the person reading it, and the
+      // page renders that message. Everything else is a failure, and used to
+      // be swallowed: a 403 body is `{ error: "…" }`, which has no
+      // needsCapacity, so the four KPI cards simply vanished and the reason
+      // went nowhere. Absent cards with no sentence reads as "this feature was
+      // removed".
+      if (!res.ok && res.status !== 400) {
+        await reportResponseError(res);
+        setMinPrice(null);
+        return;
+      }
+      setMinPrice(await res.json());
     } catch {
       setMinPrice(null);
     }
@@ -186,10 +200,25 @@ function OverheadEditor() {
   // and a list that showed the old link beside a moved price floor would be
   // the screen disagreeing with itself.
   const loadAssets = useCallback(async () => {
-    const res = await fetch("/api/assets");
-    if (res.ok) setAssets(await res.json());
-    else setAssets([]);
-  }, []);
+    // `setAssets([])` on failure printed "No assets yet." — a confident claim
+    // of zero, made when /api/assets had 403'd on requireCostBasisRead or
+    // 500'd on a Neon cold start. This file's own comment at the `assets`
+    // useState says why that is forbidden: "An empty array is a claim that
+    // there are zero assets, made before anything has been asked." The
+    // initial state honoured that rule; only the failure path broke it.
+    try {
+      const res = await fetch("/api/assets");
+      if (!res.ok) {
+        setAssetsError(await reportResponseError(res));
+        return;
+      }
+      const data = await res.json();
+      setAssets(Array.isArray(data) ? data : []);
+      setAssetsError("");
+    } catch {
+      setAssetsError(t("app.load.network"));
+    }
+  }, [t]);
 
   // Read-only and loaded once: nothing on this page changes a guaranteed week
   // or a time entry, so there is nothing here to reload after a mutation.
@@ -207,23 +236,53 @@ function OverheadEditor() {
   }, []);
 
   const loadBills = useCallback(async () => {
-    const res = await fetch("/api/bills");
-    if (res.ok) {
+    // Same shape as loadAssets, worse subject: the empty state here reads
+    // "Nothing outstanding." Telling a contractor they owe nothing because
+    // /api/bills refused to answer is a false statement about money owed.
+    try {
+      const res = await fetch("/api/bills");
+      if (!res.ok) {
+        setBillsError(await reportResponseError(res));
+        return;
+      }
       const data = await res.json();
       setBills(Array.isArray(data.bills) ? data.bills : []);
       setBillSummary(data.summary || null);
-    } else {
-      setBills([]);
-      setBillSummary(null);
+      setBillsError("");
+    } catch {
+      setBillsError(t("app.load.network"));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
+    // ── Every leg needs its own catch, and the chain needs one too ──────────
+    //
+    // The first two had neither. Promise.all rejects on the first rejection,
+    // and there was no .catch on the chain — so a single failure meant
+    // setLoading(false) never ran and the page sat on the skeleton forever,
+    // with no error and no retry. AGENTS.md names the trigger: "Neon scales to
+    // zero. The first connection after idle can fail with P1001." One cold
+    // start on /api/salaries bricked the screen. The asymmetry was the tell:
+    // legs three and four were given catches and legs one and two were not.
+    //
+    // `[]` here is a genuinely different case from the assets/bills lists
+    // above: these three are the FORM's own rows, and the form below renders
+    // "add your first" with a live Add button either way. The lists that make
+    // a standalone claim about the business get error state; these get an
+    // empty editor and the toast.
+    const leg = (url, fallback) =>
+      fetch(url)
+        .then((r) => (r.ok ? r.json() : Promise.reject(r)))
+        .catch(async (r) => {
+          if (r instanceof Response) await reportResponseError(r);
+          return fallback;
+        });
+
     Promise.all([
-      fetch("/api/salaries").then((r) => r.json()),
-      fetch("/api/debt").then((r) => r.json()),
-      fetch("/api/overhead/fixed-costs").then((r) => r.json()).catch(() => []),
-      fetch("/api/settings/forecast").then((r) => r.json()).catch(() => ({})),
+      leg("/api/salaries", []),
+      leg("/api/debt", []),
+      leg("/api/overhead/fixed-costs", []),
+      leg("/api/settings/forecast", {}),
     ]).then(([s, d, f, forecast]) => {
       setSalaries(Array.isArray(s) ? s : []);
       setDebts(Array.isArray(d) ? d : []);
@@ -618,10 +677,16 @@ function OverheadEditor() {
           </p>
         )}
 
-        {showFigures && (
+        {/* `|| 0.2` was a client-side re-guess of a server-owned default, and
+            it got the one case wrong that normaliseTargetMargin exists to get
+            right: that file says in as many words that 0 is "a legitimate
+            margin (price at cost)", not an absence. A company priced at cost
+            was told "20% target margin". The server already sends the real
+            figure; when it sends none, say nothing rather than invent one. */}
+        {showFigures && minPrice.targetMargin != null && (
           <p className="text-[11px] text-muted-foreground">
             {t("app.setOverhead.marginNote", {
-              pct: Math.round((minPrice.targetMargin || 0.2) * 100),
+              pct: Math.round(minPrice.targetMargin * 100),
             })}
           </p>
         )}
@@ -676,8 +741,13 @@ function OverheadEditor() {
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
                 {t("app.setOverhead.utilHoursLabel")}
               </div>
+              {/* `?? 0` printed "0h" for a figure the server did not send —
+                  directly beside the cost cell, which correctly says
+                  "unknown" for the very same absence. hours()'s own docblock:
+                  "Null stays null so the caller decides what absence reads as
+                  — this file must never turn 'not knowable' into '0h'." */}
               <div className="text-base font-bold tabular-nums text-muted-foreground">
-                {hours(utilisation.unabsorbedHours ?? 0)}
+                {hours(utilisation.unabsorbedHours) ?? "—"}
               </div>
             </div>
           </div>
@@ -1110,7 +1180,9 @@ function OverheadEditor() {
         </p>
 
         <div className="space-y-2 mb-3">
-          {assets === null ? (
+          {assetsError ? (
+            <p className="text-sm text-red-600 dark:text-red-400">{assetsError}</p>
+          ) : assets === null ? (
             <div className="h-12 rounded-lg bg-accent animate-pulse" />
           ) : assets.length === 0 ? (
             <p className="text-sm text-muted-foreground">
@@ -1379,7 +1451,9 @@ function OverheadEditor() {
           )}
 
           <div className="space-y-2 mb-3">
-            {bills === null ? (
+            {billsError ? (
+              <p className="text-sm text-red-600 dark:text-red-400">{billsError}</p>
+            ) : bills === null ? (
               <div className="h-12 rounded-lg bg-accent animate-pulse" />
             ) : bills.length === 0 ? (
               <p className="text-sm text-muted-foreground">

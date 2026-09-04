@@ -30,7 +30,10 @@ const SWATCHES = ["#b91c1c", "#b45309", "#a16207", "#15803d", "#0369a1", "#1d4ed
 export default function JobPhotoTagsPage() {
   const { t } = useTranslation();
   const [tags, setTags] = useState(null);
-  const [starter, setStarter] = useState([]);
+  // Null, not []. `[]` here means "you already have every starter tag", which
+  // the block below says out loud — a claim the page was making before the
+  // server had answered, and again after it had refused.
+  const [starter, setStarter] = useState(null);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -47,7 +50,9 @@ export default function JobPhotoTagsPage() {
     }
     const json = await res.json();
     setTags(json.tags || []);
-    setStarter(json.starterSuggestions || []);
+    setStarter(
+      Array.isArray(json.starterSuggestions) ? json.starterSuggestions : [],
+    );
     setFailed(false);
   }, [t]);
 
@@ -228,7 +233,11 @@ export default function JobPhotoTagsPage() {
             <Sparkles size={13} /> {t("app.setJobPhotoTags.starterTitle")}
           </p>
           <p className="text-xs text-muted-foreground">{t("app.setJobPhotoTags.starterHint")}</p>
-          {starter.length > 0 ? (
+          {/* This whole block sat OUTSIDE the failed/loading ternary that
+              guards the tag list, so a refused read still rendered "You
+              already have every starter tag." The list half of this page got
+              all four states right and the starter half got none of them. */}
+          {failed || starter === null ? null : starter.length > 0 ? (
             <>
               <div className="flex flex-wrap gap-1.5">
                 {starter.map((s) => (

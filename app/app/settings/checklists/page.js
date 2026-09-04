@@ -21,6 +21,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { CHECKLIST_PHASES, PHASE_LABELS } from "@/lib/jobs/checklistItems";
 
@@ -42,19 +43,32 @@ export default function ChecklistsPage() {
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
+  // "The server answered." Empty is only a real statement once this is true.
+  const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async () => {
     setError("");
     try {
+      // ── `r.ok ? r.json() : []` is a lie with a fallback ─────────────────
+      //
+      // A 401/403/500 resolved to an empty array, so the catch below never
+      // fired and setError was never called. The page then rendered its empty
+      // state — "No checklists yet / Write down the steps your crew repeats" —
+      // to a company with a dozen of them, with nothing on screen saying the
+      // request had failed. lib/loadState.js was written about exactly this.
+      //
+      // Failing the whole load on either leg is deliberate: the service list
+      // feeds the "For which service" select, and a silently short one saves a
+      // template against the wrong category.
       const [tpls, c] = await Promise.all([
         // includeSystem: the starter library is only fetched where it's
         // offered, so the settings list isn't padded with rows the company
         // never wrote.
         fetch("/api/settings/checklists?includeSystem=1").then((r) =>
-          r.ok ? r.json() : [],
+          r.ok ? r.json() : Promise.reject(r),
         ),
         fetch("/api/settings/service-categories").then((r) =>
-          r.ok ? r.json() : [],
+          r.ok ? r.json() : Promise.reject(r),
         ),
       ]);
       setTemplates(Array.isArray(tpls) ? tpls : []);
@@ -63,8 +77,13 @@ export default function ChecklistsPage() {
       setCategories(
         (Array.isArray(c) ? c : []).filter((x) => x.enabled !== false),
       );
-    } catch {
-      setError(t("app.setChecklists.loadError"));
+      setLoaded(true);
+    } catch (err) {
+      setError(
+        err instanceof Response
+          ? await reportResponseError(err, t("app.setChecklists.loadError"))
+          : t("app.setChecklists.loadError"),
+      );
     } finally {
       setLoading(false);
     }
@@ -348,7 +367,10 @@ export default function ChecklistsPage() {
         </div>
       )}
 
-      {own.length === 0 && !draft ? (
+      {/* `loaded` and not merely `own.length === 0`: the empty panel is the
+          loudest thing on this screen and it makes a claim about the company.
+          It may only appear once the server has actually said "none". */}
+      {loaded && own.length === 0 && !draft ? (
         <div className="bg-card border border-border rounded-xl p-12 text-center">
           <ClipboardList size={30} className="text-muted-foreground mx-auto" />
           <p className="mt-3 font-medium text-foreground">

@@ -26,16 +26,28 @@ export default function ClientMessagesPage() {
   const { t } = useTranslation();
   const [types, setTypes] = useState(null);
   const [loading, setLoading] = useState(true);
+  // A toast fades; a title over an empty page does not. `types` stayed null on
+  // failure and the render did `(types || []).map(...)`, so a refused read
+  // produced a heading, a subtitle and nothing else — which reads as "there
+  // are no editable messages", not as "we couldn't ask".
+  const [loadError, setLoadError] = useState("");
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/settings/message-templates");
-    if (!res.ok) {
-      await reportResponseError(res, t("app.setMessages.loadError"));
-      return;
+    try {
+      const res = await fetch("/api/settings/message-templates");
+      if (!res.ok) {
+        setLoadError(
+          await reportResponseError(res, t("app.setMessages.loadError")),
+        );
+        return;
+      }
+      const data = await res.json();
+      setTypes(Array.isArray(data.types) ? data.types : []);
+      setLoadError("");
+    } catch {
+      setLoadError(t("app.setMessages.loadError"));
     }
-    const data = await res.json();
-    setTypes(data.types || []);
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     load().finally(() => setLoading(false));
@@ -60,6 +72,12 @@ export default function ClientMessagesPage() {
           {t("app.setMessages.subtitle")}
         </p>
       </div>
+
+      {loadError && (
+        <div className="rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {loadError}
+        </div>
+      )}
 
       {(types || []).map((type) => (
         <MessageEditor key={type.key} type={type} onSaved={load} />

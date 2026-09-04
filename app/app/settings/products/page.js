@@ -40,6 +40,9 @@ export default function ProductsPage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  // The category list is loaded separately from the catalogue, so it needs
+  // its own failure state — the modal below makes a claim when it is empty.
+  const [quoteTypesError, setQuoteTypesError] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(6);
 
@@ -96,12 +99,27 @@ export default function ProductsPage() {
   useEffect(() => setPage(1), [search, pageSize]);
 
   useEffect(() => {
-    fetch("/api/settings/service-categories")
-      .then((r) => r.json())
-      .then((data) =>
-        setQuoteTypes(Array.isArray(data) ? data.filter((c) => c.enabled) : []),
-      );
-  }, []);
+    // No res.ok, no catch, and `useState([])` — so a 500 rendered
+    // app.setProducts.noQuoteTypes ("you have no quote types to attach this
+    // to") inside the modal, and the user saved a product with no category
+    // links believing there were none to pick. It also left an unhandled
+    // rejection. The /api/products load twelve lines above already does this
+    // properly; this one was written the old way beside it.
+    (async () => {
+      try {
+        const res = await fetch("/api/settings/service-categories");
+        if (!res.ok) {
+          setQuoteTypesError(await reportResponseError(res));
+          return;
+        }
+        const data = await res.json();
+        setQuoteTypes(Array.isArray(data) ? data.filter((c) => c.enabled) : []);
+        setQuoteTypesError("");
+      } catch {
+        setQuoteTypesError(t("app.load.network"));
+      }
+    })();
+  }, [t]);
 
   function openAdd() {
     setEditing(null);
@@ -167,7 +185,23 @@ export default function ProductsPage() {
     }
   }
 
-  async function handleDelete(id) {
+  async function handleDelete(id, name) {
+    // ── A hard delete behind one trash icon ──────────────────────────────
+    //
+    // DELETE /api/products/[id] is `db.product.delete` — no soft flag, no
+    // undo, nothing else holds a copy of the rate. Two of these buttons render
+    // per row (mobile and desktop) and neither asked. Its siblings on this
+    // same settings section do: job-photo-tags confirms before retiring a tag,
+    // and leave confirms before deactivating a policy — both less consequential
+    // than deleting a price-book line.
+    const confirmed = window.confirm(
+      t(
+        "app.setProducts.deleteConfirm",
+        "Delete {name}? Its price and description are removed for good — quotes already written keep the numbers they were built with.",
+        { name },
+      ),
+    );
+    if (!confirmed) return;
     const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
     if (res.ok) load(); else {
       // Was silent: a failed request did nothing visible at all.
@@ -295,9 +329,15 @@ export default function ProductsPage() {
               ))}
             </div>
           )}
+          {/* Search is server-side (`?q=`), so "no rows" after a search is a
+              statement about the SEARCH, not about the catalogue. A company
+              with 400 items typing a term that misses was told it had none
+              yet, under a button inviting it to add its first. */}
           {!loading && pageItems.length === 0 && (
             <p className="px-5 py-8 text-sm text-muted-foreground text-center">
-              {t("app.setProducts.emptyList")}
+              {search.trim()
+                ? t("app.setProducts.noSearchMatch", "Nothing matches that search.")
+                : t("app.setProducts.emptyList")}
             </p>
           )}
           {!loading &&
@@ -335,7 +375,7 @@ export default function ProductsPage() {
                       <Pencil size={14} />
                     </button>
                     <button
-                      onClick={() => handleDelete(p.id)}
+                      onClick={() => handleDelete(p.id, p.name)}
                       aria-label={t("app.action.delete", "Delete")}
                       className="min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-red-500"
                     >
@@ -360,7 +400,7 @@ export default function ProductsPage() {
                     <Pencil size={14} />
                   </button>
                   <button
-                    onClick={() => handleDelete(p.id)}
+                    onClick={() => handleDelete(p.id, p.name)}
                     aria-label={t("app.action.delete", "Delete")}
                     className="min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-red-500"
                   >
@@ -568,7 +608,11 @@ export default function ProductsPage() {
                 <label className="text-xs text-muted-foreground block mb-1">
                   {t("app.setProducts.availableOnTypes")}
                 </label>
-                {quoteTypes.length === 0 ? (
+                {quoteTypesError ? (
+                  <p className="text-xs text-red-600 dark:text-red-400">
+                    {quoteTypesError}
+                  </p>
+                ) : quoteTypes.length === 0 ? (
                   <p className="text-xs text-muted-foreground">
                     {t("app.setProducts.noQuoteTypes")}
                   </p>

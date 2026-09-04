@@ -28,6 +28,9 @@ export default function WorkAreasPage() {
   const access = useSettingsAccess();
   const canAssign = access.canChange("workarea:assign");
   const [workAreas, setWorkAreas] = useState([]);
+  // Refused is not empty. The read-only branch below states "none yet",
+  // which a failed request has no standing to say.
+  const [loadError, setLoadError] = useState("");
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
@@ -39,17 +42,33 @@ export default function WorkAreasPage() {
           fetch("/api/work-areas"),
           fetch("/api/settings/members"),
         ]);
-        // Don't feed an error body into the setters — leave lists empty so the
-        // page renders normally instead of choking on a 404/500 payload.
-        if (!waRes.ok) return reportResponseError(waRes);
-        if (!mRes.ok) return reportResponseError(mRes);
-        const wa = await waRes.json();
-        const m = await mRes.json();
-        setWorkAreas(Array.isArray(wa) ? wa : []);
-        setMembers(Array.isArray(m) ? m : []);
+        // Don't feed an error body into the setters. "Leave lists empty so the
+        // page renders normally" was the old reasoning, and it is what made
+        // this page print "No work areas yet" — a statement about the company —
+        // when /api/work-areas had in fact refused to answer. The toast that
+        // said otherwise fades; the sentence stays.
+        //
+        // The two responses are also handled independently now. `return`ing on
+        // the first failure abandoned the second, so a work-areas 500 silently
+        // produced an empty roster as well.
+        if (!waRes.ok) {
+          setLoadError(await reportResponseError(waRes));
+        } else {
+          const wa = await waRes.json();
+          setWorkAreas(Array.isArray(wa) ? wa : []);
+          setLoadError("");
+        }
+        if (!mRes.ok) {
+          await reportResponseError(mRes);
+        } else {
+          const m = await mRes.json();
+          setMembers(Array.isArray(m) ? m : []);
+        }
       } catch {
         // Was silent: a network rejection left the page stuck on the skeleton.
-        showError("Couldn't load work areas. Check your connection and retry.");
+        const msg = t("app.load.network");
+        setLoadError(msg);
+        showError(msg);
       } finally {
         setLoading(false);
       }
@@ -138,7 +157,10 @@ export default function WorkAreasPage() {
             the form above, which is its own empty state; someone who can't
             would otherwise be looking at nothing at all and wondering whether
             the page had failed to load. */}
-        {!canAssign && workAreas.length === 0 && (
+        {loadError && (
+          <p className="text-sm text-red-600 dark:text-red-400">{loadError}</p>
+        )}
+        {!loadError && !canAssign && workAreas.length === 0 && (
           <p className="text-sm text-muted-foreground">
             {t("app.setWorkAreas.noneYet")}
           </p>

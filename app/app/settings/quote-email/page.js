@@ -140,10 +140,15 @@ export default function QuoteEmailSettingsPage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
+  // Separate from `error`, which is a SAVE failure and belongs in the banner
+  // above a form that must stay on screen. A LOAD failure means there is no
+  // form to show — see the guard below the loading skeleton.
+  const [loadError, setLoadError] = useState("");
+
   useEffect(() => {
     fetchJson("/api/settings/quote-email")
       .then(setData)
-      .catch((err) => setError(err.message))
+      .catch((err) => setLoadError(err.message))
       .finally(() => setLoading(false));
   }, []);
 
@@ -184,8 +189,38 @@ export default function QuoteEmailSettingsPage() {
     );
   }
 
-  const references = data?.references || { include: false, items: [], max: 6 };
-  const beforeAfter = data?.beforeAfter || { include: false, items: [], max: 4 };
+  // ── A failed load must not render an editable, empty version of this ──────
+  //
+  // `if (loading)` above was the only guard. When fetchJson rejects, `data`
+  // stays null, `loading` goes false, and both cards used to render fully live
+  // off these fallbacks — toggles unchecked, lists empty, Add enabled.
+  //
+  // That is not merely a wrong picture, it is a delete. AddRow sends
+  // `[...references.items, row]`, which after a failed load is `[...[], row]`,
+  // and the PATCH replaces the stored array
+  // (route.js: `data[meta.companyItemsField] = sanitise(...)`). An admin who
+  // opens this screen during a Neon cold start, sees "no references", and adds
+  // one has just destroyed the other five. Quieter and just as wrong: the
+  // toggle renders OFF for a company whose references are on, so they believe
+  // it and the emails keep going out with them.
+  //
+  // The error banner already existed; what was missing was refusing to render
+  // the form. products/page.js one folder over does exactly this and says why.
+  if (loadError || !data) {
+    return (
+      <div className="p-4 sm:p-6 max-w-2xl mx-auto">
+        <div className="rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {loadError || t("app.load.generic")}
+        </div>
+      </div>
+    );
+  }
+
+  // `max` comes off the response rather than being re-guessed here. The old
+  // literals 6 and 4 duplicated lib/quotes/emailSections.js, so raising the cap
+  // there would have left the Add button capping at the stale number.
+  const references = data.references;
+  const beforeAfter = data.beforeAfter;
 
   const refsEmptyOn = references.include && references.items.length === 0;
   const pairsEmptyOn = beforeAfter.include && beforeAfter.items.length === 0;

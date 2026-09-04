@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { embedSnippet } from "@/lib/embed/snippet";
+import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 function ShareBlock({ icon: Icon, title, description, url, embed }) {
@@ -128,23 +129,47 @@ export default function LeadFormPage() {
   // is a list rather than a card because a company has many, and each carries
   // its own link and its own embed.
   const [funnels, setFunnels] = useState([]);
+  // Three ways this list can be absent, and they are not the same sentence:
+  // the company has none, this member may not see them, or the read failed.
+  const [funnelsError, setFunnelsError] = useState("");
+  const [funnelsRestricted, setFunnelsRestricted] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     // Published only. An unpublished funnel's link 404s for a visitor, and
     // handing someone a link to paste that does not work yet is worse than
     // showing nothing.
-    fetch("/api/funnels")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((list) =>
+    //
+    // `r.ok ? r.json() : []` swallowed a 403, and GET /api/funnels 403s
+    // everyone below admin (requirePermission "user:manage"). So every
+    // supervisor and crew member opening this page was silently shown a page
+    // with no funnels on it and no reason why.
+    //
+    // 403 is the routine answer for those roles, not a fault, so it gets its
+    // own quiet branch — the section simply says the list isn't theirs to see
+    // rather than erroring. Anything else is a real failure and is named.
+    (async () => {
+      try {
+        const res = await fetch("/api/funnels");
+        if (res.status === 403) {
+          setFunnelsRestricted(true);
+          return;
+        }
+        if (!res.ok) {
+          setFunnelsError(await reportResponseError(res));
+          return;
+        }
+        const list = await res.json();
         setFunnels(
           (Array.isArray(list) ? list : []).filter(
             (f) => f.status === "published" && f.slug,
           ),
-        ),
-      )
-      .catch(() => setFunnels([]));
-  }, []);
+        );
+      } catch {
+        setFunnelsError(t("app.load.network"));
+      }
+    })();
+  }, [t]);
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -239,12 +264,27 @@ export default function LeadFormPage() {
         embed={embed("instant-quote")}
       />
 
+      {funnelsError && (
+        <p className="text-sm text-red-600 dark:text-red-400">{funnelsError}</p>
+      )}
+      {funnelsRestricted && (
+        <p className="text-sm text-muted-foreground">
+          {t(
+            "app.setLeadForm.funnelsRestricted",
+            "Lead funnels are managed by an owner or admin — ask one of them for the link.",
+          )}
+        </p>
+      )}
+
       {funnels.map((f) => (
         <ShareBlock
           key={f.id}
           icon={Megaphone}
           title={f.name}
-          description="A tap-through lead funnel — share the link on an ad, or put it on your site."
+          description={t(
+            "app.setLeadForm.funnelDesc",
+            "A tap-through lead funnel — share the link on an ad, or put it on your site.",
+          )}
           url={`${origin}/f/${slug}/${f.slug}`}
           embed={embedSnippet({
             origin,

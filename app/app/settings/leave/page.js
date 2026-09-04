@@ -83,7 +83,21 @@ export default function LeaveSettingsPage() {
       setError("");
     } catch (err) {
       setError(err.message);
-      setData({ policies: [], templates: [] });
+      // ── Do NOT fabricate an empty company ──────────────────────────────
+      //
+      // This used to `setData({ policies: [], templates: [] })`, which is a
+      // claim: "you have no leave policies". The page then rendered
+      // app.setLeave.noPolicies — "No policies yet — seed a template above or
+      // add one." — beside the red banner, inviting an owner to re-enter their
+      // employment terms because a request 500'd. lib/loadState.js opens with
+      // exactly this: the empty state is the loudest element and the one
+      // people believe; the banner reads as a dismissible nag.
+      //
+      // `data` stays null, which the render below already treats as "not
+      // known yet". The file already knew — the templates half carries a
+      // comment about a failed load leaving templates empty; only the
+      // policies half was left saying something untrue.
+      setData(null);
     }
   }, []);
 
@@ -165,7 +179,16 @@ export default function LeaveSettingsPage() {
   }
 
   if (!data) {
-    return (
+    // Three states, not two. With `data` no longer padded on failure, a
+    // spinner here would have spun forever and said nothing — which is the
+    // other way of hiding a refusal.
+    return error ? (
+      <div className="p-4 sm:p-6 max-w-3xl">
+        <div className="rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {error}
+        </div>
+      </div>
+    ) : (
       <div className="flex items-center gap-2 text-sm text-muted-foreground p-6">
         <Loader2 className="animate-spin" size={16} /> {t("app.setLeave.loading")}
       </div>

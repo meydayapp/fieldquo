@@ -212,8 +212,13 @@ function MetaAdsPageScreen() {
         </div>
       )}
 
-      {/* State 1 — no app credentials at all */}
-      {!status?.appConfigured && (
+      {/* State 1 — no app credentials at all.
+          `status` is null both before the read and after a failed one, and
+          `!null?.appConfigured` is true — so a 403 or a cold-start 500 printed
+          a confident, categorically false statement about whether Meta has
+          approved this deployment. The page's own header comment enumerates
+          four honest states; this is the fifth it did not model. */}
+      {status && !status.appConfigured && (
         <div className="bg-card border border-border rounded-xl p-6 text-center space-y-2">
           <ShieldAlert size={32} className="mx-auto text-muted-foreground" />
           <h2 className="font-semibold text-foreground">{t("app.setMetaAds.notConfiguredTitle", "Not set up yet")}</h2>

@@ -13,7 +13,7 @@ import { categoryKeysForIndustries } from "@/app/data/industryCategories";
 // which is how it came to disagree with the instant-quote screen about which
 // trades a company sells.
 import { tradeDefinition } from "@/lib/trades/definition";
-import { reportResponseError } from "@/lib/clientErrors";
+import { reportResponseError, showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import Link from "next/link";
 import { Zap } from "lucide-react";
@@ -43,6 +43,9 @@ function basisChipLabel({ label, unit }) {
 export default function ServiceSettingsPage() {
   const { t } = useTranslation();
   const [categories, setCategories] = useState([]);
+  // Empty and refused are different sentences. Gated separately because the
+  // empty state below makes a claim about the business.
+  const [loadError, setLoadError] = useState("");
   const [saving, setSaving] = useState(false);
 
   // The industries picked at signup drive which of the ~60 catalog categories
@@ -85,16 +88,27 @@ export default function ServiceSettingsPage() {
         const res = await fetch("/api/settings/service-categories");
         // Was fire-and-forget: a 404/500 body was fed straight into
         // setCategories, so an error object rendered as a corrupt page and a
-        // non-array crashed the .map below. Surface the failure, keep the list
-        // empty so the existing empty state shows.
+        // non-array crashed the .map below.
+        //
+        // The half-fix that followed said "keep the list empty so the existing
+        // empty state shows" — which is the bug written down as an intention.
+        // The empty state on this page reads "you have no service types",
+        // which is a statement about the business, and a refused request is
+        // not entitled to make one. lib/loadState.js: "An empty array is a
+        // CLAIM." So the failure is recorded and the claim is gated on it.
         if (!res.ok) {
-          await reportResponseError(res);
+          setLoadError(await reportResponseError(res));
           return;
         }
         const data = await res.json();
         setCategories(Array.isArray(data) ? data : []);
-      } catch (err) {
-        await reportResponseError(err);
+        setLoadError("");
+      } catch {
+        // Not a Response — a network rejection. reportResponseError would read
+        // `.status` off an Error and print "Request failed (undefined)".
+        const msg = t("app.load.network");
+        setLoadError(msg);
+        showError(msg);
       }
     })();
 
@@ -352,10 +366,16 @@ export default function ServiceSettingsPage() {
       )}
 
       <div className="space-y-3">
-        {categories.length === 0 && (
-          <div className="border rounded-lg p-6 text-sm text-muted-foreground text-center">
-            {t("app.setServices.emptyState")}
+        {loadError ? (
+          <div className="rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 p-4 text-sm text-red-700 dark:text-red-300">
+            {loadError}
           </div>
+        ) : (
+          categories.length === 0 && (
+            <div className="border rounded-lg p-6 text-sm text-muted-foreground text-center">
+              {t("app.setServices.emptyState")}
+            </div>
+          )
         )}
         {categories.length > 0 && visibleCategories.length === 0 && (
           <div className="border rounded-lg p-6 text-sm text-muted-foreground text-center">
