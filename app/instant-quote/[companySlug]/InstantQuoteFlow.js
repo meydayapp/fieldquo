@@ -20,9 +20,11 @@
 // address, a polygon, or a few numbers plus a material key and a band index.
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, MapPin, CheckCircle2, Lock } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { documentTheme, fillPair } from "@/lib/documents/theme";
+import { estimateRange } from "@/lib/estimate/estimateMoney";
 import { formatPhoneInput } from "@/lib/validation";
 import MediaUploader from "@/app/components/MediaUploader";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
@@ -148,9 +150,10 @@ const MEASURE_SOURCE = {
   item_picker: "from the items you picked",
 };
 
-function money(n) {
-  return "$" + Math.round(Number(n) || 0).toLocaleString();
-}
+// Money lives in lib/estimate/estimateMoney.js now, shared with the funnel
+// runner. What used to be here was `"$" + Math.round(Number(n) || 0)`, which
+// published a dollar figure for a company billing in euros and turned a
+// missing bound into a confident "$0". See that file for both arguments.
 
 // ── Lawn polygon map ─────────────────────────────────────────────────────────
 // Loads the Google Maps JS API once and lets the homeowner trace their lawn.
@@ -342,8 +345,31 @@ export default function InstantQuoteFlow({ companySlug }) {
   }, [companySlug]);
 
   const brand = data?.company?.brandColor || "#06356b";
+  // ── The brand, measured ───────────────────────────────────────────────────
+  //
+  // `brand` above is the raw hex and stays raw for the things a raw hex is
+  // right for: a selection ring, a wash. It is NOT right for text or for a
+  // fill carrying text, and this page was using it for both.
+  //
+  // Four tenants in the database make that concrete. Sunset Inc's brand is
+  // #ffffff, Big painter Inc's is #c0c0c0, Teacup Poodle's is #fefcdd, and the
+  // seeded default is #bd9d60. Against the white card those measure 1.00,
+  // 1.82, 1.04 and 2.57 to one — so the estimate figure, the selected trade
+  // chip and the submit button rendered white-on-white or near it. The submit
+  // button is the control this entire page exists to get pressed.
+  //
+  // documentTheme is the same machinery the quote and the PDF use: accentText
+  // steps the colour until it clears 4.5:1 as TEXT on paper, fillPair returns
+  // a background plus a foreground measured against it. Neither invents a
+  // colour — a dark brand comes back untouched.
+  const theme = useMemo(() => documentTheme({ brandColor: brand }), [brand]);
+  const solid = useMemo(() => fillPair(theme), [theme]);
   const language = data?.language || "en";
   const fr = language === "fr";
+  // The company's currency, not a symbol. Absent until the payload lands;
+  // currencyMeta falls back to the default rather than throwing, and no figure
+  // is rendered before then anyway.
+  const currency = data?.currency;
 
   function pickTrade(t) {
     setTrade(t);
@@ -517,7 +543,10 @@ export default function InstantQuoteFlow({ companySlug }) {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30" style={{ ["--brand"]: brand }}>
+    // No `--brand` custom property here any more: it was set on this div and
+    // read by nothing in the tree below it. A value written and never read is
+    // the shape of a control that looks wired up and isn't.
+    <div className="min-h-screen bg-muted/30">
       <div className="max-w-5xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
@@ -525,7 +554,14 @@ export default function InstantQuoteFlow({ companySlug }) {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={data.company.logoUrl} alt={data.company.name} className="h-10 w-auto" />
           ) : (
-            <div className="h-10 w-10 rounded-lg" style={{ background: brand }} />
+            // The logo stand-in. On the raw brand a white-branded company got
+            // a white square on a white page — which reads as "the logo failed
+            // to load", not as a company with no logo. fillPair's background is
+            // visible whatever the brand.
+            <div
+              className="h-10 w-10 rounded-lg border"
+              style={{ background: solid.bg, borderColor: theme.accentText }}
+            />
           )}
           <div>
             <h1 className="text-lg font-bold text-foreground">{data.company.name}</h1>
@@ -561,7 +597,7 @@ export default function InstantQuoteFlow({ companySlug }) {
           <div className="space-y-6">
             {result ? (
               <>
-                <SuccessCard result={result} company={data.company} brand={brand} />
+                <SuccessCard result={result} company={data.company} theme={theme} />
                 {/* The next step, offered where they are rather than left to a
                     phone call neither side makes. Only when the company can
                     actually take a booking — no active event type, or the visit
@@ -592,12 +628,31 @@ export default function InstantQuoteFlow({ companySlug }) {
                       <button
                         key={t.trade}
                         onClick={() => pickTrade(t)}
-                        className={`text-left rounded-lg border px-3 py-2.5 text-sm font-medium ${
+                        // min-h-11: 44px is the floor for a thumb, and picking
+                        // the trade is the first thing anyone does here.
+                        className={`text-left rounded-lg border px-3 py-2.5 min-h-11 text-sm font-medium ${
                           trade?.trade === t.trade
-                            ? "border-transparent text-white"
+                            ? "border-transparent"
                             : "border-border bg-card text-foreground hover:border-foreground/30"
                         }`}
-                        style={trade?.trade === t.trade ? { background: brand } : undefined}
+                        // The selected chip was `text-white` on the raw brand,
+                        // so a white or pale-yellow brand made the trade the
+                        // homeowner just picked the only unreadable one.
+                        style={
+                          trade?.trade === t.trade
+                            ? {
+                                background: solid.bg,
+                                color: solid.fg,
+                                // The chip's EDGE, which is a separate
+                                // question from its label. fillPair guarantees
+                                // the label is legible on the fill and says
+                                // nothing about the fill against the page —
+                                // silver is 1.82:1 there, so the chip had no
+                                // shape even once its text was readable.
+                                borderColor: theme.accentText,
+                              }
+                            : undefined
+                        }
                       >
                         {t.label}
                       </button>
@@ -682,10 +737,16 @@ export default function InstantQuoteFlow({ companySlug }) {
                           <button
                             key={m.key}
                             onClick={() => setMaterialKey(m.key)}
-                            className={`w-full text-left rounded-lg border px-4 py-3 text-sm font-medium text-foreground ${
+                            className={`w-full text-left rounded-lg border px-4 py-3 min-h-11 text-sm font-medium text-foreground ${
                               selected ? "border-transparent" : "border-border hover:border-foreground/30"
                             }`}
-                            style={selected ? { boxShadow: `0 0 0 2px ${brand}` } : undefined}
+                            // The ring is the ONLY thing marking a selection —
+                            // the border is dropped at the same time. Drawn in
+                            // the raw brand it disappeared on a white or
+                            // pale-yellow brand, leaving the chosen option
+                            // looking LESS selected than the others.
+                            // accentText is measured against paper.
+                            style={selected ? { boxShadow: `0 0 0 2px ${theme.accentText}` } : undefined}
                           >
                             {m.label}
                           </button>
@@ -710,10 +771,11 @@ export default function InstantQuoteFlow({ companySlug }) {
                             key={b.index}
                             type="button"
                             onClick={() => setBudgetIndex(b.index)}
-                            className={`rounded-lg border px-3 py-2 text-sm font-medium text-foreground ${
+                            className={`rounded-lg border px-3 py-2 min-h-11 text-sm font-medium text-foreground ${
                               selected ? "border-transparent" : "border-border hover:border-foreground/30"
                             }`}
-                            style={selected ? { boxShadow: `0 0 0 2px ${brand}` } : undefined}
+                            // Same measured ring as the material picker above.
+                            style={selected ? { boxShadow: `0 0 0 2px ${theme.accentText}` } : undefined}
                           >
                             {b.label}
                           </button>
@@ -799,8 +861,16 @@ export default function InstantQuoteFlow({ companySlug }) {
                     <button
                       onClick={submit}
                       disabled={submitting || missing.length > 0}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold text-white disabled:opacity-50 w-full"
-                      style={{ background: brand }}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-3 min-h-11 text-sm font-semibold disabled:opacity-50 w-full"
+                      // The one control this page exists to get pressed. It was
+                      // `text-white` on the raw brand: white on white for the
+                      // tenant whose brand IS #ffffff, and 1.82:1 on the one
+                      // whose brand is silver. fillPair measures the pair.
+                      // The border is not decoration: a mid-tone brand keeps
+                      // its own fill (fillPair only moves it when the LABEL
+                      // needs it), and a silver button on a white page has no
+                      // visible edge without one.
+                      style={{ background: solid.bg, color: solid.fg, borderColor: theme.accentText }}
                     >
                       {submitting && <Loader2 size={15} className="animate-spin" />}
                       {submitCta}
@@ -839,8 +909,10 @@ export default function InstantQuoteFlow({ companySlug }) {
               result={result}
               preview={livePreviewShown}
               previewing={previewing}
-              brand={brand}
+              theme={theme}
+              solid={solid}
               language={language}
+              currency={currency}
               company={data.company}
             />
           </div>
@@ -993,12 +1065,20 @@ function Section({ title, required = false, children }) {
  * announced "$X,XXX" would be reading out fake money, and a cursor that could
  * select it invites people to try.
  */
-function EstimatePanel({ trade, result, preview, previewing, brand, language, company }) {
+function EstimatePanel({ trade, result, preview, previewing, theme, solid, language, currency, company }) {
   const fr = language === "fr";
   const rangeLabel = fr ? "Fourchette estimée" : "Estimated range";
   const heading = fr ? "Votre estimation" : "Your estimate";
 
   const shown = result?.estimate || (result ? null : preview?.options?.[0] || null);
+  // The range as ONE string, or null. estimateRange refuses to format a range
+  // with a missing end rather than filling it with a zero — so a half-arrived
+  // payload draws the "still working it out" state instead of promising a
+  // floor of nothing. The locale follows the document language; the CURRENCY is
+  // the company's and is not negotiable by the reader's browser.
+  const rangeText = shown
+    ? estimateRange(shown.low, shown.high, currency, fr ? "fr-CA" : "en-CA")
+    : null;
   const measurement = result?.measurement || preview?.measurement || null;
   const financing = result?.financing || preview?.financing || null;
   const locked = !result && trade?.estimateDisplay === "after_submit" && trade.lockedMessage;
@@ -1008,11 +1088,14 @@ function EstimatePanel({ trade, result, preview, previewing, brand, language, co
     <div className="rounded-2xl border border-border bg-card p-5">
       <h2 className="text-base font-bold text-foreground mb-3">{heading}</h2>
 
-      {shown ? (
+      {shown && rangeText ? (
         <div className="rounded-xl border border-border overflow-hidden text-center px-4 py-6">
           <div className="text-xs text-muted-foreground mb-1.5">{rangeLabel}</div>
-          <div className="text-3xl font-bold" style={{ color: brand }}>
-            {money(shown.low)} – {money(shown.high)}
+          {/* accentText, not the raw brand. This is the biggest number on the
+              page and it was drawn in the company's hex on a white card, which
+              measures 1.00:1 for the tenant whose brand is #ffffff. */}
+          <div className="text-3xl font-bold" style={{ color: theme.accentText }}>
+            {rangeText}
           </div>
           {shown.unit && <div className="text-xs text-muted-foreground mt-1">{shown.unit}</div>}
           {/* Why a small job and a slightly larger one quote the same figure.
@@ -1036,16 +1119,19 @@ function EstimatePanel({ trade, result, preview, previewing, brand, language, co
             className="text-center px-4 py-6 select-none pointer-events-none opacity-50 blur-[9px]"
           >
             <div className="text-xs text-muted-foreground mb-1.5">{rangeLabel}</div>
-            <div className="text-3xl font-bold" style={{ color: brand }}>
+            <div className="text-3xl font-bold" style={{ color: theme.accentText }}>
               {trade.lockedMessage.placeholder}
             </div>
           </div>
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-center px-4">
             <div
               className="w-11 h-11 rounded-full flex items-center justify-center"
-              style={{ background: `${brand}22` }}
+              // The lock chip sits ON the blurred card, so both halves need
+              // measuring: a wash of a white brand is white, and the icon in
+              // the raw brand on top of it is white on white.
+              style={{ background: solid.bg, border: `1px solid ${theme.accentText}` }}
             >
-              <Lock size={20} style={{ color: brand }} />
+              <Lock size={20} style={{ color: solid.fg }} />
             </div>
             <div className="text-sm font-bold text-foreground">{trade.lockedMessage.title}</div>
           </div>
@@ -1107,8 +1193,8 @@ function EstimatePanel({ trade, result, preview, previewing, brand, language, co
               href={financing.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block mt-3 px-4 py-2 rounded-lg text-sm font-semibold text-white"
-              style={{ background: brand }}
+              className="inline-block mt-3 border px-4 py-2 min-h-11 rounded-lg text-sm font-semibold leading-7"
+              style={{ background: solid.bg, color: solid.fg, borderColor: theme.accentText }}
             >
               {fr ? "Voir les options de financement" : "See financing options"}
             </a>
@@ -1123,10 +1209,13 @@ function EstimatePanel({ trade, result, preview, previewing, brand, language, co
   );
 }
 
-function SuccessCard({ result, company, brand }) {
+function SuccessCard({ result, company, theme }) {
   return (
     <div className="rounded-xl border border-border bg-card p-6 text-center">
-      <CheckCircle2 size={40} className="mx-auto mb-3" style={{ color: brand }} />
+      {/* accentText, not the raw brand: this tick is the confirmation that the
+          form went through, and on a white or pale brand it was drawn in a
+          colour the card already is. */}
+      <CheckCircle2 size={40} className="mx-auto mb-3" style={{ color: theme.accentText }} />
       <h2 className="text-lg font-bold text-foreground mb-1">You&apos;re all set</h2>
       <p className="text-sm text-muted-foreground mb-4">
         {company.name} has your details and will confirm your quote shortly.

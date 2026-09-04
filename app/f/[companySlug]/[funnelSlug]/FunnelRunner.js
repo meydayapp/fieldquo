@@ -12,28 +12,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Check, ArrowLeft, Building2, AlertCircle, Lock } from "lucide-react";
 import { readableForeground, ensureContrast } from "@/lib/brand/colour";
-import { currencyMeta } from "@/lib/currency";
+import { documentTheme, fillPair } from "@/lib/documents/theme";
+import { estimateRange } from "@/lib/estimate/estimateMoney";
 import MediaUploader from "@/app/components/MediaUploader";
 
 const FALLBACK_ACCENT = "#06356b";
 
-// Money for an ESTIMATE, which is not money for an invoice. formatMoney renders
-// cents, and the estimator rounds to the nearest $10 precisely so a figure reads
-// as measured rather than as a machine guessing — "$940.00 – $1,270.00" throws
-// that away. Same Intl formatting, same currency table, no fraction digits.
-function money(n, currency) {
-  const v = Math.round(Number(n) || 0);
-  const meta = currencyMeta(currency);
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: meta.code,
-      maximumFractionDigits: 0,
-    }).format(v);
-  } catch {
-    return `${meta.symbol}${v.toLocaleString()}`;
-  }
-}
+// The local money() that used to live here has moved to
+// lib/estimate/estimateMoney.js, unchanged in behaviour except that a
+// non-finite bound now returns null instead of zero. It moved because the
+// instant-quote flow had a second copy of it that hardcoded a dollar sign, and
+// one of the two had to be the survivor.
 
 // Anonymous per-visit id for drop-off analysis. Not tied to a person; derived
 // without Math.random so it also works if this ever renders server-side.
@@ -114,6 +103,28 @@ export default function FunnelRunner({ companySlug, funnelSlug }) {
   // already 12:1) and only steps a mid-tone far enough to clear the floor, so
   // it stays their colour rather than being thrown away for black.
   const monogramInk = useMemo(() => ensureContrast(accent, accentOn, 4.5), [accent, accentOn]);
+
+  // ── The accent ON THE WHITE CARD, which is a different question ───────────
+  //
+  // accent/accentOn is the right pair for the page background, which IS the
+  // accent. It is the wrong pair for a button sitting on the white card in the
+  // middle of it: readableForeground guarantees the LABEL is legible on the
+  // fill, and says nothing about whether the fill is distinguishable from the
+  // card behind it.
+  //
+  // Measured against the four brands in the database: #ffffff is 1.00 to the
+  // card, #c0c0c0 is 1.82, #fefcdd is 1.04 and the seeded #bd9d60 is 2.57 —
+  // all under the 3:1 floor for a non-text shape. The CTA on this funnel read
+  // as loose text with no button around it, and the selected answer, whose
+  // only marking is a brand border and a brand wash, showed no selection at
+  // all. fillPair substitutes ink for a washed-out brand and steps a mid-tone
+  // until the pair clears; accentText is the same colour measured as text.
+  const cardTheme = useMemo(() => documentTheme({ brandColor: accent }), [accent]);
+  const cardFill = useMemo(() => fillPair(cardTheme), [cardTheme]);
+  // The border and wash marking a chosen answer. Not the raw accent — see
+  // above; a brand that vanishes into the card takes the selection with it.
+  const pickInk = cardTheme.accentText;
+  const pickWash = cardTheme.accentWashStrong;
 
   // The end of the run: the thank-you step if the funnel has one, else the
   // built-in done state.
@@ -289,7 +300,7 @@ export default function FunnelRunner({ companySlug, funnelSlug }) {
         <div className="bg-white rounded-2xl p-6 shadow-lg">
           {done || step?.kind === "thankyou" ? (
             <div className="text-center py-6">
-              <div className="w-14 h-14 rounded-full grid place-items-center mx-auto mb-4" style={{ backgroundColor: accent, color: accentOn }}>
+              <div className="w-14 h-14 rounded-full grid place-items-center mx-auto mb-4" style={{ backgroundColor: cardFill.bg, color: cardFill.fg, border: `1px solid ${pickInk}` }}>
                 <Check size={26} />
               </div>
               <h1 className="text-xl font-bold text-[#2d2520]">{step?.headline || "Thanks!"}</h1>
@@ -311,7 +322,7 @@ export default function FunnelRunner({ companySlug, funnelSlug }) {
               <button
                 onClick={() => goNext()}
                 className="w-full mt-6 py-3.5 rounded-full text-sm font-bold"
-                style={{ backgroundColor: accent, color: accentOn }}
+                style={{ backgroundColor: cardFill.bg, color: cardFill.fg, border: `1px solid ${pickInk}` }}
               >
                 {step.buttonText || "Get started"}
               </button>
@@ -328,7 +339,7 @@ export default function FunnelRunner({ companySlug, funnelSlug }) {
                     className="w-full text-left rounded-xl border px-4 py-3 text-sm font-medium text-[#2d2520] transition-colors"
                     style={
                       answers[step.id] === a.value
-                        ? { borderColor: accent, backgroundColor: `${accent}12` }
+                        ? { borderColor: pickInk, backgroundColor: pickWash }
                         : { borderColor: "rgba(0,0,0,0.12)" }
                     }
                   >
@@ -349,10 +360,10 @@ export default function FunnelRunner({ companySlug, funnelSlug }) {
                       key={a.id}
                       onClick={() => toggleMulti(step, a.value)}
                       className="w-full text-left rounded-xl border px-4 py-3 text-sm font-medium text-[#2d2520] flex items-center justify-between"
-                      style={on ? { borderColor: accent, backgroundColor: `${accent}12` } : { borderColor: "rgba(0,0,0,0.12)" }}
+                      style={on ? { borderColor: pickInk, backgroundColor: pickWash } : { borderColor: "rgba(0,0,0,0.12)" }}
                     >
                       {a.label}
-                      {on && <Check size={15} style={{ color: accent }} />}
+                      {on && <Check size={15} style={{ color: pickInk }} />}
                     </button>
                   );
                 })}
@@ -360,7 +371,7 @@ export default function FunnelRunner({ companySlug, funnelSlug }) {
               <button
                 onClick={() => goNext()}
                 className="w-full mt-5 py-3.5 rounded-full text-sm font-bold"
-                style={{ backgroundColor: accent, color: accentOn }}
+                style={{ backgroundColor: cardFill.bg, color: cardFill.fg, border: `1px solid ${pickInk}` }}
               >
                 {step.buttonText || "Continue"}
               </button>
@@ -375,7 +386,7 @@ export default function FunnelRunner({ companySlug, funnelSlug }) {
               <button
                 onClick={() => goNext()}
                 className="w-full mt-5 py-3.5 rounded-full text-sm font-bold"
-                style={{ backgroundColor: accent, color: accentOn }}
+                style={{ backgroundColor: cardFill.bg, color: cardFill.fg, border: `1px solid ${pickInk}` }}
               >
                 {step.buttonText || "Continue"}
               </button>
@@ -388,7 +399,6 @@ export default function FunnelRunner({ companySlug, funnelSlug }) {
               busy={estimating === step.id}
               error={error}
               accent={accent}
-              accentOn={accentOn}
               currency={c.currency}
               companyName={c.name}
               onPick={(bandId) => pickBand(step, bandId)}
@@ -422,7 +432,7 @@ export default function FunnelRunner({ companySlug, funnelSlug }) {
                 onClick={submit}
                 disabled={submitting}
                 className="w-full mt-5 py-3.5 rounded-full text-sm font-bold inline-flex items-center justify-center gap-2 disabled:opacity-60"
-                style={{ backgroundColor: accent, color: accentOn }}
+                style={{ backgroundColor: cardFill.bg, color: cardFill.fg, border: `1px solid ${pickInk}` }}
               >
                 {submitting && <Loader2 size={15} className="animate-spin" />}
                 {step.buttonText || "Submit"}
@@ -459,14 +469,29 @@ function EstimateStep({
   busy,
   error,
   accent,
-  accentOn,
   currency,
   companyName,
   onPick,
   onContinue,
 }) {
-  const priced = result && !result.gated && (result.options || []).length > 0;
-  const options = priced ? result.options : [];
+  // An option only counts as priced when BOTH ends of its range formatted.
+  // A range with a missing bound is not a cheaper estimate, it is an estimate
+  // we do not have, and it belongs in the gated branch below rather than on
+  // screen with a zero in it.
+  const usable = (result?.options || []).filter(
+    (o) => estimateRange(o?.low, o?.high, currency) !== null,
+  );
+  const priced = Boolean(result) && !result.gated && usable.length > 0;
+  const options = priced ? usable : [];
+  // The same measured pairs the runner computes for its own card, recomputed
+  // here because this step is a separate component and threading four colours
+  // through its props would be four more chances to pass the raw hex by
+  // mistake. documentTheme is pure and cheap.
+  const cardTheme = documentTheme({ brandColor: accent });
+  const cardFill = fillPair(cardTheme);
+  const figureInk = cardTheme.accentText;
+  const pickInk = cardTheme.accentText;
+  const pickWash = cardTheme.accentWashStrong;
   // "Submit to reveal" wording, not "we don't publish prices" — the second is a
   // lie in this mode (the price IS shown, thirty seconds later) and a homeowner
   // told there's no number stops filling in the form. Shown both before the tap
@@ -495,7 +520,7 @@ function EstimateStep({
                 className="w-full text-left rounded-xl border px-4 py-3 text-sm font-medium text-[#2d2520] disabled:opacity-60 flex items-center justify-between gap-2"
                 style={
                   chosen === b.id
-                    ? { borderColor: accent, backgroundColor: `${accent}12` }
+                    ? { borderColor: pickInk, backgroundColor: pickWash }
                     : { borderColor: "rgba(0,0,0,0.12)" }
                 }
               >
@@ -513,8 +538,17 @@ function EstimateStep({
           {options.map((o, i) => (
             <div key={o.label || i} className="rounded-xl border border-black/10 px-4 py-4 text-center">
               {o.label && <div className="text-xs text-[#2d2520]/60 mb-1">{o.label}</div>}
-              <div className="text-2xl font-bold" style={{ color: accent }}>
-                {money(o.low, currency)} – {money(o.high, currency)}
+              {/* The card is white, so the figure needs the accent measured as
+                  TEXT on paper, not the raw hex. Everything else on this screen
+                  was already measured — the progress bar, the monogram, the
+                  chip — and the one number the visitor came for was not. A
+                  #ffffff brand rendered it at 1.00:1.
+
+                  estimateRange returns null when either end is missing, so a
+                  half-arrived payload falls through to the gated message
+                  instead of quoting a floor of zero. */}
+              <div className="text-2xl font-bold" style={{ color: figureInk }}>
+                {estimateRange(o.low, o.high, currency)}
               </div>
               {o.unit && <div className="text-xs text-[#2d2520]/60 mt-1">{o.unit}</div>}
               {/* Why a small job and a slightly bigger one can quote the same
@@ -546,12 +580,12 @@ function EstimateStep({
               aria-hidden="true"
               className="text-center px-4 py-6 select-none pointer-events-none opacity-50 blur-[9px]"
             >
-              <div className="text-3xl font-bold" style={{ color: accent }}>
+              <div className="text-3xl font-bold" style={{ color: figureInk }}>
                 {step.lockedMessage.placeholder}
               </div>
             </div>
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-center px-4">
-              <Lock size={18} style={{ color: accent }} />
+              <Lock size={18} style={{ color: pickInk }} />
               <div className="text-sm font-bold text-[#2d2520]">{step.lockedMessage.title}</div>
             </div>
           </div>
@@ -580,7 +614,7 @@ function EstimateStep({
         <button
           onClick={onContinue}
           className="w-full mt-5 py-3.5 rounded-full text-sm font-bold"
-          style={{ backgroundColor: accent, color: accentOn }}
+          style={{ backgroundColor: cardFill.bg, color: cardFill.fg, border: `1px solid ${pickInk}` }}
         >
           {step.buttonText || "Continue"}
         </button>
