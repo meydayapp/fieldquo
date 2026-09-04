@@ -11,7 +11,8 @@
 // ── English only, and that is a gap rather than a decision ──────────────────
 //
 // The rest of the marketing site translates through app/i18n. Adding keys
-// there means adding them in all six languages, which check:translations gates
+// there means adding them in every language the catalogue carries, which
+// check:translations gates
 // — so a half-translated calculator would fail the build, and machine-filling
 // five languages of financial copy is worse than shipping one. The page is
 // English until the strings are written; /about, /careers and /terms are in

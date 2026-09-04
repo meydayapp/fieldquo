@@ -25,8 +25,13 @@
 // different French term rather than a translated English one, so it belongs
 // with the locale-routing work at the end of docs/ROADMAP.md.
 //
-// This page is linked from nowhere yet. See the header of [slug]/page.js for
-// where the links belong once somebody decides to add them.
+// Reachable, as of 2026-09-03, from /resources/help — which is linked from
+// the footer and from the resources cards. It was linked from NOWHERE before
+// that: a hundred and one pages that existed only for somebody who typed the
+// URL. scripts/check-glossary.mjs now asserts an inbound link from outside
+// /glossary, so the next reorganisation cannot quietly orphan them again.
+// See the header of [slug]/page.js for the three places a link belongs and
+// why the footer one is still owed.
 
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";

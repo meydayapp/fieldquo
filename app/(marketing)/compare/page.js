@@ -178,7 +178,15 @@ export default function CompareIndexPage() {
 
           Still driven by FIELDQUO_LACKS, so a gap cannot be quietly dropped
           from the page to make it read better. */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      {/* No max-w/mx-auto/px of its own: this block sits INSIDE the
+          max-w-6xl px-4 container that holds the comparison cards, and
+          carrying a second copy of that container indented the whole section
+          16px relative to the cards above it — measured at 375px, cards at
+          x=16 and this heading at x=32. The JSX indentation records how it
+          happened: the block was moved below the cards, as the comment
+          explains, and never re-indented, so it ended up a child of the
+          container instead of a sibling of it. */}
+      <div className="py-16">
         <h2 className="text-2xl sm:text-3xl font-bold text-foreground">
           {COMPARE_CHROME.concessionTitle}
         </h2>

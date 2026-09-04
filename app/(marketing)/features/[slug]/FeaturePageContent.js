@@ -387,14 +387,14 @@ export default function FeaturePageContent({ slug }) {
             <Link
               key={s}
               href={`/features/${s}`}
-              className="text-sm bg-card border border-border px-4 py-2 rounded-full hover:border-border"
+              className="text-sm bg-card border border-border px-4 py-2 rounded-full transition-colors hover:border-foreground/40"
             >
               {featurePageLabel(s, t) || s}
             </Link>
           ))}
           <Link
             href="/features"
-            className="text-sm bg-card border border-border px-4 py-2 rounded-full hover:border-border"
+            className="text-sm bg-card border border-border px-4 py-2 rounded-full transition-colors hover:border-foreground/40"
           >
             {/* An existing key, already translated into all six — the nav says
                 the same words about the same page. */}

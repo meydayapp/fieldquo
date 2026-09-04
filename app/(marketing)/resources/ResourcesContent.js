@@ -47,7 +47,7 @@ export default function ResourcesContent() {
           <Link
             key={card.href}
             href={card.href}
-            className="border border-border rounded-xl p-6 hover:border-border"
+            className="border border-border rounded-xl p-6 transition-colors hover:border-foreground/40"
           >
             <div className="font-medium text-foreground">
               {t(card.labelKey)}

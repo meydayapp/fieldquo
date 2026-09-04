@@ -382,6 +382,49 @@ ok(
 );
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   The other way a colour lies: a hover that changes nothing
+   ═══════════════════════════════════════════════════════════════════════════
+
+   `border border-border … hover:border-border` and `bg-primary …
+   hover:bg-primary` are both real class lists off these pages. They read as
+   an affordance and they are a no-op: the element says "I respond to a
+   pointer" and does not. That is the dead-control rule at its smallest, and
+   it is the size that survives review, because nothing about the markup looks
+   wrong — the hover IS declared.
+
+   check-platform-console.mjs forbids the same shape on the platform rail, so
+   this is that rule pointed at the marketing tree rather than a new idea.
+
+   Deliberately compares the VALUE, not just the property: `hover:bg-muted` on
+   a `bg-card` element is a real hover and must keep passing. Only an exact
+   match of base and hover value is an offence. */
+section("No marketing hover state is a no-op");
+
+{
+  const noops = [];
+  for (const file of FILES) {
+    const src = read(file);
+    for (const m of src.matchAll(/className="([^"]*)"/g)) {
+      const classes = m[1].split(/\s+/).filter(Boolean);
+      const base = new Set(classes.filter((c) => !c.includes(":")));
+      for (const c of classes) {
+        const hover = c.match(/^hover:(.+)$/);
+        if (!hover) continue;
+        if (base.has(hover[1])) {
+          const line = src.slice(0, m.index).split("\n").length;
+          noops.push(`${path.relative(ROOT, file)}:${line}  hover:${hover[1]} on ${hover[1]}`);
+        }
+      }
+    }
+  }
+  ok(
+    "no hover: variant repeats the base value it is meant to change",
+    noops.length === 0,
+    noops.length ? `\n      ${noops.join("\n      ")}` : "",
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    What was skipped, printed rather than swallowed
    ═══════════════════════════════════════════════════════════════════════════ */
 

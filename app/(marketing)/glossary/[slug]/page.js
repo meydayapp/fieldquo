@@ -28,17 +28,27 @@
 // prints only the opening sentence, so the full definition exists in exactly
 // one place on the site, on this page, which is its own canonical.
 //
-// ══ Where the links belong — WIRED INTO NOTHING on purpose ═════════════════
+// ══ Where the links belong ═════════════════════════════════════════════════
 //
-// Nothing in the global nav points here yet. That is a deliberate hand-off,
-// not an oversight, because header and footer are shared surfaces owned
-// elsewhere. When somebody wants it linked, the three honest places are:
+// This section used to say the pages were "wired into nothing on purpose" and
+// call it a deliberate hand-off. It was neither: a hundred and one pages that
+// nothing on the site pointed at are a hundred and one pages nobody reaches,
+// and writing the finding into a header is what let it ship. /resources/help
+// links the index now — that page is English throughout, so it could take the
+// link without the catalogue key the shared surfaces need — and
+// scripts/check-glossary.mjs asserts an inbound link from outside /glossary
+// rather than trusting this paragraph.
+//
+// Nothing in the global NAV points here yet, and that part is still true.
+// Header and footer are shared surfaces owned elsewhere. The three honest
+// places are:
 //
 //   * app/components/marketing/MarketingFooter.js — the Resources column,
 //     beside footer.links.help and footer.links.contact. Note that column
 //     renders LABELS FROM THE CATALOGUE, so a link there needs a
-//     footer.links.glossary key in all six languages or check:translations
-//     goes red. That is the one place adding this costs translation work.
+//     footer.links.glossary key in every language the catalogue carries or
+//     check:translations goes red. That is the one place adding this costs
+//     translation work, and it is why the link went on /resources/help first.
 //   * app/(marketing)/resources/ResourcesContent.js — its CARDS array, as a
 //     third card. Same catalogue constraint.
 //   * The industry pages' "Also serving nearby trades" strip, if per-trade

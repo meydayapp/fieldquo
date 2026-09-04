@@ -43,7 +43,7 @@ export default function IndustryPageContent({ slug, videoId }) {
               <div className="mt-6 flex flex-wrap items-center gap-3">
                 <Link
                   href="/signup"
-                  className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-full text-sm font-semibold hover:bg-primary"
+                  className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-full text-sm font-semibold transition hover:brightness-110"
                 >
                   {chrome.startTrial} <ArrowRight size={16} />
                 </Link>
@@ -155,7 +155,7 @@ export default function IndustryPageContent({ slug, videoId }) {
               <Link
                 key={i.slug}
                 href={`/industries/${i.slug}`}
-                className="text-sm bg-card border border-border px-4 py-2 rounded-full hover:border-border"
+                className="text-sm bg-card border border-border px-4 py-2 rounded-full transition-colors hover:border-foreground/40"
               >
                 {industryContentFor(i.slug, language)?.label || i.label}
               </Link>

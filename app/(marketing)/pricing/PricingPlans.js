@@ -376,7 +376,7 @@ export default function PricingPlans({ plans, asOf = renderAsOf() }) {
               return (
                 <div
                   key={plan.id}
-                  className="border border-border rounded-2xl p-8 flex flex-col hover:border-border transition-colors"
+                  className="border border-border rounded-2xl p-8 flex flex-col hover:border-foreground/40 transition-colors"
                 >
                   <h3 className="text-lg font-semibold text-foreground">
                     {plan.name}
@@ -466,7 +466,7 @@ export default function PricingPlans({ plans, asOf = renderAsOf() }) {
 
                   <Link
                     href={signupHref(plan)}
-                    className="mt-8 text-center bg-primary text-primary-foreground px-6 py-3 rounded-full text-sm font-semibold hover:bg-primary"
+                    className="mt-8 text-center bg-primary text-primary-foreground px-6 py-3 rounded-full text-sm font-semibold transition hover:brightness-110"
                   >
                     {t("nav.signup")}
                   </Link>

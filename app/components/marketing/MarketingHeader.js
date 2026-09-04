@@ -175,7 +175,7 @@ export default function MarketingHeader() {
                       <Link
                         key={ind.slug}
                         href={`/industries/${ind.slug}`}
-                        className="px-3 py-2 rounded-lg text-sm text-foreground hover:bg-muted hover:text-foreground"
+                        className="px-3 py-2 rounded-lg text-sm text-foreground transition-colors hover:bg-muted"
                       >
                         {ind.label}
                       </Link>

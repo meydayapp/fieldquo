@@ -2,7 +2,6 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
 // Through the shared sender. There is no tenant here — this is FieldQuo's own
 // sales inbox, not a company's mail — so no companyId is passed and the demo
 // interception in lib/email/resend.js correctly never fires. It still goes
@@ -15,6 +14,25 @@ import { sendEmail } from "@/lib/email/resend";
 // LeadRequest. Stored on PlatformAdmin's side conceptually, but since there's no
 // dedicated model for it yet, this just emails you directly rather than writing to
 // a table nothing reads from.
+/**
+ * Every field here is typed by an anonymous stranger and then interpolated
+ * into an HTML email, so it is escaped rather than trusted.
+ *
+ * Not theoretical, and not only about scripts: the body of this mail is a
+ * lead, read by a person deciding whether to ring somebody back. A message
+ * containing `<a href="…">Click to view the full enquiry</a>` renders as a
+ * working link inside what looks like our own notification, and the reader has
+ * no way to tell our markup from the sender's. Escaping is what keeps the
+ * envelope ours and the contents theirs.
+ */
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 export async function POST(request) {
   const body = await request.json();
   const { email, name, message, source } = body;
@@ -25,13 +43,16 @@ export async function POST(request) {
 
   const result = await sendEmail({
     from: "FieldQuo <hello@fieldquo.com>",
+    // The subject is a header rather than markup, so it is stripped of the
+    // characters that would let a name split it into two headers instead of
+    // being HTML-escaped into something a mail client shows literally.
+    subject: `New demo request${name ? ` from ${String(name).replace(/[\r\n]+/g, " ").trim()}` : ""}`,
     to: process.env.SALES_NOTIFICATION_EMAIL || "emilio@fieldquo.com",
-    subject: `New demo request${name ? ` from ${name}` : ""}`,
     html: `
-      <p><strong>Email:</strong> ${email}</p>
-      ${name ? `<p><strong>Name:</strong> ${name}</p>` : ""}
-      ${message ? `<p><strong>Message:</strong> ${message}</p>` : ""}
-      <p><strong>Source:</strong> ${source || "unknown"}</p>
+      <p><strong>Email:</strong> ${escapeHtml(email)}</p>
+      ${name ? `<p><strong>Name:</strong> ${escapeHtml(name)}</p>` : ""}
+      ${message ? `<p><strong>Message:</strong> ${escapeHtml(message)}</p>` : ""}
+      <p><strong>Source:</strong> ${escapeHtml(source || "unknown")}</p>
     `,
   });
 

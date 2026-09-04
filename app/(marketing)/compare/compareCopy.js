@@ -5,7 +5,7 @@
 // ══ Why this is a data module and not the t() catalog ══════════════════════
 //
 // Every string in app/i18n/messages.js is gated: check:translations exits
-// non-zero when any of the six languages is short a MARKETING key, and the
+// non-zero when any language in the catalogue is short a MARKETING key, and the
 // public site is the one surface where a missing string is read by somebody
 // who has no relationship with the product yet. Putting comparative
 // advertising about four named companies into that catalog would mean either

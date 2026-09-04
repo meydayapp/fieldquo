@@ -359,7 +359,7 @@ export default function ComparisonPage({ slug, asOf }) {
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <Link
               href="/signup"
-              className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-full text-sm font-semibold hover:bg-primary"
+              className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-full text-sm font-semibold transition hover:brightness-110"
             >
               {COMPARE_CHROME.ctaButton} <ArrowRight size={16} />
             </Link>
@@ -1176,7 +1176,7 @@ export default function ComparisonPage({ slug, asOf }) {
             <Link
               key={other.slug}
               href={`/compare/${other.slug}`}
-              className="text-sm bg-card border border-border px-4 py-2 rounded-full hover:border-border"
+              className="text-sm bg-card border border-border px-4 py-2 rounded-full transition-colors hover:border-foreground/40"
             >
               {findCompetitor(other.competitorId)?.name || other.slug}
             </Link>

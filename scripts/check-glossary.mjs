@@ -49,7 +49,7 @@
 // asserted against that stub's behaviour (an empty render) plus the source
 // call, which is the honest limit of what can be checked out of process.
 
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
@@ -97,6 +97,29 @@ const esc = (s) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#x27;");
 const rx = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * Every .js under the marketing surfaces, so the inbound-link rule below sees
+ * a new page on the day it lands rather than on the day somebody lists it.
+ *
+ * Resolved off disk rather than through the bundler: this script runs bundled
+ * by esbuild (see the check:glossary script), and readdir at run time is what
+ * reads the tree as it actually is.
+ */
+const MARKETING_FILES = (() => {
+  const out = [];
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir)) {
+      const full = `${dir}/${entry}`;
+      if (statSync(full).isDirectory()) walk(full);
+      else if (entry.endsWith(".js")) out.push(full);
+    }
+  };
+  for (const dir of ["app/(marketing)", "app/components/marketing"]) {
+    if (existsSync(dir)) walk(dir);
+  }
+  return out;
+})();
 
 const DATA = "app/data/tradeGlossary.js";
 const INDEX_PAGE = "app/(marketing)/glossary/page.js";
@@ -586,6 +609,33 @@ ok(
   }) < 0,
 );
 ok("...over every entry", alphabetical().length === TRADE_GLOSSARY.length);
+
+// ── Something on the site has to point at it ────────────────────────────────
+//
+// The term page's header said it plainly — "this page is linked from nowhere
+// yet" — and named the three places a link belongs, and then a hundred and one
+// pages shipped with no inbound link at all. Every assertion in this file
+// proved they were correct, well-formed and not thin. None of them asked
+// whether anybody could get to one, which is the failure class that has cost
+// this repo three shipped-and-unreachable features already.
+//
+// Deliberately NOT satisfied by the term pages linking back to the index:
+// those are the pages the index leads to, so counting them means the section
+// vouches for itself. The link has to come from outside the glossary.
+{
+  const outside = MARKETING_FILES.filter(
+    (f) => !f.includes("/glossary/") && /href="\/glossary/.test(code(f)),
+  );
+  ok(
+    "at least one page outside /glossary links into it",
+    outside.length > 0,
+    outside.length
+      ? outside.map((f) => f.replace(/^.*\/fieldquo\//, "")).join(", ")
+      : "nothing on the site reaches these pages except a typed URL — see the header " +
+        "of app/(marketing)/glossary/[slug]/page.js for the three honest places, and " +
+        "note that the footer and the resources cards both need a catalogue key first",
+  );
+}
 
 console.log(
   fails.length

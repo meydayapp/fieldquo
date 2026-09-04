@@ -59,7 +59,7 @@ export default function NotFoundContent() {
             <Link
               key={ind.slug}
               href={`/industries/${ind.slug}`}
-              className="text-sm bg-muted border border-border px-4 py-2 rounded-full hover:bg-muted"
+              className="text-sm bg-muted border border-border px-4 py-2 rounded-full transition-colors hover:border-foreground/40"
             >
               {ind.label}
             </Link>
