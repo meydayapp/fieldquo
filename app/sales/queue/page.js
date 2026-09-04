@@ -443,6 +443,27 @@ export default function SalesQueuePage() {
                     .
                   </p>
                 ) : null}
+
+                {/* ── The citation, shown rather than stored ────────────────
+                    `citation` was carried on every row and reached a human
+                    only through the "nobody has read this" blocker — so the
+                    verified half of the table, which is the half that lets a
+                    call happen, cited its statute to nobody. That is
+                    AGENTS.md failure class #1 with the safe-looking sign:
+                    written and never read.
+
+                    Folded shut because a rep dialling their fortieth painter
+                    does not want a statute number, and open in one click
+                    because the day they are asked "what makes this legal?"
+                    they need the answer on the screen they are already on. */}
+                {compliance?.jurisdiction?.verified && compliance.citation ? (
+                  <details className="text-xs text-muted-foreground">
+                    <summary className="cursor-pointer">
+                      What {compliance.jurisdiction.name} actually says
+                    </summary>
+                    <p className="mt-1 break-words">{compliance.citation}</p>
+                  </details>
+                ) : null}
               </div>
             )}
 

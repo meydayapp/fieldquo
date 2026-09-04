@@ -756,8 +756,41 @@ engineering.
    §310.6(b)(7)-exempt in the US, given what reps will actually say. If that
    confirmation does not come back clean, budget $62,166/yr (Canada,
    all area codes) and $23,425/yr (US, all area codes) and re-plan.
-3. **[OWNER] Get a state-law read for the US states actually targeted.**
-   Bounded and cheap once the target list exists; unbounded if skipped.
+3. ~~**[OWNER] Get a state-law read for the US states actually targeted.**
+   Bounded and cheap once the target list exists; unbounded if skipped.~~
+   **DONE 2026-09-03** for 49 states plus DC — encoded as data in
+   `lib/sales/callingRules.js`, every row carrying the statute, the operative
+   scope words and the URL it was read at. Iowa and Vermont are deliberately
+   still `unknown`; see their rows for why. What the read changed about the
+   picture, and what is now on the owner rather than on the build:
+
+   - **This is not a calling-hours problem, it is a REGISTRATION problem.**
+     Fourteen jurisdictions require FieldQuo to register — several with a bond
+     — *before the first call*, and their business-to-business exemptions do
+     not reach it. Texas is the trap: §302.056 is titled "Certain Commercial
+     Sales" and reads like a B2B exemption, but it covers only a purchaser who
+     resells the item or uses it in manufacturing. A contractor buying software
+     to run his own business is neither. Sharpest first: **Vermont** (criminal,
+     up to 18 months and $10,000 *per call*), **DC** ($50,000 bond, 60 business
+     days' lead time), **Mississippi** ($75,000 bond), **Ohio** ($50,000 bond,
+     fifth-degree felony), **Rhode Island** ($30,000), **Utah** ($25–50,000 plus
+     fingerprints), **Texas** ($10,000 security).
+   - **Arizona cannot be called at all on this data.** A.R.S. §44-1278(B)(3)
+     bans an unsolicited sales call to any mobile number outright and
+     §44-1273(A) preserves that against every exemption in the article. Nothing
+     in the prospect record says whether a number is mobile, so Arizona
+     refuses. ~18,000 businesses.
+   - **The script is now a legal input, not just a sales one.** Arkansas
+     §4-99-103(9), California §17511.1(a)(3)–(4) and Alabama §8-19A-3(3) each
+     key a registration-and-bond regime to representations that a price is
+     *below the regular price* or that a price rise is imminent. A "20% off,
+     ends Friday" cold-call script pulls FieldQuo into regimes it currently
+     sits outside.
+   - **§8's B2B reasoning below is still right about the TSR and still the
+     wrong question for the states.** Several states' windows do not use the
+     federal residence limit at all: New York's turns on *natural person*, New
+     Jersey's on *individual resident*, South Carolina's and Virginia's on the
+     *area code of the number dialled*. A sole proprietor is inside all four.
 4. **[OWNER] Decide the recording posture** and have counsel confirm it: my
    recommendation is *announce on every call, everywhere, with no jurisdiction
    branching* — it satisfies the all-party consent states and the OPC guidance

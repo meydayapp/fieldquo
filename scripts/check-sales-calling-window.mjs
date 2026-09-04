@@ -175,20 +175,94 @@ ok("Nevada is VERIFIED with no statutory window — a finding, not a gap",
 ok("Nevada's citation names NRS 624.110(1) and the absence of a restriction",
   /624\.110\(1\)/.test(CALLING_JURISDICTIONS["US-NV"].citation));
 
-ok("Arizona is UNVERIFIED for hours while carrying its data-acquisition rule",
-  CALLING_JURISDICTIONS["US-AZ"].verified === false &&
+// ── Arizona: read, and the answer is a BAN rather than a window ────────────
+//
+// This slot used to assert Arizona was unverified. The read happened, and it
+// found something a window cannot express: A.R.S. §44-1278(B)(3) prohibits an
+// unsolicited sales call to any mobile number outright, and §44-1273(A)
+// preserves that against every exemption. So Arizona is verified AND refuses,
+// which is a third shape this table had no room for before.
+ok("Arizona is verified and still refuses, on a flat prohibition rather than a window",
+  CALLING_JURISDICTIONS["US-AZ"].verified === true &&
+  CALLING_JURISDICTIONS["US-AZ"].window === null &&
+  /44-1278\(B\)\(3\)/.test(CALLING_JURISDICTIONS["US-AZ"].prohibition?.fix || ""));
+ok("Arizona keeps its data-acquisition rule alongside the prohibition",
   /39-121\.03/.test(CALLING_JURISDICTIONS["US-AZ"].dataAcquisition || ""));
-ok("Texas is unverified and its ch. 302 registration is flagged as unknown",
-  CALLING_JURISDICTIONS["US-TX"].verified === false &&
-  CALLING_JURISDICTIONS["US-TX"].registration?.required === true &&
-  /302/.test(CALLING_JURISDICTIONS["US-TX"].registration?.what || ""));
+ok("Texas is now VERIFIED, and its ch. 302 registration is confirmed rather than unknown", (() => {
+  const r = CALLING_JURISDICTIONS["US-TX"];
+  return (
+    r.verified === true &&
+    r.window === null &&
+    r.registration?.required === true &&
+    /302\.101/.test(r.registration?.what || "")
+  );
+})());
+// The Texas finding that a survey table would get backwards: §302.056 reads
+// like a B2B exemption and is not one.
+ok("Texas records that §302.056 covers only resale and manufacturing, so it does NOT exempt this sale",
+  /resell/.test(CALLING_JURISDICTIONS["US-TX"].registration?.what || "") &&
+  /manufacturing/.test(CALLING_JURISDICTIONS["US-TX"].registration?.what || ""));
 
+// ── The six that were "known to matter and not read" ───────────────────────
+//
+// All six were read. Maryland, New York, Mississippi and Connecticut turned
+// out to have windows that bind; Louisiana and Indiana turned out not to.
+// Asserted as VERIFIED now, which is the tripwire working in the direction it
+// was pointed.
 for (const code of ["US-MD", "US-NY", "US-MS", "US-LA", "US-IN", "US-CT"]) {
-  ok(`${code} is listed as unread rather than omitted`,
-    CALLING_JURISDICTIONS[code] && CALLING_JURISDICTIONS[code].verified === false);
+  ok(`${code} has been read and is now verified`,
+    CALLING_JURISDICTIONS[code] && CALLING_JURISDICTIONS[code].verified === true);
 }
-ok("Maryland names the specific provision that could not be verified",
-  /14-4502/.test(CALLING_JURISDICTIONS["US-MD"].citation));
+ok("Maryland resolved the §14-4502 question: the B2B exemption is confined to subsection (a)",
+  /14-4502\(c\)/.test(CALLING_JURISDICTIONS["US-MD"].citation) &&
+  /This subsection does not apply to/.test(CALLING_JURISDICTIONS["US-MD"].citation));
+// New York is the state a survey is most likely to get wrong, because the
+// section WITH a B2B exemption is not the section with the hours rule.
+ok("New York records that §399-pp's B2B exemption does not reach §399-z's window",
+  /399-pp/.test(CALLING_JURISDICTIONS["US-NY"].citation) &&
+  /399-z has no B2B exemption/.test(CALLING_JURISDICTIONS["US-NY"].citation));
+ok("New York's window is 08:00–21:00, not the 08:00–20:00 shape copied from Florida", (() => {
+  const w = CALLING_JURISDICTIONS["US-NY"].window;
+  return w.weekday.startMinute === 480 && w.weekday.endMinute === 21 * 60;
+})());
+ok("Illinois cites the operative words that carry no residential limb",
+  /No person shall solicit the sale of goods or services/.test(CALLING_JURISDICTIONS["US-IL"].citation));
+
+// ── Pennsylvania: encoded forward, on purpose ──────────────────────────────
+//
+// The window in the table is the one Act 47 of 2026 imposes from October, not
+// the one in force today, because the future one is narrower and cannot go
+// wrong-permissive while nobody is looking. Asserted so that "fixing" it to
+// today's wider 08:00–21:00 fails.
+ok("Pennsylvania encodes the NARROWER post-Act-47 window, 09:00–19:00 with Sundays closed", (() => {
+  const w = CALLING_JURISDICTIONS["US-PA"].window;
+  return (
+    w.weekday.startMinute === 9 * 60 &&
+    w.weekday.endMinute === 19 * 60 &&
+    (w.closedWeekdays || []).includes(0)
+  );
+})());
+ok("Pennsylvania's citation says why it is forward-dated, and names the act",
+  /Act 47/.test(CALLING_JURISDICTIONS["US-PA"].citation) &&
+  /wrong-permissive/.test(CALLING_JURISDICTIONS["US-PA"].citation));
+
+// ── Vermont and Iowa: read, and DELIBERATELY still refusing ────────────────
+//
+// Both are the case the Nevada row's comment warns about from the other side:
+// "we searched and found no hours provision" is a weaker claim than "we read
+// the scope words and they exclude this call", and only the second earns a
+// verified row. Asserted so that a later tidy-up cannot promote them for
+// looking similar to their neighbours.
+for (const code of ["US-VT", "US-IA"]) {
+  ok(`${code} is an ABSENCE finding and therefore stays unverified`,
+    CALLING_JURISDICTIONS[code].verified === false &&
+    CALLING_JURISDICTIONS[code].window === null);
+}
+ok("Vermont still surfaces its criminal registration duty despite being unverified",
+  CALLING_JURISDICTIONS["US-VT"].registration?.required === true &&
+  /18 months/.test(CALLING_JURISDICTIONS["US-VT"].registration?.what || ""));
+ok("Iowa says its finding is an absence, not a scope reading",
+  /negative proven by absence/.test(CALLING_JURISDICTIONS["US-IA"].citation));
 
 ok("there is no US federal row to fall back to",
   CALLING_JURISDICTIONS.US === undefined && CALLING_JURISDICTIONS["US"] === undefined);
@@ -258,27 +332,230 @@ ok("Canada resolves federally: Alberta and Ontario get the same row",
   jurisdictionFor({ country: "CA", province: "AB" }) === jurisdictionFor({ country: "CA", province: "ON" }));
 
 // ═══════════════════════════════════════════════════════════════════════════
+section("2b. Every verified state, at all four edges of its own window");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ══ Why a generated sweep and not thirty hand-written triples ══════════════
+//
+// Because a hand-written triple is written once, against the window that was
+// in the table that day, and nothing ties it to the row afterwards. Change
+// Georgia from 20:00 to 21:00 and the hand-written 20:01 assertion goes red
+// for the right reason exactly once; change it in BOTH places, which is what a
+// hurried edit does, and the check has stopped testing anything.
+//
+// So the edges are DERIVED from the row. The loop reads `window` out of
+// CALLING_JURISDICTIONS and asks the shipped gate what it says one minute
+// before the start, at the start, one minute before the end, at the end and
+// one minute after — which means a wrong number in the table is still a wrong
+// number, but a MISSING assertion is impossible.
+//
+// The hand-written edges in §2 stay. They are the ones that would catch this
+// loop deriving its edges from the same mistake twice.
+
+/**
+ * The instant at which the wall clock in `zone` reads `minute` on `isoDate`.
+ *
+ * Two passes, and the second is not decoration. The first pass corrects a
+ * naive UTC guess by the zone's offset AT THAT GUESS, which is the wrong
+ * offset whenever the guess and the answer fall on opposite sides of a DST
+ * transition — 02:30 on a spring-forward Sunday is the case that breaks it.
+ * The second pass re-reads the offset at the corrected instant and lands.
+ */
+function instantAt(zone, isoDate, minute) {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  const naive = Date.UTC(y, m - 1, d, 0, 0, 0) + minute * 60_000;
+  const offsetAt = (t) => {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: zone,
+      hour12: false,
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+    }).formatToParts(new Date(t));
+    const p = Object.fromEntries(parts.map((x) => [x.type, x.value]));
+    return Date.UTC(p.year, p.month - 1, p.day, Number(p.hour) % 24, p.minute, p.second) - t;
+  };
+  let t = naive - offsetAt(naive);
+  t = naive - offsetAt(t);
+  return new Date(t);
+}
+
+// The helper's own control. Every boundary assertion below is worthless if
+// instantAt is off by an hour, and an off-by-an-hour helper produces a run
+// that is entirely green — the window simply gets tested at the wrong minutes.
+// So it is checked against the shipped clock, on both sides of a DST boundary
+// and in a zone that has no DST at all. 2026-11-01 is the US fall-back date.
+for (const [zone, date] of [
+  ["America/New_York", "2026-09-03"],
+  ["America/New_York", "2026-11-02"],
+  ["America/Chicago", "2026-03-09"],
+  ["America/Phoenix", "2026-07-01"],
+  ["Pacific/Honolulu", "2026-01-15"],
+  ["America/Anchorage", "2026-09-03"],
+]) {
+  for (const minute of [0, 479, 480, 1199, 1200, 1259, 1439]) {
+    const read = localTimeIn(zone, instantAt(zone, date, minute));
+    ok(`instantAt lands on ${hhmmOf(minute)} in ${zone} on ${date}`, read?.minute === minute, read?.minute);
+  }
+}
+function hhmmOf(m) {
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
+/**
+ * Every verified row that HAS a window, swept at its own edges.
+ *
+ * A stated time zone is used, because the question is what the STATUTE says at
+ * its boundary, not what a two-zone state does about it — that is section 3's
+ * job, and mixing the two produces a state whose split hides a wrong bound.
+ * The zone used is the first one the subdivision map holds, so the assertion
+ * exercises a zone this product would really evaluate that state in.
+ *
+ * Weekday and weekend are both swept. Every US window in this table happens to
+ * be flat, and that is a fact about the rows rather than a property of the
+ * code — Canada's is not flat, and a sweep that only ever looked at Thursdays
+ * would not notice a state whose weekend bounds got typed wrong.
+ */
+const DAYS = [
+  ["2026-09-03", "Thursday", "weekday", 4],
+  ["2026-09-05", "Saturday", "weekend", 6],
+  ["2026-09-06", "Sunday", "weekend", 0],
+];
+
+let sweptStates = 0;
+for (const [key, row] of Object.entries(CALLING_JURISDICTIONS)) {
+  if (!key.startsWith("US-") || !row.verified || !row.window) continue;
+  const sub = key.slice(3);
+  const zone = SUBDIVISION_TIME_ZONES[sub]?.[0];
+  ok(`${key} has a time zone to be evaluated in at all`, Boolean(zone));
+  if (!zone) continue;
+  sweptStates++;
+
+  for (const [date, dayName, half, weekdayNumber] of DAYS) {
+    const bounds = row.window[half];
+    const closed = (row.window.closedWeekdays || []).includes(weekdayNumber);
+    const call = (minute) =>
+      salesCallReadiness({
+        prospect: us(sub),
+        timeZone: zone,
+        now: instantAt(zone, date, minute),
+        // The cap is handed a zero so a capped state is not refused for the
+        // wrong reason — this sweep is about the clock, and §4 owns the cap.
+        attemptsLast24h: 0,
+      }).decision;
+
+    // ── A day the statute closes outright ────────────────────────────────
+    //
+    // Swept ACROSS the hours the window would otherwise have opened, not just
+    // at midnight. A `closedWeekdays` implementation that forgot to check the
+    // list would look correct at 03:00 — it is refused by the bounds anyway —
+    // and be wrong for the whole trading day. That is the mutation this
+    // branch exists to catch.
+    if (closed) {
+      for (const minute of [0, bounds.startMinute, bounds.startMinute + 1, 12 * 60, bounds.endMinute - 1, 23 * 60 + 59]) {
+        ok(`${key} ${dayName} is closed outright: REFUSES ${hhmmOf(minute)}`,
+          call(minute) === CALL_REFUSED, call(minute));
+      }
+      ok(`${key} says out loud that ${dayName}s are closed`,
+        /no calls at all on/.test(describeWindow(row.window) || ""), describeWindow(row.window));
+      continue;
+    }
+
+    ok(`${key} ${dayName}: REFUSES one minute before ${hhmmOf(bounds.startMinute)}`,
+      call(bounds.startMinute - 1) === CALL_REFUSED, call(bounds.startMinute - 1));
+    ok(`${key} ${dayName}: ALLOWS ${hhmmOf(bounds.startMinute)} exactly`,
+      call(bounds.startMinute) === CALL_ALLOWED, call(bounds.startMinute));
+    ok(`${key} ${dayName}: ALLOWS one minute before ${hhmmOf(bounds.endMinute)}`,
+      call(bounds.endMinute - 1) === CALL_ALLOWED, call(bounds.endMinute - 1));
+    ok(`${key} ${dayName}: REFUSES ${hhmmOf(bounds.endMinute)} exactly — the top bound is exclusive`,
+      call(bounds.endMinute) === CALL_REFUSED, call(bounds.endMinute));
+    ok(`${key} ${dayName}: REFUSES one minute after ${hhmmOf(bounds.endMinute)}`,
+      call(bounds.endMinute + 1) === CALL_REFUSED, call(bounds.endMinute + 1));
+    ok(`${key} ${dayName}: REFUSES the middle of the night`,
+      call(3 * 60) === CALL_REFUSED, call(3 * 60));
+  }
+}
+ok("the sweep actually swept some states — an empty loop is green and proves nothing",
+  sweptStates >= 4, sweptStates);
+
+// ═══════════════════════════════════════════════════════════════════════════
 section("3. Unknown is not allowed, in every way it can arise");
 // ═══════════════════════════════════════════════════════════════════════════
 
 const noon = "2026-09-03T17:00:00Z";
 
-for (const code of ["TX", "MD", "NY", "MS", "LA", "IN", "AZ", "CT"]) {
+for (const code of ["VT", "IA"]) {
   const r = salesCallReadiness({ prospect: us(code), now: at(noon) });
   ok(`${code} is unverified and returns "unknown", not "allowed"`, r.decision === CALL_UNKNOWN, r.decision);
   ok(`${code}'s refusal names the statute nobody has read`,
     r.blockers.some((b) => b.code === "jurisdiction_unverified"));
 }
 
-// An unlisted state is the ordinary case — 40-odd of them — and it must be
-// unknown rather than falling to a comfortable federal 8-to-9 that does not
-// exist for these calls.
-for (const code of ["CO", "GA", "OH", "CA", "MI"]) {
-  ok(`${code} is unlisted and returns "unknown"`, decide(us(code), noon) === CALL_UNKNOWN);
+// ── The states that were read, and now answer ──────────────────────────────
+//
+// This block used to hold CO, GA, OH, CA and MI as examples of the ordinary
+// unlisted case. All five have been read, so the assertion is inverted: they
+// must NO LONGER return unknown at a time their own rule permits. Kept as the
+// same five states on purpose, so the diff shows what the read bought.
+const NOON_ALLOWED = ["CO", "GA", "OH", "CA", "MI", "TX", "NY", "IL", "MA", "TN"];
+for (const code of NOON_ALLOWED) {
+  const zone = SUBDIVISION_TIME_ZONES[code][0];
+  const r = salesCallReadiness({
+    prospect: us(code),
+    timeZone: zone,
+    now: instantAt(zone, "2026-09-03", 12 * 60),
+  });
+  ok(`${code} has been read and is ALLOWED at noon on a Thursday`, r.decision === CALL_ALLOWED, r.decision);
+  ok(`${code} no longer says nobody has read it`,
+    !r.blockers.some((b) => b.code === "jurisdiction_unread" || b.code === "jurisdiction_unverified"));
 }
-ok("an unlisted state says nobody has read it, rather than naming a window",
-  salesCallReadiness({ prospect: us("CO"), now: at(noon) }).blockers.some(
-    (b) => b.code === "jurisdiction_unread",
+
+// Arizona is read AND refuses, which is the shape that did not exist before.
+// Asserted at a time of day no window would refuse, so it can only be the ban.
+ok("Arizona refuses at noon on a Thursday — a ban, not a window", (() => {
+  const r = salesCallReadiness({
+    prospect: us("AZ"),
+    timeZone: "America/Phoenix",
+    now: instantAt("America/Phoenix", "2026-09-03", 12 * 60),
+  });
+  return r.decision === CALL_REFUSED && r.blockers.some((b) => b.code === "az_mobile_ban");
+})());
+ok("the Arizona refusal explains that waiting will not fix it", (() => {
+  const r = salesCallReadiness({ prospect: us("AZ"), timeZone: "America/Phoenix", now: at(noon) });
+  return /waiting does not fix it/.test(r.blockers.map((b) => b.fix).join(" "));
+})());
+
+// ── The unread branch, kept REACHABLE on purpose ───────────────────────────
+//
+// Once every state and DC had a row, `jurisdiction_unread` became unreachable,
+// and a mutation making it return "allowed" passed the entire suite green.
+// That is this check's own opening complaint — proving code correct without
+// proving it reached — committed by the check itself.
+//
+// Puerto Rico restores it: a real US subdivision, really present in the
+// Overture extract, with a real time zone and genuinely no law read. The
+// assertion below must name `jurisdiction_unread` SPECIFICALLY and must not
+// accept `location_unknown` in its place, because accepting either is how the
+// vacuous version passed.
+ok("a US subdivision with no jurisdiction row returns unknown", decide(us("PR"), noon) === CALL_UNKNOWN);
+ok("...and says nobody has read it — NOT that we cannot tell where it is", (() => {
+  const r = salesCallReadiness({ prospect: us("PR"), now: at(noon) });
+  return (
+    r.blockers.some((b) => b.code === "jurisdiction_unread") &&
+    !r.blockers.some((b) => b.code === "location_unknown")
+  );
+})());
+ok("Puerto Rico's location IS resolved — the gap is the statute, not the address",
+  locationCodes({ country: "US", province: "PR" }).subdivision === "PR" &&
+  zonesFor({ country: "US", province: "PR" }).length === 1);
+// The invariant that keeps the branch honest. Stated as "some subdivision
+// really produces this verdict" rather than "some key is missing from the
+// table", because a Canadian code is missing from the US table too and would
+// satisfy the weaker form without exercising anything.
+ok("at least one subdivision really reaches the unread branch, so the mutation above stays catchable",
+  Object.keys(SUBDIVISION_TIME_ZONES).some((sub) =>
+    salesCallReadiness({ prospect: us(sub), now: at(noon) }).blockers.some(
+      (b) => b.code === "jurisdiction_unread",
+    ),
   ));
 
 // No location at all.
@@ -411,17 +688,72 @@ ok("Washington warns that registration is outstanding, and still evaluates the h
 ok("Canada warns that the National DNCL registration is outstanding",
   salesCallReadiness({ prospect: { country: "CA", province: "AB" }, timeZone: "America/Edmonton", now: at("2026-09-03T17:00:00Z") })
     .warnings.some((w) => w.code === "registration_outstanding"));
-ok("Texas carries BOTH its unverified hours and its registration flag", (() => {
-  const r = salesCallReadiness({ prospect: us("TX"), now: at(noon) });
-  return (
-    r.decision === CALL_UNKNOWN &&
-    r.blockers.some((b) => b.code === "jurisdiction_unverified") &&
-    r.warnings.some((w) => w.code === "registration_outstanding")
+// Texas is now the case that proves a warning does NOT gate the call: its
+// registration is outstanding and unexempted, and the dial still goes ahead
+// with the warning beside it — because nothing here can know whether the
+// certificate is in the drawer. That is this file's stated design, and Texas
+// is where it costs the most if it is wrong.
+ok("Texas is allowed inside its hours while its registration warning stands", (() => {
+  const r = salesCallReadiness({
+    prospect: us("TX"),
+    timeZone: "America/Chicago",
+    now: instantAt("America/Chicago", "2026-09-03", 12 * 60),
+  });
+  return r.decision === CALL_ALLOWED && r.warnings.some((w) => w.code === "registration_outstanding");
+})());
+ok("six states carry an outstanding registration warning, not one", (() => {
+  const flagged = Object.entries(CALLING_JURISDICTIONS).filter(
+    ([, row]) => row.registration?.required === true && row.registration?.done === false,
   );
+  return flagged.length >= 6;
 })());
 ok("Arizona surfaces its data-acquisition rule as a warning",
   salesCallReadiness({ prospect: us("AZ"), now: at(noon) })
     .warnings.some((w) => w.code === "data_acquisition_rule"));
+
+// ── The holiday bans, said out loud rather than silently not applied ───────
+//
+// Alabama, Utah and Rhode Island each close holidays as well as Sundays, and
+// no holiday calendar is encoded — deliberately, because a half-built one is
+// AGENTS.md failure class #5. The honest alternative is to SAY so on the
+// screen, which is the same move the uncounted 24-hour cap makes. If this ever
+// goes quiet, a rep is being told a state is clear on Thanksgiving.
+for (const [code, zone] of [["AL", "America/Chicago"], ["UT", "America/Denver"], ["RI", "America/New_York"]]) {
+  const r = salesCallReadiness({
+    prospect: us(code),
+    timeZone: zone,
+    now: instantAt(zone, "2026-09-03", 12 * 60),
+  });
+  ok(`${code} is allowed at noon on a working Thursday`, r.decision === CALL_ALLOWED, r.decision);
+  ok(`${code} says out loud that its holiday ban is not being counted`,
+    r.unenforced.some((u) => u.code === "closed_holidays"));
+}
+ok("a state with no hand-enforced rule reports none",
+  salesCallReadiness({
+    prospect: us("IL"),
+    timeZone: "America/Chicago",
+    now: instantAt("America/Chicago", "2026-09-03", 12 * 60),
+  }).unenforced.length === 0);
+
+// ── A verified state with NO statutory window still gets a window ─────────
+//
+// The Nevada rule, now applying to twenty-odd states. The danger of a large
+// `window: null` population is that "no statute" quietly becomes "no limit",
+// so the courtesy window is asserted on the two biggest of them, and the
+// attribution is asserted with it — a rep told "Texas forbids this" would be
+// told something false and would find out.
+for (const [code, zone] of [["CA", "America/Los_Angeles"], ["TX", "America/Chicago"]]) {
+  ok(`${code} has no statutory window and is still refused at 03:00`,
+    salesCallReadiness({ prospect: us(code), timeZone: zone, now: instantAt(zone, "2026-09-03", 3 * 60) })
+      .decision === CALL_REFUSED);
+  ok(`the ${code} refusal says the rule is FieldQuo's own, not the state's`, (() => {
+    const r = salesCallReadiness({
+      prospect: us(code), timeZone: zone, now: instantAt(zone, "2026-09-03", 3 * 60),
+    });
+    const fix = r.blockers.map((b) => b.fix).join(" ");
+    return /FieldQuo's own rule/.test(fix) && new RegExp(`${CALLING_JURISDICTIONS[`US-${code}`].name} imposes none`).test(fix);
+  })());
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("5. The dial control cannot exist without a yes");
@@ -444,7 +776,14 @@ ok("a real out-of-hours refusal produces no dial target",
     "+15551234567",
   ) === null);
 ok("a real unknown-jurisdiction verdict produces no dial target",
-  dialHref(salesCallReadiness({ prospect: us("CO"), now: at(noon) }), "+15551234567") === null);
+  dialHref(salesCallReadiness({ prospect: us("IA"), now: at(noon) }), "+15551234567") === null);
+// And the new refusal shape: a flat prohibition must be as unable to produce a
+// dial target as an out-of-hours refusal is.
+ok("a real prohibition verdict produces no dial target",
+  dialHref(
+    salesCallReadiness({ prospect: us("AZ"), timeZone: "America/Phoenix", now: at(noon) }),
+    "+15551234567",
+  ) === null);
 
 // ── The source rule that makes the above the ONLY route ────────────────────
 const SALES_TREES = ["app/sales", "app/api/sales"];
@@ -463,6 +802,13 @@ ok("the queue page imports the gate", /from\s+"@\/lib\/sales\/callingRules"/.tes
 ok("the queue page calls dialHref", /\bdialHref\s*\(/.test(queuePage));
 ok("the queue page calls the gate itself, so the window closes while it is open",
   /\bsalesCallReadiness\s*\(/.test(queuePage));
+
+// A citation that reaches nobody is the safe-looking half of failure class #1
+// — written, never read. It used to be true of every VERIFIED row: the only
+// path to `citation` was the "nobody has read this" blocker, so the rows that
+// let a call happen cited their statute to no one.
+ok("the queue page shows a verified jurisdiction's citation to the rep",
+  /compliance\.citation/.test(queuePage) && /jurisdiction\?\.verified/.test(queuePage));
 
 const queueRoute = read("app/api/sales/queue/route.js");
 ok("the queue route consults the gate too", /\bsalesCallReadiness\s*\(/.test(queueRoute));

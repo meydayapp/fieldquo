@@ -1052,6 +1052,82 @@ section("The territory filter — every part optional, and a radius is all-or-no
   ok("a negative cursor starts at zero", parseCursor("-5") === 0);
 }
 
+section("The territory filter compares PLACES, not strings — the spellings that are really in the data");
+{
+  // Every string below was COUNTED in the 2026-08-19.0 Overture places release
+  // over the nine trade categories, 945,532 US and Canadian rows. The counts
+  // are in the comment on inTerritory. Nothing here is a spelling somebody
+  // imagined a source might use.
+  const row = (country, province) => ({
+    latitude: 45.4215,
+    longitude: -75.6972,
+    address: { city: null, province, country },
+  });
+
+  // ── The 147 Canadian rows a province-wide campaign used to skip ─────────
+  for (const [spelling, code] of [
+    ["Ontario", "ON"],
+    ["British Columbia", "BC"],
+    ["Alberta", "AB"],
+    ["Québec", "QC"],
+    ["Quebec", "QC"],
+    ["Manitoba", "MB"],
+    ["Saskatchewan", "SK"],
+    ["Nova Scotia", "NS"],
+  ]) {
+    ok(`a row spelled "${spelling}" is inside a ${code} territory`,
+      inTerritory(row("CA", spelling), { country: "CA", province: code }, { haversineKm }));
+    ok(`...and is still OUTSIDE a different province`,
+      !inTerritory(row("CA", spelling), { country: "CA", province: code === "ON" ? "QC" : "ON" }, { haversineKm }));
+  }
+
+  // ── The 3 US rows ───────────────────────────────────────────────────────
+  ok('a row spelled "California" is inside a CA territory',
+    inTerritory(row("US", "California"), { country: "US", province: "CA" }, { haversineKm }));
+  ok('"Calif" — two rows in the release, and the only traditional abbreviation the data actually contains',
+    inTerritory(row("US", "Calif"), { country: "US", province: "CA" }, { haversineKm }));
+  ok("a full country name matches its code",
+    inTerritory(row("United States", "TX"), { country: "US", province: "TX" }, { haversineKm }));
+
+  // ── The half of the mess that was NEVER broken ──────────────────────────
+  //
+  // `ca`, `tx`, `On`, `Fl` are ~60 rows and the old lowercase compare already
+  // matched them. Asserted so a future "fix" aimed at case cannot claim credit
+  // for them, and so removing the fall-through compare is caught.
+  ok("a lowercase code still matches, as it always did",
+    inTerritory(row("US", "tx"), { country: "US", province: "TX" }, { haversineKm }));
+  ok("a mixed-case code still matches",
+    inTerritory(row("CA", "On"), { country: "CA", province: "ON" }, { haversineKm }));
+
+  // ── The strings that mean nothing, which must behave exactly as before ──
+  //
+  // "Oakville" and "Vaughan" are cities sitting in the region column, and
+  // "De Wy" appears once and is not a place. Normalising returns null for all
+  // three, so the literal compare stands and they match nothing — which is
+  // what they did before. A widening that started ADMITTING these would be
+  // worse than the bug it fixed.
+  for (const junk of ["Oakville", "Vaughan", "De Wy", ""]) {
+    ok(`a region of ${JSON.stringify(junk)} is not swept into any province`,
+      !inTerritory(row("CA", junk), { country: "CA", province: "ON" }, { haversineKm }) &&
+      !inTerritory(row("US", junk), { country: "US", province: "CA" }, { haversineKm }));
+  }
+  ok("a null region is not swept into a province either",
+    !inTerritory(row("US", null), { country: "US", province: "TX" }, { haversineKm }));
+  // Two unrecognised strings that are literally equal still match, because
+  // that is the behaviour that existed and this change may only widen.
+  ok("two identical unrecognised spellings still match each other",
+    inTerritory(row("CA", "Oakville"), { country: "CA", province: "oakville" }, { haversineKm }));
+
+  // The trap this pair exists for: "CA" is California as a subdivision and
+  // Canada as a country, and the two sides are normalised by DIFFERENT
+  // functions. Collapsing them into one normaliser passes every assertion
+  // above and puts every Canadian business into a California campaign.
+  ok("a Canadian row is not admitted to a California territory by the CA/CA collision",
+    !inTerritory(row("CA", "ON"), { country: "US", province: "CA" }, { haversineKm }));
+  ok("a Californian row is not admitted to a Canada-wide territory",
+    !inTerritory(row("US", "CA"), { country: "CA" }, { haversineKm }));
+}
+
 section("Provider config: a campaign that cannot run says so, and shows no Start");
 {
   ok("no snapshot URL is refused", overtureProvider.describeConfig({}).ok === false);
