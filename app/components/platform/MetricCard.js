@@ -1,50 +1,12 @@
 // app/components/platform/MetricCard.js
 "use client";
 
-// The glyph for "the number did not arrive". Exported so a check can assert on
-// it and so callers can compare against it rather than re-typing an em dash.
-export const UNKNOWN = "—";
-
-/**
- * Absent is not zero.
- *
- * These two functions used to read `Number(value || 0)`, which turns
- * undefined, null, "" and NaN into a confident 0 — and 0 is finite, so nothing
- * downstream could tell the difference afterwards. On FieldQuo's own console
- * that is the worst possible failure mode: every tile here answers a question
- * about the business, and "we have no MRR" and "MRR didn't load" are opposite
- * answers that were rendering as the same pixels.
- *
- * A real zero still prints as $0.00 / 0. Only absence prints as "—".
- *
- * Safe to be strict at this layer because the platform routes coalesce their
- * aggregates where the meaning is known: Prisma returns `_sum.amount === null`
- * for "no payments", and app/api/platform/analytics/overview/route.js turns
- * that into 0 at the query, not here. So a null reaching this function is not
- * an empty table — it is a field that did not come back.
- */
-function finite(value) {
-  if (value === null || value === undefined || value === "") return null;
-  const n = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
-export function money(value, { compact = false } = {}) {
-  const n = finite(value);
-  if (n === null) return UNKNOWN;
-  return n.toLocaleString("en-CA", {
-    style: "currency",
-    currency: "CAD",
-    maximumFractionDigits: compact && n >= 10000 ? 0 : 2,
-    minimumFractionDigits: compact && n >= 10000 ? 0 : 2,
-  });
-}
-
-export function count(value) {
-  const n = finite(value);
-  if (n === null) return UNKNOWN;
-  return n.toLocaleString("en-CA");
-}
+// The formatting rules live in lib/platform/metricFormat.js so a check can
+// execute them — this file contains JSX, which bare node cannot parse, and a
+// regex hunting for `|| 0` proves nothing about what a function returns.
+// Re-exported here because seven call sites already import them from this path.
+import { UNKNOWN } from "@/lib/platform/metricFormat";
+export { money, count, UNKNOWN } from "@/lib/platform/metricFormat";
 
 /**
  * `note` exists because several of these numbers are easy to misread —
