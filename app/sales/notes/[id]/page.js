@@ -89,7 +89,10 @@ export default function SalesNotePage({ params }) {
   const parent = note ? describeParent(note) : null;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-4">
+    // Bare, like the other seven screens: SalesShell's <main> supplies the
+    // max-width and the padding. See app/sales/notes/page.js for the measured
+    // consequence of applying it twice.
+    <div className="space-y-4">
       <Link
         href="/sales/notes"
         className="inline-flex items-center gap-2 text-sm text-muted-foreground min-h-[44px]"

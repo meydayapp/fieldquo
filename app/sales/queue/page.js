@@ -612,6 +612,17 @@ export default function SalesQueuePage() {
               Put it back in the pool
             </button>
 
+            {/* ── Stop working this one ────────────────────────────────────
+                The distinction below sits OUTSIDE the disclosure, so it is read
+                before the press rather than after it. The body copy was
+                corrected on 2026-09-03; the button that opened it still said
+                "They asked not to be contacted", which is the sentence a rep
+                hears on the phone and the promise this action does not keep —
+                it writes one Prospect row, not the platform list. A retraction
+                underneath a button that already made the promise is the
+                refusal-shaped-as-an-afterthought AGENTS.md's design notes warn
+                about, so the button now says what it does and the sentence
+                stands above both states. */}
             {dncOpen ? (
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-foreground" htmlFor="q-dnc">
@@ -631,18 +642,8 @@ export default function SalesQueuePage() {
                   onClick={() => act("do_not_contact", { prospectId: current.id, reason: dncReason })}
                 >
                   {busy === "do_not_contact" ? <Loader2 className="animate-spin" size={16} /> : <Ban size={16} />}
-                  Record do-not-contact
+                  Stop working them — permanently
                 </button>
-                <p className="text-xs text-muted-foreground">
-                  Permanent on this prospect — it survives every pipeline stage
-                  and there is no control anywhere that lifts it. It does not
-                  put the number on FieldQuo&apos;s do-not-contact list: if they
-                  said it on the phone, close the call with{" "}
-                  <span className="font-medium text-foreground">
-                    Asked not to be called again
-                  </span>{" "}
-                  instead. That one binds every rep and every channel.
-                </p>
               </div>
             ) : (
               <button
@@ -651,9 +652,20 @@ export default function SalesQueuePage() {
                 disabled={Boolean(busy)}
                 onClick={() => setDncOpen(true)}
               >
-                <Ban size={16} /> They asked not to be contacted
+                <Ban size={16} /> Stop working this one
               </button>
             )}
+
+            <p className="text-xs text-muted-foreground">
+              Permanent on this prospect — it survives every pipeline stage and
+              there is no control anywhere that lifts it. It does not put the
+              number on FieldQuo&apos;s do-not-contact list: if they said it on
+              the phone, close the call with{" "}
+              <span className="font-medium text-foreground">
+                Asked not to be called again
+              </span>{" "}
+              instead. That one binds every rep and every channel.
+            </p>
           </section>
         </>
       ) : null}

@@ -100,7 +100,12 @@ export default function SalesNotesPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-4">
+    // No max-w/px/py wrapper: SalesShell's <main> already applies exactly this
+    // one, so these two notes screens were inset twice — 32px of side padding
+    // on a 375px phone where every other screen in the portal has 16, and a
+    // measurably narrower column than the leads screen beside it. The other
+    // seven pages return a bare spacing div; these now match.
+    <div className="space-y-4">
       <div className="flex items-center gap-2">
         <NotebookPen size={18} className="text-muted-foreground shrink-0" />
         <h1 className="text-lg font-semibold text-foreground">My notes</h1>
