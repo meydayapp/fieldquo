@@ -545,6 +545,22 @@ const en = {
   "feature.clients.name": "Client list",
   "feature.clients.summary":
     "Every client, their properties and their history, imported from wherever it lives now.",
+
+  // ── A feature marked shipped that has no screen ──────────────────────
+  //
+  // featureMatrix advertised priced_options as readiness: "shipped" on
+  // /features, /pricing, /compare AND the glossary. /api/quotes/tier-group is
+  // real and works, and scripts/check-route-callers.mjs lists it under
+  // NO_FRONT_DOOR — no screen creates or shows a trio. Four public surfaces
+  // were selling a control nobody can press.
+  //
+  // The row is `partial` now, and this is the sentence that says what is
+  // actually there. It names the gap rather than softening it: a contractor
+  // buying FieldQuo for this feature would be building the three quotes by
+  // hand, and needs to know that before the card is charged.
+  "feature.priced_options.limits": "The pricing behind it is built and the three quotes can be produced behind the scenes, but there is no screen for it yet — so today you would be building all three yourself. Ask us before you buy on this one.",
+  "footer.links.glossary": "Glossary",
+  "resources.glossary.description": "Plain-English definitions of the terms that turn up on quotes, contracts and lien notices.",
 };
 
 const fr = {
@@ -1032,6 +1048,10 @@ const fr = {
   "feature.clients.name": "Liste des clients",
   "feature.clients.summary":
     "Chaque client, ses propriétés et son historique, importés d'où qu'ils se trouvent aujourd'hui.",
+
+  "feature.priced_options.limits": "La tarification est en place et les trois soumissions peuvent être produites en coulisses, mais il n'y a pas encore d'écran pour ça — aujourd'hui, vous les construiriez toutes les trois vous-même. Parlez-nous-en avant d'acheter pour cette fonction.",
+  "footer.links.glossary": "Glossaire",
+  "resources.glossary.description": "Définitions en langage clair des termes qui reviennent sur les soumissions, les contrats et les avis d'hypothèque légale.",
 };
 
 const es = {
@@ -1514,6 +1534,10 @@ const es = {
   "feature.clients.name": "Lista de clientes",
   "feature.clients.summary":
     "Cada cliente, sus propiedades y su historial, importados de donde estén ahora.",
+
+  "feature.priced_options.limits": "La lógica de precios está construida y los tres presupuestos pueden generarse por detrás, pero todavía no hay pantalla para ello — hoy tendrías que armar los tres tú mismo. Consúltanos antes de comprar por esta función.",
+  "footer.links.glossary": "Glosario",
+  "resources.glossary.description": "Definiciones en lenguaje sencillo de los términos que aparecen en presupuestos, contratos y avisos de gravamen.",
 };
 
 const uk = {
@@ -1997,6 +2021,10 @@ const uk = {
   "feature.clients.name": "Список клієнтів",
   "feature.clients.summary":
     "Кожен клієнт, його об'єкти та історія, імпортовані звідти, де вони зараз.",
+
+  "feature.priced_options.limits": "Логіку цін реалізовано, і три кошториси можна створити у фоновому режимі, але екрана для цього ще немає — сьогодні ви складали б усі три самотужки. Запитайте нас, перш ніж купувати заради цієї функції.",
+  "footer.links.glossary": "Глосарій",
+  "resources.glossary.description": "Прості пояснення термінів, які трапляються в кошторисах, договорах і повідомленнях про заставу.",
 };
 
 const pa = {
@@ -2479,6 +2507,10 @@ const pa = {
   "feature.clients.name": "ਗਾਹਕਾਂ ਦੀ ਸੂਚੀ",
   "feature.clients.summary":
     "ਹਰ ਗਾਹਕ, ਉਸ ਦੀਆਂ ਜਾਇਦਾਦਾਂ ਅਤੇ ਇਤਿਹਾਸ, ਜਿੱਥੇ ਵੀ ਹੁਣ ਪਏ ਹਨ ਉੱਥੋਂ ਲਿਆਂਦੇ।",
+
+  "feature.priced_options.limits": "ਇਸ ਪਿੱਛੇ ਦੀ ਕੀਮਤ-ਪ੍ਰਣਾਲੀ ਬਣ ਚੁੱਕੀ ਹੈ ਅਤੇ ਤਿੰਨੇ ਕੋਟ ਪਿੱਛੇ ਹੀ ਤਿਆਰ ਹੋ ਸਕਦੇ ਹਨ, ਪਰ ਇਸ ਲਈ ਅਜੇ ਕੋਈ ਸਕ੍ਰੀਨ ਨਹੀਂ ਹੈ — ਸੋ ਅੱਜ ਤੁਹਾਨੂੰ ਤਿੰਨੇ ਆਪ ਬਣਾਉਣੇ ਪੈਣਗੇ। ਇਸ ਸਹੂਲਤ ਲਈ ਖਰੀਦਣ ਤੋਂ ਪਹਿਲਾਂ ਸਾਡੇ ਨਾਲ ਗੱਲ ਕਰੋ।",
+  "footer.links.glossary": "ਸ਼ਬਦਾਵਲੀ",
+  "resources.glossary.description": "ਉਹਨਾਂ ਸ਼ਬਦਾਂ ਦੇ ਸਿੱਧੇ-ਸਾਦੇ ਅਰਥ ਜੋ ਕੋਟਾਂ, ਇਕਰਾਰਨਾਮਿਆਂ ਅਤੇ ਲੀਨ ਨੋਟਿਸਾਂ ਵਿੱਚ ਆਉਂਦੇ ਹਨ।",
 };
 
 const tl = {
@@ -2966,6 +2998,10 @@ const tl = {
   "feature.clients.name": "Listahan ng kliyente",
   "feature.clients.summary":
     "Bawat kliyente, ang kanilang ari-arian at kasaysayan, na na-import mula saanman ito naroon ngayon.",
+
+  "feature.priced_options.limits": "Nakabuo na ang presyuhan sa likod nito at kayang gawin ang tatlong quote sa likod ng eksena, pero wala pang screen para dito — kaya sa ngayon, ikaw mismo ang gagawa ng tatlo. Kausapin mo muna kami bago bumili para dito.",
+  "footer.links.glossary": "Glosaryo",
+  "resources.glossary.description": "Malinaw na paliwanag sa mga terminong lumalabas sa quote, kontrata at lien notice.",
 };
 
 // The /app catalogue is merged in rather than pasted here — see the header of
@@ -3322,6 +3358,10 @@ const de = {
   "feature.activity_log.summary": "Ein laufendes Protokoll jedes Versands, jeder Änderung und jeder Freigabe, mit Name und Uhrzeit dazu.",
   "feature.clients.name": "Kundenliste",
   "feature.clients.summary": "Jeder Kunde, seine Objekte und seine Historie, importiert von dort, wo das heute liegt.",
+
+  "feature.priced_options.limits": "Die Preislogik dahinter ist gebaut und die drei Angebote lassen sich im Hintergrund erzeugen — aber es gibt noch keine Oberfläche dafür, Sie würden heute also alle drei selbst erstellen. Sprechen Sie uns an, bevor Sie deswegen kaufen.",
+  "footer.links.glossary": "Glossar",
+  "resources.glossary.description": "Verständliche Erklärungen der Begriffe, die auf Angeboten, Verträgen und Pfandanzeigen auftauchen.",
 };
 
 const zh = {
@@ -3665,6 +3705,10 @@ const zh = {
   "feature.clients.name": "客户名单",
   "feature.clients.summary": "每一位客户、他们的物业和往来记录，从现在存放它们的地方导进来。",
   "feature.marketing_spend.limits": "每条线索的成本是把所有渠道混在一起算的，没有按渠道或按广告系列拆分——FieldQuo 里目前还没有任何东西能把某一笔具体的花费和某一条具体的线索对上。",
+
+  "feature.priced_options.limits": "背后的定价逻辑已经做好，三份报价单也能在后台生成，但目前还没有对应的界面 — 也就是说今天这三份得你自己做。若为此功能购买，请先联系我们。",
+  "footer.links.glossary": "术语表",
+  "resources.glossary.description": "用大白话解释报价单、合同和留置权通知里出现的术语。",
 };
 
 const it = {
@@ -4152,6 +4196,10 @@ const it = {
   "feature.clients.name": "Anagrafica clienti",
   "feature.clients.summary":
     "Ogni cliente, i suoi immobili e il suo storico, importati da dove si trovano adesso.",
+
+  "feature.priced_options.limits": "La logica dei prezzi è pronta e i tre preventivi si possono generare dietro le quinte, ma non c'è ancora una schermata — quindi oggi li costruirebbe tutti e tre lei. Ce ne parli prima di acquistare per questa funzione.",
+  "footer.links.glossary": "Glossario",
+  "resources.glossary.description": "Definizioni in parole semplici dei termini che compaiono su preventivi, contratti e avvisi di privilegio.",
 };
 
 const MARKETING = Object.fromEntries(
