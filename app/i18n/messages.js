@@ -69,6 +69,10 @@ const en = {
   "hero.subtitle":
     "Build a quote on site, send it before you leave the driveway, and get paid without chasing anyone.",
   "hero.cta": "Start free trial",
+  // Deliberately not features.title, which opens with "Everything" — so does
+  // the band above it, and two of those on one page is worse than none.
+  // app/components/marketing/ClosingCTA.js argues why the section exists.
+  "home.closing.title": "Ready to send your first quote?",
   "hero.ctaSecondary": "See how it works",
   "hero.noCard": "Your first month is free — your card isn't charged until it ends.",
   "hero.emailPlaceholder": "you@yourcompany.com",
@@ -587,6 +591,7 @@ const fr = {
   "hero.subtitle":
     "Préparez une soumission sur place, envoyez-la avant de quitter le stationnement, et faites-vous payer sans relancer personne.",
   "hero.cta": "Essai gratuit",
+  "home.closing.title": "Prêt à envoyer votre première soumission ?",
   "hero.ctaSecondary": "Voir comment ça marche",
   "hero.noCard": "Votre premier mois est gratuit — votre carte n'est débitée qu'à la fin.",
   "hero.emailPlaceholder": "vous@votreentreprise.com",
@@ -1072,6 +1077,7 @@ const es = {
   "hero.subtitle":
     "Arma el presupuesto en el sitio, envíalo antes de salir, y cobra sin tener que perseguir a nadie.",
   "hero.cta": "Prueba gratis",
+  "home.closing.title": "¿Listo para enviar tu primer presupuesto?",
   "hero.ctaSecondary": "Ver cómo funciona",
   "hero.noCard": "Tu primer mes es gratis: no se cobra tu tarjeta hasta que termine.",
   "hero.emailPlaceholder": "tu@tuempresa.com",
@@ -1553,6 +1559,7 @@ const uk = {
   "hero.subtitle":
     "Складіть кошторис на місці, надішліть його ще до від'їзду та отримайте оплату без нагадувань.",
   "hero.cta": "Почати безкоштовно",
+  "home.closing.title": "Готові надіслати свій перший кошторис?",
   "hero.ctaSecondary": "Як це працює",
   "hero.noCard": "Перший місяць безкоштовний — картку списують лише після його завершення.",
   "hero.emailPlaceholder": "ви@вашакомпанія.com",
@@ -2035,6 +2042,7 @@ const pa = {
   "hero.subtitle":
     "ਮੌਕੇ 'ਤੇ ਕੋਟ ਬਣਾਓ, ਜਾਣ ਤੋਂ ਪਹਿਲਾਂ ਭੇਜੋ, ਅਤੇ ਕਿਸੇ ਦੇ ਪਿੱਛੇ ਪਏ ਬਿਨਾਂ ਭੁਗਤਾਨ ਲਵੋ।",
   "hero.cta": "ਮੁਫ਼ਤ ਅਜ਼ਮਾਇਸ਼ ਸ਼ੁਰੂ ਕਰੋ",
+  "home.closing.title": "ਆਪਣਾ ਪਹਿਲਾ ਕੋਟ ਭੇਜਣ ਲਈ ਤਿਆਰ ਹੋ?",
   "hero.ctaSecondary": "ਇਹ ਕਿਵੇਂ ਕੰਮ ਕਰਦਾ ਹੈ",
   "hero.noCard": "ਤੁਹਾਡਾ ਪਹਿਲਾ ਮਹੀਨਾ ਮੁਫ਼ਤ ਹੈ — ਇਸ ਦੇ ਖ਼ਤਮ ਹੋਣ ਤੱਕ ਕਾਰਡ ਤੋਂ ਪੈਸੇ ਨਹੀਂ ਕੱਟੇ ਜਾਂਦੇ।",
   "hero.emailPlaceholder": "tuhada@tuhadikampani.com",
@@ -2517,6 +2525,7 @@ const tl = {
   "hero.subtitle":
     "Gumawa ng quote sa site, ipadala bago ka pa umalis, at mabayaran nang hindi na kailangang manghabol.",
   "hero.cta": "Simulan ang libreng subok",
+  "home.closing.title": "Handa nang ipadala ang iyong unang quote?",
   "hero.ctaSecondary": "Tingnan kung paano ito gumagana",
   "hero.noCard": "Libre ang unang buwan mo — hindi sisingilin ang card mo hangga't hindi ito natatapos.",
   "hero.emailPlaceholder": "ikaw@iyongkompanya.com",
@@ -3008,6 +3017,7 @@ const de = {
   "hero.title": "Angebote, Rechnungen und Einsatzplanung für Handwerks- und Serviceteams",
   "hero.subtitle": "Erstellen Sie das Angebot vor Ort, senden Sie es, bevor Sie die Einfahrt verlassen, und bekommen Sie Ihr Geld, ohne jemandem hinterherzulaufen.",
   "hero.cta": "Kostenlos testen",
+  "home.closing.title": "Bereit, Ihr erstes Angebot zu senden?",
   "hero.ctaSecondary": "So funktioniert es",
   "hero.noCard": "Ihr erster Monat ist gratis — Ihre Karte wird erst danach belastet.",
   "hero.emailPlaceholder": "sie@ihrbetrieb.de",
@@ -3350,6 +3360,7 @@ const zh = {
   "hero.title": "为上门服务团队做的报价、账单和排期",
   "hero.subtitle": "在现场做报价，车都没开出人家车道就发出去，收钱不用追着人跑。",
   "hero.cta": "开始免费试用",
+  "home.closing.title": "准备好发出第一份报价了吗？",
   "hero.ctaSecondary": "看看怎么用",
   "hero.noCard": "首月免费——试用结束前不会扣你的卡。",
   "hero.emailPlaceholder": "you@yourcompany.com",
@@ -3701,6 +3712,7 @@ const it = {
   "hero.subtitle":
     "Prepari un preventivo in cantiere, lo invii prima di risalire in furgone e si faccia pagare senza rincorrere nessuno.",
   "hero.cta": "Inizia la prova gratuita",
+  "home.closing.title": "Pronto a inviare il tuo primo preventivo?",
   "hero.ctaSecondary": "Guardi come funziona",
   "hero.noCard": "Il primo mese è gratuito — la sua carta non viene addebitata finché non finisce.",
   "hero.emailPlaceholder": "tu@tuaimpresa.it",

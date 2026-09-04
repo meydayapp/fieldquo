@@ -47,10 +47,15 @@ export default function ClosingCTA() {
               brand-accent-text, not brand-accent: the raw orange is a fill
               colour and measures 3.0:1 as text on white. #c34300 on card is
               5.09:1 light and #ff7a2e is 6.49:1 dark. */}
-          <p className="text-xl sm:text-2xl font-bold text-foreground">
-            {t("pricing.firstMonth")}{" "}
-            <span className="text-brand-accent-text">·{" "}{t("pricing.free")}</span>
-          </p>
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-bold text-foreground text-balance">
+              {t("home.closing.title")}
+            </h2>
+            <p className="mt-2 text-lg sm:text-xl font-semibold text-foreground">
+              {t("pricing.firstMonth")}{" "}
+              <span className="text-brand-accent-text">·{" "}{t("pricing.free")}</span>
+            </p>
+          </div>
 
           <Link
             href="/signup"
