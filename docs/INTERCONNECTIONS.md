@@ -59,9 +59,10 @@ cover £X rather than silently re-basing a deposit the client already saw.
 
 ```
 $20  activation    ← Company.stripeChargesEnabled       (Connect KYC done)
-$40  first payment ← invoice.payment_succeeded
-                      billing_reason = subscription_create
-                      AND amount_paid > 0                (the free month is $0)
+$40  renewed       ← invoice.payment_succeeded
+                      billing_reason = subscription_cycle (free or paid — the
+                      boundary is the signal; subscription_create is trial
+                      start and is always $0 on this account)
 $65  retention     ← 60 days from Subscription.createdAt (TRIAL INCLUDED)
                       still active, not cancelled, no refund, no chargeback
 ```

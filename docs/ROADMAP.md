@@ -7766,3 +7766,83 @@ count on the campaign screen is where it shows up.
 `npm run check:campaign-sources` — 170 assertions, executed: two stub sources
 and a fake store driving the shipped handler, plus fourteen mutations of the
 shipped files, every one caught.
+
+---
+
+## Sales milestone 2 fires on a billing cycle, not a payment (4 September 2026)
+
+Plan: [sales/PLAN.md](sales/PLAN.md) §6, §7, §9 — all three rewritten.
+
+The owner's direction: **milestone 2 fires when the company reaches its next
+billing cycle boundary, free or paid.** Verifying it against the code found the
+defect was larger than reported.
+
+### The rule was unsatisfiable, so two of three milestones had never paid
+
+`qualifiesForFirstPayment` wanted `billing_reason === "subscription_create"`
+AND `amount_paid > 0`. Both checkout builders set
+`subscription_data.trial_period_days` (floored at 1) and `TRIAL_PRICE` is 0, so
+the up-front line is omitted — Stripe rejects a zero one-time charge. **The
+`subscription_create` invoice is always $0 on this account.** The pair could
+never be true. And the retention sweep read `milestone: first_payment,
+status: earned` as its input set, so milestone 3 was empty for the same reason.
+$105 of a $125 commission was unreachable for every rep, not just for companies
+extending free access by referring.
+
+### The signal
+
+`billing_reason === "subscription_cycle"`, checked against the shapes this
+account produces rather than assumed: trial start is `subscription_create` ($0),
+the trial ending into a real charge is `subscription_cycle`, a mid-cycle plan
+change is `subscription_update`. Annual is unaffected — an annual subscriber's
+first real invoice is a `subscription_cycle` one too, and nothing counts cycles.
+
+A retry cannot pay twice, and not because of the predicate: it says yes to a
+redelivered event, a retried invoice AND next month's invoice, deliberately.
+`commissionRef(companyId, milestone)` is one row per company per milestone
+forever, enforced by the unique `(companyId, ref)` index. That is now asserted
+against a fake Postgres that raises P2002, not by reading.
+
+### What replaced `amount_paid > 0`
+
+A cycle boundary needs a whole trial survived under Stripe's billing; a $0 cycle
+is only reachable because FieldQuo granted the credit (referral credit itself
+requires the REFERRED company to have paid real money while `active` and
+`stripeChargesEnabled`, capped at 50/referrer/month); and `subtotal > 0` keeps
+"the cycle was worth something". Milestone 1 already pays on
+`stripeChargesEnabled` alone, so nothing here opens a class of fraud that is not
+open a milestone earlier. Full argument in the doc comment on
+`qualifiesForBillingCycle`.
+
+### Retention
+
+The **anchor did not move** — `Subscription.createdAt`, trial included. The
+**gate** did: the first-payment condition is gone (its justification, "a company
+sixty days in has necessarily been charged", is false once referral months push
+`trial_end` forward), and live `status === "active"` carries it instead. The
+sweep's input set is `SalesAttribution` now, so a company that never reaches a
+cycle boundary is *held on its status* and re-asked nightly rather than being
+invisible.
+
+### The label, not the value
+
+`MILESTONE_LABELS.first_payment` is **"Renewed"**, in every language the portal
+ships, plus the platform performance table. The stored enum value stays
+`first_payment`: it is embedded in live rows and in the
+`commission:<companyId>:first_payment` refs that have already paid people, and
+renaming it would buy nothing a label cannot buy.
+
+### Still open — needs the owner
+
+- **`reverseMilestone()` has no caller anywhere.** The reversal mechanism is
+  correct (asserted, including on an earning that fired on a free cycle) and
+  nothing invokes it, so a refund or chargeback on a contractor's own
+  subscription does not claw a commission back today. Which events reverse which
+  milestones is a product decision.
+- A company on a **perpetually extended trial** still earns nobody milestone 2
+  or 3: Stripe raises no invoice while a subscription is trialing, so there is
+  no boundary to fire on. It is a hold, not a denial — they earn on conversion.
+  Paying before a cycle ever turns would need a new, synthetic signal.
+
+`npm run check:sales-commission` — 101 assertions, and eight mutations of the
+shipped files (each confirmed applied on disk), every one caught.

@@ -335,7 +335,7 @@ You stop being involved, and the milestones run on their own.
 |---|---|---|
 | Signup | Company uses your link | Attribution locks immediately |
 | **Activated** | Stripe Connect enables charges | Webhook, minutes |
-| **First payment** | First real invoice paid, `> $0` | ~day 30, when the free month ends |
+| **Renewed** | The next billing cycle turns — paid, or free if a credit covered it | ~day 30, when the free month ends |
 | **Still paying** | Still active 60 days after **subscription start** | Nightly sweep, 09:20 UTC |
 
 Amounts, the exact qualification rules and worked examples are in
@@ -409,13 +409,13 @@ Calling window   09:00–21:30 weekdays                   NOT ENFORCED — yours
 Opt-out          Permanent. Superadmin-only removal, written reason.
                  Retained 3 years + 14 days. STOP is not reversed by START.
 
-Milestones       Activated $20 · First payment $40 · Still paying $65 = $125
+Milestones       Activated $20 · Renewed $40 · Still paying $65 = $125
 Retention clock  60 days from SUBSCRIPTION START, trial included
                  (day 61 if the subscription started after 09:20 UTC)
 Payouts          Mondays 10:07 UTC, previous UTC week, paid by a human
 
 Steady state     signups per weekday × $300/week, reached week 9-13
-First payouts    activation week 1 · first payment week 5 · retention week 9
+First payouts    activation week 1 · renewal week 5 · retention week 9
                  Full tables: docs/sales/VOLUME-SCENARIOS.md
 ```
 

@@ -132,7 +132,7 @@ Wednesday.
 | # | Key | Label on screen | Default | Decided by |
 |---|---|---|---|---|
 | 1 | `activation` | Activated | **$20.00** (`activationCents: 2000`) | `qualifiesForActivation()` |
-| 2 | `first_payment` | First payment | **$40.00** (`firstPaymentCents: 4000`) | `qualifiesForFirstPayment()` |
+| 2 | `first_payment` | Renewed | **$40.00** (`firstPaymentCents: 4000`) | `qualifiesForBillingCycle()` |
 | 3 | `retention` | Still paying | **$65.00** (`retentionCents: 6500`) | `qualifiesForRetention()` |
 | | | **Total per acquisition** | **$125.00** | |
 
@@ -174,36 +174,54 @@ months later cannot move when it happened.
 > have different fraud postures **on purpose** — do not "harmonise" them, and do
 > not explain one using the other's rules.
 
-### Milestone 2 — First payment · $40
+### Milestone 2 — Renewed · $40  (revised 4 September 2026)
 
 ```js
-export function qualifiesForFirstPayment(invoice) {
+export function qualifiesForBillingCycle(invoice) {
   if (!invoice) return false;
-  if (invoice.billing_reason !== "subscription_create") return false;
+  if (invoice.billing_reason !== "subscription_cycle") return false;
   const paid = Number(invoice.amount_paid);
-  return Number.isFinite(paid) && paid > 0;
+  if (Number.isFinite(paid) && paid > 0) return true;
+  const subtotal = Number(invoice.subtotal);
+  return Number.isFinite(subtotal) && subtotal > 0;
 }
 ```
 
-Both conditions carry weight:
+**The company reached its next billing cycle. Free or paid.** Whether Stripe
+collected money is not the question — the company still being there when the
+meter rolls over is.
 
-- **`billing_reason === "subscription_create"`.** The trap is
+It used to require `billing_reason === "subscription_create"` **and**
+`amount_paid > 0`, and those cannot both be true on this account: every
+subscription opens with a Stripe trial and `TRIAL_PRICE` is 0, so that invoice
+is always $0. **The milestone had never fired for anyone**, and because the
+retention sweep read its rows, milestone 3 hadn't either.
+
+- **`billing_reason === "subscription_cycle"`.** The trap next door is
   `checkout.session.completed`, which fires **at trial start with nothing
-  collected**, creates the Subscription row, and flips `onboardingStatus` to
-  active. It is the event that looks right and is wrong.
-- **`amount_paid > 0`.** The first month is free (`TRIAL_PRICE = 0`) and the
-  referral programme grants further free months on top. Without this a $0
-  invoice would pay a full commission on nothing collected.
+  collected**, creates the Subscription row and flips `onboardingStatus` to
+  active. `subscription_create` is the same trap wearing an invoice.
+- **`subtotal > 0` when nothing was collected.** A free cycle counts, but only
+  if the cycle billed for something. What made it free was a credit FieldQuo
+  granted — and referral credit is gated harder than this milestone is.
 
 Executed against every near-miss:
 
 | Invoice | Pays? |
 |---|---|
-| `{ billing_reason: "subscription_create", amount_paid: 9900 }` | **yes** |
-| `{ billing_reason: "subscription_create", amount_paid: 0 }` | no — free month |
-| `{ billing_reason: "subscription_cycle", amount_paid: 9900 }` | no — month two |
+| `{ billing_reason: "subscription_cycle", amount_paid: 12900 }` | **yes** |
+| `{ billing_reason: "subscription_cycle", amount_paid: 0, subtotal: 12900 }` | **yes** — free cycle, credit covered it |
+| `{ billing_reason: "subscription_cycle", amount_paid: 129000 }` | **yes** — the annual cadence |
+| `{ billing_reason: "subscription_create", amount_paid: 0 }` | no — trial start |
+| `{ billing_reason: "subscription_create", amount_paid: 12900 }` | no — still the wrong event |
+| `{ billing_reason: "subscription_cycle", amount_paid: 0, subtotal: 0 }` | no — billed nothing |
+| `{ billing_reason: "subscription_update", amount_paid: 4300 }` | no — a plan change |
 | `{ billing_reason: "manual", amount_paid: 9900 }` | no |
-| `{ billing_reason: "subscription_create" }` (no amount) | no |
+
+**Month two does not pay again.** Every later cycle invoice satisfies this too,
+deliberately — paying once is the ledger's job:
+`commission:<companyId>:first_payment` is one row per company per milestone,
+enforced by a unique index.
 
 ### Milestone 3 — Still paying · $65
 
@@ -216,9 +234,15 @@ so a payment lands near day 30, and counting sixty days from there means paying
 at **day 91** for a milestone defined at day 60 — 31 days late, measured in the
 worked example below.
 
-A first payment is still **required**, but as a condition rather than as the
-clock: a company sixty days in on a one-month trial has necessarily been
-charged, so its absence means something went wrong.
+A first payment used to be **required**, as a condition rather than as the
+clock, justified by "a company sixty days in on a one-month trial has
+necessarily been charged". That sentence is false: referral months are granted
+by pushing Stripe's `trial_end` forward, so a company that keeps introducing
+other contractors is sixty days in and has never been charged. The condition
+was removed on 4 September 2026. **`status === "active"` carries what it was
+reaching for**, read live from Stripe rather than inferred from our ledger — and
+a company still `trialing` at day 60 is *held*, not denied, because the sweep
+re-derives every night.
 
 Every refusal, executed (`subscriptionStartedAt` 2026-03-02, evaluated at day
 60):
@@ -233,7 +257,6 @@ Every refusal, executed (`subscriptionStartedAt` 2026-03-02, evaluated at day
 | `refundedAmountCents > 0` | `{ qualifies: false, reason: "refunded" }` |
 | `disputeStatus: "lost"` | `{ qualifies: false, reason: "chargeback" }` |
 | `disputeStatus: "warning_needs_response"` | `{ qualifies: false, reason: "dispute_open", holdUntilResolved: true }` |
-| no first payment recorded | `{ qualifies: false, reason: "no_first_payment" }` |
 | no subscription start | `{ qualifies: false, reason: "no_subscription_start" }` |
 
 **`past_due` and `trialing` are explicitly not "still paying".** `past_due` is
@@ -270,7 +293,7 @@ A painter signs up through your link on **2 March 2026** and stays.
 |---|---|---|---|---|
 | Day 0 · 2 Mar | Subscription created — trial starts, nothing charged | — | — | — |
 | Day 4 · 6 Mar | Stripe Connect onboarding finishes, `charges_enabled = true` | `qualifiesForActivation({stripeChargesEnabled: true})` | `true` | **$20.00** |
-| Day 31 · 2 Apr | First real invoice, `$99.00` | `qualifiesForFirstPayment({billing_reason:"subscription_create", amount_paid:9900})` | `true` | **$40.00** |
+| Day 31 · 2 Apr | Trial ends, first cycle invoice `$99.00` | `qualifiesForBillingCycle({billing_reason:"subscription_cycle", amount_paid:9900})` | `true` | **$40.00** |
 | Day 59 · 30 Apr | Nightly sweep runs | `qualifiesForRetention(... now: day59)` | `{qualifies:false, reason:"too_early"}` | — |
 | Day 60 · 1 May | Nightly sweep runs | `qualifiesForRetention(... now: day60)` | `{qualifies:true, reason:"ok"}` | **$65.00** |
 

@@ -8298,8 +8298,13 @@ model SalesCommissionPlan {
   activationCents   Int @default(2000)
   firstPaymentCents Int @default(4000)
   retentionCents    Int @default(6500)
-  /// Days after the first successful payment before the retention milestone can
-  /// be earned. Configurable because 60 is a policy, not a fact.
+  /// Days after the SUBSCRIPTION STARTS — trial included — before the retention
+  /// milestone can be earned. Said "after the first successful payment" and was
+  /// wrong in both directions: the clock has always been Subscription.createdAt
+  /// (the owner's wording is "still subscribed after 60 days (including
+  /// trial)"), and since 2026-09-04 a first payment is not a condition either,
+  /// because referral months mean a company can be sixty days in and never
+  /// charged. Configurable because 60 is a policy, not a fact.
   retentionDays     Int @default(60)
 
   createdAt DateTime @default(now())
@@ -8390,6 +8395,12 @@ model SalesCommissionEntry {
   salesRep   SalesRep @relation(fields: [salesRepId], references: [id])
 
   /// "activation" | "first_payment" | "retention"
+  ///
+  /// `first_payment` is a historical NAME, not a description: since 2026-09-04
+  /// that milestone fires when the company reaches its next billing cycle,
+  /// free or paid. The value is kept because it is embedded in every existing
+  /// row and in the `commission:<companyId>:first_payment` idempotency ref that
+  /// has already paid reps. MILESTONE_LABELS carries what a human reads.
   milestone  String
   amountCents Int
 

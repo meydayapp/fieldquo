@@ -51,6 +51,13 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 // (The comment is careful not to spell such a key out either — the scan reads
 // source text, comments included, so an example in prose would be reported as
 // an undefined key. It was, on the first run.)
+// The middle key still says FirstPayment and its translations now say
+// "Renewed", in every language the portal ships. That is deliberate and matches the decision in
+// lib/sales/commission.js: milestone 2 stopped meaning "a payment landed" and
+// started meaning "the company reached its next billing cycle, free or paid",
+// but the STORED milestone value is `first_payment` on rows that have already
+// paid people. Renaming the message key would only rename it here — what a rep
+// reads is the value, and the value is what changed.
 const MILESTONE_KEYS = {
   activation: "app.salesPortal.milestoneActivation",
   first_payment: "app.salesPortal.milestoneFirstPayment",

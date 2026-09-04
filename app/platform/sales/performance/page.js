@@ -297,7 +297,12 @@ export default function SalesPerformancePage() {
                           <td className={TD}>
                             <div className="text-xs text-muted-foreground">
                               <div>Activated: {rep.milestones.activation}</div>
-                              <div>First payment: {rep.milestones.first_payment}</div>
+                              {/* "Renewed", not "First payment": milestone 2
+                                  fires on a billing-cycle boundary now,
+                                  whether Stripe collected anything or a credit
+                                  covered it. The KEY stays first_payment — see
+                                  MILESTONES in lib/sales/commission.js. */}
+                              <div>Renewed: {rep.milestones.first_payment}</div>
                               <div>Still paying: {rep.milestones.retention}</div>
                             </div>
                           </td>

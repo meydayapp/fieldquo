@@ -230,22 +230,59 @@ revenue. That is what the review threshold in §9 is sized against.
 
 ---
 
-## 6. Milestone 2 — $40 on first subscription payment
+## 6. Milestone 2 — $40 on the first billing CYCLE (revised 2026-09-04)
 
-`invoice.payment_succeeded`, filtered to `billing_reason === "subscription_create"`
-**and `amount_paid > 0`**.
+`invoice.payment_succeeded`, filtered to `billing_reason === "subscription_cycle"`.
+**No amount condition.** See `qualifiesForBillingCycle` in
+`lib/sales/commission.js`, which holds the whole rule.
 
-The amount filter is not defensive padding. First month is free
-(`TRIAL_PRICE`), and the referral programme grants free months on top — a $0
-invoice would otherwise pay a $40 commission on nothing collected.
+### What this section said before, and why it was wrong
 
-**The trap to avoid:** `checkout.session.completed` fires at trial start with
-zero collected, creates the `Subscription` row, and flips `onboardingStatus`
-to `active`. It is the event that *looks* right.
+> `billing_reason === "subscription_create"` **and `amount_paid > 0`**. The
+> amount filter is not defensive padding…
 
-Milestone 2's entry supplies the 60-day anchor for milestone 3 — there is no
-`Subscription.firstPaidAt`, and `Subscription.createdAt` is trial start, not
-first payment.
+Those two conditions cannot both be true on this account. Every subscription is
+opened with `subscription_data.trial_period_days` (floored at 1) and
+`TRIAL_PRICE` is 0, so the up-front line item is omitted entirely — Stripe
+rejects a zero one-time charge. The `subscription_create` invoice is therefore
+always $0. **Milestone 2 had never fired for any company**, and since §7's sweep
+read milestone-2 rows as its input set, milestone 3 had never fired either. Two
+thirds of a $125 commission were unreachable for everybody, not merely for the
+referral case that prompted the review.
+
+### The signal, and the fraud posture that replaced the amount filter
+
+A cycle boundary is the signal: the company is still there when the meter rolls
+over, whether Stripe collected money or a credit covered it. `subscription_create`
+is the cycle *opening* — trial start — which is a full cycle too early, and is
+the same trap `checkout.session.completed` sets.
+
+Removing `amount_paid > 0` removes the stated fraud control, so three things
+carry it instead:
+
+- **A cycle boundary cannot be reached quickly or for free.** It needs a live
+  Stripe subscription that survived a whole trial — 30 days minimum, longer with
+  referral months — without being cancelled.
+- **A $0 cycle only happens because FieldQuo gave the money away.** A plan price
+  of zero cannot exist (`chargeFor`/`recurringLine` refuse it), so a free cycle
+  means a customer-balance credit or a staff coupon. Referral credit is gated
+  *harder* than this milestone: `grantReferrerCredit` needs the REFERRED company
+  to have paid real money, to be `active`, and to be `stripeChargesEnabled`
+  (Stripe has verified a government ID and attached a bank account), capped at
+  50 per referrer per calendar month.
+- **`subtotal > 0`** — the residue of the old rule. A cycle counts only if the
+  cycle was worth something; an invoice that bills nothing is not a customer
+  proving out.
+
+What that does **not** claim: `stripeChargesEnabled` is not perfect identity
+proof. But §5b already pays milestone 1 on that signal alone, so this opens no
+class of fraud that is not already open one milestone earlier — and reaching
+this one costs a further thirty days plus a cleared payment from a second
+verified business. Self-dealing is refused earlier, at attribution
+(`selfDealReason`).
+
+Milestone 2's entry is **no longer** the 60-day anchor for milestone 3 — it
+never was the clock (see §7), and it is no longer a condition either.
 
 ---
 
@@ -255,9 +292,21 @@ A nightly cron sweep, matching all 18 existing crons (none of which is a
 natural host, so this is new; `app/api/cron/grace-warning/route.js` is the
 template — `requireCronSecret`, claim-before-act, batch not cursor).
 
-Conditions: 60 days after milestone 2's `occurredAt`; `Subscription.status`
-still `active`; `canceledAt` null; **no refund and no chargeback on the
-qualifying charge.**
+Conditions (revised 2026-09-04): 60 days after **`Subscription.createdAt`** —
+trial start, per the owner's "still subscribed after 60 days (including trial)";
+`Subscription.status` still `active`; `canceledAt` null; **no refund and no
+chargeback on the qualifying charge.**
+
+The clock was never milestone 2's `occurredAt` in the shipped code, and the
+sweep's **input set** no longer is either: it reads `SalesAttribution` and
+re-derives from the live `Subscription`. Chaining one payout off another meant
+that when milestone 2 could not fire, milestone 3 was invisible rather than
+merely late. The old first-payment *condition* is gone too — it justified itself
+with "a company sixty days in has necessarily been charged", which referral
+months (granted by pushing Stripe's `trial_end` forward) make false. Live
+`status === "active"` carries what that condition was reaching for, and carries
+it from Stripe's own view rather than from our ledger. A company still
+`trialing` at day 60 is **held**, not denied: the sweep re-derives nightly.
 
 **That last condition cannot be evaluated today.** The billing webhook does
 receive `charge.refunded` and all three dispute events and calls
@@ -300,7 +349,10 @@ Record intent, then apply as an idempotent side effect — the seam
   signup email matches theirs — self-dealing is the cheapest fraud.
 - Milestone 1 requires `stripeChargesEnabled`: a real Connect account with a
   real bank account is a meaningful cost to fake.
-- Milestone 2 requires money actually collected (`amount_paid > 0`).
+- Milestone 2 requires a **billing-cycle boundary** on a priced subscription —
+  a whole trial survived under Stripe's own billing, and a free one only where
+  FieldQuo granted the credit that made it free. It required money collected
+  (`amount_paid > 0`) until 2026-09-04; §6 has the full argument for the swap.
 - Velocity: N signups from one rep in a window flags for review.
 - Duplicate business name / address / phone across a rep's attributions.
 

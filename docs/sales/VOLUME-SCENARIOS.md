@@ -58,7 +58,7 @@ the rep at all.
 | Milestone | Amount | Gate | What it waits for |
 |---|---:|---|---|
 | Activated | **$20** | `qualifiesForActivation()` — `stripeChargesEnabled` alone | The contractor finishing Stripe Connect onboarding |
-| First payment | **$40** | `qualifiesForFirstPayment()` — `billing_reason === "subscription_create"` **and** `amount_paid > 0` | The free first month ending (`TRIAL_PRICE = 0`) |
+| Renewed | **$40** | `qualifiesForBillingCycle()` — `billing_reason === "subscription_cycle"`, free or paid | The free first month ending (`TRIAL_PRICE = 0`) and the cycle turning |
 | Still paying | **$65** | `qualifiesForRetention()` — 60 days from **subscription start, trial included** | 60 days, then the next nightly sweep |
 
 **$65 of the $125 — 52% — arrives last and is the piece that can be taken
@@ -516,7 +516,7 @@ import {
   MILESTONES,
   amountForMilestone,
   qualifiesForActivation,
-  qualifiesForFirstPayment,
+  qualifiesForBillingCycle,
   qualifiesForRetention,
   balanceCents,
 } from "@/lib/sales/commission";
@@ -610,13 +610,15 @@ function buildLedger(perDay) {
           payoutBatchId: null,
         });
 
-        // Milestone 2 — first payment.
+        // Milestone 2 — the first billing cycle. Free or paid; the model
+        // charges it, which is the common case.
         if (slot >= first.pay) continue;
         const invoice = {
-          billing_reason: "subscription_create",
+          billing_reason: "subscription_cycle",
           amount_paid: FIRST_INVOICE_CENTS,
+          subtotal: FIRST_INVOICE_CENTS,
         };
-        if (!qualifiesForFirstPayment(invoice)) continue;
+        if (!qualifiesForBillingCycle(invoice)) continue;
         const firstPaymentAt = addDays(
           subscriptionStartedAt,
           ASSUMPTIONS.firstPaymentLagDays,
@@ -641,7 +643,6 @@ function buildLedger(perDay) {
           );
           const verdict = qualifiesForRetention({
             subscriptionStartedAt,
-            firstPaymentAt,
             subscription,
             retentionDays: PLAN.retentionDays,
             now: sweepAt,
@@ -703,13 +704,11 @@ console.log("");
 console.log("── Which nightly sweep pays retention (derived, not assumed) ──");
 for (const hour of [6, 9, 15, 23]) {
   const sub = utc(2026, 3, 2, hour * 60);
-  const firstPaymentAt = addDays(sub, ASSUMPTIONS.firstPaymentLagDays);
   let day = null;
   for (let d = 55; d <= 70; d++) {
     const sweepAt = atUtcMinutes(addDays(sub, d), RETENTION_SWEEP_UTC_MINUTES);
     const v = qualifiesForRetention({
       subscriptionStartedAt: sub,
-      firstPaymentAt,
       subscription: { status: "active", refundedAmountCents: 0 },
       retentionDays: 60,
       now: sweepAt,
@@ -718,7 +717,6 @@ for (const hour of [6, 9, 15, 23]) {
   }
   const d59 = qualifiesForRetention({
     subscriptionStartedAt: sub,
-    firstPaymentAt,
     subscription: { status: "active", refundedAmountCents: 0 },
     retentionDays: 60,
     now: atUtcMinutes(addDays(sub, day - 1), RETENTION_SWEEP_UTC_MINUTES),
