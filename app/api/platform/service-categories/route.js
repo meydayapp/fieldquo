@@ -5,6 +5,10 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
+import {
+  CATEGORY_KEY_RULE,
+  isValidCategoryKey,
+} from "@/lib/platform/serviceCategoryKey";
 
 // Manages the GLOBAL catalog every company's Settings → Services page pulls from.
 // This is not company data — it's the shared seed list (cabinet_refinishing,
@@ -50,14 +54,12 @@ export async function POST(request) {
   // Keys are referenced in code (seedStandardAddOns, quote types), so they
   // must be stable, lowercase and underscore-separated. Rejecting here beats
   // discovering a mismatched key when a company's add-ons don't seed.
-  if (!/^[a-z][a-z0-9_]*$/.test(key)) {
-    return NextResponse.json(
-      {
-        error:
-          "Key must be lowercase letters, numbers and underscores, starting with a letter (e.g. cabinet_refinishing).",
-      },
-      { status: 400 },
-    );
+  //
+  // The pattern and its wording live in lib/platform/serviceCategoryKey.js so
+  // the console can refuse the same keys BEFORE the click, with this exact
+  // sentence, instead of paraphrasing the rule and drifting from it.
+  if (!isValidCategoryKey(key)) {
+    return NextResponse.json({ error: CATEGORY_KEY_RULE }, { status: 400 });
   }
 
   const existing = await db.serviceCategory.findUnique({ where: { key } });

@@ -13,20 +13,57 @@ import Link from "next/link";
 import { Loader2, AlertCircle, CreditCard, AlertTriangle } from "lucide-react";
 import MetricCard, { money, count } from "@/app/components/platform/MetricCard";
 
+// ── One table for the filter and the badge ─────────────────────────────────
+//
+// These were two lists. The filter said "Past due"; the badge printed the raw
+// column value, `past_due`, in the same grey a reader has learned means
+// "nothing special here" — snake_case leaking onto the money screen, and the
+// two lists free to disagree about which statuses exist.
+//
+// The keys are the complete SubscriptionStatus enum in prisma/schema.prisma:
+// trialing, active, past_due, canceled. Four, not the Stripe status set —
+// FieldQuo stores its own narrower column, and copying Stripe's eight here
+// would invent four statuses the database cannot hold. An unrecognised value
+// still renders (see the fallback below) rather than vanishing, because a
+// status this file has not been taught about is exactly what a reader needs to
+// see.
+const STATUSES = {
+  active: {
+    label: "Active",
+    className:
+      "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900",
+  },
+  trialing: {
+    label: "Trialing",
+    className:
+      "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900",
+  },
+  past_due: {
+    label: "Past due",
+    className:
+      "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900",
+  },
+  canceled: {
+    label: "Canceled",
+    className: "bg-muted text-muted-foreground border-border",
+  },
+};
+
 const FILTERS = [
   { value: "", label: "All" },
-  { value: "active", label: "Active" },
-  { value: "trialing", label: "Trialing" },
-  { value: "past_due", label: "Past due" },
-  { value: "canceled", label: "Canceled" },
+  ...Object.entries(STATUSES).map(([value, { label }]) => ({ value, label })),
 ];
 
-const STATUS_STYLES = {
-  active: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900",
-  trialing: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900",
-  past_due: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900",
-  canceled: "bg-muted text-muted-foreground border-border",
-};
+/** Never a bare enum value in a badge — an unknown one says it is unknown. */
+function statusMeta(status) {
+  return (
+    STATUSES[status] || {
+      label: status ? `Unrecognised status: ${status}` : "No status",
+      className:
+        "bg-purple-50 dark:bg-purple-950/40 text-purple-800 dark:text-purple-200 border-purple-300 dark:border-purple-900",
+    }
+  );
+}
 
 function formatDate(value) {
   if (!value) return "—";
@@ -127,11 +164,33 @@ export default function SubscriptionsPage() {
         <div className="flex items-center gap-2 text-sm text-muted-foreground py-8">
           <Loader2 size={16} className="animate-spin" /> Loading…
         </div>
-      ) : !data?.rows?.length ? (
+      ) : !data ? (
+        // ── The lie this replaces ────────────────────────────────────────
+        // `!data?.rows?.length` collapsed "the request failed" into "there
+        // are none", and on THIS screen "no subscriptions" is a statement
+        // about whether FieldQuo has any customers at all. The error banner
+        // above was true and the panel under it was not, and the panel is the
+        // one with the illustration.
+        <div className="bg-card border border-border rounded-xl p-10 text-center">
+          <AlertCircle size={28} className="text-muted-foreground mx-auto" />
+          <p className="mt-3 text-sm text-muted-foreground max-w-md mx-auto">
+            The subscription list couldn&apos;t be loaded. This is not a report
+            that there are none — nothing has been cancelled, and the tiles
+            above are blank for the same reason.
+          </p>
+          <button
+            onClick={load}
+            className="mt-3 text-sm font-semibold text-foreground underline"
+          >
+            Try again
+          </button>
+        </div>
+      ) : !data.rows?.length ? (
         <div className="bg-card border border-border rounded-xl p-10 text-center">
           <CreditCard size={28} className="text-muted-foreground mx-auto" />
           <p className="mt-3 text-sm text-muted-foreground">
-            No subscriptions{status ? ` with status "${status}"` : ""} yet.
+            No subscriptions
+            {status ? ` marked "${statusMeta(status).label}"` : ""} yet.
           </p>
         </div>
       ) : (
@@ -155,11 +214,10 @@ export default function SubscriptionsPage() {
                     </span>
                     <span
                       className={`text-xs px-2 py-0.5 rounded-full border ${
-                        STATUS_STYLES[r.status] ||
-                        "bg-muted text-muted-foreground border-border"
+                        statusMeta(r.status).className
                       }`}
                     >
-                      {r.status}
+                      {statusMeta(r.status).label}
                     </span>
                     {urgent && (
                       <span className="text-xs px-2 py-0.5 rounded-full border bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900">

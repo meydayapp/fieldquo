@@ -4,12 +4,26 @@
 // their own data. Each one asks for a reason and writes an audit row, so
 // "why is this account free until March" always has an answer.
 //
-// Superadmin-only server-side; the panel says so rather than hiding, because a
-// support agent needs to know the action exists in order to ask for it.
+// ── The comment that was wrong, and what it now describes ──────────────────
+//
+// This header used to read "Superadmin-only server-side; the panel says so
+// rather than hiding". Half of that was true: extend-trial requires
+// billing:manage, which is in SUPERADMIN_ONLY_PERMISSIONS. The other half was
+// not — the panel said nothing of the kind. An admin or a support agent got a
+// working-looking form, typed a reason, pressed Extend and got a 403.
+//
+// The intent was right, so the panel now does what the comment claimed: the
+// heading and the explanation stay visible for everyone (a support agent has
+// to know this exists in order to ask for it), and only the CONTROLS are
+// replaced — by one block naming who can do it, never by a greyed-out form
+// beside a floating sentence.
 "use client";
 
 import { useState } from "react";
 import { Loader2, Gift, ShieldAlert } from "lucide-react";
+import PlatformWriteGate, {
+  usePlatformAdmin,
+} from "@/app/components/platform/PlatformWriteGate";
 
 export default function CompanyActions({ companyId, companyName, trialEndsAt, onDone }) {
   const [days, setDays] = useState(30);
@@ -17,6 +31,8 @@ export default function CompanyActions({ companyId, companyName, trialEndsAt, on
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
+  const { status: roleStatus, error: roleError, can } = usePlatformAdmin();
+  const canExtend = can("billing:manage");
 
   async function extendTrial() {
     setBusy(true);
@@ -64,6 +80,13 @@ export default function CompanyActions({ companyId, companyName, trialEndsAt, on
           )}
         </div>
 
+        <PlatformWriteGate
+          status={roleStatus}
+          allowed={canExtend}
+          error={roleError}
+          action="Extending a free period"
+          who="superadmin"
+        >
         <div className="flex items-end gap-2 flex-wrap">
           <label className="flex flex-col gap-1">
             <span className="text-[11px] text-muted-foreground">Days</span>
@@ -94,6 +117,7 @@ export default function CompanyActions({ companyId, companyName, trialEndsAt, on
             Extend
           </button>
         </div>
+        </PlatformWriteGate>
 
         {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
         {result && (

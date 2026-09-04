@@ -13,10 +13,31 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, AlertCircle, Sparkles, TrendingUp, Check } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import PlatformWriteGate, {
+  usePlatformAdmin,
+} from "@/app/components/platform/PlatformWriteGate";
 
-const fmt = (n) => (n || 0).toLocaleString("en-CA");
+// Absent is not zero, here as on every other tile in this console. `n || 0`
+// turned a field that never arrived into a confident "0 tokens · $0.00" — and
+// on the page whose whole job is spotting a company running up the bill, a
+// fabricated zero is the exact wrong answer.
+const UNKNOWN = "—";
+const num = (n) => {
+  if (n === null || n === undefined || n === "") return null;
+  const v = Number(n);
+  return Number.isFinite(v) ? v : null;
+};
+const fmt = (n) => {
+  const v = num(n);
+  return v === null ? UNKNOWN : v.toLocaleString("en-CA");
+};
+// USD on purpose. FieldQuo pays OpenAI in USD and this page reports FieldQuo's
+// own cost, not anything a contractor is billed — see lib/voice/creditCurrency.js
+// for the same reasoning on the voice wallet.
 const money = (micros) => {
-  const d = (micros || 0) / 1_000_000;
+  const v = num(micros);
+  if (v === null) return UNKNOWN;
+  const d = v / 1_000_000;
   return d < 0.01 && d > 0 ? "<$0.01" : `$${d.toFixed(2)}`;
 };
 
@@ -27,6 +48,11 @@ export default function AiUsagePage() {
   const [capInput, setCapInput] = useState("");
   const [savingId, setSavingId] = useState("");
   const [error, setError] = useState("");
+  // PATCH /api/platform/ai-usage is superadmin-only (an explicit role check,
+  // not a permission in the matrix). Every platform admin used to see the
+  // "Set limit" buttons and discover that on the 403.
+  const { status: roleStatus, error: roleError, isSuperadmin } =
+    usePlatformAdmin();
 
   const load = useCallback(async () => {
     try {
@@ -63,6 +89,20 @@ export default function AiUsagePage() {
     }
   }
 
+  // `children` is null, so the gate renders nothing when the write is allowed
+  // and one coherent block — refusal, or "we couldn't check" — when it isn't.
+  const capGate = (
+    <PlatformWriteGate
+      status={roleStatus}
+      allowed={isSuperadmin}
+      error={roleError}
+      action="Changing a company's AI token cap"
+      who="superadmin"
+    >
+      {null}
+    </PlatformWriteGate>
+  );
+
   if (loading)
     return <div className="animate-pulse h-96 bg-accent rounded-xl" />;
 
@@ -96,10 +136,10 @@ export default function AiUsagePage() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-4">
-        <Stat label="Cost this month" value={money(data.totals.costMicros)} big />
-        <Stat label="Tokens" value={fmt(data.totals.tokens)} />
-        <Stat label="Calls" value={fmt(data.totals.calls)} />
-        <Stat label="Companies using it" value={fmt(data.totals.companies)} />
+        <Stat label="Cost this month" value={money(data.totals?.costMicros)} big />
+        <Stat label="Tokens" value={fmt(data.totals?.tokens)} />
+        <Stat label="Calls" value={fmt(data.totals?.calls)} />
+        <Stat label="Companies using it" value={fmt(data.totals?.companies)} />
       </div>
 
       {data.byFeature?.length > 0 && (
@@ -135,7 +175,23 @@ export default function AiUsagePage() {
           </p>
         </div>
 
-        {data.rows.length === 0 ? (
+        {/* The refusal sits above the list it governs, once, rather than
+            beside each row. It renders only when the role is actually known —
+            see PlatformWriteGate — and nothing at all for a superadmin. */}
+        {capGate && (
+          <div className="px-5 py-4 border-b border-border">{capGate}</div>
+        )}
+
+        {/* "No AI usage yet this month" is a claim about the business, so it
+            is made only when the server actually sent a list. A missing `rows`
+            is a shape problem, and saying so beats asserting a quiet month. */}
+        {!Array.isArray(data.rows) ? (
+          <p className="px-5 py-10 text-sm text-muted-foreground text-center">
+            Usage didn&apos;t come back in the expected shape — this is not a
+            report of zero usage. Reload, and check the server logs if it
+            persists.
+          </p>
+        ) : data.rows.length === 0 ? (
           <p className="px-5 py-10 text-sm text-muted-foreground text-center">
             No AI usage yet this month.
           </p>
@@ -192,7 +248,16 @@ export default function AiUsagePage() {
                     </div>
 
                     <div className="shrink-0">
-                      {editing === r.companyId ? (
+                      {!isSuperadmin ? (
+                        // Read-only, and it still says what the cap IS — the
+                        // number is the half a support agent needs in order to
+                        // ask for it to be changed.
+                        <span className="text-sm text-muted-foreground">
+                          {r.companyCap === null
+                            ? "No company limit"
+                            : `Limit: ${fmt(r.companyCap)}`}
+                        </span>
+                      ) : editing === r.companyId ? (
                         <div className="flex items-center gap-2">
                           <input
                             autoFocus

@@ -7,13 +7,31 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, Plus, AlertCircle, Tags } from "lucide-react";
+import PlatformWriteGate, {
+  usePlatformAdmin,
+} from "@/app/components/platform/PlatformWriteGate";
+
+import {
+  CATEGORY_KEY_RULE,
+  categoryKeyFromLabel,
+  isValidCategoryKey,
+} from "@/lib/platform/serviceCategoryKey";
 
 export default function ServiceCategoriesPage() {
-  const [categories, setCategories] = useState([]);
+  // null until the server answers. `[]` is the page asserting "the global
+  // catalogue is empty", which is the one sentence on this screen that should
+  // never be guessed.
+  const [categories, setCategories] = useState(null);
   const [draft, setDraft] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // POST here needs "service_category:manage" — admin and superadmin hold it,
+  // support does not. This edits a table every tenant reads, so support seeing
+  // a create form it can never submit was the worst version of the wrong
+  // answer: a control that appears to work, over a global write.
+  const { status: roleStatus, error: roleError, can } = usePlatformAdmin();
+  const canManage = can("service_category:manage");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -40,14 +58,10 @@ export default function ServiceCategoriesPage() {
   // Keys are referenced in code, so they need to be deliberate — but making
   // someone hand-type "cabinet_refinishing" invites typos.
   function onLabelChange(label) {
-    const auto = label
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_+|_+$/g, "");
     setDraft((d) => ({
       ...d,
       label,
-      key: d.keyTouched ? d.key : auto,
+      key: d.keyTouched ? d.key : categoryKeyFromLabel(label),
     }));
   }
 
@@ -87,20 +101,27 @@ export default function ServiceCategoriesPage() {
             The global list every company picks from during onboarding.
           </p>
         </div>
-        <button
-          onClick={() =>
-            setDraft({
-              key: "",
-              label: "",
-              description: "",
-              sortOrder: categories.length * 10,
-              keyTouched: false,
-            })
-          }
-          className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg"
-        >
-          <Plus size={14} /> New category
-        </button>
+        {/* Disabled until the list is in, because the default sort order is
+            derived from how many categories there are — offering the button
+            over an unknown list would seed the new row at the top of a
+            catalogue it knows nothing about. */}
+        {canManage && (
+          <button
+            onClick={() =>
+              setDraft({
+                key: "",
+                label: "",
+                description: "",
+                sortOrder: categories.length * 10,
+                keyTouched: false,
+              })
+            }
+            disabled={!categories}
+            className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-50"
+          >
+            <Plus size={14} /> New category
+          </button>
+        )}
       </div>
 
       <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl p-4 text-sm text-amber-900 dark:text-amber-200">
@@ -108,6 +129,17 @@ export default function ServiceCategoriesPage() {
         Keys are referenced in code (add-on seeding, quote types), so they
         can&apos;t be renamed afterwards without a migration.
       </div>
+
+      {/* Renders nothing for an admin or superadmin; one block for support. */}
+      <PlatformWriteGate
+        status={roleStatus}
+        allowed={canManage}
+        error={roleError}
+        action="Adding a service category"
+        who="admins and superadmins"
+      >
+        {null}
+      </PlatformWriteGate>
 
       {error && (
         <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-4 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
@@ -151,8 +183,16 @@ export default function ServiceCategoriesPage() {
                 placeholder="cabinet_refinishing"
                 className={`${inputClass} font-mono text-xs`}
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                Permanent. Lowercase, underscores only.
+              {/* The rule comes from the same module the route validates
+                  with, so the sentence here cannot outlive the regex there. */}
+              <p
+                className={`text-xs mt-1 ${
+                  draft.key && !isValidCategoryKey(draft.key)
+                    ? "text-red-600 dark:text-red-400"
+                    : "text-muted-foreground"
+                }`}
+              >
+                Permanent. {CATEGORY_KEY_RULE}
               </p>
             </div>
 
@@ -187,7 +227,9 @@ export default function ServiceCategoriesPage() {
           <div className="flex gap-2">
             <button
               onClick={create}
-              disabled={busy || !draft.label.trim() || !draft.key.trim()}
+              disabled={
+                busy || !draft.label.trim() || !isValidCategoryKey(draft.key)
+              }
               className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
             >
               {busy && <Loader2 size={14} className="animate-spin" />}
@@ -206,6 +248,18 @@ export default function ServiceCategoriesPage() {
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground py-8">
           <Loader2 size={16} className="animate-spin" /> Loading…
+        </div>
+      ) : !categories ? (
+        // "Companies will have nothing to pick" is an alarming claim about
+        // every tenant's onboarding, and it used to fire on any failed
+        // request. The failure gets its own sentence.
+        <div className="bg-card border border-border rounded-xl p-10 text-center">
+          <AlertCircle size={28} className="text-muted-foreground mx-auto" />
+          <p className="mt-3 text-sm text-muted-foreground">
+            The catalogue couldn&apos;t be loaded. This says nothing about what
+            companies can pick during onboarding — it says this page
+            couldn&apos;t read the list.
+          </p>
         </div>
       ) : categories.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-10 text-center">

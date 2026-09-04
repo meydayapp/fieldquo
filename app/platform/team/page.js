@@ -15,30 +15,99 @@ import {
   UserX,
   UserCheck,
 } from "lucide-react";
+import {
+  PLATFORM_PERMISSIONS,
+  SUPERADMIN_ONLY_PERMISSIONS,
+} from "@/lib/platform/permissions";
 
-const ROLE_META = {
-  superadmin: {
-    label: "Superadmin",
-    description: "Everything, including creating other staff accounts.",
-    className: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900",
-  },
-  admin: {
-    label: "Admin",
-    description:
-      "Manage and suspend companies, manage plans, impersonate, view analytics.",
-    className: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900",
-  },
-  support: {
-    label: "Support",
-    description:
-      "View companies, impersonate, view analytics. Cannot change plans or suspend.",
-    className: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-900",
-  },
+// ── Role descriptions, derived rather than retyped ─────────────────────────
+//
+// The old descriptions were three hand-written sentences that had already
+// drifted from lib/platform/permissions.js: "admin" was missing
+// service_category:manage (a write every tenant reads), and "superadmin" said
+// "Everything, including creating other staff accounts" — which named the
+// least consequential of its exclusive powers and omitted the four that
+// matter. This is the screen where a role is CHOSEN, so an incomplete
+// description here is how somebody gets handed more than was intended.
+//
+// The lists below are built from the matrix itself, so adding a permission
+// there changes what this screen says. Only the wording of each permission is
+// local, and a permission with no wording still prints — its raw code, marked
+// as such — rather than silently vanishing from the description.
+const PERMISSION_WORDS = {
+  "company:view": "view companies",
+  "company:manage": "edit company settings",
+  "company:suspend": "suspend companies",
+  "plan:view": "view plans",
+  "plan:manage": "manage plans, promotions and promo codes",
+  "service_category:manage": "edit the global service catalogue every tenant reads",
+  "analytics:view": "view analytics and export reports",
+  impersonate: "impersonate a company, read-only",
+  "sales_attribution:manage": "manage sales attribution",
+  "sales_attribution:correct": "correct sales attribution",
+  "billing:manage": "extend trials and apply credit",
+  "migration:quote": "price a paid data migration",
+  "migration:write":
+    "create records inside a company's own data — the one sanctioned exception to view-everything-edit-nothing",
+  "migration:cancel": "cancel a migration, including one already paid",
 };
 
+function describe(permissions) {
+  return permissions
+    .map((p) => PERMISSION_WORDS[p] || `${p} (no description written yet)`)
+    .join(", ");
+}
+
+function roleDescription(role) {
+  const held = PLATFORM_PERMISSIONS[role] || [];
+  if (held.includes("*")) {
+    // "*" is not a list, so it cannot be enumerated the same way. What it
+    // means is spelled out instead of summarised as "everything", because
+    // "everything" is the word that let the tenant-write power go unmentioned.
+    return `Everything: ${describe(
+      PLATFORM_PERMISSIONS.admin,
+    )}, create and deactivate staff accounts, and the superadmin-only powers — ${describe(
+      SUPERADMIN_ONLY_PERMISSIONS,
+    )}.`;
+  }
+  const missing = SUPERADMIN_ONLY_PERMISSIONS.length
+    ? " Cannot extend trials, price or run a data migration, or add staff."
+    : "";
+  return `Can ${describe(held)}.${missing}`;
+}
+
+const ROLE_STYLES = {
+  superadmin:
+    "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900",
+  admin:
+    "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900",
+  support:
+    "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-900",
+};
+
+const ROLE_LABELS = {
+  superadmin: "Superadmin",
+  admin: "Admin",
+  support: "Support",
+};
+
+const ROLE_META = Object.fromEntries(
+  Object.keys(PLATFORM_PERMISSIONS).map((role) => [
+    role,
+    {
+      label: ROLE_LABELS[role] || role,
+      description: roleDescription(role),
+      className: ROLE_STYLES[role] || "bg-muted text-muted-foreground border-border",
+    },
+  ]),
+);
+
 export default function PlatformTeamPage() {
-  const [admins, setAdmins] = useState([]);
+  // null until the server answers: `[]` is this page asserting FieldQuo has no
+  // staff accounts, which on a failed request is both false and alarming.
+  const [admins, setAdmins] = useState(null);
   const [me, setMe] = useState(null);
+  const [meFailed, setMeFailed] = useState(false);
   const [draft, setDraft] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -56,8 +125,21 @@ export default function PlatformTeamPage() {
       }
       setAdmins(await res.json());
 
+      // ── Who you are is a separate question from what went wrong ─────────
+      //
+      // This used to swallow the failure: `if (meRes?.ok) setMe(...)`, leaving
+      // `me` null. Downstream, `isSuperadmin` is false when `me` is null, so a
+      // superadmin whose identity call 401'd or timed out lost the "Add staff"
+      // button and every Deactivate control — a screen that says, silently and
+      // wrongly, "you don't have permission". Never-loaded is not restricted.
       const meRes = await fetch("/api/platform/me").catch(() => null);
-      if (meRes?.ok) setMe(await meRes.json());
+      if (meRes?.ok) {
+        setMe(await meRes.json());
+        setMeFailed(false);
+      } else {
+        setMe(null);
+        setMeFailed(true);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -125,7 +207,7 @@ export default function PlatformTeamPage() {
   }
 
   const isSuperadmin = me?.role === "superadmin";
-  const activeSuperadmins = admins.filter(
+  const activeSuperadmins = (admins || []).filter(
     (a) => a.role === "superadmin" && a.active,
   ).length;
 
@@ -159,6 +241,27 @@ export default function PlatformTeamPage() {
       {notice && (
         <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded-xl p-4 text-sm text-emerald-800 dark:text-emerald-300">
           {notice}
+        </div>
+      )}
+
+      {/* Said out loud, because the alternative is a screen that quietly looks
+          like a demotion. The controls really are absent — we cannot honestly
+          draw them without knowing the role — but the reason is stated. */}
+      {meFailed && (
+        <div
+          role="alert"
+          className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl p-4 flex items-start gap-2 text-sm text-amber-800 dark:text-amber-300"
+        >
+          <AlertCircle size={16} className="shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-amber-900 dark:text-amber-200">
+              Couldn&apos;t confirm which role you hold.
+            </p>
+            <p className="mt-0.5">
+              Add and deactivate are hidden until we can check. This is not a
+              refusal and your account has not changed — reload the page.
+            </p>
+          </div>
         </div>
       )}
 
@@ -242,6 +345,11 @@ export default function PlatformTeamPage() {
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground py-8">
           <Loader2 size={16} className="animate-spin" /> Loading…
+        </div>
+      ) : !admins ? (
+        <div className="bg-card border border-border rounded-xl p-8 text-center text-sm text-muted-foreground">
+          The staff list couldn&apos;t be loaded. No account has been removed —
+          this page just couldn&apos;t read the table.
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">

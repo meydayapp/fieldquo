@@ -12,19 +12,35 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, AlertTriangle, Check, Mail, CreditCard, FileText, Bot, Webhook, Upload, Clock, Users } from "lucide-react";
 
-const AREA_ICON = {
-  email: Mail,
-  stripe: CreditCard,
-  pdf: FileText,
-  ai: Bot,
-  webhook: Webhook,
-  upload: Upload,
-  cron: Clock,
+// Icon AND label together, because they were two facts about the same thing
+// kept in one place and none. `account_abuse` had an icon and no label, so the
+// filter chip read "account_abuse (3)" and the badge read "ACCOUNT_ABUSE" —
+// the raw column value, in a console where every other area happens to be a
+// single lowercase word and so looked deliberate.
+const AREAS = {
+  email: { icon: Mail, label: "Email" },
+  stripe: { icon: CreditCard, label: "Stripe" },
+  pdf: { icon: FileText, label: "PDF" },
+  ai: { icon: Bot, label: "AI" },
+  webhook: { icon: Webhook, label: "Webhooks" },
+  upload: { icon: Upload, label: "Uploads" },
+  cron: { icon: Clock, label: "Scheduled jobs" },
   // Not a failure in the same sense as the rest of this list — nothing broke.
   // It lands here anyway because this is the queue staff actually open, and a
   // seat-sharing flag that nobody sees is the same as no flag at all.
-  account_abuse: Users,
+  account_abuse: { icon: Users, label: "Seat sharing" },
 };
+
+// An area this file has not been taught about still reads as words rather than
+// as a column value, and is not silently dropped — an unrecognised area is
+// exactly the thing worth seeing.
+function areaLabel(area) {
+  if (AREAS[area]) return AREAS[area].label;
+  if (!area) return "Uncategorised";
+  return area.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+}
+
+const areaIcon = (area) => AREAS[area]?.icon || AlertTriangle;
 
 function when(iso) {
   const d = new Date(iso);
@@ -127,7 +143,7 @@ export default function PlatformErrorsPage() {
               area === a.area ? "border-foreground bg-inverted text-inverted-foreground" : "border-border text-muted-foreground"
             }`}
           >
-            {a.area} ({a.count})
+            {areaLabel(a.area)} ({a.count})
           </button>
         ))}
         <label className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -162,7 +178,7 @@ export default function PlatformErrorsPage() {
 
       <div className="space-y-2">
         {errors.map((e) => {
-          const Icon = AREA_ICON[e.area] || AlertTriangle;
+          const Icon = areaIcon(e.area);
           return (
             <div key={e.id} className="rounded-xl border border-border bg-card p-4">
               <div className="flex items-start gap-3">
@@ -172,7 +188,7 @@ export default function PlatformErrorsPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                      {e.area}
+                      {areaLabel(e.area)}
                     </span>
                     {e.code && <span className="text-[11px] font-mono text-muted-foreground">{e.code}</span>}
                     <span className="text-[11px] text-muted-foreground">· {when(e.createdAt)}</span>

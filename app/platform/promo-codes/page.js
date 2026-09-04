@@ -8,9 +8,15 @@
 import { useEffect, useState } from "react";
 import { Copy, Check, Ticket, Loader2, Plus, Ban, RotateCcw } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import PlatformWriteGate, {
+  usePlatformAdmin,
+} from "@/app/components/platform/PlatformWriteGate";
 
 export default function PromoCodesPage() {
-  const [codes, setCodes] = useState([]);
+  // Starts null, not []. An empty array before the server has said anything is
+  // the page claiming "no codes have ever been issued" — which, on a screen
+  // that tracks free months given away, is a claim worth being sure about.
+  const [codes, setCodes] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   // Which row is mid-request. Per-row rather than a page-wide flag so revoking
@@ -27,6 +33,17 @@ export default function PromoCodesPage() {
     expiresAt: "",
   });
 
+  // Minting a code is superadmin-only in the route (an explicit role check —
+  // "Minting free months is a superadmin action, like adding a platform
+  // teammate"). Everyone else used to fill this form in and meet the 403.
+  const { status: roleStatus, error: roleError, isSuperadmin, can } =
+    usePlatformAdmin();
+  // Revoking is a different gate from minting: PATCH /promo-codes/[id] takes
+  // "plan:manage", which an admin holds and support does not. Two permissions,
+  // so two decisions — collapsing them into one flag is how a screen ends up
+  // hiding a control its owner is allowed to use.
+  const canRevoke = can("plan:manage");
+
   async function load() {
     try {
       setCodes(await fetchJson("/api/platform/promo-codes"));
@@ -40,6 +57,17 @@ export default function PromoCodesPage() {
     load();
   }, []);
 
+  // Both are money. `Number(x) || 3` silently turned a cleared field into three
+  // free months and a typo into one redemption — a substituted value nobody was
+  // told about, on the two fields that decide what the code is worth.
+  const months = Number(form.rewardMonths);
+  const redemptions = Number(form.maxRedemptions);
+  const monthsValid = Number.isInteger(months) && months >= 1 && months <= 24;
+  const redemptionsValid = Number.isInteger(redemptions) && redemptions >= 1;
+  const labelValid = form.label.trim().length > 0;
+  const canGenerate =
+    isSuperadmin && labelValid && monthsValid && redemptionsValid && !creating;
+
   async function generate(e) {
     e.preventDefault();
     setCreating(true);
@@ -50,8 +78,8 @@ export default function PromoCodesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          rewardMonths: Number(form.rewardMonths) || 3,
-          maxRedemptions: Number(form.maxRedemptions) || 1,
+          rewardMonths: months,
+          maxRedemptions: redemptions,
           expiresAt: form.expiresAt || null,
         }),
       });
@@ -115,6 +143,13 @@ export default function PromoCodesPage() {
       )}
 
       {/* Generate */}
+      <PlatformWriteGate
+        status={roleStatus}
+        allowed={isSuperadmin}
+        error={roleError}
+        action="Minting a code for free months"
+        who="superadmin"
+      >
       <form onSubmit={generate} className="bg-card border border-border rounded-xl p-5 space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <label className="block">
@@ -178,19 +213,49 @@ export default function PromoCodesPage() {
             />
           </label>
         </div>
-        <button
-          type="submit"
-          disabled={creating}
-          className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
-        >
-          {creating ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
-          Generate code
-        </button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            type="submit"
+            disabled={!canGenerate}
+            className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
+          >
+            {creating ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
+            Generate code
+          </button>
+          {/* Said before the click, not after it. The route rejects an
+              unlabelled code with a good explanation, but learning the rule
+              from a red box you triggered is learning it the expensive way. */}
+          {!labelValid && (
+            <span className="text-xs text-muted-foreground">
+              Say who it&apos;s for first — an unlabelled code can&apos;t be
+              traced back to anyone.
+            </span>
+          )}
+          {labelValid && !monthsValid && (
+            <span className="text-xs text-muted-foreground">
+              Free months must be a whole number from 1 to 24.
+            </span>
+          )}
+          {labelValid && monthsValid && !redemptionsValid && (
+            <span className="text-xs text-muted-foreground">
+              Max redemptions must be a whole number, 1 or more.
+            </span>
+          )}
+        </div>
       </form>
+      </PlatformWriteGate>
 
       {/* List */}
       {loading ? (
         <div className="h-32 bg-accent rounded-xl animate-pulse" />
+      ) : !codes ? (
+        // The load failed. The red banner above says why; what must NOT happen
+        // here is "No codes yet", which reads as a fact about how many free
+        // months FieldQuo has given away.
+        <p className="text-sm text-muted-foreground">
+          The list of codes couldn&apos;t be loaded. Nothing has been revoked or
+          deleted — this is a display failure, not an empty ledger.
+        </p>
       ) : codes.length === 0 ? (
         <p className="text-sm text-muted-foreground">No codes yet.</p>
       ) : (
@@ -240,6 +305,7 @@ export default function PromoCodesPage() {
                     {/* Revoke, not delete. The redemptions below this row point
                         at the code, and removing it would orphan the record of
                         why a company has free months. */}
+                    {canRevoke && (
                     <button
                       onClick={() => setActive(c, !c.active)}
                       disabled={busyId === c.id}
@@ -258,6 +324,7 @@ export default function PromoCodesPage() {
                       )}
                       {c.active ? "Revoke" : "Reinstate"}
                     </button>
+                    )}
                   </div>
                 </div>
                 {c.redemptions.length > 0 && (
