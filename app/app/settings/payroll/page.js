@@ -348,6 +348,22 @@ function PayrollSettingsScreen() {
                                 {t("app.setPayroll.off")}
                               </span>
                             )}
+                            {/* A row created before the checkbox was removed.
+                                It reaches no payslip (see the note by the
+                                create form), and it used to say so in the same
+                                muted grey as everything else — "· assigned
+                                individually", which reads as a configuration
+                                someone chose rather than a component that does
+                                nothing. Amber, so it is findable.
+                                The copy still says "assigned individually"
+                                because app/i18n is not this pass's to edit;
+                                app.setPayroll.notApplied is reported with the
+                                sentence it should carry. */}
+                            {!c.appliesToAll && (
+                              <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300">
+                                {t("app.setPayroll.assignedIndividually")}
+                              </span>
+                            )}
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
                             {c.calculation === "percent"
@@ -359,9 +375,7 @@ function PayrollSettingsScreen() {
                                     count: (c.slabs || []).length,
                                   })
                                 : money(c.amount)}
-                            {c.appliesToAll
-                              ? t("app.setPayroll.everyone")
-                              : t("app.setPayroll.assignedIndividually")}
+                            {c.appliesToAll && t("app.setPayroll.everyone")}
                           </p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
@@ -521,17 +535,26 @@ function PayrollSettingsScreen() {
             />
           )}
 
-          <label className="flex items-center gap-2 text-xs text-muted-foreground">
-            <input
-              type="checkbox"
-              checked={draft.appliesToAll}
-              onChange={(e) =>
-                setDraft({ ...draft, appliesToAll: e.target.checked })
-              }
-            />
-            {t("app.setPayroll.applyEveryone")}
-          </label>
+          {/* ── "Apply to everyone" is gone, and it was the dead control ────
+              Unticking it wrote `appliesToAll: false`, which lib/payroll/
+              buildPayRun.js:115 excludes from the company-wide query. The other
+              half — the per-worker path at buildPayRun.js:254 — reads
+              `Worker.salaryComponents`, i.e. the WorkerSalaryComponent join
+              table. That table exists in prisma/schema.prisma and NOTHING IN
+              THE CODEBASE EVER CREATES A ROW IN IT: grep for it and the only
+              three hits are the two relation declarations and the model itself.
 
+              So a contractor who unticked this box got a deduction that reached
+              no payslip, described on the list below as "assigned individually"
+              — a promise of an assignment screen that has never been built. On
+              a payroll page, silently.
+
+              Not fixed by building that screen, which is a feature and a
+              product decision, and not left as a box with a warning under it.
+              Removed, so nothing new can be created that way. `blankComponent()`
+              already defaults appliesToAll to true, which is now the only value
+              this page can send. Restore the box in the same commit that ships
+              per-worker assignment, not before. */}
           <div className="flex gap-2">
             <button
               onClick={create}

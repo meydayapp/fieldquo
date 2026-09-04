@@ -16,6 +16,10 @@ import {
   annualSaving,
   isBillingInterval,
 } from "@/lib/billing/interval";
+import {
+  subscriptionStatusClasses,
+  subscriptionStatusLabel,
+} from "@/lib/billing/subscriptionStatusPresentation";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 
 // ── What a plan actually gets you, in one line ─────────────────────────────
@@ -339,17 +343,21 @@ function AccountBillingScreen() {
               <h2 className="text-base font-semibold text-foreground">
                 {subscription?.plan?.name || t("app.billing.noActivePlan", "No active plan")}
               </h2>
+              {/* ── The badge, from the enum, with a colour ─────────────────
+                  This was `{subscription.status}` under `capitalize`, with
+                  grey for anything that wasn't trialing or active. `past_due`
+                  is one of those two: a company seven days from losing access
+                  to its own quote history read the word "Past_due" in the
+                  quietest style on the page. The mapping is exhaustive over
+                  the schema enum now, and check:money-status-chips fails the
+                  build if a fifth value is ever added without a tone. */}
               {subscription?.status && (
                 <span
-                  className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${
-                    isTrialing
-                      ? "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"
-                      : subscription.status === "active"
-                        ? "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300"
-                        : "bg-muted text-muted-foreground"
-                  }`}
+                  className={`text-xs px-2 py-0.5 rounded-full font-medium ${subscriptionStatusClasses(
+                    subscription.status,
+                  )}`}
                 >
-                  {subscription.status}
+                  {subscriptionStatusLabel(subscription.status, t)}
                 </span>
               )}
             </div>

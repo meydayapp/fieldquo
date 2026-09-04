@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { humaniseDisabledReason } from "@/lib/stripe/connectAccount";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
@@ -41,11 +42,16 @@ function PaymentsPageScreen() {
   const [copyFailed, setCopyFailed] = useState(false);
   const [error, setError] = useState("");
 
+  // fetchJson, not `fetch().then(r => r.json())`. Unguarded, a 403 or 500 body
+  // is `{ error: "…" }` — an object, so `setCompany` succeeded, and every read
+  // off it (`company.stripeAccountId`, `company.offerFinancing`) came back
+  // undefined. The page then drew "Not connected to Stripe" with a Connect
+  // button, to a company that has been taking card payments for a year, with
+  // no error anywhere on screen.
   function loadCompany() {
-    return fetch("/api/settings/business-info")
-      .then((r) => r.json())
+    return fetchJson("/api/settings/business-info")
       .then(setCompany)
-      .catch(() => setError(t("app.setPayments.loadError")));
+      .catch((err) => setError(err.message || t("app.setPayments.loadError")));
   }
 
   /**
@@ -299,12 +305,16 @@ function PaymentsPageScreen() {
                       ? t("app.setPayments.payoutsReviewingDesc")
                       : t("app.setPayments.payoutsHeldDesc")}
                   </p>
-                  {/* Stripe's own machine reason, humanised the same way the
-                      requirement keys above it are. More specific than anything
-                      we could infer, and absent rather than guessed at when
-                      Stripe gives none. */}
+                  {/* Stripe's own reason, and now actually humanised — this
+                      comment used to claim it was while the line below printed
+                      `rejected.listed` in a monospace font to a contractor
+                      whose money was being held. More specific than anything we
+                      could infer, and absent rather than guessed at when Stripe
+                      gives none. */}
                   {!payoutsUnderReview && status?.disabledReason && (
-                    <p className="mt-1 font-mono text-xs">{status.disabledReason}</p>
+                    <p className="mt-1 text-xs">
+                      {humaniseDisabledReason(status.disabledReason)}
+                    </p>
                   )}
                 </div>
               )}
@@ -386,7 +396,7 @@ function PaymentsPageScreen() {
               {status?.disabledReason && (
                 <p className="text-xs text-muted-foreground mb-4">
                   {t("app.setPayments.stripeReason")}{" "}
-                  <span className="font-mono">{status.disabledReason}</span>
+                  <span>{humaniseDisabledReason(status.disabledReason)}</span>
                 </p>
               )}
 

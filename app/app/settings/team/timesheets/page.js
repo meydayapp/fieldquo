@@ -37,6 +37,10 @@ function TimesheetsPageScreen() {
   // that asked nothing before acting.
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  // The entries read failed. Distinct from "no hours logged this week" — one is
+  // a fact about the crew, the other is a fact about the network, and only one
+  // of them should stop a manager approving hours.
+  const [loadFailed, setLoadFailed] = useState(false);
   // Same level DELETE /api/time-entries/[id] requires, and the same level the
   // Time Tracking ladder now names as including delete.
   const caller = usePermissions();
@@ -46,8 +50,12 @@ function TimesheetsPageScreen() {
     // Both lists load in parallel; the form's worker picker needs the roster,
     // and an empty roster is why "no way to add" happens — surface it instead.
     Promise.all([
+      // `.ok` checked, like /api/workers on the next line. It was the only
+      // unguarded one in this pair: a 403 or a 500 body is `{ error }`, which
+      // Array.isArray turns into `[]`, and the screen then reads as "nobody
+      // logged any hours" — immediately before somebody runs payroll off it.
       fetch("/api/time-entries")
-        .then((r) => r.json())
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error("entries"))))
         .then((data) => (Array.isArray(data) ? data : [])),
       fetch("/api/workers")
         .then((r) => (r.ok ? r.json() : []))
@@ -56,7 +64,11 @@ function TimesheetsPageScreen() {
       .then(([e, w]) => {
         setEntries(e);
         setWorkers(w.filter((x) => x.active !== false));
+        setLoadFailed(false);
       })
+      // There was no catch at all: a rejection went unhandled and the page
+      // settled on an empty timesheet with nothing said.
+      .catch(() => setLoadFailed(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -312,10 +324,18 @@ function TimesheetsPageScreen() {
       )}
 
       <div data-tour="timesheets-list" className="bg-card border border-border rounded-xl divide-y divide-border">
-        {entries.length === 0 && (
-          <p className="px-5 py-6 text-sm text-muted-foreground">
-            {t("app.timesheets.empty")}
+        {/* Empty and failed are different sentences. "No time entries yet" on
+            a screen whose read 500'd is a claim about what the crew did. */}
+        {loadFailed ? (
+          <p className="px-5 py-6 text-sm text-red-700 dark:text-red-300">
+            {t("app.error.network")}
           </p>
+        ) : (
+          entries.length === 0 && (
+            <p className="px-5 py-6 text-sm text-muted-foreground">
+              {t("app.timesheets.empty")}
+            </p>
+          )
         )}
         {entries.map((e) => (
           <div

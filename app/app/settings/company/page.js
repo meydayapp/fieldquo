@@ -161,6 +161,7 @@ function CompanyReadOnly({
   quoteTypes,
   taxRates,
   hours,
+  hoursFailed,
 }) {
   const currency = currencyMeta(
     form.servesAbroad ? form.currency : currencyForCountry(form.country),
@@ -275,6 +276,13 @@ function CompanyReadOnly({
       >
         {hours === null ? (
           <div className="h-40 bg-muted rounded-xl animate-pulse" />
+        ) : hoursFailed ? (
+          /* An empty roster of hours renders as seven closed days, which is a
+             statement about the business. A failed request is not that
+             statement — say which one this is. */
+          <p className="text-sm text-muted-foreground">
+            {t("app.error.network")}
+          </p>
         ) : (
           <dl className="border border-border rounded-xl divide-y divide-border">
             {WEEKDAYS.map((label, dayOfWeek) => {
@@ -493,23 +501,62 @@ export default function CompanySettingsPage() {
 
   const timezones = getTimezones();
 
+  // ── A failed load must not become a form ────────────────────────────────
+  //
+  // Every fetch on this page used to be `.then((r) => r.json())` with no status
+  // check. On a 403 or a 500 the body is `{ error: "…" }`, so `data?.country ||
+  // "CA"` and its twenty siblings all fell through to their defaults — and the
+  // page rendered a complete, editable, plausible-looking company: Canada, CAD,
+  // America/Toronto, MM/DD/YYYY, automatic tax on, name and address blank.
+  //
+  // Nothing on screen said anything had failed. The next press of Save PATCHed
+  // that invented company over the real one. A settings page that answers a
+  // network error by offering to overwrite the record is worse than one that
+  // does nothing, and this one had a Save button.
+  //
+  // So: a failed business-info load sets this and renders a refusal instead of
+  // the form. The other three fetches are narrower and say so individually.
+  const [loadError, setLoadError] = useState("");
+  // Whether the booking-availability read actually succeeded. `[]` means "they
+  // have set none"; a failure must not render as seven closed days, which is a
+  // statement about the business made out of a 500.
+  const [hoursFailed, setHoursFailed] = useState(false);
+
   useEffect(() => {
     fetch("/api/availability")
-      .then((r) => r.json())
-      .then((data) => setHours(Array.isArray(data) ? data : []))
-      .catch(() => setHours([]));
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("availability"))))
+      .then((data) => {
+        setHours(Array.isArray(data) ? data : []);
+        setHoursFailed(false);
+      })
+      .catch(() => {
+        setHours([]);
+        setHoursFailed(true);
+      });
   }, []);
 
   useEffect(() => {
     fetch("/api/settings/payment-schedule")
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("schedule"))))
       .then((d) => setScheduleActive((d?.stages || []).length > 0))
-      .catch(() => setScheduleActive(false));
+      // Fails CLOSED, not open. `false` unlocks the free-text payment terms
+      // field, and saving that while a schedule really is active is exactly the
+      // "one schedule, not two that can disagree" state the card below forbids.
+      // Locked-when-we-cannot-tell costs a keystroke; the other way costs a
+      // document that contradicts what actually bills.
+      .catch(() => setScheduleActive(true));
   }, []);
 
   useEffect(() => {
     fetch("/api/settings/business-info")
-      .then((r) => r.json())
+      .then((r) =>
+        r.ok
+          ? r.json()
+          : r
+              .json()
+              .catch(() => ({}))
+              .then((body) => Promise.reject(new Error(body?.error || ""))),
+      )
       .then((data) => {
         setSlug(data?.slug || "");
         setForm({
@@ -528,7 +575,6 @@ export default function CompanySettingsPage() {
           country: data?.country || "CA",
           latitude: data?.latitude ?? null,
           longitude: data?.longitude ?? null,
-          discoverable: !!data?.discoverable,
           taxIdName: data?.taxIdName || "",
           taxIdNumber: data?.taxIdNumber || "",
           taxRegistrationDismissed: Boolean(data?.taxRegistrationDismissedAt),
@@ -548,7 +594,18 @@ export default function CompanySettingsPage() {
           // company that has said nothing about its hours must not have a
           // guess published on its website and in its search listing.
           businessHours: data?.businessHours ?? null,
-          sitePublished: !!data?.sitePublished,
+          // `discoverable` and `sitePublished` are NOT loaded any more. Neither
+          // has a control on this page — the toggles were removed because
+          // nothing read what they saved — and holding them in `form` was the
+          // only reason the save could send them back. See payload().
+          //
+          // sitePublished is worth a line on its own: lib/features/registry.js
+          // still names it as the website builder's `adoptionField`, i.e. the
+          // column the platform console reports website adoption from, and no
+          // screen in the product writes it. Publishing writes Site.published
+          // instead. That is a real defect, and it is the registry's to fix —
+          // not something this page should paper over by writing a column it
+          // does not own.
           // Opt-in to the anonymized industry benchmark. Written here and read
           // by the benchmark page, which was a dead CTA linking to a page that
           // never toggled it.
@@ -556,18 +613,32 @@ export default function CompanySettingsPage() {
         });
         setTaxRates(Array.isArray(data?.taxRates) ? data.taxRates : []);
         setIndustries(Array.isArray(data?.industries) ? data.industries : []);
+        setLoadError("");
       })
+      // `app.error.network` rather than a new app.setCompany.* key: this pass
+      // does not own app/i18n, and a key literal that resolves to nothing fails
+      // check:translations and renders itself on screen. The server's own
+      // message is preferred anyway — "You don't have permission to do that"
+      // beats any sentence written here.
+      .catch((err) => setLoadError(err?.message || t("app.error.network")))
       .finally(() => setLoading(false));
 
     // Same source as the quote builder (quotes/new/page.js) and Products &
     // Services — whatever's enabled here is what shows up when creating a
     // quote, so this is a direct reflection of what was picked at signup
     // (plus anything changed since) rather than a separate copy of it.
+    //
+    // Guarded and caught: unguarded, a 500 body reached Array.isArray as an
+    // object, the list rendered "No quote types enabled" — which reads as a
+    // configuration problem the owner should go and fix — and the rejection
+    // was unhandled.
     fetch("/api/settings/service-categories")
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : []))
       .then((data) =>
         setQuoteTypes(Array.isArray(data) ? data.filter((c) => c.enabled) : []),
-      );
+      )
+      .catch(() => setQuoteTypes([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function set(field, value) {
@@ -607,6 +678,52 @@ export default function CompanySettingsPage() {
     }));
   }
 
+  // ── Send what this page EDITS, not everything it loaded ─────────────────
+  //
+  // The body used to be `JSON.stringify(form)`, and `form` carried two fields
+  // this screen has no control for: `discoverable` and `sitePublished`. Both
+  // were loaded at mount and PATCHed straight back on every save.
+  //
+  // `sitePublished` is the one that bites. The website builder does not use it
+  // — publishing writes `Site.published` (app/api/settings/website/route.js) —
+  // so this page was the only writer left in the product, and it wrote a value
+  // it had read minutes earlier. Publish a site in one tab, press Save here in
+  // another, and the column goes back to what it was, which is a cross-page
+  // clobber nobody can see happening.
+  //
+  // Listing the fields is deliberately verbose. The alternative — deleting two
+  // keys from `form` — is the shape that silently re-acquires the third the
+  // next time somebody adds a field to the loader.
+  function payload() {
+    return {
+      defaultProcessNotes: form.defaultProcessNotes,
+      paymentTerms: form.paymentTerms,
+      name: form.name,
+      phone: form.phone,
+      website: form.website,
+      email: form.email,
+      address: form.address,
+      city: form.city,
+      province: form.province,
+      postalCode: form.postalCode,
+      country: form.country,
+      latitude: form.latitude,
+      longitude: form.longitude,
+      taxIdName: form.taxIdName,
+      taxIdNumber: form.taxIdNumber,
+      taxRegistrationDismissed: form.taxRegistrationDismissed,
+      autoApplyLocalTax: form.autoApplyLocalTax,
+      vatRegistered: form.vatRegistered,
+      timezone: form.timezone,
+      dateFormat: form.dateFormat,
+      weekStartsOn: form.weekStartsOn,
+      currency: form.currency,
+      servesAbroad: form.servesAbroad,
+      businessHours: form.businessHours,
+      shareAnonymizedPricing: form.shareAnonymizedPricing,
+    };
+  }
+
   async function handleSave() {
     setSaving(true);
     setSaved(false);
@@ -614,7 +731,7 @@ export default function CompanySettingsPage() {
       const res = await fetch("/api/settings/business-info", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload()),
       });
       if (res.ok) {
         setSaved(true);
@@ -667,12 +784,40 @@ export default function CompanySettingsPage() {
     }
   }
 
-  if (loading || !form) {
+  if (loading) {
     return (
       <div className="p-4 sm:p-6 max-w-3xl mx-auto animate-pulse space-y-4">
         <div className="h-8 w-56 bg-accent rounded" />
         <div className="h-64 bg-accent rounded-xl" />
         <div className="h-48 bg-accent rounded-xl" />
+      </div>
+    );
+  }
+
+  // ── One coherent refusal, not a form built out of defaults ──────────────
+  //
+  // `!form` used to fall into the skeleton above, so a failed load spun
+  // forever with no explanation. Worse, when the response merely had the wrong
+  // STATUS rather than the wrong shape, `form` was populated from `||`
+  // defaults and the page offered to save them. Both endings are gone: if we
+  // could not read the company, we say so and render nothing that can be
+  // typed into.
+  if (loadError || !form) {
+    return (
+      <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-4">
+        <h1 className="text-2xl font-bold text-foreground">
+          {t("app.settings.company")}
+        </h1>
+        <div className="rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {loadError || t("app.error.network")}
+        </div>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-muted"
+        >
+          {t("app.action.retry", "Try again")}
+        </button>
       </div>
     );
   }
@@ -691,6 +836,7 @@ export default function CompanySettingsPage() {
         quoteTypes={quoteTypes}
         taxRates={taxRates}
         hours={hours}
+        hoursFailed={hoursFailed}
       />
     );
   }
@@ -1076,6 +1222,10 @@ export default function CompanySettingsPage() {
 
         {hours === null ? (
           <div className="mt-4 h-40 bg-muted rounded-xl animate-pulse" />
+        ) : hoursFailed ? (
+          <p className="mt-4 text-sm text-muted-foreground">
+            {t("app.error.network")}
+          </p>
         ) : (
           <dl className="mt-4 border border-border rounded-xl divide-y divide-border">
             {WEEKDAYS.map((label, dayOfWeek) => {
@@ -1105,7 +1255,7 @@ export default function CompanySettingsPage() {
           </dl>
         )}
 
-        {hours?.length === 0 && (
+        {hours?.length === 0 && !hoursFailed && (
           <p className="mt-2 text-xs text-muted-foreground">
             {t("app.setCompany.noHoursSet")}
           </p>
@@ -1540,7 +1690,12 @@ export default function CompanySettingsPage() {
         // Without this the card kept showing stale hours after a save — the
         // modal fetched fresh data on open, so the values only *looked*
         // correct while editing.
-        onSaved={(saved) => setHours(Array.isArray(saved) ? saved : [])}
+        onSaved={(saved) => {
+          setHours(Array.isArray(saved) ? saved : []);
+          // A successful save IS a successful read of the same rows, so the
+          // "couldn't load" state must not survive it.
+          setHoursFailed(false);
+        }}
       />
     </div>
   );

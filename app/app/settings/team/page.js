@@ -62,6 +62,10 @@ export default function TeamOverviewPage() {
   // hire is somebody, one click early.
   const anyoneElse = (seats.used ?? 0) + (seats.crew ?? 0) > 1;
   const [loading, setLoading] = useState(true);
+  // The roster read failed. Distinct from "this company has one person": the
+  // empty state, the seat counters and the "it's just me" checkbox all make
+  // claims that must not be made out of a network error.
+  const [loadFailed, setLoadFailed] = useState(false);
   // "It's just me — no crew right now." Read from and written to
   // /api/settings/business-info, the same door the tax "I don't have one"
   // answer uses; only the checkbox lives here, beside the roster it describes.
@@ -86,7 +90,14 @@ export default function TeamOverviewPage() {
 
   const load = useCallback(() => {
     return Promise.all([
-      fetch("/api/settings/members").then((r) => r.json()),
+      // Guarded like its four siblings below. It was the ONE unguarded call in
+      // this list, and it is the one that matters: on a 403 or a 500 the body
+      // is `{ error }`, Array.isArray said no, and the page rendered "No team
+      // members yet." to a company of nine. A failed request became a
+      // statement about the roster.
+      fetch("/api/settings/members").then((r) =>
+        r.ok ? r.json() : Promise.reject(new Error("members")),
+      ),
       fetch("/api/settings/members/pending").then((r) =>
         r.ok ? r.json() : { pending: [], seats: {} },
       ),
@@ -105,6 +116,7 @@ export default function TeamOverviewPage() {
       // failed read here costs nothing but the tick.
       fetch("/api/settings/business-info").then((r) => (r.ok ? r.json() : null)),
     ]).then(([memberData, pendingData, grantData, workerData, companyData]) => {
+      setLoadFailed(false);
       setMembers(Array.isArray(memberData) ? memberData : []);
       setPending(Array.isArray(pendingData.pending) ? pendingData.pending : []);
       setSeats(pendingData.seats || { used: 0, limit: null });
@@ -124,7 +136,11 @@ export default function TeamOverviewPage() {
   }, []);
 
   useEffect(() => {
-    load().finally(() => setLoading(false));
+    // `load()` had no catch anywhere: a rejection went unhandled and the page
+    // settled on an empty roster with no banner.
+    load()
+      .catch(() => setLoadFailed(true))
+      .finally(() => setLoading(false));
   }, [load]);
 
   // Non-role fields (active, profile) still go through the general endpoint.
@@ -451,7 +467,11 @@ export default function TeamOverviewPage() {
         <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
           <div>
             <span className="text-2xl font-semibold text-foreground tabular-nums">
-              {seats.used}
+              {/* An em dash, not a blank and not a zero. `seats` is `{}` when
+                  the pending/seats read failed, so `{seats.used}` rendered
+                  nothing at all beside the words "seats used" — which reads as
+                  a layout bug rather than as "we could not find out". */}
+              {seats.used ?? "—"}
               {seatCap != null ? (
                 <span className="text-muted-foreground">{` / ${seatCap}`}</span>
               ) : seats.limit ? (
@@ -464,7 +484,7 @@ export default function TeamOverviewPage() {
           </div>
           <div>
             <span className="text-2xl font-semibold text-foreground tabular-nums">
-              {seats.crew ?? 0}
+              {seats.crew ?? (seats.used == null ? "—" : 0)}
               {crewCap != null ? (
                 <span className="text-muted-foreground">{` / ${crewCap}`}</span>
               ) : null}
@@ -596,7 +616,10 @@ export default function TeamOverviewPage() {
             back — the roster is the fact, this is only the claim.
 
             Gated on user:manage, which is what the PATCH enforces. */}
-        {canAdd && !anyoneElse && (
+        {/* `anyoneElse` is derived from seat counts, so a failed read made it
+            false and offered "It's just me — no crew right now" to a company of
+            nine. Not offered when we don't know. */}
+        {canAdd && !anyoneElse && seats.used != null && !loadFailed && (
           <label className="mt-4 flex items-start gap-2.5 text-sm text-muted-foreground">
             <input
               type="checkbox"
@@ -819,10 +842,20 @@ export default function TeamOverviewPage() {
             </div>
           ))}
 
-          {members.length === 0 && pending.length === 0 && (
-            <p className="px-5 py-8 text-sm text-muted-foreground text-center">
-              {t("app.setTeam.noMembers")}
+          {/* "No team members yet." is a statement about the company. It must
+              not be made out of a failed request — an owner reading it after a
+              500 has been told their roster is gone. */}
+          {loadFailed ? (
+            <p className="px-5 py-8 text-sm text-red-700 dark:text-red-300 text-center">
+              {t("app.error.network")}
             </p>
+          ) : (
+            members.length === 0 &&
+            pending.length === 0 && (
+              <p className="px-5 py-8 text-sm text-muted-foreground text-center">
+                {t("app.setTeam.noMembers")}
+              </p>
+            )
           )}
         </div>
       </div>

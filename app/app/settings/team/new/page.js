@@ -80,7 +80,6 @@ function NewUserForm() {
     emptyPermissionValues(),
   );
 
-  const [emailSubscribed, setEmailSubscribed] = useState(true);
   const [invitationLanguage, setInvitationLanguage] = useState("en");
 
   const [uploading, setUploading] = useState(false);
@@ -550,24 +549,21 @@ function NewUserForm() {
             {t("app.setTeamNew.communications")}
           </h2>
 
-          <label className="flex items-start gap-2.5 text-sm">
-            <input
-              type="checkbox"
-              className="mt-0.5"
-              checked={emailSubscribed}
-              onChange={(e) => setEmailSubscribed(e.target.checked)}
-            />
-            <span>
-              <span className="font-medium text-foreground">
-                {t("app.setTeamNew.emailSubs")}
-              </span>
-              <br />
-              <span className="text-muted-foreground">
-                {t("app.setTeamNew.emailSubsDesc")}
-              </span>
-            </span>
-          </label>
+          {/* ── "Email subscriptions" is gone ───────────────────────────────
+              A ticked checkbox labelled "Receive occasional surveys to tell us
+              how we're doing", inside a card called Communications, on the form
+              that hires somebody. It was not in the POST body. No route
+              accepted it. No column existed to hold it. The entire lifetime of
+              the value was the two lines of local state that rendered it —
+              grep `emailSubscribed` and this file was both hits.
 
+              So it collected a consent decision about contacting an employee
+              and threw it away on navigation, which is worse than not asking:
+              an owner who unticked it believed they had opted their new hire
+              out of something. Removed rather than wired up, because there is
+              no survey system to wire it to and inventing a Member column for
+              a product that does not exist is how the next dead field gets
+              made. */}
           <div>
             <label className="text-sm font-medium text-foreground block mb-1">
               {t("app.setTeamNew.invitationLanguage")}
