@@ -120,8 +120,10 @@ export default function PlatformMigrationsPage() {
         </div>
       ) : rows.length === 0 ? (
         <p className="text-sm text-muted-foreground py-10 text-center">
+          {/* "No requests are requested." is what naming the filter with the
+              verb produced. The chip's own label reads as a bucket. */}
           {status
-            ? `No requests are ${describeStatus(status)}.`
+            ? `No requests in “${STATUSES.find((s) => s.value === status)?.label}”.`
             : "No company has asked for a data migration yet."}
         </p>
       ) : (
