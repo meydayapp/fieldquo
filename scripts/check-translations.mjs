@@ -219,7 +219,7 @@ console.log("\nOnboarding tour anchors (data-tour attributes in app/)\n");
         (entry.name.endsWith(".js") || entry.name.endsWith(".jsx")) &&
         full !== TOUR_DEFINITIONS_FILE
       ) {
-        const src = await readFile(full, "utf8");
+        const src = maskComments(await readFile(full, "utf8"));
         for (const m of src.matchAll(ATTR_RE)) anchors.add(m[1]);
         for (const m of src.matchAll(TOUR_PROP_RE)) anchors.add(m[1]);
         for (const m of src.matchAll(DATA_TOUR_PROP_RE)) anchors.add(m[1]);
@@ -284,6 +284,67 @@ console.log("\nOnboarding tour anchors (data-tour attributes in app/)\n");
 const SRC_DIRS = ["app", "lib"];
 const CATALOGUE = "app/i18n/appMessages.js"; // the definitions, not a use
 const used = new Map(); // key -> first file that uses it
+
+/**
+ * Comment bodies blanked, every other character kept in place.
+ *
+ * ── Why this is here ──────────────────────────────────────────────────────
+ *
+ * The scan below used to read raw source, so a key NAMED IN A COMMENT counted
+ * as a key USED. That is not hypothetical: two status-presentation modules
+ * shipped a row with `labelKey: null` and an English fallback — deliberately,
+ * because a key literal that resolves to nothing renders the key itself on
+ * screen — and each wrote a comment saying which key to add to finish it. The
+ * comment explaining that the key is NOT used failed the build for using it.
+ *
+ * ── Why a scanner and not a regex ─────────────────────────────────────────
+ *
+ * `src.replace(/\/\/.*$/gm, "")` is the obvious version and it is dangerous
+ * HERE specifically. This check's whole job is to notice a t() key with no
+ * definition, so anything that removes real code creates a FALSE PASS — the
+ * one failure mode that matters. A line containing "https://…" would be
+ * truncated at the slashes, and every key after it on that line would vanish
+ * from the scan along with the bug it was there to catch.
+ *
+ * So: track string and template state, and only treat `//` and slash-star as
+ * a comment when they open outside one. Characters are replaced with spaces
+ * rather than deleted, so offsets and line numbers are unchanged.
+ *
+ * Regex literals are not tracked. A regex containing a quoted `app.*` literal
+ * does not occur in this codebase, and the failure mode if one appeared would
+ * be an extra key counted as used — the safe direction, not the false pass.
+ */
+function maskComments(src) {
+  const out = src.split("");
+  let i = 0;
+  let quote = null; // "'", '"' or "`" while inside a string
+  while (i < src.length) {
+    const c = src[i];
+    const next = src[i + 1];
+    if (quote) {
+      if (c === "\\") { i += 2; continue; }
+      if (c === quote) quote = null;
+      i += 1;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === "`") { quote = c; i += 1; continue; }
+    if (c === "/" && next === "/") {
+      while (i < src.length && src[i] !== "\n") { out[i] = " "; i += 1; }
+      continue;
+    }
+    if (c === "/" && next === "*") {
+      out[i] = " "; out[i + 1] = " "; i += 2;
+      while (i < src.length && !(src[i] === "*" && src[i + 1] === "/")) {
+        if (src[i] !== "\n") out[i] = " ";
+        i += 1;
+      }
+      if (i < src.length) { out[i] = " "; out[i + 1] = " "; i += 2; }
+      continue;
+    }
+    i += 1;
+  }
+  return out.join("");
+}
 
 async function scan(dir) {
   for (const entry of await readdir(dir, { withFileTypes: true })) {

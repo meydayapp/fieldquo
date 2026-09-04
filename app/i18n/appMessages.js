@@ -5701,6 +5701,18 @@ const en = {
   "app.deepRead.nothingFound": "Nothing found beyond what the quote already covers.",
   "app.deepRead.notForClient": "Things to check on site — not measurements, and not for the client to read. Nothing has been added to the quote.",
   "app.deepRead.photosRead": countedNoun("en", {"one":"photo read","other":"photos read"}),
+
+  // ── Two status words the presentation modules were waiting on ────────
+  //
+  // lib/billing/subscriptionStatusPresentation.js and
+  // lib/payroll/payoutStatusPresentation.js each shipped one row with
+  // labelKey: null and an English fallback, because a key literal that
+  // resolves to nothing renders the KEY on screen — worse than the English
+  // word. Both are generic status vocabulary and live here rather than in a
+  // billing or payroll namespace, for the same reason app.status.overdue is
+  // shared: one word, one place, so two screens cannot disagree about it.
+  "app.status.trial": "Trial",
+  "app.status.failed": "Failed",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -10989,6 +11001,9 @@ const fr = {
   "app.deepRead.nothingFound": "Rien trouvé au-delà de ce que la soumission couvre déjà.",
   "app.deepRead.notForClient": "À vérifier sur place — ce ne sont pas des mesures, et ce n'est pas destiné au client. Rien n'a été ajouté à la soumission.",
   "app.deepRead.photosRead": countedNoun("fr", {"one":"photo lue","many":"photos lues","other":"photos lues"}),
+
+  "app.status.trial": "Essai",
+  "app.status.failed": "Échec",
 };
 
 
@@ -14490,6 +14505,9 @@ const es = {
   "app.deepRead.nothingFound": "No se encontró nada más allá de lo que el presupuesto ya cubre.",
   "app.deepRead.notForClient": "Cosas que comprobar en obra — no son mediciones, y no son para que las lea el cliente. No se ha añadido nada al presupuesto.",
   "app.deepRead.photosRead": countedNoun("es", {"one":"foto leída","many":"fotos leídas","other":"fotos leídas"}),
+
+  "app.status.trial": "Prueba",
+  "app.status.failed": "Fallido",
 };
 
 const uk = {
@@ -18019,6 +18037,9 @@ const uk = {
   "app.deepRead.nothingFound": "Не знайдено нічого понад те, що вже враховано в кошторисі.",
   "app.deepRead.notForClient": "Що перевірити на місці — це не заміри й не для читання клієнтом. До кошторису нічого не додано.",
   "app.deepRead.photosRead": countedNoun("uk", {"one":"фото прочитано","few":"фото прочитано","many":"фото прочитано","other":"фото прочитано"}),
+
+  "app.status.trial": "Пробний період",
+  "app.status.failed": "Помилка",
 };
 
 const pa = {
@@ -21505,6 +21526,9 @@ const pa = {
   "app.deepRead.nothingFound": "ਕੋਟ ਵਿੱਚ ਪਹਿਲਾਂ ਹੀ ਸ਼ਾਮਲ ਗੱਲਾਂ ਤੋਂ ਵੱਧ ਕੁਝ ਨਹੀਂ ਮਿਲਿਆ।",
   "app.deepRead.notForClient": "ਮੌਕੇ 'ਤੇ ਜਾਂਚਣ ਵਾਲੀਆਂ ਗੱਲਾਂ — ਇਹ ਮਾਪ ਨਹੀਂ ਹਨ, ਅਤੇ ਗਾਹਕ ਦੇ ਪੜ੍ਹਨ ਲਈ ਨਹੀਂ। ਕੋਟ ਵਿੱਚ ਕੁਝ ਨਹੀਂ ਜੋੜਿਆ ਗਿਆ।",
   "app.deepRead.photosRead": countedNoun("pa", {"one":"ਫ਼ੋਟੋ ਪੜ੍ਹੀ","other":"ਫ਼ੋਟੋਆਂ ਪੜ੍ਹੀਆਂ"}),
+
+  "app.status.trial": "ਟ੍ਰਾਇਲ",
+  "app.status.failed": "ਅਸਫਲ",
 };
 
 const tl = {
@@ -24998,6 +25022,9 @@ const tl = {
   "app.deepRead.nothingFound": "Walang nakitang lampas sa saklaw na ng quote.",
   "app.deepRead.notForClient": "Mga dapat tingnan sa site — hindi ito sukat, at hindi para basahin ng kliyente. Walang idinagdag sa quote.",
   "app.deepRead.photosRead": countedNoun("tl", {"one":"larawang nabasa","other":"larawang nabasa"}),
+
+  "app.status.trial": "Trial",
+  "app.status.failed": "Nabigo",
 };
 
 const de = {
@@ -29940,6 +29967,9 @@ const de = {
   "app.deepRead.nothingFound": "Nichts gefunden, was über das Angebot hinausgeht.",
   "app.deepRead.notForClient": "Vor Ort zu prüfen — keine Maße, und nicht für den Kunden bestimmt. Dem Angebot wurde nichts hinzugefügt.",
   "app.deepRead.photosRead": countedNoun("de", {"one":"Foto gelesen","other":"Fotos gelesen"}),
+
+  "app.status.trial": "Testphase",
+  "app.status.failed": "Fehlgeschlagen",
 };
 
 const zh = {
@@ -34879,6 +34909,9 @@ const zh = {
   "app.deepRead.nothingFound": "未发现报价单尚未涵盖的内容。",
   "app.deepRead.notForClient": "需在现场核对的事项 — 这不是测量数据，也不供客户阅读。报价单未作任何添加。",
   "app.deepRead.photosRead": countedNoun("zh", {"other":"张照片已解读"}),
+
+  "app.status.trial": "试用",
+  "app.status.failed": "失败",
 };
 
 const it = {
@@ -40113,6 +40146,9 @@ const it = {
   "app.deepRead.nothingFound": "Non è stato trovato nulla oltre a quanto il preventivo già copre.",
   "app.deepRead.notForClient": "Da verificare in cantiere — non sono misurazioni e non sono destinate al cliente. Nulla è stato aggiunto al preventivo.",
   "app.deepRead.photosRead": countedNoun("it", {"one":"foto letta","other":"foto lette"}),
+
+  "app.status.trial": "Prova",
+  "app.status.failed": "Non riuscito",
 };
 
 export const APP_MESSAGES = { en, fr, es, uk, pa, tl, de, zh, it };
