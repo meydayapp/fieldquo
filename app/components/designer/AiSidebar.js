@@ -65,11 +65,6 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-const PROMPT_EXAMPLES = [
-  "a freshly painted living room, warm afternoon light",
-  "a clean work truck with a ladder rack, parked on a job site",
-];
-
 /**
  * @param {Object} props
  * @param {import("@/lib/designer/constants").Editor | undefined} props.editor
@@ -131,13 +126,16 @@ export function AiSidebar({ editor, activeTool, onChangeActiveTool }) {
           topup.open(data);
           return;
         }
-        setError(data.error || "Couldn't generate that image.");
+        // The route's own message when it has one — it is the specific
+        // refusal, already written for this case. The catalogue string is the
+        // fallback for a body that carries none.
+        setError(data.error || t("app.aiImage.error"));
         return;
       }
       editor?.addImage(data.url);
       setValue("");
     } catch {
-      setError("Couldn't reach the server. Try again.");
+      setError(t("app.aiImage.networkError"));
     } finally {
       setSubmitting(false);
     }
@@ -151,11 +149,16 @@ export function AiSidebar({ editor, activeTool, onChangeActiveTool }) {
       )}
     >
       <ToolSidebarHeader
-        title="AI image"
+        title={t("app.aiImage.title")}
         description={
+          // Priced once the status has landed, plain until then. Both forms
+          // are catalogue entries rather than one sentence with the amount
+          // appended, because "— $0.12 each" is not a suffix in every language.
           status?.priceCents
-            ? `Generate a photo-style image for a post or ad — ${centsToDollars(status.priceCents)} each`
-            : "Generate a photo-style image for a post or ad"
+            ? t("app.aiImage.subtitlePriced", {
+                price: centsToDollars(status.priceCents),
+              })
+            : t("app.aiImage.subtitle")
         }
       />
       <div className="overflow-y-auto">
@@ -190,11 +193,11 @@ export function AiSidebar({ editor, activeTool, onChangeActiveTool }) {
               </div>
             )}
             <div className="space-y-1.5">
-              <Label htmlFor="ai-image-prompt">Describe the image</Label>
+              <Label htmlFor="ai-image-prompt">{t("app.aiImage.promptLabel")}</Label>
               <Textarea
                 id="ai-image-prompt"
                 disabled={!status?.allowed || submitting}
-                placeholder={`e.g. "${PROMPT_EXAMPLES[0]}" or "${PROMPT_EXAMPLES[1]}"`}
+                placeholder={t("app.aiImage.promptPlaceholder")}
                 rows={4}
                 required
                 minLength={3}
@@ -202,12 +205,11 @@ export function AiSidebar({ editor, activeTool, onChangeActiveTool }) {
                 onChange={(e) => setValue(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                For social posts and ads — this never appears on a quote, invoice or anything a
-                client signs.
+                {t("app.aiImage.notOnDocuments")}
               </p>
             </div>
             <Button disabled={!status?.allowed || submitting} type="submit" className="w-full">
-              {submitting ? "Generating…" : "Generate image"}
+              {submitting ? t("app.aiImage.generating") : t("app.aiImage.generate")}
             </Button>
             {error && <p className="text-xs text-destructive">{error}</p>}
           </form>

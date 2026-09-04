@@ -16,6 +16,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Palette, Plus, Trash2, ImageOff } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { fetchList } from "@/lib/loadState";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import ListState from "@/app/components/ListState";
@@ -27,6 +28,12 @@ const inputClass =
 export default function MarketingDesignerPage() {
   const { t } = useTranslation();
   const router = useRouter();
+  // The company's own ordering, not a locale's — these are internal dates on a
+  // back-office list, and lib/format/companyDate.js explains why client
+  // documents deliberately do NOT share this formatter. The provider's own
+  // helper rather than the raw one plus a preference at every call site: one
+  // of those is a place to forget the second argument.
+  const { formatDate } = useCompanyPreferences();
 
   // null = not known yet (lib/loadState.js's convention) — see this file's
   // own load() for why both requests share one error state instead of
@@ -200,8 +207,13 @@ export default function MarketingDesignerPage() {
               <div key={c.id} className="bg-card border border-border rounded-xl p-5">
                 <div className="flex items-center justify-between gap-2 mb-3">
                   <h2 className="font-semibold text-foreground">{c.name}</h2>
+                  {/* "2 designs", not a bare "2" floating to the right of a
+                      campaign name. countedNoun renders the number and the
+                      declined word together, so nothing here prints the count
+                      separately — French says "0 visuel", Ukrainian has three
+                      forms, and neither survives a hand-built "{n} designs". */}
                   <span className="text-xs text-muted-foreground">
-                    {designs.length}
+                    {t("app.marketingDesigner.designsCount", { value: designs.length })}
                   </span>
                 </div>
 
@@ -255,6 +267,12 @@ export default function MarketingDesignerPage() {
                                 </span>
                               ))}
                             </span>
+                            {/* The list is ordered by updatedAt and never
+                                showed a date. Which date depends on whether
+                                anything has been saved: a design with no
+                                layouts has never been edited, so its updatedAt
+                                is its createdAt and calling it "edited" would
+                                be a small lie on the emptiest row. */}
                             <p className="text-xs text-muted-foreground mt-1">
                               {done === 0 ? (
                                 <span className="flex items-center gap-1">
@@ -263,12 +281,30 @@ export default function MarketingDesignerPage() {
                                     done,
                                     total: AD_RATIOS.length,
                                   })}
+                                  {d.createdAt && (
+                                    <>
+                                      {" · "}
+                                      {t("app.marketingDesigner.createdOn", {
+                                        date: formatDate(d.createdAt),
+                                      })}
+                                    </>
+                                  )}
                                 </span>
                               ) : (
-                                t("app.marketingDesigner.ratiosSaved", {
-                                  done,
-                                  total: AD_RATIOS.length,
-                                })
+                                <>
+                                  {t("app.marketingDesigner.ratiosSaved", {
+                                    done,
+                                    total: AD_RATIOS.length,
+                                  })}
+                                  {d.updatedAt && (
+                                    <>
+                                      {" · "}
+                                      {t("app.marketingDesigner.lastEdited", {
+                                        date: formatDate(d.updatedAt),
+                                      })}
+                                    </>
+                                  )}
+                                </>
                               )}
                             </p>
                           </button>

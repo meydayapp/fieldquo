@@ -860,6 +860,41 @@ section("16. The designs index — the answer the server already sent");
     !/aria-label="Delete design"/.test(indexPage),
     "…and the hardcoded English one is gone",
   );
+
+  // A bare "2" beside a campaign name is a number with no noun. countedNoun
+  // renders the figure and the declined word together — printing the count
+  // separately alongside it would give "2 2 designs" in English and something
+  // worse in Ukrainian, so the literal must be gone as well as the key present.
+  ok(
+    /t\("app\.marketingDesigner\.designsCount", \{ value: designs\.length \}\)/.test(indexPage),
+    "the campaign's design count is a counted noun, not a bare number",
+  );
+  ok(
+    !/\{designs\.length\}/.test(indexPage),
+    "…and the bare count is not ALSO printed next to it",
+  );
+
+  // The list is ordered by updatedAt and showed no date at all. Which label
+  // depends on whether anything is saved: an untouched design's updatedAt IS
+  // its createdAt, and calling that "edited" is a small lie on the emptiest row.
+  ok(
+    /t\("app\.marketingDesigner\.lastEdited", \{\s*date: formatDate\(d\.updatedAt\)/.test(indexPage),
+    "a design with saved layouts shows when it was last edited",
+  );
+  ok(
+    /t\("app\.marketingDesigner\.createdOn", \{\s*date: formatDate\(d\.createdAt\)/.test(indexPage),
+    "…and one with none shows when it was created, not when it was 'edited'",
+  );
+  // The company's own ordering. A locale-formatted date here would ignore the
+  // preference the settings page collects.
+  ok(
+    /const \{ formatDate \} = useCompanyPreferences\(\)/.test(indexPage),
+    "…both formatted through the company's date preference",
+  );
+  ok(
+    !/toLocaleDateString/.test(indexPage),
+    "…and never through the browser's locale instead",
+  );
 }
 
 console.log(`\n${fail === 0 ? "ALL PASS" : fail + " FAILED"}`);

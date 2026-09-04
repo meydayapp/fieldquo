@@ -226,19 +226,35 @@ for (const lang of ["en", "fr"]) {
 }
 
 // Every other reason: a sentence, never blank, never "something went wrong",
-// and never the reason code itself leaking to screen.
-for (const reason of [
-  "feature_unavailable",
-  "vendor_unavailable",
-  "unavailable",
-  "a_reason_nobody_has_written_yet",
-]) {
-  const text = disabledReasonText({ reason, allowed: false });
+// never the reason code leaking to screen — and, since the panels were
+// translated, never an English string built in this file either. A reason
+// whose key is missing is invisible without this: t() falls back to English
+// and the screen looks fine in the one language nobody was worried about.
+const REASON_KEYS = {
+  feature_unavailable: "app.aiImage.reason.featureUnavailable",
+  vendor_unavailable: "app.aiImage.reason.vendorUnavailable",
+  unavailable: "app.aiImage.reason.unavailable",
+  a_reason_nobody_has_written_yet: "app.aiImage.reason.generic",
+};
+for (const [reason, key] of Object.entries(REASON_KEYS)) {
+  const asked = [];
+  const text = disabledReasonText({ reason, allowed: false }, recordingT(asked));
   ok(
     typeof text === "string" && text.trim().length > 10 && !text.includes(reason),
     `"${reason}" renders a real sentence rather than the code`,
     text,
   );
+  ok(asked.includes(key), `"${reason}" asks the catalogue for ${key}`, asked);
+  for (const lang of ["en", "fr"]) {
+    ok(
+      typeof (MESSAGES[lang] || {})[key] === "string",
+      `…and ${key} exists in ${lang}`,
+    );
+  }
+  // With no translator the same reason still says something true, which is
+  // what REASON_COPY carrying key AND English is for.
+  const bare = disabledReasonText({ reason, allowed: false });
+  ok(bare.trim().length > 10 && !bare.startsWith("app."), `…and reads as a sentence with no t() at all`, bare);
 }
 
 // Absence of a status is not a refusal. Null means "not asked yet" and the
@@ -305,6 +321,62 @@ for (const [name, rel] of [["AiSidebar", AI_SIDEBAR], ["RemoveBgSidebar", REMOVE
     /centsToDollars\(status\.priceCents\)/.test(code),
     `${name}: the price is named in the panel header, before anything is pressed`,
   );
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+section("2b. Both panels speak the reader's language, not English");
+// ═════════════════════════════════════════════════════════════════════════
+//
+// Every visible string on these two panels was hardcoded English until the
+// catalogue entries landed. The keys are checked to EXIST as well as to be
+// referenced, because t() falling back to English is exactly what a missing
+// key looks like from an English desk.
+const PANEL_KEYS = {
+  [AI_SIDEBAR]: [
+    "app.aiImage.title",
+    "app.aiImage.subtitle",
+    "app.aiImage.subtitlePriced",
+    "app.aiImage.promptLabel",
+    "app.aiImage.promptPlaceholder",
+    "app.aiImage.notOnDocuments",
+    "app.aiImage.generate",
+    "app.aiImage.generating",
+    "app.aiImage.error",
+    "app.aiImage.networkError",
+  ],
+  [REMOVE_BG]: [
+    "app.removeBg.title",
+    "app.removeBg.subtitlePriced",
+    "app.removeBg.selectFirst",
+    "app.removeBg.selectFirstHint",
+    "app.removeBg.run",
+    "app.removeBg.running",
+    "app.removeBg.error",
+  ],
+};
+for (const [rel, keys] of Object.entries(PANEL_KEYS)) {
+  const code = stripComments(read(rel));
+  const name = rel.split("/").pop();
+  for (const key of keys) {
+    ok(code.includes(`t("${key}"`), `${name} renders ${key} through t()`);
+    for (const lang of ["en", "fr"]) {
+      ok(
+        typeof (MESSAGES[lang] || {})[key] === "string",
+        `…and ${key} exists in ${lang}`,
+      );
+    }
+  }
+}
+// The specific sentences that used to be typed into the JSX. Comment-stripped,
+// so the header notes that QUOTE the old copy do not keep this passing.
+for (const [rel, gone] of [
+  [AI_SIDEBAR, ["Describe the image", "Generate image", "Generating…", "AI image"]],
+  [REMOVE_BG, ["Select a photo first", "Remove background", "Removing…", "Background removal"]],
+]) {
+  const code = stripComments(read(rel));
+  for (const phrase of gone) {
+    ok(!code.includes(`"${phrase}"`), `${rel.split("/").pop()}: "${phrase}" is no longer a literal in the JSX`);
+  }
 }
 
 // ═════════════════════════════════════════════════════════════════════════

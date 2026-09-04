@@ -90,11 +90,24 @@ export function centsToDollars(cents) {
   return formatAppMoney(Math.max(0, Number(cents) || 0) / 100, CREDIT_CURRENCY, "en");
 }
 
+// The reason the server gave, and the string that explains it. Each carries
+// its English text alongside the key so the no-translator path below still
+// says something true — the key is what a French screen actually renders.
 const REASON_COPY = {
-  feature_unavailable: "AI image tools aren't switched on for this account.",
-  vendor_unavailable: "AI image tools aren't connected on this deployment yet.",
-  insufficient_balance: "balance", // filled in with the numbers by the caller
-  unavailable: "Couldn't check AI image availability right now.",
+  feature_unavailable: [
+    "app.aiImage.reason.featureUnavailable",
+    "AI image tools aren't switched on for this account.",
+  ],
+  vendor_unavailable: [
+    "app.aiImage.reason.vendorUnavailable",
+    "AI image tools aren't connected on this deployment yet.",
+  ],
+  // insufficient_balance is deliberately absent: it is the one reason whose
+  // sentence is built from numbers, out of the top-up dialog's own strings.
+  unavailable: [
+    "app.aiImage.reason.unavailable",
+    "Couldn't check AI image availability right now.",
+  ],
 };
 
 /**
@@ -116,8 +129,8 @@ const REASON_COPY = {
  * told they were short.
  *
  * `t` is optional so a caller that has not got one still gets the English
- * sentence rather than an empty box; the other three reasons have no catalogue
- * entry yet and are English by omission, not by design.
+ * sentence rather than an empty box — which is why REASON_COPY carries the key
+ * AND the English for each reason rather than the key alone.
  */
 export function disabledReasonText(status, t) {
   if (!status) return "";
@@ -136,5 +149,9 @@ export function disabledReasonText(status, t) {
     });
     return `${cost} ${short}`;
   }
-  return REASON_COPY[status.reason] || "This isn't available right now.";
+  const [key, fallback] = REASON_COPY[status.reason] || [
+    "app.aiImage.reason.generic",
+    "This isn't available right now.",
+  ];
+  return say(key, fallback);
 }

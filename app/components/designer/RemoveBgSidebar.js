@@ -104,12 +104,15 @@ export function RemoveBgSidebar({ editor, activeTool, onChangeActiveTool }) {
           topup.open(data);
           return;
         }
-        setError(data.error || "Couldn't remove that background.");
+        setError(data.error || t("app.removeBg.error"));
         return;
       }
       editor?.addImage(data.url);
     } catch {
-      setError("Couldn't reach the server. Try again.");
+      // Shared with the AI image panel rather than duplicated: it is the same
+      // sentence about the same failure, and a second key would be the copy
+      // that drifts. Same reasoning as "All" living once as app.jobs.filterAll.
+      setError(t("app.aiImage.networkError"));
     } finally {
       setSubmitting(false);
     }
@@ -123,19 +126,25 @@ export function RemoveBgSidebar({ editor, activeTool, onChangeActiveTool }) {
       )}
     >
       <ToolSidebarHeader
-        title="Background removal"
+        title={t("app.removeBg.title")}
         description={
+          // Only once the price is known. There is no unpriced description in
+          // the catalogue yet (app.removeBg.subtitle is reported, not
+          // invented), and an English sentence on a French panel is worse than
+          // a description that arrives with the status a moment later.
           status?.priceCents
-            ? `Remove background from image using AI — ${centsToDollars(status.priceCents)} each`
-            : "Remove background from image using AI"
+            ? t("app.removeBg.subtitlePriced", {
+                price: centsToDollars(status.priceCents),
+              })
+            : undefined
         }
       />
       {!imageSrc && (
         <div className="flex flex-1 flex-col items-center justify-center gap-y-2 p-4 text-center">
           <AlertTriangle className="size-4 text-muted-foreground" />
-          <p className="text-sm font-medium">Select a photo first</p>
+          <p className="text-sm font-medium">{t("app.removeBg.selectFirst")}</p>
           <p className="text-xs text-muted-foreground">
-            Tap a photo on the canvas, then come back here to remove its background.
+            {t("app.removeBg.selectFirstHint")}
           </p>
         </div>
       )}
@@ -186,7 +195,7 @@ export function RemoveBgSidebar({ editor, activeTool, onChangeActiveTool }) {
               onClick={onClick}
               className="w-full"
             >
-              {submitting ? "Removing…" : "Remove background"}
+              {submitting ? t("app.removeBg.running") : t("app.removeBg.run")}
             </Button>
             {error && <p className="text-xs text-destructive">{error}</p>}
           </div>
