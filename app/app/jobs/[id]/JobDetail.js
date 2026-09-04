@@ -13,7 +13,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { JOB_STATUSES, jobStatusLabel } from "@/lib/jobs/statusLabels";
+import {
+  JOB_STATUSES,
+  jobStatusLabel,
+  jobStatusClasses,
+} from "@/lib/jobs/statusLabels";
 import JobCosting from "@/app/components/jobs/JobCosting";
 import JobMaterials from "@/app/components/jobs/JobMaterials";
 import JobTasks from "@/app/components/jobs/JobTasks";
@@ -25,7 +29,7 @@ import JobPhotoTimeline from "@/app/components/jobs/JobPhotoTimeline";
 import SuggestedTasks from "@/app/components/jobs/SuggestedTasks";
 import VisitChecklist from "@/app/components/jobs/VisitChecklist";
 import VisitStatus from "@/app/components/jobs/VisitStatus";
-import { visitStatusLabel } from "@/lib/jobs/visitStatus";
+import { visitStatusLabel, visitStatusClasses } from "@/lib/jobs/visitStatus";
 import { isVisitOutsideJobRange } from "@/lib/jobs/visitInRange";
 import { callbackReasonLabel } from "@/lib/jobs/callbackReasons";
 import ChangeOrders from "@/app/components/jobs/ChangeOrders";
@@ -51,29 +55,19 @@ import { hasLevel } from "@/lib/permissions/enforce";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import PaymentScheduleCard from "./PaymentScheduleCard";
 
-const STATUS_STYLES = {
-  scheduled:
-    "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-900",
-  in_progress:
-    "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900",
-  completed:
-    "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900",
-  cancelled: "bg-muted text-muted-foreground border-border",
-  // Visit-only, and it had no entry — so the moment a visit could actually be
-  // put on the way, its badge would have fallen through to the same grey as a
-  // cancelled one. Purple rather than amber: "in_progress" above is a JOB
-  // status and the two sit inches apart on this page.
-  on_the_way:
-    "bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-900",
-  // lib/schedule/jobVisits.js filters on both spellings because it could not
-  // be sure which one the table holds. Style both for the same reason.
-  canceled: "bg-muted text-muted-foreground border-border",
-};
-
-// `unscheduled` included — it's where every auto-created job from an accepted
-// quote lands, so omitting it made the <select> show "scheduled" for a job the
-// badge above correctly called "unscheduled", and interacting silently flipped it.
-// Shared with the Jobs list — see lib/jobs/statusLabels.js for why.
+// ── One STATUS_STYLES held two vocabularies, and lost a key doing it ───────
+//
+// The map that used to live here keyed JOB statuses and VISIT statuses off the
+// same object — and had no `unscheduled` entry, which is where every job
+// auto-created from an accepted quote lands. Six keys covering two enums looks
+// exhaustive without being exhaustive over either, and the one it dropped was
+// the state that most needs to catch the eye: a job with no date fell through
+// to the same grey a cancelled job gets, while the jobs LIST painted it purple.
+// Same job, one click apart, opposite instructions.
+//
+// So each vocabulary now answers for itself — jobStatusClasses() over
+// `enum JobStatus`, visitStatusClasses() over the visit strings — and
+// check:job-status-vocabulary drives both against prisma/schema.prisma.
 
 function formatDateTime(value) {
   if (!value) return "Not scheduled";
@@ -108,6 +102,22 @@ export default function JobDetail({ jobId }) {
   const router = useRouter();
   const caller = usePermissions();
   const canDeleteJob = hasLevel(caller, "jobs", "view_create_edit_delete");
+  // ── The three controls a Crew member could press and never use ───────────
+  //
+  // PATCH /api/jobs/[id] requires jobs:view_create_edit (requireLevel, "edit
+  // jobs"). The Crew preset sits at jobs:view_only — see the note on that
+  // level in lib/permissions/enforce.js — and this is the page a crew opens on
+  // site. So the status <select>, Edit and Archive were three refusals dressed
+  // as controls, on the busiest screen in the product for the largest group of
+  // people using it. Archive was the worst of them: its own comment claimed it
+  // was "offered to anyone who can edit the job", and nothing had ever asked.
+  //
+  // The badge stays either way, so nobody loses the ability to SEE the status;
+  // what goes is the dropdown that answers 403. Same level the route enforces,
+  // asked of the same grid — not a role, because an owner who doesn't want
+  // Managers editing jobs sets the grid, and a hardcoded role here would
+  // contradict it.
+  const canEditJob = hasLevel(caller, "jobs", "view_create_edit");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -261,10 +271,7 @@ export default function JobDetail({ jobId }) {
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold text-foreground">{job.title}</h1>
             <span
-              className={`text-xs px-2.5 py-1 rounded-full border ${
-                STATUS_STYLES[job.status] ||
-                "bg-muted text-muted-foreground border-border"
-              }`}
+              className={`text-xs px-2.5 py-1 rounded-full border ${jobStatusClasses(job.status)}`}
             >
               {jobStatusLabel(job.status, t)}
             </span>
@@ -291,26 +298,30 @@ export default function JobDetail({ jobId }) {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <select
-            data-tour="job-status"
-            value={job.status}
-            disabled={busy}
-            onChange={(e) => setStatus(e.target.value)}
-            className="border border-border rounded-lg px-3 py-2 text-sm bg-card disabled:opacity-60"
-          >
-            {JOB_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {jobStatusLabel(s, t)}
-              </option>
-            ))}
-          </select>
-          <Link
-            href={`/app/jobs/${jobId}/edit`}
-            className="inline-flex items-center gap-1.5 border border-border text-foreground px-3 py-2 rounded-lg text-sm font-semibold"
-          >
-            <Pencil size={13} />
-            {t("app.action.edit")}
-          </Link>
+          {canEditJob && (
+            <select
+              data-tour="job-status"
+              value={job.status}
+              disabled={busy}
+              onChange={(e) => setStatus(e.target.value)}
+              className="border border-border rounded-lg px-3 py-2 text-sm bg-card disabled:opacity-60"
+            >
+              {JOB_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {jobStatusLabel(s, t)}
+                </option>
+              ))}
+            </select>
+          )}
+          {canEditJob && (
+            <Link
+              href={`/app/jobs/${jobId}/edit`}
+              className="inline-flex items-center gap-1.5 border border-border text-foreground px-3 py-2 rounded-lg text-sm font-semibold"
+            >
+              <Pencil size={13} />
+              {t("app.action.edit")}
+            </Link>
+          )}
 
           {/* ── Delete ──────────────────────────────────────────────────────
               DELETE /api/jobs/[id] has existed all along with nothing calling
@@ -327,18 +338,22 @@ export default function JobDetail({ jobId }) {
               a sentence rather than being pre-empted with a guess. */}
           {/* Archive / Restore. Offered to anyone who can edit the job, because
               filing something away destroys nothing and is undone by pressing
-              the same button again. */}
-          <button
-            type="button"
-            onClick={() => setArchived(!job.archivedAt)}
-            disabled={busy}
-            className="inline-flex items-center gap-1.5 border border-border text-foreground px-3 py-2 rounded-lg text-sm font-semibold disabled:opacity-60"
-          >
-            <Archive size={13} />
-            {job.archivedAt
-              ? t("app.jobs.restore", "Restore")
-              : t("app.jobs.archive", "Archive")}
-          </button>
+              the same button again — and now actually ASKED, rather than
+              claimed in this comment while the button rendered for everyone.
+              It PATCHes the same route the status dropdown does. */}
+          {canEditJob && (
+            <button
+              type="button"
+              onClick={() => setArchived(!job.archivedAt)}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 border border-border text-foreground px-3 py-2 rounded-lg text-sm font-semibold disabled:opacity-60"
+            >
+              <Archive size={13} />
+              {job.archivedAt
+                ? t("app.jobs.restore", "Restore")
+                : t("app.jobs.archive", "Archive")}
+            </button>
+          )}
 
           {canDeleteJob && (
             <button
@@ -482,10 +497,15 @@ export default function JobDetail({ jobId }) {
           {t("app.job.client")}
         </h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field icon={User} label="Name" value={job.client?.name} />
+          {/* The four labels were English literals on the one page a crew
+              stares at all day. app.field.* already carries these exact words
+              in all nine languages (the client form reads them) — a second
+              copy would be the same word translated twice, and the copy is the
+              one that rots. */}
+          <Field icon={User} label={t("app.field.name")} value={job.client?.name} />
           <Field
             icon={Phone}
-            label="Phone"
+            label={t("app.field.phone")}
             value={
               job.client?.phone ? (
                 <a
@@ -501,7 +521,7 @@ export default function JobDetail({ jobId }) {
           />
           <Field
             icon={MapPin}
-            label="Address"
+            label={t("app.field.address")}
             value={
               job.client?.address ? (
                 // Opens the device's default maps app — the single most-used
@@ -529,7 +549,7 @@ export default function JobDetail({ jobId }) {
           />
           <Field
             icon={FileText}
-            label="Email"
+            label={t("app.field.email")}
             value={job.client?.email || <Absent client={job.client} t={t} />}
           />
         </div>
@@ -633,10 +653,7 @@ export default function JobDetail({ jobId }) {
                           {formatDateTime(v.scheduledAt)}
                         </span>
                         <span
-                          className={`text-xs px-2 py-0.5 rounded-full border ${
-                            STATUS_STYLES[v.status] ||
-                            "bg-muted text-muted-foreground border-border"
-                          }`}
+                          className={`text-xs px-2 py-0.5 rounded-full border ${visitStatusClasses(v.status)}`}
                         >
                           {/* `t` passed, not omitted: this badge rendered the
                               map's English in every office. Same key the

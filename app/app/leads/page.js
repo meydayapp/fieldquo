@@ -145,13 +145,20 @@ export default function LeadsPage() {
     return () => clearTimeout(id);
   }, [load, q, canView]);
 
+  // `canView` was read in the body and missing from the deps, so the guard and
+  // the re-run disagreed: the effect could only ever fire on mount, and would
+  // never fetch the owner list again if the answer changed under it. Harmless
+  // today because PermissionProvider resolves in the same render pass as the
+  // page (it is server-rendered props, not a fetch) — and one refactor away
+  // from a permanently empty "Owner" dropdown, which is a lead nobody can be
+  // assigned to rather than a visible error.
   useEffect(() => {
     if (!canView) return;
     fetch("/api/leads/assignees")
       .then((r) => (r.ok ? r.json() : []))
       .then(setAssignees)
       .catch(() => {});
-  }, []);
+  }, [canView]);
 
   const grouped = useMemo(() => {
     const out = Object.fromEntries(COLUMNS.map((c) => [c.key, []]));
@@ -709,11 +716,23 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
   const [showLostPrompt, setShowLostPrompt] = useState(false);
   const [lostReasonDraft, setLostReasonDraft] = useState("");
 
+  // `if (res.ok)` with no else, and the failure was invisible rather than
+  // wrong: `loading` went false with `lead` still null, and the render below
+  // reads `loading || !lead`, so a refused or 500'd lead left the drawer
+  // pulsing its skeleton for as long as somebody was willing to watch it.
+  // Nothing said the request had failed and nothing offered a retry.
   const reload = useCallback(async () => {
-    const res = await fetch(`/api/leads/${leadId}`);
-    if (res.ok) setLead(await res.json());
-    setLoading(false);
-  }, [leadId]);
+    setErr("");
+    try {
+      const res = await fetch(`/api/leads/${leadId}`);
+      if (!res.ok) return reportResponseError(res, setErr, t("app.leads.loadError"));
+      setLead(await res.json());
+    } catch {
+      setErr(t("app.leads.loadError"));
+    } finally {
+      setLoading(false);
+    }
+  }, [leadId, t]);
 
   useEffect(() => {
     reload();
@@ -789,10 +808,30 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
           </button>
         </div>
 
-        {loading || !lead ? (
+        {loading ? (
           <div className="p-6 animate-pulse space-y-3">
             <div className="h-6 bg-accent rounded w-1/2" />
             <div className="h-24 bg-accent rounded" />
+          </div>
+        ) : !lead ? (
+          // Three states, not two. "Still loading" and "the server refused
+          // this" used to share the skeleton, so a failed request was
+          // indistinguishable from a slow one and stayed that way forever.
+          <div className="p-6 space-y-3">
+            <div className="flex items-start gap-2 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg px-3 py-2 text-sm text-red-700 dark:text-red-300">
+              <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+              <span>{err || t("app.leads.loadError")}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setLoading(true);
+                reload();
+              }}
+              className="px-3 py-2 rounded-lg border border-border text-xs font-semibold text-foreground"
+            >
+              {t("app.action.retry")}
+            </button>
           </div>
         ) : (
           <div className="p-5 space-y-5">

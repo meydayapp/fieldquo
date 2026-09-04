@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { JOB_STATUS_LABEL_KEYS } from "@/lib/jobs/statusLabels";
+import { JOB_STATUS_LABEL_KEYS, jobStatusClasses } from "@/lib/jobs/statusLabels";
 import Link from "next/link";
 import { Briefcase, Plus, Search, ArrowRight } from "lucide-react";
 import { fetchArray } from "@/lib/loadState";
@@ -11,19 +11,12 @@ import ListState from "@/app/components/ListState";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useHasLevel, useSeesOnlyAssignedJobs } from "@/app/providers/PermissionProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
-const STATUS_STYLES = {
-  // Purple/attention — an unscheduled job (usually auto-created from an
-  // accepted quote) is a to-do: it needs a date.
-  unscheduled: "bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300",
-  scheduled: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
-  in_progress: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300",
-  completed: "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300",
-  cancelled: "bg-muted text-muted-foreground",
-};
-
 // Moved to lib/jobs/statusLabels.js so the job DETAIL page reads the same map.
 // It had its own `replace(/_/g, " ")`, so the list said "Needs a date" and the
-// badge on the job itself said "unscheduled".
+// badge on the job itself said "unscheduled". The COLOURS moved there for the
+// same reason a pass later: this file's purple-for-unscheduled was correct and
+// the detail page had no entry for it at all, so the same job read "act on me"
+// here and "ignore me" one click in.
 const STATUS_LABEL_KEYS = JOB_STATUS_LABEL_KEYS;
 
 export default function JobsPage() {
@@ -235,7 +228,7 @@ export default function JobsPage() {
                       {job.title}
                     </span>
                     <span
-                      className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STATUS_STYLES[job.status]}`}
+                      className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${jobStatusClasses(job.status)}`}
                     >
                       {statusLabel(job.status)}
                     </span>

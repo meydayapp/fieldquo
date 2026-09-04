@@ -30,6 +30,7 @@ import {
   funnelEstimateSteps,
   DEFAULT_ESTIMATE_ORDER,
 } from "@/app/data/funnelBlocks";
+import { funnelStatusLabel } from "@/lib/funnels/status";
 
 const STEP_KINDS = [
   { kind: "intro", label: "Intro" },
@@ -363,7 +364,12 @@ export default function FunnelBuilderPage() {
               : "bg-muted text-muted-foreground"
           }`}
         >
-          {funnel.status}
+          {/* Was the raw column — see FUNNEL_STATUS_LABEL's own note on the
+              list page for why "draft" is the database's word, not one written
+              for a contractor. Imported rather than copied: two screens
+              showing the same badge is how the invoices list ended up with a
+              status map that had stopped matching its enum. */}
+          {funnelStatusLabel(funnel.status)}
         </span>
         <button
           onClick={() => save()}

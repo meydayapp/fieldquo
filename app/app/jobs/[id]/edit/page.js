@@ -17,10 +17,16 @@ import Link from "next/link";
 import { ArrowLeft, Loader2, AlertCircle } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { validateJobDates } from "@/lib/jobs/validateJobDates";
+import { JOB_STATUSES, jobStatusLabel } from "@/lib/jobs/statusLabels";
+import { useHasLevel } from "@/app/providers/PermissionProvider";
+import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 
-// Includes `unscheduled` — the state auto-created jobs start in — so the
-// dropdown can represent (and not silently overwrite) it.
-const STATUSES = ["unscheduled", "scheduled", "in_progress", "completed", "cancelled"];
+// The list and its wording both come from lib/jobs/statusLabels.js now. This
+// file kept its own array AND its own `s.replace(/_/g, " ")`, which is the
+// exact drift that file was written to stop, one screen further along: the
+// list said "Needs a date", the job page said "Needs a date", and the form you
+// change it on said "unscheduled" — the database's word, lowercase, in English
+// in a French office.
 
 export default function EditJobPage() {
   const { t } = useTranslation();
@@ -38,6 +44,17 @@ export default function EditJobPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // The same rule PATCH /api/jobs/[id] enforces, asked of the same grid. Held
+  // at the top with the other hooks on purpose — a permission check tucked
+  // inside a conditional below is how this tree earned check:job-page-hooks
+  // and a React #310 crash.
+  //
+  // The job page no longer draws the Edit button for a Crew member, but this
+  // is the door that button pointed at, and a bookmarked URL still opens it.
+  // Exactly the case app/app/jobs/new/page.js records QA finding: the full
+  // form reached directly, filled in, and the save came back 403.
+  const canEdit = useHasLevel("jobs", "view_create_edit");
 
   useEffect(() => {
     let cancelled = false;
@@ -116,6 +133,11 @@ export default function EditJobPage() {
       setSaving(false);
     }
   }
+
+  // Rendered INSTEAD of the form, not around it: a greyed-out form beside a
+  // reason floating above it is two unrelated things, and reads as "the
+  // feature is gone" rather than "not you".
+  if (!canEdit) return <NoAccessPanel capability="accessLevel" />;
 
   if (loading)
     return (
@@ -212,9 +234,9 @@ export default function EditJobPage() {
             onChange={(e) => setStatus(e.target.value)}
             className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
           >
-            {STATUSES.map((s) => (
+            {JOB_STATUSES.map((s) => (
               <option key={s} value={s}>
-                {s.replace(/_/g, " ")}
+                {jobStatusLabel(s, t)}
               </option>
             ))}
           </select>

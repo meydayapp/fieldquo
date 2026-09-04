@@ -20,6 +20,8 @@ import { fetchArray } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 import { FUNNEL_TEMPLATES } from "@/lib/funnels/templates";
 import { can } from "@/lib/permissions";
+import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
+import { funnelStatusLabel } from "@/lib/funnels/status";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 
 const CHANNEL_LABEL = {
@@ -59,6 +61,10 @@ export default function FunnelsPage() {
   const [creating, setCreating] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
+  // The funnel awaiting a delete confirmation — the whole row, not just its
+  // id, so the dialog can name it and say how many runs go with it.
+  const [confirmFunnel, setConfirmFunnel] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -109,11 +115,37 @@ export default function FunnelsPage() {
     }
   }
 
+  // ── What "delete this funnel" actually deletes ───────────────────────────
+  //
+  // The old confirm said "Leads it already produced are kept" and stopped
+  // there, which is true and is the smaller half of the truth. `FunnelResponse`
+  // and `FunnelEvent` both hang off Funnel with `onDelete: Cascade` (see
+  // prisma/schema.prisma), so the row that goes takes with it:
+  //
+  //   * every run through the funnel — the actual answers a homeowner tapped,
+  //     including the runs that never reached the contact step and so never
+  //     became a lead at all;
+  //   * every step-level beacon, which IS the drop-off report on the builder
+  //     page. "60% quit at the budget question" is the whole reason those rows
+  //     exist, and after this there is nothing left to compute it from.
+  //
+  // Naming only the part that survives is how a destructive operation gets
+  // read as a tidy-up. So the dialog names both halves, and it is a real modal
+  // rather than window.confirm — a native confirm cannot show the sentence
+  // that matters at more than one line, and it is the only "are you sure" in
+  // this product that wasn't one.
   async function remove(id) {
-    if (!confirm("Delete this funnel? Leads it already produced are kept.")) return;
-    const res = await fetch(`/api/funnels/${id}`, { method: "DELETE" });
-    if (!res.ok) return reportResponseError(res, setError, "Couldn't delete that funnel.");
-    setFunnels((prev) => prev.filter((f) => f.id !== id));
+    setDeleting(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/funnels/${id}`, { method: "DELETE" });
+      if (!res.ok)
+        return reportResponseError(res, setError, "Couldn't delete that funnel.");
+      setFunnels((prev) => prev.filter((f) => f.id !== id));
+      setConfirmFunnel(null);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -241,7 +273,7 @@ export default function FunnelsPage() {
                         : "bg-muted text-muted-foreground"
                     }`}
                   >
-                    {f.status}
+                    {funnelStatusLabel(f.status)}
                   </span>
                 </div>
                 <div className="text-xs text-muted-foreground mt-0.5">
@@ -252,7 +284,7 @@ export default function FunnelsPage() {
               </button>
               {canManageFunnels && (
                 <button
-                  onClick={() => remove(f.id)}
+                  onClick={() => setConfirmFunnel(f)}
                   className="text-muted-foreground hover:text-red-600"
                   title="Delete"
                 >
@@ -263,6 +295,26 @@ export default function FunnelsPage() {
           ))}
         </div>
       </ListState>
+
+      <DeleteConfirmModal
+        isOpen={!!confirmFunnel}
+        onClose={() => setConfirmFunnel(null)}
+        onConfirm={() => remove(confirmFunnel.id)}
+        title="Delete this funnel?"
+        message={
+          // The count is stated only when it is KNOWN. `_count` is absent on a
+          // payload the list didn't ask for it in, and `?? 0` there would tell
+          // somebody "no runs are affected" about a funnel that has had
+          // hundreds — a confident zero standing in for "we didn't check".
+          typeof confirmFunnel?._count?.responses === "number"
+            ? `The funnel goes, and so do its ${confirmFunnel._count.responses} recorded run${
+                confirmFunnel._count.responses === 1 ? "" : "s"
+              } and the whole drop-off report behind them. Leads already in your pipeline stay where they are.`
+            : "The funnel goes, and so does every run through it and the whole drop-off report behind them. Leads already in your pipeline stay where they are."
+        }
+        itemName={confirmFunnel?.name}
+        busy={deleting}
+      />
     </div>
   );
 }

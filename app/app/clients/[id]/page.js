@@ -30,6 +30,7 @@ import { formatAddress } from "@/lib/format/address";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
 import ClientEquipment from "@/app/components/clients/ClientEquipment";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
+import { jobStatusLabel, jobStatusClasses } from "@/lib/jobs/statusLabels";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -329,8 +330,17 @@ export default function ClientDetailPage() {
             className="flex items-center justify-between px-5 py-3 hover:bg-muted"
           >
             <span className="text-sm text-foreground">{j.title}</span>
-            <span className="text-xs text-muted-foreground capitalize">
-              {j.status}
+            {/* Was `{j.status}` with `capitalize`, which is not a translation
+                and not even a tidy-up: CSS capitalize does not treat "_" as a
+                word break, so `in_progress` reached a contractor as
+                "In_progress" — the raw column, in English, in plain grey. Same
+                failure as the chargeback that printed `partially_refunded` on
+                the invoices list. One vocabulary and one tone map now, shared
+                with the jobs list and the job page. */}
+            <span
+              className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${jobStatusClasses(j.status)}`}
+            >
+              {jobStatusLabel(j.status, t)}
             </span>
           </Link>
         )}
