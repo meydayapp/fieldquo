@@ -32,6 +32,11 @@ import { fetchJson } from "@/lib/fetchJson";
 import { jsonBody } from "@/lib/jsonBody";
 import { formatAppMoney } from "@/lib/format/money";
 import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
+import { VISION_PASS_CENTS } from "@/lib/ai/imageEconomics";
+import {
+  AiCreditTopupDialog,
+  useAiCreditTopup,
+} from "@/app/components/ai/AiCreditTopupDialog";
 
 const money = (n) =>
   Number(n ?? 0).toLocaleString("en-CA", {
@@ -84,6 +89,25 @@ export default function SuggestAddOns({
   const [visionPasses, setVisionPasses] = useState([]);
   const [visionRunning, setVisionRunning] = useState(false);
   const [visionError, setVisionError] = useState("");
+
+  // ── The deep read's own dead end, closed the same way the designer's was ──
+  //
+  // The 402 from /api/quotes/[id]/vision names the price, the balance and the
+  // shortfall to the cent, and this panel showed all three verbatim with
+  // nowhere to pay — the identical shape the owner hit in the Marketing
+  // Designer. Adopting the shared dialog rather than growing a second copy of
+  // the flow: same wallet, same tiers, same round trip back.
+  //
+  // No `onResume` and no `capturePending`: unlike the AI image panel there is
+  // nothing typed to restore, and the deep read is not re-run on the way back.
+  // Spending on arrival is a charge nobody pressed a button for — see the
+  // dialog's rule 3. `onCredited` only clears the stale refusal sentence, so a
+  // funded account is not still reading "you are $0.34 short" under a button
+  // that would now work.
+  const topup = useAiCreditTopup({
+    pendingKey: "quote.vision",
+    onCredited: () => setVisionError(""),
+  });
 
   const load = useCallback(async () => {
     if (!quoteId) return;
@@ -157,9 +181,18 @@ export default function SuggestAddOns({
       const data = await fetchJson(`/api/quotes/${quoteId}/vision`, { method: "POST" });
       setVisionPasses(Array.isArray(data?.passes) ? data.passes : []);
     } catch (err) {
-      // The route's own message already states the price, the balance and the
-      // shortfall when it's a credit refusal — see the route. Shown verbatim
-      // rather than replaced with a generic "something went wrong".
+      // 402 with an offer is "you are short by exactly this much, and here is
+      // the way past it" — the dialog is opened on it instead of the sentence
+      // being printed at somebody who cannot act on it. fetchJson hands the
+      // whole parsed body back on `err.data`, which is where the tier list is.
+      if (err.status === 402 && err.data?.topup) {
+        topup.open(err.data);
+        return;
+      }
+      // Everything else: the route's own message already states the price, the
+      // balance and the shortfall when it's a credit refusal — see the route.
+      // Shown verbatim rather than replaced with a generic "something went
+      // wrong".
       setVisionError(err.message);
     } finally {
       setVisionRunning(false);
@@ -508,8 +541,10 @@ export default function SuggestAddOns({
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
                 A closer look at every photo on this quote — up to 8, read at
-                full resolution instead of the quick check above. Spends AI
-                credit each time it runs, separate from your phone balance.
+                full resolution instead of the quick check above. Costs{" "}
+                {formatAppMoney(VISION_PASS_CENTS / 100, CREDIT_CURRENCY, "en")}{" "}
+                of AI credit each time it runs, separate from your phone
+                balance.
               </p>
             </div>
             {!readOnly && (
@@ -774,6 +809,11 @@ export default function SuggestAddOns({
           </div>
         )}
       </div>
+      {/* Mounted outside the deep-read block on purpose: that block is hidden
+          on a read-only quote with no passes, and the trip back from Stripe
+          has to be able to report what happened wherever it lands. The dialog
+          renders nothing until it has an offer or a settlement to show. */}
+      <AiCreditTopupDialog {...topup.dialogProps} />
     </Panel>
   );
 }

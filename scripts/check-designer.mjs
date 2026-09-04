@@ -574,7 +574,11 @@ const aiFormMatch = aiSidebarCode2.match(/<form\b[\s\S]*?<\/form>/);
 ok(!!aiFormMatch, "AiSidebar.js's form can be isolated");
 if (aiFormMatch) {
   const formBody = aiFormMatch[0];
-  ok(/disabledReasonText\(status\)/.test(formBody), "the refusal reason renders INSIDE the form, not in a separate block above it");
+  // `status` plus whatever else it is handed — the second argument is `t`,
+  // added when the money sentence moved into the catalogue. Pinning the exact
+  // arity here would fail on a translated refusal, which is the opposite of
+  // what this line is guarding.
+  ok(/disabledReasonText\(status[,)]/.test(formBody), "the refusal reason renders INSIDE the form, not in a separate block above it");
   ok(/<Textarea\b/.test(formBody), "…in the same form as the actual prompt textarea");
 }
 
@@ -807,6 +811,54 @@ ok(
   ok(
     /second coat done/.test(blob),
     "...while the completion comment, which describes the WORK, still does",
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+section("16. The designs index — the answer the server already sent");
+// ═════════════════════════════════════════════════════════════════════════
+//
+// /api/marketing/designer/designs selects every saved layout's `ratioKey`, so
+// the list page knows exactly WHICH of the five formats are done. It printed
+// "3/5" and nothing else, which makes "which two are missing?" a question you
+// answer by opening the design — the same failure as the jobs list reducing a
+// pre-sorted `visits` array to its length. The fraction stays (it is the fast
+// read); the chips are what the payload was already paying for.
+{
+  const listRoute = stripComments(read("app/api/marketing/designer/designs/route.js"));
+  ok(
+    /layouts:\s*\{\s*select:\s*\{[^}]*ratioKey: true/.test(listRoute),
+    "the list route still sends each design's saved ratioKeys",
+  );
+
+  const indexPage = stripComments(read("app/app/marketing/designer/page.js"));
+  ok(
+    /new Set\(\s*\(d\.layouts \|\| \[\]\)\.map\(\(l\) => l\.ratioKey\)/.test(indexPage),
+    "…and the page reads the keys rather than only counting them",
+  );
+  ok(
+    /AD_RATIOS\.map\(\(r\) => \(/.test(indexPage) && /\{r\.label\}/.test(indexPage),
+    "…rendering one chip per format, named",
+  );
+  ok(
+    /saved\.has\(r\.key\)/.test(indexPage),
+    "…with done and missing told apart by the key, not by position",
+  );
+  // A chip that looks identical whether or not the format is saved is a
+  // control that appears to inform and doesn't.
+  ok(
+    /saved\.has\(r\.key\)\s*\?\s*"bg-muted text-foreground"\s*:\s*"text-muted-foreground"/.test(
+      indexPage,
+    ),
+    "…and the two states are visually different, using the same pairing the editor's own ratio switcher uses",
+  );
+  ok(
+    /aria-label=\{`\$\{t\("app\.action\.delete"\)\} — \$\{d\.name\}`\}/.test(indexPage),
+    "the delete control's label is translated and names the design it deletes",
+  );
+  ok(
+    !/aria-label="Delete design"/.test(indexPage),
+    "…and the hardcoded English one is gone",
   );
 }
 

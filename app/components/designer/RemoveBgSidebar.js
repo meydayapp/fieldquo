@@ -28,6 +28,16 @@
 // the trip back reopens the panel with its own "Select a photo first" state —
 // true, and better than landing on a closed toolbar with no sign that anything
 // happened. Faking a restored selection would be the dishonest version.
+//
+// ── 2026-09-03: the refusal looks like the other one now ───────────────────
+//
+// The approved redesign's remaining point was about SHAPE, not wording: a
+// reason floating above a separately-disabled control reads as "the feature is
+// gone", and one block containing both reads as "here is the control, here is
+// why it is off". AiSidebar.js was fixed; this panel kept the loose shape and
+// was the copy nobody looked at. Both now render the same bordered block with
+// the same warning mark, and both take their money sentence from the same
+// catalogue strings the top-up dialog uses.
 import { useCallback, useState } from "react";
 import { AlertTriangle, Loader } from "lucide-react";
 
@@ -142,8 +152,20 @@ export function RemoveBgSidebar({ editor, activeTool, onChangeActiveTool }) {
               <img src={imageSrc} alt="Selected" className="h-full w-full object-cover" />
             </div>
             {!status?.allowed && (
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">{disabledReasonText(status)}</p>
+              <div className="space-y-2 rounded-lg border bg-muted/50 p-3">
+                {/* The same block AiSidebar.js renders, deliberately identical:
+                    a bordered panel carrying the warning mark, the sentence and
+                    the way out, sitting directly above the button it explains.
+                    This panel used to render the reason as a bare line of grey
+                    text with nothing tying it to the disabled button below —
+                    the "two unrelated things" shape the AI panel was fixed out
+                    of and this one was left in. Two copies of one refusal that
+                    look different is how a person learns the second one means
+                    something else. */}
+                <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                  <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                  <span>{disabledReasonText(status, t)}</span>
+                </div>
                 {/* Only where money is the problem — `topup` is null on every
                     other refusal, because buying credit fixes none of them. */}
                 {status?.topup && (

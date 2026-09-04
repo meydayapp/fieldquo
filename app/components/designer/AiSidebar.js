@@ -170,7 +170,7 @@ export function AiSidebar({ editor, activeTool, onChangeActiveTool }) {
               <div className="space-y-2 rounded-lg border bg-muted/50 p-3">
                 <div className="flex items-start gap-2 text-xs text-muted-foreground">
                   <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-                  <span>{disabledReasonText(status)}</span>
+                  <span>{disabledReasonText(status, t)}</span>
                 </div>
                 {/* Only where money is the problem, and only where the reason
                     came with an offer. A "feature switched off" or "vendor not

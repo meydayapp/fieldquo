@@ -97,14 +97,44 @@ const REASON_COPY = {
   unavailable: "Couldn't check AI image availability right now.",
 };
 
-/** The one line explaining why the button is disabled — never blank, never
- * "something went wrong". */
-export function disabledReasonText(status) {
+/**
+ * The one line explaining why the button is disabled — never blank, never
+ * "something went wrong".
+ *
+ * ── Why `t` is a parameter and not a hook call ─────────────────────────────
+ *
+ * This is a pure function so scripts/check-paid-refusals.mjs can execute it
+ * against every reason instead of reading it, and because both sidebars call
+ * it inside their render rather than at the top. Callers already hold `t`.
+ *
+ * The money sentence goes through the SAME two catalogue strings the top-up
+ * dialog renders one click later (app.aiTopup.cost / app.aiTopup.short). It
+ * used to be an English template built here, so a French contractor read an
+ * English refusal and then a French dialog quoting the same two numbers — the
+ * one place in this flow where the wording has to match, because the person is
+ * checking that the amount they are about to pay is the amount they were just
+ * told they were short.
+ *
+ * `t` is optional so a caller that has not got one still gets the English
+ * sentence rather than an empty box; the other three reasons have no catalogue
+ * entry yet and are English by omission, not by design.
+ */
+export function disabledReasonText(status, t) {
   if (!status) return "";
+  const english = (_key, fallback, values) =>
+    String(fallback).replace(/\{(\w+)\}/g, (m, name) =>
+      values && values[name] !== undefined ? String(values[name]) : m,
+    );
+  const say = typeof t === "function" ? t : english;
   if (status.reason === "insufficient_balance") {
-    return `This costs ${centsToDollars(status.priceCents)}. Your AI balance is ${centsToDollars(
-      status.balanceCents,
-    )} — top up ${centsToDollars(status.shortfallCents)} to use it.`;
+    const cost = say("app.aiTopup.cost", "This costs {price}. Your AI balance is {balance}.", {
+      price: centsToDollars(status.priceCents),
+      balance: centsToDollars(status.balanceCents),
+    });
+    const short = say("app.aiTopup.short", "Add at least {shortfall} to carry on.", {
+      shortfall: centsToDollars(status.shortfallCents),
+    });
+    return `${cost} ${short}`;
   }
   return REASON_COPY[status.reason] || "This isn't available right now.";
 }

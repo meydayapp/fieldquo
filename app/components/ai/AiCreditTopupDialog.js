@@ -47,10 +47,24 @@ import { CreditCard, Loader2, X } from "lucide-react";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
+import { formatAppMoney } from "@/lib/format/money";
+import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
-const money = (cents) => `$${(Math.max(0, Number(cents) || 0) / 100).toFixed(2)}`;
+// Which dollars this dialog means. The AI wallet is denominated in USD
+// (lib/voice/creditCurrency.js) because the vendors bill FieldQuo in USD, and
+// every production company is CAD — so a bare "$0.12" here understates what
+// the card is about to be charged, which is the exact bug that constant was
+// created for. The AI credit settings page already formats this way; this
+// dialog is the surface where the money is actually agreed to, and it was the
+// last one still saying "$".
+//
+// The tier BUTTONS keep their short labels ("$10") — those come from
+// TOPUP_OPTIONS and read as amounts to choose between, not as a figure being
+// quoted. Same split the settings page draws.
+const money = (cents) =>
+  formatAppMoney(Math.max(0, Number(cents) || 0) / 100, CREDIT_CURRENCY, "en");
 
 /** Where the pending payload lives across the Stripe round trip. */
 const storeKey = (key) => `fq.aiTopup.${key}`;

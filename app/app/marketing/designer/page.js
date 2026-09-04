@@ -212,11 +212,21 @@ export default function MarketingDesignerPage() {
                 ) : (
                   <div className="grid sm:grid-cols-2 gap-2 mb-3">
                     {designs.map((d) => {
-                      const done = (d.layouts || []).length;
+                      // The list route already sends every saved layout's
+                      // ratioKey (DESIGN_LIST_SELECT), so the page knows
+                      // exactly WHICH formats are done. It used to reduce that
+                      // to `.length` and print "3/5" — the server did the
+                      // expensive part and the screen threw the answer away,
+                      // leaving "which two are missing?" answerable only by
+                      // opening the design.
+                      const saved = new Set(
+                        (d.layouts || []).map((l) => l.ratioKey),
+                      );
+                      const done = saved.size;
                       return (
                         <div
                           key={d.id}
-                          className="flex items-center justify-between gap-2 border border-border rounded-lg px-3 py-2"
+                          className="flex items-start justify-between gap-2 border border-border rounded-lg px-3 py-2"
                         >
                           <button
                             type="button"
@@ -226,7 +236,26 @@ export default function MarketingDesignerPage() {
                             <p className="text-sm font-medium text-foreground truncate">
                               {d.name}
                             </p>
-                            <p className="text-xs text-muted-foreground">
+                            {/* Format names come from AD_RATIOS untranslated,
+                                the same way the editor's own ratio switcher
+                                and SettingsSidebar render them: "Instagram
+                                post" and "TikTok" are the networks' names,
+                                not interface copy. */}
+                            <span className="mt-1 flex flex-wrap gap-1">
+                              {AD_RATIOS.map((r) => (
+                                <span
+                                  key={r.key}
+                                  className={`text-[10px] leading-none px-1.5 py-1 rounded-full border border-border ${
+                                    saved.has(r.key)
+                                      ? "bg-muted text-foreground"
+                                      : "text-muted-foreground"
+                                  }`}
+                                >
+                                  {r.label}
+                                </span>
+                              ))}
+                            </span>
+                            <p className="text-xs text-muted-foreground mt-1">
                               {done === 0 ? (
                                 <span className="flex items-center gap-1">
                                   <ImageOff size={11} />{" "}
@@ -243,11 +272,16 @@ export default function MarketingDesignerPage() {
                               )}
                             </p>
                           </button>
+                          {/* The label was hardcoded English on a page where
+                              every other string goes through t(). It now names
+                              the design too, so a screen reader working down a
+                              grid of five identical bin icons says which one it
+                              is on. */}
                           <button
                             type="button"
                             onClick={() => handleDeleteDesign(d.id)}
-                            className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400 p-1"
-                            aria-label="Delete design"
+                            className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400 p-1 shrink-0"
+                            aria-label={`${t("app.action.delete")} — ${d.name}`}
                           >
                             <Trash2 size={14} />
                           </button>

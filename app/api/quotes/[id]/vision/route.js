@@ -19,8 +19,9 @@ import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
-import { requirePermission } from "@/lib/permissions";
+import { can, requirePermission } from "@/lib/permissions";
 import { featureAllowsSpend } from "@/lib/features/gate";
+import { publicTopupOffer } from "@/lib/ai/topupOffer";
 import { reserveSpend, refundReservation } from "@/lib/voice/spendGate";
 import { loadQuote, photosFromQuote } from "@/lib/ai/quoteReview";
 import { runVisionPass } from "@/lib/ai/visionPass";
@@ -113,6 +114,18 @@ export async function POST(request, { params }) {
         needCents: reserved.needCents,
         balanceCents: reserved.balanceCents,
         shortfallCents: reserved.shortfallCents,
+        // The closed tier list, so the panel that shows this sentence can also
+        // offer the way past it — the same offer /api/designer/generate has
+        // carried since the designer's dead end was fixed, off the same wallet
+        // and the same tiers. Naming a shortfall to the cent and offering no
+        // way to pay it is the dead end, not the refusal.
+        //
+        // `canBuy` is a separate question from "may you run a deep read":
+        // buying credit needs "user:manage" (app/api/ai/topup/route.js) and
+        // this route needs "quote:create", so an estimator can legitimately
+        // reach this refusal and not the purchase. The dialog says "ask an
+        // owner" rather than rendering a button that would 403.
+        topup: publicTopupOffer(reserved.shortfallCents, can(member.role, "user:manage")),
       },
       // 402: they may do this, they just haven't paid for it yet.
       { status: 402 },
