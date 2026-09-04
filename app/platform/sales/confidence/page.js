@@ -31,6 +31,10 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, Loader2, RotateCcw, Save } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { blankNumberMessage, numberOrNull } from "@/lib/platform/numericField";
+import PlatformWriteGate, {
+  usePlatformAdmin,
+} from "@/app/components/platform/PlatformWriteGate";
 
 /** What each category is allowed to conclude, in the engine's own words. */
 const CATEGORY_NOTE = {
@@ -62,7 +66,6 @@ const FIELD =
 
 export default function PlatformSalesConfidencePage() {
   const [data, setData] = useState(null);
-  const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -74,8 +77,6 @@ export default function PlatformSalesConfidencePage() {
     setError("");
     try {
       setData(await fetchJson("/api/platform/sales/confidence"));
-      const who = await fetchJson("/api/platform/me").catch(() => null);
-      if (who) setMe(who);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -87,7 +88,11 @@ export default function PlatformSalesConfidencePage() {
     load();
   }, [load]);
 
-  const isSuperadmin = me?.role === "superadmin";
+  // Was a hand-rolled `fetchJson("/api/platform/me").catch(() => null)` whose
+  // failure left `me` null — read here as "not a superadmin" and answered with
+  // a refusal, shown to a superadmin, for a power they hold. The shared hook
+  // keeps never-loaded apart from refused; see PlatformWriteGate's header.
+  const { status: roleStatus, error: roleError, isSuperadmin } = usePlatformAdmin();
   const signals = data?.signals || [];
   const thresholds = data?.thresholds;
 
@@ -155,12 +160,15 @@ export default function PlatformSalesConfidencePage() {
         </div>
       )}
 
-      {!loading && !isSuperadmin && (
-        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl p-4 text-sm text-amber-800 dark:text-amber-300">
-          You can read these weights. Changing them is superadmin-only, so the
-          controls are not shown rather than shown and refused.
-        </div>
-      )}
+      <PlatformWriteGate
+        status={roleStatus}
+        allowed={isSuperadmin}
+        error={roleError}
+        action="Changing a confidence weight"
+        who="superadmin"
+      >
+        {null}
+      </PlatformWriteGate>
 
       {!loading && data?.missing?.length > 0 && (
         <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl p-4 text-sm text-amber-800 dark:text-amber-300">
@@ -201,7 +209,13 @@ export default function PlatformSalesConfidencePage() {
                 {rows.map((s) => {
                   const draft = drafts[s.signal];
                   const weight = draft?.weight ?? s.weight;
-                  const dirty = draft != null && Number(draft.weight) !== Number(s.weight);
+                  // numberOrNull, not Number(): Number("") is 0, so clearing
+                  // the box made the row look edited to 0 — "this signal counts
+                  // for nothing" — and Save wrote exactly that. Blank is null,
+                  // which is never equal to a stored weight, so Save still
+                  // appears and then refuses by name.
+                  const parsedWeight = numberOrNull(weight);
+                  const dirty = draft != null && parsedWeight !== Number(s.weight);
                   return (
                     <div
                       key={s.signal}
@@ -256,13 +270,17 @@ export default function PlatformSalesConfidencePage() {
                         <div className="flex flex-col sm:flex-row gap-2">
                           {dirty && (
                             <button
-                              onClick={() =>
+                              onClick={() => {
+                                if (parsedWeight === null) {
+                                  setError(blankNumberMessage("Weight"));
+                                  return;
+                                }
                                 patch(
                                   s.signal,
-                                  { weight: Number(weight) },
-                                  `${s.signal} is now worth ${Number(weight)}.`,
-                                )
-                              }
+                                  { weight: parsedWeight },
+                                  `${s.signal} is now worth ${parsedWeight}.`,
+                                );
+                              }}
                               disabled={busy === s.signal}
                               className={`${BTN} bg-inverted text-inverted-foreground`}
                             >

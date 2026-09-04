@@ -179,8 +179,17 @@ export default function CompanyInsight({ companyId, name, onClose }) {
                       <div key={t.categoryKey} className="px-4 py-2.5 flex items-baseline justify-between gap-3">
                         <span className="text-sm text-foreground">{t.label}</span>
                         <span className="text-xs text-muted-foreground tabular-nums">
-                          {t.quotes} quote(s) · won {t.winRateLabel} · median $
-                          {Number(t.medianQuote || 0).toLocaleString()}
+                          {t.quotes} quote(s) · won {t.winRateLabel} · median{" "}
+                          {/* `Number(t.medianQuote || 0)` printed "$0" for a
+                              trade whose median did not come back — on the
+                              panel written to be read out on a sales call.
+                              Every other unknown on this screen is an em
+                              dash; this one claimed a figure. */}
+                          {Number.isFinite(Number(t.medianQuote)) &&
+                          t.medianQuote !== null &&
+                          t.medianQuote !== ""
+                            ? `$${Number(t.medianQuote).toLocaleString()}`
+                            : "—"}
                         </span>
                       </div>
                     ))}

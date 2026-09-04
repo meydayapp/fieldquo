@@ -1303,7 +1303,15 @@ section("Screens — mobile-first, English, and no control that cannot work");
   }
 
   const page = read(FILES.page);
-  ok("write controls need a superadmin", /me\?\.role === "superadmin"/.test(page));
+  // Was the literal `me?.role === "superadmin"` after a swallowed fetch of
+  // /api/platform/me — so a failed identity call refused a real superadmin. The
+  // shared hook is required instead, and the old shape asserted absent.
+  ok("write controls need a superadmin", /usePlatformAdmin\(\)/.test(page));
+  ok(
+    "and a failed identity check is not read as a refusal",
+    !/me\?\.role === "superadmin"/.test(page) &&
+      !/fetchJson\("\/api\/platform\/me"\)\.catch/.test(page),
+  );
   ok("and a store that exists", /const canWrite = isSuperadmin && store\.ready/.test(page));
   ok("every write control is behind that one flag", (page.match(/canWrite &&/g) || []).length >= 4);
   ok(

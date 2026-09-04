@@ -47,6 +47,9 @@ import {
   Trash2,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import PlatformWriteGate, {
+  usePlatformAdmin,
+} from "@/app/components/platform/PlatformWriteGate";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -60,7 +63,6 @@ const EXAMPLE = [
 
 export default function PlatformSalesSignaturesPage() {
   const [data, setData] = useState(null);
-  const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -72,8 +74,6 @@ export default function PlatformSalesSignaturesPage() {
     setError("");
     try {
       setData(await fetchJson("/api/platform/sales/signatures"));
-      const who = await fetchJson("/api/platform/me").catch(() => null);
-      if (who) setMe(who);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -85,7 +85,11 @@ export default function PlatformSalesSignaturesPage() {
     load();
   }, [load]);
 
-  const isSuperadmin = me?.role === "superadmin";
+  // Was a hand-rolled `fetchJson("/api/platform/me").catch(() => null)` whose
+  // failure left `me` null — read here as "not a superadmin" and answered with
+  // a refusal, shown to a superadmin, for a power they hold. The shared hook
+  // keeps never-loaded apart from refused; see PlatformWriteGate's header.
+  const { status: roleStatus, error: roleError, isSuperadmin } = usePlatformAdmin();
   const signatures = data?.signatures || [];
   const patternKinds = data?.patternKinds || [];
   // How each STARTER signature was verified, keyed by code. Empty for a row
@@ -251,12 +255,15 @@ export default function PlatformSalesSignaturesPage() {
         </div>
       )}
 
-      {!loading && !isSuperadmin && (
-        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl p-4 text-sm text-amber-800 dark:text-amber-300">
-          You can read these signatures. Writing them is superadmin-only, so the
-          controls are not shown rather than shown and refused.
-        </div>
-      )}
+      <PlatformWriteGate
+        status={roleStatus}
+        allowed={isSuperadmin}
+        error={roleError}
+        action="Writing a technology signature"
+        who="superadmin"
+      >
+        {null}
+      </PlatformWriteGate>
 
       {isSuperadmin && !draft && (
         <button onClick={beginAdd} className={`${BTN} w-full sm:w-auto bg-inverted text-inverted-foreground`}>

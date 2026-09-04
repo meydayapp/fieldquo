@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Search, Loader2, Building2, AlertCircle } from "lucide-react";
 import { count, money } from "@/app/components/platform/MetricCard";
+import { statusMeta } from "@/lib/platform/subscriptionStatus";
 
 const STATUS_FILTERS = [
   { value: "", label: "All" },
@@ -39,7 +40,10 @@ function trialDaysLeft(trialEndsAt) {
 }
 
 export default function PlatformCompaniesPage() {
-  const [companies, setCompanies] = useState([]);
+  // null, not []. On a failed load an empty array printed "No companies yet."
+  // — a claim that FieldQuo has no customers, rendered directly beneath the red
+  // banner saying the request failed. Four states, four messages.
+  const [companies, setCompanies] = useState(null);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
@@ -58,6 +62,7 @@ export default function PlatformCompaniesPage() {
       setCompanies(Array.isArray(json) ? json : []);
     } catch (err) {
       setError(err.message);
+      setCompanies(null);
     } finally {
       setLoading(false);
     }
@@ -118,6 +123,15 @@ export default function PlatformCompaniesPage() {
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground py-8">
           <Loader2 size={16} className="animate-spin" /> Loading…
+        </div>
+      ) : companies === null ? (
+        <div className="bg-card border border-border rounded-xl p-10 text-center">
+          <Building2 size={28} className="text-muted-foreground mx-auto" />
+          <p className="mt-3 text-sm text-muted-foreground">
+            The company list didn&apos;t load, so nothing is shown. This is not
+            an answer about how many companies match — no company has been
+            removed. Reload, or try the search again.
+          </p>
         </div>
       ) : companies.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-10 text-center">
@@ -197,9 +211,17 @@ export default function PlatformCompaniesPage() {
                     <div className="text-sm font-medium text-foreground">
                       {plan || "No plan"}
                     </div>
+                    {/* Was `{c.subscription.status}` — the raw enum, so a
+                        company FieldQuo cannot currently bill said "past_due"
+                        in the same grey as "active", on the screen support
+                        opens first. Same table the money screen uses. */}
                     {c.subscription?.status && (
-                      <div className="text-xs text-muted-foreground">
-                        {c.subscription.status}
+                      <div className="mt-0.5 flex justify-end">
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full border ${statusMeta(c.subscription.status).className}`}
+                        >
+                          {statusMeta(c.subscription.status).label}
+                        </span>
                       </div>
                     )}
                   </div>

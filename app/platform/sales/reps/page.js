@@ -61,6 +61,9 @@ import {
   UserX,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import PlatformWriteGate, {
+  usePlatformAdmin,
+} from "@/app/components/platform/PlatformWriteGate";
 import { codeProblem, suggestCode, workEmailProblem } from "@/lib/sales/repAdmin";
 
 const BTN =
@@ -83,7 +86,6 @@ export default function PlatformSalesRepsPage() {
   const [reps, setReps] = useState([]);
   const [salesNumber, setSalesNumber] = useState(null);
   const [numberCapabilities, setNumberCapabilities] = useState([]);
-  const [me, setMe] = useState(null);
   const [draft, setDraft] = useState(null);
   const [mailboxDraft, setMailboxDraft] = useState({});
   const [loading, setLoading] = useState(true);
@@ -101,8 +103,6 @@ export default function PlatformSalesRepsPage() {
       setReps(data.reps || []);
       setSalesNumber(data.salesNumber || null);
       setNumberCapabilities(data.numberCapabilities || []);
-      const who = await fetchJson("/api/platform/me").catch(() => null);
-      if (who) setMe(who);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -268,7 +268,11 @@ export default function PlatformSalesRepsPage() {
     }
   }
 
-  const isSuperadmin = me?.role === "superadmin";
+  // Was a hand-rolled `fetchJson("/api/platform/me").catch(() => null)` whose
+  // failure left `me` null — read here as "not a superadmin" and answered with
+  // a refusal, shown to a superadmin, for a power they hold. The shared hook
+  // keeps never-loaded apart from refused; see PlatformWriteGate's header.
+  const { status: roleStatus, error: roleError, isSuperadmin } = usePlatformAdmin();
 
   return (
     <div className="p-4 max-w-4xl mx-auto space-y-6">
@@ -302,6 +306,16 @@ export default function PlatformSalesRepsPage() {
           <AlertCircle size={16} className="shrink-0 mt-0.5" /> {error}
         </div>
       )}
+
+      <PlatformWriteGate
+        status={roleStatus}
+        allowed={isSuperadmin}
+        error={roleError}
+        action="Adding or editing a sales rep"
+        who="superadmin"
+      >
+        {null}
+      </PlatformWriteGate>
 
       {warning && (
         <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl p-4 text-sm text-amber-800 dark:text-amber-300">

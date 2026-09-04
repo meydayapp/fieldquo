@@ -45,6 +45,9 @@ import {
   currencyLabel,
 } from "@/lib/pricing/ladder";
 import { promotionStatus } from "@/lib/pricing/promotionStatus";
+import PlatformWriteGate, {
+  usePlatformAdmin,
+} from "@/app/components/platform/PlatformWriteGate";
 
 const BLANK = {
   label: "",
@@ -81,13 +84,21 @@ const TONE_BADGE = {
 };
 
 export default function PlatformPromotionsPage() {
-  const [promotions, setPromotions] = useState([]);
+  // null, not []. "No promotions. Plans are being sold at their full price" is
+  // a statement about what customers are being charged today, and an empty
+  // array printed it whenever the request failed.
+  const [promotions, setPromotions] = useState(null);
   const [plans, setPlans] = useState([]);
   const [draft, setDraft] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // plan:manage — the same permission the promotions routes enforce, held by
+  // admin and superadmin and refused for support. The editor used to be drawn
+  // for everyone and the 403 arrived after Save.
+  const { status: roleStatus, error: roleError, can } = usePlatformAdmin();
+  const canManage = can("plan:manage");
 
   // Recomputed on load rather than held in a ticking state: "is it running" is
   // answered against the moment you opened the screen, and a badge that
@@ -216,13 +227,25 @@ export default function PlatformPromotionsPage() {
             .
           </p>
         </div>
-        <button
-          onClick={() => setDraft({ ...BLANK })}
-          className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg"
-        >
-          <Plus size={14} /> New promotion
-        </button>
+        {canManage && (
+          <button
+            onClick={() => setDraft({ ...BLANK })}
+            className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg"
+          >
+            <Plus size={14} /> New promotion
+          </button>
+        )}
       </div>
+
+      <PlatformWriteGate
+        status={roleStatus}
+        allowed={canManage}
+        error={roleError}
+        action="Creating, editing or switching a promotion"
+        who="admins and superadmins"
+      >
+        {null}
+      </PlatformWriteGate>
 
       {error && (
         <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-4 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
@@ -245,6 +268,18 @@ export default function PlatformPromotionsPage() {
         <div className="flex items-center gap-2 text-sm text-muted-foreground py-8">
           <Loader2 size={16} className="animate-spin" /> Loading…
         </div>
+      ) : promotions === null ? (
+        /* Never loaded. "Plans are being sold at their full price" is a claim
+           about what every customer is charged today; a failed request is not
+           entitled to make it. Nothing was switched off. */
+        <div className="bg-card border border-border rounded-xl p-10 text-center">
+          <Percent size={28} className="text-muted-foreground mx-auto" />
+          <p className="mt-3 text-sm text-muted-foreground">
+            The promotions didn&apos;t load, so none are listed. That is not the
+            same as none running — no promotion has been switched off or
+            deleted. Reload the page.
+          </p>
+        </div>
       ) : promotions.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-10 text-center">
           <Percent size={28} className="text-muted-foreground mx-auto" />
@@ -261,6 +296,7 @@ export default function PlatformPromotionsPage() {
               plans={ladderPlans}
               now={now}
               busy={busyId === promo.id}
+              canManage={canManage}
               onToggle={() => toggle(promo)}
               onEdit={() =>
                 setDraft({
@@ -289,7 +325,7 @@ export default function PlatformPromotionsPage() {
 
 /* ────────────────────────────────────────────────────────────────────────── */
 
-function PromotionRow({ promo, plans, now, busy, onToggle, onEdit }) {
+function PromotionRow({ promo, plans, now, busy, canManage, onToggle, onEdit }) {
   const status = promotionStatus(promo, now);
 
   return (
@@ -317,6 +353,9 @@ function PromotionRow({ promo, plans, now, busy, onToggle, onEdit }) {
           )}
         </div>
 
+        {/* Read-only for support. Both controls 403, and "Switch off" in
+            particular is a price change for everyone mid-promotion. */}
+        {canManage && (
         <div className="flex gap-2 shrink-0">
           <button
             onClick={onEdit}
@@ -337,6 +376,7 @@ function PromotionRow({ promo, plans, now, busy, onToggle, onEdit }) {
             {promo.active ? "Switch off" : "Switch on"}
           </button>
         </div>
+        )}
       </div>
 
       <LadderPreview
@@ -654,7 +694,16 @@ function LadderPreview({ promo, plans, now, caption }) {
 /* ────────────────────────────────────────────────────────────────────────── */
 
 function describeDiscount(promo) {
-  const value = Number(promo.discountValue || 0);
+  // `Number(promo.discountValue || 0)` said "0% off" for a promotion whose
+  // discount did not come back — a running sale described as no sale at all,
+  // in the same grey as a real one. Say we don't know instead.
+  const raw = promo.discountValue;
+  const value =
+    typeof raw === "number" || (typeof raw === "string" && raw.trim() !== "")
+      ? Number(raw)
+      : NaN;
+  if (!Number.isFinite(value))
+    return "Discount didn't load — this is not a 0% promotion";
   return promo.discountKind === "amount"
     ? `${value.toFixed(2)} off in the plan's own currency`
     : `${value}% off`;

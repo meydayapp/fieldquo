@@ -40,10 +40,13 @@ import {
   Save,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import PlatformWriteGate, {
+  usePlatformAdmin,
+} from "@/app/components/platform/PlatformWriteGate";
+import { blankNumberMessage, numberOrNull } from "@/lib/platform/numericField";
 
 export default function PlatformSalesCapabilitiesPage() {
   const [data, setData] = useState(null);
-  const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -55,8 +58,6 @@ export default function PlatformSalesCapabilitiesPage() {
     setError("");
     try {
       setData(await fetchJson("/api/platform/sales/capabilities"));
-      const who = await fetchJson("/api/platform/me").catch(() => null);
-      if (who) setMe(who);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -68,9 +69,51 @@ export default function PlatformSalesCapabilitiesPage() {
     load();
   }, [load]);
 
-  const isSuperadmin = me?.role === "superadmin";
+  // Was a hand-rolled `fetchJson("/api/platform/me").catch(() => null)` whose
+  // failure left `me` null — which this screen read as "not a superadmin" and
+  // answered with a refusal, to a superadmin, for a power they hold. The shared
+  // hook keeps never-loaded apart from refused; see PlatformWriteGate's header.
+  const { status: roleStatus, error: roleError, isSuperadmin } = usePlatformAdmin();
 
+  // ── The notice this used to print, and why it was a lie ─────────────────
+  //
+  // It said: "Nothing was deleted, and no priority, switch or talking point you
+  // had edited was reset." Read narrowly that is true — those three fields do
+  // survive. Read the way anybody actually reads it ("your edits are safe") it
+  // is false, because seedIntelConfig's rule upsert writes `name`,
+  // `capabilityCode`, `conditions` and `reasonTemplate` unconditionally from
+  // the code (lib/sales/intel/db.js). Those four are precisely what
+  // /platform/sales/rules exists to edit — that screen's own subheading names
+  // "the capability, the conditions, the reason".
+  //
+  // Worse, it writes them without moving `version`, which
+  // lib/sales/intel/versioning.js is explicit is not allowed: `conditions`,
+  // `capabilityCode` and `reasonTemplate` are all in SEMANTIC_FIELDS, and every
+  // ProspectOpportunity.ruleVersion already stamped "1" goes on citing a v1
+  // whose conditions have changed underneath it.
+  //
+  // Which of those two the seed SHOULD do — skip rows a human has edited, or
+  // keep overwriting and bump the version — is a product decision and is not
+  // taken here. What is fixed here is the sentence: it now says what the code
+  // does, and the confirm says it BEFORE the click rather than retracting it
+  // after. A warning underneath a button that has already run is not a warning.
   async function runSeed() {
+    if (
+      !confirm(
+        "Seed / refresh from code\n\n" +
+          "Adds anything defined in the code and missing from the database, and " +
+          "REWRITES every existing opportunity rule's capability, conditions and " +
+          "reason template back to what the code says. Any edit you made to those " +
+          "on the Opportunity rules screen is overwritten, and the rule's version " +
+          "does not change — so recommendations already stored against a prospect " +
+          "keep citing a version that now means something else.\n\n" +
+          "Untouched: every rule's priority and on/off switch, every capability's " +
+          "priority, switch and talking points, and every tuned confidence weight. " +
+          "Nothing is deleted.\n\nGo ahead?",
+      )
+    )
+      return;
+
     setBusy("seed");
     setError("");
     setNotice("");
@@ -78,10 +121,17 @@ export default function PlatformSalesCapabilitiesPage() {
       const { counts } = await fetchJson("/api/platform/sales/capabilities", {
         method: "POST",
       });
+      // counts.rules.updated was computed by the seed and thrown away by the
+      // old notice, which is how "Rules: 0 added" could be printed after a run
+      // that rewrote every rule on the screen next door.
       setNotice(
-        `Capabilities: ${counts.capabilities.created} added, ${counts.capabilities.updated} refreshed. ` +
-          `Rules: ${counts.rules.created} added. Confidence weights: ${counts.signals.created} added. ` +
-          "Nothing was deleted, and no priority, switch or talking point you had edited was reset.",
+        `Capabilities: ${counts.capabilities.created} added, ${counts.capabilities.updated} refreshed ` +
+          "(derived caveats and notes only — priority, switch and talking points untouched). " +
+          `Rules: ${counts.rules.created} added, ${counts.rules.updated} rewritten from code — ` +
+          "a rewritten rule's capability, conditions and reason are now whatever the code says, " +
+          "and its version did not move. " +
+          `Confidence weights: ${counts.signals.created} added, ${counts.signals.updated} reclassified; ` +
+          "tuned weights untouched. Nothing was deleted.",
       );
       await load();
     } catch (err) {
@@ -176,13 +226,15 @@ export default function PlatformSalesCapabilitiesPage() {
         </div>
       )}
 
-      {!loading && !isSuperadmin && (
-        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl p-4 text-sm text-amber-800 dark:text-amber-300">
-          You can read this list. Changing what the sales team is allowed to
-          promise is superadmin-only, so the controls are not shown rather than
-          shown and refused.
-        </div>
-      )}
+      <PlatformWriteGate
+        status={roleStatus}
+        allowed={isSuperadmin}
+        error={roleError}
+        action="Changing what the sales team is allowed to promise"
+        who="superadmin"
+      >
+        {null}
+      </PlatformWriteGate>
 
       {!loading && data?.unseeded?.length > 0 && (
         <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl p-4 text-sm text-amber-800 dark:text-amber-300">
@@ -212,9 +264,14 @@ export default function PlatformSalesCapabilitiesPage() {
             const draft = drafts[cap.code];
             const points = draft?.points ?? cap.recommendedTalkingPoints.points;
             const priority = draft?.salesPriority ?? cap.salesPriority;
+            // The priority box holds a STRING while it is being edited, so the
+            // comparison parses first — otherwise retyping the same number
+            // reads as a change. numberOrNull gives null for a blank box, which
+            // equals no stored priority, so Save still appears and then refuses
+            // by name instead of writing a zero.
             const dirty =
               draft &&
-              (draft.salesPriority !== cap.salesPriority ||
+              (numberOrNull(priority) !== cap.salesPriority ||
                 (draft.points || []).join("\n") !==
                   cap.recommendedTalkingPoints.points.join("\n"));
 
@@ -300,13 +357,19 @@ export default function PlatformSalesCapabilitiesPage() {
                       step={1}
                       value={priority}
                       disabled={!isSuperadmin}
+                      // The raw string, not Number(). This used to substitute
+                      // Number("") === 0 the instant the box was cleared, so
+                      // the digits an operator had just deleted reappeared as
+                      // a "0" they never typed — and 0 is a real setting here
+                      // ("read out last"), so the substitution was silent.
+                      // Save parses it, and refuses a blank.
                       onChange={(e) =>
                         setDrafts((d) => ({
                           ...d,
                           [cap.code]: {
                             points,
                             ...d[cap.code],
-                            salesPriority: Number(e.target.value),
+                            salesPriority: e.target.value,
                           },
                         }))
                       }
@@ -387,12 +450,17 @@ export default function PlatformSalesCapabilitiesPage() {
                 {isSuperadmin && dirty && (
                   <div className="flex gap-2">
                     <button
-                      onClick={() =>
+                      onClick={() => {
+                        const parsed = numberOrNull(priority);
+                        if (parsed === null) {
+                          setError(blankNumberMessage("Sales priority"));
+                          return;
+                        }
                         patch(cap.code, {
-                          salesPriority: priority,
+                          salesPriority: parsed,
                           points: points.map((p) => p.trim()).filter(Boolean),
-                        })
-                      }
+                        });
+                      }}
                       disabled={busy === cap.code}
                       className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
                     >

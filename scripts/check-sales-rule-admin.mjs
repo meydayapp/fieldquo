@@ -583,9 +583,22 @@ section("The screens say what is true");
   );
 
   // Every page must gate its controls on the role rather than on hope.
+  //
+  // This used to require the literal `me?.role === "superadmin"`, which pinned
+  // the bug rather than the behaviour: each page fetched /api/platform/me with
+  // `.catch(() => null)`, so a failed identity call left `me` null and showed a
+  // REAL superadmin a refusal for a power they hold. Never-loaded rendered as
+  // restricted. The shared hook in app/components/platform/PlatformWriteGate.js
+  // keeps the three states apart, so that is what is required now — and the old
+  // shape is asserted absent, so it cannot come back.
   for (const [name, file] of Object.entries(PAGES)) {
     const src = read(file);
-    ok(`${name} screen resolves the viewer's role`, /me\?\.role === "superadmin"/.test(src));
+    ok(`${name} screen resolves the viewer's role`, /usePlatformAdmin\(\)/.test(src));
+    ok(
+      `${name} screen does not swallow a failed identity check`,
+      !/me\?\.role === "superadmin"/.test(src) &&
+        !/fetchJson\("\/api\/platform\/me"\)\.catch/.test(src),
+    );
     ok(`${name} screen hides write controls from a non-superadmin`, /isSuperadmin &&/.test(src));
   }
 }

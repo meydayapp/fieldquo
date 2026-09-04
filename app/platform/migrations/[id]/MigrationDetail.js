@@ -375,10 +375,24 @@ function WritesList({ writes, people }) {
 
 function WritePanel({ id, writes, people, setError, setNote, reload }) {
   const [clients, setClients] = useState(null);
+  const [clientsError, setClientsError] = useState("");
 
+  // Was `if (res.ok) setClients(...)` with no else, on the one panel in the
+  // product that writes into a company's own tenant. A failed load left
+  // `clients` null forever, and null is the LOADING state below — so the
+  // client picker sat on "Loading clients…" permanently, with no error, no
+  // retry, and no way to tell that from a slow request. Three states now.
   const loadClients = useCallback(async () => {
-    const res = await fetch(`/api/platform/migrations/${id}/clients`);
-    if (res.ok) setClients((await res.json()).clients || []);
+    setClientsError("");
+    try {
+      const res = await fetch(`/api/platform/migrations/${id}/clients`);
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error || `Request failed (${res.status}).`);
+      setClients(body?.clients || []);
+    } catch (err) {
+      setClients(null);
+      setClientsError(err.message || "Couldn't load this company's clients.");
+    }
   }, [id]);
 
   useEffect(() => {
@@ -408,6 +422,8 @@ function WritePanel({ id, writes, people, setError, setNote, reload }) {
       <AddQuoteForm
         id={id}
         clients={clients}
+        clientsError={clientsError}
+        onRetryClients={loadClients}
         setError={setError}
         setNote={setNote}
         reload={reload}
@@ -472,7 +488,7 @@ function AddClientForm({ id, setError, setNote, onCreated }) {
   );
 }
 
-function AddQuoteForm({ id, clients, setError, setNote, reload }) {
+function AddQuoteForm({ id, clients, clientsError, onRetryClients, setError, setNote, reload }) {
   const [clientId, setClientId] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
@@ -509,7 +525,13 @@ function AddQuoteForm({ id, clients, setError, setNote, reload }) {
           onChange={(e) => setClientId(e.target.value)}
           className="border border-border rounded-lg px-3 py-1.5 text-sm"
         >
-          <option value="">{clients === null ? "Loading clients…" : "Select a client"}</option>
+          <option value="">
+            {clientsError
+              ? "Clients didn't load"
+              : clients === null
+                ? "Loading clients…"
+                : "Select a client"}
+          </option>
           {clients?.map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
@@ -540,7 +562,21 @@ function AddQuoteForm({ id, clients, setError, setNote, reload }) {
         {saving && <Loader2 size={13} className="animate-spin" />}
         Add quote
       </button>
-      {clients?.length === 0 && (
+      {clientsError && (
+        <p className="text-xs text-amber-700 dark:text-amber-400">
+          {clientsError} This company may well have clients — the list just
+          didn&apos;t arrive, and nothing has been changed.{" "}
+          <button
+            type="button"
+            onClick={onRetryClients}
+            className="underline font-medium"
+          >
+            Try again
+          </button>
+          .
+        </p>
+      )}
+      {!clientsError && clients?.length === 0 && (
         <p className="text-xs text-muted-foreground">Add a client above first.</p>
       )}
     </form>

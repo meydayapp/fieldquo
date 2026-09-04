@@ -45,6 +45,10 @@ import {
   Trash2,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { blankNumberMessage, numberOrNull } from "@/lib/platform/numericField";
+import PlatformWriteGate, {
+  usePlatformAdmin,
+} from "@/app/components/platform/PlatformWriteGate";
 
 /** Every key each condition kind may carry. Anything else and the builder stands down. */
 const CONDITION_SHAPE = {
@@ -100,7 +104,6 @@ function blankCondition(kind, firstCode) {
 
 export default function PlatformSalesRulesPage() {
   const [data, setData] = useState(null);
-  const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -115,8 +118,6 @@ export default function PlatformSalesRulesPage() {
     setError("");
     try {
       setData(await fetchJson("/api/platform/sales/rules"));
-      const who = await fetchJson("/api/platform/me").catch(() => null);
-      if (who) setMe(who);
     } catch (err) {
       setError(err.message);
       setProblems(err.data?.problems || []);
@@ -129,7 +130,11 @@ export default function PlatformSalesRulesPage() {
     load();
   }, [load]);
 
-  const isSuperadmin = me?.role === "superadmin";
+  // Was a hand-rolled `fetchJson("/api/platform/me").catch(() => null)` whose
+  // failure left `me` null — read here as "not a superadmin" and answered with
+  // a refusal, shown to a superadmin, for a power they hold. The shared hook
+  // keeps never-loaded apart from refused; see PlatformWriteGate's header.
+  const { status: roleStatus, error: roleError, isSuperadmin } = usePlatformAdmin();
   const rules = data?.rules || [];
   const capabilities = data?.capabilities || [];
   const observable = data?.observableCapabilityCodes || [];
@@ -203,10 +208,15 @@ export default function PlatformSalesRulesPage() {
   }
 
   function bodyFromDraft() {
+    // numberOrNull, not Number(). Number("") is 0, and priority 0 is not a
+    // no-op here: buildOpportunities resolves two rules recommending the same
+    // capability by priority and refuses the loser, so an empty box silently
+    // demoted a rule below every other one. save() refuses on null rather than
+    // posting it — the route would accept 0 happily.
     const body = {
       name: draft.name,
       capabilityCode: draft.capabilityCode,
-      priority: Number(draft.priority),
+      priority: numberOrNull(draft.priority),
       reasonTemplate: draft.reasonTemplate,
       // The raw text is sent as text so the server's JSON.parse produces the
       // error message, with its position, rather than the browser swallowing it.
@@ -218,6 +228,11 @@ export default function PlatformSalesRulesPage() {
 
   async function save() {
     const body = bodyFromDraft();
+    if (body.priority === null) {
+      setError(blankNumberMessage("Priority"));
+      setProblems([]);
+      return;
+    }
     if (draft.isNew) {
       await send(
         "/api/platform/sales/rules",
@@ -331,12 +346,15 @@ export default function PlatformSalesRulesPage() {
         </div>
       )}
 
-      {!loading && !isSuperadmin && (
-        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl p-4 text-sm text-amber-800 dark:text-amber-300">
-          You can read these rules. Writing them is superadmin-only, so the
-          controls are not shown rather than shown and refused.
-        </div>
-      )}
+      <PlatformWriteGate
+        status={roleStatus}
+        allowed={isSuperadmin}
+        error={roleError}
+        action="Writing an opportunity rule"
+        who="superadmin"
+      >
+        {null}
+      </PlatformWriteGate>
 
       {isSuperadmin && !adding && (
         <button onClick={beginAdd} className={`${BTN} w-full sm:w-auto bg-inverted text-inverted-foreground`}>

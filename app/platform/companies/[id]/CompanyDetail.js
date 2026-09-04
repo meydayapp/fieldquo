@@ -31,12 +31,16 @@ import {
   Check,
 } from "lucide-react";
 import { count, money } from "@/app/components/platform/MetricCard";
+import { statusMeta } from "@/lib/platform/subscriptionStatus";
 import { fetchJson } from "@/lib/fetchJson";
 import CompanyHistory from "./CompanyHistory";
 import CompanyActivity from "./CompanyActivity";
 import CompanyHealth from "./CompanyHealth";
 import CompanyActions from "./CompanyActions";
 import CompanyDisputeEvidence from "./CompanyDisputeEvidence";
+import PlatformWriteGate, {
+  usePlatformAdmin,
+} from "@/app/components/platform/PlatformWriteGate";
 
 const STATUS_STYLES = {
   active: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900",
@@ -58,6 +62,14 @@ export default function CompanyDetail({ companyId }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // company:suspend, which is what the PATCH picks when onboardingStatus is
+  // "churned" or "suspended" (see the `needed` ternary in
+  // app/api/platform/companies/[id]/route.js). Admin and superadmin hold it;
+  // support does not — and support is the role that lives on this screen, so
+  // this was the console's most reachable button that 403s. Impersonation is
+  // NOT gated here: support holds "impersonate", and that button works.
+  const { status: roleStatus, error: roleError, can } = usePlatformAdmin();
+  const canSuspend = can("company:suspend");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -204,6 +216,7 @@ export default function CompanyDetail({ companyId }) {
             View account
           </button>
 
+          {canSuspend && (
           <button
             onClick={() => setStatus(isChurned ? "active" : "churned")}
             disabled={busy}
@@ -230,8 +243,19 @@ export default function CompanyDetail({ companyId }) {
             {isChurned ? <RotateCcw size={14} /> : <Ban size={14} />}
             {isChurned ? "Reactivate" : "Suspend"}
           </button>
+          )}
         </div>
       </div>
+
+      <PlatformWriteGate
+        status={roleStatus}
+        allowed={canSuspend}
+        error={roleError}
+        action="Suspending or reactivating a company"
+        who="admins and superadmins"
+      >
+        {null}
+      </PlatformWriteGate>
 
       {error && (
         <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg px-4 py-3 text-sm text-red-700 dark:text-red-300">
@@ -249,7 +273,18 @@ export default function CompanyDetail({ companyId }) {
               label="Monthly"
               value={money(sub.plan?.priceMonthly, { compact: true })}
             />
-            <Field label="Status" value={sub.status} />
+            {/* Was the raw enum in plain text: "past_due" in a field labelled
+                Status, on the panel a support agent reads out loud. */}
+            <Field
+              label="Status"
+              value={
+                <span
+                  className={`text-xs px-2 py-0.5 rounded-full border ${statusMeta(sub.status).className}`}
+                >
+                  {statusMeta(sub.status).label}
+                </span>
+              }
+            />
             <Field
               label={sub.trialEndsAt ? "Trial ends" : "Renews"}
               value={formatDate(sub.trialEndsAt || sub.currentPeriodEnd)}
@@ -458,9 +493,20 @@ export default function CompanyDetail({ companyId }) {
         <Group title="Regional">
           <Field label="Timezone" value={company.timezone} />
           <Field label="Date format" value={company.dateFormat} />
+          {/* A ternary made "nobody has said" indistinguishable from "Sunday",
+              which is a statement about the customer's week that the customer
+              never made — and this panel exists so support and the contractor
+              read the same field. Null renders as "Not set" like every other
+              unset field here. */}
           <Field
             label="Week starts"
-            value={company.weekStartsOn === 1 ? "Monday" : "Sunday"}
+            value={
+              company.weekStartsOn === 1
+                ? "Monday"
+                : company.weekStartsOn === 0
+                  ? "Sunday"
+                  : null
+            }
           />
           <Field
             label="Default language"

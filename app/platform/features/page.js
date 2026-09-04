@@ -28,6 +28,9 @@
 // key would be a flag store for features that don't exist.
 
 import { useCallback, useEffect, useState } from "react";
+import PlatformWriteGate, {
+  usePlatformAdmin,
+} from "@/app/components/platform/PlatformWriteGate";
 import {
   Loader2,
   AlertCircle,
@@ -75,6 +78,12 @@ export default function PlatformFeaturesPage() {
   const [busy, setBusy] = useState("");
   const [drafts, setDrafts] = useState({}); // key → { state, note }
   const [adding, setAdding] = useState({}); // key → { companyId, state }
+  // plan:manage — what app/api/platform/features/route.js enforces on both PUT
+  // and POST. Support holds neither, and used to get the full editor: a state
+  // dropdown, a reason box and a Save that 403'd. This screen still shows every
+  // feature and its current state to everyone; only the writes are withheld.
+  const { status: roleStatus, error: roleError, can } = usePlatformAdmin();
+  const canManage = can("plan:manage");
 
   const load = useCallback(async () => {
     setError("");
@@ -147,6 +156,16 @@ export default function PlatformFeaturesPage() {
           {notice}
         </div>
       )}
+
+      <PlatformWriteGate
+        status={roleStatus}
+        allowed={canManage}
+        error={roleError}
+        action="Changing what FieldQuo offers, globally or for one company"
+        who="admins and superadmins"
+      >
+        {null}
+      </PlatformWriteGate>
 
       <div className="bg-muted border border-border rounded-xl p-4 text-sm text-muted-foreground flex gap-2">
         <Info size={16} className="shrink-0 mt-0.5" />
@@ -222,6 +241,7 @@ export default function PlatformFeaturesPage() {
               <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Every company, unless overridden
               </div>
+              {canManage && (
               <div className="flex flex-wrap items-center gap-2">
                 <select
                   value={draft.state}
@@ -260,12 +280,13 @@ export default function PlatformFeaturesPage() {
                   Save
                 </button>
               </div>
+              )}
               <p className="text-xs text-muted-foreground">
-                {STATE_COPY[draft.state]?.blurb}
+                {STATE_COPY[canManage ? draft.state : f.global.state]?.blurb}
               </p>
               {/* A note on anything but Locked is stored and never read. Say so
                   rather than letting someone write an explanation nobody sees. */}
-              {draft.note.trim() && draft.state !== "locked" && (
+              {canManage && draft.note.trim() && draft.state !== "locked" && (
                 <p className="text-xs text-amber-700 dark:text-amber-400">
                   Only Locked shows this note to anyone. On {STATE_COPY[draft.state]?.label} it is
                   saved and never displayed.
@@ -309,6 +330,7 @@ export default function PlatformFeaturesPage() {
                       {o.note && (
                         <span className="text-xs text-muted-foreground truncate">{o.note}</span>
                       )}
+                      {canManage && (
                       <button
                         onClick={() =>
                           send("/api/platform/features", {
@@ -328,11 +350,13 @@ export default function PlatformFeaturesPage() {
                           <Trash2 size={14} />
                         )}
                       </button>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
 
+              {canManage && (
               <div className="flex flex-wrap items-center gap-2">
                 <select
                   value={add.companyId}
@@ -382,6 +406,7 @@ export default function PlatformFeaturesPage() {
                   Add override
                 </button>
               </div>
+              )}
             </div>
           </section>
         );

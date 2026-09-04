@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, AlertCircle, CreditCard, AlertTriangle } from "lucide-react";
 import MetricCard, { money, count } from "@/app/components/platform/MetricCard";
+import { STATUSES, statusMeta } from "@/lib/platform/subscriptionStatus";
 
 // ── One table for the filter and the badge ─────────────────────────────────
 //
@@ -20,50 +21,15 @@ import MetricCard, { money, count } from "@/app/components/platform/MetricCard";
 // "nothing special here" — snake_case leaking onto the money screen, and the
 // two lists free to disagree about which statuses exist.
 //
-// The keys are the complete SubscriptionStatus enum in prisma/schema.prisma:
-// trialing, active, past_due, canceled. Four, not the Stripe status set —
-// FieldQuo stores its own narrower column, and copying Stripe's eight here
-// would invent four statuses the database cannot hold. An unrecognised value
-// still renders (see the fallback below) rather than vanishing, because a
-// status this file has not been taught about is exactly what a reader needs to
-// see.
-const STATUSES = {
-  active: {
-    label: "Active",
-    className:
-      "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900",
-  },
-  trialing: {
-    label: "Trialing",
-    className:
-      "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900",
-  },
-  past_due: {
-    label: "Past due",
-    className:
-      "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900",
-  },
-  canceled: {
-    label: "Canceled",
-    className: "bg-muted text-muted-foreground border-border",
-  },
-};
-
+// The table itself now lives in lib/platform/subscriptionStatus.js: fixing it
+// here left /platform/companies and /platform/companies/[id] still printing the
+// same enum raw, on the two screens support opens with a contractor on the
+// phone. One table, three readers. Its keys are held to the schema's enum by
+// check:platform-truth, which reads prisma/schema.prisma rather than a copy.
 const FILTERS = [
   { value: "", label: "All" },
   ...Object.entries(STATUSES).map(([value, { label }]) => ({ value, label })),
 ];
-
-/** Never a bare enum value in a badge — an unknown one says it is unknown. */
-function statusMeta(status) {
-  return (
-    STATUSES[status] || {
-      label: status ? `Unrecognised status: ${status}` : "No status",
-      className:
-        "bg-purple-50 dark:bg-purple-950/40 text-purple-800 dark:text-purple-200 border-purple-300 dark:border-purple-900",
-    }
-  );
-}
 
 function formatDate(value) {
   if (!value) return "—";

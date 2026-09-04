@@ -49,6 +49,10 @@ import {
   Trash2,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { blankNumberMessage, numberOrNull } from "@/lib/platform/numericField";
+import PlatformWriteGate, {
+  usePlatformAdmin,
+} from "@/app/components/platform/PlatformWriteGate";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -76,7 +80,6 @@ function Problems({ problems }) {
 
 export default function PlatformSalesPlaybooksPage() {
   const [tab, setTab] = useState("playbooks");
-  const [me, setMe] = useState(null);
   const [data, setData] = useState(null);
   const [objectionData, setObjectionData] = useState(null);
   const [experimentData, setExperimentData] = useState(null);
@@ -100,8 +103,6 @@ export default function PlatformSalesPlaybooksPage() {
       setData(playbooks);
       setObjectionData(objections);
       setExperimentData(experiments);
-      const who = await fetchJson("/api/platform/me").catch(() => null);
-      if (who) setMe(who);
     } catch (err) {
       setError(err.message);
       setProblems(err.data?.problems || []);
@@ -114,7 +115,11 @@ export default function PlatformSalesPlaybooksPage() {
     load();
   }, [load]);
 
-  const isSuperadmin = me?.role === "superadmin";
+  // Was a hand-rolled `fetchJson("/api/platform/me").catch(() => null)` whose
+  // failure left `me` null — read here as "not a superadmin" and answered with
+  // a refusal, shown to a superadmin, for a power they hold. The shared hook
+  // keeps never-loaded apart from refused; see PlatformWriteGate's header.
+  const { status: roleStatus, error: roleError, isSuperadmin } = usePlatformAdmin();
   const store = data?.store || { ready: false, missing: [] };
   // Both halves are required before a control that writes is drawn. Hiding a
   // button is not access control — the routes check the role and the store
@@ -195,12 +200,15 @@ export default function PlatformSalesPlaybooksPage() {
     setProblems([]);
   }
 
+  // numberOrNull, not Number(). Number("") is 0, the route accepts 0, and 0 is
+  // a real priority — so clearing the box did not leave the value alone, it set
+  // the playbook to the bottom of the ordering. The save refuses on null.
   function playbookBody(d) {
     return {
       key: d.key,
       name: d.name,
       selectorKey: d.selectorKey,
-      priority: Number(d.priority),
+      priority: numberOrNull(d.priority),
       stages: d.stages.map((s) => ({
         stageKey: s.stageKey,
         say: s.say,
@@ -209,8 +217,13 @@ export default function PlatformSalesPlaybooksPage() {
     };
   }
 
-  const savePlaybook = () =>
-    draft.isNew
+  const savePlaybook = () => {
+    if (numberOrNull(draft.priority) === null) {
+      setError(blankNumberMessage("Priority"));
+      setProblems([]);
+      return;
+    }
+    return draft.isNew
       ? send(
           "/api/platform/sales/playbooks",
           { method: "POST", body: playbookBody(draft) },
@@ -221,6 +234,7 @@ export default function PlatformSalesPlaybooksPage() {
           { method: "PATCH", body: playbookBody(draft) },
           (r) => (r.bumped ? `Saved as version ${r.playbook.version}.` : "Saved."),
         );
+  };
 
   // ── Objection editing ────────────────────────────────────────────────────
 
@@ -262,11 +276,17 @@ export default function PlatformSalesPlaybooksPage() {
     cues: d.cues,
     response: d.response,
     contextSelectorKey: d.contextSelectorKey || null,
-    priority: Number(d.priority),
+    // Same trap as playbookBody above — see the note there.
+    priority: numberOrNull(d.priority),
   });
 
-  const saveObjection = () =>
-    draft.isNew
+  const saveObjection = () => {
+    if (numberOrNull(draft.priority) === null) {
+      setError(blankNumberMessage("Priority"));
+      setProblems([]);
+      return;
+    }
+    return draft.isNew
       ? send(
           "/api/platform/sales/playbooks/objections",
           { method: "POST", body: objectionBody(draft) },
@@ -277,6 +297,7 @@ export default function PlatformSalesPlaybooksPage() {
           { method: "PATCH", body: objectionBody(draft) },
           "Saved.",
         );
+  };
 
   // ── Experiment editing ───────────────────────────────────────────────────
 
@@ -369,12 +390,15 @@ export default function PlatformSalesPlaybooksPage() {
         </div>
       )}
 
-      {!loading && !isSuperadmin && (
-        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl p-4 text-sm text-amber-800 dark:text-amber-300">
-          These decide what every rep says to a stranger, so only a superadmin can change them. You
-          can read everything here.
-        </div>
-      )}
+      <PlatformWriteGate
+        status={roleStatus}
+        allowed={isSuperadmin}
+        error={roleError}
+        action="Changing what every rep says to a stranger"
+        who="superadmin"
+      >
+        {null}
+      </PlatformWriteGate>
 
       {error && (
         <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-4 text-sm text-red-700 dark:text-red-300">

@@ -31,10 +31,15 @@ import {
 } from "lucide-react";
 import { count } from "@/app/components/platform/MetricCard";
 import { fetchJson } from "@/lib/fetchJson";
-import { currencyLabel } from "@/lib/pricing/ladder";
+// planMoney lives in the ladder beside currencyLabel: one place decides how a
+// price is written, and it is executable by check:platform-truth there.
+import { planMoney } from "@/lib/pricing/ladder";
 // The card says what THIS says, and nothing else, about whether a plan can be
 // bought. See the note on PlanCard's status line.
 import { planStatus } from "@/lib/platform/sellablePlans";
+import PlatformWriteGate, {
+  usePlatformAdmin,
+} from "@/app/components/platform/PlatformWriteGate";
 
 const BLANK = {
   name: "",
@@ -71,31 +76,23 @@ const BLANK = {
   isPublic: false,
 };
 
-/**
- * A plan's price, written in the plan's OWN currency.
- *
- * MetricCard's money() hardcodes en-CA/CAD, which was right when every row was
- * CAD and is a lie now: it would print CA$129 on the USD row of a tier. The two
- * prices are the same NUMBER, not a conversion, so the symbol is the only thing
- * distinguishing them — see the note in lib/pricing/ladder.js. currencyLabel is
- * the ladder's own answer to that, so there is one place that decides.
- */
-function planMoney(value, currency) {
-  const n = Number(value || 0);
-  return `${currencyLabel(currency) || "$"}${n.toLocaleString("en-CA", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
 export default function PlatformPlansPage() {
-  const [plans, setPlans] = useState([]);
+  // null, not []. On a failed load an empty array claimed "No plans yet. The
+  // public pricing page shows its empty state until you add one" — a statement
+  // about FieldQuo's rate card, printed because a request failed, directly
+  // under the red banner saying the request failed.
+  const [plans, setPlans] = useState(null);
   const [usage, setUsage] = useState({});
   const [usageError, setUsageError] = useState("");
   const [draft, setDraft] = useState(null); // null = form closed
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // plan:manage — held by admin and superadmin, refused for support. This
+  // screen drew the whole editor for a support agent and let the API say no
+  // after they had typed a price in.
+  const { status: roleStatus, error: roleError, can } = usePlatformAdmin();
+  const canManage = can("plan:manage");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -271,14 +268,26 @@ export default function PlatformPlansPage() {
           >
             <Percent size={14} /> Promotions
           </Link>
-          <button
-            onClick={() => setDraft({ ...BLANK })}
-            className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg"
-          >
-            <Plus size={14} /> New plan
-          </button>
+          {canManage && (
+            <button
+              onClick={() => setDraft({ ...BLANK })}
+              className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg"
+            >
+              <Plus size={14} /> New plan
+            </button>
+          )}
         </div>
       </div>
+
+      <PlatformWriteGate
+        status={roleStatus}
+        allowed={canManage}
+        error={roleError}
+        action="Adding, editing or deleting a plan"
+        who="admins and superadmins"
+      >
+        {null}
+      </PlatformWriteGate>
 
       {error && (
         <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-4 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
@@ -510,6 +519,19 @@ export default function PlatformPlansPage() {
         <div className="flex items-center gap-2 text-sm text-muted-foreground py-8">
           <Loader2 size={16} className="animate-spin" /> Loading…
         </div>
+      ) : plans === null ? (
+        /* Never loaded. The sentence below is a claim about what FieldQuo
+           sells, so it must not be printed because a request failed — the
+           error banner above says what went wrong, and this says what is NOT
+           being claimed. No plan was deleted. */
+        <div className="bg-card border border-border rounded-xl p-10 text-center">
+          <CreditCard size={28} className="text-muted-foreground mx-auto" />
+          <p className="mt-3 text-sm text-muted-foreground">
+            The plan list didn&apos;t load, so nothing is shown here. This is
+            not an empty rate card — no plan has been deleted and the public
+            pricing page is unaffected. Reload the page.
+          </p>
+        </div>
       ) : plans.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-10 text-center">
           <CreditCard size={28} className="text-muted-foreground mx-auto" />
@@ -528,6 +550,7 @@ export default function PlatformPlansPage() {
             plans={ladder}
             usage={usage}
             usageKnown={!usageError}
+            canManage={canManage}
             busy={busy}
             onEdit={edit}
             onRemove={remove}
@@ -547,6 +570,7 @@ export default function PlatformPlansPage() {
             plans={legacy}
             usage={usage}
             usageKnown={!usageError}
+            canManage={canManage}
             busy={busy}
             onEdit={edit}
             onRemove={remove}
@@ -558,7 +582,7 @@ export default function PlatformPlansPage() {
   );
 }
 
-function Group({ title, note, plans, usage, usageKnown, busy, onEdit, onRemove, empty }) {
+function Group({ title, note, plans, usage, usageKnown, canManage, busy, onEdit, onRemove, empty }) {
   return (
     <section>
       <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
@@ -575,6 +599,7 @@ function Group({ title, note, plans, usage, usageKnown, busy, onEdit, onRemove, 
               plan={p}
               subscribers={usage[p.name] || 0}
               usageKnown={usageKnown}
+              canManage={canManage}
               busy={busy}
               onEdit={() => onEdit(p)}
               onRemove={() => onRemove(p)}
@@ -586,7 +611,7 @@ function Group({ title, note, plans, usage, usageKnown, busy, onEdit, onRemove, 
   );
 }
 
-function PlanCard({ plan: p, subscribers, usageKnown, busy, onEdit, onRemove }) {
+function PlanCard({ plan: p, subscribers, usageKnown, canManage, busy, onEdit, onRemove }) {
   const status = planStatus(p);
   return (
     <div className="bg-card border border-border rounded-xl p-5 flex flex-col">
@@ -668,6 +693,11 @@ function PlanCard({ plan: p, subscribers, usageKnown, busy, onEdit, onRemove }) 
         )}
       </dl>
 
+      {/* Read-only for support: plan:manage is admin-and-above, and the two
+          controls below both 403 for anyone else. The card still shows every
+          number — knowing what a plan costs is not the same permission as
+          changing it. */}
+      {canManage && (
       <div className="flex gap-2 mt-4">
         <button
           onClick={onEdit}
@@ -695,6 +725,7 @@ function PlanCard({ plan: p, subscribers, usageKnown, busy, onEdit, onRemove }) 
           <Trash2 size={14} />
         </button>
       </div>
+      )}
     </div>
   );
 }

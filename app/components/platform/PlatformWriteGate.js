@@ -35,6 +35,32 @@ import { useEffect, useState } from "react";
 import { AlertCircle, Lock } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 
+// ── One request per page load, not one per gate ───────────────────────────
+//
+// /platform/companies/[id] now mounts three of these (the suspend control, the
+// extend-trial panel, the chargeback evidence), and /platform/billing/plans
+// mounts one per card. Each hook call would otherwise fire its own
+// /api/platform/me, so opening one company page asked the same question three
+// times and could — on a flaky connection — get three different answers, with
+// two controls hidden and one shown.
+//
+// Deliberately module-level and never invalidated: a platform admin's role does
+// not change inside a page view, and the routes re-read it from the database on
+// every write anyway (see the note on `can` below). A full reload clears it,
+// which is exactly what the "reload the page" remedy in the failed state says.
+// A REJECTED promise is dropped rather than cached, so a transient failure does
+// not pin every gate on the page to "couldn't check" for the rest of the visit.
+let mePromise = null;
+function loadMe() {
+  if (!mePromise) {
+    mePromise = fetchJson("/api/platform/me").catch((err) => {
+      mePromise = null;
+      throw err;
+    });
+  }
+  return mePromise;
+}
+
 /**
  * The signed-in platform admin, with the "we don't know yet" and "we couldn't
  * find out" cases kept apart from the answer.
@@ -59,7 +85,7 @@ export function usePlatformAdmin() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchJson("/api/platform/me")
+    loadMe()
       .then((me) => {
         if (cancelled) return;
         setAdmin(me);

@@ -5,11 +5,19 @@
 //
 // ── Why a button rather than a load-on-mount panel ─────────────────────────
 //
-// Two reasons, and neither is performance theatre. The query behind this reads
-// six tables and counts six more, and nobody opening a company page needs that
-// every time. And it is superadmin-only server-side: a support agent who has
-// this fetch fire on mount would meet a permanent red error banner on a panel
-// they cannot use. Pressed deliberately, the same 403 reads as what it is.
+// The query behind this reads six tables and counts six more, and nobody
+// opening a company page needs that every time. So it is pressed, not fetched
+// on mount.
+//
+// That reason survives. The second reason this header used to give did not:
+// "it is superadmin-only server-side … pressed deliberately, the same 403 reads
+// as what it is." It does not. A 403 after the click is the failure this
+// codebase is swept for — the button looked like it worked, and the only way to
+// find out otherwise was to press it. The route requires billing:manage, which
+// is in SUPERADMIN_ONLY_PERMISSIONS, so the button is now shown only to someone
+// who holds it, and everyone else gets one block saying so before the click.
+// The panel and its explanation stay visible for everybody: support has to know
+// this exists in order to ask for it.
 //
 // Nothing here submits to Stripe, and the panel says so. Assembling evidence
 // and deciding to contest a chargeback are different decisions; only the first
@@ -19,6 +27,9 @@
 import { useState } from "react";
 import { Loader2, Gavel, Copy, Check, AlertTriangle } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import PlatformWriteGate, {
+  usePlatformAdmin,
+} from "@/app/components/platform/PlatformWriteGate";
 
 function when(value) {
   if (!value) return "—";
@@ -29,6 +40,30 @@ function when(value) {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+/**
+ * A refunded amount, in the currency FieldQuo billed it in.
+ *
+ * Was `$${((cents || 0) / 100).toFixed(2)}` — two bugs in one expression. A
+ * missing amount printed "$0.00", which on a refund line means "they got
+ * nothing back", the opposite of what an unknown value licenses anybody to say
+ * in a dispute. And the `$` was hardcoded on the one screen where the figure is
+ * a Stripe Billing charge that may have been taken in USD.
+ */
+function refundAmount(cents, currency) {
+  if (!Number.isFinite(cents)) return "an amount that didn't load";
+  // No currency means the subscription has no plan row, so there is nothing
+  // that knows which currency this was taken in. The number is still true, so
+  // it is shown — unlabelled rather than labelled wrongly.
+  if (!currency) return `${(cents / 100).toFixed(2)} (currency unknown)`;
+  try {
+    return new Intl.NumberFormat("en-CA", { style: "currency", currency }).format(
+      cents / 100,
+    );
+  } catch {
+    return `${(cents / 100).toFixed(2)} ${currency}`;
+  }
 }
 
 /** Stripe's own field name, with the value we can honestly put in it. */
@@ -74,6 +109,8 @@ export default function CompanyDisputeEvidence({ companyId, companyName }) {
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const { status: roleStatus, error: roleError, can } = usePlatformAdmin();
+  const canAssemble = can("billing:manage");
 
   async function assemble() {
     setBusy(true);
@@ -102,15 +139,23 @@ export default function CompanyDisputeEvidence({ companyId, companyName }) {
         here — copy what you need into the dispute yourself. Superadmin only.
       </p>
 
-      <button
-        type="button"
-        onClick={assemble}
-        disabled={busy}
-        className="rounded-lg bg-primary text-primary-foreground px-3 py-1.5 text-sm font-medium disabled:opacity-60 flex items-center gap-2"
+      <PlatformWriteGate
+        status={roleStatus}
+        allowed={canAssemble}
+        error={roleError}
+        action="Assembling chargeback evidence"
+        who="superadmin"
       >
-        {busy && <Loader2 size={14} className="animate-spin" />}
-        {data ? "Reassemble" : "Assemble evidence"}
-      </button>
+        <button
+          type="button"
+          onClick={assemble}
+          disabled={busy}
+          className="rounded-lg bg-primary text-primary-foreground px-3 py-1.5 text-sm font-medium disabled:opacity-60 flex items-center gap-2"
+        >
+          {busy && <Loader2 size={14} className="animate-spin" />}
+          {data ? "Reassemble" : "Assemble evidence"}
+        </button>
+      </PlatformWriteGate>
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
@@ -129,7 +174,7 @@ export default function CompanyDisputeEvidence({ companyId, companyName }) {
               {standing.refundedAt && (
                 <div className="mt-1">
                   Last refunded subscription charge:{" "}
-                  <strong>${((standing.refundedAmountCents || 0) / 100).toFixed(2)}</strong> on{" "}
+                  <strong>{refundAmount(standing.refundedAmountCents, standing.currency)}</strong> on{" "}
                   {when(standing.refundedAt)}
                 </div>
               )}
