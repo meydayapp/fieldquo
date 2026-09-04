@@ -34,6 +34,21 @@
 // than useless — and not a block on the rest of the portal either. The one
 // thing it holds back is starting another call, because two unlogged calls is
 // how a day's numbers become unrecoverable.
+//
+// ══ The playbook loads WITH the prospect, never on the press ══════════════
+//
+// CallPlaybook is fetched from a `useEffect` keyed on `prospectId` — the same
+// moment the card appears — and never from `place()`. That is not tidiness:
+// assembling a script reads the prospect, its capabilities, its technologies
+// and its opportunities, selects a playbook and renders nine stages. Putting
+// that between the press and the ring would add a wait to the one action a rep
+// takes forty times a day, and a rep who has learned that the Call button
+// hesitates presses it twice.
+//
+// It is also why the panel renders BEFORE the call as well as during it. The
+// opener is the one line that has to be read before the phone is answered, so
+// a playbook that only appeared once the call connected would arrive after the
+// only stage it was needed for.
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -48,6 +63,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import CallPlaybook from "./CallPlaybook";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -102,8 +118,37 @@ export default function CallPanel({ prospectId, phoneE164, businessName, fallbac
   const [note, setNote] = useState("");
   const [callbackAt, setCallbackAt] = useState("");
 
+  // The script. Loaded with the prospect — see the header — and kept in its
+  // own three fields rather than folded into `config`, because the calling
+  // setup and the words are two different failures: Twilio being unconfigured
+  // must not hide the playbook, and a playbook that will not load must not
+  // stop the rep dialling.
+  const [playbook, setPlaybook] = useState(null);
+  const [playbookLoading, setPlaybookLoading] = useState(false);
+  const [playbookError, setPlaybookError] = useState("");
+
   const deviceRef = useRef(null);
   const callRef = useRef(null);
+
+  const loadPlaybook = useCallback(async () => {
+    if (!prospectId) return;
+    setPlaybookLoading(true);
+    setPlaybookError("");
+    try {
+      setPlaybook(await fetchJson(`/api/sales/playbook?prospectId=${encodeURIComponent(prospectId)}`));
+    } catch (err) {
+      // Its own error, never the panel's. A failed script must not read as a
+      // failed call setup, and it must not clear the dial button.
+      setPlaybook(null);
+      setPlaybookError(err?.message || "Something went wrong fetching it.");
+    } finally {
+      setPlaybookLoading(false);
+    }
+  }, [prospectId]);
+
+  useEffect(() => {
+    loadPlaybook();
+  }, [loadPlaybook]);
 
   const load = useCallback(async () => {
     try {
@@ -302,6 +347,15 @@ export default function CallPanel({ prospectId, phoneE164, businessName, fallbac
             Florida is not being kept for you. Keep track yourself until it is.
           </p>
         </div>
+        {/* The call still happens on this path, so the words still belong on
+            the screen. The two systems are unrelated: no SalesCallAttempt
+            table is not a reason to send a rep in without a script. */}
+        <CallPlaybook
+          loading={playbookLoading}
+          error={playbookError}
+          data={playbook}
+          onRetry={loadPlaybook}
+        />
       </div>
     );
   }
@@ -491,6 +545,20 @@ export default function CallPanel({ prospectId, phoneE164, businessName, fallbac
           ) : null}
         </div>
       ) : null}
+
+      {/* ── The words ────────────────────────────────────────────────────────
+          Last in the DOM and in all three states — before the dial, during the
+          call, and while the outcome is being written up. Last because the
+          controls above are what a thumb reaches for first on a phone; in all
+          three states because the rep needs the opener before the ring, the
+          objections while they are being pushed back on, and the stages again
+          when they are writing down what was actually said. */}
+      <CallPlaybook
+        loading={playbookLoading}
+        error={playbookError}
+        data={playbook}
+        onRetry={loadPlaybook}
+      />
     </div>
   );
 }
