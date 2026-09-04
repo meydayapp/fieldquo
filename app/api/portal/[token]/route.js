@@ -219,6 +219,23 @@ export async function GET(request, { params }) {
       subtotal: invoice.subtotal,
       discount: invoice.discount,
       tax: invoice.tax,
+      // The allow-list is the right shape and it is also the thing that has to
+      // be kept in step: the query above gained `jobPaymentStages` when the
+      // payment-schedule engine landed, and this map — written earlier, to stop
+      // `...invoice` shipping columns nobody asked for — silently dropped it
+      // again. PortalInvoice.js looked for the stage, never found one, and fell
+      // through to the invoice's full remaining balance.
+      //
+      // Which meant the deposit email's own link (?stage=<id>, minted in
+      // lib/paymentSchedule/run.js) opened a page headed BALANCE DUE $12,000
+      // with a "Pay $12,000" button — while the pay route, re-deriving the
+      // figure from the stage row, charged the $3,000 the email had asked for.
+      // The number the client agreed to and the number they were shown were
+      // different numbers, on the payment screen.
+      //
+      // Already narrow at the source: id, label and amountCents only, and only
+      // `requested` stages. Nothing further to strip here.
+      jobPaymentStages: invoice.jobPaymentStages,
       taxKind: statement.kind,
       taxAssumedRegion: statement.assumed ? statement.assumedRegion : null,
     };

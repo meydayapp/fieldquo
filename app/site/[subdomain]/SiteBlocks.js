@@ -27,16 +27,31 @@ import {
 import { neutralPair } from "@/lib/documents/theme";
 import { HOME_SLUG } from "@/lib/site/pages";
 import { resolveSiteStyle, DEFAULT_SITE_STYLE } from "@/lib/site/siteStyles";
-import { groupHours, openState, formatTime } from "@/lib/company/businessHours";
+import { groupHours, openState, formatTime, dayNames } from "@/lib/company/businessHours";
 import BookingFlow from "@/app/book/[companySlug]/BookingFlow";
 import SelfQuoteFlow from "@/app/quote/[companySlug]/SelfQuoteFlow";
 import BeforeAfter from "./BeforeAfter";
-import { siteCopy, fill } from "@/lib/site/siteCopy";
+// `fill` (the {place}-hole interpolator) used to be imported here too and was
+// never called — the component shadows the name with its own fillPair prop one
+// line into the body, so it could not have been.
+import { siteCopy } from "@/lib/site/siteCopy";
+import { documentFormatters } from "@/lib/i18n/documentLabels";
 
 // A rotating set of trade-flavoured icons so service cards aren't text-only.
 // Cycled by index — we can't map a category to an icon reliably, but variety
 // reads as "designed" where a single repeated glyph reads as filler.
 const SERVICE_ICONS = [Wrench, Home, Paintbrush, Hammer, Ruler, Sparkles];
+
+// The Intl locale for this site's language.
+//
+// documentFormatters owns the language→locale map and exposes `locale`
+// precisely so a caller needing a format it doesn't provide — here, a weekday
+// name and a time of day — builds it against the SAME map instead of copying
+// one. Its currency argument is irrelevant to the locale, so it is left at its
+// default; nothing on this page formats money.
+function siteLocale(language) {
+  return documentFormatters(language).locale;
+}
 
 // The secondary brand accent, or the primary if none set. Only ever used where
 // contrast doesn't gate legibility (rules, star fills, icon tints on wash).
@@ -68,7 +83,11 @@ export default function SiteBlocks({ blocks, company, theme, fill: fillPairIn, s
       <SiteHeader company={company} theme={theme} fill={fill} accent2={accent2} blocks={visible} S={S} t={t} language={language} languages={languages} subdomain={subdomain} menu={menu} currentPage={currentPage} linkBase={linkBase} linkSuffix={linkSuffix} />
       <main>
         {visible.map((block) => {
-          const props = { block, company, theme, fill, subdomain, accent2, S, t };
+          // `language` rides along with `t` for the same reason `t` does: a
+          // block that formats a date or a weekday needs the page's language,
+          // and reading a global would let one block render in a different one
+          // from its own heading.
+          const props = { block, company, theme, fill, subdomain, accent2, S, t, language };
           let el = null;
           switch (block.type) {
             case "hero": el = <Hero {...props} />; break;
@@ -219,6 +238,12 @@ const navEntry = (type, t) =>
 function SiteHeader({ company, theme, fill, blocks = [], S, t, language, languages = [], subdomain, menu = [], currentPage, linkBase = "", linkSuffix = "" }) {
   const state = openState(company.businessHours, company.timezone);
   const neutral = neutralPair(theme);
+  // The one Intl locale this page formats against — reused rather than a second
+  // language→locale map, per the note on documentFormatters. It decides both the
+  // weekday name and whether the clock reads "5:00 p.m." or "17:00", which have
+  // to agree with each other inside a single pill.
+  const locale = siteLocale(language);
+  const days = dayNames(locale);
   // Deduped by anchor id, not by block type: `beforeafter` and `gallery` both
   // scroll to #work, so a page with both was showing "Our Work" twice in the
   // nav — two links to the same place, which reads as a bug.
@@ -241,6 +266,29 @@ function SiteHeader({ company, theme, fill, blocks = [], S, t, language, languag
       ? `${linkBase}${langPrefix}${linkSuffix}` || "/"
       : `${linkBase}${langPrefix}/${slug}${linkSuffix}`;
   const homeHref = `${linkBase}${langPrefix}${linkSuffix}` || "/";
+
+  // ── The same page, in the other language ────────────────────────────────
+  //
+  // The switcher used to emit a bare "/" and "/<code>", built from neither of
+  // the two things every other link in this header is built from. Two failures
+  // fell out of that.
+  //
+  // On a multi-page site it always landed on HOME: a visitor reading Services in
+  // English who tapped FR was silently returned to the front page, having asked
+  // for a translation and been given a navigation. A language switch is the one
+  // control whose entire promise is that nothing else changes.
+  //
+  // And it ignored linkBase/linkSuffix, so in the editor's preview iframe —
+  // which loads the site at /site/<sub>?preview=1 on the main domain — FR
+  // pointed at the APP's /fr and navigated the contractor out of their own
+  // preview. A dead control on the one screen where they are looking for
+  // problems.
+  const langHref = (code) => {
+    const prefix = code === languages[0] ? "" : `/${code}`;
+    return currentPage && currentPage !== HOME_SLUG
+      ? `${linkBase}${prefix}/${currentPage}${linkSuffix}`
+      : `${linkBase}${prefix}${linkSuffix}` || "/";
+  };
 
   // The header is always a solid, in-flow sticky bar. It used to float over the
   // hero (absolute) for some styles, but on a phone the clearance was tight and
@@ -287,9 +335,9 @@ function SiteHeader({ company, theme, fill, blocks = [], S, t, language, languag
             >
               <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: state.open ? theme.positive : neutral.fg }} />
               {state.open
-                ? `${t.openUntil} ${formatTime(state.closesAt)}`
+                ? `${t.openUntil} ${formatTime(state.closesAt, locale)}`
                 : state.opensAt
-                  ? `${t.closedOpens} ${state.opensDay ? `${state.opensDay} ` : ""}${formatTime(state.opensAt)}`
+                  ? `${t.closedOpens} ${state.opensDayIndex != null ? `${days[state.opensDayIndex]} ` : ""}${formatTime(state.opensAt, locale)}`
                   : t.closed}
             </span>
           )}
@@ -335,18 +383,26 @@ function SiteHeader({ company, theme, fill, blocks = [], S, t, language, languag
               share it. A JS-only toggle gives you one indexable page in one
               language, which defeats the point of translating it.
 
-              Shown only when the company has enabled more than one. */}
+              Shown only when the company has enabled more than one.
+
+              Visible at every width, not `hidden sm:flex`. The company most
+              likely to publish two languages is a Quebec or Ottawa contractor,
+              most of whose visitors arrive on a phone — so hiding it below
+              640px hid it from the majority of the people it exists for, and
+              two letters is not what makes a 375px header tight. */}
           {languages.length > 1 && (
-            <nav aria-label={t.chooseLanguage} className="hidden sm:flex items-center gap-1">
+            <nav aria-label={t.chooseLanguage} className="flex items-center gap-0.5 sm:gap-1">
               {languages.map((code) => {
                 const active = code === language;
                 return (
                   <a
                     key={code}
-                    href={code === languages[0] ? "/" : `/${code}`}
+                    href={langHref(code)}
                     hrefLang={code}
                     aria-current={active ? "true" : undefined}
-                    className={`px-1.5 py-0.5 text-[11px] font-bold uppercase rounded ${
+                    // min-h-11 / min-w-9: a 17px-tall tap target on the one
+                    // control a bilingual visitor came to the header for.
+                    className={`inline-grid place-items-center min-h-11 min-w-9 px-1.5 text-[11px] font-bold uppercase rounded ${
                       active ? "" : "opacity-50 hover:opacity-100"
                     }`}
                     style={{ color: overlay ? "#fff" : theme.inkMuted }}
@@ -384,7 +440,10 @@ function SiteHeader({ company, theme, fill, blocks = [], S, t, language, languag
                 // on a multi-page mobile site, and it was under the 44px
                 // touch-target floor. The icon stays 22px; only the box grew.
                 className="list-none cursor-pointer grid place-items-center w-11 h-11 rounded-lg"
-                aria-label={t.menu || "Menu"}
+                // No `|| "Menu"` any more. That fallback was doing all the
+                // work: `menu` was not a key in siteCopy, so the Proxy returned
+                // "" and every language announced this button in English.
+                aria-label={t.menu}
                 style={{ color: overlay ? "#fff" : theme.accentText }}
               >
                 <Menu size={22} />
@@ -398,7 +457,12 @@ function SiteHeader({ company, theme, fill, blocks = [], S, t, language, languag
                     key={p.slug}
                     href={pageHref(p.slug)}
                     aria-current={p.slug === currentPage ? "page" : undefined}
-                    className={`block px-3 py-2.5 rounded-lg text-sm hover:bg-black/5 ${p.slug === currentPage ? "font-bold" : "font-medium"}`}
+                    // min-h-11 (44px), not py-2.5's 40. These are the ONLY way
+                    // to navigate a multi-page site on a phone — the desktop
+                    // nav is md:hidden — so they are the links most certain to
+                    // be tapped by a thumb, and they were the ones under the
+                    // floor. Same fix the summary above already got.
+                    className={`flex items-center min-h-11 px-3 rounded-lg text-sm hover:bg-black/5 ${p.slug === currentPage ? "font-bold" : "font-medium"}`}
                     style={{ color: p.slug === currentPage ? theme.accentText : theme.ink }}
                   >
                     {p.title}
@@ -952,6 +1016,32 @@ function Gallery({ block, theme, accent2, S, t }) {
   );
 }
 
+// ── The star row, and the `item.` that should have been `t.` ───────────────
+//
+// All four star rows below read `item.fiveStars`, and the single-quote variant
+// read `item.eyebrowTestimonials` for its eyebrow. `item` is a testimonial —
+// `{ quote, author }` — so both were always undefined: every star row shipped
+// with no accessible label at all, and the whole eyebrow above the biggest
+// quote on the page rendered nothing (Eyebrow returns null for empty children).
+// Both strings exist, translated into all eight languages, in siteCopy.
+//
+// role="img" with them: aria-label on a bare <div> is ignored by screen
+// readers, so even the intended `t.fiveStars` would have been announced as
+// nothing. The row is one graphic that says "five stars"; the individual icons
+// are not.
+const StarRow = ({ count = 5, size, accent2, label, className, style }) => (
+  <div
+    role="img"
+    aria-label={label}
+    className={className}
+    style={{ color: accent2, ...style }}
+  >
+    {Array.from({ length: count }, (_, i) => (
+      <Star key={i} size={size} fill="currentColor" strokeWidth={0} aria-hidden="true" />
+    ))}
+  </div>
+);
+
 function Testimonials({ block, theme, accent2, S, t }) {
   const { heading, items, variant } = block.content;
   if (!items?.length) return null;
@@ -966,11 +1056,15 @@ function Testimonials({ block, theme, accent2, S, t }) {
       <Section theme={theme} alt S={S}>
         <div className={S?.headingAlign === "center" ? "text-center" : ""}>
           <div className={S?.headingAlign === "center" ? "flex justify-center" : ""}>
-            <Eyebrow accent2={accent2}>{item.eyebrowTestimonials}</Eyebrow>
+            <Eyebrow accent2={accent2}>{t.eyebrowTestimonials}</Eyebrow>
           </div>
-          <div className="flex gap-1 mb-6" style={{ color: accent2, justifyContent: S?.headingAlign === "center" ? "center" : "flex-start" }} aria-label={item.fiveStars}>
-            {[0, 1, 2, 3, 4].map((x) => <Star key={x} size={20} fill="currentColor" strokeWidth={0} />)}
-          </div>
+          <StarRow
+            size={20}
+            accent2={accent2}
+            label={t.fiveStars}
+            className="flex gap-1 mb-6"
+            style={{ justifyContent: S?.headingAlign === "center" ? "center" : "flex-start" }}
+          />
           <blockquote
             className={`${S?.h2 || "text-3xl sm:text-4xl font-extrabold"} m-0 max-w-4xl leading-[1.2] ${S?.headingAlign === "center" ? "mx-auto" : ""}`}
             style={{ color: theme.inkOnWash, textWrap: "balance", ...(S?.serif ? { fontFamily: "Georgia, 'Times New Roman', serif" } : {}) }}
@@ -994,9 +1088,7 @@ function Testimonials({ block, theme, accent2, S, t }) {
         <div className="-mx-5 sm:-mx-8 px-5 sm:px-8 overflow-x-auto snap-x snap-mandatory flex gap-4 pb-2">
           {items.map((item, i) => (
             <figure key={i} className={`shrink-0 snap-start w-[82%] sm:w-[46%] lg:w-[32%] ${S?.radius || "rounded-2xl"} p-6 m-0 shadow-sm`} style={{ backgroundColor: theme.paper || "#fff", border: `1px solid ${theme.border}` }}>
-              <div className="flex gap-0.5 mb-3" style={{ color: accent2 }} aria-label={item.fiveStars}>
-                {[0, 1, 2, 3, 4].map((x) => <Star key={x} size={15} fill="currentColor" strokeWidth={0} />)}
-              </div>
+              <StarRow size={15} accent2={accent2} label={t.fiveStars} className="flex gap-0.5 mb-3" />
               <blockquote className="text-base leading-relaxed m-0" style={{ color: theme.ink }}>{item.quote}</blockquote>
               {item.author && <figcaption className="mt-4 text-sm font-semibold" style={{ color: theme.ink }}>{item.author}</figcaption>}
             </figure>
@@ -1012,9 +1104,7 @@ function Testimonials({ block, theme, accent2, S, t }) {
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {items.map((item, i) => (
           <figure key={i} className={`${S?.radius || "rounded-2xl"} p-6 shadow-sm`} style={{ backgroundColor: theme.paper || "#fff", border: `1px solid ${theme.border}` }}>
-            <div className="flex gap-0.5 mb-3" style={{ color: accent2 }} aria-label={item.fiveStars}>
-              {[0, 1, 2, 3, 4].map((s) => <Star key={s} size={15} fill="currentColor" strokeWidth={0} />)}
-            </div>
+            <StarRow size={15} accent2={accent2} label={t.fiveStars} className="flex gap-0.5 mb-3" />
             <blockquote className="text-base leading-relaxed" style={{ color: theme.ink }}>{item.quote}</blockquote>
             {item.author && (
               <figcaption className="mt-5 flex items-center gap-3">
@@ -1106,9 +1196,17 @@ function staticMapUrl(address) {
   return `https://maps.googleapis.com/maps/api/staticmap?center=${c}&zoom=14&size=640x260&scale=2&markers=color:0x33333300%7C${c}&key=${key}`;
 }
 
-function Hours({ block, company, theme, accent2, S, t }) {
+function Hours({ block, company, theme, accent2, S, t, language }) {
   const { heading, note } = block.content;
-  const runs = groupHours(company.businessHours, { weekStartsOn: company.weekStartsOn ?? 0 });
+  // locale and closedLabel, or this table is the one panel on a translated page
+  // still reading "Mon – Fri  8:00 a.m. – 5:00 p.m." and "Closed". groupHours
+  // defaults to exactly its old behaviour when neither is passed, which is what
+  // the settings editor and the voice prompt still want.
+  const runs = groupHours(company.businessHours, {
+    weekStartsOn: company.weekStartsOn ?? 0,
+    locale: siteLocale(language),
+    closedLabel: t.closed,
+  });
   if (!runs.some((r) => !r.closed)) return null;
   const state = openState(company.businessHours, company.timezone);
   return (

@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { readableForeground } from "@/lib/brand/colour";
-import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
+import { documentFormatters } from "@/lib/i18n/documentLabels";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import { offlinePaymentLines } from "@/lib/payments/offlinePaymentNote";
 import { jsonBody } from "@/lib/jsonBody";
@@ -109,8 +109,11 @@ export default function ClientPortal({ token }) {
   const c = data.company || {};
   // The client's language, resolved server-side (client.language → company
   // default → en), driving labels, money and dates alike.
+  //
+  // No documentLabels() here, unlike the invoice page: this index has no
+  // document furniture on it — every string is portal chrome, which is what
+  // clientDocCopy is for. The import used to be made and the result never read.
   const language = data.language || "en";
-  const labels = documentLabels(language);
   const copy = clientDocCopy(language);
   // The company's billing currency, not a hardcoded CAD — otherwise a US client
   // saw their balance and "Pay $X" in CAD on the portal index, then the correct
@@ -270,9 +273,15 @@ export default function ClientPortal({ token }) {
       {data.quotes?.length > 0 && (
         <Section icon={FileText} title={copy.quotesHeading}>
           {data.quotes.map((q) => (
+            // flex-wrap and gap-y, matching the invoice row above. The status
+            // pill went from one word to a sentence, and on a 375px screen a
+            // `shrink-0` block that wide left the quote NUMBER as the only
+            // thing able to give way — so "Q-2026-0003" broke across two
+            // lines. Wrapping drops the pill and the Review link onto their own
+            // row instead, which is what the invoice row already does.
             <div
               key={q.id}
-              className="flex items-center justify-between gap-4 py-4"
+              className="flex items-center justify-between gap-x-4 gap-y-2 py-4 flex-wrap"
             >
               <div className="min-w-0">
                 <div className="font-medium text-[#2d2520]">
@@ -283,15 +292,15 @@ export default function ClientPortal({ token }) {
                 </div>
               </div>
               <div className="flex items-center gap-3 shrink-0">
-                <span className="text-xs px-2.5 py-1 rounded-full bg-black/5 text-[#2d2520]/70 capitalize">
-                  {q.status}
-                </span>
+                <QuoteStatusPill status={q.status} copy={copy} />
                 {/* Only offer the approval page when there's a decision left
-                    to make and a link to make it through. */}
+                    to make and a link to make it through. min-h-11: this is a
+                    link a homeowner taps on a phone, and a bare text-sm anchor
+                    is a 20px target. */}
                 {q.status === "sent" && q.shareToken && (
                   <a
                     href={`/q/${q.shareToken}`}
-                    className="text-sm font-semibold underline text-[#2d2520]"
+                    className="inline-flex items-center min-h-11 text-sm font-semibold underline text-[#2d2520]"
                   >
                     {copy.review}
                   </a>
@@ -314,6 +323,53 @@ function Shell({ children }) {
     <div className="min-h-dvh bg-[#f5f2ec] py-8 sm:py-14 px-4">
       <div className="max-w-2xl mx-auto">{children}</div>
     </div>
+  );
+}
+
+// ── The quote pill ─────────────────────────────────────────────────────────
+//
+// Two things were wrong with the `{q.status}` + `capitalize` it replaces.
+//
+// It printed the raw enum, so a French client's portal — translated down to
+// "Réparti sur 1 facture" — listed "Accepted" under "Soumissions". The words
+// now come from clientDocCopy, keyed by the enum in prisma/schema.prisma.
+//
+// And every pill was the same grey, so a quote still waiting on the client's
+// answer looked exactly like one they had already approved. On a page whose
+// whole job is "what, if anything, do I still have to do", that is the state
+// that most needed to read without reading. Colour AND words, never colour
+// alone: `sent` is the one asking for something and is the only warm pill.
+//
+// Deliberately not the brand colour. Everything else on this page is the
+// company's; a status is a fact about the document, and painting "Declined" in
+// the contractor's own green is how a refusal comes to look like a success.
+// Same reasoning as the green "Paid" and the red error banner above.
+//
+// Tailwind's own -50/-200/-800 ramps, whose pairings measure 7:1 or better —
+// well clear of 4.5:1, and independent of whatever the contractor picked.
+const QUOTE_STATUS_TONE = {
+  draft: "bg-black/5 border-black/10 text-[#2d2520]/70",
+  sent: "bg-amber-50 border-amber-200 text-amber-800",
+  accepted: "bg-green-50 border-green-200 text-green-800",
+  declined: "bg-black/5 border-black/10 text-[#2d2520]/70",
+};
+
+function QuoteStatusPill({ status, copy }) {
+  const label = copy.quoteStatus?.[status];
+  // No label means an enum value this build has never heard of. Show nothing
+  // rather than the raw token: "we don't know what this is" is a truthful blank,
+  // and `partially_approved` in grey under a homeowner's name is not.
+  // scripts/check-tenant-surfaces.mjs holds the map against the schema so this
+  // branch stays unreachable.
+  if (!label) return null;
+  return (
+    <span
+      className={`text-xs px-2.5 py-1 rounded-full border font-medium ${
+        QUOTE_STATUS_TONE[status] || QUOTE_STATUS_TONE.draft
+      }`}
+    >
+      {label}
+    </span>
   );
 }
 

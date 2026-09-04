@@ -83,6 +83,28 @@ const PLATFORM_SECRET = new TextEncoder().encode(
 // hostname a customer controls the name of, which is the cookie-scope problem
 // the reserved-subdomain list exists to prevent — reintroduced by the back
 // door.
+//
+// ── These are PREFIXES, and a bare prefix is not one of them ──────────────
+//
+// Every entry below is a route with a required dynamic segment: /book is
+// app/book/[companySlug], /q is app/q/[token], and so on. Not one of them has
+// an index page — so a bare `/book` could only ever have 404'd, and matching it
+// here spent a path segment the tenant needed.
+//
+// It cost them two: `book` and `quote` are also entries in the site builder's
+// own page catalogue (PAGE_CATALOGUE in lib/site/pages.js). A multi-page site
+// that has a Book page and a Get-a-quote page — which is the default shape —
+// linked to /book and /quote in its own header menu, this list swallowed both,
+// and app/not-found.js answered: FieldQuo's marketing 404, complete with our
+// nav, our pricing links and our footer, on the contractor's own hostname. Two
+// dead links on the two pages that exist to convert, and the white-label leak
+// app/site/[subdomain]/not-found.js was written to prevent — which never fired,
+// because the request was never rewritten into /site/* to reach it.
+//
+// So the match requires a following segment. /book/<slug> still passes through
+// to the booking page; /book is now the tenant's own page. On the apex this
+// block never runs at all (subdomainFromHost returns null), so nothing about
+// fieldquo.com/book changes — it 404s exactly as it did.
 const SUBDOMAIN_PASSTHROUGH = [
   "/quote",
   "/instant-quote",
@@ -169,11 +191,11 @@ export async function middleware(request) {
     // renderer emits those hrefs as same-origin paths on purpose: sending a
     // visitor from the contractor's own domain to fieldquo.com mid-enquiry is
     // exactly the handoff a white-labelled site exists to avoid.
-    if (
-      SUBDOMAIN_PASSTHROUGH.some(
-        (p) => pathname === p || pathname.startsWith(`${p}/`),
-      )
-    ) {
+    // startsWith(`${p}/`) only — see the note on SUBDOMAIN_PASSTHROUGH for why
+    // the bare `pathname === p` arm that used to be here was both useless (no
+    // such index route exists) and harmful (it ate the tenant's /book and
+    // /quote pages and answered them with FieldQuo's own 404).
+    if (SUBDOMAIN_PASSTHROUGH.some((p) => pathname.startsWith(`${p}/`))) {
       return NextResponse.next();
     }
 
