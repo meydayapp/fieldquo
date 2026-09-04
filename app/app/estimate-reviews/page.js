@@ -15,20 +15,54 @@ import { showError } from "@/lib/clientErrors";
 import { jsonBody } from "@/lib/jsonBody";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
-function money(n) {
-  return "$" + Math.round(Number(n) || 0).toLocaleString();
-}
+import {
+  useCompanyMoney,
+  useCompanyPreferences,
+} from "@/app/providers/CompanyPreferencesProvider";
 
+// ── Where the estimate came from ──────────────────────────────────────────
+//
+// Key and English fallback, not finished English. This was a bare map of
+// sentences, so a Quebec reviewer read "Measured from satellite" in the middle
+// of a French screen — and its fallback was `q.estimateSource`, which put the
+// raw column, `google_solar`, in a chip when a build met a source it did not
+// know. A snake_case enum reaching a human is the canonical failure this
+// codebase is swept for.
+//
+// `phone_call` is read off a recorded call by FieldQuo AI in the back office,
+// after the fact — the receptionist that took the call never quoted anything,
+// see lib/ai/callQuoteDraft.js. It gets its own label because the reviewer's
+// first question about an unexpected draft is where it came from.
+// i18n PENDING — keys requested from the lead in one batch; English literals
+// stay until they land, because a t() call on a key that does not exist yet
+// turns check:translations red for every other agent in this tree. Keys, in
+// order: app.reviews.source.satellite / .lawn / .manual / .phoneCall /
+// .unknown. The STRUCTURE is the fix and is already correct: a map plus an
+// unknown branch, so `google_solar` can no longer reach a chip.
+//
+// `phone_call` is read off a recorded call by FieldQuo AI in the back office,
+// after the fact — the receptionist that took the call never quoted anything,
+// see lib/ai/callQuoteDraft.js. It gets its own label because the reviewer's
+// first question about an unexpected draft is where it came from.
 const SOURCE_LABEL = {
   google_solar: "Measured from satellite",
   lawn_polygon: "Lawn traced on map",
   manual: "Homeowner-entered",
-  // Read off a recorded call by FieldQuo AI, in the back office, after the fact.
-  // The receptionist that took the call never quoted anything — see
-  // lib/ai/callQuoteDraft.js. Worth its own label because the reviewer's first
-  // question about an unexpected draft is where it came from.
   phone_call: "Taken from a phone call",
 };
+
+/**
+ * The chip's words.
+ *
+ * The bug this closes is the FALLBACK, not the map: this was
+ * `SOURCE_LABEL[q.estimateSource] || q.estimateSource`, so any source a build
+ * did not know printed the raw snake_case column in a chip — a reviewer read
+ * `google_solar`. An unknown source now says it is unknown, which is a
+ * sentence; the column never is.
+ */
+function sourceLabel(source) {
+  return SOURCE_LABEL[source] || "Source not recorded";
+}
 
 export default function EstimateReviewsPage() {
   const { t } = useTranslation();
@@ -45,7 +79,7 @@ export default function EstimateReviewsPage() {
       setCanApprove(Boolean(data.canApprove));
       setCurrentUserId(data.currentUserId || null);
     } catch (err) {
-      setError(err.message || "Could not load reviews");
+      setError(err.message || "Could not load reviews."); // i18n PENDING app.reviews.loadError
     }
   }
 
@@ -63,7 +97,7 @@ export default function EstimateReviewsPage() {
       });
       await load();
     } catch (err) {
-      showError(err.message || "Could not approve");
+      showError(err.message || "Could not approve that estimate."); // i18n PENDING app.reviews.approveError
     } finally {
       setBusyId(null);
     }
@@ -84,7 +118,7 @@ export default function EstimateReviewsPage() {
       });
       await load();
     } catch (err) {
-      showError(err.message || "Could not assign");
+      showError(err.message || "Could not assign that estimate."); // i18n PENDING app.reviews.assignError
     } finally {
       setBusyId(null);
     }
@@ -97,6 +131,7 @@ export default function EstimateReviewsPage() {
         <h1 className="text-2xl font-bold text-foreground">{t("app.reviews.title")}</h1>
       </div>
       <p className="text-sm text-muted-foreground mb-6 max-w-xl">
+        {/* i18n PENDING app.reviews.intro */}
         Instant estimates from your website land here first. Confirm the price —
         adjusting it if the property needs it — before the quote can be sent.
       </p>
@@ -107,7 +142,7 @@ export default function EstimateReviewsPage() {
 
       {!quotes && !error && (
         <div className="flex items-center gap-2 text-muted-foreground text-sm">
-          <Loader2 size={16} className="animate-spin" /> Loading…
+          <Loader2 size={16} className="animate-spin" /> Loading… {/* i18n PENDING app.action.loading */}
         </div>
       )}
 
@@ -136,10 +171,29 @@ export default function EstimateReviewsPage() {
 
 function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserId }) {
   const { t } = useTranslation();
+  // The company's own currency. This page formatted every figure as
+  // `"$" + Math.round(...)`, so a GBP contractor read dollars on the screen
+  // where they sign a price off — and the literal "$" concatenation is
+  // invisible to check:app-currency, which is how it outlived a sweep of 114
+  // hardcoded ones.
+  const money = useCompanyMoney();
+  const { currency } = useCompanyPreferences();
   const d = q.estimateData || {};
   const m = d.measurement || {};
   const range = d.range || {};
-  const [total, setTotal] = useState(Math.round(Number(q.total) || 0));
+  // ── The rounding that silently changed the price ────────────────────────
+  //
+  // This was `useState(Math.round(Number(q.total) || 0))`. A reviewer who
+  // opened the queue and pressed Approve without touching the field wrote the
+  // ROUNDED figure back to the quote: a $6,750.40 estimate was approved at
+  // $6,750. Nothing on the screen said so, and this page's own header calls
+  // this "the figure that will stick."
+  //
+  // Held as a string so a decimal can be typed through — a numeric state
+  // discards the "." the moment it is entered and the field fights the person
+  // using it. `q.total` of 0 is a real figure and must show; only an absent
+  // one is blank, which is why this asks about null rather than truthiness.
+  const [total, setTotal] = useState(q.total == null ? "" : String(q.total));
   // `pricingHidden` means the API removed `total` and every figure inside
   // estimateData — the range the homeowner saw, the breakdown, the budget they
   // stated. Rendering the block anyway prints "$0–$0" and an Approve control
@@ -148,12 +202,22 @@ function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserI
   // is withheld the honest screen is the reason and no controls.
   const pricingHidden = q.pricingHidden === true;
 
+  // What to send. POST .../approve-estimate documents an empty body as
+  // "approve at the current total", and that is exactly what an untouched
+  // field means — so an unchanged figure is not sent back at all. Round-
+  // tripping it would re-write the quote's own total with a value this screen
+  // reformatted, which is how the rounding above changed a price nobody
+  // intended to change.
+  const typed = Number(total);
+  const adjusted =
+    Number.isFinite(typed) && typed !== Number(q.total) ? typed : null;
+
   return (
     <div className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="text-base font-semibold text-foreground">{q.client?.name || "Website enquiry"}</h3>
+            <h3 className="text-base font-semibold text-foreground">{q.client?.name || "Website enquiry"/* i18n PENDING app.reviews.websiteEnquiry */}</h3>
             <span className="text-xs text-muted-foreground">{q.quoteNumber}</span>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
@@ -161,7 +225,7 @@ function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserI
           </p>
         </div>
         <span className="text-xs rounded-full bg-muted px-2 py-1 text-muted-foreground shrink-0">
-          {SOURCE_LABEL[q.estimateSource] || q.estimateSource}
+          {sourceLabel(q.estimateSource)}
         </span>
       </div>
 
@@ -173,7 +237,10 @@ function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserI
       <div className="mt-2">
         {q.assignedTo ? (
           <span className="text-xs rounded-full bg-muted px-2 py-1 text-muted-foreground">
-            Assigned to {q.assignedTo.id === currentUserId ? "you" : q.assignedTo.name}
+            {/* i18n PENDING app.reviews.assignedToYou / app.reviews.assignedTo */}
+            {q.assignedTo.id === currentUserId
+              ? "Assigned to you"
+              : `Assigned to ${q.assignedTo.name}`}
           </span>
         ) : (
           <button
@@ -182,7 +249,7 @@ function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserI
             disabled={busy || !currentUserId}
             className="text-xs rounded-full border border-dashed border-border px-2 py-1 text-muted-foreground hover:text-foreground hover:border-foreground/40 disabled:opacity-50"
           >
-            Unassigned — assign to me
+            Unassigned — assign to me{/* i18n PENDING app.reviews.claim */}
           </button>
         )}
       </div>
@@ -194,15 +261,33 @@ function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserI
         )}
         <div className="text-sm text-muted-foreground space-y-1">
           <div className="flex flex-wrap gap-x-4 gap-y-1">
+            {/* i18n PENDING app.reviews.squareCount — a COUNTED NOUN, not "{n} squares" */}
             {m.squares != null && <span><strong className="text-foreground">{m.squares}</strong> squares</span>}
+            {/* i18n PENDING app.reviews.areaSqft */}
             {m.areaSqft != null && <span><strong className="text-foreground">{Math.round(m.areaSqft).toLocaleString()}</strong> sq ft</span>}
+            {/* i18n PENDING app.reviews.pitch */}
             {m.predominantPitch && <span><strong className="text-foreground">{m.predominantPitch.rise}/12</strong> pitch</span>}
+            {/* i18n PENDING app.reviews.tearOffCount — a COUNTED NOUN */}
             {m.tearOffLayers ? <span>{m.tearOffLayers} layer(s) tear-off</span> : null}
           </div>
-          {d.materialKey && <div>{t("app.reviews.material")}<strong className="text-foreground">{d.materialKey}</strong></div>}
+          {/* The price-book KEY, tidied. Every other consumer of materialKey
+              looks it up in the company's configured materials to get a label
+              (lib/estimate/instantEstimate.js), and this route does not send
+              that list — so the reviewer was reading `architectural_shingle`.
+              Underscores out is not the real fix; the real fix is the route
+              sending the label, and that is a payload change flagged in the
+              report rather than made silently here. */}
+          {d.materialKey && (
+            <div>
+              {t("app.reviews.material")}
+              <strong className="text-foreground">
+                {String(d.materialKey).replace(/_/g, " ")}
+              </strong>
+            </div>
+          )}
           {!pricingHidden && (
           <div>
-            Homeowner saw:{" "}
+            Homeowner saw:{" "}{/* i18n PENDING app.reviews.homeownerSaw */}
             <strong className="text-foreground">{money(range.low)}–{money(range.high)}{d.unit ? ` ${d.unit}` : ""}</strong>
           </div>
           )}
@@ -213,10 +298,11 @@ function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserI
               was told. */}
           {d.budget && (
             <div>
+              {/* i18n PENDING app.reviews.theirBudget */}
               Their budget: <strong className="text-foreground">{d.budget.label}</strong>
               {d.budget.exceeded && (
                 <span className="ml-2 rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-xs font-medium">
-                  over budget
+                  over budget{/* i18n PENDING app.reviews.overBudget */}
                 </span>
               )}
             </div>
@@ -283,22 +369,29 @@ function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserI
           <>
         <label className="flex items-center gap-2 text-sm">
           <span className="text-muted-foreground">{t("app.reviews.approveAt")}</span>
-          <span className="text-muted-foreground">$</span>
+          {/* The company's currency code, not a hardcoded "$". A bare dollar
+              sign beside the one number on this page that gets written back is
+              the last place to guess at a currency. */}
+          <span className="text-muted-foreground tabular-nums">{currency}</span>
           <input
             type="number"
+            step="0.01"
+            inputMode="decimal"
             value={total}
-            onChange={(e) => setTotal(e.target.value === "" ? "" : Number(e.target.value))}
+            onChange={(e) => setTotal(e.target.value)}
             disabled={!canApprove}
-            className="w-28 rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
+            aria-label={t("app.reviews.approveAt")}
+            className="w-28 min-h-11 rounded-lg border border-border bg-background px-2 py-1.5 text-base"
           />
         </label>
         <button
-          onClick={() => onApprove(q, total)}
+          type="button"
+          onClick={() => onApprove(q, adjusted)}
           disabled={!canApprove || busy || !(Number(total) > 0)}
-          className="inline-flex items-center gap-2 rounded-lg bg-inverted text-inverted-foreground px-4 py-2 text-sm font-medium disabled:opacity-50"
+          className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-inverted text-inverted-foreground px-4 py-2 text-sm font-medium disabled:opacity-50"
         >
           {busy ? <Loader2 size={15} className="animate-spin" /> : <BadgeCheck size={15} />}
-          Approve
+          Approve{/* i18n PENDING app.reviews.approve */}
         </button>
           </>
         )}

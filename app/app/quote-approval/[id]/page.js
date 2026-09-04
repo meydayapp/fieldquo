@@ -25,12 +25,10 @@ import {
 } from "lucide-react";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
-
-const money = (n) =>
-  Number(n ?? 0).toLocaleString("en-CA", {
-    style: "currency",
-    currency: "CAD",
-  });
+import { formatMoney } from "@/lib/currency";
+import { fetchList } from "@/lib/loadState";
+import ListState from "@/app/components/ListState";
+import { quoteStatusLabel, quoteStatusClasses } from "@/lib/quotes/statusLabels";
 
 export default function QuoteApprovalPage() {
   const { t } = useTranslation();
@@ -43,6 +41,8 @@ export default function QuoteApprovalPage() {
   const [busy, setBusy] = useState("");
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
+  const [quoteErrorKey, setQuoteErrorKey] = useState("");
+  const [shareErrorKey, setShareErrorKey] = useState("");
   // "They declined" opens a box before it commits. Until this existed, the
   // back office had NOWHERE to type why — PATCH /api/quotes/[id] has always
   // accepted `declineReason` and this page posted `{ status }` alone, so the
@@ -51,20 +51,49 @@ export default function QuoteApprovalPage() {
   const [declining, setDeclining] = useState(false);
   const [reason, setReason] = useState("");
 
+  // ── "This quote doesn't exist" was every failure's answer ────────────────
+  //
+  // Both fetches were `r.ok ? r.json() : null`, and a null `quote` renders
+  // t("app.quoteApproval.notFound"). So a 403 for a member without quotes
+  // access, a 500, and a Neon cold start all told a contractor their quote was
+  // gone. The sibling page (app/app/marketing/[id]) fixed exactly this and the
+  // fix was never carried across.
+  //
+  // The share leg is worse than a wrong sentence. A failed GET .../share set
+  // `share` to null, and null draws "Create client link" — offering to mint a
+  // second token for a quote that may already have a live link out with a
+  // client. So its failure is held separately and the panel says it could not
+  // be read rather than guessing there is nothing there.
   const load = useCallback(async () => {
     setError("");
-    try {
-      const [q, s] = await Promise.all([
-        fetch(`/api/quotes/${id}`).then((r) => (r.ok ? r.json() : null)),
-        fetch(`/api/quotes/${id}/share`).then((r) => (r.ok ? r.json() : null)),
-      ]);
-      setQuote(q);
-      setShare(s);
-    } catch {
-      setError(t("app.quoteApproval.loadError"));
-    } finally {
-      setLoading(false);
+    const [q, s] = await Promise.all([
+      fetchList(`/api/quotes/${id}`),
+      fetchList(`/api/quotes/${id}/share`),
+    ]);
+    if (q.aborted || s.aborted) return;
+
+    if (q.ok) {
+      setQuote(q.data);
+      setQuoteErrorKey("");
+    } else {
+      setQuote(null);
+      // 404 is the ONE status that really does mean "no such quote" on a
+      // detail route — unlike a list, where lib/loadState.js deliberately
+      // refuses to say so. Everything else keeps its sentence and its retry.
+      setQuoteErrorKey(q.status === 404 ? "" : q.errorKey);
     }
+
+    if (s.ok) {
+      setShare(s.data);
+      setShareErrorKey("");
+    } else {
+      setShare(null);
+      // A 404 here means no link has been minted yet, which is the state the
+      // Create button is FOR. Any other failure means we do not know, and
+      // offering to mint one would risk replacing a link already in the wild.
+      setShareErrorKey(s.status === 404 ? "" : s.errorKey);
+    }
+    setLoading(false);
   }, [id]);
 
   useEffect(() => {
@@ -134,6 +163,18 @@ export default function QuoteApprovalPage() {
       <div className="p-4 sm:p-6 max-w-3xl mx-auto animate-pulse h-80 bg-accent rounded-xl" />
     );
 
+  // A real 404 says "not found". Anything else says what happened and offers
+  // a retry — telling somebody their quote is gone because Neon was asleep is
+  // the sort of sentence people act on.
+  if (quoteErrorKey)
+    return (
+      <div className="p-4 sm:p-6 max-w-lg mx-auto">
+        <ListState loading={false} isEmpty={false} errorKey={quoteErrorKey} onRetry={load}>
+          {null}
+        </ListState>
+      </div>
+    );
+
   if (!quote)
     return (
       <div className="p-4 sm:p-6 max-w-lg mx-auto text-sm text-muted-foreground">
@@ -155,7 +196,14 @@ export default function QuoteApprovalPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">{t("app.quoteApproval.title")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {quote.quoteNumber} · {quote.client?.name} · {money(quote.total)}
+          {/* The company's own currency, which GET /api/quotes/[id] selects
+              precisely so this page can use it — see the comment on that
+              select. This read `toLocaleString("en-CA", { currency: "CAD" })`,
+              so a GBP contractor's own quote said CA$8,400.00 to him. It is
+              invisible to check:app-currency, which greps for a literal "$",
+              and that is how it survived a sweep of 114 of them. */}
+          {quote.quoteNumber} · {quote.client?.name} ·{" "}
+          {formatMoney(quote.total, quote.company?.currency)}
         </p>
       </div>
 
@@ -232,6 +280,21 @@ export default function QuoteApprovalPage() {
               {t("app.quoteApproval.replaceHint")}
             </p>
           </>
+        ) : shareErrorKey ? (
+          /* We do not know whether a link exists. "Create client link" here
+             would offer to mint a second token for a quote that may already
+             have a live one out with a client — a control whose label is the
+             opposite of what pressing it might do. */
+          <div className="mt-4">
+            <ListState
+              loading={false}
+              isEmpty={false}
+              errorKey={shareErrorKey}
+              onRetry={load}
+            >
+              {null}
+            </ListState>
+          </div>
         ) : (
           <button
             onClick={() => createLink(false)}
@@ -253,8 +316,17 @@ export default function QuoteApprovalPage() {
             <dt className="text-xs uppercase tracking-wide text-muted-foreground">
               {t("app.quoteApproval.statusLabel")}
             </dt>
-            <dd className="mt-1 font-medium text-foreground capitalize">
-              {quote.status}
+            {/* lib/quotes/statusLabels.js, the same map the quotes list reads.
+                This rendered the raw column — lowercase English in the middle
+                of an otherwise French screen — and it also DISAGREED with the
+                list, which calls `accepted` "Approved". One quote, two words,
+                two screens. */}
+            <dd className="mt-1">
+              <span
+                className={`inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${quoteStatusClasses(quote.status)}`}
+              >
+                {quoteStatusLabel(quote.status, t)}
+              </span>
             </dd>
           </div>
           <div>
@@ -291,7 +363,10 @@ export default function QuoteApprovalPage() {
           <div className="mt-4 space-y-3 text-sm text-muted-foreground">
             <div>
               {t("app.quoteApproval.alreadyMarked")}{" "}
-              <span className="font-semibold text-foreground">{quote.status}</span>.{" "}
+              <span className="font-semibold text-foreground">
+                {quoteStatusLabel(quote.status, t)}
+              </span>
+              .{" "}
               {t("app.quoteApproval.changeIfWrong")}
             </div>
             {/* Written and READ. The reason was collected on both doors and
