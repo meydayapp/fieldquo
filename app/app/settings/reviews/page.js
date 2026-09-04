@@ -45,9 +45,19 @@ export default function ReviewSettingsPage() {
   const [saved, setSaved] = useState(false);
   const [url, setUrl] = useState("");
 
+  // A toast is not enough here. On a refused load `data` stayed null, `loading`
+  // went false, and the page rendered the switch OFF and the review URL blank —
+  // telling a company whose review requests are going out every day that they
+  // are not. That is a statement about the business made out of a 500, and it
+  // is the one thing this screen is for. Testimonials.js next to it already
+  // gets this right and says why; this is the same shape.
+  const [loadFailed, setLoadFailed] = useState(false);
+
   const load = useCallback(async () => {
+    setLoadFailed(false);
     const res = await fetch("/api/settings/reviews");
     if (!res.ok) {
+      setLoadFailed(true);
       await reportResponseError(res, t("app.setReviews.loadError"));
       return;
     }
@@ -57,7 +67,11 @@ export default function ReviewSettingsPage() {
   }, []);
 
   useEffect(() => {
-    load().finally(() => setLoading(false));
+    // .catch as well as .finally: a network rejection left this stuck on the
+    // skeleton with an unhandled promise rejection behind it.
+    load()
+      .catch(() => setLoadFailed(true))
+      .finally(() => setLoading(false));
   }, [load]);
 
   async function save(patch) {
@@ -90,6 +104,26 @@ export default function ReviewSettingsPage() {
       <div className="p-4 sm:p-6 max-w-2xl space-y-4 animate-pulse">
         <div className="h-8 bg-accent rounded w-1/3" />
         <div className="h-32 bg-accent rounded-xl" />
+      </div>
+    );
+  }
+
+  if (loadFailed || !data) {
+    return (
+      <div className="p-4 sm:p-6 max-w-2xl space-y-4">
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <Star size={22} /> {t("app.settings.reviews")}
+        </h1>
+        <div className="rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {t("app.error.network")}
+        </div>
+        <button
+          type="button"
+          onClick={() => load().catch(() => setLoadFailed(true))}
+          className="border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-muted min-h-11"
+        >
+          {t("app.action.retry")}
+        </button>
       </div>
     );
   }

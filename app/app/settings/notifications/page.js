@@ -54,11 +54,15 @@ export default function NotificationsPage() {
       // No row = never configured = still ON (see the state's own comment).
       setInvoicePaidActive(invoicePaid ? invoicePaid.active !== false : true);
 
+      // `if (rem.ok)` with no else left reminderHours at its initial null, and
+      // null renders the "Off" pill as SELECTED — telling a company that its
+      // reminders are off while the cron keeps texting their clients the night
+      // before. Off is a real, chooseable setting here, so it must not double as
+      // "we could not read this".
       const rem = await fetch("/api/settings/appointment-reminders");
-      if (rem.ok) {
-        const d = await rem.json().catch(() => null);
-        setReminderHours(d?.hours ?? null);
-      }
+      if (!rem.ok) throw new Error(t("app.setNotifications.loadError"));
+      const d = await rem.json().catch(() => null);
+      setReminderHours(d?.hours ?? null);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -228,7 +232,16 @@ export default function NotificationsPage() {
         <div className="flex items-center gap-3 flex-wrap">
           <button
             onClick={save}
-            disabled={saving || (active && !(Number(threshold) > 0))}
+            // Also disabled when there is nothing to save: with no rule yet configured,
+              // `threshold` is "" and Number("") is 0, so unchecking the box posted
+              // { active: false, threshold: 0 } and the route refused it with "Set an
+              // amount above zero" — an instruction to price an alert you are
+              // switching off. Nothing to turn off is not an error to report.
+              disabled={
+                saving ||
+                (active && !(Number(threshold) > 0)) ||
+                (!active && !(Number(threshold) > 0) && !rules.some((r) => r.type === "large_quote"))
+              }
             className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
           >
             {saving && <Loader2 size={14} className="animate-spin" />}

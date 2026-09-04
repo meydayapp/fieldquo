@@ -392,15 +392,20 @@ export default function CabinetRatesPage() {
             value={rates.installPerBox}
             onChange={(v) => set("installPerBox", v)}
           />
-          <Rate
-            label={t(
-              "app.setCabinetRates.installPerLf",
-              "Install per linear ft",
-            )}
-            value={rates.installPerLinearFt}
-            onChange={(v) => set("installPerLinearFt", v)}
-            suffix={t("app.setCabinetRates.perLf", "/ lf")}
-          />
+          {/* "Install per linear ft" is NOT offered, and the omission is the
+              point. lib/kitchen/pricing.js bills install per linear foot only
+              inside `rates.installMode === "perLinearFt"` branches, and nothing
+              in the product ever writes installMode: normaliseRates pins it —
+              `r.installMode === "perLinearFt" ? "perLinearFt" : "perBox"` — and
+              no screen and no designer call sends that value. So the box was
+              permanently "perBox" for every company, and this input took a
+              shop's install rate, saved it, showed it back, and quoted per box
+              anyway. Two rates side by side with nothing saying which one bills
+              is worse than one rate.
+
+              Restore this the day an install-mode control exists — the stored
+              value is untouched and normaliseRates still carries the key, so
+              it comes back with whatever was last set. */}
         </Card>
       )}
 

@@ -157,8 +157,19 @@ export const RECIPE_EDITABLE_FIELDS = {
     // editable would let a company set two figures that disagree, and the
     // fallback in the estimator would then silently pick one of them.
     { key: "hardenerCostPerQuart", label: "Hardener cost ($/quart)", type: "number", step: 0.01 },
-    { key: "labourMinutesPerDoor", label: "Labour minutes / door", type: "number", step: 1 },
-    { key: "labourMinutesPerDrawer", label: "Labour minutes / drawer", type: "number", step: 1 },
+    // labourMinutesPerDoor / labourMinutesPerDrawer are deliberately NOT
+    // editable. estimateJobCost stopped reading them when cabinet labour was
+    // itemised into cabinetRunLabour() — its own comment there says they are
+    // "now UNUSED by this path" — but they still rendered here as two number
+    // inputs identical to the eleven live ones above. A shop retuned its labour
+    // minutes, pressed Save, saw "Saved", and its cost estimate did not move by
+    // a cent.
+    //
+    // The keys stay in the recipe and in any override a company already saved,
+    // for the reason the estimator gives: silently dropping a number somebody
+    // set is worse than leaving it inert. Not being able to EDIT an inert
+    // number is the honest half — nothing is deleted, and nothing pretends to
+    // work. They go for good when that comment's "next thing to remove" lands.
     { key: "setupHours", label: "Setup / teardown hours (per job)", type: "number", step: 0.5 },
   ],
   production_rate: [

@@ -81,6 +81,14 @@ function BookingPageScreen() {
   const { t } = useTranslation();
   const [eventTypes, setEventTypes] = useState([]);
   const [loading, setLoading] = useState(true);
+  // business-info is not optional here. Every control on this screen falls back
+  // to an invented value when `info` is null — modes ["visit"], travel on with a
+  // 0 buffer, a 60-minute visit, and a change policy of 24 hours with no refund
+  // — and the card at the bottom then prints those as a sentence stating the
+  // company's cancellation terms. A company that stored 72 hours would read "up
+  // to 24 hours before" as a fact about itself, off a failed GET. Absence of an
+  // answer is not an answer.
+  const [infoFailed, setInfoFailed] = useState(false);
   // The company's answer to "how long is a visit". Used as the default for any
   // consultation FieldQuo creates automatically when someone sets availability —
   // which was hardcoded to an hour, whatever the trade.
@@ -122,6 +130,10 @@ function BookingPageScreen() {
     ])
       .then(([types, info]) => {
         setEventTypes(Array.isArray(types) ? types : []);
+        if (!info) {
+          setInfoFailed(true);
+          return;
+        }
         // Whether the company can actually collect a booking fee (Connect done).
         setStripeReady(Boolean(info?.stripeChargesEnabled));
         if (info?.defaultVisitMinutes)
@@ -140,6 +152,7 @@ function BookingPageScreen() {
           durationMinutes: info?.defaultVisitMinutes || 60,
         }));
       })
+      .catch(() => setInfoFailed(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -336,6 +349,28 @@ function BookingPageScreen() {
   if (loading)
     return (
       <div className="p-4 sm:p-6 max-w-2xl mx-auto animate-pulse h-64 bg-accent rounded-xl" />
+    );
+
+  // A refusal, not a form full of defaults with an error above it. Several of
+  // these controls save on change rather than on a Save press, so a screen
+  // rendered from invented values is one tap away from storing them.
+  if (infoFailed)
+    return (
+      <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-4">
+        <h1 className="text-2xl font-bold text-foreground">
+          {t("app.settings.bookingPage")}
+        </h1>
+        <div className="rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {t("app.error.network")}
+        </div>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-muted min-h-11"
+        >
+          {t("app.action.retry")}
+        </button>
+      </div>
     );
 
   // What the two numbers currently in the boxes actually mean, resolved the
