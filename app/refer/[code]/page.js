@@ -17,6 +17,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { findReferrer, REFEREE_BONUS_MONTHS } from "@/lib/referrals";
+import { readableForeground } from "@/lib/brand/colour";
 import { marketingMetadata } from "@/lib/marketing/metadata";
 
 // The new company's signup bonus, written the way a person says it.
@@ -60,6 +61,10 @@ export default async function ReferralLandingPage({ params }) {
 
   if (!referrer || referrer.onboardingStatus === "churned") notFound();
 
+  // Normalised once so the background and the ink measured against it can
+  // never be computed from two different values.
+  const brandBg = referrer.brandColor || "#06356b";
+
   return (
     <div className="min-h-screen bg-[#f5f2ec] flex items-center justify-center px-4 py-12">
       <div className="max-w-lg w-full">
@@ -73,9 +78,22 @@ export default async function ReferralLandingPage({ params }) {
                 className="h-12 w-auto object-contain mx-auto mb-5"
               />
             ) : (
+              // The referrer's initial, on the referrer's colour.
+              //
+              // The ink was hardcoded #2d2520 — the page's near-black — over
+              // whatever hex the company chose. Measured: 1.24:1 on the
+              // default #06356b, 1.16:1 on the tenant whose brand is #1a1a1a,
+              // 1.27:1 on the dark-green one. The DEFAULT case was invisible,
+              // so every referrer without a logo showed an empty coloured
+              // square. readableForeground picks the better of black and white
+              // against the actual colour, which is what the funnel and the
+              // quote document already do.
               <div
-                className="h-12 w-12 rounded-xl mx-auto mb-5 flex items-center justify-center text-lg font-bold text-[#2d2520]"
-                style={{ backgroundColor: referrer.brandColor || "#06356b" }}
+                className="h-12 w-12 rounded-xl mx-auto mb-5 flex items-center justify-center text-lg font-bold"
+                style={{
+                  backgroundColor: brandBg,
+                  color: readableForeground(brandBg),
+                }}
               >
                 {referrer.name.charAt(0).toUpperCase()}
               </div>

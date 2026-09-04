@@ -6,7 +6,18 @@
 //
 // A stranger with no account, often on a phone, often on a bad connection, in a
 // driveway. So: the contractor's name and logo at the top, no FieldQuo anywhere
-// except the small footer, and no prices — see the route for why.
+// AT ALL — the footer carries the company's name, not ours; this comment used
+// to describe a "small FieldQuo footer" that the code has not had for some
+// time — and no prices, see the route for why.
+//
+// ── Still English-only, and that is a known gap ─────────────────────────────
+//
+// Quote.language is fixed at creation and drives the covering email, the PDF
+// and /q/[token]. It does not reach here: /api/kitchen-design/[token] does not
+// select it, so a homeowner holding a French quote gets an English designer.
+// Closing it means eight hand-written translations in lib/i18n/clientDocCopy.js
+// — the same table /q and /portal use — which is a piece of work with a real
+// translation cost attached rather than a change to make in passing.
 //
 // What they can do is move cabinets and change the finish. What they can't do
 // is change what any of it costs. The contractor is notified, compares, and

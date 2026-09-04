@@ -164,8 +164,13 @@ export default function SurveyForm({ token }) {
                         aria-checked={selected}
                         onClick={() => setScore(n)}
                         style={{
-                          width: 42,
-                          height: 42,
+                          // 44, not 42. This is a five-target row that is only
+                          // ever tapped with a thumb, from an email, one-handed
+                          // — the one place in the product where two pixels
+                          // decide whether the answer recorded is the answer
+                          // meant.
+                          width: 44,
+                          height: 44,
                           borderRadius: 8,
                           border: `2px solid ${selected ? theme?.selectedBg || "#06356b" : theme?.border || "#e4e2dd"}`,
                           background: selected ? theme?.selectedBg || "#06356b" : "#ffffff",
