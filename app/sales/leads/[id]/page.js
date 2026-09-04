@@ -71,6 +71,13 @@ export default function SalesLeadPage({ params }) {
   const lead = data?.lead;
   const outreach = data?.outreach;
   const optedOut = data?.optedOut;
+  // The reason the SERVER reached, not one this screen assumes. contactOptedOut
+  // answers from two sources and describeSuppression() writes the sentence:
+  // which address or domain is listed, and how it got there — replied, asked on
+  // the phone, texted STOP, a regulator's list. Until 2026-09-03 the route sent
+  // this and nothing read it, and the screen printed "they replied with an
+  // unsubscribe request" over all seven mechanisms.
+  const optedOutReason = data?.optedOutReason;
 
   async function patch(body) {
     setBusy(true);
@@ -305,12 +312,19 @@ export default function SalesLeadPage({ params }) {
           <Ban size={16} className="mt-0.5 text-red-700 dark:text-red-300 shrink-0" />
           <div>
             <p className="font-semibold text-red-900 dark:text-red-200">
-              This prospect asked not to be emailed again.
+              FieldQuo may not email this prospect.
             </p>
+            {/* The computed sentence, not an invented one. A domain-wide entry
+                and a regulator's list are both reachable here, and neither is
+                "this person unsubscribed" — telling a rep it was is how they
+                ring back to argue about an email nobody sent. */}
+            {optedOutReason ? (
+              <p className="text-red-800 dark:text-red-300/90">{optedOutReason}</p>
+            ) : null}
             <p className="text-red-800 dark:text-red-300/90">
-              They replied with an unsubscribe request, so email to them is
-              switched off here and refused by the server. CASL requires that to
-              stick.
+              There is no compose box, and the server refuses the send as well —
+              re-asked in the request that sends, so an opt-out that arrived
+              while you were typing still wins. CASL requires that to stick.
             </p>
           </div>
         </div>

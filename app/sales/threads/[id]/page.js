@@ -72,6 +72,10 @@ export default function SalesThreadPage({ params }) {
   const thread = data?.thread;
   const outreach = data?.outreach;
   const optedOut = data?.optedOut;
+  // Same field, same reason as app/sales/leads/[id]/page.js: the route computes
+  // WHICH entry closed this and how it got there, and this screen used to
+  // overwrite that with one mechanism.
+  const optedOutReason = data?.optedOutReason;
 
   if (!thread) {
     return (
@@ -144,11 +148,14 @@ export default function SalesThreadPage({ params }) {
           <Ban size={16} className="mt-0.5 text-red-700 dark:text-red-300 shrink-0" />
           <div>
             <p className="font-semibold text-red-900 dark:text-red-200">
-              They asked not to be emailed again.
+              FieldQuo may not email this prospect.
             </p>
+            {optedOutReason ? (
+              <p className="text-red-800 dark:text-red-300/90">{optedOutReason}</p>
+            ) : null}
             <p className="text-red-800 dark:text-red-300/90">
-              Replying by email is switched off for this prospect, here and on
-              the server.
+              Replying by email is switched off here, and refused on the server
+              in the request that would have sent it.
             </p>
           </div>
         </div>

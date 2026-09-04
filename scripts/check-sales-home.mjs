@@ -376,6 +376,44 @@ ok(
   /readOnly/.test(home),
 );
 
+// ── The same failure class, on the two compliance screens ──────────────────
+//
+// /api/sales/leads/[id] and /api/sales/threads/[id] have returned
+// `optedOutReason` since the suppression list landed, and nothing rendered it.
+// check-sales-suppression.mjs asserts the ROUTE sends it — "returns the reason
+// so the screen can say WHY" — and no check asked whether a screen read it, so
+// the sentence the server computed was thrown away and each screen printed a
+// fixed English one instead.
+//
+// That is not merely a wasted field. contactOptedOut() answers from two
+// sources, and describeSuppression() writes which entry closed the channel and
+// how it got there: replied, asked on the phone, texted STOP, a regulator's
+// list, or a whole DOMAIN listed rather than this person. The lead screen said
+// "They replied with an unsubscribe request" over all of them — telling a rep a
+// prospect unsubscribed from an email nobody sent them.
+{
+  for (const [screen, route] of [
+    ["app/sales/leads/[id]/page.js", "app/api/sales/leads/[id]/route.js"],
+    ["app/sales/threads/[id]/page.js", "app/api/sales/threads/[id]/route.js"],
+  ]) {
+    const src = codeOnly(read(screen));
+    ok(`${route} sends optedOutReason`, codeOnly(read(route)).includes("optedOutReason"));
+    ok(`${screen} reads it`, src.includes("optedOutReason"));
+    ok(
+      `…and renders it, rather than only destructuring it`,
+      /\{\s*optedOutReason\s*\}/.test(src),
+      "the value is read into a variable and never reaches the DOM",
+    );
+    // The mechanism the screen must NOT assert, because the route did not
+    // determine it. Six of the seven suppression sources are not a reply.
+    ok(
+      `…and does not assert a mechanism of its own`,
+      !/replied with an unsubscribe request/i.test(src),
+      "the screen names one of the seven sources as though it were the only one",
+    );
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 section("8. Reachable — nothing else audits the /sales tree");
 // ═══════════════════════════════════════════════════════════════════════════
