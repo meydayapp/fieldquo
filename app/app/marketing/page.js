@@ -1,7 +1,7 @@
 // app/app/marketing/page.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Megaphone,
@@ -72,8 +72,17 @@ export default function MarketingPage() {
   const canManageMarketing = !caller?.role || can(caller.role, "user:manage");
   // null until the server answers — see lib/loadState.js.
   const [campaigns, setCampaigns] = useState(null);
-  const [members, setMembers] = useState([]);
-  const [templates, setTemplates] = useState([]);
+  // ── null, not [] — the same rule `campaigns` above already follows ───────
+  //
+  // The doctrine was applied to one list on this page and not the other two.
+  // A 401, a 500 or a dropped connection on GET /api/settings/document-templates
+  // landed as `[]`, which rendered "you have no templates yet, go and make one"
+  // at a contractor with five of them — and hard-disabled the submit button
+  // underneath it, so the campaign could not be created either. An empty array
+  // is a CLAIM (lib/loadState.js); these two had no way to say "not known".
+  const [members, setMembers] = useState(null);
+  const [templates, setTemplates] = useState(null);
+  const [templatesErrorKey, setTemplatesErrorKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(emptyForm());
@@ -82,6 +91,29 @@ export default function MarketingPage() {
   // Separate from `error`, which lives inside the create modal. A failed load
   // is not a form problem and must not share its banner.
   const [errorKey, setErrorKey] = useState("");
+
+  const loadMembers = useCallback(async () => {
+    const result = await fetchArray("/api/settings/members");
+    if (result.aborted) return;
+    // A refused member list narrows the assignee dropdown to "Unassigned",
+    // which is a real and selectable choice — so this stays null rather than
+    // [] and the dropdown says the list could not be read.
+    setMembers(result.ok ? result.data : null);
+  }, []);
+
+  const loadTemplates = useCallback(async () => {
+    const result = await fetchArray("/api/settings/document-templates");
+    if (result.aborted) return;
+    if (!result.ok) {
+      setTemplates(null);
+      setTemplatesErrorKey(result.errorKey);
+      return;
+    }
+    setTemplatesErrorKey("");
+    setTemplates(
+      result.data.filter((tpl) => ELIGIBLE_TEMPLATE_TYPES.includes(tpl.type)),
+    );
+  }, []);
 
   async function load() {
     setErrorKey("");
@@ -94,21 +126,11 @@ export default function MarketingPage() {
   useEffect(() => {
     Promise.all([
       load(),
-      fetch("/api/settings/members")
-        .then((r) => (r.ok ? r.json() : []))
-        .then((data) => setMembers(Array.isArray(data) ? data : []))
-        .catch(() => setMembers([])),
-      fetch("/api/settings/document-templates")
-        .then((r) => (r.ok ? r.json() : []))
-        .then((data) =>
-          setTemplates(
-            Array.isArray(data)
-              ? data.filter((tpl) => ELIGIBLE_TEMPLATE_TYPES.includes(tpl.type))
-              : [],
-          ),
-        )
-        .catch(() => setTemplates([])),
+      loadMembers(),
+      loadTemplates(),
     ]).finally(() => setLoading(false));
+    // Mount only. Both loaders are stable useCallbacks with no dependencies.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleCreate(e) {
@@ -355,11 +377,21 @@ export default function MarketingPage() {
                   className={inputClass}
                 >
                   <option value="">{t("app.marketing.unassigned")}</option>
-                  {members.map((m) => (
+                  {(members ?? []).map((m) => (
                     <option key={m.user?.id} value={m.user?.id}>
                       {m.user?.name || m.user?.email}
                     </option>
                   ))}
+                  {/* A list that would not load silently collapsed this to
+                      "Unassigned" — which is itself a valid choice, so nothing
+                      about the dropdown looked wrong. Said out loud instead,
+                      and disabled so it cannot be picked as a person. */}
+                  {members === null && (
+                    <option value="" disabled>
+                      {/* i18n PENDING app.marketing.membersUnavailable */}
+                      Team list unavailable — reload to assign someone
+                    </option>
+                  )}
                 </select>
               </div>
 
@@ -379,20 +411,38 @@ export default function MarketingPage() {
                     <option value="" disabled>
                       {t("app.marketing.chooseTemplate")}
                     </option>
-                    {templates.map((tpl) => (
+                    {(templates ?? []).map((tpl) => (
                       <option key={tpl.id} value={tpl.id}>
                         {tpl.name}
                       </option>
                     ))}
                   </select>
-                  {templates.length === 0 && (
+                  {/* Three states, and only ONE of them is "go and write one".
+                      A list that failed to load must not send somebody off to
+                      recreate templates they already have — that is the data
+                      re-entry lib/loadState.js exists to prevent. */}
+                  {templatesErrorKey ? (
                     <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                      {t("app.marketing.noTemplatesPre")}{" "}
-                      <a href="/app/settings/email-templates" className="underline">
-                        {t("app.marketing.emailTemplatesLink")}
-                      </a>{" "}
-                      {t("app.marketing.noTemplatesPost")}
+                      {t(templatesErrorKey)}{" "}
+                      <button
+                        type="button"
+                        onClick={loadTemplates}
+                        className="underline font-medium"
+                      >
+                        {t("app.load.retry")}
+                      </button>
                     </p>
+                  ) : (
+                    Array.isArray(templates) &&
+                    templates.length === 0 && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                        {t("app.marketing.noTemplatesPre")}{" "}
+                        <a href="/app/settings/email-templates" className="underline">
+                          {t("app.marketing.emailTemplatesLink")}
+                        </a>{" "}
+                        {t("app.marketing.noTemplatesPost")}
+                      </p>
+                    )
                   )}
                 </div>
               )}

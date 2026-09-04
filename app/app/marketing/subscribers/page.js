@@ -47,25 +47,40 @@ export default function SubscribersPage() {
     load();
   }, [load]);
 
+  // ── The button that could never be un-pressed ────────────────────────────
+  //
+  // No try/finally, and a bare `res.json()`. A 502 returns Next's HTML error
+  // page and a 204 returns nothing at all, so the parse threw before
+  // `setImporting(false)` was ever reached — leaving the control disabled,
+  // reading "Importing…", until a full page reload. handleAdd directly below
+  // this already had the finally; this one never got it.
   async function handleImport() {
     setImporting(true);
     setImportMsg("");
-    const res = await fetch("/api/marketing/subscribers/import-clients", {
-      method: "POST",
-    });
-    const data = await res.json();
-    if (res.ok) {
+    try {
+      const res = await fetch("/api/marketing/subscribers/import-clients", {
+        method: "POST",
+      });
+      // .catch, not a bare parse: on the failure paths the body is HTML or
+      // empty, and the parser's complaint is not a sentence for a contractor.
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setImportMsg(data?.error || t("app.subs.importFailed"));
+        return;
+      }
       setImportMsg(
         t("app.subs.imported", {
-          imported: data.imported,
-          total: data.total,
+          imported: data?.imported,
+          total: data?.total,
         }),
       );
-      load();
-    } else {
-      setImportMsg(data.error || t("app.subs.importFailed"));
+      await load();
+    } catch {
+      // The fetch itself never landed — no response to read, nothing imported.
+      setImportMsg(t("app.subs.importFailed"));
+    } finally {
+      setImporting(false);
     }
-    setImporting(false);
   }
 
   async function handleAdd(e) {

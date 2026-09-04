@@ -49,9 +49,17 @@ import { reportResponseError } from "@/lib/clientErrors";
 import ListState from "@/app/components/ListState";
 import { dayKey, monthGrid, localeFormat, localeDateTime } from "@/lib/calendar/monthGrid";
 
+// Exhaustive against `enum SocialPublishStatus` in prisma/schema.prisma —
+// checked against the schema, not against the values another page happened to
+// list. `container_created` was the one missing: Instagram's publish is two
+// calls, and a row sits in that state between them. Its LABEL already existed
+// (app.marketingDesigner.calendar.status.container_created), so the chip
+// read "Publishing" in the fallback grey while the row beside it read
+// "Publishing" in blue — the same state, two colours, on one calendar.
 const STATUS_STYLES = {
   scheduled: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
   pending: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
+  container_created: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
   publishing: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
   published: "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300",
   failed: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300",
@@ -61,6 +69,7 @@ const STATUS_STYLES = {
 const DOT_STYLES = {
   scheduled: "bg-blue-500",
   pending: "bg-blue-500",
+  container_created: "bg-blue-500",
   publishing: "bg-blue-500",
   published: "bg-green-500",
   failed: "bg-red-500",

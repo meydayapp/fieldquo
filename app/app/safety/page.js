@@ -20,7 +20,7 @@ import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import ListState from "@/app/components/ListState";
-import { loadErrorKey, LOAD_ERROR_KEYS } from "@/lib/loadState";
+import { loadErrorKey, LOAD_ERROR_KEYS, fetchArray } from "@/lib/loadState";
 import MediaUploader from "@/app/components/MediaUploader";
 
 const KINDS = ["near_miss", "injury", "property_damage", "other"];
@@ -180,12 +180,23 @@ function ReportForm({ t, jobs, onCreated, onCancel }) {
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
           >
             <option value="">{t("app.safety.form.jobNone", "Not tied to a job")}</option>
-            {jobs.map((j) => (
+            {(jobs ?? []).map((j) => (
               <option key={j.id} value={j.id}>
                 {j.title}
               </option>
             ))}
           </select>
+          {/* "Not tied to a job" and "we could not read your jobs" produce the
+              same-looking picker, and only one of them is a statement the
+              reporter meant to make. Said out loud, because an incident filed
+              against nothing is not something anybody goes back and fixes. */}
+          {jobs === null && (
+            <span className="mt-1 block text-xs text-amber-600 dark:text-amber-400">
+              {/* i18n PENDING app.safety.form.jobsUnavailable */}
+              Your job list couldn&apos;t be loaded, so this incident would be
+              filed against no job. Reload before reporting if it belongs to one.
+            </span>
+          )}
         </label>
       </div>
 
@@ -329,7 +340,12 @@ export default function SafetyPage() {
 
   const [incidents, setIncidents] = useState(null);
   const [errorKey, setErrorKey] = useState("");
-  const [jobs, setJobs] = useState([]);
+  // null, not []. A failed GET /api/jobs collapsed the picker to "Not tied to
+  // a job" — which is itself a legitimate choice, so nothing about it looked
+  // wrong — and the incident was filed with jobId: null, permanently detached
+  // from the job it happened on. An incident is the one record you cannot go
+  // back and re-derive from anywhere else.
+  const [jobs, setJobs] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [filter, setFilter] = useState("");
 
@@ -355,12 +371,15 @@ export default function SafetyPage() {
     load();
   }, [load]);
 
-  useEffect(() => {
-    fetch("/api/jobs")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => setJobs((Array.isArray(data) ? data : []).slice(0, 200)))
-      .catch(() => setJobs([]));
+  const loadJobs = useCallback(async () => {
+    const result = await fetchArray("/api/jobs");
+    if (result.aborted) return;
+    setJobs(result.ok ? result.data.slice(0, 200) : null);
   }, []);
+
+  useEffect(() => {
+    loadJobs();
+  }, [loadJobs]);
 
   if (!hasLevel(caller, "safety", "report_own")) {
     return <NoAccessPanel capability="accessLevel" />;

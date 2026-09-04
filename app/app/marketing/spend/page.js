@@ -21,6 +21,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus, X, TrendingUp, ExternalLink, Pencil, Trash2 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { can } from "@/lib/permissions";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
@@ -49,6 +50,9 @@ function toFormValues(entry) {
 
 export default function MarketingSpendPage() {
   const { t } = useTranslation();
+  // The company's own currency, from the provider that holds it for every
+  // /app screen — not from the summary payload this table does not come from.
+  const { currency: companyCurrency } = useCompanyPreferences();
   const caller = usePermissions();
   // Same coarse gate the manual CRUD routes now enforce server-side (see
   // app/api/marketing-spend/route.js's header) — falls open while the
@@ -65,6 +69,7 @@ export default function MarketingSpendPage() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const [banner, setBanner] = useState("");
+  const [summaryError, setSummaryError] = useState("");
 
   const load = useCallback(async () => {
     setErrorKey("");
@@ -76,7 +81,17 @@ export default function MarketingSpendPage() {
       if (entriesResult.ok) setEntries(entriesResult.data);
       else setErrorKey(entriesResult.errorKey);
     }
-    if (!summaryResult.__error) setSummary(summaryResult);
+    // The sentinel used to be captured and then never read again, so a failed
+    // summary just made the blended cost-per-lead card and the by-channel
+    // table VANISH — indistinguishable from "no data yet", with no retry
+    // because errorKey is only set from the entries leg.
+    if (summaryResult.__error) {
+      setSummary(null);
+      setSummaryError(summaryResult.__error);
+    } else {
+      setSummary(summaryResult);
+      setSummaryError("");
+    }
     setLoading(false);
   }, []);
 
@@ -149,7 +164,18 @@ export default function MarketingSpendPage() {
   if (!canManage) return <NoAccessPanel capability="accessLevel" />;
 
   const blended = summary?.blendedCostPerLead;
-  const currency = summary?.companyCurrency || "CAD";
+  // ── The entries table was labelled CAD whenever the SUMMARY failed ───────
+  //
+  // `summary?.companyCurrency || "CAD"` fell back on a payload this table does
+  // not come from: the rows load from GET /api/marketing-spend and the
+  // currency came from GET /api/marketing-spend/summary, so a Swiss company
+  // whose summary 500s saw every real spend row rendered as CA$.
+  //
+  // The currency is a company-level fact and CompanyPreferencesProvider exists
+  // to hold it for exactly this — see its header. It is `null` there when the
+  // company has none, which is honest, and formatMoney handles that; guessing
+  // Canada is what put the wrong symbol on the screen.
+  const currency = summary?.companyCurrency || companyCurrency;
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
@@ -182,6 +208,26 @@ export default function MarketingSpendPage() {
 
       {/* Blended cost-per-lead — Level 1, honest by construction: real spend
           over real LeadRequest counts, never a per-channel figure. */}
+      {/* The summary failed. Said out loud with a retry, because the absence of
+          this card and the by-channel table below is indistinguishable from
+          "you have not spent anything yet" — and the error key was already
+          being captured into a sentinel that nothing read. */}
+      {summaryError && (
+        <div className="bg-card border border-border rounded-xl p-5">
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground mb-1">
+            <TrendingUp size={15} /> {t("app.marketingSpend.blendedTitle", "Blended cost per lead")}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {/* i18n PENDING app.marketingSpend.summaryUnavailable */}
+            These figures couldn&apos;t be worked out just now. Nothing has been
+            lost — the spend you have entered is listed below.{" "}
+            <button type="button" onClick={load} className="underline font-medium">
+              {t("app.load.retry")}
+            </button>
+          </p>
+        </div>
+      )}
+
       {summary && (
         <div className="bg-card border border-border rounded-xl p-5">
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground mb-1">
@@ -240,7 +286,16 @@ export default function MarketingSpendPage() {
                   <tr key={c.platform} className="border-b border-border last:border-0">
                     <td className="px-5 py-2.5 capitalize">{t(`app.marketingSpend.platform.${c.platform}`, c.platform)}</td>
                     <td className="px-5 py-2.5">{new Intl.NumberFormat(undefined, { style: "currency", currency }).format(c.spend)}</td>
-                    <td className="px-5 py-2.5">{c.leads || "—"}</td>
+                    {/* `c.leads || "—"` printed a deliberately-entered 0 as
+                        "—", i.e. as unknown — and MarketingSpend.leads is
+                        `Int @default(0)`, so a channel nobody filled in reads 0
+                        as well. The column cannot tell those apart (noted in
+                        the report); what this screen CAN stop doing is turning
+                        a real zero into a dash. 0 is a finite number and a real
+                        answer. */}
+                    <td className="px-5 py-2.5 tabular-nums">
+                      {Number.isFinite(Number(c.leads)) ? Number(c.leads) : "—"}
+                    </td>
                     <td className="px-5 py-2.5">
                       {c.costPerLead != null ? new Intl.NumberFormat(undefined, { style: "currency", currency }).format(c.costPerLead) : "—"}
                     </td>

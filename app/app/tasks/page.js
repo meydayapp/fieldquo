@@ -37,6 +37,31 @@ const PRIORITY_STYLES = {
 
 const PRIORITY_RANK = { urgent: 0, high: 1, normal: 2, low: 3 };
 
+// ── What a priority is CALLED ─────────────────────────────────────────────
+//
+// Exhaustive against `enum TaskPriority` in prisma/schema.prisma. The badge
+// rendered `{task.priority}` and the dropdown rendered `<option>{p}</option>`,
+// so both showed the raw lowercase column — a French crew read "urgent" (which
+// happens to survive) beside "high" and "low" (which do not), in the middle of
+// an otherwise French screen.
+//
+// i18n PENDING app.tasks.priority.low / .normal / .high / .urgent — English
+// here until the lead lands the keys in one batch; a t() call on a key that
+// does not exist yet turns check:translations red for the whole tree. The
+// STRUCTURE is the fix: one map, used by both call sites, so they cannot drift.
+const PRIORITY_LABELS = {
+  low: "Low",
+  normal: "Normal",
+  high: "High",
+  urgent: "Urgent",
+};
+/** Never returns undefined, and never the raw column with its underscores. */
+const priorityLabel = (p) =>
+  PRIORITY_LABELS[p] || String(p || "").replace(/_/g, " ");
+
+/** Every TaskPriority, in the order the dropdown should offer them. */
+const TASK_PRIORITIES = Object.keys(PRIORITY_LABELS);
+
 function startOfToday() {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
@@ -142,7 +167,18 @@ export default function TasksPage() {
   ).length;
 
   async function toggle(task) {
-    const status = task.status === "done" ? "open" : "done";
+    // ── The tick on a CANCELLED task used to complete it ────────────────────
+    //
+    // `done` below is `["done", "cancelled"].includes(task.status)`, so a
+    // cancelled task draws a filled tick — and this read
+    // `task.status === "done" ? "open" : "done"`, which sent "done" for it.
+    // Pressing the tick on work somebody had called off recorded it as
+    // finished: a false statement about the job, made by the control that
+    // looked like it would undo the cancellation.
+    //
+    // Both settled states now reopen, and only a live task completes.
+    const settled = task.status === "done" || task.status === "cancelled";
+    const status = settled ? "open" : "done";
     setBusyId(task.id);
     setError("");
     const before = tasks;
@@ -318,9 +354,9 @@ export default function TasksPage() {
                 }
                 className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
               >
-                {["low", "normal", "high", "urgent"].map((p) => (
+                {TASK_PRIORITIES.map((p) => (
                   <option key={p} value={p}>
-                    {p}
+                    {priorityLabel(p)}
                   </option>
                 ))}
               </select>
@@ -479,7 +515,7 @@ export default function TasksPage() {
                           PRIORITY_STYLES[task.priority]
                         }`}
                       >
-                        {task.priority}
+                        {priorityLabel(task.priority)}
                       </span>
                     )}
                     {task.overdue && (
