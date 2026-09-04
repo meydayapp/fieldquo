@@ -171,6 +171,16 @@ const USES_FORMATTER = [
   // app/i18n/appMessages.js, which is the same bug one layer further in.
   ["app/app/settings/cabinet-rates/page.js", /useCompanyMoney\(\)/],
   ["app/app/settings/account-billing/page.js", /useCompanyMoney\(\)/],
+  // Added 2026-09-03, same shape and the same blind spot: NumField took
+  // `prefix` and twenty-four call sites passed the literal "$" — on the rate
+  // card a STRANGER is quoted from, so a contractor outside North America was
+  // setting the numbers a homeowner sees against the wrong symbol. Three more
+  // were laid out by hand inside TradeCard with a bare <span>$</span>.
+  //
+  // This page reads the currency CODE rather than useCompanyMoney: nothing on
+  // it formats an amount, it labels boxes a person types into. So the pattern
+  // is the provider hook, which is what supplies the code.
+  ["app/app/settings/instant-quotes/page.js", /useCompanyPreferences\(\)/],
 ];
 
 // ── The catalogue is a screen too ──────────────────────────────────────────
@@ -187,6 +197,41 @@ const CURRENCY_FREE_KEYS = [
   "app.setCabinetRates.vanityHint",
   "app.kpis.moneyFlow.trend.fromZero",
 ];
+// ── The roster proves a MENTION; this proves the mechanism ────────────────
+//
+// Added after a mutation test embarrassed the entry above. Registering
+// instant-quotes with /useCompanyPreferences\(\)/ is worth having as a
+// roster line, but it is satisfied by the hook merely appearing in the file:
+// deleting the import, and separately collapsing the resolution to
+// `const shownPrefix = prefix;`, both left the roster passing. That is
+// "asserting a guard by its words rather than its shape".
+//
+// So the shape is asserted directly. NumField is where twenty-four call sites
+// funnel through, and the three hand-laid fields in TradeCard are checked by
+// their absence.
+{
+  const iq = readFileSync(
+    new URL("../app/app/settings/instant-quotes/page.js", import.meta.url),
+    "utf8",
+  );
+  ok(
+    "instant-quotes: NumField turns a money prefix into the company's code",
+    /const shownPrefix = prefix === "\$" \? currency : prefix;/.test(iq),
+  );
+  ok(
+    "instant-quotes: ...and renders THAT, not the raw prefix",
+    /\{shownPrefix && \(/.test(iq) && !/\{prefix && \(/.test(iq),
+  );
+  ok(
+    "instant-quotes: no hand-laid dollar sign is left in the markup",
+    !/<span className="[^"]*text-muted-foreground[^"]*">\$<\/span>/.test(iq),
+  );
+  ok(
+    "instant-quotes: the currency comes from the provider, not a literal",
+    /const \{ currency \} = useCompanyPreferences\(\);/.test(iq),
+  );
+}
+
 console.log("\nThe screens that had it now call a real formatter");
 for (const [rel, re_] of USES_FORMATTER) {
   const src = readFileSync(join(ROOT, rel), "utf8");

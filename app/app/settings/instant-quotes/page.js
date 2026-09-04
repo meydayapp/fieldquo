@@ -19,6 +19,7 @@ import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
 import JunkGuidance from "@/app/components/settings/JunkGuidance";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import {
   budgetBands,
   normaliseBudgetThresholds,
@@ -45,10 +46,6 @@ const MEASURE_COPY = {
     "Homeowner enters the number of steps and picks the build; priced per tread.",
 };
 
-function money(n) {
-  return Number(n) || 0;
-}
-
 // A labelled number input that keeps an empty string editable (so a field can
 // be cleared without snapping to 0 mid-type).
 function NumField({
@@ -60,12 +57,27 @@ function NumField({
   step = "1",
   width = "w-28",
 }) {
+  // ── Twenty-four boxes on this screen were labelled in dollars ───────────
+  //
+  // Every money field here passed `prefix="$"`. This is the rate card a
+  // stranger is quoted from, so a contractor in Zurich or Manchester was
+  // typing the numbers a homeowner sees against the wrong symbol.
+  // cabinet-rates/page.js hit exactly this and fixed it by passing the
+  // company's currency CODE; check:app-currency cannot see either case,
+  // because it scans for `$${…}` and this is a plain string literal.
+  //
+  // Resolved HERE rather than at the call sites: twenty-four of them is
+  // twenty-four chances to reintroduce it, and the twenty-fifth field somebody
+  // adds gets it right for free. `prefix="$"` is read as "this is money" and
+  // becomes the company's own code; any other prefix passes through untouched.
+  const { currency } = useCompanyPreferences();
+  const shownPrefix = prefix === "$" ? currency : prefix;
   return (
     <label className="flex flex-col gap-1">
       {label && <span className="text-xs text-muted-foreground">{label}</span>}
       <span className="flex items-center gap-1">
-        {prefix && (
-          <span className="text-sm text-muted-foreground">{prefix}</span>
+        {shownPrefix && (
+          <span className="text-sm text-muted-foreground">{shownPrefix}</span>
         )}
         <input
           type="number"
@@ -199,6 +211,9 @@ function UnitRates({ fields, config, onPatch, t }) {
 
 function TradeCard({ trade, canEdit, onSaved }) {
   const { t } = useTranslation();
+  // Three money fields on this card are laid out by hand rather than through
+  // NumField, and each carried its own literal "$". Same defect, same fix.
+  const { currency } = useCompanyPreferences();
   const [enabled, setEnabled] = useState(trade.enabled);
   const [config, setConfig] = useState(trade.config || {});
   const [saving, setSaving] = useState(false);
@@ -498,7 +513,7 @@ function TradeCard({ trade, canEdit, onSaved }) {
           <div className="flex items-center gap-2">
             {budgetThresholds.map((v, i) => (
               <div key={i} className="flex items-center gap-1 flex-1 min-w-0">
-                <span className="text-sm text-muted-foreground">$</span>
+                <span className="text-sm text-muted-foreground">{currency}</span>
                 <input
                   type="number"
                   min="1"
@@ -570,7 +585,7 @@ function TradeCard({ trade, canEdit, onSaved }) {
                     )}
                     className="flex-1 min-w-0 rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
                   />
-                  <span className="text-sm text-muted-foreground">$</span>
+                  <span className="text-sm text-muted-foreground">{currency}</span>
                   <input
                     type="number"
                     step="1"
@@ -667,7 +682,7 @@ function TradeCard({ trade, canEdit, onSaved }) {
                   <span className="text-muted-foreground">
                     {t("app.setInstantQuotes.sqftArrow", "sqft →")}
                   </span>
-                  <span className="text-muted-foreground">$</span>
+                  <span className="text-muted-foreground">{currency}</span>
                   <input
                     type="number"
                     value={tier.pricePerVisit ?? ""}
@@ -1399,7 +1414,10 @@ function FinancingCard({ financing, canEdit, onSaved }) {
       setTimeout(() => setSaved(false), 2000);
       onSaved?.();
     } catch (err) {
-      alert(
+      // Was a native alert() — the one un-brandable modal in an app whose
+      // whole premise is that nothing looks like it came from us. Every other
+      // failure path on this page already uses showError, imported above.
+      showError(
         err.message ||
           t(
             "app.setInstantQuotes.couldNotSaveFinancing",
