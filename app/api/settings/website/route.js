@@ -387,8 +387,34 @@ export async function POST(request) {
   // silently persist work the company hadn't chosen to save.
   const existing = await db.companySite.findUnique({
     where: { companyId: member.companyId },
-    select: { blocks: true, handEditedAt: true, languages: true },
+    // ── `pages` as well as `blocks`, and here is why ────────────────────────
+    //
+    // `blocks` is the HOME page only (see the schema note on CompanySite).
+    // Everything a multi-page site puts elsewhere — the FAQ items, the process
+    // steps, the credentials, the second visual — lives in `pages`, and every
+    // site the current builder produces is multi-page.
+    //
+    // generateSite carries the company's words across by matching block TYPE
+    // against this list, so a type that was not on Home had nothing to carry
+    // from. build() deliberately produces those empty (`faq: () => ({ items:
+    // [] })`), which meant pressing a Layout or Style chip blanked the FAQ, the
+    // process and the credentials — and then buildPages dropped the FAQ page
+    // out of the menu entirely, because it had no items left.
+    //
+    // No AI call happens on that path, so nothing regenerated them. The chip
+    // said "Your photos and wording carried over."
+    select: { blocks: true, pages: true, handEditedAt: true, languages: true },
   });
+
+  // Flattened for the carry, Home first. carryCopy and carryImages both build
+  // a by-type map with first-wins, so Home's copy still takes precedence for a
+  // type that appears twice — the ordering is the whole contract here.
+  const existingAllBlocks = [
+    ...(Array.isArray(existing?.blocks) ? existing.blocks : []),
+    ...(Array.isArray(existing?.pages)
+      ? existing.pages.flatMap((pg) => (Array.isArray(pg?.blocks) ? pg.blocks : []))
+      : []),
+  ];
 
   // The site's own primary language. Without this, pressing Regenerate on a
   // French site rewrote it in English — the language was a property of the site
@@ -418,7 +444,7 @@ export async function POST(request) {
       photoPairs,
       areas,
       interview: body.interview || {},
-      existingBlocks: Array.isArray(existing?.blocks) ? existing.blocks : [],
+      existingBlocks: existingAllBlocks,
       // A clicked template / style from the chooser — honoured deterministically
       // (see generateSite). null on a normal prompt-driven Regenerate.
       forceComposition,

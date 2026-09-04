@@ -127,11 +127,26 @@ export async function POST(request) {
       );
     }
 
-    // Replacing an existing one: remove the old registration first so we
-    // don't leave orphaned domains accumulating on the Resend account.
-    if (company?.emailDomainId) {
-      await deleteDomain(company.emailDomainId).catch(() => {});
-    }
+    // ── Register the new one BEFORE removing the old one ────────────────
+    //
+    // This used to delete first, "so we don't leave orphaned domains
+    // accumulating on the Resend account" — a housekeeping reason, paid for
+    // with the company's ability to send mail.
+    //
+    // Everything below this point can fail: createDomain can throw, and the
+    // heldByAnother branch deliberately returns a 409. On either path the old
+    // registration was already gone, while Company.emailDomainStatus still
+    // said "verified" and Company.emailDomainId still pointed at it. So
+    // lib/email/resend.js kept building quotes@theirdomain.com as the From
+    // line for every client email, with nothing behind it — and this screen
+    // kept showing the green Verified badge, because the row was untouched.
+    //
+    // Registering first means a failure leaves the working state exactly as
+    // it was. The old registration is cleaned up after the row has been
+    // repointed, and only when it is genuinely a different one — adopting an
+    // existing registration returns the SAME id, and deleting that would undo
+    // the write two lines above it.
+    const previousDomainId = company?.emailDomainId || null;
 
     let created;
     try {
@@ -185,6 +200,13 @@ export async function POST(request) {
       },
       select: SELECT,
     });
+
+    // Only now, and only if it is genuinely a different registration. Best
+    // effort: an orphan left on the Resend account is untidy, and a company
+    // unable to send is not — so a failure here must not undo the row above.
+    if (previousDomainId && previousDomainId !== created.id) {
+      await deleteDomain(previousDomainId).catch(() => {});
+    }
 
     return NextResponse.json(updated, { status: 201 });
   } catch (err) {
