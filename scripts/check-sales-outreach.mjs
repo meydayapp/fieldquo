@@ -320,10 +320,10 @@ section("3. What goes out — sanitised, escaped, and legally complete");
 
 ok("CRLF is stripped out of a subject", !/[\r\n]/.test(sanitiseHeaderText("Re: hi\r\nBcc: evil@x.com")));
 ok("...and the injected header is inert text", sanitiseHeaderText("Re: hi\r\nBcc: evil@x.com") === "Re: hi Bcc: evil@x.com");
-ok("NUL and control bytes are stripped", sanitiseHeaderText("a b") === "a b");
+ok("NUL and control bytes are stripped", sanitiseHeaderText("a\u0000\u0007b") === "a b");
 ok("a subject is length-capped", sanitiseHeaderText("x".repeat(5000), 200).length === 200);
 ok("a body keeps newlines and tabs", sanitiseBodyText("a\n\tb") === "a\n\tb");
-ok("a body drops other control bytes", sanitiseBodyText("a b") === "ab");
+ok("a body drops other control bytes", sanitiseBodyText("a\u0000b\u0007") === "ab");
 ok("a body is length-capped", sanitiseBodyText("x".repeat(200_000)).length === 100_000);
 ok("htmlToText drops script content entirely", !htmlToText("<p>hi</p><script>alert(1)</script>").includes("alert"));
 ok("htmlToText keeps the words", htmlToText("<p>hi</p><div>there</div>").replace(/\s+/g, " ").trim() === "hi there");
@@ -794,6 +794,79 @@ section("10. Nothing sends by itself");
   };
   const offenders = walk(cronDir).filter((f) => /sales\/outreach/.test(stripComments(readFileSync(f, "utf8"))));
   ok("no cron imports anything from lib/sales/outreach*", offenders.length === 0, offenders);
+}
+
+
+// ── The gate must SELECT what the sender reads ─────────────────────────────
+//
+// ══ The bug this is here for ═══════════════════════════════════════════════
+//
+// A superadmin set a rep's workEmail to daniel@fieldquo.com. The rep opened
+// /sales/threads and was told "This rep has no work mailbox yet, so nothing
+// can be sent." — the blocker whose whole purpose is to name a missing value
+// that was, in fact, present.
+//
+// lib/sales/outreachGate.js selected id, email, name, active, endedAt,
+// acceptedAt and passwordHash. Not workEmail. So repSendingAddress() read
+// undefined off a row that had never been asked for the column, and
+// outreachReadiness() correctly reported what it was given.
+//
+// Every part in isolation was right. The console writes the column, the schema
+// documents it, the sender reads it, the readiness check refuses without it —
+// and the query in the middle dropped it. lib/sales/gate.js selects it; this
+// gate did not, and the outreach screens use this one.
+//
+// ══ Why a source assertion and not a behavioural one ═══════════════════════
+//
+// The behaviour needs a database. What is checkable without one is the
+// invariant that actually broke: a field the sending path reads must appear in
+// the select of the gate that supplies the row. Reading it out of
+// repSendingAddress() rather than naming "workEmail" here means a rename moves
+// both sides at once, and a SECOND field added to the sending path is covered
+// on the day it is added rather than the day somebody remembers this file.
+{
+  const gate = read("lib/sales/outreachGate.js");
+  const sender = read("lib/sales/outreachSender.js");
+
+  // The rep fields the sending path actually reads: `rep?.workEmail`, and
+  // anything else repSendingAddress or its neighbours pull off the row.
+  const senderFields = new Set(
+    [...sender.matchAll(/\brep\?\.([A-Za-z_$][\w$]*)/g)].map((m) => m[1]),
+  );
+
+  ok(
+    "the sending path reads at least one field off the rep row",
+    senderFields.size > 0,
+    "if this is empty the assertion below passes on nothing",
+  );
+
+  // The gate's select block, brace-matched from `select: {` so a select
+  // elsewhere in the file cannot stand in for this one.
+  const at = gate.indexOf("select: {");
+  ok("outreachGate has a select block", at >= 0);
+  let depth = 0;
+  let end = at;
+  for (let i = at + "select:".length; i < gate.length; i++) {
+    if (gate[i] === "{") depth++;
+    else if (gate[i] === "}") {
+      depth--;
+      if (depth === 0) { end = i; break; }
+    }
+  }
+  const selectBlock = gate.slice(at, end + 1);
+  ok(
+    "the select block was parsed, not guessed",
+    /id:\s*true/.test(selectBlock),
+    selectBlock.slice(0, 120),
+  );
+
+  for (const field of senderFields) {
+    ok(
+      `outreachGate selects "${field}", which the sending path reads`,
+      new RegExp(`\\b${field}:\\s*true`).test(selectBlock),
+      `repSendingAddress reads rep.${field}; the gate does not ask for it, so it is undefined on every request and the readiness check reports it missing on a rep who has it`,
+    );
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
