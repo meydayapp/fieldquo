@@ -5710,6 +5710,134 @@ const en = {
   "app.status.onTheWay": "On the way",
   "app.marketingDesigner.designsCount": countedNoun("en", {"one":"design","other":"designs"}),
 
+  // ── The job-post composer and the approval gate ──────────────────────────
+  //
+  // BEFORE/AFTER are rendered INTO the image, in a fixed-width pill that does
+  // not shrink its type the way the headline and footer do (lib/marketing/
+  // jobPost.js). The tightest frame is the 1080x1920 Story: 324px of pill at
+  // 60px Arial Bold with charSpacing 80, which is 5.40em, and fabric never
+  // wraps a single word — it overflows it. Every pair below was measured
+  // against real font metrics at that frame, not estimated. German cannot use
+  // the canonical NACHHER (5.48em) and Tagalog cannot use PAGKATAPOS
+  // (7.78em); both would hang outside the pill, so each uses the longest
+  // faithful pair that fits.
+  //
+  // metaPending and adsNote describe a real gate — direct posting is blocked
+  // on Meta's App Review and FieldQuo genuinely cannot create the ad. They
+  // must stay that plain in every language; softening either into "coming
+  // soon" ships the dead control AGENTS.md opens with, in eight languages.
+  "app.aiImage.hintNoPhoto": "With no photo attached it invents one. Attach a real photo if the picture is meant to be your work.",
+  "app.aiImage.hintNoPrices": "It doesn’t know your prices or your service area — type any number you want on it yourself.",
+  "app.aiImage.hintUseJobPost": "For a before/after from a real job, use “Make a post from a job” on the designer list instead.",
+  "app.aiImage.hintWithPhoto": "Say what to change about the photo — “put this door on a plain white background”.",
+  "app.aiImage.referenceAlt": "The photo this image will be built from",
+  "app.aiImage.referenceAttached": "Your photo will be edited, not replaced.",
+  "app.aiImage.referenceFromCanvas": "Use one on the canvas",
+  "app.aiImage.referenceLabel": "Start from a photo",
+  "app.aiImage.referenceRemove": "Remove this photo",
+  "app.aiImage.referenceUpload": "Upload",
+  "app.aiImage.uploadFailed": "That photo wouldn't upload.",
+  "app.marketingDesigner.approval.addHashtags": "Add these to the caption",
+  "app.marketingDesigner.approval.adsNote": "For a paid ad, upload the downloaded file in Meta Ads Manager. FieldQuo can't create the ad for you — that needs a Meta permission we haven't been granted yet.",
+  "app.marketingDesigner.approval.approve": "Approve this post",
+  "app.marketingDesigner.approval.approveError": "Couldn't approve this design.",
+  "app.marketingDesigner.approval.approvedBy": "Approved by {name}.",
+  "app.marketingDesigner.approval.approvedState": "Approved and ready to go out.",
+  "app.marketingDesigner.approval.badgeApproved": "Approved",
+  "app.marketingDesigner.approval.badgeNotApproved": "Not approved",
+  "app.marketingDesigner.approval.badgeReview": "Review & approve",
+  "app.marketingDesigner.approval.badgeStale": "Re-approve",
+  "app.marketingDesigner.approval.captionCopied": "Caption copied",
+  "app.marketingDesigner.approval.copyCaption": "Copy the caption",
+  "app.marketingDesigner.approval.copyFailed": "Your browser wouldn't let us copy that.",
+  "app.marketingDesigner.approval.downloadForAds": "Download every size",
+  "app.marketingDesigner.approval.loadError": "Couldn't load the approval state.",
+  "app.marketingDesigner.approval.loading": "Checking this design…",
+  "app.marketingDesigner.approval.metaPending": "Posting straight to Instagram and Facebook is waiting on Meta's app review. Until that clears, download the post and put it up from your own account — it takes a minute and nothing is lost.",
+  "app.marketingDesigner.approval.nextLabel": "What next",
+  "app.marketingDesigner.approval.notApprovedState": "Not approved yet. Nothing can be scheduled or posted until it is.",
+  "app.marketingDesigner.approval.nothingToApprove": "There's no saved artwork on this design yet. Edit it and it saves as you go.",
+  "app.marketingDesigner.approval.openPublish": "Schedule or post it",
+  "app.marketingDesigner.approval.saveError": "Couldn't save these words.",
+  "app.marketingDesigner.approval.staleState": "This changed after it was approved. Have another look, then approve it again.",
+  "app.marketingDesigner.approval.title": "Review & approve",
+  "app.marketingDesigner.approval.unsavedWords": "These words aren't saved yet. Approving saves them first.",
+  "app.marketingDesigner.approval.withdraw": "Withdraw approval",
+  "app.marketingDesigner.approval.withdrawError": "Couldn't withdraw the approval.",
+  "app.marketingDesigner.jobPost.after": "AFTER",
+  "app.marketingDesigner.jobPost.before": "BEFORE",
+  "app.marketingDesigner.jobPost.hasPair": "Before and after",
+  "app.marketingDesigner.jobPost.hint": "Pick a job. FieldQuo puts its before and after photos side by side, writes the words from that job’s scope of work, and puts your trade and town along the bottom. Nothing is invented — photos flagged as an issue are never used.",
+  "app.marketingDesigner.jobPost.loading": "Looking through your jobs…",
+  "app.marketingDesigner.jobPost.make": "Make it",
+  "app.marketingDesigner.jobPost.making": "Making…",
+  "app.marketingDesigner.jobPost.none": "No job has a photo we can publish yet. Tag a start and a finish shot on a job and it will show up here.",
+  "app.marketingDesigner.jobPost.open": "Make a post from a job",
+  "app.marketingDesigner.jobPost.singleOnly": "One photo — no before/after on this job",
+  "app.marketingDesigner.publishModal.approvalNeeded": "This post hasn't been approved yet. Nothing can be scheduled or posted until somebody has looked at it.",
+  "app.marketingDesigner.publishModal.approvalStale": "This design changed after it was approved. Review it again before it goes out.",
+  "app.marketingDesigner.publishModal.editWords": "Edit the words",
+
+  // ── The front door: log in, sign up, and accept an invitation ────────────
+  //
+  // /accept-invitation is how every employee after the first one gets in, so
+  // it is the one screen a person meets before they have any reason to trust
+  // the product. unavailableBody keeps the blame on us — a translation that
+  // implies the LINK is broken sends somebody to ask for a new one that will
+  // fail exactly the same way.
+  //
+  // The three login errors stay distinguishable on purpose: wrong password,
+  // rate limited, and "we could not reach the server" are different
+  // instructions, and errorUnreachable's reassurance that the password is
+  // fine is the whole reason it exists.
+  "app.auth.login.email": "Email",
+  "app.auth.login.errorCredentials": "That email and password don’t match an account. Check them and try again, or reset your password below.",
+  "app.auth.login.errorThrottled": "Too many attempts in a row. Wait a minute and try again — there is nothing wrong with your account.",
+  "app.auth.login.errorUnreachable": "We couldn’t reach FieldQuo just now. Your password is fine — check your connection and try again in a moment.",
+  "app.auth.login.eyebrow": "Log in",
+  "app.auth.login.noAccount": "Don't have an account?",
+  "app.auth.login.password": "Password",
+  "app.auth.login.startTrial": "Start your free trial",
+  "app.auth.login.submit": "Log In",
+  "app.auth.login.submitting": "Logging in...",
+  "app.auth.login.subtitle": "Pick up where you left off — quotes to send, jobs to schedule, invoices to chase.",
+  "app.auth.login.title": "Welcome back",
+  "app.invite.acceptFailed": "We couldn’t add you to this company just now. Try again in a moment.",
+  "app.invite.acceptUnreachable": "We couldn’t reach FieldQuo just now. Try again in a moment.",
+  "app.invite.alreadyRegistered": "{email} already has a FieldQuo account. Sign in with your existing password and you’ll be added to {org}.",
+  "app.invite.asRole": "You’ve been invited as {role}.",
+  "app.invite.cancelledBody": "It was cancelled, or it has already been replaced. Ask {org} to send you a new one.",
+  "app.invite.cancelledTitle": "This invitation can’t be used",
+  "app.invite.createFailed": "We couldn’t create your login just now. Try again in a moment.",
+  "app.invite.createPassword": "Create a password",
+  "app.invite.expiredBody": "Invitations don’t last forever. Ask {org} to send you a new one.",
+  "app.invite.expiredTitle": "This invitation has expired",
+  "app.invite.hasAccountNote": "You already have a FieldQuo account on this address. Sign in and you’ll be added to {org} — your existing companies stay exactly as they are.",
+  "app.invite.joining": "Adding you to {org}…",
+  "app.invite.nameLabel": "Your name",
+  "app.invite.notFoundBody": "This link is invalid, or the invitation has been removed. Ask whoever invited you to send a new one.",
+  "app.invite.notFoundTitle": "Invitation not found",
+  "app.invite.password": "Password",
+  "app.invite.passwordHint": "At least 8 characters",
+  "app.invite.retry": "Try again",
+  "app.invite.stillLoading": "Still loading — try again in a moment.",
+  "app.invite.submitCreate": "Create login & join",
+  "app.invite.submitSignIn": "Sign in & join",
+  "app.invite.submitting": "Joining…",
+  "app.invite.switchToSignIn": "I already have a FieldQuo account",
+  "app.invite.switchToSignUp": "I need to create a login",
+  "app.invite.title": "Join {org}",
+  "app.invite.unavailableBody": "That is a problem at our end, not with your link. Try again in a moment — it should still work.",
+  "app.invite.unavailableTitle": "We couldn’t load this invitation",
+  "app.signup.alreadyIn": "You already have a business here",
+  "app.signup.alreadyInBody": "You're signed in as {name}. FieldQuo gives one business to a login, so there is nothing to set up on this page.",
+  "app.signup.eyebrow": "Start your free month",
+  "app.signup.eyebrowExisting": "Add a business",
+  "app.signup.goToDashboard": "Go to your dashboard",
+  "app.signup.inviteInstead": "Add someone to your team instead",
+  "app.signup.subtitle": "set up your business, pick your trades, then choose a plan.",
+  "app.signup.yourOwnReferral": "Referral offers are for businesses new to FieldQuo — here is your own link",
+
   // ── The paid deep photo read, and the two holes in removeBg ─────────
   //
   // app.aiImage got both a plain and a priced description; app.removeBg
@@ -11111,6 +11239,134 @@ const fr = {
   "app.status.onTheWay": "En route",
   "app.marketingDesigner.designsCount": countedNoun("fr", {"one":"visuel","many":"visuels","other":"visuels"}),
 
+  // ── The job-post composer and the approval gate ──────────────────────────
+  //
+  // BEFORE/AFTER are rendered INTO the image, in a fixed-width pill that does
+  // not shrink its type the way the headline and footer do (lib/marketing/
+  // jobPost.js). The tightest frame is the 1080x1920 Story: 324px of pill at
+  // 60px Arial Bold with charSpacing 80, which is 5.40em, and fabric never
+  // wraps a single word — it overflows it. Every pair below was measured
+  // against real font metrics at that frame, not estimated. German cannot use
+  // the canonical NACHHER (5.48em) and Tagalog cannot use PAGKATAPOS
+  // (7.78em); both would hang outside the pill, so each uses the longest
+  // faithful pair that fits.
+  //
+  // metaPending and adsNote describe a real gate — direct posting is blocked
+  // on Meta's App Review and FieldQuo genuinely cannot create the ad. They
+  // must stay that plain in every language; softening either into "coming
+  // soon" ships the dead control AGENTS.md opens with, in eight languages.
+  "app.aiImage.hintNoPhoto": "Sans photo jointe, elle en invente une. Joignez une vraie photo si l'image doit montrer votre travail.",
+  "app.aiImage.hintNoPrices": "Elle ne connaît ni vos prix ni votre territoire — inscrivez vous-même le montant que vous voulez.",
+  "app.aiImage.hintUseJobPost": "Pour un avant/après tiré d'un vrai chantier, utilisez « Créer une publication à partir d'un chantier » dans la liste des visuels.",
+  "app.aiImage.hintWithPhoto": "Dites ce qu'il faut changer sur la photo — « mettre cette porte sur un fond blanc uni ».",
+  "app.aiImage.referenceAlt": "La photo à partir de laquelle l'image sera construite",
+  "app.aiImage.referenceAttached": "Votre photo sera retouchée, pas remplacée.",
+  "app.aiImage.referenceFromCanvas": "Utiliser une photo du plan de travail",
+  "app.aiImage.referenceLabel": "Partir d'une photo",
+  "app.aiImage.referenceRemove": "Retirer cette photo",
+  "app.aiImage.referenceUpload": "Téléverser",
+  "app.aiImage.uploadFailed": "Cette photo n'a pas pu être téléversée.",
+  "app.marketingDesigner.approval.addHashtags": "Ajouter ceci à la légende",
+  "app.marketingDesigner.approval.adsNote": "Pour une publicité payante, téléversez le fichier téléchargé dans Meta Ads Manager. FieldQuo ne peut pas créer la publicité à votre place — cela exige une permission Meta qui ne nous a pas encore été accordée.",
+  "app.marketingDesigner.approval.approve": "Approuver cette publication",
+  "app.marketingDesigner.approval.approveError": "Impossible d'approuver ce visuel.",
+  "app.marketingDesigner.approval.approvedBy": "Approuvé par {name}.",
+  "app.marketingDesigner.approval.approvedState": "Approuvé et prêt à être diffusé.",
+  "app.marketingDesigner.approval.badgeApproved": "Approuvé",
+  "app.marketingDesigner.approval.badgeNotApproved": "Non approuvé",
+  "app.marketingDesigner.approval.badgeReview": "Réviser et approuver",
+  "app.marketingDesigner.approval.badgeStale": "À réapprouver",
+  "app.marketingDesigner.approval.captionCopied": "Légende copiée",
+  "app.marketingDesigner.approval.copyCaption": "Copier la légende",
+  "app.marketingDesigner.approval.copyFailed": "Votre navigateur n'a pas permis la copie.",
+  "app.marketingDesigner.approval.downloadForAds": "Télécharger tous les formats",
+  "app.marketingDesigner.approval.loadError": "Impossible de charger l'état d'approbation.",
+  "app.marketingDesigner.approval.loading": "Vérification de ce visuel…",
+  "app.marketingDesigner.approval.metaPending": "La publication directe sur Instagram et Facebook attend l'examen de l'application par Meta. D'ici là, téléchargez la publication et publiez-la depuis votre propre compte — cela prend une minute et rien n'est perdu.",
+  "app.marketingDesigner.approval.nextLabel": "Et ensuite",
+  "app.marketingDesigner.approval.notApprovedState": "Pas encore approuvé. Rien ne peut être planifié ni publié tant que ce n'est pas fait.",
+  "app.marketingDesigner.approval.nothingToApprove": "Aucun visuel enregistré sur cette création pour l'instant. Modifiez-la et elle s'enregistre au fur et à mesure.",
+  "app.marketingDesigner.approval.openPublish": "Planifier ou publier",
+  "app.marketingDesigner.approval.saveError": "Impossible d'enregistrer ce texte.",
+  "app.marketingDesigner.approval.staleState": "Ceci a changé après l'approbation. Revoyez-le, puis approuvez-le de nouveau.",
+  "app.marketingDesigner.approval.title": "Réviser et approuver",
+  "app.marketingDesigner.approval.unsavedWords": "Ce texte n'est pas encore enregistré. L'approbation l'enregistre d'abord.",
+  "app.marketingDesigner.approval.withdraw": "Retirer l'approbation",
+  "app.marketingDesigner.approval.withdrawError": "Impossible de retirer l'approbation.",
+  "app.marketingDesigner.jobPost.after": "APRÈS",
+  "app.marketingDesigner.jobPost.before": "AVANT",
+  "app.marketingDesigner.jobPost.hasPair": "Avant et après",
+  "app.marketingDesigner.jobPost.hint": "Choisissez un chantier. FieldQuo place ses photos avant et après côte à côte, rédige le texte à partir du descriptif des travaux de ce chantier et inscrit votre métier et votre ville au bas. Rien n'est inventé — les photos marquées comme problème ne sont jamais utilisées.",
+  "app.marketingDesigner.jobPost.loading": "Recherche dans vos chantiers…",
+  "app.marketingDesigner.jobPost.make": "Créer",
+  "app.marketingDesigner.jobPost.making": "Création…",
+  "app.marketingDesigner.jobPost.none": "Aucun chantier n'a encore de photo publiable. Marquez une photo de début et une de fin sur un chantier et il apparaîtra ici.",
+  "app.marketingDesigner.jobPost.open": "Créer une publication à partir d'un chantier",
+  "app.marketingDesigner.jobPost.singleOnly": "Une seule photo — pas d'avant/après sur ce chantier",
+  "app.marketingDesigner.publishModal.approvalNeeded": "Cette publication n'a pas encore été approuvée. Rien ne peut être planifié ni publié tant que quelqu'un ne l'a pas examinée.",
+  "app.marketingDesigner.publishModal.approvalStale": "Ce visuel a changé après son approbation. Réexaminez-le avant sa diffusion.",
+  "app.marketingDesigner.publishModal.editWords": "Modifier le texte",
+
+  // ── The front door: log in, sign up, and accept an invitation ────────────
+  //
+  // /accept-invitation is how every employee after the first one gets in, so
+  // it is the one screen a person meets before they have any reason to trust
+  // the product. unavailableBody keeps the blame on us — a translation that
+  // implies the LINK is broken sends somebody to ask for a new one that will
+  // fail exactly the same way.
+  //
+  // The three login errors stay distinguishable on purpose: wrong password,
+  // rate limited, and "we could not reach the server" are different
+  // instructions, and errorUnreachable's reassurance that the password is
+  // fine is the whole reason it exists.
+  "app.auth.login.email": "Courriel",
+  "app.auth.login.errorCredentials": "Ce courriel et ce mot de passe ne correspondent à aucun compte. Vérifiez-les et réessayez, ou réinitialisez votre mot de passe ci-dessous.",
+  "app.auth.login.errorThrottled": "Trop de tentatives d'affilée. Attendez une minute et réessayez — il n'y a aucun problème avec votre compte.",
+  "app.auth.login.errorUnreachable": "Impossible de joindre FieldQuo pour l'instant. Votre mot de passe est bon — vérifiez votre connexion et réessayez dans un moment.",
+  "app.auth.login.eyebrow": "Connexion",
+  "app.auth.login.noAccount": "Vous n'avez pas de compte ?",
+  "app.auth.login.password": "Mot de passe",
+  "app.auth.login.startTrial": "Commencer votre essai gratuit",
+  "app.auth.login.submit": "Se connecter",
+  "app.auth.login.submitting": "Connexion…",
+  "app.auth.login.subtitle": "Reprenez où vous en étiez — des soumissions à envoyer, des chantiers à planifier, des factures à relancer.",
+  "app.auth.login.title": "Bon retour",
+  "app.invite.acceptFailed": "Nous n'avons pas pu vous ajouter à cette entreprise pour l'instant. Réessayez dans un moment.",
+  "app.invite.acceptUnreachable": "Nous n'avons pas pu joindre FieldQuo pour l'instant. Réessayez dans un moment.",
+  "app.invite.alreadyRegistered": "{email} a déjà un compte FieldQuo. Connectez-vous avec votre mot de passe actuel et vous serez ajouté à {org}.",
+  "app.invite.asRole": "Vous avez été invité comme {role}.",
+  "app.invite.cancelledBody": "Elle a été annulée, ou elle a déjà été remplacée. Demandez à {org} de vous en envoyer une nouvelle.",
+  "app.invite.cancelledTitle": "Cette invitation ne peut pas être utilisée",
+  "app.invite.createFailed": "Nous n'avons pas pu créer votre identifiant pour l'instant. Réessayez dans un moment.",
+  "app.invite.createPassword": "Créer un mot de passe",
+  "app.invite.expiredBody": "Les invitations ne durent pas indéfiniment. Demandez à {org} de vous en envoyer une nouvelle.",
+  "app.invite.expiredTitle": "Cette invitation est expirée",
+  "app.invite.hasAccountNote": "Vous avez déjà un compte FieldQuo à cette adresse. Connectez-vous et vous serez ajouté à {org} — vos entreprises actuelles restent exactement comme elles sont.",
+  "app.invite.joining": "Ajout à {org}…",
+  "app.invite.nameLabel": "Votre nom",
+  "app.invite.notFoundBody": "Ce lien est invalide, ou l'invitation a été supprimée. Demandez à la personne qui vous a invité de vous en envoyer une nouvelle.",
+  "app.invite.notFoundTitle": "Invitation introuvable",
+  "app.invite.password": "Mot de passe",
+  "app.invite.passwordHint": "Au moins 8 caractères",
+  "app.invite.retry": "Réessayer",
+  "app.invite.stillLoading": "Chargement en cours — réessayez dans un moment.",
+  "app.invite.submitCreate": "Créer l'identifiant et joindre",
+  "app.invite.submitSignIn": "Se connecter et joindre",
+  "app.invite.submitting": "Adhésion…",
+  "app.invite.switchToSignIn": "J'ai déjà un compte FieldQuo",
+  "app.invite.switchToSignUp": "Je dois créer un identifiant",
+  "app.invite.title": "Joindre {org}",
+  "app.invite.unavailableBody": "C'est un problème de notre côté, pas avec votre lien. Réessayez dans un moment — il devrait toujours fonctionner.",
+  "app.invite.unavailableTitle": "Nous n'avons pas pu charger cette invitation",
+  "app.signup.alreadyIn": "Vous avez déjà une entreprise ici",
+  "app.signup.alreadyInBody": "Vous êtes connecté en tant que {name}. FieldQuo attribue une entreprise par identifiant, il n'y a donc rien à configurer sur cette page.",
+  "app.signup.eyebrow": "Commencez votre mois gratuit",
+  "app.signup.eyebrowExisting": "Ajouter une entreprise",
+  "app.signup.goToDashboard": "Aller à votre tableau de bord",
+  "app.signup.inviteInstead": "Ajoutez plutôt quelqu'un à votre équipe",
+  "app.signup.subtitle": "configurez votre entreprise, choisissez vos métiers, puis choisissez un forfait.",
+  "app.signup.yourOwnReferral": "Les offres de parrainage sont réservées aux entreprises nouvelles sur FieldQuo — voici votre propre lien",
+
   "app.removeBg.subtitle": "Supprimez l'arrière-plan d'une image avec l'IA",
   "app.removeBg.selectedAlt": "Photo sélectionnée",
   "app.deepRead.title": "Lecture approfondie des photos",
@@ -14683,6 +14939,134 @@ const es = {
   "app.marketingDesigner.createdOn": "creado el {date}",
   "app.status.onTheWay": "En camino",
   "app.marketingDesigner.designsCount": countedNoun("es", {"one":"diseño","many":"diseños","other":"diseños"}),
+
+  // ── The job-post composer and the approval gate ──────────────────────────
+  //
+  // BEFORE/AFTER are rendered INTO the image, in a fixed-width pill that does
+  // not shrink its type the way the headline and footer do (lib/marketing/
+  // jobPost.js). The tightest frame is the 1080x1920 Story: 324px of pill at
+  // 60px Arial Bold with charSpacing 80, which is 5.40em, and fabric never
+  // wraps a single word — it overflows it. Every pair below was measured
+  // against real font metrics at that frame, not estimated. German cannot use
+  // the canonical NACHHER (5.48em) and Tagalog cannot use PAGKATAPOS
+  // (7.78em); both would hang outside the pill, so each uses the longest
+  // faithful pair that fits.
+  //
+  // metaPending and adsNote describe a real gate — direct posting is blocked
+  // on Meta's App Review and FieldQuo genuinely cannot create the ad. They
+  // must stay that plain in every language; softening either into "coming
+  // soon" ships the dead control AGENTS.md opens with, in eight languages.
+  "app.aiImage.hintNoPhoto": "Sin una foto adjunta se la inventa. Adjunta una foto real si la imagen debe mostrar tu trabajo.",
+  "app.aiImage.hintNoPrices": "No conoce tus precios ni tu zona de servicio — escribe tú mismo el número que quieras.",
+  "app.aiImage.hintUseJobPost": "Para un antes/después de un trabajo real, usa «Crear una publicación a partir de un trabajo» en la lista de diseños.",
+  "app.aiImage.hintWithPhoto": "Di qué cambiar en la foto — «pon esta puerta sobre un fondo blanco liso».",
+  "app.aiImage.referenceAlt": "La foto a partir de la cual se creará la imagen",
+  "app.aiImage.referenceAttached": "Tu foto se editará, no se reemplazará.",
+  "app.aiImage.referenceFromCanvas": "Usar una del lienzo",
+  "app.aiImage.referenceLabel": "Partir de una foto",
+  "app.aiImage.referenceRemove": "Quitar esta foto",
+  "app.aiImage.referenceUpload": "Subir",
+  "app.aiImage.uploadFailed": "Esa foto no se pudo subir.",
+  "app.marketingDesigner.approval.addHashtags": "Añadir esto al texto",
+  "app.marketingDesigner.approval.adsNote": "Para un anuncio de pago, sube el archivo descargado en Meta Ads Manager. FieldQuo no puede crear el anuncio por ti — eso requiere un permiso de Meta que aún no nos han concedido.",
+  "app.marketingDesigner.approval.approve": "Aprobar esta publicación",
+  "app.marketingDesigner.approval.approveError": "No se pudo aprobar este diseño.",
+  "app.marketingDesigner.approval.approvedBy": "Aprobado por {name}.",
+  "app.marketingDesigner.approval.approvedState": "Aprobado y listo para salir.",
+  "app.marketingDesigner.approval.badgeApproved": "Aprobado",
+  "app.marketingDesigner.approval.badgeNotApproved": "Sin aprobar",
+  "app.marketingDesigner.approval.badgeReview": "Revisar y aprobar",
+  "app.marketingDesigner.approval.badgeStale": "Volver a aprobar",
+  "app.marketingDesigner.approval.captionCopied": "Texto copiado",
+  "app.marketingDesigner.approval.copyCaption": "Copiar el texto",
+  "app.marketingDesigner.approval.copyFailed": "Tu navegador no nos dejó copiar eso.",
+  "app.marketingDesigner.approval.downloadForAds": "Descargar todos los tamaños",
+  "app.marketingDesigner.approval.loadError": "No se pudo cargar el estado de aprobación.",
+  "app.marketingDesigner.approval.loading": "Comprobando este diseño…",
+  "app.marketingDesigner.approval.metaPending": "Publicar directamente en Instagram y Facebook está a la espera de la revisión de la aplicación por parte de Meta. Hasta que se resuelva, descarga la publicación y súbela desde tu propia cuenta — lleva un minuto y no se pierde nada.",
+  "app.marketingDesigner.approval.nextLabel": "Qué sigue",
+  "app.marketingDesigner.approval.notApprovedState": "Aún sin aprobar. No se puede programar ni publicar nada hasta que lo esté.",
+  "app.marketingDesigner.approval.nothingToApprove": "Todavía no hay arte guardado en este diseño. Edítalo y se va guardando solo.",
+  "app.marketingDesigner.approval.openPublish": "Programarlo o publicarlo",
+  "app.marketingDesigner.approval.saveError": "No se pudo guardar este texto.",
+  "app.marketingDesigner.approval.staleState": "Esto cambió después de aprobarse. Míralo otra vez y vuelve a aprobarlo.",
+  "app.marketingDesigner.approval.title": "Revisar y aprobar",
+  "app.marketingDesigner.approval.unsavedWords": "Este texto todavía no está guardado. Al aprobar se guarda primero.",
+  "app.marketingDesigner.approval.withdraw": "Retirar la aprobación",
+  "app.marketingDesigner.approval.withdrawError": "No se pudo retirar la aprobación.",
+  "app.marketingDesigner.jobPost.after": "DESPUÉS",
+  "app.marketingDesigner.jobPost.before": "ANTES",
+  "app.marketingDesigner.jobPost.hasPair": "Antes y después",
+  "app.marketingDesigner.jobPost.hint": "Elige un trabajo. FieldQuo pone sus fotos de antes y después una al lado de la otra, escribe el texto a partir del alcance de obra de ese trabajo y pone tu oficio y tu ciudad en la parte de abajo. No se inventa nada — las fotos marcadas como incidencia nunca se usan.",
+  "app.marketingDesigner.jobPost.loading": "Buscando en tus trabajos…",
+  "app.marketingDesigner.jobPost.make": "Crearlo",
+  "app.marketingDesigner.jobPost.making": "Creando…",
+  "app.marketingDesigner.jobPost.none": "Ningún trabajo tiene aún una foto que podamos publicar. Etiqueta una foto de inicio y otra de final en un trabajo y aparecerá aquí.",
+  "app.marketingDesigner.jobPost.open": "Crear una publicación a partir de un trabajo",
+  "app.marketingDesigner.jobPost.singleOnly": "Una sola foto — sin antes/después en este trabajo",
+  "app.marketingDesigner.publishModal.approvalNeeded": "Esta publicación todavía no se ha aprobado. No se puede programar ni publicar nada hasta que alguien la haya revisado.",
+  "app.marketingDesigner.publishModal.approvalStale": "Este diseño cambió después de aprobarse. Revísalo otra vez antes de que salga.",
+  "app.marketingDesigner.publishModal.editWords": "Editar el texto",
+
+  // ── The front door: log in, sign up, and accept an invitation ────────────
+  //
+  // /accept-invitation is how every employee after the first one gets in, so
+  // it is the one screen a person meets before they have any reason to trust
+  // the product. unavailableBody keeps the blame on us — a translation that
+  // implies the LINK is broken sends somebody to ask for a new one that will
+  // fail exactly the same way.
+  //
+  // The three login errors stay distinguishable on purpose: wrong password,
+  // rate limited, and "we could not reach the server" are different
+  // instructions, and errorUnreachable's reassurance that the password is
+  // fine is the whole reason it exists.
+  "app.auth.login.email": "Correo electrónico",
+  "app.auth.login.errorCredentials": "Ese correo y esa contraseña no coinciden con ninguna cuenta. Compruébalos e inténtalo de nuevo, o restablece tu contraseña abajo.",
+  "app.auth.login.errorThrottled": "Demasiados intentos seguidos. Espera un minuto e inténtalo de nuevo — tu cuenta no tiene ningún problema.",
+  "app.auth.login.errorUnreachable": "No se pudo contactar con FieldQuo ahora mismo. Tu contraseña está bien — comprueba tu conexión e inténtalo de nuevo en un momento.",
+  "app.auth.login.eyebrow": "Iniciar sesión",
+  "app.auth.login.noAccount": "¿No tienes cuenta?",
+  "app.auth.login.password": "Contraseña",
+  "app.auth.login.startTrial": "Empieza tu prueba gratuita",
+  "app.auth.login.submit": "Iniciar sesión",
+  "app.auth.login.submitting": "Iniciando sesión…",
+  "app.auth.login.subtitle": "Retoma donde lo dejaste — presupuestos que enviar, trabajos que programar, facturas que cobrar.",
+  "app.auth.login.title": "Bienvenido de nuevo",
+  "app.invite.acceptFailed": "No hemos podido añadirte a esta empresa ahora mismo. Inténtalo de nuevo en un momento.",
+  "app.invite.acceptUnreachable": "No hemos podido contactar con FieldQuo ahora mismo. Inténtalo de nuevo en un momento.",
+  "app.invite.alreadyRegistered": "{email} ya tiene una cuenta de FieldQuo. Inicia sesión con tu contraseña actual y se te añadirá a {org}.",
+  "app.invite.asRole": "Se te ha invitado como {role}.",
+  "app.invite.cancelledBody": "Se canceló, o ya se ha sustituido. Pide a {org} que te envíe una nueva.",
+  "app.invite.cancelledTitle": "Esta invitación no se puede usar",
+  "app.invite.createFailed": "No hemos podido crear tu acceso ahora mismo. Inténtalo de nuevo en un momento.",
+  "app.invite.createPassword": "Crea una contraseña",
+  "app.invite.expiredBody": "Las invitaciones no duran para siempre. Pide a {org} que te envíe una nueva.",
+  "app.invite.expiredTitle": "Esta invitación ha caducado",
+  "app.invite.hasAccountNote": "Ya tienes una cuenta de FieldQuo con esta dirección. Inicia sesión y se te añadirá a {org} — tus empresas actuales se quedan exactamente como están.",
+  "app.invite.joining": "Añadiéndote a {org}…",
+  "app.invite.nameLabel": "Tu nombre",
+  "app.invite.notFoundBody": "Este enlace no es válido, o la invitación se ha eliminado. Pide a quien te invitó que te envíe una nueva.",
+  "app.invite.notFoundTitle": "Invitación no encontrada",
+  "app.invite.password": "Contraseña",
+  "app.invite.passwordHint": "Al menos 8 caracteres",
+  "app.invite.retry": "Inténtalo de nuevo",
+  "app.invite.stillLoading": "Sigue cargando — inténtalo de nuevo en un momento.",
+  "app.invite.submitCreate": "Crear acceso y unirme",
+  "app.invite.submitSignIn": "Iniciar sesión y unirme",
+  "app.invite.submitting": "Uniéndote…",
+  "app.invite.switchToSignIn": "Ya tengo una cuenta de FieldQuo",
+  "app.invite.switchToSignUp": "Necesito crear un acceso",
+  "app.invite.title": "Unirte a {org}",
+  "app.invite.unavailableBody": "Es un problema nuestro, no de tu enlace. Inténtalo de nuevo en un momento — debería seguir funcionando.",
+  "app.invite.unavailableTitle": "No hemos podido cargar esta invitación",
+  "app.signup.alreadyIn": "Ya tienes un negocio aquí",
+  "app.signup.alreadyInBody": "Has iniciado sesión como {name}. FieldQuo da un negocio por cuenta, así que no hay nada que configurar en esta página.",
+  "app.signup.eyebrow": "Empieza tu mes gratis",
+  "app.signup.eyebrowExisting": "Añadir un negocio",
+  "app.signup.goToDashboard": "Ir a tu panel",
+  "app.signup.inviteInstead": "Añade a alguien a tu equipo en su lugar",
+  "app.signup.subtitle": "configura tu negocio, elige tus oficios y luego elige un plan.",
+  "app.signup.yourOwnReferral": "Las ofertas de recomendación son para negocios nuevos en FieldQuo — aquí tienes tu propio enlace",
 
   "app.removeBg.subtitle": "Elimina el fondo de una imagen con IA",
   "app.removeBg.selectedAlt": "Foto seleccionada",
@@ -20417,6 +20801,134 @@ const uk = {
   "app.status.onTheWay": "У дорозі",
   "app.marketingDesigner.designsCount": countedNoun("uk", {"one":"макет","few":"макети","many":"макетів","other":"макета"}),
 
+  // ── The job-post composer and the approval gate ──────────────────────────
+  //
+  // BEFORE/AFTER are rendered INTO the image, in a fixed-width pill that does
+  // not shrink its type the way the headline and footer do (lib/marketing/
+  // jobPost.js). The tightest frame is the 1080x1920 Story: 324px of pill at
+  // 60px Arial Bold with charSpacing 80, which is 5.40em, and fabric never
+  // wraps a single word — it overflows it. Every pair below was measured
+  // against real font metrics at that frame, not estimated. German cannot use
+  // the canonical NACHHER (5.48em) and Tagalog cannot use PAGKATAPOS
+  // (7.78em); both would hang outside the pill, so each uses the longest
+  // faithful pair that fits.
+  //
+  // metaPending and adsNote describe a real gate — direct posting is blocked
+  // on Meta's App Review and FieldQuo genuinely cannot create the ad. They
+  // must stay that plain in every language; softening either into "coming
+  // soon" ships the dead control AGENTS.md opens with, in eight languages.
+  "app.aiImage.hintNoPhoto": "Без доданого фото воно його вигадає. Додайте справжнє фото, якщо зображення має показувати вашу роботу.",
+  "app.aiImage.hintNoPrices": "Воно не знає ані ваших цін, ані вашої зони обслуговування — впишіть будь-яке число самі.",
+  "app.aiImage.hintUseJobPost": "Щоб зробити «до/після» зі справжньої роботи, скористайтеся пунктом «Створити допис із роботи» у списку макетів.",
+  "app.aiImage.hintWithPhoto": "Скажіть, що змінити на фото — «постав ці двері на однотонному білому тлі».",
+  "app.aiImage.referenceAlt": "Фото, з якого буде створено це зображення",
+  "app.aiImage.referenceAttached": "Ваше фото буде відредаговано, а не замінено.",
+  "app.aiImage.referenceFromCanvas": "Узяти одне з полотна",
+  "app.aiImage.referenceLabel": "Почати з фото",
+  "app.aiImage.referenceRemove": "Прибрати це фото",
+  "app.aiImage.referenceUpload": "Завантажити",
+  "app.aiImage.uploadFailed": "Це фото не вдалося завантажити.",
+  "app.marketingDesigner.approval.addHashtags": "Додати їх до підпису",
+  "app.marketingDesigner.approval.adsNote": "Для платного оголошення завантажте збережений файл у Meta Ads Manager. FieldQuo не може створити оголошення за вас — для цього потрібен дозвіл Meta, якого нам ще не надано.",
+  "app.marketingDesigner.approval.approve": "Затвердити цей допис",
+  "app.marketingDesigner.approval.approveError": "Не вдалося затвердити цей макет.",
+  "app.marketingDesigner.approval.approvedBy": "Затверджено: {name}.",
+  "app.marketingDesigner.approval.approvedState": "Затверджено й готово до публікації.",
+  "app.marketingDesigner.approval.badgeApproved": "Затверджено",
+  "app.marketingDesigner.approval.badgeNotApproved": "Не затверджено",
+  "app.marketingDesigner.approval.badgeReview": "Переглянути й затвердити",
+  "app.marketingDesigner.approval.badgeStale": "Затвердити знову",
+  "app.marketingDesigner.approval.captionCopied": "Підпис скопійовано",
+  "app.marketingDesigner.approval.copyCaption": "Скопіювати підпис",
+  "app.marketingDesigner.approval.copyFailed": "Ваш браузер не дозволив це скопіювати.",
+  "app.marketingDesigner.approval.downloadForAds": "Завантажити всі розміри",
+  "app.marketingDesigner.approval.loadError": "Не вдалося завантажити стан затвердження.",
+  "app.marketingDesigner.approval.loading": "Перевіряємо цей макет…",
+  "app.marketingDesigner.approval.metaPending": "Пряма публікація в Instagram і Facebook очікує на перевірку застосунку з боку Meta. Доки її не завершено, завантажте допис і опублікуйте його зі свого власного облікового запису — це займе хвилину, і нічого не втрачається.",
+  "app.marketingDesigner.approval.nextLabel": "Що далі",
+  "app.marketingDesigner.approval.notApprovedState": "Ще не затверджено. Доки цього не зроблено, нічого не можна запланувати чи опублікувати.",
+  "app.marketingDesigner.approval.nothingToApprove": "У цьому макеті ще немає збереженої графіки. Відредагуйте його — він зберігається на ходу.",
+  "app.marketingDesigner.approval.openPublish": "Запланувати або опублікувати",
+  "app.marketingDesigner.approval.saveError": "Не вдалося зберегти цей текст.",
+  "app.marketingDesigner.approval.staleState": "Це змінилося після затвердження. Перегляньте ще раз, а тоді затвердіть знову.",
+  "app.marketingDesigner.approval.title": "Переглянути й затвердити",
+  "app.marketingDesigner.approval.unsavedWords": "Цей текст ще не збережено. Затвердження спочатку збереже його.",
+  "app.marketingDesigner.approval.withdraw": "Відкликати затвердження",
+  "app.marketingDesigner.approval.withdrawError": "Не вдалося відкликати затвердження.",
+  "app.marketingDesigner.jobPost.after": "ПІСЛЯ",
+  "app.marketingDesigner.jobPost.before": "ДО",
+  "app.marketingDesigner.jobPost.hasPair": "До і після",
+  "app.marketingDesigner.jobPost.hint": "Виберіть роботу. FieldQuo поставить її фото «до» і «після» поруч, напише текст із обсягу робіт цієї роботи та розмістить ваш фах і місто внизу. Нічого не вигадується — фото, позначені як проблема, ніколи не використовуються.",
+  "app.marketingDesigner.jobPost.loading": "Переглядаємо ваші роботи…",
+  "app.marketingDesigner.jobPost.make": "Створити",
+  "app.marketingDesigner.jobPost.making": "Створення…",
+  "app.marketingDesigner.jobPost.none": "Жодна робота ще не має фото, яке можна опублікувати. Позначте на роботі знімок початку і знімок завершення — і вона з'явиться тут.",
+  "app.marketingDesigner.jobPost.open": "Створити допис із роботи",
+  "app.marketingDesigner.jobPost.singleOnly": "Одне фото — на цій роботі немає «до/після»",
+  "app.marketingDesigner.publishModal.approvalNeeded": "Цей допис ще не затверджено. Нічого не можна запланувати чи опублікувати, доки хтось його не перегляне.",
+  "app.marketingDesigner.publishModal.approvalStale": "Цей макет змінився після затвердження. Перегляньте його ще раз, перш ніж він вийде.",
+  "app.marketingDesigner.publishModal.editWords": "Редагувати текст",
+
+  // ── The front door: log in, sign up, and accept an invitation ────────────
+  //
+  // /accept-invitation is how every employee after the first one gets in, so
+  // it is the one screen a person meets before they have any reason to trust
+  // the product. unavailableBody keeps the blame on us — a translation that
+  // implies the LINK is broken sends somebody to ask for a new one that will
+  // fail exactly the same way.
+  //
+  // The three login errors stay distinguishable on purpose: wrong password,
+  // rate limited, and "we could not reach the server" are different
+  // instructions, and errorUnreachable's reassurance that the password is
+  // fine is the whole reason it exists.
+  "app.auth.login.email": "Електронна пошта",
+  "app.auth.login.errorCredentials": "Ця пошта і цей пароль не відповідають жодному обліковому запису. Перевірте їх і спробуйте ще раз або скиньте пароль нижче.",
+  "app.auth.login.errorThrottled": "Забагато спроб поспіль. Зачекайте хвилину і спробуйте ще раз — із вашим обліковим записом усе гаразд.",
+  "app.auth.login.errorUnreachable": "Зараз не вдалося зв'язатися з FieldQuo. Ваш пароль правильний — перевірте з'єднання і спробуйте ще раз за мить.",
+  "app.auth.login.eyebrow": "Вхід",
+  "app.auth.login.noAccount": "Немає облікового запису?",
+  "app.auth.login.password": "Пароль",
+  "app.auth.login.startTrial": "Почніть безкоштовний період",
+  "app.auth.login.submit": "Увійти",
+  "app.auth.login.submitting": "Вхід…",
+  "app.auth.login.subtitle": "Продовжуйте з того, на чому спинилися — кошториси до надсилання, роботи до планування, рахунки до нагадування.",
+  "app.auth.login.title": "З поверненням",
+  "app.invite.acceptFailed": "Зараз не вдалося додати вас до цієї компанії. Спробуйте ще раз за мить.",
+  "app.invite.acceptUnreachable": "Зараз не вдалося зв'язатися з FieldQuo. Спробуйте ще раз за мить.",
+  "app.invite.alreadyRegistered": "{email} уже має обліковий запис FieldQuo. Увійдіть із наявним паролем — і вас буде додано до {org}.",
+  "app.invite.asRole": "Вас запрошено як {role}.",
+  "app.invite.cancelledBody": "Його скасовано або вже замінено. Попросіть {org} надіслати вам нове.",
+  "app.invite.cancelledTitle": "Це запрошення не можна використати",
+  "app.invite.createFailed": "Зараз не вдалося створити ваш обліковий запис. Спробуйте ще раз за мить.",
+  "app.invite.createPassword": "Створіть пароль",
+  "app.invite.expiredBody": "Запрошення діють не вічно. Попросіть {org} надіслати вам нове.",
+  "app.invite.expiredTitle": "Термін дії цього запрошення минув",
+  "app.invite.hasAccountNote": "На цю адресу вже є обліковий запис FieldQuo. Увійдіть — і вас буде додано до {org}. Ваші наявні компанії залишаться точно такими, як є.",
+  "app.invite.joining": "Додаємо вас до {org}…",
+  "app.invite.nameLabel": "Ваше ім'я",
+  "app.invite.notFoundBody": "Це посилання недійсне або запрошення видалено. Попросіть того, хто вас запросив, надіслати нове.",
+  "app.invite.notFoundTitle": "Запрошення не знайдено",
+  "app.invite.password": "Пароль",
+  "app.invite.passwordHint": "Щонайменше 8 символів",
+  "app.invite.retry": "Спробувати ще раз",
+  "app.invite.stillLoading": "Ще завантажується — спробуйте ще раз за мить.",
+  "app.invite.submitCreate": "Створити запис і приєднатися",
+  "app.invite.submitSignIn": "Увійти і приєднатися",
+  "app.invite.submitting": "Приєднання…",
+  "app.invite.switchToSignIn": "У мене вже є обліковий запис FieldQuo",
+  "app.invite.switchToSignUp": "Мені потрібно створити обліковий запис",
+  "app.invite.title": "Приєднатися до {org}",
+  "app.invite.unavailableBody": "Це проблема з нашого боку, а не з вашим посиланням. Спробуйте ще раз за мить — воно має й далі працювати.",
+  "app.invite.unavailableTitle": "Не вдалося завантажити це запрошення",
+  "app.signup.alreadyIn": "У вас тут уже є компанія",
+  "app.signup.alreadyInBody": "Ви увійшли як {name}. FieldQuo дає одну компанію на один обліковий запис, тож на цій сторінці немає чого налаштовувати.",
+  "app.signup.eyebrow": "Почніть безкоштовний місяць",
+  "app.signup.eyebrowExisting": "Додати компанію",
+  "app.signup.goToDashboard": "Перейти до панелі",
+  "app.signup.inviteInstead": "Натомість додайте когось до своєї команди",
+  "app.signup.subtitle": "налаштуйте компанію, оберіть свої напрями робіт, а тоді оберіть тариф.",
+  "app.signup.yourOwnReferral": "Реферальні пропозиції — для компаній, нових у FieldQuo. Ось ваше власне посилання",
+
   "app.removeBg.subtitle": "Видаліть фон із зображення за допомогою ШІ",
   "app.removeBg.selectedAlt": "Вибране фото",
   "app.deepRead.title": "Глибокий аналіз фотографій",
@@ -23979,6 +24491,134 @@ const pa = {
   "app.marketingDesigner.createdOn": "{date} ਨੂੰ ਬਣਾਇਆ",
   "app.status.onTheWay": "ਰਸਤੇ ਵਿੱਚ",
   "app.marketingDesigner.designsCount": countedNoun("pa", {"one":"ਡਿਜ਼ਾਈਨ","other":"ਡਿਜ਼ਾਈਨ"}),
+
+  // ── The job-post composer and the approval gate ──────────────────────────
+  //
+  // BEFORE/AFTER are rendered INTO the image, in a fixed-width pill that does
+  // not shrink its type the way the headline and footer do (lib/marketing/
+  // jobPost.js). The tightest frame is the 1080x1920 Story: 324px of pill at
+  // 60px Arial Bold with charSpacing 80, which is 5.40em, and fabric never
+  // wraps a single word — it overflows it. Every pair below was measured
+  // against real font metrics at that frame, not estimated. German cannot use
+  // the canonical NACHHER (5.48em) and Tagalog cannot use PAGKATAPOS
+  // (7.78em); both would hang outside the pill, so each uses the longest
+  // faithful pair that fits.
+  //
+  // metaPending and adsNote describe a real gate — direct posting is blocked
+  // on Meta's App Review and FieldQuo genuinely cannot create the ad. They
+  // must stay that plain in every language; softening either into "coming
+  // soon" ships the dead control AGENTS.md opens with, in eight languages.
+  "app.aiImage.hintNoPhoto": "ਜੇ ਕੋਈ ਫ਼ੋਟੋ ਨੱਥੀ ਨਾ ਹੋਵੇ ਤਾਂ ਇਹ ਆਪੇ ਇੱਕ ਘੜ ਲੈਂਦਾ ਹੈ। ਜੇ ਤਸਵੀਰ ਤੁਹਾਡਾ ਆਪਣਾ ਕੰਮ ਦਿਖਾਉਣੀ ਹੈ ਤਾਂ ਅਸਲੀ ਫ਼ੋਟੋ ਨੱਥੀ ਕਰੋ।",
+  "app.aiImage.hintNoPrices": "ਇਸ ਨੂੰ ਨਾ ਤੁਹਾਡੀਆਂ ਕੀਮਤਾਂ ਪਤਾ ਹਨ ਨਾ ਤੁਹਾਡਾ ਸੇਵਾ ਖੇਤਰ — ਜੋ ਵੀ ਰਕਮ ਲਿਖਣੀ ਹੈ, ਆਪ ਲਿਖੋ।",
+  "app.aiImage.hintUseJobPost": "ਕਿਸੇ ਅਸਲੀ ਕੰਮ ਦਾ ਪਹਿਲਾਂ/ਬਾਅਦ ਬਣਾਉਣ ਲਈ, ਡਿਜ਼ਾਈਨ ਸੂਚੀ ਵਿੱਚ “ਕੰਮ ਤੋਂ ਪੋਸਟ ਬਣਾਓ” ਵਰਤੋ।",
+  "app.aiImage.hintWithPhoto": "ਦੱਸੋ ਕਿ ਫ਼ੋਟੋ ਵਿੱਚ ਕੀ ਬਦਲਣਾ ਹੈ — “ਇਸ ਦਰਵਾਜ਼ੇ ਨੂੰ ਸਾਦੇ ਚਿੱਟੇ ਬੈਕਗ੍ਰਾਊਂਡ ਉੱਤੇ ਰੱਖੋ”।",
+  "app.aiImage.referenceAlt": "ਉਹ ਫ਼ੋਟੋ ਜਿਸ ਤੋਂ ਇਹ ਤਸਵੀਰ ਬਣਾਈ ਜਾਵੇਗੀ",
+  "app.aiImage.referenceAttached": "ਤੁਹਾਡੀ ਫ਼ੋਟੋ ਸੋਧੀ ਜਾਵੇਗੀ, ਬਦਲੀ ਨਹੀਂ ਜਾਵੇਗੀ।",
+  "app.aiImage.referenceFromCanvas": "ਕੈਨਵਸ ਵਾਲੀ ਕੋਈ ਇੱਕ ਵਰਤੋ",
+  "app.aiImage.referenceLabel": "ਕਿਸੇ ਫ਼ੋਟੋ ਤੋਂ ਸ਼ੁਰੂ ਕਰੋ",
+  "app.aiImage.referenceRemove": "ਇਹ ਫ਼ੋਟੋ ਹਟਾਓ",
+  "app.aiImage.referenceUpload": "ਅੱਪਲੋਡ ਕਰੋ",
+  "app.aiImage.uploadFailed": "ਉਹ ਫ਼ੋਟੋ ਅੱਪਲੋਡ ਨਹੀਂ ਹੋ ਸਕੀ।",
+  "app.marketingDesigner.approval.addHashtags": "ਇਹ ਕੈਪਸ਼ਨ ਵਿੱਚ ਜੋੜੋ",
+  "app.marketingDesigner.approval.adsNote": "ਭੁਗਤਾਨ ਵਾਲੇ ਇਸ਼ਤਿਹਾਰ ਲਈ, ਡਾਊਨਲੋਡ ਕੀਤੀ ਫ਼ਾਈਲ Meta Ads Manager ਵਿੱਚ ਅੱਪਲੋਡ ਕਰੋ। FieldQuo ਤੁਹਾਡੇ ਲਈ ਇਸ਼ਤਿਹਾਰ ਨਹੀਂ ਬਣਾ ਸਕਦਾ — ਇਸ ਲਈ Meta ਦੀ ਇੱਕ ਇਜਾਜ਼ਤ ਚਾਹੀਦੀ ਹੈ ਜੋ ਸਾਨੂੰ ਹਾਲੇ ਨਹੀਂ ਮਿਲੀ।",
+  "app.marketingDesigner.approval.approve": "ਇਸ ਪੋਸਟ ਨੂੰ ਮਨਜ਼ੂਰ ਕਰੋ",
+  "app.marketingDesigner.approval.approveError": "ਇਹ ਡਿਜ਼ਾਈਨ ਮਨਜ਼ੂਰ ਨਹੀਂ ਹੋ ਸਕਿਆ।",
+  "app.marketingDesigner.approval.approvedBy": "{name} ਵੱਲੋਂ ਮਨਜ਼ੂਰ ਕੀਤਾ ਗਿਆ।",
+  "app.marketingDesigner.approval.approvedState": "ਮਨਜ਼ੂਰ ਹੋ ਗਿਆ ਅਤੇ ਭੇਜਣ ਲਈ ਤਿਆਰ ਹੈ।",
+  "app.marketingDesigner.approval.badgeApproved": "ਮਨਜ਼ੂਰ",
+  "app.marketingDesigner.approval.badgeNotApproved": "ਮਨਜ਼ੂਰ ਨਹੀਂ",
+  "app.marketingDesigner.approval.badgeReview": "ਵੇਖੋ ਤੇ ਮਨਜ਼ੂਰ ਕਰੋ",
+  "app.marketingDesigner.approval.badgeStale": "ਮੁੜ ਮਨਜ਼ੂਰ ਕਰੋ",
+  "app.marketingDesigner.approval.captionCopied": "ਕੈਪਸ਼ਨ ਕਾਪੀ ਹੋ ਗਿਆ",
+  "app.marketingDesigner.approval.copyCaption": "ਕੈਪਸ਼ਨ ਕਾਪੀ ਕਰੋ",
+  "app.marketingDesigner.approval.copyFailed": "ਤੁਹਾਡੇ ਬ੍ਰਾਊਜ਼ਰ ਨੇ ਸਾਨੂੰ ਇਹ ਕਾਪੀ ਨਹੀਂ ਕਰਨ ਦਿੱਤਾ।",
+  "app.marketingDesigner.approval.downloadForAds": "ਸਾਰੇ ਆਕਾਰ ਡਾਊਨਲੋਡ ਕਰੋ",
+  "app.marketingDesigner.approval.loadError": "ਮਨਜ਼ੂਰੀ ਦੀ ਹਾਲਤ ਲੋਡ ਨਹੀਂ ਹੋ ਸਕੀ।",
+  "app.marketingDesigner.approval.loading": "ਇਹ ਡਿਜ਼ਾਈਨ ਜਾਂਚਿਆ ਜਾ ਰਿਹਾ ਹੈ…",
+  "app.marketingDesigner.approval.metaPending": "Instagram ਅਤੇ Facebook ਉੱਤੇ ਸਿੱਧਾ ਪੋਸਟ ਕਰਨਾ Meta ਦੀ ਐਪ ਸਮੀਖਿਆ ਦੀ ਉਡੀਕ ਵਿੱਚ ਹੈ। ਜਦੋਂ ਤੱਕ ਉਹ ਪੂਰੀ ਨਹੀਂ ਹੁੰਦੀ, ਪੋਸਟ ਡਾਊਨਲੋਡ ਕਰੋ ਅਤੇ ਆਪਣੇ ਖਾਤੇ ਤੋਂ ਪਾ ਦਿਓ — ਇਸ ਵਿੱਚ ਇੱਕ ਮਿੰਟ ਲੱਗਦਾ ਹੈ ਅਤੇ ਕੁਝ ਵੀ ਨਹੀਂ ਗੁਆਚਦਾ।",
+  "app.marketingDesigner.approval.nextLabel": "ਅੱਗੇ ਕੀ",
+  "app.marketingDesigner.approval.notApprovedState": "ਹਾਲੇ ਮਨਜ਼ੂਰ ਨਹੀਂ ਹੋਇਆ। ਜਦੋਂ ਤੱਕ ਨਹੀਂ ਹੁੰਦਾ, ਨਾ ਕੁਝ ਸ਼ਡਿਊਲ ਹੋ ਸਕਦਾ ਹੈ ਨਾ ਪੋਸਟ।",
+  "app.marketingDesigner.approval.nothingToApprove": "ਇਸ ਡਿਜ਼ਾਈਨ ਉੱਤੇ ਹਾਲੇ ਕੋਈ ਸੰਭਾਲੀ ਹੋਈ ਕਲਾਕਾਰੀ ਨਹੀਂ ਹੈ। ਇਸ ਨੂੰ ਸੋਧੋ, ਇਹ ਨਾਲੋ-ਨਾਲ ਸੰਭਾਲਿਆ ਜਾਂਦਾ ਹੈ।",
+  "app.marketingDesigner.approval.openPublish": "ਸ਼ਡਿਊਲ ਕਰੋ ਜਾਂ ਪੋਸਟ ਕਰੋ",
+  "app.marketingDesigner.approval.saveError": "ਇਹ ਸ਼ਬਦ ਸੰਭਾਲੇ ਨਹੀਂ ਜਾ ਸਕੇ।",
+  "app.marketingDesigner.approval.staleState": "ਮਨਜ਼ੂਰੀ ਤੋਂ ਬਾਅਦ ਇਸ ਵਿੱਚ ਤਬਦੀਲੀ ਹੋਈ ਹੈ। ਇੱਕ ਵਾਰ ਹੋਰ ਵੇਖੋ, ਫਿਰ ਦੁਬਾਰਾ ਮਨਜ਼ੂਰ ਕਰੋ।",
+  "app.marketingDesigner.approval.title": "ਵੇਖੋ ਤੇ ਮਨਜ਼ੂਰ ਕਰੋ",
+  "app.marketingDesigner.approval.unsavedWords": "ਇਹ ਸ਼ਬਦ ਹਾਲੇ ਸੰਭਾਲੇ ਨਹੀਂ ਗਏ। ਮਨਜ਼ੂਰ ਕਰਨ ਨਾਲ ਇਹ ਪਹਿਲਾਂ ਸੰਭਾਲੇ ਜਾਣਗੇ।",
+  "app.marketingDesigner.approval.withdraw": "ਮਨਜ਼ੂਰੀ ਵਾਪਸ ਲਵੋ",
+  "app.marketingDesigner.approval.withdrawError": "ਮਨਜ਼ੂਰੀ ਵਾਪਸ ਨਹੀਂ ਲਈ ਜਾ ਸਕੀ।",
+  "app.marketingDesigner.jobPost.after": "ਬਾਅਦ",
+  "app.marketingDesigner.jobPost.before": "ਪਹਿਲਾਂ",
+  "app.marketingDesigner.jobPost.hasPair": "ਪਹਿਲਾਂ ਤੇ ਬਾਅਦ",
+  "app.marketingDesigner.jobPost.hint": "ਕੋਈ ਕੰਮ ਚੁਣੋ। FieldQuo ਉਸ ਦੀਆਂ ਪਹਿਲਾਂ ਤੇ ਬਾਅਦ ਵਾਲੀਆਂ ਫ਼ੋਟੋਆਂ ਨਾਲ-ਨਾਲ ਰੱਖਦਾ ਹੈ, ਉਸ ਕੰਮ ਦੇ ਕਾਰਜ ਖੇਤਰ ਤੋਂ ਸ਼ਬਦ ਲਿਖਦਾ ਹੈ, ਅਤੇ ਹੇਠਾਂ ਤੁਹਾਡਾ ਕਿੱਤਾ ਤੇ ਸ਼ਹਿਰ ਪਾ ਦਿੰਦਾ ਹੈ। ਕੁਝ ਵੀ ਘੜਿਆ ਨਹੀਂ ਜਾਂਦਾ — ਸਮੱਸਿਆ ਵਜੋਂ ਨਿਸ਼ਾਨਬੱਧ ਫ਼ੋਟੋਆਂ ਕਦੇ ਨਹੀਂ ਵਰਤੀਆਂ ਜਾਂਦੀਆਂ।",
+  "app.marketingDesigner.jobPost.loading": "ਤੁਹਾਡੇ ਕੰਮਾਂ ਵਿੱਚ ਵੇਖਿਆ ਜਾ ਰਿਹਾ ਹੈ…",
+  "app.marketingDesigner.jobPost.make": "ਬਣਾਓ",
+  "app.marketingDesigner.jobPost.making": "ਬਣ ਰਿਹਾ ਹੈ…",
+  "app.marketingDesigner.jobPost.none": "ਹਾਲੇ ਕਿਸੇ ਕੰਮ ਉੱਤੇ ਅਜਿਹੀ ਫ਼ੋਟੋ ਨਹੀਂ ਜੋ ਅਸੀਂ ਛਾਪ ਸਕੀਏ। ਕਿਸੇ ਕੰਮ ਉੱਤੇ ਸ਼ੁਰੂ ਅਤੇ ਮੁਕੰਮਲ ਹੋਣ ਦੀ ਫ਼ੋਟੋ ਨਿਸ਼ਾਨਬੱਧ ਕਰੋ, ਉਹ ਇੱਥੇ ਦਿਖ ਪਵੇਗਾ।",
+  "app.marketingDesigner.jobPost.open": "ਕੰਮ ਤੋਂ ਪੋਸਟ ਬਣਾਓ",
+  "app.marketingDesigner.jobPost.singleOnly": "ਇੱਕੋ ਫ਼ੋਟੋ — ਇਸ ਕੰਮ ਉੱਤੇ ਪਹਿਲਾਂ/ਬਾਅਦ ਨਹੀਂ",
+  "app.marketingDesigner.publishModal.approvalNeeded": "ਇਹ ਪੋਸਟ ਹਾਲੇ ਮਨਜ਼ੂਰ ਨਹੀਂ ਹੋਈ। ਜਦੋਂ ਤੱਕ ਕੋਈ ਇਸ ਨੂੰ ਵੇਖ ਨਹੀਂ ਲੈਂਦਾ, ਨਾ ਕੁਝ ਸ਼ਡਿਊਲ ਹੋ ਸਕਦਾ ਹੈ ਨਾ ਪੋਸਟ।",
+  "app.marketingDesigner.publishModal.approvalStale": "ਮਨਜ਼ੂਰੀ ਤੋਂ ਬਾਅਦ ਇਸ ਡਿਜ਼ਾਈਨ ਵਿੱਚ ਤਬਦੀਲੀ ਹੋਈ ਹੈ। ਬਾਹਰ ਜਾਣ ਤੋਂ ਪਹਿਲਾਂ ਇਸ ਨੂੰ ਦੁਬਾਰਾ ਵੇਖੋ।",
+  "app.marketingDesigner.publishModal.editWords": "ਸ਼ਬਦ ਸੋਧੋ",
+
+  // ── The front door: log in, sign up, and accept an invitation ────────────
+  //
+  // /accept-invitation is how every employee after the first one gets in, so
+  // it is the one screen a person meets before they have any reason to trust
+  // the product. unavailableBody keeps the blame on us — a translation that
+  // implies the LINK is broken sends somebody to ask for a new one that will
+  // fail exactly the same way.
+  //
+  // The three login errors stay distinguishable on purpose: wrong password,
+  // rate limited, and "we could not reach the server" are different
+  // instructions, and errorUnreachable's reassurance that the password is
+  // fine is the whole reason it exists.
+  "app.auth.login.email": "ਈਮੇਲ",
+  "app.auth.login.errorCredentials": "ਇਹ ਈਮੇਲ ਅਤੇ ਪਾਸਵਰਡ ਕਿਸੇ ਖਾਤੇ ਨਾਲ ਮੇਲ ਨਹੀਂ ਖਾਂਦੇ। ਇਨ੍ਹਾਂ ਦੀ ਜਾਂਚ ਕਰ ਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ, ਜਾਂ ਹੇਠਾਂ ਆਪਣਾ ਪਾਸਵਰਡ ਮੁੜ-ਸੈੱਟ ਕਰੋ।",
+  "app.auth.login.errorThrottled": "ਲਗਾਤਾਰ ਬਹੁਤ ਕੋਸ਼ਿਸ਼ਾਂ ਹੋ ਗਈਆਂ। ਇੱਕ ਮਿੰਟ ਰੁਕ ਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ — ਤੁਹਾਡੇ ਖਾਤੇ ਵਿੱਚ ਕੋਈ ਖ਼ਰਾਬੀ ਨਹੀਂ ਹੈ।",
+  "app.auth.login.errorUnreachable": "ਇਸ ਵੇਲੇ FieldQuo ਤੱਕ ਨਹੀਂ ਪਹੁੰਚ ਸਕੇ। ਤੁਹਾਡਾ ਪਾਸਵਰਡ ਠੀਕ ਹੈ — ਆਪਣਾ ਕਨੈਕਸ਼ਨ ਵੇਖੋ ਅਤੇ ਥੋੜ੍ਹੀ ਦੇਰ ਬਾਅਦ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+  "app.auth.login.eyebrow": "ਲੌਗ ਇਨ",
+  "app.auth.login.noAccount": "ਖਾਤਾ ਨਹੀਂ ਹੈ?",
+  "app.auth.login.password": "ਪਾਸਵਰਡ",
+  "app.auth.login.startTrial": "ਆਪਣਾ ਮੁਫ਼ਤ ਟ੍ਰਾਇਲ ਸ਼ੁਰੂ ਕਰੋ",
+  "app.auth.login.submit": "ਲੌਗ ਇਨ ਕਰੋ",
+  "app.auth.login.submitting": "ਲੌਗ ਇਨ ਹੋ ਰਿਹਾ ਹੈ…",
+  "app.auth.login.subtitle": "ਜਿੱਥੇ ਛੱਡਿਆ ਸੀ ਉੱਥੋਂ ਅੱਗੇ ਤੁਰੋ — ਭੇਜਣ ਵਾਲੇ ਕੋਟੇਸ਼ਨ, ਸ਼ਡਿਊਲ ਕਰਨ ਵਾਲੇ ਕੰਮ, ਉਗਰਾਹੁਣ ਵਾਲੇ ਇਨਵਾਇਸ।",
+  "app.auth.login.title": "ਜੀ ਆਇਆਂ ਨੂੰ",
+  "app.invite.acceptFailed": "ਇਸ ਵੇਲੇ ਤੁਹਾਨੂੰ ਇਸ ਕੰਪਨੀ ਵਿੱਚ ਨਹੀਂ ਜੋੜ ਸਕੇ। ਥੋੜ੍ਹੀ ਦੇਰ ਬਾਅਦ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+  "app.invite.acceptUnreachable": "ਇਸ ਵੇਲੇ FieldQuo ਤੱਕ ਨਹੀਂ ਪਹੁੰਚ ਸਕੇ। ਥੋੜ੍ਹੀ ਦੇਰ ਬਾਅਦ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+  "app.invite.alreadyRegistered": "{email} ਦਾ ਪਹਿਲਾਂ ਹੀ FieldQuo ਖਾਤਾ ਹੈ। ਆਪਣੇ ਮੌਜੂਦਾ ਪਾਸਵਰਡ ਨਾਲ ਸਾਈਨ ਇਨ ਕਰੋ ਅਤੇ ਤੁਹਾਨੂੰ {org} ਵਿੱਚ ਜੋੜ ਦਿੱਤਾ ਜਾਵੇਗਾ।",
+  "app.invite.asRole": "ਤੁਹਾਨੂੰ {role} ਵਜੋਂ ਸੱਦਾ ਦਿੱਤਾ ਗਿਆ ਹੈ।",
+  "app.invite.cancelledBody": "ਇਹ ਰੱਦ ਕਰ ਦਿੱਤਾ ਗਿਆ ਸੀ, ਜਾਂ ਇਸ ਦੀ ਥਾਂ ਪਹਿਲਾਂ ਹੀ ਨਵਾਂ ਆ ਚੁੱਕਾ ਹੈ। {org} ਨੂੰ ਨਵਾਂ ਭੇਜਣ ਲਈ ਕਹੋ।",
+  "app.invite.cancelledTitle": "ਇਹ ਸੱਦਾ ਵਰਤਿਆ ਨਹੀਂ ਜਾ ਸਕਦਾ",
+  "app.invite.createFailed": "ਇਸ ਵੇਲੇ ਤੁਹਾਡਾ ਲੌਗ ਇਨ ਨਹੀਂ ਬਣਾ ਸਕੇ। ਥੋੜ੍ਹੀ ਦੇਰ ਬਾਅਦ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+  "app.invite.createPassword": "ਪਾਸਵਰਡ ਬਣਾਓ",
+  "app.invite.expiredBody": "ਸੱਦੇ ਹਮੇਸ਼ਾ ਲਈ ਨਹੀਂ ਚੱਲਦੇ। {org} ਨੂੰ ਨਵਾਂ ਭੇਜਣ ਲਈ ਕਹੋ।",
+  "app.invite.expiredTitle": "ਇਸ ਸੱਦੇ ਦੀ ਮਿਆਦ ਪੁੱਗ ਗਈ ਹੈ",
+  "app.invite.hasAccountNote": "ਇਸ ਪਤੇ ਉੱਤੇ ਤੁਹਾਡਾ ਪਹਿਲਾਂ ਹੀ FieldQuo ਖਾਤਾ ਹੈ। ਸਾਈਨ ਇਨ ਕਰੋ ਅਤੇ ਤੁਹਾਨੂੰ {org} ਵਿੱਚ ਜੋੜ ਦਿੱਤਾ ਜਾਵੇਗਾ — ਤੁਹਾਡੀਆਂ ਮੌਜੂਦਾ ਕੰਪਨੀਆਂ ਬਿਲਕੁਲ ਉਵੇਂ ਹੀ ਰਹਿਣਗੀਆਂ।",
+  "app.invite.joining": "ਤੁਹਾਨੂੰ {org} ਵਿੱਚ ਜੋੜਿਆ ਜਾ ਰਿਹਾ ਹੈ…",
+  "app.invite.nameLabel": "ਤੁਹਾਡਾ ਨਾਂ",
+  "app.invite.notFoundBody": "ਇਹ ਲਿੰਕ ਗ਼ਲਤ ਹੈ, ਜਾਂ ਸੱਦਾ ਹਟਾ ਦਿੱਤਾ ਗਿਆ ਹੈ। ਜਿਸ ਨੇ ਤੁਹਾਨੂੰ ਸੱਦਿਆ ਸੀ, ਉਸ ਨੂੰ ਨਵਾਂ ਭੇਜਣ ਲਈ ਕਹੋ।",
+  "app.invite.notFoundTitle": "ਸੱਦਾ ਨਹੀਂ ਮਿਲਿਆ",
+  "app.invite.password": "ਪਾਸਵਰਡ",
+  "app.invite.passwordHint": "ਘੱਟੋ-ਘੱਟ 8 ਅੱਖਰ",
+  "app.invite.retry": "ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ",
+  "app.invite.stillLoading": "ਹਾਲੇ ਲੋਡ ਹੋ ਰਿਹਾ ਹੈ — ਥੋੜ੍ਹੀ ਦੇਰ ਬਾਅਦ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+  "app.invite.submitCreate": "ਲੌਗ ਇਨ ਬਣਾਓ ਤੇ ਸ਼ਾਮਲ ਹੋਵੋ",
+  "app.invite.submitSignIn": "ਸਾਈਨ ਇਨ ਕਰੋ ਤੇ ਸ਼ਾਮਲ ਹੋਵੋ",
+  "app.invite.submitting": "ਸ਼ਾਮਲ ਹੋ ਰਹੇ ਹੋ…",
+  "app.invite.switchToSignIn": "ਮੇਰਾ ਪਹਿਲਾਂ ਹੀ FieldQuo ਖਾਤਾ ਹੈ",
+  "app.invite.switchToSignUp": "ਮੈਨੂੰ ਲੌਗ ਇਨ ਬਣਾਉਣਾ ਪਵੇਗਾ",
+  "app.invite.title": "{org} ਵਿੱਚ ਸ਼ਾਮਲ ਹੋਵੋ",
+  "app.invite.unavailableBody": "ਇਹ ਸਾਡੇ ਪਾਸੇ ਦੀ ਸਮੱਸਿਆ ਹੈ, ਤੁਹਾਡੇ ਲਿੰਕ ਦੀ ਨਹੀਂ। ਥੋੜ੍ਹੀ ਦੇਰ ਬਾਅਦ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ — ਇਹ ਹਾਲੇ ਵੀ ਕੰਮ ਕਰਨਾ ਚਾਹੀਦਾ ਹੈ।",
+  "app.invite.unavailableTitle": "ਅਸੀਂ ਇਹ ਸੱਦਾ ਲੋਡ ਨਹੀਂ ਕਰ ਸਕੇ",
+  "app.signup.alreadyIn": "ਤੁਹਾਡਾ ਇੱਥੇ ਪਹਿਲਾਂ ਹੀ ਇੱਕ ਕਾਰੋਬਾਰ ਹੈ",
+  "app.signup.alreadyInBody": "ਤੁਸੀਂ {name} ਵਜੋਂ ਲੌਗ ਇਨ ਹੋ। FieldQuo ਇੱਕ ਲੌਗ ਇਨ ਲਈ ਇੱਕ ਕਾਰੋਬਾਰ ਦਿੰਦਾ ਹੈ, ਇਸ ਲਈ ਇਸ ਸਫ਼ੇ ਉੱਤੇ ਸੈੱਟ ਕਰਨ ਲਈ ਕੁਝ ਨਹੀਂ ਹੈ।",
+  "app.signup.eyebrow": "ਆਪਣਾ ਮੁਫ਼ਤ ਮਹੀਨਾ ਸ਼ੁਰੂ ਕਰੋ",
+  "app.signup.eyebrowExisting": "ਕਾਰੋਬਾਰ ਜੋੜੋ",
+  "app.signup.goToDashboard": "ਆਪਣੇ ਡੈਸ਼ਬੋਰਡ ਉੱਤੇ ਜਾਓ",
+  "app.signup.inviteInstead": "ਇਸ ਦੀ ਥਾਂ ਆਪਣੀ ਟੀਮ ਵਿੱਚ ਕਿਸੇ ਨੂੰ ਜੋੜੋ",
+  "app.signup.subtitle": "ਆਪਣਾ ਕਾਰੋਬਾਰ ਸੈੱਟ ਕਰੋ, ਆਪਣੇ ਕਿੱਤੇ ਚੁਣੋ, ਫਿਰ ਕੋਈ ਪਲੈਨ ਚੁਣੋ।",
+  "app.signup.yourOwnReferral": "ਰੈਫ਼ਰਲ ਪੇਸ਼ਕਸ਼ਾਂ FieldQuo ਉੱਤੇ ਨਵੇਂ ਕਾਰੋਬਾਰਾਂ ਲਈ ਹਨ — ਇਹ ਰਿਹਾ ਤੁਹਾਡਾ ਆਪਣਾ ਲਿੰਕ",
 
   "app.removeBg.subtitle": "AI ਨਾਲ ਚਿੱਤਰ ਦਾ ਬੈਕਗ੍ਰਾਊਂਡ ਹਟਾਓ",
   "app.removeBg.selectedAlt": "ਚੁਣੀ ਹੋਈ ਫ਼ੋਟੋ",
@@ -27549,6 +28189,134 @@ const tl = {
   "app.marketingDesigner.createdOn": "ginawa noong {date}",
   "app.status.onTheWay": "Papunta na",
   "app.marketingDesigner.designsCount": countedNoun("tl", {"one":"disenyo","other":"disenyo"}),
+
+  // ── The job-post composer and the approval gate ──────────────────────────
+  //
+  // BEFORE/AFTER are rendered INTO the image, in a fixed-width pill that does
+  // not shrink its type the way the headline and footer do (lib/marketing/
+  // jobPost.js). The tightest frame is the 1080x1920 Story: 324px of pill at
+  // 60px Arial Bold with charSpacing 80, which is 5.40em, and fabric never
+  // wraps a single word — it overflows it. Every pair below was measured
+  // against real font metrics at that frame, not estimated. German cannot use
+  // the canonical NACHHER (5.48em) and Tagalog cannot use PAGKATAPOS
+  // (7.78em); both would hang outside the pill, so each uses the longest
+  // faithful pair that fits.
+  //
+  // metaPending and adsNote describe a real gate — direct posting is blocked
+  // on Meta's App Review and FieldQuo genuinely cannot create the ad. They
+  // must stay that plain in every language; softening either into "coming
+  // soon" ships the dead control AGENTS.md opens with, in eight languages.
+  "app.aiImage.hintNoPhoto": "Kapag walang nakakabit na larawan, gumagawa ito ng sarili nitong bersyon. Maglakip ng totoong larawan kung ang gusto mong ipakita ay ang sarili mong trabaho.",
+  "app.aiImage.hintNoPrices": "Hindi nito alam ang presyo mo o ang serbisyo mong sakop — ikaw mismo ang maglagay ng kung anong halaga ang gusto mo.",
+  "app.aiImage.hintUseJobPost": "Para sa before/after mula sa totoong trabaho, gamitin ang “Gumawa ng post mula sa isang trabaho” sa listahan ng mga disenyo.",
+  "app.aiImage.hintWithPhoto": "Sabihin kung ano ang babaguhin sa larawan — “ilagay ang pintuang ito sa plain na puting background”.",
+  "app.aiImage.referenceAlt": "Ang larawang pagbabatayan ng imaheng ito",
+  "app.aiImage.referenceAttached": "Ie-edit ang larawan mo, hindi papalitan.",
+  "app.aiImage.referenceFromCanvas": "Gumamit ng isa sa canvas",
+  "app.aiImage.referenceLabel": "Magsimula sa isang larawan",
+  "app.aiImage.referenceRemove": "Alisin ang larawang ito",
+  "app.aiImage.referenceUpload": "I-upload",
+  "app.aiImage.uploadFailed": "Hindi na-upload ang larawang iyon.",
+  "app.marketingDesigner.approval.addHashtags": "Idagdag ang mga ito sa caption",
+  "app.marketingDesigner.approval.adsNote": "Para sa bayad na ad, i-upload ang na-download na file sa Meta Ads Manager. Hindi magagawa ng FieldQuo ang ad para sa iyo — kailangan doon ng permiso mula sa Meta na hindi pa ibinibigay sa amin.",
+  "app.marketingDesigner.approval.approve": "Aprubahan ang post na ito",
+  "app.marketingDesigner.approval.approveError": "Hindi naaprubahan ang disenyong ito.",
+  "app.marketingDesigner.approval.approvedBy": "Inaprubahan ni {name}.",
+  "app.marketingDesigner.approval.approvedState": "Aprubado na at handa nang ilabas.",
+  "app.marketingDesigner.approval.badgeApproved": "Aprubado",
+  "app.marketingDesigner.approval.badgeNotApproved": "Hindi aprubado",
+  "app.marketingDesigner.approval.badgeReview": "Suriin at aprubahan",
+  "app.marketingDesigner.approval.badgeStale": "Aprubahan ulit",
+  "app.marketingDesigner.approval.captionCopied": "Nakopya ang caption",
+  "app.marketingDesigner.approval.copyCaption": "Kopyahin ang caption",
+  "app.marketingDesigner.approval.copyFailed": "Hindi kami pinayagan ng browser mo na kopyahin iyon.",
+  "app.marketingDesigner.approval.downloadForAds": "I-download ang lahat ng sukat",
+  "app.marketingDesigner.approval.loadError": "Hindi na-load ang katayuan ng pag-apruba.",
+  "app.marketingDesigner.approval.loading": "Sinusuri ang disenyong ito…",
+  "app.marketingDesigner.approval.metaPending": "Ang diretsong pag-post sa Instagram at Facebook ay naghihintay pa ng app review ng Meta. Hangga't hindi pa iyon natatapos, i-download ang post at ilagay mo ito mula sa sarili mong account — isang minuto lang ito at walang mawawala.",
+  "app.marketingDesigner.approval.nextLabel": "Ano ang susunod",
+  "app.marketingDesigner.approval.notApprovedState": "Hindi pa aprubado. Walang maisa-schedule o maipo-post hangga't hindi pa ito naaaprubahan.",
+  "app.marketingDesigner.approval.nothingToApprove": "Wala pang naka-save na artwork sa disenyong ito. I-edit mo ito at nagse-save ito habang ginagawa mo.",
+  "app.marketingDesigner.approval.openPublish": "I-schedule o i-post ito",
+  "app.marketingDesigner.approval.saveError": "Hindi na-save ang mga salitang ito.",
+  "app.marketingDesigner.approval.staleState": "Nagbago ito pagkatapos maaprubahan. Tingnan mo ulit, tapos aprubahan muli.",
+  "app.marketingDesigner.approval.title": "Suriin at aprubahan",
+  "app.marketingDesigner.approval.unsavedWords": "Hindi pa naka-save ang mga salitang ito. Sine-save muna ang mga ito kapag inaprubahan.",
+  "app.marketingDesigner.approval.withdraw": "Bawiin ang pag-apruba",
+  "app.marketingDesigner.approval.withdrawError": "Hindi nabawi ang pag-apruba.",
+  "app.marketingDesigner.jobPost.after": "NGAYON",
+  "app.marketingDesigner.jobPost.before": "DATI",
+  "app.marketingDesigner.jobPost.hasPair": "Dati at ngayon",
+  "app.marketingDesigner.jobPost.hint": "Pumili ng trabaho. Pinagtatabi ng FieldQuo ang mga larawang dati at ngayon, isinusulat ang mga salita mula sa saklaw ng gawain ng trabahong iyon, at inilalagay ang hanapbuhay at bayan mo sa ibaba. Walang iniimbento — hindi kailanman ginagamit ang mga larawang may tatak na isyu.",
+  "app.marketingDesigner.jobPost.loading": "Hinahanap sa mga trabaho mo…",
+  "app.marketingDesigner.jobPost.make": "Gawin",
+  "app.marketingDesigner.jobPost.making": "Ginagawa…",
+  "app.marketingDesigner.jobPost.none": "Wala pang trabahong may larawang puwede naming ilathala. I-tag ang kuha sa simula at sa katapusan ng isang trabaho at lalabas ito dito.",
+  "app.marketingDesigner.jobPost.open": "Gumawa ng post mula sa isang trabaho",
+  "app.marketingDesigner.jobPost.singleOnly": "Isang larawan lang — walang dati/ngayon sa trabahong ito",
+  "app.marketingDesigner.publishModal.approvalNeeded": "Hindi pa naaaprubahan ang post na ito. Walang maisa-schedule o maipo-post hangga't walang nakakatingin dito.",
+  "app.marketingDesigner.publishModal.approvalStale": "Nagbago ang disenyong ito pagkatapos maaprubahan. Suriin ulit bago ito lumabas.",
+  "app.marketingDesigner.publishModal.editWords": "I-edit ang mga salita",
+
+  // ── The front door: log in, sign up, and accept an invitation ────────────
+  //
+  // /accept-invitation is how every employee after the first one gets in, so
+  // it is the one screen a person meets before they have any reason to trust
+  // the product. unavailableBody keeps the blame on us — a translation that
+  // implies the LINK is broken sends somebody to ask for a new one that will
+  // fail exactly the same way.
+  //
+  // The three login errors stay distinguishable on purpose: wrong password,
+  // rate limited, and "we could not reach the server" are different
+  // instructions, and errorUnreachable's reassurance that the password is
+  // fine is the whole reason it exists.
+  "app.auth.login.email": "Email",
+  "app.auth.login.errorCredentials": "Walang account na tumutugma sa email at password na iyan. Suriin mo ulit at subukan muli, o i-reset ang password mo sa ibaba.",
+  "app.auth.login.errorThrottled": "Masyadong maraming sunod-sunod na pagsubok. Maghintay ng isang minuto at subukan ulit — walang problema sa account mo.",
+  "app.auth.login.errorUnreachable": "Hindi namin naabot ang FieldQuo ngayon. Walang problema sa password mo — tingnan ang koneksyon mo at subukan ulit maya-maya.",
+  "app.auth.login.eyebrow": "Mag-log in",
+  "app.auth.login.noAccount": "Wala ka pang account?",
+  "app.auth.login.password": "Password",
+  "app.auth.login.startTrial": "Simulan ang libreng trial mo",
+  "app.auth.login.submit": "Mag-log In",
+  "app.auth.login.submitting": "Nagla-log in…",
+  "app.auth.login.subtitle": "Ituloy kung saan ka huminto — mga quote na ipapadala, trabahong isa-schedule, invoice na susundan.",
+  "app.auth.login.title": "Maligayang pagbabalik",
+  "app.invite.acceptFailed": "Hindi ka namin naidagdag sa kompanyang ito ngayon. Subukan ulit maya-maya.",
+  "app.invite.acceptUnreachable": "Hindi namin naabot ang FieldQuo ngayon. Subukan ulit maya-maya.",
+  "app.invite.alreadyRegistered": "May FieldQuo account na ang {email}. Mag-sign in gamit ang kasalukuyang password mo at idadagdag ka sa {org}.",
+  "app.invite.asRole": "Inimbitahan ka bilang {role}.",
+  "app.invite.cancelledBody": "Kinansela ito, o napalitan na ito. Hilingin sa {org} na padalhan ka ng bago.",
+  "app.invite.cancelledTitle": "Hindi magagamit ang imbitasyong ito",
+  "app.invite.createFailed": "Hindi namin nagawa ang log in mo ngayon. Subukan ulit maya-maya.",
+  "app.invite.createPassword": "Gumawa ng password",
+  "app.invite.expiredBody": "Hindi habambuhay ang mga imbitasyon. Hilingin sa {org} na padalhan ka ng bago.",
+  "app.invite.expiredTitle": "Nag-expire na ang imbitasyong ito",
+  "app.invite.hasAccountNote": "May FieldQuo account ka na sa address na ito. Mag-sign in at idadagdag ka sa {org} — mananatiling ganoon pa rin ang mga kompanyang meron ka na.",
+  "app.invite.joining": "Idinadagdag ka sa {org}…",
+  "app.invite.nameLabel": "Pangalan mo",
+  "app.invite.notFoundBody": "Hindi wasto ang link na ito, o inalis na ang imbitasyon. Hilingin sa nag-imbita sa iyo na magpadala ng bago.",
+  "app.invite.notFoundTitle": "Hindi natagpuan ang imbitasyon",
+  "app.invite.password": "Password",
+  "app.invite.passwordHint": "Hindi bababa sa 8 karakter",
+  "app.invite.retry": "Subukan ulit",
+  "app.invite.stillLoading": "Nagla-load pa — subukan ulit maya-maya.",
+  "app.invite.submitCreate": "Gumawa ng log in at sumali",
+  "app.invite.submitSignIn": "Mag-sign in at sumali",
+  "app.invite.submitting": "Sumasali…",
+  "app.invite.switchToSignIn": "May FieldQuo account na ako",
+  "app.invite.switchToSignUp": "Kailangan kong gumawa ng log in",
+  "app.invite.title": "Sumali sa {org}",
+  "app.invite.unavailableBody": "Problema iyan sa panig namin, hindi sa link mo. Subukan ulit maya-maya — dapat gumagana pa rin ito.",
+  "app.invite.unavailableTitle": "Hindi namin na-load ang imbitasyong ito",
+  "app.signup.alreadyIn": "May negosyo ka na rito",
+  "app.signup.alreadyInBody": "Naka-log in ka bilang {name}. Isang negosyo bawat log in ang ibinibigay ng FieldQuo, kaya wala nang i-se-set up sa pahinang ito.",
+  "app.signup.eyebrow": "Simulan ang libreng buwan mo",
+  "app.signup.eyebrowExisting": "Magdagdag ng negosyo",
+  "app.signup.goToDashboard": "Pumunta sa dashboard mo",
+  "app.signup.inviteInstead": "Magdagdag na lang ng tao sa team mo",
+  "app.signup.subtitle": "i-set up ang negosyo mo, piliin ang mga hanapbuhay mo, tapos pumili ng plano.",
+  "app.signup.yourOwnReferral": "Para sa mga negosyong bago sa FieldQuo ang mga referral offer — narito ang sarili mong link",
 
   "app.removeBg.subtitle": "Alisin ang background ng larawan gamit ang AI",
   "app.removeBg.selectedAlt": "Napiling larawan",
@@ -32567,6 +33335,134 @@ const de = {
   "app.status.onTheWay": "Unterwegs",
   "app.marketingDesigner.designsCount": countedNoun("de", {"one":"Design","other":"Designs"}),
 
+  // ── The job-post composer and the approval gate ──────────────────────────
+  //
+  // BEFORE/AFTER are rendered INTO the image, in a fixed-width pill that does
+  // not shrink its type the way the headline and footer do (lib/marketing/
+  // jobPost.js). The tightest frame is the 1080x1920 Story: 324px of pill at
+  // 60px Arial Bold with charSpacing 80, which is 5.40em, and fabric never
+  // wraps a single word — it overflows it. Every pair below was measured
+  // against real font metrics at that frame, not estimated. German cannot use
+  // the canonical NACHHER (5.48em) and Tagalog cannot use PAGKATAPOS
+  // (7.78em); both would hang outside the pill, so each uses the longest
+  // faithful pair that fits.
+  //
+  // metaPending and adsNote describe a real gate — direct posting is blocked
+  // on Meta's App Review and FieldQuo genuinely cannot create the ad. They
+  // must stay that plain in every language; softening either into "coming
+  // soon" ships the dead control AGENTS.md opens with, in eight languages.
+  "app.aiImage.hintNoPhoto": "Ohne angehängtes Foto erfindet sie eines. Hängen Sie ein echtes Foto an, wenn das Bild Ihre Arbeit zeigen soll.",
+  "app.aiImage.hintNoPrices": "Sie kennt weder Ihre Preise noch Ihr Einsatzgebiet — schreiben Sie jede gewünschte Zahl selbst darauf.",
+  "app.aiImage.hintUseJobPost": "Für ein Vorher/Nachher aus einem echten Auftrag nutzen Sie stattdessen „Beitrag aus einem Auftrag erstellen“ in der Designliste.",
+  "app.aiImage.hintWithPhoto": "Sagen Sie, was am Foto geändert werden soll — „stelle diese Tür vor einen schlichten weißen Hintergrund“.",
+  "app.aiImage.referenceAlt": "Das Foto, aus dem dieses Bild entsteht",
+  "app.aiImage.referenceAttached": "Ihr Foto wird bearbeitet, nicht ersetzt.",
+  "app.aiImage.referenceFromCanvas": "Eines von der Arbeitsfläche verwenden",
+  "app.aiImage.referenceLabel": "Mit einem Foto beginnen",
+  "app.aiImage.referenceRemove": "Dieses Foto entfernen",
+  "app.aiImage.referenceUpload": "Hochladen",
+  "app.aiImage.uploadFailed": "Dieses Foto ließ sich nicht hochladen.",
+  "app.marketingDesigner.approval.addHashtags": "Diese zum Bildtext hinzufügen",
+  "app.marketingDesigner.approval.adsNote": "Laden Sie die heruntergeladene Datei für eine bezahlte Anzeige im Meta Ads Manager hoch. FieldQuo kann die Anzeige nicht für Sie anlegen — dafür braucht es eine Meta-Berechtigung, die uns noch nicht erteilt wurde.",
+  "app.marketingDesigner.approval.approve": "Diesen Beitrag freigeben",
+  "app.marketingDesigner.approval.approveError": "Dieses Design konnte nicht freigegeben werden.",
+  "app.marketingDesigner.approval.approvedBy": "Freigegeben von {name}.",
+  "app.marketingDesigner.approval.approvedState": "Freigegeben und bereit zum Veröffentlichen.",
+  "app.marketingDesigner.approval.badgeApproved": "Freigegeben",
+  "app.marketingDesigner.approval.badgeNotApproved": "Nicht freigegeben",
+  "app.marketingDesigner.approval.badgeReview": "Prüfen und freigeben",
+  "app.marketingDesigner.approval.badgeStale": "Erneut freigeben",
+  "app.marketingDesigner.approval.captionCopied": "Bildtext kopiert",
+  "app.marketingDesigner.approval.copyCaption": "Bildtext kopieren",
+  "app.marketingDesigner.approval.copyFailed": "Ihr Browser hat das Kopieren nicht zugelassen.",
+  "app.marketingDesigner.approval.downloadForAds": "Alle Größen herunterladen",
+  "app.marketingDesigner.approval.loadError": "Der Freigabestatus konnte nicht geladen werden.",
+  "app.marketingDesigner.approval.loading": "Dieses Design wird geprüft…",
+  "app.marketingDesigner.approval.metaPending": "Das direkte Veröffentlichen auf Instagram und Facebook wartet auf die App-Prüfung durch Meta. Bis das erledigt ist, laden Sie den Beitrag herunter und stellen Sie ihn über Ihr eigenes Konto ein — das dauert eine Minute und nichts geht verloren.",
+  "app.marketingDesigner.approval.nextLabel": "Wie es weitergeht",
+  "app.marketingDesigner.approval.notApprovedState": "Noch nicht freigegeben. Bis dahin kann nichts geplant oder veröffentlicht werden.",
+  "app.marketingDesigner.approval.nothingToApprove": "Auf diesem Design ist noch kein Entwurf gespeichert. Bearbeiten Sie es, dann wird laufend gespeichert.",
+  "app.marketingDesigner.approval.openPublish": "Planen oder veröffentlichen",
+  "app.marketingDesigner.approval.saveError": "Dieser Text konnte nicht gespeichert werden.",
+  "app.marketingDesigner.approval.staleState": "Das hat sich nach der Freigabe geändert. Sehen Sie es sich noch einmal an und geben Sie es erneut frei.",
+  "app.marketingDesigner.approval.title": "Prüfen und freigeben",
+  "app.marketingDesigner.approval.unsavedWords": "Dieser Text ist noch nicht gespeichert. Mit der Freigabe wird er zuerst gespeichert.",
+  "app.marketingDesigner.approval.withdraw": "Freigabe zurückziehen",
+  "app.marketingDesigner.approval.withdrawError": "Die Freigabe konnte nicht zurückgezogen werden.",
+  "app.marketingDesigner.jobPost.after": "DANACH",
+  "app.marketingDesigner.jobPost.before": "VORHER",
+  "app.marketingDesigner.jobPost.hasPair": "Vorher und nachher",
+  "app.marketingDesigner.jobPost.hint": "Wählen Sie einen Auftrag. FieldQuo stellt dessen Vorher- und Nachher-Fotos nebeneinander, schreibt den Text aus dem Leistungsumfang dieses Auftrags und setzt Ihr Gewerk und Ihren Ort an den unteren Rand. Nichts wird erfunden — als Mangel markierte Fotos werden nie verwendet.",
+  "app.marketingDesigner.jobPost.loading": "Ihre Aufträge werden durchgesehen…",
+  "app.marketingDesigner.jobPost.make": "Erstellen",
+  "app.marketingDesigner.jobPost.making": "Wird erstellt…",
+  "app.marketingDesigner.jobPost.none": "Noch kein Auftrag hat ein Foto, das wir veröffentlichen können. Markieren Sie an einem Auftrag eine Anfangs- und eine Schlussaufnahme, dann erscheint er hier.",
+  "app.marketingDesigner.jobPost.open": "Beitrag aus einem Auftrag erstellen",
+  "app.marketingDesigner.jobPost.singleOnly": "Nur ein Foto — kein Vorher/Nachher bei diesem Auftrag",
+  "app.marketingDesigner.publishModal.approvalNeeded": "Dieser Beitrag wurde noch nicht freigegeben. Es kann nichts geplant oder veröffentlicht werden, bevor jemand ihn angesehen hat.",
+  "app.marketingDesigner.publishModal.approvalStale": "Dieses Design hat sich nach der Freigabe geändert. Prüfen Sie es erneut, bevor es hinausgeht.",
+  "app.marketingDesigner.publishModal.editWords": "Text bearbeiten",
+
+  // ── The front door: log in, sign up, and accept an invitation ────────────
+  //
+  // /accept-invitation is how every employee after the first one gets in, so
+  // it is the one screen a person meets before they have any reason to trust
+  // the product. unavailableBody keeps the blame on us — a translation that
+  // implies the LINK is broken sends somebody to ask for a new one that will
+  // fail exactly the same way.
+  //
+  // The three login errors stay distinguishable on purpose: wrong password,
+  // rate limited, and "we could not reach the server" are different
+  // instructions, and errorUnreachable's reassurance that the password is
+  // fine is the whole reason it exists.
+  "app.auth.login.email": "E-Mail",
+  "app.auth.login.errorCredentials": "Diese E-Mail und dieses Passwort passen zu keinem Konto. Prüfen Sie beides und versuchen Sie es erneut, oder setzen Sie Ihr Passwort unten zurück.",
+  "app.auth.login.errorThrottled": "Zu viele Versuche hintereinander. Warten Sie eine Minute und versuchen Sie es erneut — mit Ihrem Konto stimmt alles.",
+  "app.auth.login.errorUnreachable": "FieldQuo war gerade nicht erreichbar. Ihr Passwort ist in Ordnung — prüfen Sie Ihre Verbindung und versuchen Sie es gleich noch einmal.",
+  "app.auth.login.eyebrow": "Anmelden",
+  "app.auth.login.noAccount": "Noch kein Konto?",
+  "app.auth.login.password": "Passwort",
+  "app.auth.login.startTrial": "Kostenlos testen",
+  "app.auth.login.submit": "Anmelden",
+  "app.auth.login.submitting": "Anmeldung läuft…",
+  "app.auth.login.subtitle": "Machen Sie dort weiter, wo Sie aufgehört haben — Angebote zum Versenden, Aufträge zum Planen, Rechnungen zum Nachfassen.",
+  "app.auth.login.title": "Willkommen zurück",
+  "app.invite.acceptFailed": "Wir konnten Sie diesem Betrieb gerade nicht hinzufügen. Versuchen Sie es gleich noch einmal.",
+  "app.invite.acceptUnreachable": "Wir konnten FieldQuo gerade nicht erreichen. Versuchen Sie es gleich noch einmal.",
+  "app.invite.alreadyRegistered": "{email} hat bereits ein FieldQuo-Konto. Melden Sie sich mit Ihrem bestehenden Passwort an, dann werden Sie zu {org} hinzugefügt.",
+  "app.invite.asRole": "Sie wurden als {role} eingeladen.",
+  "app.invite.cancelledBody": "Sie wurde zurückgezogen oder bereits ersetzt. Bitten Sie {org} um eine neue.",
+  "app.invite.cancelledTitle": "Diese Einladung kann nicht verwendet werden",
+  "app.invite.createFailed": "Wir konnten Ihren Zugang gerade nicht anlegen. Versuchen Sie es gleich noch einmal.",
+  "app.invite.createPassword": "Passwort erstellen",
+  "app.invite.expiredBody": "Einladungen gelten nicht ewig. Bitten Sie {org} um eine neue.",
+  "app.invite.expiredTitle": "Diese Einladung ist abgelaufen",
+  "app.invite.hasAccountNote": "Sie haben unter dieser Adresse bereits ein FieldQuo-Konto. Melden Sie sich an, dann werden Sie zu {org} hinzugefügt — Ihre bestehenden Betriebe bleiben genau so, wie sie sind.",
+  "app.invite.joining": "Sie werden zu {org} hinzugefügt…",
+  "app.invite.nameLabel": "Ihr Name",
+  "app.invite.notFoundBody": "Dieser Link ist ungültig, oder die Einladung wurde entfernt. Bitten Sie die Person, die Sie eingeladen hat, um eine neue.",
+  "app.invite.notFoundTitle": "Einladung nicht gefunden",
+  "app.invite.password": "Passwort",
+  "app.invite.passwordHint": "Mindestens 8 Zeichen",
+  "app.invite.retry": "Erneut versuchen",
+  "app.invite.stillLoading": "Wird noch geladen — versuchen Sie es gleich noch einmal.",
+  "app.invite.submitCreate": "Zugang anlegen und beitreten",
+  "app.invite.submitSignIn": "Anmelden und beitreten",
+  "app.invite.submitting": "Beitritt läuft…",
+  "app.invite.switchToSignIn": "Ich habe bereits ein FieldQuo-Konto",
+  "app.invite.switchToSignUp": "Ich muss einen Zugang anlegen",
+  "app.invite.title": "{org} beitreten",
+  "app.invite.unavailableBody": "Das liegt an uns, nicht an Ihrem Link. Versuchen Sie es gleich noch einmal — er sollte weiterhin funktionieren.",
+  "app.invite.unavailableTitle": "Wir konnten diese Einladung nicht laden",
+  "app.signup.alreadyIn": "Sie haben hier bereits einen Betrieb",
+  "app.signup.alreadyInBody": "Sie sind als {name} angemeldet. FieldQuo sieht einen Betrieb pro Zugang vor, auf dieser Seite gibt es also nichts einzurichten.",
+  "app.signup.eyebrow": "Starten Sie Ihren Gratismonat",
+  "app.signup.eyebrowExisting": "Betrieb hinzufügen",
+  "app.signup.goToDashboard": "Zu Ihrer Übersicht",
+  "app.signup.inviteInstead": "Fügen Sie stattdessen jemanden zu Ihrem Team hinzu",
+  "app.signup.subtitle": "richten Sie Ihren Betrieb ein, wählen Sie Ihre Gewerke und dann einen Tarif.",
+  "app.signup.yourOwnReferral": "Empfehlungsangebote gelten für Betriebe, die neu bei FieldQuo sind — hier ist Ihr eigener Link",
+
   "app.removeBg.subtitle": "Hintergrund eines Bildes per KI entfernen",
   "app.removeBg.selectedAlt": "Ausgewähltes Foto",
   "app.deepRead.title": "Tiefe Fotoanalyse",
@@ -37580,6 +38476,134 @@ const zh = {
   "app.marketingDesigner.createdOn": "{date} 创建",
   "app.status.onTheWay": "在路上",
   "app.marketingDesigner.designsCount": countedNoun("zh", {"other":"设计"}),
+
+  // ── The job-post composer and the approval gate ──────────────────────────
+  //
+  // BEFORE/AFTER are rendered INTO the image, in a fixed-width pill that does
+  // not shrink its type the way the headline and footer do (lib/marketing/
+  // jobPost.js). The tightest frame is the 1080x1920 Story: 324px of pill at
+  // 60px Arial Bold with charSpacing 80, which is 5.40em, and fabric never
+  // wraps a single word — it overflows it. Every pair below was measured
+  // against real font metrics at that frame, not estimated. German cannot use
+  // the canonical NACHHER (5.48em) and Tagalog cannot use PAGKATAPOS
+  // (7.78em); both would hang outside the pill, so each uses the longest
+  // faithful pair that fits.
+  //
+  // metaPending and adsNote describe a real gate — direct posting is blocked
+  // on Meta's App Review and FieldQuo genuinely cannot create the ad. They
+  // must stay that plain in every language; softening either into "coming
+  // soon" ships the dead control AGENTS.md opens with, in eight languages.
+  "app.aiImage.hintNoPhoto": "没有附上照片时它会自己编一张。如果图片要展示你的实际工程，请附上真实照片。",
+  "app.aiImage.hintNoPrices": "它不知道你的价格，也不知道你的服务范围——想写什么数字请你自己写上去。",
+  "app.aiImage.hintUseJobPost": "要用真实工程做前后对比，请改用设计列表中的“用工程做一个帖子”。",
+  "app.aiImage.hintWithPhoto": "说明要把照片改成什么样——“把这扇门放到纯白背景上”。",
+  "app.aiImage.referenceAlt": "这张图片将据以生成的照片",
+  "app.aiImage.referenceAttached": "你的照片会被修改，而不是被替换。",
+  "app.aiImage.referenceFromCanvas": "用画布上的一张",
+  "app.aiImage.referenceLabel": "从一张照片开始",
+  "app.aiImage.referenceRemove": "移除这张照片",
+  "app.aiImage.referenceUpload": "上传",
+  "app.aiImage.uploadFailed": "那张照片没能上传。",
+  "app.marketingDesigner.approval.addHashtags": "把这些加进文案",
+  "app.marketingDesigner.approval.adsNote": "要投放付费广告，请把下载好的文件上传到 Meta Ads Manager。FieldQuo 无法替你创建广告——那需要一项 Meta 权限，我们还没有获得。",
+  "app.marketingDesigner.approval.approve": "批准这个帖子",
+  "app.marketingDesigner.approval.approveError": "无法批准这个设计。",
+  "app.marketingDesigner.approval.approvedBy": "由 {name} 批准。",
+  "app.marketingDesigner.approval.approvedState": "已批准，可以发布了。",
+  "app.marketingDesigner.approval.badgeApproved": "已批准",
+  "app.marketingDesigner.approval.badgeNotApproved": "未批准",
+  "app.marketingDesigner.approval.badgeReview": "审核并批准",
+  "app.marketingDesigner.approval.badgeStale": "需重新批准",
+  "app.marketingDesigner.approval.captionCopied": "文案已复制",
+  "app.marketingDesigner.approval.copyCaption": "复制文案",
+  "app.marketingDesigner.approval.copyFailed": "你的浏览器不允许我们复制。",
+  "app.marketingDesigner.approval.downloadForAds": "下载所有尺寸",
+  "app.marketingDesigner.approval.loadError": "无法加载批准状态。",
+  "app.marketingDesigner.approval.loading": "正在检查这个设计…",
+  "app.marketingDesigner.approval.metaPending": "直接发布到 Instagram 和 Facebook 还在等待 Meta 的应用审核。在通过之前，请下载帖子，用你自己的账号发布——只要一分钟，什么都不会丢。",
+  "app.marketingDesigner.approval.nextLabel": "接下来",
+  "app.marketingDesigner.approval.notApprovedState": "尚未批准。在批准之前，无法安排发布，也无法发布。",
+  "app.marketingDesigner.approval.nothingToApprove": "这个设计上还没有保存好的图稿。编辑它，它会随时保存。",
+  "app.marketingDesigner.approval.openPublish": "安排发布或直接发布",
+  "app.marketingDesigner.approval.saveError": "无法保存这些文字。",
+  "app.marketingDesigner.approval.staleState": "批准之后这里又改动过。请再看一遍，然后重新批准。",
+  "app.marketingDesigner.approval.title": "审核并批准",
+  "app.marketingDesigner.approval.unsavedWords": "这些文字还没保存。批准时会先保存。",
+  "app.marketingDesigner.approval.withdraw": "撤回批准",
+  "app.marketingDesigner.approval.withdrawError": "无法撤回批准。",
+  "app.marketingDesigner.jobPost.after": "施工后",
+  "app.marketingDesigner.jobPost.before": "施工前",
+  "app.marketingDesigner.jobPost.hasPair": "施工前后",
+  "app.marketingDesigner.jobPost.hint": "挑一个工程。FieldQuo 会把它的施工前后照片并排放好，用那个工程的施工范围写出文字，并把你的工种和城市放在底部。什么都不会编造——标记为问题的照片绝不会被使用。",
+  "app.marketingDesigner.jobPost.loading": "正在查找你的工程…",
+  "app.marketingDesigner.jobPost.make": "生成",
+  "app.marketingDesigner.jobPost.making": "正在生成…",
+  "app.marketingDesigner.jobPost.none": "还没有工程有可以发布的照片。在某个工程上标记一张开工照和一张完工照，它就会出现在这里。",
+  "app.marketingDesigner.jobPost.open": "用工程做一个帖子",
+  "app.marketingDesigner.jobPost.singleOnly": "只有一张照片——这个工程没有施工前后对比",
+  "app.marketingDesigner.publishModal.approvalNeeded": "这个帖子还没有获得批准。在有人看过之前，无法安排发布，也无法发布。",
+  "app.marketingDesigner.publishModal.approvalStale": "这个设计在批准之后又改动过。发出去之前请再审核一次。",
+  "app.marketingDesigner.publishModal.editWords": "编辑文字",
+
+  // ── The front door: log in, sign up, and accept an invitation ────────────
+  //
+  // /accept-invitation is how every employee after the first one gets in, so
+  // it is the one screen a person meets before they have any reason to trust
+  // the product. unavailableBody keeps the blame on us — a translation that
+  // implies the LINK is broken sends somebody to ask for a new one that will
+  // fail exactly the same way.
+  //
+  // The three login errors stay distinguishable on purpose: wrong password,
+  // rate limited, and "we could not reach the server" are different
+  // instructions, and errorUnreachable's reassurance that the password is
+  // fine is the whole reason it exists.
+  "app.auth.login.email": "邮箱",
+  "app.auth.login.errorCredentials": "这个邮箱和密码与任何账号都不匹配。请核对后重试，或在下方重置密码。",
+  "app.auth.login.errorThrottled": "连续尝试次数过多。请等一分钟再试——你的账号没有任何问题。",
+  "app.auth.login.errorUnreachable": "此刻无法连接 FieldQuo。你的密码没有问题——请检查网络，稍后重试。",
+  "app.auth.login.eyebrow": "登录",
+  "app.auth.login.noAccount": "还没有账号？",
+  "app.auth.login.password": "密码",
+  "app.auth.login.startTrial": "开始免费试用",
+  "app.auth.login.submit": "登录",
+  "app.auth.login.submitting": "正在登录…",
+  "app.auth.login.subtitle": "从上次的进度继续——待发送的报价、待排期的工程、待催收的发票。",
+  "app.auth.login.title": "欢迎回来",
+  "app.invite.acceptFailed": "此刻无法把你加入这家公司。请稍后重试。",
+  "app.invite.acceptUnreachable": "此刻无法连接 FieldQuo。请稍后重试。",
+  "app.invite.alreadyRegistered": "{email} 已经有一个 FieldQuo 账号。用你现有的密码登录，就会被加入 {org}。",
+  "app.invite.asRole": "你受邀担任 {role}。",
+  "app.invite.cancelledBody": "它已被取消，或者已经被新的邀请取代。请让 {org} 再发一份给你。",
+  "app.invite.cancelledTitle": "这份邀请无法使用",
+  "app.invite.createFailed": "此刻无法创建你的登录账号。请稍后重试。",
+  "app.invite.createPassword": "设置一个密码",
+  "app.invite.expiredBody": "邀请不会一直有效。请让 {org} 再发一份给你。",
+  "app.invite.expiredTitle": "这份邀请已过期",
+  "app.invite.hasAccountNote": "这个邮箱已经有一个 FieldQuo 账号。登录后你就会被加入 {org}——你原有的公司完全保持不变。",
+  "app.invite.joining": "正在把你加入 {org}…",
+  "app.invite.nameLabel": "你的姓名",
+  "app.invite.notFoundBody": "这个链接无效，或者邀请已被删除。请让邀请你的人再发一份新的。",
+  "app.invite.notFoundTitle": "找不到这份邀请",
+  "app.invite.password": "密码",
+  "app.invite.passwordHint": "至少 8 个字符",
+  "app.invite.retry": "重试",
+  "app.invite.stillLoading": "仍在加载——请稍后重试。",
+  "app.invite.submitCreate": "创建账号并加入",
+  "app.invite.submitSignIn": "登录并加入",
+  "app.invite.submitting": "正在加入…",
+  "app.invite.switchToSignIn": "我已经有 FieldQuo 账号了",
+  "app.invite.switchToSignUp": "我需要创建一个登录账号",
+  "app.invite.title": "加入 {org}",
+  "app.invite.unavailableBody": "这是我们这边的问题，不是你的链接有问题。请稍后重试——链接应该仍然有效。",
+  "app.invite.unavailableTitle": "我们无法加载这份邀请",
+  "app.signup.alreadyIn": "你在这里已经有一家公司了",
+  "app.signup.alreadyInBody": "你当前以 {name} 的身份登录。FieldQuo 一个账号对应一家公司，所以这个页面没有什么需要设置的。",
+  "app.signup.eyebrow": "开始你的免费一个月",
+  "app.signup.eyebrowExisting": "添加一家公司",
+  "app.signup.goToDashboard": "前往你的仪表板",
+  "app.signup.inviteInstead": "改为把某人加入你的团队",
+  "app.signup.subtitle": "设置你的公司，选择你的工种，然后选一个套餐。",
+  "app.signup.yourOwnReferral": "推荐优惠面向初次使用 FieldQuo 的公司——这是你自己的链接",
 
   "app.removeBg.subtitle": "使用 AI 去除图片背景",
   "app.removeBg.selectedAlt": "已选照片",
@@ -42889,6 +43913,134 @@ const it = {
   "app.marketingDesigner.createdOn": "creato il {date}",
   "app.status.onTheWay": "In arrivo",
   "app.marketingDesigner.designsCount": countedNoun("it", {"one":"grafica","other":"grafiche"}),
+
+  // ── The job-post composer and the approval gate ──────────────────────────
+  //
+  // BEFORE/AFTER are rendered INTO the image, in a fixed-width pill that does
+  // not shrink its type the way the headline and footer do (lib/marketing/
+  // jobPost.js). The tightest frame is the 1080x1920 Story: 324px of pill at
+  // 60px Arial Bold with charSpacing 80, which is 5.40em, and fabric never
+  // wraps a single word — it overflows it. Every pair below was measured
+  // against real font metrics at that frame, not estimated. German cannot use
+  // the canonical NACHHER (5.48em) and Tagalog cannot use PAGKATAPOS
+  // (7.78em); both would hang outside the pill, so each uses the longest
+  // faithful pair that fits.
+  //
+  // metaPending and adsNote describe a real gate — direct posting is blocked
+  // on Meta's App Review and FieldQuo genuinely cannot create the ad. They
+  // must stay that plain in every language; softening either into "coming
+  // soon" ships the dead control AGENTS.md opens with, in eight languages.
+  "app.aiImage.hintNoPhoto": "Senza una foto allegata se la inventa. Allega una foto vera se l'immagine deve mostrare il tuo lavoro.",
+  "app.aiImage.hintNoPrices": "Non conosce i tuoi prezzi né la tua zona di servizio — scrivici tu stesso il numero che vuoi.",
+  "app.aiImage.hintUseJobPost": "Per un prima/dopo tratto da un lavoro vero, usa «Crea un post da un lavoro» nell'elenco dei progetti grafici.",
+  "app.aiImage.hintWithPhoto": "Di' cosa cambiare nella foto — «metti questa porta su uno sfondo bianco uniforme».",
+  "app.aiImage.referenceAlt": "La foto da cui verrà creata questa immagine",
+  "app.aiImage.referenceAttached": "La tua foto verrà modificata, non sostituita.",
+  "app.aiImage.referenceFromCanvas": "Usane una sull'area di lavoro",
+  "app.aiImage.referenceLabel": "Parti da una foto",
+  "app.aiImage.referenceRemove": "Rimuovi questa foto",
+  "app.aiImage.referenceUpload": "Carica",
+  "app.aiImage.uploadFailed": "Quella foto non si è caricata.",
+  "app.marketingDesigner.approval.addHashtags": "Aggiungili alla didascalia",
+  "app.marketingDesigner.approval.adsNote": "Per un annuncio a pagamento, carica il file scaricato in Meta Ads Manager. FieldQuo non può creare l'annuncio al posto tuo — serve un permesso di Meta che non ci è ancora stato concesso.",
+  "app.marketingDesigner.approval.approve": "Approva questo post",
+  "app.marketingDesigner.approval.approveError": "Impossibile approvare questo progetto grafico.",
+  "app.marketingDesigner.approval.approvedBy": "Approvato da {name}.",
+  "app.marketingDesigner.approval.approvedState": "Approvato e pronto per uscire.",
+  "app.marketingDesigner.approval.badgeApproved": "Approvato",
+  "app.marketingDesigner.approval.badgeNotApproved": "Non approvato",
+  "app.marketingDesigner.approval.badgeReview": "Rivedi e approva",
+  "app.marketingDesigner.approval.badgeStale": "Da riapprovare",
+  "app.marketingDesigner.approval.captionCopied": "Didascalia copiata",
+  "app.marketingDesigner.approval.copyCaption": "Copia la didascalia",
+  "app.marketingDesigner.approval.copyFailed": "Il tuo browser non ci ha permesso di copiarlo.",
+  "app.marketingDesigner.approval.downloadForAds": "Scarica tutti i formati",
+  "app.marketingDesigner.approval.loadError": "Impossibile caricare lo stato di approvazione.",
+  "app.marketingDesigner.approval.loading": "Controllo di questo progetto grafico…",
+  "app.marketingDesigner.approval.metaPending": "La pubblicazione diretta su Instagram e Facebook è in attesa della revisione dell'app da parte di Meta. Finché non si sblocca, scarica il post e pubblicalo dal tuo account — ci vuole un minuto e non si perde nulla.",
+  "app.marketingDesigner.approval.nextLabel": "Cosa fare ora",
+  "app.marketingDesigner.approval.notApprovedState": "Non ancora approvato. Finché non lo è, non si può programmare né pubblicare nulla.",
+  "app.marketingDesigner.approval.nothingToApprove": "Su questo progetto grafico non c'è ancora nessuna grafica salvata. Modificalo e si salva man mano.",
+  "app.marketingDesigner.approval.openPublish": "Programmalo o pubblicalo",
+  "app.marketingDesigner.approval.saveError": "Impossibile salvare questo testo.",
+  "app.marketingDesigner.approval.staleState": "Questo è cambiato dopo l'approvazione. Dagli un'altra occhiata, poi approvalo di nuovo.",
+  "app.marketingDesigner.approval.title": "Rivedi e approva",
+  "app.marketingDesigner.approval.unsavedWords": "Questo testo non è ancora salvato. L'approvazione lo salva prima.",
+  "app.marketingDesigner.approval.withdraw": "Ritira l'approvazione",
+  "app.marketingDesigner.approval.withdrawError": "Impossibile ritirare l'approvazione.",
+  "app.marketingDesigner.jobPost.after": "DOPO",
+  "app.marketingDesigner.jobPost.before": "PRIMA",
+  "app.marketingDesigner.jobPost.hasPair": "Prima e dopo",
+  "app.marketingDesigner.jobPost.hint": "Scegli un lavoro. FieldQuo affianca le sue foto prima e dopo, scrive il testo partendo dall'oggetto dei lavori di quel lavoro e mette il tuo mestiere e la tua città in fondo. Non viene inventato nulla — le foto contrassegnate come problema non vengono mai usate.",
+  "app.marketingDesigner.jobPost.loading": "Ricerca tra i tuoi lavori…",
+  "app.marketingDesigner.jobPost.make": "Crealo",
+  "app.marketingDesigner.jobPost.making": "Creazione…",
+  "app.marketingDesigner.jobPost.none": "Nessun lavoro ha ancora una foto pubblicabile. Contrassegna uno scatto iniziale e uno finale su un lavoro e comparirà qui.",
+  "app.marketingDesigner.jobPost.open": "Crea un post da un lavoro",
+  "app.marketingDesigner.jobPost.singleOnly": "Una sola foto — nessun prima/dopo su questo lavoro",
+  "app.marketingDesigner.publishModal.approvalNeeded": "Questo post non è ancora stato approvato. Non si può programmare né pubblicare nulla finché qualcuno non l'ha guardato.",
+  "app.marketingDesigner.publishModal.approvalStale": "Questo progetto grafico è cambiato dopo l'approvazione. Rivedilo prima che esca.",
+  "app.marketingDesigner.publishModal.editWords": "Modifica il testo",
+
+  // ── The front door: log in, sign up, and accept an invitation ────────────
+  //
+  // /accept-invitation is how every employee after the first one gets in, so
+  // it is the one screen a person meets before they have any reason to trust
+  // the product. unavailableBody keeps the blame on us — a translation that
+  // implies the LINK is broken sends somebody to ask for a new one that will
+  // fail exactly the same way.
+  //
+  // The three login errors stay distinguishable on purpose: wrong password,
+  // rate limited, and "we could not reach the server" are different
+  // instructions, and errorUnreachable's reassurance that the password is
+  // fine is the whole reason it exists.
+  "app.auth.login.email": "Email",
+  "app.auth.login.errorCredentials": "Questa email e questa password non corrispondono a nessun account. Controllale e riprova, oppure reimposta la password qui sotto.",
+  "app.auth.login.errorThrottled": "Troppi tentativi di fila. Aspetta un minuto e riprova — il tuo account non ha nessun problema.",
+  "app.auth.login.errorUnreachable": "Non siamo riusciti a raggiungere FieldQuo in questo momento. La tua password va bene — controlla la connessione e riprova tra un attimo.",
+  "app.auth.login.eyebrow": "Accedi",
+  "app.auth.login.noAccount": "Non hai un account?",
+  "app.auth.login.password": "Password",
+  "app.auth.login.startTrial": "Inizia la prova gratuita",
+  "app.auth.login.submit": "Accedi",
+  "app.auth.login.submitting": "Accesso in corso…",
+  "app.auth.login.subtitle": "Riprendi da dove eri rimasto — preventivi da inviare, lavori da programmare, fatture da sollecitare.",
+  "app.auth.login.title": "Bentornato",
+  "app.invite.acceptFailed": "Non siamo riusciti ad aggiungerti a questa impresa in questo momento. Riprova tra un attimo.",
+  "app.invite.acceptUnreachable": "Non siamo riusciti a raggiungere FieldQuo in questo momento. Riprova tra un attimo.",
+  "app.invite.alreadyRegistered": "{email} ha già un account FieldQuo. Accedi con la password che hai già e verrai aggiunto a {org}.",
+  "app.invite.asRole": "Sei stato invitato come {role}.",
+  "app.invite.cancelledBody": "È stato annullato, oppure è già stato sostituito. Chiedi a {org} di inviartene uno nuovo.",
+  "app.invite.cancelledTitle": "Questo invito non può essere usato",
+  "app.invite.createFailed": "Non siamo riusciti a creare il tuo accesso in questo momento. Riprova tra un attimo.",
+  "app.invite.createPassword": "Crea una password",
+  "app.invite.expiredBody": "Gli inviti non durano per sempre. Chiedi a {org} di inviartene uno nuovo.",
+  "app.invite.expiredTitle": "Questo invito è scaduto",
+  "app.invite.hasAccountNote": "Hai già un account FieldQuo su questo indirizzo. Accedi e verrai aggiunto a {org} — le imprese che hai già restano esattamente come sono.",
+  "app.invite.joining": "Ti stiamo aggiungendo a {org}…",
+  "app.invite.nameLabel": "Il tuo nome",
+  "app.invite.notFoundBody": "Questo link non è valido, oppure l'invito è stato rimosso. Chiedi a chi ti ha invitato di inviartene uno nuovo.",
+  "app.invite.notFoundTitle": "Invito non trovato",
+  "app.invite.password": "Password",
+  "app.invite.passwordHint": "Almeno 8 caratteri",
+  "app.invite.retry": "Riprova",
+  "app.invite.stillLoading": "Sta ancora caricando — riprova tra un attimo.",
+  "app.invite.submitCreate": "Crea l'accesso e unisciti",
+  "app.invite.submitSignIn": "Accedi e unisciti",
+  "app.invite.submitting": "Accesso al team…",
+  "app.invite.switchToSignIn": "Ho già un account FieldQuo",
+  "app.invite.switchToSignUp": "Devo creare un accesso",
+  "app.invite.title": "Unisciti a {org}",
+  "app.invite.unavailableBody": "È un problema dalla nostra parte, non del tuo link. Riprova tra un attimo — dovrebbe funzionare ancora.",
+  "app.invite.unavailableTitle": "Non siamo riusciti a caricare questo invito",
+  "app.signup.alreadyIn": "Hai già un'impresa qui",
+  "app.signup.alreadyInBody": "Hai effettuato l'accesso come {name}. FieldQuo prevede un'impresa per ogni accesso, quindi su questa pagina non c'è nulla da configurare.",
+  "app.signup.eyebrow": "Inizia il tuo mese gratuito",
+  "app.signup.eyebrowExisting": "Aggiungi un'impresa",
+  "app.signup.goToDashboard": "Vai alla tua dashboard",
+  "app.signup.inviteInstead": "Aggiungi invece qualcuno al tuo team",
+  "app.signup.subtitle": "configura la tua impresa, scegli i tuoi mestieri, poi scegli un piano.",
+  "app.signup.yourOwnReferral": "Le offerte di segnalazione sono per le imprese nuove su FieldQuo — ecco il tuo link personale",
 
   "app.removeBg.subtitle": "Rimuovi lo sfondo da un'immagine con l'IA",
   "app.removeBg.selectedAlt": "Foto selezionata",
