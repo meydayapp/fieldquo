@@ -262,12 +262,74 @@ export default function SalesFloorPage() {
           </section>
 
           {/* ── Inbound ────────────────────────────────────────────────── */}
-          {data.inbound ? (
+          {data.inbound || data.salesVoice ? (
             <section className={CARD}>
               <h2 className="text-base font-semibold text-foreground">
                 If a contractor rings the number back
               </h2>
-              <p className="text-sm text-muted-foreground break-words">{data.inbound.text}</p>
+              {/* Two paragraphs, never merged. The first is FieldQuo's own
+                  advertised line, answered by the Retell agent; the second is
+                  the pool of local numbers reps dial from, answered by
+                  /api/rep-dial/inbound. They can be in different states and
+                  usually are. */}
+              {data.inbound ? (
+                <p className="text-sm text-muted-foreground break-words">{data.inbound.text}</p>
+              ) : null}
+              {data.salesVoice ? (
+                <p className="text-sm text-muted-foreground break-words">{data.salesVoice.text}</p>
+              ) : null}
+
+              {/* Today's callbacks. Rendered from the row list rather than a
+                  count, because the useful thing is WHICH business rang and
+                  whether it landed on anybody. `null` is "we could not look"
+                  and says so; an empty array is a measured zero. */}
+              {data.inboundCalls === null ? (
+                <p className="text-xs text-muted-foreground">
+                  Couldn&rsquo;t read today&rsquo;s inbound calls. That is not the same as none.
+                </p>
+              ) : data.inboundCalls.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Nobody has rung a sales number back today.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-xs text-muted-foreground">
+                        <th className="py-1 pr-3 font-medium">Rang back</th>
+                        <th className="py-1 pr-3 font-medium">Who</th>
+                        <th className="py-1 pr-3 font-medium">Filed for</th>
+                        <th className="py-1 font-medium">Outcome</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.inboundCalls.map((c) => (
+                        <tr key={c.id} className="border-t border-border">
+                          <td className="py-1.5 pr-3 whitespace-nowrap tabular-nums">
+                            {new Date(c.at).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </td>
+                          <td className="py-1.5 pr-3 break-words">
+                            {c.businessName || c.fromE164}
+                          </td>
+                          <td className="py-1.5 pr-3 break-words">
+                            {c.repName || (
+                              <span className="text-muted-foreground">
+                                nobody — this number has not been dialled from that line
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-1.5 break-words text-muted-foreground">
+                            {c.disposition || c.providerStatus || "not logged yet"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </section>
           ) : null}
         </>

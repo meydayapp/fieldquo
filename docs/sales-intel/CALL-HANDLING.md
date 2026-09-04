@@ -320,6 +320,50 @@ superadmin. There is an optional cold transfer to `FIELDQUO_SALES_TRANSFER_TO`.
 to be one** — the filing is done. What was missing is that the row knows a
 phone number and nothing else. Its own schema comment says so.
 
+### The `sales_voice` pool — built 2026-09-04
+
+**This is a second phone system, not a second door onto the first.**
+`FIELDQUO_SALES_NUMBER` is one advertised line with a Retell agent on it. The
+`sales_voice` numbers are the local numbers reps *dial from* — a contractor in
+Tulsa answers a 918 number and lets an unknown one ring out — and until this
+change, ringing one back reached nothing at all. No agent goes on them: putting
+a conversational AI on a number whose entire point is that a roofer recognises
+the area code would defeat the reason it was bought.
+
+`app/api/rep-dial/inbound`, a sibling of `/bridge` and `/status` for the same
+reason they are not under `/api/sales` — middleware refuses that prefix without
+a rep cookie, and `"/api/sales-x".startsWith("/api/sales")` is true, so a hyphen
+would not have helped. Signature-verified through the same
+`lib/sms/verifyTwilioWebhook.js`; an unsigned endpoint here would let a stranger
+make FieldQuo's Twilio account place calls.
+
+**Who answers.** The rep who last dialled that contractor *from that number* —
+the pair, not the caller alone, because the contractor is ringing back the
+number on their screen and the person who put it there is the person with the
+context. The claim holder is the fallback. A rep who has left is skipped:
+filing a callback against a console nobody will open again is worse than filing
+it unattributed, because a row with a name on it reads as handled.
+
+**What the call reaches.** `FIELDQUO_SALES_TRANSFER_TO` when it is set and the
+floor has not said it is empty; otherwise a spoken message. The message says the
+call was logged — which is true, the row exists before it is spoken — and
+**never promises a callback**, because a callback is an outbound call that has
+to clear `salesCallReadiness` and cannot be promised from inside an inbound
+webhook.
+
+**Nothing is recorded, and there is no voicemail.** Recording a two-party call
+is consent law; a voicemail would be a recording with somewhere to be written
+and nowhere to be read — no retention rule, no playback surface, no proxy for
+Twilio's media URLs. Both are stated in `NOT_TRACKED_CALLS` rather than left as
+an absence.
+
+**The row.** `SalesCallAttempt` with `direction: "in"`, `dialChannel:
+"inbound"`, `toE164` the contractor and `fromE164` our number — the same shape
+in both directions, so the 24-hour cap and the callback tracker key on the right
+number. `salesRepId` became nullable for exactly one case: an inbound call that
+matched nobody. The cap query and every dial count now filter on direction; a
+contractor ringing three times consumes none of Oklahoma's three.
+
 ### The match, and what it is allowed to mean
 
 `lib/sales/calls/inboundMatch.js`. Five outcomes: `prospect`, `lead`,

@@ -39,7 +39,17 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
-import { callStoreState, presenceFor } from "@/lib/sales/calls/store";
+import { getAppOrigin } from "@/lib/appUrl";
+import {
+  callStoreState,
+  inboundCalls,
+  presenceFor,
+  salesCallerNumbers,
+} from "@/lib/sales/calls/store";
+import {
+  inboundWebhookUrl,
+  salesVoiceInboundState,
+} from "@/lib/sales/calls/inboundRouting";
 import { NOT_TRACKED_CALLS, campaignCallRows, teamCallRows } from "@/lib/sales/calls/reporting";
 import { PAUSE_REASONS, REP_STATES, STATE_ORDER } from "@/lib/sales/calls/agentState";
 import { TEAM_LEAD_CANNOT_SEE } from "@/lib/sales/team";
@@ -87,6 +97,8 @@ export async function GET(request) {
       pauseReasons: Object.values(PAUSE_REASONS),
       campaigns: null,
       inbound: null,
+      salesVoice: null,
+      inboundCalls: null,
       dialMode: dialModeState(),
       notTracked: NOT_TRACKED_CALLS,
       teamLeadCannotSee: TEAM_LEAD_CANNOT_SEE,
@@ -94,7 +106,16 @@ export async function GET(request) {
     });
   }
 
-  const [attempts, activity, presence, agent] = await Promise.all([
+  // Read apart from `attempts` below, and by DIRECTION rather than by rep,
+  // because an inbound call that matched nobody carries a null salesRepId and
+  // the `salesRepId: { in: repIds }` query cannot see it. A stranger ringing
+  // FieldQuo's sales line is exactly the row worth noticing, and it would have
+  // been the row that silently never appeared.
+  //
+  // `undefined` on failure rather than [], so the screen can tell "nobody rang
+  // today" from "we could not look" — the two are the same empty array and
+  // different facts.
+  const [attempts, activity, presence, agent, inbound, voiceNumbers] = await Promise.all([
     db.salesCallAttempt.findMany({
       where: { salesRepId: { in: repIds }, dialledAt: { gte: from } },
       orderBy: { dialledAt: "desc" },
@@ -113,6 +134,8 @@ export async function GET(request) {
     }),
     presenceFor(repIds, { now }),
     salesAgentRow().catch(() => null),
+    inboundCalls({ from, to: now }).catch(() => undefined),
+    salesCallerNumbers().catch(() => undefined),
   ]);
 
   const rows = teamCallRows({ reps, attempts, activity, presence, from, to, now });
@@ -143,6 +166,34 @@ export async function GET(request) {
       canTransfer: Boolean(process.env.FIELDQUO_SALES_TRANSFER_TO),
       anyRepLive: anyLive,
     }),
+    // The OTHER inbound path, and deliberately a separate answer: `inbound`
+    // above is FIELDQUO_SALES_NUMBER, the one line the Retell agent answers.
+    // This is the pool of local numbers reps dial from, which has no agent on
+    // it. One sentence covering both would be wrong about both.
+    salesVoice: salesVoiceInboundState({
+      numbers: voiceNumbers ?? [],
+      lookupFailed: voiceNumbers === undefined,
+      transferConfigured: Boolean(process.env.FIELDQUO_SALES_TRANSFER_TO),
+      anyLive,
+      webhookUrl: inboundWebhookUrl(getAppOrigin(request)),
+    }),
+    inboundCalls:
+      inbound === undefined
+        ? null
+        : inbound.map((row) => ({
+            id: row.id,
+            at: row.dialledAt,
+            fromE164: row.toE164,
+            rangE164: row.fromE164,
+            // Who it was filed for. Null is a real answer and renders as one:
+            // a call from a number nobody has ever dialled from this line.
+            repName: row.salesRep?.name || null,
+            businessName: row.prospect?.businessName || null,
+            matchedBy: row.matchedBy,
+            disposition: row.disposition,
+            providerStatus: row.providerStatus,
+            talkSeconds: row.talkSeconds,
+          })),
     dialMode: dialModeState(),
     notTracked: NOT_TRACKED_CALLS,
     teamLeadCannotSee: TEAM_LEAD_CANNOT_SEE,

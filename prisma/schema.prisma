@@ -10319,8 +10319,19 @@ model SalesCallAttempt {
   /// Who dialled. Restrict, not Cascade: a rep leaving must not delete the
   /// evidence that a business was called. Same reasoning SalesSuppression
   /// gives for keeping loose pointers instead of cascading foreign keys.
-  salesRepId String
-  salesRep   SalesRep @relation(fields: [salesRepId], references: [id])
+  ///
+  /// NULLABLE FOR EXACTLY ONE CASE: an inbound call (`direction: "in"`) that
+  /// matched no rep — a stranger, a wrong number, or a business nobody has
+  /// rung from this number yet. The alternative was to answer that call and
+  /// write nothing, and a call that leaves no trace is the state this whole
+  /// feature exists to end. An OUTBOUND row always has a rep: recordDial()
+  /// refuses without one ("A call attempt has to belong to a rep"), and
+  /// scripts/check-sales-inbound-call.mjs asserts that refusal still fires.
+  ///
+  /// Unattributed rows are read by the superadmin floor board, which queries
+  /// inbound calls by direction rather than by rep for this reason.
+  salesRepId String?
+  salesRep   SalesRep? @relation(fields: [salesRepId], references: [id])
 
   /// The prospect the rep was looking at, when there was one. Nullable and
   /// SetNull: a rep ringing a lead they typed in themselves has no Prospect,
@@ -10332,29 +10343,56 @@ model SalesCallAttempt {
   leadId String?
   lead   SalesLead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
 
-  /// The number as dialled, E.164, normalised on write.
+  /// THE CONTRACTOR'S NUMBER, in both directions. E.164, normalised on write.
   ///
   /// THE CAP IS COUNTED ON THIS COLUMN, not on prospectId. Prospect dedupe
   /// FLAGS duplicates rather than merging them — `possibleDuplicateOfId`,
   /// "merging destroys provenance" — so one business can hold two rows, and
   /// counting per row would turn a three-call cap into a six-call one by
   /// accident.
+  ///
+  /// This said "the number as dialled", which was unambiguous while every row
+  /// was outbound and became a trap the moment inbound rows existed: on an
+  /// inbound leg the number DIALLED is FieldQuo's own. Writing it here would
+  /// have put our own number in the column the 24-hour cap, the callback
+  /// tracker and "how many times have we spoken" all key on. So the column is
+  /// the OTHER PARTY, always, and `fromE164` is always FieldQuo's side.
   toE164 String
 
-  /// The number presented to them. Null on a handset dial, because nothing in
-  /// FieldQuo knows what a rep's own phone presents. Not defaulted to the sales
-  /// line: that would record a caller ID that was never shown.
+  /// FieldQuo's side of the call. Outbound: the number presented to them —
+  /// null on a handset dial, because nothing in FieldQuo knows what a rep's
+  /// own phone presents, and not defaulted to the sales line because that
+  /// would record a caller ID that was never shown. Inbound: the sales_voice
+  /// number they rang, which is a fact rather than an inference.
   fromE164 String?
 
-  /// "out" | "in". Inbound rows are written by the sales-line handler when a
-  /// contractor rings back, so "how many times have we spoken" is one query.
+  /// "out" | "in". Inbound rows are written by app/api/rep-dial/inbound when a
+  /// contractor rings a sales_voice number back, so "how many times have we
+  /// spoken" is one query.
+  ///
+  /// EVERY COUNT OF WORK DONE MUST FILTER ON THIS. The 24-hour calling cap
+  /// counts calls FieldQuo PLACED (attemptsLast24h), and a rep's dial count is
+  /// dials (repCallStats) — a contractor ringing back three times is neither.
   direction String @default("out")
 
-  /// "browser" | "handset". Which door the call went through, and therefore
-  /// whether any of the provider columns below can ever be filled. Defaulted
-  /// to handset so a row written by an older path is not silently claimed as
-  /// measured.
+  /// "browser" | "handset" | "inbound". Which door the call went through, and
+  /// therefore whether any of the provider columns below can ever be filled.
+  /// Defaulted to handset so a row written by an older path is not silently
+  /// claimed as measured. "inbound" is its own value rather than being folded
+  /// into "browser": both carry carrier figures, but only one of them is a rep
+  /// pressing a button, and a report that could not tell them apart would
+  /// count a callback as outbound activity.
   dialChannel String @default("handset")
+
+  /// How an inbound caller was identified — an inboundMatch.js MATCHED_BY_*
+  /// value, today only "phone_e164". Null on every outbound row and on an
+  /// inbound call that matched nobody.
+  ///
+  /// Stored because a caller ID is a HINT and never proof: inboundMatch.js's
+  /// header sets out what a match may and may not do, and recording HOW the
+  /// match was made is what lets a second, stronger method be added later
+  /// without every historical row silently claiming it.
+  matchedBy String?
 
   dialledAt DateTime @default(now())
 
@@ -10444,6 +10482,10 @@ model SalesCallAttempt {
   @@index([salesRepId, dialledAt])
   @@index([prospectId, dialledAt])
   @@index([disposition])
+  /// The inbound webhook's lookup ("who last rang this number from ours") and
+  /// the floor board's ("what came in today"). Both are direction-first.
+  @@index([direction, dialledAt])
+  @@index([direction, toE164, fromE164, dialledAt])
 }
 
 /// What a rep is doing right now, and the log of what they were doing.
