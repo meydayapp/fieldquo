@@ -20,7 +20,7 @@
 //
 // ══ And the second half, which is the one that matters more ══════════════
 //
-// `hero.noCard` says "No credit card required" in six languages, and it is
+// `hero.noCard` SAID "No credit card required", in every language, and it was
 // FALSE. /api/companies commits the Company and then opens Stripe Checkout,
 // and app/app/layout.js sends an owner whose company has no subscription back
 // to pay before it will show them a dashboard. The offer that IS true is the
@@ -37,6 +37,14 @@
 // this rule retires itself and says so. A permanent ban on a key would be a
 // rule that outlives its reason, which is how a check turns into folklore.
 //
+// That is what happened: the key was corrected, the ban lifted itself, and the
+// run now prints the retirement line instead of the ban. Both halves of the
+// mechanism have therefore been exercised in production, which is worth more
+// than the rule was. Note the consequence nobody has acted on — hero.noCard is
+// now an honest sentence in every language and is still rendered by nothing.
+// Whether it goes back under the hero button is a copy decision, not a
+// correctness one, so this file does not force it either way.
+//
 // ══ What this proves, and what it cannot ═════════════════════════════════
 //
 // It proves the homepage renders a link to /signup, that the link's label
@@ -49,7 +57,7 @@
 // header asserting it is how it went unnoticed: the no-card ban was scoped to
 // one catalogue key across the files the HOMEPAGE imports, so
 // app/(marketing)/compare/compareCopy.js could carry "No card to start" as an
-// inline English literal — on /compare and all nine /compare/[slug] pages — and
+// inline English literal — on /compare and on every /compare/[slug] page — and
 // run green. Section 3b is the rule that makes the sentence true: the claim is
 // hunted by its words across the whole marketing tree, and the key ban is
 // generalised to every key in the catalogue rather than the one where the bug
@@ -391,6 +399,78 @@ const codeOnly = (src) =>
     offenders.length === 0,
     offenders.join("; "),
   );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 2b. The same rule, across the whole tree, in two tiers
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Section 2 above polices the files the HOMEPAGE imports. Section 3b already
+// learned that lesson once for the no-card claim; this is the same
+// generalisation applied to the key rule, and it turns up a real thing.
+//
+// t() takes an optional English fallback, and the two shapes fail completely
+// differently:
+//
+//   t("cost.perYear")            key missing -> the customer reads
+//                                "cost.perYear". A bug on the page.
+//   t("cost.perYear", "a year")  key missing -> the customer reads "a year",
+//                                in every language. Not a bug on the page —
+//                                and not translated either.
+//
+// The second is the one that hides. /cost makes 52 t() calls and, at the time
+// this rule was written, not one of those keys existed in the catalogue; the
+// same was true of every string in compare/AddOnStack.js. Both files LOOK
+// translated — they are full of t() — and both render English to a German
+// visitor. check:translations cannot see it, because it compares catalogues
+// against each other and a key that exists in none of them is missing from
+// none of them.
+//
+// So: a missing key with no fallback FAILS, because it puts a dotted
+// identifier in front of a stranger. A missing key with a fallback is COUNTED
+// and named, per file, every run. Failing those would mean deleting 63 correct
+// call sites or blocking the build on a translation job that belongs to
+// somebody else; printing them means the debt has a number on it instead of
+// being invisible, which is the difference between this and the header that
+// said "/compare is English-only" for three months.
+section("Every key rendered anywhere in the marketing tree");
+
+{
+  // MARKETING_TREE and codeOnly are both defined above, in 3b. This section
+  // therefore sits AFTER them rather than beside section 2 where it belongs by
+  // subject: codeOnly is a const arrow function, so reading it earlier is a
+  // temporal-dead-zone throw rather than a hoist.
+  const files = MARKETING_TREE;
+  const raw = [];
+  const fallbackOnly = new Map();
+
+  for (const file of files) {
+    const src = codeOnly(read(file));
+    // The capture on the comma is what separates the two tiers. A key built
+    // from a template literal is section 2's business and is skipped here.
+    for (const m of src.matchAll(/\bt\(\s*"([^"$]+)"\s*(,)?/g)) {
+      const key = m[1];
+      if (key in EN) continue;
+      if (m[2]) fallbackOnly.set(file, (fallbackOnly.get(file) || 0) + 1);
+      else raw.push(`${file} — t("${key}") with no fallback`);
+    }
+  }
+
+  ok(
+    "no marketing file renders a key that exists nowhere and has no fallback",
+    raw.length === 0,
+    raw.join("; ") + " — the visitor reads the key itself",
+  );
+
+  const total = [...fallbackOnly.values()].reduce((n, c) => n + c, 0);
+  console.log(
+    `\n  ${total} t() call(s) across ${fallbackOnly.size} file(s) resolve to their English\n` +
+      "  fallback in every language, because the key is not in the catalogue. These render\n" +
+      "  correctly and are NOT failures — they are the translation debt, counted:",
+  );
+  for (const [file, count] of [...fallbackOnly.entries()].sort((a, b) => b[1] - a[1])) {
+    console.log(`    ${file}: ${count}`);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
