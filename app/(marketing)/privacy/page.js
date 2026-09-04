@@ -24,6 +24,7 @@
 //     still find in the actual integration code; and
 //   - the Quebec privacy-officer placeholder is present and internally
 //     consistent (see lib/legal/privacyOfficer.js for what that means).
+import Link from "next/link";
 import { marketingMetadata } from "@/lib/marketing/metadata";
 import { SUPPORT_EMAIL } from "@/lib/supportContact";
 import {
@@ -251,6 +252,11 @@ export default function PrivacyPage() {
         build account and data deletion; this policy will be updated, with a
         new effective date, when that ships.
       </p>
+      <p>
+        In the meantime, deletion is a request handled by a person.{" "}
+        <Link href="/data-deletion">Data Deletion</Link>{" "}
+        sets out exactly what to send, where, and what we can and cannot erase.
+      </p>
 
       <h2>6. Your rights, and how to reach us</h2>
       <p>
@@ -273,7 +279,9 @@ export default function PrivacyPage() {
         <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a> and tell us
         which company's records your request concerns; we will act on it
         directly where we are able to, and otherwise route it to that
-        company on your behalf.
+        company on your behalf. For a deletion request specifically,{" "}
+        <Link href="/data-deletion">Data Deletion</Link>{" "}
+        lists what to include so we can act without a round trip.
       </p>
 
       <h2>7. Aggregate industry benchmarking (opt-in)</h2>
