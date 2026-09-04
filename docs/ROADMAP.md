@@ -7846,3 +7846,87 @@ renaming it would buy nothing a label cannot buy.
 
 `npm run check:sales-commission` — 101 assertions, and eight mutations of the
 shipped files (each confirmed applied on disk), every one caught.
+
+## Commission plans — the screen that had never existed (4 September 2026)
+
+`SalesCommissionPlan` holds every figure that decides a rep's earnings.
+**`salesCommissionPlan.create` appeared nowhere in the repository** — no route,
+no screen, no seed — and the live database held zero plans, zero reps and zero
+commission entries.
+
+`amountForMilestone()` returns null without a plan and `earnMilestone()` refuses
+a null amount, so a rep could be invited, accept, claim leads, dial, and earn
+**nothing** on every milestone, silently, with no screen anywhere to fix it.
+`/platform/sales/performance` already told a superadmin to "assign a plan and the
+stages fill in" — with nothing anywhere to assign. The rules were right, and the
+101 assertions that proved them correct could not see that they were unreachable.
+
+### What shipped
+
+- **`/platform/sales/plans`** — create, edit, deactivate. Name, three amounts,
+  retention window, active flag. One-click prefill of the owner's stated terms.
+  In the sidebar under Demos & sales, labelled "Commission plans" so it cannot be
+  confused with Billing's Plans (what FieldQuo *charges*, not what it *pays*).
+- **`/api/platform/sales/plans`** (GET, POST) and **`/plans/[id]`** (PATCH).
+  Superadmin only — the same bar as adding a rep, and the same reason: there is
+  no sales permission in `PLATFORM_PERMISSIONS`, and these four numbers are the
+  whole of what FieldQuo owes a salesperson. **No DELETE**: deactivating takes a
+  plan out of the picker and leaves every existing assignment standing.
+- **Assignment**, which was the same defect one layer down: the reps screen
+  *displayed* `commissionPlan.name` and nothing in the product could write it.
+  A picker on the invite form and on each rep's row, with its own audit action.
+
+### Dollars in the box, cents in the column
+
+`lib/sales/commissionPlanAdmin.js` is the one conversion, and it runs on the
+SERVER — the screen posts what was typed and imports the same function only to
+refuse before the request goes out, so the sentence a field goes red with is the
+sentence the server would have refused with. `numberOrNull` underneath, because
+`Number("")` is 0 and 0 is finite. Refused: blank, whitespace, `[]`, `false`,
+`1e3`, `20.005`, negatives, above $100,000 — and **$0**, because a milestone
+worth nothing writes no ledger row at all and would look like a setting while
+behaving exactly like a rep with no plan.
+
+### Editing a plan cannot rewrite a payout
+
+Asserted, not hoped: an entry earned at $20 keeps its $20 when the plan doubles
+underneath it, the next company earns the new figure, a reversal undoes what was
+earned rather than what the plan says now, neither plan route touches
+`salesCommissionEntry`, and `lib/sales/performance.js` never calls
+`amountForMilestone`.
+
+### The assertion the codebase was missing
+
+Everything above the new sections in `check-sales-commission.mjs` proved the
+rules CORRECT. Nothing proved a plan could be MADE. There is now a reachability
+section in the manner of `check:route-callers` / `check:designer-reach`: the
+route writes, is gated before it writes, has a caller outside `app/api`, the
+screen exists and POSTs to it, and the screen is linked from the console's own
+nav. `npm run check:sales-commission` — **177 assertions**, up from 101.
+
+Mutation-tested, each mutation confirmed on disk before the run was trusted:
+disconnecting the screen's POST, deleting the screen entirely, removing the nav
+row, turning the create into a read, deleting either route's superadmin gate,
+`Number()` back in place of `numberOrNull`, allowing $0, wiring the activation
+box to the retention column, collapsing "clear the plan" into "don't mention
+it", making the edit route rewrite the ledger, making performance re-read the
+plan, and dropping the chosen plan on the way into the rep row. Every one caught.
+One false pass was found and fixed this way: the gate-ordering assertion was
+file-scoped and GET's own gate satisfied it with POST's deleted — it is scoped to
+`fnBody(route, "POST")` now.
+
+### The seeded plan
+
+**"Standard closer plan" — $20 / $40 / $65 at 60 days — exists in the live
+database.** It was inserted directly, through the shipped `shapePlanInput`
+boundary (so it cannot hold a figure the screen would refuse), because there was
+no admin session to attribute a route call to; it therefore has no
+`PlatformAuditLog` row, unlike every plan created from the screen. The screen
+offers the same figures as a one-click prefill.
+
+### Still open — needs the owner
+
+- **A plan that deliberately pays for only SOME milestones has no
+  representation.** $0 is refused rather than silently meaning "never pays",
+  because the ledger cannot tell that apart from "no plan". If two-stage terms
+  are ever wanted, that needs an explicit "not paid" state the ledger can record.

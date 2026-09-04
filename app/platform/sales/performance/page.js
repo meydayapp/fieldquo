@@ -236,7 +236,18 @@ export default function SalesPerformancePage() {
               commission plan. They earn nothing — no ledger row is written at
               all, deliberately, because paying an invented figure is worse than
               paying late — and their companies are invisible to the payment
-              stages of the funnel below.
+              stages of the funnel below.{" "}
+              {/* This sentence used to end here, telling somebody to assign a
+                  plan with no screen anywhere that could create or assign one.
+                  Both now exist; the remedy links to them. */}
+              <Link href="/platform/sales/plans" className="underline">
+                Commission plans
+              </Link>{" "}
+              is where the amounts are set, and{" "}
+              <Link href="/platform/sales/reps" className="underline">
+                sales reps
+              </Link>{" "}
+              is where one is assigned.
             </div>
           ) : null}
 

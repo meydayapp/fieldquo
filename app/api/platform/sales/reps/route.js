@@ -39,6 +39,7 @@ import {
 } from "@/lib/sales/repAdmin";
 import { signupLinkFor } from "@/lib/sales/repStats";
 import { outreachStatus } from "@/lib/sales/outreachSender";
+import { resolvePlanAssignment } from "@/lib/sales/commissionPlanServer";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -87,6 +88,28 @@ export async function GET(request) {
       _count: { select: { attributions: true } },
     },
     orderBy: [{ active: "desc" }, { name: "asc" }],
+  });
+
+  // The plans a rep can be put on. Returned WITH the reps rather than fetched
+  // by a second call from the screen, so the picker cannot render before it
+  // knows its options and offer an empty list that reads as "there are none".
+  //
+  // Inactive plans are included when somebody is still on one: hiding it would
+  // make a rep's current plan vanish out of the select it is selected in, which
+  // is how a save silently moves them onto something else.
+  const assignedPlanIds = reps.map((r) => r.commissionPlanId).filter(Boolean);
+  const plans = await db.salesCommissionPlan.findMany({
+    where: { OR: [{ active: true }, { id: { in: assignedPlanIds } }] },
+    select: {
+      id: true,
+      name: true,
+      active: true,
+      activationCents: true,
+      firstPaymentCents: true,
+      retentionCents: true,
+      retentionDays: true,
+    },
+    orderBy: [{ active: "desc" }, { createdAt: "asc" }],
   });
 
   const origin = getAppOrigin(request);
@@ -149,6 +172,11 @@ export async function GET(request) {
       endedAt: r.endedAt,
       inviteExpiresAt: r.inviteExpiresAt,
       commissionPlan: r.commissionPlan ? r.commissionPlan.name : null,
+      // The id as well as the name. The name alone was all this route returned,
+      // which is exactly as far as "display it" goes — a picker needs to know
+      // which option is selected, and that was the missing half of why
+      // SalesCommissionPlan had a reader and no writer anywhere.
+      commissionPlanId: r.commissionPlanId,
       companyCount: r._count.attributions,
       sending: {
         canSend: sending[i].canSend,
@@ -158,6 +186,7 @@ export async function GET(request) {
     })),
     salesNumber,
     numberCapabilities: NUMBER_CAPABILITIES,
+    plans,
   });
 }
 
@@ -197,6 +226,19 @@ export async function POST(request) {
 
   const badMailbox = workEmailProblem(workEmail, email);
   if (badMailbox) return NextResponse.json({ error: badMailbox }, { status: 400 });
+
+  // The plan, at creation. Optional in the same sense the work mailbox is —
+  // a rep can exist before the terms are settled — but the consequence is
+  // sharper and the screen says it in those words: until one is assigned, every
+  // milestone this rep reaches writes NO ledger row at all, so they earn
+  // nothing and there is no trace afterwards that they should have.
+  const assignment = await resolvePlanAssignment({
+    db,
+    planId: body.commissionPlanId ?? null,
+  });
+  if (assignment.error) {
+    return NextResponse.json({ error: assignment.error }, { status: 400 });
+  }
 
   const existing = await db.salesRep.findUnique({ where: { email } });
   if (existing) {
@@ -242,6 +284,7 @@ export async function POST(request) {
           email,
           workEmail,
           code,
+          commissionPlanId: assignment.commissionPlanId,
           inviteTokenHash: hash,
           inviteExpiresAt: inviteExpiry(),
         },
@@ -252,6 +295,7 @@ export async function POST(request) {
           workEmail: true,
           code: true,
           active: true,
+          commissionPlanId: true,
         },
       });
     } catch (err) {
@@ -316,6 +360,10 @@ export async function POST(request) {
         // because "who assigned this mailbox" is the question asked after a
         // reply lands in the wrong inbox.
         workEmail: rep.workEmail || null,
+        // What this rep will be paid, recorded at the moment they were hired.
+        // Null is the answer that matters: it means every milestone they reach
+        // writes nothing until somebody assigns a plan.
+        commissionPlanId: rep.commissionPlanId || null,
         codeSource: wantedCode ? "chosen_by_admin" : "generated",
         emailSent: outcome.sent,
         ...(outcome.error ? { emailError: outcome.error } : {}),

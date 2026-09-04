@@ -114,6 +114,7 @@ import {
   Contact,
   Radar,
   BookOpenCheck,
+  HandCoins,
 } from "lucide-react";
 
 const HOME_ITEM = { label: "Dashboard", href: "/platform", icon: LayoutDashboard, exact: true };
@@ -196,6 +197,15 @@ const GROUPS = [
       // Filing them with "who holds a platform login" would put the people
       // beside the console's own keys, which is a different question.
       { label: "Sales reps", href: "/platform/sales/reps", icon: UserRoundCheck },
+      // Immediately under the reps, because it is the thing a rep cannot be
+      // hired without. SalesCommissionPlan decides every figure in a rep's
+      // ledger and had NO screen and no create path anywhere in the product:
+      // amountForMilestone() returns null without a plan and earnMilestone()
+      // refuses a null amount, so an unassigned rep earned $0 on every
+      // milestone, silently. "Commission plans" rather than "Plans" on
+      // purpose — Billing's Plans row is what FieldQuo CHARGES a contractor,
+      // and the two answering to one word is how somebody edits the wrong one.
+      { label: "Commission plans", href: "/platform/sales/plans", icon: HandCoins },
       // Directly under the reps, because it is the same people counted. The
       // owner asked "where do i see the sales KPIs? and insights.. and the
       // leads?" and the honest answer was nowhere: SalesAttribution,

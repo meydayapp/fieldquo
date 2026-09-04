@@ -26,6 +26,14 @@
 //                  anywhere in the product, while lib/sales/outreachSender.js
 //                  refuses every send without one. Both halves are wired now,
 //                  and the row says so in the blocker's own words.
+//   the plan       is SalesCommissionPlan, and it was the same shape of gap one
+//                  layer down: this screen READ commissionPlan.name to display
+//                  it and nothing anywhere in the product could write it —
+//                  `salesCommissionPlan.create` appeared in no route, no screen
+//                  and no seed. A rep with no plan earns NOTHING (earnMilestone
+//                  refuses a null amount and writes no row at all), so the
+//                  picker below, and /platform/sales/plans behind it, are what
+//                  make hiring a closer mean anything.
 //   a number       is two different answers and is given as two: texting is
 //                  real and SHARED (one first-party number, not one per rep),
 //                  and a per-rep voice callback number does not exist. There is
@@ -53,6 +61,7 @@ import {
   AlertCircle,
   Check,
   Copy,
+  HandCoins,
   Loader2,
   Mail,
   Phone,
@@ -80,14 +89,47 @@ function formatDate(value) {
   return value ? new Date(value).toLocaleDateString() : "—";
 }
 
-const BLANK = { name: "", email: "", workEmail: "", code: "", codeTouched: false };
+/**
+ * "Standard closer plan — $125 per company", for the picker.
+ *
+ * The three amounts are summed rather than a stored total being trusted,
+ * and a plan missing any of them prints its name alone instead of a confident
+ * "$0.00" — the same rule the performance screen's money() follows, for the
+ * same reason: on a screen about what FieldQuo owes people, a fabricated zero
+ * and a real one look identical.
+ */
+function planOptionLabel(plan) {
+  const parts = [plan.activationCents, plan.firstPaymentCents, plan.retentionCents];
+  if (!parts.every((n) => typeof n === "number" && Number.isFinite(n))) return plan.name;
+  const total = parts.reduce((a, b) => a + b, 0) / 100;
+  const suffix = plan.active ? "" : " — no longer offered";
+  return `${plan.name} — $${total.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} per company${suffix}`;
+}
+
+const BLANK = {
+  name: "",
+  email: "",
+  workEmail: "",
+  code: "",
+  codeTouched: false,
+  // "" is "no plan", which is a real (and expensive) state rather than a
+  // missing field — a rep without one earns nothing on every milestone and no
+  // ledger row is written at all. The form says so instead of defaulting to
+  // whichever plan happens to be first.
+  commissionPlanId: "",
+};
 
 export default function PlatformSalesRepsPage() {
   const [reps, setReps] = useState([]);
   const [salesNumber, setSalesNumber] = useState(null);
   const [numberCapabilities, setNumberCapabilities] = useState([]);
+  const [plans, setPlans] = useState([]);
   const [draft, setDraft] = useState(null);
   const [mailboxDraft, setMailboxDraft] = useState({});
+  const [planDraft, setPlanDraft] = useState({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -103,6 +145,7 @@ export default function PlatformSalesRepsPage() {
       setReps(data.reps || []);
       setSalesNumber(data.salesNumber || null);
       setNumberCapabilities(data.numberCapabilities || []);
+      setPlans(data.plans || []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -150,6 +193,11 @@ export default function PlatformSalesRepsPage() {
           email: draft.email,
           workEmail: draft.workEmail,
           code: draft.code,
+          // "" would be a string the route has to interpret; null is the state
+          // itself. resolvePlanAssignment treats both as "no plan", but sending
+          // the state rather than the empty box is what keeps the two apart on
+          // this side too.
+          commissionPlanId: draft.commissionPlanId || null,
         }),
       });
       setDraft(null);
@@ -224,6 +272,50 @@ export default function PlatformSalesRepsPage() {
         value
           ? `${rep.name} now sends from ${value.trim().toLowerCase()}.`
           : `${rep.name}'s work mailbox was cleared. They can't send until another one is set.`,
+      );
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Put a rep on a commission plan, or take them off one.
+   *
+   * The same draft-then-Save shape as the mailbox rather than a select that
+   * saves on change: this field decides what somebody is paid, and a stray
+   * click on a dropdown is not a decision.
+   */
+  async function savePlan(rep) {
+    const value = planDraft[rep.id] ?? "";
+    if (
+      !value &&
+      !confirm(
+        `Leave ${rep.name} with no commission plan? They earn nothing — no ledger row is written at all for any milestone their companies reach, and there is no record afterwards that one should have been.`,
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    clearBanners();
+    try {
+      await fetchJson(`/api/platform/sales/reps/${rep.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commissionPlanId: value || null }),
+      });
+      setPlanDraft((d) => {
+        const next = { ...d };
+        delete next[rep.id];
+        return next;
+      });
+      const chosen = plans.find((p) => p.id === value);
+      setNotice(
+        chosen
+          ? `${rep.name} is on ${chosen.name}. Milestones already earned keep the amounts they were written with.`
+          : `${rep.name} now has no commission plan and earns nothing until one is assigned.`,
       );
       await load();
     } catch (err) {
@@ -418,6 +510,49 @@ export default function PlatformSalesRepsPage() {
             ) : null}
           </div>
 
+          <div>
+            <label htmlFor="rep-plan" className={LABEL}>
+              Commission plan
+            </label>
+            <select
+              id="rep-plan"
+              value={draft.commissionPlanId}
+              onChange={(e) => setDraft({ ...draft, commissionPlanId: e.target.value })}
+              className={FIELD}
+            >
+              <option value="">No plan — earns nothing</option>
+              {plans.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {planOptionLabel(p)}
+                </option>
+              ))}
+            </select>
+            <p className={HELP}>
+              What this rep is paid for a company they bring in, in three
+              stages. Until a plan is assigned{" "}
+              <strong className="font-semibold">
+                every milestone earns them $0
+              </strong>{" "}
+              — the ledger writes no row at all, deliberately, because paying an
+              invented figure is worse than paying late, and there is no record
+              afterwards that one was missed. Set it up on{" "}
+              <Link href="/platform/sales/plans" className="underline">
+                commission plans
+              </Link>
+              .
+            </p>
+            {plans.length === 0 ? (
+              <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                No commission plans exist yet, so there is nothing to assign.{" "}
+                <Link href="/platform/sales/plans" className="underline">
+                  Create one first
+                </Link>{" "}
+                — it takes a minute, and it is the difference between this rep
+                earning $125 a sale and $0.
+              </p>
+            ) : null}
+          </div>
+
           <p className="text-xs text-muted-foreground">
             They&apos;ll get an emailed link and choose their own password. The
             link works once and expires in seven days.
@@ -593,6 +728,82 @@ export default function PlatformSalesRepsPage() {
                       ) : null}
                     </div>
                   )}
+                </div>
+
+                {/* ── What they're paid ──────────────────────────────────
+                    The row already SHOWED commissionPlan.name and had no way
+                    to set it, which is the readable half of a column with no
+                    writer: SalesCommissionPlan decides every figure in this
+                    rep's ledger, and until this picker existed there was no
+                    screen anywhere in the product that could fill it. */}
+                <div>
+                  <div className={LABEL}>Commission plan</div>
+                  {rep.id in planDraft && isSuperadmin ? (
+                    <div className="flex flex-wrap gap-2">
+                      <select
+                        aria-label={`Commission plan for ${rep.name}`}
+                        value={planDraft[rep.id]}
+                        onChange={(e) =>
+                          setPlanDraft({ ...planDraft, [rep.id]: e.target.value })
+                        }
+                        className={`${FIELD} flex-1`}
+                      >
+                        <option value="">No plan — earns nothing</option>
+                        {plans.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {planOptionLabel(p)}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => savePlan(rep)}
+                        disabled={busy}
+                        className={BTN_PRIMARY}
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() =>
+                          setPlanDraft((d) => {
+                            const next = { ...d };
+                            delete next[rep.id];
+                            return next;
+                          })
+                        }
+                        className={BTN_QUIET}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm text-foreground">
+                        {rep.commissionPlan || "None — earns nothing"}
+                      </span>
+                      {isSuperadmin ? (
+                        <button
+                          onClick={() =>
+                            setPlanDraft({
+                              ...planDraft,
+                              [rep.id]: rep.commissionPlanId || "",
+                            })
+                          }
+                          className={BTN_QUIET}
+                        >
+                          <HandCoins size={13} />{" "}
+                          {rep.commissionPlan ? "Change" : "Assign"}
+                        </button>
+                      ) : null}
+                    </div>
+                  )}
+                  {!rep.commissionPlan ? (
+                    <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                      No ledger row is written for any milestone this rep&apos;s
+                      companies reach. Assigning a plan starts recording from the
+                      next milestone onwards — it does not backfill the ones that
+                      passed while there was none.
+                    </p>
+                  ) : null}
                 </div>
 
                 {/* The sending verdict, from the same function the rep's own

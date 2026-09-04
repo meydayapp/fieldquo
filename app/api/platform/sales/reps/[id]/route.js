@@ -35,6 +35,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { normaliseWorkEmail, workEmailProblem } from "@/lib/sales/repAdmin";
+import { resolvePlanAssignment } from "@/lib/sales/commissionPlanServer";
 
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -53,7 +54,13 @@ export async function PATCH(request, { params }) {
 
   const existing = await db.salesRep.findUnique({
     where: { id: _params.id },
-    select: { id: true, active: true, email: true, workEmail: true },
+    select: {
+      id: true,
+      active: true,
+      email: true,
+      workEmail: true,
+      commissionPlanId: true,
+    },
   });
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -68,10 +75,13 @@ export async function PATCH(request, { params }) {
   // `in` rather than a truthiness test.
   const touchesMailbox = "workEmail" in body;
   const workEmail = touchesMailbox ? normaliseWorkEmail(body.workEmail) : undefined;
+  // Same `in` test, same reason: null is "this rep has no plan", which is a
+  // real state (and the one that earns them nothing), not a missing field.
+  const touchesPlan = "commissionPlanId" in body;
 
-  if (typeof active !== "boolean" && !touchesMailbox) {
+  if (typeof active !== "boolean" && !touchesMailbox && !touchesPlan) {
     return NextResponse.json(
-      { error: "Send active (true/false), or workEmail, or both." },
+      { error: "Send active (true/false), workEmail, or commissionPlanId." },
       { status: 400 },
     );
   }
@@ -100,6 +110,18 @@ export async function PATCH(request, { params }) {
     }
   }
 
+  let assignment = null;
+  if (touchesPlan) {
+    assignment = await resolvePlanAssignment({
+      db,
+      planId: body.commissionPlanId ?? null,
+      currentPlanId: existing.commissionPlanId,
+    });
+    if (assignment.error) {
+      return NextResponse.json({ error: assignment.error }, { status: 400 });
+    }
+  }
+
   const updated = await db.salesRep.update({
     where: { id: _params.id },
     data: {
@@ -114,6 +136,7 @@ export async function PATCH(request, { params }) {
           }
         : {}),
       ...(touchesMailbox ? { workEmail } : {}),
+      ...(assignment ? { commissionPlanId: assignment.commissionPlanId } : {}),
     },
     select: {
       id: true,
@@ -124,6 +147,8 @@ export async function PATCH(request, { params }) {
       active: true,
       endedAt: true,
       acceptedAt: true,
+      commissionPlanId: true,
+      commissionPlan: { select: { id: true, name: true } },
     },
   });
 
@@ -146,6 +171,23 @@ export async function PATCH(request, { params }) {
         email: updated.email,
         from: existing.workEmail || null,
         to: updated.workEmail || null,
+      },
+    });
+  }
+  if (assignment && assignment.commissionPlanId !== existing.commissionPlanId) {
+    // Its own action, because "what is this person paid" is the question asked
+    // when a payout looks wrong, and it must be answerable from the audit log
+    // without inferring it from an "edited" row. Clearing a plan is recorded
+    // just as loudly: it is the change that stops the ledger recording anything
+    // at all for their next milestone.
+    actions.push({
+      action: "sales_rep_commission_plan_set",
+      details: {
+        salesRepId: updated.id,
+        email: updated.email,
+        from: existing.commissionPlanId || null,
+        to: updated.commissionPlanId || null,
+        toName: updated.commissionPlan?.name || null,
       },
     });
   }

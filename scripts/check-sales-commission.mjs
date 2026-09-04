@@ -9,10 +9,22 @@
 // The cases below are not invented. Each one is a specific way this could pay
 // wrongly, and several are traps found while reading the existing Stripe
 // integration rather than imagined afterwards.
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
+import {
+  PLAN_MONEY_FIELDS,
+  STANDARD_PLAN,
+  centsFromDollars,
+  dollarsFromCents,
+  planDraftProblem,
+  retentionDaysFrom,
+  shapePlanInput,
+} from "../lib/sales/commissionPlanAdmin.js";
+import { resolvePlanAssignment } from "../lib/sales/commissionPlanServer.js";
 import {
   MILESTONES,
   MILESTONE_LABELS,
+  MILESTONE_ORDER,
   commissionRef,
   reversalRef,
   amountForMilestone,
@@ -678,6 +690,378 @@ ok(
   "the sweep is actually scheduled — an unscheduled cron never runs",
   (vercel.crons || []).some((c) => c.path === "/api/cron/sales-retention"),
 );
+
+// ── The plan itself: can one be MADE? ─────────────────────────────────────
+//
+// Everything above this line proved the commission rules correct. None of it
+// proved a plan could exist, and on 2026-09-04 none could:
+// `salesCommissionPlan.create` appeared nowhere in the repository — no route,
+// no screen, no seed — while amountForMilestone() returns null without a plan
+// and earnMilestone() refuses a null amount. Every milestone earned $0 for
+// every rep, silently, and the live database held zero plans and zero reps.
+//
+// So these assertions are about REACHABILITY, in the manner of
+// check-route-callers.mjs and check-designer-reach.mjs: not "is the create
+// correct" but "is there a path a human can walk to it". A hundred and one
+// assertions of correctness could not see this, and that is the lesson worth
+// encoding rather than the feature.
+console.log("\nA commission plan can actually be created");
+
+const PLANS_ROUTE = "app/api/platform/sales/plans/route.js";
+const PLAN_ID_ROUTE = "app/api/platform/sales/plans/[id]/route.js";
+const PLANS_PAGE = "app/platform/sales/plans/page.js";
+const REPS_PAGE = "app/platform/sales/reps/page.js";
+const SIDEBAR = "app/components/platform/PlatformSidebar.js";
+
+const readIfPresent = (f) => (existsSync(f) ? readFileSync(f, "utf8") : null);
+
+// Comment lines dropped before anything is searched, and for the reason
+// check-route-callers.mjs learned the hard way: a file whose header EXPLAINS
+// which route it calls is not a file calling it. This whole section would pass
+// on prose otherwise — every one of these files discusses the route at length.
+const stripComments = (src) =>
+  (src || "")
+    .split("\n")
+    .filter((line) => {
+      const t = line.trim();
+      return !(t.startsWith("//") || t.startsWith("*") || t.startsWith("/*"));
+    })
+    .join("\n");
+
+const plansRoute = stripComments(readIfPresent(PLANS_ROUTE));
+ok("the create route exists", plansRoute !== null && plansRoute !== "");
+ok("it exports POST", /export async function POST\(/.test(plansRoute));
+// Scoped to POST's own body, not to the file. Mutation testing caught the
+// file-wide version passing with the gate deleted from POST entirely — GET's
+// call to superadminOrRefusal sat above the create and satisfied the ordering.
+// That is the same false pass this file's `fnBody` comment already records
+// having been bitten by once.
+const plansPost = stripComments(fnBody(PLANS_ROUTE, "POST") || "");
+ok(
+  "and POST actually writes a plan row",
+  /salesCommissionPlan\.create\(/.test(plansPost),
+);
+ok(
+  "the write is superadmin-gated BEFORE it happens",
+  orderedIn(plansPost, "superadminOrRefusal(request)", "salesCommissionPlan.create("),
+);
+const planIdPatch = stripComments(fnBody(PLAN_ID_ROUTE, "PATCH") || "");
+ok(
+  "editing a plan is gated the same way, before the update",
+  orderedIn(planIdPatch, "superadminOrRefusal(request)", "salesCommissionPlan.update("),
+);
+ok(
+  "there is no DELETE on a plan — deactivating is the whole of removal",
+  !/export async function DELETE\(/.test(plansRoute) &&
+    !/export async function DELETE\(/.test(stripComments(readIfPresent(PLAN_ID_ROUTE))),
+);
+
+// ── Does anything CALL it ─────────────────────────────────────────────────
+//
+// The assertion this codebase was missing. Its shape is check-route-callers':
+// the route's URL appearing in a .js outside app/api, with comments removed.
+// Deliberately a whole-tree search rather than a look at one file, so moving
+// the screen does not break it and deleting the screen does.
+function walk(dir, out = []) {
+  if (!existsSync(dir)) return out;
+  for (const name of readdirSync(dir)) {
+    if (name === "node_modules" || name === ".next" || name.startsWith(".")) continue;
+    const full = join(dir, name);
+    if (statSync(full).isDirectory()) walk(full, out);
+    else if (name.endsWith(".js")) out.push(full);
+  }
+  return out;
+}
+
+const outsideApi = walk("app")
+  .concat(walk("lib"))
+  .filter((f) => !f.startsWith(join("app", "api") + "/"));
+const callerSrc = outsideApi.map((f) => stripComments(readFileSync(f, "utf8"))).join("\n");
+
+ok(
+  "something outside app/api calls /api/platform/sales/plans",
+  callerSrc.includes("/api/platform/sales/plans"),
+);
+const plansPage = stripComments(readIfPresent(PLANS_PAGE));
+ok("the screen exists", plansPage !== null && plansPage !== "");
+ok(
+  "and it POSTs to the create route",
+  /fetchJson\("\/api\/platform\/sales\/plans",\s*\{[\s\S]{0,120}method: "POST"/.test(plansPage),
+);
+ok(
+  "the screen is reachable from the console's own nav",
+  stripComments(readIfPresent(SIDEBAR)).includes('href: "/platform/sales/plans"'),
+);
+// Reaching the create form must not depend on being able to guess a URL, and
+// a control that renders for somebody the route will refuse is the dead button
+// AGENTS.md forbids. The shared gate is used rather than a sixth hand-rolled
+// copy — see app/components/platform/PlatformWriteGate.js's header.
+ok(
+  "the screen gates its controls with the SHARED write gate",
+  plansPage.includes("usePlatformAdmin()") && plansPage.includes("<PlatformWriteGate"),
+);
+ok(
+  "and it never hand-rolls /api/platform/me",
+  !plansPage.includes('"/api/platform/me"'),
+);
+
+// ── And can a plan be ASSIGNED ────────────────────────────────────────────
+//
+// A plan nobody is on pays nothing, so "created" is only half the path. The
+// reps route READ commissionPlan.name to display it and had no writer at all,
+// which is the same defect one layer down.
+console.log("\nA plan can actually be assigned to a rep");
+const repsPage = stripComments(readIfPresent(REPS_PAGE));
+const repsRoute = stripComments(readIfPresent("app/api/platform/sales/reps/route.js"));
+const repRoute = stripComments(readIfPresent("app/api/platform/sales/reps/[id]/route.js"));
+ok("the reps screen sends a commissionPlanId", repsPage.includes("commissionPlanId"));
+ok(
+  "the reps screen offers the plans the route returns",
+  repsPage.includes("data.plans") && repsPage.includes("planOptionLabel"),
+);
+ok(
+  "creating a rep stores the plan chosen",
+  /commissionPlanId: assignment\.commissionPlanId/.test(repsRoute),
+);
+ok(
+  "editing a rep can change it",
+  repRoute.includes("resolvePlanAssignment(") &&
+    /commissionPlanId: assignment\.commissionPlanId/.test(repRoute),
+);
+// `null` is "no plan", which is a real and expensive state. A truthiness test
+// would collapse "leave it alone" and "clear it" into one request — the same
+// mistake the workEmail handler avoids two fields up, for the same reason.
+ok(
+  "clearing a plan is distinguished from not mentioning it",
+  repRoute.includes('"commissionPlanId" in body'),
+);
+ok(
+  "the list route returns the id, not only the name a picker cannot use",
+  /commissionPlanId: r\.commissionPlanId/.test(repsRoute),
+);
+
+// ── Dollars in the box, cents in the column ───────────────────────────────
+//
+// Executed, not read. Every refusal below is a way a wrong number could reach
+// an Int column looking like a decision, and the first one is the bug
+// lib/platform/numericField.js exists for: Number("") is 0, and 0 is finite.
+console.log("\nThe dollars → cents boundary, executed");
+ok("a plain figure converts", centsFromDollars("20").cents === 2000);
+ok("cents survive", centsFromDollars("20.50").cents === 2050);
+ok("one cent is one cent", centsFromDollars("0.01").cents === 1);
+// 20.10 * 100 is 2010.0000000000002 in IEEE 754. A strict integer test here
+// would refuse a perfectly ordinary amount.
+ok("floating point does not refuse a real amount", centsFromDollars("20.10").cents === 2010);
+ok("a number, not only a string, converts", centsFromDollars(65).cents === 6500);
+ok("a cleared box is refused, never read as zero", Boolean(centsFromDollars("").error));
+ok("whitespace is refused too", Boolean(centsFromDollars("   ").error));
+ok("null is refused", Boolean(centsFromDollars(null).error));
+// Number([]) and Number(false) are both 0. numberOrNull is narrower than
+// Number() precisely so none of them can arrive looking like a figure.
+ok("an empty array is refused", Boolean(centsFromDollars([]).error));
+ok("false is refused", Boolean(centsFromDollars(false).error));
+ok(
+  "the refusal for a blank field says blank is not zero",
+  /empty box is not the same as 0/.test(centsFromDollars("").error),
+);
+ok("zero is refused", Boolean(centsFromDollars("0").error));
+ok(
+  "and the refusal explains that $0 writes no ledger row at all",
+  /writes no ledger row/.test(centsFromDollars("0").error),
+);
+ok("a negative amount is refused", Boolean(centsFromDollars("-5").error));
+ok("exponent notation is refused", Boolean(centsFromDollars("1e3").error));
+ok("a third of a cent is refused rather than rounded", Boolean(centsFromDollars("20.005").error));
+ok("nonsense is refused", Boolean(centsFromDollars("twenty").error));
+ok("an absurd figure is refused", Boolean(centsFromDollars("100001").error));
+ok("the bound itself is allowed", centsFromDollars("100000").cents === 10000000);
+
+ok("a retention window converts", retentionDaysFrom("60").days === 60);
+ok("a blank window is refused", Boolean(retentionDaysFrom("").error));
+ok("a zero window is refused", Boolean(retentionDaysFrom("0").error));
+ok("half a day is refused", Boolean(retentionDaysFrom("1.5").error));
+ok("a negative window is refused", Boolean(retentionDaysFrom("-60").error));
+ok("a century is refused", Boolean(retentionDaysFrom("40000").error));
+
+// The whole body, the way the route receives it.
+{
+  const shaped = shapePlanInput({
+    name: "  Standard closer plan  ",
+    activation: "20",
+    firstPayment: "40",
+    retention: "65",
+    retentionDays: "60",
+  });
+  ok("a complete body shapes into the four columns", !shaped.error, shaped.error);
+  ok("the name is trimmed", shaped.value?.name === "Standard closer plan");
+  ok(
+    "and every amount lands in the column that pays its milestone",
+    shaped.value?.activationCents === 2000 &&
+      shaped.value?.firstPaymentCents === 4000 &&
+      shaped.value?.retentionCents === 6500 &&
+      shaped.value?.retentionDays === 60,
+  );
+}
+ok(
+  "a missing amount refuses the whole save",
+  Boolean(shapePlanInput({ name: "x", activation: "20", retention: "65", retentionDays: "60" }).error),
+);
+ok("a nameless plan is refused", Boolean(shapePlanInput({ name: "  " }).error));
+// PATCH: only what was sent is converted, so renaming a plan cannot rewrite
+// three amounts with a stale copy of the form.
+{
+  const partial = shapePlanInput({ name: "Renamed" }, { partial: true });
+  ok("a partial edit converts only what it was given", !partial.error);
+  ok("and touches nothing else", Object.keys(partial.value).join(",") === "name");
+}
+ok(
+  "an empty edit is refused rather than written as a no-op",
+  shapePlanInput({}, { partial: true }).error === "Nothing to change.",
+);
+ok(
+  "a partial edit still refuses a cleared amount",
+  Boolean(shapePlanInput({ activation: "" }, { partial: true }).error),
+);
+// The screen must refuse in the server's own words. Two wordings for one rule
+// is two rules pretending to be one — lib/sales/repAdmin.js's discipline.
+ok(
+  "the screen's refusal is literally the server's refusal",
+  planDraftProblem({ name: "x", activation: "", firstPayment: "40", retention: "65", retentionDays: "60" }) ===
+    shapePlanInput({ name: "x", activation: "", firstPayment: "40", retention: "65", retentionDays: "60" }).error,
+);
+ok(
+  "a valid draft has no problem to report",
+  planDraftProblem({ ...STANDARD_PLAN }) === null,
+);
+
+// The mapping that is invisible on screen and only shows up in somebody's
+// payout: the box labelled "activation" must write the column amountForMilestone
+// reads for the activation milestone.
+for (const field of PLAN_MONEY_FIELDS) {
+  ok(
+    `the ${field.dollarKey} box feeds the ${field.milestone} milestone`,
+    amountForMilestone({ [field.key]: 1234 }, field.milestone) === 1234,
+  );
+}
+ok(
+  "the money fields cover every milestone, and no more",
+  PLAN_MONEY_FIELDS.map((f) => f.milestone).join(",") === MILESTONE_ORDER.join(","),
+);
+
+// The owner's stated terms, offered by the screen as a one-click prefill.
+{
+  const shaped = shapePlanInput({ ...STANDARD_PLAN });
+  ok(
+    "the standard prefill is $20 / $40 / $65 at 60 days",
+    shaped.value?.activationCents === 2000 &&
+      shaped.value?.firstPaymentCents === 4000 &&
+      shaped.value?.retentionCents === 6500 &&
+      shaped.value?.retentionDays === 60,
+  );
+  ok(
+    "which is the $125 the three stages are supposed to total",
+    shaped.value.activationCents + shaped.value.firstPaymentCents + shaped.value.retentionCents === 12500,
+  );
+}
+// The inverse, used to fill the edit form. A screen dividing by 100 itself is
+// the second opinion that ends up disagreeing about a factor of a hundred.
+ok("cents come back as dollars for the form", dollarsFromCents(6500) === "65.00");
+ok("and a round trip is lossless", centsFromDollars(dollarsFromCents(2050)).cents === 2050);
+
+// ── Editing a plan cannot change what was already earned ─────────────────
+//
+// "Edit the plan, and last month's payouts change" only surfaces on a payout
+// run, so it is asserted rather than trusted. It holds because the AMOUNT
+// lives on the entry: earnMilestone writes amountCents at earn time and every
+// total downstream is a sum of rows.
+console.log("\nEditing a plan does not rewrite history");
+{
+  const plan = { ...PLAN };
+  const ledger = fakeLedger({ plan });
+  await earnMilestone({
+    companyId: "c1",
+    milestone: MILESTONES.ACTIVATION,
+    occurredAt: new Date("2026-07-01T00:00:00Z"),
+    prisma: ledger,
+  });
+  ok("the milestone was earned at the plan's figure", ledger.rows[0].amountCents === 2000);
+
+  // The superadmin doubles activation. Same plan row, same rep, same company.
+  plan.activationCents = 4000;
+
+  ok(
+    "the entry keeps the amount it was written with",
+    ledger.rows[0].amountCents === 2000,
+    String(ledger.rows[0].amountCents),
+  );
+  ok("so the balance does not move", balanceCents(ledger.rows) === 2000);
+  ok("and what is payable does not move", splitPayable(ledger.rows).payableCents === 2000);
+
+  // The NEXT milestone pays the new figure — that is the point of editing.
+  await earnMilestone({
+    companyId: "c2",
+    milestone: MILESTONES.ACTIVATION,
+    occurredAt: new Date("2026-08-01T00:00:00Z"),
+    prisma: ledger,
+  });
+  ok("while the next company earns the new one", ledger.rows[1].amountCents === 4000);
+
+  // A reversal reads the ORIGINAL row, never today's plan. Otherwise an edit
+  // between an earning and its refund would net to something other than zero.
+  const undo = await reverseMilestone({
+    companyId: "c1",
+    milestone: MILESTONES.ACTIVATION,
+    reason: "refund",
+    prisma: ledger,
+  });
+  ok("a reversal undoes what was earned, not what the plan says now", undo.amountCents === -2000);
+}
+const planIdRoute = stripComments(readIfPresent(PLAN_ID_ROUTE));
+ok(
+  "the edit route never touches the commission ledger",
+  planIdRoute !== null && !planIdRoute.includes("salesCommissionEntry"),
+);
+ok(
+  "nor does the create route",
+  !plansRoute.includes("salesCommissionEntry"),
+);
+// The reporting side must not re-derive an amount from the plan either — that
+// is the other way "last month changed" could happen.
+ok(
+  "performance sums ledger rows rather than re-reading the plan",
+  !stripComments(readFileSync("lib/sales/performance.js", "utf8")).includes("amountForMilestone"),
+);
+// Deactivating a plan must not move anybody off it: what a rep was promised
+// does not change when FieldQuo stops offering it to new hires.
+{
+  const fakeDb = {
+    salesCommissionPlan: {
+      findUnique: async ({ where }) =>
+        where.id === "retired"
+          ? { id: "retired", name: "Old plan", active: false }
+          : where.id === "live"
+            ? { id: "live", name: "Standard", active: true }
+            : null,
+    },
+  };
+  const clear = await resolvePlanAssignment({ db: fakeDb, planId: null });
+  ok("a rep can be left with no plan on purpose", clear.commissionPlanId === null);
+  const live = await resolvePlanAssignment({ db: fakeDb, planId: "live" });
+  ok("an offered plan can be assigned", live.commissionPlanId === "live");
+  const gone = await resolvePlanAssignment({ db: fakeDb, planId: "nope" });
+  ok("a plan that does not exist is refused", Boolean(gone.error));
+  const retiredNew = await resolvePlanAssignment({ db: fakeDb, planId: "retired" });
+  ok("a deactivated plan cannot be given to somebody new", Boolean(retiredNew.error));
+  const retiredOwn = await resolvePlanAssignment({
+    db: fakeDb,
+    planId: "retired",
+    currentPlanId: "retired",
+  });
+  ok(
+    "but a rep already on it keeps it — deactivating is not taking it away",
+    retiredOwn.commissionPlanId === "retired",
+  );
+}
 
 console.log("");
 if (failures.length) {
