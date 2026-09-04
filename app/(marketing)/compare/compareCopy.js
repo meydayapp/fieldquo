@@ -411,9 +411,13 @@ export const COMPARE_CHROME = {
   // The replacement is the wording app/i18n/industries/en.js already uses for
   // the same promise, so the site makes one statement about the card rather
   // than two.
+  // Phrased so it does not repeat ctaTitle's "First month free" back at the
+  // reader, and so the part that was being hidden — that a card IS taken — is
+  // the part stated plainly rather than implied by an absence.
   ctaBody:
     "No call to book, and the price is on the pricing page rather than behind " +
-    "a form. Your first month is free — your card isn't charged until it ends.",
+    "a form. Your card is taken at signup and isn't charged until the free " +
+    "month ends.",
   ctaButton: "Start your free month",
   ctaSecondary: "See the pricing",
 
