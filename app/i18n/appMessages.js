@@ -2620,7 +2620,7 @@ const en = {
   "app.kpis.moneyFlow.trend.up": "Up {pct}% on last period",
   "app.kpis.moneyFlow.trend.down": "Down {pct}% on last period",
   "app.kpis.moneyFlow.trend.flat": "About the same as last period",
-  "app.kpis.moneyFlow.trend.fromZero": "Up from $0 last period",
+  "app.kpis.moneyFlow.trend.fromZero": "Up from nothing last period",
   "app.kpis.moneyFlow.importCsv": "Import a bank statement →",
   "app.kpis.moneyFlow.expensesIncompleteHint": "Some materials were bought off the buy-list and never logged — see the note above.",
   "app.kpis.moneyFlow.chartTitle": "Income vs. expenses, by day",
@@ -5739,6 +5739,27 @@ const en = {
   "app.jobs.visitCount": countedNoun("en", {"one":"visit","other":"visits"}),
   "app.clients.quoteCount": countedNoun("en", {"one":"quote","other":"quotes"}),
   "app.clients.invoiceCount": countedNoun("en", {"one":"invoice","other":"invoices"}),
+
+  // ── The KPI trend sentences, and a currency that was never ours ──────
+  //
+  // trend.fromZero read "Up from $0 last period" — a dollar sign inside the
+  // catalogue, shown to euro and pound companies. A trend sentence has no
+  // business naming an amount at all, and threading a formatted zero through
+  // would be a lot of machinery to say "nothing". So it says nothing.
+  //
+  // The three *ToDate variants exist because the comparison is now clamped to
+  // days that have ELAPSED. Three days of income against a full month read
+  // "Down 90% on last period" — precise, confident and meaningless, every
+  // month until about the 28th. The sentence has to say which days it means.
+  "app.kpis.moneyFlow.trend.upToDate": "Up {pct}% on the same {days} days last period",
+  "app.kpis.moneyFlow.trend.downToDate": "Down {pct}% on the same {days} days last period",
+  "app.kpis.moneyFlow.trend.flatToDate": "About the same as the first {days} days of last period",
+  "app.kpis.someDataMissing": "· some data missing, see below",
+  "app.activity.intro": "A record of important actions in your account — quotes sent, payments recorded, hours added and approved, expenses, client and team changes, pricing and settings.",
+  "app.activity.someone": "Someone",
+  "app.activity.supportSession": "support session",
+  "app.kpis.sampleSize": countedNoun("en", {"one":"job/quote","other":"jobs/quotes"}),
+  "app.kpis.weeksBooked": countedNoun("en", {"one":"week","other":"weeks"}),
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -8122,7 +8143,7 @@ const fr = {
   "app.kpis.moneyFlow.trend.up": "En hausse de {pct}% par rapport à la période précédente",
   "app.kpis.moneyFlow.trend.down": "En baisse de {pct}% par rapport à la période précédente",
   "app.kpis.moneyFlow.trend.flat": "Environ pareil qu'à la période précédente",
-  "app.kpis.moneyFlow.trend.fromZero": "En hausse depuis 0 $ la période précédente",
+  "app.kpis.moneyFlow.trend.fromZero": "En hausse — rien la période précédente",
   "app.kpis.moneyFlow.importCsv": "Importer un relevé bancaire →",
   "app.kpis.moneyFlow.expensesIncompleteHint": "Certains matériaux ont été achetés sur la liste et jamais saisis comme dépense — voir la note ci-dessus.",
   "app.kpis.moneyFlow.chartTitle": "Revenus et dépenses, par jour",
@@ -11047,6 +11068,16 @@ const fr = {
   "app.jobs.visitCount": countedNoun("fr", {"one":"visite","many":"visites","other":"visites"}),
   "app.clients.quoteCount": countedNoun("fr", {"one":"soumission","many":"soumissions","other":"soumissions"}),
   "app.clients.invoiceCount": countedNoun("fr", {"one":"facture","many":"factures","other":"factures"}),
+
+  "app.kpis.moneyFlow.trend.upToDate": "En hausse de {pct} % sur les mêmes {days} jours de la période précédente",
+  "app.kpis.moneyFlow.trend.downToDate": "En baisse de {pct} % sur les mêmes {days} jours de la période précédente",
+  "app.kpis.moneyFlow.trend.flatToDate": "À peu près comme les {days} premiers jours de la période précédente",
+  "app.kpis.someDataMissing": "· données incomplètes, voir ci-dessous",
+  "app.activity.intro": "Un registre des actions importantes de votre compte — soumissions envoyées, paiements enregistrés, heures ajoutées et approuvées, dépenses, changements de clients et d'équipe, tarifs et réglages.",
+  "app.activity.someone": "Quelqu'un",
+  "app.activity.supportSession": "session d'assistance",
+  "app.kpis.sampleSize": countedNoun("fr", {"one":"chantier/soumission","many":"chantiers/soumissions","other":"chantiers/soumissions"}),
+  "app.kpis.weeksBooked": countedNoun("fr", {"one":"semaine","many":"semaines","other":"semaines"}),
 };
 
 
@@ -14568,6 +14599,16 @@ const es = {
   "app.jobs.visitCount": countedNoun("es", {"one":"visita","many":"visitas","other":"visitas"}),
   "app.clients.quoteCount": countedNoun("es", {"one":"presupuesto","many":"presupuestos","other":"presupuestos"}),
   "app.clients.invoiceCount": countedNoun("es", {"one":"factura","many":"facturas","other":"facturas"}),
+
+  "app.kpis.moneyFlow.trend.upToDate": "Subida del {pct} % en los mismos {days} días del periodo anterior",
+  "app.kpis.moneyFlow.trend.downToDate": "Bajada del {pct} % en los mismos {days} días del periodo anterior",
+  "app.kpis.moneyFlow.trend.flatToDate": "Más o menos igual que los primeros {days} días del periodo anterior",
+  "app.kpis.someDataMissing": "· faltan datos, ver abajo",
+  "app.activity.intro": "Un registro de las acciones importantes de tu cuenta — presupuestos enviados, pagos registrados, horas añadidas y aprobadas, gastos, cambios de clientes y de equipo, tarifas y ajustes.",
+  "app.activity.someone": "Alguien",
+  "app.activity.supportSession": "sesión de soporte",
+  "app.kpis.sampleSize": countedNoun("es", {"one":"trabajo/presupuesto","many":"trabajos/presupuestos","other":"trabajos/presupuestos"}),
+  "app.kpis.weeksBooked": countedNoun("es", {"one":"semana","many":"semanas","other":"semanas"}),
 };
 
 const uk = {
@@ -18117,6 +18158,16 @@ const uk = {
   "app.jobs.visitCount": countedNoun("uk", {"one":"візит","few":"візити","many":"візитів","other":"візиту"}),
   "app.clients.quoteCount": countedNoun("uk", {"one":"кошторис","few":"кошториси","many":"кошторисів","other":"кошторису"}),
   "app.clients.invoiceCount": countedNoun("uk", {"one":"рахунок","few":"рахунки","many":"рахунків","other":"рахунка"}),
+
+  "app.kpis.moneyFlow.trend.upToDate": "Зростання на {pct} % за ті самі {days} днів попереднього періоду",
+  "app.kpis.moneyFlow.trend.downToDate": "Спад на {pct} % за ті самі {days} днів попереднього періоду",
+  "app.kpis.moneyFlow.trend.flatToDate": "Приблизно як за перші {days} днів попереднього періоду",
+  "app.kpis.someDataMissing": "· бракує даних, див. нижче",
+  "app.activity.intro": "Запис важливих дій у вашому обліковому записі — надіслані кошториси, зафіксовані платежі, додані та затверджені години, витрати, зміни клієнтів і команди, ціни та налаштування.",
+  "app.activity.someone": "Хтось",
+  "app.activity.supportSession": "сеанс підтримки",
+  "app.kpis.sampleSize": countedNoun("uk", {"one":"об'єкт/кошторис","few":"об'єкти/кошториси","many":"об'єктів/кошторисів","other":"об'єкта/кошторису"}),
+  "app.kpis.weeksBooked": countedNoun("uk", {"one":"тиждень","few":"тижні","many":"тижнів","other":"тижня"}),
 };
 
 const pa = {
@@ -21623,6 +21674,16 @@ const pa = {
   "app.jobs.visitCount": countedNoun("pa", {"one":"ਫੇਰੀ","other":"ਫੇਰੀਆਂ"}),
   "app.clients.quoteCount": countedNoun("pa", {"one":"ਕੋਟ","other":"ਕੋਟ"}),
   "app.clients.invoiceCount": countedNoun("pa", {"one":"ਇਨਵੌਇਸ","other":"ਇਨਵੌਇਸ"}),
+
+  "app.kpis.moneyFlow.trend.upToDate": "ਪਿਛਲੀ ਮਿਆਦ ਦੇ ਉਹੀ {days} ਦਿਨਾਂ ਦੇ ਮੁਕਾਬਲੇ {pct}% ਵਾਧਾ",
+  "app.kpis.moneyFlow.trend.downToDate": "ਪਿਛਲੀ ਮਿਆਦ ਦੇ ਉਹੀ {days} ਦਿਨਾਂ ਦੇ ਮੁਕਾਬਲੇ {pct}% ਘਾਟਾ",
+  "app.kpis.moneyFlow.trend.flatToDate": "ਪਿਛਲੀ ਮਿਆਦ ਦੇ ਪਹਿਲੇ {days} ਦਿਨਾਂ ਵਰਗਾ ਹੀ",
+  "app.kpis.someDataMissing": "· ਕੁਝ ਡਾਟਾ ਗੁੰਮ ਹੈ, ਹੇਠਾਂ ਵੇਖੋ",
+  "app.activity.intro": "ਤੁਹਾਡੇ ਖਾਤੇ ਦੀਆਂ ਅਹਿਮ ਕਾਰਵਾਈਆਂ ਦਾ ਰਿਕਾਰਡ — ਭੇਜੇ ਕੋਟ, ਦਰਜ ਭੁਗਤਾਨ, ਜੋੜੇ ਤੇ ਮਨਜ਼ੂਰ ਘੰਟੇ, ਖਰਚੇ, ਗਾਹਕ ਤੇ ਟੀਮ ਦੀਆਂ ਤਬਦੀਲੀਆਂ, ਕੀਮਤਾਂ ਤੇ ਸੈਟਿੰਗਾਂ।",
+  "app.activity.someone": "ਕੋਈ",
+  "app.activity.supportSession": "ਸਹਾਇਤਾ ਸੈਸ਼ਨ",
+  "app.kpis.sampleSize": countedNoun("pa", {"one":"ਕੰਮ/ਕੋਟ","other":"ਕੰਮ/ਕੋਟ"}),
+  "app.kpis.weeksBooked": countedNoun("pa", {"one":"ਹਫ਼ਤਾ","other":"ਹਫ਼ਤੇ"}),
 };
 
 const tl = {
@@ -25136,6 +25197,16 @@ const tl = {
   "app.jobs.visitCount": countedNoun("tl", {"one":"bisita","other":"bisita"}),
   "app.clients.quoteCount": countedNoun("tl", {"one":"quote","other":"quote"}),
   "app.clients.invoiceCount": countedNoun("tl", {"one":"invoice","other":"invoice"}),
+
+  "app.kpis.moneyFlow.trend.upToDate": "Tumaas nang {pct}% sa parehong {days} araw ng nakaraang panahon",
+  "app.kpis.moneyFlow.trend.downToDate": "Bumaba nang {pct}% sa parehong {days} araw ng nakaraang panahon",
+  "app.kpis.moneyFlow.trend.flatToDate": "Halos kapareho ng unang {days} araw ng nakaraang panahon",
+  "app.kpis.someDataMissing": "· may kulang na datos, tingnan sa ibaba",
+  "app.activity.intro": "Talaan ng mahahalagang aksyon sa iyong account — mga quote na ipinadala, bayad na naitala, oras na naidagdag at naaprubahan, gastos, pagbabago sa kliyente at koponan, presyo at settings.",
+  "app.activity.someone": "May isang tao",
+  "app.activity.supportSession": "sesyon ng suporta",
+  "app.kpis.sampleSize": countedNoun("tl", {"one":"trabaho/quote","other":"trabaho/quote"}),
+  "app.kpis.weeksBooked": countedNoun("tl", {"one":"linggo","other":"linggo"}),
 };
 
 const de = {
@@ -27377,7 +27448,7 @@ const de = {
   "app.kpis.moneyFlow.trend.up": "{pct} % mehr als im letzten Zeitraum",
   "app.kpis.moneyFlow.trend.down": "{pct} % weniger als im letzten Zeitraum",
   "app.kpis.moneyFlow.trend.flat": "Etwa so viel wie im letzten Zeitraum",
-  "app.kpis.moneyFlow.trend.fromZero": "Gestiegen von 0 $ im letzten Zeitraum",
+  "app.kpis.moneyFlow.trend.fromZero": "Gestiegen — im letzten Zeitraum nichts",
   "app.kpis.moneyFlow.importCsv": "Kontoauszug importieren →",
   "app.kpis.moneyFlow.expensesIncompleteHint": "Einige Materialien wurden über die Einkaufsliste gekauft und nie erfasst — siehe Hinweis oben.",
   "app.kpis.moneyFlow.chartTitle": "Einnahmen vs. Ausgaben, nach Tag",
@@ -30098,6 +30169,16 @@ const de = {
   "app.jobs.visitCount": countedNoun("de", {"one":"Besuch","other":"Besuche"}),
   "app.clients.quoteCount": countedNoun("de", {"one":"Angebot","other":"Angebote"}),
   "app.clients.invoiceCount": countedNoun("de", {"one":"Rechnung","other":"Rechnungen"}),
+
+  "app.kpis.moneyFlow.trend.upToDate": "{pct} % mehr als in denselben {days} Tagen des Vorzeitraums",
+  "app.kpis.moneyFlow.trend.downToDate": "{pct} % weniger als in denselben {days} Tagen des Vorzeitraums",
+  "app.kpis.moneyFlow.trend.flatToDate": "Etwa so wie in den ersten {days} Tagen des Vorzeitraums",
+  "app.kpis.someDataMissing": "· einige Daten fehlen, siehe unten",
+  "app.activity.intro": "Ein Protokoll wichtiger Vorgänge in Ihrem Konto — gesendete Angebote, erfasste Zahlungen, hinzugefügte und genehmigte Stunden, Ausgaben, Kunden- und Teamänderungen, Preise und Einstellungen.",
+  "app.activity.someone": "Jemand",
+  "app.activity.supportSession": "Support-Sitzung",
+  "app.kpis.sampleSize": countedNoun("de", {"one":"Auftrag/Angebot","other":"Aufträge/Angebote"}),
+  "app.kpis.weeksBooked": countedNoun("de", {"one":"Woche","other":"Wochen"}),
 };
 
 const zh = {
@@ -32339,7 +32420,7 @@ const zh = {
   "app.kpis.moneyFlow.trend.up": "比上期高 {pct}%",
   "app.kpis.moneyFlow.trend.down": "比上期低 {pct}%",
   "app.kpis.moneyFlow.trend.flat": "和上期差不多",
-  "app.kpis.moneyFlow.trend.fromZero": "上期是 $0，这期涨上来了",
+  "app.kpis.moneyFlow.trend.fromZero": "上期为零，这期有了",
   "app.kpis.moneyFlow.importCsv": "导入银行流水 →",
   "app.kpis.moneyFlow.expensesIncompleteHint": "有些材料按采购清单买了却没记账——见上面的说明。",
   "app.kpis.moneyFlow.chartTitle": "收入与支出，按天",
@@ -35057,6 +35138,16 @@ const zh = {
   "app.jobs.visitCount": countedNoun("zh", {"other":"次上门"}),
   "app.clients.quoteCount": countedNoun("zh", {"other":"份报价单"}),
   "app.clients.invoiceCount": countedNoun("zh", {"other":"张发票"}),
+
+  "app.kpis.moneyFlow.trend.upToDate": "较上期同样的 {days} 天上升 {pct}%",
+  "app.kpis.moneyFlow.trend.downToDate": "较上期同样的 {days} 天下降 {pct}%",
+  "app.kpis.moneyFlow.trend.flatToDate": "与上期头 {days} 天大致相同",
+  "app.kpis.someDataMissing": "· 部分数据缺失，详见下方",
+  "app.activity.intro": "账户内重要操作的记录 — 已发出的报价单、已登记的付款、已添加并批准的工时、开支、客户与团队变更、价格与设置。",
+  "app.activity.someone": "某人",
+  "app.activity.supportSession": "支持会话",
+  "app.kpis.sampleSize": countedNoun("zh", {"other":"个工程/报价单"}),
+  "app.kpis.weeksBooked": countedNoun("zh", {"other":"周"}),
 };
 
 const it = {
@@ -37440,7 +37531,7 @@ const it = {
   "app.kpis.moneyFlow.trend.up": "In crescita del {pct}% sul periodo precedente",
   "app.kpis.moneyFlow.trend.down": "In calo del {pct}% sul periodo precedente",
   "app.kpis.moneyFlow.trend.flat": "Più o meno come il periodo precedente",
-  "app.kpis.moneyFlow.trend.fromZero": "In crescita da 0 $ del periodo precedente",
+  "app.kpis.moneyFlow.trend.fromZero": "In crescita — nulla nel periodo precedente",
   "app.kpis.moneyFlow.importCsv": "Importa un estratto conto →",
   "app.kpis.moneyFlow.expensesIncompleteHint": "Alcuni materiali sono stati acquistati dalla lista e mai registrati — veda la nota qui sopra.",
   "app.kpis.moneyFlow.chartTitle": "Entrate e spese, per giorno",
@@ -40311,6 +40402,16 @@ const it = {
   "app.jobs.visitCount": countedNoun("it", {"one":"visita","other":"visite"}),
   "app.clients.quoteCount": countedNoun("it", {"one":"preventivo","other":"preventivi"}),
   "app.clients.invoiceCount": countedNoun("it", {"one":"fattura","other":"fatture"}),
+
+  "app.kpis.moneyFlow.trend.upToDate": "In aumento del {pct} % sugli stessi {days} giorni del periodo precedente",
+  "app.kpis.moneyFlow.trend.downToDate": "In calo del {pct} % sugli stessi {days} giorni del periodo precedente",
+  "app.kpis.moneyFlow.trend.flatToDate": "Più o meno come i primi {days} giorni del periodo precedente",
+  "app.kpis.someDataMissing": "· alcuni dati mancanti, vedi sotto",
+  "app.activity.intro": "Un registro delle azioni importanti nel tuo account — preventivi inviati, pagamenti registrati, ore aggiunte e approvate, spese, modifiche a clienti e team, prezzi e impostazioni.",
+  "app.activity.someone": "Qualcuno",
+  "app.activity.supportSession": "sessione di assistenza",
+  "app.kpis.sampleSize": countedNoun("it", {"one":"lavoro/preventivo","other":"lavori/preventivi"}),
+  "app.kpis.weeksBooked": countedNoun("it", {"one":"settimana","other":"settimane"}),
 };
 
 export const APP_MESSAGES = { en, fr, es, uk, pa, tl, de, zh, it };
