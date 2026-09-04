@@ -17,7 +17,7 @@ tenancy, so it carries no information.
 
 | Entity | Pointed at by | From |
 |---|---:|---|
-| **Job** | 14 | AssetUseLog, ChangeOrder, Invoice, JobDailyLog, JobDocument, JobMaterial, JobPaymentStage, JobPhoto, JobVisit, SafetyIncident +4 |
+| **Job** | 15 | AssetUseLog, ChangeOrder, Invoice, JobDailyLog, JobDocument, JobMaterial, JobPaymentStage, JobPhoto, JobVisit, MarketingDesign +5 |
 | **Prospect** | 13 | PlatformVoiceCall, ProspectCapability, ProspectCorrection, ProspectEvidence, ProspectInference, ProspectOpportunity, ProspectScore, ProspectTalkingPoint, ProspectTechnology, SalesCallAttempt +3 |
 | **Quote** | 11 | Appointment, Booking, Invoice, Job, JobPaymentStage, LeadRequest, QuoteAddOn, QuoteCosting, QuoteImport, QuoteScopeGroup +1 |
 | **SalesRep** | 11 | Company, SalesAttribution, SalesAttributionTouch, SalesCallAttempt, SalesCommissionEntry, SalesLead, SalesPayoutBatch, SalesRepActivity, SalesRepNote, SalesSmsMessage +1 |
@@ -76,7 +76,7 @@ tenancy, so it carries no information.
 | `InvoiceCosting` | Invoice | Invoice |
 | `JenniferConversation` | — | JenniferMessage |
 | `JenniferMessage` | JenniferConversation | — |
-| `Job` | Client, Quote, SatisfactionResponse | AssetUseLog, ChangeOrder, Invoice, JobDailyLog, JobDocument, JobMaterial, JobPaymentStage, JobPhoto, JobVisit, SafetyIncident, SatisfactionResponse, Shift, Task, TimeEntry |
+| `Job` | Client, Quote, SatisfactionResponse | AssetUseLog, ChangeOrder, Invoice, JobDailyLog, JobDocument, JobMaterial, JobPaymentStage, JobPhoto, JobVisit, MarketingDesign, SafetyIncident, SatisfactionResponse, Shift, Task, TimeEntry |
 | `JobChecklistTemplate` | ServiceCategory | — |
 | `JobDailyLog` | Job | — |
 | `JobDocument` | Job | — |
@@ -96,7 +96,7 @@ tenancy, so it carries no information.
 | `LinkPage` | — | Company |
 | `MarketingCampaign` | DocumentTemplate | MarketingCampaignDelivery, MarketingDesign, PamphletStop |
 | `MarketingCampaignDelivery` | MarketingCampaign, MarketingSubscriber | — |
-| `MarketingDesign` | MarketingCampaign | MarketingDesignLayout, SocialPublish |
+| `MarketingDesign` | Job, MarketingCampaign | MarketingDesignLayout, SocialPublish |
 | `MarketingDesignLayout` | MarketingDesign | — |
 | `MarketingSubscriber` | — | MarketingCampaignDelivery |
 | `Material` | — | Expense, MaterialPriceEntry |
@@ -174,7 +174,7 @@ tenancy, so it carries no information.
 | `Supplier` | — | PurchaseOrder |
 | `Task` | Client, Invoice, Job, Quote, WorkArea | JobPhoto |
 | `TimeEntry` | Job, Worker | — |
-| `User` | Worker | Account, AccountDevice, Appointment, AvailabilitySchedule, ChangeOrder, EventType, Funnel, Invoice, JobMaterial, JobVisit, LeadNote, LeadRequest, MarketingCampaign, Member, OrgMember, PamphletStop, Quote, Session, Shift, Task, TimeEntry, TwoFactor, WorkAreaAssignment, Worker, WorkingHours |
+| `User` | Worker | Account, AccountDevice, Appointment, AvailabilitySchedule, ChangeOrder, EventType, Funnel, Invoice, JobMaterial, JobVisit, LeadNote, LeadRequest, MarketingCampaign, MarketingDesign, Member, OrgMember, PamphletStop, Quote, Session, Shift, Task, TimeEntry, TwoFactor, WorkAreaAssignment, Worker, WorkingHours |
 | `VehicleDetail` | — | VehicleMaintenance |
 | `VehicleMaintenance` | VehicleDetail | — |
 | `VoiceAgent` | — | Company, VoiceCall, VoicePhoneNumber |
