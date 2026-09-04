@@ -48,14 +48,19 @@ import {
   PRIVACY_POLICY_EFFECTIVE_DATE,
   TERMS_OF_SERVICE_EFFECTIVE_DATE,
   SECURITY_PAGE_UPDATED_DATE,
+  DATA_DELETION_PAGE_UPDATED_DATE,
 } from "../lib/legal/effectiveDates.js";
 
 const ROOT = resolve(dirname(new URL(import.meta.url).pathname), "..");
 
+// Every page here is held to all four rules below. Adding one to this map is
+// the whole registration step — a legal page that is not in it is a legal page
+// nothing checks, which is the state /data-deletion would have shipped in.
 const PAGES = {
   privacy: "app/(marketing)/privacy/page.js",
   terms: "app/(marketing)/terms/page.js",
   security: "app/(marketing)/security/page.js",
+  dataDeletion: "app/(marketing)/data-deletion/page.js",
 };
 
 function read(relPath) {
@@ -144,6 +149,7 @@ for (const [name, value] of [
   ["PRIVACY_POLICY_EFFECTIVE_DATE", PRIVACY_POLICY_EFFECTIVE_DATE],
   ["TERMS_OF_SERVICE_EFFECTIVE_DATE", TERMS_OF_SERVICE_EFFECTIVE_DATE],
   ["SECURITY_PAGE_UPDATED_DATE", SECURITY_PAGE_UPDATED_DATE],
+  ["DATA_DELETION_PAGE_UPDATED_DATE", DATA_DELETION_PAGE_UPDATED_DATE],
 ]) {
   if (!DATE_RE.test(value)) {
     fail(`lib/legal/effectiveDates.js: ${name} is "${value}", not a literal YYYY-MM-DD date`);
@@ -173,6 +179,7 @@ const DATE_IMPORT_BY_PAGE = {
   privacy: "PRIVACY_POLICY_EFFECTIVE_DATE",
   terms: "TERMS_OF_SERVICE_EFFECTIVE_DATE",
   security: "SECURITY_PAGE_UPDATED_DATE",
+  dataDeletion: "DATA_DELETION_PAGE_UPDATED_DATE",
 };
 for (const [page, constName] of Object.entries(DATE_IMPORT_BY_PAGE)) {
   if (!sources[page].includes(constName)) {
