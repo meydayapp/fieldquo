@@ -26,6 +26,7 @@ import { formatDateOnly, isoDateOnly } from "@/lib/format/companyDate";
 // screen ends up looking and normalising the same way.
 import { formatPhoneInput } from "@/lib/validation";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 
 // hiredOn is a calendar day. Both reading it into the <input type="date"> and
 // displaying it must use the UTC getters, or the date shifts a day each way.
@@ -149,6 +150,11 @@ function WorkersScreen() {
 
 function WorkerRow({ worker, workers = [], reload, onConnect }) {
   const { t } = useTranslation();
+  // The rate is typed by a person in the company own currency, so it is
+  // formatted in that currency rather than labelled with a symbol the
+  // catalogue picked. "$" lived in the SENTENCE in nine languages — and fr and
+  // it put it after the number, so no single literal could have been right.
+  const money = useCompanyMoney();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
     name: worker.name || "",
@@ -416,7 +422,7 @@ function WorkerRow({ worker, workers = [], reload, onConnect }) {
         <div className="text-xs text-muted-foreground capitalize">
           {worker.type}
           {worker.hourlyRate != null
-            ? t("app.setWorkers.ratePerHr", { rate: worker.hourlyRate })
+            ? t("app.setWorkers.ratePerHr", { rate: money(worker.hourlyRate) })
             : t("app.setWorkers.noRateSet")}
           {worker.hiredOn
             ? t("app.setWorkers.startedOn", {

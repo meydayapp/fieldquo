@@ -19,6 +19,7 @@ import { fetchArray } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 import { can } from "@/lib/permissions";
 import { usePermissions } from "@/app/providers/PermissionProvider";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 
 const TYPE_LABELS = {
   pamphlet: "Pamphlet distribution",
@@ -58,6 +59,9 @@ const ELIGIBLE_TEMPLATE_TYPES = ["marketing_email", "custom_email"];
 
 export default function MarketingPage() {
   const { t } = useTranslation();
+  // Same reason as the worker rate: the campaign budget was printed through a
+  // catalogue sentence carrying a literal "$".
+  const money = useCompanyMoney();
   // ── The create control could only ever 403 ───────────────────────────────
   //
   // POST /api/marketing/campaigns requires `user:manage`, and so do the send,
@@ -285,7 +289,7 @@ export default function MarketingPage() {
                     {c.budget != null && (
                       <span>
                         {t("app.marketing.budgetAmount", {
-                          amount: Number(c.budget).toLocaleString(),
+                          amount: money(c.budget),
                         })}
                       </span>
                     )}

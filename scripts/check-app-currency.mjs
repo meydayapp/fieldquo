@@ -42,6 +42,7 @@
 // Run: node scripts/check-app-currency.mjs
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
+import { APP_MESSAGES } from "@/app/i18n/appMessages";
 import { join, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -192,27 +193,97 @@ for (const [rel, re_] of USES_FORMATTER) {
   ok(`${rel.split("/").slice(-2).join("/")} — ${re_.source}`, re_.test(src), rel);
 }
 
-console.log("\nNo catalogue entry carries a currency symbol of its own");
+console.log("\nNo catalogue entry decides the currency of a number for the caller");
 {
-  const catalogue = readFileSync(join(ROOT, "app/i18n/appMessages.js"), "utf8");
-  for (const key of CURRENCY_FREE_KEYS) {
-    // Every block's entry for the key, comments excluded — the prose above the
-    // French block explains this very bug and quotes the "$" while doing it.
-    const entries = [
-      ...catalogue.matchAll(new RegExp(`^  "${key}":([\\s\\S]*?)",$`, "gm")),
-    ].map((m) => m[1]);
+  // ══ Why this sweeps instead of naming keys ═══════════════════════════════
+  //
+  // This section used to hold a list of three keys somebody had remembered to
+  // add. It passed while `app.marketing.budgetAmount` read "Budget ${amount}"
+  // and `app.setWorkers.ratePerHr` read " · ${rate}/hr" — in NINE blocks each —
+  // because neither was on the list. A check that only inspects the defects
+  // already known is a record of the last fix, not a guard against the next.
+  //
+  // So it reads every string in every block and looks for a currency symbol
+  // ADJACENT TO A VALUE: in front of a placeholder, behind one, or in front of
+  // a bare figure. That last form is what caught fr and it, which write
+  // "{amount} $" — the symbol trails the number in those languages, so no
+  // single literal could ever have been right for all nine, and a scan that
+  // only looked for `${` saw two of the nine and called the key clean.
+  //
+  // ══ The exemptions, each with the reason it is not a bug ═════════════════
+  //
+  // An exemption is a claim about the world, so each one says what it is.
+  const EXEMPT = new Map([
+    [
+      "app.setPayments.financingActivateNote",
+      "Affirm's own limit really is denominated in USD/CAD — the sentence says " +
+        "so in the same breath. Rendering it in a Swiss company's francs would " +
+        "state a threshold that does not exist.",
+    ],
+    [
+      "app.leads.budgetUnder1k",
+      "A lead budget BAND, not a formatted amount — the four bands are fixed " +
+        "enum values on Lead.budgetBand. Rendering them per currency means " +
+        "deciding whether \"under 1k\" is 1000 CAD, 1000 EUR or a converted " +
+        "figure, and a converted band would silently reshuffle which leads " +
+        "land in which bucket. That is a product decision, not a formatting " +
+        "one. Recorded here so it stays visible instead of passing silently.",
+    ],
+    ["app.leads.budget1k5k", "See app.leads.budgetUnder1k — same four-band set."],
+    ["app.leads.budget5k15k", "See app.leads.budgetUnder1k — same four-band set."],
+    ["app.leads.budget15kPlus", "See app.leads.budgetUnder1k — same four-band set."],
+  ]);
+
+  // A symbol touching a value. Prose that merely contains "$" — a comment, a
+  // currency NAME — is not what this is for.
+  const ADJACENT =
+    /[$£€]\s*\{|\{[^}]+\}\s*(?:[$£€]|CHF\b)|(?:^|[\s(–—-])(?:[$£€]|CHF)\s*\d/;
+
+  const offenders = new Map();
+  let scanned = 0;
+  for (const [code, table] of Object.entries(APP_MESSAGES)) {
+    for (const [key, value] of Object.entries(table)) {
+      if (typeof value !== "string") continue;
+      scanned++;
+      if (!ADJACENT.test(value)) continue;
+      if (EXEMPT.has(key)) continue;
+      if (!offenders.has(key)) offenders.set(key, []);
+      offenders.get(key).push(code);
+    }
+  }
+
+  // Proved before it is trusted. A regex that stopped matching would report a
+  // clean catalogue forever, which is the shape of a check that looked at
+  // nothing — and this file has already shipped one of those.
+  ok(
+    "the sweep actually read the catalogue",
+    scanned > 20000,
+    `only ${scanned} strings scanned`,
+  );
+  ok(
+    "...and the pattern still recognises the shape it exists for",
+    ADJACENT.test("Budget ${amount}") &&
+      ADJACENT.test("Budget {amount} $") &&
+      ADJACENT.test("Up from $0 last period") &&
+      !ADJACENT.test("Paid in full") &&
+      !ADJACENT.test("Amount due"),
+  );
+  for (const [key, reason] of EXEMPT) {
     ok(
-      `${key} was found in the catalogue`,
-      entries.length > 0,
-      "a renamed key makes the assertion below vacuously true",
-    );
-    const dirty = entries.filter((v) => /[$£€]|CHF/.test(v));
-    ok(
-      `...and no block writes a currency symbol into it`,
-      dirty.length === 0,
-      dirty.map((v) => v.trim().slice(0, 90)).join("\n      "),
+      `the exemption for ${key} still describes a real key`,
+      Object.prototype.hasOwnProperty.call(APP_MESSAGES.en, key),
+      `exempted for: ${reason} — but the key is gone, so delete the exemption`,
     );
   }
+
+  ok(
+    "no key writes a currency symbol beside a value",
+    offenders.size === 0,
+    [...offenders]
+      .map(([k, langs]) => `${k} [${langs.join(",")}]`)
+      .slice(0, 8)
+      .join("\n      "),
+  );
 }
 
 // ── The two ledgers stay two ledgers ───────────────────────────────────────
