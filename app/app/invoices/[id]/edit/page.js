@@ -53,6 +53,24 @@ export default function EditInvoicePage() {
   const [clientPhotos, setClientPhotos] = useState([]);
   const [discount, setDiscount] = useState(0);
   const [taxRate, setTaxRate] = useState(0);
+  // ── The rate the invoice was actually written with, unrounded ────────────
+  //
+  // `taxRate` above is the number in the BOX, and it is rounded to four
+  // decimals so a contractor reading it sees "13" rather than "12.999812".
+  // Recomputing the tax from that rounded figure changes the tax on an invoice
+  // nobody edited the tax on: back out 12,699.51 from a 97,765.43 base and it
+  // comes back as 12,699.53. Two cents, on the line a company remits against,
+  // moved by opening a page and pressing Save.
+  //
+  // Same failure the estimate-review screen had, where a total held as
+  // `useState(Math.round(...))` turned $6,750.40 into $6,750 for anyone who
+  // approved it without touching the field. The rule is the same: a number the
+  // user did not change must be sent back exactly as it arrived.
+  //
+  // So the arithmetic uses the FULL-precision rate until somebody types in the
+  // box, at which point their number is the truth and this one is stale.
+  const [exactTaxRate, setExactTaxRate] = useState(0);
+  const [taxRateTouched, setTaxRateTouched] = useState(false);
   const [taxEnabled, setTaxEnabled] = useState(true);
   const [dueDate, setDueDate] = useState("");
   const [changeReason, setChangeReason] = useState("");
@@ -98,7 +116,12 @@ export default function EditInvoicePage() {
         // `!== false` so a row that predates the column reads as on, matching
         // the column default.
         setTaxEnabled(inv.taxEnabled !== false);
-        setTaxRate(base > 0 ? +((num(inv.tax) / base) * 100).toFixed(4) : 0);
+        const exact = base > 0 ? (num(inv.tax) / base) * 100 : 0;
+        setExactTaxRate(exact);
+        setTaxRateTouched(false);
+        // Rounded for the BOX only. See exactTaxRate's own note above for why
+        // the totals below must not read this number.
+        setTaxRate(+exact.toFixed(4));
       } catch (err) {
         if (!cancelled) setError(err.message);
       } finally {
@@ -115,9 +138,13 @@ export default function EditInvoicePage() {
   const totals = useMemo(() => {
     const subtotal = lineItems.reduce((s, li) => s + num(li.amount), 0);
     const base = Math.max(0, subtotal - num(discount));
-    const tax = taxEnabled ? base * (num(taxRate) / 100) : 0;
+    // The typed rate once it has been typed, the invoice's own rate until
+    // then. Editing a LINE ITEM still scales the tax — correctly, and off the
+    // unrounded rate rather than the display one.
+    const rate = taxRateTouched ? num(taxRate) : exactTaxRate;
+    const tax = taxEnabled ? base * (rate / 100) : 0;
     return { subtotal, tax, total: base + tax };
-  }, [lineItems, discount, taxRate, taxEnabled]);
+  }, [lineItems, discount, taxRate, taxRateTouched, exactTaxRate, taxEnabled]);
 
   function updateItem(i, field, value) {
     setLineItems((prev) =>
@@ -344,7 +371,13 @@ export default function EditInvoicePage() {
               step="0.001"
               value={taxRate}
               disabled={!taxEnabled}
-              onChange={(e) => setTaxRate(e.target.value)}
+              onChange={(e) => {
+                // From here on the typed number is the truth — see
+                // exactTaxRate. Set on the first keystroke, not on blur, so a
+                // half-typed rate is never mixed with the stored one.
+                setTaxRateTouched(true);
+                setTaxRate(e.target.value);
+              }}
               className="w-full border border-border rounded-lg px-3 py-2 text-sm disabled:bg-muted disabled:text-muted-foreground"
             />
             <label className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">

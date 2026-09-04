@@ -78,7 +78,12 @@ export default function PurchasingPage() {
                   role="tab"
                   aria-selected={active}
                   onClick={() => setTab(entry.key)}
-                  className={`flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition ${
+                  // min-h-11 (44px). The header above says this screen is used
+                  // standing up at a tailgate; px-3 py-2 on 20px text is a
+                  // 36px target, which is the size the mobile rules exist to
+                  // stop. Stated as a claim and not met is worse than not
+                  // claimed.
+                  className={`flex min-h-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition ${
                     active
                       ? "bg-foreground text-background"
                       : "text-muted-foreground hover:text-foreground"

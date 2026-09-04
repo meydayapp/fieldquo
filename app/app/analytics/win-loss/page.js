@@ -18,6 +18,25 @@
 //
 // 3. The reasons are verbatim, newest first, each against its quote and client.
 //    No categories: see lib/analytics/winLoss.js rule 3 for why not.
+//
+// ── i18n PENDING ───────────────────────────────────────────────────────────
+//
+// One key is needed and is NOT wired here, because a t() call on a key that
+// does not exist yet turns check:translations red for every other agent in the
+// tree (see commit 080999e). Reported instead:
+//
+//   app.winLoss.estimatorTooFew
+//     en: "By whoever wrote the quote: fewer than two people have {floor} or
+//          more decided quotes in this period, so there is nobody to compare
+//          against yet."
+//     fr: "Par l'auteur de la soumission : moins de deux personnes ont
+//          {floor} soumissions décidées ou plus dans cette période, alors il
+//          n'y a encore personne à comparer."
+//
+// It exists because `byEstimator.suppressed === "below_floor"` currently
+// removes the whole section with no notice — the sibling estimate-accuracy
+// screen names a suppressed segment rather than letting it vanish, and a
+// category the reader knows they have disappearing reads as a bug.
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -430,16 +449,28 @@ export default function WinLossPage() {
                   </tbody>
                 </table>
               </div>
-              {data.byEstimator.unattributed > 0 && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {t(
-                    "app.winLoss.unattributed",
-                    "{count} decided quotes record no author and are in no row above — “not recorded” is not a colleague to compare anyone against.",
-                    { count: data.byEstimator.unattributed },
-                  )}
-                </p>
-              )}
             </div>
+          )}
+
+          {/* The unattributed count lived INSIDE the table's own
+              `rows.length > 0` guard, so it vanished with the table whenever
+              the sample was too thin to name anybody — which is exactly when a
+              company has few enough decided quotes for a handful of
+              author-less ones to be most of them. The number is about the
+              DATA, not about the comparison, so it stands on its own.
+
+              The table itself is still suppressed silently when
+              byEstimator.suppressed is "below_floor"; the sentence that would
+              say so is reported as app.winLoss.estimatorTooFew — see the i18n
+              note at the foot of this file. */}
+          {data.byEstimator.unattributed > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {t(
+                "app.winLoss.unattributed",
+                "{count} decided quotes record no author and are in no row above — “not recorded” is not a colleague to compare anyone against.",
+                { count: data.byEstimator.unattributed },
+              )}
+            </p>
           )}
 
           {/* ── What is deliberately not in any figure above ─────────────── */}

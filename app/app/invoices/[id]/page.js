@@ -55,6 +55,7 @@ import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
 import { reportResponseError } from "@/lib/clientErrors";
 import { jsonBody } from "@/lib/jsonBody";
+import { fetchList } from "@/lib/loadState";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import {
   invoiceStatusClasses,
@@ -82,6 +83,9 @@ export default function InvoiceDetailPage() {
   const { id } = useParams();
 
   const [invoice, setInvoice] = useState(null);
+  // Set only when the READ failed. Distinguishes "we were refused" from "the
+  // server said this invoice is not there" — see the effect below.
+  const [loadErrorKey, setLoadErrorKey] = useState("");
   // The company: currency, letterhead and brand colour. One request, not the
   // two this page used to make for the currency alone — it is the same endpoint
   // the layout already reads for date preferences, so it is warm, and the
@@ -182,11 +186,23 @@ export default function InvoiceDetailPage() {
     // Guard res.ok on every one of these: a 404/401 returns { error }, and
     // setting that as the invoice made `if (!invoice)` pass, rendering a $NaN
     // page instead of not-found.
-    fetch(`/api/invoices/${id}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then(setInvoice)
-      .catch(() => setInvoice(null))
-      .finally(() => setLoading(false));
+    //
+    // That fix stopped the NaN and then told the same lie a different way: a
+    // 403, a 500 and a Neon cold start all landed on "That invoice doesn't
+    // exist", on the screen that says what a household owes. Losing an invoice
+    // and being refused one are not the same event, and the first is the one
+    // people act on. loadErrorKey separates them; `invoice` still only ever
+    // holds a real body.
+    fetchList(`/api/invoices/${id}`).then((result) => {
+      if (result.ok) {
+        setInvoice(result.data);
+        setLoadErrorKey("");
+      } else if (!result.aborted) {
+        setInvoice(null);
+        setLoadErrorKey(result.errorKey);
+      }
+      setLoading(false);
+    });
     fetch(`/api/invoices/${id}/lifecycle`)
       .then((r) => (r.ok ? r.json() : null))
       .then(setLife)
@@ -407,8 +423,18 @@ export default function InvoiceDetailPage() {
     );
   if (!invoice)
     return (
-      <div className="p-4 sm:p-6 max-w-4xl mx-auto text-sm text-muted-foreground">
-        {t("app.invoiceDetail.notFound")}
+      <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-2 text-sm">
+        {loadErrorKey ? (
+          <>
+            <p className="font-semibold text-foreground">{t("app.load.title")}</p>
+            <p className="text-muted-foreground">{t(loadErrorKey)}</p>
+            {/* Said out loud on the money screen, because "this invoice
+                doesn't exist" is what the reader was about to conclude. */}
+            <p className="text-muted-foreground">{t("app.load.reassure")}</p>
+          </>
+        ) : (
+          <p className="text-muted-foreground">{t("app.invoiceDetail.notFound")}</p>
+        )}
       </div>
     );
 

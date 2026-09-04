@@ -20,10 +20,30 @@ import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import EmailCampaignDetail from "@/app/components/marketing/EmailCampaignDetail";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
+import { fetchList } from "@/lib/loadState";
+import { fetchJson } from "@/lib/fetchJson";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
+// ── i18n PENDING ───────────────────────────────────────────────────────────
+//
+// These five labels are the door-knock stop's status chip — raw English on a
+// page whose every other word goes through t(). Not wired here, because a t()
+// call on a key that does not exist yet turns check:translations red for every
+// other agent in the tree (commit 080999e). Reported, keyed by the stop's own
+// status value so the map stays one-to-one with what the API stores:
+//
+//   app.mkDetail.stop.pending    en "Pending"          fr "En attente"
+//   app.mkDetail.stop.delivered  en "Delivered"        fr "Livré"
+//   app.mkDetail.stop.spoke      en "Spoke to owner"   fr "Parlé au propriétaire"
+//   app.mkDetail.stop.not_home   en "Not home"         fr "Absent"
+//   app.mkDetail.stop.skipped    en "Skipped"          fr "Sauté"
+//
+// The COLOURS stay here and are already exhaustive over the five: `pending`
+// and `skipped` share the neutral chip deliberately — neither is a visit that
+// happened — while `not_home` is amber because it is the one worth going back
+// to.
 const STATUS_META = {
   pending: { label: "Pending", cls: "bg-muted text-muted-foreground" },
   delivered: { label: "Delivered", cls: "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300" },
@@ -85,6 +105,9 @@ export default function CampaignDetailPage() {
   const [campaign, setCampaign] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // Separate from `error`, which is for a WRITE that failed. This one decides
+  // whether the page says "doesn't exist" or "couldn't be loaded".
+  const [loadErrorKey, setLoadErrorKey] = useState("");
 
   const [newStop, setNewStop] = useState({ address: "", latitude: null, longitude: null });
   const [addingStop, setAddingStop] = useState(false);
@@ -99,22 +122,28 @@ export default function CampaignDetailPage() {
   const [converting, setConverting] = useState(false);
 
   async function load() {
-    // A non-ok response used to be mapped to null, which the UI renders as a
-    // bland "not found" even when the request actually failed (500, network).
-    // Surface the real error instead of masking it, and never feed an error
-    // body into setCampaign.
-    try {
-      const res = await fetch(`/api/marketing/campaigns/${id}`);
-      if (!res.ok) {
-        await reportResponseError(res);
-        setCampaign(null);
-        return;
-      }
-      setCampaign(await res.json());
-    } catch (err) {
-      setError(err.message || t("app.mkDetail.addAddressError"));
+    // ── Why this is fetchList and not fetch ─────────────────────────────────
+    //
+    // The comment that stood here claimed a non-ok response no longer rendered
+    // "bland 'not found' even when the request actually failed". It still did.
+    // All the previous pass added was a toast; the handler went on calling
+    // setCampaign(null), and `if (!campaign)` below has exactly one branch —
+    // so a 403 on somebody else's campaign, a 500, and a genuinely deleted
+    // campaign all printed "That campaign doesn't exist". The toast scrolls
+    // away; the sentence in the middle of the page is the one people believe,
+    // and "it's gone" is the worst of the three things it could have meant.
+    //
+    // fetchList separates them: `ok` carries data, a failure carries a KEY and
+    // never data, so this cannot write an error body into setCampaign.
+    const result = await fetchList(`/api/marketing/campaigns/${id}`);
+    if (result.aborted) return;
+    if (!result.ok) {
+      setLoadErrorKey(result.errorKey);
       setCampaign(null);
+      return;
     }
+    setLoadErrorKey("");
+    setCampaign(result.data);
   }
 
   useEffect(() => {
@@ -175,13 +204,13 @@ export default function CampaignDetailPage() {
     setConverting(true);
     setError("");
     try {
-      const res = await fetch(`/api/marketing/stops/${convertStop.id}`, {
+      // fetchJson: `await res.json()` before checking res.ok threw the
+      // browser's own parser complaint whenever this route 500'd and Next
+      // answered with its HTML error page.
+      await fetchJson(`/api/marketing/stops/${convertStop.id}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(convertForm),
+        body: convertForm,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || t("app.mkDetail.convertError"));
       setConvertStop(null);
       await load();
     } catch (err) {
@@ -201,12 +230,37 @@ export default function CampaignDetailPage() {
   }
 
   if (!campaign) {
+    // Two different facts, two different sentences, and a retry on the one
+    // that can be retried. "It doesn't exist" is only said when the server
+    // actually said so.
     return (
-      <div className="p-4 sm:p-6 max-w-3xl mx-auto">
-        <p className="text-sm text-muted-foreground">
-          {t("app.mkDetail.notFound")}
-        </p>
-        <Link href="/app/marketing" className="text-sm text-foreground underline">
+      <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-2">
+        {loadErrorKey ? (
+          <>
+            <p className="text-sm font-semibold text-foreground">
+              {t("app.load.title")}
+            </p>
+            <p className="text-sm text-muted-foreground">{t(loadErrorKey)}</p>
+            <p className="text-sm text-muted-foreground">
+              {t("app.load.reassure")}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setLoading(true);
+                load().finally(() => setLoading(false));
+              }}
+              className="text-sm font-semibold text-foreground underline"
+            >
+              {t("app.load.retry")}
+            </button>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            {t("app.mkDetail.notFound")}
+          </p>
+        )}
+        <Link href="/app/marketing" className="block text-sm text-foreground underline">
           {t("app.mkDetail.backToMarketing")}
         </Link>
       </div>

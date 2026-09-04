@@ -316,10 +316,17 @@ export default function EstimateAccuracyPage() {
   );
 }
 
-/** Hours or money, depending on what the dimension measures. */
-function amountOf(dim, value, money) {
+/**
+ * Hours or money, depending on what the dimension measures.
+ *
+ * "hrs" was a bare English literal here and in the unrated-workers sentence
+ * below — the only two untranslated words on an otherwise fully translated
+ * report. app.duration.hours is a countedNoun, so "1 hour" and Ukrainian's
+ * three forms come out of Intl.PluralRules rather than out of an `=== 1`.
+ */
+function amountOf(dim, value, money, t) {
   if (value == null) return "—";
-  return dim.unit === "money" ? money(value) : `${value} hrs`;
+  return dim.unit === "money" ? money(value) : t("app.duration.hours", { value });
 }
 
 function DimensionCard({ dim, money, t, segmentAccess }) {
@@ -357,12 +364,16 @@ function DimensionCard({ dim, money, t, segmentAccess }) {
                 "app.estimateAccuracy.noneComparable",
                 "No job in this period had both sides of this comparison recorded, so there is nothing to report. The exclusions below say which jobs and why.",
               )
-            : t(
+            : // The fallback matches the catalogue entry, which was rewritten to
+              // drop {plural} — an English `n === 1 ? "" : "s"` wearing a
+              // placeholder, which printed a bare Latin "s" in Chinese. The
+              // sentence leads with the noun and puts the number after it so no
+              // language has to agree with anything.
+              t(
                 "app.estimateAccuracy.tooThin",
-                "{n} comparable job{plural} — fewer than the {floor} this report will draw a percentage from. {more} more and it will.",
+                "Comparable jobs: {n} — fewer than the {floor} this report will draw a percentage from. {more} more and it will.",
                 {
                   n: dim.sample,
-                  plural: dim.sample === 1 ? "" : "s",
                   floor: dim.minSample,
                   more: dim.minSample - dim.sample,
                 },
@@ -401,8 +412,8 @@ function DimensionCard({ dim, money, t, segmentAccess }) {
               {t("app.estimateAccuracy.aggregate", "Total, estimated vs actual")}
             </dt>
             <dd>
-              {amountOf(dim, dim.aggregate?.estimated, money)} →{" "}
-              {amountOf(dim, dim.aggregate?.actual, money)}{" "}
+              {amountOf(dim, dim.aggregate?.estimated, money, t)} →{" "}
+              {amountOf(dim, dim.aggregate?.actual, money, t)}{" "}
               <span className="text-muted-foreground">
                 (<Rate value={dim.aggregate?.variancePct ?? null} absent="—" />)
               </span>
@@ -468,11 +479,8 @@ function DimensionCard({ dim, money, t, segmentAccess }) {
             {showExclusions ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
             {t(
               "app.estimateAccuracy.excludedToggle",
-              "{n} job{plural} left out of this comparison",
-              {
-                n: dim.excluded.reduce((s, e) => s + e.count, 0),
-                plural: dim.excluded.reduce((s, e) => s + e.count, 0) === 1 ? "" : "s",
-              },
+              "Jobs left out of this comparison: {n}",
+              { n: dim.excluded.reduce((s, e) => s + e.count, 0) },
             )}
           </button>
           {showExclusions && (
@@ -522,8 +530,8 @@ function SegmentBlock({ title, block, dim, money, t }) {
                     <Rate value={s.medianPct} absent="—" />
                   </td>
                   <td className="py-1.5 text-right text-xs text-muted-foreground whitespace-nowrap">
-                    {amountOf(dim, s.aggregate?.estimated, money)} →{" "}
-                    {amountOf(dim, s.aggregate?.actual, money)} · {s.sample}{" "}
+                    {amountOf(dim, s.aggregate?.estimated, money, t)} →{" "}
+                    {amountOf(dim, s.aggregate?.actual, money, t)} · {s.sample}{" "}
                     {t("app.estimateAccuracy.jobsShort", "jobs")}
                   </td>
                 </tr>
@@ -545,8 +553,8 @@ function SegmentBlock({ title, block, dim, money, t }) {
         <p className="mt-1 text-xs text-muted-foreground">
           {t(
             "app.estimateAccuracy.unattributed",
-            "{n} job{plural} could not be attributed to a single one of these and are counted only in the total above.",
-            { n: unattributed, plural: unattributed === 1 ? "" : "s" },
+            "Jobs that could not be attributed to a single one of these: {n}. They are counted only in the total above.",
+            { n: unattributed },
           )}
         </p>
       )}
@@ -587,8 +595,8 @@ function SizeBlock({ block, dim, money, t }) {
                   <Rate value={b.medianPct} absent="—" />
                 </td>
                 <td className="py-1.5 text-right text-xs text-muted-foreground whitespace-nowrap">
-                  {amountOf(dim, b.aggregate?.estimated, money)} →{" "}
-                  {amountOf(dim, b.aggregate?.actual, money)} · {b.sample}{" "}
+                  {amountOf(dim, b.aggregate?.estimated, money, t)} →{" "}
+                  {amountOf(dim, b.aggregate?.actual, money, t)} · {b.sample}{" "}
                   {t("app.estimateAccuracy.jobsShort", "jobs")}
                 </td>
               </tr>
@@ -649,7 +657,11 @@ function DataQuality({ data, t }) {
           {t(
             "app.estimateAccuracy.dq.unratedWho",
             "No hourly rate on file: {names}. Their hours cost nothing here, which makes every job they touched look cheaper than it was.",
-            { names: q.unratedWorkers.map((w) => `${w.name} (${w.hours} hrs)`).join(", ") },
+            {
+              names: q.unratedWorkers
+                .map((w) => `${w.name} (${t("app.duration.hours", { value: w.hours })})`)
+                .join(", "),
+            },
           )}
         </p>
       )}

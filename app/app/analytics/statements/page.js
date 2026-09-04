@@ -26,15 +26,51 @@ import { formatAppMoney } from "@/lib/format/money";
 import { presetRange, PERIOD_PRESETS } from "@/lib/analytics/periodPresets";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
-// The six period buttons and their UTC maths moved to
+// The five period buttons and their UTC maths moved to
 // lib/analytics/periodPresets.js when the win/loss screen needed the same ones
-// — one implementation rather than two that drift.
+// — one implementation rather than two that drift. (Both this comment and the
+// module's own said "six"; PERIOD_PRESETS has always held five, and a count in
+// a comment that nobody derives is exactly the sort of number that goes stale.)
 const PRESETS = PERIOD_PRESETS;
 
 // The API's `reason` codes, turned into a sentence. Anything unmapped falls
 // through to the code itself rather than to a generic "unavailable" — an
 // unexplained blank is what this whole screen is against, and a raw code at
 // least tells whoever is reading the bug report which branch produced it.
+//
+// ── i18n PENDING ───────────────────────────────────────────────────────────
+//
+// These eight are English literals on a screen whose every other word goes
+// through t(), and they are the sentences that explain why a figure is missing
+// — the ones a reader most needs in their own language. Not wired here,
+// because a t() call on a key that does not exist yet turns check:translations
+// red for every other agent in the tree (commit 080999e). Reported, keyed by
+// the API's own code so the map stays a one-to-one with the server:
+//
+//   app.statements.reason.payroll_restricted
+//     en "Your access doesn't include everyone's pay"
+//     fr "Votre accès ne couvre pas la paie de tout le monde"
+//   app.statements.reason.labour_exceeds_payroll
+//     en "Timesheets and pay runs disagree for this period"
+//     fr "Les feuilles de temps et les paies ne concordent pas pour cette période"
+//   app.statements.reason.no_interest_rate
+//     en "No interest rate recorded on the loan"
+//     fr "Aucun taux d'intérêt enregistré sur le prêt"
+//   app.statements.reason.not_recorded
+//     en "FieldQuo doesn't record this"
+//     fr "FieldQuo n'enregistre pas cela"
+//   app.statements.reason.not_in_this_report
+//     en "Not read by this statement"
+//     fr "Non lu par cet état"
+//   app.statements.reason.no_remittance_record
+//     en "Nothing records what has been remitted"
+//     fr "Rien n'enregistre ce qui a été remis"
+//   app.statements.reason.requires_complete_sides
+//     en "Both sides of the balance sheet would have to be complete"
+//     fr "Les deux côtés du bilan devraient être complets"
+//   app.statements.reason.incomplete_sections
+//     en "Some lines in this section are unavailable"
+//     fr "Certaines lignes de cette section sont indisponibles"
 const REASONS = {
   payroll_restricted: "Your access doesn't include everyone's pay",
   labour_exceeds_payroll: "Timesheets and pay runs disagree for this period",

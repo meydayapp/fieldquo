@@ -19,6 +19,7 @@ import { fetchArray } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { moneyFormatter } from "@/lib/format/money";
+import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 
 const STATUS_STYLES = {
   active: "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300",
@@ -28,9 +29,17 @@ const STATUS_STYLES = {
 
 export default function ServicePlansPage() {
   const { t, language } = useTranslation();
-  const [company, setCompany] = useState(null);
   // The COMPANY's billing currency, the READER's locale — see lib/format/money.js.
-  const money = moneyFormatter(company?.currency, language);
+  //
+  // Read from the provider rather than fetched here. This page had its own
+  // GET /api/settings/business-info whose failure was swallowed, and a
+  // swallowed failure left `currency` null — which documentFormatters reads as
+  // the CAD default. A euro company whose settings call 403'd or 500'd was
+  // shown its own plan prices with a dollar sign. The layout hands the
+  // provider the real currency from its own company query, so the first paint
+  // is already right and there is nothing left to fail.
+  const { currency } = useCompanyPreferences();
+  const money = moneyFormatter(currency, language);
   // null until the server answers — see lib/loadState.js.
   const [plans, setPlans] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -48,10 +57,6 @@ export default function ServicePlansPage() {
 
   useEffect(() => {
     load();
-    fetch("/api/settings/business-info")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setCompany(d))
-      .catch(() => {});
   }, [load]);
 
   // The one sentence per row that says how this plan actually collects. Every

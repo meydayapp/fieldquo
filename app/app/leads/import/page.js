@@ -2,7 +2,53 @@
 //
 // Import leads a company bought or exported from another tool. Parses the CSV in
 // the browser (Papa Parse), previews a few rows, and posts them to be scored and
-// filed like any inbound lead. English-first, like the other newest surfaces.
+// filed like any inbound lead.
+//
+// ── i18n PENDING — this whole screen is English ────────────────────────────
+//
+// The line that used to sit here said "English-first, like the other newest
+// surfaces", which is a habit rather than a policy: /app/clients/import does
+// the same job three routes away and is translated into all nine languages
+// (app.clientImport.*). A contractor who set the back office to French gets a
+// fully French client importer and a fully English lead importer.
+//
+// Not wired here, because a t() call on a key that does not exist yet turns
+// check:translations red for every other agent in the tree (commit 080999e).
+// Every string below is reported with English and French; the shapes mirror
+// app.clientImport.* deliberately, so the two importers read as one product.
+//
+//   app.leadImport.back            en "Leads"                      fr "Prospects"
+//   app.leadImport.title           en "Import leads"               fr "Importer des prospects"
+//   app.leadImport.subtitle        en "Upload a CSV of leads you bought or exported elsewhere. We'll match common columns (name, email, phone, notes, budget, timeline), score each one hot/warm/cold, and drop them into your pipeline. Budget and timeline are mapped where we can recognise them — otherwise the lead still scores on how reachable it is."
+//                                  fr "Téléversez un CSV de prospects achetés ou exportés d'ailleurs. Nous reconnaîtrons les colonnes courantes (nom, courriel, téléphone, notes, budget, échéance), classerons chacun chaud/tiède/froid, et les déposerons dans votre entonnoir. Le budget et l'échéance sont associés quand nous les reconnaissons — sinon le prospect est tout de même classé selon sa joignabilité."
+//   app.leadImport.readError       en "Couldn't read that CSV file."
+//                                  fr "Impossible de lire ce fichier CSV."
+//   app.leadImport.failed          en "Import failed."             fr "Échec de l'importation."
+//   app.leadImport.choose          en "Choose a CSV file"          fr "Choisir un fichier CSV"
+//   app.leadImport.noContact       en "no contact"                 fr "aucune coordonnée"
+//   app.leadImport.importing       en "Importing…"                 fr "Importation…"
+//   app.leadImport.view            en "View leads"                 fr "Voir les prospects"
+//
+// Four of them are COUNTS and must be countedNoun() entries, not "{n} rows" —
+// the `rows.length === 1 ? "" : "s"` below is the English plural rule wearing a
+// template literal, which is what printed a bare Latin "s" on a Mandarin screen
+// and "1 дзвінків" on a Ukrainian one:
+//
+//   app.leadImport.rowCount    countedNoun en {one:"row",  other:"rows"}
+//                              countedNoun fr {one:"ligne", many:"lignes", other:"lignes"}
+//   app.leadImport.leadCount   countedNoun en {one:"lead",  other:"leads"}
+//                              countedNoun fr {one:"prospect", many:"prospects", other:"prospects"}
+//
+// and the two sentences that consume them, each taking the counted noun as
+// {count} the way app.receptionist.upcomingCount is consumed today:
+//
+//   app.leadImport.found       en "Found {count}. Preview:"
+//                              fr "{count} trouvées. Aperçu :"
+//   app.leadImport.imported    en "Imported {count}{skipped}."
+//                              fr "{count} importés{skipped}."
+//   app.leadImport.skipped     en ", skipped {count} with no name or contact"
+//                              fr ", {count} ignorés sans nom ni coordonnées"
+//   app.leadImport.importN     en "Import {count}"    fr "Importer {count}"
 "use client";
 
 import { useState } from "react";

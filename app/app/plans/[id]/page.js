@@ -39,18 +39,23 @@ const OCCURRENCE_STYLES = {
 
 export default function ServicePlanPage() {
   const { t, language } = useTranslation();
-  const { formatDate } = useCompanyPreferences();
+  // The currency comes from the same provider the dates already did. This page
+  // was reading formatDate from here and STILL fetching business-info of its
+  // own for the currency — and that fetch's failure was swallowed, which meant
+  // a euro company saw its plan prices in dollars whenever the settings call
+  // was refused. The provider is seeded server-side, so the first paint is
+  // already correct.
+  const { formatDate, currency } = useCompanyPreferences();
   const { id } = useParams();
 
   const [plan, setPlan] = useState(null);
-  const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState("");
   const [confirmCancel, setConfirmCancel] = useState(false);
 
-  const money = moneyFormatter(company?.currency, language);
+  const money = moneyFormatter(currency, language);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -65,10 +70,6 @@ export default function ServicePlanPage() {
 
   useEffect(() => {
     load();
-    fetch("/api/settings/business-info")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setCompany(d))
-      .catch(() => {});
   }, [load]);
 
   const askForMethod = async () => {

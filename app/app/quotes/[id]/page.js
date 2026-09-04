@@ -26,6 +26,43 @@
 // client sees, and the command strip above — Send, Convert, Delete — is not
 // something the client ever sees. The seam is the point. What's inside the
 // frame is the quote; what's outside it is the office.
+//
+// ── i18n PENDING ───────────────────────────────────────────────────────────
+//
+// Five strings in the internal cost panel are still English literals, on a
+// page that is otherwise fully translated. Not wired here, because a t() call
+// on a key that does not exist yet turns check:translations red for every
+// other agent in the tree (commit 080999e). Reported:
+//
+//   app.quoteDetail.notCostedAtSave
+//     en "Nothing was costed when this quote was saved, so these figures are
+//         worked out from today's rates — not what it was priced at. Nobody
+//         recorded who was doing the work either, so the hours carry no money."
+//     fr "Rien n'a été chiffré au moment d'enregistrer cette soumission, alors
+//         ces chiffres sont calculés aux taux d'aujourd'hui — pas à ce qui a
+//         été facturé. Personne n'a noté qui faisait le travail non plus, donc
+//         les heures ne portent aucun montant."
+//   app.quoteDetail.costIncomplete
+//     en "Some of the work has no cost against it, so the real margin is lower
+//         than this."
+//     fr "Une partie du travail n'a aucun coût associé, alors la marge réelle
+//         est plus basse que celle-ci."
+//   app.quoteDetail.blendedRate
+//     en "{rate}/hr blended"      fr "{rate}/h moyen pondéré"
+//   app.quoteDetail.noReasonsForLevel
+//     en "No reasons were recorded for this level."
+//     fr "Aucune raison n'a été consignée pour ce niveau."
+//
+// And one COUNT, which must be a countedNoun() rather than the
+// `=== 1 ? " has" : "s have"` sitting there now — an English plural rule AND an
+// English verb agreement inside a template literal, which no other language
+// forms the same way:
+//
+//   app.quoteDetail.unpricedMaterialCount
+//     countedNoun en {one:"material", other:"materials"}
+//     countedNoun fr {one:"matériau", many:"matériaux", other:"matériaux"}
+//   app.quoteDetail.unpricedMaterials
+//     en "{count} with no price set."   fr "{count} sans prix défini."
 "use client";
 
 import { useState, useEffect } from "react";
@@ -78,19 +115,23 @@ import EmailSectionsPanel from "./EmailSectionsPanel";
 import EmailSectionsBlockedModal from "./EmailSectionsBlockedModal";
 import ImportedCostsPanel from "./ImportedCostsPanel";
 import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
+import { quoteStatusLabel, quoteStatusClasses } from "@/lib/quotes/statusLabels";
 import { formatAddress } from "@/lib/format/address";
 import {
   COMPLEXITY_LEVELS,
   COMPLEXITY_REASONS,
 } from "@/app/data/cabinetPricing";
 
-const STATUS_STYLES = {
-  draft: "bg-muted text-muted-foreground",
-  sent: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
-  accepted:
-    "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300",
-  declined: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300",
-};
+// The status chip's words and colour both come from lib/quotes/statusLabels.js
+// now. This file carried a fourth private copy of the class map and rendered
+// `{quote.status}` beside it — the raw column value, lowercase and in English,
+// on the one screen a contractor opens to check whether a client has signed. A
+// French office read "accepted" in the middle of an otherwise French document.
+//
+// That module's own header names the quotes LIST as where this bug was found
+// and says the detail page "already renders exactly that key". It didn't; it
+// was the copy nobody had looked at. Both halves are shared now, so a fifth
+// status added to QuoteStatus cannot reach a human as a database word.
 
 // Formatted exactly as it was before this page was restyled, and exactly as the
 // invoice detail page still does it. Prettier grouping is tempting, but quotes
@@ -954,9 +995,9 @@ export default function QuoteDetailPage() {
                 {quote.quoteNumber}
               </h1>
               <span
-                className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full ${STATUS_STYLES[quote.status]}`}
+                className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full ${quoteStatusClasses(quote.status)}`}
               >
-                {quote.status}
+                {quoteStatusLabel(quote.status, t)}
               </span>
             </div>
           </div>
@@ -1307,7 +1348,7 @@ export default function QuoteDetailPage() {
                   {[
                     [
                       t("app.quoteDetail.labour", "Labour"),
-                      `${costing.labourHours} hrs`,
+                      t("app.duration.hours", { value: costing.labourHours }),
                       money(costing.labourCost),
                     ],
                     [
@@ -1408,7 +1449,7 @@ export default function QuoteDetailPage() {
                           <span className="text-muted-foreground">
                             {m.name || t("app.quoteDetail.unnamed", "Unnamed")}
                             <span className="ml-2 text-xs">
-                              {m.hours} hrs
+                              {t("app.duration.hours", { value: m.hours })}
                               {m.hourlyRate != null
                                 ? ` × ${money(m.hourlyRate)}`
                                 : ""}

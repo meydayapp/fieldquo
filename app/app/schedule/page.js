@@ -3,6 +3,33 @@
 // Manager view of the whole team's schedule — who's available when, and what's
 // booked. Read-only overview; each person still manages their own hours at
 // Settings → Availability. API enforces the same user:view gate.
+//
+// ── i18n PENDING ───────────────────────────────────────────────────────────
+//
+// The page title and the two empty states go through t(); the intro paragraph
+// and the two edit links do not. Not wired here, because a t() call on a key
+// that does not exist yet turns check:translations red for every other agent
+// in the tree (commit 080999e). Reported:
+//
+//   app.schedule.intro
+//     en "Everyone's weekly availability and what's booked in the next two
+//         weeks. People can set their own hours under Settings → Availability,"
+//     fr "Les disponibilités hebdomadaires de chacun et ce qui est réservé dans
+//         les deux prochaines semaines. Chacun peut fixer ses propres heures
+//         sous Réglages → Disponibilités,"
+//   app.schedule.introYouCanSet   en "and you can set anyone's from here."
+//                                 fr "et vous pouvez fixer celles de n'importe qui d'ici."
+//   app.schedule.introManagerCan  en "and a manager can set anyone's."
+//                                 fr "et un gestionnaire peut fixer celles de n'importe qui."
+//   app.schedule.editHours        en "Edit hours"   fr "Modifier les heures"
+//   app.schedule.setHours         en "Set hours"    fr "Fixer les heures"
+//   app.schedule.loadError        en "Couldn't load the team schedule."
+//                                 fr "Impossible de charger l'horaire de l'équipe."
+//
+// The day-of-week abbreviations are NOT in that list on purpose: they come from
+// Intl now (see weekDays below), which already has every language's, and a
+// hand-maintained catalogue of seven words per language would be nine copies of
+// data the platform ships.
 "use client";
 
 import { useEffect, useState } from "react";
@@ -11,8 +38,35 @@ import { Loader2, CalendarDays, Clock } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { ROLE_LABELS, tierNote } from "@/lib/permissions/roleManagement";
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+// ── The week, in the reader's language and the company's order ─────────────
+//
+// This was `["Sun", "Mon", …]` — seven English abbreviations on a screen whose
+// every other word goes through t(), and a Sunday-first week hardcoded next to
+// a `weekStartsOn` preference the company can set and this page ignored. Both
+// halves come from data now: Intl for the words, the provider for the offset.
+//
+// Built from a known Sunday (2024-01-07 was one) so the index is the JS
+// dayOfWeek the availability rows are keyed by, not an off-by-one waiting to
+// happen.
+const SUNDAY = Date.UTC(2024, 0, 7);
+function weekDays(locale, weekStartsOn) {
+  const fmt = new Intl.DateTimeFormat(locale || undefined, {
+    weekday: "short",
+    timeZone: "UTC",
+  });
+  const days = [];
+  for (let i = 0; i < 7; i += 1) {
+    // dow is the value stored in AvailabilitySchedule.dayOfWeek; the LABEL and
+    // the POSITION move together, so a Monday-first company still lights up the
+    // right column.
+    const dow = (i + (weekStartsOn === 1 ? 1 : 0)) % 7;
+    days.push({ dow, label: fmt.format(new Date(SUNDAY + dow * 86400000)) });
+  }
+  return days;
+}
 
 function initials(name) {
   return (
@@ -32,18 +86,15 @@ function initials(name) {
 // be "the ONLY definition"; it is now.
 const ROLE_LABEL = ROLE_LABELS;
 
-function when(iso) {
-  return new Date(iso).toLocaleString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
 export default function TeamSchedulePage() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
+  // `toLocaleString(undefined, …)` read the BROWSER's locale and ignored the
+  // company's dateFormat entirely — so the same appointment printed one way
+  // here and another on every other /app screen, and a company set to
+  // DD/MM/YYYY still got the browser's idea of a date. formatDateTime is the
+  // one the rest of the back office uses.
+  const { formatDateTime, weekStartsOn } = useCompanyPreferences();
+  const days = weekDays(language, weekStartsOn);
   const [team, setTeam] = useState(null);
   // Comes from the server rather than being inferred from a role here, so the
   // edit links can't appear where the save would be refused.
@@ -75,7 +126,15 @@ export default function TeamSchedulePage() {
       </p>
 
       {error && (
-        <p className="text-sm rounded-lg bg-red-50 text-red-700 border border-red-200 px-3 py-2 mb-4">{error}</p>
+        // Every half of this pairing carries its dark counterpart. A bare
+        // `bg-red-50` is a white slab in a dark-mode van, and the only thing
+        // on the screen when the load has failed.
+        <p
+          role="alert"
+          className="text-sm rounded-lg bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-900 px-3 py-2 mb-4"
+        >
+          {error}
+        </p>
       )}
 
       {!team && !error && (
@@ -149,7 +208,7 @@ export default function TeamSchedulePage() {
                 // on a phone behaves.
                 <div className="mt-4 -mx-1 px-1 overflow-x-auto">
                 <div className="grid grid-cols-7 gap-1.5 min-w-[520px] sm:min-w-0">
-                  {DAYS.map((d, dow) => {
+                  {days.map(({ dow, label }) => {
                     const runs = byDay.get(dow);
                     return (
                       <div
@@ -158,7 +217,7 @@ export default function TeamSchedulePage() {
                           runs ? "border-transparent bg-muted" : "border-border"
                         }`}
                       >
-                        <div className="text-[10px] font-semibold text-muted-foreground uppercase">{d}</div>
+                        <div className="text-[10px] font-semibold text-muted-foreground uppercase">{label}</div>
                         {runs ? (
                           runs.map((r, j) => (
                             <div key={j} className="text-[10px] text-foreground mt-1 tabular-nums leading-tight">{r}</div>
@@ -182,7 +241,7 @@ export default function TeamSchedulePage() {
                     {m.upcoming.slice(0, 8).map((u, j) => (
                       <li key={j} className="flex items-center gap-2 text-sm text-foreground">
                         <Clock size={13} className="text-muted-foreground shrink-0" />
-                        <span className="tabular-nums text-muted-foreground">{when(u.when)}</span>
+                        <span className="tabular-nums text-muted-foreground">{formatDateTime(u.when)}</span>
                         <span className="truncate">· {u.label}</span>
                       </li>
                     ))}

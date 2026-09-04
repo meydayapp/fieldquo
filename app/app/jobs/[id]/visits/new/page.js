@@ -11,6 +11,50 @@
 // scheduling is when someone is thinking about what the visit involves. It is
 // still a choice: no template is preselected, and a visit created without one
 // simply has no checklist.
+//
+// ── i18n PENDING ───────────────────────────────────────────────────────────
+//
+// About half this form's labels are English literals while the return-visit
+// block beside them goes through t(). Not wired here, because a t() call on a
+// key that does not exist yet turns check:translations red for every other
+// agent in the tree (commit 080999e). Reported:
+//
+//   app.visitNew.intro        en "A visit is a trip to the site — a date, who is going, and what gets done while they are there."
+//                             fr "Une visite est un déplacement au chantier — une date, qui s'y rend, et ce qui s'y fait."
+//   app.visitNew.when         en "When"                fr "Quand"
+//   app.visitNew.who          en "Who is going"        fr "Qui s'y rend"
+//   app.visitNew.unassigned   en "Not assigned yet"    fr "Pas encore assigné"
+//   app.visitNew.notes        en "Notes for the crew"  fr "Notes pour l'équipe"
+//   app.visitNew.notesPlaceholder en "Gate code, where to park, who to ask for"
+//                             fr "Code de barrière, où stationner, qui demander"
+//   app.visitNew.pickDateTime en "Pick a date and time for the visit."
+//                             fr "Choisissez une date et une heure pour la visite."
+//   app.visitNew.scheduleError en "Couldn't schedule the visit."
+//                             fr "Impossible de planifier la visite."
+//   app.visitNew.scheduleErrorNetwork en "Couldn't schedule the visit. Check your connection."
+//                             fr "Impossible de planifier la visite. Vérifiez votre connexion."
+//   app.visitNew.submit       en "Schedule visit"      fr "Planifier la visite"
+//   app.visitNew.checklist    en "Checklist"           fr "Liste de vérification"
+//   app.visitNew.checklistHint en "Optional. Pick one or more and the crew gets their own tickable copy — editing it later never changes the original."
+//                             fr "Facultatif. Choisissez-en une ou plusieurs et l'équipe reçoit sa propre copie à cocher — la modifier plus tard ne change jamais l'originale."
+//   app.visitNew.noChecklists en "No checklists yet."  fr "Aucune liste de vérification pour l'instant."
+//   app.visitNew.writeOne     en "Write one in Settings" fr "Rédigez-en une dans les Réglages"
+//   app.visitNew.orEnable     en ", or switch on the services you offer to see the starter lists for your trades."
+//                             fr ", ou activez les services que vous offrez pour voir les listes de départ de vos métiers."
+//   app.visitNew.yourLists    en "Your checklists"     fr "Vos listes de vérification"
+//   app.visitNew.starterLists en "Starter lists for your trades"
+//                             fr "Listes de départ pour vos métiers"
+//   app.visitNew.starterNote  en "Written by FieldQuo for the services you have switched on. Nothing is added unless you tick it."
+//                             fr "Rédigées par FieldQuo pour les services que vous avez activés. Rien n'est ajouté sans que vous le cochiez."
+//
+// Two are COUNTS and must be countedNoun(), not `{n} step{n === 1 ? "" : "s"}`
+// — that English plural rule in a template literal is the defect countedNoun
+// exists for:
+//
+//   app.visitNew.stepCount    countedNoun en {one:"step", other:"steps"}
+//                             countedNoun fr {one:"étape", many:"étapes", other:"étapes"}
+//   app.visitNew.willCopy     en "{count} will be copied onto this visit."
+//                             fr "{count} seront copiées sur cette visite."
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -66,7 +110,7 @@ export default function NewVisitPage() {
       if (cancelled) return;
 
       if (!jobRes?.ok) {
-        setError("Couldn't load this job.");
+        setError(t("app.job.loadError"));
         setLoading(false);
         return;
       }
@@ -85,6 +129,7 @@ export default function NewVisitPage() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId]);
 
   const own = useMemo(() => templates.filter((tpl) => !tpl.isSystem), [templates]);

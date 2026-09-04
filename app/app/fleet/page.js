@@ -98,7 +98,7 @@ export default function FleetPage() {
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className="inline-flex items-center gap-1.5 border border-border rounded-full px-4 py-2 text-sm font-semibold min-h-[40px] shrink-0"
+            className="inline-flex items-center gap-1.5 border border-border rounded-full px-4 py-2 text-sm font-semibold min-h-[44px] shrink-0"
           >
             <Plus size={14} /> {t("app.fleet.add", "Add")}
           </button>

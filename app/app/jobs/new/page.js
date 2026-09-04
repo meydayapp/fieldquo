@@ -6,9 +6,16 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Search } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { reportResponseError, showError } from "@/lib/clientErrors";
+import { fetchJson } from "@/lib/fetchJson";
+import { fetchArray } from "@/lib/loadState";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
 import { CALLBACK_REASONS, CALLBACK_REASON_LABEL_KEYS } from "@/lib/jobs/callbackReasons";
+// The picker's options and their words both come from the module that does the
+// scheduling. Two hand-written lists beside one Set was the bug waiting to
+// happen: a fourth rule added to RECURRENCE_RULES and not offered here is
+// invisible, and one offered here that the scheduler doesn't know is a job that
+// repeats on paper and never on the calendar.
+import { RECURRENCE_RULES, RECURRENCE_LABEL_KEYS } from "@/lib/jobs/recurrence";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -24,7 +31,12 @@ export default function NewJobPage() {
   // job rather than one more visit on the original.
   const originalJobId = searchParams.get("originalJobId");
 
-  const [clients, setClients] = useState([]);
+  // null until /api/clients answers. `[]` here is a CLAIM that this company has
+  // no clients, and the picker below turns that claim into "No clients found.
+  // Add one" — an invitation to re-key a client book that is sitting right
+  // there behind a 403. See lib/loadState.js.
+  const [clients, setClients] = useState(null);
+  const [clientsErrorKey, setClientsErrorKey] = useState("");
   const [clientSearch, setClientSearch] = useState("");
   const [selectedClientId, setSelectedClientId] = useState(presetClientId || "");
   const [title, setTitle] = useState("");
@@ -60,27 +72,25 @@ export default function NewJobPage() {
 
   useEffect(() => {
     // An empty client list blocks job creation, so a failed load must not be
-    // silent — surface it and leave the list empty rather than feeding an
-    // error body into the data setter.
+    // silent — and it must not be redrawn as an empty client book either. The
+    // toast this used to raise scrolled away; the panel underneath kept saying
+    // "No clients found", which is the sentence people believe.
     (async () => {
-      try {
-        const res = await fetch("/api/clients");
-        if (!res.ok) {
-          reportResponseError(res);
-          return;
-        }
-        const data = await res.json();
-        setClients(Array.isArray(data) ? data : []);
-      } catch {
-        showError("Couldn't load clients. Check your connection and try again.");
+      const result = await fetchArray("/api/clients");
+      if (result.aborted) return;
+      if (result.ok) {
+        setClients(result.data);
+        setClientsErrorKey("");
+      } else {
+        setClientsErrorKey(result.errorKey);
       }
     })();
   }, []);
 
-  const filteredClients = clients.filter((c) =>
+  const filteredClients = (clients ?? []).filter((c) =>
     c.name?.toLowerCase().includes(clientSearch.toLowerCase()),
   );
-  const selectedClient = clients.find((c) => c.id === selectedClientId);
+  const selectedClient = (clients ?? []).find((c) => c.id === selectedClientId);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -97,32 +107,35 @@ export default function NewJobPage() {
       setError(t("app.jobNew.callbackReasonRequired", "Say why this is a callback."));
       return;
     }
+    // "This is a recurring job" with no frequency picked was a dead control.
+    // createJob stores `recurring: true, recurrenceRule: null`, and
+    // lib/jobs/recurrence.js only schedules a second visit when the rule is one
+    // of RECURRENCE_RULES — so the job read as repeating on its own page and
+    // nothing ever came round. The tick has to carry a rule or it means nothing.
+    if (recurring && !RECURRENCE_RULES.has(recurrenceRule)) {
+      setError(t("app.jobNew.selectFrequency"));
+      return;
+    }
     setSaving(true);
     try {
-      const res = await fetch("/api/jobs", {
+      // fetchJson, not fetch + res.json(): a 500 from this route returns Next's
+      // HTML error page, and parsing that threw the browser's own JSON
+      // complaint at the contractor instead of the API's sentence.
+      const data = await fetchJson("/api/jobs", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           clientId: selectedClientId,
           title,
           recurring,
           recurrenceRule: recurring ? recurrenceRule : null,
           ...(originalJobId && { originalJobId, callbackReason }),
-        }),
+        },
       });
-      const data = await res.json();
-      if (!res.ok) {
-        // The API gates POST on the job:create permission — surface that
-        // clearly rather than a generic failure.
-        throw new Error(
-          res.status === 403
-            ? t("app.jobNew.noPermission")
-            : data.error || t("app.jobNew.createError"),
-        );
-      }
       router.push(`/app/jobs/${data.id}`);
     } catch (err) {
-      setError(err.message);
+      // The API gates POST on the job:create permission — name that rather
+      // than letting the generic 403 sentence stand.
+      setError(err.status === 403 ? t("app.jobNew.noPermission") : err.message);
       setSaving(false);
     }
   }
@@ -209,16 +222,30 @@ export default function NewJobPage() {
                     {c.name}
                   </button>
                 ))}
-                {filteredClients.length === 0 && (
-                  <p className="px-3 py-3 text-sm text-muted-foreground">
-                    {t("app.jobNew.noClients")}{" "}
-                    <Link
-                      href="/app/clients/new"
-                      className="text-foreground underline"
-                    >
-                      {t("app.jobNew.addOne")}
-                    </Link>
+                {/* Four states, four answers. "No clients found. Add one" is
+                    only true once the server has said so — on a refused or
+                    failed read it is an invitation to re-key a client book
+                    that already exists. */}
+                {clientsErrorKey ? (
+                  <p className="px-3 py-3 text-sm text-red-700 dark:text-red-300">
+                    {t(clientsErrorKey)}
                   </p>
+                ) : clients === null ? (
+                  <p className="px-3 py-3 text-sm text-muted-foreground">
+                    {t("app.state.loading")}
+                  </p>
+                ) : (
+                  filteredClients.length === 0 && (
+                    <p className="px-3 py-3 text-sm text-muted-foreground">
+                      {t("app.jobNew.noClients")}{" "}
+                      <Link
+                        href="/app/clients/new"
+                        className="text-foreground underline"
+                      >
+                        {t("app.jobNew.addOne")}
+                      </Link>
+                    </p>
+                  )
                 )}
               </div>
             </>
@@ -286,12 +313,18 @@ export default function NewJobPage() {
             <select
               className={inputClass}
               value={recurrenceRule}
+              // Native validation as well as the guard in handleSubmit: the
+              // browser's own message is already in the reader's language, and
+              // it points at the field rather than at a banner above the fold.
+              required
               onChange={(e) => setRecurrenceRule(e.target.value)}
             >
               <option value="">{t("app.jobNew.selectFrequency")}</option>
-              <option value="weekly">{t("app.jobNew.weekly")}</option>
-              <option value="biweekly">{t("app.jobNew.biweekly")}</option>
-              <option value="monthly">{t("app.jobNew.monthly")}</option>
+              {[...RECURRENCE_RULES].map((rule) => (
+                <option key={rule} value={rule}>
+                  {t(RECURRENCE_LABEL_KEYS[rule] || "", rule)}
+                </option>
+              ))}
             </select>
           </div>
         )}

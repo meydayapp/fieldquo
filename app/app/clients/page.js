@@ -170,9 +170,19 @@ export default function ClientsPage() {
                 )}
               </div>
 
+              {/* Counted nouns, not "{n} quotes". These two were the last raw
+                  English on this card — a French office read "3 quotes" beside
+                  a translated everything-else — and the catalogue entries for
+                  them (app.clients.quoteCount / .invoiceCount) had been written
+                  and never wired up. countedNoun asks Intl.PluralRules, so
+                  "1 quote" and Ukrainian's three forms both come out right. */}
               <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border text-xs text-muted-foreground">
-                <span>{client._count?.quotes ?? 0} quotes</span>
-                <span>{client._count?.invoices ?? 0} invoices</span>
+                <span>
+                  {t("app.clients.quoteCount", { value: client._count?.quotes ?? 0 })}
+                </span>
+                <span>
+                  {t("app.clients.invoiceCount", { value: client._count?.invoices ?? 0 })}
+                </span>
               </div>
             </Link>
           ))}

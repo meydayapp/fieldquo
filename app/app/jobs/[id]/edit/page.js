@@ -18,6 +18,10 @@ import { ArrowLeft, Loader2, AlertCircle } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { validateJobDates } from "@/lib/jobs/validateJobDates";
 import { JOB_STATUSES, jobStatusLabel } from "@/lib/jobs/statusLabels";
+// Same argument as JOB_STATUSES above, one feature along: the rules the cron
+// schedules from, and their words, in one place instead of hand-typed here and
+// again in jobs/new.
+import { RECURRENCE_RULES, RECURRENCE_LABEL_KEYS } from "@/lib/jobs/recurrence";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 
@@ -101,6 +105,16 @@ export default function EditJobPage() {
   async function save() {
     if (!dateCheck.ok) {
       setError(dateCheck.error);
+      return;
+    }
+    // The select's own comment already names this failure — a rule the cron
+    // doesn't understand "would save fine and then silently generate no next
+    // visit" — and then let the EMPTY option through, which does exactly that.
+    // `recurring: true, recurrenceRule: null` is storable and
+    // lib/jobs/recurrence.js schedules nothing from it, so the job reads as
+    // repeating and never comes round. The tick has to carry a rule.
+    if (recurring && !RECURRENCE_RULES.has(recurrenceRule.trim())) {
+      setError(t("app.jobNew.selectFrequency"));
       return;
     }
     setSaving(true);
@@ -267,9 +281,11 @@ export default function EditJobPage() {
                 className="w-full border border-border rounded-lg px-3 py-2 text-sm"
               >
                 <option value="">{t("app.jobNew.selectFrequency")}</option>
-                <option value="weekly">{t("app.jobNew.weekly")}</option>
-                <option value="biweekly">{t("app.jobNew.biweekly")}</option>
-                <option value="monthly">{t("app.jobNew.monthly")}</option>
+                {[...RECURRENCE_RULES].map((rule) => (
+                  <option key={rule} value={rule}>
+                    {t(RECURRENCE_LABEL_KEYS[rule] || "", rule)}
+                  </option>
+                ))}
               </select>
             </div>
           )}

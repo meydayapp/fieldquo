@@ -9,6 +9,7 @@ import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import LanguagePicker from "@/app/components/LanguagePicker";
 import CountrySelect from "@/app/components/CountrySelect";
 import { formatPhoneInput } from "@/lib/validation";
+import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 const inputClass =
@@ -64,13 +65,12 @@ export default function NewClientPage() {
     }
     setSaving(true);
     try {
-      const res = await fetch("/api/clients", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || t("app.clientNew.createError"));
+      // fetchJson, not fetch + res.json(): the POST route answers a P2022 with
+      // a sentence naming the missing column, and a 500 anywhere else answers
+      // with Next's HTML error page. Parsing that page threw the browser's own
+      // JSON complaint on screen — in Safari, "The string did not match the
+      // expected pattern", on a form with no regex in it.
+      const data = await fetchJson("/api/clients", { method: "POST", body: form });
       // The clients list links each row to /app/clients/[id]; go straight there.
       router.push(`/app/clients/${data.id}`);
     } catch (err) {

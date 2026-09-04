@@ -26,6 +26,8 @@ import { ArrowLeft, Info } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { moneyFormatter } from "@/lib/format/money";
+import { fetchArray } from "@/lib/loadState";
+import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { PLAN_FREQUENCY_KEYS, plannedOccurrenceCount } from "@/lib/servicePlans/schedule";
 import { occurrenceAmounts, termTotals } from "@/lib/servicePlans/pricing";
 
@@ -35,9 +37,11 @@ export default function NewServicePlanPage() {
   const { t, language } = useTranslation();
   const router = useRouter();
 
-  const [clients, setClients] = useState([]);
-  const [services, setServices] = useState([]);
-  const [company, setCompany] = useState(null);
+  // null until each server answers. `[]` is a claim — "this company has no
+  // clients" — and an empty <select> with no explanation is how somebody
+  // concludes their client book has gone. See lib/loadState.js.
+  const [clients, setClients] = useState(null);
+  const [services, setServices] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -60,21 +64,30 @@ export default function NewServicePlanPage() {
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   useEffect(() => {
-    fetch("/api/clients")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((d) => setClients(Array.isArray(d) ? d : []))
-      .catch(() => {});
-    fetch("/api/settings/service-categories")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((d) => setServices(Array.isArray(d) ? d.filter((s) => s.enabled) : []))
-      .catch(() => {});
-    fetch("/api/settings/business-info")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setCompany(d))
-      .catch(() => {});
+    // Both lists gate the form: no client and no service means no plan can be
+    // sold. A failure that leaves two empty dropdowns and says nothing reads
+    // as "this company has nothing set up", which is the wrong story to tell
+    // somebody whose settings call was simply refused.
+    (async () => {
+      const result = await fetchArray("/api/clients");
+      if (result.aborted) return;
+      if (result.ok) setClients(result.data);
+      else setError(t(result.errorKey));
+    })();
+    (async () => {
+      const result = await fetchArray("/api/settings/service-categories");
+      if (result.aborted) return;
+      if (result.ok) setServices(result.data.filter((s) => s.enabled));
+      else setError(t(result.errorKey));
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const money = moneyFormatter(company?.currency, language);
+  // The company's billing currency, from the provider the layout already
+  // seeded — not a private business-info fetch whose swallowed failure left
+  // this preview quoting a euro plan in dollars.
+  const { currency } = useCompanyPreferences();
+  const money = moneyFormatter(currency, language);
 
   // The preview, from the production arithmetic. `planShape` mirrors exactly
   // what the API will store, so what is shown here is what will be billed.
@@ -141,7 +154,7 @@ export default function NewServicePlanPage() {
               onChange={(e) => set("clientId", e.target.value)}
             >
               <option value="">{t("app.plans.pickClient")}</option>
-              {clients.map((c) => (
+              {(clients ?? []).map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
@@ -154,7 +167,7 @@ export default function NewServicePlanPage() {
               className={field}
               value={form.categoryId}
               onChange={(e) => {
-                const picked = services.find((s) => s.id === e.target.value);
+                const picked = (services ?? []).find((s) => s.id === e.target.value);
                 set("categoryId", e.target.value);
                 // The NAME is copied, not looked up later — a company renaming a
                 // trade must not rewrite what a client agreed to buy.
@@ -162,7 +175,7 @@ export default function NewServicePlanPage() {
               }}
             >
               <option value="">{t("app.plans.pickService")}</option>
-              {services.map((s) => (
+              {(services ?? []).map((s) => (
                 <option key={s.id} value={s.id}>{s.label}</option>
               ))}
             </select>

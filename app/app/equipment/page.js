@@ -34,7 +34,19 @@ import { fetchList } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 import ExpiryBadge from "@/app/components/ExpiryBadge";
 
-/** The windows offered. 0 is "already lapsed only" and says so. */
+/**
+ * The windows offered, in days ahead.
+ *
+ * The comment here used to describe a `0` option — "already lapsed only, and
+ * says so" — which this array has never contained and no button has ever
+ * offered. The endpoint does accept withinDays=0 and does mean that (see its
+ * own note on why a junk value must not fall back to it), so the sentence read
+ * as a description of shipped behaviour rather than of an idea. Corrected
+ * rather than deleted: a wrong comment is what the next person builds to.
+ *
+ * Every window already includes what has ALREADY lapsed, which is why the
+ * shortest one on offer is useful on day one.
+ */
 const WINDOWS = [30, 60, 90, 180, 365];
 
 function formatDate(value, locale) {
@@ -100,7 +112,7 @@ export default function EquipmentExpiringPage() {
             type="button"
             onClick={() => setWithinDays(days)}
             aria-pressed={withinDays === days}
-            className={`px-3 py-2 rounded-full text-xs font-semibold border min-h-[36px] ${
+            className={`px-3 py-2 rounded-full text-xs font-semibold border min-h-[44px] ${
               withinDays === days
                 ? "border-inverted bg-muted text-foreground"
                 : "border-border text-muted-foreground"
@@ -194,7 +206,7 @@ export default function EquipmentExpiringPage() {
                   {row.client?.phone && (
                     <a
                       href={`tel:${row.client.phone}`}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold border border-border rounded-full px-3 py-2 min-h-[36px]"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold border border-border rounded-full px-3 py-2 min-h-[44px]"
                     >
                       <Phone size={13} /> {row.client.phone}
                     </a>
@@ -202,7 +214,7 @@ export default function EquipmentExpiringPage() {
                   {row.client?.email && (
                     <a
                       href={`mailto:${row.client.email}`}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold border border-border rounded-full px-3 py-2 min-h-[36px]"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold border border-border rounded-full px-3 py-2 min-h-[44px]"
                     >
                       <Mail size={13} /> {t("app.equipmentList.email", "Email")}
                     </a>
