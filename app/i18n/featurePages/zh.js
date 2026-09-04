@@ -234,7 +234,7 @@ const zh = {
   "featurePage.website.how.1.step": "根据你的数据写的，不是编的",
   "featurePage.website.how.1.body": "服务名称、价格和客户评价来自你自己的记录。文字是生成的，事实不是；页面永远可以退回到纯用你的数据搭出来的朴素版本。",
   "featurePage.website.how.2.step": "你的网址，上面是你的名字",
-  "featurePage.website.how.2.body": "你自己的域名、你的 logo 和你的配色。唯一写着 FieldQuo 的地方，是免费网站页脚的一行小字。",
+  "featurePage.website.how.2.body": "你在 fieldquo.com 上自己的网址、你的 logo 和你的配色。唯一写着 FieldQuo 的，是免费站点页脚的一行小字。",
   "featurePage.website.how.3.step": "或者继续用你现在的网站",
   "featurePage.website.how.3.body": "粘一行代码进去，就能把预约、报价表单或客户评价嵌进你现在运营的网站里。",
   "featurePage.website.detail.1.label": "模型只写句子，别的都不写",

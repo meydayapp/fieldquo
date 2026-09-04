@@ -1389,6 +1389,13 @@ for (const [language, script] of Object.entries(SCRIPTS)) {
   const ALLOWED = new Set([
     // Companies and products, ours and other people's.
     "FieldQuo", "Stripe", "Affirm", "Instagram",
+    // The hostname a contractor's site actually lives at. It reaches the copy
+    // because there are no custom domains — docs/ROADMAP.md:1770, "subdomains
+    // only" — so the honest sentence has to name where the site really is. The
+    // line used to promise "your own domain", which the product does not have.
+    // A hostname does not translate, and the scanner splits on the dot, so both
+    // halves are listed rather than the whole string.
+    "fieldquo", "com",
     // File formats.
     "PDF", "AI",
     // Statutory programmes, which are proper names in every language. Nobody

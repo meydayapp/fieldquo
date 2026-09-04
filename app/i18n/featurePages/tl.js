@@ -253,7 +253,7 @@ const tl = {
   "featurePage.website.how.1.step": "Isinulat mula sa data mo, hindi ginawa-gawa",
   "featurePage.website.how.1.body": "Ang pangalan ng serbisyo, presyo at testimonial ay galing sa sarili mong talaan. Ang pagsulat ang ginagawa; ang mga katotohanan ay hindi, at palaging bumabagsak ang pahina pabalik sa payak na bersyong gawa lang sa data mo.",
   "featurePage.website.how.2.step": "Address mo, pangalan mo ang nakalagay",
-  "featurePage.website.how.2.body": "Sarili mong domain, logo mo at kulay mo. Ang tanging nagsasabing FieldQuo ay isang maliit na linya sa footer ng mga libreng site.",
+  "featurePage.website.how.2.body": "Sarili mong address sa fieldquo.com, logo mo at kulay mo. Ang tanging nagsasabing FieldQuo ay isang maliit na linya sa footer ng mga libreng site.",
   "featurePage.website.how.3.step": "O panatilihin ang site na meron ka",
   "featurePage.website.how.3.body": "Idikit ang isang linya rito at ilagay ang booking, quote form o mga review mo sa loob ng site na pinapatakbo mo na.",
   "featurePage.website.detail.1.label": "Pangungusap lang ang isinusulat ng modelo, wala nang iba",

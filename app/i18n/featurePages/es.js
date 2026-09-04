@@ -253,7 +253,7 @@ const es = {
   "featurePage.website.how.1.step": "Escrito con tus datos, no inventado",
   "featurePage.website.how.1.body": "Los nombres de los servicios, los precios y los testimonios salen de tus propios registros. La redacción se genera; los datos no, y una página siempre cae de vuelta en la versión sencilla hecha solo con tus datos.",
   "featurePage.website.how.2.step": "Tu dirección, con tu nombre encima",
-  "featurePage.website.how.2.body": "Tu propio dominio, tu logo y tu color. Lo único que dice FieldQuo es una línea pequeña al pie en los sitios gratuitos.",
+  "featurePage.website.how.2.body": "Tu propia dirección en fieldquo.com, tu logo y tu color. Lo único que dice FieldQuo es una pequeña línea en el pie de los sitios gratuitos.",
   "featurePage.website.how.3.step": "O quédate con el sitio que ya tienes",
   "featurePage.website.how.3.body": "Pégale una línea e incrusta tu reserva, tu formulario de presupuesto o tus reseñas dentro del sitio que ya manejas.",
   "featurePage.website.detail.1.label": "El modelo escribe frases y nada más",

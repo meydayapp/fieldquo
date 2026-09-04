@@ -223,7 +223,7 @@ const de = {
   "featurePage.website.how.1.step": "Aus Ihren Daten geschrieben, nicht erfunden",
   "featurePage.website.how.1.body": "Leistungsbezeichnungen, Preise und Kundenstimmen stammen aus Ihren eigenen Datensätzen. Der Text wird erzeugt; die Fakten nicht — und eine Seite fällt immer auf die schlichte Fassung zurück, die allein aus Ihren Daten gebaut ist.",
   "featurePage.website.how.2.step": "Ihre Adresse, Ihr Name darauf",
-  "featurePage.website.how.2.body": "Ihre eigene Domain, Ihr Logo und Ihre Farbe. Das Einzige, was FieldQuo sagt, ist eine kleine Fußzeile auf kostenlosen Websites.",
+  "featurePage.website.how.2.body": "Ihre eigene Adresse auf fieldquo.com, Ihr Logo und Ihre Farbe. Das Einzige, was FieldQuo sagt, ist eine kleine Fußzeile auf kostenlosen Seiten.",
   "featurePage.website.how.3.step": "Oder behalten Sie die Website, die Sie haben",
   "featurePage.website.how.3.body": "Fügen Sie eine Zeile ein und betten Sie Ihre Buchung, Ihr Angebotsformular oder Ihre Bewertungen in die Website ein, die Sie ohnehin betreiben.",
   "featurePage.website.detail.1.label": "Das Modell schreibt Sätze und sonst nichts",

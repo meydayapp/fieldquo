@@ -253,7 +253,7 @@ const fr = {
   "featurePage.website.how.1.step": "Rédigé à partir de vos données, pas inventé",
   "featurePage.website.how.1.body": "Les noms de services, les prix et les témoignages viennent de vos propres dossiers. La rédaction est générée; les faits, non, et une page retombe toujours sur la version simple bâtie à partir de vos seules données.",
   "featurePage.website.how.2.step": "Votre adresse, votre nom dessus",
-  "featurePage.website.how.2.body": "Votre propre domaine, votre logo et votre couleur. La seule chose qui dit FieldQuo, c'est une petite ligne en bas de page sur les sites gratuits.",
+  "featurePage.website.how.2.body": "Votre propre adresse sur fieldquo.com, votre logo et votre couleur. La seule chose qui dit FieldQuo est une petite ligne en pied de page sur les sites gratuits.",
   "featurePage.website.how.3.step": "Ou gardez le site que vous avez",
   "featurePage.website.how.3.body": "Collez-y une ligne et intégrez votre réservation, votre formulaire de soumission ou vos avis dans le site que vous faites déjà rouler.",
   "featurePage.website.detail.1.label": "Le modèle écrit des phrases et rien d'autre",

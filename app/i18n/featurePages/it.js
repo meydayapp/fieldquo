@@ -243,7 +243,7 @@ const it = {
   "featurePage.website.how.1.step": "Scritto dai suoi dati, non inventato",
   "featurePage.website.how.1.body": "I nomi dei servizi, i prezzi e le testimonianze arrivano dai suoi archivi. Il testo è generato; i fatti no, e una pagina ripiega sempre sulla versione essenziale costruita solo dai suoi dati.",
   "featurePage.website.how.2.step": "Il suo indirizzo, con sopra il suo nome",
-  "featurePage.website.how.2.body": "Il suo dominio, il suo logo e il suo colore. L'unica cosa che dice FieldQuo è una piccola riga a piè di pagina sui siti gratuiti.",
+  "featurePage.website.how.2.body": "Il suo indirizzo su fieldquo.com, il suo logo e il suo colore. L'unica cosa che dice FieldQuo è una piccola riga nel piè di pagina dei siti gratuiti.",
   "featurePage.website.how.3.step": "Oppure tenga il sito che ha",
   "featurePage.website.how.3.body": "Ci incolli dentro una riga e integri le prenotazioni, il modulo per i preventivi o le recensioni nel sito che gestisce già.",
   "featurePage.website.detail.1.label": "Il modello scrive frasi e nient'altro",

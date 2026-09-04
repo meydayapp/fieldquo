@@ -735,7 +735,7 @@ const PAGES = [
       {
         step: "Your address, your name on it",
         body:
-          "Your own domain, your logo and your colour. The only thing that says FieldQuo is a small footer line on free sites.",
+          "Your own address on fieldquo.com, your logo and your colour. The only thing that says FieldQuo is a small footer line on free sites.",
       },
       {
         step: "Or keep the site you have",

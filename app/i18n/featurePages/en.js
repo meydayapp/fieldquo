@@ -270,7 +270,7 @@ const en = {
   "featurePage.website.how.1.step": "Written from your data, not invented",
   "featurePage.website.how.1.body": "Service names, prices and testimonials come from your own records. The writing is generated; the facts are not, and a page always falls back to the plain version built from your data alone.",
   "featurePage.website.how.2.step": "Your address, your name on it",
-  "featurePage.website.how.2.body": "Your own domain, your logo and your colour. The only thing that says FieldQuo is a small footer line on free sites.",
+  "featurePage.website.how.2.body": "Your own address on fieldquo.com, your logo and your colour. The only thing that says FieldQuo is a small footer line on free sites.",
   "featurePage.website.how.3.step": "Or keep the site you have",
   "featurePage.website.how.3.body": "Paste one line into it and embed your booking, your quote form or your reviews inside the site you already run.",
   "featurePage.website.detail.1.label": "The model writes sentences and nothing else",
