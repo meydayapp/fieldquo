@@ -5676,6 +5676,31 @@ const en = {
   "app.marketingDesigner.createdOn": "created {date}",
   "app.status.onTheWay": "On the way",
   "app.marketingDesigner.designsCount": countedNoun("en", {"one":"design","other":"designs"}),
+
+  // ── The paid deep photo read, and the two holes in removeBg ─────────
+  //
+  // app.aiImage got both a plain and a priced description; app.removeBg
+  // only got the priced one, so the panel rendered NO description for the
+  // first moment of every open — and permanently when the status fetch
+  // fails, because the fail-closed status carries priceCents: 0. An absent
+  // line is a smaller failure than an English one, but it is still a hole.
+  //
+  // deepRead is the block on the quote panel that spends AI credit. The
+  // price and the photo cap are passed IN, never typed into the sentence:
+  // VISION_PASS_CENTS and VISION_MAX_PHOTOS are the authority, and a number
+  // written into nine catalogues is nine places to forget when it changes.
+  "app.removeBg.subtitle": "Remove background from image using AI",
+  "app.removeBg.selectedAlt": "Selected photo",
+  "app.deepRead.title": "Deep photo read",
+  "app.deepRead.paidBadge": "Paid",
+  "app.deepRead.description": "A closer look at every photo on this quote — up to {max}, read at full resolution instead of the quick check above. Costs {price} of AI credit each time it runs, separate from your phone balance.",
+  "app.deepRead.run": "Run deep read",
+  "app.deepRead.runAgain": "Run again",
+  "app.deepRead.running": "Reading…",
+  "app.deepRead.notRunYet": "Not run yet. This is a closer look than the free check above — worth it before a job with photos that are hard to judge from a quick glance.",
+  "app.deepRead.nothingFound": "Nothing found beyond what the quote already covers.",
+  "app.deepRead.notForClient": "Things to check on site — not measurements, and not for the client to read. Nothing has been added to the quote.",
+  "app.deepRead.photosRead": countedNoun("en", {"one":"photo read","other":"photos read"}),
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -10951,6 +10976,19 @@ const fr = {
   "app.marketingDesigner.createdOn": "créé le {date}",
   "app.status.onTheWay": "En route",
   "app.marketingDesigner.designsCount": countedNoun("fr", {"one":"visuel","many":"visuels","other":"visuels"}),
+
+  "app.removeBg.subtitle": "Supprimez l'arrière-plan d'une image avec l'IA",
+  "app.removeBg.selectedAlt": "Photo sélectionnée",
+  "app.deepRead.title": "Lecture approfondie des photos",
+  "app.deepRead.paidBadge": "Payant",
+  "app.deepRead.description": "Un examen plus poussé de chaque photo de cette soumission — jusqu'à {max}, lues en pleine résolution plutôt que la vérification rapide ci-dessus. Coûte {price} de crédit IA à chaque exécution, distinct de votre solde téléphonique.",
+  "app.deepRead.run": "Lancer la lecture approfondie",
+  "app.deepRead.runAgain": "Relancer",
+  "app.deepRead.running": "Lecture…",
+  "app.deepRead.notRunYet": "Pas encore lancée. C'est un examen plus poussé que la vérification gratuite ci-dessus — utile avant un chantier dont les photos sont difficiles à juger d'un coup d'œil.",
+  "app.deepRead.nothingFound": "Rien trouvé au-delà de ce que la soumission couvre déjà.",
+  "app.deepRead.notForClient": "À vérifier sur place — ce ne sont pas des mesures, et ce n'est pas destiné au client. Rien n'a été ajouté à la soumission.",
+  "app.deepRead.photosRead": countedNoun("fr", {"one":"photo lue","many":"photos lues","other":"photos lues"}),
 };
 
 
@@ -14439,6 +14477,19 @@ const es = {
   "app.marketingDesigner.createdOn": "creado el {date}",
   "app.status.onTheWay": "En camino",
   "app.marketingDesigner.designsCount": countedNoun("es", {"one":"diseño","many":"diseños","other":"diseños"}),
+
+  "app.removeBg.subtitle": "Elimina el fondo de una imagen con IA",
+  "app.removeBg.selectedAlt": "Foto seleccionada",
+  "app.deepRead.title": "Lectura profunda de fotos",
+  "app.deepRead.paidBadge": "De pago",
+  "app.deepRead.description": "Un examen más detallado de cada foto de este presupuesto — hasta {max}, leídas a resolución completa en lugar de la comprobación rápida de arriba. Cuesta {price} de crédito de IA cada vez que se ejecuta, aparte de tu saldo telefónico.",
+  "app.deepRead.run": "Ejecutar lectura profunda",
+  "app.deepRead.runAgain": "Ejecutar de nuevo",
+  "app.deepRead.running": "Leyendo…",
+  "app.deepRead.notRunYet": "Aún no se ha ejecutado. Es un examen más detallado que la comprobación gratuita de arriba — vale la pena antes de un trabajo con fotos difíciles de juzgar de un vistazo.",
+  "app.deepRead.nothingFound": "No se encontró nada más allá de lo que el presupuesto ya cubre.",
+  "app.deepRead.notForClient": "Cosas que comprobar en obra — no son mediciones, y no son para que las lea el cliente. No se ha añadido nada al presupuesto.",
+  "app.deepRead.photosRead": countedNoun("es", {"one":"foto leída","many":"fotos leídas","other":"fotos leídas"}),
 };
 
 const uk = {
@@ -17955,6 +18006,19 @@ const uk = {
   "app.marketingDesigner.createdOn": "створено {date}",
   "app.status.onTheWay": "У дорозі",
   "app.marketingDesigner.designsCount": countedNoun("uk", {"one":"макет","few":"макети","many":"макетів","other":"макета"}),
+
+  "app.removeBg.subtitle": "Видаліть фон із зображення за допомогою ШІ",
+  "app.removeBg.selectedAlt": "Вибране фото",
+  "app.deepRead.title": "Глибокий аналіз фотографій",
+  "app.deepRead.paidBadge": "Платно",
+  "app.deepRead.description": "Докладніший розбір кожного фото в цьому кошторисі — до {max}, у повній роздільній здатності замість швидкої перевірки вище. Коштує {price} кредиту ШІ за кожен запуск, окремо від телефонного балансу.",
+  "app.deepRead.run": "Запустити глибокий аналіз",
+  "app.deepRead.runAgain": "Запустити ще раз",
+  "app.deepRead.running": "Аналіз…",
+  "app.deepRead.notRunYet": "Ще не запускали. Це докладніший розбір, ніж безкоштовна перевірка вище — вартий того перед роботою з фотографіями, які важко оцінити побіжно.",
+  "app.deepRead.nothingFound": "Не знайдено нічого понад те, що вже враховано в кошторисі.",
+  "app.deepRead.notForClient": "Що перевірити на місці — це не заміри й не для читання клієнтом. До кошторису нічого не додано.",
+  "app.deepRead.photosRead": countedNoun("uk", {"one":"фото прочитано","few":"фото прочитано","many":"фото прочитано","other":"фото прочитано"}),
 };
 
 const pa = {
@@ -21428,6 +21492,19 @@ const pa = {
   "app.marketingDesigner.createdOn": "{date} ਨੂੰ ਬਣਾਇਆ",
   "app.status.onTheWay": "ਰਸਤੇ ਵਿੱਚ",
   "app.marketingDesigner.designsCount": countedNoun("pa", {"one":"ਡਿਜ਼ਾਈਨ","other":"ਡਿਜ਼ਾਈਨ"}),
+
+  "app.removeBg.subtitle": "AI ਨਾਲ ਚਿੱਤਰ ਦਾ ਬੈਕਗ੍ਰਾਊਂਡ ਹਟਾਓ",
+  "app.removeBg.selectedAlt": "ਚੁਣੀ ਹੋਈ ਫ਼ੋਟੋ",
+  "app.deepRead.title": "ਫ਼ੋਟੋਆਂ ਦੀ ਡੂੰਘੀ ਪੜ੍ਹਤ",
+  "app.deepRead.paidBadge": "ਭੁਗਤਾਨ ਵਾਲਾ",
+  "app.deepRead.description": "ਇਸ ਕੋਟ ਦੀ ਹਰ ਫ਼ੋਟੋ ਦੀ ਨੇੜਿਓਂ ਜਾਂਚ — ਵੱਧ ਤੋਂ ਵੱਧ {max}, ਉੱਪਰਲੀ ਤੇਜ਼ ਜਾਂਚ ਦੀ ਬਜਾਏ ਪੂਰੇ ਰੈਜ਼ੋਲਿਊਸ਼ਨ 'ਤੇ ਪੜ੍ਹੀਆਂ ਜਾਂਦੀਆਂ ਹਨ। ਹਰ ਵਾਰ ਚੱਲਣ 'ਤੇ {price} AI ਕ੍ਰੈਡਿਟ ਲੱਗਦਾ ਹੈ, ਤੁਹਾਡੇ ਫ਼ੋਨ ਬੈਲੰਸ ਤੋਂ ਵੱਖਰਾ।",
+  "app.deepRead.run": "ਡੂੰਘੀ ਪੜ੍ਹਤ ਚਲਾਓ",
+  "app.deepRead.runAgain": "ਦੁਬਾਰਾ ਚਲਾਓ",
+  "app.deepRead.running": "ਪੜ੍ਹਿਆ ਜਾ ਰਿਹਾ ਹੈ…",
+  "app.deepRead.notRunYet": "ਅਜੇ ਨਹੀਂ ਚਲਾਈ ਗਈ। ਇਹ ਉੱਪਰਲੀ ਮੁਫ਼ਤ ਜਾਂਚ ਨਾਲੋਂ ਨੇੜਿਓਂ ਵੇਖਦੀ ਹੈ — ਉਸ ਕੰਮ ਤੋਂ ਪਹਿਲਾਂ ਲਾਭਦਾਇਕ ਜਿਸ ਦੀਆਂ ਫ਼ੋਟੋਆਂ ਇੱਕ ਝਾਤ ਨਾਲ ਪਰਖਣੀਆਂ ਔਖੀਆਂ ਹੋਣ।",
+  "app.deepRead.nothingFound": "ਕੋਟ ਵਿੱਚ ਪਹਿਲਾਂ ਹੀ ਸ਼ਾਮਲ ਗੱਲਾਂ ਤੋਂ ਵੱਧ ਕੁਝ ਨਹੀਂ ਮਿਲਿਆ।",
+  "app.deepRead.notForClient": "ਮੌਕੇ 'ਤੇ ਜਾਂਚਣ ਵਾਲੀਆਂ ਗੱਲਾਂ — ਇਹ ਮਾਪ ਨਹੀਂ ਹਨ, ਅਤੇ ਗਾਹਕ ਦੇ ਪੜ੍ਹਨ ਲਈ ਨਹੀਂ। ਕੋਟ ਵਿੱਚ ਕੁਝ ਨਹੀਂ ਜੋੜਿਆ ਗਿਆ।",
+  "app.deepRead.photosRead": countedNoun("pa", {"one":"ਫ਼ੋਟੋ ਪੜ੍ਹੀ","other":"ਫ਼ੋਟੋਆਂ ਪੜ੍ਹੀਆਂ"}),
 };
 
 const tl = {
@@ -24908,6 +24985,19 @@ const tl = {
   "app.marketingDesigner.createdOn": "ginawa noong {date}",
   "app.status.onTheWay": "Papunta na",
   "app.marketingDesigner.designsCount": countedNoun("tl", {"one":"disenyo","other":"disenyo"}),
+
+  "app.removeBg.subtitle": "Alisin ang background ng larawan gamit ang AI",
+  "app.removeBg.selectedAlt": "Napiling larawan",
+  "app.deepRead.title": "Malalim na pagbasa ng larawan",
+  "app.deepRead.paidBadge": "Bayad",
+  "app.deepRead.description": "Mas masusing tingin sa bawat larawan sa quote na ito — hanggang {max}, binabasa sa buong resolusyon sa halip na ang mabilisang pagsusuri sa itaas. Nagkakahalaga ng {price} na AI credit sa bawat pagpapatakbo, hiwalay sa iyong phone balance.",
+  "app.deepRead.run": "Patakbuhin ang malalim na pagbasa",
+  "app.deepRead.runAgain": "Patakbuhin ulit",
+  "app.deepRead.running": "Binabasa…",
+  "app.deepRead.notRunYet": "Hindi pa napapatakbo. Mas masusi ito kaysa sa libreng pagsusuri sa itaas — sulit bago ang trabahong mahirap husgahan ang mga larawan sa isang sulyap.",
+  "app.deepRead.nothingFound": "Walang nakitang lampas sa saklaw na ng quote.",
+  "app.deepRead.notForClient": "Mga dapat tingnan sa site — hindi ito sukat, at hindi para basahin ng kliyente. Walang idinagdag sa quote.",
+  "app.deepRead.photosRead": countedNoun("tl", {"one":"larawang nabasa","other":"larawang nabasa"}),
 };
 
 const de = {
@@ -29837,6 +29927,19 @@ const de = {
   "app.marketingDesigner.createdOn": "erstellt am {date}",
   "app.status.onTheWay": "Unterwegs",
   "app.marketingDesigner.designsCount": countedNoun("de", {"one":"Design","other":"Designs"}),
+
+  "app.removeBg.subtitle": "Hintergrund eines Bildes per KI entfernen",
+  "app.removeBg.selectedAlt": "Ausgewähltes Foto",
+  "app.deepRead.title": "Tiefe Fotoanalyse",
+  "app.deepRead.paidBadge": "Kostenpflichtig",
+  "app.deepRead.description": "Ein genauerer Blick auf jedes Foto in diesem Angebot — bis zu {max}, in voller Auflösung gelesen statt der schnellen Prüfung oben. Kostet pro Durchlauf {price} KI-Guthaben, getrennt von Ihrem Telefonguthaben.",
+  "app.deepRead.run": "Tiefe Analyse starten",
+  "app.deepRead.runAgain": "Erneut starten",
+  "app.deepRead.running": "Wird gelesen…",
+  "app.deepRead.notRunYet": "Noch nicht ausgeführt. Das ist ein genauerer Blick als die kostenlose Prüfung oben — lohnt sich vor einem Auftrag, dessen Fotos auf den ersten Blick schwer zu beurteilen sind.",
+  "app.deepRead.nothingFound": "Nichts gefunden, was über das Angebot hinausgeht.",
+  "app.deepRead.notForClient": "Vor Ort zu prüfen — keine Maße, und nicht für den Kunden bestimmt. Dem Angebot wurde nichts hinzugefügt.",
+  "app.deepRead.photosRead": countedNoun("de", {"one":"Foto gelesen","other":"Fotos gelesen"}),
 };
 
 const zh = {
@@ -34763,6 +34866,19 @@ const zh = {
   "app.marketingDesigner.createdOn": "{date} 创建",
   "app.status.onTheWay": "在路上",
   "app.marketingDesigner.designsCount": countedNoun("zh", {"other":"设计"}),
+
+  "app.removeBg.subtitle": "使用 AI 去除图片背景",
+  "app.removeBg.selectedAlt": "已选照片",
+  "app.deepRead.title": "照片深度解读",
+  "app.deepRead.paidBadge": "付费",
+  "app.deepRead.description": "对本报价单中的每张照片进行更细致的解读 — 最多 {max} 张，以全分辨率读取，而非上方的快速检查。每次运行消耗 {price} 的 AI 额度，与话费余额分开计算。",
+  "app.deepRead.run": "运行深度解读",
+  "app.deepRead.runAgain": "再次运行",
+  "app.deepRead.running": "解读中…",
+  "app.deepRead.notRunYet": "尚未运行。这比上方的免费检查更细致 — 在照片难以一眼判断的工程之前值得一试。",
+  "app.deepRead.nothingFound": "未发现报价单尚未涵盖的内容。",
+  "app.deepRead.notForClient": "需在现场核对的事项 — 这不是测量数据，也不供客户阅读。报价单未作任何添加。",
+  "app.deepRead.photosRead": countedNoun("zh", {"other":"张照片已解读"}),
 };
 
 const it = {
@@ -39984,6 +40100,19 @@ const it = {
   "app.marketingDesigner.createdOn": "creato il {date}",
   "app.status.onTheWay": "In arrivo",
   "app.marketingDesigner.designsCount": countedNoun("it", {"one":"grafica","other":"grafiche"}),
+
+  "app.removeBg.subtitle": "Rimuovi lo sfondo da un'immagine con l'IA",
+  "app.removeBg.selectedAlt": "Foto selezionata",
+  "app.deepRead.title": "Lettura approfondita delle foto",
+  "app.deepRead.paidBadge": "A pagamento",
+  "app.deepRead.description": "Un esame più attento di ogni foto di questo preventivo — fino a {max}, lette a piena risoluzione anziché con il controllo rapido qui sopra. Costa {price} di credito IA a ogni esecuzione, separato dal saldo telefonico.",
+  "app.deepRead.run": "Avvia lettura approfondita",
+  "app.deepRead.runAgain": "Esegui di nuovo",
+  "app.deepRead.running": "Lettura…",
+  "app.deepRead.notRunYet": "Non ancora eseguita. È un esame più attento del controllo gratuito qui sopra — utile prima di un lavoro con foto difficili da valutare a colpo d'occhio.",
+  "app.deepRead.nothingFound": "Non è stato trovato nulla oltre a quanto il preventivo già copre.",
+  "app.deepRead.notForClient": "Da verificare in cantiere — non sono misurazioni e non sono destinate al cliente. Nulla è stato aggiunto al preventivo.",
+  "app.deepRead.photosRead": countedNoun("it", {"one":"foto letta","other":"foto lette"}),
 };
 
 export const APP_MESSAGES = { en, fr, es, uk, pa, tl, de, zh, it };
