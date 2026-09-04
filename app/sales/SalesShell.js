@@ -63,13 +63,26 @@ export default function SalesShell({ children }) {
     return <div className="min-h-screen bg-muted">{children}</div>;
   }
 
+  // ── One width for reading, a wider one for the console ────────────────────
+  //
+  // max-w-5xl is right for the five single-column screens: they are prose and
+  // cards a rep reads top to bottom, and a 1400px line of body text is worse
+  // than an 1024px one. /sales/queue is not that — it is a working surface with
+  // a persistent list beside a detail pane, and squeezing both into 1024px puts
+  // the pane at roughly 640px, which is narrower than the single-column screen
+  // it replaced. Widened for that route only rather than everywhere, because
+  // "make it all wider" would have cost the four reading screens their measure
+  // to fix one console. Header, tabs and body share the constant so the three
+  // stay aligned.
+  const container = `${pathname.startsWith("/sales/queue") ? "max-w-7xl" : "max-w-5xl"} mx-auto px-4 sm:px-6`;
+
   return (
     <div className="min-h-screen bg-muted">
       <header className="bg-card border-b border-border">
         {/* py-2, not py-4: the sign-out button below is now a 44px target, so
             the old padding would have added 24px of dead chrome to the top of
             every phone screen in the portal. */}
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-between gap-4">
+        <div className={`${container} py-2 flex items-center justify-between gap-4`}>
           {/* text-brand-accent-text, not the raw #ff5a00 this used to hardcode.
               Raw orange on --card measures 3.13:1 in light mode — under the
               4.5:1 floor. --brand-accent-text is the darkened value globals.css
@@ -102,11 +115,21 @@ export default function SalesShell({ children }) {
             </button>
           </div>
         </div>
-        {/* Six tabs is past what fits on a 375px screen, so the rail scrolls
-            sideways rather than wrapping onto a second line that pushes the
-            content down. overflow-x-auto is also what lets the strict
-            nowrap rule pass honestly rather than by deleting the nowrap. */}
-        <nav className="max-w-5xl mx-auto px-4 sm:px-6 flex gap-1 -mb-px overflow-x-auto">
+        {/* ── Six tabs, all of them on screen at 375px ─────────────────────
+            This used to be one row with overflow-x-auto. Measured in a browser
+            at 375px: four tabs fitted and TWO — Notes and My companies — sat
+            off the right edge behind a horizontal scroll with no scrollbar, no
+            fade and no arrow. Nobody discovers that. It is the same failure as
+            a screen with no nav entry, which is what
+            scripts/check-sales-home.mjs's reachability section exists to
+            catch, except the link was present and merely invisible.
+            The previous note claimed wrapping "pushes the content down"; it
+            does, by one 36px row, once. An undiscoverable tab costs more.
+            So: two rows of three below sm:, one row above it. No
+            whitespace-nowrap and no truncate — a label that needs two lines in
+            a 106px cell gets two lines, which is legible, where a clipped one
+            is not. */}
+        <nav className={`${container} grid grid-cols-3 sm:flex gap-1 -mb-px`}>
           {[
             // The front door, and the only tab that answers "what do I do
             // next". English literal for the same reason "Notes" is one, below.
@@ -137,11 +160,11 @@ export default function SalesShell({ children }) {
               <Link
                 key={tab.href}
                 href={tab.href}
-                // shrink-0 rather than whitespace-nowrap: it keeps every tab at
-                // its content width inside the scrolling rail without asserting
-                // a nowrap the strict mobile rule would then have to reason
-                // about across a hundred lines of array literal.
-                className={`shrink-0 px-3 py-2 text-sm font-medium border-b-2 ${
+                // Centred in its grid cell below sm:, left-aligned and at its
+                // content width above it. Still no whitespace-nowrap: a label
+                // that needs two lines gets two lines, which is the honest
+                // failure mode where clipping is not.
+                className={`min-h-[44px] flex items-center justify-center sm:justify-start text-center sm:text-left sm:shrink-0 px-3 py-2 text-sm font-medium border-b-2 ${
                   active
                     ? // The underline is a non-text indicator, so 3:1 against the
                       // card is the applicable floor and raw orange clears it at
@@ -158,7 +181,7 @@ export default function SalesShell({ children }) {
           })}
         </nav>
       </header>
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">{children}</main>
+      <main className={`${container} py-6 sm:py-8`}>{children}</main>
     </div>
   );
 }

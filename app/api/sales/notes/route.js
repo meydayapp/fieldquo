@@ -45,10 +45,28 @@ export async function GET(request) {
   // vanishes with no way back is a delete wearing a gentler label.
   const archived = searchParams.get("archived") === "1";
 
+  // ── Narrowing to one prospect, and why that is not a widening ────────────
+  //
+  // The queue console keeps a rep's notes about the prospect they are looking
+  // at in the pane beside them, rather than a screen away. Without this it
+  // would have to pull all 500 rows and filter in the browser, which is a
+  // silent lie the day a rep has 501 notes — the older ones about THIS
+  // prospect would simply not be in the payload and the pane would say there
+  // were none.
+  //
+  // It reads no scope of its own: noteReaderWhere() is still the boundary and
+  // is still built from the gate's fresh session read, so this can only ever
+  // narrow a rep's own notes. A prospectId naming somebody else's prospect
+  // returns an empty list, which is the same answer as a prospect with no
+  // notes — nothing here confirms a row exists, and nothing here lets a rep
+  // read the pool.
+  const prospectId = (searchParams.get("prospectId") || "").trim().slice(0, 40);
+
   const notes = await db.salesRepNote.findMany({
     where: {
       ...noteReaderWhere({ kind: VIEWER_REP, salesRepId: rep.id }),
       archivedAt: archived ? { not: null } : null,
+      ...(prospectId ? { prospectId } : {}),
     },
     orderBy: { updatedAt: "desc" },
     take: 500,

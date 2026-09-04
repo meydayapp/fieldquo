@@ -1,12 +1,75 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 3 September 2026 (the Marketing Designer composes a before/after post out of a job's real photos, and nothing can be scheduled or posted until a person approves it; the US state licence boards and the Meta App Review artefacts before that).
+Last updated: 4 September 2026 (the rep queue is a persistent agent console — a list that stays, a pane that swaps, and a dial region that says why it is empty; the Marketing Designer's before/after post and the US state licence boards before that).
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The rep queue is a console, and the dial has a place (4 September 2026)
+
+**What the owner said.** He opened `/sales/queue`: *"I don't even know where to
+go to dial"*, and *"even the UI in ours is super simple."* Both true, and both
+structural. `/sales`, `/sales/queue`, `/sales/leads`, `/sales/threads`,
+`/sales/notes` and `/sales/companies` were six full-page navigations, so a
+closer working a list lost their place on every one; and the dial control lived
+three scrolls down inside a card that only existed once something was claimed.
+
+**The shape.** One surface. The rep's claimed queue is a persistent left column
+from `lg:` up, the prospect fills the pane beside it, and the call region is
+pinned to the top of that pane. Below `lg:` it is master-then-detail on one
+column and the list folds behind one button — a state change, not a route
+change, so the list is still loaded and still in the same scroll position.
+
+**Routing: a search param, not a parallel route.** The selection is
+`?prospectId=…` and the trade is `?trade=…`, read with `useSearchParams` and
+written with `router.replace` (not push — the list is the way back). Parallel
+routes were rejected on the data: `queue.items` and `current` are computed
+together in one `/api/sales/queue` response against one clock and one
+`queueWhere()`, so a `@list`/`@detail` split would need either a second fetch of
+the same route or a new endpoint listing claimed prospects. Two scopes for one
+screen is how a list and a detail come to disagree about who owns what.
+`/sales/queue` still works with nothing selected, and a specific prospect is now
+openable by URL, which it was **not** before — the old screen kept the selection
+in React state only.
+
+**The dial region is never blank.** There is still no greyed-out Call button —
+that rule is right and it stands. What changed is the other half:
+`lib/sales/dialSpace.js` returns a title and a body for all seven states, so the
+space the control would occupy always says what is missing. Nothing claimed, a
+do-not-contact row, "no sales number yet", refused with the jurisdiction and the
+hour it opens, or not confirmed either way — four different problems that used
+to render as identical blank space. It re-gates the href it is handed against
+the decision, a second refusal on top of `dialHref()`'s, so a bug in the page
+cannot manufacture a dial control. Both are executed in
+`npm run check:sales-console`, including a forged `tel:` beside a refusal.
+
+**Notes moved into the pane.** A rep types while they can still hear it, and the
+one thing that stops people taking notes is a second screen. `/sales/notes` is
+still where they are read and edited; `GET /api/sales/notes` gained a
+`prospectId` filter, applied **on top of** `noteReaderWhere()`, never instead of
+it.
+
+**Kept, deliberately:** the pool is still unbrowsable (no endpoint lists what is
+free; the per-trade numbers are counts), the claim is still a compare-and-set,
+`callingRules.js` / `queueGate.js` / `calls/gate.js` are untouched, the three
+layers are still three sections in one order, and the four empty-queue reasons
+(`no_trade`, `unknown_pool`, `pool_empty`, `nothing_claimed`) still produce four
+different sentences with four different icons.
+
+**Also fixed:** the portal's six tabs. At 375px, four fitted and Notes and My
+companies sat off the right edge behind a horizontal scroll with no scrollbar,
+no fade and no arrow — measured in a browser. The rail is now two rows of three
+below `sm:` and one row above it, and `/sales/queue` alone gets `max-w-7xl`
+because it is the only screen that is not a single column of prose.
+
+**New check:** `scripts/check-sales-console.mjs`, 136 assertions, in
+`check:all`. Fourteen mutations, each confirmed on disk before running, each
+caught.
 
 ---
 
@@ -7930,3 +7993,82 @@ offers the same figures as a one-click prefill.
   representation.** $0 is refused rather than silently meaning "never pays",
   because the ledger cannot tell that apart from "no plan". If two-stage terms
   are ever wanted, that needs an explicit "not paid" state the ledger can record.
+
+---
+
+## Inbound calls on the `sales_voice` numbers — 2026-09-04
+
+**The sequence this ends.** A closer rings a roofer from a local number, because
+a contractor in Tulsa answers a 918 number and lets an unknown one ring out. The
+roofer is on a roof. Two hours later they see the missed call and ring it back —
+and the number was bought, pointed at nothing, and answered by nobody.
+`PlatformSmsNumber` has carried a `voiceUrl` column "for a `sales_voice` number"
+since the pool was designed; nothing had ever been at the other end of it.
+
+**What was built.** `app/api/rep-dial/inbound` — a Twilio voice webhook, a
+sibling of `/bridge` and `/status` for the same documented reason those are not
+under `/api/sales`. Signature-verified through the shared
+`lib/sms/verifyTwilioWebhook.js`. `lib/sales/calls/inboundRouting.js` holds every
+decision as a pure function; the route performs them and reaches no vendor logic
+of its own.
+
+**The branches, in order.** Not one of ours → "this number is not in service",
+and the call is logged to `/platform/errors`. Tables missing → said out loud
+rather than answered as though fine. No transfer destination, or the floor has
+said it is empty → an honest spoken message. Otherwise → `<Dial>` to
+`FIELDQUO_SALES_TRANSFER_TO` for twenty seconds, falling back to the same
+message through the `action` leg when nobody picks up.
+
+**Three rules that run the opposite way from the outbound path, and each is a
+line somebody will try to "fix":**
+
+- **The calling window does not apply.** A person ringing us has chosen the
+  moment. The route imports nothing from `callingRules.js` and the check asserts
+  it never will. A *callback* is a different thing and still goes through
+  `salesCallReadiness` — which is why the spoken message never promises one.
+- **`SalesSuppression` still binds, and answering is not a breach of it.** A
+  suppressed caller is connected exactly like anyone else; nothing on the path
+  writes or clears the list, and there is no pitch for the suppression to soften.
+- **An inbound row is not a dial.** `attemptsLast24h` now filters
+  `direction: "out"` — three callbacks from one contractor must not spend the
+  three calls Oklahoma allows — and `repCallStats` / `campaignCallRows` count
+  callbacks in their own column rather than inflating a rep's dials.
+
+**Schema.** `SalesCallAttempt.salesRepId` became nullable for exactly one case,
+an inbound call that matched nobody; `recordDial` still refuses an outbound row
+without a rep, and the check proves it. New `matchedBy`, a third `dialChannel`
+value `"inbound"`, and two direction-first indexes. `toE164` is now documented as
+the CONTRACTOR in both directions — writing our own number there on an inbound
+leg would have poisoned the cap, the callback tracker and "how many times have we
+spoken" at once.
+
+**Nothing is recorded and there is no voicemail**, said out loud in
+`NOT_TRACKED_CALLS` rather than left as an absence. A voicemail would be a
+recording with somewhere to be written and nowhere to be read.
+
+**The write is read.** `/platform/sales/floor` shows today's callbacks — who
+rang, which rep it was filed for, and "nobody" when it matched no attempt — read
+by direction rather than by rep, so the unattributed ones are visible.
+
+`npm run check:sales-inbound-call` — **162 assertions**, in `check:all`. Twelve
+mutations, each confirmed on disk before the run was trusted; all twelve caught.
+The handler itself was executed against twelve genuinely signed Twilio payloads
+(`twilio.getExpectedTwilioSignature`), since FieldQuo owns no number to ring.
+
+### Still open — needs the owner
+
+- **FieldQuo owns zero `sales_voice` numbers**, and cannot buy one: the Twilio
+  Trust Hub compliance profile is not approved, so search returns almost nothing
+  and every purchase is refused. Until that clears, the honest refusal path is
+  what runs.
+- **Each number's Voice webhook has to be set in the Twilio console**, to
+  `https://<host>/api/rep-dial/inbound`. The floor board prints the exact URL.
+  `PlatformSmsNumber.voiceUrl` records the intent and is still written by
+  nothing — the purchase screen would have to set it, and there is no purchase.
+- **`FIELDQUO_SALES_TRANSFER_TO` is unset.** Without it the call is answered and
+  logged and nobody can be put through, which the board says in those words.
+- **There is still no per-rep callback number.** The rep who rang is derived from
+  the call log, which needs no column and cannot go stale; ringing *that rep
+  specifically* would need either a number on `SalesRep` or an inbound-enabled
+  browser identity, and the token route's `incomingAllow: false` is a deliberate
+  decision that was left standing rather than flipped in passing.
