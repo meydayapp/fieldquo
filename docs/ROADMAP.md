@@ -1,12 +1,77 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 3 September 2026 (the client-facing quote surfaces — /q/[token] stops painting itself with the raw brand hex, and the tax line stops contradicting the sentence under it; voice settings and the appointments calendar before that).
+Last updated: 3 September 2026 (the Meta App Review artefacts — a data deletion instructions page, a 1024 app icon rebuilt from the real mark, and the sales-call schema applied to the database; the client-facing quote surfaces and the voice settings page before that).
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## Meta App Review: the two artefacts, and the schema that was parked (3 September 2026)
+
+**`/data-deletion` — the instructions URL Meta requires.** Every claim on it
+was read out of the code rather than drafted from what a deletion page usually
+says, and the load-bearing sentence is a negative: there is no button in
+FieldQuo that deletes an account. The heaviest thing that exists,
+`app/api/platform/companies/[id]/route.js`'s DELETE, is a SUSPENSION — it
+writes `onboardingStatus: "churned"` and returns, in its own words, "Company
+marked as churned, not deleted. Contact engineering for permanent deletion."
+So the page describes an email to a person. It also states that a client record
+deletes only with no quotes and no invoices, that nothing expires on a schedule
+because there is no retention job, and that opt-out records are kept forever on
+purpose. The one deletion it calls immediate and complete is the Meta
+disconnect, because `lib/meta/connection.js` really does `deleteMany` the row.
+
+For the reviewer, two facts narrower than assumed: **FieldQuo does not offer
+Facebook Login** (Better Auth, email and password, no social providers at all),
+and the Meta connection requests **`ads_read` and nothing else**, so no Facebook
+profile data is held. That is also why **no data deletion CALLBACK was built** —
+the signed-request callback is the Facebook-Login mechanism, and building a
+handler for a login FieldQuo does not offer would be a live endpoint answering
+for a flow that cannot happen. If Login is ever added, that changes.
+
+Registered in `scripts/check-legal-pages.mjs`'s `PAGES` map, so it is held to
+the same four rules as its neighbours — mutation-tested by planting an
+unnegated "SOC 2 certified" claim and a runtime `new Date()`, both of which
+passed until the page was registered. Verified at 375px and desktop, light and
+dark: 16.09:1 on headings, links and bold, 8.64:1 on body text.
+
+**The 1024 app icon, rebuilt rather than upscaled.** FieldQuo's mark has no
+vector source — `git log --all -- '*.svg'` returns five files and every one is
+create-next-app boilerplate. The largest copy of the glyph anywhere, measured,
+is 205x218, and it is the same size in `FieldQuo_icon.png`, the horizontal
+lockup and the vertical lockup. 205 to 1024 is a 4.7x upscale, so
+`scripts/build-app-icon.mjs` recovers the geometry instead: the mark is two
+flat inks with no curves, so it traces back to polygons exactly — every filled
+pixel offers its four edges, shared edges cancel, and Douglas-Peucker fits the
+staircase back into the straight diagonals it was rasterised from. Nothing is
+hand-typed. Output: `public/logo/FieldQuo_icon_1024.png`. `check:app-icon`'s
+real assertion is fidelity, not size — the traced geometry rendered back down
+to the source glyph's own resolution must match the source mask at IoU >= 0.98,
+which a resample cannot pass.
+
+**`lib/sales/calls/schema.pending.prisma` is no longer pending.**
+`SalesCallAttempt`, `SalesRepActivity`, `SalesRep.managerId`, four columns on
+`PlatformVoiceCall` and `voiceUrl` on `PlatformSmsNumber` are in
+`prisma/schema.prisma` and pushed; columns confirmed against
+`information_schema` rather than assumed from a clean push. Two tripwires
+written to fail on exactly this both fired and were replaced by the assertions
+they stood in for — the Oklahoma/Florida three-call cap is now COUNTED rather
+than reported as `unenforced`.
+
+**The team-lead tier is still off, deliberately.** `SalesRep.managerId` unblocks
+it and does not enable it: nothing reads the column to build a viewer, no screen
+sets one, so every rep's manager is null. `HAS_REPORTING_LINE` (a fact about the
+schema) flipped to true and `MANAGER_TIER_LIVE` was added beside it, false,
+because a column and a tier are different claims and collapsing them is how a
+screen starts advertising a "my reps" filter over an empty org chart.
+`TEAM_LEAD_NOTE_VISIBILITY_FROM` stays null — that date is a promise to every
+rep who has already typed a note, so it is the owner's to set. Whether a team
+lead may transfer a claim to a named rep is still an open product decision and
+was deliberately not resolved.
 
 ---
 
@@ -809,7 +874,12 @@ When you touch an area, check it rather than trusting it.
 ## Legal pages — real, not placeholders, but NOT lawyer-reviewed
 
 `/privacy`, `/terms` (rewritten) and `/security` (new) replaced two 25-line
-placeholders that literally said "needs to be drafted before this goes live."
+placeholders. `/data-deletion` joined them on 3 September 2026 — see that
+section above for why it describes an email rather than a button. All four are
+in `check-legal-pages.mjs`'s `PAGES` map; a legal page that is not in that map
+is a legal page nothing checks.
+
+The original three replaced placeholders that literally said "needs to be drafted before this goes live."
 Every factual claim was checked against the code that makes it true —
 including two claims from the brief that commissioned this work that turned
 out to be FALSE once checked: the platform console's read-only impersonation
@@ -822,8 +892,9 @@ assumed going in.
 
 **Still needs before this can go live with real customers:**
 - A lawyer's review — the pages say so themselves.
-- Quebec Law 25 privacy officer name/title/contact — `lib/legal/privacyOfficer.js`
-  ships an honest, checked-in placeholder (`PRIVACY_OFFICER_PENDING = true`).
+- ~~Quebec Law 25 privacy officer name/title/contact~~ — **done**. Filled in by
+  the owner on 1 September 2026; `PRIVACY_OFFICER_PENDING` is now `false` and
+  `check:legal-pages` asserts the data and the flag agree in both directions.
 - Terms §15: FieldQuo's legal entity name, place of incorporation, and
   governing law/venue — not established anywhere in this codebase, left as an
   explicit placeholder for the owner/counsel to fill in.
