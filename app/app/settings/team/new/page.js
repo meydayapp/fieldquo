@@ -310,7 +310,8 @@ function NewUserForm() {
       {emailWarning && (
         <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-200 text-sm rounded-lg px-4 py-3 space-y-2">
           <p className="font-semibold">
-            {personal.name || "They"} was added, but the invitation email
+            {personal.name || "They"}{" "}
+            was added, but the invitation email
             didn&apos;t send
           </p>
           <p>{emailWarning}</p>

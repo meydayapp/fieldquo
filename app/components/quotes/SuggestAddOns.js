@@ -486,7 +486,9 @@ export default function SuggestAddOns({
                 </>
               ) : (
                 <p className="text-xs text-muted-foreground mt-1.5">
-                  Nothing in {review.photosRead === 1 ? "the photo" : `the ${review.photosRead} photos`} that the quote
+                  Nothing in{" "}
+                  {review.photosRead === 1 ? "the photo" : `the ${review.photosRead} photos`}{" "}
+                  that the quote
                   doesn&apos;t already cover.
                 </p>
               )}

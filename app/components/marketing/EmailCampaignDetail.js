@@ -101,7 +101,8 @@ export default function EmailCampaignDetail({ campaign, onSent }) {
           <div className="border border-amber-200 bg-amber-50 rounded-lg p-4 space-y-3">
             <p className="text-sm text-amber-800">
               Partially sent — {campaign.recipientCount ?? 0} of{" "}
-              {subscribedCount ?? campaign.recipientCount ?? 0} subscribed recipients have
+              {subscribedCount ?? campaign.recipientCount ?? 0}{" "}
+              subscribed recipients have
               this campaign. The rest haven&apos;t been emailed yet.
             </p>
             {error && <p className="text-sm text-red-700">{error}</p>}

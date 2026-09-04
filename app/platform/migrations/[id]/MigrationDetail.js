@@ -808,7 +808,8 @@ function AddQuoteForm({
       </button>
       {clientsError && (
         <p className="text-xs text-amber-700 dark:text-amber-400">
-          {clientsError} This company may well have clients — the list just
+          {clientsError}{" "}
+          This company may well have clients — the list just
           didn&apos;t arrive, and nothing has been changed.{" "}
           <button
             type="button"

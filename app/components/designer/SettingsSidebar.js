@@ -113,7 +113,8 @@ export function SettingsSidebar({ editor, activeTool, onChangeActiveTool }) {
               <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
               <span>
                 Reflow is a starting point — {warning.overflowing.length}{" "}
-                {warning.overflowing.length === 1 ? "object extends" : "objects extend"} past
+                {warning.overflowing.length === 1 ? "object extends" : "objects extend"}{" "}
+                past
                 this frame&apos;s edge. Nudge it back in before exporting.
               </span>
             </div>

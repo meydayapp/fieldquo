@@ -112,7 +112,8 @@ function FeatureLocked({ label, note }) {
           <Lock size={22} className="text-muted-foreground" />
         </div>
         <h1 className="text-xl font-bold text-foreground mt-5">
-          {label || "This feature"} isn&apos;t switched on yet
+          {label || "This feature"}{" "}
+          isn&apos;t switched on yet
         </h1>
         {/* Says out loud that nothing was destroyed. A contractor who set up
             eight funnels and finds the screen gone will assume the worst unless

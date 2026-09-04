@@ -307,7 +307,8 @@ export default function CostMarginPanel({
           {estimate.crewUnrated > 0 && (
             <p className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
               {estimate.crewUnrated} on the crew{" "}
-              {estimate.crewUnrated === 1 ? "has" : "have"} no rate, so their
+              {estimate.crewUnrated === 1 ? "has" : "have"}{" "}
+              no rate, so their
               hours cost nothing here. The margin below is higher than the
               job&apos;s until every rate is filled in.
             </p>
@@ -334,7 +335,8 @@ export default function CostMarginPanel({
 
       {estimate.costIncomplete && (
         <p className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-          {estimate.labourHours} hours of work are costed at $0 because nobody
+          {estimate.labourHours}{" "}
+          hours of work are costed at $0 because nobody
           on the crew has a rate. Add someone above — until then this margin is
           higher than the job&apos;s.
         </p>
@@ -476,7 +478,8 @@ export default function CostMarginPanel({
         {estimate.unpricedMaterials > 0 && (
           <p className="text-[11px] text-amber-700 dark:text-amber-400">
             {estimate.unpricedMaterials} material
-            {estimate.unpricedMaterials === 1 ? " has" : "s have"} no price set,
+            {estimate.unpricedMaterials === 1 ? " has" : "s have"}{" "}
+            no price set,
             so this is an understatement and the real margin is lower. Set them
             on the rate card in Settings &rsaquo; Services.
           </p>

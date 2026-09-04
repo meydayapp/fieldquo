@@ -104,7 +104,8 @@ export default function UnsubscribeForm({ token }) {
                   Unsubscribe from {company}?
                 </h1>
                 <p className="text-sm text-neutral-600 mb-5">
-                  {state.data.email} will stop receiving marketing email. You&apos;ll
+                  {state.data.email}{" "}
+                  will stop receiving marketing email. You&apos;ll
                   still get quotes, invoices and other messages about work
                   you&apos;ve requested.
                 </p>

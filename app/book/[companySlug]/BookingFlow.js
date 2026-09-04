@@ -708,7 +708,14 @@ export default function BookingFlow({ companySlug, initialEventSlug, prefill = n
             </>
           ) : (
             <p className="text-sm" style={{ color: theme.inkMuted }}>
-              {company.name} hasn&apos;t set up online booking yet.
+              {/* The explicit {" "} is load-bearing. Written as
+                  `{company.name} hasn't…`, the space before "hasn't" belongs to
+                  a JSX text run that continues onto the next line, and the
+                  compiler trims it — this read "Cedar & Co. Flooringhasn't set
+                  up online booking yet." to every visitor of a company that has
+                  no event types. A literal space cannot be trimmed. */}
+              {company.name}{" "}
+              hasn&apos;t set up online booking yet.
               {company.phone && ` Give them a call on ${company.phone}.`}
             </p>
           )}

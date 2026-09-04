@@ -156,7 +156,8 @@ export default function PayCycleCard() {
           dropdown has probably not counted it. */}
       {canEdit && weekAligned && data.reviewDays <= 1 && (
         <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
-          That leaves {data.reviewDays} day to approve everyone&apos;s hours
+          That leaves {data.reviewDays}{" "}
+          day to approve everyone&apos;s hours
           between the period closing and payday. Workable if your hours are
           approved daily; tight if they are not.
         </p>

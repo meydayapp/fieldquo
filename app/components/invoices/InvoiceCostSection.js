@@ -168,7 +168,8 @@ export default function InvoiceCostSection({
         usingSeed ? (
           <>
             Filled in from {seed.approvedHours} approved{" "}
-            {seed.approvedHours === 1 ? "hour" : "hours"} logged against this
+            {seed.approvedHours === 1 ? "hour" : "hours"}{" "}
+            logged against this
             job. Change anything that&apos;s wrong — once you save, these hours
             are the invoice&apos;s and the timesheets stop overwriting them.
             {seed.pendingHours > 0 && (

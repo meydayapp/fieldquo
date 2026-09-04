@@ -198,7 +198,8 @@ export default function AddEmployeeModal({ onClose, onAdded }) {
               </p>
               <p>{emailWarning}</p>
               <p>
-                {form.name || "They"} won&apos;t have received anything. The
+                {form.name || "They"}{" "}
+                won&apos;t have received anything. The
                 pending invite is on the Team page — cancel it there and try
                 again once email is working.
               </p>
