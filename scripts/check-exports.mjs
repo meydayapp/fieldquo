@@ -119,6 +119,30 @@ function decomment(src) {
   return out;
 }
 
+/**
+ * A file's contents, or null if it no longer exists.
+ *
+ * The walk lists paths and the reads happen afterwards, so a file can go away
+ * in between — and that is the DOCUMENTED workflow here, not misuse: AGENTS.md
+ * says to put throwaway check scripts in the repo root and delete them when
+ * done. Before this, deleting one mid-build crashed check:exports with an
+ * ENOENT and took `npm run build` down with it, so a green tree went red
+ * because somebody tidied up. Seen for real, on tmp-contrast.mjs.
+ *
+ * Only ENOENT is swallowed. A permissions failure or a bad encoding is a real
+ * fault and still throws — this file's own header says a checker that cannot
+ * read something must skip it and SAY so, never quietly pass, and a blanket
+ * catch here would do exactly the opposite.
+ */
+function readOrSkip(file) {
+  try {
+    return fs.readFileSync(file, "utf8");
+  } catch (err) {
+    if (err?.code === "ENOENT") return null;
+    throw err;
+  }
+}
+
 /** Every source file we own. */
 function walk(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -165,7 +189,17 @@ function exportsOf(file, seen = new Set()) {
   if (seen.has(file)) return { names: new Set(), hasDefault: false, unknown: false };
   seen.add(file);
 
-  const src = decomment(fs.readFileSync(file, "utf8"));
+  // Same race as the walk above: this resolves an import TARGET, which can be
+  // deleted just as easily. An unreadable module is UNKNOWN, not empty — an
+  // empty export set would make every named import of it look wrong and print
+  // confident failures about a file nobody can read.
+  const rawSrc = readOrSkip(file);
+  if (rawSrc === null) {
+    const gone = { names: new Set(), hasDefault: false, unknown: true };
+    exportCache.set(file, gone);
+    return gone;
+  }
+  const src = decomment(rawSrc);
   const names = new Set();
   let hasDefault = false;
   let unknown = false;
@@ -220,7 +254,20 @@ const skipped = new Set();
 
 for (const file of walk(ROOT)) {
   if (file.includes(`${path.sep}scripts${path.sep}`)) continue;
-  const src = decomment(fs.readFileSync(file, "utf8"));
+  // A file can vanish between the walk that listed it and the read below, and
+  // that is the documented workflow rather than misuse: AGENTS.md says to put
+  // throwaway check scripts in the repo ROOT and delete them afterwards. Before
+  // this guard, deleting one mid-build crashed check:exports with an ENOENT and
+  // took `npm run build` down with it — a green tree turning red because
+  // somebody tidied up. Seen for real, on tmp-contrast.mjs.
+  //
+  // Skipped rather than counted as a problem: a file that no longer exists
+  // exports nothing and imports nothing, so there is no assertion to make about
+  // it. Any other read error still throws — a permissions failure or a bad
+  // encoding is a real fault and must not be swallowed alongside this one.
+  const raw = readOrSkip(file);
+  if (raw === null) continue;
+  const src = decomment(raw);
 
   // import <default>, { a, b as c } from "spec"   (static only — a dynamic
   // import()'s named access is a property read and fails at runtime, not build)
