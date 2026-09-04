@@ -1371,10 +1371,10 @@ export default function SignupPage() {
       <AuthShell
         eyebrow={
           entryChecked && alreadyOnFieldquo
-            ? t("auth.signup.eyebrowExisting", "Add a business")
+            ? t("app.signup.eyebrowExisting", "Add a business")
             : entryChecked && finishCheckout
               ? t("app.signup.finish.eyebrow", "Finish setting up")
-              : t("auth.signup.eyebrow", "Start your free month")
+              : t("app.signup.eyebrow", "Start your free month")
         }
         title={
           finishCheckout
@@ -1422,7 +1422,7 @@ export default function SignupPage() {
               {trialLabel()}
               {" — "}
               {t(
-                "auth.signup.subtitle",
+                "app.signup.subtitle",
                 "set up your business, pick your trades, then choose a plan.",
               )}
             </>
@@ -1456,11 +1456,11 @@ export default function SignupPage() {
         {alreadyOnFieldquo && (
           <div className="max-w-md mx-auto bg-card border border-border rounded-2xl px-6 py-8 text-center">
             <h1 className="text-xl font-bold text-foreground">
-              {t("auth.signup.alreadyIn", "You already have a business here")}
+              {t("app.signup.alreadyIn", "You already have a business here")}
             </h1>
             <p className="mt-3 text-sm text-muted-foreground">
               {t(
-                "auth.signup.alreadyInBody",
+                "app.signup.alreadyInBody",
                 "You're signed in as {name}. FieldQuo gives one business to a login, so there is nothing to set up on this page.",
                 { name: alreadyOnFieldquo.name },
               )}
@@ -1470,7 +1470,7 @@ export default function SignupPage() {
                 href="/app"
                 className="bg-inverted text-inverted-foreground rounded-full px-6 py-3 text-sm font-semibold"
               >
-                {t("auth.signup.goToDashboard", "Go to your dashboard")}
+                {t("app.signup.goToDashboard", "Go to your dashboard")}
               </a>
               {/* The two real reasons somebody signed-in lands here: they meant
                   to invite a colleague, or they followed a referral link. Both
@@ -1479,7 +1479,7 @@ export default function SignupPage() {
                 href="/app/settings/team"
                 className="text-sm font-medium text-muted-foreground hover:text-foreground"
               >
-                {t("auth.signup.inviteInstead", "Add someone to your team instead")}
+                {t("app.signup.inviteInstead", "Add someone to your team instead")}
               </a>
               {referrer && (
                 <a
@@ -1487,7 +1487,7 @@ export default function SignupPage() {
                   className="text-sm font-medium text-muted-foreground hover:text-foreground"
                 >
                   {t(
-                    "auth.signup.yourOwnReferral",
+                    "app.signup.yourOwnReferral",
                     "Referral offers are for businesses new to FieldQuo — here is your own link",
                   )}
                 </a>
@@ -1551,7 +1551,14 @@ export default function SignupPage() {
             what they were promised on the landing page. */}
         {referrer && !alreadyOnFieldquo && (
           <div className="max-w-md mx-auto mb-6 bg-brand-accent/10 border border-brand-accent/40 rounded-xl px-4 py-3 text-center">
-            <p className="text-sm text-[#2d2520]">
+            {/* --foreground, not a literal #2d2520. The hex was a near-black
+                chosen against the light card, so the one line of copy on this
+                banner would have been near-black on a dark wash the day the
+                theme allow-list grows to cover /signup — the "the dark value
+                was never written" case AuthShell's header warns about.
+                check:auth-pages proves the token resolves in both palettes; it
+                cannot prove anything about a literal. */}
+            <p className="text-sm text-foreground">
               <strong>{referrer.referrerName}</strong> referred you —{" "}
               <strong>{monthsFree(referrer.months)}</strong> added to your trial.
             </p>

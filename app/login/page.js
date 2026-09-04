@@ -15,6 +15,7 @@ import {
 } from "@/app/components/auth/fieldStyles";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { isInternalPath } from "@/lib/appUrl";
+import { signInErrorText } from "@/lib/authErrors";
 
 // Only ever an internal path. Guards against `?next=//evil.com`, `?next=/\evil.com`
 // and absolute URLs turning the login form into an open redirect. The rule
@@ -51,7 +52,12 @@ export default function LoginPage() {
     setSubmitting(false);
 
     if (signInError) {
-      setError(signInError.message || "Invalid email or password");
+      // Never signInError.message. That is Better Auth's own English string,
+      // so it dropped an English sentence into a French page — and it made a
+      // dropped connection, a rate limit and a wrong password read identically,
+      // which sends somebody whose password was fine off into the reset flow.
+      // lib/authErrors.js picks which of the three this is.
+      setError(signInErrorText(t, signInError));
       return;
     }
 
@@ -63,10 +69,10 @@ export default function LoginPage() {
     <>
       <MarketingHeader />
       <AuthShell
-        eyebrow={t("auth.login.eyebrow", "Log in")}
-        title={t("auth.login.title", "Welcome back")}
+        eyebrow={t("app.auth.login.eyebrow", "Log in")}
+        title={t("app.auth.login.title", "Welcome back")}
         subtitle={t(
-          "auth.login.subtitle",
+          "app.auth.login.subtitle",
           "Pick up where you left off — quotes to send, jobs to schedule, invoices to chase.",
         )}
         aside={<AuthAside variant="login" />}
@@ -86,7 +92,7 @@ export default function LoginPage() {
                 "Email" on a phone did nothing, and a screen reader read the
                 inputs as unlabelled. */}
             <label htmlFor="login-email" className={FIELD_LABEL}>
-              {t("auth.login.email", "Email")}
+              {t("app.auth.login.email", "Email")}
             </label>
             <input
               id="login-email"
@@ -104,7 +110,7 @@ export default function LoginPage() {
           <div>
             <div className="flex items-center justify-between">
               <label htmlFor="login-password" className={FIELD_LABEL}>
-                {t("auth.login.password", "Password")}
+                {t("app.auth.login.password", "Password")}
               </label>
               {/* The only route into the reset flow. Without a link here the
                   three pages behind it are reachable only by typing the URL,
@@ -129,18 +135,18 @@ export default function LoginPage() {
 
           <button type="submit" disabled={submitting} className={PRIMARY_BUTTON}>
             {submitting
-              ? t("auth.login.submitting", "Logging in...")
-              : t("auth.login.submit", "Log In")}
+              ? t("app.auth.login.submitting", "Logging in...")
+              : t("app.auth.login.submit", "Log In")}
           </button>
         </form>
 
         <p className="text-sm text-muted-foreground mt-6">
-          {t("auth.login.noAccount", "Don't have an account?")}{" "}
+          {t("app.auth.login.noAccount", "Don't have an account?")}{" "}
           <Link
             href={next !== "/app" ? `/signup?next=${encodeURIComponent(next)}` : "/signup"}
             className="font-medium text-foreground underline"
           >
-            {t("auth.login.startTrial", "Start your free trial")}
+            {t("app.auth.login.startTrial", "Start your free trial")}
           </Link>
         </p>
       </AuthShell>

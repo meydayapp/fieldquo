@@ -31,10 +31,14 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { authClient, sendVerificationEmail } from "@/lib/auth-client";
 import MarketingHeader from "@/app/components/marketing/MarketingHeader";
+// Shared with /login and /signup rather than a fourth copy — see the note on
+// the same import in app/forgot-password/page.js.
+import {
+  fieldClass,
+  FIELD_LABEL,
+  PRIMARY_BUTTON,
+} from "@/app/components/auth/fieldStyles";
 import { useTranslation } from "@/app/hooks/useTranslation";
-
-const inputClass =
-  "w-full mt-1 border border-border rounded-lg px-4 py-2.5 text-sm";
 
 function Shell({ children }) {
   return (
@@ -196,7 +200,7 @@ function VerifyEmail() {
               feel stupid, so the button asks before it decides. */}
           <Link
             href={signedIn ? "/app" : "/login"}
-            className="mt-6 block w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold"
+            className="mt-6 block w-full bg-inverted text-inverted-foreground py-3 rounded-lg text-sm font-semibold"
           >
             {signedIn ? t("app.auth.verify.continue") : t("app.auth.signIn")}
           </Link>
@@ -246,23 +250,26 @@ function VerifyEmail() {
           )}
 
           <div>
-            <label className="text-sm font-medium text-foreground">
+            {/* htmlFor/id, which this field did not have — same defect, same
+                fix, as the sibling recovery pages. */}
+            <label htmlFor="verify-email-address" className={FIELD_LABEL}>
               {t("app.auth.emailLabel")}
             </label>
             <input
+              id="verify-email-address"
               required
               type="email"
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className={inputClass}
+              className={fieldClass(false)}
             />
           </div>
 
           <button
             type="submit"
             disabled={sending}
-            className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+            className={PRIMARY_BUTTON}
           >
             {sending
               ? t("app.auth.verify.resending")

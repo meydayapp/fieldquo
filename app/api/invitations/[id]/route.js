@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { ROLE_LABELS } from "@/lib/permissions/roleManagement";
 
 // Public — the accept-invitation page needs the invite's email, org name, and
 // role to render before the invited person has logged in. Only non-sensitive
@@ -39,10 +40,47 @@ export async function GET(_request, { params }) {
     select: { id: true },
   });
 
+  // ── The role the accept route will ACTUALLY write ────────────────────────
+  //
+  // `invitation.role` is Better Auth's, and it only has two values: the invite
+  // routes map admin/supervisor/employee down to admin/member before creating
+  // it, then stash the granular one on PendingTeamProfile. The accept route
+  // reads that pending row back and writes it to Member.role.
+  //
+  // So the page was printing "as member" to somebody about to be made a
+  // Manager. A screen naming a different role from the one the row gets is
+  // worse than a screen naming none — this resolves it the same way the accept
+  // route does, from the same row, so the two cannot disagree.
+  //
+  // Labelled here rather than in the page: ROLE_LABELS is the app-wide
+  // vocabulary (Worker / Manager / Administrator), and lib/email/inviteEmail.js
+  // already prints the same words in the invitation the person is holding.
+  const company = await db.company.findUnique({
+    where: { authOrgId: invitation.organizationId },
+    select: { id: true },
+  });
+  const pending = company
+    ? await db.pendingTeamProfile.findUnique({
+        where: {
+          companyId_email: {
+            companyId: company.id,
+            email: invitation.email.toLowerCase(),
+          },
+        },
+        select: { role: true },
+      })
+    : null;
+  const fieldquoRole =
+    pending?.role || (invitation.role === "admin" ? "admin" : "employee");
+
   return NextResponse.json({
     id: invitation.id,
     email: invitation.email,
-    role: invitation.role,
+    role: fieldquoRole,
+    // Null rather than the raw key when the role is one ROLE_LABELS has no
+    // word for. The page renders the sentence only when this is present, so an
+    // unknown tier shows nothing instead of showing a database value.
+    roleLabel: ROLE_LABELS[fieldquoRole] || null,
     status: invitation.status,
     orgName: invitation.organization?.name || "the team",
     expired: Boolean(expired),

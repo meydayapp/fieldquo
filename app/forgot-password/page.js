@@ -35,10 +35,18 @@ import Link from "next/link";
 // matches what actually travels.
 import { requestPasswordReset } from "@/lib/auth-client";
 import MarketingHeader from "@/app/components/marketing/MarketingHeader";
+// The shared field styles, not a fourth copy of the class string. This page,
+// /reset-password and /verify-email each carried their own `inputClass`, and
+// they had already drifted from the pair /login and /signup use: no focus
+// ring, no --destructive, no dark values, and a 40px button on a page a
+// contractor reaches on a phone. fieldStyles.js's header says the copy is the
+// one that rots; these were the copies.
+import {
+  fieldClass,
+  FIELD_LABEL,
+  PRIMARY_BUTTON,
+} from "@/app/components/auth/fieldStyles";
 import { useTranslation } from "@/app/hooks/useTranslation";
-
-const inputClass =
-  "w-full mt-1 border border-border rounded-lg px-4 py-2.5 text-sm";
 
 export default function ForgotPasswordPage() {
   const { t } = useTranslation();
@@ -122,7 +130,7 @@ export default function ForgotPasswordPage() {
                 type="button"
                 onClick={send}
                 disabled={submitting}
-                className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+                className={PRIMARY_BUTTON}
               >
                 {submitting
                   ? t("app.auth.forgot.submitting")
@@ -139,7 +147,7 @@ export default function ForgotPasswordPage() {
                   setResent(false);
                   setError("");
                 }}
-                className="w-full text-sm text-muted-foreground"
+                className="w-full text-sm text-muted-foreground py-3"
               >
                 {t("app.auth.forgot.different")}
               </button>
@@ -156,23 +164,28 @@ export default function ForgotPasswordPage() {
               )}
 
               <div>
-                <label className="text-sm font-medium text-foreground">
+                {/* htmlFor/id, which this field did not have. Tapping the word
+                    "Email" on a phone did nothing and a screen reader read an
+                    unlabelled box — the same defect /login carried until it
+                    was fixed there, on the page one link away from this one. */}
+                <label htmlFor="forgot-email" className={FIELD_LABEL}>
                   {t("app.auth.emailLabel")}
                 </label>
                 <input
+                  id="forgot-email"
                   required
                   type="email"
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className={inputClass}
+                  className={fieldClass(false)}
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+                className={PRIMARY_BUTTON}
               >
                 {submitting
                   ? t("app.auth.forgot.submitting")

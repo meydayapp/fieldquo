@@ -6,6 +6,9 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { reconcilePendingProfiles } from "@/lib/team/reconcilePendingProfile";
 import { ensureWorkerForMember } from "@/lib/team/ensureWorker";
+// The admitted statuses, shared with the accept page so the screen it shows
+// and the gate below cannot drift — see lib/invitations/arrival.js.
+import { ACCEPTABLE_INVITATION_STATUSES } from "@/lib/invitations/arrival";
 
 // The invited person must be signed in (with the invited email) before this
 // runs — the accept page handles sign-up/sign-in first. Steps:
@@ -50,7 +53,7 @@ export async function POST(request, { params }) {
   // upsert and granted access. "accepted" stays allowed for exactly that
   // re-run; the email match above already proved it's the same person.
   const status = String(invitation.status || "").toLowerCase();
-  if (status !== "pending" && status !== "accepted") {
+  if (!ACCEPTABLE_INVITATION_STATUSES.includes(status)) {
     return NextResponse.json(
       { error: "This invitation was cancelled. Ask them to send a new one." },
       { status: 403 },

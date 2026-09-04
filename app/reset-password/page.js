@@ -29,6 +29,13 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { resetPassword } from "@/lib/auth-client";
 import MarketingHeader from "@/app/components/marketing/MarketingHeader";
+// Shared with /login and /signup rather than a fourth copy — see the note on
+// the same import in app/forgot-password/page.js.
+import {
+  fieldClass,
+  FIELD_LABEL,
+  PRIMARY_BUTTON,
+} from "@/app/components/auth/fieldStyles";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 // Better Auth enforces 8–128 on the server from its own defaults; lib/auth.js
@@ -41,9 +48,6 @@ const PASSWORD_MAX = 128;
 // How long the "Password updated" card stays up before we move them along.
 // Long enough to read, short enough that nobody wonders if it worked.
 const REDIRECT_MS = 2500;
-
-const inputClass =
-  "w-full mt-1 border border-border rounded-lg px-4 py-2.5 text-sm";
 
 function Shell({ children }) {
   return (
@@ -67,7 +71,7 @@ function DeadEnd({ title, body, action }) {
         <p className="text-sm text-muted-foreground mt-2">{body}</p>
         <Link
           href="/forgot-password"
-          className="mt-6 block w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold"
+          className="mt-6 block w-full bg-inverted text-inverted-foreground py-3 rounded-lg text-sm font-semibold"
         >
           {action}
         </Link>
@@ -172,7 +176,7 @@ function ResetPasswordForm() {
               door. */}
           <Link
             href="/login"
-            className="mt-6 block w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold"
+            className="mt-6 block w-full bg-inverted text-inverted-foreground py-3 rounded-lg text-sm font-semibold"
           >
             {t("app.auth.signIn")}
           </Link>
@@ -224,7 +228,10 @@ function ResetPasswordForm() {
 
         <div>
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-foreground">
+            {/* htmlFor/id, which this field did not have: tapping the label
+                on a phone did nothing and a screen reader read an unlabelled
+                box, on the one form a locked-out contractor must get right. */}
+            <label htmlFor="reset-password" className={FIELD_LABEL}>
               {t("app.auth.reset.passwordLabel")}
             </label>
             {/* Instead of a confirm field. Somebody locked out of their own
@@ -234,6 +241,10 @@ function ResetPasswordForm() {
             <button
               type="button"
               onClick={() => setReveal((v) => !v)}
+              // aria-controls/-pressed, so the reveal toggle is a state a
+              // screen reader can read rather than two unexplained words.
+              aria-controls="reset-password"
+              aria-pressed={reveal}
               className="text-xs font-medium text-muted-foreground underline"
             >
               {reveal ? t("app.auth.reset.hide") : t("app.auth.reset.show")}
@@ -246,19 +257,20 @@ function ResetPasswordForm() {
               handleSubmit say what's wrong instead — and they're translated,
               which the browser's native validation bubble is not. */}
           <input
+            id="reset-password"
             required
             type={reveal ? "text" : "password"}
             autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className={inputClass}
+            className={fieldClass(Boolean(error))}
           />
         </div>
 
         <button
           type="submit"
           disabled={submitting}
-          className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+          className={PRIMARY_BUTTON}
         >
           {submitting
             ? t("app.auth.reset.submitting")

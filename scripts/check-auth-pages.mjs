@@ -726,8 +726,14 @@ const guarded = (signupSrc.match(/entryChecked && !alreadyOnFieldquo && step ===
 ok("no signup step renders for a member", guarded >= 5, guarded);
 ok("...nor the loading state that precedes them",
   /\{!entryChecked && !alreadyOnFieldquo && \(/.test(signupSrc));
+// app.signup.*, not auth.signup.*. The old prefix belonged to no catalogue at
+// all: check-translations.mjs gates "app.*" and messages.js gates the marketing
+// keys, and "auth.signup.alreadyIn" was neither — so every one of these t()
+// calls silently rendered its English fallback in all eight languages and no
+// coverage report could see it. Anchored to the new prefix so this check fails
+// if anybody moves them back out of a gated namespace.
 ok("...and the panel that replaces it names their business",
-  /auth\.signup\.alreadyIn/.test(signupSrc) && /alreadyOnFieldquo\.name/.test(signupSrc));
+  /app\.signup\.alreadyIn/.test(signupSrc) && /alreadyOnFieldquo\.name/.test(signupSrc));
 // Not a redirect: somebody who typed the URL gets a sentence, and the two
 // things they probably meant are one click away.
 ok("...offering the dashboard and the team page rather than bouncing",
