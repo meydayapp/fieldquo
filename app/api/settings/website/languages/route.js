@@ -23,7 +23,9 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { generateSite } from "@/lib/site/generateSite";
 import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
 import { recordActivity } from "@/lib/activity/log";
-import { SITE_LANGUAGES } from "@/lib/site/siteCopy";
+import { SITE_LANGUAGES, siteCopy } from "@/lib/site/siteCopy";
+import { buildPages } from "@/lib/site/buildPages";
+import { applyStyleStructure } from "@/lib/site/styleLayout";
 import { recentJobPhotos, jobPhotoPairs } from "@/lib/site/jobPhotos";
 import { categoryLabel } from "@/lib/i18n/translateContent";
 
@@ -40,6 +42,27 @@ function isAdmin(role) {
  * before the prompt, not inside it. It also means the blurbs it writes are about
  * "Peinture intérieure" rather than about a name the page will never show.
  */
+// buildPages titles its pages in English, because it is the same deterministic
+// arranger for every company. The menu is chrome, and chrome is a fixed table —
+// siteCopy holds these six in every site language already. `home` is the one
+// slug with no entry there; it stays "Home" until a navHome is added (reported),
+// rather than being machine-translated at render time, which is exactly what
+// siteCopy's header says this table exists to avoid.
+const NAV_KEY_BY_SLUG = {
+  services: "navServices",
+  work: "navWork",
+  about: "navAbout",
+  book: "navBook",
+  quote: "navQuote",
+  contact: "navContact",
+};
+
+function pageTitle(page, language) {
+  const key = NAV_KEY_BY_SLUG[page.slug];
+  if (!key) return page.title;
+  return siteCopy(language)?.[key] || page.title;
+}
+
 async function loadSource(companyId, language) {
   const [enabled, testimonials, photos, photoPairs, areas] = await Promise.all([
     db.companyServiceCategory.findMany({
@@ -199,10 +222,37 @@ export async function POST(request) {
       }),
   });
 
+  // ── Why `pages` is written here and not just `blocks` ─────────────────────
+  //
+  // app/site/[subdomain]/page.js resolves a visit through resolvePages(), which
+  // prefers `pages` whenever it is a non-empty valid array and never looks at
+  // `blocks` in that case — and every site the current builder produces HAS
+  // `pages`. So storing only translated `blocks` translated nothing a visitor
+  // could see: the switcher appeared, the AI allowance was spent, the row was
+  // written, and the French page served the English content with a French
+  // <title>. Worse than no French at all, because it looked done.
+  //
+  // buildPages is deterministic and makes no model call (see its header), so
+  // this costs nothing extra — it is the same arrangement step the primary
+  // site goes through, run over the translated blocks so the two languages
+  // have the same pages at the same URLs.
+  const structured = applyStyleStructure(result.blocks, site.styleKey || result.styleKey);
+  const translatedPages = buildPages(structured, {
+    services: source.services.length > 0,
+    photos: source.photos.length > 0,
+    photoPairs: source.photoPairs.length > 0,
+    testimonials: source.testimonials.length > 0,
+    areas: source.areas.length > 0,
+    hours:
+      Array.isArray(company.businessHours) &&
+      company.businessHours.some((d) => d && typeof d === "object" && !d.closed),
+  }).map((pg) => ({ ...pg, title: pageTitle(pg, language) }));
+
   const translations = {
     ...(site.translations || {}),
     [language]: {
-      blocks: result.blocks,
+      blocks: translatedPages[0].blocks,
+      pages: translatedPages,
       seoTitle: result.seoTitle,
       seoDescription: result.seoDescription,
       generated: result.generated,

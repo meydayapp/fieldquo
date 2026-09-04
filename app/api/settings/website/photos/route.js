@@ -44,6 +44,88 @@ async function requireSite(member) {
   return site;
 }
 
+// ── Why every write below touches `pages` as well as `blocks` ──────────────
+//
+// lib/site/pages.js resolvePages() prefers `pages` whenever it is a non-empty
+// valid array and NEVER looks at `blocks` in that case — and every site the
+// current builder generates has `pages`. So a route that edited only `blocks`
+// changed nothing a visitor could see.
+//
+// That made "Pair them up" look inert (the company confirms pairs, the public
+// page keeps the old ones) and made deletion actively wrong: a photo removed
+// from the library, and removed from `blocks`, stayed live on the public page
+// through `pages` — the opposite of what the DELETE handler's own comment
+// below promises. A photo a contractor deleted must not still be on their
+// website.
+//
+// One helper rather than the same loop written twice: the copy is the one that
+// rots, and here the two copies would be "what the company sees" and "what a
+// stranger sees".
+function applyToAllBlockSets(site, transform) {
+  const blocks = sanitiseBlocks(transform(Array.isArray(site.blocks) ? [...site.blocks] : []));
+
+  // `pages` untouched when the site has none — a legacy single-page site is
+  // rendered from `blocks`, and inventing a `pages` array here would silently
+  // migrate it on a photo edit.
+  const pages = Array.isArray(site.pages) && site.pages.length
+    ? site.pages.map((pg) => ({
+        ...pg,
+        blocks: sanitiseBlocks(transform(Array.isArray(pg?.blocks) ? [...pg.blocks] : [])),
+      }))
+    : undefined;
+
+  return { blocks, ...(pages ? { pages } : {}) };
+}
+
+/**
+ * Set the confirmed before/after pairs on one block list.
+ *
+ * Lifted out of PUT unchanged so it can run over the flat blocks and over each
+ * page's blocks from one place.
+ */
+function setPairs(list, pairs) {
+  const blocks = [...list];
+  const at = blocks.findIndex((b) => b?.type === "beforeafter");
+
+  if (pairs.length === 0) {
+    // No pairs left: hide the section rather than leaving a heading over
+    // nothing. Not deleted — the company may re-pair tomorrow and the heading
+    // they wrote should survive that.
+    if (at !== -1) blocks[at] = { ...blocks[at], visible: false };
+  } else if (at === -1) {
+    // First pair ever: the section doesn't exist yet. Insert it high — before
+    // services if there is one — because it's the reason a visitor stays.
+    const block = makeBlock("beforeafter", { pairs });
+    const servicesAt = blocks.findIndex((b) => b?.type === "services");
+    blocks.splice(servicesAt === -1 ? 1 : servicesAt, 0, block);
+  } else {
+    blocks[at] = {
+      ...blocks[at],
+      visible: true,
+      content: { ...blocks[at].content, pairs },
+    };
+  }
+  return blocks;
+}
+
+/** Drop every pair that used `url`, on one block list. Returns the count. */
+function dropPairsUsing(list, url, counter) {
+  const blocks = [...list];
+  const at = blocks.findIndex((b) => b?.type === "beforeafter");
+  if (at === -1) return blocks;
+  const before = blocks[at].content?.pairs || [];
+  const kept = before.filter((p) => p.before !== url && p.after !== url);
+  // Reported from the flat blocks only — counting again per page would report
+  // the same broken pair once per page of the site.
+  if (counter) counter.n = Math.max(counter.n, before.length - kept.length);
+  blocks[at] = {
+    ...blocks[at],
+    visible: kept.length > 0,
+    content: { ...blocks[at].content, pairs: kept },
+  };
+  return blocks;
+}
+
 export async function POST(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
@@ -117,32 +199,11 @@ export async function PUT(request) {
     );
   }
 
-  const blocks = Array.isArray(site.blocks) ? [...site.blocks] : [];
-  const at = blocks.findIndex((b) => b?.type === "beforeafter");
-
-  if (pairs.length === 0) {
-    // No pairs left: hide the section rather than leaving a heading over
-    // nothing. Not deleted — the company may re-pair tomorrow and the heading
-    // they wrote should survive that.
-    if (at !== -1) blocks[at] = { ...blocks[at], visible: false };
-  } else if (at === -1) {
-    // First pair ever: the section doesn't exist yet. Insert it high — before
-    // services if there is one — because it's the reason a visitor stays.
-    const block = makeBlock("beforeafter", { pairs });
-    const servicesAt = blocks.findIndex((b) => b?.type === "services");
-    blocks.splice(servicesAt === -1 ? 1 : servicesAt, 0, block);
-  } else {
-    blocks[at] = {
-      ...blocks[at],
-      visible: true,
-      content: { ...blocks[at].content, pairs },
-    };
-  }
-
-  const saved = sanitiseBlocks(blocks);
+  const data = applyToAllBlockSets(site, (list) => setPairs(list, pairs));
+  const saved = data.blocks;
   await db.companySite.update({
     where: { companyId: member.companyId },
-    data: { blocks: saved },
+    data,
   });
 
   await recordActivity(member, {
@@ -178,23 +239,13 @@ export async function DELETE(request) {
   // Removing a photo that is HALF of a confirmed pair would leave that pair
   // broken, so the pair goes with it. Said in the response so the UI can tell
   // the company rather than having a slider quietly disappear.
-  const blocks = Array.isArray(site.blocks) ? [...site.blocks] : [];
-  let brokenPairs = 0;
-  const at = blocks.findIndex((b) => b?.type === "beforeafter");
-  if (at !== -1) {
-    const before = blocks[at].content?.pairs || [];
-    const kept = before.filter((p) => p.before !== url && p.after !== url);
-    brokenPairs = before.length - kept.length;
-    blocks[at] = {
-      ...blocks[at],
-      visible: kept.length > 0,
-      content: { ...blocks[at].content, pairs: kept },
-    };
-  }
+  const counter = { n: 0 };
+  const data = applyToAllBlockSets(site, (list) => dropPairsUsing(list, url, counter));
+  const brokenPairs = counter.n;
 
   await db.companySite.update({
     where: { companyId: member.companyId },
-    data: { photoLibrary, blocks: sanitiseBlocks(blocks) },
+    data: { photoLibrary, ...data },
   });
 
   return NextResponse.json({ photoLibrary, brokenPairs });
