@@ -36,6 +36,14 @@ import { monthlyPayment } from "@/lib/financing/monthlyEstimate";
 import { jsonBody } from "@/lib/jsonBody";
 import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
 
+// Approve is the one green on this page, and it is NOT brand-derived — the
+// homeowner reads it as "yes", not as the contractor's colour, so it stays the
+// same on every tenant. It was #16a34a, which measures 3.30:1 against the white
+// label sitting on it: under 4.5:1, on the single control this whole page
+// exists to get pressed. Green-700 is the same green one step down and
+// measures 5.02:1. Decline stays #4b5563 (7.56:1), which already cleared.
+const APPROVE_GREEN = "#15803d";
+
 export default function QuoteApproval({ token }) {
   const [quote, setQuote] = useState(null);
   const [loadError, setLoadError] = useState("");
@@ -1049,7 +1057,7 @@ export default function QuoteApproval({ token }) {
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold text-white disabled:opacity-60"
                   style={{
                     backgroundColor:
-                      confirming === "accepted" ? "#16a34a" : "#4b5563",
+                      confirming === "accepted" ? APPROVE_GREEN : "#4b5563",
                   }}
                 >
                   {submitting && <Loader2 size={15} className="animate-spin" />}
@@ -1073,7 +1081,8 @@ export default function QuoteApproval({ token }) {
             <div className="flex gap-3 justify-center flex-wrap">
               <button
                 onClick={() => setConfirming("accepted")}
-                className="inline-flex items-center gap-2 bg-[#16a34a] text-white px-7 py-3 rounded-full text-sm font-semibold"
+                className="inline-flex items-center gap-2 text-white px-7 py-3 rounded-full text-sm font-semibold"
+                style={{ backgroundColor: APPROVE_GREEN }}
               >
                 <Check size={16} /> {copy.approveThisQuote}
               </button>
