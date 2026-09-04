@@ -657,11 +657,38 @@ ok(
   emptyPool.emptyText,
 );
 
-const uncounted = buildQueue({ prospects: [], repId: "rep_a", now: NOW });
+// availableToClaim is null in TWO situations that mean opposite things, and
+// this assertion used to accept either. The route sets it null when NO TRADE
+// was picked — there is no per-trade number because no trade was named — and
+// it is also null when a count genuinely failed. Reading both as unknown_pool
+// put "We could not count what is left to claim" on the default view, which is
+// the first screen a rep opens, while all 39 trades reported a clean zero.
+// Seen in a browser against a live rep session, not inferred.
+//
+// So the pair is asserted, not the union: with a trade, null still means the
+// count failed and must not be padded to zero; without one, it is a prompt.
+const uncounted = buildQueue({ prospects: [], repId: "rep_a", now: NOW, tradeKey: "painting" });
 ok(
   "an uncounted pool is a third answer, not padded to zero",
   uncounted.emptyReason === "unknown_pool",
   uncounted,
+);
+ok(
+  "…and its wording still says the count could not be made",
+  /could not count/i.test(uncounted.emptyText),
+  uncounted.emptyText,
+);
+
+const noTrade = buildQueue({ prospects: [], repId: "rep_a", now: NOW });
+ok(
+  "no trade picked is NOT reported as a failed count",
+  noTrade.emptyReason === "no_trade" && !/could not/i.test(noTrade.emptyText),
+  noTrade,
+);
+ok(
+  "…and it tells the rep what to do instead",
+  /pick a trade/i.test(noTrade.emptyText),
+  noTrade.emptyText,
 );
 
 const full = buildQueue({ prospects: [mine, { ...dnc, assignedRepId: "rep_a", claimExpiresAt: later }], repId: "rep_a", now: NOW, availableToClaim: 3 });
