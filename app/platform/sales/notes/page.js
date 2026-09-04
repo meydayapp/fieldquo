@@ -7,9 +7,18 @@
 // PLATFORM_NOTICE is rendered at the top rather than kept in a code comment,
 // and it says four things on purpose: that reps are told, that nothing here
 // can edit or delete, that superadmins see all reps, and that there is no
-// manager tier because SalesRep carries no reporting line. Somebody arriving
-// at this screen expecting to filter to "my reps" should find out why they
-// cannot from the screen, not from a support ticket.
+// manager tier. Somebody arriving at this screen expecting to filter to
+// "my reps" should find out why they cannot from the screen, not from a
+// support ticket.
+//
+// The fourth sentence changed on 2026-09-03 and the mechanism that changed it
+// is worth keeping: `SalesRep.managerId` landed, so HAS_REPORTING_LINE flipped
+// to true, and scripts/check-rep-notes.mjs — which asserts that constant equals
+// what the schema actually says — failed until this screen's sentence was
+// rewritten to the new truth. The reason it is now TWO constants is that the
+// column existing and the tier working are different claims: MANAGER_TIER_LIVE
+// is what gates the sentence, and it is still false, because nothing fills the
+// column in and no screen sets it.
 //
 // ══ Read-only, and there are no write controls to hide ═════════════════════
 //
@@ -29,7 +38,11 @@ import { useCallback, useEffect, useState } from "react";
 import { Eye, NotebookPen } from "lucide-react";
 import { displayTitle } from "@/lib/sales/notes/body";
 import { describeParent } from "@/lib/sales/notes/parents";
-import { PLATFORM_NOTICE, HAS_REPORTING_LINE } from "@/lib/sales/notes/visibility";
+import {
+  PLATFORM_NOTICE,
+  HAS_REPORTING_LINE,
+  MANAGER_TIER_LIVE,
+} from "@/lib/sales/notes/visibility";
 import { RETENTION } from "@/lib/sales/notes/model";
 import RepNoteUnavailable from "@/app/components/sales/RepNoteUnavailable";
 
@@ -106,11 +119,11 @@ export default function PlatformSalesNotesPage() {
           <div className="min-w-0">
             <p className="font-medium text-foreground">{PLATFORM_NOTICE.headline}</p>
             <p className="mt-1 text-muted-foreground">{PLATFORM_NOTICE.detail}</p>
-            {!HAS_REPORTING_LINE && (
+            {!MANAGER_TIER_LIVE && (
               <p className="mt-2 text-muted-foreground">
-                To scope this to a manager&apos;s own reps, SalesRep needs a reporting line
-                and a screen to set it. Neither exists — that is a product decision, not a
-                missing query.
+                {HAS_REPORTING_LINE
+                  ? "SalesRep has a reporting line now, but there is still no screen to set one, so every rep's manager is empty. Scoping this to a manager's own reps would show an empty team, so it stays superadmin-only until the org chart can be edited."
+                  : "To scope this to a manager's own reps, SalesRep needs a reporting line and a screen to set it. Neither exists — that is a product decision, not a missing query."}
               </p>
             )}
             {!RETENTION.applied && (

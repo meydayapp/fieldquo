@@ -1,31 +1,44 @@
 // lib/sales/calls/schema.pending.prisma
 //
-// NOT READ BY PRISMA. Prisma reads prisma/schema.prisma and nothing else; this
-// is a parking space, exactly like lib/sales/playbook/schema.pending.prisma,
-// and lib/sales/calls/store.js points at it in the message it shows while the
-// tables are absent.
+// ══ LANDED 2026-09-03. NO LONGER PENDING. ═════════════════════════════════
 //
-// The owner holds the schema. Nothing in this session ran `prisma db push`.
+// `SalesCallAttempt`, `SalesRepActivity`, `SalesRep.managerId`, the four
+// columns on `PlatformVoiceCall` and `voiceUrl` on `PlatformSmsNumber` are all
+// in prisma/schema.prisma and pushed. `npx prisma db push` ran; the columns
+// were confirmed against `information_schema`.
 //
-// To land it: paste the models below into prisma/schema.prisma beside the
-// other sales models, add the four one-line relation backs listed at the
-// bottom, then:
+// The filename is now wrong and the file is kept anyway, on purpose. What is
+// below is the ARGUMENT for each column — why the provider fields are nullable
+// rather than zero-defaulted, why the cap counts `toE164` and not `prospectId`,
+// why the gate's verdict is frozen into the row instead of recomputed, why
+// activity is one log and not a live table plus a log. prisma/schema.prisma
+// carries a condensed version of each; this is the long form, and deleting it
+// would delete the reasoning while keeping the columns.
 //
-//     npx prisma validate && npx prisma db push && npx prisma generate
+// Renaming it is left alone deliberately: scripts/check-sales-call-handling.mjs
+// asserts this exact path exists and defines both models, and store.js names it.
+// Moving it is a rename across three files for no behaviour, which is a change
+// the owner can make when the next pending schema wants the name.
 //
-// Nothing else has to change. store.js probes the generated client for the
-// delegates, so the disposition control, the cap enforcement and the team
-// screens turn themselves on the moment the models exist — and stay honestly
-// absent until then.
+// ── The tripwire this file pointed at, and what became of it ──────────────
 //
-// ── One thing to do in the same commit ────────────────────────────────────
+// scripts/check-sales-calling-window.mjs carried an assertion that
+// `SalesCallAttempt` was ABSENT from prisma/schema.prisma, with the message
+// "if this fails, wire the cap up". Adding the model failed it, so the cap got
+// wired up, and it has been replaced in place by the pair it was standing in
+// for: the table exists, AND app/api/sales/calls/route.js counts on it and
+// hands the count to the gate. Both are mutation-tested.
 //
-// scripts/check-sales-calling-window.mjs carries a tripwire that ASSERTS
-// `SalesCallAttempt` is not in prisma/schema.prisma. It is not stale and it is
-// not in the way: its message is "if this fails, wire the cap up". Adding the
-// model flips it, and the assertion beside it — that the queue route passes
-// `attemptsLast24h` — is what replaces it. Both are already written; see that
-// file's "the cap" section.
+// ── What landing this did NOT switch on ───────────────────────────────────
+//
+// `SalesRep.managerId` unblocks the team-lead tier; it does not enable it.
+// lib/sales/team.js's `visibleRepIds()` is pure and tested and still has no
+// production caller — nothing queries `managerId` to build a `reportIds` list,
+// there is no screen to SET a manager, and `TEAM_LEAD_NOTE_VISIBILITY_FROM` is
+// still null, which is the constant that keeps note visibility inert. That last
+// one is a product decision the owner owns: it is the date a promise made to
+// every rep who has already typed a note changes, and it must not be picked by
+// whoever happens to be editing the schema.
 
 /// One press of the call button.
 ///

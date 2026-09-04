@@ -56,7 +56,7 @@
 //     checked.
 //   * That a superadmin cannot read a note through some OTHER route. This
 //     covers the four it owns.
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT, decomment, handlerBodies, balanced } from "./tenantScopeScan.mjs";
 
@@ -68,6 +68,7 @@ import {
   VIEWER_PLATFORM,
   NOTE_READING_PLATFORM_ROLES,
   HAS_REPORTING_LINE,
+  MANAGER_TIER_LIVE,
   VISIBILITY_NOTICE,
   PLATFORM_NOTICE,
 } from "../lib/sales/notes/visibility.js";
@@ -223,22 +224,63 @@ ok("SalesRep is in the schema at all", salesRepBlock.length > 0);
 const hasManagerColumn = /\bmanagerId\b|\breportsToId\b|\bteamId\b|\bmanager\s+SalesRep\b/.test(
   salesRepBlock,
 );
+// This slot used to assert `hasManagerColumn === false` — "SalesRep carries NO
+// reporting line, so 'my reps' is not a query anyone can write". The column
+// landed on 2026-09-03 and it failed, which is the whole reason it was written
+// that way round. What replaces it is the pair that still has teeth: the
+// constant tracks the schema, and the SCREEN's claim tracks the constant.
 ok(
-  "SalesRep carries NO reporting line — so 'my reps' is not a query anyone can write",
-  hasManagerColumn === false,
-);
-ok(
-  "HAS_REPORTING_LINE reports that same fact, so the screen and the schema cannot disagree",
+  "HAS_REPORTING_LINE reports what the schema actually says, so the screen and the schema cannot disagree",
   HAS_REPORTING_LINE === hasManagerColumn,
   { HAS_REPORTING_LINE, hasManagerColumn },
+);
+// A column is not a tier, and this is the assertion that keeps the two apart.
+// Collapsing them would let a screen advertise a "my reps" filter the moment a
+// column appeared, over an org chart nobody has filled in — every team lead
+// would see an empty team and believe their reps had written nothing.
+ok(
+  "the manager tier is a SEPARATE fact from the column, and is not claimed live",
+  MANAGER_TIER_LIVE === false,
+  { MANAGER_TIER_LIVE },
+);
+ok(
+  "the tier cannot be claimed live while nothing sets a manager — no route or screen writes managerId on a SalesRep",
+  (() => {
+    if (MANAGER_TIER_LIVE) return false;
+    const scan = (abs) => {
+      if (!existsSync(abs)) return false;
+      for (const entry of readdirSync(abs, { withFileTypes: true })) {
+        const child = join(abs, entry.name);
+        if (entry.isDirectory()) {
+          if (scan(child)) return true;
+        } else if (
+          /\.jsx?$/.test(entry.name) &&
+          // Decommented. Three files under these trees DISCUSS managerId in
+          // their headers — explaining that the column exists and that nothing
+          // fills it — and a check that failed on the prose explaining the gap
+          // would be a check arguing with its own documentation.
+          /managerId/.test(decomment(readFileSync(child, "utf8")))
+        ) {
+          return true;
+        }
+      }
+      return false;
+    };
+    for (const dir of ["app/api/platform/sales", "app/platform/sales", "app/api/sales", "app/sales"]) {
+      if (scan(join(ROOT, dir))) return false;
+    }
+    return true;
+  })(),
 );
 ok(
   "the platform notice states there is no manager tier rather than leaving it to be discovered",
   /no manager tier/i.test(PLATFORM_NOTICE.detail) && /reporting line/i.test(PLATFORM_NOTICE.detail),
 );
 ok(
-  "the platform SCREEN renders that sentence",
-  src(PLAT_PAGE).includes("PLATFORM_NOTICE.detail") && src(PLAT_PAGE).includes("HAS_REPORTING_LINE"),
+  "the platform SCREEN renders that sentence, and gates it on the TIER rather than the column",
+  src(PLAT_PAGE).includes("PLATFORM_NOTICE.detail") &&
+    src(PLAT_PAGE).includes("HAS_REPORTING_LINE") &&
+    /\{!MANAGER_TIER_LIVE &&/.test(src(PLAT_PAGE)),
 );
 
 // ═══════════════════════════════════════════════════════════════════════════

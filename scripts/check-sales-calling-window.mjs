@@ -361,9 +361,11 @@ ok("two already made allows the third", okAt({ attemptsLast24h: 2 }).decision ==
 ok("zero already made allows", okAt({ attemptsLast24h: 0 }).decision === CALL_ALLOWED);
 ok("the cap refusal names the count", okAt({ attemptsLast24h: 3 }).blockers.some((b) => b.code === "call_cap_reached"));
 
-// The gap, stated. Nothing in the repo records a call attempt, so the cap
-// cannot be counted — and the gate must SAY so beside a working dial button
-// rather than let the screen imply a rule is being kept.
+// The gate's behaviour when nothing counts. This is still exercised after the
+// table landed, because `attemptsLast24h` is null on every path that cannot
+// count — a handset dial from a screen that never queried, a number that will
+// not normalise — and "cannot count" must go on reading as `unenforced` rather
+// than collapsing into a cleared cap.
 ok("an uncounted cap is reported as unenforced, not silently ignored", (() => {
   const r = okAt({});
   return r.decision === CALL_ALLOWED && r.unenforced.some((u) => u.code === "call_cap_uncounted");
@@ -373,9 +375,32 @@ ok("Florida reports the same uncounted cap",
     .unenforced.some((u) => u.code === "call_cap_uncounted"));
 ok("a jurisdiction with no cap reports nothing unenforced",
   salesCallReadiness({ prospect: us("WA"), now: at("2026-09-03T17:00:00Z") }).unenforced.length === 0);
-ok("nothing in the repo records a sales call attempt yet — if this fails, wire the cap up", (() => {
+// ── The tripwire, tripped, and what replaced it ────────────────────────────
+//
+// This slot used to assert the OPPOSITE: that `model SalesCallAttempt` was
+// absent from prisma/schema.prisma, with the message "if this fails, wire the
+// cap up". The model landed, so it failed, so the cap got wired up — which is
+// the entire job that assertion existed to do.
+//
+// It is replaced rather than deleted, and replaced by the thing it was
+// standing in for: the cap is only enforced if the route that dials actually
+// COUNTS. A schema with the table in it and a route that never queries it is
+// the same uncounted cap as before, dressed as a fixed one.
+ok("the table the cap is counted on exists", (() => {
   const schema = readFileSync(join(ROOT, "prisma/schema.prisma"), "utf8");
-  return !/model\s+SalesCallAttempt\b/.test(schema);
+  return /model\s+SalesCallAttempt\b/.test(schema);
+})());
+ok("the dial route counts the cap and hands the count to the gate", (() => {
+  const route = readFileSync(join(ROOT, "app/api/sales/calls/route.js"), "utf8");
+  const counted = /await\s+attemptsLast24h\(/.test(route);
+  // The gate call's argument object is sliced out before it is searched. A
+  // lazy span from the call to the first match reaches the same field name in
+  // the response body further down and passes after the field was deleted from
+  // the gate call — check-sales-call-handling.mjs records that exact mutation.
+  const open = route.indexOf("salesCallReadiness({");
+  const close = open === -1 ? -1 : route.indexOf("});", open);
+  const args = open === -1 || close === -1 ? "" : route.slice(open, close);
+  return counted && /attemptsLast24h:\s*attempts24h/.test(args);
 })());
 
 // ── Registration ────────────────────────────────────────────────────────────

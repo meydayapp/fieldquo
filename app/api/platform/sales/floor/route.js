@@ -17,14 +17,17 @@
 //
 // ══ Why there is no team-lead version of this yet ═════════════════════════
 //
-// There is no reporting line. `SalesRep` carries no manager column, so
-// "my reps" cannot be computed, and lib/sales/notes/visibility.js already
-// records that absence as a fact rather than papering over it. The scope
-// function that would do the narrowing is written and tested —
-// lib/sales/team.js's visibleRepIds() — and the column it needs is in
-// lib/sales/calls/schema.pending.prisma. What is deliberately absent is a
-// half-built version: a board that shows a team lead the whole floor and calls
-// it their team would be worse than no board.
+// The column arrived and the tier did not. `SalesRep.managerId` landed on
+// 2026-09-03, so "my reps" is now COMPUTABLE — but nothing computes it: no
+// query reads the reporting line, and no screen sets one, so every SalesRep in
+// the database currently has a null manager. The scope function that would do
+// the narrowing is written and tested, lib/sales/team.js's visibleRepIds(),
+// and it still has no caller.
+//
+// Wiring it up here before there is a way to fill the column in would ship a
+// board that shows a team lead an empty team and calls it their floor — worse
+// than no board, and the exact failure AGENTS.md's rule is about. So this stays
+// superadmin-only until the org chart can actually be edited.
 //
 // ══ Nothing here is invented when the tables are absent ═══════════════════
 //
