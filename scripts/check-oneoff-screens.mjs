@@ -295,6 +295,63 @@ ok(
   );
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+section("6. A held photo with no candidate job can be filed");
+//
+// A "needs you" message whose sender had no scheduled job that day arrives
+// with zero candidates. The card rendered one sentence and nothing else, so it
+// sat at the top of the queue forever — on the page whose whole purpose is
+// clearing that queue.
+//
+// The server was never the obstacle, and this is asserted rather than assumed:
+// fileHeldMessage's guard is `if (msg.candidateJobIds.length && !includes(…))`,
+// so an EMPTY candidate list accepts any job in the company. The free choice
+// was designed for exactly this case; the screen never offered it.
+
+const crewInbox = code("app/app/crew-inbox/page.js");
+const crewLib = code("lib/crew/inbox.js");
+
+ok(
+  "the server accepts a free choice when there are no candidates",
+  /if \(msg\.candidateJobIds\.length && !msg\.candidateJobIds\.includes\(jobId\)\)/.test(
+    crewLib,
+  ),
+  "if this guard ever drops the length test, the picker below becomes a 400",
+);
+// `\s` after the tag name, not a bare prefix match: a mutation that renamed
+// the element to <NoCandidatePickerDISABLED …> and put the dead-end sentence
+// back still satisfied /<NoCandidatePicker/, and this assertion passed on a
+// screen with the bug fully restored. Prefix matching is the same class of
+// false pass as asserting a guard by its words.
+ok(
+  "the no-candidate case offers a picker rather than only a sentence",
+  /<NoCandidatePicker[\s/>]/.test(crewInbox) &&
+    /function NoCandidatePicker\(/.test(crewInbox),
+);
+// The dead end itself: that key WAS the whole of the no-candidate branch, so
+// its continued presence means the sentence-only card survived somewhere.
+ok(
+  "...and the sentence that used to be the whole card is gone",
+  !/app\.crewInbox\.noCandidates"/.test(crewInbox),
+);
+ok(
+  "...which files through the SAME handler the candidate chips use",
+  /onFile=\{fileTo\}/.test(crewInbox),
+);
+ok(
+  "...loading the jobs on demand, so the common path costs no extra request",
+  /onClick=\{onLoadJobs\}/.test(crewInbox) && /fetchArray\("\/api\/jobs"\)/.test(crewInbox),
+);
+ok(
+  "...and a job list that FAILED is not rendered as 'no jobs exist'",
+  /if \(jobsErrorKey\)/.test(crewInbox) &&
+    crewInbox.indexOf("if (jobsErrorKey)") < crewInbox.indexOf("if (jobs.length === 0)"),
+);
+ok(
+  "the file button cannot be pressed without a job chosen",
+  /disabled=\{busy \|\| !picked\}/.test(crewInbox),
+);
+
 console.log(
   failures.length
     ? `\nFAILED — ${failures.length} of ${pass + failures.length}\n${failures.map((f) => `  x ${f}`).join("\n")}`

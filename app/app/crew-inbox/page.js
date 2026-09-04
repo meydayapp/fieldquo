@@ -31,7 +31,7 @@ import {
   Copy, MapPin, Send, Link2, Power, Phone, ShoppingCart,
 } from "lucide-react";
 import { reportResponseError, showError } from "@/lib/clientErrors";
-import { fetchList } from "@/lib/loadState";
+import { fetchList, fetchArray } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 // The purchase confirmation. Reused rather than rebuilt: it already names the
 // one thing being committed to and puts it on its own line, which is the whole
@@ -66,6 +66,21 @@ export default function CrewInboxPage() {
   // which turned "we were refused" into "your crew has sent you nothing" —
   // with a toast as the only correction, and toasts disappear.
   const [errorKey, setErrorKey] = useState("");
+  // ── The held photo that could never be filed ─────────────────────────────
+  //
+  // A "needs you" message whose sender had no scheduled job that day arrives
+  // with zero candidates. The card then rendered one sentence — "No job was on
+  // their schedule that day." — and nothing else, so it sat at the top of the
+  // queue forever, on the page built to clear it.
+  //
+  // The server was never the obstacle. fileHeldMessage guards with
+  // `if (msg.candidateJobIds.length && !includes(jobId))`, so when the
+  // candidate list is EMPTY any job in the company is accepted — the free
+  // choice was designed for exactly this case and the screen never offered it.
+  // Loaded on demand, from the card, so the common path costs no extra request.
+  const [jobs, setJobs] = useState(null);
+  const [jobsErrorKey, setJobsErrorKey] = useState("");
+  const [pickedJob, setPickedJob] = useState({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,6 +95,18 @@ export default function CrewInboxPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const loadJobs = useCallback(async () => {
+    setJobsErrorKey("");
+    const result = await fetchArray("/api/jobs");
+    if (result.aborted) return;
+    if (!result.ok) {
+      setJobs(null);
+      setJobsErrorKey(result.errorKey);
+      return;
+    }
+    setJobs(result.data);
+  }, []);
 
   async function fileTo(id, jobId) {
     setBusy(id);
@@ -179,9 +206,19 @@ export default function CrewInboxPage() {
                       </button>
                     ))}
                     {m.candidates.length === 0 && (
-                      <span className="text-xs text-muted-foreground">
-                        {t("app.crewInbox.noCandidates")}
-                      </span>
+                      <NoCandidatePicker
+                        messageId={m.id}
+                        busy={busy === m.id}
+                        jobs={jobs}
+                        jobsErrorKey={jobsErrorKey}
+                        onLoadJobs={loadJobs}
+                        picked={pickedJob[m.id] || ""}
+                        onPick={(v) =>
+                          setPickedJob((prev) => ({ ...prev, [m.id]: v }))
+                        }
+                        onFile={fileTo}
+                        t={t}
+                      />
                     )}
                   </div>
                 </div>
@@ -910,6 +947,89 @@ function Thumbs({ photos, count }) {
           +{count - photos.length}
         </span>
       )}
+    </div>
+  );
+}
+
+/**
+ * The way out of a held message with no candidate jobs.
+ *
+ * Deliberately a second click rather than a chip row: the candidate chips are
+ * a short list of jobs this person was ACTUALLY on that day, and a dropdown of
+ * every open job is a different, weaker claim. Making it a separate step keeps
+ * the two from looking equally confident.
+ *
+ * A job with no visit is refused by fileHeldMessage with a sentence saying so,
+ * and reportResponseError shows it — so this offers every job rather than
+ * pre-filtering to a set this screen would have to guess at.
+ */
+function NoCandidatePicker({
+  messageId, busy, jobs, jobsErrorKey, onLoadJobs, picked, onPick, onFile, t,
+}) {
+  if (jobs === null && !jobsErrorKey) {
+    return (
+      <button
+        type="button"
+        onClick={onLoadJobs}
+        className="min-h-11 rounded-full border border-border bg-card px-4 text-sm text-foreground hover:bg-muted"
+      >
+        {/* i18n PENDING app.crewInbox.noCandidatesPick */}
+        No job was on their schedule that day — choose one
+      </button>
+    );
+  }
+
+  if (jobsErrorKey) {
+    return (
+      <span className="text-xs text-muted-foreground">
+        {t(jobsErrorKey)}{" "}
+        <button type="button" onClick={onLoadJobs} className="underline font-medium">
+          {t("app.load.retry")}
+        </button>
+      </span>
+    );
+  }
+
+  if (jobs.length === 0) {
+    return (
+      <span className="text-xs text-muted-foreground">
+        {/* i18n PENDING app.crewInbox.noJobsAtAll */}
+        There are no jobs to file this against yet.
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex w-full flex-wrap items-center gap-2">
+      {/* text-base: anything smaller makes iOS Safari zoom the page on focus,
+          and this screen is read on a phone. */}
+      <select
+        value={picked}
+        onChange={(e) => onPick(e.target.value)}
+        aria-label={t("app.crewInbox.whichJob")}
+        className="min-h-11 flex-1 rounded-lg border border-border bg-background px-3 text-base text-foreground"
+      >
+        {/* i18n PENDING app.crewInbox.chooseJob */}
+        <option value="">Choose a job…</option>
+        {jobs.map((j) => (
+          <option key={j.id} value={j.id}>
+            {j.title}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        disabled={busy || !picked}
+        onClick={() => onFile(messageId, picked)}
+        className="min-h-11 rounded-full bg-inverted px-4 text-sm font-semibold text-inverted-foreground disabled:opacity-50"
+      >
+        {busy ? (
+          <Loader2 size={13} className="animate-spin" />
+        ) : (
+          /* i18n PENDING app.crewInbox.fileHere */
+          "File it here"
+        )}
+      </button>
     </div>
   );
 }
