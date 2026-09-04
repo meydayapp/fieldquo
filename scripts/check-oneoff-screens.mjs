@@ -251,9 +251,14 @@ ok("TaskPriority was read from the schema", priorities.length === 4, priorities.
     styled && priorities.every((p) => styled.includes(p)),
   );
 }
+// `priorityLabel` takes `t` now: PRIORITY_LABELS holds a [key, English]
+// pair per member rather than finished English, because the raw column was
+// only half the bug — a French crew read "High" and "Low" in the middle of an
+// otherwise French screen. The property asserted is unchanged: the badge shows
+// what the map says, and never `{task.priority}`.
 ok(
   "the badge renders the label, never the raw column",
-  /priorityLabel\(task\.priority\)/.test(tasks) && !/\{task\.priority\}/.test(tasks),
+  /priorityLabel\(t, task\.priority\)/.test(tasks) && !/\{task\.priority\}/.test(tasks),
 );
 ok(
   "the dropdown is built from the map rather than a hand-typed array",
@@ -262,7 +267,14 @@ ok(
 );
 ok(
   "...and its options are labelled, not raw",
-  /\{priorityLabel\(p\)\}/.test(tasks),
+  /\{priorityLabel\(t, p\)\}/.test(tasks),
+);
+// And the label is a translation, not a literal. Without this the map could
+// quietly go back to finished English and both assertions above would hold.
+ok(
+  "...and the label comes from the catalogue, not from a hand-typed English map",
+  /low: \["app\.tasks\.priority\.low"/.test(tasks) &&
+    /t\(entry\[0\], entry\[1\]\)/.test(tasks),
 );
 
 // ═══════════════════════════════════════════════════════════════════════════

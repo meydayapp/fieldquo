@@ -232,8 +232,12 @@ ok(
     [...written].join(","),
   );
 
+  // `: [` rather than `: "` — SOURCE_LABEL holds a [key, English fallback]
+  // pair per source now, so the words come from the catalogue instead of being
+  // typed here. The question this asks is the same one: does every source the
+  // pipeline can WRITE have an entry on this screen.
   const mapped = new Set(
-    [...reviews.matchAll(/^\s{2}(\w+): "/gm)].map((m) => m[1]),
+    [...reviews.matchAll(/^\s{2}(\w+): \[/gm)].map((m) => m[1]),
   );
   const missing = [...written].filter((v) => !mapped.has(v));
   ok(
@@ -244,18 +248,78 @@ ok(
 }
 ok(
   "...and an unknown source says so instead of printing snake_case",
-  /return SOURCE_LABEL\[source\] \|\| "Source not recorded"/.test(reviews),
+  /t\("app\.reviews\.source\.unknown", "Source not recorded"\)/.test(reviews) &&
+    // The original bug, kept nailed down: the fallback was `q.estimateSource`,
+    // which put `google_solar` in a chip a human reads.
+    !/\|\| *(?:source|q\.estimateSource)\b/.test(reviews),
 );
-// The words are still English. The lead owns app/i18n and lands keys in one
-// batch; a t() call on a key that does not exist yet turns check:translations
-// red for every other agent in the tree, so the CALL SITES carry a marker and
-// the keys are reported instead. This asserts the markers survive, so the
-// wiring cannot be quietly forgotten once the keys land.
-ok(
-  "the pending-key call sites are marked for wiring, not silently left English",
-  (read("app/app/estimate-reviews/page.js").match(/i18n PENDING/g) || []).length >= 15,
-  `${(read("app/app/estimate-reviews/page.js").match(/i18n PENDING/g) || []).length} markers`,
-);
+// ── The keys landed, so the assertion turns around ────────────────────────
+//
+// This used to assert that at least 15 `i18n PENDING` markers SURVIVED. That
+// was right while the words were waiting on a catalogue batch: a t() call on a
+// key that does not exist turns check:translations red for every other agent in
+// the tree, so the call sites carried a marker and the keys were reported.
+//
+// The keys are in app/i18n/appMessages.js now, in all nine blocks, and the call
+// sites are wired. Left as-is, the old assertion would have failed the moment
+// the work it was watching for was DONE — so it is inverted rather than
+// deleted: no marker may come back, and each key must exist and be called.
+// Both halves matter. "No markers" alone passes on a screen where somebody
+// deleted the comments and left the English.
+{
+  const src = read("app/app/estimate-reviews/page.js");
+  ok(
+    "no i18n PENDING marker is left on this screen",
+    !/i18n PENDING/.test(src),
+    `${(src.match(/i18n PENDING/g) || []).length} still there`,
+  );
+  const WIRED = [
+    "app.reviews.source.satellite",
+    "app.reviews.source.unknown",
+    "app.reviews.loadError",
+    "app.reviews.approveError",
+    "app.reviews.assignError",
+    "app.reviews.intro",
+    "app.action.loading",
+    "app.reviews.websiteEnquiry",
+    "app.reviews.assignedToYou",
+    "app.reviews.assignedTo",
+    "app.reviews.claim",
+    "app.reviews.squareCount",
+    "app.reviews.areaSqft",
+    "app.reviews.pitch",
+    "app.reviews.tearOffCount",
+    "app.reviews.homeownerSaw",
+    "app.reviews.theirBudget",
+    "app.reviews.overBudget",
+    "app.reviews.approve",
+  ];
+  const notCalled = WIRED.filter((k) => !src.includes(`"${k}"`));
+  ok(
+    "every key this screen was waiting on is now called from it",
+    notCalled.length === 0,
+    `not called: ${notCalled.join(", ")}`,
+  );
+  const catalogue = read("app/i18n/appMessages.js");
+  const notDefined = WIRED.filter((k) => !catalogue.includes(`"${k}":`));
+  ok(
+    "...and defined in the catalogue, so none of them renders as its own key",
+    notDefined.length === 0,
+    `not defined: ${notDefined.join(", ")}`,
+  );
+  // The two that had to be counted nouns. `{n} squares` beside a number is the
+  // defect that printed a bare Latin "s" on a Mandarin screen; countedNoun
+  // declines the word and prints the number itself, so nothing may sit beside
+  // it. Asserted on the ENGLISH entry, which every other block's shape is
+  // gated against by check:app-catalogue.
+  for (const key of ["app.reviews.squareCount", "app.reviews.tearOffCount"]) {
+    ok(
+      `${key} is a counted noun, not a number beside a fixed plural`,
+      new RegExp(`"${key}": countedNoun\\("en"`).test(catalogue),
+      "see lib/i18n/plurals.js",
+    );
+  }
+}
 ok(
   "the price-book key is not shown with its underscores",
   /String\(d\.materialKey\)\.replace\(\/_\/g, " "\)/.test(reviews),

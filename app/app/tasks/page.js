@@ -45,19 +45,25 @@ const PRIORITY_RANK = { urgent: 0, high: 1, normal: 2, low: 3 };
 // happens to survive) beside "high" and "low" (which do not), in the middle of
 // an otherwise French screen.
 //
-// i18n PENDING app.tasks.priority.low / .normal / .high / .urgent — English
-// here until the lead lands the keys in one batch; a t() call on a key that
-// does not exist yet turns check:translations red for the whole tree. The
-// STRUCTURE is the fix: one map, used by both call sites, so they cannot drift.
+// Key and English fallback in one pair per member, so a priority can never end
+// up with a key here and its wording somewhere else. The STRUCTURE is the fix:
+// one map, used by both call sites, so they cannot drift.
 const PRIORITY_LABELS = {
-  low: "Low",
-  normal: "Normal",
-  high: "High",
-  urgent: "Urgent",
+  low: ["app.tasks.priority.low", "Low"],
+  normal: ["app.tasks.priority.normal", "Normal"],
+  high: ["app.tasks.priority.high", "High"],
+  urgent: ["app.tasks.priority.urgent", "Urgent"],
 };
-/** Never returns undefined, and never the raw column with its underscores. */
-const priorityLabel = (p) =>
-  PRIORITY_LABELS[p] || String(p || "").replace(/_/g, " ");
+/**
+ * Never returns undefined, and never the raw column with its underscores.
+ *
+ * Takes `t` rather than calling useTranslation() itself — it is used from two
+ * components and a module-scope helper cannot hold a hook.
+ */
+const priorityLabel = (t, p) => {
+  const entry = PRIORITY_LABELS[p];
+  return entry ? t(entry[0], entry[1]) : String(p || "").replace(/_/g, " ");
+};
 
 /** Every TaskPriority, in the order the dropdown should offer them. */
 const TASK_PRIORITIES = Object.keys(PRIORITY_LABELS);
@@ -356,7 +362,7 @@ export default function TasksPage() {
               >
                 {TASK_PRIORITIES.map((p) => (
                   <option key={p} value={p}>
-                    {priorityLabel(p)}
+                    {priorityLabel(t, p)}
                   </option>
                 ))}
               </select>
@@ -515,7 +521,7 @@ export default function TasksPage() {
                           PRIORITY_STYLES[task.priority]
                         }`}
                       >
-                        {priorityLabel(task.priority)}
+                        {priorityLabel(t, task.priority)}
                       </span>
                     )}
                     {task.overdue && (

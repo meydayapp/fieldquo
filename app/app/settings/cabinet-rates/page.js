@@ -13,13 +13,26 @@ import { useEffect, useState } from "react";
 import { Loader2, Check, RotateCcw, Info } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import {
+  useCompanyMoney,
+  useCompanyPreferences,
+} from "@/app/providers/CompanyPreferencesProvider";
 
-/** One money field. */
+/**
+ * One money field.
+ *
+ * `prefix` defaulted to a literal "$". A cabinet maker in Zurich sets their
+ * per-linear-foot rates on this screen and every one of the twenty boxes was
+ * labelled in dollars — the same defect check:app-currency exists for, in the
+ * one shape its scan cannot see (a plain string default, not `$${…}`). The
+ * caller passes the company's own currency CODE, which is what the estimate
+ * review screen does beside the one other number a person types by hand.
+ */
 function Rate({
   label,
   value,
   onChange,
-  prefix = "$",
+  prefix,
   suffix,
   hint,
   step = 1,
@@ -69,6 +82,12 @@ function Card({ title, blurb, children }) {
 
 export default function CabinetRatesPage() {
   const { t } = useTranslation();
+  // Two different jobs. `currency` labels the input boxes, where a person is
+  // TYPING a number and needs to know the unit; `money` formats the rates
+  // quoted back inside the closet and vanity hints, where the figure is being
+  // READ and belongs in the company's own grouping and symbol.
+  const { currency } = useCompanyPreferences();
+  const money = useCompanyMoney();
   const [rates, setRates] = useState(null);
   const [usingDefaults, setUsingDefaults] = useState(true);
   const [materials, setMaterials] = useState({ door: {}, box: {} });
@@ -253,30 +272,35 @@ export default function CabinetRatesPage() {
           )}
         >
           <Rate
+            prefix={currency}
             label={t("app.setCabinetRates.base", "Base")}
             value={rates.lfBase}
             onChange={(v) => set("lfBase", v)}
             suffix={t("app.setCabinetRates.perLf", "/ lf")}
           />
           <Rate
+            prefix={currency}
             label={t("app.setCabinetRates.wallUpper", "Wall / upper")}
             value={rates.lfUpper}
             onChange={(v) => set("lfUpper", v)}
             suffix={t("app.setCabinetRates.perLf", "/ lf")}
           />
           <Rate
+            prefix={currency}
             label={t("app.setCabinetRates.tallPantry", "Tall / pantry")}
             value={rates.lfTall}
             onChange={(v) => set("lfTall", v)}
             suffix={t("app.setCabinetRates.perLf", "/ lf")}
           />
           <Rate
+            prefix={currency}
             label={t("app.setCabinetRates.island", "Island")}
             value={rates.lfIsland}
             onChange={(v) => set("lfIsland", v)}
             suffix={t("app.setCabinetRates.perLf", "/ lf")}
           />
           <Rate
+            prefix={currency}
             label={t("app.setCabinetRates.drawerSurcharge", "Drawer surcharge")}
             value={rates.drawerSurcharge}
             onChange={(v) => set("drawerSurcharge", v)}
@@ -292,6 +316,7 @@ export default function CabinetRatesPage() {
               boxes and nothing else, and clearing it puts them back to
               inheriting rather than pinning them to today's number. */}
           <Rate
+            prefix={currency}
             label={t("app.setCabinetRates.closet", "Closet casework")}
             value={rates.lfCloset}
             onChange={(v) => set("lfCloset", v)}
@@ -300,11 +325,19 @@ export default function CabinetRatesPage() {
               // Values, not a built sentence: the rates move, so the catalogue
               // keeps one translatable string with {placeholders} in it rather
               // than the page assembling French out of English word order.
-              tall: Number(rates.lfTall) || 0,
-              base: Number(rates.lfBase) || 0,
+              //
+              // Already FORMATTED, and the catalogue carries no currency
+              // symbol of its own. It used to read "(${tall}/lf)" — a literal
+              // dollar typed into five language blocks, which rendered
+              // "850 $ $/pi lin." in French and dollars at every euro and
+              // pound company. Same fix as app.kpis.moneyFlow.trend.fromZero:
+              // the symbol belongs to the formatter, never to the sentence.
+              tall: money(Number(rates.lfTall) || 0),
+              base: money(Number(rates.lfBase) || 0),
             })}
           />
           <Rate
+            prefix={currency}
             label={t(
               "app.setCabinetRates.vanity",
               "Vanity / laundry sink base",
@@ -313,7 +346,7 @@ export default function CabinetRatesPage() {
             onChange={(v) => set("lfVanity", v)}
             suffix={t("app.setCabinetRates.perLf", "/ lf")}
             hint={t("app.setCabinetRates.vanityHint", {
-              base: Number(rates.lfBase) || 0,
+              base: money(Number(rates.lfBase) || 0),
             })}
           />
 
@@ -349,6 +382,7 @@ export default function CabinetRatesPage() {
           {["base", "wall", "tall", "island"].map((tier) => (
             <div key={tier} className="space-y-3">
               <Rate
+                prefix={currency}
                 label={t(
                   "app.setCabinetRates.tierBaseCost",
                   "{tier} — base cost",
@@ -363,6 +397,7 @@ export default function CabinetRatesPage() {
                 }
               />
               <Rate
+                prefix={currency}
                 label={t(
                   "app.setCabinetRates.tierPerInch",
                   "{tier} — per inch",
@@ -388,6 +423,7 @@ export default function CabinetRatesPage() {
             )}
           />
           <Rate
+            prefix={currency}
             label={t("app.setCabinetRates.installPerBox", "Install per box")}
             value={rates.installPerBox}
             onChange={(v) => set("installPerBox", v)}
@@ -460,11 +496,13 @@ export default function CabinetRatesPage() {
         )}
       >
         <Rate
+          prefix={currency}
           label={t("app.setCabinetRates.refinishDoor", "Finishing — per door")}
           value={rates.refinishPerDoor}
           onChange={(v) => set("refinishPerDoor", v)}
         />
         <Rate
+          prefix={currency}
           label={t(
             "app.setCabinetRates.refinishDrawer",
             "Finishing — per drawer front",
@@ -473,12 +511,14 @@ export default function CabinetRatesPage() {
           onChange={(v) => set("refinishPerDrawer", v)}
         />
         <Rate
+          prefix={currency}
           label={t("app.setCabinetRates.delivery", "Delivery")}
           value={rates.deliveryFlat}
           onChange={(v) => set("deliveryFlat", v)}
           suffix={t("app.setCabinetRates.flat", "flat")}
         />
         <Rate
+          prefix={currency}
           label={t("app.setCabinetRates.removal", "Remove old cabinetry")}
           value={rates.removalPerBox}
           onChange={(v) => set("removalPerBox", v)}

@@ -23,6 +23,13 @@ import { can } from "@/lib/permissions";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import { funnelStatusLabel } from "@/lib/funnels/status";
 import { usePermissions } from "@/app/providers/PermissionProvider";
+// This page is otherwise still English — a keying pass of its own, not this
+// one. The delete dialog is keyed here anyway because it was carrying the
+// `${n === 1 ? "" : "s"}` defect on a destructive control, and because
+// DeleteConfirmModal's own buttons are translated now: leaving the sentence
+// above them in English made the dialog read as half-finished in every
+// language.
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const CHANNEL_LABEL = {
   web: "Web",
@@ -33,6 +40,7 @@ const CHANNEL_LABEL = {
 
 export default function FunnelsPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   // ── Every control on this page is a manager's control ────────────────────
   //
   // POST /api/funnels, POST /api/funnels/generate and DELETE
@@ -300,17 +308,32 @@ export default function FunnelsPage() {
         isOpen={!!confirmFunnel}
         onClose={() => setConfirmFunnel(null)}
         onConfirm={() => remove(confirmFunnel.id)}
-        title="Delete this funnel?"
+        title={t("app.funnels.deleteTitle", "Delete this funnel?")}
         message={
           // The count is stated only when it is KNOWN. `_count` is absent on a
           // payload the list didn't ask for it in, and `?? 0` there would tell
           // somebody "no runs are affected" about a funnel that has had
           // hundreds — a confident zero standing in for "we didn't check".
+          //
+          // The count is a countedNoun, not `${n} run${n === 1 ? "" : "s"}`.
+          // That was the English plural rule wearing a template literal: it
+          // printed a bare Latin "s" on a Mandarin screen and "1 дзвінків" —
+          // genitive plural, for one — on a Ukrainian one. See
+          // lib/i18n/plurals.js.
           typeof confirmFunnel?._count?.responses === "number"
-            ? `The funnel goes, and so do its ${confirmFunnel._count.responses} recorded run${
-                confirmFunnel._count.responses === 1 ? "" : "s"
-              } and the whole drop-off report behind them. Leads already in your pipeline stay where they are.`
-            : "The funnel goes, and so does every run through it and the whole drop-off report behind them. Leads already in your pipeline stay where they are."
+            ? t(
+                "app.funnels.deleteMessage",
+                "The funnel goes, and so does the whole drop-off report behind it — {runs} in all. Leads already in your pipeline stay where they are.",
+                {
+                  runs: t("app.funnels.runCount", {
+                    value: confirmFunnel._count.responses,
+                  }),
+                },
+              )
+            : t(
+                "app.funnels.deleteMessageUnknown",
+                "The funnel goes, and so does every run through it and the whole drop-off report behind them. Leads already in your pipeline stay where they are.",
+              )
         }
         itemName={confirmFunnel?.name}
         busy={deleting}

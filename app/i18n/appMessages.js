@@ -4936,7 +4936,7 @@ const en = {
   "app.tour.leads.sortBody": "Sort so the ready-to-go leads rise to the top, or drag a card to a different column to update its status. Click any lead to open its detail: the score and why, assign an owner, log a call-back, and Convert to quote in one tap.",
 
   "app.funnels.deleteTitle": "Delete this funnel?",
-  "app.funnels.deleteMessage": "The funnel goes, and so do its {runs} and the whole drop-off report behind them. Leads already in your pipeline stay where they are.",
+  "app.funnels.deleteMessage": "The funnel goes, and so does the whole drop-off report behind it — {runs} in all. Leads already in your pipeline stay where they are.",
   "app.funnels.deleteMessageUnknown": "The funnel goes, and so does every run through it and the whole drop-off report behind them. Leads already in your pipeline stay where they are.",
   "app.tour.funnels.newTitle": "Build a lead funnel",
   "app.tour.funnels.newBody": "A mobile quiz for your ads and link-in-bio. Start from a TikTok, Instagram, YouTube or Web template — or describe it and let AI build it from your services. Every finished funnel drops a scored lead into your pipeline.",
@@ -10423,7 +10423,7 @@ const fr = {
   "app.tour.leads.sortBody": "Triez pour faire remonter les prospects prêts à conclure, ou glissez une carte vers une autre colonne pour changer son statut. Cliquez sur un prospect pour ouvrir sa fiche : la note et pourquoi, assignez un responsable, notez un rappel, et Convertir en devis en un clic.",
 
   "app.funnels.deleteTitle": "Supprimer ce funnel ?",
-  "app.funnels.deleteMessage": "Le funnel disparaît, et avec lui ses {runs} et tout le rapport d'abandon qui va avec. Les prospects déjà dans votre pipeline restent où ils sont.",
+  "app.funnels.deleteMessage": "Le funnel disparaît, et avec lui tout le rapport d'abandon — {runs} en tout. Les prospects déjà dans votre pipeline restent où ils sont.",
   "app.funnels.deleteMessageUnknown": "Le funnel disparaît, et avec lui chaque parcours effectué et tout le rapport d'abandon qui va avec. Les prospects déjà dans votre pipeline restent où ils sont.",
   "app.tour.funnels.newTitle": "Créez un funnel de prospection",
   "app.tour.funnels.newBody": "Un questionnaire mobile pour vos publicités et votre lien en bio. Partez d'un modèle TikTok, Instagram, YouTube ou Web — ou décrivez-le et laissez l'IA le construire à partir de vos services. Chaque funnel terminé dépose un prospect noté dans votre pipeline.",
@@ -14492,7 +14492,7 @@ const es = {
   "app.tour.leads.sortBody": "Ordena para que los prospectos listos suban al principio, o arrastra una tarjeta a otra columna para actualizar su estado. Haz clic en cualquier prospecto para abrir su ficha: la puntuación y por qué, asigna un responsable, registra una llamada de vuelta, y Convertir en presupuesto en un toque.",
 
   "app.funnels.deleteTitle": "¿Eliminar este embudo?",
-  "app.funnels.deleteMessage": "El embudo desaparece, y con él sus {runs} y todo el informe de abandono que hay detrás. Los prospectos que ya están en tu proceso se quedan donde están.",
+  "app.funnels.deleteMessage": "El embudo desaparece, y con él todo el informe de abandono — {runs} en total. Los prospectos que ya están en tu proceso se quedan donde están.",
   "app.funnels.deleteMessageUnknown": "El embudo desaparece, y con él cada recorrido que se hizo y todo el informe de abandono que hay detrás. Los prospectos que ya están en tu proceso se quedan donde están.",
   "app.tour.funnels.newTitle": "Crea un embudo de prospectos",
   "app.tour.funnels.newBody": "Un cuestionario para móvil para tus anuncios y tu link en la bio. Empieza con una plantilla de TikTok, Instagram, YouTube o Web — o descríbelo y deja que la IA lo construya a partir de tus servicios. Cada embudo terminado deja caer un prospecto calificado en tu proceso.",
@@ -14898,7 +14898,7 @@ const es = {
   "app.kpis.moneyFlow.trend.up": "{pct}% más que el periodo anterior",
   "app.kpis.moneyFlow.trend.down": "{pct}% menos que el periodo anterior",
   "app.kpis.moneyFlow.trend.flat": "Casi igual que el periodo anterior",
-  "app.kpis.moneyFlow.trend.fromZero": "Sube desde $0 del periodo anterior",
+  "app.kpis.moneyFlow.trend.fromZero": "Sube desde cero respecto al periodo anterior",
   "app.kpis.moneyFlow.importCsv": "Importar un estado de cuenta bancario →",
   "app.kpis.moneyFlow.expensesIncompleteHint":
     "Se compraron materiales de la lista que nunca se registraron — mira la nota de arriba.",
@@ -20227,7 +20227,7 @@ const uk = {
   "app.tour.leads.sortBody": "Сортуйте, щоб готові до угоди ліди піднімалися вгору, або перетягніть картку в іншу колонку, щоб змінити статус. Клацніть на будь-якого ліда, щоб відкрити картку: оцінку і чому саме така, призначте відповідального, запишіть зворотний дзвінок і натисніть «Створити кошторис» в один клік.",
 
   "app.funnels.deleteTitle": "Видалити цю воронку?",
-  "app.funnels.deleteMessage": "Воронка зникає, а разом із нею — її {runs} і весь звіт про відсіювання. Звернення, які вже у вашій воронці продажів, залишаються на місці.",
+  "app.funnels.deleteMessage": "Воронка зникає, а разом із нею — весь звіт про відсіювання, {runs} загалом. Звернення, які вже у вашій воронці продажів, залишаються на місці.",
   "app.funnels.deleteMessageUnknown": "Воронка зникає, а разом із нею — кожен прохід нею і весь звіт про відсіювання. Звернення, які вже у вашій воронці продажів, залишаються на місці.",
   "app.tour.funnels.newTitle": "Створіть воронку для лідів",
   "app.tour.funnels.newBody": "Мобільний опитувальник для реклами та посилання в біо. Почніть із шаблону для TikTok, Instagram, YouTube чи Web — або опишіть його, і ШІ побудує його на основі ваших послуг. Кожна завершена воронка додає оцінений лід у ваш конвеєр.",
@@ -23790,7 +23790,7 @@ const pa = {
   "app.tour.leads.sortBody": "ਤਿਆਰ ਲੀਡਸ ਨੂੰ ਉੱਪਰ ਲਿਆਉਣ ਲਈ ਕ੍ਰਮਬੱਧ ਕਰੋ, ਜਾਂ ਸਟੇਟਸ ਬਦਲਣ ਲਈ ਕਾਰਡ ਨੂੰ ਕਿਸੇ ਹੋਰ ਕਾਲਮ ਵਿੱਚ ਖਿੱਚੋ। ਕਿਸੇ ਵੀ ਲੀਡ ਉੱਤੇ ਕਲਿੱਕ ਕਰਕੇ ਉਸਦੀ ਜਾਣਕਾਰੀ ਖੋਲ੍ਹੋ: ਸਕੋਰ ਅਤੇ ਕਾਰਨ, ਕਿਸੇ ਨੂੰ ਜ਼ਿੰਮੇਵਾਰ ਬਣਾਓ, ਕਾਲ-ਬੈਕ ਦਰਜ ਕਰੋ, ਅਤੇ ਇੱਕ ਟੈਪ ਵਿੱਚ ਹਵਾਲੇ ਵਿੱਚ ਬਦਲੋ।",
 
   "app.funnels.deleteTitle": "ਇਹ ਫਨਲ ਮਿਟਾਉਣਾ ਹੈ?",
-  "app.funnels.deleteMessage": "ਫਨਲ ਚਲਾ ਜਾਂਦਾ ਹੈ, ਅਤੇ ਇਸ ਦੇ ਨਾਲ ਇਸ ਦੇ {runs} ਅਤੇ ਪਿੱਛੇ ਪਈ ਪੂਰੀ ਡ੍ਰੌਪ-ਆਫ ਰਿਪੋਰਟ ਵੀ। ਜੋ ਲੀਡ ਪਹਿਲਾਂ ਹੀ ਤੁਹਾਡੀ ਪਾਈਪਲਾਈਨ ਵਿੱਚ ਹਨ, ਉਹ ਉੱਥੇ ਹੀ ਰਹਿੰਦੇ ਹਨ।",
+  "app.funnels.deleteMessage": "ਫਨਲ ਚਲਾ ਜਾਂਦਾ ਹੈ, ਅਤੇ ਇਸ ਦੇ ਪਿੱਛੇ ਪਈ ਪੂਰੀ ਡ੍ਰੌਪ-ਆਫ ਰਿਪੋਰਟ ਵੀ — ਕੁੱਲ {runs}। ਜੋ ਲੀਡ ਪਹਿਲਾਂ ਹੀ ਤੁਹਾਡੀ ਪਾਈਪਲਾਈਨ ਵਿੱਚ ਹਨ, ਉਹ ਉੱਥੇ ਹੀ ਰਹਿੰਦੇ ਹਨ।",
   "app.funnels.deleteMessageUnknown": "ਫਨਲ ਚਲਾ ਜਾਂਦਾ ਹੈ, ਅਤੇ ਇਸ ਵਿੱਚੋਂ ਹੋਇਆ ਹਰ ਗੇੜ ਤੇ ਪਿੱਛੇ ਪਈ ਪੂਰੀ ਡ੍ਰੌਪ-ਆਫ ਰਿਪੋਰਟ ਵੀ। ਜੋ ਲੀਡ ਪਹਿਲਾਂ ਹੀ ਤੁਹਾਡੀ ਪਾਈਪਲਾਈਨ ਵਿੱਚ ਹਨ, ਉਹ ਉੱਥੇ ਹੀ ਰਹਿੰਦੇ ਹਨ।",
   "app.tour.funnels.newTitle": "ਲੀਡ ਫਨਲ ਬਣਾਓ",
   "app.tour.funnels.newBody": "ਤੁਹਾਡੇ ਇਸ਼ਤਿਹਾਰਾਂ ਅਤੇ ਬਾਇਓ ਲਿੰਕ ਲਈ ਇੱਕ ਮੋਬਾਈਲ ਕੁਇਜ਼। TikTok, Instagram, YouTube ਜਾਂ Web ਟੈਂਪਲੇਟ ਤੋਂ ਸ਼ੁਰੂ ਕਰੋ — ਜਾਂ ਇਸਨੂੰ ਦੱਸੋ ਅਤੇ AI ਨੂੰ ਤੁਹਾਡੀਆਂ ਸੇਵਾਵਾਂ ਤੋਂ ਬਣਾਉਣ ਦਿਓ। ਹਰ ਪੂਰਾ ਹੋਇਆ ਫਨਲ ਤੁਹਾਡੀ ਪਾਈਪਲਾਈਨ ਵਿੱਚ ਇੱਕ ਦਰਜਾ ਦਿੱਤੀ ਲੀਡ ਪਾਉਂਦਾ ਹੈ।",
@@ -27361,7 +27361,7 @@ const tl = {
   "app.tour.leads.sortBody": "I-sort para umakyat sa taas ang mga leads na handa nang isara, o i-drag ang isang card papunta sa ibang column para baguhin ang status nito. I-click ang kahit anong lead para buksan ang detalye: ang score at bakit, mag-assign ng may-ari, mag-log ng call-back, at Gawing quote sa isang tap.",
 
   "app.funnels.deleteTitle": "Tanggalin ang funnel na ito?",
-  "app.funnels.deleteMessage": "Mawawala ang funnel, kasama ang {runs} nito at ang buong drop-off report sa likod nito. Mananatili sa kinalalagyan ang mga lead na nasa pipeline mo na.",
+  "app.funnels.deleteMessage": "Mawawala ang funnel, pati ang buong drop-off report sa likod nito — {runs} lahat-lahat. Mananatili sa kinalalagyan ang mga lead na nasa pipeline mo na.",
   "app.funnels.deleteMessageUnknown": "Mawawala ang funnel, pati ang bawat pagdaan dito at ang buong drop-off report sa likod nito. Mananatili sa kinalalagyan ang mga lead na nasa pipeline mo na.",
   "app.tour.funnels.newTitle": "Gumawa ng lead funnel",
   "app.tour.funnels.newBody": "Isang mobile quiz para sa mga ad at link-in-bio mo. Magsimula sa isang TikTok, Instagram, YouTube, o Web na template — o ilarawan ito at hayaan ang AI na buuin ito mula sa mga serbisyo mo. Bawat tapos na funnel ay naglalagay ng naka-score na lead sa pipeline mo.",
@@ -32001,7 +32001,7 @@ const de = {
   "app.tour.leads.sortTitle": "Die heißesten zuerst — dann ins Detail",
   "app.tour.leads.sortBody": "Sortieren Sie so, dass die kaufbereiten Anfragen nach oben rücken, oder ziehen Sie eine Karte in eine andere Spalte, um ihren Status zu ändern. Klicken Sie eine Anfrage an, um ihre Details zu öffnen: die Bewertung und ihre Begründung, einen Verantwortlichen zuweisen, einen Rückruf notieren und mit einem Tipp in ein Angebot umwandeln.",
   "app.funnels.deleteTitle": "Diesen Verkaufstrichter löschen?",
-  "app.funnels.deleteMessage": "Der Verkaufstrichter verschwindet, und mit ihm seine {runs} und der gesamte Abbruchbericht dahinter. Anfragen, die bereits in Ihrer Pipeline sind, bleiben, wo sie sind.",
+  "app.funnels.deleteMessage": "Der Verkaufstrichter verschwindet, und mit ihm der gesamte Abbruchbericht dahinter — {runs} insgesamt. Anfragen, die bereits in Ihrer Pipeline sind, bleiben, wo sie sind.",
   "app.funnels.deleteMessageUnknown": "Der Verkaufstrichter verschwindet, und mit ihm jeder Durchlauf und der gesamte Abbruchbericht dahinter. Anfragen, die bereits in Ihrer Pipeline sind, bleiben, wo sie sind.",
   "app.tour.funnels.newTitle": "Einen Anfrage-Funnel bauen",
   "app.tour.funnels.newBody": "Ein Quiz fürs Handy für Ihre Anzeigen und den Link in Ihrer Bio. Starten Sie mit einer Vorlage für TikTok, Instagram, YouTube oder Web — oder beschreiben Sie ihn und lassen Sie ihn von der KI aus Ihren Leistungen bauen. Jeder abgeschlossene Funnel legt eine bewertete Anfrage in Ihre Pipeline.",
@@ -37015,7 +37015,7 @@ const zh = {
   "app.tour.leads.sortTitle": "最热的排前面——再往下看",
   "app.tour.leads.sortBody": "排序之后，准备下单的线索会排到最前；也可以把卡片拖到另一列来改状态。点开任意一条线索看详情：评分和评分理由、指派负责人、记录一次回电，还能一键转成报价单。",
   "app.funnels.deleteTitle": "删除这个转化漏斗？",
-  "app.funnels.deleteMessage": "漏斗会被删掉，它的 {runs} 和背后整份流失报告也一并没了。已经进入你销售流程的线索会留在原处。",
+  "app.funnels.deleteMessage": "漏斗会被删掉，背后整份流失报告也一并没了——一共 {runs}。已经进入你销售流程的线索会留在原处。",
   "app.funnels.deleteMessageUnknown": "漏斗会被删掉，经过它的每一次填答和背后整份流失报告也一并没了。已经进入你销售流程的线索会留在原处。",
   "app.tour.funnels.newTitle": "做一个获客漏斗",
   "app.tour.funnels.newBody": "一个手机上的小问卷，放在广告和主页链接里。可以用 TikTok、Instagram、YouTube 或网页模板起步——也可以描述一下，让 AI 按你的服务生成。每填完一份，就往你的流程里丢一条带评分的线索。",
@@ -42211,7 +42211,7 @@ const it = {
   "app.tour.leads.sortBody": "Ordini in modo che i lead pronti salgano in cima, oppure trascini una scheda in un'altra colonna per aggiornarne lo stato. Clicchi un lead per aprirne la scheda: il punteggio e il perché, l'assegnazione di un responsabile, la registrazione di una richiamata e la conversione in preventivo con un tocco.",
 
   "app.funnels.deleteTitle": "Eliminare questo funnel?",
-  "app.funnels.deleteMessage": "Il funnel sparisce, e con lui i suoi {runs} e tutto il report sugli abbandoni. I lead già nella sua pipeline restano dove sono.",
+  "app.funnels.deleteMessage": "Il funnel sparisce, e con lui tutto il report sugli abbandoni — {runs} in tutto. I lead già nella sua pipeline restano dove sono.",
   "app.funnels.deleteMessageUnknown": "Il funnel sparisce, e con lui ogni percorso fatto e tutto il report sugli abbandoni. I lead già nella sua pipeline restano dove sono.",
   "app.tour.funnels.newTitle": "Crei un funnel di acquisizione",
   "app.tour.funnels.newBody": "Un quiz per cellulare da usare negli annunci e nel link in bio. Parta da un modello TikTok, Instagram, YouTube o Web — oppure lo descriva e lasci che l'AI lo costruisca dai suoi servizi. Ogni funnel completato deposita un lead con punteggio nella sua pipeline.",

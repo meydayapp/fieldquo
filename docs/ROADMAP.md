@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 3 September 2026 (the Meta App Review artefacts — a data deletion instructions page, a 1024 app icon rebuilt from the real mark, and the sales-call schema applied to the database; the client-facing quote surfaces and the voice settings page before that).
+Last updated: 3 September 2026 (the i18n backlog closed — 26 pending call sites wired, 40 keys added in all nine app languages, `navHome` added to the site chrome, and four catalogue sentences that described behaviour the code does not have reworded; the Meta App Review artefacts and the sales-call schema before that).
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -354,6 +354,97 @@ None was in scope. All three are client-facing.
    one of those strings carries a wrong `s`. `lib/i18n/plurals.js` already
    solves this and its header names the exact failure; ten call sites went
    around it.
+
+---
+
+## The i18n backlog: 26 marked call sites, and four sentences that were false (3 September 2026)
+
+**The markers are gone.** Six screens carried `i18n PENDING` comments left by
+agents who finished a page but could not add keys — a `t()` call on a key that
+does not exist turns `check:translations` red for everyone else in the tree, so
+the English literal stayed and the key was reported instead. All 26 are wired:
+`estimate-reviews` (17), `crew-inbox` (4), `marketing/spend` (2), `tasks`,
+`safety`, `marketing`. 40 keys landed in all nine blocks of
+`app/i18n/appMessages.js`; fr/es/de/zh/it stay at 100%, uk/pa/tl each rose ~46
+keys above their floor.
+
+**Two of them had to be counted nouns.** `app.reviews.squareCount` (roofing
+squares) and `app.reviews.tearOffCount` (layers of tear-off) are
+`countedNoun()` entries, called as `t(key, { value: n })` with no number beside
+them — the shape `lib/i18n/plurals.js` exists for. A third,
+`app.funnels.runCount`, replaced a live instance of the defect in
+`app/app/funnels/page.js`: `` `${n} recorded run${n === 1 ? "" : "s"}` `` on a
+DELETE confirmation, the English plural rule wearing a template literal.
+
+**The four sentences that were false**, each confirmed against the code before
+being reworded rather than translated onward into eight more languages:
+
+- `app.setCustomFields.purpose` said a custom field "adds one extra box to
+  every client, property, quote, job, invoice or team record".
+  `db.customFieldValue` has zero call sites repo-wide and the page is a
+  Coming-soon panel. It now says nothing shows them yet. An earlier pass had
+  added the panel and left the sentence.
+- `app.setWorkAreas.subtitle` said "assign your team". `WorkAreaAssignment` is
+  written by `POST/PATCH /api/work-areas` and read back only by that route's
+  own GET — no scheduling, dispatch or task query consults it. What the names
+  DO reach is the public website (`/api/settings/website`) and the voice
+  knowledge base (`/api/settings/voice/knowledge`, `lib/voice/provision.js`),
+  and nothing said so. The subtitle now names that instead. **The assignment
+  control itself is still there and still does nothing beyond persisting.**
+- `app.translations.draftNote` said "nothing reaches a client until you mark it
+  reviewed". `POST /api/products` machine-translates a new service into every
+  send language and writes `translations` straight to the row;
+  `resolveProductText` serves it to a document without ever reading `reviewed`.
+  The page's own comment claimed this had been fixed while the catalogue still
+  carried the old sentence in all nine languages.
+- `app.setProducts.costsBody` said "job costing will pick it up automatically".
+  `Product.costPrice` is written four ways and read by the CSV export and the
+  edit form only — `docs/FEATURE-GUIDE.md:714` says don't imply exactly that.
+
+**A dollar sign lived inside the catalogue.** `app.setCabinetRates.closetHint`
+and `.vanityHint` read `"(${tall}/lf)"` in en, fr, es, de and zh — a literal
+`$` in front of a placeholder, so French rendered `850 $ $/pi lin.`, doubled,
+and every euro, pound and franc company read dollars. Fixed the way
+`app.kpis.moneyFlow.trend.fromZero` was: no symbol in the sentence, an
+already-formatted string interpolated in. The same screen's `Rate` component
+defaulted `prefix = "$"` across eighteen money boxes — a plain string default,
+which `check:app-currency`'s scan cannot see because there is no `${` in front
+of it. `check-app-currency.mjs` now scans the catalogue too, and the Spanish
+`trend.fromZero` it immediately caught (`"Sube desde $0…"`, missed by the pass
+that fixed the other four) is fixed.
+
+**`navHome` was the one menu item a translated contractor website still showed
+in English.** `lib/site/siteCopy.js` held six nav labels in all eight site
+languages and `buildPages`'s `home` slug had no entry, so it fell through to the
+English page title. Added, and `NAV_KEY_BY_SLUG` in
+`app/api/settings/website/languages/route.js` now maps it.
+
+`DeleteConfirmModal`'s own Cancel/Delete/Deleting buttons were hardcoded
+English under a title and message every caller passes translated — the
+half-finished dialog, where the sentence somebody read carefully was in their
+language and the button they then pressed was not. Keyed, along with its two
+defaults.
+
+`check-approval-screens.mjs` asserted the markers SURVIVED, which would have
+failed the moment the work it watched for was done. Inverted rather than
+deleted: no marker may come back, every key must be called from the screen AND
+defined in the catalogue, and the two counted nouns must still be counted
+nouns. All five new assertions were mutation-tested, each mutation confirmed on
+disk before the check was run.
+
+### Still owed here
+
+- `app/app/funnels/page.js` is otherwise entirely unkeyed English. Its delete
+  dialog was keyed anyway because it carried the plural defect on a destructive
+  control; the rest of the page is a keying pass of its own.
+- `app.crewInbox.noCandidates` is an orphan — `check:oneoff-screens` asserts the
+  key is gone from the screen, and it is, but the entry still sits in all nine
+  blocks.
+- `app.reviews.squareCount` renders "square" unchanged for every count in tl and
+  it, and "Square"/"Squares" in de. A roofing square is an Anglo-American unit
+  none of those languages has a native word for; `check:app-catalogue` reports
+  the flat count rather than failing it, which is the right call. Worth a
+  native reader's eye, along with the Spanish "cuadro".
 
 ---
 

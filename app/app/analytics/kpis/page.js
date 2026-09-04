@@ -201,7 +201,7 @@ function MoneyTile({ label, figure, trend, money, t, hint }) {
                     trend.direction === "up" ? "Up {pct}% on last period" : "Down {pct}% on last period",
                     { pct },
                   )
-                : t("app.kpis.moneyFlow.trend.fromZero", "Up from $0 last period")
+                : t("app.kpis.moneyFlow.trend.fromZero", "Up from nothing last period")
             : null
           : figure?.reasonText ||
             t("app.kpis.finance.backlogUnknown", "No data yet.")}

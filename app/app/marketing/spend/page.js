@@ -158,10 +158,12 @@ export default function MarketingSpendPage() {
   // the blended cost-per-lead figure above is computed from, so losing one
   // silently changes a number somebody is about to make a decision on.
   async function handleDelete(id) {
-    // i18n PENDING app.marketingSpend.confirmDelete
     if (
       !window.confirm(
-        "Delete this spend entry? The cost-per-lead figures above are worked out from these rows.",
+        t(
+          "app.marketingSpend.confirmDelete",
+          "Delete this spend entry? The cost-per-lead figures above are worked out from these rows.",
+        ),
       )
     ) {
       return;
@@ -233,9 +235,10 @@ export default function MarketingSpendPage() {
             <TrendingUp size={15} /> {t("app.marketingSpend.blendedTitle", "Blended cost per lead")}
           </div>
           <p className="text-sm text-muted-foreground">
-            {/* i18n PENDING app.marketingSpend.summaryUnavailable */}
-            These figures couldn&apos;t be worked out just now. Nothing has been
-            lost — the spend you have entered is listed below.{" "}
+            {t(
+              "app.marketingSpend.summaryUnavailable",
+              "These figures couldn't be worked out just now. Nothing has been lost — the spend you have entered is listed below.",
+            )}{" "}
             <button type="button" onClick={load} className="underline font-medium">
               {t("app.load.retry")}
             </button>

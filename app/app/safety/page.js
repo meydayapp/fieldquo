@@ -192,9 +192,10 @@ function ReportForm({ t, jobs, onCreated, onCancel }) {
               against nothing is not something anybody goes back and fixes. */}
           {jobs === null && (
             <span className="mt-1 block text-xs text-amber-600 dark:text-amber-400">
-              {/* i18n PENDING app.safety.form.jobsUnavailable */}
-              Your job list couldn&apos;t be loaded, so this incident would be
-              filed against no job. Reload before reporting if it belongs to one.
+              {t(
+                "app.safety.form.jobsUnavailable",
+                "Your job list couldn't be loaded, so this incident would be filed against no job. Reload before reporting if it belongs to one.",
+              )}
             </span>
           )}
         </label>

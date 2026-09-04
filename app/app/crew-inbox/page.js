@@ -989,8 +989,10 @@ function NoCandidatePicker({
         onClick={onLoadJobs}
         className="min-h-11 rounded-full border border-border bg-card px-4 text-sm text-foreground hover:bg-muted"
       >
-        {/* i18n PENDING app.crewInbox.noCandidatesPick */}
-        No job was on their schedule that day — choose one
+        {t(
+          "app.crewInbox.noCandidatesPick",
+          "No job was on their schedule that day — choose one",
+        )}
       </button>
     );
   }
@@ -1009,8 +1011,7 @@ function NoCandidatePicker({
   if (jobs.length === 0) {
     return (
       <span className="text-xs text-muted-foreground">
-        {/* i18n PENDING app.crewInbox.noJobsAtAll */}
-        There are no jobs to file this against yet.
+        {t("app.crewInbox.noJobsAtAll", "There are no jobs to file this against yet.")}
       </span>
     );
   }
@@ -1025,8 +1026,7 @@ function NoCandidatePicker({
         aria-label={t("app.crewInbox.whichJob")}
         className="min-h-11 flex-1 rounded-lg border border-border bg-background px-3 text-base text-foreground"
       >
-        {/* i18n PENDING app.crewInbox.chooseJob */}
-        <option value="">Choose a job…</option>
+        <option value="">{t("app.crewInbox.chooseJob", "Choose a job…")}</option>
         {jobs.map((j) => (
           <option key={j.id} value={j.id}>
             {j.title}
@@ -1042,8 +1042,7 @@ function NoCandidatePicker({
         {busy ? (
           <Loader2 size={13} className="animate-spin" />
         ) : (
-          /* i18n PENDING app.crewInbox.fileHere */
-          "File it here"
+          t("app.crewInbox.fileHere", "File it here")
         )}
       </button>
     </div>

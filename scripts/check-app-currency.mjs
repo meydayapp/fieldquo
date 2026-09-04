@@ -162,12 +162,57 @@ const USES_FORMATTER = [
   ["app/app/settings/overhead/page.js", /useCompanyMoney\(\)/],
   ["app/app/settings/expense-tracking/page.js", /useCompanyMoney\(\)/],
   ["app/app/settings/material-costs/page.js", /useCompanyMoney\(\)/],
+  // Added 2026-09-03. Its Rate component defaulted `prefix = "$"` — a plain
+  // string default, which the scan above cannot see because there is no `${`
+  // in front of it. Eighteen money boxes on the screen where a cabinet maker
+  // sets every rate they charge, all labelled in dollars. The hints beside two
+  // of them quoted rates back with a "$" typed into five language blocks of
+  // app/i18n/appMessages.js, which is the same bug one layer further in.
+  ["app/app/settings/cabinet-rates/page.js", /useCompanyMoney\(\)/],
   ["app/app/settings/account-billing/page.js", /useCompanyMoney\(\)/],
+];
+
+// ── The catalogue is a screen too ──────────────────────────────────────────
+//
+// A currency symbol typed into a translated STRING reaches exactly the same
+// contractor as one typed into JSX, and no scan of app/ can see it. These two
+// hints read "(${tall}/lf)" in en, fr, es, de and zh — a literal dollar in
+// front of a placeholder, so French rendered "850 $ $/pi lin.", doubled, and a
+// German company read dollars. The fix is the one
+// app.kpis.moneyFlow.trend.fromZero got: no symbol in the sentence at all, and
+// an already-formatted string interpolated in.
+const CURRENCY_FREE_KEYS = [
+  "app.setCabinetRates.closetHint",
+  "app.setCabinetRates.vanityHint",
+  "app.kpis.moneyFlow.trend.fromZero",
 ];
 console.log("\nThe screens that had it now call a real formatter");
 for (const [rel, re_] of USES_FORMATTER) {
   const src = readFileSync(join(ROOT, rel), "utf8");
   ok(`${rel.split("/").slice(-2).join("/")} — ${re_.source}`, re_.test(src), rel);
+}
+
+console.log("\nNo catalogue entry carries a currency symbol of its own");
+{
+  const catalogue = readFileSync(join(ROOT, "app/i18n/appMessages.js"), "utf8");
+  for (const key of CURRENCY_FREE_KEYS) {
+    // Every block's entry for the key, comments excluded — the prose above the
+    // French block explains this very bug and quotes the "$" while doing it.
+    const entries = [
+      ...catalogue.matchAll(new RegExp(`^  "${key}":([\\s\\S]*?)",$`, "gm")),
+    ].map((m) => m[1]);
+    ok(
+      `${key} was found in the catalogue`,
+      entries.length > 0,
+      "a renamed key makes the assertion below vacuously true",
+    );
+    const dirty = entries.filter((v) => /[$£€]|CHF/.test(v));
+    ok(
+      `...and no block writes a currency symbol into it`,
+      dirty.length === 0,
+      dirty.map((v) => v.trim().slice(0, 90)).join("\n      "),
+    );
+  }
 }
 
 // ── The two ledgers stay two ledgers ───────────────────────────────────────

@@ -266,13 +266,18 @@ export default function TranslationsPage() {
       {data?.aiAvailable && data?.canDraft && data.missing > 0 && (
         <p className="text-xs text-muted-foreground">
           {/* Was "nothing reaches a client until you mark it reviewed". True of
-              THIS button, which only fills boxes — and false in general: a
-              service created while automatic translation is on is already
-              carrying machine wording, and lib/i18n/translateContent.js
-              serves it to a client document without consulting `reviewed`.
+              THIS button, which only fills boxes — and false in general: POST
+              /api/products machine-translates a new service into every send
+              language and writes `translations` straight to the row, and
+              resolveProductText hands that to a client document without ever
+              reading `reviewed`. So the claim was wrong twice over, and this
+              comment previously said the sentence had been fixed while the
+              catalogue still carried the old one in all nine languages.
+              app.translations.draftNote now says what actually holds: nothing
+              is SAVED until you save it, and saved wording goes out.
               Gating the render on `reviewed` would blank existing documents
-              back to the source language, which is a product decision, not a
-              copy fix. So the sentence is now true instead. */}
+              back to the source language — a product decision, not a copy
+              fix — so the sentence changed and the behaviour did not. */}
           {t("app.translations.draftNote")}
         </p>
       )}

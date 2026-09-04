@@ -388,8 +388,10 @@ export default function MarketingPage() {
                       and disabled so it cannot be picked as a person. */}
                   {members === null && (
                     <option value="" disabled>
-                      {/* i18n PENDING app.marketing.membersUnavailable */}
-                      Team list unavailable — reload to assign someone
+                      {t(
+                        "app.marketing.membersUnavailable",
+                        "Team list unavailable — reload to assign someone",
+                      )}
                     </option>
                   )}
                 </select>

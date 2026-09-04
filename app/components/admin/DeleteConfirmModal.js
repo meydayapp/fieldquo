@@ -3,15 +3,31 @@
 
 import { AlertTriangle, X } from "lucide-react";
 
+import { useTranslation } from "@/app/hooks/useTranslation";
+
+// ── The dialog's own words ────────────────────────────────────────────────
+//
+// Every caller passes a translated `title` and most pass a translated
+// `message`, and the two buttons underneath them still read "Cancel" and
+// "Delete" in English on a French screen — the half-translated dialog is worse
+// than an untranslated one, because the sentence a person read carefully was in
+// their language and the button they then pressed was not.
+//
+// The defaults are keyed too. They are what a caller that passes neither shows,
+// and "Delete Item" in title case was never a sentence anybody wrote on
+// purpose.
 export default function DeleteConfirmModal({
   isOpen,
   onClose,
   onConfirm,
-  title = "Delete Item",
-  message = "Are you sure you want to delete this? This action cannot be undone.",
+  title,
+  message,
   itemName,
   busy = false,
 }) {
+  // Before the early return: hooks cannot run conditionally, and this component
+  // is rendered with isOpen={false} by every screen that uses it.
+  const { t } = useTranslation();
   if (!isOpen) return null;
 
   return (
@@ -28,9 +44,15 @@ export default function DeleteConfirmModal({
         </div>
 
         <h2 className="text-lg font-semibold text-foreground text-center">
-          {title}
+          {title ?? t("app.deleteModal.title", "Delete item")}
         </h2>
-        <p className="text-sm text-muted-foreground text-center mt-1.5">{message}</p>
+        <p className="text-sm text-muted-foreground text-center mt-1.5">
+          {message ??
+            t(
+              "app.deleteModal.message",
+              "Are you sure you want to delete this? This cannot be undone.",
+            )}
+        </p>
 
         {itemName && (
           <div className="bg-red-50 dark:bg-red-950/40 rounded-lg px-4 py-2.5 mt-4 text-center">
@@ -44,7 +66,7 @@ export default function DeleteConfirmModal({
             disabled={busy}
             className="flex-1 border border-border text-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
           >
-            Cancel
+            {t("app.action.cancel", "Cancel")}
           </button>
           {/* onClose is NOT called here any more. It used to fire immediately
               alongside onConfirm, which closed the dialog before the delete
@@ -57,7 +79,7 @@ export default function DeleteConfirmModal({
             disabled={busy}
             className="flex-1 bg-red-600 text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
           >
-            {busy ? "Deleting…" : "Delete"}
+            {busy ? t("app.action.deleting", "Deleting…") : t("app.action.delete", "Delete")}
           </button>
         </div>
       </div>

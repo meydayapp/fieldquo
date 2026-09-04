@@ -44,11 +44,12 @@ function isAdmin(role) {
  */
 // buildPages titles its pages in English, because it is the same deterministic
 // arranger for every company. The menu is chrome, and chrome is a fixed table —
-// siteCopy holds these six in every site language already. `home` is the one
-// slug with no entry there; it stays "Home" until a navHome is added (reported),
-// rather than being machine-translated at render time, which is exactly what
-// siteCopy's header says this table exists to avoid.
+// siteCopy holds all seven in every site language. `home` was the one slug with
+// no entry there and so stayed "Home" on an otherwise French site; navHome now
+// exists, rather than the title being machine-translated at render time, which
+// is exactly what siteCopy's header says this table exists to avoid.
 const NAV_KEY_BY_SLUG = {
+  home: "navHome",
   services: "navServices",
   work: "navWork",
   about: "navAbout",

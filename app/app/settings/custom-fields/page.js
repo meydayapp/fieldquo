@@ -15,6 +15,13 @@
 // any of those forms yet … the model just exists so the data has somewhere to
 // live once that integration happens."
 //
+// That was fixed once by putting a Coming-soon panel above the sentence, which
+// left the SENTENCE still claiming the present tense — "adds one extra box to
+// every client, property, quote, job, invoice or team record". A panel beside a
+// false sentence is not a true screen. app.setCustomFields.purpose now says, in
+// all nine languages, that nothing shows these yet. Reword it back to the
+// present tense on the day a record form renders one, in the same commit.
+//
 // So this was a form that saved definitions nothing would ever show — the
 // written-and-never-read defect, with an Add button on it. AGENTS.md: "If you
 // can't finish it this session, don't render it — a Coming soon panel is

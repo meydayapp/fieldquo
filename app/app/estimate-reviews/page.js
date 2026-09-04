@@ -29,30 +29,23 @@ import {
 // know. A snake_case enum reaching a human is the canonical failure this
 // codebase is swept for.
 //
-// `phone_call` is read off a recorded call by FieldQuo AI in the back office,
-// after the fact — the receptionist that took the call never quoted anything,
-// see lib/ai/callQuoteDraft.js. It gets its own label because the reviewer's
-// first question about an unexpected draft is where it came from.
-// i18n PENDING — keys requested from the lead in one batch; English literals
-// stay until they land, because a t() call on a key that does not exist yet
-// turns check:translations red for every other agent in this tree. Keys, in
-// order: app.reviews.source.satellite / .lawn / .manual / .phoneCall /
-// .unknown. The STRUCTURE is the fix and is already correct: a map plus an
-// unknown branch, so `google_solar` can no longer reach a chip.
+// The map holds the KEY; the English beside it is the t() fallback, not the
+// label. Pairs rather than a second parallel map, so a source can never end up
+// with a key here and its fallback somewhere else.
 //
 // `phone_call` is read off a recorded call by FieldQuo AI in the back office,
 // after the fact — the receptionist that took the call never quoted anything,
 // see lib/ai/callQuoteDraft.js. It gets its own label because the reviewer's
 // first question about an unexpected draft is where it came from.
 const SOURCE_LABEL = {
-  google_solar: "Measured from satellite",
-  lawn_polygon: "Lawn traced on map",
-  manual: "Homeowner-entered",
-  phone_call: "Taken from a phone call",
+  google_solar: ["app.reviews.source.satellite", "Measured from satellite"],
+  lawn_polygon: ["app.reviews.source.lawn", "Lawn traced on map"],
+  manual: ["app.reviews.source.manual", "Homeowner-entered"],
+  phone_call: ["app.reviews.source.phoneCall", "Taken from a phone call"],
 };
 
 /**
- * The chip's words.
+ * The chip's words, in the reader's language.
  *
  * The bug this closes is the FALLBACK, not the map: this was
  * `SOURCE_LABEL[q.estimateSource] || q.estimateSource`, so any source a build
@@ -60,8 +53,11 @@ const SOURCE_LABEL = {
  * `google_solar`. An unknown source now says it is unknown, which is a
  * sentence; the column never is.
  */
-function sourceLabel(source) {
-  return SOURCE_LABEL[source] || "Source not recorded";
+function sourceLabel(t, source) {
+  const entry = SOURCE_LABEL[source];
+  return entry
+    ? t(entry[0], entry[1])
+    : t("app.reviews.source.unknown", "Source not recorded");
 }
 
 export default function EstimateReviewsPage() {
@@ -79,7 +75,7 @@ export default function EstimateReviewsPage() {
       setCanApprove(Boolean(data.canApprove));
       setCurrentUserId(data.currentUserId || null);
     } catch (err) {
-      setError(err.message || "Could not load reviews."); // i18n PENDING app.reviews.loadError
+      setError(err.message || t("app.reviews.loadError", "Couldn't load reviews."));
     }
   }
 
@@ -97,7 +93,7 @@ export default function EstimateReviewsPage() {
       });
       await load();
     } catch (err) {
-      showError(err.message || "Could not approve that estimate."); // i18n PENDING app.reviews.approveError
+      showError(err.message || t("app.reviews.approveError", "Couldn't approve that estimate."));
     } finally {
       setBusyId(null);
     }
@@ -118,7 +114,7 @@ export default function EstimateReviewsPage() {
       });
       await load();
     } catch (err) {
-      showError(err.message || "Could not assign that estimate."); // i18n PENDING app.reviews.assignError
+      showError(err.message || t("app.reviews.assignError", "Couldn't assign that estimate."));
     } finally {
       setBusyId(null);
     }
@@ -131,9 +127,10 @@ export default function EstimateReviewsPage() {
         <h1 className="text-2xl font-bold text-foreground">{t("app.reviews.title")}</h1>
       </div>
       <p className="text-sm text-muted-foreground mb-6 max-w-xl">
-        {/* i18n PENDING app.reviews.intro */}
-        Instant estimates from your website land here first. Confirm the price —
-        adjusting it if the property needs it — before the quote can be sent.
+        {t(
+          "app.reviews.intro",
+          "Instant estimates from your website land here first. Confirm the price — adjusting it if the property needs it — before the quote can be sent.",
+        )}
       </p>
 
       {error && (
@@ -142,7 +139,7 @@ export default function EstimateReviewsPage() {
 
       {!quotes && !error && (
         <div className="flex items-center gap-2 text-muted-foreground text-sm">
-          <Loader2 size={16} className="animate-spin" /> Loading… {/* i18n PENDING app.action.loading */}
+          <Loader2 size={16} className="animate-spin" /> {t("app.action.loading", "Loading…")}
         </div>
       )}
 
@@ -217,7 +214,7 @@ function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserI
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="text-base font-semibold text-foreground">{q.client?.name || "Website enquiry"/* i18n PENDING app.reviews.websiteEnquiry */}</h3>
+            <h3 className="text-base font-semibold text-foreground">{q.client?.name || t("app.reviews.websiteEnquiry", "Website enquiry")}</h3>
             <span className="text-xs text-muted-foreground">{q.quoteNumber}</span>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
@@ -225,7 +222,7 @@ function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserI
           </p>
         </div>
         <span className="text-xs rounded-full bg-muted px-2 py-1 text-muted-foreground shrink-0">
-          {sourceLabel(q.estimateSource)}
+          {sourceLabel(t, q.estimateSource)}
         </span>
       </div>
 
@@ -237,10 +234,11 @@ function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserI
       <div className="mt-2">
         {q.assignedTo ? (
           <span className="text-xs rounded-full bg-muted px-2 py-1 text-muted-foreground">
-            {/* i18n PENDING app.reviews.assignedToYou / app.reviews.assignedTo */}
             {q.assignedTo.id === currentUserId
-              ? "Assigned to you"
-              : `Assigned to ${q.assignedTo.name}`}
+              ? t("app.reviews.assignedToYou", "Assigned to you")
+              : t("app.reviews.assignedTo", "Assigned to {name}", {
+                  name: q.assignedTo.name,
+                })}
           </span>
         ) : (
           <button
@@ -249,7 +247,7 @@ function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserI
             disabled={busy || !currentUserId}
             className="text-xs rounded-full border border-dashed border-border px-2 py-1 text-muted-foreground hover:text-foreground hover:border-foreground/40 disabled:opacity-50"
           >
-            Unassigned — assign to me{/* i18n PENDING app.reviews.claim */}
+            {t("app.reviews.claim", "Unassigned — assign to me")}
           </button>
         )}
       </div>
@@ -261,14 +259,36 @@ function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserI
         )}
         <div className="text-sm text-muted-foreground space-y-1">
           <div className="flex flex-wrap gap-x-4 gap-y-1">
-            {/* i18n PENDING app.reviews.squareCount — a COUNTED NOUN, not "{n} squares" */}
-            {m.squares != null && <span><strong className="text-foreground">{m.squares}</strong> squares</span>}
-            {/* i18n PENDING app.reviews.areaSqft */}
-            {m.areaSqft != null && <span><strong className="text-foreground">{Math.round(m.areaSqft).toLocaleString()}</strong> sq ft</span>}
-            {/* i18n PENDING app.reviews.pitch */}
-            {m.predominantPitch && <span><strong className="text-foreground">{m.predominantPitch.rise}/12</strong> pitch</span>}
-            {/* i18n PENDING app.reviews.tearOffCount — a COUNTED NOUN */}
-            {m.tearOffLayers ? <span>{m.tearOffLayers} layer(s) tear-off</span> : null}
+            {/* Each chip is ONE string, and the emphasis is on the whole of
+                it rather than on the number alone. That is forced by the two
+                counted nouns: countedNoun renders "12 squares" as a single
+                declined string, so there is no number to bold separately —
+                and "12 squares" beside a bolded "1,240" would have made two
+                chips on one line look like two different kinds of fact. */}
+            {m.squares != null && (
+              <strong className="text-foreground">
+                {t("app.reviews.squareCount", { value: m.squares })}
+              </strong>
+            )}
+            {m.areaSqft != null && (
+              <strong className="text-foreground">
+                {t("app.reviews.areaSqft", "{value} sq ft", {
+                  value: Math.round(m.areaSqft).toLocaleString(),
+                })}
+              </strong>
+            )}
+            {m.predominantPitch && (
+              <strong className="text-foreground">
+                {t("app.reviews.pitch", "{rise}/12 pitch", {
+                  rise: m.predominantPitch.rise,
+                })}
+              </strong>
+            )}
+            {m.tearOffLayers ? (
+              <strong className="text-foreground">
+                {t("app.reviews.tearOffCount", { value: m.tearOffLayers })}
+              </strong>
+            ) : null}
           </div>
           {/* The price-book KEY, tidied. Every other consumer of materialKey
               looks it up in the company's configured materials to get a label
@@ -287,7 +307,7 @@ function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserI
           )}
           {!pricingHidden && (
           <div>
-            Homeowner saw:{" "}{/* i18n PENDING app.reviews.homeownerSaw */}
+            {t("app.reviews.homeownerSaw", "Homeowner saw:")}{" "}
             <strong className="text-foreground">{money(range.low)}–{money(range.high)}{d.unit ? ` ${d.unit}` : ""}</strong>
           </div>
           )}
@@ -298,11 +318,11 @@ function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserI
               was told. */}
           {d.budget && (
             <div>
-              {/* i18n PENDING app.reviews.theirBudget */}
-              Their budget: <strong className="text-foreground">{d.budget.label}</strong>
+              {t("app.reviews.theirBudget", "Their budget:")}{" "}
+              <strong className="text-foreground">{d.budget.label}</strong>
               {d.budget.exceeded && (
                 <span className="ml-2 rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-xs font-medium">
-                  over budget{/* i18n PENDING app.reviews.overBudget */}
+                  {t("app.reviews.overBudget", "over budget")}
                 </span>
               )}
             </div>
@@ -391,7 +411,7 @@ function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserI
           className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-inverted text-inverted-foreground px-4 py-2 text-sm font-medium disabled:opacity-50"
         >
           {busy ? <Loader2 size={15} className="animate-spin" /> : <BadgeCheck size={15} />}
-          Approve{/* i18n PENDING app.reviews.approve */}
+          {t("app.reviews.approve", "Approve")}
         </button>
           </>
         )}
