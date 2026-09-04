@@ -5760,6 +5760,13 @@ const en = {
   "app.activity.supportSession": "support session",
   "app.kpis.sampleSize": countedNoun("en", {"one":"job/quote","other":"jobs/quotes"}),
   "app.kpis.weeksBooked": countedNoun("en", {"one":"week","other":"weeks"}),
+
+  // FieldQuo AI keeps its name in every language — it is the product own
+  // name for the feature, and what the contractor sees on every other screen.
+  "app.copilot.nearLimit": "You've used {pct}% of this month's FieldQuo AI allowance. When it runs out, FieldQuo AI stops answering until the allowance resets at the start of next month.",
+  "app.copilot.outTitle": "This month's FieldQuo AI allowance is used up.",
+  "app.copilot.outBody": "It resets at the start of next month, and everything else in FieldQuo carries on as normal. Get in touch if you need a bigger allowance before then.",
+  "app.copilot.send": "Send",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -11078,6 +11085,11 @@ const fr = {
   "app.activity.supportSession": "session d'assistance",
   "app.kpis.sampleSize": countedNoun("fr", {"one":"chantier/soumission","many":"chantiers/soumissions","other":"chantiers/soumissions"}),
   "app.kpis.weeksBooked": countedNoun("fr", {"one":"semaine","many":"semaines","other":"semaines"}),
+
+  "app.copilot.nearLimit": "Vous avez utilisé {pct} % de votre quota FieldQuo AI de ce mois-ci. Une fois épuisé, FieldQuo AI cesse de répondre jusqu'à la remise à zéro au début du mois prochain.",
+  "app.copilot.outTitle": "Le quota FieldQuo AI de ce mois-ci est épuisé.",
+  "app.copilot.outBody": "Il est remis à zéro au début du mois prochain, et tout le reste de FieldQuo continue de fonctionner normalement. Écrivez-nous si vous avez besoin d'un quota plus élevé d'ici là.",
+  "app.copilot.send": "Envoyer",
 };
 
 
@@ -13894,7 +13906,7 @@ const es = {
   "app.setInstantQuotes.conditionSurcharge": "Recargo por condición",
   "app.setInstantQuotes.railingPerFt": "Barandilla, por pie lineal",
   "app.setInstantQuotes.subfloorSurcharge": "Recargo por subsuelo / remoción",
-  "app.setInstantQuotes.interiorExterior": "Interior vs exterior",
+  "app.setInstantQuotes.interiorExterior": "Interior o exterior",
   "app.setInstantQuotes.surfaceConditionSurcharge": "Recargo por estado de la superficie",
   "app.setInstantQuotes.countertopExtras": "Extras (añadidos al precio del material)",
   "app.setInstantQuotes.upgradedEdge": "Borde mejorado, por pie",
@@ -14508,9 +14520,9 @@ const es = {
   "app.tour.receptionist.settingsTitle": "Actívala, o ajústala",
   "app.tour.receptionist.settingsBody": "El número al que contesta, el saludo y tu crédito por minuto están todos en Configuración — este botón te lleva ahí.",
 
-  "app.tour.aiCredit.voiceTitle": "Phone credit",
+  "app.tour.aiCredit.voiceTitle": "Crédito telefónico",
   "app.tour.aiCredit.voiceBody": "La recepcionista y los mensajes de texto del equipo gastan del mismo saldo. Recarga aquí antes de que se agote, o administra la recarga automática en los ajustes del teléfono.",
-  "app.tour.aiCredit.imageTitle": "AI image credit",
+  "app.tour.aiCredit.imageTitle": "Crédito de imágenes con IA",
   "app.tour.aiCredit.imageBody": "Un saldo aparte para las imágenes de marketing generadas y la lectura profunda de fotos en una cotización — compra según lo necesites, o suscríbete cada mes por un precio más bajo por crédito.",
 
   "app.tour.jobBuilder.photosTitle": "Todas las fotos, archivadas y con fecha",
@@ -14521,12 +14533,12 @@ const es = {
 
   "app.tour.designerEditor.ratiosTitle": "Un diseño, todos los tamaños",
   "app.tour.designerEditor.ratiosBody": "Cada pestaña es un tamaño de anuncio distinto — Instagram, TikTok, Facebook, YouTube. Cambia de pestaña y ajusta cada uno; tus cambios se guardan por tamaño.",
-  "app.tour.designerEditor.downloadTitle": "Download all formats",
+  "app.tour.designerEditor.downloadTitle": "Descargar todos los formatos",
   "app.tour.designerEditor.downloadBody": "Un clic genera cada tamaño que hayas tocado como PNG, listo para subir a cada plataforma.",
 
   "app.tour.kpis.periodTitle": "Elige tu período",
   "app.tour.kpis.periodBody": "Cada tarjeta de abajo refleja este período — cámbialo y todo el panel lo sigue.",
-  "app.tour.kpis.notTrackedTitle": "Not tracked",
+  "app.tour.kpis.notTrackedTitle": "Sin seguimiento",
   "app.tour.kpis.notTrackedBody": "Una tarjeta sin datos dice por qué en vez de mostrar un cero — esta lista nombra lo que FieldQuo no va a inventar.",
 
   "app.tour.website.publishTitle": "Nada es público hasta que publiques",
@@ -14609,6 +14621,2140 @@ const es = {
   "app.activity.supportSession": "sesión de soporte",
   "app.kpis.sampleSize": countedNoun("es", {"one":"trabajo/presupuesto","many":"trabajos/presupuestos","other":"trabajos/presupuestos"}),
   "app.kpis.weeksBooked": countedNoun("es", {"one":"semana","many":"semanas","other":"semanas"}),
+  // ── Planes de servicio ───────────────────────────────────────────────────
+  "app.plans.title": "Planes de servicio",
+  "app.plans.subtitle":
+    "Trabajo recurrente vendido como paquete, facturado con la periodicidad que elijas.",
+  "app.plans.new": "Nuevo plan",
+  "app.plans.back": "Volver a planes de servicio",
+  "app.plans.emptyTitle": "Aún no hay planes de servicio",
+  "app.plans.emptyBody":
+    "Un plan de servicio le factura a un cliente de forma repetida: limpieza de canaletas en primavera y otoño, cuidado del césped por temporada, una visita de mantenimiento cada trimestre. Cada ocurrencia genera una factura automáticamente.",
+  "app.plans.perVisit": "por visita",
+  "app.plans.perVisitLabel": "Cada visita",
+  "app.plans.termLabel": "Plan completo",
+  "app.plans.termVisits": "en {count} visitas",
+  "app.plans.nextLabel": "Próxima fecha de facturación",
+  "app.plans.nextScheduled": "Programada",
+  "app.plans.openEnded": "Sigue hasta que se cancele",
+  "app.plans.discountBadge": "{pct}% de descuento por paquete",
+  "app.plans.discountApplied": "{pct}% de descuento — {amount} de ahorro por visita",
+  "app.plans.status.active": "Activo",
+  "app.plans.status.cancelled": "Cancelado",
+  "app.plans.status.completed": "Terminado",
+  "app.plans.freq.weekly": "Semanal",
+  "app.plans.freq.monthly": "Mensual",
+  "app.plans.freq.quarterly": "Trimestral",
+  "app.plans.freq.semiannual": "Dos veces al año",
+  "app.plans.freq.annual": "Una vez al año",
+  "app.plans.collectInvoice": "Se envía una factura en cada visita",
+  "app.plans.collectAuto": "Se cobra automáticamente — {method}",
+  "app.plans.awaitingConsent":
+    "Se pidió el cobro automático, pero el cliente todavía no lo ha autorizado",
+  "app.plans.awaitingMethod":
+    "El cliente aceptó, pero aún no ha guardado una forma de pago",
+  "app.plans.methodRemoved":
+    "Se quitó la forma de pago guardada — en su lugar se están enviando facturas",
+  "app.plans.newTitle": "Nuevo plan de servicio",
+  "app.plans.newSubtitle":
+    "Vende un trabajo repetido: qué incluye, cuánto cuesta, cada cuánto y por cuánto tiempo.",
+  "app.plans.client": "Cliente",
+  "app.plans.pickClient": "Elige un cliente",
+  "app.plans.service": "Servicio",
+  "app.plans.pickService": "Elige un servicio",
+  "app.plans.name": "Nombre del plan",
+  "app.plans.namePlaceholder": "Limpieza de canaletas primavera y otoño",
+  "app.plans.nameHelp": "Esto es lo que el cliente ve en su factura.",
+  "app.plans.scheduleTitle": "Calendario",
+  "app.plans.frequency": "Cada cuánto",
+  "app.plans.startDate": "Primera visita",
+  "app.plans.length": "Por cuánto tiempo",
+  "app.plans.end.count": "Un número de visitas",
+  "app.plans.end.until": "Hasta una fecha",
+  "app.plans.end.open": "Hasta que se cancele",
+  "app.plans.visitCount": "Cuántas visitas",
+  "app.plans.endDate": "Último día",
+  "app.plans.openHelp":
+    "El plan sigue facturando con esta periodicidad hasta que lo canceles. No tiene fecha de fin, y al cliente se le dice exactamente eso antes de que autorice nada.",
+  "app.plans.moneyTitle": "Precio",
+  "app.plans.amount": "Por visita, antes del descuento",
+  "app.plans.discount": "% de descuento por paquete",
+  "app.plans.tax": "% de impuesto",
+  "app.plans.taxNone": "Sin impuesto",
+  "app.plans.taxHelp":
+    "Déjalo en blanco si este plan no lleva impuesto. En blanco significa sin impuesto, no “ya lo veremos después”.",
+  "app.plans.previewPer": "Cada visita factura {amount}.",
+  "app.plans.previewTerm": "{count} visitas, {amount} en total — {saved} de ahorro.",
+  "app.plans.previewOpen": "Sin total: este plan sigue hasta que se cancele.",
+  "app.plans.collectionTitle": "Cómo se cobra",
+  "app.plans.collect.invoice.title": "Factura en cada visita",
+  "app.plans.collect.invoice.body":
+    "Cada ocurrencia genera una factura y le envía al cliente un enlace de pago por correo. No se guarda nada ni se cobra nada sin que él haga clic. Funciona con cualquier cliente.",
+  "app.plans.collect.automatic.title": "Cobrar automáticamente",
+  "app.plans.collect.automatic.body":
+    "El cliente guarda una tarjeta o una cuenta bancaria en una página segura de Stripe y autoriza, por escrito, exactamente este importe con exactamente esta periodicidad. Le enviarás esa solicitud después de guardar. Mientras no la autorice, este plan factura como arriba.",
+  "app.plans.frozenNotice":
+    "El importe, el descuento, la periodicidad y la duración no se pueden cambiar después de guardar: el cliente autoriza estas cifras exactas. Para cambiar el trato, cancela este plan y vende uno nuevo.",
+  "app.plans.create": "Crear plan",
+  "app.plans.saving": "Guardando…",
+  "app.plans.blocked.cancelled": "Cancelado — no se facturará nada más",
+  "app.plans.blocked.completed": "Terminado — ya se facturaron todas las visitas",
+  "app.plans.blocked.not_active": "No está en marcha",
+  "app.plans.blocked.not_started": "Esperando la fecha de la primera visita",
+  "app.plans.blocked.malformed": "Este plan no se puede facturar — revisa sus fechas",
+  "app.plans.stateInvoice":
+    "En la fecha de cada visita se envía por correo una factura con enlace de pago. No se guarda ninguna forma de pago y no se cobra nada a menos que el cliente pague.",
+  "app.plans.stateLive":
+    "Cobrando {method} automáticamente. El cliente lo autorizó el {date}.",
+  "app.plans.state.no_consent":
+    "Pediste cobrarle a este cliente automáticamente. Todavía no ha abierto el enlace de autorización, así que cada visita se está facturando en su lugar.",
+  "app.plans.state.awaiting_payment_method":
+    "El cliente aceptó las condiciones pero no terminó de guardar una forma de pago. No se puede cobrar nada hasta que lo haga — mientras tanto, las visitas se facturan.",
+  "app.plans.state.revoked":
+    "Se quitó la forma de pago guardada, así que no se está cobrando nada. Cada visita se factura en su lugar.",
+  "app.plans.askFirst": "Pedirle al cliente que autorice los pagos",
+  "app.plans.askAgain": "Enviar el enlace de autorización otra vez",
+  "app.plans.asking": "Enviando…",
+  "app.plans.askSent":
+    "Enviado a {email}. Verá el importe y el calendario antes de autorizar nada.",
+  "app.plans.removeMethod": "Quitar la forma de pago guardada",
+  "app.plans.removing": "Quitando…",
+  "app.plans.methodRemovedOk":
+    "Listo. La tarjeta se desvinculó en Stripe y este plan pasa a facturar cada visita.",
+  "app.plans.methodRemovedPartial":
+    "Este plan ya no cobrará automáticamente, pero Stripe no confirmó que la tarjeta se desvinculara. Revisa la ficha del cliente en Stripe.",
+  "app.plans.historyTitle": "Facturado hasta ahora",
+  "app.plans.historyEmpty":
+    "Aún no se ha facturado nada. La primera factura se genera en la fecha de la primera visita.",
+  "app.plans.occ.pending": "Preparando",
+  "app.plans.occ.invoiced": "Facturada",
+  "app.plans.occ.charging": "Pago en curso",
+  "app.plans.occ.paid": "Pagada",
+  "app.plans.occ.failed": "El pago falló",
+  "app.plans.viewInvoice": "Ver factura",
+  "app.plans.cancel": "Cancelar plan",
+  "app.plans.cancelTitle": "¿Cancelar este plan?",
+  "app.plans.cancelBody":
+    "No se facturarán más visitas, se retira la autorización del cliente y su forma de pago guardada se desvincula en Stripe. Las facturas ya generadas quedan tal cual están.",
+  "app.plans.keep": "Dejarlo en marcha",
+  "app.plans.cancelConfirm": "Cancelar el plan",
+  "app.plans.cancelling": "Cancelando…",
+  "app.plans.cancelledOk":
+    "Cancelado. No se facturará nada más y se quitó la forma de pago guardada.",
+  "app.plans.cancelledPartial":
+    "Cancelado — no se facturará nada más. Stripe no confirmó que la tarjeta guardada se desvinculara; revisa la ficha del cliente en Stripe.",
+  "app.plans.closedNote.cancelled":
+    "Este plan se canceló. No se facturará nada más.",
+  "app.plans.closedNote.completed":
+    "Este plan está terminado — ya se facturaron todas las visitas vendidas.",
+
+  // ── Panel de KPI ─────────────────────────────────────────────────────────
+  "app.kpis.title": "Panel de KPI",
+  "app.kpis.subtitle":
+    "Ventas, ganancia, ejecución y efectivo en un solo lugar — la mayoría de estos números nunca había tenido pantalla. Una tarjeta sin datos dice por qué, en vez de mostrar un cero.",
+  "app.kpis.backToInsights": "Cómo te comparas",
+  "app.kpis.preset.thisMonth": "Este mes",
+  "app.kpis.preset.lastMonth": "El mes pasado",
+  "app.kpis.preset.thisQuarter": "Este trimestre",
+  "app.kpis.preset.yearToDate": "Lo que va del año",
+  "app.kpis.preset.lastYear": "El año pasado",
+  "app.kpis.sales.title": "Ventas",
+  "app.kpis.sales.subtitle":
+    "Qué salió, qué volvió y con cuánto trabajo tienes la agenda por delante.",
+  "app.kpis.winRate": "Tasa de cierre",
+  "app.kpis.avgJobValue": "Valor promedio del trabajo",
+  "app.kpis.leadConversion": "Conversión de prospecto → presupuesto",
+  "app.kpis.backlogWeeks": "Trabajo por delante",
+  "app.kpis.backlogHint":
+    "Semanas de trabajo aceptado que aún tienes por delante, al ritmo de este periodo — no meses. Un taller residencial con 2 a 6 semanas reservadas está bien.",
+  "app.kpis.reason.noQuotesSent":
+    "Envía presupuestos y consigue que se decidan {floor} de ellos — ganados o perdidos — y aquí aparecerá tu tasa de cierre.",
+  "app.kpis.reason.noWonQuotes":
+    "Gana {floor} presupuestos y aquí aparecerá el valor promedio de tus trabajos.",
+  "app.kpis.reason.noLeadsInPeriod":
+    "Todavía no hay prospectos en este periodo. Cuando hayan entrado {floor}, aquí verás qué parte se convierte en presupuesto.",
+  "app.kpis.reason.noneDecidedYet":
+    "Todavía no se ha decidido nada en este periodo. Cuando {floor} presupuestos estén marcados como ganados o perdidos, aquí aparecerá tu tasa de cierre.",
+  "app.kpis.reason.belowFloor":
+    "{sampleSize} de {floor} hasta ahora — con {remaining} más, este dato será fiable.",
+  "app.kpis.reason.noThroughputReference":
+    "Hay trabajo por delante, pero en este periodo no se terminó ningún trabajo con presupuesto valorado contra el cual medir un ritmo semanal. Termina uno y esto se completa.",
+  "app.kpis.moneyFlow.title": "Flujo de dinero",
+  "app.kpis.moneyFlow.subtitle":
+    "Qué entró, qué salió y qué queda en este periodo, día por día. Los ingresos son pagos realmente recibidos; los gastos son los que se registraron o importaron, nunca una suposición de lo que falta.",
+  "app.kpis.moneyFlow.materialsTrapNote":
+    "Estos trabajos muestran {buyList} comprados de la lista de materiales en este periodo, pero solo {expense} se registró como gasto. El total de gastos de abajo es real — simplemente no incluye esas compras. Regístralas como gastos, o impórtalas de un estado de cuenta bancario, para ver la cifra verdadera.",
+  "app.kpis.moneyFlow.income": "Ingresos",
+  "app.kpis.moneyFlow.expenses": "Gastos",
+  "app.kpis.moneyFlow.remaining": "Queda",
+  "app.kpis.moneyFlow.trend.up": "{pct}% más que el periodo anterior",
+  "app.kpis.moneyFlow.trend.down": "{pct}% menos que el periodo anterior",
+  "app.kpis.moneyFlow.trend.flat": "Casi igual que el periodo anterior",
+  "app.kpis.moneyFlow.trend.fromZero": "Sube desde $0 del periodo anterior",
+  "app.kpis.moneyFlow.importCsv": "Importar un estado de cuenta bancario →",
+  "app.kpis.moneyFlow.expensesIncompleteHint":
+    "Se compraron materiales de la lista que nunca se registraron — mira la nota de arriba.",
+  "app.kpis.moneyFlow.chartTitle": "Ingresos frente a gastos, por día",
+  "app.kpis.moneyFlow.legendIncome": "Ingresos",
+  "app.kpis.moneyFlow.legendExpenses": "Gastos",
+  "app.kpis.moneyFlow.noChart": "Aún no hay nada registrado, así que no hay gráfico que dibujar.",
+  "app.kpis.moneyFlow.categoriesTitle": "En qué se fue el dinero",
+  "app.kpis.moneyFlow.noCategories": "No hay gastos en este periodo.",
+  "app.kpis.moneyFlow.noExpensesYet": "Aún no se ha registrado ningún gasto.",
+  "app.kpis.moneyFlow.other": "Otros",
+  "app.kpis.moneyFlow.uncategorised": "Sin categoría",
+  "app.kpis.finance.title": "Costos del negocio",
+  "app.kpis.finance.subtitle":
+    "Nómina, costos fijos, gasto en marketing y trabajo ya comprometido — armado con lo que FieldQuo ya sabe, sin necesidad de un estado de cuenta.",
+  "app.kpis.finance.payrollTitle": "Nómina de este periodo",
+  "app.kpis.finance.payrollUnratedHint":
+    "{count} horas registradas por {workers} no tienen tarifa de pago en el sistema y no se cuentan aquí.",
+  "app.kpis.finance.payrollPendingHint":
+    "{hours} h siguen pendientes de aprobación y aún no se cuentan.",
+  "app.kpis.finance.fixedCostsTitle": "Costos fijos",
+  "app.kpis.finance.fixedCostsHint":
+    "Al mes, sin importar el periodo de arriba — renta, sueldos de estructura y deuda.",
+  "app.kpis.finance.fixedCostsLink": "Ver el desglose →",
+  "app.kpis.finance.marketingTitle": "Gasto en marketing",
+  "app.kpis.finance.marketingOverlapHint":
+    "Puede coincidir con un costo también registrado en Control de gastos — no se suma a los gastos de arriba.",
+  "app.kpis.finance.backlogTitle": "Comprometido, todavía sin facturar",
+  "app.kpis.finance.backlogCount": "{count} trabajos aceptados y abiertos.",
+  "app.kpis.finance.backlogUnknown": "Aún no hay datos.",
+  "app.kpis.profit.title": "Ganancia",
+  "app.kpis.profit.subtitle":
+    "Sumado sobre cada trabajo terminado en el periodo, solo con horas aprobadas y gastos registrados.",
+  "app.kpis.materialsTrapNote":
+    "Estos trabajos muestran {buyList} comprados de la lista de materiales, pero solo {expense} se registró como gasto. El costeo de trabajos únicamente lee gastos, así que el margen de abajo sería ficción — queda oculto hasta que las compras de materiales también se registren como gastos.",
+  "app.kpis.grossMargin": "Margen bruto (trabajo típico)",
+  "app.kpis.netMargin": "Margen neto (trabajo típico)",
+  "app.kpis.setCapacity": "Define tu capacidad semanal de trabajo →",
+  "app.kpis.labourCostPct": "Costo de mano de obra, % de los ingresos",
+  "app.kpis.revenuePerEmployee": "Ingresos por empleado",
+  "app.kpis.execution.title": "Ejecución",
+  "app.kpis.execution.subtitle":
+    "Qué tan cerca quedó la estimación de lo que pasó, y cómo aguantó el calendario.",
+  "app.kpis.onTimeCompletion": "Terminados a tiempo",
+  "app.kpis.onTimeHint":
+    "Terminados en la fecha de la última visita programada o antes. No es tiempo de ciclo: los trabajos no llevan fecha de inicio contra la cual medirlo.",
+  "app.kpis.utilisation": "Aprovechamiento de la mano de obra",
+  "app.kpis.utilisationHint":
+    "Horas que llegaron a un trabajo, frente a las horas que prometía una semana garantizada. El personal de oficina no se cuenta: su tiempo es gasto general por diseño.",
+  "app.kpis.estimateAccuracy": "Precisión de la estimación (variación mediana)",
+  "app.kpis.estimateAccuracyThin":
+    "No hay suficientes trabajos terminados y costeados en este periodo para sacar una cifra.",
+  "app.kpis.fullReport": "Informe completo →",
+  "app.kpis.schedule": "Trabajos recientes: ventana programada frente a la finalización",
+  "app.kpis.legendOnTime": "Terminado a tiempo",
+  "app.kpis.legendLate": "Terminado tarde",
+  "app.kpis.quality.title": "Calidad",
+  "app.kpis.quality.subtitle":
+    "Trabajo al que hubo que volver, y alcance que cambió después de que el cliente dijo que sí.",
+  "app.kpis.reworkCallbackRate": "Tasa de retrabajo y regresos",
+  "app.kpis.reworkCallbackHint":
+    "Trabajos terminados a los que la empresa tuvo que volver para rehacer algo o por garantía. Un cliente que creyó que faltaba algo y no faltaba no cuenta en contra — mira la página del trabajo para registrar cuál es cuál.",
+  "app.kpis.changeOrderRate": "Tasa de órdenes de cambio",
+  "app.kpis.changeOrderHint":
+    "Trabajos terminados con al menos un cambio de alcance registrado después de aceptar el presupuesto — nunca deducido de una edición común de presupuesto o factura.",
+  "app.kpis.cash.title": "Efectivo",
+  "app.kpis.cash.subtitle": "Lo que te deben y lo que realmente ha entrado.",
+  "app.kpis.arAging": "Cuentas por cobrar, por antigüedad",
+  "app.kpis.nothingOwed": "Ahora mismo no hay nada pendiente de cobro.",
+  "app.kpis.overdueOf": "{overdue} de eso está vencido ({count})",
+  "app.kpis.revenueTrend": "Dinero recibido, últimos 6 meses",
+  "app.kpis.noPaymentsYet": "Aún no hay pagos registrados.",
+  "app.kpis.customer.title": "Cliente",
+  "app.kpis.customer.subtitle":
+    "Lo que dicen los clientes cuando el trabajo termina — una sola pregunta, enviada junto con el correo que pide reseña.",
+  "app.kpis.csat": "Satisfacción del cliente",
+  "app.kpis.csatHint":
+    "Promedio de la encuesta de una pregunta que se envía después de un trabajo. Solo la recogen las empresas que hoy tienen configurado un enlace de reseñas — va en el mismo correo.",
+  "app.kpis.csatBreakdown": "Respuestas por puntuación",
+  "app.kpis.csatLowScoreNote":
+    "{count} de estas puntuaron 1 o 2 — vale la pena una llamada de seguimiento.",
+  "app.kpis.reason.noSurveyResponses":
+    "Ningún cliente ha respondido todavía la encuesta de satisfacción. Cuando lo hayan hecho {floor}, aparecerá aquí.",
+  "app.kpis.notTracked.title": "Sin seguimiento",
+  "app.kpis.notTracked.subtitle":
+    "Métricas que un panel como este suele llevar, y para las que FieldQuo no inventa números.",
+
+  // ── Diseñador de marketing ───────────────────────────────────────────────
+  "app.marketingDesigner.title": "Diseñador de marketing",
+  "app.marketingDesigner.subtitle":
+    "Diseña un anuncio una vez y expórtalo en todos los tamaños que pide cada red social — Instagram, TikTok, Facebook y YouTube — sin rehacer la composición a mano.",
+  "app.marketingDesigner.newCampaign": "Nueva campaña publicitaria",
+  "app.marketingDesigner.campaignNamePlaceholder": "Nombre de la campaña",
+  "app.marketingDesigner.newDesign": "Nuevo diseño",
+  "app.marketingDesigner.designNamePlaceholder": "Nombre del diseño",
+  "app.marketingDesigner.empty":
+    "Aún no hay campañas publicitarias. Crea una para empezar a diseñar.",
+  "app.marketingDesigner.noDesigns": "Aún no hay diseños en esta campaña.",
+  "app.marketingDesigner.ratiosSaved": "{done}/{total} formatos listos",
+  "app.marketingDesigner.overflowWarning":
+    "El arte se sale del borde en {count} formato(s).",
+  "app.marketingDesigner.imageSidebar.jobPhotosTab": "Fotos del trabajo",
+  "app.marketingDesigner.imageSidebar.chooseJob": "Elige un trabajo…",
+  "app.marketingDesigner.imageSidebar.noJobs": "Aún no hay trabajos.",
+  "app.marketingDesigner.imageSidebar.pickJobHint":
+    "Elige un trabajo para ver sus fotos.",
+  "app.marketingDesigner.imageSidebar.noJobPhotos":
+    "Este trabajo todavía no tiene fotos utilizables.",
+  "app.marketingDesigner.nameRequired": "Hace falta un nombre",
+  "app.marketingDesigner.createError": "No se pudo crear eso",
+  "app.marketingDesigner.deleteConfirm":
+    "¿Eliminar este diseño? No se puede deshacer.",
+  "app.marketingDesigner.downloadAll": "Descargar todos los formatos",
+  "app.marketingDesigner.downloading": "Preparando las descargas…",
+  "app.marketingDesigner.saveIdle": "Todos los cambios guardados",
+  "app.marketingDesigner.savePending": "Guardando…",
+  "app.marketingDesigner.saveError": "No se pudo guardar — revisa tu conexión",
+  "app.marketingDesigner.backToDesigns": "Volver a los diseños",
+  "app.marketingDesigner.publish": "Publicar",
+  "app.marketingDesigner.publishModal.title": "Publicar en Instagram y Facebook",
+  "app.marketingDesigner.publishModal.checkingConnection": "Comprobando tu conexión…",
+  "app.marketingDesigner.publishModal.notConnectedTitle": "Todavía sin conectar",
+  "app.marketingDesigner.publishModal.notConnectedBody":
+    "Publicar en Instagram y Facebook requiere conectar una sola vez tu cuenta de Meta Business, y Meta exige una revisión antes de que cualquier aplicación pueda publicar automáticamente. Esto aún no está disponible — vuelve a mirar pronto.",
+  "app.marketingDesigner.publishModal.platformsLabel": "Publicar en",
+  "app.marketingDesigner.publishModal.facebook": "Página de Facebook",
+  "app.marketingDesigner.publishModal.instagram": "Instagram",
+  "app.marketingDesigner.publishModal.instagramUnavailable":
+    "No hay cuenta de Instagram vinculada a esta página",
+  "app.marketingDesigner.publishModal.shapeLabel": "Forma",
+  "app.marketingDesigner.publishModal.shapeSquare": "Cuadrada (1:1)",
+  "app.marketingDesigner.publishModal.shapeLandscape": "Horizontal (1.91:1)",
+  "app.marketingDesigner.publishModal.previewError":
+    "No se pudo generar una vista previa de este diseño.",
+  "app.marketingDesigner.publishModal.imageNotCompliant":
+    "Este recorte no cumple las reglas de forma de Instagram — prueba la otra forma de arriba.",
+  "app.marketingDesigner.publishModal.captionLabel": "Texto",
+  "app.marketingDesigner.publishModal.captionPlaceholder":
+    "Escribe lo que acompaña a esta publicación…",
+  "app.marketingDesigner.publishModal.captionCount": "{length}/2200",
+  "app.marketingDesigner.publishModal.copyGenerate": "Generar con IA",
+  "app.marketingDesigner.publishModal.copyGenerating": "Escribiendo…",
+  "app.marketingDesigner.publishModal.copyNoPhotos":
+    "Primero agrega una foto al lienzo.",
+  "app.marketingDesigner.publishModal.copyError":
+    "No se pudo generar un texto para estas fotos.",
+  "app.marketingDesigner.publishModal.copyNoUsablePhotos":
+    "Ninguna de estas fotos se pudo usar — las fotos de problemas no pueden ir en un texto de marketing.",
+  "app.marketingDesigner.publishModal.copyGrounded":
+    "Escrito a partir del alcance real de este trabajo.",
+  "app.marketingDesigner.publishModal.copyGeneric":
+    "No se encontraron datos del trabajo para estas fotos — este texto es genérico.",
+  "app.marketingDesigner.publishModal.copyExcludedIssue":
+    "{count} excluidas — marcadas como problema.",
+  "app.marketingDesigner.publishModal.captionEmpty":
+    "Escribe un texto antes de publicar.",
+  "app.marketingDesigner.publishModal.captionTooLong":
+    "Demasiado largo para Instagram — máximo 2.200 caracteres.",
+  "app.marketingDesigner.publishModal.tooManyHashtags":
+    "Demasiados hashtags para Instagram — máximo 30.",
+  "app.marketingDesigner.publishModal.tooManyMentions":
+    "Demasiadas menciones con @ para Instagram — máximo 20.",
+  "app.marketingDesigner.publishModal.previewAlt":
+    "Vista previa de lo que se publicará",
+  "app.marketingDesigner.publishModal.confirm": "Publicar ahora",
+  "app.marketingDesigner.publishModal.publishing": "Publicando…",
+  "app.marketingDesigner.publishModal.cancel": "Cancelar",
+  "app.marketingDesigner.publishModal.close": "Cerrar",
+  "app.marketingDesigner.publishModal.resultPublished": "Publicado en {platform}.",
+  "app.marketingDesigner.publishModal.resultFailed":
+    "No se pudo publicar en {platform}: {message}",
+  "app.marketingDesigner.publishModal.resultRateLimited":
+    "{platform} alcanzó el límite de publicaciones de Meta durante las próximas 24 horas.",
+  "app.marketingDesigner.publishModal.genericError":
+    "No se pudo publicar. No se envió nada.",
+  "app.marketingDesigner.publishModal.historyTitle":
+    "Publicaciones recientes de este diseño",
+  "app.marketingDesigner.publishModal.mockBadge":
+    "Simulación de demostración de FieldQuo — no se publica nada real",
+  "app.marketingDesigner.publishModal.scheduleToggle": "Programar para más tarde",
+  "app.marketingDesigner.publishModal.scheduleHint":
+    "Facebook: de 10 minutos a 75 días por delante. Instagram: al menos 5 minutos por delante — FieldQuo la guarda y la publica por ti en el momento indicado.",
+  "app.marketingDesigner.publishModal.scheduleInvalid":
+    "Elige una hora dentro de las ventanas de arriba.",
+  "app.marketingDesigner.publishModal.simulateFailureLabel":
+    "Simular un fallo (demostración)",
+  "app.marketingDesigner.publishModal.simulateFailureNone":
+    "Ninguno — que funcione normalmente",
+  "app.marketingDesigner.publishModal.simulateFailureRateLimited":
+    "Se alcanzó el límite de publicaciones de Meta",
+  "app.marketingDesigner.publishModal.simulateFailureContainerError":
+    "Meta rechaza la imagen",
+  "app.marketingDesigner.publishModal.confirmSchedule": "Programar",
+  "app.marketingDesigner.publishModal.resultScheduled":
+    "Programada para {platform} el {when}.",
+  "app.marketingDesigner.publishModal.resultScheduledNoTime":
+    "Programada para {platform}.",
+  "app.marketingDesigner.calendarLink": "Calendario",
+  "app.marketingDesigner.calendar.title": "Calendario social",
+  "app.marketingDesigner.calendar.subtitle":
+    "Cada publicación de Instagram y Facebook programada, publicada o fallida, con la hora a la que debía salir.",
+  "app.marketingDesigner.calendar.imagesOnly":
+    "Hoy FieldQuo puede programar publicaciones de imagen. Los reels y el video todavía no son compatibles, así que nunca aparecen aquí.",
+  "app.marketingDesigner.calendar.showAll": "Mostrar todo",
+  "app.marketingDesigner.calendar.empty": "No hay nada programado.",
+  "app.marketingDesigner.calendar.cancel": "Cancelar",
+  "app.marketingDesigner.calendar.status.pending": "Publicando",
+  "app.marketingDesigner.calendar.status.scheduled": "Programada",
+  "app.marketingDesigner.calendar.status.container_created": "Publicando",
+  "app.marketingDesigner.calendar.status.publishing": "Publicando",
+  "app.marketingDesigner.calendar.status.published": "Publicada",
+  "app.marketingDesigner.calendar.status.failed": "Falló",
+  "app.marketingDesigner.calendar.status.rate_limited": "Límite alcanzado",
+  "app.marketingDesigner.calendar.status.canceled": "Cancelada",
+
+  // ── Vehículos ────────────────────────────────────────────────────────────
+  "app.fleet.title": "Vehículos",
+  "app.fleet.intro":
+    "Qué toca, qué está por vencer y quién tiene la camioneta. Lo que costó cada uno está en el registro de activos.",
+  "app.fleet.add": "Agregar",
+  "app.fleet.addTitle": "Agregar un vehículo",
+  "app.fleet.editTitle": "Editar vehículo",
+  "app.fleet.addDetails": "Agregar datos de flota",
+  "app.fleet.pickVehicle": "Elige de qué vehículo se trata.",
+  "app.fleet.whichVehicle": "Qué vehículo",
+  "app.fleet.saveFailed": "No se pudo guardar eso.",
+  "app.fleet.deleteFailed": "No se pudo quitar eso.",
+  "app.fleet.noAssetsTitle": "Todos los vehículos del registro ya tienen ficha",
+  "app.fleet.noAssetsBody":
+    "Una camioneta primero tiene que estar en el registro de activos: esa es la línea que lleva lo que costó y cómo se deprecia.",
+  "app.fleet.goToRegister": "Agregar un vehículo al registro",
+  "app.fleet.askOwner":
+    "Pídele a un propietario o administrador que lo agregue — el registro va con los costos de la empresa.",
+  "app.fleet.plate": "Placa",
+  "app.fleet.makeModel": "Marca y modelo",
+  "app.fleet.vin": "VIN",
+  "app.fleet.year": "Año",
+  "app.fleet.odometer": "Odómetro (km)",
+  "app.fleet.odometerPlaceholder": "Déjalo en blanco si no lo sabes",
+  "app.fleet.driver": "Quién la tiene",
+  "app.fleet.noDriver": "Nadie en particular",
+  "app.fleet.inactive": "ya no está activo",
+  "app.fleet.withDriver": "con {name}",
+  "app.fleet.insuranceExpires": "El seguro vence",
+  "app.fleet.registrationExpires": "La matrícula vence",
+  "app.fleet.serviceDueAt": "Próximo servicio (fecha)",
+  "app.fleet.serviceDueKm": "Próximo servicio (km)",
+  "app.fleet.serviceKmHint":
+    "Un servicio que toca por kilometraje solo empieza a contar cuando se llena el odómetro de arriba.",
+  "app.fleet.unnamed": "Vehículo sin nombre",
+  "app.fleet.noIdentifiers": "Sin placa ni modelo registrados",
+  "app.fleet.noDetailsYet":
+    "Está en el registro de activos, pero sin placa, kilometraje ni fechas de renovación.",
+  "app.fleet.badgeOverdue": "Algo se venció",
+  "app.fleet.badgeDue": "Algo toca pronto",
+  "app.fleet.badgeOk": "Nada pendiente",
+  "app.fleet.badgeUnknown": "Nada registrado",
+  "app.fleet.orphanWarning":
+    "Se eliminó la ficha de activo detrás de este vehículo. Las fechas de abajo siguen siendo reales — consérvalas, o elimina esta ficha cuando la camioneta ya no esté.",
+  "app.fleet.insurance": "Seguro",
+  "app.fleet.registration": "Matrícula",
+  "app.fleet.serviceDate": "Servicio (por fecha)",
+  "app.fleet.serviceKm": "Servicio (por kilometraje)",
+  "app.fleet.kmUnknown": "No hay suficiente registrado",
+  "app.fleet.kmRemaining": "Faltan {km} km",
+  "app.fleet.dateUnknown": "Sin fecha registrada",
+  "app.fleet.notRecorded": "Sin registrar",
+  "app.fleet.cost": "Costo",
+  "app.fleet.bookValue": "Valor en libros hoy",
+  "app.fleet.removeRecord": "Quitar la ficha de flota",
+  "app.fleet.confirmDelete":
+    "¿Quitar la ficha de flota de este vehículo? El activo en sí, y su depreciación, quedan tal cual están.",
+  "app.fleet.dueTitle": "Pendiente o por vencer",
+  "app.fleet.emptyTitle": "No hay vehículos en el registro",
+  "app.fleet.emptyBody":
+    "Una camioneta aparece aquí cuando está en el registro de activos: esa es la línea que lleva lo que costó y cómo se deprecia.",
+  "app.fleet.maintenance": "Mantenimiento",
+  "app.fleet.noMaintenance": "Aún no hay nada registrado.",
+  "app.fleet.logWork": "Registrar trabajo",
+  "app.fleet.logIt": "Registrarlo",
+  "app.fleet.logFailed": "No se pudo registrar eso.",
+  "app.fleet.describeRequired": "Di qué se hizo.",
+  "app.fleet.whatWasDone": "Qué se hizo",
+  "app.fleet.odometerAtService": "Odómetro entonces (km) — opcional",
+  "app.fleet.costOptional": "Cuánto costó — déjalo en blanco si no lo sabes",
+  "app.fleet.odometerMoved":
+    "Se actualizó el odómetro de la camioneta para que coincida con esta entrada.",
+  "app.fleet.confirmRemoveEntry":
+    "¿Eliminar esta entrada? La lectura de odómetro que fijó se mantiene — la camioneta sí recorrió esos kilómetros.",
+  "app.fleet.kind.service": "Servicio",
+  "app.fleet.kind.repair": "Reparación",
+  "app.fleet.kind.tyres": "Llantas",
+  "app.fleet.kind.inspection": "Inspección",
+  "app.fleet.kind.other": "Otro",
+
+  // ── Impuestos: de dónde sale la tasa y por qué ───────────────────────────
+  "app.tax.note.companyRate":
+    "Se usa tu tasa “{label}” — asignada a la provincia de {client}.",
+  "app.tax.note.canadaRate":
+    "{label}: {rate}%. Tus propias tasas de impuesto no cubren esta provincia, así que se usa la tasa publicada.",
+  "app.tax.note.vatStandard": "Tasa general de IVA ({label}): {rate}%.",
+  "app.tax.note.vatReduced":
+    "Tasa reducida de IVA para obras de renovación ({label}): {rate}%.",
+  "app.tax.note.vatNotRegistered":
+    "No se cobra IVA — nos indicaste que estás por debajo del umbral de registro ({label}).",
+  "app.tax.note.usStateBase":
+    "Tasa base estatal ({label}): {rate}%. Esa no es la tasa de esta dirección — en su lugar se muestra tu tasa por defecto.",
+  "app.tax.note.noClientCountry":
+    "{client} no tiene país registrado, así que se aplica tu tasa por defecto. Una provincia por sí sola no identifica una tasa de impuesto.",
+  "app.tax.note.unknownRegion":
+    "No reconocemos el estado o la provincia de la dirección de {client}, así que se aplica tu tasa por defecto.",
+  "app.tax.note.noCompanyCountry":
+    "El IVA se cobra donde está tu negocio, y la dirección de tu empresa no tiene país registrado — así que se aplica tu tasa por defecto.",
+  "app.tax.note.vatStatusUnknown":
+    "Se aplica tu tasa por defecto. Indícanos en Configuración si estás registrado a efectos de IVA y usaremos la tasa publicada ({label}).",
+  "app.tax.note.unsupportedCountry":
+    "No tenemos tasas de impuesto publicadas para {country}, así que se aplica tu tasa por defecto.",
+  "app.tax.note.noRateForDate":
+    "No tenemos una tasa para esta fecha ({label}), así que se aplica tu tasa por defecto.",
+  "app.tax.caution.pstRealProperty":
+    "Revisa la parte provincial antes de enviar. En la mayoría de las obras sobre inmuebles, el contratista paga el PST de los materiales en lugar de cobrarlo en el contrato, así que muchas veces la tasa es solo el 5% del GST.",
+  "app.tax.caution.pstConstructionTaxable":
+    "Saskatchewan grava los servicios de construcción, así que el PST va en el contrato además del GST.",
+  "app.tax.caution.usLocalNotIncluded":
+    "No se incluyen los impuestos de condado, ciudad ni distrito, y en muchos estados la obra de construcción recibe un trato distinto. Ingresa la tasa de esta dirección.",
+  "app.tax.caution.vatNotRegistered":
+    "Este presupuesto no cobra IVA porque nos indicaste que no estás registrado. Cámbialo en Configuración si eso ya no es cierto.",
+  "app.tax.vatChoice.title": "¿Qué tasa de IVA corresponde?",
+  "app.tax.vatChoice.standard": "Tasa general — {rate}%",
+  "app.tax.vatChoice.reduced": "Tasa reducida para obras de renovación — {rate}%",
+  "app.tax.vatCondition.dwellingAge10":
+    "Se aplica a viviendas particulares de al menos 10 años de antigüedad.",
+  "app.tax.vatCondition.dwellingAge2":
+    "Se aplica a viviendas terminadas hace más de 2 años.",
+  "app.tax.vatCondition.dwellingAge2Labour":
+    "Se aplica a la mano de obra en viviendas terminadas hace más de 2 años; los materiales quedan a la tasa general.",
+  "app.tax.vatCondition.privateResidence":
+    "Se aplica a la renovación y reparación de viviendas particulares.",
+  "app.tax.vatCondition.residentialBuilding":
+    "Se aplica a obras en edificios residenciales.",
+  "app.tax.vatCondition.materialsUnder40":
+    "Se aplica cuando los materiales son menos del 40% del valor del contrato.",
+  "app.tax.vatCondition.constructionServices":
+    "Se aplica a los servicios de construcción en general.",
+  "app.tax.vatCondition.mainResidence":
+    "Se aplica a la construcción o renovación de una vivienda habitual.",
+  "app.tax.vatCondition.socialHousing":
+    "Se aplica a la vivienda cubierta por el programa de vivienda social, que tiene límites de superficie.",
+  "app.tax.vatCondition.urbanRehabilitation":
+    "Se aplica a obras en inmuebles dentro de zonas de rehabilitación urbana designadas.",
+  "app.tax.vatCondition.ukResidentialConversion":
+    "Es estrecho: conversiones que cambian el número de viviendas, y casas vacías desde hace 2 años o más. No es renovación general.",
+  "app.tax.vatScheme.rot":
+    "Suecia no tiene tasa reducida de IVA para renovación. En cambio, tu cliente quizá pueda pedir la deducción ROT en su propia declaración.",
+  "app.tax.vatScheme.icelandRefund":
+    "Islandia no tiene tasa reducida de IVA para renovación. En cambio, tu cliente quizá pueda recuperar parte del IVA de la mano de obra en obra residencial.",
+  "app.tax.line.unresolved": "Sin calcular",
+  "app.tax.line.none": "Ninguno",
+  "app.tax.line.unresolvedHint":
+    "El impuesto está activado en este presupuesto pero no se ha cobrado nada. Define el país y la provincia del cliente, ingresa una tasa, o desactiva el impuesto.",
+  "app.tax.assumed.badge": "Supuesto",
+  "app.tax.assumed.note":
+    "Se supone {region} — tu propia provincia, porque {client} no tiene dirección registrada. Revísalo: un cliente al otro lado de una línea provincial debe una tasa distinta.",
+  "app.tax.assumed.noClient":
+    "Se supone {region} — tu propia provincia. Elige un cliente con dirección registrada y se aplicará la tasa real.",
+  "app.tax.blocked.title": "Aquí dice que hay impuesto, pero no cobra ninguno",
+  "app.tax.blocked.body":
+    "Enviarlo pondría delante de tu cliente un total que deja el impuesto fuera. Corrige la dirección o di que no hay impuesto — de cualquier forma es un solo paso.",
+  "app.tax.blocked.missing":
+    "{client} no tiene {fields} registrado, y tú no tienes una tasa de respaldo definida.",
+  "app.tax.blocked.fieldCountry": "país",
+  "app.tax.blocked.fieldProvince": "provincia o estado",
+  "app.tax.blocked.fieldJoin": " ni ",
+  "app.tax.blocked.setAddress": "Definir la ubicación de {client}",
+  "app.tax.blocked.countryLabel": "País",
+  "app.tax.blocked.provinceLabel": "Provincia o estado",
+  "app.tax.blocked.save": "Guardar y calcular el impuesto",
+  "app.tax.blocked.saved":
+    "Guardado — el impuesto ahora sale al {rate}%. Envía cuando quieras.",
+  "app.tax.blocked.stillUnknown":
+    "Guardado, pero eso sigue sin identificar una tasa de impuesto. Ingresa una a mano en el presupuesto, o envíalo sin impuesto.",
+  "app.tax.blocked.noTaxTitle": "O bien: en este caso de verdad no hay impuesto",
+  "app.tax.blocked.noTaxBody":
+    "Desactiva el impuesto solo en este documento. Tu configuración y todos los demás presupuestos quedan intactos, y el documento dirá que no se cobró impuesto en vez de mostrar un cero.",
+  "app.tax.blocked.noTaxAction": "Enviar sin impuesto",
+  "app.tax.blocked.retry": "Enviar ahora",
+  "app.tax.blocked.openClient": "Abrir la ficha del cliente",
+
+  // ── Compras ──────────────────────────────────────────────────────────────
+  "app.purchasing.title": "Compras",
+  "app.purchasing.subtitle":
+    "A quién le compras, qué tienes pedido y qué hay en la bodega.",
+  "app.purchasing.noAccess":
+    "Compras forma parte del permiso de gastos. Pídele a un propietario o administrador que te dé acceso a los gastos de todos.",
+  "app.purchasing.cancel": "Cancelar",
+  "app.purchasing.tab.orders": "Pedidos",
+  "app.purchasing.tab.stock": "Existencias",
+  "app.purchasing.tab.suppliers": "Proveedores",
+  "app.purchasing.suppliers.heading": "Proveedores",
+  "app.purchasing.suppliers.add": "Agregar un proveedor",
+  "app.purchasing.suppliers.namePlaceholder": "Nombre del proveedor",
+  "app.purchasing.suppliers.accountPlaceholder": "Tu número de cuenta con ellos",
+  "app.purchasing.suppliers.contactPlaceholder": "Con quién tratas",
+  "app.purchasing.suppliers.phonePlaceholder": "Teléfono",
+  "app.purchasing.suppliers.save": "Guardar",
+  "app.purchasing.suppliers.empty":
+    "Aún no hay proveedores. Agregarlos es lo que convierte “¿a quién le compramos esto?” en “¿cuánto gastamos ahí este año?”.",
+  "app.purchasing.suppliers.retire": "Retirar",
+  "app.purchasing.suppliers.restore": "Recuperar",
+  "app.purchasing.suppliers.saveFailed": "Eso no se guardó. Inténtalo de nuevo.",
+  "app.purchasing.orders.heading": "Órdenes de compra",
+  "app.purchasing.orders.new": "Nuevo pedido",
+  "app.purchasing.orders.noSupplier": "Sin proveedor",
+  "app.purchasing.orders.linePlaceholder": "¿Qué estás pidiendo?",
+  "app.purchasing.orders.qtyPlaceholder": "Cant.",
+  "app.purchasing.orders.unitCostPlaceholder": "C/u",
+  "app.purchasing.orders.addLine": "Agregar una línea",
+  "app.purchasing.orders.totalNote":
+    "El total previsto se calcula en el servidor a partir de las líneas. Deja el precio en blanco si todavía no lo sabes — el pedido se mostrará sin precio en vez de como si no costara nada.",
+  "app.purchasing.orders.raise": "Emitir el pedido",
+  "app.purchasing.orders.empty": "Aún no hay órdenes de compra.",
+  "app.purchasing.orders.progress": "{complete} de {lines} líneas completas",
+  "app.purchasing.orders.unpriced": "sin precio",
+  "app.purchasing.orders.saveFailed": "Eso no se guardó. Inténtalo de nuevo.",
+  "app.purchasing.orders.deliveryFailed":
+    "Esa entrega no se registró. Inténtalo de nuevo.",
+  "app.purchasing.orders.lineProgress": "{received} de {ordered} {unit}",
+  "app.purchasing.orders.receivedFor": "Cuántas unidades de {line} llegaron",
+  "app.purchasing.orders.overDelivered":
+    "Llegó más de lo pedido: {lines}. Ya entró a existencias — decide si se paga.",
+  "app.purchasing.orders.markSent": "Marcar como enviado",
+  "app.purchasing.orders.recordDelivery": "Registrar lo que llegó",
+  "app.purchasing.orders.cancelOrder": "Cancelar el pedido",
+  "app.purchasing.status.draft": "Borrador",
+  "app.purchasing.status.sent": "Enviado",
+  "app.purchasing.status.partial": "Entregado en parte",
+  "app.purchasing.status.received": "Todo recibido",
+  "app.purchasing.status.cancelled": "Cancelado",
+  "app.purchasing.stock.heading": "En la bodega",
+  "app.purchasing.stock.empty":
+    "Aún no hay materiales configurados. Las existencias se suman a partir de los movimientos, así que aparecen cuando hay algo que contar.",
+  "app.purchasing.stock.lowHeading": "Por debajo del nivel de reposición",
+  "app.purchasing.stock.noThreshold": "Sin nivel de reposición definido",
+  "app.purchasing.stock.threshold": "Reponer en {n}",
+  "app.purchasing.stock.withoutThreshold":
+    "{n} materiales no tienen nivel de reposición, así que no se puede decir nada sobre si se están acabando.",
+  "app.purchasing.stock.recordHeading": "Registrar un movimiento",
+  "app.purchasing.stock.pickMaterial": "¿Qué material?",
+  "app.purchasing.stock.quantityPlaceholder": "Cuántos",
+  "app.purchasing.stock.notePlaceholder": "Nota (opcional)",
+  "app.purchasing.stock.record": "Registrarlo",
+  "app.purchasing.stock.saveFailed": "Eso no se registró. Inténtalo de nuevo.",
+  "app.purchasing.stock.adjustmentHint":
+    "Una corrección puede ser negativa — escribe un signo menos si el conteo salió corto. No se edita ni se elimina nada; la corrección se suma al libro.",
+  "app.purchasing.stock.kind.received": "Recibido",
+  "app.purchasing.stock.kind.returned": "Devuelto a existencias",
+  "app.purchasing.stock.kind.used": "Usado en un trabajo",
+  "app.purchasing.stock.kind.wastage": "Desperdicio",
+  "app.purchasing.stock.kind.adjustment": "Corrección tras un conteo",
+
+  // ── Importar gastos desde un CSV ─────────────────────────────────────────
+  "app.expImport.ctaButton": "Importar desde un CSV del banco",
+  "app.expImport.title": "Importar gastos desde un CSV",
+  "app.expImport.subtitle":
+    "Sube la exportación de un estado de cuenta, asigna sus columnas y revisa cada fila antes de que se guarde nada.",
+  "app.expImport.chooseFile": "Elige un archivo CSV",
+  "app.expImport.dropHint": "o arrastra uno aquí",
+  "app.expImport.errorUnparseable":
+    "Esto no parece un archivo CSV. Exporta un .csv simple desde tu banco e inténtalo de nuevo.",
+  "app.expImport.errorEmpty": "Este archivo está vacío — no hay nada que importar.",
+  "app.expImport.errorHeadersOnly":
+    "Este archivo tiene encabezados de columna pero ninguna fila de datos debajo.",
+  "app.expImport.mapTitle": "Asigna las columnas",
+  "app.expImport.mapSubtitle":
+    "Indica qué contiene cada columna. La fecha, la descripción y un importe son obligatorios.",
+  "app.expImport.continueCount": "Continuar ({satisfied}/{required})",
+  "app.expImport.colSkip": "Omitir",
+  "app.expImport.fieldDate": "Fecha",
+  "app.expImport.fieldDescription": "Descripción",
+  "app.expImport.fieldAmount": "Importe",
+  "app.expImport.fieldDebit": "Cargo (dinero que sale)",
+  "app.expImport.fieldCredit": "Abono (dinero que entra)",
+  "app.expImport.fieldCategory": "Categoría",
+  "app.expImport.signQuestion":
+    "En este archivo, el dinero que sale (un gasto) aparece como:",
+  "app.expImport.signNegative": "Números negativos, como -45,00",
+  "app.expImport.signPositive": "Números positivos, como 45,00",
+  "app.expImport.dateStatusDetected": "Formato de fecha detectado",
+  "app.expImport.dateStatusAmbiguous":
+    "Las fechas de este archivo se pueden leer de las dos formas: primero el día o primero el mes. Elige cuál usa este archivo.",
+  "app.expImport.dateStatusUnrecognised":
+    "No pudimos reconocer las fechas de esta columna.",
+  "app.expImport.dayFirst": "Primero el día — 13/01/2024 es el 13 de enero",
+  "app.expImport.monthFirst": "Primero el mes — 01/13/2024 es el 13 de enero",
+  "app.expImport.defaultCategory": "Categoría por defecto",
+  "app.expImport.defaultCategoryHint":
+    "Se usa en las filas sin columna de categoría, o con la celda de categoría vacía.",
+  "app.expImport.reviewTitle": "Revisa antes de importar",
+  "app.expImport.reviewSubtitle":
+    "Todavía no se guarda nada — desmarca las filas que no quieras y asigna un trabajo donde corresponda.",
+  "app.expImport.summaryReadyShort": "listas para importar",
+  "app.expImport.summaryDuplicatesShort": "excluidas por duplicadas",
+  "app.expImport.summaryErrorsShort": "no se pudieron leer",
+  "app.expImport.summarySkippedShort": "depósitos, no gastos",
+  "app.expImport.truncatedWarning":
+    "Este archivo tiene más filas de las que admite una importación. Solo se leyeron las primeras — pasa el resto a un segundo archivo.",
+  "app.expImport.allDuplicates":
+    "Todas las filas de este archivo coinciden con un gasto ya registrado en esta empresa — no hay nada nuevo que importar.",
+  "app.expImport.noneToImport":
+    "No queda nada por importar — todas las filas se excluyeron, estaban duplicadas o no se pudieron leer.",
+  "app.expImport.duplicateBadge": "Posible duplicado",
+  "app.expImport.assignJob": "Trabajo",
+  "app.expImport.noJob": "Sin trabajo",
+  "app.expImport.showErrors": "Mostrar las {n} filas que no se pudieron leer",
+  "app.expImport.showSkipped": "Mostrar las {n} filas omitidas",
+  "app.expImport.recurringNote":
+    "Las filas importadas se registran como transacciones históricas de una sola vez. Para que un gasto recurrente como la renta alimente el KPI de consumo mensual, agrégalo aparte en Configuración → Gastos generales.",
+  "app.expImport.importButton": "Importar {n} gastos",
+  "app.expImport.importing": "Importando…",
+  "app.expImport.importSuccess": "Se importaron {n} gastos.",
+  "app.expImport.importSuccessExtra":
+    "Otras {n} coincidían con transacciones registradas desde que abriste esta revisión y se omitieron.",
+  "app.expImport.alreadyImported":
+    "Este archivo ya se había importado — no se escribió nada nuevo.",
+  "app.expImport.backToExpenses": "Volver a Control de gastos",
+  "app.expImport.importAnother": "Importar otro archivo",
+
+  // ── Recepcionista telefónico: número, disponibilidad y notas ─────────────
+  "app.setVoice.number.demoBlocked":
+    "Esta es una cuenta de demostración, así que no puede tener un número de teléfono real — una línea real seguiría facturando después de la demostración y cualquiera podría marcarla. Todo lo demás del recepcionista funciona aquí, incluida una línea de demostración para probarlo.",
+  "app.setVoice.demoLine.badge": "línea de demostración",
+  "app.setVoice.demoLine.withReal":
+    "Esta es una línea de demostración y no puede recibir llamadas — es simulada, no un número real. Marca {number} para escuchar cómo contesta el recepcionista de verdad.",
+  "app.setVoice.demoLine.simulatedOnly":
+    "Esta es una línea de demostración y no puede recibir llamadas — la configuración es simulada y detrás no hay ningún número de teléfono real.",
+  "app.setVoice.ready.noNumber":
+    "Primero configura un número arriba — no hay nada en lo que pueda contestar.",
+  "app.setVoice.ready.porting":
+    "Tu número todavía se está trasladando desde tu proveedor anterior. Nada puede contestar en él hasta que llegue.",
+  "app.setVoice.ready.portingDated":
+    "Tu número todavía se está trasladando desde tu proveedor anterior — se espera alrededor del {date}. Nada puede contestar en él hasta que llegue.",
+  "app.setVoice.ready.notActive":
+    "Tu número todavía no está activo con el proveedor. El panel de arriba dice qué le pasa y por lo general puede arreglarlo.",
+  "app.setVoice.ready.unavailable":
+    "El recepcionista telefónico no está disponible en esta cuenta. Escríbenos y lo revisamos.",
+  "app.setVoice.ready.lowBalance":
+    "Primero agrega saldo — una llamada cuesta {rate}¢ por minuto y tu saldo es de {balance}. Contestaría y fallaría.",
+  "app.setVoice.kb.button": "Redactar esto desde el perfil de mi empresa",
+  "app.setVoice.kb.buttonHint":
+    "Lee tu perfil y te pregunta lo que no puede deducir por su cuenta. No repetirá tu horario, tus servicios ni tus zonas — el recepcionista ya los recibe automáticamente.",
+  "app.setVoice.kb.error": "No se pudo determinar qué falta en este momento.",
+  "app.setVoice.kb.title": "Responde esto con tus propias palabras",
+  "app.setVoice.kb.intro":
+    "Escribe encima de cada corchete. Lo que dejes entre corchetes se omite, así que no pasa nada por ignorar alguno.",
+  "app.setVoice.kb.fromTrades":
+    "Algunas de estas salen de lo que tus presupuestos ya dicen sobre",
+  "app.setVoice.kb.written":
+    "Redactado por FieldQuo AI a partir de tu perfil. Nada de esto se guarda hasta que lo agregues y pulses Guardar.",
+  "app.setVoice.kb.quota":
+    "Ya usaste el cupo de IA de este mes, así que estas son las preguntas estándar y no unas escritas para tu oficio. De cualquier forma son las mismas preguntas.",
+  "app.setVoice.kb.plain":
+    "La IA no está activada en esta instalación, así que estas son las preguntas estándar y no unas escritas para tu oficio.",
+  "app.setVoice.kb.use": "Agregar esto a mi nota",
+  "app.setVoice.kb.discard": "Descartar",
+  "app.setVoice.kb.none":
+    "No queda nada evidente por preguntar — tu nota ya cubre lo que tu configuración no puede decir.",
+  "app.setVoice.kb.unanswered":
+    "Líneas que siguen entre corchetes: {count}. El recepcionista omite una línea hasta que reemplaces los corchetes con tu propia respuesta.",
+  "app.setVoice.kb.fixTitle": "Esto va en tu configuración, no en la nota",
+  "app.setVoice.kb.fixIntro":
+    "El recepcionista lee cada una de estas cosas desde tu configuración en cada llamada. Escritas aquí, dentro de un año seguiría dando la respuesta vieja.",
+  "app.setVoice.kb.fixLink": "Abrir configuración",
+  "app.setVoice.kb.audience":
+    "¿Para quién trabajas: para gente en su propia casa, o también para empresas y administradores de inmuebles?",
+  "app.setVoice.kb.turnDown":
+    "Dentro del trabajo que haces, ¿hay algún tipo de trabajo que rechaces, y qué debería decir el recepcionista en vez de aceptarlo?",
+  "app.setVoice.kb.urgent":
+    "¿Qué cuenta como urgente en tu oficio, y quién debería decir el recepcionista que le devolverá la llamada a quien llame?",
+  "app.setVoice.kb.closed":
+    "Alguien llama cuando estás cerrado. ¿Qué debería decirle el recepcionista?",
+  "app.setVoice.kb.outsideArea":
+    "Quien llama está en un lugar al que normalmente no vas. ¿Aun así mirarías el trabajo, o el recepcionista debería decir que no?",
+  "app.setVoice.kb.askFor":
+    "¿Hay alguien por quien un cliente que vuelve podría preguntar por su nombre, y qué debería hacer el recepcionista cuando lo haga?",
+  "app.setVoice.kb.howYouQuote":
+    "¿Vas a ver el trabajo antes de presupuestar, o trabajas con fotos y medidas? Dilo con palabras — nunca con un precio.",
+  "app.setVoice.kb.sound":
+    "¿Cómo debería sonar? ¿Como contestarías tú mismo el teléfono?",
+  "app.setVoice.kb.hours":
+    "¿Cuándo estás abierto? No hay nada configurado, así que el recepcionista tiene que decirle a quien llame que no lo sabe. Configúralo en Configuración, y déjalo fuera de la nota: se lee automáticamente.",
+  "app.setVoice.kb.services":
+    "¿Qué trabajos aceptas? No hay servicios activados, así que el recepcionista no puede decirle a quien llame si haces su trabajo. Actívalos en Configuración — llegan al teléfono por su cuenta.",
+  "app.setVoice.kb.areas":
+    "¿Dónde trabajas? No hay zonas listadas, así que quien llame desde el pueblo de al lado no recibe respuesta ni en un sentido ni en otro. Agrégalas en Configuración — llegan al teléfono por su cuenta.",
+  "app.setVoice.kb.phone":
+    "¿Cuál es tu propio número? Está vacío, así que el recepcionista no puede darle a quien llame una manera de hablar con una persona de verdad.",
+  "app.setVoice.kb.place":
+    "¿Dónde estás ubicado? Está vacío, así que el recepcionista no puede decir dónde estás cuando alguien pregunte.",
+  "app.setVoice.kb.booking":
+    "¿Debería poder agendar visitas? Nadie tiene disponibilidad reservable configurada, así que solo puede tomar horarios preferidos y decir que alguien confirmará.",
+  "app.setVoice.forwardsToLabel": "Se desvía a",
+  "app.setVoice.forwardsToNote":
+    "La línea propia del recepcionista — esto es lo que paga la renta mensual, y a lo que tiene que apuntar tu código de desvío. Tus clientes nunca la marcan; sigue dando el número de arriba.",
+  "app.setVoice.numberNetworkError":
+    "No se pudo conectar con FieldQuo — revisa tu señal e inténtalo de nuevo.",
+  "app.setVoice.cancelPortError": "No se pudo cancelar eso.",
+
+  // ── Gasto en marketing ───────────────────────────────────────────────────
+  "app.marketingSpend.title": "Gasto en marketing",
+  "app.marketingSpend.subtitle":
+    "Lo que gastas para traer trabajo, por canal — y lo que te cuesta cada prospecto, sumando todo.",
+  "app.marketingSpend.addEntry": "Registrar gasto",
+  "app.marketingSpend.editEntry": "Editar gasto",
+  "app.marketingSpend.empty": "Aún no hay gasto registrado.",
+  "app.marketingSpend.amountInvalid": "Ingresa un importe válido, 0 o más.",
+  "app.marketingSpend.dateRequired": "Hace falta una fecha.",
+  "app.marketingSpend.blendedTitle": "Costo combinado por prospecto",
+  "app.marketingSpend.blendedBody":
+    "{spend} gastados, {leads} prospectos reales en el mismo periodo.",
+  "app.marketingSpend.blendedExcluded":
+    "+ {count} prospectos ingresados a mano o importados, sin contar.",
+  "app.marketingSpend.blendedDisclaimer":
+    "Sobre todo lo que estás haciendo para generar prospectos — esto no puede decir qué canal funciona, solo cuánto cuesta el conjunto.",
+  "app.marketingSpend.blendedNoLeads":
+    "Todavía no entró ningún prospecto en este periodo.",
+  "app.marketingSpend.blendedUnavailable": "Aún no hay datos suficientes.",
+  "app.marketingSpend.byChannel": "Gasto por canal",
+  "app.marketingSpend.colChannel": "Canal",
+  "app.marketingSpend.colSpend": "Gasto",
+  "app.marketingSpend.colLeadsEntered": "Prospectos (según lo ingresado)",
+  "app.marketingSpend.colCplEntered": "Costo/prospecto (según lo ingresado)",
+  "app.marketingSpend.colDate": "Fecha",
+  "app.marketingSpend.colCampaign": "Campaña",
+  "app.marketingSpend.colSource": "Origen",
+  "app.marketingSpend.sourceManual": "Manual",
+  "app.marketingSpend.sourceMeta": "Desde Meta",
+  "app.marketingSpend.currencyMismatchNote":
+    "{count} filas están reportadas en una moneda distinta a la de tu empresa y se muestran aparte, sin mezclarse con los totales de arriba.",
+  "app.marketingSpend.metaPointer":
+    "¿Pones anuncios en Meta? Conecta tu cuenta publicitaria para importar el gasto automáticamente.",
+  "app.marketingSpend.metaPointerLink": "Configuración de Meta Ads",
+  "app.marketingSpend.fieldChannel": "Canal",
+  "app.marketingSpend.fieldDate": "Fecha",
+  "app.marketingSpend.fieldAmount": "Importe",
+  "app.marketingSpend.fieldCampaign": "Campaña (opcional)",
+  "app.marketingSpend.fieldLeads": "Prospectos que trajo (opcional)",
+  "app.marketingSpend.fieldConversions": "Conversiones (opcional)",
+  "app.marketingSpend.fieldNotes": "Notas (opcional)",
+  "app.marketingSpend.leadsHint":
+    "Tu propia estimación para este canal — se muestra como “según lo ingresado”, nunca se combina con tu conteo real de prospectos.",
+  "app.marketingSpend.platform.facebook": "Facebook / Instagram",
+  "app.marketingSpend.platform.google": "Google",
+  "app.marketingSpend.platform.tiktok": "TikTok",
+  "app.marketingSpend.platform.pamphlet": "Volantes",
+  "app.marketingSpend.platform.referral": "Incentivo por recomendación",
+  "app.marketingSpend.platform.other": "Otro",
+
+  // ── Portal de ventas (equipo comercial de FieldQuo) ──────────────────────
+  "app.salesPortal.title": "Portal de ventas",
+  "app.salesPortal.signIn": "Iniciar sesión",
+  "app.salesPortal.signOut": "Cerrar sesión",
+  "app.salesPortal.email": "Correo electrónico",
+  "app.salesPortal.password": "Contraseña",
+  "app.salesPortal.signingIn": "Iniciando sesión…",
+  "app.salesPortal.loginIntro":
+    "Solo para el equipo de ventas de FieldQuo. Una cuenta de empresa no te da acceso aquí.",
+  "app.salesPortal.signedInAs": "Sesión iniciada como {name}",
+  "app.salesPortal.myCompanies": "Mis empresas",
+  "app.salesPortal.navQueue": "Cola",
+  "app.salesPortal.navLeads": "Mis prospectos",
+  "app.salesPortal.navConversations": "Conversaciones",
+  "app.salesPortal.intro":
+    "Las empresas acreditadas a tu nombre. Solo lectura: la atribución y la comisión las registran los propios sistemas de FieldQuo, nunca esta pantalla.",
+  "app.salesPortal.empty": "Todavía no hay empresas acreditadas a tu nombre.",
+  "app.salesPortal.loading": "Cargando…",
+  "app.salesPortal.retry": "Inténtalo de nuevo",
+  "app.salesPortal.colCompany": "Empresa",
+  "app.salesPortal.colSignedUp": "Se registró",
+  "app.salesPortal.colSubscription": "Suscripción",
+  "app.salesPortal.colMilestones": "Hitos",
+  "app.salesPortal.demoBadge": "Demostración",
+  "app.salesPortal.noMilestones": "Ninguno registrado",
+  "app.salesPortal.milestoneActivation": "Activada",
+  "app.salesPortal.milestoneFirstPayment": "Primer pago",
+  "app.salesPortal.milestoneRetention": "Sigue pagando",
+  "app.salesPortal.statusReversed": "revertida",
+  "app.salesPortal.statusUnderReview": "en revisión",
+  "app.salesPortal.subNone": "Sin suscripción",
+  "app.salesPortal.subTrialing": "Prueba",
+  "app.salesPortal.subActive": "Activa",
+  "app.salesPortal.subPastDue": "Vencida",
+  "app.salesPortal.subCanceled": "Cancelada",
+  "app.salesPortal.chargesEnabled": "Cobrando pagos",
+  "app.salesPortal.chargesPending": "Configuración de Stripe sin terminar",
+  "app.salesPortal.inviteHeading": "Define tu contraseña",
+  "app.salesPortal.inviteIntro":
+    "Te agregaron al equipo de ventas de FieldQuo como {email}.",
+  "app.salesPortal.inviteChecking": "Comprobando tu invitación…",
+  "app.salesPortal.invitePassword": "Elige una contraseña",
+  "app.salesPortal.inviteConfirm": "Escríbela otra vez",
+  "app.salesPortal.inviteMinLength": "Al menos {n} caracteres.",
+  "app.salesPortal.inviteMismatch": "Esas dos contraseñas no coinciden.",
+  "app.salesPortal.inviteSubmit": "Definir contraseña e iniciar sesión",
+  "app.salesPortal.inviteSaving": "Configurando…",
+  "app.salesPortal.backToSignIn": "Ir a iniciar sesión",
+
+  // ── Equipos instalados y garantías ───────────────────────────────────────
+  "app.equipment.title": "Equipos y garantías",
+  "app.equipment.add": "Agregar",
+  "app.equipment.addTitle": "Agregar equipo",
+  "app.equipment.editTitle": "Editar equipo",
+  "app.equipment.empty":
+    "Aquí todavía no hay nada registrado. Agrega la caldera, el tablero, la unidad — lo que quieras saber en la próxima visita.",
+  "app.equipment.namePlaceholder": "Caldera, tablero, calentador de agua…",
+  "app.equipment.nameRequired": "Ponle un nombre.",
+  "app.equipment.manufacturer": "Fabricante",
+  "app.equipment.modelNumber": "Número de modelo",
+  "app.equipment.serialNumber": "Número de serie",
+  "app.equipment.siteAddress": "Dónde está (si no es la dirección principal)",
+  "app.equipment.installedAt": "Instalado",
+  "app.equipment.warrantyEndsAt": "La garantía cubre hasta",
+  "app.equipment.warrantyBlankHint":
+    "Deja en blanco la fecha de garantía si no la sabes. Se mostrará como “sin registrar”, nunca como fuera de garantía.",
+  "app.equipment.warrantyProvider": "Quién la cubre",
+  "app.equipment.installedByJob": "Instalado en qué trabajo",
+  "app.equipment.noJob": "Sin trabajo asociado",
+  "app.equipment.notes": "Notas — acceso, mañas, qué llevar",
+  "app.equipment.saveFailed": "No se pudo guardar eso.",
+  "app.equipment.confirmDelete":
+    "¿Eliminar este equipo y su historial de servicio? No se puede deshacer.",
+  "app.equipment.deleteFailed": "No se pudo eliminar eso.",
+  "app.equipment.noDetails": "Sin marca ni modelo registrados",
+  "app.equipment.badgeUnknown": "Garantía desconocida",
+  "app.equipment.badgeExpired": "Fuera de garantía",
+  "app.equipment.badgeSoon": "Garantía por terminar",
+  "app.equipment.badgeOk": "En garantía",
+  "app.equipment.warrantyUnknown": "Garantía sin registrar",
+  "app.equipment.warrantyEnded": "La cobertura terminó el {date}",
+  "app.equipment.warrantyUntil": "Cubierto hasta el {date}",
+  "app.equipment.history": "Historial de servicio",
+  "app.equipment.noVisits": "No hay visitas registradas",
+  "app.equipment.visitTally": "{count} visitas · {covered} en garantía",
+  "app.equipment.undated": "Sin fecha",
+  "app.equipment.coveredTag": "cubierta",
+  "app.equipment.logVisit": "Registrar una visita de servicio",
+  "app.equipment.whatWasDone": "Qué se hizo",
+  "app.equipment.wasCovered": "Esta visita la cubrió la garantía",
+  "app.equipment.describeRequired": "Di qué se hizo.",
+  "app.equipment.logFailed": "No se pudo registrar esa visita.",
+  "app.equipment.logIt": "Registrarlo",
+
+  // ── Garantías por vencer ─────────────────────────────────────────────────
+  "app.equipmentList.title": "Garantías que se acaban",
+  "app.equipmentList.intro":
+    "Equipos que instalaste cuya cobertura terminó o está por terminar. Esto es una lista de llamadas.",
+  "app.equipmentList.window": "Próximos {days} días",
+  "app.equipmentList.tally":
+    "{expired} fuera de garantía · {dueSoon} por terminar · {unknown} sin fecha de garantía registrada",
+  "app.equipmentList.emptyTitle": "No hay nada dentro de esta ventana",
+  "app.equipmentList.emptyBody":
+    "Los equipos sin fecha de garantía no salen en esta lista — una fecha en blanco significa que nadie la registró, no que la cobertura terminó.",
+  "app.equipmentList.unnamedClient": "Cliente",
+  "app.equipmentList.email": "Correo electrónico",
+
+  // ── Meta Ads ─────────────────────────────────────────────────────────────
+  "app.setMetaAds.subtitle":
+    "Conecta tu propia cuenta publicitaria de Meta (Facebook/Instagram) para traer el gasto y el rendimiento de las campañas a tus números de marketing.",
+  "app.setMetaAds.connectedBanner": "Meta Ads conectado.",
+  "app.setMetaAds.noAuthorizeUrl": "No se pudo iniciar la conexión.",
+  "app.setMetaAds.notConfiguredTitle": "Todavía sin configurar",
+  "app.setMetaAds.notConfiguredBody":
+    "Meta todavía no ha aprobado a FieldQuo como aplicación para anunciantes en esta instalación, así que aún no hay nada a lo que conectarse. Mira docs/META-ADS-BUILD.md para saber qué hace falta.",
+  "app.setMetaAds.noEncryptionTitle": "Todavía no se puede guardar un token de forma segura",
+  "app.setMetaAds.noEncryptionBody":
+    "META_TOKEN_ENCRYPTION_KEY no está definida en esta instalación, así que no se pudo guardar de forma segura un token de acceso de Meta. Es una configuración del entorno de despliegue, no algo que puedas arreglar desde aquí.",
+  "app.setMetaAds.notConnectedTitle": "Sin conectar",
+  "app.setMetaAds.notConnectedBody":
+    "Conecta tu propia cuenta publicitaria de Meta. FieldQuo solo lee el gasto y el rendimiento — nunca crea ni modifica un anuncio.",
+  "app.setMetaAds.connect": "Conectar Meta Ads",
+  "app.setMetaAds.pickAccountTitle": "¿Qué cuenta publicitaria?",
+  "app.setMetaAds.pickAccountBody":
+    "Meta devolvió más de una cuenta publicitaria para tu inicio de sesión.",
+  "app.setMetaAds.pickAccountConfirm": "Conectar esta cuenta",
+  "app.setMetaAds.statusConnected": "Conectada",
+  "app.setMetaAds.statusNeedsReauth": "Hay que volver a conectarla",
+  "app.setMetaAds.statusError": "Error",
+  "app.setMetaAds.needsReauthBody":
+    "Meta dice que el token de esta conexión ya no es válido — vuelve a conectarla para seguir sincronizando.",
+  "app.setMetaAds.lastSynced": "Última sincronización el {date}.",
+  "app.setMetaAds.neverSynced": "Todavía no se ha sincronizado nunca.",
+  "app.setMetaAds.syncSummary": "{created} filas nuevas, {updated} actualizadas.",
+  "app.setMetaAds.syncErrors":
+    "{count} filas no se pudieron leer de la respuesta de Meta.",
+  "app.setMetaAds.syncDuplicates":
+    "{count} filas parecen gasto que ya registraste a mano — revísalo antes de contarlo dos veces.",
+  "app.setMetaAds.syncCurrencyMismatch":
+    "Algunas filas están en una moneda distinta a la de tu empresa — se muestran aparte, sin mezclarse con los totales.",
+  "app.setMetaAds.syncNow": "Sincronizar ahora",
+  "app.setMetaAds.reconnect": "Volver a conectar",
+  "app.setMetaAds.disconnect": "Desconectar",
+  "app.setMetaAds.disconnectConfirmTitle": "¿Desconectar Meta Ads?",
+  "app.setMetaAds.disconnectConfirmBody":
+    "FieldQuo dejará de sincronizar el gasto de esta cuenta publicitaria. Las filas ya importadas se quedan en tu historial de gasto en marketing.",
+  "app.setMetaAds.errorDenied":
+    "Conexión cancelada — no aprobaste el acceso en la ventana de Meta.",
+  "app.setMetaAds.errorBadState":
+    "Ese intento de conexión venció o no coincidió — inténtalo de nuevo.",
+  "app.setMetaAds.errorSession":
+    "Tu sesión cambió antes de que Meta te devolviera — inténtalo de nuevo.",
+  "app.setMetaAds.errorNotConfigured":
+    "Meta Ads no está configurado en esta instalación.",
+  "app.setMetaAds.errorAuth":
+    "Meta rechazó esa solicitud — puede que haya que intentar la conexión otra vez.",
+  "app.setMetaAds.errorRateLimited":
+    "Meta está limitando las solicitudes de esta aplicación ahora mismo — inténtalo de nuevo en unos minutos.",
+  "app.setMetaAds.errorNotFound": "Meta no encontró esa cuenta publicitaria.",
+  "app.setMetaAds.errorUnknown":
+    "Algo salió mal al conectar con Meta — inténtalo de nuevo.",
+  "app.setMetaAds.errorNoAdAccounts":
+    "Ese inicio de sesión de Meta no tiene cuentas publicitarias que conectar.",
+
+  // ── Migración de datos ───────────────────────────────────────────────────
+  "app.migration.title": "Migración de datos",
+  "app.migration.subtitle":
+    "Trae tus presupuestos, facturas y trabajos antiguos a FieldQuo — desde QuickBooks, Jobber, una hoja de cálculo o una caja de zapatos.",
+  "app.migration.requestTitle": "Solicitar una migración",
+  "app.migration.requestBody":
+    "Cuéntanos qué vas a traer y agendamos una llamada para definir el alcance y el precio.",
+  "app.migration.sourceLabel": "¿Dónde están tus datos ahora?",
+  "app.migration.sourcePlaceholder": "QuickBooks, Jobber, una hoja de cálculo…",
+  "app.migration.descriptionLabel": "Cualquier otra cosa que convenga saber",
+  "app.migration.descriptionPlaceholder":
+    "Cuántos años, más o menos cuántos registros, cualquier cosa fuera de lo común",
+  "app.migration.requestSubmit": "Solicitar una migración",
+  "app.migration.status.requested": "Solicitada",
+  "app.migration.status.scheduled": "Llamada agendada",
+  "app.migration.status.quoted": "Presupuesto listo",
+  "app.migration.status.accepted": "Aceptado — pago pendiente",
+  "app.migration.status.paid": "Pagada",
+  "app.migration.status.inProgress": "En curso",
+  "app.migration.status.completed": "Terminada",
+  "app.migration.status.declined": "Rechazado",
+  "app.migration.status.cancelled": "Cancelada",
+  "app.migration.bookTitle": "Agenda una llamada con FieldQuo",
+  "app.migration.noSlots":
+    "Ahora mismo no hay horarios libres — te contactaremos para agendar uno.",
+  "app.migration.scheduledFor": "Tu llamada está agendada para el {when}.",
+  "app.migration.accept": "Aceptar",
+  "app.migration.decline": "Rechazar",
+  "app.migration.acceptedNote":
+    "Presupuesto aceptado — paga cuando quieras empezar.",
+  "app.migration.declinedNote": "Presupuesto rechazado.",
+  "app.migration.payNow": "Pagar y empezar la migración",
+  "app.migration.payHint": "Te llevaremos a Stripe para completar el pago de forma segura.",
+  "app.migration.workingNote":
+    "Pagada — FieldQuo está trayendo tus registros. Los verás aparecer abajo a medida que se agreguen.",
+  "app.migration.completedNote": "Migración terminada.",
+  "app.migration.cancelRequest": "Cancelar esta solicitud",
+  "app.migration.cancelConfirm": "¿Cancelar esta solicitud de migración?",
+  "app.migration.documentsTitle": "Documentos",
+  "app.migration.documentsBody":
+    "Sube una exportación de QuickBooks o Jobber, una hoja de cálculo, o un ZIP con tus registros antiguos.",
+  "app.migration.uploadFile": "Subir un archivo",
+  "app.migration.unnamedFile": "(archivo sin nombre)",
+  "app.migration.broughtInTitle": "Lo que ya se trajo",
+  "app.migration.historyTitle": "Solicitudes anteriores",
+  "app.migration.unnamedRequest": "(sin descripción)",
+  "app.migration.paidNote":
+    "Pago recibido — gracias. FieldQuo te contactará para empezar la migración.",
+
+  // ── Seguridad ────────────────────────────────────────────────────────────
+  "app.safety.title": "Seguridad",
+  "app.safety.subtitle":
+    "Lesiones y casi accidentes. Un casi accidente vale la pena reportarlo igual que una lesión: así se aprende antes de que alguien salga lastimado.",
+  "app.safety.reportButton": "Reportar",
+  "app.safety.kind.near_miss": "Casi accidente",
+  "app.safety.kind.injury": "Lesión",
+  "app.safety.kind.property_damage": "Daño material",
+  "app.safety.kind.other": "Otro",
+  "app.safety.status.open": "Abierto",
+  "app.safety.status.reviewed": "Revisado",
+  "app.safety.status.closed": "Cerrado",
+  "app.safety.filter.all": "Todos",
+  "app.safety.workStoppedBadge": "Se detuvo el trabajo",
+  "app.safety.reportedBy": "Reportado por {name}",
+  "app.safety.list.empty": "No hay nada reportado",
+  "app.safety.list.emptyBody":
+    "Eso es bueno — aquí es donde aparecerá si llega a pasar.",
+  "app.safety.form.kind": "Qué tipo de incidente",
+  "app.safety.form.occurredAt": "Cuándo pasó",
+  "app.safety.form.description": "Qué pasó",
+  "app.safety.form.descriptionPlaceholder":
+    "Con tus propias palabras — corto está bien.",
+  "app.safety.form.location": "Dónde",
+  "app.safety.form.locationPlaceholder": "p. ej. el baño del segundo piso, el patio",
+  "app.safety.form.job": "Trabajo (opcional)",
+  "app.safety.form.jobNone": "No está ligado a un trabajo",
+  "app.safety.form.workStopped": "El trabajo se detuvo por esto",
+  "app.safety.form.regulatoryNote": "Nota sobre el reporte (opcional)",
+  "app.safety.form.regulatoryNotePlaceholder":
+    "Lo que sea sobre reportar esto a una autoridad provincial — FieldQuo no lo decide por ti.",
+  "app.safety.form.regulatoryNoteHelp":
+    "FieldQuo no conoce las reglas ni los plazos de reporte de tu provincia — esto es un lugar para anotar lo que decidas, no una verificación de cumplimiento.",
+  "app.safety.form.submit": "Presentar reporte",
+  "app.safety.form.submitting": "Presentando…",
+  "app.safety.form.cancel": "Cancelar",
+  "app.safety.form.error": "No se pudo presentar ese reporte.",
+  "app.safety.form.success":
+    "Presentado. Agrega una foto del lugar si tienes una — es opcional.",
+  "app.safety.form.done": "Listo",
+  "app.safety.photos.error": "No se pudo adjuntar esa foto.",
+  "app.safety.followUp.title": "Seguimiento",
+  "app.safety.followUp.notesPlaceholder": "Qué se hizo al respecto",
+  "app.safety.followUp.save": "Guardar",
+  "app.safety.followUp.error": "No se pudo guardar el seguimiento.",
+
+  // ── Órdenes de cambio ────────────────────────────────────────────────────
+  "app.changeOrder.title": "Órdenes de cambio",
+  "app.changeOrder.log": "Registrar una orden de cambio",
+  "app.changeOrder.none":
+    "No hay ninguna registrada. Usa esto cuando el cliente ya aceptó un cambio de alcance — nunca para una edición común del presupuesto o de la factura.",
+  "app.changeOrder.unknownAuthor": "Alguien",
+  "app.changeOrder.whatChanged": "Qué cambió",
+  "app.changeOrder.whatChangedPlaceholder":
+    "El cliente pidió agregar un subtablero mientras la pared estaba abierta",
+  "app.changeOrder.priceEffect": "Efecto en el precio",
+  "app.changeOrder.priceEffectHint":
+    "Un valor positivo suma a lo que debe el cliente; uno negativo se lo abona.",
+  "app.changeOrder.descriptionRequired": "Describe qué cambió.",
+  "app.changeOrder.priceRequired":
+    "Ingresa el efecto en el precio — 0 si no tiene ninguno.",
+  "app.changeOrder.save": "Guardar",
+  "app.changeOrder.saving": "Guardando…",
+  "app.changeOrder.saveFailed": "No se pudo registrar eso.",
+  "app.changeOrder.agreedLabel": "¿El cliente ya aceptó esto?",
+  "app.changeOrder.agreedYes":
+    "Sí — cuéntalo dentro del valor contratado de este trabajo",
+  "app.changeOrder.agreedNo":
+    "Todavía no — regístralo, y no cambies nada hasta que lo acepte",
+  "app.changeOrder.statusPending": "Aún sin aceptar — no afecta nada",
+  "app.changeOrder.statusRejected": "Rechazada — no afecta nada",
+  "app.changeOrder.statusUnknown": "Estado desconocido — no afecta nada",
+  "app.changeOrder.approve": "Marcar como aceptada",
+  "app.changeOrder.reject": "Rechazar",
+  "app.changeOrder.reopen": "Volver a pendiente",
+  "app.changeOrder.decideFailed": "No se pudo cambiar eso.",
+  "app.changeOrder.approvedTotal": "Cambios aceptados",
+  "app.changeOrder.pendingTotal": "En espera de aceptación",
+  "app.changeOrder.billedOn": "Facturado en {invoice}",
+  "app.changeOrder.unbilled": "Todavía sin facturar",
+  "app.changeOrder.billTitle":
+    "{amount} de cambios aceptados todavía no están en una factura",
+  "app.changeOrder.bill": "Agregar a {invoice}",
+  "app.changeOrder.billing": "Agregando…",
+  "app.changeOrder.billConfirm":
+    "¿Agregar {amount} a {invoice}? Su total pasa a ser {total}.",
+  "app.changeOrder.billFailed": "No se pudieron agregar a la factura.",
+  "app.changeOrder.reasonNoInvoice":
+    "Este trabajo todavía no tiene factura. Se podrán facturar en cuanto se emita una.",
+  "app.changeOrder.reasonInvoiceSent":
+    "{invoice} ya se envió, así que FieldQuo no la va a cambiar por su cuenta. Modifícala desde la página de la factura para facturar estos cambios.",
+  "app.changeOrder.reasonTaxRate":
+    "{invoice} cobra impuesto pero no tiene con qué calcular la tasa, así que estos cambios no se pueden agregar automáticamente. Agrégalos en la factura misma.",
+  "app.changeOrder.reasonAlreadyOn": "Estos ya están en {invoice}.",
+
+  // ── Crédito de IA ────────────────────────────────────────────────────────
+  "app.setAiCredit.title": "Crédito de IA",
+  "app.setAiCredit.subtitle":
+    "Todo lo que gasta crédito de IA en un solo lugar — el recepcionista telefónico y los mensajes a la cuadrilla usan un saldo, y la generación de imágenes y la lectura profunda de fotos usan otro. Están separados a propósito.",
+  "app.setAiCredit.vendorNotConfigured":
+    "Las herramientas de imagen con IA todavía no están conectadas en esta instalación, así que la generación y la lectura profunda de fotos se rechazarán. El crédito que compres ahora sigue siendo tuyo — simplemente no se puede gastar hasta que eso se arregle.",
+  "app.setAiCredit.loadError": "No se pudo cargar el crédito de IA.",
+  "app.setAiCredit.loadFailed": "No se pudo cargar esta página.",
+  "app.setAiCredit.whereItWent": "En qué se fue el crédito",
+  "app.setAiCredit.balance": "Saldo:",
+  "app.setAiCredit.voiceTitle": "Crédito telefónico",
+  "app.setAiCredit.voiceHint":
+    "Lo gastan el recepcionista telefónico ({rate}¢/min) y los mensajes a la cuadrilla. Comprar más, la recarga automática y el estado de cuenta completo están en la página de configuración del teléfono.",
+  "app.setAiCredit.crewNote": "Los mensajes a la cuadrilla usan este mismo saldo.",
+  "app.setAiCredit.managePhoneCredit": "Agregar crédito telefónico",
+  "app.setAiCredit.voiceEmpty": "Aún no se ha gastado nada del saldo telefónico.",
+  "app.setAiCredit.aiTitle": "Crédito de imágenes con IA",
+  "app.setAiCredit.aiHint":
+    "Lo gastan la generación de imágenes con IA ({gen}¢ cada una) y la lectura profunda de fotos de pago en un presupuesto ({vis}¢ por lectura, hasta 8 fotos).",
+  "app.setAiCredit.aiBalanceContext":
+    "(unas {images} imágenes, o {reads} lecturas profundas)",
+  "app.setAiCredit.genLabel": "Generación de imágenes",
+  "app.setAiCredit.visionLabel": "Lectura profunda de fotos",
+  "app.setAiCredit.addCredit": "Agregar crédito",
+  "app.setAiCredit.images": "imágenes",
+  "app.setAiCredit.aiEmpty": "Aún no se ha gastado nada del saldo de IA.",
+  "app.setAiCredit.bundleTitle":
+    "Plan de crédito de IA — paga al mes y ahorra por crédito",
+  "app.setAiCredit.bundleHint":
+    "Una asignación recurrente sobre el mismo saldo de IA de arriba, a un precio por crédito más bajo que comprando sobre la marcha.",
+  "app.setAiCredit.currentPlan":
+    "Estás en el plan {key} — {credits} créditos por {price}/mes",
+  "app.setAiCredit.renews": "Se renueva el {date}",
+  "app.setAiCredit.cancelPlan": "Cancelar plan",
+  "app.setAiCredit.cancelNote":
+    "Cancelar detiene el cobro del mes siguiente y el crédito del mes siguiente. El crédito que ya está en tu saldo se queda — nunca se retira.",
+  "app.setAiCredit.bundleCredits": "{credits} créditos — unas {images} imágenes",
+  "app.setAiCredit.subscribe": "Suscribirse",
+  "app.setAiCredit.topupCredited":
+    "Pago recibido — se agregaron {amount} de crédito de IA.",
+  "app.setAiCredit.topupPending":
+    "Todavía no pudimos confirmar ese pago. Si se procesó, el crédito llega por su cuenta en un minuto o dos. Actualiza para comprobarlo.",
+  "app.setAiCredit.bundleStarted":
+    "Tu plan de crédito de IA está activo. El crédito del primer mes ya está en el saldo de abajo.",
+  "app.setAiCredit.bundlePending":
+    "Todavía no pudimos confirmar ese plan. No se ha cobrado nada dos veces — actualiza en un minuto para comprobarlo.",
+  "app.setAiCredit.paymentError": "No se pudo iniciar el pago.",
+  "app.setAiCredit.bundleStartError": "No se pudo activar ese plan.",
+  "app.setAiCredit.bundleCancelError": "No se pudo cancelar ese plan.",
+  "app.setAiCredit.bundleCancelled":
+    "Tu plan de crédito de IA está cancelado. El crédito ya otorgado sigue siendo tuyo para gastarlo — no vence.",
+
+  // ── Recarga de crédito de IA ─────────────────────────────────────────────
+  "app.aiTopup.title": "Agregar crédito de IA",
+  "app.aiTopup.buyCredit": "Agregar crédito de IA",
+  "app.aiTopup.cost": "Esto cuesta {price}. Tu saldo de IA es {balance}.",
+  "app.aiTopup.short": "Agrega al menos {shortfall} para continuar.",
+  "app.aiTopup.chooseAmount": "¿Cuánto quieres agregar?",
+  "app.aiTopup.notEnough": "no alcanza por sí solo",
+  "app.aiTopup.stripeNote":
+    "Terminarás en la página de pago segura de Stripe. La tarjeta de tu suscripción a FieldQuo no se puede cobrar por una compra puntual como esta — una tarjeta guardada solo se puede usar para aquello para lo que se guardó. Volverás directo a este diseño.",
+  "app.aiTopup.continue": "Continuar al pago",
+  "app.aiTopup.cancel": "Cancelar",
+  "app.aiTopup.close": "Cerrar",
+  "app.aiTopup.askOwner":
+    "Solo un propietario o administrador puede comprar crédito de IA. Pídele a alguno que recargue esta cuenta.",
+  "app.aiTopup.startError": "No se pudo iniciar ese pago. No se cobró nada.",
+  "app.aiTopup.simulated":
+    "Recarga simulada agregada — esta es una cuenta de demostración, así que no se cobró nada. Tu saldo es {balance}.",
+  "app.aiTopup.credited":
+    "Se agregaron {amount} de crédito de IA. Tu saldo es {balance}.",
+  "app.aiTopup.notLanded":
+    "Stripe todavía no ha confirmado ese pago, así que no se agregó nada a tu saldo. Si se procesó, el crédito llega por su cuenta en un minuto o dos.",
+  "app.aiTopup.checkAgain": "Comprobar otra vez",
+
+  // ── Editar un presupuesto ────────────────────────────────────────────────
+  "app.quoteEdit.linesLocked":
+    "El cliente ya decidió sobre este presupuesto, así que sus partidas no se pueden cambiar. Las notas, la fecha de vencimiento y el texto de qué pasa después sí se guardan.",
+  "app.quoteEdit.languageFixed":
+    "Escrito en {language}. Un presupuesto conserva el idioma en el que se creó — la copia firmada tiene que seguir diciendo lo que decía.",
+  "app.quoteEdit.takeoffFrozen":
+    "Estas partidas vienen de una medición y se valoraron cuando se escribió el presupuesto. Cambia aquí las cifras; volver a medir significa agregar el servicio otra vez.",
+  "app.quoteEdit.intakeCostOnly":
+    "Solo para tu estimación de costos — los precios del cliente de arriba están fijos. El número de puertas y cajones y el material de las puertas son la base con la que se calcula la estimación de material y mano de obra.",
+  "app.quoteEdit.intakeBilledUnits":
+    "Este presupuesto factura {count} unidades. Sepáralas en puertas y frentes de cajón — terminarlas cuesta distinto.",
+  "app.quoteEdit.noClientOnRecord": "No hay cliente registrado.",
+  "app.quoteEdit.saveAsDefault":
+    "Guardar esto como valor por defecto para futuros presupuestos",
+  "app.quoteEdit.savingDefault": "Guardando…",
+  "app.quoteEdit.isYourDefault":
+    "Este es tu texto por defecto — se rellena en cada presupuesto nuevo.",
+  "app.quoteEdit.defaultSaved": "Guardado — los futuros presupuestos empiezan con esto.",
+
+  // ── Nuevo presupuesto ────────────────────────────────────────────────────
+  "app.quoteNew.saveAsDraft": "Guardar como borrador",
+  "app.quoteNew.saveAsDraftShort": "Borrador",
+  "app.quoteNew.saveAndSend": "Guardar y enviar",
+  "app.quoteNew.saveAndReview": "Guardar y revisar",
+  "app.quoteNew.saveAndReviewHint":
+    "Primero lo guarda como borrador — la revisión lee el presupuesto guardado — y luego abre el borrador con las comprobaciones ya hechas.",
+  "app.quoteNew.applyTax": "Aplicar impuesto ({rate}%)",
+  "app.quoteNew.totalInclTax": "Total con impuesto",
+  "app.quoteNew.totalNoTax": "Total, sin impuesto",
+  "app.quoteNew.validUntilHint":
+    "Empieza a 30 días desde hoy. Cámbialo, o bórralo si este presupuesto nunca debe vencer.",
+  "app.quoteNew.validUntilCleared":
+    "Sin fecha de vencimiento. El cliente no tiene motivo para responder hoy, y la revisión lo dirá.",
+  "app.quoteNew.validUntilStored":
+    "La fecha que ya tiene este presupuesto. Cámbiala, o bórrala si este presupuesto nunca debe vencer.",
+  "app.quoteNew.addPhotos": "Agregar fotos o un video",
+  "app.quoteNew.addPhotosHint":
+    "Imágenes de la visita al sitio. Se quedan en el presupuesto y pasan a la factura.",
+  "app.quoteNew.readinessClear": "No falta nada evidente",
+  "app.quoteNew.readinessMinor": "Vale la pena mirarlo",
+  "app.quoteNew.reviewShort": "Revisión",
+  "app.quoteNew.readinessCount": countedNoun("es", {
+    one: "cosa que vale la pena arreglar",
+    many: "cosas que vale la pena arreglar",
+    other: "cosas que vale la pena arreglar",
+  }),
+
+  // ── Descuento en el presupuesto ──────────────────────────────────────────
+  "app.quoteDiscount.modeAmount": "Importe",
+  "app.quoteDiscount.modePercent": "Porcentaje",
+  "app.quoteDiscount.percentHint":
+    "{amount} de descuento. Se guarda como importe, así que vuelve a fijarlo si el precio cambia más adelante.",
+  "app.quoteDiscount.equivalentPercent": "Alrededor del {percent}% del subtotal.",
+  "app.quoteDiscount.cappedAtSubtotal":
+    "Un descuento no puede ser mayor que el subtotal, así que lo que se descuenta es {amount}.",
+
+  // ── Texto del presupuesto por oficio ─────────────────────────────────────
+  "app.quoteWording.title": "Lo que dice el presupuesto",
+  "app.quoteWording.customised": "personalizado",
+  "app.quoteWording.intro":
+    "El texto que llevan tus presupuestos y PDF para este oficio. Si no lo tocas, sigues heredando nuestros textos por defecto, incluidas sus mejoras. Vacía un campo para volver a heredarlo.",
+  "app.quoteWording.unfilled":
+    "Todo lo que siga entre [corchetes] se deja fuera de tus presupuestos hasta que lo completes — un cliente nunca ve un corchete. Retenido ahora mismo:",
+  "app.quoteWording.scopeHeading": "En qué consiste este servicio",
+  "app.quoteWording.scopeHint":
+    "Un párrafo, impreso arriba de los precios: en qué consiste el trabajo y dónde termina. Esto es lo que le responde a un cliente que no sabe qué significa el nombre del servicio.",
+  "app.quoteWording.scopeVaries":
+    "Un párrafo, impreso arriba de los precios. Nuestro texto por defecto cambia según {field} elegido en el presupuesto, para que el cliente lea sobre el trabajo que de verdad está comprando. Escribir el tuyo aquí reemplaza todos esos por uno solo.",
+  "app.quoteWording.scopePlaceholder": "En qué consiste el trabajo y dónde termina",
+  "app.quoteWording.includedHeading": "Qué incluye",
+  "app.quoteWording.addLine": "Agregar una línea",
+  "app.quoteWording.removeLine": "Quitar esta línea",
+  "app.quoteWording.stepsHeading": "Cómo se desarrolla el trabajo",
+  "app.quoteWording.stepsHint":
+    "El plazo es opcional. Déjalo vacío y el paso se imprime sin él — mejor que imprimir una duración a la que preferirías no comprometerte.",
+  "app.quoteWording.stepName": "Nombre del paso",
+  "app.quoteWording.stepTimeline": "1–2 días",
+  "app.quoteWording.stepBody": "Qué pasa realmente en este paso",
+  "app.quoteWording.removeStep": "Quitar este paso",
+  "app.quoteWording.addStep": "Agregar un paso",
+
+  // ── Detalle del presupuesto: lo que lee el cliente, y el costeo ──────────
+  "app.quoteDetail.whatTheClientReads": "Lo que dice este presupuesto",
+  "app.quoteDetail.whatsIncluded": "Qué incluye",
+  "app.quoteDetail.whatCouldChange": "Qué podría cambiar este precio",
+  "app.quoteDetail.howTheWorkRuns": "Cómo se desarrolla el trabajo",
+  "app.quoteDetail.notesOnThisQuote": "Escrito en este presupuesto",
+  "app.quoteDetail.notesFromCompany":
+    "Valor por defecto de tu empresa — edita el presupuesto para cambiarlo solo en este trabajo",
+  "app.quoteDetail.paymentTerms": "Condiciones de pago",
+  "app.quoteDetail.costAndMargin": "Costo y margen",
+  "app.quoteDetail.labour": "Mano de obra",
+  "app.quoteDetail.materials": "Materiales",
+  "app.quoteDetail.overhead": "Gastos generales",
+  "app.quoteDetail.thisJobsShare": "la parte de este trabajo",
+  "app.quoteDetail.estimated": "estimado",
+  "app.quoteDetail.totalCost": "Costo total",
+  "app.quoteDetail.target": "objetivo",
+  "app.quoteDetail.crew": "Cuadrilla",
+  "app.quoteDetail.unnamed": "Sin nombre",
+  "app.quoteDetail.billOfMaterials": "Materiales que necesita este trabajo",
+  "app.quoteDetail.noPriceSet": "sin precio definido",
+  "app.quoteDetail.noCostBasis": "El costo de este presupuesto no se puede calcular",
+  "app.quoteDetail.costItNow": "Costearlo ahora",
+  "app.quoteDetail.editCosting": "Cambiar el costeo",
+  "app.quoteDetail.costSaveError": "Eso no se guardó.",
+  "app.quoteDetail.costEditorHint":
+    "Quién hace el trabajo, y todo lo que la medición no podía saber. Las horas y los materiales que salen del alcance se calculan por ti.",
+  "app.quoteDetail.crewName": "Nombre",
+  "app.quoteDetail.crewRate": "$/h",
+  "app.quoteDetail.crewHours": "h (opcional)",
+  "app.quoteDetail.addCrew": "Agregar a alguien a la cuadrilla",
+  "app.quoteDetail.fallbackRate": "Tarifa si nadie de arriba tiene una",
+  "app.quoteDetail.extraHours": "Horas extra",
+  "app.quoteDetail.extraMaterials": "Materiales extra $",
+  "app.quoteDetail.saveCosting": "Guardar el costeo",
+
+  // ── Facturas: ciclo de vida, trabajo asociado y costeo ───────────────────
+  "app.invoiceNew.addPhotosHint":
+    "Imágenes del trabajo. Se traen del presupuesto cuando hay uno.",
+  "app.invoiceLifecycle.superseded":
+    "Esta es la versión {version}. La versión {latest} la reemplazó — esa es la que tiene tu cliente.",
+  "app.invoiceLifecycle.actionOpenLatest": "Abrir la versión actual",
+  "app.invoiceLifecycle.paidNoAmount": "Pagada por completo.",
+  "app.invoiceLifecycle.paidOnNoAmount": "Pagada por completo el {date}.",
+  "app.invoiceLifecycle.overdueNoAmount": "Vencida desde hace {days}.",
+  "app.invoiceLifecycle.partiallyPaidNoAmount":
+    "Pagada en parte — todavía queda saldo por cobrar.",
+  "app.invoiceLifecycle.chaseDueNoAmount":
+    "Pusiste un recordatorio para darle seguimiento el {date}, y sigue sin pagarse.",
+  "app.invoiceLifecycle.paid": "Pagada por completo — se recibieron {amount}.",
+  "app.invoiceLifecycle.paidOn":
+    "Pagada por completo — se recibieron {amount} el {date}.",
+  "app.invoiceLifecycle.overdue":
+    "Vencida desde hace {days}. Siguen debiéndose {amount}.",
+  "app.invoiceLifecycle.partiallyPaid":
+    "Se recibieron {paid} de {total}. Siguen debiéndose {due}.",
+  "app.invoiceLifecycle.disputed":
+    "El banco de un cliente impugnó un pago de esta factura — el dinero queda retenido hasta que se resuelva.",
+  "app.invoiceLifecycle.refunded":
+    "Reembolsada — se le devolvieron {amount} al cliente.",
+  "app.invoiceLifecycle.refundedNoAmount": "Reembolsada al cliente.",
+  "app.invoiceLifecycle.partiallyRefunded":
+    "Reembolsada en parte — se le devolvieron {amount} al cliente.",
+  "app.invoiceLifecycle.partiallyRefundedNoAmount":
+    "Reembolsada en parte al cliente.",
+  "app.invoiceLifecycle.unsent": "Esta factura todavía no se le ha enviado al cliente.",
+  "app.invoiceLifecycle.noClientEmail":
+    "{name} no tiene correo electrónico registrado, así que esta factura no se puede enviar ni reclamar.",
+  "app.invoiceLifecycle.thisClient": "Este cliente",
+  "app.invoiceLifecycle.chaseDue":
+    "Pusiste un recordatorio para darle seguimiento el {date}, y siguen debiéndose {amount}.",
+  "app.invoiceLifecycle.noJob":
+    "Esta factura no tiene ningún trabajo asociado, así que no hay visitas, horas ni costos detrás de ella.",
+  "app.invoiceLifecycle.jobUnscheduled": "{title} no tiene ninguna visita agendada.",
+  "app.invoiceLifecycle.visitUnassigned":
+    "La visita del {date} no tiene a nadie asignado.",
+  "app.invoiceLifecycle.actionSend": "Enviarla",
+  "app.invoiceLifecycle.actionChase": "Reclamar el pago",
+  "app.invoiceLifecycle.actionCreateJob": "Crear el trabajo",
+  "app.invoiceLifecycle.actionScheduleVisit": "Agendar una visita",
+  "app.invoiceLifecycle.actionAssignVisit": "Asignarla",
+  "app.invoiceLifecycle.actionAddClientEmail": "Agregar un correo electrónico",
+  "app.invoiceDoc.whatThisSays": "Lo que dice esta factura",
+  "app.invoiceDoc.paymentTerms": "Condiciones de pago",
+  "app.invoiceDoc.glossary": "Términos explicados",
+  "app.invoiceDoc.fromQuote": "Del presupuesto",
+  "app.invoiceDoc.notesOnQuote":
+    "Escrito en el presupuesto del que salió esta factura",
+  "app.invoiceDoc.notesFromCompany":
+    "Valor por defecto de tu empresa — el presupuesto de esta factura no definió el suyo",
+  "app.invoiceDetail.downloadPdf": "Descargar PDF",
+  "app.invoiceChase.title": "Reclamar este pago",
+  "app.invoiceChase.hint":
+    "Le envía a {name} por correo un enlace para pagar los {amount} que sigue debiendo, en su idioma y desde tu dirección.",
+  "app.invoiceChase.notePlaceholder":
+    "¿Algo que agregar? Por ejemplo: quedamos en que pagarías después de la última visita.",
+  "app.invoiceChase.send": "Enviar el recordatorio",
+  "app.invoiceJob.title": "El trabajo",
+  "app.invoiceJob.openJob": "Abrir el trabajo",
+  "app.invoiceJob.none":
+    "Esta factura todavía no tiene ningún trabajo asociado, así que no hay visitas, horas ni costos contra ella.",
+  "app.invoiceJob.jobTitle": "Título del trabajo",
+  "app.invoiceJob.jobTitlePlaceholder": "La dirección, o en qué consiste el trabajo",
+  "app.invoiceJob.defaultTitle": "{name} — {number}",
+  "app.invoiceJob.createJob": "Crear el trabajo",
+  "app.invoiceJob.linkExisting": "Asociar un trabajo existente",
+  "app.invoiceJob.loadingJobs": "Cargando los trabajos de este cliente…",
+  "app.invoiceJob.noOtherJobs": "{name} no tiene otros trabajos que asociar.",
+  "app.invoiceJob.chooseJob": "Elige un trabajo…",
+  "app.invoiceJob.link": "Asociarlo",
+  "app.invoiceJob.unlink": "Desasociar",
+  "app.invoiceJob.linkError": "No se pudo asociar el trabajo.",
+  "app.invoiceJob.visitError": "No se pudo agendar la visita.",
+  "app.invoiceJob.linkedDirectly": "Asociado a esta factura.",
+  "app.invoiceJob.linkedViaQuote":
+    "Encontrado a través del presupuesto del que salió esta factura.",
+  "app.invoiceJob.visits": "Visitas",
+  "app.invoiceJob.noVisits": "Todavía no hay nada agendado.",
+  "app.invoiceJob.unassigned": "Nadie asignado",
+  "app.invoiceJob.when": "Cuándo",
+  "app.invoiceJob.who": "Quién va",
+  "app.invoiceJob.bookVisit": "Agendar una visita",
+  "app.invoiceJob.moreOptions": "Listas de verificación y notas para la cuadrilla",
+  "app.invoiceJob.hoursOnThisJob": "Horas registradas en este trabajo",
+  "app.invoiceJob.rateHidden": "tarifa oculta",
+  "app.invoiceJob.noRate": "sin tarifa registrada",
+  "app.invoiceJob.payPeriods": "Periodos de pago en los que caen estas horas",
+  "app.invoiceJob.payPeriodsNote":
+    "Una corrida de nómina cubre un periodo, no un trabajo, así que esto dice cuándo se pagaron las horas y no qué parte de la corrida fue este trabajo.",
+  "app.invoiceJob.hoursNotPaid":
+    "{hours} de este trabajo quedan fuera de todas las corridas de nómina — todavía no han pasado por nómina.",
+  "app.invoiceCost.title": "Costo y margen",
+  "app.invoiceCost.internal": "(interno — nunca se le muestra al cliente)",
+  "app.invoiceCost.editHours": "Editar horas y cuadrilla",
+  "app.invoiceCost.estimated": "Costo presupuestado",
+  "app.invoiceCost.estimatedAt": "según se costeó el {date}",
+  "app.invoiceCost.noEstimate":
+    "nada en este presupuesto dice cuánto debería costar",
+  "app.invoiceCost.estimatedDerived":
+    "calculado a partir del alcance del presupuesto a los precios de hoy — no está guardado en el presupuesto",
+  "app.invoiceCost.actual": "Costo real",
+  "app.invoiceCost.noJobLinked": "sin trabajo asociado, así que no hay nada medido",
+  "app.invoiceCost.incomplete": "incompleto — mira abajo",
+  "app.invoiceCost.variance": "Diferencia",
+  "app.invoiceCost.noVariance": "hace falta una estimación y un trabajo",
+  "app.invoiceCost.approvedHours": "Mano de obra aprobada — {hours}",
+  "app.invoiceCost.jobExpenses": "Gastos etiquetados al trabajo",
+  "app.invoiceCost.pendingHours":
+    "{hours} siguen pendientes de aprobación y no se cuentan arriba.",
+  "app.invoiceCost.unratedHours":
+    "{hours} las trabajó alguien sin tarifa registrada, así que arriba no cuestan nada.",
+  "app.invoiceCost.labour": "Mano de obra",
+  "app.invoiceCost.materials": "Materiales",
+  "app.invoiceCost.overhead": "Gastos generales",
+  "app.invoiceCost.costedTotal": "Costeado en esta factura",
+  "app.invoiceCost.profit": "Ganancia",
+  "app.invoiceCost.crewMember": "Integrante de la cuadrilla",
+  "app.invoiceCost.notCosted":
+    "Nadie ha costeado esta factura. Agrega la cuadrilla y las horas para ver su margen.",
+
+  // ── Notificaciones ───────────────────────────────────────────────────────
+  "app.notif.title": "Notificaciones",
+  "app.notif.open": "Notificaciones",
+  "app.notif.openWithCount": "Notificaciones — {count} sin leer",
+  "app.notif.markAllRead": "Marcar todas como leídas",
+  "app.notif.loading": "Cargando…",
+  "app.notif.empty":
+    "Todavía no hay nada. Aquí llegan las aprobaciones, los pagos, las consultas nuevas y los contracargos.",
+  "app.notif.loadFailed": "No se pudieron cargar tus notificaciones.",
+  "app.notif.markFailed": "No se pudieron marcar como leídas.",
+  "app.notif.kind.refund": "Reembolsado",
+  "app.notif.kind.dispute": "Contracargo — Stripe tiene un plazo",
+  "app.notif.note.settled": "Pagada por completo",
+  "app.notif.note.balanceLeft": "Todavía queda saldo por cobrar",
+  "app.notif.note.autoApproved": "Aprobado automáticamente — no hay nada que hacer",
+  "app.notif.note.needsApproval": "Esperando aprobación",
+  "app.notif.note.fromCall": "De una llamada telefónica",
+  "app.notif.note.fromForm": "Del formulario de presupuesto instantáneo",
+  "app.notif.temp.hot": "Prospecto caliente",
+  "app.notif.temp.warm": "Prospecto tibio",
+  "app.notif.temp.cold": "Prospecto frío",
+  "app.notif.type.payment.disputed":
+    "Se retiró dinero de la factura {invoiceNumber} — {clientName}",
+  "app.notif.type.quote.accepted":
+    "{clientName} aprobó el presupuesto {quoteNumber}",
+  "app.notif.type.invoice.paid": "{clientName} pagó la factura {invoiceNumber}",
+  "app.notif.type.lead.created": "Nueva consulta de {leadName}",
+  "app.notif.type.leave.requested":
+    "{workerName} solicitó {days} día(s) de {policyName}",
+  "app.notif.type.quote.needsReview":
+    "La estimación {quoteNumber} para {clientName} espera aprobación",
+
+  // ── Equipo: invitaciones, licencias y plazas ─────────────────────────────
+  "app.setTeam.cancelInvite": "Cancelar invitación",
+  "app.setTeam.cancelInviteTitle": "¿Cancelar esta invitación?",
+  "app.setTeam.cancelInviteBody":
+    "Su enlace de invitación deja de funcionar y se libera la licencia. Conserva la ficha de trabajador que ya tenga en tus registros — quítala desde Trabajadores si hace falta.",
+  "app.setTeam.confirmCancelInvite": "Cancelar invitación",
+  "app.setTeam.cancellingInvite": "Cancelando...",
+  "app.setTeam.errRevoke": "No se pudo cancelar esa invitación.",
+  "app.setTeam.worksAlone": "Solo soy yo — ahora mismo no tengo cuadrilla.",
+  "app.setTeam.worksAloneHint":
+    "Quita “Invita a tu equipo” de tu lista de configuración. Desmárcalo el día que contrates a alguien.",
+  "app.setTeam.errWorksAlone": "No se pudo guardar eso. Inténtalo en un momento.",
+  "app.setTeam.seatsUsed": "licencias usadas",
+  "app.setTeam.crewIncluded": "de cuadrilla — incluidos sin costo",
+  "app.setTeam.countAdministrators": "Administradores",
+  "app.setTeam.countManagers": "Encargados",
+  "app.setTeam.countDispatchers": "Despachadores",
+  "app.setTeam.countWorkers": "Trabajadores",
+  "app.setTeam.countCrew": "Cuadrilla",
+  "app.setTeam.countCustom": "Acceso personalizado",
+  "app.setTeam.addCrew": "Agregar cuadrilla — sin costo",
+  "app.setTeam.addSeat": "Agregar una licencia",
+  "app.setTeam.seatCapReached": "Ya usaste todas las licencias de tu plan.",
+  "app.setTeam.crewCapReached": "Ya usaste todas las plazas de cuadrilla de tu plan.",
+  "app.setTeam.capSeats": "licencias",
+  "app.setTeam.capCrew": "plazas de cuadrilla",
+  "app.setTeam.capUpgrade":
+    "Ya usaste todas tus {what}. {tier} cubre {seats} licencias y {crew} de cuadrilla.",
+  "app.setTeam.capUpgradeCta": "Mejorar el plan",
+  "app.setTeam.capTalkToUs":
+    "Te quedaste grande para los planes que vendemos en línea — habla con nosotros.",
+
+  // ── Parte diario de obra ─────────────────────────────────────────────────
+  "app.dailyLog.title": "Parte diario",
+  "app.dailyLog.today": "Hoy",
+  "app.dailyLog.yesterday": "Ayer",
+  "app.dailyLog.pickDay": "Elige un día",
+  "app.dailyLog.whatHappened": "Qué pasó hoy",
+  "app.dailyLog.textPlaceholder":
+    "Hasta dónde llegó la cuadrilla, qué se instaló, cualquier cosa que la oficina deba saber.",
+  "app.dailyLog.crewCount": "Cuadrilla en obra",
+  "app.dailyLog.hoursOnSite": "Horas en obra",
+  "app.dailyLog.weather": "Clima",
+  "app.dailyLog.weatherPlaceholder": "Lluvia desde las 2 de la tarde",
+  "app.dailyLog.delays": "Retrasos o trabas",
+  "app.dailyLog.delaysPlaceholder": "Esperando al electricista, faltaron materiales",
+  "app.dailyLog.optional": "Opcional",
+  "app.dailyLog.save": "Guardar el día",
+  "app.dailyLog.saving": "Guardando…",
+  "app.dailyLog.saved": "Guardado",
+  "app.dailyLog.unsaved": "Todavía sin guardar",
+  "app.dailyLog.autosaveNote": "Se guarda solo mientras escribes.",
+  "app.dailyLog.saveError": "No se pudo guardar el parte diario.",
+  "app.dailyLog.loadError": "No se pudieron cargar los partes diarios de este trabajo.",
+  "app.dailyLog.photosToday": "{count} fotos",
+  "app.dailyLog.tasksToday": "{count} pendientes terminados",
+  "app.dailyLog.seedPhotos": "Se archivaron {count} fotos hoy.",
+  "app.dailyLog.seedTasks": "Terminado hoy:",
+  "app.dailyLog.recent": "Días recientes",
+  "app.dailyLog.crewShort": "{count} de cuadrilla",
+  "app.dailyLog.hoursShort": "{count} h",
+
+  // ── Secciones del correo que lleva el presupuesto ────────────────────────
+  "app.quoteEmail.references": "Referencias",
+  "app.quoteEmail.referencesEmpty":
+    "No se han agregado clientes anteriores — no hay a quién pueda llamar este propietario.",
+  "app.quoteEmail.beforeAfter": "Antes y después",
+  "app.quoteEmail.beforeAfterEmpty": "No se han agregado pares de antes y después.",
+  "app.quoteEmail.panelTitle": "Secciones del correo",
+  "app.quoteEmail.panelSubtitle":
+    "Partes opcionales del correo que lleva este presupuesto. El alcance, lo que incluye y los pasos van siempre.",
+  "app.quoteEmail.countIncluded": "Incluido — {count} de {source}",
+  "app.quoteEmail.sourceQuote": "este presupuesto",
+  "app.quoteEmail.sourceCompany": "la lista de tu empresa",
+  "app.quoteEmail.notIncluded": "No incluido",
+  "app.quoteEmail.on": "Activado",
+  "app.quoteEmail.off": "Desactivado",
+  "app.quoteEmail.defaultOn": "Por defecto (activado)",
+  "app.quoteEmail.defaultOff": "Por defecto (desactivado)",
+  "app.quoteEmail.blocksSend":
+    "Esto está activado pero no tiene nada que mostrar, así que el presupuesto todavía no se puede enviar.",
+  "app.quoteEmail.manageInSettings": "Gestionar en configuración",
+  "app.quoteEmail.blockedTitle": "Una sección que incluiste está vacía",
+  "app.quoteEmail.blockedBody":
+    "El correo de este presupuesto tiene una sección activada sin nada dentro, así que no se envió. Agrega el contenido, o quita la sección de este presupuesto.",
+  "app.quoteEmail.blockedClearedTitle": "Listo para enviar",
+  "app.quoteEmail.blockedClearedBody": "Ya no hay nada que lo bloquee.",
+  "app.quoteEmail.fillAction": "Agregar contenido",
+  "app.quoteEmail.removeAction": "Dejarlo fuera de este presupuesto",
+  "app.quoteEmail.retrySend": "Enviar ahora",
+
+  // ── Configuración del correo de presupuestos ─────────────────────────────
+  "app.setQuoteEmail.subtitle":
+    "Qué contiene el correo que lleva tus presupuestos, más allá del presupuesto mismo.",
+  "app.setQuoteEmail.readOnlyWhat":
+    "Esto es lo que reciben tus clientes con cada presupuesto.",
+  "app.setQuoteEmail.saved": "Guardado.",
+  "app.setQuoteEmail.saving": "Guardando…",
+  "app.setQuoteEmail.alwaysTitle": "Lo que el correo lleva siempre",
+  "app.setQuoteEmail.alwaysBody":
+    "Esto sale del presupuesto mismo, así que no tiene interruptor: si el presupuesto lo dice, el correo lo dice.",
+  "app.setQuoteEmail.alwaysScope":
+    "El alcance, servicio por servicio, con las partidas valoradas",
+  "app.setQuoteEmail.alwaysIncluded": "Qué incluye cada servicio",
+  "app.setQuoteEmail.alwaysSteps":
+    "Cómo se desarrolla el trabajo, paso a paso, con los plazos publicados",
+  "app.setQuoteEmail.alwaysMayChange":
+    "Qué podría cambiar el precio, en los oficios que lo declaran",
+  "app.setQuoteEmail.alwaysWhere": "Ese texto se edita por oficio en",
+  "app.setQuoteEmail.referencesHint":
+    "Clientes anteriores que aceptaron recibir la llamada de un posible cliente. Nombre y teléfono, impresos tal como los escribas.",
+  "app.setQuoteEmail.includeByDefault": "Incluir en cada presupuesto nuevo",
+  "app.setQuoteEmail.name": "Nombre",
+  "app.setQuoteEmail.phone": "Teléfono",
+  "app.setQuoteEmail.remove": "Quitar",
+  "app.setQuoteEmail.addReference": "Agregar",
+  "app.setQuoteEmail.consent":
+    "Pon en la lista solo a personas que de verdad aceptaron estas llamadas. Su número llega a cada propietario al que le presupuestas.",
+  "app.setQuoteEmail.beforeAfterHint":
+    "Pares de fotos de trabajos terminados. Hacen falta las dos mitades — medio antes y después es la misma foto dos veces.",
+  "app.setQuoteEmail.before": "Antes",
+  "app.setQuoteEmail.after": "Después",
+  "app.setQuoteEmail.caption": "Pie de foto (opcional)",
+  "app.setQuoteEmail.addPair": "Par nuevo — sube el antes y el después",
+  "app.setQuoteEmail.addPhoto": "Agregar una foto",
+  "app.setQuoteEmail.emptyWarning":
+    "Esto está activado y no tiene nada dentro. Hasta que agregues algo o lo desactives, no se pueden enviar presupuestos.",
+
+  // ── Marcado sobre fotos ──────────────────────────────────────────────────
+  "app.photoAnnotator.openEditor": "Agregar marcado",
+  "app.photoAnnotator.title": "Marcado",
+  "app.photoAnnotator.cancel": "Cancelar",
+  "app.photoAnnotator.done": "Listo",
+  "app.photoAnnotator.undo": "Deshacer",
+  "app.photoAnnotator.redo": "Rehacer",
+  "app.photoAnnotator.delete": "Eliminar",
+  "app.photoAnnotator.zoomIn": "Acercar",
+  "app.photoAnnotator.zoomOut": "Alejar",
+  "app.photoAnnotator.textPlaceholder": "Nota",
+  "app.photoAnnotator.discardConfirm":
+    "¿Descartar tus cambios al marcado de esta foto?",
+  "app.photoAnnotator.saveFailed": "No se pudo guardar ese marcado.",
+  "app.photoAnnotator.uploadFailed": "No se pudo guardar la imagen aplanada.",
+  "app.photoAnnotator.markedUp": "Con marcado",
+  "app.photoAnnotator.removeMarkup": "Quitar",
+  "app.photoAnnotator.tool.select": "Seleccionar",
+  "app.photoAnnotator.tool.pencil": "Lápiz",
+  "app.photoAnnotator.tool.pen": "Pluma",
+  "app.photoAnnotator.tool.marker": "Marcador",
+  "app.photoAnnotator.tool.highlighter": "Resaltador",
+  "app.photoAnnotator.tool.text": "Texto",
+  "app.photoAnnotator.tool.arrow": "Flecha",
+  "app.photoAnnotator.tool.rectangle": "Rectángulo",
+  "app.photoAnnotator.tool.ellipse": "Elipse",
+
+  // ── Página de enlace para la bio ─────────────────────────────────────────
+  "app.setBioLink.subtitle":
+    "Una sola página para el único enlace que Instagram y TikTok permiten en tu perfil. Lleva tu logo y tu color — nada en ella dice FieldQuo.",
+  "app.setBioLink.loadError": "No se pudo cargar tu página de enlace.",
+  "app.setBioLink.saveError": "No se pudo guardar.",
+  "app.setBioLink.yourLink": "Tu enlace",
+  "app.setBioLink.live": "Pega esto en tu bio de Instagram o TikTok.",
+  "app.setBioLink.down":
+    "La página está desactivada — este enlace muestra una página de no encontrado.",
+  "app.setBioLink.publishedLabel": "La página está activa",
+  "app.setBioLink.headline": "Encabezado",
+  "app.setBioLink.headlineHint":
+    "Déjalo vacío para usar el nombre de tu empresa.",
+  "app.setBioLink.bio": "Una línea debajo",
+  "app.setBioLink.bioPlaceholder": "Restauración de cocinas en Ottawa–Gatineau",
+  "app.setBioLink.bioHint":
+    "Opcional. Vacío significa que no se muestra nada — no la escribimos por ti.",
+  "app.setBioLink.linksTitle": "Qué hay en la página",
+  "app.setBioLink.linksHint":
+    "El primero es el botón grande. Aquí solo aparecen las cosas que realmente tienes.",
+  "app.setBioLink.showOnPage": "Mostrar en la página",
+  "app.setBioLink.buttonText": "Texto del botón",
+  "app.setBioLink.moveUp": "Subir",
+  "app.setBioLink.moveDown": "Bajar",
+  "app.setBioLink.addCustom": "Agregar tu propio enlace",
+  "app.setBioLink.notYet": "Todavía no disponible",
+  "app.setBioLink.incomplete": "Tus propios enlaces necesitan texto y una URL.",
+
+  // ── Documentos del trabajo ───────────────────────────────────────────────
+  "app.jobDocuments.title": "Documentos",
+  "app.jobDocuments.add": "Agregar un documento",
+  "app.jobDocuments.empty":
+    "Este trabajo todavía no tiene documentos — planos, permisos, garantías.",
+  "app.jobDocuments.unknown": "No se pudieron cargar los documentos de este trabajo.",
+  "app.jobDocuments.loadError": "No se pudieron cargar los documentos de este trabajo.",
+  "app.jobDocuments.uploadError": "No se pudo subir ese archivo.",
+  "app.jobDocuments.fileError": "No se pudo archivar ese documento.",
+  "app.jobDocuments.revise": "Versión nueva",
+  "app.jobDocuments.revisingNote":
+    "Versión nueva de “{name}”. La anterior se queda en el trabajo — no se reemplaza nada.",
+  "app.jobDocuments.revision": "Rev. {n}",
+  "app.jobDocuments.history": "Historial",
+  "app.jobDocuments.namePlaceholder": "¿Qué es? (opcional)",
+  "app.jobDocuments.kindLabel": "Tipo de documento",
+  "app.jobDocuments.upload": "Subir",
+  "app.jobDocuments.uploading": "Subiendo…",
+  "app.jobDocuments.cancel": "Cancelar",
+  "app.jobDocuments.hidden": "{count} más ocultos por tu nivel de acceso",
+  "app.jobDocuments.kind.plan": "Plano",
+  "app.jobDocuments.kind.permit": "Permiso",
+  "app.jobDocuments.kind.contract": "Contrato",
+  "app.jobDocuments.kind.warranty": "Garantía",
+  "app.jobDocuments.kind.photo": "Foto",
+  "app.jobDocuments.kind.invoice": "Factura",
+  "app.jobDocuments.kind.other": "Otro",
+
+  // ── Lectura de recibos ───────────────────────────────────────────────────
+  "app.receipt.heading": "Léelo del recibo",
+  "app.receipt.photosOnly":
+    "Una foto del recibo — JPEG, PNG o directo del teléfono. Todavía no se pueden leer PDF.",
+  "app.receipt.upload": "Agregar una foto del recibo",
+  "app.receipt.read": "Leer este recibo",
+  "app.receipt.reading": "Leyendo…",
+  "app.receipt.failed":
+    "No se pudo leer ese recibo. Prueba con una foto más derecha y con más luz, con el recibo completo dentro del encuadre.",
+  "app.receipt.printedSubtotal": "Subtotal impreso en el recibo",
+  "app.receipt.printedTax": "Impuesto impreso en el recibo",
+  "app.receipt.printedTotal": "Total impreso en el recibo",
+  "app.receipt.itemsTotal": "La suma de las partidas",
+  "app.receipt.unreadableAmount": "no se pudo leer",
+  "app.receipt.mismatch":
+    "Las partidas suman {amount} de diferencia respecto al total impreso. Ambos se muestran tal como se leyeron — comprueba cuál es el correcto antes de ingresar un costo.",
+  "app.receipt.mismatchSubtotal":
+    "Las partidas suman {amount} de diferencia respecto al subtotal impreso en el recibo. Ambos se muestran tal como se leyeron — comprueba cuál es el correcto antes de ingresar un costo.",
+  "app.receipt.totalsDisagree":
+    "El subtotal y el impuesto impresos en este recibo no suman su total impreso. Ambos se muestran exactamente como se leyeron.",
+  "app.receipt.someUnreadable":
+    "Algunos importes de partida no se pudieron leer, así que no se han sumado.",
+  "app.receipt.noPrintedTotal":
+    "No se pudo leer ningún total en este recibo. No se ha sumado nada en su lugar.",
+  "app.receipt.agrees": "Las partidas coinciden con el total impreso.",
+  "app.receipt.couldNotRead":
+    "No se pudo leer de la foto: {fields}. Una segunda foto apuntada a esa parte suele bastar.",
+  "app.receipt.kept":
+    "Se conservó lo que ya habías ingresado en {fields}. La cifra del recibo se muestra arriba por si prefieres usarla.",
+  "app.receipt.field.actualCost": "costo",
+  "app.receipt.field.supplier": "proveedor",
+  "app.receipt.field.purchasedAt": "fecha",
+  "app.receipt.use": "Usar estos",
+  "app.receipt.simulated":
+    "Esta es una empresa de demostración, así que no se envió nada a la IA — estas cifras son un ejemplo.",
+
+  // ── Calendario de pagos ──────────────────────────────────────────────────
+  "app.paymentSchedule.title": "Calendario de pagos",
+  "app.paymentSchedule.desc":
+    "Reparte lo que se debe en etapas ligadas al trabajo mismo — un anticipo al enviar la factura, y el resto al empezar el trabajo, a la mitad o al terminarlo. Está desactivado por defecto; actívalo agregando una etapa abajo.",
+  "app.paymentSchedule.stageLabel": "Nombre de la etapa",
+  "app.paymentSchedule.trigger": "Cuándo",
+  "app.paymentSchedule.percentage": "Porcentaje",
+  "app.paymentSchedule.triggerOnInvoiceCreated":
+    "Anticipo — al crear y enviar la factura",
+  "app.paymentSchedule.triggerJobStart": "Inicio del trabajo",
+  "app.paymentSchedule.triggerHalfway": "A la mitad del trabajo",
+  "app.paymentSchedule.triggerJobEnd": "Fin del trabajo (terminado)",
+  "app.paymentSchedule.addStage": "Agregar una etapa",
+  "app.paymentSchedule.removeStage": "Quitar esta etapa",
+  "app.paymentSchedule.total": "Total",
+  "app.paymentSchedule.totalMustBe100":
+    "Las etapas tienen que sumar exactamente 100% para poder guardarse.",
+  "app.paymentSchedule.save": "Guardar calendario",
+  "app.paymentSchedule.saved": "Guardado",
+  "app.paymentSchedule.turnOff": "Desactivar — volver al texto libre",
+  "app.paymentSchedule.turnOffConfirm":
+    "Esto borra todas las etapas. Los trabajos que ya usan este calendario conservan lo que ya se facturó; los presupuestos nuevos usarán las condiciones de texto libre de abajo. ¿Continuar?",
+  "app.paymentSchedule.generatedNote":
+    "Las condiciones de pago de abajo se generan a partir de este calendario, así que el documento que ve el cliente siempre coincide con lo que de verdad se factura. Desactiva el calendario para volver a editar ese texto a mano.",
+  "app.paymentSchedule.emptyState":
+    "Aún no hay etapas — cada presupuesto genera una sola factura completa al aceptarse, exactamente como siempre.",
+
+  // ── Comentarios en las fotos del trabajo ─────────────────────────────────
+  "app.jobPhotoComments.open": "Comentarios",
+  "app.jobPhotoComments.title": "Comentarios de la foto",
+  "app.jobPhotoComments.close": "Cerrar",
+  "app.jobPhotoComments.loadFailed":
+    "No se pudieron cargar los comentarios de esta foto.",
+  "app.jobPhotoComments.sendFailed": "Ese comentario no se guardó.",
+  "app.jobPhotoComments.empty": "Esta foto todavía no tiene comentarios.",
+  "app.jobPhotoComments.taggedLabel": "Etiquetado:",
+  "app.jobPhotoComments.unnamed": "Miembro del equipo",
+  "app.jobPhotoComments.placeholder": "Agrega un comentario…",
+  "app.jobPhotoComments.send": "Enviar",
+
+  // ── Etiquetas de fotos de trabajo ────────────────────────────────────────
+  "app.setJobPhotoTags.title": "Etiquetas de fotos de trabajo",
+  "app.setJobPhotoTags.subtitle":
+    "Tus propias palabras para lo que pasa en una foto: lijado, imprimación, capa final, demolición. Se suman a antes / en curso / terminado / problema, que quedan fijos y son los que gobiernan tu galería de antes y después y lo que nunca se hace público.",
+  "app.setJobPhotoTags.loadError": "No se pudieron cargar tus etiquetas.",
+  "app.setJobPhotoTags.saveError": "No se pudo guardar eso.",
+  "app.setJobPhotoTags.empty": "Aún no hay etiquetas.",
+  "app.setJobPhotoTags.retired": "retirada",
+  "app.setJobPhotoTags.retire": "Retirar",
+  "app.setJobPhotoTags.reactivate": "Recuperar",
+  "app.setJobPhotoTags.retireConfirm":
+    "¿Retirar esta etiqueta? Las fotos que ya la tienen la conservan — simplemente deja de ofrecerse en las nuevas.",
+  "app.setJobPhotoTags.moveUp": "Subir",
+  "app.setJobPhotoTags.moveDown": "Bajar",
+  "app.setJobPhotoTags.addTitle": "Agregar una etiqueta",
+  "app.setJobPhotoTags.nameLabel": "Nombre de la etiqueta",
+  "app.setJobPhotoTags.namePlaceholder": "p. ej. Lijado",
+  "app.setJobPhotoTags.color": "Color",
+  "app.setJobPhotoTags.add": "Agregar etiqueta",
+  "app.setJobPhotoTags.starterTitle": "Etiquetas para empezar",
+  "app.setJobPhotoTags.starterHint":
+    "Un juego genérico para arrancar. No se agrega nada hasta que toques el botón de abajo.",
+  "app.setJobPhotoTags.addStarter": "Agregar etiquetas para empezar",
+  "app.setJobPhotoTags.starterNoneLeft":
+    "Ya tienes todas las etiquetas para empezar.",
+  "app.jobPhotoTags.manage": "Gestionar etiquetas",
+  "app.jobPhotoTags.retiredSuffix": "{name} (retirada)",
+  "app.jobPhotoTags.filterLabel": "Filtrar por etiqueta",
+  "app.jobPhotoTags.filterAll": "Todas las etiquetas",
+  "app.jobPhotoTags.none": "Sin etiquetas",
+
+  // ── Trabajo: calendario de pagos, regresos y costeo ──────────────────────
+  "app.job.paymentSchedule.title": "Calendario de pagos",
+  "app.job.paymentSchedule.pending": "En espera",
+  "app.job.paymentSchedule.requested": "Solicitado",
+  "app.job.paymentSchedule.waived": "Sin cobrar (0%)",
+  "app.job.paymentSchedule.changeOrderNote":
+    "Estas etapas son porcentajes del presupuesto aceptado y no incluyen {amount} de cambios aceptados. Eso se cobra en el saldo de la factura, no con una etapa.",
+  "app.job.paymentSchedule.blockedStartDate":
+    "Todavía no se puede programar — define una fecha de inicio para este trabajo",
+  "app.job.paymentSchedule.blockedEndDate":
+    "Todavía no se puede programar — define una fecha de fin para este trabajo",
+  "app.job.paymentSchedule.blockedInvalidRange":
+    "La fecha de fin es anterior a la de inicio — corrige las fechas del trabajo",
+  "app.job.paymentSchedule.dueOn": "Vence el {date}",
+  "app.jobCosting.unattributedNote":
+    "{hours} h del tiempo de tu equipo entre el {from} y el {to} no están ligadas a ningún trabajo, así que no entran en los costos de este trabajo — ni en los de ningún otro.",
+  "app.jobCosting.unattributedFix":
+    "Asigna esas entradas a un trabajo en la hoja de horas y llegarán aquí.",
+  "app.jobCosting.quotedTotal": "Presupuestado",
+  "app.jobCosting.approvedChanges": "Cambios aprobados",
+  "app.jobCosting.contractValue": "Valor contratado actual",
+  "app.jobCosting.noQuote": "Sin presupuesto",
+  "app.jobCosting.noQuoteNote":
+    "Este trabajo no tiene un presupuesto detrás, así que no hay valor contratado al que sumar estos cambios. Los cambios en sí se siguen debiendo.",
+  "app.jobs.emptyNoneAssigned":
+    "Ahora mismo no estás en ningún trabajo. Los trabajos aparecen aquí cuando te programan una visita.",
+  "app.job.isReturnVisit":
+    "Esta es una vuelta para arreglar o revisar algo anterior de este trabajo",
+  "app.job.returnReason": "¿Por qué vuelves?",
+  "app.job.returnReasonRequired": "Di por qué vuelves.",
+  "app.job.returnNotes": "Qué reportó el cliente, o qué encontraste",
+  "app.job.returnVisitHint":
+    "Esto cuenta para la tasa de retrabajo y regresos del panel de KPI, a menos que lo marques como “no fue culpa nuestra”.",
+  "app.job.isCallbackFor": "Este trabajo es un regreso",
+  "app.job.hasCallbacks": "Trabajos de regreso por este",
+  "app.job.logCallbackJob": "Registrar un trabajo de regreso",
+  "app.jobNew.callbackTitle": "Regreso: {title}",
+  "app.jobNew.callbackReasonRequired": "Di por qué esto es un regreso.",
+  "app.jobNew.callbackBanner":
+    "Este trabajo es un regreso por {title} — aparecerá en la página de ese trabajo y contará para la tasa de retrabajo y regresos del panel de KPI.",
+  "app.jobNew.callbackReason": "¿Por qué vuelves?",
+  "app.jobNew.selectReason": "Elige un motivo",
+
+  // ── Reloj de horas ───────────────────────────────────────────────────────
+  "app.clock.untitledJob": "Trabajo sin título",
+  "app.clock.jobLabel": "¿Qué trabajo?",
+  "app.clock.noJob": "Sin trabajo — traslados, taller, presupuestar",
+  "app.clock.groupToday": "Programados para ti hoy",
+  "app.clock.groupOther": "Tus otros trabajos abiertos",
+  "app.clock.onJob": "En {job}",
+  "app.clock.noJobEntry": "No está ligado a un trabajo",
+  "app.clock.suggestedNote":
+    "Hoy estás programado aquí — cámbialo si estás en otro lado.",
+  "app.clock.pickOneNote":
+    "Tienes {count} trabajos programados hoy — elige con cuál empiezas.",
+  "app.clock.noVisitNote":
+    "Hoy no tienes nada programado. Elige un trabajo si estás en uno — si no, déjalo en blanco.",
+  "app.clock.truncatedNote": "Solo se listan tus trabajos más recientes.",
+  "app.clock.switchTitle": "¿Te pasaste a otro trabajo?",
+  "app.clock.switchAction": "Cambiar de trabajo",
+  "app.clock.switchNote":
+    "Las horas que llevas se quedan donde están. Empieza una entrada nueva desde ahora.",
+
+  // ── Campos sueltos ───────────────────────────────────────────────────────
+  "app.field.country": "País",
+  "app.field.countryNotSet": "Sin definir",
+
+  // ── Equipos usados en el trabajo ─────────────────────────────────────────
+  "app.jobEquipment.title": "Equipos usados",
+  "app.jobEquipment.add": "Registrar equipo",
+  "app.jobEquipment.empty": "Aún no hay nada registrado.",
+  "app.jobEquipment.error": "No se pudo registrar eso.",
+  "app.jobEquipment.pickAsset": "Qué equipo",
+  "app.jobEquipment.hoursOptional": "Horas (opcional)",
+  "app.jobEquipment.hoursShort": "h",
+  "app.jobEquipment.save": "Registrarlo",
+  "app.jobEquipment.cancel": "Cancelar",
+  "app.jobCosting.equipmentInOverhead":
+    "Los equipos registrados en este trabajo ({amount}) ya están cubiertos por la parte de gastos generales de arriba — no se suman otra vez.",
+  "app.jobCosting.equipmentAdded":
+    "Los equipos registrados en este trabajo sumaron {amount} al total de arriba — configura Configuración → Gastos generales y esto deja de contarse dos veces.",
+
+  // ── El correo de recuperación de registro ────────────────────────────────
+  //
+  // Usted, no tú: lo demás del catálogo de /app tutea porque le habla a alguien
+  // que ya trabaja dentro del producto, y esta es la única entrada que sale
+  // hacia fuera — a alguien que todavía no es cliente. Es el mismo corte que ya
+  // hace lib/i18n/clientDocCopy.js, donde todo lo que lee un propietario de
+  // vivienda va en usted.
+  "app.signupRecovery.subject": "¿Le echamos una mano para terminar su configuración de FieldQuo?",
+  "app.signupRecovery.heading": "Está a un paso de quedar listo",
+  "app.signupRecovery.intro":
+    "Empezó a configurar su negocio en FieldQuo y se detuvo en el último paso: los datos de la tarjeta. No se cobró nada, y no falta nada más.",
+  "app.signupRecovery.introNamed":
+    "Empezó a configurar {company} en FieldQuo y se detuvo en el último paso: los datos de la tarjeta. No se cobró nada, y no falta nada más.",
+  "app.signupRecovery.reassure":
+    "Todo lo que escribió sigue ahí, exactamente como lo dejó. Retomarlo toma cosa de un minuto.",
+  "app.signupRecovery.offer":
+    "Si algo se interpuso — el precio, una duda sobre cómo funciona, o el pago mismo que no se portó bien — preferimos escucharlo a adivinarlo.",
+  "app.signupRecovery.cta": "Terminar la configuración",
+  "app.signupRecovery.noCharge":
+    "Su primer mes es gratis. La tarjeta es lo que lo pone en marcha, no lo que se cobra.",
+  "app.signupRecovery.help": "Cuéntenos qué se interpuso",
+  "app.signupRecovery.identify": "FieldQuo · fieldquo.com",
+  "app.signupRecovery.optOut": "Dejar de recibir mensajes de FieldQuo",
+
+  // ── Prospectos perdidos: el motivo ───────────────────────────────────────
+  "app.leads.lostReasonTitle": "¿Por qué se perdió este prospecto?",
+  "app.leads.lostReasonBody":
+    "Las consultas reales y los clics accidentales antes caían en el mismo montón — esto es lo que después permite distinguirlos.",
+  "app.leads.lostReasonSelect": "Elige un motivo…",
+  "app.leads.lostReasonConfirm": "Marcar como perdido",
+  "app.leads.lostReasonShown": "Motivo:",
+  "app.leads.lostReason.lost_to_competitor": "Se fue con otro",
+  "app.leads.lostReason.price_too_high": "El precio era demasiado alto",
+  "app.leads.lostReason.timing_not_right": "No era el momento",
+  "app.leads.lostReason.not_real_inquiry": "No era una consulta real",
+  "app.leads.lostReason.no_response": "Nunca respondió",
+  "app.leads.lostReason.other": "Otro",
+
+  // ── Recepcionista: recuperar llamadas perdidas ───────────────────────────
+  "app.receptionist.recover": "Recuperar llamadas perdidas",
+  "app.receptionist.recovering": "Consultando con el proveedor telefónico…",
+  "app.receptionist.recoveredBadge": "Recuperada",
+  "app.receptionist.recoveredWhy":
+    "Esta llamada nunca llegó a FieldQuo mientras ocurría, así que en su momento no estuvo aquí. La recuperamos del proveedor telefónico el {when}.",
+  "app.receptionist.recoveredLead":
+    "Reconstruido a partir de la grabación — revisa los datos antes de devolver la llamada",
+  "app.receptionist.recoverDone":
+    "{calls} llamada(s) revisadas, {recovered} recuperadas, {leads} prospecto(s) reconstruidos.",
+  "app.receptionist.recoverNothing":
+    "No faltaba nada — todas las llamadas que el proveedor tiene de la última semana ya están aquí.",
+  "app.receptionist.recoverNoAi":
+    "Se recuperaron las llamadas, pero sus transcripciones no se pudieron convertir en prospectos — FieldQuo AI no está disponible ahora mismo. Las grabaciones y las transcripciones están en cada llamada.",
+  "app.receptionist.recoverQuota":
+    "Se recuperaron las llamadas, pero tu cupo de IA está agotado, así que las transcripciones no se convirtieron en prospectos.",
+  "app.receptionist.recoverUnconfigured":
+    "El proveedor telefónico no está configurado en esta instalación, así que no hay a quién preguntarle.",
+  "app.receptionist.recoverPartial":
+    "El proveedor dejó de responder a medio camino, así que esto cubre solo parte del periodo. Inténtalo de nuevo en unos minutos.",
+  "app.receptionist.recoverError": "No se pudo contactar al proveedor telefónico.",
+
+  // ── Presupuestos instantáneos ────────────────────────────────────────────
+  "app.setInstantQuotes.notPriceable":
+    "Los propietarios todavía no pueden obtener un precio para esto.",
+  "app.setInstantQuotes.liveNone":
+    "Todavía no hay nada activo en tu enlace de estimación instantánea — activa un servicio abajo.",
+  "app.setInstantQuotes.liveSome":
+    "{count} activos en tu enlace de estimación instantánea.",
+  "app.setInstantQuotes.viewPublicPage": "Ver lo que ven los propietarios",
+  "app.setInstantQuotes.visAfterSubmitLabel": "Mostrar el rango después de enviar",
+  "app.setInstantQuotes.visAfterSubmitHint":
+    "Llenan el formulario para desbloquear su rango. De todos modos obtienes sus datos — es la opción habitual.",
+  "app.setInstantQuotes.budgetBands": "Rangos de presupuesto",
+  "app.setInstantQuotes.budgetBandsHint":
+    "Las cuatro opciones que se muestran cuando preguntamos su presupuesto. Define los tres cortes; tienen que ir de menor a mayor.",
+  "app.setInstantQuotes.budgetBandsPreview": "Verán:",
+  "app.setInstantQuotes.budgetBandsInvalid":
+    "Aquí hacen falta tres importes en orden creciente — mientras no lo estén, se muestran los rangos estándar.",
+  "app.setInstantQuotes.embedHeading":
+    "Pon la estimación instantánea en tu sitio web",
+  "app.setInstantQuotes.embedNote":
+    "Pega esto donde quieras que aparezca. Es un elemento HTML común y corriente, así que funciona igual en Wix, Squarespace, WordPress y HTML escrito a mano. El pequeño script solo ajusta el alto del recuadro a medida que el propietario responde; si tu sitio elimina los scripts, sigue funcionando con un alto fijo.",
+
+  // ── Resumen mensual: llamadas detrás de las decisiones ───────────────────
+  "app.digest.calls.title": "Llamadas detrás de las decisiones de este mes",
+  "app.digest.calls.none":
+    "Ningún presupuesto ganado o perdido este mes estaba ligado a una llamada telefónica.",
+  "app.digest.calls.unavailable":
+    "Se podrían haber leído {count} llamadas detrás de las decisiones de este mes, pero FieldQuo AI no está disponible en esta instalación.",
+  "app.digest.calls.quotaExceeded":
+    "Se podrían haber leído {count} llamadas detrás de las decisiones de este mes, pero el cupo de FieldQuo AI de este mes está agotado.",
+  "app.digest.aiSkipped":
+    "El resumen con IA de este mes se omitió — tu cupo de FieldQuo AI está agotado. Los números de arriba no se ven afectados.",
+  "app.digest.calls.modelEmpty":
+    "Se enviaron {count} llamadas para leerlas pero no volvió nada — se intentará de nuevo el mes que viene.",
+  "app.digest.calls.summary":
+    "Se leyeron {read} de {total} llamadas ligadas a una decisión este mes.",
+  "app.digest.calls.summaryCapped":
+    "Se leyeron las {read} más recientes de {total} llamadas ligadas a una decisión este mes.",
+  "app.digest.calls.won": "Ganado",
+  "app.digest.calls.lost": "Perdido",
+  "app.digest.calls.quoteFallback": "Presupuesto",
+  "app.digest.calls.nothingNotable":
+    "En esta llamada no destacó nada más allá de lo que ya está en el presupuesto.",
+
+  // ── Categorías del registro de activos ───────────────────────────────────
+  "app.assets.category.vehicle": "Vehículo",
+  "app.assets.category.trailer": "Remolque",
+  "app.assets.category.powerTool": "Herramienta eléctrica",
+  "app.assets.category.handTool": "Herramienta manual",
+  "app.assets.category.ladderScaffold": "Escalera / andamio",
+  "app.assets.category.sprayEquipment": "Equipo de pintura a pistola",
+  "app.assets.category.compressorGenerator": "Compresor / generador",
+  "app.assets.category.measuringElectronic": "Herramienta de medición / electrónica",
+  "app.assets.category.safetyEquipment": "Equipo de seguridad",
+  "app.assets.category.other": "Otro",
+  "app.assets.categorySuggestion":
+    "Rango habitual para esta categoría — un punto de partida, no una regla. Confírmalo o cámbialo antes de guardar.",
+
+  // ── Navegación y configuración ───────────────────────────────────────────
+  "app.nav.safety": "Seguridad",
+  "app.nav.plans": "Planes de servicio",
+  "app.nav.purchasing": "Compras",
+  "app.nav.clientEquipment": "Equipos del cliente",
+  "app.nav.fleet": "Vehículos",
+  "app.settings.migration": "Migración de datos",
+  "app.settings.metaAds": "Meta Ads",
+  "app.settings.bioLink": "Enlace para la bio",
+  "app.settings.jobPhotoTags": "Etiquetas de fotos de trabajo",
+  "app.marketing.spendLink": "Gasto en marketing",
+  "app.state.saving": "Guardando…",
+
+  // ── Migración desde el panel principal ───────────────────────────────────
+  "app.dash.migration.title": "Migración de datos",
+  "app.dash.migration.quoted":
+    "FieldQuo presupuestó tu migración de datos en {amount}. Revísala y responde.",
+  "app.dash.migration.accepted":
+    "Tu migración de datos está lista — paga {amount} para empezar.",
+
+  // ── Motivos de un regreso ────────────────────────────────────────────────
+  "app.callback.reason.rework": "Retrabajo — se nos pasó algo",
+  "app.callback.reason.warranty": "Garantía — trabajo cubierto",
+  "app.callback.reason.notOurFault":
+    "No fue culpa nuestra — el cliente creyó que faltaba algo",
+
+  // ── Estado de una corrida de nómina ──────────────────────────────────────
+  "app.payRunStatus.draft": "Borrador",
+  "app.payRunStatus.approved": "Aprobada",
+  "app.payRunStatus.paid": "Pagada",
+  "app.payRunStatus.cancelled": "Cancelada",
+
+  // ── Servicios, materiales y gastos generales ─────────────────────────────
+  "app.setServices.per": "por",
+  "app.setServices.pricedBy": "Se cobra por",
+  "app.setServices.complexityNote":
+    "Las tarifas cambian según la complejidad elegida en el presupuesto",
+  "app.setMaterialCosts.noneApplicable":
+    "Aquí todavía no hay nada que configurar. Esta pantalla define los costos de material para Restauración de gabinetes y Pintura exterior — activa uno de los dos en Configuración › Servicios para verlo aquí.",
+  "app.setOverhead.assetCategory": "Tipo de equipo (opcional)",
+  "app.setOverhead.assetCategoryNone": "Sin definir",
+
+  // ── Facturación de la suscripción ────────────────────────────────────────
+  "app.billing.portalUnreachable":
+    "No se pudo conectar con el servidor para abrir la facturación. Inténtalo de nuevo.",
+  "app.billing.needCountry":
+    "Cobramos en tu propia moneda, así que necesitamos saber dónde está tu negocio antes de poder mostrarte los planes.",
+  "app.billing.needCountryCta": "Agregar la dirección de tu negocio",
+
+  // ── Acceso e idioma ──────────────────────────────────────────────────────
+  "app.perm.noAccessLevelBody":
+    "Tu nivel de acceso no incluye esta pantalla. Pídeselo a un propietario o administrador si la necesitas.",
+  "app.langSettings.companyDefaultReadOnlyWhat":
+    "Este es el idioma que reciben los nuevos miembros del equipo y los clientes que no tienen uno propio.",
+
+  // ── Insertar el calendario de reservas ───────────────────────────────────
+  "app.setBooking.embedHeading": "Pon tu calendario de reservas en tu sitio web",
+  "app.setBooking.embedNote":
+    "Pega esto donde quieras que aparezca el calendario. Funciona en Wix, Squarespace, WordPress y HTML escrito a mano — es un elemento HTML común y corriente. El pequeño script solo ajusta el alto del recuadro mientras el visitante avanza por los pasos; si tu sitio elimina los scripts, el calendario sigue funcionando con un alto fijo.",
+
+  // ── Tarifas de gabinetes ─────────────────────────────────────────────────
+  "app.setCabinetRates.closet": "Carpintería de clóset",
+  "app.setCabinetRates.closetHint":
+    "Déjalo en blanco para cobrar los clósets con tus tarifas de cocina: una sección para colgar como un mueble alto (${tall}/pie lineal) y un bloque de cajones como un mueble bajo (${base}/pie lineal). Define una tarifa solo si vendes carpintería de clóset a otro precio; es una caja menos profunda.",
+  "app.setCabinetRates.vanity": "Mueble de lavabo / fregadero de lavandería",
+  "app.setCabinetRates.vanityHint":
+    "Déjalo en blanco para cobrarlos como un mueble bajo (${base}/pie lineal).",
+
+  // ── IVA de la empresa ────────────────────────────────────────────────────
+  "app.setCompany.vatRegisteredTitle": "¿Estás registrado a efectos de IVA?",
+  "app.setCompany.vatRegisteredHint":
+    "Esto decide si el IVA va en tus presupuestos. Si estás por debajo del umbral de registro de tu país, no cobras nada y nosotros tampoco añadimos nada.",
+  "app.setCompany.vatRegisteredYes": "Sí — estoy registrado a efectos de IVA",
+  "app.setCompany.vatRegisteredNo": "No — estoy por debajo del umbral de registro",
+  "app.setCompany.vatRegisteredUnset":
+    "Prefiero no decirlo todavía — usa mi tasa por defecto",
+
+  // ── Escritura desactualizada ─────────────────────────────────────────────
+  "app.staleWrite.titleNamed":
+    "{name} guardó cambios mientras tú tenías esto abierto",
+  "app.staleWrite.titleUnknown":
+    "Alguien de tu equipo guardó cambios mientras tú tenías esto abierto",
+  "app.staleWrite.titleYou":
+    "Guardaste esto en otro lado mientras lo tenías abierto aquí",
+  "app.staleWrite.bodyWhen":
+    "Esa versión se guardó {when}, después de que cargara esta pantalla.",
+  "app.staleWrite.body":
+    "Esa versión se guardó después de que cargara esta pantalla.",
+  "app.staleWrite.keptSafe":
+    "No se ha perdido nada de lo que escribiste — sigue todo en esta pantalla, sin guardar.",
+  "app.staleWrite.review": "Abrir la versión guardada en una pestaña nueva",
+  "app.staleWrite.overwrite": "Guardar la mía de todos modos",
+  "app.staleWrite.overwriteBusy": "Guardando…",
+  "app.staleWrite.overwriteHint":
+    "Esto reemplaza los cambios guardados por lo que hay en tu pantalla.",
+
+  // ── Terminar el registro ─────────────────────────────────────────────────
+  "app.signup.finish.eyebrow": "Terminar la configuración",
+  "app.signup.finish.title": "Falta un paso",
+  "app.signup.finish.subtitle":
+    "{company} está configurada — solo falta una tarjeta para que puedas usarla.",
+  "app.signup.finish.subtitleTrial":
+    "{company} está configurada — solo falta una tarjeta para que puedas usarla. A tu mes gratis le quedan {days}, así que hoy no se cobra nada.",
+  "app.signup.finish.day": "día",
+  "app.signup.finish.days": "días",
+  "app.signup.finish.signOut": "Cerrar sesión en esta cuenta",
+  "app.signup.finish.banner":
+    "{company} se configuró, pero nunca se terminó el pago — así que la cuenta no tiene tarjeta y todavía no hay nada que abrir. Elige un plan abajo y listo.",
+
+  // ── Cuenta sin terminar de configurar ────────────────────────────────────
+  "app.setup.incomplete.title": "Esta cuenta todavía no está configurada",
+  "app.setup.incomplete.body":
+    "Este negocio empezó a configurar FieldQuo pero nunca terminó de agregar una forma de pago, así que todavía no hay nada aquí donde trabajar.",
+  "app.setup.incomplete.bodyNamed":
+    "{name} empezó a configurar FieldQuo pero nunca terminó de agregar una forma de pago, así que todavía no hay nada aquí donde trabajar.",
+  "app.setup.incomplete.whoCanFix":
+    "Quien sea dueño de la cuenta tiene que iniciar sesión y terminar de elegir un plan. En cuanto lo haga, todo esto se te abre de inmediato — no hará falta una invitación nueva.",
+  "app.setup.incomplete.signOut": "Cerrar sesión",
+  "app.setup.incomplete.stuck": "¿Crees que esto está mal?",
+  "app.setup.incomplete.contact": "Escríbenos",
+
+  // ── Vencimientos ─────────────────────────────────────────────────────────
+  "app.expiry.expired": "Vencido",
+  "app.expiry.dueSoon": "Por vencer",
+  "app.expiry.ok": "Vigente",
+  "app.expiry.unknown": "Sin registrar",
+
+  // ── Textos del recorrido guiado que se habían quedado en inglés ──────────
+
+  "app.copilot.nearLimit": "Has usado el {pct} % de la cuota de FieldQuo AI de este mes. Cuando se agote, FieldQuo AI dejará de responder hasta que la cuota se reinicie a principios del mes que viene.",
+  "app.copilot.outTitle": "La cuota de FieldQuo AI de este mes se ha agotado.",
+  "app.copilot.outBody": "Se reinicia a principios del mes que viene, y todo lo demás en FieldQuo sigue funcionando con normalidad. Escríbenos si necesitas una cuota mayor antes de entonces.",
+  "app.copilot.send": "Enviar",
 };
 
 const uk = {
@@ -18168,6 +20314,11 @@ const uk = {
   "app.activity.supportSession": "сеанс підтримки",
   "app.kpis.sampleSize": countedNoun("uk", {"one":"об'єкт/кошторис","few":"об'єкти/кошториси","many":"об'єктів/кошторисів","other":"об'єкта/кошторису"}),
   "app.kpis.weeksBooked": countedNoun("uk", {"one":"тиждень","few":"тижні","many":"тижнів","other":"тижня"}),
+
+  "app.copilot.nearLimit": "Ви використали {pct} % місячного ліміту FieldQuo AI. Коли він вичерпається, FieldQuo AI перестане відповідати до оновлення ліміту на початку наступного місяця.",
+  "app.copilot.outTitle": "Місячний ліміт FieldQuo AI вичерпано.",
+  "app.copilot.outBody": "Він оновиться на початку наступного місяця, а решта FieldQuo працює як звичайно. Напишіть нам, якщо до того часу потрібен більший ліміт.",
+  "app.copilot.send": "Надіслати",
 };
 
 const pa = {
@@ -21684,6 +23835,11 @@ const pa = {
   "app.activity.supportSession": "ਸਹਾਇਤਾ ਸੈਸ਼ਨ",
   "app.kpis.sampleSize": countedNoun("pa", {"one":"ਕੰਮ/ਕੋਟ","other":"ਕੰਮ/ਕੋਟ"}),
   "app.kpis.weeksBooked": countedNoun("pa", {"one":"ਹਫ਼ਤਾ","other":"ਹਫ਼ਤੇ"}),
+
+  "app.copilot.nearLimit": "ਤੁਸੀਂ ਇਸ ਮਹੀਨੇ ਦੇ FieldQuo AI ਕੋਟੇ ਦਾ {pct}% ਵਰਤ ਲਿਆ ਹੈ। ਖਤਮ ਹੋਣ 'ਤੇ FieldQuo AI ਜਵਾਬ ਦੇਣਾ ਬੰਦ ਕਰ ਦੇਵੇਗਾ, ਜਦ ਤੱਕ ਅਗਲੇ ਮਹੀਨੇ ਦੇ ਸ਼ੁਰੂ ਵਿੱਚ ਕੋਟਾ ਮੁੜ ਸੈੱਟ ਨਹੀਂ ਹੁੰਦਾ।",
+  "app.copilot.outTitle": "ਇਸ ਮਹੀਨੇ ਦਾ FieldQuo AI ਕੋਟਾ ਖਤਮ ਹੋ ਗਿਆ ਹੈ।",
+  "app.copilot.outBody": "ਇਹ ਅਗਲੇ ਮਹੀਨੇ ਦੇ ਸ਼ੁਰੂ ਵਿੱਚ ਮੁੜ ਸੈੱਟ ਹੋ ਜਾਂਦਾ ਹੈ, ਅਤੇ FieldQuo ਦਾ ਬਾਕੀ ਸਭ ਕੁਝ ਆਮ ਵਾਂਗ ਚੱਲਦਾ ਰਹਿੰਦਾ ਹੈ। ਜੇ ਉਸ ਤੋਂ ਪਹਿਲਾਂ ਵੱਡਾ ਕੋਟਾ ਚਾਹੀਦਾ ਹੈ ਤਾਂ ਸਾਡੇ ਨਾਲ ਸੰਪਰਕ ਕਰੋ।",
+  "app.copilot.send": "ਭੇਜੋ",
 };
 
 const tl = {
@@ -25207,6 +27363,11 @@ const tl = {
   "app.activity.supportSession": "sesyon ng suporta",
   "app.kpis.sampleSize": countedNoun("tl", {"one":"trabaho/quote","other":"trabaho/quote"}),
   "app.kpis.weeksBooked": countedNoun("tl", {"one":"linggo","other":"linggo"}),
+
+  "app.copilot.nearLimit": "Nagamit mo na ang {pct}% ng allowance ng FieldQuo AI ngayong buwan. Kapag naubos ito, hihinto sa pagsagot ang FieldQuo AI hanggang mag-reset ang allowance sa simula ng susunod na buwan.",
+  "app.copilot.outTitle": "Naubos na ang allowance ng FieldQuo AI ngayong buwan.",
+  "app.copilot.outBody": "Magre-reset ito sa simula ng susunod na buwan, at tuloy-tuloy pa rin ang lahat ng iba sa FieldQuo. Mag-message kung kailangan mo ng mas malaking allowance bago iyon.",
+  "app.copilot.send": "Ipadala",
 };
 
 const de = {
@@ -30179,6 +32340,11 @@ const de = {
   "app.activity.supportSession": "Support-Sitzung",
   "app.kpis.sampleSize": countedNoun("de", {"one":"Auftrag/Angebot","other":"Aufträge/Angebote"}),
   "app.kpis.weeksBooked": countedNoun("de", {"one":"Woche","other":"Wochen"}),
+
+  "app.copilot.nearLimit": "Sie haben {pct} % des FieldQuo-AI-Kontingents dieses Monats verbraucht. Ist es aufgebraucht, antwortet FieldQuo AI nicht mehr, bis das Kontingent zu Beginn des nächsten Monats zurückgesetzt wird.",
+  "app.copilot.outTitle": "Das FieldQuo-AI-Kontingent dieses Monats ist aufgebraucht.",
+  "app.copilot.outBody": "Es wird zu Beginn des nächsten Monats zurückgesetzt, und alles andere in FieldQuo läuft normal weiter. Melden Sie sich, wenn Sie vorher ein größeres Kontingent brauchen.",
+  "app.copilot.send": "Senden",
 };
 
 const zh = {
@@ -35148,6 +37314,11 @@ const zh = {
   "app.activity.supportSession": "支持会话",
   "app.kpis.sampleSize": countedNoun("zh", {"other":"个工程/报价单"}),
   "app.kpis.weeksBooked": countedNoun("zh", {"other":"周"}),
+
+  "app.copilot.nearLimit": "本月的 FieldQuo AI 额度已用掉 {pct}%。用完后，FieldQuo AI 将停止回答，直到下月初额度重置。",
+  "app.copilot.outTitle": "本月的 FieldQuo AI 额度已用完。",
+  "app.copilot.outBody": "额度将在下月初重置，FieldQuo 的其他功能一切照常。如果在那之前需要更大的额度，请与我们联系。",
+  "app.copilot.send": "发送",
 };
 
 const it = {
@@ -40412,6 +42583,11 @@ const it = {
   "app.activity.supportSession": "sessione di assistenza",
   "app.kpis.sampleSize": countedNoun("it", {"one":"lavoro/preventivo","other":"lavori/preventivi"}),
   "app.kpis.weeksBooked": countedNoun("it", {"one":"settimana","other":"settimane"}),
+
+  "app.copilot.nearLimit": "Hai usato il {pct} % del contingente FieldQuo AI di questo mese. Quando si esaurisce, FieldQuo AI smette di rispondere fino al ripristino all'inizio del mese prossimo.",
+  "app.copilot.outTitle": "Il contingente FieldQuo AI di questo mese è esaurito.",
+  "app.copilot.outBody": "Si ripristina all'inizio del mese prossimo e tutto il resto di FieldQuo continua a funzionare normalmente. Scrivici se ti serve un contingente più ampio prima di allora.",
+  "app.copilot.send": "Invia",
 };
 
 export const APP_MESSAGES = { en, fr, es, uk, pa, tl, de, zh, it };
