@@ -1,10 +1,14 @@
 // app/q/[token]/ContractorImportPanel.js
 //
 // The contractor-only affordance under a received quote. A homeowner never sees
-// this (the document above stays fully white-label); it appears only when the
-// viewer is a FieldQuo contractor, or when the quote was addressed to a business
-// rather than an individual. That split is decided server-side in
-// /api/quotes/received/[token] — see the clientIsCompany note there.
+// this — the document above stays fully white-label. It appears only for a
+// SIGNED-IN contractor of a different company from the sender, which is the one
+// signal we can actually stand behind; `canImport` in
+// /api/quotes/received/[token] is where that is decided.
+//
+// It used to also claim to appear "when the quote was addressed to a business".
+// It did not, and could not: the guard below has always returned null first.
+// See the note on that guard.
 //
 // What it does: lets a general contractor pull this subcontractor's quote into
 // one of their OWN quotes as a marked-up cost line, in one step. The browser
@@ -65,44 +69,28 @@ export default function ContractorImportPanel({ token }) {
   // that business IS the recipient approving the quote, so it leaked the
   // contractor-only "Add this to one of your quotes / Create a quote first" copy
   // (and a FieldQuo recruitment pitch) onto a white-label client approval page.
+  //
+  // ── The signed-out on-ramp is gone, not hidden ────────────────────────────
+  //
+  // A second `if (!ctx.canImport)` used to sit thirty lines below this one,
+  // wrapping a "Are you the contractor on this job? / Start free — first month
+  // free / Sign in" pitch. The guard above made it unreachable: by the time
+  // control got there, canImport was true by definition. So it was thirty lines
+  // of signup UI, on the highest-stakes white-label surface in the product,
+  // that nobody could ever see.
+  //
+  // It has been deleted rather than revived, because reviving it would mean
+  // undoing the guard, and the guard is the fix for a real leak: we cannot tell
+  // a signed-out contractor from a homeowner, and the previous attempt at that
+  // distinction (`clientIsCompany`) put a FieldQuo recruitment pitch under a
+  // quote a business was reading as a customer. A pitch nobody sees and a pitch
+  // shown to the wrong person are both worse than no pitch.
   if (!ctx.canImport) return null;
 
   const money = (n) => formatMoney(n, ctx.currency);
   const markup = useCustom ? Math.max(0, Number(customMarkup) || 0) : preset;
   const cost = Number(ctx.amount || 0);
   const clientPrice = Math.round(cost * (1 + markup / 100) * 100) / 100;
-
-  // ── Signed-out (or unregistered) contractor: the on-ramp ──────────────────
-  if (!ctx.canImport) {
-    return (
-      <Frame>
-        <p className="text-sm font-semibold text-[#2d2520]">
-          Are you the contractor on this job?
-        </p>
-        <p className="text-sm text-[#2d2520]/70 mt-1">
-          Add this quote to your own project in FieldQuo as a cost, mark it up,
-          and it becomes a line on the quote you send your client.
-        </p>
-        <div className="flex flex-wrap gap-2 mt-4">
-          <a
-            href={`/signup?next=${encodeURIComponent(`/q/${token}`)}`}
-            className="inline-flex items-center gap-1.5 bg-[#06356b] text-white px-5 py-2.5 rounded-full text-sm font-semibold"
-          >
-            Start free — first month free
-          </a>
-          <a
-            href={`/login?next=${encodeURIComponent(`/q/${token}`)}`}
-            className="inline-flex items-center gap-1.5 border border-black/15 text-[#2d2520] px-5 py-2.5 rounded-full text-sm font-semibold"
-          >
-            Sign in
-          </a>
-        </div>
-        <p className="text-xs text-[#2d2520]/45 mt-3">
-          Either way, we&apos;ll bring you right back here to add it.
-        </p>
-      </Frame>
-    );
-  }
 
   // ── Success ───────────────────────────────────────────────────────────────
   if (done) {
@@ -225,7 +213,7 @@ export default function ContractorImportPanel({ token }) {
                     setUseCustom(false);
                     setPreset(p);
                   }}
-                  className={`px-3 py-1.5 rounded-full text-sm font-semibold border ${
+                  className={`inline-flex items-center px-4 py-1.5 min-h-11 rounded-full text-sm font-semibold border ${
                     !useCustom && preset === p
                       ? "bg-[#06356b] text-white border-[#06356b]"
                       : "bg-white text-[#2d2520] border-black/15"
@@ -237,7 +225,7 @@ export default function ContractorImportPanel({ token }) {
               <button
                 type="button"
                 onClick={() => setUseCustom(true)}
-                className={`px-3 py-1.5 rounded-full text-sm font-semibold border ${
+                className={`inline-flex items-center px-4 py-1.5 min-h-11 rounded-full text-sm font-semibold border ${
                   useCustom
                     ? "bg-[#06356b] text-white border-[#06356b]"
                     : "bg-white text-[#2d2520] border-black/15"
@@ -275,7 +263,7 @@ export default function ContractorImportPanel({ token }) {
                   key={val}
                   type="button"
                   onClick={() => setDisplay(val)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-semibold border ${
+                  className={`inline-flex items-center px-4 py-1.5 min-h-11 rounded-full text-sm font-semibold border ${
                     display === val
                       ? "bg-[#06356b] text-white border-[#06356b]"
                       : "bg-white text-[#2d2520] border-black/15"

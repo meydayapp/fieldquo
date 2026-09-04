@@ -34,11 +34,16 @@
 // as /q/[token] and the PDF.
 //
 // Colours come from lib/documents/theme.js rather than the raw brand hex.
-// That is a deliberate difference from the approval page next door, which
-// still paints headings with `color: brandColor` unmeasured — a company whose
-// brand is pale yellow gets an invisible heading there. accentText, fillPair
-// and inkMutedOnWash are all measured at 4.5:1, including against the
-// near-white and mid-grey brands real companies in this database have picked.
+// accentText, fillPair and inkMutedOnWash are all measured at 4.5:1, including
+// against the near-white and mid-grey brands real companies in this database
+// have picked.
+//
+// This used to say the approval page next door was the counter-example — that
+// it still painted headings with `color: brandColor` unmeasured. That was true
+// and is no longer: /q/[token] was ported onto the same palette on 2026-09-03,
+// after the white-brand tenant turned out to be rendering the totals band
+// invisible. The two client-facing quote surfaces and the PDF now derive from
+// one place, which is the only way they stay looking like one document.
 //
 // ── Renders inside an iframe ────────────────────────────────────────────────
 //
@@ -379,7 +384,7 @@ export default function SelfQuoteFlow({ companySlug }) {
                           onChange={(e) =>
                             setDetails((p) => ({ ...p, [f.key]: e.target.value }))
                           }
-                          className="w-full mt-1 border border-black/15 rounded-lg px-3 py-2 text-sm bg-white"
+                          className="w-full mt-1 border border-black/15 rounded-lg px-3 py-2 min-h-11 text-sm bg-white"
                           style={{ color: theme.ink }}
                         >
                           <option value="">—</option>
@@ -397,7 +402,7 @@ export default function SelfQuoteFlow({ companySlug }) {
                           onChange={(e) =>
                             setDetails((p) => ({ ...p, [f.key]: e.target.value }))
                           }
-                          className="w-full mt-1 border border-black/15 rounded-lg px-3 py-2 text-sm"
+                          className="w-full mt-1 border border-black/15 rounded-lg px-3 py-2 min-h-11 text-sm"
                           style={{ color: theme.ink }}
                           placeholder="0"
                         />
@@ -560,6 +565,11 @@ export default function SelfQuoteFlow({ companySlug }) {
                   label={copy.uploadLabel}
                   hint={copy.uploadHint}
                   documentLabel={copy.uploadDocumentFallback}
+                  busyLabel={copy.uploadBusy}
+                  limitLabel={copy.uploadLimit}
+                  failedLabel={copy.uploadFailed}
+                  rejectedLabel={copy.uploadRejected}
+                  removeLabel={copy.uploadRemove}
                 />
               </div>
 
@@ -882,7 +892,7 @@ function LanguagePicker({ value, options, label, theme, onChange }) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         aria-label={label}
-        className="border border-black/15 rounded-lg pl-2 pr-6 py-1.5 text-xs bg-white"
+        className="border border-black/15 rounded-lg pl-2 pr-6 py-1.5 min-h-11 text-xs bg-white"
         style={{ color: theme.ink }}
       >
         {options.map((code) => {
@@ -931,7 +941,11 @@ function ChipButton({ active, theme, onClick, children }) {
     <button
       type="button"
       onClick={onClick}
-      className="text-left rounded-lg border px-3 py-2 text-xs font-medium transition-colors"
+      // min-h-11 (44px): these are the timeline and budget chips, in a two-up
+      // grid, and at text-xs with py-2 they were 32px tall — the smallest
+      // targets on a form whose entire audience is on a phone. Height only, so
+      // a chip whose label wraps to two lines still grows.
+      className="flex items-center text-left rounded-lg border px-3 py-2 min-h-11 text-xs font-medium transition-colors"
       style={
         active
           ? {
@@ -959,7 +973,7 @@ function BackLink({ onClick, theme, label }) {
       // same CSS property have their winner decided by Tailwind's
       // stylesheet order, not by position in this className string, which
       // is a fragile thing to rely on for a few pixels of spacing.)
-      className="inline-flex items-center gap-1 text-xs mb-3 py-2"
+      className="inline-flex items-center gap-1 text-xs mb-3 py-2 min-h-11"
       style={{ color: theme.inkMuted }}
     >
       <ArrowLeft size={13} /> {label}

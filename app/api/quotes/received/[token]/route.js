@@ -28,9 +28,11 @@ export async function GET(request, { params }) {
       companyId: true,
       total: true,
       acceptedTotal: true,
-      sentToEmail: true,
       company: { select: { name: true, currency: true } },
-      client: { select: { email: true, type: true } },
+      // No client relation. `sentToEmail`, `client.email` and `client.type` were
+      // read only by the three dead fields removed below, and this endpoint is
+      // callable by anyone holding the share token — narrowing what it loads is
+      // the cheapest form of not leaking it.
     },
   });
   if (!source)
@@ -53,45 +55,34 @@ export async function GET(request, { params }) {
   const canImport =
     authenticated && !isOwnQuote && hasLevel(full, "quotes", "view_create_edit");
 
-  // Recognition hint for the signed-OUT call to action, and nothing more. Scoped
-  // strictly to the address the sub already ADDRESSED this quote to — never a
-  // caller-supplied email — so it can't be turned into an oracle for probing
-  // whether arbitrary emails are registered. The caller already holds the secret
-  // share token minted for this exact recipient.
-  const recipientEmail = source.sentToEmail || source.client?.email || null;
-  let recipientKnown = false;
-  if (recipientEmail) {
-    const hit = await db.user.findFirst({
-      where: { email: recipientEmail },
-      select: { id: true },
-    });
-    recipientKnown = Boolean(hit);
-  }
-
-  let viewerCompanyName = null;
+  // ── Three fields used to be built here and read by nothing ───────────────
+  //
+  // `recipientKnown`, `clientIsCompany` and `viewerCompanyName` all existed to
+  // drive the signed-out contractor pitch in ContractorImportPanel. That branch
+  // sat behind an earlier `if (!ctx.canImport) return null`, so it had been
+  // unreachable for as long as the guard existed; it is now deleted, and so are
+  // these.
+  //
+  // recipientKnown is the one worth naming: it ran a `user.findFirst` on the
+  // recipient's email for EVERY view of /q/<token>, homeowners included. A query
+  // per page load, on the page a stranger opens on a phone in a driveway, for a
+  // value that reached no rendered element.
   let openQuotes = [];
   if (canImport) {
-    const [co, quotes] = await Promise.all([
-      db.company.findUnique({
-        where: { id: member.companyId },
-        select: { name: true },
-      }),
-      // The viewer's own open quotes — the projects an incoming cost can be
-      // added to. Decided quotes are excluded: they're a record of what was
-      // agreed, not somewhere to bolt a new line.
-      db.quote.findMany({
-        where: { companyId: member.companyId, status: { in: ["draft", "sent"] } },
-        orderBy: { createdAt: "desc" },
-        take: 40,
-        select: {
-          id: true,
-          quoteNumber: true,
-          total: true,
-          client: { select: { name: true } },
-        },
-      }),
-    ]);
-    viewerCompanyName = co?.name || null;
+    // The viewer's own open quotes — the projects an incoming cost can be
+    // added to. Decided quotes are excluded: they're a record of what was
+    // agreed, not somewhere to bolt a new line.
+    const quotes = await db.quote.findMany({
+      where: { companyId: member.companyId, status: { in: ["draft", "sent"] } },
+      orderBy: { createdAt: "desc" },
+      take: 40,
+      select: {
+        id: true,
+        quoteNumber: true,
+        total: true,
+        client: { select: { name: true } },
+      },
+    });
     openQuotes = quotes.map((q) => ({
       id: q.id,
       quoteNumber: q.quoteNumber,
@@ -108,14 +99,6 @@ export async function GET(request, { params }) {
     authenticated,
     isOwnQuote,
     canImport,
-    recipientKnown,
-    // The quote was addressed to a BUSINESS, not a homeowner. This is what lets
-    // the signed-out contractor pitch appear for a GC while a homeowner's quote
-    // stays fully white-label (no FieldQuo, no "are you a contractor"). We can't
-    // tell an unregistered contractor from a homeowner by session alone; the
-    // recipient's own client type is the honest signal.
-    clientIsCompany: source.client?.type === "company",
-    viewerCompanyName,
     openQuotes,
   });
 }

@@ -6,15 +6,29 @@
 // Approval is a two-step confirm rather than a bare button. This is a
 // financial commitment on a page a stranger may have opened on a phone in
 // bright sun; an accidental tap shouldn't create a contract.
+//
+// ── Colour comes from documentTheme, not from the raw brand hex ─────────────
+//
+// It used to paint every heading, every rule, the checkbox tick and the totals
+// band with `company.brandColor` straight from the database. Three companies in
+// production break that: #ffffff (a real tenant) rendered the masthead word, the
+// brand rule at the top and the whole TOTALS BAND invisible — the single
+// most-looked-at line of the document had no shape at all — and #c0c0c0 put the
+// masthead at 1.8:1. lib/documents/theme.js was written for exactly this and the
+// self-quote form next door has always used it. Now this page, that form and the
+// PDF derive from the same measured palette, which is also why they finally look
+// like the same document.
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { Check, X, Loader2, Building2, Plus } from "lucide-react";
+import { accessiblePair } from "@/lib/brand/colour";
 import {
-  readableForeground,
-  accessiblePair,
-  ensureContrast,
-} from "@/lib/brand/colour";
+  documentTheme,
+  fillPair,
+  ruleColor,
+  washPair,
+} from "@/lib/documents/theme";
 import SignaturePad from "@/app/components/SignaturePad";
 import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
@@ -31,6 +45,15 @@ export default function QuoteApproval({ token }) {
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState("");
   const [decided, setDecided] = useState(null);
+  // The request never landed, as opposed to the server refusing it. Separate
+  // states because they need separate screens: one has a sentence from the
+  // server worth showing, the other has nothing but a browser exception.
+  const [offline, setOffline] = useState(false);
+  const [attempt, setAttempt] = useState(0); // bumped by the retry button
+  // The quote expired between loading the page and pressing Approve. The route
+  // answers 410 with an English sentence; this page already has the client's
+  // own words for it, so it shows those instead.
+  const [expiredOnSubmit, setExpiredOnSubmit] = useState(false);
 
   // Ids of the optional extras ticked. Ids only — the amounts live on the
   // server and the total below is for the client's benefit, not the
@@ -76,31 +99,57 @@ export default function QuoteApproval({ token }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      setLoading(true);
+      setLoadError("");
+      setOffline(false);
+
+      // ── A dropped request is not an error message ─────────────────────────
+      //
+      // This used to be one try/catch that ended in `setLoadError(err.message)`,
+      // so the most likely failure on this page — a phone, in a driveway, on one
+      // bar — printed the browser's own words, "Failed to fetch", in bold, to
+      // someone deciding on thirty thousand dollars of work. It also offered no
+      // way back: the only remedy was knowing to reload. Both are fixed by
+      // telling the two apart.
+      let res;
       try {
-        const res = await fetch(`/api/public/quotes/${token}`);
-        const data = await res.json().catch(() => null);
-        if (cancelled) return;
-        if (!res.ok) throw new Error(data?.error || "This link isn't valid.");
-        setQuote(data);
-        if (data.status !== "sent") {
-          setDecided(data.status);
-          // Reopening a decided quote should show what was agreed, extras
-          // included — not the figure before they were added.
-          setSettledTotal(data.acceptedTotal ?? null);
-          setPicked(
-            (data.addOns || []).filter((a) => a.selected).map((a) => a.id),
-          );
+        res = await fetch(`/api/public/quotes/${token}`);
+      } catch {
+        if (!cancelled) {
+          setOffline(true);
+          setLoading(false);
         }
-      } catch (err) {
-        if (!cancelled) setLoadError(err.message);
-      } finally {
-        if (!cancelled) setLoading(false);
+        return;
       }
+
+      const data = await res.json().catch(() => null);
+      if (cancelled) return;
+
+      if (!res.ok) {
+        // The server's own sentence, or a stated fallback. Never an exception's
+        // `message` — routing a refusal and a thrown fetch through one catch is
+        // exactly how a browser string ended up as the headline.
+        setLoadError(data?.error || clientDocCopy("en").selfQuote.linkInvalid);
+        setLoading(false);
+        return;
+      }
+
+      setQuote(data);
+      if (data.status !== "sent") {
+        setDecided(data.status);
+        // Reopening a decided quote should show what was agreed, extras
+        // included — not the figure before they were added.
+        setSettledTotal(data.acceptedTotal ?? null);
+        setPicked(
+          (data.addOns || []).filter((a) => a.selected).map((a) => a.id),
+        );
+      }
+      setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, attempt]);
 
   async function submit(decision) {
     setSubmitting(true);
@@ -133,6 +182,17 @@ export default function QuoteApproval({ token }) {
         // showing them a failure.
         if (res.status === 409 && data?.status) {
           setDecided(data.status);
+          setConfirming(null);
+          return;
+        }
+        // 410: it lapsed between the page loading and the button being pressed.
+        // The route's sentence is English on the wire (deliberately — a cron or
+        // an integration calling it gets prose rather than a bare code), and
+        // this document may be in any of eight languages. Show the client's own
+        // words for "expired" rather than dropping an English line into a French
+        // quote, which non-negotiable 6 exists to stop.
+        if (res.status === 410) {
+          setExpiredOnSubmit(true);
           setConfirming(null);
           return;
         }
@@ -219,14 +279,39 @@ export default function QuoteApproval({ token }) {
     );
   }
 
+  // Two different failures, two different screens and two different remedies.
+  // English in both: the company never resolved, so there is no document
+  // language to render in and guessing one would be inventing it — the same
+  // reasoning, and the same wording, as the self-quote form's load error.
+  if (offline) {
+    return (
+      <Shell>
+        <div className="bg-white border border-black/10 rounded-2xl p-8 text-center">
+          <p className="text-lg font-semibold text-[#2d2520]">
+            {clientDocCopy("en").connectionLost}
+          </p>
+          <p className="text-sm text-[#2d2520]/60 mt-2">
+            {clientDocCopy("en").connectionLostHint}
+          </p>
+          <button
+            type="button"
+            onClick={() => setAttempt((n) => n + 1)}
+            className="mt-5 px-6 py-3 rounded-full text-sm font-semibold border border-black/15 text-[#2d2520]"
+          >
+            {clientDocCopy("en").tryAgain}
+          </button>
+        </div>
+      </Shell>
+    );
+  }
+
   if (loadError) {
     return (
       <Shell>
         <div className="bg-white border border-black/10 rounded-2xl p-8 text-center">
           <p className="text-lg font-semibold text-[#2d2520]">{loadError}</p>
           <p className="text-sm text-[#2d2520]/60 mt-2">
-            Get in touch with the company that sent it and they can send a fresh
-            link.
+            {clientDocCopy("en").linkInvalidHint}
           </p>
         </div>
       </Shell>
@@ -234,17 +319,24 @@ export default function QuoteApproval({ token }) {
   }
 
   const c = quote.company || {};
-  const accent = c.brandColor || "#06356b";
-  // Measured, not assumed white. A contractor whose brand is yellow would
-  // otherwise get white numerals on a yellow bubble — invisible, on the one
-  // element whose whole job is being countable.
-  const accentOn = readableForeground(accent);
-  // The financing panel's heading sits on a 5%-alpha accent wash over white.
-  // #f2f2f2 is the darkest that wash can composite to (a pure-black accent), so
-  // measuring against it guarantees the real pairing is at least this readable.
-  const financingInk = ensureContrast(accent, "#f2f2f2", 4.5);
+  // Four values, four jobs, all measured — see the file header for what
+  // painting the raw hex four different ways did to real tenants.
+  //
+  //   theme.accentText  the accent as TEXT on paper (headings, the masthead)
+  //   fill              a solid band with something legible on it (the TOTAL)
+  //   rule              a hairline that is still visible for a white brand
+  //   wash              a panel surface, plus text measured against THAT
+  //                     rather than against paper — which is what the hand-
+  //                     rolled `ensureContrast(accent, "#f2f2f2")` under the
+  //                     financing heading was approximating.
+  const theme = documentTheme(c);
+  const fill = fillPair(theme);
+  const rule = ruleColor(theme);
+  const wash = washPair(theme);
   const expired =
-    quote.validUntil && new Date(quote.validUntil) < new Date() && !decided;
+    (expiredOnSubmit ||
+      (quote.validUntil && new Date(quote.validUntil) < new Date())) &&
+    !decided;
 
   const addOns = quote.addOns || [];
   // Resolved server-side from the largest scope group; [] for a trade that has
@@ -255,6 +347,13 @@ export default function QuoteApproval({ token }) {
   // decision regardless — it's just not being misleading about what's still
   // available.
   const locked = Boolean(decided) || expired;
+
+  // Does the tax line carry a NUMBER, as opposed to "To be confirmed" or
+  // "None"? Computed once because two separate things depend on it and they
+  // must not be allowed to disagree: the row itself, and the sentence
+  // underneath explaining which province the rate came from. See
+  // lib/tax/documentTax.js for why zero is not a statement.
+  const taxIsAFigure = pricing.tax !== 0 || quote.taxKind === "charged";
 
   const toggle = (id) =>
     setPicked((prev) =>
@@ -268,13 +367,22 @@ export default function QuoteApproval({ token }) {
             it reads as the document being on their letterhead rather than
             having their logo pasted into a generic one. */}
         <div className="flex h-1.5">
-          <div className="flex-[2]" style={{ backgroundColor: accent }} />
-          <div className="flex-1" style={{ backgroundColor: `${accent}99` }} />
+          <div className="flex-[2]" style={{ backgroundColor: rule }} />
+          <div className="flex-1" style={{ backgroundColor: theme.accentSoft }} />
         </div>
 
         <div className="px-6 sm:px-8 pt-6 pb-5 border-b border-black/5">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3 min-w-0">
+          {/* Identity left, document facts right — and when they will not both
+              fit, the facts drop onto their own line and stay against the right
+              edge. `text-right shrink-0` alone does not do that: once the block
+              wraps it is the only thing on its line, so it lands hard LEFT with
+              its text right-aligned inside a shrink-to-fit box, which on a
+              375px phone reads as a rendering fault directly under the
+              company's name. `ml-auto` on the wrapped block and a basis on the
+              identity half are the same two utilities the self-quote
+              confirmation next door already uses for the identical wrap. */}
+          <div className="flex items-start justify-between gap-x-4 gap-y-3 flex-wrap">
+            <div className="flex items-center gap-3 min-w-0 basis-[58%] grow">
               {c.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -285,7 +393,7 @@ export default function QuoteApproval({ token }) {
               ) : (
                 <div
                   className="h-11 w-11 rounded-lg flex items-center justify-center shrink-0"
-                  style={{ backgroundColor: accent, color: accentOn }}
+                  style={{ backgroundColor: fill.bg, color: fill.fg }}
                 >
                   <Building2 size={20} />
                 </div>
@@ -304,10 +412,10 @@ export default function QuoteApproval({ token }) {
                 )}
               </div>
             </div>
-            <div className="text-right shrink-0">
+            <div className="text-right shrink-0 ml-auto">
               <div
                 className="text-lg font-bold tracking-[0.15em] leading-none uppercase"
-                style={{ color: accent }}
+                style={{ color: theme.accentText }}
               >
                 {labels.quote}
               </div>
@@ -337,7 +445,10 @@ export default function QuoteApproval({ token }) {
               different documents. The per-service accent is the card's left
               border only; the page's own accent stays the company's. */}
           {quote.scopeGroups?.map((g, i) => {
-            const groupAccent = g.accent || accent;
+            // `rule`, not the raw brand hex, as the fallback: a trade with no
+            // colour of its own on a white-brand quote drew a white left border
+            // and a white card head, which is a card with no card in it.
+            const groupAccent = g.accent || rule;
             const multi = (quote.scopeGroups || []).length > 1;
             // The "01" badge sits ON the group's colour, and those colours are
             // deliberately desaturated mid-tones (serviceContent.js), which is
@@ -504,7 +615,7 @@ export default function QuoteApproval({ token }) {
             <div className="pt-4 border-t border-black/5">
               <h2
                 className="text-sm font-bold uppercase tracking-wide pb-2 mb-1 border-b"
-                style={{ color: accent, borderColor: `${accent}44` }}
+                style={{ color: theme.accentText, borderColor: theme.accentRule }}
               >
                 {copy.optionalExtras}
               </h2>
@@ -536,8 +647,11 @@ export default function QuoteApproval({ token }) {
                         checked={on}
                         disabled={locked}
                         onChange={() => toggle(a.id)}
+                        // fill.bg, not the brand hex: a white-brand company got
+                        // a white tick on a white box, so an extra could be
+                        // ticked with no visible sign that it had been.
                         className="mt-0.5 h-4 w-4 shrink-0 accent-current"
-                        style={{ accentColor: accent }}
+                        style={{ accentColor: fill.bg }}
                       />
                       <span className="flex-1 min-w-0">
                         <span className="flex justify-between gap-3">
@@ -575,7 +689,7 @@ export default function QuoteApproval({ token }) {
             <div className="pt-5 border-t border-black/5">
               <h3
                 className="text-xs font-bold tracking-wider mb-3 uppercase"
-                style={{ color: accent }}
+                style={{ color: theme.accentText }}
               >
                 {copy.howTheWorkRuns}
               </h3>
@@ -588,8 +702,8 @@ export default function QuoteApproval({ token }) {
                         <span
                           className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold"
                           style={{
-                            backgroundColor: accent,
-                            color: accentOn,
+                            backgroundColor: fill.bg,
+                            color: fill.fg,
                           }}
                         >
                           {s.num}
@@ -597,7 +711,7 @@ export default function QuoteApproval({ token }) {
                         {!last && (
                           <span
                             className="w-px flex-1 my-1"
-                            style={{ backgroundColor: `${accent}33` }}
+                            style={{ backgroundColor: theme.accentRule }}
                           />
                         )}
                       </div>
@@ -629,11 +743,14 @@ export default function QuoteApproval({ token }) {
             <div
               className="rounded-lg px-4 py-3"
               style={{
-                backgroundColor: `${accent}0d`,
-                borderLeft: `3px solid ${accent}`,
+                backgroundColor: wash.bg,
+                borderLeft: `3px solid ${rule}`,
               }}
             >
-              <p className="text-sm text-[#2d2520] whitespace-pre-wrap leading-relaxed">
+              <p
+                className="text-sm whitespace-pre-wrap leading-relaxed"
+                style={{ color: wash.ink }}
+              >
                 {quote.processNotes}
               </p>
             </div>
@@ -643,7 +760,7 @@ export default function QuoteApproval({ token }) {
             <div className="pt-4 border-t border-black/5">
               <h3
                 className="text-xs font-bold tracking-wider mb-2.5 uppercase"
-                style={{ color: accent }}
+                style={{ color: theme.accentText }}
               >
                 {copy.paymentTerms}
               </h3>
@@ -662,17 +779,20 @@ export default function QuoteApproval({ token }) {
                       key={i}
                       className="rounded-lg px-3 py-2.5 border"
                       style={{
-                        backgroundColor: `${accent}0d`,
-                        borderColor: `${accent}33`,
+                        backgroundColor: wash.bg,
+                        borderColor: theme.accentRule,
                       }}
                     >
                       <div
                         className="text-xl font-bold leading-none"
-                        style={{ color: accent }}
+                        style={{ color: wash.accent }}
                       >
                         {s.pct}
                       </div>
-                      <div className="text-xs font-semibold text-[#2d2520] mt-1">
+                      <div
+                        className="text-xs font-semibold mt-1"
+                        style={{ color: wash.ink }}
+                      >
                         {s.label}
                       </div>
                     </div>
@@ -716,7 +836,7 @@ export default function QuoteApproval({ token }) {
                 with tax switched on. `taxKind` comes from the server (see
                 lib/tax/documentTax.js) and is overridden the moment a taxable
                 extra is ticked, because then a real figure exists. */}
-            {pricing.tax !== 0 || quote.taxKind === "charged" ? (
+            {taxIsAFigure ? (
               <Row label={labels.tax} value={pricing.tax} money={money} />
             ) : (
               <div className="flex justify-between text-[#2d2520]/70">
@@ -737,8 +857,15 @@ export default function QuoteApproval({ token }) {
             {/* The rate came from the contractor's own province, not this
                 homeowner's — because we have no address for them. They are the
                 one person who can correct it, and an Ottawa contractor quoting
-                a Gatineau kitchen is 2% under. */}
-            {quote.taxAssumedRegion && (
+                a Gatineau kitchen is 2% under.
+
+                Only alongside an actual figure. `assumed` and `unresolved` are
+                independent — a rate can be assumed from the company's province
+                AND still not have produced a charge — and Q-2026-0001 shipped
+                both: a tax row reading "To be confirmed" with "Tax is shown at
+                the Ontario rate" printed directly under it. Nothing was shown,
+                so the sentence was describing a number that wasn't there. */}
+            {quote.taxAssumedRegion && taxIsAFigure && (
               <p className="text-xs text-[#2d2520]/55 leading-snug pt-1">
                 {labels.taxAssumedNote.replace(
                   "{region}",
@@ -754,7 +881,7 @@ export default function QuoteApproval({ token }) {
               on the single most-looked-at line of the document. */}
           <div
             className="flex items-center justify-between rounded-xl px-4 py-3.5 -mt-1"
-            style={{ backgroundColor: accent, color: accentOn }}
+            style={{ backgroundColor: fill.bg, color: fill.fg }}
           >
             <span className="text-sm font-bold tracking-wide uppercase">
               {labels.total}
@@ -781,17 +908,19 @@ export default function QuoteApproval({ token }) {
             <div
               className="rounded-xl border px-4 py-3.5"
               style={{
-                borderColor: `${accent}33`,
-                backgroundColor: `${accent}0d`,
+                borderColor: theme.accentRule,
+                backgroundColor: wash.bg,
               }}
             >
               <p
                 className="text-[10px] font-bold uppercase tracking-wider"
-                // Measured against the darkest this 5%-alpha wash can composite
-                // to (#f2f2f2, the black-accent case), so the real background is
-                // never darker than what was checked. A contractor whose brand
-                // is pale yellow otherwise gets a heading nobody can read.
-                style={{ color: financingInk }}
+                // washPair measures against the wash it hands back, so this is
+                // the real pairing rather than the darkest-composite estimate
+                // the 5%-alpha version had to settle for. It also substitutes a
+                // neutral surface outright when the brand is too pale to tint,
+                // which is the case the estimate could not cover: a panel you
+                // cannot see is not fixed by darkening the text on it.
+                style={{ color: wash.accent }}
               >
                 {/* "Pay monthly" is a promise the heading can only make when
                     there IS a monthly figure under it. With no stated terms the
@@ -799,24 +928,37 @@ export default function QuoteApproval({ token }) {
                 {instalment ? copy.financingHeading : copy.financingAvailable}
               </p>
 
+              {/* Ink measured against the panel's own wash, not against paper.
+                  The /80, /70 and /60 alphas here were all computed for white
+                  and lose roughly 0.2 on a tinted surface — enough to put the
+                  monthly-payment caveat under 4.5:1 for several brands. */}
               {quote.financing.note && (
-                <p className="text-sm text-[#2d2520]/80 mt-1.5 leading-relaxed">
+                <p
+                  className="text-sm mt-1.5 leading-relaxed"
+                  style={{ color: wash.ink }}
+                >
                   {quote.financing.note}
                 </p>
               )}
 
               {instalment && (
                 <div className="mt-2.5">
-                  <p className="text-xl font-bold text-[#2d2520] tabular-nums leading-tight">
+                  <p
+                    className="text-xl font-bold tabular-nums leading-tight"
+                    style={{ color: wash.ink }}
+                  >
                     {copy.financingMonthly(money(instalment.monthly))}
                   </p>
-                  <p className="text-xs text-[#2d2520]/70 mt-0.5">
+                  <p className="text-xs mt-0.5" style={{ color: wash.muted }}>
                     {copy.financingTermsLine(
                       instalment.termMonths,
                       percent(instalment.aprPct),
                     )}
                   </p>
-                  <p className="text-xs text-[#2d2520]/60 mt-2 leading-relaxed">
+                  <p
+                    className="text-xs mt-2 leading-relaxed"
+                    style={{ color: wash.muted }}
+                  >
                     {copy.financingEstimateNote(c.name)}
                   </p>
                 </div>
@@ -827,8 +969,8 @@ export default function QuoteApproval({ token }) {
                   href={quote.financing.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-block mt-3 px-4 py-2 rounded-full text-xs font-semibold"
-                  style={{ backgroundColor: accent, color: accentOn }}
+                  className="inline-flex items-center min-h-11 mt-3 px-5 py-2 rounded-full text-xs font-semibold"
+                  style={{ backgroundColor: fill.bg, color: fill.fg }}
                 >
                   {copy.financingCta}
                 </a>

@@ -173,6 +173,18 @@ const SURFACES = [
   // is genuinely 44px tall would be the false failure that gets a check
   // deleted. Everything else here is held.
   { dir: "app/components/layout", tier: "baseline" },
+  // The two public quote surfaces: the self-quote form a stranger fills in, and
+  // the quote they open from an email and approve. STRICT from the day they
+  // entered the walk, because the whole justification for this check applies to
+  // them harder than to anything already in it — no account, no second device,
+  // a phone in a driveway, and a financial decision at the end of it. The list
+  // below used to name them as unscanned and say so in as many words.
+  //
+  // Measured before promoting rather than after: the entire two trees failed
+  // strict on exactly ONE rule, three 30px markup chips in the contractor-only
+  // import panel, and those were fixed rather than exempted. No gap list.
+  { dir: "app/quote", tier: "strict" },
+  { dir: "app/q", tier: "strict" },
 ];
 
 /** Files held to every rule. New screens are added here, not to a gap list. */
@@ -944,7 +956,7 @@ const NOT_SCANNED = [
   ["app/components/jobs/**", "an agent is writing DailyLog* here right now. Adding it mid-write would check a half-file and break somebody else's build."],
   ["app/components/purchasing/**, app/components/fleet/**", "same — being created as this ran."],
   ["(not a gap) app/app/purchasing/**, app/app/fleet/**", "listed only to say they need no listing: app/app is walked as a TREE, so a screen added under it is checked the run after it lands. purchasing/page.js appeared while this was being written and was picked up with no edit here."],
-  ["app/quote, app/book, app/portal, app/site, app/embed", "the client-facing surfaces. A homeowner in a driveway on a bad connection is the harder case, and no rule here has ever looked at it."],
+  ["app/book, app/portal, app/site, app/embed", "the rest of the client-facing surfaces. A homeowner in a driveway on a bad connection is the harder case, and no rule here has looked at these four. app/quote and app/q used to be on this line and are now walked at STRICT — the same is available to the other four for the price of measuring them."],
 ];
 section("NOT scanned — named, because an unstated gap is how the last one happened");
 for (const [where, why] of NOT_SCANNED) console.log(`  · ${where}\n      ${why}`);

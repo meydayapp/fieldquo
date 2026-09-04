@@ -33,6 +33,19 @@ export default function MediaUploader({
   // Only shown when a PDF arrives without a usable filename. A fallback, never
   // a substitute — the real name is what tells someone their right file went up.
   documentLabel = "PDF",
+  // ── The rest of the strings, on the same footing as the three above ───────
+  //
+  // label/hint/documentLabel were already injected because the public
+  // self-quote form runs in the CLIENT's language, not the company's. These
+  // four were left hardcoded, so a homeowner filling in a French form got
+  // "Uploading…" and, on a bad connection, an English sentence about their
+  // connection — on the surface where an English sentence is most likely to be
+  // the thing they see. The English defaults keep every /app caller identical.
+  busyLabel = "Uploading…",
+  limitLabel = (n) => `You can attach up to ${n} files.`,
+  failedLabel = "Upload failed — check your connection and try again.",
+  rejectedLabel = "That file couldn't be uploaded.",
+  removeLabel = "Remove",
 }) {
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
@@ -48,7 +61,7 @@ export default function MediaUploader({
       try {
         for (const file of files) {
           if (value.length + added.length >= max) {
-            setError(`You can attach up to ${max} files.`);
+            setError(limitLabel(max));
             break;
           }
           const fd = new FormData();
@@ -57,14 +70,14 @@ export default function MediaUploader({
           try {
             res = await fetch(uploadUrl, { method: "POST", body: fd });
           } catch {
-            setError("Upload failed — check your connection and try again.");
+            setError(failedLabel);
             break;
           }
           const data = await res.json().catch(() => null);
           if (!res.ok || !data?.url) {
             // Surface the server's specific reason (too large, wrong type) —
             // a silent failure here is the "why won't my photo upload" black hole.
-            setError(data?.error || "That file couldn't be uploaded.");
+            setError(data?.error || rejectedLabel);
             continue;
           }
           // Trust the server's classification rather than re-deriving it here —
@@ -86,7 +99,7 @@ export default function MediaUploader({
         if (inputRef.current) inputRef.current.value = ""; // allow re-picking the same file
       }
     },
-    [uploadUrl, value, onChange, max],
+    [uploadUrl, value, onChange, max, limitLabel, failedLabel, rejectedLabel],
   );
 
   function remove(idx) {
@@ -133,7 +146,7 @@ export default function MediaUploader({
                 // 44px badge would eat 40% of it — but 32px is a real,
                 // measurable improvement that still reads as a corner badge.
                 className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white"
-                aria-label="Remove"
+                aria-label={removeLabel}
               >
                 <X size={14} />
               </button>
@@ -146,10 +159,10 @@ export default function MediaUploader({
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={busy || value.length >= max}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-background px-3 py-2.5 text-sm font-medium text-foreground disabled:opacity-50"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-background px-3 py-2.5 min-h-11 text-sm font-medium text-foreground disabled:opacity-50"
       >
         {busy ? <Loader2 size={15} className="animate-spin" /> : <ImagePlus size={15} />}
-        {busy ? "Uploading…" : label}
+        {busy ? busyLabel : label}
       </button>
       <p className="mt-1.5 text-xs text-muted-foreground">{hint}</p>
       {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}

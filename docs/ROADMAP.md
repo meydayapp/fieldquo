@@ -1,12 +1,74 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 3 September 2026 (voice settings stops being a wizard once setup is over, and the appointments calendar stops printing raw column values; sales call handling before that — two Prisma models still await `prisma db push`).
+Last updated: 3 September 2026 (the client-facing quote surfaces — /q/[token] stops painting itself with the raw brand hex, and the tax line stops contradicting the sentence under it; voice settings and the appointments calendar before that).
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The quote a homeowner opens stops being painted with the raw brand hex (3 September 2026)
+
+`/q/[token]` is the highest-stakes screen in the product — a stranger, no
+account, usually a phone, deciding whether to give a contractor money — and it
+was the one client-facing surface that never went through
+`lib/documents/theme.js`. It took `company.brandColor` out of the database and
+used it directly as heading text, as the rule across the top, as the add-on
+checkbox tint and as the fill behind the TOTAL.
+
+**Three tenants in the production database break that, and one of them is
+white.** `sunset-inc-0eq3` has `#ffffff` and three quotes, one still `sent`: the
+masthead word, the brand rule and the entire totals band rendered invisible —
+white on white, on the single most-looked-at line of the document.
+`big-painter-inc-t6a4` has `#c0c0c0`, which put "QUOTE" at 1.82:1. Photographed
+before and after at 375px, not inferred.
+
+The page now derives from `documentTheme` / `fillPair` / `ruleColor` /
+`washPair`, the same four the self-quote form next door has always used, so
+those two and the PDF finally come out of one palette. The hand-rolled
+`ensureContrast(accent, "#f2f2f2")` under the financing heading — an estimate of
+the darkest a 5%-alpha wash could composite to — is replaced by `washPair`,
+which measures against the surface it hands back.
+
+**The tax line and the sentence under it could contradict each other.**
+`assumed` and `unresolved` are independent: a rate can be assumed from the
+company's own province AND still have produced no charge. Q-2026-0001 shipped
+both, so the row read "Tax — To be confirmed" with "Tax is shown at the Ontario
+rate" printed directly beneath it. The sentence is now gated on the row actually
+carrying a figure.
+
+**"Failed to fetch" was the headline on a lost connection.** The load effect ran
+a refused response and a thrown fetch through one catch and rendered
+`err.message`. A dropped request now has its own screen, its own words in all
+eight languages, and a Try again button — verified by pointing the fetch at a
+dead port and clicking it.
+
+**A signup pitch nobody could ever see.** `ContractorImportPanel` had a second
+`if (!ctx.canImport)` thirty lines below the first, wrapping "Are you the
+contractor on this job? / Start free" and a FieldQuo wordmark. Unreachable since
+the guard above it was added. Deleted, along with the three fields
+`/api/quotes/received/[token]` computed to drive it — including `recipientKnown`,
+which ran a `user.findFirst` on every homeowner's view of the page for a value
+nothing rendered.
+
+**`app/quote` and `app/q` are now walked at STRICT by `check:mobile`.** That
+check's own NOT-SCANNED list named them and said "no rule here has ever looked
+at it". Measured before promoting: the two trees failed on exactly one rule,
+three 30px chips, fixed rather than exempted.
+
+`check:quote-approval` (179 assertions) runs the palette against every brand in
+the production database plus the hostile set, and asserts the naive version it
+replaced genuinely failed — a check that passes for the same reason before and
+after is testing nothing.
+
+**Not done, and why.** `/quote/[companySlug]/kitchen` is hardcoded English while
+its sibling runs in eight languages; it is also unreachable — zero of the 32
+companies have `kitchen_design` enabled — so nobody has ever seen it. Translating
+~25 strings into a table whose header says it is hand-written is a decision for
+whoever owns that copy, not a thing to machine-fill.
 
 ---
 
