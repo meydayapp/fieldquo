@@ -25,6 +25,7 @@ import {
   Wrench, Home, Paintbrush, Hammer, Ruler, Sparkles, ShieldCheck, Star,
 } from "lucide-react";
 import { neutralPair } from "@/lib/documents/theme";
+import { ensureContrast } from "@/lib/brand/colour";
 import { HOME_SLUG } from "@/lib/site/pages";
 import { resolveSiteStyle, DEFAULT_SITE_STYLE } from "@/lib/site/siteStyles";
 import { groupHours, openState, formatTime, dayNames } from "@/lib/company/businessHours";
@@ -58,6 +59,24 @@ function siteLocale(language) {
 function accent2Of(company, theme) {
   const s = company?.brandColors?.secondary;
   return typeof s === "string" && /^#[0-9a-f]{3,8}$/i.test(s) ? s : theme.accentText;
+}
+
+// The eyebrow LABEL, measured — because it is text, and the rule above it isn't.
+//
+// The header of this file said accent2 is "never for text that must hit 4.5:1".
+// The Eyebrow component painted the raw hex onto the label as well as the rule,
+// so the claim was false for every section heading on every site. Teacup Poodle
+// sets brandColors.secondary to #ebebeb: WHAT WE DO, OUR WORK, GET IN TOUCH and
+// the 01/02/03 markers all rendered at 1.19:1 on their live page — present in
+// the DOM, invisible on the screen. A second brand hue is exactly the input
+// nobody measured, which is what documentTheme exists for.
+//
+// Measured against accentWash rather than paper on purpose. Eyebrows appear on
+// both, accentWash is the darker of the two, and a foreground that clears 4.5:1
+// there can only do better on white — the same argument the Section comment
+// below makes for using inkOnWash on an unbanded section.
+function eyebrowInk(accent2, theme) {
+  return ensureContrast(accent2, theme.accentWash, 4.5);
 }
 
 // `showFieldquoCredit` defaults to FALSE, not true. A caller that forgets to
@@ -165,9 +184,14 @@ const Section = ({ children, alt, theme, wide, id, S }) => {
 
 // An eyebrow: a short brand-coloured label with a rule, the device that gives
 // each section a considered opening instead of a bare heading.
-const Eyebrow = ({ children, accent2 }) =>
+//
+// `tone` is the label's ink and `accent2` is the rule's fill — two props for
+// what looks like one colour, because only one of them is text. Callers on
+// paper or wash pass eyebrowInk(); the overlay hero passes neither and gets
+// white for both, which is what a scrimmed photo wants.
+const Eyebrow = ({ children, accent2, tone }) =>
   children ? (
-    <span className="inline-flex items-center gap-2.5 text-xs font-bold uppercase tracking-[0.14em] mb-3" style={{ color: accent2 }}>
+    <span className="inline-flex items-center gap-2.5 text-xs font-bold uppercase tracking-[0.14em] mb-3" style={{ color: tone || accent2 }}>
       <span className="w-6 h-[2px] rounded-full" style={{ backgroundColor: accent2 }} />
       {children}
     </span>
@@ -178,7 +202,7 @@ const Eyebrow = ({ children, accent2 }) =>
 const Heading = ({ children, theme, center, onWash, eyebrow, accent2, S }) =>
   children ? (
     <div className={`mb-8 ${center ? "text-center" : ""} ${center ? "" : "max-w-2xl"}`}>
-      {eyebrow && <div className={center ? "flex justify-center" : ""}><Eyebrow accent2={accent2}>{eyebrow}</Eyebrow></div>}
+      {eyebrow && <div className={center ? "flex justify-center" : ""}><Eyebrow accent2={accent2} tone={eyebrowInk(accent2, theme)}>{eyebrow}</Eyebrow></div>}
       <h2
         className={`${S?.h2 || "text-3xl sm:text-4xl font-extrabold tracking-[-0.02em]"} leading-[1.08]`}
         style={{
@@ -526,7 +550,7 @@ function Hero({ block, company, theme, fill, accent2, S, t }) {
     return (
       <section className={`px-5 sm:px-8 ${S?.heroPad || "py-24 sm:py-32"}`} style={{ backgroundColor: theme.paper || "#fff" }}>
         <div className="max-w-5xl mx-auto">
-          <Eyebrow accent2={accent2}>{place || t.localTrusted}</Eyebrow>
+          <Eyebrow accent2={accent2} tone={eyebrowInk(accent2, theme)}>{place || t.localTrusted}</Eyebrow>
           <h1 className={`${S?.h1 || "text-4xl sm:text-6xl font-extrabold"} max-w-[22ch]`} style={{ color: theme.ink, textWrap: "balance", ...serif }}>
             {title}
           </h1>
@@ -548,7 +572,7 @@ function Hero({ block, company, theme, fill, accent2, S, t }) {
         <div className={`px-5 sm:px-8 ${S?.heroPad || "py-24 sm:py-32"}`}>
           <div className="max-w-6xl mx-auto grid lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] gap-10 lg:gap-14 items-center">
             <div>
-              <Eyebrow accent2={accent2}>{place || t.localTrusted}</Eyebrow>
+              <Eyebrow accent2={accent2} tone={eyebrowInk(accent2, theme)}>{place || t.localTrusted}</Eyebrow>
               <h1
                 className={`${S?.h1 || "text-4xl sm:text-6xl font-extrabold"} max-w-[18ch]`}
                 style={{ color: theme.ink, textWrap: "balance", ...serif }}
@@ -616,7 +640,7 @@ function Hero({ block, company, theme, fill, accent2, S, t }) {
       <section className={`px-5 sm:px-8 ${S?.sectionPad || "py-16 sm:py-24"}`} style={{ backgroundColor: theme.accentWash }}>
         <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 items-center">
           <div className={photoFirst ? "md:order-2" : undefined}>
-            <Eyebrow accent2={accent2}>{place || t.localTrusted}</Eyebrow>
+            <Eyebrow accent2={accent2} tone={eyebrowInk(accent2, theme)}>{place || t.localTrusted}</Eyebrow>
             <h1 className={`${S?.h1 || "text-4xl sm:text-6xl font-extrabold tracking-[-0.03em]"} leading-[1.03]`} style={{ color: theme.ink, textWrap: "balance", ...(S?.serif ? { fontFamily: "Georgia, 'Times New Roman', serif" } : {}) }}>
               {title}
             </h1>
@@ -669,7 +693,7 @@ function Hero({ block, company, theme, fill, accent2, S, t }) {
       )}
       <div className="relative max-w-3xl mx-auto text-center">
         {!backgroundImage && (
-          <div className="flex justify-center"><Eyebrow accent2={accent2}>{place || t.localTrusted}</Eyebrow></div>
+          <div className="flex justify-center"><Eyebrow accent2={accent2} tone={eyebrowInk(accent2, theme)}>{place || t.localTrusted}</Eyebrow></div>
         )}
         <h1 className={`${S?.h1 || "text-4xl sm:text-6xl font-extrabold tracking-[-0.03em]"} leading-[1.03]`} style={{ color: backgroundImage ? "#fff" : theme.ink, textWrap: "balance", ...(S?.serif ? { fontFamily: "Georgia, 'Times New Roman', serif" } : {}) }}>
           {title}
@@ -787,7 +811,7 @@ function Services({ block, theme, fill, accent2, S, t }) {
                   <div className={flip ? "sm:order-1" : undefined}>
                     <span
                       className={`${S?.eyebrow || "text-[11px] font-bold uppercase tracking-[0.18em]"} block mb-2`}
-                      style={{ color: accent2 }}
+                      style={{ color: eyebrowInk(accent2, theme) }}
                     >
                       {String(i + 1).padStart(2, "0")}
                     </span>
@@ -834,7 +858,7 @@ function Services({ block, theme, fill, accent2, S, t }) {
                 <div className={flip ? "sm:order-2" : undefined}>
                   <span
                     className={`${S?.eyebrow || "text-[11px] font-bold uppercase tracking-[0.18em]"} block mb-2`}
-                    style={{ color: accent2 }}
+                    style={{ color: eyebrowInk(accent2, theme) }}
                   >
                     {String(i + 1).padStart(2, "0")}
                   </span>
@@ -1056,7 +1080,7 @@ function Testimonials({ block, theme, accent2, S, t }) {
       <Section theme={theme} alt S={S}>
         <div className={S?.headingAlign === "center" ? "text-center" : ""}>
           <div className={S?.headingAlign === "center" ? "flex justify-center" : ""}>
-            <Eyebrow accent2={accent2}>{t.eyebrowTestimonials}</Eyebrow>
+            <Eyebrow accent2={accent2} tone={eyebrowInk(accent2, theme)}>{t.eyebrowTestimonials}</Eyebrow>
           </div>
           <StarRow
             size={20}
