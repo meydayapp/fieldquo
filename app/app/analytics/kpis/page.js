@@ -32,6 +32,22 @@
 // It reuses this page's own period selector (`range`/`preset` below) rather
 // than adding a second one — one control governs the whole page, the way the
 // owner asked for it.
+//
+// ── The comparison is like-for-like, and that took a fix ────────────────────
+//
+// "This quarter" (this page's default) and "This month" run to the LAST day
+// of the period, not to today. Money flow's trend arrows used to measure that
+// whole range against the same-length window before it — so on the 3rd of
+// September three days of income were compared against a full prior month and
+// the tile read "Down 91% on last period", precisely and meaninglessly, every
+// month for everybody until about the 28th. lib/analytics/moneyFlow.js's
+// `elapsedRange` now clamps the comparison to the days that have HAPPENED and
+// sizes the prior window to match; the tiles still total the whole selected
+// range, because "what have I taken this month" means everything logged
+// against it. `flow.comparison` says which basis was used
+// ("full_period" | "to_date" | "none"). The trend SENTENCE still reads "on
+// last period" — the precise mid-period wording needs a catalogue key this
+// pass could not add (app/i18n is owned elsewhere); it is reported as owed.
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -128,7 +144,8 @@ function KpiTile({ label, data, format, hint }) {
         </div>
       ) : (
         <div className="mt-1 text-xs text-muted-foreground">
-          {reasonMessage(t, data) || "No data yet."}
+          {reasonMessage(t, data) ||
+            t("app.kpis.finance.backlogUnknown", "No data yet.")}
         </div>
       )}
       {hint && <p className="mt-2 text-xs text-muted-foreground">{hint}</p>}
@@ -186,7 +203,8 @@ function MoneyTile({ label, figure, trend, money, t, hint }) {
                   )
                 : t("app.kpis.moneyFlow.trend.fromZero", "Up from $0 last period")
             : null
-          : figure?.reasonText || "No data yet."}
+          : figure?.reasonText ||
+            t("app.kpis.finance.backlogUnknown", "No data yet.")}
       </div>
       {hint}
     </div>
@@ -535,10 +553,22 @@ export default function KpiDashboardPage() {
                   {flow.chartAvailable ? (
                     <>
                       <div className="overflow-x-auto">
+                        {/* Width is sized to the days that HAPPENED. "This
+                            quarter" runs to the last day of the quarter, so
+                            on the 3rd most of the series is the future —
+                            moneyFlow.js flags those and FlowChart drops them
+                            rather than drawing a flat $0 line to the right. */}
                         <FlowChart
                           series={flow.days}
-                          width={Math.max(560, (flow.days?.length || 0) * 10)}
+                          width={Math.max(
+                            560,
+                            (flow.days || []).filter((d) => !d.future).length * 10,
+                          )}
                           height={180}
+                          emptyLabel={t(
+                            "app.kpis.moneyFlow.noChart",
+                            "Nothing recorded yet, so there's no chart to draw.",
+                          )}
                         />
                       </div>
                       <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
@@ -651,26 +681,36 @@ export default function KpiDashboardPage() {
                     ) : null
                   }
                 />
-                <div className="rounded-lg border border-border p-4">
-                  <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                    {t("app.kpis.finance.fixedCostsTitle", "Fixed costs")}
-                  </div>
-                  <div className="mt-1 text-2xl font-semibold text-foreground">
-                    {money(finance.fixedCosts.monthlyTotal)}
-                  </div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {t(
-                      "app.kpis.finance.fixedCostsHint",
-                      "Per month, regardless of the period above — rent, overhead pay and debt.",
-                    )}
-                  </div>
-                  <Link
-                    href="/app/settings/overhead"
-                    className="mt-2 inline-block text-xs underline text-foreground"
-                  >
-                    {t("app.kpis.finance.fixedCostsLink", "See the breakdown →")}
-                  </Link>
-                </div>
+                {/* Same MoneyTile as its neighbours now: the route sends
+                    fixedCosts in moneyFlow.js's figure() envelope, so a
+                    company that has never recorded rent, a wage, a loan or an
+                    asset reads "—" and the reason instead of a confident
+                    "$0.00 per month" — which is a statement about a business
+                    that pays rent. It used to render `monthlyTotal` straight
+                    through a formatter, which turned four empty tables into a
+                    precise-looking figure. */}
+                <MoneyTile
+                  label={t("app.kpis.finance.fixedCostsTitle", "Fixed costs")}
+                  figure={finance.fixedCosts}
+                  money={money}
+                  t={t}
+                  hint={
+                    <>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {t(
+                          "app.kpis.finance.fixedCostsHint",
+                          "Per month, regardless of the period above — rent, overhead pay and debt.",
+                        )}
+                      </p>
+                      <Link
+                        href="/app/settings/overhead"
+                        className="mt-2 inline-block text-xs underline text-foreground"
+                      >
+                        {t("app.kpis.finance.fixedCostsLink", "See the breakdown →")}
+                      </Link>
+                    </>
+                  }
+                />
                 <MoneyTile
                   label={t("app.kpis.finance.marketingTitle", "Marketing spend")}
                   figure={finance.marketing}

@@ -50,6 +50,29 @@ const STATUS_STYLE = {
   cancelled: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300",
 };
 
+// PayRun.status is a free string column (prisma/schema.prisma: draft |
+// approved | paid | cancelled). Three of the four used to reach the badge
+// raw and lowercase — "draft", "approved", "cancelled" — in every language.
+// app.payRunStatus.* is the catalogue's existing wording for exactly these
+// four, already used on the job page's pay-period panel; reused rather than
+// written a second time. "paid" keeps its own longer phrasing, because
+// FieldQuo records that a company paid, it does not pay.
+const STATUS_FALLBACK = {
+  draft: "Draft",
+  approved: "Approved",
+  paid: "Paid",
+  cancelled: "Cancelled",
+};
+
+function statusLabel(t, status) {
+  if (status === "paid") return t("app.payrollRun.paidRecorded", "paid (recorded)");
+  // An unmapped value prints itself rather than nothing: a status nobody
+  // anticipated is a bug report, and a blank badge is what hides it.
+  return STATUS_FALLBACK[status]
+    ? t(`app.payRunStatus.${status}`, STATUS_FALLBACK[status])
+    : status;
+}
+
 // Two formatters on purpose. Pay period boundaries are calendar days stored at
 // midnight UTC, so a local formatter shows the day before — see the note in
 // lib/format/companyDate.js. paidAt is a real instant (someone clicked a button
@@ -85,6 +108,9 @@ export default function PayrollPage() {
   const [runs, setRuns] = useState(null);
   const [canRun, setCanRun] = useState(false);
   const [listError, setListError] = useState("");
+  // 403 only. "You may not see this" and "this didn't load" are different
+  // sentences and only one of them is about the reader's account.
+  const [refused, setRefused] = useState(false);
 
   const [mine, setMine] = useState(null);
   const [cycle, setCycle] = useState(null);
@@ -103,12 +129,21 @@ export default function PayrollPage() {
   const loadRuns = useCallback(async () => {
     try {
       const d = await fetchJson("/api/payroll/runs");
+      setListError("");
+      setRefused(false);
       setRuns(d.runs || []);
       setCanRun(Boolean(d.canRun));
     } catch (err) {
-      // A 403 here is normal for a worker — it means "you only see your own".
+      // A 403 here is normal for a worker — it means "you only see your own",
+      // and that is the ONLY status this page may say that about. Every other
+      // failure used to take the same branch, so an owner whose payroll list
+      // 500'd was told their account is restricted to its own payslips: a
+      // false statement about their permissions, made because a request
+      // failed. The two are separated now (`refused` vs `listError`) and the
+      // list is left as it was rather than replaced with [], which would have
+      // rendered "No pay runs yet" over a company's real payroll history.
+      setRefused(err.status === 403);
       setListError(err.message || "");
-      setRuns([]);
     }
   }, []);
 
@@ -626,8 +661,10 @@ export default function PayrollPage() {
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {r._count.lines}{" "}
-                        {r._count.lines === 1 ? "person" : "people"} ·{" "}
-                        {r.region}
+                        {r._count.lines === 1
+                          ? t("app.payrollRun.person", "person")
+                          : t("app.payrollRun.people", "people")}{" "}
+                        · {r.region}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -637,7 +674,7 @@ export default function PayrollPage() {
                       <span
                         className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${STATUS_STYLE[r.status] || ""}`}
                       >
-                        {r.status === "paid" ? "paid (recorded)" : r.status}
+                        {statusLabel(t, r.status)}
                       </span>
                     </div>
                   </div>
@@ -646,12 +683,28 @@ export default function PayrollPage() {
             </div>
           </section>
         </>
+      ) : refused ? (
+        <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+          <Info size={13} className="mt-0.5 shrink-0" />
+          {t("app.payroll.ownPayslipsOnly")}
+        </p>
       ) : (
         listError && (
-          <p className="text-xs text-muted-foreground flex items-start gap-1.5">
-            <Info size={13} className="mt-0.5 shrink-0" />
-            {t("app.payroll.ownPayslipsOnly")}
-          </p>
+          <div
+            role="alert"
+            className="rounded-xl border border-red-200 dark:border-red-900 bg-card p-5 text-sm"
+          >
+            <p className="font-semibold text-foreground">{t("app.load.title")}</p>
+            <p className="text-muted-foreground mt-1">{listError}</p>
+            <p className="text-muted-foreground mt-2">{t("app.load.reassure")}</p>
+            <button
+              type="button"
+              onClick={loadRuns}
+              className="mt-3 inline-flex items-center gap-2 border border-border px-4 py-2 rounded-full text-sm font-semibold text-foreground min-h-[44px]"
+            >
+              {t("app.load.retry")}
+            </button>
+          </div>
         )
       )}
     </div>

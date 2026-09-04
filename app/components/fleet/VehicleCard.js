@@ -31,6 +31,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import { reportResponseError } from "@/lib/clientErrors";
 import { fetchList } from "@/lib/loadState";
 import ExpiryBadge from "@/app/components/ExpiryBadge";
@@ -48,7 +49,20 @@ function formatDate(value, locale) {
   });
 }
 
-const money = (v) => `$${Number(v || 0).toLocaleString()}`;
+// Why the depreciation reason is on this card at all: lib/fleet/load.js has
+// always sent `chargeable` and `chargeReason` per vehicle and nothing here
+// read them. lib/accounting/depreciation.js returns `bookValue = cost` for a
+// register row with no in-service date or no useful life — so a van nobody
+// finished entering showed "Book value now: $52,000", identical in every way
+// to a van that really is worth that. Settings → Overhead already names these
+// five reasons; the same keys are reused rather than a second wording.
+const ASSET_REASON_FALLBACK = {
+  not_in_service: "Not in service yet",
+  fully_depreciated: "Fully written down",
+  disposed: "Sold or written off",
+  inactive: "Not in use",
+  incomplete: "Missing details",
+};
 
 export default function VehicleCard({
   row,
@@ -60,6 +74,17 @@ export default function VehicleCard({
   onChanged,
 }) {
   const { t, language } = useTranslation();
+  // The company's own currency, not a typed "$" — a Dublin painter's van did
+  // not cost dollars. See lib/format/money.js for the six private formatters
+  // this hook exists to replace.
+  const companyMoney = useCompanyMoney();
+  // Null stays null. `Number(null) || 0` used to make an unrecorded cost read
+  // as "$0", and 0 is a finite, confident, wrong answer on a page about what
+  // a van is worth.
+  const money = (v) =>
+    v === null || v === undefined
+      ? t("app.fleet.notRecorded", "Not recorded")
+      : companyMoney(v);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [log, setLog] = useState(null);
@@ -264,7 +289,21 @@ export default function VehicleCard({
                 <dt className="text-muted-foreground">
                   {t("app.fleet.bookValue", "Book value now")}
                 </dt>
-                <dd className="text-foreground text-right">{money(row.asset.bookValue)}</dd>
+                <dd className="text-foreground text-right">
+                  {money(row.asset.bookValue)}
+                  {/* A book value nothing is being written down against is
+                      just the purchase price wearing a different label. Say
+                      which of the five reasons it is, in the same words
+                      Settings → Overhead uses. */}
+                  {row.asset.chargeable === false && row.asset.chargeReason && (
+                    <span className="block text-[11px] text-amber-700 dark:text-amber-300">
+                      {t(
+                        `app.setOverhead.assetReason.${row.asset.chargeReason}`,
+                        ASSET_REASON_FALLBACK[row.asset.chargeReason] || "",
+                      )}
+                    </span>
+                  )}
+                </dd>
               </>
             )}
           </dl>

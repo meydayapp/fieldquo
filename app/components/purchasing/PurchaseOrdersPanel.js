@@ -26,6 +26,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Plus, Truck } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import { fetchList } from "@/lib/loadState";
 import { reportResponseError } from "@/lib/clientErrors";
 import ListState from "@/app/components/ListState";
@@ -34,8 +35,6 @@ import { formatMilli } from "@/lib/purchasing/quantity";
 
 const inputClass =
   "w-full rounded border border-border bg-background px-3 py-2 text-base sm:text-sm";
-const money = (v) => (v === null || v === undefined ? null : `$${Number(v).toFixed(2)}`);
-
 const BLANK_LINE = { description: "", quantity: "", unit: "each", unitCost: "" };
 
 const STATUS_TONE = {
@@ -48,6 +47,13 @@ const STATUS_TONE = {
 
 export default function PurchaseOrdersPanel() {
   const { t } = useTranslation();
+  // The company's own currency, grouped by the reader's locale. This used to
+  // be a private `$${Number(v).toFixed(2)}` — the seventh copy of the bug
+  // lib/format/money.js documents, printing "$2100.00" beside a shared
+  // formatter's "$2,100.00" on the same screen. Null is still null: an order
+  // with no prices reads "unpriced", never "$0.00".
+  const companyMoney = useCompanyMoney();
+  const money = (v) => (v === null || v === undefined ? null : companyMoney(v));
   const [orders, setOrders] = useState(null);
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);

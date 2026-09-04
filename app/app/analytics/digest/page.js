@@ -7,8 +7,12 @@ import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function DigestPage() {
-  const { t } = useTranslation();
-  const [digests, setDigests] = useState([]);
+  const { t, language } = useTranslation();
+  // null until the server answers. `[]` claimed "you have no digests" before
+  // the request had come back — the initial value check:empty-vs-error exists
+  // to catch. The empty panel below is gated on this being a real, loaded,
+  // empty array.
+  const [digests, setDigests] = useState(null);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState(null);
   const [error, setError] = useState("");
@@ -17,8 +21,8 @@ export default function DigestPage() {
     (async () => {
       try {
         const res = await fetchJson("/api/analytics/digests");
-        setDigests(res);
-        if (res[0]) setOpenId(res[0].id);
+        setDigests(Array.isArray(res) ? res : []);
+        if (res?.[0]) setOpenId(res[0].id);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -53,7 +57,7 @@ export default function DigestPage() {
         </div>
       )}
 
-      {!error && digests.length === 0 && (
+      {!error && digests !== null && digests.length === 0 && (
         <div className="glass-effect rounded-lg p-6 text-center text-sm text-muted-foreground">
           {t(
             "app.digest.empty",
@@ -63,15 +67,15 @@ export default function DigestPage() {
       )}
 
       <div className="space-y-3">
-        {digests.map((d) => {
+        {(digests || []).map((d) => {
           const isOpen = openId === d.id;
-          const period = `${new Date(d.periodStart).toLocaleDateString(
-            "en-US",
-            {
-              month: "long",
-              year: "numeric",
-            },
-          )}`;
+          // The reader's own language, not a hardcoded "en-US". A French
+          // account read every digest heading as "August 2026" on a page
+          // whose every other word was French.
+          const period = new Date(d.periodStart).toLocaleDateString(
+            language || undefined,
+            { month: "long", year: "numeric" },
+          );
           const flags = d.highlightsJson?.flags || [];
 
           return (

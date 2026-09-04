@@ -16,16 +16,29 @@
 // (see that file's header); its own gap-filling guarantees there is no
 // single missing day inside an otherwise-real series. So this file only has
 // to ask "is this WHOLE side present", never point by point.
+//
+// ── Days that have not happened are not drawn ──────────────────────────────
+//
+// "This month" and "This quarter" run to the LAST day of the period, so on
+// the 3rd of September twenty-seven of the thirty points are the future. They
+// arrive as a real 0 — the gap-filling above cannot tell "nothing came in"
+// from "this day hasn't happened" — and drawn, they were a confident flat
+// line to the right saying the company stops earning tomorrow. moneyFlow.js
+// now flags them (`future: true`) and they are dropped here rather than
+// plotted at zero.
 "use client";
 
 /**
  * @param {object}   p
- * @param {object[]} p.series        [{ date, income, expenses }] — "YYYY-MM-DD"
+ * @param {object[]} p.series        [{ date, income, expenses, future? }] — "YYYY-MM-DD"
  * @param {number}   [p.width=640]
  * @param {number}   [p.height=180]
+ * @param {string}   [p.emptyLabel]  what to say when there is nothing to draw
  */
-export default function FlowChart({ series, width = 640, height = 180 }) {
-  const points = Array.isArray(series) ? series : [];
+export default function FlowChart({ series, width = 640, height = 180, emptyLabel }) {
+  const all = Array.isArray(series) ? series : [];
+  // An older payload with no `future` key draws in full, exactly as before.
+  const points = all.filter((p) => p?.future !== true);
   const hasIncome = points.length > 0 && points.every((p) => p?.income !== null && p?.income !== undefined);
   const hasExpenses = points.length > 0 && points.every((p) => p?.expenses !== null && p?.expenses !== undefined);
 
@@ -35,7 +48,7 @@ export default function FlowChart({ series, width = 640, height = 180 }) {
         className="flex items-center justify-center text-xs text-muted-foreground"
         style={{ width, height }}
       >
-        Not enough days to chart yet
+        {emptyLabel || "Not enough days to chart yet"}
       </div>
     );
   }

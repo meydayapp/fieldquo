@@ -74,7 +74,7 @@ export default function ActivityPage() {
 
       {!entries && !error && (
         <div className="flex items-center gap-2 text-muted-foreground text-sm">
-          <Loader2 size={16} className="animate-spin" /> Loading…
+          <Loader2 size={16} className="animate-spin" /> {t("app.state.loading")}
         </div>
       )}
 
@@ -90,7 +90,17 @@ export default function ActivityPage() {
             <li key={e.id} className="flex items-start gap-3 px-4 py-3">
               <span className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${toneFor(e.action)}`} />
               <div className="min-w-0 flex-1">
-                <p className="text-sm text-foreground">{e.summary || e.action}</p>
+                {/* `summary` is the sentence a human wrote at the call site
+                    (every recordActivity() in the codebase passes one). A row
+                    old enough to predate that falls back to the raw action
+                    KEY — "timeEntry.selfApproved" — which is a machine name,
+                    not English, and reads as a bug when it is set in the same
+                    type as a sentence. Shown as what it is instead. */}
+                {e.summary ? (
+                  <p className="text-sm text-foreground">{e.summary}</p>
+                ) : (
+                  <p className="text-xs font-mono text-muted-foreground">{e.action}</p>
+                )}
                 <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
                   <span>{e.actorName || "Someone"}</span>
                   {e.actorRole && <span className="text-muted-foreground/70">· {e.actorRole}</span>}

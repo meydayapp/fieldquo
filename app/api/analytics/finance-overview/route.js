@@ -190,9 +190,26 @@ export async function GET(request) {
     currency: company.currency,
     range: { from, to },
     payroll,
+    // Same figure() envelope as `marketing` below, and for the same reason.
+    // Every one of rent, overhead salaries, loans and assets is empty for a
+    // company that has never opened Settings → Overhead, and the four empty
+    // sums make a confident $0.00 — a statement that this business has no
+    // fixed costs, printed to a contractor who pays rent. `sourcesRecorded`
+    // (lib/analytics/burnRate.js) counts the rows the total was built from,
+    // so absence and a genuine zero stay two different screens.
     fixedCosts: {
-      monthlyTotal: burnRate.totalMonthlyCost,
-      breakdown: burnRate.breakdown,
+      value: burnRate.sourcesRecorded > 0 ? burnRate.totalMonthlyCost : null,
+      available: burnRate.sourcesRecorded > 0,
+      reason: burnRate.sourcesRecorded > 0 ? null : "no_fixed_costs_recorded",
+      reasonText:
+        burnRate.sourcesRecorded > 0
+          ? null
+          : "No rent, overhead pay, loans or assets have been recorded yet, so there is no monthly figure to give.",
+      incomplete: false,
+      // `breakdown` used to ride along here and nothing ever read it — the
+      // card's "See the breakdown →" link goes to Settings → Overhead, which
+      // computes its own. A payload field with no consumer is the first
+      // failure class in AGENTS.md; dropped rather than left to rot.
     },
     // Shaped like moneyFlow.js's figure() envelope on purpose, so the page's
     // MoneyTile can render it without a third shape to special-case: `value`

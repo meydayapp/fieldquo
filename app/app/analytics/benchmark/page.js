@@ -144,17 +144,25 @@ export default function BenchmarkPage() {
 
       <div className="space-y-3">
         {rows.map((row) => {
-          const diff = row.yourAvgPrice - row.platformAvgPrice;
-          const pct = row.platformAvgPrice
-            ? Math.round((diff / row.platformAvgPrice) * 100)
-            : 0;
-          const Icon = pct > 3 ? TrendingUp : pct < -3 ? TrendingDown : Minus;
+          // A zero platform average is a denominator, not a comparison. This
+          // used to fall through to `pct = 0`, which rendered a grey dash and
+          // "0%" — the same pixels as "you are exactly on the platform
+          // average", which is the one thing that cannot be known when there
+          // is nothing to average against. Null now, and the cell says so.
+          const base = Number(row.platformAvgPrice);
+          const mine = Number(row.yourAvgPrice);
+          const comparable =
+            Number.isFinite(base) && Number.isFinite(mine) && base !== 0;
+          const pct = comparable ? Math.round(((mine - base) / base) * 100) : null;
+          const Icon = pct === null ? Minus : pct > 3 ? TrendingUp : pct < -3 ? TrendingDown : Minus;
           const tone =
-            pct > 3
-              ? "text-[#2ea043]"
-              : pct < -3
-                ? "text-amber-600 dark:text-amber-400"
-                : "text-muted-foreground";
+            pct === null
+              ? "text-muted-foreground"
+              : pct > 3
+                ? "text-[#2ea043]"
+                : pct < -3
+                  ? "text-amber-600 dark:text-amber-400"
+                  : "text-muted-foreground";
 
           return (
             <div
@@ -169,23 +177,30 @@ export default function BenchmarkPage() {
               </div>
 
               <div className="flex items-center gap-6 sm:gap-8">
+                {/* formatAppMoney(null) is "$0.00" — see lib/format/money.js.
+                    Every amount on this row is therefore gated before it
+                    reaches the formatter, because an average nobody could
+                    compute must not print as a price anybody charges. */}
                 <div>
                   <div className="text-xs text-muted-foreground">{t("app.benchmark.yourAverage", "Your average")}</div>
                   <div className="font-semibold">
-                    {money(row.yourAvgPrice)}
+                    {row.yourAvgPrice === null || row.yourAvgPrice === undefined
+                      ? "—"
+                      : money(row.yourAvgPrice)}
                   </div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">{t("app.benchmark.platformAverage", "Platform average")}</div>
                   <div className="font-semibold">
-                    {money(row.platformAvgPrice)}
+                    {row.platformAvgPrice === null || row.platformAvgPrice === undefined
+                      ? "—"
+                      : money(row.platformAvgPrice)}
                   </div>
                 </div>
                 <div className={`flex items-center gap-1 ${tone}`}>
                   <Icon size={16} />
                   <span className="text-sm font-medium">
-                    {pct > 0 ? "+" : ""}
-                    {pct}%
+                    {pct === null ? "—" : `${pct > 0 ? "+" : ""}${pct}%`}
                   </span>
                 </div>
               </div>

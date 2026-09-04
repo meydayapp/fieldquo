@@ -28,6 +28,7 @@
 import { useState } from "react";
 import { Camera, ScanLine, AlertTriangle, Check } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import { reportResponseError } from "@/lib/clientErrors";
 import MediaUploader from "@/app/components/MediaUploader";
 import { receiptImageOrRefusal } from "@/lib/receipts/media";
@@ -35,6 +36,14 @@ import { prefillMaterial } from "@/lib/receipts/prefill";
 
 export default function ReceiptScanner({ materialId, draft, onApply, onClose }) {
   const { t } = useTranslation();
+  // The two computed figures on this panel — what the lines add up to, and how
+  // far that is from the printed total — were bare `toFixed(2)`: ungrouped,
+  // unlabelled, and in no currency at all, so "2100.00" sat under a heading
+  // reading "The lines added up". The number read off the receipt image
+  // (`printedTotal`) is deliberately NOT put through this: it is a
+  // transcription of what the paper says, symbol and all, and reformatting a
+  // transcription is how a scan stops being evidence.
+  const money = useCompanyMoney();
   const [files, setFiles] = useState([]);
   const [scan, setScan] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -183,7 +192,7 @@ export default function ReceiptScanner({ materialId, draft, onApply, onClose }) 
               <dd className="tabular-nums text-foreground">
                 {rec.itemsTotalCents === null
                   ? t("app.receipt.unreadableAmount")
-                  : rec.itemsTotal.toFixed(2)}
+                  : money(rec.itemsTotal)}
               </dd>
             </div>
           </dl>
@@ -202,7 +211,7 @@ export default function ReceiptScanner({ materialId, draft, onApply, onClose }) 
                 rec.comparedTo === "subtotal"
                   ? "app.receipt.mismatchSubtotal"
                   : "app.receipt.mismatch",
-                { amount: Math.abs(rec.discrepancy).toFixed(2) },
+                { amount: money(Math.abs(rec.discrepancy)) },
               )}
             </p>
           )}

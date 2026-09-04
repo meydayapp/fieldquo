@@ -41,12 +41,27 @@ const STATUS_STYLE = {
   cancelled: "bg-muted text-muted-foreground",
 };
 
+// English fallbacks only — the displayed string comes from
+// app.setLeave.kind.* in the catalogue, which Settings → Time off policies
+// already uses for the same five values. One wording, nine languages, rather
+// than a second English-only map that drifts from it.
 const KIND_LABEL = {
   vacation: "Vacation",
   sick: "Sick",
   personal: "Personal",
   unpaid: "Unpaid",
   other: "Other",
+};
+
+// LeaveRequest.status is a free string column (prisma/schema.prisma: pending |
+// approved | declined | cancelled). It used to be printed raw under a
+// `capitalize` class, so a French user read "Pending" and a value nobody
+// anticipated would have rendered as itself, lowercase, in grey.
+const STATUS_LABEL = {
+  pending: "Pending",
+  approved: "Approved",
+  declined: "Declined",
+  cancelled: "Cancelled",
 };
 
 // Leave dates are calendar DAYS stored as midnight UTC. A local formatter
@@ -62,13 +77,20 @@ function iso(d) {
 }
 
 function Pill({ status }) {
+  const { t } = useTranslation();
+  // An unmapped value keeps a coloured chip and its own raw text rather than
+  // rendering blank: a status nobody anticipated is a bug report, and a blank
+  // badge is the one rendering that hides it.
+  const label = STATUS_LABEL[status]
+    ? t(`app.status.${status}`, STATUS_LABEL[status])
+    : status;
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ${
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
         STATUS_STYLE[status] || "bg-muted text-muted-foreground"
       }`}
     >
-      {status}
+      {label}
     </span>
   );
 }
@@ -80,14 +102,26 @@ export default function TimeOffPage() {
   const [team, setTeam] = useState(null);
   const [canSeeTeam, setCanSeeTeam] = useState(false);
   const [error, setError] = useState("");
+  // Kept apart from `error` so the "Mine" panel can refuse in place rather
+  // than drawing an empty-looking screen under a red banner — two unrelated
+  // things on one page is exactly the shape the brief calls out.
+  const [mineError, setMineError] = useState("");
 
   const loadMine = useCallback(async () => {
     try {
       const d = await fetchJson("/api/leave");
+      setMineError("");
       setMine(d);
     } catch (err) {
-      setError(err.message);
-      setMine({ policies: [], requests: [], balances: [] });
+      // The failure is recorded and `mine` is left as it was. It used to be
+      // replaced with `{ policies: [], requests: [], balances: [] }`, which
+      // rendered "No leave policies have been set up yet. An owner or admin
+      // can add them in Settings → Time off policies." — a sentence about a
+      // company's configuration, printed because a request 500'd. That is the
+      // /app/clients bug ListState exists for: an empty state that fires on a
+      // failed request is a lie about the business, and this one sends
+      // somebody to re-create policies they already have.
+      setMineError(err.message);
     }
   }, []);
 
@@ -135,7 +169,7 @@ export default function TimeOffPage() {
                 tab === "team" ? "bg-inverted text-inverted-foreground" : "hover:bg-muted"
               }`}
             >
-              <Users size={14} /> Team
+              <Users size={14} /> {t("app.crewInbox.teamLink", "Team")}
               {team?.requests?.some((r) => r.status === "pending") && (
                 <span className="ml-1 rounded-full bg-amber-500 text-white text-[10px] px-1.5">
                   {team.requests.filter((r) => r.status === "pending").length}
@@ -154,7 +188,12 @@ export default function TimeOffPage() {
       )}
 
       {tab === "mine" ? (
-        <MyTimeOff data={mine} reload={() => { loadMine(); loadTeam(); }} />
+        <MyTimeOff
+          data={mine}
+          errorMessage={mineError}
+          onRetry={loadMine}
+          reload={() => { loadMine(); loadTeam(); }}
+        />
       ) : (
         <TeamTimeOff data={team} reload={() => { loadTeam(); loadMine(); }} />
       )}
@@ -164,15 +203,47 @@ export default function TimeOffPage() {
 
 // ── My time off ────────────────────────────────────────────────────────────
 
-function MyTimeOff({ data, reload }) {
+function MyTimeOff({ data, errorMessage, onRetry, reload }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [sentTo, setSentTo] = useState("");
 
+  // Failed BEFORE empty, and it returns — an if/else chain, not a stack of
+  // `&&` fragments, for the reason app/components/ListState.js spells out.
+  // Whatever `data` is holding, a refused read must not be redrawn as "your
+  // company has no leave policies".
+  if (errorMessage) {
+    return (
+      <div
+        role="alert"
+        className="rounded-xl border border-red-200 dark:border-red-900 bg-card p-6 text-center"
+      >
+        <AlertTriangle
+          size={28}
+          className="mx-auto text-red-600 dark:text-red-400 mb-3"
+        />
+        <p className="text-sm font-semibold text-foreground">{t("app.load.title")}</p>
+        <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+          {errorMessage}
+        </p>
+        <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
+          {t("app.load.reassure")}
+        </p>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-4 inline-flex items-center gap-2 border border-border px-4 py-2 rounded-full text-sm font-semibold text-foreground min-h-[44px]"
+        >
+          {t("app.load.retry")}
+        </button>
+      </div>
+    );
+  }
+
   if (!data) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground py-10 justify-center">
-        <Loader2 className="animate-spin" size={16} /> Loading your time off…
+        <Loader2 className="animate-spin" size={16} /> {t("app.state.loading")}
       </div>
     );
   }
@@ -273,7 +344,12 @@ function BalanceCard({ balance }) {
             {balance.policy?.name}
           </div>
           <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-            {KIND_LABEL[balance.policy?.kind] || balance.policy?.kind}
+            {KIND_LABEL[balance.policy?.kind]
+              ? t(
+                  `app.setLeave.kind.${balance.policy.kind}`,
+                  KIND_LABEL[balance.policy.kind],
+                )
+              : balance.policy?.kind}
           </div>
         </div>
         <div className="text-right shrink-0">
@@ -603,7 +679,7 @@ function TeamTimeOff({ data, reload }) {
   if (!data) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground py-10 justify-center">
-        <Loader2 className="animate-spin" size={16} /> Loading the team&apos;s time off…
+        <Loader2 className="animate-spin" size={16} /> {t("app.state.loading")}
       </div>
     );
   }

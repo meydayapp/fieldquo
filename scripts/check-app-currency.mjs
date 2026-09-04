@@ -57,6 +57,15 @@ const ROOTS = [
   "app/components/invoices",
   "app/components/clients",
   "app/components/designer",
+  // Added 2026-09-03. Both folders were outside every root, which is exactly
+  // why they still held three hardcoded dollar signs after the sweep that
+  // fixed 114 of them: VehicleCard's `$${Number(v || 0).toLocaleString()}`
+  // (which also turned an unrecorded asset cost into "$0"), MaintenanceLog's
+  // repair total, and PurchaseOrdersPanel's `$${Number(v).toFixed(2)}` — the
+  // ungrouped seventh copy of the bug lib/format/money.js documents. A van
+  // and a purchase order are money screens; they belong in the scan.
+  "app/components/fleet",
+  "app/components/purchasing",
   // app/components/dashboard is NOT scanned, and that is a live exception
   // rather than a decision. RevenueGoalCard.js still builds three bare dollar
   // strings by hand (lines 24, 27, 28 at the time of writing) — including a

@@ -36,7 +36,8 @@ import {
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
 import { detectMaterialsBuyListTrap } from "@/lib/analytics/kpis";
-import { buildMoneyFlow, priorWindow } from "@/lib/analytics/moneyFlow";
+import { buildMoneyFlow, priorWindow, elapsedRange } from "@/lib/analytics/moneyFlow";
+import { dayKey } from "@/lib/export/accountingExport";
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const startOfDay = (key) => new Date(`${key}T00:00:00.000Z`);
@@ -105,17 +106,26 @@ export async function GET(request) {
     );
   }
 
+  // The prior window is sized to what has ELAPSED, not to the whole selected
+  // range — "This month" runs to the 30th, and on the 3rd a full 30-day prior
+  // month is not something three days can be measured against. See
+  // lib/analytics/moneyFlow.js's elapsedRange for the bug this closes; the
+  // headline totals still cover the whole range, only the comparison is
+  // clamped. A range entirely in the future has no prior window at all.
+  const today = dayKey(new Date());
   let prior;
+  let elapsed;
   try {
-    prior = priorWindow(from, to);
+    elapsed = elapsedRange(from, to, today);
+    prior = elapsed ? priorWindow(elapsed.from, elapsed.to) : null;
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: err.status || 400 });
   }
 
   const gte = startOfDay(from);
   const lte = endOfDay(to);
-  const priorGte = startOfDay(prior.from);
-  const priorLte = endOfDay(prior.to);
+  const priorGte = prior ? startOfDay(prior.from) : null;
+  const priorLte = prior ? endOfDay(prior.to) : null;
 
   const PAYMENT_SELECT = { amount: true, date: true };
   const EXPENSE_SELECT = { amount: true, date: true, category: true, projectId: true };
@@ -137,14 +147,18 @@ export async function GET(request) {
       where: { companyId, date: { gte, lte } },
       select: EXPENSE_SELECT,
     }),
-    db.payment.findMany({
-      where: { invoice: { companyId }, date: { gte: priorGte, lte: priorLte } },
-      select: PAYMENT_SELECT,
-    }),
-    db.expense.findMany({
-      where: { companyId, date: { gte: priorGte, lte: priorLte } },
-      select: EXPENSE_SELECT,
-    }),
+    prior
+      ? db.payment.findMany({
+          where: { invoice: { companyId }, date: { gte: priorGte, lte: priorLte } },
+          select: PAYMENT_SELECT,
+        })
+      : [],
+    prior
+      ? db.expense.findMany({
+          where: { companyId, date: { gte: priorGte, lte: priorLte } },
+          select: EXPENSE_SELECT,
+        })
+      : [],
     // Has this company EVER received a payment, at any date? Answered
     // unbounded, once, cheaply (findFirst can stop at the first row an index
     // gives it) — see lib/analytics/moneyFlow.js's header for why this can't
@@ -185,6 +199,7 @@ export async function GET(request) {
       everRecordedIncome: Boolean(everPayment),
       everRecordedExpense: Boolean(everExpense),
       materialsTrap,
+      today,
     });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: err.status || 500 });

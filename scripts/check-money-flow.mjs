@@ -37,7 +37,13 @@ import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { buildMoneyFlow, priorWindow, categoryBreakdown, REASONS } from "@/lib/analytics/moneyFlow";
+import {
+  buildMoneyFlow,
+  priorWindow,
+  elapsedRange,
+  categoryBreakdown,
+  REASONS,
+} from "@/lib/analytics/moneyFlow";
 import { buildPayrollCost, REASONS as PAYROLL_REASONS } from "@/lib/analytics/payrollCost";
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
 import {
@@ -289,6 +295,130 @@ ok("priorWindow: a 7-day window immediately before May 28, ending May 27",
 ok("priorWindow across a year boundary too: Jan 1–5 → Dec 27–31 of the year before",
   JSON.stringify(priorWindow("2026-01-01", "2026-01-05")) ===
     JSON.stringify({ from: "2025-12-27", to: "2025-12-31" }));
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Section 6b — a partial period is never compared to a whole one
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The bug, executed rather than described: "This month" and "This quarter"
+// (lib/analytics/periodPresets.js) run to the LAST day of the period, so on
+// the 3rd of September the selected range is 1–30 September. priorWindow()
+// then hands back a full 30-day August, and three days of income were
+// measured against it. The tile read "Down 91% on last period" — a precise
+// number about nothing — every month, for every company, until about the
+// 28th. These assertions pin both halves: the old shape reproduces the wrong
+// answer, and the clamped shape gives the right one.
+
+console.log("\n6b. Partial period — the comparison is clamped to what happened\n");
+
+const SEPT = {
+  from: "2026-09-01",
+  to: "2026-09-30",
+  payments: [pay(500, "2026-09-01"), pay(700, "2026-09-03")],
+  expenses: [exp(200, "2026-09-02", "Paint")],
+  everRecordedIncome: true,
+  everRecordedExpense: true,
+};
+
+// What the ROUTE now fetches: the 3 days before the period, not 30.
+const PARTIAL = run({
+  ...SEPT,
+  priorPayments: [pay(400, "2026-08-29"), pay(600, "2026-08-31")],
+  priorExpenses: [exp(150, "2026-08-30", "Paint")],
+  today: "2026-09-03",
+});
+ok("basis says to_date, with the days counted",
+  PARTIAL.comparison.basis === "to_date" &&
+    PARTIAL.comparison.inProgress === true &&
+    PARTIAL.comparison.elapsedDays === 3 &&
+    PARTIAL.comparison.periodDays === 30,
+  PARTIAL.comparison);
+ok("the prior window is sized to the ELAPSED days, not the whole range",
+  JSON.stringify(PARTIAL.comparison.priorRange) ===
+    JSON.stringify({ from: "2026-08-29", to: "2026-08-31" }),
+  PARTIAL.comparison.priorRange);
+ok("the headline income tile is still the whole selected range",
+  PARTIAL.income.value === 1200);
+ok("the trend is up 20% — 1200 against the same three days' 1000, not against a month",
+  PARTIAL.trends.income.direction === "up" && PARTIAL.trends.income.deltaPct === 0.2,
+  PARTIAL.trends.income);
+ok("expenses and remaining are clamped the same way",
+  PARTIAL.trends.expenses.current === 200 &&
+    PARTIAL.trends.remaining.current === 1000 &&
+    PARTIAL.trends.remaining.prior === 850,
+  { e: PARTIAL.trends.expenses, r: PARTIAL.trends.remaining });
+
+// The regression itself. Same period, same three days of income, a FULL
+// prior month behind it and no clock: this is what shipped.
+const UNCLAMPED = run({
+  ...SEPT,
+  priorPayments: [pay(400, "2026-08-05"), pay(12000, "2026-08-31")],
+  priorExpenses: [],
+  today: null,
+});
+ok("without a clock the whole range is treated as done — the old behaviour, unchanged",
+  UNCLAMPED.comparison.basis === "full_period" &&
+    UNCLAMPED.comparison.inProgress === false &&
+    UNCLAMPED.trends.income.direction === "down" &&
+    Math.round(UNCLAMPED.trends.income.deltaPct * 100) === -90,
+  UNCLAMPED.trends.income);
+
+// A row dated inside the range but AFTER today belongs to the tile and not
+// to the comparison — otherwise a post-dated invoice payment would flatter
+// the trend against days that have not happened.
+const POSTDATED = run({
+  ...SEPT,
+  payments: [...SEPT.payments, pay(99999, "2026-09-20")],
+  priorPayments: [pay(1000, "2026-08-29")],
+  today: "2026-09-03",
+});
+ok("a future-dated row counts in the total and NOT in the comparison",
+  POSTDATED.income.value === 101199 && POSTDATED.trends.income.current === 1200,
+  { total: POSTDATED.income.value, compared: POSTDATED.trends.income.current });
+
+// Days that have not happened are flagged, not filled with a confident zero.
+ok("27 of September's 30 days are flagged future on the 3rd, and the 3rd is not",
+  PARTIAL.days.filter((day) => day.future).length === 27 &&
+    PARTIAL.days.find((day) => day.date === "2026-09-03").future === false &&
+    PARTIAL.days.find((day) => day.date === "2026-09-04").future === true);
+
+// A period entirely in the future: no comparison at all, and no zero.
+const NOT_STARTED = run({
+  from: "2026-12-01",
+  to: "2026-12-31",
+  everRecordedIncome: true,
+  everRecordedExpense: true,
+  today: "2026-09-03",
+});
+ok("a period that has not started grows no trend on any of the three",
+  NOT_STARTED.comparison.basis === "none" &&
+    NOT_STARTED.trends.income === null &&
+    NOT_STARTED.trends.expenses === null &&
+    NOT_STARTED.trends.remaining === null);
+ok("...and every one of its days is flagged future",
+  NOT_STARTED.days.every((day) => day.future === true));
+
+// elapsedRange's own edges.
+ok("today ON the last day is a finished period",
+  elapsedRange("2026-09-01", "2026-09-30", "2026-09-30").inProgress === false);
+ok("today one day before the start is a period that has not begun",
+  elapsedRange("2026-09-01", "2026-09-30", "2026-08-31") === null);
+ok("today on the first day leaves exactly one elapsed day",
+  elapsedRange("2026-09-01", "2026-09-30", "2026-09-01").elapsedDays === 1);
+ok("a single-day period is never 'in progress'",
+  elapsedRange("2026-09-03", "2026-09-03", "2026-09-03").inProgress === false);
+ok("an unparseable clock falls back to the whole range rather than throwing",
+  elapsedRange("2026-09-01", "2026-09-30", "not-a-date").inProgress === false);
+ok("elapsedRange refuses a backwards range the same way priorWindow does",
+  (() => {
+    try {
+      elapsedRange("2026-09-30", "2026-09-01", "2026-09-03");
+      return false;
+    } catch (err) {
+      return err.status === 400;
+    }
+  })());
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Section 7 — the materials buy-list trap: flagged, never suppressed
@@ -886,8 +1016,8 @@ const MUTATIONS = [
     "computes an income trend even when income itself has no history",
     (s) =>
       s.replace(
-        "income: income.available ? compare(incomeTotal, priorIncomeTotal) : null,",
-        "income: compare(incomeTotal, priorIncomeTotal),",
+        "      comparable && income.available ? compare(comparableIncome, priorIncomeTotal) : null,",
+        "      compare(comparableIncome, priorIncomeTotal),",
       ),
   ],
   [
@@ -1069,6 +1199,36 @@ const MUTATIONS4 = [
     ),
   ],
 ];
+
+// ── Mutants for the partial-period clamp (Section 6b) ──────────────────────
+//
+// Each of these puts the shipped bug back in a different way. All three are
+// silent: nothing throws, every figure still formats, and the tile still
+// shows a confident percentage — which is exactly why the assertions above
+// have to be the thing that notices.
+MUTATIONS.push(
+  [
+    "compares the whole selected range against the prior window again — the shipped bug",
+    (s) => s.replace(
+      "  const elapsed = elapsedRange(from, to, today);",
+      "  const elapsed = elapsedRange(from, to, null);",
+    ),
+  ],
+  [
+    "lets a period that has not started grow a trend from a zero current",
+    (s) => s.replace(
+      "  const comparable = elapsed !== null;",
+      "  const comparable = true;",
+    ),
+  ],
+  [
+    "fills days after today with a real 0 again instead of flagging them",
+    (s) => s.replace(
+      "    future: lastElapsed === null ? true : date > lastElapsed,",
+      "    future: false,",
+    ),
+  ],
+);
 
 // ── One mutation that was tried and is NOT in the list above ────────────────
 //

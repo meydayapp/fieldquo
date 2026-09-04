@@ -23,6 +23,7 @@
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import { reportResponseError } from "@/lib/clientErrors";
 import ListState from "@/app/components/ListState";
 
@@ -56,6 +57,10 @@ export default function MaintenanceLog({
   onChanged,
 }) {
   const { t, language } = useTranslation();
+  // The company's currency, not a hardcoded "$" — a service bill in Dublin is
+  // in euro, and a repair total is a number somebody decides whether to keep
+  // the van on.
+  const money = useCompanyMoney();
   const [adding, setAdding] = useState(false);
   const [kind, setKind] = useState("service");
   const [description, setDescription] = useState("");
@@ -165,7 +170,7 @@ export default function MaintenanceLog({
                   {/* Nothing printed when the cost is null: a blank is "we
                       don't know what it cost", and "$0.00" is a claim. */}
                   {entry.costCents !== null && entry.costCents !== undefined
-                    ? ` · $${(entry.costCents / 100).toFixed(2)}`
+                    ? ` · ${money(entry.costCents / 100)}`
                     : ""}
                 </span>
               </span>

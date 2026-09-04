@@ -32,6 +32,25 @@ const STATUS_STYLE = {
   cancelled: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300",
 };
 
+// PayRun.status is a free string column (draft | approved | paid |
+// cancelled). Three of the four reached this badge raw and lowercase in every
+// language. app.payRunStatus.* is the catalogue's existing wording for these
+// four; "paid" keeps the longer phrase, because FieldQuo records that a
+// company paid rather than paying.
+const STATUS_FALLBACK = {
+  draft: "Draft",
+  approved: "Approved",
+  paid: "Paid",
+  cancelled: "Cancelled",
+};
+
+function statusLabel(t, status) {
+  if (status === "paid") return t("app.payrollRun.paidRecorded", "paid (recorded)");
+  return STATUS_FALLBACK[status]
+    ? t(`app.payRunStatus.${status}`, STATUS_FALLBACK[status])
+    : status;
+}
+
 export default function PayRunPage() {
   const money = useCompanyMoney();
   const { t } = useTranslation();
@@ -111,7 +130,7 @@ export default function PayRunPage() {
           </p>
         </div>
         <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_STYLE[run.status] || ""}`}>
-          {run.status === "paid" ? t("app.payrollRun.paidRecorded", "paid (recorded)") : run.status}
+          {statusLabel(t, run.status)}
         </span>
       </div>
 
