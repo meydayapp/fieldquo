@@ -119,7 +119,14 @@ export default function DashboardPage() {
   const [overviewErrorKey, setOverviewErrorKey] = useState("");
   const [quotesErrorKey, setQuotesErrorKey] = useState("");
   const [recentQuotes, setRecentQuotes] = useState(null);
-  const [upcomingAppointments, setUpcomingAppointments] = useState([]);
+  // `null`, not []. The COUNT tile beside it was fixed for this and the LIST
+  // was not: on a failed /api/appointments the panel below rendered "Nothing
+  // scheduled yet — book an appointment" over a diary nobody had read. That is
+  // lib/loadState.js's founding bug, still live on the screen people open
+  // most — an empty array is the claim "there are zero of these", made before
+  // the server said anything.
+  const [upcomingAppointments, setUpcomingAppointments] = useState(null);
+  const [appointmentsErrorKey, setAppointmentsErrorKey] = useState("");
   // Separate from the preview list above, which is capped at five.
   //
   // `null`, not 0. /api/appointments failing left this reading 0 — the same
@@ -196,6 +203,37 @@ export default function DashboardPage() {
     // tiles are simply absent and nothing apologises for a boundary working as
     // designed. Every other status keeps its sentence and its retry.
     setOverviewErrorKey(result.status === 403 ? "" : result.errorKey);
+  }, []);
+
+  // The diary, through the same helper as everything else on this page.
+  //
+  // GET /api/appointments never 403s — it FILTERS to the member's own work
+  // (see ownScheduleFilter in that route), so every failure here is a real
+  // failure with something to retry. That is why this one keeps its error key
+  // on every status, where `overview` and `money` discard a 403: those two
+  // have a refusal to be silent about and this one does not.
+  const loadAppointments = useCallback(async () => {
+    const result = await fetchArray("/api/appointments");
+    if (result.aborted) return;
+    if (!result.ok) {
+      // Back to "not known", never to []. A retry that fails must leave the
+      // panel saying it could not load, not saying the diary is empty.
+      setUpcomingAppointments(null);
+      setUpcomingCount(null);
+      setAppointmentsErrorKey(result.errorKey);
+      return;
+    }
+    setAppointmentsErrorKey("");
+    // /api/appointments returns job visits and held bookings alongside
+    // appointments, so both of these count the crew work a company actually
+    // schedules. The COUNT is the whole upcoming list, not the length of the
+    // sliced preview — that read "5" for a company with twelve visits ahead.
+    setUpcomingCount(countUpcoming(result.data));
+    setUpcomingAppointments(
+      result.data
+        .filter((a) => new Date(a.scheduledAt) > new Date())
+        .slice(0, 5),
+    );
   }, []);
 
   const loadRecentQuotes = useCallback(async () => {
@@ -284,34 +322,13 @@ export default function DashboardPage() {
         setOnboardingError(error.message);
       });
 
-    Promise.all([
-      // These two set their own state and never reject — see lib/loadState.js,
-      // which exists so a refused list cannot be flattened into an empty one
-      // on the way in.
-      loadOverview(),
-      loadRecentQuotes(),
-      fetch("/api/appointments").then((r) => (r.ok ? r.json() : null)),
-    ])
-      .then(([, , appointmentsData]) => {
-        // /api/appointments now returns job visits alongside appointments, so
-        // both of these finally count the crew work a company actually
-        // schedules — this tile read 0 against jobs that plainly had visits.
-        //
-        // A body that is not an array is a refusal or a failure, and the count
-        // stays null for it. The COUNT is also the whole upcoming list: it used
-        // to be the length of the sliced preview, so a company with twelve
-        // visits ahead of them read "5".
-        if (!Array.isArray(appointmentsData)) return;
-        setUpcomingCount(countUpcoming(appointmentsData));
-        setUpcomingAppointments(
-          appointmentsData
-            .filter((a) => new Date(a.scheduledAt) > new Date())
-            .slice(0, 5),
-        );
-      })
+    // All three set their own state and never reject — see lib/loadState.js,
+    // which exists so a refused list cannot be flattened into an empty one on
+    // the way in.
+    Promise.all([loadOverview(), loadRecentQuotes(), loadAppointments()])
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [loadOverview, loadRecentQuotes]);
+  }, [loadOverview, loadRecentQuotes, loadAppointments]);
 
   // The ranking, decided once per render from the two payloads. Pure, and
   // tested by scripts/check-dashboard-rank.mjs rather than by looking at it.
@@ -1025,31 +1042,47 @@ export default function DashboardPage() {
               {t("app.action.viewAll")} <ArrowRight size={14} aria-hidden="true" />
             </Link>
           </div>
-          <div className="divide-y divide-foreground/10">
-            {upcomingAppointments.length === 0 && (
+          {/* `upcomingAppointments` is null until GET /api/appointments
+              answers, so "Nothing scheduled yet — book an appointment" can no
+              longer appear over a diary that failed to load. A contractor with
+              a full week who hits a transient 500 was being told their week was
+              empty, on the one panel of this page that says what to do
+              tomorrow — the same lie ListState was built to stop. */}
+          <ListState
+            loading={false}
+            errorKey={appointmentsErrorKey}
+            onRetry={loadAppointments}
+            isEmpty={
+              Array.isArray(upcomingAppointments) &&
+              upcomingAppointments.length === 0
+            }
+            empty={
               <p className="px-4 sm:px-5 py-6 text-sm text-muted-foreground">
                 <Link href="/app/appointments" className="text-foreground underline">
                   {t("app.dash.nothingScheduledCta", "Nothing scheduled yet — book an appointment")}
                 </Link>
               </p>
-            )}
-            {upcomingAppointments.map((a) => (
-              <div key={a.id} className="px-4 sm:px-5 py-3">
-                <div className="text-sm font-medium text-foreground">
-                  {a.client?.name}
+            }
+          >
+            <div className="divide-y divide-foreground/10">
+              {(upcomingAppointments ?? []).map((a) => (
+                <div key={a.id} className="px-4 sm:px-5 py-3">
+                  <div className="text-sm font-medium text-foreground">
+                    {a.client?.name}
+                  </div>
+                  <FigureText className="text-xs text-muted-foreground">
+                    {new Date(a.scheduledAt).toLocaleString(undefined, {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
+                  </FigureText>
                 </div>
-                <FigureText className="text-xs text-muted-foreground">
-                  {new Date(a.scheduledAt).toLocaleString(undefined, {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
-                </FigureText>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </ListState>
         </div>
       </div>
     </div>

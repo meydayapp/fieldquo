@@ -137,6 +137,15 @@ function callArgs(src, name) {
 //
 // `state` is the list variable whose initial value must be null.
 const GOVERNED = [
+  // The dashboard carries two independent lists, so it appears twice. It was
+  // the last page on the app holding the original bug: the recent-quotes panel
+  // had been converted to <ListState> and the appointments panel beside it was
+  // still `useState([])` behind a bare `r.ok ? r.json() : null`, which rendered
+  // "Nothing scheduled yet — book an appointment" at a contractor whose diary
+  // had merely failed to load. Of every page in GOVERNED this is the one people
+  // open most.
+  { file: "app/app/page.js", state: "recentQuotes" },
+  { file: "app/app/page.js", state: "upcomingAppointments" },
   { file: "app/app/clients/page.js", state: "clients" },
   { file: "app/app/quotes/page.js", state: "quotes" },
   { file: "app/app/jobs/page.js", state: "jobs" },

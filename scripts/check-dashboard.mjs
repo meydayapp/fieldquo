@@ -732,6 +732,71 @@ ok("a nonsense period falls back rather than 500ing", nonsense.body.revenue.seri
 ok("the options are sent to the screen rather than hardcoded in it", Array.isArray(sixMonths.body.periods));
 ok("...and the selector refetches on change", /setTrendMonths\(p\)/.test(page) && /months=\$\{trendMonths\}/.test(page));
 
+// ═══════════════════════════════════════════════════════════════════════════
+console.log("\n11. The diary panel — an empty week and an unread week\n");
+//
+// The last panel on this page still holding lib/loadState.js's founding bug.
+// `upcomingAppointments` started at `useState([])` behind a bare
+// `fetch(...).then((r) => (r.ok ? r.json() : null))`, and the failure branch
+// simply returned — leaving the initial empty array in place. So a transient
+// 500 on GET /api/appointments rendered, on the panel that says what happens
+// tomorrow, "Nothing scheduled yet — book an appointment" at a contractor with
+// a full week. The count tile one section up had already been fixed for exactly
+// this; the list beside it had not.
+//
+// Asserted against the SOURCE, with comments stripped. The file explains this
+// bug at length, and a scan reading its own explanation as the offence is the
+// false pass this repo has already been burnt by twice.
+
+const pageCode = page
+  .replace(/\/\*[\s\S]*?\*\//g, " ")
+  .replace(/^\s*\/\/.*$/gm, " ");
+
+ok(
+  "the diary is fetched through fetchArray, not a bare r.ok ternary",
+  /fetchArray\("\/api\/appointments"\)/.test(pageCode) &&
+    !/\/api\/appointments"\)[\s\S]{0,120}?r\.ok \? r\.json\(\)/.test(pageCode),
+);
+ok(
+  "the list starts as null — an empty array is a claim of zero made before the server answered",
+  /const \[upcomingAppointments, setUpcomingAppointments\] = useState\(null\)/.test(
+    pageCode,
+  ),
+);
+ok(
+  "a failed load puts the list BACK to null rather than leaving a stale or empty one",
+  /setUpcomingAppointments\(null\);/.test(pageCode),
+);
+ok(
+  "...and drops the count with it, so an error panel never sits beside a live number",
+  /setUpcomingAppointments\(null\);\s*setUpcomingCount\(null\);/.test(pageCode),
+);
+
+// The empty state and the error state must be mutually exclusive BY
+// STRUCTURE. Locating the <ListState> that actually encloses the CTA is the
+// point: asserting that the file contains both strings somewhere would pass on
+// a page where the CTA had been moved back outside the guard.
+const ctaAt = pageCode.indexOf("app.dash.nothingScheduledCta");
+const guardAt = pageCode.lastIndexOf("<ListState", ctaAt);
+const guard = ctaAt > -1 && guardAt > -1 ? pageCode.slice(guardAt, ctaAt) : "";
+ok(
+  "the 'nothing scheduled' CTA is inside a <ListState>",
+  ctaAt > -1 && guardAt > -1,
+);
+ok(
+  "...and it is the diary's own guard, holding the diary's error key",
+  /errorKey=\{appointmentsErrorKey\}/.test(guard),
+  guard.slice(0, 120),
+);
+ok(
+  "...which offers a retry that reloads the diary",
+  /onRetry=\{loadAppointments\}/.test(guard),
+);
+ok(
+  "...and decides 'empty' from an array the server sent, never from .length on a null",
+  /isEmpty=\{\s*Array\.isArray\(upcomingAppointments\)/.test(guard),
+);
+
 console.log(
   failures.length
     ? `\nFAILED — ${failures.length} of ${pass + failures.length}\n${failures.map((f) => `  x ${f}`).join("\n")}`
