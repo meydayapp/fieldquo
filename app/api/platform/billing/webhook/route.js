@@ -71,6 +71,58 @@ export async function POST(request) {
     }
   }
 
+  // ── A delayed-notification payment settling ─────────────────────────────
+  //
+  // Affirm, and any other method that decides after the client has already
+  // returned to the portal, does NOT settle on checkout.session.completed —
+  // that event arrives with payment_status "unpaid" and the settler correctly
+  // answers not_paid_yet. The money lands minutes later on
+  // checkout.session.async_payment_succeeded, and by the same destination-charge
+  // architecture the header of lib/stripe/settleCheckoutSession.js explains,
+  // that is a PLATFORM event: it arrives HERE, not on the Connect endpoint that
+  // used to be the only place with a handler for it.
+  //
+  // Until this block existed it fell through to syncSubscriptionFromStripeEvent
+  // below, which found no planId, filed a "permanent" billing error, and
+  // answered 200 — so Stripe took the client's money, the invoice kept showing
+  // its full balance owing, no Payment row was written, and nothing said so.
+  // The exact silent-money shape this codebase keeps being swept for.
+  //
+  // Same shared settler as `completed` above, on purpose: it routes on metadata
+  // (invoiceId, bookingId, …), so a delayed booking fee is handled here too, and
+  // its recorder is idempotent on (invoiceId, paymentIntentId) — a redelivery
+  // records nothing twice. 500 on failure so Stripe redelivers.
+  if (event.type === "checkout.session.async_payment_succeeded") {
+    try {
+      const { handled, kind } = await settleCheckoutSession(event.data.object);
+      if (handled) {
+        return NextResponse.json({ received: true, settled: kind });
+      }
+    } catch (err) {
+      await recordError({
+        area: "billing-webhook",
+        code: "settle_async_payment",
+        message: `Settling delayed payment failed: ${err?.message}`,
+        companyId: event?.data?.object?.metadata?.companyId || null,
+        detail: {
+          eventId: event?.id,
+          sessionId: event?.data?.object?.id || null,
+          metadata: event?.data?.object?.metadata || null,
+          needsManualReconciliation: true,
+        },
+      });
+      return NextResponse.json({ error: "Settlement failed" }, { status: 500 });
+    }
+  }
+
+  // The delayed payment was declined after the redirect. Nothing to record —
+  // the invoice or booking is still unpaid, which is already its state. Answered
+  // explicitly so it never reaches the subscription handler and files a
+  // spurious billing error.
+  if (event.type === "checkout.session.async_payment_failed") {
+    return NextResponse.json({ received: true, settled: "async_payment_failed" });
+  }
+
   // ── A refund or a chargeback ────────────────────────────────────────────
   //
   // Same reasoning as checkout.session.completed just above: every

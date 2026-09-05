@@ -5,27 +5,16 @@ import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { db } from "@/lib/db";
 import { earnMilestone, MILESTONES } from "@/lib/sales/commission";
-import { recordStripePayment } from "@/lib/invoices/recordStripePayment";
 import { settleOccurrenceFromIntent } from "@/lib/servicePlans/run";
 import { settleCheckoutSession } from "@/lib/stripe/settleCheckoutSession";
 import { settleChargeEvent } from "@/lib/stripe/settleChargeEvent";
 
-// Record an invoice payment from a completed/settled checkout session.
-//
-// The write itself — and the balance recompute, and the idempotency guarantee —
-// now live in lib/invoices/recordStripePayment.js, because service plans pay the
-// same invoices through a different Stripe object (an off-session PaymentIntent
-// with no Checkout Session at all). Two copies of "how an invoice becomes paid"
-// is how the two come to disagree about the balance.
-async function recordInvoicePayment(session) {
-  const invoiceId = session.metadata?.invoiceId;
-  if (!invoiceId) return;
-  await recordStripePayment(db, {
-    invoiceId,
-    paymentIntentId: session.payment_intent,
-    amountCents: session.amount_total || 0,
-  });
-}
+// There is deliberately no route-local invoice recorder here any more. Both
+// checkout events — completed AND async_payment_succeeded — dispatch through
+// lib/stripe/settleCheckoutSession.js, which routes on metadata and calls the
+// one shared recorder in lib/invoices/recordStripePayment.js. The wrapper that
+// used to sit here was the second copy of "how an invoice becomes paid", and
+// two copies is how the two come to disagree about the balance.
 
 // FieldQuo's Connect-integration webhook: its own endpoint and its own signing
 // secret, distinct from the Billing webhook.
@@ -139,7 +128,21 @@ export async function POST(request) {
     // the invoice paid for those methods — its absence was why an Affirm payment
     // that succeeded in Stripe left the invoice showing a full balance owing.
     case "checkout.session.async_payment_succeeded": {
-      await recordInvoicePayment(event.data.object);
+      // Through the shared settler, exactly as `completed` is above, rather
+      // than a route-local recorder: the settler routes on metadata, so a
+      // delayed BOOKING fee is handled as well as an invoice, and both routes
+      // now dispatch this event identically — the same belt-and-braces the
+      // completed event already has, for the same reason.
+      const { handled, kind } = await settleCheckoutSession(event.data.object);
+      if (!handled) {
+        console.warn(
+          "[stripe] unrecognised delayed-payment session on the Connect endpoint:",
+          event.data.object?.id,
+          JSON.stringify(event.data.object?.metadata || {}),
+        );
+      } else {
+        console.log("[stripe] delayed payment settled:", kind, event.data.object?.id);
+      }
       break;
     }
 
