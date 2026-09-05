@@ -16,7 +16,16 @@ export async function POST(request, { params }) {
   // Next 16: params is a Promise. Reading it synchronously yields undefined,
   // which made the company lookup below silently 404 every booking.
   const { companySlug } = await params;
-  const body = await request.json();
+  // A dropped mobile connection can truncate the body; an unguarded parse
+  // throws a bodyless 500 and the booking the visitor just confirmed is lost
+  // with no way to tell what happened. Clean 400 they can retry instead.
+  const body = await request.json().catch(() => null);
+  if (!body) {
+    return NextResponse.json(
+      { error: "We couldn't read that request. Please try again." },
+      { status: 400 },
+    );
+  }
   const {
     eventTypeSlug, startTime, clientName, clientEmail, clientPhone, mode,
     address, quoteId,

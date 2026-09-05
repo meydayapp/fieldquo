@@ -13,7 +13,17 @@ export async function POST(request, { params }) {
   // an amount. The amount below is always re-derived from that row (or,
   // absent one, from the invoice's own balance) — non-negotiable #5, the
   // browser never sends money amounts.
-  const { invoiceId, stageId } = await request.json();
+  // A homeowner on a flaky mobile connection can deliver a truncated body;
+  // an unguarded parse throws and Next returns a bodyless 500, which reads to
+  // the payer as "the site is broken" mid-payment. Fail as a clean 400 they
+  // can retry — same shape as /api/sales/notes.
+  const body = await request.json().catch(() => null);
+  if (!body)
+    return NextResponse.json(
+      { error: "We couldn't read that request. Please try again." },
+      { status: 400 },
+    );
+  const { invoiceId, stageId } = body;
   if (!invoiceId)
     return NextResponse.json(
       { error: "invoiceId is required" },

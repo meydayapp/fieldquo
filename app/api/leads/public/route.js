@@ -19,7 +19,16 @@ export async function POST(request) {
   const limited = rateLimit(request, "leads-public");
   if (limited) return limited;
 
-  const body = await request.json();
+  // A truncated body from a dropped mobile connection must not become a
+  // bodyless 500 — this is the public enquiry form, and a 500 here silently
+  // loses the lead the whole page exists to capture. Clean 400 instead.
+  const body = await request.json().catch(() => null);
+  if (!body) {
+    return NextResponse.json(
+      { error: "We couldn't read that request. Please try again." },
+      { status: 400 },
+    );
+  }
   const { companySlug, name, email, phone, categoryId, message, source } = body;
 
   if (!companySlug || !name) {
