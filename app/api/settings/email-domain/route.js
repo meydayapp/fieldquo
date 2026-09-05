@@ -127,6 +127,28 @@ export async function POST(request) {
       );
     }
 
+    // ── FieldQuo's own domain is not adoptable ─────────────────────────
+    //
+    // getPlatformFrom() DEFINES FieldQuo's sending domain as "a verified
+    // Resend domain that no Company row claims". fieldquo.com is exactly that,
+    // so the heldByAnother guard below — which only refuses domains ANOTHER
+    // Company holds — waved it straight through: a tenant POSTed fieldquo.com,
+    // adopted the platform's own verified domain, and every FieldQuo platform
+    // email (invites, billing, password resets) fell back to the Resend
+    // sandbox for everyone. Same security shape as RESERVED_SUBDOMAINS in
+    // lib/site/subdomain.js — the platform's own name is a boundary, not a
+    // first-come-first-served handle. Its subdomains are reserved too, so a
+    // tenant can't verify send.fieldquo.com and send as us either.
+    if (requested === "fieldquo.com" || requested.endsWith(".fieldquo.com")) {
+      return NextResponse.json(
+        {
+          error:
+            "That domain belongs to FieldQuo and can't be used as your sending domain. Use your own company's domain, like send.yourcompany.com.",
+        },
+        { status: 409 },
+      );
+    }
+
     // ── Register the new one BEFORE removing the old one ────────────────
     //
     // This used to delete first, "so we don't leave orphaned domains
