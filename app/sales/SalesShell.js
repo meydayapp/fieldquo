@@ -146,6 +146,11 @@ export default function SalesShell({ children }) {
             // opening an English page is a worse inconsistency than an English
             // tab. It becomes a key the day the notes screens are translated.
             { href: "/sales/notes", label: "Notes" },
+            // The rep's own calendar — appointments and callbacks. English
+            // literal for the same reason Notes is: the screen behind it is
+            // English, and a translated tab onto an English page is the worse
+            // inconsistency.
+            { href: "/sales/calendar", label: "Calendar" },
             // The attributed-companies book. It was the portal root until the
             // Today screen took that slot; it keeps its translated label
             // because the screen behind THIS one is still translated.

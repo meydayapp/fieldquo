@@ -61,9 +61,11 @@ import {
   Phone,
   PhoneOff,
   ShieldAlert,
+  CalendarPlus,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import CallPlaybook from "./CallPlaybook";
+import EventModal from "@/app/sales/calendar/EventModal";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -117,6 +119,12 @@ export default function CallPanel({ prospectId, phoneE164, businessName, fallbac
   const [code, setCode] = useState("");
   const [note, setNote] = useState("");
   const [callbackAt, setCallbackAt] = useState("");
+  // The "Schedule a call back" calendar entry — separate from the disposition
+  // callback above (which is how a LOGGED call records the time agreed). This
+  // one puts the promise on the rep's own /sales/calendar with the contact
+  // already filled from who they're on the phone with, so it survives past the
+  // call whether or not the call gets dispositioned.
+  const [showCallbackEvent, setShowCallbackEvent] = useState(false);
 
   // The script. Loaded with the prospect — see the header — and kept in its
   // own three fields rather than folded into `config`, because the calling
@@ -544,6 +552,38 @@ export default function CallPanel({ prospectId, phoneE164, businessName, fallbac
             </div>
           ) : null}
         </div>
+      ) : null}
+
+      {/* ── Put a callback on the calendar ──────────────────────────────────
+          Available in every state: a rep books a callback when they reach
+          someone AND when they don't. Opens the same event editor the calendar
+          uses, with the business and number already filled from who they're
+          calling — the rep only picks the time. */}
+      <button
+        type="button"
+        onClick={() => setShowCallbackEvent(true)}
+        className={`${BTN} w-full border border-border text-foreground`}
+      >
+        <CalendarPlus size={16} /> Schedule a call back
+      </button>
+      {showCallbackEvent ? (
+        <EventModal
+          initial={{
+            type: "callback",
+            businessName: businessName || null,
+            phone: phoneE164 || null,
+            // Tomorrow at 10am, local — a default the rep will usually change.
+            startAt: (() => {
+              const d = new Date();
+              d.setDate(d.getDate() + 1);
+              d.setHours(10, 0, 0, 0);
+              return d.toISOString();
+            })(),
+          }}
+          leads={[]}
+          onClose={() => setShowCallbackEvent(false)}
+          onSaved={() => setShowCallbackEvent(false)}
+        />
       ) : null}
 
       {/* ── The words ────────────────────────────────────────────────────────

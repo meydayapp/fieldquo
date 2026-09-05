@@ -772,6 +772,13 @@ const SALES_GATES = [
   // SalesSuppression, because the rep on the phone is the person who hears
   // "take me off your list". lib/sales/calls/gate.js argues it at length.
   "requireCallingRep",
+  // The sixth, added with the /sales/calendar feature. A rep's own calendar
+  // entry (SalesEvent) — the appointment they'll attend, the callback they
+  // promised. Its own file, its own header arguing why it is not a widening of
+  // any of the five, and a NAMED one-model list (REP_CALENDAR_WRITES =
+  // ["salesEvent"]). It moves no milestone and contacts no one, so it is the
+  // smallest exception yet.
+  "requireCalendarRep",
 ];
 for (const file of salesRoutes) {
   if (file.startsWith("app/api/sales/auth/")) continue; // unauthenticated by design
@@ -793,6 +800,7 @@ for (const [module, fn] of [
   ["lib/sales/smsGate.js", "export async function requireSmsRep("],
   ["lib/sales/queueGate.js", "export async function requireQueueRep("],
   ["lib/sales/calls/gate.js", "export async function requireCallingRep("],
+  ["lib/sales/calendar/gate.js", "export async function requireCalendarRep("],
 ]) {
   if (!existsSync(join(ROOT, module))) continue;
   const body = namedFunctionBody(read(module), fn);

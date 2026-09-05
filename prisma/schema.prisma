@@ -8285,6 +8285,7 @@ model SalesRep {
   @@index([active])
   @@index([managerId])
   repNotes SalesRepNote[]
+  events   SalesEvent[]
 }
 
 /// What a rep earns, per milestone. A row rather than constants so the numbers
@@ -8531,6 +8532,80 @@ model SalesLead {
 
   @@index([salesRepId, status])
   repNotes SalesRepNote[]
+  events   SalesEvent[]
+}
+
+/// A rep's own calendar entry — an appointment they'll attend or a callback
+/// they promised — shown on /sales/calendar and created from the call console.
+///
+/// ══ Rep-scoped, like everything else a rep owns ════════════════════════════
+///
+/// salesRepId IS the boundary, exactly as it is for SalesLead and SalesRepNote:
+/// there is no outer tenant behind the sales portal, so a query that forgets to
+/// scope by the signed-in rep is a query that shows one rep another's day. The
+/// write gate is lib/sales/calendar/gate.js (REP_CALENDAR_WRITES = ["salesEvent"]),
+/// a NAMED one-model exception in the same shape as the SMS and queue gates.
+///
+/// ══ Why the contact is snapshotted, not only linked ════════════════════════
+///
+/// leadId links to the SalesLead so the event can show live status and reopen
+/// the lead — but businessName/contactName/phone/website are ALSO copied onto
+/// the row at creation. A rep books a callback for "Tuesday 2pm, Dave, 555-0142";
+/// if the lead is later re-enriched, unlinked, or the rep is holding a prospect
+/// with no lead yet, the card must still say who and what number. Same reasoning
+/// as Quote copying its terms rather than reading the company live: a calendar
+/// entry is a promise made at a moment, and it keeps what it said. website has
+/// no home on SalesLead (it lives on the linked Prospect), so it is only ever a
+/// snapshot here.
+///
+/// ══ Not the Appointment model ══════════════════════════════════════════════
+///
+/// Appointment is companyId+clientId scoped — a contractor's visit to a
+/// homeowner. A rep works prospects who are not Clients and belong to no
+/// Company, so that model cannot hold this without inventing a fake tenant. The
+/// two are different audiences wearing the same word, kept apart on purpose.
+model SalesEvent {
+  id String @id @default(cuid())
+
+  salesRepId String
+  salesRep   SalesRep @relation(fields: [salesRepId], references: [id], onDelete: Cascade)
+
+  /// "callback" (a phone call the rep promised to make) or "appointment" (a
+  /// meeting, in person or on a call). Validated in the route, not the DB, so a
+  /// new kind is a code change with a message, not a migration.
+  type String @default("callback")
+
+  title    String?
+  /// The moment it starts. Stored in UTC; the rep's own screen renders it in
+  /// the lead's timeZone when there is one, their own otherwise.
+  startAt  DateTime
+  /// Optional — a callback is a point in time, an appointment usually a span.
+  endAt    DateTime?
+  location String?
+  notes    String?
+
+  /// scheduled | done | cancelled. Never deleted from under the rep — a booking
+  /// that vanishes with no trace is a delete wearing a gentler label.
+  status String @default("scheduled")
+
+  /// The lead this is about, when there is one. SetNull rather than Cascade so
+  /// unlinking or removing a lead leaves the event standing on its snapshot.
+  leadId String?
+  lead   SalesLead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  /// Snapshot of who the event is with — see the header. Written at creation,
+  /// updated only when the rep edits the event, never re-read from the lead.
+  businessName String?
+  contactName  String?
+  phone        String?
+  website      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([salesRepId, startAt])
+  @@index([salesRepId, status])
+  @@index([leadId])
 }
 
 /// One text message a rep sent a prospect from FieldQuo's own sales number.
