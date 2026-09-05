@@ -13,6 +13,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isPlatformEmailDomain } from "@/lib/email/platformDomains";
 import { memberOrRefusalPlain } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import {
@@ -139,7 +140,7 @@ export async function POST(request) {
     // lib/site/subdomain.js — the platform's own name is a boundary, not a
     // first-come-first-served handle. Its subdomains are reserved too, so a
     // tenant can't verify send.fieldquo.com and send as us either.
-    if (requested === "fieldquo.com" || requested.endsWith(".fieldquo.com")) {
+    if (isPlatformEmailDomain(requested)) {
       return NextResponse.json(
         {
           error:

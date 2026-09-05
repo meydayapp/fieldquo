@@ -26,6 +26,7 @@ import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { listDomains } from "@/lib/email/resendDomains";
 import { getPlatformFrom } from "@/lib/email/platformSender";
+import { isPlatformEmailDomain } from "@/lib/email/platformDomains";
 
 export async function GET(request) {
   const admin = await getCurrentPlatformAdmin(request);
@@ -61,8 +62,13 @@ export async function GET(request) {
         region: d.region,
         createdAt: d.created_at,
         claimedBy: claimedBy.get(d.id) || null,
+        // Mirrors getPlatformFrom(): a platform domain is usable whether or
+        // not a tenant row claims it — see lib/email/platformDomains.js. The
+        // health page must not keep reporting "not usable" about a sender the
+        // platform is in fact using.
         usableAsPlatformSender:
-          d.status === "verified" && !claimedBy.has(d.id),
+          d.status === "verified" &&
+          (isPlatformEmailDomain(d.name) || !claimedBy.has(d.id)),
       })),
     });
   } catch (err) {
