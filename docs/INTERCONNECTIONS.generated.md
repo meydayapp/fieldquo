@@ -3,7 +3,7 @@
 ## The entity graph
 
 Every model, and what points at it. Generated from `prisma/schema.prisma`, so
-it cannot drift from the code. 188 models.
+it cannot drift from the code. 189 models.
 
 **Read it before adding anything.** The question it answers is "what already
 touches this, and what would my change touch" — which is the question that was
@@ -19,13 +19,13 @@ tenancy, so it carries no information.
 |---|---:|---|
 | **Job** | 15 | AssetUseLog, ChangeOrder, Invoice, JobDailyLog, JobDocument, JobMaterial, JobPaymentStage, JobPhoto, JobVisit, MarketingDesign +5 |
 | **Prospect** | 13 | PlatformVoiceCall, ProspectCapability, ProspectCorrection, ProspectEvidence, ProspectInference, ProspectOpportunity, ProspectScore, ProspectTalkingPoint, ProspectTechnology, SalesCallAttempt +3 |
+| **SalesRep** | 12 | Company, SalesAttribution, SalesAttributionTouch, SalesCallAttempt, SalesCommissionEntry, SalesEvent, SalesLead, SalesPayoutBatch, SalesRepActivity, SalesRepNote +2 |
 | **Quote** | 11 | Appointment, Booking, Invoice, Job, JobPaymentStage, LeadRequest, QuoteAddOn, QuoteCosting, QuoteImport, QuoteScopeGroup +1 |
-| **SalesRep** | 11 | Company, SalesAttribution, SalesAttributionTouch, SalesCallAttempt, SalesCommissionEntry, SalesLead, SalesPayoutBatch, SalesRepActivity, SalesRepNote, SalesSmsMessage +1 |
 | **Client** | 10 | Appointment, ClientEquipment, Invoice, Job, PamphletStop, Quote, ReferralLink, SatisfactionResponse, ServicePlan, Task |
 | **Worker** | 10 | LeaveBalance, LeaveRequest, PayRunLine, Payout, SafetyIncident, Salary, Shift, TimeEntry, User, WorkerSalaryComponent |
 | **Invoice** | 6 | ChangeOrder, InvoiceCosting, JobPaymentStage, Payment, ServicePlanOccurrence, Task |
+| **SalesLead** | 6 | PlatformVoiceCall, SalesCallAttempt, SalesEvent, SalesRepNote, SalesSmsMessage, SalesThread |
 | **Member** | 5 | AssetUseLog, JobPhotoComment, JobPhotoMention, NotificationDelivery, SafetyIncident |
-| **SalesLead** | 5 | PlatformVoiceCall, SalesCallAttempt, SalesRepNote, SalesSmsMessage, SalesThread |
 | **ServiceCategory** | 5 | CompanyServiceCategory, JobChecklistTemplate, LeadRequest, QuickAddItem, QuoteScopeGroup |
 | **MarketingCampaign** | 3 | MarketingCampaignDelivery, MarketingDesign, PamphletStop |
 | **PlatformAdmin** | 3 | DemoBooking, DemoHostAvailability, PlatformAuditLog |
@@ -38,7 +38,7 @@ tenancy, so it carries no information.
 
 ### Every model, both directions
 
-<details><summary>188 models — expand</summary>
+<details><summary>189 models — expand</summary>
 
 | Model | Points at | Pointed at by |
 |---|---|---|
@@ -149,13 +149,14 @@ tenancy, so it carries no information.
 | `SalesCallAttempt` | Prospect, SalesLead, SalesRep | — |
 | `SalesCommissionEntry` | SalesPayoutBatch, SalesRep | — |
 | `SalesCommissionPlan` | — | SalesRep |
-| `SalesLead` | Prospect, SalesRep | PlatformVoiceCall, SalesCallAttempt, SalesRepNote, SalesSmsMessage, SalesThread |
+| `SalesEvent` | SalesLead, SalesRep | — |
+| `SalesLead` | Prospect, SalesRep | PlatformVoiceCall, SalesCallAttempt, SalesEvent, SalesRepNote, SalesSmsMessage, SalesThread |
 | `SalesMessage` | SalesThread | — |
 | `SalesPayoutBatch` | SalesRep | SalesCommissionEntry |
 | `SalesPlaybook` | — | SalesPlaybookExperiment |
 | `SalesPlaybookAssignment` | Prospect, SalesPlaybookExperiment | — |
 | `SalesPlaybookExperiment` | SalesPlaybook | SalesPlaybookAssignment |
-| `SalesRep` | SalesCommissionPlan | Company, SalesAttribution, SalesAttributionTouch, SalesCallAttempt, SalesCommissionEntry, SalesLead, SalesPayoutBatch, SalesRepActivity, SalesRepNote, SalesSmsMessage, SalesThread |
+| `SalesRep` | SalesCommissionPlan | Company, SalesAttribution, SalesAttributionTouch, SalesCallAttempt, SalesCommissionEntry, SalesEvent, SalesLead, SalesPayoutBatch, SalesRepActivity, SalesRepNote, SalesSmsMessage, SalesThread |
 | `SalesRepActivity` | SalesRep | — |
 | `SalesRepNote` | Prospect, SalesLead, SalesRep, SalesThread | — |
 | `SalesSmsMessage` | SalesLead, SalesRep | — |
