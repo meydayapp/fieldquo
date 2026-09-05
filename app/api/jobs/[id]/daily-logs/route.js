@@ -85,7 +85,11 @@ async function dayContext(jobId, companyId, at) {
   const [photoCount, tasks] = await Promise.all([
     db.jobPhoto.count({ where: { jobId, companyId, createdAt: window } }),
     db.task.findMany({
-      where: { jobId, companyId, status: "completed", updatedAt: window },
+      // "done" is the finished state in enum TaskStatus (open | in_progress |
+      // done | cancelled). "completed" is not a member, so Prisma threw on
+      // every call and daily-logs was a 500 on every job — the log could never
+      // be opened.
+      where: { jobId, companyId, status: "done", updatedAt: window },
       select: { id: true, title: true, completionComment: true },
       orderBy: { updatedAt: "asc" },
       take: 25,
