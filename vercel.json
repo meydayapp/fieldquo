@@ -82,7 +82,7 @@
     },
     {
       "path": "/api/cron/sales-pipeline",
-      "schedule": "3-59/10 * * * *"
+      "schedule": "* * * * *"
     },
     {
       "path": "/api/cron/sales-payouts",

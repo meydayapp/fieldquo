@@ -771,25 +771,31 @@ function fnBody(src, name) {
   const entry = (vercel.crons || []).find((c) => c.path === "/api/cron/sales-pipeline");
   ok("the cron is registered in vercel.json", !!entry, entry ? entry.schedule : "missing");
   if (entry) {
-    const minutes = new Set();
+    // ── Every minute, and why the offset argument was retired ─────────────
+    //
+    // Until 2026-09-06 this asserted a stepped minute field on minutes no
+    // other cron fires on — six ticks an hour, chosen so background
+    // prospecting never competed for the pool. The owner is now staffing
+    // 10–20 closers at up to 200 calls a day, which needs ~4,000 fully
+    // processed prospects a day, and six ticks × BATCH 25 was a ceiling of
+    // 3,600 TASKS a day (about 500 prospects). The interval was the lever.
+    //
+    // Overlapping the other crons became acceptable for a reason that did not
+    // exist when the offset was chosen: the runner claims every task under a
+    // lease with an idempotency key, so concurrent drains cannot double-run
+    // one. So this asserts the NEW facts — the cadence, the capacity it buys
+    // and the mechanism that makes it safe — rather than the old minutes.
     const [minuteField] = entry.schedule.split(" ");
-    const stepped = /^(\d+)-59\/(\d+)$/.exec(minuteField);
-    ok("the schedule is a stepped minute field", !!stepped, minuteField);
-    if (stepped) {
-      for (let m = Number(stepped[1]); m < 60; m += Number(stepped[2])) minutes.add(m);
-    }
-    // The offset is the point: minutes nothing else in vercel.json fires on.
-    const others = new Set();
-    for (const c of vercel.crons) {
-      if (c.path === "/api/cron/sales-pipeline") continue;
-      const f = c.schedule.split(" ")[0];
-      const step = /^\*\/(\d+)$/.exec(f);
-      if (step) { for (let m = 0; m < 60; m += Number(step[1])) others.add(m); }
-      else if (/^\d+$/.test(f)) others.add(Number(f));
-    }
-    const clash = [...minutes].filter((m) => others.has(m));
-    ok("it shares no minute with the other crons", clash.length === 0, clash.join(","));
-    ok("six ticks an hour", minutes.size === 6, minutes.size);
+    ok("the schedule is every minute", minuteField === "*", entry.schedule);
+    const route = read("app/api/cron/sales-pipeline/route.js");
+    const batch = Number((/const BATCH = (\d+);/.exec(route) || [])[1]);
+    ok("BATCH is read from the route, not assumed", Number.isFinite(batch), batch);
+    // 4,000 prospects × 7 stages — the arithmetic the change was made for.
+    ok("1,440 ticks × BATCH clears 4,000 prospects a day (28,000 tasks)", 1440 * batch >= 28000, 1440 * batch);
+    ok("...and BATCH stays small enough that each drain is short", batch <= 25, batch);
+    const runner = read("lib/sales/pipeline/runner.js");
+    ok("concurrent drains are safe: every task is claimed under a lease", /claimExpires/.test(runner) && /claimToken/.test(runner));
+    ok("...and a reclaim reuses the same idempotency key", /idempotencyKey/.test(runner));
   }
 }
 

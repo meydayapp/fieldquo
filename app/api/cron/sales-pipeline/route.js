@@ -1,25 +1,31 @@
 // app/api/cron/sales-pipeline/route.js
 //
-// Every ten minutes: drain a batch of SalesPipelineTask.
+// Every minute: drain a batch of SalesPipelineTask.
 //
-// ══ The cadence, and why this minute ═══════════════════════════════════════
+// ══ The cadence, and why it changed ════════════════════════════════════════
 //
-// `3-59/10` — :03, :13, :23, :33, :43, :53. Six ticks an hour.
+// This ran at `3-59/10` — six ticks an hour, on minutes chosen to collide with
+// none of the nineteen other crons, because background prospecting for
+// FieldQuo's own team is not late by being ten minutes late. That was true
+// while the pipeline fed a handful of reps. It is not the plan any more: the
+// owner is staffing 10–20 closers at up to 200 calls a day each, which is
+// 4,000 fully-processed prospects a day, and at 144 ticks × BATCH 25 the
+// ceiling was 3,600 TASKS a day — about 500 prospects. The interval, not the
+// batch, was the lever: 1,440 ticks × 25 is 36,000 task-slots, 28,800 crawls
+// and 14,400 briefs a day, which clears 4,000 with room. Decided by the owner
+// on 2026-09-06 with the AI cost in front of them (~$3–4/day at gpt-5-mini for
+// 4,000 phrased briefs, per lib/ai/usage.js's table).
 //
-// The offset is not decoration. There are nineteen other crons in vercel.json
-// and they cluster: `*/5` fires on every multiple of five, `*/15` on :00 :15
-// :30 :45, and the hourly ones sit on :00, :15, :35 and :50. Every one of those
-// minutes is a moment when several functions are already competing for the same
-// Postgres pool — and Neon scales to zero, so the first connection after idle
-// can fail outright (AGENTS.md, "Environment gotchas"). Minutes 3/13/23/33/43/53
-// collide with none of them. `*/10` would have collided with the `*/5` jobs on
-// every other tick for no benefit.
+// Every minute DOES land on the other crons' minutes. That is acceptable now
+// for a reason it was not before: the runner claims each task with a lease and
+// an idempotency key (see runner.js), so two invocations draining at once
+// cannot double-run a task, and a drain that dies mid-handler is reclaimed by
+// the next tick. The remaining cost is pool pressure on the shared minutes, and
+// BATCH stays at 25 precisely so each drain is short. Neon's cold-start P1001
+// is retried once, as everywhere (AGENTS.md, "Environment gotchas").
 //
-// Ten minutes rather than five: this is background prospecting for FieldQuo's
-// own sales team, not a customer-facing job. Nothing here is late by being ten
-// minutes late, and halving the interval would double the number of
-// invocations racing the crons above without halving the drain time, which is
-// bounded by BATCH per tick either way.
+// The next lever, when 8,000 a day is wanted, is BATCH 50 — which is a decision
+// about how long one invocation may run (see below), not a schedule edit.
 //
 // ══ How long a campaign actually takes — say it plainly ════════════════════
 //

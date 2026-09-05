@@ -7832,6 +7832,45 @@ shipped files, every one caught.
 
 ---
 
+## The pipeline runs every minute, and the 918k are ready to load (6 September 2026)
+
+The owner is staffing 10–20 closers at up to 200 calls a day each — about 4,000
+fully processed prospects a day. The queue, its eight stages, per-host crawl
+politeness and the four tier playbooks were all already there. What was missing
+was throughput, and the data.
+
+### What is now there
+
+- **`/api/cron/sales-pipeline` fires every minute** (was `3-59/10`, six ticks an
+  hour). 1,440 ticks × BATCH 25 is 36,000 task-slots, 28,800 crawls and 14,400
+  briefs a day, which clears 4,000 prospects with room. Overlapping the other
+  crons is safe because the runner leases every task under an idempotency key.
+  `check:sales-pipeline` now asserts the cadence, that arithmetic and that
+  mechanism rather than the old offset. AI cost at gpt-5-mini: about $3–4 a day
+  for 4,000 phrased briefs (lib/ai/usage.js's table). 8,000 a day is BATCH 50
+  plus a 120 s maxDuration — a decision about invocation length, not a schedule.
+- **918,244 Overture rows across 70 snapshot files** (CA, TX and FL split at the
+  50,000-row campaign cap, manifest headers preserved) are prepared for hosting,
+  with a 70-campaign manifest and an idempotent creation snippet. Discovery
+  loads them as searchable `Prospect` rows within a day; analysis then proceeds
+  in order at the cadence above. Nothing is in the database yet — the files
+  need an HTTPS host the pipeline can GET (R2/S3), which is the owner's step.
+- **Ten jurisdictions require telemarketer registration** before a first call
+  and are refused by `lib/sales/callingRules.js` until `registration.done` is
+  flipped: Canada (National DNCL, free), WA, TX, NJ, UT, MS, RI, OH, CO. Their
+  campaigns run paused until the owner registers; the other 61 run first.
+- **Trade is not a playbook axis yet — by decision.** The four tier playbooks
+  (competitor detected / no website / website without booking / email-only
+  quotes) ship as they are, personalised per prospect by talking points that
+  carry trade facts; per-trade variants for the top three trades come after the
+  first week of call outcomes.
+
+### What is left
+
+Host the files → create the 70 campaigns (one command) → smoke-test the whole
+chain on the smallest jurisdiction → enable the rest. Then, when wanted: BATCH
+50 for 8,000 a day; trade variants; a by-state view showing registration status.
+
 ## Sales milestone 2 fires on a billing cycle, not a payment (4 September 2026)
 
 Plan: [sales/PLAN.md](sales/PLAN.md) §6, §7, §9 — all three rewritten.
