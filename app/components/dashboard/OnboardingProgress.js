@@ -29,12 +29,15 @@ export default function OnboardingProgress({ status, onEmployeeAdded }) {
         <CircularProgress percent={status.percent} />
         <div>
           <h2 className="font-semibold text-foreground">
-            Finish setting up FieldQuo
+            {t("app.onboarding.title")}
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">
             {status.plan
-              ? `${status.plan.name} — ${status.seatsUsed}/${status.plan.maxUsers} licenses in use`
-              : "A few steps left before you're fully up and running."}
+              ? `${status.plan.name} — ${t("app.onboarding.seatsInUse", {
+                  used: status.seatsUsed,
+                  max: status.plan.maxUsers,
+                })}`
+              : t("app.onboarding.stepsLeft")}
           </p>
         </div>
       </div>

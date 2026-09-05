@@ -187,6 +187,32 @@ for (const [page, re, what] of CLAIMS) {
   ok(`${PAGES[page]}: ${what} is gated on the load having succeeded`, re.test(src[page]));
 }
 
+// ── 2b. The THIRD state: loading is not emptiness ─────────────────────────
+//
+// This file is named for empty-vs-error, and for a long time it checked
+// exactly those two — while the services page showed its "No quote types yet"
+// empty state for the ~200ms before the fetch resolved, because [] is the value
+// both before the load and when a company truly has none. A checker that
+// distinguishes two of the three states it is named for, and misses the one
+// that actually shipped to every contractor on every visit, is the finding.
+//
+// So the empty state that makes a claim about the business ("you have none")
+// now also has to wait for the load to finish, not just to succeed. Asserted on
+// services because that is where it bit; the same shape belongs on any page
+// whose empty [] and loading [] are the same value.
+ok(
+  "services: a loading flag exists and starts in flight (true)",
+  /const \[loading, setLoading\] = useState\(true\)/.test(src.services),
+);
+ok(
+  "services: the load is marked finished, so it is not a spinner that never stops",
+  /setLoading\(false\)/.test(src.services),
+);
+ok(
+  "services: the empty state waits for the load to FINISH, not just to not-error",
+  /loading \?[\s\S]{0,900}app\.setServices\.emptyState/.test(src.services),
+);
+
 // ── 3. leave: the fabricated company ──────────────────────────────────────
 //
 // `setData({ policies: [], templates: [] })` in the catch was the whole bug —

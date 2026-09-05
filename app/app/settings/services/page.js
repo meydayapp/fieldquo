@@ -46,6 +46,12 @@ export default function ServiceSettingsPage() {
   // Empty and refused are different sentences. Gated separately because the
   // empty state below makes a claim about the business.
   const [loadError, setLoadError] = useState("");
+  // Three states, not two. `categories` is [] before the fetch resolves AND
+  // when a company genuinely has none, and the empty state below reads "No
+  // quote types yet" — a claim about the business. Without this flag that claim
+  // flashes on screen for the ~200ms before the 66 categories arrive, telling
+  // every contractor on every visit that they have nothing configured.
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   // The industries picked at signup drive which of the ~60 catalog categories
@@ -109,6 +115,12 @@ export default function ServiceSettingsPage() {
         const msg = t("app.load.network");
         setLoadError(msg);
         showError(msg);
+      } finally {
+        // Whether the load succeeded or failed, it is no longer in flight — so
+        // the empty state is now allowed to make its claim (gated on !loading
+        // below). Set here rather than beside each outcome so no path can leave
+        // the page stuck reading "loading" forever.
+        setLoading(false);
       }
     })();
 
@@ -366,7 +378,15 @@ export default function ServiceSettingsPage() {
       )}
 
       <div className="space-y-3">
-        {loadError ? (
+        {loading ? (
+          // In flight — a skeleton, never the empty state. "No quote types yet"
+          // is a statement about the business the fetch hasn't answered yet.
+          <div className="border rounded-lg p-6 space-y-3" aria-busy="true">
+            <div className="h-4 w-1/3 bg-accent rounded animate-pulse" />
+            <div className="h-16 bg-accent rounded animate-pulse" />
+            <div className="h-16 bg-accent rounded animate-pulse" />
+          </div>
+        ) : loadError ? (
           <div className="rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 p-4 text-sm text-red-700 dark:text-red-300">
             {loadError}
           </div>
