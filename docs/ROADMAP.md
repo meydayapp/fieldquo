@@ -7857,8 +7857,11 @@ was throughput, and the data.
   need an HTTPS host the pipeline can GET (R2/S3), which is the owner's step.
 - **Ten jurisdictions require telemarketer registration** before a first call
   and are refused by `lib/sales/callingRules.js` until `registration.done` is
-  flipped: Canada (National DNCL, free), WA, TX, NJ, UT, MS, RI, OH, CO. Their
-  campaigns run paused until the owner registers; the other 61 run first.
+  flipped: Canada (National DNCL, free), WA, TX, NJ, UT, MS, RI, OH, CO. That
+  gates ALL thirteen Canadian jurisdictions and eight US states — 22 of the 70
+  files; the other 48 (US) are callable today and run first. The DNCL
+  registration is free and unlocks the home market, so it is the one to do
+  first.
 - **Trade is not a playbook axis yet — by decision.** The four tier playbooks
   (competitor detected / no website / website without booking / email-only
   quotes) ship as they are, personalised per prospect by talking points that
