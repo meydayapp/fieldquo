@@ -361,16 +361,6 @@ export async function GET(request) {
             },
             _sum: { hours: true },
           }),
-          // Answered surveys for jobs completed in the period — sent, not
-          // necessarily answered, are excluded here rather than in
-          // lib/analytics/kpis.js's buildCsat(), same "pure function receives
-          // an already-correct population" split every other builder in this
-          // route follows. jobId is already scoped to completedJobIds, which
-          // is itself scoped to companyId, so there is no cross-tenant read.
-          db.satisfactionResponse.findMany({
-            where: { jobId: { in: completedJobIds }, respondedAt: { not: null } },
-            select: { score: true },
-          }),
           // Cash-basis revenue for the period — the SAME measure
           // lib/analytics/overview.js uses for "Revenue this month" (paid
           // invoices, by when they were marked paid), so this card and that
@@ -407,21 +397,43 @@ export async function GET(request) {
             // and put rejected changes into the KPI's dollar figure.
             select: { jobId: true, priceDelta: true, status: true },
           }),
+          // Answered surveys for jobs completed in the period — sent, not
+          // necessarily answered, are excluded here rather than in
+          // lib/analytics/kpis.js's buildCsat(), same "pure function receives
+          // an already-correct population" split every other builder in this
+          // route follows. jobId is already scoped to completedJobIds, which
+          // is itself scoped to companyId, so there is no cross-tenant read.
+          //
+          // LAST, because this array is positional: it is destructured above,
+          // and `satisfactionResponses` is the last name in that list. Adding a
+          // query in the middle silently renamed every slot after it — which is
+          // exactly how this landed in `periodRevenueAgg` and made the whole
+          // dashboard throw on `._sum.total` for every company and every date.
+          db.satisfactionResponse.findMany({
+            where: { jobId: { in: completedJobIds }, respondedAt: { not: null } },
+            select: { score: true },
+          }),
         ])
       : [
-          [],
-          [],
-          [],
-          [],
-          [],
-          [],
+          // Positional, and named here so a reader can check the alignment
+          // against the destructuring above without counting brackets. Revenue
+          // and the overhead figure are still real with no completed jobs —
+          // money came in, and overhead does not stop — so only the per-job
+          // collections are empty.
+          [], // expenses
+          [], // timeEntries
+          [], // jobMaterials
+          [], // revenueInvoices
+          [], // jobHoursGrouped
           await db.invoice.aggregate({
+            // periodRevenueAgg
             where: { companyId, status: "paid", updatedAt: { gte, lte } },
             _sum: { total: true },
           }),
-          await calculateMinimumPrice({ companyId, targetMargin: 0.2 }),
-          [],
-          [],
+          await calculateMinimumPrice({ companyId, targetMargin: 0.2 }), // forecastResult
+          [], // callbackJobs
+          [], // changeOrders
+          [], // satisfactionResponses
         ];
 
   const expensesByJob = new Map();
