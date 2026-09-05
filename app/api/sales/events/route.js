@@ -89,11 +89,17 @@ export async function POST(request) {
   // another rep resolves to null and is dropped rather than linked. An event
   // with no lead (a rep blocking out a meeting) is allowed, and then the
   // contact fields the browser sent stand on their own.
+  // The linked id is the one the rep-scoped read RETURNED, never the one the
+  // browser sent: leadContactSnapshot resolves body.leadId inside a
+  // `salesRepId: rep.id` WHERE, so `snapshot.id` is a lead the database
+  // proved is this rep's. Writing body.leadId instead — even when equal —
+  // is a foreign key nothing proved, which is what check:tenant-scope
+  // refuses, and rightly.
   let leadId = null;
   let snapshot = null;
   if (typeof body.leadId === "string" && body.leadId) {
     snapshot = await leadContactSnapshot(body.leadId, rep.id);
-    if (snapshot) leadId = body.leadId;
+    if (snapshot) leadId = snapshot.id;
   }
 
   const created = await db.salesEvent.create({

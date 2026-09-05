@@ -230,6 +230,38 @@ ok(
   fks.map((x) => `${x.file}:${x.line} db.${x.model}.${x.op} ${x.field} <- ${x.source}`),
 );
 
+// ── The rep boundary (scanner rule 4), pinned in both directions ──────────
+//
+// /api/sales routes carry no companyId; their boundary is the rep a session
+// gate resolved. The scanner proves an id handed to a helper together with
+// `rep` — but ONLY on the sales surface, and only in a handler that called a
+// gate. Three fixtures under scripts/fixtures/tenant-scope (never enumerated
+// as routes) hold the rule to that: the real shape proves, the same shape
+// without the rep does not, and a company handler naming `rep` does not.
+{
+  const FX = "scripts/fixtures/tenant-scope";
+  const proved = unprovenForeignKeys(`${FX}/sales-fk-proved.route.js`, OWNED_ID_FIELDS, {
+    salesBoundary: true,
+  });
+  ok(
+    "rep rule: an id handed to a helper WITH rep, on the sales surface, is proved",
+    proved.length === 0,
+    proved.map((x) => `${x.field} <- ${x.source}`),
+  );
+  const bare = unprovenForeignKeys(`${FX}/sales-fk-unproved.route.js`, OWNED_ID_FIELDS, {
+    salesBoundary: true,
+  });
+  ok("rep rule: the same helper WITHOUT rep proves nothing", bare.length === 1, bare.length);
+  const company = unprovenForeignKeys(`${FX}/company-fake-rep.route.js`, OWNED_ID_FIELDS, {
+    salesBoundary: false,
+  });
+  ok(
+    "rep rule: naming a variable `rep` OFF the sales surface proves nothing",
+    company.length === 1,
+    company.length,
+  );
+}
+
 // ═══════════════ 2. The ownership table itself ═════════════════════════════
 
 console.log("\nThe ownership table names real, tenant-scoped models");

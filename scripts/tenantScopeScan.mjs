@@ -355,7 +355,15 @@ export function handlerBodies(src) {
  *
  * Scoped per handler: a proof in GET does not protect a write in POST.
  */
-export function unprovenForeignKeys(file, ownedFields) {
+export function unprovenForeignKeys(
+  file,
+  ownedFields,
+  // The sales portal's boundary is the REP, not a company (see rule 4 below).
+  // Derived from the path in production; a fixture may state it explicitly so
+  // the rule can be exercised from outside app/api/sales without pretending a
+  // fixture is a route.
+  { salesBoundary = file.startsWith("app/api/sales/") } = {},
+) {
   const src = decomment(readFileSync(join(ROOT, file), "utf8"));
   const bodies = handlerBodies(src);
   const prelude = bodies.find((b) => b.name === "(module scope)").text;
@@ -395,6 +403,35 @@ export function unprovenForeignKeys(file, ownedFields) {
         if (new RegExp(`\\b${key}\\b`).test(args)) proved.add(key);
       for (const t of tainted)
         if (new RegExp(`\\b${t}\\b`).test(args)) proved.add(t);
+    }
+
+    // 4. The sales portal's boundary is the REP, not a company. No model under
+    //    /api/sales carries a companyId; every one of those routes resolves
+    //    `rep` from a session-verified gate (lib/sales/gate.js and its named
+    //    siblings — never from the body) and scopes by `salesRepId: rep.id`.
+    //    So a helper handed the rep together with a request id proves that id,
+    //    exactly as a helper handed `member` proves one on a company route
+    //    (provenRowVars, rule 2). Until this existed the sales calendar's
+    //    leadId — resolved inside leadContactSnapshot(body.leadId, rep.id)
+    //    behind a `salesRepId: rep.id` WHERE — read as unproven, and the only
+    //    ways out were to leave a real FK unprovable or to declare it away.
+    //
+    //    Held to BOTH the sales surface and a gate actually called in THIS
+    //    handler, so a company route cannot manufacture proof by naming a body
+    //    field `rep`, and a sales handler that forgot its gate proves nothing.
+    if (
+      salesBoundary &&
+      /=\s*await\s+require[A-Za-z]*Rep\s*\(\s*request\s*\)/.test(handler.text)
+    ) {
+      const viaRep = /\bawait\s+([A-Za-z0-9_.]+)\s*\(/g;
+      let rm;
+      while ((rm = viaRep.exec(scope))) {
+        if (/^(?:db|tx|prisma)\b/.test(rm[1])) continue;
+        const args = balanced(scope, rm.index + rm[0].length - 1);
+        if (!/\brep\b/.test(args)) continue;
+        for (const t of tainted)
+          if (new RegExp(`\\b${t}\\b`).test(args)) proved.add(t);
+      }
     }
 
     for (const call of calls) {
