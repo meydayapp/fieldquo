@@ -3,6 +3,8 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
+import { latestInFamily, familyPayments } from "@/lib/invoices/family";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { recordActivity } from "@/lib/activity/log";
@@ -75,20 +77,31 @@ async function loadInvoice(id, companyId) {
 // manual-payment and Stripe-webhook paths, so a credit can move an invoice to
 // paid (or back out of it) exactly as a cash payment would.
 async function recomputeInvoice(invoiceId) {
-  const inv = await db.invoice.findUnique({
-    where: { id: invoiceId },
-    include: { payments: true },
-  });
+  // The LATEST version and the FAMILY's payments, netted through the one
+  // function every other path uses. This used to be its own gross sum of one
+  // row's Payment.amount — the second copy of "what does this invoice's money
+  // say", which ignored refunds and disputes and was blind to an amendment.
+  // Two copies is how the two come to disagree about the balance. See
+  // lib/invoices/family.js.
+  const inv = await latestInFamily(db, invoiceId);
   if (!inv) return;
-  const totalPaid = inv.payments.reduce((s, p) => s + Number(p.amount), 0);
-  const amountDue = Math.max(0, Number(inv.total) - totalPaid);
-  const isPaid = amountDue <= 0.005;
+  const state = computeInvoiceState({
+    total: inv.total,
+    payments: await familyPayments(db, inv.id),
+    priorStatus: inv.status,
+  });
+  // Kept from before, on purpose: removing a credit can REOPEN a balance, and
+  // computeInvoiceState never invents a downgrade from "paid" — so the step
+  // back to "sent" is decided here, where the credit's removal is the known
+  // cause, exactly as this route always did.
+  const isPaid = state.isPaid;
   await db.invoice.update({
-    where: { id: invoiceId },
+    where: { id: inv.id },
     data: {
-      amountPaid: totalPaid,
-      amountDue,
-      status: isPaid ? "paid" : inv.status === "paid" ? "sent" : inv.status,
+      amountPaid: state.amountPaid,
+      amountDue: state.amountDue,
+      amountRefunded: state.amountRefunded,
+      status: isPaid ? "paid" : inv.status === "paid" ? "sent" : state.status,
       paidDate: isPaid ? inv.paidDate || new Date() : null,
     },
   });

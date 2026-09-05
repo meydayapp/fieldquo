@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { latestInFamily, refreshFamilyLedger } from "@/lib/invoices/family";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { createInvoiceCheckoutSession } from "@/lib/stripe";
 import {
@@ -48,6 +49,14 @@ export async function POST(request, { params }) {
   if (!invoice)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // The CURRENT document, with its balance refreshed from the family's
+  // payments before the amount reaches Stripe — see portal/[token]/pay and
+  // lib/invoices/family.js. A link minted on v1 charges v2's balance.
+  await refreshFamilyLedger(db, invoice.id);
+  const current = await latestInFamily(db, invoice.id, { include: { client: true } });
+  if (!current)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   const company = await db.company.findUnique({
     where: { id: member.companyId },
   });
@@ -65,14 +74,19 @@ export async function POST(request, { params }) {
   const baseUrl = getAppOrigin(request);
 
   const session = await createInvoiceCheckoutSession({
-    invoice,
+    invoice: current,
     company,
-    successUrl: `${baseUrl}/app/invoices/${invoice.id}?paid=true`,
-    cancelUrl: `${baseUrl}/app/invoices/${invoice.id}`,
+    successUrl: `${baseUrl}/app/invoices/${current.id}?paid=true`,
+    cancelUrl: `${baseUrl}/app/invoices/${current.id}`,
   });
 
+  // Scoped by companyId as well as id: `current` is the latest version of a
+  // family whose root was matched { id, companyId } above, but the write is
+  // held to the tenant directly rather than through that chain — a version
+  // that somehow belonged elsewhere is a "not found", never a cross-tenant
+  // write. (check:tenant-scope's rule, and the reason it exists.)
   await db.invoice.update({
-    where: { id: invoice.id },
+    where: { id: current.id, companyId: member.companyId },
     data: { stripeCheckoutUrl: session.url },
   });
 

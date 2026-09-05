@@ -47,6 +47,7 @@ import {
 import { resolveJobInvoice } from "@/lib/invoices/jobLink";
 import { billChangeOrders, changeOrderSummary } from "@/lib/jobs/changeOrderValue";
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
+import { familyPayments } from "@/lib/invoices/family";
 
 const INVOICE_SELECT = {
   id: true,
@@ -193,8 +194,10 @@ export async function POST(request, { params }) {
     const billed = billChangeOrders({ invoice: fresh, changeOrders: freshOrders });
     if (!billed.ok) return { error: billed.reason };
 
-    const payments = await tx.payment.findMany({
-      where: { invoiceId: fresh.id },
+    // The whole family's payments, through `tx` so the balance is read inside
+    // this same transaction — a deposit taken against an earlier version of
+    // this invoice still counts against the change-ordered total.
+    const payments = await familyPayments(tx, fresh.id, {
       select: { amount: true, refundedAmount: true, disputeStatus: true },
     });
     // The one place that answers "what does this invoice's money say" — the

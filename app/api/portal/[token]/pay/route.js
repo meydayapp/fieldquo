@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createInvoiceCheckoutSession } from "@/lib/stripe";
+import { latestInFamily, refreshFamilyLedger } from "@/lib/invoices/family";
 import { getAppOrigin } from "@/lib/appUrl";
 
 export async function POST(request, { params }) {
@@ -61,6 +62,33 @@ export async function POST(request, { params }) {
   if (!invoice)
     return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
 
+  // ── Charge the CURRENT document, from the family's real balance ──────────
+  //
+  // The id the client clicked may be a version the office has since amended.
+  // Resolve to the latest, and refuse if that latest was never issued — an
+  // unsent amendment supersedes the old bill, so neither is payable until the
+  // office sends it. Then refresh the balance from every payment in the family
+  // BEFORE any amount reaches Stripe: createInvoiceCheckoutSession reads
+  // invoice.amountPaid off the row, and a version amended before this rule
+  // existed carries a stale cache. See lib/invoices/family.js.
+  const currentRow = await latestInFamily(db, invoice.id, {
+    select: { id: true, sentAt: true, status: true },
+  });
+  if (
+    currentRow &&
+    currentRow.id !== invoice.id &&
+    !(currentRow.sentAt || currentRow.status !== "draft")
+  ) {
+    return NextResponse.json(
+      { error: "This invoice has been updated — please refresh the page." },
+      { status: 409 },
+    );
+  }
+  await refreshFamilyLedger(db, invoice.id);
+  const current = await latestInFamily(db, invoice.id, { include: { client: true } });
+  if (!current)
+    return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+
   const company = await db.company.findUnique({
     where: { id: client.companyId },
   });
@@ -93,7 +121,7 @@ export async function POST(request, { params }) {
       where: {
         id: stageId,
         companyId: client.companyId,
-        invoiceId: invoice.id,
+        invoiceId: current.id,
         status: "requested",
       },
       select: { amountCents: true },
@@ -102,7 +130,7 @@ export async function POST(request, { params }) {
   }
 
   const session = await createInvoiceCheckoutSession({
-    invoice,
+    invoice: current,
     company,
     successUrl: `${baseUrl}/portal/${_params.token}?paid=true`,
     cancelUrl: `${baseUrl}/portal/${_params.token}`,

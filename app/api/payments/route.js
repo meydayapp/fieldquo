@@ -13,6 +13,7 @@ import {
 import { formatAppMoney } from "@/lib/format/money";
 import { resolveInvoiceChaseTask } from "@/lib/tasks/autoCreate";
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
+import { latestInFamily, familyPayments } from "@/lib/invoices/family";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -86,16 +87,27 @@ export async function POST(request) {
     );
   }
 
-  const invoice = await db.invoice.findFirst({
+  // Tenancy first: the named id has to be this company's. Then the LATEST
+  // version of that invoice and the whole family's payments — a cash payment
+  // typed against v1 after the office amended it to v2 is money against v2's
+  // total, and the balance has to count what was already paid on v1. See
+  // lib/invoices/family.js.
+  const scoped = await db.invoice.findFirst({
     where: { id: invoiceId, companyId: member.companyId },
+    select: { id: true },
+  });
+  if (!scoped)
+    return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+  const invoice = await latestInFamily(db, scoped.id, {
     // company only for the billing currency in the error message below.
     // Invoice has no currency column of its own — reading invoice.currency
     // would be undefined and silently format an American contractor's
     // outstanding balance as Canadian dollars.
-    include: { payments: true, company: { select: { currency: true } } },
+    include: { company: { select: { currency: true } } },
   });
   if (!invoice)
     return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+  const familyRows = await familyPayments(db, invoice.id);
 
   // ── The stated cap has to be a real one ────────────────────────────────
   //
@@ -120,7 +132,7 @@ export async function POST(request) {
   // portal say otherwise.
   const before = computeInvoiceState({
     total: invoice.total,
-    payments: invoice.payments,
+    payments: familyRows,
     priorStatus: invoice.status,
   });
   const outstanding = Number(invoice.total) - before.amountPaid;
@@ -138,7 +150,10 @@ export async function POST(request) {
 
   const payment = await db.payment.create({
     data: {
-      invoiceId,
+      // Against the current document, so a later amendment finds it in the
+      // family and the idempotency of Stripe rows is untouched (this is a cash
+      // row with no intent id).
+      invoiceId: invoice.id,
       amount,
       method,
       notes: notes || null,
@@ -148,12 +163,15 @@ export async function POST(request) {
 
   const after = computeInvoiceState({
     total: invoice.total,
-    payments: [...invoice.payments, { amount: Number(amount), refundedAmount: 0, disputeStatus: null }],
+    payments: [...familyRows, { amount: Number(amount), refundedAmount: 0, disputeStatus: null }],
     priorStatus: invoice.status,
   });
 
+  // Scoped by companyId as well as id — `invoice` is the latest version of a
+  // family whose root was matched { id, companyId } above; the write is held
+  // to the tenant directly, not through that chain (check:tenant-scope).
   await db.invoice.update({
-    where: { id: invoiceId },
+    where: { id: invoice.id, companyId: member.companyId },
     data: {
       amountPaid: after.amountPaid,
       amountDue: after.amountDue,
@@ -167,7 +185,7 @@ export async function POST(request) {
   // answered. Only on isPaid: a deposit is not a reason to stop chasing the
   // rest, and closing it early would take the invoice off the to-do list while
   // most of the money was still outstanding.
-  if (after.isPaid) await resolveInvoiceChaseTask(invoiceId);
+  if (after.isPaid) await resolveInvoiceChaseTask(invoice.id);
 
   await recordActivity(member, {
     action: "payment.recorded",

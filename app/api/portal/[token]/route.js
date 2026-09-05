@@ -3,6 +3,8 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
+import { latestPerFamily } from "@/lib/invoices/family";
 import { resolveClientLanguage } from "@/lib/i18n/resolveLanguage";
 import { taxStatement } from "@/lib/tax/documentTax";
 
@@ -125,6 +127,10 @@ export async function GET(request, { params }) {
         // reads `invoice.payments`, so it's dropped rather than narrowed.
         select: {
           id: true,
+          // Which family this row belongs to and where it sits in it — read
+          // below to show one current document per invoice. Not sensitive.
+          parentInvoiceId: true,
+          version: true,
           invoiceNumber: true,
           total: true,
           amountPaid: true,
@@ -166,6 +172,48 @@ export async function GET(request, { params }) {
       { error: "Portal link not found" },
       { status: 404 },
     );
+
+  // ── One current document per invoice, and the family's real balance ──────
+  //
+  // An amended invoice is several Invoice rows (root + versions), and every
+  // issued one of them matched the where above — so a client saw v1 AND v2,
+  // both payable, and could pay the same bill twice. Only the latest version
+  // of each family is shown now, judged over the WHOLE family rather than the
+  // issued rows alone, so a superseded version is never the one on offer.
+  //
+  // Its amountPaid is re-derived from every Payment row in the family: the
+  // cache on a version amended before this rule existed can be stale, and
+  // this is the number a homeowner decides to pay against. Payment rows never
+  // leave the server — the select above dropped them for a reason. See
+  // lib/invoices/family.js.
+  {
+    const listed = client.invoices || [];
+    const rootIds = [...new Set(listed.map((i) => i.parentInvoiceId || i.id))];
+    if (rootIds.length) {
+      const members = await db.invoice.findMany({
+        where: { OR: [{ id: { in: rootIds } }, { parentInvoiceId: { in: rootIds } }] },
+        select: { id: true, parentInvoiceId: true, version: true },
+      });
+      const latestIdByRoot = new Map();
+      for (const m of latestPerFamily(members)) latestIdByRoot.set(m.parentInvoiceId || m.id, m.id);
+      const current = listed.filter((i) => latestIdByRoot.get(i.parentInvoiceId || i.id) === i.id);
+
+      const memberIds = members.map((m) => m.id);
+      const rootOf = new Map(members.map((m) => [m.id, m.parentInvoiceId || m.id]));
+      const payments = memberIds.length
+        ? await db.payment.findMany({
+            where: { invoiceId: { in: memberIds } },
+            select: { invoiceId: true, amount: true, refundedAmount: true, disputeStatus: true },
+          })
+        : [];
+      for (const inv of current) {
+        const root = inv.parentInvoiceId || inv.id;
+        const familyRows = payments.filter((p) => rootOf.get(p.invoiceId) === root);
+        inv.amountPaid = computeInvoiceState({ total: inv.total, payments: familyRows }).amountPaid;
+      }
+      client.invoices = current;
+    }
+  }
 
   // ── Can this company actually take a card? ────────────────────────────────
   //

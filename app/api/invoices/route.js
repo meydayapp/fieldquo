@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
 import { allocateInvoiceNumber } from "@/lib/invoices/invoiceNumber";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
@@ -44,23 +45,81 @@ export async function GET(request) {
   const status = searchParams.get("status");
   const clientId = searchParams.get("clientId");
 
-  const invoices = await db.invoice.findMany({
+  const rows = await db.invoice.findMany({
     where: {
       companyId: member.companyId,
-      parentInvoiceId: null, // only show latest/original — versions nest under their parent
-      ...(status && { status }),
+      parentInvoiceId: null, // one row per family — versions nest under their root
+      // `status` is applied AFTER the current version's status is known, below,
+      // not here on the root: after an amendment the root's status is the old
+      // snapshot's, and filtering on it hid a paid invoice whose latest version
+      // was the one that got paid.
       ...(clientId && { clientId }),
     },
     include: {
       client: { select: { id: true, name: true, email: true } },
       payments: true,
       versions: {
-        select: { id: true, version: true },
+        // The document fields and payments of every version, so the row the
+        // grid shows can carry the CURRENT version's numbers — see below.
+        select: {
+          id: true,
+          version: true,
+          total: true,
+          subtotal: true,
+          tax: true,
+          discount: true,
+          dueDate: true,
+          status: true,
+          payments: true,
+        },
         orderBy: { version: "desc" },
       },
     },
     orderBy: { createdAt: "desc" },
   });
+
+  // ── The current document's numbers, on the row the grid shows ────────────
+  //
+  // The list shows the ROOT of each family (versions nest under it — that is
+  // the identity lib/invoices/jobLink.js links a job to), but the root is the
+  // v1 SNAPSHOT: after an amendment its total is the old total and its
+  // payments are only the ones taken while it was current, so the grid kept
+  // saying the old amount and the old balance. Present the latest version's
+  // document fields, with a balance re-derived from every payment across the
+  // family, and hand `versions` back out in the [{id, version}] shape the grid
+  // already reads. Unamended invoices pass through untouched. See
+  // lib/invoices/family.js.
+  const invoices = rows
+    .map((root) => {
+      const versions = root.versions || [];
+      if (!versions.length) return root;
+      const latest = versions[0]; // ordered version desc above
+      const familyRows = [
+        ...(root.payments || []),
+        ...versions.flatMap((v) => v.payments || []),
+      ];
+      const state = computeInvoiceState({
+        total: latest.total,
+        payments: familyRows,
+        priorStatus: latest.status,
+      });
+      return {
+        ...root,
+        currentVersionId: latest.id,
+        total: latest.total,
+        subtotal: latest.subtotal,
+        tax: latest.tax,
+        discount: latest.discount,
+        dueDate: latest.dueDate,
+        status: state.status,
+        amountPaid: state.amountPaid,
+        amountDue: state.amountDue,
+        amountRefunded: state.amountRefunded,
+        payments: familyRows,
+        versions: versions.map((v) => ({ id: v.id, version: v.version })),
+      };
+    })
+    .filter((inv) => !status || inv.status === status);
 
   // Shaped before it leaves, by the same entry point the detail route uses.
   // Two things travelled on this list that the grid has an opinion about and

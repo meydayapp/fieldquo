@@ -3,6 +3,8 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
+import { familyPayments } from "@/lib/invoices/family";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import {
@@ -55,6 +57,31 @@ export async function GET(request, { params }) {
 
   if (!invoice)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // The payment history the page shows is the FAMILY's, not this version's
+  // own rows: a deposit taken against v1 is still money against v2, and a
+  // detail page for v2 that listed no payments would say the client had paid
+  // nothing. See lib/invoices/family.js.
+  invoice.payments = await familyPayments(db, invoice.id, {
+    orderBy: { date: "desc" },
+  });
+  // The amounts the page shows are re-derived from that same ledger — for
+  // DISPLAY only; a GET does not write. A version amended before the family
+  // rule existed carries a stale cache (amountPaid 0 on a partly-paid bill),
+  // and this is the screen the office opens to check what is owed. The cache
+  // itself is refreshed the next time money moves (refreshFamilyLedger). The
+  // stored status is left as it is: it drives the page's controls, and a
+  // number shown as derived is honest where a status flipped on read is not.
+  {
+    const shown = computeInvoiceState({
+      total: invoice.total,
+      payments: invoice.payments,
+      priorStatus: invoice.status,
+    });
+    invoice.amountPaid = shown.amountPaid;
+    invoice.amountDue = shown.amountDue;
+    invoice.amountRefunded = shown.amountRefunded;
+  }
 
   // An invoice has no share token of its own, but it carries two things that do
   // need shaping: the full client row, and the originating quote — whose
@@ -276,6 +303,22 @@ export async function PATCH(request, { params }) {
     select: { version: true },
   });
 
+  // ── The ledger comes with the new version ───────────────────────────────
+  //
+  // Money already paid belongs to the invoice, not to the snapshot it was paid
+  // against. Without this the new row took the column DEFAULTS — amountPaid 0,
+  // amountDue 0 — so an invoice paid $200 on v1 read on v2 as owing nothing
+  // (amountDue 0 → settled) while the $200 sat on v1, and the client portal
+  // offered BOTH. Re-derived from every payment in the family against THIS
+  // version's total, through the one function that knows how to net refunds
+  // and disputes, rather than copied from v1's cache — which could itself be
+  // stale. See lib/invoices/family.js.
+  const ledger = computeInvoiceState({
+    total: total ?? existing.total,
+    payments: await familyPayments(db, existing.id),
+    priorStatus: status || existing.status,
+  });
+
   const newVersion = await db.invoice.create({
     data: {
       companyId: existing.companyId,
@@ -299,6 +342,9 @@ export async function PATCH(request, { params }) {
       // "tax applies" on an invoice that was deliberately raised without any.
       taxEnabled: taxEnabled ?? existing.taxEnabled,
       total: total ?? existing.total,
+      amountPaid: ledger.amountPaid,
+      amountDue: ledger.amountDue,
+      amountRefunded: ledger.amountRefunded,
       dueDate: dueDate ? new Date(dueDate) : existing.dueDate,
       notes: notes ?? existing.notes,
       // Carried forward, not dropped: a new version that silently lost the job

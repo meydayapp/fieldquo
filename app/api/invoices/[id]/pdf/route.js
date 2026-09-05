@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { familyPayments } from "@/lib/invoices/family";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { renderDocumentPdfBuffer } from "@/app/admin/lib/pdf/renderDocumentPdf";
@@ -52,6 +53,13 @@ export async function POST(request, { params }) {
   });
   if (!invoice)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // The PDF's "payments received" is the family's ledger — the document a
+  // client keeps must not say "paid: $0" about a deposit taken on the version
+  // it replaced. See lib/invoices/family.js.
+  invoice.payments = await familyPayments(db, invoice.id, {
+    orderBy: { date: "desc" },
+  });
 
   const company = await db.company.findUnique({
     where: { id: member.companyId },
