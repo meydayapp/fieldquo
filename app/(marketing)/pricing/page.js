@@ -24,7 +24,7 @@ export const metadata = marketingMetadata({
   path: "/pricing",
   title: "Pricing — FieldQuo",
   description:
-    "Simple monthly pricing for field service teams, by headcount. Quotes, invoicing, scheduling and payments in every plan. First month free, no contract.",
+    "Simple monthly pricing for field service teams, by headcount. Quotes, invoicing, scheduling and payments in every plan. First month free with a card on file, no contract.",
 });
 
 const priceOf = (plan) => {

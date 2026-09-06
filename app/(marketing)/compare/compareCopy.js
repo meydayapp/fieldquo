@@ -392,7 +392,7 @@ export const COMPARE_CHROME = {
     "is generated from the same record the engineering checks run against, so " +
     "a feature that stops working stops being advertised.",
 
-  ctaTitle: "First month free, and you can read the price before you start",
+  ctaTitle: "First month free with a card on file, and you can read the price before you start",
   // ══ This said "No card to start", and that was false ══════════════════════
   //
   // /api/companies commits the Company and then opens Stripe Checkout

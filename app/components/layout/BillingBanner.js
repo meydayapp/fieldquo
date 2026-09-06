@@ -38,7 +38,34 @@ export default function BillingBanner() {
     };
   }, []);
 
-  if (!state || state.level === "full") return null;
+  if (!state) return null;
+  // A brand-new company that closed the Stripe tab: full access for now, and a
+  // countdown to the setup gate. Said here, in amber, with the one link that
+  // fixes it — the first version showed nothing and then a 307 to /signup an
+  // hour later. The card is required (owner's decision, 2026-09-06).
+  if (state.reason === "setup_pending") {
+    return (
+      <div
+        role="alert"
+        className="px-4 py-3 text-sm bg-amber-50 dark:bg-amber-950/50 text-amber-900 dark:text-amber-200 border-b border-amber-200 dark:border-amber-900"
+      >
+        <div className="max-w-6xl mx-auto flex flex-wrap items-center gap-x-3 gap-y-2">
+          <AlertTriangle size={17} className="shrink-0" />
+          <p className="flex-1 min-w-[14rem]">
+            <strong>Finish signing up — add your card within {state.minutesLeft ?? 60} min to keep this account.</strong>{" "}
+            Nothing is charged until your free month is up. After that time you&apos;ll be sent back to the signup page to finish.
+          </p>
+          <Link
+            href="/signup"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap bg-amber-900 text-white dark:bg-amber-200 dark:text-amber-950"
+          >
+            <CreditCard size={15} /> Add card
+          </Link>
+        </div>
+      </div>
+    );
+  }
+  if (state.level === "full") return null;
 
   const locked = state.level === "locked";
   // Cancelling is a DECISION, not a failure. Red chrome and "payment didn't go

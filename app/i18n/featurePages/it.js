@@ -3,7 +3,7 @@ const it = {
   // ── The furniture of a feature page ─────────────────────────────────────
   "featurePage.chrome.startTrial": "Inizi il suo mese gratuito",
   "featurePage.chrome.seePricing": "Vedi i prezzi",
-  "featurePage.chrome.firstMonthFree": "Il suo primo mese è gratuito.",
+  "featurePage.chrome.firstMonthFree": "Il suo primo mese è gratuito. Una carta viene richiesta all'iscrizione e nulla viene addebitato fino alla fine del mese.",
   "featurePage.chrome.painsTitle": "Cosa le toglie dalla settimana",
   "featurePage.chrome.howTitle": "Come funziona qui",
   "featurePage.chrome.specificsTitle": "Nel dettaglio",

@@ -223,6 +223,15 @@ function present(quote) {
     }),
   });
 
+  // Resolved ONCE, because two things below must agree on it: the `language`
+  // the page frames itself in, and the language the scope prose is looked up
+  // in. Until 2026-09-06 only the frame was resolved — a French quote said
+  // "Préparé pour" over "We replace the doors and drawer fronts…".
+  const docLanguage = resolveClientLanguage({
+    document: quote,
+    client: quote.client,
+    company: quote.company,
+  });
   return {
     quoteNumber: quote.quoteNumber,
     status: quote.status,
@@ -231,11 +240,7 @@ function present(quote) {
     // client.language → company.defaultLanguage → en. A quote created before
     // languages existed (no frozen language) still reaches the client's own
     // preference instead of silently defaulting to English on screen.
-    language: resolveClientLanguage({
-      document: quote,
-      client: quote.client,
-      company: quote.company,
-    }),
+    language: docLanguage,
     notes: quote.notes,
     processNotes: quote.processNotes,
     validUntil: quote.validUntil,
@@ -284,6 +289,7 @@ function present(quote) {
         g.category?.key,
         g.companySettings || null,
         g.takeoff,
+        docLanguage,
       );
       return {
         label: g.label || g.category?.label || "Scope",

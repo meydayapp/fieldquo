@@ -13,7 +13,7 @@ const uk = {
   // ── The furniture of a feature page ─────────────────────────────────────
   "featurePage.chrome.startTrial": "Почніть безкоштовний місяць",
   "featurePage.chrome.seePricing": "Переглянути ціни",
-  "featurePage.chrome.firstMonthFree": "Перший місяць безкоштовний.",
+  "featurePage.chrome.firstMonthFree": "Перший місяць безкоштовний. Під час реєстрації потрібна картка, і до кінця місяця нічого не списується.",
   "featurePage.chrome.painsTitle": "Що це знімає з вашого тижня",
   "featurePage.chrome.howTitle": "Як це працює тут",
   "featurePage.chrome.specificsTitle": "Конкретика",

@@ -30,7 +30,7 @@ const en = {
   // ── The furniture of a feature page ─────────────────────────────────────
   "featurePage.chrome.startTrial": "Start your free month",
   "featurePage.chrome.seePricing": "See pricing",
-  "featurePage.chrome.firstMonthFree": "Your first month is free.",
+  "featurePage.chrome.firstMonthFree": "Your first month is free. A card is taken at signup and nothing is charged until the month is up.",
   "featurePage.chrome.painsTitle": "What this takes off your week",
   "featurePage.chrome.howTitle": "How it works here",
   "featurePage.chrome.specificsTitle": "The specifics",

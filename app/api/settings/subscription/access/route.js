@@ -43,5 +43,8 @@ export async function GET(request) {
     daysLeft: access.daysLeft,
     reason: seesDetail ? access.reason : "ok",
     graceDays: GRACE_DAYS,
+    // Only present while a brand-new company has no card yet — the minutes
+    // before the setup gate sends them back to /signup.
+    ...(access.minutesLeft ? { minutesLeft: access.minutesLeft } : {}),
   });
 }

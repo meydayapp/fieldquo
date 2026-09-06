@@ -133,6 +133,7 @@ export async function GET(request, { params }) {
         g.category?.key || null,
         g.companySettings || null,
         g.takeoff,
+        invoice.language,
       ),
     ]),
   );

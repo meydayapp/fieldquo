@@ -99,6 +99,7 @@ export async function GET(request, { params }) {
       g.category?.key,
       g.companySettings || null,
       g.takeoff,
+      quote.language,
     );
     return {
       id: g.id,

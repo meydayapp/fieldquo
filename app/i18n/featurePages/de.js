@@ -7,7 +7,7 @@
 const de = {
   "featurePage.chrome.startTrial": "Ihren Gratismonat starten",
   "featurePage.chrome.seePricing": "Preise ansehen",
-  "featurePage.chrome.firstMonthFree": "Ihr erster Monat ist gratis.",
+  "featurePage.chrome.firstMonthFree": "Ihr erster Monat ist gratis. Bei der Anmeldung wird eine Karte hinterlegt; bis zum Ende des Monats wird nichts abgebucht.",
   "featurePage.chrome.painsTitle": "Was Ihnen das von der Woche abnimmt",
   "featurePage.chrome.howTitle": "So funktioniert es hier",
   "featurePage.chrome.specificsTitle": "Die Einzelheiten",

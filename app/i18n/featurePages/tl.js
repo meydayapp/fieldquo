@@ -13,7 +13,7 @@ const tl = {
   // ── The furniture of a feature page ─────────────────────────────────────
   "featurePage.chrome.startTrial": "Simulan ang libreng buwan mo",
   "featurePage.chrome.seePricing": "Tingnan ang presyo",
-  "featurePage.chrome.firstMonthFree": "Libre ang unang buwan mo.",
+  "featurePage.chrome.firstMonthFree": "Libre ang unang buwan mo. Hihingin ang card sa pag-sign up at walang sisingilin hanggang matapos ang buwan.",
   "featurePage.chrome.painsTitle": "Ano ang binabawas nito sa linggo mo",
   "featurePage.chrome.howTitle": "Paano ito gumagana dito",
   "featurePage.chrome.specificsTitle": "Ang mga detalye",

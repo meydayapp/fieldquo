@@ -8369,3 +8369,39 @@ consolidated report.
 **The rerun's own limit:** the shared browser holds nine tabs, and eighteen
 agents contended for them; roughly half the areas were verified from code
 and unauthenticated probes only. A second, smaller wave covers the rest.
+
+## A French quote says French things (7 September 2026)
+
+The owner opened Q-2026-0011 on his phone: DEVIS, "Préparé pour", "Ce qui
+est inclus" — and under it "We replace the doors and drawer fronts…". The
+frame came from `lib/i18n/documentLabels.js` (nine languages); the scope
+prose came from `lib/documents/serviceContent.js`, which existed in English
+only and was resolved with no language at all.
+
+`lib/documents/serviceContent.fr.js` is the French catalogue, same shape,
+same `[placeholder]` convention (brackets are capped at 80 characters by
+the withholding regex — one French line ran to 84 and would have printed
+with its brackets; the check counts them). `resolveServiceContent` takes the
+document's own language and merges French over English FIELD BY FIELD, so
+an untranslated trade or field renders the English sentence rather than
+nothing; a company's own override wins in whichever language they wrote
+it. The public quote route resolves the language ONCE for frame and prose.
+`check:service-content-fr` executes it (58 assertions) and pins the four
+call sites.
+
+**Coverage, stated:** the seven trades this company sells — interior and
+exterior painting, cabinet refinishing and refacing (all four door
+variants), stairs, floor refinishing, countertops — plus the four shared
+workflows and the generic block. The other ~38 trades, the glossary and the
+"what could change this price" entries still render English on a French
+document. Line NAMES ("Cabinet Refacing × 28") are the company's own
+price-book rows and stay whatever the company typed; a bilingual price book
+is the next piece and is a schema change. Other languages: none of the
+catalogue prose exists yet.
+
+**Two decisions recorded the same day:** the AI-credit bundle is USD-only
+(FieldQuo buys the AI in USD; rates move) — a CAD company sees the sentence,
+not a button; and the card IS required at signup, so the fix for "First
+month · Free" was copy in nine languages ("a card is taken at signup and
+nothing is charged until the month is up") plus a banner that counts down
+to the setup gate for a company that closed the Stripe tab.

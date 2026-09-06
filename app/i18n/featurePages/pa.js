@@ -13,7 +13,7 @@ const pa = {
   // ── The furniture of a feature page ─────────────────────────────────────
   "featurePage.chrome.startTrial": "ਆਪਣਾ ਮੁਫ਼ਤ ਮਹੀਨਾ ਸ਼ੁਰੂ ਕਰੋ",
   "featurePage.chrome.seePricing": "ਕੀਮਤਾਂ ਵੇਖੋ",
-  "featurePage.chrome.firstMonthFree": "ਤੁਹਾਡਾ ਪਹਿਲਾ ਮਹੀਨਾ ਮੁਫ਼ਤ ਹੈ।",
+  "featurePage.chrome.firstMonthFree": "ਤੁਹਾਡਾ ਪਹਿਲਾ ਮਹੀਨਾ ਮੁਫ਼ਤ ਹੈ। ਸਾਈਨ-ਅੱਪ ਵੇਲੇ ਇੱਕ ਕਾਰਡ ਲਿਆ ਜਾਂਦਾ ਹੈ ਅਤੇ ਮਹੀਨਾ ਪੂਰਾ ਹੋਣ ਤੱਕ ਕੁਝ ਵੀ ਚਾਰਜ ਨਹੀਂ ਕੀਤਾ ਜਾਂਦਾ।",
   "featurePage.chrome.painsTitle": "ਇਹ ਤੁਹਾਡੇ ਹਫ਼ਤੇ ਤੋਂ ਕੀ ਘਟਾਉਂਦਾ ਹੈ",
   "featurePage.chrome.howTitle": "ਇੱਥੇ ਇਹ ਕਿਵੇਂ ਕੰਮ ਕਰਦਾ ਹੈ",
   "featurePage.chrome.specificsTitle": "ਬਾਰੀਕੀਆਂ",

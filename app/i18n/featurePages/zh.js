@@ -18,7 +18,7 @@
 const zh = {
   "featurePage.chrome.startTrial": "免费试用一个月",
   "featurePage.chrome.seePricing": "查看价格",
-  "featurePage.chrome.firstMonthFree": "第一个月免费。",
+  "featurePage.chrome.firstMonthFree": "第一个月免费。注册时需要绑定银行卡，本月结束前不会扣款。",
   "featurePage.chrome.painsTitle": "这能从你一周里拿掉什么",
   "featurePage.chrome.howTitle": "在这里它怎么运作",
   "featurePage.chrome.specificsTitle": "具体细节",
