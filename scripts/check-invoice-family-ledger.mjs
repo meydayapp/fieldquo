@@ -71,6 +71,14 @@ const SITES = [
   ["app/api/invoices/[id]/route.js", "the detail page shows the family's payment history", /invoice\.payments = await familyPayments\(db, invoice\.id/],
   ["app/api/invoices/[id]/route.js", "...and re-derives the shown amounts from it, for display", /invoice\.amountPaid = shown\.amountPaid;[\s\S]{0,60}invoice\.amountDue = shown\.amountDue/],
   ["app/api/invoices/[id]/pdf/route.js", "the PDF shows the family's payments", /invoice\.payments = await familyPayments\(db, invoice\.id/],
+  // The three readers the 6 September QA rerun caught reading the CACHED
+  // columns on an invoice amended before the family ledger existed: the
+  // request-payment email quoted $1,390.72 for a $1,190.72 balance, lifecycle
+  // said "paid 0, settled", the PDF's balance disagreed with its own payment
+  // list. Each now recomputes the family before stating a number.
+  ["app/api/invoices/[id]/pdf/route.js", "...and recomputes its totals from the same ledger", /const ledger = await refreshFamilyLedger\(db, invoice\.id\);[\s\S]{0,120}invoice\.amountDue = ledger\.state\.amountDue/],
+  ["app/api/invoices/[id]/request-payment/route.js", "the payment-request email quotes the family's balance, recomputed", /const ledger = await refreshFamilyLedger\(db, invoice\.id\);[\s\S]{0,120}invoice\.amountPaid = ledger\.state\.amountPaid/],
+  ["app/api/invoices/[id]/lifecycle/route.js", "the lifecycle screen states the family's money, recomputed", /const ledger = await refreshFamilyLedger\(db, invoice\.id\);[\s\S]{0,120}invoice\.amountDue = ledger\.state\.amountDue/],
   ["app/api/invoices/[id]/credit-visit-fee/route.js", "the visit-fee recompute uses the shared state, not its own sum", /latestInFamily\(db, invoiceId\)[\s\S]{0,300}familyPayments\(db, inv\.id\)/],
   ["app/api/invoices/[id]/credit-visit-fee/route.js", "...through computeInvoiceState", /computeInvoiceState\(\{/],
   ["app/api/portal/[token]/route.js", "the portal shows one current document per family", /latestPerFamily\(members\)/],

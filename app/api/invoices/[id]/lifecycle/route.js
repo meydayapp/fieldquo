@@ -44,6 +44,7 @@ import {
 import { resolveInvoiceJob } from "@/lib/invoices/jobLink";
 import { invoiceChaseKey } from "@/lib/tasks/autoCreate";
 import { createJob } from "@/lib/jobs/createJob";
+import { refreshFamilyLedger } from "@/lib/invoices/family";
 import { actualJobCost, compareJobCost } from "@/lib/costing/actualJobCost";
 
 const num = (v) => (v == null ? null : Number(v));
@@ -121,6 +122,17 @@ export async function GET(request, { params }) {
   });
   if (!invoice)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // The money this screen states is the family's ledger, recomputed now —
+  // not the cached columns, which on an invoice amended before the family
+  // ledger existed said "paid 0, settled" about a version with a deposit
+  // behind it. Same rule as request-payment; see lib/invoices/family.js.
+  const ledger = await refreshFamilyLedger(db, invoice.id);
+  if (ledger) {
+    invoice.amountPaid = ledger.state.amountPaid;
+    invoice.amountDue = ledger.state.amountDue;
+    invoice.amountRefunded = ledger.state.amountRefunded;
+    invoice.status = ledger.state.status;
+  }
 
   // ── Sibling versions, not children ──────────────────────────────────────
   //
@@ -407,6 +419,17 @@ export async function POST(request, { params }) {
   });
   if (!invoice)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // The money this screen states is the family's ledger, recomputed now —
+  // not the cached columns, which on an invoice amended before the family
+  // ledger existed said "paid 0, settled" about a version with a deposit
+  // behind it. Same rule as request-payment; see lib/invoices/family.js.
+  const ledger = await refreshFamilyLedger(db, invoice.id);
+  if (ledger) {
+    invoice.amountPaid = ledger.state.amountPaid;
+    invoice.amountDue = ledger.state.amountDue;
+    invoice.amountRefunded = ledger.state.amountRefunded;
+    invoice.status = ledger.state.status;
+  }
 
   const payload = await request.json().catch(() => ({}));
   const action = String(payload?.action || "");

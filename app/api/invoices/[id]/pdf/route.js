@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { familyPayments } from "@/lib/invoices/family";
+import { familyPayments, refreshFamilyLedger } from "@/lib/invoices/family";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { renderDocumentPdfBuffer } from "@/app/admin/lib/pdf/renderDocumentPdf";
@@ -60,6 +60,17 @@ export async function POST(request, { params }) {
   invoice.payments = await familyPayments(db, invoice.id, {
     orderBy: { date: "desc" },
   });
+  // ...and its totals are the same ledger, recomputed — the "balance due"
+  // printed at the bottom must agree with the payments listed above it,
+  // which the cached columns did not on an invoice amended before the
+  // family ledger existed.
+  const ledger = await refreshFamilyLedger(db, invoice.id);
+  if (ledger) {
+    invoice.amountPaid = ledger.state.amountPaid;
+    invoice.amountDue = ledger.state.amountDue;
+    invoice.amountRefunded = ledger.state.amountRefunded;
+    invoice.status = ledger.state.status;
+  }
 
   const company = await db.company.findUnique({
     where: { id: member.companyId },

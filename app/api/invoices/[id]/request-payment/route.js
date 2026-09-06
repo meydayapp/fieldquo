@@ -16,6 +16,7 @@ import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
 import { ensurePortalToken, portalUrl } from "@/lib/clientPortal";
 import { buildInvoiceEmail } from "@/lib/email/invoiceEmail";
+import { refreshFamilyLedger } from "@/lib/invoices/family";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import {
   loadEnforceableMember,
@@ -44,6 +45,20 @@ export async function POST(request, { params }) {
   });
   if (!invoice)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // The balance this email quotes is the FAMILY's — every payment across the
+  // invoice's versions — recomputed now, not the cached columns the version
+  // was created with. An invoice amended before the family ledger existed
+  // kept a stale cache that healed only when money moved; this route read
+  // it and emailed a homeowner $1,390.72 for a $1,190.72 balance (QA rerun,
+  // 6 September). Refreshing here also writes the truth back to the row.
+  const ledger = await refreshFamilyLedger(db, invoice.id);
+  if (ledger) {
+    invoice.amountPaid = ledger.state.amountPaid;
+    invoice.amountDue = ledger.state.amountDue;
+    invoice.amountRefunded = ledger.state.amountRefunded;
+    invoice.status = ledger.state.status;
+  }
 
   if (!invoice.client?.email) {
     return NextResponse.json(
