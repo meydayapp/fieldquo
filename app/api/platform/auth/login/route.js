@@ -2,6 +2,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { rateLimit } from "@/lib/rateLimit";
 import { SignJWT } from "jose";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
@@ -11,7 +12,12 @@ const PLATFORM_SECRET = new TextEncoder().encode(
 );
 
 export async function POST(request) {
-  const { email, password } = await request.json();
+  // The superadmin door. Same throttle as the sales login, for the same
+  // reason; and the body parse guarded, so a malformed login attempt is a
+  // 400 and not a bodyless 500 (the class the public intakes were swept for).
+  const limited = rateLimit(request, "platform-login", { limit: 10, windowMs: 15 * 60 * 1000 });
+  if (limited) return limited;
+  const { email, password } = await request.json().catch(() => ({}));
 
   if (!email || !password) {
     return NextResponse.json(

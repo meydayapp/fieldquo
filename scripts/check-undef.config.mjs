@@ -142,6 +142,11 @@ export default [
     linterOptions: { reportUnusedDisableDirectives: "off" },
     rules: {
       "no-undef": "error",
+      // A duplicate key in an object literal is the later row silently winning
+      // and the earlier one becoming dead text that a grep hits first. The
+      // calling-rules table carried two — a compliance edit to the dead
+      // Texas row would have been a no-op. Refused at build time now.
+      "no-dupe-keys": "error",
       "local/no-tdz-read": "error",
     },
   },

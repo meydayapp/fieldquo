@@ -25,6 +25,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { rateLimit } from "@/lib/rateLimit";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import {
@@ -88,6 +89,10 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
+  // An invite token is a credential too — see the login route for why the
+  // throttle is here. Same budget.
+  const limited = rateLimit(request, "sales-invite", { limit: 10, windowMs: 15 * 60 * 1000 });
+  if (limited) return limited;
   const { token, password } = await request.json().catch(() => ({}));
 
   if (typeof password !== "string" || password.length < MIN_PASSWORD_LENGTH) {

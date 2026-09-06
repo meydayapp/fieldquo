@@ -8,6 +8,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { rateLimit } from "@/lib/rateLimit";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import {
@@ -18,6 +19,13 @@ import {
 import { canAuthenticate } from "@/lib/sales/invite";
 
 export async function POST(request) {
+  // The same throttle the nine public forms have had, on the one endpoint
+  // that guards a password. bcrypt and a uniform message slow a guess; they
+  // do not cap it — the QA rerun sent eight wrong passwords and got eight
+  // 401s with no 429 in sight. Ten tries per connection per fifteen
+  // minutes is generous for a person and useless for a script.
+  const limited = rateLimit(request, "sales-login", { limit: 10, windowMs: 15 * 60 * 1000 });
+  if (limited) return limited;
   const { email, password } = await request.json().catch(() => ({}));
 
   if (!email || !password) {

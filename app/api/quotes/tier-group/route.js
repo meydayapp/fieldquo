@@ -6,6 +6,11 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
+// The shared allocator, which is suffix-aware since 2026-09-06. This route
+// carried its own copy that understood the "-G" suffix while the shared one
+// did not — the copy that nobody looked at was the correct one, and the one
+// every other route used was the one that rotted. One allocator now.
+import { getNextQuoteNumber, TIER_SUFFIXES } from "@/lib/quotes/quoteNumber";
 
 // Creates three linked quote variants at once — Good/Better/Best — sharing a
 // tierGroupId. Each is a real, independent Quote row (own line items, own total)
@@ -39,44 +44,44 @@ export async function POST(request) {
   if (notOurs) return notOurs;
 
   const tierGroupId = crypto.randomUUID();
+  // Distinct by construction. `tierLabel.toUpperCase()[0]` gave "B" for BOTH
+  // better and best — the third create collided on the unique quoteNumber
+  // and the route 500'd after writing two of three. Also exported for the
+  // check that executes the allocator against these suffixes.
+  const TIER_SUFFIX = TIER_SUFFIXES;
   const lastQuote = await db.quote.findFirst({
     where: { companyId: member.companyId },
     orderBy: { createdAt: "desc" },
     select: { quoteNumber: true },
   });
 
-  const created = [];
-  let seq = getNextQuoteNumber(lastQuote?.quoteNumber);
+  const seq = getNextQuoteNumber(lastQuote?.quoteNumber);
 
-  for (const tierLabel of ["good", "better", "best"]) {
-    const tier = tiers[tierLabel];
-    const quote = await db.quote.create({
-      data: {
-        companyId: member.companyId,
-        quoteNumber: `${seq}-${tierLabel.toUpperCase()[0]}`, // e.g. Q-2026-0012-G
-        clientId,
-        createdById: member.userId,
-        tierGroupId,
-        tierLabel,
-        subtotal: tier.subtotal,
-        tax: tier.tax,
-        total: tier.total,
-        scopeGroups: { create: tier.scopeGroups },
-      },
-    });
-    created.push(quote);
-  }
+  // Three rows, one transaction: the first version created them one by one,
+  // and when the third collided (below) the client was left with two of a
+  // trio and a 500. All or nothing.
+  const created = await db.$transaction(async (tx) => {
+    const out = [];
+    for (const tierLabel of ["good", "better", "best"]) {
+      const tier = tiers[tierLabel];
+      const quote = await tx.quote.create({
+        data: {
+          companyId: member.companyId,
+          quoteNumber: `${seq}-${TIER_SUFFIX[tierLabel]}`, // e.g. Q-2026-0012-G
+          clientId,
+          createdById: member.userId,
+          tierGroupId,
+          tierLabel,
+          subtotal: tier.subtotal,
+          tax: tier.tax,
+          total: tier.total,
+          scopeGroups: { create: tier.scopeGroups },
+        },
+      });
+      out.push(quote);
+    }
+    return out;
+  });
 
   return NextResponse.json({ tierGroupId, quotes: created }, { status: 201 });
-}
-
-function getNextQuoteNumber(lastNumber) {
-  const year = new Date().getFullYear();
-  if (!lastNumber) return `Q-${year}-0001`;
-  const base = lastNumber.split("-").slice(0, 3).join("-");
-  const match = base.match(/(\d+)$/);
-  const nextSeq = match
-    ? String(Number(match[1]) + 1).padStart(4, "0")
-    : "0001";
-  return `Q-${year}-${nextSeq}`;
 }
