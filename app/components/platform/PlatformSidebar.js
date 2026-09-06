@@ -219,6 +219,7 @@ const GROUPS = [
       // the other is a period you read.
       { label: "Sales floor", href: "/platform/sales/floor", icon: Headphones },
       { label: "Sales performance", href: "/platform/sales/performance", icon: TrendingUp },
+      { label: "Growth", href: "/platform/growth", icon: TrendingUp },
       // Beside performance, because it is the same question asked the other
       // way round: performance is what a rep sold, this is what they heard.
       // Superadmin only, read-only, and the screen itself says so — reps are

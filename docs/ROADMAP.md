@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 6 September 2026 (reports agree with each other about WHEN: drafts are not issued, a decided quote is not "left draft", paid revenue is dated by the payment, and no range loses its last day; the every-minute pipeline and the DNCL filing before that).
+Last updated: 6 September 2026 (a capacity forecast at /platform/growth that labels every rate measured or assumed and names the churn ceiling; the reports agreeing about WHEN, the every-minute pipeline and the DNCL filing before that).
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -8182,3 +8182,47 @@ entry and are reached only through the Insights hub.
 thrown after Twilio had sold the number and before the row existed. The
 no-undef pass refused the build; it is hoisted now, and the inbound-call
 check pins the declaration order.
+
+## Growth: a capacity forecast that refuses to guess (6 September 2026)
+
+`/platform/growth`. The owner launches with zero subscribers and targets of
+100, 1,000, 10,000, 100,000 and 1,000,000, with twenty closers dialling
+100–200 numbers a day. A regression through zero rows is theatre, so the
+forecast is arithmetic on capacity: reps × dials × working days, stepped
+through reach, signup, trial conversion and churn, plus two sources the
+dialler does not explain — organic signups (a monthly count) and referral
+(signups per paying subscriber per month, the viral coefficient).
+
+- **Every rate carries its basis.** `measured` from the pipeline once its
+  sample floor is met (200 dispositioned dials; 50 reached conversations; 20
+  ended trials; 3 full months with ≥20 paying for churn and referral; 3
+  observed months for organic), `assumed` — typed by the owner and labelled
+  so — until then. Measured replaces assumed on its own. A rate with neither
+  stops the forecast with a form naming it; the model throws rather than
+  filling 0.5, and the route returns that as `needs`, not a 500.
+- **Churn puts a ceiling on the business**, and the page says so in words:
+  paying converges on adds ÷ (churn − referral × conversion) and never
+  passes it. At the owner's likely numbers (15% reach, 5% signup, 40%
+  conversion, 5% churn) the closers alone cap at 3,780 paying — 1,000 in
+  seven months, 10,000 never. A referral coefficient of 0.1 lifts the cap to
+  18,900; 0.2 outruns churn and there is no cap ("viral"). That is the
+  sentence a straight line cannot produce, and the reason the model exists.
+- **Measured from the rows, not from a dashboard:** `SalesCallAttempt`
+  (direction `out`, reached derived from `DISPOSITIONS[].reached`),
+  `SalesAttribution`, `Company.referredByCode`, `Subscription.billingStartedAt`
+  / `canceledAt` (on-trial is `billingStartedAt == null`, per the schema).
+  Demo companies excluded everywhere; full calendar months only, UTC, never
+  the current one. The 918k prospects, once loaded, give a runway — the
+  model stops inventing dials when the list runs out and the curve turns
+  down, rather than climbing forever on prospects that do not exist.
+- **Assumptions live in `PlatformGrowthAssumptions`** (one row, id
+  `singleton`, nullable rates, `updatedByAdminId`), pushed with
+  `prisma db push`. Superadmin only, on the role directly.
+- `check:growth-model` executes the model against hostile input and the
+  owner's plan (62 assertions), then pins the route guard, the PUT bounds,
+  the derived reached set, the direction filter, the demo exclusion, the
+  page's basis chips and the sidebar row. In `check:all`.
+
+**Not tracked, said on the page:** seasonality, price changes, rep ramp-up,
+and cost — this is a subscriber count, not a P&L. The P&L needs the inputs
+listed under "what the owner still has to supply" in the session notes.

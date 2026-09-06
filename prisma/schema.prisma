@@ -10625,3 +10625,30 @@ model SalesRepActivity {
   @@index([salesRepId, startedAt])
   @@index([endedAt, startedAt])
 }
+
+// ── FieldQuo's own growth forecast: the owner's assumptions ─────────────────
+//
+// One row, id "singleton". Each rate here is the number the forecast uses
+// UNTIL the pipeline has measured the real one past its sample floor
+// (lib/platform/growthModel.js FLOORS); after that the measurement wins and
+// the stored assumption is shown beside it as history, never over it. Nullable
+// on purpose: a null is "the owner has not said", and the model REFUSES to run
+// on a missing rate rather than guessing — so the page's first state is a form,
+// not a chart. Platform-scoped (no companyId), like PlatformAiBudget: this is
+// about FieldQuo's own business, and a tenant's ForecastSettings is a different
+// thing about a different business.
+model PlatformGrowthAssumptions {
+  id                  String   @id @default("singleton")
+  reps                Int      @default(20)
+  dialsPerRepPerDay   Int      @default(150)
+  workingDaysPerMonth Int      @default(21)
+  reach               Float?
+  signup              Float?
+  conversion          Float?
+  churn               Float?
+  referral            Float?
+  organic             Float?
+  updatedByAdminId    String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
