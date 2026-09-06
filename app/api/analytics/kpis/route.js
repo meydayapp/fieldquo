@@ -363,10 +363,13 @@ export async function GET(request) {
           }),
           // Cash-basis revenue for the period — the SAME measure
           // lib/analytics/overview.js uses for "Revenue this month" (paid
-          // invoices, by when they were marked paid), so this card and that
-          // one can never quietly disagree.
+          // invoices, by the date they were PAID — Invoice.paidDate, stamped
+          // once on the paid transition), so this card and that one can never
+          // quietly disagree. Both used `updatedAt` until 2026-09-06, which
+          // agreed with each other and with nothing else: any edit to a paid
+          // invoice moved its revenue into the month of the edit.
           db.invoice.aggregate({
-            where: { companyId, status: "paid", updatedAt: { gte, lte } },
+            where: { companyId, status: "paid", paidDate: { gte, lte } },
             _sum: { total: true },
           }),
           // costPerJob only — see lib/analytics/minimumPrice.js. Never
@@ -427,7 +430,10 @@ export async function GET(request) {
           [], // jobHoursGrouped
           await db.invoice.aggregate({
             // periodRevenueAgg
-            where: { companyId, status: "paid", updatedAt: { gte, lte } },
+            // paidDate, for the same reason as the cash-revenue aggregate
+            // above: the date an invoice was paid does not move when the
+            // invoice is edited afterwards. updatedAt does.
+            where: { companyId, status: "paid", paidDate: { gte, lte } },
             _sum: { total: true },
           }),
           await calculateMinimumPrice({ companyId, targetMargin: 0.2 }), // forecastResult

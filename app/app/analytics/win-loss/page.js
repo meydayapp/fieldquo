@@ -474,12 +474,22 @@ export default function WinLossPage() {
           )}
 
           {/* ── What is deliberately not in any figure above ─────────────── */}
+          {data.excluded.datedByDecision > 0 && (
+            <p className="flex items-start gap-2 text-xs text-muted-foreground">
+              <Info size={14} className="shrink-0 mt-0.5" />
+              {t(
+                "app.winLoss.datedByDecision",
+                "{count} quotes were accepted or declined without ever being marked sent, so they are placed in the period of their decision. They are in the figures above; they are not in time-to-decision, which needs a real send date.",
+                { count: data.excluded.datedByDecision },
+              )}
+            </p>
+          )}
           {data.excluded.undated > 0 && (
             <p className="flex items-start gap-2 text-xs text-muted-foreground">
               <Info size={14} className="shrink-0 mt-0.5" />
               {t(
                 "app.winLoss.undated",
-                "{count} quotes left draft without a send date and belong to no period, so they are in none of the figures above. Most predate FieldQuo recording one.",
+                "{count} quotes have no send date and no decision date, so they belong to no period and are in none of the figures above. Most predate FieldQuo recording one.",
                 { count: data.excluded.undated },
               )}
             </p>

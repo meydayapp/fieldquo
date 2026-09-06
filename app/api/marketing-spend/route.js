@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
+import { dayRangeUtc } from "@/lib/analytics/dayRange";
 
 // What a contractor spends on advertising is the same class of number
 // app/api/marketing/campaigns/route.js already gates on `user:manage` — its
@@ -38,11 +39,14 @@ export async function GET(request) {
   const to = searchParams.get("to");
   const platform = searchParams.get("platform");
 
+  // Whole days at both ends — `lte: new Date(to)` was the first instant of the
+  // last day, not the last, and dropped it. See lib/analytics/dayRange.js.
+  const range = dayRangeUtc(from, to);
   const entries = await db.marketingSpend.findMany({
     where: {
       companyId: member.companyId,
       ...(platform && { platform }),
-      ...(from && to && { date: { gte: new Date(from), lte: new Date(to) } }),
+      ...(range && { date: range }),
     },
     orderBy: { date: "desc" },
   });

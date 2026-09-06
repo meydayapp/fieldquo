@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 import { recordActivity } from "@/lib/activity/log";
+import { dayRangeUtc } from "@/lib/analytics/dayRange";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -21,6 +22,10 @@ export async function GET(request) {
   const full = await loadEnforceableMember(db, member.id);
   const seesEveryone = hasLevel(full, "expenses", "view_record_edit_all");
 
+  // Whole days at both ends. `lte: new Date(to)` was midnight at the START of
+  // the last day, so every range a user asked for silently lost its final
+  // day — see lib/analytics/dayRange.js.
+  const range = dayRangeUtc(from, to);
   const expenses = await db.expense.findMany({
     where: {
       companyId: member.companyId,
@@ -28,7 +33,7 @@ export async function GET(request) {
       ...(projectId && { projectId }),
       ...(isOverhead !== null &&
         isOverhead !== undefined && { isOverhead: isOverhead === "true" }),
-      ...(from && to && { date: { gte: new Date(from), lte: new Date(to) } }),
+      ...(range && { date: range }),
     },
     include: { material: { select: { id: true, name: true } } },
     orderBy: { date: "desc" },

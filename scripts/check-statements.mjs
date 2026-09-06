@@ -95,6 +95,16 @@ const INVOICES = [
     subtotal: 900, discount: 0, tax: 117, taxEnabled: true, total: 1017,
     sentAt: null, createdAt: "2026-03-10T09:00:00Z", client: CLIENT,
   },
+  // INV-400 — a DRAFT started in March. Not issued, so not revenue, not tax
+  // owed, not "invoiced". Three of these sat in the demo company's March
+  // figures as if they had gone out, because issueOf() dated them by the day
+  // somebody started typing. Big on purpose: if it leaks in, every number
+  // below moves.
+  {
+    id: "i6", invoiceNumber: "INV-400", status: "draft", parentInvoiceId: null, version: 1,
+    subtotal: 5000, discount: 0, tax: 650, taxEnabled: true, total: 5650,
+    sentAt: null, createdAt: "2026-03-15T09:00:00Z", client: CLIENT,
+  },
 ];
 
 const PAYMENTS = [
@@ -166,6 +176,12 @@ ok("...in its own sentence", /ACCRUAL basis/.test(accrual.basisStatement || ""))
 // The whole reason the choice matters: the numbers are not the same.
 ok("cash revenue is what was RECEIVED", near(cash.profitAndLoss.revenue.amount, 1000), cash.profitAndLoss.revenue.amount);
 ok("accrual revenue is what was INVOICED", near(accrual.profitAndLoss.revenue.amount, 1700), accrual.profitAndLoss.revenue.amount);
+// INV-400 is a $5,000 draft started on 15 March. It is in the fixtures so that
+// the 1700 above is a proof rather than a coincidence: a draft dated by its
+// createdAt would make this 6700 and its $650 of tax would land in "charged".
+ok("a DRAFT started in the month is not invoiced, not revenue, not tax",
+  near(accrual.profitAndLoss.revenue.amount, 1700) && near(accrual.salesTax.charged.amount, 221),
+  { revenue: accrual.profitAndLoss.revenue.amount, charged: accrual.salesTax.charged.amount });
 ok("...so the two bases disagree, as they must", cash.profitAndLoss.revenue.amount !== accrual.profitAndLoss.revenue.amount);
 // FieldQuo has no supplier-bill ledger, so accrual costs cannot be produced.
 // Pairing accrual revenue with cash costs and calling it accrual is the lie

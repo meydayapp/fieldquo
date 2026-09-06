@@ -889,6 +889,18 @@ section("14b. A sales_voice number can actually be BOUGHT");
 // apart again.
 {
   const buy = source("lib/crew/platformNumber.js");
+  // Declaration order is load-bearing: the row written after the try stores
+  // voiceUrl. Declared INSIDE the try it is out of scope by then — a
+  // ReferenceError thrown after Twilio has sold the number and before the row
+  // exists, on every purchase. The build's no-undef pass refused the first
+  // version; this holds the fix, because a tidy-up that moves the consts back
+  // "closer to where they are used" would reintroduce it without a lint run.
+  ok("smsUrl and voiceUrl are resolved BEFORE the try that buys, not inside it", (() => {
+    const v = buy.indexOf("const voiceUrl = voiceWebhookUrlFor(purpose, origin);");
+    const s = buy.indexOf("const smsUrl = webhookUrlFor(purpose, origin);");
+    const t = buy.indexOf("let bought;");
+    return v > -1 && s > -1 && t > -1 && v < t && s < t;
+  })());
   ok(
     "sales_voice is a purpose the purchase path accepts",
     /PLATFORM_NUMBER_PURPOSES = \[[^\]]*"sales_voice"/.test(buy),

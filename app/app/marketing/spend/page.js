@@ -28,11 +28,18 @@ import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import { fetchArray } from "@/lib/loadState";
 import { fetchJson } from "@/lib/fetchJson";
 import ListState from "@/app/components/ListState";
+import { formatDateOnly } from "@/lib/format/companyDate";
 
 const PLATFORMS = ["facebook", "google", "tiktok", "pamphlet", "referral", "other"];
 
 function emptyForm() {
-  const today = new Date().toISOString().slice(0, 10);
+  // The user's own calendar day, not UTC's: toISOString at 9pm in Toronto is
+  // already tomorrow, and the form would default to a date that hasn't
+  // happened. (The stored value is still that day at UTC midnight — the two
+  // axes meet at the "YYYY-MM-DD" string, which is the whole design.)
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   return { platform: "facebook", campaignName: "", amount: "", date: today, leads: "", conversions: "", notes: "" };
 }
 
@@ -374,7 +381,12 @@ export default function MarketingSpendPage() {
               <tbody>
                 {sortedEntries.map((entry) => (
                   <tr key={entry.id} className="border-b border-border last:border-0">
-                    <td className="px-4 py-2.5 whitespace-nowrap">{new Date(entry.date).toLocaleDateString()}</td>
+                    {/* A spend entry is a calendar day stored at UTC midnight (the
+                        route parses "YYYY-MM-DD" as such, and the edit form reads it
+                        back with toISOString). toLocaleDateString read that instant in
+                        the browser's zone, which west of Greenwich is the evening
+                        BEFORE — every entry rendered a day early. Read the UTC day. */}
+                    <td className="px-4 py-2.5 whitespace-nowrap">{formatDateOnly(entry.date)}</td>
                     <td className="px-4 py-2.5 capitalize">{t(`app.marketingSpend.platform.${entry.platform}`, entry.platform)}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">{entry.campaignName || "—"}</td>
                     <td className="px-4 py-2.5">

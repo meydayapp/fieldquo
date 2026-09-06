@@ -150,7 +150,12 @@ const QUOTES = [
 
   // ── Outside the period, and undated ────────────────────────────────────
   q({ status: "declined", sentAt: d("2026-03-01"), declinedAt: d("2026-03-05"), total: 4444, declineReason: "Too expensive." }),
-  q({ status: "declined", sentAt: null, declinedAt: d("2026-05-05"), total: 3333, declineReason: "Legacy row, never stamped sent." }),
+  // Never stamped sent, but DECIDED — in March, before the period. Since a
+  // decision date places a quote (see the block on Q-2026-0004 below), this
+  // row is dated, out of range, and in no figure; it is no longer "undated".
+  q({ status: "declined", sentAt: null, declinedAt: d("2026-03-05"), total: 3333, declineReason: "Legacy row, never stamped sent." }),
+  // Truly undated: left draft, never sent, never decided. Belongs to no period.
+  q({ status: "sent", sentAt: null, total: 2222 }),
 ];
 
 const report = buildWinLoss({ from: FROM, to: TO, quotes: QUOTES });
@@ -381,6 +386,42 @@ ok("the never-sent quote belongs to no period", report.excluded.undated === 1,
   report.excluded.undated);
 ok("…and the report says so rather than filing it under 'this quarter'",
   report.notes.some((n) => n.code === "undated_excluded" && n.count === 1), report.notes);
+ok("...and the March decision, never sent, is dated by its decision — not undated, not in range",
+  report.excluded.undated === 1 && !JSON.stringify(report.reasons).includes("Legacy row"),
+  { undated: report.excluded.undated, reasons: report.reasons.verbatim });
+
+// ── Decided without ever being sent ─────────────────────────────────────
+//
+// Q-2026-0004 and Q-2026-0007 on the demo company: accepted by hand after a
+// phone call, jobs and invoices behind them, sentAt null. The report called
+// them "left draft" and left $16,633.60 out of WON. A decision date is a
+// recorded fact; a quote with one belongs to the period it was decided in.
+const byDecision = buildWinLoss({
+  from: FROM,
+  to: TO,
+  quotes: [
+    q({ status: "accepted", sentAt: null, acceptedAt: d("2026-05-02"), total: 8226.4, acceptedTotal: 8226.4 }),
+    q({ status: "declined", sentAt: null, declinedAt: d("2026-05-09"), total: 500, declineReason: "Went with a neighbour." }),
+    q({ status: "accepted", sentAt: null, acceptedAt: d("2026-02-01"), total: 999, acceptedTotal: 999 }), // before the period
+    q({ status: "sent", sentAt: null, total: 1 }), // neither date: belongs nowhere
+  ],
+});
+ok("a quote accepted without a send date is WON in the period of its acceptance",
+  byDecision.counts.won === 1 && byDecision.counts.sent === 2, byDecision.counts);
+ok("...and its money is in the won value",
+  Math.abs(byDecision.value.won.amount - 8226.4) < 0.005, byDecision.value.won);
+ok("...the one declined without a send date is LOST in the period of its decline",
+  byDecision.counts.lost === 1 && byDecision.counts.decided === 2, byDecision.counts);
+ok("...one decided before the period is not in it", byDecision.counts.sent === 2);
+ok("...the report says how many were placed by a decision date",
+  byDecision.excluded.datedByDecision === 2 &&
+    byDecision.notes.some((n) => n.code === "dated_by_decision" && n.count === 2),
+  byDecision.notes);
+ok("...only the quote with neither date is undated", byDecision.excluded.undated === 1, byDecision.excluded);
+ok("...time-to-decision still needs a real send date, so nothing is measured",
+  byDecision.timeToDecision.measured === 0, byDecision.timeToDecision);
+ok("...and the win rate is 1 of 2 decided, with the decision-dated pair counted",
+  byDecision.winRate.value === 0.5 || byDecision.winRate.suppressed === "below_floor", byDecision.winRate);
 
 // ═══════════════════════════════════════════════════════════════════════════
 console.log("\n8. Hostile input: no NaN, no Infinity, no division by zero\n");
@@ -474,6 +515,13 @@ function matchWhere(row, where = {}) {
   if (!row) return false;
   for (const [key, cond] of Object.entries(where)) {
     if (cond === undefined) continue;
+    // Prisma's OR: any alternative matches. The route dates a quote by its
+    // send OR, failing that, its decision; a stub that ignored OR would let
+    // every row through and prove nothing about that filter.
+    if (key === "OR") {
+      if (!Array.isArray(cond) || !cond.some((alt) => matchWhere(row, alt))) return false;
+      continue;
+    }
     const value = row[key];
     if (cond === null) {
       if (value !== null && value !== undefined) return false;

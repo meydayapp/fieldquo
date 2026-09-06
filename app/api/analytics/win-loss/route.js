@@ -117,15 +117,38 @@ export async function GET(request) {
 
   const [inRange, undatedCount, company] = await Promise.all([
     db.quote.findMany({
-      where: { companyId, status: { in: OUT_STATUSES }, sentAt: { gte, lte } },
+      // In the period by send date, or — for a quote that was never stamped
+      // sent — by the date it was accepted or declined. A quote marked
+      // accepted by hand after a phone call has no `sentAt` and IS a win;
+      // this query used to leave it out, and the page's footer then called
+      // $16,633 of accepted work with jobs behind it "left draft". The
+      // builder (lib/analytics/winLoss.js, `datedAt`) applies the same rule
+      // to what it is handed; the two must agree or the DB would pre-filter
+      // what the builder would have counted.
+      where: {
+        companyId,
+        status: { in: OUT_STATUSES },
+        OR: [
+          { sentAt: { gte, lte } },
+          { sentAt: null, acceptedAt: { gte, lte } },
+          { sentAt: null, declinedAt: { gte, lte } },
+        ],
+      },
       select: SELECT,
     }),
-    // Quotes that left draft and were never stamped with a send date — every
-    // quote decided before `sentAt` existed, plus anything imported. They are
-    // in no period at all, so they are counted here and reported as an
-    // exclusion rather than dated by guess (AGENTS.md failure class 5).
+    // Quotes that left draft and carry no date of any kind — no send, no
+    // decision. Rows from before `sentAt` existed that were never decided,
+    // plus anything imported without dates. They are in no period at all,
+    // so they are counted here and reported as an exclusion rather than
+    // dated by guess (AGENTS.md failure class 5).
     db.quote.count({
-      where: { companyId, status: { in: OUT_STATUSES }, sentAt: null },
+      where: {
+        companyId,
+        status: { in: OUT_STATUSES },
+        sentAt: null,
+        acceptedAt: null,
+        declinedAt: null,
+      },
     }),
     db.company.findUnique({ where: { id: companyId }, select: { currency: true } }),
   ]);

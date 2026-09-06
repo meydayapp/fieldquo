@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 4 September 2026 (the rep queue is a persistent agent console — a list that stays, a pane that swaps, and a dial region that says why it is empty; the Marketing Designer's before/after post and the US state licence boards before that).
+Last updated: 6 September 2026 (reports agree with each other about WHEN: drafts are not issued, a decided quote is not "left draft", paid revenue is dated by the payment, and no range loses its last day; the every-minute pipeline and the DNCL filing before that).
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -8117,3 +8117,68 @@ The handler itself was executed against twelve genuinely signed Twilio payloads
   specifically* would need either a number on `SalesRep` or an inbound-enabled
   browser identity, and the token route's `incomingAllow: false` is a deliberate
   decision that was left standing rather than flipped in passing.
+
+## The reports agree about WHEN (6 September 2026)
+
+The QA night's finding "reports aren't accountant-safe" was six versions of
+one mistake: an instant used where a calendar day was meant, or an edit
+timestamp used where an event timestamp was meant. Each surface was right
+by its own rule and disagreed with its neighbour.
+
+- **Statements counted drafts as issued.** `issueOf()` dates a family by
+  `sentAt`, else `createdAt` — right for a legacy sent invoice, wrong for a
+  draft, where that is the day somebody started typing. Three unpaid drafts
+  sat in the demo's "invoiced" and its accrued tax. `issuedIn` is now gated on
+  the LATEST version's status not being draft or cancelled, the rule the
+  receivables section already stated at its own loop. `check-statements`
+  carries a $5,000 draft in the month so 1700 is a proof, not a coincidence.
+- **Win/loss called accepted work "left draft".** Two quotes accepted by hand
+  after a phone call — `acceptedAt` set, jobs and invoices behind them,
+  `sentAt` null — were $16,633.60 of WON that the report excluded as
+  "undated", with a footer saying they had been left in draft. An opportunity
+  is now dated by its send, else its decision (`datedAt`/`datedBy` in
+  `lib/analytics/winLoss.js`); the route fetches by either; "undated" means
+  no date of any kind; the footer says how many were placed by decision.
+  Time-to-decision still requires a real `sentAt` — a decision date standing
+  in for a send date there would measure zero days. The KPI dashboard reuses
+  the builder, so its win rate moved with it: that was the "three surfaces,
+  three won counts".
+- **Paid revenue was dated by `updatedAt`.** The home page and the KPI
+  route's cash-revenue card filtered `status: paid` by `updatedAt`, so
+  reprinting a March invoice's PDF in May made it May's revenue, while
+  statements and money-flow (which read `Payment.date`) still said March.
+  Both now read `Invoice.paidDate`, stamped once on every paid transition;
+  accepted quotes read `acceptedAt`. The demo seed now stamps `sentAt`,
+  `acceptedAt` and `paidDate` from the same `daysAgo` it already used —
+  without them the demo's accepted quotes were in no period at all.
+- **Two routes lost the last day of every range.** `/api/expenses` and
+  `/api/marketing-spend` filtered `lte: new Date(to)`, which is the FIRST
+  instant of the last day. `lib/analytics/dayRange.js` is now the one place a
+  "YYYY-MM-DD" becomes the two instants of a filter; it refuses non-ISO
+  strings outright, because V8 reads "2026-3-1" as LOCAL midnight — a
+  different day on a laptop than on Vercel. Six other analytics routes still
+  carry their own `${to}T23:59:59.999Z`; correct, duplicated, and the next
+  thing to fold into the helper.
+- **The spend table rendered a day early.** UTC-midnight dates through
+  `toLocaleDateString`, in Toronto. Now `formatDateOnly`, the UTC day, which
+  is the axis the row was stored on. The form's default date was UTC's
+  today, which at 9pm is tomorrow; it is the user's calendar day now.
+
+`check:report-dates` executes the helper against hostile input and pins the
+other five to their fixed form; it is in `check:all`. Mutation-tested: the
+midnight end fails four assertions, drafts back in fail the statements check
+with revenue 6700.
+
+**Not done, named:** `Company.timezone` is still read by no report — every
+period is a UTC calendar day, documented as such in the accounting export.
+The marketing-spend screen has no date range at all (lifetime figures, while
+the same rollup is period-scoped on finance-overview). `lib/analytics/overview.js`
+still builds month boundaries in server-local time, which coincides with UTC
+on Vercel and nowhere else. Three of the analytics pages have no sidebar
+entry and are reached only through the Insights hub.
+
+**Found by the build, not by the reports work:** `buyPlatformNumber` declared
+`voiceUrl` inside its `try` and stored it in the row after — a ReferenceError
+thrown after Twilio had sold the number and before the row existed. The
+no-undef pass refused the build; it is hoisted now, and the inbound-call
+check pins the declaration order.
