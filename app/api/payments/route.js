@@ -107,7 +107,22 @@ export async function POST(request) {
   });
   if (!invoice)
     return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
-  const familyRows = await familyPayments(db, invoice.id);
+  // ── One transaction, one lock per invoice ──────────────────────────────
+  //
+  // Read the family, check the cap, write the row, update the cache: four
+  // steps that used to run outside any transaction, so two identical POSTs
+  // fired together (a double-click, a retried request) both read "nothing
+  // paid yet", both passed the cap, and both landed — the QA rerun proved
+  // it with two rows three milliseconds apart. A transaction alone does not
+  // serialise two readers; the advisory lock does, keyed on the invoice, and
+  // it releases with the transaction. Inside it, a payment of the same
+  // amount and method recorded within the last fifteen seconds is refused as
+  // the duplicate it almost certainly is — a genuine second $10 cash payment
+  // fifteen seconds after the first is rarer than a double-click, and the
+  // sentence tells the user which one happened.
+  const outcome = await db.$transaction(async (tx) => {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${invoice.id}))`;
+  const familyRows = await familyPayments(tx, invoice.id);
 
   // ── The stated cap has to be a real one ────────────────────────────────
   //
@@ -137,18 +152,34 @@ export async function POST(request) {
   });
   const outstanding = Number(invoice.total) - before.amountPaid;
   if (Number(amount) - outstanding > 0.005) {
-    return NextResponse.json(
-      {
+    return {
+      refused: {
+        status: 400,
         error:
           outstanding > 0
             ? `That's more than the ${formatAppMoney(outstanding, invoice.company?.currency)} still owing on this invoice.`
             : "This invoice is already paid in full.",
       },
-      { status: 400 },
-    );
+    };
+  }
+  const DUPLICATE_WINDOW_MS = 15_000;
+  const justRecorded = familyRows.find(
+    (p) =>
+      Math.abs(Number(p.amount) - Number(amount)) < 0.005 &&
+      p.method === method &&
+      p.createdAt &&
+      Date.now() - new Date(p.createdAt).getTime() < DUPLICATE_WINDOW_MS,
+  );
+  if (justRecorded) {
+    return {
+      refused: {
+        status: 409,
+        error: `A ${method} payment of ${formatAppMoney(Number(amount), invoice.company?.currency)} was recorded on this invoice a moment ago. Refresh to see it; record another only if it really is a second payment.`,
+      },
+    };
   }
 
-  const payment = await db.payment.create({
+  const payment = await tx.payment.create({
     data: {
       // Against the current document, so a later amendment finds it in the
       // family and the idempotency of Stripe rows is untouched (this is a cash
@@ -170,7 +201,7 @@ export async function POST(request) {
   // Scoped by companyId as well as id — `invoice` is the latest version of a
   // family whose root was matched { id, companyId } above; the write is held
   // to the tenant directly, not through that chain (check:tenant-scope).
-  await db.invoice.update({
+  await tx.invoice.update({
     where: { id: invoice.id, companyId: member.companyId },
     data: {
       amountPaid: after.amountPaid,
@@ -180,6 +211,12 @@ export async function POST(request) {
       paidDate: after.isPaid ? new Date() : invoice.paidDate,
     },
   });
+  return { payment, after };
+  });
+  if (outcome.refused) {
+    return NextResponse.json({ error: outcome.refused.error }, { status: outcome.refused.status });
+  }
+  const { payment, after } = outcome;
 
   // Settled → the "follow up payment" reminder the send route raised has been
   // answered. Only on isPaid: a deposit is not a reason to stop chasing the

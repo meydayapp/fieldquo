@@ -65,6 +65,11 @@ const SITES = [
   ["app/api/payments/route.js", "manual payment resolves the latest version after proving the tenant", /latestInFamily\(db, scoped\.id/],
   ["app/api/payments/route.js", "...computes both before and after from the family", /payments: familyRows/],
   ["app/api/payments/route.js", "...and writes the cash row against the current document", /invoiceId: invoice\.id,/],
+  // Two identical POSTs fired together both landed (QA rerun, two rows 3 ms
+  // apart): the cap was read-then-write with nothing serialising the readers.
+  ["app/api/payments/route.js", "the manual payment runs read-check-write in ONE transaction under an advisory lock on the invoice", /db\.\$transaction\(async \(tx\) => \{[\s\S]{0,200}pg_advisory_xact_lock\(hashtext\(\$\{invoice\.id\}\)\)/],
+  ["app/api/payments/route.js", "...reads the family through the transaction's own client", /familyPayments\(tx, invoice\.id\)/],
+  ["app/api/payments/route.js", "...and refuses a same-amount, same-method repeat inside fifteen seconds as the double-click it is", /DUPLICATE_WINDOW_MS = 15_000[\s\S]{0,400}status: 409/],
   ["app/api/jobs/[id]/change-orders/bill/route.js", "change-order billing reads the family inside its transaction", /familyPayments\(tx, fresh\.id/],
   ["app/api/invoices/[id]/route.js", "a new version is created WITH the ledger, re-derived", /amountPaid: ledger\.amountPaid,[\s\S]{0,80}amountDue: ledger\.amountDue/],
   ["app/api/invoices/[id]/route.js", "...from the family's payments against the new total", /computeInvoiceState\(\{\s*total: total \?\? existing\.total,\s*payments: await familyPayments\(db, existing\.id\)/],

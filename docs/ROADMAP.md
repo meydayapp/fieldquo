@@ -8328,6 +8328,25 @@ was mine, fixed the same night:
   (`recentEntries` called without a pool). Voice pool only.
 - **`sales.fieldquo.com` was claimable** by a tenant — the same cookie-scope
   takeover the reserved list exists to prevent. Reserved.
+- **CRITICAL, found by the end-to-end agent on its last pass:** the shared
+  quote-number allocator read `Q-2026-0014-G` (a Good/Better/Best tier) as
+  no sequence, handed out `Q-2026-0001` again, and every "New quote" and
+  lead conversion for a company that had ever quoted in tiers 500'd on the
+  unique index. The tier route carried its own suffix-aware copy — the copy
+  nobody looked at was the correct one. One allocator now
+  (`lib/quotes/quoteNumber.js`, suffix-aware); the trio's suffixes are
+  distinct (`G`/`B`/`T` — better and best both got "B" before) and the
+  three rows are one transaction. `check:quote-number` executes it.
+- **Three readers of the cached invoice balance** (request-payment email,
+  lifecycle screen, PDF totals) recompute the family first; an invoice
+  amended before the family ledger existed had emailed a homeowner
+  $1,390.72 for a $1,190.72 balance. `scripts/backfill-invoice-family-ledger.mjs`
+  (dry by default) found zero drifted families in production.
+- The document's "sent" pill fell under 4.5:1 for seven brand colours —
+  measured wash pair now. Duplicate `US-TX`/`US-AZ` rows removed and
+  `no-dupe-keys` is a build error. Sales login, sales invite and platform
+  login are rate-limited (ten per fifteen minutes). The floor's held-count
+  sentence no longer says "sales_voice".
 - **`check:all` was red at HEAD** from this session: the new win-loss footer
   key had no catalogue entry in any of nine languages (and the reworded
   `undated` copy would have been overridden by the old "left draft" text —
