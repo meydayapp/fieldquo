@@ -261,7 +261,12 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    /* Full-strength ring. At 50% alpha the focus outline measured 2.24:1 in
+       dark and 2.89:1 in light against the card — under WCAG's 3:1 for a
+       focus indicator — on every surface, client-facing pages included. At
+       full strength it measures 4.99:1 and 12.14:1. Measured live by the
+       6 September QA rerun, not assumed. */
+    @apply border-border outline-ring;
   }
   body {
     @apply bg-background text-foreground;
