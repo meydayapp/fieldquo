@@ -439,6 +439,7 @@ function BuyNumberPanel({ onChanged }) {
             <option value="system">System — outbound From</option>
             <option value="shared_test">Shared test line — lent out</option>
             <option value="sales">Sales — FieldQuo&apos;s reps text from it</option>
+            <option value="sales_voice">Sales voice — reps call from it; contractors ring it back</option>
           </select>
         </label>
         <button
@@ -501,7 +502,9 @@ function BuyNumberPanel({ onChanged }) {
                 ? "system outbound number"
                 : purpose === "sales"
                   ? "sales number FieldQuo's reps text from"
-                  : "shared test line"}
+                  : purpose === "sales_voice"
+                    ? "sales voice number reps call from and contractors ring back — texts to it are not delivered, reps text from the Sales number"
+                    : "shared test line"}
             </strong>
             ?
             FieldQuo is billed monthly by Twilio from the moment it exists.

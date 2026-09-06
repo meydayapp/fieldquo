@@ -875,6 +875,49 @@ section("14. The write is read: the floor board shows what came in");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+section("14b. A sales_voice number can actually be BOUGHT");
+//
+// Everything above reads a purpose-"sales_voice" row — the caller id a rep
+// dials from, the number a contractor rings back, the pool the floor page
+// reports — and section 15's sentence tells the owner to "buy one under Crew
+// lines with the purpose set to Sales voice". For weeks nothing could write
+// one: PLATFORM_NUMBER_PURPOSES did not name it, the page did not offer it, and
+// no path created a row with it. An instruction pointing at a control that did
+// not exist — the failure AGENTS.md opens with — found the day the owner's
+// Twilio profile was approved and calling still could not go green. This
+// section holds the purchase path to the read path, so the two cannot drift
+// apart again.
+{
+  const buy = source("lib/crew/platformNumber.js");
+  ok(
+    "sales_voice is a purpose the purchase path accepts",
+    /PLATFORM_NUMBER_PURPOSES = \[[^\]]*"sales_voice"/.test(buy),
+  );
+  ok(
+    "…bought with its VOICE webhook pointed at the route that answers a ring-back",
+    /voiceWebhookUrlFor[\s\S]{0,200}"sales_voice"[\s\S]{0,80}\/api\/rep-dial\/inbound/.test(buy),
+  );
+  ok(
+    "…and the webhook is passed to Twilio only when there is one",
+    /\.\.\.\(voiceUrl \? \{ voiceUrl, voiceMethod: "POST" \} : \{\}\)/.test(buy),
+  );
+  ok(
+    "…and stored on the row, so the inbound route can prove the number is ours",
+    /create: \{[^}]*voiceUrl[^}]*\}/.test(buy) && /update: \{[^}]*voiceUrl[^}]*\}/.test(buy),
+  );
+  ok(
+    "a sales_voice number gets NO sms webhook (a text to it would be filed under nobody)",
+    /if \(purpose === "sales_voice"\) return null;/.test(buy),
+  );
+  const crewLines = source("app/platform/crew-lines/page.js");
+  ok("the crew-lines page offers the purpose", /<option value="sales_voice">/.test(crewLines));
+  ok(
+    "…and the purchase copy says texts to it are not delivered, rather than letting the owner find out",
+    /texts to it are not delivered/.test(crewLines),
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 section("15. What a superadmin is told about the pool");
 
 {
