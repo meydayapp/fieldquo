@@ -121,12 +121,16 @@ export default function PlatformGrowthPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <MetricCard label="Paying now" value={data ? count(data.measured.starting.paying) : UNKNOWN} note={data ? `${count(data.measured.starting.trialing)} in trial` : undefined} />
         <MetricCard label="Dials a day, last 30 days" value={data ? count(data.measured.actuals.dialsPerDayLast30) : UNKNOWN} note={data ? `${count(data.measured.repsActive)} active closers; plan assumes ${count(data.assumptions.reps)} × ${count(data.assumptions.dialsPerRepPerDay)}` : undefined} />
-        <MetricCard label="Paying adds a month" value={f ? f.monthly.payingAdds.toFixed(0) : UNKNOWN} note={f ? `${nf.format(f.monthly.dials)} dials → ${nf.format(f.monthly.reached)} reached → ${f.monthly.signups.total.toFixed(0)} signups` : "needs the rates"} />
+        {/* When the forecast is withheld these two are NOT "didn't load" — that
+            is MetricCard's sentence for a failed fetch, and it would be a lie
+            here: the fetch worked and the model declined. "Waiting" with the
+            reason is the true state. UNKNOWN stays for a real load failure. */}
+        <MetricCard label="Paying adds a month" value={f ? f.monthly.payingAdds.toFixed(0) : data ? "Waiting" : UNKNOWN} note={f ? `${nf.format(f.monthly.dials)} dials → ${nf.format(f.monthly.reached)} reached → ${f.monthly.signups.total.toFixed(0)} signups` : data ? "until the rates below are measured or typed" : undefined} />
         <MetricCard
           label="Ceiling"
-          value={f ? (f.viral ? "None" : f.ceiling === null ? "None" : count(f.ceiling)) : UNKNOWN}
+          value={f ? (f.viral ? "None" : f.ceiling === null ? "None" : count(f.ceiling)) : data ? "Waiting" : UNKNOWN}
           tone={f && !f.viral && f.ceiling !== null && f.ceiling < 10_000 ? "warning" : "default"}
-          note={f ? (f.viral ? "Referrals outrun churn — growth compounds without a cap" : f.ceiling === null ? "No churn assumed, so no cap" : "Paying subscribers converge here and never pass it: adds ÷ (churn − referral × conversion)") : undefined}
+          note={f ? (f.viral ? "Referrals outrun churn — growth compounds without a cap" : f.ceiling === null ? "No churn assumed, so no cap" : "Paying subscribers converge here and never pass it: adds ÷ (churn − referral × conversion)") : data ? "needs churn, conversion and referral" : undefined}
         />
       </div>
 
