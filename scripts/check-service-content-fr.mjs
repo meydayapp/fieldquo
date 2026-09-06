@@ -96,6 +96,21 @@ ok("the quote document route passes quote.language", /g\.takeoff,\s*quote\.langu
 ok("the invoice document route passes invoice.language", /g\.takeoff,\s*invoice\.language,\s*\)/.test(read("app/api/invoices/[id]/document/route.js")));
 ok("the PDF scope section passes its language", /g\.takeoff,[\s\S]{0,200}language,\s*\)/.test(read("lib/documentSections/ScopeGroupsSection.js")));
 ok("the process-steps section threads language into stepsFor", /stepsFor\(data, language\)/.test(read("lib/documentSections/ProcessStepsSection.js")));
+// The steps are built in three routes, separately from the prose. The first
+// deploy translated the prose and left "Measure and specify" under a French
+// quote, because these three were not told. Every dominantProcessSteps call
+// outside the library must name a language.
+for (const [file, lang] of [
+  ["app/api/public/quotes/[token]/route.js", "docLanguage"],
+  ["app/api/quotes/[id]/document/route.js", "quote\\.language"],
+  ["app/api/invoices/[id]/document/route.js", "invoice\\.language"],
+]) {
+  // Code lines only: the invoice route's comment mentions the call by name.
+  const src = read(file).split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
+  const calls = src.match(/dominantProcessSteps\(/g) || [];
+  const withLang = src.match(new RegExp(`dominantProcessSteps\\([\\s\\S]{0,400}?${lang},?\\s*\\)`, "g")) || [];
+  ok(`${file}: every dominantProcessSteps call passes the document's language`, calls.length > 0 && withLang.length === calls.length, { calls: calls.length, withLang: withLang.length });
+}
 
 console.log(`\ncheck-service-content-fr: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

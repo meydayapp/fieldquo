@@ -197,7 +197,7 @@ export async function GET(request, { params }) {
     // Skipped entirely with no quote behind the invoice: dominantProcessSteps([])
     // returns the GENERIC set, which is a reasonable default on a quote being
     // written and a fabrication on an invoice for work already done.
-    processSteps: scopeGroups.length ? dominantProcessSteps(forDominant) : [],
+    processSteps: scopeGroups.length ? dominantProcessSteps(forDominant, invoice.language) : [],
     glossary: scopeGroups.length ? dominantGlossary(forDominant) : [],
     processNotes:
       invoice.quote?.processNotes ||

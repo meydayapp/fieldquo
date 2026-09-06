@@ -128,7 +128,7 @@ export async function GET(request, { params }) {
   return NextResponse.json({
     groups,
     // Shown once, from the largest group by value — see dominantProcessSteps.
-    processSteps: dominantProcessSteps(forDominant),
+    processSteps: dominantProcessSteps(forDominant, quote.language),
     glossary: dominantGlossary(forDominant),
     // The quote's own words if it has them, else the company's default. This
     // is what actually prints, so the staff page must resolve it the same way

@@ -328,6 +328,10 @@ function present(quote) {
         override: g.companySettings || null,
         subtotal: num(g.subtotal),
       })),
+      // The same resolved language as the prose above — the first deploy of
+      // the French catalogue left "Measure and specify" under a French quote
+      // because this call, alone, was not told.
+      docLanguage,
     ),
     paymentTerms: quote.company?.paymentTerms || null,
     paymentSchedule: parsePaymentSchedule(quote.company?.paymentTerms),
