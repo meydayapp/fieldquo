@@ -8250,3 +8250,37 @@ fail the check.
 
 What this means for the owner: **buy one 343 number with purpose Sales** and
 calling and texting both go green on it. Two numbers are no longer needed.
+
+## Every source we have access to is in the bucket (6 September 2026)
+
+R2 bucket `fieldquo-lead-storage`, uploaded through Cloudflare's API with
+wrangler (the S3 endpoint refuses a TLS handshake from the owner's machine
+for any R2 hostname; the API path needed an account token with Workers R2
+Storage: Edit — the R2-page token is S3-only). 80 files, 1.32M rows:
+
+| Prefix | Source | Files | Rows |
+|---|---|---|---|
+| `overture/` | Overture places, US + CA, field-service categories | 70 | 918,244 |
+| `registers/` | RBQ Québec licence register (CC-BY 4.0) | 2 | 54,275 |
+| `registers/` | California CSLB master licence file | 5 | 226,172 |
+| `registers/` | Washington L&I licences (PDDL) | 2 | 75,887 |
+| `registers/` | Oregon CCB licences (public domain) | 1 | 45,527 |
+
+Register parts are split at 50k rows with the header's `count` rewritten
+per part, because `readSnapshot()` refuses a count that disagrees with the
+rows (right), and the provider reads the whole body per page (so file size
+is the per-minute cost). Every part was executed through its provider's
+reader before upload. Builders: `scripts/rbq-snapshot.mjs`,
+`scripts/us-board-snapshot.mjs`; the California download had to be fetched
+with curl and resume (the script's fetch was cut twice at 27 MB and 8 MB).
+
+Manifests: `~/fieldquo-snapshots/campaign-manifest.json` (70) and
+`registers-manifest.json` (10, built by `build-registers-manifest.mjs`);
+`create-campaigns.js` loads both, fills `${BASE_URL}`, creates once by
+name, and STARTS the callable ones — Washington's two parts and the eight
+gated US states stay drafts. **Blocked on one thing: the bucket's public
+r2.dev URL**, which only the owner can enable (Settings → Public access).
+
+**Memory, before the load runs:** three unbounded per-provider caches
+became one bounded LRU (`lib/sales/discovery/snapshotCache.js`, 120k rows)
+— see that file's header for the failure it prevents.
