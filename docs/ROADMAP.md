@@ -7857,11 +7857,14 @@ was throughput, and the data.
   need an HTTPS host the pipeline can GET (R2/S3), which is the owner's step.
 - **Ten jurisdictions require telemarketer registration** before a first call
   and are refused by `lib/sales/callingRules.js` until `registration.done` is
-  flipped: Canada (National DNCL, free), WA, TX, NJ, UT, MS, RI, OH, CO. That
-  gates ALL thirteen Canadian jurisdictions and eight US states — 22 of the 70
-  files; the other 48 (US) are callable today and run first. The DNCL
-  registration is free and unlocks the home market, so it is the one to do
-  first.
+  flipped: WA, TX, NJ, UT, MS, RI, OH, CO — eight US states, 9 of the 70 files.
+  Canada's National DNCL registration was FILED on 6 September 2026 (FieldQuo
+  Inc., CBN 791503840, as an exempt B2B caller with its own reps; confirmation
+  pending) and its flag is set on the owner's instruction, so all thirteen
+  Canadian files run with the 48 callable US ones: 61 campaigns first, 9 held.
+  The flag was only ever a warning on the rep's screen, not a refusal — the
+  evaluator never refused a call on it — so what changed for reps is the
+  warning, not their ability to dial.
 - **Trade is not a playbook axis yet — by decision.** The four tier playbooks
   (competitor detected / no website / website without booking / email-only
   quotes) ship as they are, personalised per prospect by talking points that

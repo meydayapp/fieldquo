@@ -163,9 +163,15 @@ ok("Canada is the CRTC window, 09:00–21:30 weekday and 10:00–18:00 weekend",
     r.window.weekend.startMinute === 600 && r.window.weekend.endMinute === 1080
   );
 })());
-ok("Canada carries the National DNCL registration flag, unfiled",
+// Flipped 2026-09-06 when the owner filed the registration. Held to the RECORD
+// beside the flag, not to the boolean alone: a `done: true` with no filing
+// behind it would be a claim nobody made, which is the failure this repo is
+// swept for. The confirmation number is null until the operator sends it.
+ok("Canada's National DNCL registration is FILED, with the filing record beside the flag",
   CALLING_JURISDICTIONS.CA.registration?.required === true &&
-  CALLING_JURISDICTIONS.CA.registration?.done === false);
+  CALLING_JURISDICTIONS.CA.registration?.done === true &&
+  CALLING_JURISDICTIONS.CA.registration?.filing?.cbn === "791503840" &&
+  CALLING_JURISDICTIONS.CA.registration?.filing?.organization === "FieldQuo Inc.");
 
 // Nevada is the row that proves the table can say "read, and imposes nothing"
 // without that collapsing into "unread". Two different absences, two different
@@ -685,8 +691,12 @@ ok("Washington warns that registration is outstanding, and still evaluates the h
   const r = salesCallReadiness({ prospect: us("WA"), now: at("2026-09-03T15:00:00Z") });
   return r.decision === CALL_ALLOWED && r.warnings.some((w) => w.code === "registration_outstanding");
 })());
-ok("Canada warns that the National DNCL registration is outstanding",
-  salesCallReadiness({ prospect: { country: "CA", province: "AB" }, timeZone: "America/Edmonton", now: at("2026-09-03T17:00:00Z") })
+// Filed 2026-09-06 (FieldQuo Inc., CBN 791503840). The warning that used to
+// stand here is gone BECAUSE the table's flag flipped, and that is the whole
+// claim this line makes: a rep dialling Alberta sees no registration warning.
+// If it ever comes back — a revert, a refiled table — this is where it shows.
+ok("Canada no longer warns about the National DNCL registration, now that it is filed",
+  !salesCallReadiness({ prospect: { country: "CA", province: "AB" }, timeZone: "America/Edmonton", now: at("2026-09-03T17:00:00Z") })
     .warnings.some((w) => w.code === "registration_outstanding"));
 // Texas is now the case that proves a warning does NOT gate the call: its
 // registration is outstanding and unexempted, and the dial still goes ahead
