@@ -95,7 +95,14 @@ export async function GET(request) {
         _count: true,
         _sum: { amountDue: true },
       }),
-      db.booking.count({ where: { companyId, status: "pending_payment" } }),
+      // Booking has no companyId of its own; it belongs to a company through
+      // its event type. Filtering on a column the model lacks was a Prisma
+      // validation error, so this endpoint was a 500 on EVERY call and the
+      // cancel screen silently showed no consequences at all — "1 invoice,
+      // $1,190.72 unpaid" and "1 active service plan" dropped on the floor,
+      // on the one screen where a contractor must see them. Found live by the
+      // 6 September QA rerun.
+      db.booking.count({ where: { eventType: { companyId }, status: "pending_payment" } }),
       db.companySite.findUnique({
         where: { companyId },
         select: { published: true, subdomain: true },

@@ -127,7 +127,10 @@ export async function GET(request) {
     // what made the contractor press "Set it up" a second time.
     heldNumber(member.companyId),
     balanceFor(member.companyId),
-    recentEntries(member.companyId, 20),
+    // The VOICE pool only. Without the pool this listed every wallet's rows —
+    // AI top-ups and AI spends under a "US$0.00 voice balance" headline, a
+    // statement that contradicted itself on the same screen.
+    recentEntries(member.companyId, 20, "voice"),
     db.company.findUnique({
       where: { id: member.companyId },
       // `name` travels because the greeting field has to be checked against it.

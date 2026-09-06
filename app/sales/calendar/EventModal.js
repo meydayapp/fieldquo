@@ -142,7 +142,7 @@ export default function EventModal({ initial, leads, onClose, onSaved }) {
           <h2 className="font-semibold text-foreground">
             {editing ? "Edit event" : "New event"}
           </h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground" aria-label="Close">
+          <button onClick={onClose} className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-muted-foreground hover:text-foreground" aria-label="Close">
             <X size={18} />
           </button>
         </div>

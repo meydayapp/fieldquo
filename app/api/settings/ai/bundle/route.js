@@ -19,6 +19,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusalPlain } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { getAppOrigin } from "@/lib/appUrl";
+import { recordError } from "@/lib/platform/errorLog";
 import { isAiConfigured } from "@/lib/ai/provider";
 import { BUNDLES } from "@/lib/ai/imageEconomics";
 import {
@@ -29,6 +30,7 @@ import {
   aiCreditBundleFor,
   publicAiBundle,
   BUNDLE_ROLLOVER_NOTICE,
+  bundleAvailability,
 } from "@/lib/ai/creditBundle";
 import { stripe } from "@/lib/stripe";
 
@@ -103,6 +105,14 @@ export async function POST(request) {
   const company = await db.company.findUnique({ where: { id: member.companyId } });
   if (!company) return NextResponse.json({ error: "Company not found" }, { status: 404 });
 
+  // Refused BEFORE Stripe is asked, with the reason in words — see
+  // bundleAvailability. Stripe would refuse anyway; it just would not say why
+  // in a sentence a contractor can use.
+  const availability = bundleAvailability(company.currency);
+  if (!availability.ok) {
+    return NextResponse.json({ error: availability.reason, reason: "currency_locked" }, { status: 409 });
+  }
+
   const origin = getAppOrigin(request);
 
   let result;
@@ -113,9 +123,25 @@ export async function POST(request) {
       successUrl: `${origin}/app/settings/ai-credit?aibundle={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${origin}/app/settings/ai-credit`,
     });
-  } catch {
+  } catch (err) {
+    // Logged where the owner looks, and Stripe's own sentence forwarded. The
+    // first version said "couldn't reach the payment provider" for every
+    // failure, including Stripe reachable and REFUSING — which sent the QA
+    // rerun to Stripe's status page for what was a currency lock.
+    await recordError({
+      area: "billing",
+      code: err?.code || err?.type || null,
+      message: `AI bundle checkout failed: ${err?.message}`,
+      companyId: member.companyId,
+      detail: { bundleKey: bundle.key, currency: company.currency },
+    }).catch(() => {});
     return NextResponse.json(
-      { error: "Couldn't reach the payment provider just now. Nothing was charged.", reason: "stripe_unavailable" },
+      {
+        error: err?.message
+          ? `Stripe refused to start that plan: ${err.message}`
+          : "Couldn't reach the payment provider just now. Nothing was charged.",
+        reason: err?.message ? "stripe_refused" : "stripe_unavailable",
+      },
       { status: 502 },
     );
   }

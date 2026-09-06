@@ -363,7 +363,11 @@ const startOfLastMonthNow = new Date(NOW.getFullYear(), NOW.getMonth() - 1, 1);
 // would make this check fail at midnight on the 1st for reasons that have
 // nothing to do with the code.
 const windowOf = (where = {}) => {
-  const range = where.updatedAt || where.createdAt || where.date || {};
+  // paidDate first: since 2026-09-06 the overview dates paid revenue by the
+  // date it was PAID (Invoice.paidDate) and accepted quotes by acceptedAt,
+  // not by updatedAt, which moved on any edit. acceptedAt is listed for the
+  // same reason.
+  const range = where.paidDate || where.acceptedAt || where.updatedAt || where.createdAt || where.date || {};
   if (range.lt) return "prior";
   if (range.gte && range.gte.getMonth() === 0 && range.gte.getDate() === 1 &&
       range.gte < startOfMonthNow) return "ytd";
@@ -446,7 +450,7 @@ ok("...as last month's SENT count", established.priorQuotesSent === 12, establis
 // series would compare two different questions and report the difference
 // between the definitions as a change in the business.
 const priorRevenueQuery = calls.find(
-  (c) => c.model === "invoice" && c.op === "aggregate" && c.where?.updatedAt?.lt,
+  (c) => c.model === "invoice" && c.op === "aggregate" && c.where?.paidDate?.lt,
 );
 ok("last month's revenue is read from invoices", Boolean(priorRevenueQuery));
 ok(

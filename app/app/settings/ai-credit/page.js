@@ -389,14 +389,22 @@ export default function AiCreditPage() {
                     images: imagesFor(b.credits),
                   })}
                 </p>
+                {/* Off, with the reason, when this company cannot start one —
+                    a CAD-billed customer cannot add a USD subscription. A
+                    live button that 502s is the failure this repo is swept
+                    for; the sentence comes from the server so it is the same
+                    one the API would answer. */}
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={busy || ai.bundleAvailable?.ok === false}
                   onClick={() => subscribeBundle(b.key)}
                   className="mt-3 px-4 py-2 rounded-full border border-border text-sm text-foreground hover:bg-muted disabled:opacity-50"
                 >
                   {t("app.setAiCredit.subscribe", "Subscribe")}
                 </button>
+                {ai.bundleAvailable?.ok === false && (
+                  <p className="text-xs text-muted-foreground mt-2">{ai.bundleAvailable.reason}</p>
+                )}
               </div>
             ))}
           </div>

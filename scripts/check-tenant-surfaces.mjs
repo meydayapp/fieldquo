@@ -202,7 +202,11 @@ for (const file of BOOK_PAGES) {
   // Read to COMPUTE something, never forwarded. Named individually: the point
   // of the check is that "it was only for the tax statement" has to be a claim
   // someone made on purpose, not the default for anything that goes missing.
-  const COMPUTED_ONLY = new Set(["taxEnabled", "createdAt"]);
+  // parentInvoiceId and version joined on 2026-09-06 with the invoice family
+  // ledger: the route reads them to keep only the LATEST version of each
+  // amended invoice on offer (lib/invoices/family.js latestPerFamily), and a
+  // homeowner has no use for either — the version they see IS the invoice.
+  const COMPUTED_ONLY = new Set(["taxEnabled", "createdAt", "parentInvoiceId", "version"]);
   for (const field of selected) {
     ok(
       `the portal payload forwards or explicitly withholds \`${field}\``,

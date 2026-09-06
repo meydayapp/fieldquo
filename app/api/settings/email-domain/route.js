@@ -227,7 +227,13 @@ export async function POST(request) {
     // Only now, and only if it is genuinely a different registration. Best
     // effort: an orphan left on the Resend account is untidy, and a company
     // unable to send is not — so a failure here must not undo the row above.
-    if (previousDomainId && previousDomainId !== created.id) {
+    // …and NEVER when the previous registration is FieldQuo's own domain. A
+    // tenant row can point at fieldquo.com (the QA night's adoption did, and
+    // the read side was guarded on 2026-09-06 while this write side was not),
+    // and "tidy up the old registration" would then be Resend deleting the
+    // platform sender for every company. The row is repointed; the platform
+    // domain is left exactly where it is.
+    if (previousDomainId && previousDomainId !== created.id && !isPlatformEmailDomain(company?.emailDomain)) {
       await deleteDomain(previousDomainId).catch(() => {});
     }
 
@@ -280,9 +286,15 @@ export async function DELETE(request) {
     select: SELECT,
   });
 
-  if (company?.emailDomainId) {
-    // Best-effort: if Resend already lost it, clearing our side is still the
-    // right outcome — otherwise the company is stuck unable to re-add it.
+  // Best-effort: if Resend already lost it, clearing our side is still the
+  // right outcome — otherwise the company is stuck unable to re-add it.
+  //
+  // But NEVER for FieldQuo's own domain. If a tenant row points at
+  // fieldquo.com — the QA night's adoption did, before the adoption route
+  // refused it — "remove my sending domain" must un-adopt the row and leave
+  // the platform sender standing. Without this line the button was one click
+  // from Resend deleting the From address of every company on the platform.
+  if (company?.emailDomainId && !isPlatformEmailDomain(company?.emailDomain)) {
     await deleteDomain(company.emailDomainId).catch(() => {});
   }
 

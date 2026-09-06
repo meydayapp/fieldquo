@@ -54,7 +54,17 @@ export async function POST(request) {
   const limited = rateLimit(request, "self-quote");
   if (limited) return limited;
 
-  const body = await request.json();
+  // Guarded like its three siblings (leads/public, booking confirm, portal
+  // pay): a truncated or malformed body from a phone on a bad connection is
+  // a 400 with a sentence, not a bodyless 500. The 43fb94d fix covered those
+  // three and missed this one — the QA rerun found the fourth.
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== "object") {
+    return NextResponse.json(
+      { error: "We couldn't read that request. Please try again." },
+      { status: 400 },
+    );
+  }
   const {
     companySlug,
     name,

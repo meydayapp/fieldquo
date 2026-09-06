@@ -8284,3 +8284,69 @@ r2.dev URL**, which only the owner can enable (Settings → Public access).
 **Memory, before the load runs:** three unbounded per-provider caches
 became one bounded LRU (`lib/sales/discovery/snapshotCache.js`, 120k rows)
 — see that file's header for the failure it prevents.
+
+## The QA rerun's fixes (night of 6 September 2026)
+
+Eighteen agents re-ran the 23 test types against production and compared
+every finding to the morning's. Nothing regressed. What they found that
+was mine, fixed the same night:
+
+- **A tenant row still pointed at `fieldquo.com`** (the morning's SQL revert
+  had not been run), and the tenant's *delete* and *repoint* paths would have
+  called Resend's delete on the platform domain — one click from taking
+  down every company's From address. Both writes now refuse a platform
+  domain (`isPlatformEmailDomain`, the same one function the read side
+  uses); the row was un-adopted; `check:platform-email-domain` holds six
+  readers/writers to the rule.
+- **The KPI dashboard said "3 won" beside a win-loss page saying 5**: the KPI
+  route still pre-filtered quotes by `sentAt` before handing them to the
+  shared builder. Same membership rule as the win-loss route now.
+- **The calendar discarded every correction**: a linked lead's snapshot won
+  over what the rep typed, on every save, because the modal resends
+  `leadId`. Typed wins, snapshot fills blanks, re-snapshot only when the
+  lead changes (`contactFields`, `leadChanged` in `lib/sales/calendar/event.js`);
+  a start moved past the standing end is refused. `check:sales-calendar`.
+- **`/api/self-quote`** was the one public intake the earlier bodyless-500
+  fix missed. Guarded like its siblings.
+- **"Choose plan" on a subscribed company opened a SECOND subscription** and
+  cancelled nothing — two charges, one row. A live subscription is now moved
+  in place (`changeSubscriptionPlan`: Stripe's own item swap, prorated, the
+  running trial kept, same currency), the row updated at once, and the page
+  reloads on `changed` instead of redirecting to a Checkout that isn't there.
+- **The cancel screen's consequences endpoint was a 500 on every call** —
+  a `Booking` filter on a column the model doesn't have — so "1 invoice,
+  $1,190.72 unpaid" was silently dropped from the one screen that must show
+  it. Filtered through the event type now.
+- **The AI-credit bundle 502'd for every CAD company** and said "couldn't
+  reach the payment provider": the bundle is a USD subscription and Stripe
+  locks a customer to one currency across subscriptions. The rule is in one
+  place (`bundleAvailability`), the route refuses with the reason before
+  Stripe is asked, Stripe's own message is forwarded and logged when it does
+  refuse, and the page turns the button off with the sentence. **Pricing the
+  bundle in CAD is the real fix and is a price decision — the owner's.**
+- **The voice page listed the AI wallet's rows under a $0 voice balance**
+  (`recentEntries` called without a pool). Voice pool only.
+- **`sales.fieldquo.com` was claimable** by a tenant — the same cookie-scope
+  takeover the reserved list exists to prevent. Reserved.
+- **`check:all` was red at HEAD** from this session: the new win-loss footer
+  key had no catalogue entry in any of nine languages (and the reworded
+  `undated` copy would have been overridden by the old "left draft" text —
+  both now in all nine), the tenant-surfaces check needed `parentInvoiceId`
+  and `version` declared computed-only, the growth pin assumed it was last
+  in the chain, and the refund check's Prisma stub predated the family
+  ledger. All green.
+
+**Found, not mine to decide at night — for the owner:** signup takes a card
+under a "First month · Free" headline, and a company that closes the Stripe
+tab gets a working dashboard with no banner, then a 307 to `/signup` after
+60 minutes (`lib/signup/setupGate.js`); the public Google Maps key is not
+referrer-restricted (set `GOOGLE_MAPS_SERVER_KEY` first, then restrict the
+public key to `*.fieldquo.com` in the Google console); sales payout batches
+can never be marked paid; login endpoints have no rate limit; the onboarding
+checklist ticks "Set your pricing" for a trade priced by default; email
+verification is never surfaced in `/app`. Full list: the rerun's
+consolidated report.
+
+**The rerun's own limit:** the shared browser holds nine tabs, and eighteen
+agents contended for them; roughly half the areas were verified from code
+and unauthenticated probes only. A second, smaller wave covers the rest.

@@ -21,6 +21,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
 import { memberOrRefusalPlain } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { isAiConfigured } from "@/lib/ai/provider";
@@ -33,7 +34,7 @@ import {
   ratePerMinute,
   TOPUP_OPTIONS,
 } from "@/lib/voice/credits";
-import { aiCreditBundleFor, publicAiBundle, BUNDLE_ROLLOVER_NOTICE } from "@/lib/ai/creditBundle";
+import { aiCreditBundleFor, publicAiBundle, BUNDLE_ROLLOVER_NOTICE, bundleAvailability } from "@/lib/ai/creditBundle";
 
 export async function GET(request) {
   const { member, refusal } = await memberOrRefusalPlain(request);
@@ -60,6 +61,7 @@ export async function GET(request) {
     }
   }
 
+  const companyRow = await db.company.findUnique({ where: { id: member.companyId }, select: { currency: true } });
   const [voiceCents, aiCents, voiceEntries, aiEntries, bundleRow] = await Promise.all([
     balanceFor(member.companyId, undefined, POOLS.VOICE),
     balanceFor(member.companyId, undefined, POOLS.AI),
@@ -103,6 +105,11 @@ export async function GET(request) {
       bundles: BUNDLES,
       bundle: publicAiBundle(bundleRow),
       bundleRolloverNotice: BUNDLE_ROLLOVER_NOTICE,
+      // Whether the bundle button can work for THIS company — a CAD-billed
+      // customer cannot add a USD subscription (Stripe's currency lock). The
+      // page turns the button off and prints the reason rather than offering
+      // a control that 502s.
+      bundleAvailable: bundleAvailability(companyRow?.currency),
     },
   });
 }

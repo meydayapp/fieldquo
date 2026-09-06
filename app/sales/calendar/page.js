@@ -148,7 +148,7 @@ export default function SalesCalendarPage() {
       {error ? (
         <div className="rounded-xl border border-red-300 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-300">
           {error}{" "}
-          <button onClick={load} className="underline font-medium">Try again</button>
+          <button onClick={load} className="underline font-medium py-2 min-h-[44px]">Try again</button>
         </div>
       ) : (
         <div className="overflow-x-auto">

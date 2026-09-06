@@ -26,6 +26,7 @@ import {
   parseWhen,
   clean,
   shapeEvent,
+  contactFields,
 } from "@/lib/sales/calendar/event";
 
 export async function GET(request) {
@@ -113,10 +114,9 @@ export async function POST(request) {
       notes: clean(body.notes, 4000),
       status: "scheduled",
       leadId,
-      businessName: snapshot?.businessName ?? clean(body.businessName, 200),
-      contactName: snapshot?.contactName ?? clean(body.contactName, 200),
-      phone: snapshot?.phone ?? clean(body.phone, 60),
-      website: snapshot?.website ?? clean(body.website, 300),
+      // Typed wins, snapshot fills — lib/sales/calendar/event.js contactFields
+      // says why the other order silently discarded every correction.
+      ...contactFields(body, snapshot),
     },
   });
 

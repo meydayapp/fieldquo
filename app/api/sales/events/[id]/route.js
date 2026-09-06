@@ -20,6 +20,8 @@ import {
   parseWhen,
   clean,
   shapeEvent,
+  contactFields,
+  leadChanged,
 } from "@/lib/sales/calendar/event";
 
 export async function GET(request, { params }) {
@@ -53,7 +55,9 @@ export async function PATCH(request, { params }) {
   // id from another rep is a 404 and never reaches the update below.
   const existing = await db.salesEvent.findFirst({
     where: { id, salesRepId: rep.id },
-    select: { id: true, startAt: true },
+    // leadId: so a resent lead is told apart from a re-link. endAt: so a start
+    // moved past the standing end is refused rather than saved backwards.
+    select: { id: true, startAt: true, endAt: true, leadId: true },
   });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -86,6 +90,12 @@ export async function PATCH(request, { params }) {
     }
     data.startAt = startAt;
     nextStart = startAt;
+    // A start moved past the standing end, with no new end sent, would save
+    // an event that ends before it begins. The UI always sends both; the API
+    // is what a curl sends.
+    if (body.endAt === undefined && existing.endAt && existing.endAt.getTime() <= startAt.getTime()) {
+      return NextResponse.json({ error: "The end time has to be after the start." }, { status: 400 });
+    }
   }
   if (body.endAt !== undefined) {
     if (body.endAt === null || body.endAt === "") {
@@ -108,29 +118,28 @@ export async function PATCH(request, { params }) {
   // Re-linking to a different lead re-snapshots the contact from THAT lead,
   // scoped to this rep. Passing leadId: null unlinks and leaves the snapshot
   // standing, so the card still says who it was with.
-  if (body.leadId !== undefined) {
+  //
+  // Only when the lead actually CHANGES. The modal resends leadId on every
+  // save, and the first version re-snapshotted on every save — so a rep who
+  // corrected the phone and pressed Save got the lead's number back, every
+  // time, and never saw why. leadChanged() is the one place that rule lives.
+  let snapshot = null;
+  if (leadChanged(body.leadId, existing.leadId)) {
     if (body.leadId === null || body.leadId === "") {
       data.leadId = null;
     } else if (typeof body.leadId === "string") {
-      const snapshot = await leadContactSnapshot(body.leadId, rep.id);
-      if (snapshot) {
-        data.leadId = body.leadId;
-        data.businessName = snapshot.businessName;
-        data.contactName = snapshot.contactName;
-        data.phone = snapshot.phone;
-        data.website = snapshot.website;
-      }
+      snapshot = await leadContactSnapshot(body.leadId, rep.id);
+      // The id the rep-scoped lookup returned, not the one the body carried
+      // — the same rule the create route follows (tenant-scope rule 4).
+      if (snapshot) data.leadId = snapshot.id ?? body.leadId;
     }
   }
-  // Direct edits to the snapshot fields, when no lead re-link overrode them.
-  if (body.businessName !== undefined && data.businessName === undefined)
-    data.businessName = clean(body.businessName, 200);
-  if (body.contactName !== undefined && data.contactName === undefined)
-    data.contactName = clean(body.contactName, 200);
-  if (body.phone !== undefined && data.phone === undefined)
-    data.phone = clean(body.phone, 60);
-  if (body.website !== undefined && data.website === undefined)
-    data.website = clean(body.website, 300);
+  // Typed wins, a fresh snapshot fills the blanks, and a field the body did
+  // not mention is left exactly as stored.
+  const typed = contactFields(body, snapshot);
+  for (const key of ["businessName", "contactName", "phone", "website"]) {
+    if (body[key] !== undefined || snapshot) data[key] = typed[key];
+  }
 
   const updated = await db.salesEvent.update({
     where: { id: existing.id },

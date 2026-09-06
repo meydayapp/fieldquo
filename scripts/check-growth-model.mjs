@@ -204,7 +204,9 @@ const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
   const sidebar = read("app/components/platform/PlatformSidebar.js");
   ok("the sidebar links the page (check-nav-audit would refuse the build otherwise)", /href: "\/platform\/growth"/.test(sidebar));
   const pkg = read("package.json");
-  ok("the check is in check:all", /check:growth-model"$/m.test(pkg) || /npm run check:growth-model"/.test(pkg));
+  // Anywhere in the chain — the first version assumed it was last, and broke
+  // the moment the next check was appended after it.
+  ok("the check is in check:all", /npm run check:growth-model( &&|")/.test(pkg));
 }
 
 console.log(`\ncheck-growth-model: ${passed} passed, ${failed} failed`);

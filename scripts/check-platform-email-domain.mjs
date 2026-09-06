@@ -59,6 +59,12 @@ for (const [input, want] of [
 // ── 2. Every reader consults it ────────────────────────────────────────────
 const READERS = [
   ["app/api/settings/email-domain/route.js", "the adoption route refuses a platform domain", /isPlatformEmailDomain\(requested\)/],
+  // The two WRITE paths that reach Resend's delete. A tenant row pointing at
+  // fieldquo.com (the QA night's adoption) made "remove my domain" one click
+  // from deleting the platform sender for everyone; the read side was
+  // guarded on 2026-09-06 and these were not, until the rerun found it.
+  ["app/api/settings/email-domain/route.js", "DELETE never calls Resend's delete on a platform domain", /company\?\.emailDomainId && !isPlatformEmailDomain\(company\?\.emailDomain\)/],
+  ["app/api/settings/email-domain/route.js", "repointing never deletes a platform domain as the 'previous' registration", /previousDomainId !== created\.id && !isPlatformEmailDomain\(company\?\.emailDomain\)/],
   ["lib/email/platformSender.js", "the platform sender treats a platform domain as its own even if a tenant row claims it", /isPlatformEmailDomain\(d\.name\)\s*\|\|\s*!claimedIds\.has\(d\.id\)/],
   ["lib/email/resend.js", "the tenant sender never sends as a platform domain", /!isPlatformEmailDomain\(company\.emailDomain\)/],
   ["app/api/platform/email-health/domains/route.js", "the health page reports a platform domain usable regardless of a claim", /isPlatformEmailDomain\(d\.name\)\s*\|\|\s*!claimedBy\.has\(d\.id\)/],

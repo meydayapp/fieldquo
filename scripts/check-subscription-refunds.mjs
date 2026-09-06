@@ -318,11 +318,26 @@ function fakeDb({ payments = [], subscriptions = [], invoices = [], bundles = []
     payment: {
       findFirst: async ({ where }) => find(store.payments, where),
       update: async ({ where, data }) => Object.assign(find(store.payments, where), data),
+      // The family's payments — lib/invoices/family.js familyPayments() reads
+      // every payment across root + versions when the ledger is refreshed.
+      findMany: async ({ where }) => {
+        const ids = where?.invoiceId?.in || (where?.invoiceId ? [where.invoiceId] : null);
+        return store.payments.filter((p) => !ids || ids.includes(p.invoiceId));
+      },
     },
     invoice: {
       findUnique: async ({ where }) => {
         const inv = find(store.invoices, where);
         return inv ? { ...inv, payments: store.payments.filter((p) => p.invoiceId === inv.id) } : null;
+      },
+      // The invoice FAMILY (root + versions) — lib/invoices/family.js asks for
+      // it on every ledger refresh since the X1 fix; a stub without it made
+      // this check fail on a query the refund path legitimately makes.
+      findMany: async ({ where }) => {
+        const rootId = where?.OR?.[0]?.id;
+        return store.invoices
+          .filter((i) => i.id === rootId || i.parentInvoiceId === rootId)
+          .map((i) => ({ id: i.id, version: i.version ?? 1, parentInvoiceId: i.parentInvoiceId ?? null }));
       },
       update: async ({ where, data }) => Object.assign(find(store.invoices, where), data),
     },

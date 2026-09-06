@@ -141,6 +141,7 @@ export default function PlatformGrowthPage() {
             <h2 className="font-semibold">Milestones</h2>
             <p className="text-xs text-muted-foreground">When each target is crossed at the current rates. Horizon {f.inputs.horizonMonths} months.</p>
           </div>
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <tbody>
               {f.milestones.map((m) => (
@@ -159,6 +160,7 @@ export default function PlatformGrowthPage() {
               ))}
             </tbody>
           </table>
+          </div>
           {f.listRunwayMonths !== null && (
             <p className="px-4 py-2 text-xs text-muted-foreground border-t border-border">
               {nf.format(f.inputs.listSize)} prospects loaded: {f.listRunwayMonths} months of dialling at this pace{f.listExhaustedAt ? `, running out in ${series[f.listExhaustedAt]?.label}` : ""}. After that the model stops inventing dials, so the curve turns down unless more prospects are loaded.
@@ -194,6 +196,7 @@ export default function PlatformGrowthPage() {
             <h2 className="font-semibold">The rates</h2>
             <p className="text-xs text-muted-foreground">Measured from the pipeline once the floor is met; the saved assumption until then. A missing one stops the forecast rather than being guessed.</p>
           </div>
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <tbody>
               {[...RATE_KEYS.map((k) => [k, data.measured.rates[k]]), ["organic", data.measured.organic]].map(([k, r]) => (
@@ -208,6 +211,7 @@ export default function PlatformGrowthPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </section>
       )}
 

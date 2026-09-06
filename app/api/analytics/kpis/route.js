@@ -170,12 +170,26 @@ export async function GET(request) {
     safetyIncidentsInRange,
     approvedHoursAgg,
   ] = await Promise.all([
+      // The SAME membership rule as app/api/analytics/win-loss/route.js: in
+      // the period by send date, or — never stamped sent — by the date it was
+      // accepted or declined. The win-loss page got this on 2026-09-06 and
+      // this route did not, so the KPI card said "3 won" beside a win-loss
+      // page and a quotes list that both said 5. One builder, two feeds;
+      // the feeds must agree or the builder's agreement means nothing.
       db.quote.findMany({
-        where: { companyId, status: { in: QUOTE_OUT_STATUSES }, sentAt: { gte, lte } },
+        where: {
+          companyId,
+          status: { in: QUOTE_OUT_STATUSES },
+          OR: [
+            { sentAt: { gte, lte } },
+            { sentAt: null, acceptedAt: { gte, lte } },
+            { sentAt: null, declinedAt: { gte, lte } },
+          ],
+        },
         select: QUOTE_SELECT,
       }),
       db.quote.count({
-        where: { companyId, status: { in: QUOTE_OUT_STATUSES }, sentAt: null },
+        where: { companyId, status: { in: QUOTE_OUT_STATUSES }, sentAt: null, acceptedAt: null, declinedAt: null },
       }),
       db.leadRequest.findMany({
         where: { companyId, createdAt: { gte, lte } },

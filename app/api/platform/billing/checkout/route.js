@@ -9,7 +9,9 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
-import { createBillingCheckoutSession } from "@/lib/platform/stripeBilling";
+import { createBillingCheckoutSession, changeSubscriptionPlan } from "@/lib/platform/stripeBilling";
+import { stripeCurrency } from "@/lib/currency";
+import { recordError } from "@/lib/platform/errorLog";
 import { getAppOrigin } from "@/lib/appUrl";
 import { resolveCheckoutInterval } from "@/lib/billing/interval";
 
@@ -86,6 +88,40 @@ export async function POST(request) {
     return NextResponse.json({ error: cadence.error }, { status: 400 });
   }
   const { interval } = cadence;
+
+  // A company that already HAS a live subscription is changing plan, not
+  // buying a second one. Opening Checkout here created a second subscription
+  // on the same customer and cancelled nothing — see changeSubscriptionPlan
+  // for the rest. `canceled` falls through to Checkout on purpose: that is a
+  // genuinely new subscription.
+  const existing = await db.subscription.findUnique({ where: { companyId: member.companyId } });
+  const LIVE = new Set(["active", "trialing", "past_due"]);
+  if (existing?.stripeSubscriptionId && LIVE.has(existing.status)) {
+    if (existing.planId === plan.id && (existing.billingInterval || "month") === interval) {
+      return NextResponse.json({ changed: false, note: "You're already on that plan." });
+    }
+    try {
+      const result = await changeSubscriptionPlan({
+        subscription: existing,
+        plan,
+        interval,
+        currency: stripeCurrency(company?.currency),
+      });
+      return NextResponse.json({ changed: true, planId: result.planId, interval: result.interval });
+    } catch (err) {
+      await recordError({
+        area: "billing",
+        code: err?.code || err?.type || null,
+        message: `Plan change failed: ${err?.message}`,
+        companyId: member.companyId,
+        detail: { fromPlanId: existing.planId, toPlanId: plan.id, interval },
+      }).catch(() => {});
+      return NextResponse.json(
+        { error: err?.message ? `Stripe couldn't change the plan: ${err.message}` : "Couldn't change the plan just now. Nothing was changed." },
+        { status: 502 },
+      );
+    }
+  }
 
   const baseUrl = getAppOrigin(request);
 

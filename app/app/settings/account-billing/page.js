@@ -275,6 +275,15 @@ function AccountBillingScreen() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t("app.billing.checkoutFailed", "Could not start checkout"));
+      // A company already subscribed is moved in place (no Checkout, no
+      // second subscription) and the server answers `changed` instead of a
+      // URL. Reload so the page reads the new plan off the row.
+      if (data.changed !== undefined) {
+        if (data.changed === false && data.note) setError(data.note);
+        else window.location.href = "/app/settings/account-billing?reconcile=1";
+        setBusyPlanId(null);
+        return;
+      }
       window.location.href = data.checkoutUrl;
     } catch (err) {
       setError(err.message);
