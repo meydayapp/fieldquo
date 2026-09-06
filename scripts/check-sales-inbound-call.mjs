@@ -145,7 +145,12 @@ function fnBody(rel, signature) {
 }
 
 const ROUTE = "app/api/rep-dial/inbound/route.js";
-const OUR_NUMBER = { id: "n1", e164: "+19185550100", purpose: "sales_voice", active: true };
+const OUR_NUMBER = { id: "n1", e164: "+19185550100", purpose: "sales_voice", active: true, voiceUrl: "https://www.fieldquo.com/api/rep-dial/inbound" };
+// The team's ONE number (owner's decision, 2026-09-06): purpose "sales", bought
+// with both webhooks. And the same purpose bought BEFORE that day — text-only
+// at Twilio, no voice URL on the row — which must not answer a ring-back.
+const TEAM_NUMBER = { id: "n2", e164: "+13435550100", purpose: "sales", active: true, voiceUrl: "https://www.fieldquo.com/api/rep-dial/inbound" };
+const OLD_TEXT_ONLY = { id: "n3", e164: "+13435550199", purpose: "sales", active: true, voiceUrl: null };
 const CALLER = "+19185559911";
 const DESK = "+16135550123";
 const NOW = new Date("2026-09-04T21:30:00Z");
@@ -606,14 +611,14 @@ function stubClient({ attempts = [], numbers = [] } = {}) {
     platformSmsNumber: {
       findFirst: async (args) => {
         calls.push(["number.findFirst", args]);
-        return (
-          numbers.find(
-            (n) =>
-              n.e164 === args.where.e164 &&
-              n.purpose === args.where.purpose &&
-              n.active === args.where.active,
-          ) || null
-        );
+        const w = args.where || {};
+        // Prisma shapes the store now uses: `purpose: { in: [...] }` and
+        // `voiceUrl: { not: null }`. A stub that ignored either would let a
+        // text-only Sales number "answer" a ring-back it cannot take.
+        const purposeOk = (n) =>
+          w.purpose && typeof w.purpose === "object" ? w.purpose.in.includes(n.purpose) : n.purpose === w.purpose;
+        const voiceOk = (n) => (w.voiceUrl && w.voiceUrl.not === null ? n.voiceUrl != null : true);
+        return numbers.find((n) => n.e164 === w.e164 && purposeOk(n) && n.active === w.active && voiceOk(n)) || null;
       },
     },
   };
@@ -762,11 +767,17 @@ function stubClient({ attempts = [], numbers = [] } = {}) {
 }
 
 {
-  const client = stubClient({ numbers: [OUR_NUMBER, { ...OUR_NUMBER, e164: "+15145550111", purpose: "system" }] });
+  const client = stubClient({ numbers: [OUR_NUMBER, TEAM_NUMBER, OLD_TEXT_ONLY, { ...OUR_NUMBER, e164: "+15145550111", purpose: "system" }] });
   const row = await salesVoiceNumber(OUR_NUMBER.e164, { client });
   ok("a sales_voice number resolves", row?.e164 === OUR_NUMBER.e164);
   const q = client.calls.find((c) => c[0] === "number.findFirst")?.[1]?.where || {};
-  ok("…scoped to the purpose in the query", q.purpose === "sales_voice");
+  ok("…scoped to BOTH voice purposes in the query — the team's Sales number calls too",
+    Array.isArray(q.purpose?.in) && q.purpose.in.includes("sales") && q.purpose.in.includes("sales_voice"), q.purpose);
+  ok("…and to a row that carries a voice webhook", q.voiceUrl?.not === null, q.voiceUrl);
+  ok("the team's Sales number (bought with both webhooks) resolves",
+    (await salesVoiceNumber(TEAM_NUMBER.e164, { client }))?.e164 === TEAM_NUMBER.e164);
+  ok("a Sales number bought text-only, before the change, does NOT — Twilio would not ring the route for it",
+    (await salesVoiceNumber(OLD_TEXT_ONLY.e164, { client })) === null);
   ok("…and to an active number", q.active === true);
   ok(
     "a tenant-serving system number is NOT a sales voice number",
@@ -906,8 +917,27 @@ section("14b. A sales_voice number can actually be BOUGHT");
     /PLATFORM_NUMBER_PURPOSES = \[[^\]]*"sales_voice"/.test(buy),
   );
   ok(
-    "…bought with its VOICE webhook pointed at the route that answers a ring-back",
-    /voiceWebhookUrlFor[\s\S]{0,200}"sales_voice"[\s\S]{0,80}\/api\/rep-dial\/inbound/.test(buy),
+    "…bought with its VOICE webhook pointed at the route that answers a ring-back — for BOTH voice purposes",
+    /VOICE_PURPOSES = Object\.freeze\(\["sales", "sales_voice"\]\)/.test(buy) &&
+      /VOICE_PURPOSES\.includes\(purpose\) \? `\$\{base\}\/api\/rep-dial\/inbound` : null/.test(buy),
+  );
+  // The purchase side and the read side name the same two purposes. Held
+  // together here because a purpose bought with a voice webhook that the
+  // store does not name would ring a route that refuses to know the number.
+  const store = source("lib/sales/calls/store.js");
+  ok(
+    "the store's SALES_VOICE_PURPOSES is the purchase side's VOICE_PURPOSES, verbatim",
+    /SALES_VOICE_PURPOSES = Object\.freeze\(\["sales", "sales_voice"\]\)/.test(store),
+  );
+  ok(
+    "…and the caller-id pool also requires a voice webhook on the row",
+    /purpose: \{ in: SALES_VOICE_PURPOSES \}, active: true, voiceUrl: \{ not: null \}/.test(store) &&
+      (store.match(/voiceUrl: \{ not: null \}/g) || []).length >= 2,
+  );
+  ok(
+    "the Sales option says it calls AND texts, and Sales voice says call-only",
+    /reps call and text from it; contractors ring it back/.test(source("app/platform/crew-lines/page.js")) &&
+      /call-only, for a second number/.test(source("app/platform/crew-lines/page.js")),
   );
   ok(
     "…and the webhook is passed to Twilio only when there is one",

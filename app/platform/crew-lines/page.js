@@ -438,8 +438,8 @@ function BuyNumberPanel({ onChanged }) {
           >
             <option value="system">System — outbound From</option>
             <option value="shared_test">Shared test line — lent out</option>
-            <option value="sales">Sales — FieldQuo&apos;s reps text from it</option>
-            <option value="sales_voice">Sales voice — reps call from it; contractors ring it back</option>
+            <option value="sales">Sales — the team&apos;s number: reps call and text from it; contractors ring it back</option>
+            <option value="sales_voice">Sales voice — call-only, for a second number in another area code</option>
           </select>
         </label>
         <button
@@ -501,9 +501,9 @@ function BuyNumberPanel({ onChanged }) {
               {purpose === "system"
                 ? "system outbound number"
                 : purpose === "sales"
-                  ? "sales number FieldQuo's reps text from"
+                  ? "sales team's number — reps call AND text from it, and contractors ring it back"
                   : purpose === "sales_voice"
-                    ? "sales voice number reps call from and contractors ring back — texts to it are not delivered, reps text from the Sales number"
+                    ? "call-only sales number (another area code) — texts to it are not delivered, reps text from the Sales number"
                     : "shared test line"}
             </strong>
             ?

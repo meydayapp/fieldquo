@@ -8226,3 +8226,27 @@ dialler does not explain — organic signups (a monthly count) and referral
 **Not tracked, said on the page:** seasonality, price changes, rep ramp-up,
 and cost — this is a subscriber count, not a P&L. The P&L needs the inputs
 listed under "what the owner still has to supply" in the session notes.
+
+## The sales team has ONE number, and it calls and texts (6 September 2026)
+
+The owner's decision, answering the design question left open when
+`sales_voice` became purchasable: a contractor called from one number and
+texted from another sees two strangers. So the **Sales** purpose now buys a
+number with BOTH webhooks — `/api/sms/inbound` for texts, `/api/rep-dial/inbound`
+for a ring-back — and is the caller id, the ring-back number and the texting
+number at once. **Sales voice** stays as a call-only purpose for a second
+pool number in another area code (reps still text from the team's Sales
+number, because a STOP has to land where the texts came from). Crew AI
+texting is untouched: it lives on `system` / `shared_test` numbers.
+
+Read side: `SALES_VOICE_PURPOSES = ["sales", "sales_voice"]` in
+`lib/sales/calls/store.js`, twin of `VOICE_PURPOSES` on the purchase side,
+held together by `check-sales-inbound-call`. Both pool queries also require
+`voiceUrl` on the row: a Sales number bought before this day is text-only at
+Twilio, and answering for it would claim a ring-back path the carrier does
+not have. None were held, so nothing needs re-buying. Mutation-tested: the
+store forgetting "sales" and the pool dropping the webhook requirement both
+fail the check.
+
+What this means for the owner: **buy one 343 number with purpose Sales** and
+calling and texting both go green on it. Two numbers are no longer needed.
