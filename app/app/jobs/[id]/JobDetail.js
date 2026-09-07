@@ -176,6 +176,10 @@ export default function JobDetail({ jobId }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // True right after THIS screen flipped the job to completed: the cost
+  // review opens itself once. A job that arrives already completed shows the
+  // review card instead and waits to be clicked.
+  const [reviewPrompt, setReviewPrompt] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -218,6 +222,7 @@ export default function JobDetail({ jobId }) {
         throw new Error(d?.error || "Couldn't update status.");
       }
       await load();
+      if (status === "completed") setReviewPrompt(true);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -558,7 +563,16 @@ export default function JobDetail({ jobId }) {
       {/* Visits */}
       {/* What the job has actually cost. Renders itself away when nothing has
           been recorded and for anyone without the jobCosting toggle. */}
-      <JobCosting jobId={job.id} />
+      <JobCosting
+        jobId={job.id}
+        jobStatus={job.status}
+        costReviewedAt={job.costReviewedAt}
+        autoOpenReview={reviewPrompt}
+        onReviewed={() => {
+          setReviewPrompt(false);
+          load();
+        }}
+      />
 
       {/* Scope changes agreed after the quote was accepted — see the
           ChangeOrder model's own header for why this is a deliberate log,

@@ -5,7 +5,8 @@
 // ══ Why this needs to exist at all ══════════════════════════════════════════
 //
 // See lib/billing/renewalReminder.js for the citations behind the two
-// windows (7 days monthly, 30 days annual) and the ONE thing this repo cannot
+// window (30 days, ANNUAL plans only — monthly gets no reminder, by the
+// owner's decision of 2026-09-07) and the ONE thing this repo cannot
 // verify from inside itself: Stripe can send its OWN "upcoming renewal" email
 // — a fixed, uncustomisable 7-days-before notice, toggled on or off for every
 // customer at once in Settings → Billing → Subscriptions and emails. If that

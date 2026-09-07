@@ -17,6 +17,7 @@
 import { useEffect, useState } from "react";
 import { Receipt, Clock, AlertTriangle, Building2, Unlink } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import CostReview from "@/app/components/jobs/CostReview";
 
 /** A window's end, in the reader's own locale. Dates only — the hour a window
  *  opened is noise on a figure measured in days. */
@@ -28,9 +29,20 @@ function fmtDay(iso) {
     : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-export default function JobCosting({ jobId }) {
+export default function JobCosting({ jobId, jobStatus, costReviewedAt, autoOpenReview = false, onReviewed }) {
   const { t } = useTranslation();
   const [data, setData] = useState(null);
+  // Bumped after the review modal adds an expense, so the panel re-reads the
+  // actual it is showing rather than the one it loaded a minute ago.
+  const [reloadKey, setReloadKey] = useState(0);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  // A completed job nobody has closed out yet. The prompt exists because the
+  // comparison used to measure the estimate against whatever happened to be
+  // recorded, and nothing ever asked whether that was all of it.
+  const needsReview = jobStatus === "completed" && !costReviewedAt;
+  useEffect(() => {
+    if (autoOpenReview && needsReview) setReviewOpen(true);
+  }, [autoOpenReview, needsReview]);
 
   useEffect(() => {
     if (!jobId) return;
@@ -44,7 +56,7 @@ export default function JobCosting({ jobId }) {
     return () => {
       live = false;
     };
-  }, [jobId]);
+  }, [jobId, reloadKey]);
 
   if (!data?.actual) return null;
 
@@ -89,7 +101,9 @@ export default function JobCosting({ jobId }) {
   // no job at all. Hiding the panel there hides the one sentence that explains
   // why the job looks untouched.
   const hasUnattributed = Boolean(unattributed && unattributed.hours > 0);
-  if (nothingRecorded && comparison.revenue == null && !hasChanges && !hasUnattributed)
+  // Nothing recorded AND nothing to ask: no panel. A completed job with nothing
+  // recorded is the opposite case — that is exactly the job that needs asking.
+  if (nothingRecorded && comparison.revenue == null && !hasChanges && !hasUnattributed && !needsReview)
     return null;
 
   // Currency comes from the endpoint, which reads it off the company. Not a
@@ -108,6 +122,42 @@ export default function JobCosting({ jobId }) {
       <h2 className="font-semibold text-foreground mb-4">
         {t("app.jobCosting.title", "What this job has cost")}
       </h2>
+      {/* ── The close-out ────────────────────────────────────────────────
+          A completed job carries either a review date or a prompt. Never
+          neither: the estimate-accuracy report rolls this job up, and a job
+          nobody closed out is a half-recorded actual presented as a record. */}
+      {jobStatus === "completed" && (
+        costReviewedAt ? (
+          <p className="mb-4 text-xs text-muted-foreground">
+            {t("app.jobCosting.reviewedOn", "Actual cost reviewed on {date}.", { date: fmtDay(costReviewedAt) })}{" "}
+            <button type="button" onClick={() => setReviewOpen(true)} className="underline min-h-[44px]">
+              {t("app.jobCosting.reviewAgain", "Review again")}
+            </button>
+          </p>
+        ) : (
+          <div className="mb-4 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 p-3 flex flex-wrap items-center gap-3">
+            <div className="flex-1 min-w-[14rem] text-sm text-amber-900 dark:text-amber-200">
+              <strong>{t("app.jobCosting.reviewCardTitle", "This job is done — is its cost?")}</strong>{" "}
+              {t("app.jobCosting.reviewCardBody", "Approve the hours, add any receipt that isn't here, and confirm the actual so the comparison with the quote means something.")}
+            </div>
+            <button type="button" onClick={() => setReviewOpen(true)} className="min-h-[44px] px-4 rounded-full bg-amber-900 text-white dark:bg-amber-200 dark:text-amber-950 text-sm font-semibold">
+              {t("app.jobCosting.reviewButton", "Review actual costs")}
+            </button>
+          </div>
+        )
+      )}
+      {reviewOpen && (
+        <CostReview
+          jobId={jobId}
+          data={data}
+          onClose={() => setReviewOpen(false)}
+          onChanged={() => setReloadKey((k) => k + 1)}
+          onReviewed={() => {
+            setReviewOpen(false);
+            onReviewed?.();
+          }}
+        />
+      )}
 
       <div
         className={`grid gap-4 ${actual.overhead ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}

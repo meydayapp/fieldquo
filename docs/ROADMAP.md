@@ -8399,6 +8399,53 @@ price-book rows and stay whatever the company typed; a bilingual price book
 is the next piece and is a schema change. Other languages: none of the
 catalogue prose exists yet.
 
+## Renewal reminders are for annual plans; a completed job asks what it cost (7 September 2026)
+
+**Renewals.** Monthly subscribers no longer get an advance "you'll be
+charged" email — the owner's decision: a charge that recurs every thirty
+days needs no letter, and the letter trained people to ignore the one that
+matters. Annual plans keep the 30-day notice (inside California's 15–45-day
+ARL window). A TRIAL keeps a 7-day notice before its first real charge on
+any cadence, because that is a different event and the card networks ask
+for it. The module's header had Mastercard's rule inverted — it reads
+"every six months or less frequently", i.e. semi-annual and annual, not
+monthly — corrected, and flagged for the acquirer to confirm.
+`check:renewal-reminders` proves a monthly row is never due at any distance.
+
+**Job close-out.** The estimate-versus-actual comparison
+(`lib/costing/actualJobCost.js`) has existed since job costing shipped;
+what did not exist was any moment that asked somebody to make the ACTUAL
+side complete, so the comparison — and the estimate-accuracy report that
+rolls it up — measured estimates against half-recorded jobs. Now:
+completing a job raises a task ("Review what X actually cost", due in three
+days, beside the existing "ask for a review" task); the job page opens a
+close-out once after it completed the job and shows a prompt card on any
+completed, un-reviewed job; the close-out shows estimate, actual, variance,
+invoiced and margin, names what is still missing (pending or unrated
+hours, with a link to approve them), adds a material or receipt through
+the ONE expense API tagged to the job, and signs off through
+`POST /api/jobs/[id]/costing/review` (gated like the costing screen AND the
+job's own edit; refuses a job not completed), which stamps
+`Job.costReviewedAt`, keeps a note, and settles the task. Strings in nine
+languages. `check:job-cost-review`.
+
+How the comparison works, for the record: the quote's estimate is recipe
+hours × an assumed labour rate + materials + an overhead share
+(`lib/costing/quoteCostEstimate.js`, saved as `QuoteCosting` when the quote
+is priced, derived from the scope otherwise); the actual is expenses tagged
+to the job + APPROVED hours × each worker's cost rate + equipment use +
+overhead per job; `compareJobCost` gives variance against the estimate and
+margin against what was invoiced, with nulls kept as nulls. Nothing feeds
+actuals back into future estimates automatically — the accuracy report is
+the feedback, and adjusting the price book is the contractor's call. A
+"your kitchens run 18% over — raise the recipe hours?" nudge is the next
+piece, and a product decision.
+
+**Named, not fixed:** ten older `app.jobCosting.*` keys exist in only two to
+six of the nine catalogues (contractValue, noQuoteNote, unattributedNote,
+unattributedFix, …) — the panel's earlier strings were never fully
+translated.
+
 **Two decisions recorded the same day:** the AI-credit bundle is USD-only
 (FieldQuo buys the AI in USD; rates move) — a CAD company sees the sentence,
 not a button; and the card IS required at signup, so the fix for "First

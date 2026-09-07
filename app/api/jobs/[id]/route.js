@@ -14,6 +14,7 @@ import {
 } from "@/lib/permissions/enforce";
 import {
   taskForCompletedJob,
+  taskForJobCostReview,
   resolveTaskBySource,
 } from "@/lib/tasks/autoCreate";
 import { recordActivity } from "@/lib/activity/log";
@@ -241,6 +242,10 @@ export async function PATCH(request, { params }) {
   // "wasn't completed before" test — and the task's own sourceKey makes a
   // reopen-then-recomplete a no-op rather than a second nag.
   if (completing) await taskForCompletedJob(id);
+  // ...and the cost close-out. Two tasks, two different people usually: the
+  // review request is a client-facing nicety; this one is the bookkeeping
+  // the margin figure depends on. See taskForJobCostReview.
+  if (completing) await taskForJobCostReview(id);
 
   // ── "Schedule the job for X" outlives the reason it exists ─────────────
   //

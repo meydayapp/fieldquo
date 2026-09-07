@@ -3576,6 +3576,13 @@ model Job {
   /// for a review every time it does is the fastest way to have a customer mute
   /// you. `reviewRequestedAt` is the once-only guard.
   completedAt       DateTime?
+  /// When somebody looked at what this job ACTUALLY cost — approved the hours,
+  /// tagged the receipts, said "that's complete" — after it was completed.
+  /// Null on a completed job is the prompt: the estimate is being compared
+  /// against a half-recorded actual until this is set. Never set by code on
+  /// its own; the review endpoint sets it, and only a person calls that.
+  costReviewedAt    DateTime?
+  costReviewNote    String?
   reviewRequestedAt DateTime?
 
   /// The one-question satisfaction rating (1–5, optional comment), sent

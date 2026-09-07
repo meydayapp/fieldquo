@@ -33,32 +33,48 @@ const DAY = 24 * 60 * 60 * 1000;
 const daysOut = (d) => new Date(NOW.getTime() + d * DAY);
 
 // ═══════════════════════════════════════════════════════════════════════════
-console.log("\nThe two windows, and where they came from");
-// See lib/billing/renewalReminder.js's file header for the citations:
-// Mastercard's own floor for ≤6-month billing is 7 days; California's ARL
-// window for a one-year term is 15–45 days and 30 sits inside it.
-ok("monthly gets 7 days", RENEWAL_WINDOW_DAYS.month === 7);
+console.log("\nOne window — annual — and where it came from");
+// See lib/billing/renewalReminder.js's file header. The owner's decision of
+// 2026-09-07: a monthly plan gets NO advance reminder (it renews every thirty
+// days; the letter is noise), an annual plan gets 30 days — inside
+// California's 15–45-day ARL window for a one-year term. Mastercard's 7–30-day
+// reminder rule is for cadences of six months or LESS FREQUENT, so it does
+// not ask for the monthly one either; the first version of this file had that
+// rule inverted.
 ok("annual gets 30 days", RENEWAL_WINDOW_DAYS.year === 30);
-ok("annual is materially longer than monthly — a year's charge is not a decision made in a week",
-  RENEWAL_WINDOW_DAYS.year > RENEWAL_WINDOW_DAYS.month * 2);
-ok("an unrecognised cadence gets the shorter, safer window, same default as lib/billing/interval.js",
-  windowDaysFor("fortnight") === RENEWAL_WINDOW_DAYS.month);
-ok("so does no cadence at all", windowDaysFor(undefined) === RENEWAL_WINDOW_DAYS.month);
+ok("monthly has NO window", !("month" in RENEWAL_WINDOW_DAYS) && windowDaysFor("month") === null);
+ok("an unrecognised cadence is treated as monthly and gets none", windowDaysFor("fortnight") === null);
+ok("so does no cadence at all", windowDaysFor(undefined) === null);
 
 // ═══════════════════════════════════════════════════════════════════════════
-console.log("\nA subscription renewing inside the window gets EXACTLY one reminder");
-{
-  const periodEnd = daysOut(5); // inside the 7-day monthly window
-  const first = decideRenewalReminder({
+console.log("\nA MONTHLY subscription never gets one, however close the charge is");
+for (const periodEnd of [daysOut(1), daysOut(5), daysOut(7), daysOut(29)]) {
+  const d = decideRenewalReminder({
     status: "active", billingInterval: "month", currentPeriodEnd: periodEnd,
+    renewalRemindedPeriodEnd: null, now: NOW,
+  });
+  ok(`monthly, ${Math.round((periodEnd - NOW) / 864e5)} days out → no reminder, and the reason says why`,
+    d.send === false && d.reason === "not_annual", d);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+console.log("\nAn ANNUAL subscription renewing inside the window gets EXACTLY one reminder");
+{
+  const periodEnd = daysOut(20); // inside the 30-day annual window
+  const first = decideRenewalReminder({
+    status: "active", billingInterval: "year", currentPeriodEnd: periodEnd,
     renewalRemindedPeriodEnd: null, now: NOW,
   });
   ok("first look: due", first.send === true, first);
   ok("...and it names the period it's for", first.periodEnd?.getTime() === periodEnd.getTime());
+  ok("...but not at 31 days out", decideRenewalReminder({
+    status: "active", billingInterval: "year", currentPeriodEnd: daysOut(31),
+    renewalRemindedPeriodEnd: null, now: NOW,
+  }).send === false);
 
   // Simulate the cron's claim: renewalRemindedPeriodEnd now equals this period.
   const second = decideRenewalReminder({
-    status: "active", billingInterval: "month", currentPeriodEnd: periodEnd,
+    status: "active", billingInterval: "year", currentPeriodEnd: periodEnd,
     renewalRemindedPeriodEnd: periodEnd, now: NOW,
   });
   ok("second look, same period → not due again", second.send === false && second.reason === "already_reminded", second);
@@ -66,18 +82,18 @@ console.log("\nA subscription renewing inside the window gets EXACTLY one remind
   // A cron that runs twice IN THE SAME DAY (the literal case in the task) —
   // two independent calls with the post-claim state must agree.
   const rerun = decideRenewalReminder({
-    status: "active", billingInterval: "month", currentPeriodEnd: periodEnd,
+    status: "active", billingInterval: "year", currentPeriodEnd: periodEnd,
     renewalRemindedPeriodEnd: periodEnd, now: new Date(NOW.getTime() + 60 * 1000),
   });
   ok("...and a run a minute later agrees", rerun.send === false);
 
-  // A cron REPLAYED NEXT MONTH — Stripe has renewed, currentPeriodEnd has
+  // A cron REPLAYED NEXT YEAR — Stripe has renewed, currentPeriodEnd has
   // advanced, and the OLD reminded-marker must not suppress the NEW period.
-  const nextPeriodEnd = daysOut(35); // roughly a month past the first period
+  const nextPeriodEnd = daysOut(385); // a year past the first period
   const laterRun = decideRenewalReminder({
-    status: "active", billingInterval: "month", currentPeriodEnd: nextPeriodEnd,
+    status: "active", billingInterval: "year", currentPeriodEnd: nextPeriodEnd,
     renewalRemindedPeriodEnd: periodEnd, // still holds the OLD period
-    now: daysOut(30),
+    now: daysOut(360),
   });
   ok("next period's reminder is not suppressed by last period's marker",
     laterRun.send === true && laterRun.periodEnd?.getTime() === nextPeriodEnd.getTime(), laterRun);
@@ -111,7 +127,7 @@ console.log("\npast_due: excluded, and the reasoning is the grace-period one, no
   ok("...for the SAME reason class as cancelled (not_renewing_<status>), not a fallthrough",
     d.reason === "not_renewing_past_due", d.reason);
   ok("past_due's real message lives in the grace-period system, not here",
-    RENEWAL_WINDOW_DAYS.month === 7 && true); // documents intent; see lib/billing/access.js
+    RENEWAL_WINDOW_DAYS.year === 30 && !("month" in RENEWAL_WINDOW_DAYS)); // documents intent; see lib/billing/access.js
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -129,29 +145,31 @@ console.log("\nTrialing converts to paid the same way a renewal renews");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-console.log("\nMonthly and annual get their OWN windows — proved at the boundary, not just as constants");
-for (const [interval, edge] of [["month", 7], ["year", 30]]) {
+console.log("\nThe annual window and the trial notice — proved at the boundary, not just as constants");
+for (const [label, status, interval, edge] of [["annual renewal", "active", "year", 30], ["monthly TRIAL ending", "trialing", "month", 7]]) {
   const atEdge = decideRenewalReminder({
-    status: "active", billingInterval: interval, currentPeriodEnd: daysOut(edge),
+    status, billingInterval: interval, currentPeriodEnd: daysOut(edge),
     renewalRemindedPeriodEnd: null, now: NOW,
   });
-  ok(`${interval}: exactly ${edge} days out is IN the window`, atEdge.send === true, atEdge);
+  ok(`${label}: exactly ${edge} days out is IN the window`, atEdge.send === true, atEdge);
 
   const justOutside = decideRenewalReminder({
-    status: "active", billingInterval: interval, currentPeriodEnd: daysOut(edge + 0.5),
+    status, billingInterval: interval, currentPeriodEnd: daysOut(edge + 0.5),
     renewalRemindedPeriodEnd: null, now: NOW,
   });
-  ok(`${interval}: ${edge + 0.5} days out is NOT yet in the window`,
+  ok(`${label}: ${edge + 0.5} days out is NOT yet in the window`,
     justOutside.send === false && justOutside.reason === "not_yet_in_window", justOutside);
 }
-// The pair that actually proves they're independent: the SAME date, ten days
-// out, is due for annual and not yet due for monthly.
+// The pair that proves the cadences are independent: the SAME date, ten days
+// out, is due for an annual renewal and never due for a monthly one.
 {
   const period = daysOut(10);
   const monthly = decideRenewalReminder({ status: "active", billingInterval: "month", currentPeriodEnd: period, renewalRemindedPeriodEnd: null, now: NOW });
   const annual = decideRenewalReminder({ status: "active", billingInterval: "year", currentPeriodEnd: period, renewalRemindedPeriodEnd: null, now: NOW });
-  ok("10 days out: monthly is NOT due yet", monthly.send === false, monthly);
+  ok("10 days out: monthly is not due — and never will be", monthly.send === false && monthly.reason === "not_annual", monthly);
   ok("10 days out: annual IS due — same date, different cadence, different answer", annual.send === true, annual);
+  ok("an annual TRIAL ten days out is due on the annual window, not the trial one",
+    decideRenewalReminder({ status: "trialing", billingInterval: "year", currentPeriodEnd: period, renewalRemindedPeriodEnd: null, now: NOW }).send === true);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
