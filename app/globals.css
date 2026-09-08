@@ -279,6 +279,59 @@
   }
 }
 
+/* ── The bottom dock: one rule for everything pinned to the bottom edge ────
+ *
+ * Three kinds of thing compete for the bottom of the /app viewport: the
+ * mobile tab bar (below lg), a page's own Save / Send bar, and the floating
+ * launchers (Jennifer, the quote builder's Help) plus the error toast. They
+ * used to be positioned independently, each with its own copy of
+ * `calc(4rem + env(safe-area-inset-bottom))`, and none of them knew about
+ * the others — so "Chat with Jennifer" sat directly on top of Save & send,
+ * and Help sat on top of Jennifer.
+ *
+ * Two variables, read by everything and written by exactly one thing each:
+ *
+ *   --fq-tab-bar-height  what MobileTabBar occupies. Set in CSS by the /app
+ *                        shell (.fq-app-shell) below lg, 0 from lg up where
+ *                        the tab bar stops rendering. 0 outside /app — the
+ *                        marketing site mounts Jennifer too and has no bar.
+ *   --fq-dock-height     what the current page's sticky action bar occupies.
+ *                        Written to <html> by app/hooks/useBottomDock.js,
+ *                        measured from the bar itself, 0 when no bar is
+ *                        mounted.
+ *
+ * A bar sits at bottom: var(--fq-tab-bar-height). A launcher sits at
+ * bottom: calc(both + gap). The <main> padding is the sum, so the last field
+ * on a page can never end up under either. Change the tab bar's row height
+ * in ONE place (--fq-tab-bar-row) and every consumer follows.
+ *
+ * Rejected alternative: moving the launchers to the bottom-LEFT on pages
+ * with a right-aligned save bar. It only moves the collision — the bars
+ * span the full width, the left side is where a bar puts its status text
+ * and hints, and on a phone a bottom-left launcher is as much in the way of
+ * a full-width Save button as a bottom-right one. Riding ABOVE the bar is
+ * the only position that is clear of it at every width.
+ *
+ * `.fq-app-shell` rather than `:root` for the tab-bar term because the tab
+ * bar is a fact about /app, not about the document; custom properties
+ * inherit down the DOM tree regardless of `position: fixed`, so a launcher
+ * rendered inside the shell reads the shell's value. Unlayered, like the
+ * iOS rule below, so it cannot lose to a utility. */
+:root {
+  --fq-tab-bar-row: 4rem;
+  --fq-tab-bar-height: 0px;
+  --fq-dock-height: 0px;
+}
+.fq-app-shell {
+  --fq-tab-bar-height: calc(var(--fq-tab-bar-row) + env(safe-area-inset-bottom));
+}
+/* 64rem is Tailwind's `lg`, the breakpoint MobileTabBar hides at (lg:hidden). */
+@media (min-width: 64rem) {
+  .fq-app-shell {
+    --fq-tab-bar-height: 0px;
+  }
+}
+
 /* ── iOS Safari auto-zoom, fixed at the source ────────────────────────────
  *
  * Safari zooms the whole page in whenever a focused input/select/textarea

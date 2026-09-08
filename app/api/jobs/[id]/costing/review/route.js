@@ -30,6 +30,7 @@ import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { hasToggle, assignedJobWhere, requireLevel } from "@/lib/permissions/enforce";
 import { resolveTaskBySource, jobCostReviewKey } from "@/lib/tasks/autoCreate";
 import { recordActivity } from "@/lib/activity/log";
+import { normaliseRevisionDecision } from "@/lib/costing/costRevision";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -53,10 +54,19 @@ export async function POST(request, { params }) {
     body = {};
   }
   const note = typeof body.note === "string" ? body.note.trim().slice(0, 2000) || null : null;
+  // ── The threshold decision, when completing IS the decision ──────────────
+  //
+  // The modal's "The cost is complete" button says, under itself, that
+  // completing while the "update your costing?" prompt is still open counts
+  // as leaving the costing as it is — and sends that explicitly. Absent or
+  // unrecognised here means "this request did not decide" and touches
+  // nothing: an already-recorded decision must survive a second review, and
+  // a bare completion on a job under the threshold must not stamp one.
+  const revisionDecision = normaliseRevisionDecision(body.revisionDecision);
 
   const job = await db.job.findFirst({
     where: { id, companyId: member.companyId, ...assignedJobWhere(full) },
-    select: { id: true, title: true, status: true, costReviewedAt: true },
+    select: { id: true, title: true, status: true, costReviewedAt: true, costRevisionDecision: true },
   });
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (job.status !== "completed") {
@@ -68,10 +78,18 @@ export async function POST(request, { params }) {
     );
   }
 
+  // A job decides once. A decision already on the row wins over one sent
+  // now — the prompt never showed on this review, so nothing sent with it
+  // can have been an answer to it.
+  const decides = Boolean(revisionDecision) && !job.costRevisionDecision;
   const updated = await db.job.update({
     where: { id: job.id, companyId: member.companyId },
-    data: { costReviewedAt: new Date(), costReviewNote: note },
-    select: { id: true, costReviewedAt: true, costReviewNote: true },
+    data: {
+      costReviewedAt: new Date(),
+      costReviewNote: note,
+      ...(decides && { costRevisionDecision: revisionDecision, costRevisionDecidedAt: new Date() }),
+    },
+    select: { id: true, costReviewedAt: true, costReviewNote: true, costRevisionDecision: true, costRevisionDecidedAt: true },
   });
   await resolveTaskBySource(jobCostReviewKey(job.id));
   await recordActivity(member, {
@@ -79,7 +97,7 @@ export async function POST(request, { params }) {
     entityType: "job",
     entityId: job.id,
     summary: `Reviewed the actual cost of ${job.title}${job.costReviewedAt ? " (again)" : ""}`,
-    metadata: { jobId: job.id, note },
+    metadata: { jobId: job.id, note, revisionDecision: decides ? revisionDecision : null },
   });
   return NextResponse.json(updated);
 }

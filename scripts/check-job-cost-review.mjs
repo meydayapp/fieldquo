@@ -38,7 +38,8 @@ ok("the review endpoint proves the tenant and the assigned-jobs scope", /company
 ok("...is gated on the jobCosting toggle like the costing screen", /hasToggle\(full, "jobCosting"\)/.test(review));
 ok("...and on the job's own EDIT level", /requireLevel\(full, "jobs", "view_create_edit", "edit jobs"\)/.test(review));
 ok("...refuses a job that is not completed", /job\.status !== "completed"/.test(review) && /status: 409/.test(review));
-ok("...stamps costReviewedAt and keeps the note", /costReviewedAt: new Date\(\), costReviewNote: note/.test(review));
+ok("...stamps costReviewedAt and keeps the note", /costReviewedAt: new Date\(\),\s*costReviewNote: note/.test(review));
+ok("...and records a threshold decision only when the job has none (asked once)", /const decides = Boolean\(revisionDecision\) && !job\.costRevisionDecision;/.test(review));
 ok("...and settles the task by its key", /resolveTaskBySource\(jobCostReviewKey\(job\.id\)\)/.test(review));
 ok("...guarding request.json()", /catch \{\s*body = \{\};/.test(review));
 
@@ -51,6 +52,7 @@ ok("the modal reloads the panel after adding an expense", /onChanged=\{\(\) => s
 const modal = code("app/components/jobs/CostReview.js");
 ok("the modal adds expenses through the one expense API, tagged to the job", /fetch\("\/api\/expenses"/.test(modal) && /projectId: jobId/.test(modal));
 ok("...links pending hours to where they are approved", /href="\/app\/payroll"/.test(modal));
+ok("...records what was actually used through the materials PATCH, and the receipt-less rest as expenses", /fetch\(`\/api\/jobs\/\$\{jobId\}\/materials`, \{\s*method: "PATCH"/.test(modal));
 ok("...and signs off through the review endpoint", /\/api\/jobs\/\$\{jobId\}\/costing\/review/.test(modal));
 ok("...never swallows a failed request", /await reportResponseError\(res/.test(modal) && !/res\.ok\) \{[^}]*\}\s*$/.test(modal));
 

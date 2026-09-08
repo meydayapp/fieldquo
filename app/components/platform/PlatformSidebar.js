@@ -115,6 +115,7 @@ import {
   Radar,
   BookOpenCheck,
   HandCoins,
+  Trash2,
 } from "lucide-react";
 
 const HOME_ITEM = { label: "Dashboard", href: "/platform", icon: LayoutDashboard, exact: true };
@@ -159,6 +160,11 @@ const GROUPS = [
       // (app/api/platform/jennifer/conversations/[id]), not tickets to triage
       // and close.
       { label: "Jennifer", href: "/platform/jennifer", icon: MessageCircle },
+      // The register behind /data-deletion and Meta's deletion callback. Under
+      // Support because that is who answers it, but the deletion itself is the
+      // owner's manual act and the page is superadmin-only; the one button on
+      // it records "done" and emails the person, it deletes nothing.
+      { label: "Data deletion", href: "/platform/data-deletion", icon: Trash2 },
       { label: "Errors", href: "/platform/errors", icon: AlertTriangle },
     ],
   },

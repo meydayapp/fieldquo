@@ -389,7 +389,10 @@ export default async function AppLayout({ children }) {
     // screens that PREVIEW a client-facing document wrap that region in their
     // own data-brand + BrandTheme, which is why the hook is a per-surface
     // decision rather than a shell-wide one.
-    <div className="min-h-screen bg-background">
+    // fq-app-shell sets --fq-tab-bar-height for everything inside it — the
+    // one place the mobile tab bar's footprint is declared. See the "bottom
+    // dock" section of app/globals.css.
+    <div className="min-h-screen bg-background fq-app-shell">
       {/* Renders nothing unless a read-only support session is active. */}
       <ImpersonationBanner />
       {/* Renders nothing when the account is in good standing, which is the
@@ -431,13 +434,14 @@ export default async function AppLayout({ children }) {
             normal flow rather than beside it as a flex column. */}
         <div className="lg:flex">
           <AdminSidebar />
-          {/* The bottom padding reserves exactly what MobileTabBar occupies
-              below `lg` — its fixed 4rem (h-16) content row plus the same
-              safe-area inset it pads itself with — so the last thing on a
-              page is never rendered underneath the bar. lg:pb-0 undoes it
-              the moment AdminSidebar's real rail takes over and the tab bar
-              stops rendering (see its own lg:hidden). */}
-          <main className="flex-1 min-w-0 pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
+          {/* The bottom padding reserves exactly what is pinned over the
+              bottom of the viewport: MobileTabBar below `lg` (0 from `lg`
+              up, where it stops rendering) plus whatever Save / Send bar the
+              current page has mounted through useBottomDock. Both come from
+              the variables app/globals.css declares, so the last field on a
+              page is never under either — and no page needs its own pb-24
+              guess at how tall its bar turned out to be. */}
+          <main className="flex-1 min-w-0 pb-[calc(var(--fq-tab-bar-height)+var(--fq-dock-height))]">
             {children}
           </main>
           <MobileTabBar />

@@ -1,12 +1,118 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 6 September 2026 (a capacity forecast at /platform/growth that labels every rate measured or assumed and names the churn ceiling; the reports agreeing about WHEN, the every-minute pipeline and the DNCL filing before that).
+Last updated: 8 September 2026 (/data-deletion takes a written request, issues a reference and a receipt, and the owner marks it done by hand from the console, with Meta's deletion callback answering under the same reference; the default add-on scope sentences and the deep-read PAID pill the same day).
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## Data deletion: a written request, a reference, and a person (8 September 2026)
+
+**What the owner said.** "Create /data-deletion for the Facebook app settings.
+People should send a written request via email; we send an email confirmation
+that we have received the request and will delete within 30 business days. The
+deletion is done manually by the owner account of FieldQuo — not automatic."
+
+**What shipped.** `/data-deletion` (already the instructions URL in Meta's
+settings) now carries a request form beside the email instructions. `POST
+/api/data-deletion` — public, 5/hour/IP, honeypot, body-guarded — writes a
+`DataDeletionRequest` row under a reference like `FQ-DEL-7K3M9Q`, emails the
+requester a receipt ("received on {date}, reference {code}, FieldQuo's owner
+will delete the data manually within 30 business days and confirm by email")
+and emails `hello@fieldquo.com` the request. A refused Resend is not a silent
+success: the row stands, `acknowledgedAt` stays null, and the page shows the
+reference beside a warning that no email is coming. `GET
+/api/data-deletion/status?code=` returns a status and two dates and is
+incapable of returning the requester (`publicStatus()` is the projection and
+the route selects nothing else); the page reads `?code=` and shows it.
+
+**The console's one button.** `/platform/data-deletion` (superadmin only —
+`data_deletion:manage` joined `SUPERADMIN_ONLY_PERMISSIONS`) lists the register
+with business-days-elapsed against the promise, and has ONE action, "Mark
+completed", which stamps `completedAt`/`completedById` and emails "your data
+was deleted on {date}, reference {code}". It is the only write, it writes to
+FieldQuo's own table, and it deletes nothing — the page says so above the
+list, because a button on a deletion screen invites the wrong reading.
+Non-negotiable #3 is untouched: the deletion is the owner's manual act against
+the database, outside any route.
+
+**The Meta callback, reversing the 3 September decision.** The section below
+recorded that no Data Deletion Request Callback would be built because it is
+a Facebook-Login mechanism and FieldQuo has no Login. The owner asked for it
+anyway, and the honest version exists: `POST /api/meta/data-deletion` verifies
+`signed_request` against `META_APP_SECRET` (HMAC-SHA256 over the base64url
+payload, timing-safe compare, algorithm pinned; an UNSET secret refuses rather
+than skips), registers a `meta_callback` row with the app-scoped `user_id`,
+and answers `{ url: ".../data-deletion?code=…", confirmation_code }`. The
+deletion is still manual. `docs/META-APP-REVIEW-PROMPT.md` now names the
+callback URL beside the instructions URL.
+
+**Two numbers, deliberately two.** `DELETION_RESPONSE_DAYS` (30, calendar —
+the statutory reply ceiling, applies to the plain-email path) and
+`DELETION_BUSINESS_DAYS` (30, business — the owner's completion promise).
+Worth the owner knowing: 30 business days is about six calendar weeks, which
+is longer than the one month GDPR Article 17 allows for erasure and the 30
+days PIPEDA allows for a response. The RESPONSE is instant on the form path,
+so the reply-ceiling is met; the erasure window is the owner's stated number
+and was built as stated rather than quietly shortened.
+
+`scripts/check-data-deletion.mjs` (`npm run check:data-deletion`, in
+`check:all`) executes the verifier (valid, forged, secret unset), the public
+POST through db/email/rate-limit stubs (row written, two emails, honeypot →
+no row, bad JSON → 400, Resend refusal → reference plus warning), the status
+route's projection (no email in the response), the platform routes' 401/403,
+and scans the page for "30 business days", "manually" and the support address.
+
+---
+
+## Every default add-on says what it is, and the PAID pill says what it costs (8 September 2026)
+
+Owner's items 14 and 15.
+
+**14 — "the AI review thinks the default add-ons are empty".** It was right.
+Three paths put a standard add-on on a quote and all three delivered a bare
+name: the Products & Services picker copied name, unit and price and dropped
+the row's `description` (which every seeded row has — the dry-run backfill
+found 0 blank descriptions in production); the "Common for this trade" chips
+in `app/data/defaultLineItems.js` never had a sentence to copy; and the cabinet
+upgrades priced off the rate card in `lib/pricing/tradeScope.js` were emitted
+with no `detail`. The review is shown name + detail on purpose, so it reported
+what it saw.
+
+- `lib/quotes/lineDetail.js` — the copy-on-create rule: a catalogue description
+  reaches the line's `detail` when the line is created and only when it has no
+  detail of its own. Never on hydrate; a quote sent last month keeps what it
+  said. The picker path resolves name and description by the QUOTE's language
+  through `resolveProductText`, which had no caller before this.
+- Every entry in `DEFAULT_LINE_ITEMS` (204, electrical and plumbing included,
+  via keyed `ELECTRICAL_LINE_DETAILS` / `PLUMBING_LINE_DETAILS`) carries a
+  `detail`: what is done, per what unit, no price.
+- `cabinetAddOnLines` names and sentences in English and French by document
+  language (`cabinetAddOnText`); two-tone no longer loses its sentence when
+  the count is unknown.
+- `app/data/standardAddOns.fr.js` — the French the `Product.translations`
+  schema comment had promised since the field was declared. Seeding writes it;
+  `scripts/backfill-product-descriptions.mjs` (dry by default, `--apply`,
+  `--company <id>`) fills blank descriptions and missing `fr` on rows seeded
+  before — 60 French entries across the live tenants, nothing else.
+- `completenessChecks` gains `no_detail` (low, non-blocking): a line still
+  without a sentence is named as having "no description", deterministically.
+
+**15 — the Deep photo read pill.** `lib/ai/visionPill.js`: amber "Paid · $x"
+when the wallet covers a read, red "No credit · needs $x" when it cannot (GET
+`/api/quotes/[id]/vision` now returns the read-only `checkSpend` verdict as
+`spend`), green "Paid · $x · read today" once a pass ran today. Solid fills,
+measured against the real oklch palette: 8.7:1, 6.4:1, 7.1:1.
+
+`scripts/check-addon-descriptions.mjs` (in `check:all`) executes all of it.
+Not done: French for the 204 default chips — their NAMES are English on a
+French quote today, and a French sentence under an English name is a
+half-translated line. Translating names and sentences together is the next
+step if French default chips are wanted.
 
 ---
 
@@ -174,6 +280,9 @@ profile data is held. That is also why **no data deletion CALLBACK was built** �
 the signed-request callback is the Facebook-Login mechanism, and building a
 handler for a login FieldQuo does not offer would be a live endpoint answering
 for a flow that cannot happen. If Login is ever added, that changes.
+*(Superseded 8 September 2026 on the owner's ask — see the data-deletion
+section above. The callback exists, verifies the signature, and registers a
+request; the deletion is still manual.)*
 
 Registered in `scripts/check-legal-pages.mjs`'s `PAGES` map, so it is held to
 the same four rules as its neighbours — mutation-tested by planting an
@@ -8555,6 +8664,30 @@ everything lives in `LinkPage.items`. QR codes skipped — no library in
 the tree. `check:bio-link` grew ~90 assertions (hostile handles, `__proto__`
 platforms, javascript: URLs, section headings in every language).
 
+*Redrawn the same day, on the owner's verdict that it "doesn't look modern
+or nice" next to nxt lnk (realvjy's My Tiny Page).* The markup moved to
+`app/components/links/LinkPageView.js` (pure — renderable from fixtures)
+and now carries that look in Tailwind: a 680px column, the oval avatar in
+a 3px brand ring, the name at 38px/800, a muted handle line (the company's
+own domain, else city — never the FieldQuo site host, `lib/links/handle.js`),
+the bio at 22px/500, circular bordered social icons, 4px-tracked section
+headings, bordered 12px cards with nxt lnk's NewUp arrow that lift, deepen
+their border and fade in a brand-tinted gradient wash on hover (::before
+behind `isolate`), press to .98, all under motion-reduce. The contractor's
+first row is the featured pill above the sections, lifted out of its
+section rather than shown twice. **Dark mode** by `prefers-color-scheme`
+media query, no JavaScript — `lib/links/theme.js` now emits two measured
+schemes as `--lp-*` tokens (dark is where a yellow brand finally shows its
+yellow; a black brand's pill inverts). Every text pairing ≥4.5:1, edges
+≥3:1, in both schemes, across yellow/white/black/mid-grey and the live
+brands — proven by `check:bio-link`, which also pins the ring, headings,
+hover classes, footer credit and that every token the view reads is
+defined in both schemes. `app/l` and `app/components/links` are now
+STRICT surfaces in `check:mobile` (whose fixed-width rule stopped reading
+`max-w-[…px]` as a width). Inter not loaded — the page uses the app's
+Geist; no extra request on a driveway connection. No settings preview
+exists, so none was restyled.
+
 **Owner's item 11 — Material calibration, first slice.** The inventory
 found that no actual quantity existed anywhere: `JobMaterial.qty` was the
 estimate, the receipt scanner read "27 rolls" off the photo and kept only
@@ -8579,8 +8712,55 @@ paving and sandpaper are shown with "not adjustable from here yet".
 `check:material-calibration` executes the fixtures (20 est / 27 actual over
 2,500 → 93) and pins the gates.
 
-**Owner's refinement (same day, next):** the revision is threshold-gated
-— it asks "update your costing?" only when the job came in 15% or more
-over the estimate (default, editable), with Update / Leave as is, and the
-actual quantities and labour hours are asked INSIDE the close-out, not on
-a list nobody revisits. Being built.
+**Owner's refinement (same day) — threshold-gated revision, labour AND
+materials inside the close-out.** Shipped. `Company.costRevisionThresholdPct`
+(default 15, the owner's "15 or 20% over") is set from Settings → Material
+Costs through `/api/settings/cost-revision`, gated on the SAME cost-basis
+resource as the recipe PUT; `lib/costing/costRevision.js` (pure) decides
+`shouldAskRevision` — exactly at the threshold asks, under-estimates never
+do (a job that ran cheap is not the surprise), and a job is asked ONCE
+(`Job.costRevisionDecision` / `costRevisionDecidedAt`, written by
+`POST /api/jobs/[id]/costing/revision` or by the review POST when
+completing IS the answer — said under the button, sent explicitly). The
+close-out reorders top to bottom: labour (the quote's hours from
+`quotedCostFor().labourHours` vs approved, pending with the payroll link,
+unrated), every JobMaterial line with an inline "actually used" box that
+saves through the existing materials PATCH (ticking an unbought line as it
+goes — the PATCH now refuses a used quantity on an unbought line instead
+of dropping it), the add-expense form, then the one-line verdict and the
+Update / Leave as is prompt. Update reveals the material suggestions plus
+one labour line from `lib/costing/labourCalibration.js`: siding's flat
+`labourHoursPerSqft` is the ONLY saved labour path today (the rate card
+declares it; the suggestion divides the material factor back out and
+`tradeLabourHours` reproduces the approved hours); cabinets, painting,
+roofing, paving and insulation compare per unit of work and say "not
+adjustable from here yet"; pending hours, two trades on one job and
+hand-added hours refuse rather than guess. The panel's review card says
+"Revised costing on…" / "Kept costing as is on…". `check:cost-revision`
+executes the pure function (mutation-tested three ways), the labour
+fixtures, and BOTH new routes against the preset fixtures; 61 new keys in
+all nine catalogues.
+
+## Nothing floats on top of Save any more (8 September 2026)
+
+**Owner:** "The 'Chat with Jennifer' button typically sits right on top of
+the Save button. Make sure we don't have design flaws like that."
+
+It did, on every page with a fixed Save / Send bar — the quote builder,
+new invoice, bio-link settings, availability — and Help sat on Jennifer on
+the quote builder's create page. Each bottom-pinned element carried its
+own copy of the tab bar's height and none knew about the others.
+
+**The rule that replaced the copies:** two CSS variables in
+`app/globals.css` ("bottom dock"). `--fq-tab-bar-height` is set once by the
+`/app` shell (`.fq-app-shell`), zero from `lg` and on the marketing site;
+`--fq-dock-height` is measured from the page's own bar by
+`app/hooks/useBottomDock.js` and written to `<html>`. Bars sit on the first,
+the launchers and the error toast sit above both, `<main>` pads by the sum
+so the last field clears the bar, and the launchers dropped to z-30 so a
+z-50 modal's own Save covers them instead of the reverse. Rejected: moving
+the launchers bottom-left, which only moves the collision onto the bar's
+status text. `npm run check:dock` (in `check:all`) fails a bar that
+positions itself any other way and computes that Jennifer and Help occupy
+disjoint spans. Verified in a browser at 375px and 1280px, launcher above
+the bar with a modal, with a toast, and with no bar at all.

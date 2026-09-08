@@ -22,6 +22,7 @@ import { useSession } from "@/lib/auth-client";
 import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useBottomDock } from "@/app/hooks/useBottomDock";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 
 const DEFAULTS = { startTime: "08:00", endTime: "16:00" };
@@ -95,6 +96,7 @@ function WeekEditor({ rows, setRows, weekStartsOn, accentClass }) {
 
 export default function AvailabilityPage() {
   const { t } = useTranslation();
+  const dockRef = useBottomDock();
   const { weekStartsOn } = useCompanyPreferences();
   const { data: session } = useSession();
   const access = useSettingsAccess();
@@ -308,7 +310,7 @@ export default function AvailabilityPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-8 pb-28">
+    <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-foreground">
           {editingSomeoneElse ? t("app.setAvailability.personHours", "{name}'s hours", { name: targetName }) : t("app.setAvailability.yourHours", "Your hours")}
@@ -394,15 +396,13 @@ export default function AvailabilityPage() {
       </section>
 
       {/* Sticky save — on a phone the button would otherwise sit below two
-          full weeks of inputs.
-          sm:left-64 was already wrong on its own terms — AdminSidebar only
-          becomes a rail at `lg` (hidden lg:flex, see AdminSidebar.js), so
-          this bar sat indented under a phantom sidebar gap from 640–1024px.
-          Fixed alongside the bottom offset below, which clears
-          MobileTabBar's fixed bottom row (same calc as app/app/layout.js's
-          `main` padding) so the two no longer stack on top of each other
-          below `lg`. */}
-      <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] lg:bottom-0 left-0 right-0 lg:left-64 bg-card border-t border-border px-4 py-3 flex items-center justify-end gap-3">
+          full weeks of inputs. lg:left-64, not sm: — AdminSidebar only
+          becomes a rail at `lg` (hidden lg:flex, see AdminSidebar.js).
+          A "bottom dock": it sits on the tab bar's footprint (0 from lg up)
+          and reports its height through useBottomDock, which keeps the
+          Jennifer launcher off this Save button and pads <main> so the last
+          row of hours is never under it. See app/globals.css "bottom dock". */}
+      <div ref={dockRef} className="fixed bottom-[var(--fq-tab-bar-height)] left-0 right-0 lg:left-64 bg-card border-t border-border px-4 py-3 flex items-center justify-end gap-3">
         {saved && (
           <span className="text-sm text-green-600 flex items-center gap-1.5">
             <Check size={15} /> {t("app.action.saved", "Saved")}

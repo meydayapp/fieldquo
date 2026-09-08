@@ -280,7 +280,10 @@ ok("modal fetches the calibration", /\/api\/jobs\/\$\{jobId\}\/costing\/calibrat
 const applyRenders = modal.match(/app\.jobCosting\.calibApply"/g) || [];
 ok("modal renders the apply button exactly once, inside `l.canApply ? (`", applyRenders.length === 1 && /l\.canApply \? \(\s*<button[\s\S]{0,700}app\.jobCosting\.calibApply"/.test(modal));
 ok("...a line with no used quantity says to record it, with a link to the list", /app\.jobCosting\.calibRecord"[\s\S]{0,200}goToMaterials/.test(modal));
-ok("...the section renders only when at least one line has actualQty", /calibLines\.length > 0 && calib\.hasActuals && \(/.test(modal));
+// The section used to render whenever a line had an actual; it now renders
+// only after "Update" on the threshold prompt (scripts/check-cost-revision.mjs
+// pins the prompt), and a line with no actual is recorded on THIS screen.
+ok("...the section renders only inside the Update view", /\{revealing && \([\s\S]*?calibLines\.length > 0 && \(/.test(modal) && !/calibLines\.length > 0 && calib\.hasActuals/.test(modal));
 ok("...a failed load is said, not hidden", /calib\?\.failed && \(/.test(modal) && /app\.jobCosting\.calibLoadFailed/.test(modal));
 ok("...applying reads the current override document and sets ONE path on it", /withPathSet\(overrides, path, value\)/.test(modal) && /withPathSet\(cat\.rateOverrides \|\| \{\}, path, value\)/.test(modal));
 ok("...the rate-card write round-trips enabled/defaultRate/unit (the PATCH nulls what it isn't sent)", /enabled: cat\.enabled,\s*defaultRate: cat\.defaultRate \?\? null,\s*unit: cat\.unit \?\? null,/.test(modal));

@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { can, permissionDenialMessage } from "@/lib/permissions";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
-import { getNextQuoteNumber } from "@/lib/quotes/quoteNumber";
+import { getNextQuoteNumber, LIVE_QUOTE_NUMBER_WHERE } from "@/lib/quotes/quoteNumber";
 import { recordActivity } from "@/lib/activity/log";
 import { normaliseMediaList } from "@/lib/media/validate";
 import { requireWithinLimit } from "@/lib/platform/planLimits";
@@ -216,7 +216,10 @@ export async function POST(request) {
 
   const [lastQuote, company] = await Promise.all([
     db.quote.findFirst({
-      where: { companyId: member.companyId },
+      // A past job entered after the fact carries a number from its own
+      // series; reading it here would restart the live sequence — see
+      // lib/quotes/quoteNumber.js.
+      where: { companyId: member.companyId, ...LIVE_QUOTE_NUMBER_WHERE },
       orderBy: { createdAt: "desc" },
       select: { quoteNumber: true },
     }),

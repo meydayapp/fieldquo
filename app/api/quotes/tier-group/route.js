@@ -10,7 +10,7 @@ import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 // carried its own copy that understood the "-G" suffix while the shared one
 // did not — the copy that nobody looked at was the correct one, and the one
 // every other route used was the one that rotted. One allocator now.
-import { getNextQuoteNumber, TIER_SUFFIXES } from "@/lib/quotes/quoteNumber";
+import { getNextQuoteNumber, TIER_SUFFIXES, LIVE_QUOTE_NUMBER_WHERE } from "@/lib/quotes/quoteNumber";
 
 // Creates three linked quote variants at once — Good/Better/Best — sharing a
 // tierGroupId. Each is a real, independent Quote row (own line items, own total)
@@ -50,7 +50,8 @@ export async function POST(request) {
   // check that executes the allocator against these suffixes.
   const TIER_SUFFIX = TIER_SUFFIXES;
   const lastQuote = await db.quote.findFirst({
-    where: { companyId: member.companyId },
+    // Historical rows carry their own series — see lib/quotes/quoteNumber.js.
+    where: { companyId: member.companyId, ...LIVE_QUOTE_NUMBER_WHERE },
     orderBy: { createdAt: "desc" },
     select: { quoteNumber: true },
   });

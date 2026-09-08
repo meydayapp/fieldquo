@@ -300,6 +300,18 @@ export async function PATCH(request, { params }) {
     }
   }
 
+  // A used quantity on a line nobody has ticked as bought was DROPPED by the
+  // update below (`purchased &&`), and the response — the whole list, with
+  // the line unchanged — read as a save. Refused out loud instead. The
+  // close-out sends `purchased: true` alongside for exactly this line, and
+  // says on the screen that saving marks it bought.
+  if (actualQty !== undefined && !purchased) {
+    return NextResponse.json(
+      { error: "Tick this line as bought first — or send purchased: true with the quantity." },
+      { status: 400 },
+    );
+  }
+
   const updated = await db.jobMaterial.update({
     where: { id: line.id },
     data: {

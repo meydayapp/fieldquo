@@ -22,7 +22,7 @@ import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { can, requirePermission } from "@/lib/permissions";
 import { featureAllowsSpend } from "@/lib/features/gate";
 import { publicTopupOffer } from "@/lib/ai/topupOffer";
-import { reserveSpend, refundReservation } from "@/lib/voice/spendGate";
+import { checkSpend, reserveSpend, refundReservation } from "@/lib/voice/spendGate";
 import { loadQuote, photosFromQuote } from "@/lib/ai/quoteReview";
 import { runVisionPass } from "@/lib/ai/visionPass";
 
@@ -41,8 +41,25 @@ export async function GET(request, { params }) {
   });
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // Whether the company could afford one read RIGHT NOW, read-only — the
+  // same verdict POST takes the money on, minus the taking. The panel's
+  // "Paid" pill used to be a grey outline that said nothing about whether
+  // pressing the button would work; with the verdict it can say "this costs
+  // $0.34 and you have it" or "you don't" before anybody presses anything.
+  // Cheap: one feature-map read and one ledger aggregate, both of which POST
+  // does anyway. Never a 402 from GET — a refusal is a verdict here, not an
+  // error, because nothing was asked for.
+  const spend = await checkSpend({ companyId: member.companyId, kind: "image_vision" });
+
   return NextResponse.json({
     passes: Array.isArray(quote.aiVisionPasses) ? quote.aiVisionPasses : [],
+    spend: {
+      allowed: spend.allowed,
+      reason: spend.reason,
+      needCents: spend.needCents,
+      balanceCents: spend.balanceCents,
+      shortfallCents: spend.shortfallCents,
+    },
   });
 }
 

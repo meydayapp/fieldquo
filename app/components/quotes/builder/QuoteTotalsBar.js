@@ -32,6 +32,7 @@ import QuoteReadiness from "./QuoteReadiness";
 import DiscountField from "@/app/components/quotes/DiscountField";
 import { formatAppMoney } from "@/lib/format/money";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useBottomDock } from "@/app/hooks/useBottomDock";
 import { numberLocaleFor } from "@/app/i18n/numberLocale";
 
 export default function QuoteTotalsBar({
@@ -109,6 +110,7 @@ export default function QuoteTotalsBar({
   cancelHref = null,
 }) {
   const { t, language } = useTranslation();
+  const dockRef = useBottomDock();
   // Same reason as explainTaxSource: 9,5 % not 9.5 % on a French screen.
   const pct = (n) =>
     Number(n).toLocaleString(numberLocaleFor(language), { maximumFractionDigits: 3 });
@@ -326,31 +328,25 @@ export default function QuoteTotalsBar({
       )}
 
       {/* left-60 clears the desktop sidebar; full width below that breakpoint
-          where the sidebar collapses. */}
-      {/* pr-20 (80px) reserves the corner the floating help launcher sits in.
-          The launcher is 44px wide at right-6 (24px), so it occupies 24–68px
-          from the right edge; 80px clears it with room to spare. pr-16 (64px)
-          would NOT — it is four pixels short, which is exactly the kind of
-          near-miss that looks fine on one screen and clips on another.
-          It is `fixed bottom-6 right-6` at z-50 and this bar is z-40, so it
-          landed ON TOP of the primary CTA — "Save & send" rendered clipped to
-          "Save & se…" with the "?" bubble over it, at 1366px and at 1600px.
-          Reserving the space is more robust than moving the launcher, which is
-          global and knows nothing about this bar. */}
-      {/* bottom-0 alone landed this directly on MobileTabBar below `lg` — same
-          z-40, both fixed to the viewport bottom, so the Save/Send buttons and
-          the tab bar's Jobs/Invoices row occupied the same pixels. The calc
-          clears the tab bar's exact height (its h-16 + safe-area inset, see
-          MobileTabBar.js); lg:bottom-0 restores the true bottom once the tab
-          bar stops rendering. HelpButton.js shifts by the identical amount so
-          the two stay in the same relative position to each other that pr-20
-          above already assumes.
-          sm:left-60 was also wrong on its own terms — AdminSidebar only
-          becomes a rail at `lg` (hidden lg:flex), not `sm` — fixed to
-          lg:left-60. */}
+          where the sidebar collapses. lg:left-60, not sm: — AdminSidebar only
+          becomes a rail at `lg` (hidden lg:flex). */}
+      {/* ── This bar is a "bottom dock" ──────────────────────────────────
+          It sits at bottom: var(--fq-tab-bar-height) — 0 from lg up, the
+          tab bar's footprint below it — and hands its own measured height
+          to the shell through useBottomDock (ref below), which is what
+          lifts the floating launchers, the error toast and <main>'s bottom
+          padding clear of it. See app/globals.css "bottom dock".
+
+          It used to reserve pr-20 on its right for the Help launcher, and
+          Jennifer's launcher still landed on "Save & send" at 1366px and
+          1600px because that one is global and knew nothing about this
+          bar. Reserving corner space here was the wrong direction: every
+          bar would need it, and every new launcher would break it. Now the
+          launchers know about the bar instead. */}
       <div
+        ref={dockRef}
         data-tour="totals"
-        className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] lg:bottom-0 left-0 right-0 lg:left-60 bg-card border-t border-border pl-4 sm:pl-6 pr-20 py-3 flex items-center justify-between gap-3 z-40"
+        className="fixed bottom-[var(--fq-tab-bar-height)] left-0 right-0 lg:left-60 bg-card border-t border-border px-4 sm:px-6 py-3 flex items-center justify-between gap-3 z-40"
       >
         <div className="min-w-0">
           <div className="text-[11px] text-muted-foreground leading-none">

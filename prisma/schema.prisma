@@ -25,8 +25,11 @@ model Product {
   // rendering a document for a CLIENT in another language.
   //
   // Populated two ways: standard add-ons ship with hand-written translations
-  // (app/data/standardAddOns.js), and services a company adds itself get
-  // drafted by lib/i18n/translateContent.js for the company to review.
+  // (app/data/standardAddOns.fr.js, written by lib/products/seedStandardAddOns.js),
+  // and services a company adds itself get drafted by
+  // lib/i18n/translateContent.js for the company to review. Read by
+  // lib/quotes/lineDetail.js when a product becomes a line on a quote in
+  // another language.
   translations Json?
   type         ProductType @default(service)
   unitPrice    Decimal?    @db.Decimal(12, 2)
@@ -974,6 +977,14 @@ model Company {
   // pricing path reads it, and normaliseRates() merges it over the defaults so a
   // partially-filled card can't leave a field undefined and price at NaN.
   cabinetRates Json?
+
+  /// The owner's "15 or 20% over": when a completed job's actual cost comes
+  /// in this many percent OVER its estimate, the close-out asks whether to
+  /// revise the company's costing from what the job really cost. Over only —
+  /// a job that came in under is not the surprise this exists to prevent.
+  /// Whole percent, 0–100; 0 asks on any overrun. Read by
+  /// GET /api/jobs/[id]/costing, decided by lib/costing/costRevision.js.
+  costRevisionThresholdPct Int @default(15)
   // Languages this company actually sends CLIENT documents in. Drives which
   // options the employee sees when setting a client's language, and which
   // translations get drafted when a service is added.
@@ -1534,6 +1545,18 @@ model Company {
   /// legitimate sale. Kept because "when did this company finish setting up"
   /// is worth knowing on its own.
   onboardingCompletedAt DateTime?
+
+  /// Keys from lib/setupSteps.js the company has waved off the dashboard's
+  /// "Additional set-up steps" card — `["add_ons", "emails"]`. A preference
+  /// about the UI, NOT a claim about the business, which is the opposite of
+  /// worksAloneAt / taxRegistrationDismissedAt above and the reason it is one
+  /// Json column rather than ten dated ones: nothing client-facing and nothing
+  /// in pricing reads it, so recording WHEN each key was dismissed would be a
+  /// column nobody asks. A step whose measurement comes back done is removed
+  /// regardless of what is in here, so a stale key is harmless; an unknown key
+  /// is dropped on write (POST /api/setup-steps/dismiss). Null and [] mean the
+  /// same thing.
+  setupStepsDismissed Json?
 
   salesAttribution SalesAttribution?
   salesRepDemo     SalesRep?
@@ -2246,6 +2269,19 @@ model Quote {
   // nothing here is ever joined to decide anything.
   paymentStages JobPaymentStage[]
 
+  /// Entered after the fact, for the year's overview — never offered to a
+  /// client. Set by POST /api/jobs/import (the "Past jobs" screen) on the
+  /// quote it back-fills for work that was won, done and paid before the
+  /// company used FieldQuo. No client contact ever went out from FieldQuo
+  /// for this row: sentAt stays null, and every automated follow-up, review
+  /// request, reminder and cron skips rows with this set — see
+  /// scripts/check-past-jobs-import.mjs for the list of guarded sites.
+  ///
+  /// A timestamp rather than a boolean so "when was this typed in" is on
+  /// record next to acceptedAt, which for these rows is the JOB date the
+  /// company typed, not the day of the import.
+  historicalImportedAt DateTime?
+
   @@unique([companyId, quoteNumber])
 }
 
@@ -2530,6 +2566,13 @@ model Invoice {
   jobPaymentStages JobPaymentStage[]
   /// Scope changes billed ON this invoice — see ChangeOrder.invoiceId.
   changeOrders     ChangeOrder[]
+
+  /// Entered after the fact for the year's overview — see
+  /// Quote.historicalImportedAt. The invoice was already paid when it was
+  /// typed in (paidDate is the date the company typed), no client contact
+  /// ever went out from FieldQuo for it, and the overdue reminder cron, the
+  /// chase button and the send button all refuse rows with this set.
+  historicalImportedAt DateTime?
 
   @@index([companyId, jobId])
 }
@@ -3604,6 +3647,15 @@ model Job {
   /// its own; the review endpoint sets it, and only a person calls that.
   costReviewedAt    DateTime?
   costReviewNote    String?
+  /// What the close-out decided when this job crossed the company's
+  /// cost-revision threshold: "updated" (the person opened the per-line
+  /// suggestions and applied or dismissed them) or "left_as_is". Null means
+  /// never asked, or asked and not yet answered. A job is asked ONCE — the
+  /// prompt reads this before drawing itself — so re-opening the review after
+  /// a decision shows the comparison and the decision, never the question
+  /// again. See lib/costing/costRevision.js.
+  costRevisionDecision  String?
+  costRevisionDecidedAt DateTime?
   reviewRequestedAt DateTime?
 
   /// The one-question satisfaction rating (1–5, optional comment), sent
@@ -3729,6 +3781,14 @@ model Job {
 
   jobDocuments  JobDocument[]
   dailyLogs     JobDailyLog[]
+
+  /// Entered after the fact for the year's overview — see
+  /// Quote.historicalImportedAt. The work was done before the company used
+  /// FieldQuo; completedAt is the end date the company typed. No client
+  /// contact ever went out from FieldQuo for it, and the review-request
+  /// cron, the job-completed follow-up rule and the completion tasks all
+  /// skip rows with this set.
+  historicalImportedAt DateTime?
 }
 
 /// The client-facing satisfaction survey: one rating (1–5), one optional
@@ -6119,6 +6179,71 @@ model AiDigest {
   createdAt      DateTime  @default(now())
 }
 
+// ── Data deletion requests (public /data-deletion, Meta's deletion callback) ──
+//
+// A REGISTER of requests, not a deletion queue. Nothing in the product reads
+// this table to delete anything: the deletion itself is done BY HAND, by
+// FieldQuo's owner, against the database, and that is the design rather than
+// a gap — see app/(marketing)/data-deletion/page.js for why the page says so
+// in as many words. What this table makes true is the promise around the
+// manual act: every request has a reference the person can quote back, a
+// receipt they were sent, and a completion they were told about.
+//
+// Platform-scoped on purpose: no companyId. A requester is usually a stranger
+// (a contractor's homeowner, or a Facebook user who removed the app) and may
+// not map to any Company row at all. `companyName` is what THEY typed so the
+// owner can find the records, never a foreign key that would cascade-delete
+// this receipt along with the company it names — the receipt has to outlive
+// the thing it is about.
+//
+// The one write the platform console makes here is `completedAt` — its own
+// bookkeeping about its own act — which is the same shape as Feedback.status
+// and nothing like editing a customer's quote (non-negotiable #3).
+model DataDeletionRequest {
+  id String @id @default(cuid())
+
+  /// Human-quotable reference, e.g. "FQ-DEL-7K3M9Q". Shown on the page after
+  /// submit, sent in both emails, and handed to Meta as `confirmation_code`.
+  /// Generated server-side (lib/dataDeletion/requests.js); never chosen by the
+  /// client.
+  confirmationCode String @unique
+
+  /// Where the acknowledgement and the completion notice go. Required for the
+  /// form; for Meta's callback it is the placeholder lib/dataDeletion sets,
+  /// because Meta's signed_request carries a user id and no address.
+  email       String
+  name        String?
+  companyName String?
+  message     String?
+
+  /// "form" (the public page), "meta_callback" (Meta's Data Deletion Request
+  /// callback — app/api/meta/data-deletion), or "email" (a request that came
+  /// in by plain email and was registered by hand from the console).
+  source String @default("form")
+
+  /// Meta's app-scoped user id from the signed_request, when the request came
+  /// through the callback. What the owner searches MetaAdConnection rows for.
+  metaUserId String?
+
+  /// "received" | "completed". Two states only, because there are only two
+  /// facts: we have it, and the owner has done it. A "rejected" state would
+  /// need a reason and a reply path that do not exist yet.
+  status String @default("received")
+
+  receivedAt DateTime @default(now())
+  /// Set when the acknowledgement email was accepted by Resend. Null means the
+  /// person was NOT told we have their request — the console shows that, so a
+  /// silent failure is visible rather than assumed away.
+  acknowledgedAt DateTime?
+
+  completedAt   DateTime?
+  /// PlatformAdmin.id of whoever pressed "Mark completed". An id, not a
+  /// relation: the receipt outlives staff turnover.
+  completedById String?
+
+  @@index([status, receivedAt])
+}
+
 // ============================================================
 // ENUMS
 // ============================================================
@@ -6311,6 +6436,13 @@ enum PaymentMethod {
   // booking) that the contractor later credits onto this invoice. Tracked as
   // its own method so it's distinguishable from money collected on the invoice.
   visit_credit
+  // A card taken on somebody else's terminal — Square, a bank reader, the
+  // old software — for a job entered after the fact (POST /api/jobs/import).
+  // Deliberately NOT `stripe`: that value means FieldQuo's own Stripe Connect
+  // took the money, and the payout, refund and dispute paths read it as such.
+  // A past job paid on a card FieldQuo never saw needs a value those paths
+  // ignore, and this is it.
+  card_elsewhere
 }
 
 enum PricingModel {

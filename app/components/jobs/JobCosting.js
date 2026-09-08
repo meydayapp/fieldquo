@@ -130,6 +130,15 @@ export default function JobCosting({ jobId, jobStatus, costReviewedAt, autoOpenR
         costReviewedAt ? (
           <p className="mb-4 text-xs text-muted-foreground">
             {t("app.jobCosting.reviewedOn", "Actual cost reviewed on {date}.", { date: fmtDay(costReviewedAt) })}{" "}
+            {/* What the close-out decided when this job crossed the
+                company's threshold — one of two sentences, or nothing when
+                it was never asked. See lib/costing/costRevision.js. */}
+            {data.revision?.decision === "updated" && (
+              <>{t("app.jobCosting.revisionUpdated", "Revised costing on {date}.", { date: fmtDay(data.revision.decidedAt) })}{" "}</>
+            )}
+            {data.revision?.decision === "left_as_is" && (
+              <>{t("app.jobCosting.revisionLeft", "Kept costing as is on {date}.", { date: fmtDay(data.revision.decidedAt) })}{" "}</>
+            )}
             <button type="button" onClick={() => setReviewOpen(true)} className="underline min-h-[44px]">
               {t("app.jobCosting.reviewAgain", "Review again")}
             </button>

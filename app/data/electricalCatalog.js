@@ -6,7 +6,8 @@
 // This is the client-facing half of the electrical price book. It plugs into
 // app/data/defaultLineItems.js (which owns the `electrical` key and wires this
 // array in) and is consumed by the quote builder's suggestion chips, which read
-// `description` and `unit` and nothing else.
+// `description`, `unit` and — since ELECTRICAL_LINE_DETAILS below — `detail`,
+// the scope sentence copied under the name when a chip becomes a line.
 //
 // Its two internal companions must never reach a client surface:
 //   app/data/electricalBenchmarks.js  — "typical range, set your price"
@@ -35,8 +36,8 @@
 //
 // ── Why entries carry a `key` ───────────────────────────────────────────────
 //
-// DEFAULT_LINE_ITEMS entries are `{ description, unit }` and the builder reads
-// exactly those two fields, so the extra `key` is inert there. It exists
+// DEFAULT_LINE_ITEMS entries are `{ description, unit, detail }` and the
+// builder reads exactly those fields, so the extra `key` is inert there. It exists
 // because electricalBenchmarks.js has to point at these lines, and pointing by
 // description string would silently break the moment somebody improves the
 // wording — the written-never-read failure class, arriving as a benchmark
@@ -207,7 +208,74 @@ const GROUP_BY_KEY = {
   concealed_conditions_clause: "admin",
 };
 
+// ── Scope lines ─────────────────────────────────────────────────────────────
+//
+// The sentence printed under each line on the client's document and handed to
+// the AI review beside the name — see the `detail` note in defaultLineItems.js.
+// Keyed like the groups, and for the same reason: one map, checked for 1:1
+// coverage by scripts/check-addon-descriptions.mjs, rather than a field on
+// each of fifty-four lines. What is done, per what unit. Nothing here states a
+// price, a brand, a code clause or a permit outcome — those are the company's
+// to promise, in the scope paragraph or on the line itself.
+export const ELECTRICAL_LINE_DETAILS = {
+  service_call: "Electrician dispatched to the site to assess the work, per visit.",
+  diagnostic: "Trace and diagnose the fault, first hour on site included.",
+  labour_hourly: "Additional electrician time beyond the scope described above, per hour.",
+  second_electrician: "Second electrician on site for work that needs two people, per hour.",
+  after_hours: "Premium for attending outside standard working hours.",
+  travel_fee: "Travel to a site outside the standard service area.",
+  panel_replacement: "Remove the existing panel and install a new one at the same amperage, circuits re-landed and labelled.",
+  service_upgrade_200a: "Replace the service with 200 A equipment: panel, meter base, riser and grounding, coordinated with the utility.",
+  service_upgrade_400a: "Replace the service with 400 A equipment, coordinated with the utility.",
+  meter_base: "Replace the meter base or meter-main combination and the service riser.",
+  subpanel: "Supply and install a subpanel, feeder breaker landed in the main panel.",
+  subpanel_feeder: "Run the feeder cable from the main panel to the subpanel, per linear foot.",
+  firewall_enclosure: "Build a fire-rated enclosure around the panel where required.",
+  grounding_system: "Install or upgrade the grounding electrodes and bonding to current requirements.",
+  surge_protector: "Supply and install a whole-home surge protector at the panel.",
+  breaker_standard: "Supply and install a standard circuit breaker in the panel, per breaker.",
+  breaker_afci_gfci: "Supply and install an AFCI or GFCI breaker in the panel, per breaker.",
+  dedicated_circuit: "Run a new dedicated 15 or 20 A circuit from the panel to one outlet, per circuit.",
+  circuit_240v: "Run a new 240 V circuit from the panel to the appliance location, per circuit.",
+  ev_charger_install: "Mount and wire the client's EV charger on its own circuit, per charger.",
+  whole_house_rewire: "Replace the wiring throughout the house, new devices at every opening, per square foot.",
+  rewire_per_opening: "Rewire one outlet, switch or fixture location back to the panel, per opening.",
+  knob_tube_replacement: "Remove the knob and tube wiring and replace it with new cable, per square foot.",
+  aluminium_pigtail: "Pigtail copper onto every aluminium branch-circuit termination in the home with rated connectors.",
+  aluminium_copalum: "Crimp COPALUM connectors onto every aluminium branch-circuit termination in the home.",
+  wire_fishing: "Fish cable through a finished wall or ceiling without opening it, per run.",
+  cut_in_box: "Cut in and mount a box at a new location in a finished wall, per box.",
+  junction_box: "Install or replace a junction box and make up the splices inside it, per box.",
+  emt_first_10ft: "Surface-mounted conduit run, first 10 ft, wiring priced separately.",
+  cable_run_50ft: "Cable run of up to 50 ft extending an existing circuit to a new point.",
+  receptacle_replace: "Replace an existing receptacle with a new device and cover, per receptacle.",
+  receptacle_new: "Add a receptacle at a new location, wired from the nearest suitable circuit, per receptacle.",
+  gfci_receptacle: "Supply and install a GFCI receptacle, per receptacle.",
+  weatherproof_cover: "Fit a weatherproof in-use cover on an exterior receptacle, per cover.",
+  switch_replace: "Replace an existing switch with a new device and cover, per switch.",
+  dimmer_smart_switch: "Supply and install a dimmer or smart switch in place of the existing switch, per switch.",
+  fixture_swap: "Remove the existing light fixture and hang the client's replacement, per fixture.",
+  recessed_new: "Cut in, wire and trim a new recessed light, per light.",
+  recessed_retrofit: "Fit a retrofit recessed light into an existing ceiling opening, per light.",
+  ceiling_fan_existing_box: "Assemble and hang a ceiling fan on an existing fan-rated box, per fan.",
+  ceiling_fan_new_box: "Install a fan-rated box and brace, then assemble and hang the ceiling fan, per fan.",
+  fixture_support_brace: "Install a support brace and box rated for a fan or heavy fixture, per location.",
+  heavy_fixture: "Hang a chandelier or heavy fixture with the lift, bracing and second person the weight or height requires, per fixture.",
+  smoke_co_alarm: "Install a hardwired, interconnected smoke or CO alarm, per alarm.",
+  data_drop: "Run a data or coax cable from the distribution point to a wall jack, per drop.",
+  generator_inlet_interlock: "Install a generator inlet and a panel interlock kit so the generator can feed the panel safely.",
+  transfer_switch: "Supply and install a transfer switch between the generator and the panel.",
+  trenching: "Dig and backfill the trench for an underground circuit, per linear foot.",
+  permit: "Electrical permit applied for on the client's behalf.",
+  reinspection: "Attend a re-inspection after a failed or rescheduled inspection, per visit.",
+  drywall_patch: "Patch, sand and paint the drywall opened for access, per opening.",
+  disposal: "Haul away and dispose of the removed panel, fixtures and cable.",
+  drywall_exclusion: "Repair of drywall and paint after access openings is not part of this quote.",
+  concealed_conditions_clause: "Conditions concealed behind walls, ceilings or floors are not part of this quote and are priced when found.",
+};
+
 export const ELECTRICAL_LINE_ITEMS = RAW_LINE_ITEMS.map((item) => ({
   ...item,
   group: GROUP_BY_KEY[item.key],
+  detail: ELECTRICAL_LINE_DETAILS[item.key],
 }));

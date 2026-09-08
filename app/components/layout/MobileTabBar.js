@@ -108,10 +108,13 @@ export default function MobileTabBar() {
     <nav
       className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-sidebar-border/60 bg-sidebar/80 supports-[backdrop-filter]:bg-sidebar/65 backdrop-blur-xl backdrop-saturate-150 pb-[env(safe-area-inset-bottom)]"
     >
-      {/* Fixed content height (not just "auto"), so app/app/layout.js has an
-          exact number to reserve on <main> instead of guessing at one that
-          drifts the moment padding here changes. */}
-      <div className="h-16 flex items-stretch justify-center">
+      {/* Fixed content height (not just "auto"), and taken from the ONE
+          declaration of it — --fq-tab-bar-row in app/globals.css — so the
+          <main> padding, every page's Save bar and the floating launchers
+          reserve exactly this row plus the safe-area inset without a second
+          written copy of "4rem" that can drift. See the "bottom dock"
+          section there. */}
+      <div className="h-[var(--fq-tab-bar-row)] flex items-stretch justify-center">
         {tabs.map((item) => {
           const active = isActive(pathname, item.href);
           const Icon = item.icon;

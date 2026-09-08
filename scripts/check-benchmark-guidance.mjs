@@ -250,14 +250,20 @@ section("Boundary — guidance is internal and never persisted");
 const page =
   readFileSync("app/components/quotes/builder/QuoteBuilder.js", "utf8") +
   readFileSync("lib/quotes/builderPayload.js", "utf8");
+const lineDetail = readFileSync("lib/quotes/lineDetail.js", "utf8");
 ok(
   "the builder strips catalogKey before POSTing the quote",
   /\{\s*catalogKey,\s*\.\.\.item\s*\}\)\s*=>\s*\(?\{/.test(page),
   "the editor-only handle would otherwise be saved onto the document",
 );
+// The line is now built by lib/quotes/lineDetail.js (so the catalogue's scope
+// sentence is copied under the name — see that file); the key rides on it
+// from there. Both halves are asserted: the helper attaches it, and the
+// builder is what calls the helper for a suggestion.
 ok(
   "the builder attaches catalogKey when adding a suggestion",
-  /catalogKey:\s*suggestion\.key/.test(page),
+  /catalogKey:\s*suggestion\?\.key/.test(lineDetail) &&
+    /const line = lineFromSuggestion\(suggestion\);/.test(page),
   "without it the hint can never resolve",
 );
 

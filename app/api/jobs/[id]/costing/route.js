@@ -18,6 +18,7 @@ import { equipmentCostForJob } from "@/lib/costing/equipmentUsage";
 import { calculateMinimumPrice } from "@/lib/analytics/minimumPrice";
 import { unattributedLabourForJob } from "@/lib/costing/unattributedHours";
 import { contractValue } from "@/lib/jobs/changeOrderValue";
+import { shouldAskRevision, normaliseThresholdPct, DEFAULT_REVISION_THRESHOLD_PCT } from "@/lib/costing/costRevision";
 
 export async function GET(request, { params }) {
   // Next 16: `params` is a Promise.
@@ -68,10 +69,16 @@ export async function GET(request, { params }) {
       // flatters the job. Only APPROVED rows count; see
       // lib/jobs/changeOrderValue.js.
       changeOrders: { select: { priceDelta: true, status: true, invoiceId: true } },
+      // The close-out's "update your costing?" decision, if one was made.
+      // Read here so the prompt never draws itself twice — see
+      // lib/costing/costRevision.js.
+      costRevisionDecision: true,
+      costRevisionDecidedAt: true,
       // Returned so the panel formats in the company's billing currency. The
       // job endpoint doesn't load the company, and defaulting to CAD in the
       // component is exactly the bug that put "$2100.00" on client documents.
-      company: { select: { currency: true } },
+      // The threshold rides with it: the owner's "15 or 20% over".
+      company: { select: { currency: true, costRevisionThresholdPct: true } },
     },
   });
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -199,6 +206,10 @@ export async function GET(request, { params }) {
     quoteId: job.quote?.id || null,
   });
   const estimatedCost = quotedCost ? quotedCost.totalCost : null;
+  // The hours the same estimate predicted, for the close-out's labour line.
+  // Null when the estimate carries none — a comparison against zero hours is
+  // not a comparison.
+  const estimatedHours = quotedCost ? (quotedCost.labourHours ?? null) : null;
 
   // Quoted, plus what was agreed since, equals what the job is now worth —
   // returned as three separate figures, not one blended "revenue". A single
@@ -220,6 +231,26 @@ export async function GET(request, { params }) {
     revenue: contract.currentContractValue,
   });
 
+  // ── Should the close-out ask "update your costing?" ──────────────────────
+  //
+  // Decided here, once, from the same variance the panel shows, so the modal
+  // and the panel cannot disagree about whether this job crossed the line.
+  // The threshold is the company's; a stored value outside 0–100 (there is no
+  // route that writes one, but a default is not a guarantee) falls back to
+  // the shipped default rather than to "never ask".
+  const thresholdPct =
+    normaliseThresholdPct(job.company?.costRevisionThresholdPct) ?? DEFAULT_REVISION_THRESHOLD_PCT;
+  const revision = {
+    thresholdPct,
+    decision: job.costRevisionDecision || null,
+    decidedAt: job.costRevisionDecidedAt || null,
+    ask: shouldAskRevision({
+      variancePct: comparison.variancePct,
+      thresholdPct,
+      decision: job.costRevisionDecision,
+    }),
+  };
+
   return NextResponse.json({
     actual,
     // Hours in this window that belong to no job. Its own key, never merged
@@ -227,6 +258,8 @@ export async function GET(request, { params }) {
     unattributed,
     comparison,
     contract,
+    estimatedHours,
+    revision,
     // When the estimate was taken. A variance against a figure snapshotted
     // eight months ago is still a fair comparison, but the reader deserves to
     // know that is what they are looking at.

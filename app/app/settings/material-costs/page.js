@@ -15,7 +15,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { RotateCcw, Save, Droplet } from "lucide-react";
+import { RotateCcw, Save, Droplet, Scale } from "lucide-react";
 import {
   RECIPE_EDITABLE_FIELDS,
   CONSUMABLE_EDITABLE_FIELDS,
@@ -134,6 +134,126 @@ export default function MaterialCostsPage() {
     return <NoAccessPanel capability="jobCosting" />;
   }
   return <MaterialCostsEditor />;
+}
+
+// ── The cost-revision threshold ──────────────────────────────────────────────
+//
+// The owner's "15 or 20% over": how far over its estimate a finished job has
+// to come in before the close-out asks whether to update the costing from
+// what the job really cost. Its own card, its own route
+// (/api/settings/cost-revision), the SAME gate as the recipe cards below —
+// whoever may edit the cost basis may decide when they are asked to.
+//
+// Lives on this screen because the answer to that question is edited here:
+// the suggestions the close-out offers write into these recipe cards (and
+// the rate card under Settings → Services).
+function CostRevisionCard() {
+  const { t } = useTranslation();
+  const [threshold, setThreshold] = useState(null);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [fieldError, setFieldError] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/settings/cost-revision");
+        if (!res.ok) {
+          await reportResponseError(res, setLoadError);
+          return;
+        }
+        const data = await res.json();
+        setThreshold(data.thresholdPct);
+        setDraft(String(data.thresholdPct));
+      } catch {
+        setLoadError(t("app.setMaterialCosts.revisionLoadFailed", "Couldn't load the cost revision setting."));
+      }
+    })();
+  }, []);
+
+  async function save() {
+    // The same rule the route applies, so the person hears it before the
+    // request rather than after: a whole number, 0 to 100, refused not
+    // clamped.
+    const n = Number(draft);
+    if (draft === "" || !Number.isInteger(n) || n < 0 || n > 100) {
+      setFieldError(t("app.setMaterialCosts.revisionInvalid", "Enter a whole number from 0 to 100."));
+      return;
+    }
+    setFieldError("");
+    setSaving(true);
+    try {
+      const res = await fetch("/api/settings/cost-revision", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ thresholdPct: n }),
+      });
+      if (!res.ok) {
+        await reportResponseError(res);
+        return;
+      }
+      const data = await res.json();
+      setThreshold(data.thresholdPct);
+      setDraft(String(data.thresholdPct));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-6">
+      <div className="flex items-center gap-2 mb-1">
+        <Scale size={16} className="text-muted-foreground" />
+        <h2 className="font-semibold text-foreground">
+          {t("app.setMaterialCosts.revisionTitle", "When to ask about revising your costing")}
+        </h2>
+      </div>
+      <p className="text-xs text-muted-foreground mb-4">
+        {t("app.setMaterialCosts.revisionHint", "When a completed job's real cost comes in at least this far over what you quoted, the close-out shows the comparison and asks whether to update your rates from what it really cost — or leave them. A job that came in under never asks. 0 asks on any overrun.")}
+      </p>
+      {loadError && (
+        <div className="rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 px-3 py-2 text-sm text-red-700 dark:text-red-300 mb-3">
+          {loadError}
+        </div>
+      )}
+      {threshold !== null && (
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="text-xs font-medium text-muted-foreground block">
+            {t("app.setMaterialCosts.revisionLabel", "Ask to revise costing when a job comes in more than this over its estimate")}
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                type="number"
+                inputMode="numeric"
+                min="0"
+                max="100"
+                step="1"
+                className={`${inputClass} w-24`}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+              />
+              <span className="text-sm text-muted-foreground">{t("app.setMaterialCosts.revisionUnit", "% over")}</span>
+            </div>
+          </label>
+          <button
+            onClick={save}
+            disabled={saving || draft === String(threshold)}
+            className="bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-60 min-h-[44px]"
+          >
+            <Save size={14} />
+            {saving ? t("app.action.saving") : t("app.action.save")}
+          </button>
+          {saved && (
+            <span className="text-xs text-emerald-600 dark:text-emerald-400">{t("app.action.saved")}</span>
+          )}
+        </div>
+      )}
+      {fieldError && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{fieldError}</p>}
+    </div>
+  );
 }
 
 function MaterialCostsEditor() {
@@ -271,6 +391,11 @@ function MaterialCostsEditor() {
           {loadError}
         </div>
       )}
+
+      {/* Company-wide, not per trade, so it sits above the recipe cards and
+          renders even when the company sells neither recipe trade — the
+          close-out asks the question on every trade's jobs. */}
+      <CostRevisionCard />
 
       {/* The API omits a category the company neither sells nor has ever
           overridden (lib/settings/tradeGate.js). If that leaves NOTHING —

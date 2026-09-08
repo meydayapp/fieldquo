@@ -1,14 +1,19 @@
 // app/api/jobs/[id]/costing/calibration/route.js
 //
-// What this job's materials say about the recipe that predicted them.
+// What this job's materials AND hours say about the rates that predicted them.
 //
-// The close-out (app/components/jobs/CostReview.js) fetches this and shows,
-// per derived material line, the rate the estimate used against the rate the
-// job actually got — one roll of tape per 8 doors against one per 6, 350
-// sqft a gallon against 290 — and, where the company can save that rate
-// today, a button that writes the suggested value through the EXISTING
+// The close-out (app/components/jobs/CostReview.js) fetches this when the job
+// crossed the company's cost-revision threshold and the person pressed
+// "Update" (lib/costing/costRevision.js), and shows, per derived material
+// line, the rate the estimate used against the rate the job actually got —
+// one roll of tape per 8 doors against one per 6, 350 sqft a gallon against
+// 290 — plus one labour line: the hours the quote predicted against the
+// hours approved, per unit of work, with a suggested crew-hours rate where
+// exactly one saved rate produced the estimate. Where the company can save
+// that rate today, a button writes the suggested value through the EXISTING
 // settings route for the trade. This endpoint computes; it never writes.
-// See lib/costing/materialCalibration.js for what it refuses to guess.
+// See lib/costing/materialCalibration.js and lib/costing/labourCalibration.js
+// for what each refuses to guess.
 //
 // Gated exactly like the review endpoint beside it: the job's view level,
 // the jobCosting toggle (a consumption rate is the cost basis — the same
@@ -24,9 +29,11 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { hasToggle, assignedJobWhere, requireLevel } from "@/lib/permissions/enforce";
 import { canWriteCostBasis } from "@/lib/permissions/costBasis";
-import { QUOTE_COST_SELECT } from "@/lib/costing/quoteCostEstimate";
+import { QUOTE_COST_SELECT, quotedCostFor } from "@/lib/costing/quoteCostEstimate";
 import { resolveCostingGroups, recipeOverridesFor } from "@/app/api/quotes/costingWrite";
 import { estimateScopeGroupCost } from "@/lib/costing/estimateJobCost";
+import { actualJobCost } from "@/lib/costing/actualJobCost";
+import { tradeLabourHours } from "@/lib/pricing/tradeScope";
 import { getRecipe, hasRecipe } from "@/app/data/materialRecipes";
 import { getPriceBook, hasPriceBook } from "@/app/data/tradePriceBooks";
 import {
@@ -34,6 +41,11 @@ import {
   pickEstimateGroups,
   CALIBRATION_REASONS,
 } from "@/lib/costing/materialCalibration";
+import {
+  labourBasisFor,
+  labourCalibration,
+  LABOUR_REASONS,
+} from "@/lib/costing/labourCalibration";
 
 const num = (v) => {
   const n = Number(v);
@@ -74,6 +86,13 @@ export async function GET(request, { params }) {
           purchasedAt: true,
         },
       },
+      // Approved, pending and unrated hours, the same rows and the same
+      // arithmetic the costing panel uses (actualJobCost), so the labour line
+      // here cannot disagree with the panel about how many hours there were.
+      timeEntries: {
+        where: { worker: { companyId: member.companyId } },
+        select: { hours: true, status: true, workerId: true, worker: { select: { hourlyRate: true } } },
+      },
       quote: {
         select: {
           ...QUOTE_COST_SELECT,
@@ -84,26 +103,26 @@ export async function GET(request, { params }) {
   });
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // No quote means no estimate at all — nothing to calibrate against. Say so
+  // with an empty answer rather than a 4xx: the close-out renders nothing for
+  // it, which is the honest screen.
+  if (!job.quote) {
+    return NextResponse.json({ lines: [], hasActuals: false, source: null, labour: null });
+  }
+
   const materials = job.materials.map((m) => ({
     ...m,
     qty: num(m.qty),
     actualQty: m.actualQty == null ? null : num(m.actualQty),
   }));
 
-  // Nothing derived from an estimate, nothing to calibrate — and no quote
-  // means no estimate at all. Say so with an empty list rather than a 4xx:
-  // the close-out renders nothing for it, which is the honest screen.
-  const derivedRows = materials.filter((m) => !m.addedByHand);
-  if (!job.quote || derivedRows.length === 0) {
-    return NextResponse.json({ lines: [], hasActuals: false, source: null });
-  }
-
   // The company's rates as they stand today — the thing a suggestion would
   // change. Resolved server-side with the same helpers the quote's own cost
   // panel uses, so this cannot disagree with it about what the rate is.
-  const [resolvedGroups, recipeOverrides] = await Promise.all([
+  const [resolvedGroups, recipeOverrides, quotedCost] = await Promise.all([
     resolveCostingGroups(member.companyId, job.quote.scopeGroups),
     recipeOverridesFor(member.companyId),
+    quotedCostFor({ companyId: member.companyId, quoteId: job.quote.id }),
   ]);
   const keyToCategoryId = new Map(
     job.quote.scopeGroups.map((g, i) => [resolvedGroups[i]?.categoryKey, g.categoryId]),
@@ -127,24 +146,22 @@ export async function GET(request, { params }) {
   // carries a basis, else derived now. The denominators (doors, sqft of
   // coating) come from the quote's own scope either way; only the RATE
   // differs, and the comparison is against today's rate regardless.
-  const derived = resolvedGroups
-    .map((g) =>
-      estimateScopeGroupCost({
-        categoryKey: g.categoryKey,
-        intake: g.intakeValues || {},
-        recipeOverrides: recipeOverrides[g.categoryKey] || {},
-        takeoff: g.takeoff || null,
-        rateOverrides: g.rateOverrides || null,
-      }),
-    )
+  const derivedByIndex = resolvedGroups.map((g) =>
+    estimateScopeGroupCost({
+      categoryKey: g.categoryKey,
+      intake: g.intakeValues || {},
+      recipeOverrides: recipeOverrides[g.categoryKey] || {},
+      takeoff: g.takeoff || null,
+      rateOverrides: g.rateOverrides || null,
+    }),
+  );
+  const derived = derivedByIndex
     .map((est, i) => (est ? { label: resolvedGroups[i].label, ...est } : null))
     .filter(Boolean);
   const { groups, source } = pickEstimateGroups({
     frozen: job.quote.costing?.groups,
     derived,
   });
-
-  const lines = materialCalibration({ materials: derivedRows, groups, currentRates });
 
   // ── Who may press the button ──────────────────────────────────────────────
   //
@@ -157,6 +174,13 @@ export async function GET(request, { params }) {
     recipe: canWriteCostBasis(full, "materialRecipes"),
     book: ["owner", "admin"].includes(member.role),
   };
+
+  // Materials: only lines derived from an estimate can be calibrated. A job
+  // whose list is entirely hand-added still gets the labour line below.
+  const derivedRows = materials.filter((m) => !m.addedByHand);
+  const lines = derivedRows.length
+    ? materialCalibration({ materials: derivedRows, groups, currentRates })
+    : [];
 
   const shaped = lines.map((l) => {
     const store = l.currentRate?.store || null;
@@ -178,9 +202,75 @@ export async function GET(request, { params }) {
     };
   });
 
+  // ── Labour ────────────────────────────────────────────────────────────────
+  //
+  // Per group: the hours the estimate gave it and the denominator that
+  // produced them. Hours come from the FROZEN groups when the quote was
+  // costed (matched by trade and label — the freeze drops groups that
+  // estimated to nothing, so index is not a key), else derived now the same
+  // way quoteCostSummary derives them: the recipe's hours plus the takeoff's.
+  const frozenGroups = Array.isArray(job.quote.costing?.groups) ? job.quote.costing.groups : [];
+  const groupHoursFor = (g, i) => {
+    const frozen =
+      frozenGroups.find((f) => f?.categoryKey === g.categoryKey && (f?.label ?? null) === (g.label ?? null)) ||
+      frozenGroups.find((f) => f?.categoryKey === g.categoryKey);
+    if (frozen) return num(frozen.labourHours);
+    let hours = derivedByIndex[i] ? num(derivedByIndex[i].labourHours) : 0;
+    if (g.takeoff) {
+      try {
+        hours += num(tradeLabourHours(g.categoryKey, g.takeoff, g.rateOverrides || null));
+      } catch {
+        // A malformed takeoff predicts nothing rather than throwing the
+        // whole calibration away — the same rule quoteCostSummary keeps.
+      }
+    }
+    return hours;
+  };
+  const labourGroups = resolvedGroups.map((g, i) => ({
+    categoryKey: g.categoryKey,
+    label: g.label,
+    labourHours: groupHoursFor(g, i),
+    basis: labourBasisFor({
+      categoryKey: g.categoryKey,
+      intake: g.intakeValues || {},
+      takeoff: g.takeoff || null,
+      rateOverrides: g.rateOverrides || null,
+      recipeOverrides: recipeOverrides[g.categoryKey] || {},
+    }),
+  }));
+  const hours = actualJobCost([], job.timeEntries).labour;
+  const labourLine = labourCalibration({
+    estimatedHours: quotedCost?.labourHours ?? null,
+    approvedHours: hours.approvedHours,
+    pendingHours: hours.pendingHours,
+    unratedHours: hours.unratedHours,
+    groups: labourGroups,
+  });
+  let labour = null;
+  if (labourLine) {
+    const store = labourLine.currentRate?.store || null;
+    const permitted = store ? Boolean(mayWrite[store]) : false;
+    const canApply = labourLine.canApply && permitted;
+    labour = {
+      ...labourLine,
+      canApply,
+      reason: labourLine.canApply && !permitted ? LABOUR_REASONS.PERMISSION : labourLine.reason,
+      apply: canApply
+        ? {
+            store,
+            categoryKey: labourLine.categoryKey,
+            categoryId: keyToCategoryId.get(labourLine.categoryKey) || null,
+            path: labourLine.currentRate.path,
+            value: labourLine.suggestedRate,
+          }
+        : null,
+    };
+  }
+
   return NextResponse.json({
     lines: shaped,
     hasActuals: shaped.some((l) => l.actualQty != null),
     source,
+    labour,
   });
 }

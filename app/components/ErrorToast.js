@@ -42,9 +42,17 @@ export default function ErrorToast() {
   if (messages.length === 0) return null;
 
   return (
-    // Bottom-centre on phones, bottom-right on desktop: out of the way of the
-    // thing that just failed, but not somewhere a thumb has to travel.
-    <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 z-[100] space-y-2">
+    // Bottom on phones, bottom-right on desktop: out of the way of the thing
+    // that just failed, but not somewhere a thumb has to travel.
+    //
+    // The bottom offset clears the mobile tab bar and whatever Save bar the
+    // page has mounted (app/globals.css "bottom dock") — at bottom-4 this
+    // used to land on the very Save button whose failure it was reporting.
+    // The right edge stops short of the launcher column (Jennifer is 56px
+    // wide at right-5, so 76px from the edge): right-[5.5rem] on a phone,
+    // right-24 with a fixed width from sm up. Otherwise the toast's own
+    // Dismiss "X", which sits at its right end, is under the launcher.
+    <div className="fixed bottom-[calc(var(--fq-tab-bar-height)+var(--fq-dock-height)+1rem)] left-4 right-[5.5rem] sm:left-auto sm:right-24 sm:w-96 z-[100] space-y-2">
       {messages.map((m) => (
         <div
           key={m.id}

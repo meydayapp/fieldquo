@@ -81,16 +81,18 @@ export const PLUMBING_LINE_ITEM_GROUPS = [
 ];
 
 /**
- * Every plumbing line, flat, in the `{ description, unit }` shape
- * DEFAULT_LINE_ITEMS uses.
+ * Every plumbing line, flat, in the `{ description, unit, detail }` shape
+ * DEFAULT_LINE_ITEMS uses. `detail` is merged in from PLUMBING_LINE_DETAILS
+ * below, at the bottom of the file, so the eighty-two entries here stay the
+ * shape the benchmarks and the grouping were written against.
  *
  * `key` is additional and load-bearing: app/data/plumbingBenchmarks.js is keyed
  * to it, and keying guidance to the description string instead would break the
  * first time somebody rewords a chip or translates one. `group` drives the
  * chip grouping above. Neither affects how a line renders — the consumer reads
- * `description` and `unit`, exactly as it does for every other trade.
+ * `description`, `unit` and `detail`, exactly as it does for every other trade.
  */
-export const PLUMBING_LINE_ITEMS = [
+const RAW_LINE_ITEMS = [
   // ── Service & diagnostics ─────────────────────────────────────────────────
   {
     key: "service_call",
@@ -621,6 +623,104 @@ export const PLUMBING_LINE_ITEMS = [
       "Reaching pipe means opening walls and ceilings, cutting concrete, lifting flooring and moving appliances. Making the pipe right is included; making the surfaces right again is not, unless a restoration line appears on this quote.",
   },
 ];
+
+// ── Scope lines ─────────────────────────────────────────────────────────────
+//
+// The sentence printed under each line on the client's document and handed to
+// the AI review beside the name — see the `detail` note in defaultLineItems.js.
+// Keyed, like the benchmarks, so a reworded chip keeps its sentence; checked
+// for 1:1 coverage by scripts/check-addon-descriptions.mjs. What is done, per
+// what unit. No price, no brand, no warranty term and no code outcome — those
+// stay the company's to state.
+export const PLUMBING_LINE_DETAILS = {
+  service_call: "Plumber dispatched to the site to diagnose the problem, per visit.",
+  emergency_callout: "Plumber dispatched outside standard hours, per visit.",
+  labour_standard: "Plumber's time on site during standard hours, per hour.",
+  labour_emergency: "Plumber's time on site outside standard hours, per hour.",
+  leak_detection: "Locate the leak with electronic or acoustic equipment before any opening is cut.",
+  pressure_test: "Pressurise and hold the water system to confirm it is tight.",
+  camera_inspection: "Run a camera through the sewer line during the service to see its condition.",
+  camera_inspection_standalone: "Run a camera through the sewer line and report its condition, per visit.",
+  drain_clear_fixture: "Cable the fixture or branch drain to clear the stoppage, per drain.",
+  drain_clear_main: "Cable the main drain from the cleanout to clear the stoppage.",
+  toilet_auger: "Auger the toilet to clear the stoppage, per toilet.",
+  hydro_jet_branch: "High-pressure water jet the branch line to scour it clean, per line.",
+  hydro_jet_main: "High-pressure water jet the main line to scour it clean.",
+  cleanout_install: "Cut in and install a cleanout fitting for future access, per cleanout.",
+  repipe_base_fee: "Mobilisation, shut-offs, tie-ins and testing for the whole-house repipe.",
+  repipe_pex_per_fixture: "Run new PEX supply lines to each fixture, per fixture.",
+  repipe_copper_per_fixture: "Run new copper supply lines to each fixture, per fixture.",
+  repipe_sheetrock_demo: "Open the walls and ceilings needed to reach the old pipe.",
+  galvanised_removal: "Cut out the old galvanised supply pipe and dispose of it.",
+  water_line_repair: "Cut out the damaged section of supply line and fit a new piece, per repair.",
+  wh_tank_supply_install: "Supply a tank water heater and install it in place of the old one, connected and tested.",
+  wh_tank_equipment_only: "The tank water heater itself; installation is priced on the matching install package line.",
+  wh_install_package_gas: "Remove the old heater, set the new gas unit, connect water, gas and vent, and test.",
+  wh_install_package_electric: "Remove the old heater, set the new electric unit, connect water and power, and test.",
+  wh_tankless_supply_install: "Supply a tankless water heater and install it, connected, vented and tested.",
+  wh_tankless_retrofit: "Run the new gas line from the meter and the new venting a tankless unit needs.",
+  wh_expansion_tank: "Install a thermal expansion tank on the water heater supply.",
+  wh_venting: "Install or modify the water heater vent to suit the new unit.",
+  wh_pan_drain: "Set a drain pan under the heater and run its drain line to a safe outlet.",
+  wh_seismic_strap: "Strap the water heater to the wall against movement.",
+  wh_removal_disposal: "Disconnect, remove and dispose of the old water heater.",
+  wh_recirculation_pump: "Install a recirculation pump so hot water reaches the far fixtures faster.",
+  toilet_supply_install: "Supply a toilet and install it with a new wax seal and supply line, per toilet.",
+  toilet_install_only: "Install the client's toilet with a new wax seal and supply line, per toilet.",
+  lav_faucet_supply_install: "Supply a bathroom faucet and install it with new supply lines, per faucet.",
+  kitchen_faucet_supply_install: "Supply a kitchen faucet and install it with new supply lines, per faucet.",
+  faucet_install_only: "Install the client's faucet with new supply lines, per faucet.",
+  sink_supply_install: "Supply a sink and install it, drain and supplies connected, per sink.",
+  tub_supply_install: "Supply a bathtub and set it, drain and overflow connected, per tub.",
+  tub_shower_valve: "Rough in the tub or shower valve and fit the trim, per valve.",
+  shower_pan_install: "Set the shower pan or base and connect the drain, per pan.",
+  disposal_supply_install: "Supply a garbage disposal and install it under the sink, per unit.",
+  dishwasher_hookup: "Connect the dishwasher's water supply and drain, per dishwasher.",
+  washer_box_install: "Install a washing machine outlet box with supply valves and drain, per box.",
+  angle_stop_replace: "Replace the fixture shut-off valve under the fixture, per valve.",
+  hose_bib_replace: "Replace the outside tap with a new frost-free sillcock, per tap.",
+  prv_supply_install: "Supply and install a pressure reducing valve on the incoming main.",
+  main_shutoff_replace: "Replace the main water shut-off valve where the service enters the house.",
+  mixing_valve_install: "Supply and install a thermostatic mixing valve on the hot water supply.",
+  backflow_install: "Supply and install a backflow preventer on the line that needs it, per device.",
+  backflow_test: "Test the backflow preventer and file the certification, per device.",
+  gas_line_run_simple: "Run a new gas line along a straightforward route to the appliance location.",
+  gas_line_run_complex: "Run a new gas line along a route that needs extra openings, offsets or supports.",
+  gas_appliance_connection: "Connect the appliance to the gas supply with a new connector and test for leaks, per appliance.",
+  gas_repair_minor: "Repair a small section or fitting on the gas line and test it, per repair.",
+  gas_pressure_test: "Pressurise and hold the gas line to confirm it is tight.",
+  water_main_open_trench: "Dig the trench, replace the water main from the street to the house, and backfill.",
+  water_main_bore: "Replace the water main from the street to the house by directional bore, without an open trench.",
+  bore_base_fee: "Set up the boring rig and complete the first 50 ft of bore.",
+  pipe_bursting: "Pull a new pipe through the old one, bursting it in place, without an open trench along the run.",
+  sewer_excavation_replace: "Excavate, replace the sewer line, and backfill.",
+  sewer_spot_repair: "Excavate to the damaged section of sewer line, replace it, and backfill, per repair.",
+  sewer_lining: "Line the sewer pipe in place with a cured-in-place liner.",
+  cast_iron_replace: "Cut out the cast iron drain line and replace it with new pipe.",
+  underground_obstruction: "Work around a water, sewer or gas line found in the path of the excavation, priced when found.",
+  driveway_cut_patch: "Saw-cut the driveway for access and patch it after the work.",
+  landscape_restoration: "Put back the lawn, beds or hard landscaping disturbed by the excavation.",
+  slab_leak_spot_repair: "Open the slab over the leak, repair the pipe, and close the opening, per repair.",
+  slab_leak_reroute: "Abandon the leaking line under the slab and run a new one overhead or around the perimeter.",
+  water_softener_install: "Supply a water softener and install it on the incoming main with a bypass.",
+  water_filtration_install: "Supply a filtration or treatment system and install it on the incoming main.",
+  sump_pump_install: "Supply a sump pump and install it in the pit with a check valve and discharge line.",
+  sewage_ejector_install: "Supply a sewage ejector pump and install it in the basin with a check valve and vent.",
+  permit_plumbing: "Plumbing permit applied for on the client's behalf.",
+  inspection_coordination: "Book the inspection and attend it on site.",
+  travel_fee: "Travel to a site outside the standard service area.",
+  disposal_fee: "Haul away and dispose of the removed fixtures and material.",
+  access_opening: "Cut an opening in the drywall, ceiling or floor to reach the pipe, per opening.",
+  concrete_cut_patch: "Cut the concrete for access and patch it after the work.",
+  additional_labour: "Extra plumber time for an install that proves harder than a standard one, per hour.",
+  clause_excavation: "States what the excavation price does not cover, so it is read with the price.",
+  clause_general_damage: "States which access openings and restoration are and are not included, so it is read with the price.",
+};
+
+export const PLUMBING_LINE_ITEMS = RAW_LINE_ITEMS.map((item) => ({
+  ...item,
+  detail: PLUMBING_LINE_DETAILS[item.key],
+}));
 
 /** Quick lookup by key. Built once — the list is static. */
 export const PLUMBING_LINE_ITEMS_BY_KEY = Object.fromEntries(

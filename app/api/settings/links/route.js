@@ -23,9 +23,17 @@ export async function GET(request) {
 
   const data = await loadLinkPageDataForCompany(member.companyId);
   if (!data) return NextResponse.json({ error: "Company not found" }, { status: 404 });
+  return NextResponse.json(payload(data));
+}
 
-  const { company, config, candidates } = data;
-  return NextResponse.json({
+/**
+ * What the settings screen needs, from what the public page loads.
+ *
+ * One function for GET and PATCH: the PATCH used to restate this object by
+ * hand, which is the copy that rots (AGENTS.md, failure class 4).
+ */
+function payload({ company, config, candidates }) {
+  return {
     // The slug the public page resolves on, so the screen can build the URL
     // against its own origin rather than one this route guesses from headers.
     slug: company.bookingSlug || company.slug,
@@ -39,7 +47,26 @@ export async function GET(request) {
     // is silent about the absence, and silence reads as a missing feature
     // rather than as "you have no bookable event types yet".
     unavailable: unavailableReasons(candidates, company),
-  });
+    // ── For the live preview ──────────────────────────────────────────────
+    //
+    // The screen renders the SAME component the public route does
+    // (app/components/links/LinkPageView) with the config it is editing, so
+    // it needs everything that component reads off the company, plus the
+    // candidate list the config is an override of. Nothing here is a second
+    // rendering of the page — it is the page's inputs.
+    brandColor: company.brandColor,
+    logoUrl: company.logoUrl,
+    candidates,
+    company: {
+      name: company.name,
+      logoUrl: company.logoUrl,
+      brandColor: company.brandColor,
+      website: company.website,
+      city: company.city,
+      province: company.province,
+      defaultLanguage: company.defaultLanguage,
+    },
+  };
 }
 
 export async function PATCH(request) {
@@ -106,15 +133,7 @@ export async function PATCH(request) {
   // Re-read rather than echoing what was sent: the caller must see what is
   // stored, including anything the sanitiser refused.
   const fresh = await loadLinkPageDataForCompany(member.companyId);
-  return NextResponse.json({
-    slug: fresh.company.bookingSlug || fresh.company.slug,
-    published: fresh.config.published,
-    headline: fresh.config.headline,
-    bio: fresh.config.bio,
-    companyName: fresh.company.name,
-    links: resolveLinks(fresh.candidates, fresh.config),
-    unavailable: unavailableReasons(fresh.candidates, fresh.company),
-  });
+  return NextResponse.json(payload(fresh));
 }
 
 /**
@@ -140,9 +159,11 @@ function unavailableReasons(candidates, company) {
     });
   }
   if (!have.has("site")) {
+    // Same order as the row itself (lib/links/candidates.js, "Website"):
+    // their own domain first, the FieldQuo-hosted site only once published.
     out.push({
       key: "site",
-      reason: "No published website — Settings → Website, or add one in Company Settings.",
+      reason: "No website yet — add your domain in Company Settings, or publish your FieldQuo site in Settings → Website.",
     });
   }
   if (!have.has("whatsapp")) {

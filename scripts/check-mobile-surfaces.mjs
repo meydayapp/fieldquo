@@ -185,6 +185,10 @@ const SURFACES = [
   // import panel, and those were fixed rather than exempted. No gap list.
   { dir: "app/quote", tier: "strict" },
   { dir: "app/q", tier: "strict" },
+  // The bio link: the one page a contractor's whole Instagram audience taps,
+  // on a phone by definition. Strict from the day it was redrawn.
+  { dir: "app/l", tier: "strict" },
+  { dir: "app/components/links", tier: "strict" },
 ];
 
 /** Files held to every rule. New screens are added here, not to a gap list. */
@@ -613,7 +617,12 @@ const RULES = [
     title: "no container wider than a phone",
     run(src) {
       const bad = [];
-      for (const m of src.matchAll(/\b(?:sm:|md:|lg:|xl:)?(w|min-w)-\[(\d+)px\]/g)) {
+      // `max-w-[680px]` is a CEILING, not a width: on a 375px screen it does
+      // nothing, which is the whole reason a centred column is written that
+      // way. `\b` matches between the hyphen and the `w`, so without the
+      // lookbehind the rule read every max-w as a fixed width — the bio
+      // link's column was the first strict file to write one.
+      for (const m of src.matchAll(/\b(?:sm:|md:|lg:|xl:)?(?<!max-)(w|min-w)-\[(\d+)px\]/g)) {
         const [text, prop, px] = [m[0], m[1], Number(m[2])];
         // A breakpoint-prefixed width only applies above that breakpoint, so
         // it cannot break a 375px screen.

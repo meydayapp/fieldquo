@@ -165,30 +165,39 @@ screenshotted — see "What I could not verify" below.
   layer); the drawer it opens is `z-50`, so the tab bar never renders above
   it.
 
-## The Jennifer collision — reported, not fixed here
+## The Jennifer collision — fixed, and the rule that replaced the copies
 
-`app/components/jennifer/JenniferPanel.js`'s toggle button is
-`fixed bottom-5 right-5 z-50 h-14 w-14` (`app/components/jennifer/
-JenniferPanel.js`, unread — not edited, per the brief). `bottom-5` /
-`right-5` are measured from the *viewport's* corner, not from anything that
-knows the tab bar exists, so on any screen below `lg` that button now sits
-**directly on top of the tab bar's rightmost tab** — the button's 56×56 box,
-20px off the bottom and right edges, lands squarely inside the bar's fixed
-`h-16` (64px) + safe-area-inset footprint, which is exactly where "More" (or
-Invoices, whichever ends up rightmost) renders. It is `z-50` against the tab
-bar's `z-40`, so the chat button wins visually and blocks the tap target
-underneath it.
+The section that used to sit here reported that
+`app/components/jennifer/JenniferPanel.js`'s launcher (`fixed bottom-5
+right-5`) landed on the tab bar's rightmost tab, and proposed
+`bottom-[calc(4rem+env(safe-area-inset-bottom)+1.25rem)] lg:bottom-5`. That
+was applied — and then the same `calc(4rem + env(safe-area-inset-bottom))`
+was copied into every page's fixed Save bar, the Help launcher and the
+error toast, none of which knew about each other. The owner's 2026-09-08
+report was the result: "the Chat with Jennifer button typically sits right
+on top of the Save button."
 
-**What should change, in `JenniferPanel.js` (not done here):** the button's
-position needs to account for the tab bar's height below `lg` — something
-like `bottom-5 lg:bottom-5` becoming a responsive pair, e.g.
-`bottom-[calc(4rem+env(safe-area-inset-bottom)+1.25rem)] lg:bottom-5`, so the
-chat bubble floats *above* the tab bar on a phone and keeps its current
-position at `lg` and up, where the tab bar does not render at all. The `4rem`
-and `env(safe-area-inset-bottom)` terms should stay in lockstep with the same
-two numbers this change put in `app/app/layout.js`'s `<main>` padding, for the
-same reason: one written constant instead of a magic number nobody can trace
-back to its source if the bar's height ever changes.
+**The rule now (2026-09-08).** Two CSS variables, declared once in
+`app/globals.css` ("bottom dock" section) and read by everything pinned to
+the bottom edge:
+
+- `--fq-tab-bar-height` — this bar's footprint. Set by the `.fq-app-shell`
+  class on `app/app/layout.js`'s outer div (`calc(var(--fq-tab-bar-row) +
+  env(safe-area-inset-bottom))` below `lg`, `0px` from `lg`), and `0px`
+  everywhere else — the marketing site mounts Jennifer too and has no bar.
+  The bar's own row is `h-[var(--fq-tab-bar-row)]`, so "4rem" is written
+  exactly once.
+- `--fq-dock-height` — the current page's Save / Send bar, measured live by
+  `app/hooks/useBottomDock.js` (a callback ref plus ResizeObserver) and
+  written to `<html>`; removed when no bar is mounted.
+
+A Save bar sits at `bottom-[var(--fq-tab-bar-height)]` and attaches the
+hook's ref. The launchers and the toast sit at `bottom: calc(both + gap)`,
+so they ride *above* a bar rather than on it; Help is stacked above
+Jennifer in the same column. `<main>` pads by the sum, so nothing on a page
+ends under either. `scripts/check-bottom-dock.mjs` (`npm run check:dock`)
+fails the build on a bar that positions itself any other way, and computes
+the two launchers' vertical spans to prove they are disjoint.
 
 ## What could not be verified
 

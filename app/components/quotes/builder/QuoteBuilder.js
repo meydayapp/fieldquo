@@ -95,6 +95,7 @@ import {
   applyLineItemEdit,
   newScopeGroup,
 } from "@/lib/quotes/builderPayload";
+import { lineFromProduct, lineFromSuggestion } from "@/lib/quotes/lineDetail";
 import { explainTaxSource } from "@/lib/tax/resolveTaxRate";
 import { jsonBody } from "@/lib/jsonBody";
 import { resolveDocumentTax } from "@/lib/tax/documentTax";
@@ -1091,25 +1092,27 @@ export function QuoteBuilderForm({
     );
   }
 
+  /**
+   * Adds a Product from Settings > Products & Services (or a seeded standard
+   * add-on) as a line.
+   *
+   * Built by lib/quotes/lineDetail.js rather than here, because this is where
+   * the product's description used to be dropped: name, unit and price were
+   * copied and the one-line scope text was not, so "Soft-Close Hinges" reached
+   * the document and the AI review as a bare name. The helper copies the
+   * description into the line's `detail`, in the quote's own language.
+   */
   function addProductLineItem(groupTempId, product) {
+    const line = lineFromProduct(product, {
+      language: quoteLanguage || companyLanguage,
+      defaultLanguage: companyLanguage,
+    });
     setScopeGroups((prev) =>
-      prev.map((g) => {
-        if (g.tempId !== groupTempId) return g;
-        const rate = Number(product.unitPrice || 0);
-        return {
-          ...g,
-          lineItems: [
-            ...g.lineItems,
-            {
-              description: product.name,
-              quantity: 1,
-              unit: product.unit || "flat",
-              rate,
-              amount: rate,
-            },
-          ],
-        };
-      }),
+      prev.map((g) =>
+        g.tempId === groupTempId
+          ? { ...g, lineItems: [...g.lineItems, line] }
+          : g,
+      ),
     );
   }
 
@@ -1122,27 +1125,16 @@ export function QuoteBuilderForm({
    * plausible-looking default would end up on a client's quote unread.
    */
   function addSuggestedLineItem(groupTempId, suggestion) {
+    // lineFromSuggestion copies the catalogue's `detail` under the name and
+    // carries `catalogKey` so the builder can look the line's benchmark up
+    // while the rate is still blank. Local to the editor — the request body
+    // drops the key and no document reads it, because a benchmark is
+    // FieldQuo's research, not this company's price.
+    const line = lineFromSuggestion(suggestion);
     setScopeGroups((prev) =>
       prev.map((g) =>
         g.tempId === groupTempId
-          ? {
-              ...g,
-              lineItems: [
-                ...g.lineItems,
-                {
-                  description: suggestion.description,
-                  quantity: 1,
-                  unit: suggestion.unit || "flat",
-                  rate: 0,
-                  amount: 0,
-                  // Carried so the builder can look the line's benchmark up
-                  // while the rate is still blank. Local to the editor — the
-                  // request body drops it and no document reads it, because a
-                  // benchmark is FieldQuo's research, not this company's price.
-                  catalogKey: suggestion.key,
-                },
-              ],
-            }
+          ? { ...g, lineItems: [...g.lineItems, line] }
           : g,
       ),
     );
@@ -1438,8 +1430,15 @@ export function QuoteBuilderForm({
 
     setSaving(action);
 
+    // The quote's own language goes in with the group so the lines derived at
+    // save time (cabinet upgrades) are written in the language of the
+    // document — the same value POST sends as `language` below.
     const groupsPayload = scopeGroups.map((g) =>
-      buildScopeGroupPayload(g, rateOverridesFor(g.categoryId)),
+      buildScopeGroupPayload(
+        g,
+        rateOverridesFor(g.categoryId),
+        quoteLanguage || companyLanguage,
+      ),
     );
     const costing = costingPayload();
 
@@ -1635,7 +1634,10 @@ export function QuoteBuilderForm({
   ];
 
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6 pb-24">
+    // No pb-24 for the totals bar: the /app shell's <main> pads by the bar's
+    // measured height (useBottomDock in QuoteTotalsBar), so the last field
+    // clears it whatever height the bar turns out to be at this width.
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
       {isEdit && (
         <Link
           href={`/app/quotes/${quoteId}`}

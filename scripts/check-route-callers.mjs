@@ -149,6 +149,12 @@ const EXTERNAL_CALLERS = {
     "App Dashboard (see docs/META-ADS-BUILD.md), never fetched by our own " +
     "code. app/api/meta-ads/connect/route.js builds the URL Meta redirects " +
     "back to; the browser is what calls it, via a 302 from facebook.com.",
+  "/api/meta/data-deletion":
+    "Meta's Data Deletion Request Callback — entered in the FieldQuo app's " +
+    "settings on developers.facebook.com (docs/META-APP-REVIEW-PROMPT.md), " +
+    "POSTed by Meta when a person removes the app. Verified against " +
+    "META_APP_SECRET in lib/dataDeletion/signedRequest.js; refuses when the " +
+    "secret is unset. Nothing in this repo calls it.",
 };
 
 /**

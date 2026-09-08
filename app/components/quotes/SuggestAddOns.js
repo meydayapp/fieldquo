@@ -33,6 +33,7 @@ import { jsonBody } from "@/lib/jsonBody";
 import { formatAppMoney } from "@/lib/format/money";
 import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
 import { VISION_PASS_CENTS } from "@/lib/ai/imageEconomics";
+import { visionPillState } from "@/lib/ai/visionPill";
 import {
   AiCreditTopupDialog,
   useAiCreditTopup,
@@ -87,6 +88,11 @@ export default function SuggestAddOns({
   // The PAID deep photo read — a separate spend from the free review above,
   // off a separate AI credit wallet. See app/api/quotes/[id]/vision/route.js.
   const [visionPasses, setVisionPasses] = useState([]);
+  // GET /api/quotes/[id]/vision's read-only verdict on whether the wallet
+  // covers one read. Drives the pill's colour (lib/ai/visionPill.js); null
+  // until it arrives or when it never does, which the pill treats as "price
+  // known, balance unknown" rather than as a refusal.
+  const [visionSpend, setVisionSpend] = useState(null);
   const [visionRunning, setVisionRunning] = useState(false);
   const [visionError, setVisionError] = useState("");
 
@@ -135,8 +141,10 @@ export default function SuggestAddOns({
     try {
       const vision = await fetchJson(`/api/quotes/${quoteId}/vision`);
       setVisionPasses(Array.isArray(vision?.passes) ? vision.passes : []);
+      setVisionSpend(vision?.spend || null);
     } catch {
       setVisionPasses([]);
+      setVisionSpend(null);
     }
   }, [quoteId]);
 
@@ -180,6 +188,14 @@ export default function SuggestAddOns({
     try {
       const data = await fetchJson(`/api/quotes/${quoteId}/vision`, { method: "POST" });
       setVisionPasses(Array.isArray(data?.passes) ? data.passes : []);
+      // The wallet just moved. Re-read the verdict rather than arithmetic on
+      // the old one, so the pill and the next refusal agree to the cent.
+      try {
+        const again = await fetchJson(`/api/quotes/${quoteId}/vision`);
+        setVisionSpend(again?.spend || null);
+      } catch {
+        setVisionSpend(null);
+      }
     } catch (err) {
       // 402 with an offer is "you are short by exactly this much, and here is
       // the way past it" — the dialog is opened on it instead of the sentence
@@ -534,12 +550,30 @@ export default function SuggestAddOns({
         <div className="mt-5 border border-border rounded-lg px-4 py-3">
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
-              <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
+              <p className="text-sm font-medium text-foreground flex items-center gap-1.5 flex-wrap">
                 <Eye size={14} className="text-muted-foreground" />
                 Deep photo read
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground border border-border rounded-full px-1.5 py-0.5">
-                  Paid
-                </span>
+                {/* Amber: pressing the button spends this much and will work.
+                    Red: the wallet can't cover one read — the shortfall is
+                    the number. Green: already read today; nothing more is
+                    spent unless they run it again. Solid fills, measured —
+                    see lib/ai/visionPill.js. */}
+                {(() => {
+                  const pill = visionPillState({
+                    spend: visionSpend,
+                    passes: visionPasses,
+                    costCents: VISION_PASS_CENTS,
+                    money: (cents) => formatAppMoney(cents / 100, CREDIT_CURRENCY, "en"),
+                  });
+                  return (
+                    <span
+                      data-vision-pill={pill.state}
+                      className={`text-[11px] font-semibold tracking-wide rounded-full px-2 py-0.5 ${pill.className}`}
+                    >
+                      {pill.label}
+                    </span>
+                  );
+                })()}
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
                 A closer look at every photo on this quote — up to 8, read at

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, X, Trash2, Search } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useBottomDock } from "@/app/hooks/useBottomDock";
 import MediaUploader from "@/app/components/MediaUploader";
 import InvoiceCostSection from "@/app/components/invoices/InvoiceCostSection";
 import { formatAppMoney } from "@/lib/format/money";
@@ -19,6 +20,7 @@ export default function NewInvoicePage() {
   const [currency, setCurrency] = useState(null);
 
   const { t, language } = useTranslation();
+  const dockRef = useBottomDock();
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedClientId = searchParams.get("clientId");
@@ -258,7 +260,7 @@ export default function NewInvoicePage() {
     );
 
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6 pb-24">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">{t("app.invoices.new")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
@@ -531,13 +533,13 @@ export default function NewInvoicePage() {
         </div>
       </div>
 
-      {/* sm:left-60 was wrong on its own terms — AdminSidebar only becomes a
-          rail at `lg` (hidden lg:flex), so this bar sat indented under a
-          phantom sidebar gap from 640–1024px; fixed to lg:left-60. The bottom
-          offset clears MobileTabBar's fixed row below `lg` (same calc as
-          app/app/layout.js's `main` padding) so this bar no longer lands on
-          top of the tab bar. */}
-      <div data-tour="invoice-save" className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] lg:bottom-0 left-0 right-0 lg:left-60 bg-card border-t border-border px-6 py-4 flex gap-3 justify-end items-center">
+      {/* lg:left-60, not sm: — AdminSidebar only becomes a rail at `lg`
+          (hidden lg:flex). A "bottom dock": it sits on the tab bar's
+          footprint (0 from lg up) and reports its height through
+          useBottomDock, which keeps the Jennifer launcher off "Save & send"
+          and pads <main> so the totals card is never under it. See
+          app/globals.css "bottom dock". */}
+      <div ref={dockRef} data-tour="invoice-save" className="fixed bottom-[var(--fq-tab-bar-height)] left-0 right-0 lg:left-60 bg-card border-t border-border px-6 py-4 flex gap-3 justify-end items-center">
         <p className="text-xs text-muted-foreground mr-auto max-w-xs">
           {t("app.invoiceNew.sendHelper", "Emails the invoice to the client’s email on file.")}
         </p>

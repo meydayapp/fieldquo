@@ -245,13 +245,27 @@ export default function JenniferPanel({ variant = "marketing" }) {
         aria-label="Chat with Jennifer"
         aria-expanded={open}
         aria-controls="jennifer-panel"
-        /* The bottom offset clears the mobile tab bar, which did not exist
-           when this button was placed. MobileTabBar is 4rem plus the home
-           indicator and renders below lg, so below lg this sits above both;
-           from lg up the bar is gone and bottom-5 is right again. Same
-           calc() as app/app/layout.js's <main> padding — if one changes the
-           other has to, which is why both name the 4rem out loud. */
-        className={`fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-5 z-50 h-14 w-14 items-center justify-center rounded-full bg-inverted text-inverted-foreground shadow-lg hover:opacity-90 lg:bottom-5 ${
+        /* ── Where the launcher sits ─────────────────────────────────────
+           The owner: "the Chat with Jennifer button typically sits right on
+           top of the Save button." It did — bottom-5 right-5 is the corner
+           every page's fixed Save / Send bar puts its primary button in.
+
+           The bottom offset is now the sum of everything pinned under it:
+           the mobile tab bar (0 from lg up, and 0 on the marketing site,
+           which mounts this too and has no bar — the old hard-coded 5rem
+           floated it 80px up a marketing page for nothing) plus the current
+           page's action bar, measured live by app/hooks/useBottomDock.js.
+           So it rides ABOVE a Save bar rather than on it, at every width,
+           and drops back to the corner on pages without one. The "bottom
+           dock" section of app/globals.css is the one place this is
+           explained in full.
+
+           z-30, down from z-50: modals in this codebase are z-50, and at
+           the same z-index this launcher — mounted after the page in the
+           DOM — painted over a dialog's own Save button (settings/team's
+           access editor). The launcher only needs to clear page content;
+           it must never clear an overlay. */
+        className={`fixed bottom-[calc(var(--fq-tab-bar-height)+var(--fq-dock-height)+1.25rem)] right-5 z-30 h-14 w-14 items-center justify-center rounded-full bg-inverted text-inverted-foreground shadow-lg hover:opacity-90 ${
           open ? "hidden" : "flex"
         }`}
       >

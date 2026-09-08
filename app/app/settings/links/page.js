@@ -38,6 +38,25 @@
 // buttons stay and are the keyboard path too; and a `draggable` ancestor
 // steals text selection from the inputs inside it in Firefox, so a row is
 // only draggable while its grip is held.
+//
+// ── The preview is the page, not a picture of it ────────────────────────────
+//
+// The phone-shaped frame beside the editor renders LinkPageView — the exact
+// component app/l/[slug]/page.js renders — with the config being typed and
+// the candidate list the server resolved. Not an iframe onto the live route
+// (that would show what is SAVED, and the point of a preview is what is
+// about to be) and not a miniature drawn here (that is the copy that lies).
+// The items it previews are built by the same buildItems() that Save posts,
+// so the preview cannot show an order or a label the save would not keep.
+// The only things the server still does that the preview cannot are the
+// sanitiser's refusals — a javascript: custom URL, an unknown icon — and
+// those are the very things sanitiseLinkConfig runs here too, on the client,
+// because it is pure.
+//
+// The light/dark switch pins the page's scheme for the frame only; the
+// public page follows the visitor's phone and has no switch (lib/links/
+// theme.js). A contractor on a light laptop needs to see the dark page
+// somewhere, and this is the somewhere.
 
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -52,13 +71,18 @@ import {
   Loader2,
   Info,
   GripVertical,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useBottomDock } from "@/app/hooks/useBottomDock";
 import { linkPageUrl } from "@/lib/links/href";
 import { SOCIAL_PLATFORMS, SOCIAL_NAMES, socialHref } from "@/lib/links/social";
 import { CUSTOM_ICON_NAMES } from "@/lib/links/icons";
+import { sanitiseLinkConfig } from "@/lib/links/config";
 import { iconForLink, SocialGlyph } from "@/app/components/links/linkIcons";
+import LinkPageView from "@/app/components/links/LinkPageView";
 
 const GROUP_KEYS = {
   price: ["app.setBioLink.group.price", "Get a price"],
@@ -73,6 +97,7 @@ function emptySocials() {
 
 export default function BioLinkSettingsPage() {
   const { t } = useTranslation();
+  const dockRef = useBottomDock();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -88,6 +113,9 @@ export default function BioLinkSettingsPage() {
   // Labelled rows only; the icon row is `socials`, one field per platform.
   const [links, setLinks] = useState([]);
   const [socials, setSocials] = useState(emptySocials);
+  // The frame's scheme, not the page's — see the header. Light first because
+  // that is the scheme most of the app is read in.
+  const [previewScheme, setPreviewScheme] = useState("light");
 
   // Drag state. `armed` is the row whose grip is currently held (the only row
   // that is `draggable`); `dragging`/`over` are the indices of the row in
@@ -126,6 +154,28 @@ export default function BioLinkSettingsPage() {
 
   const url = data?.slug ? linkPageUrl(origin, data.slug) : "";
 
+  // The items array exactly as Save posts it. Shared with the preview so the
+  // two cannot disagree about what a row is — see the header.
+  function buildItems() {
+    return [
+      // Social first, by convention only — the server keys them by
+      // platform and the page paints them in a fixed order regardless.
+      ...SOCIAL_PLATFORMS.filter((p) => socials[p].trim()).map((p) => ({
+        key: `social:${p}`,
+        enabled: true,
+        url: socials[p].trim(),
+      })),
+      ...links.map((l) => ({
+        key: l.key,
+        enabled: l.enabled,
+        label: l.label,
+        // Only a custom row owns its URL and icon; for everything else
+        // the server derives them and would ignore this anyway.
+        ...(l.key.startsWith("custom:") ? { url: l.url, icon: l.icon || null } : {}),
+      })),
+    ];
+  }
+
   async function save() {
     setSaving(true);
     setSaved(false);
@@ -133,28 +183,7 @@ export default function BioLinkSettingsPage() {
       const res = await fetch("/api/settings/links", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          published,
-          headline,
-          bio,
-          items: [
-            // Social first, by convention only — the server keys them by
-            // platform and the page paints them in a fixed order regardless.
-            ...SOCIAL_PLATFORMS.filter((p) => socials[p].trim()).map((p) => ({
-              key: `social:${p}`,
-              enabled: true,
-              url: socials[p].trim(),
-            })),
-            ...links.map((l) => ({
-              key: l.key,
-              enabled: l.enabled,
-              label: l.label,
-              // Only a custom row owns its URL and icon; for everything else
-              // the server derives them and would ignore this anyway.
-              ...(l.key.startsWith("custom:") ? { url: l.url, icon: l.icon || null } : {}),
-            })),
-          ],
-        }),
+        body: JSON.stringify({ published, headline, bio, items: buildItems() }),
       });
       if (!res.ok) {
         await reportResponseError(res, t("app.setBioLink.saveError", "Couldn't save."));
@@ -242,344 +271,413 @@ export default function BioLinkSettingsPage() {
     (p) => socials[p].trim() && !socialHref(p, socials[p]),
   );
 
-  return (
-    <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6 pb-28">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">
-          {t("app.settings.bioLink", "Bio link")}
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {t(
-            "app.setBioLink.subtitle",
-            "One page for the single link Instagram and TikTok allow in your profile. It carries your logo and your colour, with a small “Made by FieldQuo” line at the very bottom.",
-          )}
-        </p>
-      </div>
+  // What the visitor would get if Save were pressed now. Through the same
+  // sanitiser the server runs, so a refused row is absent from the preview
+  // exactly as it will be absent from the page. The GET may predate the
+  // preview fields (a stale tab); then there is no frame rather than a wrong
+  // one.
+  const previewable = Boolean(data.company && Array.isArray(data.candidates));
+  const previewConfig = previewable
+    ? sanitiseLinkConfig({ published, headline, bio, items: buildItems() })
+    : null;
 
-      {/* ── The URL ── */}
-      <div className="bg-card border border-border rounded-xl p-5">
-        <div className="flex items-start gap-3 mb-3">
-          <span className="mt-0.5 text-muted-foreground shrink-0">
-            <Link2 size={17} />
-          </span>
+  return (
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-8 lg:items-start">
+      <div className="space-y-6 min-w-0">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">
+            {t("app.settings.bioLink", "Bio link")}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {t(
+              "app.setBioLink.subtitle",
+              "One page for the single link Instagram and TikTok allow in your profile. It carries your logo and your colour, with a small “Made by FieldQuo” line at the very bottom.",
+            )}
+          </p>
+        </div>
+
+        {/* ── The URL ── */}
+        <div className="bg-card border border-border rounded-xl p-5">
+          <div className="flex items-start gap-3 mb-3">
+            <span className="mt-0.5 text-muted-foreground shrink-0">
+              <Link2 size={17} />
+            </span>
+            <div>
+              <h2 className="font-semibold text-foreground">
+                {t("app.setBioLink.yourLink", "Your link")}
+              </h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {published
+                  ? t("app.setBioLink.live", "Paste this into your Instagram or TikTok bio.")
+                  : t("app.setBioLink.down", "The page is switched off — this link shows a not-found page.")}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <code className="flex-1 min-w-0 truncate bg-muted border border-border rounded-lg px-3 py-2 text-xs text-foreground">
+              {url}
+            </code>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(url);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              }}
+              className="inline-flex items-center gap-1.5 border border-border rounded-full px-3 py-2 text-xs font-semibold text-foreground shrink-0"
+            >
+              {copied ? <Check size={13} /> : <Copy size={13} />}
+              {copied ? t("app.action.copied") : t("app.action.copyLink")}
+            </button>
+            <a
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 border border-border rounded-full px-3 py-2 text-xs font-semibold text-foreground shrink-0"
+            >
+              <ExternalLink size={13} /> {t("app.setLeadForm.open")}
+            </a>
+          </div>
+
+          <label className="mt-4 flex items-center gap-3 text-sm text-foreground">
+            <input
+              type="checkbox"
+              checked={published}
+              onChange={(e) => setPublished(e.target.checked)}
+              className="h-4 w-4"
+            />
+            {t("app.setBioLink.publishedLabel", "Page is live")}
+          </label>
+        </div>
+
+        {/* ── Header copy ── */}
+        <div className="bg-card border border-border rounded-xl p-5 space-y-4">
           <div>
-            <h2 className="font-semibold text-foreground">
-              {t("app.setBioLink.yourLink", "Your link")}
-            </h2>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {published
-                ? t("app.setBioLink.live", "Paste this into your Instagram or TikTok bio.")
-                : t("app.setBioLink.down", "The page is switched off — this link shows a not-found page.")}
+            <label className="block text-sm font-semibold text-foreground mb-1">
+              {t("app.setBioLink.headline", "Heading")}
+            </label>
+            <input
+              value={headline}
+              onChange={(e) => setHeadline(e.target.value)}
+              maxLength={80}
+              placeholder={data.companyName}
+              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              {t("app.setBioLink.headlineHint", "Leave it empty to use your company name.")}
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-foreground mb-1">
+              {t("app.setBioLink.bio", "One line under it")}
+            </label>
+            <input
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              maxLength={200}
+              placeholder={t("app.setBioLink.bioPlaceholder", "Kitchen refinishing across Ottawa–Gatineau")}
+              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              {t("app.setBioLink.bioHint", "Optional. Empty means nothing is shown — we don't write one for you.")}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <code className="flex-1 min-w-0 truncate bg-muted border border-border rounded-lg px-3 py-2 text-xs text-foreground">
-            {url}
-          </code>
-          <button
-            type="button"
-            onClick={() => {
-              navigator.clipboard.writeText(url);
-              setCopied(true);
-              setTimeout(() => setCopied(false), 2000);
-            }}
-            className="inline-flex items-center gap-1.5 border border-border rounded-full px-3 py-2 text-xs font-semibold text-foreground shrink-0"
-          >
-            {copied ? <Check size={13} /> : <Copy size={13} />}
-            {copied ? t("app.action.copied") : t("app.action.copyLink")}
-          </button>
-          <a
-            href={url}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 border border-border rounded-full px-3 py-2 text-xs font-semibold text-foreground shrink-0"
-          >
-            <ExternalLink size={13} /> {t("app.setLeadForm.open")}
-          </a>
-        </div>
-
-        <label className="mt-4 flex items-center gap-3 text-sm text-foreground">
-          <input
-            type="checkbox"
-            checked={published}
-            onChange={(e) => setPublished(e.target.checked)}
-            className="h-4 w-4"
-          />
-          {t("app.setBioLink.publishedLabel", "Page is live")}
-        </label>
-      </div>
-
-      {/* ── Header copy ── */}
-      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-        <div>
-          <label className="block text-sm font-semibold text-foreground mb-1">
-            {t("app.setBioLink.headline", "Heading")}
-          </label>
-          <input
-            value={headline}
-            onChange={(e) => setHeadline(e.target.value)}
-            maxLength={80}
-            placeholder={data.companyName}
-            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
-          />
-          <p className="text-xs text-muted-foreground mt-1">
-            {t("app.setBioLink.headlineHint", "Leave it empty to use your company name.")}
+        {/* ── The icon row ── */}
+        <div className="bg-card border border-border rounded-xl p-5">
+          <h2 className="font-semibold text-foreground">
+            {t("app.setBioLink.followTitle", "Follow us")}
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5 mb-4">
+            {t(
+              "app.setBioLink.followHint",
+              "A row of icons under your name. Type a handle or paste the profile link; leave one empty to hide it.",
+            )}
           </p>
-        </div>
-        <div>
-          <label className="block text-sm font-semibold text-foreground mb-1">
-            {t("app.setBioLink.bio", "One line under it")}
-          </label>
-          <input
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            maxLength={200}
-            placeholder={t("app.setBioLink.bioPlaceholder", "Kitchen refinishing across Ottawa–Gatineau")}
-            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
-          />
-          <p className="text-xs text-muted-foreground mt-1">
-            {t("app.setBioLink.bioHint", "Optional. Empty means nothing is shown — we don't write one for you.")}
-          </p>
-        </div>
-      </div>
-
-      {/* ── The icon row ── */}
-      <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground">
-          {t("app.setBioLink.followTitle", "Follow us")}
-        </h2>
-        <p className="text-sm text-muted-foreground mt-0.5 mb-4">
-          {t(
-            "app.setBioLink.followHint",
-            "A row of icons under your name. Type a handle or paste the profile link; leave one empty to hide it.",
-          )}
-        </p>
-        <ul className="space-y-2">
-          {SOCIAL_PLATFORMS.map((platform) => {
-            const value = socials[platform];
-            const bad = socialProblems.includes(platform);
-            return (
-              <li key={platform} className="flex items-center gap-3">
-                <span className="w-7 shrink-0 text-muted-foreground" aria-hidden="true">
-                  <SocialGlyph platform={platform} size={18} />
-                </span>
-                <label className="sr-only" htmlFor={`social-${platform}`}>
-                  {SOCIAL_NAMES[platform]}
-                </label>
-                <div className="min-w-0 flex-1">
-                  <input
-                    id={`social-${platform}`}
-                    value={value}
-                    onChange={(e) =>
-                      setSocials((prev) => ({ ...prev, [platform]: e.target.value }))
-                    }
-                    maxLength={300}
-                    placeholder={`${SOCIAL_NAMES[platform]} — ${t("app.setBioLink.socialPlaceholder", "@handle or link")}`}
-                    inputMode="url"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    aria-invalid={bad || undefined}
-                    className={`w-full bg-background border rounded-lg px-2.5 py-1.5 text-sm text-foreground ${bad ? "border-red-500" : "border-border"}`}
-                  />
-                  {bad && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {t(
-                        "app.setBioLink.socialInvalid",
-                        "Doesn't look like a handle or a profile link — it won't be saved.",
-                      )}
-                    </p>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-
-      {/* ── The links ── */}
-      <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground">
-          {t("app.setBioLink.linksTitle", "What's on the page")}
-        </h2>
-        <p className="text-sm text-muted-foreground mt-0.5 mb-4">
-          {t(
-            "app.setBioLink.linksHint",
-            "The first one is the big button. Only things you actually have show up here.",
-          )}
-        </p>
-
-        <ul className="space-y-2">
-          {links.map((link, index) => {
-            const Icon = iconForLink(link);
-            const custom = link.key.startsWith("custom:");
-            const [groupKey, groupFallback] = GROUP_KEYS[link.group] || GROUP_KEYS.more;
-            const isOver = over === index && dragging !== null && dragging !== index;
-            return (
-              <li
-                key={link.key}
-                draggable={armed === index}
-                onDragStart={(e) => {
-                  e.dataTransfer.effectAllowed = "move";
-                  // Firefox refuses to start a drag with no data on it.
-                  e.dataTransfer.setData("text/plain", link.key);
-                  setDragging(index);
-                }}
-                onDragOver={(e) => {
-                  if (dragging === null) return;
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = "move";
-                  if (over !== index) setOver(index);
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  moveTo(dragging, index);
-                  endDrag();
-                }}
-                onDragEnd={endDrag}
-                className={`border rounded-lg p-3 flex items-start gap-3 ${
-                  isOver ? "border-foreground" : "border-border"
-                } ${dragging === index ? "opacity-50" : ""}`}
-              >
-                {/* Held, not clicked: `draggable` is set on the row only
-                    while this is pressed, so the inputs beside it keep
-                    their text selection. Hidden from assistive tech — the
-                    arrows below are the accessible way to do the same thing. */}
-                <span
-                  onMouseDown={() => setArmed(index)}
-                  onMouseUp={() => setArmed(null)}
-                  onMouseLeave={() => dragging === null && setArmed(null)}
-                  title={t("app.setBioLink.dragHandle", "Drag to reorder")}
-                  aria-hidden="true"
-                  className="hidden sm:flex mt-2 shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground"
-                >
-                  <GripVertical size={16} />
-                </span>
-                <input
-                  type="checkbox"
-                  checked={link.enabled}
-                  onChange={(e) => patchLink(index, { enabled: e.target.checked })}
-                  aria-label={t("app.setBioLink.showOnPage", "Show on the page")}
-                  className="h-4 w-4 mt-2.5 shrink-0"
-                />
-                <Icon size={16} className="mt-2.5 shrink-0 text-muted-foreground" />
-
-                <div className="min-w-0 flex-1 space-y-1.5">
-                  <input
-                    value={link.label}
-                    onChange={(e) => patchLink(index, { label: e.target.value })}
-                    maxLength={60}
-                    placeholder={t("app.setBioLink.buttonText", "Button text")}
-                    className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground"
-                  />
-                  {custom ? (
-                    <>
-                      <input
-                        value={link.url}
-                        onChange={(e) => patchLink(index, { url: e.target.value })}
-                        placeholder="https://instagram.com/…"
-                        inputMode="url"
-                        className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                      />
-                      <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>{t("app.setBioLink.icon", "Icon")}</span>
-                        <select
-                          value={link.icon || ""}
-                          onChange={(e) => patchLink(index, { icon: e.target.value || null })}
-                          className="bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-foreground"
-                        >
-                          <option value="">—</option>
-                          {CUSTOM_ICON_NAMES.map((name) => (
-                            <option key={name} value={name}>
-                              {name}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    </>
-                  ) : (
-                    <p className="text-xs text-muted-foreground truncate">{link.url}</p>
-                  )}
-                  {/* Which heading the row sits under on the page. Derived
-                      server-side from what the row is — not editable, so it
-                      is a tag rather than a picker. */}
-                  <span className="inline-block text-[11px] uppercase tracking-wide text-muted-foreground">
-                    {t(groupKey, groupFallback)}
+          <ul className="space-y-2">
+            {SOCIAL_PLATFORMS.map((platform) => {
+              const value = socials[platform];
+              const bad = socialProblems.includes(platform);
+              return (
+                <li key={platform} className="flex items-center gap-3">
+                  <span className="w-7 shrink-0 text-muted-foreground" aria-hidden="true">
+                    <SocialGlyph platform={platform} size={18} />
                   </span>
-                </div>
+                  <label className="sr-only" htmlFor={`social-${platform}`}>
+                    {SOCIAL_NAMES[platform]}
+                  </label>
+                  <div className="min-w-0 flex-1">
+                    <input
+                      id={`social-${platform}`}
+                      value={value}
+                      onChange={(e) =>
+                        setSocials((prev) => ({ ...prev, [platform]: e.target.value }))
+                      }
+                      maxLength={300}
+                      placeholder={`${SOCIAL_NAMES[platform]} — ${t("app.setBioLink.socialPlaceholder", "@handle or link")}`}
+                      inputMode="url"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      aria-invalid={bad || undefined}
+                      className={`w-full bg-background border rounded-lg px-2.5 py-1.5 text-sm text-foreground ${bad ? "border-red-500" : "border-border"}`}
+                    />
+                    {bad && (
+                      <p className="text-xs text-red-600 mt-1">
+                        {t(
+                          "app.setBioLink.socialInvalid",
+                          "Doesn't look like a handle or a profile link — it won't be saved.",
+                        )}
+                      </p>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
 
-                <div className="flex flex-col gap-1 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => move(index, -1)}
-                    disabled={index === 0}
-                    aria-label={t("app.setBioLink.moveUp", "Move up")}
-                    className="p-1.5 rounded-md border border-border text-muted-foreground disabled:opacity-30"
+        {/* ── The links ── */}
+        <div className="bg-card border border-border rounded-xl p-5">
+          <h2 className="font-semibold text-foreground">
+            {t("app.setBioLink.linksTitle", "What's on the page")}
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5 mb-4">
+            {t(
+              "app.setBioLink.linksHint",
+              "The first one is the big button. Only things you actually have show up here.",
+            )}
+          </p>
+
+          <ul className="space-y-2">
+            {links.map((link, index) => {
+              const Icon = iconForLink(link);
+              const custom = link.key.startsWith("custom:");
+              const [groupKey, groupFallback] = GROUP_KEYS[link.group] || GROUP_KEYS.more;
+              const isOver = over === index && dragging !== null && dragging !== index;
+              return (
+                <li
+                  key={link.key}
+                  draggable={armed === index}
+                  onDragStart={(e) => {
+                    e.dataTransfer.effectAllowed = "move";
+                    // Firefox refuses to start a drag with no data on it.
+                    e.dataTransfer.setData("text/plain", link.key);
+                    setDragging(index);
+                  }}
+                  onDragOver={(e) => {
+                    if (dragging === null) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    if (over !== index) setOver(index);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    moveTo(dragging, index);
+                    endDrag();
+                  }}
+                  onDragEnd={endDrag}
+                  className={`border rounded-lg p-3 flex items-start gap-3 ${
+                    isOver ? "border-foreground" : "border-border"
+                  } ${dragging === index ? "opacity-50" : ""}`}
+                >
+                  {/* Held, not clicked: `draggable` is set on the row only
+                      while this is pressed, so the inputs beside it keep
+                      their text selection. Hidden from assistive tech — the
+                      arrows below are the accessible way to do the same thing. */}
+                  <span
+                    onMouseDown={() => setArmed(index)}
+                    onMouseUp={() => setArmed(null)}
+                    onMouseLeave={() => dragging === null && setArmed(null)}
+                    title={t("app.setBioLink.dragHandle", "Drag to reorder")}
+                    aria-hidden="true"
+                    className="hidden sm:flex mt-2 shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground"
                   >
-                    <ArrowUp size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => move(index, 1)}
-                    disabled={index === links.length - 1}
-                    aria-label={t("app.setBioLink.moveDown", "Move down")}
-                    className="p-1.5 rounded-md border border-border text-muted-foreground disabled:opacity-30"
-                  >
-                    <ArrowDown size={13} />
-                  </button>
-                  {custom && (
+                    <GripVertical size={16} />
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={link.enabled}
+                    onChange={(e) => patchLink(index, { enabled: e.target.checked })}
+                    aria-label={t("app.setBioLink.showOnPage", "Show on the page")}
+                    className="h-4 w-4 mt-2.5 shrink-0"
+                  />
+                  <Icon size={16} className="mt-2.5 shrink-0 text-muted-foreground" />
+
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <input
+                      value={link.label}
+                      onChange={(e) => patchLink(index, { label: e.target.value })}
+                      maxLength={60}
+                      placeholder={t("app.setBioLink.buttonText", "Button text")}
+                      className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground"
+                    />
+                    {custom ? (
+                      <>
+                        <input
+                          value={link.url}
+                          onChange={(e) => patchLink(index, { url: e.target.value })}
+                          placeholder="https://instagram.com/…"
+                          inputMode="url"
+                          className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
+                        />
+                        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{t("app.setBioLink.icon", "Icon")}</span>
+                          <select
+                            value={link.icon || ""}
+                            onChange={(e) => patchLink(index, { icon: e.target.value || null })}
+                            className="bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-foreground"
+                          >
+                            <option value="">—</option>
+                            {CUSTOM_ICON_NAMES.map((name) => (
+                              <option key={name} value={name}>
+                                {name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground truncate">{link.url}</p>
+                    )}
+                    {/* Which heading the row sits under on the page. Derived
+                        server-side from what the row is — not editable, so it
+                        is a tag rather than a picker. */}
+                    <span className="inline-block text-[11px] uppercase tracking-wide text-muted-foreground">
+                      {t(groupKey, groupFallback)}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-1 shrink-0">
                     <button
                       type="button"
-                      onClick={() => setLinks((prev) => prev.filter((_, i) => i !== index))}
-                      aria-label={t("app.action.delete", "Delete")}
-                      className="p-1.5 rounded-md border border-border text-red-600"
+                      onClick={() => move(index, -1)}
+                      disabled={index === 0}
+                      aria-label={t("app.setBioLink.moveUp", "Move up")}
+                      className="p-1.5 rounded-md border border-border text-muted-foreground disabled:opacity-30"
                     >
-                      <Trash2 size={13} />
+                      <ArrowUp size={13} />
                     </button>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-
-        <button
-          type="button"
-          onClick={addCustom}
-          disabled={customCount >= 10}
-          className="mt-3 inline-flex items-center gap-1.5 border border-border rounded-full px-3 py-2 text-xs font-semibold text-foreground disabled:opacity-40"
-        >
-          <Plus size={13} /> {t("app.setBioLink.addCustom", "Add your own link")}
-        </button>
-
-        {data.unavailable?.length > 0 && (
-          <div className="mt-5 border-t border-border pt-4">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-              {t("app.setBioLink.notYet", "Not available yet")}
-            </p>
-            <ul className="space-y-1.5">
-              {data.unavailable.map((u) => (
-                <li key={u.key} className="flex items-start gap-2 text-xs text-muted-foreground">
-                  <Info size={13} className="mt-0.5 shrink-0" />
-                  <span>{u.reason}</span>
+                    <button
+                      type="button"
+                      onClick={() => move(index, 1)}
+                      disabled={index === links.length - 1}
+                      aria-label={t("app.setBioLink.moveDown", "Move down")}
+                      className="p-1.5 rounded-md border border-border text-muted-foreground disabled:opacity-30"
+                    >
+                      <ArrowDown size={13} />
+                    </button>
+                    {custom && (
+                      <button
+                        type="button"
+                        onClick={() => setLinks((prev) => prev.filter((_, i) => i !== index))}
+                        aria-label={t("app.action.delete", "Delete")}
+                        className="p-1.5 rounded-md border border-border text-red-600"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
                 </li>
-              ))}
-            </ul>
-          </div>
-        )}
+              );
+            })}
+          </ul>
+
+          <button
+            type="button"
+            onClick={addCustom}
+            disabled={customCount >= 10}
+            className="mt-3 inline-flex items-center gap-1.5 border border-border rounded-full px-3 py-2 text-xs font-semibold text-foreground disabled:opacity-40"
+          >
+            <Plus size={13} /> {t("app.setBioLink.addCustom", "Add your own link")}
+          </button>
+
+          {data.unavailable?.length > 0 && (
+            <div className="mt-5 border-t border-border pt-4">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                {t("app.setBioLink.notYet", "Not available yet")}
+              </p>
+              <ul className="space-y-1.5">
+                {data.unavailable.map((u) => (
+                  <li key={u.key} className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <Info size={13} className="mt-0.5 shrink-0" />
+                    <span>{u.reason}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* ── The preview ── */}
+      {previewable && (
+        <aside className="mt-6 lg:mt-0 lg:sticky lg:top-6 min-w-0">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <div className="min-w-0">
+              <h2 className="font-semibold text-foreground">{t("app.action.preview")}</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {t(
+                  "app.setBioLink.previewHint",
+                  "What a visitor sees, updated as you type. Save to put it live.",
+                )}
+              </p>
+            </div>
+            <div
+              role="group"
+              aria-label={t("app.action.preview")}
+              className="flex shrink-0 rounded-full border border-border p-0.5"
+            >
+              {[
+                ["light", Sun, t("app.setBranding.light")],
+                ["dark", Moon, t("app.setBranding.dark")],
+              ].map(([scheme, Icon, label]) => (
+                <button
+                  key={scheme}
+                  type="button"
+                  onClick={() => setPreviewScheme(scheme)}
+                  aria-pressed={previewScheme === scheme}
+                  aria-label={label}
+                  title={label}
+                  className={`flex h-9 w-9 items-center justify-center rounded-full ${
+                    previewScheme === scheme
+                      ? "bg-inverted text-inverted-foreground"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  <Icon size={15} />
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* A phone's width, as a ceiling: max-w so a narrow screen gets a
+              narrower frame rather than a sideways scroll, and the frame
+              scrolls inside itself (max-h in vh) so a short laptop can still
+              reach the footer. The page inside fills the frame, not the
+              viewport — the inFrame prop, and nothing else about it. */}
+          <div className="mx-auto w-full max-w-[375px] overflow-hidden rounded-[2rem] border-[6px] border-border bg-background shadow-sm">
+            <div className="max-h-[70vh] overflow-y-auto">
+              <LinkPageView
+                company={data.company}
+                config={previewConfig}
+                candidates={data.candidates}
+                scheme={previewScheme}
+                inFrame
+              />
+            </div>
+          </div>
+        </aside>
+      )}
 
       {/* Sticky, because the list above is long on a phone and a Save button
           you have to scroll to find is one people don't press.
-          bottom-0 alone used to land this directly on top of MobileTabBar
-          below `lg` (both fixed to the viewport bottom) — the save button
-          rendered under the tab bar's Jobs/Invoices row. The calc clears
-          the tab bar's exact height (its own h-16 + safe-area inset, see
-          app/components/layout/MobileTabBar.js); lg:bottom-0 restores the
-          true bottom once the tab bar stops rendering. */}
-      <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] lg:bottom-0 inset-x-0 lg:left-64 border-t border-border bg-card/95 backdrop-blur px-4 py-3 flex items-center gap-3 justify-end">
+          A "bottom dock": it sits on the tab bar's footprint (0 from lg up)
+          and reports its height through useBottomDock, which is what keeps
+          the Jennifer launcher off this Save button and pads <main> so the
+          last link row is never under it. See app/globals.css "bottom dock". */}
+      <div ref={dockRef} className="fixed bottom-[var(--fq-tab-bar-height)] inset-x-0 lg:left-64 border-t border-border bg-card/95 backdrop-blur px-4 py-3 flex items-center gap-3 justify-end">
         {(incomplete || socialProblems.length > 0) && (
           <span className="text-xs text-muted-foreground mr-auto">
             {incomplete
