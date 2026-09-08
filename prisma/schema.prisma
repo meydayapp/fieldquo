@@ -1197,6 +1197,25 @@ model Company {
   expenseImportBatches  ExpenseImportBatch[]
   marketingSpends       MarketingSpend[]
   metaAdConnection      MetaAdConnection?
+  // Facebook Page / Instagram business messaging. A DIFFERENT connection from
+  // metaAdConnection above and deliberately not folded into it: that row holds
+  // an ads_read token for one ad account, this one holds a per-PAGE messaging
+  // token, and a company can have several Pages while having one ad account.
+  messagingChannels     MessagingChannel[]
+  messageThreads        MessageThread[]
+  // Facebook/Instagram LEAD FORMS — a third Meta surface, separate again from
+  // both rows above. metaAdConnection holds the ads_read token this reads
+  // spend with; messagingChannels holds a per-Page messaging token; these are
+  // the lead-gen forms attached to a Page, each of which a company turns on or
+  // off individually. See lib/meta/leadsImport.js.
+  metaLeadForms         MetaLeadForm[]
+  // Facebook Page / Instagram ORGANIC PUBLISHING — a fourth Meta surface, and
+  // separate again for the same reason the three above are separate from each
+  // other: this row holds a per-Page token carrying pages_manage_posts /
+  // instagram_content_publish, granted in its own OAuth round trip, and a
+  // company that disconnects publishing must not lose its ads import (or its
+  // inbox) with it. See lib/meta/pageConnection.js and lib/social/metaConnection.js.
+  metaPageConnections   MetaPageConnection[]
   salaries              Salary[]
   debts                 Debt[]
   assets                Asset[]
@@ -4773,6 +4792,113 @@ model LeadRequest {
   quote         Quote?           @relation("LeadQuote", fields: [quoteId], references: [id])
   notes         LeadNote[]
   updatedAt     DateTime         @default(now()) @updatedAt
+
+  // ── Meta lead ads (lib/meta/leadsImport.js) ─────────────────────────────
+  //
+  // A homeowner tapped "Get a free estimate" on a Facebook or Instagram ad and
+  // filled in Meta's own built-in form. The lead that comes out is an ORDINARY
+  // LeadRequest — same creator (createScoredLead), same scoring, same board,
+  // same notification — and these columns are the only thing that marks where
+  // it came from. `source` is "meta_lead_form".
+  //
+  // `metaLeadId` is Meta's own leadgen id, and it is the IDEMPOTENCY KEY.
+  // Meta delivers the same lead more than once by design: the webhook is
+  // retried until it gets a 2xx, and the polling fallback
+  // (app/api/cron/meta-leads/route.js) exists precisely because webhooks are
+  // lossy — so the same leadgen id arrives down two paths on an ordinary day,
+  // not only in a failure. A re-delivered lead must never become a second
+  // LeadRequest row: the contractor would ring the same homeowner twice and
+  // every count on the marketing screen would be wrong. The unique constraint
+  // below is what enforces that, not the code's own check — the two paths can
+  // race, and only the database can settle a race.
+  //
+  // Scoped by company, not global: two tenants can never share a leadgen id
+  // (Meta's ids are unique), but keying the constraint on companyId keeps the
+  // tenant boundary visible in the schema rather than resting on a Meta
+  // guarantee, and it is the shape MarketingSpend's own external-id
+  // constraint already uses.
+  metaLeadId    String?
+  // The MetaLeadForm this came from — Meta's form id, not our row id, so the
+  // link survives a form being re-synced. Read by GET /api/meta/leads/forms,
+  // which counts each form's leads for the settings panel.
+  metaFormId    String?
+  // ── Why campaign and not ad/adset ────────────────────────────────────────
+  //
+  // MarketingSpend keys a Meta-synced row by `externalId = "<campaignId>:<date>"`
+  // (lib/meta/insightsImport.js's externalIdFor) — CAMPAIGN is the only level
+  // spend is recorded at, so campaign is the only level a lead can be joined
+  // to a cost at. Storing an ad id or an adset id as well would be two more
+  // columns nothing joins on and nothing renders: written, never read, which
+  // is the first failure class AGENTS.md names.
+  //
+  // Both are null when Meta's payload didn't carry an ad id, or when the
+  // follow-up lookup that resolves ad -> campaign failed. Null means "we do
+  // not know", never "no campaign".
+  metaCampaignId   String?
+  metaCampaignName String?
+
+  @@unique([companyId, metaLeadId])
+  @@index([companyId, metaFormId])
+}
+
+// ── One Facebook/Instagram lead form a company has told us about ────────────
+//
+// Meta lead ads: an ad carries a built-in form ("Get a free painting
+// estimate"), and a submission is delivered to whoever holds the Page. This
+// row is the company's decision about ONE of those forms.
+//
+// `active` defaults to FALSE, and that is deliberate rather than
+// conservative-by-habit. A Page can carry forms that are not quote requests at
+// all — a newsletter sign-up, an event RSVP — and importing one of those as a
+// lead would put a stranger who never asked for a quote on a contractor's
+// call list. A company connecting Meta has not, by that act, said "import
+// every form on my Page"; absence of a statement is not a statement
+// (AGENTS.md). The settings panel makes turning one on a single click and
+// says plainly that forms start off.
+//
+// `pageId` is also how a webhook's tenant is resolved: Meta's leadgen webhook
+// names a page_id, and the ONLY thing that turns it into a companyId is a row
+// here that FieldQuo already stored. The payload never gets to name the
+// tenant — see lib/meta/leadsImport.js's resolveCompanyForPage.
+model MetaLeadForm {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  pageId   String // Meta's Page id — the webhook's tenant lookup key.
+  pageName String?
+  formId   String // Meta's leadgen form id.
+  name     String? // The form's name in Ads Manager, as Meta reports it.
+
+  // Off until a human says otherwise. See the model comment above.
+  active Boolean @default(false)
+
+  // When a lead from THIS form last landed. Written by the importer, read by
+  // the settings panel — "last received" is the one fact that tells a
+  // contractor whether the wiring works, and a panel that couldn't say it
+  // would be a connection status nobody can verify.
+  lastLeadAt DateTime?
+
+  // The polling fallback's cursor: the created_time of the newest lead this
+  // form has already imported. The cron asks Meta only for leads after it.
+  //
+  // Null means "never polled" — the first poll takes Meta's default window
+  // rather than the whole history of the form, because importing three years
+  // of old submissions as fresh leads would notify a contractor about
+  // hundreds of people who are long gone. Deliberately NOT defaulted to
+  // now(): a null cursor and "polled a moment ago" are different facts.
+  cursorLeadCreatedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // One row per form per company. The upsert the form-refresh does keys on
+  // this, so re-reading the Page's forms updates names in place instead of
+  // stacking duplicates.
+  @@unique([companyId, formId])
+  // The webhook's hot path: page_id -> which company. Indexed because it runs
+  // on every delivery, before anything else happens.
+  @@index([pageId])
 }
 
 // A timeline note on a lead — the call-back log the kanban never had. Kept
@@ -5523,6 +5649,100 @@ model MetaAdConnection {
   connectedByUserId String?
   connectedAt       DateTime @default(now())
   updatedAt         DateTime @updatedAt
+}
+
+/// The Facebook Page (and the Instagram professional account linked to it) a
+/// company publishes marketing designs to — lib/social/publishDesign.js's
+/// `pageAccessToken`, at rest.
+///
+/// ── Why not a column on MetaAdConnection ──────────────────────────────────
+///
+/// They look like the same connection and are not. MetaAdConnection is
+/// @unique on companyId and holds ONE ads_read USER token for ONE ad account;
+/// this holds a PAGE token per Page, and a contractor can genuinely have two
+/// (the trading name and the one the previous owner made). The two tokens are
+/// granted by different App Reviews, expire on different clocks, and are
+/// revoked independently — folding them into one row would mean disconnecting
+/// Meta Ads silently stopped Instagram publishing, which is exactly the
+/// "destructive operation labelled as cosmetic" AGENTS.md lists. Same
+/// reasoning MessagingChannel already records for the messaging token.
+model MetaPageConnection {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// Meta's own Page id, as /me/accounts reports it.
+  pageId   String
+  pageName String?
+
+  /// AES-256-GCM: base64(iv | authTag | ciphertext), through
+  /// lib/meta/tokenCrypto.js — the same encryption MetaAdConnection and
+  /// MessagingChannel use, for the same reason: a leaked database backup must
+  /// not hand out a credential that can post to a contractor's Page under
+  /// their own name. Never in plain text, never returned to a browser, never
+  /// logged.
+  ///
+  /// NULLABLE because disconnecting empties it in the same write that sets
+  /// disconnectedAt — see that field. A row with no token is not a connection;
+  /// lib/meta/pageConnection.js is the only thing that reads either column and
+  /// it treats the pair as one fact.
+  pageAccessTokenEnc String?
+
+  /// The Instagram professional (Business/Creator) account linked to this
+  /// Page, or NULL when there is none. Null is a real answer, not a missing
+  /// one: Facebook-only publishing works without it (see
+  /// lib/social/publishDesign.js's `no_instagram_account` refusal), and
+  /// inventing an id here would turn "you haven't linked Instagram yet" into
+  /// a Meta error nobody can act on.
+  instagramUserId   String?
+  instagramUsername String?
+
+  /// A PAGE token derived from a long-lived USER token does not expire on its
+  /// own (Meta's own documented behaviour), so this is usually null and that
+  /// is not a gap — it is carried for the case where Meta does return an
+  /// expiry, because "we were not told" and "it dies on this date" are
+  /// different answers and padding the first with a far-future date would
+  /// hide a dead connection (AGENTS.md failure class 5).
+  tokenExpiresAt DateTime?
+
+  /// The scope string Meta actually granted, as Meta reported it — not the one
+  /// FieldQuo asked for. A contractor can un-tick a permission on Meta's own
+  /// consent screen, and the difference between "we requested
+  /// instagram_content_publish" and "they granted it" is the difference
+  /// between a publish that works and one that 403s at the worst moment.
+  scopes String?
+
+  // There is deliberately no `status` / `lastError` pair here, unlike
+  // MetaAdConnection and MessagingChannel. Both of those are written by a
+  // background SYNC that has somewhere to record "Meta refused us at 04:00".
+  // Publishing has no sync: it happens when a contractor presses Publish, and
+  // the outcome of every attempt — including a dead token — is already
+  // recorded per-attempt in SocialPublish. A status column here would be
+  // written by nothing and read by the settings screen, which is AGENTS.md's
+  // failure class 1 with the arrow pointing the other way.
+
+  /// Who connected it. Shown on the settings panel beside connectedAt — "Ravi
+  /// connected this on 3 March" is the answer support actually needs when a
+  /// second owner asks why the company's posts appear under a Page they did
+  /// not set up.
+  connectedByUserId String?
+  connectedAt       DateTime  @default(now())
+  /// When the contractor disconnected. Set in the SAME write that empties
+  /// pageAccessTokenEnc, so the credential is gone the instant this is
+  /// stamped — the security property MetaAdConnection gets by deleting its
+  /// row outright.
+  ///
+  /// The row survives where MetaAdConnection's does not, for a reason that
+  /// row does not have: this table is per-PAGE, and a company with two Pages
+  /// disconnecting one still has the other. Every read in
+  /// lib/meta/pageConnection.js filters `disconnectedAt: null`, so a
+  /// tombstone can never answer "connected" — and reconnecting the same Page
+  /// clears it in the upsert.
+  disconnectedAt    DateTime?
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([companyId, pageId])
+  @@index([companyId])
 }
 
 // ── Leave / PTO ─────────────────────────────────────────────────────────────
@@ -10861,4 +11081,203 @@ model PlatformGrowthAssumptions {
   updatedByAdminId    String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Page messaging — Facebook Page and Instagram business conversations
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// A homeowner messages the contractor's PAGE ("do you do kitchen cabinets?")
+// and the contractor answers from FieldQuo instead of from three phones. The
+// point of storing it is the month-end read: which conversations became jobs
+// and which died, and what the answered ones did differently — see
+// lib/messaging/monthlyReview.js, which is the whole reason these rows are
+// durable rather than a live proxy onto Meta's API.
+//
+// ── Never a personal inbox ─────────────────────────────────────────────────
+//
+// Only Page and Instagram BUSINESS-account conversations exist here. Meta's
+// pages_messaging / instagram_manage_messages permissions cover exactly that
+// and nothing else; there is no code path anywhere that reads a person's own
+// Messenger or Instagram DMs, and adding one would need a permission Meta does
+// not grant.
+//
+// ── Not connected yet, and the schema is not what is missing ───────────────
+//
+// Meta has not approved pages_messaging for this app (see lib/meta/client.js's
+// META_MESSAGING_SCOPE). So for a real company there is no MessagingChannel
+// row and the screen says so. These tables exist in full because the webhook,
+// the send path and the review arithmetic are real and testable without them
+// — what is blocked is one OAuth scope, not the feature.
+
+model MessagingChannel {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// "facebook" | "instagram". Two platforms, one shape: Meta delivers both
+  /// over the same webhook envelope and the same Send API, and splitting them
+  /// into two tables would duplicate every query for a difference that is one
+  /// string and one badge.
+  platform String
+
+  /// The Page id (facebook) or the Instagram professional account id
+  /// (instagram) — Meta's id, as Meta reports it. This is the ONLY thing that
+  /// resolves an inbound webhook to a tenant: the payload's own ids are
+  /// attacker-controllable and a companyId inside a webhook body is never
+  /// trusted. See lib/messaging/ingest.js.
+  externalId String
+
+  /// What the contractor calls it — the Page name. Shown in the UI so a
+  /// company with two Pages can tell which conversation came from which.
+  name String?
+
+  /// AES-256-GCM: base64(iv | authTag | ciphertext), through
+  /// lib/meta/tokenCrypto.js — the SAME encryption MetaAdConnection uses, and
+  /// for the same reason: a leaked database backup must not hand out a working
+  /// Page token that can message every homeowner who ever wrote in. Never
+  /// stored in plain text, never returned to a browser, never logged.
+  accessTokenEnc String
+
+  /// Meta long-lived Page tokens do not expire on their own, but the USER
+  /// token they derive from does — nullable because "we were not told" and "it
+  /// expires on this date" are different answers and padding the first into a
+  /// far-future date would hide a dead connection.
+  tokenExpiresAt DateTime?
+
+  /// "connected" | "needs_reauth" | "error" — mirrors MetaAdConnection.status
+  /// so a support conversation about either integration uses one vocabulary.
+  status        String  @default("connected")
+  lastError     String?
+
+  connectedByUserId String?
+  connectedAt       DateTime  @default(now())
+  /// Set instead of deleting the row: the CONVERSATIONS survive a disconnect,
+  /// because the month-end review reads history and a contractor who
+  /// reconnects a Page must not find last quarter's won/lost record gone.
+  /// MetaAdConnection deletes on disconnect for the opposite reason — there is
+  /// nothing under it worth keeping.
+  disconnectedAt DateTime?
+  updatedAt      DateTime @updatedAt
+
+  threads MessageThread[]
+
+  /// One row per Page per company. Two companies claiming the same Page id is
+  /// refused by the second unique index — an inbound webhook must resolve to
+  /// exactly one tenant or to none, never to a choice.
+  @@unique([companyId, platform, externalId])
+  @@unique([platform, externalId])
+  @@index([companyId, status])
+}
+
+model MessageThread {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  channelId String
+  channel   MessagingChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  /// Meta's conversation/thread id, unique WITHIN a channel (Meta's ids are
+  /// scoped per page, so a bare global unique would be wrong).
+  externalThreadId String
+
+  /// The homeowner, as Meta names them. participantExternalId is the
+  /// page-scoped id (PSID) — the only handle the Send API accepts.
+  participantName       String?
+  participantExternalId String
+
+  lastMessageAt DateTime @default(now())
+  /// Inbound messages not yet read in FieldQuo. An Int rather than a boolean
+  /// so the list can say "3" the way a phone does.
+  unread Int @default(0)
+
+  /// "open" | "snoozed" | "closed" — where it sits in the inbox. Deliberately
+  /// NOT the same axis as `outcome` below: a thread can be closed because it
+  /// was answered and finished, and still have no outcome recorded yet.
+  status String @default("open")
+
+  // ── What this conversation turned out to be ──────────────────────────────
+  //
+  // All four nullable, and none of them inferred. A thread with a null
+  // clientId is not "not a client" — it is "nobody has said". The monthly
+  // review counts unset outcomes as unset and never as "lost", because
+  // absence of a statement is not a statement (AGENTS.md failure class 5).
+  clientId String?
+  leadId   String?
+  jobId    String?
+  quoteId  String?
+
+  /// "won" | "lost" | "no_reply" | "not_a_job" | null. Set by a person on the
+  /// thread, which is what makes the month-end report worth reading — see
+  /// lib/messaging/outcomes.js for what each one means.
+  ///
+  /// `no_reply` is a HUMAN verdict ("we never got back to them"), separate
+  /// from the review's own MEASURED "nobody replied" — the measurement is
+  /// derived from the messages and needs nobody to remember to set anything.
+  outcome        String?
+  outcomeSetAt   DateTime?
+  outcomeSetById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages Message[]
+
+  /// The idempotency key the webhook upserts on.
+  @@unique([channelId, externalThreadId])
+  /// The inbox list (newest first) and the month-end query (threads that
+  /// STARTED in a month), which is createdAt and not lastMessageAt.
+  @@index([companyId, lastMessageAt])
+  @@index([companyId, createdAt])
+  @@index([companyId, outcome])
+}
+
+model Message {
+  id       String        @id @default(cuid())
+  threadId String
+  thread   MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  /// "in" (the homeowner wrote it) | "out" (the contractor did).
+  direction String
+
+  /// Meta's own message id ("mid.xxx") for an inbound message, and the id the
+  /// Send API returns for an outbound one. Unique per thread: Meta re-delivers
+  /// a webhook after a timeout or a 500, and a re-delivery must update the
+  /// same row rather than post the message twice — see lib/messaging/ingest.js.
+  ///
+  /// An outbound message that never reached Meta has no Meta id, so this holds
+  /// a locally-minted "local:<cuid>" instead. It is still an id, still unique,
+  /// and still the thing a retry keys on.
+  externalId String
+
+  body String @db.Text
+
+  /// Meta's attachment array, stored as it arrived: [{ type, url }]. Kept raw
+  /// because the shape is Meta's and re-normalising it into columns would
+  /// silently drop whatever they add next.
+  attachments Json?
+
+  /// When it HAPPENED, from Meta's own timestamp — not when this row was
+  /// written. The response-time arithmetic in monthlyReview.js measures the
+  /// gap between these, so a delayed webhook must not read as a slow reply.
+  sentAt      DateTime
+  deliveredAt DateTime?
+  readAt      DateTime?
+
+  /// Who at the company sent it. Null for inbound, and null for an outbound
+  /// message written by an automation (there are none today).
+  sentByUserId String?
+
+  /// Why an outbound message did NOT go out — "channel_not_connected",
+  /// "meta_error: …". Present means the homeowner never received it, and the
+  /// UI must say so rather than showing a sent bubble. A send that fails is
+  /// recorded, never swallowed: a message that appears to have been sent and
+  /// wasn't is the exact failure AGENTS.md's first rule forbids.
+  failedReason String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([threadId, externalId])
+  @@index([threadId, sentAt])
 }

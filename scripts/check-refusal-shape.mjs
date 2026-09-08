@@ -88,6 +88,17 @@ const ok = (name, cond, got) => {
 // catch that turns everything into a 500 is the bug, not the fix.
 // ───────────────────────────────────────────────────────────────────────────
 const RESOLVES_ITS_OWN = {
+  "app/api/settings/social/callback/route.js":
+    "The second leg of Meta's OAuth flow, which the BROWSER lands on after the " +
+    "consent dialog — nobody fetches it. memberOrRefusal's contract is to turn " +
+    "a failed resolution into an HTTP refusal, and a 401 here paints a blank " +
+    "page at the end of a redirect, with a granted Page token and no way back. " +
+    "Every failure instead redirects to Settings with a named reason the panel " +
+    "prints (`session`, `bad_state`, `awaiting_review`). It is not laxer: the " +
+    "state cookie must match, the member must be a billing admin, and their " +
+    "companyId must equal the one signed into the cookie, so a session that " +
+    "switched tenants mid-flow is refused rather than connecting the wrong " +
+    "company's Page.",
   "app/api/quotes/received/[token]/route.js":
     "A PUBLIC page that treats a session as optional. `getCurrentMember(request)" +
     ".catch(() => null)` is deliberate: an absent, lapsed or billing-locked " +

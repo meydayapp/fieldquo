@@ -59,6 +59,21 @@ export const rows = {
   // subscription onto a plan that no longer exists (a foreign key would throw
   // and Stripe would retry for ever), and that refusal is a query.
   plan: [],
+  // Page messaging (check-messaging.mjs). The claims that need executing here
+  // are "a re-delivered webhook does not post the message twice" and "the
+  // company comes from the CHANNEL row, never from the payload" — both are
+  // properties of an upsert keyed on a compound unique, which no amount of
+  // reading lib/messaging/ingest.js can establish.
+  messagingChannel: [],
+  messageThread: [],
+  message: [],
+  // The Facebook Page / Instagram PUBLISHING connection
+  // (check-meta-pages-connect.mjs). The claims that need executing are
+  // "a disconnected row can never answer connected" and "the token that comes
+  // back out is the one that went in, and it was never at rest in plain
+  // text" — both are properties of a query plus a decrypt, which reading
+  // lib/social/metaConnection.js cannot establish.
+  metaPageConnection: [],
 };
 
 /** Every write the product attempted, in order: { model, action, data }. */
@@ -97,6 +112,10 @@ export function resetDbStub() {
   rows.pendingTeamProfile = [];
   rows.subscription = [];
   rows.plan = [];
+  rows.messagingChannel = [];
+  rows.messageThread = [];
+  rows.message = [];
+  rows.metaPageConnection = [];
   writes.length = 0;
   reads.length = 0;
   failNext.model = null;
@@ -174,9 +193,50 @@ function model(name) {
       rows[name].push(row);
       return row;
     },
+    // Applies the change to the fixture row as well as recording it. The
+    // original returned a merged copy and left `rows` untouched, which is fine
+    // for a check that reads `writes` and wrong for one that then re-reads the
+    // row — an unread badge that "cleared" only in the returned object would
+    // let a broken counter pass. `{ increment }` is honoured for the same
+    // reason: it is the operator the messaging ingest uses, and treating it as
+    // a literal value would write `{ increment: 1 }` into the column.
     update: async ({ where, data } = {}) => {
       writes.push({ model: name, action: "update", where, data });
-      return { ...(rows[name].find((r) => matches(r, where)) || {}), ...data };
+      const row = rows[name].find((r) => matches(r, where));
+      const applied = {};
+      for (const [key, value] of Object.entries(data || {})) {
+        if (value && typeof value === "object" && "increment" in value) {
+          applied[key] = (row?.[key] || 0) + value.increment;
+        } else if (value && typeof value === "object" && "decrement" in value) {
+          applied[key] = (row?.[key] || 0) - value.decrement;
+        } else {
+          applied[key] = value;
+        }
+      }
+      if (row) Object.assign(row, applied);
+      return { ...(row || {}), ...applied };
+    },
+    /**
+     * Prisma's upsert, which is what every idempotent webhook in this codebase
+     * is built on. Modelled honestly: find by the (possibly compound) unique,
+     * UPDATE it when found and CREATE when not — so a check can deliver the
+     * same webhook twice and count the rows rather than trust a comment.
+     * Prisma ignores an `undefined` in `update`, and so does this: the
+     * messaging ingest relies on that to mean "leave it alone".
+     */
+    upsert: async ({ where, create, update } = {}) => {
+      const existing = rows[name].find((r) => matches(r, where));
+      if (existing) {
+        writes.push({ model: name, action: "upsert:update", where, data: update });
+        for (const [key, value] of Object.entries(update || {})) {
+          if (value !== undefined) existing[key] = value;
+        }
+        return existing;
+      }
+      writes.push({ model: name, action: "upsert:create", where, data: create });
+      const row = { id: `${name}_${rows[name].length + 1}`, ...flattenWhere(where), ...create };
+      rows[name].push(row);
+      return row;
     },
     // The one finder-shaped WRITE, and the only method here that mutates
     // `rows`. That asymmetry with update() above is deliberate rather than an
@@ -250,6 +310,10 @@ export const db = new Proxy(
     pendingTeamProfile: model("pendingTeamProfile"),
     subscription: model("subscription"),
     plan: model("plan"),
+    messagingChannel: model("messagingChannel"),
+    messageThread: model("messageThread"),
+    message: model("message"),
+    metaPageConnection: model("metaPageConnection"),
     marketingCampaignDelivery: uniqueCreateModel("marketingCampaignDelivery", [
       "campaignId",
       "subscriberId",

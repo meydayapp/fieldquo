@@ -304,6 +304,9 @@ tenancy, so it carries no information.
 | `Material` | — | Expense, MaterialPriceEntry |
 | `MaterialPriceEntry` | Expense, Material | — |
 | `Member` | — | AssetUseLog, JobPhotoComment, JobPhotoMention, NotificationDelivery, SafetyIncident |
+| `Message` | MessageThread | — |
+| `MessageThread` | MessagingChannel | Message |
+| `MessagingChannel` | — | MessageThread |
 | `MetaAdConnection` | — | Company |
 | `MigrationDocument` | MigrationRequest | — |
 | `MigrationRequest` | — | MigrationDocument, MigrationWrite |

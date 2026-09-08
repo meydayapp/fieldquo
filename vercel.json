@@ -77,6 +77,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/meta-leads",
+      "schedule": "20 * * * *"
+    },
+    {
       "path": "/api/cron/sales-retention",
       "schedule": "20 9 * * *"
     },

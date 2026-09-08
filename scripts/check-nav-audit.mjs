@@ -227,6 +227,7 @@ const DRILL_INS = {
   "/app/jobs/import": "past jobs, already done and paid, typed in for the year's overview — opened from the Jobs list page's own Past jobs button and from the dashboard's set-up steps. Deliberately not a nav row: it is a thing you do once to catch up, not a place you go, and it must stay reachable after that step is waved off",
   "/app/jobs/new": "opened from the Jobs list, a client's own page, and Quick Add",
   "/app/leads/import": "opened from the Leads list page's own Import button",
+  "/app/messages/review": "the month-end read over Facebook/Instagram conversations — opened from the Messages inbox's own Monthly review button, and deliberately not a nav row: it is a thing you do once a month TO the inbox, not a second inbox to browse to, and a sidebar row for it would compete with the one row that leads to the conversations themselves",
   "/app/settings/expense-tracking/import": "bank-statement CSV import — opened from the Expense Tracking page's own Import button, and deliberately not a nav row: it is a thing you do to expenses, not a place you go",
   "/app/marketing/[id]": "campaign detail — opened from the Marketing list",
   "/app/marketing/spend": "opened from the Marketing hub's own Marketing spend button — a manual entry screen and the blended cost-per-lead figure, not a place someone browses to from the sidebar",

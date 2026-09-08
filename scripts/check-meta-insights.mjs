@@ -233,8 +233,21 @@ const MUTATIONS = [
   [
     "client.js",
     CLIENT_LIB,
-    "drops the ads_read scope, requesting Meta's default (broader) scope instead",
-    (s) => s.replace('scope: META_OAUTH_SCOPE,', ""),
+    "drops ads_read from the scope, requesting Meta's default (broader) scope instead",
+    // ── Mutated in metaRequestedScope(), not at the call site ───────────────
+    //
+    // This used to replace the literal `scope: META_OAUTH_SCOPE,` inside
+    // buildAuthorizeUrl. That line has now moved twice in one week — once when
+    // the scope became a composition of the pending App Reviews (lead ads,
+    // Page messaging), and again when a `scope` override argument was added
+    // for the Page-posting connect flow — and BOTH times this mutant silently
+    // stopped applying. A mutant that no longer applies is a mutant that
+    // certifies nothing, which is the failure this file exists to prevent.
+    //
+    // So the mutation now lands on the one line that carries the MEANING —
+    // the base scope going into the composition — rather than on the call
+    // site's punctuation.
+    (s) => s.replace("const parts = [META_OAUTH_SCOPE];", "const parts = [];"),
   ],
 ];
 

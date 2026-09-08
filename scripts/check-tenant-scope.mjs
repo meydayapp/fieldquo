@@ -102,6 +102,17 @@ const GLOBAL_BY_DESIGN = {
       "this run's own findMany, and the second is a REVERT to the row's own " +
       "prior values (not a foreign key from a caller) when a send didn't happen.",
   },
+  "app/api/cron/meta-leads/route.js": {
+    metaLeadForm:
+      "The Meta lead-ads polling fallback. Same shape as the crons above: " +
+      "authenticated by CRON_SECRET, no member and no company to scope by, " +
+      "because it sweeps every tenant with an ACTIVE lead form by design. The " +
+      "one update advances that form's polling cursor and keys off form.id " +
+      "from this run's own findMany — never an id from a request, of which " +
+      "there is none. The lead WRITES it drives are scoped: the companyId " +
+      "handed to lib/meta/leadsImport.js comes off the same MetaLeadForm row, " +
+      "so a lead can only ever land in the tenant that owns the form.",
+  },
   "app/api/cron/social-scheduled-publish/route.js": {
     socialPublish:
       "Same shape as appointment-reminders: a cron over every tenant's due " +

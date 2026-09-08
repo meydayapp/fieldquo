@@ -28,6 +28,8 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import { fetchJson } from "@/lib/fetchJson";
+import MetaLeadFormsPanel from "./MetaLeadFormsPanel";
+import SocialPublishingPanel from "@/app/components/settings/SocialPublishingPanel";
 
 // Maps the `metaError` query param the OAuth callback redirects with to a
 // translation key — see app/api/meta-ads/callback/route.js for every value
@@ -398,6 +400,26 @@ function MetaAdsPageScreen() {
           </div>
         </div>
       )}
+
+      {/* Facebook lead forms — the OTHER thing a connected Meta account can
+          do. Rendered whenever the app itself is configured, not only when a
+          connection exists: a contractor who has read about the feature needs
+          to see that it is pending Meta's approval, and a panel that appears
+          only after connecting would hide that from the people most likely to
+          ask. It states its own preconditions (see the panel). */}
+      {status?.fullyConfigured && (
+        <MetaLeadFormsPanel connected={Boolean(status?.connection)} />
+      )}
+
+      {/* Facebook/Instagram PUBLISHING — a third thing a Meta account can do,
+          and the one with its own OAuth round trip: posting needs
+          pages_manage_posts / instagram_content_publish, which the ads
+          connection above never asks for. Rendered unconditionally, unlike the
+          lead-forms panel, because its first job is to say that the whole
+          feature is waiting on Meta's approval — a sentence that must not
+          depend on whether an unrelated ad account happens to be connected.
+          It states its own preconditions (see the panel). */}
+      <SocialPublishingPanel />
 
       {showDisconnectConfirm && (
         <div

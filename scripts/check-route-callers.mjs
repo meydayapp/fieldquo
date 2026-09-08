@@ -149,6 +149,35 @@ const EXTERNAL_CALLERS = {
     "App Dashboard (see docs/META-ADS-BUILD.md), never fetched by our own " +
     "code. app/api/meta-ads/connect/route.js builds the URL Meta redirects " +
     "back to; the browser is what calls it, via a 302 from facebook.com.",
+  "/api/meta/leads/webhook":
+    "Meta's `leadgen` webhook — subscribed in the FieldQuo app's Webhooks " +
+    "product on developers.facebook.com against the `page` object, field " +
+    "`leadgen`, and POSTed by Meta the moment a homeowner submits a lead " +
+    "form on one of a contractor's ads. Nothing in this repo fetches it. " +
+    "Verified against META_APP_SECRET in lib/meta/leadsWebhookSignature.js " +
+    "(X-Hub-Signature-256 over the raw body); refuses when the secret is " +
+    "unset. Its GET half answers Meta's one-time hub.challenge handshake, " +
+    "which is also driven from the App Dashboard.",
+  "/api/meta/messaging/webhook":
+    "Meta posts here on every Facebook Page and Instagram business message, " +
+    "delivery receipt and read receipt, and GETs it once for the " +
+    "hub.challenge subscribe handshake. The callback URL is entered in the " +
+    "FieldQuo app's Webhooks settings on developers.facebook.com, so no " +
+    "in-app caller can exist. Every POST is verified against META_APP_SECRET " +
+    "via X-Hub-Signature-256 in lib/messaging/webhookSignature.js, which " +
+    "refuses when the secret is unset; the GET is verified against " +
+    "META_WEBHOOK_VERIFY_TOKEN the same way. The tenant is resolved by " +
+    "looking Meta's own Page id up in MessagingChannel — never from the " +
+    "payload.",
+  "/api/settings/social/callback":
+    "Meta's OAuth redirect target for the Facebook/Instagram PUBLISHING " +
+    "connect flow — a second redirect_uri registered in Meta's App Dashboard " +
+    "beside /api/meta-ads/callback, never fetched by our own code. " +
+    "app/api/settings/social/connect/route.js builds the URL Meta redirects " +
+    "back to; the browser is what calls it, via a 302 from facebook.com. Its " +
+    "siblings (connect, finalize, disconnect, status) ARE called from " +
+    "app/components/settings/SocialPublishingPanel.js, which is why only this " +
+    "one needs an entry.",
   "/api/meta/data-deletion":
     "Meta's Data Deletion Request Callback — entered in the FieldQuo app's " +
     "settings on developers.facebook.com (docs/META-APP-REVIEW-PROMPT.md), " +

@@ -11,6 +11,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import TrialBadge from "@/app/components/layout/TrialBadge";
 import {
   MessageSquare,
+  MessageCircle,
   Home,
   Plus,
   Filter,
@@ -228,6 +229,12 @@ const NAV_GROUPS = [
       { key: "app.nav.funnels", href: "/app/funnels", icon: Filter },
       { key: "app.nav.receptionist", href: "/app/receptionist", icon: Headset },
       { key: "app.nav.crewInbox", href: "/app/crew-inbox", icon: MessageSquare },
+      // Facebook Page and Instagram business messages. In "Grow" rather than
+      // beside the crew inbox one row up: those two are both "messages", but
+      // the crew inbox is work coming IN FROM the van, and this is a stranger
+      // who found the company on Facebook — a lead, which is what everything
+      // else in this group is about.
+      { key: "app.nav.messages", href: "/app/messages", icon: MessageCircle },
       { key: "app.nav.refer", href: "/app/settings/refer", icon: Gift },
     ],
   },
