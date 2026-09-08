@@ -8870,3 +8870,30 @@ inside one file and against what is already imported, proves the downloadable
 template parses with the parser that reads uploads, and pins the guard at all
 eight sending sites. Mutation-tested: removing the review-request cron's
 guard fails it.
+
+## The "Pay online" button went to a list (8 September 2026)
+
+**Owner:** "The payment reminder had a button 'Pay online' but when I click
+it in the email nothing happens."
+
+It did work, which is why nothing had caught it: it went to the portal HOME —
+a list of the client's documents, with no payment on it. Pressing a button
+labelled "Pay online" and landing on a list is indistinguishable, from the
+client's side, from a broken link.
+
+`portalInvoiceUrl` exists precisely for this, and its own comment records the
+same bug being fixed for *sending* an invoice: "The invoice email used to link
+to the portal HOME, so a client landed on a list and had to hunt for the
+invoice before they could pay." The chase route was never moved across, and
+kept building its URL from `portalUrl`. It deep-links now, like every other
+sender.
+
+`check:email-links` is the durable half. It EXECUTES the invoice email in all
+six shapes (invoice / reminder / receipt × card / no card) and reads the hrefs
+back out of the rendered HTML: every one absolute, none empty or "undefined",
+the button and the printed fallback URL identical, the plain-text part
+carrying the same link, "Pay online" shown only when a card can actually be
+taken, and every sender — send, chase, payment-schedule stage, service plan —
+building from `portalInvoiceUrl` rather than the portal home. No builder in
+lib/email may write a relative href, which in an email goes nowhere at all.
+Mutation-tested: restoring the old `portalUrl` line fails two assertions.

@@ -15,7 +15,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { recordActivity } from "@/lib/activity/log";
 import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
-import { ensurePortalToken, portalUrl } from "@/lib/clientPortal";
+import { ensurePortalToken, portalInvoiceUrl } from "@/lib/clientPortal";
 import { buildInvoiceEmail } from "@/lib/email/invoiceEmail";
 import { refreshFamilyLedger } from "@/lib/invoices/family";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
@@ -123,7 +123,13 @@ export async function POST(request, { params }) {
     );
   }
 
-  const url = portalUrl(token, request);
+  // Deep-link to THIS invoice, not the portal home. The button this URL sits
+  // under says "Pay online", and the home page is a list — a client who
+  // pressed it landed somewhere with no payment on it and reported that
+  // nothing happened. Sending an invoice already links this way
+  // (portalInvoiceUrl's own comment records the same bug being fixed there);
+  // the chase was left behind.
+  const url = portalInvoiceUrl(token, invoice.id, request);
   const { from, replyTo } = await resolveSender(company || {}, member.companyId);
   const body = await request.json().catch(() => ({}));
   const note = String(body?.note || "").trim();
