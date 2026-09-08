@@ -39,6 +39,7 @@ import { recordError } from "@/lib/platform/errorLog";
 import { recordActivity } from "@/lib/activity/log";
 import { notifySubscriptionState } from "@/lib/billing/notify";
 import { intervalFromStripeSubscription } from "@/lib/billing/interval";
+import { CLEAR_PENDING } from "@/lib/platform/planChange";
 
 /** Stripe statuses that mean "this company is entitled to use the product". */
 const LIVE = ["active", "trialing", "past_due"];
@@ -98,7 +99,7 @@ export async function POST(request) {
     // ── Mode 2: no session — sync from the customer ──
     const existing = await db.subscription.findUnique({
       where: { companyId: member.companyId },
-      select: { stripeCustomerId: true, planId: true },
+      select: { stripeCustomerId: true, planId: true, pendingPlanId: true },
     });
 
     let customerId = existing?.stripeCustomerId || null;
@@ -220,6 +221,12 @@ export async function POST(request) {
         ...(intervalFromStripeSubscription(live)
           ? { billingInterval: intervalFromStripeSubscription(live) }
           : {}),
+        // A change that was booked for the end of the period and has now
+        // landed — Stripe's metadata names the plan we were waiting for. The
+        // webhook clears these too; this is the "Check with Stripe" button
+        // catching up when the webhook did not, so the page cannot go on
+        // saying "Switching to Crew on the 1st" after the 1st.
+        ...(existing?.pendingPlanId && planId === existing.pendingPlanId ? { ...CLEAR_PENDING } : {}),
       },
       create: {
         companyId: member.companyId,

@@ -55,6 +55,10 @@ export const rows = {
   // No `include` support here, so a fixture row carries its plan inline:
   // { companyId, plan: { maxUsers: 20 } }.
   subscription: [],
+  // Plan rows, for check-plan-change.mjs: the webhook refuses to move a
+  // subscription onto a plan that no longer exists (a foreign key would throw
+  // and Stripe would retry for ever), and that refusal is a query.
+  plan: [],
 };
 
 /** Every write the product attempted, in order: { model, action, data }. */
@@ -92,6 +96,7 @@ export function resetDbStub() {
   rows.member = [];
   rows.pendingTeamProfile = [];
   rows.subscription = [];
+  rows.plan = [];
   writes.length = 0;
   reads.length = 0;
   failNext.model = null;
@@ -114,9 +119,14 @@ function flattenWhere(where = {}) {
 
 function matches(row, where = {}) {
   return Object.entries(flattenWhere(where)).every(([key, value]) => {
+    // Prisma's OR: any branch matching is a match. Added for the billing
+    // webhook's schedule-event query, which finds a row by schedule id OR by
+    // subscription id — a stub that answered "no row" to an OR would let the
+    // clear pass vacuously.
+    if (key === "OR" && Array.isArray(value)) return value.some((branch) => matches(row, branch));
     if (value && typeof value === "object" && !Array.isArray(value)) {
-      // The only nested filter these paths use.
       if ("in" in value) return value.in.includes(row[key]);
+      if ("not" in value) return row[key] !== value.not;
       return true;
     }
     return row[key] === value;
@@ -239,6 +249,7 @@ export const db = new Proxy(
     member: model("member"),
     pendingTeamProfile: model("pendingTeamProfile"),
     subscription: model("subscription"),
+    plan: model("plan"),
     marketingCampaignDelivery: uniqueCreateModel("marketingCampaignDelivery", [
       "campaignId",
       "subscriberId",

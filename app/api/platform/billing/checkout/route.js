@@ -9,9 +9,15 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
-import { createBillingCheckoutSession, changeSubscriptionPlan } from "@/lib/platform/stripeBilling";
+import {
+  createBillingCheckoutSession,
+  changeSubscriptionPlan,
+  schedulePlanChange,
+} from "@/lib/platform/stripeBilling";
+import { classifyPlanChange } from "@/lib/platform/planChange";
 import { stripeCurrency } from "@/lib/currency";
 import { recordError } from "@/lib/platform/errorLog";
+import { recordActivity } from "@/lib/activity/log";
 import { getAppOrigin } from "@/lib/appUrl";
 import { resolveCheckoutInterval } from "@/lib/billing/interval";
 
@@ -94,27 +100,70 @@ export async function POST(request) {
   // on the same customer and cancelled nothing — see changeSubscriptionPlan
   // for the rest. `canceled` falls through to Checkout on purpose: that is a
   // genuinely new subscription.
-  const existing = await db.subscription.findUnique({ where: { companyId: member.companyId } });
+  const existing = await db.subscription.findUnique({
+    where: { companyId: member.companyId },
+    include: { plan: true },
+  });
   const LIVE = new Set(["active", "trialing", "past_due"]);
   if (existing?.stripeSubscriptionId && LIVE.has(existing.status)) {
     if (existing.planId === plan.id && (existing.billingInterval || "month") === interval) {
       return NextResponse.json({ changed: false, note: "You're already on that plan." });
     }
+
+    // ── Now, or at the end of the period ────────────────────────────────────
+    //
+    // The owner's decision (2026-09-08): a downgrade or a month↔year switch
+    // takes effect on the next billing cycle — after the year, on a yearly
+    // plan — with nothing charged, credited or refunded before then. An
+    // upgrade still applies today, prorated. The decision is
+    // classifyPlanChange, pure, so scripts/check-plan-change.mjs executes it
+    // over every pairing instead of grepping this branch; and the page asks
+    // the same function before it confirms, so the sentence the person reads
+    // and the thing that happens cannot disagree.
+    const change = classifyPlanChange({
+      currentPlan: existing.plan,
+      currentInterval: existing.billingInterval,
+      nextPlan: plan,
+      nextInterval: interval,
+    });
+
     try {
+      if (change.applies === "period_end") {
+        const result = await schedulePlanChange({
+          subscription: existing,
+          plan,
+          interval,
+          currency: stripeCurrency(company?.currency),
+        });
+        await recordActivity(member, {
+          action: "billing.plan_change_scheduled",
+          entityType: "settings",
+          summary: `Scheduled a change to ${plan.name} (${interval}) for ${result.effectiveAt.toISOString().slice(0, 10)}`,
+          metadata: { fromPlanId: existing.planId, toPlanId: plan.id, interval, kind: change.kind },
+        }).catch(() => {});
+        return NextResponse.json({
+          scheduled: true,
+          kind: change.kind,
+          planId: result.planId,
+          interval: result.interval,
+          effectiveAt: result.effectiveAt,
+        });
+      }
+
       const result = await changeSubscriptionPlan({
         subscription: existing,
         plan,
         interval,
         currency: stripeCurrency(company?.currency),
       });
-      return NextResponse.json({ changed: true, planId: result.planId, interval: result.interval });
+      return NextResponse.json({ changed: true, kind: change.kind, planId: result.planId, interval: result.interval });
     } catch (err) {
       await recordError({
         area: "billing",
         code: err?.code || err?.type || null,
         message: `Plan change failed: ${err?.message}`,
         companyId: member.companyId,
-        detail: { fromPlanId: existing.planId, toPlanId: plan.id, interval },
+        detail: { fromPlanId: existing.planId, toPlanId: plan.id, interval, applies: change.applies },
       }).catch(() => {});
       return NextResponse.json(
         { error: err?.message ? `Stripe couldn't change the plan: ${err.message}` : "Couldn't change the plan just now. Nothing was changed." },

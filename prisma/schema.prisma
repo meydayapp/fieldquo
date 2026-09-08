@@ -886,6 +886,36 @@ model Subscription {
   /// charge. With this column "on trial" is `billingStartedAt == null` — no
   /// interpretation, no join, and trialEndsAt goes on meaning what it meant.
   billingStartedAt DateTime?
+
+  // ── A plan change that has not happened yet ──────────────────────────────
+  //
+  // The owner's decision (2026-09-08): "When someone changes their plan the
+  // change should be made on the next billing cycle; if it's a year then only
+  // after the year ends." So a downgrade, or a switch between monthly and
+  // yearly, is SCHEDULED for the end of the current period — no refund, no
+  // credit, no charge until then — and `planId` above keeps saying what they
+  // are on today, because that is what they are on today. An upgrade still
+  // applies immediately, prorated (lib/platform/planChange.js holds the split
+  // behind one constant).
+  //
+  // Held here rather than read back from Stripe on every page load because the
+  // billing page renders "Switching to Crew on 1 Oct" and a "Keep my current
+  // plan" button, and both have to be answerable from the row. Stripe is still
+  // the authority: the four are cleared by the webhook when the schedule lands,
+  // is released or is cancelled, and by the reconcile route when it sees the
+  // new plan live.
+  //
+  // `pendingEffectiveAt` is copied from Stripe's own phase boundary at the
+  // moment of scheduling, not recomputed from currentPeriodEnd later — a
+  // referral month or a trial extension can move the period after the fact,
+  // and the date a person was SHOWN is the one they agreed to.
+  pendingPlanId          String?
+  pendingBillingInterval String?
+  pendingEffectiveAt     DateTime?
+  /// The Stripe Subscription Schedule carrying the change, so a second change
+  /// before the first lands updates the same schedule instead of creating
+  /// another, and "Keep my current plan" knows what to release.
+  stripeScheduleId       String?
 }
 
 /// The Marketing Designer's starter-template gallery (app/components/designer/,
