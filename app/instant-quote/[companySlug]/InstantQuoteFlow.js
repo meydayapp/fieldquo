@@ -120,11 +120,16 @@ const INTAKE_INPUTS = {
   ],
   painting: [
     { key: "squareFootage", label: "Surface area (sq ft)", type: "number", required: true },
+    // Asked only when the company sells BOTH. The page payload carries the
+    // scopes they sell (`trade.scopes`); with one, the server prices that one
+    // whatever the form sent, so a question here would be a control whose
+    // answer changes nothing. `askedWhen` is read by the input filter below.
     {
       key: "scope",
       label: "Interior or exterior",
       type: "select",
       options: [["interior", "Interior"], ["exterior", "Exterior"]],
+      askedWhen: (trade) => !Array.isArray(trade?.scopes) || trade.scopes.length > 1,
     },
     {
       key: "surfaceCondition",
@@ -290,7 +295,10 @@ function LawnMap({ mapsKey, onArea, companySlug }) {
   );
 }
 
-export default function InstantQuoteFlow({ companySlug }) {
+// `embedded` is true only from app/embed/[companySlug]/[widget]/page.js. It
+// changes two things — the company header is not drawn, and the root stops
+// claiming the viewport — and nothing else. See the comments at each site.
+export default function InstantQuoteFlow({ companySlug, embedded = false }) {
   const [data, setData] = useState(null);
   const [loadErr, setLoadErr] = useState("");
   // 404 means this link is for a company that doesn't exist — the only failure
@@ -386,7 +394,9 @@ export default function InstantQuoteFlow({ companySlug }) {
   // What the form still needs. Computed before the effects below because the
   // preview is only worth fetching once the job itself is described — the
   // contact and budget answers don't change the number.
-  const inputs = trade ? INTAKE_INPUTS[trade.trade] || [] : [];
+  const inputs = trade
+    ? (INTAKE_INPUTS[trade.trade] || []).filter((f) => !f.askedWhen || f.askedWhen(trade))
+    : [];
   const itemQtyTotal = Array.isArray(intake.items)
     ? intake.items.reduce((s, it) => s + (Number(it.quantity) || 0), 0)
     : 0;
@@ -520,7 +530,7 @@ export default function InstantQuoteFlow({ companySlug }) {
 
   if (loadErr) {
     return (
-      <Centered>
+      <Centered embedded={embedded}>
         <div className="text-center">
           <p className="text-red-600 mb-3">{loadErr}</p>
           {loadErrStatus !== 404 && <RequestQuoteLink companySlug={companySlug} />}
@@ -529,11 +539,11 @@ export default function InstantQuoteFlow({ companySlug }) {
     );
   }
   if (!data) {
-    return <Centered><Loader2 className="animate-spin text-muted-foreground" /></Centered>;
+    return <Centered embedded={embedded}><Loader2 className="animate-spin text-muted-foreground" /></Centered>;
   }
   if (!data.trades.length) {
     return (
-      <Centered>
+      <Centered embedded={embedded}>
         <div className="text-center">
           <p className="text-muted-foreground mb-3">Instant estimates aren&apos;t available here yet.</p>
           <RequestQuoteLink companySlug={companySlug} />
@@ -546,28 +556,38 @@ export default function InstantQuoteFlow({ companySlug }) {
     // No `--brand` custom property here any more: it was set on this div and
     // read by nothing in the tree below it. A value written and never read is
     // the shape of a control that looks wired up and isn't.
-    <div className="min-h-screen bg-muted/30">
+    //
+    // min-h-screen only when standalone. Inside an iframe "the screen" is the
+    // iframe itself, so the root could never measure shorter than whatever
+    // height the snippet started with — EmbedFrame would post that number
+    // back, the host would set it, and the frame would grow but never shrink.
+    // min-h-0 lets the embed report what it actually is.
+    <div className={embedded ? "min-h-0 bg-muted/30" : "min-h-screen bg-muted/30"}>
       <div className="max-w-5xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-8">
-          {data.company.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={data.company.logoUrl} alt={data.company.name} className="h-10 w-auto" />
-          ) : (
-            // The logo stand-in. On the raw brand a white-branded company got
-            // a white square on a white page — which reads as "the logo failed
-            // to load", not as a company with no logo. fillPair's background is
-            // visible whatever the brand.
-            <div
-              className="h-10 w-10 rounded-lg border"
-              style={{ background: solid.bg, borderColor: theme.accentText }}
-            />
-          )}
-          <div>
-            <h1 className="text-lg font-bold text-foreground">{data.company.name}</h1>
-            <p className="text-xs text-muted-foreground">Instant estimate</p>
+        {/* Header. Not drawn when embedded: the iframe sits inside the
+            company's own website, under the company's own logo, and a second
+            one here reads as somebody else's widget. */}
+        {!embedded && (
+          <div className="flex items-center gap-3 mb-8">
+            {data.company.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={data.company.logoUrl} alt={data.company.name} className="h-10 w-auto" />
+            ) : (
+              // The logo stand-in. On the raw brand a white-branded company got
+              // a white square on a white page — which reads as "the logo failed
+              // to load", not as a company with no logo. fillPair's background is
+              // visible whatever the brand.
+              <div
+                className="h-10 w-10 rounded-lg border"
+                style={{ background: solid.bg, borderColor: theme.accentText }}
+              />
+            )}
+            <div>
+              <h1 className="text-lg font-bold text-foreground">{data.company.name}</h1>
+              <p className="text-xs text-muted-foreground">Instant estimate</p>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Hero. The promise made here has to match what the panel actually
             does, so the second line is chosen from the trade's display mode
@@ -1234,6 +1254,12 @@ function SuccessCard({ result, company, theme }) {
   );
 }
 
-function Centered({ children }) {
-  return <div className="min-h-screen flex items-center justify-center p-6">{children}</div>;
+// Same min-h rule as the main root: a loading spinner or a "not available
+// here" notice inside an iframe must not pin the frame at viewport height.
+function Centered({ children, embedded = false }) {
+  return (
+    <div className={`${embedded ? "min-h-0 py-10" : "min-h-screen"} flex items-center justify-center p-6`}>
+      {children}
+    </div>
+  );
 }

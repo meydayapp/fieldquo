@@ -103,7 +103,18 @@ function formatPhoneAsTyped(raw) {
 // was opened from an instant-estimate result. Passed through untouched and
 // VERIFIED server-side (company scope plus a matching client email) — this
 // component has no way to prove it, so it does not pretend to.
-export default function BookingFlow({ companySlug, initialEventSlug, prefill = null, quoteId = null }) {
+// `embedded` is true only from app/embed/[companySlug]/[widget]/page.js. The
+// one thing it changes is the company header: inside an iframe on the
+// company's own website the host page already carries their logo and name,
+// and drawing them again two inches lower reads as a widget somebody else
+// made. Colour, card, buttons and copy are identical either way.
+export default function BookingFlow({
+  companySlug,
+  initialEventSlug,
+  prefill = null,
+  quoteId = null,
+  embedded = false,
+}) {
   // The visitor's own language, not the company's. Everything else on this page
   // is still English literals — see CALENDAR_COPY above — so the two fields
   // added here are the first strings that follow the reader. That is the right
@@ -477,7 +488,8 @@ export default function BookingFlow({ companySlug, initialEventSlug, prefill = n
   if (payment) {
     return (
       <Shell theme={theme}>
-        <Header company={company} theme={theme} solid={solid} />
+        {/* No header inside an embed — the host page is the company's own. */}
+        {!embedded && <Header company={company} theme={theme} solid={solid} />}
         <div className="text-center py-6">
           <h2 className="text-lg font-bold" style={{ color: theme.ink }}>
             One more step
@@ -556,7 +568,8 @@ export default function BookingFlow({ companySlug, initialEventSlug, prefill = n
 
     return (
       <Shell theme={theme}>
-        <Header company={company} theme={theme} solid={solid} />
+        {/* No header inside an embed — the host page is the company's own. */}
+        {!embedded && <Header company={company} theme={theme} solid={solid} />}
         <div className="text-center py-8">
           <div
             className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
@@ -603,7 +616,8 @@ export default function BookingFlow({ companySlug, initialEventSlug, prefill = n
     // got reported as "cramped". The card widens for that step only; a name
     // and email field stretched across 672px looks worse, not better.
     <Shell theme={theme} wide={showingCalendar}>
-      <Header company={company} theme={theme} solid={solid} />
+      {/* No header inside an embed — the host page is the company's own. */}
+      {!embedded && <Header company={company} theme={theme} solid={solid} />}
 
       {/* Step 1 — pick your estimator (member-first), or the service menu */}
       {!eventType && (

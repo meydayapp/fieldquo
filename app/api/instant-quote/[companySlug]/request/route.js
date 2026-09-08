@@ -110,12 +110,17 @@ export async function POST(request, { params }) {
   const budgetBand = bandForIndex(priced.budgetThresholds, budgetBandIndex);
   const budgetGap = estimateExceedsBudget(budgetBand, priced.estimate);
 
+  // What was PRICED, not what was posted: priceOneMaterial settles painting's
+  // scope against the company's services, and the draft must record the scope
+  // its figure was computed at.
+  const pricedMeasurement = priced.measurement || measured.measurement;
+
   const draft = await createEstimateDraft({
     company,
     trade,
     categoryId: priced.categoryId,
     contact: { name, email, phone },
-    measurement: sanitiseMeasurement(measured.measurement),
+    measurement: sanitiseMeasurement(pricedMeasurement),
     materialKey: materialKey || null,
     estimate: priced.estimate,
     source: priced.source,
@@ -273,7 +278,7 @@ export async function POST(request, { params }) {
     // satellite still. The single-page form has no earlier round trip to get
     // these from, and a range with nothing behind it invites "where did that
     // come from?" as the first question on the call.
-    measurement: sanitiseMeasurement(measured.measurement),
+    measurement: sanitiseMeasurement(pricedMeasurement),
     // The company's own financing offer, same rule as everywhere else: their
     // words or their provider link, never a monthly figure from us.
     financing: financingOffer(company.financing, { language: emailLanguage }),
@@ -292,6 +297,10 @@ function sanitiseMeasurement(m) {
     footprintSqft: m.footprintSqft ?? null,
     tearOffLayers: m.tearOffLayers ?? null,
     surfaceCondition: m.surfaceCondition ?? null,
+    // Painting's interior/exterior, as settled by the server. It was never
+    // stored, and once the company's services can fix it without the
+    // homeowner being asked, the reviewer needs to see which one was priced.
+    scope: m.scope ?? null,
     access: m.access ?? null,
     condition: m.condition ?? null,
     doorCount: m.doorCount ?? null,

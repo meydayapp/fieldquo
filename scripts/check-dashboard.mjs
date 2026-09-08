@@ -391,9 +391,9 @@ console.log("\n7. The endpoint, EXECUTED — a refusal is ABSENT, never zero\n")
 
 const { register } = await import("node:module");
 
-globalThis.__FQ_ROWS = { member: [], invoice: [], payment: [], company: [], followUpRule: [] };
+globalThis.__FQ_ROWS = { member: [], invoice: [], payment: [], company: [], followUpRule: [], followUpLog: [] };
 
-const RELATIONS = new Set(["client", "invoice", "template"]);
+const RELATIONS = new Set(["client", "invoice", "template", "rule"]);
 
 /** A small Prisma `where` evaluator — enough for the queries this route makes. */
 function matchWhere(row, where = {}) {
@@ -497,6 +497,10 @@ globalThis.__FQ_DB = new Proxy(
     payment: stubModel("payment"),
     company: stubModel("company"),
     followUpRule: stubModel("followUpRule"),
+    // The route reads the cron's send log to say "Automatic reminder sent …"
+    // per card. Scripted empty here; scripts/check-invoice-chase.mjs is where
+    // that half is exercised with rows.
+    followUpLog: stubModel("followUpLog"),
   },
   {
     get(target, prop) {
@@ -544,6 +548,7 @@ globalThis.__FQ_ROWS.company = [{ id: COMPANY, currency: "CAD" }];
 globalThis.__FQ_ROWS.invoice = RECON.map((r) => ({ ...r }));
 globalThis.__FQ_ROWS.payment = RECON_PAYMENTS.map((p) => ({ ...p }));
 globalThis.__FQ_ROWS.followUpRule = [];
+globalThis.__FQ_ROWS.followUpLog = [];
 
 const OWNER = { id: "m_owner", userId: "u_owner", role: "owner", permissions: null, companyId: COMPANY };
 // A dispatcher who may read invoices but whose grid hides prices — the exact

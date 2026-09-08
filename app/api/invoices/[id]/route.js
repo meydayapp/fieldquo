@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
-import { familyPayments } from "@/lib/invoices/family";
+import { familyPayments, familyMembers } from "@/lib/invoices/family";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import {
@@ -81,6 +81,54 @@ export async function GET(request, { params }) {
     invoice.amountPaid = shown.amountPaid;
     invoice.amountDue = shown.amountDue;
     invoice.amountRefunded = shown.amountRefunded;
+  }
+
+  // ── The chase trail, family-wide, on the payload the page already loads ──
+  //
+  // Here rather than on /api/activity for two reasons. That endpoint is
+  // owner/admin only, and this page is readable at invoices:view_only — an
+  // estimator allowed to see the invoice would see an email trail that
+  // silently stopped at the first send. And the automated reminders are not
+  // in the activity log at all: the cron records them in FollowUpLog (its
+  // dedupe table) and nowhere else, so the activity endpoint could not answer
+  // even for an owner. One fetch, no new gate, both sources.
+  //
+  // Family-wide for the same reason the payments above are: a chase stamped
+  // on v1 is still a chase of the document the client holds after v2 replaces
+  // it, and the cron logs against whichever version was live when it fired.
+  // Same rule buildReceivables applies on the dashboard, so the two screens
+  // cannot disagree about whether a client was chased.
+  {
+    const members = await familyMembers(db, invoice.id);
+    const ids = members.length ? members.map((m) => m.id) : [invoice.id];
+    const [rows, logs] = await Promise.all([
+      db.invoice.findMany({
+        where: { id: { in: ids }, companyId: member.companyId },
+        select: { lastChasedAt: true, chaseCount: true },
+      }),
+      db.followUpLog.findMany({
+        where: {
+          entityType: "invoice",
+          entityId: { in: ids },
+          rule: { companyId: member.companyId },
+        },
+        select: { sentAt: true, rule: { select: { name: true } } },
+        orderBy: { sentAt: "desc" },
+      }),
+    ]);
+    let lastChasedAt = null;
+    let chaseCount = 0;
+    for (const r of rows) {
+      if (r.lastChasedAt && (!lastChasedAt || r.lastChasedAt > lastChasedAt)) {
+        lastChasedAt = r.lastChasedAt;
+      }
+      chaseCount += Number(r.chaseCount) || 0;
+    }
+    invoice.chaseTrail = {
+      lastChasedAt,
+      chaseCount,
+      automated: logs.map((l) => ({ sentAt: l.sentAt, ruleName: l.rule?.name || null })),
+    };
   }
 
   // An invoice has no share token of its own, but it carries two things that do

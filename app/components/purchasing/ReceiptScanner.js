@@ -80,13 +80,7 @@ export default function ReceiptScanner({ materialId, draft, onApply, onClose }) 
     // Against what is in the BOXES right now, not against what the server saw
     // when the scan ran — somebody may have typed a figure while the photo was
     // uploading, and that figure is a person's statement.
-    const merged = prefillMaterial(
-      { actualCost: draft?.actualCost ?? null, supplier: draft?.supplier ?? null },
-      {
-        actualCost: scan.prefill?.offered?.actualCost ?? null,
-        supplier: scan.prefill?.offered?.supplier ?? null,
-      },
-    );
+    const merged = prefillMaterial(existingFromDraft(draft), offeredFromScan(scan));
     onApply?.({ values: merged.values, kept: merged.kept, offered: merged.offered });
   }
 
@@ -285,7 +279,8 @@ export default function ReceiptScanner({ materialId, draft, onApply, onClose }) 
                 suggestedCostCents() returns null, so there is no cost to
                 apply and no button that would appear to do something. */}
             {(scan.prefill?.offered?.actualCost != null ||
-              scan.prefill?.offered?.supplier) && (
+              scan.prefill?.offered?.supplier ||
+              scan.prefill?.offered?.actualQty != null) && (
               <button
                 type="button"
                 onClick={apply}
@@ -316,12 +311,28 @@ export default function ReceiptScanner({ materialId, draft, onApply, onClose }) 
  * cannot disagree about what "already stated" means.
  */
 function prefillKept(scan, draft) {
-  const merged = prefillMaterial(
-    { actualCost: draft?.actualCost ?? null, supplier: draft?.supplier ?? null },
-    {
-      actualCost: scan.prefill?.offered?.actualCost ?? null,
-      supplier: scan.prefill?.offered?.supplier ?? null,
-    },
-  );
-  return merged.kept;
+  return prefillMaterial(existingFromDraft(draft), offeredFromScan(scan)).kept;
+}
+
+/**
+ * What the boxes currently STATE. The quantity box starts pre-filled from the
+ * estimate, and a pre-fill is not a person's statement — so it only counts as
+ * "already entered" once somebody has edited it (`actualQtyTyped`, set by the
+ * materials list). Otherwise the receipt's quantity would be refused in favour
+ * of a number nobody typed.
+ */
+function existingFromDraft(draft) {
+  return {
+    actualCost: draft?.actualCost ?? null,
+    supplier: draft?.supplier ?? null,
+    actualQty: draft?.actualQtyTyped ? (draft?.actualQty ?? null) : null,
+  };
+}
+
+function offeredFromScan(scan) {
+  return {
+    actualCost: scan?.prefill?.offered?.actualCost ?? null,
+    supplier: scan?.prefill?.offered?.supplier ?? null,
+    actualQty: scan?.prefill?.offered?.actualQty ?? null,
+  };
 }

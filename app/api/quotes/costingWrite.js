@@ -215,6 +215,13 @@ export async function buildQuoteCostingRow({
         unitCost: m.unitCost ?? null,
         cost: m.cost,
         unpriced: Boolean(m.unpriced),
+        // Frozen with the quantity, for the same reason as the price: the
+        // close-out compares what this job used against the RATE that
+        // predicted the line (one roll per 8 doors, 350 sqft a gallon), and
+        // that rate lives in a settings row somebody will edit. See
+        // lib/costing/materialCalibration.js.
+        materialKey: m.materialKey ?? null,
+        basis: m.basis ?? null,
       })),
     })),
   };

@@ -151,7 +151,10 @@ export default function ServiceSettingsPage() {
         const data = await res.json();
         const live = {};
         for (const t of Array.isArray(data?.trades) ? data.trades : []) {
-          live[t.trade] = { enabled: Boolean(t.enabled), ok: Boolean(t.readiness?.ok) };
+          live[t.trade] = {
+            enabled: Boolean(t.enabled),
+            ok: Boolean(t.readiness?.ok),
+          };
         }
         setInstantByTrade(live);
       } catch {
@@ -412,81 +415,94 @@ export default function ServiceSettingsPage() {
           const complexity = def?.priceBookComplexity || null;
           const priced = Boolean(def?.hasPriceBook);
           return (
-            <div
-              key={c.id}
-              className="border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4"
-            >
-              <div className="flex items-start gap-4 flex-1 min-w-0">
-                <input
-                  type="checkbox"
-                  checked={c.enabled}
-                  onChange={(e) => update(c.id, { enabled: e.target.checked })}
-                  className="h-5 w-5 shrink-0 mt-0.5"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium flex items-center gap-2">
-                    {c.label}
-                    {!c.isSystem && (
-                      <span className="flex items-center gap-1 text-xs bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">
-                        <Sparkles size={11} />{" "}
-                        {t("app.setServices.customBadge")}
-                      </span>
-                    )}
-                  </div>
-                  {!c.isSystem && Array.isArray(c.customFields) && (
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {c.customFields.length === 0
-                        ? t("app.setServices.noFieldsFlatRate")
-                        : c.customFields.map((f) => f.label).join(", ")}
+            // Two layers, on purpose. The ROW is the switch, the label and —
+            // for a one-number trade — the rate box, side by side from `sm`
+            // up. The rate card and the quote wording used to be children of
+            // that same row, so at ≥640px they were laid out BESIDE the label
+            // column, three panels sharing one line and overlapping each
+            // other's inputs. They are full-width blocks under the row now,
+            // inside the same card, so opening one pushes the next down
+            // instead of across.
+            <div key={c.id} className="border rounded-lg p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                <div className="flex items-start gap-4 flex-1 min-w-0">
+                  <input
+                    type="checkbox"
+                    checked={c.enabled}
+                    onChange={(e) =>
+                      update(c.id, { enabled: e.target.checked })
+                    }
+                    className="h-5 w-5 shrink-0 mt-0.5"
+                  />
+                  <div className="flex-1 min-w-0">
+                    {/* min-w-0 + break-words rather than truncate: the name is
+                      the company's own, and an ellipsis hides the half of
+                      "Cabinet refinishing — kitchens" that tells two custom
+                      trades apart. Wrapping keeps it readable at 375px and
+                      still cannot widen the column. */}
+                    <div className="font-medium flex flex-wrap items-center gap-2">
+                      <span className="min-w-0 break-words">{c.label}</span>
+                      {!c.isSystem && (
+                        <span className="shrink-0 flex items-center gap-1 text-xs bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">
+                          <Sparkles size={11} />{" "}
+                          {t("app.setServices.customBadge")}
+                        </span>
+                      )}
                     </div>
-                  )}
-                  {/* What this trade actually charges by, read off its price book
+                    {!c.isSystem && Array.isArray(c.customFields) && (
+                      <div className="text-xs text-muted-foreground mt-0.5 break-words">
+                        {c.customFields.length === 0
+                          ? t("app.setServices.noFieldsFlatRate")
+                          : c.customFields.map((f) => f.label).join(", ")}
+                      </div>
+                    )}
+                    {/* What this trade actually charges by, read off its price book
                   rather than restated here — see priceBookBasis. A trade
                   quoted from a supplier's invoice (countertop) has no per-unit
                   basis and shows none, which is the truth about it. */}
-                  {c.enabled && basis.length > 0 && (
-                    <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                      <span className="text-xs text-muted-foreground mr-0.5">
-                        {t("app.setServices.pricedBy", "Priced by")}
-                      </span>
-                      {basis.map((b) => (
-                        <span
-                          key={b.label}
-                          className="rounded-full bg-muted px-2 py-0.5 text-xs text-foreground"
-                        >
-                          {basisChipLabel(b)}
+                    {c.enabled && basis.length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                        <span className="text-xs text-muted-foreground mr-0.5">
+                          {t("app.setServices.pricedBy", "Priced by")}
                         </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {c.enabled && complexity && (
-                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                      <span>
-                        {t(
-                          "app.setServices.complexityNote",
-                          "Rates change with the complexity picked on the quote",
-                        )}
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        {complexity.map((level) => (
+                        {basis.map((b) => (
                           <span
-                            key={level.value}
-                            className="flex items-center gap-1"
+                            key={b.label}
+                            className="rounded-full bg-muted px-2 py-0.5 text-xs text-foreground"
                           >
-                            <span
-                              aria-hidden="true"
-                              className="inline-block h-1.5 w-1.5 rounded-full"
-                              style={{ backgroundColor: level.color }}
-                            />
-                            {level.label}
+                            {basisChipLabel(b)}
                           </span>
                         ))}
-                      </span>
-                    </div>
-                  )}
+                      </div>
+                    )}
 
-                  {/* ── The instant quote for this trade ────────────────────
+                    {c.enabled && complexity && (
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                        <span>
+                          {t(
+                            "app.setServices.complexityNote",
+                            "Rates change with the complexity picked on the quote",
+                          )}
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          {complexity.map((level) => (
+                            <span
+                              key={level.value}
+                              className="flex items-center gap-1"
+                            >
+                              <span
+                                aria-hidden="true"
+                                className="inline-block h-1.5 w-1.5 rounded-full"
+                                style={{ backgroundColor: level.color }}
+                              />
+                              {level.label}
+                            </span>
+                          ))}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* ── The instant quote for this trade ────────────────────
                       Enabling a service and setting up its instant quote were
                       two unconnected lists: a cabinet painter had refinishing
                       switched on here and no instant quote for it, while the
@@ -496,64 +512,64 @@ export default function ServiceSettingsPage() {
                       it's a link, not a toggle, because a rate card is
                       numbers somebody has to read before a stranger is shown
                       one. */}
-                  {c.enabled &&
-                    instantByTrade &&
-                    (() => {
-                      const trade = def?.instantTrade;
-                      if (!trade) return null;
-                      const state = instantByTrade[trade];
-                      if (!state) return null;
-                      const liveNow = state.enabled && state.ok;
-                      return (
-                        <Link
-                          href="/app/settings/instant-quotes"
-                          className="mt-1 flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
-                        >
-                          <Zap size={12} />
-                          {liveNow
-                            ? t(
-                                "app.setServices.instantQuoteLive",
-                                "Homeowners can get an instant price for this",
-                              )
-                            : t(
-                                "app.setServices.instantQuoteAvailable",
-                                "An instant quote is available for this — set it up",
-                              )}
-                        </Link>
-                      );
-                    })()}
+                    {c.enabled &&
+                      instantByTrade &&
+                      (() => {
+                        const trade = def?.instantTrade;
+                        if (!trade) return null;
+                        const state = instantByTrade[trade];
+                        if (!state) return null;
+                        const liveNow = state.enabled && state.ok;
+                        return (
+                          <Link
+                            href="/app/settings/instant-quotes"
+                            className="mt-1 flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                          >
+                            <Zap size={12} />
+                            {liveNow
+                              ? t(
+                                  "app.setServices.instantQuoteLive",
+                                  "Homeowners can get an instant price for this",
+                                )
+                              : t(
+                                  "app.setServices.instantQuoteAvailable",
+                                  "An instant quote is available for this — set it up",
+                                )}
+                          </Link>
+                        );
+                      })()}
 
-                  {c.enabled && def?.hasStandardAddOns && (
-                    <button
-                      type="button"
-                      onClick={() => handleSeedStandard(c.id, c.label)}
-                      disabled={seedingId === c.id}
-                      className="mt-1 flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
-                    >
-                      <PackagePlus size={12} />
-                      {seedingId === c.id
-                        ? t("app.setServices.adding")
-                        : t("app.setServices.addStandardItems")}
-                    </button>
-                  )}
-                  {seedMsg?.id === c.id && (
-                    <div
-                      className={`text-xs mt-1 ${seedMsg.error ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}
-                    >
-                      {seedMsg.text}
-                    </div>
-                  )}
+                    {c.enabled && def?.hasStandardAddOns && (
+                      <button
+                        type="button"
+                        onClick={() => handleSeedStandard(c.id, c.label)}
+                        disabled={seedingId === c.id}
+                        className="mt-1 flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
+                      >
+                        <PackagePlus size={12} />
+                        {seedingId === c.id
+                          ? t("app.setServices.adding")
+                          : t("app.setServices.addStandardItems")}
+                      </button>
+                    )}
+                    {seedMsg?.id === c.id && (
+                      <div
+                        className={`text-xs mt-1 ${seedMsg.error ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}
+                      >
+                        {seedMsg.text}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              {/* A trade with a price book is priced BY something — per door and
+                {/* A trade with a price book is priced BY something — per door and
                 per drawer, per tread and riser, per sq ft — and the rate card
                 below holds those numbers. Showing a single rate box next to it
                 would be a second, contradictory answer to the same question,
                 so the basis is stated and the numbers live in one place. */}
-              {c.enabled && !priced && !c.pricingHidden && (
-                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:shrink-0 pl-9 sm:pl-0">
-                  {/* ── Inherited shows as a PLACEHOLDER, never as a value ──
+                {c.enabled && !priced && !c.pricingHidden && (
+                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:shrink-0 pl-9 sm:pl-0">
+                    {/* ── Inherited shows as a PLACEHOLDER, never as a value ──
                       The GET used to resolve the catalogue fallback into
                       `defaultRate`, so the box displayed 80 for electrical and
                       the save below echoed it back — pinning four trades to
@@ -563,41 +579,42 @@ export default function ServiceSettingsPage() {
                       then counts FieldQuo's own number as a rate a real
                       company chose. RateCard.js next door has always done it
                       this way for the structured book. */}
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder={
-                      c.inheritedRate != null
-                        ? String(c.inheritedRate)
-                        : t("app.setServices.ratePlaceholder")
-                    }
-                    value={c.defaultRate ?? ""}
-                    onChange={(e) =>
-                      update(c.id, {
-                        defaultRate: e.target.value
-                          ? Number(e.target.value)
-                          : null,
-                      })
-                    }
-                    className="border rounded px-2 py-1 text-sm w-24"
-                  />
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder={
+                        c.inheritedRate != null
+                          ? String(c.inheritedRate)
+                          : t("app.setServices.ratePlaceholder")
+                      }
+                      value={c.defaultRate ?? ""}
+                      onChange={(e) =>
+                        update(c.id, {
+                          defaultRate: e.target.value
+                            ? Number(e.target.value)
+                            : null,
+                        })
+                      }
+                      className="border rounded px-2 py-1 text-sm w-24"
+                    />
 
-                  <span className="text-sm text-muted-foreground">
-                    {t("app.setServices.per", "per")}
-                  </span>
+                    <span className="text-sm text-muted-foreground">
+                      {t("app.setServices.per", "per")}
+                    </span>
 
-                  <input
-                    type="text"
-                    list="fq-unit-suggestions"
-                    placeholder={
-                      c.inheritedUnit || t("app.setServices.unitPlaceholder")
-                    }
-                    value={c.unit ?? ""}
-                    onChange={(e) => update(c.id, { unit: e.target.value })}
-                    className="border rounded px-2 py-1 text-sm w-28"
-                  />
-                </div>
-              )}
+                    <input
+                      type="text"
+                      list="fq-unit-suggestions"
+                      placeholder={
+                        c.inheritedUnit || t("app.setServices.unitPlaceholder")
+                      }
+                      value={c.unit ?? ""}
+                      onChange={(e) => update(c.id, { unit: e.target.value })}
+                      className="border rounded px-2 py-1 text-sm w-28"
+                    />
+                  </div>
+                )}
+              </div>
 
               {/* The structured rate card, for trades that have one. The single
                 rate above stays for trades that genuinely are one number.

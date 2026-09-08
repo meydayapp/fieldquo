@@ -12,6 +12,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { recordActivity } from "@/lib/activity/log";
 import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
 import { ensurePortalToken, portalUrl } from "@/lib/clientPortal";
@@ -187,18 +188,41 @@ export async function POST(request, { params }) {
   // someone chased it. And sentAt is stamped only when it is EMPTY — this
   // route is the reminder path, so overwriting would march the issue date
   // forward with every chase and lose when the client was first billed.
-  await db.invoice.update({
+  //
+  // Which is exactly why the chase needs a column of its own. With sentAt
+  // frozen at the first send, a second chase changed nothing on the row and
+  // wrote nothing to the activity log (the send route records `invoice.sent`;
+  // this route recorded nothing), so "when did we last chase this" had no
+  // answer anywhere in the product. lastChasedAt moves on EVERY accepted send
+  // and chaseCount counts them — see the column comment in schema.prisma.
+  const chasedAt = new Date();
+  const stamped = await db.invoice.update({
     where: { id: invoice.id },
     data: {
-      ...(invoice.sentAt ? {} : { sentAt: new Date(), sentToEmail: invoice.client.email }),
+      ...(invoice.sentAt ? {} : { sentAt: chasedAt, sentToEmail: invoice.client.email }),
       ...(invoice.status === "draft" ? { status: "sent" } : {}),
+      lastChasedAt: chasedAt,
+      chaseCount: { increment: 1 },
     },
+    select: { lastChasedAt: true, chaseCount: true },
+  });
+
+  // `manual: true` so the log can tell a person pressing the button apart from
+  // the overdue cron, should the cron ever start writing here too.
+  await recordActivity(member, {
+    action: "invoice.chased",
+    entityType: "invoice",
+    entityId: invoice.id,
+    summary: `Chased invoice ${invoice.invoiceNumber} (${[balance.toFixed(2), company?.currency].filter(Boolean).join(" ")} owing) to ${invoice.client.email}`,
+    metadata: { to: invoice.client.email, balance, manual: true },
   });
 
   return NextResponse.json({
     sent: true,
     to: invoice.client.email,
     balance,
+    lastChasedAt: stamped.lastChasedAt,
+    chaseCount: stamped.chaseCount,
     portalUrl: url,
     // The UI warns when this is false — the client will get an email they
     // can't act on, which is worth knowing before you hit send.

@@ -20,6 +20,12 @@ import {
   INSTANT_ESTIMATE_TRADES,
 } from "@/lib/estimate/instantEstimate";
 import { instantRateFields } from "@/lib/estimate/instantRateFields";
+import {
+  applyDerivedSeed,
+  deriveInstantSeed,
+  seedDrift,
+  seedInputsFor,
+} from "@/lib/estimate/instantSeed";
 import { instantQuoteReadiness } from "@/lib/estimate/instantQuoteReadiness";
 import { tradeLabel } from "@/lib/estimate/instantQuoteServer";
 import {
@@ -77,19 +83,38 @@ export async function GET(request) {
     // What the company says it SELLS. This screen used to render every wired
     // estimator with no reference to it, which is how a cabinet painter came to
     // have a roofing rate card: he was shown the card, so he filled it in.
+    //
+    // `rates` comes too: it is the company's patch over the trade's price book
+    // (Settings › Services & Pricing), and the seed a trade starts from is
+    // derived from THAT book, not ours — see lib/estimate/instantSeed.js.
     db.companyServiceCategory.findMany({
       where: { companyId: member.companyId, enabled: true },
-      select: { category: { select: { key: true } } },
+      select: { rates: true, category: { select: { key: true } } },
     }),
   ]);
   const byTrade = new Map(saved.map((r) => [r.trade, r]));
   const enabledKeys = enabledCategories.map((r) => r.category.key);
   const enabledSet = new Set(enabledKeys);
+  const enabledRows = enabledCategories.map((r) => ({ key: r.category.key, rates: r.rates }));
 
   const trades = Object.entries(INSTANT_ESTIMATE_TRADES).map(([trade, spec]) => {
     const row = byTrade.get(trade);
     const seed = INSTANT_ESTIMATE_DEFAULTS[trade] ?? null;
-    const config = row?.config ?? seed ?? null;
+    // ── The seed is the company's own pricing where it can be ─────────────
+    //
+    // For a trade whose seed derives from a price book, run the derivation
+    // over the company's book (their rates patched over ours) and over only
+    // the services they have switched on. Null for every other trade, and for
+    // a derivable one whose services are all off — nothing to inherit from.
+    //
+    // No saved row: the form opens on the derived figures, already theirs.
+    // Saved row: the row is what prices, and `seedDrift` says where it now
+    // differs from the derivation — the screen reports it and offers a button;
+    // nothing here re-derives on their behalf.
+    const seedInputs = seedInputsFor(trade, enabledRows);
+    const derived = deriveInstantSeed(trade, seedInputs);
+    const config =
+      row?.config ?? (derived && seed ? applyDerivedSeed(trade, seed, derived) : seed) ?? null;
     // Which of the company's own services this estimator prices. Plural: one
     // `painting` estimator serves interior and exterior painting both.
     const categoryKeys = categoryKeysForInstantTrade(trade);
@@ -124,6 +149,17 @@ export async function GET(request) {
       // defaults so they have something to edit rather than a blank grid.
       config,
       isDefaults: !row,
+      // The derivation the screen can apply on one press, and whether the
+      // unsaved seed above is already it (so the "typical figures, not your
+      // prices" note is not shown over the company's own numbers).
+      derivedSeed: derived,
+      derivedFromServices: !row && Boolean(derived),
+      seedDrift: row ? seedDrift(trade, row.config, derived) : [],
+      // Painting only: which scopes the company sells, so the screen can
+      // show the surcharge box for those and grey the other — and say plainly
+      // when neither is on, because the public page then offers no painting
+      // at all (loadCompanyInstantTrades drops it).
+      ...(trade === "painting" && { scopesOffered: seedInputs.offered }),
       // Whether a homeowner can actually get a number out of the SAVED config,
       // dry-run through the public pricer. An enabled trade that can't price is
       // a dead control in front of a stranger, and the contractor is the only
@@ -164,7 +200,14 @@ export async function GET(request) {
     // What a homeowner opening the public link would see right now. The owner
     // asked "so I have to turn it on somewhere?" while looking at this screen;
     // the answer belongs on it.
-    liveTradeCount: trades.filter((t) => t.enabled && t.readiness.ok).length,
+    liveTradeCount: trades.filter(
+      (t) =>
+        t.enabled &&
+        t.readiness.ok &&
+        // Painting with no scope sold is not on the public page, however
+        // ready its row is.
+        !(t.trade === "painting" && t.scopesOffered.length === 0),
+    ).length,
     companySlug: company?.slug || null,
     // Company-level, not per-trade — one financing offer for the business.
     financing: normaliseFinancing(company?.financing),

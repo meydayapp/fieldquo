@@ -93,6 +93,20 @@ function monthLabel(key) {
   });
 }
 
+/** "Sep 8" — the same short form the due-date line on each owed row uses. */
+function shortDay(value) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/** "2:41 PM" — for the sentence that confirms a chase just went out. */
+function clockTime(value) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
 export default function DashboardPage() {
   const { t } = useTranslation();
   const canCreateQuote = useHasLevel("quotes", "view_create_edit");
@@ -154,6 +168,13 @@ export default function DashboardPage() {
   const [chasing, setChasing] = useState(null);
   const [chaseNote, setChaseNote] = useState("");
   const [chaseError, setChaseError] = useState("");
+  // What came back, PER ROW, keyed by invoice id. chaseNote/chaseError above
+  // are one page-level line that only the NeedsToday card renders — so a
+  // chase pressed on the "Money owed" list below the fold reported its result
+  // at the top of the page, off-screen, and the row itself changed nothing.
+  // A button whose only feedback is somewhere else is a dead button to the
+  // person looking at it.
+  const [chaseResults, setChaseResults] = useState({});
 
   // Safety net for missed/misrouted checkout.session.completed webhooks.
   // successUrl (app/api/companies/route.js) redirects here with the real
@@ -271,15 +292,27 @@ export default function DashboardPage() {
     loadMoney();
   }, [loadMoney]);
 
-  async function chase(invoice) {
+  /**
+   * One handler, two entry points. `origin` says which card the click came
+   * from: the NeedsToday card at the top keeps its own page-level line, and
+   * the owed row that was pressed gets the result in place either way.
+   */
+  async function chase(invoice, origin = "row") {
     setChasing(invoice.id);
-    setChaseNote("");
-    setChaseError("");
+    if (origin === "top") {
+      setChaseNote("");
+      setChaseError("");
+    }
+    setChaseResults((prev) => {
+      const next = { ...prev };
+      delete next[invoice.id];
+      return next;
+    });
+    const rowError = (message) =>
+      setChaseResults((prev) => ({ ...prev, [invoice.id]: { error: message } }));
     try {
       const res = await fetch(`/api/invoices/${invoice.id}/request-payment`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
       });
       if (!res.ok) {
         // Never a bare `if (res.ok)` with no else. The failures this route
@@ -288,17 +321,33 @@ export default function DashboardPage() {
         // nothing.
         await reportResponseError(
           res,
-          setChaseError,
+          (message) => {
+            rowError(message);
+            if (origin === "top") setChaseError(message);
+          },
           t("app.invoiceDetail.requestError"),
         );
         return;
       }
       const data = await res.json();
-      setChaseNote(
-        `${t("app.invoiceDetail.paymentRequestSentTo")} ${data?.to || ""}`.trim(),
-      );
-      // The route stamps sentAt and can move a draft to sent, so the panel is
-      // reloaded from the server rather than patched from a guess.
+      setChaseResults((prev) => ({
+        ...prev,
+        [invoice.id]: {
+          note: t(
+            "app.dash.owed.chased",
+            "Payment request emailed to {address} at {time}",
+            { address: data?.to || "", time: clockTime(data?.lastChasedAt || Date.now()) },
+          ),
+        },
+      }));
+      if (origin === "top") {
+        setChaseNote(
+          `${t("app.invoiceDetail.paymentRequestSentTo")} ${data?.to || ""}`.trim(),
+        );
+      }
+      // The route stamps sentAt, lastChasedAt and chaseCount and can move a
+      // draft to sent, so the panel is reloaded from the server rather than
+      // patched from a guess — the "Last chased" line below comes from there.
       await loadMoney();
     } finally {
       setChasing(null);
@@ -425,7 +474,7 @@ export default function DashboardPage() {
           does not have. */}
       <NeedsToday
         needs={rank.needsToday}
-        onChase={chase}
+        onChase={(inv) => chase(inv, "top")}
         chasing={chasing}
         chaseError={chaseError}
         chaseNote={chaseNote}
@@ -740,9 +789,18 @@ export default function DashboardPage() {
                     className="px-4 sm:px-5 py-3 flex items-start justify-between gap-3"
                   >
                     <div className="min-w-0">
-                      <div className="text-sm font-medium text-foreground truncate">
+                      {/* The name and the number open the invoice. Every row
+                          here used to be inert text beside a button — the one
+                          screen that names who owes what, and no way through
+                          to the document from it. `inv.id` is the LATEST
+                          version's id (see buildReceivables), which is the row
+                          the detail page should open. */}
+                      <Link
+                        href={`/app/invoices/${inv.id}`}
+                        className="block text-sm font-medium text-foreground truncate hover:underline"
+                      >
                         {inv.client?.name}
-                      </div>
+                      </Link>
                       {/* Days past due, in red, from the DUE DATE — and an
                           invoice with no due date says exactly that instead of
                           being aged from the day it was raised. */}
@@ -772,11 +830,46 @@ export default function DashboardPage() {
                         </FigureText>
                       )}
                       <FigureText className="text-xs text-muted-foreground">
-                        {inv.invoiceNumber}
+                        <Link href={`/app/invoices/${inv.id}`} className="underline">
+                          {inv.invoiceNumber}
+                        </Link>
                         {inv.amended
                           ? ` · ${t("app.dash.owed.amended", "amended, v{version}", { version: inv.version })}`
                           : ""}
+                        {/* Only when the invoice carries an explicit job link.
+                            The quote-derived fallback is not resolved on this
+                            list (see the receivables route), and a link that
+                            guessed the client's other job would be worse than
+                            none. */}
+                        {inv.jobId && (
+                          <>
+                            {" · "}
+                            <Link href={`/app/jobs/${inv.jobId}`} className="underline">
+                              {t("app.dash.owed.job", "Job")}
+                            </Link>
+                          </>
+                        )}
                       </FigureText>
+                      {/* ── The chase trail, manual and automatic ─────────────
+                          Both from the server: lastChasedAt/chaseCount are
+                          stamped by the request-payment route, the automatic
+                          line comes from the cron's FollowUpLog. Absent lines
+                          mean nobody has chased — not a blank nobody filled. */}
+                      {inv.lastChasedAt && (
+                        <FigureText className="text-xs text-muted-foreground">
+                          {t("app.dash.owed.lastChased", "Last chased {date} · {count}×", {
+                            date: shortDay(inv.lastChasedAt),
+                            count: inv.chaseCount,
+                          })}
+                        </FigureText>
+                      )}
+                      {inv.autoReminderAt && (
+                        <FigureText className="text-xs text-muted-foreground">
+                          {t("app.dash.owed.autoReminderSent", "Automatic reminder sent {date}", {
+                            date: shortDay(inv.autoReminderAt),
+                          })}
+                        </FigureText>
+                      )}
                       {inv.partiallyPaid && (
                         <FigureText className="text-xs text-muted-foreground">
                           {t("app.invoiceLifecycle.partiallyPaid", {
@@ -869,6 +962,26 @@ export default function DashboardPage() {
                             })}
                           </div>
                         )}
+                      {/* The result of THIS row's chase, on this row. Success
+                          names the address and the time; a failure is the
+                          route's own sentence (no email on file, already
+                          settled, refused). */}
+                      {chaseResults[inv.id]?.note && (
+                        <p
+                          role="status"
+                          className="mt-1 text-xs text-muted-foreground max-w-[14rem]"
+                        >
+                          {chaseResults[inv.id].note}
+                        </p>
+                      )}
+                      {chaseResults[inv.id]?.error && (
+                        <p
+                          role="alert"
+                          className="mt-1 text-xs text-destructive max-w-[14rem]"
+                        >
+                          {chaseResults[inv.id].error}
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -889,7 +1002,11 @@ export default function DashboardPage() {
 
               <div className="px-4 sm:px-5 py-3 border-t border-foreground/15 space-y-1">
                 {/* What the automation will do on its own — true either way,
-                    and the reason the manual button is not the only answer. */}
+                    and the reason the manual button is not the only answer.
+                    Either sentence ends in the link to where it is changed:
+                    the rule lives at /app/settings/follow-ups, and a sentence
+                    that says "nothing chases these" without saying where to
+                    fix that is a diagnosis with no door. */}
                 <FigureText className="text-xs text-muted-foreground">
                   {money.automaticReminder
                     ? t(
@@ -912,7 +1029,12 @@ export default function DashboardPage() {
                     : t(
                         "app.dash.owed.noAutoReminder",
                         "No automatic overdue reminder is set up, so nothing chases these on its own.",
-                      )}
+                      )}{" "}
+                  <Link href="/app/settings/follow-ups" className="underline">
+                    {money.automaticReminder
+                      ? t("app.dash.owed.changeAuto", "Change it")
+                      : t("app.dash.owed.setUpAuto", "Set one up")}
+                  </Link>
                 </FigureText>
                 {/* Figures that are knowably short say so. Silence here would
                     make an incomplete total look whole. */}

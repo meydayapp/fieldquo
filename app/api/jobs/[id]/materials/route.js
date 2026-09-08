@@ -35,7 +35,12 @@ function shape(m) {
     id: m.id,
     name: m.name,
     qty: num(m.qty),
+    // Null until somebody says how many were actually used. Never defaulted
+    // to `qty`: "we haven't recorded it" and "we used exactly the estimate"
+    // are different statements, and the close-out treats them differently.
+    actualQty: m.actualQty == null ? null : num(m.actualQty),
     unit: m.unit,
+    materialKey: m.materialKey,
     categoryKey: m.categoryKey,
     estUnitCost: m.estUnitCost == null ? null : num(m.estUnitCost),
     actualCost: m.actualCost == null ? null : num(m.actualCost),
@@ -235,7 +240,17 @@ export async function PATCH(request, { params }) {
   if (line.jobId !== id)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const purchased = body.purchased !== false;
+  // ── Two kinds of PATCH ────────────────────────────────────────────────────
+  //
+  // A TICK carries `purchased` and rewrites the receipt fields wholesale —
+  // that is what it has always done, and a tick with no cost is "no receipt".
+  // A body WITHOUT `purchased` is somebody recording how many were actually
+  // used on a line that is already bought, and it must leave the receipt
+  // alone: the old shape treated every PATCH as a tick, so a quantity-only
+  // update would have blanked the cost and supplier a person typed a week
+  // ago. Absence of `purchased` is not "unbought".
+  const isTick = body.purchased !== undefined;
+  const purchased = isTick ? body.purchased !== false : Boolean(line.purchasedAt);
 
   // Same rule as POST, and it matters more here: `actualCost` on the tick
   // transition is written into the COMPANY's price history by
@@ -252,22 +267,69 @@ export async function PATCH(request, { params }) {
 
   const actualCost = body.actualCost == null ? null : num(body.actualCost);
 
+  // Refused out loud, not dropped: nothing in the app sends qty for a derived
+  // line, so a body that does is a caller that misunderstands the column —
+  // see the note on `qty` in the update below.
+  if (body.qty !== undefined && !line.addedByHand) {
+    return NextResponse.json(
+      {
+        error:
+          "This line's quantity is the estimate and can't be changed. Record how many were actually used instead.",
+      },
+      { status: 400 },
+    );
+  }
+
+  // How many were actually used, in the line's own unit. A count, not money,
+  // so no cost toggle: the person who knows it is the one standing at the
+  // yard. Refused rather than clamped when it is not a positive number — a
+  // typed "-3" or "abc" is a mistake to report, not a zero to store.
+  let actualQty;
+  if (body.actualQty !== undefined) {
+    if (body.actualQty === null || body.actualQty === "") {
+      actualQty = null;
+    } else {
+      const n = Number(body.actualQty);
+      if (!Number.isFinite(n) || n < 0) {
+        return NextResponse.json(
+          { error: "Enter how many were used as a number, zero or more." },
+          { status: 400 },
+        );
+      }
+      actualQty = n;
+    }
+  }
+
   const updated = await db.jobMaterial.update({
     where: { id: line.id },
     data: {
-      // Unticking clears the receipt with it. A line that is "not bought" but
-      // still carries a supplier and a price is a row nobody can explain, and
-      // the price history entry it already wrote stays — that purchase did
-      // happen, and un-ticking a checkbox does not un-happen it.
-      purchasedAt: purchased ? line.purchasedAt || new Date() : null,
-      purchasedById: purchased ? member.userId : null,
-      actualCost: purchased ? actualCost : null,
-      supplier: purchased
-        ? String(body.supplier || "")
-            .trim()
-            .slice(0, 120) || null
-        : null,
-      ...(body.qty !== undefined && { qty: Math.max(0, num(body.qty)) }),
+      ...(isTick && {
+        // Unticking clears the receipt with it. A line that is "not bought"
+        // but still carries a supplier and a price is a row nobody can
+        // explain, and the price history entry it already wrote stays — that
+        // purchase did happen, and un-ticking a checkbox does not un-happen
+        // it. The used quantity goes the same way for the same reason.
+        purchasedAt: purchased ? line.purchasedAt || new Date() : null,
+        purchasedById: purchased ? member.userId : null,
+        actualCost: purchased ? actualCost : null,
+        supplier: purchased
+          ? String(body.supplier || "")
+              .trim()
+              .slice(0, 120) || null
+          : null,
+        ...(!purchased && { actualQty: null }),
+      }),
+      ...(actualQty !== undefined && purchased && { actualQty }),
+      // ── `qty` is the ESTIMATE, and only a hand-added line may change it ──
+      //
+      // On a derived line, qty is what the recipe or takeoff predicted, and
+      // the close-out compares actualQty against it to ask whether the recipe
+      // is right. Letting a PATCH overwrite it would erase the one record of
+      // what was predicted — the same loss estUnitCost/actualCost were split
+      // into two columns to prevent. A hand-added line has no prediction
+      // behind it; its qty is the person's own statement and stays editable.
+      ...(body.qty !== undefined &&
+        line.addedByHand && { qty: Math.max(0, num(body.qty)) }),
     },
   });
 

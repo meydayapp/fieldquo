@@ -11,6 +11,10 @@
 // a string into a phone's clipboard, so that string sits at the top, big,
 // with a copy button — not at the bottom under the settings that produced it.
 //
+// (No QR code beside it, deliberately: there is no QR library in package.json
+// and this screen is not the reason to add one. When one arrives for another
+// feature, the square goes next to the copy button.)
+//
 // ── Why the list shows what ISN'T available too ─────────────────────────────
 //
 // A contractor with no event types will look for "Book a visit", not find it,
@@ -24,6 +28,16 @@
 // plus rename plus switch-off is a multi-step edit of one published page, and
 // autosaving each keystroke would put half-finished states in front of whoever
 // taps the link in between.
+//
+// ── Reorder: drag with a mouse, arrows with a keyboard ──────────────────────
+//
+// The HTML drag-and-drop API, not a library — the leads board uses dnd-kit
+// because its cards cross columns; a single column of ten rows does not need
+// it. HTML DnD has two known limits, and both are handled rather than hoped
+// past: it does not fire on touch in most mobile browsers, so the Up/Down
+// buttons stay and are the keyboard path too; and a `draggable` ancestor
+// steals text selection from the inputs inside it in Firefox, so a row is
+// only draggable while its grip is held.
 
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -36,36 +50,25 @@ import {
   Plus,
   Trash2,
   Loader2,
-  Zap,
-  FileText,
-  CalendarDays,
-  Megaphone,
-  Globe,
-  Phone,
-  MessageCircle,
-  Mail,
-  Star,
   Info,
+  GripVertical,
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { linkPageUrl } from "@/lib/links/href";
+import { SOCIAL_PLATFORMS, SOCIAL_NAMES, socialHref } from "@/lib/links/social";
+import { CUSTOM_ICON_NAMES } from "@/lib/links/icons";
+import { iconForLink, SocialGlyph } from "@/app/components/links/linkIcons";
 
-const ICONS = {
-  instant: Zap,
-  quote: FileText,
-  book: CalendarDays,
-  site: Globe,
-  phone: Phone,
-  whatsapp: MessageCircle,
-  email: Mail,
-  review: Star,
+const GROUP_KEYS = {
+  price: ["app.setBioLink.group.price", "Get a price"],
+  book: ["app.setBioLink.group.book", "Book"],
+  contact: ["app.setBioLink.group.contact", "Contact"],
+  more: ["app.setBioLink.group.more", "More"],
 };
 
-function iconFor(key) {
-  if (key.startsWith("funnel:")) return Megaphone;
-  if (key.startsWith("custom:")) return Link2;
-  return ICONS[key] || Link2;
+function emptySocials() {
+  return Object.fromEntries(SOCIAL_PLATFORMS.map((p) => [p, ""]));
 }
 
 export default function BioLinkSettingsPage() {
@@ -82,14 +85,29 @@ export default function BioLinkSettingsPage() {
   const [published, setPublished] = useState(true);
   const [headline, setHeadline] = useState("");
   const [bio, setBio] = useState("");
+  // Labelled rows only; the icon row is `socials`, one field per platform.
   const [links, setLinks] = useState([]);
+  const [socials, setSocials] = useState(emptySocials);
+
+  // Drag state. `armed` is the row whose grip is currently held (the only row
+  // that is `draggable`); `dragging`/`over` are the indices of the row in
+  // flight and the row under it.
+  const [armed, setArmed] = useState(null);
+  const [dragging, setDragging] = useState(null);
+  const [over, setOver] = useState(null);
 
   const apply = useCallback((json) => {
     setData(json);
     setPublished(json.published !== false);
     setHeadline(json.headline || "");
     setBio(json.bio || "");
-    setLinks(json.links || []);
+    const all = json.links || [];
+    setLinks(all.filter((l) => l.kind !== "social"));
+    const next = emptySocials();
+    for (const l of all) {
+      if (l.kind === "social" && l.platform in next) next[l.platform] = l.url || "";
+    }
+    setSocials(next);
   }, []);
 
   const load = useCallback(async () => {
@@ -119,14 +137,23 @@ export default function BioLinkSettingsPage() {
           published,
           headline,
           bio,
-          items: links.map((l) => ({
-            key: l.key,
-            enabled: l.enabled,
-            label: l.label,
-            // Only a custom row owns its URL; for everything else the server
-            // derives it and would ignore this anyway.
-            ...(l.key.startsWith("custom:") ? { url: l.url } : {}),
-          })),
+          items: [
+            // Social first, by convention only — the server keys them by
+            // platform and the page paints them in a fixed order regardless.
+            ...SOCIAL_PLATFORMS.filter((p) => socials[p].trim()).map((p) => ({
+              key: `social:${p}`,
+              enabled: true,
+              url: socials[p].trim(),
+            })),
+            ...links.map((l) => ({
+              key: l.key,
+              enabled: l.enabled,
+              label: l.label,
+              // Only a custom row owns its URL and icon; for everything else
+              // the server derives them and would ignore this anyway.
+              ...(l.key.startsWith("custom:") ? { url: l.url, icon: l.icon || null } : {}),
+            })),
+          ],
         }),
       });
       if (!res.ok) {
@@ -153,6 +180,24 @@ export default function BioLinkSettingsPage() {
     });
   }
 
+  // Insert, not swap: dragging row 0 onto row 4 means "put it after the
+  // fourth", and every row in between shifts up by one.
+  function moveTo(from, to) {
+    if (from === to || from == null || to == null) return;
+    setLinks((prev) => {
+      const next = [...prev];
+      const [row] = next.splice(from, 1);
+      next.splice(to, 0, row);
+      return next;
+    });
+  }
+
+  function endDrag() {
+    setArmed(null);
+    setDragging(null);
+    setOver(null);
+  }
+
   function patchLink(index, patch) {
     setLinks((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)));
   }
@@ -162,7 +207,7 @@ export default function BioLinkSettingsPage() {
       ...prev,
       // The key is provisional. The server re-assigns custom keys from their
       // position on save, so this only has to be unique in the browser.
-      { key: `custom:new-${prev.length}`, kind: "custom", label: "", url: "", enabled: true },
+      { key: `custom:new-${prev.length}`, kind: "custom", label: "", url: "", icon: null, enabled: true, group: "more" },
     ]);
   }
 
@@ -190,6 +235,12 @@ export default function BioLinkSettingsPage() {
   const incomplete = links.some(
     (l) => l.key.startsWith("custom:") && (!l.label.trim() || !l.url.trim()),
   );
+  // Same honesty for a social field: the server refuses what socialHref
+  // refuses, and a field that silently empties itself on save is a control
+  // that appears to work and doesn't.
+  const socialProblems = SOCIAL_PLATFORMS.filter(
+    (p) => socials[p].trim() && !socialHref(p, socials[p]),
+  );
 
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6 pb-28">
@@ -200,7 +251,7 @@ export default function BioLinkSettingsPage() {
         <p className="text-sm text-muted-foreground mt-1">
           {t(
             "app.setBioLink.subtitle",
-            "One page for the single link Instagram and TikTok allow in your profile. It carries your logo and your colour — nothing on it says FieldQuo.",
+            "One page for the single link Instagram and TikTok allow in your profile. It carries your logo and your colour, with a small “Made by FieldQuo” line at the very bottom.",
           )}
         </p>
       </div>
@@ -294,6 +345,60 @@ export default function BioLinkSettingsPage() {
         </div>
       </div>
 
+      {/* ── The icon row ── */}
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="font-semibold text-foreground">
+          {t("app.setBioLink.followTitle", "Follow us")}
+        </h2>
+        <p className="text-sm text-muted-foreground mt-0.5 mb-4">
+          {t(
+            "app.setBioLink.followHint",
+            "A row of icons under your name. Type a handle or paste the profile link; leave one empty to hide it.",
+          )}
+        </p>
+        <ul className="space-y-2">
+          {SOCIAL_PLATFORMS.map((platform) => {
+            const value = socials[platform];
+            const bad = socialProblems.includes(platform);
+            return (
+              <li key={platform} className="flex items-center gap-3">
+                <span className="w-7 shrink-0 text-muted-foreground" aria-hidden="true">
+                  <SocialGlyph platform={platform} size={18} />
+                </span>
+                <label className="sr-only" htmlFor={`social-${platform}`}>
+                  {SOCIAL_NAMES[platform]}
+                </label>
+                <div className="min-w-0 flex-1">
+                  <input
+                    id={`social-${platform}`}
+                    value={value}
+                    onChange={(e) =>
+                      setSocials((prev) => ({ ...prev, [platform]: e.target.value }))
+                    }
+                    maxLength={300}
+                    placeholder={`${SOCIAL_NAMES[platform]} — ${t("app.setBioLink.socialPlaceholder", "@handle or link")}`}
+                    inputMode="url"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    aria-invalid={bad || undefined}
+                    className={`w-full bg-background border rounded-lg px-2.5 py-1.5 text-sm text-foreground ${bad ? "border-red-500" : "border-border"}`}
+                  />
+                  {bad && (
+                    <p className="text-xs text-red-600 mt-1">
+                      {t(
+                        "app.setBioLink.socialInvalid",
+                        "Doesn't look like a handle or a profile link — it won't be saved.",
+                      )}
+                    </p>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
       {/* ── The links ── */}
       <div className="bg-card border border-border rounded-xl p-5">
         <h2 className="font-semibold text-foreground">
@@ -308,13 +413,50 @@ export default function BioLinkSettingsPage() {
 
         <ul className="space-y-2">
           {links.map((link, index) => {
-            const Icon = iconFor(link.key);
+            const Icon = iconForLink(link);
             const custom = link.key.startsWith("custom:");
+            const [groupKey, groupFallback] = GROUP_KEYS[link.group] || GROUP_KEYS.more;
+            const isOver = over === index && dragging !== null && dragging !== index;
             return (
               <li
                 key={link.key}
-                className="border border-border rounded-lg p-3 flex items-start gap-3"
+                draggable={armed === index}
+                onDragStart={(e) => {
+                  e.dataTransfer.effectAllowed = "move";
+                  // Firefox refuses to start a drag with no data on it.
+                  e.dataTransfer.setData("text/plain", link.key);
+                  setDragging(index);
+                }}
+                onDragOver={(e) => {
+                  if (dragging === null) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  if (over !== index) setOver(index);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  moveTo(dragging, index);
+                  endDrag();
+                }}
+                onDragEnd={endDrag}
+                className={`border rounded-lg p-3 flex items-start gap-3 ${
+                  isOver ? "border-foreground" : "border-border"
+                } ${dragging === index ? "opacity-50" : ""}`}
               >
+                {/* Held, not clicked: `draggable` is set on the row only
+                    while this is pressed, so the inputs beside it keep
+                    their text selection. Hidden from assistive tech — the
+                    arrows below are the accessible way to do the same thing. */}
+                <span
+                  onMouseDown={() => setArmed(index)}
+                  onMouseUp={() => setArmed(null)}
+                  onMouseLeave={() => dragging === null && setArmed(null)}
+                  title={t("app.setBioLink.dragHandle", "Drag to reorder")}
+                  aria-hidden="true"
+                  className="hidden sm:flex mt-2 shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground"
+                >
+                  <GripVertical size={16} />
+                </span>
                 <input
                   type="checkbox"
                   checked={link.enabled}
@@ -333,16 +475,39 @@ export default function BioLinkSettingsPage() {
                     className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-sm text-foreground"
                   />
                   {custom ? (
-                    <input
-                      value={link.url}
-                      onChange={(e) => patchLink(index, { url: e.target.value })}
-                      placeholder="https://instagram.com/…"
-                      inputMode="url"
-                      className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
-                    />
+                    <>
+                      <input
+                        value={link.url}
+                        onChange={(e) => patchLink(index, { url: e.target.value })}
+                        placeholder="https://instagram.com/…"
+                        inputMode="url"
+                        className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground"
+                      />
+                      <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>{t("app.setBioLink.icon", "Icon")}</span>
+                        <select
+                          value={link.icon || ""}
+                          onChange={(e) => patchLink(index, { icon: e.target.value || null })}
+                          className="bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-foreground"
+                        >
+                          <option value="">—</option>
+                          {CUSTOM_ICON_NAMES.map((name) => (
+                            <option key={name} value={name}>
+                              {name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </>
                   ) : (
                     <p className="text-xs text-muted-foreground truncate">{link.url}</p>
                   )}
+                  {/* Which heading the row sits under on the page. Derived
+                      server-side from what the row is — not editable, so it
+                      is a tag rather than a picker. */}
+                  <span className="inline-block text-[11px] uppercase tracking-wide text-muted-foreground">
+                    {t(groupKey, groupFallback)}
+                  </span>
                 </div>
 
                 <div className="flex flex-col gap-1 shrink-0">
@@ -415,9 +580,11 @@ export default function BioLinkSettingsPage() {
           app/components/layout/MobileTabBar.js); lg:bottom-0 restores the
           true bottom once the tab bar stops rendering. */}
       <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] lg:bottom-0 inset-x-0 lg:left-64 border-t border-border bg-card/95 backdrop-blur px-4 py-3 flex items-center gap-3 justify-end">
-        {incomplete && (
+        {(incomplete || socialProblems.length > 0) && (
           <span className="text-xs text-muted-foreground mr-auto">
-            {t("app.setBioLink.incomplete", "Your own links need both text and a URL.")}
+            {incomplete
+              ? t("app.setBioLink.incomplete", "Your own links need both text and a URL.")
+              : t("app.setBioLink.socialIncomplete", "A social field won't be saved as typed.")}
           </span>
         )}
         {saved && (

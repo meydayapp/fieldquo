@@ -107,14 +107,21 @@ export default async function EmbedPage({ params }) {
     );
   }
 
+  // `embedded` is the ONE thing that distinguishes this mount from /book,
+  // /quote and /instant-quote, and it is only ever true here and in the funnel
+  // embed. Each flow drops its own logo-and-name header on it: the iframe sits
+  // inside the company's website, directly under the company's own masthead,
+  // and a second logo two inches below the first reads as a widget somebody
+  // else made — which is the one thing an embed must not look like. Brand
+  // colour, buttons and copy are untouched; the header is the whole of it.
   return (
     <EmbedFrame>
       {widget === "book" ? (
-        <BookingFlow companySlug={companySlug} />
+        <BookingFlow companySlug={companySlug} embedded />
       ) : widget === "instant-quote" ? (
-        <InstantQuoteFlow companySlug={companySlug} />
+        <InstantQuoteFlow companySlug={companySlug} embedded />
       ) : (
-        <SelfQuoteFlow companySlug={companySlug} />
+        <SelfQuoteFlow companySlug={companySlug} embedded />
       )}
     </EmbedFrame>
   );

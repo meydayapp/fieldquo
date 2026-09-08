@@ -30,6 +30,11 @@ import {
   rateFieldPatch,
   readRate,
 } from "@/lib/estimate/instantRateFields";
+import {
+  applyDerivedSeed,
+  PAINTING_SCOPE_CATEGORY,
+} from "@/lib/estimate/instantSeed";
+import { categoryLabel } from "@/lib/trades/catalog";
 
 // How each trade measures — copy shown to the owner so they know what the
 // homeowner will be asked for.
@@ -56,6 +61,7 @@ function NumField({
   suffix,
   step = "1",
   width = "w-28",
+  disabled = false,
 }) {
   // ── Twenty-four boxes on this screen were labelled in dollars ───────────
   //
@@ -83,10 +89,11 @@ function NumField({
           type="number"
           step={step}
           value={value ?? ""}
+          disabled={disabled}
           onChange={(e) =>
             onChange(e.target.value === "" ? "" : Number(e.target.value))
           }
-          className={`${width} rounded-lg border border-border bg-background px-2 py-1.5 text-sm`}
+          className={`${width} rounded-lg border border-border bg-background px-2 py-1.5 text-sm disabled:opacity-50 disabled:bg-muted`}
         />
         {suffix && (
           <span className="text-sm text-muted-foreground">{suffix}</span>
@@ -209,11 +216,141 @@ function UnitRates({ fields, config, onPatch, t }) {
   );
 }
 
+// ── Painting's scope surcharge, one box per scope the company SELLS ────────
+//
+// Was a generic PercentMap titled "Interior vs exterior", which read as a
+// choice between two rates and was neither: the map is a SURCHARGE on the base
+// rate, and 0% on interior means "the base rate as typed". Retitled to say so.
+//
+// Which boxes are live comes from Services: a box for a scope the company
+// doesn't sell is a control that changes no number — the server fixes the
+// scope to the one they do sell (withOfferedScope in instantQuoteServer.js)
+// and the public form never asks — so that box is greyed and says why, rather
+// than sitting there looking editable.
+function ScopeSurcharges({ map, offered, onChange, t }) {
+  if (!map) return null;
+  const scopeName = (scope) => t(`app.setInstantQuotes.scope.${scope}`, scope);
+  return (
+    <div>
+      <div className="text-sm font-medium text-foreground mb-1">
+        {t(
+          "app.setInstantQuotes.scopeSurchargeTitle",
+          "Surcharge by scope (added to the base rate)",
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground mb-2 max-w-md">
+        {t(
+          "app.setInstantQuotes.scopeSurchargeHelp",
+          "Interior 0% means the base rate as typed; exterior 30% means the base rate plus 30% for height, weather and prep.",
+        )}
+      </p>
+      <div className="flex flex-wrap gap-4">
+        {Object.entries(map).map(([scope, pct]) => {
+          const sold = offered.includes(scope);
+          return (
+            <div key={scope} className="flex flex-col gap-1">
+              <NumField
+                label={scopeName(scope)}
+                value={Math.round((Number(pct) || 0) * 100)}
+                suffix="%"
+                width="w-20"
+                disabled={!sold}
+                onChange={(v) =>
+                  onChange({ ...map, [scope]: (v === "" ? 0 : v) / 100 })
+                }
+              />
+              {!sold && (
+                <span className="text-xs text-muted-foreground max-w-[14rem]">
+                  {t(
+                    "app.setInstantQuotes.scopeNotSold",
+                    "{service} is off under Services, so homeowners aren't asked about it.",
+                    { service: categoryLabel(PAINTING_SCOPE_CATEGORY[scope]) },
+                  )}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {offered.length === 1 && (
+        <p className="text-xs text-muted-foreground mt-2 max-w-md">
+          {t(
+            "app.setInstantQuotes.scopeFixedNote",
+            "Homeowners aren't asked interior or exterior — every painting estimate is priced as {scope}.",
+            { scope: scopeName(offered[0]) },
+          )}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ── Where the saved row and Services & Pricing now disagree ───────────────
+//
+// Reported, and changed by one press or not at all. The saved row is what the
+// company chose, so a change to their price book never rewrites it on their
+// behalf — but it must not drift invisibly either, which is exactly what
+// happened to the $150 a door instantRateFields.js describes. Each line names
+// the rate, what the book says ("there") and what this row says ("here");
+// the button applies the derivation over the current form and saves.
+//
+// Keys built by concatenation, invisible to check-translations' literal scan:
+// "app.setInstantQuotes.materials.standard.ratePerSqft",
+// "app.setInstantQuotes.scopeSurcharge.exterior",
+// "app.setInstantQuotes.conditionSurcharge.fair",
+// "app.setInstantQuotes.conditionSurcharge.poor",
+// "app.setInstantQuotes.minCharge", "app.setInstantQuotes.scope.interior",
+// "app.setInstantQuotes.scope.exterior". The cabinet paths (perDoor, perDrawer,
+// the add-ons) resolve exactly as UnitRates resolves them.
+function SeedDriftNotice({ drift, money, saving, canEdit, onAdopt, t }) {
+  if (!drift?.length) return null;
+  const shown = (d, v) => {
+    if (v === undefined || v === null || v === "") {
+      return t("app.setInstantQuotes.seedDriftUnset", "not set");
+    }
+    return d.kind === "percent" ? `${Math.round(Number(v) * 100)}%` : money(v);
+  };
+  return (
+    <div className="mt-3 text-xs rounded-lg bg-amber-50 text-amber-800 border border-amber-200 px-3 py-2">
+      <strong>
+        {t(
+          "app.setInstantQuotes.seedDriftTitle",
+          "Your Services & Pricing rates changed since this was saved:",
+        )}
+      </strong>
+      <ul className="mt-1 space-y-0.5">
+        {drift.map((d) => (
+          <li key={d.path}>
+            {t(
+              "app.setInstantQuotes.seedDriftLine",
+              "{field} is {there} there and {here} here",
+              {
+                field: t(`app.setInstantQuotes.${d.path}`, d.label),
+                there: shown(d, d.derived),
+                here: shown(d, d.saved),
+              },
+            )}
+          </li>
+        ))}
+      </ul>
+      <button
+        type="button"
+        onClick={onAdopt}
+        disabled={!canEdit || saving}
+        className="mt-2 inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-card px-3 py-1.5 text-xs font-medium text-foreground disabled:opacity-50"
+      >
+        {saving && <Loader2 size={13} className="animate-spin" />}
+        {t("app.setInstantQuotes.useServicesPricing", "Use my services pricing")}
+      </button>
+    </div>
+  );
+}
+
 function TradeCard({ trade, canEdit, onSaved }) {
   const { t } = useTranslation();
   // Three money fields on this card are laid out by hand rather than through
   // NumField, and each carried its own literal "$". Same defect, same fix.
-  const { currency } = useCompanyPreferences();
+  const { currency, money } = useCompanyPreferences();
   const [enabled, setEnabled] = useState(trade.enabled);
   const [config, setConfig] = useState(trade.config || {});
   const [saving, setSaving] = useState(false);
@@ -253,14 +390,16 @@ function TradeCard({ trade, canEdit, onSaved }) {
     });
   }
 
-  async function save() {
+  // `configToSave` exists for the one caller that has just replaced the form
+  // state and must not save the render-old closure: adoptServicesPricing.
+  async function save(configToSave = config) {
     setSaving(true);
     setSavedNote("");
     try {
       await fetchJson("/api/settings/instant-quote", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ trade: trade.trade, enabled, config }),
+        body: JSON.stringify({ trade: trade.trade, enabled, config: configToSave }),
       });
       setSavedNote(t("app.action.saved"));
       onSaved?.();
@@ -275,7 +414,20 @@ function TradeCard({ trade, canEdit, onSaved }) {
     }
   }
 
+  // One press: the derivation the route computed, applied over whatever is in
+  // the form right now (their other edits survive), then saved through the
+  // same PUT as the Save button. Never automatic — see SeedDriftNotice.
+  function adoptServicesPricing() {
+    const next = applyDerivedSeed(trade.trade, config, trade.derivedSeed);
+    setConfig(next);
+    save(next);
+  }
+
   const materials = Array.isArray(config.materials) ? config.materials : [];
+  // Painting only. Absent for every other trade, and [] when the company sells
+  // neither painting service — in which case the public page offers no
+  // painting and the card says so below.
+  const scopesOffered = Array.isArray(trade.scopesOffered) ? trade.scopesOffered : null;
 
   // Shown as typed, not as normalised: run the saved value through
   // normaliseBudgetThresholds for display and a half-typed "35" silently
@@ -369,14 +521,41 @@ function TradeCard({ trade, canEdit, onSaved }) {
         </label>
       </div>
 
+      {/* Two different truths for an unsaved card. Derived from the company's
+          own Services & Pricing book, these ARE their figures and the note
+          says where they came from; otherwise they are FieldQuo's reference
+          points and the note must not let them pass for anything else. */}
       {trade.isDefaults && (
         <p className="mt-3 text-xs rounded-lg bg-amber-50 text-amber-800 border border-amber-200 px-3 py-2">
+          {trade.derivedFromServices
+            ? t(
+                "app.setInstantQuotes.derivedDefaultsNote",
+                "Started from your Services & Pricing rates. Change anything here, then save — nothing is offered to homeowners until you do.",
+              )
+            : t(
+                "app.setInstantQuotes.defaultsNote",
+                "These are typical starting figures, not your prices. Edit them to your market, then save — nothing is offered to homeowners until you do.",
+              )}
+        </p>
+      )}
+
+      {scopesOffered && scopesOffered.length === 0 && (
+        <p className="mt-3 text-xs rounded-lg bg-amber-50 text-amber-800 border border-amber-200 px-3 py-2">
           {t(
-            "app.setInstantQuotes.defaultsNote",
-            "These are typical starting figures, not your prices. Edit them to your market, then save — nothing is offered to homeowners until you do.",
+            "app.setInstantQuotes.paintingNotOffered",
+            "Painting isn't offered as an instant quote: neither Interior Painting nor Exterior Painting is on under Services. Switch one on there first — until then homeowners don't see it, whatever is saved here.",
           )}
         </p>
       )}
+
+      <SeedDriftNotice
+        drift={trade.seedDrift}
+        money={money}
+        saving={saving}
+        canEdit={canEdit}
+        onAdopt={adoptServicesPricing}
+        t={t}
+      />
 
       {/* ── Readiness ─────────────────────────────────────────────────────
           The public page tells a homeowner only that the service isn't
@@ -794,13 +973,11 @@ function TradeCard({ trade, canEdit, onSaved }) {
         )}
         {trade.trade === "painting" && (
           <>
-            <PercentMap
-              title={t(
-                "app.setInstantQuotes.interiorExterior",
-                "Interior vs exterior",
-              )}
+            <ScopeSurcharges
               map={config.scopeSurcharge}
+              offered={scopesOffered || []}
               onChange={(m) => patch({ scopeSurcharge: m })}
+              t={t}
             />
             <PercentMap
               title={t(

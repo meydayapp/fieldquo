@@ -33,8 +33,15 @@ import { useState } from "react";
 import { ChevronDown, Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
-const inputClass =
-  "w-full border border-border rounded px-2 py-1 text-sm bg-background";
+// Two classes, not one with a width bolted on afterwards. The timeline box
+// used to take `${inputClass} w-28`, which put `w-full` and `w-28` on the same
+// element and left Tailwind's stylesheet order to decide which won. The
+// unsized base is what a fixed-width field extends; `inputClass` is the
+// full-width one. min-w-0 on both: an <input> in a flex row will not shrink
+// below its intrinsic ~20ch otherwise, and the step row has three of them.
+const fieldClass =
+  "min-w-0 border border-border rounded px-2 py-1 text-sm bg-background";
+const inputClass = `w-full ${fieldClass}`;
 
 export default function QuoteWording({
   category,
@@ -129,7 +136,9 @@ export default function QuoteWording({
           {unfilled.length > 0 && (
             <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
               {t("app.quoteWording.unfilled")}{" "}
-              <span className="font-mono">{unfilled.slice(0, 8).join("  ")}</span>
+              {/* break-all: up to eight monospace tokens with no natural
+                  break point would otherwise widen the card past a phone. */}
+              <span className="font-mono break-all">{unfilled.slice(0, 8).join("  ")}</span>
             </p>
           )}
 
@@ -228,7 +237,7 @@ export default function QuoteWording({
                         next[i] = { ...next[i], timeline: e.target.value };
                         setSteps(next);
                       }}
-                      className={`${inputClass} w-28 shrink-0`}
+                      className={`${fieldClass} w-28 shrink-0`}
                     />
                     <button
                       type="button"

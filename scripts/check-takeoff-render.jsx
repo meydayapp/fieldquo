@@ -520,10 +520,14 @@ try {
 
 for (const [label, role, permissions] of GATE_CASES) {
   try {
+    // Inside a LanguageProvider since the panel started translating its
+    // "how many did you actually use?" capture — the job page mounts it there.
     const html = renderToStaticMarkup(
-      <PermissionProvider role={role} permissions={permissions}>
-        <JobMaterials jobId="j1" />
-      </PermissionProvider>,
+      <LanguageProvider initialLanguage="en">
+        <PermissionProvider role={role} permissions={permissions}>
+          <JobMaterials jobId="j1" />
+        </PermissionProvider>
+      </LanguageProvider>,
     );
     if (!html || html.length < 40)
       throw new Error(`rendered ${html.length} chars`);

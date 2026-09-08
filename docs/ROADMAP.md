@@ -6775,6 +6775,16 @@ coarse`), read through `useMessagingCapability()` so there is no
   reviews live in, as well as on Settings → Website → Fine-tune — the latter is
   behind the `website_builder` feature and only renders once a site exists,
   which excluded exactly the contractor the embed was built for.
+  The widgets draw **no company header** (2026-09-08): the same flow
+  components take an `embedded` prop, true only from the two embed routes,
+  and skip the logo-and-name strip — the iframe sits under the company's own
+  masthead, and a second logo is what made it read as somebody else's widget.
+  The same prop turns `min-h-screen` off on the instant-quote and funnel
+  roots so EmbedFrame can report a real height. `npm run check:embed-chrome`
+  pins the prop at every mount and the guard at every header site, and also
+  pins Settings → Services & Pricing's rate card and quote wording as blocks
+  under the per-trade row rather than children of it (they used to share the
+  row at ≥640px and overlap).
 - **Website builder + subdomains** — `CompanySite`, rewrite in middleware,
   block renderer, AI draft from a 5-question interview, publish/unpublish.
 - **Client language drives all communication** — not just the PDF.
@@ -8452,3 +8462,125 @@ not a button; and the card IS required at signup, so the fix for "First
 month · Free" was copy in nine languages ("a card is taken at signup and
 nothing is charged until the month is up") plus a banner that counts down
 to the setup gate for a company that closed the Stripe tab.
+
+## Painting's scope follows the services sold; the instant seed inherits Services & Pricing (8 September 2026)
+
+**Owner's item 8.** Interior and exterior painting are two service
+categories behind one `painting` estimator, and the public instant-quote
+form asked every homeowner "interior or exterior?" regardless — a company
+that sells only one of them had its customers picking the other, and the
+estimator priced whatever they picked (an exterior-only painter was quoting
+interiors at the base rate minus the surcharge that IS their exterior
+price). Now `lib/estimate/instantSeed.js` reads the scopes a company sells
+off its enabled `CompanyServiceCategory` rows, fresh per request, and:
+both sold → the form asks as before; one sold → the question is not
+rendered and `withOfferedScope` in `lib/estimate/instantQuoteServer.js`
+fixes `measurement.scope` to that one inside BOTH pricing functions
+(`priceAllMaterials`, `priceOneMaterial`), whatever the browser sent — so
+the web form and the phone receptionist obey it; none sold → painting is
+dropped from the public page and the pricer refuses with
+`scope_not_offered`. The public payload carries `scopes` (names, never
+rates). The draft now records the scope that was actually priced
+(`sanitiseMeasurement` gained `scope`; both draft writers use
+`priced.measurement`). On the settings card the block is retitled
+"Surcharge by scope (added to the base rate)" with a help sentence, the
+box for a scope not sold is greyed with the reason, and a card with neither
+sold says painting is not offered until one is switched on under Services.
+`liveTradeCount` excludes it too.
+
+**Owner's item 9.** The instant seed derives from the COMPANY's price book
+(their `rates` patch over `TRADE_PRICE_BOOKS` via `getPriceBook`), not the
+code book. Painting: base $/sqft = interior standard-tier `wallPricePerSqft`;
+exterior surcharge = standard-tier `siding` over it (0 when only exterior is
+sold, because the base is then the siding rate); fair/poor condition =
+the book's moderate/high tiers over standard. The book has no paint GRADE,
+so the seed carries one row ("Standard") and a company that sells grades
+adds rows — the three invented grades (2.00 / 2.75 / 3.75) are gone; the
+range band and painting's minimum stay literal because no book states
+them. Cabinet refinishing uses the same mechanism (it read the code book
+before; now the company's). `INSTANT_ESTIMATE_DEFAULTS` for both trades IS
+the derivation over the code book, so the literal and derived seeds share
+one shape. A card with no saved row opens on the derived figures, labelled
+as theirs rather than as "typical figures"; a saved row is what prices,
+and when the derivation now differs the card lists each drifted rate
+("X is A there and B here") with ONE button, "Use my services pricing",
+that applies the derivation over the current form and saves through the
+existing PUT. Nothing re-derives automatically. Seventeen strings in nine
+languages; the retired `interiorExterior` key is gone.
+
+`check:instant-scope` executes the derivation against a fixture book, the
+three scope cases, the public payload through the db stub (no rate-shaped
+key crosses), both pricers, drift and adoption, and pins the notice, the
+button and the greyed box in source. `check:area-trades` now pins painting
+against the book rather than the retired literals.
+
+**Skipped, named:** the FUNNEL's painting step (`app/api/funnels/public`)
+takes its scope from the owner's own per-step assumption and prices through
+`priceOptionsFor` with no company in reach, so the services-derived fix does
+not apply there — the owner stated the scope explicitly, which is a
+different case from a stranger being asked; wiring the funnel to refuse a
+scope the company doesn't sell is a small follow-up.
+
+## Chase payment answers; the bio link says who made it; a job's real usage calibrates the recipe (8 September 2026)
+
+**Owner's items 1–5 — Chase payment gave no feedback.** The "money owed"
+card on /app home had a Chase button that posted and said nothing. Now the
+request-payment route stamps `Invoice.lastChasedAt` and increments
+`chaseCount` after Resend accepts (never on `sentAt`, which is the issue
+date and moves only when empty), records an `invoice.chased` activity, and
+the card shows the result in the row — "Sent to {address} at {time}" or
+the route's own refusal sentence. Each row now links the client and the
+invoice number to the invoice, the job when an explicit job link exists,
+and shows "Last chased {date} · {n}×" and "Automatic reminder sent
+{date}" from `FollowUpLog`, all computed **family-wide** so an amended
+invoice does not read as never chased. The footer's "no automatic overdue
+reminder" sentence ends in a link to Settings → Follow-ups ("Set one up" /
+"Change it"). The invoice page carries a chase trail (first send, last
+manual chase with count, every automated reminder) attached to
+`GET /api/invoices/[id]` rather than `/api/activity`, because the activity
+endpoint is owner-only while the invoice is readable at `view_only`, and
+the cron never writes activity. There is no AI voice chase in the product,
+so the card says email and nothing else. `check:invoice-chase` executes
+`buildReceivables` and the receivables handler against hostile rows and
+pins the route, schema, card, page and nine catalogues.
+
+**Owner's item 7 — Bio link.** The public `/l/[slug]` page gained a social
+icon row (six platforms, inline SVG — lucide 1.23 ships no brand icons),
+headed sections ordered by the contractor's own row order, hover motion
+that respects reduced-motion, an optional icon per row from a 38-name
+allow-list, drag reorder in settings, and the **"Made by FieldQuo" credit
+the owner decided on** (the page's header comment used to argue the
+opposite; it now records the 2026-09-08 decision). No schema change:
+everything lives in `LinkPage.items`. QR codes skipped — no library in
+the tree. `check:bio-link` grew ~90 assertions (hostile handles, `__proto__`
+platforms, javascript: URLs, section headings in every language).
+
+**Owner's item 11 — Material calibration, first slice.** The inventory
+found that no actual quantity existed anywhere: `JobMaterial.qty` was the
+estimate, the receipt scanner read "27 rolls" off the photo and kept only
+the money, interior painting had no tape or film line, and cabinet
+refinishing (the one trade with an editable tape rate) never produced a
+material row. Now: `JobMaterial.materialKey` and `actualQty` (additive);
+every estimator line carries a stable key and a `basis` (denominator,
+settings path, rate) frozen into `QuoteCosting.groups`; the sourcing list
+produces rows for recipe trades too; the materials PATCH refuses to
+overwrite the estimated quantity on a derived line; the tick-off asks "how
+many did you actually use?" and the receipt scan prefills it from a
+one-line receipt; `lib/costing/materialCalibration.js` (pure) turns
+estimate-vs-actual over the units of work into ONE suggested rate per
+line, searching whole-number divisors so the recipe's own `ceil()`
+reproduces the recorded count; the close-out modal shows the section only
+when a line has an actual and draws the "update for future quotes"
+button only where a saved override path exists (cabinet refinishing's
+coverage/hardener/tape/film, exterior-by-intake wall and trim coverage,
+takeoff painting's per-product coverage — the price book now declares
+`takeoff.products.<key>.coverageSqftPerGal`). Roofing, siding, insulation,
+paving and sandpaper are shown with "not adjustable from here yet".
+`check:material-calibration` executes the fixtures (20 est / 27 actual over
+2,500 → 93) and pins the gates.
+
+**Owner's refinement (same day, next):** the revision is threshold-gated
+— it asks "update your costing?" only when the job came in 15% or more
+over the estimate (default, editable), with Update / Leave as is, and the
+actual quantities and labour hours are asked INSIDE the close-out, not on
+a list nobody revisits. Being built.

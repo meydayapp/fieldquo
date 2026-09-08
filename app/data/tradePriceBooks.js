@@ -1944,6 +1944,8 @@ export const PRICE_BOOK_GROUPS = {
   roofPenetrations: "Penetrations and flashing",
   roofSteepness: "Steepness surcharge",
   roofLabour: "How long it takes — internal, never shown to a client",
+  paintCoverage:
+    "What a gallon covers — internal, drives the paint quantity and the cost estimate; never shown to a client",
   sidingMaterials: "Cladding — installed, per square foot of wall",
   sidingExtras: "Strip, repair and trim",
   sidingAccess: "Access",
@@ -2083,6 +2085,7 @@ export const PRICE_BOOK_FIELDS = {
       suffix: "$ flat",
       step: 10,
     },
+    ...paintCoverageFields(),
   ],
   exterior_painting: [
     ...complexityFields("exterior_painting", [
@@ -2104,6 +2107,11 @@ export const PRICE_BOOK_FIELDS = {
       suffix: "$ / sqft",
       step: 0.25,
     },
+    // The two painting books share one takeoff (see `takeoff:` on each), so
+    // the coverage rows are declared on both — a company overriding wall
+    // coverage from an exterior job must land on the same product the
+    // interior book reads.
+    ...paintCoverageFields(),
   ],
   snow_removal: [
     {
@@ -3401,6 +3409,39 @@ function cabinetFields() {
     },
     { path: "minimumTotal", label: "Job minimum", suffix: "$", step: 100 },
   ];
+}
+
+/**
+ * What a gallon of each paint product covers — `takeoff.products.<key>
+ * .coverageSqftPerGal`, one row per product in PAINT_PRODUCT_DEFAULTS.
+ *
+ * ── Why these are on the rate card at all ───────────────────────────────────
+ *
+ * A company could not override coverage before this: sanitiseRates in
+ * app/api/settings/service-categories/route.js keeps only the paths declared
+ * here, and the painting lists held only client prices. So the close-out's
+ * "this job got 290 sqft a gallon, not 350 — update the calculation?" had
+ * nowhere to write. Declaring the path is the whole fix: getPriceBook already
+ * deep-merges `rates` over the book, and paintTakeoff reads
+ * `book.takeoff.products[key].coverageSqftPerGal` — the merge lands exactly
+ * there. scripts/check-material-calibration.mjs executes that round trip.
+ *
+ * `internal: true`, because coverage is a consumption rate that feeds the
+ * cost estimate and the buy list, not a price. The instant-quote screen and
+ * priceBookBasis both skip internal fields, so nothing here reaches a
+ * homeowner-facing surface (non-negotiable #4), and the rate card shows the
+ * lock it shows every other internal figure.
+ */
+function paintCoverageFields() {
+  const products = PAINT_TAKEOFF_DEFAULTS.products || {};
+  return Object.keys(products).map((key) => ({
+    path: `takeoff.products.${key}.coverageSqftPerGal`,
+    label: `${products[key].label} — coverage`,
+    suffix: "sqft / gal",
+    step: 10,
+    group: "paintCoverage",
+    internal: true,
+  }));
 }
 
 function complexityFields(categoryKey, rows) {

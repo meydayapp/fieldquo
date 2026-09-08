@@ -25,12 +25,20 @@ import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
 import ReceiptScanner from "@/app/components/purchasing/ReceiptScanner";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const inputClass =
   "w-full border border-border rounded px-2 py-1 text-sm bg-background";
 
+// The empty draft for a tick. `actualQty` is pre-filled from the estimate
+// when a line is opened, and `actualQtyTyped` records whether a person has
+// actually edited it — a pre-fill is not a statement, and the receipt scanner
+// needs to know the difference (see existingFromDraft in ReceiptScanner).
+const EMPTY_DRAFT = { actualCost: "", supplier: "", actualQty: "", actualQtyTyped: false };
+
 export default function JobMaterials({ jobId }) {
   const money = useCompanyMoney();
+  const { t } = useTranslation();
   // The same question the route asks, asked of the same grid. Every write here
   // needs jobs:view_create_edit, and without this every viewer got a page full
   // of checkboxes that 403 on the first tap — a control that appears to work
@@ -45,7 +53,10 @@ export default function JobMaterials({ jobId }) {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
   const [expanded, setExpanded] = useState(null);
-  const [draft, setDraft] = useState({ actualCost: "", supplier: "" });
+  const [draft, setDraft] = useState(EMPTY_DRAFT);
+  // A bought line whose used quantity is being recorded after the fact:
+  // { id, value }. The close-out asks for this when it is missing.
+  const [usedEdit, setUsedEdit] = useState(null);
   // Which line's receipt scanner is open. One at a time, and only inside the
   // expansion that already asks for a cost — the scan exists to fill in those
   // two boxes, so it belongs where they are rather than as a separate screen.
@@ -92,6 +103,15 @@ export default function JobMaterials({ jobId }) {
     return next;
   }
 
+  // Opening a line's tick pre-fills "how many did you use" with the
+  // estimate. Editable, and sent only as what the box says when the tick is
+  // confirmed — so a person who never looks at it records the estimate as
+  // the actual, which is the honest reading of "I bought what the list said".
+  function open(m) {
+    setDraft({ ...EMPTY_DRAFT, actualQty: String(m.qty ?? "") });
+    setExpanded(m.id);
+  }
+
   async function toggle(m) {
     setBusyId(m.id);
     try {
@@ -99,16 +119,36 @@ export default function JobMaterials({ jobId }) {
         await send("PATCH", { materialId: m.id, purchased: false });
         setExpanded(null);
       } else {
+        const qty = Number(draft.actualQty);
         await send("PATCH", {
           materialId: m.id,
           purchased: true,
           actualCost: draft.actualCost === "" ? null : Number(draft.actualCost),
           supplier: draft.supplier,
+          actualQty:
+            draft.actualQty === "" || !Number.isFinite(qty) ? null : qty,
         });
-        setDraft({ actualCost: "", supplier: "" });
+        setDraft(EMPTY_DRAFT);
         setExpanded(null);
         setScanning(null);
       }
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  // Recording the used quantity on a line that is already bought. A PATCH
+  // without `purchased` leaves the receipt fields alone — see the route.
+  async function saveUsed(m) {
+    const qty = Number(usedEdit?.value);
+    if (!Number.isFinite(qty) || qty < 0) {
+      setError(t("app.jobMaterials.usedInvalid", "Enter how many were used as a number."));
+      return;
+    }
+    setBusyId(m.id);
+    try {
+      const ok = await send("PATCH", { materialId: m.id, actualQty: qty });
+      if (ok) setUsedEdit(null);
     } finally {
       setBusyId(null);
     }
@@ -126,7 +166,7 @@ export default function JobMaterials({ jobId }) {
   const p = data?.progress;
 
   return (
-    <div className="bg-card border border-border rounded-xl p-5">
+    <div id="job-materials" className="bg-card border border-border rounded-xl p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-sm font-semibold text-foreground">
           Materials to buy
@@ -160,7 +200,7 @@ export default function JobMaterials({ jobId }) {
         <ul className="mt-3 divide-y divide-border">
           {materials.map((m) => {
             const bought = Boolean(m.purchasedAt);
-            const open = expanded === m.id;
+            const isOpen = expanded === m.id;
             return (
               <li key={m.id} className="py-2">
                 <div className="flex items-start gap-2.5">
@@ -169,7 +209,7 @@ export default function JobMaterials({ jobId }) {
                       type="button"
                       disabled={busyId === m.id}
                       onClick={() =>
-                        bought || open ? toggle(m) : setExpanded(m.id)
+                        bought || isOpen ? toggle(m) : open(m)
                       }
                       aria-label={
                         bought
@@ -241,9 +281,67 @@ export default function JobMaterials({ jobId }) {
                       </p>
                     )}
 
+                    {/* What was actually used, once bought. Shown when known;
+                        otherwise an offer to record it, because the close-out
+                        cannot compare a rate against a blank. Never defaulted
+                        to the estimate on display — "not recorded" and "used
+                        exactly the estimate" are different facts. */}
+                    {bought && usedEdit?.id !== m.id && (
+                      <p className="text-xs text-muted-foreground">
+                        {m.actualQty != null
+                          ? t("app.jobMaterials.used", "Used {qty} {unit}", { qty: m.actualQty, unit: m.unit })
+                          : t("app.jobMaterials.usedUnknown", "How many were used isn't recorded.")}
+                        {canEdit && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setUsedEdit({ id: m.id, value: String(m.actualQty ?? m.qty ?? "") })
+                            }
+                            className="ml-2 underline min-h-[44px]"
+                          >
+                            {m.actualQty != null
+                              ? t("app.jobMaterials.usedEdit", "Change")
+                              : t("app.jobMaterials.usedRecord", "Record it")}
+                          </button>
+                        )}
+                      </p>
+                    )}
+                    {bought && canEdit && usedEdit?.id === m.id && (
+                      <div className="mt-1 flex flex-wrap items-end gap-2">
+                        <label className="text-xs text-muted-foreground">
+                          {t("app.jobMaterials.usedLabel", "How many did you actually use?")}
+                          <span className="ml-1">({m.unit})</span>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            min="0"
+                            step="0.01"
+                            value={usedEdit.value}
+                            onChange={(e) => setUsedEdit({ id: m.id, value: e.target.value })}
+                            className={`${inputClass} mt-0.5 w-28`}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => saveUsed(m)}
+                          disabled={busyId === m.id}
+                          className="rounded bg-foreground px-3 py-2 text-xs font-medium text-background disabled:opacity-50 min-h-[44px]"
+                        >
+                          {t("app.action.save", "Save")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setUsedEdit(null)}
+                          className="px-2 py-2 text-xs text-muted-foreground hover:text-foreground min-h-[44px]"
+                        >
+                          {t("app.action.cancel", "Cancel")}
+                        </button>
+                      </div>
+                    )}
+
                     {/* The receipt, asked for AFTER the tick is offered rather
                         than before it. Skipping it still ticks the line. */}
-                    {open && !bought && (
+                    {isOpen && !bought && (
                       <>
                       <div className="mt-2 flex flex-wrap items-end gap-2">
                         {/* PATCH refuses a posted actualCost without the
@@ -270,6 +368,27 @@ export default function JobMaterials({ jobId }) {
                           />
                         </label>
                         )}
+                        {/* Pre-filled from the estimate; a count, not money,
+                            so it is offered to everyone who may tick. */}
+                        <label className="text-xs text-muted-foreground">
+                          {t("app.jobMaterials.usedLabel", "How many did you actually use?")}
+                          <span className="ml-1">({m.unit})</span>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            min="0"
+                            step="0.01"
+                            value={draft.actualQty}
+                            onChange={(e) =>
+                              setDraft((d) => ({
+                                ...d,
+                                actualQty: e.target.value,
+                                actualQtyTyped: true,
+                              }))
+                            }
+                            className={`${inputClass} mt-0.5 w-28`}
+                          />
+                        </label>
                         <label className="text-xs text-muted-foreground">
                           Supplier
                           <input
@@ -328,11 +447,18 @@ export default function JobMaterials({ jobId }) {
                             // whatever was typed for any field a person had
                             // filled in. See lib/receipts/prefill.js.
                             setDraft((d) => ({
+                              ...d,
                               actualCost:
                                 values.actualCost == null
                                   ? d.actualCost
                                   : String(values.actualCost),
                               supplier: values.supplier ?? d.supplier,
+                              // A quantity read off the receipt and accepted
+                              // with "Use this" is a statement from then on.
+                              ...(values.actualQty != null && {
+                                actualQty: String(values.actualQty),
+                                actualQtyTyped: true,
+                              }),
                             }));
                             setScanning(null);
                           }}

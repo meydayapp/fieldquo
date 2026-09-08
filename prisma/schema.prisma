@@ -2469,6 +2469,27 @@ model Invoice {
   sentAt      DateTime?
   sentToEmail String?
 
+  // ── Chasing, as its own record ────────────────────────────────────────────
+  //
+  // sentAt could not carry this. It is the ISSUE date — the day the client was
+  // first billed — and both send paths stamp it only when it is EMPTY, on
+  // purpose: overwriting it on every reminder would march the issue date
+  // forward and lose when the client was first asked. So a second "Chase
+  // payment" left no trace anywhere: no column moved, no activity row (the
+  // send route writes one; the request-payment route did not), and the
+  // dashboard offered the button again with nothing to say about the last
+  // time it was pressed. Two chases a day apart looked identical to none.
+  //
+  // lastChasedAt / chaseCount are the MANUAL trail only — the button on the
+  // dashboard and the invoice page. Automated overdue reminders are already
+  // recorded per (rule, invoice) in FollowUpLog and are read from there; a
+  // copy here would be the second record of one event that drifts.
+  //
+  // Stamped only after Resend accepts, the same rule sentAt follows. Nothing
+  // reprices or re-ages an invoice from these; they are shown, not computed on.
+  lastChasedAt DateTime?
+  chaseCount   Int       @default(0)
+
   // What the job cost the company. A separate row, never a column here — see
   // InvoiceCosting for why that distinction is load-bearing.
   costing InvoiceCosting?
@@ -3806,8 +3827,28 @@ model JobMaterial {
   job   Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   name String
+  /// The ESTIMATE — what the recipe or takeoff said this job would consume.
+  /// Never overwritten by what was actually used: that goes in `actualQty`
+  /// below, for the same reason estUnitCost and actualCost are two columns.
+  /// The PATCH route only lets a hand-added line change this, because a
+  /// hand-added line's qty IS the person's own statement rather than a
+  /// prediction worth keeping.
   qty  Decimal @db.Decimal(12, 2)
   unit String
+
+  /// What was actually used or bought, in the same `unit`. Null until
+  /// somebody says. Compared against `qty` and the recipe's rate at close-out
+  /// (lib/costing/materialCalibration.js) to ask whether the calculation
+  /// behind future quotes should move.
+  actualQty Decimal? @db.Decimal(12, 2)
+
+  /// Stable key for the recipe consumable or product this line was derived
+  /// from — "tape", "primer", "wall_interior", "bundles". `name` is a label
+  /// that carries coat counts and brand names and changes when the recipe is
+  /// edited; this is what lets a job's line be matched back to the rate that
+  /// predicted it. Null on hand-added lines and on rows created before it
+  /// existed, which then match on name and unit as they always did.
+  materialKey String?
 
   /// Which scope group this came from, so a regenerate can tell a roofing line
   /// from a paving one on a two-trade job.

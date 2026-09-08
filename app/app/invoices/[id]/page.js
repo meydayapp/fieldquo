@@ -633,21 +633,61 @@ export default function InvoiceDetailPage() {
 
       {/* The email trail. Written only after Resend accepted the message, so
           "Emailed 3 July" is an event rather than the intention the old
-          sentAt recorded. */}
-      {invoice.sentAt && (
-        <div className="bg-card border border-border rounded-lg px-4 py-3 flex items-baseline justify-between gap-3 flex-wrap text-sm">
-          <span className="font-medium text-foreground">
-            {t("app.invoiceDetail.emailed")}
-            {invoice.sentToEmail && (
-              <span className="font-normal text-muted-foreground">
-                {" "}
-                → {invoice.sentToEmail}
+          sentAt recorded.
+
+          Three kinds of line, all from the server (GET /api/invoices/[id]
+          builds `chaseTrail` family-wide): the first send, the last manual
+          chase with how many there have been, and every automated overdue
+          reminder the cron logged. Before this the card stopped at the first
+          send, so an invoice chased four times read as emailed once. */}
+      {(invoice.sentAt ||
+        invoice.chaseTrail?.lastChasedAt ||
+        invoice.chaseTrail?.automated?.length > 0) && (
+        <div className="bg-card border border-border rounded-lg px-4 py-3 text-sm divide-y divide-border">
+          {invoice.sentAt && (
+            <div className="flex items-baseline justify-between gap-3 flex-wrap py-1">
+              <span className="font-medium text-foreground">
+                {t("app.invoiceDetail.emailed")}
+                {invoice.sentToEmail && (
+                  <span className="font-normal text-muted-foreground">
+                    {" "}
+                    → {invoice.sentToEmail}
+                  </span>
+                )}
               </span>
-            )}
-          </span>
-          <span className="text-muted-foreground tabular-nums">
-            {formatDate(invoice.sentAt)}
-          </span>
+              <span className="text-muted-foreground tabular-nums">
+                {formatDate(invoice.sentAt)}
+              </span>
+            </div>
+          )}
+          {invoice.chaseTrail?.lastChasedAt && (
+            <div className="flex items-baseline justify-between gap-3 flex-wrap py-1">
+              <span className="font-medium text-foreground">
+                {t("app.invoiceDetail.lastChasedCount", {
+                  count: invoice.chaseTrail.chaseCount,
+                })}
+              </span>
+              <span className="text-muted-foreground tabular-nums">
+                {formatDate(invoice.chaseTrail.lastChasedAt)}
+              </span>
+            </div>
+          )}
+          {(invoice.chaseTrail?.automated || []).map((r, i) => (
+            <div
+              key={`${r.sentAt}-${i}`}
+              className="flex items-baseline justify-between gap-3 flex-wrap py-1"
+            >
+              <span className="font-medium text-foreground">
+                {t("app.invoiceDetail.autoReminderSent")}
+                {r.ruleName && (
+                  <span className="font-normal text-muted-foreground"> · {r.ruleName}</span>
+                )}
+              </span>
+              <span className="text-muted-foreground tabular-nums">
+                {formatDate(r.sentAt)}
+              </span>
+            </div>
+          ))}
         </div>
       )}
 

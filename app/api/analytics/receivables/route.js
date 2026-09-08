@@ -79,7 +79,7 @@ export async function GET(request) {
   // invoice nobody paid is exactly the row this panel exists to surface — and
   // there is no column that says "settled" to filter on without doing the
   // payment arithmetic first. These are small companies; the select is narrow.
-  const [invoices, payments, company, autoRule] = await Promise.all([
+  const [invoices, payments, company, autoRule, followUpLogs] = await Promise.all([
     db.invoice.findMany({
       where: { companyId: member.companyId },
       select: {
@@ -93,6 +93,14 @@ export async function GET(request) {
         sentAt: true,
         createdAt: true,
         clientId: true,
+        // The explicit job link only. The quote fallback in
+        // lib/invoices/jobLink.js is one query per invoice, which this list
+        // cannot afford; a card with no jobId shows no job link rather than a
+        // guessed one, and the invoice page itself resolves the full rule.
+        jobId: true,
+        // The manual chase trail — see the column comment in schema.prisma.
+        lastChasedAt: true,
+        chaseCount: true,
         client: {
           select: {
             id: true,
@@ -130,10 +138,20 @@ export async function GET(request) {
       select: { id: true, name: true, delayValue: true, delayUnit: true },
       orderBy: { createdAt: "asc" },
     }),
+    // What the automation has ALREADY done, per invoice. FollowUpLog is the
+    // cron's own dedupe record (one row per rule × invoice), which makes it
+    // the truth about which reminders went out — and it had no reader at all
+    // outside the cron, so a contractor pressing "Chase payment" could not
+    // know the client was emailed by the rule yesterday. Scoped through the
+    // rule: the log carries no companyId of its own.
+    db.followUpLog.findMany({
+      where: { entityType: "invoice", rule: { companyId: member.companyId } },
+      select: { entityId: true, sentAt: true },
+    }),
   ]);
 
   const now = new Date();
-  const receivables = buildReceivables({ invoices, payments, asOf: now });
+  const receivables = buildReceivables({ invoices, payments, followUpLogs, asOf: now });
 
   return NextResponse.json({
     currency: company?.currency || null,

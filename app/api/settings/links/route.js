@@ -73,8 +73,11 @@ export async function PATCH(request) {
   // who ever reads the column.
   const clean = sanitiseLinkConfig(body);
   const known = new Set(data.candidates.map((c) => c.key));
+  // Custom and social rows are the contractor's own, not overrides of a
+  // candidate, so they have nothing to be checked against here — the
+  // sanitiser already refused the ones that go nowhere.
   clean.items = clean.items.filter(
-    (i) => i.key.startsWith("custom:") || known.has(i.key),
+    (i) => i.key.startsWith("custom:") || i.key.startsWith("social:") || known.has(i.key),
   );
 
   const row = {

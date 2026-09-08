@@ -30,7 +30,13 @@ function makeSession() {
   return `${Date.now().toString(36)}${performance.now().toString(36).replace(".", "")}`;
 }
 
-export default function FunnelRunner({ companySlug, funnelSlug }) {
+// `embedded` is true only from app/embed/[companySlug]/funnel/[funnelSlug]/
+// page.js. Two things change: the brand strip (logo + name) is not drawn,
+// because the iframe sits on the company's own website under their own
+// masthead; and the Shell stops claiming the viewport, so EmbedFrame can
+// report the funnel's real height. The accent background and every control
+// are the same either way.
+export default function FunnelRunner({ companySlug, funnelSlug, embedded = false }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -238,11 +244,11 @@ export default function FunnelRunner({ companySlug, funnelSlug }) {
     }
   }
 
-  if (loading) return <Shell><div className="animate-pulse h-40 w-full max-w-md bg-black/10 rounded-2xl" /></Shell>;
+  if (loading) return <Shell embedded={embedded}><div className="animate-pulse h-40 w-full max-w-md bg-black/10 rounded-2xl" /></Shell>;
 
   if (loadError)
     return (
-      <Shell>
+      <Shell embedded={embedded}>
         <div className="bg-white rounded-2xl p-8 text-center max-w-md w-full">
           <p className="text-lg font-semibold text-[#2d2520]">{loadError}</p>
         </div>
@@ -254,7 +260,7 @@ export default function FunnelRunner({ companySlug, funnelSlug }) {
   const isForm = step?.kind === "form";
 
   return (
-    <Shell accent={accent}>
+    <Shell accent={accent} embedded={embedded}>
       <div className="w-full max-w-md">
         {/* Progress */}
         <div className="flex items-center gap-1.5 mb-5">
@@ -267,25 +273,28 @@ export default function FunnelRunner({ companySlug, funnelSlug }) {
           ))}
         </div>
 
-        {/* Brand */}
-        <div className="flex items-center gap-2 mb-6">
-          {c.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={c.logoUrl} alt={c.name} className="h-8 w-auto max-w-[140px] object-contain" />
-          ) : (
-            // No logo: a chip standing in for one. The bubble was hardcoded
-            // white, which is a coin-flip — a pale brand put its own colour on
-            // white and vanished, and on a page whose background IS the accent
-            // an accent-on-accent bubble vanishes the other way. accentOn is
-            // already the measured partner of the accent, so it is both visible
-            // against the page and something the glyph can sit on; monogramInk
-            // then guarantees the glyph itself clears 4.5:1 on it.
-            <div className="h-8 w-8 rounded-lg grid place-items-center" style={{ backgroundColor: accentOn, color: monogramInk }}>
-              <Building2 size={16} />
-            </div>
-          )}
-          <span className="font-semibold" style={{ color: accentOn }}>{c.name}</span>
-        </div>
+        {/* Brand. Not drawn when embedded — the host page is the company's
+            own and already says who they are. */}
+        {!embedded && (
+          <div className="flex items-center gap-2 mb-6">
+            {c.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={c.logoUrl} alt={c.name} className="h-8 w-auto max-w-[140px] object-contain" />
+            ) : (
+              // No logo: a chip standing in for one. The bubble was hardcoded
+              // white, which is a coin-flip — a pale brand put its own colour on
+              // white and vanished, and on a page whose background IS the accent
+              // an accent-on-accent bubble vanishes the other way. accentOn is
+              // already the measured partner of the accent, so it is both visible
+              // against the page and something the glyph can sit on; monogramInk
+              // then guarantees the glyph itself clears 4.5:1 on it.
+              <div className="h-8 w-8 rounded-lg grid place-items-center" style={{ backgroundColor: accentOn, color: monogramInk }}>
+                <Building2 size={16} />
+              </div>
+            )}
+            <span className="font-semibold" style={{ color: accentOn }}>{c.name}</span>
+          </div>
+        )}
 
         {idx > 0 && !done && !submitted && step?.kind !== "thankyou" && (
           <button
@@ -623,11 +632,17 @@ function EstimateStep({
   );
 }
 
-function Shell({ accent = FALLBACK_ACCENT, children }) {
-  // Full-bleed brand background — this is a standalone ad landing page, not an
-  // embed. A subtle darker band at the bottom gives depth without a gradient lib.
+function Shell({ accent = FALLBACK_ACCENT, embedded = false, children }) {
+  // Full-bleed brand background either way. Standalone it is an ad landing
+  // page and fills the viewport; embedded, "the viewport" is the iframe, and
+  // min-h-screen would stop the frame ever measuring shorter than the height
+  // the snippet began with — EmbedFrame would post that back, and the box
+  // could grow but never shrink. min-h-0 lets it report what it really is.
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-4" style={{ backgroundColor: accent }}>
+    <div
+      className={`${embedded ? "min-h-0 py-6" : "min-h-screen"} w-full flex items-center justify-center p-4`}
+      style={{ backgroundColor: accent }}
+    >
       {children}
     </div>
   );

@@ -56,7 +56,7 @@ import { receiptImageOrRefusal } from "@/lib/receipts/media";
 import { extractReceipt } from "@/lib/receipts/extract";
 import { simulatedReceiptScan } from "@/lib/receipts/demoReceipt";
 import { reconcileReceipt, suggestedCostCents } from "@/lib/receipts/reconcile";
-import { prefillMaterial } from "@/lib/receipts/prefill";
+import { prefillMaterial, suggestedQuantity } from "@/lib/receipts/prefill";
 import { centsToAmount } from "@/lib/receipts/money";
 
 /** The name this call is metered under. `_photos` is appended by usage.js. */
@@ -95,7 +95,7 @@ export async function POST(request) {
         id: materialId,
         job: { companyId: member.companyId, ...assignedJobWhere(full) },
       },
-      select: { id: true, jobId: true, actualCost: true, supplier: true, purchasedAt: true },
+      select: { id: true, jobId: true, actualCost: true, supplier: true, purchasedAt: true, actualQty: true },
     });
     if (!material) return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -160,6 +160,8 @@ export async function POST(request) {
     actualCost: centsToAmount(costCents),
     supplier: extraction.data.merchantName,
     purchasedAt: extraction.data.transactionDateIso,
+    // Only from a one-line receipt — see suggestedQuantity. Null otherwise.
+    actualQty: suggestedQuantity(extraction.data),
   };
   const prefill = material
     ? prefillMaterial(
@@ -167,6 +169,7 @@ export async function POST(request) {
           actualCost: material.actualCost === null ? null : Number(material.actualCost),
           supplier: material.supplier,
           purchasedAt: material.purchasedAt,
+          actualQty: material.actualQty === null ? null : Number(material.actualQty),
         },
         suggested,
       )

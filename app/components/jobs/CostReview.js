@@ -12,13 +12,64 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, X } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
+import { withPathSet } from "@/lib/costing/materialCalibration";
 
 const CATEGORIES = ["materials", "subcontractor", "equipment", "other"];
+
+// ── Applying a suggested rate ───────────────────────────────────────────────
+//
+// Each store has ONE write path, and it is the settings screen's own. Both
+// routes store the override document WHOLESALE — PUT /material-recipes
+// replaces MaterialRecipeSetting.overrides, PATCH /service-categories
+// replaces CompanyServiceCategory.rates — so the current document is read
+// first and the one path is set on it. Sending `{ tape: { perUnits: 6 } }`
+// alone would have wiped every other rate the company had saved, which is
+// the opposite of "update one number".
+async function applyRecipeRate({ categoryKey, path, value }) {
+  const current = await fetch("/api/settings/material-recipes");
+  if (!current.ok) return current;
+  const all = await current.json();
+  // The settings page strips the same three keys before it PUTs.
+  // eslint-disable-next-line no-unused-vars
+  const { _hasOverrides, model, label, ...overrides } = all?.[categoryKey] || {};
+  return fetch("/api/settings/material-recipes", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ categoryKey, overrides: withPathSet(overrides, path, value) }),
+  });
+}
+
+async function applyBookRate({ categoryKey, path, value }) {
+  const current = await fetch("/api/settings/service-categories");
+  if (!current.ok) return current;
+  const all = await current.json();
+  const cat = (Array.isArray(all) ? all : all?.categories || []).find((c) => c?.key === categoryKey);
+  if (!cat) return new Response(JSON.stringify({ error: "Trade not found" }), { status: 404 });
+  return fetch("/api/settings/service-categories", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      categories: [
+        {
+          categoryId: cat.id,
+          // Round-tripped exactly as Settings > Services sends them: the PATCH
+          // writes these three unconditionally, so omitting them would null
+          // the trade's rate and unit on a save that only meant to touch
+          // coverage.
+          enabled: cat.enabled,
+          defaultRate: cat.defaultRate ?? null,
+          unit: cat.unit ?? null,
+          rates: withPathSet(cat.rateOverrides || {}, path, value),
+        },
+      ],
+    }),
+  });
+}
 
 export default function CostReview({ jobId, data, onClose, onChanged, onReviewed }) {
   const { t } = useTranslation();
@@ -26,6 +77,24 @@ export default function CostReview({ jobId, data, onClose, onChanged, onReviewed
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [add, setAdd] = useState({ category: "materials", amount: "", description: "" });
+  // The materials comparison — null while loading, { lines, hasActuals } once
+  // read, { failed: true } when the read itself failed (said, not hidden).
+  const [calib, setCalib] = useState(null);
+  const [applyingId, setApplyingId] = useState(null);
+  // materialId → the value that was written, so the line can say so.
+  const [applied, setApplied] = useState({});
+
+  useEffect(() => {
+    if (!jobId) return;
+    let live = true;
+    fetch(`/api/jobs/${jobId}/costing/calibration`)
+      .then(async (r) => (r.ok ? r.json() : { failed: true }))
+      .then((d) => live && setCalib(d))
+      .catch(() => live && setCalib({ failed: true }));
+    return () => {
+      live = false;
+    };
+  }, [jobId]);
 
   const actual = data?.actual || {};
   const comparison = data?.comparison || {};
@@ -72,6 +141,41 @@ export default function CostReview({ jobId, data, onClose, onChanged, onReviewed
       setBusy(false);
     }
   }
+
+  async function applyRate(line) {
+    if (!line?.apply) return;
+    setApplyingId(line.materialId);
+    setError("");
+    try {
+      const res =
+        line.apply.store === "book"
+          ? await applyBookRate(line.apply)
+          : await applyRecipeRate(line.apply);
+      if (!res.ok) {
+        await reportResponseError(res, t("app.jobCosting.calibApplyFailed", "Couldn't update the calculation."));
+        return;
+      }
+      setApplied((a) => ({ ...a, [line.materialId]: line.apply.value }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setApplyingId(null);
+    }
+  }
+
+  // The materials list is on the job page under this modal.
+  function goToMaterials() {
+    onClose?.();
+    if (typeof document !== "undefined") {
+      document.getElementById("job-materials")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
+  const fmtNum = (n) =>
+    Number.isFinite(Number(n)) ? Number(n).toLocaleString(undefined, { maximumFractionDigits: 3 }) : "";
+  const unitWord = (key) => (key ? t(`app.jobCosting.calibUnit_${key}`, key) : "");
+  const rateWord = (key) => (key ? t(`app.jobCosting.calibRate_${key}`, key) : "");
+  const calibLines = Array.isArray(calib?.lines) ? calib.lines : [];
 
   async function complete() {
     setBusy(true);
@@ -160,6 +264,114 @@ export default function CostReview({ jobId, data, onClose, onChanged, onReviewed
                   )}
                 </ul>
               </div>
+            </div>
+          )}
+
+          {/* ── Materials: what was used against what the estimate said ──── */}
+          {calib?.failed && (
+            <p className="text-xs text-muted-foreground">
+              {t("app.jobCosting.calibLoadFailed", "Couldn't load the materials comparison.")}
+            </p>
+          )}
+          {calibLines.length > 0 && !calib.hasActuals && (
+            <div className="rounded-lg border border-border p-3 text-sm text-muted-foreground">
+              {t("app.jobCosting.calibNudge", "None of this job's materials has a used quantity recorded yet. Record them on the materials list and this review will compare each one against the calculation behind your quotes.")}{" "}
+              <button type="button" onClick={goToMaterials} className="underline font-medium text-foreground min-h-[44px]">
+                {t("app.jobCosting.calibRecordLink", "Go to the materials list")}
+              </button>
+            </div>
+          )}
+          {calibLines.length > 0 && calib.hasActuals && (
+            <div className="rounded-lg border border-border p-3 space-y-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {t("app.jobCosting.calibTitle", "Materials: what you used vs what the estimate said")}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {t("app.jobCosting.calibIntro", "Per line, the rate the calculation uses today and the rate this one job actually got. Quantities are whole units bought. Nothing changes unless you press the button.")}
+                </p>
+              </div>
+              <ul className="divide-y divide-border">
+                {calibLines.map((l) => {
+                  const done = applied[l.materialId];
+                  return (
+                    <li key={l.materialId} className="py-2 text-sm">
+                      <p className="font-medium text-foreground">{l.name}</p>
+                      {l.actualQty == null ? (
+                        <p className="text-xs text-muted-foreground">
+                          {t("app.jobCosting.calibRecord", "Record how many you used on the materials list.")}{" "}
+                          <button type="button" onClick={goToMaterials} className="underline min-h-[44px]">
+                            {t("app.jobCosting.calibRecordLink", "Go to the materials list")}
+                          </button>
+                        </p>
+                      ) : (
+                        <>
+                          <p className="text-xs text-muted-foreground tabular-nums">
+                            {l.unitsOfWork > 0
+                              ? t("app.jobCosting.calibLine", "Estimated {est} {unit}, used {actual} {unit}, over {units} {work}.", {
+                                  est: fmtNum(l.estimatedQty),
+                                  actual: fmtNum(l.actualQty),
+                                  unit: l.unit,
+                                  units: fmtNum(l.unitsOfWork),
+                                  work: unitWord(l.unitLabel),
+                                })
+                              : t("app.jobCosting.calibLineNoWork", "Estimated {est} {unit}, used {actual} {unit}.", {
+                                  est: fmtNum(l.estimatedQty),
+                                  actual: fmtNum(l.actualQty),
+                                  unit: l.unit,
+                                })}
+                          </p>
+                          {l.currentRate?.value != null && l.suggestedRate != null && (
+                            <p className="text-xs text-foreground tabular-nums">
+                              {t("app.jobCosting.calibRates", "Calculation now: {current} {rate} → this job: {suggested} {rate} ({delta}%).", {
+                                current: fmtNum(l.currentRate.value),
+                                suggested: fmtNum(l.suggestedRate),
+                                rate: rateWord(l.currentRate.label),
+                                delta: `${l.deltaPct > 0 ? "+" : ""}${fmtNum(l.deltaPct)}`,
+                              })}
+                            </p>
+                          )}
+                          {/* The button exists only where canApply is true —
+                              a path the company can save today AND a caller
+                              who may save it. Everything else says why. */}
+                          {done != null ? (
+                            <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                              <CheckCircle2 size={12} className="inline mr-1" />
+                              {t("app.jobCosting.calibApplied", "Updated to {value} {rate}. Future quotes use it from now.", {
+                                value: fmtNum(done),
+                                rate: rateWord(l.currentRate?.label),
+                              })}{" "}
+                              <Link
+                                href={l.currentRate?.store === "book" ? "/app/settings/services" : "/app/settings/material-costs"}
+                                className="underline"
+                              >
+                                {l.currentRate?.store === "book"
+                                  ? t("app.jobCosting.calibRatesLink", "Settings → Services")
+                                  : t("app.jobCosting.calibSettingsLink", "Settings → Material Costs")}
+                              </Link>
+                            </p>
+                          ) : l.canApply ? (
+                            <button
+                              type="button"
+                              onClick={() => applyRate(l)}
+                              disabled={busy || applyingId === l.materialId}
+                              className="mt-1 min-h-[44px] px-4 rounded-full border border-border text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                            >
+                              {t("app.jobCosting.calibApply", "Update the calculation for future quotes")}
+                            </button>
+                          ) : (
+                            l.reason && (
+                              <p className="text-xs text-muted-foreground">
+                                {t(`app.jobCosting.calibReason_${l.reason}`, l.reason)}
+                              </p>
+                            )
+                          )}
+                        </>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           )}
 

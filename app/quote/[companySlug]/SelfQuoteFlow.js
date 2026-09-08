@@ -67,7 +67,12 @@ import {
   timelineOptions,
 } from "@/lib/selfQuote/confirmation";
 
-export default function SelfQuoteFlow({ companySlug }) {
+// `embedded` is true only from app/embed/[companySlug]/[widget]/page.js. It
+// drops the company's logo-and-name strip — on the form and on the
+// confirmation masthead — because the iframe sits on the company's own site,
+// under their own masthead, and a second one reads as somebody else's widget.
+// The language picker, the brand rule and everything below stay as they are.
+export default function SelfQuoteFlow({ companySlug, embedded = false }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -224,6 +229,7 @@ export default function SelfQuoteFlow({ companySlug }) {
           fill={fill}
           emailed={Boolean(done.emailed && contact.email)}
           contactEmail={contact.email}
+          embedded={embedded}
         />
 
         {/* ── Book the visit, while they're still here ──────────────────────
@@ -257,48 +263,62 @@ export default function SelfQuoteFlow({ companySlug }) {
   return (
     <Shell theme={theme}>
       <Card theme={theme}>
-        <div className="px-6 sm:px-8 pt-6 pb-5 border-b border-black/5 flex items-center gap-3">
-          {c.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={c.logoUrl}
-              alt={c.name}
-              className="h-10 w-auto max-w-[160px] object-contain"
-            />
-          ) : (
-            <div
-              className="h-10 w-10 rounded-lg flex items-center justify-center shrink-0"
-              style={{ backgroundColor: fill.bg, color: fill.fg }}
-            >
-              <Building2 size={18} />
-            </div>
-          )}
-          <div className="min-w-0 flex-1">
-            <div
-              className="font-semibold truncate"
-              style={{ color: theme.ink }}
-            >
-              {c.name}
-            </div>
-            <div className="text-xs" style={{ color: theme.inkMuted }}>
-              {copy.eyebrow}
-            </div>
-          </div>
+        {/* The identity strip is skipped when embedded — the host page is the
+            company's own and already says who they are. The row itself only
+            survives if it still has a language picker to hold; an empty
+            bordered band above the form is a rendering fault, not chrome. */}
+        {(!embedded || languages.length > 1) && (
+          <div
+            className={`px-6 sm:px-8 pt-6 pb-5 border-b border-black/5 flex items-center gap-3${
+              embedded ? " justify-end" : ""
+            }`}
+          >
+            {!embedded && (
+              <>
+                {c.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={c.logoUrl}
+                    alt={c.name}
+                    className="h-10 w-auto max-w-[160px] object-contain"
+                  />
+                ) : (
+                  <div
+                    className="h-10 w-10 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: fill.bg, color: fill.fg }}
+                  >
+                    <Building2 size={18} />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div
+                    className="font-semibold truncate"
+                    style={{ color: theme.ink }}
+                  >
+                    {c.name}
+                  </div>
+                  <div className="text-xs" style={{ color: theme.inkMuted }}>
+                    {copy.eyebrow}
+                  </div>
+                </div>
+              </>
+            )}
 
-          {/* Only when there is a choice. A picker with one option is a
-              control that appears to do something and doesn't — and at the
-              time of writing every company reads as one language, because
-              nothing in the product writes Company.sendLanguages yet. */}
-          {languages.length > 1 && (
-            <LanguagePicker
-              value={lang}
-              options={languages}
-              label={copy.languageLabel}
-              theme={theme}
-              onChange={setLanguage}
-            />
-          )}
-        </div>
+            {/* Only when there is a choice. A picker with one option is a
+                control that appears to do something and doesn't — and at the
+                time of writing every company reads as one language, because
+                nothing in the product writes Company.sendLanguages yet. */}
+            {languages.length > 1 && (
+              <LanguagePicker
+                value={lang}
+                options={languages}
+                label={copy.languageLabel}
+                theme={theme}
+                onChange={setLanguage}
+              />
+            )}
+          </div>
+        )}
 
         {/* Progress. Three dots rather than a bar: a bar implies a percentage
             and invites the question "how much is left", which the answer
@@ -614,7 +634,7 @@ export default function SelfQuoteFlow({ companySlug }) {
  * confirmation email renders — so the two cannot drift into saying different
  * things about the same submission.
  */
-function Confirmation({ doc, company, theme, fill, emailed, contactEmail }) {
+function Confirmation({ doc, company, theme, fill, emailed, contactEmail, embedded = false }) {
   const copy = doc.copy;
 
   return (
@@ -628,39 +648,45 @@ function Confirmation({ doc, company, theme, fill, emailed, contactEmail }) {
           "August 12, 2026"; with both sides fixed, the Spanish rendering
           squeezed the company's own name down to "Teac…" inside a 320px
           iframe. Dropping the facts onto their own line costs a few pixels of
-          height and keeps the one thing the homeowner must recognise legible. */}
+          height and keeps the one thing the homeowner must recognise legible.
+
+          The identity half is skipped when embedded: the confirmation is
+          sitting on the company's own website, under the company's own logo.
+          The facts keep their `ml-auto`, so they hold the right edge alone. */}
       <div className="px-6 sm:px-8 pt-6 pb-5 border-b border-black/5 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-        <div className="flex items-center gap-3 min-w-0 basis-[58%] grow">
-          {company.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={company.logoUrl}
-              alt={company.name}
-              className="h-10 w-auto max-w-[160px] object-contain"
-            />
-          ) : (
-            <div
-              className="h-10 w-10 rounded-lg flex items-center justify-center shrink-0"
-              style={{ backgroundColor: fill.bg, color: fill.fg }}
-            >
-              <Building2 size={18} />
-            </div>
-          )}
-          <div className="min-w-0">
-            <div className="font-semibold truncate" style={{ color: theme.ink }}>
-              {company.name}
-            </div>
-            {company.phone && (
-              <a
-                href={`tel:${company.phone}`}
-                className="text-xs hover:underline block truncate"
-                style={{ color: theme.inkMuted }}
+        {!embedded && (
+          <div className="flex items-center gap-3 min-w-0 basis-[58%] grow">
+            {company.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={company.logoUrl}
+                alt={company.name}
+                className="h-10 w-auto max-w-[160px] object-contain"
+              />
+            ) : (
+              <div
+                className="h-10 w-10 rounded-lg flex items-center justify-center shrink-0"
+                style={{ backgroundColor: fill.bg, color: fill.fg }}
               >
-                {company.phone}
-              </a>
+                <Building2 size={18} />
+              </div>
             )}
+            <div className="min-w-0">
+              <div className="font-semibold truncate" style={{ color: theme.ink }}>
+                {company.name}
+              </div>
+              {company.phone && (
+                <a
+                  href={`tel:${company.phone}`}
+                  className="text-xs hover:underline block truncate"
+                  style={{ color: theme.inkMuted }}
+                >
+                  {company.phone}
+                </a>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="text-right shrink-0 ml-auto">
           <div

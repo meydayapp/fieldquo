@@ -136,7 +136,10 @@ export default function RateCard({ category, overrides, onChange }) {
                     readField(overrides || {}, field.path) !== undefined;
                   return (
                     <div key={field.path} className="flex items-center gap-2">
-                      <span className="flex-1 text-sm text-foreground">
+                      {/* min-w-0: a flex-1 label beside a 7rem input and a
+                          6rem suffix otherwise refuses to shrink below its
+                          longest word and pushes the input off a 375px card. */}
+                      <span className="flex-1 min-w-0 break-words text-sm text-foreground">
                         {field.label}
                         {field.internal && (
                           <span

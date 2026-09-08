@@ -49,9 +49,14 @@ export default async function FunnelEmbedPage({ params }) {
   // The runner resolves and validates the funnel itself — including whether it
   // is published — so an unpublished funnel behaves here exactly as it does at
   // its public URL rather than acquiring a second, more permissive front door.
+  //
+  // `embedded` — same contract as app/embed/[companySlug]/[widget]/page.js:
+  // the runner skips its logo-and-name strip (the host page already carries
+  // the company's masthead) and stops claiming the full viewport height, so
+  // EmbedFrame can report what the funnel actually measures.
   return (
     <EmbedFrame>
-      <FunnelRunner companySlug={companySlug} funnelSlug={funnelSlug} />
+      <FunnelRunner companySlug={companySlug} funnelSlug={funnelSlug} embedded />
     </EmbedFrame>
   );
 }
