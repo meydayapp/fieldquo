@@ -58,6 +58,13 @@ export async function GET(request) {
       // preselect it on an upgrade instead of quietly moving a one-year
       // company back to monthly.
       billingInterval: true,
+      // A change booked for the end of the period (lib/platform/planChange.js).
+      // The page renders "Switching to {plan} on {date}" and the "Keep my
+      // current plan" button from these, and a column the screen reads but the
+      // route never sent is how a dead card ships.
+      pendingPlanId: true,
+      pendingBillingInterval: true,
+      pendingEffectiveAt: true,
       plan: {
         // seats and crewSeats, not just maxUsers — the card describes the plan as
         // "1 seat · 5 crew", and a field the screen reads but the route never

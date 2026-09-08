@@ -8764,3 +8764,35 @@ status text. `npm run check:dock` (in `check:all`) fails a bar that
 positions itself any other way and computes that Jennifer and Help occupy
 disjoint spans. Verified in a browser at 375px and 1280px, launcher above
 the bar with a modal, with a toast, and with no bar at all.
+
+## A plan change waits for the period to end (8 September 2026)
+
+**Owner's decision.** "When someone changes their plan the change should be
+made on the next billing cycle; if it's a year, only after the year ends."
+Until today a change was Stripe's in-place item swap with
+`create_prorations` — an immediate credit and charge, on a yearly plan too,
+which is exactly the surprise the owner wants gone.
+
+Downgrades and month↔year switches are now booked as a Stripe Subscription
+Schedule (`schedulePlanChange` in `lib/platform/stripeBilling.js`): phase 1
+restates the current phase, phase 2 starts at `current_period_end` with the
+new price inline (a Product per plan is found or created, so the invoice
+names the plan it charges), `proration_behavior: "none"`, `end_behavior:
+"release"`. The row remembers `pendingPlanId`, `pendingBillingInterval`,
+`pendingEffectiveAt`, `stripeScheduleId`; `planId` moves only when the phase
+lands (`landedPlanChange` in the webhook, also on `subscription_schedule.*`
+events and on "Check with Stripe"), which is also when "your plan changed"
+is sent. A second change before the first lands updates the same schedule;
+"Keep my current plan" releases it. Upgrades still apply immediately,
+prorated — `UPGRADE_TIMING` in `lib/platform/planChange.js` is the one
+constant that would defer them too. The page says the exact sentence
+before any change ("changes to {plan} on {date} … nothing is charged
+today" / "right away, the difference is prorated today").
+
+`check:plan-change` executes the classifier over every tier×cadence
+pairing and the scheduler, cancel, upgrade and webhook against a recording
+Stripe stub (127 assertions).
+
+**Still open — needs the owner:** subscribe the billing webhook endpoint in
+the Stripe dashboard to `subscription_schedule.completed`, `.released`,
+`.canceled` (backstop; landing also clears via `customer.subscription.updated`).

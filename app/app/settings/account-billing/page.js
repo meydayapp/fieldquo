@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { CheckCircle2, ExternalLink, AlertTriangle, Loader2, RefreshCw } from "lucide-react";
+import { CheckCircle2, ExternalLink, AlertTriangle, Loader2, RefreshCw, X, CalendarClock } from "lucide-react";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
@@ -16,6 +16,7 @@ import {
   annualSaving,
   isBillingInterval,
 } from "@/lib/billing/interval";
+import { classifyPlanChange } from "@/lib/platform/planChange";
 import {
   subscriptionStatusClasses,
   subscriptionStatusLabel,
@@ -57,6 +58,16 @@ function daysLeft(date) {
   );
 }
 
+// "billed monthly" / "billed yearly" — the cadence as a phrase, for the
+// sentences below that name a plan AND how it is paid for. A plan change is
+// often only a cadence change, and "Your plan changes to Solo on 1 Oct" with
+// no cadence would read as nothing happening.
+function cadenceLabel(interval, t) {
+  return interval === "year"
+    ? t("app.billing.cadenceYearly", "billed yearly")
+    : t("app.billing.cadenceMonthly", "billed monthly");
+}
+
 // ── Hidden, not read-only ──────────────────────────────────────────────────
 //
 // The decision for this screen. Everything on it is the plan, the price, the
@@ -93,6 +104,16 @@ function AccountBillingScreen() {
   const [error, setError] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [syncNote, setSyncNote] = useState("");
+  // ── The change being confirmed, and the change that is booked ────────────
+  //
+  // `confirming` is the plan card that was clicked plus what classifyPlanChange
+  // says will happen to it — shown in a dialog BEFORE anything is posted,
+  // because since the owner's 2026-09-08 decision a downgrade or a cadence
+  // switch does not happen today, and a button that silently books something
+  // for the 1st is a control that appears to do one thing and does another.
+  // `cancellingPending` is the "Keep my current plan" request in flight.
+  const [confirming, setConfirming] = useState(null);
+  const [cancellingPending, setCancellingPending] = useState(false);
   // ── Which cadence an upgrade is bought on ────────────────────────────────
   //
   // null until the subscription loads, then seeded from what the company is
@@ -260,7 +281,35 @@ function AccountBillingScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function handleUpgrade(planId) {
+  // What pressing a plan card will DO, said before it is pressed.
+  //
+  // Only a company with a live subscription is changing plan; one without is
+  // buying, and goes straight to Checkout as before. The current plan is
+  // looked up in the plan list rather than taken off the subscription
+  // payload, because the list carries tierKey/sortOrder — the rank the
+  // classifier needs — and the route guarantees the current plan is in it.
+  function planChangeFor(plan) {
+    const currentPlan = plans.find((p) => p.id === currentPlanId) || subscription?.plan;
+    if (!subscription?.plan || !currentPlan) return null;
+    return classifyPlanChange({
+      currentPlan,
+      currentInterval: subscription.billingInterval,
+      nextPlan: plan,
+      nextInterval: billingInterval || "month",
+    });
+  }
+
+  function handleChoosePlan(plan) {
+    setError("");
+    const change = planChangeFor(plan);
+    if (!change) {
+      // No live subscription: nothing to confirm, this is a purchase.
+      return submitPlan(plan.id);
+    }
+    setConfirming({ plan, change });
+  }
+
+  async function submitPlan(planId) {
     setError("");
     setBusyPlanId(planId);
     try {
@@ -275,6 +324,19 @@ function AccountBillingScreen() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t("app.billing.checkoutFailed", "Could not start checkout"));
+      // Booked for the end of the period. Nothing changed today, so there is
+      // nothing to reconcile — reload the row and show the pending card.
+      if (data.scheduled) {
+        setConfirming(null);
+        await load();
+        setSyncNote(
+          t("app.billing.changeScheduled", "Done — your plan changes on {date}. Nothing is charged until then.", {
+            date: data.effectiveAt ? formatDate(data.effectiveAt) : "",
+          }),
+        );
+        setBusyPlanId(null);
+        return;
+      }
       // A company already subscribed is moved in place (no Checkout, no
       // second subscription) and the server answers `changed` instead of a
       // URL. Reload so the page reads the new plan off the row.
@@ -282,12 +344,35 @@ function AccountBillingScreen() {
         if (data.changed === false && data.note) setError(data.note);
         else window.location.href = "/app/settings/account-billing?reconcile=1";
         setBusyPlanId(null);
+        setConfirming(null);
         return;
       }
       window.location.href = data.checkoutUrl;
     } catch (err) {
       setError(err.message);
       setBusyPlanId(null);
+      setConfirming(null);
+    }
+  }
+
+  // "Keep my current plan" — release the booked change. The server clears the
+  // pending columns itself, so the card goes on the reload whether or not the
+  // subscription_schedule.released webhook has arrived.
+  async function handleKeepCurrentPlan() {
+    setError("");
+    setSyncNote("");
+    setCancellingPending(true);
+    try {
+      const res = await fetch("/api/platform/billing/pending-change", { method: "DELETE" });
+      if (!res.ok) {
+        reportResponseError(res, setError, t("app.billing.keepPlanFailed", "Couldn't undo the scheduled change. Your plan change is still booked."));
+        return;
+      }
+      await load();
+    } catch {
+      setError(t("app.billing.keepPlanUnreachable", "Couldn't reach the server to undo the scheduled change."));
+    } finally {
+      setCancellingPending(false);
     }
   }
 
@@ -328,6 +413,15 @@ function AccountBillingScreen() {
   const isTrialing = subscription?.status === "trialing";
   const trialDays = isTrialing ? daysLeft(subscription.trialEndsAt) : null;
   const currentPlanId = subscription?.plan?.id;
+  // The plan a booked change moves them to, named from the list. The
+  // subscription payload carries only the id (it is what the row holds), and
+  // a card reading "Switching to clx8… on the 1st" is not a sentence.
+  const pendingPlan = subscription?.pendingPlanId
+    ? plans.find((p) => p.id === subscription.pendingPlanId) || null
+    : null;
+  const currentPlanLine = subscription?.plan
+    ? `${subscription.plan.name} (${cadenceLabel(subscription.billingInterval, t)})`
+    : "";
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
@@ -417,6 +511,39 @@ function AccountBillingScreen() {
             )}
           </div>
         </div>
+
+        {/* ── A change booked for the end of the period ───────────────────
+            Rendered from the row's pending columns and nothing else: the
+            "Keep my current plan" button exists only while pendingPlanId is
+            set, because releasing a schedule that is not there is a button
+            that does nothing. The plan they are on today stays in the
+            heading above — that IS what they are on today. */}
+        {subscription?.pendingPlanId && (
+          <div className="mt-4 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4">
+            <p className="text-sm font-semibold text-foreground inline-flex items-center gap-1.5">
+              <CalendarClock size={15} />
+              {t("app.billing.pendingTitle", "Switching to {plan} ({cadence}) on {date}", {
+                plan: pendingPlan?.name || t("app.billing.pendingUnnamedPlan", "another plan"),
+                cadence: cadenceLabel(subscription.pendingBillingInterval, t),
+                date: subscription.pendingEffectiveAt ? formatDate(subscription.pendingEffectiveAt) : "",
+              })}
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {t("app.billing.pendingBody", "Until then you keep {current}. Nothing is charged before that date.", {
+                current: currentPlanLine,
+              })}
+            </p>
+            <button
+              type="button"
+              onClick={handleKeepCurrentPlan}
+              disabled={cancellingPending}
+              className="mt-3 inline-flex items-center gap-1.5 border border-border rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-60"
+            >
+              {cancellingPending ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
+              {t("app.billing.keepMyPlan", "Keep my current plan")}
+            </button>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-3 mt-4">
           <button
@@ -579,7 +706,7 @@ function AccountBillingScreen() {
                   </p>
                 )}
                 <button
-                  onClick={() => handleUpgrade(plan.id)}
+                  onClick={() => handleChoosePlan(plan)}
                   disabled={isCurrent || unsellable || busyPlanId === plan.id}
                   className={`w-full mt-3 py-2 rounded-full text-sm font-semibold disabled:opacity-60 ${
                     isCurrent || unsellable
@@ -624,6 +751,68 @@ function AccountBillingScreen() {
           )}
         </div>
       </div>
+
+      {/* ── What happens if you press Confirm, before you press it ───────
+          Two sentences, both facts about code. A downgrade or a cadence
+          switch is booked for the period end (schedulePlanChange, no
+          prorations) and nothing is charged today; an upgrade is applied now
+          and prorated (changeSubscriptionPlan, create_prorations). The
+          wording branches on the SAME classifier the route uses, so the
+          sentence and the action cannot come apart. */}
+      {confirming && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
+          <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-xl">
+            <div className="flex items-center gap-2 px-5 py-4 border-b border-border">
+              <h2 className="font-bold text-foreground">
+                {t("app.billing.confirmChangeTitle", "Change your plan")}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setConfirming(null)}
+                className="ml-auto text-muted-foreground hover:text-foreground"
+                aria-label={t("app.action.close", "Close")}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-5 space-y-3">
+              <p className="text-sm text-foreground">
+                {confirming.change.applies === "period_end"
+                  ? t("app.billing.confirmDeferredBody", "Your plan changes to {plan} ({cadence}) on {date}. Until then you keep {current}. Nothing is charged today.", {
+                      plan: confirming.plan.name,
+                      cadence: cadenceLabel(billingInterval || "month", t),
+                      date: subscription?.currentPeriodEnd ? formatDate(subscription.currentPeriodEnd) : t("app.billing.endOfPeriod", "the end of your current billing period"),
+                      current: currentPlanLine,
+                    })
+                  : t("app.billing.confirmUpgradeBody", "Your plan changes to {plan} ({cadence}) right away. The difference for the rest of this billing period is prorated today.", {
+                      plan: confirming.plan.name,
+                      cadence: cadenceLabel(billingInterval || "month", t),
+                    })}
+              </p>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2 px-5 py-4 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setConfirming(null)}
+                className="border border-border rounded-full px-4 py-2 text-sm font-semibold"
+              >
+                {t("app.action.cancel", "Cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={() => submitPlan(confirming.plan.id)}
+                disabled={busyPlanId === confirming.plan.id}
+                className="inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-60"
+              >
+                {busyPlanId === confirming.plan.id && <Loader2 size={14} className="animate-spin" />}
+                {confirming.change.applies === "period_end"
+                  ? t("app.billing.confirmDeferredCta", "Schedule the change")
+                  : t("app.billing.confirmUpgradeCta", "Change plan now")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* The save flow, not a two-button "are you sure?".
           It asks WHY before offering anything — an offer before you've asked
