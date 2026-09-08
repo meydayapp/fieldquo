@@ -29,6 +29,7 @@ import {
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
 import { messagingConnection } from "@/lib/messaging/channels";
+import { serviceWindowNotice, needsServiceWindow } from "@/lib/messaging/serviceWindow";
 import { demoThreadSummaries } from "@/lib/messaging/demoThreads";
 import { bubbleColours } from "@/lib/messaging/bubbleTheme";
 import { noteColours } from "@/lib/messaging/noteTheme";
@@ -129,6 +130,12 @@ export async function GET(request) {
       // messages would mean the list never said it at all.
       waitingSince: true,
       outcome: true,
+      // WhatsApp's 24-hour window, on the LIST as well as inside the thread.
+      // The same argument waitingSince above makes: "this conversation stops
+      // being answerable in 40 minutes" is a thing a contractor has to be able
+      // to see without opening anything, and a list that only said it once you
+      // were already typing would say it too late.
+      lastInboundAt: true,
       channel: { select: { id: true, name: true, platform: true } },
       // The last message only — the list shows one line of preview, and
       // loading whole conversations to render 200 previews is how an inbox
@@ -165,6 +172,12 @@ export async function GET(request) {
     // reached the homeowner is the thing a contractor most needs to see
     // without opening anything.
     lastFailed: Boolean(t.messages[0]?.failedReason),
+    // Null on Facebook and Instagram. Decided here, by the same pure function
+    // the send path calls, so the list, the composer and the refusal cannot
+    // disagree about whether a window is open.
+    serviceWindow: needsServiceWindow(t.channel?.platform)
+      ? serviceWindowNotice({ platform: t.channel.platform, lastInboundAt: t.lastInboundAt })
+      : null,
   }));
 
   return NextResponse.json({ connection, bubbles, note, threads });

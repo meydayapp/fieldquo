@@ -1203,6 +1203,11 @@ model Company {
   // token, and a company can have several Pages while having one ad account.
   messagingChannels     MessagingChannel[]
   messageThreads        MessageThread[]
+  // The WhatsApp message templates this company has had approved by Meta.
+  // Kept per COMPANY and not per channel: a template is approved against the
+  // WhatsApp Business Account, and a company that registers a second phone
+  // number under the same WABA may send the same template from either.
+  whatsAppTemplates     WhatsAppTemplate[]
   // Facebook/Instagram LEAD FORMS — a third Meta surface, separate again from
   // both rows above. metaAdConnection holds the ads_read token this reads
   // spend with; messagingChannels holds a per-Page messaging token; these are
@@ -11158,17 +11163,42 @@ model MessagingChannel {
   companyId String
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  /// "facebook" | "instagram". Two platforms, one shape: Meta delivers both
-  /// over the same webhook envelope and the same Send API, and splitting them
-  /// into two tables would duplicate every query for a difference that is one
-  /// string and one badge.
+  /// "facebook" | "instagram" | "whatsapp". THREE platforms, one shape.
+  ///
+  /// The closed set lives in lib/messaging/platforms.js, not here — a Prisma
+  /// enum would make adding the third value a destructive migration on a
+  /// column every inbound webhook reads, and this repo pushes rather than
+  /// migrates. Every place that enumerates the values imports that one list.
+  ///
+  /// Facebook and Instagram share Meta's Send API and its `messaging`
+  /// webhook envelope. WhatsApp does NOT: it has its own envelope
+  /// (`whatsapp_business_account` / `changes[].value`), its own send body
+  /// (`messaging_product: "whatsapp"`), and — the part that actually changes
+  /// behaviour — a 24-hour customer service window outside which only an
+  /// approved TEMPLATE may be sent. So the ENVELOPE and the SEND are two
+  /// files apiece (envelope.js / whatsappEnvelope.js, metaSend.js /
+  /// whatsappSend.js) and everything downstream of them — threads, messages,
+  /// notes, outcomes, the monthly review, attribution — is one shape.
   platform String
 
-  /// The Page id (facebook) or the Instagram professional account id
-  /// (instagram) — Meta's id, as Meta reports it. This is the ONLY thing that
-  /// resolves an inbound webhook to a tenant: the payload's own ids are
-  /// attacker-controllable and a companyId inside a webhook body is never
-  /// trusted. See lib/messaging/ingest.js.
+  /// Meta's own id for the thing that receives messages, as Meta reports it:
+  ///
+  ///   facebook   the Page id
+  ///   instagram  the Instagram professional account id
+  ///   whatsapp   the PHONE NUMBER ID (not the WABA id, and not the phone
+  ///              number) — the id in `value.metadata.phone_number_id` on
+  ///              every inbound webhook, and the id in the send path
+  ///              POST /<phone-number-id>/messages. One row per number.
+  ///
+  /// This is the ONLY thing that resolves an inbound webhook to a tenant: the
+  /// payload's own ids are attacker-controllable and a companyId inside a
+  /// webhook body is never trusted. See lib/messaging/ingest.js.
+  ///
+  /// There is deliberately NO separate `phoneNumberId` column. It would hold
+  /// the same value as this one, and two columns that must agree are one
+  /// column plus a way for them to disagree — AGENTS.md failure class 4, in
+  /// the schema rather than in code. lib/messaging/platforms.js names the
+  /// meaning per platform so nobody has to remember it.
   externalId String
 
   /// What the contractor calls it — the Page name. Shown in the UI so a
@@ -11187,6 +11217,31 @@ model MessagingChannel {
   /// expires on this date" are different answers and padding the first into a
   /// far-future date would hide a dead connection.
   tokenExpiresAt DateTime?
+
+  // ── WhatsApp only. Null on a Facebook or Instagram row ──────────────────
+  //
+  // All three nullable, and none of them padded with a default. A Facebook
+  // channel has no WABA and no phone number, and inventing "" for it would
+  // make "this is a WhatsApp row with a missing name" and "this is not a
+  // WhatsApp row" the same value (AGENTS.md failure class 5).
+
+  /// The WhatsApp Business Account this number belongs to. NOT the tenant key
+  /// — `externalId` is — but needed for the two calls that are addressed to
+  /// the account rather than the number: POST /<waba-id>/subscribed_apps at
+  /// connect time, and GET /<waba-id>/message_templates when the approved
+  /// template list is refreshed.
+  wabaId String?
+
+  /// The number as Meta prints it ("+1 555 010 0199"). Display only. Kept
+  /// because a contractor with two numbers has to be able to tell which
+  /// conversation came in on which, and a phone number id tells them nothing.
+  displayPhoneNumber String?
+
+  /// The business name Meta VERIFIED for this number — what a homeowner sees
+  /// at the top of the chat. Stored so the settings panel can show the
+  /// contractor their own approved name rather than the one we hold, which
+  /// may differ and is not the one on the phone.
+  verifiedName String?
 
   /// "connected" | "needs_reauth" | "error" — mirrors MetaAdConnection.status
   /// so a support conversation about either integration uses one vocabulary.
@@ -11286,6 +11341,37 @@ model MessageThread {
   // ends, or neither.
   firstInboundAt DateTime?
   firstReplyAt   DateTime?
+
+  /// When the CUSTOMER last wrote. The whole reason this column exists is
+  /// WhatsApp's 24-hour customer service window: outside it a business may
+  /// send only an approved template, and a free-text send is refused by Meta
+  /// with error 131047. FieldQuo has to know the answer BEFORE it sends, or
+  /// the refusal arrives as a mystery failure on a message a contractor
+  /// thinks they sent.
+  ///
+  /// None of the three columns already here can answer it, which is why a
+  /// fourth was added rather than reused:
+  ///
+  ///   lastMessageAt   moves on OUTBOUND messages too, so a business that
+  ///                   replied five minutes ago would look like a customer
+  ///                   who wrote five minutes ago — the window would read
+  ///                   open forever, which is the dangerous direction.
+  ///   firstInboundAt  the FIRST inbound ever. A three-week-old conversation
+  ///                   whose customer wrote again this morning would read as
+  ///                   closed — the safe direction, but wrong, and it would
+  ///                   block replies that are perfectly legal.
+  ///   waitingSince    cleared the moment the company replies, by design. A
+  ///                   answered conversation would read as "no inbound ever".
+  ///
+  /// Nullable, and null means "we have no record of the customer writing" —
+  /// which lib/messaging/serviceWindow.js treats as CLOSED, never as open.
+  /// Every row written before this column existed carries null, and a
+  /// backfilled `now()` would have declared every historical thread inside a
+  /// window it is not in.
+  ///
+  /// Written for every platform, not only WhatsApp: one ingest path, and a
+  /// column filled only on some rows is the copy that rots.
+  lastInboundAt DateTime?
 
   /// Set when a homeowner's message arrives with nothing answering it, and
   /// cleared the moment a real reply goes out. NOT cleared by a private note
@@ -11426,6 +11512,71 @@ model Message {
 
   @@unique([threadId, externalId])
   @@index([threadId, sentAt])
+}
+
+/// One WhatsApp message template Meta has a verdict on, mirrored locally.
+///
+/// ══ Why this table exists at all ═══════════════════════════════════════════
+///
+/// Because it is READ, and read at the one moment it matters. WhatsApp's
+/// 24-hour customer service window closes and a contractor still needs to
+/// reach the homeowner; the only thing Meta will accept then is a template
+/// that was approved in advance. A composer that said "the window has closed"
+/// and offered nothing would be honest and useless. So the approved templates
+/// are listed there, and lib/messaging/whatsappSend.js sends one.
+///
+/// A row here is a MIRROR of Meta's verdict, never the verdict itself. Meta
+/// owns approval; this table only remembers what Meta last said, so a
+/// contractor is not made to wait for a Graph round trip to see their own
+/// list. `status` is stored exactly as Meta spells it, and a template whose
+/// status is not APPROVED is never offered — see lib/messaging/templates.js.
+model WhatsAppTemplate {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// Meta's template name — lowercase, underscores. The id the send API takes.
+  name String
+
+  /// Meta's language code for this template ("en_US", "fr", "es_MX"). Part of
+  /// the identity, not an attribute: the same name in two languages is two
+  /// templates with two independent approvals, and sending the wrong one is
+  /// error 132001 ("does not exist in the specified language").
+  language String
+
+  /// "MARKETING" | "UTILITY" | "AUTHENTICATION" — Meta's own categories,
+  /// stored as Meta spells them. Shown to the contractor because the category
+  /// is what decides whether a send costs them money.
+  category String
+
+  /// "APPROVED" | "PENDING" | "REJECTED" | "PAUSED" | "DISABLED" — Meta's
+  /// vocabulary again, unmapped. Anything other than APPROVED is kept and
+  /// shown rather than hidden: "your template was rejected" is the fact a
+  /// contractor needs, and a list that silently dropped it would look like
+  /// the template had never been submitted.
+  status String
+
+  /// The BODY text as Meta approved it, `{{1}}` placeholders and all. Stored
+  /// so the composer can show what will actually be sent — a template picker
+  /// listing names alone asks a contractor to send a message they cannot read.
+  body String @db.Text
+
+  /// How many `{{n}}` placeholders the body carries. Derived at sync time from
+  /// the body Meta returned, because a send with the wrong number of
+  /// parameters is error 132000 and the only way to refuse it BEFORE Meta does
+  /// is to know the count.
+  variableCount Int @default(0)
+
+  /// When Meta last told us this. Never null: a row exists only because a sync
+  /// created it, so "we have never asked" is the ABSENCE of the row.
+  syncedAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Name plus language is Meta's own identity for a template, so it is ours.
+  @@unique([companyId, name, language])
+  @@index([companyId, status])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

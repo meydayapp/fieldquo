@@ -49,7 +49,8 @@ import { outcomeLabelKey } from "@/lib/messaging/outcomes";
 import { composerBlock, connectionBlurb } from "@/lib/messaging/composerState";
 import {
   Avatar, PlatformBadge, Bubble, OutcomePicker, StatusFilter, StatusPicker,
-  WaitingBadge, ComposerTabs, AssigneePicker, dayLabel,
+  WaitingBadge, ComposerTabs, AssigneePicker, ServiceWindowNotice, TemplatePicker,
+  dayLabel,
 } from "./ConversationBits";
 
 export default function MessagesPage() {
@@ -365,7 +366,22 @@ function Conversation({
   // one — see the route, which refuses the same thing for the same reason.
   const [snoozeAt, setSnoozeAt] = useState("");
   const [askingSnooze, setAskingSnooze] = useState(false);
+  // The WhatsApp template a contractor picked once the 24-hour window closed,
+  // and its fill-in values. Held here rather than in the picker so that
+  // switching threads clears them — a value typed for one homeowner must not
+  // survive into a message to another.
+  const [templateId, setTemplateId] = useState(null);
+  const [templateParams, setTemplateParams] = useState([]);
   const endRef = useRef(null);
+
+  // Every thread starts with nothing chosen. Without this a template picked on
+  // a closed WhatsApp thread would still be selected when a Facebook thread is
+  // opened next, and the first Send would post a templateId the server would
+  // reject — a confusing refusal caused entirely by a stale piece of state.
+  useEffect(() => {
+    setTemplateId(null);
+    setTemplateParams([]);
+  }, [thread?.id]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
@@ -386,7 +402,9 @@ function Conversation({
 
   async function send() {
     const body = text.trim();
-    if (!body) return;
+    // A template send carries no typed body — the words are the approved ones
+    // and the server fills them in from ITS row, never from the browser.
+    if (!body && !sendingTemplate) return;
     setSending(true);
     try {
       // TWO ROUTES, chosen here, and the note one does not import the send
@@ -400,7 +418,15 @@ function Conversation({
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: body }),
+        body: JSON.stringify(
+          sendingTemplate
+            // The id and the values ONLY. No body, no name, no language: the
+            // server looks the template up in its own rows, which is what stops
+            // an approved template being used as an envelope for arbitrary
+            // text. Same rule as add-on pricing (AGENTS.md non-negotiable #5).
+            ? { kind: "template", templateId, params: templateParams }
+            : { text: body },
+        ),
       });
       if (!res.ok) {
         // The server's own sentence — "no Page is connected", "that Page needs
@@ -414,6 +440,8 @@ function Conversation({
         return;
       }
       setText("");
+      setTemplateId(null);
+      setTemplateParams([]);
       await onChanged?.();
     } finally {
       setSending(false);
@@ -472,7 +500,18 @@ function Conversation({
   // side is not: a note goes nowhere near Meta. This is the one control on the
   // screen a real contractor can use today, and gating it behind the same
   // blocker would have been an accident rather than a decision.
-  const composerBlocked = mode === "reply" && Boolean(blockKey);
+  // ── Three reasons the Reply side can be off, and they stack ────────────
+  //
+  // `blockKey` is the connection ("Meta has not approved us yet"). The window
+  // is a fourth, separate, and TEMPORARY one, and it is the only one with a
+  // way through — so it does not merely disable the box, it swaps it for the
+  // template picker.
+  const windowNotice = thread?.serviceWindow || null;
+  const windowClosed = Boolean(windowNotice?.blockKey);
+  const composerBlocked = mode === "reply" && (Boolean(blockKey) || windowClosed);
+  // What Send is about to do. A template only, and only on the Reply side:
+  // a note goes nowhere near Meta and has no window.
+  const sendingTemplate = mode === "reply" && windowClosed && Boolean(templateId);
   // A demo's threads are computed rather than stored, so nothing typed into
   // either side would survive a refresh. Said on the tab, not discovered.
   const demoBlocked = Boolean(connection?.mock);
@@ -632,10 +671,38 @@ function Conversation({
         {demoBlocked && (
           <p className="mb-2 text-xs text-muted-foreground">{t("app.messages.compose.disabled.demo")}</p>
         )}
+        {/* The window, said out loud — including while it is still OPEN and
+            about to close, which is the moment it is worth knowing. Only on
+            the Reply side: a private note has no window. */}
+        {mode === "reply" && <ServiceWindowNotice notice={windowNotice} t={t} />}
+        {/* The way through, offered exactly when it is the answer. */}
+        {mode === "reply" && windowClosed && !blockKey && (
+          <TemplatePicker
+            templates={thread?.templates}
+            value={templateId}
+            onPick={(id) => {
+              setTemplateId(id);
+              setTemplateParams([]);
+            }}
+            params={templateParams}
+            onParam={(i, v) =>
+              setTemplateParams((prev) => {
+                const next = [...prev];
+                next[i] = v;
+                return next;
+              })
+            }
+            t={t}
+          />
+        )}
         <div className="flex items-end gap-2">
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
+            // A closed window disables the TYPING box, not the Send button:
+            // Send stays alive to post the chosen template. Two different
+            // conditions, deliberately, because they are two different
+            // controls doing two different things.
             disabled={composerBlocked || demoBlocked || sending}
             rows={1}
             // The box is dressed as what it is about to write, before a word
@@ -660,7 +727,13 @@ function Conversation({
           <button
             type="button"
             onClick={send}
-            disabled={composerBlocked || demoBlocked || sending || !text.trim()}
+            disabled={
+              demoBlocked ||
+              sending ||
+              (sendingTemplate
+                ? false
+                : composerBlocked || !text.trim())
+            }
             className="min-h-[44px] inline-flex items-center gap-2 rounded-full bg-inverted px-4 text-sm font-bold text-inverted-foreground disabled:opacity-40"
           >
             {sending ? (
@@ -670,7 +743,11 @@ function Conversation({
             ) : (
               <Send size={15} aria-hidden="true" />
             )}
-            {mode === "note" ? t("app.messages.note.save") : t("app.messages.compose.send")}
+            {mode === "note"
+              ? t("app.messages.note.save")
+              : sendingTemplate
+                ? t("app.messages.template.send")
+                : t("app.messages.compose.send")}
           </button>
         </div>
       </div>

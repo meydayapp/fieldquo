@@ -25,6 +25,8 @@ import {
 } from "@/lib/permissions/enforce";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { messagingConnection } from "@/lib/messaging/channels";
+import { serviceWindowNotice, needsServiceWindow } from "@/lib/messaging/serviceWindow";
+import { publicTemplateShape } from "@/lib/messaging/templates";
 import { demoThreads } from "@/lib/messaging/demoThreads";
 import {
   normaliseOutcome,
@@ -89,6 +91,13 @@ export async function GET(request, { params }) {
       jobId: true,
       quoteId: true,
       createdAt: true,
+      // The 24-hour customer service window's one input, turned into a notice
+      // below rather than handed to the browser raw: the DECISION ("may free
+      // text be sent right now") is made server-side, once, by the same
+      // function the send path uses — a browser that computed it from a
+      // timestamp would be a second answer, in a different clock, that could
+      // disagree with the refusal it is about to get.
+      lastInboundAt: true,
       channel: { select: { id: true, name: true, platform: true, status: true } },
       messages: {
         orderBy: { sentAt: "asc" },
@@ -122,6 +131,29 @@ export async function GET(request, { params }) {
       status: readStatus(thread.status),
       platform: thread.channel?.platform || null,
       channelName: thread.channel?.name || null,
+      // Null on Facebook and Instagram — they have no window of ours, and a
+      // notice object on every thread would make the composer test which
+      // platform it was drawing rather than "is there a notice".
+      serviceWindow: needsServiceWindow(thread.channel?.platform)
+        ? serviceWindowNotice({
+            platform: thread.channel.platform,
+            lastInboundAt: thread.lastInboundAt,
+          })
+        : null,
+      // The approved templates, and ONLY on a WhatsApp thread. This is what
+      // makes the closed-window message something a contractor can act on
+      // instead of a dead end — a composer that said "the window has closed"
+      // and offered nothing would be honest and useless.
+      templates: needsServiceWindow(thread.channel?.platform)
+        ? (
+            await db.whatsAppTemplate
+              .findMany({
+                where: { companyId: member.companyId, status: "APPROVED" },
+                orderBy: { name: "asc" },
+              })
+              .catch(() => [])
+          ).map(publicTemplateShape)
+        : [],
     },
   });
 }

@@ -169,6 +169,28 @@ const EXTERNAL_CALLERS = {
     "META_WEBHOOK_VERIFY_TOKEN the same way. The tenant is resolved by " +
     "looking Meta's own Page id up in MessagingChannel — never from the " +
     "payload.",
+  "/api/meta/whatsapp/webhook":
+    "Meta posts here on every message a homeowner sends to the contractor's " +
+    "WhatsApp Business number, and on every sent/delivered/read/failed " +
+    "status for a message the company sent; it GETs it once for the " +
+    "hub.challenge subscribe handshake. The callback URL is entered against " +
+    "the WhatsApp product in the FieldQuo app's Webhooks settings on " +
+    "developers.facebook.com, so no in-app caller can exist — a SECOND " +
+    "callback beside /api/meta/messaging/webhook because the two products " +
+    "deliver two different envelopes and Meta subscribes each product to its " +
+    "own URL. Every POST is verified against META_APP_SECRET via " +
+    "X-Hub-Signature-256 in lib/messaging/webhookSignature.js, which refuses " +
+    "when the secret is unset; the GET is verified against " +
+    "META_WEBHOOK_VERIFY_TOKEN the same way. The tenant is resolved by " +
+    "looking WhatsApp's own phone number id up in MessagingChannel — never " +
+    "from the payload, and never from the WABA id in entry.id.",
+  "/api/settings/whatsapp/callback":
+    "Meta's redirect target for WhatsApp Embedded Signup — a third " +
+    "redirect_uri registered in Meta's App Dashboard beside " +
+    "/api/meta-ads/callback and /api/settings/social/callback, never fetched " +
+    "by our own code. The browser arrives here from facebook.com carrying a " +
+    "code and the state this app minted; both are checked against an " +
+    "httpOnly cookie before anything is stored.",
   "/api/settings/social/callback":
     "Meta's OAuth redirect target for the Facebook/Instagram PUBLISHING " +
     "connect flow — a second redirect_uri registered in Meta's App Dashboard " +

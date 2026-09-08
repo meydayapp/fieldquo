@@ -1,12 +1,88 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 8 September 2026 (/data-deletion takes a written request, issues a reference and a receipt, and the owner marks it done by hand from the console, with Meta's deletion callback answering under the same reference; the default add-on scope sentences and the deep-read PAID pill the same day).
+Last updated: 8 September 2026 (WhatsApp Business is the third channel on the inbox — Embedded Signup, a signed webhook, an approved-template list, and the 24-hour customer service window modelled explicitly so free text is refused by name rather than by Meta; blocked only on `whatsapp_business_messaging`, which `META_WHATSAPP_ENABLED=1` unblocks).
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## WhatsApp Business, and the 24-hour window that decides what may be sent (8 September 2026)
+
+The inbox had two platforms. It has three. Everything downstream of the
+envelope and the send — threads, notes, outcomes, status, assignment, the
+monthly review, conversation attribution, the AI employee — takes WhatsApp with
+no special case, because the two things that genuinely differ were separated
+out rather than branched on.
+
+**What differs, and where it lives.** WhatsApp is not Messenger with a
+different badge. Its webhook envelope is `whatsapp_business_account` /
+`changes[].value` with the phone number id nested in `metadata`, its timestamps
+are epoch SECONDS where Messenger's are milliseconds, it never echoes the
+business's own sends, and its receipts name the message rather than a
+watermark. So there is a second parser (`lib/messaging/whatsappEnvelope.js`)
+and a second send (`lib/messaging/whatsappSend.js`), and ONE dispatcher
+(`lib/messaging/send.js`) that picks between them — the branch exists once,
+where the reply route and the AI employee both reach it.
+
+**The 24-hour customer service window.** The rule most likely to be built
+wrong, because the wrong version passes every other kind of check and then
+fails silently in production the next morning. WhatsApp carries a typed message
+only within 24 hours of the customer's last message; outside it, only a
+template Meta approved in advance, and a free-text send comes back as error
+131047 AFTER the contractor pressed Send. So it is computed here, as a pure
+function (`lib/messaging/serviceWindow.js`), refused by name
+(`service_window_closed`) before Meta is called, said on the composer, and
+answered with the approved-template picker rather than a dead box. Meta's own
+131047 maps onto the SAME reason, so a thread reads identically however the
+refusal arrived. `scripts/check-whatsapp.mjs` executes it open, closed, exactly
+at the boundary, and with no inbound message ever.
+
+**The column, and why a fourth one.** `MessageThread.lastInboundAt`. None of
+the three already there could answer "when did the CUSTOMER last write":
+`lastMessageAt` moves on outbound too (the window would read open forever — the
+dangerous direction), `firstInboundAt` is the first ever, and `waitingSince` is
+cleared the moment the company replies. Null means "no record", which reads as
+CLOSED, never open.
+
+**Two maps became one.** `lib/messaging/platforms.js` — the closed platform
+set, plus the platform→conversation-source lookup that had been written twice
+(`lib/aiEmployee/respond.js` and `lib/attribution/loadMonthlyConversations.js`).
+Adding a third platform to one copy and not the other would have been a month
+of WhatsApp conversations attributed to nothing.
+
+**Blocked, and honest about it.** `whatsapp_business_messaging` is not
+approved. `metaWhatsAppEnabled()` gates the connect flow, the panel says what
+it is waiting on, `/api/settings/whatsapp/connect` refuses server-side and the
+callback re-checks. `whatsapp_messaging` is in the registry as `preview` and in
+`MATRIX_EXCLUSIONS` with both honest limits named — the approval AND the
+24-hour rule, which stays true after approval and belongs in any copy this
+becomes. Turning it on in production is `META_WHATSAPP_ENABLED=1`; the ads
+consent screen is unchanged, byte for byte, and the check asserts it.
+
+The screencast Meta's reviewer needs, step by step, is
+`docs/META-APP-REVIEW-SUBMISSION.md` §7b.
+
+### Still owed here
+
+- **Inbound media is an id, not bytes.** WhatsApp's webhook carries a media id,
+  not a URL; fetching it needs two authenticated Graph calls and the signed URL
+  expires in five minutes. The id and mime type are stored, `url` is null and
+  honestly so — the bubble shows an attachment it cannot yet render. Nothing
+  claims otherwise.
+- **Outbound media is not built.** Text and templates only.
+- **Template status is polled, not pushed.** A button, because a contractor
+  waiting on an approval will check. Meta pushes
+  `message_template_status_update` on the same webhook and subscribing to that
+  field is the obvious next step; the parser drops it today, deliberately.
+- **A company with two WABAs gets the first one.** Stated in the callback
+  rather than chosen silently; running the flow again connects the other.
+- **`app.aiEmployee.skip.*` has no keys in any language** — pre-existing, and
+  `outside_service_window` joins eleven other reasons that render as raw
+  snake_case through the `t(key, fallback)` fallback. Worth one pass.
 
 ---
 

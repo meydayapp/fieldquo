@@ -122,6 +122,7 @@ const FLOORS = {
 const SHARED_LITERALS = new Set([
   "FieldQuo AI", // the product's own assistant, unbranded nowhere
   "Meta Ads", // Meta's product name; localised nowhere in their own console
+  "WhatsApp Business", // ditto — Meta ships the same two words in every locale
 ]);
 
 // ── The echo test ──────────────────────────────────────────────────────────

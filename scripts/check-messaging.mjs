@@ -474,10 +474,17 @@ ok(
   "the page prints the block reason",
   /disabledReplyKey && \(/.test(bitsSrc) && /t\(disabledReplyKey\)/.test(bitsSrc),
 );
+// TWO decisions now drive it, not one: the CONNECTION (`blockKey`, from
+// composerState.js) and, on WhatsApp, the 24-hour customer service window
+// (`windowClosed`, from serviceWindow.js — see scripts/check-whatsapp.mjs,
+// which executes that one at the boundary). The claim this assertion protects
+// is unchanged and is written so deleting EITHER guard fails: whatever
+// switches the box off is the same value that gets printed beside it.
 ok(
-  "the composer is disabled by the same decision that prints it",
-  /const composerBlocked = mode === "reply" && Boolean\(blockKey\)/.test(pageSrc) &&
-    /disabled=\{composerBlocked/.test(pageSrc),
+  "the composer is disabled by the same decisions that print themselves",
+  /const composerBlocked = mode === "reply" && \(Boolean\(blockKey\) \|\| windowClosed\)/.test(pageSrc) &&
+    /disabled=\{composerBlocked/.test(pageSrc) &&
+    /<ServiceWindowNotice notice=\{windowNotice\}/.test(pageSrc),
 );
 ok(
   "the composer is disabled, not hidden",

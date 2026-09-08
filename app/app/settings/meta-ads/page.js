@@ -30,6 +30,7 @@ import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import { fetchJson } from "@/lib/fetchJson";
 import MetaLeadFormsPanel from "./MetaLeadFormsPanel";
 import SocialPublishingPanel from "@/app/components/settings/SocialPublishingPanel";
+import WhatsAppPanel from "@/app/components/settings/WhatsAppPanel";
 
 // Maps the `metaError` query param the OAuth callback redirects with to a
 // translation key — see app/api/meta-ads/callback/route.js for every value
@@ -420,6 +421,14 @@ function MetaAdsPageScreen() {
           depend on whether an unrelated ad account happens to be connected.
           It states its own preconditions (see the panel). */}
       <SocialPublishingPanel />
+
+      {/* ── WhatsApp Business ────────────────────────────────────────────
+          The fifth Meta surface on this screen, and the fifth App Review.
+          Rendered unconditionally for the same reason the panel above it is:
+          its first job is to say that the feature is waiting on Meta, and that
+          sentence must not depend on whether an unrelated ad account happens
+          to be connected. It states its own preconditions. */}
+      <WhatsAppPanel />
 
       {showDisconnectConfirm && (
         <div

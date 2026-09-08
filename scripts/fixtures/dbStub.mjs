@@ -74,6 +74,12 @@ export const rows = {
   // text" — both are properties of a query plus a decrypt, which reading
   // lib/social/metaConnection.js cannot establish.
   metaPageConnection: [],
+  // WhatsApp's approved message templates (check-whatsapp.mjs). The claim that
+  // needs executing is "a template sync writes Meta's verdict and never
+  // invents one", which is a property of an upsert keyed on
+  // (companyId, name, language) — reading lib/messaging/templates.js cannot
+  // establish it.
+  whatsAppTemplate: [],
 };
 
 /** Every write the product attempted, in order: { model, action, data }. */
@@ -116,6 +122,7 @@ export function resetDbStub() {
   rows.messageThread = [];
   rows.message = [];
   rows.metaPageConnection = [];
+  rows.whatsAppTemplate = [];
   writes.length = 0;
   reads.length = 0;
   failNext.model = null;
@@ -314,6 +321,7 @@ export const db = new Proxy(
     messageThread: model("messageThread"),
     message: model("message"),
     metaPageConnection: model("metaPageConnection"),
+    whatsAppTemplate: model("whatsAppTemplate"),
     marketingCampaignDelivery: uniqueCreateModel("marketingCampaignDelivery", [
       "campaignId",
       "subscriberId",

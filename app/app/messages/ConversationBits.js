@@ -387,6 +387,134 @@ export function ComposerTabs({ mode, onPick, note, disabledReplyKey, t }) {
   );
 }
 
+/**
+ * WhatsApp's 24-hour customer service window, said out loud.
+ *
+ * ── Why this is a banner and not only a disabled box ──────────────────────
+ *
+ * Because it is the one blocker on this screen that is NOT FieldQuo's fault,
+ * NOT Meta's approval, and NOT permanent — it is a clock, it closes on its own,
+ * and it reopens the moment the customer writes again. A greyed-out composer
+ * with "cannot send" on it would read as the feature being broken. What a
+ * contractor needs is the rule, the time, and the way through.
+ *
+ * Three states, and all three are drawn:
+ *
+ *   closing soon  open, under an hour left. A warning, not a block — the state
+ *                 in which a contractor most needs to be told BEFORE they
+ *                 start typing a long answer.
+ *   closed        24 hours have passed. Free text is refused; a template is
+ *                 offered.
+ *   never opened  this person has never written. Same refusal, different
+ *                 sentence, because "wait for them to reply" is not the advice
+ *                 in a conversation that has not started.
+ *
+ * `notice` comes from the SERVER (lib/messaging/serviceWindow.js, through the
+ * thread route) rather than being computed here from a timestamp. The browser
+ * computing it would be a second answer, in a second clock, and the one that
+ * disagrees with the refusal the send is about to get.
+ */
+export function ServiceWindowNotice({ notice, t }) {
+  if (!notice) return null;
+  const key = notice.blockKey || notice.warnKey;
+  if (!key) return null;
+
+  const blocked = Boolean(notice.blockKey);
+  return (
+    <p
+      // Neither tone uses colour alone to carry the difference: the icon and
+      // the words say it, and the border does the quiet half. A contractor in
+      // a van in sunlight is the reader here.
+      className={
+        "mb-2 flex items-start gap-2 rounded-lg border px-3 py-2 text-xs " +
+        (blocked
+          ? "border-destructive bg-card text-foreground"
+          : "border-border bg-muted text-muted-foreground")
+      }
+    >
+      {blocked ? (
+        <AlertTriangle size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+      ) : (
+        <Clock size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+      )}
+      {/* No parameters. `closingSoon` only ever fires with under an hour left
+          (serviceWindowNotice sets it at hours < 1), so "less than an hour" is
+          the whole sentence — a "{hours} hours left" that could only ever say
+          "0" would be worse than the words. */}
+      <span>{t(key)}</span>
+    </p>
+  );
+}
+
+/**
+ * Pick one of the templates Meta approved, and fill it in.
+ *
+ * Shown only when the window is closed, because that is the only time it is
+ * the answer. An always-visible template picker would invite a contractor to
+ * send a pre-approved marketing message into a live conversation, which is
+ * both worse writing and, for a MARKETING template, a charge.
+ *
+ * A company with a connected number and NO approved templates gets a sentence
+ * saying so, not an empty select. An empty control with nothing in it is the
+ * dead control AGENTS.md's first rule forbids, and here the honest version
+ * ("you have no approved templates yet") is also the actionable one.
+ */
+export function TemplatePicker({ templates, value, onPick, params, onParam, t }) {
+  const list = Array.isArray(templates) ? templates : [];
+  if (!list.length) {
+    return (
+      <p className="mb-2 text-xs text-muted-foreground">{t("app.messages.template.none")}</p>
+    );
+  }
+
+  const chosen = list.find((x) => x.id === value) || null;
+
+  return (
+    <div className="mb-2 space-y-2">
+      <label className="block text-xs">
+        <span className="text-muted-foreground">{t("app.messages.template.label")}</span>
+        <select
+          value={value || ""}
+          onChange={(e) => onPick(e.target.value || null)}
+          // text-base, not text-sm: anything smaller makes iOS Safari zoom the
+          // page the moment the select is focused.
+          className="mt-1 min-h-[44px] w-full rounded-lg border border-border bg-card px-2 text-base text-foreground"
+        >
+          <option value="">{t("app.messages.template.choose")}</option>
+          {list.map((x) => (
+            <option key={x.id} value={x.id}>
+              {x.name} ({x.language})
+            </option>
+          ))}
+        </select>
+      </label>
+
+      {chosen && (
+        <>
+          {/* The APPROVED body, shown before it is sent. A picker listing names
+              alone asks a contractor to send a message they cannot read. */}
+          <p className="rounded-lg border border-border bg-muted px-3 py-2 text-xs text-foreground">
+            {chosen.body}
+          </p>
+          {Array.from({ length: chosen.variableCount }, (_, i) => (
+            <label key={i} className="block text-xs">
+              <span className="text-muted-foreground">
+                {t("app.messages.template.value", { number: i + 1 })}
+              </span>
+              <input
+                type="text"
+                value={params[i] || ""}
+                onChange={(e) => onParam(i, e.target.value)}
+                className="mt-1 block min-h-[44px] w-full rounded-lg border border-border bg-background px-2 text-base text-foreground"
+              />
+            </label>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
 /** Who owns this conversation. Names come from /api/leads/assignees. */
 export function AssigneePicker({ value, people, onPick, busy, t }) {
   return (

@@ -338,6 +338,82 @@ Draft use case for `leads_retrieval`:
 
 ---
 
+## 7b. Round two, second half — WhatsApp Business
+
+> **The step-by-step for recording this, the Meta-side setup, and the
+> rewritten use-case description live in `META-WHATSAPP-SUBMISSION.md`.**
+> What follows is the engineering record of what was built and what a
+> reviewer sees; that file is the one to work from on the day.
+
+`whatsapp_business_messaging` and `whatsapp_business_management`, submitted
+together, once you can record them working against your own WhatsApp Business
+number with `META_APP_MODE=development`.
+
+`business_management` is deliberately NOT requested. Meta lists it for Solution
+Partners sharing a credit line; FieldQuo does not — each contractor's WhatsApp
+Business Account is billed to that contractor. See `META_WHATSAPP_SCOPE` in
+`lib/meta/client.js` for the per-permission justification, and
+`docs/VERCEL.md` for the two env vars (`META_WHATSAPP_ENABLED`,
+`META_WHATSAPP_CONFIG_ID`).
+
+Draft use case:
+
+> Contractors already give customers a WhatsApp number, and for many trades it
+> is now the number people actually use — more than the Page, more than email.
+> Those conversations sit in a separate app on somebody's phone, so the office
+> cannot see them, cannot answer them when that person is on a roof, and cannot
+> tell at the end of the month which of them turned into paid work. FieldQuo
+> brings the contractor's own WhatsApp Business number into the same inbox as
+> their Page and Instagram messages, answered by the same people, with the same
+> notes, the same owner, and the same month-end read of which enquiries became
+> jobs. FieldQuo reads and sends only for a number the contractor themselves
+> connects through Embedded Signup, never a personal WhatsApp account, and the
+> contractor can disconnect at any time.
+
+### The 24-hour customer service window, and how the screencast shows it
+
+This is the part a reviewer will look for, and it is built rather than
+described. WhatsApp accepts a free-text message only within 24 hours of the
+customer's last message; outside it, only a template Meta approved in advance.
+FieldQuo computes that window itself
+(`lib/messaging/serviceWindow.js`) and **refuses free text outside it by name**
+(`service_window_closed`) before calling Meta, rather than letting the send
+fail with error 131047 after a contractor has pressed Send. The composer says
+the window has closed, and offers the approved templates instead.
+
+**What to record, in this order:**
+
+1. Settings → Meta Ads → **WhatsApp Business**, with the flag OFF: the panel
+   says the feature is waiting on Meta's approval and renders no Connect
+   button. This is the honest starting state, and it is worth showing.
+2. Set `META_APP_MODE=development`, reload: the same panel now offers
+   **Connect WhatsApp**.
+3. Click it → Meta's Embedded Signup → pick the number → land back on Settings
+   with the number, its verified name, and the 24-hour rule stated on the card.
+4. **Refresh templates** — the approved template list arrives from the WABA.
+5. From a phone, message the business number.
+6. `/app/messages`: the conversation appears with a **WhatsApp badge** beside
+   the Facebook and Instagram ones. Open it — same notes, same status chips,
+   same outcome control, no special case.
+7. Type a reply and send it. It arrives on the phone. Show the delivery and
+   read ticks turning as the status webhooks land.
+8. Add a **private note**; show that it stays in FieldQuo and never reaches the
+   phone.
+9. **The window.** Open a conversation whose customer last wrote more than 24
+   hours ago (or wind the clock). The composer is disabled with the reason on
+   it, and the approved-template picker appears in its place. Send a template;
+   it arrives. This is the single most important twenty seconds of the
+   recording.
+10. Settings → **Disconnect**: messages stop arriving, and the conversations
+    are still there.
+
+**The one-line change that enables it in production:** set
+`META_WHATSAPP_ENABLED=1` in Vercel. Nothing else — the webhook, the envelope
+parser, the send path, the template list and the window are already built and
+already run.
+
+---
+
 ## 8. What you have to do, in order
 
 1. **Remove the ten permissions** listed in §2b. Keep `ads_read`,
