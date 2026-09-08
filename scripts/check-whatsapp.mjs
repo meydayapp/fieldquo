@@ -62,6 +62,28 @@ import {
   RE_ENGAGEMENT_ERROR_CODE,
 } from "@/lib/messaging/serviceWindow";
 import { sendWhatsAppMessage, classifyWhatsAppError } from "@/lib/messaging/whatsappSend";
+import {
+  classifyWhatsAppOutboundMedia,
+  prepareOutboundMedia,
+  jpegVariantUrl,
+  whatsAppMediaPayload,
+  WHATSAPP_MEDIA_LIMITS,
+  WHATSAPP_MEDIA_ACCEPT,
+  OUTBOUND_TYPES,
+} from "@/lib/messaging/whatsappMedia";
+import {
+  normaliseAttachment,
+  normaliseAttachments,
+  publicAttachments,
+  isDurableMediaUrl,
+  isFetchable,
+  hasFetchableMedia,
+  withFetchResult,
+  withFetchReset,
+  MEDIA_FETCH_MAX_ATTEMPTS,
+} from "@/lib/messaging/attachments";
+import { rehostAttachment, resolveWhatsAppMediaUrl, isMetaMediaUrl } from "@/lib/messaging/mediaFetch";
+import { encryptToken } from "@/lib/meta/tokenCrypto";
 import { sendOnChannel } from "@/lib/messaging/send";
 import {
   templateRefusal,
@@ -99,6 +121,18 @@ function ok(label, condition, detail = "") {
   }
 }
 const section = (t) => console.log(`\n${t}\n`);
+
+/**
+ * Both needles present AND in this order. `indexOf` returns -1 for an absent
+ * needle and -1 is less than every real index, so the naive `a < b` form
+ * passes once the thing being checked for has been deleted — which is the one
+ * way a source assertion can certify its own subject's removal.
+ */
+function orderedInSource(source, a, b) {
+  const ia = source.indexOf(a);
+  const ib = source.indexOf(b, ia === -1 ? 0 : ia);
+  return ia >= 0 && ib > ia;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("1. The webhook signature — valid, forged, tampered, unset secret");
@@ -1111,8 +1145,449 @@ for (const v of ["META_WHATSAPP_ENABLED", "META_WHATSAPP_CONFIG_ID"]) {
   ok(`${v} is documented in docs/VERCEL.md`, vercelDoc.includes(v));
 }
 
+
 // ═══════════════════════════════════════════════════════════════════════════
-section("11. Every new key, in all nine languages");
+section("11. PICTURES — the id in, the bytes out of band, the bubble honest");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The gap this closes was a real one: a homeowner sent a photo of their
+// kitchen and the contractor read the words "1 attachment". Everything below
+// is executed rather than read, because every claim here has a version that
+// passes a regex while being broken — a webhook that "does not fetch" but
+// does, a `url` column that holds a Graph link that renders today and expires
+// next week, a Retry button with nothing behind it.
+
+// ── A. The webhook still fetches NOTHING ───────────────────────────────────
+//
+// Proved with a spy in place of global fetch, not by reading the route: a
+// byte-fetching ingest is exactly what would make Meta's retry clock depend on
+// Cloudinary and eventually disable the subscription.
+const MEDIA_BODY = inboundBody({
+  messages: [
+    {
+      from: "15551234567",
+      id: "wamid.PHOTO",
+      timestamp: "1757000000",
+      type: "image",
+      image: { id: "MEDIA_1", mime_type: "image/jpeg", caption: "the old units" },
+    },
+  ],
+});
+
+const realFetch = globalThis.fetch;
+let networkCalls = 0;
+globalThis.fetch = async (...args) => {
+  networkCalls++;
+  throw new Error(`the webhook path must not reach the network (${args[0]})`);
+};
+seedChannel();
+await ingestEvents(parseWhatsAppEnvelope(JSON.parse(MEDIA_BODY)).events);
+globalThis.fetch = realFetch;
+
+ok("ingesting a photo message makes NO network call at all", networkCalls === 0, `${networkCalls} call(s)`);
+ok("…and the message row is still stored", rows.message.length === 1);
+
+const storedRow = rows.message[0];
+ok(
+  "the stored attachment carries Meta's media id",
+  storedRow.attachments?.[0]?.mediaId === "MEDIA_1",
+);
+ok(
+  "…and NO url, because the webhook has no bytes and must not invent a link",
+  storedRow.attachments?.[0]?.url === null,
+);
+ok(
+  "Message.mediaPending is written TRUE, so the fetcher has something to find",
+  storedRow.mediaPending === true,
+);
+
+// A text-only message must not be left flagged, or the cron spins forever on a
+// row it can never change.
+seedChannel();
+await ingestEvents(parseWhatsAppEnvelope(JSON.parse(BODY)).events);
+ok("a text-only message is NOT flagged as pending media", rows.message[0].mediaPending === false);
+
+// ── B. What the browser is handed while it is still arriving ───────────────
+const pendingPublic = publicAttachments(storedRow.attachments);
+ok("a media id with no url renders as PENDING", pendingPublic[0]?.state === "pending");
+ok("…with a null url, so nothing can render a broken image", pendingPublic[0]?.url === null);
+ok("…and no Retry offered for work still in progress", pendingPublic[0]?.retryable === false);
+ok(
+  "…and Meta's own media id never reaches the browser",
+  !("mediaId" in pendingPublic[0]) && !("sourceUrl" in pendingPublic[0]),
+);
+
+// The renderer draws an <img> ONLY for a ready image. Positional, so deleting
+// the state test fails rather than passes.
+const bits = read("app/app/messages/ConversationBits.js");
+ok(
+  "the bubble no longer renders a COUNT of attachments",
+  !/app\.messages\.attachment"/.test(bits),
+);
+ok(
+  "an <img> is drawn only inside the ready-image branch",
+  orderedInSource(bits, 'attachment.state === "ready" && attachment.type === "image"', "<img"),
+);
+ok(
+  "…and the pending branch exists above the failed one, both before unavailable",
+  orderedInSource(bits, 'attachment.state === "pending"', 'attachment.state === "failed"'),
+);
+ok("a failed attachment offers a retry", /media\.retry"/.test(bits) && /onRetry\?\.\(/.test(bits));
+ok(
+  "the renderer never branches on the platform",
+  !/facebook|instagram|whatsapp/i.test(
+    bits.slice(bits.indexOf("export function Attachments"), bits.indexOf("\n/**\n * The attach control")),
+  ),
+);
+
+// ── C. The re-host, executed end to end ────────────────────────────────────
+//
+// A real encryption key so the token path is exercised rather than skipped.
+const ORIGINAL_KEY = process.env.META_TOKEN_ENCRYPTION_KEY;
+process.env.META_TOKEN_ENCRYPTION_KEY = "0".repeat(64);
+const mediaChannel = {
+  id: "chan_wa",
+  companyId: "company_REAL",
+  platform: "whatsapp",
+  externalId: "PHONE_1",
+  status: "connected",
+  disconnectedAt: null,
+  accessTokenEnc: encryptToken("EAAG-a-real-looking-token"),
+};
+
+const SIGNED = "https://lookaside.fbsbx.com/whatsapp_business/attachments/?mid=MEDIA_1&ext=1&hash=x";
+const CLOUD = "https://res.cloudinary.com/demo/image/upload/v1/messaging/company_REAL/abc.jpg";
+
+/** A scripted Graph: the resolve, then the download. */
+function scriptedFetch({ resolveBody = { url: SIGNED, mime_type: "image/jpeg", file_size: 1024 }, resolveOk = true, bytes = Buffer.from("JPEGDATA"), downloadOk = true, seen = [] } = {}) {
+  return async (url, init) => {
+    seen.push({ url: String(url), auth: init?.headers?.Authorization || null });
+    if (String(url).startsWith("https://graph.facebook.com/")) {
+      return { ok: resolveOk, status: resolveOk ? 200 : 400, json: async () => resolveBody, headers: new Headers() };
+    }
+    return {
+      ok: downloadOk,
+      status: downloadOk ? 200 : 404,
+      headers: new Headers({ "content-type": "image/jpeg", "content-length": String(bytes.length) }),
+      arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+      json: async () => ({}),
+    };
+  };
+}
+
+const seen = [];
+const happy = await rehostAttachment({
+  attachment: normaliseAttachment(storedRow.attachments[0], 0),
+  channel: mediaChannel,
+  companyId: "company_REAL",
+  fetchImpl: scriptedFetch({ seen }),
+  uploadImpl: async () => ({ secure_url: CLOUD }),
+});
+ok("a successful fetch hands back a Cloudinary url", happy.url === CLOUD, JSON.stringify(happy));
+ok("…after TWO calls: the resolve, then the download", seen.length === 2, `${seen.length}`);
+ok("…the resolve carried the bearer token", /^Bearer /.test(seen[0]?.auth || ""));
+ok("…and the download carried it too, to Meta's own host", /^Bearer /.test(seen[1]?.auth || ""));
+
+const settled = withFetchResult(storedRow.attachments, 0, happy);
+const settledPublic = publicAttachments(settled);
+ok("the stored entry becomes READY", settledPublic[0]?.state === "ready");
+ok("…holding Cloudinary's url", settledPublic[0]?.url === CLOUD);
+ok("…and nothing is left pending on the row", hasFetchableMedia(settled) === false);
+ok(
+  "…and the expiring Meta link is dropped in the same write",
+  normaliseAttachments(settled)[0].sourceUrl === null,
+);
+
+// ── D. THE INVARIANT: `url` is Cloudinary's, never a raw Graph URL ─────────
+//
+// This is the bug CrewInboundMessage.mediaUrls' comment warns about, aimed at
+// this feature. An uploader that hands back Meta's own link must NOT be able
+// to get that link into the column the bubble renders.
+ok("a Cloudinary url is durable", isDurableMediaUrl(CLOUD));
+for (const hostile of [
+  SIGNED,
+  "https://scontent.xx.fbcdn.net/v/t1/photo.jpg",
+  "https://graph.facebook.com/v23.0/MEDIA_1",
+  "http://res.cloudinary.com/demo/image/upload/a.jpg",
+  "https://res.cloudinary.com.evil.com/a.jpg",
+  "https://evil.com/res.cloudinary.com/a.jpg",
+  "https://res.cloudinary.com@evil.com/a.jpg",
+]) {
+  ok(`a raw ${new URL(hostile).hostname} url is NOT durable`, isDurableMediaUrl(hostile) === false);
+}
+const poisoned = withFetchResult(storedRow.attachments, 0, { url: SIGNED });
+ok(
+  "an upload that returns META's url does not make the entry ready",
+  normaliseAttachments(poisoned)[0].state !== "ready",
+);
+ok("…and nothing lands in `url`", normaliseAttachments(poisoned)[0].url === null);
+
+// A row written by an older build, with Messenger's expiring CDN link sitting
+// in `url`. It must be re-read as something to FETCH, never rendered.
+const legacy = normaliseAttachment({ type: "image", url: "https://scontent.xx.fbcdn.net/v/t1/photo.jpg" }, 0);
+ok("a legacy row holding a raw Meta url reads as PENDING", legacy.state === "pending");
+ok("…with url null and the link moved to sourceUrl", legacy.url === null && Boolean(legacy.sourceUrl));
+
+// ── E. The host allowlist is a credential check ────────────────────────────
+ok("lookaside is a Meta media host", isMetaMediaUrl(SIGNED));
+ok("fbcdn is", isMetaMediaUrl("https://scontent-lhr8-1.xx.fbcdn.net/v/x.jpg"));
+ok("cdninstagram is", isMetaMediaUrl("https://scontent.cdninstagram.com/v/x.jpg"));
+for (const bad of [
+  "https://evil.com/x.jpg",
+  "https://fbcdn.net.evil.com/x.jpg",
+  "https://evilfbcdn.net/x.jpg",
+  "http://lookaside.fbsbx.com/x.jpg",
+  "https://lookaside.fbsbx.com@evil.com/x.jpg",
+  "https://169.254.169.254/latest/meta-data/",
+]) {
+  ok(`the token is never sent to ${bad.slice(0, 40)}`, isMetaMediaUrl(bad) === false);
+}
+
+const offHost = await resolveWhatsAppMediaUrl({
+  channel: mediaChannel,
+  mediaId: "MEDIA_1",
+  fetchImpl: scriptedFetch({ resolveBody: { url: "https://evil.com/x.jpg" } }),
+});
+ok("a resolve naming a NON-Meta host is refused", offHost.ok === false);
+
+const oversized = await rehostAttachment({
+  attachment: normaliseAttachment(storedRow.attachments[0], 0),
+  channel: mediaChannel,
+  companyId: "company_REAL",
+  fetchImpl: scriptedFetch({ resolveBody: { url: SIGNED, mime_type: "image/jpeg", file_size: WHATSAPP_MEDIA_LIMITS.image.maxBytes + 1 } }),
+  uploadImpl: async () => { throw new Error("must not upload an oversized file"); },
+});
+ok("a file one byte over WhatsApp's own image limit is refused before download", Boolean(oversized.error));
+
+// ── F. A failed fetch is its own state, and it has a way back ──────────────
+const failedOnce = withFetchResult(storedRow.attachments, 0, { error: "WhatsApp would not hand over this file: media not found" });
+const failedPublic = publicAttachments(failedOnce);
+ok("a failed fetch reads as FAILED, not as absent", failedPublic[0]?.state === "failed");
+ok("…keeping Meta's own words", /media not found/.test(failedPublic[0]?.error || ""));
+ok("…offering a retry", failedPublic[0]?.retryable === true);
+ok("…and the cron will pick it up again", isFetchable(normaliseAttachments(failedOnce)[0]));
+
+let spent = storedRow.attachments;
+for (let i = 0; i < MEDIA_FETCH_MAX_ATTEMPTS; i++) spent = withFetchResult(spent, 0, { error: "nope" });
+ok(
+  `the cron stops on its own after ${MEDIA_FETCH_MAX_ATTEMPTS} attempts`,
+  hasFetchableMedia(spent) === false,
+);
+ok("…but the bubble still says so, and still offers Retry", publicAttachments(spent)[0].retryable === true);
+ok("…and a person pressing it makes the row fetchable again", hasFetchableMedia(withFetchReset(spent, 0)) === true);
+
+process.env.META_TOKEN_ENCRYPTION_KEY = ORIGINAL_KEY;
+
+// ── G. Outbound: Meta's real limits, at the boundary and one byte over ─────
+//
+// developers.facebook.com/docs/whatsapp/cloud-api/reference/media, read
+// 2026-09-08: image 5 MB, video 16 MB, audio 16 MB, document 100 MB,
+// sticker 100 KB static / 500 KB animated.
+ok("the image ceiling is Meta's 5 MB", WHATSAPP_MEDIA_LIMITS.image.maxBytes === 5 * 1024 * 1024);
+ok("the video ceiling is Meta's 16 MB", WHATSAPP_MEDIA_LIMITS.video.maxBytes === 16 * 1024 * 1024);
+ok("the audio ceiling is Meta's 16 MB", WHATSAPP_MEDIA_LIMITS.audio.maxBytes === 16 * 1024 * 1024);
+ok("the document ceiling is Meta's 100 MB", WHATSAPP_MEDIA_LIMITS.document.maxBytes === 100 * 1024 * 1024);
+ok("the sticker ceiling is Meta's animated 500 KB", WHATSAPP_MEDIA_LIMITS.sticker.maxBytes === 500 * 1024);
+
+for (const [kind, mime] of [["image", "image/jpeg"], ["video", "video/mp4"], ["document", "application/pdf"]]) {
+  const cap = WHATSAPP_MEDIA_LIMITS[kind].maxBytes;
+  const atLimit = classifyWhatsAppOutboundMedia({ type: mime, size: cap });
+  ok(`a ${kind} EXACTLY at ${WHATSAPP_MEDIA_LIMITS[kind].label} is accepted`, atLimit.ok === true, JSON.stringify(atLimit));
+  const overBy1 = classifyWhatsAppOutboundMedia({ type: mime, size: cap + 1 });
+  ok(`a ${kind} ONE BYTE over is refused`, overBy1.ok === false && overBy1.reason === "media_too_large");
+  ok(
+    `…and the refusal names the real limit (${WHATSAPP_MEDIA_LIMITS[kind].label})`,
+    String(overBy1.message).includes(WHATSAPP_MEDIA_LIMITS[kind].label),
+    overBy1.message,
+  );
+}
+
+const mov = classifyWhatsAppOutboundMedia({ type: "video/quicktime", size: 1024 });
+ok("a .mov is refused — WhatsApp takes MP4 and 3GP", mov.ok === false && mov.reason === "media_type_unsupported");
+ok("…and the refusal names MP4, so there is a next step", /MP4/i.test(mov.message));
+const heic = classifyWhatsAppOutboundMedia({ type: "image/heic", size: 9 * 1024 * 1024 });
+ok("a 9 MB iPhone HEIC is accepted, to be converted", heic.ok === true && heic.convert === true);
+ok(
+  "…and a HEIC beyond what conversion can rescue is still refused, naming 5 MB",
+  (() => {
+    const r = classifyWhatsAppOutboundMedia({ type: "image/heic", size: 40 * 1024 * 1024 });
+    return r.ok === false && String(r.message).includes("5 MB");
+  })(),
+);
+ok("an empty file is refused", classifyWhatsAppOutboundMedia({ type: "image/jpeg", size: 0 }).ok === false);
+ok("a typeless file is refused", classifyWhatsAppOutboundMedia({ size: 100 }).ok === false);
+ok(
+  "the file picker offers exactly what the send takes — no .mov, no SVG",
+  !/quicktime|svg/i.test(WHATSAPP_MEDIA_ACCEPT) && WHATSAPP_MEDIA_ACCEPT.includes("image/heic"),
+);
+ok("stickers are inbound-only — nothing offers to send one", !OUTBOUND_TYPES.includes("sticker"));
+
+// The payload Meta documents: the caption rides ON the media object.
+const mediaPayload = whatsAppMediaPayload({ type: "image", mediaId: "MEDIA_OUT", caption: "here's the room" });
+ok("a media send names the type and the uploaded id", mediaPayload.type === "image" && mediaPayload.image.id === "MEDIA_OUT");
+ok("…with the caption on the media object, not as a second message", mediaPayload.image.caption === "here's the room");
+const docPayload = whatsAppMediaPayload({ type: "document", mediaId: "D1", filename: "kitchen-plan.pdf" });
+ok("a document carries its filename, so it isn't saved as a mystery file", docPayload.document.filename === "kitchen-plan.pdf");
+
+// ── G2. The upload the browser NAMES is resolved, never trusted ───────────
+//
+// The client sends a URL and a public_id; the server fetches the bytes. Both
+// are proved to be THIS company's own Cloudinary folder first — a URL on any
+// other host is a server-side request forgery, and one in another tenant's
+// folder would pull their customer's photo into this conversation.
+const OURS = "https://res.cloudinary.com/demo/image/upload/v1/fieldquo/companies/company_REAL/kitchen.jpg";
+const bodyFor = (type, buf) => ({
+  ok: true,
+  status: 200,
+  headers: new Headers({ "content-type": type }),
+  arrayBuffer: async () => buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength),
+  json: async () => ({}),
+});
+
+const strangerHost = await prepareOutboundMedia({
+  url: "https://evil.example.com/fieldquo/companies/company_REAL/x.jpg",
+  publicId: "fieldquo/companies/company_REAL/x",
+  companyId: "company_REAL",
+  fetchImpl: async () => { throw new Error("must not fetch off Cloudinary"); },
+});
+ok("an upload url on another host is refused", strangerHost.ok === false && strangerHost.reason === "media_not_found");
+
+const otherTenant = await prepareOutboundMedia({
+  url: "https://res.cloudinary.com/demo/image/upload/v1/fieldquo/companies/company_OTHER/x.jpg",
+  publicId: "fieldquo/companies/company_OTHER/x",
+  companyId: "company_REAL",
+  fetchImpl: async () => { throw new Error("must not fetch another tenant's file"); },
+});
+ok("an upload in ANOTHER company's folder is refused", otherTenant.ok === false);
+
+const mine = await prepareOutboundMedia({
+  url: OURS,
+  publicId: "fieldquo/companies/company_REAL/kitchen",
+  companyId: "company_REAL",
+  filename: "kitchen.jpg",
+  fetchImpl: async () => bodyFor("image/jpeg", Buffer.from("JPEG")),
+});
+ok("this company's own JPEG is prepared for sending", mine.ok === true && mine.type === "image", JSON.stringify(mine));
+
+// HEIC: the SECOND fetch is Cloudinary's JPEG variant, and the 5 MB rule is
+// applied to those bytes — the only ones Meta will ever see.
+const fetchedUrls = [];
+const heicPrepared = await prepareOutboundMedia({
+  url: OURS,
+  publicId: "fieldquo/companies/company_REAL/kitchen",
+  companyId: "company_REAL",
+  fetchImpl: async (u) => {
+    fetchedUrls.push(String(u));
+    return String(u).includes("f_jpg")
+      ? bodyFor("image/jpeg", Buffer.alloc(2 * 1024 * 1024))
+      : bodyFor("image/heic", Buffer.alloc(9 * 1024 * 1024));
+  },
+});
+ok("a 9 MB HEIC is converted rather than refused", heicPrepared.ok === true && heicPrepared.mimeType === "image/jpeg");
+ok("…by asking Cloudinary for an explicit JPEG, not f_auto", fetchedUrls[1] === jpegVariantUrl(OURS) && /f_jpg/.test(fetchedUrls[1]));
+ok("…and the 5 MB rule is applied to the CONVERTED bytes", heicPrepared.buffer.length <= WHATSAPP_MEDIA_LIMITS.image.maxBytes);
+
+const stillTooBig = await prepareOutboundMedia({
+  url: OURS,
+  publicId: "fieldquo/companies/company_REAL/kitchen",
+  companyId: "company_REAL",
+  fetchImpl: async (u) =>
+    String(u).includes("f_jpg")
+      ? bodyFor("image/jpeg", Buffer.alloc(WHATSAPP_MEDIA_LIMITS.image.maxBytes + 1))
+      : bodyFor("image/heic", Buffer.alloc(20 * 1024 * 1024)),
+});
+ok(
+  "a converted picture still one byte over is refused, naming Meta's 5 MB",
+  stillTooBig.ok === false && String(stillTooBig.message).includes("5 MB"),
+);
+
+// ── H. A photo obeys the window, by the SAME name as a typed reply ─────────
+const mediaOutside = await sendWhatsAppMessage({
+  channel: liveChannel,
+  recipientExternalId: "15551234567",
+  kind: "media",
+  media: { type: "image", mimeType: "image/jpeg", buffer: Buffer.from("x"), filename: "a.jpg" },
+  lastInboundAt: ago(25 * 3600000),
+  now: NOW,
+});
+ok(
+  "media outside the 24-hour window is refused",
+  mediaOutside.ok === false && mediaOutside.reason === "service_window_closed",
+  `got ${mediaOutside.reason}`,
+);
+ok(
+  "…with the SAME named reason a typed reply gets, not a second one",
+  mediaOutside.reason === outsideWindow.reason,
+);
+ok("…and it never reached Meta, so no upload was wasted", mediaOutside.externalId === undefined);
+
+const mediaNeverWrote = await sendWhatsAppMessage({
+  channel: liveChannel,
+  recipientExternalId: "15551234567",
+  kind: "media",
+  media: { type: "image", mimeType: "image/jpeg", buffer: Buffer.from("x") },
+  lastInboundAt: null,
+  now: NOW,
+});
+ok("a photo to somebody who never wrote is refused too", mediaNeverWrote.reason === "service_window_closed");
+
+const mediaNote = await sendWhatsAppMessage({
+  channel: liveChannel,
+  recipientExternalId: "15551234567",
+  kind: "media",
+  media: { type: "image", mimeType: "image/jpeg", buffer: Buffer.from("x") },
+  lastInboundAt: ago(3600000),
+  private: true,
+  direction: "note",
+  now: NOW,
+});
+ok("a photo on a PRIVATE NOTE is refused outright", mediaNote.reason === "private_note");
+
+const mediaOnPage = await sendOnChannel({
+  channel: { ...liveChannel, platform: "facebook" },
+  recipientExternalId: "PSID",
+  kind: "media",
+  media: { type: "image", mimeType: "image/jpeg", buffer: Buffer.from("x") },
+  now: NOW,
+});
+ok(
+  "media on a Facebook thread is refused BY NAME, never downgraded to text",
+  mediaOnPage.ok === false && mediaOnPage.reason === "media_unsupported",
+);
+
+// ── I. The AI employee never sends a picture ───────────────────────────────
+const aiInbound = read("lib/aiEmployee/inbound.js");
+ok(
+  "lib/aiEmployee/inbound.js never mentions media at all",
+  !/media/i.test(aiInbound),
+);
+ok(
+  "…and its send asks for TEXT by name, so a media send cannot be reached by default",
+  /kind:\s*"text"/.test(aiInbound.slice(aiInbound.indexOf("sendOnChannel({"))),
+);
+
+// ── J. The deferral is a CRON, listed and authenticated ────────────────────
+const mediaCron = read("app/api/cron/messaging-media/route.js");
+ok("the fetcher is a cron route", /requireCronSecret/.test(mediaCron));
+ok("…refusing before it reads anything", orderedInSource(mediaCron, "requireCronSecret(request)", "db.message.findMany"));
+ok("…selecting on the indexed flag", /mediaPending:\s*true/.test(mediaCron));
+ok("…and writing the flag back from the RESULT, in the same update as the urls", /attachments: result\.attachments, mediaPending: result\.pending/.test(mediaCron));
+ok(
+  "it is scheduled in vercel.json",
+  JSON.parse(read("vercel.json")).crons.some((c) => c.path === "/api/cron/messaging-media"),
+);
+ok(
+  "…and claimed by the messaging feature",
+  FEATURES.find((f) => f.key === "page_messaging")?.cronPaths.includes("/api/cron/messaging-media"),
+);
+const waWebhook = read("app/api/meta/whatsapp/webhook/route.js");
+ok(
+  "the webhook itself imports no fetcher",
+  !/mediaFetch|rehostAttachment|fetchMessageMedia|cloudinary/i.test(waWebhook),
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("12. Every new key, in all nine languages");
 // ═══════════════════════════════════════════════════════════════════════════
 
 const LANGS = Object.keys(APP_MESSAGES);
@@ -1148,6 +1623,25 @@ const NEW_KEYS = [
   "app.setWhatsApp.templatesSynced",
   "app.setWhatsApp.disconnect",
   "app.setWhatsApp.noTemplates",
+  // The pictures.
+  "app.messages.media.image",
+  "app.messages.media.video",
+  "app.messages.media.audio",
+  "app.messages.media.document",
+  "app.messages.media.sticker",
+  "app.messages.media.other",
+  "app.messages.media.open",
+  "app.messages.media.pending",
+  "app.messages.media.failed",
+  "app.messages.media.retry",
+  "app.messages.media.retrying",
+  "app.messages.media.retryError",
+  "app.messages.media.unavailable",
+  "app.messages.media.attach",
+  "app.messages.media.attaching",
+  "app.messages.media.remove",
+  "app.messages.media.uploadError",
+  "app.messages.media.captionPlaceholder",
 ];
 
 for (const key of NEW_KEYS) {

@@ -11485,10 +11485,36 @@ model Message {
 
   body String @db.Text
 
-  /// Meta's attachment array, stored as it arrived: [{ type, url }]. Kept raw
-  /// because the shape is Meta's and re-normalising it into columns would
-  /// silently drop whatever they add next.
+  /// The pictures, clips, voice notes and PDFs on this message, as
+  /// [{ type, url, sourceUrl, mediaId, mimeType, filename, fetchAttempts,
+  ///    fetchError }].
+  ///
+  /// ── `url` is Cloudinary's, or it is null. Never Meta's ──────────────────
+  ///
+  /// This is the one invariant of the column, and it is the same lesson
+  /// CrewInboundMessage.mediaUrls records for Twilio: a vendor's media URL
+  /// needs auth to fetch and EXPIRES, so storing it is a photo that renders
+  /// today and renders broken next week. WhatsApp gives a media id and no URL
+  /// at all; Messenger and Instagram give a signed CDN link. Both are put in
+  /// `mediaId`/`sourceUrl` — fetcher-only fields, stripped before anything
+  /// reaches a browser — and lib/messaging/mediaFetch.js re-hosts the bytes to
+  /// Cloudinary, which is the only thing that may ever land in `url`.
+  ///
+  /// lib/messaging/attachments.js owns the shape, the four states (ready,
+  /// pending, failed, unavailable) and the predicate below. Extra fields Meta
+  /// adds are kept raw, as they always were.
   attachments Json?
+
+  /// Is there still an attachment on this row waiting to be fetched?
+  ///
+  /// Written by the ingest and by the fetcher, read by
+  /// /api/cron/messaging-media — a plain indexed boolean because the
+  /// alternative is scanning inside a JSON array on every tick, which is
+  /// exactly the query that gets slow quietly. It is DERIVED, never set by
+  /// hand: lib/messaging/attachments.js's hasFetchableMedia is the single
+  /// definition of "pending", so the flag and the work can never disagree and
+  /// leave the cron spinning on a row it will not change.
+  mediaPending Boolean @default(false)
 
   /// When it HAPPENED, from Meta's own timestamp — not when this row was
   /// written. The response-time arithmetic in monthlyReview.js measures the
@@ -11512,6 +11538,10 @@ model Message {
 
   @@unique([threadId, externalId])
   @@index([threadId, sentAt])
+  /// The fetcher's whole query. `sentAt` second so the oldest outstanding
+  /// picture is taken first — a homeowner who sent a photo five minutes ago
+  /// has been waiting longer than one who sent one now.
+  @@index([mediaPending, sentAt])
 }
 
 /// One WhatsApp message template Meta has a verdict on, mirrored locally.

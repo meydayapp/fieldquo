@@ -44,6 +44,9 @@ import {
 import { messagingConnection } from "@/lib/messaging/channels";
 import { sendOnChannel, sendMockOnChannel } from "@/lib/messaging/send";
 import { renderTemplateBody } from "@/lib/messaging/templates";
+import { prepareOutboundMedia } from "@/lib/messaging/whatsappMedia";
+import { publicAttachments } from "@/lib/messaging/attachments";
+import { safeFilename } from "@/lib/media/validate";
 import { responseStamps } from "@/lib/messaging/waiting";
 import { readStatus } from "@/lib/messaging/outcomes";
 import { writeActivity } from "@/lib/messaging/activity";
@@ -81,7 +84,7 @@ export async function POST(request, { params }) {
   const body = await request.json().catch(() => ({}));
   const text = typeof body.text === "string" ? body.text.trim() : "";
 
-  // ── Two kinds of send, and only WhatsApp has the second ────────────────
+  // ── Three kinds of send, and WhatsApp has all three ────────────────────
   //
   // "text" is a reply somebody typed. "template" is the ONLY thing WhatsApp
   // accepts once the 24-hour customer service window has closed — a message
@@ -89,8 +92,20 @@ export async function POST(request, { params }) {
   // template by id and sends its fill-in values; it never sends a body, so
   // there is no way to put arbitrary words inside an approved template from
   // outside.
-  const kind = body.kind === "template" ? "template" : "text";
+  //
+  // "media" is a photo, a clip or a PDF the contractor has already uploaded
+  // through /api/upload. The browser names it by URL and public_id and never
+  // by bytes; the server proves both belong to this company's own Cloudinary
+  // folder, reads the bytes back itself, and only then hands them to Meta —
+  // the same "the client names a thing, the server resolves it" rule the
+  // template branch below follows.
+  const kind =
+    body.kind === "template" ? "template" : body.kind === "media" ? "media" : "text";
   const templateId = typeof body.templateId === "string" ? body.templateId : "";
+  const mediaUrl = typeof body.mediaUrl === "string" ? body.mediaUrl : "";
+  const mediaPublicId = typeof body.mediaPublicId === "string" ? body.mediaPublicId : "";
+  const mediaFilename = safeFilename(body.mediaFilename);
+  const mediaMimeType = typeof body.mediaMimeType === "string" ? body.mediaMimeType : "";
   // NOT `params` — that name belongs to the route's own path parameters, which
   // are a Promise in Next 16 and are awaited at the top of this function.
   const templateParams = Array.isArray(body.params)
@@ -102,6 +117,19 @@ export async function POST(request, { params }) {
     if (text.length > MAX_LENGTH) {
       return NextResponse.json(
         { error: `Messages can be up to ${MAX_LENGTH} characters.` },
+        { status: 400 },
+      );
+    }
+  } else if (kind === "media") {
+    // A caption is optional; the file is not. Note the caption rides on the
+    // media object at Meta rather than going out as a second message —
+    // see whatsAppMediaPayload for why that matters outside the window.
+    if (!mediaUrl || !mediaPublicId) {
+      return NextResponse.json({ error: "Attach a file first." }, { status: 400 });
+    }
+    if (text.length > MAX_LENGTH) {
+      return NextResponse.json(
+        { error: `Captions can be up to ${MAX_LENGTH} characters.` },
         { status: 400 },
       );
     }
@@ -173,6 +201,28 @@ export async function POST(request, { params }) {
     }
   }
 
+  // ── The file, resolved from OUR Cloudinary folder ───────────────────────
+  //
+  // Refused BEFORE the send when it is not this company's upload or not
+  // something WhatsApp will take, with the sentence naming Meta's real limit —
+  // never accept a file the send will reject. The bytes go on to
+  // lib/messaging/whatsappSend.js, which uploads them to Meta only after its
+  // own refusals (the 24-hour window above all) have passed.
+  let media = null;
+  if (kind === "media") {
+    const prepared = await prepareOutboundMedia({
+      url: mediaUrl,
+      publicId: mediaPublicId,
+      companyId: member.companyId,
+      filename: mediaFilename || null,
+      declaredType: mediaMimeType || null,
+    });
+    if (!prepared.ok) {
+      return NextResponse.json({ error: prepared.message, reason: prepared.reason }, { status: 400 });
+    }
+    media = { ...prepared, caption: text };
+  }
+
   const result = await sendOnChannel({
     channel: thread.channel,
     recipientExternalId: thread.participantExternalId,
@@ -184,6 +234,7 @@ export async function POST(request, { params }) {
     lastInboundAt: thread.lastInboundAt,
     kind,
     template,
+    media,
     params: templateParams,
     // Stated explicitly, at the one call site that legitimately sends. A reply
     // typed into the composer's Reply side is never private and never anything
@@ -211,6 +262,27 @@ export async function POST(request, { params }) {
       // — and not the template's name: a thread showing "appointment_reminder"
       // where a message should be is a record of a message nobody can read.
       body: kind === "template" ? renderTemplateBody(template.body, templateParams) : text,
+      // ── The outbound copy of the picture, in the same column ────────────
+      //
+      // The CLOUDINARY url, which is the one thing that may ever live in
+      // `url` (lib/messaging/attachments.js). Written even on a failed send,
+      // like the body beside it: a contractor scrolling back needs to see
+      // WHICH photo did not go, not a bubble with a caption and no picture.
+      // No sourceUrl and no mediaId — Meta's id for an outbound upload is not
+      // something we ever fetch from, and storing it would be a dead field.
+      attachments:
+        kind === "media"
+          ? [
+              {
+                type: media.type,
+                url: mediaUrl,
+                sourceUrl: null,
+                mediaId: null,
+                mimeType: media.mimeType,
+                filename: mediaFilename || null,
+              },
+            ]
+          : undefined,
       sentAt: new Date(),
       sentByUserId: member.userId || null,
       failedReason: result.ok ? null : `${result.reason}: ${result.message}`,
@@ -219,15 +291,21 @@ export async function POST(request, { params }) {
       id: true,
       direction: true,
       body: true,
+      attachments: true,
       sentAt: true,
       failedReason: true,
       sentByUserId: true,
     },
   });
+  // Shaped on the way out for the same reason the thread route shapes it:
+  // `sourceUrl` and `mediaId` are fetcher-only fields and never reach a
+  // browser. There are none on an outbound row today, and the shaping is what
+  // keeps that true if that ever changes.
+  const shaped = { ...message, attachments: publicAttachments(message.attachments) };
 
   if (!result.ok) {
     return NextResponse.json(
-      { sent: false, reason: result.reason, error: result.message, message },
+      { sent: false, reason: result.reason, error: result.message, message: shaped },
       { status: 409 },
     );
   }
@@ -274,5 +352,5 @@ export async function POST(request, { params }) {
     }
   });
 
-  return NextResponse.json({ sent: true, message });
+  return NextResponse.json({ sent: true, message: shaped });
 }

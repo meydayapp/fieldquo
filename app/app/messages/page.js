@@ -47,10 +47,23 @@ import { outcomeLabelKey } from "@/lib/messaging/outcomes";
 // and executed by scripts/check-messaging.mjs. See that file's header for why
 // it does not live in this component.
 import { composerBlock, connectionBlurb } from "@/lib/messaging/composerState";
+// The one table that knows what WhatsApp will accept, and Meta's own size
+// limits with it. Read here so the file picker offers exactly what the send
+// path takes — a picker that offers more is a control that appears to work.
+//
+// From whatsappMediaLimits.js and NOT whatsappMedia.js: this file is "use
+// client", and the send module imports lib/messaging/channels.js for the
+// token, which imports "@/lib/db". Reaching for one pure function through it
+// would pull Prisma into the browser bundle — the split lib/media/
+// cloudinaryUrl.js documents, for the same reason.
+import {
+  classifyWhatsAppOutboundMedia,
+  WHATSAPP_MEDIA_ACCEPT,
+} from "@/lib/messaging/whatsappMediaLimits";
 import {
   Avatar, PlatformBadge, Bubble, OutcomePicker, StatusFilter, StatusPicker,
   WaitingBadge, ComposerTabs, AssigneePicker, ServiceWindowNotice, TemplatePicker,
-  dayLabel,
+  AttachControl, dayLabel,
 } from "./ConversationBits";
 
 export default function MessagesPage() {
@@ -372,15 +385,27 @@ function Conversation({
   // survive into a message to another.
   const [templateId, setTemplateId] = useState(null);
   const [templateParams, setTemplateParams] = useState([]);
+  // The file waiting to go with the next message: what /api/upload gave back,
+  // plus the name to show. Uploaded on PICK rather than on Send — a driveway
+  // connection takes real seconds and a Send button blocking on an upload
+  // looks frozen.
+  const [attachment, setAttachment] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [attachError, setAttachError] = useState("");
   const endRef = useRef(null);
 
   // Every thread starts with nothing chosen. Without this a template picked on
   // a closed WhatsApp thread would still be selected when a Facebook thread is
   // opened next, and the first Send would post a templateId the server would
   // reject — a confusing refusal caused entirely by a stale piece of state.
+  // The attachment is cleared for a sharper version of the same reason: a
+  // photo picked for one homeowner must never be sitting in the composer when
+  // a different conversation is opened.
   useEffect(() => {
     setTemplateId(null);
     setTemplateParams([]);
+    setAttachment(null);
+    setAttachError("");
   }, [thread?.id]);
 
   useEffect(() => {
@@ -400,11 +425,79 @@ function Conversation({
     }).catch(() => {});
   }, [thread?.id, thread?.unread]);
 
+  /**
+   * Pick a file, check it against WhatsApp's own table, upload it.
+   *
+   * The check runs HERE as well as on the server, and the server's is the one
+   * that decides. This one exists so a contractor holding a .mov or a 40 MB
+   * photo is told which limit they hit BEFORE watching an upload bar fill on a
+   * driveway connection — the refusal names Meta's real number either way,
+   * because it is the same function (lib/messaging/whatsappMedia.js).
+   */
+  async function pickAttachment(file) {
+    setAttachError("");
+    const verdict = classifyWhatsAppOutboundMedia(file);
+    if (!verdict.ok) {
+      setAttachError(verdict.message);
+      return;
+    }
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: form });
+      if (!res.ok) {
+        // The server's own sentence — a Cloudinary misconfiguration reads
+        // differently from a file it refused, and both are actionable.
+        const data = await res.json().catch(() => ({}));
+        setAttachError(data.error || t("app.messages.media.uploadError"));
+        return;
+      }
+      const data = await res.json();
+      setAttachment({
+        url: data.url,
+        publicId: data.publicId,
+        name: file.name || "",
+        mimeType: verdict.mimeType,
+        type: verdict.type,
+      });
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  /**
+   * "That photo didn't arrive. Try again."
+   *
+   * Returns the failure SENTENCE (or null on success) rather than showing a
+   * banner, so the answer lands on the bubble that asked — see
+   * ConversationBits' AttachmentItem.
+   */
+  async function retryAttachment(messageId, index) {
+    const res = await fetch("/api/messaging/threads/" + thread.id + "/attachments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messageId, index }),
+    });
+    // Reloaded either way: a failed retry still bumped the attempt count and
+    // may have replaced the reason, and the bubble should show what is now
+    // true rather than what was true a moment ago.
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      await onChanged?.();
+      return data.error || t("app.messages.media.retryError");
+    }
+    await onChanged?.();
+    return null;
+  }
+
   async function send() {
     const body = text.trim();
     // A template send carries no typed body — the words are the approved ones
-    // and the server fills them in from ITS row, never from the browser.
-    if (!body && !sendingTemplate) return;
+    // and the server fills them in from ITS row, never from the browser. A
+    // media send carries an optional caption, so an empty box is fine there
+    // too — what it must not be is empty with nothing attached.
+    if (!body && !sendingTemplate && !sendingMedia) return;
     setSending(true);
     try {
       // TWO ROUTES, chosen here, and the note one does not import the send
@@ -425,7 +518,21 @@ function Conversation({
             // an approved template being used as an envelope for arbitrary
             // text. Same rule as add-on pricing (AGENTS.md non-negotiable #5).
             ? { kind: "template", templateId, params: templateParams }
-            : { text: body },
+            : sendingMedia
+              // The URL and the public_id of an upload this company already
+              // made — never bytes, and never a file the browser describes.
+              // The server proves both belong to this company's own Cloudinary
+              // folder, reads the bytes back itself and checks them against
+              // WhatsApp's limits before Meta sees them.
+              ? {
+                  kind: "media",
+                  mediaUrl: attachment.url,
+                  mediaPublicId: attachment.publicId,
+                  mediaFilename: attachment.name,
+                  mediaMimeType: attachment.mimeType,
+                  text: body,
+                }
+              : { text: body },
         ),
       });
       if (!res.ok) {
@@ -442,6 +549,12 @@ function Conversation({
       setText("");
       setTemplateId(null);
       setTemplateParams([]);
+      // Cleared only on a real send. A refusal above returns before this, so a
+      // photo that did not go is still attached and can be tried again once
+      // the reason is dealt with — re-picking a file the contractor already
+      // uploaded would be the composer losing their work.
+      setAttachment(null);
+      setAttachError("");
       await onChanged?.();
     } finally {
       setSending(false);
@@ -515,6 +628,20 @@ function Conversation({
   // A demo's threads are computed rather than stored, so nothing typed into
   // either side would survive a refresh. Said on the tab, not discovered.
   const demoBlocked = Boolean(connection?.mock);
+  // ── Where the paperclip appears, and where it must not ─────────────────
+  //
+  // WhatsApp only, on the Reply side, with the composer actually usable.
+  // lib/messaging/send.js refuses `media` on Facebook and Instagram BY NAME —
+  // that refusal is the guard; this is what stops anybody meeting it after
+  // uploading a photo. A note has no attachment either: a note never leaves
+  // the building, and a picture attached to one would go nowhere with no
+  // sentence saying so.
+  const mediaSupported =
+    mode === "reply" &&
+    thread?.platform === "whatsapp" &&
+    !composerBlocked &&
+    !demoBlocked;
+  const sendingMedia = mediaSupported && Boolean(attachment);
 
   return (
     <div className="flex flex-col rounded-xl border border-border bg-card">
@@ -572,7 +699,13 @@ function Conversation({
                   {/* One component for all four kinds — a reply, a message, a
                       private note and a system line — because they are one
                       column, in order, and that ordering is the whole point. */}
-                  <Bubble message={m} bubbles={bubbles} note={note} t={t} />
+                  <Bubble
+                    message={m}
+                    bubbles={bubbles}
+                    note={note}
+                    onRetryAttachment={retryAttachment}
+                    t={t}
+                  />
                 </div>
               );
             })}
@@ -695,6 +828,24 @@ function Conversation({
             t={t}
           />
         )}
+        {/* The paperclip, and whatever is waiting to go with the next message.
+            Drawn above the box rather than inside it: at 375px an icon inside
+            a one-line textarea competes with the Send button for the same
+            thumb. */}
+        <AttachControl
+          supported={mediaSupported}
+          pending={attachment}
+          uploading={uploading}
+          errorText={attachError}
+          onPick={pickAttachment}
+          onClear={() => {
+            setAttachment(null);
+            setAttachError("");
+          }}
+          accept={WHATSAPP_MEDIA_ACCEPT}
+          disabled={sending}
+          t={t}
+        />
         <div className="flex items-end gap-2">
           <textarea
             value={text}
@@ -715,12 +866,20 @@ function Conversation({
             placeholder={
               mode === "note"
                 ? t("app.messages.note.placeholder")
-                : t("app.messages.compose.placeholder")
+                : sendingMedia
+                  // The box becomes a caption box the moment a file is
+                  // attached, because that is what it now is — the words ride
+                  // ON the picture at Meta rather than following it as a
+                  // second message.
+                  ? t("app.messages.media.captionPlaceholder")
+                  : t("app.messages.compose.placeholder")
             }
             aria-label={
               mode === "note"
                 ? t("app.messages.note.placeholder")
-                : t("app.messages.compose.placeholder")
+                : sendingMedia
+                  ? t("app.messages.media.captionPlaceholder")
+                  : t("app.messages.compose.placeholder")
             }
             className="min-h-[44px] flex-1 resize-y rounded-2xl border border-border bg-background px-3 py-2.5 text-base text-foreground disabled:opacity-60"
           />
@@ -730,7 +889,11 @@ function Conversation({
             disabled={
               demoBlocked ||
               sending ||
-              (sendingTemplate
+              uploading ||
+              // A template send needs no typed words, and neither does a
+              // picture — the caption is optional. Everything else needs
+              // something in the box.
+              (sendingTemplate || sendingMedia
                 ? false
                 : composerBlocked || !text.trim())
             }

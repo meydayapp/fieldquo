@@ -14,7 +14,11 @@
 // most likely to be read on a phone is the one part of it nothing measures.
 // So they sit under app/app, where the mobile rules apply to them.
 
-import { AlertTriangle, Check, Clock, EyeOff, MessageSquare, StickyNote } from "lucide-react";
+import { useState } from "react";
+import {
+  AlertTriangle, Check, Clock, EyeOff, MessageSquare, StickyNote,
+  Paperclip, Film, Mic, FileText, Loader2, X,
+} from "lucide-react";
 // lucide ships NO brand marks — `Facebook` and `Instagram` do not exist in it
 // and the build says so. The bio-link page already needed these two and drew
 // them as inline SVG; one set of glyphs, not two that drift apart.
@@ -27,6 +31,7 @@ import {
 } from "@/lib/messaging/outcomes";
 import { activityLabel } from "@/lib/messaging/activity";
 import { waitedLabel, isWaiting } from "@/lib/messaging/waiting";
+import { attachmentTypeKey } from "@/lib/messaging/attachments";
 
 /** Two letters from a name, or a dash when Meta gave us none. */
 export function initials(name) {
@@ -97,7 +102,7 @@ export function clockTime(value) {
  * never "is it dark? use white", which fails on exactly the mid-tones
  * contractors pick.
  */
-export function Bubble({ message, bubbles, note, t }) {
+export function Bubble({ message, bubbles, note, onRetryAttachment, t }) {
   // The two kinds of row that are NOT a message between two people. Handled
   // first and returned early, so nothing below — the brand fill, the delivery
   // tick, the "not delivered" warning — can ever be applied to one of them.
@@ -128,11 +133,11 @@ export function Bubble({ message, bubbles, note, t }) {
           className={"rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap break-words " + tone}
         >
           {message.body || ""}
-          {Array.isArray(message.attachments) && message.attachments.length > 0 && (
-            <span className="block mt-1 text-xs opacity-80">
-              {t("app.messages.attachment", { count: message.attachments.length })}
-            </span>
-          )}
+          {/* The pictures themselves, not a count of them. This used to render
+              "1 attachment" for a homeowner's photo of their kitchen, which is
+              the most-used half of a messaging channel described rather than
+              shown. See Attachments below for the four states. */}
+          <Attachments message={message} onRetry={onRetryAttachment} t={t} />
         </div>
         <div className={"mt-1 flex items-center gap-1.5 text-xs text-muted-foreground " + (out ? "justify-end" : "")}>
           <span>{clockTime(message.sentAt)}</span>
@@ -151,6 +156,254 @@ export function Bubble({ message, bubbles, note, t }) {
           <p className="mt-1 text-xs text-muted-foreground">{message.failedReason}</p>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * The pictures on one message.
+ *
+ * ══ Why this is one renderer for three platforms ═══════════════════════════
+ *
+ * Because a photo of a kitchen is a photo of a kitchen. WhatsApp hands the
+ * webhook a media id with no bytes; Messenger and Instagram hand it a signed
+ * CDN link that expires. Both are re-hosted to Cloudinary out of band
+ * (lib/messaging/mediaFetch.js), and by the time anything reaches here the
+ * only question left is which of four STATES an entry is in — never which
+ * network it came from. A renderer that asked the platform would have three
+ * paths and two of them untested.
+ *
+ * ══ The four states, and why none of them is "nothing" ═════════════════════
+ *
+ *   ready        the picture. Tappable, opens full size in a new tab.
+ *   pending      "still arriving". NOT an <img> with a null src, which renders
+ *                as a broken-image glyph and reads as a photo we lost — and
+ *                NOT silence, which reads as a message that had no photo.
+ *   failed       the reason, in full, and a way to try again. A photo that
+ *                silently vanished is the failure this repo cares most about,
+ *                so the one thing this must never do is stop mentioning it.
+ *   unavailable  a location share, a Messenger "fallback": named, with no
+ *                Retry, because a retry for something that was never
+ *                fetchable is a dead control.
+ *
+ * ══ Colour ═════════════════════════════════════════════════════════════════
+ *
+ * Everything here inherits `currentColor` from the bubble. An outbound bubble
+ * is painted in two hex values the SERVER measured against the company's brand
+ * colour (lib/messaging/bubbleTheme.js); dropping a theme token like
+ * `text-muted-foreground` onto it would put an unmeasured pair on a surface
+ * whose whole point is that its pair was measured. Nothing below introduces a
+ * colour, and the opacity that used to dim the old "1 attachment" line is gone
+ * — this is the substance of the message now, not a footnote to it.
+ */
+export function Attachments({ message, onRetry, t }) {
+  const list = Array.isArray(message?.attachments) ? message.attachments : [];
+  if (!list.length) return null;
+  return (
+    <span className="mt-2 block space-y-1.5">
+      {list.map((attachment, i) => (
+        <AttachmentItem
+          key={`${message.id}:${attachment.index ?? i}`}
+          messageId={message.id}
+          attachment={attachment}
+          onRetry={onRetry}
+          t={t}
+        />
+      ))}
+    </span>
+  );
+}
+
+/** The glyph for a kind of file. An icon AND the word, for the same reason
+ *  PlatformBadge draws both: two grey glyphs are not a distinction. */
+function AttachmentIcon({ type, size = 14 }) {
+  const Glyph =
+    type === "video" ? Film : type === "audio" ? Mic : type === "document" ? FileText : Paperclip;
+  return <Glyph size={size} className="shrink-0" aria-hidden="true" />;
+}
+
+function AttachmentItem({ messageId, attachment, onRetry, t }) {
+  const [busy, setBusy] = useState(false);
+  const [retryError, setRetryError] = useState("");
+
+  const typeLabel = t(attachmentTypeKey(attachment.type));
+  // The filename when there is one, the kind when there is not. Never a
+  // Cloudinary id: a row reading "kx91v2zt" tells a contractor nothing.
+  const label = attachment.filename || typeLabel;
+
+  if (attachment.state === "ready" && attachment.type === "image") {
+    return (
+      <a
+        href={attachment.url}
+        target="_blank"
+        rel="noreferrer"
+        // A 44px minimum even though the thumbnail is far taller: the rule is
+        // about the TARGET, and a one-line landscape crop on a narrow phone
+        // can fall under it.
+        className="block min-h-[44px] overflow-hidden rounded-lg"
+        aria-label={t("app.messages.media.open", { name: label })}
+      >
+        {/* max-h rather than a fixed box: a portrait phone photo and a
+            landscape one both have to fit a bubble that is at most 85% of a
+            375px screen, and object-cover on a fixed height would crop the
+            thing the homeowner was pointing at. */}
+        <img
+          src={attachment.url}
+          alt={label}
+          className="max-h-64 w-auto max-w-full rounded-lg"
+        />
+      </a>
+    );
+  }
+
+  if (attachment.state === "ready") {
+    return (
+      <a
+        href={attachment.url}
+        target="_blank"
+        rel="noreferrer"
+        className="flex min-h-[44px] items-center gap-2 rounded-lg border border-current px-2.5 py-2 text-xs font-medium"
+      >
+        <AttachmentIcon type={attachment.type} />
+        <span className="truncate">{label}</span>
+      </a>
+    );
+  }
+
+  if (attachment.state === "pending") {
+    return (
+      // Said out loud, with a moving spinner, because the honest answer here
+      // is "not yet" and the alternatives are both lies: a broken image says
+      // it is gone, and silence says it never existed.
+      <span className="flex items-center gap-2 rounded-lg border border-current px-2.5 py-2 text-xs">
+        <Loader2 size={14} className="shrink-0 animate-spin" aria-hidden="true" />
+        <span className="truncate">{t("app.messages.media.pending", { kind: typeLabel })}</span>
+      </span>
+    );
+  }
+
+  if (attachment.state === "failed") {
+    return (
+      <span className="block rounded-lg border border-current px-2.5 py-2 text-xs">
+        <span className="flex items-center gap-2 font-semibold">
+          <AlertTriangle size={14} className="shrink-0" aria-hidden="true" />
+          <span className="truncate">{t("app.messages.media.failed", { kind: typeLabel })}</span>
+        </span>
+        {/* Meta's own words, in full. A contractor who cannot see WHY has no
+            way to tell "the file expired" from "the number needs
+            reconnecting" — the same argument the failed-bubble reason makes. */}
+        {attachment.error && <span className="mt-1 block">{attachment.error}</span>}
+        {retryError && <span className="mt-1 block font-medium">{retryError}</span>}
+        <button
+          type="button"
+          disabled={busy || !onRetry}
+          onClick={async () => {
+            setBusy(true);
+            setRetryError("");
+            try {
+              const failure = await onRetry?.(messageId, attachment.index);
+              // The verdict, on the bubble that asked for it. A Retry whose
+              // result the person who pressed it never sees is the dead
+              // control in its quietest form.
+              if (failure) setRetryError(failure);
+            } finally {
+              setBusy(false);
+            }
+          }}
+          className="mt-1.5 inline-flex min-h-[44px] items-center gap-1.5 font-semibold underline disabled:opacity-60"
+        >
+          {busy && <Loader2 size={12} className="animate-spin" aria-hidden="true" />}
+          {busy ? t("app.messages.media.retrying") : t("app.messages.media.retry")}
+        </button>
+      </span>
+    );
+  }
+
+  // unavailable — named, and offered nothing, because there is nothing to
+  // offer. A location share and a Messenger "fallback" both land here.
+  return (
+    <span className="flex items-center gap-2 rounded-lg border border-current px-2.5 py-2 text-xs">
+      <AttachmentIcon type={attachment.type} />
+      <span className="truncate">{t("app.messages.media.unavailable", { kind: typeLabel })}</span>
+    </span>
+  );
+}
+
+/**
+ * The attach control, and what is waiting to go with the next message.
+ *
+ * ══ Why it is only on a WhatsApp thread ════════════════════════════════════
+ *
+ * Because that is the only platform this build can actually send a file on —
+ * lib/messaging/send.js refuses `media` on Facebook and Instagram BY NAME, and
+ * a paperclip that produced "this conversation is on Facebook" after a
+ * contractor had picked a photo and watched it upload is the control that
+ * appears to work. The refusal in the send path is the guard that survives;
+ * this is the courtesy that stops anybody meeting it.
+ *
+ * The file is uploaded the moment it is picked, not at Send: a driveway
+ * connection takes real seconds, and a Send button that silently blocked on an
+ * upload would look frozen. What is drawn here is the state of that upload,
+ * with the server's own refusal on it when it fails.
+ */
+export function AttachControl({ supported, pending, uploading, errorText, onPick, onClear, accept, disabled, t }) {
+  if (!supported) return null;
+
+  if (pending) {
+    return (
+      <div className="mb-2 flex items-center gap-2 rounded-lg border border-border bg-muted px-2.5 py-2 text-xs text-foreground">
+        <AttachmentIcon type={pending.type} />
+        <span className="min-w-0 flex-1 truncate">{pending.name}</span>
+        <button
+          type="button"
+          onClick={onClear}
+          aria-label={t("app.messages.media.remove")}
+          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full hover:bg-card"
+        >
+          <X size={15} aria-hidden="true" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-2">
+      <label
+        className={
+          "inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-border bg-card px-3 text-sm font-medium text-foreground " +
+          (disabled || uploading ? "opacity-50" : "cursor-pointer hover:bg-muted")
+        }
+      >
+        {uploading ? (
+          <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+        ) : (
+          <Paperclip size={15} aria-hidden="true" />
+        )}
+        {uploading ? t("app.messages.media.attaching") : t("app.messages.media.attach")}
+        <input
+          type="file"
+          className="sr-only"
+          // The types WhatsApp will actually take, from the one table that
+          // knows them — a picker offering a format the send refuses is the
+          // dead control with a file dialog in front of it.
+          accept={accept}
+          disabled={disabled || uploading}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            // Cleared so picking the SAME file twice still fires a change
+            // event — otherwise a contractor who dismissed an error and
+            // re-picked the photo would get nothing at all.
+            e.target.value = "";
+            if (file) onPick(file);
+          }}
+        />
+      </label>
+      {errorText && (
+        // The server's sentence, naming WhatsApp's real limit. Not "upload
+        // failed" — the point of reading Meta's published table is to be able
+        // to say "pictures up to 5 MB" instead.
+        <p className="mt-1 text-xs text-destructive">{errorText}</p>
+      )}
     </div>
   );
 }

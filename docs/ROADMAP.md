@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 8 September 2026 (WhatsApp Business is the third channel on the inbox — Embedded Signup, a signed webhook, an approved-template list, and the 24-hour customer service window modelled explicitly so free text is refused by name rather than by Meta; blocked only on `whatsapp_business_messaging`, which `META_WHATSAPP_ENABLED=1` unblocks).
+Last updated: 8 September 2026 (pictures — inbound media re-hosted to Cloudinary out of band by `/api/cron/messaging-media` and rendered as actual thumbnails on all three platforms, outbound photos, clips and PDFs on WhatsApp inside the 24-hour window; WhatsApp Business is the third channel on the inbox — Embedded Signup, a signed webhook, an approved-template list, and the 24-hour customer service window modelled explicitly so free text is refused by name rather than by Meta; blocked only on `whatsapp_business_messaging`, which `META_WHATSAPP_ENABLED=1` unblocks).
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -68,12 +68,8 @@ The screencast Meta's reviewer needs, step by step, is
 
 ### Still owed here
 
-- **Inbound media is an id, not bytes.** WhatsApp's webhook carries a media id,
-  not a URL; fetching it needs two authenticated Graph calls and the signed URL
-  expires in five minutes. The id and mime type are stored, `url` is null and
-  honestly so — the bubble shows an attachment it cannot yet render. Nothing
-  claims otherwise.
-- **Outbound media is not built.** Text and templates only.
+- ~~**Inbound media is an id, not bytes.**~~ ~~**Outbound media is not
+  built.**~~ **Both done — see "Pictures" below.**
 - **Template status is polled, not pushed.** A button, because a contractor
   waiting on an approval will check. Meta pushes
   `message_template_status_update` on the same webhook and subscribing to that
@@ -83,6 +79,77 @@ The screencast Meta's reviewer needs, step by step, is
 - **`app.aiEmployee.skip.*` has no keys in any language** — pre-existing, and
   `outside_service_window` joins eleven other reasons that render as raw
   snake_case through the `t(key, fallback)` fallback. Worth one pass.
+
+---
+
+## Pictures: the photo a homeowner sends, and the one a contractor sends back (8 September 2026)
+
+"Does that mean we can't receive or send pictures?" Until now, yes. A homeowner
+sent a photo of their kitchen and the contractor read the words
+"1 attachment" — a description of the most-used half of a messaging channel.
+
+**Inbound, out of band.** WhatsApp's webhook carries a media id and no bytes;
+reaching them needs `GET /<media-id>` for a signed URL that expires in five
+minutes and then a second authenticated GET. Messenger and Instagram DO carry a
+URL — a signed CDN link that also expires, which is why they go through the
+same path rather than being rendered directly. The webhook still fetches
+nothing and still answers 200 fast (the check proves it with a spy in place of
+`fetch`, counting zero calls); it writes one derived boolean,
+`Message.mediaPending`, and `/api/cron/messaging-media` does the work every
+minute. That is the repo's one deferral mechanism — a cron route in
+`vercel.json` behind `requireCronSecret` — for the reason
+`/api/cron/messaging-snooze` gives: a second mechanism is the one nobody
+monitors.
+
+**One invariant, pinned.** `Message.attachments[].url` is null, or it is a
+Cloudinary URL. Never Meta's. That is `CrewInboundMessage.mediaUrls`' Twilio
+lesson — "those need auth to fetch and expire" — arriving from a different
+vendor, and it is the bug that renders correctly in review and renders broken a
+week later. The expiring link lives in `sourceUrl`, which is fetcher-only and
+stripped before anything reaches a browser. `lib/messaging/attachments.js` owns
+the shape and four states, and the check executes an uploader that tries to
+hand back a Graph URL: the entry does not become ready.
+
+**Four states, because absence is not one thing.** Ready draws the picture,
+tappable to full size. Pending says it is still arriving — not a broken `<img>`,
+which reads as a photo we lost, and not silence, which reads as a message that
+had none. Failed keeps Meta's own words and offers Retry, which fetches inline
+so the person who pressed it sees the verdict. Unavailable (a location share, a
+Messenger "fallback") is named and offered nothing. Video, audio, documents and
+stickers render as named typed rows; a voice note says "voice message".
+
+**Outbound, WhatsApp only.** The composer's paperclip uploads through the
+existing `/api/upload` Cloudinary path, the server proves the URL and public_id
+belong to *this* company's folder, reads the bytes back itself, and
+`lib/messaging/whatsappSend.js` posts them to `POST /{phone-number-id}/media`
+and sends by the returned id. Meta documents both `id` and `link`; the id wins
+because the link form makes Meta cache the fetched asset for ten minutes, and
+the failure mode of a cache is a send that succeeds with the wrong picture.
+Meta's published limits are enforced before the upload with the real number in
+the sentence — image 5 MB, video 16 MB, audio 16 MB, document 100 MB, sticker
+100 KB static / 500 KB animated — and the check exercises each at the boundary
+and one byte over. An iPhone HEIC is converted to JPEG through one Cloudinary
+transformation, so the format a contractor's phone actually shoots sends.
+
+**The window still decides.** A photo is not a template, so it is refused
+outside the 24 hours by the same `service_window_closed`, with the same
+sentence, *before* the upload to Meta — the order is the guard. The AI employee
+sends text and only text.
+
+### Still owed here
+
+- **Outbound media on Facebook and Instagram.** Refused by name
+  (`media_unsupported`) and the paperclip is not drawn on those threads. The
+  Messenger Send API takes an attachment with a public URL and a Cloudinary URL
+  is one, but it is a different payload, a different error set and a different
+  window rule; building it by analogy is how the second copy of a send path
+  rots.
+- **A .mov is refused, not transcoded.** WhatsApp takes MP4 and 3GP; the
+  refusal names MP4 so there is a next step. Cloudinary's video transcode is
+  asynchronous, and a send that waited on it would either block for a minute or
+  lie.
+- **No outbound audio.** There is no recorder in the composer, so offering the
+  type would be a control with nothing behind it.
 
 ---
 

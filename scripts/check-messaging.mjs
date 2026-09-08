@@ -56,6 +56,16 @@ import {
 import { composerBlock, connectionBlurb } from "@/lib/messaging/composerState";
 import { bubbleColours } from "@/lib/messaging/bubbleTheme";
 import { normaliseOutcome, normaliseStatus, THREAD_OUTCOMES } from "@/lib/messaging/outcomes";
+import {
+  normaliseAttachment,
+  normaliseAttachments,
+  publicAttachments,
+  attachmentTypeKey,
+  hasFetchableMedia,
+  isDurableMediaUrl,
+  ATTACHMENT_TYPES,
+} from "@/lib/messaging/attachments";
+import { rehostAttachment } from "@/lib/messaging/mediaFetch";
 import { demoThreads } from "@/lib/messaging/demoThreads";
 import { META_OAUTH_SCOPE, META_MESSAGING_SCOPE } from "@/lib/meta/client";
 import { FEATURES } from "@/lib/features/registry";
@@ -77,6 +87,17 @@ function ok(label, condition, detail = "") {
   }
 }
 const section = (t) => console.log(`\n${t}\n`);
+
+/**
+ * Both needles present AND in this order. `indexOf` returns -1 for an absent
+ * needle and -1 is less than every real index, so the naive `a < b` form
+ * passes once the thing being checked for has been deleted.
+ */
+function orderedInSource(source, a, b) {
+  const ia = source.indexOf(a);
+  const ib = source.indexOf(b, ia === -1 ? 0 : ia);
+  return ia >= 0 && ib > ia;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("1. The webhook signature — valid, forged, missing, unset secret");
@@ -854,6 +875,214 @@ for (const lang of LANGS) {
   const bad = KEYS.filter((k) => /[$£€]\s*\{|\{[^}]+\}\s*[$£€]/.test(APP_MESSAGES[lang]?.[k] || ""));
   ok(`${lang}: no currency symbol beside a placeholder`, bad.length === 0, bad.join(", "));
 }
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("12. Pictures — one renderer, three platforms, no expiring links");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Messenger and Instagram DO put a URL in the webhook, which is what makes
+// this the easy thing to get wrong: rendering it works today, in review, in
+// the demo, and shows a broken image to the contractor who reopens the thread
+// next week. It is a signed CDN link, and it expires — the same trap
+// CrewInboundMessage.mediaUrls records for Twilio.
+
+const PHOTO_BODY = {
+  object: "page",
+  entry: [
+    {
+      id: "PAGE_1",
+      messaging: [
+        {
+          sender: { id: "PSID_1" },
+          recipient: { id: "PAGE_1" },
+          timestamp: 1757000000000,
+          message: {
+            mid: "mid.photo",
+            text: "here's the room",
+            attachments: [
+              { type: "image", payload: { url: "https://scontent.xx.fbcdn.net/v/t1/kitchen.jpg?oe=DEAD" } },
+            ],
+          },
+        },
+      ],
+    },
+  ],
+};
+
+const photoEvents = parseMessagingEnvelope(PHOTO_BODY).events;
+ok(
+  "Messenger's own CDN link never lands in `url`",
+  photoEvents[0]?.attachments?.[0]?.url === null,
+);
+ok(
+  "…it is kept as a sourceUrl for the fetcher instead",
+  photoEvents[0]?.attachments?.[0]?.sourceUrl?.includes("fbcdn.net"),
+);
+
+seedChannel();
+await ingestEvents(photoEvents);
+ok("the photo message is stored", rows.message.length === 1);
+ok(
+  "…flagged so /api/cron/messaging-media has something to find",
+  rows.message[0].mediaPending === true,
+);
+ok(
+  "…and nothing durable is claimed for it yet",
+  publicAttachments(rows.message[0].attachments)[0].state === "pending",
+);
+ok(
+  "the expiring Meta link is NOT handed to the browser",
+  !JSON.stringify(publicAttachments(rows.message[0].attachments)).includes("fbcdn.net"),
+);
+
+// An Instagram echo carrying a file: the SAME shape, so the renderer has one
+// path rather than three.
+const igEvents = parseMessagingEnvelope({
+  object: "instagram",
+  entry: [
+    {
+      id: "PAGE_1",
+      messaging: [
+        {
+          sender: { id: "PAGE_1" },
+          recipient: { id: "PSID_2" },
+          timestamp: 1757000001000,
+          message: {
+            mid: "mid.ig",
+            is_echo: true,
+            attachments: [{ type: "file", payload: { url: "https://scontent.cdninstagram.com/v/plan.pdf" } }],
+          },
+        },
+      ],
+    },
+  ],
+}).events;
+ok("an Instagram attachment parses to the same shape", igEvents[0]?.attachments?.[0]?.url === null);
+ok(
+  "…and Messenger's \"file\" is named DOCUMENT, not left as a platform word",
+  normaliseAttachment(igEvents[0].attachments[0]).type === "document",
+);
+
+// Every type the renderer can meet has a name in the reader's own language.
+for (const type of ATTACHMENT_TYPES) {
+  const key = attachmentTypeKey(type);
+  ok(`a ${type} attachment has a label key`, key.startsWith("app.messages.media."));
+  ok(`…and it exists in English`, Boolean(APP_MESSAGES.en[key]));
+}
+ok(
+  "an audio attachment is called a voice message, which is what it is",
+  /voice/i.test(APP_MESSAGES.en[attachmentTypeKey("audio")]),
+);
+
+// Anything unparseable in the column renders as a named row rather than
+// throwing — a conversation must never fail to load over one bad attachment.
+ok("a null attachment column is []", normaliseAttachments(null).length === 0);
+ok("garbage in the column becomes an unavailable row", normaliseAttachment("nonsense").state === "unavailable");
+ok("…of a named type", normaliseAttachment("nonsense").type === "other");
+ok("…with no Retry, because there is nothing to retry", publicAttachments(["nonsense"])[0].retryable === false);
+
+// ── The fetch, for a platform that needs NO token ──────────────────────────
+const calls = [];
+const bytes = Buffer.from("PNGDATA");
+const bareFetch = async (url, init) => {
+  calls.push({ url: String(url), auth: init?.headers?.Authorization || null });
+  return {
+    ok: true,
+    status: 200,
+    headers: new Headers({ "content-type": "image/jpeg", "content-length": String(bytes.length) }),
+    arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+    json: async () => ({}),
+  };
+};
+const rehosted = await rehostAttachment({
+  attachment: normaliseAttachment(photoEvents[0].attachments[0], 0),
+  channel: null,
+  companyId: "company_REAL",
+  fetchImpl: bareFetch,
+  uploadImpl: async () => ({ secure_url: "https://res.cloudinary.com/demo/image/upload/v1/messaging/company_REAL/k.jpg" }),
+});
+ok("a Messenger photo is re-hosted in ONE call — it needs no token", calls.length === 1);
+ok("…and no Authorization header is attached to a pre-signed CDN link", calls[0]?.auth === null);
+ok("…and what comes back is Cloudinary's, not Meta's", isDurableMediaUrl(rehosted.url) === true);
+
+// SSRF: a sourceUrl naming anything but Meta is refused before a request is made.
+const offMeta = [];
+const refused = await rehostAttachment({
+  attachment: normaliseAttachment({ type: "image", sourceUrl: "https://169.254.169.254/latest/meta-data/" }, 0),
+  channel: null,
+  companyId: "company_REAL",
+  fetchImpl: async (u) => { offMeta.push(String(u)); throw new Error("must not be reached"); },
+  uploadImpl: async () => { throw new Error("must not upload"); },
+});
+ok("a source url off Meta's hosts is refused", Boolean(refused.error));
+ok("…without a single request leaving the process", offMeta.length === 0);
+
+// ── The thread route hands the browser the shaped version ─────────────────
+const threadRoute = read("app/api/messaging/threads/[id]/route.js");
+ok(
+  "the thread route shapes every message's attachments before answering",
+  /attachments: publicAttachments\(m\.attachments\)/.test(threadRoute),
+);
+ok(
+  "…and it selects the column in the first place",
+  orderedInSource(threadRoute, "attachments: true", "publicAttachments"),
+);
+
+// ── The Retry endpoint ────────────────────────────────────────────────────
+const retryRoute = read("app/api/messaging/threads/[id]/attachments/route.js");
+ok("a failed fetch has an endpoint to retry through", retryRoute.includes("fetchMessageMedia"));
+ok(
+  "…scoped to this company AND this thread, so it cannot pull another tenant's file",
+  /threadId: id, thread: \{ companyId: member\.companyId \}/.test(retryRoute),
+);
+ok(
+  "…resetting the attempt counter before it tries, so the ceiling cannot make Retry a dead button",
+  orderedInSource(retryRoute, "withFetchReset", "fetchMessageMedia"),
+);
+ok(
+  "…and refusing an entry that was never fetchable rather than offering a pointless retry",
+  /state === "unavailable"/.test(retryRoute),
+);
+ok(
+  "…answering a demo company plainly rather than pretending",
+  orderedInSource(retryRoute, "connection.mock", "sample conversation"),
+);
+
+// The composer's paperclip is WhatsApp-only, because that is the only platform
+// lib/messaging/send.js can actually send a file on.
+const messagesPage = read("app/app/messages/page.js");
+ok(
+  "the attach control is offered only on a WhatsApp thread",
+  /mediaSupported =[\s\S]{0,200}thread\?\.platform === "whatsapp"/.test(messagesPage),
+);
+ok(
+  "…and never while the composer is blocked, so nobody uploads into a closed window",
+  /mediaSupported =[\s\S]{0,240}!composerBlocked/.test(messagesPage),
+);
+ok(
+  "the file is checked against Meta's limits BEFORE it is uploaded",
+  orderedInSource(messagesPage, "classifyWhatsAppOutboundMedia(file)", '"/api/upload"'),
+);
+// The composer is "use client". lib/messaging/whatsappMedia.js imports
+// channels.js, which imports "@/lib/db" — reaching through it for one pure
+// function would pull Prisma into the browser bundle, which is the exact
+// mistake lib/media/cloudinaryUrl.js exists to record. So the limits live in
+// their own dependency-free module, and this pins that.
+ok(
+  "the composer reads Meta's limits from the PURE module, not the send module",
+  messagesPage.includes('from "@/lib/messaging/whatsappMediaLimits"') &&
+    !messagesPage.includes('from "@/lib/messaging/whatsappMedia"'),
+);
+ok(
+  "…and that module imports nothing at all, so nothing server-only can arrive through it",
+  !/^\s*import\s/m.test(read("lib/messaging/whatsappMediaLimits.js")),
+);
+ok(
+  "the attachment model is likewise dependency-free — the bubble imports it",
+  !/^\s*import\s/m.test(read("lib/messaging/attachments.js")),
+);
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 

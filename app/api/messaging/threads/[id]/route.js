@@ -27,6 +27,7 @@ import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { messagingConnection } from "@/lib/messaging/channels";
 import { serviceWindowNotice, needsServiceWindow } from "@/lib/messaging/serviceWindow";
 import { publicTemplateShape } from "@/lib/messaging/templates";
+import { publicAttachments } from "@/lib/messaging/attachments";
 import { demoThreads } from "@/lib/messaging/demoThreads";
 import {
   normaliseOutcome,
@@ -126,6 +127,19 @@ export async function GET(request, { params }) {
     connection,
     thread: {
       ...thread,
+      // ── The attachments, shaped and stripped ─────────────────────────────
+      //
+      // publicAttachments is the same kind of boundary publicChannelShape is
+      // for a token: it drops `sourceUrl` (a signed, expiring Meta CDN link,
+      // and for WhatsApp one that only resolves with the company's own access
+      // token) and `mediaId` (Meta's handle, which the browser has no use for
+      // — the Retry endpoint names an INDEX for exactly that reason). What
+      // reaches the screen is the state, the type, and a Cloudinary URL or
+      // null.
+      messages: thread.messages.map((m) => ({
+        ...m,
+        attachments: publicAttachments(m.attachments),
+      })),
       // Normalised on the way out so a row still carrying the pre-four-state
       // "closed" arrives at the screen as a status the chips actually draw.
       status: readStatus(thread.status),
