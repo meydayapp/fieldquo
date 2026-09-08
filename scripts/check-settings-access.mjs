@@ -714,6 +714,16 @@ const IMPERSONATION_STILL_REFUSED = [
   // Bills are company-wide payables, gated on the expenses grid, which
   // "viewer" fails for the same reason it fails /api/salaries.
   "app/api/bills/route.js",
+  // The AI employee screen lists the drafts it wrote, which means it reads the
+  // conversation they belong to. Every other entry above is the COMPANY's own
+  // data; this one is a third party's. A homeowner messaging a contractor's
+  // Facebook page has a relationship with the contractor, not with FieldQuo,
+  // and never agreed that FieldQuo's staff could read what they wrote. The
+  // rest of the screen — the role, the limits, the uploaded material, the
+  // drafts' own text — IS visible to a support session, so a support call
+  // about "why did it answer that" is still answerable. What stays dark is the
+  // customer's half of the conversation.
+  "app/api/messaging/threads/route.js",
 ];
 
 const stillRefused = new Set();

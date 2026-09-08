@@ -91,6 +91,10 @@
     {
       "path": "/api/cron/sales-payouts",
       "schedule": "7 10 * * 1"
+    },
+    {
+      "path": "/api/cron/messaging-snooze",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

@@ -45,6 +45,7 @@ import {
   Droplet,
   Ruler,
   Headset,
+  Bot,
   Mail,
   Clock,
   Palette,
@@ -182,6 +183,11 @@ const GROUPS = [
       { key: "app.settings.leadForm", href: "/app/settings/lead-form", icon: ClipboardList },
       { key: "app.settings.bioLink", href: "/app/settings/links", icon: Link2 },
       { key: "app.settings.voice", href: "/app/settings/voice", icon: Headset },
+      // Beside the phone receptionist rather than under Messaging, and for the
+      // same reason the receptionist is here: both are an agent a STRANGER
+      // meets. The Messaging group is about the wording of what the company
+      // sends; this is about who answers.
+      { key: "app.settings.aiEmployee", href: "/app/settings/ai-employee", icon: Bot },
       { key: "app.settings.reviews", href: "/app/settings/reviews", icon: Star },
     ],
   },

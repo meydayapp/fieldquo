@@ -398,7 +398,11 @@ ok(
 );
 ok(
   "the thread is only advanced AFTER a successful send",
-  replySrc.indexOf("if (!result.ok)") < replySrc.indexOf("data: { unread: 0"),
+  // Positional, and tolerant of formatting: the failed-send guard must come
+  // before the write that clears the unread count, or a send that never left
+  // the building marks the conversation as handled.
+  replySrc.indexOf("if (!result.ok)") > -1 &&
+    replySrc.indexOf("unread: 0") > replySrc.indexOf("if (!result.ok)"),
 );
 ok(
   "the reply route scopes the thread by companyId",
@@ -454,13 +458,26 @@ ok(
 // whole point. Positional: the disabled attribute and the printed reason both
 // reference the same one decision.
 const pageSrc = read("app/app/messages/page.js");
+const bitsSrc = read("app/app/messages/ConversationBits.js");
+// The composer moved into ConversationBits.js, so the reason and the disabled
+// attribute now live in two files. What must stay true is that ONE decision
+// drives both: the page computes `blockKey`, hands it down, and the same value
+// both switches the control off and gets printed. Following the value across
+// the split is the real claim; matching one inline JSX shape was only ever a
+// proxy for it.
+ok(
+  "the page computes the block from the channel and hands it down",
+  /const blockKey = composerBlock\(connection\)/.test(pageSrc) &&
+    /disabledReplyKey=\{blockKey\}/.test(pageSrc),
+);
 ok(
   "the page prints the block reason",
-  /\{blockKey && \([\s\S]{0,200}t\(blockKey\)/.test(pageSrc),
+  /disabledReplyKey && \(/.test(bitsSrc) && /t\(disabledReplyKey\)/.test(bitsSrc),
 );
 ok(
   "the composer is disabled by the same decision that prints it",
-  /disabled=\{Boolean\(blockKey\)/.test(pageSrc),
+  /const composerBlocked = mode === "reply" && Boolean\(blockKey\)/.test(pageSrc) &&
+    /disabled=\{composerBlocked/.test(pageSrc),
 );
 ok(
   "the composer is disabled, not hidden",
@@ -717,7 +734,6 @@ for (const brandColor of HOSTILE) {
   );
 }
 // The page must actually PAINT the measured pair rather than a class.
-const bitsSrc = read("app/app/messages/ConversationBits.js");
 ok(
   "the outbound bubble uses the measured colours",
   /backgroundColor: bubbles\.outbound\.bg, color: bubbles\.outbound\.fg/.test(bitsSrc),

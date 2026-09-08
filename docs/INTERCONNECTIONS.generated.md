@@ -3,7 +3,7 @@
 ## The entity graph
 
 Every model, and what points at it. Generated from `prisma/schema.prisma`, so
-it cannot drift from the code. 196 models.
+it cannot drift from the code. 200 models.
 
 **Read it before adding anything.** The question it answers is "what already
 touches this, and what would my change touch" — which is the question that was
@@ -30,19 +30,21 @@ tenancy, so it carries no information.
 | **MarketingCampaign** | 3 | MarketingCampaignDelivery, MarketingDesign, PamphletStop |
 | **PlatformAdmin** | 3 | DemoBooking, DemoHostAvailability, PlatformAuditLog |
 | **VoiceAgent** | 3 | Company, VoiceCall, VoicePhoneNumber |
+| **AiEmployee** | 2 | AiEmployeeSource, Company |
 | **DocumentTemplate** | 2 | FollowUpRule, MarketingCampaign |
 | **Funnel** | 2 | FunnelEvent, FunnelResponse |
 | **JobPhoto** | 2 | JobPhotoComment, JobPhotoTagOnPhoto |
 | **LeadRequest** | 2 | LeadNote, Quote |
-| **LeavePolicy** | 2 | LeaveBalance, LeaveRequest |
 
 ### Every model, both directions
 
-<details><summary>196 models — expand</summary>
+<details><summary>200 models — expand</summary>
 
 | Model | Points at | Pointed at by |
 |---|---|---|
 | `AiCreditBundle` | — | Company |
+| `AiEmployee` | — | AiEmployeeSource, Company |
+| `AiEmployeeSource` | AiEmployee | — |
 | `Appointment` | Booking, Client, Quote | Booking |
 | `Asset` | Debt | AssetUseLog |
 | `AssetUseLog` | Asset, Job, Member | — |
@@ -51,7 +53,7 @@ tenancy, so it carries no information.
 | `Client` | — | Appointment, ClientEquipment, Invoice, Job, PamphletStop, Quote, ReferralLink, SatisfactionResponse, ServicePlan, Task |
 | `ClientEquipment` | Client | ClientEquipmentService |
 | `ClientEquipmentService` | ClientEquipment | — |
-| `Company` | AiCreditBundle, CompanySite, CrewInboxNumber, ForecastSettings, LinkPage, MetaAdConnection, SalesAttribution, SalesRep, Subscription, VoiceAgent, VoiceAutoTopup | AccountAbuseStrike, ActivityLog, AiCreditBundle, AiDigest, AiUsage, Appointment, Asset, AssetUseLog, CallConsent, Client, ClientEquipment, CompanyFeatureOverride, CompanyServiceCategory, CompanySite, CrewInboundMessage, CrewInboxNumber, CustomField, Debt, DocumentTemplate, EventType, Expense, ExpenseImportBatch, FollowUpRule, ForecastSettings, Funnel, InstantQuoteConfig, Invoice, Job, JobChecklistTemplate, JobDailyLog, JobDocument, JobPaymentStage, JobPhoto, JobPhotoComment, JobPhotoMention, JobPhotoTag, LeadRequest, LeavePolicy, LeaveRequest, LinkPage, MarketingCampaign, MarketingDesign, MarketingSpend, MarketingSubscriber, Material, MaterialRecipeSetting, Member, MessageThread, MessagingChannel, MetaAdConnection, MetaLeadForm, MetaPageConnection, MigrationRequest, NotificationDelivery, NotificationEvent, NotificationRule, PayRun, PaymentScheduleStage, PendingTeamProfile, Product, PurchaseOrder, QuickAddItem, Quote, QuoteImport, RecordEdit, ReferralCredit, ReferralInvite, SafetyIncident, Salary, SalaryComponent, SalesAttribution, SalesAttributionTouch, SalesCommissionEntry, SalesRep, SatisfactionResponse, ServiceCategory, ServicePlan, Shift, SmsOptOut, SocialPublish, StockMovement, Subscription, Supplier, Task, TaxRate, VehicleDetail, VoiceAgent, VoiceAutoTopup, VoiceCall, VoiceCallTask, VoiceCreditEntry, VoicePhoneNumber, WorkArea, Worker, WorkingHours |
+| `Company` | AiCreditBundle, AiEmployee, CompanySite, CrewInboxNumber, ForecastSettings, LinkPage, MetaAdConnection, SalesAttribution, SalesRep, Subscription, VoiceAgent, VoiceAutoTopup | AccountAbuseStrike, ActivityLog, AiCreditBundle, AiDigest, AiEmployee, AiEmployeeReply, AiEmployeeSource, AiUsage, Appointment, Asset, AssetUseLog, CallConsent, Client, ClientEquipment, CompanyFeatureOverride, CompanyServiceCategory, CompanySite, CrewInboundMessage, CrewInboxNumber, CustomField, Debt, DocumentTemplate, EventType, Expense, ExpenseImportBatch, FollowUpRule, ForecastSettings, Funnel, InstantQuoteConfig, Invoice, Job, JobChecklistTemplate, JobDailyLog, JobDocument, JobPaymentStage, JobPhoto, JobPhotoComment, JobPhotoMention, JobPhotoTag, LeadRequest, LeavePolicy, LeaveRequest, LinkPage, MarketingCampaign, MarketingDesign, MarketingSpend, MarketingSubscriber, Material, MaterialRecipeSetting, Member, MessageThread, MessagingChannel, MetaAdConnection, MetaLeadForm, MetaPageConnection, MigrationRequest, NotificationDelivery, NotificationEvent, NotificationRule, PayRun, PaymentScheduleStage, PendingTeamProfile, Product, PurchaseOrder, QuickAddItem, Quote, QuoteImport, RecordEdit, ReferralCredit, ReferralInvite, SafetyIncident, Salary, SalaryComponent, SalesAttribution, SalesAttributionTouch, SalesCommissionEntry, SalesRep, SatisfactionResponse, ServiceCategory, ServicePlan, Shift, SmsOptOut, SocialPublish, StockMovement, Subscription, Supplier, Task, TaxRate, VehicleDetail, VoiceAgent, VoiceAutoTopup, VoiceCall, VoiceCallTask, VoiceCreditEntry, VoicePhoneNumber, WorkArea, Worker, WorkingHours |
 | `CompanyServiceCategory` | ServiceCategory | — |
 | `CompanySite` | — | Company |
 | `CrewInboxNumber` | — | Company |

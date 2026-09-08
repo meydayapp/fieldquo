@@ -247,6 +247,8 @@ tenancy, so it carries no information.
 | `AiCreditBundle` | — | Company |
 | `Appointment` | Booking, Client, Quote | Booking |
 | `Asset` | Debt | AssetUseLog |
+| `AiEmployee` | — | AiEmployeeSource, Company |
+| `AiEmployeeSource` | AiEmployee | — |
 | `AssetUseLog` | Asset, Job, Member | — |
 | `Booking` | Appointment, EventType, Quote | Appointment |
 | `ChangeOrder` | Invoice, Job | — |

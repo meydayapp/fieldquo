@@ -1618,6 +1618,9 @@ model Company {
   purchaseOrders        PurchaseOrder[]
   stockMovements        StockMovement[]
   vehicleDetails        VehicleDetail[]
+  aiEmployee            AiEmployee?
+  aiEmployeeSources     AiEmployeeSource[]
+  aiEmployeeReplies     AiEmployeeReply[]
 }
 
 /// Configuration for the bio-link page at /l/<slug> — the single link an
@@ -2331,6 +2334,46 @@ model Quote {
   /// company typed, not the day of the import.
   historicalImportedAt DateTime?
 
+  /// HOW this quote row came into existence. The closed set, its reasoning and
+  /// the one helper that validates it live in lib/quotes/createdVia.js — read
+  /// that file before adding a value, because every screen that groups by this
+  /// column reads its label from there.
+  ///
+  /// Deliberately NOT an enum. A Prisma enum change is a migration on a column
+  /// three agents are appending creators to, and an unknown string here is
+  /// already handled honestly by createdViaLabel() — it reads "Other", not a
+  /// crash. The check (scripts/check-conversation-review.mjs) asserts every
+  /// creation site writes a value from the list, which is the guarantee an
+  /// enum would have bought.
+  ///
+  /// NULL means NOT RECORDED, and every historical row is null on purpose.
+  /// Nothing back-fills a guess onto a quote written before this column
+  /// existed: "we don't know how this one was made" is the truth, and a screen
+  /// must print that sentence rather than quietly counting those rows as
+  /// staff-built and overstating what humans typed.
+  createdVia String?
+
+  /// The MessageThread this quote came out of, when it came out of one.
+  ///
+  /// A plain id and NOT a relation, deliberately. A relation would add a
+  /// `quotes Quote[]` back-reference to MessageThread — a model another change
+  /// is actively editing — for a link that is only ever followed in one
+  /// direction (quote → thread), which is the same reasoning Quote.sourceCallId
+  /// and LeadRequest-side ids already carry. Nothing joins on it; the monthly
+  /// attribution loader looks it up by thread id.
+  ///
+  /// NOT a duplicate of MessageThread.quoteId, which points the other way and
+  /// means something else: that one is a link a PERSON stated in the inbox,
+  /// after the fact, one quote per thread. This one is provenance stamped at
+  /// creation, never edited, and a single conversation may produce several
+  /// quotes. lib/attribution/loadMonthlyConversations.js reads BOTH and treats
+  /// either as a recorded link.
+  sourceThreadId String?
+
+  /// Quotes a conversation produced, and quotes grouped by where they came
+  /// from — the two reads this column exists for.
+  @@index([companyId, sourceThreadId])
+  @@index([companyId, createdVia])
   @@unique([companyId, quoteNumber])
 }
 
@@ -11192,10 +11235,73 @@ model MessageThread {
   /// so the list can say "3" the way a phone does.
   unread Int @default(0)
 
-  /// "open" | "snoozed" | "closed" — where it sits in the inbox. Deliberately
-  /// NOT the same axis as `outcome` below: a thread can be closed because it
-  /// was answered and finished, and still have no outcome recorded yet.
+  /// "open" | "pending" | "snoozed" | "resolved" — where it sits in the inbox.
+  /// Deliberately NOT the same axis as `outcome` below: a thread can be
+  /// resolved because it was answered and finished, and still have no outcome
+  /// recorded yet.
+  ///
+  /// FOUR states, not two, because two is not how a contractor's week works.
+  /// "pending" is "we answered, the ball is theirs" and "snoozed" is "parked
+  /// until Monday" — the two the inbox previously had to fake by leaving a
+  /// thread open and remembering. Rows written before this carry the older
+  /// "closed", which lib/messaging/outcomes.js maps to "resolved" on read; a
+  /// stored value nothing recognises would render as a thread in no filter at
+  /// all, which is the quiet version of losing it.
   status String @default("open")
+
+  /// When `status` last changed, and when a snooze runs out. Both nullable
+  /// because "we were never told" is a real answer for every row that existed
+  /// before these columns did — a statusChangedAt defaulted to now() would
+  /// claim every historical thread changed state on deploy day.
+  ///
+  /// snoozedUntil is read by /api/cron/messaging-snooze, which is the ONLY
+  /// thing that brings a snoozed thread back. A snooze whose time passes with
+  /// nothing watching is a thread that silently never returns — the same
+  /// "control that appears to work" failure as a dead button, with a lead
+  /// behind it.
+  statusChangedAt DateTime?
+  snoozedUntil    DateTime?
+
+  /// Who at the company owns this conversation. A bare user id, like
+  /// Message.sentByUserId and MessagingChannel.connectedByUserId beside it —
+  /// no relation, because this feature deliberately keeps User out of its
+  /// graph. Named `assignedToId` and not `assignedToUserId` so it is the key
+  /// lib/tenant/ownedIds.js already knows how to prove ("this person is on
+  /// your team", checked against Member); a differently-named column would be
+  /// a foreign key nothing in the tenant sweep looks at.
+  assignedToId String?
+
+  // ── Response time, as columns rather than as a scan ──────────────────────
+  //
+  // Chatwoot keeps first_reply_created_at and waiting_since ON the
+  // conversation, and it is right to: "this person has been waiting four
+  // hours" is a sentence the INBOX has to be able to say now, and a screen
+  // that had to walk every message of every thread to say it would not say it
+  // at all. lib/messaging/monthlyReview.js reads these; its message scan
+  // stays as the backfill for rows written before they existed.
+  //
+  // firstInboundAt is stored alongside firstReplyAt because a reply time is a
+  // GAP: Chatwoot measures from the conversation's creation, which is wrong
+  // for a thread that opened with the company's own outbound message. Both
+  // ends, or neither.
+  firstInboundAt DateTime?
+  firstReplyAt   DateTime?
+
+  /// Set when a homeowner's message arrives with nothing answering it, and
+  /// cleared the moment a real reply goes out. NOT cleared by a private note
+  /// (a note is not an answer to the homeowner) and NOT cleared by a failed
+  /// send (nothing reached them).
+  waitingSince DateTime?
+
+  /// The number a contractor says out loud — "have a look at conversation 41".
+  /// Per company and sequential, the same shape lib/quotes/quoteNumber.js
+  /// mints for quotes, and allocated the same way: read the highest the
+  /// company holds, add one.
+  ///
+  /// Nullable, and left null when allocation loses a race or a row predates
+  /// this column. A conversation with no number shows none; inventing one
+  /// would mean two conversations answering to "41".
+  threadNumber Int?
 
   // ── What this conversation turned out to be ──────────────────────────────
   //
@@ -11226,11 +11332,20 @@ model MessageThread {
 
   /// The idempotency key the webhook upserts on.
   @@unique([channelId, externalThreadId])
+  /// One number per company. Postgres allows many NULLs under a unique index,
+  /// which is exactly what an unnumbered row needs.
+  @@unique([companyId, threadNumber])
   /// The inbox list (newest first) and the month-end query (threads that
   /// STARTED in a month), which is createdAt and not lastMessageAt.
   @@index([companyId, lastMessageAt])
   @@index([companyId, createdAt])
   @@index([companyId, outcome])
+  /// The status filter chips on the inbox.
+  @@index([companyId, status])
+  /// "who is waiting longest" and "whose snooze is up" — the second is the
+  /// cron's whole query, and it runs every fifteen minutes for every tenant.
+  @@index([companyId, waitingSince])
+  @@index([status, snoozedUntil])
 }
 
 model Message {
@@ -11238,8 +11353,39 @@ model Message {
   threadId String
   thread   MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
 
-  /// "in" (the homeowner wrote it) | "out" (the contractor did).
+  /// "in" (the homeowner wrote it) | "out" (the contractor did) |
+  /// "note" (an internal note nobody outside the company ever sees) |
+  /// "activity" (a system line: assigned, snoozed, quote linked).
+  ///
+  /// Extended rather than joined by a second `kind` column, and the reason is
+  /// arithmetic: every response-time measurement in this feature is written as
+  /// "the first message with direction 'out'". A note or a system line filed
+  /// as 'out' would be counted as an answer to the homeowner — a reply time
+  /// for a reply they never received. Widening this one column means those
+  /// filters exclude both by construction instead of by everybody remembering.
+  ///
+  /// See lib/messaging/messageKinds.js, which owns the list and the one
+  /// predicate ("may this leave the building?") the send path calls.
   direction String
+
+  /// An agent-only note, in the same thread as the customer's messages —
+  /// Chatwoot's `messages.private`, and the reason it is worth copying: "he's
+  /// fussy about the trim colour" belongs where the next person will read it,
+  /// not in a CRM field nobody opens.
+  ///
+  /// Redundant with direction == "note" on purpose. This is the column the
+  /// SEND path reads, and it is checked before anything else there: two
+  /// independent reasons a note cannot reach Meta, in the same spirit as the
+  /// deliberately-doubled impersonation gate in AGENTS.md's non-negotiable #2.
+  /// lib/messaging/messageKinds.js keeps the two from drifting.
+  private Boolean @default(false)
+
+  /// The structured event behind an "activity" row: { type, ... }. Structured
+  /// and not a rendered sentence, because a sentence has a language — and this
+  /// product is read in nine. lib/messaging/activity.js turns it into an i18n
+  /// key and parameters at render time, so a thread written in French by one
+  /// employee reads in English for the next.
+  activity Json?
 
   /// Meta's own message id ("mid.xxx") for an inbound message, and the id the
   /// Send API returns for an outbound one. Unique per thread: Meta re-delivers
@@ -11280,4 +11426,354 @@ model Message {
 
   @@unique([threadId, externalId])
   @@index([threadId, sentAt])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// The AI employee — an agent that answers a homeowner on the company's behalf
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Deliberately a SECOND agent alongside VoiceAgent rather than a column on it.
+// They share almost nothing that matters: VoiceAgent is a row FieldQuo pushes
+// to Retell and whose id and instruction FINGERPRINT it has to keep in sync
+// with a vendor, and its whole failure mode is drift between what we stored
+// and what the provider is running. This one holds no provider id at all —
+// every reply is composed here, in-process, through lib/ai/provider.js's
+// runToolLoop, so there is nothing to drift from and nothing to re-provision.
+// Merging them would put four nullable Retell columns on a model that never
+// talks to Retell, and a `provisionedHash` on a thing that is never
+// provisioned.
+//
+// What IS copied from VoiceAgent, on purpose, is the reasoning behind its
+// `provisionedHash` comment: a prompt improvement shipped in code must reach a
+// company that never presses Save again. Here that is free — the system prompt
+// is built from lib/aiEmployee/roles.js on every single reply, so a fix lands
+// on the next message for everyone. `instructionsFingerprint` below therefore
+// exists for a different job: telling a contractor which version of THEIR OWN
+// words a stored suggestion was written from.
+
+/// One AI employee per company — the role they picked, and how it behaves.
+model AiEmployee {
+  id        String  @id @default(cuid())
+  companyId String  @unique
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// "closer" | "receptionist" | "troubleshooter" | "custom". A PRESET key,
+  /// not a personality: lib/aiEmployee/roles.js turns it into a fixed system
+  /// prompt AND a fixed tool list, so the role decides what the employee can
+  /// DO and not merely how it sounds. An unknown value resolves to the most
+  /// restricted preset rather than throwing — same fail-closed rule as
+  /// lib/features/registry.js's CLOSED_STATE.
+  role String @default("receptionist")
+
+  /// What the contractor calls it. Shown to nobody outside the company: a
+  /// homeowner reading a Page message sees the business, never a bot's name
+  /// (white-label by default). It exists so a two-person office can say "the
+  /// closer" and mean something.
+  name String @default("Assistant")
+
+  /// Off until somebody switches it on. Same reasoning as VoiceAgent.enabled —
+  /// an agent that answers customers before anyone has read a word of it is
+  /// how a contractor finds out from a client.
+  enabled Boolean @default(false)
+
+  /// ── The two modes, and why the default is the timid one ────────────────
+  ///
+  /// false = SUGGEST: a draft is written and waits for a person to send it.
+  /// true  = AUTO:    the reply goes to the homeowner on its own.
+  ///
+  /// Defaulting to AUTO would mean that switching the feature on at all starts
+  /// messaging strangers in the contractor's name. So the default is SUGGEST
+  /// and auto-send is a SECOND, separate opt-in with the consequence written
+  /// beside it — enabling the employee and letting it speak unsupervised are
+  /// two decisions, and collapsing them into one switch makes the quiet one
+  /// impossible to choose.
+  autoReplyEnabled Boolean @default(false)
+
+  /// "professional" | "warm" | "brief". Our own vocabulary, the same reason
+  /// VoiceAgent.tuneManner is: an unrecognised value resolves to the default
+  /// in lib/aiEmployee/roles.js rather than reaching a prompt.
+  tone String @default("professional")
+
+  /// The first line, when the employee opens a conversation. Company-authored,
+  /// because it is the business talking. Null means it answers the message it
+  /// was given without a preamble, which is usually better.
+  greeting String?
+
+  /// Extra instructions the contractor types. Layered UNDER the role's rules,
+  /// never over them — a company shapes the tone and the facts, it does not
+  /// remove a guardrail. Fenced as DATA before it reaches the model
+  /// (lib/ai/jennifer/dataFence.js): this is free text a stranger could have
+  /// talked somebody into pasting.
+  instructions String?
+
+  /// When to stop and fetch a person, in the contractor's words. Same fencing.
+  escalationRules String?
+
+  /// The sentence the employee sends when it hands off. Null uses the role's
+  /// own wording. Never a promise of a time — see roles.js.
+  handoffPhrase String?
+
+  /// Only answer inside Company business hours (lib/company/businessHours.js —
+  /// the PUBLIC company hours, deliberately not AvailabilitySchedule, which is
+  /// one user's booking availability). Off by default: the reason to have an
+  /// employee at all is the message that arrives at eleven at night.
+  ///
+  /// A company that has saved no hours is treated as ALWAYS IN HOURS when this
+  /// is on, never as always closed — absence of a statement is not a statement
+  /// (AGENTS.md failure class 5), and inventing a Mon–Fri to silence an agent
+  /// with is the same invention in the opposite direction.
+  businessHoursOnly Boolean @default(false)
+
+  /// How many times it may answer in ONE conversation before it stops and
+  /// leaves the thread to a person. The runaway guard: two agents talking to
+  /// each other, or a homeowner who keeps replying "ok", must not cost a
+  /// contractor their month's AI credit. 0 means never reply, and is a
+  /// legitimate way to pause without losing the configuration.
+  maxRepliesPerThread Int @default(3)
+
+  /// SHA-256 of the contractor's own words (instructions + escalation rules +
+  /// greeting + tone + role), recomputed on save.
+  ///
+  /// Not a provisioning fingerprint — nothing is pushed anywhere. It is
+  /// stamped onto every AiEmployeeReply so a suggestion written last week can
+  /// be shown as "written before you changed the instructions", which is the
+  /// one thing a contractor reviewing a stale draft actually needs to know.
+  instructionsFingerprint String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sources AiEmployeeSource[]
+}
+
+/// Resource material the contractor uploads: the policy, the troubleshooting
+/// guide, the tool manual.
+///
+/// ── extractedText is the whole record, and that is deliberate ─────────────
+///
+/// There is no `storageKey` pointing at a file we then re-read. FieldQuo has no
+/// PDF or DOCX reader (no dependency in package.json provides one), so the only
+/// formats accepted are ones whose bytes ARE their text — see
+/// lib/aiEmployee/sources.js, which refuses everything else BY NAME rather than
+/// storing a file it cannot read and calling the source "ready". A row here is
+/// therefore text that has actually been read, never a promise to read it
+/// later. `storageKey` exists for the day a real extractor arrives; it is null
+/// on every row written today and nothing reads it, which is why it says so.
+model AiEmployeeSource {
+  id         String     @id @default(cuid())
+  companyId  String
+  company    Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   AiEmployee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  /// "policy" | "troubleshooting" | "manual" | "pricing" | "other". The
+  /// contractor's own filing, used to order what goes into a prompt when
+  /// several sources match — a troubleshooter reaches for the troubleshooting
+  /// guide first. Never used to HIDE a source from a role: a company that
+  /// uploaded something meant it to be read.
+  kind String @default("other")
+
+  title            String
+  originalFilename String?
+  mimeType         String?
+  /// Size of what was uploaded, in bytes. Kept even for a refused file so the
+  /// screen can say "that PDF was 2.4 MB and we could not read it" rather than
+  /// showing a row with nothing on it.
+  bytes            Int     @default(0)
+
+  /// Reserved. Always null today — see the model header.
+  storageKey String?
+
+  /// The text the model may actually be given. Null when status is not
+  /// "ready", and null is never padded with the filename or a placeholder: a
+  /// source with no text contributes nothing to a prompt, which is the honest
+  /// outcome and the one the settings screen prints.
+  extractedText String? @db.Text
+
+  /// Rough token count (chars/4), for the screen's "this is how much of your
+  /// context it fills" line. An estimate, and labelled as one.
+  tokenCount Int @default(0)
+
+  /// "processing" | "ready" | "failed". Extraction is synchronous today, so a
+  /// row is written already ready or already failed; "processing" exists
+  /// because the honest answer to "did this work?" must never be inferred
+  /// from the absence of text.
+  status String @default("processing")
+
+  /// A KEY from lib/aiEmployee/sources.js, not a sentence — the screen
+  /// translates it. A sentence stored here would ship in one language and be
+  /// read in nine.
+  failureReason String?
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, employeeId])
+  @@index([employeeId, status])
+}
+
+/// Every reply the employee wrote, sent or not, with what it cost.
+///
+/// ── Why threadId and messageId are plain Strings ──────────────────────────
+///
+/// No Prisma relation to MessageThread / Message, on purpose. This is a SPEND
+/// and AUDIT record: it says FieldQuo called a model on this company's behalf,
+/// what that cost, and which tools ran. A cascade from the conversation would
+/// delete the evidence of a charge along with the conversation, and "the
+/// thread is gone so we cannot tell you what you were billed for" is not an
+/// answer. companyId is the tenant boundary here and it is indexed for it.
+model AiEmployeeReply {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  employeeId String
+  /// The conversation, and the inbound message this was an answer to. Not
+  /// foreign keys — see the model header.
+  threadId  String
+  messageId String?
+
+  /// Which model wrote it, and what it cost, from the provider's own token
+  /// counts. Mirrored into AiUsage by lib/ai/usage.js's recordAiUsage — this
+  /// copy exists so the conversation can show its own cost without a join
+  /// across a table that has no threadId on it.
+  model            String?
+  promptTokens     Int    @default(0)
+  completionTokens Int    @default(0)
+  /// Cents, rounded UP from the micros lib/ai/usage.js computes, so a page of
+  /// per-reply costs never sums to less than the month's bill.
+  costCents        Int    @default(0)
+
+  /// [{ name, ok, summary }] — every tool the loop actually ran, in order.
+  /// Stored because "it booked a callback" is a claim about a side effect, and
+  /// the only place a contractor can check it is here.
+  toolsUsed Json?
+
+  /// The words. Present even when nothing was sent — a suggestion waiting for
+  /// a person IS this text.
+  draftText String? @db.Text
+
+  /// "high" | "medium" | "low", the model's own answer about whether it should
+  /// have been the one to reply. Advisory only: it never gates a send, because
+  /// a model rating its own confidence is not a control. It sorts the review
+  /// list, which is all it is honest for.
+  confidence String?
+
+  /// When it actually reached the homeowner. Null on a suggestion nobody has
+  /// sent yet, and null on a refusal.
+  sentAt DateTime?
+
+  /// Why no reply went out, from lib/aiEmployee/decide.js's named reasons
+  /// ("disabled", "cap_reached", "no_credit", "outside_hours", "handed_off",
+  /// …). A refusal is RECORDED rather than swallowed: a contractor asking
+  /// "why did it not answer this one?" gets the reason, and a silent stop —
+  /// especially the out-of-credit one — is the failure this column exists to
+  /// prevent.
+  suppressedReason String?
+
+  /// The employee decided a person has to take this one. Once true for a
+  /// thread, the employee never replies on that thread again — read by
+  /// lib/aiEmployee/decide.js. Set by the hand_off_to_human tool and by a
+  /// credit exhaustion, which are the same outcome from the homeowner's side.
+  handedOff     Boolean @default(false)
+  handoffReason String?
+
+  /// The fingerprint of the contractor's instructions AT THE TIME. Lets the
+  /// screen mark a waiting suggestion as written before the settings changed.
+  instructionsFingerprint String?
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, createdAt])
+  @@index([threadId, createdAt])
+  @@index([companyId, sentAt])
+}
+
+/// One month's AI assessment of a company's Meta conversations.
+///
+/// The owner's ask: "a monthly AI assessment of conversations for improvement,
+/// based on the WINNING conversations." So this is not a summary of the month's
+/// numbers — lib/attribution/monthlyConversations.js already computes those and
+/// they cost nothing. It is the one thing arithmetic cannot do: read what was
+/// SAID in the conversations that closed, next to the ones that didn't, and
+/// name the difference.
+///
+/// ══ Stored rather than recomputed ══════════════════════════════════════════
+///
+/// A model call costs a company real allowance (lib/ai/usage.js). Re-running it
+/// every time somebody reopens the screen would spend that allowance on an
+/// answer they have already read. One row per company-month, regenerated only
+/// when a person asks for it and is shown the price first.
+///
+/// ══ Why companyId is a plain column ════════════════════════════════════════
+///
+/// No `company Company @relation`, and therefore no cascade. Same shape as
+/// JenniferConversation, Feedback and Testimonial already use, for the same
+/// reason a relation would need: a back-reference field inside model Company,
+/// which two other concurrent changes are also appending to. Deletion is
+/// handled where every other tenant-scoped table's is — the data-deletion flow
+/// deletes by companyId, not by relying on a foreign key.
+model ConversationReview {
+  id        String @id @default(cuid())
+  companyId String
+
+  /// The month assessed. Year plus 1-12 rather than a date range, because the
+  /// unique key below is what makes "one review per month" a database fact
+  /// instead of a convention, and a DateTime pair cannot express that.
+  year  Int
+  month Int
+
+  generatedAt       DateTime @default(now())
+  /// Who pressed the button. A plain id — this is an audit stamp, never joined
+  /// on, and a User back-relation for it would churn the auth models for a
+  /// query nobody runs. Null when a scheduled job ever generates one.
+  generatedByUserId String?
+
+  /// What actually answered, as lib/ai/provider.js reports it — never the
+  /// configured default. A review generated on the mini model and one generated
+  /// on the writing model cost an order of magnitude apart, and metering it as
+  /// the default would understate the expensive one.
+  model String?
+
+  promptTokens     Int @default(0)
+  completionTokens Int @default(0)
+
+  /// What it cost, in MILLIONTHS of a dollar — the same unit AiUsage.costMicros
+  /// uses, and deliberately not cents.
+  ///
+  /// A review is roughly 8k prompt tokens and under 1k of completion; on the
+  /// current default model that is under a fifth of a cent. An Int of cents
+  /// would store 0 for every review ever generated, and a stored 0 that a
+  /// screen prints as "$0.00" is a cost report that says this feature is free.
+  /// It isn't — it is cheap, and those are different sentences. formatCost()
+  /// in lib/ai/usage.js renders micros for a person ("<$0.01").
+  costMicros Int @default(0)
+
+  /// How many conversations went INTO the prompt, and how many of those were
+  /// won. Stored beside the findings because the findings are only as good as
+  /// the sample, and a reader has to be able to see "this was written off four
+  /// conversations" without re-deriving it.
+  sampleSize Int @default(0)
+  wonSampled Int @default(0)
+
+  /// "ready" | "not_enough_conversations" | "not_enough_won" | "ai_unavailable"
+  ///
+  /// A refusal is a stored row, not a missing one. A month that could not
+  /// support an assessment must be able to SAY so when it is reopened, rather
+  /// than looking like a month nobody has run yet and inviting a second attempt
+  /// that will refuse identically. See CONVERSATION_REVIEW_STATUS in
+  /// lib/ai/conversationReview.js.
+  status String @default("ready")
+
+  /// The assessment itself: the computed numbers, and the model's prose about
+  /// them. Shape and, more importantly, the rule that every FIGURE in here came
+  /// from the arithmetic modules and never from the model — see
+  /// lib/ai/conversationReview.js.
+  findings Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// One per company-month. The regenerate path upserts on this.
+  @@unique([companyId, year, month])
+  @@index([companyId, generatedAt])
 }

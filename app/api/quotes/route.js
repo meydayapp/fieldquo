@@ -25,6 +25,7 @@ import {
 } from "./costingWrite";
 import { syncTakeoffAddOns } from "@/lib/quotes/takeoffAddOns";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
+import { requireCreatedVia } from "@/lib/quotes/createdVia";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -150,6 +151,19 @@ export async function POST(request) {
     // reference to a customer's recording, and one from another tenant must not
     // be attachable to a quote here.
     sourceCallId,
+    // ── The Meta conversation this quote came out of ────────────────────
+    //
+    // The other half of the same provenance question sourceCallId answers for
+    // a phone call: a homeowner messages the company's Facebook Page, somebody
+    // quotes them, and until this column existed there was nothing on the
+    // quote saying so. lib/attribution/conversationOutcome.js could still
+    // INFER the link from a name match inside a 60-day window, and an inferred
+    // link is exactly what a recorded one is supposed to beat.
+    //
+    // Verified against this company's own threads below, for the same reason
+    // sourceCallId is: a thread id is a reference to somebody's private
+    // conversation, and one from another tenant must not be attachable here.
+    sourceThreadId,
     // Who is working this quote. Omitted means "me" — see the default below —
     // so the common case (an estimator creating their own quote) needs no
     // extra click. Naming someone ELSE is a staffing decision and gated the
@@ -164,6 +178,18 @@ export async function POST(request) {
       ? (
           await db.voiceCall.findFirst({
             where: { id: sourceCallId, companyId: member.companyId },
+            select: { id: true },
+          })
+        )?.id || null
+      : null;
+
+  // Same shape, same reason — scoped in the WHERE so another tenant's thread
+  // id resolves to nothing rather than to their conversation.
+  const verifiedSourceThreadId =
+    typeof sourceThreadId === "string" && sourceThreadId
+      ? (
+          await db.messageThread.findFirst({
+            where: { id: sourceThreadId, companyId: member.companyId },
             select: { id: true },
           })
         )?.id || null
@@ -274,6 +300,15 @@ export async function POST(request) {
       // Omitted rather than set null, so the automatic estimate path's own id
       // is never overwritten by a hand save that didn't carry one.
       ...(verifiedSourceCallId ? { sourceCallId: verifiedSourceCallId } : {}),
+      // A signed-in member posted this. The one creation site in the product
+      // where "a human really did create it" is a fact rather than an
+      // assumption — see lib/quotes/createdVia.js on why nothing back-fills
+      // this value onto older rows.
+      createdVia: requireCreatedVia("staff"),
+      // Omitted rather than set null when there is no thread, matching
+      // sourceCallId above: an absent key cannot overwrite a value another
+      // creation path stamped.
+      ...(verifiedSourceThreadId ? { sourceThreadId: verifiedSourceThreadId } : {}),
       quoteNumber,
       clientId,
       createdById: member.userId,

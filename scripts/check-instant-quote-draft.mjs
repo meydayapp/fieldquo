@@ -132,6 +132,9 @@ section("Tax is resolved server-side, never left unattempted");
   };
 
   const draft = await createEstimateDraft({
+    // Required and deliberately not defaulted — see the parameter's own
+    // comment. This file exercises the public instant estimator.
+    createdVia: "instant_quote",
     company,
     trade: "cabinet_refinishing",
     categoryId: CABINET_CATEGORY.id,
@@ -185,6 +188,9 @@ section("Tax is resolved server-side, never left unattempted");
   };
 
   const draft = await createEstimateDraft({
+    // Required and deliberately not defaulted — see the parameter's own
+    // comment. This file exercises the public instant estimator.
+    createdVia: "instant_quote",
     company,
     trade: "cabinet_refinishing",
     categoryId: CABINET_CATEGORY.id,
@@ -238,6 +244,9 @@ const NO_TAX_CO = {
   rows.serviceCategory = [CABINET_CATEGORY];
 
   await createEstimateDraft({
+    // Required and deliberately not defaulted — see the parameter's own
+    // comment. This file exercises the public instant estimator.
+    createdVia: "instant_quote",
     company: NO_TAX_CO,
     trade: "cabinet_refinishing",
     categoryId: CABINET_CATEGORY.id,
@@ -272,6 +281,9 @@ const NO_TAX_CO = {
   rows.serviceCategory = [EPOXY_CATEGORY];
 
   await createEstimateDraft({
+    // Required and deliberately not defaulted — see the parameter's own
+    // comment. This file exercises the public instant estimator.
+    createdVia: "instant_quote",
     company: NO_TAX_CO,
     trade: "epoxy",
     categoryId: EPOXY_CATEGORY.id,
@@ -300,6 +312,9 @@ section("Nobody signed in means nobody named, and the draft says so honestly");
   rows.serviceCategory = [CABINET_CATEGORY];
 
   await createEstimateDraft({
+    // Required and deliberately not defaulted — see the parameter's own
+    // comment. This file exercises the public instant estimator.
+    createdVia: "instant_quote",
     company: NO_TAX_CO,
     trade: "cabinet_refinishing",
     categoryId: CABINET_CATEGORY.id,

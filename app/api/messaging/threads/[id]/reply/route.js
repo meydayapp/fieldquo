@@ -32,6 +32,9 @@ import {
 } from "@/lib/permissions/enforce";
 import { messagingConnection } from "@/lib/messaging/channels";
 import { sendMetaMessage, sendMockMessage } from "@/lib/messaging/metaSend";
+import { responseStamps } from "@/lib/messaging/waiting";
+import { readStatus } from "@/lib/messaging/outcomes";
+import { writeActivity } from "@/lib/messaging/activity";
 import { rateLimit } from "@/lib/rateLimit";
 
 const MAX_LENGTH = 2000; // Meta's own limit for a text message.
@@ -102,6 +105,13 @@ export async function POST(request, { params }) {
       participantExternalId: true,
       channelId: true,
       channel: true,
+      // The response clock, and the state it is in. Both read BEFORE the send
+      // so the stamps below are computed against what was true when the
+      // contractor pressed the button.
+      status: true,
+      firstInboundAt: true,
+      firstReplyAt: true,
+      waitingSince: true,
     },
   });
   if (!thread) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -110,6 +120,12 @@ export async function POST(request, { params }) {
     channel: thread.channel,
     recipientExternalId: thread.participantExternalId,
     text,
+    // Stated explicitly, at the one call site that legitimately sends. A reply
+    // typed into the composer's Reply side is never private and never anything
+    // but outbound — and saying so here means lib/messaging/metaSend.js's
+    // refusal is exercised by the real caller rather than only by the check.
+    private: false,
+    direction: "out",
   });
 
   // Written either way. A failed send that left no trace would make the
@@ -118,6 +134,10 @@ export async function POST(request, { params }) {
     data: {
       threadId: thread.id,
       direction: "out",
+      // Never private. A reply is the opposite of a note, and writing the
+      // column here rather than leaning on its default keeps the two provably
+      // consistent for every row this route creates.
+      private: false,
       // A send that never reached Meta has no Meta id, so one is minted here.
       // Still an id, still unique per thread, still what a retry would key on.
       externalId: result.ok ? result.externalId : `local:${crypto.randomUUID()}`,
@@ -143,11 +163,46 @@ export async function POST(request, { params }) {
     );
   }
 
-  // Only a real send moves the conversation on. Clearing `unread` on a failed
-  // reply would tell the contractor they had dealt with something they had not.
-  await db.messageThread.update({
-    where: { id: thread.id },
-    data: { unread: 0, lastMessageAt: message.sentAt, status: "open" },
+  // ── Only a real send moves the conversation on ───────────────────────────
+  //
+  // Clearing `unread` on a failed reply would tell the contractor they had
+  // dealt with something they had not — which is why every line below is
+  // behind the `!result.ok` return above.
+  //
+  // The status becomes PENDING, not open. That is what pending means: we
+  // answered, the ball is theirs. Before the four states existed this line
+  // forced "open", which left every answered conversation in the same pile as
+  // the ones nobody had touched — the pile a contractor is supposed to be able
+  // to clear. A snooze ends here too: replying is the opposite of parking it.
+  const wasStatus = readStatus(thread.status);
+  const stamps = responseStamps({
+    thread,
+    message: { direction: "out", private: false, failedReason: null, sentAt: message.sentAt },
+  });
+
+  await db.$transaction(async (tx) => {
+    await tx.messageThread.update({
+      where: { id: thread.id },
+      data: {
+        unread: 0,
+        lastMessageAt: message.sentAt,
+        status: "pending",
+        snoozedUntil: null,
+        ...(wasStatus === "pending" ? {} : { statusChangedAt: message.sentAt }),
+        // firstReplyAt and waitingSince, from the ONE function the webhook
+        // also calls — see lib/messaging/waiting.js for why this rule is not
+        // written twice.
+        ...stamps,
+      },
+    });
+    if (wasStatus !== "pending") {
+      await writeActivity(tx, {
+        threadId: thread.id,
+        type: "status_changed",
+        to: "pending",
+        at: message.sentAt,
+      });
+    }
   });
 
   return NextResponse.json({ sent: true, message });

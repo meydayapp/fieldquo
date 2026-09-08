@@ -318,6 +318,18 @@ export const db = new Proxy(
       "campaignId",
       "subscriberId",
     ]),
+    // Prisma's interactive transaction, modelled as "run the callback with
+    // this same client". It does NOT roll back — nothing here can — and that
+    // is stated rather than implied: a check must not read a passing run as
+    // proof of atomicity. What it DOES let a check prove is the thing the
+    // product actually gets wrong, which is a write happening in the wrong
+    // order or not at all. Added for the messaging PATCH, which puts a thread
+    // update and the activity row recording it in one transaction so a status
+    // cannot move with no line saying so.
+    //
+    // The array form ($transaction([p1, p2])) receives promises that Prisma
+    // has already started; awaiting them is the honest stand-in.
+    $transaction: async (arg) => (Array.isArray(arg) ? Promise.all(arg) : arg(db)),
   },
   {
     get(target, prop) {

@@ -11,6 +11,7 @@ import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 // did not — the copy that nobody looked at was the correct one, and the one
 // every other route used was the one that rotted. One allocator now.
 import { getNextQuoteNumber, TIER_SUFFIXES, LIVE_QUOTE_NUMBER_WHERE } from "@/lib/quotes/quoteNumber";
+import { requireCreatedVia } from "@/lib/quotes/createdVia";
 
 // Creates three linked quote variants at once — Good/Better/Best — sharing a
 // tierGroupId. Each is a real, independent Quote row (own line items, own total)
@@ -71,6 +72,10 @@ export async function POST(request) {
           quoteNumber: `${seq}-${TIER_SUFFIX[tierLabel]}`, // e.g. Q-2026-0012-G
           clientId,
           createdById: member.userId,
+          // Three quotes, one person, one click — the Good/Better/Best builder
+          // is the quote builder wearing a different hat, so it records the
+          // same origin. See lib/quotes/createdVia.js.
+          createdVia: requireCreatedVia("staff"),
           tierGroupId,
           tierLabel,
           subtotal: tier.subtotal,

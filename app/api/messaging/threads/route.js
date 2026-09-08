@@ -31,6 +31,8 @@ import {
 import { messagingConnection } from "@/lib/messaging/channels";
 import { demoThreadSummaries } from "@/lib/messaging/demoThreads";
 import { bubbleColours } from "@/lib/messaging/bubbleTheme";
+import { noteColours } from "@/lib/messaging/noteTheme";
+import { readStatus, THREAD_STATUSES } from "@/lib/messaging/outcomes";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -46,6 +48,13 @@ export async function GET(request) {
 
   const { searchParams } = new URL(request.url);
   const q = (searchParams.get("q") || "").trim();
+  // The filter chips. An unrecognised value is treated as "no filter" rather
+  // than as an empty result: a chip that silently hides every conversation
+  // reads as "you have no messages", which is the one sentence this inbox must
+  // never say when it is untrue.
+  const statusFilter = THREAD_STATUSES.includes(searchParams.get("status"))
+    ? searchParams.get("status")
+    : null;
 
   const connection = await messagingConnection(member.companyId);
 
@@ -57,6 +66,11 @@ export async function GET(request) {
     select: { name: true, brandColor: true },
   });
   const bubbles = bubbleColours(company || {});
+  // The private note's palette, which takes no company and derives from
+  // nothing — see lib/messaging/noteTheme.js for why that is the point. Sent
+  // alongside the brand-measured bubble pair so the screen paints both from
+  // one response and the two can be compared in the check.
+  const note = noteColours();
 
   // ── The demo company, and nothing else ─────────────────────────────────
   //
@@ -65,19 +79,31 @@ export async function GET(request) {
   // what keeps fabricated conversations out of a real inbox.
   if (connection.mock) {
     const all = demoThreadSummaries(new Date(), company?.name || "Demo");
-    const threads = q
+    const matching = q
       ? all.filter(
           (t) =>
             (t.participantName || "").toLowerCase().includes(q.toLowerCase()) ||
             (t.preview || "").toLowerCase().includes(q.toLowerCase()),
         )
       : all;
-    return NextResponse.json({ connection, bubbles, threads });
+    // The chips filter the sample inbox too. A demo where the chips are drawn
+    // and do nothing is the dead control AGENTS.md's first rule forbids, shown
+    // to the one audience that is being asked to buy the thing.
+    const threads = statusFilter
+      ? matching.filter((t) => readStatus(t.status) === statusFilter)
+      : matching;
+    return NextResponse.json({ connection, bubbles, note, threads });
   }
 
   const rows = await db.messageThread.findMany({
     where: {
       companyId: member.companyId,
+      // "resolved" also matches the legacy "closed" this feature wrote before
+      // the four states existed — see lib/messaging/outcomes.js. Without it,
+      // every thread anybody ever closed would sit in no chip at all.
+      ...(statusFilter
+        ? { status: statusFilter === "resolved" ? { in: ["resolved", "closed"] } : statusFilter }
+        : {}),
       ...(q
         ? {
             OR: [
@@ -95,12 +121,24 @@ export async function GET(request) {
       lastMessageAt: true,
       unread: true,
       status: true,
+      snoozedUntil: true,
+      assignedToId: true,
+      threadNumber: true,
+      // The column, not a scan. This is what lets the row say "waiting 4 h"
+      // NOW — see lib/messaging/waiting.js for why measuring it here from the
+      // messages would mean the list never said it at all.
+      waitingSince: true,
       outcome: true,
       channel: { select: { id: true, name: true, platform: true } },
       // The last message only — the list shows one line of preview, and
       // loading whole conversations to render 200 previews is how an inbox
       // becomes slow on the day it finally has traffic.
+      //
+      // "in" and "out" only. A private note and a system line live in this
+      // same table, and a preview reading "" — or worse, reading a colleague's
+      // note about the customer — is not what the last thing said was.
       messages: {
+        where: { direction: { in: ["in", "out"] } },
         orderBy: { sentAt: "desc" },
         take: 1,
         select: { body: true, direction: true, failedReason: true },
@@ -114,9 +152,13 @@ export async function GET(request) {
     channelName: t.channel?.name || null,
     platform: t.channel?.platform || null,
     participantName: t.participantName,
+    threadNumber: t.threadNumber ?? null,
     lastMessageAt: t.lastMessageAt,
     unread: t.unread,
-    status: t.status,
+    status: readStatus(t.status),
+    snoozedUntil: t.snoozedUntil,
+    assignedToId: t.assignedToId,
+    waitingSince: t.waitingSince,
     outcome: t.outcome,
     preview: t.messages[0]?.body || "",
     // Surfaced on the list, not only inside the thread: a reply that never
@@ -125,5 +167,5 @@ export async function GET(request) {
     lastFailed: Boolean(t.messages[0]?.failedReason),
   }));
 
-  return NextResponse.json({ connection, bubbles, threads });
+  return NextResponse.json({ connection, bubbles, note, threads });
 }

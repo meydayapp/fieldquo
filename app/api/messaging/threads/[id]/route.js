@@ -26,7 +26,13 @@ import {
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { messagingConnection } from "@/lib/messaging/channels";
 import { demoThreads } from "@/lib/messaging/demoThreads";
-import { normaliseOutcome, normaliseStatus } from "@/lib/messaging/outcomes";
+import {
+  normaliseOutcome,
+  normaliseStatus,
+  normaliseSnoozeUntil,
+  readStatus,
+} from "@/lib/messaging/outcomes";
+import { writeActivity } from "@/lib/messaging/activity";
 
 /** The member with their grid attached — a scope decided without it widens. */
 async function graded(member) {
@@ -69,6 +75,13 @@ export async function GET(request, { params }) {
       lastMessageAt: true,
       unread: true,
       status: true,
+      statusChangedAt: true,
+      snoozedUntil: true,
+      assignedToId: true,
+      threadNumber: true,
+      waitingSince: true,
+      firstInboundAt: true,
+      firstReplyAt: true,
       outcome: true,
       outcomeSetAt: true,
       clientId: true,
@@ -82,6 +95,11 @@ export async function GET(request, { params }) {
         select: {
           id: true,
           direction: true,
+          // The note and the system line, in the same column as the
+          // conversation — which is the whole reason they were stored on
+          // Message rather than in a sidebar nobody opens.
+          private: true,
+          activity: true,
           body: true,
           attachments: true,
           sentAt: true,
@@ -99,6 +117,9 @@ export async function GET(request, { params }) {
     connection,
     thread: {
       ...thread,
+      // Normalised on the way out so a row still carrying the pre-four-state
+      // "closed" arrives at the screen as a status the chips actually draw.
+      status: readStatus(thread.status),
       platform: thread.channel?.platform || null,
       channelName: thread.channel?.name || null,
     },
@@ -134,13 +155,42 @@ export async function PATCH(request, { params }) {
 
   const body = await request.json().catch(() => ({}));
 
+  // Every field an activity line might need to say what CHANGED. A "status
+  // changed to pending" line written without knowing the status was already
+  // pending is a log that fills with events that never happened, and a log
+  // full of non-events is one nobody reads.
   const existing = await db.messageThread.findFirst({
     where: { id, companyId: member.companyId },
-    select: { id: true },
+    select: {
+      id: true,
+      status: true,
+      snoozedUntil: true,
+      outcome: true,
+      assignedToId: true,
+      clientId: true,
+      leadId: true,
+      jobId: true,
+      quoteId: true,
+    },
   });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // Who is doing this, by name, for the activity lines. Read through Member so
+  // the lookup is company-scoped, and tolerated as null: an activity that
+  // cannot name its actor says "Snoozed" rather than "Snoozed by undefined".
+  const actorName = member.userId
+    ? await db.member
+        .findFirst({
+          where: { companyId: member.companyId, userId: member.userId },
+          select: { user: { select: { name: true } } },
+        })
+        .then((row) => row?.user?.name || null)
+        .catch(() => null)
+    : null;
+
   const data = {};
+  // { type, ...fields } for each line to write alongside the update.
+  const activities = [];
 
   if ("outcome" in body) {
     const outcome = normaliseOutcome(body.outcome);
@@ -152,21 +202,68 @@ export async function PATCH(request, { params }) {
     // let the review believe somebody judged a thread they un-judged.
     data.outcomeSetAt = outcome ? new Date() : null;
     data.outcomeSetById = outcome ? member.userId || null : null;
+    if (outcome !== existing.outcome) {
+      activities.push(
+        outcome
+          ? { type: "outcome_set", outcome, by: actorName }
+          : { type: "outcome_cleared", by: actorName },
+      );
+    }
   }
 
+  // ── The four states, and the snooze that has to come back ────────────────
+  //
+  // `snoozedUntil` is handled with the status rather than beside it, because
+  // the two cannot be allowed to disagree. A thread snoozed with no deadline
+  // is parked forever with nothing to bring it back; a deadline on a thread
+  // that is not snoozed is a date nothing reads. Both are the shape of bug
+  // AGENTS.md's first rule names, and both are refused here.
   if ("status" in body) {
     const status = normaliseStatus(body.status);
     if (status === undefined) {
       return NextResponse.json({ error: "Unknown status." }, { status: 400 });
     }
+
+    if (status === "snoozed") {
+      const until = normaliseSnoozeUntil(body.snoozedUntil);
+      if (until === undefined || until === null) {
+        return NextResponse.json(
+          {
+            error:
+              "Choose when this should come back. A snooze with no date is a conversation nobody sees again.",
+          },
+          { status: 400 },
+        );
+      }
+      data.snoozedUntil = until;
+    } else {
+      // Leaving a stale deadline on a thread that is no longer snoozed would
+      // let /api/cron/messaging-snooze "return" a thread that was never away.
+      data.snoozedUntil = null;
+    }
+
     data.status = status;
+    if (status !== readStatus(existing.status)) {
+      data.statusChangedAt = new Date();
+      activities.push(
+        status === "snoozed"
+          ? { type: "snoozed", by: actorName }
+          : { type: "status_changed", to: status, by: actorName },
+      );
+    }
   }
 
   // Marking read. A number, not a boolean, so the badge behaves like a phone's.
   if (body.read === true) data.unread = 0;
 
-  const { clientId, leadId, jobId, quoteId } = body;
-  const linking = { clientId, leadId, jobId, quoteId };
+  const { clientId, leadId, jobId, quoteId, assignedToId } = body;
+  // assignedToId rides with the links because it is the same KIND of value: a
+  // foreign key written straight from a request body. It is already in
+  // OWNED_ID_FIELDS, where it is proved by team membership rather than by
+  // owning a row ("that person isn't on your team") — which is why the column
+  // is named assignedToId and not assignedToUserId. A differently-named column
+  // would be a foreign key the tenant sweep never looks at.
+  const linking = { clientId, leadId, jobId, quoteId, assignedToId };
   const naming = Object.fromEntries(
     Object.entries(linking).filter(([, v]) => typeof v === "string" && v),
   );
@@ -181,29 +278,78 @@ export async function PATCH(request, { params }) {
   }
   // An explicit null clears a link. Distinguished from "absent" so a PATCH
   // that only sets an outcome does not silently unlink a client.
-  for (const key of ["clientId", "leadId", "jobId", "quoteId"]) {
+  for (const key of ["clientId", "leadId", "jobId", "quoteId", "assignedToId"]) {
     if (key in body && body[key] === null) data[key] = null;
+  }
+
+  // ── The lines that make a month-end read a story ─────────────────────────
+  //
+  // The reply, then the quote going out, then the job — in one column, in
+  // order. This is the half of Chatwoot's activity messages that earns its
+  // place here: a quote and a job already exist as rows on other screens, and
+  // the conversation is where somebody decides whether the reply worked.
+  for (const kind of ["client", "lead", "job", "quote"]) {
+    const key = `${kind}Id`;
+    if (!(key in data)) continue;
+    if (data[key] === existing[key]) continue;
+    activities.push(
+      data[key]
+        ? { type: "linked", kind, by: actorName }
+        : { type: "unlinked", kind, by: actorName },
+    );
+  }
+  if ("assignedToId" in data && data.assignedToId !== existing.assignedToId) {
+    if (data.assignedToId) {
+      // The assignee's name, captured now. An activity row is a historical
+      // record: whoever this was, they took the thread on this date, and that
+      // stays true after they leave the company.
+      const assignee = await db.member
+        .findFirst({
+          where: { companyId: member.companyId, userId: data.assignedToId },
+          select: { user: { select: { name: true } } },
+        })
+        .then((row) => row?.user?.name || null)
+        .catch(() => null);
+      // No name, no line. "Assigned to" with nothing after it is worse than
+      // silence, and ownedIdsRefusal has already proved the person is real.
+      if (assignee) activities.push({ type: "assigned", to: assignee, by: actorName });
+    } else {
+      activities.push({ type: "unassigned", by: actorName });
+    }
   }
 
   if (!Object.keys(data).length) {
     return NextResponse.json({ error: "Nothing to change." }, { status: 400 });
   }
 
-  const thread = await db.messageThread.update({
-    where: { id: existing.id },
-    data,
-    select: {
-      id: true,
-      outcome: true,
-      outcomeSetAt: true,
-      status: true,
-      unread: true,
-      clientId: true,
-      leadId: true,
-      jobId: true,
-      quoteId: true,
-    },
+  // One transaction. A status that moved with no line saying so is a worse
+  // record than no line at all, because the column then looks complete — the
+  // same argument lib/migrations/writes.js makes for logging a migration write
+  // inside the write's own transaction.
+  const thread = await db.$transaction(async (tx) => {
+    const updated = await tx.messageThread.update({
+      where: { id: existing.id },
+      data,
+      select: {
+        id: true,
+        outcome: true,
+        outcomeSetAt: true,
+        status: true,
+        statusChangedAt: true,
+        snoozedUntil: true,
+        assignedToId: true,
+        unread: true,
+        clientId: true,
+        leadId: true,
+        jobId: true,
+        quoteId: true,
+      },
+    });
+    for (const entry of activities) {
+      await writeActivity(tx, { threadId: existing.id, ...entry });
+    }
+    return updated;
   });
 
-  return NextResponse.json({ thread });
+  return NextResponse.json({ thread: { ...thread, status: readStatus(thread.status) } });
 }

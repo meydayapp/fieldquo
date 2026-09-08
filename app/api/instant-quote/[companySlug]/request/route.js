@@ -137,6 +137,9 @@ export async function POST(request, { params }) {
     budget: budgetBand
       ? { min: budgetBand.min, max: budgetBand.max, label: budgetBand.label, exceeded: budgetGap }
       : null,
+    // Nobody is signed in on this route — a homeowner on the contractor's own
+    // website produced this draft. See lib/quotes/createdVia.js.
+    createdVia: "instant_quote",
   });
 
   const emailLanguage = language || company.defaultLanguage || "en";
