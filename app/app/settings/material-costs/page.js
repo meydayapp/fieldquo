@@ -25,6 +25,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasToggle } from "@/lib/permissions/enforce";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
+import BackToHome from "@/app/components/BackToHome";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 
 const CATEGORY_META = {
@@ -373,6 +374,7 @@ function MaterialCostsEditor() {
         <p className="text-sm text-muted-foreground mt-1">
           {t("app.setMaterialCosts.subtitle")}
         </p>
+        <BackToHome />
       </div>
 
       {/* ── Four states, not two ───────────────────────────────────────────
@@ -409,6 +411,10 @@ function MaterialCostsEditor() {
         </div>
       )}
 
+      {/* id: the dashboard's "Review cost and material recipes" set-up step
+          lands here (lib/setupSteps.js). The wrapper repeats the parent's
+          space-y-8 so the cards keep the spacing they had as direct children. */}
+      <div id="recipes" className="space-y-8 scroll-mt-4">
       {Object.entries(CATEGORY_META).map(([categoryKey, meta]) => {
         const draft = drafts[categoryKey];
         if (!draft) return null;
@@ -584,6 +590,7 @@ function MaterialCostsEditor() {
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

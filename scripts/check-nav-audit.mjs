@@ -224,6 +224,7 @@ const DRILL_INS = {
   "/app/jobs/[id]": "job detail — opened from clients, quotes, invoices, appointments",
   "/app/jobs/[id]/edit": "opened from the job detail page's own Edit button",
   "/app/jobs/[id]/visits/new": "opened from the job detail page's own Add visit button",
+  "/app/jobs/import": "past jobs, already done and paid, typed in for the year's overview — opened from the Jobs list page's own Past jobs button and from the dashboard's set-up steps. Deliberately not a nav row: it is a thing you do once to catch up, not a place you go, and it must stay reachable after that step is waved off",
   "/app/jobs/new": "opened from the Jobs list, a client's own page, and Quick Add",
   "/app/leads/import": "opened from the Leads list page's own Import button",
   "/app/settings/expense-tracking/import": "bank-statement CSV import — opened from the Expense Tracking page's own Import button, and deliberately not a nav row: it is a thing you do to expenses, not a place you go",

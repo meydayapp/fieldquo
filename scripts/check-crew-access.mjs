@@ -437,10 +437,31 @@ for (const dir of API_DIRS) {
         /requireLevel\(/.test(body) ||
         /hasLevel\(/.test(body) ||
         // The two routes whose gate is a helper defined above the handler.
-        /requireAdmin\(/.test(body);
+        /requireAdmin\(/.test(body) ||
+        // The three /api/jobs/import routes share one gate in a lib module so
+        // they cannot disagree about who may type in a past job. It asks the
+        // grid four times; the assertion below reads that file directly, so
+        // this exemption cannot outlive the gate it stands for.
+        /pastJobsGate\(/.test(body);
       ok(`${label} asks the grid`, asks);
     }
   }
+}
+
+// The shared gate the exemption above points at. A past job creates a quote,
+// an invoice and a job in one request, so it must ask for what each of those
+// asks for on its own — and for the pricing toggle, because the row carries
+// what the company charged.
+{
+  const gate = readFileSync(join(ROOT, "lib/jobs/pastJobsGate.js"), "utf8");
+  for (const area of ["quotes", "invoices", "jobs"]) {
+    ok(
+      `the past-jobs gate asks the grid for ${area}`,
+      new RegExp(`requireLevel\\(full, "${area}", "view_create_edit"`).test(gate),
+    );
+  }
+  ok("...and for the pricing toggle", /requireToggle\(full, "showPricing"/.test(gate));
+  ok("...and refuses with the shared shape rather than a 500", /permissionErrorResponse\(err\)/.test(gate));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

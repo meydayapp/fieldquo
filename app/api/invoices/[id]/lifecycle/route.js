@@ -71,6 +71,9 @@ const INVOICE_SELECT = {
   dueDate: true,
   sentAt: true,
   sentToEmail: true,
+  // Read by selectInvoiceBanners: a past job never earns a send or chase
+  // banner, whatever else is true of it.
+  historicalImportedAt: true,
   client: { select: { id: true, name: true, email: true } },
   // `versions` is NOT selected here: the relation holds this row's CHILDREN,
   // which is the whole family only when you are looking at the root. GET

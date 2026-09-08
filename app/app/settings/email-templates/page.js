@@ -14,6 +14,7 @@ import { TEMPLATE_TYPE_META } from "@/app/data/emailTemplateBlocks";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import BackToHome from "@/app/components/BackToHome";
 
 const GROUPS = ["Automated", "Marketing", "Custom"];
 
@@ -184,6 +185,7 @@ export default function EmailTemplatesPage() {
             {t("app.emailTemplates.descPart2", "for each type is the one that's actually sent — build as many drafts and variations as you want.")}
           </p>
           {seedMsg && <p className="text-xs text-muted-foreground mt-2">{seedMsg}</p>}
+          <BackToHome />
         </div>
         <button
           onClick={handleSeedDefaults}
@@ -194,10 +196,12 @@ export default function EmailTemplatesPage() {
         </button>
       </div>
 
-      {GROUPS.map((group) => {
+      {GROUPS.map((group, i) => {
         const typesInGroup = emailTypes.filter(([, meta]) => meta.group === group);
         return (
-          <div key={group}>
+          // id on the first group: the dashboard's "Review your emails" set-up
+          // step lands at `#templates` (lib/setupSteps.js).
+          <div key={group} id={i === 0 ? "templates" : undefined} className="scroll-mt-4">
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
               {t(`app.emailTemplates.group${group}`, group)}
             </h2>

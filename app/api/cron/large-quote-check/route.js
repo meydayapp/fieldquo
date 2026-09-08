@@ -46,6 +46,9 @@ export async function GET(request) {
         companyId: rule.companyId,
         createdAt: { gte: since },
         total: { gte: rule.threshold },
+        // A past job typed in today has today's createdAt and a 2024 total.
+        // It is not a large quote that just came in; it is bookkeeping.
+        historicalImportedAt: null,
       },
       include: { client: true },
     });

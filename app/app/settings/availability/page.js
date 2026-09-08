@@ -24,6 +24,7 @@ import { showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useBottomDock } from "@/app/hooks/useBottomDock";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
+import BackToHome from "@/app/components/BackToHome";
 
 const DEFAULTS = { startTime: "08:00", endTime: "16:00" };
 
@@ -320,7 +321,8 @@ export default function AvailabilityPage() {
           {editingSomeoneElse ? t("app.setAvailability.theirLower", "their") : t("app.setAvailability.yourLower", "your")}{" "}
           {t("app.setAvailability.bookableSeparate", "bookable window are separate. They might work 8–4 but only take client bookings 2–4 — set both here.")}
         </p>
-      
+        <BackToHome />
+
 
         {canPickPerson && (
           <label className="block mt-4">
@@ -363,7 +365,9 @@ export default function AvailabilityPage() {
         />
       </section>
 
-      <section data-tour="avail-bookable">
+      {/* id: the dashboard's "Check your availability" set-up step lands here
+          (lib/setupSteps.js) — the PUBLIC window, not the shift above. */}
+      <section id="bookable" data-tour="avail-bookable" className="scroll-mt-4">
         <h2 className="text-sm font-bold text-foreground flex items-center gap-2 mb-1">
           <CalendarCheck size={15} className="text-muted-foreground" /> {t("app.setAvailability.bookableHours", "Bookable hours")}
         </h2>

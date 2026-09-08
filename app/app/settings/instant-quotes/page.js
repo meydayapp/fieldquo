@@ -14,6 +14,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import EmbedCode from "@/app/components/settings/EmbedCode";
+import BackToHome from "@/app/components/BackToHome";
 import { AlertTriangle, Loader2, Plus, Trash2, Zap } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
@@ -1336,6 +1337,9 @@ export default function InstantQuotesSettingsPage() {
           "Let homeowners get a real starting estimate from your website in seconds — roof measured from their address, or an area they trace on a map. Every estimate is a range they can request, and lands in your review queue before anything is binding.",
         )}
       </p>
+      <div className="mb-6">
+        <BackToHome />
+      </div>
 
       {/* What a homeowner would see right now. The owner switched trades on,
           opened their own link and read "Instant estimates aren't available
@@ -1469,7 +1473,9 @@ export default function InstantQuotesSettingsPage() {
         </div>
       )}
 
-      <div className="space-y-4">
+      {/* id: the dashboard's "Enable instant quotes" set-up step lands here
+          (lib/setupSteps.js). */}
+      <div id="trades" className="space-y-4 scroll-mt-4">
         {mine.map((trade) => (
           <TradeCard
             key={trade.trade}

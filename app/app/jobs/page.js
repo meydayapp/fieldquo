@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { JOB_STATUS_LABEL_KEYS, jobStatusClasses } from "@/lib/jobs/statusLabels";
 import Link from "next/link";
-import { Briefcase, Plus, Search, ArrowRight } from "lucide-react";
+import { Briefcase, Plus, Search, ArrowRight, Upload } from "lucide-react";
 import { fetchArray } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 
@@ -89,13 +89,26 @@ export default function JobsPage() {
           </p>
         </div>
         {canCreate && (
-          <Link
-            data-tour="jobs-new"
-            href="/app/jobs/new"
-            className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
-          >
-            <Plus size={16} /> {t("app.jobs.new")}
-          </Link>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* The only other way in is the dashboard's set-up step, which
+                disappears once it is done or waved off. Without this the
+                screen would be unreachable for everyone who already used
+                it once — the Clients list carries its Import button for
+                the same reason. */}
+            <Link
+              href="/app/jobs/import"
+              className="flex items-center gap-2 border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-muted"
+            >
+              <Upload size={16} /> {t("app.jobs.pastJobs", "Past jobs")}
+            </Link>
+            <Link
+              data-tour="jobs-new"
+              href="/app/jobs/new"
+              className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
+            >
+              <Plus size={16} /> {t("app.jobs.new")}
+            </Link>
+          </div>
         )}
       </div>
 

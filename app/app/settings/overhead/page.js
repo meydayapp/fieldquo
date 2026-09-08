@@ -28,6 +28,7 @@ import { ASSET_CATEGORIES, assetCategory, suggestedLifeMonths } from "@/lib/cost
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasToggle, hasLevel } from "@/lib/permissions/enforce";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
+import BackToHome from "@/app/components/BackToHome";
 import { formatAppMoney } from "@/lib/format/money";
 import {
   useCompanyMoney,
@@ -584,6 +585,7 @@ function OverheadEditor() {
         <p className="text-sm text-muted-foreground mt-1">
           {t("app.setOverhead.subtitle")}
         </p>
+        <BackToHome />
       </div>
 
       {/* ── Capacity + the minimum price it produces ──────────────────────────
@@ -886,7 +888,9 @@ function OverheadEditor() {
           counted — so a row added here moves the figures above immediately, and
           shows up in Settings → Expense Tracking as the same one row rather
           than a second copy. */}
-      <div>
+      {/* id: the dashboard's "Enter your overhead" set-up step lands here
+          (lib/setupSteps.js). */}
+      <div id="fixed-costs" className="scroll-mt-4">
         <h2 className="font-semibold text-foreground mb-1">
           {t("app.setOverhead.fixedCosts")}
         </h2>

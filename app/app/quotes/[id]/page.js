@@ -643,8 +643,9 @@ export default function QuoteDetailPage() {
           {/* Shown while the quote is still live, not only while it's a draft.
               Re-sending a quote a client says they never received is one of
               the most common things anyone needs to do, and the old button
-              vanished the moment the status changed. */}
-          {["draft", "sent"].includes(quote.status) && (
+              vanished the moment the status changed. Never on a past job —
+              see the note under the strip — and the send route refuses too. */}
+          {["draft", "sent"].includes(quote.status) && !quote.historicalImportedAt && (
             <button
               onClick={() => sendQuote("quote")}
               disabled={Boolean(sending)}
@@ -660,7 +661,7 @@ export default function QuoteDetailPage() {
                 : t("app.action.send")}
             </button>
           )}
-          {quote.status === "sent" && quote.sentAt && (
+          {quote.status === "sent" && quote.sentAt && !quote.historicalImportedAt && (
             <button
               onClick={() => sendQuote("follow_up")}
               disabled={Boolean(sending)}
@@ -693,7 +694,7 @@ export default function QuoteDetailPage() {
               {t("app.quoteDetail.callClient", "Call about this quote")}
             </button>
           )}
-          {["sent", "draft"].includes(quote.status) && (
+          {["sent", "draft"].includes(quote.status) && !quote.historicalImportedAt && (
             <Link
               href={`/app/quote-approval/${id}`}
               className="flex items-center gap-1.5 bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold"
@@ -741,6 +742,16 @@ export default function QuoteDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Entered after the fact on /app/jobs/import. The strip above withholds
+          Send, Follow up and Get approved on these; this says why. */}
+      {quote.historicalImportedAt && (
+        <p className="text-sm text-muted-foreground" data-historical-note>
+          {t("app.pastJobs.note", "Entered as a past job on {date} — no messages were sent.", {
+            date: formatDate(quote.historicalImportedAt),
+          })}
+        </p>
+      )}
 
       {/* Why this quote can't be rung about, or what happened when it was.
           Under the strip rather than in it: the pill row is controls, and a

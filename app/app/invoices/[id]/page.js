@@ -444,6 +444,9 @@ export default function InvoiceDetailPage() {
   // Half a cent, matching every balance recompute in the API.
   const owing = amountDue > 0.005;
   const superseded = (life?.banners || []).some((b) => b.id === "superseded");
+  // Entered as a past job (Invoice.historicalImportedAt): nothing on this
+  // page may write to the client.
+  const historical = Boolean(invoice.historicalImportedAt);
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6 pb-10">
@@ -514,6 +517,17 @@ export default function InvoiceDetailPage() {
           <p className="text-sm text-muted-foreground mt-1">
             {invoice.client?.name}
           </p>
+          {/* Entered after the fact on /app/jobs/import — paid before it was
+              typed in, and no message ever went to the client. Send and
+              Request payment are withheld below for the same reason, and
+              the routes behind them refuse too. */}
+          {historical && (
+            <p className="text-sm text-muted-foreground mt-1" data-historical-note>
+              {t("app.pastJobs.note", "Entered as a past job on {date} — no messages were sent.", {
+                date: formatDate(invoice.historicalImportedAt),
+              })}
+            </p>
+          )}
         </div>
 
         {/* Every control here is hidden on a superseded version rather than
@@ -522,8 +536,10 @@ export default function InvoiceDetailPage() {
         {!superseded && (
           <div className="flex flex-wrap gap-2">
             {/* Available while anything is still owed, not only on a draft —
-                re-sending an invoice a client mislaid is routine. */}
-            {owing && (
+                re-sending an invoice a client mislaid is routine. Never on a
+                past job: it was paid before it was typed in, and an email
+                about it would be the first this client ever got from us. */}
+            {owing && !historical && (
               <button
                 onClick={sendInvoice}
                 disabled={sending}
@@ -548,8 +564,8 @@ export default function InvoiceDetailPage() {
               </button>
             )}
             {/* Only meaningful once the invoice has left the office and there's
-                still something owing on it. */}
-            {invoice.status !== "draft" && owing && (
+                still something owing on it — and never on a past job. */}
+            {invoice.status !== "draft" && owing && !historical && (
               <button
                 onClick={() => setShowChase(true)}
                 disabled={requesting}

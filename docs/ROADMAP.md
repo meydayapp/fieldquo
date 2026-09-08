@@ -8796,3 +8796,77 @@ Stripe stub (127 assertions).
 **Still open — needs the owner:** subscribe the billing webhook endpoint in
 the Stripe dashboard to `subscription_schedule.completed`, `.released`,
 `.canceled` (backstop; landing also clears via `customer.subscription.updated`).
+
+## The dashboard's "Additional set-up steps" (8 September 2026)
+
+The owner: "a drop-down of tips, similar to the onboarding, that are REMOVED
+(not checked) once done … Clicking one takes them to that section within the
+specific page, with a back link to home if they navigated from this link. Or
+they can check it off to make it disappear."
+
+**Shipped.** `lib/setupSteps.js` holds the ten steps (overhead, payment
+schedule, quote wording, AI credits, instant quotes, availability, material
+recipes, add-ons, emails, import older jobs), each with a `doneWhen` that
+reads the SAME rows the feature reads — `lib/setupStepsSnapshot.js` runs one
+tenant-scoped query per signal. `GET /api/setup-steps` returns all ten with
+`done` and `dismissed`; the card (`app/components/dashboard/SetupSteps.js`,
+under the onboarding card, owner/admin only) shows what is neither, collapsed
+by default under three. `POST /api/setup-steps/dismiss` appends to
+`Company.setupStepsDismissed` (a UI preference, so it IS allowed to be a
+button — unlike "I work alone", which is a fact and lives in Settings). Each
+row links to the exact card (`#fixed-costs`, `#payment-schedule`,
+`#quote-wording` — which also opens the collapsed wording panel — `#ai-credit`,
+`#trades`, `#bookable`, `#recipes`, `#catalogue`, `#templates`) with
+`?from=setup`; `app/components/BackToHome.js` renders the "Back to home" link
+only then, and keeps looking for the fragment until the page's fetch has
+rendered it. `npm run check:setup-steps` executes every signal against
+fixtures and greps every anchor.
+
+**Honest limits, written on the steps themselves:** add-ons and quote wording
+cannot distinguish "reviewed and agreed" from "never opened" (Product has no
+updatedAt; default wording leaves no trace) — those two stay until hidden.
+`import_jobs` reads `Invoice.historicalImportedAt` under try/catch and reports
+"not measured" until `prisma generate` picks the column up. Needs
+`npx prisma db push` for the new column before the card can load.
+
+## Past jobs: the year they already worked, typed in, with nobody emailed (8 September 2026)
+
+**Owner's ask.** "For importing older jobs that have already been paid — is
+there an option so that we don't send email to those clients? More like data
+entry: quotes, invoices and jobs, so the company can enter the jobs they've
+done and have an overview of that year."
+
+The answer was no, and not because a Send button would be pressed. Nothing
+emails a homeowner without someone pressing Send — but recording a payment
+can raise a receipt, completing a job raises a review request and a
+cost-review task, and the follow-up rules and the overdue chase both iterate
+invoices on a cron. Typing a year of finished work through the normal screens
+would have reached into 2024 and asked those homeowners for a review.
+
+So a past job is written by its own path. `POST /api/jobs/import` (screen at
+`/app/jobs/import`, one typed job or a reviewed CSV) writes a Quote, Job,
+Invoice and payment per row in one transaction each, with the company's real
+dates and `historicalImportedAt` on all three — and `lib/jobs/importPastJob.js`
+imports no mailer, no SMS client and raises no task, which
+`check:past-jobs-import` asserts rather than trusts. Every site that reaches
+a client carries the guard: the review-request, follow-up and large-quote
+crons, the payment-schedule runner, the invoice and quote lifecycles, and the
+send and chase routes. The three detail pages say "entered as a past job" and
+hide the sends rather than offering a button that would write to a homeowner
+about work from two years ago.
+
+Numbering is the quiet risk and is refused at the door: a typed number in the
+live allocator's format (`Q-2026-0011`, `INV-2026-0007`) is rejected, while
+the company's own old numbering is kept as typed. A re-run is idempotent on
+who / when / how much / paid when, the same source-blind natural key the
+expense CSV import uses, so the same file uploaded twice does not double the
+year. The rows count in the reports by their real dates, which is the point
+of typing them.
+
+`check:past-jobs-import` executes the row parser against hostile input
+(payment in the future, paid before the work started, a negative amount, an
+unknown method, a live-format number), executes the batch for duplicates
+inside one file and against what is already imported, proves the downloadable
+template parses with the parser that reads uploads, and pins the guard at all
+eight sending sites. Mutation-tested: removing the review-request cron's
+guard fails it.

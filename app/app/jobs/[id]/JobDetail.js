@@ -300,6 +300,17 @@ export default function JobDetail({ jobId }) {
               </Link>
             </p>
           )}
+          {/* Entered after the fact on /app/jobs/import. Said plainly, because
+              the rest of this page reads exactly like a job the software ran:
+              the difference — no email, no text, no review request, ever — is
+              the promise that screen made and this one keeps. */}
+          {job.historicalImportedAt && (
+            <p className="text-sm text-muted-foreground mt-1" data-historical-note>
+              {t("app.pastJobs.note", "Entered as a past job on {date} — no messages were sent.", {
+                date: formatDateOnly(job.historicalImportedAt),
+              })}
+            </p>
+          )}
         </div>
 
         <div className="flex items-center gap-2 shrink-0">

@@ -142,7 +142,15 @@ export async function GET(request) {
       // amendment cannot be reduced to one document without its siblings —
       // invoiceFamilies needs the family, not the slice.
       db.invoice.findMany({
-        where: { companyId, createdAt: { lte: until } },
+        // createdAt is a coarse pre-filter (a row raised after the statement
+        // date cannot be in it) — EXCEPT for a past job entered after the
+        // fact, whose createdAt is the day it was typed and whose real dates
+        // are months earlier. Those come through on their flag and are dated
+        // by lib/invoices/issueDate.js like everything else.
+        where: {
+          companyId,
+          OR: [{ createdAt: { lte: until } }, { historicalImportedAt: { not: null } }],
+        },
         select: {
           id: true,
           invoiceNumber: true,
@@ -156,6 +164,9 @@ export async function GET(request) {
           total: true,
           sentAt: true,
           createdAt: true,
+          historicalImportedAt: true,
+          endDate: true,
+          paidDate: true,
           client: { select: { id: true, name: true, province: true, country: true } },
         },
       }),

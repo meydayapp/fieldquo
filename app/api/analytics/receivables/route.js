@@ -92,6 +92,11 @@ export async function GET(request) {
         dueDate: true,
         sentAt: true,
         createdAt: true,
+        // The three columns lib/invoices/issueDate.js dates a past job by —
+        // a back-filled invoice must not be aged from the day it was typed.
+        historicalImportedAt: true,
+        endDate: true,
+        paidDate: true,
         clientId: true,
         // The explicit job link only. The quote fallback in
         // lib/invoices/jobLink.js is one query per invoice, which this list

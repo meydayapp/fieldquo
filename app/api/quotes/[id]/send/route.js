@@ -78,6 +78,15 @@ export async function POST(request, { params }) {
   });
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // A past job entered after the fact. The page hides Send on these; the
+  // route refuses too, because a button hidden in one place is not a rule.
+  if (quote.historicalImportedAt) {
+    return NextResponse.json(
+      { error: "This quote was entered as a past job. Nothing is sent to the client for past jobs.", historical: true },
+      { status: 409 },
+    );
+  }
+
   // The review gate. An instant estimate the homeowner saw as a RANGE cannot
   // be emailed as a real quote until someone with quote:approve-estimate has
   // signed off the price in Estimate Reviews. Without this check the whole

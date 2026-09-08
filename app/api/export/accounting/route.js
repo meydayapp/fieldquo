@@ -334,8 +334,14 @@ export async function GET(request) {
     where: {
       companyId: member.companyId,
       OR: [
-        { sentAt: dated },
-        { AND: [{ sentAt: null }, { createdAt: dated }] },
+        // Live rows: the module's own rule, sentAt then createdAt.
+        { AND: [{ historicalImportedAt: null }, { sentAt: dated }] },
+        { AND: [{ historicalImportedAt: null }, { sentAt: null }, { createdAt: dated }] },
+        // A past job entered after the fact is dated by the day the work
+        // ended, then the day it was paid — lib/invoices/issueDate.js. Its
+        // createdAt is the day somebody typed it in and says nothing.
+        { AND: [{ historicalImportedAt: { not: null } }, { endDate: dated }] },
+        { AND: [{ historicalImportedAt: { not: null } }, { endDate: null }, { paidDate: dated }] },
       ],
     },
     select: { id: true, parentInvoiceId: true },

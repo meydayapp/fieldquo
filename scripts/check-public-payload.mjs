@@ -296,6 +296,8 @@ const KNOWN_DANGEROUS_HTML_SITES = {
     "Company fields (name, phone, email, address...) into JSON-LD. User-controlled, and the ONLY sink in this list that is.",
   "app/layout.js":
     "NO_FLASH — a hardcoded template-literal CONSTANT with no interpolation. Nothing from a request ever reaches it.",
+  "app/components/links/LinkPageView.js":
+    "The bio link's own colour tokens into a <style>. Every value AND its fallback go through the six-digit hex test in linkPageTokenCss, ending at a literal that cannot come from a company — check:bio-link drives a hostile pageBg through all three schemes and proves the block stays balanced.",
   "app/components/BrandTheme.js":
     "CSS built from a company's brandColor, but only after isValidHex() — a value that fails the hex regex never reaches tokensToCss, so nothing free-form is ever concatenated into the <style> tag.",
 };

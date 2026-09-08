@@ -579,6 +579,20 @@ check("a non-hex value never reaches the stylesheet", (() => {
   // would be the injected one.
   return !css.includes("url(") && !css.includes("red") && (css.match(/\{/g) || []).length === 3;
 })());
+// The FALLBACK is the one that shipped broken: every token that failed the
+// hex test fell back to pageBg, which was itself written raw. A malformed
+// pageBg therefore escaped the block on every public bio link. The chain has
+// to end at a literal, so this drives BOTH the value and its fallback hostile.
+check("a hostile fallback cannot escape the block either", (() => {
+  const s = linkPageSchemes({ brandColor: "#06356b" });
+  const evil = { pageBg: "red;}body{display:none}.x{a:b", pageInk: "also;}bad{", brandRing: "x", hoverFrom: "y", hoverTo: "z" };
+  return ["light", "dark", "auto"].every((scheme) => {
+    const css = linkPageTokenCss({ light: evil, dark: evil }, ".lp", { scheme });
+    const open = (css.match(/\{/g) || []).length;
+    const close = (css.match(/\}/g) || []).length;
+    return open === close && !/body\{|bad\{|\.x\{/.test(css) && !/[<>]/.test(css);
+  });
+})());
 
 // ── the markup: what the classes must say ──────────────────────────────────
 //

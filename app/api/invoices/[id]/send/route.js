@@ -57,6 +57,16 @@ export async function POST(request, { params }) {
   if (!invoice)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // A past job entered after the fact — paid before it was typed in. The
+  // page hides Send on these; the route refuses too, because a button hidden
+  // in one place is not a rule.
+  if (invoice.historicalImportedAt) {
+    return NextResponse.json(
+      { error: "This invoice was entered as a past job. Nothing is sent to the client for past jobs.", historical: true },
+      { status: 409 },
+    );
+  }
+
   const to = invoice.client?.email?.trim();
   if (!to) {
     return NextResponse.json(

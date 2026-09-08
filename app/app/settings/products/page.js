@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import BackToHome from "@/app/components/BackToHome";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -261,6 +262,7 @@ export default function ProductsPage() {
         <p className="text-sm text-muted-foreground mt-1">
           {t("app.setProducts.subtitle")}
         </p>
+        <BackToHome />
       </div>
 
       {/* A refusal, said out loud. This screen used to render an empty
@@ -314,7 +316,9 @@ export default function ProductsPage() {
           not merely hard to reach. Below `sm` this now stacks each product
           into a card instead; the grid returns at `sm` and up, where four
           columns fit without any of that. */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      {/* id: the dashboard's "Review your add-ons" set-up step lands here
+          (lib/setupSteps.js). */}
+      <div id="catalogue" className="bg-card border border-border rounded-xl overflow-hidden scroll-mt-4">
         <div className="hidden sm:grid grid-cols-[1fr_1.5fr_auto_auto] gap-4 px-5 py-3 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wide">
           <span>{t("app.field.name")}</span>
           <span>{t("app.setProducts.description")}</span>

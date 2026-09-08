@@ -9,6 +9,7 @@ import { Receipt, Calendar, TrendingUp, ArrowRight, Mail, Phone, MapPin } from "
 
 import { isInternalPath } from "@/lib/appUrl";
 import OnboardingProgress from "@/app/components/dashboard/OnboardingProgress";
+import SetupSteps from "@/app/components/dashboard/SetupSteps";
 import RevenueGoalCard from "@/app/components/dashboard/RevenueGoalCard";
 import AwaitingPayment from "@/app/components/dashboard/AwaitingPayment";
 import NeedsToday from "@/app/components/dashboard/NeedsToday";
@@ -20,7 +21,8 @@ import { CARD_CLIPPED, INSET } from "@/app/components/dashboard/surface";
 
 import { buildDashboardRank } from "@/lib/dashboard/rank";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { useHasLevel } from "@/app/providers/PermissionProvider";
+import { useHasLevel, usePermissions } from "@/app/providers/PermissionProvider";
+import { can } from "@/lib/permissions";
 import { fetchList, fetchArray } from "@/lib/loadState";
 import { reportResponseError } from "@/lib/clientErrors";
 import { formatMoney } from "@/lib/currency";
@@ -110,6 +112,11 @@ function clockTime(value) {
 export default function DashboardPage() {
   const { t } = useTranslation();
   const canCreateQuote = useHasLevel("quotes", "view_create_edit");
+  // The set-up card links to owner/admin settings screens, and GET
+  // /api/setup-steps refuses everyone else with the same `user:manage` rule —
+  // so the card is not drawn for a member it would only 403.
+  const { role } = usePermissions();
+  const canManageSetup = can(role, "user:manage");
   const [onboarding, setOnboarding] = useState(null);
   // ── "$0 revenue this month" was a refusal wearing a number ───────────────
   //
@@ -497,6 +504,11 @@ export default function DashboardPage() {
             .then((data) => data && setOnboarding(data));
         }}
       />
+
+      {/* The ten things worth doing after onboarding — each row removed the
+          moment the database says it is done, or hidden by hand. Fetches and
+          gates itself; renders nothing when nothing is left. */}
+      {canManageSetup && <SetupSteps />}
 
       {/* The money figures failed to load — but were not refused. One
           rendering of a failed load for the whole app, reassurance sentence

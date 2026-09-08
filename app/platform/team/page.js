@@ -50,6 +50,8 @@ const PERMISSION_WORDS = {
   "migration:write":
     "create records inside a company's own data — the one sanctioned exception to view-everything-edit-nothing",
   "migration:cancel": "cancel a migration, including one already paid",
+  "data_deletion:manage":
+    "read data-deletion requests and mark one done — which tells the person their data was deleted",
 };
 
 function describe(permissions) {

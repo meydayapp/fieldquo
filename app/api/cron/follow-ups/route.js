@@ -43,6 +43,16 @@ async function alreadySentEntityIds(ruleId) {
   return logs.map((l) => l.entityId);
 }
 
+// ── Past jobs are never followed up ────────────────────────────────────────
+//
+// A job entered after the fact (POST /api/jobs/import) lands with a completed
+// job, an accepted quote and a paid invoice carrying the REAL dates — all of
+// them months old, all of them past every cutoff below on the first run. These
+// finders have no time floor on purpose (a rule created today should catch up
+// on last month), so the column is the only thing standing between a company
+// that typed in its 2024 and forty "how did we do?" emails going out at 8am.
+const NOT_HISTORICAL = { historicalImportedAt: null };
+
 async function findQuoteNoResponse(rule) {
   const excluded = await alreadySentEntityIds(rule.id);
   return db.quote.findMany({
@@ -50,6 +60,7 @@ async function findQuoteNoResponse(rule) {
       companyId: rule.companyId,
       status: "sent",
       sentAt: { not: null, lte: cutoffFor(rule) },
+      ...NOT_HISTORICAL,
       ...(excluded.length > 0 && { id: { notIn: excluded } }),
     },
     include: { client: true, company: true },
@@ -63,6 +74,7 @@ async function findInvoiceOverdue(rule) {
       companyId: rule.companyId,
       status: { in: ["sent", "overdue"] },
       dueDate: { not: null, lte: cutoffFor(rule) },
+      ...NOT_HISTORICAL,
       ...(excluded.length > 0 && { id: { notIn: excluded } }),
     },
     include: { client: true, company: true },
@@ -76,6 +88,7 @@ async function findJobCompleted(rule) {
       companyId: rule.companyId,
       status: "completed",
       completedAt: { not: null, lte: cutoffFor(rule) },
+      ...NOT_HISTORICAL,
       ...(excluded.length > 0 && { id: { notIn: excluded } }),
     },
     include: { client: true, company: true },

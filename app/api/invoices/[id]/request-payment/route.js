@@ -47,6 +47,17 @@ export async function POST(request, { params }) {
   if (!invoice)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // A past job entered after the fact was paid before it was typed in; there
+  // is no balance to chase and no client to chase it from. The page hides the
+  // button; the route refuses, because a button hidden in one place is not a
+  // rule.
+  if (invoice.historicalImportedAt) {
+    return NextResponse.json(
+      { error: "This invoice was entered as a past job. Nothing is sent to the client for past jobs.", historical: true },
+      { status: 409 },
+    );
+  }
+
   // The balance this email quotes is the FAMILY's — every payment across the
   // invoice's versions — recomputed now, not the cached columns the version
   // was created with. An invoice amended before the family ledger existed

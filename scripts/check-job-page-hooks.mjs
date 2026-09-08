@@ -230,8 +230,22 @@ for (const dir of ROOTS) {
       const firstReturn = returns.reduce((a, b) =>
         a.range[0] <= b.range[0] ? a : b,
       );
+      // `return useMemo(...)` — the hook IS the return value. It runs on
+      // every render, unconditionally, so it is not the shape this rule is
+      // about. Exempted only when the return is a direct statement of the
+      // function body: a hook inside `if (x) return useMemo(...)` really is
+      // conditional, and stays a failure.
+      const bodyStatements =
+        fn.body?.type === "BlockStatement" ? fn.body.body : [];
+      const returnIsTopLevel = bodyStatements.includes(firstReturn);
+      const insideFirstReturn = (h) =>
+        returnIsTopLevel &&
+        h.node.range[0] >= firstReturn.range[0] &&
+        h.node.range[1] <= firstReturn.range[1];
+
       for (const h of hooks) {
         if (h.node.range[0] <= firstReturn.range[0]) continue;
+        if (insideFirstReturn(h)) continue;
         failures.push(
           `${rel}:${h.node.loc.start.line}  hook "${h.name}" is called after a ` +
             `return in "${name}" (return at line ${firstReturn.loc.start.line}). ` +

@@ -22,12 +22,15 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import { formatAppMoney } from "@/lib/format/money";
 import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
+import BackToHome from "@/app/components/BackToHome";
 
 const money = (c) => formatAppMoney(Number(c || 0) / 100, CREDIT_CURRENCY, "en");
 
-function Card({ title, icon: Icon, hint, children, tour }) {
+// `id` is optional and exists for deep links — the dashboard's set-up steps
+// point at `#ai-credit` (lib/setupSteps.js).
+function Card({ id, title, icon: Icon, hint, children, tour }) {
   return (
-    <section data-tour={tour} className="bg-card border border-border rounded-xl p-5">
+    <section id={id} data-tour={tour} className="bg-card border border-border rounded-xl p-5 scroll-mt-4">
       <div className="flex items-center gap-2">
         {Icon && <Icon size={17} className="text-muted-foreground" />}
         <h2 className="font-semibold text-foreground">{title}</h2>
@@ -225,6 +228,7 @@ export default function AiCreditPage() {
             "Everything that spends AI credit, in one place — the phone receptionist and crew texting draw one balance, image generation and the deep photo read draw another. They're kept separate on purpose.",
           )}
         </p>
+        <BackToHome />
       </div>
 
       {!vendorConfigured && (
@@ -294,6 +298,7 @@ export default function AiCreditPage() {
 
       {/* ── The AI wallet — the new purchase surface ─────────────────────── */}
       <Card
+        id="ai-credit"
         tour="ai-credit-ai"
         title={t("app.setAiCredit.aiTitle", "AI image credit")}
         icon={Sparkles}

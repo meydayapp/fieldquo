@@ -10,6 +10,7 @@ import BusinessHoursModal from "@/app/components/settings/BusinessHoursModal";
 import { SettingsDrillLink } from "@/app/components/settings/SettingsDrillDown";
 import OpeningHoursEditor from "@/app/components/settings/OpeningHoursEditor";
 import PaymentScheduleEditor from "./PaymentScheduleEditor";
+import BackToHome from "@/app/components/BackToHome";
 import { INDUSTRIES } from "@/app/data/industries";
 import {
   CURRENCIES,
@@ -114,9 +115,11 @@ function Toggle({ checked, onChange, disabled = false }) {
   );
 }
 
-function SectionCard({ title, description, children }) {
+// `id` is optional and exists for deep links — the dashboard's set-up steps
+// point at `#payment-schedule` (lib/setupSteps.js).
+function SectionCard({ id, title, description, children }) {
   return (
-    <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+    <div id={id} className="bg-card border border-border rounded-xl p-5 space-y-4 scroll-mt-4">
       <div>
         <h2 className="text-base font-semibold text-foreground">{title}</h2>
         {description && (
@@ -188,6 +191,7 @@ function CompanyReadOnly({
         <p className="text-sm text-muted-foreground mt-1">
           {t("app.setCompany.subtitle")}
         </p>
+        <BackToHome />
       </div>
 
       <ReadOnlyNotice
@@ -850,6 +854,7 @@ export default function CompanySettingsPage() {
         <p className="text-sm text-muted-foreground mt-1">
           {t("app.setCompany.subtitle")}
         </p>
+        <BackToHome />
       </div>
 
       {/* Scope of work and terms.
@@ -966,6 +971,7 @@ export default function CompanySettingsPage() {
           field above, which is why that field locks once this is active —
           one schedule, not two that can disagree. */}
       <SectionCard
+        id="payment-schedule"
         title={t("app.paymentSchedule.title", "Payment schedule")}
         description={t(
           "app.paymentSchedule.desc",

@@ -88,6 +88,11 @@ export async function GET(request) {
         status: "completed",
         reviewRequestedAt: null,
         completedAt: { not: null, lte: due, gte: floor },
+        // A past job entered after the fact — the 30-day floor above already
+        // keeps most of them out, but a company back-filling LAST month's
+        // work would otherwise have those clients asked for a review of a
+        // job the software never saw. See Job.historicalImportedAt.
+        historicalImportedAt: null,
       },
       select: {
         id: true, status: true, completedAt: true, reviewRequestedAt: true,

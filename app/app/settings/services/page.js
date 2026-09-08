@@ -5,6 +5,7 @@ import { Plus, X, Sparkles, PackagePlus } from "lucide-react";
 import { INTAKE_FIELD_LIBRARY } from "@/app/data/intakeFieldLibrary";
 import RateCard from "./RateCard";
 import QuoteWording from "./QuoteWording";
+import BackToHome from "@/app/components/BackToHome";
 import { allPriceBookUnits } from "@/app/data/tradePriceBooks";
 import { categoryKeysForIndustries } from "@/app/data/industryCategories";
 // One call for what a trade IS — its price book, what it charges by, whether it
@@ -67,6 +68,18 @@ export default function ServiceSettingsPage() {
   const [showAllTrades, setShowAllTrades] = useState(false);
 
   const [showCustomModal, setShowCustomModal] = useState(false);
+  // The dashboard's "Review the job process on your quotes" step links to
+  // `#quote-wording`. The wording panel is collapsed by default, so landing on
+  // it closed would be a link that scrolls to a heading and shows nothing —
+  // the fragment opens every enabled category's panel. Read in an effect, not
+  // in the initial state: the server render has no location and a mismatch
+  // would rehydrate it closed.
+  const [openWording, setOpenWording] = useState(false);
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.hash === "#quote-wording") {
+      setOpenWording(true);
+    }
+  }, []);
   const [customForm, setCustomForm] = useState(emptyCustomForm());
   const [creatingCustom, setCreatingCustom] = useState(false);
   const [fieldSearch, setFieldSearch] = useState("");
@@ -329,6 +342,8 @@ export default function ServiceSettingsPage() {
   // Only offer the "other trades" escape hatch when a preset is actually
   // narrowing the list — with no preset, everything is already shown.
   const hasPreset = presetKeys.length > 0;
+  // Where `#quote-wording` lands: the first enabled category on screen.
+  const firstEnabledId = visibleCategories.find((c) => c.enabled)?.id ?? null;
 
   return (
     <div className="max-w-3xl mx-auto p-4 sm:p-6">
@@ -344,6 +359,9 @@ export default function ServiceSettingsPage() {
       <p className="text-sm text-muted-foreground mb-6">
         {t("app.setServices.subtitle")}
       </p>
+      <div className="mb-6">
+        <BackToHome />
+      </div>
 
       {/* Said once, at the top, rather than as a row of empty rate boxes.
           The subtitle above promises "set your default rate for each", so an
@@ -635,14 +653,23 @@ export default function ServiceSettingsPage() {
                 so "a company that customised theirs" described a state no
                 company could reach. */}
               {c.enabled && (
-                <QuoteWording
-                  category={c}
-                  onChange={(patch) =>
-                    update(c.id, {
-                      contentOverrides: { ...c.contentOverrides, ...patch },
-                    })
-                  }
-                />
+                // `id="quote-wording"` on the FIRST enabled category only — an
+                // id must be unique, and the set-up step's link needs one
+                // place to land (lib/setupSteps.js).
+                <div
+                  id={c.id === firstEnabledId ? "quote-wording" : undefined}
+                  className="scroll-mt-4"
+                >
+                  <QuoteWording
+                    category={c}
+                    defaultOpen={openWording}
+                    onChange={(patch) =>
+                      update(c.id, {
+                        contentOverrides: { ...c.contentOverrides, ...patch },
+                      })
+                    }
+                  />
+                </div>
               )}
             </div>
           );
