@@ -11500,9 +11500,19 @@ model Message {
   /// reaches a browser — and lib/messaging/mediaFetch.js re-hosts the bytes to
   /// Cloudinary, which is the only thing that may ever land in `url`.
   ///
+  /// Not every attachment is a file. A dropped pin and a shared contact card
+  /// carry their own payload (`location`, `contacts`) and are `ready` the
+  /// moment the webhook lands — nothing is ever fetched for them. Both used to
+  /// fall into `unavailable`, which was accurate about the fetch and wrong
+  /// about the message: a pin is very often the job address.
+  ///
   /// lib/messaging/attachments.js owns the shape, the four states (ready,
-  /// pending, failed, unavailable) and the predicate below. Extra fields Meta
-  /// adds are kept raw, as they always were.
+  /// pending, failed, unavailable) and the predicate below. It also owns the
+  /// stored shape FIELD BY FIELD — withFetchResult rebuilds an entry rather
+  /// than spreading it, so a field Meta adds that nothing here knows about is
+  /// dropped on the first fetch attempt. That is deliberate (an unread field
+  /// that survives forever is AGENTS.md failure class 1) and it is why adding
+  /// one means adding it to storedShape as well.
   attachments Json?
 
   /// Is there still an attachment on this row waiting to be fetched?

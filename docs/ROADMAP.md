@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 8 September 2026 (pictures — inbound media re-hosted to Cloudinary out of band by `/api/cron/messaging-media` and rendered as actual thumbnails on all three platforms, outbound photos, clips and PDFs on WhatsApp inside the 24-hour window; WhatsApp Business is the third channel on the inbox — Embedded Signup, a signed webhook, an approved-template list, and the 24-hour customer service window modelled explicitly so free text is refused by name rather than by Meta; blocked only on `whatsapp_business_messaging`, which `META_WHATSAPP_ENABLED=1` unblocks).
+Last updated: 8 September 2026 (every kind of media a customer can send — video with a poster frame, voice notes and audio played in place, documents with their real filename and size, stickers, contact cards, and dropped pins on a map, with nothing arriving as a dead row; outbound video, Office documents and locations join photos on WhatsApp inside the 24-hour window; inbound media re-hosted to Cloudinary out of band by `/api/cron/messaging-media` and rendered as actual thumbnails on all three platforms; WhatsApp Business is the third channel on the inbox — Embedded Signup, a signed webhook, an approved-template list, and the 24-hour customer service window modelled explicitly so free text is refused by name rather than by Meta; blocked only on `whatsapp_business_messaging`, which `META_WHATSAPP_ENABLED=1` unblocks).
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -150,6 +150,91 @@ sends text and only text.
   lie.
 - **No outbound audio.** There is no recorder in the composer, so offering the
   type would be a control with nothing behind it.
+
+---
+
+## Everything else a customer can send (8 September 2026)
+
+"And videos… and other files so make sure you are not limiting it, it's all
+type of media that is typically exchanged in WhatsApp or text."
+
+The photo work left six of the eight kinds WhatsApp carries rendering as a
+bordered row reading "Attachment", and two of them — a dropped pin and a shared
+contact card — rendering as **an empty bubble**: a message row with no body and
+no attachment at all, because the parser only understood things with a media
+id. This closes that.
+
+**Inbound, every kind, drawn rather than named.** Video plays inline with a
+poster frame derived from the same Cloudinary asset (`so_0`, `.jpg` — no second
+file that can go missing) and native controls; a black rectangle is what a
+`<video>` with no poster is on iOS, permanently, because Safari will not decode
+a frame before the user interacts. Audio plays in place, with the length once
+the browser knows it — never a made-up number, and never a probe request per
+clip. A voice note and an attached audio file differ **in the label only**
+(`voice: true` off Meta's webhook), because they are both audio and a homeowner
+describing a leak is the whole reason this one mattered. Documents show the real
+filename WhatsApp supplied and a size measured off the buffer, and a document
+with no filename says "PDF" or "Spreadsheet" rather than "Document". Stickers
+draw small — animated WebP just works. Contact cards parse name, organisation,
+numbers and emails, with the numbers as `tel:` links. Locations draw a static
+map, the name and address, and a link out to the maps app.
+
+**A pin and a card are `ready` on arrival.** Both used to land in `unavailable`,
+which was accurate about the fetch and wrong about the message. Nothing is ever
+fetched for them; the payload IS the message, and `ready` now means "there is
+something to draw" rather than "we have the bytes".
+
+**Nothing arrives as a dead row.** `order`, `system`, `unsupported`,
+`request_welcome` and whatever Meta ships next leave a row naming Meta's own
+word for it. A reaction is its emoji, shown; a reaction being *removed* arrives
+with an empty emoji and gets a named row rather than an empty bubble. A media
+message with no id is a named, unfetchable row with no dead Retry.
+
+**Two controls on a card, wired or absent.** "Add as a client" posts to the
+existing `/api/clients`; "save this pin as the client's address" patches
+`/api/clients/[id]`. Both are drawn only when the SERVER says this member has
+`clientsProperties: full_edit`, and the address one also needs the pin to have
+carried an address *string* — coordinates are not a postal address, and
+reverse-geocoding one would put a billable guess on an invoice.
+
+**Outbound.** Video and documents already flowed through the send path; what
+was missing was the picker. `WHATSAPP_MEDIA_ACCEPT` ended at `application/pdf`
+while `WHATSAPP_MEDIA_LIMITS.document` already listed all eight of Meta's
+formats — the dead control in reverse, a send that could carry a spreadsheet
+nobody could choose. `/api/upload` now takes `purpose=messaging`, which widens
+the document allowlist to exactly Meta's eight at Meta's own 100 MB. A
+deliberate, opt-in widening: `classifyMedia`'s default also guards the PUBLIC
+self-quote upload, where "no customer has their kitchen plan in Word" is still
+true. **Location joins image, video and document** as a real location message —
+the browser names the intent, the server reads the company's own coordinates,
+and the button is absent for a company that has none.
+
+**The window still decides, for every kind.** Meta's docs list location and
+contacts as ordinary service messages, so a pin outside the 24 hours is refused
+with the identical `service_window_closed` reason and the identical sentence a
+typed reply gets, before anything is uploaded. The check drives all four kinds
+through it and compares the strings.
+
+### Still owed here
+
+- **No outbound audio, stickers or contact cards.** Meta would carry all three.
+  There is no recorder, no sticker maker and no contact picker, and a
+  contact-card send means handing a client's number to a third party — a
+  privacy decision with a product question inside it. The composer SAYS so in
+  one line (`app.messages.media.attachNote`) rather than leaving three silent
+  gaps, and `UNBUILT_OUTBOUND_TYPES` pins the list against that sentence.
+- **The demo company shows no media.** `demoThreads` still writes
+  `attachments: null` on every row, including the one whose body says "your
+  account statement is attached". A pin and a contact card would render fully
+  with no bytes and no network, so this is cheap; it needs the demo rows to be
+  written in the public attachment shape, which is the only reason it is not
+  done here.
+- **A document's size is only known after the fetch.** The webhook carries no
+  size, so a pending document shows a name and no figure. Correct, and worth
+  knowing before deciding whether to open a 40 MB file on a driveway.
+- **Reverse-geocoding a bare pin.** A pin with no address string offers no
+  "save as address" control. Turning coordinates into a postal address is a
+  billable Google call and a guess that would end up on an invoice.
 
 ---
 

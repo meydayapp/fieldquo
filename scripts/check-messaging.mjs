@@ -62,6 +62,7 @@ import {
   publicAttachments,
   attachmentTypeKey,
   hasFetchableMedia,
+  isFetchable,
   isDurableMediaUrl,
   ATTACHMENT_TYPES,
 } from "@/lib/messaging/attachments";
@@ -1081,6 +1082,90 @@ ok(
 ok(
   "the attachment model is likewise dependency-free — the bubble imports it",
   !/^\s*import\s/m.test(read("lib/messaging/attachments.js")),
+);
+
+// ── Messenger's own non-file attachments, in the SHARED shape ─────────────
+//
+// The renderer must never learn that two networks spell a latitude
+// differently: one sends `payload.coordinates.{lat,long}`, the other sends
+// `location.{latitude,longitude}`. Both land here as one shape, or the bubble
+// grows a platform branch.
+const mLocation = parseMessagingEnvelope({
+  object: "page",
+  entry: [
+    {
+      id: "PAGE_1",
+      messaging: [
+        {
+          sender: { id: "PSID_1" },
+          recipient: { id: "PAGE_1" },
+          timestamp: 1757000000000,
+          message: {
+            mid: "m_loc",
+            attachments: [
+              { type: "location", title: "Side entrance", payload: { coordinates: { lat: 45.5019, long: -73.5674 } } },
+            ],
+          },
+        },
+      ],
+    },
+  ],
+}).events[0];
+const mPin = normaliseAttachment(mLocation?.attachments?.[0]);
+ok("a Messenger location parses to the SAME location shape", mPin.type === "location");
+ok("…with lat/long mapped onto latitude/longitude, once, here", mPin.location?.latitude === 45.5019 && mPin.location?.longitude === -73.5674);
+ok("…and it is READY, because there was never anything to fetch", mPin.state === "ready");
+ok("…so the cron leaves it alone", isFetchable(mPin) === false);
+
+const mFallback = parseMessagingEnvelope({
+  object: "page",
+  entry: [
+    {
+      id: "PAGE_1",
+      messaging: [
+        {
+          sender: { id: "PSID_1" },
+          recipient: { id: "PAGE_1" },
+          timestamp: 1757000000000,
+          message: { mid: "m_fb", attachments: [{ type: "fallback", title: "A shared post" }] },
+        },
+      ],
+    },
+  ],
+}).events[0];
+const fb = normaliseAttachment(mFallback?.attachments?.[0]);
+ok("a Messenger \"fallback\" is NAMED rather than left as an unlabelled row", fb.otherKind === "fallback");
+ok("…and offers no Retry, because there was never anything to fetch", publicAttachments(mFallback.attachments)[0].retryable === false);
+
+// ── The bubble draws every kind, and counts none of them ─────────────────
+//
+// The failure this whole change removes: six of the eight kinds a customer can
+// send used to render as the word "Attachment". This asserts the ABSENCE of a
+// generic fallthrough for the kinds that now have their own renderer.
+for (const [kind, needle] of [
+  ["a video", 'attachment.type === "video"'],
+  ["a voice note", 'attachment.type === "audio"'],
+  ["a sticker", 'attachment.type === "sticker"'],
+  ["a pin", 'attachment.type === "location"'],
+  ["a contact card", 'attachment.type === "contact"'],
+]) {
+  ok(`${kind} has its own branch above the generic one`, orderedInSource(bitsSrc, needle, 'if (attachment.state === "pending")'));
+}
+ok(
+  "the two kinds that were never a file are drawn BEFORE the state ladder",
+  orderedInSource(bitsSrc, 'attachment.type === "location"', 'attachment.state === "ready" && attachment.type === "image"'),
+);
+ok(
+  "the renderer still never branches on the platform",
+  !/facebook|instagram|whatsapp/i.test(
+    bitsSrc.slice(bitsSrc.indexOf("export function Attachments"), bitsSrc.indexOf("\n/**\n * The attach control")),
+  ),
+);
+ok(
+  "…and the thread route hands the browser the pin and the card, which ARE the message",
+  publicAttachments([{ type: "location", location: { latitude: 1, longitude: 2 } }])[0].location?.latitude === 1 &&
+    publicAttachments([{ type: "contact", contacts: [{ name: { formatted_name: "Ana" }, phones: [{ phone: "1" }] }] }])[0].contacts?.[0]
+      ?.name === "Ana",
 );
 
 

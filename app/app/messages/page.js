@@ -392,6 +392,10 @@ function Conversation({
   const [attachment, setAttachment] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [attachError, setAttachError] = useState("");
+  // Is the company's own pin attached to the next message? A boolean and not
+  // an object, deliberately: the coordinates never travel through the browser
+  // (see the reply route), so the only thing state holds here is the INTENT.
+  const [pinAttached, setPinAttached] = useState(false);
   const endRef = useRef(null);
 
   // Every thread starts with nothing chosen. Without this a template picked on
@@ -406,6 +410,7 @@ function Conversation({
     setTemplateParams([]);
     setAttachment(null);
     setAttachError("");
+    setPinAttached(false);
   }, [thread?.id]);
 
   useEffect(() => {
@@ -445,6 +450,12 @@ function Conversation({
     try {
       const form = new FormData();
       form.append("file", file);
+      // The one thing this tells the upload route: widen the DOCUMENT
+      // allowlist from PDF-only to the eight formats WhatsApp itself accepts,
+      // at WhatsApp's own ceiling. An opt-in rather than a default, because
+      // the same classifier guards the public self-quote upload where a
+      // stranger can reach it — see MESSAGING_DOCUMENT_TYPES.
+      form.append("purpose", "messaging");
       const res = await fetch("/api/upload", { method: "POST", body: form });
       if (!res.ok) {
         // The server's own sentence — a Cloudinary misconfiguration reads
@@ -461,6 +472,9 @@ function Conversation({
         mimeType: verdict.mimeType,
         type: verdict.type,
       });
+      // One Send button, two mutually exclusive message kinds at Meta — see
+      // onPickLocation for the other half of this.
+      setPinAttached(false);
     } finally {
       setUploading(false);
     }
@@ -491,13 +505,73 @@ function Conversation({
     return null;
   }
 
+  /**
+   * "Add this contact card as a client."
+   *
+   * Two EXISTING routes, not a new one: /api/clients creates the row behind
+   * its own `clientsProperties: full_edit` gate, and the thread PATCH links it
+   * behind the `requests` gate the outcome control already uses. A third
+   * endpoint that did both would be a second place that creates a client, and
+   * the copy is the one that stops recording an activity entry.
+   *
+   * The link is best-effort and deliberately does NOT overwrite an existing
+   * one: a conversation already tied to a client must not be silently
+   * re-pointed at the plumber whose card they forwarded.
+   *
+   * Returns the failure sentence, or null — the card shows it, the same
+   * contract retryAttachment follows.
+   */
+  async function addContactAsClient(contact) {
+    const phone = contact?.phones?.[0]?.phone || null;
+    const res = await fetch("/api/clients", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: contact?.name, phone, notes: contact?.org || undefined }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return data.error || t("app.messages.media.clientAddError");
+    }
+    const created = await res.json().catch(() => null);
+    if (created?.id && !thread?.clientId) {
+      await fetch("/api/messaging/threads/" + thread.id, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: created.id }),
+      }).catch(() => {});
+    }
+    await onChanged?.();
+    return null;
+  }
+
+  /**
+   * "Save this pin as the client's address."
+   *
+   * PATCH /api/clients/[id], the same route the clients screen edits through,
+   * behind the same `clientsProperties: full_edit` gate — which is why the
+   * button is only drawn when the server said this member has it.
+   */
+  async function saveLocationAsAddress(clientId, address) {
+    const res = await fetch("/api/clients/" + clientId, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return data.error || t("app.messages.media.addressError");
+    }
+    return null;
+  }
+
   async function send() {
     const body = text.trim();
     // A template send carries no typed body — the words are the approved ones
     // and the server fills them in from ITS row, never from the browser. A
     // media send carries an optional caption, so an empty box is fine there
-    // too — what it must not be is empty with nothing attached.
-    if (!body && !sendingTemplate && !sendingMedia) return;
+    // too — what it must not be is empty with nothing attached. A pin carries
+    // no words at all: WhatsApp's location message has no caption field.
+    if (!body && !sendingTemplate && !sendingMedia && !sendingLocation) return;
     setSending(true);
     try {
       // TWO ROUTES, chosen here, and the note one does not import the send
@@ -518,6 +592,12 @@ function Conversation({
             // an approved template being used as an envelope for arbitrary
             // text. Same rule as add-on pricing (AGENTS.md non-negotiable #5).
             ? { kind: "template", templateId, params: templateParams }
+            : sendingLocation
+            // The INTENT and nothing else. No coordinates, no address: the
+            // server reads this company's own row at the moment of sending,
+            // the same shape as "the client names a thing, the server
+            // resolves it" everywhere else in this route.
+            ? { kind: "location" }
             : sendingMedia
               // The URL and the public_id of an upload this company already
               // made — never bytes, and never a file the browser describes.
@@ -555,6 +635,7 @@ function Conversation({
       // uploaded would be the composer losing their work.
       setAttachment(null);
       setAttachError("");
+      setPinAttached(false);
       await onChanged?.();
     } finally {
       setSending(false);
@@ -642,6 +723,22 @@ function Conversation({
     !composerBlocked &&
     !demoBlocked;
   const sendingMedia = mediaSupported && Boolean(attachment);
+  // The company's own pin, and only when the SERVER said there is one. A
+  // company whose address was typed rather than picked from the autocomplete
+  // has no coordinates, Meta requires them, and a "Send our address" button
+  // that could only ever fail is the dead control this repo keeps finding.
+  const companyLocation = mediaSupported ? thread?.companyLocation || null : null;
+  const sendingLocation = Boolean(companyLocation) && pinAttached;
+  // What a card in the thread may DO, and whether this member may do it. Both
+  // booleans come from the server (the thread route's canEditClients), because
+  // the routes behind these buttons refuse anyone else and a button that 403s
+  // is a dead control wearing a permission check.
+  const mediaActions = {
+    canEditClients: Boolean(thread?.canEditClients) && !connection?.mock,
+    client: thread?.client || null,
+    onAddClient: addContactAsClient,
+    onSaveAddress: saveLocationAsAddress,
+  };
 
   return (
     <div className="flex flex-col rounded-xl border border-border bg-card">
@@ -704,6 +801,7 @@ function Conversation({
                     bubbles={bubbles}
                     note={note}
                     onRetryAttachment={retryAttachment}
+                    media={mediaActions}
                     t={t}
                   />
                 </div>
@@ -844,6 +942,17 @@ function Conversation({
           }}
           accept={WHATSAPP_MEDIA_ACCEPT}
           disabled={sending}
+          location={companyLocation}
+          sendingLocation={sendingLocation}
+          onPickLocation={() => {
+            setPinAttached(true);
+            // A pin and a file are two different messages at Meta, and there
+            // is one Send button. Attaching one clears the other rather than
+            // sending whichever the code happens to test first.
+            setAttachment(null);
+            setAttachError("");
+          }}
+          onClearLocation={() => setPinAttached(false)}
           t={t}
         />
         <div className="flex items-end gap-2">
@@ -854,7 +963,12 @@ function Conversation({
             // Send stays alive to post the chosen template. Two different
             // conditions, deliberately, because they are two different
             // controls doing two different things.
-            disabled={composerBlocked || demoBlocked || sending}
+            // A pin disables it too, and this is not a style choice: WhatsApp's
+            // location message has NO caption field (unlike image, video and
+            // document, which do). A box that accepted words the send would
+            // silently drop is the control that appears to work — so it is
+            // disabled, and the placeholder says why.
+            disabled={composerBlocked || demoBlocked || sending || sendingLocation}
             rows={1}
             // The box is dressed as what it is about to write, before a word
             // is typed — the moment the mistake would otherwise be made.
@@ -877,9 +991,11 @@ function Conversation({
             aria-label={
               mode === "note"
                 ? t("app.messages.note.placeholder")
-                : sendingMedia
-                  ? t("app.messages.media.captionPlaceholder")
-                  : t("app.messages.compose.placeholder")
+                : sendingLocation
+                  ? t("app.messages.media.locationNoCaption")
+                  : sendingMedia
+                    ? t("app.messages.media.captionPlaceholder")
+                    : t("app.messages.compose.placeholder")
             }
             className="min-h-[44px] flex-1 resize-y rounded-2xl border border-border bg-background px-3 py-2.5 text-base text-foreground disabled:opacity-60"
           />
@@ -893,7 +1009,7 @@ function Conversation({
               // A template send needs no typed words, and neither does a
               // picture — the caption is optional. Everything else needs
               // something in the box.
-              (sendingTemplate || sendingMedia
+              (sendingTemplate || sendingMedia || sendingLocation
                 ? false
                 : composerBlocked || !text.trim())
             }

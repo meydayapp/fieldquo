@@ -21,6 +21,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import {
   loadEnforceableMember,
   requireLevel,
+  hasLevel,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
@@ -49,12 +50,26 @@ export async function GET(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
+  // Graded once and kept: the read gate below needs it, and so do the two
+  // booleans at the bottom of this response that decide whether a control on a
+  // contact card or a dropped pin is drawn at all.
+  const full = await graded(member);
   try {
-    requireLevel(await graded(member), "requests", "view_only", "read messages");
+    requireLevel(full, "requests", "view_only", "read messages");
   } catch (err) {
     const refusal = permissionErrorResponse(err);
     return NextResponse.json(refusal.body, { status: refusal.status });
   }
+
+  // ── Who may act on a contact card or a pin ──────────────────────────────
+  //
+  // "Add as a client" posts to /api/clients and "save this as the client's
+  // address" patches /api/clients/[id]; BOTH of those routes require
+  // clientsProperties: full_edit and refuse anyone else. That refusal is the
+  // guard. This boolean is what stops a crew member meeting it — a button that
+  // 403s is a dead control wearing a permission check, which is the same
+  // argument the Retry endpoint's header makes for sitting at the read rung.
+  const canEditClients = hasLevel(full, "clientsProperties", "full_edit");
 
   const connection = await messagingConnection(member.companyId);
   if (connection.mock) {
@@ -99,6 +114,11 @@ export async function GET(request, { params }) {
       // timestamp would be a second answer, in a different clock, that could
       // disagree with the refusal it is about to get.
       lastInboundAt: true,
+      // The linked client's name, for the one sentence that needs it: "save
+      // this pin as Sandra Cole's address". Only ever returned to somebody who
+      // may edit clients (see below), so this is not a new disclosure — it is
+      // a name that person can already read on the clients screen.
+      client: { select: { id: true, name: true } },
       channel: { select: { id: true, name: true, platform: true, status: true } },
       messages: {
         orderBy: { sentAt: "asc" },
@@ -123,10 +143,43 @@ export async function GET(request, { params }) {
   });
   if (!thread) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // ── "Send our address", and whether there is one to send ────────────────
+  //
+  // The composer draws that control only when this is non-null. The
+  // coordinates deliberately do NOT travel to the browser: the reply route
+  // reads them again, itself, at the moment of sending (see
+  // whatsAppLocationPayload for why a browser must never name a pin). What
+  // goes down is the LABEL — what the contractor is about to send — because a
+  // "Send our address" button that does not say which address is a control
+  // nobody can check before pressing.
+  //
+  // Null when the company has never been geocoded, which is the normal state
+  // for a company whose address was typed rather than picked from the
+  // autocomplete. No control, no dead button, and the reply route refuses the
+  // same case with a sentence naming the fix.
+  const company = needsServiceWindow(thread.channel?.platform)
+    ? await db.company
+        .findUnique({
+          where: { id: member.companyId },
+          select: { name: true, address: true, city: true, latitude: true, longitude: true },
+        })
+        .catch(() => null)
+    : null;
+  const companyLocation =
+    company && company.latitude != null && company.longitude != null
+      ? { label: [company.name, company.address, company.city].filter(Boolean).join(", ") }
+      : null;
+
   return NextResponse.json({
     connection,
     thread: {
       ...thread,
+      // Only for somebody who could act on it. A crew member sees the contact
+      // card and the pin — those are the message — and not the two buttons
+      // that would 403.
+      client: canEditClients ? thread.client : null,
+      canEditClients,
+      companyLocation,
       // ── The attachments, shaped and stripped ─────────────────────────────
       //
       // publicAttachments is the same kind of boundary publicChannelShape is

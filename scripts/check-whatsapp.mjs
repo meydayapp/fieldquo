@@ -74,14 +74,26 @@ import {
 import {
   normaliseAttachment,
   normaliseAttachments,
+  normaliseLocation,
+  normaliseContacts,
   publicAttachments,
   isDurableMediaUrl,
   isFetchable,
   hasFetchableMedia,
   withFetchResult,
   withFetchReset,
+  attachmentLabelKey,
+  attachmentTypeKey,
+  documentTypeKey,
+  formatBytes,
+  ATTACHMENT_TYPES,
   MEDIA_FETCH_MAX_ATTEMPTS,
 } from "@/lib/messaging/attachments";
+import { whatsAppLocationPayload } from "@/lib/messaging/whatsappMedia";
+import { UNBUILT_OUTBOUND_TYPES } from "@/lib/messaging/whatsappMediaLimits";
+import { videoPosterUrl } from "@/lib/media/cloudinaryUrl";
+import { staticMapUrl, mapsLinkUrl, addressFromLocation } from "@/lib/messaging/locationLink";
+import { classifyMedia, uploadPublicId, MESSAGING_DOCUMENT_TYPES } from "@/lib/media/validate";
 import { rehostAttachment, resolveWhatsAppMediaUrl, isMetaMediaUrl } from "@/lib/messaging/mediaFetch";
 import { encryptToken } from "@/lib/meta/tokenCrypto";
 import { sendOnChannel } from "@/lib/messaging/send";
@@ -1587,7 +1599,550 @@ ok(
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
-section("12. Every new key, in all nine languages");
+section("12. EVERY kind a customer can send — not just the pictures");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The owner's words were "and videos… and other files so make sure you are
+// not limiting it, it's all type of media that is typically exchanged in
+// WhatsApp or text." Before this section existed, six of the eight kinds
+// WhatsApp carries arrived as a bordered row reading "Attachment", and two of
+// them (a dropped pin, a shared contact card) arrived as an EMPTY BUBBLE —
+// a message row with no body and no attachment at all.
+//
+// Every claim below is executed. "The parser handles a location" has a version
+// that passes a grep and stores nothing; "a pin renders" has a version that
+// throws on a payload with no coordinates and takes the whole conversation
+// down with it.
+
+// ── A. The parser, one fixture per kind ────────────────────────────────────
+const oneMessage = (message) =>
+  parseWhatsAppEnvelope(JSON.parse(inboundBody({ messages: [{ from: "15551234567", id: "wamid.X", timestamp: "1757000000", ...message }] })))
+    .events[0];
+
+const videoIn = oneMessage({ type: "video", video: { id: "V1", mime_type: "video/mp4", caption: "the leak" } });
+ok("a video carries its media id", videoIn?.attachments?.[0]?.mediaId === "V1");
+ok("…and its caption is the message body", videoIn?.body === "the leak");
+ok("…and no url, exactly like a photo", videoIn?.attachments?.[0]?.url === null);
+
+// The ONE difference between a voice note and an attached audio file, and it
+// is a label difference: both play in the same player.
+const voiceIn = oneMessage({ type: "audio", audio: { id: "A1", mime_type: "audio/ogg", voice: true } });
+const fileIn = oneMessage({ type: "audio", audio: { id: "A2", mime_type: "audio/mpeg", voice: false } });
+ok("a voice note is flagged as one", voiceIn?.attachments?.[0]?.voice === true);
+ok("…and an attached audio file is flagged as not one", fileIn?.attachments?.[0]?.voice === false);
+ok(
+  "a voice note is called a voice message",
+  attachmentLabelKey(normaliseAttachment(voiceIn.attachments[0])).key === "app.messages.media.audio",
+);
+ok(
+  "…and an audio FILE is called an audio file, which is the only thing that differs",
+  attachmentLabelKey(normaliseAttachment(fileIn.attachments[0])).key === "app.messages.media.audioFile",
+);
+ok(
+  "an older audio row with no flag keeps the generic word rather than asserting either",
+  attachmentLabelKey(normaliseAttachment({ type: "audio", mediaId: "A3" })).key === "app.messages.media.audio",
+);
+
+const docIn = oneMessage({
+  type: "document",
+  document: { id: "D1", mime_type: "application/pdf", filename: "kitchen-plan.pdf", caption: "the plan" },
+});
+ok("a document keeps the REAL filename WhatsApp supplied", docIn?.attachments?.[0]?.filename === "kitchen-plan.pdf");
+ok(
+  "a document with NO filename is named by what it is, never 'document'",
+  documentTypeKey("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") === "app.messages.media.doc.excel",
+);
+for (const [mime, key] of [
+  ["application/pdf", "app.messages.media.doc.pdf"],
+  ["text/plain", "app.messages.media.doc.text"],
+  ["application/msword", "app.messages.media.doc.word"],
+  ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "app.messages.media.doc.word"],
+  ["application/vnd.ms-powerpoint", "app.messages.media.doc.slides"],
+]) {
+  ok(`${mime} is named as its own kind of document`, documentTypeKey(mime) === key);
+}
+ok("an unknown document type falls back to the generic word rather than printing a MIME", documentTypeKey("application/x-nonsense") === null);
+
+const stickerIn = oneMessage({ type: "sticker", sticker: { id: "S1", mime_type: "image/webp", animated: true } });
+ok("an animated sticker is carried as one", stickerIn?.attachments?.[0]?.animated === true);
+ok("…as a sticker, which the renderer draws as a small image", normaliseAttachment(stickerIn.attachments[0]).type === "sticker");
+
+// ── B. The two kinds that were never a file ────────────────────────────────
+const pinIn = oneMessage({
+  type: "location",
+  location: { latitude: 45.5019, longitude: -73.5674, name: "Back gate", address: "12 King St, Montreal" },
+});
+const pin = normaliseAttachment(pinIn.attachments[0]);
+ok("a dropped pin parses to a location attachment", pin.type === "location");
+ok("…that is READY, because nothing was ever going to be fetched", pin.state === "ready", pin.state);
+ok("…keeping the coordinates", pin.location.latitude === 45.5019 && pin.location.longitude === -73.5674);
+ok("…and the name and address WhatsApp sent", pin.location.name === "Back gate" && pin.location.address === "12 King St, Montreal");
+ok("…and offering no Retry, because there is nothing to retry", publicAttachments(pinIn.attachments)[0].retryable === false);
+ok("…and the cron never picks it up", isFetchable(pin) === false);
+ok("a pin's coordinates DO reach the browser — they are the message", publicAttachments(pinIn.attachments)[0].location.latitude === 45.5019);
+
+const cardIn = oneMessage({
+  type: "contacts",
+  contacts: [
+    {
+      name: { formatted_name: "Ana Ruiz", first_name: "Ana", last_name: "Ruiz" },
+      org: { company: "Ruiz Plumbing" },
+      phones: [{ phone: "+1 514 555 0123", wa_id: "15145550123", type: "MOBILE" }],
+      emails: [{ email: "ana@example.com" }],
+    },
+  ],
+});
+const card = normaliseAttachment(cardIn.attachments[0]);
+ok("a shared contact card parses to a contact attachment", card.type === "contact");
+ok("…that is READY", card.state === "ready", card.state);
+ok("…with the name out of the vCard", card.contacts[0].name === "Ana Ruiz");
+ok("…and the phone number, which is the whole point of receiving one", card.contacts[0].phones[0].phone === "+1 514 555 0123");
+ok("…and the organisation", card.contacts[0].org === "Ruiz Plumbing");
+
+// A card assembled only from first/last, which is what a phone's own export
+// produces when there is no formatted_name.
+const split = normaliseContacts([{ name: { first_name: "Ana", last_name: "Ruiz" }, phones: [{ phone: "5145550123" }] }]);
+ok("a card with no formatted_name is still named", split[0].name === "Ana Ruiz");
+
+// ── C. Hostile and missing fields RENDER rather than throw ─────────────────
+//
+// A conversation must never fail to load over one bad attachment, and both of
+// these payloads come from outside.
+const hostilePins = [
+  { latitude: "not a number", longitude: -73 },
+  { latitude: null, longitude: null },
+  {},
+  { latitude: 91, longitude: 0 },
+  { latitude: 0, longitude: 181 },
+  "nonsense",
+  [],
+];
+let pinThrew = null;
+for (const raw of hostilePins) {
+  try {
+    const a = normaliseAttachment({ type: "location", location: raw });
+    if (a.state !== "unavailable") pinThrew = `state was ${a.state} for ${JSON.stringify(raw)}`;
+    if (a.location !== null) pinThrew = `location survived for ${JSON.stringify(raw)}`;
+  } catch (err) {
+    pinThrew = err.message;
+  }
+}
+ok("a pin with hostile or missing coordinates is a NAMED row, never a throw and never (0, 0)", pinThrew === null, pinThrew || "");
+ok("…and null/undefined give nothing at all", normaliseLocation(null) === null && normaliseLocation(undefined) === null);
+ok(
+  "…and a numeric string pin still parses, because Meta sends strings",
+  normaliseLocation({ latitude: "45.5", longitude: "-73.5" })?.latitude === 45.5,
+);
+
+const hostileCards = ["nonsense", [], [null], [{}], [{ name: {} }], [{ phones: "no" }], [{ name: { formatted_name: "x".repeat(500) }, phones: [{ phone: "1" }] }]];
+let cardThrew = null;
+let clamped = null;
+for (const raw of hostileCards) {
+  try {
+    const a = normaliseAttachment({ type: "contact", contacts: raw });
+    if (!["ready", "unavailable"].includes(a.state)) cardThrew = `state ${a.state}`;
+    if (a.contacts) clamped = a.contacts[0].name.length;
+  } catch (err) {
+    cardThrew = err.message;
+  }
+}
+ok("a contact card with hostile or missing fields renders rather than throwing", cardThrew === null, cardThrew || "");
+ok("…with a name clamped, because it goes straight into a bubble", clamped === 120, String(clamped));
+ok(
+  "a card with neither a name nor a number is dropped rather than drawn as an empty box",
+  normaliseAttachment({ type: "contact", contacts: [{}] }).state === "unavailable",
+);
+
+// ── D. Nothing falls through to an empty bubble ────────────────────────────
+//
+// This is the rule the owner actually asked for, and it is the one most easily
+// lost: a message row with no body and no attachment reads as a message we
+// lost. Every non-text WhatsApp type must leave EITHER a body or a row.
+for (const [type, message] of [
+  ["order", { type: "order", order: { catalog_id: "C1", product_items: [] } }],
+  ["system", { type: "system", system: { body: "number changed" } }],
+  ["unsupported", { type: "unsupported", errors: [{ code: 131051, title: "Unsupported message type" }] }],
+  ["request_welcome", { type: "request_welcome" }],
+]) {
+  const event = oneMessage(message);
+  const a = normaliseAttachments(event?.attachments);
+  ok(`an inbound "${type}" leaves a NAMED row rather than an empty bubble`, a.length === 1 && a[0].type === "other");
+  ok(`…naming what arrived`, a[0].otherKind === type, JSON.stringify(a[0]));
+  ok(
+    `…and the label says so rather than a bare "Attachment"`,
+    attachmentLabelKey(a[0]).key !== "app.messages.media.other",
+  );
+}
+ok(
+  "…and an unsupported type gets its own sentence, because there is nothing to retry and nothing anybody did wrong",
+  attachmentLabelKey(normaliseAttachments(oneMessage({ type: "unsupported" }).attachments)[0]).key ===
+    "app.messages.media.unsupported",
+);
+
+const reaction = oneMessage({ type: "reaction", reaction: { message_id: "wamid.AAA", emoji: "👍" } });
+ok("a reaction IS its emoji, shown rather than described", reaction?.body === "👍");
+ok("…so it needs no attachment row", reaction?.attachments === null);
+const unreacted = oneMessage({ type: "reaction", reaction: { message_id: "wamid.AAA", emoji: "" } });
+ok("a REMOVED reaction has no emoji, so it gets a named row instead of an empty bubble", normaliseAttachments(unreacted?.attachments)[0]?.otherKind === "reaction");
+
+const idless = oneMessage({ type: "image", image: { mime_type: "image/jpeg" } });
+ok(
+  "a media message with no id still leaves a row — named, unfetchable, no dead Retry",
+  normaliseAttachments(idless?.attachments)[0]?.state === "unavailable",
+);
+
+// Every type the renderer can meet has a name, and the renderer has a branch
+// for it. The second half is a source assertion because a branch is a source
+// fact — but it is POSITIONAL, so deleting one fails rather than passes.
+const bitsAll = read("app/app/messages/ConversationBits.js");
+for (const type of ATTACHMENT_TYPES) {
+  ok(`a ${type} has a label key that exists in English`, Boolean(APP_MESSAGES.en[attachmentTypeKey(type)]));
+}
+for (const [type, needle] of [
+  ["video", '<video'],
+  ["audio", '<audio'],
+  ["sticker", 'attachment.type === "sticker"'],
+  ["location", "<LocationCard"],
+  ["contact", "<ContactCard"],
+]) {
+  ok(`the renderer draws a ${type} rather than counting it`, bitsAll.includes(needle), needle);
+}
+ok(
+  "a document row shows the real filename and a human size",
+  orderedInSource(bitsAll, "formatBytes(attachment.bytes)", "{size &&"),
+);
+ok(
+  "a pin offers a way out to a real map",
+  bitsAll.includes("app.messages.media.openInMaps") && bitsAll.includes("mapsLinkUrl"),
+);
+ok(
+  "a contact card's numbers are dialable",
+  /href=\{`tel:/.test(bitsAll),
+);
+
+// ── E. A pending or failed VIDEO behaves exactly like a pending photo ──────
+//
+// The states are type-blind and must stay that way: a video that fetched
+// slowly must say "still arriving", not render an empty player.
+for (const type of ["video", "audio", "document", "sticker"]) {
+  const pendingEntry = normaliseAttachment({ type, mediaId: "M1" });
+  ok(`a ${type} with an id and no url is PENDING, exactly like a photo`, pendingEntry.state === "pending");
+  ok(`…with a null url, so nothing renders a broken player`, pendingEntry.url === null);
+  ok(`…and no Retry while the work is still in progress`, publicAttachments([{ type, mediaId: "M1" }])[0].retryable === false);
+
+  const failedList = withFetchResult([{ type, mediaId: "M1" }], 0, { error: "WhatsApp would not hand over this file" });
+  const failedEntry = publicAttachments(failedList)[0];
+  ok(`a failed ${type} reads as FAILED and keeps the reason`, failedEntry.state === "failed" && /would not hand over/.test(failedEntry.error));
+  ok(`…and offers a Retry, exactly like a photo`, failedEntry.retryable === true);
+  ok(`…and never leaks Meta's handle to the browser`, !("mediaId" in failedEntry) && !("sourceUrl" in failedEntry));
+}
+
+// ── F. The `url` invariant holds for EVERY type ────────────────────────────
+//
+// Feed the re-host an uploader that hands back a GRAPH url — the exact bug
+// this whole module is arranged around — and assert that no type ends up
+// `ready` and nothing lands in `url`.
+process.env.META_TOKEN_ENCRYPTION_KEY = "0".repeat(64);
+const poisonUploader = async () => ({ secure_url: "https://graph.facebook.com/v23.0/MEDIA_1" });
+for (const type of ["image", "video", "audio", "document", "sticker", "other"]) {
+  const entry = { type, sourceUrl: SIGNED };
+  const result = await rehostAttachment({
+    attachment: normaliseAttachment(entry, 0),
+    channel: null,
+    companyId: "company_REAL",
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/octet-stream", "content-length": "4" }),
+      arrayBuffer: async () => new Uint8Array([1, 2, 3, 4]).buffer,
+      json: async () => ({}),
+    }),
+    uploadImpl: poisonUploader,
+  });
+  const after = normaliseAttachments(withFetchResult([entry], 0, result))[0];
+  ok(`a ${type} re-hosted to a Graph url is NOT ready`, after.state !== "ready", after.state);
+  ok(`…and nothing lands in url`, after.url === null);
+}
+
+// The success path, for every type, so the invariant is not proved only by its
+// failures — and the SIZE comes back measured off the real buffer.
+const sizedBytes = Buffer.alloc(2048);
+const sized = await rehostAttachment({
+  attachment: normaliseAttachment({ type: "document", sourceUrl: SIGNED, filename: "plan.pdf" }, 0),
+  channel: null,
+  companyId: "company_REAL",
+  fetchImpl: async () => ({
+    ok: true,
+    status: 200,
+    headers: new Headers({ "content-type": "application/pdf", "content-length": String(sizedBytes.length) }),
+    arrayBuffer: async () => sizedBytes.buffer.slice(sizedBytes.byteOffset, sizedBytes.byteOffset + sizedBytes.byteLength),
+    json: async () => ({}),
+  }),
+  uploadImpl: async () => ({ secure_url: "https://res.cloudinary.com/demo/raw/upload/v1/messaging/company_REAL/plan.pdf" }),
+});
+ok("a document that lands carries its measured size", sized.bytes === 2048);
+const sizedStored = normaliseAttachments(withFetchResult([{ type: "document", sourceUrl: SIGNED, filename: "plan.pdf" }], 0, sized))[0];
+ok("…stored on the row", sizedStored.bytes === 2048);
+ok("…and the filename SURVIVED the fetch write", sizedStored.filename === "plan.pdf");
+ok("…and reads as a human size", formatBytes(sizedStored.bytes) === "2 KB", String(formatBytes(sizedStored.bytes)));
+ok("an unmeasured size prints NOTHING rather than '0 KB'", formatBytes(0) === null && formatBytes(null) === null && formatBytes(-5) === null);
+
+// The field-by-field rebuild in withFetchResult is where a payload silently
+// disappears. A pin sitting beside a photo on the same message must survive
+// the photo's fetch.
+const mixed = [
+  { type: "image", mediaId: "M1" },
+  { type: "location", location: { latitude: 45.5, longitude: -73.5, name: "Gate" } },
+];
+const afterMixed = normaliseAttachments(withFetchResult(mixed, 0, { error: "nope" }));
+ok("a pin beside a photo survives the photo's fetch attempt", afterMixed[1].location?.latitude === 45.5);
+ok("…and survives a Retry reset too", normaliseAttachments(withFetchReset(mixed, 0))[1].location?.name === "Gate");
+const voiceKept = normaliseAttachments(withFetchResult([{ type: "audio", mediaId: "A1", voice: false }], 0, { error: "nope" }))[0];
+ok("…and the voice flag is not erased by a failed fetch", voiceKept.voice === false);
+
+// ── G. Per-type limits, at the boundary and one byte over, for EVERY type ──
+//
+// The INBOUND ceiling, executed through the real re-host against Meta's
+// reported file_size, for each of the five kinds Meta publishes a number for.
+const limitChannel = {
+  id: "chan_wa", companyId: "company_REAL", platform: "whatsapp", externalId: "PHONE_1",
+  status: "connected", disconnectedAt: null, accessTokenEnc: encryptToken("EAAG-token"),
+};
+for (const type of ["image", "video", "audio", "document", "sticker"]) {
+  const cap = WHATSAPP_MEDIA_LIMITS[type].maxBytes;
+  const drive = async (fileSize) =>
+    rehostAttachment({
+      attachment: normaliseAttachment({ type, mediaId: "M1" }, 0),
+      channel: limitChannel,
+      companyId: "company_REAL",
+      fetchImpl: async (url) =>
+        String(url).includes("lookaside")
+          ? {
+              ok: true, status: 200,
+              headers: new Headers({ "content-type": "application/octet-stream", "content-length": "4" }),
+              arrayBuffer: async () => new Uint8Array([1, 2, 3, 4]).buffer,
+              json: async () => ({}),
+            }
+          : { ok: true, status: 200, headers: new Headers(), json: async () => ({ url: SIGNED, mime_type: "application/octet-stream", file_size: fileSize }) },
+      uploadImpl: async () => ({ secure_url: `https://res.cloudinary.com/demo/image/upload/v1/messaging/company_REAL/${type}.bin` }),
+    });
+  const atCap = await drive(cap);
+  ok(`an inbound ${type} EXACTLY at Meta's ${WHATSAPP_MEDIA_LIMITS[type].label} is fetched`, Boolean(atCap.url), JSON.stringify(atCap));
+  const overCap = await drive(cap + 1);
+  ok(`an inbound ${type} ONE BYTE over is refused before a byte is downloaded`, /larger than/.test(overCap.error || ""), JSON.stringify(overCap));
+}
+// And again on the REAL buffer, because Content-Length is a claim rather than
+// a measurement — the guard readBody exists for.
+const lyingHeader = await rehostAttachment({
+  attachment: normaliseAttachment({ type: "sticker", sourceUrl: SIGNED }, 0),
+  channel: null,
+  companyId: "company_REAL",
+  fetchImpl: async () => {
+    const big = Buffer.alloc(WHATSAPP_MEDIA_LIMITS.sticker.maxBytes + 1);
+    return {
+      ok: true, status: 200,
+      headers: new Headers({ "content-type": "image/webp", "content-length": "10" }),
+      arrayBuffer: async () => big.buffer.slice(big.byteOffset, big.byteOffset + big.byteLength),
+      json: async () => ({}),
+    };
+  },
+  uploadImpl: async () => { throw new Error("must not upload an oversized file"); },
+});
+ok("a lying Content-Length is caught on the real buffer", /larger than/.test(lyingHeader.error || ""), JSON.stringify(lyingHeader));
+
+// ── H. Outbound: the window refuses EVERY kind by the SAME name ────────────
+const CLOSED = new Date("2026-09-08T12:00:00Z");
+const LONG_AGO = new Date("2026-09-05T12:00:00Z");
+const textRefusal = await sendWhatsAppMessage({
+  channel: limitChannel, recipientExternalId: "15551234567", text: "hello",
+  lastInboundAt: LONG_AGO, now: CLOSED,
+});
+ok("free text outside the window is refused", textRefusal.reason === "service_window_closed");
+for (const [label, extra] of [
+  ["a photo", { kind: "media", media: { type: "image", mimeType: "image/jpeg", buffer: Buffer.from("x"), filename: "a.jpg" } }],
+  ["a video", { kind: "media", media: { type: "video", mimeType: "video/mp4", buffer: Buffer.from("x"), filename: "a.mp4" } }],
+  ["a document", { kind: "media", media: { type: "document", mimeType: "application/pdf", buffer: Buffer.from("x"), filename: "a.pdf" } }],
+  ["a location", { kind: "location", location: { latitude: 45.5, longitude: -73.5 } }],
+]) {
+  const refusal = await sendWhatsAppMessage({
+    channel: limitChannel, recipientExternalId: "15551234567", text: "",
+    lastInboundAt: LONG_AGO, now: CLOSED, ...extra,
+  });
+  ok(`${label} outside the window is refused with the IDENTICAL reason as text`, refusal.reason === textRefusal.reason, String(refusal.reason));
+  ok(`…and the identical sentence, so one situation reads one way`, refusal.message === textRefusal.message);
+  ok(`…and nothing reached Meta, so no upload was wasted`, refusal.externalId === undefined);
+}
+
+// ── I. Outbound location: the payload, and the refusals ────────────────────
+const locPayload = whatsAppLocationPayload({ latitude: 45.5019, longitude: -73.5674, name: "Northline Cabinets", address: "12 King St" });
+ok("a location send names the type", locPayload.type === "location");
+ok("…with latitude and longitude, which Meta requires", locPayload.location.latitude === "45.5019" && locPayload.location.longitude === "-73.5674");
+ok("…and the optional name and address when there are any", locPayload.location.name === "Northline Cabinets" && locPayload.location.address === "12 King St");
+const bareLoc = whatsAppLocationPayload({ latitude: 1, longitude: 2 });
+ok("…and no blank keys when there are none, which would render as an empty line", !("name" in bareLoc.location) && !("address" in bareLoc.location));
+
+const locNoCoords = await sendWhatsAppMessage({
+  channel: limitChannel, recipientExternalId: "15551234567", kind: "location", location: null,
+  lastInboundAt: new Date("2026-09-08T11:00:00Z"), now: CLOSED,
+});
+ok("a location send with no coordinates is refused by NAME, not posted", locNoCoords.reason === "location_missing");
+
+const locOnPage = await sendOnChannel({
+  channel: { platform: "facebook", status: "connected", externalId: "PAGE_1", accessTokenEnc: "x" },
+  recipientExternalId: "PSID", kind: "location", location: { latitude: 1, longitude: 2 },
+});
+ok("a location on a Facebook thread is refused BY NAME, never downgraded to text", locOnPage.reason === "location_unsupported");
+
+const replyRoute = read("app/api/messaging/threads/[id]/reply/route.js");
+ok(
+  "the route reads the coordinates from the COMPANY row, never from the request body",
+  orderedInSource(replyRoute, 'kind === "location"', "db.company.findUnique"),
+);
+ok(
+  "…and refuses a company with no coordinates rather than letting Meta 400 it",
+  /location_missing/.test(replyRoute),
+);
+ok(
+  "…and no latitude ever comes off the request body",
+  !/body\.latitude|body\.longitude|body\.location/.test(replyRoute),
+);
+const threadRouteAll = read("app/api/messaging/threads/[id]/route.js");
+ok(
+  "the thread route says WHETHER there is an address to send, and only the label",
+  /companyLocation/.test(threadRouteAll) && !/companyLocation[\s\S]{0,200}latitude:/.test(threadRouteAll.slice(threadRouteAll.indexOf("const companyLocation"))),
+);
+
+// ── J. What may be sent, what may not, and the sentence that says so ───────
+ok("audio, stickers and contact cards are named as NOT sendable today", UNBUILT_OUTBOUND_TYPES.length === 3);
+for (const t of UNBUILT_OUTBOUND_TYPES) {
+  ok(`…including ${t}`, !OUTBOUND_TYPES.includes(t));
+}
+const attachNote = APP_MESSAGES.en["app.messages.media.attachNote"];
+for (const word of ["Voice", "sticker", "contact"]) {
+  ok(`the composer SAYS ${word} cannot be sent yet rather than leaving a silent gap`, new RegExp(word, "i").test(attachNote), attachNote);
+}
+const pageAll = read("app/app/messages/page.js");
+ok(
+  "there is no audio-recording control, because there is no recorder",
+  !/MediaRecorder|getUserMedia/.test(pageAll + bitsAll),
+);
+ok(
+  "the 'send our address' button exists only when the server said there is one",
+  /const companyLocation = mediaSupported \? thread\?\.companyLocation \|\| null : null/.test(pageAll),
+);
+ok(
+  "…and the browser sends the INTENT only, never coordinates",
+  /\{ kind: "location" \}/.test(pageAll),
+);
+ok(
+  "a pin disables the caption box, because WhatsApp carries no words with a location",
+  /sending \|\| sendingLocation/.test(pageAll),
+);
+
+// ── K. The file picker now offers what the send has always accepted ────────
+for (const mime of MESSAGING_DOCUMENT_TYPES) {
+  ok(`the picker offers ${mime}`, WHATSAPP_MEDIA_ACCEPT.includes(mime));
+  const verdict = classifyWhatsAppOutboundMedia({ type: mime, size: 1024 });
+  ok(`…and the send accepts it`, verdict.ok === true && verdict.type === "document", JSON.stringify(verdict));
+}
+ok(
+  "the upload boundary takes an Office document ONLY when the caller opts in",
+  classifyMedia({ type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", size: 1024 }).ok === false &&
+    classifyMedia(
+      { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", size: 1024 },
+      { allowMessagingDocuments: true },
+    ).ok === true,
+);
+ok(
+  "…and the PUBLIC self-quote upload does not opt in, so a stranger still cannot post one",
+  !/allowMessagingDocuments/.test(read("app/api/self-quote/[companySlug]/upload/route.js")),
+);
+ok(
+  "…while the authenticated upload does, and only for a messaging attachment",
+  orderedInSource(read("app/api/upload/route.js"), 'purpose === "messaging"', "allowMessagingDocuments: forMessaging"),
+);
+ok(
+  "a spreadsheet gets a .xlsx public_id, not a .pdf one that downloads as a corrupt PDF",
+  uploadPublicId("document", {
+    randomId: () => "fixed",
+    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  }) === "fixed.xlsx",
+);
+ok(
+  "…and a caller that names no type still gets .pdf, exactly as before",
+  uploadPublicId("document", { randomId: () => "fixed" }) === "fixed.pdf",
+);
+ok(
+  "the messaging upload ceiling is Meta's own 100 MB, so the picker and the send agree",
+  classifyMedia({ type: "application/pdf", size: WHATSAPP_MEDIA_LIMITS.document.maxBytes }, { allowMessagingDocuments: true }).ok === true &&
+    classifyMedia({ type: "application/pdf", size: WHATSAPP_MEDIA_LIMITS.document.maxBytes + 1 }, { allowMessagingDocuments: true }).ok === false,
+);
+
+// ── L. The video poster and the map, executed ──────────────────────────────
+const CLIP = "https://res.cloudinary.com/demo/video/upload/v1699/messaging/company_REAL/clip.mp4";
+const poster = videoPosterUrl(CLIP);
+ok("a video gets a poster frame from the same asset", /so_0/.test(poster));
+ok("…delivered as an image, not as the clip", poster.endsWith(".jpg") && !poster.includes(".mp4"));
+ok("…and an image url gets NO poster rather than a broken one", videoPosterUrl("https://res.cloudinary.com/demo/image/upload/v1/a.jpg") === null);
+ok("…and a non-Cloudinary url gets none either", videoPosterUrl("https://example.com/a.mp4") === null && videoPosterUrl(null) === null);
+
+const HERE = { latitude: 45.5019, longitude: -73.5674, name: "Gate", address: "12 King St" };
+ok("a pin with a browser Maps key gets a thumbnail", /staticmap/.test(staticMapUrl(HERE, { key: "BROWSER_KEY" }) || ""));
+ok("…and with NO key gets none, so nothing renders a broken image", staticMapUrl(HERE, { key: undefined }) === null);
+ok("…and the card still has a way out to a real map", /45.5019,-73.5674/.test(mapsLinkUrl(HERE)));
+ok("…which is refused for a pin that never parsed", mapsLinkUrl(null) === null);
+// The server key is UNRESTRICTED and also unlocks Geocoding, Distance Matrix
+// and Solar — app/api/measure/satellite/route.js proxies bytes through the
+// server specifically so it never reaches a browser. An <img src> carrying it
+// would publish it into the DOM, the network tab and every screenshot. Naming
+// it in a comment is fine; READING it here is not, so this tests the read.
+ok(
+  "the thumbnail never reads the UNRESTRICTED server key",
+  !/process\.env\.GOOGLE_MAPS_SERVER_KEY/.test(read("lib/messaging/locationLink.js") + bitsAll),
+);
+ok(
+  "…it uses the referrer-restricted browser key, the one MiniMap already puts in an <img>",
+  /process\.env\.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY/.test(bitsAll),
+);
+ok(
+  "…and the key is passed IN rather than read inside the pure helper",
+  !/process\.env/.test(read("lib/messaging/locationLink.js")),
+);
+ok(
+  "the address offered to a client record is the customer's own words",
+  addressFromLocation(HERE) === "Gate, 12 King St",
+);
+ok(
+  "…and a bare pin offers NOTHING, because coordinates are not a postal address",
+  addressFromLocation({ latitude: 1, longitude: 2 }) === null,
+);
+ok("…and null does not throw", addressFromLocation(null) === null);
+
+// ── M. The two card controls are wired, or they are not drawn ─────────────
+ok(
+  "'add as a client' posts to the real client-creation route",
+  /"\/api\/clients"/.test(pageAll) && orderedInSource(pageAll, "addContactAsClient", '"/api/clients"'),
+);
+ok(
+  "'save as the client's address' patches the real client route",
+  /"\/api\/clients\/" \+ clientId/.test(pageAll),
+);
+ok(
+  "…and both are drawn only for a member the SERVER said may edit clients",
+  /canEditClients: Boolean\(thread\?\.canEditClients\)/.test(pageAll) &&
+    /const canEditClients = hasLevel\(full, "clientsProperties", "full_edit"\)/.test(threadRouteAll),
+);
+ok(
+  "…so a member who cannot edit clients sees the card and not a button that would 403",
+  /media\?\.canEditClients && media\?\.onAddClient/.test(bitsAll),
+);
+ok(
+  "the address button is absent when the pin carried no address string",
+  /Boolean\(address && client && media\?\.canEditClients/.test(bitsAll),
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("13. Every new key, in all nine languages");
 // ═══════════════════════════════════════════════════════════════════════════
 
 const LANGS = Object.keys(APP_MESSAGES);
@@ -1642,6 +2197,29 @@ const NEW_KEYS = [
   "app.messages.media.remove",
   "app.messages.media.uploadError",
   "app.messages.media.captionPlaceholder",
+  // Everything else a customer can send. Each one of these is a row that used
+  // to read "Attachment" or, worse, nothing at all.
+  "app.messages.media.location",
+  "app.messages.media.contact",
+  "app.messages.media.audioFile",
+  "app.messages.media.doc.pdf",
+  "app.messages.media.doc.text",
+  "app.messages.media.doc.word",
+  "app.messages.media.doc.excel",
+  "app.messages.media.doc.slides",
+  "app.messages.media.unsupported",
+  "app.messages.media.otherNamed",
+  "app.messages.media.mapAlt",
+  "app.messages.media.openInMaps",
+  "app.messages.media.useAsClientAddress",
+  "app.messages.media.addressSaved",
+  "app.messages.media.addressError",
+  "app.messages.media.addAsClient",
+  "app.messages.media.clientAdded",
+  "app.messages.media.clientAddError",
+  "app.messages.media.attachNote",
+  "app.messages.media.sendLocation",
+  "app.messages.media.locationNoCaption",
 ];
 
 for (const key of NEW_KEYS) {

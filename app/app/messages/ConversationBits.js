@@ -17,7 +17,8 @@
 import { useState } from "react";
 import {
   AlertTriangle, Check, Clock, EyeOff, MessageSquare, StickyNote,
-  Paperclip, Film, Mic, FileText, Loader2, X,
+  Paperclip, Film, Mic, FileText, Loader2, X, MapPin, User, Phone, Mail,
+  ExternalLink, UserPlus, Home, Smile,
 } from "lucide-react";
 // lucide ships NO brand marks — `Facebook` and `Instagram` do not exist in it
 // and the build says so. The bio-link page already needed these two and drew
@@ -31,7 +32,17 @@ import {
 } from "@/lib/messaging/outcomes";
 import { activityLabel } from "@/lib/messaging/activity";
 import { waitedLabel, isWaiting } from "@/lib/messaging/waiting";
-import { attachmentTypeKey } from "@/lib/messaging/attachments";
+import {
+  attachmentTypeKey,
+  attachmentLabelKey,
+  formatBytes,
+} from "@/lib/messaging/attachments";
+// Pure string surgery on a Cloudinary URL — the poster frame a <video> shows
+// before anybody presses play. From lib/media/cloudinaryUrl.js and NOT
+// lib/cloudinary.js, whose top-level config() call would drag the Node SDK
+// into this "use client" bundle; that file's own header records the trap.
+import { videoPosterUrl } from "@/lib/media/cloudinaryUrl";
+import { staticMapUrl, mapsLinkUrl, addressFromLocation } from "@/lib/messaging/locationLink";
 
 /** Two letters from a name, or a dash when Meta gave us none. */
 export function initials(name) {
@@ -102,7 +113,7 @@ export function clockTime(value) {
  * never "is it dark? use white", which fails on exactly the mid-tones
  * contractors pick.
  */
-export function Bubble({ message, bubbles, note, onRetryAttachment, t }) {
+export function Bubble({ message, bubbles, note, onRetryAttachment, media, t }) {
   // The two kinds of row that are NOT a message between two people. Handled
   // first and returned early, so nothing below — the brand fill, the delivery
   // tick, the "not delivered" warning — can ever be applied to one of them.
@@ -137,7 +148,7 @@ export function Bubble({ message, bubbles, note, onRetryAttachment, t }) {
               "1 attachment" for a homeowner's photo of their kitchen, which is
               the most-used half of a messaging channel described rather than
               shown. See Attachments below for the four states. */}
-          <Attachments message={message} onRetry={onRetryAttachment} t={t} />
+          <Attachments message={message} onRetry={onRetryAttachment} media={media} t={t} />
         </div>
         <div className={"mt-1 flex items-center gap-1.5 text-xs text-muted-foreground " + (out ? "justify-end" : "")}>
           <span>{clockTime(message.sentAt)}</span>
@@ -161,30 +172,51 @@ export function Bubble({ message, bubbles, note, onRetryAttachment, t }) {
 }
 
 /**
- * The pictures on one message.
+ * Everything a customer attached to one message.
  *
  * ══ Why this is one renderer for three platforms ═══════════════════════════
  *
- * Because a photo of a kitchen is a photo of a kitchen. WhatsApp hands the
- * webhook a media id with no bytes; Messenger and Instagram hand it a signed
- * CDN link that expires. Both are re-hosted to Cloudinary out of band
+ * Because a photo of a kitchen is a photo of a kitchen. One network hands the
+ * webhook a media id with no bytes; the other two hand it a signed CDN link
+ * that expires. Both are re-hosted to Cloudinary out of band
  * (lib/messaging/mediaFetch.js), and by the time anything reaches here the
- * only question left is which of four STATES an entry is in — never which
- * network it came from. A renderer that asked the platform would have three
+ * only questions left are WHAT KIND it is and which of four STATES it is in —
+ * never which network it came from. A renderer that asked would have three
  * paths and two of them untested.
+ *
+ * ══ Every kind is drawn, and none of them is a count ═══════════════════════
+ *
+ * This is the whole point of the file. A customer can send a photo, a clip, a
+ * voice note, a PDF, a spreadsheet, a sticker, a contact card or a dropped pin
+ * — and until 2026-09-08 six of those eight arrived as a bordered row reading
+ * "Attachment". A voice note is how a homeowner describes a leak; a pin is
+ * very often the job address. So:
+ *
+ *   image     the picture, tappable, full size in a new tab
+ *   video     a player with a poster frame, native controls, tappable to full
+ *   audio     a player, with the length once the browser knows it
+ *   document  the REAL filename and a human size, opening in a new tab
+ *   sticker   a small image — animated WebP just works
+ *   contact   a card with the name and each number, ringable
+ *   location  a map, the address, a link out, and the two things a contractor
+ *             would do with it next
+ *   other     NAMED. Never silence, never a count.
  *
  * ══ The four states, and why none of them is "nothing" ═════════════════════
  *
- *   ready        the picture. Tappable, opens full size in a new tab.
+ *   ready        there is something to draw. For a file that means the bytes
+ *                landed; for a pin or a card it means the payload parsed, and
+ *                nothing was ever going to be fetched.
  *   pending      "still arriving". NOT an <img> with a null src, which renders
  *                as a broken-image glyph and reads as a photo we lost — and
  *                NOT silence, which reads as a message that had no photo.
  *   failed       the reason, in full, and a way to try again. A photo that
  *                silently vanished is the failure this repo cares most about,
  *                so the one thing this must never do is stop mentioning it.
- *   unavailable  a location share, a Messenger "fallback": named, with no
- *                Retry, because a retry for something that was never
- *                fetchable is a dead control.
+ *   unavailable  nothing to fetch and nothing to draw: a "fallback", a pin
+ *                whose coordinates did not parse. Named, with no Retry,
+ *                because a retry for something that was never fetchable is a
+ *                dead control.
  *
  * ══ Colour ═════════════════════════════════════════════════════════════════
  *
@@ -193,10 +225,16 @@ export function Bubble({ message, bubbles, note, onRetryAttachment, t }) {
  * colour (lib/messaging/bubbleTheme.js); dropping a theme token like
  * `text-muted-foreground` onto it would put an unmeasured pair on a surface
  * whose whole point is that its pair was measured. Nothing below introduces a
- * colour, and the opacity that used to dim the old "1 attachment" line is gone
- * — this is the substance of the message now, not a footnote to it.
+ * colour — the borders are `border-current`, the icons inherit, and the map
+ * thumbnail is a photograph.
+ *
+ * @param media  the two things a card can DO, and whether this member may do
+ *               them: { canEditClients, client, onAddClient, onSaveAddress }.
+ *               Absent or false means the card draws without the button, which
+ *               is the rule for a control we cannot wire — never a button that
+ *               403s.
  */
-export function Attachments({ message, onRetry, t }) {
+export function Attachments({ message, onRetry, media, t }) {
   const list = Array.isArray(message?.attachments) ? message.attachments : [];
   if (!list.length) return null;
   return (
@@ -207,6 +245,7 @@ export function Attachments({ message, onRetry, t }) {
           messageId={message.id}
           attachment={attachment}
           onRetry={onRetry}
+          media={media}
           t={t}
         />
       ))}
@@ -218,18 +257,47 @@ export function Attachments({ message, onRetry, t }) {
  *  PlatformBadge draws both: two grey glyphs are not a distinction. */
 function AttachmentIcon({ type, size = 14 }) {
   const Glyph =
-    type === "video" ? Film : type === "audio" ? Mic : type === "document" ? FileText : Paperclip;
+    type === "video"
+      ? Film
+      : type === "audio"
+        ? Mic
+        : type === "document"
+          ? FileText
+          : type === "location"
+            ? MapPin
+            : type === "contact"
+              ? User
+              : type === "sticker"
+                ? Smile
+                : Paperclip;
   return <Glyph size={size} className="shrink-0" aria-hidden="true" />;
 }
 
-function AttachmentItem({ messageId, attachment, onRetry, t }) {
+function AttachmentItem({ messageId, attachment, onRetry, media, t }) {
   const [busy, setBusy] = useState(false);
   const [retryError, setRetryError] = useState("");
 
-  const typeLabel = t(attachmentTypeKey(attachment.type));
+  // The name for THIS entry, not merely for its type: a voice note and an
+  // attached audio file differ here and nowhere else, and a document with no
+  // filename says "PDF" rather than "Document". See attachmentLabelKey.
+  const named = attachmentLabelKey(attachment);
+  const typeLabel = t(named.key, named.params);
   // The filename when there is one, the kind when there is not. Never a
   // Cloudinary id: a row reading "kx91v2zt" tells a contractor nothing.
   const label = attachment.filename || typeLabel;
+
+  // ── The two kinds that were never a file ────────────────────────────────
+  //
+  // Drawn before the state ladder, because their `ready` means something
+  // different: the payload arrived with the webhook and there is nothing
+  // outstanding. A pin or a card that did NOT parse falls through to the
+  // named `unavailable` row at the bottom, which is the honest place for it.
+  if (attachment.state === "ready" && attachment.type === "location") {
+    return <LocationCard attachment={attachment} media={media} t={t} />;
+  }
+  if (attachment.state === "ready" && attachment.type === "contact") {
+    return <ContactCard attachment={attachment} media={media} t={t} />;
+  }
 
   if (attachment.state === "ready" && attachment.type === "image") {
     return (
@@ -256,7 +324,33 @@ function AttachmentItem({ messageId, attachment, onRetry, t }) {
     );
   }
 
+  // ── A sticker is a small picture and must stay small ────────────────────
+  //
+  // Same bytes as an image, a different size on purpose: a sticker blown up to
+  // the 256px an image gets would dominate a conversation the way it never
+  // does in the app the customer sent it from. No border and no link either —
+  // there is no "full size" worth opening for a 512px WebP.
+  if (attachment.state === "ready" && attachment.type === "sticker") {
+    return (
+      <span className="block">
+        <img src={attachment.url} alt={label} className="max-h-28 w-auto max-w-full" />
+      </span>
+    );
+  }
+
+  if (attachment.state === "ready" && attachment.type === "video") {
+    return <VideoPlayer attachment={attachment} label={label} t={t} />;
+  }
+
+  if (attachment.state === "ready" && attachment.type === "audio") {
+    return <AudioPlayer attachment={attachment} label={typeLabel} />;
+  }
+
   if (attachment.state === "ready") {
+    // A document, or anything else that landed as bytes. The filename the
+    // customer's phone gave it, and a size, so a contractor on a driveway
+    // connection knows whether to open the 40 MB one now or later.
+    const size = formatBytes(attachment.bytes);
     return (
       <a
         href={attachment.url}
@@ -265,7 +359,11 @@ function AttachmentItem({ messageId, attachment, onRetry, t }) {
         className="flex min-h-[44px] items-center gap-2 rounded-lg border border-current px-2.5 py-2 text-xs font-medium"
       >
         <AttachmentIcon type={attachment.type} />
-        <span className="truncate">{label}</span>
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+        {/* Never "0 KB": formatBytes returns null for anything it has not
+            actually measured, and no size at all beats a wrong one. */}
+        {size && <span className="shrink-0 tabular-nums opacity-80">{size}</span>}
+        <ExternalLink size={12} className="shrink-0" aria-hidden="true" />
       </a>
     );
   }
@@ -345,8 +443,18 @@ function AttachmentItem({ messageId, attachment, onRetry, t }) {
  * connection takes real seconds, and a Send button that silently blocked on an
  * upload would look frozen. What is drawn here is the state of that upload,
  * with the server's own refusal on it when it fails.
+ *
+ * ══ The second control beside the paperclip ════════════════════════════════
+ *
+ * A pin — the company's own address, sent as a real location message rather
+ * than as a line of text. `location` is null when the server said this company
+ * has no coordinates, and then no button is drawn at all; there is nothing to
+ * upload and nothing to fail, so its whole state is "attached or not".
  */
-export function AttachControl({ supported, pending, uploading, errorText, onPick, onClear, accept, disabled, t }) {
+export function AttachControl({
+  supported, pending, uploading, errorText, onPick, onClear, accept, disabled,
+  location, sendingLocation, onPickLocation, onClearLocation, t,
+}) {
   if (!supported) return null;
 
   if (pending) {
@@ -366,38 +474,90 @@ export function AttachControl({ supported, pending, uploading, errorText, onPick
     );
   }
 
+  // The pin waiting to go, shown the same way a chosen file is. Nothing was
+  // uploaded and nothing can fail here — the coordinates are read from the
+  // company's own row by the server at send time — so this is a label and a
+  // way to change your mind.
+  if (sendingLocation && location) {
+    return (
+      <div className="mb-2 flex items-center gap-2 rounded-lg border border-border bg-muted px-2.5 py-2 text-xs text-foreground">
+        <MapPin size={14} className="shrink-0" aria-hidden="true" />
+        <span className="min-w-0 flex-1 truncate">{location.label}</span>
+        <button
+          type="button"
+          onClick={onClearLocation}
+          aria-label={t("app.messages.media.remove")}
+          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full hover:bg-card"
+        >
+          <X size={15} aria-hidden="true" />
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="mb-2">
-      <label
-        className={
-          "inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-border bg-card px-3 text-sm font-medium text-foreground " +
-          (disabled || uploading ? "opacity-50" : "cursor-pointer hover:bg-muted")
-        }
-      >
-        {uploading ? (
-          <Loader2 size={15} className="animate-spin" aria-hidden="true" />
-        ) : (
-          <Paperclip size={15} aria-hidden="true" />
+      <div className="flex flex-wrap items-center gap-2">
+        <label
+          className={
+            "inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-border bg-card px-3 text-sm font-medium text-foreground " +
+            (disabled || uploading ? "opacity-50" : "cursor-pointer hover:bg-muted")
+          }
+        >
+          {uploading ? (
+            <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+          ) : (
+            <Paperclip size={15} aria-hidden="true" />
+          )}
+          {uploading ? t("app.messages.media.attaching") : t("app.messages.media.attach")}
+          <input
+            type="file"
+            className="sr-only"
+            // The types WhatsApp will actually take, from the one table that
+            // knows them — a picker offering a format the send refuses is the
+            // dead control with a file dialog in front of it.
+            accept={accept}
+            disabled={disabled || uploading}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              // Cleared so picking the SAME file twice still fires a change
+              // event — otherwise a contractor who dismissed an error and
+              // re-picked the photo would get nothing at all.
+              e.target.value = "";
+              if (file) onPick(file);
+            }}
+          />
+        </label>
+
+        {/* ── "Send our address" ──────────────────────────────────────────
+            Drawn ONLY when the server said this company has map coordinates
+            on file, and the label names the address it is about to send — a
+            button that will not say what it sends is a button nobody can
+            check before pressing. A company whose address was typed rather
+            than picked from the autocomplete has no coordinates and gets no
+            button, rather than one that fails at Meta. */}
+        {location && (
+          <button
+            type="button"
+            onClick={onPickLocation}
+            disabled={disabled || uploading}
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-border bg-card px-3 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
+          >
+            <MapPin size={15} aria-hidden="true" />
+            {t("app.messages.media.sendLocation")}
+          </button>
         )}
-        {uploading ? t("app.messages.media.attaching") : t("app.messages.media.attach")}
-        <input
-          type="file"
-          className="sr-only"
-          // The types WhatsApp will actually take, from the one table that
-          // knows them — a picker offering a format the send refuses is the
-          // dead control with a file dialog in front of it.
-          accept={accept}
-          disabled={disabled || uploading}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            // Cleared so picking the SAME file twice still fires a change
-            // event — otherwise a contractor who dismissed an error and
-            // re-picked the photo would get nothing at all.
-            e.target.value = "";
-            if (file) onPick(file);
-          }}
-        />
-      </label>
+      </div>
+
+      {/* ── What may be sent, and what may only be received ──────────────
+          The owner's instruction was "don't limit it", and three of the types
+          a customer can send back cannot be sent from here: there is no voice
+          recorder, no sticker maker, and no contact picker. Meta would carry
+          all three. Saying so in one line is the honest version — the
+          alternative is three silent gaps a contractor discovers by looking
+          for a control that is not there. See UNBUILT_OUTBOUND_TYPES. */}
+      <p className="mt-1 text-xs text-muted-foreground">{t("app.messages.media.attachNote")}</p>
+
       {errorText && (
         // The server's sentence, naming WhatsApp's real limit. Not "upload
         // failed" — the point of reading Meta's published table is to be able
@@ -405,6 +565,319 @@ export function AttachControl({ supported, pending, uploading, errorText, onPick
         <p className="mt-1 text-xs text-destructive">{errorText}</p>
       )}
     </div>
+  );
+}
+
+/**
+ * A clip, played where it arrived.
+ *
+ * ── Why a poster frame is not a nicety ────────────────────────────────────
+ *
+ * A <video> with no poster is a black rectangle until the browser has pulled
+ * enough of the file to decode a frame, and iOS Safari will not decode one at
+ * all before the user interacts — so on the device this screen is most read
+ * on, the black box is permanent. The poster is derived from the same
+ * Cloudinary asset by URL (videoPosterUrl), so there is no second file that
+ * can be missing while the video is present.
+ *
+ * `preload="metadata"` rather than "auto": a contractor scrolling a thread on
+ * a driveway connection must not silently download four 16 MB clips they never
+ * pressed play on. Metadata is a few kilobytes and is what gives the scrubber
+ * its length.
+ *
+ * `playsInline` because without it iOS takes the video full-screen the instant
+ * it starts, which throws the reader out of the conversation.
+ */
+function VideoPlayer({ attachment, label, t }) {
+  const poster = videoPosterUrl(attachment.url);
+  return (
+    <span className="block">
+      <video
+        src={attachment.url}
+        // Null poster is fine and means "no poster attribute" — a plainer
+        // bubble, never a broken image.
+        poster={poster || undefined}
+        controls
+        preload="metadata"
+        playsInline
+        aria-label={label}
+        className="max-h-64 w-full max-w-full rounded-lg bg-black"
+      />
+      {/* The way to see it properly. A <video> in a bubble that is at most 85%
+          of a 375px screen is a thumbnail with controls, and the thing the
+          homeowner was pointing at is often smaller than the play button. */}
+      <a
+        href={attachment.url}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 text-xs font-semibold underline"
+      >
+        <ExternalLink size={12} aria-hidden="true" />
+        {t("app.messages.media.open", { name: label })}
+      </a>
+    </span>
+  );
+}
+
+/**
+ * A voice note, played where it arrived.
+ *
+ * This is the one the owner called out by name, and the reason is that a
+ * homeowner describing a leak talks for forty seconds rather than typing four
+ * words. It used to render as the words "Voice message" beside a download
+ * link, which is a message described instead of heard.
+ *
+ * ── Where the length comes from ───────────────────────────────────────────
+ *
+ * From the browser, once it has the metadata — not from us. Meta's webhook
+ * carries no duration and neither does the Cloudinary upload response, so the
+ * alternatives were a probe request per clip or a made-up number. It appears
+ * when it is known and is absent until then, which is the same rule the file
+ * size beside a document follows: no figure beats a wrong one.
+ *
+ * A native <audio> rather than a custom transport: the browser's own control
+ * is keyboard-reachable, screen-reader-labelled and already familiar, and a
+ * hand-rolled play button is three accessibility bugs waiting to be written.
+ */
+function AudioPlayer({ attachment, label }) {
+  const [duration, setDuration] = useState(null);
+  return (
+    <span className="block rounded-lg border border-current px-2.5 py-2">
+      <span className="flex items-center gap-1.5 text-xs font-medium">
+        <Mic size={13} className="shrink-0" aria-hidden="true" />
+        <span className="truncate">{label}</span>
+        {duration && <span className="ml-auto shrink-0 tabular-nums opacity-80">{duration}</span>}
+      </span>
+      <audio
+        src={attachment.url}
+        controls
+        preload="metadata"
+        aria-label={label}
+        onLoadedMetadata={(e) => setDuration(clockDuration(e.currentTarget.duration))}
+        // h-11 is the 44px rule applied to a native control: Chrome's default
+        // audio element is 54px, Safari's is 31px, and the shorter one is the
+        // one a thumb misses.
+        className="mt-1.5 h-11 w-full"
+      />
+    </span>
+  );
+}
+
+/** Seconds -> m:ss, or null when the browser could not work it out (a stream,
+ *  a file it cannot decode). Infinity and NaN both land on null rather than
+ *  printing "Infinity:NaN" into a bubble. */
+function clockDuration(seconds) {
+  const n = Number(seconds);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const total = Math.round(n);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+/**
+ * A dropped pin.
+ *
+ * ══ Why this is a card and not a line of coordinates ═══════════════════════
+ *
+ * Because a pin is very often THE JOB ADDRESS. It is how a homeowner answers
+ * "where are you?" when the street number is missing off the house, and it was
+ * arriving in this inbox as a bordered row reading "Location — nothing to
+ * open". The map says where; the address says it in words a quote can carry;
+ * the link hands off to the maps app that will actually navigate there.
+ *
+ * ══ The second control, and when it is NOT drawn ═══════════════════════════
+ *
+ * "Save this as the client's address" is offered only when all four of these
+ * hold, and it is absent — not disabled, not present-and-403ing — otherwise:
+ *
+ *   1. this conversation is linked to a client, so there is a row to write to;
+ *   2. the pin carried an ADDRESS STRING (see addressFromLocation: a bare pin
+ *      gives coordinates, and coordinates are not a postal address to print on
+ *      an invoice — reverse-geocoding one would be a billable guess);
+ *   3. this member may edit clients, decided by the SERVER;
+ *   4. a handler is wired.
+ *
+ * ══ Why no map is still a card ═════════════════════════════════════════════
+ *
+ * The thumbnail needs the browser Maps key and a deployment may not have one.
+ * Missing key means no <img> — never a broken one — and the name, the address
+ * and the link out are all still there. A pin that renders as nothing because
+ * a key was unset is the dead row this change exists to remove.
+ */
+function LocationCard({ attachment, media, t }) {
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+
+  const location = attachment.location;
+  const mapUrl = staticMapUrl(location, {
+    key: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+  });
+  const link = mapsLinkUrl(location);
+  const address = addressFromLocation(location);
+  const title = location?.name || t(attachmentTypeKey("location"));
+
+  const client = media?.client || null;
+  const canSave = Boolean(address && client && media?.canEditClients && media?.onSaveAddress);
+
+  return (
+    <span className="block overflow-hidden rounded-lg border border-current">
+      {mapUrl && (
+        <a href={link} target="_blank" rel="noreferrer" className="block min-h-[44px]">
+          <img
+            src={mapUrl}
+            alt={t("app.messages.media.mapAlt")}
+            className="h-32 w-full object-cover"
+          />
+        </a>
+      )}
+      <span className="block px-2.5 py-2 text-xs">
+        <span className="flex items-center gap-1.5 font-semibold">
+          <MapPin size={13} className="shrink-0" aria-hidden="true" />
+          <span className="truncate">{title}</span>
+        </span>
+        {location?.address && <span className="mt-0.5 block">{location.address}</span>}
+        <a
+          href={link}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 font-semibold underline"
+        >
+          <ExternalLink size={12} aria-hidden="true" />
+          {t("app.messages.media.openInMaps")}
+        </a>
+        {canSave && !saved && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              setError("");
+              try {
+                // The verdict lands on the card that asked for it, exactly as
+                // the Retry button's does — a control whose result the person
+                // who pressed it never sees is the quietest dead control.
+                const failure = await media.onSaveAddress(client.id, address);
+                if (failure) setError(failure);
+                else setSaved(true);
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className="mt-1 flex min-h-[44px] w-full items-center gap-1.5 font-semibold underline disabled:opacity-60"
+          >
+            {busy ? (
+              <Loader2 size={12} className="animate-spin" aria-hidden="true" />
+            ) : (
+              <Home size={12} aria-hidden="true" />
+            )}
+            {t("app.messages.media.useAsClientAddress", { name: client.name })}
+          </button>
+        )}
+        {saved && <span className="mt-1 block font-medium">{t("app.messages.media.addressSaved")}</span>}
+        {error && <span className="mt-1 block font-medium">{error}</span>}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * A shared contact card.
+ *
+ * A homeowner forwarding their property manager's number, or the neighbour
+ * whose fence the job runs along. The numbers are `tel:` links because on the
+ * phone this is read on, that is the whole point of receiving one.
+ *
+ * "Add as a client" is drawn only when the member may create clients — the
+ * server decides that (see the thread route's canEditClients) and
+ * /api/clients refuses anyone else regardless, so this is what stops somebody
+ * meeting a 403 rather than what enforces it. A card with no name AND no
+ * number never reaches here: lib/messaging/attachments.js drops it, because an
+ * empty bordered box is worse than a named row.
+ */
+function ContactCard({ attachment, media, t }) {
+  const contacts = Array.isArray(attachment.contacts) ? attachment.contacts : [];
+  return (
+    <span className="block rounded-lg border border-current px-2.5 py-2 text-xs">
+      {contacts.map((contact, i) => (
+        <ContactEntry
+          key={i}
+          contact={contact}
+          media={media}
+          fallbackName={t(attachmentTypeKey("contact"))}
+          divider={i > 0}
+          t={t}
+        />
+      ))}
+    </span>
+  );
+}
+
+function ContactEntry({ contact, media, fallbackName, divider, t }) {
+  const [busy, setBusy] = useState(false);
+  const [added, setAdded] = useState(false);
+  const [error, setError] = useState("");
+
+  const name = contact?.name || fallbackName;
+  const phones = Array.isArray(contact?.phones) ? contact.phones : [];
+  const emails = Array.isArray(contact?.emails) ? contact.emails : [];
+  const canAdd = Boolean(media?.canEditClients && media?.onAddClient && contact?.name);
+
+  return (
+    <span className={divider ? "mt-2 block border-t border-current pt-2" : "block"}>
+      <span className="flex items-center gap-1.5 font-semibold">
+        <User size={13} className="shrink-0" aria-hidden="true" />
+        <span className="truncate">{name}</span>
+      </span>
+      {contact?.org && <span className="mt-0.5 block opacity-80">{contact.org}</span>}
+      {phones.map((p, i) => (
+        <a
+          key={i}
+          // Stripped to digits and a leading plus: a vCard number arrives with
+          // spaces, brackets and dashes in it, and a `tel:` href that keeps
+          // them dials nothing on some Android handsets.
+          href={`tel:${String(p.phone).replace(/[^\d+]/g, "")}`}
+          className="flex min-h-[44px] items-center gap-1.5 underline"
+        >
+          <Phone size={12} className="shrink-0" aria-hidden="true" />
+          <span className="truncate">{p.phone}</span>
+        </a>
+      ))}
+      {emails.map((e, i) => (
+        <a key={i} href={`mailto:${e}`} className="flex min-h-[44px] items-center gap-1.5 underline">
+          <Mail size={12} className="shrink-0" aria-hidden="true" />
+          <span className="truncate">{e}</span>
+        </a>
+      ))}
+      {canAdd && !added && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            setError("");
+            try {
+              const failure = await media.onAddClient(contact);
+              if (failure) setError(failure);
+              else setAdded(true);
+            } finally {
+              setBusy(false);
+            }
+          }}
+          className="mt-1 flex min-h-[44px] w-full items-center gap-1.5 font-semibold underline disabled:opacity-60"
+        >
+          {busy ? (
+            <Loader2 size={12} className="animate-spin" aria-hidden="true" />
+          ) : (
+            <UserPlus size={12} aria-hidden="true" />
+          )}
+          {t("app.messages.media.addAsClient")}
+        </button>
+      )}
+      {added && <span className="mt-1 block font-medium">{t("app.messages.media.clientAdded")}</span>}
+      {error && <span className="mt-1 block font-medium">{error}</span>}
+    </span>
   );
 }
 

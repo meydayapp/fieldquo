@@ -44,10 +44,33 @@ export async function POST(request) {
     return NextResponse.json({ error: "No file provided" }, { status: 400 });
   }
 
+  // ── `purpose`, and the one thing it widens ──────────────────────────────
+  //
+  // "messaging" means this file is about to be attached to a WhatsApp reply,
+  // and it widens the DOCUMENT allowlist from PDF-only to Meta's own eight
+  // formats at Meta's own 100 MB ceiling. Nothing else changes: no new host,
+  // no new folder, no weaker authentication.
+  //
+  // A deliberate widening rather than a change to classifyMedia's default,
+  // because that default also guards the PUBLIC self-quote upload, where
+  // "no customer has their kitchen plan in Word" is still true and every
+  // accepted format is attack surface a stranger can reach. See
+  // MESSAGING_DOCUMENT_TYPES in lib/media/validate.js. It is the same shape as
+  // `allowLogo` below it, which widens to SVG for the one authenticated path
+  // that needs it.
+  //
+  // An unrecognised or absent `purpose` is simply not a widening — this is an
+  // opt-in, so nothing that already calls this route is affected by it.
+  const purpose = formData.get("purpose");
+  const forMessaging = purpose === "messaging";
+
   // Shared boundary — same rules the public self-quote upload enforces, plus
   // SVG (allowLogo) which only this authenticated branding path may accept.
   // A video goes through as resource_type "video", a PDF plan as "raw".
-  const verdict = classifyMedia(file, { allowLogo: true });
+  const verdict = classifyMedia(file, {
+    allowLogo: true,
+    allowMessagingDocuments: forMessaging,
+  });
   if (!verdict.ok) {
     return NextResponse.json({ error: verdict.error }, { status: 400 });
   }
@@ -61,8 +84,10 @@ export async function POST(request) {
       folder: `fieldquo/companies/${member.companyId}`,
       resourceType: verdict.resourceType,
       // Documents only; see uploadPublicId. A `raw` asset with no extension is
-      // served as octet-stream and downloads as a mystery file.
-      publicId: uploadPublicId(verdict.kind),
+      // served as octet-stream and downloads as a mystery file — and one with
+      // the WRONG extension downloads as a corrupt file, which is why the MIME
+      // travels with it rather than the id defaulting to .pdf for a .xlsx.
+      publicId: uploadPublicId(verdict.kind, { mimeType: verdict.mimeType }),
     });
 
     return NextResponse.json({

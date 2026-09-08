@@ -84,7 +84,7 @@ export async function POST(request, { params }) {
   const body = await request.json().catch(() => ({}));
   const text = typeof body.text === "string" ? body.text.trim() : "";
 
-  // ── Three kinds of send, and WhatsApp has all three ────────────────────
+  // ── Four kinds of send, and WhatsApp has all four ─────────────────────
   //
   // "text" is a reply somebody typed. "template" is the ONLY thing WhatsApp
   // accepts once the 24-hour customer service window has closed — a message
@@ -99,8 +99,20 @@ export async function POST(request, { params }) {
   // folder, reads the bytes back itself, and only then hands them to Meta —
   // the same "the client names a thing, the server resolves it" rule the
   // template branch below follows.
+  //
+  // "location" is a pin. The browser names the INTENT and nothing else — the
+  // coordinates are read below from this company's own row, never from the
+  // request, for the reason whatsAppLocationPayload spells out: a body that
+  // could name arbitrary coordinates would be a way to send a homeowner a pin
+  // on somebody else's house from a contractor's own number.
   const kind =
-    body.kind === "template" ? "template" : body.kind === "media" ? "media" : "text";
+    body.kind === "template"
+      ? "template"
+      : body.kind === "media"
+        ? "media"
+        : body.kind === "location"
+          ? "location"
+          : "text";
   const templateId = typeof body.templateId === "string" ? body.templateId : "";
   const mediaUrl = typeof body.mediaUrl === "string" ? body.mediaUrl : "";
   const mediaPublicId = typeof body.mediaPublicId === "string" ? body.mediaPublicId : "";
@@ -133,6 +145,10 @@ export async function POST(request, { params }) {
         { status: 400 },
       );
     }
+  } else if (kind === "location") {
+    // Nothing to validate from the request: there is nothing IN the request.
+    // The one thing that can go wrong — a company with no coordinates on file
+    // — is checked below, against the row, where the answer actually lives.
   } else if (!templateId) {
     return NextResponse.json({ error: "Pick a template first." }, { status: 400 });
   }
@@ -223,6 +239,45 @@ export async function POST(request, { params }) {
     media = { ...prepared, caption: text };
   }
 
+  // ── The pin, resolved from the COMPANY's own row ────────────────────────
+  //
+  // Read fresh, here, at the moment of sending — the composer only ever said
+  // "send our address". A company that has an address typed but has never been
+  // geocoded has no coordinates, and Meta requires them, so the refusal is
+  // made HERE with a sentence naming the fix rather than left to a Graph 400
+  // that reads like a broken connection. The composer also hides the control in
+  // that state; this is the guard that survives, exactly as the window refusal
+  // survives the disabled composer.
+  let location = null;
+  if (kind === "location") {
+    const company = await db.company.findUnique({
+      where: { id: member.companyId },
+      select: { name: true, address: true, city: true, province: true, latitude: true, longitude: true },
+    });
+    const latitude = company?.latitude == null ? null : Number(company.latitude);
+    const longitude = company?.longitude == null ? null : Number(company.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return NextResponse.json(
+        {
+          error:
+            "This company has no map coordinates saved, so there is no pin to send. Re-enter the business address in Settings and pick it from the suggestions.",
+          reason: "location_missing",
+        },
+        { status: 400 },
+      );
+    }
+    location = {
+      latitude,
+      longitude,
+      // The company's own name and its own address text — both optional at
+      // Meta, and both what make the pin readable in a chat rather than a bare
+      // marker. Assembled from the fields that are actually filled in; a
+      // missing city must not produce "12 King St, , ".
+      name: company.name || null,
+      address: [company.address, company.city, company.province].filter(Boolean).join(", ") || null,
+    };
+  }
+
   const result = await sendOnChannel({
     channel: thread.channel,
     recipientExternalId: thread.participantExternalId,
@@ -235,6 +290,7 @@ export async function POST(request, { params }) {
     kind,
     template,
     media,
+    location,
     params: templateParams,
     // Stated explicitly, at the one call site that legitimately sends. A reply
     // typed into the composer's Reply side is never private and never anything
@@ -261,7 +317,17 @@ export async function POST(request, { params }) {
       // the fill-in values substituted — the sentence the homeowner will read
       // — and not the template's name: a thread showing "appointment_reminder"
       // where a message should be is a record of a message nobody can read.
-      body: kind === "template" ? renderTemplateBody(template.body, templateParams) : text,
+      // A location carries NO words — WhatsApp's location message has no
+      // caption field. Forced empty rather than trusted from the request:
+      // a crafted body with `kind: "location"` and text on it would write a
+      // sentence into the thread that the homeowner never received, which is
+      // a record of a message that did not happen.
+      body:
+        kind === "template"
+          ? renderTemplateBody(template.body, templateParams)
+          : kind === "location"
+            ? ""
+            : text,
       // ── The outbound copy of the picture, in the same column ────────────
       //
       // The CLOUDINARY url, which is the one thing that may ever live in
@@ -280,9 +346,21 @@ export async function POST(request, { params }) {
                 mediaId: null,
                 mimeType: media.mimeType,
                 filename: mediaFilename || null,
+                // The size of the bytes actually handed to Meta — after the
+                // HEIC→JPEG conversion, not before it. What the contractor
+                // reads back in the thread is what the homeowner received.
+                bytes: media.buffer?.length ?? null,
               },
             ]
-          : undefined,
+          : kind === "location"
+            ? [
+                // The same shape an INBOUND pin is stored in, so one renderer
+                // draws both and an outbound location is not a second thing
+                // for the bubble to handle. The coordinates are the company's
+                // own, resolved above.
+                { type: "location", url: null, sourceUrl: null, mediaId: null, location },
+              ]
+            : undefined,
       sentAt: new Date(),
       sentByUserId: member.userId || null,
       failedReason: result.ok ? null : `${result.reason}: ${result.message}`,
