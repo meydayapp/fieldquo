@@ -401,6 +401,60 @@ section("6. One dial region, not two");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+section("6b. The empty console shows a PICTURE, never a dead control");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The owner asked to see the console on an empty queue, "maybe in a greyed
+// out". The need is right and the empty region taught a rep nothing. But a
+// greyed-out Call button is the control AGENTS.md opens by forbidding: it
+// reads as broken, so a rep presses it twice and concludes the product is.
+//
+// So the example must be an example — built out of divs, with nothing
+// pressable, nothing focusable, and a caption saying what it is. These
+// assertions are the part that must not drift.
+
+{
+  const preview = decomment(read("app/components/sales/CallConsolePreview.js"));
+
+  ok("the preview contains no button element", !/<button/.test(preview));
+  ok("…no input", !/<input/.test(preview));
+  ok("…no select", !/<select/.test(preview));
+  ok("…no textarea", !/<textarea/.test(preview));
+  ok("…no link", !/<a\s|<Link/.test(preview));
+  ok(
+    "…and no handler that could fire",
+    !/onClick|onChange|onSubmit|onKeyDown/.test(preview),
+  );
+  ok(
+    "…and nothing is `disabled`, which is what a broken control looks like",
+    !/disabled/.test(preview),
+  );
+  ok("the picture is hidden from assistive tech", /aria-hidden="true"/.test(preview));
+  ok("…and cannot be clicked even by accident", /pointer-events-none/.test(preview));
+
+  // The caption is what stops it reading as a fault. Asserted on the source
+  // text, because a picture of a Call button with no sentence under it is
+  // exactly the thing this section exists to prevent.
+  const raw = read("app/components/sales/CallConsolePreview.js");
+  ok("it is labelled as an example", /An example — not a live call/.test(raw));
+  ok(
+    "…and says plainly that nothing is switched off",
+    /nothing is switched off/.test(raw),
+  );
+
+  const region = decomment(read("app/components/sales/DialRegion.js"));
+  ok(
+    "the preview renders ONLY in the no-prospect state",
+    /space\.state === DIAL_NO_PROSPECT \? <CallConsolePreview \/> : null/.test(region),
+  );
+  ok(
+    "…so a refusal or a closed window never gets a Call button drawn under it",
+    (region.match(/<CallConsolePreview/g) || []).length === 1,
+    (region.match(/<CallConsolePreview/g) || []).length,
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 section("7. The server reads the lead's own location");
 // ═══════════════════════════════════════════════════════════════════════════
 

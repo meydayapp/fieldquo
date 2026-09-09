@@ -35,8 +35,15 @@
 
 import { Ban, CircleHelp, Clock, PhoneOff, ShieldAlert } from "lucide-react";
 import { CALL_ALLOWED, CALL_REFUSED } from "@/lib/sales/callingRules";
-import { DIAL_DO_NOT_CONTACT, DIAL_NO_NUMBER, DIAL_READY, DIAL_REFUSED } from "@/lib/sales/dialSpace";
+import {
+  DIAL_DO_NOT_CONTACT,
+  DIAL_NO_NUMBER,
+  DIAL_NO_PROSPECT,
+  DIAL_READY,
+  DIAL_REFUSED,
+} from "@/lib/sales/dialSpace";
 import CallPanel from "./CallPanel";
+import CallConsolePreview from "./CallConsolePreview";
 
 /** The three tones the sales surfaces already paint. Has / gap / unknown. */
 const TONE_CLASS = {
@@ -114,18 +121,32 @@ export default function DialRegion({ space, compliance = null, target = null, on
           </div>
         </div>
       ) : (
-        <Notice
-          tone={space.tone}
-          icon={
-            space.state === DIAL_NO_NUMBER
-              ? PhoneOff
-              : space.state === DIAL_REFUSED
-                ? Clock
-                : CircleHelp
-          }
-          title={space.title}
-          fix={space.detail}
-        />
+        <>
+          <Notice
+            tone={space.tone}
+            icon={
+              space.state === DIAL_NO_NUMBER
+                ? PhoneOff
+                : space.state === DIAL_REFUSED
+                  ? Clock
+                  : CircleHelp
+            }
+            title={space.title}
+            fix={space.detail}
+          />
+          {/* ── Only when nobody is open ──────────────────────────────────
+              An empty console teaches a rep nothing about what the console
+              does, which is how the owner came to ask whether calling was
+              switched off at all. So the no-prospect state — and ONLY that
+              one — carries a labelled picture of it.
+
+              Not the other states. A refusal, a do-not-contact or a closed
+              calling window are each about THIS business, and drawing a Call
+              button underneath one of them would argue with the sentence
+              above it. The empty state is the only one whose subject is the
+              product rather than a prospect. */}
+          {space.state === DIAL_NO_PROSPECT ? <CallConsolePreview /> : null}
+        </>
       )}
 
       {/* The blockers behind a refusal or an unknown, each in its own tone. A
