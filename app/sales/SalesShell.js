@@ -155,6 +155,11 @@ export default function SalesShell({ children }) {
             // Today screen took that slot; it keeps its translated label
             // because the screen behind THIS one is still translated.
             { href: "/sales/companies", label: t("app.salesPortal.myCompanies") },
+            // The account a rep drives in front of a prospect. English literal
+            // for the same reason Notes and Calendar are: the screen behind it
+            // is English, and a translated tab onto an English page is the
+            // worse inconsistency.
+            { href: "/sales/demo", label: "Demo" },
           ].map((tab) => {
             // Exact match for the portal root, prefix for the rest: /sales is a
             // prefix of every other tab, so "starts with" would light all six
