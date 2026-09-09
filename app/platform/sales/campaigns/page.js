@@ -993,7 +993,10 @@ export default function PlatformSalesCampaignsPage() {
                       control somebody could use from memory. */}
                   <button
                     type="button"
-                    className="shrink-0 text-xs font-semibold underline text-foreground"
+                    // min-h-[44px]: it was a 16px-tall text button, and this is
+                    // one of two controls on the row. Height only — no padding —
+                    // so the row does not grow around it.
+                    className="shrink-0 min-h-[44px] text-xs font-semibold underline text-foreground"
                     onClick={() => openCertificate(row.code)}
                   >
                     {certFor === row.code ? "Cancel" : "Record the certificate"}
