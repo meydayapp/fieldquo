@@ -76,6 +76,7 @@ import { campaignNameForFile, snapshotSelection, snapshotUrlFor } from "@/lib/sa
 import { loadSnapshotLibrarySetting } from "@/lib/sales/discovery/snapshotSetting";
 import { probeSnapshot } from "@/lib/sales/discovery/snapshotProbe";
 import { campaignStartBlockers, territoryRegistration } from "@/lib/sales/discovery/campaignGate";
+import { registeredKeys, withRegistrations } from "@/lib/sales/registrations";
 
 const MAX_NAME = 120;
 const MAX_TARGET = 50_000;
@@ -100,7 +101,21 @@ export async function GET(request) {
 
   const library = await loadSnapshotLibrarySetting(db);
 
+  // ── Which registrations FieldQuo actually holds ────────────────────────
+  //
+  // KEYS only, never the rows. The screen needs to know that "US-WA" is no
+  // longer outstanding; it does not need the certificate number or the bond,
+  // and a payload that carried them would put compliance paperwork into a
+  // browser that has no use for it. The list of gated jurisdictions already
+  // ships to the client inside lib/sales/callingRules.js, so a key adds
+  // nothing that is not already there.
+  const certificates = await db.salesTelemarketerRegistration.findMany({
+    where: { revokedAt: null },
+    select: { jurisdictionKey: true, certificateNumber: true, registeredAt: true, expiresAt: true, revokedAt: true },
+  });
+
   return NextResponse.json({
+    registeredJurisdictions: registeredKeys(certificates),
     // Whether snapshots are configured at all, and where to go if not. The form
     // needs this BEFORE it renders anything: with no base URL there is no way
     // to build a snapshot URL, so the honest screen is a sentence pointing at
@@ -309,8 +324,18 @@ export async function POST(request) {
   // being created — the gate is on START, where the spending begins — but a
   // superadmin who ticked Washington has to be told at the moment they tick it,
   // not the first time they press a button that refuses.
-  const registration = territoryRegistration(territory);
-  const startBlockers = campaignStartBlockers(territory);
+  //
+  // Read against the certificates FieldQuo actually holds, not against the law
+  // file alone. Loaded per request rather than cached: these expire on a date,
+  // and a table held on a warm instance would go on saying "registered" past
+  // the midnight it lapsed.
+  const certificates = await db.salesTelemarketerRegistration.findMany({
+    where: { revokedAt: null },
+    select: { jurisdictionKey: true, certificateNumber: true, registeredAt: true, expiresAt: true, revokedAt: true },
+  });
+  const jurisdictions = withRegistrations(registeredKeys(certificates));
+  const registration = territoryRegistration(territory, { jurisdictions });
+  const startBlockers = campaignStartBlockers(territory, { jurisdictions });
 
   const created = await db.$transaction(async (tx) => {
     if (!territoryId) {

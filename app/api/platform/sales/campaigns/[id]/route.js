@@ -43,10 +43,27 @@ import {
 import { loadSnapshotLibrarySetting } from "@/lib/sales/discovery/snapshotSetting";
 import { probeSnapshot } from "@/lib/sales/discovery/snapshotProbe";
 import { campaignStartBlockers, territoryRegistration } from "@/lib/sales/discovery/campaignGate";
+import { registeredKeys, withRegistrations } from "@/lib/sales/registrations";
 import { campaignProgress, funnelProblems, funnelRows } from "@/lib/sales/discovery/funnel";
 import { stalenessOf } from "@/lib/sales/discovery/normalise";
 import { duplicateReason } from "@/lib/sales/discovery/dedupe";
 import { enqueuePipelineTask } from "@/lib/sales/pipeline/tasks";
+
+/**
+ * The calling-rules table with FieldQuo's own certificates applied.
+ *
+ * Loaded per request rather than cached: a certificate expires on a date, and
+ * a table cached on a warm serverless instance would go on saying "registered"
+ * past midnight on the day it lapsed. The read is one indexed row per gated
+ * jurisdiction and there are thirteen of them.
+ */
+async function liveJurisdictions(now = new Date()) {
+  const rows = await db.salesTelemarketerRegistration.findMany({
+    where: { revokedAt: null },
+    select: { jurisdictionKey: true, certificateNumber: true, registeredAt: true, expiresAt: true, revokedAt: true },
+  });
+  return withRegistrations(registeredKeys(rows, now));
+}
 
 /** How many needs-review rows one screen load carries. */
 const REVIEW_PAGE = 40;
@@ -111,6 +128,10 @@ export async function GET(request, { params }) {
     select: { status: true, lastError: true, attempts: true, completedAt: true },
   });
 
+
+  // The table with FieldQuo's own certificates applied, so a jurisdiction
+  // registered on the console stops reading as outstanding here.
+  const jurisdictions = await liveJurisdictions();
   return NextResponse.json({
     campaign: {
       ...campaign,
@@ -155,13 +176,13 @@ export async function GET(request, { params }) {
     // press the button again.
     startProblems: [
       ...startProblems(campaign, { getProvider: getDiscoveryProvider }),
-      ...campaignStartBlockers(campaign.territory).map((b) => `${b.title} ${b.fix}`),
+      ...campaignStartBlockers(campaign.territory, { jurisdictions }).map((b) => `${b.title} ${b.fix}`),
     ],
     // The registration position where this campaign would be calling, stated
     // whether or not it blocks. "Registered" is worth seeing too — it is the
     // difference between a draft somebody has not started and a draft that
     // cannot be.
-    registration: territoryRegistration(campaign.territory),
+    registration: territoryRegistration(campaign.territory, { jurisdictions }),
     review: review.map((p) => ({
       ...p,
       staleness: stalenessOf(p.sourceUpdatedAt),
@@ -301,7 +322,8 @@ export async function PATCH(request, { params }) {
     // NOT a second copy of the calling rules, and it is deliberately stricter
     // than the per-call warning, because a call is one call and a campaign is
     // a budget.
-    for (const blocker of campaignStartBlockers(campaign.territory)) {
+    const jurisdictions = await liveJurisdictions();
+    for (const blocker of campaignStartBlockers(campaign.territory, { jurisdictions })) {
       problems.push(`${blocker.title} ${blocker.fix}`);
     }
 

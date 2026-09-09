@@ -474,7 +474,17 @@ section("The start route is where the pin actually is");
     detailRoute.indexOf('action === "pause"'),
   );
   ok("the start branch exists to look at", startBranch.length > 200);
-  ok("the start branch calls the gate", /campaignStartBlockers\(campaign\.territory\)/.test(startBranch));
+  ok("the start branch calls the gate", /campaignStartBlockers\(campaign\.territory/.test(startBranch));
+  // …with the certificates FieldQuo actually holds laid over the law file.
+  // The gate defaults to the shipped table, so a start branch that called it
+  // with no options would go on refusing a state we ARE registered in — and,
+  // worse, the same omission on a future gate that defaulted the other way
+  // would open one we are not.
+  ok(
+    "…against the registrations actually held, not the law file alone",
+    /campaignStartBlockers\(campaign\.territory, \{ jurisdictions \}\)/.test(startBranch) &&
+      /const jurisdictions = await liveJurisdictions\(\)/.test(startBranch),
+  );
   ok(
     "…on the campaign's territory, loaded with it",
     /findUnique\(\{\s*where:\s*\{\s*id\s*\},\s*include:\s*\{\s*territory:\s*true\s*\}\s*\}\)/.test(detailRoute),

@@ -85,6 +85,7 @@ import {
   tradeRowsFor,
 } from "@/lib/sales/discovery/snapshotLibrary";
 import { outstandingRegistrations, territoryRegistration } from "@/lib/sales/discovery/campaignGate";
+import { withRegistrations } from "@/lib/sales/registrations";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -151,6 +152,19 @@ function regionLabel(province) {
 
 export default function PlatformSalesCampaignsPage() {
   const [data, setData] = useState(null);
+  // Which jurisdiction's certificate form is open, and what is in it. One at a
+  // time: thirteen forms on screen at once is thirteen chances to type a
+  // Washington number into the Ohio box.
+  const [certFor, setCertFor] = useState("");
+  const [savingCert, setSavingCert] = useState(false);
+  const BLANK_CERT = {
+    certificateNumber: "",
+    registeredAt: "",
+    expiresAt: "",
+    neverExpires: false,
+    note: "",
+  };
+  const [cert, setCert] = useState(BLANK_CERT);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [problems, setProblems] = useState([]);
@@ -222,9 +236,20 @@ export default function PlatformSalesCampaignsPage() {
     [draft.country, draft.discoverySources],
   );
 
+  // ── The law, with FieldQuo's own certificates laid over it ────────────
+  //
+  // The server sends the KEYS it holds a live certificate for; the same pure
+  // function that produced the server's answer produces this one, so the
+  // screen and the gate cannot disagree about whether Washington is open. A
+  // certificate that expired an hour ago is simply not in the list.
+  const jurisdictions = useMemo(
+    () => withRegistrations(data?.registeredJurisdictions || []),
+    [data?.registeredJurisdictions],
+  );
+
   const registration = useMemo(
-    () => (chosenTerritory ? territoryRegistration(chosenTerritory) : null),
-    [chosenTerritory],
+    () => (chosenTerritory ? territoryRegistration(chosenTerritory, { jurisdictions }) : null),
+    [chosenTerritory, jurisdictions],
   );
 
   // The backlog, ordered by what each registration unlocks. Built from the
@@ -232,8 +257,8 @@ export default function PlatformSalesCampaignsPage() {
   // which is exactly what had already drifted in the creation script somebody
   // ran from a laptop.
   const backlog = useMemo(
-    () => outstandingRegistrations({ rowsByRegion: rowsByJurisdiction(jurisdictionKey) }),
-    [],
+    () => outstandingRegistrations({ jurisdictions, rowsByRegion: rowsByJurisdiction(jurisdictionKey) }),
+    [jurisdictions],
   );
 
   /**
@@ -252,6 +277,44 @@ export default function PlatformSalesCampaignsPage() {
         snapshotRegions({ country: current.country, providers: chosen }).some((r) => r.province === current.province);
       return { ...current, discoverySources: chosen, province: stillCovered ? current.province : "" };
     });
+  }
+
+  /** Open (or close) one jurisdiction's certificate form, always empty. */
+  function openCertificate(code) {
+    setError("");
+    setCert(BLANK_CERT);
+    setCertFor((current) => (current === code ? "" : code));
+  }
+
+  /**
+   * Record a certificate.
+   *
+   * The screen validates nothing beyond what a disabled button would hide —
+   * the route refuses a blank number, a bad date and an expiry before the
+   * effective date, and it is the route's refusal that gets shown. A second
+   * copy of those rules here would be the copy that drifts, and this one
+   * decides whether FieldQuo may lawfully telephone a state.
+   */
+  async function recordCertificate(code) {
+    setSavingCert(true);
+    setError("");
+    try {
+      await fetchJson("/api/platform/sales/registrations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jurisdictionKey: code, ...cert }),
+      });
+      setCertFor("");
+      setCert(BLANK_CERT);
+      // Reloaded rather than patched in: the campaigns this unblocks change
+      // their startProblems with it, and a screen that only removed the row
+      // from the backlog would still show Start refusing underneath.
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingCert(false);
+    }
   }
 
   /** The median coordinate of a region's own snapshot rows, or null. */
@@ -913,24 +976,117 @@ export default function PlatformSalesCampaignsPage() {
           </h2>
           <p className="text-xs text-muted-foreground break-words">
             {backlog.length} jurisdiction{backlog.length === 1 ? "" : "s"} require FieldQuo to register before
-            the first sales call, and none of them is done. Campaigns in these places can be created but not
-            started. Ordered by the rows each one unlocks — the row counts are what is in the bucket today,
-            not what the state contains.
+            the first sales call, and {backlog.length === 1 ? "it is" : "they are"} outstanding. Campaigns in
+            these places can be created but not started. Ordered by the rows each one unlocks — the row counts
+            are what is in the bucket today, not what the state contains.
           </p>
           <ol className="space-y-2">
             {backlog.map((row) => (
               <li key={row.code} className="rounded-lg border border-border p-3">
-                <p className="text-sm font-medium text-foreground break-words">
-                  {row.name} — {row.rows ? `${count(row.rows)} rows` : "nothing in the bucket yet"}
-                </p>
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm font-medium text-foreground break-words">
+                    {row.name} — {row.rows ? `${count(row.rows)} rows` : "nothing in the bucket yet"}
+                  </p>
+                  {/* Not a tick box. Recording a registration is four facts —
+                      the number, the date it runs from, whether and when it
+                      lapses — and a control that took one click would be a
+                      control somebody could use from memory. */}
+                  <button
+                    type="button"
+                    className="shrink-0 text-xs font-semibold underline text-foreground"
+                    onClick={() => openCertificate(row.code)}
+                  >
+                    {certFor === row.code ? "Cancel" : "Record the certificate"}
+                  </button>
+                </div>
                 {row.what ? <p className="mt-1 text-xs text-muted-foreground break-words">{row.what}</p> : null}
+
+                {certFor === row.code ? (
+                  <div className="mt-3 space-y-3 rounded-lg border border-border bg-muted p-3">
+                    <div>
+                      <label className={LABEL} htmlFor={`cert-${row.code}`}>
+                        Certificate or registration number
+                      </label>
+                      <input
+                        id={`cert-${row.code}`}
+                        className={FIELD}
+                        value={cert.certificateNumber}
+                        onChange={(e) => setCert({ ...cert, certificateNumber: e.target.value })}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={LABEL} htmlFor={`from-${row.code}`}>
+                          Takes effect
+                        </label>
+                        <input
+                          id={`from-${row.code}`}
+                          type="date"
+                          className={FIELD}
+                          value={cert.registeredAt}
+                          onChange={(e) => setCert({ ...cert, registeredAt: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className={LABEL} htmlFor={`to-${row.code}`}>
+                          Lapses
+                        </label>
+                        <input
+                          id={`to-${row.code}`}
+                          type="date"
+                          className={FIELD}
+                          disabled={cert.neverExpires}
+                          value={cert.expiresAt}
+                          onChange={(e) => setCert({ ...cert, expiresAt: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    {/* Asked, never assumed. A blank expiry that meant "never"
+                        would turn every annual registration into a permanent
+                        one the day somebody skipped the field — absence of a
+                        statement is not a statement. */}
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={cert.neverExpires}
+                        onChange={(e) => setCert({ ...cert, neverExpires: e.target.checked, expiresAt: "" })}
+                      />
+                      This registration does not expire
+                    </label>
+                    <div>
+                      <label className={LABEL} htmlFor={`note-${row.code}`}>
+                        Anything worth knowing later (optional)
+                      </label>
+                      <input
+                        id={`note-${row.code}`}
+                        className={FIELD}
+                        placeholder="Bond, agent for service, renewal window…"
+                        value={cert.note}
+                        onChange={(e) => setCert({ ...cert, note: e.target.value })}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      disabled={savingCert}
+                      onClick={() => recordCertificate(row.code)}
+                      className="inline-flex items-center min-h-[44px] px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-60"
+                    >
+                      {savingCert ? "Recording…" : `Record it for ${row.name}`}
+                    </button>
+                    <p className="text-xs text-muted-foreground break-words">
+                      Recorded against your account and written to the audit log. Most of these renew
+                      annually — a lapsed certificate stops opening the jurisdiction on the day it lapses,
+                      rather than the day somebody notices.
+                    </p>
+                  </div>
+                ) : null}
               </li>
             ))}
           </ol>
           <p className="text-xs text-muted-foreground break-words">
-            Flip <span className="font-mono">registration.done</span> in{" "}
-            <span className="font-mono">lib/sales/callingRules.js</span> when a certificate is in hand, citing
-            the number in the commit. Nothing in this software can know that on its own.
+            Nothing in this software can know whether a certificate exists — so somebody says so, here,
+            with the number on it. Recording one takes effect immediately: the jurisdiction leaves this
+            list and its campaigns become startable.
           </p>
         </section>
       ) : null}

@@ -54,6 +54,7 @@ model PlatformAdmin {
   createdAt    DateTime          @default(now())
 
   auditLogs        PlatformAuditLog[]
+  telemarketerRegistrations SalesTelemarketerRegistration[]
   demoAvailability DemoHostAvailability[]
   demoBookings     DemoBooking[]
 }
@@ -9789,6 +9790,79 @@ model OpportunityRule {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/// A telemarketer registration certificate FieldQuo actually holds.
+///
+/// ══ Why this is a row and not a boolean in the source ═════════════════════
+///
+/// lib/sales/callingRules.js carries the LAW — which jurisdictions require a
+/// commercial telephone solicitor to register before the first call, and what
+/// the statute says. That is research, it belongs in code, and it is reviewed
+/// in a diff.
+///
+/// Whether FieldQuo holds the certificate is not law. It is a fact about this
+/// company on this date, it changes without any statute changing, and it was
+/// recorded by flipping `registration.done` in that same file — which meant a
+/// deploy to record a filing, no certificate number, no attribution, and worst
+/// of all NO EXPIRY. Most of these registrations are annual: Utah, New Jersey
+/// and Wisconsin all renew, and a hardcoded `true` cannot lapse. The failure
+/// mode is a boolean that says "registered" eighteen months after the bond
+/// expired, with nothing anywhere to notice.
+///
+/// So the certificate is a row: a number, the date it was granted, the date it
+/// runs out, and who recorded it. Absent means not registered — the safe
+/// reading, and the one every gate already defaults to.
+model SalesTelemarketerRegistration {
+  id String @id @default(cuid())
+
+  /// The jurisdiction, spelled the way lib/sales/callingRules.js's
+  /// jurisdictionKey() spells it: "CA" for the Canadian federal row, "US-WA"
+  /// for a state. @unique because two live certificates for one jurisdiction
+  /// is not a state anybody can reason about — a renewal REPLACES.
+  jurisdictionKey String @unique
+
+  /// The certificate, permit or registration number as issued. Required, and
+  /// the whole point: a flag anybody can set is a flag nobody can audit, and
+  /// this is the field that makes somebody go and look at the document before
+  /// they tick the box.
+  certificateNumber String
+
+  /// When the registration took effect, as stated on the certificate — not
+  /// when somebody typed it in. A registration recorded late still started
+  /// when it started.
+  registeredAt DateTime
+
+  /// When it lapses, when the certificate says. NULLABLE, and null means
+  /// "this one does not expire" rather than "we did not look" — the recording
+  /// screen asks for it explicitly and a superadmin has to say which.
+  ///
+  /// Read at every gate against the clock. An expired row does not gate a
+  /// call any more, and the screen says it lapsed rather than quietly
+  /// dropping the jurisdiction back into the outstanding list with no
+  /// explanation.
+  expiresAt DateTime?
+
+  /// Anything worth knowing later: the bond, the agent for service, the
+  /// renewal window. Free text, and never parsed.
+  note String?
+
+  /// Recorded by. Restrict rather than Cascade: an admin leaving must not
+  /// delete the record that FieldQuo is registered in Ohio.
+  recordedByAdminId String
+  recordedBy        PlatformAdmin @relation(fields: [recordedByAdminId], references: [id])
+
+  /// Set when a certificate is withdrawn, surrendered or was entered in
+  /// error. The row is kept — never deleted — for the same reason
+  /// SalesSuppression keeps loose pointers: what FieldQuo believed about its
+  /// own compliance, and when, is exactly the history a regulator asks for.
+  revokedAt     DateTime?
+  revokedReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([revokedAt, expiresAt])
 }
 
 model SalesTerritory {
