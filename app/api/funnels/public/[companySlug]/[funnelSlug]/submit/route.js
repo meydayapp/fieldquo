@@ -9,6 +9,7 @@ import { normaliseMediaList } from "@/lib/media/validate";
 import { createScoredLead } from "@/lib/leads/createLead";
 import { buildLeadIntake } from "@/lib/leads/intakeShape";
 import { buildLeadFromFunnel } from "@/lib/funnels/ingest";
+import { emailRefusal } from "@/lib/validation";
 import { recordConsent } from "@/lib/voice/outbound";
 import { DISCLOSURE } from "@/lib/voice/disclosure";
 import { sanitiseFunnelSteps } from "@/app/data/funnelBlocks";
@@ -49,6 +50,11 @@ export async function POST(request, { params }) {
       { status: 400 },
     );
   }
+
+  // The address a quote will be sent to. Refused here rather than stored —
+  // Manny Conto's `Macksab  1@hotmail.com` bounced with nobody told.
+  const badEmail = emailRefusal(leadInput.email);
+  if (badEmail) return NextResponse.json(badEmail, { status: 400 });
 
   // ── The estimate, priced again from the company's own rows ────────────────
   //

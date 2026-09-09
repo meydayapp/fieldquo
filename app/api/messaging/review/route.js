@@ -82,6 +82,15 @@ export async function GET(request) {
       createdAt: true,
       lastMessageAt: true,
       outcome: true,
+      // What the conversation itself said — the four columns
+      // lib/messaging/conversationScore.js writes on ingest, on every reply and
+      // on the quiet-thread pass of the messaging cron. Read here rather than
+      // recomputed for the same reason the bodies below are not fetched: the
+      // ranking is a column, not a scan.
+      temperature: true,
+      score: true,
+      scoreReasons: true,
+      scoredAt: true,
       channel: { select: { name: true, platform: true } },
       // Direction, time and whether it failed — everything firstResponse()
       // needs and nothing else. The bodies are not fetched: this screen counts

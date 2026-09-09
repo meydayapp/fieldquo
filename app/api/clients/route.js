@@ -13,6 +13,7 @@ import {
 } from "@/lib/permissions/enforce";
 import { isSupported } from "@/app/i18n/languages";
 import { normaliseCountry } from "@/lib/tax/jurisdictions";
+import { emailRefusal, cleanEmail } from "@/lib/validation";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -84,6 +85,11 @@ export async function POST(request) {
     return NextResponse.json({ error: "name is required" }, { status: 400 });
   }
 
+  // Every quote and invoice this client ever receives goes to this address, so
+  // it is checked once, here, rather than discovered by a bounce nobody reads.
+  const badEmail = emailRefusal(email);
+  if (badEmail) return NextResponse.json(badEmail, { status: 400 });
+
   try {
     const client = await db.client.create({
       data: {
@@ -92,7 +98,7 @@ export async function POST(request) {
         type: type === "company" ? "company" : "individual",
         // Only meaningful for company clients; ignored/blank for individuals.
         contactName: type === "company" ? contactName || null : null,
-        email: email || null,
+        email: cleanEmail(email),
         phone: phone || null,
         address: address || null,
         city: city || null,

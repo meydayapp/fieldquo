@@ -39,6 +39,7 @@ import {
 } from "@/lib/permissions/enforce";
 import { getAppOrigin } from "@/lib/appUrl";
 import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
+import { sendOutcome, reportQuoteNotDelivered } from "@/lib/email/sendFailure";
 import { renderDocumentPdfBuffer } from "@/app/admin/lib/pdf/renderDocumentPdf";
 import { getDefaultSections } from "@/app/admin/lib/pdf/defaultSections";
 import { usableSections } from "@/lib/documents/templateKind";
@@ -307,11 +308,39 @@ export async function POST(request, { params }) {
   // sendEmail returns { skipped } rather than throwing when RESEND_API_KEY is
   // absent. Treating that as success is how a deployment with no mail
   // configured ends up with a database full of quotes marked sent.
+  //
+  // ── And the failure OUTLIVES the tab ─────────────────────────────────────
+  //
+  // The 503 and the 502 below are correct and they are not enough on their
+  // own. Manny Conto's quote failed to reach him and the only record of it was
+  // a response somebody may already have navigated away from; the contractor
+  // rediscovered it himself, twice, days later. So a refused send also lands
+  // in the notification feed — the ONE feed, lib/notifications/catalog.js's
+  // "quote.undelivered", not a second alerting mechanism — where it sits until
+  // somebody acts on it.
+  //
+  // The sender is passed as the actor, so notifyEvent's own rule excludes
+  // them: they are reading the error right now and do not need a row about it.
+  // Their colleagues do.
+  const outcome = sendOutcome(result);
+  if (!outcome.ok) {
+    await reportQuoteNotDelivered({
+      companyId: member.companyId,
+      quoteId: quote.id,
+      quoteNumber: quote.quoteNumber,
+      clientName: quote.client?.name || null,
+      cause: outcome.cause,
+      actorUserId: member.userId || null,
+    });
+  }
+
   if (result?.skipped) {
     return NextResponse.json(
       {
         error:
           "Email isn't configured on this deployment yet — RESEND_API_KEY is missing, so nothing was sent.",
+        code: "send_failed",
+        cause: outcome.cause,
       },
       { status: 503 },
     );
@@ -319,7 +348,7 @@ export async function POST(request, { params }) {
 
   if (result?.error) {
     return NextResponse.json(
-      { error: explainSendError(result.error, from) },
+      { error: explainSendError(result.error, from), code: "send_failed", cause: outcome.cause },
       { status: 502 },
     );
   }

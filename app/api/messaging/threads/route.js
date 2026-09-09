@@ -130,6 +130,13 @@ export async function GET(request) {
       // messages would mean the list never said it at all.
       waitingSince: true,
       outcome: true,
+      // Hot / warm / cold, from what the homeowner said — the column
+      // lib/messaging/rescoreThread.js keeps current. An ANNOTATION on the row,
+      // never a filter: nothing in this product may hide a conversation for
+      // scoring low. The corpus this scorer was built from contains a man who
+      // scored badly for two months and was one revised quote from buying.
+      temperature: true,
+      score: true,
       // WhatsApp's 24-hour window, on the LIST as well as inside the thread.
       // The same argument waitingSince above makes: "this conversation stops
       // being answerable in 40 minutes" is a thing a contractor has to be able
@@ -167,6 +174,10 @@ export async function GET(request) {
     assignedToId: t.assignedToId,
     waitingSince: t.waitingSince,
     outcome: t.outcome,
+    // Null means "never scored", and the row renders no chip at all. A default
+    // of "cold" here would paint every pre-columns conversation red.
+    temperature: t.temperature || null,
+    score: Number.isFinite(t.score) ? t.score : null,
     preview: t.messages[0]?.body || "",
     // Surfaced on the list, not only inside the thread: a reply that never
     // reached the homeowner is the thing a contractor most needs to see

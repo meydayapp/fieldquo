@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { normaliseCountry } from "@/lib/tax/jurisdictions";
+import { cleanEmail, emailProblem } from "@/lib/validation";
 import {
   loadEnforceableMember,
   requireLevel,
@@ -33,14 +34,30 @@ export async function POST(request) {
     return NextResponse.json({ error: "No rows to import" }, { status: 400 });
   }
 
-  const valid = rows.filter((r) => r.name?.trim());
-  const skipped = rows.length - valid.length;
+  const named = rows.filter((r) => r.name?.trim());
+  const skipped = rows.length - named.length;
+
+  // ── A spreadsheet full of addresses nothing can be delivered to ─────────
+  //
+  // A CSV is where a typed address arrives in bulk and nobody re-reads it. A
+  // row whose email cannot be delivered to is NOT imported with the address
+  // quietly dropped — that produces a client who looks contactable on the
+  // screen and is not, which is exactly how Manny Conto's quote came to be
+  // sent to nowhere. It is left out and counted, and the count is reported
+  // separately so the contractor can fix those rows and import them again.
+  //
+  // An EMPTY email column is fine: plenty of clients are a phone number.
+  const valid = named.filter((r) => {
+    const problem = emailProblem(r.email);
+    return problem === null || problem === "empty";
+  });
+  const badEmails = named.length - valid.length;
 
   const created = await db.client.createMany({
     data: valid.map((r) => ({
       companyId: member.companyId,
       name: r.name.trim(),
-      email: r.email || null,
+      email: cleanEmail(r.email),
       phone: r.phone || null,
       address: r.address || null,
       city: r.city || null,
@@ -53,5 +70,5 @@ export async function POST(request) {
     })),
   });
 
-  return NextResponse.json({ imported: created.count, skipped });
+  return NextResponse.json({ imported: created.count, skipped, badEmails });
 }

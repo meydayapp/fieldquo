@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { emailRefusal, cleanEmail } from "@/lib/validation";
 import { can } from "@/lib/permissions";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 
@@ -92,6 +93,11 @@ export async function POST(request, { params }) {
   const body = await request.json();
   const { clientName, clientPhone, clientEmail, scheduledAt } = body;
 
+  // A doorstep address typed on a phone, which then receives every quote this
+  // client is ever sent. Refused with the fault named rather than stored.
+  const badEmail = emailRefusal(clientEmail);
+  if (badEmail) return NextResponse.json(badEmail, { status: 400 });
+
   // Reuse an already-linked client, else create one from the doorstep info.
   let clientId = stop.clientId;
   if (!clientId) {
@@ -100,7 +106,7 @@ export async function POST(request, { params }) {
         companyId: member.companyId,
         name: clientName?.trim() || stop.address,
         phone: clientPhone || null,
-        email: clientEmail || null,
+        email: cleanEmail(clientEmail),
         address: stop.address,
       },
     });

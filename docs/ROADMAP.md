@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 8 September 2026 (connecting a Facebook Page is now ONE flow that opens both halves — the publishing connection AND the `facebook`/`instagram` `MessagingChannel` rows the inbox resolves an inbound webhook against, on a union consent screen, only where Meta granted messaging and confirmed the subscription; nothing had ever created those rows, so every inbound Page or Instagram message was answered `unknown_page` and dropped. Before that: a connected Facebook Page is SUBSCRIBED to the messaging webhook — `POST /<page-id>/subscribed_apps` at connect, `DELETE` at disconnect, `pages_manage_metadata` added to the messaging scope; nothing had ever called it, so the inbox, the AI employee and the monthly review were all waiting on messages Meta had never been asked to send. Also: every kind of media a customer can send — video with a poster frame, voice notes and audio played in place, documents with their real filename and size, stickers, contact cards, and dropped pins on a map, with nothing arriving as a dead row; outbound video, Office documents and locations join photos on WhatsApp inside the 24-hour window; inbound media re-hosted to Cloudinary out of band by `/api/cron/messaging-media`; WhatsApp Business is the third channel on the inbox, blocked only on `whatsapp_business_messaging`).
+Last updated: 8 September 2026 (three losses from the TrueFinish conversation corpus, fixed where the software caused them. The AI employee can no longer invent a photograph: the prompt carries the real attachment count read off `Message.attachments`, an absolute rule beside "never invent a price" forbids referring to anything not in the thread, and a drafted reply that claims to have seen media the thread does not have is refused, recorded on `AiEmployeeReply.suppressedReason` and handed to a person rather than sent or offered. Every role now asks at most two questions per message and is told the thread is the record. An email address that cannot be delivered to is refused at all eleven capture points with the fault NAMED, and stored through one normaliser. A quote send that fails raises `quote.undelivered` in the existing notification feed — the follow-up cron used to count a refused send as delivered on a return value it never read. Bounces remain uncovered: there is no Resend webhook. Before that: connecting a Facebook Page is ONE flow that opens both the publishing connection and the `facebook`/`instagram` `MessagingChannel` rows, the Page is subscribed to the messaging webhook, every kind of inbound media renders, and WhatsApp Business is the third inbox channel).
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,72 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Three losses the software caused (8 September 2026)
+
+Twenty real TrueFinish conversations, with the outcomes attached. Most losses
+were not competitive — three were caused by our own plumbing, and those three
+are fixed.
+
+**The AI can no longer invent a photograph.** An agent told Cathy Monaghan
+Jardine "I've received your photo, thank you", described its contents when she
+questioned it, and she put the project on hold. That was Meta's agent; ours
+could do the same. Three layers now: an absolute rule beside "never invent a
+price" (`lib/aiEmployee/roles.js`) forbidding reference to any attachment,
+price, date, measurement or preference not in the thread; the actual count,
+read off `Message.attachments` and stated as a FACT in the prompt
+(`lib/aiEmployee/evidence.js` — "This conversation contains 0 attachments"),
+because a model given a silence fills it; and a post-check that refuses a
+drafted reply claiming to have seen media the thread does not have, records
+`claimed_media_not_received` on `AiEmployeeReply.suppressedReason`, and hands
+the thread to a person. A refused draft is never offered as a suggestion
+either. Asking FOR a photo is explicitly not a claim to have one — pinned in
+both directions.
+
+**A quote that did not arrive no longer looks like one that did.** Manny Conto
+typed `Macksab  1@hotmail.com`; the quote bounced and nobody was told. Two
+halves. First, `lib/validation.js` gained `emailProblem` / `cleanEmail` /
+`emailRefusal` — a fault CODE, not a boolean, so the refusal can say "there is
+a space in it" — and every capture point calls it: the self-quote form, the
+kitchen designer, the embed form, the instant quote, funnels, public booking,
+the client POST and PATCH, the doorstep stop, and both CSV imports. The same
+normaliser now writes the stored value, closing the match-on-lowercase /
+store-raw asymmetry that made a repeat enquirer a second client. Second, a
+refused send raises `quote.undelivered` in the ONE notification feed
+(`lib/notifications/catalog.js`), from the Send route and from the follow-up
+cron — which had been incrementing `sent` on a `sendEmail` return value it
+never read, after writing the FollowUpLog row that guarantees no retry.
+
+**The twelve-question wall is capped at two.** The block — name, address,
+phone, email, doors, drawers, budget, damages, pictures, refinish-or-reface,
+handles, countertop, colour — was pasted at five people; Tracey Leroux went
+silent on receiving it, while Lyne and Ayse got a conversation and both bought.
+Every role's prompt now caps a message at two questions and says the thread is
+the record, which also closes the seam Manny saw when he was asked for his door
+count twice.
+
+`npm run check:ai-employee` and the new `npm run check:quote-delivery` execute
+all of it, including the sentence that lost the job and the sentences that must
+still be allowed.
+
+### Still owed here
+
+- **Bounces.** There is no Resend webhook, no delivery-event store and no
+  column that could hold one, so Basir Mohmand's quote sitting in spam from 30
+  May to 24 June is still invisible. It needs `POST /api/webhooks/resend` with
+  svix verification, somewhere to put `email.bounced` / `email.complained`, and
+  two more values in `SEND_FAILURE_CAUSES`.
+- **Stale-quote win-back.** `quote_no_response` re-sends the company's template
+  with the SAME total, once, and stops. Mario Laroche was re-quoted three
+  months later at $5,876 against $7,051, with a $250 incentive to decide before
+  the end of June, and re-engaged immediately. Nothing in the product can do
+  that: there is no revision, no incentive and no second touch.
+- An invoice or job-completed follow-up that fails is counted and error-logged,
+  but has no feed row of its own — that needs a catalog type and its nine
+  translated sentences.
+
+---
+
 
 ## The Page nobody subscribed (8 September 2026)
 
@@ -9222,3 +9288,50 @@ taken, and every sender — send, chase, payment-schedule stage, service plan �
 building from `portalInvoiceUrl` rather than the portal home. No builder in
 lib/email may write a relative href, which in an email goes nowhere at all.
 Mutation-tested: restoring the old `portalUrl` line fails two assertions.
+
+## Conversation scoring: hot / warm / cold, from what they actually said (8 September 2026)
+
+The owner handed over twenty real Facebook Messenger threads from TrueFinish
+with the real outcomes attached, specifically so this was built from customer
+behaviour rather than from someone's idea of it.
+
+**The trap, and it is the whole feature.** Sylvaine Champagne stated a budget,
+gave three ways to reach her, sent photographs, took a scheduled call and wrote
+long careful messages. Quoted $13,050, never answered again. Davidpaul
+Kingsbury stated no budget, was on a cruise, gave his address late — and asked
+how to pay, whether the shop was open Saturday, and moved his own dates twice.
+He paid. The Meta AI already in that inbox transferred HER chat with "your
+customer is ready to buy". Effort is not intent, and nothing here scores
+length, message count, reply speed, photos, contactability or the size of a
+stated budget.
+
+**Free, always, no model** — `lib/messaging/conversationSignals.js` and
+`lib/messaging/conversationScore.js`. Nine signals that separate the corpus,
+each carrying the fragment it matched so the contractor can disagree:
+customer-initiated logistics (+30, the strongest — no loser in twenty ever did
+it), scope growth (+20), schedule accommodation (+18), line-item negotiation
+(+12); comparison shopping (−30), the polite pre-decline (−22), silence after a
+quote with an unanswered follow-up (−25). Four structural disqualifiers —
+outside the service area, a budget below the job's floor, price-tier rejection,
+an explicit refusal — each knowable in the first three messages, each of which
+used to cost a full quote. Two observations are recorded at weight ZERO and
+shown as such: a stated budget, and product questions. They are the trap.
+
+Written on ingest, on every reply, and by a new quiet-thread pass on the
+messaging cron (the only place silence can ever be noticed, because nothing
+arrives to trigger it). Read on the inbox row, on the conversation, and in the
+month-end review, which now RANKS by it — and never filters. Mario Laroche
+scored badly for two months and was one revised quote from buying.
+
+**Paid, optional, on the contractor's click** —
+`lib/ai/conversationTemperature.js`, few-shot from the company's own won and
+lost conversations, redacted and tenant-fenced through the monthly assessment's
+own machinery. It reads for the two things rules cannot: commitment versus
+conditional language ("do it" vs "might be ambitious"), and personal disclosure
+(Ayse's late husband, Lyne's bread). It may move the score by one band's worth
+at most, and it can NEVER overturn a structural disqualifier. Priced before the
+click, refused for free when nothing has been said since the last reading.
+
+`npm run check:conversation-score` — 277 assertions, the corpus encoded as
+fixtures, and seven mutations including the historical bug itself: a scorer
+that awards points per message must make the check FAIL.

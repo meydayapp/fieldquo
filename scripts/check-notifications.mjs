@@ -328,9 +328,9 @@ const idsOf = (list) => list.map((m) => m.id).sort();
 section("1. The catalog is sound, and an unrecognised audience REFUSES");
 // ═══════════════════════════════════════════════════════════════════════════
 
-ok("the catalog holds exactly the six tier-1 types", NOTIFICATION_TYPE_KEYS.length === 6, NOTIFICATION_TYPE_KEYS);
+ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 7, NOTIFICATION_TYPE_KEYS);
 ok(
-  "the six are the ones the audit ranked tier 1",
+  "six from the audit's tier 1, plus the undelivered quote",
   JSON.stringify([...NOTIFICATION_TYPE_KEYS].sort()) ===
     JSON.stringify(
       [
@@ -340,6 +340,9 @@ ok(
         "payment.disputed",
         "quote.accepted",
         "quote.needsReview",
+        // Manny Conto's quote bounced off two spaces in his address and
+        // nothing in the product said so. See the catalog entry.
+        "quote.undelivered",
       ].sort(),
     ),
   NOTIFICATION_TYPE_KEYS,
@@ -442,6 +445,10 @@ const EXPECTED = {
   "leave.requested": ["m_owner", "m_admin", "m_manager", "m_dispatcher"],
   // Operational, by capability: quote:approve-estimate is supervisor and up.
   "quote.needsReview": ["m_owner", "m_admin", "m_manager", "m_dispatcher"],
+  // The quotes ladder WITHOUT the money axis, and with supervisors included —
+  // a quote nobody received is the most actionable thing on a dispatcher's
+  // board. Crew is quotes:none and Legacy has no grid, so both fail closed.
+  "quote.undelivered": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator"],
 };
 
 for (const type of NOTIFICATION_TYPE_KEYS) {
@@ -463,7 +470,10 @@ section("4. A money event never reaches a member who may not see money");
 // ═══════════════════════════════════════════════════════════════════════════
 
 const MONEY_TYPES = NOTIFICATION_TYPE_KEYS.filter((t) => NOTIFICATION_TYPES[t].money);
-ok("three of the six carry money", MONEY_TYPES.length === 3, MONEY_TYPES);
+ok("three of the seven carry money", MONEY_TYPES.length === 3, MONEY_TYPES);
+// The undelivered-quote row says a document did not land, never what it was
+// worth — so it reaches people who may not see prices, on purpose.
+ok("an undelivered quote carries no money", NOTIFICATION_TYPES["quote.undelivered"].money === false);
 
 for (const type of MONEY_TYPES) {
   const got = selectRecipients({ members: CAST, type });
@@ -1014,6 +1024,9 @@ section("16. Every catalog type has an English AND a French sentence");
   // And every key noteKeysFor can produce has both languages, or the note line
   // prints its own key at somebody.
   const NOTE_SAMPLES = [
+    { cause: "address" },
+    { cause: "rejected" },
+    { cause: "unconfigured" },
     { kind: "refund" },
     { kind: "dispute" },
     { settled: true },
@@ -1035,6 +1048,9 @@ section("16. Every catalog type has an English AND a French sentence");
   // token on screen — which is why `source` and `estimateSource` are not params.
   ok("an unknown temperature renders no note", noteKeysFor({ params: { temperature: "lukewarm" } }).length === 0);
   ok("an unknown kind renders no note", noteKeysFor({ params: { kind: "clawback" } }).length === 0);
+  // A Resend message leaking through as a cause would print vendor English at
+  // a contractor reading the app in another language.
+  ok("an unknown send-failure cause renders no note", noteKeysFor({ params: { cause: "greylisted" } }).length === 0);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

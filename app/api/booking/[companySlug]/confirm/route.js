@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { findBookingCompany } from "@/lib/booking/findBookingCompany";
+import { emailRefusal, cleanEmail } from "@/lib/validation";
 import { geocodeAddress } from "@/lib/measure/roofMeasurement";
 import { finalizeBooking } from "@/lib/booking/finalizeBooking";
 import { effectiveBookingFeeCents, feeHoldCutoff } from "@/lib/booking/fee";
@@ -55,6 +56,18 @@ export async function POST(request, { params }) {
       { status: 400 },
     );
   }
+
+  // A booking confirmation, and every document after it, goes to this address.
+  // Refused here rather than stored: Manny Conto's quote bounced off two
+  // spaces and the contractor was the last to know.
+  const badEmail = emailRefusal(clientEmail, { required: true });
+  if (badEmail) return NextResponse.json(badEmail, { status: 400 });
+
+  // Trimmed and lowercased once, then used for the lookup, the stored client
+  // and the booking row alike. The lookup below matched on the raw string
+  // while the client was stored raw too, so " Bob@Example.COM " and
+  // "bob@example.com" were two clients for the same person.
+  const bookingEmail = cleanEmail(clientEmail);
 
   const company = await findBookingCompany(companySlug);
   if (!company)
@@ -131,14 +144,14 @@ export async function POST(request, { params }) {
 
   // Create/find client record for this company
   let client = await db.client.findFirst({
-    where: { companyId: company.id, email: clientEmail },
+    where: { companyId: company.id, email: bookingEmail },
   });
   if (!client) {
     client = await db.client.create({
       data: {
         companyId: company.id,
         name: clientName,
-        email: clientEmail,
+        email: bookingEmail,
         phone: clientPhone || null,
         // ── Why the address lands here at all ────────────────────────────
         //
@@ -249,7 +262,7 @@ export async function POST(request, { params }) {
       data: {
         eventTypeId: eventType.id,
         clientName,
-        clientEmail,
+        clientEmail: bookingEmail,
         clientPhone: clientPhone || null,
         startTime: start,
         endTime: end,
@@ -334,7 +347,7 @@ export async function POST(request, { params }) {
     data: {
       eventTypeId: eventType.id,
       clientName,
-      clientEmail,
+      clientEmail: bookingEmail,
       clientPhone: clientPhone || null,
       startTime: start,
       endTime: end,

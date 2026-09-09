@@ -17,6 +17,7 @@ import { NextResponse } from "next/server";
 import { requireCronSecret } from "@/lib/security/cronAuth";
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email/resend";
+import { sendOutcome, reportQuoteNotDelivered } from "@/lib/email/sendFailure";
 import { resolveSender } from "@/lib/email/companySender";
 import {
   renderTemplateSections,
@@ -223,6 +224,7 @@ export async function GET(request) {
   });
 
   let sent = 0;
+  let failed = 0;
   let skippedNoTemplate = 0;
   let skippedNoEmail = 0;
   let skippedUnsubscribed = 0;
@@ -295,7 +297,7 @@ export async function GET(request) {
         ...(unsubscribeToken && { unsubscribe: { token: unsubscribeToken, request } }),
       });
 
-      await sendEmail({
+      const result = await sendEmail({
         // The quote/invoice's own company. A demo's follow-up cron still runs,
         // still writes its FollowUpLog, still stops on reply — it just never
         // chases a real homeowner on behalf of a company that doesn't exist.
@@ -316,9 +318,47 @@ export async function GET(request) {
         ...(await resolveSender(entity.company || {}, entity.companyId)),
         ...(unsubscribeToken && unsubscribeHeaders({ token: unsubscribeToken, request })),
       });
-      sent++;
+
+      // ── The return value used to be thrown away ──────────────────────────
+      //
+      // `sent++` ran unconditionally on a result nobody read, and the
+      // FollowUpLog row above had already been written — so a chase that
+      // Resend refused was counted as delivered AND could never be retried.
+      // A quote follow-up that failed this way was indistinguishable from one
+      // the homeowner is ignoring, which is Manny Conto's loss with a cron
+      // job's name on it.
+      //
+      // The claim is deliberately NOT rolled back. Retrying on the next run
+      // would mean re-sending to a permanently undeliverable address every
+      // hour forever; the fix is a person seeing the failure, which is what
+      // the notification is for.
+      const outcome = sendOutcome(result);
+      if (outcome.ok) {
+        sent++;
+        continue;
+      }
+      failed++;
+      // Only the QUOTE trigger raises a feed row today, because
+      // "quote.undelivered" is the one type the catalog declares and a quote
+      // nobody received is the failure that costs the job. An invoice or
+      // job-completed chase that fails is counted here and recorded by
+      // sendEmail's own recordError; giving each of them a feed row means
+      // another catalog type and another translated sentence, and inventing
+      // one now without the strings behind it would be a notification that
+      // renders its own key at somebody.
+      if (finder.entityType === "quote") {
+        await reportQuoteNotDelivered({
+          companyId: entity.companyId,
+          quoteId: entity.id,
+          quoteNumber: entity.quoteNumber || null,
+          clientName: entity.client?.name || null,
+          cause: outcome.cause,
+          // No actor: a cron is nobody, so everyone eligible is told.
+          actorUserId: null,
+        });
+      }
     }
   }
 
-  return NextResponse.json({ success: true, sent, skippedNoTemplate, skippedNoEmail, skippedUnsubscribed });
+  return NextResponse.json({ success: true, sent, failed, skippedNoTemplate, skippedNoEmail, skippedUnsubscribed });
 }

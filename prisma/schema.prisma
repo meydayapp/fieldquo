@@ -11442,6 +11442,44 @@ model MessageThread {
   outcomeSetAt   DateTime?
   outcomeSetById String?
 
+  // ── What the CONVERSATION says, before anybody judges it ─────────────────
+  //
+  // `outcome` above is what a thread turned out to be, set by a person after
+  // the fact. These four are what it looks like NOW, computed from what the
+  // homeowner actually said — see lib/messaging/conversationScore.js, which is
+  // pure and executed against twenty real threads by
+  // scripts/check-conversation-score.mjs.
+  //
+  // Stored rather than derived on read because the inbox list and the month-end
+  // report both rank by it, and deriving it there would mean loading every
+  // message BODY of every thread to draw a list — the query that is fine until
+  // the month the company finally gets traffic. The thread screen computes it
+  // fresh from the messages it already has, through the same function, and the
+  // check asserts the two agree.
+  //
+  // All four nullable, and null means "never scored", never "cold". A row
+  // written before these columns existed has said nothing about itself.
+  //
+  // NO INDEX ON temperature, deliberately. An index would exist to support a
+  // WHERE, and nothing in this product is allowed to filter a conversation out
+  // of a list for scoring low: the corpus's own Mario Laroche scored badly for
+  // two months and was one revised quote from buying. Rank and explain; never
+  // hide.
+  /// "hot" | "warm" | "cold" — lib/messaging/conversationScore.js's TEMPERATURES,
+  /// the same three words lib/leads/score.js uses, because one lead must not
+  /// carry two vocabularies for one idea.
+  temperature String?
+  /// 0-100, out of the same bands (hot >= 60, warm >= 30) a lead is scored in.
+  score       Int?
+  /// { reasons: [{ id, labelKey, weight, quote, direction }], confidence,
+  /// disqualified, messageCount, ai }. The QUOTED FRAGMENT is the point: a
+  /// score a contractor cannot check is a score they cannot argue with, and one
+  /// they cannot argue with gets obeyed when it is wrong. `ai` holds the paid
+  /// reading (lib/ai/conversationTemperature.js) so a free rescore on the next
+  /// message re-applies it rather than silently erasing something bought.
+  scoreReasons Json?
+  scoredAt     DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -43,6 +43,11 @@ import ListState from "@/app/components/ListState";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { outcomeLabelKey } from "@/lib/messaging/outcomes";
+// Hot / warm / cold, and the reasons behind it. The chip rides on the inbox
+// row; the panel sits on the conversation, above the outcome control, because
+// "is this person going to buy" is the question you ask BEFORE you record what
+// happened.
+import ConversationTemperature, { TemperatureChip } from "@/app/components/messaging/ConversationTemperature";
 // Why the composer is off, and what the empty inbox says — ONE decision, pure,
 // and executed by scripts/check-messaging.mjs. See that file's header for why
 // it does not live in this component.
@@ -313,6 +318,17 @@ export default function MessagesPage() {
                                 {t(outcomeLabelKey(row.outcome))}
                               </span>
                             )}
+                            {/* An annotation, never a filter. A conversation
+                                that scored cold sits in this list exactly
+                                where it would have without a score — the
+                                corpus this came from contains a man who
+                                scored badly for two months and was one
+                                revised quote from buying. */}
+                            <TemperatureChip
+                              temperature={row.temperature}
+                              score={row.score}
+                              t={t}
+                            />
                             {row.lastFailed && (
                               <span className="text-xs font-medium text-destructive">
                                 {t("app.messages.failed")}
@@ -818,6 +834,19 @@ function Conversation({
           knows the answer. */}
       {thread && (
         <div className="space-y-4 border-t border-border p-3">
+          {/* ── What the conversation says about itself ─────────────────
+              Above the outcome, on purpose. The outcome is recorded after the
+              fact; this is the question being asked while the conversation is
+              still live, and it is the one a contractor can act on. */}
+          <ConversationTemperature
+            threadId={thread.id}
+            isDemo={Boolean(connection?.mock)}
+            // Rescored when a message goes out or the outcome moves: the
+            // stored columns have changed and a stale panel beside a fresh
+            // thread is two answers to one question.
+            refreshKey={messages.length}
+          />
+
           <OutcomePicker
             value={thread.outcome}
             onPick={setOutcome}

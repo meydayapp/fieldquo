@@ -15,6 +15,7 @@ import {
 } from "@/lib/permissions/enforce";
 import { isSupported } from "@/app/i18n/languages";
 import { normaliseCountry } from "@/lib/tax/jurisdictions";
+import { emailRefusal, cleanEmail } from "@/lib/validation";
 
 // Next 16: params is a Promise.
 export async function GET(request, { params }) {
@@ -101,6 +102,12 @@ export async function PATCH(request, { params }) {
     language,
   } = body;
 
+  // Editing a client's address is the moment a working one becomes a broken
+  // one. An empty string is a deliberate clear and is allowed; anything else
+  // that cannot be delivered to is refused with the fault named.
+  const badEmail = email === undefined || email === "" ? null : emailRefusal(email);
+  if (badEmail) return NextResponse.json(badEmail, { status: 400 });
+
   const updated = await db.client.update({
     where: { id: id },
     data: {
@@ -113,7 +120,7 @@ export async function PATCH(request, { params }) {
       // Allow updating contactName on its own for an already-company client.
       ...(type === undefined &&
         contactName !== undefined && { contactName: contactName || null }),
-      ...(email !== undefined && { email }),
+      ...(email !== undefined && { email: cleanEmail(email) }),
       ...(phone !== undefined && { phone }),
       ...(address !== undefined && { address }),
       ...(city !== undefined && { city }),

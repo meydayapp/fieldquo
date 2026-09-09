@@ -34,6 +34,8 @@ import { NextResponse } from "next/server";
 import { requireCronSecret } from "@/lib/security/cronAuth";
 import { db } from "@/lib/db";
 import { writeActivity } from "@/lib/messaging/activity";
+import { rescoreThread } from "@/lib/messaging/rescoreThread";
+import { SILENCE_DAYS } from "@/lib/messaging/conversationSignals";
 
 // A ceiling, not a target. If a very large tenant somehow parks thousands of
 // conversations on the same morning, this wakes the oldest 500 and the next
@@ -87,6 +89,54 @@ export async function GET(request) {
     }
   }
 
+  // ══ Second pass: the conversations that went quiet ═══════════════════════
+  //
+  // "Silence after a quote, with a follow-up nobody answered" is the strongest
+  // cold signal in the twenty real conversations this scorer was built from —
+  // and it is the ONE signal that is not caused by anybody sending a message.
+  // Nothing arrives to trigger a rescore, by definition. A score that could
+  // only notice silence when the silence ended would never notice it.
+  //
+  // So it is measured here, where time passing is the event. It rides on this
+  // cron rather than a new one for the reason the header above already gives:
+  // a second scheduler is the one nobody monitors.
+  //
+  // FREE — phrase lists and arithmetic. No model is called on this path, ever;
+  // the paid reading is bought on the thread, by a person, one at a time.
+  const quietSince = new Date(now.getTime() - SILENCE_DAYS * 86400000);
+  const rescoreWindow = new Date(now.getTime() - 90 * 86400000);
+  const quiet = await db.messageThread
+    .findMany({
+      where: {
+        // They wrote, and then stopped. A thread with no inbound at all has no
+        // silence to measure — nobody asked us anything.
+        lastInboundAt: { not: null, lte: quietSince },
+        // Still live enough to matter. A conversation nobody has touched in
+        // three months is history, and rescoring history every fifteen minutes
+        // forever is how a cron becomes a bill.
+        lastMessageAt: { gte: rescoreWindow },
+        // Somebody already decided what this was. Their verdict is the answer.
+        outcome: null,
+        // Self-limiting, the same way the snooze query above is: a thread that
+        // has already gone cold is not picked up again, so the steady state of
+        // this pass is the handful that just went quiet.
+        OR: [{ temperature: null }, { temperature: { not: "cold" } }],
+      },
+      orderBy: { lastInboundAt: "asc" },
+      take: MAX_PER_RUN,
+      select: { id: true, companyId: true },
+    })
+    .catch(() => []);
+
+  let rescored = 0;
+  for (const thread of quiet) {
+    // Best effort per thread, like the wake loop above: one tenant's bad row
+    // must not stop the rest being scored.
+    const result = await rescoreThread({ threadId: thread.id, companyId: thread.companyId, now })
+      .catch(() => null);
+    if (result) rescored++;
+  }
+
   return NextResponse.json({
     ok: true,
     // `due` and `woken` deliberately reported separately: they differ when a
@@ -95,6 +145,11 @@ export async function GET(request) {
     due: due.length,
     woken,
     failed: failed.length,
+    // The second pass reports its own two numbers for the same reason: a run
+    // that looked at forty quiet threads and scored none of them is a broken
+    // run, and one number would read as a quiet week.
+    quiet: quiet.length,
+    rescored,
     ...(failed.length ? { failures: failed.slice(0, 10) } : {}),
   });
 }

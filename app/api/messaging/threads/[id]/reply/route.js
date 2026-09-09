@@ -50,6 +50,7 @@ import { safeFilename } from "@/lib/media/validate";
 import { responseStamps } from "@/lib/messaging/waiting";
 import { readStatus } from "@/lib/messaging/outcomes";
 import { writeActivity } from "@/lib/messaging/activity";
+import { rescoreThread } from "@/lib/messaging/rescoreThread";
 import { rateLimit } from "@/lib/rateLimit";
 
 const MAX_LENGTH = 2000; // Meta's own limit for a text message.
@@ -429,6 +430,13 @@ export async function POST(request, { params }) {
       });
     }
   });
+
+  // Our own reply changes what the conversation IS: two outbound messages
+  // since they last wrote is the "we quoted them and chased them" shape that
+  // lib/messaging/conversationSignals.js reads as silence. Outside the
+  // transaction and best effort — a reply that reached the homeowner must
+  // never be reported as failed because a chip could not be repainted.
+  await rescoreThread({ threadId: thread.id, companyId: member.companyId }).catch(() => null);
 
   return NextResponse.json({ sent: true, message: shaped });
 }

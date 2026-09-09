@@ -36,6 +36,12 @@ import {
   SKIP,
   SKIP_REASONS,
 } from "../lib/aiEmployee/decide.js";
+import {
+  attachmentTally,
+  claimsMedia,
+  mediaClaimRefusal,
+  MEDIA_CLAIM_REASON,
+} from "../lib/aiEmployee/evidence.js";
 
 let passed = 0;
 let failed = 0;
@@ -190,6 +196,131 @@ ok("...and is stable when nothing changed",
   const reply = schema.split("model AiEmployeeReply {")[1]?.split("\nmodel ")[0] || "";
   ok("every reply records its token cost", /promptTokens/.test(reply) && /completionTokens/.test(reply));
   ok("...and why it stayed silent when it did", /suppressedReason/.test(reply));
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// It never invents a photograph — the job Cathy Monaghan Jardine put on hold
+// ══════════════════════════════════════════════════════════════════════════
+//
+// "I've received your photo, thank you." — "What photo have you received?" —
+// "I received the photo of your white kitchen cabinets that you just shared!
+// It shows the area around your sink and stove very clearly." — "I never
+// shared any photos." — "I'll have to put this project on hold."
+//
+// Three things are pinned here, because the rule is only real if all three
+// hold: the RULE is in every role's prompt, the FACT the rule is applied to is
+// in every role's prompt, and a draft that breaks it is refused with a named
+// reason rather than sent.
+
+// The words that lost the job, and the words that must still be allowed.
+const HALLUCINATION = "I've received your photo, thank you. It shows your white kitchen cabinets around the sink and stove very clearly.";
+const ASKING_FOR_ONE = "Could you send a photo of the kitchen when you get a chance?";
+
+for (const role of AI_EMPLOYEE_ROLES) {
+  const prompt = buildEmployeePrompt({
+    employee: { role, tone: "warm" },
+    company: { name: "TrueFinish Cabinets" },
+    sources: [],
+    tally: attachmentTally([]),
+  });
+  ok(`${role}: the prompt forbids inventing an attachment`,
+    /NEVER say you have received, seen, opened or looked at/i.test(prompt), role);
+  ok(`${role}: ...and states the count as a fact, not a rule`,
+    /This conversation contains 0 attachments/.test(prompt), role);
+  // Bug 3: the twelve-question wall. Tracey Leroux went silent on receiving it;
+  // Lyne and Ayse got a conversation and both bought.
+  ok(`${role}: at most two questions per message`,
+    /At most TWO questions in any one message/.test(prompt), role);
+  ok(`${role}: ...and never re-asks what the thread already answers`,
+    /Never ask for something they have already told you/i.test(prompt), role);
+}
+
+// The fact moves with the rows. A prompt that said "0 attachments" on a thread
+// carrying two would be worse than saying nothing.
+{
+  const two = attachmentTally([
+    { direction: "in", attachments: [{ type: "image", mediaId: "m1" }, { type: "image", mediaId: "m2" }] },
+  ]);
+  ok("two inbound photos are counted as two", two.total === 2 && two.pictures === 2, two);
+  const prompt = buildEmployeePrompt({ employee: { role: "closer" }, company: {}, sources: [], tally: two });
+  ok("...and the prompt says so", /contains 2 attachments/.test(prompt));
+  ok("...while still refusing to let it describe them", /never describe what is in one/i.test(prompt));
+
+  // What the CONTRACTOR sent is not what the customer sent.
+  ok("an outbound attachment is not the customer's",
+    attachmentTally([{ direction: "out", attachments: [{ type: "image", mediaId: "m" }] }]).total === 0);
+  // A dropped pin is not a photograph. Counting it would let the prompt tell
+  // the model a picture exists.
+  ok("a shared location is not an attachment a reply can look at",
+    attachmentTally([{ direction: "in", attachments: [{ type: "location", location: { latitude: 45, longitude: -75 } }] }]).total === 0);
+  // A photo whose bytes have not been fetched yet HAS been sent.
+  ok("a pending photo still counts as received",
+    attachmentTally([{ direction: "in", attachments: [{ type: "image", mediaId: "m" }] }]).total === 1);
+  ok("a garbage column is zero, never a throw", attachmentTally(null).total === 0);
+}
+
+// ── The post-check refuses the draft, and only the drafts it should ────────
+{
+  const none = attachmentTally([]);
+  const one = attachmentTally([{ direction: "in", attachments: [{ type: "image", mediaId: "m" }] }]);
+
+  ok("the sentence that lost the job is a claim", claimsMedia(HALLUCINATION));
+  ok("...and is REFUSED when the thread has nothing",
+    mediaClaimRefusal({ text: HALLUCINATION, tally: none }) === MEDIA_CLAIM_REASON);
+  ok("...with a named reason, not a bare false",
+    typeof MEDIA_CLAIM_REASON === "string" && MEDIA_CLAIM_REASON.length > 0);
+  ok("...and is allowed once a photo actually exists",
+    mediaClaimRefusal({ text: HALLUCINATION, tally: one }) === null);
+
+  // The other half, and the more important one: asking for a photo is the
+  // correct behaviour and must never be refused, or the guard would make the
+  // employee unable to request the thing it needs.
+  ok("asking for a photo is not a claim to have one", !claimsMedia(ASKING_FOR_ONE));
+  ok("...and is never refused", mediaClaimRefusal({ text: ASKING_FOR_ONE, tally: none }) === null);
+  for (const innocent of [
+    "How many doors and drawers are there?",
+    "If you can share a couple of pictures I can get you a number.",
+    "Pourriez-vous m'envoyer une photo de la cuisine ?",
+    "A picture helps a lot — whenever you're ready.",
+    "We can book someone to come and take photos if that's easier.",
+  ]) {
+    ok(`not refused: "${innocent.slice(0, 40)}…"`, mediaClaimRefusal({ text: innocent, tally: none }) === null);
+  }
+  for (const claim of [
+    "Thanks for the pictures!",
+    "Based on the photos, we'd refinish rather than reface.",
+    "The photo shows about 26 doors.",
+    "Looking at the images, the doors look like solid maple.",
+    "J'ai bien reçu vos photos, merci.",
+    "Gracias por las fotos.",
+  ]) {
+    ok(`refused: "${claim.slice(0, 40)}…"`, mediaClaimRefusal({ text: claim, tally: none }) === MEDIA_CLAIM_REASON);
+  }
+  ok("an empty draft claims nothing", !claimsMedia("") && !claimsMedia(null));
+}
+
+// ── And the responder actually applies it ──────────────────────────────────
+{
+  const respond = code("lib/aiEmployee/respond.js");
+  ok("the responder counts what the customer actually sent", /attachmentTally/.test(respond));
+  ok("...hands that count to the prompt", /buildEmployeePrompt\([^)]*tally/s.test(respond));
+  ok("...checks the finished draft against it", /mediaClaimRefusal\(/.test(respond));
+  ok("...and records the refusal rather than sending", /suppressedReason:\s*mediaRefusal/.test(respond));
+  // In SUGGEST mode a refused draft must not even be offered. The suggestion
+  // list is where that is true, so it is asserted there rather than here.
+  const list = code("app/api/ai-employee/suggestions/route.js");
+  ok("a suppressed draft is never offered as a suggestion", /suppressedReason:\s*null/.test(list));
+
+  // The test box prints `app.aiEmployee.skip.<reason>` with the raw reason as
+  // its fallback, so a refusal with no sentence behind it shows a contractor
+  // the token `claimed_media_not_received`. This is the one reason they most
+  // need explained — it is the model having just made something up.
+  const { APP_MESSAGES } = await import("../app/i18n/appMessages.js");
+  const key = `app.aiEmployee.skip.${MEDIA_CLAIM_REASON}`;
+  for (const lang of Object.keys(APP_MESSAGES)) {
+    ok(`${lang}: the refusal has a sentence, not a raw token`,
+      typeof APP_MESSAGES[lang][key] === "string" && APP_MESSAGES[lang][key].length > 10, lang);
+  }
 }
 
 // ── The settings screen tells the truth about auto-send ────────────────────

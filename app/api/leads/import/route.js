@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { createScoredLead } from "@/lib/leads/createLead";
+import { emailProblem } from "@/lib/validation";
 import { buildLeadIntake } from "@/lib/leads/intakeShape";
 import { normaliseLeadRow } from "@/lib/leads/importMap";
 import { db } from "@/lib/db";
@@ -49,7 +50,12 @@ export async function POST(request) {
 
   const normalised = rows.map(normaliseLeadRow);
   // A lead with no name AND no way to reach them is noise, not a lead.
-  const valid = normalised.filter((r) => r.name || r.email || r.phone);
+  // An address that cannot be delivered to is not a way to reach somebody, so
+  // it does not count as one here. A row whose only contact was
+  // `Macksab  1@hotmail.com` is noise the same way a row with neither is —
+  // createScoredLead would store it as null and the lead would look reachable.
+  const reachable = (r) => r.phone || (r.email && emailProblem(r.email) === null);
+  const valid = normalised.filter((r) => r.name || reachable(r));
   const skipped = rows.length - valid.length;
 
   let imported = 0;

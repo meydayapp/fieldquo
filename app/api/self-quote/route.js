@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rateLimit";
 import { normaliseMediaList } from "@/lib/media/validate";
 import { createScoredLead } from "@/lib/leads/createLead";
+import { emailRefusal } from "@/lib/validation";
 import { buildLeadIntake } from "@/lib/leads/intakeShape";
 import { findBookingCompany } from "@/lib/booking/findBookingCompany";
 import { publicIntakeFields } from "@/app/data/quoteIntakeFields";
@@ -109,6 +110,15 @@ export async function POST(request) {
       { status: 400 },
     );
   }
+
+  // ── The address a quote will be sent to ─────────────────────────────────
+  //
+  // Manny Conto typed `Macksab  1@hotmail.com`. The quote bounced, nobody was
+  // told, and the contractor discovered it himself two conversations later.
+  // Refused HERE, while they are still looking at the form and can fix it,
+  // rather than stored and discovered by a bounce nothing reads.
+  const badEmail = emailRefusal(email);
+  if (badEmail) return NextResponse.json(badEmail, { status: 400 });
 
   // findBookingCompany, not findUnique({ slug }) — the GET that RENDERED this
   // form resolves either slug, so a company with a custom bookingSlug got a

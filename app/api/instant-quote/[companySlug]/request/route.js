@@ -17,6 +17,7 @@ import { financingOffer } from "@/lib/estimate/financing";
 import { canBookVisit } from "@/lib/booking/canBookVisit";
 import { getAppOrigin } from "@/lib/appUrl";
 import { createScoredLead } from "@/lib/leads/createLead";
+import { emailRefusal } from "@/lib/validation";
 import { buildLeadIntake } from "@/lib/leads/intakeShape";
 import { createEstimateDraft } from "@/lib/estimate/createEstimateQuote";
 import { normaliseCountry } from "@/lib/tax/jurisdictions";
@@ -79,6 +80,13 @@ export async function POST(request, { params }) {
       { status: 400 },
     );
   }
+
+  // The address a quote will be sent to. Manny Conto typed
+  // `Macksab  1@hotmail.com`; the quote bounced and nobody was told. Refused
+  // while they are still on the form, rather than stored — see
+  // lib/validation.js's emailProblem for why the refusal names the fault.
+  const badEmail = emailRefusal(email);
+  if (badEmail) return NextResponse.json(badEmail, { status: 400 });
 
   // Re-measure and re-price from scratch — the authoritative numbers.
   const measured = await measureForTrade(trade, { address, polygon, intake });

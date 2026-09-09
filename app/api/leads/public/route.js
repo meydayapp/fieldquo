@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rateLimit";
 import { createScoredLead } from "@/lib/leads/createLead";
+import { emailRefusal } from "@/lib/validation";
 
 import { recordConsent } from "@/lib/voice/outbound";
 import { DISCLOSURE } from "@/lib/voice/disclosure";
@@ -43,6 +44,13 @@ export async function POST(request) {
       { status: 400 },
     );
   }
+
+  // The address a quote will be sent to. Manny Conto typed
+  // `Macksab  1@hotmail.com`; the quote bounced and nobody was told. Refused
+  // while they are still on the form, rather than stored — see
+  // lib/validation.js's emailProblem for why the refusal names the fault.
+  const badEmail = emailRefusal(email);
+  if (badEmail) return NextResponse.json(badEmail, { status: 400 });
 
   const company = await db.company.findUnique({ where: { slug: companySlug } });
   if (!company)

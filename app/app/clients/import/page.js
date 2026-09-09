@@ -142,6 +142,13 @@ export default function ImportClientsPage() {
           <p className="text-sm text-green-800 dark:text-green-300">
             {t("app.clientImport.imported", { count: result.imported })}
             {result.skipped > 0 && t("app.clientImport.skipped", { count: result.skipped })}
+            {/* Named separately from the nameless rows, because the fix is
+                different: those rows have nothing to import, these have an
+                address a quote would never reach. Reported rather than folded
+                into `skipped` so the contractor knows which rows to correct
+                and re-import. */}
+            {result.badEmails > 0 &&
+              t("app.clientImport.badEmails", { count: result.badEmails })}
             .
           </p>
           <button

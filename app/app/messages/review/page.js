@@ -41,6 +41,8 @@ import ListState from "@/app/components/ListState";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { THREAD_OUTCOMES, outcomeLabelKey } from "@/lib/messaging/outcomes";
+import ConversationReviewPanel from "@/app/components/messaging/ConversationReviewPanel";
+import { TemperatureChip } from "@/app/components/messaging/ConversationTemperature";
 
 /**
  * A duration a person can read, or the "we never answered" sentence.
@@ -56,6 +58,25 @@ export function formatMinutes(minutes, t) {
     return t("app.messages.review.hours", { count: Math.round(minutes / 60) });
   }
   return t("app.messages.review.days", { count: Math.round(minutes / (60 * 24)) });
+}
+
+/**
+ * The one reason worth printing on a list row.
+ *
+ * A structural refusal outranks everything — "they are outside your area" is
+ * the whole story — and otherwise it is the heaviest weighted reason, which is
+ * already first because scoreConversation sorts them that way. Reasons worth
+ * nothing (a stated budget, product questions) are never the headline: they
+ * are the trap, and putting one at the top of a row would be the software
+ * repeating the mistake it was built to stop.
+ */
+export function topReason(score) {
+  if (!score) return null;
+  if (score.disqualified) {
+    return { labelKey: score.disqualified.labelKey, quote: score.disqualified.quote };
+  }
+  const counted = (score.reasons || []).filter((r) => r.weight);
+  return counted.length ? counted[0] : null;
 }
 
 /** A rate as a percentage, or null — never "0%" for "nothing was judged". */
@@ -294,32 +315,75 @@ export default function MessagesReviewPage() {
               </ul>
             </section>
 
-            {/* ── Everything, openable ───────────────────────────────────── */}
+            {/* ── The paid assessment: what the winners did differently ──
+                A separate, metered call with its price on the button. It sits
+                below the free numbers because those are always true and cost
+                nothing, and above the ranked list because it explains it. */}
+            <ConversationReviewPanel year={year} month={month} />
+
+            {/* ── Everything, ranked by what was said, nothing hidden ─────
+                Ordered by lib/messaging/conversationScore.js, which reads the
+                homeowner's own words — did they raise logistics, move their
+                dates, add scope, or say they were getting other quotes. NOT by
+                effort: the customer who wrote the most in the conversations
+                this scorer was built from was quoted and never answered again.
+
+                Every conversation in the month is in this list, including the
+                cold ones and the ones nobody has scored. A ranking that hid
+                its own bottom would have buried the man who came back two
+                months later and asked for a revised quote. */}
             <section className="rounded-xl border border-border bg-card p-4">
               <h2 className="text-sm font-bold text-foreground">
-                {t("app.messages.review.allThreads")}
+                {t("app.messages.review.rankedTitle")}
               </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                {t("app.messages.review.rankedHint")}
+              </p>
               <ul className="mt-3 space-y-2">
-                {review.threads.map((row) => (
+                {(review.ranked || review.threads).map((row) => (
                   <li key={row.id}>
                     <Link
                       href={"/app/messages?thread=" + encodeURIComponent(row.id)}
-                      className="min-h-[44px] flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border px-3 py-2 hover:bg-muted"
+                      className="min-h-[44px] flex flex-col gap-1 rounded-lg border border-border px-3 py-2 hover:bg-muted"
                     >
-                      <span className="text-sm font-medium text-foreground">
-                        {row.participantName || t("app.messages.unknownPerson")}
+                      <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span className="text-sm font-medium text-foreground">
+                          {row.participantName || t("app.messages.unknownPerson")}
+                        </span>
+                        <TemperatureChip
+                          temperature={row.score?.temperature}
+                          score={row.score?.score}
+                          confidence={row.score?.confidence}
+                          t={t}
+                        />
+                        {!row.score && (
+                          <span className="text-xs text-muted-foreground">
+                            {t("app.messages.temperature.notScored")}
+                          </span>
+                        )}
+                        <span className="text-xs text-muted-foreground">
+                          {formatDate(row.createdAt)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {row.outcome
+                            ? t(outcomeLabelKey(row.outcome))
+                            : t("app.messages.review.outcomeUnset")}
+                        </span>
+                        <span className="ml-auto text-xs text-muted-foreground">
+                          {formatMinutes(row.firstResponseMinutes, t)}
+                        </span>
                       </span>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(row.createdAt)}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {row.outcome
-                          ? t(outcomeLabelKey(row.outcome))
-                          : t("app.messages.review.outcomeUnset")}
-                      </span>
-                      <span className="ml-auto text-xs text-muted-foreground">
-                        {formatMinutes(row.firstResponseMinutes, t)}
-                      </span>
+                      {/* WHY it ranks there, in the words they typed. A rank
+                          with no argument is a rank nobody can disagree with,
+                          and this one is meant to be disagreed with. */}
+                      {topReason(row.score) && (
+                        <span className="text-xs text-muted-foreground">
+                          {t(topReason(row.score).labelKey)}
+                          {topReason(row.score).quote
+                            ? ` — ${t("app.messages.temperature.quoted", { quote: topReason(row.score).quote })}`
+                            : ""}
+                        </span>
+                      )}
                     </Link>
                   </li>
                 ))}
