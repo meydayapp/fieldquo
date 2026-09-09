@@ -972,21 +972,21 @@ ok("the webhooks are NOT under /api/sales, which middleware would refuse to Twil
 })());
 
 ok("no dial string appears in the call panel — the href still comes from dialHref", (() => {
-  const src = source("app/sales/queue/CallPanel.js");
+  const src = source("app/components/sales/CallPanel.js");
   return !/tel:/.test(src) && /fallbackHref/.test(src);
 })());
 ok("the call panel reads the store's own readiness rather than asserting it", (() => {
-  const src = source("app/sales/queue/CallPanel.js");
+  const src = source("app/components/sales/CallPanel.js");
   return /config\.store\?\.ready|config\.store\.ready/.test(src);
 })());
 ok("the handset path records the attempt BEFORE following the link", (() => {
-  const src = source("app/sales/queue/CallPanel.js");
+  const src = source("app/components/sales/CallPanel.js");
   const post = src.indexOf('action: "dial"');
   const follow = src.indexOf("window.location.href = fallbackHref");
   return post !== -1 && follow !== -1 && post < follow;
 })());
 ok("a denied microphone takes the in-app button away rather than leaving it live", (() => {
-  const src = source("app/sales/queue/CallPanel.js");
+  const src = source("app/components/sales/CallPanel.js");
   return /mic !== "denied"/.test(src);
 })());
 

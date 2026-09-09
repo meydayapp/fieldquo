@@ -382,7 +382,7 @@ section("4. The one write the engine can make is behind the flag the rep's route
 
 section("5. Pressing Call does not wait for a playbook");
 
-const PANEL = "app/sales/queue/CallPanel.js";
+const PANEL = "app/components/sales/CallPanel.js";
 {
   const src = read(PANEL);
   const place = namedFunctionBody(src, "async function place(");
@@ -416,7 +416,7 @@ const PANEL = "app/sales/queue/CallPanel.js";
 
 section("6. Nothing on the mid-call screen is padded");
 
-const SCREEN = "app/sales/queue/CallPlaybook.js";
+const SCREEN = "app/components/sales/CallPlaybook.js";
 {
   const src = read(SCREEN);
   ok("the mid-call screen exists", src.length > 1000);

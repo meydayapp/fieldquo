@@ -62,6 +62,7 @@ import {
   livePresence,
 } from "@/lib/sales/calls/agentState";
 import { dialModeState } from "@/lib/sales/calls/dialMode";
+import { normalisePhone } from "@/lib/sales/suppressionRules";
 import { TWIML_APP_ENV, browserDialReadiness, callPlan } from "@/lib/sales/calls/browserDial";
 import { repCallStats } from "@/lib/sales/calls/reporting";
 
@@ -77,14 +78,19 @@ const bad = (error, status = 400) => NextResponse.json({ error }, { status });
  * A prospect held by somebody else resolves to nothing rather than to a 403
  * that confirms it exists, matching every other sales route.
  *
- * ── A bare lead has no jurisdiction, and that is a refusal, not a gap ────
+ * ── A lead with no location is a gap the rep can close ──────────────────
  *
- * SalesLead carries a phone and a time zone but no country or province, so a
- * lead with no Prospect behind it produces `location_unknown` and the gate
- * returns `unknown`. That is correct and deliberate: calling hours are set by
- * the place the phone rings, there is no federal rule underneath to fall back
- * on, and a rep who typed a business name into a form has told us nothing
- * about which statute applies.
+ * This used to say a bare lead could never be located, because SalesLead
+ * carried a phone and a time zone and nothing else — so every hand-typed lead
+ * produced `location_unknown` forever and the gate answered `unknown`. The
+ * refusal was right; the dead end was not. A rep who has spoken to the
+ * business knows which state it is in, and now says so: SalesLead.country and
+ * .province are written from the lead screen and read here, ahead of the
+ * linked prospect's pair, because the rep is closer to the fact than a
+ * directory row that may name a head office two states away.
+ *
+ * A lead with neither still produces `location_unknown`, and still refuses.
+ * Nothing here infers a state from an area code.
  */
 async function targetFor(repId, { prospectId, leadId }) {
   if (prospectId) {
@@ -127,6 +133,8 @@ async function targetFor(repId, { prospectId, leadId }) {
         businessName: true,
         phone: true,
         timeZone: true,
+        country: true,
+        province: true,
         prospectId: true,
         prospect: {
           select: { id: true, country: true, province: true, doNotContactAt: true, phoneE164: true },
@@ -139,9 +147,17 @@ async function targetFor(repId, { prospectId, leadId }) {
       prospectId: lead.prospectId || null,
       leadId: lead.id,
       name: lead.businessName,
-      phoneE164: lead.phone || lead.prospect?.phoneE164 || null,
-      country: lead.prospect?.country || null,
-      province: lead.prospect?.province || null,
+      // Normalised, not the raw string. A rep types "613-555-0142"; the gate,
+      // the suppression list and Twilio all key on E.164, and passing the raw
+      // form through made every hand-typed lead look like a number with no
+      // suppression history.
+      phoneE164: normalisePhone(lead.phone) || lead.prospect?.phoneE164 || null,
+      // The LEAD's own pair first. It is typed by the rep who spoke to them;
+      // discovery's is inferred from a directory row that can be a head office
+      // in another state, and the rep is closer to the fact. Same precedence
+      // lib/sales/leadDial.js applies on the screen, so the two agree.
+      country: lead.country || lead.prospect?.country || null,
+      province: lead.province || lead.prospect?.province || null,
       timeZone: lead.timeZone || null,
       doNotContactAt: lead.prospect?.doNotContactAt || null,
     };

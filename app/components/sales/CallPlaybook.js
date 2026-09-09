@@ -75,7 +75,24 @@ function Objection({ row }) {
   );
 }
 
-export default function CallPlaybook({ loading = false, error = "", data = null, onRetry }) {
+/**
+ * @param unavailable  why there is no script to show, when that is a fact
+ *                     rather than a failure. A lead the rep typed in has no
+ *                     discovery behind it and therefore no playbook, and the
+ *                     panel used to render nothing at all for that case —
+ *                     which reads on screen exactly like a playbook that
+ *                     failed to load, or like a product that has no scripts.
+ *                     Same argument lib/sales/dialSpace.js makes for the dial:
+ *                     absence of UI is indistinguishable from absence of
+ *                     feature, so the space says which one it is.
+ */
+export default function CallPlaybook({
+  loading = false,
+  error = "",
+  data = null,
+  unavailable = "",
+  onRetry,
+}) {
   const [stageIndex, setStageIndex] = useState(0);
   const [heard, setHeard] = useState("");
 
@@ -117,7 +134,18 @@ export default function CallPlaybook({ loading = false, error = "", data = null,
     );
   }
 
-  if (!data) return null;
+  if (!data) {
+    // Only when the caller stated a reason. A missing playbook with nothing to
+    // say about itself stays silent rather than inventing an explanation.
+    return unavailable ? (
+      <div className="rounded-lg border border-border bg-muted p-3 text-xs text-muted-foreground">
+        <div className="flex items-start gap-2">
+          <CircleHelp size={14} className="mt-0.5 shrink-0" />
+          <p className="break-words">{unavailable}</p>
+        </div>
+      </div>
+    ) : null;
+  }
 
   const index = Math.min(stageIndex, Math.max(0, stages.length - 1));
   const stage = stages[index] || null;

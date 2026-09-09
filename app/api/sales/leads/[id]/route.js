@@ -21,6 +21,9 @@ import {
   sanitiseHeaderText,
 } from "@/lib/sales/outreach";
 import { contactOptedOut } from "@/lib/sales/outreachInbound";
+import { leadDialView } from "@/lib/sales/leadDial";
+import { isSalesSmsTimeZone } from "@/lib/sales/smsWindow";
+import { normaliseCountry, normaliseSubdivision } from "@/lib/sales/callingRules";
 
 /** The shape both handlers return, so the screen never sees two versions of a lead. */
 const LEAD_SELECT = {
@@ -29,8 +32,25 @@ const LEAD_SELECT = {
   contactName: true,
   email: true,
   phone: true,
+  timeZone: true,
+  country: true,
+  province: true,
   status: true,
   notes: true,
+  // The discovered business behind this lead, when there is one. Selected
+  // rather than fetched separately because the dial region needs its
+  // do-not-contact flag and its location in the same render as the number —
+  // a second round trip here is a call button that appears a beat late.
+  prospect: {
+    select: {
+      id: true,
+      phoneE164: true,
+      country: true,
+      province: true,
+      doNotContactAt: true,
+      doNotContactReason: true,
+    },
+  },
   convertedCompanyId: true,
   convertedAt: true,
   createdAt: true,
@@ -86,10 +106,34 @@ export async function GET(request, { params }) {
     channel: "email",
   });
 
+  // Asked again for the phone channel. An opt-out given by email does suppress
+  // every channel by default — SUPPRESSION_CHANNELS' header argues why — but
+  // the two questions are asked separately so a NARROW suppression ("email is
+  // fine, don't ring me") shows on the dial and not on the compose box.
+  const phoneOptOut = lead.phone
+    ? await contactOptedOut(db, {
+        leadId: lead.id,
+        email: lead.email,
+        phone: lead.phone,
+        channel: "phone",
+      })
+    : { optedOut: false, reason: null };
+
   return NextResponse.json({
     lead,
     optedOut: optOut.optedOut,
     optedOutReason: optOut.reason,
+    // Everything the dial region reads, in the shape dialSpace() expects off a
+    // queue row. Computed server-side for the same reason the queue's is: a
+    // screen that worked out for itself whether a lead was callable would be a
+    // second opinion, and a second opinion that disagreed with the gate is how
+    // a Call button appears on a number nobody may ring.
+    call: leadDialView(lead, { optedOut: phoneOptOut }),
+    // The server's clock, so the screen judges the calling window against it
+    // and not against a laptop whose time zone is wrong — the same reason the
+    // queue payload carries one. A rep's own clock is the substitute this
+    // whole feature exists to avoid.
+    serverNow: new Date().toISOString(),
     outreach: await outreachStatus(rep),
   });
 }
@@ -125,6 +169,60 @@ export async function PATCH(request, { params }) {
     }
     data.email = email || null;
   }
+  // ── Where the phone rings, and in which hours ─────────────────────────
+  //
+  // Normalised through the same functions the calling gate reads with, so a
+  // rep typing "ontario" or "Texas" gets the same answer the gate will give
+  // rather than a stored string that silently never matches a jurisdiction.
+  // An unrecognised value is a 400, not a null: silently dropping it would
+  // leave the rep looking at "we do not know which state" after they just
+  // told us.
+  if (body.country !== undefined) {
+    const raw = sanitiseHeaderText(body.country, 40);
+    if (!raw) {
+      data.country = null;
+    } else {
+      const country = normaliseCountry(raw);
+      if (!country) {
+        return NextResponse.json(
+          { error: "Calling rules are only written for Canada and the United States so far." },
+          { status: 400 },
+        );
+      }
+      data.country = country;
+    }
+  }
+  if (body.province !== undefined) {
+    const raw = sanitiseHeaderText(body.province, 40);
+    if (!raw) {
+      data.province = null;
+    } else {
+      const province = normaliseSubdivision(raw);
+      if (!province) {
+        return NextResponse.json(
+          { error: "That isn't a state or province we recognise." },
+          { status: 400 },
+        );
+      }
+      data.province = province;
+    }
+  }
+  if (body.timeZone !== undefined) {
+    const raw = sanitiseHeaderText(body.timeZone, 64);
+    if (!raw) {
+      data.timeZone = null;
+    } else if (!isSalesSmsTimeZone(raw)) {
+      // The SAME closed list the texting window uses. Two lists would let a
+      // rep state a zone that governs their calls and not their texts, and
+      // the prospect is in one place.
+      return NextResponse.json(
+        { error: "Pick one of the North American zones on the list." },
+        { status: 400 },
+      );
+    } else {
+      data.timeZone = raw;
+    }
+  }
   if (body.status !== undefined) {
     if (!isLeadStatus(body.status)) {
       return NextResponse.json({ error: "That isn't a pipeline status." }, { status: 400 });
@@ -150,5 +248,24 @@ export async function PATCH(request, { params }) {
     where: leadWhere(rep.id, id),
     select: LEAD_SELECT,
   });
-  return NextResponse.json({ lead });
+
+  // The dial view comes back with the write, not on a second fetch. Saying
+  // where a business is IS the fix for "we cannot confirm this call is
+  // allowed", so a PATCH that returned only the lead would leave that sentence
+  // on screen after the rep had just answered it — a control that looks like it
+  // did nothing.
+  const phoneOptOut = lead?.phone
+    ? await contactOptedOut(db, {
+        leadId: lead.id,
+        email: lead.email,
+        phone: lead.phone,
+        channel: "phone",
+      })
+    : { optedOut: false, reason: null };
+
+  return NextResponse.json({
+    lead,
+    call: lead ? leadDialView(lead, { optedOut: phoneOptOut }) : null,
+    serverNow: new Date().toISOString(),
+  });
 }

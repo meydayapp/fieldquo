@@ -414,6 +414,11 @@ section("4. The four empty queues stay four");
 
 const CONSOLE_FILE = "app/sales/queue/page.js";
 const consoleSrc = codeOnly(read(CONSOLE_FILE));
+// The dial region the console renders. Its own file since the lead screen
+// started using it; the questions this script asks about the dial follow the
+// code rather than staying pointed at the page that used to hold it.
+const REGION_FILE = "app/components/sales/DialRegion.js";
+const regionSrc = codeOnly(read(REGION_FILE));
 
 // The screen must branch on the REASON CODE, not on truthiness. A single
 // "Nothing here" is what this whole section exists to prevent, and rendering
@@ -504,8 +509,15 @@ ok(
   /lg:sticky/.test(consoleSrc),
 );
 ok(
+  // CallPanel moved to app/components/sales when the lead screen started
+  // rendering the same console — see DialRegion's header. The question is
+  // unchanged and still asked of the queue: is the write-up on this pane, or a
+  // page away? It is now reached through DialRegion, so both halves of the
+  // chain are asserted rather than just the name the queue happens to import.
   "the notes and the write-up are in the pane, not a page away",
-  /ProspectNotes/.test(consoleSrc) && /CallPanel/.test(consoleSrc),
+  /ProspectNotes/.test(consoleSrc) &&
+    /DialRegion/.test(consoleSrc) &&
+    /<CallPanel/.test(regionSrc),
 );
 ok(
   "…and the notes panel still carries the visibility notice both other screens carry",
@@ -549,13 +561,21 @@ ok(
   /dialSpace\(/.test(consoleSrc),
 );
 ok(
+  // Asked of DialRegion now, because that is where the one rendering branch
+  // lives. Asking it of the queue alone would have passed vacuously the moment
+  // the branch moved — which is exactly the false pass this section exists to
+  // prevent, so the file it reads moved with the code.
   "the Call control is rendered on DIAL_READY and a real href, and on nothing else",
-  /space\.state === DIAL_READY && space\.href/.test(consoleSrc),
+  /space\.state === DIAL_READY && space\.href/.test(regionSrc),
   "any other condition here bypasses both gates",
 );
 ok(
+  "…and the queue reaches its dial ONLY through that branch",
+  /<DialRegion/.test(consoleSrc) && !/<CallPanel/.test(consoleSrc),
+);
+ok(
   "there is still no greyed-out dial",
-  !/disabled[^>]{0,40}Call /.test(consoleSrc),
+  !/disabled[^>]{0,40}Call /.test(consoleSrc) && !/disabled[^>]{0,40}Call /.test(regionSrc),
 );
 
 // ═══════════════════════════════════════════════════════════════════════════

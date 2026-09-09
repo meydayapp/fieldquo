@@ -9035,6 +9035,27 @@ model SalesLead {
   /// zones.
   timeZone String?
 
+  /// WHERE THE PHONE RINGS. Both nullable, and neither is ever guessed.
+  ///
+  /// Calling hours are set by the jurisdiction the prospect is in, and
+  /// 16 CFR 310.6(b)(7) exempts business-to-business calls from the whole
+  /// Telemarketing Sales Rule — so there is no federal floor to fall back on
+  /// and a lead with no state is a lead nobody can say is legal to ring.
+  /// Until these existed, EVERY rep-typed lead resolved to `location_unknown`
+  /// and the calling gate answered `unknown` forever: lib/sales/callingRules.js
+  /// needs a country and a subdivision or it refuses, correctly, to have an
+  /// opinion. The rep console showed the refusal and offered nothing that could
+  /// clear it, which is a dead end rather than a control.
+  ///
+  /// Written by the rep on the lead — the same person and the same reasoning
+  /// as timeZone above — never inferred from the area code, which is wrong for
+  /// every ported number. `province` is the field name callingRules already
+  /// reads for a US state as well as a Canadian province; renaming it here
+  /// would mean a mapping step, and a mapping step is where the queue and the
+  /// lead start disagreeing about which statute applies.
+  country  String?
+  province String?
+
   /// "new" | "contacted" | "demoed" | "signed" | "lost"
   status String  @default("new")
   notes  String?

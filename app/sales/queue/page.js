@@ -179,7 +179,7 @@ import {
 import { displayTitle } from "@/lib/sales/notes/body";
 import RepNoteVisibilityNotice from "@/app/components/sales/RepNoteVisibilityNotice";
 import RepNoteUnavailable from "@/app/components/sales/RepNoteUnavailable";
-import CallPanel from "./CallPanel";
+import DialRegion, { Notice } from "@/app/components/sales/DialRegion";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -211,29 +211,6 @@ function Pill({ tone = "unknown", children }) {
     >
       {children}
     </span>
-  );
-}
-
-/**
- * One reason a call cannot go ahead, or one caveat on a call that can.
- *
- * `tone` follows the same three-state discipline the pills do, and for the
- * harder version of the same reason. "It is 21:00 in Tulsa" is a finding and
- * gets the amber a finding gets; "nobody has read Colorado's statute" is not a
- * finding at all, and giving it the same colour would tell a rep we checked.
- * The dashed muted box is the one this page already uses for `unknown`.
- */
-function Notice({ tone, icon: Icon, title, fix }) {
-  return (
-    <div className={`rounded-lg border p-3 text-sm ${TONE_CLASS[tone] || TONE_CLASS.unknown}`}>
-      <div className="flex items-start gap-2">
-        <Icon size={16} className="mt-0.5 shrink-0" />
-        <div className="min-w-0">
-          <p className="font-semibold break-words">{title}</p>
-          {fix ? <p className="break-words">{fix}</p> : null}
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -770,106 +747,24 @@ function QueueConsole() {
 
             {/* ── The dial, or the reason there is not one ──────────────────
                 Never blank. lib/sales/dialSpace.js decides which of the seven
-                states this is and supplies the sentence; the only branch here
-                is whether a control is rendered, and that is the one branch
-                that must never be guessed at. */}
-            {space.state === DIAL_READY && space.href ? (
-              <>
-                <CallPanel
-                  prospectId={current.id}
-                  phoneE164={current.phoneE164}
-                  businessName={current.businessName}
-                  fallbackHref={space.href}
-                  onWorked={load}
-                />
-                <p className="text-xs text-muted-foreground break-words">{space.detail}</p>
-              </>
-            ) : space.state === DIAL_DO_NOT_CONTACT ? (
-              // Red, and not one of the three tones. The three are epistemic —
-              // we found it, we found its absence, we could not look — and a
-              // do-not-contact is none of those. It is a hard stop, it was red
-              // before this rewrite, and demoting it to the amber a closed
-              // calling window gets would be the flattening the tones exist to
-              // prevent.
-              <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/40 p-3 text-sm text-red-800 dark:text-red-200">
-                <div className="flex items-start gap-2">
-                  <Ban size={16} className="mt-0.5 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="font-semibold break-words">{space.title}</p>
-                    <p className="break-words">{space.detail}</p>
-                    <p className="mt-1">
-                      No dial control is shown, because pressing one would be a mistake rather than a refusal.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <Notice
-                tone={space.tone}
-                icon={
-                  space.state === DIAL_NO_NUMBER
-                    ? PhoneOff
-                    : space.state === DIAL_REFUSED
-                      ? Clock
-                      : CircleHelp
-                }
-                title={space.title}
-                fix={space.detail}
-              />
-            )}
-
-            {/* The blockers behind a refusal or an unknown, each in its own
-                tone. A refusal is a finding; an unknown is not, and the two
-                must not be the same colour — same rule the pills follow. */}
-            {(space.reasons || []).map((b) => (
-              <Notice
-                key={b.code}
-                tone={compliance?.decision === CALL_REFUSED ? "gap" : "unknown"}
-                icon={compliance?.decision === CALL_REFUSED ? Clock : CircleHelp}
-                title={b.title}
-                fix={b.fix}
-              />
-            ))}
-
-            {/* Said beside a working button on purpose. A cap nothing counts,
-                and a registration nobody has filed, are facts about THIS call —
-                burying them in a document is how they stop being true. */}
-            {(compliance?.unenforced || []).map((u) => (
-              <Notice key={u.code} tone="gap" icon={ShieldAlert} title={u.title} fix={u.fix} />
-            ))}
-            {(compliance?.warnings || []).map((w) => (
-              <Notice key={w.code} tone="gap" icon={ShieldAlert} title={w.title} fix={w.fix} />
-            ))}
-
-            {compliance?.decision === CALL_ALLOWED && compliance.windowText ? (
-              <p className="text-xs text-muted-foreground break-words">
-                Judged in{" "}
-                {compliance.zoneSource === "stated"
-                  ? "the time zone recorded on their lead"
-                  : `the time zone their address implies (${compliance.zones.join(", ")})`}
-                .
-              </p>
-            ) : null}
-
-            {/* ── The citation, shown rather than stored ────────────────────
-                `citation` was carried on every row and reached a human only
-                through the "nobody has read this" blocker — so the verified
-                half of the table, which is the half that lets a call happen,
-                cited its statute to nobody. That is AGENTS.md failure class #1
-                with the safe-looking sign: written and never read.
-
-                Folded shut because a rep dialling their fortieth painter does
-                not want a statute number, and open in one click because the day
-                they are asked "what makes this legal?" they need the answer on
-                the screen they are already on. */}
-            {compliance?.jurisdiction?.verified && compliance.citation ? (
-              <details className="text-xs text-muted-foreground">
-                <summary className="cursor-pointer">
-                  What {compliance.jurisdiction.name} actually says
-                </summary>
-                <p className="mt-1 break-words">{compliance.citation}</p>
-              </details>
-            ) : null}
+                states this is and supplies the sentence; DialRegion only picks
+                an icon. It lives in app/components/sales because the lead
+                screen renders the identical region — see its header for why a
+                second copy was refused. */}
+            <DialRegion
+              space={space}
+              compliance={compliance}
+              target={
+                current
+                  ? {
+                      prospectId: current.id,
+                      phoneE164: current.phoneE164,
+                      businessName: current.businessName,
+                    }
+                  : null
+              }
+              onWorked={load}
+            />
 
             {current ? (
               <p className="text-xs text-muted-foreground break-words">{current.claim.text}</p>

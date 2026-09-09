@@ -796,7 +796,11 @@ ok("a real prohibition verdict produces no dial target",
   ) === null);
 
 // ── The source rule that makes the above the ONLY route ────────────────────
-const SALES_TREES = ["app/sales", "app/api/sales"];
+// app/components/sales is in the list because the rep console's dial region and
+// call panel live there — they are sales screens that happen not to sit under
+// app/sales. Leaving the tree out would have quietly exempted the two files
+// that are MOST likely to build a tel: string.
+const SALES_TREES = ["app/sales", "app/api/sales", "app/components/sales"];
 const telOffenders = [];
 for (const tree of SALES_TREES) {
   for (const file of walk(join(ROOT, tree))) {
@@ -817,8 +821,17 @@ ok("the queue page calls the gate itself, so the window closes while it is open"
 // — written, never read. It used to be true of every VERIFIED row: the only
 // path to `citation` was the "nobody has read this" blocker, so the rows that
 // let a call happen cited their statute to no one.
-ok("the queue page shows a verified jurisdiction's citation to the rep",
-  /compliance\.citation/.test(queuePage) && /jurisdiction\?\.verified/.test(queuePage));
+// Asked of the shared region, which is where the console's dial and its
+// caveats now render for both the queue and a rep's own lead. The queue is
+// asserted to reach it, so the chain is checked end to end rather than the
+// name being checked in whichever file used to hold the JSX.
+const dialRegion = read("app/components/sales/DialRegion.js");
+ok("the rep console shows a verified jurisdiction's citation to the rep",
+  /compliance\??\.citation/.test(dialRegion) && /jurisdiction\?\.verified/.test(dialRegion));
+ok("…and the queue renders that region rather than a copy of it",
+  /<DialRegion/.test(queuePage) && !/<CallPanel/.test(queuePage));
+ok("…as does the rep's own lead, so one screen cannot drift from the other",
+  /<DialRegion/.test(read("app/sales/leads/[id]/page.js")));
 
 const queueRoute = read("app/api/sales/queue/route.js");
 ok("the queue route consults the gate too", /\bsalesCallReadiness\s*\(/.test(queueRoute));

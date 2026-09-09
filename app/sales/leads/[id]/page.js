@@ -3,6 +3,17 @@
 // One prospect: where they are in the pipeline, what has been said to them, and
 // the box that says the next thing.
 //
+// ══ The phone is on this screen, not only in the queue ════════════════════
+//
+// It was not, until the owner opened his own leads and found four businesses
+// with numbers on them and nothing to press. The queue had the whole console —
+// dial, timer, mute, hang up, disposition, notes — and the queue is fed by
+// discovery, so a rep whose pool is empty had a portal that could not make a
+// phone call at all. The server had always accepted a lead as a call target
+// (app/api/sales/calls's targetFor, SalesCallAttempt.leadId); only the screen
+// was missing. It renders the SAME component the queue does — see
+// app/components/sales/DialRegion.js on why this is not a second copy.
+//
 // ══ Three states the compose box can be in, and only one of them types ═════
 //
 //   1. Outreach isn't configured. No box at all — OutreachNotice stands in its
@@ -18,7 +29,7 @@
 // destructuring it.
 "use client";
 
-import { use, useCallback, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -26,13 +37,23 @@ import {
   Building2,
   Loader2,
   Mail,
+  MapPin,
   Send,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { jsonBody } from "@/lib/jsonBody";
 import { LEAD_STATUSES, LEAD_STATUS_LABELS } from "@/lib/sales/outreachPipeline";
+import { dialHref, salesCallReadiness } from "@/lib/sales/callingRules";
+import { dialSpace } from "@/lib/sales/dialSpace";
+import { SALES_SMS_TIME_ZONES } from "@/lib/sales/smsWindow";
+import DialRegion from "@/app/components/sales/DialRegion";
 import OutreachNotice from "../OutreachNotice";
 import SignupLinkSms from "../SignupLinkSms";
+
+// Matches the console's fields — 44px tall and 16px text, so a phone does not
+// zoom the page when a rep taps one.
+const FIELD =
+  "mt-1 w-full border border-border rounded-lg px-3 py-2.5 min-h-[44px] text-base bg-card text-foreground disabled:opacity-60";
 
 function when(value) {
   if (!value) return "";
@@ -52,6 +73,16 @@ export default function SalesLeadPage({ params }) {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [candidates, setCandidates] = useState(null);
+  // Where the phone rings. Held separately from `lead` because these three are
+  // an unsaved edit until Save is pressed, and writing them straight onto the
+  // loaded lead would make the dial region flip to "allowed" before anything
+  // had been stored.
+  const [place, setPlace] = useState({ country: "", province: "", timeZone: "" });
+  const [placeOpen, setPlaceOpen] = useState(false);
+  // The server's clock against ours, so the calling window is judged on the
+  // server's time. Same reason the queue carries one: a laptop set to the
+  // wrong zone would silently move a legal call an hour.
+  const [clock, setClock] = useState(null);
 
   const load = useCallback(async () => {
     setError("");
@@ -59,6 +90,13 @@ export default function SalesLeadPage({ params }) {
       const next = await fetchJson(`/api/sales/leads/${id}`);
       setData(next);
       setNotes(next.lead.notes || "");
+      setPlace({
+        country: next.lead.country || "",
+        province: next.lead.province || "",
+        timeZone: next.lead.timeZone || "",
+      });
+      const serverMs = next?.serverNow ? Date.parse(next.serverNow) : NaN;
+      setClock(Number.isFinite(serverMs) ? { serverMs, localMs: Date.now() } : null);
     } catch (err) {
       setError(err.message);
     }
@@ -67,6 +105,15 @@ export default function SalesLeadPage({ params }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Re-evaluate the calling window while the screen sits open. A rep who
+  // opened a lead at 20:58 must not still be looking at a live Call button at
+  // 21:01 — the queue re-asks on the same cadence and for the same reason.
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id2 = setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => clearInterval(id2);
+  }, []);
 
   const lead = data?.lead;
   const outreach = data?.outreach;
@@ -88,7 +135,18 @@ export default function SalesLeadPage({ params }) {
         headers: { "Content-Type": "application/json" },
         body: jsonBody(body, "lead"),
       });
-      setData((d) => ({ ...d, lead: next.lead }));
+      // Merged wholesale, not just the lead: the PATCH answer carries the
+      // recomputed dial view and the server clock, and keeping the old `call`
+      // beside a new location is how the screen would keep saying "we cannot
+      // confirm" about a state the rep just typed in.
+      setData((d) => ({ ...d, ...next }));
+      setPlace({
+        country: next.lead.country || "",
+        province: next.lead.province || "",
+        timeZone: next.lead.timeZone || "",
+      });
+      const serverMs = next?.serverNow ? Date.parse(next.serverNow) : NaN;
+      if (Number.isFinite(serverMs)) setClock({ serverMs, localMs: Date.now() });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -165,6 +223,35 @@ export default function SalesLeadPage({ params }) {
 
   const canCompose = Boolean(outreach?.canSend) && !optedOut && Boolean(lead.email);
 
+  // ── The call, decided exactly the way the queue decides it ───────────────
+  //
+  // Same three functions, same order: salesCallReadiness reads the rules,
+  // dialHref is the only thing allowed to produce a tel: target, and dialSpace
+  // re-gates that href against the decision. Nothing here shortcuts any of
+  // them, which is what keeps a lead and a prospect from getting two different
+  // answers about the same statute.
+  const call = data?.call || null;
+  const compliance = call
+    ? salesCallReadiness({
+        prospect: {
+          country: call.callingContext.country,
+          province: call.callingContext.province,
+        },
+        timeZone: call.callingContext.timeZone,
+        now: new Date(clock ? clock.serverMs + (Date.now() - clock.localMs) : Date.now()),
+      })
+    : null;
+  // `tick` is read so the window above is re-judged every thirty seconds.
+  void tick;
+  const space = dialSpace({
+    // dialSpace reads `contact` and nothing else off this object, and the
+    // server built that in the shape it expects — see lib/sales/leadDial.js.
+    prospect: call ? { contact: call.contact } : null,
+    compliance,
+    href: dialHref(compliance, call?.phoneE164),
+    claimedCount: 0,
+  });
+
   return (
     <div className="space-y-6">
       <Link href="/sales/leads" className="text-sm text-muted-foreground flex items-center gap-1">
@@ -184,6 +271,115 @@ export default function SalesLeadPage({ params }) {
           {error}
         </div>
       )}
+
+      {/* ── The phone ────────────────────────────────────────────────────────
+          First, above the pipeline chips and the compose box, because ringing
+          them is the thing a rep opened this screen to do. Never blank: every
+          state DialRegion can be in says what is missing and what would fix
+          it. */}
+      <section className="rounded-lg border border-border bg-card p-4 space-y-3">
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 className="text-base font-semibold text-foreground">Call them</h2>
+          {call?.phoneE164 ? (
+            <span className="text-xs text-muted-foreground tabular-nums">{call.phoneE164}</span>
+          ) : null}
+        </div>
+
+        <DialRegion
+          space={space}
+          compliance={compliance}
+          target={
+            call
+              ? {
+                  leadId: lead.id,
+                  phoneE164: call.phoneE164,
+                  businessName: lead.businessName,
+                }
+              : null
+          }
+          onWorked={load}
+        />
+
+        {/* ── Where the phone rings ──────────────────────────────────────────
+            The one thing a rep can do about "we cannot confirm this call is
+            allowed", and therefore rendered right under the sentence that says
+            it. Calling hours are the jurisdiction's, and 16 CFR 310.6(b)(7)
+            exempts business calls from the federal rule entirely — so without
+            a state there is nothing to evaluate and no federal floor to fall
+            back on. Open by default when it is missing, folded once it is
+            answered: a rep working a lead they have already located should not
+            scroll past a form they filled in last week. */}
+        <details
+          open={placeOpen || !(lead.country && lead.province)}
+          onToggle={(e) => setPlaceOpen(e.currentTarget.open)}
+        >
+          <summary className="cursor-pointer text-xs text-muted-foreground flex items-center gap-1.5">
+            <MapPin size={13} />
+            {lead.country && lead.province
+              ? `Where they are: ${lead.province}, ${lead.country}`
+              : "Say where this business is"}
+          </summary>
+          <div className="mt-3 space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Nothing is inferred from the area code — it is wrong for every ported number, and a
+              guessed state would be a guessed statute.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className="block text-xs text-muted-foreground">
+                Country
+                <select
+                  className={FIELD}
+                  value={place.country}
+                  onChange={(e) => setPlace((p) => ({ ...p, country: e.target.value }))}
+                >
+                  <option value="">Not stated</option>
+                  <option value="CA">Canada</option>
+                  <option value="US">United States</option>
+                </select>
+              </label>
+              <label className="block text-xs text-muted-foreground">
+                State or province
+                <input
+                  className={FIELD}
+                  value={place.province}
+                  placeholder="ON, QC, TX…"
+                  onChange={(e) => setPlace((p) => ({ ...p, province: e.target.value }))}
+                />
+              </label>
+              <label className="block text-xs text-muted-foreground">
+                Their time zone
+                <select
+                  className={FIELD}
+                  value={place.timeZone}
+                  onChange={(e) => setPlace((p) => ({ ...p, timeZone: e.target.value }))}
+                >
+                  <option value="">Not stated</option>
+                  {SALES_SMS_TIME_ZONES.map((z) => (
+                    <option key={z.value} value={z.value}>
+                      {z.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() =>
+                patch({
+                  country: place.country,
+                  province: place.province,
+                  timeZone: place.timeZone,
+                })
+              }
+              className="inline-flex items-center min-h-[44px] text-sm font-semibold px-4 rounded-lg border border-border disabled:opacity-60"
+            >
+              {busy ? <Loader2 size={15} className="animate-spin mr-2" /> : null}
+              Save where they are
+            </button>
+          </div>
+        </details>
+      </section>
 
       <div className="flex flex-wrap gap-1.5">
         {LEAD_STATUSES.map((s) => (

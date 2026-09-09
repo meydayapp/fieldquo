@@ -1,4 +1,4 @@
-// app/sales/queue/CallPanel.js
+// app/components/sales/CallPanel.js
 //
 // The call, from the rep's side: press, talk, hang up, say what happened.
 //
@@ -101,7 +101,27 @@ async function micState() {
   }
 }
 
-export default function CallPanel({ prospectId, phoneE164, businessName, fallbackHref, onWorked }) {
+// ══ One panel, two kinds of target ════════════════════════════════════════
+//
+// A discovered Prospect out of the queue, or a lead the rep typed in
+// themselves. The server has always accepted both — app/api/sales/calls's
+// targetFor() reads `prospectId` OR `leadId`, SalesCallAttempt.leadId exists
+// for exactly this, and dispositions write back to the lead — but until this
+// panel could be handed a lead there was no screen that sent one. The owner
+// found that the way anybody finds it: he opened his four leads and there was
+// nothing to press.
+//
+// Exactly one of the two is set. Sending both would let the server pick, and a
+// server picking between two ids the screen thinks are the same row is how a
+// call gets logged against the wrong business.
+export default function CallPanel({
+  prospectId = null,
+  leadId = null,
+  phoneE164,
+  businessName,
+  fallbackHref,
+  onWorked,
+}) {
   const [config, setConfig] = useState(null);
   const [mic, setMic] = useState(null);
   const [error, setError] = useState("");
@@ -137,6 +157,17 @@ export default function CallPanel({ prospectId, phoneE164, businessName, fallbac
 
   const deviceRef = useRef(null);
   const callRef = useRef(null);
+
+  // Why there is no script, when there is no script. A lead the rep typed in
+  // has no discovery behind it, so lib/sales/playbook has nothing to build one
+  // from — that is a fact about the record, not a failure, and it gets said
+  // rather than rendered as an empty space.
+  const playbookUnavailable = prospectId
+    ? ""
+    : "No script for this one. A playbook is assembled from what discovery found about a " +
+      "business — its capabilities, what it already runs, what it is missing — and this lead " +
+      "was typed in by hand, so there is nothing to assemble one from. Work it from the " +
+      "objections you know.";
 
   const loadPlaybook = useCallback(async () => {
     if (!prospectId) return;
@@ -230,7 +261,16 @@ export default function CallPanel({ prospectId, phoneE164, businessName, fallbac
       const body = await fetchJson("/api/sales/calls", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "dial", prospectId, channel }),
+        // Only the id that is actually set. `prospectId: null` alongside a real
+        // leadId would still be a prospectId key on the wire, and targetFor
+        // checks `if (prospectId)` first — a falsy one is harmless today and is
+        // one truthiness change away from routing every lead call at a
+        // prospect that does not exist.
+        body: JSON.stringify({
+          action: "dial",
+          ...(prospectId ? { prospectId } : { leadId }),
+          channel,
+        }),
       });
       setAttempt(body);
 
@@ -362,6 +402,7 @@ export default function CallPanel({ prospectId, phoneE164, businessName, fallbac
           loading={playbookLoading}
           error={playbookError}
           data={playbook}
+          unavailable={playbookUnavailable}
           onRetry={loadPlaybook}
         />
       </div>
@@ -597,6 +638,7 @@ export default function CallPanel({ prospectId, phoneE164, businessName, fallbac
         loading={playbookLoading}
         error={playbookError}
         data={playbook}
+        unavailable={playbookUnavailable}
         onRetry={loadPlaybook}
       />
     </div>
