@@ -291,7 +291,13 @@ const GROUPS = [
       // — this row is about what FieldQuo says on its own line, and putting
       // it beside the company list is how somebody opens it expecting a
       // customer's receptionist.
-      { label: "Sales agent", href: "/platform/sales-agent", icon: PhoneCall },
+      // "Sales agent" until the owner asked what Retell had to do with the
+      // sales team — which is the question the label invites. It is FieldQuo's
+      // INBOUND line: the AI that answers when a contractor a rep called rings
+      // the number back. It is not the reps' dialler (that is Twilio, and it
+      // lives on the rep console), and it is not the AI employee a tenant
+      // gets. The word doing the work is "inbound".
+      { label: "Inbound sales line", href: "/platform/sales-agent", icon: PhoneCall },
       // FieldQuo's Twilio estate: which numbers we hold, who we've lent each
       // one to, and where its texts are really being delivered. Next to
       // Sales agent because it is the same kind of row — our own provider

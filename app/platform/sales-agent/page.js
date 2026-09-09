@@ -169,12 +169,25 @@ export default function PlatformSalesAgentPage() {
       <header>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Sparkles size={20} className="text-[#ff5a00]" />
-          FieldQuo&apos;s own phone agent
+          FieldQuo&apos;s inbound sales line
         </h1>
+        {/* Two contrasts, not one. The page already said this is not a
+            tenant's receptionist, and the owner still asked what Retell had to
+            do with the sales team — because the thing it is most often
+            confused with is the REPS' DIALLER, which is a different phone
+            system entirely (Twilio, on the rep console) pointed the other
+            way. Naming both, and leading with the word "answers", is what
+            stops somebody arriving here looking for outbound calling. */}
         <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
-          The agent that answers FieldQuo&apos;s own number and talks to
-          prospects about FieldQuo. This is <strong>not</strong> the receptionist
-          a contractor gets — that one is per company, inside their account.
+          The AI that <strong>answers</strong> when somebody rings FieldQuo&apos;s own number —
+          usually a contractor calling a rep back. It runs on Retell, the same voice stack a
+          tenant&apos;s receptionist uses, because answering a call well is what that stack is for.
+        </p>
+        <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
+          It is <strong>not</strong> how reps make calls — that is the dialler in the rep console,
+          which goes out through Twilio and needs its own local number. And it is{" "}
+          <strong>not</strong> the receptionist a contractor gets, which is per company, inside
+          their own account.
         </p>
       </header>
 
