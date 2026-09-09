@@ -9533,7 +9533,23 @@ model ProspectEvidence {
   @@index([prospectId, source])
   /// contactBasisFor() resolves an address's provenance by exact match here,
   /// on every send. Without this it is a full scan of the evidence table.
-  @@index([rawValue])
+  ///
+  /// HASH, not the default btree, and this is not a tuning choice — a btree
+  /// index cannot hold a key over ~2704 bytes, and Postgres refuses the INSERT
+  /// rather than skipping the index. `rawValue` holds a `page_content` row's
+  /// text, capped at 20,000 characters by lib/sales/crawl/evidence.js, so every
+  /// crawl of a page with more than about 2.7 KB of text failed with
+  /// "index row size N exceeds btree version 4 maximum 2704" — and because the
+  /// evidence write and the `lastCrawledAt` stamp are one transaction, the
+  /// prospect was left looking as though it had never been crawled at all.
+  /// Downstream: no pages rendered, no capabilities determined, no trade
+  /// established, and a prospect with no trade cannot be claimed by a rep. 168
+  /// crawls had failed this way before anybody traced it back here.
+  ///
+  /// A hash index has no key-size limit and supports exactly the operation
+  /// this index exists for — equality. It cannot serve a range or a sort, and
+  /// nothing asks it to: the one caller is `{ rawValue: address }`.
+  @@index([rawValue], type: Hash)
 }
 
 /// A normalised capability: does this business have online booking, live chat,

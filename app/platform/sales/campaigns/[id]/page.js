@@ -445,6 +445,48 @@ export default function PlatformSalesCampaignPage({ params }) {
             ))}
           </ul>
         )}
+        <p className="text-xs text-muted-foreground">
+          Discovery only — the paging of the snapshot file. Everything after it is below.
+        </p>
+
+        {/* ── Work that has stopped, and why ─────────────────────────────
+            The counts above are DISCOVERY tasks. That was the whole picture
+            this screen gave, and it was healthy-looking while 168 crawls had
+            failed on a database defect and 291 technology detections had been
+            abandoned for want of a seeded table. Nothing said so, and the
+            consequence was three screens away: a prospect whose crawl failed
+            gets no capabilities, so no trade, so no rep can claim it.
+
+            Absent when nothing is wrong. This is not a status table to scan —
+            it is the answer to "why has nothing happened for an hour". */}
+        {(data.stalled || []).length > 0 ? (
+          <div className="space-y-2 pt-1">
+            <h3 className="text-sm font-semibold text-foreground">Stages that have stopped</h3>
+            {data.stalled.map((s) => (
+              <div
+                key={`${s.kind}-${s.status}`}
+                className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-800 p-3 text-sm text-amber-900 dark:text-amber-200"
+              >
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="font-semibold break-words">
+                    {s.kind} — {s.status}
+                  </span>
+                  <span className="font-mono">{s.count}</span>
+                </div>
+                {/* The handler's own sentence, verbatim. It names the screen
+                    that fixes a configuration problem, and the person reading
+                    a stopped stage is the person who can fix it. */}
+                {s.reason ? <p className="mt-1 break-words">{s.reason}</p> : null}
+              </div>
+            ))}
+            <p className="text-xs text-muted-foreground break-words">
+              <span className="font-semibold">Failed</span> means it was tried and the attempts ran
+              out — usually that website, sometimes a defect worth reporting.{" "}
+              <span className="font-semibold">Abandoned</span> means the stage refused to start,
+              which is nearly always configuration, and the reason names the screen that fixes it.
+            </p>
+          </div>
+        ) : null}
         {data.lastError ? (
           <p className="text-xs text-amber-800 dark:text-amber-200 break-words">
             Last reported problem ({data.lastError.status}, attempt {data.lastError.attempts}):{" "}

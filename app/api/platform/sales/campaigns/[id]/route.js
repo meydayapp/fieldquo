@@ -84,7 +84,7 @@ export async function GET(request, { params }) {
   // three sources is the one that cannot run.
   const sources = describeSources(campaign, { getProvider: getDiscoveryProvider });
 
-  const [review, flagged, tasks, researchQueued] = await Promise.all([
+  const [review, flagged, tasks, researchQueued, allTasks] = await Promise.all([
     db.prospect.findMany({
       where: { campaignId: id, status: "needs_review" },
       orderBy: { createdAt: "asc" },
@@ -120,6 +120,25 @@ export async function GET(request, { params }) {
     // banking long after it has stopped promoting — and a screen that showed
     // only the funnel would present that as a campaign still working its rows.
     db.salesPipelineTask.count({ where: { campaignId: id, kind: "ENRICH_BUSINESS" } }),
+    // ── EVERY kind, not just discovery ──────────────────────────────────
+    //
+    // The grouping above is scoped to DISCOVER_BUSINESSES, and its own comment
+    // says the state a superadmin most needs to see is "running while every
+    // task has been abandoned". It could not show that, because discovery was
+    // the one kind it looked at.
+    //
+    // What that hid, on this campaign, for hours: 168 CRAWL_WEBSITE tasks
+    // failed on a database index defect, and 291 DETECT_TECHNOLOGY tasks
+    // abandoned because the signature table had never been seeded. The screen
+    // said "queued 1" and looked healthy. Downstream, a prospect whose crawl
+    // failed gets no capabilities, so no trade is established, so no rep can
+    // claim it — which is what the owner eventually noticed, three screens
+    // away from the cause.
+    db.salesPipelineTask.groupBy({
+      by: ["kind", "status"],
+      where: { campaignId: id },
+      _count: { _all: true },
+    }),
   ]);
 
   const lastError = await db.salesPipelineTask.findFirst({
@@ -191,6 +210,38 @@ export async function GET(request, { params }) {
     reviewTotal: campaign.needsReviewCount,
     flaggedDuplicates: flagged,
     tasks: Object.fromEntries(tasks.map((t) => [t.status, t._count._all])),
+    // ── Work that has stopped, by stage, with the reason ────────────────
+    //
+    // Only the stages with something WRONG. A healthy pipeline shows nothing
+    // here, and that is the point: this is not a status table to scan, it is
+    // the answer to "why has nothing happened for an hour".
+    //
+    // `failed` and `abandoned` are kept apart because they are different
+    // problems. Failed means it was tried and the attempts ran out — usually
+    // that website, sometimes a defect. Abandoned means the handler refused to
+    // even try, which is nearly always configuration and nearly always fixable
+    // from a screen, and the reason names which screen.
+    stalled: await Promise.all(
+      allTasks
+        .filter((t) => t.status === "failed" || t.status === "abandoned")
+        .sort((a, b) => b._count._all - a._count._all)
+        .map(async (t) => ({
+          kind: t.kind,
+          status: t.status,
+          count: t._count._all,
+          // ONE example reason, not a tally. The reasons within a stage are
+          // usually the same sentence, and where they are not, a superadmin
+          // opening the stage sees the rest.
+          reason:
+            (
+              await db.salesPipelineTask.findFirst({
+                where: { campaignId: id, kind: t.kind, status: t.status, lastError: { not: null } },
+                orderBy: { createdAt: "desc" },
+                select: { lastError: true },
+              })
+            )?.lastError || null,
+        })),
+    ),
     lastError: lastError || null,
   });
 }

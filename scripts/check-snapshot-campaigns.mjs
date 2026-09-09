@@ -714,6 +714,40 @@ section("Country and region come from what the files actually cover");
   );
   ok("the region is cleared when a source that covered it is unticked", /stillCovered/.test(form));
 
+  // ── A stopped stage has to be visible on the screen watching it ──────
+  //
+  // The task counts on the detail screen were scoped to DISCOVER_BUSINESSES.
+  // Its own comment said the state a superadmin most needs to see is "running
+  // while every task has been abandoned" — and it could not show that, because
+  // discovery was the only kind it counted. What that hid: 168 crawls failed
+  // on a database index defect and 291 technology detections were abandoned
+  // for an unseeded table, while the screen said "queued 1".
+  const detailRouteSrc = read("app/api/platform/sales/campaigns/[id]/route.js");
+  ok(
+    "the route counts EVERY task kind, not just discovery",
+    /by: \["kind", "status"\]/.test(detailRouteSrc),
+  );
+  ok(
+    "…and reports the stopped ones with the handler's own reason",
+    /stalled:/.test(detailRouteSrc) && /lastError: \{ not: null \}/.test(detailRouteSrc),
+  );
+  ok(
+    "…keeping failed and abandoned apart, because they are different problems",
+    /t\.status === "failed" \|\| t\.status === "abandoned"/.test(detailRouteSrc),
+  );
+  {
+    const page = read("app/platform/sales/campaigns/[id]/page.js");
+    ok("the screen renders the stopped stages", /data\.stalled/.test(page));
+    ok(
+      "…and says nothing at all when nothing is wrong",
+      /\(data\.stalled \|\| \[\]\)\.length > 0 \?/.test(page),
+    );
+    ok(
+      "…and labels the discovery counts as discovery, so they cannot read as the whole pipeline",
+      /Discovery only/.test(page),
+    );
+  }
+
   // ── A progress screen has to progress ────────────────────────────────
   //
   // The detail screen never re-fetched. Its whole subject is a job that runs
