@@ -300,30 +300,50 @@ async function main() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  console.log("\n3. Every withheld figure shows its reason — and never its amount");
+  // ══ A withheld figure reaches the page in NO form ════════════════════════
+  //
+  // This section used to assert the opposite: that every withheld figure was
+  // rendered as a row, with its reason in the visible text. That made "print
+  // the ledger" a rule, and the ledger was ten rows of "[amount withheld]" and
+  // "unresolved: same open question as jobber.core.solo.annual" on a page whose
+  // only job is to help a contractor choose. The owner read it and asked what
+  // the purpose of the page was. The rule was mine, the page is his, and the
+  // page was right.
+  //
+  // What survives is the guarantee that was always the valuable half: an
+  // unverified amount never reaches a reader. It is now asserted harder,
+  // because there is no longer a sanctioned place for one to sit.
+  console.log("\n3. A withheld figure never reaches the page — as an amount OR as a row");
   for (const p of pages) {
     const shouldWithhold = p.competitor.figures
       .map((f) => ({ f, reason: withholdReason(f, TODAY) }))
       .filter((x) => x.reason !== null);
+
+    // No row. The ledger is gone, and a future edit that reinstates it fails
+    // here rather than shipping to a reader.
     const rows = elementsWith(p.html, "data-published").filter((el) => el.value === "false");
-    const renderedIds = rows.map((el) => /data-figure-id="([^"]+)"/.exec(el.outer)?.[1]).sort();
+    ok(`${p.slug}: no withheld figure is rendered as a row`, rows.length === 0,
+      rows.map((el) => /data-figure-id="([^"]+)"/.exec(el.outer)?.[1]).join(","));
 
-    ok(`${p.slug}: all ${shouldWithhold.length} withheld figures are on the page`,
-      JSON.stringify(shouldWithhold.map((x) => x.f.id).sort()) === JSON.stringify(renderedIds),
-      JSON.stringify(renderedIds));
+    // And no trace of one anywhere in the document, by id or by amount. This is
+    // the assertion that actually protects the reader: section 2 proves every
+    // PRINTED amount is publishable, and this proves the withheld ones are not
+    // hiding in an attribute, a data blob or a comment.
+    for (const { f } of shouldWithhold) {
+      ok(`${p.slug}: ${f.id} appears nowhere in the HTML`, !p.html.includes(f.id));
+      const amount = f?.price?.amount;
+      if (amount) {
+        const printed = amountsIn(p.html).filter((n) => n === String(amount) || n === `$${amount}`);
+        ok(`${p.slug}: ${f.id}'s amount is not printed`, printed.length === 0, printed.join(","));
+      }
+    }
 
-    for (const row of rows) {
-      const id = /data-figure-id="([^"]+)"/.exec(row.outer)?.[1];
-      const reason = /data-withhold-reason="([^"]*)"/.exec(row.outer)?.[1];
-      ok(`${id}: carries a reason`, Boolean(reason && reason.trim().length > 3), reason);
-      // The reason has to be READ, not just attached. A row whose attribute
-      // holds a reason and whose visible text says "not available" is the blank
-      // cell wearing a costume.
-      ok(`${id}: the reason is in the visible text, not only in an attribute`,
-        row.inner.includes("Not published here:"));
-      // The bug this section exists for.
-      ok(`${id}: prints no money at all`, amountsIn(row.outer).length === 0,
-        amountsIn(row.outer).join(","));
+    // The reader is still told rows were left out — a page that silently showed
+    // four of fourteen plans would be the blank cell at a larger scale. What
+    // changed is that they get a sentence instead of a catalogue.
+    if (shouldWithhold.length > 0) {
+      ok(`${p.slug}: the page still says some figures were left out`,
+        /left out|not published|could not|we hold/i.test(p.html));
     }
   }
   // The redactor, against the strings that actually caused the problem plus the
@@ -643,11 +663,26 @@ async function main() {
       freshPublished.length);
     ok("...ninety-five days later, none of them does", stalePublished.length === 0,
       stalePublished.length);
-    ok("...and the page says how old the reading is instead",
-      /days ago/.test(stale) && stale.includes("Not published here:"));
-    ok("...printing no price at all", amountsIn(
-      elementsWith(stale, "data-published").filter((e) => e.value === "false").map((e) => e.outer).join(""),
-    ).length === 0);
+    // "Not published here:" was the ledger's own wording and the ledger is
+    // gone. What must still be true is the thing this case is about: a reading
+    // that has aged out stops being printed as a price, and the page says how
+    // old it is rather than presenting a stale number as current.
+    // The per-row "last checked N days ago" was the ledger's wording and went
+    // with it. What must survive is that a reader is TOLD rows were left out
+    // rather than being shown four of fourteen plans in silence — which is the
+    // blank cell at a larger scale, and the failure the ledger was overcorrecting
+    // for in the first place.
+    ok("...and the page says the rows were left out rather than showing nothing",
+      /are not shown here/.test(stale) && /aged out/.test(stale));
+    // No Housecall Pro amount survives on a fully-stale page. Asserted through
+    // the same allow-list section 2 uses, which is the one place that knows
+    // what is publishable — a second opinion here would be a second thing to
+    // keep in step.
+    {
+      const published = elementsWith(stale, "data-published").filter((e) => e.value === "true");
+      ok("...printing none of THEIR prices at all", published.length === 0, published.length);
+    }
+
     // The section that would otherwise quietly become an advertisement.
     ok("...while still conceding everything we lack",
       FIELDQUO_LACKS.every((k) => stale.includes(`data-lacks="${k}"`)));

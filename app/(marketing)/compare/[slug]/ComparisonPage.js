@@ -525,43 +525,45 @@ export default function ComparisonPage({ slug, asOf }) {
             </div>
           </div>
 
-          {/* ── The withheld figures ──────────────────────────────────────
-              Rendered, with reasons, rather than dropped. competitors.js is
-              explicit that a labelled absence beats both a blank cell and a
-              number, and this is the part of the page we are surest of. Note
-              what is NOT printed here: `price.amount`. Jobber's suppressed
-              annual rows hold real amounts and none of them reaches the DOM. */}
+          {/* ── One sentence, where a ledger used to be ────────────────────
+              A page that showed four of fourteen plans and said nothing would
+              be the blank cell at a larger scale — so the reader is still told
+              rows were left out, and how many, and where the reasons live.
+              What they are not given is the reasons themselves, one row at a
+              time, on a page they came to in order to choose a product. */}
           {withheld.length > 0 ? (
-            <div className="mt-12 max-w-3xl">
-              <h3 className="text-lg font-semibold text-foreground">
-                {COMPARE_CHROME.withheldTitle}
-              </h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {COMPARE_CHROME.withheldIntro}
-              </p>
-              <ul className="mt-4 divide-y divide-border border border-border rounded-xl bg-card">
-                {withheld.map(({ figure, reason }) => (
-                  <li
-                    key={figure.id}
-                    data-figure-id={figure.id}
-                    data-published="false"
-                    data-withhold-reason={reason}
-                    className="p-4"
-                  >
-                    <div className="font-medium text-foreground">
-                      {competitor.name} {figure.label}
-                      {coordinateLine(figure)
-                        ? ` — ${coordinateLine(figure)}`
-                        : ""}
-                    </div>
-                    <div className="mt-1 text-sm text-muted-foreground">
-                      Not published here: {reason}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <p className="mt-6 max-w-3xl text-sm text-muted-foreground">
+              {withheld.length} more {competitor.name} price
+              {withheld.length === 1 ? "" : "s"}{" "}
+              {withheld.length === 1 ? "is" : "are"} not shown here — either the reading has aged
+              out, or we could not settle what the published figure meant. We would rather leave a
+              row out than print a number we cannot stand behind.
+            </p>
           ) : null}
+
+          {/* ── The withheld figures are NOT printed here ──────────────────
+              They were, in full, with a reason each — ten rows of
+              "[amount withheld]" and "unresolved: same open question as
+              jobber.core.solo.annual". The owner read it and asked what the
+              purpose of this page was, and he was right to.
+
+              This is a marketing page. Its one job is to help a contractor
+              comparing two products decide. A catalogue of the figures we could
+              not settle helps nobody make that decision: it is internal QA
+              notes on a sales surface, it fills the page with non-information,
+              and it argues against the page while the page is arguing.
+
+              The RULE it came from is right and stays: an unverified number is
+              never printed as a fact, `published:false` figures never reach the
+              DOM, and the count below still tells a reader that rows were left
+              out and roughly how many. What changed is that the reader gets a
+              sentence instead of a ledger. The reasons are still on every
+              figure in lib/marketing/competitors.js, which is where somebody
+              auditing the page would look, and where an auditor is the reader.
+
+              `withheld` is still computed above, deliberately: the count is
+              read, and a variable removed here would have to come back the
+              moment anybody wanted to say "3 rows" rather than "some". */}
         </div>
       </div>
 
