@@ -903,6 +903,22 @@ section("A rewrite can still reach the rows it just made stale");
   ok("…it skips anything not listed as unedited", /if \(!isUnedited\(/.test(fn));
   ok("…it names what it left alone rather than counting it", /objectionsKept/.test(fn) && /playbooksKept/.test(fn));
   ok("…and it does not write `active`, which is operational", !/active:/.test(fn));
+
+  // Reachable from BOTH library tabs. One call refreshes playbooks AND
+  // objections, so rendering the control under Playbooks alone put it on the
+  // tab a superadmin is least likely to be on when they notice stale words —
+  // which is exactly how the owner failed to find it.
+  const screen = read("app/platform/sales/playbooks/page.js");
+  ok("the refresh control exists as one component", /function RefreshBuiltIns\(/.test(screen));
+  ok(
+    "…and is rendered twice, once per library tab",
+    (screen.match(/<RefreshBuiltIns /g) || []).length === 2,
+    (screen.match(/<RefreshBuiltIns /g) || []).length,
+  );
+  ok(
+    "…and names what it left alone rather than counting it",
+    /Left alone because they have been edited/.test(screen),
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -67,6 +67,40 @@ const TABS = [
   { key: "experiments", label: "Experiments" },
 ];
 
+/**
+ * "Update the unedited built-ins", rendered on BOTH library tabs.
+ *
+ * It refreshes playbooks AND objections in one call, so rendering it only
+ * under Playbooks put it on the tab a superadmin is least likely to be looking
+ * at when they notice stale words. The owner found exactly that: told the
+ * objection answers had been rewritten, he opened the Objections tab and there
+ * was no button.
+ *
+ * Install stays on the playbooks tab alone, because that one is about the four
+ * starter playbooks specifically.
+ */
+function RefreshBuiltIns({ busy, send }) {
+  return (
+    <button
+      disabled={busy === "/api/platform/sales/playbooks/refresh-builtins"}
+      onClick={() =>
+        send("/api/platform/sales/playbooks/refresh-builtins", { method: "POST" }, (r) => {
+          const changed = r.playbooksUpdated + r.objectionsUpdated;
+          const kept = [...r.playbooksKept, ...r.objectionsKept];
+          if (!changed && !kept.length) return "Everything built-in already matches this build.";
+          return (
+            `Updated ${r.playbooksUpdated} playbook(s) and ${r.objectionsUpdated} objection(s).` +
+            (kept.length ? ` Left alone because they have been edited: ${kept.join(", ")}.` : "")
+          );
+        })
+      }
+      className={`${BTN} w-full sm:w-auto bg-card border border-border text-foreground`}
+    >
+      Update the unedited built-ins
+    </button>
+  );
+}
+
 function Problems({ problems }) {
   if (!problems?.length) return null;
   return (
@@ -472,40 +506,13 @@ export default function PlatformSalesPlaybooksPage() {
                   Install the {(data?.availableDefaults || []).length} built-in playbook(s)
                 </button>
               )}
-              {/* ── Separate from Install, and deliberately so ──────────────
-                  Install CREATES and never updates, which is what protects a
+              {/* Separate control from Install, and deliberately so: Install
+                  CREATES and never updates, which is what protects a
                   superadmin's rewrite from a button labelled "install the
-                  defaults". The cost showed up when the scripts were rebuilt
-                  from the selling literature: source was corrected, the rows
-                  in production were the old script word for word, and a deploy
-                  changed nothing.
-
-                  This updates only rows that still match a version this
-                  repository shipped — nobody's writing — and names the ones it
-                  left alone rather than counting them. */}
-              <button
-                disabled={busy === "/api/platform/sales/playbooks/refresh-builtins"}
-                onClick={() =>
-                  send(
-                    "/api/platform/sales/playbooks/refresh-builtins",
-                    { method: "POST" },
-                    (r) => {
-                      const changed = r.playbooksUpdated + r.objectionsUpdated;
-                      const kept = [...r.playbooksKept, ...r.objectionsKept];
-                      if (!changed && !kept.length) return "Everything built-in already matches this build.";
-                      return (
-                        `Updated ${r.playbooksUpdated} playbook(s) and ${r.objectionsUpdated} objection(s).` +
-                        (kept.length
-                          ? ` Left alone because they have been edited: ${kept.join(", ")}.`
-                          : "")
-                      );
-                    },
-                  )
-                }
-                className={`${BTN} w-full sm:w-auto bg-card border border-border text-foreground`}
-              >
-                Update the unedited built-ins
-              </button>
+                  defaults". This updates only rows that still match a version
+                  this repository shipped — nobody's writing — and names the
+                  ones it left alone. */}
+              <RefreshBuiltIns busy={busy} send={send} />
             </div>
           )}
 
@@ -788,12 +795,18 @@ export default function PlatformSalesPlaybooksPage() {
           </p>
 
           {canWrite && !draft && (
-            <button
-              onClick={beginAddObjection}
-              className={`${BTN} w-full sm:w-auto bg-inverted text-inverted-foreground`}
-            >
-              <Plus size={16} /> New objection
-            </button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={beginAddObjection}
+                className={`${BTN} w-full sm:w-auto bg-inverted text-inverted-foreground`}
+              >
+                <Plus size={16} /> New objection
+              </button>
+              {/* Here as well as on Playbooks: one call refreshes both
+                  libraries, and this is the tab somebody is on when they
+                  notice an answer is out of date. */}
+              <RefreshBuiltIns busy={busy} send={send} />
+            </div>
           )}
 
           {draft?.kind === "objection" && (
