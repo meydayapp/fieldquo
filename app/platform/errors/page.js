@@ -193,12 +193,24 @@ export default function PlatformErrorsPage() {
                     {e.code && <span className="text-[11px] font-mono text-muted-foreground">{e.code}</span>}
                     <span className="text-[11px] text-muted-foreground">· {when(e.createdAt)}</span>
                     {e.companyId && (
-                      <Link
-                        href={`/platform/companies/${e.companyId}`}
-                        className="text-[11px] font-semibold text-foreground underline"
-                      >
-                        {e.companyName || "company"}
-                      </Link>
+                      <>
+                        <Link
+                          href={`/platform/companies/${e.companyId}`}
+                          className="text-[11px] font-semibold text-foreground underline"
+                        >
+                          {e.companyName || "company"}
+                        </Link>
+                        {/* Quietly, and only when there is one. Two companies
+                            called "Precision Painting" are told apart by the
+                            person who signed up, not by the name. Absent when
+                            no member holds the owner role — nothing is invented
+                            to fill the space. */}
+                        {e.companyOwnerEmail && (
+                          <span className="text-[11px] text-muted-foreground break-all">
+                            {e.companyOwnerEmail}
+                          </span>
+                        )}
+                      </>
                     )}
                   </div>
                   <p className="text-sm text-foreground mt-1 break-words">{e.message}</p>

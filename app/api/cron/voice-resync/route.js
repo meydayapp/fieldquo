@@ -114,7 +114,10 @@ export async function GET(request) {
       await recordError({
         area: AREA,
         code: "resync_failed",
-        message: `Could not resync voice agent for ${agent.companyId}: ${err?.message}`,
+        // The id belongs in the field the console resolves a name from, not in
+        // the sentence — a raw cuid in the message is untraceable by eye.
+        companyId: agent.companyId,
+        message: `Could not resync the voice agent: ${err?.message}`,
       }).catch(() => {});
     }
   }

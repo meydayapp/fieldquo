@@ -8765,6 +8765,26 @@ model SalesRep {
 
   createdAt DateTime @default(now())
 
+  /// The last time this rep was seen IN THE PORTAL. Stamped by
+  /// lib/sales/gate.js's requireSalesRep() on an authenticated read, and by
+  /// nothing else — never by a platform admin looking at them, which would
+  /// record a supervisor's glance as the rep's sign-in.
+  ///
+  /// **This is not a declaration and must never be read as one.** Every state
+  /// on the sales floor board is something a rep SAID (see
+  /// lib/sales/calls/agentState.js) — available, on a call, paused with a
+  /// reason. This column is the one observed fact in that neighbourhood, and it
+  /// answers a different question: "has this person ever opened the portal".
+  /// It exists because the board had no way to tell "we have never seen them"
+  /// from "they have not said what they are doing", and printed the first
+  /// sentence for both — a supervisor reading it concluded a rep who had
+  /// worked all morning had never showed up.
+  ///
+  /// Nothing routes a call on it. lib/sales/calls/inboundRouting.js's repIsLive
+  /// still requires a declared, un-stale state, because signing in is not a rep
+  /// saying they are ready for the next prospect.
+  lastSeenAt DateTime?
+
   /// Who this rep reports to. The org chart lib/sales/team.js derives its
   /// team-lead tier from — there is deliberately no `tier` column, because a
   /// rep IS a team lead exactly when somebody reports to them, and a stored
@@ -11146,6 +11166,38 @@ model SalesRepActivity {
 // not a chart. Platform-scoped (no companyId), like PlatformAiBudget: this is
 // about FieldQuo's own business, and a tenant's ForecastSettings is a different
 // thing about a different business.
+// ── Where the discovery snapshots are served from ──────────────────────────
+//
+// One row, id "singleton". The public base URL of the bucket the extracted
+// snapshot files were uploaded to — 80 files, 1,320,105 rows — and nothing
+// else. Every campaign's snapshot URL is base + the object key from
+// lib/sales/discovery/snapshotLibrary.data.js, built by
+// snapshotUrlFor(); no form anywhere asks for a URL, which is the whole point
+// of this row existing.
+//
+// ── Why the verification is stored and not just performed ─────────────────
+//
+// `verifiedAt` records that this base actually served a real snapshot file —
+// the route fetches one and reads its header — and `verifiedObjectKey` says
+// which. Without them the screen could only say "saved", and a base URL that
+// saves cleanly and 404s on every object is exactly the control that appears
+// to work. Nullable because a base that has never been proved is a different
+// state from one that has, and it must not be paddable with a default.
+//
+// NOT the credentials. `Cloudfare_Access_Key_ID` and its siblings stay in the
+// environment: this is the PUBLIC read URL, the one a browser could fetch, and
+// a secret in a table a screen renders is a secret on a screen.
+model PlatformSnapshotLibrary {
+  id                String   @id @default("singleton")
+  baseUrl           String
+  verifiedObjectKey String?
+  verifiedRows      Int?
+  verifiedAt        DateTime?
+  updatedByAdminId  String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
 model PlatformGrowthAssumptions {
   id                  String   @id @default("singleton")
   reps                Int      @default(20)

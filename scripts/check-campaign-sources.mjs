@@ -995,18 +995,32 @@ section("The create form: checkboxes, no default, every licence on screen");
   ok("a source that cannot run is DISABLED, not tickable",
     /disabled=\{blocked\}/.test(list));
   ok("...with the reason rendered beside it", /\{p\.unavailable\}/.test(list));
-  // The field is READ from its own source's slot, not from a flat object. A
-  // flat read renders — and then submits — one source's snapshot URL under
-  // every source's name, which is the exact collision the keying exists for
-  // and is invisible on screen because both fields are called "Snapshot URL".
-  ok("settings are held per source, so two `snapshotUrl` fields cannot collide",
-    /sourceConfigs/.test(list) && !/providerConfig:/.test(list));
-  ok("...and each field READS its own source's slot",
-    /draft\.sourceConfigs\?\.\[p\.key\]\?\.\[field\.name\]/.test(list));
-  ok("...and WRITES back into its own source's slot",
-    /\[p\.key\]: \{ \.\.\.\(draft\.sourceConfigs\?\.\[p\.key\] \|\| \{\}\), \[field\.name\]:/.test(list));
-  ok("the config fields appear only for a source that is ticked",
-    /ticked && !blocked &&/.test(list));
+  // ── UPDATED 2026-09-09: the form holds no source settings at all ──────
+  //
+  // These four assertions used to pin the per-source config INPUTS: each
+  // source's "Snapshot URL" field had to read and write its own slot, because
+  // a flat object renders — and submits — one source's URL under every
+  // source's name, and that is invisible on screen when both fields are
+  // called "Snapshot URL".
+  //
+  // The collision property is unchanged and still asserted; what changed is
+  // where it lives. The form no longer collects a URL from anybody — the
+  // owner's complaint was that it demanded one per campaign for an extract
+  // that was already uploaded — so the config is DERIVED in the create route
+  // from the base URL set once at /platform/sales/snapshots plus the object
+  // key of the file that covers the chosen region. The route still keys it per
+  // provider, which is the thing that prevents the collision, and
+  // scripts/check-snapshot-campaigns.mjs proves the derivation end to end.
+  //
+  // The assertions therefore move from "each field writes its own slot" to
+  // "there are no fields, and nothing here can carry a URL".
+  ok("the form collects no per-source settings at all",
+    !/configFields/.test(list) && !/sourceConfigs/.test(list));
+  ok("...and no snapshot URL can be typed on it", !/snapshotUrl/.test(list));
+  ok("...and it does not fall back to the flat legacy blob either",
+    !/providerConfig/.test(list));
+  ok("the collision is prevented where the config is now built: keyed per provider",
+    /\[plan\.file\.provider\]:\s*\{\s*snapshotUrl/.test(read("app/api/platform/sales/campaigns/route.js")));
   ok("the checkbox row meets the 44px touch floor this file is held to",
     /min-h-\[44px\]/.test(list));
 }
@@ -1026,8 +1040,12 @@ section("The campaign screen and its routes speak per source");
 
   ok("the create route refuses a campaign with no source", /readSourceSelection/.test(listRoute));
   ok("...refuses one whose source cannot run at all", /unavailableReasonOf/.test(listRoute));
-  ok("...and stores the sources and their per-source settings",
-    /discoverySources: selection\.keys/.test(listRoute) && /sourceConfigs,/.test(listRoute));
+  // One campaign per snapshot file now — the extract is split at 50,000 rows
+  // and a campaign reads one file per source — so a campaign names the one
+  // provider its file belongs to rather than the whole ticked set. The set is
+  // still what decides WHICH files; see check-snapshot-campaigns.mjs.
+  ok("...and stores the source and its per-source settings",
+    /discoverySources: \[plan\.file\.provider\]/.test(listRoute) && /sourceConfigs,/.test(listRoute));
   ok("...and records which LICENCES were accepted, at the moment they were",
     /licences:/.test(listRoute));
   ok("the create route no longer writes the single-source columns",

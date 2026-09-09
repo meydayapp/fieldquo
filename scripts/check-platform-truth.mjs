@@ -879,5 +879,119 @@ ok("and a row's status is described, not underscore-swapped",
 ok("only the writable statuses are green",
   /completed: "bg-slate/.test(migrationList));
 
+// ══ 6. An error row support can trace to a company ═════════════════════════
+//
+// The failure: `message: \`Voice credit exhausted for company ${number.companyId}\``
+// with no companyId on the row. /platform/errors resolves and LINKS a company
+// name, but only from the row's own field, so that error printed a raw cuid
+// nobody could identify — in the one place support looks when a contractor's
+// phone stops answering.
+//
+// The rule asserted here is the shape, not the one instance: no recordError
+// call may put a company id in the sentence. The field exists; it is indexed;
+// it is what the console filters on. An id in the message is at best a
+// duplicate and at worst the only copy.
+{
+  const WRITE_DIRS = ["app", "lib"];
+  const skip = new Set(["node_modules", ".next", ".git"]);
+  const walk = (dir, out = []) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (skip.has(e.name)) continue;
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) walk(p, out);
+      else if (/\.(js|mjs)$/.test(e.name)) out.push(p);
+    }
+    return out;
+  };
+
+  /** Every recordError({...}) call in the repo, brace-matched, comment-free. */
+  const calls = [];
+  for (const dir of WRITE_DIRS) {
+    for (const file of walk(path.join(ROOT, dir))) {
+      const src = stripComments(fs.readFileSync(file, "utf8"));
+      let i = 0;
+      while ((i = src.indexOf("recordError(", i)) !== -1) {
+        let depth = 0;
+        let j = src.indexOf("(", i);
+        for (; j < src.length; j++) {
+          if (src[j] === "(") depth++;
+          else if (src[j] === ")") {
+            depth--;
+            if (depth === 0) break;
+          }
+        }
+        const text = src.slice(i, j + 1);
+        calls.push({ file: path.relative(ROOT, file), text });
+        i = j + 1;
+      }
+    }
+  }
+
+  ok("there are recordError calls to check", calls.length > 40, `${calls.length} found`);
+
+  // A company id in the sentence: `${x.companyId}`, `${companyId}`, or the
+  // giveaway phrasing "for company ${…}". The property `companyId:` is not a
+  // match — that is the field, which is the whole point.
+  const idInMessage = calls.filter(({ text }) => {
+    const at = text.indexOf("message:");
+    if (at === -1) return false;
+    let depth = 0;
+    let k = at + "message:".length;
+    let value = "";
+    for (; k < text.length; k++) {
+      const c = text[k];
+      if ("({[".includes(c)) depth++;
+      else if (")}]".includes(c)) {
+        if (depth === 0) break;
+        depth--;
+      } else if (c === "," && depth === 0) break;
+      value += c;
+    }
+    return /\$\{[^}]*\bcompanyId\b[^}]*\}/.test(value) || /\bcompany \$\{/.test(value);
+  });
+  ok(
+    "no error message carries a raw company id — the field is what the console links",
+    idInMessage.length === 0,
+    idInMessage.map((c) => c.file).join(", "),
+  );
+
+  // And the two shapes that made the original row untraceable: a message that
+  // names a company while the field is left null.
+  const namesCompanyWithoutField = calls.filter(({ text }) => {
+    const hasField = /(^|[{,\s])companyId\s*[:,}]/.test(text);
+    return !hasField && /\bcompany \$\{|\$\{[^}]*\bcompanyId\b/.test(text);
+  });
+  ok(
+    "no error names a company it did not record",
+    namesCompanyWithoutField.length === 0,
+    namesCompanyWithoutField.map((c) => c.file).join(", "),
+  );
+
+  const errorsRoute = stripComments(read("app/api/platform/errors/route.js"));
+  ok(
+    "the errors list still resolves a company NAME rather than printing an id",
+    /db\.company\.findMany/.test(errorsRoute) && /companyName:/.test(errorsRoute),
+  );
+  // Two contractors called "Precision Painting" are told apart by the person
+  // who signed up. The owner is the Member holding role "owner", oldest first
+  // — the same definition lib/email/companySender.js's ownerEmailFor uses, so
+  // the console cannot name a different person from the one FieldQuo emails.
+  ok(
+    "and the owner's email beside it, from the owner-role member",
+    /companyOwnerEmail:/.test(errorsRoute) &&
+      /role: "owner"/.test(errorsRoute) &&
+      /orderBy: \{ createdAt: "asc" \}/.test(errorsRoute),
+  );
+  ok(
+    "a company with no owner-role member prints nothing rather than a stand-in",
+    /\|\| null/.test(errorsRoute.slice(errorsRoute.indexOf("companyOwnerEmail:"))),
+  );
+  const errorsPage = stripComments(read("app/platform/errors/page.js"));
+  ok(
+    "the screen actually renders it — a field nothing reads is the failure class",
+    /e\.companyOwnerEmail/.test(errorsPage),
+  );
+}
+
 console.log(`\n${checks} checks, ${failures} failure(s).`);
 process.exit(failures ? 1 : 0);

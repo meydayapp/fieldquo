@@ -80,6 +80,11 @@ process.env.PLATFORM_JWT_SECRET =
 // several checks and adding a model to it is an edit to their fixture. Same
 // technique check-refusal-shape.mjs uses for next/server, and the same reason.
 globalThis.__FQ_SALES_REP_ROW = null;
+// Writes are RECORDED rather than swallowed, for the reason
+// scripts/fixtures/dbStub.mjs gives: the gate stamps SalesRep.lastSeenAt on the
+// way out, and "it wrote lastSeenAt and nothing else" is a claim about an
+// argument. A stub that only answered would let the stamp widen unseen.
+globalThis.__FQ_SALES_REP_WRITES = [];
 const DB_HOOKS = `
 export async function resolve(specifier, context, nextResolve) {
   if (specifier === "@/lib/db") return { url: "fq-stub:sales-db", shortCircuit: true };
@@ -88,7 +93,7 @@ export async function resolve(specifier, context, nextResolve) {
 export async function load(url, context, nextLoad) {
   if (url === "fq-stub:sales-db")
     return { format: "module", shortCircuit: true, source:
-      "export const db = { salesRep: { findUnique: async () => globalThis.__FQ_SALES_REP_ROW } };" };
+      "export const db = { salesRep: { findUnique: async () => globalThis.__FQ_SALES_REP_ROW, updateMany: async (args) => { globalThis.__FQ_SALES_REP_WRITES.push(args); return { count: 1 }; } } };" };
   return nextLoad(url, context);
 }
 `;
@@ -676,6 +681,60 @@ ok(
     const result = await requireSalesRep(request({ [SALES_COOKIE]: salesToken }, method));
     ok(`${method} still reads`, result.refusal === null);
   }
+}
+
+// ── The one column this gate writes, and when ─────────────────────────────
+//
+// The floor board used to print "has never signed in" for any rep with no
+// SalesRepActivity row, because nothing recorded a rep merely opening the
+// portal. requireSalesRep now stamps SalesRep.lastSeenAt on the way out. That
+// is a write to a table on REP_FORBIDDEN_WRITES, so it is asserted here rather
+// than trusted: one column, server clock, and only on a request that was
+// actually served.
+{
+  globalThis.__FQ_SALES_REP_ROW = goodRep;
+
+  globalThis.__FQ_SALES_REP_WRITES = [];
+  const read = await requireSalesRep(request({ [SALES_COOKIE]: salesToken }, "GET"));
+  const stamped = globalThis.__FQ_SALES_REP_WRITES;
+  ok(
+    "a rep's read stamps that they were seen in the portal",
+    read.refusal === null && stamped.length === 1,
+    stamped,
+  );
+  ok(
+    "and stamps ONLY lastSeenAt, with the server's clock",
+    stamped.length === 1 &&
+      Object.keys(stamped[0].data || {}).join() === "lastSeenAt" &&
+      stamped[0].data.lastSeenAt instanceof Date &&
+      stamped[0].where?.id === goodRep.id,
+    stamped[0],
+  );
+
+  globalThis.__FQ_SALES_REP_WRITES = [];
+  await requireSalesRep(request({ [SALES_COOKIE]: salesToken }, "POST"));
+  ok(
+    "a refused write does not record the rep as present",
+    globalThis.__FQ_SALES_REP_WRITES.length === 0,
+    globalThis.__FQ_SALES_REP_WRITES,
+  );
+
+  globalThis.__FQ_SALES_REP_WRITES = [];
+  globalThis.__FQ_SALES_REP_ROW = { ...goodRep, active: false };
+  await requireSalesRep(request({ [SALES_COOKIE]: salesToken }, "GET"));
+  ok(
+    "a deactivated rep's request is not a sign-in either",
+    globalThis.__FQ_SALES_REP_WRITES.length === 0,
+    globalThis.__FQ_SALES_REP_WRITES,
+  );
+
+  globalThis.__FQ_SALES_REP_WRITES = [];
+  await requireSalesRep(request({}, "GET"));
+  ok(
+    "no cookie, no stamp — the board cannot be filled in by a stranger",
+    globalThis.__FQ_SALES_REP_WRITES.length === 0,
+  );
+  globalThis.__FQ_SALES_REP_ROW = goodRep;
 }
 
 // And the routes on disk. A write that never reaches the gate — a handler that

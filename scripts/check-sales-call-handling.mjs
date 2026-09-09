@@ -125,7 +125,9 @@ import {
   teamCallRows,
 } from "@/lib/sales/calls/reporting";
 import { REP_CALL_WRITES } from "@/lib/sales/calls/gate";
-import { REQUIRED_MODELS, callStoreState } from "@/lib/sales/calls/store";
+import { GATE_WRITES_ON_SALES_REP } from "@/lib/sales/gate";
+import { anyRepLive, repIsLive } from "@/lib/sales/calls/inboundRouting";
+import { REQUIRED_MODELS, callStoreState, presenceFor } from "@/lib/sales/calls/store";
 import { CLAIM_HOURS } from "@/lib/sales/prospectView";
 import { CALL_ALLOWED, CALL_REFUSED, CALL_UNKNOWN } from "@/lib/sales/callingRules";
 
@@ -1114,6 +1116,167 @@ ok("an empty scope list produces an empty board, never every rep", (() => {
 ok("the board takes ids the caller decided, so scope lives in one place", (() => {
   const src = source("lib/sales/calls/store.js");
   return !/visibleRepIds/.test(src);
+})());
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("11b. “Never signed in” is a fact, and signing in is not a state");
+
+// The bug this section exists for: the board printed "has never signed in"
+// whenever a rep had no SalesRepActivity row. Nothing writes one of those when
+// somebody opens the portal, so the sentence was said about reps who had been
+// working all morning. Three answers now, and the middle one must not leak into
+// the other two — a rep who has only signed in is NOT on the floor and NOT
+// routable.
+ok("a rep with no row and no sign-in has never been seen — unchanged", (() => {
+  const p = livePresence(null, T0);
+  return p.everSeen === false && p.everSignedIn === false && p.portalSeenAt === null;
+})());
+ok("a rep who signed in and declared nothing is SEEN, and still has no state", (() => {
+  const p = livePresence(null, T0, { portalSeenAt: hoursFrom(T0, -1) });
+  return (
+    p.everSignedIn === true &&
+    // The half that matters: signing in did not become a declaration.
+    p.everSeen === false &&
+    p.state === STATE_OFFLINE &&
+    p.portalSeenAt instanceof Date
+  );
+})());
+ok("a sign-in that cannot be read as a time is not a sign-in", (() => {
+  const p = livePresence(null, T0, { portalSeenAt: "not a date" });
+  return p.everSignedIn === false && p.portalSeenAt === null;
+})());
+ok("signing in does not change a declared state, or its duration", (() => {
+  const row = { state: STATE_PAUSED, pauseReason: "lunch", startedAt: hoursFrom(T0, -0.5), heartbeatAt: T0 };
+  const without = livePresence(row, T0);
+  const with_ = livePresence(row, T0, { portalSeenAt: T0 });
+  return (
+    with_.state === without.state &&
+    with_.pauseReason === "lunch" &&
+    with_.forMs === without.forMs &&
+    with_.stale === without.stale
+  );
+})());
+ok("a rep who only signed in is NOT routable — the phone still needs a declaration", (() => {
+  return (
+    repIsLive({ everSeen: false, everSignedIn: true, portalSeenAt: T0, state: STATE_OFFLINE, stale: false }) ===
+      false &&
+    // Hand-built rather than through livePresence, and deliberately hostile:
+    // "signed in, no declaration, but the state field says available". Only a
+    // router that gates on everSeen answers false. One that started trusting
+    // the sign-in would put this rep on the next inbound call.
+    repIsLive({ everSeen: false, everSignedIn: true, state: STATE_AVAILABLE, stale: false }) === false &&
+    anyRepLive([
+      { salesRepId: "a", presence: livePresence(null, T0, { portalSeenAt: T0 }) },
+    ]) === false
+  );
+})());
+ok("declaring available still routes — the pin above did not close the door", (() => {
+  const p = livePresence({ state: STATE_AVAILABLE, startedAt: T0, heartbeatAt: T0 }, T0, { portalSeenAt: T0 });
+  return repIsLive(p) === true;
+})());
+ok("the router reads everSeen, never the sign-in", (() => {
+  const body = fnBody("lib/sales/calls/inboundRouting.js", "export function repIsLive(");
+  return /presence\.everSeen/.test(body) && !/everSignedIn|portalSeenAt/.test(body);
+})());
+
+// ── The fact has to be stored, stamped and read, or the board infers again ──
+ok("SalesRep carries the sign-in column", (() => {
+  const schema = read("prisma/schema.prisma");
+  const model = schema.slice(schema.indexOf("model SalesRep {"));
+  return /lastSeenAt\s+DateTime\?/.test(model.slice(0, model.indexOf("\n}")));
+})());
+ok("the portal gate stamps it, after the refusals rather than before", (() => {
+  const body = fnBody("lib/sales/gate.js", "export async function requireSalesRep(");
+  const refusal = body.lastIndexOf("readOnly: true");
+  const stamp = body.indexOf("stampLastSeen(");
+  return refusal !== -1 && stamp !== -1 && refusal < stamp;
+})());
+ok("the stamp writes lastSeenAt and nothing else on the rep row", (() => {
+  const body = fnBody("lib/sales/gate.js", "async function stampLastSeen(");
+  if (!/db\.salesRep\.updateMany\(/.test(body)) return false;
+  // The object literal itself, brace-matched — not "everything after data:",
+  // which would sweep up the catch block and the word `data` itself.
+  const open = body.indexOf("data: {") + "data: ".length;
+  let depth = 0;
+  let close = open;
+  for (; close < body.length; close++) {
+    if (body[close] === "{") depth++;
+    else if (body[close] === "}") { depth--; if (depth === 0) break; }
+  }
+  const data = body.slice(open + 1, close);
+  const fields = [...data.matchAll(/(\w+)\s*:/g)].map((m) => m[1]);
+  return (
+    GATE_WRITES_ON_SALES_REP.length === 1 &&
+    GATE_WRITES_ON_SALES_REP[0] === "lastSeenAt" &&
+    fields.length > 0 &&
+    fields.every((f) => GATE_WRITES_ON_SALES_REP.includes(f))
+  );
+})());
+ok("the stamp cannot open an activity row — signing in is not going available", (() => {
+  const body = fnBody("lib/sales/gate.js", "async function stampLastSeen(");
+  return !/salesRepActivity|setRepState|STATE_AVAILABLE/.test(body);
+})());
+ok("a platform read cannot stamp anybody: the floor route writes nothing", (() => {
+  // Two halves. The route writes nothing at all (asserted in section 10 too),
+  // and the stamp lives behind a SALES-scoped token, which a platform admin's
+  // cookie is refused by — verifySalesToken requires scope "sales".
+  const routeSrc = source("app/api/platform/sales/floor/route.js");
+  const verify = fnBody("lib/sales/auth.js", "export async function verifySalesToken(");
+  return (
+    !/lastSeenAt/.test(routeSrc) &&
+    !/\.(update|updateMany|upsert|create)\(/.test(routeSrc) &&
+    /payload\.scope !== SALES_SCOPE\) return null;/.test(verify)
+  );
+})());
+// EXECUTED against a stub client, not read. A body that mentions lastSeenAt
+// and then passes null to livePresence satisfies every regex and reports every
+// rep as never seen — which is the bug, reintroduced with the comment intact.
+ok("the board reads the stored fact rather than inferring it from a call", await (async () => {
+  const client = {
+    salesCallAttempt: {},
+    salesRepActivity: {
+      // Two reps, one of whom has declared something.
+      findMany: async () => [
+        { salesRepId: "declared", state: STATE_AVAILABLE, startedAt: T0, heartbeatAt: T0 },
+      ],
+    },
+    salesRep: {
+      findMany: async () => [
+        { id: "declared", lastSeenAt: T0 },
+        { id: "seen", lastSeenAt: hoursFrom(T0, -0.5) },
+        { id: "never", lastSeenAt: null },
+      ],
+    },
+  };
+  const rows = await presenceFor(["declared", "seen", "never"], { now: T0, client });
+  const by = Object.fromEntries(rows.map((r) => [r.salesRepId, r.presence]));
+  return (
+    by.declared.state === STATE_AVAILABLE &&
+    by.seen.everSignedIn === true &&
+    by.seen.everSeen === false &&
+    by.seen.portalSeenAt instanceof Date &&
+    by.never.everSignedIn === false &&
+    by.never.portalSeenAt === null
+  );
+})());
+ok("a rep the roster could not return is “never”, not a crash", await (async () => {
+  const client = {
+    salesCallAttempt: {},
+    salesRepActivity: { findMany: async () => [] },
+    salesRep: { findMany: async () => [] },
+  };
+  const [row] = await presenceFor(["ghost"], { now: T0, client });
+  return row.presence.everSignedIn === false && row.presence.portalSeenAt === null;
+})());
+ok("the floor screen prints three answers, and “never” is one of them", (() => {
+  const src = source("app/platform/sales/floor/page.js");
+  return (
+    /everSignedIn/.test(src) &&
+    /Never signed in/.test(src) &&
+    /Signed in — not on the floor/.test(src) &&
+    // The old bug in one line: "never signed in" reached from everSeen alone.
+    !/everSeen === false\s*\n?\s*\?\s*"Has never signed in"/.test(src)
+  );
 })());
 
 // ═══════════════════════════════════════════════════════════════════════════

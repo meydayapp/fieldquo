@@ -46,8 +46,6 @@ import { fetchJson } from "@/lib/fetchJson";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
-const FIELD =
-  "w-full border border-border rounded-lg px-3 py-2.5 min-h-[44px] text-base bg-card text-foreground disabled:opacity-60";
 
 export default function PlatformSalesCampaignPage({ params }) {
   // Next 16: params is a Promise. `use()` is how a client component reads one;
@@ -59,11 +57,6 @@ export default function PlatformSalesCampaignPage({ params }) {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [problems, setProblems] = useState([]);
-  // Keyed by source. A campaign can draw from several, and one `config` object
-  // shared between them would put the source you edited second on top of the
-  // one you edited first — both shipped sources have a field called
-  // `snapshotUrl`.
-  const [configs, setConfigs] = useState({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -198,6 +191,28 @@ export default function PlatformSalesCampaignPage({ params }) {
         </div>
       ) : null}
 
+      {/* Where this campaign would be calling, stated whether or not it blocks.
+          "Registered" is worth seeing too: it is the difference between a draft
+          somebody has not started and a draft that cannot be. An unread
+          jurisdiction is its own third state — rows can be banked there, but
+          the queue will refuse to hand a rep a dial link. */}
+      {data.registration ? (
+        <p className="text-xs text-muted-foreground break-words">
+          Calling into {data.registration.name}:{" "}
+          {!data.registration.required
+            ? "no telemarketer registration is required."
+            : data.registration.done
+              ? "FieldQuo's telemarketer registration is filed."
+              : "FieldQuo's telemarketer registration is outstanding, so this campaign cannot be started."}
+        </p>
+      ) : campaign.territory ? (
+        <p className="text-xs text-muted-foreground break-words">
+          Nobody has read {[campaign.territory.country, campaign.territory.province].filter(Boolean).join("-")}’s
+          telephone solicitation law, so no rep will be given a dial link for these rows. Banking and research
+          still work.
+        </p>
+      ) : null}
+
       {startProblems.length ? (
         <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 p-3 text-sm text-amber-900 dark:text-amber-200 space-y-1">
           <p className="font-medium">This campaign cannot start:</p>
@@ -294,50 +309,41 @@ export default function PlatformSalesCampaignPage({ params }) {
                     : "Not started."}
           </p>
 
-          {source.registered && !source.unavailable && (source.configFields || []).length ? (
+          {/* ── The file, and a rebuild — no text box ────────────────────
+              There is nothing to type here any more. The snapshot URL is the
+              base URL configured once at /platform/sales/snapshots plus this
+              file's own object key, and the button rebuilds it and FETCHES it
+              before saving. The box that used to be here was the last place in
+              the product a snapshot URL could be typed, which made it the last
+              place one could be typed wrong — and a wrong one does not fail,
+              it discovers nobody. */}
+          {source.registered && !source.unavailable ? (
             <>
               <p className="text-xs text-muted-foreground break-words">
-                Currently: {source.config?.summary || "not set"}
+                Reading: {source.config?.summary || "not set"}
               </p>
               {(source.config?.problems || []).map((p) => (
                 <p key={p} className="text-xs text-amber-900 dark:text-amber-200 break-words">
                   {p}
                 </p>
               ))}
-              {source.configFields.map((field) => (
-                <div key={field.name}>
-                  <label
-                    className="block text-sm font-medium text-foreground mb-1"
-                    htmlFor={`cfg-${source.key}-${field.name}`}
-                  >
-                    {field.label}
-                  </label>
-                  <input
-                    id={`cfg-${source.key}-${field.name}`}
-                    className={FIELD}
-                    value={configs[source.key]?.[field.name] ?? ""}
-                    onChange={(e) =>
-                      setConfigs({
-                        ...configs,
-                        [source.key]: { ...(configs[source.key] || {}), [field.name]: e.target.value },
-                      })
-                    }
-                    placeholder="Paste the new value to replace what is stored"
-                  />
-                  {field.help ? <p className="mt-1 text-xs text-muted-foreground">{field.help}</p> : null}
-                </div>
-              ))}
               <button
                 type="button"
                 className={`${BTN} border border-border text-foreground`}
-                onClick={() =>
-                  act("configure", { sourceKey: source.key, providerConfig: configs[source.key] || {} })
-                }
+                onClick={() => act("configure", { sourceKey: source.key })}
                 disabled={Boolean(busy)}
               >
                 {busy === "configure" ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
-                Save {source.label} settings
+                Rebuild this URL from the snapshot library
               </button>
+              <p className="text-xs text-muted-foreground break-words">
+                Use this after the base URL changes at{" "}
+                <Link href="/platform/sales/snapshots" className="underline">
+                  the snapshot library
+                </Link>
+                . It re-derives the URL, downloads the file’s first line to prove it is there, and clears a
+                source the pipeline had stopped for a settings problem.
+              </p>
             </>
           ) : null}
         </section>

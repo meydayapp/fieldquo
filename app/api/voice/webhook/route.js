@@ -243,7 +243,12 @@ export async function POST(request) {
       if (!after.allowed) {
         await recordError({
           area: "voice_credit",
-          message: `Voice credit exhausted for company ${number.companyId}`,
+          // The company goes in the FIELD, not the sentence. /platform/errors
+          // resolves a name and links the company from `companyId`; an id
+          // interpolated into the message is a string nobody can identify and
+          // the row was the one error in the log that could not be traced.
+          companyId: number.companyId,
+          message: "Voice credit exhausted — the agent was detached from this number",
           detail: { balanceCents: after.cents },
         }).catch(() => {});
         // Stop answering rather than keep taking calls we can't bill. Detaching

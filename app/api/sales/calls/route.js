@@ -202,7 +202,11 @@ export async function GET(request) {
     dispositions: dispositionOptions(),
     states: STATE_ORDER.map((code) => ({ code, ...REP_STATES[code] })),
     pauseReasons: PAUSE_REASON_ORDER.map((code) => PAUSE_REASONS[code]),
-    presence: livePresence(open, now),
+    // `portalSeenAt: now` is not an assumption — this request IS the rep in
+    // the portal, and it is the same fact lib/sales/gate.js stamps on the read
+    // path. Leaving it null would hand the rep's own screen a presence object
+    // claiming they have never signed in, while they are looking at it.
+    presence: livePresence(open, now, { portalSeenAt: now }),
     // The call a rep has made and not written up.
     //
     // OMniLeads keeps its agents in after-call work until they disposition,
@@ -268,7 +272,7 @@ export async function POST(request) {
     if (!result.ok) return bad(result.error, 409);
     return NextResponse.json({
       ok: true,
-      presence: livePresence(result.activity, now),
+      presence: livePresence(result.activity, now, { portalSeenAt: now }),
       serverNow: now.toISOString(),
     });
   }

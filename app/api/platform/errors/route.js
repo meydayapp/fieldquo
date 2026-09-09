@@ -52,19 +52,48 @@ export async function GET(request) {
   ]);
 
   // Company names for the rows that have one, resolved in a single query.
+  //
+  // ── And the owner's email, because two companies share a name ────────────
+  //
+  // "Precision Painting" is not a rare name, and support reading this list had
+  // no way to tell one from the other without opening both. The owner is the
+  // Member with role "owner", oldest first — the same definition
+  // lib/email/companySender.js's ownerEmailFor() and /platform/signups already
+  // use, rather than a sixth answer to "who owns this company". A company with
+  // no owner-role member resolves to null and prints nothing: there is no
+  // second-best address to fall back to, and inventing one (the first member,
+  // say) would put a labourer's inbox beside the company name.
   const companyIds = [...new Set(errors.map((e) => e.companyId).filter(Boolean))];
   const companies = companyIds.length
     ? await db.company.findMany({
         where: { id: { in: companyIds } },
-        select: { id: true, name: true },
+        select: {
+          id: true,
+          name: true,
+          members: {
+            where: { role: "owner" },
+            orderBy: { createdAt: "asc" },
+            take: 1,
+            select: { user: { select: { email: true } } },
+          },
+        },
       })
     : [];
-  const nameById = new Map(companies.map((c) => [c.id, c.name]));
+  const byId = new Map(companies.map((c) => [c.id, c]));
 
   return NextResponse.json({
     unresolvedCount,
     areas: areas.map((a) => ({ area: a.area, count: a._count })),
-    errors: errors.map((e) => ({ ...e, companyName: nameById.get(e.companyId) || null })),
+    errors: errors.map((e) => {
+      const company = e.companyId ? byId.get(e.companyId) : null;
+      return {
+        ...e,
+        companyName: company?.name || null,
+        // Null means "no owner-role member", not "no email" — the screen says
+        // nothing rather than printing a blank beside the name.
+        companyOwnerEmail: company?.members?.[0]?.user?.email || null,
+      };
+    }),
   });
 }
 

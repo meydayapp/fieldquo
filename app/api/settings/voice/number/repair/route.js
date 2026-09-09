@@ -251,7 +251,9 @@ async function resync(request, member) {
       area: "voice",
       code: "agent_resync_failed",
       companyId: member.companyId,
-      message: `Re-pushing the agent for ${member.companyId} failed`,
+      // Named by the field, not by an id in the sentence — the console resolves
+      // the company from `companyId` and prints its name.
+      message: "Re-pushing the receptionist's settings to the provider failed",
       detail: { reason: res?.reason || null, origin },
     });
     return NextResponse.json(

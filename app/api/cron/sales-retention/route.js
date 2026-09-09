@@ -187,7 +187,10 @@ export async function GET(request) {
       counts.failed++;
       await recordError({
         area: "cron:sales-retention",
-        message: `Retention milestone failed for company ${attributed.companyId}: ${err?.message}`,
+        // The company is the field, not the sentence: /platform/errors resolves
+        // and links a name from `companyId`, and repeating the raw id in the
+        // message only gives support a string to squint at.
+        message: `Retention milestone failed: ${err?.message}`,
         companyId: attributed.companyId,
       }).catch(() => {});
     }

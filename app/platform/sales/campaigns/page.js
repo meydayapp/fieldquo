@@ -1,6 +1,6 @@
 // app/platform/sales/campaigns/page.js
 //
-// Where a superadmin says "find me a thousand painting contractors in Ottawa".
+// Where a superadmin says "find me every painting contractor in Quebec".
 //
 // ══ Why the trade is a required choice and not a filter ═══════════════════
 //
@@ -22,58 +22,49 @@
 // heard of a campaign: a roofer banked by an all-trades campaign is claimable
 // from the roofing queue and from no other, and a painting queue cannot contain
 // it by construction rather than by anyone remembering to filter. That is
-// proved by execution in scripts/check-bank-all-trades.mjs, because it is the
-// one property a rep's trust in the queue rests on.
+// proved by execution in scripts/check-bank-all-trades.mjs.
 //
-// It is a separate CHECKBOX rather than an "All trades" row in the trade menu.
-// A menu entry sits one keystroke from "Painting" and is chosen by accident;
-// this one has to be ticked, and it says what it costs while being ticked.
+// ══ Nobody types a snapshot URL, a country code or a coordinate ═══════════
 //
-// ══ Why the target field now talks about money ════════════════════════════
+// UPDATED 2026-09-09, from the owner, about this exact screen: "I thought you
+// had already fetched all the companies and saved it in cloudflare… where the
+// fuck do I get the snapshot URL… it should be just automated for me in a way
+// that I can just select few things and get the total number of trade. I pick
+// trade painting, then it's all the companies that do painting." And: "is
+// country code USA or US, I don't know but I can select it because you would
+// already know."
 //
-// Banking a row is a row. Researching one is about seven pipeline tasks against
-// a platform ceiling of ~3,600 a day, so promoting a 54,264-row register in
-// full would be 105 days of every tenant's pipeline. `targetCount` bounds the
-// promotion as well as the discovery, and the form says so where the number is
-// typed rather than leaving it to be found out afterwards.
+// He was right on every count. The extract was already run and uploaded — 80
+// files, 1,320,105 rows — so this form asked, once per campaign, for something
+// that had been done once. It now asks for nothing it can work out:
 //
-// ══ Why the sources have no default ═══════════════════════════════════════
+//   the snapshot URL   derived from the base URL set once at
+//                      /platform/sales/snapshots plus the object key of the
+//                      file that covers the chosen region. Proved by fetching
+//                      it before the campaign is saved.
+//   the country        a select, filled from the countries the files cover.
+//   the region         a select, filled from the regions the CHOSEN SOURCES
+//                      cover — so a region with no file for them is absent
+//                      rather than offered with a zero.
+//   the row count      shown before the button is pressed, measured off the
+//                      files by scripts/build-snapshot-library.mjs. Never
+//                      estimated, and never a zero standing in for a number
+//                      nobody has: the RBQ names no trade for anybody, and its
+//                      rows are reported as "not known" rather than as no
+//                      painters.
+//   the centre         the median coordinate of that region's own rows, so the
+//                      optional circle has a centre without anybody looking up
+//                      a city.
 //
-// `ProspectCampaign.discoverySources` has no default in the schema and the
-// form has nothing preticked, for the reason its schema comment gives at
-// length: the obvious default was Google, whose terms forbid storing business
-// names and addresses and forbid building a directory — and whose key also
-// powers address autocomplete and the Solar roof measurement in the live
-// product. Choosing a source is choosing a licence.
+// ══ Why the registration position is on the region ════════════════════════
 //
-// ══ Which is why the boxes are checkboxes and each one states its terms ════
-//
-// The owner's rule: "where the business comes from should be a checkbox to
-// allow multiple sources, not one or the other." A single campaign draws from
-// Overture AND a licence register in one run, and the same painter arriving
-// from both is flagged rather than merged.
-//
-// The single `<select>` this replaces carried the licence argument by being
-// singular: one choice, one licence, taken deliberately. Ticking three boxes
-// takes on three different sets of terms in one gesture — CC-BY makes
-// attribution a CONDITION of the grant, CDLA-Permissive puts its obligation on
-// the data rather than on what is built from it — so each box states its own
-// licence next to itself. Not in a tooltip and not on a second screen: the
-// obligation has to be legible at the moment it is taken on, or the property
-// the single-select was protecting is gone.
-//
-// A source that CANNOT run is rendered disabled with the reason beside it,
-// never as a tickable box. RBQ is one today — the register carries no website
-// column, so nothing can ever establish a trade for its rows. A disabled
-// checkbox with a sentence is honest; a tickable one that produces a Start
-// button which fails on click is the dead control AGENTS.md opens by
-// forbidding.
-//
-// ══ What is deliberately NOT here ═════════════════════════════════════════
-//
-// A territory console. Territories can be created with a campaign and reused
-// by later ones; renaming or re-drawing one afterwards is not built, and the
-// screen says so in a sentence instead of rendering a control that would fail.
+// Thirteen jurisdictions require FieldQuo to register as a telephone solicitor
+// before the first call and none of them is done. That is a fact about the
+// place the phone rings, so it is stated ON the region, at the moment the
+// region is chosen — and the campaign is created as a draft that cannot be
+// started, which is what lib/sales/discovery/campaignGate.js enforces on the
+// route. The list at the bottom orders them by the rows each would unlock,
+// because that is the only question worth asking of such a list.
 //
 // ══ Mobile-first ══════════════════════════════════════════════════════════
 //
@@ -81,16 +72,46 @@
 // This file is in scripts/check-mobile-surfaces.mjs's STRICT list.
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertCircle, ArrowRight, Loader2, MapPin, Plus, Target } from "lucide-react";
+import { AlertCircle, ArrowRight, Database, Loader2, MapPin, Plus, ShieldAlert, Target } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { jurisdictionKey } from "@/lib/sales/callingRules";
+import {
+  rowsByJurisdiction,
+  snapshotCountries,
+  snapshotRegions,
+  snapshotSelection,
+  tradeRowsFor,
+} from "@/lib/sales/discovery/snapshotLibrary";
+import { outstandingRegistrations, territoryRegistration } from "@/lib/sales/discovery/campaignGate";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
 const FIELD =
   "w-full border border-border rounded-lg px-3 py-2.5 min-h-[44px] text-base bg-card text-foreground disabled:opacity-60";
 const LABEL = "block text-sm font-medium text-foreground mb-1";
+
+const COUNTRY_LABELS = { CA: "Canada", US: "United States" };
+
+/** Region codes are what the data uses; these are what a person reads. Only
+ *  the ones the library covers, and a code with no label prints as its code
+ *  rather than as a guess. */
+const REGION_LABELS = {
+  AB: "Alberta", BC: "British Columbia", MB: "Manitoba", NB: "New Brunswick",
+  NL: "Newfoundland and Labrador", NS: "Nova Scotia", NT: "Northwest Territories", NU: "Nunavut",
+  ON: "Ontario", PE: "Prince Edward Island", QC: "Québec", SK: "Saskatchewan", YT: "Yukon",
+  AK: "Alaska", AL: "Alabama", AR: "Arkansas", AS: "American Samoa", AZ: "Arizona", CA: "California",
+  CO: "Colorado", CT: "Connecticut", DC: "District of Columbia", DE: "Delaware", FL: "Florida",
+  FM: "Micronesia", GA: "Georgia", HI: "Hawaii", IA: "Iowa", ID: "Idaho", IL: "Illinois",
+  IN: "Indiana", KS: "Kansas", KY: "Kentucky", LA: "Louisiana", MA: "Massachusetts", MD: "Maryland",
+  ME: "Maine", MI: "Michigan", MN: "Minnesota", MO: "Missouri", MS: "Mississippi", MT: "Montana",
+  NC: "North Carolina", ND: "North Dakota", NE: "Nebraska", NH: "New Hampshire", NJ: "New Jersey",
+  NM: "New Mexico", NV: "Nevada", NY: "New York", OH: "Ohio", OK: "Oklahoma", OR: "Oregon",
+  PA: "Pennsylvania", PR: "Puerto Rico", RI: "Rhode Island", SC: "South Carolina", SD: "South Dakota",
+  TN: "Tennessee", TX: "Texas", UT: "Utah", VA: "Virginia", VT: "Vermont", WA: "Washington",
+  WI: "Wisconsin", WV: "West Virginia", WY: "Wyoming",
+};
 
 const BLANK = {
   name: "",
@@ -99,12 +120,9 @@ const BLANK = {
   // and it is chosen deliberately, the same way a source is.
   allTrades: false,
   targetCount: "500",
-  // A SET, empty. Not "" and not one preticked box — see the header.
+  // A SET, empty. Not "" and not one preticked box — choosing a source is
+  // choosing a licence, and there is deliberately no default.
   discoverySources: [],
-  // Keyed by source, because both shipped sources have a field called
-  // `snapshotUrl` and one flat object would put Overture's file behind the
-  // register's name.
-  sourceConfigs: {},
   territoryId: "",
   territoryName: "",
   country: "",
@@ -122,6 +140,14 @@ const STATUS_TONE = {
   completed: "bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200",
   cancelled: "bg-muted text-muted-foreground",
 };
+
+function count(n) {
+  return Number(n || 0).toLocaleString("en-US");
+}
+
+function regionLabel(province) {
+  return REGION_LABELS[province] || province;
+}
 
 export default function PlatformSalesCampaignsPage() {
   const [data, setData] = useState(null);
@@ -149,27 +175,103 @@ export default function PlatformSalesCampaignsPage() {
   }, [load]);
 
   const providers = data?.providers || [];
+  const library = data?.library || {};
+  const territories = data?.territories || [];
+
+  // The chosen territory, whichever way it was chosen. An existing territory
+  // carries its own country and region, and the file selection has to follow
+  // it — otherwise picking "Ottawa area" and then a region would produce a
+  // campaign whose snapshot and whose territory disagree.
+  const chosenTerritory = useMemo(() => {
+    if (draft.territoryId) return territories.find((t) => t.id === draft.territoryId) || null;
+    if (!draft.country || !draft.province) return null;
+    return { country: draft.country, province: draft.province };
+  }, [draft.territoryId, draft.country, draft.province, territories]);
+
+  // ── The three numbers on this form, all from the same function the route
+  //    uses to build the URLs. A screen with its own arithmetic is a screen
+  //    that can promise a count the campaign then does not read.
+  const selection = useMemo(
+    () =>
+      chosenTerritory
+        ? snapshotSelection({
+            providers: draft.discoverySources,
+            country: chosenTerritory.country,
+            province: chosenTerritory.province,
+            tradeKey: draft.allTrades ? null : draft.tradeKey,
+          })
+        : null,
+    [chosenTerritory, draft.discoverySources, draft.allTrades, draft.tradeKey],
+  );
+
+  const tradeTally = useMemo(
+    () =>
+      chosenTerritory
+        ? tradeRowsFor({
+            providers: draft.discoverySources,
+            country: chosenTerritory.country,
+            province: chosenTerritory.province,
+          })
+        : null,
+    [chosenTerritory, draft.discoverySources],
+  );
+
+  const countries = useMemo(() => snapshotCountries(), []);
+  const regions = useMemo(
+    () => snapshotRegions({ country: draft.country, providers: draft.discoverySources }),
+    [draft.country, draft.discoverySources],
+  );
+
+  const registration = useMemo(
+    () => (chosenTerritory ? territoryRegistration(chosenTerritory) : null),
+    [chosenTerritory],
+  );
+
+  // The backlog, ordered by what each registration unlocks. Built from the
+  // calling rules and the measured library — never a second hand-kept list,
+  // which is exactly what had already drifted in the creation script somebody
+  // ran from a laptop.
+  const backlog = useMemo(
+    () => outstandingRegistrations({ rowsByRegion: rowsByJurisdiction(jurisdictionKey) }),
+    [],
+  );
 
   /**
    * Tick or untick one source.
    *
-   * Unticking DROPS that source's settings. Keeping them would leave a
-   * snapshot URL in the payload for a source the campaign does not draw from,
-   * which the server would discard anyway — and a form whose state disagrees
-   * with what it sends is how a "saved" setting turns out never to have been
-   * saved.
+   * Unticking may leave the chosen region with no file behind it — the region
+   * select is filled from what the ticked sources actually cover — so the
+   * region is cleared with it rather than left pointing at nothing.
    */
   function toggleSource(key, ticked) {
     setDraft((current) => {
       const chosen = current.discoverySources.filter((k) => k !== key);
-      const configs = { ...current.sourceConfigs };
-      if (ticked) {
-        chosen.push(key);
-        configs[key] = configs[key] || {};
-      } else {
-        delete configs[key];
-      }
-      return { ...current, discoverySources: chosen, sourceConfigs: configs };
+      if (ticked) chosen.push(key);
+      const stillCovered =
+        !current.province ||
+        snapshotRegions({ country: current.country, providers: chosen }).some((r) => r.province === current.province);
+      return { ...current, discoverySources: chosen, province: stillCovered ? current.province : "" };
+    });
+  }
+
+  /** Choosing a region fills everything that follows from it. */
+  function chooseRegion(province) {
+    setDraft((current) => {
+      const region = snapshotRegions({ country: current.country, providers: current.discoverySources }).find(
+        (r) => r.province === province,
+      );
+      return {
+        ...current,
+        province,
+        // The territory name is a suggestion, not a lock — it stays editable.
+        territoryName: current.territoryName || (province ? `${regionLabel(province)}` : ""),
+        // The MEDIAN of that region's own rows. Only offered as a default for
+        // the optional circle; an empty centre stays empty, because a centre
+        // with no radius matches nothing and inventing both would draw a
+        // territory nobody asked for.
+        centerLat: current.centerLat || (region?.centre ? String(region.centre.lat) : ""),
+        centerLng: current.centerLng || (region?.centre ? String(region.centre.lon) : ""),
+      };
     });
   }
 
@@ -181,10 +283,7 @@ export default function PlatformSalesCampaignsPage() {
       await fetchJson("/api/platform/sales/campaigns", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...draft,
-          targetCount: Number(draft.targetCount),
-        }),
+        body: JSON.stringify({ ...draft, targetCount: Number(draft.targetCount) }),
       });
       setDraft(BLANK);
       setAdding(false);
@@ -205,15 +304,16 @@ export default function PlatformSalesCampaignsPage() {
     );
   }
 
+  const fileCount = selection?.fileCount || 0;
+
   return (
     <div className="p-4 max-w-3xl mx-auto space-y-6">
       <header className="space-y-2">
         <h1 className="text-xl font-semibold text-foreground">Discovery campaigns</h1>
         <p className="text-sm text-muted-foreground">
-          One territory, one target, and either one trade or every trade. The queue a campaign produces is
-          single-trade either way — a rep who says the same script forty times gets better at it, and a
-          prospect is claimed by exact trade. “Every trade” widens what FieldQuo banks, not what a rep is
-          handed.
+          Pick the sources, the region and the trade. The snapshot file, its URL and the row count all come
+          from the library — nothing here asks you for a URL or a coordinate. “Every trade” widens what
+          FieldQuo banks, not what a rep is handed: a rep’s queue is claimed by exact trade either way.
         </p>
       </header>
 
@@ -221,12 +321,14 @@ export default function PlatformSalesCampaignsPage() {
         <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/40 p-3 text-sm text-red-800 dark:text-red-200">
           <div className="flex items-start gap-2">
             <AlertCircle size={16} className="mt-0.5 shrink-0" />
-            <div>
-              <p>{error}</p>
+            <div className="min-w-0">
+              <p className="break-words">{error}</p>
               {problems.length ? (
                 <ul className="mt-2 list-disc pl-4 space-y-1">
                   {problems.map((p) => (
-                    <li key={p}>{p}</li>
+                    <li key={p} className="break-words">
+                      {p}
+                    </li>
                   ))}
                 </ul>
               ) : null}
@@ -235,7 +337,27 @@ export default function PlatformSalesCampaignsPage() {
         </div>
       ) : null}
 
-      {adding ? (
+      {/* ── No base URL, no campaign ────────────────────────────────────────
+          Said once, plainly, with the one screen that fixes it — instead of a
+          URL box on every source, which is what this replaced. A form that let
+          a campaign be created here would create one that reads nothing. */}
+      {library.configured ? null : (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/40 p-4 text-sm text-amber-900 dark:text-amber-200 space-y-2">
+          <p className="font-medium flex items-center gap-2">
+            <Database size={16} /> Snapshots are not configured yet.
+          </p>
+          <p className="break-words">
+            The extract is already uploaded — 80 files, 1,320,105 rows. What is missing is the bucket’s public
+            base URL, which is set once and used by every campaign. No campaign can be created until it is
+            there, because there would be no file for it to read.
+          </p>
+          <Link href="/platform/sales/snapshots" className={`${BTN} bg-primary text-primary-foreground`}>
+            Set the snapshot base URL
+          </Link>
+        </div>
+      )}
+
+      {adding && library.configured ? (
         <section className="rounded-xl border border-border bg-card p-4 space-y-4">
           <h2 className="text-base font-semibold text-foreground">New campaign</h2>
 
@@ -248,88 +370,18 @@ export default function PlatformSalesCampaignsPage() {
               className={FIELD}
               value={draft.name}
               onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-              placeholder="Ottawa painters, September"
+              placeholder="Québec painters, September"
             />
           </div>
 
-          <div>
-            <label className={LABEL} htmlFor="c-trade">
-              Trade
-            </label>
-            <select
-              id="c-trade"
-              className={FIELD}
-              value={draft.tradeKey}
-              disabled={draft.allTrades}
-              onChange={(e) => setDraft({ ...draft, tradeKey: e.target.value })}
-            >
-              <option value="">Choose a trade…</option>
-              {(data?.trades || []).map((t) => (
-                <option key={t.key} value={t.key}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {draft.allTrades
-                ? "Every trade is banked, so nothing is skipped for being the wrong one."
-                : "A business whose category maps to a different trade is counted and skipped, never quietly added."}
-            </p>
-
-            {/* Ticking this CLEARS the trade rather than keeping it in state.
-                A form that still holds "painting" behind a disabled select is a
-                form whose payload disagrees with what is on screen, and the
-                route refuses a campaign that claims both. */}
-            <label
-              className="mt-3 flex items-start gap-3 min-h-[44px] cursor-pointer"
-              htmlFor="c-all-trades"
-            >
-              <input
-                id="c-all-trades"
-                type="checkbox"
-                className="mt-1 h-5 w-5 shrink-0"
-                checked={draft.allTrades}
-                onChange={(e) => setDraft({ ...draft, allTrades: e.target.checked, tradeKey: "" })}
-              />
-              <span className="min-w-0">
-                <span className="block text-sm font-medium text-foreground">Bank every trade</span>
-                <span className="block text-xs text-muted-foreground break-words">
-                  Painters, roofers, HVAC, plumbers, electricians, paving, flooring, drywall, insulation —
-                  every trade the source returns is written, each under its own trade. This does not put
-                  anything in the wrong queue: a rep’s queue is claimed by exact trade, so a roofer banked
-                  here can only ever be handed to somebody working the roofing queue.
-                </span>
-              </span>
-            </label>
-          </div>
-
-          <div>
-            <label className={LABEL} htmlFor="c-target">
-              How many prospects
-            </label>
-            <input
-              id="c-target"
-              className={FIELD}
-              inputMode="numeric"
-              value={draft.targetCount}
-              onChange={(e) => setDraft({ ...draft, targetCount: e.target.value })}
-            />
-            <p className="mt-1 text-xs text-muted-foreground">
-              Counted against accepted contractors, not against rows found — so paint stores never count
-              towards the target. It is also the research budget: at most this many of this campaign’s
-              prospects are ever promoted into crawling and analysis, which is roughly seven pipeline tasks
-              each against about 3,600 a day for the whole platform. Banking is not bounded by it — rows keep
-              being written and cost a row each.
-            </p>
-          </div>
-
+          {/* ── Sources first, because they decide which regions exist ───── */}
           <fieldset className="space-y-3">
             <legend className={LABEL}>Where the businesses come from</legend>
             <p className="text-xs text-muted-foreground">
-              Tick as many as you want — a campaign can draw from several at once, and the same business
-              arriving from two of them is flagged rather than merged. There is deliberately no default.
-              Choosing a source is choosing a licence, and the obvious default is the one whose terms forbid
-              this exact use. Every box below states the terms it comes with; ticking three takes on three.
+              Tick as many as you want — the same business arriving from two of them is flagged rather than
+              merged. There is deliberately no default. Choosing a source is choosing a licence, and the
+              obvious default is the one whose terms forbid this exact use. Every box states the terms it
+              comes with; ticking three takes on three.
             </p>
 
             {providers.length === 0 ? (
@@ -339,6 +391,8 @@ export default function PlatformSalesCampaignsPage() {
             {providers.map((p) => {
               const ticked = draft.discoverySources.includes(p.key);
               const blocked = Boolean(p.unavailable);
+              const covers = snapshotRegions({ providers: [p.key] });
+              const coveredRows = covers.reduce((sum, r) => sum + r.rows, 0);
               return (
                 <div key={p.key} className="rounded-lg border border-border p-3 space-y-2">
                   <label
@@ -359,6 +413,17 @@ export default function PlatformSalesCampaignsPage() {
                     </span>
                   </label>
 
+                  {/* What is actually in the bucket for this source. Measured,
+                      so a source with nothing uploaded says so rather than
+                      offering a region list it cannot fill. */}
+                  <p className="text-xs text-muted-foreground break-words">
+                    {covers.length
+                      ? `In the bucket: ${count(coveredRows)} rows across ${covers.length} region${
+                          covers.length === 1 ? "" : "s"
+                        } — ${covers.map((r) => r.code).join(", ")}.`
+                      : "Nothing for this source has been uploaded to the bucket yet, so it can cover no region."}
+                  </p>
+
                   {/* The licence, against the box, always — not behind the tick.
                       A superadmin comparing sources is comparing obligations. */}
                   {p.licence ? (
@@ -376,39 +441,12 @@ export default function PlatformSalesCampaignsPage() {
                       Cannot be used yet: {p.unavailable}
                     </p>
                   ) : null}
-
-                  {ticked && !blocked && (p.configFields || []).length ? (
-                    <div className="space-y-4 border-t border-border pt-3">
-                      {(p.configFields || []).map((field) => (
-                        <div key={field.name}>
-                          <label className={LABEL} htmlFor={`cfg-${p.key}-${field.name}`}>
-                            {field.label}
-                            {field.required ? " (required)" : ""}
-                          </label>
-                          <input
-                            id={`cfg-${p.key}-${field.name}`}
-                            className={FIELD}
-                            value={draft.sourceConfigs?.[p.key]?.[field.name] || ""}
-                            onChange={(e) =>
-                              setDraft({
-                                ...draft,
-                                sourceConfigs: {
-                                  ...draft.sourceConfigs,
-                                  [p.key]: { ...(draft.sourceConfigs?.[p.key] || {}), [field.name]: e.target.value },
-                                },
-                              })
-                            }
-                          />
-                          {field.help ? <p className="mt-1 text-xs text-muted-foreground">{field.help}</p> : null}
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
                 </div>
               );
             })}
           </fieldset>
 
+          {/* ── Territory: chosen, never typed ───────────────────────────── */}
           <div>
             <label className={LABEL} htmlFor="c-territory">
               Territory
@@ -420,9 +458,10 @@ export default function PlatformSalesCampaignsPage() {
               onChange={(e) => setDraft({ ...draft, territoryId: e.target.value })}
             >
               <option value="">Describe a new one below…</option>
-              {(data?.territories || []).map((t) => (
+              {territories.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
+                  {t.country ? ` (${[t.country, t.province].filter(Boolean).join("-")})` : ""}
                 </option>
               ))}
             </select>
@@ -430,6 +469,63 @@ export default function PlatformSalesCampaignsPage() {
 
           {draft.territoryId ? null : (
             <div className="space-y-4 rounded-lg border border-border p-3">
+              <div>
+                <label className={LABEL} htmlFor="t-country">
+                  Country
+                </label>
+                <select
+                  id="t-country"
+                  className={FIELD}
+                  value={draft.country}
+                  onChange={(e) => setDraft({ ...draft, country: e.target.value, province: "" })}
+                >
+                  <option value="">Choose a country…</option>
+                  {countries.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {COUNTRY_LABELS[c.code] || c.code} ({c.code}) — {c.regions} regions, {count(c.rows)} rows
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  The two the uploaded data covers. The code is shown beside the name because it is what every
+                  address in the files is filed under.
+                </p>
+              </div>
+
+              <div>
+                <label className={LABEL} htmlFor="t-province">
+                  Region
+                </label>
+                <select
+                  id="t-province"
+                  className={FIELD}
+                  value={draft.province}
+                  disabled={!draft.country || !draft.discoverySources.length}
+                  onChange={(e) => chooseRegion(e.target.value)}
+                >
+                  <option value="">
+                    {!draft.discoverySources.length
+                      ? "Tick a source first…"
+                      : !draft.country
+                        ? "Choose a country first…"
+                        : "Choose a region…"}
+                  </option>
+                  {regions.map((r) => {
+                    const reg = territoryRegistration({ country: r.country, province: r.province });
+                    const flag = reg?.required && !reg.done ? " · registration outstanding" : "";
+                    return (
+                      <option key={r.code} value={r.province}>
+                        {regionLabel(r.province)} — {count(r.rows)} rows{flag}
+                      </option>
+                    );
+                  })}
+                </select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Only regions the ticked sources actually cover. A region with no file behind it is absent
+                  rather than offered with a zero.
+                </p>
+              </div>
+
               <div>
                 <label className={LABEL} htmlFor="t-name">
                   Territory name
@@ -439,33 +535,10 @@ export default function PlatformSalesCampaignsPage() {
                   className={FIELD}
                   value={draft.territoryName}
                   onChange={(e) => setDraft({ ...draft, territoryName: e.target.value })}
-                  placeholder="Ottawa area"
+                  placeholder="Québec"
                 />
               </div>
-              <div>
-                <label className={LABEL} htmlFor="t-country">
-                  Country code
-                </label>
-                <input
-                  id="t-country"
-                  className={FIELD}
-                  value={draft.country}
-                  onChange={(e) => setDraft({ ...draft, country: e.target.value })}
-                  placeholder="CA"
-                />
-              </div>
-              <div>
-                <label className={LABEL} htmlFor="t-province">
-                  Region or province (optional)
-                </label>
-                <input
-                  id="t-province"
-                  className={FIELD}
-                  value={draft.province}
-                  onChange={(e) => setDraft({ ...draft, province: e.target.value })}
-                  placeholder="ON"
-                />
-              </div>
+
               <div>
                 <label className={LABEL} htmlFor="t-city">
                   City (optional)
@@ -475,9 +548,19 @@ export default function PlatformSalesCampaignsPage() {
                   className={FIELD}
                   value={draft.city}
                   onChange={(e) => setDraft({ ...draft, city: e.target.value })}
-                  placeholder="Ottawa"
+                  placeholder="Montréal"
                 />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Typed, not chosen: the snapshot files are extracted by region, and the library counts rows
+                  per region. It holds no per-city count, so a city menu would be a list somebody invented.
+                  Leave it empty for the whole region.
+                </p>
               </div>
+
+              {/* The circle is still here for the campaigns that want one. It
+                  is no longer the only way to say where, and its centre comes
+                  from the region's own rows rather than from a map somebody
+                  had to open. */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={LABEL} htmlFor="t-lat">
@@ -506,7 +589,7 @@ export default function PlatformSalesCampaignsPage() {
               </div>
               <div>
                 <label className={LABEL} htmlFor="t-radius">
-                  Radius in km
+                  Radius in km (optional)
                 </label>
                 <input
                   id="t-radius"
@@ -516,13 +599,155 @@ export default function PlatformSalesCampaignsPage() {
                   onChange={(e) => setDraft({ ...draft, radiusKm: e.target.value })}
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Optional, and all-or-nothing: a centre with no radius matches nothing and a radius with no
-                  centre matches everything, so the form refuses half of either. City and region alone work
-                  fine without it.
+                  Leave the radius empty and the whole region is the territory. The centre above was filled
+                  from the median coordinate of that region’s own rows in the snapshot — not from a city
+                  looked up somewhere — so a circle only needs a radius. A centre with no radius matches
+                  nothing and a radius with no centre matches everything, so the form refuses half of either.
                 </p>
               </div>
             </div>
           )}
+
+          {/* ── Registration, on the region, at the moment it is chosen ──── */}
+          {registration?.required && !registration.done ? (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 p-3 text-sm text-amber-900 dark:text-amber-200 space-y-1">
+              <p className="font-medium flex items-center gap-2">
+                <ShieldAlert size={16} /> FieldQuo is not registered to make sales calls into{" "}
+                {registration.name}.
+              </p>
+              <p className="break-words text-xs">{registration.what}</p>
+              <p className="break-words text-xs">
+                The campaign can still be created. It is saved as a draft and cannot be started until the
+                registration is done — banking rows here would spend the pipeline on a queue where every
+                prospect shows this same warning and nobody may be dialled.
+              </p>
+            </div>
+          ) : null}
+          {registration === null && chosenTerritory ? (
+            <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
+              Nobody has read {chosenTerritory.country}-{chosenTerritory.province}’s telephone solicitation
+              law, so no rep will be given a dial link for these rows — the queue refuses what it cannot
+              confirm. Rows can still be banked and researched.
+            </p>
+          ) : null}
+
+          {/* ── Trade, with the real number beside each one ──────────────── */}
+          <div>
+            <label className={LABEL} htmlFor="c-trade">
+              Trade
+            </label>
+            <select
+              id="c-trade"
+              className={FIELD}
+              value={draft.tradeKey}
+              disabled={draft.allTrades}
+              onChange={(e) => setDraft({ ...draft, tradeKey: e.target.value })}
+            >
+              <option value="">Choose a trade…</option>
+              {(data?.trades || []).map((t) => {
+                const rows = tradeTally?.tally?.[t.key];
+                return (
+                  <option key={t.key} value={t.key}>
+                    {t.label}
+                    {tradeTally ? ` — ${count(rows || 0)} in this region` : ""}
+                  </option>
+                );
+              })}
+            </select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {draft.allTrades
+                ? "Every trade is banked, so nothing is skipped for being the wrong one."
+                : "A business whose category maps to a different trade is counted and skipped, never quietly added."}
+            </p>
+
+            {/* Ticking this CLEARS the trade rather than keeping it in state.
+                A form that still holds "painting" behind a disabled select is a
+                form whose payload disagrees with what is on screen, and the
+                route refuses a campaign that claims both. */}
+            <label className="mt-3 flex items-start gap-3 min-h-[44px] cursor-pointer" htmlFor="c-all-trades">
+              <input
+                id="c-all-trades"
+                type="checkbox"
+                className="mt-1 h-5 w-5 shrink-0"
+                checked={draft.allTrades}
+                onChange={(e) => setDraft({ ...draft, allTrades: e.target.checked, tradeKey: "" })}
+              />
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-foreground">Bank every trade</span>
+                <span className="block text-xs text-muted-foreground break-words">
+                  Painters, roofers, HVAC, plumbers, electricians, paving, flooring, drywall, insulation —
+                  every trade the source returns is written, each under its own trade. This does not put
+                  anything in the wrong queue: a rep’s queue is claimed by exact trade, so a roofer banked
+                  here can only ever be handed to somebody working the roofing queue.
+                </span>
+              </span>
+            </label>
+          </div>
+
+          {/* ── The size, before he commits ──────────────────────────────── */}
+          {selection && !selection.problems.length ? (
+            <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-1 text-sm">
+              <p className="font-medium text-foreground break-words">
+                {draft.allTrades
+                  ? `Every trade, ${regionLabel(chosenTerritory.province)} — ${count(selection.rows)} businesses`
+                  : draft.tradeKey
+                    ? `${(data?.trades || []).find((t) => t.key === draft.tradeKey)?.label || draft.tradeKey}, ` +
+                      `${regionLabel(chosenTerritory.province)} — ${count(selection.tradeRows)} businesses`
+                    : `${regionLabel(chosenTerritory.province)} — ${count(selection.rows)} rows in the snapshot`}
+              </p>
+              {/* "Not known" is not zero. The RBQ register names no trade for
+                  anybody, so its rows cannot be counted for or against a trade
+                  and saying "0 painters" would be a lie about 54,275 rows. */}
+              {selection.tradeUnknownRows && !draft.allTrades ? (
+                <p className="text-xs text-muted-foreground break-words">
+                  Plus {count(selection.tradeUnknownRows)} rows whose trade is not known — those sources name
+                  no trade at all, so how many of them are in this trade cannot be counted here. They are
+                  banked and classified when they are read.
+                </p>
+              ) : null}
+              <p className="text-xs text-muted-foreground break-words">
+                {count(selection.rows)} rows in {fileCount} file{fileCount === 1 ? "" : "s"} ·{" "}
+                {selection.providers.join(" + ")} · release {selection.releases.join(", ")}
+              </p>
+              {fileCount > 1 ? (
+                <p className="text-xs text-muted-foreground break-words">
+                  The extract is split at 50,000 rows a file and a campaign reads one file per source, so this
+                  creates <span className="font-medium text-foreground">{fileCount} campaigns</span> — same
+                  territory, same trade, one per file. Each carries the research budget below, so the
+                  promotion cost is {fileCount} × {draft.targetCount || 0}.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+          {selection?.problems.length && draft.discoverySources.length && chosenTerritory ? (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 p-3 text-xs text-amber-900 dark:text-amber-200 space-y-1">
+              {selection.problems.map((p) => (
+                <p key={p} className="break-words">
+                  {p}
+                </p>
+              ))}
+            </div>
+          ) : null}
+
+          <div>
+            <label className={LABEL} htmlFor="c-target">
+              How many prospects
+            </label>
+            <input
+              id="c-target"
+              className={FIELD}
+              inputMode="numeric"
+              value={draft.targetCount}
+              onChange={(e) => setDraft({ ...draft, targetCount: e.target.value })}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Counted against accepted contractors, not against rows found — so paint stores never count
+              towards the target. It is also the research budget: at most this many of this campaign’s
+              prospects are ever promoted into crawling and analysis, which is roughly seven pipeline tasks
+              each against about 3,600 a day for the whole platform. Banking is not bounded by it — rows keep
+              being written and cost a row each.
+            </p>
+          </div>
 
           <div className="flex flex-col sm:flex-row gap-2">
             <button
@@ -532,7 +757,11 @@ export default function PlatformSalesCampaignsPage() {
               disabled={saving}
             >
               {saving ? <Loader2 className="animate-spin" size={16} /> : <Plus size={16} />}
-              Create campaign
+              {saving
+                ? "Checking the snapshots…"
+                : fileCount > 1
+                  ? `Create ${fileCount} campaigns`
+                  : "Create campaign"}
             </button>
             <button
               type="button"
@@ -548,7 +777,7 @@ export default function PlatformSalesCampaignsPage() {
             </button>
           </div>
         </section>
-      ) : (
+      ) : library.configured ? (
         <button
           type="button"
           className={`${BTN} bg-primary text-primary-foreground w-full sm:w-auto`}
@@ -556,7 +785,7 @@ export default function PlatformSalesCampaignsPage() {
         >
           <Plus size={16} /> New campaign
         </button>
-      )}
+      ) : null}
 
       <section className="space-y-3">
         {(data?.campaigns || []).length === 0 ? (
@@ -632,9 +861,46 @@ export default function PlatformSalesCampaignsPage() {
         ))}
       </section>
 
+      {/* ── What registering next would unlock ──────────────────────────────
+          Read from lib/sales/callingRules.js and the measured library, never
+          from a second list: a hand-kept copy of "which states are gated" had
+          already drifted from the rules it was copied from. */}
+      {backlog.length ? (
+        <section className="rounded-xl border border-border bg-card p-4 space-y-3">
+          <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+            <ShieldAlert size={16} /> Telemarketer registration outstanding
+          </h2>
+          <p className="text-xs text-muted-foreground break-words">
+            {backlog.length} jurisdiction{backlog.length === 1 ? "" : "s"} require FieldQuo to register before
+            the first sales call, and none of them is done. Campaigns in these places can be created but not
+            started. Ordered by the rows each one unlocks — the row counts are what is in the bucket today,
+            not what the state contains.
+          </p>
+          <ol className="space-y-2">
+            {backlog.map((row) => (
+              <li key={row.code} className="rounded-lg border border-border p-3">
+                <p className="text-sm font-medium text-foreground break-words">
+                  {row.name} — {row.rows ? `${count(row.rows)} rows` : "nothing in the bucket yet"}
+                </p>
+                {row.what ? <p className="mt-1 text-xs text-muted-foreground break-words">{row.what}</p> : null}
+              </li>
+            ))}
+          </ol>
+          <p className="text-xs text-muted-foreground break-words">
+            Flip <span className="font-mono">registration.done</span> in{" "}
+            <span className="font-mono">lib/sales/callingRules.js</span> when a certificate is in hand, citing
+            the number in the commit. Nothing in this software can know that on its own.
+          </p>
+        </section>
+      ) : null}
+
       <p className="text-xs text-muted-foreground">
         Territories are created with a campaign and reused by later ones. Renaming or re-drawing one
-        afterwards is not built yet — there is no screen for it, rather than a button that would not work.
+        afterwards is not built yet — there is no screen for it, rather than a button that would not work.{" "}
+        <Link href="/platform/sales/snapshots" className="underline">
+          The snapshot library
+        </Link>{" "}
+        is where the bucket’s base URL lives.
       </p>
     </div>
   );

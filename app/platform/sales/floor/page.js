@@ -23,6 +23,18 @@
 // is the whole reason livePresence returns `stale` beside `state` rather than
 // folding one into the other.
 //
+// ══ "Never signed in" is now a fact, not an inference ═════════════════════
+//
+// It used to be printed whenever a rep had no SalesRepActivity row. Nothing
+// writes one of those when somebody opens the portal — only pressing dial,
+// pausing or going available does — so the board said "has never signed in"
+// about reps who had worked all morning, and a supervisor reading it concluded
+// they had not showed up. SalesRep.lastSeenAt is the observed fact that was
+// missing, stamped by lib/sales/gate.js, and the card now prints three
+// different things: never seen, signed in but not on the floor, or the state
+// they declared. Signing in deliberately does NOT put anybody in the routing
+// pool — that would be inventing a declaration.
+//
 // ══ Read-only, and it says so ═════════════════════════════════════════════
 //
 // There is no control here that reaches into a rep's day: no forced logout, no
@@ -107,7 +119,9 @@ export default function SalesFloorPage() {
           <h1 className="text-xl font-semibold text-foreground">Sales floor</h1>
           <p className="text-sm text-muted-foreground">
             Live, read-only, and refreshed every fifteen seconds. Every state below is one a rep
-            declared — nothing here is observed from a phone line.
+            declared — nothing here is observed from a phone line. The one exception is “signed
+            in”, which is the portal noticing them arrive; it is not a state, and nobody is routed
+            a call on it.
           </p>
         </div>
         <button type="button" className={`${BTN} border border-border`} onClick={load}>
@@ -161,6 +175,18 @@ export default function SalesFloorPage() {
               const Icon = STATE_ICON[state] || CircleHelp;
               const tone = stale ? TONE.stale : TONE[state] || TONE.offline;
               const s = rep.stats;
+              // ── Three answers, and the middle one used to be missing ────
+              //
+              // A rep with no activity row was printed as "has never signed
+              // in". Nothing writes an activity row when somebody opens the
+              // portal — only dialling, pausing or going available does — so
+              // that sentence was said about reps who had been working all
+              // morning. `everSignedIn` is the observed fact (see
+              // SalesRep.lastSeenAt); `everSeen` remains what it always was,
+              // "has declared a state", and the two must not be merged: a rep
+              // who has only signed in is not on the floor and is not routable.
+              const declared = p?.everSeen !== false;
+              const seenNotOnFloor = !declared && p?.everSignedIn === true;
               return (
                 <div key={rep.id} className={`rounded-xl border p-4 space-y-2 ${tone}`}>
                   <div className="flex items-start justify-between gap-2">
@@ -168,13 +194,30 @@ export default function SalesFloorPage() {
                       <p className="font-semibold break-words">{rep.name}</p>
                       <p className="text-sm flex items-center gap-1.5">
                         <Icon size={14} className="shrink-0" />
-                        {p?.everSeen === false
-                          ? "Has never signed in"
-                          : `${stateLabels[state] || state}${
+                        {declared
+                          ? `${stateLabels[state] || state}${
                               p?.pauseReason ? ` — ${pauseLabels[p.pauseReason] || p.pauseReason}` : ""
-                            }`}
-                        {p?.forMs != null && p.everSeen ? ` · ${describeDuration(p.forMs)}` : ""}
+                            }`
+                          : seenNotOnFloor
+                            ? "Signed in — not on the floor"
+                            : "Never signed in"}
+                        {p?.forMs != null && declared ? ` · ${describeDuration(p.forMs)}` : ""}
                       </p>
+                      {/* The distinction, said rather than left to a colour.
+                          "Not on the floor" is a fact about what they have not
+                          declared; it is not a claim that they are idle. */}
+                      {seenNotOnFloor ? (
+                        <p className="text-xs break-words">
+                          Last seen in the portal at{" "}
+                          {new Date(p.portalSeenAt).toLocaleTimeString()}. They have not said
+                          whether they are available, so nothing is routed to them.
+                        </p>
+                      ) : null}
+                      {!declared && !seenNotOnFloor ? (
+                        <p className="text-xs break-words">
+                          There is no record of this account opening the portal.
+                        </p>
+                      ) : null}
                       {/* Said, not shaded. A dashed box a supervisor has to
                           decode is not as good as a sentence. */}
                       {stale ? (

@@ -35,6 +35,14 @@ import {
 } from "@/lib/sales/discovery/sources";
 import { campaignTradeLabel } from "@/lib/sales/discovery/trades";
 import { researchBudget } from "@/lib/sales/pipeline/handlers/discoverBusinesses";
+import {
+  snapshotFileFor,
+  snapshotFileForUrl,
+  snapshotUrlFor,
+} from "@/lib/sales/discovery/snapshotLibrary";
+import { loadSnapshotLibrarySetting } from "@/lib/sales/discovery/snapshotSetting";
+import { probeSnapshot } from "@/lib/sales/discovery/snapshotProbe";
+import { campaignStartBlockers, territoryRegistration } from "@/lib/sales/discovery/campaignGate";
 import { campaignProgress, funnelProblems, funnelRows } from "@/lib/sales/discovery/funnel";
 import { stalenessOf } from "@/lib/sales/discovery/normalise";
 import { duplicateReason } from "@/lib/sales/discovery/dedupe";
@@ -140,7 +148,20 @@ export async function GET(request, { params }) {
       state: s.state,
     })),
     // Why Start is not offered, in sentences. Empty means it can start.
-    startProblems: startProblems(campaign, { getProvider: getDiscoveryProvider }),
+    //
+    // BOTH gates, concatenated, never whichever fired first: a campaign with an
+    // unreachable snapshot in a state FieldQuo is not registered in has two
+    // problems, and a screen that named one would send somebody to fix it and
+    // press the button again.
+    startProblems: [
+      ...startProblems(campaign, { getProvider: getDiscoveryProvider }),
+      ...campaignStartBlockers(campaign.territory).map((b) => `${b.title} ${b.fix}`),
+    ],
+    // The registration position where this campaign would be calling, stated
+    // whether or not it blocks. "Registered" is worth seeing too — it is the
+    // difference between a draft somebody has not started and a draft that
+    // cannot be.
+    registration: territoryRegistration(campaign.territory),
     review: review.map((p) => ({
       ...p,
       staleness: stalenessOf(p.sourceUpdatedAt),
@@ -168,14 +189,27 @@ export async function PATCH(request, { params }) {
   const body = await request.json().catch(() => ({}));
   const action = String(body?.action ?? "").trim();
 
-  const campaign = await db.prospectCampaign.findUnique({ where: { id } });
+  // The territory comes with it, because two of the four buttons now depend on
+  // WHERE the campaign is: start is refused into a jurisdiction FieldQuo is not
+  // registered to solicit in, and the snapshot is re-derived per region.
+  const campaign = await db.prospectCampaign.findUnique({ where: { id }, include: { territory: true } });
   if (!campaign) return NextResponse.json({ error: "No such campaign." }, { status: 404 });
 
   if (action === "configure") {
-    // ONE source's settings, named. A body that changed "the config" would
-    // have to guess which of three sources it meant, and both shipped sources
-    // have a field called `snapshotUrl` — so the guess would silently write
-    // one source's snapshot URL onto another.
+    // ══ Re-DERIVED, never typed ═══════════════════════════════════════════
+    //
+    // This branch used to take a `providerConfig` blob off the request, which
+    // made it the last place in the product where a snapshot URL could be typed
+    // — and therefore the last place one could be typed WRONG. It now rebuilds
+    // the URL from the base URL configured at /platform/sales/snapshots and the
+    // object key the campaign already carries, and fetches it before saving. A
+    // request that includes a URL is refused rather than ignored: silently
+    // dropping what somebody typed is how a Save button reports success and
+    // changes nothing.
+    //
+    // What it still does, and why the branch survives at all: fixing the
+    // settings is the ONLY thing that clears a source the pipeline blocked, and
+    // the thing that needs fixing after a base URL changes is exactly this.
     const sourceKey = String(body?.sourceKey ?? "").trim();
     if (!sourceKey) return bad("Which source? A campaign can draw from several, so the settings name one.");
     if (!campaignSourceKeys(campaign).includes(sourceKey)) {
@@ -183,7 +217,41 @@ export async function PATCH(request, { params }) {
     }
     const provider = getDiscoveryProvider(sourceKey);
     if (!provider) return bad(`This build does not ship a source called "${sourceKey}".`);
-    const config = body?.providerConfig && typeof body.providerConfig === "object" ? body.providerConfig : {};
+    if (body?.providerConfig?.snapshotUrl) {
+      return bad(
+        "Snapshot URLs are not typed any more. This campaign's file is rebuilt from the base URL at " +
+          "/platform/sales/snapshots, so change it there and press this again.",
+      );
+    }
+
+    const stored = plainObject(campaign.sourceConfigs)?.[sourceKey] || {};
+    // The library row this source reads. Campaigns created since the library
+    // carry the key; older ones carry only the URL the create script built by
+    // hand, and matching that back to a key is what lets one of those be fixed
+    // rather than stranded.
+    const file = snapshotFileFor(stored.snapshotFile) || snapshotFileForUrl(stored.snapshotUrl);
+    if (!file) {
+      return bad(
+        "This campaign's snapshot is not one of the files in the library, so there is nothing to rebuild it " +
+          "from. Create a new campaign for this region instead — the form picks the file for you.",
+      );
+    }
+
+    const library = await loadSnapshotLibrarySetting(db);
+    if (!library.configured) {
+      return bad("Snapshots are not configured. Set the bucket's base URL at /platform/sales/snapshots first.");
+    }
+
+    const url = snapshotUrlFor(library.baseUrl, file.objectKey);
+    const probe = await probeSnapshot(url, file);
+    if (!probe.ok) {
+      return NextResponse.json(
+        { error: "The rebuilt snapshot URL did not serve that file, so nothing was changed.", problems: [probe.problem] },
+        { status: 400 },
+      );
+    }
+
+    const config = { snapshotUrl: url, snapshotFile: file.objectKey };
     const described = provider.describeConfig(config);
     if (!described.ok) {
       return NextResponse.json({ error: "Those settings would discover nothing.", problems: described.problems }, { status: 400 });
@@ -219,6 +287,24 @@ export async function PATCH(request, { params }) {
     // itself, and one unusable source among three is still a Start button that
     // would half-work.
     const problems = startProblems(campaign, { getProvider: getDiscoveryProvider });
+
+    // ══ …and where it would be calling ════════════════════════════════════
+    //
+    // The registration gate, re-read from lib/sales/callingRules.js on every
+    // press rather than from anything stored on the campaign. Starting is the
+    // moment the pipeline spending begins, and spending it banking 75,887
+    // Washington licences that no rep may dial is the one outcome this gate
+    // exists to prevent. The campaign stays a draft — which is what the manual
+    // creation script did by hand, moved to where the button is.
+    //
+    // Read the whole argument in lib/sales/discovery/campaignGate.js: this is
+    // NOT a second copy of the calling rules, and it is deliberately stricter
+    // than the per-call warning, because a call is one call and a campaign is
+    // a budget.
+    for (const blocker of campaignStartBlockers(campaign.territory)) {
+      problems.push(`${blocker.title} ${blocker.fix}`);
+    }
+
     if (problems.length) {
       return NextResponse.json({ error: "This campaign cannot start yet.", problems }, { status: 400 });
     }

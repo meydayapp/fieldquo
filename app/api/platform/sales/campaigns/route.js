@@ -33,6 +33,31 @@
 // A separate territory console — renaming, deactivating, editing a radius
 // after the fact — is NOT built. That is stated on the screen rather than
 // hinted at with a control that does nothing.
+//
+// ══ Nobody types a snapshot URL any more ═══════════════════════════════════
+//
+// UPDATED 2026-09-09. Every source used to demand its own "Snapshot URL
+// (required)", with help telling the owner to run a DuckDB extractor and host
+// the output — for an extract that had already been run and uploaded: 80 files,
+// 1,320,105 rows, in R2. His words: "where the fuck do I get the snapshot URL…
+// it should be just automated for me in a way that I can just select few things
+// and get the total number of trade."
+//
+// So this route no longer accepts a snapshot URL from anybody. It reads the
+// base URL configured once at /platform/sales/snapshots, looks up which files
+// cover the chosen sources and region in the measured library, DERIVES each
+// URL, and fetches each one's first line before saving. A campaign pointed at a
+// file that is not there now fails on the form rather than running, reading
+// nothing and reporting itself complete.
+//
+// ══ Which is why one submission can create several campaigns ═══════════════
+//
+// The extract is split at 50,000 rows a file — California's register is five
+// files — and a campaign carries ONE snapshot URL per source. Rather than
+// invent a multi-file cursor (a change to every provider's paging, for a
+// property the library already knows), one campaign is created per file and the
+// form says so with the count before the button is pressed. Same territory,
+// same trade, same sources; the funnel adds up across them on the list.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -43,14 +68,22 @@ import { campaignTradeLabel, discoveryTradeKeys, DISCOVERY_TRADES } from "@/lib/
 import { campaignProgress, funnelRows } from "@/lib/sales/discovery/funnel";
 import {
   describeSources,
-  readSourceConfigs,
   readSourceSelection,
   startProblems,
   unavailableReasonOf,
 } from "@/lib/sales/discovery/sources";
+import { campaignNameForFile, snapshotSelection, snapshotUrlFor } from "@/lib/sales/discovery/snapshotLibrary";
+import { loadSnapshotLibrarySetting } from "@/lib/sales/discovery/snapshotSetting";
+import { probeSnapshot } from "@/lib/sales/discovery/snapshotProbe";
+import { campaignStartBlockers, territoryRegistration } from "@/lib/sales/discovery/campaignGate";
 
 const MAX_NAME = 120;
 const MAX_TARGET = 50_000;
+/** How many campaigns one submission may create. The largest single selection
+ *  in the library is California — 5 register parts plus 2 Overture parts — so
+ *  this is headroom, not a policy. It exists because a bug in the selection
+ *  arithmetic should fail loudly rather than write two hundred rows. */
+const MAX_CAMPAIGNS_PER_SUBMISSION = 24;
 
 export async function GET(request) {
   const { refusal } = await superadminOrRefusal(request);
@@ -65,7 +98,15 @@ export async function GET(request) {
     db.salesTerritory.findMany({ orderBy: { name: "asc" } }),
   ]);
 
+  const library = await loadSnapshotLibrarySetting(db);
+
   return NextResponse.json({
+    // Whether snapshots are configured at all, and where to go if not. The form
+    // needs this BEFORE it renders anything: with no base URL there is no way
+    // to build a snapshot URL, so the honest screen is a sentence pointing at
+    // the one setting — not a URL box on every source, which is what this
+    // whole change removed.
+    library,
     campaigns: campaigns.map((c) => {
       const sources = describeSources(c, { getProvider: getDiscoveryProvider });
       return {
@@ -181,27 +222,95 @@ export async function POST(request) {
     );
   }
 
-  const sourceConfigs = readSourceConfigs(body, selection.keys);
-  const draft = { discoverySources: selection.keys, sourceConfigs };
-  const sourceProblems = startProblems(draft, { getProvider: getDiscoveryProvider });
-  if (sourceProblems.length) {
-    return NextResponse.json(
-      { error: "This campaign could never discover anything, so it was not saved.", problems: sourceProblems },
-      { status: 400 },
-    );
-  }
-  const describedSources = describeSources(draft, { getProvider: getDiscoveryProvider });
-
+  // ── The territory, which is now also WHICH FILES ───────────────────────
+  //
+  // Resolved before the snapshots, because the region decides which files the
+  // library hands back and an existing territory carries its own.
   const territoryInput = shapeTerritory(body);
   if (territoryInput.error) return bad(territoryInput.error);
 
   let territoryId = String(body?.territoryId ?? "").trim() || null;
+  let territory = territoryInput.value;
   if (territoryId) {
     const exists = await db.salesTerritory.findUnique({ where: { id: territoryId } });
     if (!exists) return bad("That territory no longer exists.");
-  } else if (!territoryInput.value) {
+    territory = exists;
+  } else if (!territory) {
     return bad("A campaign needs a territory — pick an existing one or describe a new one.");
   }
+
+  // ── The snapshot base URL, which nobody types per campaign ──────────────
+  const library = await loadSnapshotLibrarySetting(db);
+  if (!library.configured) {
+    return NextResponse.json(
+      {
+        error: "Snapshots are not configured, so no campaign can be given a file to read.",
+        problems: [
+          "Set the bucket's public base URL once at /platform/sales/snapshots. Every campaign's snapshot " +
+            "URL is built from it — there is no per-campaign URL to type, deliberately.",
+        ],
+      },
+      { status: 400 },
+    );
+  }
+
+  // ── Which files cover this selection, and how many rows are in them ────
+  const files = snapshotSelection({
+    providers: selection.keys,
+    country: territory.country,
+    province: territory.province,
+    tradeKey: allTrades ? null : tradeKey,
+  });
+  if (files.problems.length) {
+    return NextResponse.json(
+      { error: "There is no snapshot for that combination, so nothing was saved.", problems: files.problems },
+      { status: 400 },
+    );
+  }
+  if (files.fileCount > MAX_CAMPAIGNS_PER_SUBMISSION) {
+    return bad(`That selection covers ${files.fileCount} snapshot files, which is more than one submission may create.`);
+  }
+
+  // ── Each derived URL, PROVED before anything is written ────────────────
+  //
+  // The key comes from the library so it cannot be mistyped; the base is the
+  // one thing a human pasted. Every way of getting that slightly wrong — wrong
+  // bucket, public access never switched on, a domain that serves the root but
+  // not the prefix — produces a URL that looks perfect and fetches nothing, and
+  // a campaign built on one runs, reads zero rows and reports itself complete.
+  const plans = [];
+  const problems = [];
+  for (const file of files.files) {
+    const url = snapshotUrlFor(library.baseUrl, file.objectKey);
+    const probe = await probeSnapshot(url, file);
+    if (!probe.ok) {
+      problems.push(probe.problem);
+      continue;
+    }
+    plans.push({ file, url });
+  }
+  if (problems.length) {
+    return NextResponse.json(
+      {
+        error: "A snapshot this campaign would read is not where it should be, so nothing was saved.",
+        problems: [
+          ...problems,
+          "Check the base URL at /platform/sales/snapshots, and that the files were uploaded under the same " +
+            "prefixes the library records.",
+        ],
+      },
+      { status: 400 },
+    );
+  }
+
+  // ── Where the campaign would be calling, and whether FieldQuo may ──────
+  //
+  // Recorded now and returned with the result. It does NOT stop the campaign
+  // being created — the gate is on START, where the spending begins — but a
+  // superadmin who ticked Washington has to be told at the moment they tick it,
+  // not the first time they press a button that refuses.
+  const registration = territoryRegistration(territory);
+  const startBlockers = campaignStartBlockers(territory);
 
   const created = await db.$transaction(async (tx) => {
     if (!territoryId) {
@@ -216,57 +325,99 @@ export async function POST(request) {
       }
     }
 
-    const campaign = await tx.prospectCampaign.create({
-      data: {
-        name,
-        territoryId,
-        // Null rather than "" for an all-trades campaign: the column means "the
-        // one trade this campaign banks", and an empty string is not a trade.
-        tradeKey: allTrades ? null : tradeKey,
-        allTrades,
-        targetCount,
-        // The plural fields only. `discoveryProvider` and `providerConfig`
-        // are read for campaigns created before this change and are never
-        // written again — a column that had to name one of three sources
-        // would lie about the other two. See the schema comment.
-        discoverySources: selection.keys,
-        sourceConfigs,
-        status: "draft",
-      },
-      include: { territory: true },
-    });
+    const rows = [];
+    for (const plan of plans) {
+      // `snapshotFile` travels beside the URL so the campaign remembers WHICH
+      // library row it was derived from. Without it, re-deriving after the base
+      // URL changes would mean parsing the URL back into a key — and a campaign
+      // created before the library existed would be indistinguishable from one
+      // whose file was renamed.
+      const sourceConfigs = {
+        [plan.file.provider]: { snapshotUrl: plan.url, snapshotFile: plan.file.objectKey },
+      };
+      const draft = { discoverySources: [plan.file.provider], sourceConfigs };
+      const sourceProblems = startProblems(draft, { getProvider: getDiscoveryProvider });
+      if (sourceProblems.length) {
+        // Thrown rather than returned: this is inside the transaction, and a
+        // partial set of campaigns is worse than none. It should be
+        // unreachable — the URL was just fetched — so it says so.
+        throw new Error(`derived config rejected for ${plan.file.objectKey}: ${sourceProblems.join(" ")}`);
+      }
+      const described = describeSources(draft, { getProvider: getDiscoveryProvider });
 
-    await tx.platformAuditLog.create({
-      data: {
-        platformAdminId: admin.id,
-        action: "sales_campaign_created",
-        details: {
-          campaignId: campaign.id,
-          name: campaign.name,
-          // Both, always. "tradeKey: null" alone in an audit log cannot say
-          // whether somebody chose every trade or the row was written wrong.
+      const campaign = await tx.prospectCampaign.create({
+        data: {
+          name: campaignNameForFile(name, plan.file, plans.length, MAX_NAME),
+          territoryId,
+          // Null rather than "" for an all-trades campaign: the column means
+          // "the one trade this campaign banks", and an empty string is not a
+          // trade.
           tradeKey: allTrades ? null : tradeKey,
           allTrades,
           targetCount,
-          sources: selection.keys,
-          // Which obligations this campaign just took on, recorded at the
-          // moment somebody accepted them. Ticking three sources is ticking
-          // three licences, and an audit log that recorded only the keys would
-          // not show that the choice was made with the terms on screen.
-          licences: describedSources.map((s) => `${s.key}: ${s.licence?.name || "unstated"}`),
-          territoryId,
-          // Each config's SUMMARY, not the config. A snapshot URL can be
-          // signed, and an audit log is the last place a credential should
-          // land.
-          sourceConfigs: Object.fromEntries(describedSources.map((s) => [s.key, s.summary])),
+          // The plural fields only. `discoveryProvider` and `providerConfig`
+          // are read for campaigns created before this change and are never
+          // written again — a column that had to name one of three sources
+          // would lie about the other two. See the schema comment.
+          discoverySources: [plan.file.provider],
+          sourceConfigs,
+          status: "draft",
         },
-      },
-    });
+        include: { territory: true },
+      });
 
-    return campaign;
+      await tx.platformAuditLog.create({
+        data: {
+          platformAdminId: admin.id,
+          action: "sales_campaign_created",
+          details: {
+            campaignId: campaign.id,
+            name: campaign.name,
+            // Both, always. "tradeKey: null" alone in an audit log cannot say
+            // whether somebody chose every trade or the row was written wrong.
+            tradeKey: allTrades ? null : tradeKey,
+            allTrades,
+            targetCount,
+            sources: [plan.file.provider],
+            // Which obligations this campaign just took on, recorded at the
+            // moment somebody accepted them. Ticking three sources is ticking
+            // three licences, and an audit log that recorded only the keys
+            // would not show that the choice was made with the terms on screen.
+            licences: described.map((s) => `${s.key}: ${s.licence?.name || "unstated"}`),
+            territoryId,
+            // The object key, not the URL. The key is the durable fact; the
+            // base URL is a setting that can be changed on another screen, and
+            // an audit log repeating it would rot the day it is.
+            snapshotFile: plan.file.objectKey,
+            snapshotRows: plan.file.rows,
+            // Recorded at the moment of creation: this campaign was created
+            // knowing it could not be started, and by whom.
+            startBlocked: startBlockers.map((b) => b.code),
+          },
+        },
+      });
+
+      rows.push(campaign);
+    }
+    return rows;
   });
 
-  return NextResponse.json({ campaign: { ...created, progress: campaignProgress(created), funnel: funnelRows(created) } });
+  return NextResponse.json({
+    campaigns: created.map((c) => ({ ...c, progress: campaignProgress(c), funnel: funnelRows(c) })),
+    // The first one, so a caller written against the single-campaign response
+    // still finds what it was reading.
+    campaign: created[0]
+      ? { ...created[0], progress: campaignProgress(created[0]), funnel: funnelRows(created[0]) }
+      : null,
+    snapshot: {
+      files: plans.map((p) => ({ objectKey: p.file.objectKey, rows: p.file.rows, provider: p.file.provider })),
+      rows: files.rows,
+      tradeRows: files.tradeRows,
+      tradeUnknownRows: files.tradeUnknownRows,
+    },
+    registration,
+    startBlockers,
+  });
 }
 
 function bad(error) {
@@ -296,8 +447,16 @@ function shapeTerritory(body) {
     return { value: null };
   }
   if (!name) return { error: "A new territory needs a name." };
-  if (!country) return { error: "A territory needs a country code — Overture files every address under one." };
+  if (!country) return { error: "A territory needs a country — pick one from the list." };
   if (country.length !== 2) return { error: 'A country code is two letters, like "CA" or "US".' };
+  // Required now, where it used to be optional. The snapshot library is
+  // extracted and counted PER REGION, so a territory with no region names no
+  // file — and the campaign built from it would have nothing to read. This is
+  // the error a form that lost its region select would produce, rather than a
+  // campaign that saves and discovers nothing.
+  if (!province) {
+    return { error: "A territory needs a region — the snapshots are extracted per region, so one names the file." };
+  }
 
   const hasCentre = centerLat != null && centerLng != null;
   if (hasCentre && (!Number.isFinite(centerLat) || !Number.isFinite(centerLng))) {

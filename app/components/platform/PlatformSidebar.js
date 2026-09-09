@@ -113,6 +113,7 @@ import {
   Fingerprint,
   Contact,
   Radar,
+  Database,
   BookOpenCheck,
   HandCoins,
   Trash2,
@@ -237,6 +238,12 @@ const GROUPS = [
       // one trade and one target, and the single-trade queue it produces is
       // the whole reason it is a campaign rather than a filter.
       { label: "Discovery campaigns", href: "/platform/sales/campaigns", icon: Radar },
+      // Directly under campaigns, because it is the one thing a campaign needs
+      // that a campaign cannot ask for: the public base URL of the bucket the
+      // snapshot files were uploaded to. Set once. Every campaign's snapshot
+      // URL is derived from it and from the object key in the measured library,
+      // which is why no campaign form has a URL field any more.
+      { label: "Snapshot library", href: "/platform/sales/snapshots", icon: Database },
       // What the campaigns actually produced. Directly under them because it
       // is the same question one step later — a campaign says how many rows it
       // wrote, this says what is IN them, and it is where the owner checks
