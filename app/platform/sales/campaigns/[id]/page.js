@@ -35,6 +35,7 @@ import {
   AlertCircle,
   ArrowLeft,
   Check,
+  Copy,
   Clock,
   Loader2,
   Pause,
@@ -545,8 +546,36 @@ export default function PlatformSalesCampaignPage({ params }) {
               {p.sourceDataset ? ` (${p.sourceDataset}, release ${p.sourceRelease})` : ""}
             </p>
 
+            {/* ── WHICH business, not just "a duplicate" ────────────────────
+                "Flagged as a possible duplicate" is not something anybody can
+                act on: it does not say which row, so the reviewer remembers or
+                guesses. Naming the other row — and what has already happened to
+                it — is the whole difference between a label and a decision. */}
             {p.possibleDuplicateOfId ? (
-              <p className="text-xs text-amber-800 dark:text-amber-200">{p.duplicateNote}</p>
+              <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-800 p-3 text-xs text-amber-900 dark:text-amber-200 space-y-1">
+                <p className="font-semibold">{p.duplicateNote}</p>
+                {p.duplicateOf ? (
+                  <p className="break-words">
+                    Same as <span className="font-semibold">{p.duplicateOf.businessName}</span>
+                    {p.duplicateOf.addressLine ? `, ${p.duplicateOf.addressLine}` : ""}
+                    {p.duplicateOf.city ? `, ${p.duplicateOf.city}` : ""} — which is already{" "}
+                    {p.duplicateOf.status === "needs_review"
+                      ? "waiting in this same review list"
+                      : p.duplicateOf.status === "rejected"
+                        ? "rejected"
+                        : "accepted and being researched"}
+                    .
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {/* The reason these duplicate at all, where the number says so. A
+                signal and never a verdict: a multi-branch contractor with a
+                switchboard is a real business, and auto-rejecting on a service
+                access code would drop legitimate ones. */}
+            {p.tollFreeNote ? (
+              <p className="text-xs text-muted-foreground break-words">{p.tollFreeNote}</p>
             ) : null}
 
             <div className="flex flex-col sm:flex-row gap-2">
@@ -559,6 +588,21 @@ export default function PlatformSalesCampaignPage({ params }) {
                 {busy === p.id ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
                 It is a contractor
               </button>
+              {/* Offered only where it is TRUE. A third button on every card
+                  would be a third thing to read four hundred times; this one
+                  appears when the row was flagged, or when the number is shared
+                  with rows already in the bank, which are the two ways "I
+                  already have this" becomes the honest answer. */}
+              {p.possibleDuplicateOfId || p.sharedPhoneCount > 0 ? (
+                <button
+                  type="button"
+                  className={`${BTN} border border-amber-400 text-amber-900 dark:text-amber-100`}
+                  onClick={() => review(p.id, "duplicate")}
+                  disabled={Boolean(busy)}
+                >
+                  <Copy size={16} /> Contractor, already have it
+                </button>
+              ) : null}
               <button
                 type="button"
                 className={`${BTN} border border-border text-foreground`}

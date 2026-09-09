@@ -1361,20 +1361,30 @@ section("The review route decides, and moves the counters with the row");
     const code = stripComments(body);
     ok("it refuses a row somebody else already reviewed",
       /prospect\.status !== "needs_review"/.test(code));
-    // BOTH branches. Guarding only the accept path still let two reviewers
-    // both reject one row and decrement the counter twice, and the
+    // EVERY branch. Guarding only the accept path still let two reviewers both
+    // reject one row and decrement the counter twice, and the
     // single-occurrence rule passed on the surviving guard in the other
     // branch. Found by mutation testing.
-    ok("BOTH updates are guarded on the status that was read, not on the id alone",
-      (code.match(/where:\s*\{\s*id:\s*prospect\.id,\s*status:\s*"needs_review"\s*\}/g) || []).length === 2);
+    //
+    // Counted against the number of DECISIONS rather than pinned at two. It
+    // was two, and a third — "contractor, already have it" — landed the day the
+    // owner met a real contractor that was also a duplicate. A hardcoded 2
+    // then fails on a correctly-guarded new branch, which teaches whoever adds
+    // the fourth one to loosen the rule rather than satisfy it.
+    const decisions = (code.match(/decision === "(accept|reject|duplicate)"/g) || []).length;
+    ok("the route still has a decision branch to check", decisions >= 2, decisions);
+    ok("EVERY update is guarded on the status that was read, not on the id alone",
+      (code.match(/where:\s*\{\s*id:\s*prospect\.id,\s*status:\s*"needs_review"\s*\}/g) || []).length === decisions,
+      { guards: (code.match(/where:\s*\{\s*id:\s*prospect\.id,\s*status:\s*"needs_review"\s*\}/g) || []).length, decisions });
     // `\b` before the name: an unanchored match also matched a renamed
     // `__doNotContactAt`, so the field could be disabled without the rule
     // noticing. Found by mutation testing.
     ok("a rejection does NOT delete — it sets doNotContactAt, which survives every transition",
       /\bdoNotContactAt:/.test(code) && /\bdoNotContactReason:/.test(code) && !/prospect\.delete/.test(code));
     ok("the counters move in the same transaction as the row", /\$transaction/.test(code));
-    ok("needsReviewCount decrements on both decisions",
-      (code.match(/needsReviewCount:\s*\{\s*decrement:\s*1\s*\}/g) || []).length === 2);
+    ok("needsReviewCount decrements on EVERY decision — a row that left the list is off the count",
+      (code.match(/needsReviewCount:\s*\{\s*decrement:\s*1\s*\}/g) || []).length === decisions,
+      { decrements: (code.match(/needsReviewCount:\s*\{\s*decrement:\s*1\s*\}/g) || []).length, decisions });
   }
   ok("params is awaited", /const \{ id \} = await params;/.test(src));
 }

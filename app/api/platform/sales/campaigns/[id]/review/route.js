@@ -13,6 +13,23 @@
 // never seen by anybody. A classifier that is allowed to say "I don't know"
 // only earns that by there being somebody to ask.
 //
+// ══ Three decisions, because two of them could not say what was true ══════
+//
+// It was accept or reject. The owner hit the case neither one fits: Insulation
+// Depot USA came up for review flagged as a possible duplicate, and it IS a
+// contractor — he had already accepted the same business at a different Buffalo
+// address. Accepting it would bank a third copy of one company and spend seven
+// pipeline tasks and an AI brief researching it again; rejecting it would file
+// a real contractor as a shop and set doNotContactAt on it. Neither is the
+// truth, and a screen that forces a choice between two wrong answers gets a
+// wrong answer.
+//
+// So there is a third: DUPLICATE. "Contractor, and I already have it." It
+// resolves the flag, does not promote the row to research, and does not mark
+// the business do-not-contact — because the business is fine, this ROW is
+// redundant. The row itself is kept, as every other decision here keeps it:
+// deleting would let next month's re-ingest rediscover it and ask again.
+//
 // ══ Accept and reject are not symmetrical ═════════════════════════════════
 //
 // ACCEPT moves the row into the working queue and queues the research that
@@ -42,8 +59,8 @@ export async function POST(request, { params }) {
   const decision = String(body?.decision ?? "").trim();
 
   if (!prospectId) return bad("Which prospect?");
-  if (decision !== "accept" && decision !== "reject") {
-    return bad('A review is either "accept" or "reject".');
+  if (decision !== "accept" && decision !== "reject" && decision !== "duplicate") {
+    return bad('A review is "accept", "reject" or "duplicate".');
   }
 
   const prospect = await db.prospect.findUnique({ where: { id: prospectId } });
@@ -77,6 +94,35 @@ export async function POST(request, { params }) {
           ...(ready ? { readyCount: { increment: 1 } } : {}),
           ...(prospect.websiteUrl ? {} : { noWebsiteCount: { increment: 1 } }),
         },
+      });
+    } else if (decision === "duplicate") {
+      // ── Redundant row, real business ───────────────────────────────────
+      //
+      // `rejected` as a status because it leaves the working queue and stops
+      // being counted as a prospect to work — but WITHOUT doNotContactAt and
+      // WITHOUT the retailer classification, which are the two things that
+      // would be false. The business may be rung; this row is simply not the
+      // one to ring it from, and the row it duplicates already is.
+      //
+      // The flag is cleared. It has done its job, and leaving it set is how
+      // 197 accepted rows ended up carrying a flag nobody could act on.
+      await tx.prospect.update({
+        where: { id: prospect.id, status: "needs_review" },
+        data: {
+          status: "rejected",
+          classification: "duplicate",
+          classificationReason: prospect.possibleDuplicateOfId
+            ? `A superadmin reviewed this and said it is the same business as ${prospect.possibleDuplicateOfId}.`
+            : "A superadmin reviewed this and said this business is already in the bank.",
+          possibleDuplicateOfId: null,
+        },
+      });
+      // Counted as rejected in the funnel: it left needs_review and it is not
+      // an accepted prospect. A fourth counter would need a schema change and
+      // would say the same thing the classification already says.
+      await tx.prospectCampaign.update({
+        where: { id: prospect.campaignId },
+        data: { needsReviewCount: { decrement: 1 }, rejectedCount: { increment: 1 } },
       });
     } else {
       await tx.prospect.update({

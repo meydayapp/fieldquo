@@ -44,6 +44,7 @@ import { loadSnapshotLibrarySetting } from "@/lib/sales/discovery/snapshotSettin
 import { probeSnapshot } from "@/lib/sales/discovery/snapshotProbe";
 import { campaignStartBlockers, territoryRegistration } from "@/lib/sales/discovery/campaignGate";
 import { registeredKeys, withRegistrations } from "@/lib/sales/registrations";
+import { tollFreeNote } from "@/lib/sales/discovery/tollFree";
 import { campaignProgress, funnelProblems, funnelRows } from "@/lib/sales/discovery/funnel";
 import { stalenessOf } from "@/lib/sales/discovery/normalise";
 import { duplicateReason } from "@/lib/sales/discovery/dedupe";
@@ -202,11 +203,43 @@ export async function GET(request, { params }) {
     // difference between a draft somebody has not started and a draft that
     // cannot be.
     registration: territoryRegistration(campaign.territory, { jurisdictions }),
-    review: review.map((p) => ({
-      ...p,
-      staleness: stalenessOf(p.sourceUpdatedAt),
-      duplicateNote: p.possibleDuplicateOfId ? duplicateReason(null) : null,
-    })),
+    // ── The review card, with the evidence rather than a label ──────────
+    //
+    // "Flagged as a possible duplicate" is not something a human can act on:
+    // it does not say WHICH business, so the reviewer either remembers or
+    // guesses. The owner met that on Insulation Depot USA — a real contractor
+    // he had already accepted at another Buffalo address — and the screen gave
+    // him two buttons, neither of which was true.
+    //
+    // So the card carries the row it duplicates (name, address, and what has
+    // already happened to it) and, where the phone is toll-free, the reason
+    // these duplicate at all: one call centre listed in every town it covers.
+    review: await Promise.all(
+      review.map(async (p) => {
+        const [duplicateOf, sharedPhone] = await Promise.all([
+          p.possibleDuplicateOfId
+            ? db.prospect.findUnique({
+                where: { id: p.possibleDuplicateOfId },
+                select: { id: true, businessName: true, addressLine: true, city: true, status: true },
+              })
+            : null,
+          // How many OTHER rows hold this number. The concrete evidence behind
+          // the toll-free note, and the thing that turns a hunch into an
+          // observation a reviewer can check.
+          p.phoneE164
+            ? db.prospect.count({ where: { phoneE164: p.phoneE164, id: { not: p.id } } })
+            : 0,
+        ]);
+        return {
+          ...p,
+          staleness: stalenessOf(p.sourceUpdatedAt),
+          duplicateNote: p.possibleDuplicateOfId ? duplicateReason(null) : null,
+          duplicateOf,
+          sharedPhoneCount: sharedPhone,
+          tollFreeNote: tollFreeNote(p.phoneE164, { sharedWith: sharedPhone }),
+        };
+      }),
+    ),
     reviewTotal: campaign.needsReviewCount,
     flaggedDuplicates: flagged,
     tasks: Object.fromEntries(tasks.map((t) => [t.status, t._count._all])),
