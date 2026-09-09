@@ -659,7 +659,49 @@ section("Country and region come from what the files actually cover");
   ok("the country select is filled from snapshotCountries", /snapshotCountries\(/.test(form));
   ok("the region select is filled from snapshotRegions", /snapshotRegions\(/.test(form));
   ok("there is no free-text country box", !/id="t-country"[\s\S]{0,200}<input/.test(form) && !/placeholder="CA"/.test(form));
-  ok("the centre is prefilled from the region's measured median", /centre\.lat/.test(form) && /centre\.lon/.test(form));
+  // ── Picking a region must mean the region, and nothing else ──────────
+  //
+  // chooseRegion() used to fill the centre from the region's median the moment
+  // a region was selected, which made "pick New York, press Create" fail with
+  // "a centre without a radius matches nothing" — about a circle nobody had
+  // asked for, from a form whose own helper text promised the opposite. The
+  // assertion is scoped to the two functions by brace matching, because a
+  // whole-file match passes the moment `centre.lat` appears ANYWHERE, which is
+  // exactly how the old version of this line went on passing after the
+  // behaviour it described had been inverted.
+  const fnBody = (name) => {
+    const at = form.indexOf(`function ${name}(`);
+    if (at < 0) return "";
+    const open = form.indexOf("{", at);
+    let depth = 0;
+    for (let i = open; i < form.length; i++) {
+      if (form[i] === "{") depth++;
+      else if (form[i] === "}" && --depth === 0) return form.slice(open, i + 1);
+    }
+    return "";
+  };
+  const chooseRegionBody = fnBody("chooseRegion");
+  const setRadiusBody = fnBody("setRadius");
+  ok("chooseRegion() was found and parsed", chooseRegionBody.length > 60, chooseRegionBody.length);
+  ok(
+    "choosing a region does NOT touch the circle",
+    !/centerLat|centerLng|centre\./.test(chooseRegionBody),
+    chooseRegionBody.slice(0, 220),
+  );
+  ok("setRadius() was found and parsed", setRadiusBody.length > 60, setRadiusBody.length);
+  ok(
+    "the centre is filled from the region's measured median when a radius is typed",
+    /centre\.lat/.test(setRadiusBody) && /centre\.lon/.test(setRadiusBody),
+  );
+  ok(
+    "…and only when the centre is empty, so a hand-typed one is never overwritten",
+    /current\.centerLat \|\| current\.centerLng/.test(setRadiusBody),
+  );
+  ok("the radius input goes through setRadius rather than setting the draft raw", /onChange=\{\(e\) => setRadius\(/.test(form));
+  ok(
+    "the helper text no longer claims the centre was already filled in",
+    !/The centre above was filled/.test(form),
+  );
   ok("the region is cleared when a source that covered it is unticked", /stillCovered/.test(form));
 
   // The route requires a region, because a territory without one names no file.

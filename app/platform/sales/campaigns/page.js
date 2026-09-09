@@ -254,23 +254,62 @@ export default function PlatformSalesCampaignsPage() {
     });
   }
 
-  /** Choosing a region fills everything that follows from it. */
+  /** The median coordinate of a region's own snapshot rows, or null. */
+  function regionCentre(current, province) {
+    const region = snapshotRegions({
+      country: current.country,
+      providers: current.discoverySources,
+    }).find((r) => r.province === province);
+    return region?.centre || null;
+  }
+
+  /**
+   * Choosing a region fills everything that follows from it — and NOT the
+   * circle.
+   *
+   * This used to fill the centre from the region's median the moment a region
+   * was picked. The comment above it said an empty centre stays empty "because
+   * a centre with no radius matches nothing"; the code did the opposite, and
+   * the result was the one the owner hit: pick New York, touch nothing else,
+   * press Create, and the server refuses with "a centre without a radius
+   * matches nothing" — about a circle he never asked for. The helper text
+   * underneath promised the opposite again ("leave the radius empty and the
+   * whole region is the territory"), so the screen contradicted the server AND
+   * itself.
+   *
+   * Selecting a state now means the state. The circle is opt-in, and the
+   * median is offered at the moment somebody opts in — see the radius field.
+   */
   function chooseRegion(province) {
+    setDraft((current) => ({
+      ...current,
+      province,
+      // The territory name is a suggestion, not a lock — it stays editable.
+      territoryName: current.territoryName || (province ? `${regionLabel(province)}` : ""),
+    }));
+  }
+
+  /**
+   * Typing a radius is how somebody asks for a circle, so it is the moment the
+   * centre is worth filling in.
+   *
+   * Only when the centre is empty, and only from the region's own rows — never
+   * from a city looked up somewhere. Clearing the radius does NOT clear the
+   * centre: a superadmin who typed a centre by hand should not lose it because
+   * they backspaced a radius.
+   */
+  function setRadius(value) {
     setDraft((current) => {
-      const region = snapshotRegions({ country: current.country, providers: current.discoverySources }).find(
-        (r) => r.province === province,
-      );
+      const wantsCircle = String(value).trim() !== "";
+      if (!wantsCircle || current.centerLat || current.centerLng) {
+        return { ...current, radiusKm: value };
+      }
+      const centre = regionCentre(current, current.province);
       return {
         ...current,
-        province,
-        // The territory name is a suggestion, not a lock — it stays editable.
-        territoryName: current.territoryName || (province ? `${regionLabel(province)}` : ""),
-        // The MEDIAN of that region's own rows. Only offered as a default for
-        // the optional circle; an empty centre stays empty, because a centre
-        // with no radius matches nothing and inventing both would draw a
-        // territory nobody asked for.
-        centerLat: current.centerLat || (region?.centre ? String(region.centre.lat) : ""),
-        centerLng: current.centerLng || (region?.centre ? String(region.centre.lon) : ""),
+        radiusKm: value,
+        centerLat: centre ? String(centre.lat) : current.centerLat,
+        centerLng: centre ? String(centre.lon) : current.centerLng,
       };
     });
   }
@@ -557,10 +596,11 @@ export default function PlatformSalesCampaignsPage() {
                 </p>
               </div>
 
-              {/* The circle is still here for the campaigns that want one. It
-                  is no longer the only way to say where, and its centre comes
-                  from the region's own rows rather than from a map somebody
-                  had to open. */}
+              {/* The circle is still here for the campaigns that want one, and
+                  it is OPT-IN: nothing fills these until somebody types a
+                  radius. Prefilling the centre on region-select is what made
+                  "pick New York, press Create" fail with an error about a
+                  circle nobody had asked for. */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={LABEL} htmlFor="t-lat">
@@ -596,13 +636,14 @@ export default function PlatformSalesCampaignsPage() {
                   className={FIELD}
                   inputMode="numeric"
                   value={draft.radiusKm}
-                  onChange={(e) => setDraft({ ...draft, radiusKm: e.target.value })}
+                  onChange={(e) => setRadius(e.target.value)}
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Leave the radius empty and the whole region is the territory. The centre above was filled
-                  from the median coordinate of that region’s own rows in the snapshot — not from a city
-                  looked up somewhere — so a circle only needs a radius. A centre with no radius matches
-                  nothing and a radius with no centre matches everything, so the form refuses half of either.
+                  Leave all three empty and the whole region is the territory — that is the normal case,
+                  and picking a region is enough on its own. Type a radius and the centre fills itself
+                  from the median coordinate of that region’s own rows in the snapshot, not from a city
+                  looked up somewhere. A centre with no radius matches nothing and a radius with no centre
+                  matches everything, so the form refuses half of either.
                 </p>
               </div>
             </div>

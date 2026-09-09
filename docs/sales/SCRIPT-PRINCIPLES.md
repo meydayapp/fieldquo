@@ -415,14 +415,44 @@ hand what cannot:
 - It asserts the generator's system prompt forbids each banned move **by
   name**, against the exported string that is actually sent to the vendor.
 
-Its scope is the four playbook scripts and the generator prompt. The objection
-library (`lib/sales/playbook/objections.js`) is **not** swept, and that is a
-gap rather than a decision: three of its eight responses still end the sequence
-the way the retired close did. It was left alone here because an objection
-response answers a sentence the prospect has just said, and one of those
-endings — "I'll take you off the list" to somebody who has said they are not
-interested — is the suppression promise FieldQuo actually keeps, so a rewrite
-needs its own argument rather than this file's patterns.
+Its scope is the four playbook scripts, the generator prompt, **and the eight
+objection seeds** in `lib/sales/playbook/objections.js`.
+
+The objection library was originally left out, on the argument that some of
+what reads as foreclosure in a response is correct behaviour. That was half
+true, and the half that was false protected three sentences which were the
+retired close wearing a different coat:
+
+| Objection | The retired ending |
+|---|---|
+| `ALREADY_USE_COMPETITOR` | "If that is not a problem you have, I will leave you alone." |
+| `SEND_ME_INFO` | "If you would rather I did not, say so and I will just send it." |
+| `NOT_INTERESTED` | "One question and then I will go…" |
+
+Each ends the sequence on one word, at the exact moment the prospect has
+engaged enough to push back — which Saylor ch.11 calls a gift, not a
+rejection. Against 81% of sales landing on or after the fifth call, that is
+four contacts thrown away to sound reasonable. All eight are now rewritten on
+Saylor ch.11 §2's shape: **restate → welcome → answer with reframed economics
+or evidence → a small next step**, and none of them ends the sequence.
+
+**The one exemption, and the condition on it.** `NOT_INTERESTED` may still say
+"I will take you off the list", because that is not a rhetorical exit — the
+`do_not_call` disposition writes `doNotContact` permanently, and
+`lib/sales/suppression`'s `ALL_CHANNELS` default carries the stop to the email
+and the texts. A promise FieldQuo keeps may be made. The check therefore
+exempts that sentence *conditionally*: the response must say the promise is
+permanent, say it covers the other channels, and distinguish it from a form of
+words. A response that promises to stop without saying what the switch does
+fails — that is the retired move with better manners. It must also offer one
+more conversation **before** it offers the list, which the check asserts by
+character position.
+
+Note the detector fix that came out of this sweep: the foreclosing-exit-line
+pattern matched `i'll` and not `i will`, so it had been passing over
+"I will leave you alone" — and the objection seeds are written expanded
+throughout. A detector that catches only one spelling of a banned move catches
+whichever spelling the last author did not use.
 
 It cannot tell whether a concession is *true*, or whether it could really lose
 the call. So the four concessions are listed in the check by hand, and changing

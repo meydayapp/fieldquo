@@ -41,14 +41,23 @@
 // Cialdini's question again — a conceded drawback engineered to be costless is
 // the Vincent-the-waiter trick, not the move.
 //
-// ══ Scope: the playbook scripts and the generator prompt ═════════════════
+// ══ Scope: the scripts, the generator prompt, AND the objection library ══
 //
-// Not the objection library. An objection response answers a sentence the
-// prospect has just said, and some of what reads as foreclosure there is
-// correct behaviour rather than a failure — "I'll take you off the list" to
-// somebody who has said they are not interested is the suppression promise
-// FieldQuo actually keeps (lib/sales/suppression). Sweeping it with these
-// patterns would demand a rewrite this check has no argument for.
+// The objection library used to be outside this file's reach, on the argument
+// that some of what reads as foreclosure there is correct behaviour. That was
+// half true and it protected the wrong three sentences: "I will leave you
+// alone", "say so and I will just send it" and "one question and then I will
+// go" were the retired close wearing a different coat, and they were being read
+// out at the exact moment a prospect had engaged enough to push back.
+//
+// The half that was true is ONE sentence. "I will take you off the list" said
+// to somebody who has actually said they are not interested is the suppression
+// promise FieldQuo keeps: the `do_not_call` disposition writes doNotContact
+// permanently, and lib/sales/suppression's ALL_CHANNELS default stops the
+// email and the texts with it. So the sweep runs over the objection seeds too,
+// with ONE exemption, and the exemption has a condition — the promise must say
+// what the switch actually does. A promise made to sound reasonable does not
+// qualify; a promise we keep does.
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -66,6 +75,7 @@ import {
   talkingPointPrompt,
   talkingPointSchema,
 } from "../lib/sales/playbook/generate.js";
+import { seedObjections } from "../lib/sales/playbook/objections.js";
 import { talkingPointContext } from "../lib/sales/playbook/talkingPoints.js";
 import { capabilityMatrix } from "../lib/sales/intel/capabilities.js";
 
@@ -115,6 +125,23 @@ const RETIRED = Object.freeze({
     "doesn't look better than what you send now, say so and that's the end of it. Thanks for the " +
     "ninety seconds.",
   close_thanks: "Right — three photos to the number I'm ringing from, and I'll call you Thursday morning. Thanks for your time.",
+});
+
+// The three objection responses that were retired for the same fault. Kept
+// verbatim for the same reason as RETIRED above: every detector below is fired
+// at the sentence it was built for, so a pattern that has stopped recognising
+// the failure fails loudly instead of passing over a rewrite of it.
+const RETIRED_OBJECTION = Object.freeze({
+  competitor:
+    "The one thing worth two minutes is whose name the homeowner sees. If that is not a " +
+    "problem you have, I will leave you alone.",
+  send_info:
+    "And can I put fifteen minutes in for Thursday so it does not sit unread? If you would " +
+    "rather I did not, say so and I will just send it.",
+  not_interested:
+    "Understood. One question and then I will go: when a quote goes out, is that you at the " +
+    "kitchen table at nine? If it is not, I have nothing to sell you and I will take you off " +
+    "the list.",
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -208,8 +235,13 @@ const BANNED = [
       "about five times before buying. Futrell's twelfth key to a close is to leave the door " +
       "open. In the owner's own twenty conversations not one win closed on first contact.",
     pattern:
-      /\b(?:that'?s the end of it|tell me to go away|i'?ll (?:leave you alone|go away)|i won'?t (?:call|bother|ring) (?:you )?again|say (?:so|the word) and i'?ll (?:go|stop|leave|never)|never (?:call|ring) you again)\b/i,
-    fires: [RETIRED.opener, RETIRED.close],
+      // `i(?:'ll| will)`, not `i'?ll`. The contraction-only version passed over
+      // "I will leave you alone" — which is exactly how the objection library
+      // was written, since these seeds are expanded throughout. A detector that
+      // only catches one spelling of a banned move is a detector that catches
+      // whichever spelling the last author did not use.
+      /\b(?:that'?s the end of it|tell me to go away|i(?:'ll| will) (?:leave you alone|go away)|i (?:won'?t|will not) (?:call|bother|ring) (?:you )?again|say (?:so|the word) and i(?:'ll| will) (?:go|stop|leave|never)|never (?:call|ring) you again)\b/i,
+    fires: [RETIRED.opener, RETIRED.close, RETIRED_OBJECTION.competitor],
   },
 ];
 
@@ -317,6 +349,153 @@ section("No seed script contains a banned move");
       hits.length === 0,
       hits.map((h) => `${h.where}: ${h.text.slice(0, 90)}`),
     );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("The objection seeds follow the same rules");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Saylor ch.11 §2's shape — restate, welcome, answer, next step — and above
+// all: never end the sequence in the response. See this file's scope header
+// for the one exemption and the condition on it.
+
+/**
+ * The suppression promise, and the test of whether it is a real one.
+ *
+ * "I will take you off the list" is the only sentence in the library allowed
+ * to say we will stop, because `do_not_call` writes doNotContact permanently
+ * and lib/sales/suppression's ALL_CHANNELS default carries it to the email and
+ * the texts. The exemption is conditional on the response SAYING that: a
+ * response that promises to stop without saying the promise is permanent and
+ * covers every channel is making the retired rhetorical exit with better
+ * manners, and it fails.
+ */
+const SUPPRESSION_PROMISE = /\b(?:do[-\s]not[-\s]call list|take you off the list)\b/i;
+const SUPPRESSION_IS_REAL = [
+  { what: "says it is permanent", pattern: /\bpermanent\b/i },
+  { what: "says it covers the other channels", pattern: /\b(?:email|text)/i },
+  {
+    what: "distinguishes it from a form of words",
+    pattern: /\b(?:a switch|switch in here|rather than a form of words|not a form of words)\b/i,
+  },
+];
+
+// Bans that apply to a RESPONSE and not to a script line. A script has no
+// prospect sentence in front of it; a response does, and the failure mode is
+// handing them a one-word way out of the thing being asked for.
+const OBJECTION_BANNED = [
+  {
+    move: "refusal invitation",
+    why:
+      "Futrell ch.10: never phrase a question so that a single word ends the conversation. In " +
+      "a response it is worse than in an opener — the prospect has already engaged, which " +
+      "Saylor ch.11 calls a gift, and the sentence hands it back.",
+    pattern: new RegExp(
+      [
+        "\\bif you(?:'d| would) rather i (?:did ?n[o']?t|didn'?t)",
+        "\\bsay so and i(?:'ll| will) just\\b",
+        "\\bjust say the word\\b",
+        "\\bone question and then i(?:'ll| will) go\\b",
+        "\\bif not,? (?:no (?:problem|worries)|that'?s fine and i'?ll)\\b",
+      ].join("|"),
+      "i",
+    ),
+    fires: [RETIRED_OBJECTION.send_info, RETIRED_OBJECTION.not_interested],
+  },
+];
+
+{
+  const seeds = seedObjections();
+  ok("there are eight objection seeds to sweep", seeds.length === 8, seeds.length);
+
+  // Self-test first, exactly as the script detectors are self-tested: a
+  // detector that no longer recognises the sentence it retired is worthless,
+  // and it fails silently unless it is fired at it.
+  for (const b of OBJECTION_BANNED) {
+    for (const line of b.fires) {
+      ok(`the "${b.move}" detector still recognises the sentence it retired`, b.pattern.test(line), line);
+    }
+  }
+  ok(
+    'the "foreclosing exit line" detector recognises the competitor response it retired',
+    BANNED.find((b) => b.move === "foreclosing exit line").pattern.test(RETIRED_OBJECTION.competitor),
+  );
+
+  // ── The sweep ─────────────────────────────────────────────────────────
+  for (const b of BANNED) {
+    const hits = seeds.filter((o) => {
+      if (!b.pattern.test(o.response)) return false;
+      // THE ONE EXEMPTION. A foreclosure that is the suppression promise is
+      // allowed — provided it is a real one. Anything else, including a
+      // foreclosure in a response that merely mentions the list in passing,
+      // is a hit.
+      if (b.move !== "foreclosing exit line") return true;
+      return !SUPPRESSION_PROMISE.test(o.response);
+    });
+    ok(
+      `no objection response makes the "${b.move}" move`,
+      hits.length === 0,
+      hits.map((h) => `${h.code}: ${h.response.slice(0, 90)}`),
+    );
+  }
+  for (const b of OBJECTION_BANNED) {
+    const hits = seeds.filter((o) => b.pattern.test(o.response));
+    ok(
+      `no objection response makes the "${b.move}" move`,
+      hits.length === 0,
+      hits.map((h) => `${h.code}: ${h.response.slice(0, 90)}`),
+    );
+  }
+
+  // ── The exemption is not a loophole ───────────────────────────────────
+  const promising = seeds.filter((o) => SUPPRESSION_PROMISE.test(o.response));
+  ok(
+    "exactly one response makes the suppression promise",
+    promising.length === 1,
+    promising.map((p) => p.code),
+  );
+  ok(
+    "…and it is the one said to somebody who has said they are not interested",
+    promising[0]?.code === "NOT_INTERESTED",
+    promising[0]?.code,
+  );
+  for (const condition of SUPPRESSION_IS_REAL) {
+    ok(
+      `…and it ${condition.what}, so it is a switch rather than a form of words`,
+      condition.pattern.test(promising[0]?.response || ""),
+    );
+  }
+
+  // ── Saylor's shape, per response ──────────────────────────────────────
+  //
+  // Restate and next step are testable; "welcome it" is a tone and is not.
+  // Restating is checked as an explicit acknowledgement of what they just
+  // said, which is the observable half of Saylor's third strategy.
+  const RESTATES =
+    /\b(?:so (?:what )?you(?:'re| are)? saying|so (?:you|the|it|that)|understood|agreed|fair|that is the)\b/i;
+  const NEXT_STEP =
+    /\b(?:tell me|send me|give me|show you|i will (?:build|send|show|set|put|do)|put it next to|look at it|give me one)\b/i;
+
+  for (const o of seeds) {
+    ok(`${o.code} opens by restating or conceding what they just said`, RESTATES.test(o.response.slice(0, 140)), o.response.slice(0, 80));
+    ok(`${o.code} ends in something the prospect can actually do`, NEXT_STEP.test(o.response));
+    // The sequence-ending test, stated positively: the response must not be
+    // the last word. NOT_INTERESTED is the exemption and says so in its own
+    // sentence — it offers one more conversation BEFORE it offers the list.
+    if (o.code === "NOT_INTERESTED") {
+      ok(
+        "NOT_INTERESTED offers another conversation before it offers the list",
+        o.response.indexOf("one more conversation") > 0 &&
+          o.response.indexOf("one more conversation") < o.response.search(SUPPRESSION_PROMISE),
+      );
+    } else {
+      ok(
+        `${o.code} does not end the sequence`,
+        !BANNED.find((b) => b.move === "foreclosing exit line").pattern.test(o.response) &&
+          !SUPPRESSION_PROMISE.test(o.response),
+      );
+    }
   }
 }
 
@@ -690,6 +869,7 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(
-  `\ncheck:playbook-copy passed — ${PLAYBOOKS.length} playbooks, ${BANNED.length} banned moves, ` +
-    `${CONCESSIONS.size} pinned concessions, ${pass} assertions.`,
+  `\ncheck:playbook-copy passed — ${PLAYBOOKS.length} playbooks, ${seedObjections().length} objection ` +
+    `seeds, ${BANNED.length + OBJECTION_BANNED.length} banned moves, ${CONCESSIONS.size} pinned ` +
+    `concessions, ${pass} assertions.`,
 );
