@@ -157,8 +157,14 @@ export async function POST(request) {
 
   if (action === "search") {
     const found = await searchLocalNumbers({
-      country: (body?.country || "CA").toUpperCase(),
+      // NOT defaulted to "CA" here any more. This route's default was what made
+      // every search Canadian: searchLocalNumbers derives the country from the
+      // area code, and a country passed from here overrides that derivation
+      // with a guess. Passed through only when a caller actually stated one.
+      country: body?.country ? String(body.country).toUpperCase() : null,
       areaCode: body?.areaCode || null,
+      region: body?.region || null,
+      locality: body?.locality || null,
     }).catch(() => null);
     if (!found) {
       return NextResponse.json(

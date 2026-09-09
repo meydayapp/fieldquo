@@ -23,6 +23,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { countryForRegion } from "@/lib/voice/nanp";
 import Link from "next/link";
 import {
   Loader2, AlertCircle, AlertTriangle, MessageSquare, Check, Copy, ShieldAlert,
@@ -362,6 +363,9 @@ function LineRow({ line }) {
  */
 function BuyNumberPanel({ onChanged }) {
   const [areaCode, setAreaCode] = useState("");
+  // A two-letter state or province. An area code wins when both are given —
+  // searchLocalNumbers says so, and combining them would silently drop results.
+  const [region, setRegion] = useState("");
   const [purpose, setPurpose] = useState("system");
   const [found, setFound] = useState(null);
   const [busy, setBusy] = useState("");
@@ -384,7 +388,17 @@ function BuyNumberPanel({ onChanged }) {
     setErr("");
     setFound(null);
     try {
-      setFound(await post("search", { areaCode: areaCode.trim() || null }));
+      setFound(
+        await post("search", {
+          areaCode: areaCode.trim() || null,
+          region: region.trim() || null,
+          // Stated only for a region search, where there is no area code to
+          // derive it from. An area-code search deliberately sends no country:
+          // the server derives it, which is what stopped every US search
+          // silently returning nothing.
+          country: !areaCode.trim() && region.trim() ? countryForRegion(region.trim()) : null,
+        }),
+      );
     } catch (e) {
       setErr(e.message);
     } finally {
@@ -429,6 +443,21 @@ function BuyNumberPanel({ onChanged }) {
             className="mt-1 block w-24 px-2 py-1.5 rounded-lg border border-border bg-background text-sm text-foreground"
           />
         </label>
+        {/* ── Or the whole province/state ──────────────────────────────────
+            Searching one area code at a time is guessing, and the owner said
+            so: he tried six Manhattan codes for a list of Buffalo contractors
+            and concluded Twilio had nothing. A region search answers "what IS
+            available" in one request and returns the area codes with it, which
+            is the question somebody actually has. */}
+        <label className="text-xs text-muted-foreground">
+          …or a whole region
+          <input
+            value={region}
+            onChange={(e) => setRegion(e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2))}
+            placeholder="NY"
+            className="mt-1 block w-24 px-2 py-1.5 rounded-lg border border-border bg-background text-sm text-foreground"
+          />
+        </label>
         <label className="text-xs text-muted-foreground">
           Purpose
           <select
@@ -462,8 +491,10 @@ function BuyNumberPanel({ onChanged }) {
       {found && found.numbers.length === 0 && (
         <p className="mt-3 text-sm text-muted-foreground">
           {found.searched?.areaCode
-            ? `No numbers free in ${found.searched.areaCode} right now. Try another area code.`
-            : "Nothing to search on — enter an area code."}
+            ? `No numbers free in ${found.searched.areaCode} right now — that is Twilio's inventory, not an error. Some codes are genuinely exhausted: Manhattan's 212 and 646 almost never have any. Try the region box instead to see what the whole state has.`
+            : found.searched?.region
+              ? `Nothing free anywhere in ${found.searched.region} right now.`
+              : "Nothing to search on — enter an area code, or a two-letter region."}
         </p>
       )}
 

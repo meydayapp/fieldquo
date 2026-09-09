@@ -181,11 +181,33 @@ model PlatformSmsNumber {
   /// carrier spend is not otherwise visible anywhere in this product.
   monthlyCostCents Int?
 
+  /// The rep this number belongs to, for a "sales_voice" number.
+  ///
+  /// NULL means it is in the shared pool, which is the normal case and the one
+  /// chooseCallerId() was written for: it matches the number's area code to the
+  /// prospect's, because a contractor in Tulsa answers a 918 number and lets an
+  /// unknown one ring out.
+  ///
+  /// Assigning one changes that for one rep only. Their calls present THEIR
+  /// number, so a contractor who rings back reaches the person who rang them
+  /// rather than whoever is next in the pool — which is the whole reason a rep
+  /// wants one. It also takes the number out of the pool: two reps presenting
+  /// one number means a callback cannot be routed, and a rep whose number is
+  /// answered by somebody else is worse than no number at all.
+  ///
+  /// SetNull rather than Cascade: a rep leaving must not delete a number
+  /// FieldQuo is paying for, and the number goes back to the pool rather than
+  /// being stranded.
+  assignedRepId String?
+  assignedRep   SalesRep? @relation(fields: [assignedRepId], references: [id], onDelete: SetNull)
+  assignedAt    DateTime?
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   releasedAt DateTime?
 
   @@index([purpose, active])
+  @@index([assignedRepId])
 }
 
 model PlatformErrorLog {
@@ -8810,6 +8832,8 @@ model SalesRep {
   threads           SalesThread[]
   smsMessages       SalesSmsMessage[]
   callAttempts      SalesCallAttempt[]
+  /// The number this rep calls from, when one has been bought for them.
+  phoneNumbers      PlatformSmsNumber[]
   activity          SalesRepActivity[]
 
   @@index([active])
