@@ -5768,6 +5768,37 @@ model MetaPageConnection {
   // recorded per-attempt in SocialPublish. A status column here would be
   // written by nothing and read by the settings screen, which is AGENTS.md's
   // failure class 1 with the arrow pointing the other way.
+  //
+  // The two columns below are NOT that pair, and the difference is the reason
+  // they are allowed to exist: they are the outcome of ONE call that happens
+  // at connect time and nowhere else, they are written in the same statement
+  // that stores the connection, and they are read by the settings panel and by
+  // the retry route. They record a fact about Meta's side that nothing else in
+  // this row can express and no later attempt re-derives.
+
+  /// When Meta confirmed POST /<page-id>/subscribed_apps — the call that makes
+  /// this Page's messages (and its linked Instagram account's DMs) arrive at
+  /// app/api/meta/messaging/webhook at all. Nothing subscribed a Page before
+  /// this column existed, so a connected Page could never deliver a message:
+  /// the same hole lib/meta/whatsappConnect.js's subscribeAppToWaba() closes
+  /// for WhatsApp.
+  ///
+  /// NULL is not "no": null with webhookSubscribeError null means the call was
+  /// never ATTEMPTED, which is the honest state of every Page connected for
+  /// publishing today — the subscribe needs pages_manage_metadata and
+  /// pages_messaging, which live in META_MESSAGING_SCOPE and are not granted
+  /// on the publishing consent screen. Null with an error beside it means it
+  /// was attempted and refused. Three states, told apart, because "we never
+  /// tried" and "Meta said no" send a contractor to different places.
+  webhookSubscribedAt DateTime?
+
+  /// Why the subscribe (or the unsubscribe at disconnect) failed, as
+  /// classifyMetaError's `kind` plus Meta's own message. Cleared on a
+  /// successful subscribe, so it can never outlive the failure it describes.
+  /// Read by the settings panel, which offers a retry — a Page shown as
+  /// connected while its subscription is refused is precisely the control that
+  /// appears to work and doesn't.
+  webhookSubscribeError String?
 
   /// Who connected it. Shown on the settings panel beside connectedAt — "Ravi
   /// connected this on 3 March" is the answer support actually needs when a

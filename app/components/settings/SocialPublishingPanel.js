@@ -46,6 +46,12 @@ const ERROR_KEYS = {
   rate_limited: "app.setSocial.errorRateLimited",
   not_found: "app.setSocial.errorNotFound",
   unknown_error: "app.setSocial.errorUnknown",
+  // classifyMetaError's kinds overlap these exactly, minus `network`, which
+  // has no separate sentence because "Meta didn't answer" and "Meta answered
+  // with something we don't recognise" lead a contractor to the same action.
+  // Reused for the webhook-subscription failure rather than a second set of
+  // near-identical strings in nine languages.
+  network: "app.setSocial.errorUnknown",
 };
 
 export default function SocialPublishingPanel() {
@@ -62,6 +68,7 @@ export default function SocialPublishingPanel() {
   const [finalizing, setFinalizing] = useState(false);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [retryingWebhook, setRetryingWebhook] = useState(false);
 
   const loadStatus = useCallback(async () => {
     try {
@@ -132,14 +139,64 @@ export default function SocialPublishingPanel() {
     setDisconnecting(true);
     setError("");
     try {
-      await fetchJson("/api/settings/social/disconnect", { method: "POST" });
+      const res = await fetchJson("/api/settings/social/disconnect", { method: "POST" });
       setShowDisconnectConfirm(false);
-      setBanner(null);
+      // The token is gone either way — that is what Disconnect promised and it
+      // happened. What may NOT have happened is Meta agreeing to stop sending
+      // this Page's messages, and a contractor who is told nothing would
+      // reasonably assume it did. `false` only; `null` means there was no
+      // subscription to remove, which is not a warning.
+      setBanner(
+        res?.webhookUnsubscribed === false
+          ? {
+              tone: "error",
+              text: t(
+                "app.setSocial.disconnectStillSubscribed",
+                "The Page is disconnected and its access token is deleted, but Meta didn't confirm it stopped sending this Page's messages to FieldQuo. Remove FieldQuo under the Page's Business Integrations in Meta's own settings to be certain.",
+              ),
+            }
+          : null,
+      );
       await loadStatus();
     } catch (err) {
       setError(err.message);
     } finally {
       setDisconnecting(false);
+    }
+  }
+
+  // The retry behind the "Messages aren't being delivered" state. It re-runs
+  // the one call that failed rather than tearing down a connection that is
+  // otherwise fine — and it reloads the status afterwards either way, so the
+  // screen shows what the database now says instead of what this handler
+  // hoped.
+  // Also the "Connect the inbox" press, on purpose: the route subscribes the
+  // Page AND writes the MessagingChannel rows the inbox resolves against, so
+  // the two presses are one action with two names. `inbox` only changes which
+  // sentence is reported back, because that is the only thing that differs —
+  // a second handler posting to the same endpoint would be the copy that rots.
+  async function handleRetryWebhook({ inbox = false } = {}) {
+    setRetryingWebhook(true);
+    setError("");
+    try {
+      await fetchJson("/api/settings/social/subscribe", { method: "POST" });
+      setBanner({
+        tone: "success",
+        text: inbox
+          ? t(
+              "app.setSocial.inboxConnectedOk",
+              "Your Facebook and Instagram messages now arrive in FieldQuo's inbox.",
+            )
+          : t(
+              "app.setSocial.webhookRetryOk",
+              "Meta is now sending this Page's messages to FieldQuo.",
+            ),
+      });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRetryingWebhook(false);
+      await loadStatus();
     }
   }
 
@@ -317,6 +374,104 @@ export default function SocialPublishingPanel() {
               </span>
             </div>
           )}
+
+          {/* ── Whether this Page's messages can reach FieldQuo at all ──────
+              Three states, told apart, because a connected Page that is not
+              subscribed to our webhook delivers nothing and looks perfect
+              doing it. That was the actual bug: the connect flow stored a
+              token and never called POST /<page-id>/subscribed_apps, so the
+              inbox, the AI employee and the monthly review all waited on
+              messages Meta was never asked to send. */}
+          {connection.webhookSubscribedAt ? (
+            <p className="flex items-start gap-2 text-sm text-muted-foreground">
+              <CheckCircle2 size={15} className="shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
+              <span>
+                {t("app.setSocial.webhookOn", {
+                  date: new Date(connection.webhookSubscribedAt).toLocaleDateString(),
+                })}
+              </span>
+            </p>
+          ) : connection.webhookSubscribeErrorKind ? (
+            <div className="space-y-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
+              <div className="flex items-start gap-2">
+                <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+                <div className="min-w-0 space-y-1">
+                  <p className="font-semibold">
+                    {t("app.setSocial.webhookOffTitle", "Messages from this Page aren't reaching FieldQuo")}
+                  </p>
+                  <p>
+                    {t(
+                      "app.setSocial.webhookFailedBody",
+                      "Meta refused to send this Page's messages here, so nothing a customer writes will land in your inbox. Posting to the Page still works.",
+                    )}
+                  </p>
+                  <p className="opacity-90">
+                    {t(ERROR_KEYS[connection.webhookSubscribeErrorKind] || ERROR_KEYS.unknown_error)}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => handleRetryWebhook()}
+                disabled={retryingWebhook}
+                className="border border-amber-300 dark:border-amber-800 px-3 py-1.5 rounded-full text-xs font-semibold disabled:opacity-50"
+              >
+                {retryingWebhook
+                  ? t("app.action.saving", "Saving…")
+                  : t("app.setSocial.webhookRetry", "Try subscribing again")}
+              </button>
+            </div>
+          ) : (
+            /* Never attempted. The state every Page is in today, and it is
+               FieldQuo's App Review that blocks it — so this says so and draws
+               no retry, because there is nothing here a contractor can fix. */
+            <p className="flex items-start gap-2 text-sm text-muted-foreground">
+              <Clock size={15} className="shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+              <span>
+                {t("app.setSocial.webhookPendingBody", {
+                  scopes: (connection.webhookMissingPermissions || []).join(", "),
+                })}
+              </span>
+            </p>
+          )}
+
+          {/* ── The inbox, for a Page connected before it was created ───────
+              Meta grants messaging, the subscription is live, and there is no
+              MessagingChannel row — so every message Meta delivers is answered
+              `unknown_page` and dropped. This is the one press that fixes it,
+              and it runs the same route as the retry above.
+
+              Drawn ONLY when the server says a channel is missing, which it
+              says only when the grant is actually there. A company that
+              connected for publishing alone sees nothing here rather than a
+              button that would refuse them. */}
+          {Array.isArray(connection.missingInboxChannels) &&
+            connection.missingInboxChannels.length > 0 && (
+              <div className="space-y-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+                  <div className="min-w-0 space-y-1">
+                    <p className="font-semibold">
+                      {t("app.setSocial.inboxOffTitle", "Your inbox isn't switched on for this Page yet")}
+                    </p>
+                    <p>
+                      {t(
+                        "app.setSocial.inboxOffBody",
+                        "Meta is allowed to send this Page's messages to FieldQuo, but the inbox hasn't been set up to receive them, so they aren't appearing under Messages. One press fixes it.",
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleRetryWebhook({ inbox: true })}
+                  disabled={retryingWebhook}
+                  className="border border-amber-300 dark:border-amber-800 px-3 py-1.5 rounded-full text-xs font-semibold disabled:opacity-50"
+                >
+                  {retryingWebhook
+                    ? t("app.action.saving", "Saving…")
+                    : t("app.setSocial.inboxConnect", "Connect the inbox")}
+                </button>
+              </div>
+            )}
 
           <p className="text-xs text-muted-foreground">
             {connection.connectedByName

@@ -204,8 +204,12 @@ check("median ignores unscored leads rather than counting them as 0",
     JSON.stringify(UNASKABLE_BY_SOURCE.phone_agent) === JSON.stringify(["budget"]),
   );
   check(
-    "…and no other source withholds anything, so the web is untouched",
-    Object.keys(UNASKABLE_BY_SOURCE).length === 1,
+    "a RECOVERED phone lead withholds the same one — same receptionist, same forbidden question",
+    JSON.stringify(UNASKABLE_BY_SOURCE.phone_agent_recovered) === JSON.stringify(["budget"]),
+  );
+  check(
+    "…and only the phone withholds anything, so every web channel is untouched",
+    Object.keys(UNASKABLE_BY_SOURCE).every((s) => s.startsWith("phone_agent")),
   );
   check(
     "…and composing the two gives the warm score the receptionist's leads deserve",

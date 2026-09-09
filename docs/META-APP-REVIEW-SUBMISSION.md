@@ -309,8 +309,20 @@ slowest part, so start it the same day you submit.
 ## 7. Round two — after the builds land
 
 Submit `pages_messaging`, `instagram_manage_messages`, `pages_show_list`,
-`pages_read_engagement`, `instagram_basic` and `leads_retrieval` together,
-once you can record them working against your own Page in Development mode.
+`pages_read_engagement`, `pages_manage_metadata`, `instagram_basic` and
+`leads_retrieval` together, once you can record them working against your own
+Page in Development mode.
+
+`pages_manage_metadata` is the one that is easy to leave off the list and
+impossible to work without. It is what allows `POST /<page-id>/subscribed_apps`
+— the call that points a Page's messages (and the DMs of the Instagram
+professional account linked to it) at FieldQuo's webhook. Without it a Page
+connects, a token stores, the Send API works, and Meta delivers nothing
+inbound, forever. Meta lists it, with `pages_show_list`, on the
+`subscribed_apps` edge itself
+(developers.facebook.com/docs/graph-api/reference/page/subscribed_apps).
+The use case to give Meta is the messaging one below — it is not a separate
+feature, it is the plumbing under it.
 
 Draft use case for the messaging permissions:
 

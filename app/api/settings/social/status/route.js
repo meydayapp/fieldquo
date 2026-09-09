@@ -12,6 +12,8 @@ import {
   META_PAGES_SCOPE,
 } from "@/lib/meta/client";
 import { getPageConnection, publicPageConnectionShape } from "@/lib/meta/pageConnection";
+import { missingWebhookPermissions } from "@/lib/meta/pageConnect";
+import { missingPageChannels } from "@/lib/messaging/pageChannels";
 
 // What the Facebook/Instagram publishing panel needs to render ONE honest
 // state and never a control that can't work:
@@ -58,6 +60,31 @@ export async function GET(request) {
           // reported as "we don't know", never as "all good": see
           // lib/meta/pageConnect.js.
           missingScopes: missingScopes(shape.scopes),
+          // Which of the two permissions the webhook subscribe needs are not
+          // granted — the reason the subscribe was never ATTEMPTED, which is
+          // the state every Page connected on the publishing consent screen is
+          // in today. Sent so the panel can say WHY messages will not arrive
+          // instead of leaving a blank where a subscription would be; an empty
+          // array means the permissions are there and any failure is Meta's.
+          webhookMissingPermissions: missingWebhookPermissions(shape.scopes),
+          // Which inboxes this grant allows that have no live MessagingChannel
+          // row — non-empty only for a Page connected before the connect flow
+          // created them, which is every Page connected up to today. The panel
+          // turns this into a one-press "Connect the inbox" that POSTs
+          // /api/settings/social/subscribe.
+          //
+          // A READ, and only a read. Backfilling here would be a GET that
+          // writes into a customer's tenant, reachable under an impersonation
+          // cookie — non-negotiable #3 forbids it, and "the button is right
+          // there" is not a reason to break it.
+          //
+          // Empty for a company that never granted messaging, so the panel
+          // draws nothing rather than a control that would refuse them.
+          missingInboxChannels: await missingPageChannels({
+            companyId: member.companyId,
+            grantedScopes: shape.scopes,
+            instagramUserId: shape.instagramUserId,
+          }),
         }
       : null,
   });

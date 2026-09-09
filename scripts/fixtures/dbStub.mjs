@@ -80,6 +80,12 @@ export const rows = {
   // (companyId, name, language) — reading lib/messaging/templates.js cannot
   // establish it.
   whatsAppTemplate: [],
+  // Inbound enquiries (check-lead-intake.mjs). The claim that needs executing
+  // is "converting an instant-quote lead gives the client an address" — that
+  // is a property of convertLeadToQuote reading LeadRequest.intake and writing
+  // Client.address/city/province/country, and it is exactly the regression a
+  // source-level check would keep passing through.
+  leadRequest: [],
 };
 
 /** Every write the product attempted, in order: { model, action, data }. */
@@ -123,6 +129,7 @@ export function resetDbStub() {
   rows.message = [];
   rows.metaPageConnection = [];
   rows.whatsAppTemplate = [];
+  rows.leadRequest = [];
   writes.length = 0;
   reads.length = 0;
   failNext.model = null;
@@ -150,6 +157,14 @@ function matches(row, where = {}) {
     // subscription id — a stub that answered "no row" to an OR would let the
     // clear pass vacuously.
     if (key === "OR" && Array.isArray(value)) return value.some((branch) => matches(row, branch));
+    // `where: { disconnectedAt: null }` must match a row that never set the
+    // column. In Postgres an unwritten nullable column IS null, and a fixture
+    // row is an object literal — so without this, a `create` that omitted the
+    // field produced a row no `disconnectedAt: null` query could find, and a
+    // check asking "is this channel live" got "no such row" for a channel that
+    // is live. The stub answered a question the database would answer the
+    // other way, which is the one thing a stub must not do.
+    if (value === null) return row[key] === null || row[key] === undefined;
     if (value && typeof value === "object" && !Array.isArray(value)) {
       if ("in" in value) return value.in.includes(row[key]);
       if ("not" in value) return row[key] !== value.not;
@@ -322,6 +337,7 @@ export const db = new Proxy(
     message: model("message"),
     metaPageConnection: model("metaPageConnection"),
     whatsAppTemplate: model("whatsAppTemplate"),
+    leadRequest: model("leadRequest"),
     marketingCampaignDelivery: uniqueCreateModel("marketingCampaignDelivery", [
       "campaignId",
       "subscriberId",

@@ -12,8 +12,12 @@ import {
   exchangeForLongLivedToken,
   listPages,
 } from "@/lib/meta/client";
-import { resolveInstagram, resolveGrantedScopes } from "@/lib/meta/pageConnect";
+import { resolveInstagram, resolveGrantedScopes, subscribePageWebhook } from "@/lib/meta/pageConnect";
 import { savePageConnection, disconnectPageConnection } from "@/lib/meta/pageConnection";
+import {
+  savePageMessagingChannels,
+  disconnectPageMessagingChannels,
+} from "@/lib/messaging/pageChannels";
 import { getAppOrigin } from "@/lib/appUrl";
 import {
   PAGES_STATE_COOKIE,
@@ -118,10 +122,22 @@ export async function GET(request) {
   const instagram = await resolveInstagram({ pageToken, pageId: page.id });
   const scopes = await resolveGrantedScopes(longToken);
 
+  // The call that decides whether a message can ever reach the inbox. Run
+  // BEFORE the row is written, with the PAGE token the edge requires, so the
+  // connection is stored in the state it actually earned — there is no window
+  // in which a row says "connected" while nothing has been asked of Meta.
+  // Its outcome is stored, never swallowed: see lib/meta/pageConnect.js.
+  const webhook = await subscribePageWebhook({ pageToken, pageId: page.id, grantedScopes: scopes });
+
   // One live Page per company today (see lib/meta/pageConnection.js): clear any
   // previous one in the same request so a reconnect to a DIFFERENT Page can
-  // never leave two rows where getPageConnection has to pick.
+  // never leave two rows where getPageConnection has to pick. The inbox
+  // channels are cleared with it and for the same reason — a channel for the
+  // Page they just switched away from would keep filing that Page's customer
+  // messages into an inbox nobody is watching. saveChannel's upsert revives the
+  // row when the same Page is reconnected, so no history is lost either way.
   await disconnectPageConnection(member.companyId);
+  await disconnectPageMessagingChannels(member.companyId);
   await savePageConnection({
     companyId: member.companyId,
     pageId: page.id,
@@ -137,7 +153,31 @@ export async function GET(request) {
     tokenExpiresAt: null,
     scopes,
     connectedByUserId: member.userId,
+    ...webhook,
   });
+
+  // The same connection, its other half: the MessagingChannel rows
+  // lib/messaging/ingest.js resolves an inbound webhook against. Nothing is
+  // written unless Meta both GRANTED the messaging permissions and CONFIRMED
+  // the subscription — see lib/messaging/pageChannels.js. A failure here must
+  // not lose the publishing connection that has already been stored, so it is
+  // logged rather than thrown: the panel then shows the inbox as not connected
+  // and offers the one-press retry, which is the honest state.
+  try {
+    await savePageMessagingChannels({
+      companyId: member.companyId,
+      pageId: page.id,
+      pageName: page.name || null,
+      pageToken,
+      instagramUserId: instagram.id,
+      instagramUsername: instagram.username,
+      grantedScopes: scopes,
+      webhookSubscribedAt: webhook.webhookSubscribedAt,
+      connectedByUserId: member.userId,
+    });
+  } catch (err) {
+    console.error(`[social-callback] company=${member.companyId} inbox channels: ${err?.message}`);
+  }
 
   return toSettings(origin, { socialConnected: "1" });
 }

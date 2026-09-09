@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createScoredLead } from "@/lib/leads/createLead";
+import { buildLeadIntake } from "@/lib/leads/intakeShape";
 
 import { recordConsent } from "@/lib/voice/outbound";
 import { DISCLOSURE } from "@/lib/voice/disclosure";
@@ -32,6 +33,20 @@ export async function POST(request, { params }) {
     categoryId,
     message,
     source: "client_portal",
+    // The address we already hold for them, in the shared shape, so the lead
+    // card says WHERE before anyone opens the client record. This form asks for
+    // nothing but a category and a message — the address is not something they
+    // told us here, it is something we know — but a lead with no location on it
+    // is one an estimator cannot schedule around, and it is the same household.
+    //
+    // Nothing is invented: a client with blank address columns produces no
+    // intake at all, and buildLeadIntake returns null rather than {}.
+    intake: buildLeadIntake({
+      address: client.address,
+      city: client.city,
+      province: client.province,
+      country: client.country,
+    }),
   });
 
   // An existing client asking for more work — the clearest consent there is,

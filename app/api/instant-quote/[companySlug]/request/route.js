@@ -17,6 +17,7 @@ import { financingOffer } from "@/lib/estimate/financing";
 import { canBookVisit } from "@/lib/booking/canBookVisit";
 import { getAppOrigin } from "@/lib/appUrl";
 import { createScoredLead } from "@/lib/leads/createLead";
+import { buildLeadIntake } from "@/lib/leads/intakeShape";
 import { createEstimateDraft } from "@/lib/estimate/createEstimateQuote";
 import { normaliseCountry } from "@/lib/tax/jurisdictions";
 import { buildEstimateEmail } from "@/lib/estimate/estimateEmail";
@@ -215,12 +216,50 @@ export async function POST(request, { params }) {
     email: email || null,
     phone: phone || null,
     categoryId: priced.categoryId || null,
+    // Still readable, and no longer the ONLY home for the address. The line
+    // below it stayed a summary; the address moved into `intake` where
+    // convertLead can actually find it (see the intake note below).
     message: [address || measured.measurement.formattedAddress, `Instant estimate — ${trade}`]
       .filter(Boolean)
       .join("\n\n"),
     source: "instant_quote",
     clientPhotos: media,
     budgetBand: scoreKeyForBandIndex(budgetBand?.index),
+    // ── What the homeowner typed, kept ───────────────────────────────────
+    //
+    // This route passed no intake at all, so two things were lost.
+    //
+    // The address went into the `message` prose only, which meant converting
+    // an instant-quote lead created a client with a blank address and no
+    // jurisdiction — the identical defect the self-quote path was fixed for,
+    // repeated because each caller hand-built its own blob. Built through
+    // buildLeadIntake now, in the ONE shape convertLead reads.
+    //
+    // And the room dimensions, door counts, item lists and access answers the
+    // homeowner typed reached the draft quote and never the lead, so "What
+    // they told us" was empty for exactly the leads where they typed most.
+    //
+    // The MEASUREMENT is deliberately not copied in beside them. It is derived,
+    // not told, it is already on the draft this lead links to by `quoteId`
+    // (the panel shows a "View quote" button for it), and a derived number in
+    // two places is a number waiting to disagree with itself.
+    //
+    // city/province/country only when a Places pick returned them: a typed
+    // address, and every roof-address trade — geocodeAddress returns a
+    // formatted string and no components — honestly has none.
+    intake: buildLeadIntake({
+      address: address || measured.measurement.formattedAddress,
+      city,
+      province,
+      // Stored as it arrived, exactly like the self-quote form stores it.
+      // normaliseCountry runs once, on the READ side in convertLead, so there
+      // is one place that decides what a country code is.
+      country,
+      details: enteredDetails(intake, materialKey),
+    }),
+    // NOT a timeline. This form does not ask when they want the work done —
+    // see NOT_ASKED_BY_SOURCE in lib/leads/qualifiers.js, which is what stops
+    // the leads screen printing "Not stated" at a household nobody asked.
     language: emailLanguage,
   })
     .then((lead) =>
@@ -287,6 +326,43 @@ export async function POST(request, { params }) {
     financing: financingOffer(company.financing, { language: emailLanguage }),
     message: shown ? null : gatedMessage(emailLanguage, "confirmed"),
   });
+}
+
+// ── The homeowner's own answers, for the lead board ────────────────────────
+//
+// `intake` here is whatever the trade's own fields were (doorCount,
+// stairsFlights, the junk-removal item list, a jobType) — typed by the person,
+// not derived by us, which is what "What they told us" means.
+//
+// Scalars and the item list only. Anything deeper is a shape this form does not
+// produce, and letting an arbitrary posted object through into a Json column
+// that a staff screen renders is how a public endpoint becomes a way to write
+// whatever you like onto somebody's lead. Values are length-capped for the same
+// reason; the count of keys is capped because the browser chooses them.
+function enteredDetails(intake, materialKey) {
+  const out = {};
+  if (intake && typeof intake === "object" && !Array.isArray(intake)) {
+    for (const [k, v] of Object.entries(intake).slice(0, 40)) {
+      if (!/^[A-Za-z][A-Za-z0-9_]{0,40}$/.test(k)) continue;
+      if (k === "items") continue; // handled below — it is the one list
+      if (typeof v === "number" && Number.isFinite(v)) out[k] = v;
+      else if (typeof v === "boolean") out[k] = v;
+      else if (typeof v === "string" && v.trim()) out[k] = v.trim().slice(0, 200);
+    }
+    if (Array.isArray(intake.items)) {
+      const items = intake.items
+        .filter((it) => it && typeof it.key === "string" && Number(it.quantity) > 0)
+        .slice(0, 60)
+        .map((it) => ({ key: it.key.slice(0, 60), quantity: Math.round(Number(it.quantity)) }));
+      if (items.length) out.items = items;
+    }
+  }
+  // Which option they picked, when the trade offered more than one. The price
+  // came from it, so the reviewer should not have to open the quote to see it.
+  if (typeof materialKey === "string" && materialKey.trim()) {
+    out.material = materialKey.trim().slice(0, 60);
+  }
+  return out;
 }
 
 // Keep the stored snapshot small and free of the raw Solar dump — the facts

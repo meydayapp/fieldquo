@@ -6,8 +6,12 @@ import { cookies } from "next/headers";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 import { listPages } from "@/lib/meta/client";
-import { resolveInstagram, resolveGrantedScopes } from "@/lib/meta/pageConnect";
+import { resolveInstagram, resolveGrantedScopes, subscribePageWebhook } from "@/lib/meta/pageConnect";
 import { savePageConnection, disconnectPageConnection } from "@/lib/meta/pageConnection";
+import {
+  savePageMessagingChannels,
+  disconnectPageMessagingChannels,
+} from "@/lib/messaging/pageChannels";
 import { PAGES_PENDING_TOKEN_COOKIE } from "@/lib/meta/oauthCookies";
 
 // The second half of a multi-Page connect: the callback left the long-lived
@@ -76,7 +80,20 @@ export async function POST(request) {
   const instagram = await resolveInstagram({ pageToken: page.access_token, pageId: page.id });
   const scopes = await resolveGrantedScopes(pending.token);
 
+  // Identical to the callback's, and here rather than shared with it because
+  // the two halves of a multi-Page connect end in different files by design —
+  // what IS shared is subscribePageWebhook itself, which is the part that
+  // could rot in a copy. Same rule: the PAGE token, before the write.
+  const webhook = await subscribePageWebhook({
+    pageToken: page.access_token,
+    pageId: page.id,
+    grantedScopes: scopes,
+  });
+
+  // Both halves cleared before the new Page is stored — the callback's own
+  // note says why the inbox channels go with the connection.
   await disconnectPageConnection(member.companyId);
+  await disconnectPageMessagingChannels(member.companyId);
   await savePageConnection({
     companyId: member.companyId,
     pageId: page.id,
@@ -90,7 +107,29 @@ export async function POST(request) {
     tokenExpiresAt: null,
     scopes,
     connectedByUserId: member.userId,
+    ...webhook,
   });
 
-  return NextResponse.json({ success: true });
+  // Identical to the callback's, and here rather than shared with it for the
+  // reason the webhook subscribe above gives: the two halves of a multi-Page
+  // connect end in different files by design, and what IS shared is
+  // savePageMessagingChannels itself — the part that could rot in a copy.
+  let inbox = { facebook: false, instagram: false };
+  try {
+    inbox = await savePageMessagingChannels({
+      companyId: member.companyId,
+      pageId: page.id,
+      pageName: page.name || null,
+      pageToken: page.access_token,
+      instagramUserId: instagram.id,
+      instagramUsername: instagram.username,
+      grantedScopes: scopes,
+      webhookSubscribedAt: webhook.webhookSubscribedAt,
+      connectedByUserId: member.userId,
+    });
+  } catch (err) {
+    console.error(`[social-finalize] company=${member.companyId} inbox channels: ${err?.message}`);
+  }
+
+  return NextResponse.json({ success: true, inbox });
 }

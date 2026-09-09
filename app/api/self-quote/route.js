@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rateLimit";
 import { normaliseMediaList } from "@/lib/media/validate";
 import { createScoredLead } from "@/lib/leads/createLead";
+import { buildLeadIntake } from "@/lib/leads/intakeShape";
 import { findBookingCompany } from "@/lib/booking/findBookingCompany";
 import { publicIntakeFields } from "@/app/data/quoteIntakeFields";
 import { resolveRequestedLanguage } from "@/lib/company/sendLanguages";
@@ -131,18 +132,12 @@ export async function POST(request) {
   // address by hand instead of picking a suggestion has no province, and
   // storing `province: null` beside a real address invites a later reader to
   // treat the absence as an answer.
-  const jurisdiction = {
-    ...(address ? { address } : {}),
-    ...(city ? { city } : {}),
-    ...(province ? { province } : {}),
-    ...(country ? { country } : {}),
-  };
-  const intake =
-    details && typeof details === "object"
-      ? { ...details, ...jurisdiction }
-      : Object.keys(jurisdiction).length
-        ? jurisdiction
-        : null;
+  //
+  // The composition this route used to do inline now lives in
+  // lib/leads/intakeShape.js — same precedence, same "drop the empties", but
+  // shared, because the instant quote was quietly building a different shape
+  // and losing the address entirely.
+  const intake = buildLeadIntake({ address, city, province, country, details });
 
   const lead = await createScoredLead({
     companyId: company.id,

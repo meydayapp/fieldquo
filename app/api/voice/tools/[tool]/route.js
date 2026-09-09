@@ -26,6 +26,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createScoredLead } from "@/lib/leads/createLead";
+import { buildLeadIntake } from "@/lib/leads/intakeShape";
 import { toE164 } from "@/lib/voice/numbers";
 import { cleanPhone, cleanText, normaliseEmail, TOOL_NAMES, SAY_ON_REFUSAL } from "@/lib/voice/tools";
 import { recordError } from "@/lib/platform/errorLog";
@@ -246,6 +247,13 @@ async function saveCaller(ctx, args) {
           email: email || undefined,
           // undefined leaves the existing text alone; a string replaces it.
           message,
+          // Same rule for the address: only when this call carried one. The
+          // agent is told to save early and call again as it learns more, and
+          // the address usually arrives on the second call — writing `{}` on
+          // the first would erase it on the second. Replacing rather than
+          // merging is safe here and only here: the only thing that ever puts
+          // intake on a phone lead is this branch's own address.
+          ...(address ? { intake: buildLeadIntake({ address }) } : {}),
         },
       })
     : await createScoredLead({
@@ -269,6 +277,14 @@ async function saveCaller(ctx, args) {
         // deliberately conservative — "planning" is a real intention to buy,
         // not a promise about next week.
         timeline: URGENCY_TIMELINE[urgency] || null,
+        // ── The address the caller gave, structured ─────────────────────
+        //
+        // It was written into the message prose ("Address: 12 Main St") and
+        // nowhere else, so converting a phone lead produced a client with no
+        // address — the same loss the instant quote had, from the same cause.
+        // A spoken address has no city/province/country: nobody parses one out
+        // of a transcript here, and a guessed province drives a tax rate.
+        intake: buildLeadIntake({ address }),
       });
 
   // ── "I asked them to email photos" ─────────────────────────────────────

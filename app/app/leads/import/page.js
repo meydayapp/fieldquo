@@ -19,7 +19,7 @@
 //
 //   app.leadImport.back            en "Leads"                      fr "Prospects"
 //   app.leadImport.title           en "Import leads"               fr "Importer des prospects"
-//   app.leadImport.subtitle        en "Upload a CSV of leads you bought or exported elsewhere. We'll match common columns (name, email, phone, notes, budget, timeline), score each one hot/warm/cold, and drop them into your pipeline. Budget and timeline are mapped where we can recognise them — otherwise the lead still scores on how reachable it is."
+//   app.leadImport.subtitle        en "Upload a CSV of leads you bought or exported elsewhere. We'll match common columns (name, email, phone, address, notes, budget, timeline), score each one hot/warm/cold, and drop them into your pipeline. Budget and timeline are mapped where we can recognise them — otherwise the lead still scores on how reachable it is."
 //                                  fr "Téléversez un CSV de prospects achetés ou exportés d'ailleurs. Nous reconnaîtrons les colonnes courantes (nom, courriel, téléphone, notes, budget, échéance), classerons chacun chaud/tiède/froid, et les déposerons dans votre entonnoir. Le budget et l'échéance sont associés quand nous les reconnaissons — sinon le prospect est tout de même classé selon sa joignabilité."
 //   app.leadImport.readError       en "Couldn't read that CSV file."
 //                                  fr "Impossible de lire ce fichier CSV."
@@ -124,7 +124,7 @@ export default function ImportLeadsPage() {
         <h1 className="text-2xl font-bold text-foreground">Import leads</h1>
         <p className="text-sm text-muted-foreground mt-1 max-w-prose">
           Upload a CSV of leads you bought or exported elsewhere. We&apos;ll match
-          common columns (name, email, phone, notes, budget, timeline), score each
+          common columns (name, email, phone, address, notes, budget, timeline), score each
           one hot/warm/cold, and drop them into your pipeline. Budget and timeline
           are mapped where we can recognise them — otherwise the lead still scores
           on how reachable it is.

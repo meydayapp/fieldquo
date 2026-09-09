@@ -55,6 +55,13 @@ import ListState from "@/app/components/ListState";
 import PlanSvg from "@/app/components/kitchen/PlanSvg";
 import { describeFinish } from "@/lib/kitchen/finishes";
 import { LEAD_STATUSES, canSetLeadStatus, LOST_REASONS, isValidLostReason } from "@/lib/leads/pipeline";
+import {
+  leadAddressLine,
+  leadIntakeDetails,
+  formatIntakeValue,
+  humaniseKey,
+} from "@/lib/leads/intakeShape";
+import { wasAsked } from "@/lib/leads/qualifiers";
 
 const COLUMNS = [
   { key: "new", labelKey: "app.status.new", tone: "border-blue-200 dark:border-blue-900" },
@@ -790,12 +797,13 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
     }
   }
 
-  const intakeEntries =
-    lead?.intake && typeof lead.intake === "object"
-      ? Object.entries(lead.intake).filter(
-          ([k, v]) => k !== "address" && v !== "" && v != null && v !== false,
-        )
-      : [];
+  // Read through the shared shape, not by key. This filtered `address` out by
+  // hand and let `city`, `province` and `country` through, so a self-quote lead
+  // from a Places pick printed its address on the contact line AND then three
+  // more rows — "city: Ottawa", "province: ON" — under "What they told us",
+  // which is not a thing anybody told us. See lib/leads/intakeShape.js.
+  const intakeEntries = leadIntakeDetails(lead?.intake);
+  const addressLine = leadAddressLine(lead?.intake);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -873,8 +881,8 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
                   )}
                 </div>
               )}
-              {lead.intake?.address && (
-                <div className="text-muted-foreground">{lead.intake.address}</div>
+              {addressLine && (
+                <div className="text-muted-foreground">{addressLine}</div>
               )}
               {/* Said, not left as a gap.
                   GET /api/leads removes the email, the phone and the stated
@@ -912,6 +920,16 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
                 said 15k+. That is the same false absence the job page printed
                 as "Not set". So the pair collapses to the timeline alone and
                 the reason is said once. */}
+            {/* ── "Not stated" is a claim about the household ─────────────
+                It says they were asked and did not answer, which is worth
+                knowing — a self-quote visitor who skipped the budget question
+                really did decline. It is a small lie on a channel that never
+                put the question: the instant quote has no timeline field on it,
+                the kitchen designer and the portal ask neither. Those leads read
+                "Nobody asked" instead, from NOT_ASKED_BY_SOURCE in
+                lib/leads/qualifiers.js — the one place that knows which of our
+                forms carries which question. Only while the value is still
+                empty: once a rep has picked one, the answer is the answer. */}
             <div className={lead.restricted ? "" : "grid grid-cols-2 gap-3"}>
               <label className="text-xs">
                 <span className="text-muted-foreground">{t("app.leads.timeline")}</span>
@@ -921,7 +939,11 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
                   onChange={(e) => patch({ timeline: e.target.value })}
                   className="w-full mt-1 border border-border rounded-lg px-2 py-1.5 text-sm bg-card"
                 >
-                  <option value="">{t("app.leads.notStated")}</option>
+                  <option value="">
+                    {wasAsked(lead.source, "timeline")
+                      ? t("app.leads.notStated")
+                      : t("app.leads.notAsked")}
+                  </option>
                   {Object.entries(TIMELINE_LABEL_KEY).map(([k, key]) => (
                     <option key={k} value={k}>{t(key)}</option>
                   ))}
@@ -936,7 +958,11 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
                     onChange={(e) => patch({ budgetBand: e.target.value })}
                     className="w-full mt-1 border border-border rounded-lg px-2 py-1.5 text-sm bg-card"
                   >
-                    <option value="">{t("app.leads.notStated")}</option>
+                    <option value="">
+                      {wasAsked(lead.source, "budget")
+                        ? t("app.leads.notStated")
+                        : t("app.leads.notAsked")}
+                    </option>
                     {Object.entries(BUDGET_LABEL_KEY).map(([k, key]) => (
                       <option key={k} value={k}>{t(key)}</option>
                     ))}
@@ -960,8 +986,12 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
                 <dl className="text-xs">
                   {intakeEntries.map(([k, v]) => (
                     <div key={k} className="flex justify-between gap-3 py-0.5 border-b border-border/50">
-                      <dt className="text-muted-foreground capitalize">{k.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[_-]/g, " ")}</dt>
-                      <dd className="text-foreground text-right">{String(v)}</dd>
+                      <dt className="text-muted-foreground capitalize">{humaniseKey(k)}</dt>
+                      {/* formatIntakeValue, not String(v): the junk-removal
+                          picker stores [{key, quantity}] and the funnels store
+                          arrays of chosen labels, both of which printed
+                          "[object Object]" at the estimator. */}
+                      <dd className="text-foreground text-right">{formatIntakeValue(v)}</dd>
                     </div>
                   ))}
                 </dl>

@@ -1,12 +1,109 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 8 September 2026 (every kind of media a customer can send — video with a poster frame, voice notes and audio played in place, documents with their real filename and size, stickers, contact cards, and dropped pins on a map, with nothing arriving as a dead row; outbound video, Office documents and locations join photos on WhatsApp inside the 24-hour window; inbound media re-hosted to Cloudinary out of band by `/api/cron/messaging-media` and rendered as actual thumbnails on all three platforms; WhatsApp Business is the third channel on the inbox — Embedded Signup, a signed webhook, an approved-template list, and the 24-hour customer service window modelled explicitly so free text is refused by name rather than by Meta; blocked only on `whatsapp_business_messaging`, which `META_WHATSAPP_ENABLED=1` unblocks).
+Last updated: 8 September 2026 (connecting a Facebook Page is now ONE flow that opens both halves — the publishing connection AND the `facebook`/`instagram` `MessagingChannel` rows the inbox resolves an inbound webhook against, on a union consent screen, only where Meta granted messaging and confirmed the subscription; nothing had ever created those rows, so every inbound Page or Instagram message was answered `unknown_page` and dropped. Before that: a connected Facebook Page is SUBSCRIBED to the messaging webhook — `POST /<page-id>/subscribed_apps` at connect, `DELETE` at disconnect, `pages_manage_metadata` added to the messaging scope; nothing had ever called it, so the inbox, the AI employee and the monthly review were all waiting on messages Meta had never been asked to send. Also: every kind of media a customer can send — video with a poster frame, voice notes and audio played in place, documents with their real filename and size, stickers, contact cards, and dropped pins on a map, with nothing arriving as a dead row; outbound video, Office documents and locations join photos on WhatsApp inside the 24-hour window; inbound media re-hosted to Cloudinary out of band by `/api/cron/messaging-media`; WhatsApp Business is the third channel on the inbox, blocked only on `whatsapp_business_messaging`).
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The Page nobody subscribed (8 September 2026)
+
+`app/api/meta/messaging/webhook` verifies real HMAC signatures, de-duplicates
+Meta's retries and resolves a tenant only by database lookup of the Page id.
+It was also unreachable. Connecting a Page stored a token and stopped there —
+nothing ever called `POST /<page-id>/subscribed_apps`, which is what makes Meta
+deliver a Page's messages to an app at all. `grep subscribed_apps` found it
+only in `lib/meta/whatsappConnect.js`, whose own comment says "without this, no
+webhook ever fires". The Facebook and Instagram half simply did not exist, so
+every real contractor's inbox was waiting on messages that could not arrive.
+
+**What ships.** `subscribePageToMessaging()` / `unsubscribePageFromMessaging()`
+in `lib/meta/client.js` (the one door to Graph), wrapped by
+`subscribePageWebhook()` / `unsubscribePageWebhook()` in `lib/meta/pageConnect.js`
+and called from both halves of the connect (`/callback`, `/finalize`) and from
+`/disconnect`. `pages_manage_metadata` joins `META_MESSAGING_SCOPE`;
+`META_OAUTH_SCOPE` is untouched and still exactly `ads_read`.
+
+**The fields are exactly what the parser reads** — `messages`,
+`message_echoes`, `message_deliveries`, `message_reads`. Not
+`messaging_postbacks`: `lib/messaging/envelope.js` counts a postback as
+`dropped`, and subscribing to a field nothing turns into a row is failure class
+1 pointed at a webhook. The check executes each field's branch.
+
+**Instagram needed no second step.** Meta documents the Instagram messaging
+subscription as the same `subscribed_apps` POST, on "your app user's Instagram
+professional account ID or the Facebook Page ID that is linked to" it; the
+notifications then arrive as `"object": "instagram"`, which the envelope
+already maps. What IS separate is a one-time app-level field list in Meta's App
+Dashboard, which is FieldQuo's configuration and not a contractor's.
+
+**Not connected until subscribed.** `MetaPageConnection.webhookSubscribedAt` and
+`webhookSubscribeError` record three distinguishable states — subscribed,
+attempted and refused, never attempted (the permissions were not granted, which
+is where every Page connected on the publishing consent screen sits today). The
+settings panel prints each one, offers a retry (`/api/settings/social/subscribe`)
+only for the middle one, and says out loud when a disconnect could not get Meta
+to confirm it stopped. Thirteen mutants, including "show every connected Page as
+delivering messages", are caught by `npm run check:meta-pages-connect`.
+
+**Still blocking a real message.** One thing, and it is Meta's: the messaging
+permissions are unapproved, so the subscribe is not attempted for anyone yet.
+The second blocker — nothing created a `facebook`/`instagram`
+`MessagingChannel` row, so `lib/messaging/ingest.js` answered `unknown_page` —
+is closed below.
+
+---
+
+## One connection, both halves (8 September 2026)
+
+The product decision the section above left open is taken: **one connect flow,
+not two.** A contractor thinks "I connected my Facebook Page", not "I connected
+it for posting and separately for messages" — the same reasoning
+`SocialPublishingPanel.js` already gives for sitting beside the ads panel.
+
+**The scope is the union.** `metaPagesRequestedScope()` in `lib/meta/client.js`
+composes `META_PAGES_SCOPE` with `META_MESSAGING_SCOPE` when
+`metaMessagingApproved()` is true, and returns `META_PAGES_SCOPE` byte for byte
+when it is not — composed the way `metaRequestedScope()` composes the ads
+flags, because two sequential `params.set("scope", …)` calls silently drop the
+first. `META_OAUTH_SCOPE` is still exactly `ads_read`.
+
+**Creating the connection creates the channels.**
+`lib/messaging/pageChannels.js` reuses `saveChannel` (no second writer onto
+`MessagingChannel`) from `/callback`, `/finalize` and `/subscribe`: a
+`facebook` channel keyed on the Page id — exactly what `channelForExternalId`
+looks up for an inbound `object: "page"` webhook — and an `instagram` channel
+keyed on the Instagram business account id, which is what Meta puts in
+`entry.id` for `object: "instagram"`.
+
+**Only what Meta granted.** Read off `GET /me/permissions` (already stored as
+`MetaPageConnection.scopes`), never off what the dialog asked for.
+`pages_messaging` for the Facebook inbox; `pages_messaging` **and**
+`instagram_manage_messages` for the Instagram one, because the IG composer
+posts to `/<ig-user-id>/messages` and would otherwise look live and 403 on
+Send. And only on a subscription Meta CONFIRMED — a channel row over an
+unsubscribed Page is an inbox that is wired up and permanently empty, which
+reads as "no customers wrote to us".
+
+**Existing connections get a button, not a silent write.** `GET /status`
+reports `missingInboxChannels` and writes nothing: it is reachable under an
+impersonation cookie, and non-negotiable #3 is that the platform console views
+everything and edits nothing. The panel turns that into one press of
+`/api/settings/social/subscribe` — the same route as the subscribe retry,
+because they are one action with two names.
+
+**Disconnect takes the inbox with it**, stamped and never deleted, scoped by
+platform so a Page the company switched away from stops ingesting too. WhatsApp
+is untouched.
+
+`npm run check:meta-pages-connect` executes the round trip against the database
+stub — connect, then feed the real ingest a real Meta envelope — and catches 23
+mutants, including "a Page connected for publishing alone still gets a channel"
+and "the Instagram channel is keyed on the Page id".
 
 ---
 

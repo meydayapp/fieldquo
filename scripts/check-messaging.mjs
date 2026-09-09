@@ -46,6 +46,11 @@ import {
 } from "@/lib/messaging/webhookSignature";
 import { parseMessagingEnvelope } from "@/lib/messaging/envelope";
 import { ingestEvent, ingestEvents } from "@/lib/messaging/ingest";
+import {
+  savePageMessagingChannels,
+  disconnectPageMessagingChannels,
+} from "@/lib/messaging/pageChannels";
+import { channelForExternalId } from "@/lib/messaging/channels";
 import { sendMetaMessage } from "@/lib/messaging/metaSend";
 import {
   buildMonthlyReview,
@@ -373,6 +378,78 @@ await ingestEvent({
 ok(
   "a late delivery of an old message does not move lastMessageAt backwards",
   rows.messageThread[0].lastMessageAt.getTime() === recentAt.getTime(),
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("3b. Where a facebook/instagram channel comes from at all");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Every assertion in section 3 above seeded `rows.messagingChannel` by hand,
+// and that is exactly what hid the bug for as long as it lasted: saveChannel
+// had ONE caller in the whole codebase — the WhatsApp callback — so no product
+// path had ever created a channel with platform `facebook` or `instagram`. The
+// ingest was correct, the webhook was correct, the signature check was
+// correct, and every real inbound message was answered `unknown_page` and
+// dropped, because the row the tenant lookup needs did not exist.
+//
+// So this section seeds NOTHING. It runs the connect-side writer and then
+// feeds the real ingest a real Meta envelope.
+process.env.META_TOKEN_ENCRYPTION_KEY = process.env.META_TOKEN_ENCRYPTION_KEY || "0".repeat(64);
+const GRANTED_MESSAGING =
+  "pages_show_list,pages_read_engagement,pages_messaging,pages_manage_metadata,instagram_basic,instagram_manage_messages";
+
+const connectPage = (overrides = {}) =>
+  savePageMessagingChannels({
+    companyId: "company_REAL",
+    pageId: "PAGE_1",
+    pageName: "Northline Painting",
+    pageToken: "PAGE-TOKEN",
+    instagramUserId: "IG_1",
+    instagramUsername: "northline",
+    grantedScopes: GRANTED_MESSAGING,
+    webhookSubscribedAt: new Date(),
+    connectedByUserId: "user_1",
+    ...overrides,
+  });
+
+resetDbStub();
+await connectPage();
+ok(
+  "connecting a Page creates the facebook channel the tenant lookup needs",
+  Boolean(await channelForExternalId("facebook", "PAGE_1")),
+);
+ok(
+  "…and the instagram one, keyed on the Instagram account id Meta puts in entry.id",
+  Boolean(await channelForExternalId("instagram", "IG_1")),
+);
+// The whole round trip: the SAME body section 3 uses, against a channel no
+// fixture created.
+const roundTrip = await ingestEvents(parseMessagingEnvelope(JSON.parse(BODY)).events);
+ok("a real inbound Page message is filed, not answered unknown_page", roundTrip.created === 1 && !roundTrip.reasons.unknown_page);
+ok("…into the connecting company", rows.messageThread[0]?.companyId === "company_REAL");
+
+resetDbStub();
+await connectPage({ grantedScopes: "pages_show_list,pages_manage_posts,instagram_basic" });
+ok(
+  "a Page connected for PUBLISHING ONLY gets no channel at all",
+  rows.messagingChannel.length === 0,
+);
+ok(
+  "…so its messages are still refused honestly rather than filed into an inbox that cannot reply",
+  (await ingestEvents(parseMessagingEnvelope(JSON.parse(BODY)).events)).reasons.unknown_page === 1,
+);
+
+resetDbStub();
+await connectPage();
+await disconnectPageMessagingChannels("company_REAL");
+ok(
+  "disconnecting marks BOTH channels disconnected rather than deleting them",
+  rows.messagingChannel.length === 2 &&
+    rows.messagingChannel.every((c) => c.disconnectedAt instanceof Date),
+);
+ok(
+  "…and a later webhook is no longer filed",
+  (await ingestEvents(parseMessagingEnvelope(JSON.parse(BODY)).events)).reasons.channel_disconnected === 1,
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -808,15 +885,24 @@ section("10. The Meta scope stays exactly where it was until approval");
 
 ok("the ads scope is untouched", META_OAUTH_SCOPE === "ads_read");
 ok(
-  "the messaging scopes are declared, and are the five Meta requires",
+  "the messaging scopes are declared, and are the six Meta requires",
   META_MESSAGING_SCOPE.split(",").sort().join(",") ===
     [
       "instagram_basic",
       "instagram_manage_messages",
+      "pages_manage_metadata",
       "pages_messaging",
       "pages_read_engagement",
       "pages_show_list",
     ].join(","),
+);
+// The sixth, called out on its own because it is the one whose absence had no
+// symptom: without pages_manage_metadata nothing can POST
+// /<page-id>/subscribed_apps, so a Page connects, a token stores, the send
+// path works, and not one inbound message is ever delivered.
+ok(
+  "pages_manage_metadata is in it — the permission the webhook subscription needs",
+  META_MESSAGING_SCOPE.split(",").includes("pages_manage_metadata"),
 );
 ok("the messaging scopes are NOT folded into the ads scope", !META_OAUTH_SCOPE.includes("pages_"));
 

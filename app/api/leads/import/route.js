@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { createScoredLead } from "@/lib/leads/createLead";
+import { buildLeadIntake } from "@/lib/leads/intakeShape";
 import { normaliseLeadRow } from "@/lib/leads/importMap";
 import { db } from "@/lib/db";
 import {
@@ -63,6 +64,9 @@ export async function POST(request) {
         source: "imported",
         budgetBand: r.budgetBand,
         timeline: r.timeline,
+        // The address column, in the one shape convertLead reads. Nothing
+        // structured comes with it — see normaliseLeadRow.
+        intake: buildLeadIntake({ address: r.address }),
       });
       imported += 1;
     } catch (err) {

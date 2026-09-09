@@ -7,6 +7,7 @@ import { rateLimit } from "@/lib/rateLimit";
 import { findBookingCompany } from "@/lib/booking/findBookingCompany";
 import { normaliseMediaList } from "@/lib/media/validate";
 import { createScoredLead } from "@/lib/leads/createLead";
+import { buildLeadIntake } from "@/lib/leads/intakeShape";
 import { buildLeadFromFunnel } from "@/lib/funnels/ingest";
 import { recordConsent } from "@/lib/voice/outbound";
 import { DISCLOSURE } from "@/lib/voice/disclosure";
@@ -76,9 +77,13 @@ export async function POST(request, { params }) {
     // rather than merged into buildLeadFromFunnel because that helper is pure
     // and knows nothing about rates — pricing needs the database.
     message: [leadInput.message, ...estimates.notes].filter(Boolean).join("\n") || null,
-    intake: Object.keys(estimates.intake).length
-      ? { ...(leadInput.intake || {}), ...estimates.intake }
-      : leadInput.intake,
+    // Merged through the shared shape rather than by spread, so the funnel's
+    // answers and the estimate's notes land in the ONE layout convertLead
+    // reads — including an `address` answer, which stays on the reserved key
+    // and seeds the client. See lib/leads/intakeShape.js.
+    intake: buildLeadIntake({
+      details: { ...(leadInput.intake || {}), ...estimates.intake },
+    }),
     clientPhotos: media,
   });
 

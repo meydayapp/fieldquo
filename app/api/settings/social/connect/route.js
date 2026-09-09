@@ -10,7 +10,7 @@ import {
   metaFullyConfigured,
   metaPagesConnectEnabled,
   buildAuthorizeUrl,
-  META_PAGES_SCOPE,
+  metaPagesRequestedScope,
 } from "@/lib/meta/client";
 import { getAppOrigin } from "@/lib/appUrl";
 import { PAGES_STATE_COOKIE, baseCookieOptions } from "@/lib/meta/oauthCookies";
@@ -71,7 +71,13 @@ export async function GET(request) {
   cookieStore.set(PAGES_STATE_COOKIE, `${state}:${member.companyId}`, baseCookieOptions());
 
   const redirectUri = `${origin}/api/settings/social/callback`;
+  // Publishing PLUS messaging when Meta has approved messaging, publishing
+  // alone when it has not — composed in lib/meta/client.js rather than
+  // concatenated here, so a third Page-side review landing later cannot
+  // silently un-ask for one of these two. ONE consent screen: a contractor
+  // connects "my Facebook Page", not "my Page for posting" and then again for
+  // messages.
   return NextResponse.redirect(
-    buildAuthorizeUrl({ redirectUri, state, scope: META_PAGES_SCOPE }),
+    buildAuthorizeUrl({ redirectUri, state, scope: metaPagesRequestedScope() }),
   );
 }

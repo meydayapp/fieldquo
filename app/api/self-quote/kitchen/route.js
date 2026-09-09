@@ -23,6 +23,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createScoredLead } from "@/lib/leads/createLead";
+import { buildLeadIntake } from "@/lib/leads/intakeShape";
 import { normaliseFinish, describeFinish } from "@/lib/kitchen/finishes";
 import { KINDS } from "@/lib/kitchen/geometry";
 import { resolveSender } from "@/lib/email/companySender";
@@ -169,7 +170,21 @@ export async function POST(request) {
     kitchenDesign: design,
     budgetBand,
     timeline,
-    ...(address ? { intake: { address } } : {}),
+    // Through the shared shape rather than `{ address }` by hand — the same
+    // blob convertLead reads. No city/province/country: this form's address is
+    // a plain text field with no Places autocomplete behind it, so there is
+    // nothing structured to store and inventing one would be worse than none.
+    intake: buildLeadIntake({
+      address,
+      details: {
+        roomWidthIn: Math.round(design.room.width),
+        roomDepthIn: Math.round(design.room.depth),
+        cabinets: counts.cabinet || 0,
+        appliances: counts.appliance || 0,
+        finish: describeFinish(design.finish),
+        notes: notes ? String(notes).slice(0, 2000) : null,
+      },
+    }),
   });
 
   // ── Their permission to ring them ───────────────────────────────────────
