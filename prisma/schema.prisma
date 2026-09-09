@@ -8786,6 +8786,53 @@ model SalesRep {
   demoCompanyId String?  @unique
   demoCompany   Company? @relation(fields: [demoCompanyId], references: [id])
 
+  // ── How this person is engaged, and how they get paid ──────────────────
+  //
+  // Both stated, neither inferred. The owner's reps are freelancers today and
+  // he expects some to become employees, and the difference is not cosmetic:
+  // an employee accrues paid leave and a freelancer does not, and a payroll
+  // surface that guessed would either invent a holiday balance nobody owes or
+  // withhold one somebody has earned.
+
+  /// "freelancer" | "employee". No default that means "we assumed".
+  ///
+  /// Deliberately NOT defaulted to "freelancer" even though every rep is one
+  /// today: a default is what makes the first employee silently wrong, and the
+  /// screen asks for this at the moment a rep is set up. Null means nobody has
+  /// said, and every surface that would attribute a benefit reads it as
+  /// "unknown" rather than as "freelancer".
+  engagement String?
+
+  /// Whether paid leave accrues. Only ever true for an employee, and it is
+  /// stored rather than derived from `engagement` because the two are
+  /// genuinely separable — a contractor in some jurisdictions accrues vacation
+  /// pay, and a screen that computed this from the engagement type would be
+  /// wrong there in the direction that shorts somebody.
+  accruesPaidLeave Boolean @default(false)
+
+  /// "paypal" | "interac" | "bank_transfer" | "upwork". Null until stated.
+  ///
+  /// Upwork is on this list because it is how the first reps are actually
+  /// engaged, and leaving it off would mean the record said "bank transfer"
+  /// about money that moves through a milestone release. What FieldQuo owes is
+  /// the same either way; where it lands is not, and a payout run needs to
+  /// know which.
+  payoutMethod String?
+
+  /// The address, account or profile the money goes to, as the rep states it.
+  ///
+  /// One free-text field rather than a column per method: an IBAN, a PayPal
+  /// address, an Interac email and an Upwork contract id have nothing in
+  /// common, and four nullable columns would leave three of them empty on
+  /// every row and none of them validated. The screen labels it per method.
+  payoutHandle String?
+
+  /// When the rep last confirmed the two above. Payout details are the field
+  /// most likely to be silently stale — somebody closes a bank account and the
+  /// record does not know — so the payout screen can say how old it is rather
+  /// than presenting it as current.
+  payoutConfirmedAt DateTime?
+
   createdAt DateTime @default(now())
 
   /// The last time this rep was seen IN THE PORTAL. Stamped by
