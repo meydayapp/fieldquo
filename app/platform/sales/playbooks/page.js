@@ -472,6 +472,40 @@ export default function PlatformSalesPlaybooksPage() {
                   Install the {(data?.availableDefaults || []).length} built-in playbook(s)
                 </button>
               )}
+              {/* ── Separate from Install, and deliberately so ──────────────
+                  Install CREATES and never updates, which is what protects a
+                  superadmin's rewrite from a button labelled "install the
+                  defaults". The cost showed up when the scripts were rebuilt
+                  from the selling literature: source was corrected, the rows
+                  in production were the old script word for word, and a deploy
+                  changed nothing.
+
+                  This updates only rows that still match a version this
+                  repository shipped — nobody's writing — and names the ones it
+                  left alone rather than counting them. */}
+              <button
+                disabled={busy === "/api/platform/sales/playbooks/refresh-builtins"}
+                onClick={() =>
+                  send(
+                    "/api/platform/sales/playbooks/refresh-builtins",
+                    { method: "POST" },
+                    (r) => {
+                      const changed = r.playbooksUpdated + r.objectionsUpdated;
+                      const kept = [...r.playbooksKept, ...r.objectionsKept];
+                      if (!changed && !kept.length) return "Everything built-in already matches this build.";
+                      return (
+                        `Updated ${r.playbooksUpdated} playbook(s) and ${r.objectionsUpdated} objection(s).` +
+                        (kept.length
+                          ? ` Left alone because they have been edited: ${kept.join(", ")}.`
+                          : "")
+                      );
+                    },
+                  )
+                }
+                className={`${BTN} w-full sm:w-auto bg-card border border-border text-foreground`}
+              >
+                Update the unedited built-ins
+              </button>
             </div>
           )}
 

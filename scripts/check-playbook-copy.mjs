@@ -76,6 +76,13 @@ import {
   talkingPointSchema,
 } from "../lib/sales/playbook/generate.js";
 import { seedObjections } from "../lib/sales/playbook/objections.js";
+import {
+  RETIRED_OBJECTIONS,
+  RETIRED_PLAYBOOKS,
+  isUnedited,
+  objectionFingerprint,
+  playbookFingerprint,
+} from "../lib/sales/playbook/seedHistory.js";
 import { talkingPointContext } from "../lib/sales/playbook/talkingPoints.js";
 import { capabilityMatrix } from "../lib/sales/intel/capabilities.js";
 
@@ -818,6 +825,84 @@ section("Prompt assembly, executed against a fixture");
     const bad = result.points.filter((p) => b.pattern.test(p.text));
     ok(`the fallback sentences make no "${b.move}" move`, bad.length === 0, bad.map((p) => p.text));
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("A rewrite can still reach the rows it just made stale");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The seeds live in the DATABASE, and installDefaults CREATES and never
+// updates so a superadmin's rewrite is safe from the install button. The cost
+// of that rule surfaced the day these scripts were rebuilt: source was right,
+// production was word for word the old script, a deploy changed nothing, and
+// the owner read the deleted sentence back off a live prospect screen.
+//
+// refreshBuiltIns closes it — but only for rows whose fingerprint is listed as
+// retired. So the assertion that matters is that a rewrite RECORDED what it
+// retired. A rewrite that forgets loses the ability to refresh the rows it
+// just made stale, silently, and nobody finds out until a rep reads the old
+// words aloud.
+
+{
+  const objections = seedObjections();
+  const playbooks = seedPlaybooks();
+
+  for (const o of objections) {
+    const fp = objectionFingerprint(o);
+    ok(
+      `${o.code}'s CURRENT words are not listed as retired`,
+      !isUnedited("objection", o.code, fp),
+      "a current seed listed in seedHistory means the history was written from the wrong version",
+    );
+    ok(
+      `${o.code} has at least one retired fingerprint to recognise an unedited row by`,
+      (RETIRED_OBJECTIONS[o.code] || []).length > 0,
+      RETIRED_OBJECTIONS[o.code],
+    );
+  }
+  for (const p of playbooks) {
+    ok(
+      `${p.key}'s CURRENT script is not listed as retired`,
+      !isUnedited("playbook", p.key, playbookFingerprint(p)),
+    );
+    ok(
+      `${p.key} has at least one retired fingerprint`,
+      (RETIRED_PLAYBOOKS[p.key] || []).length > 0,
+      RETIRED_PLAYBOOKS[p.key],
+    );
+  }
+
+  // The fingerprint has to actually distinguish two versions, or the whole
+  // mechanism is a no-op that reports success.
+  const one = objections[0];
+  ok(
+    "changing a single character changes the fingerprint",
+    objectionFingerprint(one) !== objectionFingerprint({ ...one, response: `${one.response} ` }),
+  );
+  ok(
+    "…and the label counts too, because editing it is editing the row",
+    objectionFingerprint(one) !== objectionFingerprint({ ...one, label: `${one.label} ` }),
+  );
+  // Cues deliberately do NOT count — see seedHistory's header.
+  ok(
+    "…while adding a cue does not, so tuning how a rep finds a row is not an edit",
+    objectionFingerprint(one) === objectionFingerprint({ ...one, cues: [...one.cues, "new cue"] }),
+  );
+  ok(
+    "a playbook's stage ORDER is part of its fingerprint",
+    playbookFingerprint(playbooks[0]) !==
+      playbookFingerprint({ ...playbooks[0], stages: [...playbooks[0].stages].reverse() }),
+  );
+
+  // And the refresh must never create, never touch an edited row, and never
+  // write `active`.
+  const store = read("lib/sales/playbook/store.js");
+  const fn = store.slice(store.indexOf("export async function refreshBuiltIns"), store.indexOf("export async function installDefaults"));
+  ok("refreshBuiltIns was found", fn.length > 400, fn.length);
+  ok("…it never creates a row", !/\.create\(|createMany\(/.test(fn.replace(/platformAuditLog\.create\(/g, "")));
+  ok("…it skips anything not listed as unedited", /if \(!isUnedited\(/.test(fn));
+  ok("…it names what it left alone rather than counting it", /objectionsKept/.test(fn) && /playbooksKept/.test(fn));
+  ok("…and it does not write `active`, which is operational", !/active:/.test(fn));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -459,3 +459,46 @@ the call. So the four concessions are listed in the check by hand, and changing
 one means changing that table — which is the moment to ask the Cialdini
 question again: could this sentence cost us the meeting? If not, it is
 theatre, and it should be replaced rather than softened.
+
+
+## 15. The seeds live in the database, and a rewrite has to reach them
+
+Everything above describes the words in `lib/sales/playbook/defaults.js` and
+`objections.js`. Those are **seeds**. The words a rep actually reads come from
+`SalesPlaybook` and `SalesObjection` rows, put there once by "install the
+starter library".
+
+`installDefaults()` creates and never updates — deliberately, so that a
+superadmin who has rewritten `COMPETITIVE_DISPLACEMENT` cannot have their words
+replaced by a button labelled "install the defaults".
+
+The cost of that rule showed up the day these scripts were rebuilt. Source was
+correct, production was word for word the old script, and a deploy changed
+nothing. The owner opened a live prospect and read back the exact sentence the
+rebuild had deleted — *"if that is not a problem you have, I will leave you
+alone"* — from a screen that was, from its own point of view, working
+perfectly.
+
+**So there is a second control: "Update the unedited built-ins."** It updates a
+row only when that row still says, character for character, what *some shipped
+version of the seed* said. A row like that is nobody's writing. Anything else
+is skipped and named in the response, so "left alone" is a list of keys rather
+than a count.
+
+That test needs a record of what has been shipped, which is
+`lib/sales/playbook/seedHistory.js`: a truncated SHA-256 of each retired
+version's label and text. The words themselves stay in git, where deleted words
+belong.
+
+**When you change the built-in words, append the outgoing fingerprint.**
+`check:playbook-copy` computes the current seeds' fingerprints and fails if one
+is already listed as retired, or if any built-in has no retired fingerprint at
+all — because a rewrite that forgets to record what it retired silently loses
+the ability to refresh the rows it just made stale, and nobody finds out until
+a rep reads the old words down a phone.
+
+Cues are excluded from the fingerprint on purpose: they are how a rep finds an
+answer mid-call, they get tuned independently of the words, and a refresh that
+skipped a row because somebody added a cue would fail exactly the people who
+use the library most. Stage order **is** included — the same sentences in a
+different order are a different script.
