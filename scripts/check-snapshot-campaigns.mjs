@@ -714,6 +714,36 @@ section("Country and region come from what the files actually cover");
   );
   ok("the region is cleared when a source that covered it is unticked", /stillCovered/.test(form));
 
+  // ── A progress screen has to progress ────────────────────────────────
+  //
+  // The detail screen never re-fetched. Its whole subject is a job that runs
+  // for days at twenty-five tasks a minute, so the owner watched "0 of 37,638"
+  // sit still while the database went 83, then 166, and concluded nothing was
+  // running. The only way to see a new number was to pause and resume, which
+  // is a destructive way to press refresh.
+  const detail = read("app/platform/sales/campaigns/[id]/page.js");
+  ok("the detail screen polls", /setInterval\(\(\) => load\(true\)/.test(detail));
+  ok(
+    "…only while the campaign is running, so a finished one is not polled for ever",
+    /if \(!isRunning\) return undefined;/.test(detail),
+  );
+  ok(
+    "…and the poll is quiet, so the screen does not flash a spinner every ten seconds",
+    /load\(true\)/.test(detail) && /if \(!quiet\) \{\s*\n\s*setLoading\(true\);/.test(detail),
+  );
+  ok(
+    "…and a failed background poll does not replace good numbers with a banner",
+    /if \(!quiet\) setError\(/.test(detail),
+  );
+  ok(
+    "the pace is stated, because 0% on a job measured in days reads as broken",
+    /twenty-five tasks a minute/.test(detail),
+  );
+  ok(
+    "…and no finish time is invented",
+    !/estimated (finish|completion)|ETA|will be done (by|at)/i.test(detail),
+  );
+
   // The route requires a region, because a territory without one names no file.
   ok("the create route refuses a territory with no region", /A territory needs a region/.test(read(CREATE_ROUTE)));
 }

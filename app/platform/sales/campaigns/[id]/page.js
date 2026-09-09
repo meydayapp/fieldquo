@@ -58,21 +58,62 @@ export default function PlatformSalesCampaignPage({ params }) {
   const [error, setError] = useState("");
   const [problems, setProblems] = useState([]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      setData(await fetchJson(`/api/platform/sales/campaigns/${id}`));
-    } catch (err) {
-      setError(err?.message || "Could not load this campaign.");
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
+  /**
+   * @param quiet  a background refresh, not the first paint. It must NOT set
+   *               `loading`, or the whole screen would flash a spinner every
+   *               few seconds, and it must not clear a real error into
+   *               nothing on a transient failure.
+   */
+  const load = useCallback(
+    async (quiet = false) => {
+      if (!quiet) {
+        setLoading(true);
+        setError("");
+      }
+      try {
+        setData(await fetchJson(`/api/platform/sales/campaigns/${id}`));
+        // Only a SUCCESSFUL quiet poll clears the error, so a run that
+        // recovers stops complaining without a poll that failed erasing the
+        // reason the previous one gave.
+        if (quiet) setError("");
+      } catch (err) {
+        // A background poll that fails says nothing. The numbers on screen are
+        // a few seconds old rather than wrong, and a banner that appeared
+        // because one fetch lost a race would be a screen crying wolf at a
+        // superadmin watching a six-hour job.
+        if (!quiet) setError(err?.message || "Could not load this campaign.");
+      } finally {
+        if (!quiet) setLoading(false);
+      }
+    },
+    [id],
+  );
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // ── A progress screen that does not progress ─────────────────────────────
+  //
+  // This screen's entire subject is a job that takes hours: the pipeline drains
+  // twenty-five tasks a minute, so a campaign's counters move roughly every
+  // sixty seconds, for days. It never re-fetched. The owner watched "0 of
+  // 37,638" sit still while the database went 83, then 166, and reasonably
+  // concluded nothing was running — the only way to see a new number was to
+  // pause the campaign and resume it, which is a destructive way to press
+  // refresh.
+  //
+  // Ten seconds while it is RUNNING, and nothing at all when it is not: a
+  // paused or finished campaign has no next number, and polling one forever
+  // from an open tab is a request every ten seconds for as long as somebody
+  // leaves the window open. The interval is torn down on the status change as
+  // well as on unmount, so resuming restarts it and pausing stops it.
+  const isRunning = data?.campaign?.status === "running";
+  useEffect(() => {
+    if (!isRunning) return undefined;
+    const timer = setInterval(() => load(true), 10_000);
+    return () => clearInterval(timer);
+  }, [isRunning, load]);
 
   async function act(action, extra = {}) {
     setBusy(action);
@@ -159,6 +200,23 @@ export default function PlatformSalesCampaignPage({ params }) {
           {campaign.progress.accepted} of {campaign.progress.target} accepted
           {campaign.progress.percent === null ? "" : ` (${campaign.progress.percent}%)`} · {campaign.status}
         </p>
+        {/* ── Said because 0% on a job measured in DAYS reads as broken ────
+            The pipeline drains twenty-five tasks a minute, so a big campaign
+            moves about a hundred rows a minute and takes hours to page and
+            days to research. Without that sentence the honest state of a
+            healthy run — a number that has barely moved and a percentage
+            rounded to zero — is indistinguishable from a stall, and the owner
+            read it exactly that way. No estimate of a finish time is offered:
+            the rate depends on how many rows survive classification and on
+            the per-provider budgets, and a wrong ETA is worse than none. */}
+        {isRunning ? (
+          <p className="text-xs text-muted-foreground break-words">
+            Working. The pipeline takes twenty-five tasks a minute, so this counts up by roughly a
+            hundred rows a minute while it pages the file, then slows as each accepted business is
+            crawled and researched. Hours to bank, days to finish researching. This screen refreshes
+            itself every ten seconds — leave it open.
+          </p>
+        ) : null}
         {/* Banking and researching are different budgets and only one of them
             costs the platform anything. Shown because a campaign that has
             banked its way past its target goes on banking and stops promoting,
