@@ -503,6 +503,30 @@ ok(
   );
 }
 
+// ── The pool is visible without opening a thirty-nine item dropdown ────────
+//
+// The per-trade counts have always been on this screen — one per <option>,
+// inside a closed <select>. The owner opened the queue with 159 prospects
+// waiting across 28 trades, saw an empty "Yours to work" and a closed
+// dropdown, and asked whether discovery had failed. A number nobody scrolls a
+// select to find is a number nobody has.
+ok(
+  "the free-to-claim total is stated outside the select",
+  /free to claim/.test(consoleSrc) && /stocked\.reduce\(/.test(consoleSrc),
+);
+ok(
+  "…and the trades with something in them are listed first",
+  /stocked = useMemo\(/.test(consoleSrc) && /\.sort\(\(a, b\) => b\.available - a\.available\)/.test(consoleSrc),
+);
+ok(
+  "…while the empty ones stay selectable rather than being filtered away",
+  /optgroup label="Nothing free right now"/.test(consoleSrc) && /empties\.map\(/.test(consoleSrc),
+);
+ok(
+  "…and it is still COUNTS only — no rep reads the pool and picks the good ones",
+  !/businessName/.test(consoleSrc.slice(consoleSrc.indexOf("stocked = useMemo"), consoleSrc.indexOf("</select>"))),
+);
+
 // ── The call controls are in one place, and it is the top of the pane ──────
 ok(
   "the call region is pinned rather than scrolling away with the research",

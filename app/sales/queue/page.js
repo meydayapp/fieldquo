@@ -547,6 +547,21 @@ function QueueConsole() {
     // `tick` is here to re-run this every thirty seconds; it is not read.
   }, [current, clock, tick]);
 
+  // ── The pool, split so the screen can lead with what is workable ───────
+  //
+  // `available` is a COUNT the server computed; this only orders them. A rep
+  // still cannot see which businesses are in the pool, which is the rule
+  // claiming exists to enforce — see the queue route's header.
+  const stocked = useMemo(
+    () =>
+      (data?.trades || []).filter((t) => t.available > 0).sort((a, b) => b.available - a.available),
+    [data?.trades],
+  );
+  const empties = useMemo(
+    () => (data?.trades || []).filter((t) => !(t.available > 0)),
+    [data?.trades],
+  );
+
   const href = dialHref(compliance, current?.phoneE164);
   // Everything that goes where the Call button goes, including the sentence
   // that goes there when there is no Call button. dialSpace re-gates the href
@@ -589,6 +604,32 @@ function QueueConsole() {
             <label className="block text-sm font-medium text-foreground" htmlFor="q-trade">
               Which trade are you calling today?
             </label>
+
+            {/* ── What is in the pool, before anybody opens the dropdown ────
+                The counts have always been here, one per trade, inside a
+                thirty-nine item <select>. That is not the same as being
+                visible: the owner opened this screen with 159 prospects
+                waiting across 28 trades, saw an empty "Yours to work" and a
+                closed dropdown, and asked whether discovery had failed. A
+                number nobody scrolls a select to find is a number nobody has.
+
+                Still counts, never a list — nothing here lets a rep read the
+                pool and pick the good ones, which is the rule the whole
+                claim mechanic exists to enforce. */}
+            {stocked.length ? (
+              <p className="text-xs text-muted-foreground break-words">
+                <span className="font-semibold text-foreground">
+                  {stocked.reduce((n, t) => n + t.available, 0)} free to claim
+                </span>{" "}
+                across {stocked.length} trade{stocked.length === 1 ? "" : "s"} — most in{" "}
+                {stocked
+                  .slice(0, 3)
+                  .map((t) => `${t.label} (${t.available})`)
+                  .join(", ")}
+                .
+              </p>
+            ) : null}
+
             <select
               id="q-trade"
               className={FIELD}
@@ -596,11 +637,25 @@ function QueueConsole() {
               onChange={(e) => setQuery({ trade: e.target.value, prospectId: "" })}
             >
               <option value="">Everything I have claimed</option>
-              {(data?.trades || []).map((t) => (
+              {/* Trades with something in them first, biggest first, so the
+                  ones a rep can actually work are not sorted underneath
+                  eleven empty ones. The empty trades stay on the list rather
+                  than being filtered out: a rep with claims in a trade whose
+                  pool has run dry still has to be able to select it. */}
+              {stocked.map((t) => (
                 <option key={t.key} value={t.key}>
                   {t.label} — {t.claimed} claimed, {t.available} free
                 </option>
               ))}
+              {empties.length ? (
+                <optgroup label="Nothing free right now">
+                  {empties.map((t) => (
+                    <option key={t.key} value={t.key}>
+                      {t.label} — {t.claimed} claimed, {t.available} free
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
             </select>
             {tradeKey ? (
               <button
