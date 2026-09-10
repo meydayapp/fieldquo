@@ -11,6 +11,23 @@ Status key: `TODO` · `IN PROGRESS (agent)` · `DONE + verified` · `NEEDS DECIS
 
 ## 1. PRIORITY — a company is using a number it did not buy
 
+  * `CODE FIXED, LIVE ROWS NOT` — root cause found and gated (commit 67ee6cd0).
+    claimCrewLine had two guards and both worked: "does FieldQuo's Twilio account
+    own this number" (yes — it is FieldQuo's own rep line) and "is another
+    company holding this as a CREW line" (no — it was a SALES line, another
+    table). "Not somebody else's crew line" is not "not in use", and every rep
+    line and every receptionist number sat in that gap, claimable by any tenant,
+    free, because a claim never charges. lib/voice/numberCommitment.js now asks
+    the right question before the row is written and before the webhook moves.
+  * `NEEDS OWNER DECISION` The LIVE ROWS are untouched on purpose. Easy Roofers
+    Inc. still holds +17166383616 and Daniel's inbound texts still arrive in
+    their crew inbox. Remediation is three steps and every one of them is
+    outward-facing, so it is the owner's call, not mine:
+      1. Disconnect the crew line for company cmtvs4kha000004js8lf58ls2.
+      2. Repoint the number's SMS webhook away from /api/crew/inbound.
+      3. Decide whether Easy Roofers gets a real crew number, and who pays for
+         the month already marked paid.
+
   * `TODO` A tenant's crew inbox reads **"Tu equipo escribe a este número
     +17166383616"** — a number the owner had assigned to **Daniel, a sales rep**.
     The tenant "didn't buy the phone number and they didn't add credit". Its
@@ -94,7 +111,40 @@ that homeowner in the homeowner's language. This is different from UI strings.
     Owner: "i thought this was completed".
   * `TODO` `/app/activity` — missing the settings sidebar entirely.
 
-## 7. Product gaps the owner has raised before
+## 6b. FOUND WHILE INVESTIGATING — client texts have NO gate at all
+
+  * `NEEDS OWNER DECISION` The owner suspected "there is no gate i think for
+    this" and he is right, in a bigger way than the question implied. The
+    "on my way" client text (app/api/jobs/[id]/visits/[visitId]/route.js) calls
+    sendSms WITHOUT a `from`, so lib/sms/twilioClient.js falls back to
+    systemSmsNumber() — FIELDQUO'S OWN number. There is no balance check, no
+    credit reservation and no per-company number requirement anywhere on that
+    path. Crew texting has crewSpendVerdict; this has nothing.
+    Two consequences, and the second is the worse one:
+      - FieldQuo pays for every client text every tenant sends.
+      - The homeowner's phone shows FIELDQUO'S NUMBER, not the contractor's,
+        which contradicts the first paragraph of AGENTS.md: white-label by
+        default, "a homeowner comparing three contractors should not be able to
+        tell that two of them use the same software".
+
+## 7. Answers to the owner's direct questions
+
+  * `/app/settings/messages` is NOT a conversation screen and the Rocket.Chat UI
+    does not apply to it: it is the EDITOR for the wording of automated client
+    texts, and today exactly one of them actually sends ("on my way"). The gate
+    concern behind the question is real and is 6b above.
+  * "can that be the same retell number for the AI agent and text message?"
+    NO. VoicePhoneNumber.provider defaults to "retell" — the receptionist number
+    is provisioned at Retell, not Twilio, and nothing in the schema records SMS
+    capability on it. Voice and SMS are two providers here. Texting from the
+    contractor's own number needs an SMS-capable TWILIO number.
+  * `/app/settings/translations` is the review screen for translated wording on
+    CLIENT DOCUMENTS — source beside translation, one row per service, with a
+    "draft the missing ones" action. It is already the mechanism section 4 is
+    asking for; the question is whether it covers scope-of-work, terms and the
+    financing blurb, or only service names.
+
+## 8. Product gaps the owner has raised before
 
   * `TODO` `/app/settings/messages` should use the Rocket.Chat-style thread UI,
     because it IS a text message. It also needs a Twilio number and credit —
