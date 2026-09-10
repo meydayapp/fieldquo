@@ -110,13 +110,54 @@ import { handlerStatus } from "@/lib/sales/pipeline/registry";
 // is a provider budget somebody costed, not an arbitrary loop bound.
 const BATCH = 100;
 
+// How many discovery pages one invocation may take before anything else runs.
+// Deliberately small: each spends a paid directory call and yields up to
+// PROMOTE_LIMIT prospects, so six a minute is 360 pages an hour — 36,000
+// prospects an hour of headroom, far past what the enrichment side can absorb.
+// The point is priority, not volume.
+const DISCOVERY_SLICE = 6;
+
 export async function GET(request) {
   // First, before any work — this header is the entire authentication boundary
   // for a job that spends a directory API quota and a model vendor's budget.
   const denied = requireCronSecret(request);
   if (denied) return denied;
 
-  const result = await drainSalesPipeline({ now: new Date(), limit: BATCH });
+  // ── Discovery gets its own slice, taken FIRST ──────────────────────────
+  //
+  // The queue is one FIFO ordered by `notBefore asc, createdAt asc`, and
+  // discovery is a SERIAL CHAIN: one page per task, the next page enqueued only
+  // when that one finishes. So every page of 100 prospects enqueues roughly 700
+  // enrichment tasks — enrich, crawl, technology, capabilities, opportunities,
+  // score, brief — and the NEXT discovery page is created after all of them and
+  // sorts behind all of them.
+  //
+  // The pipeline therefore ate its own tail: the more it discovered, the longer
+  // the next discovery waited. Measured with 1,414 tasks queued — discovery
+  // completions were 4, 9, 7, 13, 13 and 2 an hour, and prospects arrived in
+  // bursts of exactly PROMOTE_LIMIT with nothing in between. Raising the
+  // discovery budget could not touch it: only six discovery tasks existed to
+  // spend it on. Starvation, not a ceiling.
+  //
+  // Draining discovery on its own first is the whole fix, and it is why the
+  // runner takes `kinds`. The slice is small because each task is expensive at
+  // the provider and produces a hundred prospects: what matters is that the
+  // next page is never behind an enrichment backlog, not that many run at once.
+  const now = new Date();
+  const discovery = await drainSalesPipeline({
+    now,
+    limit: DISCOVERY_SLICE,
+    kinds: ["DISCOVER_BUSINESSES"],
+  });
+
+  // Then everything else, with the batch reduced by what discovery just spent,
+  // so the invocation's serial-time budget is unchanged — the check asserts
+  // maxDuration against BATCH, and this must not quietly exceed it.
+  const result = await drainSalesPipeline({
+    now,
+    limit: Math.max(0, BATCH - discovery.considered),
+  });
+  result.discovery = discovery;
 
   // handlers is in the response on purpose: until the eight stages are written,
   // the truthful answer to "did the pipeline run?" includes which stages exist.
