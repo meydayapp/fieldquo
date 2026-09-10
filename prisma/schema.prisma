@@ -11205,6 +11205,21 @@ model SalesCallAttempt {
   /// dials (repCallStats) — a contractor ringing back three times is neither.
   direction String @default("out")
 
+  /// A message left when nobody answered an inbound call.
+  ///
+  /// Stored on the attempt rather than in its own table: a voicemail belongs to
+  /// exactly one call, and a rep opening the call is the person who needs to
+  /// hear it. Null on every outbound row and on an inbound one that was
+  /// answered.
+  voicemailUrl String?
+
+  /// How long it ran. ZERO is a real value and a useful one: `<Record>` fires
+  /// its action after five seconds of silence, so a zero-length recording is a
+  /// contractor who rang back, heard the beep, and thought better of speaking —
+  /// warmer than a missed call, colder than a message. Null means no recording
+  /// stage ran at all.
+  voicemailSeconds Int?
+
   /// "browser" | "handset" | "inbound". Which door the call went through, and
   /// therefore whether any of the provider columns below can ever be filled.
   /// Defaulted to handset so a row written by an older path is not silently

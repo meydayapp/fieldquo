@@ -63,6 +63,7 @@ import { NextResponse } from "next/server";
 import twilio from "twilio";
 import { db } from "@/lib/db";
 import { verifyTwilioWebhook } from "@/lib/sms/verifyTwilioWebhook";
+import { ringPlan, noAnswerSay } from "@/lib/sales/calls/inboundDistribution";
 import { getAppOrigin } from "@/lib/appUrl";
 import { recordError } from "@/lib/platform/errorLog";
 import { normalisePhone } from "@/lib/sales/suppressionRules";
@@ -98,9 +99,38 @@ const VOICE = "alice";
  * says something true, and the machine-readable failure goes to
  * /platform/errors instead.
  */
-function speak(lines) {
+function speak(lines, { record = false, attemptId = null, origin = null } = {}) {
   const twiml = new twilio.twiml.VoiceResponse();
   for (const line of lines || []) twiml.say({ voice: VOICE }, line);
+
+  // ── A message, when there was somebody to reach and nobody answered ─────
+  //
+  // Only on that case, and it is a narrow one on purpose. A caller who is
+  // suppressed, or who rang a number that is not ours, is told so and the call
+  // ends — offering them a voicemail would be inviting a message nobody may
+  // act on.
+  //
+  // But a contractor ringing a rep back at eight in the evening, when every
+  // rep has gone home, is somebody with something to say to a person who asked
+  // them to ring. Hanging up on them is the failure this whole route exists to
+  // end, and it is what they got before: eleven seconds and a dial tone.
+  //
+  // Two minutes, ended by hanging up or by silence. `transcribe` is off —
+  // transcription is a per-minute charge and a rep listening to a
+  // ninety-second message is cheaper than transcribing every wrong number.
+  if (record && origin) {
+    twiml.record({
+      maxLength: 120,
+      playBeep: true,
+      timeout: 5,
+      transcribe: false,
+      action: attemptId
+        ? `${origin}/api/rep-dial/inbound?stage=after-voicemail&attemptId=${encodeURIComponent(attemptId)}`
+        : `${origin}/api/rep-dial/inbound?stage=after-voicemail`,
+      method: "POST",
+    });
+  }
+
   twiml.hangup();
   return new NextResponse(twiml.toString(), {
     status: 200,
@@ -354,8 +384,36 @@ export async function POST(request) {
     attempt = written?.attempt || null;
   }
 
-  if (plan.action !== INBOUND_CONNECT) {
-    return speak(plan.say);
+  // ── Who to ring ─────────────────────────────────────────────────────────
+  //
+  // inboundPlan decides whether the call may be connected at all — suppressed
+  // caller, store not ready, number not ours. It used to decide WHERE too, and
+  // its only answer was FIELDQUO_SALES_TRANSFER_TO: one env var, so a
+  // contractor ringing back the number a rep had called them from was answered,
+  // told nobody was free, and hung up on, while that rep sat in the console
+  // with a registered Device and an available presence row.
+  //
+  // ringPlan answers the WHERE: the number's owner first, then whoever rang
+  // this caller last, then whoever is genuinely available, then the transfer
+  // number. See lib/sales/calls/inboundDistribution.js.
+  const ring = ringPlan({
+    assignedRepId: numberRung.assignedRepId || null,
+    presence,
+    lastCalledBy: lastOut?.salesRepId || null,
+    transferTo: normalisePhone(process.env.FIELDQUO_SALES_TRANSFER_TO),
+  });
+
+  // A connect decision with nobody to connect to is not a connect. Falls
+  // through to the same spoken answer as any other refusal rather than
+  // returning an empty <Dial>, which rings for twenty seconds and then hangs
+  // up without a word.
+  if (plan.action !== INBOUND_CONNECT || ring.targets.length === 0) {
+    return speak(
+      plan.action === INBOUND_CONNECT
+        ? [noAnswerSay({ repName: rep?.name || null })]
+        : plan.say,
+      { record: plan.action === INBOUND_CONNECT, attemptId: attempt?.id || null, origin: getAppOrigin(request) },
+    );
   }
 
   const origin = getAppOrigin(request);
@@ -368,7 +426,7 @@ export async function POST(request) {
     // the sales_voice number that was rung — a number FieldQuo owns, so the
     // leg is placeable either way.
     callerId: caller || numberRung.e164,
-    timeout: plan.timeoutSeconds,
+    timeout: ring.ringSeconds,
     answerOnBridge: true,
     // The attempt id travels in the query string we build, never in the body:
     // Twilio echoes the URL it was given, and a body parameter would be
@@ -382,7 +440,14 @@ export async function POST(request) {
     // two-party call is consent law rather than an attribute, and its absence
     // here is the decision, not an oversight.
   });
-  dial.number(plan.transferTo);
+  // Every target, in order, inside ONE <Dial>. Twilio rings them in sequence
+  // and the first to answer wins — which is what a rep expects when a call
+  // "comes to the team" and is the behaviour a second <Dial> would not give,
+  // because a second verb only runs after the first one gives up entirely.
+  for (const target of ring.targets) {
+    if (target.kind === "client") dial.client(target.value);
+    else dial.number(target.value);
+  }
 
   return new NextResponse(twiml.toString(), {
     status: 200,
