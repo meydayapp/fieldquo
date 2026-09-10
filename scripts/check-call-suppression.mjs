@@ -39,6 +39,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 import { checkSuppression } from "@/lib/sales/suppression";
+import { contactability } from "@/lib/sales/prospectView";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(ROOT, p), "utf8");
@@ -111,6 +112,48 @@ section("2. The dialler reads it, in the request that dials");
   // The original check must survive alongside it — they are different facts.
   ok("the do-not-contact flag is still refused", /target\.doNotContactAt/.test(route));
   ok("…and the calling window still applies", /salesCallReadiness\(/.test(route));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("2b. The SCREEN refuses it too — the handset link reaches no server");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The route fix alone was not enough and it took a second pair of eyes to see
+// why: the queue draws a handset `tel:` link as well as a browser Call button.
+// A `tel:` href is an anchor the operating system dials — it reaches no server,
+// so a gate that lives only in the API cannot cover it. The refusal has to be
+// decided where the control is DRAWN.
+//
+// The asymmetry that made this invisible: a rep marking do-not-contact writes
+// BOTH the row flag and a suppression, so the flag alone covered everything a
+// REP had ever done. A contractor texting STOP writes only the suppression.
+
+{
+  const phone = { phoneE164: "+16135550142", doNotContactAt: null };
+  ok("a clean prospect keeps its dial control", contactability(phone).callable === true);
+
+  const stopped = contactability(phone, { suppression: { suppressed: true, reason: "They replied STOP." } });
+  ok("a prospect who texted STOP loses the dial control", stopped.callable === false, stopped);
+  ok("…named as an opt-out, not a missing number", stopped.code === "opted_out", stopped.code);
+  ok("…and says all three channels are covered", /calls, texts and email/.test(stopped.text));
+  ok("…and who can lift it", /superadmin/.test(stopped.text));
+
+  // Null means NOT CHECKED. It must not be read as "clear" — but it also must
+  // not silently withhold every control, which would take the queue down the
+  // moment the list is slow.
+  ok("an unchecked prospect is not treated as suppressed", contactability(phone, { suppression: null }).callable === true);
+
+  // The do-not-contact flag still wins where it is set.
+  ok("the row flag still refuses on its own",
+    contactability({ ...phone, doNotContactAt: new Date() }).callable === false);
+
+  const view = decomment(read("lib/sales/prospectView.js"));
+  ok("prospectView threads the verdict to the control", /contactability\(prospect, \{ suppression \}\)/.test(view));
+
+  const queue = read("app/api/sales/queue/route.js");
+  ok("the queue route reads the suppression list", /checkSuppression\(db, \{ channel: "phone"/.test(decomment(queue)));
+  ok("…and fails closed when it cannot", /suppressed: true,\n              reason: "The do-not-contact list could not be read/.test(queue));
+  ok("…and passes it into the view", /\n          suppression,/.test(queue));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

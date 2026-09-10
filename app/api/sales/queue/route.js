@@ -38,6 +38,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { checkSuppression } from "@/lib/sales/suppression";
 import { requireQueueRep } from "@/lib/sales/queueGate";
 import { DISCOVERY_TRADES, discoveryTradeKeys } from "@/lib/sales/discovery/trades";
 import {
@@ -135,9 +136,30 @@ async function queueBody(rep, { tradeKey = null, prospectId = null } = {}) {
     });
 
     if (full) {
-      const [rules, signatures] = await Promise.all([
+      const [rules, signatures, suppression] = await Promise.all([
         db.confidenceRule.findMany(),
         db.technologySignature.findMany({ select: { code: true, name: true } }),
+        // ── The list, read for the one prospect that gets a dial control ──
+        //
+        // A rep who marks do-not-contact writes BOTH the row flag and a
+        // SalesSuppression, so the flag alone covered anything a REP had done.
+        // A contractor who texts STOP writes only the suppression, and this
+        // screen never read it — so somebody who said stop by text still saw a
+        // live Call button and a live handset `tel:` link.
+        //
+        // The API route refuses the browser call, but the handset link is an
+        // <a href="tel:"> that reaches no server at all. A gate that lives only
+        // in the route cannot cover it: the refusal has to be decided where the
+        // control is drawn, which is here.
+        //
+        // Fails CLOSED. If the list cannot be read we do not know whether they
+        // said stop, and "we could not check" is not permission to ring.
+        full?.phoneE164
+          ? checkSuppression(db, { channel: "phone", phone: full.phoneE164 }).catch(() => ({
+              suppressed: true,
+              reason: "The do-not-contact list could not be read, so no dial control is offered.",
+            }))
+          : Promise.resolve(null),
       ]);
       const signatureNames = Object.fromEntries(signatures.map((s) => [s.code, s.name]));
 
@@ -158,6 +180,7 @@ async function queueBody(rep, { tradeKey = null, prospectId = null } = {}) {
             full.opportunities.map((o) => [o.capabilityCode, o.capability?.name || o.capabilityCode]),
           ),
           repId: rep.id,
+          suppression,
           now,
         }),
         tradeLabel: full.tradeKey ? DISCOVERY_TRADES[full.tradeKey]?.label || full.tradeKey : null,
