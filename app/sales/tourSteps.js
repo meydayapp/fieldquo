@@ -190,6 +190,17 @@ export const SALES_TOUR_STEPS = Object.freeze([
   // tab list and failed the moment Team appeared without a step here — which
   // is the check earning its place: a tour that silently skips a tab teaches a
   // new hire that the tab does not matter.
+  // Added the same hour the tab was, for the same reason the Team step was:
+  // check:sales-tour reads SalesShell's own tab list and goes red the moment a
+  // tab appears without a step. It caught this one within minutes of the tab
+  // landing, which is the check doing precisely the job it was written for.
+  {
+    key: "playbook",
+    href: "/sales/playbook",
+    tabLabel: "Playbook",
+    titleKey: "app.salesTour.playbookTitle",
+    bodyKey: "app.salesTour.playbookBody",
+  },
   {
     key: "team",
     href: "/sales/team",
