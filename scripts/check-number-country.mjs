@@ -162,6 +162,36 @@ section("3. Nothing puts a default back in front of the derivation");
     sig,
   );
   ok("the derivation is used", /countryForAreaCode\(code\)/.test(src));
+
+  // ── BOTH call sites, which is the bug this section keeps re-learning ────
+  //
+  // The first fix stopped at searchLocalNumbers. isStillAvailable — the
+  // re-check that runs between listing a number and buying it — kept its own
+  // `country = "CA"` default, so the list asked the United States and the
+  // purchase asked Canada. The owner searched 646, found a number, pressed Buy
+  // and was told "+16467601763 was taken while you were choosing" while the
+  // same number sat in the list beside the message. Nothing had been taken.
+  const recheck = src.slice(
+    src.indexOf("export async function isStillAvailable"),
+    src.indexOf("}", src.indexOf("return (items || []).some")),
+  );
+  ok("the availability re-check was found", recheck.length > 100, recheck.length);
+  ok(
+    "…and does not default its country either",
+    !/country = ["']CA["']/.test(recheck),
+    recheck.slice(0, 160),
+  );
+  ok(
+    "…deriving it from the number's own area code",
+    /countryForAreaCode\(wanted\.slice\(2, 5\)\)/.test(recheck),
+  );
+  // The guarantee, stated once: no call site in this file may default a
+  // country ahead of deriving one.
+  ok(
+    "no function in the file defaults country before deriving it",
+    (src.match(/country = ["']CA["']/g) || []).length === 0,
+    (src.match(/country = ["']CA["']/g) || []).length,
+  );
   ok("…and numberSearch re-exports it, so no caller had to move", /export \{[^}]*countryForAreaCode/.test(src));
 
   const route = read("app/api/platform/crew-lines/route.js");
