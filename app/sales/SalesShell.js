@@ -26,6 +26,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
 import IncomingCallDock from "@/app/components/sales/IncomingCallDock";
+import SalesTour from "@/app/components/sales/SalesTour";
 import { usePathname } from "next/navigation";
 import { LogOut, BadgeDollarSign } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -193,6 +194,14 @@ export default function SalesShell({ children }) {
               <Link
                 key={tab.href}
                 href={tab.href}
+                // What the portal tour draws its ring around. Keyed on the
+                // href rather than on a second slug, so there is no third
+                // vocabulary to keep in step with this array — a tab that
+                // moves takes its anchor with it, and a tab that is REMOVED
+                // takes the anchor away, which is what makes
+                // scripts/check-sales-tour.mjs's target assertion mean
+                // something. See app/sales/tourSteps.js.
+                data-sales-tour={tab.href}
                 // Centred in its grid cell below sm:, left-aligned and at its
                 // content width above it. Still no whitespace-nowrap: a label
                 // that needs two lines gets two lines, which is the honest
@@ -220,6 +229,14 @@ export default function SalesShell({ children }) {
           dialler screen would ring only while somebody happened to be looking
           at it — see the component's header. */}
       <IncomingCallDock />
+      {/* Mounted beside the dock, and below it: the tour needs the tabs above
+          to point at, so it belongs to the chrome rather than to any one
+          screen, and a rep should be able to follow it from wherever they are.
+          Deliberately AFTER the dock in the tree and at a lower z-index — a
+          contractor ringing back outranks a walkthrough. Nothing renders here
+          for a rep who dismissed it, and nothing renders on /sales/login or
+          /sales/invite, which return above this. */}
+      <SalesTour />
     </div>
   );
 }

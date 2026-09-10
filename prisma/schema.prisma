@@ -12635,3 +12635,68 @@ model SupportTicketNote {
 
   @@index([ticketId, createdAt])
 }
+
+/// Where a sales rep got to in the portal tour, and whether they told it to
+/// stop.
+///
+/// ── Why a table of its own, and not two columns on SalesRep ───────────────
+///
+/// `salesRep` is on REP_FORBIDDEN_WRITES (lib/sales/gate.js). Writing a
+/// column there from a rep-facing path is possible — payoutWrite.js,
+/// preferenceWrite.js and the gate's own lastSeenAt all do it — but each one
+/// costs a named exemption in scripts/check-sales-auth.mjs plus a fence
+/// asserting the exact column set, and each one widens the surface of "a rep
+/// can write their own row" by one more entry that the next reader has to
+/// evaluate. A tour position is the least consequential fact in this product;
+/// paying for it with a fourth hole in the commission-and-attribution boundary
+/// is the wrong trade. A separate table keeps the rep row's write list at
+/// three, and this write outside the boundary entirely.
+///
+/// ── Why this is not the SalesRep.onboardedAt that app/sales/welcome/page.js
+///    rejected ────────────────────────────────────────────────────────────
+///
+/// That header rejects a column "written on one screen and read by nothing
+/// else", which is AGENTS.md failure class #1. These two are read on every
+/// portal page load, by the same component that writes them, and they decide
+/// what is on screen: `step` is where the panel reopens, `dismissedAt` is
+/// whether it opens at all. A rep who closes the tour on step 4 and comes back
+/// to step 1 is the failure this row exists to prevent.
+///
+/// ── The pointer is loose, deliberately ────────────────────────────────────
+///
+/// `salesRepId` carries no @relation, so the SalesRep model needs no back-
+/// reference. Same shape SalesRepActivity.callAttemptId and SalesSuppression
+/// use, and for a related reason: nothing here is worth a cascade. A SalesRep
+/// is never deleted — `endedAt` marks a leaver, because their attributions and
+/// their ledger are history — so the cascade a relation would buy could never
+/// fire, and the orphan it guards against cannot occur.
+///
+/// Nothing here is ever deleted either. Dismissing sets `dismissedAt`; a rep
+/// who asks to see the tour again clears it back to null and keeps the row.
+model SalesRepTourProgress {
+  id String @id @default(cuid())
+
+  /// One row per rep. @unique so the upsert has something to collide on and
+  /// two tabs open at once cannot produce two positions that disagree.
+  salesRepId String @unique
+
+  /// Zero-based index into SALES_TOUR_STEPS (app/sales/tourSteps.js). Clamped
+  /// to the step list's length on the way in AND on the way out, so shortening
+  /// the tour cannot strand somebody past the end of it.
+  step Int @default(0)
+
+  /// Set when the rep says "don't show me this again". Null means they have
+  /// simply not finished it, which is a different statement and must stay
+  /// tellable: the launcher offers to resume in the first case and stays quiet
+  /// in the second.
+  dismissedAt DateTime?
+
+  /// Set the first time the last step is reached. Kept apart from
+  /// `dismissedAt` because "read the whole thing" and "made it go away" are
+  /// different facts about a new hire, and a single boolean would answer
+  /// neither.
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

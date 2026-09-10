@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 10 September 2026 (A sales rep can finally GET a demo. `SalesRep.demoCompanyId` was @unique, read in three places and written in NONE — so /sales/demo's "ask a FieldQuo admin to assign you one on the platform demo screen, it takes them a click" was a promised control that did not exist. Behind it, two dead buttons nobody could reach: POST /api/sales/demo rode the read-only gate, so Reset and the trade picker had always 403'd, and the route selected `Company.industry`, a column that does not exist. A rep now CLAIMS a free demo — decided by a pure function, raced safely against the unique index rather than read-then-written — /platform/demo assigns, releases and mints the login in one press, and the rep screen tells apart "no demo", "demo but no login" and "ready" instead of offering a sign-in against an address no account exists for)
+Last updated: 10 September 2026 (The sales portal explains itself. A new rep now gets an eighteen-step guided tour of every tab — Today's next-action ladder, claiming from the queue, the four research blocks and what each entitles them to say, the PER-JURISDICTION calling table (the flat 8–9 window is the texting rule, not the calling one), what happens when a contractor rings back, transfer and the hold, zero-second voicemails, texts going from a SHARED number while calls use their own, what a STOP closes, leads, notes, calendar, their book, support, the demo and pay. It resumes where they left it and stops for good when dismissed — against the rep in `SalesRepTourProgress`, a table of its own so the tour needs no fourth exemption on the boundary that decides who gets paid. Every string is a translation key in the five languages the app catalogue keeps at 100%, and `check:sales-tour` reads SalesShell's own tab array: a step naming a route or a label the portal does not have fails the build)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,58 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## A tour of the sales portal, checked against the portal (10 September 2026)
+
+The owner: *"can you create the tour as well going over each piece so that a new
+sales rep is able to understand what everything does.. it should be in the
+language they select when they create the account."*
+
+**Why a check is the feature.** A tour is teaching, and a step that names a tab
+which is not there is read by somebody on their first morning who cannot tell
+"the product is wrong" from "I am not finding it". The portal gained Demo,
+Support, Voicemail and Pay inside a fortnight, so a tour written from memory
+would already have been lying. `scripts/check-sales-tour.mjs` parses
+`app/sales/SalesShell.js`'s own tab array and fails on any step whose route the
+shell does not have, or whose label is not the label that tab actually draws —
+the trap `app/components/tours.js` records from the contractor app, where the
+welcome tour pointed at Leads and called it "Requests". It also asserts the
+reverse: every tab the shell has is explained by some step.
+
+**Where the progress lives, and why not on SalesRep.** `salesRep` is on
+`REP_FORBIDDEN_WRITES`. A column there costs a named exemption in
+`check:sales-auth` plus a fence asserting its key set, and widens "a rep can
+write their own row" by one more entry —
+`lib/sales/preferenceWrite.js` had to become a separate file because a second
+update in `payoutWrite.js` would have sat past the `indexOf` its fence uses. A
+tour position is the least consequential fact in the product; `SalesRepTourProgress`
+keeps it outside the boundary entirely, and the forbidden-write fence was not
+touched.
+
+**Resumable and dismissible are different.** Closing saves the step and the
+launcher offers to resume it; dismissing sets `dismissedAt` and the launcher
+goes quiet. `dismissed` is three-way in the writer — true, false, absent — so
+pressing Next cannot silently un-dismiss a tour a rep told to go away. Nothing
+is deleted; `completedAt` is stamped first-time-only through a conditional
+`updateMany`, so replaying does not overwrite when they actually finished.
+
+**Language.** Every string is an `app.salesTour.*` key resolved by `t()` at
+render, against the language `app/sales/layout.js` hands `LanguageProvider` from
+`SalesRep.language`. English, French, Spanish, German and Italian all stay at
+100% app coverage. The check strips comments and fails on any English text node
+or `aria-label`/`title`/`placeholder`/`alt` literal in the panel.
+
+Files: `app/sales/tourSteps.js`, `app/components/sales/SalesTour.js`,
+`lib/sales/tourProgress.js`, `app/api/sales/tour/route.js`,
+`scripts/check-sales-tour.mjs`, `app/sales/SalesShell.js`,
+`app/i18n/appMessages.js`, `prisma/schema.prisma`.
+
+**Not done, and it is not code.** `prisma db push` cannot create the table:
+the Neon project is over its 512 MB size limit and refuses `CreateTable`. Until
+that is raised, `/api/sales/tour` throws, the panel's read fails and it renders
+nothing at all — no launcher, no dead control — so the portal is unharmed and
+the tour simply is not there yet. Run `npx prisma db push` once there is room.
+
 
 ## The sales rep's demo, which nobody could have (10 September 2026)
 
