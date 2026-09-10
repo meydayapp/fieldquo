@@ -8901,6 +8901,11 @@ model SalesRep {
   /// The number this rep calls from, when one has been bought for them.
   phoneNumbers      PlatformSmsNumber[]
   activity          SalesRepActivity[]
+  /// Calls this rep handed to somebody else, and calls handed to them. Two
+  /// named relations rather than one, because "who transferred" and "who
+  /// received" are different questions and a single list could answer neither.
+  transfersMade     SalesCallTransfer[] @relation("SalesTransfersFrom")
+  transfersReceived SalesCallTransfer[] @relation("SalesTransfersTo")
 
   @@index([active])
   @@index([managerId])
@@ -11252,6 +11257,21 @@ model SalesCallAttempt {
   /// provider retry cannot duplicate it — the same reason
   /// PlatformVoiceCall.providerCallId is unique.
   providerCallSid String? @unique
+  /// Twilio's CallSid for the REP's own leg — the browser client on the other
+  /// side of the bridge.
+  ///
+  /// Written by app/api/rep-dial/bridge from the CallSid Twilio posts it, and
+  /// read only by the transfer machinery, which cannot work without it: it is
+  /// the leg that has to be put back with the caller when a transfer target
+  /// does not answer, and released when one does. NOT @unique — an @unique
+  /// here would make a Twilio retry of the bridge webhook fail the whole call
+  /// rather than write the same value twice, and the bridge is fetched once
+  /// per call but retried on timeout.
+  ///
+  /// Null on every handset row (no bridge ran) and on browser rows written
+  /// before this column existed, which is why lib/sales/calls/transfer.js
+  /// refuses a transfer when it is absent instead of guessing at a leg.
+  repCallSid      String?
   /// Twilio's own final status: completed, busy, no-answer, failed, canceled.
   /// Kept verbatim and NOT mapped onto a disposition: what the network says
   /// and what the rep says are two different statements about one call, and
@@ -11307,6 +11327,11 @@ model SalesCallAttempt {
   /// cover it, which is why dispositions.js bounds how far out it may be.
   callbackAt DateTime?
 
+  /// Every time this call was handed to somebody else. A list, not a column:
+  /// a warm transfer that came back and was then tried again is two attempts
+  /// at the same handover and both of them are worth seeing.
+  transfers SalesCallTransfer[]
+
   // ── What was said, so an experiment can be read afterwards ────────────
   //
   // SalesPlaybookExperiment and SalesPlaybookAssignment already store which
@@ -11331,6 +11356,96 @@ model SalesCallAttempt {
   /// the floor board's ("what came in today"). Both are direction-first.
   @@index([direction, dialledAt])
   @@index([direction, toE164, fromE164, dialledAt])
+}
+
+/// One rep handing a live caller to another rep, or to the standing transfer
+/// number.
+///
+/// ── Its own model, not four columns on the attempt ────────────────────────
+///
+/// A call can be transferred more than once — a rep hands to the owner, the
+/// owner hands on again — and it can be transferred, handed back because
+/// nobody answered, and transferred again to somebody else. Columns on
+/// SalesCallAttempt would record only the last of those, which is precisely
+/// the one that worked; the interesting row is the attempt that came back.
+///
+/// ── What "completed" means here, and what it does not ─────────────────────
+///
+/// `state` is the CARRIER-observable outcome of the handover: did the caller
+/// end up connected to the target. It is not a disposition and never becomes
+/// one — the rep who receives the call still says what happened on it, on the
+/// attempt, exactly as SalesCallAttempt.disposition already works. The same
+/// separation app/api/rep-dial/status keeps between what the network saw and
+/// what a person says about it.
+///
+/// The vocabulary is closed and lives in lib/sales/calls/transfer.js:
+/// ringing, talking, completed, returned, cancelled, failed. `returned` and
+/// `failed` are two different words on purpose — in `returned` the caller is
+/// back with the rep who started it, which is ordinary; in `failed` nobody was
+/// holding them and they were sent to the queue, which is the one outcome
+/// worth looking for in a list.
+model SalesCallTransfer {
+  id String @id @default(cuid())
+
+  /// The call being handed over. Cascade: a transfer of a call whose record is
+  /// gone describes nothing, and unlike a rep leaving, an attempt row is not
+  /// evidence anybody needs to keep separately.
+  attemptId String
+  attempt   SalesCallAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  /// Who handed it over. Restrict, like SalesCallAttempt.salesRepId: a rep
+  /// leaving must not delete the record of what they did with a call.
+  fromRepId String
+  fromRep   SalesRep @relation("SalesTransfersFrom", fields: [fromRepId], references: [id])
+
+  /// Who it was handed to, when the target was a rep. Null when the target was
+  /// the standing transfer number — a real phone somebody carries, which is
+  /// not a SalesRep row and must not be invented as one.
+  toRepId String?
+  toRep   SalesRep? @relation("SalesTransfersTo", fields: [toRepId], references: [id], onDelete: SetNull)
+
+  /// The number dialled, when the target was a phone rather than a rep. E.164.
+  toE164 String?
+
+  /// "warm" | "cold". The rep chooses; there is no default, because the two
+  /// sound completely different to the person on hold.
+  kind String
+
+  /// A TRANSFER_STATES value from lib/sales/calls/transfer.js.
+  state String @default("ringing")
+
+  /// The Twilio conference the three legs meet in — conferenceNameFor(id).
+  /// Stored rather than recomputed so a support question about a call in
+  /// Twilio's own logs can be answered from the row.
+  conferenceName String
+
+  /// The three legs, as the carrier knows them. The caller's and the
+  /// transferring rep's are copied from the attempt at the moment the transfer
+  /// starts; the target's is filled when its leg is created.
+  callerCallSid String?
+  repCallSid    String?
+  targetCallSid String?
+
+  startedAt   DateTime  @default(now())
+  /// When the target actually entered the conference — participant-join, not
+  /// the carrier's `answered`. The two differ by the beat in which a rep can
+  /// hear nothing, and releasing the transferring rep on the wrong one puts a
+  /// caller's hello into a gap.
+  answeredAt  DateTime?
+  endedAt     DateTime?
+
+  /// Why it did not work, in the words the rep is shown. Null on a completed
+  /// transfer. Never a code — nothing branches on this, and a code nothing
+  /// branches on is a string that rots.
+  failureReason String?
+
+  createdAt DateTime @default(now())
+
+  /// The live lookup (this call's open transfer) and the floor board's
+  /// ("what was handed around today").
+  @@index([attemptId, startedAt])
+  @@index([state, startedAt])
+  @@index([fromRepId, startedAt])
 }
 
 /// What a rep is doing right now, and the log of what they were doing.

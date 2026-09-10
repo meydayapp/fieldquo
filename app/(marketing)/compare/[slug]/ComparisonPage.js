@@ -86,6 +86,8 @@ import { entryPriceGap } from "../entryPrice";
 // know", and neither is "they won't tell you" — so each gets its own words and
 // none of them falls back to another. A kind with no entry here renders
 // nothing rather than borrowing the nearest one.
+import TheCase from "../TheCase";
+
 function priceLine(price) {
   if (!price) return null;
   switch (price.kind) {
@@ -372,6 +374,12 @@ export default function ComparisonPage({ slug, asOf }) {
           </div>
         </div>
       </div>
+
+      {/* ── The argument, before the catalogue ──────────────────────────
+          Placed FIRST on purpose. The price tables below are reference: what
+          each company publishes, with its provenance. This is what the page is
+          FOR, and a reader who leaves after one screen should have read it. */}
+      <TheCase competitor={competitor} />
 
       {/* ── Price ─────────────────────────────────────────────────────────── */}
       <div className="bg-muted border-y border-border">

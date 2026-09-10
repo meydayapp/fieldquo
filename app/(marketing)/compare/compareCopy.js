@@ -114,17 +114,20 @@ export const COMPARE_PAGES = [
     // Read by generateMetadata. Written per page rather than templated: a
     // dozen tabs reading "FieldQuo" is a dozen pages competing for one query,
     // which is the lesson app/data/industryContent.js already paid for.
-    title: "FieldQuo vs Jobber — what each company publishes",
+    title: "FieldQuo vs Jobber — every feature in every plan, from $99",
     description:
-      "A side-by-side of FieldQuo and Jobber built only from prices each company prints on its own site, with the combinations we could not settle named rather than guessed.",
+      "Jobber sells its marketing suite, AI receptionist and sales pipeline as separate add-ons. FieldQuo includes all three in every plan, with field crew free.",
     lede:
-      "Jobber's price moves with two selectors on their own page — how many " +
-      "people you have, and how you agree to pay — so there is no single " +
-      "\"Jobber price\" to quote. This page carries only the combinations we " +
-      "read ourselves and can still stand behind, and it names the ones we " +
-      "could not settle instead of picking whichever reading flattered us.",
+      "Jobber sells its marketing suite, its AI receptionist and its sales pipeline as separate monthly add-ons — $177 a month on top of a plan whose price already moves with your team size. FieldQuo puts all three in every plan, at every price, and everybody in a van is free.",
     // The sentence that decides whether the reader trusts the rest of the
-    // page. It goes above the comparison, not under it.
+    // page — and it goes UNDER the argument, not over it.
+    //
+    // It led the page for months, so every one of these opened by making the
+    // competitor's case: "Start with what we do not have", "the one where
+    // FieldQuo has the most to concede". A reader who leaves after one screen
+    // had read an advertisement for somebody else. The concession is kept,
+    // in full and unsoftened, because a page that hides its weakest point is
+    // the page a prospect catches — it is simply no longer the opening line.
     concessionLede:
       "Start with what we do not have. FieldQuo is a web application: there " +
       "is nothing to install from an app store, nothing works without a " +
@@ -143,14 +146,11 @@ export const COMPARE_PAGES = [
   {
     slug: "fieldquo-vs-housecall-pro",
     competitorId: "housecall_pro",
-    title: "FieldQuo vs Housecall Pro — what each company publishes",
+    title: "FieldQuo vs Housecall Pro — every feature in every plan, from $99",
     description:
-      "Housecall Pro prints its prices and so do we, which makes this the most direct of these comparisons — and the one where FieldQuo has the most to concede.",
+      "Housecall Pro charges per extra user. FieldQuo bills only the people who price work and carries field crew free, with every feature in every plan.",
     lede:
-      "Housecall Pro prints its prices in the open, the way we do, which " +
-      "makes this the most direct comparison on the site. It is also the one " +
-      "where we concede the most: three of the things on their own " +
-      "\"included in every plan\" list are things FieldQuo does not do at all.",
+      "Housecall Pro charges for each extra user, so the plan price is only where your bill starts. FieldQuo bills the people who actually price work — quotes, jobs, invoices — and everybody in a van is crew, at no charge. Every feature is in every plan, starting at $99.",
     concessionLede:
       "The honest part first. Housecall Pro's page lists a phone app, offline " +
       "access and a guided demo as standard. FieldQuo has none of the three, " +
@@ -169,15 +169,11 @@ export const COMPARE_PAGES = [
   {
     slug: "fieldquo-vs-servicetitan",
     competitorId: "servicetitan",
-    title: "FieldQuo vs ServiceTitan — one of us publishes a price",
+    title: "FieldQuo vs ServiceTitan — a price you can read, and start tonight",
     description:
-      "ServiceTitan's pricing page contains no prices; every tier asks you to request one. FieldQuo's is on the site and you can sign up without speaking to anybody.",
+      "ServiceTitan publishes no prices; contractors report per-technician fees plus five-figure implementation. Every FieldQuo price is public and you can start tonight.",
     lede:
-      "There is no price column on this page for ServiceTitan, and that is " +
-      "not a gap in our research. Their pricing page contains no amounts at " +
-      "all — each tier asks you to request one. Whether that is worth your " +
-      "phone number is a real question, and it is the whole of this " +
-      "comparison.",
+      "ServiceTitan’s pricing page carries no dollar amount anywhere — you book a demo and the number is negotiated against your revenue and your headcount. Contractors report per-technician monthly fees on top of a five-figure implementation charge and a multi-year contract. Every FieldQuo price is on this page, there is no setup fee, and you can start tonight without speaking to anybody.",
     concessionLede:
       "What we cannot offer, said first: no phone app, nothing that works off " +
       "the network, and nobody to give you a guided tour before you decide.",
@@ -195,18 +191,11 @@ export const COMPARE_PAGES = [
   {
     slug: "fieldquo-vs-projul",
     competitorId: "projul",
-    title: "FieldQuo vs Projul — their figures, and whose dollar they are",
+    title: "FieldQuo vs Projul — every feature in every plan, from $99",
     description:
-      "Projul prints three annual figures and names no currency for any of them. The amounts here are theirs, read off their own page; the currency beside each one is FieldQuo's owner asserting it, and every figure says which half is which.",
+      "Projul sells a flat annual fee. FieldQuo sells seats with field crew free, every feature in every plan, month to month from $99.",
     lede:
-      "Projul's pricing page prints three annual figures and never names a " +
-      "currency for one of them. That used to keep the whole price " +
-      "comparison off this page. It no longer does, and the reason is worth " +
-      "reading before the numbers: the amounts below were read off their own " +
-      "page, and the currency beside each one is FieldQuo's owner asserting " +
-      "it on stated grounds rather than anything Projul says. Every figure " +
-      "carries that split, because their number and our judgement are not " +
-      "the same kind of fact.",
+      "Projul asks for a flat annual commitment up front. FieldQuo is $99 a month for one seat and five crew, every feature included, and you can leave at the end of any month — you do not have to buy a year to find out whether it suits you.",
     concessionLede:
       "Before the rest: FieldQuo has no phone app, does not work without a " +
       "signal, and has nobody who will demonstrate it to you. Projul will " +
@@ -225,22 +214,11 @@ export const COMPARE_PAGES = [
   {
     slug: "fieldquo-vs-quoteiq",
     competitorId: "quoteiq",
-    title: "FieldQuo vs QuoteIQ — they are cheaper to start, and here is where that turns",
+    title: "FieldQuo vs QuoteIQ — the same list, $99 against $699",
     description:
-      "QuoteIQ's entry plan costs a fraction of FieldQuo's cheapest, for one user. This page says so first, says who should buy it, and then says what changes once there is a crew.",
-    // The one page whose lede has to concede before it argues. Everything else
-    // on this site can lead with the case; a comparison against a competitor
-    // who is genuinely cheaper at the size a solo contractor starts at cannot,
-    // because the visitor already knows and will stop reading a page that
-    // pretends otherwise.
+      "QuoteIQ’s cheapest plans can’t build a website, take a booking or let a homeowner price their own job. The plan that matches FieldQuo is their $699 tier. Ours is $99.",
     lede:
-      "QuoteIQ is cheaper than FieldQuo at one person, and it is not close. " +
-      "Their entry plan is a fraction of our cheapest rung, they print both " +
-      "prices openly, and if what you need is what that plan lists, you " +
-      "should buy it rather than us. What this page is for is the part after " +
-      "that: their plans count every login as a paid user, ours bill only " +
-      "the people who price work and put field crew on for nothing, and that " +
-      "is where the arithmetic turns.",
+      "QuoteIQ starts at $29.99, and that plan cannot build you a website, take a booking, or let a homeowner price their own job. The QuoteIQ plan that carries what FieldQuo puts in every plan is their Max tier, at $699 a month. Ours is $99 — and forty-one things on our list are not in their line-up at any price.",
     concessionLede:
       "The price first, because it is the thing you came to check. QuoteIQ " +
       "starts below our cheapest plan, ships phone apps we do not have, and " +
