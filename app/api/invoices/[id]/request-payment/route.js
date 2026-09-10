@@ -12,6 +12,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { planOrRefusal } from "@/lib/signup/planGate";
 import { recordActivity } from "@/lib/activity/log";
 import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
@@ -39,6 +40,14 @@ export async function POST(request, { params }) {
     const { body, status } = permissionErrorResponse(err);
     return NextResponse.json(body, { status });
   }
+
+  // Emails a client a link that takes their money. Both halves — the send and
+  // the payment — are the outward act a plan is required for.
+  const { response: unpaid } = await planOrRefusal(
+    member,
+    "ask this client to pay",
+  );
+  if (unpaid) return unpaid;
 
   const invoice = await db.invoice.findFirst({
     where: { id, companyId: member.companyId },

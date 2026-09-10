@@ -10,6 +10,7 @@ import { useBottomDock } from "@/app/hooks/useBottomDock";
 import MediaUploader from "@/app/components/MediaUploader";
 import InvoiceCostSection from "@/app/components/invoices/InvoiceCostSection";
 import { formatAppMoney } from "@/lib/format/money";
+import { planRequiredFrom } from "@/lib/signup/planRequired";
 import { explainTaxSource } from "@/lib/tax/resolveTaxRate";
 import { resolveDocumentTax } from "@/lib/tax/documentTax";
 
@@ -231,6 +232,14 @@ export default function NewInvoicePage() {
         });
         if (!sendRes.ok) {
           const data = await sendRes.json().catch(() => null);
+          // No plan: the invoice is saved, so land them on it and let the
+          // shell's prompt offer the way to finish checkout. Carrying the
+          // sentence through the URL would put it in a red banner with no
+          // button, which is the wall this refusal exists to avoid.
+          if (planRequiredFrom(sendRes.status, data)) {
+            router.push(`/app/invoices/${invoice.id}`);
+            return;
+          }
           // The invoice exists and their work is saved as a draft — land them on
           // it with the reason, rather than an invoice marked sent that never left.
           router.push(

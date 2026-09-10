@@ -22,6 +22,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { planOrRefusal } from "@/lib/signup/planGate";
 import { recordActivity } from "@/lib/activity/log";
 import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
@@ -49,6 +50,12 @@ export async function POST(request, { params }) {
     const { body, status } = permissionErrorResponse(err);
     return NextResponse.json(body, { status });
   }
+
+  // Same rule as the quote send, for the same reason: the invoice may be
+  // built, and it may not go out under a company name FieldQuo has never been
+  // paid to carry. See lib/signup/planGate.js.
+  const { response: unpaid } = await planOrRefusal(member, "send this invoice");
+  if (unpaid) return unpaid;
 
   const invoice = await db.invoice.findFirst({
     where: { id, companyId: member.companyId },

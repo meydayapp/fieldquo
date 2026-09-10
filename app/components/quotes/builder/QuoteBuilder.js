@@ -103,6 +103,7 @@ import { quoteTotals, round2 } from "@/lib/quotes/totals";
 import { formatAppMoney } from "@/lib/format/money";
 import { defaultValidUntil } from "@/lib/quotes/validUntil";
 import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
+import { planRequiredFrom } from "@/lib/signup/planRequired";
 import { LANGUAGES } from "@/app/i18n/languages";
 import { useHasLevel, useHasToggle } from "@/app/providers/PermissionProvider";
 
@@ -1565,6 +1566,14 @@ export function QuoteBuilderForm({
         // not a failure to report, it is a decision to make, and the detail page
         // has the dialog that offers both ways out — so hand it the flag rather
         // than a sentence. A red banner here would be a dead end.
+        // The company never finished checkout. The quote IS saved — this is
+        // the send half of "Save & Send" — so the prompt opens here and they
+        // stay on the builder with their work intact, rather than being
+        // bounced to the detail page carrying a sentence they can't act on.
+        if (planRequiredFrom(sendRes.status, data)) {
+          router.push(`/app/quotes/${id}`);
+          return;
+        }
         if (sendRes.status === 409 && data?.code === "email_sections_empty") {
           router.push(`/app/quotes/${id}?sendBlocked=quote`);
           return;

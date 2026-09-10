@@ -24,6 +24,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { planOrRefusal } from "@/lib/signup/planGate";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { recordActivity } from "@/lib/activity/log";
 import { enqueueOutbound } from "@/lib/voice/outboundCall";
@@ -49,6 +50,16 @@ export async function POST(request, { params }) {
     "call clients about quotes",
   );
   if (denied) return denied;
+
+  // The company pays for the call and the client receives it — outbound, in
+  // the contractor's name, from a number their homeowner will call back. A
+  // company that never finished checkout may look at the quote; it may not
+  // put a voice on someone's phone. See lib/signup/planGate.js.
+  const { response: unpaid } = await planOrRefusal(
+    member,
+    "call this client about their quote",
+  );
+  if (unpaid) return unpaid;
 
   // Scoped in the WHERE. A quote id from another tenant resolves to nothing
   // rather than to their customer's phone number.

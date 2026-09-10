@@ -9,6 +9,7 @@ import SeatSharingBanner from "@/app/components/layout/SeatSharingBanner";
 import AccountLocked from "@/app/components/layout/AccountLocked";
 import SetupIncomplete from "@/app/components/layout/SetupIncomplete";
 import ErrorToast from "@/app/components/ErrorToast";
+import PlanRequiredPrompt from "@/app/components/PlanRequiredPrompt";
 import AppTours from "@/app/components/AppTours";
 import JenniferPanel from "@/app/components/jennifer/JenniferPanel";
 import CompanyPreferencesProvider from "@/app/providers/CompanyPreferencesProvider";
@@ -285,9 +286,26 @@ async function getSetupRedirect() {
         role: member.role,
         isDemo: Boolean(company?.isDemo),
         companyCreatedAt: company?.createdAt || null,
-        // Unknown so far. setupGateDecision reads null as "let them in", so a
-        // first pass that still says allow is an allow we can trust.
-        stripeSubscription: null,
+        // ── `false`, not `null`, and the difference was the whole gate ──────
+        //
+        // This used to pass `null`, on the reasoning that "setupGateDecision
+        // reads null as 'let them in', so a first pass that still says allow is
+        // an allow we can trust". The first half is true and it defeats the
+        // second: `null` means "we could not find out", which that function
+        // treats as evidence FOR the company and always allows. So the
+        // provisional pass could never refuse, `if (provisional.action ===
+        // "allow") return null` swallowed every case, the
+        // stripeSubscriptionExists call below was unreachable, and the gate
+        // this file exists for redirected nobody. Ever. That is why the
+        // platform console still showed companies reading "Never finished
+        // checkout · No plan" with quotes in them, months after this shipped.
+        //
+        // `false` is the honest value at this point: no evidence of a checkout
+        // has been produced yet. Only the reasons that do not depend on Stripe
+        // — impersonation, a demo fixture, a subscription row, the grace
+        // window — can allow here; everything else falls through to asking
+        // Stripe, which is what the second pass was always for.
+        stripeSubscription: false,
       };
 
       const provisional = setupGateDecision(base);
@@ -454,6 +472,12 @@ export default async function AppLayout({ children }) {
           no individual page needs its own error state and banner — see
           lib/clientErrors.js. */}
       <ErrorToast />
+      {/* Renders nothing unless a route refused a SEND because the company
+          never finished checkout (lib/signup/planGate.js). Mounted beside the
+          toast, for the same reason: the prompt has to be reachable from every
+          screen that can send something, and the alternative is nine copies of
+          one modal. */}
+      <PlanRequiredPrompt />
       {/* First-visit walkthroughs. Mounted once here so a page never has to
           wire its own — it just needs a data-tour anchor. See tours.js. */}
       <AppTours />

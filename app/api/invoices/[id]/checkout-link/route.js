@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { latestInFamily, refreshFamilyLedger } from "@/lib/invoices/family";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { planOrRefusal } from "@/lib/signup/planGate";
 import { createInvoiceCheckoutSession } from "@/lib/stripe";
 import {
   loadEnforceableMember,
@@ -41,6 +42,15 @@ export async function POST(request, { params }) {
     const { body, status } = permissionErrorResponse(err);
     return NextResponse.json(body, { status });
   }
+
+  // Minting a Stripe Checkout session is taking a payment, which is the far
+  // end of the pipeline this product charges for. A company that never
+  // finished its own checkout does not get to open one for someone else.
+  const { response: unpaid } = await planOrRefusal(
+    member,
+    "take a payment on this invoice",
+  );
+  if (unpaid) return unpaid;
 
   const invoice = await db.invoice.findFirst({
     where: { id: _params.id, companyId: member.companyId },

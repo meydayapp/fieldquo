@@ -9646,3 +9646,50 @@ click, refused for free when nothing has been said since the last reading.
 `npm run check:conversation-score` — 277 assertions, the corpus encoded as
 fixtures, and seven mutations including the historical bug itself: a scorer
 that awards points per message must make the check FAIL.
+
+---
+
+## The setup gate had no enforcement, and no effect
+
+The owner, looking at his company list where ~20 rows read "pending · Never
+finished checkout · No plan", several holding quotes: *"how can a company not
+have had a plan … there should be something stopping a company with no plan
+from sending quotes and all they need to have a plan selected maybe prompting
+them to complete it."*
+
+**Two separate faults, both fixed.**
+
+**One — the gate never fired at all.** `app/app/layout.js`'s
+`getSetupRedirect()` asks `setupGateDecision()` twice: a cheap pass first, then
+again with Stripe evidence only if the first would turn someone away. The first
+pass passed `stripeSubscription: null` — and `null` means "we could not find
+out", which that function treats as evidence FOR the company and always allows.
+So `if (provisional.action === "allow") return null` swallowed every case,
+`stripeSubscriptionExists` below it was unreachable, and the gate redirected
+nobody, ever. The scan in `check-signup-gate.mjs` could not see it: both lines
+were present, in the right order. `false` — "no evidence has been produced yet"
+— is the honest value, and the check now EXECUTES the difference.
+
+**Two — it was a screen redirect, not a rule.** `setupGateDecision` was called
+from exactly one place: that layout. Any direct request still sent quotes.
+`lib/signup/planGate.js` is the same decision, asked by the REQUEST:
+`planOrRefusal(member, "send this quote")`, gathering exactly what the layout
+gathers and deferring to the same pure function — no second opinion about who
+has paid.
+
+**Sending is gated; drafting is not.** Deliberate: the builder is the trial. Ten
+routes ask — quote send/resend, share-link minting, the quote call, invoice
+send, request-payment, checkout-link, service-plan authorisation, campaign send,
+social publish, website publish. Unpublishing and withdrawing an authorisation
+are never gated: a de-escalation that needs a plan is a trap.
+
+**A door, not a wall.** The refusal is a 402 carrying `planRequired` with the
+path that fixes it; `lib/clientErrors.js` routes it to `PlanRequiredPrompt`
+(mounted once in the shell) instead of a toast, and five send screens that parse
+their own bodies call `planRequiredFrom()` directly. An invited employee gets no
+link — /signup would offer them a second company.
+
+Free trials keep working (a trial is a Subscription row), demo fixtures are
+exempt, impersonation stays read-only, and a checkout completed seconds ago is
+inside the measured hour. `npm run check:plan-gate` — 97 assertions, executed
+against a scripted database and a scripted Stripe, mutation-tested five ways.

@@ -12,6 +12,7 @@ import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { planOrRefusal } from "@/lib/signup/planGate";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import {
   loadEnforceableMember,
@@ -73,6 +74,13 @@ export async function POST(request, { params }) {
     const { body, status } = permissionErrorResponse(err);
     return NextResponse.json(body, { status });
   }
+
+  // Minting the token IS publishing — /q/<token> is a client-facing page with
+  // the company's branding on it, reachable by anyone holding the URL. So it
+  // takes the same plan gate as sending, while the GET above (which only
+  // reports whether a link exists) stays open. See lib/signup/planGate.js.
+  const { response: unpaid } = await planOrRefusal(member, "share this quote");
+  if (unpaid) return unpaid;
 
   const quote = await db.quote.findFirst({
     where: { id, companyId: member.companyId },

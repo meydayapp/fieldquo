@@ -64,6 +64,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { planOrRefusal } from "@/lib/signup/planGate";
 import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { uploadBuffer } from "@/lib/cloudinary";
@@ -180,6 +181,14 @@ export async function POST(request, { params }) {
       { status: err.status || 403 },
     );
   }
+
+  // Posting to a Facebook Page or an Instagram account is publishing under the
+  // company's name to the widest audience the product reaches — the same class
+  // of act as sending a quote, and gated the same way. A demo company is
+  // exempt through Company.isDemo inside the gate itself, which is what keeps
+  // the sales fixtures (mock connection and all) working.
+  const { response: unpaid } = await planOrRefusal(member, "publish this post");
+  if (unpaid) return unpaid;
 
   const design = await loadOwned(member.companyId, id);
   if (!design) return NextResponse.json({ error: "Not found" }, { status: 404 });

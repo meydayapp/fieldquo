@@ -117,6 +117,7 @@ import ImportedCostsPanel from "./ImportedCostsPanel";
 import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
 import { quoteStatusLabel, quoteStatusClasses } from "@/lib/quotes/statusLabels";
 import { formatAddress } from "@/lib/format/address";
+import { planRequiredFrom } from "@/lib/signup/planRequired";
 import {
   COMPLEXITY_LEVELS,
   COMPLEXITY_REASONS,
@@ -429,6 +430,10 @@ export default function QuoteDetailPage() {
         body: jsonBody({ kind }, "quote send"),
       });
       const data = await res.json().catch(() => null);
+      // The company never finished checkout. Not a failure to report either:
+      // the refusal carries the path that fixes it, and the prompt mounted in
+      // the app shell offers it. See lib/signup/planGate.js.
+      if (planRequiredFrom(res.status, data)) return;
       if (res.status === 409 && data?.code === "tax_unresolved") {
         // Not an error state. The quote isn't wrong, it just can't say what
         // tax is owed — and both fixes are in the dialog. The kind rides along

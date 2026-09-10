@@ -14,6 +14,7 @@ import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { planOrRefusal } from "@/lib/signup/planGate";
 import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
 import { getAppOrigin } from "@/lib/appUrl";
@@ -45,6 +46,16 @@ export async function POST(request, { params }) {
     const { body, status } = permissionErrorResponse(err);
     return NextResponse.json(body, { status });
   }
+
+  // Emails the client a link that asks them to hand over a payment method for
+  // recurring charges — outward, and money. DELETE below is deliberately NOT
+  // gated: withdrawing an authorisation takes something away from the client's
+  // exposure, and a de-escalation must work in every state.
+  const { response: unpaid } = await planOrRefusal(
+    member,
+    "ask this client to authorise payments",
+  );
+  if (unpaid) return unpaid;
 
   const plan = await db.servicePlan.findFirst({
     where: { id, companyId: member.companyId },

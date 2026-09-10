@@ -32,6 +32,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { planOrRefusal } from "@/lib/signup/planGate";
 import { requirePermission } from "@/lib/permissions";
 import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
@@ -54,6 +55,12 @@ export async function POST(request, { params }) {
       { status: err.status || 403 },
     );
   }
+
+  // The largest outbound act in the product: one press mails every subscribed
+  // client under the company's name and sending domain. A company that never
+  // finished checkout does not get to use FieldQuo's reputation for it.
+  const { response: unpaid } = await planOrRefusal(member, "send this campaign");
+  if (unpaid) return unpaid;
 
   const campaign = await db.marketingCampaign.findUnique({
     where: { id },

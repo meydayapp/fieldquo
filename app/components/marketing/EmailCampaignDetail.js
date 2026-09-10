@@ -9,6 +9,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Mail, Send, Users } from "lucide-react";
+import { planRequiredFrom } from "@/lib/signup/planRequired";
 
 export default function EmailCampaignDetail({ campaign, onSent }) {
   const [subscribedCount, setSubscribedCount] = useState(null);
@@ -35,6 +36,12 @@ export default function EmailCampaignDetail({ campaign, onSent }) {
         method: "POST",
       });
       const data = await res.json();
+      // No plan yet: the shell's prompt says so and links to checkout, so this
+      // stops rather than putting the same sentence in a red banner.
+      if (planRequiredFrom(res.status, data)) {
+        setConfirming(false);
+        return;
+      }
       if (!res.ok) throw new Error(data.error || "Could not send campaign");
       setConfirming(false);
       onSent?.(data.campaign);

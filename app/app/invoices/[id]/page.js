@@ -70,6 +70,7 @@ import { documentLabels } from "@/lib/i18n/documentLabels";
 import { documentIssueDate } from "@/lib/documents/issueDate";
 import { taxStatement } from "@/lib/tax/documentTax";
 import TaxUnresolvedModal from "@/app/components/tax/TaxUnresolvedModal";
+import { planRequiredFrom } from "@/lib/signup/planRequired";
 import LifecycleBanners from "./LifecycleBanners";
 import JobPanel from "./JobPanel";
 import CostPanel from "./CostPanel";
@@ -260,6 +261,7 @@ export default function InvoiceDetailPage() {
       // report — a decision to make, and the dialog holds both ways out. An
       // invoice is the harder of the two documents to get wrong: this is what
       // the household owes and what the company remits against.
+      if (planRequiredFrom(res.status, data)) return;
       if (res.status === 409 && data?.code === "tax_unresolved") {
         setTaxBlocked(data);
         return;

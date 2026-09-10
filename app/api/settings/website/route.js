@@ -14,6 +14,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusalPlain } from "@/lib/apiMember";
+import { planOrRefusal } from "@/lib/signup/planGate";
 import { requirePermission } from "@/lib/permissions";
 import { sanitiseBlocks, siteFromCompany } from "@/app/data/siteBlocks";
 import { validateSubdomain, suggestSubdomain } from "@/lib/site/subdomain";
@@ -222,6 +223,23 @@ export async function PUT(request) {
   if (error) return NextResponse.json({ error }, { status });
 
   const body = await request.json().catch(() => ({}));
+
+  // ── Publishing is the outward act; saving a draft is not ────────────────
+  //
+  // Scoped to `published === true` on purpose. A company that never finished
+  // checkout may keep building their site — write copy, pair photos, pick a
+  // subdomain — and the DELETE below (unpublish) stays open in every state,
+  // because taking a page down must never be the thing that needs a plan.
+  // What needs one is putting it in front of the public with their name on it.
+  // See lib/signup/planGate.js.
+  if (body.published === true) {
+    const { response: unpaid } = await planOrRefusal(
+      member,
+      "publish your website",
+    );
+    if (unpaid) return unpaid;
+  }
+
   const subdomain = String(body.subdomain || "").trim().toLowerCase();
 
   const check = validateSubdomain(subdomain);

@@ -28,6 +28,7 @@ import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { planOrRefusal } from "@/lib/signup/planGate";
 import { onQuoteSent } from "@/lib/quotes/quoteLifecycle";
 import { onQuoteEmailed } from "@/lib/voice/triggers";
 import { recordActivity } from "@/lib/activity/log";
@@ -69,6 +70,16 @@ export async function POST(request, { params }) {
     const { body, status } = permissionErrorResponse(err);
     return NextResponse.json(body, { status });
   }
+
+  // ── A company that never finished checkout may build a quote, not send it ─
+  //
+  // Deliberately here and not on the routes that CREATE or edit a quote: the
+  // builder is the trial, and a contractor who can't try the product never
+  // becomes a customer. What needs a paid plan is the outward act — this one,
+  // and every resend, since a follow-up lands in the same inbox under the same
+  // name. See lib/signup/planGate.js.
+  const { response: unpaid } = await planOrRefusal(member, "send this quote");
+  if (unpaid) return unpaid;
 
   const body = await request.json().catch(() => ({}));
   const isFollowUp = body?.kind === "follow_up";
