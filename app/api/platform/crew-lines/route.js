@@ -80,8 +80,12 @@ export async function GET(request) {
     });
   } catch (err) {
     const problem = describeFailure(err, { vendor: "the database" });
-    // Who a sales line could be given to. Only reps who could actually use one
-  // — an ended rep in a picker is a control that appears to work.
+    return NextResponse.json({ error: problem.message, ...problem }, { status: 503 });
+  }
+
+  // Who a sales line can be given to. Only people who could actually use one —
+  // an ended rep or a revoked admin in a picker is a control that appears to
+  // work.
   const salesReps = await db.salesRep.findMany({
     where: { active: true, endedAt: null },
     orderBy: { name: "asc" },
@@ -89,20 +93,14 @@ export async function GET(request) {
   });
 
   // …and the platform admins, because the owner asked to assign a number to
-  // himself and he is not a rep. Listed with their email: an admin row may
-  // carry no name, and "" in a picker is a row nobody can choose on purpose.
+  // himself and he is not a rep. Email is the only human-readable field on
+  // that model — there is no `name`, and selecting one 500'd this page once
+  // already.
   const platformAdmins = await db.platformAdmin.findMany({
     where: { active: true },
     orderBy: { email: "asc" },
-    // Email is the only human-readable thing on this model. There is no
-    // `name`, and selecting one is what 500'd this page.
     select: { id: true, email: true },
   });
-
-  return NextResponse.json({
-    salesReps,
-    platformAdmins, error: problem.message, ...problem }, { status: 503 });
-  }
 
   // Read once. Both the fact and the advice below turn on them, and two reads
   // could disagree if a purchase landed between them.
@@ -136,6 +134,8 @@ export async function GET(request) {
   });
 
   return NextResponse.json({
+    salesReps,
+    platformAdmins,
     deployment: {
       webhookUrl,
       twilioConfigured: configured,

@@ -277,9 +277,44 @@ ok(
   }) === false,
 );
 
+// ═══════════════════════════════════════════════════════════════════════════
+// The assignment picker has something to pick
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The lists were added to the route and landed inside its ERROR return — a
+// 503 branch — so the real payload never carried them and the dropdown on the
+// page rendered one option: "Unassigned". The owner opened it and could not
+// select the only rep he has.
+//
+// Nothing caught it: the file parsed, eslint passed, and `salesReps` really was
+// in the source. What was missing is an assertion that it is in the answer the
+// SCREEN gets, which is the only place it matters.
+{
+  const src = read("app/api/platform/crew-lines/route.js");
+  const success = src.slice(src.indexOf("return NextResponse.json({\n    salesReps"));
+  ok("the success payload carries the rep list", /salesReps,/.test(success));
+  ok("…and the admin list", /platformAdmins,/.test(success));
+  ok(
+    "…and it is the payload with `deployment` on it, not an error branch",
+    /salesReps,[\s\S]{0,60}deployment: \{/.test(success),
+  );
+  // The 503 branch must be a 503 branch and nothing else.
+  const failure = src.slice(src.indexOf("const problem = describeFailure"), src.indexOf("const salesReps"));
+  ok("the database-failure return carries only the problem", !/salesReps|platformAdmins/.test(failure), failure.slice(0, 200));
+
+  const page = read("app/platform/crew-lines/page.js");
+  ok("the page reads both lists", /data\.salesReps/.test(page) && /data\.platformAdmins/.test(page));
+  ok("…and groups them so a rep and an admin are told apart", /optgroup label="Sales reps"/.test(page) && /optgroup label="FieldQuo staff"/.test(page));
+  ok(
+    "…and each option says which kind it is, so no lookup can guess wrong",
+    /value=\{`rep:\$\{r\.id\}`\}/.test(page) && /value=\{`admin:\$\{a\.id\}`\}/.test(page),
+  );
+}
+
 console.log(
   fails.length
     ? `\nFAILED — ${fails.length} of ${pass + fails.length}\n${fails.map((f) => `  ✗ ${f}`).join("\n")}`
     : `\nPASSED — ${pass}/${pass} assertions`,
 );
+
 process.exit(fails.length ? 1 : 0);
