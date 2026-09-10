@@ -16,7 +16,7 @@
 
 import { useCallback, useState, useEffect } from "react";
 import { Loader2, Check, AlertTriangle, Clock, CalendarCheck } from "lucide-react";
-import { orderedWeekdays } from "@/lib/format/companyDate";
+import { orderedWeekdayNames } from "@/lib/format/localeDate";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useSession } from "@/lib/auth-client";
 import { fetchJson } from "@/lib/fetchJson";
@@ -30,8 +30,12 @@ const DEFAULTS = { startTime: "08:00", endTime: "16:00" };
 
 // One editable week. Mobile-first: each row stacks under `sm` so the time
 // inputs never squeeze off the side of a phone.
+//
+// The day names came from a hardcoded English array and stayed English for a
+// Spanish account. They come from Intl now — see lib/format/localeDate.js for
+// why seven keys per language would have been the wrong fix.
 function WeekEditor({ rows, setRows, weekStartsOn, accentClass }) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const get = (d) => rows.find((r) => r.dayOfWeek === d);
 
   function toggle(dayOfWeek) {
@@ -49,7 +53,7 @@ function WeekEditor({ rows, setRows, weekStartsOn, accentClass }) {
 
   return (
     <div className="rounded-xl border border-border bg-card divide-y divide-border">
-      {orderedWeekdays(weekStartsOn).map(({ label, index: dayOfWeek }) => {
+      {orderedWeekdayNames(weekStartsOn, language).map(({ label, index: dayOfWeek }) => {
         const day = get(dayOfWeek);
         const invalid = day && day.endTime <= day.startTime;
         return (
@@ -96,7 +100,7 @@ function WeekEditor({ rows, setRows, weekStartsOn, accentClass }) {
 }
 
 export default function AvailabilityPage() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const dockRef = useBottomDock();
   const { weekStartsOn } = useCompanyPreferences();
   const { data: session } = useSession();
@@ -220,7 +224,8 @@ export default function AvailabilityPage() {
     : [];
 
   const dayName = (i) =>
-    orderedWeekdays(weekStartsOn).find((d) => d.index === i)?.label || `Day ${i}`;
+    orderedWeekdayNames(weekStartsOn, language).find((d) => d.index === i)
+      ?.label || t("app.availability.dayFallback", { index: i });
 
   const anyInvalid = [...bookable, ...working].some((r) => r.endTime <= r.startTime);
 

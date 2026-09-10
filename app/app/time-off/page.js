@@ -252,12 +252,7 @@ function MyTimeOff({ data, errorMessage, onRetry, reload }) {
     return (
       <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground flex items-start gap-2">
         <Info size={16} className="mt-0.5 shrink-0" />
-        <div>
-          Your login is already linked to a team member record at another
-          company, so leave can&apos;t be tracked against it here. An owner or
-          admin needs to add you as a separate team member from Settings → Manage
-          Team.
-        </div>
+        <div>{t("app.timeOff.otherCompanyRecord")}</div>
       </div>
     );
   }
@@ -266,10 +261,7 @@ function MyTimeOff({ data, errorMessage, onRetry, reload }) {
     return (
       <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground flex items-start gap-2">
         <Info size={16} className="mt-0.5 shrink-0" />
-        <div>
-          No leave policies have been set up yet. An owner or admin can add them
-          in Settings → Time off policies.
-        </div>
+        <div>{t("app.timeOff.noPolicies")}</div>
       </div>
     );
   }
@@ -324,7 +316,7 @@ function MyTimeOff({ data, errorMessage, onRetry, reload }) {
           ))
         ) : (
           <p className="text-sm text-muted-foreground">
-            You haven&apos;t requested any time off yet.
+            {t("app.timeOff.noneRequested")}
           </p>
         )}
       </div>
@@ -441,7 +433,7 @@ function RequestForm({ policies, balances, onDone, onCancel }) {
             {policies.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
-                {p.paid === false ? " (unpaid)" : ""}
+                {p.paid === false ? ` (${t("app.timeOff.unpaidSuffix")})` : ""}
               </option>
             ))}
           </select>
@@ -449,13 +441,21 @@ function RequestForm({ policies, balances, onDone, onCancel }) {
         <div className="flex items-end">
           {policy?.paid === false ? (
             <p className="text-xs text-muted-foreground">
-              Unpaid leave isn&apos;t limited by a balance.
+              {t("app.timeOff.unpaidNoBalance")}
             </p>
           ) : balance ? (
             <p className="text-xs text-muted-foreground">
               {policy?.accrualMethod === "percent_of_gross"
-                ? `${money(balance.remainingAmount)} of vacation pay accrued.`
-                : `${balance.remainingDays} day(s) available.`}
+                ? t("app.timeOff.vacationPayAccrued", {
+                    amount: money(balance.remainingAmount),
+                  })
+                : /* "day(s)" was a parenthesised English plural. Ukrainian has
+                     three forms and French counts zero as singular, so the key
+                     is a function over Intl.PluralRules — see
+                     lib/i18n/plurals.js. */
+                  t("app.timeOff.daysAvailable", {
+                    days: balance.remainingDays,
+                  })}
             </p>
           ) : null}
         </div>
@@ -519,7 +519,7 @@ function RequestForm({ policies, balances, onDone, onCancel }) {
       {policy && !policy.requiresApproval && (
         <p className="text-xs text-muted-foreground flex items-start gap-1.5">
           <Info size={13} className="mt-0.5 shrink-0" />
-          This type is approved automatically — submitting books it.
+          {t("app.timeOff.autoApproved")}
         </p>
       )}
 
@@ -542,7 +542,7 @@ function RequestForm({ policies, balances, onDone, onCancel }) {
           className="inline-flex items-center justify-center gap-2 rounded-lg bg-inverted text-inverted-foreground px-4 py-2 text-sm font-medium disabled:opacity-60"
         >
           {busy && <Loader2 size={14} className="animate-spin" />}
-          Submit request
+          {t("app.timeOff.submitRequest")}
         </button>
       </div>
     </form>
@@ -550,6 +550,7 @@ function RequestForm({ policies, balances, onDone, onCancel }) {
 }
 
 function RequestRow({ request, reload, canCancel, canReview, showWho }) {
+  const { t } = useTranslation();
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
 
@@ -631,7 +632,7 @@ function RequestRow({ request, reload, canCancel, canReview, showWho }) {
                 ) : (
                   <Check size={13} />
                 )}
-                Approve
+                {t("app.timeOff.approve")}
               </button>
               <button
                 onClick={() => act("decline")}
@@ -643,7 +644,7 @@ function RequestRow({ request, reload, canCancel, canReview, showWho }) {
                 ) : (
                   <X size={13} />
                 )}
-                Decline
+                {t("app.timeOff.decline")}
               </button>
             </>
           )}
@@ -734,7 +735,9 @@ function TeamTimeOff({ data, reload }) {
       </section>
 
       <section>
-        <h2 className="font-semibold text-foreground mb-2">Who&apos;s off next</h2>
+        <h2 className="font-semibold text-foreground mb-2">
+          {t("app.timeOff.whosOffNext")}
+        </h2>
         {upcoming.length ? (
           <div className="space-y-2">
             {upcoming.map((r) => (

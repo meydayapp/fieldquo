@@ -4,32 +4,20 @@
 // booked. Read-only overview; each person still manages their own hours at
 // Settings → Availability. API enforces the same user:view gate.
 //
-// ── i18n PENDING ───────────────────────────────────────────────────────────
+// ── Day names come from Intl, not from the catalogue ───────────────────────
 //
-// The page title and the two empty states go through t(); the intro paragraph
-// and the two edit links do not. Not wired here, because a t() call on a key
-// that does not exist yet turns check:translations red for every other agent
-// in the tree (commit 080999e). Reported:
+// This was `["Sun", "Mon", …]` — seven English abbreviations on a screen whose
+// every other word goes through t(), and a Sunday-first week hardcoded next to
+// a `weekStartsOn` preference the company can set and this page ignored. Both
+// halves come from data now: lib/format/localeDate.js for the words (see that
+// file for why nine hand-kept copies of CLDR's weekday table is the wrong
+// answer), the provider for the offset.
 //
-//   app.schedule.intro
-//     en "Everyone's weekly availability and what's booked in the next two
-//         weeks. People can set their own hours under Settings → Availability,"
-//     fr "Les disponibilités hebdomadaires de chacun et ce qui est réservé dans
-//         les deux prochaines semaines. Chacun peut fixer ses propres heures
-//         sous Réglages → Disponibilités,"
-//   app.schedule.introYouCanSet   en "and you can set anyone's from here."
-//                                 fr "et vous pouvez fixer celles de n'importe qui d'ici."
-//   app.schedule.introManagerCan  en "and a manager can set anyone's."
-//                                 fr "et un gestionnaire peut fixer celles de n'importe qui."
-//   app.schedule.editHours        en "Edit hours"   fr "Modifier les heures"
-//   app.schedule.setHours         en "Set hours"    fr "Fixer les heures"
-//   app.schedule.loadError        en "Couldn't load the team schedule."
-//                                 fr "Impossible de charger l'horaire de l'équipe."
-//
-// The day-of-week abbreviations are NOT in that list on purpose: they come from
-// Intl now (see weekDays below), which already has every language's, and a
-// hand-maintained catalogue of seven words per language would be nine copies of
-// data the platform ships.
+// The intro paragraph is ONE key per branch rather than a stem plus a tail.
+// Assembling a sentence out of a translated middle and two English ends is
+// exactly how /app/payroll ended up half Spanish and half English inside a
+// single sentence.
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -38,35 +26,10 @@ import { Loader2, CalendarDays, Clock } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { orderedWeekdayNames } from "@/lib/format/localeDate";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { ROLE_LABELS, tierNote } from "@/lib/permissions/roleManagement";
 
-// ── The week, in the reader's language and the company's order ─────────────
-//
-// This was `["Sun", "Mon", …]` — seven English abbreviations on a screen whose
-// every other word goes through t(), and a Sunday-first week hardcoded next to
-// a `weekStartsOn` preference the company can set and this page ignored. Both
-// halves come from data now: Intl for the words, the provider for the offset.
-//
-// Built from a known Sunday (2024-01-07 was one) so the index is the JS
-// dayOfWeek the availability rows are keyed by, not an off-by-one waiting to
-// happen.
-const SUNDAY = Date.UTC(2024, 0, 7);
-function weekDays(locale, weekStartsOn) {
-  const fmt = new Intl.DateTimeFormat(locale || undefined, {
-    weekday: "short",
-    timeZone: "UTC",
-  });
-  const days = [];
-  for (let i = 0; i < 7; i += 1) {
-    // dow is the value stored in AvailabilitySchedule.dayOfWeek; the LABEL and
-    // the POSITION move together, so a Monday-first company still lights up the
-    // right column.
-    const dow = (i + (weekStartsOn === 1 ? 1 : 0)) % 7;
-    days.push({ dow, label: fmt.format(new Date(SUNDAY + dow * 86400000)) });
-  }
-  return days;
-}
 
 function initials(name) {
   return (
@@ -94,7 +57,10 @@ export default function TeamSchedulePage() {
   // DD/MM/YYYY still got the browser's idea of a date. formatDateTime is the
   // one the rest of the back office uses.
   const { formatDateTime, weekStartsOn } = useCompanyPreferences();
-  const days = weekDays(language, weekStartsOn);
+  // `index` is the value stored in AvailabilitySchedule.dayOfWeek; the LABEL
+  // and the POSITION move together, so a Monday-first company still lights up
+  // the right column.
+  const days = orderedWeekdayNames(weekStartsOn, language, "short");
   const [team, setTeam] = useState(null);
   // Comes from the server rather than being inferred from a role here, so the
   // edit links can't appear where the save would be refused.
@@ -107,8 +73,8 @@ export default function TeamSchedulePage() {
         setTeam(d.team);
         setCanManage(Boolean(d.canManage));
       })
-      .catch((e) => setError(e.message || "Could not load the team schedule"));
-  }, []);
+      .catch((e) => setError(e.message || t("app.schedule.loadError")));
+  }, [t]);
 
   return (
     <div className="max-w-4xl px-4 sm:px-6 py-6 sm:py-8">
@@ -117,12 +83,11 @@ export default function TeamSchedulePage() {
         <h1 className="text-2xl font-bold text-foreground">{t("app.schedule.title")}</h1>
       </div>
       <p className="text-sm text-muted-foreground mb-6 max-w-xl">
-        Everyone&apos;s weekly availability and what&apos;s booked in the next two
-        weeks. People can set their own hours under Settings → Availability, and
-        {" "}
-        {canManage
-          ? "you can set anyone's from here."
-          : "a manager can set anyone's."}
+        {t(
+          canManage
+            ? "app.schedule.introCanManage"
+            : "app.schedule.introViewOnly",
+        )}
       </p>
 
       {error && (
@@ -139,7 +104,7 @@ export default function TeamSchedulePage() {
 
       {!team && !error && (
         <div className="flex items-center gap-2 text-muted-foreground text-sm">
-          <Loader2 size={16} className="animate-spin" /> Loading…
+          <Loader2 size={16} className="animate-spin" /> {t("app.state.loading")}
         </div>
       )}
 
@@ -195,7 +160,7 @@ export default function TeamSchedulePage() {
                       href={`/app/settings/availability?userId=${encodeURIComponent(m.userId)}`}
                       className="inline-flex items-center min-h-[44px] text-xs font-semibold border border-border rounded-full px-3 py-1.5 hover:bg-muted"
                     >
-                      {m.hasAvailability ? "Edit hours" : "Set hours"}
+                      {t(m.hasAvailability ? "app.schedule.editHours" : "app.schedule.setHours")}
                     </Link>
                   )}
                 </div>
@@ -208,7 +173,7 @@ export default function TeamSchedulePage() {
                 // on a phone behaves.
                 <div className="mt-4 -mx-1 px-1 overflow-x-auto">
                 <div className="grid grid-cols-7 gap-1.5 min-w-[520px] sm:min-w-0">
-                  {days.map(({ dow, label }) => {
+                  {days.map(({ index: dow, label }) => {
                     const runs = byDay.get(dow);
                     return (
                       <div

@@ -14,16 +14,19 @@ import { useParams } from "next/navigation";
 import { ArrowLeft, Loader2, Check, BadgeCheck, Ban, Info, Download } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
-import { formatDateOnly } from "@/lib/format/companyDate";
+import { formatCalendarDay, formatShortDate } from "@/lib/format/localeDate";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 
 // Period boundaries are calendar days at midnight UTC — see the note in
 // lib/format/companyDate.js. approvedAt/paidAt are real instants and read in
 // the viewer's own timezone.
-const date = (d) => formatDateOnly(d);
-const stamp = (d) =>
-  d ? new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—";
+//
+// Both take the reader's language: the month name used to come from a
+// hardcoded English array on one and from the BROWSER's locale on the other,
+// so a Spanish account read an English date either way.
+const date = (d, language) => formatCalendarDay(d, language) || "—";
+const stamp = (d, language) => formatShortDate(d, language) || "—";
 
 const STATUS_STYLE = {
   draft: "bg-muted text-muted-foreground",
@@ -53,7 +56,7 @@ function statusLabel(t, status) {
 
 export default function PayRunPage() {
   const money = useCompanyMoney();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { id } = useParams();
   const [run, setRun] = useState(null);
   const [error, setError] = useState("");
@@ -117,7 +120,7 @@ export default function PayRunPage() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-foreground">
-            {date(run.periodStart)} – {date(run.periodEnd)}
+            {date(run.periodStart, language)} – {date(run.periodEnd, language)}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             {run.lines.length}{" "}
@@ -125,8 +128,8 @@ export default function PayRunPage() {
               ? t("app.payrollRun.person", "person")
               : t("app.payrollRun.people", "people")}{" "}
             · {t("app.payrollRun.regionLabels", { region: run.region })}
-            {run.approvedAt ? ` · ${t("app.payrollRun.approvedOn", { date: stamp(run.approvedAt) })}` : ""}
-            {run.paidAt ? ` · ${t("app.payrollRun.recordedPaidOn", { date: stamp(run.paidAt) })}` : ""}
+            {run.approvedAt ? ` · ${t("app.payrollRun.approvedOn", { date: stamp(run.approvedAt, language) })}` : ""}
+            {run.paidAt ? ` · ${t("app.payrollRun.recordedPaidOn", { date: stamp(run.paidAt, language) })}` : ""}
           </p>
         </div>
         <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_STYLE[run.status] || ""}`}>

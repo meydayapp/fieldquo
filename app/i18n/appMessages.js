@@ -6848,6 +6848,107 @@ const en = {
   "app.takeoff.perFoot": "ft",
   "app.takeoff.notPriced": "not priced",
   "app.takeoff.labourWord": "labour",
+
+  // ── Scheduling, time off and payroll ──────────────────────────────────────
+  //
+  // Day names, month names and times are deliberately NOT keys here. They come
+  // from Intl through lib/format/localeDate.js, which has the reasoning: CLDR
+  // already ships that table in every language, including the ones this
+  // catalogue has not been translated into, and a hand-kept copy also gets the
+  // ORDER wrong — "Jan 7" is "7 janv." and "1月7日".
+  //
+  // Sentences are whole. /app/payroll's intro used to be an English fragment,
+  // a t() call and another English fragment, which rendered as one sentence
+  // half in Spanish and half in English — worse than untranslated, because it
+  // reads as broken rather than as unsupported.
+  "app.scheduler.missingHours": "No working hours set for {names}. Until they have some, nothing flags a shift at an odd hour for them and payroll has nothing to check their logged time against.",
+  "app.scheduler.setTheirHours": "Set their hours",
+  "app.scheduler.shiftAdded": "Shift added.",
+  "app.scheduler.outsideAvailability": "Outside stated availability",
+  "app.scheduler.checkFirst": "Check with them before you go ahead — they won't have agreed to this yet.",
+  "app.scheduler.overrideWhy": "Why? (optional — goes on the shift)",
+  "app.scheduler.scheduleAnyway": "Schedule anyway",
+  "app.scheduler.overrideMarked": "It will be marked on the shift, and they'll see that when it's published.",
+  "app.scheduler.changeDateInstead": "Change the date, or amend their time off first.",
+  "app.schedule.introCanManage": "Everyone's weekly availability and what's booked in the next two weeks. People can set their own hours under Settings → Availability, and you can set anyone's from here.",
+  "app.schedule.introViewOnly": "Everyone's weekly availability and what's booked in the next two weeks. People can set their own hours under Settings → Availability, and a manager can set anyone's.",
+  "app.schedule.editHours": "Edit hours",
+  "app.schedule.setHours": "Set hours",
+  "app.schedule.loadError": "Couldn't load the team schedule.",
+  "app.availability.dayFallback": "Day {index}",
+  "app.timeOff.noPolicies": "No leave policies have been set up yet. An owner or admin can add them in Settings → Time off policies.",
+  "app.timeOff.otherCompanyRecord": "Your login is already linked to a team member record at another company, so leave can't be tracked against it here. An owner or admin needs to add you as a separate team member from Settings → Manage Team.",
+  "app.timeOff.noneRequested": "You haven't requested any time off yet.",
+  "app.timeOff.unpaidSuffix": "unpaid",
+  "app.timeOff.unpaidNoBalance": "Unpaid leave isn't limited by a balance.",
+  "app.timeOff.vacationPayAccrued": "{amount} of vacation pay accrued.",
+  "app.timeOff.autoApproved": "This type is approved automatically — submitting books it.",
+  "app.timeOff.submitRequest": "Submit request",
+  "app.timeOff.whosOffNext": "Who's off next",
+  "app.payroll.intro": "FieldQuo works out what each person should be paid from their approved hours and your saved rates, and produces payslips.",
+  "app.payroll.introPayYourself": "You pay through your own bank or payroll provider — FieldQuo doesn't move the money.",
+  "app.payroll.thisPeriod": "This period",
+  "app.payroll.periodPaid": "{start} → {end} · paid {payDate}",
+  "app.payroll.approvedHours": "{hours} approved hours",
+  "app.payroll.approvedHoursAtRate": "{hours} approved hours × {rate}/hr",
+  "app.payroll.noRateOnRecord": "No hourly rate is set on your record, so this can't be worked out yet. Your approved hours are still counted.",
+  "app.payroll.pendingHoursNote": "{hours} more hours logged and waiting on your manager to approve — not counted above.",
+  "app.payroll.periodProgress": "{percent}% through this pay period",
+  "app.payroll.grossNote": "Gross, before deductions. Deductions are added by the office when the run is prepared, so this is what the work is worth — not what lands in your account.",
+  "app.payroll.gross": "Gross",
+  "app.payroll.deductions": "Deductions",
+  "app.payroll.net": "Net",
+  "app.payroll.netToPay": "Net to pay",
+  "app.payroll.hoursRegular": "{hours}h regular",
+  "app.payroll.hoursOvertime": "{hours}h overtime",
+  "app.payroll.paidOn": "paid {date}",
+  "app.payroll.awaitingPayment": "awaiting payment",
+  "app.payroll.onlyApprovedIncluded": "Only approved time is included. Approve timesheets first, or those hours won't be paid.",
+  "app.payroll.calculate": "Calculate",
+  "app.payroll.draftOverlapNote": "You can still save this as a draft, but it won't approve while another run covers the same days.",
+  "app.payroll.notIncludedUnapproved": "Not included: unapproved hours for {list}. Approve their timesheets to pay these.",
+  "app.payroll.includesPaidLeave": "Includes approved paid leave for {list}.",
+  "app.payroll.noDeductionsSetUp": "No deductions are set up, so these are gross figures. Add your statutory components under Settings → Payroll first — confirm the rates with your accountant.",
+  "app.payroll.region.CA": "Canada",
+  "app.payroll.region.US": "United States",
+  "app.payroll.region.UK": "United Kingdom",
+  "app.payroll.cycle.title": "When you pay",
+  "app.payroll.cycle.notSet": "not set — using the default below",
+  "app.payroll.cycle.setItUp": "Set it up",
+  "app.payroll.cycle.howOften": "How often",
+  "app.payroll.cycle.periodCloses": "The period closes",
+  "app.payroll.cycle.payday": "Payday",
+  "app.payroll.cycle.setByOwner": "Set by an owner or admin.",
+  "app.payroll.cycle.calendarOvertime": "Calendar periods don't contain whole weeks, so weekly overtime is worked out on the partial weeks inside each period. Every-week or every-2-weeks avoids that.",
+  "app.payroll.cycle.thisPeriod": "This period",
+  "app.payroll.cycle.lastClosed": "Last one closed",
+  "app.payroll.cycle.periodRange": "{start} → {end}, paid {payDate}",
+  "app.payroll.cycle.saved": "Saved.",
+  "app.payroll.cycle.saveError": "That didn't save.",
+  "app.payroll.cycle.frequency.weekly": "Every week",
+  "app.payroll.cycle.frequency.biweekly": "Every 2 weeks",
+  "app.payroll.cycle.frequency.semimonthly": "Twice a month",
+  "app.payroll.cycle.frequency.monthly": "Once a month",
+  "app.payroll.cycle.describeCalendar": "{frequency}, paid the first {payDay} after the period ends.",
+  "app.timeOff.daysAvailable": (V) => {
+    const D = countedNoun("en", { one: "day", other: "days" })({ value: V.days });
+    return `${D} available.`;
+  },
+  "app.payroll.cycle.reviewDays": (V) => {
+    const D = countedNoun("en", { one: "day", other: "days" })({ value: V.days });
+    return `${D} to approve hours`;
+  },
+  "app.payroll.cycle.tightGap": (V) => {
+    const D = countedNoun("en", { one: "day", other: "days" })({ value: V.days });
+    return `That leaves ${D} to approve everyone's hours between the period closing and payday. Workable if your hours are approved daily; tight if they are not.`;
+  },
+  "app.payroll.cycle.describeWeekAligned": (V) => {
+    const D = countedNoun("en", { one: "day", other: "days" })({ value: V.days });
+    return `${V.frequency}. The period closes ${V.closeDay} and everyone is paid the ${V.payDay} after — ${D} to approve hours.`;
+  },
+
+  "app.timeOff.approve": "Approve",
+  "app.timeOff.decline": "Decline",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -13212,6 +13313,107 @@ const fr = {
   "app.takeoff.perFoot": "pi",
   "app.takeoff.notPriced": "non tarifé",
   "app.takeoff.labourWord": "main-d'œuvre",
+
+  // ── Scheduling, time off and payroll ──────────────────────────────────────
+  //
+  // Day names, month names and times are deliberately NOT keys here. They come
+  // from Intl through lib/format/localeDate.js, which has the reasoning: CLDR
+  // already ships that table in every language, including the ones this
+  // catalogue has not been translated into, and a hand-kept copy also gets the
+  // ORDER wrong — "Jan 7" is "7 janv." and "1月7日".
+  //
+  // Sentences are whole. /app/payroll's intro used to be an English fragment,
+  // a t() call and another English fragment, which rendered as one sentence
+  // half in Spanish and half in English — worse than untranslated, because it
+  // reads as broken rather than as unsupported.
+  "app.scheduler.missingHours": "Aucune heure de travail définie pour {names}. Tant qu'il n'y en a pas, rien ne signale un quart à une heure inhabituelle pour ces personnes et la paie n'a rien pour vérifier les heures qu'elles inscrivent.",
+  "app.scheduler.setTheirHours": "Définir leurs heures",
+  "app.scheduler.shiftAdded": "Quart ajouté.",
+  "app.scheduler.outsideAvailability": "En dehors des disponibilités déclarées",
+  "app.scheduler.checkFirst": "Vérifiez avec la personne avant de poursuivre — elle n'a pas encore accepté.",
+  "app.scheduler.overrideWhy": "Pourquoi ? (facultatif — inscrit sur le quart)",
+  "app.scheduler.scheduleAnyway": "Planifier quand même",
+  "app.scheduler.overrideMarked": "Ce sera indiqué sur le quart, et la personne le verra à la publication.",
+  "app.scheduler.changeDateInstead": "Changez la date, ou modifiez d'abord leur congé.",
+  "app.schedule.introCanManage": "Les disponibilités hebdomadaires de chacun et ce qui est réservé dans les deux prochaines semaines. Chacun peut fixer ses propres heures sous Réglages → Disponibilités, et vous pouvez fixer celles de n'importe qui d'ici.",
+  "app.schedule.introViewOnly": "Les disponibilités hebdomadaires de chacun et ce qui est réservé dans les deux prochaines semaines. Chacun peut fixer ses propres heures sous Réglages → Disponibilités, et un gestionnaire peut fixer celles de n'importe qui.",
+  "app.schedule.editHours": "Modifier les heures",
+  "app.schedule.setHours": "Fixer les heures",
+  "app.schedule.loadError": "Impossible de charger l'horaire de l'équipe.",
+  "app.availability.dayFallback": "Jour {index}",
+  "app.timeOff.noPolicies": "Aucune politique de congé n'a encore été configurée. Un propriétaire ou un administrateur peut en ajouter sous Réglages → Politiques de congé.",
+  "app.timeOff.otherCompanyRecord": "Votre compte est déjà lié à une fiche de membre d'équipe dans une autre entreprise, les congés ne peuvent donc pas y être rattachés ici. Un propriétaire ou un administrateur doit vous ajouter comme membre distinct depuis Réglages → Gérer l'équipe.",
+  "app.timeOff.noneRequested": "Vous n'avez encore demandé aucun congé.",
+  "app.timeOff.unpaidSuffix": "non payé",
+  "app.timeOff.unpaidNoBalance": "Le congé non payé n'est pas limité par un solde.",
+  "app.timeOff.vacationPayAccrued": "{amount} d'indemnité de vacances accumulée.",
+  "app.timeOff.autoApproved": "Ce type est approuvé automatiquement — l'envoi le réserve.",
+  "app.timeOff.submitRequest": "Envoyer la demande",
+  "app.timeOff.whosOffNext": "Qui est en congé prochainement",
+  "app.payroll.intro": "FieldQuo calcule ce que chaque personne doit recevoir à partir de ses heures approuvées et des taux que vous avez enregistrés, et produit les bulletins de paie.",
+  "app.payroll.introPayYourself": "Vous payez par votre propre banque ou votre fournisseur de paie — FieldQuo ne déplace pas l'argent.",
+  "app.payroll.thisPeriod": "Période en cours",
+  "app.payroll.periodPaid": "{start} → {end} · payé le {payDate}",
+  "app.payroll.approvedHours": "{hours} heures approuvées",
+  "app.payroll.approvedHoursAtRate": "{hours} heures approuvées × {rate}/h",
+  "app.payroll.noRateOnRecord": "Aucun taux horaire n'est enregistré sur votre fiche, ce montant ne peut donc pas encore être calculé. Vos heures approuvées sont tout de même comptabilisées.",
+  "app.payroll.pendingHoursNote": "{hours} heures supplémentaires inscrites, en attente d'approbation par votre gestionnaire — non comptées ci-dessus.",
+  "app.payroll.periodProgress": "{percent} % de la période de paie écoulée",
+  "app.payroll.grossNote": "Montant brut, avant retenues. Les retenues sont ajoutées par le bureau au moment de préparer la paie : c'est donc la valeur du travail, pas ce qui arrivera sur votre compte.",
+  "app.payroll.gross": "Brut",
+  "app.payroll.deductions": "Retenues",
+  "app.payroll.net": "Net",
+  "app.payroll.netToPay": "Net à payer",
+  "app.payroll.hoursRegular": "{hours} h normales",
+  "app.payroll.hoursOvertime": "{hours} h supplémentaires",
+  "app.payroll.paidOn": "payé le {date}",
+  "app.payroll.awaitingPayment": "en attente de paiement",
+  "app.payroll.onlyApprovedIncluded": "Seules les heures approuvées sont incluses. Approuvez d'abord les feuilles de temps, sinon ces heures ne seront pas payées.",
+  "app.payroll.calculate": "Calculer",
+  "app.payroll.draftOverlapNote": "Vous pouvez tout de même l'enregistrer comme brouillon, mais elle ne pourra pas être approuvée tant qu'une autre paie couvre les mêmes jours.",
+  "app.payroll.notIncludedUnapproved": "Non incluses : les heures non approuvées de {list}. Approuvez leurs feuilles de temps pour les payer.",
+  "app.payroll.includesPaidLeave": "Comprend les congés payés approuvés de {list}.",
+  "app.payroll.noDeductionsSetUp": "Aucune retenue n'est configurée : ces montants sont donc bruts. Ajoutez d'abord vos composantes légales sous Réglages → Paie — et confirmez les taux avec votre comptable.",
+  "app.payroll.region.CA": "Canada",
+  "app.payroll.region.US": "États-Unis",
+  "app.payroll.region.UK": "Royaume-Uni",
+  "app.payroll.cycle.title": "Quand vous payez",
+  "app.payroll.cycle.notSet": "non défini — le réglage par défaut ci-dessous s'applique",
+  "app.payroll.cycle.setItUp": "Le configurer",
+  "app.payroll.cycle.howOften": "À quelle fréquence",
+  "app.payroll.cycle.periodCloses": "La période se termine",
+  "app.payroll.cycle.payday": "Jour de paie",
+  "app.payroll.cycle.setByOwner": "Défini par un propriétaire ou un administrateur.",
+  "app.payroll.cycle.calendarOvertime": "Les périodes calendaires ne contiennent pas des semaines entières : les heures supplémentaires hebdomadaires sont donc calculées sur les semaines partielles de chaque période. Une fréquence hebdomadaire ou bihebdomadaire évite cela.",
+  "app.payroll.cycle.thisPeriod": "Période en cours",
+  "app.payroll.cycle.lastClosed": "Dernière période close",
+  "app.payroll.cycle.periodRange": "{start} → {end}, payé le {payDate}",
+  "app.payroll.cycle.saved": "Enregistré.",
+  "app.payroll.cycle.saveError": "L'enregistrement a échoué.",
+  "app.payroll.cycle.frequency.weekly": "Chaque semaine",
+  "app.payroll.cycle.frequency.biweekly": "Toutes les 2 semaines",
+  "app.payroll.cycle.frequency.semimonthly": "Deux fois par mois",
+  "app.payroll.cycle.frequency.monthly": "Une fois par mois",
+  "app.payroll.cycle.describeCalendar": "{frequency}, payé le premier {payDay} suivant la fin de la période.",
+  "app.timeOff.daysAvailable": (V) => {
+    const D = countedNoun("fr", { one: "jour", other: "jours" })({ value: V.days });
+    return `${D} disponibles.`;
+  },
+  "app.payroll.cycle.reviewDays": (V) => {
+    const D = countedNoun("fr", { one: "jour", other: "jours" })({ value: V.days });
+    return `${D} pour approuver les heures`;
+  },
+  "app.payroll.cycle.tightGap": (V) => {
+    const D = countedNoun("fr", { one: "jour", other: "jours" })({ value: V.days });
+    return `Cela laisse ${D} pour approuver les heures de tout le monde entre la fin de la période et le jour de paie. Faisable si vos heures sont approuvées chaque jour ; serré sinon.`;
+  },
+  "app.payroll.cycle.describeWeekAligned": (V) => {
+    const D = countedNoun("fr", { one: "jour", other: "jours" })({ value: V.days });
+    return `${V.frequency}. La période se termine le ${V.closeDay} et tout le monde est payé le ${V.payDay} suivant — ${D} pour approuver les heures.`;
+  },
+
+  "app.timeOff.approve": "Approuver",
+  "app.timeOff.decline": "Refuser",
 };
 
 
@@ -19920,6 +20122,107 @@ const es = {
   "app.takeoff.perFoot": "pie",
   "app.takeoff.notPriced": "sin precio",
   "app.takeoff.labourWord": "mano de obra",
+
+  // ── Scheduling, time off and payroll ──────────────────────────────────────
+  //
+  // Day names, month names and times are deliberately NOT keys here. They come
+  // from Intl through lib/format/localeDate.js, which has the reasoning: CLDR
+  // already ships that table in every language, including the ones this
+  // catalogue has not been translated into, and a hand-kept copy also gets the
+  // ORDER wrong — "Jan 7" is "7 janv." and "1月7日".
+  //
+  // Sentences are whole. /app/payroll's intro used to be an English fragment,
+  // a t() call and another English fragment, which rendered as one sentence
+  // half in Spanish and half in English — worse than untranslated, because it
+  // reads as broken rather than as unsupported.
+  "app.scheduler.missingHours": "No hay horas de trabajo definidas para {names}. Hasta que las tengan, nada avisa de un turno a una hora extraña para esas personas y la nómina no tiene con qué contrastar las horas que registran.",
+  "app.scheduler.setTheirHours": "Definir sus horas",
+  "app.scheduler.shiftAdded": "Turno añadido.",
+  "app.scheduler.outsideAvailability": "Fuera de la disponibilidad declarada",
+  "app.scheduler.checkFirst": "Confírmalo con esa persona antes de continuar: todavía no lo ha aceptado.",
+  "app.scheduler.overrideWhy": "¿Por qué? (opcional: queda anotado en el turno)",
+  "app.scheduler.scheduleAnyway": "Programar de todos modos",
+  "app.scheduler.overrideMarked": "Quedará marcado en el turno y esa persona lo verá cuando se publique.",
+  "app.scheduler.changeDateInstead": "Cambia la fecha o modifica antes su tiempo libre.",
+  "app.schedule.introCanManage": "La disponibilidad semanal de cada persona y lo que hay reservado en las próximas dos semanas. Cada uno puede fijar sus propias horas en Ajustes → Disponibilidad, y tú puedes fijar las de cualquiera desde aquí.",
+  "app.schedule.introViewOnly": "La disponibilidad semanal de cada persona y lo que hay reservado en las próximas dos semanas. Cada uno puede fijar sus propias horas en Ajustes → Disponibilidad, y un responsable puede fijar las de cualquiera.",
+  "app.schedule.editHours": "Editar horas",
+  "app.schedule.setHours": "Definir horas",
+  "app.schedule.loadError": "No se pudo cargar el horario del equipo.",
+  "app.availability.dayFallback": "Día {index}",
+  "app.timeOff.noPolicies": "Todavía no se ha configurado ninguna política de ausencias. Un propietario o administrador puede añadirlas en Ajustes → Políticas de tiempo libre.",
+  "app.timeOff.otherCompanyRecord": "Tu cuenta ya está vinculada a una ficha de miembro del equipo en otra empresa, así que aquí no se puede llevar el control de tus ausencias. Un propietario o administrador debe añadirte como miembro aparte desde Ajustes → Gestionar equipo.",
+  "app.timeOff.noneRequested": "Todavía no has solicitado ningún tiempo libre.",
+  "app.timeOff.unpaidSuffix": "sin sueldo",
+  "app.timeOff.unpaidNoBalance": "Las ausencias sin sueldo no están limitadas por un saldo.",
+  "app.timeOff.vacationPayAccrued": "{amount} de pago de vacaciones acumulado.",
+  "app.timeOff.autoApproved": "Este tipo se aprueba automáticamente: al enviarlo queda reservado.",
+  "app.timeOff.submitRequest": "Enviar solicitud",
+  "app.timeOff.whosOffNext": "Quién se ausenta próximamente",
+  "app.payroll.intro": "FieldQuo calcula lo que debe cobrar cada persona a partir de sus horas aprobadas y de las tarifas que has guardado, y genera las nóminas.",
+  "app.payroll.introPayYourself": "Pagas a través de tu propio banco o proveedor de nómina: FieldQuo no mueve el dinero.",
+  "app.payroll.thisPeriod": "Periodo actual",
+  "app.payroll.periodPaid": "{start} → {end} · pagado el {payDate}",
+  "app.payroll.approvedHours": "{hours} horas aprobadas",
+  "app.payroll.approvedHoursAtRate": "{hours} horas aprobadas × {rate}/h",
+  "app.payroll.noRateOnRecord": "No hay una tarifa por hora en tu ficha, así que todavía no se puede calcular. Tus horas aprobadas se siguen contando.",
+  "app.payroll.pendingHoursNote": "{hours} horas más registradas y pendientes de que las apruebe tu responsable: no se cuentan arriba.",
+  "app.payroll.periodProgress": "{percent} % del periodo de pago transcurrido",
+  "app.payroll.grossNote": "Importe bruto, antes de deducciones. Las deducciones las añade la oficina al preparar la nómina, así que esto es lo que vale el trabajo, no lo que llegará a tu cuenta.",
+  "app.payroll.gross": "Bruto",
+  "app.payroll.deductions": "Deducciones",
+  "app.payroll.net": "Neto",
+  "app.payroll.netToPay": "Neto a pagar",
+  "app.payroll.hoursRegular": "{hours} h normales",
+  "app.payroll.hoursOvertime": "{hours} h extra",
+  "app.payroll.paidOn": "pagado el {date}",
+  "app.payroll.awaitingPayment": "pendiente de pago",
+  "app.payroll.onlyApprovedIncluded": "Solo se incluyen las horas aprobadas. Aprueba primero los partes de horas o esas horas no se pagarán.",
+  "app.payroll.calculate": "Calcular",
+  "app.payroll.draftOverlapNote": "Puedes guardarla igualmente como borrador, pero no se aprobará mientras otra nómina cubra los mismos días.",
+  "app.payroll.notIncludedUnapproved": "No incluidas: horas sin aprobar de {list}. Aprueba sus partes de horas para pagarlas.",
+  "app.payroll.includesPaidLeave": "Incluye las ausencias retribuidas aprobadas de {list}.",
+  "app.payroll.noDeductionsSetUp": "No hay deducciones configuradas, así que estas cifras son brutas. Añade primero tus componentes obligatorios en Ajustes → Nómina y confirma los tipos con tu contable.",
+  "app.payroll.region.CA": "Canadá",
+  "app.payroll.region.US": "Estados Unidos",
+  "app.payroll.region.UK": "Reino Unido",
+  "app.payroll.cycle.title": "Cuándo pagas",
+  "app.payroll.cycle.notSet": "sin definir: se usa el valor predeterminado de abajo",
+  "app.payroll.cycle.setItUp": "Configurarlo",
+  "app.payroll.cycle.howOften": "Con qué frecuencia",
+  "app.payroll.cycle.periodCloses": "El periodo cierra",
+  "app.payroll.cycle.payday": "Día de pago",
+  "app.payroll.cycle.setByOwner": "Lo define un propietario o administrador.",
+  "app.payroll.cycle.calendarOvertime": "Los periodos naturales no contienen semanas completas, así que las horas extra semanales se calculan sobre las semanas parciales de cada periodo. Pagar cada semana o cada 2 semanas evita ese problema.",
+  "app.payroll.cycle.thisPeriod": "Periodo actual",
+  "app.payroll.cycle.lastClosed": "Último periodo cerrado",
+  "app.payroll.cycle.periodRange": "{start} → {end}, pagado el {payDate}",
+  "app.payroll.cycle.saved": "Guardado.",
+  "app.payroll.cycle.saveError": "No se ha guardado.",
+  "app.payroll.cycle.frequency.weekly": "Cada semana",
+  "app.payroll.cycle.frequency.biweekly": "Cada 2 semanas",
+  "app.payroll.cycle.frequency.semimonthly": "Dos veces al mes",
+  "app.payroll.cycle.frequency.monthly": "Una vez al mes",
+  "app.payroll.cycle.describeCalendar": "{frequency}, se paga el primer {payDay} después de que termina el periodo.",
+  "app.timeOff.daysAvailable": (V) => {
+    const D = countedNoun("es", { one: "día", other: "días" })({ value: V.days });
+    return `${D} disponibles.`;
+  },
+  "app.payroll.cycle.reviewDays": (V) => {
+    const D = countedNoun("es", { one: "día", other: "días" })({ value: V.days });
+    return `${D} para aprobar las horas`;
+  },
+  "app.payroll.cycle.tightGap": (V) => {
+    const D = countedNoun("es", { one: "día", other: "días" })({ value: V.days });
+    return `Eso deja ${D} para aprobar las horas de todos entre el cierre del periodo y el día de pago. Es viable si apruebas las horas a diario; muy justo si no.`;
+  },
+  "app.payroll.cycle.describeWeekAligned": (V) => {
+    const D = countedNoun("es", { one: "día", other: "días" })({ value: V.days });
+    return `${V.frequency}. El periodo cierra el ${V.closeDay} y todos cobran el ${V.payDay} siguiente: ${D} para aprobar las horas.`;
+  },
+
+  "app.timeOff.approve": "Aprobar",
+  "app.timeOff.decline": "Rechazar",
 };
 
 const uk = {
@@ -24390,6 +24693,107 @@ const uk = {
   "app.takeoff.perFoot": "фт",
   "app.takeoff.notPriced": "без ціни",
   "app.takeoff.labourWord": "оплата праці",
+
+  // ── Scheduling, time off and payroll ──────────────────────────────────────
+  //
+  // Day names, month names and times are deliberately NOT keys here. They come
+  // from Intl through lib/format/localeDate.js, which has the reasoning: CLDR
+  // already ships that table in every language, including the ones this
+  // catalogue has not been translated into, and a hand-kept copy also gets the
+  // ORDER wrong — "Jan 7" is "7 janv." and "1月7日".
+  //
+  // Sentences are whole. /app/payroll's intro used to be an English fragment,
+  // a t() call and another English fragment, which rendered as one sentence
+  // half in Spanish and half in English — worse than untranslated, because it
+  // reads as broken rather than as unsupported.
+  "app.scheduler.missingHours": "Не встановлено робочих годин для {names}. Доки їх немає, ніщо не позначить зміну в незвичний час для цих людей, а нарахуванню зарплати нема з чим звірити відпрацьовані ними години.",
+  "app.scheduler.setTheirHours": "Встановити їхні години",
+  "app.scheduler.shiftAdded": "Зміну додано.",
+  "app.scheduler.outsideAvailability": "Поза заявленою доступністю",
+  "app.scheduler.checkFirst": "Узгодьте це з працівником, перш ніж продовжувати — він ще на це не погоджувався.",
+  "app.scheduler.overrideWhy": "Чому? (необов'язково — буде записано у зміні)",
+  "app.scheduler.scheduleAnyway": "Все одно запланувати",
+  "app.scheduler.overrideMarked": "Це буде позначено у зміні, і працівник побачить позначку після публікації.",
+  "app.scheduler.changeDateInstead": "Змініть дату або спершу відкоригуйте їхню відпустку.",
+  "app.schedule.introCanManage": "Тижнева доступність кожного та все заброньоване на найближчі два тижні. Кожен може встановити власні години в розділі Налаштування → Доступність, а ви можете встановити години будь-кого звідси.",
+  "app.schedule.introViewOnly": "Тижнева доступність кожного та все заброньоване на найближчі два тижні. Кожен може встановити власні години в розділі Налаштування → Доступність, а керівник може встановити години будь-кого.",
+  "app.schedule.editHours": "Змінити години",
+  "app.schedule.setHours": "Встановити години",
+  "app.schedule.loadError": "Не вдалося завантажити графік команди.",
+  "app.availability.dayFallback": "День {index}",
+  "app.timeOff.noPolicies": "Політики відпусток ще не налаштовані. Власник або адміністратор може додати їх у розділі Налаштування → Політики відпусток.",
+  "app.timeOff.otherCompanyRecord": "Ваш обліковий запис уже прив'язаний до картки працівника в іншій компанії, тому відпустки тут не відстежуються. Власник або адміністратор має додати вас окремим працівником у розділі Налаштування → Керування командою.",
+  "app.timeOff.noneRequested": "Ви ще не подавали заявок на відпустку.",
+  "app.timeOff.unpaidSuffix": "без оплати",
+  "app.timeOff.unpaidNoBalance": "Неоплачувана відпустка не обмежена залишком днів.",
+  "app.timeOff.vacationPayAccrued": "Нараховано {amount} відпускних.",
+  "app.timeOff.autoApproved": "Цей тип затверджується автоматично — надсилання одразу бронює його.",
+  "app.timeOff.submitRequest": "Надіслати заявку",
+  "app.timeOff.whosOffNext": "Хто у відпустці найближчим часом",
+  "app.payroll.intro": "FieldQuo розраховує, скільки має отримати кожен працівник, на основі затверджених годин і збережених вами ставок, і формує розрахункові листки.",
+  "app.payroll.introPayYourself": "Ви платите через власний банк або провайдера нарахування зарплати — FieldQuo не переказує гроші.",
+  "app.payroll.thisPeriod": "Поточний період",
+  "app.payroll.periodPaid": "{start} → {end} · виплата {payDate}",
+  "app.payroll.approvedHours": "{hours} затверджених годин",
+  "app.payroll.approvedHoursAtRate": "{hours} затверджених годин × {rate}/год",
+  "app.payroll.noRateOnRecord": "У вашій картці не вказано погодинну ставку, тому суму ще не можна порахувати. Ваші затверджені години все одно враховуються.",
+  "app.payroll.pendingHoursNote": "Ще {hours} годин зафіксовано й очікує на затвердження керівником — вони не враховані вище.",
+  "app.payroll.periodProgress": "Минуло {percent}% розрахункового періоду",
+  "app.payroll.grossNote": "Сума до відрахувань. Відрахування додає офіс під час підготовки виплати, тож це вартість роботи, а не те, що надійде на ваш рахунок.",
+  "app.payroll.gross": "Нараховано",
+  "app.payroll.deductions": "Відрахування",
+  "app.payroll.net": "До виплати",
+  "app.payroll.netToPay": "Чиста сума до виплати",
+  "app.payroll.hoursRegular": "{hours} год звичайних",
+  "app.payroll.hoursOvertime": "{hours} год понаднормових",
+  "app.payroll.paidOn": "виплачено {date}",
+  "app.payroll.awaitingPayment": "очікує виплати",
+  "app.payroll.onlyApprovedIncluded": "Враховуються лише затверджені години. Спершу затвердіть табелі, інакше ці години не буде оплачено.",
+  "app.payroll.calculate": "Розрахувати",
+  "app.payroll.draftOverlapNote": "Ви все одно можете зберегти це як чернетку, але затвердити не вдасться, доки інший розрахунок охоплює ті самі дні.",
+  "app.payroll.notIncludedUnapproved": "Не включено: незатверджені години для {list}. Затвердіть їхні табелі, щоб оплатити ці години.",
+  "app.payroll.includesPaidLeave": "Включає затверджену оплачувану відпустку для {list}.",
+  "app.payroll.noDeductionsSetUp": "Відрахування не налаштовані, тому це суми до відрахувань. Спершу додайте обов'язкові складові в розділі Налаштування → Нарахування зарплати — і звірте ставки з бухгалтером.",
+  "app.payroll.region.CA": "Канада",
+  "app.payroll.region.US": "США",
+  "app.payroll.region.UK": "Велика Британія",
+  "app.payroll.cycle.title": "Коли ви платите",
+  "app.payroll.cycle.notSet": "не налаштовано — використовується типове значення нижче",
+  "app.payroll.cycle.setItUp": "Налаштувати",
+  "app.payroll.cycle.howOften": "Як часто",
+  "app.payroll.cycle.periodCloses": "Період закривається",
+  "app.payroll.cycle.payday": "День виплати",
+  "app.payroll.cycle.setByOwner": "Встановлюється власником або адміністратором.",
+  "app.payroll.cycle.calendarOvertime": "Календарні періоди не містять цілих тижнів, тому тижневі понаднормові рахуються за неповними тижнями всередині кожного періоду. Щотижнева або раз на 2 тижні виплата цього уникає.",
+  "app.payroll.cycle.thisPeriod": "Поточний період",
+  "app.payroll.cycle.lastClosed": "Останній закритий період",
+  "app.payroll.cycle.periodRange": "{start} → {end}, виплата {payDate}",
+  "app.payroll.cycle.saved": "Збережено.",
+  "app.payroll.cycle.saveError": "Не вдалося зберегти.",
+  "app.payroll.cycle.frequency.weekly": "Щотижня",
+  "app.payroll.cycle.frequency.biweekly": "Кожні 2 тижні",
+  "app.payroll.cycle.frequency.semimonthly": "Двічі на місяць",
+  "app.payroll.cycle.frequency.monthly": "Раз на місяць",
+  "app.payroll.cycle.describeCalendar": "{frequency}, виплата в перший {payDay} після завершення періоду.",
+  "app.timeOff.daysAvailable": (V) => {
+    const D = countedNoun("uk", { one: "день", few: "дні", many: "днів", other: "дня" })({ value: V.days });
+    return `Доступно ${D}.`;
+  },
+  "app.payroll.cycle.reviewDays": (V) => {
+    const D = countedNoun("uk", { one: "день", few: "дні", many: "днів", other: "дня" })({ value: V.days });
+    return `${D} на затвердження годин`;
+  },
+  "app.payroll.cycle.tightGap": (V) => {
+    const D = countedNoun("uk", { one: "день", few: "дні", many: "днів", other: "дня" })({ value: V.days });
+    return `Це залишає ${D} на затвердження годин усіх працівників між закриттям періоду і днем виплати. Реально, якщо години затверджуються щодня; інакше — надто мало.`;
+  },
+  "app.payroll.cycle.describeWeekAligned": (V) => {
+    const D = countedNoun("uk", { one: "день", few: "дні", many: "днів", other: "дня" })({ value: V.days });
+    return `${V.frequency}. Період закривається у ${V.closeDay}, і всі отримують виплату в наступний ${V.payDay} — ${D} на затвердження годин.`;
+  },
+
+  "app.timeOff.approve": "Затвердити",
+  "app.timeOff.decline": "Відхилити",
 };
 
 const pa = {
@@ -28807,6 +29211,107 @@ const pa = {
   "app.takeoff.perFoot": "ਫੁੱਟ",
   "app.takeoff.notPriced": "ਕੀਮਤ ਨਹੀਂ",
   "app.takeoff.labourWord": "ਮਜ਼ਦੂਰੀ",
+
+  // ── Scheduling, time off and payroll ──────────────────────────────────────
+  //
+  // Day names, month names and times are deliberately NOT keys here. They come
+  // from Intl through lib/format/localeDate.js, which has the reasoning: CLDR
+  // already ships that table in every language, including the ones this
+  // catalogue has not been translated into, and a hand-kept copy also gets the
+  // ORDER wrong — "Jan 7" is "7 janv." and "1月7日".
+  //
+  // Sentences are whole. /app/payroll's intro used to be an English fragment,
+  // a t() call and another English fragment, which rendered as one sentence
+  // half in Spanish and half in English — worse than untranslated, because it
+  // reads as broken rather than as unsupported.
+  "app.scheduler.missingHours": "{names} ਲਈ ਕੰਮ ਦੇ ਘੰਟੇ ਸੈੱਟ ਨਹੀਂ ਕੀਤੇ ਗਏ। ਜਦੋਂ ਤੱਕ ਉਹ ਸੈੱਟ ਨਹੀਂ ਹੁੰਦੇ, ਕਿਸੇ ਅਜੀਬ ਸਮੇਂ ਦੀ ਸ਼ਿਫਟ ਬਾਰੇ ਕੋਈ ਚੇਤਾਵਨੀ ਨਹੀਂ ਮਿਲੇਗੀ ਅਤੇ ਤਨਖਾਹ ਕੋਲ ਉਨ੍ਹਾਂ ਦੇ ਦਰਜ ਘੰਟਿਆਂ ਨੂੰ ਪਰਖਣ ਲਈ ਕੁਝ ਨਹੀਂ ਹੋਵੇਗਾ।",
+  "app.scheduler.setTheirHours": "ਉਨ੍ਹਾਂ ਦੇ ਘੰਟੇ ਸੈੱਟ ਕਰੋ",
+  "app.scheduler.shiftAdded": "ਸ਼ਿਫਟ ਸ਼ਾਮਲ ਕੀਤੀ ਗਈ।",
+  "app.scheduler.outsideAvailability": "ਦੱਸੀ ਗਈ ਉਪਲਬਧਤਾ ਤੋਂ ਬਾਹਰ",
+  "app.scheduler.checkFirst": "ਅੱਗੇ ਵਧਣ ਤੋਂ ਪਹਿਲਾਂ ਉਨ੍ਹਾਂ ਨਾਲ ਪੁਸ਼ਟੀ ਕਰੋ — ਉਨ੍ਹਾਂ ਨੇ ਹਾਲੇ ਇਸ ਲਈ ਹਾਮੀ ਨਹੀਂ ਭਰੀ।",
+  "app.scheduler.overrideWhy": "ਕਿਉਂ? (ਵਿਕਲਪਿਕ — ਸ਼ਿਫਟ ਉੱਤੇ ਦਰਜ ਹੋਵੇਗਾ)",
+  "app.scheduler.scheduleAnyway": "ਫਿਰ ਵੀ ਸ਼ਡਿਊਲ ਕਰੋ",
+  "app.scheduler.overrideMarked": "ਇਹ ਸ਼ਿਫਟ ਉੱਤੇ ਨਿਸ਼ਾਨਬੱਧ ਹੋਵੇਗਾ, ਅਤੇ ਪ੍ਰਕਾਸ਼ਿਤ ਹੋਣ 'ਤੇ ਉਹ ਇਸਨੂੰ ਦੇਖ ਲੈਣਗੇ।",
+  "app.scheduler.changeDateInstead": "ਤਾਰੀਖ਼ ਬਦਲੋ, ਜਾਂ ਪਹਿਲਾਂ ਉਨ੍ਹਾਂ ਦੀ ਛੁੱਟੀ ਵਿੱਚ ਸੋਧ ਕਰੋ।",
+  "app.schedule.introCanManage": "ਹਰ ਕਿਸੇ ਦੀ ਹਫ਼ਤਾਵਾਰੀ ਉਪਲਬਧਤਾ ਅਤੇ ਅਗਲੇ ਦੋ ਹਫ਼ਤਿਆਂ ਵਿੱਚ ਜੋ ਬੁੱਕ ਹੈ। ਲੋਕ ਆਪਣੇ ਘੰਟੇ ਸੈਟਿੰਗਾਂ → ਉਪਲਬਧਤਾ ਵਿੱਚ ਆਪ ਸੈੱਟ ਕਰ ਸਕਦੇ ਹਨ, ਅਤੇ ਤੁਸੀਂ ਕਿਸੇ ਦੇ ਵੀ ਘੰਟੇ ਇੱਥੋਂ ਸੈੱਟ ਕਰ ਸਕਦੇ ਹੋ।",
+  "app.schedule.introViewOnly": "ਹਰ ਕਿਸੇ ਦੀ ਹਫ਼ਤਾਵਾਰੀ ਉਪਲਬਧਤਾ ਅਤੇ ਅਗਲੇ ਦੋ ਹਫ਼ਤਿਆਂ ਵਿੱਚ ਜੋ ਬੁੱਕ ਹੈ। ਲੋਕ ਆਪਣੇ ਘੰਟੇ ਸੈਟਿੰਗਾਂ → ਉਪਲਬਧਤਾ ਵਿੱਚ ਆਪ ਸੈੱਟ ਕਰ ਸਕਦੇ ਹਨ, ਅਤੇ ਮੈਨੇਜਰ ਕਿਸੇ ਦੇ ਵੀ ਘੰਟੇ ਸੈੱਟ ਕਰ ਸਕਦਾ ਹੈ।",
+  "app.schedule.editHours": "ਘੰਟੇ ਸੋਧੋ",
+  "app.schedule.setHours": "ਘੰਟੇ ਸੈੱਟ ਕਰੋ",
+  "app.schedule.loadError": "ਟੀਮ ਦਾ ਸ਼ਡਿਊਲ ਲੋਡ ਨਹੀਂ ਹੋ ਸਕਿਆ।",
+  "app.availability.dayFallback": "ਦਿਨ {index}",
+  "app.timeOff.noPolicies": "ਹਾਲੇ ਤੱਕ ਕੋਈ ਛੁੱਟੀ ਨੀਤੀ ਸੈੱਟ ਨਹੀਂ ਕੀਤੀ ਗਈ। ਮਾਲਕ ਜਾਂ ਐਡਮਿਨ ਸੈਟਿੰਗਾਂ → ਛੁੱਟੀ ਨੀਤੀਆਂ ਵਿੱਚ ਇਹ ਸ਼ਾਮਲ ਕਰ ਸਕਦਾ ਹੈ।",
+  "app.timeOff.otherCompanyRecord": "ਤੁਹਾਡਾ ਲਾਗਇਨ ਪਹਿਲਾਂ ਹੀ ਕਿਸੇ ਹੋਰ ਕੰਪਨੀ ਦੇ ਟੀਮ ਮੈਂਬਰ ਰਿਕਾਰਡ ਨਾਲ ਜੁੜਿਆ ਹੋਇਆ ਹੈ, ਇਸ ਲਈ ਇੱਥੇ ਛੁੱਟੀ ਦਾ ਹਿਸਾਬ ਨਹੀਂ ਰੱਖਿਆ ਜਾ ਸਕਦਾ। ਮਾਲਕ ਜਾਂ ਐਡਮਿਨ ਨੂੰ ਸੈਟਿੰਗਾਂ → ਟੀਮ ਪ੍ਰਬੰਧਨ ਤੋਂ ਤੁਹਾਨੂੰ ਵੱਖਰੇ ਟੀਮ ਮੈਂਬਰ ਵਜੋਂ ਸ਼ਾਮਲ ਕਰਨਾ ਪਵੇਗਾ।",
+  "app.timeOff.noneRequested": "ਤੁਸੀਂ ਹਾਲੇ ਤੱਕ ਕੋਈ ਛੁੱਟੀ ਦੀ ਬੇਨਤੀ ਨਹੀਂ ਕੀਤੀ।",
+  "app.timeOff.unpaidSuffix": "ਬਿਨਾਂ ਤਨਖਾਹ",
+  "app.timeOff.unpaidNoBalance": "ਬਿਨਾਂ ਤਨਖਾਹ ਵਾਲੀ ਛੁੱਟੀ ਕਿਸੇ ਬਕਾਇਆ ਨਾਲ ਸੀਮਿਤ ਨਹੀਂ ਹੁੰਦੀ।",
+  "app.timeOff.vacationPayAccrued": "{amount} ਛੁੱਟੀ ਤਨਖਾਹ ਇਕੱਠੀ ਹੋਈ।",
+  "app.timeOff.autoApproved": "ਇਹ ਕਿਸਮ ਆਪਣੇ-ਆਪ ਮਨਜ਼ੂਰ ਹੋ ਜਾਂਦੀ ਹੈ — ਭੇਜਣ ਨਾਲ ਹੀ ਇਹ ਬੁੱਕ ਹੋ ਜਾਂਦੀ ਹੈ।",
+  "app.timeOff.submitRequest": "ਬੇਨਤੀ ਭੇਜੋ",
+  "app.timeOff.whosOffNext": "ਅੱਗੇ ਕੌਣ ਛੁੱਟੀ 'ਤੇ ਹੈ",
+  "app.payroll.intro": "FieldQuo ਹਰ ਵਿਅਕਤੀ ਦੇ ਮਨਜ਼ੂਰ ਘੰਟਿਆਂ ਅਤੇ ਤੁਹਾਡੀਆਂ ਸੰਭਾਲੀਆਂ ਦਰਾਂ ਤੋਂ ਹਿਸਾਬ ਲਗਾਉਂਦਾ ਹੈ ਕਿ ਕਿਸ ਨੂੰ ਕਿੰਨੀ ਤਨਖਾਹ ਮਿਲਣੀ ਚਾਹੀਦੀ ਹੈ, ਅਤੇ ਤਨਖਾਹ ਪਰਚੀਆਂ ਬਣਾਉਂਦਾ ਹੈ।",
+  "app.payroll.introPayYourself": "ਤੁਸੀਂ ਆਪਣੇ ਬੈਂਕ ਜਾਂ ਤਨਖਾਹ ਪ੍ਰਦਾਤਾ ਰਾਹੀਂ ਭੁਗਤਾਨ ਕਰਦੇ ਹੋ — FieldQuo ਪੈਸੇ ਨਹੀਂ ਭੇਜਦਾ।",
+  "app.payroll.thisPeriod": "ਮੌਜੂਦਾ ਮਿਆਦ",
+  "app.payroll.periodPaid": "{start} → {end} · ਭੁਗਤਾਨ {payDate}",
+  "app.payroll.approvedHours": "{hours} ਮਨਜ਼ੂਰ ਘੰਟੇ",
+  "app.payroll.approvedHoursAtRate": "{hours} ਮਨਜ਼ੂਰ ਘੰਟੇ × {rate}/ਘੰਟਾ",
+  "app.payroll.noRateOnRecord": "ਤੁਹਾਡੇ ਰਿਕਾਰਡ ਵਿੱਚ ਕੋਈ ਘੰਟਾਵਾਰ ਦਰ ਸੈੱਟ ਨਹੀਂ ਹੈ, ਇਸ ਲਈ ਇਹ ਹਾਲੇ ਗਿਣਿਆ ਨਹੀਂ ਜਾ ਸਕਦਾ। ਤੁਹਾਡੇ ਮਨਜ਼ੂਰ ਘੰਟੇ ਫਿਰ ਵੀ ਗਿਣੇ ਜਾ ਰਹੇ ਹਨ।",
+  "app.payroll.pendingHoursNote": "{hours} ਹੋਰ ਘੰਟੇ ਦਰਜ ਹਨ ਅਤੇ ਤੁਹਾਡੇ ਮੈਨੇਜਰ ਦੀ ਮਨਜ਼ੂਰੀ ਦੀ ਉਡੀਕ ਵਿੱਚ ਹਨ — ਉੱਪਰ ਨਹੀਂ ਗਿਣੇ ਗਏ।",
+  "app.payroll.periodProgress": "ਇਸ ਤਨਖਾਹ ਮਿਆਦ ਦਾ {percent}% ਬੀਤ ਚੁੱਕਾ ਹੈ",
+  "app.payroll.grossNote": "ਕਟੌਤੀਆਂ ਤੋਂ ਪਹਿਲਾਂ ਦੀ ਕੁੱਲ ਰਕਮ। ਕਟੌਤੀਆਂ ਦਫ਼ਤਰ ਵੱਲੋਂ ਤਨਖਾਹ ਤਿਆਰ ਕਰਨ ਵੇਲੇ ਜੋੜੀਆਂ ਜਾਂਦੀਆਂ ਹਨ, ਇਸ ਲਈ ਇਹ ਕੰਮ ਦੀ ਕੀਮਤ ਹੈ — ਨਾ ਕਿ ਜੋ ਤੁਹਾਡੇ ਖਾਤੇ ਵਿੱਚ ਆਵੇਗਾ।",
+  "app.payroll.gross": "ਕੁੱਲ",
+  "app.payroll.deductions": "ਕਟੌਤੀਆਂ",
+  "app.payroll.net": "ਸ਼ੁੱਧ",
+  "app.payroll.netToPay": "ਦੇਣਯੋਗ ਸ਼ੁੱਧ ਰਕਮ",
+  "app.payroll.hoursRegular": "{hours} ਘੰਟੇ ਆਮ",
+  "app.payroll.hoursOvertime": "{hours} ਘੰਟੇ ਓਵਰਟਾਈਮ",
+  "app.payroll.paidOn": "{date} ਨੂੰ ਭੁਗਤਾਨ",
+  "app.payroll.awaitingPayment": "ਭੁਗਤਾਨ ਦੀ ਉਡੀਕ ਵਿੱਚ",
+  "app.payroll.onlyApprovedIncluded": "ਸਿਰਫ਼ ਮਨਜ਼ੂਰ ਸਮਾਂ ਸ਼ਾਮਲ ਹੁੰਦਾ ਹੈ। ਪਹਿਲਾਂ ਟਾਈਮਸ਼ੀਟਾਂ ਮਨਜ਼ੂਰ ਕਰੋ, ਨਹੀਂ ਤਾਂ ਉਹ ਘੰਟੇ ਅਦਾ ਨਹੀਂ ਕੀਤੇ ਜਾਣਗੇ।",
+  "app.payroll.calculate": "ਹਿਸਾਬ ਲਗਾਓ",
+  "app.payroll.draftOverlapNote": "ਤੁਸੀਂ ਇਸਨੂੰ ਡਰਾਫਟ ਵਜੋਂ ਸੰਭਾਲ ਸਕਦੇ ਹੋ, ਪਰ ਜਦੋਂ ਤੱਕ ਕੋਈ ਹੋਰ ਰਨ ਉਹੀ ਦਿਨ ਕਵਰ ਕਰਦੀ ਹੈ, ਇਹ ਮਨਜ਼ੂਰ ਨਹੀਂ ਹੋਵੇਗੀ।",
+  "app.payroll.notIncludedUnapproved": "ਸ਼ਾਮਲ ਨਹੀਂ: {list} ਦੇ ਗੈਰ-ਮਨਜ਼ੂਰ ਘੰਟੇ। ਇਹ ਅਦਾ ਕਰਨ ਲਈ ਉਨ੍ਹਾਂ ਦੀਆਂ ਟਾਈਮਸ਼ੀਟਾਂ ਮਨਜ਼ੂਰ ਕਰੋ।",
+  "app.payroll.includesPaidLeave": "{list} ਦੀ ਮਨਜ਼ੂਰ ਤਨਖਾਹ ਸਹਿਤ ਛੁੱਟੀ ਸ਼ਾਮਲ ਹੈ।",
+  "app.payroll.noDeductionsSetUp": "ਕੋਈ ਕਟੌਤੀ ਸੈੱਟ ਨਹੀਂ ਕੀਤੀ ਗਈ, ਇਸ ਲਈ ਇਹ ਕੁੱਲ ਅੰਕੜੇ ਹਨ। ਪਹਿਲਾਂ ਸੈਟਿੰਗਾਂ → ਤਨਖਾਹ ਵਿੱਚ ਆਪਣੇ ਕਾਨੂੰਨੀ ਹਿੱਸੇ ਸ਼ਾਮਲ ਕਰੋ — ਦਰਾਂ ਦੀ ਪੁਸ਼ਟੀ ਆਪਣੇ ਲੇਖਾਕਾਰ ਨਾਲ ਕਰੋ।",
+  "app.payroll.region.CA": "ਕੈਨੇਡਾ",
+  "app.payroll.region.US": "ਸੰਯੁਕਤ ਰਾਜ",
+  "app.payroll.region.UK": "ਯੂਨਾਈਟਿਡ ਕਿੰਗਡਮ",
+  "app.payroll.cycle.title": "ਤੁਸੀਂ ਕਦੋਂ ਭੁਗਤਾਨ ਕਰਦੇ ਹੋ",
+  "app.payroll.cycle.notSet": "ਸੈੱਟ ਨਹੀਂ — ਹੇਠਾਂ ਦਿੱਤਾ ਡਿਫੌਲਟ ਵਰਤਿਆ ਜਾ ਰਿਹਾ ਹੈ",
+  "app.payroll.cycle.setItUp": "ਇਸਨੂੰ ਸੈੱਟ ਕਰੋ",
+  "app.payroll.cycle.howOften": "ਕਿੰਨੀ ਵਾਰ",
+  "app.payroll.cycle.periodCloses": "ਮਿਆਦ ਬੰਦ ਹੁੰਦੀ ਹੈ",
+  "app.payroll.cycle.payday": "ਤਨਖਾਹ ਵਾਲਾ ਦਿਨ",
+  "app.payroll.cycle.setByOwner": "ਮਾਲਕ ਜਾਂ ਐਡਮਿਨ ਵੱਲੋਂ ਸੈੱਟ ਕੀਤਾ ਜਾਂਦਾ ਹੈ।",
+  "app.payroll.cycle.calendarOvertime": "ਕੈਲੰਡਰ ਮਿਆਦਾਂ ਵਿੱਚ ਪੂਰੇ ਹਫ਼ਤੇ ਨਹੀਂ ਹੁੰਦੇ, ਇਸ ਲਈ ਹਫ਼ਤਾਵਾਰੀ ਓਵਰਟਾਈਮ ਹਰ ਮਿਆਦ ਦੇ ਅੰਦਰਲੇ ਅਧੂਰੇ ਹਫ਼ਤਿਆਂ ਉੱਤੇ ਗਿਣਿਆ ਜਾਂਦਾ ਹੈ। ਹਰ ਹਫ਼ਤੇ ਜਾਂ ਹਰ 2 ਹਫ਼ਤੇ ਭੁਗਤਾਨ ਇਸ ਤੋਂ ਬਚਾਉਂਦਾ ਹੈ।",
+  "app.payroll.cycle.thisPeriod": "ਮੌਜੂਦਾ ਮਿਆਦ",
+  "app.payroll.cycle.lastClosed": "ਪਿਛਲੀ ਬੰਦ ਹੋਈ ਮਿਆਦ",
+  "app.payroll.cycle.periodRange": "{start} → {end}, ਭੁਗਤਾਨ {payDate}",
+  "app.payroll.cycle.saved": "ਸੰਭਾਲਿਆ ਗਿਆ।",
+  "app.payroll.cycle.saveError": "ਇਹ ਸੰਭਾਲਿਆ ਨਹੀਂ ਗਿਆ।",
+  "app.payroll.cycle.frequency.weekly": "ਹਰ ਹਫ਼ਤੇ",
+  "app.payroll.cycle.frequency.biweekly": "ਹਰ 2 ਹਫ਼ਤੇ",
+  "app.payroll.cycle.frequency.semimonthly": "ਮਹੀਨੇ ਵਿੱਚ ਦੋ ਵਾਰ",
+  "app.payroll.cycle.frequency.monthly": "ਮਹੀਨੇ ਵਿੱਚ ਇੱਕ ਵਾਰ",
+  "app.payroll.cycle.describeCalendar": "{frequency}, ਮਿਆਦ ਖ਼ਤਮ ਹੋਣ ਤੋਂ ਬਾਅਦ ਪਹਿਲੇ {payDay} ਨੂੰ ਭੁਗਤਾਨ।",
+  "app.timeOff.daysAvailable": (V) => {
+    const D = countedNoun("pa", { one: "ਦਿਨ", other: "ਦਿਨ" })({ value: V.days });
+    return `${D} ਉਪਲਬਧ।`;
+  },
+  "app.payroll.cycle.reviewDays": (V) => {
+    const D = countedNoun("pa", { one: "ਦਿਨ", other: "ਦਿਨ" })({ value: V.days });
+    return `ਘੰਟੇ ਮਨਜ਼ੂਰ ਕਰਨ ਲਈ ${D}`;
+  },
+  "app.payroll.cycle.tightGap": (V) => {
+    const D = countedNoun("pa", { one: "ਦਿਨ", other: "ਦਿਨ" })({ value: V.days });
+    return `ਇਸ ਨਾਲ ਮਿਆਦ ਬੰਦ ਹੋਣ ਅਤੇ ਤਨਖਾਹ ਵਾਲੇ ਦਿਨ ਵਿਚਕਾਰ ਸਭ ਦੇ ਘੰਟੇ ਮਨਜ਼ੂਰ ਕਰਨ ਲਈ ${D} ਬਚਦੇ ਹਨ। ਜੇ ਘੰਟੇ ਰੋਜ਼ ਮਨਜ਼ੂਰ ਹੁੰਦੇ ਹਨ ਤਾਂ ਠੀਕ ਹੈ; ਨਹੀਂ ਤਾਂ ਬਹੁਤ ਤੰਗ ਹੈ।`;
+  },
+  "app.payroll.cycle.describeWeekAligned": (V) => {
+    const D = countedNoun("pa", { one: "ਦਿਨ", other: "ਦਿਨ" })({ value: V.days });
+    return `${V.frequency}। ਮਿਆਦ ${V.closeDay} ਨੂੰ ਬੰਦ ਹੁੰਦੀ ਹੈ ਅਤੇ ਸਭ ਨੂੰ ਅਗਲੇ ${V.payDay} ਨੂੰ ਤਨਖਾਹ ਮਿਲਦੀ ਹੈ — ਘੰਟੇ ਮਨਜ਼ੂਰ ਕਰਨ ਲਈ ${D}।`;
+  },
+
+  "app.timeOff.approve": "ਮਨਜ਼ੂਰ ਕਰੋ",
+  "app.timeOff.decline": "ਨਾਮਨਜ਼ੂਰ ਕਰੋ",
 };
 
 const tl = {
@@ -33231,6 +33736,107 @@ const tl = {
   "app.takeoff.perFoot": "ft",
   "app.takeoff.notPriced": "walang presyo",
   "app.takeoff.labourWord": "paggawa",
+
+  // ── Scheduling, time off and payroll ──────────────────────────────────────
+  //
+  // Day names, month names and times are deliberately NOT keys here. They come
+  // from Intl through lib/format/localeDate.js, which has the reasoning: CLDR
+  // already ships that table in every language, including the ones this
+  // catalogue has not been translated into, and a hand-kept copy also gets the
+  // ORDER wrong — "Jan 7" is "7 janv." and "1月7日".
+  //
+  // Sentences are whole. /app/payroll's intro used to be an English fragment,
+  // a t() call and another English fragment, which rendered as one sentence
+  // half in Spanish and half in English — worse than untranslated, because it
+  // reads as broken rather than as unsupported.
+  "app.scheduler.missingHours": "Walang nakatakdang oras ng trabaho para kay/kina {names}. Hangga't wala, walang magbabala kapag may shift sa kakaibang oras para sa kanila at walang maikukumpara ang payroll sa mga oras na itinala nila.",
+  "app.scheduler.setTheirHours": "Itakda ang oras nila",
+  "app.scheduler.shiftAdded": "Naidagdag ang shift.",
+  "app.scheduler.outsideAvailability": "Labas sa idineklarang availability",
+  "app.scheduler.checkFirst": "Kumpirmahin muna sa kanila bago ituloy — hindi pa sila pumapayag dito.",
+  "app.scheduler.overrideWhy": "Bakit? (opsyonal — isusulat sa shift)",
+  "app.scheduler.scheduleAnyway": "I-schedule pa rin",
+  "app.scheduler.overrideMarked": "Mamarkahan ito sa shift, at makikita nila iyon kapag na-publish na.",
+  "app.scheduler.changeDateInstead": "Palitan ang petsa, o baguhin muna ang time off nila.",
+  "app.schedule.introCanManage": "Ang lingguhang availability ng bawat isa at kung ano ang naka-book sa susunod na dalawang linggo. Maaaring itakda ng bawat isa ang sariling oras sa Settings → Availability, at maitatakda mo rito ang oras ninuman.",
+  "app.schedule.introViewOnly": "Ang lingguhang availability ng bawat isa at kung ano ang naka-book sa susunod na dalawang linggo. Maaaring itakda ng bawat isa ang sariling oras sa Settings → Availability, at maitatakda ng isang manager ang oras ninuman.",
+  "app.schedule.editHours": "I-edit ang oras",
+  "app.schedule.setHours": "Itakda ang oras",
+  "app.schedule.loadError": "Hindi ma-load ang schedule ng team.",
+  "app.availability.dayFallback": "Araw {index}",
+  "app.timeOff.noPolicies": "Wala pang nakatakdang patakaran sa leave. Maaaring magdagdag ang isang owner o admin sa Settings → Time off policies.",
+  "app.timeOff.otherCompanyRecord": "Naka-link na ang login mo sa isang team member record sa ibang kompanya, kaya hindi rito matatala ang leave mo. Kailangang idagdag ka ng isang owner o admin bilang hiwalay na team member sa Settings → Manage Team.",
+  "app.timeOff.noneRequested": "Wala ka pang hiniling na time off.",
+  "app.timeOff.unpaidSuffix": "walang bayad",
+  "app.timeOff.unpaidNoBalance": "Ang leave na walang bayad ay hindi limitado ng balanse.",
+  "app.timeOff.vacationPayAccrued": "{amount} na naipong vacation pay.",
+  "app.timeOff.autoApproved": "Awtomatikong inaaprubahan ang uring ito — kapag isinumite, naka-book na.",
+  "app.timeOff.submitRequest": "Isumite ang hiling",
+  "app.timeOff.whosOffNext": "Sino ang susunod na wala",
+  "app.payroll.intro": "Kinakalkula ng FieldQuo kung magkano dapat matanggap ng bawat isa batay sa kanilang aprubadong oras at sa mga rate na na-save mo, at gumagawa ng payslip.",
+  "app.payroll.introPayYourself": "Ikaw ang nagbabayad sa pamamagitan ng sarili mong bangko o payroll provider — hindi naglilipat ng pera ang FieldQuo.",
+  "app.payroll.thisPeriod": "Kasalukuyang panahon",
+  "app.payroll.periodPaid": "{start} → {end} · bayad {payDate}",
+  "app.payroll.approvedHours": "{hours} aprubadong oras",
+  "app.payroll.approvedHoursAtRate": "{hours} aprubadong oras × {rate}/oras",
+  "app.payroll.noRateOnRecord": "Walang nakatakdang hourly rate sa record mo, kaya hindi pa ito makalkula. Nabibilang pa rin ang aprubadong oras mo.",
+  "app.payroll.pendingHoursNote": "May {hours} pang oras na naitala at naghihintay ng aprubahan ng manager mo — hindi kasama sa itaas.",
+  "app.payroll.periodProgress": "{percent}% na ng panahon ng sahod na ito",
+  "app.payroll.grossNote": "Gross, bago ang mga bawas. Idinaragdag ng opisina ang mga bawas kapag inihahanda ang payroll, kaya ito ang halaga ng trabaho — hindi ang mapupunta sa account mo.",
+  "app.payroll.gross": "Gross",
+  "app.payroll.deductions": "Mga bawas",
+  "app.payroll.net": "Net",
+  "app.payroll.netToPay": "Net na babayaran",
+  "app.payroll.hoursRegular": "{hours}h regular",
+  "app.payroll.hoursOvertime": "{hours}h overtime",
+  "app.payroll.paidOn": "bayad {date}",
+  "app.payroll.awaitingPayment": "naghihintay ng bayad",
+  "app.payroll.onlyApprovedIncluded": "Aprubadong oras lang ang kasama. Aprubahan muna ang mga timesheet, kung hindi, hindi mababayaran ang mga oras na iyon.",
+  "app.payroll.calculate": "Kalkulahin",
+  "app.payroll.draftOverlapNote": "Puwede mo pa rin itong i-save bilang draft, pero hindi ito maaaprubahan habang may ibang run na sumasaklaw sa parehong mga araw.",
+  "app.payroll.notIncludedUnapproved": "Hindi kasama: mga hindi aprubadong oras nina {list}. Aprubahan ang kanilang mga timesheet para mabayaran ito.",
+  "app.payroll.includesPaidLeave": "Kasama ang aprubadong bayad na leave nina {list}.",
+  "app.payroll.noDeductionsSetUp": "Walang nakatakdang bawas, kaya gross ang mga numerong ito. Idagdag muna ang mga statutory component sa Settings → Payroll — kumpirmahin ang mga rate sa accountant mo.",
+  "app.payroll.region.CA": "Canada",
+  "app.payroll.region.US": "Estados Unidos",
+  "app.payroll.region.UK": "United Kingdom",
+  "app.payroll.cycle.title": "Kailan ka nagbabayad",
+  "app.payroll.cycle.notSet": "hindi pa nakatakda — ginagamit ang default sa ibaba",
+  "app.payroll.cycle.setItUp": "I-set up ito",
+  "app.payroll.cycle.howOften": "Gaano kadalas",
+  "app.payroll.cycle.periodCloses": "Nagsasara ang panahon",
+  "app.payroll.cycle.payday": "Araw ng sahod",
+  "app.payroll.cycle.setByOwner": "Itinatakda ng isang owner o admin.",
+  "app.payroll.cycle.calendarOvertime": "Ang mga panahong batay sa kalendaryo ay hindi buong linggo, kaya kinakalkula ang lingguhang overtime sa mga bahagyang linggo sa loob ng bawat panahon. Naiiwasan ito ng kada-linggo o kada-2-linggo.",
+  "app.payroll.cycle.thisPeriod": "Kasalukuyang panahon",
+  "app.payroll.cycle.lastClosed": "Huling nagsarang panahon",
+  "app.payroll.cycle.periodRange": "{start} → {end}, bayad {payDate}",
+  "app.payroll.cycle.saved": "Na-save.",
+  "app.payroll.cycle.saveError": "Hindi na-save iyon.",
+  "app.payroll.cycle.frequency.weekly": "Kada linggo",
+  "app.payroll.cycle.frequency.biweekly": "Kada 2 linggo",
+  "app.payroll.cycle.frequency.semimonthly": "Dalawang beses sa isang buwan",
+  "app.payroll.cycle.frequency.monthly": "Isang beses sa isang buwan",
+  "app.payroll.cycle.describeCalendar": "{frequency}, binabayaran sa unang {payDay} pagkatapos matapos ang panahon.",
+  "app.timeOff.daysAvailable": (V) => {
+    const D = countedNoun("tl", { one: "araw", other: "araw" })({ value: V.days });
+    return `${D} ang available.`;
+  },
+  "app.payroll.cycle.reviewDays": (V) => {
+    const D = countedNoun("tl", { one: "araw", other: "araw" })({ value: V.days });
+    return `${D} para aprubahan ang mga oras`;
+  },
+  "app.payroll.cycle.tightGap": (V) => {
+    const D = countedNoun("tl", { one: "araw", other: "araw" })({ value: V.days });
+    return `Nag-iiwan iyon ng ${D} para aprubahan ang oras ng lahat sa pagitan ng pagsasara ng panahon at ng araw ng sahod. Kaya kung araw-araw na inaaprubahan ang mga oras; masikip kung hindi.`;
+  },
+  "app.payroll.cycle.describeWeekAligned": (V) => {
+    const D = countedNoun("tl", { one: "araw", other: "araw" })({ value: V.days });
+    return `${V.frequency}. Nagsasara ang panahon tuwing ${V.closeDay} at binabayaran ang lahat sa sumunod na ${V.payDay} — ${D} para aprubahan ang mga oras.`;
+  },
+
+  "app.timeOff.approve": "Aprubahan",
+  "app.timeOff.decline": "Tanggihan",
 };
 
 const de = {
@@ -39251,6 +39857,107 @@ const de = {
   "app.takeoff.perFoot": "ft",
   "app.takeoff.notPriced": "kein Preis",
   "app.takeoff.labourWord": "Arbeit",
+
+  // ── Scheduling, time off and payroll ──────────────────────────────────────
+  //
+  // Day names, month names and times are deliberately NOT keys here. They come
+  // from Intl through lib/format/localeDate.js, which has the reasoning: CLDR
+  // already ships that table in every language, including the ones this
+  // catalogue has not been translated into, and a hand-kept copy also gets the
+  // ORDER wrong — "Jan 7" is "7 janv." and "1月7日".
+  //
+  // Sentences are whole. /app/payroll's intro used to be an English fragment,
+  // a t() call and another English fragment, which rendered as one sentence
+  // half in Spanish and half in English — worse than untranslated, because it
+  // reads as broken rather than as unsupported.
+  "app.scheduler.missingHours": "Für {names} sind keine Arbeitszeiten hinterlegt. Solange das so bleibt, weist nichts auf eine Schicht zu ungewöhnlicher Zeit hin, und die Lohnabrechnung hat nichts, woran sie die erfassten Stunden prüfen kann.",
+  "app.scheduler.setTheirHours": "Arbeitszeiten festlegen",
+  "app.scheduler.shiftAdded": "Schicht hinzugefügt.",
+  "app.scheduler.outsideAvailability": "Außerhalb der angegebenen Verfügbarkeit",
+  "app.scheduler.checkFirst": "Sprechen Sie das vorher mit der Person ab — sie hat dem noch nicht zugestimmt.",
+  "app.scheduler.overrideWhy": "Warum? (optional — wird auf der Schicht vermerkt)",
+  "app.scheduler.scheduleAnyway": "Trotzdem einplanen",
+  "app.scheduler.overrideMarked": "Das wird auf der Schicht vermerkt, und die Person sieht es bei der Veröffentlichung.",
+  "app.scheduler.changeDateInstead": "Ändern Sie das Datum, oder passen Sie zuerst die Abwesenheit an.",
+  "app.schedule.introCanManage": "Die wöchentliche Verfügbarkeit aller und was in den nächsten zwei Wochen gebucht ist. Alle können ihre eigenen Zeiten unter Einstellungen → Verfügbarkeit festlegen, und Sie können hier die Zeiten aller festlegen.",
+  "app.schedule.introViewOnly": "Die wöchentliche Verfügbarkeit aller und was in den nächsten zwei Wochen gebucht ist. Alle können ihre eigenen Zeiten unter Einstellungen → Verfügbarkeit festlegen, und eine Führungskraft kann die Zeiten aller festlegen.",
+  "app.schedule.editHours": "Zeiten bearbeiten",
+  "app.schedule.setHours": "Zeiten festlegen",
+  "app.schedule.loadError": "Der Teamplan konnte nicht geladen werden.",
+  "app.availability.dayFallback": "Tag {index}",
+  "app.timeOff.noPolicies": "Es sind noch keine Urlaubsregelungen eingerichtet. Eine Inhaberin oder ein Administrator kann sie unter Einstellungen → Abwesenheitsregelungen anlegen.",
+  "app.timeOff.otherCompanyRecord": "Ihr Login ist bereits mit einem Mitarbeiterdatensatz in einem anderen Unternehmen verknüpft, deshalb lassen sich Abwesenheiten hier nicht darauf buchen. Eine Inhaberin oder ein Administrator muss Sie unter Einstellungen → Team verwalten als eigenes Teammitglied anlegen.",
+  "app.timeOff.noneRequested": "Sie haben noch keine Abwesenheit beantragt.",
+  "app.timeOff.unpaidSuffix": "unbezahlt",
+  "app.timeOff.unpaidNoBalance": "Unbezahlter Urlaub ist nicht durch ein Guthaben begrenzt.",
+  "app.timeOff.vacationPayAccrued": "{amount} an Urlaubsentgelt angespart.",
+  "app.timeOff.autoApproved": "Diese Art wird automatisch genehmigt — mit dem Absenden ist sie gebucht.",
+  "app.timeOff.submitRequest": "Antrag senden",
+  "app.timeOff.whosOffNext": "Wer als Nächstes abwesend ist",
+  "app.payroll.intro": "FieldQuo berechnet aus den genehmigten Stunden und Ihren gespeicherten Sätzen, was jeder Person zusteht, und erstellt die Lohnabrechnungen.",
+  "app.payroll.introPayYourself": "Sie zahlen über Ihre eigene Bank oder Ihren Lohnabrechnungsdienst — FieldQuo bewegt kein Geld.",
+  "app.payroll.thisPeriod": "Aktueller Zeitraum",
+  "app.payroll.periodPaid": "{start} → {end} · Zahlung am {payDate}",
+  "app.payroll.approvedHours": "{hours} genehmigte Stunden",
+  "app.payroll.approvedHoursAtRate": "{hours} genehmigte Stunden × {rate}/Std.",
+  "app.payroll.noRateOnRecord": "In Ihrem Datensatz ist kein Stundensatz hinterlegt, deshalb lässt sich das noch nicht berechnen. Ihre genehmigten Stunden werden trotzdem gezählt.",
+  "app.payroll.pendingHoursNote": "{hours} weitere erfasste Stunden warten auf die Genehmigung Ihrer Führungskraft — oben nicht mitgezählt.",
+  "app.payroll.periodProgress": "{percent} % dieses Abrechnungszeitraums vergangen",
+  "app.payroll.grossNote": "Brutto, vor Abzügen. Die Abzüge fügt das Büro bei der Vorbereitung des Laufs hinzu — das hier ist also der Wert der Arbeit, nicht der Betrag auf Ihrem Konto.",
+  "app.payroll.gross": "Brutto",
+  "app.payroll.deductions": "Abzüge",
+  "app.payroll.net": "Netto",
+  "app.payroll.netToPay": "Auszahlungsbetrag",
+  "app.payroll.hoursRegular": "{hours} Std. regulär",
+  "app.payroll.hoursOvertime": "{hours} Std. Überstunden",
+  "app.payroll.paidOn": "gezahlt am {date}",
+  "app.payroll.awaitingPayment": "Zahlung ausstehend",
+  "app.payroll.onlyApprovedIncluded": "Nur genehmigte Zeiten sind enthalten. Genehmigen Sie zuerst die Stundenzettel, sonst werden diese Stunden nicht bezahlt.",
+  "app.payroll.calculate": "Berechnen",
+  "app.payroll.draftOverlapNote": "Sie können das weiterhin als Entwurf speichern, es lässt sich aber nicht genehmigen, solange ein anderer Lauf dieselben Tage abdeckt.",
+  "app.payroll.notIncludedUnapproved": "Nicht enthalten: nicht genehmigte Stunden von {list}. Genehmigen Sie deren Stundenzettel, um sie zu bezahlen.",
+  "app.payroll.includesPaidLeave": "Enthält genehmigten bezahlten Urlaub von {list}.",
+  "app.payroll.noDeductionsSetUp": "Es sind keine Abzüge eingerichtet, daher sind das Bruttowerte. Legen Sie zuerst Ihre gesetzlichen Komponenten unter Einstellungen → Lohnabrechnung an — und bestätigen Sie die Sätze mit Ihrer Steuerberatung.",
+  "app.payroll.region.CA": "Kanada",
+  "app.payroll.region.US": "Vereinigte Staaten",
+  "app.payroll.region.UK": "Vereinigtes Königreich",
+  "app.payroll.cycle.title": "Wann Sie zahlen",
+  "app.payroll.cycle.notSet": "nicht festgelegt — es gilt die Standardeinstellung unten",
+  "app.payroll.cycle.setItUp": "Jetzt festlegen",
+  "app.payroll.cycle.howOften": "Wie oft",
+  "app.payroll.cycle.periodCloses": "Der Zeitraum endet",
+  "app.payroll.cycle.payday": "Zahltag",
+  "app.payroll.cycle.setByOwner": "Wird von einer Inhaberin oder einem Administrator festgelegt.",
+  "app.payroll.cycle.calendarOvertime": "Kalenderzeiträume enthalten keine vollen Wochen, deshalb werden wöchentliche Überstunden auf den Teilwochen innerhalb jedes Zeitraums berechnet. Wöchentlich oder zweiwöchentlich vermeidet das.",
+  "app.payroll.cycle.thisPeriod": "Aktueller Zeitraum",
+  "app.payroll.cycle.lastClosed": "Zuletzt abgeschlossen",
+  "app.payroll.cycle.periodRange": "{start} → {end}, Zahlung am {payDate}",
+  "app.payroll.cycle.saved": "Gespeichert.",
+  "app.payroll.cycle.saveError": "Das wurde nicht gespeichert.",
+  "app.payroll.cycle.frequency.weekly": "Jede Woche",
+  "app.payroll.cycle.frequency.biweekly": "Alle 2 Wochen",
+  "app.payroll.cycle.frequency.semimonthly": "Zweimal im Monat",
+  "app.payroll.cycle.frequency.monthly": "Einmal im Monat",
+  "app.payroll.cycle.describeCalendar": "{frequency}, Zahlung am ersten {payDay} nach Ende des Zeitraums.",
+  "app.timeOff.daysAvailable": (V) => {
+    const D = countedNoun("de", { one: "Tag", other: "Tage" })({ value: V.days });
+    return `${D} verfügbar.`;
+  },
+  "app.payroll.cycle.reviewDays": (V) => {
+    const D = countedNoun("de", { one: "Tag", other: "Tage" })({ value: V.days });
+    return `${D} zur Genehmigung der Stunden`;
+  },
+  "app.payroll.cycle.tightGap": (V) => {
+    const D = countedNoun("de", { one: "Tag", other: "Tage" })({ value: V.days });
+    return `Damit bleiben ${D}, um zwischen dem Ende des Zeitraums und dem Zahltag die Stunden aller zu genehmigen. Machbar, wenn Stunden täglich genehmigt werden; sonst knapp.`;
+  },
+  "app.payroll.cycle.describeWeekAligned": (V) => {
+    const D = countedNoun("de", { one: "Tag", other: "Tage" })({ value: V.days });
+    return `${V.frequency}. Der Zeitraum endet am ${V.closeDay}, und alle werden am darauffolgenden ${V.payDay} bezahlt — ${D} zur Genehmigung der Stunden.`;
+  },
+
+  "app.timeOff.approve": "Genehmigen",
+  "app.timeOff.decline": "Ablehnen",
 };
 
 const zh = {
@@ -45220,6 +45927,107 @@ const zh = {
   "app.takeoff.perFoot": "英尺",
   "app.takeoff.notPriced": "未定价",
   "app.takeoff.labourWord": "人工",
+
+  // ── Scheduling, time off and payroll ──────────────────────────────────────
+  //
+  // Day names, month names and times are deliberately NOT keys here. They come
+  // from Intl through lib/format/localeDate.js, which has the reasoning: CLDR
+  // already ships that table in every language, including the ones this
+  // catalogue has not been translated into, and a hand-kept copy also gets the
+  // ORDER wrong — "Jan 7" is "7 janv." and "1月7日".
+  //
+  // Sentences are whole. /app/payroll's intro used to be an English fragment,
+  // a t() call and another English fragment, which rendered as one sentence
+  // half in Spanish and half in English — worse than untranslated, because it
+  // reads as broken rather than as unsupported.
+  "app.scheduler.missingHours": "尚未为 {names} 设置工作时间。在设置之前，系统不会对这些人在异常时段的排班发出提示，工资核算也没有依据可以核对他们记录的工时。",
+  "app.scheduler.setTheirHours": "设置他们的工作时间",
+  "app.scheduler.shiftAdded": "排班已添加。",
+  "app.scheduler.outsideAvailability": "超出其声明的可用时间",
+  "app.scheduler.checkFirst": "继续之前请先与对方确认——他们尚未同意。",
+  "app.scheduler.overrideWhy": "为什么？（可选，会记录在该排班上）",
+  "app.scheduler.scheduleAnyway": "仍然排班",
+  "app.scheduler.overrideMarked": "这会标记在该排班上，发布后对方就能看到。",
+  "app.scheduler.changeDateInstead": "请更改日期，或先调整其休假。",
+  "app.schedule.introCanManage": "每个人的每周可用时间，以及未来两周已预订的安排。每个人都可以在“设置 → 可用时间”中设置自己的工作时间，你也可以在这里设置任何人的时间。",
+  "app.schedule.introViewOnly": "每个人的每周可用时间，以及未来两周已预订的安排。每个人都可以在“设置 → 可用时间”中设置自己的工作时间，管理者可以设置任何人的时间。",
+  "app.schedule.editHours": "编辑工作时间",
+  "app.schedule.setHours": "设置工作时间",
+  "app.schedule.loadError": "无法加载团队排班。",
+  "app.availability.dayFallback": "第 {index} 天",
+  "app.timeOff.noPolicies": "尚未设置任何休假政策。所有者或管理员可在“设置 → 休假政策”中添加。",
+  "app.timeOff.otherCompanyRecord": "你的登录账号已关联到另一家公司的团队成员记录，因此无法在此处记录休假。需要由所有者或管理员在“设置 → 团队管理”中把你添加为单独的团队成员。",
+  "app.timeOff.noneRequested": "你还没有申请过休假。",
+  "app.timeOff.unpaidSuffix": "无薪",
+  "app.timeOff.unpaidNoBalance": "无薪休假不受余额限制。",
+  "app.timeOff.vacationPayAccrued": "已累计 {amount} 假期工资。",
+  "app.timeOff.autoApproved": "此类型将自动批准——提交即完成预订。",
+  "app.timeOff.submitRequest": "提交申请",
+  "app.timeOff.whosOffNext": "接下来谁会休假",
+  "app.payroll.intro": "FieldQuo 会根据每个人已批准的工时和你保存的费率计算应付金额，并生成工资单。",
+  "app.payroll.introPayYourself": "你通过自己的银行或工资服务商付款——FieldQuo 不经手资金。",
+  "app.payroll.thisPeriod": "本期",
+  "app.payroll.periodPaid": "{start} → {end} · 发放日 {payDate}",
+  "app.payroll.approvedHours": "{hours} 已批准工时",
+  "app.payroll.approvedHoursAtRate": "{hours} 已批准工时 × {rate}/小时",
+  "app.payroll.noRateOnRecord": "你的记录中未设置小时费率，因此暂时无法计算。你已批准的工时仍在累计。",
+  "app.payroll.pendingHoursNote": "另有 {hours} 小时已记录，正等待主管批准——未计入上方数字。",
+  "app.payroll.periodProgress": "本工资期已过 {percent}%",
+  "app.payroll.grossNote": "这是扣除前的总额。扣除项由办公室在生成工资单时加入，因此这是工作本身的价值，而非最终到账金额。",
+  "app.payroll.gross": "应发",
+  "app.payroll.deductions": "扣除",
+  "app.payroll.net": "实发",
+  "app.payroll.netToPay": "实发合计",
+  "app.payroll.hoursRegular": "{hours} 小时正常工时",
+  "app.payroll.hoursOvertime": "{hours} 小时加班",
+  "app.payroll.paidOn": "{date} 已发放",
+  "app.payroll.awaitingPayment": "待发放",
+  "app.payroll.onlyApprovedIncluded": "只包含已批准的工时。请先批准工时表，否则这些工时不会被支付。",
+  "app.payroll.calculate": "计算",
+  "app.payroll.draftOverlapNote": "你仍可将其保存为草稿，但只要另一次工资运行覆盖相同日期，它就无法获批。",
+  "app.payroll.notIncludedUnapproved": "未包含：{list} 的未批准工时。批准他们的工时表后才能支付。",
+  "app.payroll.includesPaidLeave": "已包含 {list} 的已批准带薪休假。",
+  "app.payroll.noDeductionsSetUp": "尚未设置任何扣除项，因此这些是总额。请先在“设置 → 工资”中添加法定项目，并与你的会计核实费率。",
+  "app.payroll.region.CA": "加拿大",
+  "app.payroll.region.US": "美国",
+  "app.payroll.region.UK": "英国",
+  "app.payroll.cycle.title": "你的发薪安排",
+  "app.payroll.cycle.notSet": "尚未设置——正在使用下方的默认值",
+  "app.payroll.cycle.setItUp": "去设置",
+  "app.payroll.cycle.howOften": "多久一次",
+  "app.payroll.cycle.periodCloses": "周期结束于",
+  "app.payroll.cycle.payday": "发薪日",
+  "app.payroll.cycle.setByOwner": "由所有者或管理员设置。",
+  "app.payroll.cycle.calendarOvertime": "按日历划分的周期不包含完整的周，因此每周加班是按每个周期内的不完整周计算的。选择每周或每两周可以避免这个问题。",
+  "app.payroll.cycle.thisPeriod": "本期",
+  "app.payroll.cycle.lastClosed": "上一个已结束周期",
+  "app.payroll.cycle.periodRange": "{start} → {end}，发放日 {payDate}",
+  "app.payroll.cycle.saved": "已保存。",
+  "app.payroll.cycle.saveError": "未能保存。",
+  "app.payroll.cycle.frequency.weekly": "每周",
+  "app.payroll.cycle.frequency.biweekly": "每两周",
+  "app.payroll.cycle.frequency.semimonthly": "每月两次",
+  "app.payroll.cycle.frequency.monthly": "每月一次",
+  "app.payroll.cycle.describeCalendar": "{frequency}，在周期结束后的第一个{payDay}发放。",
+  "app.timeOff.daysAvailable": (V) => {
+    const D = countedNoun("zh", { other: "天" })({ value: V.days });
+    return `可用 ${D}。`;
+  },
+  "app.payroll.cycle.reviewDays": (V) => {
+    const D = countedNoun("zh", { other: "天" })({ value: V.days });
+    return `有 ${D}时间批准工时`;
+  },
+  "app.payroll.cycle.tightGap": (V) => {
+    const D = countedNoun("zh", { other: "天" })({ value: V.days });
+    return `这样在周期结束到发薪日之间只有 ${D}来批准所有人的工时。如果每天批准工时尚可，否则会很紧张。`;
+  },
+  "app.payroll.cycle.describeWeekAligned": (V) => {
+    const D = countedNoun("zh", { other: "天" })({ value: V.days });
+    return `${V.frequency}。周期在${V.closeDay}结束，所有人在之后的${V.payDay}领薪——有 ${D}时间批准工时。`;
+  },
+
+  "app.timeOff.approve": "批准",
+  "app.timeOff.decline": "拒绝",
 };
 
 const it = {
@@ -51535,6 +52343,107 @@ const it = {
   "app.takeoff.perFoot": "ft",
   "app.takeoff.notPriced": "senza prezzo",
   "app.takeoff.labourWord": "manodopera",
+
+  // ── Scheduling, time off and payroll ──────────────────────────────────────
+  //
+  // Day names, month names and times are deliberately NOT keys here. They come
+  // from Intl through lib/format/localeDate.js, which has the reasoning: CLDR
+  // already ships that table in every language, including the ones this
+  // catalogue has not been translated into, and a hand-kept copy also gets the
+  // ORDER wrong — "Jan 7" is "7 janv." and "1月7日".
+  //
+  // Sentences are whole. /app/payroll's intro used to be an English fragment,
+  // a t() call and another English fragment, which rendered as one sentence
+  // half in Spanish and half in English — worse than untranslated, because it
+  // reads as broken rather than as unsupported.
+  "app.scheduler.missingHours": "Nessun orario di lavoro impostato per {names}. Finché non ce n'è uno, nulla segnala un turno a un orario insolito per queste persone e le buste paga non hanno un riferimento con cui verificare le ore registrate.",
+  "app.scheduler.setTheirHours": "Imposta i loro orari",
+  "app.scheduler.shiftAdded": "Turno aggiunto.",
+  "app.scheduler.outsideAvailability": "Fuori dalla disponibilità dichiarata",
+  "app.scheduler.checkFirst": "Verifica con la persona prima di procedere: non ha ancora acconsentito.",
+  "app.scheduler.overrideWhy": "Perché? (facoltativo: viene annotato sul turno)",
+  "app.scheduler.scheduleAnyway": "Pianifica comunque",
+  "app.scheduler.overrideMarked": "Verrà segnalato sul turno e la persona lo vedrà alla pubblicazione.",
+  "app.scheduler.changeDateInstead": "Cambia la data, oppure modifica prima le sue ferie.",
+  "app.schedule.introCanManage": "La disponibilità settimanale di ciascuno e ciò che è prenotato nelle prossime due settimane. Ognuno può impostare i propri orari in Impostazioni → Disponibilità e tu puoi impostare quelli di chiunque da qui.",
+  "app.schedule.introViewOnly": "La disponibilità settimanale di ciascuno e ciò che è prenotato nelle prossime due settimane. Ognuno può impostare i propri orari in Impostazioni → Disponibilità e un responsabile può impostare quelli di chiunque.",
+  "app.schedule.editHours": "Modifica orari",
+  "app.schedule.setHours": "Imposta orari",
+  "app.schedule.loadError": "Impossibile caricare il calendario del team.",
+  "app.availability.dayFallback": "Giorno {index}",
+  "app.timeOff.noPolicies": "Non è ancora stata configurata alcuna politica di assenza. Un titolare o un amministratore può aggiungerle in Impostazioni → Politiche di assenza.",
+  "app.timeOff.otherCompanyRecord": "Il tuo accesso è già collegato a una scheda di membro del team di un'altra azienda, quindi qui le assenze non possono essere registrate. Un titolare o un amministratore deve aggiungerti come membro separato da Impostazioni → Gestisci team.",
+  "app.timeOff.noneRequested": "Non hai ancora richiesto alcuna assenza.",
+  "app.timeOff.unpaidSuffix": "non retribuita",
+  "app.timeOff.unpaidNoBalance": "L'assenza non retribuita non è limitata da un saldo.",
+  "app.timeOff.vacationPayAccrued": "{amount} di indennità di ferie maturata.",
+  "app.timeOff.autoApproved": "Questo tipo viene approvato automaticamente: inviandolo, è già prenotato.",
+  "app.timeOff.submitRequest": "Invia richiesta",
+  "app.timeOff.whosOffNext": "Chi sarà assente prossimamente",
+  "app.payroll.intro": "FieldQuo calcola quanto spetta a ciascuno partendo dalle ore approvate e dalle tariffe che hai salvato, e produce le buste paga.",
+  "app.payroll.introPayYourself": "Paghi tramite la tua banca o il tuo fornitore di buste paga: FieldQuo non movimenta il denaro.",
+  "app.payroll.thisPeriod": "Periodo corrente",
+  "app.payroll.periodPaid": "{start} → {end} · pagato il {payDate}",
+  "app.payroll.approvedHours": "{hours} ore approvate",
+  "app.payroll.approvedHoursAtRate": "{hours} ore approvate × {rate}/h",
+  "app.payroll.noRateOnRecord": "Nella tua scheda non è impostata una tariffa oraria, quindi non è ancora calcolabile. Le tue ore approvate vengono comunque conteggiate.",
+  "app.payroll.pendingHoursNote": "Altre {hours} ore registrate in attesa dell'approvazione del tuo responsabile: non conteggiate qui sopra.",
+  "app.payroll.periodProgress": "{percent}% del periodo di paga trascorso",
+  "app.payroll.grossNote": "Importo lordo, al netto di nulla. Le trattenute vengono aggiunte dall'ufficio quando prepara l'elaborazione, quindi questo è il valore del lavoro, non ciò che arriverà sul tuo conto.",
+  "app.payroll.gross": "Lordo",
+  "app.payroll.deductions": "Trattenute",
+  "app.payroll.net": "Netto",
+  "app.payroll.netToPay": "Netto da pagare",
+  "app.payroll.hoursRegular": "{hours} h ordinarie",
+  "app.payroll.hoursOvertime": "{hours} h straordinarie",
+  "app.payroll.paidOn": "pagato il {date}",
+  "app.payroll.awaitingPayment": "in attesa di pagamento",
+  "app.payroll.onlyApprovedIncluded": "Sono incluse solo le ore approvate. Approva prima i fogli ore, altrimenti quelle ore non verranno pagate.",
+  "app.payroll.calculate": "Calcola",
+  "app.payroll.draftOverlapNote": "Puoi comunque salvarla come bozza, ma non potrà essere approvata finché un'altra elaborazione copre gli stessi giorni.",
+  "app.payroll.notIncludedUnapproved": "Non incluse: ore non approvate di {list}. Approva i loro fogli ore per pagarle.",
+  "app.payroll.includesPaidLeave": "Include le assenze retribuite approvate di {list}.",
+  "app.payroll.noDeductionsSetUp": "Non sono impostate trattenute, quindi questi importi sono lordi. Aggiungi prima le componenti obbligatorie in Impostazioni → Buste paga e verifica le aliquote con il tuo commercialista.",
+  "app.payroll.region.CA": "Canada",
+  "app.payroll.region.US": "Stati Uniti",
+  "app.payroll.region.UK": "Regno Unito",
+  "app.payroll.cycle.title": "Quando paghi",
+  "app.payroll.cycle.notSet": "non impostato: si usa il valore predefinito qui sotto",
+  "app.payroll.cycle.setItUp": "Configuralo",
+  "app.payroll.cycle.howOften": "Con che frequenza",
+  "app.payroll.cycle.periodCloses": "Il periodo si chiude",
+  "app.payroll.cycle.payday": "Giorno di paga",
+  "app.payroll.cycle.setByOwner": "Impostato da un titolare o da un amministratore.",
+  "app.payroll.cycle.calendarOvertime": "I periodi di calendario non contengono settimane intere, quindi gli straordinari settimanali vengono calcolati sulle settimane parziali dentro ogni periodo. Ogni settimana o ogni 2 settimane evita il problema.",
+  "app.payroll.cycle.thisPeriod": "Periodo corrente",
+  "app.payroll.cycle.lastClosed": "Ultimo periodo chiuso",
+  "app.payroll.cycle.periodRange": "{start} → {end}, pagato il {payDate}",
+  "app.payroll.cycle.saved": "Salvato.",
+  "app.payroll.cycle.saveError": "Non è stato salvato.",
+  "app.payroll.cycle.frequency.weekly": "Ogni settimana",
+  "app.payroll.cycle.frequency.biweekly": "Ogni 2 settimane",
+  "app.payroll.cycle.frequency.semimonthly": "Due volte al mese",
+  "app.payroll.cycle.frequency.monthly": "Una volta al mese",
+  "app.payroll.cycle.describeCalendar": "{frequency}, pagato il primo {payDay} dopo la fine del periodo.",
+  "app.timeOff.daysAvailable": (V) => {
+    const D = countedNoun("it", { one: "giorno", other: "giorni" })({ value: V.days });
+    return `${D} disponibili.`;
+  },
+  "app.payroll.cycle.reviewDays": (V) => {
+    const D = countedNoun("it", { one: "giorno", other: "giorni" })({ value: V.days });
+    return `${D} per approvare le ore`;
+  },
+  "app.payroll.cycle.tightGap": (V) => {
+    const D = countedNoun("it", { one: "giorno", other: "giorni" })({ value: V.days });
+    return `Restano ${D} per approvare le ore di tutti tra la chiusura del periodo e il giorno di paga. Fattibile se approvi le ore ogni giorno; molto stretto altrimenti.`;
+  },
+  "app.payroll.cycle.describeWeekAligned": (V) => {
+    const D = countedNoun("it", { one: "giorno", other: "giorni" })({ value: V.days });
+    return `${V.frequency}. Il periodo si chiude ${V.closeDay} e tutti vengono pagati il ${V.payDay} successivo: ${D} per approvare le ore.`;
+  },
+
+  "app.timeOff.approve": "Approva",
+  "app.timeOff.decline": "Rifiuta",
 };
 
 export const APP_MESSAGES = { en, fr, es, uk, pa, tl, de, zh, it };

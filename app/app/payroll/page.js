@@ -27,21 +27,17 @@ import {
   Download,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
-import { formatDateOnly } from "@/lib/format/companyDate";
+import { formatCalendarDay, formatShortDate } from "@/lib/format/localeDate";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
-const REGIONS = [
-  { key: "CA", label: "Canada" },
-  { key: "US", label: "United States" },
-  { key: "UK", label: "United Kingdom" },
-];
-const FREQUENCIES = [
-  { key: "weekly", label: "Weekly" },
-  { key: "biweekly", label: "Every 2 weeks" },
-  { key: "semimonthly", label: "Twice a month" },
-  { key: "monthly", label: "Monthly" },
-];
+// Keys, not labels. The frequency wording deliberately reuses the pay-cycle
+// card's four keys rather than a second English list: this select and
+// Settings → Payroll's "How often" offer the SAME four values, and they used
+// to disagree about what to call two of them ("Weekly" here, "Every week"
+// there) in the one language either was written in.
+const REGIONS = ["CA", "US", "UK"];
+const FREQUENCIES = ["weekly", "biweekly", "semimonthly", "monthly"];
 
 const STATUS_STYLE = {
   draft: "bg-muted text-muted-foreground",
@@ -77,15 +73,12 @@ function statusLabel(t, status) {
 // midnight UTC, so a local formatter shows the day before — see the note in
 // lib/format/companyDate.js. paidAt is a real instant (someone clicked a button
 // at a moment in time) and reads correctly in the viewer's own timezone.
-const date = (d) => formatDateOnly(d);
-const stamp = (d) =>
-  d
-    ? new Date(d).toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      })
-    : "—";
+// Both now take the reader's language. `formatDateOnly` printed an English
+// month name from a hardcoded array and `toLocaleDateString(undefined, …)`
+// read the BROWSER's locale — so a Spanish account saw "Sep 6, 2026" on a
+// Spanish payslip list either way.
+const date = (d, language) => formatCalendarDay(d, language) || "—";
+const stamp = (d, language) => formatShortDate(d, language) || "—";
 
 // Sensible default period: the fortnight that just ended.
 // The last period that has actually CLOSED — the one payroll is for.
@@ -104,7 +97,7 @@ function fallbackPeriod() {
 
 export default function PayrollPage() {
   const money = useCompanyMoney();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [runs, setRuns] = useState(null);
   const [canRun, setCanRun] = useState(false);
   const [listError, setListError] = useState("");
@@ -221,13 +214,17 @@ export default function PayrollPage() {
             {t("app.payroll.title")}
           </h1>
         </div>
+        {/* Two WHOLE sentences, two keys. This was an English fragment, a
+            t() call, and a second English fragment — so a Spanish account read
+            one sentence that began in English, turned Spanish in the middle
+            and finished in English. A translated fragment inside an
+            untranslated sentence reads as broken software; the sentence is the
+            unit that has to be translatable. */}
         <p className="text-sm text-muted-foreground max-w-2xl">
-          FieldQuo works out what each person should be paid from their approved
-          hours and your saved rates, and produces payslips.{" "}
+          {t("app.payroll.intro")}{" "}
           <strong className="text-foreground">
-            {t("app.payroll.payYourself")}
-          </strong>{" "}
-          — FieldQuo doesn&apos;t move the money.
+            {t("app.payroll.introPayYourself")}
+          </strong>
         </p>
       </div>
 
@@ -246,11 +243,14 @@ export default function PayrollPage() {
             <div className="mb-3 rounded-xl border border-border p-4">
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                 <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  This period
+                  {t("app.payroll.thisPeriod")}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {mine.accruing.periodStart} → {mine.accruing.periodEnd} · paid{" "}
-                  {mine.accruing.payDate}
+                  {t("app.payroll.periodPaid", {
+                    start: date(mine.accruing.periodStart, language),
+                    end: date(mine.accruing.periodEnd, language),
+                    payDate: date(mine.accruing.payDate, language),
+                  })}
                 </span>
               </div>
 
@@ -261,10 +261,14 @@ export default function PayrollPage() {
                     : money(mine.accruing.approvedPay)}
                 </span>
                 <span className="text-sm text-muted-foreground">
-                  {mine.accruing.approvedHours} approved hours
                   {mine.accruing.hourlyRate != null
-                    ? ` × ${money(mine.accruing.hourlyRate)}/hr`
-                    : ""}
+                    ? t("app.payroll.approvedHoursAtRate", {
+                        hours: mine.accruing.approvedHours,
+                        rate: money(mine.accruing.hourlyRate),
+                      })
+                    : t("app.payroll.approvedHours", {
+                        hours: mine.accruing.approvedHours,
+                      })}
                 </span>
               </div>
 
@@ -273,22 +277,24 @@ export default function PayrollPage() {
                   number, where "we can't work this out" is true. */}
               {mine.accruing.approvedPay == null && (
                 <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-                  No hourly rate is set on your record, so this can&apos;t be
-                  worked out yet. Your approved hours are still counted.
+                  {t("app.payroll.noRateOnRecord")}
                 </p>
               )}
 
               {mine.accruing.pendingHours > 0 && (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {mine.accruing.pendingHours} more hours logged and waiting on
-                  your manager to approve — not counted above.
+                  {t("app.payroll.pendingHoursNote", {
+                    hours: mine.accruing.pendingHours,
+                  })}
                 </p>
               )}
 
               <div
                 className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted"
                 role="img"
-                aria-label={`${mine.accruing.progress}% through this pay period`}
+                aria-label={t("app.payroll.periodProgress", {
+                  percent: mine.accruing.progress,
+                })}
               >
                 <div
                   className="h-full rounded-full bg-foreground/60"
@@ -296,9 +302,7 @@ export default function PayrollPage() {
                 />
               </div>
               <p className="mt-1.5 text-[11px] text-muted-foreground">
-                Gross, before deductions. Deductions are added by the office
-                when the run is prepared, so this is what the work is worth —
-                not what lands in your account.
+                {t("app.payroll.grossNote")}
               </p>
             </div>
           )}
@@ -309,16 +313,16 @@ export default function PayrollPage() {
             // sm, or "$4,450.00" wraps mid-number.
             <div className="grid grid-cols-3 gap-2 mb-3">
               {[
-                ["Gross", mine.ytd.gross],
-                ["Deductions", mine.ytd.deductions],
-                ["Net", mine.ytd.net],
-              ].map(([label, v]) => (
+                ["app.payroll.gross", mine.ytd.gross],
+                ["app.payroll.deductions", mine.ytd.deductions],
+                ["app.payroll.net", mine.ytd.net],
+              ].map(([key, v]) => (
                 <div
-                  key={label}
+                  key={key}
                   className="rounded-lg border border-border px-3 py-2"
                 >
                   <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                    {label} · {mine.ytd.year}
+                    {t(key)} · {mine.ytd.year}
                   </div>
                   <div className="text-sm sm:text-base font-bold text-foreground tabular-nums">
                     {money(v)}
@@ -340,16 +344,30 @@ export default function PayrollPage() {
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-foreground">
-                      {date(p.payRun.periodStart)} – {date(p.payRun.periodEnd)}
+                      {date(p.payRun.periodStart, language)} –{" "}
+                      {date(p.payRun.periodEnd, language)}
                     </p>
+                    {/* A LIST joined by "·", not a sentence assembled from
+                        fragments: each part is a whole phrase in the catalogue,
+                        so no language is forced into English word order. */}
                     <p className="text-xs text-muted-foreground">
-                      {Number(p.regularHours)}h regular
-                      {Number(p.overtimeHours) > 0
-                        ? ` · ${Number(p.overtimeHours)}h overtime`
-                        : ""}
-                      {p.paidAt
-                        ? ` · paid ${stamp(p.paidAt)}`
-                        : " · awaiting payment"}
+                      {[
+                        t("app.payroll.hoursRegular", {
+                          hours: Number(p.regularHours),
+                        }),
+                        Number(p.overtimeHours) > 0
+                          ? t("app.payroll.hoursOvertime", {
+                              hours: Number(p.overtimeHours),
+                            })
+                          : null,
+                        p.paidAt
+                          ? t("app.payroll.paidOn", {
+                              date: stamp(p.paidAt, language),
+                            })
+                          : t("app.payroll.awaitingPayment"),
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
@@ -389,10 +407,11 @@ export default function PayrollPage() {
               <Calculator size={16} className="text-muted-foreground" />
               {t("app.payroll.newRun")}
             </h2>
+            {/* The bold on "approved" is gone with the fragments. A sentence
+                that reads in the user's language beats a bold word inside one
+                that doesn't. */}
             <p className="text-xs text-muted-foreground mb-4">
-              Only <strong className="text-foreground">approved</strong> time is
-              included. Approve timesheets first, or those hours won&apos;t be
-              paid.
+              {t("app.payroll.onlyApprovedIncluded")}
             </p>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -433,9 +452,9 @@ export default function PayrollPage() {
                   }
                   className="rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
                 >
-                  {FREQUENCIES.map((f) => (
-                    <option key={f.key} value={f.key}>
-                      {f.label}
+                  {FREQUENCIES.map((key) => (
+                    <option key={key} value={key}>
+                      {t(`app.payroll.cycle.frequency.${key}`)}
                     </option>
                   ))}
                 </select>
@@ -449,9 +468,9 @@ export default function PayrollPage() {
                   onChange={(e) => setForm({ ...form, region: e.target.value })}
                   className="rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
                 >
-                  {REGIONS.map((r) => (
-                    <option key={r.key} value={r.key}>
-                      {r.label}
+                  {REGIONS.map((key) => (
+                    <option key={key} value={key}>
+                      {t(`app.payroll.region.${key}`)}
                     </option>
                   ))}
                 </select>
@@ -469,7 +488,7 @@ export default function PayrollPage() {
                 ) : (
                   <Calculator size={14} />
                 )}
-                Calculate
+                {t("app.payroll.calculate")}
               </button>
               {preview && !preview.warnings?.length && (
                 <button
@@ -496,8 +515,7 @@ export default function PayrollPage() {
                 ))}
                 {preview.guards.overlaps?.some((o) => o.status === "paid") && (
                   <p className="mt-1 font-medium">
-                    You can still save this as a draft, but it won&apos;t
-                    approve while another run covers the same days.
+                    {t("app.payroll.draftOverlapNote")}
                   </p>
                 )}
               </div>
@@ -508,13 +526,13 @@ export default function PayrollPage() {
               <div className="mt-5 border-t border-border pt-4">
                 <div className="flex gap-4 flex-wrap mb-3">
                   {[
-                    ["Gross", preview.grossTotal],
-                    ["Deductions", preview.deductionTotal],
-                    ["Net to pay", preview.netTotal],
-                  ].map(([l, v]) => (
-                    <div key={l}>
+                    ["app.payroll.gross", preview.grossTotal],
+                    ["app.payroll.deductions", preview.deductionTotal],
+                    ["app.payroll.netToPay", preview.netTotal],
+                  ].map(([key, v]) => (
+                    <div key={key}>
                       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                        {l}
+                        {t(key)}
                       </div>
                       <div className="text-lg font-bold text-foreground tabular-nums">
                         {money(v)}
@@ -527,11 +545,11 @@ export default function PayrollPage() {
                 {preview.meta?.excludedPendingTime?.length > 0 && (
                   <p className="text-xs flex items-start gap-1.5 text-amber-700 dark:text-amber-400 mb-2">
                     <AlertTriangle size={13} className="mt-0.5 shrink-0" />
-                    Not included: unapproved hours for{" "}
-                    {preview.meta.excludedPendingTime
-                      .map((e) => `${e.name} (${e.pendingHours}h)`)
-                      .join(", ")}
-                    . Approve their timesheets to pay these.
+                    {t("app.payroll.notIncludedUnapproved", {
+                      list: preview.meta.excludedPendingTime
+                        .map((e) => `${e.name} (${e.pendingHours}h)`)
+                        .join(", "),
+                    })}
                   </p>
                 )}
                 {/* ── Hours nobody but the worker signed off ──────────────
@@ -562,22 +580,20 @@ export default function PayrollPage() {
                 {preview.meta?.paidLeave?.length > 0 && (
                   <p className="text-xs flex items-start gap-1.5 text-muted-foreground mb-2">
                     <Info size={13} className="mt-0.5 shrink-0" />
-                    Includes approved paid leave for{" "}
-                    {preview.meta.paidLeave
-                      .map(
-                        (l) =>
-                          `${l.name} (${l.days}d ${l.policies.join(", ")})`,
-                      )
-                      .join(", ")}
-                    .
+                    {t("app.payroll.includesPaidLeave", {
+                      list: preview.meta.paidLeave
+                        .map(
+                          (l) =>
+                            `${l.name} (${l.days}d ${l.policies.join(", ")})`,
+                        )
+                        .join(", "),
+                    })}
                   </p>
                 )}
                 {preview.meta && !preview.meta.statutoryConfigured && (
                   <p className="text-xs flex items-start gap-1.5 text-amber-700 dark:text-amber-400 mb-2">
                     <Info size={13} className="mt-0.5 shrink-0" />
-                    No deductions are set up, so these are gross figures. Add
-                    your statutory components under Settings → Payroll first —
-                    confirm the rates with your accountant.
+                    {t("app.payroll.noDeductionsSetUp")}
                   </p>
                 )}
                 {preview.warnings?.map((w, i) => (
@@ -657,7 +673,8 @@ export default function PayrollPage() {
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div>
                       <p className="text-sm font-medium text-foreground">
-                        {date(r.periodStart)} – {date(r.periodEnd)}
+                        {date(r.periodStart, language)} –{" "}
+                        {date(r.periodEnd, language)}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {r._count.lines}{" "}

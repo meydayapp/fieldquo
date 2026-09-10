@@ -14,25 +14,44 @@
 // company is really making — how many days the office gets to approve hours
 // before the money leaves. The card says that gap out loud, because "Sunday to
 // Thursday" means nothing until somebody counts it.
+//
+// ── Everything on this card is written here, not on the server ─────────────
+//
+// GET /api/settings/pay-cycle returns `describe` and `frequencies[].label` as
+// finished English sentences, and this card printed them. On a Spanish account
+// that produced the report that started this work: a Spanish heading over
+// "Every 2 weeks. The period closes Sunday and everyone is paid the Thursday
+// after — 4 days to approve hours."
+//
+// The route still returns those fields — other callers and the API's own
+// consumers may use them, and removing a field from a public shape is not this
+// change's business — but the CARD builds the sentence from the structured
+// values beside them (frequency, the two weekday numbers, reviewDays). One key
+// holds the whole sentence; the weekday names come from Intl; the day count
+// goes through CLDR plural rules. Nothing here is assembled out of English
+// word order.
 "use client";
 
 import { useEffect, useState } from "react";
 import { fetchJson } from "@/lib/fetchJson";
-
-const DAYS = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
+import { useTranslation } from "@/app/hooks/useTranslation";
+import {
+  formatCalendarDay,
+  orderedWeekdayNames,
+  weekdayNames,
+} from "@/lib/format/localeDate";
 
 const selectClass =
   "mt-1 w-full rounded border border-border bg-background px-2 py-1.5 text-sm";
 
 export default function PayCycleCard() {
+  const { t, language } = useTranslation();
+  // Two lists of the same seven words, on purpose. The explainer puts the day
+  // inside a sentence ("El periodo cierra el domingo"), where Spanish, French
+  // and Italian want CLDR's lowercase form; the <option>s are labels and want
+  // the capital. See lib/format/localeDate.js.
+  const days = weekdayNames(language);
+  const dayLabels = orderedWeekdayNames(0, language).map((d) => d.label);
   const [data, setData] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -66,7 +85,7 @@ export default function PayCycleCard() {
     } catch (err) {
       // Was the failure this codebase gets swept for: a dropdown that changed
       // on screen, saved nothing, and reverted on reload.
-      setError(err.message || "That didn't save.");
+      setError(err.message || t("app.payroll.cycle.saveError"));
     } finally {
       setSaving(false);
     }
@@ -75,21 +94,58 @@ export default function PayCycleCard() {
   return (
     <div className="rounded-xl border border-border p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-sm font-semibold text-foreground">When you pay</h2>
+        <h2 className="text-sm font-semibold text-foreground">
+          {t("app.payroll.cycle.title")}
+        </h2>
         {!data.configured && (
           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
-            not set — using the default below
+            {t("app.payroll.cycle.notSet")}
+            {/* "using the default below" named a place and pointed at nothing.
+                The controls ARE below — for someone who may edit them — so the
+                link focuses the first one rather than navigating anywhere. For
+                someone who may not, there is no link, because there is nothing
+                for them to do; the "Set by an owner or admin." line below says
+                who can. */}
+            {canEdit && (
+              <>
+                {" · "}
+                <button
+                  type="button"
+                  onClick={() =>
+                    document.getElementById("pay-cycle-frequency")?.focus()
+                  }
+                  className="font-semibold underline"
+                >
+                  {t("app.payroll.cycle.setItUp")}
+                </button>
+              </>
+            )}
           </span>
         )}
       </div>
 
-      <p className="mt-1 text-xs text-muted-foreground">{data.describe}</p>
+      {/* Built here rather than printed from data.describe — see the note at
+          the top of this file. */}
+      <p className="mt-1 text-xs text-muted-foreground">
+        {t(
+          weekAligned
+            ? "app.payroll.cycle.describeWeekAligned"
+            : "app.payroll.cycle.describeCalendar",
+          {
+            frequency: t(`app.payroll.cycle.frequency.${cycle.frequency}`),
+            closeDay: days[cycle.periodEndDayOfWeek],
+            payDay: days[cycle.payDayOfWeek],
+            days: data.reviewDays,
+          },
+        )}
+      </p>
 
       {canEdit ? (
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <label className="text-xs text-muted-foreground">
-            How often
+            {t("app.payroll.cycle.howOften")}
             <select
+              id="pay-cycle-frequency"
               value={cycle.frequency}
               disabled={saving}
               onChange={(e) => save({ frequency: e.target.value })}
@@ -97,7 +153,7 @@ export default function PayCycleCard() {
             >
               {data.frequencies.map((f) => (
                 <option key={f.key} value={f.key}>
-                  {f.label}
+                  {t(`app.payroll.cycle.frequency.${f.key}`, f.label)}
                 </option>
               ))}
             </select>
@@ -107,7 +163,7 @@ export default function PayCycleCard() {
               1st-to-15th period does not end on a weekday you get to pick. */}
           {weekAligned && (
             <label className="text-xs text-muted-foreground">
-              The period closes
+              {t("app.payroll.cycle.periodCloses")}
               <select
                 value={cycle.periodEndDayOfWeek}
                 disabled={saving}
@@ -116,8 +172,8 @@ export default function PayCycleCard() {
                 }
                 className={selectClass}
               >
-                {DAYS.map((d, i) => (
-                  <option key={d} value={i}>
+                {dayLabels.map((d, i) => (
+                  <option key={i} value={i}>
                     {d}
                   </option>
                 ))}
@@ -126,28 +182,29 @@ export default function PayCycleCard() {
           )}
 
           <label className="text-xs text-muted-foreground">
-            Payday
+            {t("app.payroll.cycle.payday")}
             <select
               value={cycle.payDayOfWeek}
               disabled={saving}
               onChange={(e) => save({ payDayOfWeek: Number(e.target.value) })}
               className={selectClass}
             >
-              {DAYS.map((d, i) => (
-                <option key={d} value={i}>
+              {dayLabels.map((d, i) => (
+                <option key={i} value={i}>
                   {d}
                 </option>
               ))}
             </select>
+            {/* `day{n === 1 ? "" : "s"}` is an English plural rule spelled out
+                in JSX. Ukrainian has three forms; the key asks CLDR. */}
             <span className="mt-0.5 block text-[11px] text-muted-foreground">
-              {data.reviewDays} day{data.reviewDays === 1 ? "" : "s"} to approve
-              hours
+              {t("app.payroll.cycle.reviewDays", { days: data.reviewDays })}
             </span>
           </label>
         </div>
       ) : (
         <p className="mt-2 text-xs text-muted-foreground">
-          Set by an owner or admin.
+          {t("app.payroll.cycle.setByOwner")}
         </p>
       )}
 
@@ -156,35 +213,44 @@ export default function PayCycleCard() {
           dropdown has probably not counted it. */}
       {canEdit && weekAligned && data.reviewDays <= 1 && (
         <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
-          That leaves {data.reviewDays}{" "}
-          day to approve everyone&apos;s hours
-          between the period closing and payday. Workable if your hours are
-          approved daily; tight if they are not.
+          {t("app.payroll.cycle.tightGap", { days: data.reviewDays })}
         </p>
       )}
 
       {!weekAligned && (
         <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
-          Calendar periods don&apos;t contain whole weeks, so weekly overtime is
-          worked out on the partial weeks inside each period. Every-week or
-          every-2-weeks avoids that.
+          {t("app.payroll.cycle.calendarOvertime")}
         </p>
       )}
 
       {data.current && (
         <dl className="mt-3 grid gap-2 border-t border-border pt-3 text-xs sm:grid-cols-2">
+          {/* These arrive as ISO calendar days ("2026-09-06") and were
+              printed raw. formatCalendarDay pins UTC — a period boundary is a
+              calendar day, and a browser west of Greenwich renders midnight
+              UTC as the day before. */}
           <div>
-            <dt className="text-muted-foreground">This period</dt>
+            <dt className="text-muted-foreground">
+              {t("app.payroll.cycle.thisPeriod")}
+            </dt>
             <dd className="text-foreground">
-              {data.current.start} → {data.current.end}, paid{" "}
-              {data.current.payDate}
+              {t("app.payroll.cycle.periodRange", {
+                start: formatCalendarDay(data.current.start, language),
+                end: formatCalendarDay(data.current.end, language),
+                payDate: formatCalendarDay(data.current.payDate, language),
+              })}
             </dd>
           </div>
           <div>
-            <dt className="text-muted-foreground">Last one closed</dt>
+            <dt className="text-muted-foreground">
+              {t("app.payroll.cycle.lastClosed")}
+            </dt>
             <dd className="text-foreground">
-              {data.previous.start} → {data.previous.end}, paid{" "}
-              {data.previous.payDate}
+              {t("app.payroll.cycle.periodRange", {
+                start: formatCalendarDay(data.previous.start, language),
+                end: formatCalendarDay(data.previous.end, language),
+                payDate: formatCalendarDay(data.previous.payDate, language),
+              })}
             </dd>
           </div>
         </dl>
@@ -195,7 +261,7 @@ export default function PayCycleCard() {
       )}
       {saved && !error && (
         <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400">
-          Saved.
+          {t("app.payroll.cycle.saved")}
         </p>
       )}
     </div>

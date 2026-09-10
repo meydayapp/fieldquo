@@ -67,19 +67,37 @@ Status key: `TODO` · `IN PROGRESS (agent)` · `DONE + verified` · `NEEDS DECIS
 Half-translated is worse than untranslated — it reads as broken rather than as
 unsupported. Every one of these was seen with the account set to Spanish.
 
-  * `TODO` `/app/scheduler` — dates and day names in English; the whole warning
-    "No working hours set for Jon Smith… Set their hours".
-  * `TODO` `/app/schedule` — day names; "set hours"; "everyone's weekly availability".
-  * `TODO` `/app/settings/availability` — day names in English.
-  * `TODO` `/app/time-off` — "No leave policies have been set up yet. An owner or
-    admin can add them in Settings → Time off policies." beside Spanish headings.
-  * `TODO` `/app/payroll` — the intro sentence is half-and-half in ONE sentence
-    ("FieldQuo works out what each person should be paid… Pagas a través de tu
-    propio banco"); "THIS PERIOD", "GROSS · 2026", "DEDUCTIONS · 2026", "NET ·
-    2026", "0 approved hours", "No hourly rate is set on your record…".
-  * `TODO` `/app/settings/payroll` — "When you pay", "not set — using the default
-    below", "How often", "The period closes", "Payday", "This period", "Last one
-    closed", and the whole cadence explainer.
+  * `CODE DONE, NOT YET VERIFIED LIVE` `/app/scheduler`, `/app/schedule`,
+    `/app/settings/availability`, `/app/time-off`, `/app/payroll`,
+    `/app/settings/payroll` — 77 strings, nine languages, one commit.
+    Three things worth knowing beyond "it is translated now":
+      - **Day and date names are not translation keys and never will be.**
+        They come from Intl through `lib/format/localeDate.js`, keyed on the
+        user's app language. CLDR already ships that table for every language,
+        including the ones this catalogue has not been translated into, and it
+        also gets the ORDER right — "Jan 7" is "7 janv." and "1月7日". Seven
+        keys per language would have been 171 strings and still wrong.
+        `orderedWeekdays` in `lib/format/companyDate.js` now delegates there;
+        its English output is byte-identical to the array it replaced, so the
+        opening-hours modal did not move.
+      - **The payroll intro was not a missing translation.** It was one
+        sentence assembled from an English fragment, a `t()` call and a second
+        English fragment, so translating the middle produced a sentence half in
+        Spanish and half in English. Fixed by making the SENTENCE the unit —
+        two whole keys — not by adding more fragments. The same shape was in
+        five other places on these screens and all five are gone.
+      - **`/app/settings/payroll`'s cadence explainer came from the SERVER** as
+        a finished English sentence (`describePayCycle`). The card builds it
+        from the structured values instead, with the day count going through
+        CLDR plural rules, so Ukrainian gets its three forms. The route still
+        returns `describe`; nothing on this card reads it.
+    "not set — using the default below" now carries a link, as asked (§7).
+    Guarded by `npm run check:schedule-i18n`, wired into `check:all`: it
+    EXECUTES the date helper against a known Sunday in every language, fails on
+    a bare English literal in these eight files, and fails on a key that holds
+    half a sentence. Twelve mutation tests, each confirmed to fail by exit
+    code. Still English on these screens, and NOT mine to fix: the shift-fit
+    refusal reasons and the pay-run warnings, both composed in API routes.
   * `TODO` `/app/purchasing` — English.
   * `TODO` `/app/funnels` — English, including everything behind "New funnel".
   * `TODO` `/app/marketing/designer/[id]` — English.
@@ -190,8 +208,13 @@ that homeowner in the homeowner's language. This is different from UI strings.
   * `TODO` Instant quotes still do not match the services actually offered — the
     "Tus cotizaciones instantáneas no coinciden con tus servicios" warning still
     fires for Roofing. He expected these to be driven by the services list.
-  * `TODO` `/app/settings/payroll` — "not set — using the default below" should be
-    a link to where you set it.
+  * `DONE (code)` `/app/settings/payroll` — "not set — using the default below"
+    now carries a "Set it up" link beside it, which focuses the "How often"
+    control directly below rather than navigating somewhere else: the place to
+    set it IS below, and a link to another screen would have been a lie. Shown
+    only to someone who may edit — for everyone else the card already says
+    "Set by an owner or admin.", and a link that 403s is the dead control this
+    codebase keeps finding.
 
 ---
 

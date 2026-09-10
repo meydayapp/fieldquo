@@ -18,6 +18,11 @@ import {
   Send,
 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import {
+  formatDayMonth,
+  formatTimeOfDay,
+  formatWeekdayDayMonth,
+} from "@/lib/format/localeDate";
 import { reportResponseError } from "@/lib/clientErrors";
 import { fetchList } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
@@ -38,15 +43,20 @@ function addDays(d, n) {
 function ymd(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
-function fmtTime(iso) {
-  return new Date(iso).toLocaleTimeString([], {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+// ── Why these take a language ────────────────────────────────────────────
+//
+// They were `toLocaleTimeString([])` / `toLocaleDateString([])`, which reads
+// the BROWSER's locale, not the language the user picked in FieldQuo. A
+// Spanish account on an English-configured phone read "Sunday, Sep 7" on a
+// screen whose every other word was Spanish — the exact report this fixes.
+// The shared formatters live in lib/format/localeDate.js so the scheduler,
+// the team schedule and the availability editor cannot drift apart.
+function fmtTime(iso, language) {
+  return formatTimeOfDay(iso, language);
 }
 
 export default function SchedulerPage() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [data, setData] = useState(null);
   const [errorKey, setErrorKey] = useState("");
@@ -153,7 +163,7 @@ export default function SchedulerPage() {
     await load();
   }
 
-  const weekLabel = `${weekStart.toLocaleDateString([], { month: "short", day: "numeric" })} – ${addDays(weekStart, 6).toLocaleDateString([], { month: "short", day: "numeric" })}`;
+  const weekLabel = `${formatDayMonth(weekStart, language)} – ${formatDayMonth(addDays(weekStart, 6), language)}`;
   const anyDraft = (data?.shifts || []).some((s) => !s.published);
 
   return (
@@ -256,17 +266,22 @@ export default function SchedulerPage() {
           hunting; the names send them straight there. */}
       {isManager && data?.missingHours?.length > 0 && (
         <div className="mb-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm dark:border-amber-800 dark:bg-amber-950/40">
+          {/* One key holding the whole warning, names interpolated. It used
+              to be an English fragment, a <strong> of names, and a second
+              English fragment — which is the shape that produces a sentence
+              half in one language and half in another the moment anyone
+              translates part of it. The names lose their bold; a sentence that
+              reads is worth more than a bold noun inside a broken one. */}
           <p className="text-amber-900 dark:text-amber-200">
-            No working hours set for{" "}
-            <strong>{data.missingHours.map((w) => w.name).join(", ")}</strong>.
-            Until they have some, nothing flags a shift at an odd hour for them
-            and payroll has nothing to check their logged time against.
+            {t("app.scheduler.missingHours", {
+              names: data.missingHours.map((w) => w.name).join(", "),
+            })}
           </p>
           <Link
             href="/app/settings/availability"
             className="mt-1 inline-block text-xs font-medium text-amber-900 underline dark:text-amber-200"
           >
-            Set their hours
+            {t("app.scheduler.setTheirHours")}
           </Link>
         </div>
       )}
@@ -277,7 +292,7 @@ export default function SchedulerPage() {
           can tell the two apart. */}
       {shiftNotice && (
         <div className="mb-3 rounded-xl border border-border bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">
-          Shift added. {shiftNotice.join(" ")}
+          {t("app.scheduler.shiftAdded")} {shiftNotice.join(" ")}
         </div>
       )}
 
@@ -308,11 +323,7 @@ export default function SchedulerPage() {
               >
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-bold text-foreground">
-                    {day.toLocaleDateString([], {
-                      weekday: "long",
-                      month: "short",
-                      day: "numeric",
-                    })}
+                    {formatWeekdayDayMonth(day, language)}
                     {isToday && (
                       <span className="ml-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                         {t("app.scheduler.today")}
@@ -346,7 +357,7 @@ export default function SchedulerPage() {
                       >
                         <div className="min-w-0">
                           <div className="text-sm font-medium text-foreground truncate">
-                            {fmtTime(s.start)} – {fmtTime(s.end)}
+                            {fmtTime(s.start, language)} – {fmtTime(s.end, language)}
                             {isManager && s.worker?.name
                               ? ` · ${s.worker.name}`
                               : ""}
@@ -365,7 +376,7 @@ export default function SchedulerPage() {
                               learn it here, not on the morning. */}
                           {s.availabilityOverrideAt && (
                             <div className="text-xs text-amber-700 dark:text-amber-400">
-                              Outside stated availability
+                              {t("app.scheduler.outsideAvailability")}
                               {s.availabilityOverrideBy?.name
                                 ? ` · ${s.availabilityOverrideBy.name}`
                                 : ""}
@@ -534,13 +545,12 @@ function AddShiftModal({ dateStr, workers, onClose, onSaved, t }) {
               {refusal.canOverride ? (
                 <>
                   <p className="mt-1.5 font-medium">
-                    Check with them before you go ahead — they won&apos;t have
-                    agreed to this yet.
+                    {t("app.scheduler.checkFirst")}
                   </p>
                   <input
                     value={overrideNote}
                     onChange={(e) => setOverrideNote(e.target.value)}
-                    placeholder="Why? (optional — goes on the shift)"
+                    placeholder={t("app.scheduler.overrideWhy")}
                     className="mt-1.5 w-full rounded border border-amber-300 bg-background px-2 py-1 text-xs dark:border-amber-800"
                   />
                   <button
@@ -549,18 +559,17 @@ function AddShiftModal({ dateStr, workers, onClose, onSaved, t }) {
                     disabled={saving}
                     className="mt-1.5 rounded bg-amber-700 px-2.5 py-1 text-xs font-medium text-white hover:bg-amber-800 disabled:opacity-50"
                   >
-                    Schedule anyway
+                    {t("app.scheduler.scheduleAnyway")}
                   </button>
                   <p className="mt-1 opacity-80">
-                    It will be marked on the shift, and they&apos;ll see that
-                    when it&apos;s published.
+                    {t("app.scheduler.overrideMarked")}
                   </p>
                 </>
               ) : (
                 // Approved leave. No override, and the way out is named rather
                 // than left for someone to hunt for.
                 <p className="mt-1.5 opacity-90">
-                  Change the date, or amend their time off first.
+                  {t("app.scheduler.changeDateInstead")}
                 </p>
               )}
             </div>

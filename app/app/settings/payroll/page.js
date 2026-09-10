@@ -37,22 +37,14 @@ import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 
+// Icons only. This carried `label` and `hint` in English as well, and neither
+// was ever read — both render sites go through app.setPayroll.calc.*.label and
+// .hint, which exist in nine languages. A dead English string beside the live
+// key is the copy that rots, and it is what a future reader would edit.
 const CALC_META = {
-  fixed: {
-    label: "Fixed amount",
-    icon: Hash,
-    hint: "Same amount every pay period",
-  },
-  percent: {
-    label: "Percent of gross",
-    icon: Percent,
-    hint: "e.g. CPP at 5.95%",
-  },
-  slabs: {
-    label: "Progressive bands",
-    icon: BarChart3,
-    hint: "Income tax brackets",
-  },
+  fixed: { icon: Hash },
+  percent: { icon: Percent },
+  slabs: { icon: BarChart3 },
 };
 
 function blankComponent() {
