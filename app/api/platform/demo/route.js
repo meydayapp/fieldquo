@@ -10,6 +10,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { listDemos, applyIndustry, resetDemo } from "@/lib/demo/seedDemo";
 import { INDUSTRIES } from "@/lib/demo/industries";
@@ -30,11 +31,31 @@ function fail(err) {
   return NextResponse.json({ error: err?.message || "Something went wrong." }, { status });
 }
 
+/**
+ * Which rep holds each demo, keyed by companyId.
+ *
+ * Read here rather than added to listDemos()' select, deliberately: listDemos
+ * is also what scripts/seed-demos.mjs and the reset paths read, and none of
+ * them care who a demo is assigned to. One extra query on one console screen
+ * is cheaper than widening a shared select for a single caller.
+ */
+async function holdersByCompany() {
+  const rows = await db.salesRep.findMany({
+    where: { demoCompanyId: { not: null } },
+    select: { id: true, name: true, email: true, demoCompanyId: true },
+  });
+  return new Map(rows.map((r) => [r.demoCompanyId, { id: r.id, name: r.name, email: r.email }]));
+}
+
 export async function GET(request) {
   try {
     await requireAdmin(request);
+    const [demos, holders] = await Promise.all([listDemos(), holdersByCompany()]);
     return NextResponse.json({
-      demos: await listDemos(),
+      // `salesRepDemo` is the relation's own name on Company, used here so the
+      // page reads the same field it would have got from an include — a null
+      // means nobody holds it, which is the free state Claim draws from.
+      demos: demos.map((d) => ({ ...d, salesRepDemo: holders.get(d.id) || null })),
       industries: Object.entries(INDUSTRIES).map(([key, v]) => ({
         key,
         label: v.label,

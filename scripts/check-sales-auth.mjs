@@ -838,6 +838,25 @@ const SALES_GATES = [
   // ["salesEvent"]). It moves no milestone and contacts no one, so it is the
   // smallest exception yet.
   "requireCalendarRep",
+  // The seventh, added when a rep was finally given a way to GET a demo. Its
+  // own file (lib/sales/demoGate.js), its own header arguing why it is not a
+  // widening of any of the six, and a NAMED list (DEMO_GATE_WRITES) of what it
+  // permits.
+  //
+  // It is the first gate on this list that reaches SalesRep, so the bar is
+  // higher and demoAssign.js's header meets it: the one column is
+  // `demoCompanyId`, it can only ever point at an isDemo company, it is
+  // write-once from a rep's side (the WHERE requires null), and nothing that
+  // decides money reads it — lib/sales/scope.js keeps repDemoWhere() separate
+  // from assignedCompanyWhere() precisely so a fixture cannot read as a sale.
+  // That is the same shape as this gate's own lastSeenAt carve-out, one column
+  // with the reason written beside it.
+  //
+  // What it fixed: POST /api/sales/demo rode requireSalesRep, which refuses
+  // every write — so "Reset the data" and the trade picker had returned 403
+  // for as long as they had existed, invisibly, because they only render for a
+  // rep with a demo and nobody could have one.
+  "requireDemoRep",
 ];
 for (const file of salesRoutes) {
   if (file.startsWith("app/api/sales/auth/")) continue; // unauthenticated by design

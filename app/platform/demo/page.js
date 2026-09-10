@@ -18,22 +18,36 @@
 // that before you press it, with the counts, because a control that quietly
 // destroys work is the failure this codebase keeps finding.
 //
-// ── There is no login for a demo, and that is deliberate ──────────────────
+// ── A demo has no login UNTIL somebody makes one ──────────────────────────
 //
 // scripts/seed-demos.mjs creates the companies and NOT the logins: this
-// codebase has no server-side sign-up path (non-negotiable #1 — people arrive
-// by invitation), and adding a second user-creation route would be a hole in
-// the rule it protects. So demo1@fieldquo.com is a label on the company, not
-// an account, and no password for it exists anywhere.
+// codebase has no general server-side sign-up path (non-negotiable #1 — people
+// arrive by invitation). So demo1@fieldquo.com starts as a label on the
+// company, not an account.
 //
-// "Run the demo" below is how you get in: a signed, time-boxed session in
-// demo_sandbox mode, which is the one impersonation mode allowed to WRITE —
-// because running a demo means building a quote in front of a prospect, and a
-// read-only session cannot. The mode is decided from Company.isDemo read out
-// of the database, so it can never be minted for a real customer.
+// "Run the demo" below is how a PLATFORM ADMIN gets in without one: a signed,
+// time-boxed session in demo_sandbox mode, which is the one impersonation mode
+// allowed to WRITE — because running a demo means building a quote in front of
+// a prospect, and a read-only session cannot. The mode is decided from
+// Company.isDemo read out of the database, so it can never be minted for a
+// real customer.
+//
+// A SALES REP cannot use that door — impersonation is superadmin-only — so a
+// rep needs the second thing: a real login, minted by a superadmin through
+// lib/demo/demoLogin.js, whose header carries the argument for why that one
+// user creation does not breach non-negotiable #1.
+//
+// ── Who has which demo ────────────────────────────────────────────────────
+//
+// /sales/demo has always told a rep with no demo to "ask a FieldQuo admin to
+// assign you one on the platform demo screen — it takes them a click". There
+// was no click: SalesRep.demoCompanyId was read in three places and written in
+// none. It is the "Assign" control below, and it does the whole chain in one
+// press — assign the demo AND mint its login — because half the chain is a rep
+// who has a demo they cannot sign into.
 
 import { useEffect, useState, useCallback } from "react";
-import { Loader2, RotateCcw, Beaker, AlertTriangle, PlayCircle, ExternalLink } from "lucide-react";
+import { Loader2, RotateCcw, Beaker, AlertTriangle, PlayCircle, ExternalLink, UserPlus, UserMinus } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 
 export default function PlatformDemoPage() {
@@ -46,6 +60,16 @@ export default function PlatformDemoPage() {
   const [loginFor, setLoginFor] = useState(null);
   const [password, setPassword] = useState("");
   const [loginMsg, setLoginMsg] = useState(null);
+  // Which demo's "assign to a rep" form is open, and what's chosen in it.
+  const [assignFor, setAssignFor] = useState(null);
+  const [assignRepId, setAssignRepId] = useState("");
+  const [assignPassword, setAssignPassword] = useState("");
+  const [assignMsg, setAssignMsg] = useState(null);
+  const [reps, setReps] = useState([]);
+  // A separate failure flag from loadFailed, and separately reported. The rep
+  // list failing must not make the demo list look empty, and it must not fail
+  // silently either — a dropdown with no reps in it reads as "no reps exist".
+  const [repsFailed, setRepsFailed] = useState(false);
 
   // `loadFailed` is a state of its own. Without it a failed GET left `data`
   // null, `demos` fell back to [], and the page printed "No demo accounts yet"
@@ -65,9 +89,21 @@ export default function PlatformDemoPage() {
     setData(await res.json());
   }, []);
 
+  const loadReps = useCallback(async () => {
+    const res = await fetch("/api/platform/demo/assign");
+    if (!res.ok) {
+      setRepsFailed(true);
+      await reportResponseError(res, "Couldn't load the sales reps.");
+      return;
+    }
+    setRepsFailed(false);
+    const body = await res.json();
+    setReps(body.reps || []);
+  }, []);
+
   useEffect(() => {
-    load().finally(() => setLoading(false));
-  }, [load]);
+    Promise.all([load(), loadReps()]).finally(() => setLoading(false));
+  }, [load, loadReps]);
 
   async function act(companyId, body, method) {
     setBusy(companyId);
@@ -145,6 +181,78 @@ export default function PlatformDemoPage() {
     }
   }
 
+  /**
+   * Hand this demo to a rep — and, if a password was typed, mint its login in
+   * the same press.
+   *
+   * The two halves are reported separately because they can genuinely differ:
+   * assignment is any platform admin's to make, minting a credential is
+   * superadmin-only, and an admin who is not a superadmin gets the assignment
+   * plus an honest sentence about the login rather than a 403 that loses both.
+   */
+  async function assignDemo(company) {
+    setBusy(company.id);
+    setAssignMsg(null);
+    try {
+      const res = await fetch("/api/platform/demo/assign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyId: company.id,
+          salesRepId: assignRepId,
+          // Empty string, not undefined, when nothing was typed — the route
+          // skips the login half on a falsy password rather than inventing a
+          // credential nobody asked for.
+          password: assignPassword || "",
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAssignMsg({ id: company.id, tone: "bad", text: body.error || "Couldn't assign that demo." });
+        return;
+      }
+      setAssignMsg({
+        // Carries the demo it is about. One piece of state for ten cards would
+        // otherwise print "Assigned to Daniel" under every one of them.
+        id: company.id,
+        tone: body.loginError ? "bad" : "good",
+        text: body.loginError
+          ? `Assigned to ${body.rep.name}. The login was NOT created: ${body.loginError}`
+          : body.loginReady
+            ? `Assigned to ${body.rep.name}, and they can sign in as ${body.loginEmail}.`
+            : `Assigned to ${body.rep.name}. They still have no login — set one below, or they cannot sign in.`,
+      });
+      setAssignPassword("");
+      setAssignFor(null);
+      await Promise.all([load(), loadReps()]);
+    } catch {
+      setAssignMsg({ id: company.id, tone: "bad", text: "Couldn't reach the server." });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** Take a demo back into the pool. Clears one pointer; destroys nothing. */
+  async function releaseDemo(company) {
+    setBusy(company.id);
+    setAssignMsg(null);
+    try {
+      const res = await fetch("/api/platform/demo/assign", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ salesRepId: company.salesRepDemo?.id }),
+      });
+      if (!res.ok) {
+        await reportResponseError(res, "Couldn't release that demo.");
+        return;
+      }
+      await Promise.all([load(), loadReps()]);
+    } finally {
+      setBusy(null);
+      setConfirming(null);
+    }
+  }
+
   if (loading) {
     return (
       <div className="p-6 max-w-4xl space-y-4 animate-pulse">
@@ -160,21 +268,39 @@ export default function PlatformDemoPage() {
   return (
     <div className="p-4 sm:p-6 max-w-4xl space-y-6">
       {/* Said once, at the top, because "what's the password" is the first
-          thing anyone asks and the honest answer is "there isn't one". */}
+          thing anyone asks — and the answer is now "whichever one you set",
+          which is a different answer from the one this panel used to give. */}
       <div className="rounded-lg border border-border bg-card px-4 py-3">
         <p className="text-sm text-foreground font-medium">
-          There is no demo login or password.
+          You do not need a password. A sales rep does.
         </p>
         <p className="text-xs text-muted-foreground mt-1">
-          The demos have no user accounts —{" "}
-          <code className="text-[11px]">demo1@fieldquo.com</code> is a label on
-          the company, not something you can sign in as. Use{" "}
-          <strong>Run the demo</strong> on any card below: it opens that company
-          in a new tab as its owner, for 30 minutes, and you can create quotes
-          and invoices normally. Switching the trade is what wipes the data —
-          nothing is cleared by opening it.
+          Use <strong>Run the demo</strong> on any card below: it opens that
+          company in a new tab as its owner, for 30 minutes, and you can create
+          quotes and invoices normally. A rep cannot use that door —
+          impersonation is superadmin-only — so a rep needs a demo{" "}
+          <strong>assigned</strong> to them <em>and</em> a{" "}
+          <strong>login</strong> minted on it. Both halves are on each card, and{" "}
+          <strong>Assign</strong> does them together. Switching the trade is
+          what wipes the data — nothing is cleared by opening it, and nothing is
+          cleared by releasing it.
         </p>
       </div>
+
+      {repsFailed && (
+        <div className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-3">
+          <p className="text-sm text-foreground">
+            The sales reps could not be read, so the assign controls are hidden
+            rather than shown empty.
+          </p>
+          <button
+            onClick={loadReps}
+            className="mt-2 text-sm font-semibold text-foreground underline underline-offset-2"
+          >
+            Try again
+          </button>
+        </div>
+      )}
 
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
@@ -412,7 +538,169 @@ export default function PlatformDemoPage() {
                   </div>
                 )}
 
-                {confirming?.startsWith(`${d.id}:`) && (
+                {/* ── Who has it, and can they sign in ──────────────────────
+                    The two facts that decide whether /sales/demo is usable,
+                    side by side, because they fail independently: a demo can
+                    be assigned with no login (the rep sees an address they
+                    cannot use) or have a login with nobody assigned (nobody
+                    can reach it through the portal at all). */}
+                <div className="mt-3 pt-3 border-t border-border">
+                  <p className="text-xs font-semibold text-muted-foreground mb-2">
+                    Assigned to
+                  </p>
+                  {d.salesRepDemo ? (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-sm text-foreground">
+                        {d.salesRepDemo.name}{" "}
+                        <span className="text-muted-foreground text-xs">
+                          ({d.salesRepDemo.email})
+                        </span>
+                      </span>
+                      {d.members?.length ? null : (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-amber-800 dark:text-amber-300">
+                          <AlertTriangle size={12} />
+                          No login yet — they cannot sign in
+                        </span>
+                      )}
+                      {/* Two presses, like every other control on this card.
+                          Releasing destroys nothing, but it does pull a demo
+                          out from under whoever is holding it. */}
+                      <button
+                        type="button"
+                        disabled={busy === d.id}
+                        onClick={() =>
+                          confirming === `${d.id}:release`
+                            ? releaseDemo(d)
+                            : setConfirming(`${d.id}:release`)
+                        }
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs hover:bg-muted disabled:opacity-50 ${
+                          confirming === `${d.id}:release`
+                            ? "border-amber-500 text-amber-700 dark:text-amber-400 font-semibold"
+                            : "border-border text-muted-foreground"
+                        }`}
+                      >
+                        {busy === d.id ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <UserMinus size={12} />
+                        )}
+                        {confirming === `${d.id}:release`
+                          ? "Press again to release"
+                          : "Release"}
+                      </button>
+                    </div>
+                  ) : repsFailed ? (
+                    <p className="text-xs text-muted-foreground">
+                      Nobody. The rep list could not be read, so there is
+                      nothing to choose from — retry it above.
+                    </p>
+                  ) : reps.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      Nobody, and there are no sales reps who can sign in yet.
+                      Add one under Platform → Sales.
+                    </p>
+                  ) : assignFor === d.id ? (
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-2">
+                        <select
+                          value={assignRepId}
+                          onChange={(e) => setAssignRepId(e.target.value)}
+                          className="flex-1 min-w-[12rem] text-sm bg-background border border-border rounded-lg px-3 py-1.5 text-foreground"
+                        >
+                          <option value="">Choose a rep…</option>
+                          {reps.map((r) => (
+                            <option key={r.id} value={r.id} disabled={Boolean(r.demoCompanyId)}>
+                              {r.name}
+                              {r.demoCompanyId ? " — already has one" : ""}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="text"
+                          value={assignPassword}
+                          onChange={(e) => setAssignPassword(e.target.value)}
+                          placeholder={
+                            d.members?.length
+                              ? "Login already exists — leave blank"
+                              : "Password for their login — 12+ characters"
+                          }
+                          disabled={Boolean(d.members?.length)}
+                          className="flex-1 min-w-[16rem] text-sm bg-background border border-border rounded-lg px-3 py-1.5 text-foreground placeholder:text-muted-foreground disabled:opacity-50"
+                        />
+                      </div>
+                      <div className="flex flex-wrap gap-2 items-center">
+                        <button
+                          type="button"
+                          onClick={() => assignDemo(d)}
+                          disabled={
+                            !assignRepId ||
+                            busy === d.id ||
+                            // A password that is present but too short would be
+                            // refused by the route AFTER assigning — better to
+                            // refuse it here than to half-succeed.
+                            (assignPassword.length > 0 && assignPassword.length < 12)
+                          }
+                          className="inline-flex items-center gap-1.5 text-sm font-semibold bg-foreground text-background rounded-lg px-3 py-1.5 disabled:opacity-40"
+                        >
+                          {busy === d.id ? (
+                            <Loader2 size={13} className="animate-spin" />
+                          ) : (
+                            <UserPlus size={13} />
+                          )}
+                          {d.members?.length || !assignPassword
+                            ? "Assign"
+                            : "Assign + create login"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAssignFor(null);
+                            setAssignMsg(null);
+                          }}
+                          className="text-xs font-semibold text-muted-foreground hover:text-foreground"
+                        >
+                          Cancel
+                        </button>
+                        {!d.members?.length && !assignPassword && (
+                          <span className="text-xs text-muted-foreground">
+                            Without a password they get the demo but no way in.
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAssignFor(d.id);
+                        setAssignRepId("");
+                        setAssignPassword("");
+                        setAssignMsg(null);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs text-foreground hover:bg-muted"
+                    >
+                      <UserPlus size={12} /> Assign to a rep
+                    </button>
+                  )}
+                  {assignMsg?.id === d.id && busy !== d.id && (
+                    <p
+                      className={`text-xs mt-2 ${
+                        assignMsg.tone === "good"
+                          ? "text-emerald-700 dark:text-emerald-400"
+                          : "text-amber-800 dark:text-amber-300"
+                      }`}
+                    >
+                      {assignMsg.text}
+                    </p>
+                  )}
+                </div>
+
+                {/* Release is confirmed with the same `confirming` key shape
+                    but must NOT print this: it clears no quotes, no jobs and
+                    no clients, and a warning that says it does is the
+                    destructive-operation-labelled-as-cosmetic failure running
+                    backwards. Its own warning is on its own button. */}
+                {confirming?.startsWith(`${d.id}:`) && confirming !== `${d.id}:release` && (
                   <p className="text-xs text-amber-700 dark:text-amber-400 mt-2 flex items-start gap-1.5">
                     <AlertTriangle size={13} className="shrink-0 mt-0.5" />
                     This clears {d._count.quotes} quotes, {d._count.jobs} jobs and{" "}
