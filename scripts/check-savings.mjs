@@ -1217,14 +1217,30 @@ section("The page prints the honest parts");
   // being true the moment a question and three lines were added. A sentence
   // that states a number about the page it is on has to derive it, because
   // nobody re-counts prose.
+  // ── Derived, and then USED ───────────────────────────────────────────────
+  //
+  // These three used to look for the literal `{QUESTION_COUNT}` in the JSX,
+  // which was the right assertion while the sentence was an English literal
+  // with an expression spliced into it. The sentence is a catalogue key now
+  // (the page was English in nine languages, which is its own bug) and the
+  // count arrives as an interpolation VALUE, so the braces are around the
+  // placeholder in the catalogue rather than around the constant here.
+  //
+  // What has to stay true either way is both halves: the constant is computed
+  // from the array, and it reaches the page. "Appears at least twice" is how
+  // the second half is asked without pinning the check to one call shape — a
+  // constant that is defined and never read is exactly the dead-code version
+  // of the bug this trio was written for.
+  const usedAfterDefining = (name) =>
+    (view.match(new RegExp(`\\b${name}\\b`, "g")) || []).length >= 2;
   ok(
     "the header counts the questions rather than asserting a number",
     /INPUT_FIELDS\.filter\(\(f\) => f\.required\)\.length/.test(view) &&
-      /\{QUESTION_COUNT\}/.test(view),
+      usedAfterDefining("QUESTION_COUNT"),
   );
   ok(
     "and counts the line items the same way",
-    /LINE_BUILDERS\.length/.test(view) && /\{LINE_COUNT\}/.test(view),
+    /LINE_BUILDERS\.length/.test(view) && usedAfterDefining("LINE_COUNT"),
   );
   // The third count, and the one that only started existing when the page
   // gained its first optional question. "Eight answers" over NINE boxes is the
@@ -1234,7 +1250,7 @@ section("The page prints the honest parts");
     "and counts the optional questions, which are no longer zero",
     INPUT_FIELDS.some((f) => !f.required) &&
       /INPUT_FIELDS\.filter\(\(f\) => !f\.required\)\.length/.test(view) &&
-      /\{OPTIONAL_COUNT\}/.test(view),
+      usedAfterDefining("OPTIONAL_COUNT"),
     `${INPUT_FIELDS.filter((f) => !f.required).length} optional field(s)`,
   );
   {

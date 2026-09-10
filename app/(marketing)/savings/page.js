@@ -8,15 +8,19 @@
 // all: every number on the page comes from the visitor's answers and from
 // lib/marketing/savings.js, so there is nothing here to make dynamic.
 //
-// ── English only, and that is a gap rather than a decision ──────────────────
+// ── It is not English-only any more ─────────────────────────────────────────
 //
-// The rest of the marketing site translates through app/i18n. Adding keys
-// there means adding them in every language the catalogue carries, which
-// check:translations gates
-// — so a half-translated calculator would fail the build, and machine-filling
-// five languages of financial copy is worse than shipping one. The page is
-// English until the strings are written; /about, /careers and /terms are in
-// the same position today.
+// This comment used to say the page was English "until the strings are
+// written", and the owner found it the way anybody would: he switched the site
+// to Ukrainian, then Spanish, and read the calculator in English both times.
+// The strings are written now — app/i18n/savingsPage/, nine languages, gated
+// by check:translations like the rest of the marketing catalogue.
+//
+// The METADATA below stays English, and that is a decision rather than a gap.
+// It is the same one /compare/[slug] records: a <title> is what a crawler
+// keeps for months, and serving it in whichever language the last visitor
+// happened to pick is worse than not translating it. Locale-prefixed routes
+// are the real fix and are scoped at the end of docs/ROADMAP.md.
 import { marketingMetadata } from "@/lib/marketing/metadata";
 import SavingsCalculator from "./SavingsCalculator";
 

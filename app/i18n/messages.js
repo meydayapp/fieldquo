@@ -30,6 +30,11 @@ import { FEATURE_PAGE_MESSAGES } from "./featurePages/index.js";
 // pages shipped English on a nine-language site for months because the copy sat
 // in a data module no coverage check could see.
 import { COMPARE_PAGE_MESSAGES } from "./comparePages/index.js";
+// And the /savings catalogue. Same placement and same argument: 153 keys of
+// financial copy that lived in a data module, invisible to every coverage
+// check, and therefore English on a nine-language site until the owner read it
+// in Ukrainian. See app/i18n/savingsPage/index.js.
+import { SAVINGS_PAGE_MESSAGES } from "./savingsPage/index.js";
 
 const en = {
   // Navigation
@@ -568,6 +573,23 @@ const en = {
   "feature.priced_options.limits": "The pricing behind it is built and the three quotes can be produced behind the scenes, but there is no screen for it yet — so today you would be building all three yourself. Ask us before you buy on this one.",
   "footer.links.glossary": "Glossary",
   "resources.glossary.description": "Plain-English definitions of the terms that turn up on quotes, contracts and lien notices.",
+
+  // The sign-in / sign-up side panel. It asked for these keys from the day it
+  // was written and no catalogue ever defined them, so t() fell through to the
+  // English fallback beside each one — a Spanish form with an English panel
+  // next to it, which is the first thing a new contractor sees.
+  "auth.aside.login.heading": "Everything your day runs on",
+  "auth.aside.login.point1": "Build the quote on site and send it before you leave the driveway.",
+  "auth.aside.login.point2": "Book the visit, track the hours and materials, and invoice from what the job actually took.",
+  "auth.aside.login.point3": "Take payment online — with your logo on the invoice and your name in the From line.",
+  "auth.aside.login.newHere": "New here? Starting a business takes a few minutes and the first month is free.",
+  "auth.aside.login.newHereCta": "Start your free month",
+  "auth.aside.signup.heading": "What you're setting up",
+  "auth.aside.signup.point1": "Quotes and invoices in your logo and your brand colour. Nothing your client sees mentions us.",
+  "auth.aside.signup.point2": "Jobs, visits, hours and materials costed against the quote, so you know what each one made.",
+  "auth.aside.signup.point3": "A booking page, a website and online payment, all pointing at the same calendar.",
+  "auth.aside.signup.billing": "{trial}. We take your card at checkout and the first charge lands when the free month ends. You choose the plan on the last step — the price depends on where your business is.",
+  "auth.aside.trades": "Built for {count} trades, from painting to roofing.",
 };
 
 const fr = {
@@ -1059,6 +1081,23 @@ const fr = {
   "feature.priced_options.limits": "La tarification est en place et les trois soumissions peuvent être produites en coulisses, mais il n'y a pas encore d'écran pour ça — aujourd'hui, vous les construiriez toutes les trois vous-même. Parlez-nous-en avant d'acheter pour cette fonction.",
   "footer.links.glossary": "Glossaire",
   "resources.glossary.description": "Définitions en langage clair des termes qui reviennent sur les soumissions, les contrats et les avis d'hypothèque légale.",
+
+  // The sign-in / sign-up side panel. It asked for these keys from the day it
+  // was written and no catalogue ever defined them, so t() fell through to the
+  // English fallback beside each one — a Spanish form with an English panel
+  // next to it, which is the first thing a new contractor sees.
+  "auth.aside.login.heading": "Tout ce sur quoi votre journée repose",
+  "auth.aside.login.point1": "Montez la soumission sur place et envoyez-la avant de quitter l'entrée.",
+  "auth.aside.login.point2": "Planifiez la visite, suivez les heures et les matériaux, et facturez selon ce que le chantier a réellement pris.",
+  "auth.aside.login.point3": "Encaissez en ligne — avec votre logo sur la facture et votre nom dans la ligne d'expéditeur.",
+  "auth.aside.login.newHere": "Nouveau ici ? Créer une entreprise prend quelques minutes et le premier mois est gratuit.",
+  "auth.aside.login.newHereCta": "Commencez votre mois gratuit",
+  "auth.aside.signup.heading": "Ce que vous êtes en train de configurer",
+  "auth.aside.signup.point1": "Des soumissions et des factures à votre logo et à votre couleur de marque. Rien de ce que votre client voit ne parle de nous.",
+  "auth.aside.signup.point2": "Chantiers, visites, heures et matériaux comparés à la soumission, pour savoir ce que chacun vous a rapporté.",
+  "auth.aside.signup.point3": "Une page de réservation, un site web et le paiement en ligne, tous branchés sur le même calendrier.",
+  "auth.aside.signup.billing": "{trial}. Nous prenons votre carte au moment du paiement et le premier prélèvement arrive à la fin du mois gratuit. Vous choisissez le forfait à la dernière étape — le prix dépend de l'endroit où se trouve votre entreprise.",
+  "auth.aside.trades": "Conçu pour {count} métiers, de la peinture à la toiture.",
 };
 
 const es = {
@@ -1545,6 +1584,23 @@ const es = {
   "feature.priced_options.limits": "La lógica de precios está construida y los tres presupuestos pueden generarse por detrás, pero todavía no hay pantalla para ello — hoy tendrías que armar los tres tú mismo. Consúltanos antes de comprar por esta función.",
   "footer.links.glossary": "Glosario",
   "resources.glossary.description": "Definiciones en lenguaje sencillo de los términos que aparecen en presupuestos, contratos y avisos de gravamen.",
+
+  // The sign-in / sign-up side panel. It asked for these keys from the day it
+  // was written and no catalogue ever defined them, so t() fell through to the
+  // English fallback beside each one — a Spanish form with an English panel
+  // next to it, which is the first thing a new contractor sees.
+  "auth.aside.login.heading": "Todo lo que sostiene su día",
+  "auth.aside.login.point1": "Arme el presupuesto en la obra y envíelo antes de salir de la entrada.",
+  "auth.aside.login.point2": "Agende la visita, lleve las horas y los materiales, y facture según lo que el trabajo realmente llevó.",
+  "auth.aside.login.point3": "Cobre en línea — con su logo en la factura y su nombre en el remitente.",
+  "auth.aside.login.newHere": "¿Nuevo por aquí? Dar de alta una empresa toma unos minutos y el primer mes es gratis.",
+  "auth.aside.login.newHereCta": "Empiece su mes gratis",
+  "auth.aside.signup.heading": "Lo que está configurando",
+  "auth.aside.signup.point1": "Presupuestos y facturas con su logo y su color de marca. Nada de lo que ve su cliente nos menciona.",
+  "auth.aside.signup.point2": "Trabajos, visitas, horas y materiales comparados contra el presupuesto, para que sepa cuánto dejó cada uno.",
+  "auth.aside.signup.point3": "Una página de reservas, un sitio web y el pago en línea, todos apuntando al mismo calendario.",
+  "auth.aside.signup.billing": "{trial}. Tomamos su tarjeta al pagar y el primer cargo llega cuando termina el mes gratis. El plan lo elige en el último paso — el precio depende de dónde esté su empresa.",
+  "auth.aside.trades": "Hecho para {count} oficios, de la pintura a la techumbre.",
 };
 
 const uk = {
@@ -2032,6 +2088,23 @@ const uk = {
   "feature.priced_options.limits": "Логіку цін реалізовано, і три кошториси можна створити у фоновому режимі, але екрана для цього ще немає — сьогодні ви складали б усі три самотужки. Запитайте нас, перш ніж купувати заради цієї функції.",
   "footer.links.glossary": "Глосарій",
   "resources.glossary.description": "Прості пояснення термінів, які трапляються в кошторисах, договорах і повідомленнях про заставу.",
+
+  // The sign-in / sign-up side panel. It asked for these keys from the day it
+  // was written and no catalogue ever defined them, so t() fell through to the
+  // English fallback beside each one — a Spanish form with an English panel
+  // next to it, which is the first thing a new contractor sees.
+  "auth.aside.login.heading": "Усе, на чому тримається ваш день",
+  "auth.aside.login.point1": "Складіть кошторис прямо на об'єкті й надішліть його ще до того, як виїдете з подвір'я.",
+  "auth.aside.login.point2": "Запишіть візит, ведіть години та матеріали й виставляйте рахунок за тим, скільки робота справді забрала.",
+  "auth.aside.login.point3": "Приймайте оплату онлайн — з вашим логотипом на рахунку та вашим іменем у полі відправника.",
+  "auth.aside.login.newHere": "Уперше тут? Створити компанію — це кілька хвилин, а перший місяць безкоштовний.",
+  "auth.aside.login.newHereCta": "Почати безкоштовний місяць",
+  "auth.aside.signup.heading": "Що ви зараз налаштовуєте",
+  "auth.aside.signup.point1": "Кошториси та рахунки з вашим логотипом і вашим фірмовим кольором. Ніде, де бачить клієнт, нас не згадано.",
+  "auth.aside.signup.point2": "Роботи, візити, години та матеріали, зіставлені з кошторисом, щоб ви знали, скільки заробила кожна.",
+  "auth.aside.signup.point3": "Сторінка запису, вебсайт і оплата онлайн — усе вказує на той самий календар.",
+  "auth.aside.signup.billing": "{trial}. Ми беремо вашу картку на етапі оплати, а перше списання відбувається, коли безкоштовний місяць завершується. Тариф ви обираєте на останньому кроці — ціна залежить від того, де розташований ваш бізнес.",
+  "auth.aside.trades": "Створено для {count} ремесел — від малярних робіт до покрівлі.",
 };
 
 const pa = {
@@ -2518,6 +2591,23 @@ const pa = {
   "feature.priced_options.limits": "ਇਸ ਪਿੱਛੇ ਦੀ ਕੀਮਤ-ਪ੍ਰਣਾਲੀ ਬਣ ਚੁੱਕੀ ਹੈ ਅਤੇ ਤਿੰਨੇ ਕੋਟ ਪਿੱਛੇ ਹੀ ਤਿਆਰ ਹੋ ਸਕਦੇ ਹਨ, ਪਰ ਇਸ ਲਈ ਅਜੇ ਕੋਈ ਸਕ੍ਰੀਨ ਨਹੀਂ ਹੈ — ਸੋ ਅੱਜ ਤੁਹਾਨੂੰ ਤਿੰਨੇ ਆਪ ਬਣਾਉਣੇ ਪੈਣਗੇ। ਇਸ ਸਹੂਲਤ ਲਈ ਖਰੀਦਣ ਤੋਂ ਪਹਿਲਾਂ ਸਾਡੇ ਨਾਲ ਗੱਲ ਕਰੋ।",
   "footer.links.glossary": "ਸ਼ਬਦਾਵਲੀ",
   "resources.glossary.description": "ਉਹਨਾਂ ਸ਼ਬਦਾਂ ਦੇ ਸਿੱਧੇ-ਸਾਦੇ ਅਰਥ ਜੋ ਕੋਟਾਂ, ਇਕਰਾਰਨਾਮਿਆਂ ਅਤੇ ਲੀਨ ਨੋਟਿਸਾਂ ਵਿੱਚ ਆਉਂਦੇ ਹਨ।",
+
+  // The sign-in / sign-up side panel. It asked for these keys from the day it
+  // was written and no catalogue ever defined them, so t() fell through to the
+  // English fallback beside each one — a Spanish form with an English panel
+  // next to it, which is the first thing a new contractor sees.
+  "auth.aside.login.heading": "ਹਰ ਉਹ ਚੀਜ਼ ਜਿਸ ਉੱਤੇ ਤੁਹਾਡਾ ਦਿਨ ਚੱਲਦਾ ਹੈ",
+  "auth.aside.login.point1": "ਕੋਟ ਮੌਕੇ 'ਤੇ ਹੀ ਬਣਾਓ ਅਤੇ ਡਰਾਈਵਵੇਅ ਛੱਡਣ ਤੋਂ ਪਹਿਲਾਂ ਭੇਜ ਦਿਓ।",
+  "auth.aside.login.point2": "ਵਿਜ਼ਿਟ ਬੁੱਕ ਕਰੋ, ਘੰਟੇ ਤੇ ਸਮਾਨ ਦਾ ਹਿਸਾਬ ਰੱਖੋ, ਅਤੇ ਜਿੰਨਾ ਕੰਮ ਅਸਲ ਵਿੱਚ ਲੱਗਿਆ ਉਸ ਹਿਸਾਬ ਨਾਲ ਇਨਵੌਇਸ ਕਰੋ।",
+  "auth.aside.login.point3": "ਆਨਲਾਈਨ ਪੈਸੇ ਲਓ — ਇਨਵੌਇਸ ਉੱਤੇ ਤੁਹਾਡਾ ਲੋਗੋ ਅਤੇ ਭੇਜਣ ਵਾਲੀ ਲਾਈਨ ਵਿੱਚ ਤੁਹਾਡਾ ਨਾਂ।",
+  "auth.aside.login.newHere": "ਨਵੇਂ ਹੋ? ਕਾਰੋਬਾਰ ਸ਼ੁਰੂ ਕਰਨ ਵਿੱਚ ਕੁਝ ਮਿੰਟ ਲੱਗਦੇ ਹਨ ਅਤੇ ਪਹਿਲਾ ਮਹੀਨਾ ਮੁਫ਼ਤ ਹੈ।",
+  "auth.aside.login.newHereCta": "ਆਪਣਾ ਮੁਫ਼ਤ ਮਹੀਨਾ ਸ਼ੁਰੂ ਕਰੋ",
+  "auth.aside.signup.heading": "ਤੁਸੀਂ ਕੀ ਸੈੱਟ ਕਰ ਰਹੇ ਹੋ",
+  "auth.aside.signup.point1": "ਕੋਟ ਅਤੇ ਇਨਵੌਇਸ ਤੁਹਾਡੇ ਲੋਗੋ ਅਤੇ ਤੁਹਾਡੇ ਬ੍ਰਾਂਡ ਰੰਗ ਵਿੱਚ। ਜੋ ਕੁਝ ਤੁਹਾਡਾ ਗਾਹਕ ਵੇਖਦਾ ਹੈ, ਉਸ ਵਿੱਚ ਸਾਡਾ ਜ਼ਿਕਰ ਨਹੀਂ ਹੁੰਦਾ।",
+  "auth.aside.signup.point2": "ਕੰਮ, ਵਿਜ਼ਿਟਾਂ, ਘੰਟੇ ਅਤੇ ਸਮਾਨ ਕੋਟ ਦੇ ਮੁਕਾਬਲੇ ਜੋੜੇ ਜਾਂਦੇ ਹਨ, ਤਾਂ ਜੋ ਤੁਹਾਨੂੰ ਪਤਾ ਲੱਗੇ ਕਿ ਹਰ ਕੰਮ ਨੇ ਕਿੰਨਾ ਕਮਾਇਆ।",
+  "auth.aside.signup.point3": "ਇੱਕ ਬੁਕਿੰਗ ਪੰਨਾ, ਇੱਕ ਵੈੱਬਸਾਈਟ ਅਤੇ ਆਨਲਾਈਨ ਭੁਗਤਾਨ — ਸਾਰੇ ਇੱਕੋ ਕੈਲੰਡਰ ਵੱਲ ਇਸ਼ਾਰਾ ਕਰਦੇ ਹਨ।",
+  "auth.aside.signup.billing": "{trial}। ਅਸੀਂ ਚੈੱਕਆਊਟ ਉੱਤੇ ਤੁਹਾਡਾ ਕਾਰਡ ਲੈਂਦੇ ਹਾਂ ਅਤੇ ਪਹਿਲਾ ਚਾਰਜ ਉਦੋਂ ਲੱਗਦਾ ਹੈ ਜਦੋਂ ਮੁਫ਼ਤ ਮਹੀਨਾ ਖ਼ਤਮ ਹੁੰਦਾ ਹੈ। ਪਲਾਨ ਤੁਸੀਂ ਆਖ਼ਰੀ ਪੜਾਅ ਵਿੱਚ ਚੁਣਦੇ ਹੋ — ਕੀਮਤ ਇਸ ਗੱਲ ਉੱਤੇ ਨਿਰਭਰ ਕਰਦੀ ਹੈ ਕਿ ਤੁਹਾਡਾ ਕਾਰੋਬਾਰ ਕਿੱਥੇ ਹੈ।",
+  "auth.aside.trades": "{count} ਕਿੱਤਿਆਂ ਲਈ ਬਣਾਇਆ ਗਿਆ, ਪੇਂਟਿੰਗ ਤੋਂ ਲੈ ਕੇ ਛੱਤਾਂ ਤੱਕ।",
 };
 
 const tl = {
@@ -3009,6 +3099,23 @@ const tl = {
   "feature.priced_options.limits": "Nakabuo na ang presyuhan sa likod nito at kayang gawin ang tatlong quote sa likod ng eksena, pero wala pang screen para dito — kaya sa ngayon, ikaw mismo ang gagawa ng tatlo. Kausapin mo muna kami bago bumili para dito.",
   "footer.links.glossary": "Glosaryo",
   "resources.glossary.description": "Malinaw na paliwanag sa mga terminong lumalabas sa quote, kontrata at lien notice.",
+
+  // The sign-in / sign-up side panel. It asked for these keys from the day it
+  // was written and no catalogue ever defined them, so t() fell through to the
+  // English fallback beside each one — a Spanish form with an English panel
+  // next to it, which is the first thing a new contractor sees.
+  "auth.aside.login.heading": "Lahat ng inaasahan ng araw ninyo",
+  "auth.aside.login.point1": "Gawin ang quote sa mismong site at ipadala bago pa kayo umalis sa driveway.",
+  "auth.aside.login.point2": "I-book ang visit, subaybayan ang oras at materyales, at mag-invoice base sa aktuwal na nagastos ng trabaho.",
+  "auth.aside.login.point3": "Tumanggap ng bayad online — nakalagay ang logo ninyo sa invoice at ang pangalan ninyo sa From line.",
+  "auth.aside.login.newHere": "Bago rito? Ilang minuto lang ang pagsisimula ng negosyo at libre ang unang buwan.",
+  "auth.aside.login.newHereCta": "Simulan ang libreng buwan",
+  "auth.aside.signup.heading": "Ito ang ise-set up ninyo",
+  "auth.aside.signup.point1": "Mga quote at invoice na may logo ninyo at kulay ng brand ninyo. Walang nakikita ang kliyente na bumabanggit sa amin.",
+  "auth.aside.signup.point2": "Mga trabaho, visit, oras at materyales na tinitimbang laban sa quote, para alam ninyo kung magkano ang kinita ng bawat isa.",
+  "auth.aside.signup.point3": "Isang booking page, isang website at online na bayad, lahat nakaturo sa iisang kalendaryo.",
+  "auth.aside.signup.billing": "{trial}. Kukunin namin ang card ninyo sa checkout at darating ang unang singil pagkatapos ng libreng buwan. Kayo ang pipili ng plano sa huling hakbang — nakadepende ang presyo sa kung saan naroon ang negosyo ninyo.",
+  "auth.aside.trades": "Ginawa para sa {count} uri ng trabaho, mula pintura hanggang bubong.",
 };
 
 // The /app catalogue is merged in rather than pasted here — see the header of
@@ -3369,6 +3476,23 @@ const de = {
   "feature.priced_options.limits": "Die Preislogik dahinter ist gebaut und die drei Angebote lassen sich im Hintergrund erzeugen — aber es gibt noch keine Oberfläche dafür, Sie würden heute also alle drei selbst erstellen. Sprechen Sie uns an, bevor Sie deswegen kaufen.",
   "footer.links.glossary": "Glossar",
   "resources.glossary.description": "Verständliche Erklärungen der Begriffe, die auf Angeboten, Verträgen und Pfandanzeigen auftauchen.",
+
+  // The sign-in / sign-up side panel. It asked for these keys from the day it
+  // was written and no catalogue ever defined them, so t() fell through to the
+  // English fallback beside each one — a Spanish form with an English panel
+  // next to it, which is the first thing a new contractor sees.
+  "auth.aside.login.heading": "Alles, worauf Ihr Tag läuft",
+  "auth.aside.login.point1": "Erstellen Sie das Angebot vor Ort und schicken Sie es ab, bevor Sie aus der Einfahrt fahren.",
+  "auth.aside.login.point2": "Termin buchen, Stunden und Material erfassen und danach abrechnen, was der Auftrag wirklich gebraucht hat.",
+  "auth.aside.login.point3": "Online kassieren — mit Ihrem Logo auf der Rechnung und Ihrem Namen in der Absenderzeile.",
+  "auth.aside.login.newHere": "Neu hier? Ein Unternehmen einzurichten dauert ein paar Minuten, und der erste Monat ist kostenlos.",
+  "auth.aside.login.newHereCta": "Kostenlosen Monat starten",
+  "auth.aside.signup.heading": "Was Sie hier einrichten",
+  "auth.aside.signup.point1": "Angebote und Rechnungen mit Ihrem Logo und Ihrer Markenfarbe. Nichts, was Ihr Kunde sieht, erwähnt uns.",
+  "auth.aside.signup.point2": "Aufträge, Termine, Stunden und Material gegen das Angebot gerechnet, damit Sie wissen, was jeder Auftrag gebracht hat.",
+  "auth.aside.signup.point3": "Eine Buchungsseite, eine Website und Online-Zahlung, alle auf denselben Kalender.",
+  "auth.aside.signup.billing": "{trial}. Wir hinterlegen Ihre Karte beim Bezahlvorgang, und die erste Abbuchung erfolgt am Ende des Gratismonats. Den Tarif wählen Sie im letzten Schritt — der Preis hängt davon ab, wo Ihr Betrieb sitzt.",
+  "auth.aside.trades": "Gebaut für {count} Gewerke, vom Malerbetrieb bis zur Dachdeckerei.",
 };
 
 const zh = {
@@ -3716,6 +3840,23 @@ const zh = {
   "feature.priced_options.limits": "背后的定价逻辑已经做好，三份报价单也能在后台生成，但目前还没有对应的界面 — 也就是说今天这三份得你自己做。若为此功能购买，请先联系我们。",
   "footer.links.glossary": "术语表",
   "resources.glossary.description": "用大白话解释报价单、合同和留置权通知里出现的术语。",
+
+  // The sign-in / sign-up side panel. It asked for these keys from the day it
+  // was written and no catalogue ever defined them, so t() fell through to the
+  // English fallback beside each one — a Spanish form with an English panel
+  // next to it, which is the first thing a new contractor sees.
+  "auth.aside.login.heading": "你一天要靠的东西，都在这里",
+  "auth.aside.login.point1": "在现场就把报价做好，还没出车道就发出去。",
+  "auth.aside.login.point2": "约上门时间，记工时和材料，按这活实际花的来开账单。",
+  "auth.aside.login.point3": "在线收款——账单上是你的标志，发件人是你的名字。",
+  "auth.aside.login.newHere": "第一次来？开个公司只要几分钟，头一个月免费。",
+  "auth.aside.login.newHereCta": "开始你的免费月",
+  "auth.aside.signup.heading": "你正在设置的东西",
+  "auth.aside.signup.point1": "报价单和账单用你的标志和你的品牌色。客户看到的东西里没有一处提到我们。",
+  "auth.aside.signup.point2": "活儿、上门、工时和材料都对着报价来算，你就知道每一单赚了多少。",
+  "auth.aside.signup.point3": "一个预约页面、一个网站和在线付款，都指向同一个日历。",
+  "auth.aside.signup.billing": "{trial}。结账时我们会记下你的银行卡，免费月结束时才第一次扣款。套餐在最后一步选——价格取决于你的生意在哪里。",
+  "auth.aside.trades": "为 {count} 个工种打造，从油漆到屋顶。",
 };
 
 const it = {
@@ -4207,6 +4348,23 @@ const it = {
   "feature.priced_options.limits": "La logica dei prezzi è pronta e i tre preventivi si possono generare dietro le quinte, ma non c'è ancora una schermata — quindi oggi li costruirebbe tutti e tre lei. Ce ne parli prima di acquistare per questa funzione.",
   "footer.links.glossary": "Glossario",
   "resources.glossary.description": "Definizioni in parole semplici dei termini che compaiono su preventivi, contratti e avvisi di privilegio.",
+
+  // The sign-in / sign-up side panel. It asked for these keys from the day it
+  // was written and no catalogue ever defined them, so t() fell through to the
+  // English fallback beside each one — a Spanish form with an English panel
+  // next to it, which is the first thing a new contractor sees.
+  "auth.aside.login.heading": "Tutto ciò su cui si regge la sua giornata",
+  "auth.aside.login.point1": "Prepari il preventivo sul posto e lo invii prima di lasciare il vialetto.",
+  "auth.aside.login.point2": "Fissi la visita, tenga il conto di ore e materiali e fatturi in base a quello che il lavoro ha richiesto davvero.",
+  "auth.aside.login.point3": "Incassi online — con il suo logo sulla fattura e il suo nome nel mittente.",
+  "auth.aside.login.newHere": "È nuovo? Avviare un'impresa richiede pochi minuti e il primo mese è gratuito.",
+  "auth.aside.login.newHereCta": "Inizi il suo mese gratuito",
+  "auth.aside.signup.heading": "Che cosa sta configurando",
+  "auth.aside.signup.point1": "Preventivi e fatture con il suo logo e il suo colore aziendale. Niente di ciò che vede il cliente ci nomina.",
+  "auth.aside.signup.point2": "Lavori, visite, ore e materiali confrontati con il preventivo, così sa quanto ha reso ognuno.",
+  "auth.aside.signup.point3": "Una pagina di prenotazione, un sito e il pagamento online, tutti collegati allo stesso calendario.",
+  "auth.aside.signup.billing": "{trial}. Prendiamo la sua carta alla cassa e il primo addebito arriva quando finisce il mese gratuito. Il piano lo sceglie all'ultimo passaggio — il prezzo dipende da dove si trova la sua impresa.",
+  "auth.aside.trades": "Fatto per {count} mestieri, dalla verniciatura alla copertura dei tetti.",
 };
 
 const MARKETING = Object.fromEntries(
@@ -4216,6 +4374,7 @@ const MARKETING = Object.fromEntries(
       ...dict,
       ...(FEATURE_PAGE_MESSAGES[code] || {}),
       ...(COMPARE_PAGE_MESSAGES[code] || {}),
+      ...(SAVINGS_PAGE_MESSAGES[code] || {}),
     },
   ]),
 );
