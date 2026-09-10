@@ -85,7 +85,30 @@ import { handlerStatus } from "@/lib/sales/pipeline/registry";
 // enough to finish well inside a function's lifetime, and the per-provider
 // budgets in limits.js still cap what any one stage may spend in a run — this
 // raises the floor on throughput, not the ceiling on politeness.
-const BATCH = 50;
+// Raised from 50 with the provider ceilings, not instead of them.
+//
+// The loop in drainSalesPipeline is SEQUENTIAL — `for (const candidate of
+// candidates)` — so this is the number of tasks one invocation may walk, and
+// the invocation has `maxDuration = 300` against a cron that fires every 60
+// seconds. At 50 the run was finishing early and idle: measured completions
+// averaged 28 a minute with 1,414 tasks queued and ready, because most of the
+// batch was deferred on a provider ceiling rather than executed.
+//
+// 100 is the largest value the pipeline's own rule allows: scripts/
+// check-sales-pipeline.mjs asserts `maxDuration >= BATCH x 2 x 1.5`, which is
+// two seconds a task with half again for margin, and 300 / 3 is 100. I reached
+// for 250 first; the check refused it, and the check was right — it reasons
+// from the declared limit where I had reasoned from a peak-minute measurement
+// that conflated several invocations. Five of the eight stages are `local` —
+// enrich, technology, capabilities, opportunities, lead score — and cost
+// nothing outside the process, so a run that is mostly local finishes in
+// seconds and a run that is mostly provider-backed is bound by
+// lib/sales/pipeline/limits.js, which is where that decision belongs.
+//
+// 1,440 ticks x 100 is 144,000 tasks a day, roughly 20,000 prospects — well
+// past the 12,000 asked for, and deliberately so: the ceiling that should bind
+// is a provider budget somebody costed, not an arbitrary loop bound.
+const BATCH = 100;
 
 export async function GET(request) {
   // First, before any work — this header is the entire authentication boundary

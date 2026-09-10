@@ -798,7 +798,12 @@ function fnBody(src, name) {
     // was the only way to be sure a drain finished. It is declared now, and
     // THAT is what makes a bigger batch safe, so the check asserts the pair
     // rather than a number on its own.
-    ok("...and BATCH stays inside what one invocation can finish", batch <= 50, batch);
+    // The bare `batch <= 50` that stood here is gone, and nothing replaced it,
+    // because the assertion it was pretending to be already exists ten lines
+    // below: `declared >= batch * 2 * 1.5`. That one reasons — two seconds a
+    // task, the figure the route's header uses, with half again for margin —
+    // and it moves when maxDuration moves. A second bound with a softer
+    // constant beside it would only ever have hidden the stricter one.
     const declared = Number((/export const maxDuration = (\d+);/.exec(route) || [])[1]);
     ok("the route declares its own maxDuration rather than inheriting a dashboard setting",
       Number.isFinite(declared), declared);
