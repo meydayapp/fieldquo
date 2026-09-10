@@ -33,6 +33,21 @@
 // in two places is how a paused rep's laptop starts ringing, so the client
 // deliberately keeps no opinion about it.
 //
+// ══ Answering is the only moment anything knows WHO answered ══════════════
+//
+// An inbound SalesCallAttempt's `salesRepId` is written by the inbound webhook
+// before the phone has rung once, from whoever last rang that contractor, and
+// ringPlan then offers the call to up to three browsers at the same time. So
+// the rep who actually picked up was never recorded as having picked up: the
+// floor board and their own call history credited the call to somebody else,
+// or to nobody. Only this component knows, and only at the instant of the
+// click — so the click posts to /api/sales/calls/answered.
+//
+// What it posts is one CallSid, and a CallSid is a CLAIM, not proof. The route
+// reads the leg back from Twilio and refuses it unless the carrier says it was
+// rung at this rep's own client identity. Nothing here is trusted; the reply
+// is what the transfer control is rendered from.
+//
 // ══ Tokens expire ═════════════════════════════════════════════════════════
 //
 // A Voice access token is short-lived. A dock that registered once and never
@@ -43,6 +58,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Phone, PhoneOff, AlertTriangle, Headphones } from "lucide-react";
 
 import { fetchJson } from "@/lib/fetchJson";
+import TransferControl from "./TransferControl";
 
 /** Digits → something a person can read. Never throws on a short string. */
 function pretty(e164) {
@@ -57,6 +73,11 @@ export default function IncomingCallDock() {
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
   const [audioWarning, setAudioWarning] = useState("");
+  // Which logged call this is, once the server has confirmed it. Null until
+  // then, and the transfer control renders nothing on a null — a rep must
+  // never be shown a Transfer button over a call the server could not
+  // identify, because pressing it would refuse.
+  const [answered, setAnswered] = useState(null);
   const deviceRef = useRef(null);
   const callRef = useRef(null);
 
@@ -111,11 +132,15 @@ export default function IncomingCallDock() {
             // They hung up before anybody answered.
             setIncoming(null);
             setLive(false);
+            setAnswered(null);
             callRef.current = null;
           });
           call.on("disconnect", () => {
             setIncoming(null);
             setLive(false);
+            // Nothing about the last call belongs on the screen of the next
+            // one — least of all an attempt id a transfer would act on.
+            setAnswered(null);
             callRef.current = null;
           });
         });
@@ -157,17 +182,67 @@ export default function IncomingCallDock() {
     };
   }, [fetchToken]);
 
-  function answer() {
+  /**
+   * Which CallSid the SDK is holding for this incoming call.
+   *
+   * `call.parameters.CallSid` for an INCOMING call is the leg Twilio placed to
+   * `client:sales_rep:<id>` out of `<Dial><Client>` — a call resource of its
+   * own, whose parent is the contractor's inbound call. It is NOT the SID on
+   * the SalesCallAttempt row, and the server knows that: it looks the leg up
+   * with the carrier and matches on the parent. `customParameters` is read
+   * first only because a `<Parameter>` would be exact if one is ever added,
+   * and reading a Map that is usually empty costs nothing.
+   */
+  function sidOf(call) {
+    const custom = call?.customParameters?.get?.("CallSid");
+    const sid = custom || call?.parameters?.CallSid || null;
+    return typeof sid === "string" && sid ? sid : null;
+  }
+
+  async function answer() {
     const call = incoming?.call;
     if (!call) return;
     try {
-      // The click IS the user gesture browsers require before audio plays.
+      // The click IS the user gesture browsers require before audio plays, so
+      // it happens FIRST and nothing is awaited before it. Telling the server
+      // who answered matters; making the rep wait on a round trip to hear the
+      // contractor does not.
       call.accept();
       callRef.current = call;
       setLive(true);
       setError("");
     } catch (err) {
       setError(err?.message || "Could not pick up.");
+      return;
+    }
+
+    const callSid = sidOf(call);
+    if (!callSid) {
+      // No SID means nothing can be filed and nothing can be transferred. Said
+      // where the rep will see it rather than swallowed: the call itself is
+      // fine, and what they need to know is that it will not be logged to
+      // them.
+      setAnswered({ attemptId: null, note: "This call could not be matched to a record, so it cannot be handed on." });
+      return;
+    }
+
+    try {
+      const body = await fetchJson("/api/sales/calls/answered", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ callSid }),
+      });
+      setAnswered({
+        // Only when the server says both legs are on the row. `transferable`
+        // false renders no control at all rather than a button that refuses.
+        attemptId: body?.transferable ? body.attemptId || null : null,
+        note: body?.transferable ? "" : "This call cannot be handed on: its own line was never recorded.",
+      });
+    } catch (err) {
+      setAnswered({
+        attemptId: null,
+        note: err?.message || "This call could not be matched to a record, so it cannot be handed on.",
+      });
     }
   }
 
@@ -194,6 +269,7 @@ export default function IncomingCallDock() {
     callRef.current = null;
     setIncoming(null);
     setLive(false);
+    setAnswered(null);
   }
 
   // Nothing to say when nothing is happening. The dock is not a status light —
@@ -274,11 +350,34 @@ export default function IncomingCallDock() {
               </>
             )}
           </div>
-          {!live ? (
+          {/* ── Handing them to somebody else ─────────────────────────────
+              The SAME control the outbound dialler renders, imported rather
+              than copied: two pickers over one state machine is AGENTS.md
+              failure class 4 aimed at a live call, and the copy that rots
+              would be this one, because inbound calls are rarer.
+
+              `attemptId` is null until /api/sales/calls/answered has said
+              which logged call this is, and it stays null when the server
+              says the call has no rep leg to hand back from — so the control
+              renders nothing at all rather than a button that would refuse.
+              The reason is said below instead. */}
+          {live ? (
+            <>
+              <TransferControl
+                attemptId={answered?.attemptId || null}
+                active={live}
+                onError={setError}
+                tone="dock"
+              />
+              {answered?.note ? (
+                <p className="text-xs text-muted-foreground">{answered.note}</p>
+              ) : null}
+            </>
+          ) : (
             <p className="text-xs text-muted-foreground">
               Declining passes them to the next person on the ring plan, not to voicemail.
             </p>
-          ) : null}
+          )}
         </div>
       ) : null}
 

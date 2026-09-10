@@ -11255,6 +11255,33 @@ model SalesCallAttempt {
   /// without every historical row silently claiming it.
   matchedBy String?
 
+  /// The rep who actually PICKED UP an inbound call.
+  ///
+  /// `salesRepId` above is "who this call is filed to", and on an inbound row
+  /// it is written BEFORE anybody answers — from whoever last rang this
+  /// contractor, falling back to the claim holder, falling back to null
+  /// (app/api/rep-dial/inbound). That is the right value to hold while the
+  /// phone is ringing and the wrong one afterwards: the ring plan offers one
+  /// call to up to three people, and which of them took it is a fact only
+  /// their own browser knows. Without this column the floor board, a rep's own
+  /// call history and every report attributed an answered callback to whoever
+  /// happened to have rung that contractor last, or to nobody.
+  ///
+  /// So app/api/sales/calls/answered writes this column AND moves salesRepId
+  /// onto the same rep, and may only do so while this column is null. That
+  /// null IS the guard: an attribution established by an actual answer is
+  /// never silently replaced by a second claim. The rejected alternative was
+  /// last-writer-wins, which on the race where two docks accept in the same
+  /// second files the call against whichever HTTP request arrived second —
+  /// decided by network jitter and invisible in the data afterwards.
+  ///
+  /// A loose pointer with no relation, the shape SalesSuppression uses for the
+  /// same reason: a second relation to SalesRep would have to be named, which
+  /// renames the existing one on every row that reads it, and nothing here
+  /// wants a cascade — a rep leaving must not delete the evidence that a
+  /// contractor rang back and was spoken to.
+  answeredByRepId String?
+
   dialledAt DateTime @default(now())
 
   // ── What the carrier reported. Browser dials only ─────────────────────

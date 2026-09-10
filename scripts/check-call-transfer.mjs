@@ -746,10 +746,31 @@ section("8. The routes actually use it");
   ok("the rep's route goes through the calling gate", /requireCallingRep\(request\)/.test(repRoute));
   ok("…on both handlers", (repRoute.match(/requireCallingRep\(request\)/g) || []).length === 2);
   ok("…and returns the gate's refusal verbatim", /if \(refusal\)/.test(repRoute));
-  ok("the attempt is scoped to the rep in the WHERE", /where: \{ id: attemptId, salesRepId: repId \}/.test(repRoute));
+  // Scoped to the rep, on BOTH columns that can name one. This asserted
+  // `salesRepId` alone until inbound calls could be answered in the browser,
+  // and that was the bug: an inbound row's salesRepId is written before the
+  // phone rings, from whoever last rang that contractor, so the rep actually
+  // holding the call failed this WHERE and was told it was not theirs.
+  // `answeredByRepId` widens nothing — it is written only by
+  // /api/sales/calls/answered, and only after Twilio has confirmed the leg was
+  // rung at that rep's own client identity.
+  ok("the attempt is scoped to the rep in the WHERE",
+    /OR: \[\{ salesRepId: repId \}, \{ answeredByRepId: repId \}\]/.test(repRoute));
+  ok("…and to nobody the request named", !/body\.(salesRepId|answeredByRepId|repId)/.test(repRoute));
   ok("the target list is rebuilt in the request that acts on it", /freeTargetsFor\(rep\.id\)/.test(repRoute));
   ok("no CallSid is ever read from the request body", !/body\.(caller|rep|target)CallSid/i.test(repRoute));
-  ok("the caller is moved, never the rep's leg", /moveCallerToConference\(/.test(repRoute) && !/moveRepToConference/.test(repRoute));
+  // WHICH leg is redirected is not the same in both directions, and this used
+  // to assert it was always the caller. That was right while only outbound
+  // calls could be transferred: there the rep's browser is the PARENT of the
+  // <Dial>, and redirecting a parent hangs the child up — the caller. On an
+  // INBOUND call the roles are reversed, so moving the caller would have
+  // dropped the rep and left nobody to hand the caller back to. The choice is
+  // conferenceMoveLeg's, carried on the plan, and section 3 of
+  // scripts/check-inbound-transfer.mjs executes both branches of it.
+  ok("the leg to move comes from the plan, never from an if in the route",
+    /plan\.moveLeg === MOVE_REP/.test(repRoute) && !/direction === "in"/.test(repRoute));
+  ok("…the caller on an outbound call", /moveCallerToConference\(/.test(repRoute));
+  ok("…and the rep on an inbound one", /moveRepToConference\(/.test(repRoute));
   ok("a second transfer on one call is refused rather than started", /already being transferred/i.test(read("app/api/sales/calls/transfer/route.js")));
 
   const inbound = source("app/api/rep-dial/inbound/route.js");

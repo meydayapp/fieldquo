@@ -109,11 +109,14 @@ import {
   attachProviderCall,
   callStoreState,
   lastOutboundBetween,
+  openTransferFor,
   presenceFor,
   recordInbound,
   recordVoicemail,
   salesVoiceNumber,
+  transferStoreState,
 } from "@/lib/sales/calls/store";
+import { callerConferenceTwiml } from "@/lib/sales/calls/transferRest";
 
 /** The voice Twilio's <Say> uses. The same one the bridge refuses with. */
 const VOICE = "alice";
@@ -237,6 +240,35 @@ async function afterDial(request, params) {
   const attemptId = new URL(request.url).searchParams.get("attemptId");
   const status = typeof params.DialCallStatus === "string" ? params.DialCallStatus : null;
   const seconds = Number(params.DialCallDuration);
+
+  // ── The <Dial> ended because this call is being TRANSFERRED ────────────
+  //
+  // Checked before anything else, because everything else in this function is
+  // about a call that is over and this one is not.
+  //
+  // On an inbound call the contractor is the PARENT of the <Dial> and the
+  // rep's browser is the child. Twilio's rule — see conferenceMoveLeg in
+  // lib/sales/calls/transfer.js — is that redirecting the parent hangs the
+  // child up, so an inbound transfer redirects the REP, and the contractor
+  // arrives HERE the instant that happens, with DialCallStatus "completed".
+  //
+  // Falling through would do two wrong things at once: mark the attempt ended
+  // while the caller is still on the line, and answer with an empty document,
+  // which hangs up on the person the transfer was supposed to keep hold of.
+  // So the caller is placed in the same conference the rep just entered,
+  // through the SAME builder /api/sales/calls/transfer uses for the outbound
+  // direction — a second copy of that document is the one that would forget
+  // the hold callback and leave somebody in silence.
+  if (attemptId && transferStoreState().ready) {
+    const open = await openTransferFor(attemptId).catch(() => null);
+    // Matched on the leg, not merely on the attempt: a call that was
+    // transferred, came back, and rang out again reaches this function for
+    // ordinary reasons, and only the leg named on the transfer row is the one
+    // being moved.
+    if (open && open.callerCallSid && open.callerCallSid === params.CallSid) {
+      return xml(callerConferenceTwiml({ transfer: open, origin: getAppOrigin(request) }));
+    }
+  }
 
   // The rep's name is re-read from the attempt rather than carried across the
   // two legs in the query string. Two reasons, and the second is the one that

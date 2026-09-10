@@ -923,9 +923,19 @@ ok("the token route requires an API KEY, not just any Twilio credential", (() =>
   const src = source("app/api/sales/calls/token/route.js");
   return /TWILIO_API_KEY_SID/.test(src) && /TWILIO_API_KEY_SECRET/.test(src);
 })());
-ok("the token grants no INCOMING calls to a rep's browser", (() => {
+// This asserted `incomingAllow: false` until the inbound half of the floor
+// existed, and its reason was right at the time: a grant to RECEIVE is only
+// safe once something server-side decides who is rung and something
+// client-side is listening. Both landed —
+// lib/sales/calls/inboundDistribution.js and
+// app/components/sales/IncomingCallDock.js — and the grant was turned on with
+// them, which left this assertion contradicting the shipped decision and
+// scripts/check-inbound-answer.mjs, whose section 1 mints the token and
+// decodes the JWT. Inverted rather than deleted: the property still worth
+// holding is that the grant is deliberate and stated in one place.
+ok("the token grants INCOMING calls, because something now answers them", (() => {
   const src = source("app/api/sales/calls/token/route.js");
-  return /incomingAllow:\s*false/.test(src);
+  return /incomingAllow:\s*true/.test(src) && !/incomingAllow:\s*false/.test(src);
 })());
 
 ok("the bridge verifies Twilio's signature before anything else", (() => {

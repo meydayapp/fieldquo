@@ -39,6 +39,11 @@
 //                  them into the conference. Without this stage the rep's leg
 //                  simply ends and the transfer loses the only person who
 //                  could take the caller back.
+//                  OUTBOUND ONLY. On an inbound call the legs are the other
+//                  way round — the contractor is the parent — so it is the
+//                  REP who is redirected and the CALLER who arrives at a Dial
+//                  action, which is /api/rep-dial/inbound?stage=after-dial.
+//                  See conferenceMoveLeg in lib/sales/calls/transfer.js.
 //   target         the TwiML the person being transferred to hears: a whisper
 //                  saying who it is from, then the conference.
 //   target-status  the target's leg ended. This is where "nobody answered"
@@ -69,11 +74,10 @@ import {
 } from "@/lib/sales/calls/transfer";
 import {
   applyTransferActions,
+  conferenceJoinTwiml,
   conferenceParticipantSids,
   legIsUp,
 } from "@/lib/sales/calls/transferRest";
-
-const VOICE = "alice";
 
 /** An empty document. Ends the leg without saying anything. */
 function silence() {
@@ -88,40 +92,16 @@ function silence() {
 const noted = () => new NextResponse("", { status: 204 });
 
 /**
- * Say the lines, then join the conference — or say them and stop.
+ * The join document, as an HTTP answer.
  *
- * Both legs that get TwiML here take the same shape, so it is written once. A
- * second copy is the one that would forget `endConferenceOnExit: false` and
- * end the whole conference when a rep steps out of it.
+ * The document itself is built by lib/sales/calls/transferRest.js, because a
+ * rep's leg reaches the conference two ways — fetched here when a `<Dial>`
+ * action sends it, and PUSHED by moveRepToConference when an inbound call is
+ * transferred — and two copies of it is the copy that forgets
+ * `endConferenceOnExit: false` and ends the room when a rep steps out.
  */
-function joinTwiml({ plan, conferenceName, origin, transferId }) {
-  const twiml = new twilio.twiml.VoiceResponse();
-  for (const line of plan.say || []) twiml.say({ voice: VOICE }, line);
-  if (!plan.join || !conferenceName) {
-    twiml.hangup();
-    return new NextResponse(twiml.toString(), {
-      status: 200,
-      headers: { "Content-Type": "text/xml" },
-    });
-  }
-  const dial = twiml.dial();
-  dial.conference(
-    {
-      // A rep entering starts the room. The caller was placed with
-      // startConferenceOnEnter false so they hear wait music until somebody
-      // who can actually talk to them arrives.
-      startConferenceOnEnter: true,
-      // NEVER true here. The transferring rep steps out of a completed
-      // transfer on purpose, and ending the conference on their way would drop
-      // the caller and the person who just took them.
-      endConferenceOnExit: false,
-      beep: false,
-      statusCallback: `${origin}/api/rep-dial/transfer?stage=conference&transferId=${encodeURIComponent(transferId)}`,
-      statusCallbackMethod: "POST",
-      statusCallbackEvent: "join leave",
-    },
-    conferenceName,
-  );
+function joinResponse({ plan, conferenceName, origin, transferId }) {
+  const twiml = conferenceJoinTwiml({ plan, conferenceName, origin, transferId });
   return new NextResponse(twiml.toString(), {
     status: 200,
     headers: { "Content-Type": "text/xml" },
@@ -152,7 +132,7 @@ export async function POST(request) {
     const attemptId = url.searchParams.get("attemptId");
     const transfer = attemptId ? await openTransferFor(attemptId) : null;
     const plan = repLegPlan({ transfer });
-    return joinTwiml({
+    return joinResponse({
       plan,
       conferenceName: plan.conferenceName,
       origin,
@@ -173,7 +153,7 @@ export async function POST(request) {
       fromRepName = row?.name || null;
     }
     const plan = targetLegPlan({ transfer, fromRepName });
-    return joinTwiml({
+    return joinResponse({
       plan,
       conferenceName: plan.conferenceName,
       origin,

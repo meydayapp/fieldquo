@@ -35,18 +35,18 @@
 // thing it holds back is starting another call, because two unlogged calls is
 // how a day's numbers become unrecoverable.
 //
-// ══ Transfer renders only when it can actually happen ═════════════════════
+// ══ Transfer lives in TransferControl, not here ═══════════════════════════
 //
-// Three things have to be true before the button appears: the SalesCallTransfer
-// table exists in this deployment's client, this call has both of its legs on
-// the row (a handset dial has neither), and somebody other than this rep is
-// reachable. Each is asked of the server, and a false answer removes the
-// control rather than greying it or letting it throw on press — the difference
-// between "no one else is free right now" and a button that appears to work.
+// It used to be written out in this file, which is why it only ever worked on
+// an outbound call: a rep who ANSWERED a callback in IncomingCallDock had no
+// way to hand it to anybody. The control is now
+// app/components/sales/TransferControl.js and both screens render it —
+// extracted rather than copied, because two pickers over one state machine is
+// AGENTS.md failure class 4 pointed at a live call.
 //
-// The target list is a courtesy. The server rebuilds it from presence read in
-// the request that acts on it, so a picker left open for ten minutes cannot
-// hand a caller to somebody who has gone home.
+// Nothing about the behaviour moved with it: the same three states, the same
+// polling, the same rule that it renders nothing at all when the server says
+// this call cannot be transferred.
 //
 // ══ The playbook loads WITH the prospect, never on the press ══════════════
 //
@@ -75,11 +75,10 @@ import {
   PhoneOff,
   ShieldAlert,
   CalendarPlus,
-  PhoneForwarded,
-  X,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import CallPlaybook from "./CallPlaybook";
+import TransferControl from "./TransferControl";
 import EventModal from "@/app/sales/calendar/EventModal";
 
 const BTN =
@@ -169,15 +168,6 @@ export default function CallPanel({
   const [playbook, setPlaybook] = useState(null);
   const [playbookLoading, setPlaybookLoading] = useState(false);
   const [playbookError, setPlaybookError] = useState("");
-
-  // Handing the caller to somebody else. `xfer` is the server's whole answer —
-  // whether transfers exist here, whether THIS call has the two legs a
-  // transfer needs, who is reachable, and the transfer in flight if there is
-  // one. Kept as one object because the screen has to be able to say which of
-  // those is missing, and four booleans would let it say none of them.
-  const [xfer, setXfer] = useState(null);
-  const [showTransfer, setShowTransfer] = useState(false);
-  const [xferBusy, setXferBusy] = useState("");
 
   const deviceRef = useRef(null);
   const callRef = useRef(null);
@@ -360,87 +350,6 @@ export default function CallPanel({
     }
   }
 
-  // ── Transfer ────────────────────────────────────────────────────────────
-  //
-  // Read once when the call connects, then polled only while the picker is
-  // open or a transfer is actually running. Polling for the whole call would
-  // put a query on the server every three seconds for a control most calls
-  // never use.
-  const attemptId = attempt?.attemptId || null;
-
-  const loadTransfer = useCallback(async () => {
-    if (!attemptId) return;
-    try {
-      setXfer(await fetchJson(`/api/sales/calls/transfer?attemptId=${encodeURIComponent(attemptId)}`));
-    } catch {
-      /* A failed poll must not remove a live control from under a rep who is
-         mid-transfer. Whatever we last knew stays on screen. */
-    }
-  }, [attemptId]);
-
-  useEffect(() => {
-    if (!startedAt || !attemptId) return undefined;
-    loadTransfer();
-    return undefined;
-  }, [startedAt, attemptId, loadTransfer]);
-
-  const transferLive = Boolean(xfer?.transfer);
-  useEffect(() => {
-    if (!startedAt || !attemptId) return undefined;
-    if (!showTransfer && !transferLive) return undefined;
-    const id = setInterval(loadTransfer, 3000);
-    return () => clearInterval(id);
-  }, [startedAt, attemptId, showTransfer, transferLive, loadTransfer]);
-
-  // The call ended — by a completed transfer or by a hangup. Nothing about the
-  // last transfer belongs on the screen of the next call.
-  useEffect(() => {
-    if (startedAt) return;
-    setXfer(null);
-    setShowTransfer(false);
-  }, [startedAt]);
-
-  async function beginTransfer(kind, targetKey) {
-    if (!attemptId) return;
-    setXferBusy(`${kind}:${targetKey}`);
-    setError("");
-    try {
-      const body = await fetchJson("/api/sales/calls/transfer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "start", attemptId, kind, targetKey }),
-      });
-      setXfer((prev) => ({ ...(prev || {}), transfer: body.transfer }));
-      setShowTransfer(false);
-    } catch (err) {
-      setError(err?.message || "That transfer could not be started.");
-    } finally {
-      setXferBusy("");
-    }
-  }
-
-  async function endTransfer(action) {
-    const id = xfer?.transfer?.id;
-    if (!id) return;
-    setXferBusy(action);
-    setError("");
-    try {
-      const body = await fetchJson("/api/sales/calls/transfer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, transferId: id }),
-      });
-      // Said out loud when half of it took effect. A rep who is told nothing
-      // assumes the caller can hear them.
-      if (body?.warning) setError(body.warning);
-    } catch (err) {
-      setError(err?.message || "That did not go through.");
-    } finally {
-      setXferBusy("");
-      await loadTransfer();
-    }
-  }
-
   function hangUp() {
     try {
       callRef.current?.disconnect?.();
@@ -568,128 +477,11 @@ export default function CallPanel({
           </div>
 
           {/* ── Handing them to somebody else ──────────────────────────────
-              Three states, and only one of them is ever on screen: a transfer
-              in flight, the picker, or the button that opens it. Nothing
-              renders at all when the server says this call cannot be
-              transferred — a greyed button with a tooltip is still a control
-              that does not work. */}
-          {xfer?.transfer ? (
-            <div className="rounded-lg border border-emerald-400 bg-white/60 dark:bg-black/20 p-3 space-y-2">
-              <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-100 break-words">
-                {xfer.transfer.describe || "Transferring…"}
-              </p>
-              <div className="flex gap-2">
-                {/* Only while they are actually talking. Putting the caller
-                    through to a phone that has not been picked up is the blind
-                    hand-off warm exists to prevent, and the server refuses it —
-                    so the button is not there to be pressed. */}
-                {xfer.transfer.state === "talking" ? (
-                  <button
-                    type="button"
-                    className={`${BTN} bg-primary text-primary-foreground flex-1`}
-                    disabled={Boolean(xferBusy)}
-                    onClick={() => endTransfer("complete")}
-                  >
-                    {xferBusy === "complete" ? <Loader2 className="animate-spin" size={16} /> : null}
-                    Put them through
-                  </button>
-                ) : null}
-                {xfer.transfer.state === "ringing" || xfer.transfer.state === "talking" ? (
-                  <button
-                    type="button"
-                    className={`${BTN} border border-emerald-400 text-emerald-900 dark:text-emerald-100 flex-1`}
-                    disabled={Boolean(xferBusy)}
-                    onClick={() => endTransfer("cancel")}
-                  >
-                    {xferBusy === "cancel" ? <Loader2 className="animate-spin" size={16} /> : null}
-                    Never mind
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          ) : showTransfer ? (
-            <div className="rounded-lg border border-emerald-400 bg-white/60 dark:bg-black/20 p-3 space-y-2">
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
-                  Hand this caller to…
-                </p>
-                <button
-                  type="button"
-                  aria-label="Close"
-                  className="text-emerald-900 dark:text-emerald-100"
-                  onClick={() => setShowTransfer(false)}
-                >
-                  <X size={16} />
-                </button>
-              </div>
-              {(xfer?.targets || []).length === 0 ? (
-                /* Said, not hidden. A rep who presses transfer and sees an
-                   empty box assumes the feature is broken; the truth is that
-                   everyone else is on a call. */
-                <p className="text-xs text-emerald-900 dark:text-emerald-200">
-                  Nobody else is free right now. Presence goes stale after a
-                  quarter of an hour, so a rep who has closed their laptop is
-                  not on this list even if they never signed out.
-                </p>
-              ) : (
-                <ul className="space-y-2">
-                  {xfer.targets.map((t) => (
-                    <li key={t.key} className="space-y-1">
-                      <p className="text-sm text-emerald-900 dark:text-emerald-100 break-words">
-                        {t.name || t.value}{" "}
-                        <span className="text-xs text-emerald-800 dark:text-emerald-300">
-                          — {t.why}
-                        </span>
-                      </p>
-                      <div className="flex gap-2">
-                        {/* Two buttons rather than a mode switch, because the
-                            two sound completely different to the person on
-                            hold and a rep should not have to remember which
-                            way a toggle was left. */}
-                        <button
-                          type="button"
-                          className={`${BTN} bg-primary text-primary-foreground flex-1`}
-                          disabled={Boolean(xferBusy)}
-                          onClick={() => beginTransfer("warm", t.key)}
-                        >
-                          {xferBusy === `warm:${t.key}` ? (
-                            <Loader2 className="animate-spin" size={16} />
-                          ) : null}
-                          Speak first
-                        </button>
-                        <button
-                          type="button"
-                          className={`${BTN} border border-emerald-400 text-emerald-900 dark:text-emerald-100 flex-1`}
-                          disabled={Boolean(xferBusy)}
-                          onClick={() => beginTransfer("cold", t.key)}
-                        >
-                          {xferBusy === `cold:${t.key}` ? (
-                            <Loader2 className="animate-spin" size={16} />
-                          ) : null}
-                          Straight through
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <p className="text-xs text-emerald-800 dark:text-emerald-300">
-                Either way the caller goes on hold while it rings, and comes
-                back to you if nobody picks up.
-              </p>
-            </div>
-          ) : xfer?.ready && xfer?.transferable ? (
-            <button
-              type="button"
-              className={`${BTN} border border-emerald-400 text-emerald-900 dark:text-emerald-100 w-full`}
-              onClick={() => {
-                setShowTransfer(true);
-                loadTransfer();
-              }}
-            >
-              <PhoneForwarded size={16} /> Transfer this call
-            </button>
-          ) : null}
+              The same control the inbound dock renders, extracted rather than
+              copied: two pickers over one state machine is AGENTS.md failure
+              class 4 aimed at a live call. It renders nothing at all when the
+              server says this call cannot be transferred. */}
+          <TransferControl attemptId={attempt?.attemptId || null} active={Boolean(startedAt)} onError={setError} tone="call" />
         </div>
       ) : null}
 

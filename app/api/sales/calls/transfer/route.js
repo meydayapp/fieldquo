@@ -61,6 +61,7 @@ import {
   onComplete,
   startTransferPlan,
   transferTargets,
+  MOVE_REP,
   TRANSFER_KINDS,
   XFER_FAILED,
 } from "@/lib/sales/calls/transfer";
@@ -68,6 +69,7 @@ import {
   applyTransferActions,
   dialTransferTarget,
   moveCallerToConference,
+  moveRepToConference,
 } from "@/lib/sales/calls/transferRest";
 
 const ACTIONS = ["start", "complete", "cancel"];
@@ -95,16 +97,37 @@ async function freeTargetsFor(repId) {
   });
 }
 
-/** The attempt, scoped to this rep. A mismatched pair matches nothing. */
+/**
+ * The attempt, scoped to this rep. A mismatched pair matches nothing.
+ *
+ * ── Two columns can name the rep, and both have to be here ──────────────
+ *
+ * `salesRepId` alone was the scope until inbound calls could be answered in
+ * the browser, and on an inbound row it is written BEFORE anybody picks up —
+ * from whoever last rang that contractor. So the rep actually holding an
+ * answered callback usually failed this WHERE, and pressing transfer told them
+ * it was not one of their calls.
+ *
+ * `answeredByRepId` is the fix and it widens nothing: it is written only by
+ * /api/sales/calls/answered, only after Twilio has confirmed the leg was rung
+ * at that rep's own client identity, and only while it is null. See the column
+ * note in prisma/schema.prisma.
+ */
 async function attemptFor(repId, attemptId) {
   if (!attemptId) return null;
   return db.salesCallAttempt
     .findFirst({
-      where: { id: attemptId, salesRepId: repId },
+      where: {
+        id: attemptId,
+        OR: [{ salesRepId: repId }, { answeredByRepId: repId }],
+      },
       select: {
         id: true,
         toE164: true,
         fromE164: true,
+        // Which leg gets redirected into the conference depends entirely on
+        // this — see conferenceMoveLeg in lib/sales/calls/transfer.js.
+        direction: true,
         providerCallSid: true,
         repCallSid: true,
         endedAt: true,
@@ -220,20 +243,32 @@ export async function POST(request) {
     });
     if (!created.ok) return bad(created.error, 503);
 
-    // ── The caller moves first, and the rep follows on their own ─────────
+    // ── One leg is redirected and the other follows on its own ───────────
     //
-    // Redirecting the caller ends the bridge's `<Dial>`, which sends the rep's
-    // leg to that Dial's `action` — /api/rep-dial/transfer?stage=rep-leg —
-    // where it joins the same conference. Trying to redirect the rep's leg
-    // here instead would cancel the `<Dial>` and hang the caller up.
+    // WHICH one is not the same in both directions, and getting it backwards
+    // hangs somebody up. Redirecting the CHILD of a `<Dial>` ends the Dial
+    // cleanly and sends the parent to that Dial's `action`; redirecting the
+    // PARENT hangs the child up. On an outbound call the rep's browser is the
+    // parent, so the caller moves and the rep follows through
+    // /api/rep-dial/transfer?stage=rep-leg. On an inbound call the contractor
+    // is the parent, so the REP moves and the caller follows through
+    // /api/rep-dial/inbound?stage=after-dial.
+    //
+    // The choice is `plan.moveLeg`, decided by conferenceMoveLeg in
+    // lib/sales/calls/transfer.js, so a check script drives both without a
+    // phone. Nothing here re-derives it from `direction`.
     try {
-      await moveCallerToConference({ transfer: created.transfer, origin });
+      if (plan.moveLeg === MOVE_REP) {
+        await moveRepToConference({ transfer: created.transfer, origin });
+      } else {
+        await moveCallerToConference({ transfer: created.transfer, origin });
+      }
     } catch (err) {
       await advanceTransfer({
         id,
         fromState: "ringing",
         toState: XFER_FAILED,
-        failureReason: "the caller could not be moved into the transfer",
+        failureReason: "the call could not be moved into the transfer",
         endedAt: new Date(),
       });
       await recordError({

@@ -122,19 +122,64 @@ in its URL was a silent 403, including the existing `?stage=after-dial` leg, so
 a contractor whose callback nobody answered heard Twilio's own "an application
 error has occurred". Executed in the check against a real signature.
 
-`npm run check:call-transfer` — 238 assertions, in `check:all`. Mutation-tested:
+`npm run check:call-transfer` — 241 assertions, in `check:all`. Mutation-tested:
 thirteen guarantees broken on disk one at a time and each one confirmed to fail
 the check.
 
+### Transfer on an INBOUND call (10 September 2026)
+
+The owner asked whether the SOP's "you can transfer the call to someone" was
+real. It was, on outbound only. Three things stopped a rep who ANSWERED a
+callback from handing it to anybody, and the middle one is a bug on its own.
+
+**Nobody was recorded as having answered.** An inbound `SalesCallAttempt`'s
+`salesRepId` is written before the phone rings, from whoever last rang that
+contractor, and `ringPlan` offers the call to up to three browsers at once. So
+the floor board, a rep's own call history and every report keyed on that column
+credited an answered callback to somebody who was not on it, or to nobody — and
+the transfer route, which scoped on it, told the rep holding the handset it was
+not one of their calls. `SalesCallAttempt.answeredByRepId` is the fix: written
+only by `POST /api/sales/calls/answered`, which the dock calls the instant a rep
+accepts, and only while it is null, so an attribution established by an actual
+answer is never silently replaced. `salesRepId` moves onto the same rep in the
+same statement, which is what makes every existing report right without touching
+one of them.
+
+**The browser's CallSid is a claim, not proof.** `call.parameters.CallSid` for
+an incoming Voice SDK call is the leg Twilio placed to `client:sales_rep:<id>` —
+a child of the contractor's inbound call, not the SID on the attempt row. The
+route reads that leg back from the carrier and refuses it unless Twilio says it
+was rung at this rep's own identity, then matches its `parentCallSid` against
+`providerCallSid`. It is also the only moment the rep's own leg becomes
+knowable on the inbound path, which is what a transfer needs to hand the caller
+back from.
+
+**The legs are the other way round.** On an outbound call the rep's browser is
+the PARENT of the `<Dial>`; on an inbound one the contractor is. Twilio hangs
+the child up when the parent is redirected, so moving "the caller" into the
+conference on an inbound call would have dropped the rep and left nobody to give
+the caller back to. `conferenceMoveLeg()` decides which leg moves,
+`moveRepToConference()` performs the inbound half, and the contractor follows
+through the inbound `<Dial>`'s own action, which now honours a transfer in
+flight instead of hanging up on them.
+
+The picker itself was extracted out of `CallPanel` into
+`app/components/sales/TransferControl.js` and both screens render it — two
+pickers over one state machine is failure class 4 aimed at a live call.
+
+`npm run check:inbound-transfer` — 130 assertions, in `check:all`.
+Mutation-tested: thirteen guarantees broken on disk one at a time, each
+confirmed to fail, each restored from a `cp` backup.
+
 ### Still owed here
 
-- **Inbound calls cannot be ANSWERED in the browser.** The console registers a
-  Twilio Device only while placing an outbound call, so a rep whose client is
-  rung by `ringPlan` has nothing listening. Transfer is therefore reachable
-  from an outbound call only. That is a console change, not a routing one.
 - **Nothing plays a transfer back.** `SalesCallTransfer` is written and read by
   the rep's own screen while the call is live; the floor board does not yet
   show what was handed around today.
+- **A transferred-to rep cannot transfer onward.** The target's leg is placed by
+  `dialTransferTarget` and has no attempt row of its own, so
+  `/api/sales/calls/answered` refuses it in words and the dock renders no
+  control. Onward transfer needs a row for that leg first.
 
 ## Three losses the software caused (8 September 2026)
 
