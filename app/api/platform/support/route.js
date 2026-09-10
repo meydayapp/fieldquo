@@ -23,7 +23,10 @@ import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
 import { SUPPORT_STATUSES, SUPPORT_PRIORITIES } from "@/lib/support/escalation";
 
-export const LIST_SELECT = {
+// Route-local, not exported: nothing outside this file reads it, and a route
+// module's exports are its handlers. app/api/safety-incidents/route.js keeps
+// its own the same way.
+const LIST_SELECT = {
   id: true,
   subject: true,
   status: true,
@@ -59,21 +62,31 @@ export async function GET(request) {
   const [rows, counts] = await Promise.all([
     db.supportTicket.findMany({
       where: status ? { status } : {},
-      // Worst first, then oldest first inside a priority. A queue sorted only
-      // by date buries the urgent ticket somebody raised this morning under a
-      // fortnight of low-priority ones — and a queue sorted only by priority
-      // lets an old `normal` sit forever.
-      orderBy: [{ priority: "desc" }, { createdAt: "asc" }],
+      // ── This decides WHICH rows, not what order they are shown in ────────
+      //
+      // Oldest first, because the take below is a cap and the row that must
+      // never be the one dropped is the one that has been waiting longest.
+      //
+      // It is deliberately NOT `orderBy: { priority: "desc" }`. `priority` is
+      // a string column, so Postgres would sort it alphabetically: "urgent"
+      // above "normal" is luck, and "low" above "high" is plainly wrong. A
+      // database ordering that looks like the queue's rule but isn't is worse
+      // than none, because the JS sort below would hide it until the day the
+      // cap bites.
+      orderBy: { createdAt: "asc" },
       take: 300,
       select: LIST_SELECT,
     }),
     db.supportTicket.groupBy({ by: ["status"], _count: true }),
   ]);
 
-  // Prisma cannot order by an enum-of-strings the way this queue means it —
-  // "urgent" > "normal" alphabetically is luck, and "low" > "high" is not. So
-  // the final ordering is applied here, over the rows already read, against
-  // the list in lib/support/escalation.js rather than a second copy of it.
+  // ── The queue's actual order, applied here ─────────────────────────────
+  //
+  // Worst first, oldest first inside a priority. A queue sorted only by date
+  // buries the urgent ticket somebody raised this morning under a fortnight of
+  // low-priority ones; one sorted only by priority lets an old `normal` sit
+  // for ever. Ranked against SUPPORT_PRIORITIES in lib/support/escalation.js
+  // rather than a second copy of that list.
   const rank = (p) => {
     const i = SUPPORT_PRIORITIES.indexOf(p);
     // An unrecognised priority sorts LAST rather than first: a row with a
