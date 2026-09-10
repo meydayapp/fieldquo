@@ -234,6 +234,16 @@ section("6. It reaches the screen — the half that was missing");
   // A business with no website never enters the crawler, so a crawl count
   // lower than the prospect count is correct rather than missing work.
   ok("…and says why a business can skip the crawler", /no website/i.test(board));
+  // 402 detections declined because the crawl before them had nothing to hand
+  // over. That is shouldAdvance working as documented — "a failure does not
+  // strand the prospect" — and a screen that presents it as a fault sends
+  // somebody hunting a bug that is not there.
+  ok("…and says a declined stage does not strand the business", /not stranded/i.test(board));
+
+  const stalled = read("app/platform/sales/campaigns/[id]/page.js");
+  ok("abandoned is no longer described as nearly always configuration",
+    !/nearly always configuration/.test(stalled));
+  ok("…and says to read the reason first", /Read\s+the reason before treating it as a fault/.test(stalled));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -501,8 +501,13 @@ export default function PlatformSalesCampaignPage({ params }) {
             <p className="text-xs text-muted-foreground break-words">
               <span className="font-semibold">Failed</span> means it was tried and the attempts ran
               out — usually that website, sometimes a defect worth reporting.{" "}
-              <span className="font-semibold">Abandoned</span> means the stage refused to start,
-              which is nearly always configuration, and the reason names the screen that fixes it.
+              <span className="font-semibold">Abandoned</span> means the stage refused to start. Read
+              the reason before treating it as a fault: the largest group is a stage declining
+              because the one before it had nothing to hand over — a site that could not be read
+              leaves nothing to fingerprint — and that is the pipeline behaving correctly. The
+              business is NOT stranded by it; it carries on down the remaining stages and a rep can
+              still call it, just without the website intelligence. The reasons that ARE worth
+              acting on name a screen that fixes them.
             </p>
           </div>
         ) : null}

@@ -157,6 +157,12 @@ export default function StageBoard({ stages = [], pipeline = null }) {
         business with <span className="font-semibold">no website</span> skips the crawler and the two
         stages after it, so those counts are lower than the number of businesses on purpose.
       </p>
+      <p className="text-xs text-muted-foreground break-words">
+        Counts carry downstream: a site that could not be read leaves the next stage nothing to
+        fingerprint, so it declines and the number appears here too. That is the pipeline working —
+        a business whose website could not be read is not stranded, it keeps moving down the
+        remaining stages and a rep can still call it, without the website intelligence.
+      </p>
     </section>
   );
 }
