@@ -257,3 +257,41 @@ that homeowner in the homeowner's language. This is different from UI strings.
   * A rep can see what they have earned, and which company is at which stage.
   * Staff chat across /sales and /platform.
   * The sales tour opens itself and looks like the tours we sell.
+
+
+---
+
+## How seven agents in one tree actually went wrong
+
+Two failures today, and neither was a mistake inside an agent. Both lived in the
+space between them, where no agent could see and my per-agent instructions did
+not reach.
+
+**1. A committed file imported one that was never committed.** Every deploy
+after `b11b6643` failed at the first build gate: `lib/format/localeDate.js`
+imports `@/lib/format/dayNames`, and only the importer was on main. One agent
+created dayNames.js and was still working elsewhere; another built on it —
+correctly, rather than shipping a second Intl weekday table in the same
+directory — and committed. Each verified its own paths honestly. Only a build of
+the COMMITTED STATE could have caught it, and nobody was running one.
+
+  → Verify main after every agent lands, not at the end.
+
+**2. `git add <path>` is not enough when the index is shared.** Agents and I
+share one working tree AND one git index. `git add` puts a file in that shared
+index; `git commit` then commits THE WHOLE INDEX, not the paths just added. So
+another agent's staged-but-uncommitted files ride along silently.
+
+It happened twice, both mine: `67ee6cd0` ("A contractor was given a sales rep's
+phone number") carries 12 files of the roofing agent's work, and `8838851d`
+carries 1,353 lines of appMessages.js when the change was a ten-line tour step.
+The code is correct and on main; what is wrong is that two commit messages
+describe a fraction of their contents, which makes the history lie.
+
+  → `git commit -- <paths>` — the pathspec form commits ONLY those paths
+    whatever else is staged. `git add` by name does not protect anything.
+
+History is NOT being rewritten. Other agents have already built on these
+commits, and rewriting shared history to tidy an attribution is a worse problem
+than the attribution. The real explanations live in follow-up ledger commits
+instead — `f606abc7` for the roofing work.
