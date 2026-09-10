@@ -15,7 +15,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import EmbedCode from "@/app/components/settings/EmbedCode";
 import BackToHome from "@/app/components/BackToHome";
-import { AlertTriangle, Loader2, Plus, Trash2, Zap } from "lucide-react";
+import { AlertTriangle, Info, Loader2, Plus, Trash2, Zap } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
 import JunkGuidance from "@/app/components/settings/JunkGuidance";
@@ -463,7 +463,13 @@ function TradeCard({ trade, canEdit, onSaved }) {
     });
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
+    // Anchored so the "this one needs your price" finding above can link
+    // straight at the card instead of saying "scroll down and find Roofing".
+    // scroll-mt keeps the heading clear of the sticky app chrome.
+    <div
+      id={`trade-${trade.trade}`}
+      className="rounded-xl border border-border bg-card p-5 scroll-mt-20"
+    >
       <div className="flex items-start justify-between gap-4">
         <div>
           <h3 className="text-base font-semibold text-foreground flex flex-wrap items-center gap-2">
@@ -1312,16 +1318,23 @@ export default function InstantQuotesSettingsPage() {
     ];
   }, [trades]);
 
-  const findings = [
-    ...(mismatches?.instantWithoutService || []).map((m) => ({
-      kind: "instantWithoutService",
-      ...m,
-    })),
-    ...(mismatches?.serviceWithoutInstant || []).map((m) => ({
-      kind: "serviceWithoutInstant",
-      ...m,
-    })),
-  ];
+  // ── Two findings that used to be one panel, and shouldn't have been ──────
+  //
+  // They were both rendered under "your instant quotes and your services don't
+  // match", which framed each of them as a list to reconcile by hand. Only one
+  // of them is that. Since the settings route provisions a trade the moment it
+  // can price it from the company's OWN rates
+  // (lib/estimate/instantQuoteProvision.js), the second direction now has
+  // exactly one cause left, and it is not a mismatch at all:
+  //
+  //   quoted, not sold  → a genuine disagreement. A homeowner can be quoted
+  //                       for work nobody here does. Amber, unchanged.
+  //   sold, not quoted  → it WOULD be on, automatically, except the company
+  //                       has never stated a price for it and FieldQuo will
+  //                       not invent one. That is a missing number with a known
+  //                       home, so it says which card and links to it.
+  const quotedNotSold = mismatches?.instantWithoutService || [];
+  const needsYourPrice = mismatches?.serviceWithoutInstant || [];
 
   return (
     <div className="max-w-3xl px-4 sm:px-6 py-6 sm:py-8">
@@ -1419,7 +1432,7 @@ export default function InstantQuotesSettingsPage() {
           quote has roofing, which is not displayed in the services, so who
           does roofing?". Nothing here switches anything — each finding names
           the disagreement and points at the screen that settles it. */}
-      {findings.length > 0 && (
+      {quotedNotSold.length > 0 && (
         <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/30 p-4">
           <div className="flex items-start gap-2">
             <AlertTriangle
@@ -1434,22 +1447,16 @@ export default function InstantQuotesSettingsPage() {
                 )}
               </h2>
               <ul className="mt-2 space-y-1.5">
-                {findings.map((f) => (
+                {quotedNotSold.map((f) => (
                   <li
-                    key={`${f.kind}:${f.trade}`}
+                    key={`quoted:${f.trade}`}
                     className="text-xs text-amber-900 dark:text-amber-200"
                   >
-                    {f.kind === "instantWithoutService"
-                      ? t(
-                          "app.setInstantQuotes.mismatchInstantOnly",
-                          "You give homeowners an instant quote for {trade}, which isn't one of your services.",
-                          { trade: f.tradeLabel },
-                        )
-                      : t(
-                          "app.setInstantQuotes.mismatchServiceOnly",
-                          "You sell {service} and can quote it instantly, but you've never set it up.",
-                          { service: f.categoryLabels.join(" / ") },
-                        )}
+                    {t(
+                      "app.setInstantQuotes.mismatchInstantOnly",
+                      "You give homeowners an instant quote for {trade}, which isn't one of your services.",
+                      { trade: f.tradeLabel },
+                    )}
                   </li>
                 ))}
               </ul>
@@ -1468,6 +1475,52 @@ export default function InstantQuotesSettingsPage() {
                   )}
                 </Link>
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Sold, and one number short of being live ─────────────────────────
+          Not amber, because nothing is wrong: this is the last step of a
+          set-up that did the rest of itself. Each row links at the card whose
+          rate box is empty, so the fix is one click and one number rather
+          than a trip to Services and back. */}
+      {needsYourPrice.length > 0 && (
+        <div className="mb-6 rounded-xl border border-border bg-muted/40 p-4">
+          <div className="flex items-start gap-2">
+            <Info size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-foreground">
+                {t(
+                  "app.setInstantQuotes.needsPriceTitle",
+                  "These are ready to go live as soon as you price them",
+                )}
+              </h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t(
+                  "app.setInstantQuotes.needsPriceHelp",
+                  "Everything you sell that FieldQuo can price from your own rates is already switched on below. These are the ones where we don't have a rate of yours to use — and we won't quote a homeowner a number you didn't set.",
+                )}
+              </p>
+              <ul className="mt-2 space-y-1.5">
+                {needsYourPrice.map((f) => (
+                  <li key={`needs:${f.trade}`} className="text-xs text-foreground">
+                    {t(
+                      "app.setInstantQuotes.needsPriceRow",
+                      "You sell {service}. Set your price and it goes live.",
+                      { service: f.categoryLabels.join(" / ") },
+                    )}{" "}
+                    <a
+                      href={`#trade-${f.trade}`}
+                      className="underline font-medium"
+                    >
+                      {t("app.setInstantQuotes.needsPriceLink", "Price {trade}", {
+                        trade: f.tradeLabel,
+                      })}
+                    </a>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </div>

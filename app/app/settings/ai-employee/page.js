@@ -100,6 +100,7 @@ export default function AiEmployeePage() {
   const [sources, setSources] = useState([]);
   const [queue, setQueue] = useState({ suggestions: [], stopped: [] });
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [testText, setTestText] = useState("");
@@ -109,41 +110,87 @@ export default function AiEmployeePage() {
   const [paste, setPaste] = useState({ title: "", kind: "policy", text: "" });
   const fileInput = useRef(null);
 
+  // ── Why the main load reports a REASON and the other two do not ───────────
+  //
+  // This screen sat on "Loading…" forever on a real account. Three things had
+  // to be true at once, and all three were:
+  //
+  //   1. `load()` returned early on a bad status without setting `data`, and
+  //      the render guard below was `loading || !form || !data` — so a
+  //      REFUSED load and a load still IN FLIGHT drew the identical frame.
+  //      The spinner was the error state, silently.
+  //   2. The three loads ran under `Promise.all`, whose rejection skipped the
+  //      `setLoading(false)` after it. Anything that THROWS rather than
+  //      returning a bad status — a body that is not JSON, a dropped
+  //      connection, the browser refusing the request — left `loading` true
+  //      with no toast at all. That is "nothing happens", exactly as reported.
+  //   3. A toast is not a screen state anyway. It fades; the page underneath
+  //      still claims to be loading.
+  //
+  // So: `load()` records why it failed in state that the render reads, the
+  // three run under allSettled so one failure cannot strand the other two, and
+  // `setLoading(false)` sits in a `finally`. The material and the draft queue
+  // are secondary — a failure there costs a list, not the screen — so they
+  // still only toast.
   const load = useCallback(async () => {
-    const res = await fetch("/api/ai-employee");
-    if (!res.ok) {
-      await reportResponseError(res, t("app.aiEmployee.loadError", "Couldn't load the AI employee."));
-      return;
+    try {
+      const res = await fetch("/api/ai-employee");
+      if (!res.ok) {
+        const msg = t("app.aiEmployee.loadError", "Couldn't load the AI employee.");
+        await reportResponseError(res, setLoadError, msg);
+        return;
+      }
+      const d = await res.json();
+      setData(d);
+      setForm(d.employee);
+      setLoadError(null);
+    } catch (err) {
+      // The message is kept because it is the only clue a contractor can read
+      // us back over the phone. It is not shown INSTEAD of the plain sentence.
+      setLoadError(err?.message || t("app.aiEmployee.loadError", "Couldn't load the AI employee."));
     }
-    const d = await res.json();
-    setData(d);
-    setForm(d.employee);
   }, [t]);
 
   const loadSources = useCallback(async () => {
-    const res = await fetch("/api/ai-employee/sources");
-    if (!res.ok) {
-      await reportResponseError(res, t("app.aiEmployee.sourcesLoadError", "Couldn't load your material."));
-      return;
+    try {
+      const res = await fetch("/api/ai-employee/sources");
+      if (!res.ok) {
+        await reportResponseError(res, t("app.aiEmployee.sourcesLoadError", "Couldn't load your material."));
+        return;
+      }
+      setSources((await res.json()).sources || []);
+    } catch {
+      showError(t("app.aiEmployee.sourcesLoadError", "Couldn't load your material."));
     }
-    setSources((await res.json()).sources || []);
   }, [t]);
 
   const loadQueue = useCallback(async () => {
-    const res = await fetch("/api/ai-employee/suggestions");
-    if (!res.ok) {
-      await reportResponseError(res, t("app.aiEmployee.queueLoadError", "Couldn't load the waiting drafts."));
-      return;
+    try {
+      const res = await fetch("/api/ai-employee/suggestions");
+      if (!res.ok) {
+        await reportResponseError(res, t("app.aiEmployee.queueLoadError", "Couldn't load the waiting drafts."));
+        return;
+      }
+      setQueue(await res.json());
+    } catch {
+      showError(t("app.aiEmployee.queueLoadError", "Couldn't load the waiting drafts."));
     }
-    setQueue(await res.json());
   }, [t]);
 
-  useEffect(() => {
-    (async () => {
-      await Promise.all([load(), loadSources(), loadQueue()]);
+  // allSettled + finally. `Promise.all` here was the difference between a
+  // screen that says what went wrong and a screen that spins forever.
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    try {
+      await Promise.allSettled([load(), loadSources(), loadQueue()]);
+    } finally {
       setLoading(false);
-    })();
+    }
   }, [load, loadSources, loadQueue]);
+
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
 
   const role = useMemo(
     () => (data?.roles || []).find((r) => r.key === form?.role) || null,
@@ -273,10 +320,43 @@ export default function AiEmployeePage() {
     await loadQueue();
   }
 
-  if (loading || !form || !data) {
+  // ── Loading and failed are two states, not one ────────────────────────────
+  //
+  // `loading` alone draws the spinner. Everything else — a refusal, a throw, a
+  // 200 whose body was not the shape this screen needs — draws a sentence and
+  // a button. The old guard folded all of that into "Loading…", which is the
+  // failure AGENTS.md names: a screen that looks like it is working and is not.
+  if (loading) {
     return (
       <div className="p-4 md:p-6">
         <p className="text-sm text-muted-foreground">{t("app.common.loading", "Loading…")}</p>
+      </div>
+    );
+  }
+
+  if (loadError || !form || !data) {
+    return (
+      <div className="p-4 md:p-6 space-y-4 max-w-3xl">
+        <BackToHome />
+        <Notice tone="warn">
+          <p className="font-medium">
+            {t("app.aiEmployee.loadError", "Couldn't load the AI employee.")}
+          </p>
+          {/* The raw reason, when there is one. A contractor cannot act on it,
+              but he can read it back to support, which beats "it says loading". */}
+          {loadError && typeof loadError === "string" && (
+            <p className="mt-1 opacity-90">{loadError}</p>
+          )}
+          <p className="mt-1 opacity-90">
+            {t(
+              "app.aiEmployee.loadErrorHelp",
+              "Nothing has been changed or lost — this screen only failed to read your setup.",
+            )}
+          </p>
+        </Notice>
+        <button type="button" className={BTN_PRIMARY} onClick={loadAll}>
+          {t("app.common.retry", "Try again")}
+        </button>
       </div>
     );
   }

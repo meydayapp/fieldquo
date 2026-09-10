@@ -27,6 +27,7 @@ import {
   seedInputsFor,
 } from "@/lib/estimate/instantSeed";
 import { instantQuoteReadiness } from "@/lib/estimate/instantQuoteReadiness";
+import { instantAutoEnablePlan } from "@/lib/estimate/instantQuoteProvision";
 import { tradeLabel } from "@/lib/estimate/instantQuoteServer";
 import {
   categoryKeysForInstantTrade,
@@ -96,6 +97,64 @@ export async function GET(request) {
   const enabledKeys = enabledCategories.map((r) => r.category.key);
   const enabledSet = new Set(enabledKeys);
   const enabledRows = enabledCategories.map((r) => ({ key: r.category.key, rates: r.rates }));
+
+  // ── Selling the service IS the configuration ─────────────────────────────
+  //
+  // The owner's words: "the instant quote is the reflection of pricing and
+  // offering in Services". Before this, it wasn't — switching a service on
+  // created nothing here, and the screen told him his two lists disagreed and
+  // left him to reconcile them by hand.
+  //
+  // So a trade he sells, that this build can price, AND whose price HE has
+  // stated in his own rate card, is created and switched on here without being
+  // asked. A trade whose price he has not stated is not created at all: no row,
+  // no invented figure, and the "you sell this, it needs your price" finding
+  // below keeps firing until he types one. See lib/estimate/instantQuoteProvision.js
+  // for exactly how "his price" is told apart from ours.
+  //
+  // Lazily, on the read of the screen that shows the result, for the same
+  // reason app/api/ai-employee/route.js creates its row on GET: the alternative
+  // is a migration over every company for a screen most of them have not opened.
+  // Idempotent — it only ever creates a row for a trade that has none.
+  //
+  // NOT for an impersonating support session (non-negotiable #3: the platform
+  // console views everything and edits nothing) and not for a member who could
+  // not save this rate card by hand.
+  if (!member.impersonation && isPricingAdmin(member.role)) {
+    const candidates = Object.keys(INSTANT_ESTIMATE_TRADES).map((trade) => {
+      const derived = deriveInstantSeed(trade, seedInputsFor(trade, enabledRows));
+      const base = INSTANT_ESTIMATE_DEFAULTS[trade] ?? null;
+      return {
+        trade,
+        offeredAsService: categoryKeysForInstantTrade(trade).some((k) => enabledSet.has(k)),
+        hasSavedRow: byTrade.has(trade),
+        config: derived && base ? applyDerivedSeed(trade, base, derived) : base,
+        derived,
+      };
+    });
+
+    for (const { trade, config } of instantAutoEnablePlan(candidates)) {
+      // createMany would be one round trip, but a race with a parallel request
+      // has to lose quietly rather than 500 the settings screen — the unique is
+      // (companyId, trade), so the loser's create is exactly the no-op we want.
+      const created = await db.instantQuoteConfig
+        .create({ data: { companyId: member.companyId, trade, enabled: true, config } })
+        .catch(() => null);
+      if (!created) continue;
+      byTrade.set(trade, created);
+      saved.push(created);
+      // Logged because it is a CLIENT-FACING change nobody clicked: from this
+      // moment a stranger can be quoted for this trade. The company must be
+      // able to find out when that started and why.
+      recordActivity(member, {
+        action: "settings.instant_quote_auto_enabled",
+        entityType: "settings",
+        entityId: trade,
+        summary: `Instant quotes switched on automatically for ${tradeLabel(trade)} — you sell it, and it prices from your own rates.`,
+        metadata: { trade, auto: true },
+      }).catch(() => {});
+    }
+  }
 
   const trades = Object.entries(INSTANT_ESTIMATE_TRADES).map(([trade, spec]) => {
     const row = byTrade.get(trade);
