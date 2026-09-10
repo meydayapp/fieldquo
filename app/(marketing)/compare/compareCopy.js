@@ -76,6 +76,12 @@
  * the assertion is retracted, or the reading goes stale, or their page moves.
  * Every figure on these pages goes through the gate; nothing here is a figure.
  */
+// The only import this module has, and it brings no data with it: a function
+// that puts a value where a {placeholder} is. The values themselves are
+// resolved by ./copyFigures.js out of the gated modules, which is the whole
+// point — nothing in this file knows what any of them are.
+import { fillFigures } from "./copyFigures";
+
 const COUNTERPOINTS = {
   projul: {
     monthly_billing:
@@ -129,11 +135,11 @@ export const COMPARE_PAGES = [
     // Read by generateMetadata. Written per page rather than templated: a
     // dozen tabs reading "FieldQuo" is a dozen pages competing for one query,
     // which is the lesson app/data/industryContent.js already paid for.
-    title: "FieldQuo vs Jobber — every feature in every plan, from $99",
+    title: "FieldQuo vs Jobber — every feature in every plan, from {ourEntry}",
     description:
       "Jobber sells its marketing suite, AI receptionist and sales pipeline as separate add-ons. FieldQuo includes all three in every plan, with field crew free.",
     lede:
-      "Jobber sells its marketing suite, its AI receptionist and its sales pipeline as separate monthly add-ons — $177 a month on top of a plan whose price already moves with your team size. FieldQuo puts all three in every plan, at every price, and everybody in a van is free.",
+      "Jobber sells its marketing suite, its AI receptionist and its sales pipeline as separate monthly add-ons — {addOnTotal} a month on top of a plan whose price already moves with your team size. FieldQuo puts all three in every plan, at every price, and everybody in a van is free.",
     // The sentence that decides whether the reader trusts the rest of the
     // page — and it goes UNDER the argument, not over it.
     //
@@ -161,11 +167,11 @@ export const COMPARE_PAGES = [
   {
     slug: "fieldquo-vs-housecall-pro",
     competitorId: "housecall_pro",
-    title: "FieldQuo vs Housecall Pro — every feature in every plan, from $99",
+    title: "FieldQuo vs Housecall Pro — every feature in every plan, from {ourEntry}",
     description:
       "Housecall Pro charges per extra user. FieldQuo bills only the people who price work and carries field crew free, with every feature in every plan.",
     lede:
-      "Housecall Pro charges for each extra user, so the plan price is only where your bill starts. FieldQuo bills the people who actually price work — quotes, jobs, invoices — and everybody in a van is crew, at no charge. Every feature is in every plan, starting at $99.",
+      "Housecall Pro charges for each extra user, so the plan price is only where your bill starts. FieldQuo bills the people who actually price work — quotes, jobs, invoices — and everybody in a van is crew, at no charge. Every feature is in every plan, starting at {ourEntry}.",
     concessionLede:
       "The honest part first. Housecall Pro's page lists a phone app, offline " +
       "access and a guided demo as standard. FieldQuo has none of the three, " +
@@ -206,11 +212,11 @@ export const COMPARE_PAGES = [
   {
     slug: "fieldquo-vs-projul",
     competitorId: "projul",
-    title: "FieldQuo vs Projul — every feature in every plan, from $99",
+    title: "FieldQuo vs Projul — every feature in every plan, from {ourEntry}",
     description:
-      "Projul sells a flat annual fee. FieldQuo sells seats with field crew free, every feature in every plan, month to month from $99.",
+      "Projul sells a flat annual fee. FieldQuo sells seats with field crew free, every feature in every plan, month to month from {ourEntry}.",
     lede:
-      "Projul asks for a flat annual commitment up front. FieldQuo is $99 a month for one seat and five crew, every feature included, and you can leave at the end of any month — you do not have to buy a year to find out whether it suits you.",
+      "Projul asks for a flat annual commitment up front. FieldQuo is {ourEntry} a month for one seat and five crew, every feature included, and you can leave at the end of any month — you do not have to buy a year to find out whether it suits you.",
     concessionLede:
       "Before the rest: FieldQuo has no phone app, does not work without a " +
       "signal, and has nobody who will demonstrate it to you. Projul will " +
@@ -229,11 +235,11 @@ export const COMPARE_PAGES = [
   {
     slug: "fieldquo-vs-quoteiq",
     competitorId: "quoteiq",
-    title: "FieldQuo vs QuoteIQ — the same list, $99 against $699",
+    title: "FieldQuo vs QuoteIQ — the same list, {ourEntry} against {theirParity}",
     description:
-      "QuoteIQ’s cheapest plans can’t build a website, take a booking or let a homeowner price their own job. The plan that matches FieldQuo is their $699 tier. Ours is $99.",
+      "QuoteIQ’s cheapest plans can’t build a website, take a booking or let a homeowner price their own job. The plan that matches FieldQuo is their {theirParity} tier. Ours is {ourEntry}.",
     lede:
-      "QuoteIQ starts at $29.99, and that plan cannot build you a website, take a booking, or let a homeowner price their own job. The QuoteIQ plan that carries what FieldQuo puts in every plan is their Max tier, at $699 a month. Ours is $99 — and forty-one things on our list are not in their line-up at any price.",
+      "QuoteIQ starts at {theirEntry}, and that plan cannot build you a website, take a booking, or let a homeowner price their own job. The QuoteIQ plan that carries what FieldQuo puts in every plan is their Max tier, at {theirParity} a month. Ours is {ourEntry} — and forty-one things on our list are not in their line-up at any price.",
     concessionLede:
       "The price first, because it is the thing you came to check. QuoteIQ " +
       "starts below our cheapest plan, ships phone apps we do not have, and " +
@@ -338,15 +344,41 @@ export function compareChrome(t) {
   return said;
 }
 
-/** One page's lede and concession, said in the reader's language. */
-export function comparePageCopy(slug, t) {
+/**
+ * One page's lede and concession, said in the reader's language, with any
+ * amount it names filled in from the gated data.
+ *
+ * ══ Why the ledes carry {placeholders} rather than numbers ═════════════════
+ *
+ * Because this file's own header says they must, and for a while they did not.
+ * Five ledes and four <title>s were written with a competitor's price typed
+ * straight in, and those were the only amounts on these pages that no gate
+ * could reach: a page rendered ninety-five days on emptied every price row,
+ * redacted every claim that quoted a figure, and went on saying "$177 a month"
+ * and "starts at $29.99" in its opening paragraph. See ./copyFigures.js.
+ *
+ * `figures` is optional so that a caller with no date — a check reading the
+ * English, a tool listing the pages — still gets the template it asked for
+ * rather than a sentence full of brackets.
+ */
+export function comparePageCopy(slug, t, figures = null) {
   const page = comparePage(slug);
   if (!page) return null;
-  if (typeof t !== "function") return page;
+  const said =
+    typeof t === "function"
+      ? {
+          ...page,
+          lede: t(ledeKey(page.competitorId), page.lede),
+          concessionLede: t(concessionKey(page.competitorId), page.concessionLede),
+        }
+      : { ...page };
+  if (!figures) return said;
   return {
-    ...page,
-    lede: t(ledeKey(page.competitorId), page.lede),
-    concessionLede: t(concessionKey(page.competitorId), page.concessionLede),
+    ...said,
+    title: fillFigures(said.title, figures),
+    description: fillFigures(said.description, figures),
+    lede: fillFigures(said.lede, figures),
+    concessionLede: fillFigures(said.concessionLede, figures),
   };
 }
 

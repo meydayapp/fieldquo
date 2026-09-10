@@ -31,7 +31,17 @@
 // (`cheapest.label`, `parity.tier.label`) and the band a contractor reported.
 // They are quotations. See lib/marketing/compareLabels.js for the argument.
 import { SEAT_LADDER } from "@/lib/pricing/ladder";
-import { tierLadder, firstTierWith, parityFor, neverListed, addOnsFor, notesFor } from "@/lib/marketing/parity";
+import {
+  tierLadder,
+  firstTierWith,
+  parityFor,
+  neverListed,
+  addOnsFor,
+  notesFor,
+  derivedMonthlyFromAnnual,
+  derivationProps,
+} from "@/lib/marketing/parity";
+import { competitor as findCompetitor, reportedCostText } from "@/lib/marketing/competitors";
 import { matrixEntry } from "@/lib/marketing/featureMatrix";
 import { featureEntry } from "@/lib/marketing/featureLabels";
 
@@ -71,7 +81,25 @@ function row(label, mine, theirs, note = null) {
   return { label, mine, theirs, note };
 }
 
-export function caseRows(competitorId, competitorName, t, locale = "en-CA") {
+/**
+ * Data attributes a cell carries into the markup.
+ *
+ * Not decoration and not styling. Three of the cells below print an amount
+ * nobody publishes — a saving, an annual price said per month — and
+ * scripts/check-compare-pages.mjs has to be able to tell those apart from a
+ * figure read off a pricing page, ROW BY ROW. A flat search of the page cannot:
+ * $399 is Jobber's Grow tier and also Projul's annual fee divided by twelve,
+ * and the two need opposite treatment. See the derivation block in
+ * lib/marketing/parity.js for the rule these attributes let it enforce.
+ */
+const withAttrs = (cell, attrs) =>
+  attrs && Object.keys(attrs).length ? { ...cell, attrs } : cell;
+
+/** A tier's annual fee said per month, or null when it does not divide clean. */
+const monthlyEquivalent = (tier) =>
+  tier?.annualOnly && tier.monthlyExact ? derivedMonthlyFromAnnual(tier.annualTotal) : null;
+
+export function caseRows(competitorId, competitorName, t, locale = "en-CA", asOf = null) {
   const money = moneyIn(locale);
   const say = (key, fallback, values) =>
     typeof t === "function"
@@ -90,10 +118,10 @@ export function caseRows(competitorId, competitorName, t, locale = "en-CA") {
           { count: n },
         );
 
-  const ladder = tierLadder(competitorId);
+  const ladder = tierLadder(competitorId, asOf);
   const priced = ladder.filter((tier) => typeof tier.price === "number");
   const reported = ladder.filter((tier) => tier.reported);
-  const parity = parityFor(competitorId);
+  const parity = parityFor(competitorId, { asOf });
   const solo = SEAT_LADDER[0];
   const rows = [];
 
@@ -115,15 +143,28 @@ export function caseRows(competitorId, competitorName, t, locale = "en-CA") {
           }),
         },
         cheapest.annualOnly
-          ? {
-              kind: PLAIN,
-              text: perYr(money(cheapest.annualTotal)),
-              sub: say(
-                "compare.rows.annualEquivalent",
-                "{plan} — {amount} a month equivalent, billed as a year",
-                { plan: cheapest.label, amount: money(cheapest.price) },
-              ),
-            }
+          ? withAttrs(
+              {
+                kind: PLAIN,
+                text: perYr(money(cheapest.annualTotal)),
+                // The annual total is what they publish; the monthly beside it
+                // is that number divided by twelve, and it is printed only
+                // when the division leaves nothing over. An annual fee that is
+                // not a multiple of twelve has no monthly equivalent to state
+                // — rounding one into existence and calling it "equivalent"
+                // is the approximated money this site does not print.
+                sub: monthlyEquivalent(cheapest)
+                  ? say(
+                      "compare.rows.annualEquivalent",
+                      "{plan} — {amount} a month equivalent, billed as a year",
+                      { plan: cheapest.label, amount: money(cheapest.price) },
+                    )
+                  : say("compare.rows.annualOnlyPlain", "{plan} — billed as a year", {
+                      plan: cheapest.label,
+                    }),
+              },
+              derivationProps(monthlyEquivalent(cheapest)),
+            )
           : {
               kind: PLAIN,
               text: perMo(money(cheapest.price)),
@@ -150,14 +191,21 @@ export function caseRows(competitorId, competitorName, t, locale = "en-CA") {
             ),
           },
           parity.tier.annualOnly
-            ? {
-                kind: PLAIN,
-                text: perYr(money(parity.tier.annualTotal)),
-                sub: say("compare.rows.parityAnnual", "{plan} — {amount} a month equivalent", {
-                  plan: parity.tier.label,
-                  amount: money(parity.tier.price),
-                }),
-              }
+            ? withAttrs(
+                {
+                  kind: PLAIN,
+                  text: perYr(money(parity.tier.annualTotal)),
+                  sub: monthlyEquivalent(parity.tier)
+                    ? say("compare.rows.parityAnnual", "{plan} — {amount} a month equivalent", {
+                        plan: parity.tier.label,
+                        amount: money(parity.tier.price),
+                      })
+                    : say("compare.rows.annualOnlyPlain", "{plan} — billed as a year", {
+                        plan: parity.tier.label,
+                      }),
+                },
+                derivationProps(monthlyEquivalent(parity.tier)),
+              )
             : {
                 kind: PLAIN,
                 text: perMo(money(parity.tier.price)),
@@ -174,6 +222,21 @@ export function caseRows(competitorId, competitorName, t, locale = "en-CA") {
 
   if (reported.length) {
     const first = reported[0];
+    // The provenance a reported band may never be printed without.
+    // competitors.js is unambiguous that reportedCostText() is "the sentence a
+    // renderer prints for a reported cost. There is no other one" — it names
+    // the band, the KINDS of source that reported it and the fact that the
+    // vendor publishes nothing, and where the sources state no currency it
+    // says so. This module was printing the band with a two-word label of its
+    // own and dropping the rest, which mattered most for the half nobody would
+    // think to miss: a Canadian reader who takes "$245" for his own dollar is
+    // reading a number about 38% too small.
+    const reportedEntry = (findCompetitor(competitorId)?.reportedCosts || []).find(
+      (r) => r.id === first.reportedId,
+    );
+    const reportedProvenance = reportedEntry
+      ? reportedCostText(reportedEntry, { subject: competitorName })
+      : null;
     rows.push(
       row(
         say("compare.rows.publishedPrice", "Published price"),
@@ -200,16 +263,24 @@ export function caseRows(competitorId, competitorName, t, locale = "en-CA") {
             text: perMo(`${money(solo.price)}–${money(SEAT_LADDER.at(-1).price)}`),
             sub: say("compare.rows.oneToTwentyFive", "1 to 25 people"),
           },
-          {
-            // Their reported band is what a contractor said they paid. Quoted,
-            // never translated.
-            kind: PLAIN,
-            text: first.reportedBand.replace(/^Contractors report paying /, ""),
-            sub: say(
-              "compare.rows.reportedNotPublished",
-              "reported by contractors, not published",
-            ),
-          },
+          withAttrs(
+            {
+              // Their reported band is what a contractor said they paid.
+              // Quoted, never translated.
+              kind: PLAIN,
+              text: first.reportedBand.replace(/^Contractors report paying /, ""),
+              sub: say(
+                "compare.rows.reportedNotPublished",
+                "reported by contractors, not published",
+              ),
+              // Untranslated on purpose, like the band above it: it names two
+              // sources and a currency caveat, and a machine-translated
+              // sentence about somebody else's prices is one nobody has read
+              // in the language it is published in.
+              foot: reportedProvenance,
+            },
+            { "data-reported-cost": first.reportedId },
+          ),
         ),
       );
     }
@@ -218,11 +289,15 @@ export function caseRows(competitorId, competitorName, t, locale = "en-CA") {
         row(
           say("compare.rows.setupFee", "Setup fee"),
           { kind: YES, text: say("compare.rows.none", "None") },
-          {
-            kind: NO,
-            text: first.alsoReported.replace(/^an implementation fee of /, ""),
-            sub: say("compare.rows.reported", "reported"),
-          },
+          withAttrs(
+            {
+              kind: NO,
+              text: first.alsoReported.replace(/^an implementation fee of /, ""),
+              sub: say("compare.rows.reported", "reported"),
+              foot: reportedProvenance,
+            },
+            { "data-reported-cost": first.reportedId },
+          ),
         ),
       );
     }
@@ -244,16 +319,24 @@ export function caseRows(competitorId, competitorName, t, locale = "en-CA") {
           text: say("compare.rows.monthly", "Monthly"),
           sub: say("compare.rows.leaveAnyMonth", "Leave at the end of any month"),
         },
-        {
-          kind: NO,
-          text: say("compare.rows.aYearUpFront", "{amount} a year, up front", {
-            amount: money(entry.annualTotal),
-          }),
-          sub: say(
-            "compare.rows.noMonthlyOption",
-            "No monthly option is offered — their FAQ says so",
-          ),
-        },
+        withAttrs(
+          {
+            kind: NO,
+            text: say("compare.rows.aYearUpFront", "{amount} a year, up front", {
+              amount: money(entry.annualTotal),
+            }),
+            sub: say(
+              "compare.rows.noMonthlyOption",
+              "No monthly option is offered — their FAQ says so",
+            ),
+          },
+          // The page-level disclosure that licenses every per-month figure on
+          // a Projul page. Their monthly numbers are ours to compute, not
+          // theirs to charge, and this row is where a reader is told that in
+          // the plainest terms available: the amount they publish, per year,
+          // up front, with no monthly option offered.
+          { "data-annual-only": competitorId },
+        ),
       ),
     );
   }
@@ -272,7 +355,7 @@ export function caseRows(competitorId, competitorName, t, locale = "en-CA") {
   // stop. Summing it blindly printed "+$4,500/mo" beside their name: a false
   // claim, on their own published terms, that a prospect disproves in one
   // click and that discredits every true row above it.
-  const addOns = addOnsFor(competitorId).filter(
+  const addOns = addOnsFor(competitorId, asOf).filter(
     (a) => !a.includedFree && a.per === "month" && typeof a.price === "number",
   );
   if (addOns.length) {
@@ -336,7 +419,12 @@ export function caseRows(competitorId, competitorName, t, locale = "en-CA") {
       priced.length
         ? {
             kind: PLAIN,
-            text: perMo(money(priced.at(-1).price)),
+            // Their own unit, not ours. Quoting an annual-only vendor a month
+            // at a time in the one row a buyer uses to size the top of the
+            // ladder invents a billing option they do not sell.
+            text: priced.at(-1).annualOnly
+              ? perYr(money(priced.at(-1).annualTotal))
+              : perMo(money(priced.at(-1).price)),
             sub: users(priced.at(-1).seats),
           }
         : { kind: PLAIN, text: say("compare.rows.onRequest", "On request") },
@@ -352,7 +440,7 @@ export function caseRows(competitorId, competitorName, t, locale = "en-CA") {
     const entry = matrixEntry(key);
     if (!entry || entry.readiness !== "shipped") continue;
     const said = featureEntry(key, t) ?? entry;
-    const tier = firstTierWith(competitorId, key);
+    const tier = firstTierWith(competitorId, key, asOf);
     rows.push(
       row(
         said.name,
@@ -361,12 +449,17 @@ export function caseRows(competitorId, competitorName, t, locale = "en-CA") {
           ? {
               kind: PLAIN,
               text:
-                typeof tier.price === "number"
-                  ? say("compare.rows.tierAtPrice", "{plan} — {amount}/mo", {
-                      plan: tier.label,
-                      amount: money(tier.price),
-                    })
-                  : tier.label,
+                typeof tier.price !== "number"
+                  ? tier.label
+                  : tier.annualOnly
+                    ? say("compare.rows.tierAtAnnualPrice", "{plan} — {amount}/yr", {
+                        plan: tier.label,
+                        amount: money(tier.annualTotal),
+                      })
+                    : say("compare.rows.tierAtPrice", "{plan} — {amount}/mo", {
+                        plan: tier.label,
+                        amount: money(tier.price),
+                      }),
               sub: say(
                 "compare.rows.theirCheapestWithIt",
                 "their cheapest plan that includes it",
@@ -398,7 +491,7 @@ export function caseRows(competitorId, competitorName, t, locale = "en-CA") {
     addOns,
     notes: notesFor(competitorId),
     parity,
-    missingCount: neverListed(competitorId).length,
+    missingCount: neverListed(competitorId, asOf).length,
     hasPrices: priced.length > 0,
     reported,
   };

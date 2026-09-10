@@ -80,9 +80,19 @@ import {
   comparableTier,
   competitor as findCompetitor,
   publishableFigures,
+  reportedCostText,
+  reportedWithholdReason,
+  STALE_AFTER_DAYS,
   withholdReason,
 } from "@/lib/marketing/competitors";
 import { MATRIX_KEYS, matrixEntry } from "@/lib/marketing/featureMatrix";
+import {
+  MONTHS_PER_YEAR,
+  addOnsFor,
+  newestReading,
+  recomputeDerived,
+  tierLadder,
+} from "@/lib/marketing/parity";
 import { SEAT_LADDER, SUPPORTED_CURRENCIES } from "@/lib/pricing/ladder";
 
 import { renderAsOf } from "@/app/(marketing)/compare/asOf";
@@ -141,6 +151,27 @@ const renderSlugPage = async (slug) =>
 // date that is not today.
 const renderAtDate = (slug, asOf) =>
   renderToStaticMarkup(inEnglish(createElement(ComparisonPage, { slug, asOf })));
+
+/**
+ * A date on which EVERY reading behind a page has aged out.
+ *
+ * This used to be the string "2026-12-01", written as "95 days after the
+ * read" — true when there was one read, and quietly false from the day
+ * lib/marketing/tierFeatures/ arrived with a second one taken a fortnight
+ * later. The assertions built on it went on rendering at a date where half
+ * the page was legitimately still fresh, and reported that as a leak.
+ *
+ * So the date is computed from the data it is a claim about: the newest
+ * reading behind that competitor, plus the staleness window, plus a few days
+ * to be past it. Re-read a pricing page tomorrow and this moves with it,
+ * which a typed date cannot do.
+ */
+const staleDateFor = (competitorId) => {
+  const newest = newestReading(competitorId);
+  if (!newest) throw new Error(`staleDateFor: no reading recorded for ${competitorId}`);
+  const t = Date.parse(`${newest}T00:00:00Z`) + (STALE_AFTER_DAYS + 5) * 86400000;
+  return new Date(t).toISOString().slice(0, 10);
+};
 
 /**
  * Markup with React's entity escaping undone.
@@ -306,15 +337,232 @@ async function main() {
   // as a number. Typing 177 into the allowlist would make this assertion agree
   // with a page that had the total hardcoded — which is precisely the failure
   // section 11 exists to catch.
-  const allowedAmounts = new Set([
-    ...publishableFigures(TODAY).filter((f) => f.price?.kind === PRICE_AMOUNT).map((f) => f.price.amount),
-    ...allAddOns().filter((a) => withholdReason(a, TODAY) === null && a.price?.kind === PRICE_AMOUNT).map((a) => a.price.amount),
-    ...SEAT_LADDER.map((t) => t.price),
-    ...COMPETITORS.map((c) => addOnStack(c.id, TODAY).total).filter((n) => n !== null),
-  ]);
+  //
+  // ══ Three ways an amount may be on this page, and no fourth ══════════════
+  //
+  // This assertion used to hold ONE set — competitors.js's publishable
+  // figures, the add-ons, our own ladder — and it went red the day the pages
+  // started making the argument the owner asked for. Not because anything
+  // leaked. Because two whole kinds of true amount had no place in it:
+  //
+  //   PUBLISHED. What a company prints on its own pricing page. There are two
+  //   readings of those now — competitors.js, read for prices, and
+  //   lib/marketing/tierFeatures/, read for the tier bullets the figures never
+  //   had. Both carry a source URL and a date; the second had no staleness
+  //   gate until this session and now goes through tierLadder(id, asOf).
+  //
+  //   DERIVED. "$4,800/yr" is $499 minus $99, twelve times, and it is the
+  //   sentence these pages exist to make: you get all of this from FieldQuo
+  //   for this price, and the equivalent from the competitor is this much.
+  //   Every input publishes, the reader can check us with a phone, and
+  //   refusing it would gut the page. It is admitted on THREE conditions, all
+  //   checked below rather than assumed: inputs published, arithmetic exact
+  //   and re-runnable from the page's own declaration, and the working shown
+  //   inside the same element. Whitelisting 4800 would have made this
+  //   assertion agree with a page that had typed it — and the next derived
+  //   figure would fail, and somebody would whitelist that too.
+  //
+  //   REPORTED. ServiceTitan publishes nothing; what exists is a band
+  //   contractors report. competitors.js has a SEPARATE gate for those
+  //   (reportedWithholdReason) and a single sanctioned sentence
+  //   (reportedCostText) that names the kinds of source, the vendor's silence
+  //   and the fact that neither source states a currency. Those endpoints may
+  //   be printed only inside an element that carries that sentence, which is
+  //   asserted below — and is the half the page was missing.
+  //
+  // A fourth kind — an amount that is none of these — is what this assertion
+  // is for, and it still fails on one.
+
+  /**
+   * Amounts a company publishes about ITSELF, plus our own ladder.
+   *
+   * `competitorId` is not an optimisation. One set for all five companies is
+   * a set in which Jobber's $399 Grow tier vouches for a number on the Projul
+   * page, and it does: the first draft of this rule passed a mutation that
+   * deleted Projul's annual-only disclosure, because Projul's derived $399 a
+   * month happened to collide with a Jobber figure. A page about one company
+   * may print what that company publishes, what we publish, and what it works
+   * out from those in the open. Nothing else vouches for anything.
+   */
+  const publishedAmounts = (asOf, competitorId = null) => {
+    const mine = (id) => competitorId === null || id === competitorId;
+    const out = new Set([
+      ...publishableFigures(asOf)
+        .filter((f) => mine(f.competitorId) && f.price?.kind === PRICE_AMOUNT)
+        .map((f) => f.price.amount),
+      ...allAddOns()
+        .filter((a) => mine(a.competitorId) && withholdReason(a, asOf) === null && a.price?.kind === PRICE_AMOUNT)
+        .map((a) => a.price.amount),
+      ...SEAT_LADDER.map((t) => t.price),
+      ...COMPETITORS.filter((c) => mine(c.id)).map((c) => addOnStack(c.id, asOf).total).filter((n) => n !== null),
+    ]);
+    for (const c of COMPETITORS.filter((c) => mine(c.id))) {
+      const ladder = tierLadder(c.id, asOf);
+      for (const tier of ladder) {
+        // An annual-only tier's `price` is the annual fee divided by twelve —
+        // DERIVED, and admitted separately below. Only the figure they
+        // actually print goes in here.
+        if (typeof tier.price === "number" && !tier.annualOnly) out.add(tier.price);
+        if (typeof tier.annualTotal === "number") out.add(tier.annualTotal);
+      }
+      const addOns = addOnsFor(c.id, asOf).filter(
+        (a) => !a.includedFree && a.per === "month" && typeof a.price === "number",
+      );
+      for (const a of addOns) out.add(a.price);
+      if (addOns.length) out.add(addOns.reduce((n, a) => n + a.price, 0));
+    }
+    return out;
+  };
+
+  /**
+   * A monthly figure worked out from an annual-only fee.
+   *
+   * Admitted for a competitor ONLY when the page carrying it says, in the
+   * plainest terms the row has, that they sell no month: `data-annual-only`
+   * marks that disclosure, and without it a per-month number about a vendor
+   * who bills by the year is a billing option we invented for them.
+   */
+  const derivedMonthlies = (asOf, html, competitorId) => {
+    const out = new Set();
+    if (!new RegExp(`data-annual-only="${competitorId}"`).test(html)) return out;
+    for (const tier of tierLadder(competitorId, asOf)) {
+      if (!tier.annualOnly || !tier.monthlyExact) continue;
+      if (typeof tier.annualTotal !== "number" || typeof tier.price !== "number") continue;
+      if (tier.annualTotal % MONTHS_PER_YEAR !== 0) continue;
+      out.add(tier.price);
+    }
+    return out;
+  };
+
+  /** Every declared derivation in a blob of markup, with its record parsed. */
+  const derivationsIn = (html) =>
+    elementsWith(html, "data-derived-value").map((el) => ({
+      el,
+      value: Number(el.value),
+      op: /data-derived-op="([^"]+)"/.exec(el.outer)?.[1] ?? null,
+      months: Number(/data-derived-months="([^"]+)"/.exec(el.outer)?.[1]),
+      inputs: (/data-derived-inputs="([^"]+)"/.exec(el.outer)?.[1] ?? "")
+        .split(",")
+        .filter(Boolean)
+        .map(Number),
+    }));
+
+  /** Every endpoint of a reported band this competitor's entries carry. */
+  const reportedAmounts = (asOf, competitorId) => {
+    const out = new Set();
+    const c = findCompetitor(competitorId);
+    for (const r of c?.reportedCosts || []) {
+      if (reportedWithholdReason(r, asOf) !== null) continue;
+      for (const m of `${r.price?.band ?? ""} ${r.alsoReported ?? ""} ${r.minimumTechnicians ?? ""}`.matchAll(
+        /\$\s?(\d[\d,]*(?:\.\d+)?)/g,
+      )) {
+        out.add(Number(m[1].replace(/,/g, "")));
+      }
+    }
+    return out;
+  };
+
   for (const p of [{ slug: "/compare (index)", html: indexHtml }, ...pages]) {
-    const strays = [...new Set(amountsIn(p.html))].filter((n) => !allowedAmounts.has(n));
+    const allowed = new Set([
+      ...publishedAmounts(TODAY, p.competitorId ?? null),
+      ...(p.competitorId ? derivedMonthlies(TODAY, p.html, p.competitorId) : []),
+      ...(p.competitorId ? reportedAmounts(TODAY, p.competitorId) : []),
+      ...derivationsIn(p.html)
+        .filter((d) => d.inputs.every((n) =>
+          publishedAmounts(TODAY, p.competitorId ?? null).has(n) ||
+          (p.competitorId ? derivedMonthlies(TODAY, p.html, p.competitorId).has(n) : false)))
+        .map((d) => d.value),
+    ]);
+    const strays = [...new Set(amountsIn(p.html))].filter((n) => !allowed.has(n));
     ok(`${p.slug}: every printed amount is publishable`, strays.length === 0, strays.join(","));
+  }
+
+  console.log("\n   ...and every DERIVED amount carries its working, and the working is right");
+  //
+  // The three conditions, executed. Note the last one: it is what makes this a
+  // rule about the PAGE rather than about a data attribute. An element could
+  // declare "(499 - 99) × 12 = 4800" perfectly and print only the 4800, and a
+  // reader would have no way to check it. Both inputs have to be visible in
+  // the same box the answer is in.
+  {
+    let declared = 0;
+    for (const p of pages) {
+      const admissible = new Set([
+        ...publishedAmounts(TODAY, p.competitorId),
+        ...derivedMonthlies(TODAY, p.html, p.competitorId),
+      ]);
+      for (const d of derivationsIn(p.html)) {
+        declared += 1;
+        const where = `${p.slug}/${d.op}=${d.value}`;
+        ok(`${where}: every input is a figure that publishes`,
+          d.inputs.length > 0 && d.inputs.every((n) => admissible.has(n)),
+          d.inputs.filter((n) => !admissible.has(n)).join(","));
+        ok(`${where}: a year is twelve months and nothing else`, d.months === MONTHS_PER_YEAR,
+          d.months);
+        // Recomputed from the record's own inputs, never read back off it.
+        const again = recomputeDerived({ op: d.op, inputs: d.inputs, months: d.months });
+        ok(`${where}: re-running the arithmetic gives the number printed`, again === d.value,
+          String(again));
+        const shown = amountsIn(d.el.outer);
+        ok(`${where}: the page shows the working — every input is printed beside the answer`,
+          d.inputs.every((n) => shown.includes(n)),
+          d.inputs.filter((n) => !shown.includes(n)).join(","));
+        ok(`${where}: ...and the answer itself is printed, not only declared`,
+          shown.includes(d.value));
+      }
+    }
+    // A rule that fires on nothing is a rule nothing tests.
+    ok("the pages do derive amounts, so the rule above is exercised", declared >= 12, declared);
+  }
+
+  console.log("\n   ...and a reported band never appears without the sentence it belongs in");
+  //
+  // The half competitors.js already legislated and nothing enforced.
+  // `reportedCostText` is described there as "the sentence a renderer prints
+  // for a reported cost. There is no other one" — it names the band, the KINDS
+  // of source that carry it, that the vendor publishes nothing, and that
+  // neither source states which dollar. The compare pages were printing the
+  // band with a two-word label of their own and dropping the rest, which
+  // matters most for the part a reader would never think to ask about: a
+  // Canadian taking "$245" for his own dollar is reading a number about 38%
+  // too small.
+  for (const p of pages) {
+    const entries = (p.competitor.reportedCosts || []).filter(
+      (r) => reportedWithholdReason(r, TODAY) === null,
+    );
+    const cells = elementsWith(p.html, "data-reported-cost");
+    if (!entries.length) {
+      // Nothing of theirs is reported, or all of it is withheld. Either way a
+      // cell claiming otherwise is the leak.
+      ok(`${p.slug}: prints no reported band, because none of theirs publishes`,
+        cells.length === 0, cells.map((c) => c.value).join(","));
+      continue;
+    }
+    ok(`${p.slug}: the reported band is rendered as a marked cell`, cells.length > 0,
+      cells.length);
+    for (const cell of cells) {
+      const entry = entries.find((r) => r.id === cell.value);
+      ok(`${p.slug}: ${cell.value} names an entry that passes reportedWithholdReason`,
+        Boolean(entry), cell.value);
+      if (!entry) continue;
+      ok(`${p.slug}: ...and carries competitors.js's own sentence for it, whole`,
+        cell.text.includes(reportedCostText(entry, { subject: p.competitor.name })));
+      ok(`${p.slug}: ...which says who reported it and that they do not publish`,
+        /not published by/.test(cell.text) && /Reported in/.test(cell.text));
+    }
+    // And no endpoint of a band escapes the cell it belongs to.
+    //
+    // Asserted on the page with those cells CUT OUT, not by asking whether the
+    // number appears in one of them: it appears in one of them by
+    // construction, and the first draft of this assertion passed a mutation
+    // that printed the whole band a second time in a row of its own.
+    {
+      const band = reportedAmounts(TODAY, p.competitorId);
+      const elsewhere = cells.reduce((acc, c) => acc.split(c.outer).join(" "), p.html);
+      const outside = [...new Set(amountsIn(elsewhere))].filter((n) => band.has(n));
+      ok(`${p.slug}: no reported amount is printed outside one of those cells`,
+        outside.length === 0, outside.join(","));
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -538,13 +786,37 @@ async function main() {
   // double-currency figure anywhere, and no figure ROW may carry the
   // vocabulary of a conversion. The rules panel is prose about our method,
   // sits in neither, and is allowed to say what it says.
-  const APPROXIMATION = ["≈", "approx", "equivalent", "roughly $", "about $"];
+  const APPROXIMATION = ["≈", "approx", "roughly $", "about $"];
   const CONVERSION_VOCABULARY = ["convert", "exchange rate", "cad equivalent", "usd equivalent"];
+  // ── The one word that moved out of that list, and what replaced it ───────
+  //
+  // "equivalent" was banned outright, and Projul is why it could not stay
+  // banned. They sell no monthly plan at all; their page prints $14,388 a
+  // year, and the row that says "Pro — $1,199 a month equivalent" is the most
+  // useful sentence on that page for somebody comparing it to a monthly
+  // product. It is also EXACT: $14,388 ÷ 12 leaves nothing over.
+  //
+  // Forbidding the word would have forced one of two worse pages — drop the
+  // comparison the owner asked for, or keep the number and rename it
+  // something vaguer. So the ban is narrowed the same way the conversion
+  // vocabulary already was, and narrowed to a RULE rather than to Projul: the
+  // word may appear only inside an element that declares its derivation, and
+  // the derivation block above has already proved that arithmetic exact and
+  // re-runnable. An approximated "equivalent" — one that needed rounding, or
+  // that no record backs — has no element to sit in and fails here.
+  //
+  // The other four stay banned everywhere. "≈", "approx", "roughly" and
+  // "about" are claims of INEXACTNESS about somebody else's price, and there
+  // is no version of those this site prints.
+  const stripDeclaredDerivations = (html) =>
+    elementsWith(html, "data-derived-value").reduce((acc, el) => acc.split(el.outer).join(" "), html);
   for (const p of [{ slug: "/compare (index)", html: indexHtml }, ...pages]) {
     for (const word of APPROXIMATION) {
       ok(`${p.slug}: prints no approximated money ("${word}")`,
         !p.html.toLowerCase().includes(word.toLowerCase()));
     }
+    ok(`${p.slug}: says "equivalent" of money only inside a declared, exact derivation`,
+      !stripDeclaredDerivations(p.html).toLowerCase().includes("equivalent"));
     // Two currency codes within reach of one amount is what a conversion looks
     // like from the outside, whether or not any arithmetic actually happened.
     const doubled = [...p.html.matchAll(/\$\s?\d[\d,]*(?:\.\d+)?[^<]{0,60}/g)].filter(
@@ -725,7 +997,10 @@ async function main() {
   // data module does not guard.
   {
     const staleClaims = ["fieldquo-vs-jobber", "fieldquo-vs-quoteiq", "fieldquo-vs-housecall-pro"].map(
-      (slug) => ({ slug, html: renderAtDate(slug, "2026-12-01") }),
+      (slug) => ({
+        slug,
+        html: renderAtDate(slug, staleDateFor(COMPARE_PAGES.find((p) => p.slug === slug).competitorId)),
+      }),
     );
     for (const p of staleClaims) {
       ok(`${p.slug}: ninety-five days on, no amount of theirs survives anywhere on the page`,
@@ -1076,7 +1351,7 @@ async function main() {
     // And the whole block leaves with the prices when the reading goes stale —
     // the same degradation the figure rows have, asserted rather than assumed.
     {
-      const stale = renderAtDate("fieldquo-vs-jobber", "2026-12-01");
+      const stale = renderAtDate("fieldquo-vs-jobber", staleDateFor("jobber"));
       ok("ninety-five days on, the add-on block is gone", !/data-addon-stack/.test(stale));
       ok("...and its total with it", !stale.includes(`$${stack.total}`));
       ok("...while the concessions stay",
@@ -1342,10 +1617,16 @@ async function main() {
           .map((f) => f.price.amount),
       );
       const ladderPrices = new Set(SEAT_LADDER.map((t) => t.price));
+      // Plus the savings this page works out from those two sets — the same
+      // declarations section 2 re-ran and proved exact. Listed as a THIRD
+      // source rather than folded into `allowed`, so the assertion below still
+      // says what it said: an amount here is one of theirs that publishes, one
+      // of ours, or one we derived from those in the open.
+      const derivedHere = new Set(derivationsIn(quoteiq.html).map((d) => d.value));
       const strays = [...new Set(amountsIn(quoteiq.html))].filter(
-        (n) => !allowed.has(n) && !ladderPrices.has(n),
+        (n) => !allowed.has(n) && !ladderPrices.has(n) && !derivedHere.has(n),
       );
-      ok("every amount on the QuoteIQ page is one of theirs that publishes, or one of ours",
+      ok("every amount on the QuoteIQ page is one of theirs that publishes, one of ours, or worked out from those",
         strays.length === 0, strays.join(","));
       const withheldQ = findCompetitor("quoteiq").figures.filter(
         (f) => withholdReason(f, TODAY) !== null,
@@ -1364,7 +1645,7 @@ async function main() {
     // them has to go with them. A tier list or a concession left standing over
     // an expired price is a claim about a competitor with no reading behind it.
     {
-      const stale = renderAtDate("fieldquo-vs-quoteiq", "2026-12-01");
+      const stale = renderAtDate("fieldquo-vs-quoteiq", staleDateFor("quoteiq"));
       ok("ninety-five days on, their tier lists leave with their prices",
         !/data-their-tier/.test(stale));
       ok("...and the entry-price concession does not stand on an expired figure",

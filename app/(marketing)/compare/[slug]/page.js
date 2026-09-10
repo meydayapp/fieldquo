@@ -21,7 +21,8 @@ import { marketingMetadata } from "@/lib/marketing/metadata";
 import { competitor as findCompetitor } from "@/lib/marketing/competitors";
 
 import { renderAsOf } from "../asOf";
-import { COMPARE_PAGES, comparePage } from "../compareCopy";
+import { COMPARE_PAGES, comparePage, comparePageCopy } from "../compareCopy";
+import { compareFigures } from "../copyFigures";
 import ComparisonPage from "./ComparisonPage";
 
 export function generateStaticParams() {
@@ -40,10 +41,18 @@ export async function generateMetadata({ params }) {
   const page = comparePage(slug);
   if (!page) return {};
 
+  // The title and description name amounts, and a <title> is the one string on
+  // these pages that a search engine keeps for months after a crawl. Resolved
+  // through the same gates as the page body, from the same render date, so a
+  // reading that has aged out empties the tab as well as the table rather than
+  // leaving a competitor's price in the one place nobody looks.
+  const asOf = renderAsOf();
+  const said = comparePageCopy(slug, null, compareFigures(page.competitorId, asOf));
+
   return marketingMetadata({
     path: `/compare/${slug}`,
-    title: `${page.title} | FieldQuo`,
-    description: page.description,
+    title: `${said.title} | FieldQuo`,
+    description: said.description,
   });
 }
 

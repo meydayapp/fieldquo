@@ -12,12 +12,17 @@
 //     collective. One French word for both would erase the distinction the
 //     whole pricing argument rests on.
 //   • « palier » = tier, « forfait » = plan. Kept apart for the same reason.
-//   • Amounts are transcribed, never restyled: the source writes $99 and
-//     $29.99, so this file does too. fr-CA typography would want « 99 $ » and
-//     a decimal comma, but these strings are read against a catalogue gate
-//     that treats the figure as a quotation — reformatting one here is how a
-//     number silently becomes a different number. Flag it if the gate ever
-//     learns to localise currency.
+//   • Amounts are no longer written here at all. They used to be, transcribed
+//     from the English rather than restyled — the note that stood here argued
+//     that reformatting the figure with fr-CA typography was how a number
+//     silently becomes a different number. That was true and it was not the
+//     bigger problem: a price typed into a catalogue is a price no gate can
+//     withdraw, and nine copies of one are nine sentences that keep quoting a
+//     competitor after the reading behind it has expired. The ledes carry
+//     {ourEntry}, {theirEntry}, {theirParity} and {addOnTotal}; the values
+//     arrive from app/(marketing)/compare/copyFigures.js, already formatted
+//     for the reader's locale, and are bracketed when they will not publish.
+//     Translate the words around a placeholder; never replace one.
 //   • Competitor prose stays in the competitor's language, as in en.js. This
 //     file translates our sentences around the quotation, never the quotation.
 //   • The hedges — unverifiedConcessionNote, staleClaimNote, matchUnknownIntro,
@@ -59,15 +64,15 @@ const fr = {
   "compare.rule.3": "Quand nous n’avons pas pu trancher ce que voulait dire un montant, la ligne le dit et n’affiche aucun chiffre. Ça arrive plus souvent qu’on ne le croirait, et c’est la partie de la page dont nous sommes le plus sûrs.",
   "compare.rule.4": "Chaque montant porte la date de son relevé et le pays d’où il a été relevé, parce qu’un prix peut varier selon l’un comme selon l’autre.",
 
-  "compare.lede.jobber": "Jobber vend sa suite marketing, son réceptionniste IA et son pipeline de ventes comme des modules mensuels distincts — $177 par mois par-dessus un forfait dont le prix bouge déjà selon la taille de votre équipe. FieldQuo met les trois dans tous les forfaits, à tous les prix, et tout le monde dans une camionnette est gratuit.",
+  "compare.lede.jobber": "Jobber vend sa suite marketing, son réceptionniste IA et son pipeline de ventes comme des modules mensuels distincts — {addOnTotal} par mois par-dessus un forfait dont le prix bouge déjà selon la taille de votre équipe. FieldQuo met les trois dans tous les forfaits, à tous les prix, et tout le monde dans une camionnette est gratuit.",
   "compare.concession.jobber": "Commençons par ce que nous n’avons pas. FieldQuo est une application web : il n’y a rien à installer depuis une boutique d’applications, rien ne fonctionne sans signal, et il n’y a pas de vendeur pour vous en faire le tour.",
-  "compare.lede.housecall_pro": "Housecall Pro facture chaque utilisateur supplémentaire, alors le prix du forfait n’est que le point de départ de votre facture. FieldQuo facture les gens qui chiffrent vraiment le travail — soumissions, chantiers, factures — et tout le monde dans une camionnette fait partie de l’équipe de terrain, sans frais. Toutes les fonctions sont dans tous les forfaits, à partir de $99.",
+  "compare.lede.housecall_pro": "Housecall Pro facture chaque utilisateur supplémentaire, alors le prix du forfait n’est que le point de départ de votre facture. FieldQuo facture les gens qui chiffrent vraiment le travail — soumissions, chantiers, factures — et tout le monde dans une camionnette fait partie de l’équipe de terrain, sans frais. Toutes les fonctions sont dans tous les forfaits, à partir de {ourEntry}.",
   "compare.concession.housecall_pro": "La partie honnête d’abord. La page de Housecall Pro inscrit une application mobile, l’accès hors ligne et une démo guidée comme du standard. FieldQuo n’a aucun des trois, et si l’un d’eux tranche la question pour vous, c’est eux qu’il faut acheter.",
   "compare.lede.servicetitan": "La page de prix de ServiceTitan ne porte aucun montant en dollars, nulle part — vous réservez une démo et le chiffre se négocie contre votre chiffre d’affaires et votre effectif. Des entrepreneurs rapportent des frais mensuels par technicien par-dessus des frais d’implantation à cinq chiffres et un contrat pluriannuel. Tous les prix de FieldQuo sont sur cette page, il n’y a pas de frais d’installation, et vous pouvez commencer ce soir sans parler à personne.",
   "compare.concession.servicetitan": "Ce que nous ne pouvons pas offrir, dit en premier : pas d’application mobile, rien qui fonctionne hors réseau, et personne pour vous faire faire le tour avant que vous décidiez.",
-  "compare.lede.projul": "Projul demande un engagement annuel forfaitaire payé d’avance. FieldQuo, c’est $99 par mois pour un poste et cinq personnes sur le terrain, toutes les fonctions incluses, et vous pouvez partir à la fin de n’importe quel mois — vous n’avez pas à acheter une année pour savoir si ça vous convient.",
+  "compare.lede.projul": "Projul demande un engagement annuel forfaitaire payé d’avance. FieldQuo, c’est {ourEntry} par mois pour un poste et cinq personnes sur le terrain, toutes les fonctions incluses, et vous pouvez partir à la fin de n’importe quel mois — vous n’avez pas à acheter une année pour savoir si ça vous convient.",
   "compare.concession.projul": "Avant le reste : FieldQuo n’a pas d’application mobile, ne fonctionne pas sans signal, et n’a personne pour vous en faire la démonstration. Projul, lui, vous réservera une démo.",
-  "compare.lede.quoteiq": "QuoteIQ commence à $29.99, et ce forfait-là ne peut pas vous bâtir un site web, prendre une réservation, ni laisser un propriétaire chiffrer lui-même ses travaux. Le forfait QuoteIQ qui porte ce que FieldQuo met dans tous les forfaits, c’est leur palier Max, à $699 par mois. Le nôtre est à $99 — et quarante et une choses de notre liste ne sont dans leur gamme à aucun prix.",
+  "compare.lede.quoteiq": "QuoteIQ commence à {theirEntry}, et ce forfait-là ne peut pas vous bâtir un site web, prendre une réservation, ni laisser un propriétaire chiffrer lui-même ses travaux. Le forfait QuoteIQ qui porte ce que FieldQuo met dans tous les forfaits, c’est leur palier Max, à {theirParity} par mois. Le nôtre est à {ourEntry} — et quarante et une choses de notre liste ne sont dans leur gamme à aucun prix.",
   "compare.concession.quoteiq": "Le prix d’abord, parce que c’est ce que vous êtes venu vérifier. QuoteIQ commence sous notre forfait le moins cher, livre des applications mobiles que nous n’avons pas, et vous réservera une visite guidée. FieldQuo est une application web, sans vendeur attaché.",
 
   "compare.counterpoint.projul.monthly_billing": "Leur page plaide en faveur du forfait annuel, et l’argument se tient : Projul dit que son prix ne comporte aucuns frais par utilisateur ni plafond sur le nombre de projets. Une entreprise qui ajoute souvent du monde sera peut-être mieux servie là.",
@@ -182,6 +187,7 @@ const fr = {
   "compare.case.eyebrow": "Côte à côte",
   "compare.case.headlineOurs": "Tout ce que FieldQuo fait coûte {price}.",
   "compare.case.headlineTheirs": "Chez {competitor}, la même liste est à {price}.",
+  "compare.case.headlineTheirsAnnual": "Chez {competitor}, la même liste est à {price} par année.",
   "compare.case.headlineNoPricesOurs": "FieldQuo publie tous ses prix.",
   "compare.case.headlineNoPricesTheirs": "{competitor} n’en publie aucun.",
   "compare.case.sub": "Nous ne vendons pas les fonctions au palier. Chaque forfait a toutes les fonctions — les forfaits ne diffèrent que par le nombre de personnes qui s’y trouvent.",
@@ -213,6 +219,7 @@ const fr = {
   "compare.rows.cheapestPlan": "Forfait le moins cher",
   "compare.rows.soloSub": "{plan} — 1 poste, {crew} personnes sur le terrain gratuites",
   "compare.rows.annualEquivalent": "{plan} — équivalent de {amount} par mois, facturé à l’année",
+  "compare.rows.annualOnlyPlain": "{plan} — facturé à l’année",
   "compare.rows.tierUsers": "{plan} — {users}",
   "compare.rows.parityLabel": "Le forfait le moins cher qui porte ce que FieldQuo met dans tous les siens",
   "compare.rows.paritySub": "Le même forfait. Nous ne verrouillons pas les fonctions par palier.",
@@ -246,6 +253,7 @@ const fr = {
   "compare.rows.onRequest": "Sur demande",
   "compare.rows.everyPlan": "Tous les forfaits",
   "compare.rows.tierAtPrice": "{plan} — {amount}/mois",
+  "compare.rows.tierAtAnnualPrice": "{plan} — {amount}/an",
   "compare.rows.theirCheapestWithIt": "leur forfait le moins cher qui l’inclut",
   "compare.rows.notInTheirPlans": "Absent de leurs forfaits",
   "compare.rows.freeTrial": "Essai gratuit",

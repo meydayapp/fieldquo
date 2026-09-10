@@ -45,7 +45,13 @@ import { Check, X, ArrowRight } from "lucide-react";
 
 import { MATRIX_GROUPS } from "@/lib/marketing/featureMatrix";
 import { featureEntry, featureGroup } from "@/lib/marketing/featureLabels";
-import { neverListed, shopMath, entriesFor, parityFor } from "@/lib/marketing/parity";
+import {
+  neverListed,
+  shopMath,
+  entriesFor,
+  parityFor,
+  derivationProps,
+} from "@/lib/marketing/parity";
 import { SEAT_LADDER } from "@/lib/pricing/ladder";
 import { caseRows, YES, NO } from "./caseRows";
 
@@ -77,6 +83,7 @@ function Cell({ cell, ours }) {
   if (!cell) return null;
   return (
     <div
+      {...(cell.attrs || {})}
       className={`rounded-xl px-4 py-4 h-full ${
         ours
           ? "bg-primary text-primary-foreground"
@@ -100,13 +107,26 @@ function Cell({ cell, ours }) {
               {cell.sub}
             </div>
           ) : null}
+          {/* The provenance of a figure nobody published. Rendered as its own
+              line rather than folded into `sub`, because it is the sentence
+              competitors.js requires beside a reported band and a cell whose
+              sub is a two-word label must still be able to carry it. */}
+          {cell.foot ? (
+            <div
+              className={`text-[11px] mt-2 leading-snug break-words ${
+                ours ? "opacity-70" : "text-muted-foreground/80"
+              }`}
+            >
+              {cell.foot}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
   );
 }
 
-export default function TheCase({ competitor, t, locale = "en-CA" }) {
+export default function TheCase({ competitor, t, locale = "en-CA", asOf = null }) {
   const id = competitor?.id;
   if (!id) return null;
 
@@ -118,11 +138,11 @@ export default function TheCase({ competitor, t, locale = "en-CA" }) {
           values?.[name] !== undefined ? String(values[name]) : m,
         );
 
-  const { rows, missingCount, hasPrices } = caseRows(id, competitor.name, t, locale);
+  const { rows, missingCount, hasPrices } = caseRows(id, competitor.name, t, locale, asOf);
   if (!rows.length) return null;
 
-  const parity = parityFor(id);
-  const missing = neverListed(id);
+  const parity = parityFor(id, { asOf });
+  const missing = neverListed(id, asOf);
   const solo = SEAT_LADDER[0];
 
   return (
@@ -143,11 +163,21 @@ export default function TheCase({ competitor, t, locale = "en-CA" }) {
                   price: money(solo.price),
                 })}
                 <br className="hidden sm:block" />{" "}
-                {say(
-                  "compare.case.headlineTheirs",
-                  "At {competitor} the same list is {price}.",
-                  { competitor: competitor.name, price: money(parity.tier.price) },
-                )}
+                {parity.tier.annualOnly
+                  ? // Their unit, not a month we worked out for them. The
+                    // headline is the one sentence a visitor certainly reads,
+                    // and the strongest true thing about an annual-only vendor
+                    // is the size of the cheque, not a monthly they do not sell.
+                    say(
+                      "compare.case.headlineTheirsAnnual",
+                      "At {competitor} the same list is {price} a year.",
+                      { competitor: competitor.name, price: money(parity.tier.annualTotal) },
+                    )
+                  : say(
+                      "compare.case.headlineTheirs",
+                      "At {competitor} the same list is {price}.",
+                      { competitor: competitor.name, price: money(parity.tier.price) },
+                    )}
               </>
             ) : (
               <>
@@ -236,12 +266,18 @@ export default function TheCase({ competitor, t, locale = "en-CA" }) {
 
             <div className="mt-8 space-y-4">
               {SHOPS.map((shop) => {
-                const m = shopMath(shop, id);
+                const m = shopMath(shop, id, asOf);
                 if (!m.fieldquo || !m.competitor) return null;
                 const wins = typeof m.savesPerYear === "number" && m.savesPerYear > 0;
                 return (
                   <div
                     key={shop.label}
+                    // The working, declared. Both prices this saving was
+                    // computed from are printed inside this box, which is what
+                    // makes the derived figure checkable by a reader with a
+                    // phone and by scripts/check-compare-pages.mjs with the
+                    // published set. See lib/marketing/parity.js.
+                    {...(wins ? derivationProps(m.saving) : {})}
                     className="rounded-2xl border border-border p-5 sm:p-6 flex flex-wrap items-center justify-between gap-4"
                   >
                     <div className="min-w-0">

@@ -99,6 +99,7 @@ import {
   counterpointFor,
 } from "../compareCopy";
 import { entryPriceGap } from "../entryPrice";
+import { AMOUNT_WITHHELD, compareFigures } from "../copyFigures";
 
 // ── How a price kind reads in a sentence ───────────────────────────────────
 //
@@ -193,7 +194,11 @@ function priceLine(price, t, locale = "en-US") {
  * decimal — because it is guarding against the amounts nobody has written yet.
  */
 export function redactAmounts(reason) {
-  return String(reason ?? "").replace(/\$\s?\d[\d,]*(?:\.\d+)?/g, "[amount withheld]");
+  // The marker is shared with ../copyFigures.js, which puts the same words
+  // where a lede's {placeholder} could not be resolved. Two surfaces printing
+  // two different brackets for the same fact is how a reader learns to ignore
+  // both.
+  return String(reason ?? "").replace(/\$\s?\d[\d,]*(?:\.\d+)?/g, AMOUNT_WITHHELD);
 }
 
 /**
@@ -324,7 +329,13 @@ export default function ComparisonPage({ slug, asOf }) {
   const { t, language } = useTranslation();
   const locale = numberLocaleFor(language);
   const chrome = compareChrome(t);
-  const page = comparePageCopy(slug, t);
+  // The lede names amounts. They are resolved through the same gates as the
+  // rows below it, so a stale reading empties the paragraph's numbers the way
+  // it empties the table — see ../copyFigures.js.
+  const draft = comparePageCopy(slug, t);
+  const page = draft
+    ? comparePageCopy(slug, t, compareFigures(draft.competitorId, asOf, locale))
+    : null;
   const competitor = page ? findCompetitor(page.competitorId) : null;
   // The server half has already 404'd on an unknown slug; this is the second
   // gate, and it exists because a competitor could be removed from the data
@@ -432,7 +443,7 @@ export default function ComparisonPage({ slug, asOf }) {
           Placed FIRST on purpose. The price tables below are reference: what
           each company publishes, with its provenance. This is what the page is
           FOR, and a reader who leaves after one screen should have read it. */}
-      <TheCase competitor={competitor} t={t} locale={locale} />
+      <TheCase competitor={competitor} t={t} locale={locale} asOf={asOf} />
 
       {/* ── Price ─────────────────────────────────────────────────────────── */}
       <div className="bg-muted border-y border-border">
