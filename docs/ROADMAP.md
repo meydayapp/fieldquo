@@ -1,12 +1,90 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 9 September 2026 (FieldQuo has a support channel. There was no SupportTicket model, no route and no screen anywhere in the product, so a sales rep who heard a technical problem from a contractor they signed up either texted the owner or dropped it. A rep now escalates from /sales/support about a company ATTRIBUTED TO THEM — re-read from the database in the writing request, never trusted from the body — and the ticket is assigned to the first active superadmin, looked up by role rather than by a hard-coded id. /platform/support is the queue: open it, move it, reply, or keep an internal note the rep never sees. The rep watches their own tickets and can answer back, so escalating is not a black hole)
+Last updated: 10 September 2026 (A sales rep can finally GET a demo. `SalesRep.demoCompanyId` was @unique, read in three places and written in NONE — so /sales/demo's "ask a FieldQuo admin to assign you one on the platform demo screen, it takes them a click" was a promised control that did not exist. Behind it, two dead buttons nobody could reach: POST /api/sales/demo rode the read-only gate, so Reset and the trade picker had always 403'd, and the route selected `Company.industry`, a column that does not exist. A rep now CLAIMS a free demo — decided by a pure function, raced safely against the unique index rather than read-then-written — /platform/demo assigns, releases and mints the login in one press, and the rep screen tells apart "no demo", "demo but no login" and "ready" instead of offering a sign-in against an address no account exists for)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The sales rep's demo, which nobody could have (10 September 2026)
+
+The owner: *"the sales should have one demo available in their account."*
+`/sales/demo` said: *"You don't have one yet. Ask a FieldQuo admin to assign you
+one on the platform demo screen — it takes them a click."*
+
+There was no click. `SalesRep.demoCompanyId` is `@unique`, was read in three
+places (`app/api/sales/demo`, `lib/sales/scope.js`, `lib/sales/gate.js`) and
+written in none, on either side of the product. Ten demo companies had existed
+since February with nobody able to be pointed at one, and none of the ten had a
+login. A sentence promising a control that does not exist is the same failure as
+a dead button; it just takes longer to find.
+
+Two more were hiding behind it, invisible because they only render for a rep who
+has a demo:
+
+* `POST /api/sales/demo` went through `requireSalesRep()`, which refuses every
+  non-GET method under `/api/sales` — correctly, that is its whole job. "Reset
+  the data" and the trade picker had returned 403 for as long as they existed.
+* The route selected `Company.industry`. There is no such column. Any rep who
+  did have a demo would have got a Prisma validation error on every load, and
+  the trade picker read "Not set" whatever the demo was dressed as.
+
+**The claim.** `lib/sales/demoPool.js`'s `planDemoClaim()` decides over rows the
+caller already read — the shape `lib/sales/calls/inboundDistribution.js`
+established — so no-demos, all-taken, already-has-one, a pointer at a company
+that stopped being a demo, and duplicate ids are all executed by
+`scripts/check-demo-assignment.mjs` rather than reasoned about. A demo is TAKEN
+if any `SalesRep` row points at it, including a rep who has left: the constraint
+does not care that somebody left, and treating a departed rep's demo as free
+produces a candidate whose write can only ever fail.
+
+**The race.** Read-the-free-list-then-write cannot be right here — the list is
+read at the top of a request and written at the bottom. `demoAssign.js` writes
+with `updateMany` whose WHERE requires `demoCompanyId: null` (so two tabs
+belonging to one rep cannot orphan a demo), catches `P2002` specifically, feeds
+the lost company back through `excludeIds`, and is bounded by
+`MAX_CLAIM_ATTEMPTS`. Proven by executing the shipped loop against a client
+whose `updateMany` throws P2002 the way Postgres would — the client is an
+argument for exactly that reason.
+
+**The gate.** `lib/sales/demoGate.js`'s `requireDemoRep` — the seventh narrow
+named exception after outreach, SMS, queue, calls and calendar, declared in
+`check-sales-auth`'s `SALES_GATES`. It is the first that reaches `SalesRep`,
+which is on `REP_FORBIDDEN_WRITES`; the one column is `demoCompanyId`, it can
+only point at an `isDemo` company, it is write-once from a rep's side, and
+nothing that decides money reads it — `scope.js` keeps `repDemoWhere()` separate
+from `assignedCompanyWhere()` precisely so a fixture cannot read as a sale. Same
+shape as `gate.js`'s own `lastSeenAt` carve-out.
+
+**The console.** `/platform/demo` assigns a demo to a rep, releases one, and does
+assign-plus-login in one press, which is what the rep screen had always promised.
+The minting guards moved to `lib/demo/demoLogin.js` so the two routes share them
+instead of each restating four from memory. Release clears one pointer and
+destroys nothing — and is excluded from the "this clears N quotes" warning it
+would otherwise have borrowed from its neighbour.
+
+**The three states.** `/sales/demo` now tells apart no demo (Claim, or the real
+counts and who to ask), a demo with no login (the exact sentence to send a
+superadmin, and deliberately no sign-in control — the address is a string, not an
+account), and ready. `loginReady` is both halves: a `User` for the derived
+address AND an active `Member` row.
+
+Daniel holds `demo1` — Cedar & Co. Flooring — with `demo1@fieldquo.com` as an
+active owner. Nine of the ten remain free.
+
+`lib/sales/demoPool.js`, `lib/sales/demoAssign.js`, `lib/sales/demoGate.js`,
+`lib/demo/demoLogin.js`, `app/api/platform/demo/assign/route.js`,
+`scripts/check-demo-assignment.mjs` (106 assertions, mutation-tested against
+eight breaks).
+
+**Still open, and not caused by this:** `check:sales-auth` fails on `origin/main`
+— `app/api/sales/payout/route.js` writes `salesRep.update`, which is on
+`REP_FORBIDDEN_WRITES`. It needs either a declared exception with its reason or
+a different write path.
 
 ---
 
