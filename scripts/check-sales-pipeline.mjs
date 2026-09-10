@@ -792,7 +792,20 @@ function fnBody(src, name) {
     ok("BATCH is read from the route, not assumed", Number.isFinite(batch), batch);
     // 4,000 prospects × 7 stages — the arithmetic the change was made for.
     ok("1,440 ticks × BATCH clears 4,000 prospects a day (28,000 tasks)", 1440 * batch >= 28000, 1440 * batch);
-    ok("...and BATCH stays small enough that each drain is short", batch <= 25, batch);
+    // Raised from 25 with the duration decision the route's header deferred.
+    // The old bound existed because no maxDuration was declared and the real
+    // limit lived in a dashboard the source could not read — so a small batch
+    // was the only way to be sure a drain finished. It is declared now, and
+    // THAT is what makes a bigger batch safe, so the check asserts the pair
+    // rather than a number on its own.
+    ok("...and BATCH stays inside what one invocation can finish", batch <= 50, batch);
+    const declared = Number((/export const maxDuration = (\d+);/.exec(route) || [])[1]);
+    ok("the route declares its own maxDuration rather than inheriting a dashboard setting",
+      Number.isFinite(declared), declared);
+    // ~2s per task is the figure the header reasons with; a drain must finish
+    // well inside the declared limit, not merely fit it.
+    ok("...and the declared limit covers a serial drain with room to spare",
+      declared >= batch * 2 * 1.5, { declared, needed: batch * 2 * 1.5 });
     const runner = read("lib/sales/pipeline/runner.js");
     ok("concurrent drains are safe: every task is claimed under a lease", /claimExpires/.test(runner) && /claimToken/.test(runner));
     ok("...and a reclaim reuses the same idempotency key", /idempotencyKey/.test(runner));

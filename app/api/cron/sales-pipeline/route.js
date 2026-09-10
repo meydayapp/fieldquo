@@ -42,12 +42,25 @@
 // figure needs BATCH = 50, which is a real decision about how long one
 // invocation may run rather than a tuning knob, and it is not taken here.
 //
-// No `maxDuration` is exported anywhere in this repository, so every function
-// runs at whatever the Vercel project dashboard is set to. This code cannot
-// read that setting and does not guess it. What it does instead is keep the
-// batch small enough that a serial drain at a couple of seconds per task
-// finishes in well under a minute; if a future BATCH makes that untrue, the
-// number to check is the dashboard's, not one invented in a comment.
+// ── The duration decision this comment used to defer ──────────────────────
+//
+// It said BATCH = 50 "is a real decision about how long one invocation may run
+// rather than a tuning knob, and it is not taken here", and that no
+// `maxDuration` was exported so every function ran at whatever the dashboard
+// said — which this code could not read and would not guess.
+//
+// The decision is taken now, and the guess is removed rather than replaced by
+// a better guess: the limit is DECLARED here, so it no longer depends on a
+// dashboard setting nobody can see from the source. 300 seconds is the ceiling
+// for a Node function on this project's plan — the per-minute cron schedule in
+// vercel.json only runs at all on that plan, so it is not an assumption about
+// billing, it is implied by a schedule that is already working.
+//
+// At a couple of seconds per task a drain of 50 is ~100s, comfortably inside
+// 300 and still finishing long before the next tick. If a future BATCH makes
+// that untrue the number to check is this one, which is now in the file.
+export const maxDuration = 300;
+
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -59,7 +72,20 @@ import { handlerStatus } from "@/lib/sales/pipeline/registry";
 // not a cursor, so leftovers are picked up by the next tick and nothing is
 // dropped. Small because the work per row is a network call to somebody else's
 // server, unlike grace-warning's, which is one email.
-const BATCH = 25;
+// ── 25 -> 50, the lever this file's own header names as "the next one" ────
+//
+// Every task waits its turn in one FIFO queue, so the drain rate IS the wait.
+// Measured: ~1,000 tasks/hour completing and an average wait of about
+// twenty-three minutes, which is the queue depth divided by this number.
+// Doubling it roughly halves the wait for everything, including the discovery
+// page that is the head of the funnel.
+//
+// The caution above still holds and is why this is 50 and not 200: the work per
+// row is a network call to somebody else's server. Fifty keeps each drain short
+// enough to finish well inside a function's lifetime, and the per-provider
+// budgets in limits.js still cap what any one stage may spend in a run — this
+// raises the floor on throughput, not the ceiling on politeness.
+const BATCH = 50;
 
 export async function GET(request) {
   // First, before any work — this header is the entire authentication boundary

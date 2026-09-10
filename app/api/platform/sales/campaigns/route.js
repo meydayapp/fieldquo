@@ -79,7 +79,30 @@ import { campaignStartBlockers, territoryRegistration } from "@/lib/sales/discov
 import { registeredKeys, withRegistrations } from "@/lib/sales/registrations";
 
 const MAX_NAME = 120;
-const MAX_TARGET = 50_000;
+// ── Raised from 50,000, with the reason it existed now measured ──────────
+//
+// It was a bare number with no comment, and the constraint that actually
+// justified it was never written down: the database was on a 512 MB plan, the
+// crawler writes ~150 KB of evidence per prospect, and 50,000 prospects is
+// about 7.5 GB — so this cap was the only thing keeping the project inside its
+// storage plan. Nobody could have known that from reading the line.
+//
+// Both halves of the cost are now measured rather than feared:
+//
+//   STORAGE  ~150 KB/prospect. 300,000 prospects is ~45 GB, about $16/month on
+//            the current plan. Real, small, recurring.
+//   MODEL    $0.000622 per research brief, averaged over 3,395 actually
+//            written. 300,000 briefs is ~$190, ONCE. Crawling and detection
+//            spend nothing at a vendor — they are local work.
+//
+// The owner's decision, in his words: "they are one time expenses whether we
+// use it in a month or day or week it'll be the same cost. i rather have all
+// that accessible for my sales team."
+//
+// So this is now a guard against a typo — an extra zero in a text box — rather
+// than a budget. California's whole contractor list is 304,419, the largest
+// real target anybody has asked for, and this clears it.
+const MAX_TARGET = 500_000;
 /** How many campaigns one submission may create. The largest single selection
  *  in the library is California — 5 register parts plus 2 Overture parts — so
  *  this is headroom, not a policy. It exists because a bug in the selection
