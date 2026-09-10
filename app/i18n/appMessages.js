@@ -44,6 +44,12 @@ import { countedNoun } from "../../lib/i18n/plurals.js";
 // Flat, dot-namespaced keys, matching messages.js. Flat means `t("app.nav.jobs")`
 // is one lookup, and grepping the key finds both the use and every translation.
 const en = {
+  "app.common.retry": "Try again",
+  "app.aiEmployee.loadErrorHelp": "Nothing has been changed or lost — this screen only failed to read your setup.",
+  "app.setInstantQuotes.needsPriceTitle": "These are ready to go live as soon as you price them",
+  "app.setInstantQuotes.needsPriceHelp": "Everything you sell that FieldQuo can price from your own rates is already switched on below. These are the ones where we don't have a rate of yours to use — and we won't quote a homeowner a number you didn't set.",
+  "app.setInstantQuotes.needsPriceRow": "You sell {service}. Set your price and it goes live.",
+  "app.setInstantQuotes.needsPriceLink": "Price {trade}",
   "app.aiEmployee.actionError": "That didn't work.",
   "app.aiEmployee.aiUnavailable": "AI isn't switched on for this deployment, so the employee can't write anything at all.",
   "app.aiEmployee.capHint": "After this it stops and leaves the conversation to you. Zero pauses it without losing anything you've set up.",
@@ -7103,6 +7109,12 @@ const en = {
 // invoice are what a contractor in Gatineau writes on the document itself, and
 // the interface should use the same word as the paperwork.
 const fr = {
+  "app.common.retry": "Réessayer",
+  "app.aiEmployee.loadErrorHelp": "Rien n’a été modifié ni perdu — cet écran n’a fait qu’échouer à lire votre configuration.",
+  "app.setInstantQuotes.needsPriceTitle": "Ceux-ci sont prêts à être publiés dès que vous fixez leur prix",
+  "app.setInstantQuotes.needsPriceHelp": "Tout ce que vous vendez et que FieldQuo peut chiffrer à partir de vos propres tarifs est déjà activé ci-dessous. Voici ceux pour lesquels nous n’avons aucun tarif à vous — et nous ne donnerons jamais à un client un prix que vous n’avez pas fixé.",
+  "app.setInstantQuotes.needsPriceRow": "Vous vendez {service}. Fixez votre prix et ce sera publié.",
+  "app.setInstantQuotes.needsPriceLink": "Fixer le prix — {trade}",
   "app.aiEmployee.actionError": "Cela n'a pas fonctionné.",
   "app.aiEmployee.aiUnavailable": "L'IA n'est pas activée sur ce déploiement, donc l'employé ne peut rien écrire du tout.",
   "app.aiEmployee.capHint": "Après cela, il s'arrête et vous laisse la conversation. Zéro le met en pause sans rien perdre de ce que vous avez configuré.",
@@ -13714,6 +13726,12 @@ const fr = {
 
 
 const es = {
+  "app.common.retry": "Reintentar",
+  "app.aiEmployee.loadErrorHelp": "No se ha cambiado ni perdido nada: esta pantalla solo no pudo leer tu configuración.",
+  "app.setInstantQuotes.needsPriceTitle": "Estos están listos para publicarse en cuanto les pongas precio",
+  "app.setInstantQuotes.needsPriceHelp": "Todo lo que vendes y que FieldQuo puede cotizar con tus propias tarifas ya está activado abajo. Estos son aquellos de los que no tenemos ninguna tarifa tuya, y no le daremos a un propietario un precio que tú no hayas fijado.",
+  "app.setInstantQuotes.needsPriceRow": "Vendes {service}. Pon tu precio y se publica.",
+  "app.setInstantQuotes.needsPriceLink": "Poner precio a {trade}",
   "app.aiEmployee.actionError": "Eso no funcionó.",
   "app.aiEmployee.aiUnavailable": "La IA no está activada en esta instalación, así que el empleado no puede escribir nada.",
   "app.aiEmployee.capHint": "Después de eso se detiene y le deja la conversación. Cero lo pausa sin perder nada de lo que usted configuró.",
@@ -20672,6 +20690,12 @@ const es = {
 };
 
 const uk = {
+  "app.common.retry": "Спробувати ще раз",
+  "app.aiEmployee.loadErrorHelp": "Нічого не змінено й не втрачено — цей екран лише не зміг прочитати ваші налаштування.",
+  "app.setInstantQuotes.needsPriceTitle": "Ці готові до запуску, щойно ви призначите ціну",
+  "app.setInstantQuotes.needsPriceHelp": "Усе, що ви продаєте і що FieldQuo може оцінити за вашими власними тарифами, уже ввімкнено нижче. Ось ті, для яких у нас немає жодного вашого тарифу — і ми не назвемо клієнту ціну, якої ви не встановили.",
+  "app.setInstantQuotes.needsPriceRow": "Ви продаєте {service}. Призначте ціну — і його буде опубліковано.",
+  "app.setInstantQuotes.needsPriceLink": "Призначити ціну — {trade}",
   "app.messages.assignee.label": "Хто цим займається",
   "app.messages.assignee.nobody": "Поки ніхто",
   "app.messages.assignee.saveError": "Не вдалося змінити, хто цим займається.",
@@ -25557,6 +25581,12 @@ const uk = {
 };
 
 const pa = {
+  "app.common.retry": "ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ",
+  "app.aiEmployee.loadErrorHelp": "ਕੁਝ ਵੀ ਬਦਲਿਆ ਜਾਂ ਗੁਆਚਿਆ ਨਹੀਂ — ਇਹ ਸਕਰੀਨ ਸਿਰਫ਼ ਤੁਹਾਡੀ ਸੈਟਅਪ ਪੜ੍ਹ ਨਹੀਂ ਸਕੀ।",
+  "app.setInstantQuotes.needsPriceTitle": "ਇਹ ਤਿਆਰ ਹਨ — ਜਿਵੇਂ ਹੀ ਤੁਸੀਂ ਕੀਮਤ ਦਿੰਦੇ ਹੋ, ਇਹ ਲਾਈਵ ਹੋ ਜਾਣਗੇ",
+  "app.setInstantQuotes.needsPriceHelp": "ਜੋ ਕੁਝ ਤੁਸੀਂ ਵੇਚਦੇ ਹੋ ਅਤੇ FieldQuo ਤੁਹਾਡੀਆਂ ਆਪਣੀਆਂ ਦਰਾਂ ਤੋਂ ਕੀਮਤ ਲਗਾ ਸਕਦਾ ਹੈ, ਉਹ ਹੇਠਾਂ ਪਹਿਲਾਂ ਹੀ ਚਾਲੂ ਹੈ। ਇਹ ਉਹ ਹਨ ਜਿਨ੍ਹਾਂ ਲਈ ਸਾਡੇ ਕੋਲ ਤੁਹਾਡੀ ਕੋਈ ਦਰ ਨਹੀਂ — ਅਤੇ ਅਸੀਂ ਗਾਹਕ ਨੂੰ ਉਹ ਕੀਮਤ ਨਹੀਂ ਦੱਸਾਂਗੇ ਜੋ ਤੁਸੀਂ ਤੈਅ ਨਹੀਂ ਕੀਤੀ।",
+  "app.setInstantQuotes.needsPriceRow": "ਤੁਸੀਂ {service} ਵੇਚਦੇ ਹੋ। ਆਪਣੀ ਕੀਮਤ ਤੈਅ ਕਰੋ ਅਤੇ ਇਹ ਲਾਈਵ ਹੋ ਜਾਵੇਗਾ।",
+  "app.setInstantQuotes.needsPriceLink": "{trade} ਦੀ ਕੀਮਤ ਤੈਅ ਕਰੋ",
   "app.messages.assignee.label": "ਇਹ ਕੌਣ ਸੰਭਾਲ ਰਿਹਾ ਹੈ",
   "app.messages.assignee.nobody": "ਹਾਲੇ ਕੋਈ ਨਹੀਂ",
   "app.messages.assignee.saveError": "ਇਹ ਕੌਣ ਸੰਭਾਲਦਾ ਹੈ, ਬਦਲਿਆ ਨਹੀਂ ਜਾ ਸਕਿਆ।",
@@ -30374,6 +30404,12 @@ const pa = {
 };
 
 const tl = {
+  "app.common.retry": "Subukan ulit",
+  "app.aiEmployee.loadErrorHelp": "Walang nabago o nawala — hindi lang nabasa ng screen na ito ang iyong setup.",
+  "app.setInstantQuotes.needsPriceTitle": "Handa na ang mga ito na mag-live kapag nilagyan mo na ng presyo",
+  "app.setInstantQuotes.needsPriceHelp": "Lahat ng ibinebenta mo na kayang presyuhan ng FieldQuo mula sa sarili mong mga rate ay naka-on na sa ibaba. Ito ang mga wala kaming rate mo — at hindi kami magsasabi sa may-bahay ng presyong hindi mo itinakda.",
+  "app.setInstantQuotes.needsPriceRow": "Nagbebenta ka ng {service}. Itakda ang presyo at mag-li-live na ito.",
+  "app.setInstantQuotes.needsPriceLink": "Presyuhan ang {trade}",
   "app.messages.assignee.label": "Sino ang humahawak nito",
   "app.messages.assignee.nobody": "Wala pa",
   "app.messages.assignee.saveError": "Hindi mapalitan kung sino ang humahawak nito.",
@@ -35198,6 +35234,12 @@ const tl = {
 };
 
 const de = {
+  "app.common.retry": "Erneut versuchen",
+  "app.aiEmployee.loadErrorHelp": "Nichts wurde geändert oder ist verloren — dieser Bildschirm konnte Ihre Einrichtung nur nicht lesen.",
+  "app.setInstantQuotes.needsPriceTitle": "Diese gehen live, sobald Sie einen Preis hinterlegen",
+  "app.setInstantQuotes.needsPriceHelp": "Alles, was Sie verkaufen und FieldQuo aus Ihren eigenen Sätzen berechnen kann, ist unten bereits aktiv. Dies sind die, für die uns kein Satz von Ihnen vorliegt — und wir nennen einem Kunden keinen Preis, den Sie nicht festgelegt haben.",
+  "app.setInstantQuotes.needsPriceRow": "Sie verkaufen {service}. Legen Sie Ihren Preis fest, dann geht es live.",
+  "app.setInstantQuotes.needsPriceLink": "Preis festlegen — {trade}",
   "app.aiEmployee.actionError": "Das hat nicht funktioniert.",
   "app.aiEmployee.aiUnavailable": "KI ist auf dieser Installation nicht eingeschaltet, der Mitarbeiter kann also gar nichts schreiben.",
   "app.aiEmployee.capHint": "Danach hört er auf und überlässt Ihnen das Gespräch. Null pausiert ihn, ohne dass etwas von Ihren Einstellungen verloren geht.",
@@ -41469,6 +41511,12 @@ const de = {
 };
 
 const zh = {
+  "app.common.retry": "重试",
+  "app.aiEmployee.loadErrorHelp": "没有任何内容被更改或丢失——只是此页面未能读取您的设置。",
+  "app.setInstantQuotes.needsPriceTitle": "只要您定好价格，这些就可以上线",
+  "app.setInstantQuotes.needsPriceHelp": "您出售的、FieldQuo 能依据您自己的费率定价的项目，下面都已开启。这些是我们没有您费率的项目——我们不会向房主报出您没有设定的价格。",
+  "app.setInstantQuotes.needsPriceRow": "您销售 {service}。设定价格后即可上线。",
+  "app.setInstantQuotes.needsPriceLink": "为 {trade} 定价",
   "app.aiEmployee.actionError": "没有成功。",
   "app.aiEmployee.aiUnavailable": "本部署未启用 AI，因此该员工什么也写不了。",
   "app.aiEmployee.capHint": "超过之后它就停下，把对话留给您。填零则暂停它，您已设置的内容一样不丢。",
@@ -47687,6 +47735,12 @@ const zh = {
 };
 
 const it = {
+  "app.common.retry": "Riprova",
+  "app.aiEmployee.loadErrorHelp": "Nulla è stato modificato o perso: questa schermata non è riuscita soltanto a leggere la tua configurazione.",
+  "app.setInstantQuotes.needsPriceTitle": "Questi sono pronti a partire non appena imposti un prezzo",
+  "app.setInstantQuotes.needsPriceHelp": "Tutto ciò che vendi e che FieldQuo può quotare dalle tue tariffe è già attivo qui sotto. Questi sono quelli per cui non abbiamo una tua tariffa — e non daremo a un cliente un prezzo che non hai stabilito.",
+  "app.setInstantQuotes.needsPriceRow": "Vendi {service}. Imposta il prezzo e va online.",
+  "app.setInstantQuotes.needsPriceLink": "Imposta il prezzo — {trade}",
   "app.aiEmployee.actionError": "Non ha funzionato.",
   "app.aiEmployee.aiUnavailable": "L'IA non è attiva su questa installazione, quindi il dipendente non può scrivere nulla.",
   "app.aiEmployee.capHint": "Dopo di che si ferma e ti lascia la conversazione. Zero lo mette in pausa senza perdere nulla di ciò che hai impostato.",
