@@ -32,6 +32,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireOutreachRep } from "@/lib/sales/outreachGate";
+import { savePayoutDestination } from "@/lib/sales/payoutWrite";
 import {
   ENGAGEMENTS,
   PAYOUT_METHODS,
@@ -118,19 +119,17 @@ export async function PUT(request) {
     return NextResponse.json({ error: "That is longer than any account detail needs to be." }, { status: 400 });
   }
 
-  const row = await db.salesRep.update({
-    where: { id: rep.id },
-    // engagement and accruesPaidLeave are deliberately absent. See the header.
-    data: {
-      payoutMethod: method,
-      payoutHandle: handle,
-      // Stamped on every save, because what is being confirmed is that these
-      // details are correct TODAY. Preserving an older stamp through an edit
-      // would date the confirmation to before the thing it confirms.
-      payoutConfirmedAt: new Date(),
-    },
-    select: SELECT,
-  });
+  // Written through lib/sales/payoutWrite.js rather than here.
+  //
+  // `salesRep` is on REP_FORBIDDEN_WRITES and check-sales-auth enforces that
+  // against the real route files — this route writing the row directly turned
+  // that check red, correctly. The rule is right and the answer was not to
+  // weaken it: the write moved behind one function that touches a closed,
+  // asserted set of columns and audits every change, exactly the way
+  // stampLastSeen() already handles the one other exempt column.
+  //
+  // engagement and accruesPaidLeave are not in that set. See the header.
+  const row = await savePayoutDestination({ salesRepId: rep.id, method, handle });
 
   return NextResponse.json(view(row));
 }

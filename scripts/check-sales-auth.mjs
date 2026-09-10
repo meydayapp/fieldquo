@@ -114,6 +114,7 @@ const {
   MIN_PASSWORD_LENGTH,
 } = await import("@/lib/sales/invite");
 const { requireSalesRep, REP_FORBIDDEN_WRITES } = await import("@/lib/sales/gate");
+const { PAYOUT_WRITES_ON_SALES_REP } = await import("@/lib/sales/payoutWrite");
 
 let pass = 0;
 const failures = [];
@@ -779,6 +780,64 @@ for (const file of salesRoutes) {
     if (REP_FORBIDDEN_WRITES.includes(m[1])) stray.push(`${file}: ${m[1]}.${m[2]}`);
   }
 }
+// ── The one sanctioned rep-row write, and its fence ────────────────────────
+//
+// Moving a forbidden write out of a route and into lib/ would make the grep
+// above pass while changing nothing — gaming this check rather than obeying it.
+// So the exemption is asserted here too: lib/sales/payoutWrite.js is the ONLY
+// place outside the gate that writes SalesRep, and it must touch a closed set
+// of destination columns and nothing else.
+//
+// Same shape as GATE_WRITES_ON_SALES_REP, for the same reason: the rule has to
+// be checkable, not merely written down.
+{
+  const payoutSrc = decomment(read("lib/sales/payoutWrite.js"));
+  const columns = PAYOUT_WRITES_ON_SALES_REP;
+  ok("the payout writer names its columns as data", Array.isArray(columns) && columns.length === 3, columns);
+  ok(
+    "…and they are destination columns, never status, code, plan or acceptance",
+    columns.every((c) => /^payout/.test(c)),
+    columns,
+  );
+  // ── What the UPDATE actually sets ───────────────────────────────────
+  //
+  // Read out of the update's own data block rather than tested by a regex per
+  // forbidden name. The first version sliced from `data: {` to `select: {`,
+  // and `select: {` appears in the findUnique ABOVE the update — so the slice
+  // was empty and every assertion passed against nothing. Adding `active: true`
+  // to the writer did not fail the check. Same index-ordering trap this repo
+  // has now hit three times.
+  //
+  // So: find the update, take its data block, and compare the KEY SET. A
+  // whitelist cannot be defeated by a name nobody thought to forbid.
+  const upd = payoutSrc.indexOf("salesRep.update(");
+  const dataAt = payoutSrc.indexOf("data: {", upd);
+  const dataEnd = payoutSrc.indexOf("select: {", dataAt);
+  ok("the update's data block was located", upd > 0 && dataAt > upd && dataEnd > dataAt, { upd, dataAt, dataEnd });
+  const dataBlock = payoutSrc.slice(dataAt, dataEnd);
+  const written = [...dataBlock.matchAll(/(\w+):/g)].map((m) => m[1]).filter((k) => k !== "data");
+  ok(
+    "the writer sets EXACTLY the destination columns and nothing else",
+    written.length === columns.length && written.every((k) => columns.includes(k)),
+    written,
+  );
+
+  ok("…and it reads the previous destination so the change can be audited", /findUnique/.test(payoutSrc));
+  ok("…and records the change", /payout_destination_changed/.test(payoutSrc));
+  // Asserted at the CALL SITES, not on the presence of the word: `mask(` also
+  // appears in the function's own definition, so the first version passed
+  // while the log wrote both handles in full.
+  ok(
+    "…with BOTH handles masked, not written to the log in full",
+    (payoutSrc.match(/handle: mask\(/g) || []).length === 2,
+    (payoutSrc.match(/handle: mask\(/g) || []).length,
+  );
+  ok(
+    "…and takes the rep id from the caller's gate, never a request body",
+    /salesRepId is required/.test(payoutSrc),
+  );
+}
+
 ok(
   "no /api/sales route writes attribution, commission, payouts, billing or a rep row",
   stray.length === 0,
