@@ -55,6 +55,8 @@ model PlatformAdmin {
 
   auditLogs        PlatformAuditLog[]
   telemarketerRegistrations SalesTelemarketerRegistration[]
+  /// Numbers this admin calls and texts from.
+  phoneNumbers              PlatformSmsNumber[]
   demoAvailability DemoHostAvailability[]
   demoBookings     DemoBooking[]
 }
@@ -200,6 +202,22 @@ model PlatformSmsNumber {
   /// being stranded.
   assignedRepId String?
   assignedRep   SalesRep? @relation(fields: [assignedRepId], references: [id], onDelete: SetNull)
+
+  /// …or a platform admin, including the owner.
+  ///
+  /// Two columns rather than one polymorphic "holder id" because they are two
+  /// different kinds of person with two different tables, and a single id
+  /// column with a `holderType` beside it is the shape that lets a bug point a
+  /// number at a rep id in the admin slot. The check asserts at most one is
+  /// set; the pair is readable and the constraint is stated in one place.
+  ///
+  /// The owner asked for this directly: he wanted to assign a number to
+  /// himself, and he is a PlatformAdmin rather than a SalesRep — creating a
+  /// fake rep row for him would have put him in every rep count, on the sales
+  /// floor board, and in the commission ledger.
+  assignedAdminId String?
+  assignedAdmin   PlatformAdmin? @relation(fields: [assignedAdminId], references: [id], onDelete: SetNull)
+
   assignedAt    DateTime?
 
   createdAt DateTime  @default(now())
@@ -208,6 +226,7 @@ model PlatformSmsNumber {
 
   @@index([purpose, active])
   @@index([assignedRepId])
+  @@index([assignedAdminId])
 }
 
 model PlatformErrorLog {

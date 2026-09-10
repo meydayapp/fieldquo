@@ -34,6 +34,7 @@ export default function CrewLinesPage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [releasing, setReleasing] = useState("");
   const [copied, setCopied] = useState("");
 
   const load = useCallback(async () => {
@@ -66,28 +67,56 @@ export default function CrewLinesPage() {
       </div>
     );
 
+  // Which number's release is one press from happening. Empty is the normal
+  // state: a confirm that survives a reload is a confirm nobody meant.
   const { deployment, lines, orphans, counts, numbersError } = data;
   // Reps who could be given a sales line. Empty until one is hired, which is
   // why the picker renders only when there is somebody to pick.
   const reps = data.salesReps || [];
+  const admins = data.platformAdmins || [];
 
-  async function assignRep(e164, salesRepId) {
+  /** POST one action and reload, or surface the server's own sentence. */
+  async function send(body, failure) {
     setError("");
     try {
       const res = await fetch("/api/platform/crew-lines", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "assign", e164, salesRepId }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        setError(body?.error || "Couldn't assign that number.");
+        const b = await res.json().catch(() => null);
+        setError(b?.error || failure);
         return;
       }
       await load();
     } catch (err) {
-      setError(err?.message || "Couldn't assign that number.");
+      setError(err?.message || failure);
     }
+  }
+
+  /**
+   * `rep:<id>` / `admin:<id>` / "" — the option carries its own kind.
+   *
+   * An id alone would need a lookup on every change to work out which list it
+   * came from, and a lookup that missed would silently unassign the number.
+   */
+  function assignHolder(e164, value) {
+    const [kind, id] = String(value || "").split(":");
+    return send(
+      {
+        action: "assign",
+        e164,
+        salesRepId: kind === "rep" ? id : null,
+        platformAdminId: kind === "admin" ? id : null,
+      },
+      "Couldn't assign that number.",
+    );
+  }
+
+  async function releaseNumber(e164) {
+    setReleasing("");
+    await send({ action: "release", e164 }, "Couldn't release that number.");
   }
 
   return (
@@ -225,7 +254,16 @@ export default function CrewLinesPage() {
       ) : (
         <div className="space-y-2">
           {[...lines, ...orphans].map((l) => (
-            <LineRow key={l.e164} line={l} reps={reps} assignRep={assignRep} />
+            <LineRow
+              key={l.e164}
+              line={l}
+              reps={reps}
+              admins={admins}
+              assignHolder={assignHolder}
+              releaseNumber={releaseNumber}
+              releasing={releasing}
+              setReleasing={setReleasing}
+            />
           ))}
         </div>
       )}
@@ -248,7 +286,7 @@ function Stat({ label, value, bad }) {
   );
 }
 
-function LineRow({ line, reps = [], assignRep }) {
+function LineRow({ line, reps = [], admins = [], assignHolder, releaseNumber, releasing, setReleasing }) {
   const alarm = line.drift || line.missingAtProvider;
   return (
     <div
@@ -285,8 +323,8 @@ function LineRow({ line, reps = [], assignRep }) {
           // question, because the only branch here was "claimed by a company or
           // not".
           <span className="text-xs text-muted-foreground">
-            {line.assignedRepName
-              ? `${line.assignedRepName} calls from this`
+            {line.assignedRepName || line.assignedAdminName
+              ? `${line.assignedRepName || line.assignedAdminName} uses this`
               : "FieldQuo's own — shared across the sales team"}
           </span>
         ) : (
@@ -298,20 +336,82 @@ function LineRow({ line, reps = [], assignRep }) {
             Only on a sales line: a system or shared-test number belongs to a
             job, not a person. The owner bought a number and asked where he
             assigns it — the column existed and nothing wrote it. */}
-        {(line.purpose === "sales" || line.purpose === "sales_voice") && reps.length > 0 && (
+        {(line.purpose === "sales" || line.purpose === "sales_voice") && (
           <select
             className="text-xs border border-border rounded-lg px-2 py-1.5 min-h-[44px] bg-card text-foreground"
-            value={line.assignedRepId || ""}
-            onChange={(e) => assignRep(line.e164, e.target.value || null)}
-            aria-label={`Who calls from ${line.e164}`}
+            // One value, two kinds of person, so the option carries its own
+            // kind rather than the handler guessing from which list an id came
+            // out of. `rep:<id>` / `admin:<id>` — an id alone would need a
+            // lookup on every change, and a lookup that missed would silently
+            // unassign.
+            value={
+              line.assignedRepId
+                ? `rep:${line.assignedRepId}`
+                : line.assignedAdminId
+                  ? `admin:${line.assignedAdminId}`
+                  : ""
+            }
+            onChange={(e) => assignHolder(line.e164, e.target.value)}
+            aria-label={`Who uses ${line.e164}`}
           >
-            <option value="">Shared across the team</option>
-            {reps.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name} calls from this
-              </option>
-            ))}
+            <option value="">Unassigned — shared across the team</option>
+            {reps.length > 0 && (
+              <optgroup label="Sales reps">
+                {reps.map((r) => (
+                  <option key={r.id} value={`rep:${r.id}`}>
+                    {r.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {admins.length > 0 && (
+              <optgroup label="FieldQuo staff">
+                {admins.map((a) => (
+                  <option key={a.id} value={`admin:${a.id}`}>
+                    {a.name || a.email}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
+        )}
+        {/* ── Hand it back ─────────────────────────────────────────────────
+            The route has had a `release` action since it was written and
+            nothing ever called it, so a number FieldQuo had stopped needing
+            could only be released in the Twilio console — leaving our row
+            saying we hold something we do not.
+
+            Two presses, because it is irreversible at the carrier: the number
+            goes back on the shelf and cannot be recovered. Never offered on a
+            number a tenant is holding — releasing that takes a contractor's
+            crew inbox away mid-job, and the claim has to be moved first. */}
+        {!line.claim && !line.missingAtProvider && (
+          releasing === line.e164 ? (
+            <span className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => releaseNumber(line.e164)}
+                className="text-xs font-semibold min-h-[44px] px-3 rounded-lg bg-red-600 text-white"
+              >
+                Yes, hand it back
+              </button>
+              <button
+                type="button"
+                onClick={() => setReleasing("")}
+                className="text-xs min-h-[44px] px-3 rounded-lg border border-border text-foreground"
+              >
+                Keep it
+              </button>
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setReleasing(line.e164)}
+              className="text-xs min-h-[44px] px-3 rounded-lg border border-border text-muted-foreground"
+            >
+              Release
+            </button>
+          )
         )}
         {line.claim?.source === "shared_test" && (
           <span className="text-xs text-muted-foreground">

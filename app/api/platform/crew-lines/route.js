@@ -30,6 +30,7 @@ import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { getAppOrigin } from "@/lib/appUrl";
 import { SALES_VOICE_PURPOSES } from "@/lib/sales/calls/store";
+import { assignmentProblem } from "@/lib/sales/numbers";
 import { twilioConfigured } from "@/lib/sms/twilioClient";
 import { crewSignatureConfigured, sharedTestLineE164 } from "@/lib/crew/capability";
 import { listSmsCapableNumbers, inboundWebhookUrl } from "@/lib/crew/line";
@@ -87,8 +88,17 @@ export async function GET(request) {
     select: { id: true, name: true },
   });
 
+  // …and the platform admins, because the owner asked to assign a number to
+  // himself and he is not a rep. Listed with their email: an admin row may
+  // carry no name, and "" in a picker is a row nobody can choose on purpose.
+  const platformAdmins = await db.platformAdmin.findMany({
+    orderBy: { email: "asc" },
+    select: { id: true, name: true, email: true },
+  });
+
   return NextResponse.json({
-    salesReps, error: problem.message, ...problem }, { status: 503 });
+    salesReps,
+    platformAdmins, error: problem.message, ...problem }, { status: 503 });
   }
 
   // Read once. Both the fact and the advice below turn on them, and two reads
@@ -104,7 +114,10 @@ export async function GET(request) {
   // line is not labelled "free to lend", which is the shared test line's
   // description and the opposite of true about one of ours.
   const platformRows = await db.platformSmsNumber.findMany({
-    include: { assignedRep: { select: { id: true, name: true } } },
+    include: {
+      assignedRep: { select: { id: true, name: true } },
+      assignedAdmin: { select: { id: true, name: true, email: true } },
+    },
   });
 
   const audit = auditCrewLines({
@@ -219,6 +232,13 @@ export async function POST(request) {
   if (action === "assign") {
     const e164 = String(body?.e164 ?? "").trim();
     const salesRepId = body?.salesRepId ? String(body.salesRepId).trim() : null;
+    const platformAdminId = body?.platformAdminId ? String(body.platformAdminId).trim() : null;
+
+    // A number belongs to one person. Two ids together is a caller bug, and
+    // silently preferring one is how a number answers for somebody who never
+    // claimed it.
+    const clash = assignmentProblem({ salesRepId, platformAdminId });
+    if (clash) return NextResponse.json({ error: clash }, { status: 400 });
 
     const row = await db.platformSmsNumber.findUnique({ where: { e164 } });
     if (!row) return NextResponse.json({ error: "We hold no such number." }, { status: 404 });
@@ -239,18 +259,35 @@ export async function POST(request) {
       });
       if (!rep) return NextResponse.json({ error: "That is not a rep who could use it." }, { status: 404 });
     }
+    if (platformAdminId) {
+      const person = await db.platformAdmin.findUnique({
+        where: { id: platformAdminId },
+        select: { id: true },
+      });
+      if (!person) {
+        return NextResponse.json({ error: "That is not an admin on this deployment." }, { status: 404 });
+      }
+    }
 
+    const held = Boolean(salesRepId || platformAdminId);
     await db.platformSmsNumber.update({
       where: { e164 },
-      // Unassigning clears the date with it: a pooled number carrying an
+      // BOTH cleared on every write, not just the one being set. Assigning a
+      // rep to a number an admin held has to release the admin, and a partial
+      // write is how a row ends up with two holders and holderOf() has to pick.
+      // Unassigning clears the date with them: a pooled number carrying an
       // "assigned on" date reads as belonging to somebody.
-      data: { assignedRepId: salesRepId, assignedAt: salesRepId ? new Date() : null },
+      data: {
+        assignedRepId: salesRepId,
+        assignedAdminId: platformAdminId,
+        assignedAt: held ? new Date() : null,
+      },
     });
     await db.platformAuditLog.create({
       data: {
         platformAdminId: admin.id,
-        action: salesRepId ? "sales_number_assigned" : "sales_number_unassigned",
-        details: { e164, salesRepId },
+        action: held ? "sales_number_assigned" : "sales_number_unassigned",
+        details: { e164, salesRepId, platformAdminId },
       },
     });
     return NextResponse.json({ ok: true });
