@@ -77,17 +77,61 @@ import {
   fallbackSayFor,
   inboundPlan,
 } from "@/lib/sales/calls/inboundRouting";
+import { queueStep, MAX_QUEUE_ROUNDS } from "@/lib/sales/calls/queue";
 import {
   attachProviderCall,
   callStoreState,
   lastOutboundBetween,
   presenceFor,
   recordInbound,
+  recordVoicemail,
   salesVoiceNumber,
 } from "@/lib/sales/calls/store";
 
 /** The voice Twilio's <Say> uses. The same one the bridge refuses with. */
 const VOICE = "alice";
+
+/**
+ * The clip played between spoken lines while somebody waits.
+ *
+ * Unset is NOT silence: lib/sales/calls/queue.js falls back to a bounded pause
+ * between announcements, so the worst case with nothing configured is ten
+ * quiet seconds and then a human voice again. A hold that plays nothing at all
+ * is the failure this queue exists to avoid, and it must not depend on an
+ * environment variable somebody remembered to set.
+ */
+function holdMusicUrl() {
+  const raw = (process.env.FIELDQUO_SALES_HOLD_MUSIC_URL || "").trim();
+  return raw || null;
+}
+
+/** An XML answer. Every branch of this file returns one — see speak(). */
+function xml(twiml) {
+  return new NextResponse(twiml.toString(), {
+    status: 200,
+    headers: { "Content-Type": "text/xml" },
+  });
+}
+
+/**
+ * Hand this call to the queue.
+ *
+ * A `<Redirect>` rather than building the queue's TwiML in three places. The
+ * queue has to re-read presence, re-run ringPlan and re-decide, and a copy of
+ * that per entry point is AGENTS.md failure class 4 pointed at the one code
+ * path where a mistake leaves somebody on hold for ever.
+ *
+ * `afterRing` says whether we got here from a phone that rang out, which the
+ * queue needs: it holds rather than immediately ringing the same desk again.
+ */
+function toQueue({ origin, attemptId, round = 0, afterRing = false }) {
+  const twiml = new twilio.twiml.VoiceResponse();
+  const query = new URLSearchParams({ stage: "queue", round: String(round) });
+  if (attemptId) query.set("attemptId", attemptId);
+  if (afterRing) query.set("after", "ring");
+  twiml.redirect({ method: "POST" }, `${origin}/api/rep-dial/inbound?${query.toString()}`);
+  return xml(twiml);
+}
 
 /**
  * TwiML that speaks the lines and hangs up.

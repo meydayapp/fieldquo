@@ -44,7 +44,7 @@ import { db } from "@/lib/db";
 import { verifyTwilioWebhook } from "@/lib/sms/verifyTwilioWebhook";
 import { getAppOrigin } from "@/lib/appUrl";
 import { salesRepIdFromIdentity } from "@/lib/sales/calls/browserDial";
-import { callStoreState } from "@/lib/sales/calls/store";
+import { callStoreState, recordRepLeg } from "@/lib/sales/calls/store";
 import { recordError } from "@/lib/platform/errorLog";
 
 /** How long after the gate cleared a bridge may still happen. */
@@ -118,6 +118,25 @@ export async function POST(request) {
     return refuse("This call sat too long before connecting. Press call again.");
   }
 
+  // ── Remember the rep's own leg ──────────────────────────────────────────
+  //
+  // This is the only moment it is knowable. The browser SDK does not hand the
+  // page its own CallSid in time, and a CallSid the BROWSER sent would be a
+  // CallSid a rep could have made up — which would let one rep put another
+  // rep's call on hold. So it is taken from the signed webhook and written
+  // here, and lib/sales/calls/transfer.js refuses a transfer without it rather
+  // than guessing at a leg.
+  //
+  // Soft: a call that could not record its leg is a call that cannot be
+  // transferred, which is said in words. It is not a reason to refuse to
+  // connect somebody.
+  await recordRepLeg({ attemptId: attempt.id, repCallSid: params.CallSid }).catch(async (err) => {
+    await recordError({
+      area: "sales_dial",
+      message: `Could not record the rep leg for attempt ${attempt.id}: ${err?.message}. This call will not be transferable.`,
+    }).catch(() => {});
+  });
+
   const origin = getAppOrigin(request);
   const twiml = new twilio.twiml.VoiceResponse();
   const dial = twiml.dial({
@@ -127,6 +146,20 @@ export async function POST(request) {
     callerId: attempt.fromE164,
     timeout: RING_SECONDS,
     answerOnBridge: true,
+    // ── Where the rep's leg goes when this <Dial> ends ────────────────────
+    //
+    // Normally nowhere: the prospect hangs up, the action is fetched, there is
+    // no transfer, and it answers with an empty document — the same hangup the
+    // leg would have got without it.
+    //
+    // The case it exists for is a TRANSFER. Moving the caller into a
+    // conference ends this <Dial> from the caller's side, and without an
+    // action the rep's leg would simply stop — taking with it the only person
+    // who could hand the caller back when the transfer target does not answer.
+    // With one, the rep follows the caller into the same conference. See
+    // lib/sales/calls/transfer.js.
+    action: `${origin}/api/rep-dial/transfer?stage=rep-leg&attemptId=${encodeURIComponent(attempt.id)}`,
+    method: "POST",
     // No `record`. Recording a two-party call is consent law rather than a
     // parameter — see lib/sales/calls/browserDial.js's callPlan for the long
     // version. Its absence here is the decision, not an oversight.
