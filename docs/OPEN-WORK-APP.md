@@ -40,6 +40,26 @@ Status key: `TODO` · `IN PROGRESS (agent)` · `DONE + verified` · `NEEDS DECIS
       3. Why is it offering to send at $0.00 credit — where is the gate?
     Owner: "look into this and prioritize".
 
+## 1c. RED ON MAIN — check:compare-pages, since 2026-09-09 22:19
+
+  * `IN PROGRESS (agent)` Bisected: `c4fc2509` broke it and `e8724441` added the
+    check that catches it TWO MINUTES LATER and pushed it red. Eighteen hours
+    ago, a previous session. Not this session's, and not the agents'.
+  * The failing amounts are the COST COMPARISON the owner demanded — Jobber
+    4800/3960, HCP 1080/1920, Projul 3600/2760, QuoteIQ 611.88/1560/6360,
+    ServiceTitan 245/300/5000/15000 — against a check rule that every printed
+    amount must be a figure the competitor PUBLISHES.
+  * Two different questions, being answered separately:
+      A. 12 × a published monthly is arithmetic a reader can do, and refusing it
+         guts the feature. The CHECK is what should learn the rule.
+      B. ServiceTitan's figures came from a pricing video, and ServiceTitan does
+         not publish prices. That is a comparative-advertising decision and is
+         `NEEDS OWNER DECISION`, not an agent's to take. The owner has already
+         been angry once about these being missing, so nothing gets cut.
+  * Section 7 — "ninety-five days on, no amount of theirs survives" — is a
+    STALENESS rule and is probably a genuine bug rather than a policy question:
+    derived totals may not be covered by the staleness path.
+
 ## 2. Tours are rendering in UKRAINIAN
 
   * `CODE FIXED, NOT YET VERIFIED LIVE` — and the suspicion was right, down to
