@@ -64,6 +64,24 @@ const TIME = { hour: "numeric", minute: "2-digit" };
  * grey circles carrying no information. "Northside Painting" gives NP, which
  * at a glance separates two businesses in a list better than the icon would.
  */
+/**
+ * The same two letters the thread's gutter draws, for the conversation LIST.
+ *
+ * Exported so the list and the thread cannot disagree about what somebody's
+ * avatar says — the list used to show a raw E.164 and no avatar at all, which
+ * is most of why it did not read as a messaging app.
+ *
+ * A conversation with no name falls back to the last two digits of the number.
+ * Not "?" and not a generic glyph: the digits are the only true thing we know
+ * about them, and they are enough to tell two threads apart at a glance.
+ */
+export function conversationInitials(conversation = {}) {
+  const name = conversation.name || "";
+  if (name.trim()) return initialsOf(name);
+  const digits = String(conversation.e164 || "").replace(/\D/g, "");
+  return digits ? digits.slice(-2) : "–";
+}
+
 function initialsOf(name) {
   const words = String(name || "")
     .trim()
@@ -132,10 +150,19 @@ export default function MessageThread({ messages, them, onRetry = null, renderDr
       {rows.map((row) => {
         if (row.kind === "day") {
           return (
-            <div key={row.key} className="flex items-center gap-3 pt-4 pb-2">
-              <span className="h-px flex-1 bg-border" aria-hidden="true" />
-              <span className="text-xs font-medium text-muted-foreground">{dayLabel(row.dayKey)}</span>
-              <span className="h-px flex-1 bg-border" aria-hidden="true" />
+            // Rocket.Chat's MessageDivider puts a <Bubble small secondary>
+            // ON the rule rather than bare text between two hairlines — the
+            // rule runs the full width and the pill sits over it. Checked
+            // against MessageListItem.tsx, which is the only place that
+            // renders a day divider: `<MessageDivider><Bubble small secondary>`.
+            // Bare text was the closest I got by eye, and it is not the same
+            // thing: the pill is what makes a date read as a marker on the
+            // conversation rather than as a heading above a section.
+            <div key={row.key} className="relative flex items-center justify-center pt-5 pb-3">
+              <span className="absolute inset-x-0 top-1/2 h-px bg-border" aria-hidden="true" />
+              <span className="relative rounded-full border border-border bg-card px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                {dayLabel(row.dayKey)}
+              </span>
             </div>
           );
         }

@@ -52,6 +52,7 @@ import { fetchJson } from "@/lib/fetchJson";
 import { PERIOD_PRESETS } from "@/lib/analytics/periodPresets";
 import { statusMeta } from "@/lib/platform/subscriptionStatus";
 import { centsOrNull, UNKNOWN } from "@/lib/platform/metricFormat";
+import { centsToMoney } from "@/lib/sales/money";
 
 const FIELD =
   "w-full border border-border rounded-lg px-3 py-2.5 min-h-[44px] text-base bg-card text-foreground disabled:opacity-60";
@@ -75,11 +76,10 @@ const TD = "px-3 py-3 text-sm text-foreground align-top";
  */
 function money(cents) {
   const n = centsOrNull(cents);
+  // UNKNOWN, not centsToMoney's em dash: this screen distinguishes "no figure
+  // recorded" from "a figure of zero", and that distinction is its own.
   if (n === null) return UNKNOWN;
-  return `${n < 0 ? "-" : ""}$${Math.abs(n / 100).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return centsToMoney(n);
 }
 
 function day(value) {

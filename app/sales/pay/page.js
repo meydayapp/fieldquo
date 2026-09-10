@@ -22,6 +22,7 @@
 // lives in app/components/sales/PayoutDestinationForm.js and both screens
 // render it. The prose below is this screen's own, because the first-run pass
 // says something different to somebody who has not been paid yet.
+import EarningsPanel from "@/app/components/sales/EarningsPanel";
 import PayoutDestinationForm from "@/app/components/sales/PayoutDestinationForm";
 import RepLanguageChoice from "@/app/components/sales/RepLanguageChoice";
 
@@ -29,15 +30,22 @@ export default function SalesPayPage() {
   return (
     <div className="space-y-10 max-w-2xl">
       <header className="space-y-2">
-        <h1 className="text-xl font-semibold text-foreground">Your settings</h1>
+        <h1 className="text-xl font-semibold text-foreground">Your pay</h1>
         <p className="text-sm text-muted-foreground">
-          Where FieldQuo sends your commission, and what language the portal talks to
-          you in. Only you can set either, and you can change them whenever you like —
-          the date below is when you last confirmed your payout details were right.
+          What you have earned, which of your companies is at which stage, and where
+          FieldQuo sends it. The figures are read from the commission ledger — the same
+          one the payout run pays from — and nothing here can be edited from this screen.
         </p>
       </header>
 
-      <PayoutDestinationForm />
+      {/* Above the settings, and that order changed with this screen. A tab
+          labelled "Pay" was answering "where do we send it" and never "how
+          much" — the question a salesperson actually opens it for. */}
+      <EarningsPanel />
+
+      <section className="border-t border-border pt-8">
+        <PayoutDestinationForm />
+      </section>
 
       {/* Below the payout details rather than above them: this screen is
           reached from a tab labelled "Pay", and a rep who followed that word

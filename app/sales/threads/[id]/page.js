@@ -20,6 +20,7 @@ import { ArrowLeft, Ban, Loader2, Send } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { jsonBody } from "@/lib/jsonBody";
 import OutreachNotice from "../../leads/OutreachNotice";
+import MessageThread from "../../messages/MessageThread";
 
 function when(value) {
   if (!value) return "";
@@ -120,26 +121,30 @@ export default function SalesThreadPage({ params }) {
         </div>
       )}
 
-      <div className="space-y-3">
-        {thread.messages.map((m) => (
-          <div
-            key={m.id}
-            className={`rounded-lg border p-4 ${
-              m.direction === "in"
-                ? "border-border bg-card"
-                : "border-border bg-muted/40"
-            }`}
-          >
-            <p className="text-xs text-muted-foreground mb-2">
-              {m.direction === "in" ? "From" : "To"}{" "}
-              {m.direction === "in" ? m.fromAddress : m.toAddress} · {when(m.sentAt)}
-            </p>
-            <p className="text-sm text-foreground whitespace-pre-wrap break-words">
-              {m.body}
-            </p>
-          </div>
-        ))}
-      </div>
+      {/* ── One conversation layout, not two ─────────────────────────────
+          This screen drew every message as a bordered card headed "From
+          someone@somewhere · 3:14 PM", which reads as a mail log rather than a
+          conversation, while /sales/messages next door drew the same thing as
+          a proper thread. Two screens doing one job in two visual languages is
+          AGENTS.md failure class #4, and the copy nobody looks at is the one
+          that rots — this was it.
+
+          The addresses are not lost, they have moved: they belong in the
+          thread header, said once, rather than repeated above every line. What
+          a rep needs down the page is who spoke and when. */}
+      <MessageThread
+        messages={thread.messages.map((m) => ({
+          id: m.id,
+          body: m.body,
+          direction: m.direction,
+          // MessageThread reads `at`; the mail schema calls it sentAt. Mapped
+          // here rather than renamed in the API, because the SMS thread and
+          // the mail thread have genuinely different columns and one of them
+          // has to translate.
+          at: m.sentAt,
+        }))}
+        them={thread.lead?.contactName || thread.lead?.businessName || "them"}
+      />
 
       <OutreachNotice outreach={outreach} />
 

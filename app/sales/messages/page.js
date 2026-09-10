@@ -48,7 +48,7 @@ import {
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { raiseSupportTicket } from "@/lib/support/repClient";
-import MessageThread from "./MessageThread";
+import MessageThread, { conversationInitials } from "./MessageThread";
 import CheckInDraft from "./CheckInDraft";
 
 const BTN =
@@ -654,29 +654,74 @@ export default function SalesMessagesPage() {
           </Link>
         </div>
       ) : (
-        <ul className="space-y-2">
+        /* ── The list a messaging app has ────────────────────────────────
+           This was a stack of bordered cards showing a raw E.164 number and
+           two lines of body, and it is the screen a rep LANDS on — so the
+           thread rewrite next door was invisible to anyone who did not click
+           into a conversation. The owner looked at Texts, saw the same cards,
+           and said nothing had changed. They were right about the screen they
+           were looking at.
+
+           Now: an avatar gutter matching the thread's, the name where there is
+           one, one line of preview, the time on the right, and the waiting
+           state as a dot rather than a sentence — the shape every phone draws,
+           and the same gutter the thread underneath it uses. */
+        <ul className="divide-y divide-border rounded-xl border border-border bg-card overflow-hidden">
           {list.map((c) => (
             <li key={c.e164}>
               <button
                 type="button"
                 onClick={() => setOpenWith(c.e164)}
-                className="w-full text-left rounded-xl border border-border bg-card p-4 hover:bg-muted"
+                className="w-full text-left px-3 py-3 flex items-start gap-3 hover:bg-muted transition-colors motion-reduce:transition-none"
               >
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="font-medium text-foreground tabular-nums">{c.e164}</span>
-                  {/* The one status worth carrying into a list: somebody is
-                      waiting on this rep. */}
-                  {c.unanswered ? (
-                    <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
-                      they wrote last
+                <span
+                  aria-hidden="true"
+                  className="mt-0.5 shrink-0 grid h-9 w-9 place-items-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground"
+                >
+                  {conversationInitials(c)}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-baseline justify-between gap-3">
+                    <span
+                      className={`truncate ${c.unanswered ? "font-semibold text-foreground" : "font-medium text-foreground"} ${c.name ? "" : "tabular-nums"}`}
+                    >
+                      {c.name || c.e164}
                     </span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">{when(c.lastAt)}</span>
-                  )}
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground break-words line-clamp-2">
-                  {c.lastBody}
-                </p>
+                    <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                      {when(c.lastAt)}
+                    </span>
+                  </span>
+                  <span className="mt-0.5 flex items-center gap-2">
+                    <span
+                      className={`min-w-0 flex-1 truncate text-sm ${c.unanswered ? "text-foreground" : "text-muted-foreground"}`}
+                    >
+                      {/* Said, not implied: without it an outbound line reads
+                          as something they sent us. */}
+                      {c.lastDirection === "in" ? "" : "You: "}
+                      {c.lastBody}
+                    </span>
+                    {/* The dot IS the status, and the text beside it is for a
+                        screen reader — a coloured dot alone states nothing to
+                        somebody who cannot see it. */}
+                    {c.unanswered ? (
+                      <>
+                        <span
+                          aria-hidden="true"
+                          className="shrink-0 h-2 w-2 rounded-full bg-amber-500"
+                        />
+                        <span className="sr-only">they wrote last, waiting on you</span>
+                      </>
+                    ) : null}
+                  </span>
+                  {/* The number stays reachable when a name has replaced it —
+                      a rep checking they are texting the right line should not
+                      have to open the thread to see it. */}
+                  {c.name ? (
+                    <span className="mt-0.5 block truncate text-[11px] text-muted-foreground tabular-nums">
+                      {c.e164}
+                    </span>
+                  ) : null}
+                </span>
               </button>
             </li>
           ))}
