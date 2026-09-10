@@ -2,23 +2,38 @@
 //
 // The English prose for /compare, and nothing else.
 //
-// ══ Why this is a data module and not the t() catalog ══════════════════════
+// ══ English here, nine languages in the catalogue ══════════════════════════
 //
-// Every string in app/i18n/messages.js is gated: check:translations exits
-// non-zero when any language in the catalogue is short a MARKETING key, and the
-// public site is the one surface where a missing string is read by somebody
-// who has no relationship with the product yet. Putting comparative
-// advertising about four named companies into that catalog would mean either
-// blocking the deploy on five translations of a legal claim, or machine
-// translating one — and a machine-translated sentence about a competitor's
-// prices is a sentence nobody has read in the language it is published in.
+// This file used to say /compare was English-only by decision, and recorded
+// that as a debt: "a machine-translated sentence about a competitor's prices is
+// a sentence nobody has read in the language it is published in." The owner
+// read the pages in Spanish and found them English, which is what a debt turns
+// into when nobody pays it. They are translated now.
 //
-// So this follows app/data/industryContent.js and app/data/productFeatures.js:
-// English, in a plain module, outside the catalog. That is a DEBT and not a
-// design win — /compare is English-only on a six-language site, and the
-// honest fix is locale-prefixed routes plus a human translator for these
-// pages specifically, which is the plan already recorded at the end of
-// docs/ROADMAP.md. Written down here rather than left for somebody to notice.
+// The strings below did NOT move into app/i18n/messages.js. They stayed, and
+// the catalogue holds a translation of each under a `compare.*` key, resolved
+// through compareChrome(t) below. Two reasons for the seam rather than a move:
+//
+//   • scripts/check-compare-pages.mjs reads COMPARE_CHROME.staleClaimNote and
+//     COMPARE_CHROME.ctaTitle directly, and asserts things ABOUT the English —
+//     that the stale note is not the same sentence as the unverified one, for
+//     instance. Those assertions are about meaning, and they can only be made
+//     against one authoritative wording.
+//   • the fallback chain then ends somewhere real. A language missing a key
+//     prints the English sentence that has been checked, never a raw key.
+//
+// scripts/check-marketing-i18n.mjs pins the two together: every English
+// catalogue entry must be character-identical to the string here, so the
+// duplicate cannot rot into a second, unchecked wording — the same guarantee
+// scripts/check-feature-labels.mjs already provides for the feature matrix.
+//
+// The metadata strings (`title`, `description`, `indexMetaTitle`,
+// `indexMetaDescription`) stay English and are NOT translated. They are what a
+// crawler indexes, and serving a French <title> to an English crawler because
+// the last visitor switched languages is worse than not translating it —
+// the same decision /industries/[slug] records over its own generateMetadata.
+// Proper multilingual SEO needs locale-prefixed routes, which is a routing
+// change and is scoped at the end of docs/ROADMAP.md.
 //
 // ══ What may and may not live in this file ═════════════════════════════════
 //
@@ -247,8 +262,92 @@ export function comparePageForCompetitor(competitorId) {
   return COMPARE_PAGES.find((p) => p.competitorId === competitorId) || null;
 }
 
-export function counterpointFor(competitorId, capability) {
-  return COUNTERPOINTS[competitorId]?.[capability] || null;
+export function counterpointFor(competitorId, capability, t) {
+  const english = COUNTERPOINTS[competitorId]?.[capability] || null;
+  if (english === null) return null;
+  return typeof t === "function"
+    ? t(counterpointKey(competitorId, capability), english)
+    : english;
+}
+
+/** Catalogue keys. Written as functions so the prefix appears in one shape. */
+export const chromeKey = (field) => `compare.${field}`;
+export const ledeKey = (competitorId) => `compare.lede.${competitorId}`;
+export const concessionKey = (competitorId) => `compare.concession.${competitorId}`;
+export const counterpointKey = (competitorId, capability) =>
+  `compare.counterpoint.${competitorId}.${capability}`;
+
+/**
+ * The chrome fields that are COPY and therefore translated.
+ *
+ * Everything not on this list is deliberately excluded rather than forgotten:
+ * `indexMetaTitle` and `indexMetaDescription` are crawler-facing (see the file
+ * header), and `fieldquoPriceTitle` is the brand name.
+ *
+ * `rules` is an ARRAY and gets one key per entry, indexed from 1 — a single key
+ * holding four sentences would have to be re-split by every language, and the
+ * first translator to join them with a different separator breaks the list.
+ */
+export const CHROME_COPY_FIELDS = Object.freeze([
+  "eyebrow",
+  "indexTitle",
+  "indexLede",
+  "rulesTitle",
+  "entryGapTitle",
+  "entryGapIntro",
+  "entryGapTheirListIntro",
+  "entryGapAdvice",
+  "theirTiersTitle",
+  "theirTiersIntro",
+  "theirTiersNoMatchNote",
+  "matchUnknownIntro",
+  "aiMeteringTitle",
+  "aiMeteringIntro",
+  "aiMeteringOurs",
+  "concessionTitle",
+  "concessionIntro",
+  "unverifiedConcessionNote",
+  "staleClaimNote",
+  "advantageTitle",
+  "advantageIntro",
+  "priceTitle",
+  "featuresTitle",
+  "featuresIntro",
+  "ctaTitle",
+  "ctaBody",
+  "ctaButton",
+  "ctaSecondary",
+  "otherPagesTitle",
+]);
+
+/**
+ * COMPARE_CHROME, said in the reader's language.
+ *
+ * Same optional-t contract as lib/marketing/featureLabels.js: no translator
+ * means the English above, unchanged, which is what the check scripts render
+ * and assert against. The untranslated fields are carried through as they are
+ * rather than dropped, so a caller still reads one object.
+ */
+export function compareChrome(t) {
+  if (typeof t !== "function") return COMPARE_CHROME;
+  const said = { ...COMPARE_CHROME };
+  for (const field of CHROME_COPY_FIELDS) {
+    said[field] = t(chromeKey(field), COMPARE_CHROME[field]);
+  }
+  said.rules = COMPARE_CHROME.rules.map((rule, i) => t(chromeKey(`rule.${i + 1}`), rule));
+  return said;
+}
+
+/** One page's lede and concession, said in the reader's language. */
+export function comparePageCopy(slug, t) {
+  const page = comparePage(slug);
+  if (!page) return null;
+  if (typeof t !== "function") return page;
+  return {
+    ...page,
+    lede: t(ledeKey(page.competitorId), page.lede),
+    concessionLede: t(concessionKey(page.competitorId), page.concessionLede),
+  };
 }
 
 /** Copy shared by every page under /compare, written once so it cannot drift. */
@@ -401,3 +500,17 @@ export const COMPARE_CHROME = {
 
   otherPagesTitle: "The other comparisons",
 };
+
+// Declared last on purpose: it READS COMPARE_CHROME and COMPARE_PAGES at module
+// load, and a const cannot reach a binding declared below it. Sitting beside
+// the helpers that build it would have thrown on import — a temporal dead zone
+// error at the top of every /compare render, not a subtle one.
+/** Every catalogue key this module can ask for, for the coverage check. */
+export const COMPARE_COPY_KEYS = Object.freeze([
+  ...CHROME_COPY_FIELDS.map(chromeKey),
+  ...COMPARE_CHROME.rules.map((_, i) => chromeKey(`rule.${i + 1}`)),
+  ...COMPARE_PAGES.flatMap((p) => [ledeKey(p.competitorId), concessionKey(p.competitorId)]),
+  ...Object.entries(COUNTERPOINTS).flatMap(([id, caps]) =>
+    Object.keys(caps).map((cap) => counterpointKey(id, cap)),
+  ),
+]);

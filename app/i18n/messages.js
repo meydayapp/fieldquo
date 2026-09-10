@@ -23,6 +23,13 @@ import { APP_MESSAGES, APP_MESSAGE_KEYS } from "./appMessages.js";
 // alongside the app catalogue, because it is public copy and must be gated at
 // the marketing bar: every language, or check:translations fails.
 import { FEATURE_PAGE_MESSAGES } from "./featurePages/index.js";
+// And the /compare catalogue, merged the same way and for the same reason. Its
+// own header explains why 204 keys times nine languages live in a directory
+// rather than in this file; what matters here is that it lands in MARKETING, so
+// MESSAGE_KEYS picks it up and check:translations gates a deploy on it. These
+// pages shipped English on a nine-language site for months because the copy sat
+// in a data module no coverage check could see.
+import { COMPARE_PAGE_MESSAGES } from "./comparePages/index.js";
 
 const en = {
   // Navigation
@@ -4205,7 +4212,11 @@ const it = {
 const MARKETING = Object.fromEntries(
   Object.entries({ en, fr, es, uk, pa, tl, de, zh, it }).map(([code, dict]) => [
     code,
-    { ...dict, ...(FEATURE_PAGE_MESSAGES[code] || {}) },
+    {
+      ...dict,
+      ...(FEATURE_PAGE_MESSAGES[code] || {}),
+      ...(COMPARE_PAGE_MESSAGES[code] || {}),
+    },
   ]),
 );
 

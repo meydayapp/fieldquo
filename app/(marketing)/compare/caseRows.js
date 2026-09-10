@@ -18,12 +18,30 @@
 // which is both the honest sentence and, for somebody choosing what to buy,
 // the damning one. A rep is never left holding a claim their own page
 // contradicts.
+//
+// ══ On the translator ═════════════════════════════════════════════════════
+//
+// `caseRows(competitorId, competitorName, t, locale)`. Both extra arguments are
+// optional and every t() call carries the English literal that used to be here,
+// so a caller with neither — scripts/check-compare-pages.mjs, and anything
+// rendering outside a LanguageProvider — gets exactly the rows it got before
+// these pages were translated.
+//
+// What is NOT translated here, on purpose: the competitor's own tier labels
+// (`cheapest.label`, `parity.tier.label`) and the band a contractor reported.
+// They are quotations. See lib/marketing/compareLabels.js for the argument.
 import { SEAT_LADDER } from "@/lib/pricing/ladder";
 import { tierLadder, firstTierWith, parityFor, neverListed, addOnsFor, notesFor } from "@/lib/marketing/parity";
 import { matrixEntry } from "@/lib/marketing/featureMatrix";
+import { featureEntry } from "@/lib/marketing/featureLabels";
 
-const money = (n) =>
-  typeof n === "number" ? `$${n % 1 === 0 ? n.toLocaleString("en-CA") : n.toFixed(2)}` : null;
+// Locale-aware grouping, defaulted to the Canadian English the rows used to be
+// built with. A French-Canadian reader gets "1 250", which is the same figure
+// and the only one that reads as a number to them.
+const moneyIn = (locale) => (n) =>
+  typeof n === "number"
+    ? `$${n % 1 === 0 ? n.toLocaleString(locale) : n.toFixed(2)}`
+    : null;
 
 export const YES = "yes";
 export const NO = "no";
@@ -53,10 +71,28 @@ function row(label, mine, theirs, note = null) {
   return { label, mine, theirs, note };
 }
 
-export function caseRows(competitorId, competitorName) {
+export function caseRows(competitorId, competitorName, t, locale = "en-CA") {
+  const money = moneyIn(locale);
+  const say = (key, fallback, values) =>
+    typeof t === "function"
+      ? t(key, fallback, values)
+      : String(fallback).replace(/\{(\w+)\}/g, (m, name) =>
+          values?.[name] !== undefined ? String(values[name]) : m,
+        );
+  const perMo = (amount) => say("compare.rows.perMo", "{amount}/mo", { amount });
+  const perYr = (amount) => say("compare.rows.perYr", "{amount}/yr", { amount });
+  const users = (n) =>
+    n === null
+      ? say("compare.rows.unlimitedUsers", "unlimited users")
+      : say(
+          n === 1 ? "compare.rows.usersOne" : "compare.rows.users",
+          n === 1 ? "{count} user" : "{count} users",
+          { count: n },
+        );
+
   const ladder = tierLadder(competitorId);
-  const priced = ladder.filter((t) => typeof t.price === "number");
-  const reported = ladder.filter((t) => t.reported);
+  const priced = ladder.filter((tier) => typeof tier.price === "number");
+  const reported = ladder.filter((tier) => tier.reported);
   const parity = parityFor(competitorId);
   const solo = SEAT_LADDER[0];
   const rows = [];
@@ -69,36 +105,67 @@ export function caseRows(competitorId, competitorName) {
     const cheapest = priced[0];
     rows.push(
       row(
-        "Cheapest plan",
-        { kind: PLAIN, text: `${money(solo.price)}/mo`, sub: `${solo.label} — 1 seat, ${solo.crewSeats} crew free` },
+        say("compare.rows.cheapestPlan", "Cheapest plan"),
+        {
+          kind: PLAIN,
+          text: perMo(money(solo.price)),
+          sub: say("compare.rows.soloSub", "{plan} — 1 seat, {crew} crew free", {
+            plan: solo.label,
+            crew: solo.crewSeats,
+          }),
+        },
         cheapest.annualOnly
           ? {
               kind: PLAIN,
-              text: `${money(cheapest.annualTotal)}/yr`,
-              sub: `${cheapest.label} — ${money(cheapest.price)} a month equivalent, billed as a year`,
+              text: perYr(money(cheapest.annualTotal)),
+              sub: say(
+                "compare.rows.annualEquivalent",
+                "{plan} — {amount} a month equivalent, billed as a year",
+                { plan: cheapest.label, amount: money(cheapest.price) },
+              ),
             }
           : {
               kind: PLAIN,
-              text: `${money(cheapest.price)}/mo`,
-              sub: `${cheapest.label} — ${cheapest.seats === null ? "unlimited users" : `${cheapest.seats} user${cheapest.seats === 1 ? "" : "s"}`}`,
+              text: perMo(money(cheapest.price)),
+              sub: say("compare.rows.tierUsers", "{plan} — {users}", {
+                plan: cheapest.label,
+                users: users(cheapest.seats),
+              }),
             },
       ),
     );
     if (parity.tier && typeof parity.tier.price === "number") {
       rows.push(
         row(
-          "Cheapest plan with what FieldQuo puts in every plan",
-          { kind: YES, text: `${money(solo.price)}/mo`, sub: "The same plan. We don't gate features by tier." },
+          say(
+            "compare.rows.parityLabel",
+            "Cheapest plan with what FieldQuo puts in every plan",
+          ),
+          {
+            kind: YES,
+            text: perMo(money(solo.price)),
+            sub: say(
+              "compare.rows.paritySub",
+              "The same plan. We don't gate features by tier.",
+            ),
+          },
           parity.tier.annualOnly
             ? {
                 kind: PLAIN,
-                text: `${money(parity.tier.annualTotal)}/yr`,
-                sub: `${parity.tier.label} — ${money(parity.tier.price)} a month equivalent`,
+                text: perYr(money(parity.tier.annualTotal)),
+                sub: say("compare.rows.parityAnnual", "{plan} — {amount} a month equivalent", {
+                  plan: parity.tier.label,
+                  amount: money(parity.tier.price),
+                }),
               }
             : {
                 kind: PLAIN,
-                text: `${money(parity.tier.price)}/mo`,
-                sub: `${parity.tier.label} — their cheaper plans don't carry it`,
+                text: perMo(money(parity.tier.price)),
+                sub: say(
+                  "compare.rows.parityTheirs",
+                  "{plan} — their cheaper plans don't carry it",
+                  { plan: parity.tier.label },
+                ),
               },
         ),
       );
@@ -108,28 +175,55 @@ export function caseRows(competitorId, competitorName) {
   if (reported.length) {
     const first = reported[0];
     rows.push(
-      row("Published price", { kind: YES, text: "Every plan, on this page" }, {
-        kind: NO,
-        text: "None published",
-        sub: "Book a demo; the number is negotiated on the call",
-      }),
+      row(
+        say("compare.rows.publishedPrice", "Published price"),
+        {
+          kind: YES,
+          text: say("compare.rows.everyPlanOnThisPage", "Every plan, on this page"),
+        },
+        {
+          kind: NO,
+          text: say("compare.rows.nonePublished", "None published"),
+          sub: say(
+            "compare.rows.bookDemo",
+            "Book a demo; the number is negotiated on the call",
+          ),
+        },
+      ),
     );
     if (first.reportedBand) {
       rows.push(
-        row("What it costs", { kind: PLAIN, text: `${money(solo.price)}–${money(SEAT_LADDER.at(-1).price)}/mo`, sub: "1 to 25 people" }, {
-          kind: PLAIN,
-          text: first.reportedBand.replace(/^Contractors report paying /, ""),
-          sub: "reported by contractors, not published",
-        }),
+        row(
+          say("compare.rows.whatItCosts", "What it costs"),
+          {
+            kind: PLAIN,
+            text: perMo(`${money(solo.price)}–${money(SEAT_LADDER.at(-1).price)}`),
+            sub: say("compare.rows.oneToTwentyFive", "1 to 25 people"),
+          },
+          {
+            // Their reported band is what a contractor said they paid. Quoted,
+            // never translated.
+            kind: PLAIN,
+            text: first.reportedBand.replace(/^Contractors report paying /, ""),
+            sub: say(
+              "compare.rows.reportedNotPublished",
+              "reported by contractors, not published",
+            ),
+          },
+        ),
       );
     }
     if (first.alsoReported) {
       rows.push(
-        row("Setup fee", { kind: YES, text: "None" }, {
-          kind: NO,
-          text: first.alsoReported.replace(/^an implementation fee of /, ""),
-          sub: "reported",
-        }),
+        row(
+          say("compare.rows.setupFee", "Setup fee"),
+          { kind: YES, text: say("compare.rows.none", "None") },
+          {
+            kind: NO,
+            text: first.alsoReported.replace(/^an implementation fee of /, ""),
+            sub: say("compare.rows.reported", "reported"),
+          },
+        ),
       );
     }
   }
@@ -140,16 +234,25 @@ export function caseRows(competitorId, competitorName) {
   // currently offer a monthly option". That is not a footnote about billing
   // frequency, it is the commitment a buyer is being asked for before they
   // know whether the software suits them.
-  if (priced.length && priced.every((t) => t.annualOnly)) {
+  if (priced.length && priced.every((tier) => tier.annualOnly)) {
     const entry = priced[0];
     rows.push(
       row(
-        "How you pay",
-        { kind: YES, text: "Monthly", sub: "Leave at the end of any month" },
+        say("compare.rows.howYouPay", "How you pay"),
+        {
+          kind: YES,
+          text: say("compare.rows.monthly", "Monthly"),
+          sub: say("compare.rows.leaveAnyMonth", "Leave at the end of any month"),
+        },
         {
           kind: NO,
-          text: `${money(entry.annualTotal)} a year, up front`,
-          sub: "No monthly option is offered — their FAQ says so",
+          text: say("compare.rows.aYearUpFront", "{amount} a year, up front", {
+            amount: money(entry.annualTotal),
+          }),
+          sub: say(
+            "compare.rows.noMonthlyOption",
+            "No monthly option is offered — their FAQ says so",
+          ),
         },
       ),
     );
@@ -176,11 +279,20 @@ export function caseRows(competitorId, competitorName) {
     const total = addOns.reduce((n, a) => n + (a.price || 0), 0);
     rows.push(
       row(
-        "Sold as paid add-ons",
-        { kind: YES, text: "None", sub: "Every feature is in every plan, at the plan price" },
+        say("compare.rows.paidAddOns", "Sold as paid add-ons"),
+        {
+          kind: YES,
+          text: say("compare.rows.none", "None"),
+          sub: say(
+            "compare.rows.everyFeature",
+            "Every feature is in every plan, at the plan price",
+          ),
+        },
         {
           kind: NO,
-          text: `+${money(total)}/mo`,
+          text: say("compare.rows.plusPerMo", "+{amount}/mo", { amount: money(total) }),
+          // Their add-on names are theirs — "Marketing Suite" stays "Marketing
+          // Suite" in every language, the way a tier name does.
           sub: addOns.map((a) => `${a.label} ${money(a.price)}`).join(" · "),
         },
       ),
@@ -190,52 +302,95 @@ export function caseRows(competitorId, competitorName) {
   // ── How people are counted, which is the difference that compounds ──────
   rows.push(
     row(
-      "People in the field",
-      { kind: YES, text: "Free", sub: "Crew see the schedule and the job at no charge" },
-      { kind: NO, text: "Billed", sub: `Every login is a paid user at ${competitorName}` },
+      say("compare.rows.peopleInField", "People in the field"),
+      {
+        kind: YES,
+        text: say("compare.rows.free", "Free"),
+        sub: say(
+          "compare.rows.crewFreeSub",
+          "Crew see the schedule and the job at no charge",
+        ),
+      },
+      {
+        kind: NO,
+        text: say("compare.rows.billed", "Billed"),
+        sub: say("compare.rows.everyLoginPaid", "Every login is a paid user at {competitor}", {
+          competitor: competitorName,
+        }),
+      },
     ),
   );
 
   rows.push(
     row(
-      "Biggest plan",
-      { kind: PLAIN, text: `${money(SEAT_LADDER.at(-1).price)}/mo`, sub: `${SEAT_LADDER.at(-1).seats} seats plus ${SEAT_LADDER.at(-1).crewSeats} crew — 25 people` },
+      say("compare.rows.biggestPlan", "Biggest plan"),
+      {
+        kind: PLAIN,
+        text: perMo(money(SEAT_LADDER.at(-1).price)),
+        sub: say(
+          "compare.rows.biggestSub",
+          "{seats} seats plus {crew} crew — 25 people",
+          { seats: SEAT_LADDER.at(-1).seats, crew: SEAT_LADDER.at(-1).crewSeats },
+        ),
+      },
       priced.length
         ? {
             kind: PLAIN,
-            text: `${money(priced.at(-1).price)}/mo`,
-            sub: priced.at(-1).seats === null ? "unlimited users" : `${priced.at(-1).seats} users`,
+            text: perMo(money(priced.at(-1).price)),
+            sub: users(priced.at(-1).seats),
           }
-        : { kind: PLAIN, text: "On request" },
+        : { kind: PLAIN, text: say("compare.rows.onRequest", "On request") },
     ),
   );
 
   // ── The capabilities ────────────────────────────────────────────────────
   for (const key of HEADLINE_KEYS) {
+    // readiness comes off the matrix, which is English data; the NAME and
+    // SUMMARY are resolved through featureLabels.js so the head-to-head reads
+    // in the same language as the rest of the page. This was the exact bug
+    // featureLabels.js was written for, one surface along.
     const entry = matrixEntry(key);
     if (!entry || entry.readiness !== "shipped") continue;
+    const said = featureEntry(key, t) ?? entry;
     const tier = firstTierWith(competitorId, key);
     rows.push(
       row(
-        entry.name,
-        { kind: YES, text: "Every plan", sub: entry.summary },
+        said.name,
+        { kind: YES, text: say("compare.rows.everyPlan", "Every plan"), sub: said.summary },
         tier
           ? {
               kind: PLAIN,
-              text: typeof tier.price === "number" ? `${tier.label} — ${money(tier.price)}/mo` : tier.label,
-              sub: "their cheapest plan that includes it",
+              text:
+                typeof tier.price === "number"
+                  ? say("compare.rows.tierAtPrice", "{plan} — {amount}/mo", {
+                      plan: tier.label,
+                      amount: money(tier.price),
+                    })
+                  : tier.label,
+              sub: say(
+                "compare.rows.theirCheapestWithIt",
+                "their cheapest plan that includes it",
+              ),
             }
-          : { kind: NO, text: "Not in their plans" },
+          : { kind: NO, text: say("compare.rows.notInTheirPlans", "Not in their plans") },
       ),
     );
   }
 
   rows.push(
-    row("Free trial", { kind: YES, text: "First month free", sub: "No card charged until it ends" }, {
-      kind: PLAIN,
-      text: "Trial offered",
-      sub: "see their site for current terms",
-    }),
+    row(
+      say("compare.rows.freeTrial", "Free trial"),
+      {
+        kind: YES,
+        text: say("compare.rows.firstMonthFree", "First month free"),
+        sub: say("compare.rows.noCardCharged", "No card charged until it ends"),
+      },
+      {
+        kind: PLAIN,
+        text: say("compare.rows.trialOffered", "Trial offered"),
+        sub: say("compare.rows.seeTheirSite", "see their site for current terms"),
+      },
+    ),
   );
 
   return {

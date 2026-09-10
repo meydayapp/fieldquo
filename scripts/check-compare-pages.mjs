@@ -98,6 +98,7 @@ import { entryGapOf, entryPriceGap } from "@/app/(marketing)/compare/entryPrice"
 import CompareIndexPage, { comparisonSummary } from "@/app/(marketing)/compare/page";
 import CompareSlugPage from "@/app/(marketing)/compare/[slug]/page";
 import ComparisonPage, { redactAmounts } from "@/app/(marketing)/compare/[slug]/ComparisonPage";
+import { LanguageProvider } from "@/app/providers/LanguageProvider";
 
 let pass = 0;
 const fails = [];
@@ -116,13 +117,30 @@ const ok = (label, cond, detail) =>
 // it. So the slug pages go through their own default export, params arrives as
 // the Promise Next 16 actually hands it, and the date the page uses is the one
 // the page chose.
+//
+// ── Why the LanguageProvider wrapper ──────────────────────────────────────
+//
+// /compare stopped being English-only. ComparisonPage and CompareIndex are
+// client components now, so they call useTranslation() and need a context to
+// call it in — the same wrapper scripts/check-pricing-page.mjs has always put
+// around PricingPlans.
+//
+// `initialLanguage: "en"` is doing real work rather than picking a default.
+// Every assertion in this file is against ENGLISH markup, and it stays valid
+// because each t() call in those components carries the English literal that
+// used to be inline. Render this in French and half the file goes red for the
+// right reason, which is why the language is stated here rather than left to a
+// provider default that somebody could change.
+const inEnglish = (element) =>
+  createElement(LanguageProvider, { initialLanguage: "en" }, element);
+
 const renderSlugPage = async (slug) =>
-  renderToStaticMarkup(await CompareSlugPage({ params: Promise.resolve({ slug }) }));
+  renderToStaticMarkup(inEnglish(await CompareSlugPage({ params: Promise.resolve({ slug }) })));
 
 // The direct form, for the one thing the routed form cannot do: speak as of a
 // date that is not today.
 const renderAtDate = (slug, asOf) =>
-  renderToStaticMarkup(createElement(ComparisonPage, { slug, asOf }));
+  renderToStaticMarkup(inEnglish(createElement(ComparisonPage, { slug, asOf })));
 
 /**
  * Markup with React's entity escaping undone.
@@ -155,7 +173,7 @@ const decode = (html) =>
 async function main() {
   const TODAY = renderAsOf();
 
-  const indexHtml = renderToStaticMarkup(CompareIndexPage());
+  const indexHtml = renderToStaticMarkup(inEnglish(CompareIndexPage()));
   const pages = [];
   for (const entry of COMPARE_PAGES) {
     const html = await renderSlugPage(entry.slug);
@@ -492,12 +510,17 @@ async function main() {
       COMPARE_PAGES.every((p) => p.features.every((k) => MATRIX_KEYS.includes(k))),
       COMPARE_PAGES.flatMap((p) => p.features).filter((k) => !MATRIX_KEYS.includes(k)).join(","));
     // Through lib/marketing/featureLabels.js since the six-language sweep.
-    // /compare is a server component with no translation context, so it passes
-    // no `t` and the layer hands back the matrix's proved English — the same
-    // strings this page has always printed. Asserted at both ends so a layer
-    // that stopped consulting the matrix would fail here too.
+    //
+    // The call used to be `featureEntry(key)` with no translator, because these
+    // pages were English-only and the layer handed back the matrix's proved
+    // English. It is `featureEntry(key, t)` now — the page is translated — and
+    // the guarantee is unchanged and is why the second half of this assertion
+    // exists: featureLabels.js resolves the matrix entry FIRST and falls back to
+    // its own strings, so a key with no catalogue entry still prints the proved
+    // sentence. Asserted at both ends so a layer that stopped consulting the
+    // matrix would fail here too.
     ok("...and the renderer reads the matrix rather than the copy for them",
-      /featureEntry\(key\)/.test(source(RENDERER)) &&
+      /featureEntry\(key,\s*t\)/.test(source(RENDERER)) &&
         /matrixEntry\(key\)/.test(readFileSync("lib/marketing/featureLabels.js", "utf8")));
   }
 
@@ -852,9 +875,27 @@ async function main() {
       !/from "@\/lib\/marketing\/competitors"/.test(copy));
     ok("every page entry names a competitor id, not a company name in prose",
       COMPARE_PAGES.every((p) => typeof p.competitorId === "string" && findCompetitor(p.competitorId)));
-    // The translation debt, on the record rather than in a commit message.
-    ok("the copy module records that these pages are English-only",
-      /English-only|English, in a plain module/.test(copy));
+    // ══ This assertion USED to say the opposite, and it was right to ══════
+    //
+    // It read: "the copy module records that these pages are English-only",
+    // matching /English-only|English, in a plain module/. That was the
+    // translation debt kept on the record rather than in a commit message, and
+    // it did its job — the debt stayed visible until somebody paid it.
+    //
+    // It is paid. /compare is translated into nine languages, resolved through
+    // compareChrome(t) against app/i18n/comparePages/. Left as it was, the
+    // assertion would still have PASSED — the new header opens "This file used
+    // to say /compare was English-only" — while asserting something that is no
+    // longer true. A check that passes on a sentence's ghost is worse than no
+    // check.
+    //
+    // So it is replaced rather than deleted, and it now guards the thing that
+    // can actually regress: the English here must be reachable as the fallback
+    // (compareChrome) and the crawler-facing metadata must stay English.
+    ok("the copy module routes its English through a translation seam",
+      /compareChrome/.test(copy) && /COMPARE_COPY_KEYS/.test(copy));
+    ok("...and records that the metadata deliberately stays English",
+      /crawler|search engines|indexes/i.test(copy));
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

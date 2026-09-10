@@ -33,24 +33,44 @@
 // sits in flat grey. Nobody reads a dense feature grid; everybody reads
 // fourteen rows of two words. The visual weight does the arguing before the
 // text is read at all.
+//
+// ══ On the translator ═════════════════════════════════════════════════════
+//
+// `t` and `locale` arrive as props from ComparisonPage rather than from a hook,
+// so this stays renderable with neither — which is what
+// scripts/check-compare-pages.mjs does, and what keeps its assertions English.
+// Every t() call carries the literal that used to sit in the JSX.
 import Link from "next/link";
 import { Check, X, ArrowRight } from "lucide-react";
 
 import { MATRIX_GROUPS } from "@/lib/marketing/featureMatrix";
+import { featureEntry, featureGroup } from "@/lib/marketing/featureLabels";
 import { neverListed, shopMath, entriesFor, parityFor } from "@/lib/marketing/parity";
 import { SEAT_LADDER } from "@/lib/pricing/ladder";
 import { caseRows, YES, NO } from "./caseRows";
 
 /** The shop shapes the page prices out — the solo operator, the van-and-a-half,
- *  and the outfit with a crew. Chosen to bracket a real customer. */
+ *  and the outfit with a crew. Chosen to bracket a real customer.
+ *
+ *  The label is a KEY plus its English, not a sentence: these three describe
+ *  the reader's own business back to them, and a shop of eleven reading "A shop
+ *  of eleven" in English under a Spanish heading is the half-translated page
+ *  this whole change exists to remove. */
 const SHOPS = [
-  { estimators: 1, crew: 2, label: "You and two in a van" },
-  { estimators: 2, crew: 4, label: "Two estimators, four in the field" },
-  { estimators: 3, crew: 8, label: "A shop of eleven" },
+  { estimators: 1, crew: 2, key: "compare.case.shop1", label: "You and two in a van" },
+  {
+    estimators: 2,
+    crew: 4,
+    key: "compare.case.shop2",
+    label: "Two estimators, four in the field",
+  },
+  { estimators: 3, crew: 8, key: "compare.case.shop3", label: "A shop of eleven" },
 ];
 
-const money = (n) =>
-  typeof n === "number" ? `$${n % 1 === 0 ? n.toLocaleString("en-CA") : n.toFixed(2)}` : null;
+const moneyIn = (locale) => (n) =>
+  typeof n === "number"
+    ? `$${n % 1 === 0 ? n.toLocaleString(locale) : n.toFixed(2)}`
+    : null;
 
 /** One cell. `kind` decides the mark, never the colour of the column. */
 function Cell({ cell, ours }) {
@@ -86,11 +106,19 @@ function Cell({ cell, ours }) {
   );
 }
 
-export default function TheCase({ competitor }) {
+export default function TheCase({ competitor, t, locale = "en-CA" }) {
   const id = competitor?.id;
   if (!id) return null;
 
-  const { rows, missingCount, hasPrices } = caseRows(id, competitor.name);
+  const money = moneyIn(locale);
+  const say = (key, fallback, values) =>
+    typeof t === "function"
+      ? t(key, fallback, values)
+      : String(fallback).replace(/\{(\w+)\}/g, (m, name) =>
+          values?.[name] !== undefined ? String(values[name]) : m,
+        );
+
+  const { rows, missingCount, hasPrices } = caseRows(id, competitor.name, t, locale);
   if (!rows.length) return null;
 
   const parity = parityFor(id);
@@ -103,26 +131,39 @@ export default function TheCase({ competitor }) {
         {/* ── The claim ────────────────────────────────────────────────── */}
         <section className="text-center">
           <span className="inline-block text-xs font-semibold uppercase tracking-wider text-primary border border-primary/30 rounded-full px-3 py-1">
-            Side by side
+            {say("compare.case.eyebrow", "Side by side")}
           </span>
           <h2 className="mt-5 text-3xl sm:text-5xl font-bold text-foreground leading-[1.1] max-w-4xl mx-auto">
+            {/* Two keys per headline rather than one with a <br /> inside it:
+                the line break is a layout decision and a sentence with markup
+                in the middle cannot be re-ordered by a language that needs to. */}
             {parity.tier && typeof parity.tier.price === "number" ? (
               <>
-                Everything FieldQuo does costs {money(solo.price)}.
-                <br className="hidden sm:block" /> At {competitor.name} the same
-                list is {money(parity.tier.price)}.
+                {say("compare.case.headlineOurs", "Everything FieldQuo does costs {price}.", {
+                  price: money(solo.price),
+                })}
+                <br className="hidden sm:block" />{" "}
+                {say(
+                  "compare.case.headlineTheirs",
+                  "At {competitor} the same list is {price}.",
+                  { competitor: competitor.name, price: money(parity.tier.price) },
+                )}
               </>
             ) : (
               <>
-                FieldQuo publishes every price.
-                <br className="hidden sm:block" /> {competitor.name} publishes
-                none.
+                {say("compare.case.headlineNoPricesOurs", "FieldQuo publishes every price.")}
+                <br className="hidden sm:block" />{" "}
+                {say("compare.case.headlineNoPricesTheirs", "{competitor} publishes none.", {
+                  competitor: competitor.name,
+                })}
               </>
             )}
           </h2>
           <p className="mt-5 text-lg text-muted-foreground max-w-2xl mx-auto">
-            We don&apos;t sell features by the tier. Every plan has every feature —
-            the plans differ only by how many people are on them.
+            {say(
+              "compare.case.sub",
+              "We don’t sell features by the tier. Every plan has every feature — the plans differ only by how many people are on them.",
+            )}
           </p>
         </section>
 
@@ -153,17 +194,28 @@ export default function TheCase({ competitor }) {
 
           <div className="mt-10 rounded-2xl bg-primary text-primary-foreground p-8 text-center">
             <p className="text-xl sm:text-2xl font-bold">
-              {missingCount} more things {competitor.name} doesn&apos;t offer at
-              any price.
+              {say(
+                missingCount === 1
+                  ? "compare.case.missingOne"
+                  : "compare.case.missing",
+                missingCount === 1
+                  ? "{count} more thing {competitor} doesn’t offer at any price."
+                  : "{count} more things {competitor} doesn’t offer at any price.",
+                { count: missingCount, competitor: competitor.name },
+              )}
             </p>
             <p className="mt-2 opacity-85">
-              All of them are in the {solo.label} plan at {money(solo.price)}.
+              {say("compare.case.missingBody", "All of them are in the {plan} plan at {price}.", {
+                plan: solo.label,
+                price: money(solo.price),
+              })}
             </p>
             <Link
               href="/signup"
               className="mt-6 inline-flex items-center gap-2 bg-background text-foreground px-6 py-3 rounded-full text-sm font-semibold transition hover:brightness-110"
             >
-              Start your free month <ArrowRight size={16} />
+              {say("compare.ctaButton", "Start your free month")}{" "}
+              <ArrowRight size={16} />
             </Link>
           </div>
         </section>
@@ -172,12 +224,14 @@ export default function TheCase({ competitor }) {
         {hasPrices ? (
           <section>
             <h3 className="text-2xl sm:text-3xl font-bold text-foreground text-center">
-              What it costs for a shop like yours
+              {say("compare.case.shopTitle", "What it costs for a shop like yours")}
             </h3>
             <p className="mt-3 text-muted-foreground max-w-2xl mx-auto text-center">
-              {competitor.name} bills every login. We bill the people who price
-              work; everybody in a van is crew, at no charge. That gap grows with
-              every person you hire.
+              {say(
+                "compare.case.shopIntro",
+                "{competitor} bills every login. We bill the people who price work; everybody in a van is crew, at no charge. That gap grows with every person you hire.",
+                { competitor: competitor.name },
+              )}
             </p>
 
             <div className="mt-8 space-y-4">
@@ -191,9 +245,15 @@ export default function TheCase({ competitor }) {
                     className="rounded-2xl border border-border p-5 sm:p-6 flex flex-wrap items-center justify-between gap-4"
                   >
                     <div className="min-w-0">
-                      <div className="font-semibold text-foreground">{shop.label}</div>
+                      <div className="font-semibold text-foreground">
+                        {say(shop.key, shop.label)}
+                      </div>
                       <div className="text-sm text-muted-foreground">
-                        {shop.estimators} pricing work · {shop.crew} in the field
+                        {say(
+                          "compare.case.shopSplit",
+                          "{estimators} pricing work · {crew} in the field",
+                          { estimators: shop.estimators, crew: shop.crew },
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-5 sm:gap-8">
@@ -212,15 +272,19 @@ export default function TheCase({ competitor }) {
                       <div className="text-right min-w-[7rem]">
                         {wins ? (
                           <>
-                            <div className="text-xs text-muted-foreground">you keep</div>
+                            <div className="text-xs text-muted-foreground">
+                              {say("compare.case.youKeep", "you keep")}
+                            </div>
                             <div className="text-xl font-bold text-primary tabular-nums">
-                              {money(m.savesPerYear)}/yr
+                              {say("compare.rows.perYr", "{amount}/yr", {
+                                amount: money(m.savesPerYear),
+                              })}
                             </div>
                           </>
                         ) : (
                           // Where we lose, said plainly. See the header.
                           <div className="text-xs text-muted-foreground">
-                            Cheaper there at one person.
+                            {say("compare.case.cheaperThere", "Cheaper there at one person.")}
                           </div>
                         )}
                       </div>
@@ -230,12 +294,15 @@ export default function TheCase({ competitor }) {
               })}
             </div>
 
+            {/* Split at the link rather than interpolated around it: a
+                {placeholder} cannot carry an <a>, and a language that needs the
+                link in a different position gets both halves to move. */}
             <p className="mt-5 text-sm text-muted-foreground text-center">
-              Put your own numbers in on the{" "}
+              {say("compare.case.calcBefore", "Put your own numbers in on the")}{" "}
               <Link href="/cost" className="text-primary font-medium hover:underline">
-                cost calculator
+                {say("compare.case.calcLink", "cost calculator")}
               </Link>{" "}
-              and see all five side by side.
+              {say("compare.case.calcAfter", "and see all five side by side.")}
             </p>
           </section>
         ) : null}
@@ -243,11 +310,14 @@ export default function TheCase({ competitor }) {
         {/* ── The whole product ────────────────────────────────────────── */}
         <section>
           <h3 className="text-2xl sm:text-3xl font-bold text-foreground text-center">
-            Everything you get, in every plan
+            {say("compare.case.wholeTitle", "Everything you get, in every plan")}
           </h3>
           <p className="mt-3 text-muted-foreground max-w-2xl mx-auto text-center">
-            Not a highlight reel — the whole product, and whether it appears
-            anywhere in {competitor.name}&apos;s plans.
+            {say(
+              "compare.case.wholeIntro",
+              "Not a highlight reel — the whole product, and whether it appears anywhere in {competitor}’s plans.",
+              { competitor: competitor.name },
+            )}
           </p>
 
           <div className="mt-10 space-y-12">
@@ -258,28 +328,36 @@ export default function TheCase({ competitor }) {
               if (!rowsForGroup.length) return null;
               return (
                 <div key={group.key}>
-                  <h4 className="text-lg font-bold text-foreground">{group.label}</h4>
+                  <h4 className="text-lg font-bold text-foreground">
+                    {featureGroup(group.key, t).label}
+                  </h4>
                   <ul className="mt-4 divide-y divide-border border-t border-border">
                     {rowsForGroup.map((e) => {
                       const theirs = parity.covered.includes(e.key);
+                      // The matrix's own name and summary, said in the reader's
+                      // language. parity.js hands back the English entry; this
+                      // is the one place allowed to turn a key into words.
+                      const said = featureEntry(e.key, t) ?? e;
                       return (
                         <li
                           key={e.key}
                           className="py-3 flex items-baseline justify-between gap-4"
                         >
                           <div className="min-w-0">
-                            <span className="font-medium text-foreground">{e.name}</span>
+                            <span className="font-medium text-foreground">{said.name}</span>
                             <span className="text-muted-foreground text-sm">
                               {" "}
-                              — {e.summary}
+                              — {said.summary}
                             </span>
                           </div>
                           <span className="shrink-0 text-xs font-medium">
                             {theirs ? (
-                              <span className="text-muted-foreground">Both</span>
+                              <span className="text-muted-foreground">
+                                {say("compare.case.both", "Both")}
+                              </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2.5 py-1">
-                                FieldQuo only
+                                {say("compare.case.only", "FieldQuo only")}
                               </span>
                             )}
                           </span>

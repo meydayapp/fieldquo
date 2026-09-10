@@ -127,6 +127,11 @@ for (const dir of [
   "app/i18n/featurePages",
   "app/i18n/industries",
   "app/i18n/productPages",
+  // Added with the directory itself, which is the step this file exists to stop
+  // anybody skipping — /compare's 204 keys per language moved out of a plain
+  // data module and into a per-language directory when those pages stopped
+  // being English-only.
+  "app/i18n/comparePages",
 ]) {
   for (const code of catalogueCodes) {
     ok(

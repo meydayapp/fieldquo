@@ -52,6 +52,7 @@ import {
   withholdReason,
 } from "@/lib/marketing/competitors";
 import { MATRIX_KEYS, matrixEntry } from "@/lib/marketing/featureMatrix";
+import { billingModeLabel, teamSizeLabel } from "@/lib/marketing/compareLabels";
 
 /**
  * What FieldQuo ships against each of their add-ons — as MATRIX KEYS.
@@ -119,15 +120,18 @@ export function counterpartsFor(addOnId) {
  * declares no axes has nothing to locate — ServiceTitan is that case — and gets
  * null rather than an invented "all sizes".
  */
-export function coordinateLabel(axis) {
+// `t` is optional and the fallback is TEAM_SIZES/BILLING_MODES' own English, so
+// a caller with no translation context — the check script, and this module's
+// own `totalOf` below — gets exactly the string it got before /compare spoke
+// nine languages. See lib/marketing/compareLabels.js for why the labels are
+// resolved through a seam rather than translated inside the data module.
+export function coordinateLabel(axis, t) {
   const parts = [];
   if (axis?.teamSize) {
-    const size = TEAM_SIZES[axis.teamSize];
-    parts.push(size ? size.label : axis.teamSize);
+    parts.push(TEAM_SIZES[axis.teamSize] ? teamSizeLabel(axis.teamSize, t) : axis.teamSize);
   }
   if (axis?.billing) {
-    const mode = BILLING_MODES[axis.billing];
-    parts.push(mode ? mode.label : axis.billing);
+    parts.push(BILLING_MODES[axis.billing] ? billingModeLabel(axis.billing, t) : axis.billing);
   }
   if (parts.length === 0) return null;
   return parts.join(" · ");
@@ -152,7 +156,7 @@ const axisKey = (axis) => JSON.stringify(axis ?? {});
  */
 export function totalOf(items) {
   const list = Array.isArray(items) ? items : [];
-  const none = { total: null, currency: null, per: null, coordinates: null };
+  const none = { total: null, currency: null, per: null, coordinates: null, axis: null };
 
   if (list.length === 0) {
     return { ...none, refusal: "none of their add-on prices is publishable" };
@@ -200,6 +204,12 @@ export function totalOf(items) {
     currency: list[0].price.currency,
     per: list[0].price.per,
     coordinates: coordinateLabel(list[0].axis),
+    // The axis itself, beside the English rendering of it. A renderer that has
+    // a translator needs the raw coordinates to say them in the reader's
+    // language; one that does not keeps using `coordinates` unchanged. Handing
+    // back only the finished string would have forced every translated surface
+    // to re-derive the axis from the items, which is the second copy that rots.
+    axis: list[0].axis ?? null,
     refusal: null,
   };
 }

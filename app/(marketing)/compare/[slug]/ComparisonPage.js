@@ -5,15 +5,28 @@
 // about anybody — us or them — comes out of one of those two modules. This
 // file decides layout and nothing else.
 //
-// ══ Why there is no "use client" here ══════════════════════════════════════
+// ══ Why there IS a "use client" here now ═══════════════════════════════════
 //
-// /pricing and /industries/[slug] are split into a server half and a client
-// half because their copy comes from the t() catalog and translation lives in
-// React context. These pages are English-only on purpose (see the header of
-// ../compareCopy.js for the debt that creates), so there is no context to
-// enter and the whole page renders on the server. That is not just simpler —
-// it means the check script can await the real page function and get markup,
-// with no provider to stand up and no hook to stub.
+// This file used to open with an argument for the opposite: these pages were
+// English-only on purpose, so there was no translation context to enter and the
+// whole page could render on the server. The owner read /compare in Spanish and
+// found it in English, which is what that decision looked like from outside.
+//
+// So the page joins /pricing and /industries/[slug]: copy comes from the t()
+// catalogue, translation lives in React context, and the server half next door
+// keeps generateMetadata and generateStaticParams. The cost is real and is
+// named rather than hidden — scripts/check-compare-pages.mjs now has to wrap
+// its renders in a LanguageProvider instead of awaiting a bare function. It
+// still gets markup, and it still gets ENGLISH markup, because every t() call
+// below carries the same English literal as its fallback.
+//
+// ══ Why the English fallbacks are written out at every call site ═══════════
+//
+// They are not belt-and-braces. They are what the check script asserts
+// against, and what a visitor reads on a language whose catalogue is short a
+// key. scripts/check-marketing-i18n.mjs is what stops one of them being the
+// ONLY copy: it fails when a user-facing string on these surfaces has no key
+// beside it.
 //
 // ══ The data attributes are load-bearing ═══════════════════════════════════
 //
@@ -43,18 +56,18 @@
 //   • name a FieldQuo feature. Feature rows are keys into the matrix and the
 //     matrix's own `name` and `summary` are what get printed;
 //   • say the AI receptionist is "included". It is on every plan and the talk
-//     time is prepaid credit — see AVAILABILITY_WORDS below.
+//     time is prepaid credit — see availabilityWord() in
+//     lib/marketing/compareLabels.js.
+
+"use client";
 
 import Link from "next/link";
 import { ArrowRight, Check, ExternalLink, Info, Minus, X as XIcon } from "lucide-react";
 
 import {
   COMPARABLE_FEATURES,
-  FEATURE_ABSENT,
   FEATURE_ADD_ON,
   FEATURE_INCLUDED,
-  FEATURE_INCLUDED_USAGE_EXTRA,
-  FEATURE_UNKNOWN,
   FIELDQUO_CAPABILITIES,
   FIELDQUO_LACKS,
   FIELDQUO_REFERENCE,
@@ -73,10 +86,18 @@ import {
   withholdReason,
 } from "@/lib/marketing/competitors";
 import { featureEntry } from "@/lib/marketing/featureLabels";
+import { availabilityWord, capabilityLabel } from "@/lib/marketing/compareLabels";
+import { useTranslation } from "@/app/hooks/useTranslation";
+import { numberLocaleFor } from "@/app/i18n/numberLocale";
 
 import AddOnStack from "../AddOnStack";
 import { coordinateLabel } from "../addOns";
-import { COMPARE_CHROME, COMPARE_PAGES, comparePage, counterpointFor } from "../compareCopy";
+import {
+  COMPARE_PAGES,
+  compareChrome,
+  comparePageCopy,
+  counterpointFor,
+} from "../compareCopy";
 import { entryPriceGap } from "../entryPrice";
 
 // ── How a price kind reads in a sentence ───────────────────────────────────
@@ -88,22 +109,41 @@ import { entryPriceGap } from "../entryPrice";
 // nothing rather than borrowing the nearest one.
 import TheCase from "../TheCase";
 
-function priceLine(price) {
+// `price.ask` and `price.currency` are theirs and are never translated. The
+// sentence AROUND them is ours: a French reader was getting "No price published
+// — their page says “Request Pricing”" with our half in English and theirs in
+// English too, which reads as an untranslated page rather than as a quotation.
+// The digit grouping follows the reader for the same reason /pricing's does.
+function priceLine(price, t, locale = "en-US") {
   if (!price) return null;
+  const say = (key, fallback, values) =>
+    typeof t === "function"
+      ? t(key, fallback, values)
+      : String(fallback).replace(/\{(\w+)\}/g, (m, name) =>
+          values?.[name] !== undefined ? String(values[name]) : m,
+        );
   switch (price.kind) {
     case PRICE_AMOUNT:
       // Currency named beside the amount, always, and only ever the one the
       // figure carries. A bare "$59" on a page read in Canada is a number
       // pretending to be local.
-      return `$${price.amount.toLocaleString("en-US")} ${price.currency} per ${price.per}`;
+      return say("compare.price.amount", "${amount} {currency} per {per}", {
+        amount: price.amount.toLocaleString(locale),
+        currency: price.currency,
+        per: say(`compare.per.${price.per}`, price.per),
+      });
     case PRICE_FREE:
-      return `Free (${price.currency})`;
+      return say("compare.price.free", "Free ({currency})", { currency: price.currency });
     case PRICE_ON_REQUEST:
       // Their button's own words. That the words exist is the claim; it is
       // checkable by anybody in one click, which is what makes it safe.
-      return `No price published — their page says “${price.ask}”`;
+      return say(
+        "compare.price.onRequest",
+        "No price published — their page says “{ask}”",
+        { ask: price.ask },
+      );
     case PRICE_NOT_OFFERED:
-      return "Not sold at this size";
+      return say("compare.price.notOffered", "Not sold at this size");
     case PRICE_UNKNOWN:
       return null;
     default:
@@ -113,20 +153,18 @@ function priceLine(price) {
 
 // ── How a feature's availability reads ─────────────────────────────────────
 //
-// FEATURE_INCLUDED and FEATURE_INCLUDED_USAGE_EXTRA must never share a
-// sentence. Ours is the second one: the receptionist is on every plan and the
-// talk time is prepaid credit (lib/voice/credits.js), so "AI included" beside
-// our price would be a false claim about our OWN price to a visitor who then
-// meets a top-up on their first call. The check script asserts these two
-// strings differ, because the collapse is a one-line edit that reads as tidying.
-const AVAILABILITY_WORDS = {
-  [FEATURE_INCLUDED]: "in the plan price",
-  [FEATURE_INCLUDED_USAGE_EXTRA]:
-    "on every plan, with the talk time bought separately as prepaid credit",
-  [FEATURE_ADD_ON]: "a paid add-on on top of the plan",
-  [FEATURE_ABSENT]: "not on that tier",
-  [FEATURE_UNKNOWN]: "not established",
-};
+// The five words moved to lib/marketing/compareLabels.js — /pricing renders the
+// same vocabulary through AddOnStack, and two copies is how one surface ends up
+// calling an add-on "extra" and the other "optional". AVAILABILITY_FALLBACK
+// there holds the English these five names used to hold here.
+//
+// The rule they encode has not moved: FEATURE_INCLUDED and
+// FEATURE_INCLUDED_USAGE_EXTRA must never share a sentence. Ours is the second
+// one — the receptionist is on every plan and the talk time is prepaid credit
+// (lib/voice/credits.js), so "AI included" beside our price would be a false
+// claim about our OWN price to a visitor who then meets a top-up on their first
+// call. The check script asserts these two strings differ, because the collapse
+// is a one-line edit that reads as tidying.
 
 /**
  * A withholding reason with the money taken out of it.
@@ -189,8 +227,17 @@ function claimProse(entry, asOf) {
 }
 
 /** Where and when a figure was read. Never omitted from a published figure. */
-function provenanceLine(figure) {
-  return `Read from a ${figure.observedFrom} connection on ${figure.checked}`;
+function provenanceLine(figure, t) {
+  const fallback = `Read from a ${figure.observedFrom} connection on ${figure.checked}`;
+  // Deliberately the SAME key AddOnStack uses. The two surfaces print the same
+  // sentence about the same kind of reading, and a second key would let one of
+  // them be re-worded without the other.
+  return typeof t === "function"
+    ? t("addOns.provenance", fallback, {
+        country: figure.observedFrom,
+        checked: figure.checked,
+      })
+    : fallback;
 }
 
 /**
@@ -241,8 +288,8 @@ function currencyProvenance(figure, subject) {
  * A competitor with no axes has nothing to locate — ServiceTitan declares none
  * — and gets nothing rather than an invented "all sizes".
  */
-function coordinateLine(figure) {
-  return coordinateLabel(figure.axis);
+function coordinateLine(figure, t) {
+  return coordinateLabel(figure.axis, t);
 }
 
 function SectionHeading({ title, intro, id }) {
@@ -274,7 +321,10 @@ function SourceLink({ href, children }) {
 }
 
 export default function ComparisonPage({ slug, asOf }) {
-  const page = comparePage(slug);
+  const { t, language } = useTranslation();
+  const locale = numberLocaleFor(language);
+  const chrome = compareChrome(t);
+  const page = comparePageCopy(slug, t);
   const competitor = page ? findCompetitor(page.competitorId) : null;
   // The server half has already 404'd on an unknown slug; this is the second
   // gate, and it exists because a competitor could be removed from the data
@@ -343,10 +393,10 @@ export default function ComparisonPage({ slug, asOf }) {
       <div className="bg-muted border-b border-border">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            {COMPARE_CHROME.eyebrow}
+            {chrome.eyebrow}
           </span>
           <h1 className="mt-2 text-3xl sm:text-4xl font-bold text-foreground leading-tight">
-            FieldQuo vs {competitor.name}
+            {t("compare.vs", "FieldQuo vs {competitor}", { competitor: competitor.name })}
           </h1>
           <p className="mt-4 text-lg text-muted-foreground max-w-3xl">{page.lede}</p>
 
@@ -354,8 +404,11 @@ export default function ComparisonPage({ slug, asOf }) {
               so it says which day it meant. See ../asOf.js. */}
           <p className="mt-4 text-sm text-muted-foreground" data-as-of={asOf}>
             <Info size={14} className="inline align-[-2px] mr-1" aria-hidden="true" />
-            Prepared as of {asOf}. Every figure below also carries the day it was
-            read and the country it was read from.
+            {t(
+              "compare.preparedAsOfLong",
+              "Prepared as of {date}. Every figure below also carries the day it was read and the country it was read from.",
+              { date: asOf },
+            )}
           </p>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -363,13 +416,13 @@ export default function ComparisonPage({ slug, asOf }) {
               href="/signup"
               className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-full text-sm font-semibold transition hover:brightness-110"
             >
-              {COMPARE_CHROME.ctaButton} <ArrowRight size={16} />
+              {chrome.ctaButton} <ArrowRight size={16} />
             </Link>
             <Link
               href="/pricing"
               className="inline-flex items-center gap-2 border border-border px-6 py-3 rounded-full text-sm font-semibold text-foreground hover:bg-card"
             >
-              {COMPARE_CHROME.ctaSecondary}
+              {chrome.ctaSecondary}
             </Link>
           </div>
         </div>
@@ -379,19 +432,19 @@ export default function ComparisonPage({ slug, asOf }) {
           Placed FIRST on purpose. The price tables below are reference: what
           each company publishes, with its provenance. This is what the page is
           FOR, and a reader who leaves after one screen should have read it. */}
-      <TheCase competitor={competitor} />
+      <TheCase competitor={competitor} t={t} locale={locale} />
 
       {/* ── Price ─────────────────────────────────────────────────────────── */}
       <div className="bg-muted border-y border-border">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <SectionHeading id="price" title={COMPARE_CHROME.priceTitle} />
+          <SectionHeading id="price" title={chrome.priceTitle} />
 
           <div className="mt-4 rounded-xl border border-border bg-card p-5 max-w-3xl">
             <h3 className="text-sm font-semibold text-foreground">
-              {COMPARE_CHROME.rulesTitle}
+              {chrome.rulesTitle}
             </h3>
             <ul className="mt-3 space-y-2">
-              {COMPARE_CHROME.rules.map((rule) => (
+              {chrome.rules.map((rule) => (
                 <li key={rule} className="text-sm text-muted-foreground flex gap-2">
                   <Minus size={14} className="shrink-0 mt-1" aria-hidden="true" />
                   <span>{rule}</span>
@@ -415,7 +468,7 @@ export default function ComparisonPage({ slug, asOf }) {
                 repriced in lib/pricing/ladder.js changes here on its own. */}
             <div>
               <h3 className="text-lg font-semibold text-foreground">
-                {COMPARE_CHROME.fieldquoPriceTitle}
+                {chrome.fieldquoPriceTitle}
               </h3>
               <div className="mt-4 space-y-3">
                 {ladder.map((tier) => (
@@ -426,13 +479,24 @@ export default function ComparisonPage({ slug, asOf }) {
                   >
                     <div>
                       <div className="font-semibold text-foreground">{tier.label}</div>
+                      {/* Singular and plural are separate KEYS rather than an
+                          appended "s": most of the languages this page is read
+                          in do not pluralise by suffixing, and Ukrainian has
+                          three forms. Same rule /pricing's plan cards follow. */}
                       <div className="text-sm text-muted-foreground">
-                        {tier.seats} {tier.seats === 1 ? "seat" : "seats"}, plus{" "}
-                        {tier.crewSeats} crew at no charge
+                        {t(
+                          tier.seats === 1 ? "compare.tierSeatsOne" : "compare.tierSeats",
+                          tier.seats === 1
+                            ? "{seats} seat, plus {crew} crew at no charge"
+                            : "{seats} seats, plus {crew} crew at no charge",
+                          { seats: tier.seats, crew: tier.crewSeats },
+                        )}
                       </div>
                     </div>
                     <div className="text-foreground font-semibold whitespace-nowrap">
-                      ${tier.price} per month
+                      {t("compare.pricePerMonth", "${amount} per month", {
+                        amount: tier.price.toLocaleString(locale),
+                      })}
                     </div>
                   </div>
                 ))}
@@ -442,10 +506,21 @@ export default function ComparisonPage({ slug, asOf }) {
                   against the USD row with no arithmetic anywhere. */}
               <p className="mt-4 text-sm text-muted-foreground">
                 {FIELDQUO_REFERENCE.sameNumberBothCurrencies
-                  ? `The same number in each currency we sell in (${FIELDQUO_REFERENCE.currencies.join(
-                      " and ",
-                    )}) — $${FIELDQUO_REFERENCE.entryTier.price} in each is a real FieldQuo price, so nothing on this page has to be converted to line them up. Which currency you are billed in comes from the business address you give at signup.`
-                  : `Sold in ${FIELDQUO_REFERENCE.currencies.join(" and ")}.`}
+                  ? t(
+                      "compare.sameNumberBothCurrencies",
+                      "The same number in each currency we sell in ({currencies}) — ${price} in each is a real FieldQuo price, so nothing on this page has to be converted to line them up. Which currency you are billed in comes from the business address you give at signup.",
+                      {
+                        currencies: FIELDQUO_REFERENCE.currencies.join(
+                          t("compare.and", " and "),
+                        ),
+                        price: FIELDQUO_REFERENCE.entryTier.price.toLocaleString(locale),
+                      },
+                    )
+                  : t("compare.soldIn", "Sold in {currencies}.", {
+                      currencies: FIELDQUO_REFERENCE.currencies.join(
+                        t("compare.and", " and "),
+                      ),
+                    })}
               </p>
             </div>
 
@@ -455,15 +530,17 @@ export default function ComparisonPage({ slug, asOf }) {
               <h3 className="text-lg font-semibold text-foreground">{competitor.name}</h3>
               {published.length === 0 ? (
                 <p className="mt-4 text-muted-foreground">
-                  There is nothing on {competitor.name}&rsquo;s pricing page that we can
-                  publish as a price. Every figure we hold is listed below with the
-                  reason it is being withheld.
+                  {t(
+                    "compare.nothingPublishable",
+                    "There is nothing on {competitor}’s pricing page that we can publish as a price. Every figure we hold is listed below with the reason it is being withheld.",
+                    { competitor: competitor.name },
+                  )}
                 </p>
               ) : (
                 <div className="mt-4 space-y-3">
                   {published.map((figure) => {
-                    const line = priceLine(figure.price);
-                    const coordinates = coordinateLine(figure);
+                    const line = priceLine(figure.price, t, locale);
+                    const coordinates = coordinateLine(figure, t);
                     return (
                       <div
                         key={figure.id}
@@ -494,8 +571,15 @@ export default function ComparisonPage({ slug, asOf }) {
                         ) : null}
                         {figure.seatsIncluded ? (
                           <div className="mt-1 text-sm text-muted-foreground">
-                            {figure.seatsIncluded}{" "}
-                            {figure.seatsIncluded === 1 ? "user" : "users"} included
+                            {t(
+                              figure.seatsIncluded === 1
+                                ? "compare.usersIncludedOne"
+                                : "compare.usersIncluded",
+                              figure.seatsIncluded === 1
+                                ? "{count} user included"
+                                : "{count} users included",
+                              { count: figure.seatsIncluded },
+                            )}
                           </div>
                         ) : null}
                         {/* "Unlimited" is a different fact from a seat count,
@@ -505,12 +589,17 @@ export default function ComparisonPage({ slug, asOf }) {
                             word is the only honest rendering of it. */}
                         {figure.unlimitedSeats ? (
                           <div className="mt-1 text-sm text-muted-foreground">
-                            Unlimited users, so there is no seat count to compare
+                            {t(
+                              "compare.unlimitedUsers",
+                              "Unlimited users, so there is no seat count to compare",
+                            )}
                           </div>
                         ) : null}
                         <div className="mt-2 text-xs text-muted-foreground">
-                          {provenanceLine(figure)} ·{" "}
-                          <SourceLink href={figure.source}>their pricing page</SourceLink>
+                          {provenanceLine(figure, t)} ·{" "}
+                          <SourceLink href={figure.source}>
+                            {t("addOns.sourceLink", "their pricing page")}
+                          </SourceLink>
                         </div>
                         {/* The amount is theirs and the currency may not be.
                             See currencyProvenance — this is the line that stops
@@ -521,8 +610,11 @@ export default function ComparisonPage({ slug, asOf }) {
                             className="mt-2 text-xs text-muted-foreground border-l-2 border-border pl-3"
                             data-currency-sourcing={figure.price.currencySourcing}
                           >
-                            The amount is theirs, off their own page. The currency is
-                            not: {currencyProvenance(figure, competitor.name)}
+                            {t(
+                              "compare.currencyNotTheirs",
+                              "The amount is theirs, off their own page. The currency is not: {provenance}",
+                              { provenance: currencyProvenance(figure, competitor.name) },
+                            )}
                           </div>
                         ) : null}
                       </div>
@@ -541,11 +633,13 @@ export default function ComparisonPage({ slug, asOf }) {
               time, on a page they came to in order to choose a product. */}
           {withheld.length > 0 ? (
             <p className="mt-6 max-w-3xl text-sm text-muted-foreground">
-              {withheld.length} more {competitor.name} price
-              {withheld.length === 1 ? "" : "s"}{" "}
-              {withheld.length === 1 ? "is" : "are"} not shown here — either the reading has aged
-              out, or we could not settle what the published figure meant. We would rather leave a
-              row out than print a number we cannot stand behind.
+              {t(
+                withheld.length === 1 ? "compare.withheldCountOne" : "compare.withheldCount",
+                withheld.length === 1
+                  ? "{count} more {competitor} price is not shown here — either the reading has aged out, or we could not settle what the published figure meant. We would rather leave a row out than print a number we cannot stand behind."
+                  : "{count} more {competitor} prices are not shown here — either the reading has aged out, or we could not settle what the published figure meant. We would rather leave a row out than print a number we cannot stand behind.",
+                { count: withheld.length, competitor: competitor.name },
+              )}
             </p>
           ) : null}
 
@@ -587,6 +681,8 @@ export default function ComparisonPage({ slug, asOf }) {
           competitorId={competitor.id}
           competitorName={competitor.name}
           asOf={asOf}
+          t={t}
+          locale={locale}
         />
       </div>
 
@@ -609,8 +705,8 @@ export default function ComparisonPage({ slug, asOf }) {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <SectionHeading
             id="their-tiers"
-            title={COMPARE_CHROME.theirTiersTitle}
-            intro={COMPARE_CHROME.theirTiersIntro}
+            title={chrome.theirTiersTitle}
+            intro={chrome.theirTiersIntro}
           />
           <div className="mt-8 space-y-4 max-w-3xl">
             {theirTiers.map((figure) => {
@@ -643,16 +739,18 @@ export default function ComparisonPage({ slug, asOf }) {
                       {competitor.name} {figure.label}
                     </div>
                     <div className="text-foreground font-semibold whitespace-nowrap">
-                      {priceLine(figure.price)}
+                      {priceLine(figure.price, t, locale)}
                     </div>
                   </div>
-                  {coordinateLine(figure) ? (
+                  {coordinateLine(figure, t) ? (
                     <div className="mt-1 text-sm text-muted-foreground">
-                      {coordinateLine(figure)}
+                      {coordinateLine(figure, t)}
                     </div>
                   ) : null}
                   <div className="mt-3 text-sm font-medium text-foreground">
-                    {adds ? "Adds over the tier below it:" : "On this tier:"}
+                    {adds
+                      ? t("compare.addsOverTier", "Adds over the tier below it:")
+                      : t("compare.onThisTier", "On this tier:")}
                   </div>
                   <ul className="mt-2 grid sm:grid-cols-2 gap-x-6 gap-y-1">
                     {items.map((item) => (
@@ -672,15 +770,22 @@ export default function ComparisonPage({ slug, asOf }) {
                       data-ai-credits-tier={figure.id}
                       data-ai-credits={figure.aiCreditsPerMonth}
                     >
-                      Their page states {figure.aiCreditsPerMonth.toLocaleString("en-US")} AI
-                      credits a month on this tier.
+                      {t(
+                        "compare.aiCreditsTier",
+                        "Their page states {count} AI credits a month on this tier.",
+                        { count: figure.aiCreditsPerMonth.toLocaleString(locale) },
+                      )}
                     </div>
                   ) : null}
                   <div className="mt-3 text-xs text-muted-foreground">
                     {featuresFrom
-                      ? `This list ${featuresFrom}`
-                      : provenanceLine(figure)}{" "}
-                    · <SourceLink href={figure.source}>their pricing page</SourceLink>
+                      ? t("compare.thisListFrom", "This list {provenance}", {
+                          provenance: featuresFrom,
+                        })
+                      : provenanceLine(figure, t)}{" "}
+                    · <SourceLink href={figure.source}>
+                            {t("addOns.sourceLink", "their pricing page")}
+                          </SourceLink>
                   </div>
                 </div>
               );
@@ -690,7 +795,7 @@ export default function ComparisonPage({ slug, asOf }) {
             className="mt-6 max-w-3xl text-sm text-muted-foreground border-l-2 border-border pl-4"
             data-no-tier-match="true"
           >
-            {COMPARE_CHROME.theirTiersNoMatchNote}
+            {chrome.theirTiersNoMatchNote}
           </p>
         </div>
       ) : null}
@@ -708,8 +813,8 @@ export default function ComparisonPage({ slug, asOf }) {
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
             <SectionHeading
               id="ai-metering"
-              title={COMPARE_CHROME.aiMeteringTitle}
-              intro={COMPARE_CHROME.aiMeteringIntro}
+              title={chrome.aiMeteringTitle}
+              intro={chrome.aiMeteringIntro}
             />
             <div className="mt-8 grid md:grid-cols-2 gap-4 max-w-4xl">
               <div
@@ -727,10 +832,12 @@ export default function ComparisonPage({ slug, asOf }) {
                     >
                       <span>
                         {figure.label}
-                        {coordinateLine(figure) ? ` — ${coordinateLine(figure)}` : ""}
+                        {coordinateLine(figure, t) ? ` — ${coordinateLine(figure, t)}` : ""}
                       </span>
                       <span className="whitespace-nowrap">
-                        {figure.aiCreditsPerMonth.toLocaleString("en-US")} credits a month
+                        {t("compare.creditsAMonth", "{count} credits a month", {
+                          count: figure.aiCreditsPerMonth.toLocaleString(locale),
+                        })}
                       </span>
                     </li>
                   ))}
@@ -739,7 +846,7 @@ export default function ComparisonPage({ slug, asOf }) {
               <div className="bg-card border border-border rounded-xl p-5" data-ai-metering="fieldquo">
                 <div className="font-semibold text-foreground">FieldQuo</div>
                 <p className="mt-3 text-sm text-muted-foreground">
-                  {COMPARE_CHROME.aiMeteringOurs}
+                  {chrome.aiMeteringOurs}
                 </p>
               </div>
             </div>
@@ -767,8 +874,17 @@ export default function ComparisonPage({ slug, asOf }) {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <SectionHeading
             id="receptionist"
-            title={`${receptionistFeature.label}: what it costs on each side`}
-            intro={`Tiers are matched on what they contain, not on where they sit in a table. This is the cheapest ${competitor.name} tier we verified as actually carrying it.`}
+            title={t("compare.receptionistTitle", "{feature}: what it costs on each side", {
+              feature: t(
+                "compare.comparableFeature.ai_receptionist",
+                receptionistFeature.label,
+              ),
+            })}
+            intro={t(
+              "compare.receptionistIntro",
+              "Tiers are matched on what they contain, not on where they sit in a table. This is the cheapest {competitor} tier we verified as actually carrying it.",
+              { competitor: competitor.name },
+            )}
           />
           <div className="mt-8 grid md:grid-cols-2 gap-4">
             <div
@@ -778,31 +894,44 @@ export default function ComparisonPage({ slug, asOf }) {
               <div className="font-semibold text-foreground">
                 {competitor.name} {receptionistTier.label}
               </div>
-              <div className="mt-1 text-foreground">{priceLine(receptionistTier.price)}</div>
-              {coordinateLine(receptionistTier) ? (
+              <div className="mt-1 text-foreground">{priceLine(receptionistTier.price, t, locale)}</div>
+              {coordinateLine(receptionistTier, t) ? (
                 <div className="mt-1 text-sm text-muted-foreground">
-                  {coordinateLine(receptionistTier)}
+                  {coordinateLine(receptionistTier, t)}
                 </div>
               ) : null}
               <div className="mt-2 text-sm text-muted-foreground">
-                The feature is {AVAILABILITY_WORDS[FEATURE_INCLUDED]} on this tier.
+                {t(
+                  "compare.featureOnThisTier",
+                  "The feature is {availability} on this tier.",
+                  { availability: availabilityWord(FEATURE_INCLUDED, t) },
+                )}
               </div>
               {receptionistAddOn ? (
                 <div
                   className="mt-3 text-sm text-muted-foreground"
                   data-receptionist-addon={receptionistAddOn.id}
                 >
-                  Lower down their range it is {AVAILABILITY_WORDS[FEATURE_ADD_ON]}:{" "}
-                  {priceLine(receptionistAddOn.price)}
-                  {coordinateLine(receptionistAddOn)
-                    ? ` at ${coordinateLine(receptionistAddOn)}`
-                    : ""}
-                  . That is a floor you pay in a month when the phone never rings.
+                  {t(
+                    "compare.receptionistLowerDown",
+                    "Lower down their range it is {availability}: {price}{at}. That is a floor you pay in a month when the phone never rings.",
+                    {
+                      availability: availabilityWord(FEATURE_ADD_ON, t),
+                      price: priceLine(receptionistAddOn.price, t, locale),
+                      at: coordinateLine(receptionistAddOn, t)
+                        ? t("compare.atCoordinates", " at {coordinates}", {
+                            coordinates: coordinateLine(receptionistAddOn, t),
+                          })
+                        : "",
+                    },
+                  )}
                 </div>
               ) : null}
               <div className="mt-3 text-xs text-muted-foreground">
-                {provenanceLine(receptionistTier)} ·{" "}
-                <SourceLink href={receptionistTier.source}>their pricing page</SourceLink>
+                {provenanceLine(receptionistTier, t)} ·{" "}
+                <SourceLink href={receptionistTier.source}>
+                  {t("addOns.sourceLink", "their pricing page")}
+                </SourceLink>
               </div>
             </div>
 
@@ -813,14 +942,17 @@ export default function ComparisonPage({ slug, asOf }) {
                   credit — and "no monthly minimum" is both true and the
                   stronger thing to say to a one-van painter in February. */}
               <div className="mt-1 text-foreground">
-                {FIELDQUO_CAPABILITIES.ai_receptionist_no_monthly_floor.label}
+                {capabilityLabel("ai_receptionist_no_monthly_floor", t)}
               </div>
               <div
                 className="mt-2 text-sm text-muted-foreground"
                 data-fieldquo-availability={receptionistFeature.fieldquo}
               >
-                It is {AVAILABILITY_WORDS[receptionistFeature.fieldquo]}. A month with no
-                calls costs nothing for it.
+                {t(
+                  "compare.ourAvailability",
+                  "It is {availability}. A month with no calls costs nothing for it.",
+                  { availability: availabilityWord(receptionistFeature.fieldquo, t) },
+                )}
               </div>
             </div>
           </div>
@@ -829,8 +961,15 @@ export default function ComparisonPage({ slug, asOf }) {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <SectionHeading
             id="receptionist"
-            title={`${receptionistFeature.label}: what it costs on each side`}
-            intro={`We cannot answer this one for ${competitor.name}.`}
+            title={t("compare.receptionistTitle", "{feature}: what it costs on each side", {
+              feature: t(
+                "compare.comparableFeature.ai_receptionist",
+                receptionistFeature.label,
+              ),
+            })}
+            intro={t("compare.receptionistUnknownIntro", "We cannot answer this one for {competitor}.", {
+              competitor: competitor.name,
+            })}
           />
           <div className="mt-8 grid md:grid-cols-2 gap-4">
             <div
@@ -840,25 +979,29 @@ export default function ComparisonPage({ slug, asOf }) {
             >
               <div className="font-semibold text-foreground">{competitor.name}</div>
               <p className="mt-2 text-sm text-muted-foreground">
-                {COMPARE_CHROME.matchUnknownIntro}
+                {chrome.matchUnknownIntro}
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
-                Their plans are described on their page in their own words, and this
-                comparison will not read those words as ours. Their list is above,
-                unedited, and it is the thing to check on their own site.
+                {t(
+                  "compare.theirWordsNotOurs",
+                  "Their plans are described on their page in their own words, and this comparison will not read those words as ours. Their list is above, unedited, and it is the thing to check on their own site.",
+                )}
               </p>
             </div>
             <div className="bg-card border border-border rounded-xl p-5">
               <div className="font-semibold text-foreground">FieldQuo</div>
               <div className="mt-1 text-foreground">
-                {FIELDQUO_CAPABILITIES.ai_receptionist_no_monthly_floor.label}
+                {capabilityLabel("ai_receptionist_no_monthly_floor", t)}
               </div>
               <div
                 className="mt-2 text-sm text-muted-foreground"
                 data-fieldquo-availability={receptionistFeature.fieldquo}
               >
-                It is {AVAILABILITY_WORDS[receptionistFeature.fieldquo]}. A month with no
-                calls costs nothing for it.
+                {t(
+                  "compare.ourAvailability",
+                  "It is {availability}. A month with no calls costs nothing for it.",
+                  { availability: availabilityWord(receptionistFeature.fieldquo, t) },
+                )}
               </div>
             </div>
           </div>
@@ -871,8 +1014,8 @@ export default function ComparisonPage({ slug, asOf }) {
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
             <SectionHeading
               id="where-we-are-ahead"
-              title={COMPARE_CHROME.advantageTitle}
-              intro={COMPARE_CHROME.advantageIntro}
+              title={chrome.advantageTitle}
+              intro={chrome.advantageIntro}
             />
             <div className="mt-8 space-y-4 max-w-3xl">
               {both.weHaveTheyDont
@@ -881,7 +1024,7 @@ export default function ComparisonPage({ slug, asOf }) {
                 .filter((claim) => claim.publishable)
                 .map((claim) => {
                   const cap = FIELDQUO_CAPABILITIES[claim.capability];
-                  const counterpoint = counterpointFor(competitor.id, claim.capability);
+                  const counterpoint = counterpointFor(competitor.id, claim.capability, t);
                   return (
                     <div
                       key={claim.capability}
@@ -896,7 +1039,7 @@ export default function ComparisonPage({ slug, asOf }) {
                           aria-hidden="true"
                         />
                         <span className="font-semibold text-foreground">
-                          {cap ? cap.label : claim.capability}
+                          {cap ? capabilityLabel(claim.capability, t) : claim.capability}
                         </span>
                       </div>
                       <p className="mt-2 text-sm text-muted-foreground">
@@ -907,7 +1050,7 @@ export default function ComparisonPage({ slug, asOf }) {
                           className="mt-2 text-sm text-muted-foreground"
                           data-claim-stale={claim.capability}
                         >
-                          {COMPARE_CHROME.staleClaimNote}
+                          {chrome.staleClaimNote}
                         </p>
                       ) : null}
                       {/* Their own page's answer, where it has one. Quoting
@@ -924,7 +1067,9 @@ export default function ComparisonPage({ slug, asOf }) {
                       ) : null}
                       <div className="mt-3 text-xs text-muted-foreground">
                         <SourceLink href={claim.source}>
-                          Read on their site {claim.checked}
+                          {t("compare.readOnTheirSite", "Read on their site {checked}", {
+                            checked: claim.checked,
+                          })}
                         </SourceLink>
                       </div>
                     </div>
@@ -939,8 +1084,8 @@ export default function ComparisonPage({ slug, asOf }) {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <SectionHeading
           id="what-you-get"
-          title={COMPARE_CHROME.featuresTitle}
-          intro={COMPARE_CHROME.featuresIntro}
+          title={chrome.featuresTitle}
+          intro={chrome.featuresIntro}
         />
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
           {page.features.map((key) => {
@@ -950,7 +1095,7 @@ export default function ComparisonPage({ slug, asOf }) {
             // before the label layer existed. The day these pages gain a
             // language, it is one argument at this one call site rather than a
             // hunt for every place a feature name is printed.
-            const entry = featureEntry(key);
+            const entry = featureEntry(key, t);
             // A key with no matrix entry renders nothing at all. The check
             // script fails on it separately, but a page in production must not
             // improvise a feature name to fill a card.
@@ -978,7 +1123,7 @@ export default function ComparisonPage({ slug, asOf }) {
                     className="mt-2 text-sm text-muted-foreground border-l-2 border-border pl-3"
                     data-limits={key}
                   >
-                    Where it stops: {entry.limits}
+                    {t("addOns.limits", "Where it stops:")} {entry.limits}
                   </p>
                 ) : null}
               </div>
@@ -1005,11 +1150,11 @@ export default function ComparisonPage({ slug, asOf }) {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <SectionHeading
           id="what-we-do-not-do"
-          title={COMPARE_CHROME.concessionTitle}
+          title={chrome.concessionTitle}
           intro={page.concessionLede}
         />
         <p className="mt-3 text-sm text-muted-foreground max-w-3xl">
-          {COMPARE_CHROME.concessionIntro}
+          {chrome.concessionIntro}
         </p>
 
         {/* ── The price we lose on, computed rather than written ────────────
@@ -1039,39 +1184,59 @@ export default function ComparisonPage({ slug, asOf }) {
             data-entry-price-ours={entryGap.ours.tierKey}
           >
             <h3 className="text-lg font-semibold text-foreground">
-              {COMPARE_CHROME.entryGapTitle}
+              {chrome.entryGapTitle}
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              {COMPARE_CHROME.entryGapIntro}
+              {chrome.entryGapIntro}
             </p>
             <div className="mt-4 grid sm:grid-cols-2 gap-4">
               <div className="rounded-lg border border-border p-4">
                 <div className="font-semibold text-foreground">
                   {competitor.name} {entryGap.theirs.label}
                 </div>
-                <div className="mt-1 text-foreground">{priceLine(entryGap.theirs.price)}</div>
+                <div className="mt-1 text-foreground">{priceLine(entryGap.theirs.price, t, locale)}</div>
                 <div className="mt-1 text-sm text-muted-foreground">
-                  {entryGap.theirs.seatsIncluded}{" "}
-                  {entryGap.theirs.seatsIncluded === 1 ? "user" : "users"} included
-                  {coordinateLine(entryGap.theirs)
-                    ? ` · ${coordinateLine(entryGap.theirs)}`
+                  {t(
+                    entryGap.theirs.seatsIncluded === 1
+                      ? "compare.usersIncludedOne"
+                      : "compare.usersIncluded",
+                    entryGap.theirs.seatsIncluded === 1
+                      ? "{count} user included"
+                      : "{count} users included",
+                    { count: entryGap.theirs.seatsIncluded },
+                  )}
+                  {coordinateLine(entryGap.theirs, t)
+                    ? ` · ${coordinateLine(entryGap.theirs, t)}`
                     : ""}
                 </div>
                 <div className="mt-2 text-xs text-muted-foreground">
-                  {provenanceLine(entryGap.theirs)} ·{" "}
-                  <SourceLink href={entryGap.theirs.source}>their pricing page</SourceLink>
+                  {provenanceLine(entryGap.theirs, t)} ·{" "}
+                  <SourceLink href={entryGap.theirs.source}>
+                    {t("addOns.sourceLink", "their pricing page")}
+                  </SourceLink>
                 </div>
               </div>
               <div className="rounded-lg border border-border p-4">
+                {/* "FieldQuo Solo" — the tier name is ours and stays as it is
+                    in every language, the way a competitor's tier name does. */}
                 <div className="font-semibold text-foreground">
                   FieldQuo {entryGap.ours.label}
                 </div>
                 <div className="mt-1 text-foreground">
-                  ${entryGap.ours.price} per month
+                  {t("compare.pricePerMonth", "${amount} per month", {
+                    amount: entryGap.ours.price.toLocaleString(locale),
+                  })}
                 </div>
                 <div className="mt-1 text-sm text-muted-foreground">
-                  {entryGap.ours.seats} {entryGap.ours.seats === 1 ? "seat" : "seats"}, plus{" "}
-                  {entryGap.ours.crewSeats} crew at no charge. There is nothing below it.
+                  {t(
+                    entryGap.ours.seats === 1
+                      ? "compare.entryOursNothingBelowOne"
+                      : "compare.entryOursNothingBelow",
+                    entryGap.ours.seats === 1
+                      ? "{seats} seat, plus {crew} crew at no charge. There is nothing below it."
+                      : "{seats} seats, plus {crew} crew at no charge. There is nothing below it.",
+                    { seats: entryGap.ours.seats, crew: entryGap.ours.crewSeats },
+                  )}
                 </div>
               </div>
             </div>
@@ -1082,7 +1247,7 @@ export default function ComparisonPage({ slug, asOf }) {
             entryGap.theirs.includedFeatures.length > 0 ? (
               <div className="mt-4">
                 <div className="text-sm font-medium text-foreground">
-                  {COMPARE_CHROME.entryGapTheirListIntro}
+                  {chrome.entryGapTheirListIntro}
                 </div>
                 <ul className="mt-2 grid sm:grid-cols-2 gap-x-6 gap-y-1">
                   {entryGap.theirs.includedFeatures.map((item) => (
@@ -1099,7 +1264,7 @@ export default function ComparisonPage({ slug, asOf }) {
               </div>
             ) : null}
             <p className="mt-4 text-sm text-muted-foreground">
-              {COMPARE_CHROME.entryGapAdvice}
+              {chrome.entryGapAdvice}
             </p>
           </div>
         ) : null}
@@ -1111,7 +1276,6 @@ export default function ComparisonPage({ slug, asOf }) {
               These are statements about US, which is why they are safe to make
               on every page whatever we did or did not verify about them. */}
           {FIELDQUO_LACKS.map((capability) => {
-            const cap = FIELDQUO_CAPABILITIES[capability];
             const theirs = both.theyHaveWeDont.find((c) => c.capability === capability);
             return (
               <div
@@ -1121,7 +1285,9 @@ export default function ComparisonPage({ slug, asOf }) {
               >
                 <div className="flex items-start gap-2">
                   <XIcon size={18} className="text-red-500 shrink-0 mt-0.5" aria-hidden="true" />
-                  <span className="font-semibold text-foreground">{cap.label}</span>
+                  <span className="font-semibold text-foreground">
+                    {capabilityLabel(capability, t)}
+                  </span>
                 </div>
 
                 {/* The competitor half is attached only when somebody actually
@@ -1135,13 +1301,21 @@ export default function ComparisonPage({ slug, asOf }) {
                     data-direction="they-have-we-dont"
                     data-capability={capability}
                   >
-                    {competitor.name} says: “{claimProse(theirs, asOf).text}”.{" "}
+                    {/* Their claim is a QUOTATION off their own page and is not
+                        translated — see lib/marketing/compareLabels.js. Only the
+                        frame around it carries a language. */}
+                    {t("compare.theySay", "{competitor} says: “{claim}”.", {
+                      competitor: competitor.name,
+                      claim: claimProse(theirs, asOf).text,
+                    })}{" "}
                     <SourceLink href={theirs.source}>
-                      Read on their site {theirs.checked}
+                      {t("compare.readOnTheirSite", "Read on their site {checked}", {
+                        checked: theirs.checked,
+                      })}
                     </SourceLink>
                     {claimProse(theirs, asOf).stale ? (
                       <span className="block mt-2" data-claim-stale={capability}>
-                        {COMPARE_CHROME.staleClaimNote}
+                        {chrome.staleClaimNote}
                       </span>
                     ) : null}
                   </p>
@@ -1152,7 +1326,7 @@ export default function ComparisonPage({ slug, asOf }) {
                     data-capability={capability}
                     data-unverified="true"
                   >
-                    {COMPARE_CHROME.unverifiedConcessionNote}
+                    {chrome.unverifiedConcessionNote}
                   </p>
                 )}
               </div>
@@ -1165,21 +1339,21 @@ export default function ComparisonPage({ slug, asOf }) {
       <div className="bg-primary">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
           <h2 className="text-2xl sm:text-3xl font-bold text-white">
-            {COMPARE_CHROME.ctaTitle}
+            {chrome.ctaTitle}
           </h2>
-          <p className="mt-3 text-white/90">{COMPARE_CHROME.ctaBody}</p>
+          <p className="mt-3 text-white/90">{chrome.ctaBody}</p>
           <Link
             href="/signup"
             className="mt-6 inline-flex items-center gap-2 bg-card text-foreground px-6 py-3 rounded-full text-sm font-semibold hover:bg-muted"
           >
-            {COMPARE_CHROME.ctaButton} <ArrowRight size={16} />
+            {chrome.ctaButton} <ArrowRight size={16} />
           </Link>
         </div>
       </div>
 
       <div className="bg-muted border-t border-border py-12 text-center">
         <p className="text-sm text-muted-foreground mb-3">
-          {COMPARE_CHROME.otherPagesTitle}
+          {chrome.otherPagesTitle}
         </p>
         <div className="flex flex-wrap justify-center gap-2 max-w-2xl mx-auto px-4">
           {otherPages.map((other) => (

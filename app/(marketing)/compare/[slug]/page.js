@@ -4,14 +4,16 @@
 // one decision this route has to make on its own — what day it is speaking as
 // of. Rendering lives in ComparisonPage.
 //
-// Unlike /industries/[slug] and /pricing, the split here is NOT a client
-// boundary. These pages are English-only (see ../compareCopy.js), so there is
-// no translation context to enter and ComparisonPage is a server component
-// too. The file is split for the same reason those are — generateMetadata and
-// generateStaticParams cannot live beside the markup they describe — and for
-// one more: the check script renders ComparisonPage at dates of its choosing,
-// which it can only do if `asOf` arrives as a prop rather than being read
-// inside the render.
+// The split is now exactly /industries/[slug]'s and /pricing's: this half holds
+// generateMetadata and generateStaticParams, which cannot live in a client
+// module, and ComparisonPage is a client component because translation lives in
+// React context. It used to be a server component on the grounds that these
+// pages were English-only; they are not any more.
+//
+// `asOf` still arrives as a PROP rather than being read inside the render, and
+// that has not changed for a different reason: the check script renders
+// ComparisonPage at dates of its choosing, which is how the staleness path gets
+// exercised rather than assumed.
 
 import { notFound } from "next/navigation";
 

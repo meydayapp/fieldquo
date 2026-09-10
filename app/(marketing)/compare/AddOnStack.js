@@ -36,17 +36,18 @@
 //
 // ══ Why `t` is a prop with an English default ══════════════════════════════
 //
-// /compare is English-only by decision (see compareCopy.js) and /pricing is one
-// of six languages. Rather than fork the component, the caller passes its own
-// t(); the default resolves each key to the English fallback written at the
-// call site, which is exactly what /compare wants and what t() itself would do
-// on a language with no entry.
+// Both surfaces pass a real t() now — /compare stopped being English-only when
+// the owner read it in Spanish and found it wasn't. The English default stays,
+// because scripts/check-compare-pages.mjs and scripts/check-pricing-page.mjs
+// render this component with no translation context and assert against English
+// markup; the default resolves each key to the fallback written at the call
+// site, which is what t() itself would do on a language with no entry.
 
 import { Check, ExternalLink, Info } from "lucide-react";
 
-import { FIELDQUO_CAPABILITIES } from "@/lib/marketing/competitors";
+import { capabilityLabel } from "@/lib/marketing/compareLabels";
 import { featureEntry } from "@/lib/marketing/featureLabels";
-import { addOnStack, counterpartsFor } from "./addOns";
+import { addOnStack, coordinateLabel, counterpartsFor } from "./addOns";
 
 /**
  * The fallback translator: interpolates the same {placeholder} syntax the real
@@ -59,9 +60,23 @@ const englishOnly = (key, fallback, values) =>
       )
     : fallback;
 
-/** One published amount, in the one currency it was published in. */
-function money(price) {
-  return `$${price.amount.toLocaleString("en-US")} ${price.currency} per ${price.per}`;
+/**
+ * One published amount, in the one currency it was published in.
+ *
+ * The amount and the currency code are facts about their page and are never
+ * touched. The word "per" and the period it names are OURS — a French reader
+ * was getting "249 USD per month" with an English preposition in the middle of
+ * a French sentence — so they come out of the catalogue. The number itself is
+ * grouped in the reader's own locale for the same reason /pricing does it:
+ * 1 250 and 1,250 are the same figure and only one of them reads as a number
+ * to the person looking at it.
+ */
+function money(price, t, locale) {
+  return t("addOns.money", "${amount} {currency} per {per}", {
+    amount: price.amount.toLocaleString(locale),
+    currency: price.currency,
+    per: t(`compare.per.${price.per}`, price.per),
+  });
 }
 
 /**
@@ -85,6 +100,10 @@ export default function AddOnStack({
   competitorName,
   asOf,
   t = englishOnly,
+  // Digit grouping for the reader, not for us. Defaulted to en-US so a caller
+  // with no language context prints exactly what it printed before — the same
+  // contract the `t` default above has, and for the same check scripts.
+  locale = "en-US",
   headingLevel = "h2",
 }) {
   const stack = addOnStack(competitorId, asOf);
@@ -94,7 +113,6 @@ export default function AddOnStack({
   if (stack.refusal !== null) return null;
 
   const Heading = headingLevel;
-  const receptionist = FIELDQUO_CAPABILITIES.ai_receptionist_no_monthly_floor;
 
   return (
     <section
@@ -140,11 +158,18 @@ export default function AddOnStack({
                 </div>
                 {/* One amount, one currency, inside its own element. */}
                 <div className="text-foreground font-semibold whitespace-nowrap">
-                  {money(addOn.price)}
+                  {money(addOn.price, t, locale)}
                 </div>
               </div>
-              {stack.coordinates ? (
-                <div className="mt-1 text-sm text-muted-foreground">{stack.coordinates}</div>
+              {/* The point on their own selectors, said in the reader's
+                  language. `stack.axis` rather than `stack.coordinates`: the
+                  latter is the English rendering, and re-deriving it here is
+                  what lets a Spanish page say "2-5 personas" without the
+                  add-ons module having to know a translator exists. */}
+              {coordinateLabel(stack.axis, t) ? (
+                <div className="mt-1 text-sm text-muted-foreground">
+                  {coordinateLabel(stack.axis, t)}
+                </div>
               ) : null}
               <div className="mt-2 text-xs text-muted-foreground">
                 {t(
@@ -213,7 +238,7 @@ export default function AddOnStack({
       >
         <p className="text-lg font-semibold text-foreground">
           {t("addOns.total", "{total} {currency} a month, on top of the plan price.", {
-            total: `$${stack.total.toLocaleString("en-US")}`,
+            total: `$${stack.total.toLocaleString(locale)}`,
             currency: stack.currency,
           })}
         </p>
@@ -232,7 +257,9 @@ export default function AddOnStack({
         <div className="flex items-start gap-2">
           <Info size={16} className="text-muted-foreground shrink-0 mt-1" aria-hidden="true" />
           <div>
-            <div className="font-semibold text-foreground">{receptionist.label}</div>
+            <div className="font-semibold text-foreground">
+              {capabilityLabel("ai_receptionist_no_monthly_floor", t)}
+            </div>
             <p className="mt-2 text-sm text-muted-foreground">
               {t(
                 "addOns.receptionist",

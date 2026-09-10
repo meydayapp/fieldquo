@@ -217,14 +217,21 @@ function IncludedEverywhere({ t }) {
  * decides here is whether the block exists at all, which changes on one day in
  * ninety, so the two renders cannot show a visitor different prices.
  */
-function AddOnComparison({ t, asOf }) {
+function AddOnComparison({ t, asOf, locale }) {
   const stacks = COMPETITORS.filter((c) => addOnStack(c.id, asOf).refusal === null);
   if (stacks.length === 0) return null;
 
   return (
     <>
       {stacks.map((c) => (
-        <AddOnStack key={c.id} competitorId={c.id} competitorName={c.name} asOf={asOf} t={t} />
+        <AddOnStack
+          key={c.id}
+          competitorId={c.id}
+          competitorName={c.name}
+          asOf={asOf}
+          t={t}
+          locale={locale}
+        />
       ))}
       <p className="mt-6 text-center text-sm text-muted-foreground">
         {t(
@@ -478,7 +485,7 @@ export default function PricingPlans({ plans, asOf = renderAsOf() }) {
 
           <IncludedEverywhere t={t} />
 
-          <AddOnComparison t={t} asOf={asOf} />
+          <AddOnComparison t={t} asOf={asOf} locale={locale} />
 
           {/* ── What this note may and may not claim ──────────────────────
               It used to open "All prices are in CAD", with the code filled in

@@ -4,51 +4,23 @@
 // the browser (Papa Parse), previews a few rows, and posts them to be scored and
 // filed like any inbound lead.
 //
-// ── i18n PENDING — this whole screen is English ────────────────────────────
+// ── i18n ───────────────────────────────────────────────────────────────────
 //
-// The line that used to sit here said "English-first, like the other newest
-// surfaces", which is a habit rather than a policy: /app/clients/import does
-// the same job three routes away and is translated into all nine languages
-// (app.clientImport.*). A contractor who set the back office to French gets a
-// fully French client importer and a fully English lead importer.
+// This screen used to be English in a nine-language back office, and the line
+// that defended it said "English-first, like the other newest surfaces" — a
+// habit rather than a policy. /app/clients/import does the same job three
+// routes away and is translated, so a contractor who set the back office to
+// French got a fully French client importer and a fully English lead importer.
 //
-// Not wired here, because a t() call on a key that does not exist yet turns
-// check:translations red for every other agent in the tree (commit 080999e).
-// Every string below is reported with English and French; the shapes mirror
-// app.clientImport.* deliberately, so the two importers read as one product.
+// The keys mirror app.clientImport.* deliberately, so the two importers read as
+// one product rather than as two screens written a month apart.
 //
-//   app.leadImport.back            en "Leads"                      fr "Prospects"
-//   app.leadImport.title           en "Import leads"               fr "Importer des prospects"
-//   app.leadImport.subtitle        en "Upload a CSV of leads you bought or exported elsewhere. We'll match common columns (name, email, phone, address, notes, budget, timeline), score each one hot/warm/cold, and drop them into your pipeline. Budget and timeline are mapped where we can recognise them — otherwise the lead still scores on how reachable it is."
-//                                  fr "Téléversez un CSV de prospects achetés ou exportés d'ailleurs. Nous reconnaîtrons les colonnes courantes (nom, courriel, téléphone, notes, budget, échéance), classerons chacun chaud/tiède/froid, et les déposerons dans votre entonnoir. Le budget et l'échéance sont associés quand nous les reconnaissons — sinon le prospect est tout de même classé selon sa joignabilité."
-//   app.leadImport.readError       en "Couldn't read that CSV file."
-//                                  fr "Impossible de lire ce fichier CSV."
-//   app.leadImport.failed          en "Import failed."             fr "Échec de l'importation."
-//   app.leadImport.choose          en "Choose a CSV file"          fr "Choisir un fichier CSV"
-//   app.leadImport.noContact       en "no contact"                 fr "aucune coordonnée"
-//   app.leadImport.importing       en "Importing…"                 fr "Importation…"
-//   app.leadImport.view            en "View leads"                 fr "Voir les prospects"
-//
-// Four of them are COUNTS and must be countedNoun() entries, not "{n} rows" —
-// the `rows.length === 1 ? "" : "s"` below is the English plural rule wearing a
-// template literal, which is what printed a bare Latin "s" on a Mandarin screen
-// and "1 дзвінків" on a Ukrainian one:
-//
-//   app.leadImport.rowCount    countedNoun en {one:"row",  other:"rows"}
-//                              countedNoun fr {one:"ligne", many:"lignes", other:"lignes"}
-//   app.leadImport.leadCount   countedNoun en {one:"lead",  other:"leads"}
-//                              countedNoun fr {one:"prospect", many:"prospects", other:"prospects"}
-//
-// and the two sentences that consume them, each taking the counted noun as
-// {count} the way app.receptionist.upcomingCount is consumed today:
-//
-//   app.leadImport.found       en "Found {count}. Preview:"
-//                              fr "{count} trouvées. Aperçu :"
-//   app.leadImport.imported    en "Imported {count}{skipped}."
-//                              fr "{count} importés{skipped}."
-//   app.leadImport.skipped     en ", skipped {count} with no name or contact"
-//                              fr ", {count} ignorés sans nom ni coordonnées"
-//   app.leadImport.importN     en "Import {count}"    fr "Importer {count}"
+// The two COUNTS are countedNoun() entries rather than "{n} rows". The rule
+// they replace was `rows.length === 1 ? "" : "s"` — the English plural rule
+// wearing a template literal, which printed a bare Latin "s" on a Mandarin
+// screen and "1 дзвінків" on a Ukrainian one. countedNoun asks Intl.PluralRules
+// for the CLDR category, so Ukrainian's three forms and Tagalog's non-count
+// split both come out right without this file knowing either rule.
 "use client";
 
 import { useState } from "react";
@@ -57,11 +29,13 @@ import Papa from "papaparse";
 import { Upload, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { fetchJson } from "@/lib/fetchJson";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 
 export default function ImportLeadsPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   // The level POST /api/leads/import already takes. Asked here so a member
   // without it reads a sentence instead of parsing a CSV, previewing it and
   // then being refused — the same fix /app/clients/import needed beside it.
@@ -81,7 +55,7 @@ export default function ImportLeadsPage() {
       header: true,
       skipEmptyLines: true,
       complete: (results) => setRows(results.data || []),
-      error: () => setError("Couldn't read that CSV file."),
+      error: () => setError(t("app.leadImport.readError")),
     });
   }
 
@@ -96,7 +70,7 @@ export default function ImportLeadsPage() {
       });
       setResult(data);
     } catch (err) {
-      setError(err.message || "Import failed.");
+      setError(err.message || t("app.leadImport.failed"));
     } finally {
       setImporting(false);
     }
@@ -106,7 +80,8 @@ export default function ImportLeadsPage() {
   // header matching closely enough to reassure before importing).
   const preview = rows.slice(0, 3).map((r) => ({
     name: r.name || r.Name || r["Full Name"] || r.contact || "—",
-    contact: r.email || r.Email || r.phone || r.Phone || "no contact",
+    contact:
+      r.email || r.Email || r.phone || r.Phone || t("app.leadImport.noContact"),
   }));
 
   if (!canImport) return <NoAccessPanel capability="accessLevel" />;
@@ -117,17 +92,15 @@ export default function ImportLeadsPage() {
         href="/app/leads"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft size={14} /> Leads
+        <ArrowLeft size={14} /> {t("app.leadImport.back")}
       </Link>
 
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Import leads</h1>
+        <h1 className="text-2xl font-bold text-foreground">
+          {t("app.leadImport.title")}
+        </h1>
         <p className="text-sm text-muted-foreground mt-1 max-w-prose">
-          Upload a CSV of leads you bought or exported elsewhere. We&apos;ll match
-          common columns (name, email, phone, address, notes, budget, timeline), score each
-          one hot/warm/cold, and drop them into your pipeline. Budget and timeline
-          are mapped where we can recognise them — otherwise the lead still scores
-          on how reachable it is.
+          {t("app.leadImport.subtitle")}
         </p>
       </div>
 
@@ -142,7 +115,7 @@ export default function ImportLeadsPage() {
           <label className="flex flex-col items-center gap-2 border-2 border-dashed border-border rounded-lg py-10 cursor-pointer">
             <Upload size={24} className="text-muted-foreground" />
             <span className="text-sm text-muted-foreground">
-              {fileName || "Choose a CSV file"}
+              {fileName || t("app.leadImport.choose")}
             </span>
             <input type="file" accept=".csv" onChange={handleFile} className="hidden" />
           </label>
@@ -150,7 +123,9 @@ export default function ImportLeadsPage() {
           {rows.length > 0 && (
             <div className="mt-5">
               <p className="text-sm text-foreground mb-3">
-                Found {rows.length} row{rows.length === 1 ? "" : "s"}. Preview:
+                {t("app.leadImport.found", {
+                  count: t("app.leadImport.rowCount", { value: rows.length }),
+                })}
               </p>
               <div className="border border-border rounded-lg overflow-hidden mb-4">
                 {preview.map((r, i) => (
@@ -167,7 +142,11 @@ export default function ImportLeadsPage() {
                 disabled={importing}
                 className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
               >
-                {importing ? "Importing…" : `Import ${rows.length} lead${rows.length === 1 ? "" : "s"}`}
+                {importing
+                  ? t("app.leadImport.importing")
+                  : t("app.leadImport.importN", {
+                      count: t("app.leadImport.leadCount", { value: rows.length }),
+                    })}
               </button>
             </div>
           )}
@@ -175,14 +154,22 @@ export default function ImportLeadsPage() {
       ) : (
         <div className="bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-900 rounded-xl p-6 text-center">
           <p className="text-sm text-green-800 dark:text-green-300">
-            Imported {result.imported} lead{result.imported === 1 ? "" : "s"}
-            {result.skipped > 0 ? `, skipped ${result.skipped} with no name or contact` : ""}.
+            {t("app.leadImport.imported", {
+              count: t("app.leadImport.leadCount", { value: result.imported }),
+              // An empty string rather than an omitted value: t() leaves an
+              // unmatched {skipped} in place, so "Imported 12{skipped}." is what
+              // a run with nothing skipped would print.
+              skipped:
+                result.skipped > 0
+                  ? t("app.leadImport.skipped", { count: result.skipped })
+                  : "",
+            })}
           </p>
           <button
             onClick={() => router.push("/app/leads")}
             className="mt-4 bg-inverted text-inverted-foreground px-5 py-2 rounded-full text-sm font-semibold"
           >
-            View leads
+            {t("app.leadImport.view")}
           </button>
         </div>
       )}
