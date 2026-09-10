@@ -165,6 +165,7 @@ import {
   Plus,
   ShieldAlert,
   Undo2,
+  UserPlus,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { LAYER_HEADINGS } from "@/lib/sales/prospectView";
@@ -481,6 +482,31 @@ function QueueConsole() {
   useEffect(() => {
     load();
   }, [load]);
+
+  /**
+   * Turn the claimed prospect into a lead the rep can email and text.
+   *
+   * Sends only the prospectId. Everything else — the name, the number, the
+   * country and province — is read from the prospect BY THE SERVER, because a
+   * prospectId a client could name alongside its own field values is a client
+   * that can file any business into its own pipeline under any name.
+   */
+  async function carryToLead(prospectId) {
+    setBusy("lead");
+    setError("");
+    try {
+      const body = await fetchJson("/api/sales/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prospectId }),
+      });
+      if (body?.lead?.id) router.push(`/sales/leads/${body.lead.id}`);
+    } catch (err) {
+      setError(err?.message || "Could not carry this one across to a lead.");
+    } finally {
+      setBusy("");
+    }
+  }
 
   async function act(action, extra = {}) {
     setBusy(action);
@@ -1039,6 +1065,31 @@ function QueueConsole() {
                   {busy === "release" ? <Loader2 className="animate-spin" size={16} /> : <Undo2 size={16} />}
                   Put it back in the pool
                 </button>
+
+                {/* ── Carry it across to a lead ────────────────────────────────
+                    SalesLead.prospectId has existed since the queue did, and
+                    nothing wrote it from here: a rep who wanted to EMAIL or
+                    TEXT somebody they had just researched and phoned had to
+                    retype the name and the number on the leads screen. Slow,
+                    and it silently broke the link — two records about one
+                    business, neither able to see the other.
+
+                    Pressing it twice is the ordinary case, so the server hands
+                    back the lead that already exists rather than making a
+                    second one. */}
+                <button
+                  type="button"
+                  className={`${BTN} border border-border text-foreground w-full`}
+                  disabled={Boolean(busy)}
+                  onClick={() => carryToLead(current.id)}
+                >
+                  {busy === "lead" ? <Loader2 className="animate-spin" size={16} /> : <UserPlus size={16} />}
+                  Work this one as a lead
+                </button>
+                <p className="text-xs text-muted-foreground">
+                  Copies the name, the number and where they are onto a lead, so you can
+                  email and text them. It stays claimed by you either way.
+                </p>
 
                 {/* ── Stop working this one ────────────────────────────────────
                     The distinction below sits OUTSIDE the disclosure, so it is read

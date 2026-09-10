@@ -89,7 +89,11 @@ export async function POST(request) {
   if (!body) return NextResponse.json({ error: "Expected a JSON body." }, { status: 400 });
 
   const businessName = sanitiseHeaderText(body.businessName, 200);
-  if (!businessName) {
+  // A lead carried across from the queue supplies its name from the prospect,
+  // so the rep is not asked to retype what is already on the screen in front
+  // of them. Typing one by hand still requires it.
+  const fromProspect = typeof body.prospectId === "string" && body.prospectId.trim().length > 0;
+  if (!businessName && !fromProspect) {
     return NextResponse.json({ error: "A business name is required." }, { status: 400 });
   }
 
@@ -100,18 +104,89 @@ export async function POST(request) {
 
   const status = isLeadStatus(body.status) ? body.status : "new";
 
+  // ── Carrying a claimed prospect across, instead of retyping it ──────────
+  //
+  // SalesLead.prospectId has existed since the queue did, and nothing ever
+  // wrote it from the queue: there was no control that turned a prospect a rep
+  // had just researched and phoned into a lead they could email or text. The
+  // rep retyped the name and the number by hand, which is slow, and which
+  // silently breaks the link — two records about one business with no way for
+  // either screen to know about the other.
+  //
+  // The prospect is READ here rather than trusted from the body. A prospectId
+  // a client could name unchecked is a client that can copy any business out
+  // of the pool, including one held by another rep.
+  let source = null;
+  const prospectId = typeof body.prospectId === "string" ? body.prospectId.trim() : "";
+  if (prospectId) {
+    source = await db.prospect.findUnique({
+      where: { id: prospectId },
+      select: {
+        id: true,
+        businessName: true,
+        phoneE164: true,
+        country: true,
+        province: true,
+        assignedRepId: true,
+        doNotContactAt: true,
+      },
+    });
+    if (!source) {
+      return NextResponse.json({ error: "No such prospect." }, { status: 404 });
+    }
+    // Only the rep holding the claim. A prospect somebody else is working is
+    // not yours to copy — the claim is the whole mechanism that stops two reps
+    // phoning one contractor, and a lead made from it would route around that.
+    if (source.assignedRepId !== rep.id) {
+      return NextResponse.json(
+        { error: "That prospect is not claimed by you. Claim it in the queue first." },
+        { status: 409 },
+      );
+    }
+    // Refused rather than copied. Carrying a do-not-contact business into the
+    // leads screen would put it somewhere the flag is not shown and the email
+    // and text controls are.
+    if (source.doNotContactAt) {
+      return NextResponse.json(
+        { error: "That business asked not to be contacted, so it cannot be worked as a lead." },
+        { status: 409 },
+      );
+    }
+
+    // Already carried across? Hand back the lead that exists rather than
+    // making a second one. A rep pressing the button twice is the ordinary
+    // case, and two leads about one business is the exact mess this feature
+    // was meant to prevent.
+    const existing = await db.salesLead.findFirst({
+      where: { prospectId: source.id, salesRepId: rep.id },
+      select: { id: true, businessName: true, status: true },
+    });
+    if (existing) {
+      return NextResponse.json({ lead: existing, alreadyExisted: true }, { status: 200 });
+    }
+  }
+
   const lead = await db.salesLead.create({
     data: {
       // From the gate's fresh read of the session, never from the body. A
       // salesRepId a client could name is a client that can file a prospect
       // into a colleague's pipeline.
       salesRepId: rep.id,
-      businessName,
+      // What the rep typed wins over what discovery found: they have spoken to
+      // the business and the directory has not.
+      businessName: businessName || source?.businessName || "",
       contactName: sanitiseHeaderText(body.contactName, 200) || null,
       email: email || null,
-      phone: sanitiseHeaderText(body.phone, 40) || null,
+      phone: sanitiseHeaderText(body.phone, 40) || source?.phoneE164 || null,
+      // Carried so lib/sales/callingRules.js can answer the calling-hours
+      // question on the lead screen too. Null stays null — a missing province
+      // makes the rules answer "unknown", which is the correct answer and the
+      // one the screen offers a way to fix.
+      country: source?.country || null,
+      province: source?.province || null,
       notes: typeof body.notes === "string" ? body.notes.slice(0, 5000) : null,
       status,
+      prospectId: source?.id || null,
     },
     select: { id: true, businessName: true, status: true },
   });
