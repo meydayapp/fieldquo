@@ -52,18 +52,45 @@
 // scripts/check-sales-inbound-call.mjs asserts this file imports no part of
 // the calling-window module.
 //
-// ══ Nothing is recorded ═══════════════════════════════════════════════════
+// ══ THE CONVERSATION is not recorded. A VOICEMAIL is ══════════════════════
 //
-// No `record` attribute on the Dial, no <Record>, no transcription. The
-// decision and its reasoning live on the plan in inboundRouting.js so that a
-// future change has to argue with the comment rather than add a parameter.
+// Two different things that the word "recording" hides, and this header used
+// to say only the first half.
+//
+//   A CALL RECORDING captures a conversation between two people. It is consent
+//   law rather than a feature flag — several of the states callingRules.js
+//   enumerates are all-party-consent — and it stays off: no `record` attribute
+//   on any <Dial> in this file, no recordingStatusCallback, and no environment
+//   variable that turns one on. lib/sales/calls/browserDial.js's callPlan makes
+//   the long argument and lib/sales/calls/inboundRouting.js freezes it into the
+//   plan as `record: false`.
+//
+//   A VOICEMAIL is one person talking to a machine after an announcement, with
+//   nobody else on the line. There is no second party whose consent could be
+//   at issue. It is the <Record> at the end of the queue, it is written to
+//   SalesCallAttempt.voicemailUrl, and the superadmin floor board plays it —
+//   which is the half that was missing when those columns were added and
+//   nothing wrote or read them.
+//
+// `transcribe` is off on that <Record>: transcription is a per-minute charge
+// and a rep listening to a ninety-second message is cheaper than transcribing
+// every wrong number.
+//
+// ══ A caller is HELD before they are sent to a machine ════════════════════
+//
+// One glance at a presence table used to decide the whole call: nobody free,
+// voicemail, goodbye — while a rep four seconds from hanging up would have
+// taken it. lib/sales/calls/queue.js is the missing middle. It holds, looks
+// again, rings whoever has come free, and reaches the same voicemail when
+// looking runs out. It never holds for ever and never holds in silence; both
+// promises are executable and scripts/check-call-transfer.mjs executes them.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import twilio from "twilio";
 import { db } from "@/lib/db";
 import { verifyTwilioWebhook } from "@/lib/sms/verifyTwilioWebhook";
-import { ringPlan, noAnswerSay } from "@/lib/sales/calls/inboundDistribution";
+import { ringPlan } from "@/lib/sales/calls/inboundDistribution";
 import { getAppOrigin } from "@/lib/appUrl";
 import { recordError } from "@/lib/platform/errorLog";
 import { normalisePhone } from "@/lib/sales/suppressionRules";
@@ -142,38 +169,19 @@ function toQueue({ origin, attemptId, round = 0, afterRing = false }) {
  * salesperson gave them. So every branch of this file answers with TwiML that
  * says something true, and the machine-readable failure goes to
  * /platform/errors instead.
+ *
+ * ── It no longer offers a voicemail, and that is not a removal ──────────
+ *
+ * It used to, on one branch: the connect decision that found nobody free. That
+ * branch now goes to the queue, and the queue's own last stop is the same
+ * <Record>. What is left here is the set of REFUSALS — a suppressed caller, a
+ * number that is not ours, a deployment that cannot write the row — and none
+ * of those should be offered a message: inviting one from somebody we may not
+ * act on is worse than not inviting one at all.
  */
-function speak(lines, { record = false, attemptId = null, origin = null } = {}) {
+function speak(lines) {
   const twiml = new twilio.twiml.VoiceResponse();
   for (const line of lines || []) twiml.say({ voice: VOICE }, line);
-
-  // ── A message, when there was somebody to reach and nobody answered ─────
-  //
-  // Only on that case, and it is a narrow one on purpose. A caller who is
-  // suppressed, or who rang a number that is not ours, is told so and the call
-  // ends — offering them a voicemail would be inviting a message nobody may
-  // act on.
-  //
-  // But a contractor ringing a rep back at eight in the evening, when every
-  // rep has gone home, is somebody with something to say to a person who asked
-  // them to ring. Hanging up on them is the failure this whole route exists to
-  // end, and it is what they got before: eleven seconds and a dial tone.
-  //
-  // Two minutes, ended by hanging up or by silence. `transcribe` is off —
-  // transcription is a per-minute charge and a rep listening to a
-  // ninety-second message is cheaper than transcribing every wrong number.
-  if (record && origin) {
-    twiml.record({
-      maxLength: 120,
-      playBeep: true,
-      timeout: 5,
-      transcribe: false,
-      action: attemptId
-        ? `${origin}/api/rep-dial/inbound?stage=after-voicemail&attemptId=${encodeURIComponent(attemptId)}`
-        : `${origin}/api/rep-dial/inbound?stage=after-voicemail`,
-      method: "POST",
-    });
-  }
 
   twiml.hangup();
   return new NextResponse(twiml.toString(), {
@@ -282,7 +290,207 @@ async function afterDial(request, params) {
     });
   }
 
-  return speak(result.say);
+  // ── Nobody took it, and that is no longer the end ───────────────────────
+  //
+  // This used to speak the fallback and hang up: one ring, one glance at
+  // presence, and a contractor who rang a salesperson back was finished with.
+  // A rep who hangs up four seconds later would have answered.
+  //
+  // So it goes to the queue instead — which holds, looks again, and reaches
+  // the SAME voicemail this branch used to reach when looking runs out. The
+  // queue goes before the voicemail, not instead of it.
+  //
+  // `after=ring` matters: the queue holds this round rather than ringing the
+  // same desk again on a presence row that has learned nothing in the last
+  // second. See lib/sales/calls/queue.js.
+  if (!callStoreState().ready) {
+    // No presence to re-read and no attempt to hang a message on. The old
+    // behaviour is the honest one here, and it still says something true.
+    return speak(result.say);
+  }
+  const round = Number(new URL(request.url).searchParams.get("round"));
+  return toQueue({
+    origin: getAppOrigin(request),
+    attemptId,
+    round: Number.isFinite(round) && round > 0 ? round : 0,
+    afterRing: true,
+  });
+}
+
+/**
+ * The queue: hold them, look again, and take a message when looking runs out.
+ *
+ * ── Entered by redirect, from three places ──────────────────────────────
+ *
+ * The first look finding nobody, a ring nobody took, and a transfer that
+ * stranded its caller (lib/sales/calls/transferRest.js). One implementation,
+ * because the promise it keeps — never for ever, never in silence — is only
+ * worth anything if there is one place it can be broken.
+ *
+ * ── The call's own row is the source of the numbers ─────────────────────
+ *
+ * `To` and `From` are NOT read here, and that is deliberate: a caller rescued
+ * out of a failed transfer arrived on an OUTBOUND call, where To is the
+ * contractor and From is ours — the opposite way round from an inbound one.
+ * SalesCallAttempt records which is which regardless of direction (`toE164` is
+ * always the other party), so reading the row is the only version of this that
+ * works in both directions.
+ */
+async function queueStage(request, params) {
+  const url = new URL(request.url);
+  const origin = getAppOrigin(request);
+  const attemptId = url.searchParams.get("attemptId");
+  const roundRaw = Number(url.searchParams.get("round"));
+  const round = Number.isFinite(roundRaw) && roundRaw > 0 ? Math.floor(roundRaw) : 0;
+  const justRang = url.searchParams.get("after") === "ring";
+
+  const store = callStoreState();
+  const attempt =
+    store.ready && attemptId
+      ? await db.salesCallAttempt
+          .findUnique({
+            where: { id: attemptId },
+            select: {
+              id: true,
+              toE164: true,
+              fromE164: true,
+              salesRepId: true,
+              salesRep: { select: { name: true } },
+            },
+          })
+          .catch(() => null)
+      : null;
+
+  // Who is free RIGHT NOW. Re-read every round — the whole point of holding
+  // somebody is that this answer changes while they wait.
+  const presence = store.ready
+    ? await db.salesRep
+        .findMany({ where: { active: true }, select: { id: true } })
+        .then((reps) => presenceFor(reps.map((r) => r.id)))
+        .catch(() => null)
+    : null;
+
+  const ourNumber = attempt?.fromE164 || normalisePhone(params.To) || null;
+  const numberRung = ourNumber ? await salesVoiceNumber(ourNumber).catch(() => null) : null;
+
+  const ring = ringPlan({
+    assignedRepId: numberRung?.assignedRepId || null,
+    presence,
+    lastCalledBy: attempt?.salesRepId || null,
+    transferTo: normalisePhone(process.env.FIELDQUO_SALES_TRANSFER_TO),
+  });
+
+  const step = queueStep({
+    round,
+    reachableNow: ring.targets.length,
+    justRang,
+    holdMusicUrl: holdMusicUrl(),
+    repName: attempt?.salesRep?.name || null,
+    maxRounds: MAX_QUEUE_ROUNDS,
+  });
+
+  const twiml = new twilio.twiml.VoiceResponse();
+  for (const line of step.say) twiml.say({ voice: VOICE }, line);
+
+  if (step.action === "ring") {
+    const dial = twiml.dial({
+      // The contractor's own number, so whoever picks up sees who is ringing.
+      // Taken from the row rather than from `From`, for the direction reason
+      // in this function's header.
+      callerId: attempt?.toE164 || ourNumber || undefined,
+      timeout: ring.ringSeconds,
+      answerOnBridge: true,
+      action: `${origin}/api/rep-dial/inbound?stage=after-dial&round=${step.nextRound}${
+        attempt ? `&attemptId=${encodeURIComponent(attempt.id)}` : ""
+      }`,
+      method: "POST",
+    });
+    // Every target inside ONE <Dial>, in order. A second <Dial> verb only
+    // starts after the first gives up entirely, which is a different and much
+    // slower behaviour than ringing a team.
+    for (const target of ring.targets) {
+      if (target.kind === "client") dial.client(target.value);
+      else dial.number(target.value);
+    }
+    return xml(twiml);
+  }
+
+  if (step.action === "hold") {
+    if (step.playUrl) twiml.play({}, step.playUrl);
+    // Never zero and never unbounded. With no clip configured this is the
+    // whole of the wait between two spoken lines.
+    else if (step.pauseSeconds > 0) twiml.pause({ length: step.pauseSeconds });
+    const query = new URLSearchParams({ stage: "queue", round: String(step.nextRound) });
+    if (attempt) query.set("attemptId", attempt.id);
+    twiml.redirect({ method: "POST" }, `${origin}/api/rep-dial/inbound?${query.toString()}`);
+    return xml(twiml);
+  }
+
+  // voicemail — the end of every path through here.
+  twiml.record({
+    maxLength: 120,
+    playBeep: true,
+    timeout: 5,
+    transcribe: false,
+    action: attempt
+      ? `${origin}/api/rep-dial/inbound?stage=after-voicemail&attemptId=${encodeURIComponent(attempt.id)}`
+      : `${origin}/api/rep-dial/inbound?stage=after-voicemail`,
+    method: "POST",
+  });
+  twiml.hangup();
+  return xml(twiml);
+}
+
+/**
+ * A message was left.
+ *
+ * ── This stage had no handler at all ────────────────────────────────────
+ *
+ * `speak()` has built a `<Record>` pointing at `?stage=after-voicemail` since
+ * inbound calling landed, and POST only ever recognised `after-dial`. So the
+ * recording callback fell through to the main branch and was treated as a
+ * brand new inbound call: the whole floor was rung again, and the URL of the
+ * message the contractor had just left was dropped on the floor. Meanwhile
+ * SalesCallAttempt.voicemailUrl and .voicemailSeconds sat in the schema with
+ * nothing writing them — AGENTS.md failure class 1 in both directions at once.
+ *
+ * Zero seconds is stored as zero: `<Record>` fires after five seconds of
+ * silence, so a zero-length recording is somebody who heard the beep and
+ * thought better of speaking, which is a different fact from no recording.
+ */
+async function afterVoicemail(request, params) {
+  const attemptId = new URL(request.url).searchParams.get("attemptId");
+  const url = typeof params.RecordingUrl === "string" ? params.RecordingUrl : null;
+  const seconds = Number(params.RecordingDuration);
+
+  if (attemptId && callStoreState().ready) {
+    await recordVoicemail({
+      attemptId,
+      url,
+      seconds: Number.isFinite(seconds) ? seconds : null,
+    }).catch(async (err) => {
+      await recordError({
+        area: "sales_inbound",
+        code: "voicemail_write_failed",
+        message: `A contractor left a message on attempt ${attemptId} and it could not be attached: ${err?.message}`,
+        detail: { recordingUrl: url },
+      }).catch(() => {});
+    });
+  } else if (url) {
+    // Nowhere to put it. Recorded as lost rather than swallowed — somebody
+    // spoke into this and a human should know the message exists.
+    await recordError({
+      area: "sales_inbound",
+      code: "voicemail_orphaned",
+      message: "A voicemail was left on the sales line with no attempt row to attach it to.",
+      detail: { recordingUrl: url },
+    }).catch(() => {});
+  }
+
+  const twiml = new twilio.twiml.VoiceResponse();
+  twiml.say({ voice: VOICE }, "Thanks — we have got that, and somebody will ring you back.");
+  twiml.hangup();
+  return xml(twiml);
 }
 
 export async function POST(request) {
@@ -294,9 +502,13 @@ export async function POST(request) {
   }
 
   const url = new URL(request.url);
-  if (url.searchParams.get("stage") === "after-dial") {
-    return afterDial(request, params);
-  }
+  const stage = url.searchParams.get("stage");
+  if (stage === "after-dial") return afterDial(request, params);
+  // Two stages that did not exist. `queue` holds a caller instead of dropping
+  // them; `after-voicemail` had a <Record> pointing at it and no handler, so
+  // every message left on this line was re-processed as a fresh inbound call.
+  if (stage === "queue") return queueStage(request, params);
+  if (stage === "after-voicemail") return afterVoicemail(request, params);
 
   const store = callStoreState();
   const rung = normalisePhone(params.To);
@@ -447,20 +659,24 @@ export async function POST(request) {
     transferTo: normalisePhone(process.env.FIELDQUO_SALES_TRANSFER_TO),
   });
 
-  // A connect decision with nobody to connect to is not a connect. Falls
-  // through to the same spoken answer as any other refusal rather than
-  // returning an empty <Dial>, which rings for twenty seconds and then hangs
-  // up without a word.
-  if (plan.action !== INBOUND_CONNECT || ring.targets.length === 0) {
-    return speak(
-      plan.action === INBOUND_CONNECT
-        ? [noAnswerSay({ repName: rep?.name || null })]
-        : plan.say,
-      { record: plan.action === INBOUND_CONNECT, attemptId: attempt?.id || null, origin: getAppOrigin(request) },
-    );
+  // A refusal — suppressed caller, a number that is not ours, a store that
+  // cannot record the call. Said and ended, with no voicemail offered: a
+  // message from somebody we may not act on is worse than no message.
+  if (plan.action !== INBOUND_CONNECT) {
+    return speak(plan.say);
   }
 
+  // ── Nobody free on the first look ───────────────────────────────────────
+  //
+  // This used to be the end of the call: one glance at a presence table, then
+  // noAnswerSay and a voicemail. It is now the START of a wait — the queue
+  // holds them, looks again, and reaches that same voicemail when looking runs
+  // out. Never an empty <Dial>, which rings for twenty seconds and then hangs
+  // up without a word.
   const origin = getAppOrigin(request);
+  if (ring.targets.length === 0) {
+    return toQueue({ origin, attemptId: attempt?.id || null, round: 0 });
+  }
   const twiml = new twilio.twiml.VoiceResponse();
   const dial = twiml.dial({
     // The CALLER's number, so whoever picks the desk up sees who is ringing.

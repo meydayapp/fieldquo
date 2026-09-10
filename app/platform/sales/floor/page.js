@@ -342,7 +342,8 @@ export default function SalesFloorPage() {
                         <th className="py-1 pr-3 font-medium">Rang back</th>
                         <th className="py-1 pr-3 font-medium">Who</th>
                         <th className="py-1 pr-3 font-medium">Filed for</th>
-                        <th className="py-1 font-medium">Outcome</th>
+                        <th className="py-1 pr-3 font-medium">Outcome</th>
+                        <th className="py-1 font-medium">Message</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -364,8 +365,32 @@ export default function SalesFloorPage() {
                               </span>
                             )}
                           </td>
-                          <td className="py-1.5 break-words text-muted-foreground">
+                          <td className="py-1.5 pr-3 break-words text-muted-foreground">
                             {c.disposition || c.providerStatus || "not logged yet"}
+                          </td>
+                          {/* Three answers, not two. A message with a URL is
+                              playable; a zero-second one is somebody who heard
+                              the beep and hung up, which is a real fact and
+                              renders as itself; no recording stage at all is a
+                              blank. Padding the last two into one another is
+                              the failure class this repo keeps finding. */}
+                          <td className="py-1.5 break-words">
+                            {c.voicemailUrl ? (
+                              <audio
+                                controls
+                                preload="none"
+                                src={c.voicemailUrl}
+                                className="h-8 max-w-[220px]"
+                              >
+                                <a href={c.voicemailUrl}>Play the message</a>
+                              </audio>
+                            ) : c.voicemailSeconds === 0 ? (
+                              <span className="text-xs text-muted-foreground">
+                                heard the beep, said nothing
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
                           </td>
                         </tr>
                       ))}

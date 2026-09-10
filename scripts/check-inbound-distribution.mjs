@@ -191,8 +191,14 @@ section("5. The route uses it, and never dials into an empty plan");
   ok("…and from live presence", /presence,/.test(route));
   // The bug this prevents: an empty <Dial> rings for twenty seconds and hangs
   // up without a word.
-  ok("a connect decision with nobody to ring falls through to speech", /ring\.targets\.length === 0/.test(route));
-  ok("…and that speech offers a voicemail", /noAnswerSay\(/.test(route) && /record: plan\.action === INBOUND_CONNECT/.test(route));
+  ok("a connect decision with nobody to ring never dials", /ring\.targets\.length === 0/.test(route));
+  // It used to speak noAnswerSay and offer a voicemail on the spot, which was
+  // one glance at a presence table deciding the whole call. It now HOLDS them
+  // first — and the queue's own last stop is that same voicemail, so this
+  // assertion covers both halves rather than dropping the one it replaced.
+  // See scripts/check-call-transfer.mjs for the queue's own guarantees.
+  ok("…it holds the caller instead", /toQueue\(\{ origin, attemptId/.test(route));
+  ok("…and the queue still ends at a voicemail", /stage === "queue"/.test(route) && /stage=after-voicemail/.test(route));
   ok("every target is dialled, in order", /for \(const target of ring\.targets\)/.test(route));
   ok("a client target uses dial.client", /dial\.client\(target\.value\)/.test(route));
 

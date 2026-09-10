@@ -193,6 +193,12 @@ export async function GET(request) {
             disposition: row.disposition,
             providerStatus: row.providerStatus,
             talkSeconds: row.talkSeconds,
+            // Null means no recording stage ran. Zero seconds means one did
+            // and nobody spoke — somebody who heard the beep and thought
+            // better of it, which is warmer than a missed call and colder than
+            // a message. The two must not be collapsed on the way to a screen.
+            voicemailUrl: row.voicemailUrl || null,
+            voicemailSeconds: Number.isFinite(row.voicemailSeconds) ? row.voicemailSeconds : null,
           })),
     dialMode: dialModeState(),
     notTracked: NOT_TRACKED_CALLS,

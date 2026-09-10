@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 9 September 2026 (the discovery campaign form stopped asking for things it already knew. The snapshot bucket's public base URL is one setting on one screen (`/platform/sales/snapshots`), proved by fetching a real file before it saves; every campaign's snapshot URL is derived from it plus the object key of the file covering the chosen region, and no form anywhere takes a typed URL. Country, region and trade are selects filled from the 80 uploaded files themselves — 1,320,105 rows, counted per trade by running the repo's own classifier over every row — so the form shows "Painting, California — 15,713 businesses" before the button is pressed, and prints "not known" rather than zero for the register that names no trade. A campaign in one of the thirteen jurisdictions where FieldQuo's telemarketer registration is outstanding is created and cannot be started, read from `CALLING_JURISDICTIONS` rather than from the hand-kept list that had drifted from it)
+Last updated: 9 September 2026 (the sales floor can hand a caller over and can hold one. A rep on a live call transfers it warm — the two reps speak privately while the caller is on hold — or cold, released the instant the target picks up; either way the transferring rep stays in the conference until somebody actually answers, so a target who does not pick up returns the caller instead of dropping them. When every target is busy the caller is now HELD — announced, with music or a bounded pause, re-looking every round — and reaches the voicemail only when four looks have run out, rather than on one glance at a presence table. The voicemail itself now exists: its `<Record>` had pointed at a stage with no handler since inbound calling landed, so every message left on the sales line was re-processed as a fresh inbound call and the recording URL discarded, while `SalesCallAttempt.voicemailUrl` sat unwritten — it is written now and played on the floor board. And `verifyTwilioWebhook` was dropping the query string from the URL it checks the signature against, so behind any proxy every second-leg webhook was a silent 403)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,74 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## The floor can hand a caller over, and can hold one (9 September 2026)
+
+Inbound distribution fixed WHO gets rung. Two things a call centre cannot work
+without were still missing, and the owner had asked for both more than once.
+
+**Transfer.** A rep on a live call presses Transfer and picks from the reps who
+are actually reachable — `transferTargets()` reuses `reachable`/`presenceOf`
+from `inboundDistribution.js` rather than forming a second opinion about who is
+available, and it removes the transferring rep from their own list. Two kinds:
+WARM (the two reps speak privately, the caller on hold) and COLD (handed over
+the instant the target picks up). They are one state machine with one branch.
+
+The rule the design is built around is that **the caller is never let go of**.
+The obvious cold implementation — redirect the caller at the target, drop the
+rep immediately — was rejected: when the target does not answer there is then
+nobody to give the caller back to, and the rep's browser has already torn its
+Device down, so they cannot even be rung again. So the caller goes into a
+conference, the transferring rep follows (which is why the bridge's `<Dial>`
+gained an `action`), both are held while the target rings, and only then does
+warm/cold diverge. A target who does not answer costs the caller some hold
+music and hands them back. The one case that cannot be handed back — the rep
+hung up mid-transfer — is `failed` rather than `returned`, and the caller is
+moved into the queue rather than left in an empty room.
+
+Recorded on `SalesCallTransfer`: who, to whom, warm or cold, and whether it
+completed. Its own model rather than columns on the attempt, because a call
+that was transferred, came back and was transferred again is three facts.
+
+**A queue.** `lib/sales/calls/queue.js`. Three promises, all executable: never
+hold for ever (the round cap is checked FIRST, ahead of "is anybody free now",
+so a presence table that keeps claiming an available rep cannot extend the
+wait), never hold in silence (every round speaks, then plays
+`FIELDQUO_SALES_HOLD_MUSIC_URL` or pauses ten seconds), and never replace the
+voicemail — the queue ENDS at it. It claims no position in a queue, because
+each caller loops independently and FieldQuo genuinely does not know how many
+others are waiting; inventing a number would be a claim the caller can check.
+
+**Two things that were broken and are now not.**
+
+`app/api/rep-dial/inbound` built a `<Record>` pointing at `?stage=after-voicemail`
+and had no handler for that stage. Every message left on the sales line arrived
+at the main branch, was treated as a brand new inbound call, rang the whole
+floor again, and dropped the recording URL — while `SalesCallAttempt.voicemailUrl`
+and `.voicemailSeconds` sat in the schema with nothing writing them. Both halves
+now exist, and the superadmin floor board plays the message, telling a
+zero-second one ("heard the beep, said nothing") apart from no recording at all.
+
+`lib/sms/verifyTwilioWebhook.js` rebuilt the signed URL from `pathname` alone
+when `x-forwarded-proto` and `host` are present — which is every Vercel
+deployment — dropping the query string Twilio signs. Any webhook carrying state
+in its URL was a silent 403, including the existing `?stage=after-dial` leg, so
+a contractor whose callback nobody answered heard Twilio's own "an application
+error has occurred". Executed in the check against a real signature.
+
+`npm run check:call-transfer` — 238 assertions, in `check:all`. Mutation-tested:
+thirteen guarantees broken on disk one at a time and each one confirmed to fail
+the check.
+
+### Still owed here
+
+- **Inbound calls cannot be ANSWERED in the browser.** The console registers a
+  Twilio Device only while placing an outbound call, so a rep whose client is
+  rung by `ringPlan` has nothing listening. Transfer is therefore reachable
+  from an outbound call only. That is a console change, not a routing one.
+- **Nothing plays a transfer back.** `SalesCallTransfer` is written and read by
+  the rep's own screen while the call is live; the floor board does not yet
+  show what was handed around today.
 
 ## Three losses the software caused (8 September 2026)
 

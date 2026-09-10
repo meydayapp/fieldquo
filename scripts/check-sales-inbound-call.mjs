@@ -320,25 +320,44 @@ for (const [label, plan] of [
   ok(`${label}: record is false`, plan.record === false, plan.record);
 }
 
+// ── Two different things the word "recording" hides ──────────────────────
+//
+// A CALL RECORDING captures a conversation between two people. It is consent
+// law rather than a feature flag and it stays off — no `record` attribute on
+// any <Dial>, no recordingStatusCallback, no environment variable that turns
+// one on.
+//
+// A VOICEMAIL is one person talking to a machine after an announcement, with
+// nobody else on the line whose consent could be at issue. It is the <Record>
+// at the end of the queue, and it IS built now: written to
+// SalesCallAttempt.voicemailUrl and played on the superadmin floor board.
+//
+// This section used to forbid both, in one regex, because when it was written
+// neither existed. It was already failing on `main` — the <Record> landed
+// without it being updated — which is exactly the state a check is supposed to
+// make visible. The rule is now stated as the two rules it always was.
 {
   const src = source(ROUTE);
-  ok("the TwiML never sets a record attribute", !/record\s*:/.test(src));
-  ok("…and never emits <Record>", !/\.record\(/.test(src) && !/<Record/.test(src));
-  ok("…and never asks for a transcription", !/[Tt]ranscri/.test(src));
+  ok(
+    "no <Dial> in the route records the conversation",
+    !/record:\s*true/.test(src) && !/recordingStatusCallback/.test(src),
+  );
+  ok(
+    "…and no environment variable can turn one on",
+    !/process\.env\.[A-Z_]*RECORD/.test(src),
+  );
   ok(
     "the routing module states the decision rather than exposing a flag",
     /record: false/.test(source("lib/sales/calls/inboundRouting.js")),
   );
-  ok(
-    "no environment variable can turn recording on",
-    !/RECORD/.test(src),
-  );
+  // The voicemail half, asserted as strongly as the prohibition above: a
+  // <Record> with a stage that exists, and a column something reads.
+  ok("a caller who waited it out is offered a message", /twiml\.record\(/.test(src));
+  ok("…posting to a stage this file handles", /stage=after-voicemail/.test(src) && /stage === "after-voicemail"/.test(src));
+  ok("…which writes it to the row", /recordVoicemail\(/.test(src));
+  ok("…and it is never transcribed, which is a per-minute charge", /transcribe: false/.test(src) && !/transcribe: true/.test(src));
+  ok("…and something reads the column", /voicemailUrl/.test(source("app/platform/sales/floor/page.js")));
 }
-
-ok(
-  "the call report says out loud that no message can be left",
-  NOT_TRACKED_CALLS.some((n) => n.key === "voicemail" && /recording/i.test(n.reason)),
-);
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("5. What the caller is told is true, and no callback is promised");
@@ -390,12 +409,31 @@ section("6. SalesSuppression binds, and answering is not a breach of it");
 // ═══════════════════════════════════════════════════════════════════════════
 section("7. The gate's permitted writes are not widened by this path");
 
+// The list is enumerated rather than counted, so an addition has to be a
+// deliberate edit here naming the model — which is what happened when
+// `salesCallTransfer` joined it with agent-to-agent transfer (a rep handing a
+// live caller to a colleague: it names that rep and that attempt, moves no
+// claim, contacts nobody new, decides no money). What must never change is the
+// second half: nothing on this list can pay anybody.
+const REP_CALL_WRITES_EXPECTED = [
+  "salesCallAttempt",
+  "salesCallTransfer",
+  "salesRepActivity",
+  "prospect",
+  "salesLead",
+  "salesSuppression",
+];
 ok(
-  "REP_CALL_WRITES is unchanged — five models, none of them money",
-  REP_CALL_WRITES.length === 5 &&
-    ["salesCallAttempt", "salesRepActivity", "prospect", "salesLead", "salesSuppression"].every((m) =>
-      REP_CALL_WRITES.includes(m),
-    ),
+  `REP_CALL_WRITES is exactly the ${REP_CALL_WRITES_EXPECTED.length} declared models`,
+  REP_CALL_WRITES.length === REP_CALL_WRITES_EXPECTED.length &&
+    REP_CALL_WRITES_EXPECTED.every((m) => REP_CALL_WRITES.includes(m)),
+  REP_CALL_WRITES,
+);
+ok(
+  "…and none of them decides who gets paid",
+  ["salesAttribution", "salesCommissionEntry", "salesPayoutBatch", "salesRep", "company"].every(
+    (m) => !REP_CALL_WRITES.includes(m),
+  ),
   REP_CALL_WRITES,
 );
 ok(
@@ -436,10 +474,15 @@ ok(
   // appear is a write of it, or of the lease that goes with it.
   (() => {
     const src = source(ROUTE);
-    const assigns = [...src.matchAll(/assignedRepId:\s*([A-Za-z0-9_."'+]+)/g)].map((m) => m[1]);
+    const assigns = [...src.matchAll(/assignedRepId:\s*([A-Za-z0-9_."'+?.]+)/g)].map((m) => m[1]);
+    // `true` is a SELECT. `numberRung.assignedRepId` / `numberRung?.assignedRepId`
+    // is that selected value being handed to ringPlan as an argument — a read,
+    // and the one the whole inbound distribution order is built on. Anything
+    // else in this position would be a write.
+    const READS = new Set(["true", "numberRung.assignedRepId", "numberRung?.assignedRepId"]);
     return (
       !/claimExpiresAt/.test(src) &&
-      assigns.every((v) => v === "true") &&
+      assigns.every((v) => READS.has(v)) &&
       !/db\.prospect\.(update|updateMany|upsert)/.test(src)
     );
   })(),
@@ -454,9 +497,22 @@ section("8. Nothing in the request chooses who gets dialled");
     "the transfer destination comes from the environment",
     /process\.env\.FIELDQUO_SALES_TRANSFER_TO/.test(body),
   );
+  // This used to read `dial.number(plan.transferTo)` — the shape from when the
+  // only possible destination was one environment variable. inboundDistribution
+  // replaced that with a ranked list, and the PROPERTY it was guarding is
+  // unchanged: every destination comes off a plan this server built, never off
+  // a request field. Asserted over the whole file, because the queue dials from
+  // its own stage as well.
   ok(
-    "…and the number actually dialled is the plan's, not a request field",
-    /dial\.number\(plan\.transferTo\)/.test(body),
+    "…and every number dialled is the plan's, not a request field",
+    (() => {
+      const src = source(ROUTE);
+      const dialled = [...src.matchAll(/dial\.(number|client)\(([^)]*)\)/g)].map((m) => m[2].trim());
+      return (
+        dialled.length > 0 &&
+        dialled.every((arg) => arg === "target.value" || arg.startsWith("plan."))
+      );
+    })(),
   );
   ok(
     "the number rung selects a row and is not otherwise trusted",
