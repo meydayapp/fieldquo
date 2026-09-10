@@ -54,14 +54,14 @@ function heading(s, text, sub) {
 {
   const s = p.addSlide();
   s.background = { color: WHITE };
-  heading(s, "Five rules that are not negotiable", "These are enforced in code, not by trust. You cannot breach them by accident.");
+  heading(s, "Five things you can't get wrong", "Not because we're watching — because the software won't let you. You don't have to memorise any of it.");
 
   const rules = [
-    ["You cannot write to your own commission", "Attribution, payouts and subscriptions refuse every write from a rep account. You cannot pay yourself and you cannot correct your own record. This protects you as much as us."],
-    ["An opt-out is final", "Once somebody says stop, only a superadmin can lift it, with a written reason."],
-    ["You cannot self-attribute", "If your email matches the company, or you are a member of it, the system refuses before it checks anything else."],
-    ["Every note you write is readable", "Superadmins can read all of it, and the screen says so. There is no private space in the portal."],
-    ["The prospect's rules govern", "Whichever country the prospect is in decides what is legal — not where you are sitting."],
+    ["Nobody can touch your commission — including us", "Your attribution and payouts refuse every write from a rep account. That cuts both ways: you can't adjust your own record, and neither can anybody else quietly adjust it for you."],
+    ["If somebody says stop, we stop", "A STOP text is recorded the second it lands and covers calls, texts and email — the dial button simply isn't there next time. You don't have to remember who said it. Undoing one takes a superadmin and a written reason, so it never happens by accident."],
+    ["You can't accidentally sign up your own company", "If your email matches the company, or you're already a member of it, the system says no before it checks anything else. It saves an awkward conversation three months later."],
+    ["Write notes like a colleague will read them", "Because one will. Superadmins can see everything you write, and the screen tells you so rather than letting you find out."],
+    ["The prospect's rules win, not yours", "Wherever they are decides what's legal — the hours you may ring, the registrations we need. The screen works it out and just won't offer you the button outside it."],
   ];
 
   let y = 1.95;
@@ -81,7 +81,7 @@ function heading(s, text, sub) {
     });
     y += 0.94;
   });
-  s.addNotes("Rule 1 is the one reps care about once they understand it: nobody can quietly adjust their commission either.");
+  s.addNotes("Lead with rule 1 — it is the one that lands, because it protects THEM. Do not read these out like a policy; the point of the slide is that nobody has to remember any of it.");
 }
 
 // 3 — the five screens
@@ -287,7 +287,7 @@ function heading(s, text, sub) {
   const outs = [
     ["I spoke to them — keep this one", "The claim never lapses. The prospect stays yours.", NAVY],
     ["Put it back in the pool", "Somebody else can claim it. Use this the moment you know you are not working it.", "4A6FA5"],
-    ["They asked not to be contacted", "Permanent, and it needs a written reason. Only a superadmin can ever lift it — not you.", RED],
+    ["They asked not to be contacted", "That one sticks. It covers calls, texts and email, and the dial button won't be there. Undoing it takes a superadmin and a written reason — so if it looks wrong, say so rather than working around it.", RED],
   ];
 
   let y = 2.1;

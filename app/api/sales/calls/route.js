@@ -63,6 +63,7 @@ import {
 } from "@/lib/sales/calls/agentState";
 import { dialModeState } from "@/lib/sales/calls/dialMode";
 import { normalisePhone } from "@/lib/sales/suppressionRules";
+import { checkSuppression } from "@/lib/sales/suppression";
 import { TWIML_APP_ENV, browserDialReadiness, callPlan } from "@/lib/sales/calls/browserDial";
 import { repCallStats } from "@/lib/sales/calls/reporting";
 
@@ -309,6 +310,46 @@ export async function POST(request) {
     }
     if (target.doNotContactAt) {
       return bad("This business asked not to be contacted. That does not expire.", 409);
+    }
+
+    // ── The suppression list, which this route did not read ───────────────
+    //
+    // A contractor who replies STOP to one of our texts is written to the
+    // suppression list across ALL_CHANNELS — lib/sales/salesSms.js does it,
+    // and it means voice as well as sms. Outbound email checks that list
+    // (outreachSender), outbound SMS checks it (salesSms), and an INBOUND call
+    // checks it (rep-dial/inbound). This route did not. It read only the
+    // prospect's own do-not-contact flag, so somebody who said stop by text
+    // stayed dialable and the rep had no way to know.
+    //
+    // That was the one gap on this path that is a legal problem rather than an
+    // inconvenience: a call placed after consent was revoked is the call that
+    // gets FieldQuo a complaint, and the rep making it did nothing wrong.
+    //
+    // Read in the request that places the call, not trusted from the screen
+    // that drew the button — the same discipline the email path states above
+    // itself, and the reason a stale screen cannot authorise a dial.
+    const suppression = await checkSuppression(db, {
+      channel: "phone",
+      phone: target.phoneE164,
+    }).catch((err) => {
+      // Fail CLOSED. If the list cannot be read we do not know whether they
+      // said stop, and "we could not check" is not permission to ring.
+      return { suppressed: true, reason: `The do-not-contact list could not be read (${err?.message}), so this call is refused rather than risked.` };
+    });
+    if (suppression?.suppressed) {
+      return NextResponse.json(
+        {
+          error: suppression.reason || "They asked us to stop contacting them.",
+          suppressed: true,
+          optedOut: true,
+          // Said in the refusal so a rep is never left wondering whether to
+          // try again, or who to ask. Lifting one is superadmin-only and needs
+          // a written reason — app/api/platform/suppressions enforces both.
+          lift: "Only a superadmin can lift a do-not-contact, and it needs a written reason.",
+        },
+        { status: 409 },
+      );
     }
 
     // Counted for real now. Passing null here would put the cap back into
