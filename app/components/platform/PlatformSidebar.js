@@ -89,6 +89,7 @@ import {
   FileSpreadsheet,
   Sparkles,
   LifeBuoy,
+  SirenIcon,
   AlertTriangle,
   CalendarCheck,
   CalendarClock,
@@ -154,6 +155,11 @@ const GROUPS = [
   {
     label: "Support",
     items: [
+      // Escalations from sales reps — the only channel in the product through
+      // which a customer's technical problem reaches FieldQuo from the person
+      // who heard it. First in the group because it is the one with somebody
+      // waiting on the other end of it.
+      { label: "Escalations", href: "/platform/support", icon: SirenIcon },
       { label: "Feedback", href: "/platform/feedback", icon: MessageSquare },
       // Conversations Jennifer (lib/ai/jennifer/) escalated rather than
       // answered — money, deletion, legal/privacy requests. Separate row from

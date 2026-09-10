@@ -167,6 +167,13 @@ export default function SalesShell({ children }) {
             // is English, and a translated tab onto an English page is the
             // worse inconsistency.
             { href: "/sales/demo", label: "Demo" },
+            // Where a rep sends a technical problem they heard from one of
+            // their contractors. Beside the companies book rather than at the
+            // end: a rep opens it FROM a conversation about a company, and
+            // burying it under Pay would make the channel that exists to stop
+            // reports evaporating hard to find. English literal for the same
+            // reason Notes and Calendar are.
+            { href: "/sales/support", label: "Support" },
             // How the rep gets paid. Last, because it is a settings screen
             // rather than a working one — visited once when they join and
             // again when their bank changes, not every morning. English

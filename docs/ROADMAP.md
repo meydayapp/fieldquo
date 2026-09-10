@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 9 September 2026 (the sales floor can hand a caller over and can hold one. A rep on a live call transfers it warm — the two reps speak privately while the caller is on hold — or cold, released the instant the target picks up; either way the transferring rep stays in the conference until somebody actually answers, so a target who does not pick up returns the caller instead of dropping them. When every target is busy the caller is now HELD — announced, with music or a bounded pause, re-looking every round — and reaches the voicemail only when four looks have run out, rather than on one glance at a presence table. The voicemail itself now exists: its `<Record>` had pointed at a stage with no handler since inbound calling landed, so every message left on the sales line was re-processed as a fresh inbound call and the recording URL discarded, while `SalesCallAttempt.voicemailUrl` sat unwritten — it is written now and played on the floor board. And `verifyTwilioWebhook` was dropping the query string from the URL it checks the signature against, so behind any proxy every second-leg webhook was a silent 403)
+Last updated: 9 September 2026 (FieldQuo has a support channel. There was no SupportTicket model, no route and no screen anywhere in the product, so a sales rep who heard a technical problem from a contractor they signed up either texted the owner or dropped it. A rep now escalates from /sales/support about a company ATTRIBUTED TO THEM — re-read from the database in the writing request, never trusted from the body — and the ticket is assigned to the first active superadmin, looked up by role rather than by a hard-coded id. /platform/support is the queue: open it, move it, reply, or keep an internal note the rep never sees. The rep watches their own tickets and can answer back, so escalating is not a black hole)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,64 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## FieldQuo can be told something is broken (9 September 2026)
+
+There was no support channel. No `SupportTicket`, no escalation model, no
+route, no screen — nowhere in 167 API routes and 62 app pages could a customer's
+technical problem be written down. A rep who signed a contractor up and later
+heard "the invoice email never arrived" had the owner's phone number and
+nothing else, and the report either became a text message nobody could search
+or it evaporated.
+
+**The rep side.** `POST /api/sales/support` behind `requireOutreachRep`, and a
+rep may only raise a ticket about a company **attributed to them**. That is
+enforced twice on purpose: the `Company` query is narrowed by
+`assignedCompanyWhere(rep.id)` — the same fragment the rep's own book uses, so
+the picker cannot offer a company the write would refuse — and
+`decideEscalation()` re-checks the attribution on the row itself. The second
+half is the executed one: a rep's book is a SUBSET of tenants with no outer
+`companyId` filter in front of it, which makes it the boundary rather than a
+filter behind one, and a boundary asserted only by reading is a boundary nobody
+has tested.
+
+**Assignment is looked up, never typed.** The brief says "assign it to Emilio".
+`assignedAdminFor()` picks the first ACTIVE SUPERADMIN out of rows the route
+just read. A hard-coded `PlatformAdmin` id would be wrong the day a second
+admin exists or the database is reseeded, and wrong silently — the ticket would
+carry a foreign key to nobody. `scripts/check-support-escalation.mjs` asserts
+that id appears in no shipped file. When there is no superadmin at all the
+ticket is still WRITTEN, unassigned, and the rep is told so in words: losing a
+contractor's problem because FieldQuo's own admin table is empty would defeat
+the point.
+
+**The console.** `/platform/support`, superadmin-only (`support:manage`, in
+`SUPERADMIN_ONLY_PERMISSIONS`). List, open, move the status, reply, or write an
+internal note. Only transitions the state machine actually has get a button, so
+no control here can exist whose only outcome is a 409. The status move and the
+note it comes with are one interactive transaction — an earlier batched version
+would have written "moved this to in progress" on a race it then reported as
+lost.
+
+**Three statuses, and no fourth.** `open`, `in_progress`, `resolved`. There is
+deliberately no separate `closed`: two words for "we are done" is how a queue
+gets a hiding place. A problem that comes back is REOPENED and keeps its
+thread, and `resolvedAt` is cleared when it is — a reopened ticket that kept
+its old stamp would report a date on which it demonstrably was not fixed.
+
+**Not a black hole.** The rep sees their own tickets, the status, the thread,
+and a sentence about where it stands — including the honest one when nobody
+holds it. They can reply; they deliberately cannot change the status, because a
+rep resolving their own ticket closes a contractor's problem before anybody at
+FieldQuo has looked at it.
+
+`prisma/schema.prisma` (`SupportTicket`, `SupportTicketNote`),
+`lib/support/escalation.js` (all the decisions, pure),
+`lib/support/repClient.js` (the client-callable API),
+`app/api/sales/support/`, `app/api/platform/support/`,
+`app/platform/support/page.js`, `app/sales/support/page.js`,
+`scripts/check-support-escalation.mjs` (160 assertions, eight mutations).
+
 
 ## The floor can hand a caller over, and can hold one (9 September 2026)
 

@@ -59,6 +59,10 @@ model PlatformAdmin {
   phoneNumbers              PlatformSmsNumber[]
   demoAvailability DemoHostAvailability[]
   demoBookings     DemoBooking[]
+  /// Escalations from sales reps that landed on this admin, and anything they
+  /// have written on one. See SupportTicket.
+  supportTickets   SupportTicket[]
+  supportNotes     SupportTicketNote[]
 }
 
 // When a FieldQuo admin will take a product demo booked from the marketing
@@ -1658,6 +1662,9 @@ model Company {
   salesRepDemo     SalesRep?
   salesAttributionTouches SalesAttributionTouch[]
   salesCommissionEntries  SalesCommissionEntry[]
+  /// Escalations a sales rep raised ABOUT this company. FieldQuo's own record,
+  /// not the contractor's — see SupportTicket.
+  supportTickets          SupportTicket[]
   jobDocuments          JobDocument[]
   jobDailyLogs          JobDailyLog[]
   clientEquipment       ClientEquipment[]
@@ -8911,6 +8918,10 @@ model SalesRep {
   @@index([managerId])
   repNotes SalesRepNote[]
   events   SalesEvent[]
+  /// Problems this rep escalated to FieldQuo tech support, and their replies
+  /// on them. See SupportTicket.
+  supportTickets SupportTicket[]
+  supportNotes   SupportTicketNote[]
 }
 
 /// What a rep earns, per milestone. A row rather than constants so the numbers
@@ -12444,4 +12455,132 @@ model ConversationReview {
   /// One per company-month. The regenerate path upserts on this.
   @@unique([companyId, year, month])
   @@index([companyId, generatedAt])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Sales-rep escalation to FieldQuo tech support
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// A technical problem a sales rep hit at one of THEIR companies, handed to
+/// FieldQuo's own tech support.
+///
+/// ── Why this table did not exist, and why that was the bug ────────────────
+///
+/// FieldQuo had no support channel at all. A rep who signed a contractor up
+/// and then heard "the invoice email never arrived" had a phone number for the
+/// owner and nothing else — so the report either became a text message nobody
+/// could search or it evaporated. There is no record anywhere else in this
+/// repo of a customer problem reported by the person closest to the customer.
+///
+/// ── Why this is NOT tenant data, and non-negotiable #3 is untouched ───────
+///
+/// A ticket is FieldQuo's own record ABOUT a company, in the same family as
+/// SalesAttribution and DataDeletionRequest. The contractor never sees it,
+/// nothing here writes into a company's own records, and `companyId` says who
+/// the problem is about — not whose row this is.
+///
+/// ── Assignment is looked up, never hard-coded ─────────────────────────────
+///
+/// The owner's brief says "assign it to Emilio". `assignedAdminId` is filled
+/// by lib/support/escalation.js's assignedAdminFor(), which picks the FIRST
+/// ACTIVE SUPERADMIN out of rows the route has just read. A hard-coded
+/// PlatformAdmin id is wrong the day a second admin exists or the database is
+/// reseeded, and wrong silently — the ticket would point at nobody.
+///
+/// Null is a real, recorded state: an escalation with no superadmin to hand it
+/// to is still WRITTEN, unassigned, and the rep is told so. Refusing to record
+/// a contractor's problem because FieldQuo's own admin table is empty would
+/// lose the one thing this model exists to keep.
+model SupportTicket {
+  id String @id @default(cuid())
+
+  /// Which company the problem is about.
+  ///
+  /// Cascade matches SalesAttribution and SalesAttributionTouch beside it: a
+  /// ticket about a company that no longer exists is a row nothing can be done
+  /// about, and leaving it behind would make /platform/support render a
+  /// company name it cannot resolve.
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// Who raised it. No cascade, deliberately — the same reasoning
+  /// SalesRep.endedAt carries: a rep who leaves does not un-report a problem,
+  /// and their escalations are history.
+  salesRepId String
+  salesRep   SalesRep @relation(fields: [salesRepId], references: [id])
+
+  subject String
+  body    String
+
+  /// "open" | "in_progress" | "resolved" — the complete set, and the only
+  /// three. SUPPORT_STATUSES in lib/support/escalation.js is that list written
+  /// down, and canTransition() there is the only thing that moves between
+  /// them. Deliberately no "closed" distinct from "resolved": two words for
+  /// "we are done" is how a queue comes to have a hiding place, and nothing in
+  /// the product would ever have to tell them apart.
+  status String @default("open")
+
+  /// "low" | "normal" | "high" | "urgent". SUPPORT_PRIORITIES.
+  priority String @default("normal")
+
+  /// The superadmin this landed on. See the header — looked up, not typed.
+  assignedAdminId String?
+  assignedAdmin   PlatformAdmin? @relation(fields: [assignedAdminId], references: [id])
+
+  /// Stamped on the move to `resolved` and CLEARED on a reopen. A reopened
+  /// ticket that kept its old resolvedAt would report a date on which it was
+  /// demonstrably not fixed.
+  resolvedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  notes SupportTicketNote[]
+
+  @@index([salesRepId, createdAt])
+  @@index([status, createdAt])
+  @@index([companyId])
+  @@index([assignedAdminId])
+}
+
+/// A reply on a ticket, or the trace a status change left.
+///
+/// ── One table for both, on purpose ────────────────────────────────────────
+///
+/// A rep opening their ticket needs ONE thread in time order: what they wrote,
+/// what support wrote back, and the moment somebody picked it up. Splitting
+/// "messages" from an "activity log" means the screen has to interleave two
+/// queries and the two can disagree about order. `kind` separates them for
+/// rendering; nothing else needs to.
+model SupportTicketNote {
+  id String @id @default(cuid())
+
+  ticketId String
+  ticket   SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  /// "message" | "status_change". SUPPORT_NOTE_KINDS.
+  kind String @default("message")
+
+  /// "rep" | "admin". Stated rather than inferred from which id is set,
+  /// because a row with neither id (a status change written by a job, later)
+  /// would otherwise be unattributable and render as the wrong side.
+  authorKind String
+
+  authorRepId String?
+  authorRep   SalesRep? @relation(fields: [authorRepId], references: [id])
+
+  authorAdminId String?
+  authorAdmin   PlatformAdmin? @relation(fields: [authorAdminId], references: [id])
+
+  body String
+
+  /// A note FieldQuo keeps to itself. Written by the platform screen and READ
+  /// by app/api/sales/support — the rep's thread filters these out, which is
+  /// the whole reason the column exists. A flag that nothing filtered on would
+  /// be the "written and never read" failure AGENTS.md lists first.
+  internal Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([ticketId, createdAt])
 }
