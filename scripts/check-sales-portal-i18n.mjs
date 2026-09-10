@@ -389,6 +389,62 @@ for (const [key, phrase] of [
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+section("7. A tour paragraph quotes the button a rep will actually see");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Three tour bodies tell a rep to press a named button. Translating the SCREENS
+// on 2026-09-10 (cf099363) translated those buttons and left the quotations
+// behind, so in seven languages the tour named a phrase that is nowhere on
+// screen. app/sales/tourSteps.js's own header calls that the worst form of this
+// bug — "a step that names a tab the portal does not have sends a new hire
+// hunting for a screen that is not there, on their first morning" — and a
+// quoted button is the same failure one level down.
+//
+// `zh` was wrong for a second reason worth recording: its quotations had been
+// TRANSLATED rather than TAKEN. Someone (me) rendered the phrase independently,
+// so the tour said 我已经和他们谈过 while the button says 我跟他们谈过了. Both are
+// good Chinese and they are not the same words, which is exactly as useless to
+// somebody scanning a screen for the one they were told to press.
+//
+// The assertion is containment against the catalogue's OWN button value, not a
+// literal, so a future rename of either side fails here rather than drifting.
+// Same trade as section 6: the words are asserted where they live.
+
+const QUOTED_BUTTONS = [
+  ["app.salesTour.queueBody", "app.salesQueue.markWorked"],
+  ["app.salesTour.workAsLeadBody", "app.salesQueue.carryToLeadButton"],
+  ["app.salesTour.notesBody", "app.salesNotes.newNote"],
+];
+
+for (const [bodyKey, buttonKey] of QUOTED_BUTTONS) {
+  for (const lang of LANGS) {
+    const body = String(APP_MESSAGES[lang]?.[bodyKey] ?? "");
+    const button = String(APP_MESSAGES[lang]?.[buttonKey] ?? "");
+    // An empty button would make `includes` trivially true and assert nothing.
+    ok(`${lang}: ${buttonKey} has a value to quote`, button.length > 0, button);
+    ok(
+      `${lang}: ${bodyKey} quotes it verbatim`,
+      button.length > 0 && body.includes(button),
+      { body: body.slice(0, 90), button },
+    );
+  }
+}
+
+// And the other direction: no translated body may still carry the English
+// phrase. Containment alone would pass a body that quoted BOTH.
+{
+  const ENGLISH_QUOTES = QUOTED_BUTTONS.map(([, k]) => String(APP_MESSAGES.en?.[k] ?? ""));
+  for (const [bodyKey] of QUOTED_BUTTONS) {
+    for (const lang of LANGS) {
+      if (lang === "en") continue;
+      const body = String(APP_MESSAGES[lang]?.[bodyKey] ?? "");
+      const stowaway = ENGLISH_QUOTES.find((q) => q.length > 0 && body.includes(q));
+      ok(`${lang}: ${bodyKey} carries no English button label`, !stowaway, stowaway);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 console.log(`\n${failures.length ? "FAILED" : "PASSED"} — ${pass} passed, ${failures.length} failed`);
 if (failures.length) {
   for (const name of failures) console.log(`  · ${name}`);
