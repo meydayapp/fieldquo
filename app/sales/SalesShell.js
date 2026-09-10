@@ -178,6 +178,10 @@ export default function SalesShell({ children }) {
             // rather than a working one — visited once when they join and
             // again when their bank changes, not every morning. English
             // literal for the same reason Notes and Calendar are.
+            // Messages left on the rep's own number. Before this screen the
+            // only place a sales voicemail could be played was the superadmin
+            // floor board, so the person the message was FOR could not hear it.
+            { href: "/sales/voicemail", label: "Voicemail" },
             { href: "/sales/pay", label: "Pay" },
           ].map((tab) => {
             // Exact match for the portal root, prefix for the rest: /sales is a

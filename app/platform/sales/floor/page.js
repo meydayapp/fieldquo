@@ -376,13 +376,24 @@ export default function SalesFloorPage() {
                               the failure class this repo keeps finding. */}
                           <td className="py-1.5 break-words">
                             {c.voicemailUrl ? (
+                              /* Served through FieldQuo, never the provider's
+                                 own URL. `voicemailUrl` holds Twilio's
+                                 RecordingUrl, and putting that in an <audio
+                                 src> is wrong whichever way their account
+                                 setting falls: public media makes it an
+                                 unauthenticated recording of a stranger's
+                                 voice, and private media means this player
+                                 never played. Same reasoning as
+                                 lib/voice/recording.js's callRecordingHref. */
                               <audio
                                 controls
                                 preload="none"
-                                src={c.voicemailUrl}
+                                src={`/api/platform/sales/voicemail/${encodeURIComponent(c.id)}/audio`}
                                 className="h-8 max-w-[220px]"
                               >
-                                <a href={c.voicemailUrl}>Play the message</a>
+                                <a href={`/api/platform/sales/voicemail/${encodeURIComponent(c.id)}/audio`}>
+                                  Play the message
+                                </a>
                               </audio>
                             ) : c.voicemailSeconds === 0 ? (
                               <span className="text-xs text-muted-foreground">
