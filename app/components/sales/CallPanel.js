@@ -314,7 +314,14 @@ export default function CallPanel({
 
       const device = new Device(tokenBody.token, { logLevel: "error" });
       deviceRef.current = device;
-      await device.register();
+      // NOT registered, deliberately. register() is what makes a client
+      // RECEIVE calls, and connect() does not need it. Since the access token
+      // began granting incomingAllow, registering here would put a SECOND
+      // client on this rep's identity — Twilio rings every registered client,
+      // this one has no `incoming` handler, and a contractor ringing back
+      // while a rep happened to be on an outbound call would be answered by a
+      // Device that does nothing with it. One registered client per rep, and
+      // it is the portal-wide dock in IncomingCallDock.js.
 
       // The destination is NOT sent. The bridge reads it off the attempt row
       // the server just wrote, after the gate cleared — see the bridge route's

@@ -24,6 +24,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+
+import IncomingCallDock from "@/app/components/sales/IncomingCallDock";
 import { usePathname } from "next/navigation";
 import { LogOut, BadgeDollarSign } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -202,6 +204,11 @@ export default function SalesShell({ children }) {
         </nav>
       </header>
       <main className={`${container} py-6 sm:py-8`}>{children}</main>
+      {/* Mounted once, here, so a contractor ringing back reaches the rep
+          wherever they are in the portal. A listener that only existed on the
+          dialler screen would ring only while somebody happened to be looking
+          at it — see the component's header. */}
+      <IncomingCallDock />
     </div>
   );
 }

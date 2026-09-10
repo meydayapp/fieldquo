@@ -84,12 +84,28 @@ export async function POST(request) {
   token.addGrant(
     new AccessToken.VoiceGrant({
       outgoingApplicationSid: appSid,
-      // Inbound to the browser is OFF. A rep's laptop is not a phone number,
-      // and an inbound-enabled identity is a second, unasked-for way for a
-      // call to reach a rep — FieldQuo's own line answers inbound, through the
-      // agent, and that is the one door. Turning this on later is a deliberate
-      // change with its own routing decision behind it.
-      incomingAllow: false,
+      // ── Inbound to the browser, turned ON ────────────────────────────
+      //
+      // This was false, and its comment said why: "a rep's laptop is not a
+      // phone number … turning this on later is a deliberate change with its
+      // own routing decision behind it."
+      //
+      // That routing decision now exists. lib/sales/calls/inboundDistribution.js
+      // decides who a call arriving on a sales number should reach — the
+      // number's assigned rep first, then whoever rang that contractor last,
+      // then whoever is genuinely available, then a transfer number, then
+      // voicemail — and it dials them as `<Client>sales_rep:…</Client>`. With
+      // this false, that TwiML was correct and rang nothing: the identity was
+      // not permitted to receive, so a contractor ringing back the number a rep
+      // had called them from was answered by nobody.
+      //
+      // The original objection is answered rather than overruled. "A second,
+      // unasked-for way for a call to reach a rep" is exactly what this is NOT:
+      // the server decides who is rung, from presence read at the moment the
+      // call lands, and a rep who is paused or stale is not a target. Being
+      // reachable is not the same as being rung, and only one place decides
+      // the second one.
+      incomingAllow: true,
     }),
   );
 
