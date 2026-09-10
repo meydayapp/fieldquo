@@ -60,6 +60,44 @@ Status key: `TODO` · `IN PROGRESS (agent)` · `DONE + verified` · `NEEDS DECIS
     STALENESS rule and is probably a genuine bug rather than a policy question:
     derived totals may not be covered by the staleness path.
 
+## 1d. The tour follows the language — the PORTAL AROUND IT does not
+
+  * `VERIFIED FIXED` The tour itself is correct. Confirmed live in the owner's
+    own Spanish rep session: "TU GUÍA DEL PORTAL", "1 de 20", "Hoy: qué hacer a
+    continuación", "Siguiente", "No volver a mostrarme esto".
+  * `IN PROGRESS (agent)` The portal around it is HALF translated, which reads as
+    broken rather than as unsupported. One screenshot of the tab bar:
+        Today | Cola | Playbook | Mis prospectos | Conversaciones | Texts | Team
+    and the tour renders "Abrir Today" — a Spanish verb around an English tab
+    name, because it interpolates the tab's literal label.
+  * SalesShell documents that split ON PURPOSE: a tab gets a key only when the
+    screen behind it is translated, because a translated tab onto an English
+    page is the worse inconsistency. That reasoning was right when written and
+    stops being right the moment the screens are done. The order is: translate
+    the screen, THEN switch its tab.
+  * `MINE` /sales/pay and app/components/sales/EarningsPanel.js were written by
+    me today in English and never keyed. Handed to the agent with that said
+    plainly, so it is not mistaken for somebody's careful decision.
+
+## 1e. /login is Spanish on the left and English on the right
+
+  * `IN PROGRESS (agent)` Verified live. The form is Spanish; the entire right
+    panel — "Everything your day runs on" and its three bullets, the free-month
+    line, "Built for 12 trades" — is English. It is the first screen a new
+    contractor sees.
+
+## 1f. /savings is English in every language, and its money is formatted wrong
+
+  * `IN PROGRESS (agent)` Owner: "this is still english only even if i changed
+    it to ukrainian spanish ... its missing proper dollar formatting". The
+    /compare pages had the same money bug this morning — amounts grouped with a
+    hardcoded en-US/en-CA, so a French-Canadian reader saw 1,250 where the
+    locale writes 1 250. `numberLocaleFor()` already exists; the agent is told
+    to use it rather than write a second one.
+  * Also being checked: whether /savings prints competitor figures WITHOUT going
+    through the truth gates the comparison pages now enforce. If it does, that
+    matters more than the translation.
+
 ## 2. Tours are rendering in UKRAINIAN
 
   * `CODE FIXED, NOT YET VERIFIED LIVE` — and the suspicion was right, down to
