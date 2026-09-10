@@ -18,6 +18,27 @@
 // rules are the ones every chat client has converged on; no source was copied
 // from any of them.
 //
+// ══ Why this is a gutter and not two columns of bubbles ════════════════════
+//
+// The first version drew iMessage: rounded bubbles, ours pushed right, theirs
+// pushed left. The owner had pointed at Rocket.Chat and asked for that, and
+// bubbles are not what it does — a look at its RoomMessage variant settles it.
+// Every row is LEFT ALIGNED and two columns: a fixed avatar gutter, then the
+// content. The avatar, the name and the time are drawn ONLY on the first
+// message of a group (`!sequential`), and on the grouped rows underneath, the
+// gutter is deliberately kept — empty, or holding a status — so every line of
+// a group starts at the same x.
+//
+// That alignment is the entire effect. Direction-aligned bubbles put the eye
+// on a zig-zag; a single left column with one name at the top of each group
+// puts it on the words, and a long thread stays scannable. Which matters more
+// here than in a team chat: a rep is reading for what the contractor SAID, not
+// for who is speaking, because there are only ever two of them.
+//
+// Read for its rules and its structure. No markup, class name or file was
+// copied from it — it is separately licensed, and this is written in this
+// codebase's own idiom.
+//
 // ══ Three states, and all three are real ═══════════════════════════════════
 //
 // SENT is a row the carrier accepted — the only kind lib/sales/salesSms.js
@@ -34,6 +55,24 @@ import { AlertTriangle, Clock, Loader2 } from "lucide-react";
 import { GROUPING_WINDOW_SECONDS, groupThread } from "@/lib/sales/messages/grouping";
 
 const TIME = { hour: "numeric", minute: "2-digit" };
+
+/**
+ * Two letters for the gutter.
+ *
+ * Initials rather than a photograph because there is no photograph of a
+ * contractor to have — and a generic silhouette in every row is a column of
+ * grey circles carrying no information. "Northside Painting" gives NP, which
+ * at a glance separates two businesses in a list better than the icon would.
+ */
+function initialsOf(name) {
+  const words = String(name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!words.length) return "?";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+}
 
 function timeLabel(at) {
   const d = at instanceof Date ? at : new Date(at);
@@ -114,42 +153,69 @@ export default function MessageThread({ messages, them, onRetry = null, renderDr
         const inbound = m.direction === "in";
         const failed = m.status === "failed";
         const pending = m.status === "pending";
+        const who = inbound ? them : "You";
 
         return (
           <div
             key={row.key}
-            className={`flex flex-col ${inbound ? "items-start" : "items-end"} ${
-              row.groupEnd ? "pb-2" : "pb-0.5"
-            }`}
+            data-own={inbound ? undefined : "true"}
+            data-sequential={row.sequential ? "true" : undefined}
+            className={`group flex gap-3 px-1 ${row.groupStart ? "pt-3" : "pt-0.5"} ${
+              row.groupEnd ? "pb-1" : ""
+            } hover:bg-muted/40 rounded-md`}
           >
-            {row.showSender ? (
-              <p className="px-1 pb-1 text-xs text-muted-foreground break-words">
-                <span className="font-medium text-foreground">{inbound ? them : "FieldQuo sales line"}</span>
-                {row.showTime && !row.undated ? (
-                  <>
-                    {" · "}
-                    <time dateTime={new Date(m.at).toISOString()} className="tabular-nums">
+            {/* ── The gutter ────────────────────────────────────────────────
+                Always present, even when empty. It is what keeps every line of
+                a group starting at the same x — take it away on the grouped
+                rows and the text shifts left under its own heading, which is
+                the one thing that makes a thread look broken. */}
+            <div className="w-9 shrink-0 pt-0.5" aria-hidden="true">
+              {row.showSender ? (
+                <span
+                  className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold ${
+                    inbound
+                      ? "bg-muted text-foreground"
+                      : "bg-primary text-primary-foreground"
+                  }`}
+                >
+                  {initialsOf(who)}
+                </span>
+              ) : null}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              {/* Name and time ONCE per group, never on the lines beneath. */}
+              {row.showSender ? (
+                <p className="flex items-baseline gap-2 pb-0.5">
+                  <span className="text-sm font-semibold text-foreground break-words">{who}</span>
+                  {row.showTime && !row.undated ? (
+                    <time
+                      dateTime={new Date(m.at).toISOString()}
+                      className="text-xs text-muted-foreground tabular-nums"
+                    >
                       {timeLabel(m.at)}
                     </time>
-                  </>
-                ) : null}
-                {row.undated ? " · time unknown" : null}
-              </p>
-            ) : null}
+                  ) : null}
+                  {row.undated ? (
+                    <span className="text-xs text-muted-foreground">time unknown</span>
+                  ) : null}
+                </p>
+              ) : null}
 
-            <div
-              className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm ${
-                inbound
-                  ? "bg-muted text-foreground rounded-bl-md"
-                  : failed
-                    ? "border border-red-400 bg-red-50 dark:bg-red-950/40 text-red-900 dark:text-red-200 rounded-br-md"
-                    : "bg-primary text-primary-foreground rounded-br-md"
-              } ${pending ? "opacity-70" : ""}`}
-            >
-              <p className="whitespace-pre-wrap break-words">{m.body}</p>
+              <p
+                className={`whitespace-pre-wrap break-words text-sm ${
+                  failed
+                    ? "text-red-900 dark:text-red-200"
+                    : pending
+                      ? "text-muted-foreground"
+                      : "text-foreground"
+                }`}
+              >
+                {m.body}
+              </p>
 
               {pending ? (
-                <p className="mt-1 flex items-center gap-1.5 text-xs text-primary-foreground/80">
+                <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
                   {/* motion-reduce: the spinner is the only moving thing on
                       this screen, and a rep who has asked their phone to stop
                       animating has asked for this too. */}
@@ -157,11 +223,9 @@ export default function MessageThread({ messages, them, onRetry = null, renderDr
                   Sending…
                 </p>
               ) : null}
-            </div>
-
             {failed ? (
-              <div className="mt-1 max-w-[85%] text-right">
-                <p className="flex items-start justify-end gap-1.5 text-xs text-red-700 dark:text-red-300 break-words">
+              <div className="mt-1">
+                <p className="flex items-start gap-1.5 text-xs text-red-700 dark:text-red-300 break-words">
                   <AlertTriangle size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
                   {/* The server's own sentence. It names the blocker and the
                       fix; a friendlier rewrite here would drop the fix. */}
@@ -178,6 +242,7 @@ export default function MessageThread({ messages, them, onRetry = null, renderDr
                 ) : null}
               </div>
             ) : null}
+            </div>
           </div>
         );
       })}
