@@ -91,6 +91,46 @@ Nothing. Free dial landed on 2026-09-10 — see the two rows above.
 
 ---
 
+## Done 2026-09-10 — roof measurement and sales milestones
+
+- **The roof quote measured the wrong building.** 917 Littlerock St, Ottawa
+  returned 119 sqft; a competitor returned 2,197.5 for the same address.
+  `buildingInsights:findClosest` had found an 11 m² shed 23 m from the geocode
+  pin. Fixed by discarding candidates too small to be a house and taking the
+  nearest of what is left — now 2,163 sqft. One Solar request when the pin is
+  good; the ring only fires on an implausible answer.
+- **Six of the seven linear details now prefill** from the same facet geometry
+  (`lib/measure/roofGeometry.js`). Step flashing does not, on purpose: it is
+  roof meeting wall and a roof model has no walls.
+- **The measure panel has an address field** instead of appearing only when the
+  selected client had one saved.
+- **Satellite stills are captured to Cloudinary** at quote creation instead of
+  being hotlinked with a public key in the query string.
+- **Milestone 1 was never recorded for most companies.** Two routes write
+  `stripeChargesEnabled`; only the webhook recorded the milestone, and the
+  other route exists because that webhook so often never fires. Both call
+  `recordActivation` now, and a nightly sweep catches the backlog.
+
+---
+
+## Still open from this round
+
+- **The measurement runs short on sprawling buildings.** The footprint
+  perimeter comes from the bounding box's aspect ratio, which is exact for a
+  rectangle-ish house and under-reads a rambling one: 24 Sussex Dr reports 273
+  ft around a 4,577 sqft footprint. Every number is editable and labelled
+  derived, but a mansion is quoted light on drip edge until this reads a real
+  outline.
+- **Predominant pitch disagrees with the competitor** at 917 Littlerock — 14/12
+  against their 11/12, from the same Solar segments. That straddles a labour
+  band (steep vs very steep), so it is worth settling. Their method is unknown;
+  ours is area-weighted by rounded rise.
+- **Penetrations are still all manual** — vent boots, skylights and chimneys
+  cannot be seen in a roof model. Box vents and ridge vent are calculated from
+  the code ventilation rule, which is the only part of that panel that can be.
+
+---
+
 ## Things that were wrong and are worth remembering
 
 Not a confession list — each one is a trap that will be walked into again.
