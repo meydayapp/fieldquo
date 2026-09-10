@@ -328,6 +328,7 @@ tenancy, so it carries no information.
 | `PlatformAuditLog` | PlatformAdmin | — |
 | `PlatformPromoCode` | — | PlatformPromoRedemption |
 | `PlatformPromoRedemption` | PlatformPromoCode | — |
+| `PlatformSmsNumber` | PlatformAdmin, SalesRep | — |
 | `PlatformVoiceCall` | Prospect, SalesLead | — |
 | `Prospect` | ProspectCampaign, SalesTerritory | PlatformVoiceCall, ProspectCapability, ProspectCorrection, ProspectEvidence, ProspectInference, ProspectOpportunity, ProspectScore, ProspectTalkingPoint, ProspectTechnology, SalesCallAttempt, SalesLead, SalesPlaybookAssignment, SalesRepNote |
 | `ProspectCampaign` | SalesTerritory | Prospect |
@@ -354,6 +355,8 @@ tenancy, so it carries no information.
 | `SalesAttribution` | SalesRep | Company |
 | `SalesAttributionTouch` | SalesRep | — |
 | `SalesCallAttempt` | Prospect, SalesLead, SalesRep | — |
+| `SalesCallTransfer` | SalesCallAttempt, SalesRep | — |
+| `SalesCheckIn` | SalesLead, SalesRep, SalesSmsMessage | SalesSmsMessage |
 | `SalesCommissionEntry` | SalesPayoutBatch, SalesRep | — |
 | `SalesCommissionPlan` | — | SalesRep |
 | `SalesEvent` | SalesLead, SalesRep | — |
@@ -369,6 +372,7 @@ tenancy, so it carries no information.
 | `SalesSmsMessage` | SalesLead, SalesRep | — |
 | `SalesSuppression` | — | SalesSuppressionEvent |
 | `SalesSuppressionEvent` | SalesSuppression | — |
+| `SalesTelemarketerRegistration` | PlatformAdmin | — |
 | `SalesTerritory` | — | Prospect, ProspectCampaign |
 | `SalesThread` | SalesLead, SalesRep | SalesMessage, SalesRepNote |
 | `SatisfactionResponse` | Client, Job | Job |

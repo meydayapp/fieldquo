@@ -1,13 +1,18 @@
 // app/sales/messages/page.js
 //
-// The rep's texts: who wrote, what they said, and a reply box.
+// The rep's texts, drawn as a conversation rather than as a list of rows —
+// with the check-in this contractor is due sitting in it, unsent.
 //
-// ══ What this replaced ════════════════════════════════════════════════════
+// ══ What the owner asked for, in three clauses ═════════════════════════════
 //
-// One templated "send them your signup link" panel on a lead, and nothing at
-// all in the other direction — a contractor answering "sure, call me Thursday"
-// was scanned for STOP and dropped. Both halves are real now, and this is
-// where a rep reads them.
+//   "can the /sales/messages look more like a text message type UI"
+//   "the check-ins and follow-ups via text should be draft but not sent"
+//   "when it should be sent should be able to be changed by the sales rep, or
+//    set up a manual one based on a conversation"
+//
+// All three are on this screen. The first is lib/sales/messages/grouping.js
+// plus MessageThread.js; the second and third are CheckInDraft.js plus the
+// three routes under /api/sales/checkins.
 //
 // ══ Every refusal is the SERVER's ═════════════════════════════════════════
 //
@@ -16,12 +21,35 @@
 // prospect's own zone, and the mailing address CASL requires is checked there.
 // This screen shows the answer it gets back. A second copy of those rules here
 // is how a reply goes out at two in the morning to somebody who said STOP.
+//
+// What the screen DOES do is stop offering a control the server would refuse:
+// a suppressed conversation gets no compose box and no send button, and the
+// reason is printed instead. That is courtesy, not enforcement — the two
+// checkins routes and the reply route each refuse it again on their own.
+//
+// ══ Nothing on this page sends anything on its own ═════════════════════════
+//
+// There is no interval, no scheduler and no effect that calls a send. Every
+// path to the carrier starts with a press. scripts/check-sales-messages.mjs
+// asserts that by scanning this file for a send call outside an event handler.
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertCircle, ArrowLeft, Loader2, MessageSquare, Send } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  CalendarPlus,
+  LifeBuoy,
+  Loader2,
+  MessageSquare,
+  Send,
+  ShieldOff,
+} from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { raiseSupportTicket } from "@/lib/support/repClient";
+import MessageThread from "./MessageThread";
+import CheckInDraft from "./CheckInDraft";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -31,6 +59,139 @@ function when(value) {
   return new Date(value).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Escalation — only where a ticket could actually be raised
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// decideEscalation() refuses without a company attributed to this rep, and the
+// route re-reads that attribution before writing. So the control renders only
+// when the thread resolved to one of the rep's own companies, and is ABSENT —
+// not disabled — otherwise. A button that 404s is the dead control AGENTS.md
+// opens with.
+function EscalatePanel({ company }) {
+  const [open, setOpen] = useState(false);
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [priority, setPriority] = useState("normal");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [raised, setRaised] = useState(null);
+
+  if (!company) return null;
+
+  if (raised) {
+    return (
+      <div className={CARD}>
+        <p className="text-sm font-semibold text-foreground break-words">{raised.subject}</p>
+        {/* The route's own sentence. It says in words whether anybody is on it
+            — `assigned: false` is a real answer, and a screen that renders
+            "Open" either way is the reassuring lie this channel exists to
+            stop. */}
+        <p className="text-sm text-muted-foreground break-words">{raised.statusLine}</p>
+        <Link href="/sales/support" className={`${BTN} border border-border text-foreground w-full`}>
+          <LifeBuoy size={16} aria-hidden="true" /> Follow it on my tickets
+        </Link>
+      </div>
+    );
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={`${BTN} border border-border text-foreground w-full`}
+      >
+        <LifeBuoy size={16} aria-hidden="true" /> Hand this to tech support
+      </button>
+    );
+  }
+
+  return (
+    <div className={CARD}>
+      <p className="text-sm text-muted-foreground break-words">
+        A technical problem with <span className="font-medium text-foreground">{company.name}</span>.
+        Support sees the ticket, not this conversation — so say what happened.
+      </p>
+      <label className="block text-sm font-medium text-foreground" htmlFor="ticket-subject">
+        One line
+      </label>
+      <input
+        id="ticket-subject"
+        value={subject}
+        onChange={(e) => setSubject(e.target.value)}
+        placeholder="Invoice emails are not arriving"
+        className="w-full min-h-[44px] border border-border rounded-lg px-3 py-2.5 text-base bg-card text-foreground"
+      />
+      <label className="block text-sm font-medium text-foreground" htmlFor="ticket-body">
+        What happened
+      </label>
+      <textarea
+        id="ticket-body"
+        rows={4}
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        className="w-full border border-border rounded-lg px-3 py-2.5 text-base bg-card text-foreground"
+      />
+      <label className="block text-sm font-medium text-foreground" htmlFor="ticket-priority">
+        How urgent
+      </label>
+      <select
+        id="ticket-priority"
+        value={priority}
+        onChange={(e) => setPriority(e.target.value)}
+        className="w-full min-h-[44px] border border-border rounded-lg px-3 py-2.5 text-base bg-card text-foreground"
+      >
+        <option value="low">Low</option>
+        <option value="normal">Normal</option>
+        <option value="high">High</option>
+        <option value="urgent">Urgent</option>
+      </select>
+
+      {error ? (
+        <p className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 p-2.5 text-sm text-amber-900 dark:text-amber-200 break-words">
+          {error}
+        </p>
+      ) : null}
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={busy || !subject.trim() || !body.trim()}
+          onClick={async () => {
+            setBusy(true);
+            setError("");
+            try {
+              const { ticket } = await raiseSupportTicket({
+                companyId: company.id,
+                subject,
+                body,
+                priority,
+              });
+              setRaised(ticket);
+            } catch (err) {
+              setError(err?.message || "The ticket was not raised.");
+            } finally {
+              setBusy(false);
+            }
+          }}
+          className={`${BTN} bg-primary text-primary-foreground`}
+        >
+          {busy ? (
+            <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
+          ) : (
+            <LifeBuoy size={16} aria-hidden="true" />
+          )}
+          Raise it
+        </button>
+        <button type="button" onClick={() => setOpen(false)} className={`${BTN} text-muted-foreground`}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function SalesMessagesPage() {
   const [list, setList] = useState(null);
   const [openWith, setOpenWith] = useState("");
@@ -38,6 +199,16 @@ export default function SalesMessagesPage() {
   const [text, setText] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  // Rows the rep has typed that have not come back from the server yet, and
+  // the ones that came back refused. Held here rather than merged into
+  // `thread.messages`, so a refresh cannot resurrect a failed send as a real
+  // message.
+  const [inFlight, setInFlight] = useState([]);
+  const [draftBusy, setDraftBusy] = useState("");
+  const [draftError, setDraftError] = useState("");
+  const [parking, setParking] = useState(false);
+  const [parkText, setParkText] = useState("");
+  const [parkWhen, setParkWhen] = useState("");
 
   const loadList = useCallback(async () => {
     setError("");
@@ -65,29 +236,92 @@ export default function SalesMessagesPage() {
     if (openWith) loadThread(openWith);
   }, [openWith, loadThread]);
 
+  // Messages, the rep's un-landed attempts, and any drafts — one list, ordered
+  // by the grouping function rather than by three separate renders.
+  const items = useMemo(() => {
+    const messages = (thread?.messages || []).map((m) => ({
+      id: m.id,
+      direction: m.direction,
+      body: m.body,
+      at: m.sentAt,
+      kind: "message",
+      status: "sent",
+    }));
+    const drafts = (thread?.checkIns || []).map((c) => ({
+      ...c,
+      id: c.id,
+      direction: "out",
+      body: c.draftText,
+      // A draft aimed at Thursday belongs at Thursday's end of the thread. One
+      // with no time sits where it was written.
+      at: c.scheduledFor || c.createdAt,
+      kind: "draft",
+    }));
+    return [...messages, ...drafts, ...inFlight];
+  }, [thread, inFlight]);
+
+  const them =
+    thread?.lead?.businessName || thread?.lead?.contactName || thread?.company?.name || openWith;
+
   async function send() {
+    const words = text.trim();
+    if (!words) return;
+    const tempId = `pending:${Date.now()}`;
     setBusy(true);
     setError("");
+    setInFlight((rows) => [
+      ...rows,
+      { id: tempId, direction: "out", body: words, at: new Date(), kind: "message", status: "pending" },
+    ]);
+    setText("");
     try {
       const next = await fetchJson("/api/sales/messages", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: openWith, text }),
+        body: { to: openWith, text: words },
       });
+      // The server's list replaces the optimistic row entirely — its body
+      // carries the CASL footer, which is part of what was actually sent and
+      // is not what the rep typed.
+      setInFlight((rows) => rows.filter((r) => r.id !== tempId));
       setThread((t) => ({ ...t, messages: next.messages }));
-      setText("");
       await loadList();
     } catch (err) {
       // The server's own sentence, not a rewrite of it. It names the blocker —
       // opted out, outside their hours, no mailing address — and the fix.
-      setError(err?.message || "That did not send.");
+      const message = err?.message || "That did not send.";
+      setInFlight((rows) =>
+        rows.map((r) => (r.id === tempId ? { ...r, status: "failed", error: message } : r)),
+      );
+      setError(message);
     } finally {
       setBusy(false);
     }
   }
 
+  /** One place that talks to the check-in routes, so every path refreshes. */
+  const checkInCall = useCallback(
+    async (url, options, key) => {
+      setDraftBusy(key);
+      setDraftError("");
+      try {
+        await fetchJson(url, options);
+        await loadThread(openWith);
+        return true;
+      } catch (err) {
+        setDraftError(err?.message || "That did not work.");
+        return false;
+      } finally {
+        setDraftBusy("");
+      }
+    },
+    [loadThread, openWith],
+  );
+
   // ── One conversation ────────────────────────────────────────────────────
   if (openWith) {
+    const suppressed = Boolean(thread?.suppressed);
+    const blockers = thread?.blockers || [];
+
     return (
       <div className="space-y-4">
         <button
@@ -95,18 +329,17 @@ export default function SalesMessagesPage() {
           onClick={() => {
             setOpenWith("");
             setThread(null);
+            setInFlight([]);
           }}
           // min-h-[44px]: it is the only way back on a phone.
           className="min-h-[44px] text-sm text-muted-foreground flex items-center gap-1"
         >
-          <ArrowLeft size={14} /> All conversations
+          <ArrowLeft size={14} aria-hidden="true" /> All conversations
         </button>
 
         <header className="space-y-1">
-          <h1 className="text-xl font-semibold text-foreground break-words">
-            {thread?.lead?.businessName || openWith}
-          </h1>
-          <p className="text-sm text-muted-foreground tabular-nums">
+          <h1 className="text-xl font-semibold text-foreground break-words">{them}</h1>
+          <p className="text-sm text-muted-foreground tabular-nums break-words">
             {openWith}
             {thread?.lead ? (
               <>
@@ -116,78 +349,267 @@ export default function SalesMessagesPage() {
                 </Link>
               </>
             ) : null}
+            {thread?.company ? (
+              <>
+                {" · "}
+                <Link href="/sales/companies" className="underline">
+                  {thread.company.name} is a customer
+                </Link>
+              </>
+            ) : null}
           </p>
         </header>
 
         {error ? (
           <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 p-3 text-sm text-amber-900 dark:text-amber-200">
             <div className="flex items-start gap-2">
-              <AlertCircle size={16} className="mt-0.5 shrink-0" />
+              <AlertCircle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
               <p className="break-words">{error}</p>
             </div>
+          </div>
+        ) : null}
+
+        {thread?.checkInError ? (
+          // Absence of a statement is not a statement: "we could not read the
+          // drafts" is a different claim from "there are none", and the rep
+          // gets the one that is true.
+          <div className="rounded-lg border border-border bg-muted p-3 text-sm text-muted-foreground break-words">
+            {thread.checkInError}
           </div>
         ) : null}
 
         <div className={CARD}>
           {!thread ? (
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="animate-spin" size={15} /> Loading…
+              <Loader2 className="animate-spin motion-reduce:animate-none" size={15} aria-hidden="true" />{" "}
+              Loading…
             </p>
           ) : (
-            <ul className="space-y-3">
-              {thread.messages.map((m) => (
-                <li
-                  key={m.id}
-                  className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${
-                    m.direction === "in"
-                      ? "bg-muted text-foreground"
-                      : "ml-auto bg-primary text-primary-foreground"
-                  }`}
-                >
-                  <p className="whitespace-pre-wrap break-words">{m.body}</p>
-                  <p
-                    className={`mt-1 text-xs ${
-                      m.direction === "in" ? "text-muted-foreground" : "text-primary-foreground/80"
-                    }`}
-                  >
-                    {when(m.sentAt)}
-                  </p>
-                </li>
-              ))}
-            </ul>
+            <MessageThread
+              messages={items}
+              them={them}
+              onRetry={(m) => {
+                // Back into the box, not straight back to the carrier. A retry
+                // that re-sends on one press is how a refused message becomes
+                // two sent ones once the blocker clears.
+                setText(m.body);
+                setInFlight((rows) => rows.filter((r) => r.id !== m.id));
+              }}
+              renderDraft={(d) => (
+                <CheckInDraft
+                  draft={d}
+                  busy={draftBusy === d.id}
+                  // The failure sentence is shown once, below the thread,
+                  // rather than repeated inside every draft. One banner is one
+                  // place to look.
+                  canSend={!suppressed}
+                  onSaveText={(next) =>
+                    checkInCall(`/api/sales/checkins/${d.id}`, { method: "PATCH", body: { text: next } }, d.id)
+                  }
+                  onReschedule={(iso) =>
+                    checkInCall(
+                      `/api/sales/checkins/${d.id}`,
+                      { method: "PATCH", body: { scheduledFor: iso } },
+                      d.id,
+                    )
+                  }
+                  onDismiss={() =>
+                    checkInCall(
+                      `/api/sales/checkins/${d.id}`,
+                      { method: "PATCH", body: { dismiss: true } },
+                      d.id,
+                    )
+                  }
+                  onSend={async () => {
+                    const done = await checkInCall(
+                      `/api/sales/checkins/${d.id}/send`,
+                      { method: "POST" },
+                      d.id,
+                    );
+                    if (done) await loadList();
+                  }}
+                />
+              )}
+            />
           )}
         </div>
 
-        <div className={CARD}>
-          <label className="block text-sm font-medium text-foreground" htmlFor="reply">
-            Your reply
-          </label>
-          <textarea
-            id="reply"
-            rows={3}
-            className="w-full border border-border rounded-lg px-3 py-2.5 text-base bg-card text-foreground"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Thursday at eight works — I'll call then."
+        {draftError ? (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 p-3 text-sm text-amber-900 dark:text-amber-200 break-words">
+            {draftError}
+          </div>
+        ) : null}
+
+        {/* ── The engine's suggestion, when it has one ────────────────── */}
+        {thread?.suggestion ? (
+          <CheckInDraft
+            draft={thread.suggestion}
+            suggestion
+            busy={draftBusy === "suggestion"}
+            canSend={!suppressed}
+            onAdopt={() =>
+              checkInCall(
+                "/api/sales/checkins",
+                { method: "POST", body: { to: openWith, origin: "engine" } },
+                "suggestion",
+              )
+            }
+            onDismiss={() =>
+              checkInCall(
+                "/api/sales/checkins",
+                { method: "POST", body: { to: openWith, origin: "engine", dismiss: true } },
+                "suggestion",
+              )
+            }
           />
-          {/* Said before they type it, not after it is sent. The footer is not
-              optional and it is not the rep's to remove: CASL requires the
-              sender's address and an unsubscribe in every commercial message,
-              and this one is arranging the sale of software. */}
-          <p className="text-xs text-muted-foreground break-words">
-            FieldQuo&rsquo;s address and &ldquo;Reply STOP to opt out&rdquo; are added to the end.
-            That is the law, not a setting — every commercial text carries them.
-          </p>
-          <button
-            type="button"
-            disabled={busy || !text.trim()}
-            onClick={send}
-            className={`${BTN} bg-primary text-primary-foreground w-full`}
-          >
-            {busy ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
-            Send it
-          </button>
-        </div>
+        ) : null}
+
+        {/* ── Suppressed: no compose box at all ───────────────────────── */}
+        {suppressed ? (
+          <div className="rounded-xl border border-border bg-muted p-4 space-y-2">
+            <p className="flex items-start gap-2 text-sm font-semibold text-foreground">
+              <ShieldOff size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+              This conversation is closed.
+            </p>
+            {blockers
+              .filter((b) => b.code === "suppressed")
+              .map((b) => (
+                <p key={b.code} className="text-sm text-muted-foreground break-words">
+                  {b.title} {b.fix}
+                </p>
+              ))}
+            <p className="text-sm text-muted-foreground break-words">
+              Nothing can be sent to this number on any channel — not a reply, not a check-in, not a
+              follow-up. FieldQuo removes somebody from that list only on a superadmin&rsquo;s written
+              request, because the row is the evidence behind a three-year obligation.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className={CARD}>
+              <label className="block text-sm font-medium text-foreground" htmlFor="reply">
+                Your reply
+              </label>
+              <textarea
+                id="reply"
+                rows={3}
+                className="w-full border border-border rounded-lg px-3 py-2.5 text-base bg-card text-foreground"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Thursday at eight works — I'll call then."
+              />
+              {/* Said before they type it, not after it is sent. The footer is not
+                  optional and it is not the rep's to remove: CASL requires the
+                  sender's address and an unsubscribe in every commercial message,
+                  and this one is arranging the sale of software. */}
+              <p className="text-xs text-muted-foreground break-words">
+                FieldQuo&rsquo;s address and &ldquo;Reply STOP to opt out&rdquo; are added to the end.
+                That is the law, not a setting — every commercial text carries them. Texts go from
+                FieldQuo&rsquo;s one shared sales number, not from your own line.
+              </p>
+              <button
+                type="button"
+                disabled={busy || !text.trim()}
+                onClick={send}
+                className={`${BTN} bg-primary text-primary-foreground w-full`}
+              >
+                {busy ? (
+                  <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                ) : (
+                  <Send size={16} aria-hidden="true" />
+                )}
+                Send it
+              </button>
+            </div>
+
+            {/* ── A follow-up the rep invents from the conversation ────── */}
+            {parking ? (
+              <div className={CARD}>
+                <label className="block text-sm font-medium text-foreground" htmlFor="park-text">
+                  What do you want to say?
+                </label>
+                <textarea
+                  id="park-text"
+                  rows={3}
+                  value={parkText}
+                  onChange={(e) => setParkText(e.target.value)}
+                  placeholder="Following up on the quote we talked about — are you happy to go ahead?"
+                  className="w-full border border-border rounded-lg px-3 py-2.5 text-base bg-card text-foreground"
+                />
+                <label className="block text-sm font-medium text-foreground" htmlFor="park-when">
+                  When should this be in front of you?
+                </label>
+                <input
+                  id="park-when"
+                  type="datetime-local"
+                  value={parkWhen}
+                  onChange={(e) => setParkWhen(e.target.value)}
+                  className="w-full min-h-[44px] border border-border rounded-lg px-3 py-2.5 text-base bg-card text-foreground"
+                />
+                <p className="text-xs text-muted-foreground break-words">
+                  It waits as a draft. FieldQuo does not send it — you do, when you are ready. The time
+                  has to fall inside this contractor&rsquo;s texting hours, or there would be nothing to
+                  press send on when it arrives.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={draftBusy === "park" || !parkText.trim()}
+                    onClick={async () => {
+                      const at = parkWhen ? new Date(parkWhen) : null;
+                      const done = await checkInCall(
+                        "/api/sales/checkins",
+                        {
+                          method: "POST",
+                          body: {
+                            to: openWith,
+                            text: parkText,
+                            scheduledFor: at && !Number.isNaN(at.getTime()) ? at.toISOString() : null,
+                          },
+                        },
+                        "park",
+                      );
+                      if (done) {
+                        setParking(false);
+                        setParkText("");
+                        setParkWhen("");
+                      }
+                    }}
+                    className={`${BTN} bg-primary text-primary-foreground`}
+                  >
+                    {draftBusy === "park" ? (
+                      <Loader2
+                        size={16}
+                        className="animate-spin motion-reduce:animate-none"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <CalendarPlus size={16} aria-hidden="true" />
+                    )}
+                    Park it as a draft
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setParking(false)}
+                    className={`${BTN} text-muted-foreground`}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setParking(true)}
+                className={`${BTN} border border-border text-foreground w-full`}
+              >
+                <CalendarPlus size={16} aria-hidden="true" /> Park a follow-up for later
+              </button>
+            )}
+          </>
+        )}
+
+        <EscalatePanel company={thread?.company || null} />
       </div>
     );
   }
@@ -207,7 +629,7 @@ export default function SalesMessagesPage() {
       {error ? (
         <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/40 p-3 text-sm text-red-800 dark:text-red-200">
           <div className="flex items-start gap-2">
-            <AlertCircle size={16} className="mt-0.5 shrink-0" />
+            <AlertCircle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
             <p className="break-words">{error}</p>
           </div>
         </div>
@@ -215,7 +637,8 @@ export default function SalesMessagesPage() {
 
       {!list ? (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="animate-spin" size={15} /> Loading…
+          <Loader2 className="animate-spin motion-reduce:animate-none" size={15} aria-hidden="true" />{" "}
+          Loading…
         </p>
       ) : list.length === 0 ? (
         // Nothing invented to fill it. A rep who has texted nobody has no
@@ -227,7 +650,7 @@ export default function SalesMessagesPage() {
             here.
           </p>
           <Link href="/sales/leads" className={`${BTN} border border-border text-foreground w-full`}>
-            <MessageSquare size={16} /> Go to my leads
+            <MessageSquare size={16} aria-hidden="true" /> Go to my leads
           </Link>
         </div>
       ) : (

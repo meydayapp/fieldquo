@@ -1662,6 +1662,10 @@ model Company {
   salesRepDemo     SalesRep?
   salesAttributionTouches SalesAttributionTouch[]
   salesCommissionEntries  SalesCommissionEntry[]
+  /// Check-in texts a rep has DRAFTED about this company, sent or not. Nothing
+  /// on this relation is the contractor's data or is visible to them — see
+  /// SalesCheckIn.
+  salesCheckIns           SalesCheckIn[]
   /// Escalations a sales rep raised ABOUT this company. FieldQuo's own record,
   /// not the contractor's — see SupportTicket.
   supportTickets          SupportTicket[]
@@ -8946,6 +8950,10 @@ model SalesRep {
   /// on them. See SupportTicket.
   supportTickets SupportTicket[]
   supportNotes   SupportTicketNote[]
+  /// Check-in texts this rep has drafted. A draft is the rep's own working
+  /// note until they press send, which is why it hangs off the rep and not off
+  /// the company.
+  checkIns       SalesCheckIn[]
 }
 
 /// What a rep earns, per milestone. A row rather than constants so the numbers
@@ -9210,6 +9218,7 @@ model SalesLead {
   smsMessages  SalesSmsMessage[]
   callAttempts SalesCallAttempt[]
   inboundCalls PlatformVoiceCall[]
+  checkIns     SalesCheckIn[]
 
   @@index([salesRepId, status])
   repNotes SalesRepNote[]
@@ -9361,12 +9370,146 @@ model SalesSmsMessage {
   sentAt    DateTime @default(now())
   createdAt DateTime @default(now())
 
+  /// The check-in draft this message was sent FROM, when it came from one.
+  /// Optional in both directions: most texts are typed straight into the
+  /// thread and have no draft behind them.
+  checkIn SalesCheckIn?
+
   @@index([salesRepId, sentAt])
   @@index([leadId, sentAt])
   /// The rep inbox reads by the OTHER party's number, because a conversation is
   /// with a person and not with a lead row — one contractor may hold two leads
   /// and a reply belongs to the thread either way.
   @@index([direction, sentAt])
+}
+
+/// A check-in text a rep has DRAFTED but not sent.
+///
+/// ══ Why this is not a status column on SalesSmsMessage ═══════════════════
+///
+/// That was the obvious alternative and it is the wrong one. SalesSmsMessage
+/// carries exactly one invariant, stated in its own comments and enforced at
+/// every write in lib/sales/salesSms.js: A ROW EXISTS IF AND ONLY IF THE
+/// CARRIER ACCEPTED THE MESSAGE. "A row saying sent for a text that never left
+/// is the class of bug AGENTS.md opens with." Putting an unsent draft in that
+/// table breaks the invariant for every reader at once — the thread, the
+/// conversation list, the "they wrote last" flag, and every count of work done
+/// would each have to learn to exclude a status they were written before, and
+/// the one that forgot would report a draft as a delivered text. That is
+/// AGENTS.md failure class #1 and #4 in one edit.
+///
+/// So a draft lives here, and the moment it is actually sent it produces a
+/// normal SalesSmsMessage through the normal send path, and `sentMessageId`
+/// points at it. Two tables, one invariant each.
+///
+/// ══ Nothing here fires by itself ══════════════════════════════════════════
+///
+/// `scheduledFor` is WHEN THE REP INTENDS TO SEND IT, not an instruction to a
+/// job. There is no cron, no queue and no effect that reads this table and
+/// sends anything — scripts/check-sales-messages.mjs asserts that, because the
+/// column name is the kind that acquires a scheduler six months later without
+/// anybody deciding to add one. lib/sales/checkin/schedule.js's header states
+/// the rule; the status vocabulary below deliberately has no "scheduled" in it
+/// for the same reason.
+model SalesCheckIn {
+  id String @id @default(cuid())
+
+  /// The rep whose draft this is. Required: a draft is somebody's working
+  /// note, and an unowned one is a message nobody is responsible for.
+  salesRepId String
+  salesRep   SalesRep @relation(fields: [salesRepId], references: [id], onDelete: Cascade)
+
+  /// The company the check-in is ABOUT, when there is one.
+  ///
+  /// Nullable because the rep can also park a follow-up on a prospect who has
+  /// not signed up — that is the manual half of the feature, and forcing a
+  /// company here would mean inventing one. When it IS set, everything the
+  /// draft says was decided by lib/sales/checkin/signals.js over rows the rep
+  /// could already see; nothing reads the contractor's quotes or clients.
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  /// The lead behind the conversation, where the phone number matches one.
+  leadId String?
+  lead   SalesLead? @relation(fields: [leadId], references: [id])
+
+  /// The thread this belongs to: the OTHER party's number, E.164.
+  ///
+  /// Stored rather than derived through the lead, because a conversation is
+  /// with a person and not with a lead row — the same reasoning
+  /// SalesSmsMessage's index carries. One contractor may hold two leads and
+  /// the draft belongs in the same thread either way.
+  toE164 String
+
+  /// What would be sent, before the CASL footer the send path adds.
+  ///
+  /// Editable by the rep, which is the point: the engine's wording is a
+  /// starting sentence, not a script.
+  draftText String
+
+  /// "engine" | "manual" — did lib/sales/checkin/signals.js raise this, or did
+  /// the rep park it from the conversation? Kept because the two are different
+  /// claims about why a contractor is being texted, and a screen that shows
+  /// them identically cannot explain itself.
+  origin String @default("engine")
+
+  /// The primary reason code from the decision, when there was one. Null for a
+  /// manual follow-up, which has no reason beyond the rep's judgement — and
+  /// inventing one would put words in their mouth.
+  reasonCode String?
+
+  /// Where the wording came from: "rule" for the deterministic draft, "ai" for
+  /// a model rewrite that passed judgeDraft(). Recorded because "degraded"
+  /// wording is a real state a rep should be able to see, not a silent one.
+  draftSource String  @default("rule")
+  degraded    Boolean @default(false)
+
+  /// When the rep means to send it. Null means "as soon as they get to it".
+  scheduledFor DateTime?
+
+  /// "draft" | "sent" | "dismissed". No "scheduled" — see the header.
+  status String @default("draft")
+
+  /// The message that actually went out, once one did. The link is what makes
+  /// "was this ever sent, and what did it say in the end" answerable without
+  /// trusting the status column.
+  sentMessageId String?          @unique
+  sentMessage   SalesSmsMessage? @relation(fields: [sentMessageId], references: [id])
+
+  /// Set the instant a send is CLAIMED, cleared if the carrier refuses.
+  ///
+  /// Two presses of Send — a double tap, a retry on a slow connection, two
+  /// tabs — must not put two texts on a contractor's phone. Marking the row
+  /// `sent` before the carrier accepts would be the lie SalesSmsMessage exists
+  /// to prevent, so the claim gets its own column: the send path takes it with
+  /// a compare-and-set on `sendingStartedAt: null`, and a second press finds
+  /// it taken. See lib/sales/checkin/store.js's sendCheckIn().
+  ///
+  /// A row left with this set and status still `draft` is a send we lost track
+  /// of. That is a REAL state and the screen says so in words rather than
+  /// offering a button that might send a second copy.
+  sendingStartedAt DateTime?
+
+  sentAt      DateTime?
+  dismissedAt DateTime?
+
+  /// One engine draft per company per day, and no more.
+  ///
+  /// The engine is evaluated every time the rep opens the screen, so without
+  /// this a rep who refreshed four times would find four identical drafts.
+  /// Composed as `engine:<companyId>:<yyyy-mm-dd>` so that dismissing today's
+  /// draft does not silence the company forever — tomorrow is a different key.
+  /// Null for manual drafts, and Postgres treats NULLs in a unique index as
+  /// distinct, so any number of hand-made follow-ups can coexist.
+  dedupeKey String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([salesRepId, dedupeKey])
+  @@index([salesRepId, status, scheduledFor])
+  @@index([salesRepId, toE164, status])
+  @@index([companyId, status])
 }
 
 model SalesThread {
