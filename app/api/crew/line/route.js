@@ -418,7 +418,12 @@ export async function POST(request) {
     await recordActivity(member, {
       action: "crew_inbox.line_claimed",
       entityType: "settings",
+      // English `summary` AND a key: the sentence is what the database, an
+      // export and a support session read; the key is what a Spanish account
+      // reading its own log reads. See lib/activity/log.js.
       summary: `Crew texting turned on — crew text ${result.line.e164}`,
+      summaryKey: "app.activity.event.crewLineClaimed",
+      summaryParams: { number: result.line.e164 },
       metadata: { e164: result.line.e164, source: result.line.source },
     });
 

@@ -20,6 +20,15 @@ const NUMBER_LOCALES = {
   uk: "uk-UA",
   pa: "pa-IN",
   tl: "en-PH",
+  // German, Italian and Chinese fell through to en-CA, which is not a
+  // formatting fallback so much as a wrong answer: German and Italian both use
+  // "1.250,00" where en-CA uses "1,250.00", so every number on those
+  // interfaces was punctuated the English way. Found while giving the
+  // opening-hours editor a locale for its weekday names — the same map decides
+  // both, and a `de` user was getting "Sunday" for the same reason.
+  de: "de-DE",
+  it: "it-IT",
+  zh: "zh-CN",
 };
 
 export function numberLocaleFor(language) {

@@ -31,15 +31,34 @@ import {
   DEFAULT_ESTIMATE_ORDER,
 } from "@/app/data/funnelBlocks";
 import { funnelStatusLabel } from "@/lib/funnels/status";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
+// ── Where the line between UI and CONTENT falls on this screen ─────────────
+//
+// The builder is two things at once and they translate differently.
+//
+// The EDITOR is back office: labels, hints, the step palette, the warnings.
+// All of it goes through t() and follows the contractor's interface language.
+//
+// The funnel's own copy is CLIENT-FACING — the headline a homeowner reads, the
+// button they tap, the placeholder seeded by newStep() and the preview
+// fallbacks that stand in for it. None of that is keyed, on purpose: it is the
+// contractor's text, editable on this screen, and it appears on a public page
+// in whatever language they sell in. Running it through the back-office
+// language would mean a Spanish-speaking contractor with English-speaking
+// customers could not seed English copy — and it would change what an already
+// published funnel says, which is the same rule as AGENTS.md non-negotiable #6.
+//
+// (What newStep() seeds is still ENGLISH for everyone, which is a real gap and
+// a product decision rather than a keying one — see the report.)
 const STEP_KINDS = [
-  { kind: "intro", label: "Intro" },
-  { kind: "question_single", label: "Single choice" },
-  { kind: "question_multi", label: "Multiple choice" },
-  { kind: "instant_estimate", label: "Instant estimate" },
-  { kind: "photo_upload", label: "Photo upload" },
-  { kind: "form", label: "Contact form" },
-  { kind: "thankyou", label: "Thank you" },
+  { kind: "intro", labelKey: "app.funnels.step.intro" },
+  { kind: "question_single", labelKey: "app.funnels.step.questionSingle" },
+  { kind: "question_multi", labelKey: "app.funnels.step.questionMulti" },
+  { kind: "instant_estimate", labelKey: "app.funnels.step.instantEstimate" },
+  { kind: "photo_upload", labelKey: "app.funnels.step.photoUpload" },
+  { kind: "form", labelKey: "app.funnels.step.form" },
+  { kind: "thankyou", labelKey: "app.funnels.step.thankyou" },
 ];
 
 function newStep(kind, i) {
@@ -110,6 +129,7 @@ function newStep(kind, i) {
 }
 
 export default function FunnelBuilderPage() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const router = useRouter();
 
@@ -335,7 +355,9 @@ export default function FunnelBuilderPage() {
   if (!funnel)
     return (
       <div className="p-6 max-w-3xl mx-auto">
-        <p className="text-sm text-red-600">{error || "Funnel not found."}</p>
+        <p className="text-sm text-red-600">
+          {error || t("app.funnels.notFound")}
+        </p>
       </div>
     );
 
@@ -454,7 +476,7 @@ export default function FunnelBuilderPage() {
         <div className="bg-card border border-border rounded-lg px-3 py-2">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs text-muted-foreground">
-              Or paste this into your own website
+              {t("app.funnels.embedHint")}
             </span>
             <button
               onClick={copyEmbed}
@@ -531,7 +553,10 @@ export default function FunnelBuilderPage() {
                 className="flex-1 text-left min-w-0"
               >
                 <div className="text-xs font-medium text-foreground truncate">
-                  {STEP_KINDS.find((k) => k.kind === s.kind)?.label || s.kind}
+                  {(() => {
+                    const kind = STEP_KINDS.find((k) => k.kind === s.kind);
+                    return kind ? t(kind.labelKey) : s.kind;
+                  })()}
                 </div>
                 <div className="text-[11px] text-muted-foreground truncate">
                   {s.question || s.headline || "—"}
@@ -565,7 +590,7 @@ export default function FunnelBuilderPage() {
           ))}
           <div className="pt-1">
             <div className="text-[11px] text-muted-foreground mb-1">
-              Add step
+              {t("app.funnels.addStep")}
             </div>
             <div className="flex flex-wrap gap-1">
               {STEP_KINDS.map((k) => (
@@ -574,7 +599,7 @@ export default function FunnelBuilderPage() {
                   onClick={() => addStep(k.kind)}
                   className="inline-flex items-center gap-1 text-[11px] border border-border rounded-full px-2 py-1 hover:border-foreground/30"
                 >
-                  <Plus size={11} /> {k.label}
+                  <Plus size={11} /> {t(k.labelKey)}
                 </button>
               ))}
             </div>
@@ -592,7 +617,7 @@ export default function FunnelBuilderPage() {
             />
           ) : (
             <p className="text-sm text-muted-foreground">
-              Add a step to begin.
+              {t("app.funnels.addStepToBegin")}
             </p>
           )}
         </div>
@@ -612,20 +637,20 @@ export default function FunnelBuilderPage() {
           onClick={() => setShowPixels((v) => !v)}
           className="w-full flex items-center gap-2 px-4 py-3 text-sm font-semibold text-foreground"
         >
-          <Radio size={15} /> Ad tracking pixels
+          <Radio size={15} /> {t("app.funnels.pixelsTitle")}
           <span className="text-xs text-muted-foreground font-normal ml-auto">
-            {showPixels ? "Hide" : "Optional"}
+            {showPixels ? t("app.action.hide") : t("app.funnels.optional")}
           </span>
         </button>
         {showPixels && (
           <div className="px-4 pb-4 grid gap-3 sm:grid-cols-3">
             {[
-              ["metaPixelId", "Meta Pixel ID"],
-              ["tiktokPixelId", "TikTok Pixel ID"],
-              ["ga4Id", "GA4 Measurement ID"],
-            ].map(([key, label]) => (
+              ["metaPixelId", "app.funnels.pixel.meta"],
+              ["tiktokPixelId", "app.funnels.pixel.tiktok"],
+              ["ga4Id", "app.funnels.pixel.ga4"],
+            ].map(([key, labelKey]) => (
               <label key={key} className="text-xs">
-                <span className="text-muted-foreground">{label}</span>
+                <span className="text-muted-foreground">{t(labelKey)}</span>
                 <input
                   value={pixels[key]}
                   onChange={(e) => {
@@ -653,6 +678,9 @@ function Stat({ label, value }) {
 }
 
 function Field({ label, value, onChange, textarea, placeholder }) {
+  // `label` and `placeholder` arrive already resolved — every call site passes
+  // t("…"). Keyed here instead and the component would have to know which of
+  // its callers is showing UI and which is showing the contractor's own copy.
   const Cmp = textarea ? "textarea" : "input";
   return (
     <label className="block text-xs">
@@ -669,12 +697,13 @@ function Field({ label, value, onChange, textarea, placeholder }) {
 }
 
 const MAPS_OPTIONS = [
-  { value: "", label: "No scoring" },
-  { value: "timeline", label: "Feeds timeline" },
-  { value: "budget", label: "Feeds budget" },
+  { value: "", labelKey: "app.funnels.scoring.none" },
+  { value: "timeline", labelKey: "app.funnels.scoring.timeline" },
+  { value: "budget", labelKey: "app.funnels.scoring.budget" },
 ];
 
 function StepEditor({ step, onChange, iqTrades, iqError }) {
+  const { t } = useTranslation();
   const isQuestion =
     step.kind === "question_single" || step.kind === "question_multi";
 
@@ -739,14 +768,14 @@ function StepEditor({ step, onChange, iqTrades, iqError }) {
       )}
       {isQuestion && (
         <Field
-          label="Question"
+          label={t("app.funnels.field.question")}
           value={step.question}
           onChange={(v) => onChange({ question: v })}
         />
       )}
       {isQuestion && (
         <Field
-          label="Help text (optional)"
+          label={t("app.funnels.field.help")}
           value={step.help}
           onChange={(v) => onChange({ help: v })}
         />
@@ -754,7 +783,9 @@ function StepEditor({ step, onChange, iqTrades, iqError }) {
 
       {step.kind === "question_single" && (
         <label className="block text-xs">
-          <span className="text-muted-foreground">Lead scoring</span>
+          <span className="text-muted-foreground">
+            {t("app.funnels.scoringLabel")}
+          </span>
           <select
             value={step.maps || ""}
             onChange={(e) => onChange({ maps: e.target.value })}
@@ -762,18 +793,25 @@ function StepEditor({ step, onChange, iqTrades, iqError }) {
           >
             {MAPS_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
-                {o.label}
+                {t(o.labelKey)}
               </option>
             ))}
           </select>
           {step.maps === "budget" && (
             <span className="text-[11px] text-amber-600 dark:text-amber-400 mt-1 block">
-              Answer values must be: under_1k, 1k_5k, 5k_15k, 15k_plus, unsure
+              {/* The tokens are not translated and must not be: they are the
+                  literal values lib/leads/scoring matches on, so a translated
+                  "menos_de_1k" would silently score every lead as unknown. */}
+              {t("app.funnels.scoring.budgetValues", {
+                values: "under_1k, 1k_5k, 5k_15k, 15k_plus, unsure",
+              })}
             </span>
           )}
           {step.maps === "timeline" && (
             <span className="text-[11px] text-amber-600 dark:text-amber-400 mt-1 block">
-              Answer values must be: asap, 2_weeks, 1_3_months, exploring
+              {t("app.funnels.scoring.timelineValues", {
+                values: "asap, 2_weeks, 1_3_months, exploring",
+              })}
             </span>
           )}
         </label>
@@ -781,7 +819,9 @@ function StepEditor({ step, onChange, iqTrades, iqError }) {
 
       {isQuestion && (
         <div>
-          <div className="text-xs text-muted-foreground mb-1.5">Answers</div>
+          <div className="text-xs text-muted-foreground mb-1.5">
+            {t("app.funnels.answers")}
+          </div>
           <div className="space-y-2">
             {(step.answers || []).map((a, i) => (
               <div
@@ -792,7 +832,7 @@ function StepEditor({ step, onChange, iqTrades, iqError }) {
                   <input
                     value={a.label || ""}
                     onChange={(e) => setAnswer(i, { label: e.target.value })}
-                    placeholder="Label"
+                    placeholder={t("app.funnels.answerLabel")}
                     className="flex-1 border border-border rounded px-2 py-1 text-xs bg-card"
                   />
                   <button
@@ -805,7 +845,7 @@ function StepEditor({ step, onChange, iqTrades, iqError }) {
                 <input
                   value={a.value || ""}
                   onChange={(e) => setAnswer(i, { value: e.target.value })}
-                  placeholder="Stored value (e.g. asap)"
+                  placeholder={t("app.funnels.answerValue")}
                   className="w-full border border-border rounded px-2 py-1 text-[11px] bg-card text-muted-foreground"
                 />
               </div>
@@ -815,7 +855,7 @@ function StepEditor({ step, onChange, iqTrades, iqError }) {
             onClick={addAnswer}
             className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-foreground"
           >
-            <Plus size={12} /> Add answer
+            <Plus size={12} /> {t("app.funnels.addAnswer")}
           </button>
         </div>
       )}
@@ -826,7 +866,7 @@ function StepEditor({ step, onChange, iqTrades, iqError }) {
         step.kind === "instant_estimate" ||
         step.kind === "form") && (
         <Field
-          label="Button text"
+          label={t("app.funnels.field.buttonText")}
           value={step.buttonText}
           onChange={(v) => onChange({ buttonText: v })}
         />
@@ -835,7 +875,7 @@ function StepEditor({ step, onChange, iqTrades, iqError }) {
       {step.kind === "form" && (
         <div>
           <div className="text-xs text-muted-foreground mb-1.5">
-            Fields collected
+            {t("app.funnels.fieldsCollected")}
           </div>
           <div className="flex gap-2">
             {["name", "email", "phone"].map((f) => {
@@ -876,10 +916,14 @@ function StepEditor({ step, onChange, iqTrades, iqError }) {
  * estimator reads — labels and modes, never a rate.
  */
 function EstimateStepEditor({ step, onChange, iqTrades, iqError }) {
+  const { t } = useTranslation();
   const fields = bandFieldsFor(step.trade);
   const choices = choiceFieldsFor(step.trade);
   const bands = Array.isArray(step.bands) ? step.bands : [];
-  const selected = (iqTrades || []).find((t) => t.trade === step.trade) || null;
+  // `trade`, not `t` — the predicate parameter shadowed t() from
+  // useTranslation, which is the defect check:t-shadow exists for.
+  const selected =
+    (iqTrades || []).find((trade) => trade.trade === step.trade) || null;
   const issues = estimateStepIssues(step);
 
   function setBand(i, patch) {
@@ -906,25 +950,24 @@ function EstimateStepEditor({ step, onChange, iqTrades, iqError }) {
     <div className="space-y-3 border-t border-border pt-3">
       {iqError && (
         <p className="text-[11px] text-muted-foreground">
-          Couldn&rsquo;t check your instant-quote services just now.
+          {t("app.funnels.iqCheckFailed")}
         </p>
       )}
 
       {iqTrades && iqTrades.length === 0 && (
         <div className="text-xs bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg px-3 py-2 text-amber-800 dark:text-amber-200">
-          You haven&rsquo;t set up a service that can be priced inside a funnel.
-          Turn one on in{" "}
+          {t("app.funnels.noPriceableService")}{" "}
           <a href="/app/settings/instant-quotes" className="underline font-semibold">
-            Settings → Instant quotes
+            {t("app.funnels.instantQuotesLink")}
           </a>
-          . Roofing, lawn mowing and junk removal are priced from a satellite
-          measurement, a drawn map or an item list, so they stay on your
-          instant-quote page rather than a tap-through funnel.
+          {t("app.funnels.noPriceableServiceTail")}
         </div>
       )}
 
       <label className="block text-xs">
-        <span className="text-muted-foreground">Service to price</span>
+        <span className="text-muted-foreground">
+          {t("app.funnels.serviceToPrice")}
+        </span>
         <select
           value={step.trade || ""}
           onChange={(e) =>
@@ -935,47 +978,51 @@ function EstimateStepEditor({ step, onChange, iqTrades, iqError }) {
           }
           className="w-full mt-1 border border-border rounded-lg px-2 py-1.5 text-sm bg-card"
         >
-          <option value="">Choose a service…</option>
-          {(iqTrades || []).map((t) => (
-            <option key={t.trade} value={t.trade}>
-              {t.label}
+          <option value="">{t("app.funnels.chooseService")}</option>
+          {/* `trade`, not `t` — the parameter shadowed t() from
+              useTranslation, and nothing inside this block could be keyed
+              while it was named that (check:t-shadow). */}
+          {(iqTrades || []).map((trade) => (
+            <option key={trade.trade} value={trade.trade}>
+              {trade.label}
             </option>
           ))}
           {/* A trade saved earlier and since switched off would otherwise
               vanish from the box, making the step look untouched. */}
           {step.trade && !selected && (
-            <option value={step.trade}>{step.trade} (not switched on)</option>
+            <option value={step.trade}>
+              {t("app.funnels.tradeOff", { trade: step.trade })}
+            </option>
           )}
         </select>
       </label>
 
       {selected?.estimateDisplay === "gated" && (
         <p className="text-[11px] text-amber-600 dark:text-amber-400">
-          This service is set to “don&rsquo;t show a price”, so this step will
-          show your callback message instead of a number. Change that in
-          Settings → Instant quotes if you want a figure on screen.
+          {t("app.funnels.gatedService")}
         </p>
       )}
       {selected?.estimateDisplay === "after_submit" && (
         <p className="text-[11px] text-amber-600 dark:text-amber-400">
-          This service reveals its range only after someone submits, so the price
-          appears after the contact step whichever order you pick below.
+          {t("app.funnels.afterSubmitService")}
         </p>
       )}
 
       <div>
-        <div className="text-xs text-muted-foreground mb-1.5">Order</div>
+        <div className="text-xs text-muted-foreground mb-1.5">
+          {t("app.funnels.orderLabel")}
+        </div>
         <div className="flex flex-col gap-1.5">
           {[
             {
               value: "price_first",
-              title: "Price first, then their details",
-              hint: "Fewer contacts, each much warmer. This is what the step is for.",
+              titleKey: "app.funnels.order.priceFirst",
+              hintKey: "app.funnels.order.priceFirstHint",
             },
             {
               value: "details_first",
-              title: "Their details first, then the price",
-              hint: "More contacts, colder — plenty of them only wanted the number.",
+              titleKey: "app.funnels.order.detailsFirst",
+              hintKey: "app.funnels.order.detailsFirstHint",
             },
           ].map((o) => {
             const on = (step.order || DEFAULT_ESTIMATE_ORDER) === o.value;
@@ -987,8 +1034,12 @@ function EstimateStepEditor({ step, onChange, iqTrades, iqError }) {
                   on ? "border-foreground bg-accent" : "border-border"
                 }`}
               >
-                <div className="text-xs font-semibold text-foreground">{o.title}</div>
-                <div className="text-[11px] text-muted-foreground">{o.hint}</div>
+                <div className="text-xs font-semibold text-foreground">
+                  {t(o.titleKey)}
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  {t(o.hintKey)}
+                </div>
               </button>
             );
           })}
@@ -998,7 +1049,7 @@ function EstimateStepEditor({ step, onChange, iqTrades, iqError }) {
       {choices.length > 0 && (
         <div>
           <div className="text-xs text-muted-foreground mb-1.5">
-            Assume for every visitor
+            {t("app.funnels.assumeForAll")}
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {choices.map((c) => (
@@ -1013,7 +1064,7 @@ function EstimateStepEditor({ step, onChange, iqTrades, iqError }) {
                   }
                   className="w-full mt-1 border border-border rounded-lg px-2 py-1.5 text-sm bg-card"
                 >
-                  <option value="">Leave to the estimator&rsquo;s default</option>
+                  <option value="">{t("app.funnels.assumeDefault")}</option>
                   {c.options.map((o) => (
                     <option key={o} value={o}>
                       {o.replace(/_/g, " ")}
@@ -1024,14 +1075,13 @@ function EstimateStepEditor({ step, onChange, iqTrades, iqError }) {
             ))}
           </div>
           <p className="text-[11px] text-muted-foreground mt-1">
-            A funnel can&rsquo;t ask everything, so state it once here. An
-            exterior job left unset is priced as interior.
+            {t("app.funnels.assumeHint")}
           </p>
         </div>
       )}
 
       <Field
-        label="Size question"
+        label={t("app.funnels.field.sizeQuestion")}
         value={step.sizeQuestion}
         onChange={(v) => onChange({ sizeQuestion: v })}
       />
@@ -1039,7 +1089,7 @@ function EstimateStepEditor({ step, onChange, iqTrades, iqError }) {
       {step.trade && (
         <div>
           <div className="text-xs text-muted-foreground mb-1.5">
-            Size options — the visitor taps one
+            {t("app.funnels.sizeOptions")}
           </div>
           <div className="space-y-2">
             {bands.map((b, i) => (
@@ -1048,7 +1098,7 @@ function EstimateStepEditor({ step, onChange, iqTrades, iqError }) {
                   <input
                     value={b.label || ""}
                     onChange={(e) => setBand(i, { label: e.target.value })}
-                    placeholder="What they see, e.g. “One room, about 200 sq ft”"
+                    placeholder={t("app.funnels.sizeOptionPlaceholder")}
                     className="flex-1 border border-border rounded px-2 py-1 text-xs bg-card"
                   />
                   <button
@@ -1081,12 +1131,10 @@ function EstimateStepEditor({ step, onChange, iqTrades, iqError }) {
             onClick={addBand}
             className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-foreground"
           >
-            <Plus size={12} /> Add size option
+            <Plus size={12} /> {t("app.funnels.addSizeOption")}
           </button>
           <p className="text-[11px] text-muted-foreground mt-1">
-            The measurement never leaves this page — the visitor&rsquo;s phone
-            sends which option they tapped and the price is worked out here from
-            your saved rates.
+            {t("app.funnels.sizeOptionsHint")}
           </p>
         </div>
       )}
@@ -1104,6 +1152,12 @@ function EstimateStepEditor({ step, onChange, iqTrades, iqError }) {
 
 // A faithful single-step preview in a phone frame, brand-accented.
 function StepPreview({ step, accent, company }) {
+  // Only the EDITOR'S annotations inside this frame are keyed — "No step
+  // selected", "Add a size option", the note under the placeholder price.
+  // Everything that stands in for the funnel's own copy stays as it is,
+  // because that is the text a homeowner will read and it belongs to the
+  // contractor, not to the interface. See the note on STEP_KINDS.
+  const { t } = useTranslation();
   const on = readableForeground(accent);
   return (
     <div
@@ -1113,7 +1167,7 @@ function StepPreview({ step, accent, company }) {
       <div className="w-full bg-white rounded-xl p-5 shadow-lg">
         {!step ? (
           <p className="text-sm text-neutral-500 text-center">
-            No step selected
+            {t("app.funnels.noStepSelected")}
           </p>
         ) : step.kind === "thankyou" ? (
           <div className="text-center py-4">
@@ -1183,7 +1237,7 @@ function StepPreview({ step, accent, company }) {
             <div className="mt-2 space-y-2">
               {(step.bands || []).length === 0 ? (
                 <div className="border border-dashed border-black/15 rounded-lg px-3 py-4 text-center text-xs text-neutral-400">
-                  Add a size option
+                  {t("app.funnels.previewAddSizeOption")}
                 </div>
               ) : (
                 (step.bands || []).map((b) => (
@@ -1206,8 +1260,8 @@ function StepPreview({ step, accent, company }) {
               </div>
               <div className="text-[11px] text-neutral-400 mt-1">
                 {step.order === "details_first"
-                  ? "Their price appears here after the contact step"
-                  : "Their price appears here, before the contact step"}
+                  ? t("app.funnels.previewPriceAfter")
+                  : t("app.funnels.previewPriceBefore")}
               </div>
             </div>
           </div>
@@ -1218,7 +1272,12 @@ function StepPreview({ step, accent, company }) {
               <p className="text-xs text-[#2d2520]/70 mt-1">{step.subhead}</p>
             )}
             <div className="mt-3 border-2 border-dashed border-black/15 rounded-lg py-6 text-center text-xs text-neutral-400">
-              Tap to add photos
+              {/* Editor chrome, not funnel copy: the live step renders
+                  MediaUploader, which has its own control and resolves the
+                  VISITOR's language. This dashed box is a stand-in for it, the
+                  same way "$—— – $——" stands in for a price, so it follows the
+                  contractor's language like the rest of the preview frame. */}
+              {t("app.funnels.previewAddPhotos")}
             </div>
           </div>
         ) : (

@@ -3,11 +3,24 @@
 // The company's activity log — a plain, readable trail of who did what.
 // Owner/admin only (the API enforces it too). Deliberately simple: this is a
 // record to consult when something looks wrong, not a dashboard.
+//
+// ── What a row says, and in which language ─────────────────────────────────
+//
+// `summary` is a sentence somebody wrote at the moment the action happened,
+// stored in English. A row from March says what it said in March and this
+// screen renders it verbatim — a log that changes retroactively is not a log,
+// and rewriting stored rows would be editing the customer's own records.
+//
+// A row written since lib/activity/log.js grew `summaryKey` also carries a
+// catalogue key and its parameters, and THAT is rendered in the reader's
+// language. So the log translates forward, never backward, and a mixed list is
+// the honest picture of a company's history rather than a retouched one.
 "use client";
 
 import { useEffect, useState } from "react";
 import { Loader2, Activity as ActivityIcon, ShieldAlert } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { formatShortDate } from "@/lib/format/localeDate";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 // Small dot colour per action family, so the eye can scan for deletes/payments.
@@ -25,28 +38,56 @@ function toneFor(action) {
   return "bg-muted-foreground";
 }
 
-function timeAgo(iso) {
+/**
+ * "just now" / "4m ago" / "3d ago", in the reader's language.
+ *
+ * Intl.RelativeTimeFormat rather than nine sets of "{n}m ago": the unit
+ * abbreviations and their word order are CLDR's job, and every runtime already
+ * has them. The English version also fell off a cliff at 30 days into
+ * `toLocaleDateString()` with NO locale argument, which uses the BROWSER's —
+ * so a Spanish interface on an English-locale laptop printed "9/10/2026"
+ * beside translated copy. The interface language is the statement the user
+ * made; the OS language is not. Past 30 days it hands off to
+ * lib/format/localeDate.js, which is where every other back-office date goes.
+ */
+function timeAgo(iso, language) {
   const then = new Date(iso).getTime();
   const s = Math.max(0, Math.round((Date.now() - then) / 1000));
-  if (s < 60) return "just now";
+  let rtf;
+  try {
+    rtf = new Intl.RelativeTimeFormat(language, {
+      numeric: "auto",
+      style: "narrow",
+    });
+  } catch {
+    rtf = null;
+  }
+  // `numeric: "auto"` is what turns -0 seconds into "now" rather than "0
+  // seconds ago" — and into "ahora" / "maintenant" without a second table.
+  if (!rtf) return formatShortDate(iso, language);
+  if (s < 60) return rtf.format(0, "second");
   const m = Math.round(s / 60);
-  if (m < 60) return `${m}m ago`;
+  if (m < 60) return rtf.format(-m, "minute");
   const h = Math.round(m / 60);
-  if (h < 24) return `${h}h ago`;
+  if (h < 24) return rtf.format(-h, "hour");
   const d = Math.round(h / 24);
-  if (d < 30) return `${d}d ago`;
-  return new Date(iso).toLocaleDateString();
+  if (d < 30) return rtf.format(-d, "day");
+  return formatShortDate(iso, language);
 }
 
 export default function ActivityPage() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [entries, setEntries] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
     fetchJson("/api/activity")
       .then((d) => setEntries(d.entries))
-      .catch((e) => setError(e.message || "Could not load activity"));
+      .catch((e) => setError(e.message || t("app.activity.loadError")));
+    // `t` is stable per language and this load is not language-dependent;
+    // re-running it on a language switch would refetch the whole log to change
+    // one error string that is almost never on screen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -61,9 +102,7 @@ export default function ActivityPage() {
             team access changes, client contact edits. Those are logged now, so
             the sentence lists them by name rather than gesturing at a category
             — a promise this page can actually keep. */}
-        A record of important actions in your account — quotes sent, payments
-        recorded, hours added and approved, expenses, client and team changes,
-        pricing and settings. Kept so you can always see who did what.
+        {t("app.activity.intro")}
       </p>
 
       {error && (
@@ -97,17 +136,25 @@ export default function ActivityPage() {
                     not English, and reads as a bug when it is set in the same
                     type as a sentence. Shown as what it is instead. */}
                 {e.summary ? (
-                  <p className="text-sm text-foreground">{e.summary}</p>
+                  <p className="text-sm text-foreground">
+                    {/* The stored English is the FALLBACK, which is exactly
+                        right: a row written before summaryKey existed has no
+                        key, t() falls through to it, and history reads as it
+                        was written. */}
+                    {e.summaryKey
+                      ? t(e.summaryKey, e.summary, e.summaryParams || {})
+                      : e.summary}
+                  </p>
                 ) : (
                   <p className="text-xs font-mono text-muted-foreground">{e.action}</p>
                 )}
                 <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
-                  <span>{e.actorName || "Someone"}</span>
+                  <span>{e.actorName || t("app.activity.someone")}</span>
                   {e.actorRole && <span className="text-muted-foreground/70">· {e.actorRole}</span>}
-                  <span>· {timeAgo(e.createdAt)}</span>
+                  <span>· {timeAgo(e.createdAt, language)}</span>
                   {e.viaImpersonation && (
                     <span className="inline-flex items-center gap-1 text-amber-600">
-                      <ShieldAlert size={12} /> support session
+                      <ShieldAlert size={12} /> {t("app.activity.supportSession")}
                     </span>
                   )}
                 </p>

@@ -123,6 +123,8 @@ export async function POST(request) {
       entityType: "client",
       entityId: client.id,
       summary: `Added client ${client.name}`,
+      summaryKey: "app.activity.event.clientAdded",
+      summaryParams: { name: client.name },
     });
 
     return NextResponse.json(client, { status: 201 });

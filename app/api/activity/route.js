@@ -49,6 +49,9 @@ export async function GET(request) {
       entityType: true,
       entityId: true,
       summary: true,
+      // For metadata.i18n only — see below. Selected whole because Prisma
+      // cannot project into a Json column.
+      metadata: true,
       actorName: true,
       actorRole: true,
       viaImpersonation: true,
@@ -56,5 +59,28 @@ export async function GET(request) {
     },
   });
 
-  return NextResponse.json({ entries });
+  // ── Only the i18n pair leaves, never the rest of metadata ────────────────
+  //
+  // recordActivity puts a translation key and its parameters in
+  // `metadata.i18n` so a row written today renders in the READER's language
+  // rather than in the language of whoever triggered it. The rest of metadata
+  // is per-event bookkeeping — ids, amounts, provider payloads — that this
+  // screen has never shown and has no reason to ship to a browser, so it is
+  // dropped here rather than widened into the response by accident.
+  //
+  // A row with no key (every row written before this existed) comes back with
+  // neither field and renders its stored English summary, which is what it has
+  // always said and what it will keep saying.
+  return NextResponse.json({
+    entries: entries.map(({ metadata, ...entry }) => {
+      const i18n = metadata && typeof metadata === "object" ? metadata.i18n : null;
+      return {
+        ...entry,
+        ...(i18n?.key ? { summaryKey: i18n.key } : {}),
+        ...(i18n?.params && typeof i18n.params === "object"
+          ? { summaryParams: i18n.params }
+          : {}),
+      };
+    }),
+  });
 }

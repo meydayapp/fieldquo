@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { CHECKLIST_PHASES, PHASE_LABELS } from "@/lib/jobs/checklistItems";
+import { CHECKLIST_PHASES, phaseLabelKey } from "@/lib/jobs/checklistItems";
 
 const blankDraft = () => ({
   id: null,
@@ -270,7 +270,7 @@ export default function ChecklistsPage() {
 
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">
-              When in the visit
+              {t("app.checklists.phaseLabel")}
             </label>
             <select
               value={draft.phase}
@@ -279,14 +279,12 @@ export default function ChecklistsPage() {
             >
               {CHECKLIST_PHASES.map((phase) => (
                 <option key={phase} value={phase}>
-                  {PHASE_LABELS[phase]}
+                  {t(phaseLabelKey(phase))}
                 </option>
               ))}
             </select>
             <p className="text-xs text-muted-foreground mt-1">
-              Site prep and materials before, the work itself during, cleanup
-              and the client walkthrough after. A visit groups its checklist
-              under these headings.
+              {t("app.checklists.phaseHint")}
             </p>
           </div>
 
@@ -393,13 +391,13 @@ export default function ChecklistsPage() {
                     onClick={() => edit(tpl)}
                     className="text-sm font-semibold text-muted-foreground hover:text-foreground"
                   >
-                    Edit
+                    {t("app.action.edit")}
                   </button>
                   <button
                     onClick={() => remove(tpl)}
                     disabled={Boolean(busyId)}
                     className="text-muted-foreground hover:text-red-600 dark:text-red-400 disabled:opacity-50"
-                    aria-label="Delete checklist"
+                    aria-label={t("app.checklists.deleteLabel")}
                   >
                     <Trash2 size={15} />
                   </button>
@@ -415,12 +413,10 @@ export default function ChecklistsPage() {
           <div>
             <h2 className="font-semibold text-foreground flex items-center gap-2">
               <Sparkles size={15} className="text-muted-foreground" />
-              Starter checklists for your trades
+              {t("app.checklists.starterTitle")}
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Written for the services you have switched on. Nothing here is
-              applied to a job on its own — take a copy, cut what doesn&apos;t
-              suit you, and it becomes yours to edit.
+              {t("app.checklists.starterBody")}
             </p>
           </div>
 
@@ -433,7 +429,7 @@ export default function ChecklistsPage() {
                   onClick={() => copySuggestion(tpl)}
                   className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-muted"
                 >
-                  <Plus size={13} /> Use this
+                  <Plus size={13} /> {t("app.checklists.useThis")}
                 </button>
               }
             />
@@ -448,6 +444,7 @@ export default function ChecklistsPage() {
 // passed in, so a suggestion can never pick up an Edit button by copy-paste
 // drift between two near-identical blocks.
 function TemplateCard({ template, actions, dimmed = false }) {
+  const { t } = useTranslation();
   const items = Array.isArray(template.items) ? template.items : [];
   const phase = template.phase || "during";
 
@@ -462,10 +459,14 @@ function TemplateCard({ template, actions, dimmed = false }) {
           <div className="font-semibold text-foreground">{template.name}</div>
           <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
             <span className="px-2 py-0.5 rounded-full border border-border">
-              {PHASE_LABELS[phase] || PHASE_LABELS.during}
+              {t(phaseLabelKey(phase))}
             </span>
             <span>
-              {items.length} step{items.length === 1 ? "" : "s"}
+              {/* countedNoun, not `step${n === 1 ? "" : "s"}`: French and
+                  Punjabi treat ZERO as singular and Ukrainian has three forms.
+                  The English ternary was right for English and wrong for four
+                  of the nine languages this renders in. */}
+              {t("app.checklists.stepCount", { value: items.length })}
               {template.category?.label && ` · ${template.category.label}`}
             </span>
           </div>

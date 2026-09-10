@@ -1066,13 +1066,15 @@ export default function VoiceSettingsPage() {
 
         {freeOnly && (
           <p className="text-xs text-muted-foreground mt-1.5">
-            Free trial minutes included — the receptionist can start answering on this now, no top-up needed.
+            {t("app.voiceSettings.freeTrialMinutes")}
           </p>
         )}
 
         {/* Retitled so the buttons below read as "buy more", not the balance
             above. They are Stripe purchases; the two were easy to conflate. */}
-        <p className="text-sm font-medium text-foreground mt-4">Add credit</p>
+        <p className="text-sm font-medium text-foreground mt-4">
+          {t("app.voiceSettings.addCredit")}
+        </p>
         <div className="mt-2 flex flex-wrap gap-2">
           {pricing.topups.map((topup) => (
             <button
@@ -1270,20 +1272,21 @@ export default function VoiceSettingsPage() {
             {number.status === "porting" && (
               <div className="rounded-lg border border-border bg-muted px-4 py-3 space-y-2">
                 <p className="text-sm font-semibold text-foreground">
-                  Requested — not moved yet
+                  {t("app.voiceSettings.port.requested")}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Moving a number is not something a button can finish. Your old provider needs
-                  paperwork and account details from you, and it takes two to four weeks on their
-                  schedule. Somebody here has to action it with them, and we&apos;ll contact you
-                  about what they need.
+                  {t("app.voiceSettings.port.explain")}
+                  {/* The estimate is APPENDED only when there is one. A
+                      `?? "soon"` here would be the padding-absent-data defect:
+                      a date nobody set, read as a promise. */}
                   {number.portExpectedAt
-                    ? ` Best estimate: ${showDate(number.portExpectedAt)}.`
+                    ? ` ${t("app.voiceSettings.port.estimate", {
+                        date: showDate(number.portExpectedAt),
+                      })}`
                     : ""}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Until it lands, this number is still with your old provider and works exactly as
-                  it always did. The receptionist cannot answer on it.
+                  {t("app.voiceSettings.port.stillWithOldProvider")}
                 </p>
                 <button
                   type="button"
@@ -1291,11 +1294,10 @@ export default function VoiceSettingsPage() {
                   onClick={cancelPort}
                   className="mt-1 px-4 py-2 rounded-full border border-border text-sm text-foreground hover:bg-muted disabled:opacity-50"
                 >
-                  Cancel this request
+                  {t("app.voiceSettings.port.cancel")}
                 </button>
                 <p className="text-xs text-muted-foreground">
-                  Cancelling costs nothing and frees you to forward or buy instead — which is what
-                  most people should do anyway.
+                  {t("app.voiceSettings.port.cancelHint")}
                 </p>
               </div>
             )}
@@ -1468,18 +1470,31 @@ export default function VoiceSettingsPage() {
                 }`}
               >
                 <div className="flex items-baseline gap-2">
-                  <p className="font-semibold text-foreground">{s.label}</p>
+                  {/* label / blurb / caveat come out of NUMBER_SOURCES in
+                      lib/voice/numbers.js, which is English and stays English:
+                      it is also read by the server, and a lib/ module that
+                      resolves a UI language is a lib/ module that renders the
+                      wrong one in a cron job. The KEY is derived from `s.key`
+                      instead, so the single source of truth for WHICH options
+                      exist stays where it is and only the words move. */}
+                  <p className="font-semibold text-foreground">
+                    {t(`app.voiceSettings.source.${s.key}.label`, s.label)}
+                  </p>
                   {s.recommended && (
                     <span className="text-[11px] font-bold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
                       {t("app.setVoice.recommended", "Recommended")}
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-muted-foreground mt-1">{s.blurb}</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {t(`app.voiceSettings.source.${s.key}.blurb`, s.blurb)}
+                </p>
                 {/* The downside, stated before they choose rather than after.
                     Porting especially — two to four weeks on someone else's
                     schedule is not a detail to discover afterwards. */}
-                <p className="text-xs text-muted-foreground mt-1.5">{s.caveat}</p>
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  {t(`app.voiceSettings.source.${s.key}.caveat`, s.caveat)}
+                </p>
 
                 {/* Each path gets the control that path actually needs.
                     An earlier version showed the same "Local / Toll-free"

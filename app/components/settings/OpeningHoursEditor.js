@@ -18,21 +18,35 @@
 // data, which is what puts "Open ⋅ Closes 5 PM" in a Google result. That box
 // is read by people who never load the site — for most contractors it is the
 // single highest-leverage field on this page.
+//
+// ── The day names are Intl's, not the catalogue's ───────────────────────────
+//
+// This table read "Sunday / Monday / Tuesday" under a heading that said
+// "Horario de apertura", because it imported DAY_LABELS — which is the
+// schema.org `dayOfWeek` table and is English by design, since
+// https://schema.org/Monday is that URL in every language. Seven more
+// catalogue keys would have been the wrong fix: a weekday is not product copy,
+// every runtime ships CLDR's, and a hand-written table is seven strings to
+// forget the next time a language is added. lib/format/dayNames.js is the one
+// helper; the tenant website already used it under its old name, and
+// lib/format/localeDate.js is the app-facing wrapper every back-office screen
+// with a weekday in it now shares — this one included, so there is one
+// capitalisation rule and one locale map rather than two.
 "use client";
 
 import { useState } from "react";
 import { Copy, Check, Loader2 } from "lucide-react";
-import {
-  DAY_LABELS,
-  DEFAULT_HOURS,
-  normaliseHours,
-} from "@/lib/company/businessHours";
+import { DEFAULT_HOURS, normaliseHours } from "@/lib/company/businessHours";
+import { weekdayName } from "@/lib/format/localeDate";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
 
 const inputClass =
   "border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground disabled:opacity-50";
 
 export default function OpeningHoursEditor({ value, weekStartsOn = 0, onSaved }) {
+  const { t, language } = useTranslation();
+  const dayLabel = (index) => weekdayName(index, language);
   // normaliseHours guarantees seven well-formed rows whatever came out of the
   // Json column, so nothing below needs a length or shape check.
   //
@@ -85,7 +99,9 @@ export default function OpeningHoursEditor({ value, weekStartsOn = 0, onSaved })
         body: JSON.stringify({ businessHours: rows }),
       });
       if (!res.ok) {
-        setError(await reportResponseError(res, "Couldn't save opening hours."));
+        setError(
+          await reportResponseError(res, t("app.companySettings.hours.saveFailed")),
+        );
         return;
       }
       const updated = await res.json();
@@ -98,7 +114,7 @@ export default function OpeningHoursEditor({ value, weekStartsOn = 0, onSaved })
       setSaved(true);
       onSaved?.(stored);
     } catch (err) {
-      setError(err?.message || "Couldn't save opening hours.");
+      setError(err?.message || t("app.companySettings.hours.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -121,11 +137,13 @@ export default function OpeningHoursEditor({ value, weekStartsOn = 0, onSaved })
                 onChange={(e) => update(row.day, { closed: !e.target.checked })}
                 className="rounded border-border"
               />
-              <span className="text-sm text-foreground">{DAY_LABELS[row.day]}</span>
+              <span className="text-sm text-foreground">{dayLabel(row.day)}</span>
             </label>
 
             {row.closed ? (
-              <span className="text-sm text-muted-foreground">Closed</span>
+              <span className="text-sm text-muted-foreground">
+                {t("app.companySettings.hours.closed")}
+              </span>
             ) : (
               <div className="flex items-center gap-2">
                 <input
@@ -134,7 +152,9 @@ export default function OpeningHoursEditor({ value, weekStartsOn = 0, onSaved })
                   onChange={(e) => update(row.day, { open: e.target.value })}
                   className={inputClass}
                 />
-                <span className="text-sm text-muted-foreground">to</span>
+                <span className="text-sm text-muted-foreground">
+                  {t("app.companySettings.hours.to")}
+                </span>
                 <input
                   type="time"
                   value={row.close}
@@ -146,7 +166,7 @@ export default function OpeningHoursEditor({ value, weekStartsOn = 0, onSaved })
                     it coming reads that as the form losing their input. */}
                 {row.close <= row.open && (
                   <span className="text-xs text-destructive">
-                    Closing time must be after opening.
+                    {t("app.companySettings.hours.closeBeforeOpen")}
                   </span>
                 )}
               </div>
@@ -161,8 +181,10 @@ export default function OpeningHoursEditor({ value, weekStartsOn = 0, onSaved })
           onClick={copyDown}
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         >
-          <Copy size={14} /> Apply {DAY_LABELS[display[0].day]}&apos;s times to
-          every open day
+          <Copy size={14} />{" "}
+          {t("app.companySettings.hours.applyToAll", {
+            day: dayLabel(display[0].day),
+          })}
         </button>
 
         <button
@@ -173,13 +195,13 @@ export default function OpeningHoursEditor({ value, weekStartsOn = 0, onSaved })
           }}
           className="text-sm text-muted-foreground hover:text-foreground"
         >
-          Reset to typical trade hours
+          {t("app.companySettings.hours.reset")}
         </button>
 
         <div className="ml-auto flex items-center gap-3">
           {saved && (
             <span className="inline-flex items-center gap-1.5 text-sm text-emerald-600">
-              <Check size={15} /> Saved
+              <Check size={15} /> {t("app.companySettings.hours.saved")}
             </span>
           )}
           <button
@@ -189,7 +211,9 @@ export default function OpeningHoursEditor({ value, weekStartsOn = 0, onSaved })
             className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-2"
           >
             {saving && <Loader2 size={15} className="animate-spin" />}
-            {saving ? "Saving…" : "Save opening hours"}
+            {saving
+              ? t("app.companySettings.hours.saving")
+              : t("app.companySettings.hours.save")}
           </button>
         </div>
       </div>
@@ -198,8 +222,7 @@ export default function OpeningHoursEditor({ value, weekStartsOn = 0, onSaved })
 
       {allClosed && (
         <p className="text-xs text-muted-foreground mt-2">
-          Every day is marked closed, so no hours will appear on your website or
-          in search results.
+          {t("app.companySettings.hours.allClosed")}
         </p>
       )}
     </div>

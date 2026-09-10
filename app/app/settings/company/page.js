@@ -134,6 +134,12 @@ function SectionCard({ id, title, description, children }) {
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
+// The shape of a website address, not a sentence. Nine catalogue entries all
+// holding the same URL would be nine chances for one of them to acquire a
+// typo, so this is a constant rather than a key — and a constant rather than
+// an inline literal so the i18n check can tell the two cases apart.
+const WEBSITE_PLACEHOLDER = "https://yourcompany.com";
+
 // ── Read-only, not hidden ──────────────────────────────────────────────────
 //
 // Half of this page is genuinely useful to anyone in the company. When is the
@@ -424,12 +430,12 @@ function CompanyReadOnly({
           about it. Leaving them out of this view meant the only way to see the
           terms you were sending was to send one. */}
       <SectionCard
-        title="Scope of work and terms"
-        description="Copied onto every new quote, then editable on the quote itself."
+        title={t("app.companySettings.scope.title")}
+        description={t("app.companySettings.scope.readOnlyDescription")}
       >
         <div>
           <dt className="text-xs font-medium text-muted-foreground">
-            Default scope of work
+            {t("app.companySettings.scope.defaultLabel")}
           </dt>
           {form.defaultProcessNotes ? (
             <>
@@ -440,12 +446,14 @@ function CompanyReadOnly({
                 <p className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
                   {/* Worth saying to someone who cannot fix it: they are the
                       person who will be asked about it on a doorstep. */}
-                  {unfilledPlaceholders(form.defaultProcessNotes).length} thing
-                  {unfilledPlaceholders(form.defaultProcessNotes).length === 1
-                    ? ""
-                    : "s"}{" "}
-                  in here still to decide, and they print on the quote exactly
-                  as they appear. Ask an owner or admin to finish them:{" "}
+                  {/* countedNoun, not `thing${n === 1 ? "" : "s"}`: the
+                      English rule was being applied to nine languages, four of
+                      which do not share it. */}
+                  {t("app.companySettings.scope.unfilledReadOnly", {
+                    things: t("app.companySettings.scope.thingCount", {
+                      value: unfilledPlaceholders(form.defaultProcessNotes).length,
+                    }),
+                  })}{" "}
                   <span className="font-mono">
                     {unfilledPlaceholders(form.defaultProcessNotes)
                       .slice(0, 6)
@@ -456,15 +464,15 @@ function CompanyReadOnly({
             </>
           ) : (
             <dd className="mt-0.5 text-sm italic text-muted-foreground">
-              Not set — quotes carry no default scope of work
+              {t("app.companySettings.scope.notSet")}
             </dd>
           )}
         </div>
         <dl>
           <ReadOnlyField
-            label="Payment terms"
+            label={t("app.companySettings.terms.label")}
             value={form.paymentTerms}
-            empty="Not set — the payment section does not appear on quotes"
+            empty={t("app.companySettings.terms.notSet")}
           />
         </dl>
       </SectionCard>
@@ -869,13 +877,13 @@ export default function CompanySettingsPage() {
           has to own is left in [brackets] so an unedited template is visibly
           unfinished rather than quietly promising a warranty nobody agreed to. */}
       <SectionCard
-        title="Scope of work and terms"
-        description="Copied onto every new quote, then editable on the quote itself. A quote that says what will happen — how deep the excavation goes, who hauls the old surface away, what changes cost — is the one that reads like somebody who has done the job before."
+        title={t("app.companySettings.scope.title")}
+        description={t("app.companySettings.scope.description")}
       >
         <div>
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <span className="text-xs text-muted-foreground">
-              Start from a trade template:
+              {t("app.companySettings.scope.templatePrompt")}
             </span>
             {contractTemplateList().map((tpl) => {
               // Each button is a TOGGLE, not an add. It used to append on every
@@ -904,8 +912,12 @@ export default function CompanySettingsPage() {
                   }
                   title={
                     applied
-                      ? `Remove the ${tpl.label} terms`
-                      : `Add the ${tpl.label} terms`
+                      ? t("app.companySettings.scope.removeTemplate", {
+                          trade: tpl.label,
+                        })
+                      : t("app.companySettings.scope.addTemplate", {
+                          trade: tpl.label,
+                        })
                   }
                   className={
                     applied
@@ -924,17 +936,16 @@ export default function CompanySettingsPage() {
             onChange={(e) =>
               setForm({ ...form, defaultProcessNotes: e.target.value })
             }
-            placeholder="What happens, in what order, and what is not included. Pick a trade template above to start from one."
+            placeholder={t("app.companySettings.scope.placeholder")}
             className="w-full rounded border border-border bg-background px-3 py-2 font-mono text-xs leading-relaxed"
           />
           {unfilledPlaceholders(form.defaultProcessNotes).length > 0 && (
             <p className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-              {unfilledPlaceholders(form.defaultProcessNotes).length} thing
-              {unfilledPlaceholders(form.defaultProcessNotes).length === 1
-                ? ""
-                : "s"}{" "}
-              still to decide, and they will print on the quote exactly as they
-              appear here:{" "}
+              {t("app.companySettings.scope.unfilled", {
+                things: t("app.companySettings.scope.thingCount", {
+                  value: unfilledPlaceholders(form.defaultProcessNotes).length,
+                }),
+              })}{" "}
               <span className="font-mono">
                 {unfilledPlaceholders(form.defaultProcessNotes)
                   .slice(0, 6)
@@ -945,12 +956,14 @@ export default function CompanySettingsPage() {
         </div>
 
         <div>
-          <label className="text-xs text-muted-foreground">Payment terms</label>
+          <label className="text-xs text-muted-foreground">
+            {t("app.companySettings.terms.label")}
+          </label>
           <input
             value={form.paymentTerms || ""}
             onChange={(e) => setForm({ ...form, paymentTerms: e.target.value })}
             disabled={Boolean(scheduleActive)}
-            placeholder="e.g. 50% deposit, balance on completion — or Net 30"
+            placeholder={t("app.companySettings.terms.placeholder")}
             className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm disabled:opacity-60"
           />
           <p className="mt-1 text-xs text-muted-foreground">
@@ -1099,7 +1112,7 @@ export default function CompanySettingsPage() {
             </label>
             <input
               className={inputClass}
-              placeholder="https://yourcompany.com"
+              placeholder={WEBSITE_PLACEHOLDER}
               value={form.website}
               onChange={(e) => set("website", e.target.value)}
             />

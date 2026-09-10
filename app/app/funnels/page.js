@@ -1,8 +1,22 @@
 // app/app/funnels/page.js
 //
 // The funnels dashboard — create a lead funnel from a channel template (or with
-// AI), see how each is doing, open the builder. English-first like the public
-// funnel and self-quote flow; a full i18n pass is a follow-up.
+// AI), see how each is doing, open the builder.
+//
+// ── The i18n pass this header used to promise ──────────────────────────────
+//
+// This said "English-first like the public funnel and self-quote flow; a full
+// i18n pass is a follow-up", and the follow-up did not happen — so a Spanish
+// account read "Funnels / Mobile-first, tap-through lead funnels… / New funnel
+// / No funnels yet" under a translated sidebar. Half-translated reads as
+// broken; wholly English inside a Spanish shell reads as broken too. Every
+// string a person reads on this page now goes through t(), and
+// lib/funnels/status.js — which held English under a note saying it would
+// change when this pass happened — holds keys.
+//
+// The CHANNEL names below stay as they are on purpose: TikTok, Instagram and
+// YouTube are trademarks, and "Web" is the odd one out only because it is the
+// absence of a platform rather than the name of one.
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -23,13 +37,8 @@ import { can } from "@/lib/permissions";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import { funnelStatusLabel } from "@/lib/funnels/status";
 import { usePermissions } from "@/app/providers/PermissionProvider";
-// This page is otherwise still English — a keying pass of its own, not this
-// one. The delete dialog is keyed here anyway because it was carrying the
-// `${n === 1 ? "" : "s"}` defect on a destructive control, and because
-// DeleteConfirmModal's own buttons are translated now: leaving the sentence
-// above them in English made the dialog read as half-finished in every
-// language.
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { formatShortDate } from "@/lib/format/localeDate";
 
 const CHANNEL_LABEL = {
   web: "Web",
@@ -40,7 +49,7 @@ const CHANNEL_LABEL = {
 
 export default function FunnelsPage() {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   // ── Every control on this page is a manager's control ────────────────────
   //
   // POST /api/funnels, POST /api/funnels/generate and DELETE
@@ -97,7 +106,8 @@ export default function FunnelsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) return reportResponseError(res, setError, "Couldn't create the funnel.");
+      if (!res.ok)
+        return reportResponseError(res, setError, t("app.funnels.createFailed"));
       const f = await res.json();
       router.push(`/app/funnels/${f.id}`);
     } finally {
@@ -115,7 +125,8 @@ export default function FunnelsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: aiPrompt.trim() }),
       });
-      if (!res.ok) return reportResponseError(res, setError, "Couldn't generate the funnel.");
+      if (!res.ok)
+        return reportResponseError(res, setError, t("app.funnels.generateFailed"));
       const f = await res.json();
       router.push(`/app/funnels/${f.id}`);
     } finally {
@@ -148,7 +159,7 @@ export default function FunnelsPage() {
     try {
       const res = await fetch(`/api/funnels/${id}`, { method: "DELETE" });
       if (!res.ok)
-        return reportResponseError(res, setError, "Couldn't delete that funnel.");
+        return reportResponseError(res, setError, t("app.funnels.deleteFailed"));
       setFunnels((prev) => prev.filter((f) => f.id !== id));
       setConfirmFunnel(null);
     } finally {
@@ -161,11 +172,10 @@ export default function FunnelsPage() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Filter size={22} /> Funnels
+            <Filter size={22} /> {t("app.funnels.title")}
           </h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-            Mobile-first, tap-through lead funnels for your ads and link-in-bio. Each
-            one qualifies visitors and drops a scored lead straight into your pipeline.
+            {t("app.funnels.subtitle")}
           </p>
         </div>
         {canManageFunnels && (
@@ -174,7 +184,7 @@ export default function FunnelsPage() {
             className="inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-2 rounded-full text-sm font-semibold shrink-0"
             data-tour="funnels-new"
           >
-            <Plus size={15} /> New funnel
+            <Plus size={15} /> {t("app.funnels.new")}
           </button>
         )}
       </div>
@@ -194,13 +204,13 @@ export default function FunnelsPage() {
           {/* AI */}
           <div>
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground mb-2">
-              <Sparkles size={15} /> Describe it and let AI build it
+              <Sparkles size={15} /> {t("app.funnels.aiTitle")}
             </div>
             <div className="flex gap-2">
               <input
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
-                placeholder="e.g. A TikTok funnel for exterior house painting that qualifies budget and books an estimate"
+                placeholder={t("app.funnels.aiPlaceholder")}
                 className="flex-1 border border-border rounded-lg px-3 py-2 text-sm bg-card"
                 onKeyDown={(e) => e.key === "Enter" && generateWithAI()}
               />
@@ -210,27 +220,42 @@ export default function FunnelsPage() {
                 className="inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
               >
                 {creating ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-                Generate
+                {t("app.funnels.generate")}
               </button>
             </div>
           </div>
 
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <div className="h-px flex-1 bg-border" /> or start from a template <div className="h-px flex-1 bg-border" />
+            <div className="h-px flex-1 bg-border" />
+            {t("app.funnels.orTemplate")}
+            <div className="h-px flex-1 bg-border" />
           </div>
 
           {/* Templates */}
           <div className="grid gap-2 sm:grid-cols-2">
-            {FUNNEL_TEMPLATES.map((t) => (
+            {/* `tpl`, not `t` — the parameter shadowed t() from
+                useTranslation, which is the exact defect check:t-shadow
+                exists to catch and the reason nothing inside this block
+                could be keyed while it was named that. */}
+            {FUNNEL_TEMPLATES.map((tpl) => (
               <button
-                key={t.key}
-                onClick={() => create({ template: t.key })}
+                key={tpl.key}
+                onClick={() => create({ template: tpl.key })}
                 disabled={creating}
                 className="text-left border border-border rounded-lg px-4 py-3 hover:border-foreground/30 transition-colors disabled:opacity-50"
               >
-                <div className="text-sm font-semibold text-foreground">{t.name}</div>
+                <div className="text-sm font-semibold text-foreground">
+                  {/* The template's own `name` is the English label in
+                      lib/funnels/templates.js. Keyed off `key` rather than
+                      translated in the module, because the same module's
+                      `hook`/`sub` become the funnel's CLIENT-FACING copy and
+                      must NOT follow the back office's language — that is the
+                      contractor's text to edit, in whatever language they
+                      sell in. */}
+                  {t(`app.funnels.template.${tpl.key}`, tpl.name)}
+                </div>
                 <div className="text-xs text-muted-foreground mt-0.5">
-                  {CHANNEL_LABEL[t.channel]} · quiz → qualify → capture
+                  {CHANNEL_LABEL[tpl.channel]} · {t("app.funnels.templateFlow")}
                 </div>
               </button>
             ))}
@@ -241,7 +266,7 @@ export default function FunnelsPage() {
             disabled={creating}
             className="text-xs text-muted-foreground hover:text-foreground underline"
           >
-            or start from a blank funnel
+            {t("app.funnels.orBlank")}
           </button>
         </div>
       )}
@@ -255,9 +280,11 @@ export default function FunnelsPage() {
         empty={
           <div className="bg-card border border-border rounded-xl p-12 text-center">
             <Filter size={30} className="text-muted-foreground mx-auto" />
-            <p className="mt-3 font-medium text-foreground">No funnels yet</p>
+            <p className="mt-3 font-medium text-foreground">
+              {t("app.funnels.emptyTitle")}
+            </p>
             <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
-              Build one from a template or describe it to AI — then share the link on your ads.
+              {t("app.funnels.emptyBody")}
             </p>
           </div>
         }
@@ -281,20 +308,30 @@ export default function FunnelsPage() {
                         : "bg-muted text-muted-foreground"
                     }`}
                   >
-                    {funnelStatusLabel(f.status)}
+                    {t(funnelStatusLabel(f.status))}
                   </span>
                 </div>
                 <div className="text-xs text-muted-foreground mt-0.5">
                   {f.channel ? `${CHANNEL_LABEL[f.channel] || f.channel} · ` : ""}
-                  {f._count?.responses || 0} lead{(f._count?.responses || 0) === 1 ? "" : "s"} ·{" "}
-                  updated {new Date(f.updatedAt).toLocaleDateString()}
+                  {/* countedNoun, not `lead${n === 1 ? "" : "s"}` — the same
+                      English plural rule in a template literal that the delete
+                      dialog below already had removed. */}
+                  {t("app.funnels.leadCount", { value: f._count?.responses || 0 })} ·{" "}
+                  {/* Was `toLocaleDateString()` with no argument, which uses
+                      the BROWSER's locale — so a Spanish interface on an
+                      English-locale laptop printed "9/10/2026" beside
+                      translated copy. The interface language is the statement
+                      the user made; the OS language is not. */}
+                  {t("app.funnels.updatedOn", {
+                    date: formatShortDate(f.updatedAt, language),
+                  })}
                 </div>
               </button>
               {canManageFunnels && (
                 <button
                   onClick={() => setConfirmFunnel(f)}
                   className="text-muted-foreground hover:text-red-600"
-                  title="Delete"
+                  title={t("app.action.delete")}
                 >
                   <Trash2 size={16} />
                 </button>
