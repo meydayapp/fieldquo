@@ -33,14 +33,17 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import twilio from "twilio";
 
+import { anyRepLive, repIsLive } from "@/lib/sales/calls/inboundRouting";
+
 import {
   ringPlan,
   reachable,
+  presenceOf,
   noAnswerSay,
   RING_SECONDS,
   MAX_RING_TARGETS,
 } from "@/lib/sales/calls/inboundDistribution";
-import { PRESENCE_STALE_MINUTES } from "@/lib/sales/calls/agentState";
+import { PRESENCE_STALE_MINUTES, livePresence, STATE_AVAILABLE } from "@/lib/sales/calls/agentState";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(ROOT, p), "utf8");
@@ -54,24 +57,49 @@ function ok(name, cond, got) {
 const section = (t) => console.log(`\n${t}\n`);
 
 const NOW = new Date("2026-09-10T12:00:00Z");
-const fresh = (id, mins = 0) => ({ salesRepId: id, state: "available", lastSeenAt: new Date(NOW - mins * 60000) });
+
+// ── Rows built by the REAL producer, not by hand ──────────────────────────
+//
+// The first version of this check wrote `{ salesRepId, state, lastSeenAt }`,
+// which is the shape ringPlan wanted and NOT the shape presenceFor sends —
+// there the state is nested under `presence`. Every assertion passed while the
+// shipped code answered "unreachable" for every rep on the floor. So rows are
+// now made the way production makes them: a SalesRepActivity row through
+// livePresence, wrapped exactly as presenceFor wraps it. If either end of that
+// moves, this check fails instead of the phone.
+const row = (id, { state = STATE_AVAILABLE, mins = 0 } = {}) => ({
+  salesRepId: id,
+  presence: livePresence(
+    { state, startedAt: new Date(NOW - mins * 60000), heartbeatAt: new Date(NOW - mins * 60000), endedAt: null },
+    NOW,
+    { portalSeenAt: new Date(NOW - mins * 60000) },
+  ),
+});
+const fresh = (id, mins = 0) => row(id, { mins });
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("1. Presence is a claim, and a stale claim is not one");
 // ═══════════════════════════════════════════════════════════════════════════
 
 {
-  ok("a fresh available rep is reachable", reachable(fresh("r1"), NOW));
-  ok(`…${PRESENCE_STALE_MINUTES - 1} minutes idle still is`, reachable(fresh("r1", PRESENCE_STALE_MINUTES - 1), NOW));
+  ok("a fresh available rep is reachable", reachable(presenceOf(fresh("r1")), NOW));
+  ok(`…${PRESENCE_STALE_MINUTES - 1} minutes idle still is`, reachable(presenceOf(fresh("r1", PRESENCE_STALE_MINUTES - 1)), NOW));
   // The one that matters: a rep marked available whose browser died would eat
   // twenty seconds of a contractor's patience and then report "no answer",
   // and the fallback that should have caught it never runs.
-  ok(`…${PRESENCE_STALE_MINUTES + 1} minutes is stale`, !reachable(fresh("r1", PRESENCE_STALE_MINUTES + 1), NOW));
-  ok("on_call is not available", !reachable({ salesRepId: "r1", state: "on_call", lastSeenAt: NOW }, NOW));
-  ok("paused is not available", !reachable({ salesRepId: "r1", state: "paused", lastSeenAt: NOW }, NOW));
-  ok("never seen is not available", !reachable({ salesRepId: "r1", state: "available", lastSeenAt: null }, NOW));
-  ok("an unreadable timestamp is not available", !reachable({ salesRepId: "r1", state: "available", lastSeenAt: "soon" }, NOW));
+  ok(`…${PRESENCE_STALE_MINUTES + 1} minutes is stale`, !reachable(presenceOf(fresh("r1", PRESENCE_STALE_MINUTES + 1)), NOW));
+  ok("on_call is not available", !reachable(presenceOf(row("r1", { state: "on_call" })), NOW));
+  ok("paused is not available", !reachable(presenceOf(row("r1", { state: "paused" })), NOW));
+  ok("never seen is not available", !reachable({ state: "available", lastSeenAt: null }, NOW));
+  ok("an unreadable timestamp is not available", !reachable({ state: "available", lastSeenAt: "soon" }, NOW));
   ok("an empty row is not available", !reachable({}, NOW));
+  ok("a null presence is not available", !reachable(null, NOW));
+
+  // The unwrap itself, stated once. This is the assertion whose absence let a
+  // flat read ship: presenceOf must find the state where presenceFor puts it.
+  ok("presenceOf finds the nested state", presenceOf(fresh("r1"))?.state === STATE_AVAILABLE, presenceOf(fresh("r1")));
+  ok("…and a flat row yields nothing rather than a wrong answer", presenceOf({ salesRepId: "r1", state: "available" }) === null);
+  ok("…and livePresence really does nest it", typeof fresh("r1").presence === "object" && fresh("r1").state === undefined);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -87,7 +115,7 @@ section("2. The order, which is the whole design");
   // Rung whatever presence says: their browser decides whether to show a
   // second call, and "the person you were speaking to is ringing back" is
   // worth interrupting for.
-  const busy = ringPlan({ assignedRepId: "daniel", presence: [{ salesRepId: "daniel", state: "on_call", lastSeenAt: NOW }], now: NOW });
+  const busy = ringPlan({ assignedRepId: "daniel", presence: [row("daniel", { state: "on_call" })], now: NOW });
   ok("the owner is rung even mid-call", busy.targets[0]?.salesRepId === "daniel", busy.targets);
 
   const callback = ringPlan({ presence: [fresh("a"), fresh("b")], lastCalledBy: "b", now: NOW });
@@ -176,7 +204,37 @@ section("5. The route uses it, and never dials into an empty plan");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-section("6. The check is wired in");
+section("6. The two ends agree about the shape");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The bug this section exists for: ringPlan read `row.state`, presenceFor
+// wrote `row.presence.state`, and nothing anywhere compared the two. Both
+// halves are asserted against each other here, and against the third consumer
+// (anyRepLive) that had the shape right all along.
+
+{
+  const rows = [fresh("a", 1), fresh("b", 2)];
+  // Availability must SURVIVE the wrapper. If it does not, everything below
+  // step 1 of the ring order is unreachable and no other assertion notices.
+  const plan = ringPlan({ presence: rows, now: NOW });
+  ok("a genuinely available rep produced by livePresence is rung", plan.targets.length > 0, plan);
+  ok("…and the plan says so", plan.reason === "available", plan.reason);
+
+  ok("anyRepLive reads the same nesting", anyRepLive(rows) === true);
+  ok("…and agrees with reachable, row for row",
+    rows.every((r) => reachable(presenceOf(r), NOW) === (repIsLive(presenceOf(r)) === true)));
+
+  // presenceFor returns null, not [], when the presence store is down. A crash
+  // here would be a 500 on an inbound call — the caller hears nothing at all.
+  ok("a null presence list does not throw", ringPlan({ presence: null, now: NOW }).reason === "nobody_signed_in");
+  ok("neither does a row with no presence", ringPlan({ presence: [{ salesRepId: "a" }], now: NOW }).targets.length === 0);
+
+  const store = read("lib/sales/calls/store.js");
+  ok("presenceFor still nests under `presence:`", /presence: livePresence\(/.test(store));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("7. The check is wired in");
 // ═══════════════════════════════════════════════════════════════════════════
 
 {
