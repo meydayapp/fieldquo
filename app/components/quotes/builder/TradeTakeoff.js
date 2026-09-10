@@ -40,6 +40,7 @@ import PaintAreas from "./PaintAreas";
 import LabourPanel from "./LabourPanel";
 import { hasTakeoff } from "@/lib/pricing/takeoffTrades";
 import { pitchBand, roofLabour, roofCrewDays } from "@/lib/pricing/roofLabour";
+import { takeoffPatch, summarise, ventilation } from "@/lib/measure/roofGeometry";
 import { paverLabour, paverCrewDays } from "@/lib/pricing/paverLabour";
 import {
   insulationTakeoff,
@@ -1865,11 +1866,288 @@ function SnowRemovalTakeoff({ takeoff, book, onChange }) {
  *   breakdown, not a total to be trusted. Internal only: none of it reaches the
  *   client's quote, the PDF or the email — the line items above do that.
  */
+/* ── Roofing: measure from an address ──────────────────────────────────── */
+
+/**
+ * The satellite measurement panel above the roofing takeoff.
+ *
+ * ══ What was wrong with the old one ══════════════════════════════════════
+ *
+ * It rendered only when the SELECTED CLIENT had an address saved, so an
+ * estimator quoting a walk-in, or a client whose record has a billing address
+ * and no site address, never saw it at all — which is why the owner reported
+ * that the roof quote cannot take an address. There is now a field: the
+ * client's address fills it when there is one, and it can be typed over,
+ * because the roof being re-roofed is frequently not the address the invoice
+ * goes to.
+ *
+ * And it filled two fields. Area and pitch, out of thirteen. The seven linear
+ * details underneath — ice & water, drip edge, starter, valleys, ridge & hip
+ * cap, ridge vent, step flashing — are a third of the price of a re-roof and
+ * were left at zero, which on this screen reads as "this roof needs none of
+ * them". lib/measure/roofGeometry.js now derives six of the seven from the
+ * same facet geometry; step flashing is roof meeting WALL and no roof model
+ * has walls in it, so it stays blank and the panel says why.
+ *
+ * ══ Two rules it follows ═════════════════════════════════════════════════
+ *
+ * NOTHING IS APPLIED SILENTLY. Every field it writes is listed with its old
+ * value beside the new one, and Undo puts the takeoff back exactly as it was.
+ * An estimator who disagrees with a number types over it; the panel never
+ * fights back and never re-applies.
+ *
+ * AN IMPLAUSIBLE MEASUREMENT IS NOT APPLIED AT ALL. 917 Littlerock St came
+ * back as 119 sqft — a shed 23 m from the pin — and the old panel wrote it in
+ * and said "Measured 119 sqft" as though that were an answer. Now the warnings
+ * come back from the server, the numbers stay out of the form, and the
+ * estimator can look at the satellite image beside them and decide.
+ */
+function RoofMeasurePanel({ takeoff, book, onApply, defaultAddress = "" }) {
+  const money = useCompanyMoney();
+  const [address, setAddress] = useState(defaultAddress);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+  const [before, setBefore] = useState(null);
+
+  // The patch a result would write, and what it is worth. Recomputed rather
+  // than stored: the price book can change under a measurement that is still
+  // on screen, and a stale dollar figure beside a live one is worse than none.
+  const patch = result?.ok && result.linear ? takeoffPatch(result.linear) : null;
+  const report = result?.ok && result.linear ? summarise(result.linear) : null;
+  const vent = result?.ok ? ventilation(result.footprintSqft, result.predominantPitch?.rise) : null;
+
+  const RATE = {
+    iceWaterFt: book?.details?.iceWaterPerLf,
+    dripEdgeFt: book?.details?.dripEdgePerLf,
+    starterFt: book?.details?.starterPerLf,
+    valleyFt: book?.details?.valleyPerLf,
+    ridgeHipFt: book?.details?.ridgeCapPerLf,
+    ridgeVentFt: book?.details?.ridgeVentPerLf,
+  };
+  const LABEL = {
+    areaSqft: "Roof surface",
+    pitchRise: "Pitch",
+    iceWaterFt: "Ice & water membrane",
+    dripEdgeFt: "Drip edge",
+    starterFt: "Starter course",
+    valleyFt: "Valleys",
+    ridgeHipFt: "Ridge & hip cap",
+    ridgeVentFt: "Ridge vent",
+  };
+
+  const detailValue = patch
+    ? Object.entries(patch).reduce((t, [k, v]) => t + num(v) * num(RATE[k]), 0)
+    : 0;
+
+  async function measure() {
+    const query = address.trim();
+    if (!query) return;
+    setBusy(true);
+    setError("");
+    setResult(null);
+    try {
+      const res = await fetch(`/api/measure/roof?address=${encodeURIComponent(query)}`);
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        // Named, not swallowed: an estimator who clicked a button and saw
+        // nothing happen has no way to tell "no coverage here" from "broken".
+        setError(data?.message || "Roof measuring is unavailable. Enter the area below.");
+        setResult(data?.satelliteImageUrl ? data : null);
+        return;
+      }
+      setResult(data);
+      if (data.trustworthy !== false) apply(data);
+    } catch {
+      setError("Roof measuring is unavailable. Enter the area below.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function apply(data) {
+    const p = data.linear ? takeoffPatch(data.linear) : {};
+    setBefore(takeoff);
+    onApply({
+      ...takeoff,
+      areaSqft: Math.round(num(data.areaSqft)),
+      pitchRise: num(data.predominantPitch?.rise),
+      ...p,
+      measuredFrom: "satellite",
+      measuredAddress: data.formattedAddress || address.trim(),
+    });
+  }
+
+  const changed = before
+    ? Object.keys({ areaSqft: 0, pitchRise: 0, ...(patch || {}) }).filter(
+        (k) => num(before[k]) !== num(takeoff[k]),
+      )
+    : [];
+
+  return (
+    <div className="rounded-lg border border-border p-3 space-y-2.5">
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="min-w-0 flex-1">
+          <label className="text-xs text-muted-foreground">Measure the roof from an address</label>
+          <input
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                measure();
+              }
+            }}
+            placeholder="917 Littlerock St, Ottawa ON"
+            className={inputClass}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={measure}
+          disabled={busy || !address.trim()}
+          className="shrink-0 rounded border border-border px-3 py-2 text-xs hover:bg-muted disabled:opacity-50"
+        >
+          {busy ? "Measuring…" : "Measure from satellite"}
+        </button>
+      </div>
+      {defaultAddress && address.trim() !== defaultAddress.trim() && (
+        <button
+          type="button"
+          onClick={() => setAddress(defaultAddress)}
+          className="text-[11px] text-muted-foreground underline"
+        >
+          Use the client&rsquo;s address ({defaultAddress})
+        </button>
+      )}
+
+      {error && <p className="text-xs text-muted-foreground">{error}</p>}
+
+      {/* The image goes up whether or not the numbers were trusted — on a bad
+          reading it is the evidence the estimator judges it by. */}
+      {result?.satelliteImageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={result.satelliteImageUrl}
+          alt={result.formattedAddress || address}
+          className="w-full max-h-48 rounded-lg border border-border object-cover"
+        />
+      )}
+
+      {result?.ok && result.trustworthy === false && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 space-y-1.5">
+          <p className="text-xs font-medium">
+            This does not look like the right building, so nothing was filled in.
+          </p>
+          {(result.warnings || []).map((w) => (
+            <p key={w.code} className="text-[11px] text-muted-foreground">
+              {w.text}
+            </p>
+          ))}
+          <button
+            type="button"
+            onClick={() => apply(result)}
+            className="rounded border border-border bg-background px-2 py-1 text-[11px] hover:bg-muted"
+          >
+            Use it anyway
+          </button>
+        </div>
+      )}
+
+      {result?.ok && result.trustworthy !== false && report && (
+        <div className="space-y-2 text-[11px] text-muted-foreground">
+          <p className="text-xs text-foreground">{report.headline}</p>
+          {/* Said out loud, because the marker on the image will not be over
+              the roof that was measured — the pin was the thing that was wrong. */}
+          {result.searchWidened && (
+            <p>
+              The address pin was not on a building, so {result.buildingsConsidered} nearby roofs were
+              checked and the nearest one big enough to be a house was measured
+              {result.formattedAddress ? ` — ${result.formattedAddress}` : ""}. Check the image is the
+              right roof.
+            </p>
+          )}
+          {(result.warnings || []).map((w) => (
+            <p key={w.code}>{w.text}</p>
+          ))}
+
+          {changed.length > 0 && (
+            <div className="rounded-lg border border-border p-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-foreground">
+                  Filled in {changed.length} field{changed.length === 1 ? "" : "s"}
+                  {detailValue > 0 ? ` — ${money(detailValue)} of linear details` : ""}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onApply(before);
+                    setBefore(null);
+                  }}
+                  className="shrink-0 rounded border border-border px-2 py-0.5 text-[11px] hover:bg-muted"
+                >
+                  Undo
+                </button>
+              </div>
+              <ul className="mt-1 grid gap-x-4 sm:grid-cols-2">
+                {changed.map((k) => (
+                  <li key={k} className="flex justify-between gap-2 tabular-nums">
+                    <span>{LABEL[k] || k}</span>
+                    <span>
+                      {num(before[k]) ? `${num(before[k])} → ` : ""}
+                      {num(takeoff[k])}
+                      {k === "pitchRise" ? "/12" : k === "areaSqft" ? " sqft" : " ft"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {vent && (
+            <div className="rounded-lg border border-border p-2">
+              <p className="text-xs text-foreground">
+                Code wants {vent.nfaSqft} sq ft of net free vent area here (1:{vent.ratio}
+                {vent.lowSlope ? ", low slope" : ""}), half of it high.
+              </p>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => onApply({ ...takeoff, ridgeVentFt: vent.ridgeVentFt, boxVents: 0 })}
+                  className="rounded border border-border px-2 py-0.5 text-[11px] hover:bg-muted"
+                >
+                  {vent.ridgeVentFt} ft of ridge vent
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onApply({ ...takeoff, boxVents: vent.boxVents, ridgeVentFt: 0 })}
+                  className="rounded border border-border px-2 py-0.5 text-[11px] hover:bg-muted"
+                >
+                  or {vent.boxVents} box vents
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <p className="text-foreground">Still needs you — none of this is visible from above:</p>
+            <ul className="ml-3 list-disc">
+              {report.cannotKnow.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </div>
+
+          <p>{report.derived[0]}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
   const money = useCompanyMoney();
   const set = (patch) => onChange({ ...takeoff, ...patch });
-  const [measuring, setMeasuring] = useState(false);
-  const [measureNote, setMeasureNote] = useState("");
 
   const materials = book?.materials || {};
   const materialKey = takeoff.materialKey || book?.defaultMaterial || "";
@@ -1884,42 +2162,6 @@ function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
     crewSize: num(takeoff.crewSize) || 2,
     rates: book?.labour,
   });
-
-  async function measure() {
-    if (!siteAddress) return;
-    setMeasuring(true);
-    setMeasureNote("");
-    try {
-      const res = await fetch(
-        `/api/measure/roof?address=${encodeURIComponent(siteAddress)}`,
-      );
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.ok) {
-        // Named, not swallowed: an estimator who clicked a button and saw
-        // nothing happen has no way to tell "no coverage here" from "broken".
-        setMeasureNote(
-          data?.message ||
-            "Roof measuring is unavailable. Enter the area below.",
-        );
-        return;
-      }
-      set({
-        areaSqft: Math.round(num(data.areaSqft)),
-        pitchRise: num(data.predominantPitch?.rise),
-        measuredFrom: "satellite",
-      });
-      setMeasureNote(
-        `Measured ${Math.round(num(data.areaSqft)).toLocaleString()} sqft of roof surface across ${num(data.segmentCount)} facets` +
-          (data.predominantPitch?.shareOfRoof
-            ? ` — ${data.predominantPitch.rise}/12 over ${data.predominantPitch.shareOfRoof}% of it.`
-            : "."),
-      );
-    } catch {
-      setMeasureNote("Roof measuring is unavailable. Enter the area below.");
-    } finally {
-      setMeasuring(false);
-    }
-  }
 
   const lf = [
     ["iceWaterFt", "Ice & water membrane", book?.details?.iceWaterPerLf],
@@ -1943,28 +2185,12 @@ function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
 
   return (
     <div className="space-y-3">
-      {siteAddress && (
-        <div className="rounded-lg border border-border p-2.5">
-          <div className="flex items-center justify-between gap-2">
-            <span className="min-w-0 text-xs text-muted-foreground">
-              Measure the roof from {siteAddress}
-            </span>
-            <button
-              type="button"
-              onClick={measure}
-              disabled={measuring}
-              className="shrink-0 rounded border border-border px-2 py-1 text-xs hover:bg-muted disabled:opacity-50"
-            >
-              {measuring ? "Measuring…" : "Measure from satellite"}
-            </button>
-          </div>
-          {measureNote && (
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              {measureNote}
-            </p>
-          )}
-        </div>
-      )}
+      <RoofMeasurePanel
+        takeoff={takeoff}
+        book={book}
+        onApply={onChange}
+        defaultAddress={siteAddress}
+      />
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Field label="Roof surface (sqft)">
