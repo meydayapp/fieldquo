@@ -261,9 +261,26 @@ const fakeDb = {
       store.smsMessages.filter(
         (m) => m.leadId === where.leadId && m.salesRepId === where.salesRepId,
       ),
+    // The inbound path looks for the last message SENT to this number, so it
+    // can file a reply against the rep who asked the question.
+    findFirst: async ({ where }) =>
+      store.smsMessages
+        .filter(
+          (m) =>
+            (where.toE164 === undefined || m.toE164 === where.toE164) &&
+            (where.direction === undefined || m.direction === where.direction),
+        )
+        .sort((a, b) => new Date(b.sentAt) - new Date(a.sentAt))[0] || null,
   },
 
   salesLead: {
+    // Added when handleSalesInboundSms started STORING replies rather than
+    // dropping every one that was not a STOP. It matches an incoming number to
+    // a lead, so the stub has to be able to answer that.
+    findFirst: async ({ where }) =>
+      [...store.leads.values()]
+        .filter((l) => (where?.phone?.not === null ? l.phone != null : true))
+        .sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0))[0] || null,
     updateMany: async ({ where, data }) => {
       const lead = store.leads.get(where.id);
       if (!lead || lead.salesRepId !== where.salesRepId) return { count: 0 };
@@ -739,8 +756,13 @@ section("7. STOP works, end to end");
     from: "+16135550142",
     body: "please stop by at 3",
   });
-  ok("“please stop by at 3” is not an opt-out", chatter.action === "ignored", chatter);
-  ok("…and writes nothing", store.suppressions.length === 0, store.suppressions.length);
+  ok("“please stop by at 3” is not an opt-out", chatter.action === "stored", chatter);
+  ok("…and suppresses nothing", store.suppressions.length === 0, store.suppressions.length);
+  // The bug this replaced: an ordinary reply used to be scanned for STOP and
+  // then dropped on the floor. A contractor answering "sure, call me Thursday"
+  // reached nobody, and the rep who texted them never learned there was an
+  // answer.
+  ok("…and the reply IS kept", store.smsMessages.some((m) => m.direction === "in" && /stop by at 3/.test(m.body)), store.smsMessages.length);
 
   const stop = await handleSalesInboundSms({ to: "+15145550111", from: "613-555-0142", body: "STOP" });
   ok("STOP is recorded", stop.handled === true && stop.action === "suppressed", stop);
@@ -759,7 +781,11 @@ section("7. STOP works, end to end");
   // removal by design — a removal is superadmin-only with a reason on the
   // record, because the row is evidence behind a three-year obligation.
   const restart = await handleSalesInboundSms({ to: "+15145550111", from: "613-555-0142", body: "START" });
-  ok("START is not treated as an opt-out keyword here", restart.action === "ignored", restart);
+  // "stored" rather than "ignored": every inbound message is now kept, and the
+  // action names what was done ABOUT it. START is still not an opt-out and
+  // still lifts nothing — which is the assertion below, and the one that
+  // matters.
+  ok("START is not treated as an opt-out keyword here", restart.action === "stored", restart);
   ok("…and the suppression survives it", store.suppressions[0]?.removedAt == null, store.suppressions[0]?.removedAt);
 }
 
@@ -780,7 +806,15 @@ section("7. STOP works, end to end");
   const sent = await deliverSignupLinkSms({ rep, lead, origin: "https://fieldquo.com", now: MIDDAY });
   ok("…and the send itself refuses with 409", sent.ok === false && sent.status === 409, sent);
   ok("…naming it as an opt-out", sent.suppressed === true, sent);
-  ok("…and nothing was filed as sent", store.smsMessages.length === 0, store.smsMessages.length);
+  // Scoped to OUTBOUND. The store now also holds the inbound replies that
+  // reached this number — the STOP itself among them — and counting every row
+  // would fail on messages the prospect sent us, which is the opposite of what
+  // this asserts.
+  ok(
+    "…and nothing was filed as sent",
+    store.smsMessages.filter((m) => m.direction === "out").length === 0,
+    store.smsMessages.map((m) => m.direction),
+  );
 }
 
 // ════════════════════════════════════════════════════════════════════════════

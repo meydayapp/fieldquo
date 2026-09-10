@@ -9254,11 +9254,32 @@ model SalesEvent {
 model SalesSmsMessage {
   id String @id @default(cuid())
 
-  salesRepId String
-  salesRep   SalesRep @relation(fields: [salesRepId], references: [id], onDelete: Cascade)
+  /// "out" | "in".
+  ///
+  /// Added because inbound was not stored AT ALL. handleSalesInboundSms read a
+  /// reply, checked it for STOP, and returned — so a contractor answering
+  /// "sure, call me Thursday" was processed for opt-out keywords and then
+  /// dropped on the floor. Nothing recorded it, no screen could show it, and
+  /// the rep who sent the text never learned there was an answer.
+  ///
+  /// EVERY COUNT OF WORK DONE MUST FILTER ON THIS, the same rule
+  /// SalesCallAttempt.direction carries: a prospect texting back three times is
+  /// not three texts a rep sent.
+  direction String @default("out")
 
-  leadId String
-  lead   SalesLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  /// NULLABLE FOR INBOUND, and for exactly the reason SalesCallAttempt.salesRepId
+  /// is: a text arriving at FieldQuo's sales number may match no rep at all —
+  /// a stranger, a wrong number, or somebody a rep has not texted from this
+  /// number yet. An OUTBOUND row always has one.
+  salesRepId String?
+  salesRep   SalesRep? @relation(fields: [salesRepId], references: [id])
+
+  /// Same, and for the same reason. An inbound text is matched to a lead by
+  /// phone number where one exists, and left null where none does — inventing
+  /// a lead to hang a message on would put a business in a rep's pipeline
+  /// because somebody dialled a wrong number.
+  leadId String?
+  lead   SalesLead? @relation(fields: [leadId], references: [id])
 
   /// E.164 both ways. The `from` is stored rather than derived at read time
   /// because FieldQuo's sales number can be released and replaced, and "which
@@ -9283,6 +9304,10 @@ model SalesSmsMessage {
 
   @@index([salesRepId, sentAt])
   @@index([leadId, sentAt])
+  /// The rep inbox reads by the OTHER party's number, because a conversation is
+  /// with a person and not with a lead row — one contractor may hold two leads
+  /// and a reply belongs to the thread either way.
+  @@index([direction, sentAt])
 }
 
 model SalesThread {
