@@ -140,6 +140,11 @@ export default function SalesShell({ children }) {
             { href: "/sales/queue", label: t("app.salesPortal.navQueue") },
             { href: "/sales/leads", label: t("app.salesPortal.navLeads") },
             { href: "/sales/threads", label: t("app.salesPortal.navConversations") },
+            // Texts, which are a different channel from the email threads next
+            // to them: a reply to a text arrives at FieldQuo's sales number and
+            // is filed by phone, not by thread token. English literal for the
+            // same reason Notes and Calendar are.
+            { href: "/sales/messages", label: "Texts" },
             // English, and not a t() key, deliberately. The screen behind it is
             // English — docs/sales-intel/STATUS.md records that the outreach
             // surfaces are, while the shell is translated — and a translated tab
