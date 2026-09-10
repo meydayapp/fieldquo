@@ -53,7 +53,8 @@ import {
   PROBLEM_URGENCY,
   MIN_GAP_FLOOR_DAYS,
   MIN_GAP_CEILING_DAYS,
-} from "@/lib/sales/checkin/signals";
+  scheduledCheckinDue,
+  SCHEDULED_CHECKIN_DAYS,} from "@/lib/sales/checkin/signals";
 
 import {
   draftCheckIn,
@@ -573,6 +574,70 @@ section("10. The check is wired in");
   const pkg = JSON.parse(read("package.json"));
   ok("check:sales-checkin is a script", typeof pkg.scripts?.["check:sales-checkin"] === "string");
   ok("…and check:all runs it", (pkg.scripts?.["check:all"] || "").includes("check:sales-checkin"));
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("9. The two scheduled touchpoints the owner asked for");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+//   "1 day after they sign up to see if they have any questions and make sure
+//    they completed the onboarding process. and 7 days after they sign up ...
+//    to see if everything is okay."
+//
+// They do different jobs — day 1 is about SETUP, day 7 is about USE — and they
+// have to outrank the reason-driven cadence guard, which is fifteen days on a
+// sixty-day plan and would otherwise swallow day 7 silently while day 1 kept
+// firing, leaving a feature that looks like it works.
+
+{
+  const due = (dayInLife, lastCheckInDaysAgo) => scheduledCheckinDue({ dayInLife, lastCheckInDaysAgo });
+
+  ok("nothing on the day they sign up", due(0, null) === null);
+  ok("day 1 is the setup check", due(1, null) === 1);
+  ok("day 7 is the how-is-it-going check", due(7, null) === 7);
+  ok("…and it survives the reason-driven gap, which is longer than the space between them",
+    minGapDays(60) > 6 && due(7, 6) === 7, { gap: minGapDays(60) });
+
+  // A company nobody has contacted should get the question that fits where
+  // they are, not the one they missed.
+  ok("a silent company gets the LATEST touchpoint, not the earliest", due(9, null) === 7);
+
+  // Two texts in three days is how a contractor learns to ignore the number.
+  ok("a touchpoint waits when something was sent two days ago", due(7, 2) === null);
+  ok("…and fires once there is breathing room", due(9, 4) === 7);
+  ok("a touchpoint already answered does not repeat", due(1, 0) === null && due(8, 7) === 7);
+
+  // The bug this section exists for: without a staleness bound the scheduled
+  // path outranked the milestone-passed suppression, and a company two months
+  // old with no contact was reported as owed its first-week text.
+  ok("a touchpoint still counts inside its grace", due(21, null) === 7);
+  ok("…and lapses after it", due(22, null) === null);
+  ok("…so a company past the milestone is not owed a first-week text", due(61, null) === null);
+
+  ok("a missing day does not throw", due(null, null) === null && due("soon", null) === null);
+  // ── The wiring, not just the function ────────────────────────────────
+  //
+  // Everything above drives scheduledCheckinDue() directly. Disconnecting it
+  // from the DECISION — `const scheduledDay = null;` — left every assertion
+  // above green, which is the "correct but unreachable" shape this repo keeps
+  // finding. So the decision itself is driven, end to end, through the same
+  // fixtures every other section uses.
+  const dayOne = decide({ signedUpAt: dayAgo(1), onboardingCompletedAt: null });
+  ok("a company one day in is DUE through the real decision", dayOne.due === true, dayOne.suppressed);
+  ok("…and the decision says which touchpoint it is", dayOne.scheduledDay === 1, dayOne.scheduledDay);
+
+  const daySeven = decide({ signedUpAt: dayAgo(7) }, { lastCheckInAt: dayAgo(6) });
+  ok("a company seven days in is DUE even though the gap has not passed",
+    daySeven.due === true, daySeven.suppressed);
+  ok("…as the day-7 touchpoint", daySeven.scheduledDay === 7, daySeven.scheduledDay);
+
+  const tooEarly = decide({ signedUpAt: dayAgo(0) });
+  ok("…and the day they sign up is still too soon", tooEarly.due === false, tooEarly.suppressed);
+
+  ok("the days are the owner's two, in order", SCHEDULED_CHECKIN_DAYS.join(",") === "1,7");
+  ok("…and FIRST_CHECKIN_DAY is derived from them, not restated",
+    FIRST_CHECKIN_DAY === SCHEDULED_CHECKIN_DAYS[0]);
 }
 
 console.log(`\n${pass} checks, ${failures.length} failure(s).`);
