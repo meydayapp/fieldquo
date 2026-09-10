@@ -22,6 +22,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { stageBoard, boardSummary } from "@/lib/sales/pipeline/progress";
 import { db } from "@/lib/db";
 import { superadminOrRefusal } from "@/lib/sales/intel/configAdmin";
 import { getDiscoveryProvider } from "@/lib/sales/discovery/providers";
@@ -243,6 +244,19 @@ export async function GET(request, { params }) {
     reviewTotal: campaign.needsReviewCount,
     flaggedDuplicates: flagged,
     tasks: Object.fromEntries(tasks.map((t) => [t.status, t._count._all])),
+    // ── Every stage, working or not ─────────────────────────────────────
+    //
+    // `allTasks` has held the whole per-stage picture since the day the
+    // grouping was widened past DISCOVER_BUSINESSES. Only the failed and
+    // abandoned rows were ever passed on; the healthy ones were computed and
+    // dropped one line below, so a pipeline that was working rendered as blank
+    // space — which reads exactly like a pipeline that is not.
+    //
+    // The owner asked for it in as many words: "i don't see any banners or
+    // status updates telling me that x step is running.. y one is completed z
+    // is the next one". It costs no extra query.
+    stages: stageBoard(allTasks),
+    pipeline: boardSummary(stageBoard(allTasks)),
     // ── Work that has stopped, by stage, with the reason ────────────────
     //
     // Only the stages with something WRONG. A healthy pipeline shows nothing

@@ -44,6 +44,7 @@ import {
   X,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import StageBoard from "@/app/components/sales/StageBoard";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -110,11 +111,23 @@ export default function PlatformSalesCampaignPage({ params }) {
   // leaves the window open. The interval is torn down on the status change as
   // well as on unmount, so resuming restarts it and pausing stops it.
   const isRunning = data?.campaign?.status === "running";
+  // ── The campaign finishing is not the pipeline finishing ────────────────
+  //
+  // `status === "running"` means DISCOVERY is still paging the file. Crawling,
+  // technology detection and the brief all continue for hours after that stops
+  // — 103 crawls were queued on a campaign whose discovery had long finished.
+  // Polling only on the campaign's own status froze the stage board at exactly
+  // the point it becomes the most interesting thing on the screen, which is
+  // the same "progress screen that does not progress" fixed above, one layer
+  // down. So: poll while discovery runs, and keep polling while any stage
+  // still has work queued or in flight.
+  const outstanding = data?.pipeline?.outstanding || 0;
+  const shouldPoll = isRunning || outstanding > 0;
   useEffect(() => {
-    if (!isRunning) return undefined;
+    if (!shouldPoll) return undefined;
     const timer = setInterval(() => load(true), 10_000);
     return () => clearInterval(timer);
-  }, [isRunning, load]);
+  }, [shouldPoll, load]);
 
   async function act(action, extra = {}) {
     setBusy(action);
@@ -449,6 +462,11 @@ export default function PlatformSalesCampaignPage({ params }) {
         <p className="text-xs text-muted-foreground">
           Discovery only — the paging of the snapshot file. Everything after it is below.
         </p>
+
+        {/* The whole pipeline, always. The panel below is absent when nothing
+            is wrong; this one is present whatever the state, because "what is
+            happening" has an answer even when the answer is "nothing yet". */}
+        <StageBoard stages={data.stages || []} pipeline={data.pipeline || null} />
 
         {/* ── Work that has stopped, and why ─────────────────────────────
             The counts above are DISCOVERY tasks. That was the whole picture
