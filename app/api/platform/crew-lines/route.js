@@ -29,6 +29,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { getAppOrigin } from "@/lib/appUrl";
+import { SALES_VOICE_PURPOSES } from "@/lib/sales/calls/store";
 import { twilioConfigured } from "@/lib/sms/twilioClient";
 import { crewSignatureConfigured, sharedTestLineE164 } from "@/lib/crew/capability";
 import { listSmsCapableNumbers, inboundWebhookUrl } from "@/lib/crew/line";
@@ -78,7 +79,16 @@ export async function GET(request) {
     });
   } catch (err) {
     const problem = describeFailure(err, { vendor: "the database" });
-    return NextResponse.json({ error: problem.message, ...problem }, { status: 503 });
+    // Who a sales line could be given to. Only reps who could actually use one
+  // — an ended rep in a picker is a control that appears to work.
+  const salesReps = await db.salesRep.findMany({
+    where: { active: true, endedAt: null },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
+
+  return NextResponse.json({
+    salesReps, error: problem.message, ...problem }, { status: 503 });
   }
 
   // Read once. Both the fact and the advice below turn on them, and two reads
@@ -90,9 +100,17 @@ export async function GET(request) {
   // never produce the same sentence.
   const askedTwilio = configured && !numbersError;
 
+  // What FieldQuo holds each number FOR, and who calls from it — so a sales
+  // line is not labelled "free to lend", which is the shared test line's
+  // description and the opposite of true about one of ours.
+  const platformRows = await db.platformSmsNumber.findMany({
+    include: { assignedRep: { select: { id: true, name: true } } },
+  });
+
   const audit = auditCrewLines({
     numbers,
     rows,
+    platformNumbers: platformRows,
     expectedWebhookUrl: webhookUrl,
     signatureConfigured,
     now: new Date(),
@@ -185,6 +203,57 @@ export async function POST(request) {
       return NextResponse.json({ error: result.reason }, { status: result.status || 400 });
     }
     return NextResponse.json({ ok: true, number: result.number });
+  }
+
+  // ── Give a sales number to a rep, or take it back ──────────────────────
+  //
+  // The last step of buying one, and it had no control anywhere: the owner
+  // bought a number and asked where he assigns it to his sales agent. The
+  // column existed (PlatformSmsNumber.assignedRepId, @unique on the rep side)
+  // and nothing wrote it.
+  //
+  // Assignment takes the number OUT of the shared pool. Two reps presenting
+  // one number means a contractor ringing back cannot be routed to either of
+  // them, and a rep whose number is answered by somebody else is worse off
+  // than a rep with none — see lib/sales/numbers.js's callerIdForRep.
+  if (action === "assign") {
+    const e164 = String(body?.e164 ?? "").trim();
+    const salesRepId = body?.salesRepId ? String(body.salesRepId).trim() : null;
+
+    const row = await db.platformSmsNumber.findUnique({ where: { e164 } });
+    if (!row) return NextResponse.json({ error: "We hold no such number." }, { status: 404 });
+    if (!SALES_VOICE_PURPOSES.includes(row.purpose)) {
+      // A system or shared-test number belongs to a job, not a person.
+      return NextResponse.json(
+        { error: `A "${row.purpose}" number is not a sales calling line, so nobody calls from it.` },
+        { status: 400 },
+      );
+    }
+    if (!row.active) {
+      return NextResponse.json({ error: "That number has been handed back." }, { status: 409 });
+    }
+    if (salesRepId) {
+      const rep = await db.salesRep.findFirst({
+        where: { id: salesRepId, active: true, endedAt: null },
+        select: { id: true },
+      });
+      if (!rep) return NextResponse.json({ error: "That is not a rep who could use it." }, { status: 404 });
+    }
+
+    await db.platformSmsNumber.update({
+      where: { e164 },
+      // Unassigning clears the date with it: a pooled number carrying an
+      // "assigned on" date reads as belonging to somebody.
+      data: { assignedRepId: salesRepId, assignedAt: salesRepId ? new Date() : null },
+    });
+    await db.platformAuditLog.create({
+      data: {
+        platformAdminId: admin.id,
+        action: salesRepId ? "sales_number_assigned" : "sales_number_unassigned",
+        details: { e164, salesRepId },
+      },
+    });
+    return NextResponse.json({ ok: true });
   }
 
   if (action === "release") {

@@ -67,6 +67,28 @@ export default function CrewLinesPage() {
     );
 
   const { deployment, lines, orphans, counts, numbersError } = data;
+  // Reps who could be given a sales line. Empty until one is hired, which is
+  // why the picker renders only when there is somebody to pick.
+  const reps = data.salesReps || [];
+
+  async function assignRep(e164, salesRepId) {
+    setError("");
+    try {
+      const res = await fetch("/api/platform/crew-lines", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "assign", e164, salesRepId }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setError(body?.error || "Couldn't assign that number.");
+        return;
+      }
+      await load();
+    } catch (err) {
+      setError(err?.message || "Couldn't assign that number.");
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -203,7 +225,7 @@ export default function CrewLinesPage() {
       ) : (
         <div className="space-y-2">
           {[...lines, ...orphans].map((l) => (
-            <LineRow key={l.e164} line={l} />
+            <LineRow key={l.e164} line={l} reps={reps} assignRep={assignRep} />
           ))}
         </div>
       )}
@@ -226,7 +248,7 @@ function Stat({ label, value, bad }) {
   );
 }
 
-function LineRow({ line }) {
+function LineRow({ line, reps = [], assignRep }) {
   const alarm = line.drift || line.missingAtProvider;
   return (
     <div
@@ -252,10 +274,44 @@ function LineRow({ line }) {
           >
             {line.claim.companyName || line.claim.companyId}
           </Link>
+        ) : line.purpose === "sales" || line.purpose === "sales_voice" ? (
+          // ── A sales line is not spare capacity ────────────────────────────
+          //
+          // "free to lend" is about the shared TEST line, which exists to be
+          // handed to one company at a time. A sales number is FieldQuo's own
+          // and is never lent to anybody — the owner bought one, read "free to
+          // lend" under it, and reasonably asked whether it had gone in as the
+          // wrong kind. It had not; the label was answering a different
+          // question, because the only branch here was "claimed by a company or
+          // not".
+          <span className="text-xs text-muted-foreground">
+            {line.assignedRepName
+              ? `${line.assignedRepName} calls from this`
+              : "FieldQuo's own — shared across the sales team"}
+          </span>
         ) : (
           <span className="text-xs text-emerald-700 dark:text-emerald-400">
             free to lend
           </span>
+        )}
+        {/* ── Who calls from it ────────────────────────────────────────────
+            Only on a sales line: a system or shared-test number belongs to a
+            job, not a person. The owner bought a number and asked where he
+            assigns it — the column existed and nothing wrote it. */}
+        {(line.purpose === "sales" || line.purpose === "sales_voice") && reps.length > 0 && (
+          <select
+            className="text-xs border border-border rounded-lg px-2 py-1.5 min-h-[44px] bg-card text-foreground"
+            value={line.assignedRepId || ""}
+            onChange={(e) => assignRep(line.e164, e.target.value || null)}
+            aria-label={`Who calls from ${line.e164}`}
+          >
+            <option value="">Shared across the team</option>
+            {reps.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name} calls from this
+              </option>
+            ))}
+          </select>
         )}
         {line.claim?.source === "shared_test" && (
           <span className="text-xs text-muted-foreground">
