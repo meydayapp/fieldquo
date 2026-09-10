@@ -790,7 +790,19 @@ const detectSrc = codeOnly(read("lib/sales/pipeline/handlers/detectTechnology.js
   if (ok("looksRendered is findable", Boolean(body))) {
     ok("…requires ok === true", /page\.ok\s*!==\s*true/.test(body));
     ok("…requires a body of real size", /contentSize\(page\)\s*<\s*MIN_RENDERED_HTML/.test(body));
-    ok("…and requires at least one link, which is what catches a JS shell", /page\.links\.length\s*>\s*0/.test(body));
+    // The rule is unchanged — a page with no links is a JavaScript shell — but
+    // the number it asks is now the crawler's own count, because
+    // lib/sales/crawl/evidence.js stores each distinct link once per crawl and
+    // counting the ROWS would call page four of an ordinary site a shell. The
+    // fallback is asserted beside it: a snapshot with no count still answers
+    // from its rows, which is every inline payload and every row written before
+    // the count existed.
+    ok("…and requires at least one link, which is what catches a JS shell", /linkCountOf\(page\)\s*>\s*0/.test(body));
+    {
+      const counter = bodyOf(capSrc, "export function linkCountOf");
+      ok("…counted off the crawler's own tally", Boolean(counter) && /page\?\.linkCount/.test(counter));
+      ok("…falling back to the rows when nothing counted", Boolean(counter) && /page\?\.links\s*\|\|\s*\[\]\)\.length/.test(counter));
+    }
   }
 }
 {
