@@ -163,6 +163,12 @@ export async function GET(request, { params }) {
     lead,
     optedOut: optOut.optedOut,
     optedOutReason: optOut.reason,
+    // See the same pair in app/api/sales/threads/[id]/route.js: the sentence
+    // is still composed here, where the source that closed the channel is
+    // known, and the key travels with it so the screen can say it in the rep's
+    // language rather than in this file's.
+    optedOutReasonKey: optOut.reasonKey || null,
+    optedOutReasonParams: optOut.reasonParams || null,
     // Everything the dial region reads, in the shape dialSpace() expects off a
     // queue row. Computed server-side for the same reason the queue's is: a
     // screen that worked out for itself whether a lead was callable would be a

@@ -42,6 +42,34 @@ import {
 // One sentence per refusal, so the accept screen can say what is actually
 // wrong instead of "invalid link". Which one a visitor sees is decided by the
 // row, never by anything they sent.
+//
+// ══ And a CODE beside each sentence, for the same reason ═══════════════════
+//
+// This is the first FieldQuo screen a new sales hire ever sees, and it was the
+// one place in the portal with no translation at all: four distinct refusals,
+// each of which tells somebody a different thing to do next, all English
+// regardless of the language they were hired in.
+//
+// The sentences stay exactly as they are — they go into an `error` body, which
+// a script or a log reads with no reader whose language could be consulted,
+// and they are the fallback when a catalogue is missing a key. What is added
+// is `code`, and the ACCEPT SCREEN maps code → catalogue entry. Deliberately
+// four codes and not one generic "invalid": the whole reason this map exists
+// is that "ask for a new invitation", "sign in with the password you set" and
+// "ask a superadmin about your account" are three different instructions, and
+// collapsing them into one translated sentence would give back exactly what
+// the map was built to provide.
+const REASON_CODES = {
+  unknown: "invite_unknown",
+  accepted: "invite_accepted",
+  expired: "invite_expired",
+  inactive: "invite_inactive",
+};
+
+// The code → catalogue-key map lives in lib/sales/authRefusals.js, not here: a
+// route module may only export its HTTP methods and the segment config, and
+// the accept SCREEN needs the same map. One table, two readers.
+
 const REASONS = {
   unknown:
     "This invitation link isn't valid. Ask a FieldQuo superadmin to send a new one.",
@@ -77,7 +105,10 @@ export async function GET(request) {
 
   if (!state.ok) {
     return NextResponse.json(
-      { error: REASONS[state.reason] || REASONS.unknown },
+      {
+        error: REASONS[state.reason] || REASONS.unknown,
+        code: REASON_CODES[state.reason] || REASON_CODES.unknown,
+      },
       { status: 400 },
     );
   }
@@ -99,6 +130,11 @@ export async function POST(request) {
     return NextResponse.json(
       {
         error: `Choose a password of at least ${MIN_PASSWORD_LENGTH} characters — this account can see every company you've brought in.`,
+        code: "invite_weak_password",
+        // The minimum travels as a value, because it is one. The sentence
+        // around it is the catalogue's, and gluing a translated stem to an
+        // English number is how a rule ends up stated in two languages.
+        minLength: MIN_PASSWORD_LENGTH,
       },
       { status: 400 },
     );
@@ -108,7 +144,10 @@ export async function POST(request) {
   const state = inviteState(rep);
   if (!state.ok) {
     return NextResponse.json(
-      { error: REASONS[state.reason] || REASONS.unknown },
+      {
+        error: REASONS[state.reason] || REASONS.unknown,
+        code: REASON_CODES[state.reason] || REASON_CODES.unknown,
+      },
       { status: 400 },
     );
   }
@@ -133,7 +172,10 @@ export async function POST(request) {
   });
 
   if (updated.count === 0) {
-    return NextResponse.json({ error: REASONS.accepted }, { status: 409 });
+    return NextResponse.json(
+      { error: REASONS.accepted, code: REASON_CODES.accepted },
+      { status: 409 },
+    );
   }
 
   const sessionToken = await signSalesToken(rep.id);

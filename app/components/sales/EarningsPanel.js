@@ -199,7 +199,12 @@ export default function EarningsPanel() {
                         }`}
                       >
                         {RUNG_ICON[rung.state]}
-                        <span className="truncate">{rung.label}</span>
+                        {/* MILESTONE_LABELS decides the words and still does;
+                            the key beside them is what lets a rep read
+                            "Activated / Renewed / Still paying" in their own
+                            language on the screen that tells them what they
+                            have earned. */}
+                        <span className="truncate">{t(rung.labelKey, rung.label)}</span>
                         <span className="text-[11px] text-muted-foreground shrink-0">
                           {rungNote(rung.state, t) || day(rung.occurredAt)}
                         </span>

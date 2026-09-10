@@ -767,14 +767,27 @@ ok(
   view.capabilities.find((c) => c.code === "ONLINE_BOOKING").text !==
     view.capabilities.find((c) => c.code === "LIVE_CHAT").text,
 );
+// `unknowns` entries are `{ key, params, text }` rather than bare strings, so
+// the queue can look each sentence up in the rep's own language instead of
+// printing this file's English. `.text` is still the English, still exactly
+// the words it was, and is what a missing translation falls back to — which is
+// why these two assertions read it rather than being loosened.
 ok(
   "an unknown capability is listed under what we do NOT know",
-  view.unknowns.some((u) => /live chat/i.test(u)),
+  view.unknowns.some((u) => /live chat/i.test(u.text)),
   view.unknowns,
 );
 ok(
   "…and a known absence is NOT listed as an unknown",
-  !view.unknowns.some((u) => /no online booking/i.test(u)),
+  !view.unknowns.some((u) => /no online booking/i.test(u.text)),
+  view.unknowns,
+);
+// Every unknown still carries its English. A key with no words behind it would
+// render blank for any language that has not been translated yet, and a blank
+// line under "what we do not know" is indistinguishable from knowing.
+ok(
+  "…and every unknown still carries the English sentence behind it",
+  view.unknowns.every((u) => typeof u.text === "string" && u.text.length > 10),
   view.unknowns,
 );
 ok(

@@ -30,7 +30,10 @@ export async function POST(request) {
 
   if (!email || !password) {
     return NextResponse.json(
-      { error: "Email and password required" },
+      // The code, so /sales/login can say this in the language the person was
+      // hired in. The sentence stays and is the fallback — see
+      // lib/sales/authRefusals.js for why the map is not in this file.
+      { error: "Email and password required", code: "login_missing_fields" },
       { status: 400 },
     );
   }
@@ -50,8 +53,12 @@ export async function POST(request) {
   // never accepted, deactivated, left the company. Telling them apart tells a
   // stranger which FieldQuo staff email addresses are real, and tells a
   // deactivated rep that their password still works.
+  //
+  // ONE code as well as one sentence. Splitting the code would leak exactly
+  // what splitting the sentence would: a stranger could tell "no such address"
+  // from "wrong password" by reading the code instead of the words.
   const invalid = () =>
-    NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    NextResponse.json({ error: "Invalid credentials", code: "login_invalid" }, { status: 401 });
 
   if (!canAuthenticate(rep)) return invalid();
 

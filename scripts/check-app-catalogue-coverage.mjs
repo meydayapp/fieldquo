@@ -106,6 +106,13 @@ import { APP_MESSAGES } from "../app/i18n/appMessages.js";
 // Measured 2026-09-03, after Spanish was completed. English is the source and
 // has no floor of its own.
 //
+// Raised again on 2026-09-10, later the same day, when the sentences the sales
+// portal RECEIVES were translated — 197 keys in all nine blocks. The screens
+// had been keyed that morning; what they were handed was still English,
+// composed in lib/ and app/api/ and rendered verbatim, so a Spanish rep read a
+// Spanish frame around English refusal copy. Raised for the same reason as
+// below: this table is the only thing that stops the gain being given back.
+//
 // The three unfinished languages were raised on 2026-09-10, when the sales
 // portal was translated: 730 new keys landed in all nine blocks, and the 90
 // app.salesPortal.* / app.salesTour.* keys that had never had a Ukrainian,
@@ -117,9 +124,9 @@ import { APP_MESSAGES } from "../app/i18n/appMessages.js";
 const FLOORS = {
   fr: { keys: 4965, complete: true },
   es: { keys: 4965, complete: true },
-  uk: { keys: 5439, complete: false },
-  pa: { keys: 5436, complete: false },
-  tl: { keys: 5364, complete: false },
+  uk: { keys: 5636, complete: false },
+  pa: { keys: 5633, complete: false },
+  tl: { keys: 5559, complete: false },
   de: { keys: 4965, complete: true },
   zh: { keys: 4965, complete: true },
   it: { keys: 4965, complete: true },
@@ -132,6 +139,12 @@ const SHARED_LITERALS = new Set([
   "FieldQuo AI", // the product's own assistant, unbranded nowhere
   "Meta Ads", // Meta's product name; localised nowhere in their own console
   "WhatsApp Business", // ditto — Meta ships the same two words in every locale
+  // Interac's own product name. It is what a rep sees inside their banking
+  // app and what they would have to search for, so renaming it would send
+  // somebody looking for a control that is not called that. French Canada is
+  // the one market where Interac itself localises it, and the fr block
+  // accordingly says "Virement Interac" rather than sitting on this list.
+  "Interac e-Transfer",
 ]);
 
 // ── The echo test ──────────────────────────────────────────────────────────

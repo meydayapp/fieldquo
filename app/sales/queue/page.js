@@ -253,11 +253,18 @@ function emphasise(text, Wrap = "strong", className) {
 }
 
 function LayerHeader({ layer }) {
+  const { t } = useTranslation();
   const heading = LAYER_HEADINGS[layer];
+  // The English is the fallback, never the first choice. These three words are
+  // the entire interface for the fact/inference/pitch separation, and a rep
+  // reading them in a language they do not speak is a rep who cannot tell an
+  // observation from an argument.
   return (
     <div className="space-y-1">
-      <h2 className="text-base font-semibold text-foreground">{heading.title}</h2>
-      <p className="text-xs text-muted-foreground">{heading.note}</p>
+      <h2 className="text-base font-semibold text-foreground">
+        {t(heading.titleKey, heading.title)}
+      </h2>
+      <p className="text-xs text-muted-foreground">{t(heading.noteKey, heading.note)}</p>
     </div>
   );
 }
@@ -465,7 +472,7 @@ function ProspectNotes({ prospectId, businessName }) {
 }
 
 function QueueConsole() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -652,9 +659,14 @@ function QueueConsole() {
       prospect: { country: ctx.country, province: ctx.province },
       timeZone: ctx.timeZone,
       now: new Date(nowMs),
+        // The reader's language, for the ONE string this produces that is a
+        // formatted instant rather than a sentence — "It opens at 08:00 on Tue
+        // 8 Sep". Everything else travels as a catalogue key; a date cannot,
+        // so it is formatted through CLDR here where the language is known.
+      language,
     });
     // `tick` is here to re-run this every thirty seconds; it is not read.
-  }, [current, clock, tick]);
+  }, [current, clock, tick, language]);
 
   // ── The pool, split so the screen can lead with what is workable ───────
   //
@@ -1038,11 +1050,17 @@ function QueueConsole() {
                 <ul className="space-y-2">
                   {current.facts.map((f) => (
                     <li key={f.key} className="flex flex-col gap-0.5">
-                      <span className="text-xs text-muted-foreground">{f.label}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {t(f.labelKey, f.label)}
+                      </span>
                       <span
                         className={`text-sm break-words ${f.known ? "text-foreground" : "text-muted-foreground italic"}`}
                       >
-                        {f.text}
+                        {/* A row with no textKey is one whose value is the
+                            PROSPECT'S OWN — their phone number, their address,
+                            the register's name for them. Those are printed
+                            verbatim; translating data is inventing it. */}
+                        {f.textKey ? t(f.textKey, f.text, f.params || {}) : f.text}
                       </span>
                     </li>
                   ))}
@@ -1104,22 +1122,26 @@ function QueueConsole() {
                             <p className="text-sm text-foreground break-words">
                               {emphasise(
                                 t("app.salesQueue.inferenceLine", {
-                                  text: inf.text,
-                                  kind: inf.kindText,
+                                  text: inf.textKey ? t(inf.textKey, inf.text) : inf.text,
+                                  kind: inf.kindTextKey
+                                    ? t(inf.kindTextKey, inf.kindText)
+                                    : inf.kindText,
                                 }),
                               )}
                             </p>
                             <p className="text-xs text-muted-foreground break-words">
                               {t("app.salesQueue.inferenceCaveat", {
-                                confidence: inf.confidenceText,
-                                source: inf.sourceText,
+                                confidence: t(inf.confidenceTextKey, inf.confidenceText, {
+                                  percent: inf.confidencePercent,
+                                }),
+                                source: t(inf.sourceTextKey, inf.sourceText),
                               })}
                             </p>
                           </>
                         ) : (
                           <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
                             <ShieldAlert size={14} className="inline mr-1" />
-                            {inf.refusal}
+                            {t(inf.refusalKey, inf.refusal)}
                           </p>
                         )}
                       </li>
@@ -1142,7 +1164,7 @@ function QueueConsole() {
                         {o.renderable ? (
                           <>
                             <p className="text-sm text-foreground break-words">
-                              <strong>{i + 1}. {o.name}</strong>
+                              <strong>{i + 1}. {o.nameKey ? t(o.nameKey, o.name) : o.name}</strong>
                             </p>
                             <p className="text-sm text-foreground break-words">
                               {t("app.salesQueue.recommendationBecause", { reason: o.reason })}
@@ -1150,14 +1172,18 @@ function QueueConsole() {
                             <p className="text-xs text-muted-foreground break-words">
                               {o.ruleCode
                                 ? t("app.salesQueue.recommendationEvidenceWithRule", {
-                                    confidence: o.confidenceText,
+                                    confidence: t(o.confidenceTextKey, o.confidenceText, {
+                                      percent: o.confidencePercent,
+                                    }),
                                     observations: t("app.salesQueue.observationCount", {
                                       value: o.evidenceIds.length,
                                     }),
                                     rule: o.ruleCode,
                                   })
                                 : t("app.salesQueue.recommendationEvidence", {
-                                    confidence: o.confidenceText,
+                                    confidence: t(o.confidenceTextKey, o.confidenceText, {
+                                      percent: o.confidencePercent,
+                                    }),
                                     observations: t("app.salesQueue.observationCount", {
                                       value: o.evidenceIds.length,
                                     }),
@@ -1167,7 +1193,7 @@ function QueueConsole() {
                         ) : (
                           <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
                             <ShieldAlert size={14} className="inline mr-1" />
-                            {o.refusal}
+                            {t(o.refusalKey, o.refusal)}
                           </p>
                         )}
                       </li>
@@ -1190,8 +1216,11 @@ function QueueConsole() {
                 ) : (
                   <ul className="list-disc pl-5 space-y-1">
                     {current.unknowns.map((u, i) => (
-                      <li key={`${u}-${i}`} className="text-sm text-muted-foreground break-words">
-                        {u}
+                      <li
+                        key={`${u.key || u.text}-${i}`}
+                        className="text-sm text-muted-foreground break-words"
+                      >
+                        {u.key ? t(u.key, u.text, u.params || {}) : u.text}
                       </li>
                     ))}
                   </ul>

@@ -18,7 +18,8 @@
 import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { BadgeDollarSign, Loader2 } from "lucide-react";
-import { fetchJson } from "@/lib/fetchJson";
+import { errorText, fetchJson } from "@/lib/fetchJson";
+import { AUTH_REFUSAL_KEYS } from "@/lib/sales/authRefusals";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 // Kept in step with lib/sales/invite.js's MIN_PASSWORD_LENGTH by the check
@@ -51,7 +52,9 @@ export default function SalesInvitePage({ params }) {
       setLinkError("");
     } catch (err) {
       setInvite(null);
-      setLinkError(err.message);
+      // Same three-step resolution as the submit handler below: the four
+      // invite states are four different instructions and each keeps its own.
+      setLinkError(errorText(t, err, AUTH_REFUSAL_KEYS));
     } finally {
       setChecking(false);
     }
@@ -89,7 +92,11 @@ export default function SalesInvitePage({ params }) {
       // first run would be worse than the gap it closes.
       window.location.href = "/sales/welcome";
     } catch (err) {
-      setError(err.message);
+      // The route's own code first, then fetchJson's, then the sentence
+      // itself. This is the first FieldQuo screen a new hire ever sees and it
+      // was the one place in the portal that answered in English no matter
+      // what language they were hired in — see lib/sales/authRefusals.js.
+      setError(errorText(t, err, AUTH_REFUSAL_KEYS));
       setBusy(false);
     }
   }

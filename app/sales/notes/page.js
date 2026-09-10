@@ -33,50 +33,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus, NotebookPen, Archive } from "lucide-react";
 import { displayTitle } from "@/lib/sales/notes/body";
-import { describeParent } from "@/lib/sales/notes/parents";
+// parentSentence lives beside describeParent now. Both screens held a copy
+// of it, both said in a comment that it belonged in the lib file "where
+// describeParent would take `t` instead of composing English", and that is
+// what it does — so there is one sentence again instead of two that have to
+// be kept in step.
+import { describeParent, parentSentence } from "@/lib/sales/notes/parents";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import RepNoteVisibilityNotice from "@/app/components/sales/RepNoteVisibilityNotice";
 import RepNoteUnavailable from "@/app/components/sales/RepNoteUnavailable";
-
-/**
- * One key per parent kind, spelled out rather than built from the kind string.
- *
- * check-translations.mjs reads source text and cannot see a key assembled at
- * runtime, so a computed one would render as its own name the day somebody
- * mistyped it. Same reason app/sales/companies/page.js writes its milestone
- * keys out longhand.
- */
-const PARENT_KIND_KEYS = {
-  lead: "app.salesNotes.parentKindLead",
-  thread: "app.salesNotes.parentKindThread",
-  prospect: "app.salesNotes.parentKindProspect",
-};
-
-/**
- * describeParent() composes its own English sentence; this rebuilds it from
- * the same fields (state, kind, label) so the rep reads it in their language.
- * The LABEL is never translated — it is the prospect's name, frozen at attach
- * time, and it is data.
- *
- * Not exported, and copied in app/sales/notes/[id]/page.js rather than shared:
- * a page module is not an importable home for a helper, and the home this
- * belongs in is lib/sales/notes/parents.js — where describeParent would take
- * `t` instead of composing English. That is one file outside this change; the
- * two copies must move together until it happens.
- */
-function parentSentence(t, parent) {
-  if (!parent) return "";
-  if (parent.state === "attached") {
-    const kind = t(PARENT_KIND_KEYS[parent.kind] || PARENT_KIND_KEYS.lead);
-    return parent.label
-      ? t("app.salesNotes.parentNamed", { kind, label: parent.label })
-      : t("app.salesNotes.parentUnnamed", { kind });
-  }
-  if (parent.state === "orphaned") {
-    return t("app.salesNotes.parentGone", { label: parent.label });
-  }
-  return t("app.salesNotes.parentNone");
-}
 
 export default function SalesNotesPage() {
   const { t } = useTranslation();
@@ -162,7 +127,12 @@ export default function SalesNotesPage() {
 
       <RepNoteVisibilityNotice />
 
-      {unavailable && <RepNoteUnavailable detail={unavailable} />}
+      {unavailable && (
+        // The code as well as the sentence: the panel keys the refusal off the
+        // code so a rep reads it in their own language, and falls back to the
+        // server's English when the catalogue has not got that key.
+        <RepNoteUnavailable detail={unavailable} code="notes_model_missing" />
+      )}
 
       {error && (
         <p className="rounded-lg border border-border bg-card p-3 text-sm text-amber-700 dark:text-amber-300">

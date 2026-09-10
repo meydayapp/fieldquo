@@ -29,6 +29,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CalendarClock, Loader2, PencilLine, Send, Sparkles, X } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { checkinHeadlineKey } from "@/lib/sales/checkin/signals";
 import { scheduleLabel, sentenceAround } from "./MessageThread";
 
 const BTN =
@@ -86,10 +87,17 @@ export default function CheckInDraft({
   }, [editing]);
 
   // The engine's own sentence for why this draft exists, written by
-  // lib/sales/checkin/signals.js. It arrives already worded and is shown as it
-  // came — not translated here, because rewriting a server sentence on the
-  // screen is a second opinion about a decision this component did not make.
-  const reason = draft.headline || null;
+  // lib/sales/checkin/signals.js. WHICH sentence is still entirely its
+  // decision — rewriting a server verdict on the screen would be a second
+  // opinion about something this component did not decide. What the engine now
+  // sends beside the sentence is `reasonCode`, and the code names the
+  // catalogue entry the sentence was written from, so the words arrive in the
+  // rep's own language without this component choosing them.
+  //
+  // checkinHeadlineKey() returns null for a code this build does not know, and
+  // the English headline is the fallback either way.
+  const reasonKey = checkinHeadlineKey(draft.reasonCode);
+  const reason = reasonKey ? t(reasonKey, draft.headline || "") : draft.headline || null;
 
   // Split rather than interpolated: the moving part is scheduleLabel()'s
   // icon-plus-time markup, which t() would stringify.

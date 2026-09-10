@@ -18,38 +18,16 @@
 import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Archive, ArchiveRestore } from "lucide-react";
-import { describeParent } from "@/lib/sales/notes/parents";
+// parentSentence lives beside describeParent now. Both screens held a copy
+// of it, both said in a comment that it belonged in the lib file "where
+// describeParent would take `t` instead of composing English", and that is
+// what it does — so there is one sentence again instead of two that have to
+// be kept in step.
+import { describeParent, parentSentence } from "@/lib/sales/notes/parents";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import RepNoteEditor from "@/app/components/sales/RepNoteEditor";
 import RepNoteVisibilityNotice from "@/app/components/sales/RepNoteVisibilityNotice";
 import RepNoteUnavailable from "@/app/components/sales/RepNoteUnavailable";
-
-/** Literal keys, not keys built from the kind — see the index screen. */
-const PARENT_KIND_KEYS = {
-  lead: "app.salesNotes.parentKindLead",
-  thread: "app.salesNotes.parentKindThread",
-  prospect: "app.salesNotes.parentKindProspect",
-};
-
-/**
- * The same sentence the index screen builds, from the same describeParent()
- * fields. Copied rather than shared because a page module is not somewhere to
- * import a helper from; the home it belongs in is lib/sales/notes/parents.js,
- * which is outside this change. Keep the two in step.
- */
-function parentSentence(t, parent) {
-  if (!parent) return "";
-  if (parent.state === "attached") {
-    const kind = t(PARENT_KIND_KEYS[parent.kind] || PARENT_KIND_KEYS.lead);
-    return parent.label
-      ? t("app.salesNotes.parentNamed", { kind, label: parent.label })
-      : t("app.salesNotes.parentUnnamed", { kind });
-  }
-  if (parent.state === "orphaned") {
-    return t("app.salesNotes.parentGone", { label: parent.label });
-  }
-  return t("app.salesNotes.parentNone");
-}
 
 export default function SalesNotePage({ params }) {
   const { id } = use(params);
@@ -141,7 +119,12 @@ export default function SalesNotePage({ params }) {
 
       <RepNoteVisibilityNotice showEditorNote />
 
-      {unavailable && <RepNoteUnavailable detail={unavailable} />}
+      {unavailable && (
+        // The code as well as the sentence: the panel keys the refusal off the
+        // code so a rep reads it in their own language, and falls back to the
+        // server's English when the catalogue has not got that key.
+        <RepNoteUnavailable detail={unavailable} code="notes_model_missing" />
+      )}
 
       {error && (
         <p className="rounded-lg border border-border bg-card p-3 text-sm text-amber-700 dark:text-amber-300">

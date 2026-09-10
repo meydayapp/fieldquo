@@ -78,7 +78,28 @@ export default function SalesThreadPage({ params }) {
   // Same field, same reason as app/sales/leads/[id]/page.js: the route computes
   // WHICH entry closed this and how it got there, and this screen used to
   // overwrite that with one mechanism.
-  const optedOutReason = data?.optedOutReason;
+  //
+  // What is NEW is the language. The route now sends the catalogue key that
+  // composed the sentence as well as the sentence, so this screen resolves it
+  // against the rep's own catalogue instead of printing the server's English.
+  // The English stays the fallback — a route that has not been redeployed
+  // sends no key, and an English sentence is a much smaller failure than a
+  // blank where the reason should be.
+  //
+  // Still ONE expression on screen, and still not a mechanism this screen
+  // decided: which of the eight sources closed the channel is the route's
+  // answer, and all this does is choose the language it is read in.
+  const optedOutReason = data?.optedOutReasonKey
+    ? t(data.optedOutReasonKey, {
+        ...(data.optedOutReasonParams || {}),
+        // A suppression row with no requestedAt cannot be written by
+        // suppress(), but the column is nullable — so the slot gets a
+        // translated "not recorded" rather than the word "null" or an
+        // invented day on a compliance notice.
+        date:
+          data.optedOutReasonParams?.date || t("app.salesSuppression.dateNotRecorded"),
+      })
+    : data?.optedOutReason;
 
   if (!thread) {
     return (
@@ -157,11 +178,12 @@ export default function SalesThreadPage({ params }) {
             <p className="font-semibold text-red-900 dark:text-red-200">
               {t("app.salesNotes.optedOutHeadline")}
             </p>
-            {/* Not translated, and deliberately: the route composes this
-                sentence — WHICH entry closed this prospect and how — and a
-                rewrite here would be a second opinion about a suppression rule
-                this screen does not own. It stays English until the route that
-                writes it keys it. */}
+            {/* The route still composes this sentence — WHICH entry closed
+                this prospect and how — and this screen still does not get a
+                second opinion about it. What the route now sends alongside the
+                sentence is the catalogue key it was composed from, which is
+                what "it stays English until the route that writes it keys it"
+                was waiting for. Resolved above, printed here. */}
             {optedOutReason ? (
               <p className="text-red-800 dark:text-red-300/90">{optedOutReason}</p>
             ) : null}

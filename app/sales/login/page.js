@@ -11,7 +11,8 @@
 
 import { useState } from "react";
 import { BadgeDollarSign, Loader2 } from "lucide-react";
-import { fetchJson } from "@/lib/fetchJson";
+import { errorText, fetchJson } from "@/lib/fetchJson";
+import { AUTH_REFUSAL_KEYS } from "@/lib/sales/authRefusals";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function SalesLoginPage() {
@@ -37,7 +38,11 @@ export default function SalesLoginPage() {
       // before the cookie is in play on the next request.
       window.location.href = "/sales";
     } catch (err) {
-      setError(err.message);
+      // The route's own code first, then fetchJson's, then the sentence
+      // itself. This is the first FieldQuo screen a new hire ever sees and it
+      // was the one place in the portal that answered in English no matter
+      // what language they were hired in — see lib/sales/authRefusals.js.
+      setError(errorText(t, err, AUTH_REFUSAL_KEYS));
       setBusy(false);
     }
   }

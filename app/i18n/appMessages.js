@@ -7831,6 +7831,300 @@ const en = {
   "app.salesText.whenButton": "When",
   "app.salesText.putAway": "Put away",
   "app.salesText.sendNow": "Send it now",
+
+  // ══ Sentences the SERVER composes, which a rep reads ══════════════════
+  //
+  // Commit cf099363 translated every /sales screen. What it could not reach
+  // was the text those screens RECEIVE already written: refusals, labels and
+  // explanations composed in lib/ and app/api/ and rendered verbatim. A rep
+  // on Spanish read a Spanish frame around English content — the
+  // half-translated state that change existed to remove, moved one layer
+  // down.
+  //
+  // Those modules are pure and are executed by a dozen check scripts under
+  // bare node, so none of them can import a translator. What they emit
+  // instead is the NAME of the sentence plus the values it needs, and their
+  // English rides along as the fallback. These are the sentences those names
+  // point at.
+
+  // ── The dial region, and the compliance refusals behind it ──────────────
+  //
+  // Every sentence lib/sales/dialSpace.js and lib/sales/callingRules.js
+  // compose for a rep who is being told they may not make a call. This is
+  // refusal copy, which is the half of a product that most needs to be in
+  // the reader's own language: a rep who cannot read WHY has only the
+  // absence of a button to go on.
+  //
+  // What is NOT here, deliberately: the statutes themselves. A
+  // jurisdiction's citation, Arizona's flat prohibition, Texas's
+  // registration and bond are quoted from the primary source, and a machine
+  // translation of a legal text reads as the law without being it. Those
+  // stay in the language the legislature wrote them in and the screen labels
+  // them as quoted — app.salesDial.quotedInEnglish is that label.
+  "app.salesDial.blocker.callCapReached.fix": "Nothing more today. The cap is per called party, not per rep.",
+  "app.salesDial.blocker.callCapReached.title": "{jurisdiction} allows {cap} calls to the same business on the same subject in 24 hours, and {made} have been made.",
+  "app.salesDial.blocker.jurisdictionUnread.fix": "Federal law does not fill this gap: business-to-business calls are exempt from the Telemarketing Sales Rule entirely, so the state's own rule is the only one there is. This is the owner's item — a state-law read for the states actually being called. Until it comes back, this cannot be confirmed as allowed.",
+  "app.salesDial.blocker.jurisdictionUnread.title": "Nobody has read {subdivision}'s telephone solicitation law.",
+  "app.salesDial.blocker.jurisdictionUnverified.title": "{jurisdiction}'s calling rules have not been verified.",
+  "app.salesDial.blocker.locationUnknown.fix": "Calling hours are set by the place the phone rings, and there is no federal rule underneath to fall back on — 16 CFR 310.6(b)(7) exempts business calls from the whole Telemarketing Sales Rule. Until this record carries a country and a state, nobody can say whether ringing them is allowed.",
+  "app.salesDial.blocker.locationUnknown.title": "We do not know which state or province this business is in.",
+  "app.salesDial.blocker.outsideWindow.fixCourtesyOpens": "That is FieldQuo's own rule — {jurisdiction} imposes none. The window opens at {opensAt}. Nothing is queued — you press call.",
+  "app.salesDial.blocker.outsideWindow.fixCourtesyWait": "That is FieldQuo's own rule — {jurisdiction} imposes none. Wait for the window.",
+  "app.salesDial.blocker.outsideWindow.fixStatutoryOpens": "That is {jurisdiction}'s own rule. The window opens at {opensAt}. Nothing is queued — you press call.",
+  "app.salesDial.blocker.outsideWindow.fixStatutoryWait": "That is {jurisdiction}'s own rule. Wait for the window.",
+  "app.salesDial.blocker.outsideWindow.title": "It is outside the calling window where they are.",
+  "app.salesDial.blocker.timeZoneAmbiguous.fixOpens": "It is inside the calling window in part of {subdivision} and outside it in the rest, and this record does not say which part. Rather than guess the populous half, nothing is confirmed. It is safe to call everywhere in {subdivision} from {opensAt} — or ask them where they are and set their time zone on their lead, which answers this exactly.",
+  "app.salesDial.blocker.timeZoneAmbiguous.fixUnknownOpening": "It is inside the calling window in part of {subdivision} and outside it in the rest, and this record does not say which part. Rather than guess the populous half, nothing is confirmed. Wait for the next time both halves agree — or ask them where they are and set their time zone on their lead, which answers this exactly.",
+  "app.salesDial.blocker.timeZoneAmbiguous.title": "{subdivision} spans more than one time zone, and right now they disagree.",
+  "app.salesDial.blocker.timeZoneUnknown.fixCourtesy": "It is FieldQuo's own rule, because {jurisdiction} imposes none, and it is stated in THEIR local time. We hold no time zone for {subdivision}, so there is nothing to evaluate — and our own clock is the worst available substitute.",
+  "app.salesDial.blocker.timeZoneUnknown.fixStatutory": "It is {jurisdiction}'s own rule, and it is stated in THEIR local time. We hold no time zone for {subdivision}, so there is nothing to evaluate — and our own clock is the worst available substitute.",
+  "app.salesDial.blocker.timeZoneUnknown.title": "We cannot work out what time it is where this business is.",
+  "app.salesDial.quotedInEnglish": "Quoted in English, from the statute itself — a translation of a legal text would read as the law without being it.",
+  "app.salesDial.space.allowedNoNumber.detail": "The calling rules allow this call and this record carries no number to place it to. Reload; if it persists, the prospect needs a phone number.",
+  "app.salesDial.space.cannotConfirm.title": "We cannot confirm this call is allowed.",
+  "app.salesDial.space.doNotContact.detail": "This record is flagged do-not-contact, so no dial control is offered on it.",
+  "app.salesDial.space.doNotContact.title": "Do not contact",
+  "app.salesDial.space.doNotContactRecorded.noReason": "Recorded {date}. No reason was recorded.",
+  "app.salesDial.space.doNotContactRecorded.withReason": "Recorded {date}. Reason: {reason}",
+  "app.salesDial.space.noDecision.detail": "This screen could not work out which calling rules apply, so it is not offering a dial control it cannot stand behind. Reload the page.",
+  "app.salesDial.space.noNumber.detail": "This record carries no phone number, so there is nothing to dial from here. Discovery found the business without one. Their website or a directory listing may have it — put it on their lead and it appears here.",
+  "app.salesDial.space.noNumber.title": "No sales number yet.",
+  "app.salesDial.space.noPhone.detail": "This record carries no phone number, so there is nothing to dial from here.",
+  "app.salesDial.space.noPhone.title": "No phone number",
+  "app.salesDial.space.noProspect.title": "No prospect open, so there is nothing to dial.",
+  "app.salesDial.space.noProspectEmpty.detail": "Pick a trade, claim one, and the call button appears in this spot. It is always this spot — an empty one means you have claimed nobody, not that calling is switched off.",
+  "app.salesDial.space.noProspectHolding.detail": "You hold {count}. Pick one from the list and its number, and whether you may ring it, appear right here.",
+  "app.salesDial.space.noProspectHolding.count": countedNoun("en", { one: "prospect", other: "prospects" }),
+  "app.salesDial.space.optedOut.detail": "An opt-out covers calls, texts and email, so no dial control is offered here. Only a superadmin can lift it, and it needs a written reason — so if this looks wrong, say so rather than finding another number for them.",
+  "app.salesDial.space.optedOut.title": "They asked us to stop.",
+  "app.salesDial.space.optedOutMeaning.detail": "An opt-out covers calls, texts and email, so no dial control is offered. Only a superadmin can lift it, with a written reason.",
+  "app.salesDial.space.ourOwnNumber.detail": "Ringing our own infrastructure bridges a loop and bills both legs, so no dial control is offered on it. If this is the prospect's real number, it is on one of FieldQuo's number lists by mistake.",
+  "app.salesDial.space.ourOwnNumber.title": "That is one of our own numbers.",
+  "app.salesDial.space.ready.title": "You may ring this one now.",
+  "app.salesDial.space.readyNoWindow.detail": "No jurisdiction in the table imposes a window on this one.",
+  "app.salesDial.space.refusedForNow.title": "You may not ring this one right now.",
+  "app.salesDial.space.refusedOutright.detail": "The rule that applies to this business refuses this call, and it is not a window that opens later. The reason is below.",
+  "app.salesDial.space.refusedOutright.title": "You may not ring this one.",
+  "app.salesDial.space.unconfirmed.detail": "Nothing was established either way, so no dial control is offered. This is a gap in what we know, not a refusal.",
+  "app.salesDial.space.unreadableDecision.detail": "The calling rules answered \"{decision}\", which this screen does not know how to read. No dial control is offered on an answer nobody can interpret.",
+  "app.salesDial.unenforced.callCapUncounted.fix": "Nothing in FieldQuo records call attempts yet, so this cap is not being counted for you — keep track yourself. It is a private right of action in both states that impose it.",
+  "app.salesDial.unenforced.callCapUncounted.title": "{jurisdiction} allows at most {cap} calls to this business on the same subject in 24 hours.",
+  "app.salesDial.warning.dataAcquisitionRule.title": "{jurisdiction} regulates how this prospect's details may be obtained.",
+  "app.salesDial.warning.registrationOutstanding.title": "FieldQuo must be registered to make sales calls into {jurisdiction}.",
+  "app.salesDial.window.courtesyRule": "These hours are FieldQuo's own rule — {jurisdiction} imposes none.",
+  "app.salesDial.window.everyDay": "{start}–{end} every day, in the prospect's own time zone.",
+  "app.salesDial.window.everyDayClosed": "{start}–{end} every day, in the prospect's own time zone, and no calls at all on {closedDays}.",
+  "app.salesDial.window.opensAt": "It opens at {opensAt}.",
+  "app.salesDial.window.split": "{start}–{end} on weekdays and {weekendStart}–{weekendEnd} at weekends, in the prospect's own time zone.",
+  "app.salesDial.window.splitClosed": "{start}–{end} on weekdays and {weekendStart}–{weekendEnd} at weekends, in the prospect's own time zone, and no calls at all on {closedDays}.",
+  "app.salesDial.window.statutoryRule": "These hours are {jurisdiction}'s own rule.",
+
+  // ── The queue's four research blocks ────────────────────────────────────
+  //
+  // The three layer headings ARE the interface for the rule that an
+  // inference must never read as a fact, and they were English on every
+  // screen. So are the two refusals that withhold an inference, the two that
+  // withhold a recommendation, and every sentence under "what we do not
+  // know".
+  //
+  // A fact row's VALUE is keyed only when the value is ours. A prospect's
+  // phone number, address and name are printed verbatim; translating data is
+  // inventing it.
+  "app.salesIntel.bucket.FRANCHISE_LIKELY": "Franchise likely",
+  "app.salesIntel.bucket.MULTI_TRADE": "Multi trade",
+  "app.salesIntel.bucket.SMALL_BUSINESS": "Small business",
+  "app.salesIntel.bucket.SOLO_LIKELY": "Solo likely",
+  "app.salesIntel.confidencePercent": "{percent}% confident",
+  "app.salesIntel.confidenceUntested": "No confidence figure — treat this as untested.",
+  "app.salesIntel.fact.businessName.label": "Business",
+  "app.salesIntel.fact.businessName.missing": "No name on this record",
+  "app.salesIntel.fact.businessStatus.label": "Still trading?",
+  "app.salesIntel.fact.businessStatus.missing": "The source did not say. Some of these have closed.",
+  "app.salesIntel.fact.contactBasis.closed": "Closed — call instead",
+  "app.salesIntel.fact.contactBasis.label": "Email and texts",
+  "app.salesIntel.fact.location.label": "Where",
+  "app.salesIntel.fact.location.missing": "No address on this record",
+  "app.salesIntel.fact.phone.label": "Phone",
+  "app.salesIntel.fact.phone.missing": "No phone number on this record",
+  "app.salesIntel.fact.rating.label": "Rating",
+  "app.salesIntel.fact.rating.missing": "The source listed no rating",
+  "app.salesIntel.fact.rating.value": "{rating} out of 5",
+  "app.salesIntel.fact.reviews.label": "Reviews",
+  "app.salesIntel.fact.reviews.missing": "The source listed no review count",
+  "app.salesIntel.fact.reviews.value": countedNoun("en", { one: "review", other: "reviews" }),
+  "app.salesIntel.fact.source.label": "Where this came from",
+  "app.salesIntel.fact.sourceUpdatedAt.label": "Source last refreshed",
+  "app.salesIntel.fact.sourceUpdatedAt.missing": "The source did not say when",
+  "app.salesIntel.fact.website.derivedConfirmed": "{site} — derived, and the site confirmed it",
+  "app.salesIntel.fact.website.guessed": "{site} — we GUESSED this from the licence email. Nobody published it and the site has not confirmed it.",
+  "app.salesIntel.fact.website.hasOne": "Has a website",
+  "app.salesIntel.fact.website.label": "Website",
+  "app.salesIntel.fact.website.listedUnchecked": "{url} — listed, not yet checked",
+  "app.salesIntel.fact.website.noneWeLooked": "No website — we looked",
+  "app.salesIntel.fact.website.sourceSilent": "The source listed no website. That is a gap in the directory as often as a gap in the market.",
+  "app.salesIntel.inference.refusalCarriesNumber": "This inference carries a number. The stored value is a classification — \"small team\", never \"twelve employees\" — so it is withheld rather than read out as a count.",
+  "app.salesIntel.inference.refusalNoConfidence": "An inference is only shown with how sure we are. Nothing behind this one is a signal the confidence engine recognises, so there is no figure to show and the claim is withheld.",
+  "app.salesIntel.inference.sourceCall": "They said this on a call — first-party, and still an inference.",
+  "app.salesIntel.inference.sourceObserved": "Derived from what we observed.",
+  "app.salesIntel.kind.company_scale": "Company scale",
+  "app.salesIntel.kind.trade": "Trade",
+  "app.salesIntel.layer.fact.note": "Facts. Each one was seen, or deliberately looked for and not seen.",
+  "app.salesIntel.layer.fact.title": "What we observed",
+  "app.salesIntel.layer.inference.note": "Conclusions the evidence supports and does not prove. Never say one as a fact.",
+  "app.salesIntel.layer.inference.title": "What we infer",
+  "app.salesIntel.layer.recommendation.note": "Arguments built from the two above. Each carries the reason it fired.",
+  "app.salesIntel.layer.recommendation.title": "What to pitch",
+  "app.salesIntel.noLeadScore": "No lead score has been computed for this prospect.",
+  "app.salesIntel.opportunity.refusalNoEvidence": "This recommendation cites no evidence. It is shown as broken rather than read out — a pitch with nothing behind it is the generic sales filler the evidence gate exists to stop.",
+  "app.salesIntel.opportunity.refusalNoReason": "This recommendation carries no reason, so there is nothing to say beyond the feature name.",
+  "app.salesIntel.unknown.nothingInferred": "Nothing has been inferred about this business yet.",
+  "app.salesIntel.unknown.softwareNeverCrawled": "We do not know what software they run — nothing has crawled them.",
+  "app.salesIntel.unnamedCapability": "Unnamed capability",
+
+  // ── The disposition a rep picks after every single call ─────────────────
+  //
+  // Ten outcomes, each with the one line explaining what it does to the
+  // queue. lib/sales/calls/dispositions.js derives these keys from its own
+  // codes, so an eleventh outcome cannot ship English by omission — it fails
+  // check:sales-server-copy until this block has it.
+  "app.salesCall.disposition.bad_number.hint": "Disconnected, or it reached somebody else entirely.",
+  "app.salesCall.disposition.bad_number.label": "Wrong or dead number",
+  "app.salesCall.disposition.busy.hint": "Engaged tone, or cut off before it rang.",
+  "app.salesCall.disposition.busy.label": "Busy",
+  "app.salesCall.disposition.callback.hint": "A time they agreed to. The claim is held until then and past it.",
+  "app.salesCall.disposition.callback.label": "They asked me to ring back",
+  "app.salesCall.disposition.do_not_call.hint": "Their words, as close as you can get them. This is permanent.",
+  "app.salesCall.disposition.do_not_call.label": "Asked not to be called again",
+  "app.salesCall.disposition.gatekeeper.hint": "A receptionist, a partner, an apprentice. The pitch has not happened.",
+  "app.salesCall.disposition.gatekeeper.label": "Someone answered, but not the owner",
+  "app.salesCall.disposition.no_answer.hint": "It rang out. Nobody picked up and no machine answered.",
+  "app.salesCall.disposition.no_answer.label": "No answer",
+  "app.salesCall.disposition.not_a_fit.hint": "A retailer, a franchise head office, out of business, wrong trade.",
+  "app.salesCall.disposition.not_a_fit.label": "Not a business we can sell to",
+  "app.salesCall.disposition.reached_interested.hint": "The pitch landed. This prospect is yours from here.",
+  "app.salesCall.disposition.reached_interested.label": "Spoke to them — interested",
+  "app.salesCall.disposition.reached_not_interested.hint": "They heard it and said no. Nobody else should ring them next week.",
+  "app.salesCall.disposition.reached_not_interested.label": "Spoke to them — not interested",
+  "app.salesCall.disposition.voicemail.hint": "You spoke into their machine yourself. Never a recording.",
+  "app.salesCall.disposition.voicemail.label": "Voicemail — I left a message",
+
+  // ── Why a check-in draft exists ─────────────────────────────────────────
+  //
+  // The headline above a suggested check-in. `angle` alongside it is NOT
+  // keyed and must not be: it is an instruction to the drafter, not
+  // something a rep reads.
+  "app.salesCheckin.reason.all_good": "Nothing looks wrong",
+  "app.salesCheckin.reason.onboarding_unfinished": "They never finished onboarding",
+  "app.salesCheckin.reason.payment_failing": "Their subscription payment is failing",
+  "app.salesCheckin.reason.payments_not_connected": "They cannot take a payment yet",
+  "app.salesCheckin.reason.retention_milestone_near": "The retention milestone is close",
+  "app.salesCheckin.reason.setup_steps_outstanding": "Set-up steps are still open on their dashboard",
+  "app.salesCheckin.reason.trial_ends_before_retention": "Their free period ends before the retention date",
+  "app.salesCheckin.reason.unknown_state": "We cannot see how they are doing",
+
+  // ── How a rep is engaged, and where their money goes ────────────────────
+  //
+  // The payout screen was English throughout — the method names, what each
+  // one costs on the way, and the label on the field asking for the account.
+  // Being told in a language you do not read that fees depend on your
+  // account's country is worse than not being told.
+  "app.salesPay.engagement.employee.label": "Employee",
+  "app.salesPay.engagement.employee.note": "On payroll. Paid leave accrues, and statutory deductions are FieldQuo's to withhold and remit.",
+  "app.salesPay.engagement.freelancer.label": "Freelancer",
+  "app.salesPay.engagement.freelancer.note": "Invoices for their commission. No paid leave, no vacation accrual, no statutory deductions withheld by FieldQuo — they account for their own.",
+  "app.salesPay.method.bank_transfer.handleLabel": "Account details, or the IBAN",
+  "app.salesPay.method.bank_transfer.label": "Bank transfer",
+  "app.salesPay.method.bank_transfer.note": "Slowest to arrive and cheapest to send. Best for a rep being paid a large batch.",
+  "app.salesPay.method.interac.handleLabel": "Email address registered for Interac",
+  "app.salesPay.method.interac.label": "Interac e-Transfer",
+  "app.salesPay.method.interac.note": "Canadian accounts only. Usually free and same-day.",
+  "app.salesPay.method.paypal.handleLabel": "PayPal email address",
+  "app.salesPay.method.paypal.label": "PayPal",
+  "app.salesPay.method.paypal.note": "Sent as a PayPal transfer. Fees depend on the receiving account's country and type.",
+  "app.salesPay.method.upwork.handleLabel": "Upwork contract or profile link",
+  "app.salesPay.method.upwork.label": "Upwork",
+  "app.salesPay.method.upwork.note": "Released against the contract's milestones. Upwork's own fee applies and comes off what lands, so the figure in the ledger is what FieldQuo sends, not what arrives.",
+  "app.salesPay.method.wise.handleLabel": "The email address on your Wise account, or your Wise account details",
+  "app.salesPay.method.wise.label": "Wise",
+  "app.salesPay.method.wise.note": "Best for a rep outside Canada. Converts at the mid-market rate with the fee shown up front, so what arrives is predictable — and it can land in your own currency.",
+  "app.salesPay.milestone.activation": "Activated",
+  "app.salesPay.milestone.first_payment": "Renewed",
+  "app.salesPay.milestone.retention": "Still paying",
+  "app.salesPay.readiness.noEngagement.fix": "It decides whether paid leave accrues, and whether FieldQuo withholds anything. It is not guessed from anything else.",
+  "app.salesPay.readiness.noEngagement.title": "Nobody has said whether this rep is a freelancer or an employee.",
+  "app.salesPay.readiness.noHandle.fix": "Add the destination: {field}.",
+  "app.salesPay.readiness.noHandle.title": "{method} is chosen, but there is nowhere to send it.",
+  "app.salesPay.readiness.noMethod.fix": "PayPal, Interac, a bank transfer, or an Upwork contract — the rep chooses.",
+  "app.salesPay.readiness.noMethod.title": "No payout method on record.",
+
+  // ── Which entry closed a channel, and how it got there ──────────────────
+  //
+  // Sixteen whole sentences: two subjects times eight ways a request reached
+  // us. NOT one stem with a clause slotted into it — the verb agrees with
+  // the subject in five of these languages, and a domain-wide entry is
+  // plural in some and singular in others. The sentence is the unit; only
+  // the value and the date are placeholders.
+  "app.salesSuppression.dateNotRecorded": "date not recorded",
+  "app.salesSuppression.reason.detectedReply": "This prospect replied asking not to be emailed again. That request stands for FieldQuo, not just for one rep's copy of it.",
+  "app.salesSuppression.reason.domain.call": "Everyone at {value} is on FieldQuo's do-not-contact list — they asked on the phone, {date}. That request binds FieldQuo, not one rep's copy of it.",
+  "app.salesSuppression.reason.domain.form": "Everyone at {value} is on FieldQuo's do-not-contact list — they asked through a form, {date}. That request binds FieldQuo, not one rep's copy of it.",
+  "app.salesSuppression.reason.domain.import": "Everyone at {value} is on FieldQuo's do-not-contact list — loaded from an existing list, {date}. That request binds FieldQuo, not one rep's copy of it.",
+  "app.salesSuppression.reason.domain.manual": "Everyone at {value} is on FieldQuo's do-not-contact list — recorded by hand, {date}. That request binds FieldQuo, not one rep's copy of it.",
+  "app.salesSuppression.reason.domain.regulator": "Everyone at {value} is on FieldQuo's do-not-contact list — from a do-not-call list, {date}. That request binds FieldQuo, not one rep's copy of it.",
+  "app.salesSuppression.reason.domain.reply": "Everyone at {value} is on FieldQuo's do-not-contact list — they replied asking us to stop, {date}. That request binds FieldQuo, not one rep's copy of it.",
+  "app.salesSuppression.reason.domain.sms": "Everyone at {value} is on FieldQuo's do-not-contact list — they texted STOP, {date}. That request binds FieldQuo, not one rep's copy of it.",
+  "app.salesSuppression.reason.domain.unrecorded": "Everyone at {value} is on FieldQuo's do-not-contact list — recorded, {date}. That request binds FieldQuo, not one rep's copy of it.",
+  "app.salesSuppression.reason.person.call": "{value} is on FieldQuo's do-not-contact list — they asked on the phone, {date}. That request binds FieldQuo, not one rep's copy of it.",
+  "app.salesSuppression.reason.person.form": "{value} is on FieldQuo's do-not-contact list — they asked through a form, {date}. That request binds FieldQuo, not one rep's copy of it.",
+  "app.salesSuppression.reason.person.import": "{value} is on FieldQuo's do-not-contact list — loaded from an existing list, {date}. That request binds FieldQuo, not one rep's copy of it.",
+  "app.salesSuppression.reason.person.manual": "{value} is on FieldQuo's do-not-contact list — recorded by hand, {date}. That request binds FieldQuo, not one rep's copy of it.",
+  "app.salesSuppression.reason.person.regulator": "{value} is on FieldQuo's do-not-contact list — from a do-not-call list, {date}. That request binds FieldQuo, not one rep's copy of it.",
+  "app.salesSuppression.reason.person.reply": "{value} is on FieldQuo's do-not-contact list — they replied asking us to stop, {date}. That request binds FieldQuo, not one rep's copy of it.",
+  "app.salesSuppression.reason.person.sms": "{value} is on FieldQuo's do-not-contact list — they texted STOP, {date}. That request binds FieldQuo, not one rep's copy of it.",
+  "app.salesSuppression.reason.person.unrecorded": "{value} is on FieldQuo's do-not-contact list — recorded, {date}. That request binds FieldQuo, not one rep's copy of it.",
+
+  // ── The only feedback a new sales hire gets ─────────────────────────────
+  //
+  // /sales/login and /sales/invite are the first FieldQuo screens somebody
+  // hired into sales ever sees, and every word on them was English whatever
+  // language they were hired in.
+  //
+  // Four invite refusals and not one generic "invalid link": "ask for a
+  // new invitation", "sign in with the password you set" and "ask a
+  // superadmin about your account" are three different instructions. The
+  // LOGIN refusal is deliberately single — telling the failures apart would
+  // tell a stranger which FieldQuo staff addresses are real.
+  "app.salesAuth.invite.accepted": "This invitation has already been used. Sign in with the password you set, or ask for a new invitation if you've forgotten it.",
+  "app.salesAuth.invite.expired": "This invitation has expired. Ask a FieldQuo superadmin to send a new one.",
+  "app.salesAuth.invite.inactive": "This sales account isn't active. Ask a FieldQuo superadmin about it.",
+  "app.salesAuth.invite.unknown": "This invitation link isn't valid. Ask a FieldQuo superadmin to send a new one.",
+  "app.salesAuth.invite.weakPassword": "Choose a password of at least {minLength} characters — this account can see every company you've brought in.",
+  "app.salesAuth.login.invalid": "Those sign-in details were not accepted.",
+  "app.salesAuth.login.missingFields": "Enter your email address and your password.",
+
+  // ── What fetchJson says when the server said nothing usable ─────────────
+  //
+  // The last thing anybody reads before giving up, on every screen in the
+  // product. A 4xx the ROUTE explained keeps the route's own sentence and
+  // never reaches these — overwriting a specific explanation with a generic
+  // one would be a downgrade wearing a translation's clothes.
+  "app.fetchError.failed": "The request did not go through (code {status}).",
+  "app.fetchError.forbidden": "You don't have permission to do that.",
+  "app.fetchError.network": "Couldn't reach the server. Check your connection and try again.",
+  "app.fetchError.notFound": "That doesn't exist, or you can't see it.",
+  "app.fetchError.server": "Something went wrong on our end (error {status}). If it keeps happening, tell support what you were doing.",
+  "app.fetchError.tooMany": "Too many attempts. Wait a moment and retry.",
+  "app.fetchError.unauthorised": "Your session has expired. Sign in again.",
+  "app.fetchError.unexpectedBody": "The server sent something back that this screen could not read.",
+
+  // ── A note that cannot be saved ─────────────────────────────────────────
+  //
+  // lib/sales/notes/model.js has always sent a `code` beside its sentence;
+  // the panel now keys off it. The English mentioned a file path and a
+  // schema block, which is an instruction to an engineer rather than to the
+  // rep reading it, so the catalogue entry says what happened to their words
+  // instead. The path is still named on the screen, separately.
+  "app.salesNotes.unavailableModelMissing": "Rep notes aren't switched on yet — the table they live in hasn't been created. Nothing you typed was saved.",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -15182,6 +15476,300 @@ const fr = {
   "app.salesText.whenButton": "Quand",
   "app.salesText.putAway": "Ranger",
   "app.salesText.sendNow": "Envoyer maintenant",
+
+  // ══ Sentences the SERVER composes, which a rep reads ══════════════════
+  //
+  // Commit cf099363 translated every /sales screen. What it could not reach
+  // was the text those screens RECEIVE already written: refusals, labels and
+  // explanations composed in lib/ and app/api/ and rendered verbatim. A rep
+  // on Spanish read a Spanish frame around English content — the
+  // half-translated state that change existed to remove, moved one layer
+  // down.
+  //
+  // Those modules are pure and are executed by a dozen check scripts under
+  // bare node, so none of them can import a translator. What they emit
+  // instead is the NAME of the sentence plus the values it needs, and their
+  // English rides along as the fallback. These are the sentences those names
+  // point at.
+
+  // ── The dial region, and the compliance refusals behind it ──────────────
+  //
+  // Every sentence lib/sales/dialSpace.js and lib/sales/callingRules.js
+  // compose for a rep who is being told they may not make a call. This is
+  // refusal copy, which is the half of a product that most needs to be in
+  // the reader's own language: a rep who cannot read WHY has only the
+  // absence of a button to go on.
+  //
+  // What is NOT here, deliberately: the statutes themselves. A
+  // jurisdiction's citation, Arizona's flat prohibition, Texas's
+  // registration and bond are quoted from the primary source, and a machine
+  // translation of a legal text reads as the law without being it. Those
+  // stay in the language the legislature wrote them in and the screen labels
+  // them as quoted — app.salesDial.quotedInEnglish is that label.
+  "app.salesDial.blocker.callCapReached.fix": "Rien de plus aujourd’hui. Le plafond s’applique par personne appelée, pas par représentant.",
+  "app.salesDial.blocker.callCapReached.title": "{jurisdiction} autorise {cap} appels à la même entreprise sur le même sujet en 24 heures, et {made} ont été passés.",
+  "app.salesDial.blocker.jurisdictionUnread.fix": "Le droit fédéral ne comble pas cette lacune : les appels interentreprises sont entièrement exemptés de la Telemarketing Sales Rule, la règle de l’État est donc la seule qui existe. C’est un point qui revient au propriétaire : une lecture du droit des États réellement appelés. Tant qu’elle n’est pas revenue, l’appel ne peut pas être confirmé comme autorisé.",
+  "app.salesDial.blocker.jurisdictionUnread.title": "Personne n’a lu la loi de {subdivision} sur le démarchage téléphonique.",
+  "app.salesDial.blocker.jurisdictionUnverified.title": "Les règles d’appel de {jurisdiction} n’ont pas été vérifiées.",
+  "app.salesDial.blocker.locationUnknown.fix": "Les heures d’appel sont fixées par le lieu où le téléphone sonne, et il n’existe aucune règle fédérale de repli — 16 CFR 310.6(b)(7) exempte les appels d’affaires de toute la Telemarketing Sales Rule. Tant que cette fiche ne comporte pas un pays et un État, personne ne peut dire si l’appel est permis.",
+  "app.salesDial.blocker.locationUnknown.title": "Nous ne savons pas dans quel État ou quelle province se trouve cette entreprise.",
+  "app.salesDial.blocker.outsideWindow.fixCourtesyOpens": "C’est la règle propre à FieldQuo : {jurisdiction} n’en impose aucune. La plage s’ouvre à {opensAt}. Rien n’est mis en file d’attente : c’est vous qui appuyez sur appeler.",
+  "app.salesDial.blocker.outsideWindow.fixCourtesyWait": "C’est la règle propre à FieldQuo : {jurisdiction} n’en impose aucune. Attendez la plage horaire.",
+  "app.salesDial.blocker.outsideWindow.fixStatutoryOpens": "C’est la règle propre à {jurisdiction}. La plage s’ouvre à {opensAt}. Rien n’est mis en file d’attente : c’est vous qui appuyez sur appeler.",
+  "app.salesDial.blocker.outsideWindow.fixStatutoryWait": "C’est la règle propre à {jurisdiction}. Attendez la plage horaire.",
+  "app.salesDial.blocker.outsideWindow.title": "On est en dehors de la plage d’appel là où ils se trouvent.",
+  "app.salesDial.blocker.timeZoneAmbiguous.fixOpens": "On est dans la plage d’appel dans une partie de {subdivision} et en dehors dans le reste, et cette fiche ne dit pas dans laquelle. Plutôt que de deviner la moitié la plus peuplée, rien n’est confirmé. Il est sûr d’appeler partout dans {subdivision} à partir de {opensAt} — ou demandez-leur où ils sont et enregistrez leur fuseau horaire sur leur piste, ce qui répond exactement à la question.",
+  "app.salesDial.blocker.timeZoneAmbiguous.fixUnknownOpening": "On est dans la plage d’appel dans une partie de {subdivision} et en dehors dans le reste, et cette fiche ne dit pas dans laquelle. Plutôt que de deviner la moitié la plus peuplée, rien n’est confirmé. Attendez le prochain moment où les deux moitiés concordent — ou demandez-leur où ils sont et enregistrez leur fuseau horaire sur leur piste, ce qui répond exactement à la question.",
+  "app.salesDial.blocker.timeZoneAmbiguous.title": "{subdivision} s’étend sur plus d’un fuseau horaire, et en ce moment ils ne concordent pas.",
+  "app.salesDial.blocker.timeZoneUnknown.fixCourtesy": "C’est la règle propre à FieldQuo, car {jurisdiction} n’en impose aucune, et elle est exprimée dans LEUR heure locale. Nous n’avons aucun fuseau horaire pour {subdivision} : il n’y a donc rien à évaluer, et notre propre horloge est le pire substitut possible.",
+  "app.salesDial.blocker.timeZoneUnknown.fixStatutory": "C’est la règle propre à {jurisdiction}, et elle est exprimée dans LEUR heure locale. Nous n’avons aucun fuseau horaire pour {subdivision} : il n’y a donc rien à évaluer, et notre propre horloge est le pire substitut possible.",
+  "app.salesDial.blocker.timeZoneUnknown.title": "Nous ne pouvons pas déterminer l’heure qu’il est là où se trouve cette entreprise.",
+  "app.salesDial.quotedInEnglish": "Cité en anglais, d’après la loi elle-même : une traduction d’un texte juridique se lirait comme la loi sans en être une.",
+  "app.salesDial.space.allowedNoNumber.detail": "Les règles d’appel autorisent cet appel, mais cette fiche ne contient aucun numéro vers lequel le passer. Rechargez ; si cela persiste, il faut ajouter un numéro au prospect.",
+  "app.salesDial.space.cannotConfirm.title": "Nous ne pouvons pas confirmer que cet appel est autorisé.",
+  "app.salesDial.space.doNotContact.detail": "Cette fiche est marquée « ne pas contacter » : aucune commande d’appel n’y est proposée.",
+  "app.salesDial.space.doNotContact.title": "Ne pas contacter",
+  "app.salesDial.space.doNotContactRecorded.noReason": "Enregistré le {date}. Aucun motif n’a été consigné.",
+  "app.salesDial.space.doNotContactRecorded.withReason": "Enregistré le {date}. Motif : {reason}",
+  "app.salesDial.space.noDecision.detail": "Cet écran n’a pas pu déterminer quelles règles d’appel s’appliquent : il ne propose donc pas une commande d’appel qu’il ne peut pas assumer. Rechargez la page.",
+  "app.salesDial.space.noNumber.detail": "Cette fiche ne contient aucun numéro de téléphone : il n’y a donc rien à composer d’ici. La prospection a trouvé l’entreprise sans numéro. Leur site web ou un annuaire en a peut-être un — ajoutez-le à leur piste et il apparaîtra ici.",
+  "app.salesDial.space.noNumber.title": "Pas encore de numéro commercial.",
+  "app.salesDial.space.noPhone.detail": "Cette fiche ne contient aucun numéro de téléphone : il n’y a donc rien à composer d’ici.",
+  "app.salesDial.space.noPhone.title": "Aucun numéro de téléphone",
+  "app.salesDial.space.noProspect.title": "Aucun prospect ouvert : il n’y a donc rien à composer.",
+  "app.salesDial.space.noProspectEmpty.detail": "Choisissez un métier, réservez un prospect, et le bouton d’appel apparaît à cet endroit. C’est toujours à cet endroit : un emplacement vide signifie que vous n’avez réservé personne, pas que les appels sont désactivés.",
+  "app.salesDial.space.noProspectHolding.detail": "Vous détenez {count}. Choisissez-en un dans la liste : son numéro, et le droit de l’appeler, s’affichent ici même.",
+  "app.salesDial.space.noProspectHolding.count": countedNoun("fr", { one: "prospect", other: "prospects" }),
+  "app.salesDial.space.optedOut.detail": "Un refus couvre les appels, les SMS et les courriels : aucune commande d’appel n’est proposée ici. Seul un superadministrateur peut le lever, et un motif écrit est exigé — si cela vous semble erroné, signalez-le plutôt que de leur chercher un autre numéro.",
+  "app.salesDial.space.optedOut.title": "Ils nous ont demandé d’arrêter.",
+  "app.salesDial.space.optedOutMeaning.detail": "Un refus couvre les appels, les SMS et les courriels : aucune commande d’appel n’est proposée. Seul un superadministrateur peut le lever, avec un motif écrit.",
+  "app.salesDial.space.ourOwnNumber.detail": "Appeler notre propre infrastructure crée une boucle et facture les deux segments : aucune commande d’appel n’est donc proposée. Si c’est réellement le numéro du prospect, il figure par erreur dans l’une des listes de numéros de FieldQuo.",
+  "app.salesDial.space.ourOwnNumber.title": "C’est l’un de nos propres numéros.",
+  "app.salesDial.space.ready.title": "Vous pouvez appeler celui-ci maintenant.",
+  "app.salesDial.space.readyNoWindow.detail": "Aucune juridiction du tableau n’impose de plage horaire pour celui-ci.",
+  "app.salesDial.space.refusedForNow.title": "Vous ne pouvez pas appeler celui-ci pour le moment.",
+  "app.salesDial.space.refusedOutright.detail": "La règle qui s’applique à cette entreprise refuse cet appel, et ce n’est pas une plage horaire qui s’ouvrira plus tard. Le motif est ci-dessous.",
+  "app.salesDial.space.refusedOutright.title": "Vous ne pouvez pas appeler celui-ci.",
+  "app.salesDial.space.unconfirmed.detail": "Rien n’a été établi dans un sens ni dans l’autre : aucune commande d’appel n’est proposée. C’est une lacune dans ce que nous savons, pas un refus.",
+  "app.salesDial.space.unreadableDecision.detail": "Les règles d’appel ont répondu « {decision} », ce que cet écran ne sait pas interpréter. Aucune commande d’appel n’est proposée sur une réponse que personne ne peut lire.",
+  "app.salesDial.unenforced.callCapUncounted.fix": "Rien dans FieldQuo n’enregistre encore les tentatives d’appel : ce plafond n’est donc pas compté pour vous — tenez-en le compte vous-même. Les deux États qui l’imposent l’assortissent d’un droit d’action privé.",
+  "app.salesDial.unenforced.callCapUncounted.title": "{jurisdiction} autorise au plus {cap} appels à cette entreprise sur le même sujet en 24 heures.",
+  "app.salesDial.warning.dataAcquisitionRule.title": "{jurisdiction} encadre la façon dont les coordonnées de ce prospect peuvent être obtenues.",
+  "app.salesDial.warning.registrationOutstanding.title": "FieldQuo doit être enregistré pour passer des appels commerciaux vers {jurisdiction}.",
+  "app.salesDial.window.courtesyRule": "Ces horaires relèvent de la règle propre à FieldQuo : {jurisdiction} n’en impose aucune.",
+  "app.salesDial.window.everyDay": "De {start} à {end} tous les jours, dans le fuseau horaire du prospect.",
+  "app.salesDial.window.everyDayClosed": "De {start} à {end} tous les jours, dans le fuseau horaire du prospect, et aucun appel le {closedDays}.",
+  "app.salesDial.window.opensAt": "Elle s’ouvre à {opensAt}.",
+  "app.salesDial.window.split": "De {start} à {end} en semaine et de {weekendStart} à {weekendEnd} le week-end, dans le fuseau horaire du prospect.",
+  "app.salesDial.window.splitClosed": "De {start} à {end} en semaine et de {weekendStart} à {weekendEnd} le week-end, dans le fuseau horaire du prospect, et aucun appel le {closedDays}.",
+  "app.salesDial.window.statutoryRule": "Ces horaires relèvent de la règle propre à {jurisdiction}.",
+
+  // ── The queue's four research blocks ────────────────────────────────────
+  //
+  // The three layer headings ARE the interface for the rule that an
+  // inference must never read as a fact, and they were English on every
+  // screen. So are the two refusals that withhold an inference, the two that
+  // withhold a recommendation, and every sentence under "what we do not
+  // know".
+  //
+  // A fact row's VALUE is keyed only when the value is ours. A prospect's
+  // phone number, address and name are printed verbatim; translating data is
+  // inventing it.
+  "app.salesIntel.bucket.FRANCHISE_LIKELY": "Probablement une franchise",
+  "app.salesIntel.bucket.MULTI_TRADE": "Plusieurs métiers",
+  "app.salesIntel.bucket.SMALL_BUSINESS": "Petite entreprise",
+  "app.salesIntel.bucket.SOLO_LIKELY": "Probablement seul",
+  "app.salesIntel.confidencePercent": "{percent} % de confiance",
+  "app.salesIntel.confidenceUntested": "Aucun indice de confiance — considérez-le comme non éprouvé.",
+  "app.salesIntel.fact.businessName.label": "Entreprise",
+  "app.salesIntel.fact.businessName.missing": "Aucun nom sur cette fiche",
+  "app.salesIntel.fact.businessStatus.label": "Toujours en activité ?",
+  "app.salesIntel.fact.businessStatus.missing": "La source ne le disait pas. Certaines de ces entreprises ont fermé.",
+  "app.salesIntel.fact.contactBasis.closed": "Fermés — appelez plutôt",
+  "app.salesIntel.fact.contactBasis.label": "Courriels et SMS",
+  "app.salesIntel.fact.location.label": "Où",
+  "app.salesIntel.fact.location.missing": "Aucune adresse sur cette fiche",
+  "app.salesIntel.fact.phone.label": "Téléphone",
+  "app.salesIntel.fact.phone.missing": "Aucun numéro de téléphone sur cette fiche",
+  "app.salesIntel.fact.rating.label": "Note",
+  "app.salesIntel.fact.rating.missing": "La source n’indiquait aucune note",
+  "app.salesIntel.fact.rating.value": "{rating} sur 5",
+  "app.salesIntel.fact.reviews.label": "Avis",
+  "app.salesIntel.fact.reviews.missing": "La source n’indiquait aucun nombre d’avis",
+  "app.salesIntel.fact.reviews.value": countedNoun("fr", { one: "avis", other: "avis" }),
+  "app.salesIntel.fact.source.label": "D’où cela vient",
+  "app.salesIntel.fact.sourceUpdatedAt.label": "Dernière actualisation de la source",
+  "app.salesIntel.fact.sourceUpdatedAt.missing": "La source ne disait pas quand",
+  "app.salesIntel.fact.website.derivedConfirmed": "{site} — déduit, et le site l’a confirmé",
+  "app.salesIntel.fact.website.guessed": "{site} — nous l’avons DEVINÉ à partir du courriel de la licence. Personne ne l’a publié et le site ne l’a pas confirmé.",
+  "app.salesIntel.fact.website.hasOne": "A un site web",
+  "app.salesIntel.fact.website.label": "Site web",
+  "app.salesIntel.fact.website.listedUnchecked": "{url} — répertorié, pas encore vérifié",
+  "app.salesIntel.fact.website.noneWeLooked": "Aucun site web — nous avons cherché",
+  "app.salesIntel.fact.website.sourceSilent": "La source n’indiquait aucun site web. C’est aussi souvent une lacune de l’annuaire qu’une lacune du marché.",
+  "app.salesIntel.inference.refusalCarriesNumber": "Cette déduction contient un nombre. La valeur enregistrée est une classification — « petite équipe », jamais « douze employés » — elle est donc retenue plutôt que lue comme un décompte.",
+  "app.salesIntel.inference.refusalNoConfidence": "Une déduction n’est affichée qu’avec notre degré de certitude. Rien derrière celle-ci n’est un signal reconnu par le moteur de confiance : il n’y a donc aucun chiffre à afficher et l’affirmation est retenue.",
+  "app.salesIntel.inference.sourceCall": "Ils l’ont dit lors d’un appel — de première main, et cela reste une déduction.",
+  "app.salesIntel.inference.sourceObserved": "Déduit de ce que nous avons observé.",
+  "app.salesIntel.kind.company_scale": "Taille de l’entreprise",
+  "app.salesIntel.kind.trade": "Métier",
+  "app.salesIntel.layer.fact.note": "Des faits. Chacun a été constaté, ou délibérément cherché et non constaté.",
+  "app.salesIntel.layer.fact.title": "Ce que nous avons observé",
+  "app.salesIntel.layer.inference.note": "Des conclusions que les indices étayent sans les prouver. Ne les énoncez jamais comme des faits.",
+  "app.salesIntel.layer.inference.title": "Ce que nous déduisons",
+  "app.salesIntel.layer.recommendation.note": "Des arguments bâtis sur les deux blocs ci-dessus. Chacun porte la raison qui l’a déclenché.",
+  "app.salesIntel.layer.recommendation.title": "Quoi proposer",
+  "app.salesIntel.noLeadScore": "Aucun score n’a été calculé pour ce prospect.",
+  "app.salesIntel.opportunity.refusalNoEvidence": "Cette recommandation ne cite aucun élément. Elle est affichée comme défectueuse plutôt que lue — un argumentaire sans rien derrière, c’est exactement le remplissage commercial générique que le contrôle des preuves existe pour empêcher.",
+  "app.salesIntel.opportunity.refusalNoReason": "Cette recommandation ne porte aucun motif : il n’y a donc rien à dire au-delà du nom de la fonctionnalité.",
+  "app.salesIntel.unknown.nothingInferred": "Rien n’a encore été déduit au sujet de cette entreprise.",
+  "app.salesIntel.unknown.softwareNeverCrawled": "Nous ignorons quels logiciels ils utilisent — rien ne les a explorés.",
+  "app.salesIntel.unnamedCapability": "Fonction sans nom",
+
+  // ── The disposition a rep picks after every single call ─────────────────
+  //
+  // Ten outcomes, each with the one line explaining what it does to the
+  // queue. lib/sales/calls/dispositions.js derives these keys from its own
+  // codes, so an eleventh outcome cannot ship English by omission — it fails
+  // check:sales-server-copy until this block has it.
+  "app.salesCall.disposition.bad_number.hint": "Hors service, ou cela a abouti chez quelqu’un de complètement différent.",
+  "app.salesCall.disposition.bad_number.label": "Numéro erroné ou hors service",
+  "app.salesCall.disposition.busy.hint": "Tonalité occupé, ou coupé avant même de sonner.",
+  "app.salesCall.disposition.busy.label": "Occupé",
+  "app.salesCall.disposition.callback.hint": "Une heure qu’ils ont acceptée. La réservation tient jusque-là et au-delà.",
+  "app.salesCall.disposition.callback.label": "Ils m’ont demandé de rappeler",
+  "app.salesCall.disposition.do_not_call.hint": "Leurs propres mots, au plus près possible. C’est définitif.",
+  "app.salesCall.disposition.do_not_call.label": "A demandé à ne plus être appelé",
+  "app.salesCall.disposition.gatekeeper.hint": "Une réceptionniste, un associé, un apprenti. L’argumentaire n’a pas eu lieu.",
+  "app.salesCall.disposition.gatekeeper.label": "Quelqu’un a répondu, mais pas le propriétaire",
+  "app.salesCall.disposition.no_answer.hint": "Ça a sonné dans le vide. Personne n’a décroché et aucun répondeur n’a pris.",
+  "app.salesCall.disposition.no_answer.label": "Pas de réponse",
+  "app.salesCall.disposition.not_a_fit.hint": "Un détaillant, un siège de franchise, une entreprise fermée, le mauvais métier.",
+  "app.salesCall.disposition.not_a_fit.label": "Pas une entreprise à qui nous pouvons vendre",
+  "app.salesCall.disposition.reached_interested.hint": "L’argumentaire a porté. Ce prospect est le vôtre à partir de maintenant.",
+  "app.salesCall.disposition.reached_interested.label": "Je leur ai parlé — intéressés",
+  "app.salesCall.disposition.reached_not_interested.hint": "Ils ont écouté et ont dit non. Personne d’autre ne devrait les appeler la semaine prochaine.",
+  "app.salesCall.disposition.reached_not_interested.label": "Je leur ai parlé — pas intéressés",
+  "app.salesCall.disposition.voicemail.hint": "Vous avez parlé vous-même sur leur répondeur. Jamais un enregistrement.",
+  "app.salesCall.disposition.voicemail.label": "Messagerie vocale — j’ai laissé un message",
+
+  // ── Why a check-in draft exists ─────────────────────────────────────────
+  //
+  // The headline above a suggested check-in. `angle` alongside it is NOT
+  // keyed and must not be: it is an instruction to the drafter, not
+  // something a rep reads.
+  "app.salesCheckin.reason.all_good": "Rien ne semble aller de travers",
+  "app.salesCheckin.reason.onboarding_unfinished": "Ils n’ont jamais terminé la mise en route",
+  "app.salesCheckin.reason.payment_failing": "Le paiement de leur abonnement échoue",
+  "app.salesCheckin.reason.payments_not_connected": "Ils ne peuvent pas encore encaisser de paiement",
+  "app.salesCheckin.reason.retention_milestone_near": "Le jalon de fidélisation approche",
+  "app.salesCheckin.reason.setup_steps_outstanding": "Des étapes de configuration restent ouvertes sur leur tableau de bord",
+  "app.salesCheckin.reason.trial_ends_before_retention": "Leur période gratuite se termine avant la date de fidélisation",
+  "app.salesCheckin.reason.unknown_state": "Nous ne voyons pas comment ils s’en sortent",
+
+  // ── How a rep is engaged, and where their money goes ────────────────────
+  //
+  // The payout screen was English throughout — the method names, what each
+  // one costs on the way, and the label on the field asking for the account.
+  // Being told in a language you do not read that fees depend on your
+  // account's country is worse than not being told.
+  "app.salesPay.engagement.employee.label": "Salarié",
+  "app.salesPay.engagement.employee.note": "Sur la paie. Les congés payés s’accumulent, et les retenues légales incombent à FieldQuo, qui les prélève et les verse.",
+  "app.salesPay.engagement.freelancer.label": "Travailleur autonome",
+  "app.salesPay.engagement.freelancer.note": "Facture sa commission. Aucun congé payé, aucune accumulation de vacances, aucune retenue légale par FieldQuo — il s’en occupe lui-même.",
+  "app.salesPay.method.bank_transfer.handleLabel": "Coordonnées du compte, ou l’IBAN",
+  "app.salesPay.method.bank_transfer.label": "Virement bancaire",
+  "app.salesPay.method.bank_transfer.note": "Le plus lent à arriver et le moins cher à envoyer. Idéal pour un représentant payé sur un gros lot.",
+  "app.salesPay.method.interac.handleLabel": "Adresse courriel enregistrée pour Interac",
+  "app.salesPay.method.interac.label": "Virement Interac",
+  "app.salesPay.method.interac.note": "Comptes canadiens uniquement. En général gratuit et le jour même.",
+  "app.salesPay.method.paypal.handleLabel": "Adresse courriel PayPal",
+  "app.salesPay.method.paypal.label": "PayPal",
+  "app.salesPay.method.paypal.note": "Envoyé par virement PayPal. Les frais dépendent du pays et du type du compte destinataire.",
+  "app.salesPay.method.upwork.handleLabel": "Lien du contrat ou du profil Upwork",
+  "app.salesPay.method.upwork.label": "Upwork",
+  "app.salesPay.method.upwork.note": "Versé au fil des jalons du contrat. Les frais propres à Upwork s’appliquent et sont déduits du montant reçu : le chiffre du registre est ce que FieldQuo envoie, pas ce qui arrive.",
+  "app.salesPay.method.wise.handleLabel": "L’adresse courriel de votre compte Wise, ou les coordonnées de votre compte Wise",
+  "app.salesPay.method.wise.label": "Wise",
+  "app.salesPay.method.wise.note": "Le meilleur choix hors du Canada. Conversion au taux du marché avec les frais affichés d’avance : le montant reçu est donc prévisible — et il peut arriver dans votre propre devise.",
+  "app.salesPay.milestone.activation": "Activée",
+  "app.salesPay.milestone.first_payment": "Renouvelée",
+  "app.salesPay.milestone.retention": "Paie toujours",
+  "app.salesPay.readiness.noEngagement.fix": "Cela détermine si des congés payés s’accumulent et si FieldQuo prélève quoi que ce soit. Rien d’autre ne permet de le deviner.",
+  "app.salesPay.readiness.noEngagement.title": "Personne n’a indiqué si ce représentant est travailleur autonome ou salarié.",
+  "app.salesPay.readiness.noHandle.fix": "Ajoutez la destination : {field}.",
+  "app.salesPay.readiness.noHandle.title": "{method} est choisi, mais il n’y a nulle part où envoyer l’argent.",
+  "app.salesPay.readiness.noMethod.fix": "PayPal, Interac, un virement bancaire ou un contrat Upwork — c’est le représentant qui choisit.",
+  "app.salesPay.readiness.noMethod.title": "Aucun mode de versement enregistré.",
+
+  // ── Which entry closed a channel, and how it got there ──────────────────
+  //
+  // Sixteen whole sentences: two subjects times eight ways a request reached
+  // us. NOT one stem with a clause slotted into it — the verb agrees with
+  // the subject in five of these languages, and a domain-wide entry is
+  // plural in some and singular in others. The sentence is the unit; only
+  // the value and the date are placeholders.
+  "app.salesSuppression.dateNotRecorded": "date non consignée",
+  "app.salesSuppression.reason.detectedReply": "Ce prospect a répondu en demandant à ne plus recevoir de courriels. Cette demande vaut pour FieldQuo, pas seulement pour la copie qu’en a un représentant.",
+  "app.salesSuppression.reason.domain.call": "Toutes les personnes de {value} figurent sur la liste de non-sollicitation de FieldQuo — ils l’ont demandé au téléphone, le {date}. Cette demande engage FieldQuo, pas la copie qu’en a un représentant.",
+  "app.salesSuppression.reason.domain.form": "Toutes les personnes de {value} figurent sur la liste de non-sollicitation de FieldQuo — ils l’ont demandé au moyen d’un formulaire, le {date}. Cette demande engage FieldQuo, pas la copie qu’en a un représentant.",
+  "app.salesSuppression.reason.domain.import": "Toutes les personnes de {value} figurent sur la liste de non-sollicitation de FieldQuo — chargé depuis une liste existante, le {date}. Cette demande engage FieldQuo, pas la copie qu’en a un représentant.",
+  "app.salesSuppression.reason.domain.manual": "Toutes les personnes de {value} figurent sur la liste de non-sollicitation de FieldQuo — consigné à la main, le {date}. Cette demande engage FieldQuo, pas la copie qu’en a un représentant.",
+  "app.salesSuppression.reason.domain.regulator": "Toutes les personnes de {value} figurent sur la liste de non-sollicitation de FieldQuo — d’après une liste de numéros exclus, le {date}. Cette demande engage FieldQuo, pas la copie qu’en a un représentant.",
+  "app.salesSuppression.reason.domain.reply": "Toutes les personnes de {value} figurent sur la liste de non-sollicitation de FieldQuo — ils ont répondu en nous demandant d’arrêter, le {date}. Cette demande engage FieldQuo, pas la copie qu’en a un représentant.",
+  "app.salesSuppression.reason.domain.sms": "Toutes les personnes de {value} figurent sur la liste de non-sollicitation de FieldQuo — ils ont envoyé STOP par SMS, le {date}. Cette demande engage FieldQuo, pas la copie qu’en a un représentant.",
+  "app.salesSuppression.reason.domain.unrecorded": "Toutes les personnes de {value} figurent sur la liste de non-sollicitation de FieldQuo — consigné, le {date}. Cette demande engage FieldQuo, pas la copie qu’en a un représentant.",
+  "app.salesSuppression.reason.person.call": "{value} figure sur la liste de non-sollicitation de FieldQuo — ils l’ont demandé au téléphone, le {date}. Cette demande engage FieldQuo, pas la copie qu’en a un représentant.",
+  "app.salesSuppression.reason.person.form": "{value} figure sur la liste de non-sollicitation de FieldQuo — ils l’ont demandé au moyen d’un formulaire, le {date}. Cette demande engage FieldQuo, pas la copie qu’en a un représentant.",
+  "app.salesSuppression.reason.person.import": "{value} figure sur la liste de non-sollicitation de FieldQuo — chargé depuis une liste existante, le {date}. Cette demande engage FieldQuo, pas la copie qu’en a un représentant.",
+  "app.salesSuppression.reason.person.manual": "{value} figure sur la liste de non-sollicitation de FieldQuo — consigné à la main, le {date}. Cette demande engage FieldQuo, pas la copie qu’en a un représentant.",
+  "app.salesSuppression.reason.person.regulator": "{value} figure sur la liste de non-sollicitation de FieldQuo — d’après une liste de numéros exclus, le {date}. Cette demande engage FieldQuo, pas la copie qu’en a un représentant.",
+  "app.salesSuppression.reason.person.reply": "{value} figure sur la liste de non-sollicitation de FieldQuo — ils ont répondu en nous demandant d’arrêter, le {date}. Cette demande engage FieldQuo, pas la copie qu’en a un représentant.",
+  "app.salesSuppression.reason.person.sms": "{value} figure sur la liste de non-sollicitation de FieldQuo — ils ont envoyé STOP par SMS, le {date}. Cette demande engage FieldQuo, pas la copie qu’en a un représentant.",
+  "app.salesSuppression.reason.person.unrecorded": "{value} figure sur la liste de non-sollicitation de FieldQuo — consigné, le {date}. Cette demande engage FieldQuo, pas la copie qu’en a un représentant.",
+
+  // ── The only feedback a new sales hire gets ─────────────────────────────
+  //
+  // /sales/login and /sales/invite are the first FieldQuo screens somebody
+  // hired into sales ever sees, and every word on them was English whatever
+  // language they were hired in.
+  //
+  // Four invite refusals and not one generic "invalid link": "ask for a
+  // new invitation", "sign in with the password you set" and "ask a
+  // superadmin about your account" are three different instructions. The
+  // LOGIN refusal is deliberately single — telling the failures apart would
+  // tell a stranger which FieldQuo staff addresses are real.
+  "app.salesAuth.invite.accepted": "Cette invitation a déjà été utilisée. Connectez-vous avec le mot de passe que vous avez défini, ou demandez une nouvelle invitation si vous l’avez oublié.",
+  "app.salesAuth.invite.expired": "Cette invitation a expiré. Demandez à un superadministrateur FieldQuo d’en envoyer une nouvelle.",
+  "app.salesAuth.invite.inactive": "Ce compte commercial n’est pas actif. Renseignez-vous auprès d’un superadministrateur FieldQuo.",
+  "app.salesAuth.invite.unknown": "Ce lien d’invitation n’est pas valide. Demandez à un superadministrateur FieldQuo d’en envoyer un nouveau.",
+  "app.salesAuth.invite.weakPassword": "Choisissez un mot de passe d’au moins {minLength} caractères — ce compte peut voir toutes les entreprises que vous avez amenées.",
+  "app.salesAuth.login.invalid": "Ces identifiants n’ont pas été acceptés.",
+  "app.salesAuth.login.missingFields": "Saisissez votre adresse courriel et votre mot de passe.",
+
+  // ── What fetchJson says when the server said nothing usable ─────────────
+  //
+  // The last thing anybody reads before giving up, on every screen in the
+  // product. A 4xx the ROUTE explained keeps the route's own sentence and
+  // never reaches these — overwriting a specific explanation with a generic
+  // one would be a downgrade wearing a translation's clothes.
+  "app.fetchError.failed": "La requête n’a pas abouti (code {status}).",
+  "app.fetchError.forbidden": "Vous n’avez pas la permission de faire cela.",
+  "app.fetchError.network": "Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.",
+  "app.fetchError.notFound": "Cela n’existe pas, ou vous n’y avez pas accès.",
+  "app.fetchError.server": "Un problème est survenu de notre côté (erreur {status}). Si cela se reproduit, indiquez au support ce que vous étiez en train de faire.",
+  "app.fetchError.tooMany": "Trop de tentatives. Patientez un instant et réessayez.",
+  "app.fetchError.unauthorised": "Votre session a expiré. Reconnectez-vous.",
+  "app.fetchError.unexpectedBody": "Le serveur a renvoyé quelque chose que cet écran n’a pas pu lire.",
+
+  // ── A note that cannot be saved ─────────────────────────────────────────
+  //
+  // lib/sales/notes/model.js has always sent a `code` beside its sentence;
+  // the panel now keys off it. The English mentioned a file path and a
+  // schema block, which is an instruction to an engineer rather than to the
+  // rep reading it, so the catalogue entry says what happened to their words
+  // instead. The path is still named on the screen, separately.
+  "app.salesNotes.unavailableModelMissing": "Les notes des représentants ne sont pas encore activées — la table qui les contient n’a pas été créée. Rien de ce que vous avez saisi n’a été enregistré.",
 };
 
 
@@ -22877,6 +23465,300 @@ const es = {
   "app.salesText.whenButton": "Cuándo",
   "app.salesText.putAway": "Guardar",
   "app.salesText.sendNow": "Enviarlo ahora",
+
+  // ══ Sentences the SERVER composes, which a rep reads ══════════════════
+  //
+  // Commit cf099363 translated every /sales screen. What it could not reach
+  // was the text those screens RECEIVE already written: refusals, labels and
+  // explanations composed in lib/ and app/api/ and rendered verbatim. A rep
+  // on Spanish read a Spanish frame around English content — the
+  // half-translated state that change existed to remove, moved one layer
+  // down.
+  //
+  // Those modules are pure and are executed by a dozen check scripts under
+  // bare node, so none of them can import a translator. What they emit
+  // instead is the NAME of the sentence plus the values it needs, and their
+  // English rides along as the fallback. These are the sentences those names
+  // point at.
+
+  // ── The dial region, and the compliance refusals behind it ──────────────
+  //
+  // Every sentence lib/sales/dialSpace.js and lib/sales/callingRules.js
+  // compose for a rep who is being told they may not make a call. This is
+  // refusal copy, which is the half of a product that most needs to be in
+  // the reader's own language: a rep who cannot read WHY has only the
+  // absence of a button to go on.
+  //
+  // What is NOT here, deliberately: the statutes themselves. A
+  // jurisdiction's citation, Arizona's flat prohibition, Texas's
+  // registration and bond are quoted from the primary source, and a machine
+  // translation of a legal text reads as the law without being it. Those
+  // stay in the language the legislature wrote them in and the screen labels
+  // them as quoted — app.salesDial.quotedInEnglish is that label.
+  "app.salesDial.blocker.callCapReached.fix": "Nada más por hoy. El límite es por persona llamada, no por comercial.",
+  "app.salesDial.blocker.callCapReached.title": "{jurisdiction} permite {cap} llamadas al mismo negocio sobre el mismo asunto en 24 horas, y ya se han hecho {made}.",
+  "app.salesDial.blocker.jurisdictionUnread.fix": "La ley federal no llena este vacío: las llamadas entre empresas están totalmente exentas de la Telemarketing Sales Rule, así que la norma del estado es la única que hay. Esto le corresponde al propietario: una lectura del derecho de los estados a los que de verdad se llama. Hasta que llegue, no se puede confirmar que esté permitido.",
+  "app.salesDial.blocker.jurisdictionUnread.title": "Nadie ha leído la ley de {subdivision} sobre la venta telefónica.",
+  "app.salesDial.blocker.jurisdictionUnverified.title": "Las reglas de llamada de {jurisdiction} no se han verificado.",
+  "app.salesDial.blocker.locationUnknown.fix": "El horario de llamada lo fija el lugar donde suena el teléfono, y no hay ninguna norma federal debajo a la que recurrir: 16 CFR 310.6(b)(7) exime las llamadas comerciales de toda la Telemarketing Sales Rule. Hasta que esta ficha tenga país y estado, nadie puede decir si está permitido llamarles.",
+  "app.salesDial.blocker.locationUnknown.title": "No sabemos en qué estado o provincia está este negocio.",
+  "app.salesDial.blocker.outsideWindow.fixCourtesyOpens": "Esa es una norma propia de FieldQuo: {jurisdiction} no impone ninguna. La franja se abre a las {opensAt}. No se pone nada en cola: eres tú quien pulsa llamar.",
+  "app.salesDial.blocker.outsideWindow.fixCourtesyWait": "Esa es una norma propia de FieldQuo: {jurisdiction} no impone ninguna. Espera a la franja horaria.",
+  "app.salesDial.blocker.outsideWindow.fixStatutoryOpens": "Esa es la norma propia de {jurisdiction}. La franja se abre a las {opensAt}. No se pone nada en cola: eres tú quien pulsa llamar.",
+  "app.salesDial.blocker.outsideWindow.fixStatutoryWait": "Esa es la norma propia de {jurisdiction}. Espera a la franja horaria.",
+  "app.salesDial.blocker.outsideWindow.title": "Estamos fuera de la franja de llamada donde ellos están.",
+  "app.salesDial.blocker.timeZoneAmbiguous.fixOpens": "En parte de {subdivision} estamos dentro de la franja de llamada y en el resto fuera, y esta ficha no dice en cuál. En vez de adivinar la mitad más poblada, no se confirma nada. Es seguro llamar a cualquier punto de {subdivision} a partir de {opensAt}, o pregúntales dónde están y guarda su zona horaria en su lead, que responde a esto exactamente.",
+  "app.salesDial.blocker.timeZoneAmbiguous.fixUnknownOpening": "En parte de {subdivision} estamos dentro de la franja de llamada y en el resto fuera, y esta ficha no dice en cuál. En vez de adivinar la mitad más poblada, no se confirma nada. Espera al próximo momento en que ambas mitades coincidan, o pregúntales dónde están y guarda su zona horaria en su lead, que responde a esto exactamente.",
+  "app.salesDial.blocker.timeZoneAmbiguous.title": "{subdivision} abarca más de una zona horaria, y ahora mismo no coinciden.",
+  "app.salesDial.blocker.timeZoneUnknown.fixCourtesy": "Es una norma propia de FieldQuo, porque {jurisdiction} no impone ninguna, y está expresada en SU hora local. No tenemos ninguna zona horaria para {subdivision}, así que no hay nada que evaluar, y nuestro propio reloj es el peor sustituto disponible.",
+  "app.salesDial.blocker.timeZoneUnknown.fixStatutory": "Es la norma propia de {jurisdiction}, y está expresada en SU hora local. No tenemos ninguna zona horaria para {subdivision}, así que no hay nada que evaluar, y nuestro propio reloj es el peor sustituto disponible.",
+  "app.salesDial.blocker.timeZoneUnknown.title": "No podemos averiguar qué hora es donde está este negocio.",
+  "app.salesDial.quotedInEnglish": "Citado en inglés, tomado de la propia ley: una traducción de un texto legal se leería como la ley sin serlo.",
+  "app.salesDial.space.allowedNoNumber.detail": "Las reglas de llamada permiten esta llamada y esta ficha no tiene ningún número al que hacerla. Recarga; si sigue igual, el prospecto necesita un número de teléfono.",
+  "app.salesDial.space.cannotConfirm.title": "No podemos confirmar que esta llamada esté permitida.",
+  "app.salesDial.space.doNotContact.detail": "Esta ficha está marcada como «no contactar», así que no se ofrece ningún control de llamada.",
+  "app.salesDial.space.doNotContact.title": "No contactar",
+  "app.salesDial.space.doNotContactRecorded.noReason": "Registrado el {date}. No se registró ningún motivo.",
+  "app.salesDial.space.doNotContactRecorded.withReason": "Registrado el {date}. Motivo: {reason}",
+  "app.salesDial.space.noDecision.detail": "Esta pantalla no ha podido averiguar qué reglas de llamada se aplican, así que no ofrece un control de llamada que no pueda respaldar. Recarga la página.",
+  "app.salesDial.space.noNumber.detail": "Esta ficha no tiene ningún número de teléfono, así que no hay nada que marcar desde aquí. El descubrimiento encontró el negocio sin número. Puede que esté en su web o en un directorio: añádelo a su lead y aparecerá aquí.",
+  "app.salesDial.space.noNumber.title": "Todavía no hay número de ventas.",
+  "app.salesDial.space.noPhone.detail": "Esta ficha no tiene ningún número de teléfono, así que no hay nada que marcar desde aquí.",
+  "app.salesDial.space.noPhone.title": "Sin número de teléfono",
+  "app.salesDial.space.noProspect.title": "No hay ningún prospecto abierto, así que no hay nada que marcar.",
+  "app.salesDial.space.noProspectEmpty.detail": "Elige un oficio, reclama un prospecto y el botón de llamada aparece en este sitio. Siempre es este sitio: si está vacío significa que no has reclamado a nadie, no que las llamadas estén desactivadas.",
+  "app.salesDial.space.noProspectHolding.detail": "Tienes {count}. Elige uno de la lista y aquí mismo aparecerán su número y si puedes llamarlo.",
+  "app.salesDial.space.noProspectHolding.count": countedNoun("es", { one: "prospecto", other: "prospectos" }),
+  "app.salesDial.space.optedOut.detail": "Una baja cubre llamadas, mensajes y correo, así que aquí no se ofrece ningún control de llamada. Solo un superadministrador puede retirarla, y hace falta un motivo por escrito: si esto parece un error, dilo en lugar de buscarles otro número.",
+  "app.salesDial.space.optedOut.title": "Nos pidieron que paráramos.",
+  "app.salesDial.space.optedOutMeaning.detail": "Una baja cubre llamadas, mensajes y correo, así que no se ofrece ningún control de llamada. Solo un superadministrador puede retirarla, con un motivo por escrito.",
+  "app.salesDial.space.ourOwnNumber.detail": "Llamar a nuestra propia infraestructura crea un bucle y factura los dos tramos, así que no se ofrece ningún control de llamada. Si este es de verdad el número del prospecto, está por error en una de las listas de números de FieldQuo.",
+  "app.salesDial.space.ourOwnNumber.title": "Ese es uno de nuestros propios números.",
+  "app.salesDial.space.ready.title": "Puedes llamar a este ahora.",
+  "app.salesDial.space.readyNoWindow.detail": "Ninguna jurisdicción de la tabla impone una franja horaria para este.",
+  "app.salesDial.space.refusedForNow.title": "Ahora mismo no puedes llamar a este.",
+  "app.salesDial.space.refusedOutright.detail": "La norma que se aplica a este negocio rechaza esta llamada, y no es una franja que se abra más tarde. El motivo está abajo.",
+  "app.salesDial.space.refusedOutright.title": "No puedes llamar a este.",
+  "app.salesDial.space.unconfirmed.detail": "No se estableció nada en ningún sentido, así que no se ofrece ningún control de llamada. Es un vacío en lo que sabemos, no una negativa.",
+  "app.salesDial.space.unreadableDecision.detail": "Las reglas de llamada respondieron «{decision}», algo que esta pantalla no sabe leer. No se ofrece ningún control de llamada ante una respuesta que nadie puede interpretar.",
+  "app.salesDial.unenforced.callCapUncounted.fix": "Todavía nada en FieldQuo registra los intentos de llamada, así que este límite no se está contando por ti: llévalo tú mismo. En los dos estados que lo imponen da lugar a una acción privada.",
+  "app.salesDial.unenforced.callCapUncounted.title": "{jurisdiction} permite como máximo {cap} llamadas a este negocio sobre el mismo asunto en 24 horas.",
+  "app.salesDial.warning.dataAcquisitionRule.title": "{jurisdiction} regula cómo pueden obtenerse los datos de este prospecto.",
+  "app.salesDial.warning.registrationOutstanding.title": "FieldQuo debe estar registrado para hacer llamadas comerciales a {jurisdiction}.",
+  "app.salesDial.window.courtesyRule": "Este horario es una norma propia de FieldQuo: {jurisdiction} no impone ninguna.",
+  "app.salesDial.window.everyDay": "De {start} a {end} todos los días, en la zona horaria del prospecto.",
+  "app.salesDial.window.everyDayClosed": "De {start} a {end} todos los días, en la zona horaria del prospecto, y ninguna llamada los {closedDays}.",
+  "app.salesDial.window.opensAt": "Se abre a las {opensAt}.",
+  "app.salesDial.window.split": "De {start} a {end} entre semana y de {weekendStart} a {weekendEnd} los fines de semana, en la zona horaria del prospecto.",
+  "app.salesDial.window.splitClosed": "De {start} a {end} entre semana y de {weekendStart} a {weekendEnd} los fines de semana, en la zona horaria del prospecto, y ninguna llamada los {closedDays}.",
+  "app.salesDial.window.statutoryRule": "Este horario es la norma propia de {jurisdiction}.",
+
+  // ── The queue's four research blocks ────────────────────────────────────
+  //
+  // The three layer headings ARE the interface for the rule that an
+  // inference must never read as a fact, and they were English on every
+  // screen. So are the two refusals that withhold an inference, the two that
+  // withhold a recommendation, and every sentence under "what we do not
+  // know".
+  //
+  // A fact row's VALUE is keyed only when the value is ours. A prospect's
+  // phone number, address and name are printed verbatim; translating data is
+  // inventing it.
+  "app.salesIntel.bucket.FRANCHISE_LIKELY": "Probablemente una franquicia",
+  "app.salesIntel.bucket.MULTI_TRADE": "Varios oficios",
+  "app.salesIntel.bucket.SMALL_BUSINESS": "Pequeño negocio",
+  "app.salesIntel.bucket.SOLO_LIKELY": "Probablemente en solitario",
+  "app.salesIntel.confidencePercent": "{percent} % de confianza",
+  "app.salesIntel.confidenceUntested": "Sin cifra de confianza: trátalo como no probado.",
+  "app.salesIntel.fact.businessName.label": "Negocio",
+  "app.salesIntel.fact.businessName.missing": "Sin nombre en esta ficha",
+  "app.salesIntel.fact.businessStatus.label": "¿Sigue operando?",
+  "app.salesIntel.fact.businessStatus.missing": "La fuente no lo decía. Algunos de estos negocios han cerrado.",
+  "app.salesIntel.fact.contactBasis.closed": "Cerrados: llama en su lugar",
+  "app.salesIntel.fact.contactBasis.label": "Correo y mensajes",
+  "app.salesIntel.fact.location.label": "Dónde",
+  "app.salesIntel.fact.location.missing": "Sin dirección en esta ficha",
+  "app.salesIntel.fact.phone.label": "Teléfono",
+  "app.salesIntel.fact.phone.missing": "Sin número de teléfono en esta ficha",
+  "app.salesIntel.fact.rating.label": "Valoración",
+  "app.salesIntel.fact.rating.missing": "La fuente no indicaba ninguna valoración",
+  "app.salesIntel.fact.rating.value": "{rating} sobre 5",
+  "app.salesIntel.fact.reviews.label": "Reseñas",
+  "app.salesIntel.fact.reviews.missing": "La fuente no indicaba ningún número de reseñas",
+  "app.salesIntel.fact.reviews.value": countedNoun("es", { one: "reseña", other: "reseñas" }),
+  "app.salesIntel.fact.source.label": "De dónde salió esto",
+  "app.salesIntel.fact.sourceUpdatedAt.label": "Última actualización de la fuente",
+  "app.salesIntel.fact.sourceUpdatedAt.missing": "La fuente no decía cuándo",
+  "app.salesIntel.fact.website.derivedConfirmed": "{site} — deducido, y el sitio lo confirmó",
+  "app.salesIntel.fact.website.guessed": "{site} — lo hemos ADIVINADO a partir del correo de la licencia. Nadie lo publicó y el sitio no lo ha confirmado.",
+  "app.salesIntel.fact.website.hasOne": "Tiene sitio web",
+  "app.salesIntel.fact.website.label": "Sitio web",
+  "app.salesIntel.fact.website.listedUnchecked": "{url} — figura en la ficha, todavía sin comprobar",
+  "app.salesIntel.fact.website.noneWeLooked": "Sin sitio web: lo hemos buscado",
+  "app.salesIntel.fact.website.sourceSilent": "La fuente no indicaba ningún sitio web. Eso es un hueco del directorio tan a menudo como un hueco del mercado.",
+  "app.salesIntel.inference.refusalCarriesNumber": "Esta inferencia contiene un número. El valor almacenado es una clasificación —«equipo pequeño», nunca «doce empleados»—, así que se retiene en vez de leerse como un recuento.",
+  "app.salesIntel.inference.refusalNoConfidence": "Una inferencia solo se muestra junto con lo seguros que estamos. Nada de lo que hay detrás de esta es una señal que el motor de confianza reconozca, así que no hay cifra que mostrar y la afirmación se retiene.",
+  "app.salesIntel.inference.sourceCall": "Lo dijeron en una llamada: de primera mano, y sigue siendo una inferencia.",
+  "app.salesIntel.inference.sourceObserved": "Derivado de lo que hemos observado.",
+  "app.salesIntel.kind.company_scale": "Tamaño de la empresa",
+  "app.salesIntel.kind.trade": "Oficio",
+  "app.salesIntel.layer.fact.note": "Hechos. Cada uno se vio, o se buscó a propósito y no se vio.",
+  "app.salesIntel.layer.fact.title": "Lo que hemos observado",
+  "app.salesIntel.layer.inference.note": "Conclusiones que las pruebas respaldan pero no demuestran. Nunca las digas como un hecho.",
+  "app.salesIntel.layer.inference.title": "Lo que inferimos",
+  "app.salesIntel.layer.recommendation.note": "Argumentos construidos a partir de los dos bloques anteriores. Cada uno lleva el motivo que lo activó.",
+  "app.salesIntel.layer.recommendation.title": "Qué proponer",
+  "app.salesIntel.noLeadScore": "No se ha calculado ninguna puntuación para este prospecto.",
+  "app.salesIntel.opportunity.refusalNoEvidence": "Esta recomendación no cita ninguna prueba. Se muestra como defectuosa en vez de leerse: un argumento sin nada detrás es justo el relleno comercial genérico que el control de pruebas existe para impedir.",
+  "app.salesIntel.opportunity.refusalNoReason": "Esta recomendación no lleva ningún motivo, así que no hay nada que decir más allá del nombre de la función.",
+  "app.salesIntel.unknown.nothingInferred": "Todavía no se ha inferido nada sobre este negocio.",
+  "app.salesIntel.unknown.softwareNeverCrawled": "No sabemos qué software usan: nada los ha rastreado.",
+  "app.salesIntel.unnamedCapability": "Capacidad sin nombre",
+
+  // ── The disposition a rep picks after every single call ─────────────────
+  //
+  // Ten outcomes, each with the one line explaining what it does to the
+  // queue. lib/sales/calls/dispositions.js derives these keys from its own
+  // codes, so an eleventh outcome cannot ship English by omission — it fails
+  // check:sales-server-copy until this block has it.
+  "app.salesCall.disposition.bad_number.hint": "Desconectado, o dio con una persona completamente distinta.",
+  "app.salesCall.disposition.bad_number.label": "Número equivocado o fuera de servicio",
+  "app.salesCall.disposition.busy.hint": "Tono de ocupado, o se cortó antes de sonar.",
+  "app.salesCall.disposition.busy.label": "Ocupado",
+  "app.salesCall.disposition.callback.hint": "Una hora que ellos aceptaron. La reserva se mantiene hasta entonces y más allá.",
+  "app.salesCall.disposition.callback.label": "Me pidieron que volviera a llamar",
+  "app.salesCall.disposition.do_not_call.hint": "Sus propias palabras, lo más fiel que puedas. Esto es permanente.",
+  "app.salesCall.disposition.do_not_call.label": "Pidió que no se le vuelva a llamar",
+  "app.salesCall.disposition.gatekeeper.hint": "Una recepcionista, un socio, un aprendiz. El argumento no llegó a darse.",
+  "app.salesCall.disposition.gatekeeper.label": "Contestó alguien, pero no el dueño",
+  "app.salesCall.disposition.no_answer.hint": "Sonó hasta cortarse. Nadie descolgó y no saltó ningún contestador.",
+  "app.salesCall.disposition.no_answer.label": "Sin respuesta",
+  "app.salesCall.disposition.not_a_fit.hint": "Un minorista, la central de una franquicia, un negocio cerrado, el oficio equivocado.",
+  "app.salesCall.disposition.not_a_fit.label": "No es un negocio al que podamos vender",
+  "app.salesCall.disposition.reached_interested.hint": "El argumento funcionó. Este prospecto es tuyo a partir de ahora.",
+  "app.salesCall.disposition.reached_interested.label": "Hablé con ellos: interesados",
+  "app.salesCall.disposition.reached_not_interested.hint": "Lo escucharon y dijeron que no. Nadie más debería llamarles la semana que viene.",
+  "app.salesCall.disposition.reached_not_interested.label": "Hablé con ellos: no están interesados",
+  "app.salesCall.disposition.voicemail.hint": "Hablaste tú mismo en su contestador. Nunca una grabación.",
+  "app.salesCall.disposition.voicemail.label": "Buzón de voz: dejé un mensaje",
+
+  // ── Why a check-in draft exists ─────────────────────────────────────────
+  //
+  // The headline above a suggested check-in. `angle` alongside it is NOT
+  // keyed and must not be: it is an instruction to the drafter, not
+  // something a rep reads.
+  "app.salesCheckin.reason.all_good": "No parece que haya nada mal",
+  "app.salesCheckin.reason.onboarding_unfinished": "Nunca terminaron la puesta en marcha",
+  "app.salesCheckin.reason.payment_failing": "Les está fallando el pago de la suscripción",
+  "app.salesCheckin.reason.payments_not_connected": "Todavía no pueden cobrar un pago",
+  "app.salesCheckin.reason.retention_milestone_near": "El hito de retención está cerca",
+  "app.salesCheckin.reason.setup_steps_outstanding": "Quedan pasos de configuración abiertos en su panel",
+  "app.salesCheckin.reason.trial_ends_before_retention": "Su periodo gratuito termina antes de la fecha de retención",
+  "app.salesCheckin.reason.unknown_state": "No podemos ver cómo les va",
+
+  // ── How a rep is engaged, and where their money goes ────────────────────
+  //
+  // The payout screen was English throughout — the method names, what each
+  // one costs on the way, and the label on the field asking for the account.
+  // Being told in a language you do not read that fees depend on your
+  // account's country is worse than not being told.
+  "app.salesPay.engagement.employee.label": "Empleado",
+  "app.salesPay.engagement.employee.note": "En nómina. Los permisos retribuidos se acumulan, y las retenciones legales corresponden a FieldQuo, que las practica y las ingresa.",
+  "app.salesPay.engagement.freelancer.label": "Autónomo",
+  "app.salesPay.engagement.freelancer.note": "Factura su comisión. Sin permisos retribuidos, sin acumulación de vacaciones, sin retenciones legales por parte de FieldQuo: se encarga de las suyas.",
+  "app.salesPay.method.bank_transfer.handleLabel": "Datos de la cuenta, o el IBAN",
+  "app.salesPay.method.bank_transfer.label": "Transferencia bancaria",
+  "app.salesPay.method.bank_transfer.note": "El que más tarda en llegar y el más barato de enviar. Ideal para un comercial al que se le paga un lote grande.",
+  "app.salesPay.method.interac.handleLabel": "Correo electrónico registrado para Interac",
+  "app.salesPay.method.interac.label": "Interac e-Transfer",
+  "app.salesPay.method.interac.note": "Solo cuentas canadienses. Normalmente gratis y el mismo día.",
+  "app.salesPay.method.paypal.handleLabel": "Correo electrónico de PayPal",
+  "app.salesPay.method.paypal.label": "PayPal",
+  "app.salesPay.method.paypal.note": "Se envía como transferencia de PayPal. Las comisiones dependen del país y del tipo de cuenta receptora.",
+  "app.salesPay.method.upwork.handleLabel": "Enlace del contrato o del perfil de Upwork",
+  "app.salesPay.method.upwork.label": "Upwork",
+  "app.salesPay.method.upwork.note": "Se libera contra los hitos del contrato. Se aplica la comisión propia de Upwork y se descuenta de lo que llega, así que la cifra del registro es lo que envía FieldQuo, no lo que llega.",
+  "app.salesPay.method.wise.handleLabel": "El correo electrónico de tu cuenta de Wise, o los datos de tu cuenta de Wise",
+  "app.salesPay.method.wise.label": "Wise",
+  "app.salesPay.method.wise.note": "La mejor opción fuera de Canadá. Convierte al tipo medio de mercado con la comisión mostrada de antemano, así que lo que llega es previsible, y puede llegar en tu propia moneda.",
+  "app.salesPay.milestone.activation": "Activada",
+  "app.salesPay.milestone.first_payment": "Renovada",
+  "app.salesPay.milestone.retention": "Sigue pagando",
+  "app.salesPay.readiness.noEngagement.fix": "Eso decide si se acumulan permisos retribuidos y si FieldQuo retiene algo. No se deduce de ninguna otra cosa.",
+  "app.salesPay.readiness.noEngagement.title": "Nadie ha dicho si este comercial es autónomo o empleado.",
+  "app.salesPay.readiness.noHandle.fix": "Añade el destino: {field}.",
+  "app.salesPay.readiness.noHandle.title": "Se ha elegido {method}, pero no hay adónde enviarlo.",
+  "app.salesPay.readiness.noMethod.fix": "PayPal, Interac, una transferencia bancaria o un contrato de Upwork: lo elige el comercial.",
+  "app.salesPay.readiness.noMethod.title": "No hay ningún método de pago registrado.",
+
+  // ── Which entry closed a channel, and how it got there ──────────────────
+  //
+  // Sixteen whole sentences: two subjects times eight ways a request reached
+  // us. NOT one stem with a clause slotted into it — the verb agrees with
+  // the subject in five of these languages, and a domain-wide entry is
+  // plural in some and singular in others. The sentence is the unit; only
+  // the value and the date are placeholders.
+  "app.salesSuppression.dateNotRecorded": "fecha no registrada",
+  "app.salesSuppression.reason.detectedReply": "Este prospecto respondió pidiendo que no se le vuelva a escribir. Esa petición vale para FieldQuo, no solo para la copia que tenga un comercial.",
+  "app.salesSuppression.reason.domain.call": "Todas las personas de {value} están en la lista de no contactar de FieldQuo: lo pidieron por teléfono, el {date}. Esa petición obliga a FieldQuo, no a la copia que tenga un comercial.",
+  "app.salesSuppression.reason.domain.form": "Todas las personas de {value} están en la lista de no contactar de FieldQuo: lo pidieron mediante un formulario, el {date}. Esa petición obliga a FieldQuo, no a la copia que tenga un comercial.",
+  "app.salesSuppression.reason.domain.import": "Todas las personas de {value} están en la lista de no contactar de FieldQuo: cargado desde una lista existente, el {date}. Esa petición obliga a FieldQuo, no a la copia que tenga un comercial.",
+  "app.salesSuppression.reason.domain.manual": "Todas las personas de {value} están en la lista de no contactar de FieldQuo: registrado a mano, el {date}. Esa petición obliga a FieldQuo, no a la copia que tenga un comercial.",
+  "app.salesSuppression.reason.domain.regulator": "Todas las personas de {value} están en la lista de no contactar de FieldQuo: de una lista de exclusión de llamadas, el {date}. Esa petición obliga a FieldQuo, no a la copia que tenga un comercial.",
+  "app.salesSuppression.reason.domain.reply": "Todas las personas de {value} están en la lista de no contactar de FieldQuo: respondieron pidiéndonos que paráramos, el {date}. Esa petición obliga a FieldQuo, no a la copia que tenga un comercial.",
+  "app.salesSuppression.reason.domain.sms": "Todas las personas de {value} están en la lista de no contactar de FieldQuo: enviaron STOP por mensaje, el {date}. Esa petición obliga a FieldQuo, no a la copia que tenga un comercial.",
+  "app.salesSuppression.reason.domain.unrecorded": "Todas las personas de {value} están en la lista de no contactar de FieldQuo: registrado, el {date}. Esa petición obliga a FieldQuo, no a la copia que tenga un comercial.",
+  "app.salesSuppression.reason.person.call": "{value} está en la lista de no contactar de FieldQuo: lo pidieron por teléfono, el {date}. Esa petición obliga a FieldQuo, no a la copia que tenga un comercial.",
+  "app.salesSuppression.reason.person.form": "{value} está en la lista de no contactar de FieldQuo: lo pidieron mediante un formulario, el {date}. Esa petición obliga a FieldQuo, no a la copia que tenga un comercial.",
+  "app.salesSuppression.reason.person.import": "{value} está en la lista de no contactar de FieldQuo: cargado desde una lista existente, el {date}. Esa petición obliga a FieldQuo, no a la copia que tenga un comercial.",
+  "app.salesSuppression.reason.person.manual": "{value} está en la lista de no contactar de FieldQuo: registrado a mano, el {date}. Esa petición obliga a FieldQuo, no a la copia que tenga un comercial.",
+  "app.salesSuppression.reason.person.regulator": "{value} está en la lista de no contactar de FieldQuo: de una lista de exclusión de llamadas, el {date}. Esa petición obliga a FieldQuo, no a la copia que tenga un comercial.",
+  "app.salesSuppression.reason.person.reply": "{value} está en la lista de no contactar de FieldQuo: respondieron pidiéndonos que paráramos, el {date}. Esa petición obliga a FieldQuo, no a la copia que tenga un comercial.",
+  "app.salesSuppression.reason.person.sms": "{value} está en la lista de no contactar de FieldQuo: enviaron STOP por mensaje, el {date}. Esa petición obliga a FieldQuo, no a la copia que tenga un comercial.",
+  "app.salesSuppression.reason.person.unrecorded": "{value} está en la lista de no contactar de FieldQuo: registrado, el {date}. Esa petición obliga a FieldQuo, no a la copia que tenga un comercial.",
+
+  // ── The only feedback a new sales hire gets ─────────────────────────────
+  //
+  // /sales/login and /sales/invite are the first FieldQuo screens somebody
+  // hired into sales ever sees, and every word on them was English whatever
+  // language they were hired in.
+  //
+  // Four invite refusals and not one generic "invalid link": "ask for a
+  // new invitation", "sign in with the password you set" and "ask a
+  // superadmin about your account" are three different instructions. The
+  // LOGIN refusal is deliberately single — telling the failures apart would
+  // tell a stranger which FieldQuo staff addresses are real.
+  "app.salesAuth.invite.accepted": "Esta invitación ya se ha usado. Inicia sesión con la contraseña que estableciste, o pide una invitación nueva si la has olvidado.",
+  "app.salesAuth.invite.expired": "Esta invitación ha caducado. Pide a un superadministrador de FieldQuo que te envíe una nueva.",
+  "app.salesAuth.invite.inactive": "Esta cuenta de ventas no está activa. Consúltalo con un superadministrador de FieldQuo.",
+  "app.salesAuth.invite.unknown": "Este enlace de invitación no es válido. Pide a un superadministrador de FieldQuo que te envíe uno nuevo.",
+  "app.salesAuth.invite.weakPassword": "Elige una contraseña de al menos {minLength} caracteres: esta cuenta puede ver todas las empresas que has traído.",
+  "app.salesAuth.login.invalid": "No se han aceptado esos datos de acceso.",
+  "app.salesAuth.login.missingFields": "Introduce tu correo electrónico y tu contraseña.",
+
+  // ── What fetchJson says when the server said nothing usable ─────────────
+  //
+  // The last thing anybody reads before giving up, on every screen in the
+  // product. A 4xx the ROUTE explained keeps the route's own sentence and
+  // never reaches these — overwriting a specific explanation with a generic
+  // one would be a downgrade wearing a translation's clothes.
+  "app.fetchError.failed": "La solicitud no se ha completado (código {status}).",
+  "app.fetchError.forbidden": "No tienes permiso para hacer eso.",
+  "app.fetchError.network": "No se ha podido contactar con el servidor. Comprueba tu conexión e inténtalo de nuevo.",
+  "app.fetchError.notFound": "Eso no existe, o no puedes verlo.",
+  "app.fetchError.server": "Algo ha fallado por nuestra parte (error {status}). Si sigue pasando, cuéntale a soporte qué estabas haciendo.",
+  "app.fetchError.tooMany": "Demasiados intentos. Espera un momento y vuelve a intentarlo.",
+  "app.fetchError.unauthorised": "Tu sesión ha caducado. Vuelve a iniciar sesión.",
+  "app.fetchError.unexpectedBody": "El servidor devolvió algo que esta pantalla no ha podido leer.",
+
+  // ── A note that cannot be saved ─────────────────────────────────────────
+  //
+  // lib/sales/notes/model.js has always sent a `code` beside its sentence;
+  // the panel now keys off it. The English mentioned a file path and a
+  // schema block, which is an instruction to an engineer rather than to the
+  // rep reading it, so the catalogue entry says what happened to their words
+  // instead. The path is still named on the screen, separately.
+  "app.salesNotes.unavailableModelMissing": "Las notas de los comerciales todavía no están activadas: la tabla en la que viven no se ha creado. No se ha guardado nada de lo que escribiste.",
 };
 
 const uk = {
@@ -28588,6 +29470,300 @@ const uk = {
   "app.salesTour.teamBody": "Усі у FieldQuo в одному місці — інші представники й ті, хто лагодить речі. Канали — для команди; особисте повідомлення лишається між вами двома, і ніхто інший його не прочитає. Коли в компанії, яку ви зареєстрували, є проблема, якої ви не можете розв’язати, це швидше за звернення, і людина, яка може її розв’язати, уже тут.",
   "app.salesTour.playbookTitle": "Слова, і що казати, коли називають когось іншого",
   "app.salesTour.playbookBody": "Скрипти, двадцять заперечень із відповіддю на кожне і картка на кожного конкурента, якого може назвати підрядник. Картки будуються з тих самих цифр, що їх використовують публічні сторінки порівняння, тож ціна, яку ви тут прочитали, — це ціна, за яку ми ручаємось, а та, що застаріла, зникає з обох одного дня.",
+
+  // ══ Sentences the SERVER composes, which a rep reads ══════════════════
+  //
+  // Commit cf099363 translated every /sales screen. What it could not reach
+  // was the text those screens RECEIVE already written: refusals, labels and
+  // explanations composed in lib/ and app/api/ and rendered verbatim. A rep
+  // on Spanish read a Spanish frame around English content — the
+  // half-translated state that change existed to remove, moved one layer
+  // down.
+  //
+  // Those modules are pure and are executed by a dozen check scripts under
+  // bare node, so none of them can import a translator. What they emit
+  // instead is the NAME of the sentence plus the values it needs, and their
+  // English rides along as the fallback. These are the sentences those names
+  // point at.
+
+  // ── The dial region, and the compliance refusals behind it ──────────────
+  //
+  // Every sentence lib/sales/dialSpace.js and lib/sales/callingRules.js
+  // compose for a rep who is being told they may not make a call. This is
+  // refusal copy, which is the half of a product that most needs to be in
+  // the reader's own language: a rep who cannot read WHY has only the
+  // absence of a button to go on.
+  //
+  // What is NOT here, deliberately: the statutes themselves. A
+  // jurisdiction's citation, Arizona's flat prohibition, Texas's
+  // registration and bond are quoted from the primary source, and a machine
+  // translation of a legal text reads as the law without being it. Those
+  // stay in the language the legislature wrote them in and the screen labels
+  // them as quoted — app.salesDial.quotedInEnglish is that label.
+  "app.salesDial.blocker.callCapReached.fix": "На сьогодні досить. Ліміт рахується на того, кому дзвонять, а не на менеджера.",
+  "app.salesDial.blocker.callCapReached.title": "{jurisdiction} дозволяє {cap} дзвінків одному бізнесу з того самого приводу за 24 години, а зроблено вже {made}.",
+  "app.salesDial.blocker.jurisdictionUnread.fix": "Федеральне право цієї прогалини не закриває: дзвінки між компаніями повністю виведені з-під Telemarketing Sales Rule, тож правило штату — єдине, що є. Це питання власника: прочитати право тих штатів, куди справді дзвонять. Доки відповіді немає, дозвіл підтвердити неможливо.",
+  "app.salesDial.blocker.jurisdictionUnread.title": "Ніхто не читав закон {subdivision} про телефонні продажі.",
+  "app.salesDial.blocker.jurisdictionUnverified.title": "Правила дзвінків {jurisdiction} не перевірено.",
+  "app.salesDial.blocker.locationUnknown.fix": "Години дзвінків визначає місце, де дзвонить телефон, і федерального правила на підстраховці немає — 16 CFR 310.6(b)(7) виводить ділові дзвінки з-під усього Telemarketing Sales Rule. Доки в записі немає країни та штату, ніхто не скаже, чи дозволено їм телефонувати.",
+  "app.salesDial.blocker.locationUnknown.title": "Ми не знаємо, у якому штаті чи провінції цей бізнес.",
+  "app.salesDial.blocker.outsideWindow.fixCourtesyOpens": "Це власне правило FieldQuo: {jurisdiction} жодного не встановлює. Вікно відкривається о {opensAt}. Нічого не ставиться в чергу — дзвоните ви самі.",
+  "app.salesDial.blocker.outsideWindow.fixCourtesyWait": "Це власне правило FieldQuo: {jurisdiction} жодного не встановлює. Зачекайте на вікно.",
+  "app.salesDial.blocker.outsideWindow.fixStatutoryOpens": "Це власне правило {jurisdiction}. Вікно відкривається о {opensAt}. Нічого не ставиться в чергу — дзвоните ви самі.",
+  "app.salesDial.blocker.outsideWindow.fixStatutoryWait": "Це власне правило {jurisdiction}. Зачекайте на вікно.",
+  "app.salesDial.blocker.outsideWindow.title": "Зараз поза вікном для дзвінків там, де вони.",
+  "app.salesDial.blocker.timeZoneAmbiguous.fixOpens": "У частині {subdivision} зараз усередині вікна для дзвінків, а в решті — поза ним, і запис не каже, у якій саме. Замість вгадувати густонаселену половину, не підтверджується нічого. Безпечно дзвонити всюди в {subdivision} починаючи з {opensAt} — або спитайте, де вони, і збережіть їхній часовий пояс у ліді, що відповідає на це точно.",
+  "app.salesDial.blocker.timeZoneAmbiguous.fixUnknownOpening": "У частині {subdivision} зараз усередині вікна для дзвінків, а в решті — поза ним, і запис не каже, у якій саме. Замість вгадувати густонаселену половину, не підтверджується нічого. Дочекайтеся моменту, коли обидві половини збігатимуться, — або спитайте, де вони, і збережіть їхній часовий пояс у ліді, що відповідає на це точно.",
+  "app.salesDial.blocker.timeZoneAmbiguous.title": "{subdivision} охоплює більше одного часового поясу, і зараз вони не збігаються.",
+  "app.salesDial.blocker.timeZoneUnknown.fixCourtesy": "Це власне правило FieldQuo, бо {jurisdiction} жодного не встановлює, і воно вказане за ЇХНІМ місцевим часом. Ми не маємо часового поясу для {subdivision}, тож оцінювати нічого — а наш власний годинник тут найгірша заміна.",
+  "app.salesDial.blocker.timeZoneUnknown.fixStatutory": "Це власне правило {jurisdiction}, і воно вказане за ЇХНІМ місцевим часом. Ми не маємо часового поясу для {subdivision}, тож оцінювати нічого — а наш власний годинник тут найгірша заміна.",
+  "app.salesDial.blocker.timeZoneUnknown.title": "Ми не можемо визначити, котра година там, де цей бізнес.",
+  "app.salesDial.quotedInEnglish": "Наведено англійською, з самого закону: переклад правового тексту читався б як закон, не будучи ним.",
+  "app.salesDial.space.allowedNoNumber.detail": "Правила дзвінків дозволяють цей дзвінок, але в записі немає номера, на який його зробити. Перезавантажте; якщо не зникне — потенційному клієнту потрібен телефонний номер.",
+  "app.salesDial.space.cannotConfirm.title": "Ми не можемо підтвердити, що цей дзвінок дозволено.",
+  "app.salesDial.space.doNotContact.detail": "Цей запис позначено «не контактувати», тож кнопки набору для нього немає.",
+  "app.salesDial.space.doNotContact.title": "Не контактувати",
+  "app.salesDial.space.doNotContactRecorded.noReason": "Записано {date}. Причину не зафіксовано.",
+  "app.salesDial.space.doNotContactRecorded.withReason": "Записано {date}. Причина: {reason}",
+  "app.salesDial.space.noDecision.detail": "Цей екран не зміг визначити, які правила дзвінків діють, тож не пропонує кнопку, за яку не може відповідати. Перезавантажте сторінку.",
+  "app.salesDial.space.noNumber.detail": "У цьому записі немає телефонного номера, тож звідси нема чого набирати. Пошук знайшов бізнес без номера. Він може бути на їхньому сайті або в каталозі — додайте його до ліда, і він з’явиться тут.",
+  "app.salesDial.space.noNumber.title": "Ще немає номера для продажів.",
+  "app.salesDial.space.noPhone.detail": "У цьому записі немає телефонного номера, тож звідси нема чого набирати.",
+  "app.salesDial.space.noPhone.title": "Немає телефонного номера",
+  "app.salesDial.space.noProspect.title": "Жодного потенційного клієнта не відкрито, тож нема кому телефонувати.",
+  "app.salesDial.space.noProspectEmpty.detail": "Виберіть ремесло, візьміть когось у роботу — і кнопка дзвінка з’явиться саме тут. Це завжди тут: порожньо означає, що ви нікого не взяли, а не що дзвінки вимкнено.",
+  "app.salesDial.space.noProspectHolding.detail": "У вас {count}. Виберіть одного зі списку — його номер і те, чи можна дзвонити, з’являться саме тут.",
+  "app.salesDial.space.noProspectHolding.count": countedNoun("uk", { one: "потенційного клієнта", few: "потенційних клієнти", many: "потенційних клієнтів", other: "потенційного клієнта" }),
+  "app.salesDial.space.optedOut.detail": "Відмова поширюється на дзвінки, СМС і пошту, тож кнопки набору тут немає. Зняти її може лише суперадміністратор, і потрібна письмова причина — тож якщо це виглядає помилкою, скажіть про це, а не шукайте їм інший номер.",
+  "app.salesDial.space.optedOut.title": "Вони попросили нас припинити.",
+  "app.salesDial.space.optedOutMeaning.detail": "Відмова поширюється на дзвінки, СМС і пошту, тож кнопки набору немає. Зняти її може лише суперадміністратор, із письмовою причиною.",
+  "app.salesDial.space.ourOwnNumber.detail": "Дзвінок на нашу власну інфраструктуру замикає петлю й тарифікує обидва плечі, тож кнопки набору тут немає. Якщо це справді номер потенційного клієнта, він помилково потрапив до одного зі списків номерів FieldQuo.",
+  "app.salesDial.space.ourOwnNumber.title": "Це один із наших власних номерів.",
+  "app.salesDial.space.ready.title": "Цьому можна дзвонити зараз.",
+  "app.salesDial.space.readyNoWindow.detail": "Жодна юрисдикція в таблиці не встановлює для цього часового вікна.",
+  "app.salesDial.space.refusedForNow.title": "Зараз цьому дзвонити не можна.",
+  "app.salesDial.space.refusedOutright.detail": "Правило, що діє для цього бізнесу, забороняє цей дзвінок, і це не вікно, яке відкриється пізніше. Причина — нижче.",
+  "app.salesDial.space.refusedOutright.title": "Цьому дзвонити не можна.",
+  "app.salesDial.space.unconfirmed.detail": "Нічого не встановлено ні так, ні інакше, тож кнопки набору немає. Це прогалина в тому, що ми знаємо, а не заборона.",
+  "app.salesDial.space.unreadableDecision.detail": "Правила дзвінків відповіли «{decision}», а цей екран не вміє це читати. Кнопка набору не пропонується на відповідь, яку ніхто не може витлумачити.",
+  "app.salesDial.unenforced.callCapUncounted.fix": "Ніщо у FieldQuo поки не фіксує спроби дзвінків, тож цей ліміт за вас не рахується — стежте самі. В обох штатах, які його встановлюють, це підстава для приватного позову.",
+  "app.salesDial.unenforced.callCapUncounted.title": "{jurisdiction} дозволяє щонайбільше {cap} дзвінків цьому бізнесу з того самого приводу за 24 години.",
+  "app.salesDial.warning.dataAcquisitionRule.title": "{jurisdiction} регулює, як можна отримувати дані цього потенційного клієнта.",
+  "app.salesDial.warning.registrationOutstanding.title": "FieldQuo має бути зареєстрований, щоб робити комерційні дзвінки до {jurisdiction}.",
+  "app.salesDial.window.courtesyRule": "Ці години — власне правило FieldQuo: {jurisdiction} жодного не встановлює.",
+  "app.salesDial.window.everyDay": "З {start} до {end} щодня, за часовим поясом потенційного клієнта.",
+  "app.salesDial.window.everyDayClosed": "З {start} до {end} щодня, за часовим поясом потенційного клієнта, і жодних дзвінків у {closedDays}.",
+  "app.salesDial.window.opensAt": "Воно відкривається о {opensAt}.",
+  "app.salesDial.window.split": "З {start} до {end} у будні та з {weekendStart} до {weekendEnd} у вихідні, за часовим поясом потенційного клієнта.",
+  "app.salesDial.window.splitClosed": "З {start} до {end} у будні та з {weekendStart} до {weekendEnd} у вихідні, за часовим поясом потенційного клієнта, і жодних дзвінків у {closedDays}.",
+  "app.salesDial.window.statutoryRule": "Ці години — власне правило {jurisdiction}.",
+
+  // ── The queue's four research blocks ────────────────────────────────────
+  //
+  // The three layer headings ARE the interface for the rule that an
+  // inference must never read as a fact, and they were English on every
+  // screen. So are the two refusals that withhold an inference, the two that
+  // withhold a recommendation, and every sentence under "what we do not
+  // know".
+  //
+  // A fact row's VALUE is keyed only when the value is ours. A prospect's
+  // phone number, address and name are printed verbatim; translating data is
+  // inventing it.
+  "app.salesIntel.bucket.FRANCHISE_LIKELY": "Імовірно франшиза",
+  "app.salesIntel.bucket.MULTI_TRADE": "Кілька ремесел",
+  "app.salesIntel.bucket.SMALL_BUSINESS": "Малий бізнес",
+  "app.salesIntel.bucket.SOLO_LIKELY": "Імовірно сам",
+  "app.salesIntel.confidencePercent": "впевненість {percent} %",
+  "app.salesIntel.confidenceUntested": "Показника впевненості немає — вважайте це неперевіреним.",
+  "app.salesIntel.fact.businessName.label": "Бізнес",
+  "app.salesIntel.fact.businessName.missing": "У цьому записі імені немає",
+  "app.salesIntel.fact.businessStatus.label": "Ще працює?",
+  "app.salesIntel.fact.businessStatus.missing": "Джерело цього не казало. Дехто з них уже закрився.",
+  "app.salesIntel.fact.contactBasis.closed": "Закрито — телефонуйте натомість",
+  "app.salesIntel.fact.contactBasis.label": "Пошта і СМС",
+  "app.salesIntel.fact.location.label": "Де",
+  "app.salesIntel.fact.location.missing": "У цьому записі адреси немає",
+  "app.salesIntel.fact.phone.label": "Телефон",
+  "app.salesIntel.fact.phone.missing": "У цьому записі телефонного номера немає",
+  "app.salesIntel.fact.rating.label": "Оцінка",
+  "app.salesIntel.fact.rating.missing": "Джерело оцінки не наводило",
+  "app.salesIntel.fact.rating.value": "{rating} з 5",
+  "app.salesIntel.fact.reviews.label": "Відгуки",
+  "app.salesIntel.fact.reviews.missing": "Джерело кількості відгуків не наводило",
+  "app.salesIntel.fact.reviews.value": countedNoun("uk", { one: "відгук", few: "відгуки", many: "відгуків", other: "відгуку" }),
+  "app.salesIntel.fact.source.label": "Звідки це взялося",
+  "app.salesIntel.fact.sourceUpdatedAt.label": "Джерело востаннє оновлено",
+  "app.salesIntel.fact.sourceUpdatedAt.missing": "Джерело не казало коли",
+  "app.salesIntel.fact.website.derivedConfirmed": "{site} — виведено, і сайт це підтвердив",
+  "app.salesIntel.fact.website.guessed": "{site} — ми ЗДОГАДАЛИСЯ про це з електронної адреси в ліцензії. Ніхто цього не публікував, і сайт цього не підтвердив.",
+  "app.salesIntel.fact.website.hasOne": "Має вебсайт",
+  "app.salesIntel.fact.website.label": "Вебсайт",
+  "app.salesIntel.fact.website.listedUnchecked": "{url} — вказано, ще не перевірено",
+  "app.salesIntel.fact.website.noneWeLooked": "Вебсайту немає — ми шукали",
+  "app.salesIntel.fact.website.sourceSilent": "Джерело вебсайту не наводило. Це так само часто прогалина в каталозі, як і прогалина на ринку.",
+  "app.salesIntel.inference.refusalCarriesNumber": "Це припущення містить число. Збережене значення — це класифікація («невелика бригада», а не «дванадцять працівників»), тож його притримано, а не зачитано як підрахунок.",
+  "app.salesIntel.inference.refusalNoConfidence": "Припущення показують лише разом із тим, наскільки ми впевнені. Ніщо за цим не є сигналом, який розпізнає механізм упевненості, тож показувати нічого й твердження притримано.",
+  "app.salesIntel.inference.sourceCall": "Вони сказали це під час дзвінка — з перших вуст, і все одно це припущення.",
+  "app.salesIntel.inference.sourceObserved": "Виведено з того, що ми спостерегли.",
+  "app.salesIntel.kind.company_scale": "Розмір компанії",
+  "app.salesIntel.kind.trade": "Ремесло",
+  "app.salesIntel.layer.fact.note": "Факти. Кожен із них або побачено, або навмисно шукали й не побачили.",
+  "app.salesIntel.layer.fact.title": "Що ми спостерегли",
+  "app.salesIntel.layer.inference.note": "Висновки, які докази підтримують, але не доводять. Ніколи не подавайте їх як факт.",
+  "app.salesIntel.layer.inference.title": "Що ми припускаємо",
+  "app.salesIntel.layer.recommendation.note": "Аргументи, побудовані на двох блоках вище. Кожен несе причину, з якої спрацював.",
+  "app.salesIntel.layer.recommendation.title": "Що пропонувати",
+  "app.salesIntel.noLeadScore": "Для цього потенційного клієнта оцінку не розраховано.",
+  "app.salesIntel.opportunity.refusalNoEvidence": "Ця рекомендація не посилається на жоден доказ. Її показано як зламану, а не зачитано: пропозиція, за якою нічого немає, — саме той загальний продажний наповнювач, заради якого й існує перевірка доказів.",
+  "app.salesIntel.opportunity.refusalNoReason": "Ця рекомендація не має причини, тож поза назвою функції сказати нічого.",
+  "app.salesIntel.unknown.nothingInferred": "Про цей бізнес поки нічого не припущено.",
+  "app.salesIntel.unknown.softwareNeverCrawled": "Ми не знаємо, яким ПЗ вони користуються — їх ніщо не сканувало.",
+  "app.salesIntel.unnamedCapability": "Безіменна можливість",
+
+  // ── The disposition a rep picks after every single call ─────────────────
+  //
+  // Ten outcomes, each with the one line explaining what it does to the
+  // queue. lib/sales/calls/dispositions.js derives these keys from its own
+  // codes, so an eleventh outcome cannot ship English by omission — it fails
+  // check:sales-server-copy until this block has it.
+  "app.salesCall.disposition.bad_number.hint": "Відключений або потрапив зовсім до іншої людини.",
+  "app.salesCall.disposition.bad_number.label": "Помилковий чи неробочий номер",
+  "app.salesCall.disposition.busy.hint": "Сигнал «зайнято» або обрив ще до гудків.",
+  "app.salesCall.disposition.busy.label": "Зайнято",
+  "app.salesCall.disposition.callback.hint": "Час, на який вони погодилися. Закріплення тримається до нього й далі.",
+  "app.salesCall.disposition.callback.label": "Вони попросили передзвонити",
+  "app.salesCall.disposition.do_not_call.hint": "Їхні власні слова, якомога точніше. Це назавжди.",
+  "app.salesCall.disposition.do_not_call.label": "Попросили більше не дзвонити",
+  "app.salesCall.disposition.gatekeeper.hint": "Секретар, партнер, учень. Презентації не було.",
+  "app.salesCall.disposition.gatekeeper.label": "Хтось відповів, але не власник",
+  "app.salesCall.disposition.no_answer.hint": "Дзвінок пройшов без відповіді. Ніхто не взяв слухавку, і автовідповідач не спрацював.",
+  "app.salesCall.disposition.no_answer.label": "Не відповіли",
+  "app.salesCall.disposition.not_a_fit.hint": "Роздрібний магазин, головний офіс франшизи, закритий бізнес, не те ремесло.",
+  "app.salesCall.disposition.not_a_fit.label": "Це не той бізнес, якому ми можемо продати",
+  "app.salesCall.disposition.reached_interested.hint": "Презентація зайшла. Відтепер цей потенційний клієнт ваш.",
+  "app.salesCall.disposition.reached_interested.label": "Поговорив із ними — зацікавлені",
+  "app.salesCall.disposition.reached_not_interested.hint": "Вони вислухали й сказали ні. Наступного тижня їм не має дзвонити ніхто інший.",
+  "app.salesCall.disposition.reached_not_interested.label": "Поговорив із ними — не зацікавлені",
+  "app.salesCall.disposition.voicemail.hint": "Ви самі говорили на їхній автовідповідач. Ніколи не запис.",
+  "app.salesCall.disposition.voicemail.label": "Голосова пошта — я залишив повідомлення",
+
+  // ── Why a check-in draft exists ─────────────────────────────────────────
+  //
+  // The headline above a suggested check-in. `angle` alongside it is NOT
+  // keyed and must not be: it is an instruction to the drafter, not
+  // something a rep reads.
+  "app.salesCheckin.reason.all_good": "Ніби все гаразд",
+  "app.salesCheckin.reason.onboarding_unfinished": "Вони так і не завершили налаштування",
+  "app.salesCheckin.reason.payment_failing": "Оплата їхньої підписки не проходить",
+  "app.salesCheckin.reason.payments_not_connected": "Вони ще не можуть приймати оплату",
+  "app.salesCheckin.reason.retention_milestone_near": "Віха утримання близько",
+  "app.salesCheckin.reason.setup_steps_outstanding": "На їхній панелі досі відкриті кроки налаштування",
+  "app.salesCheckin.reason.trial_ends_before_retention": "Їхній безкоштовний період закінчується до дати утримання",
+  "app.salesCheckin.reason.unknown_state": "Ми не бачимо, як у них справи",
+
+  // ── How a rep is engaged, and where their money goes ────────────────────
+  //
+  // The payout screen was English throughout — the method names, what each
+  // one costs on the way, and the label on the field asking for the account.
+  // Being told in a language you do not read that fees depend on your
+  // account's country is worse than not being told.
+  "app.salesPay.engagement.employee.label": "Найманий працівник",
+  "app.salesPay.engagement.employee.note": "У штаті. Оплачувана відпустка накопичується, а законні утримання FieldQuo утримує й перераховує сам.",
+  "app.salesPay.engagement.freelancer.label": "Фрилансер",
+  "app.salesPay.engagement.freelancer.note": "Виставляє рахунок за свою комісію. Жодної оплачуваної відпустки, жодного накопичення відпускних, жодних законних утримань з боку FieldQuo — вони звітують самі за себе.",
+  "app.salesPay.method.bank_transfer.handleLabel": "Реквізити рахунку або IBAN",
+  "app.salesPay.method.bank_transfer.label": "Банківський переказ",
+  "app.salesPay.method.bank_transfer.note": "Найповільніше надходить і найдешевше відправляти. Найкраще, коли менеджеру виплачують велику партію.",
+  "app.salesPay.method.interac.handleLabel": "Адреса електронної пошти, зареєстрована для Interac",
+  "app.salesPay.method.interac.label": "Переказ Interac",
+  "app.salesPay.method.interac.note": "Лише канадські рахунки. Зазвичай безкоштовно й того самого дня.",
+  "app.salesPay.method.paypal.handleLabel": "Адреса електронної пошти PayPal",
+  "app.salesPay.method.paypal.label": "PayPal",
+  "app.salesPay.method.paypal.note": "Надсилається переказом PayPal. Комісії залежать від країни та типу рахунку-одержувача.",
+  "app.salesPay.method.upwork.handleLabel": "Посилання на контракт або профіль Upwork",
+  "app.salesPay.method.upwork.label": "Upwork",
+  "app.salesPay.method.upwork.note": "Виплачується за віхами контракту. Діє власна комісія Upwork, і вона знімається з того, що надходить, тож цифра в реєстрі — це те, що надсилає FieldQuo, а не те, що доходить.",
+  "app.salesPay.method.wise.handleLabel": "Адреса електронної пошти вашого рахунку Wise або реквізити вашого рахунку Wise",
+  "app.salesPay.method.wise.label": "Wise",
+  "app.salesPay.method.wise.note": "Найкраще для менеджера поза Канадою. Конвертує за середньоринковим курсом із комісією, показаною наперед, тож сума, що надійде, передбачувана — і вона може прийти у вашій власній валюті.",
+  "app.salesPay.milestone.activation": "Активовано",
+  "app.salesPay.milestone.first_payment": "Продовжено",
+  "app.salesPay.milestone.retention": "Досі платить",
+  "app.salesPay.readiness.noEngagement.fix": "Від цього залежить, чи накопичується оплачувана відпустка і чи утримує FieldQuo щось. Ні з чого іншого це не вгадується.",
+  "app.salesPay.readiness.noEngagement.title": "Ніхто не зазначив, цей менеджер — фрилансер чи найманий працівник.",
+  "app.salesPay.readiness.noHandle.fix": "Додайте призначення: {field}.",
+  "app.salesPay.readiness.noHandle.title": "Обрано {method}, але надсилати нема куди.",
+  "app.salesPay.readiness.noMethod.fix": "PayPal, Interac, банківський переказ або контракт Upwork — обирає менеджер.",
+  "app.salesPay.readiness.noMethod.title": "Спосіб виплати не зафіксовано.",
+
+  // ── Which entry closed a channel, and how it got there ──────────────────
+  //
+  // Sixteen whole sentences: two subjects times eight ways a request reached
+  // us. NOT one stem with a clause slotted into it — the verb agrees with
+  // the subject in five of these languages, and a domain-wide entry is
+  // plural in some and singular in others. The sentence is the unit; only
+  // the value and the date are placeholders.
+  "app.salesSuppression.dateNotRecorded": "дату не зафіксовано",
+  "app.salesSuppression.reason.detectedReply": "Цей потенційний клієнт відповів із проханням більше не надсилати листів. Це прохання діє для FieldQuo, а не лише для чиєїсь окремої копії списку.",
+  "app.salesSuppression.reason.domain.call": "Усі в {value} є у списку «не контактувати» FieldQuo — вони попросили про це телефоном, {date}. Це прохання зобов’язує FieldQuo, а не чиюсь окрему копію списку.",
+  "app.salesSuppression.reason.domain.form": "Усі в {value} є у списку «не контактувати» FieldQuo — вони попросили через форму, {date}. Це прохання зобов’язує FieldQuo, а не чиюсь окрему копію списку.",
+  "app.salesSuppression.reason.domain.import": "Усі в {value} є у списку «не контактувати» FieldQuo — завантажено з наявного списку, {date}. Це прохання зобов’язує FieldQuo, а не чиюсь окрему копію списку.",
+  "app.salesSuppression.reason.domain.manual": "Усі в {value} є у списку «не контактувати» FieldQuo — записано вручну, {date}. Це прохання зобов’язує FieldQuo, а не чиюсь окрему копію списку.",
+  "app.salesSuppression.reason.domain.regulator": "Усі в {value} є у списку «не контактувати» FieldQuo — зі списку заборонених дзвінків, {date}. Це прохання зобов’язує FieldQuo, а не чиюсь окрему копію списку.",
+  "app.salesSuppression.reason.domain.reply": "Усі в {value} є у списку «не контактувати» FieldQuo — вони відповіли з проханням припинити, {date}. Це прохання зобов’язує FieldQuo, а не чиюсь окрему копію списку.",
+  "app.salesSuppression.reason.domain.sms": "Усі в {value} є у списку «не контактувати» FieldQuo — вони надіслали STOP у СМС, {date}. Це прохання зобов’язує FieldQuo, а не чиюсь окрему копію списку.",
+  "app.salesSuppression.reason.domain.unrecorded": "Усі в {value} є у списку «не контактувати» FieldQuo — зафіксовано, {date}. Це прохання зобов’язує FieldQuo, а не чиюсь окрему копію списку.",
+  "app.salesSuppression.reason.person.call": "{value} є у списку «не контактувати» FieldQuo — вони попросили про це телефоном, {date}. Це прохання зобов’язує FieldQuo, а не чиюсь окрему копію списку.",
+  "app.salesSuppression.reason.person.form": "{value} є у списку «не контактувати» FieldQuo — вони попросили через форму, {date}. Це прохання зобов’язує FieldQuo, а не чиюсь окрему копію списку.",
+  "app.salesSuppression.reason.person.import": "{value} є у списку «не контактувати» FieldQuo — завантажено з наявного списку, {date}. Це прохання зобов’язує FieldQuo, а не чиюсь окрему копію списку.",
+  "app.salesSuppression.reason.person.manual": "{value} є у списку «не контактувати» FieldQuo — записано вручну, {date}. Це прохання зобов’язує FieldQuo, а не чиюсь окрему копію списку.",
+  "app.salesSuppression.reason.person.regulator": "{value} є у списку «не контактувати» FieldQuo — зі списку заборонених дзвінків, {date}. Це прохання зобов’язує FieldQuo, а не чиюсь окрему копію списку.",
+  "app.salesSuppression.reason.person.reply": "{value} є у списку «не контактувати» FieldQuo — вони відповіли з проханням припинити, {date}. Це прохання зобов’язує FieldQuo, а не чиюсь окрему копію списку.",
+  "app.salesSuppression.reason.person.sms": "{value} є у списку «не контактувати» FieldQuo — вони надіслали STOP у СМС, {date}. Це прохання зобов’язує FieldQuo, а не чиюсь окрему копію списку.",
+  "app.salesSuppression.reason.person.unrecorded": "{value} є у списку «не контактувати» FieldQuo — зафіксовано, {date}. Це прохання зобов’язує FieldQuo, а не чиюсь окрему копію списку.",
+
+  // ── The only feedback a new sales hire gets ─────────────────────────────
+  //
+  // /sales/login and /sales/invite are the first FieldQuo screens somebody
+  // hired into sales ever sees, and every word on them was English whatever
+  // language they were hired in.
+  //
+  // Four invite refusals and not one generic "invalid link": "ask for a
+  // new invitation", "sign in with the password you set" and "ask a
+  // superadmin about your account" are three different instructions. The
+  // LOGIN refusal is deliberately single — telling the failures apart would
+  // tell a stranger which FieldQuo staff addresses are real.
+  "app.salesAuth.invite.accepted": "Це запрошення вже використано. Увійдіть із паролем, який ви встановили, або попросіть нове запрошення, якщо забули його.",
+  "app.salesAuth.invite.expired": "Термін дії цього запрошення минув. Попросіть суперадміністратора FieldQuo надіслати нове.",
+  "app.salesAuth.invite.inactive": "Цей обліковий запис продажів неактивний. Запитайте про це суперадміністратора FieldQuo.",
+  "app.salesAuth.invite.unknown": "Це посилання-запрошення недійсне. Попросіть суперадміністратора FieldQuo надіслати нове.",
+  "app.salesAuth.invite.weakPassword": "Виберіть пароль щонайменше з {minLength} символів — цей обліковий запис бачить усі компанії, які ви привели.",
+  "app.salesAuth.login.invalid": "Ці дані для входу не прийнято.",
+  "app.salesAuth.login.missingFields": "Введіть адресу електронної пошти та пароль.",
+
+  // ── What fetchJson says when the server said nothing usable ─────────────
+  //
+  // The last thing anybody reads before giving up, on every screen in the
+  // product. A 4xx the ROUTE explained keeps the route's own sentence and
+  // never reaches these — overwriting a specific explanation with a generic
+  // one would be a downgrade wearing a translation's clothes.
+  "app.fetchError.failed": "Запит не пройшов (код {status}).",
+  "app.fetchError.forbidden": "У вас немає дозволу це робити.",
+  "app.fetchError.network": "Не вдалося зв’язатися з сервером. Перевірте з’єднання та спробуйте ще раз.",
+  "app.fetchError.notFound": "Такого немає, або ви цього не бачите.",
+  "app.fetchError.server": "З нашого боку щось пішло не так (помилка {status}). Якщо це повторюється, розкажіть підтримці, що саме ви робили.",
+  "app.fetchError.tooMany": "Забагато спроб. Зачекайте трохи й спробуйте ще раз.",
+  "app.fetchError.unauthorised": "Термін дії сеансу минув. Увійдіть знову.",
+  "app.fetchError.unexpectedBody": "Сервер повернув щось, чого цей екран не зміг прочитати.",
+
+  // ── A note that cannot be saved ─────────────────────────────────────────
+  //
+  // lib/sales/notes/model.js has always sent a `code` beside its sentence;
+  // the panel now keys off it. The English mentioned a file path and a
+  // schema block, which is an instruction to an engineer rather than to the
+  // rep reading it, so the catalogue entry says what happened to their words
+  // instead. The path is still named on the screen, separately.
+  "app.salesNotes.unavailableModelMissing": "Нотатки менеджера ще не ввімкнено — таблиця, у якій вони зберігаються, не створена. Нічого з того, що ви набрали, не збережено.",
 };
 
 const pa = {
@@ -34231,6 +35407,300 @@ const pa = {
   "app.salesTour.teamBody": "FieldQuo ਦੇ ਸਾਰੇ ਲੋਕ ਇੱਕੋ ਥਾਂ — ਬਾਕੀ ਪ੍ਰਤੀਨਿਧ ਅਤੇ ਉਹ ਲੋਕ ਜਿਹੜੇ ਚੀਜ਼ਾਂ ਠੀਕ ਕਰਦੇ ਹਨ। ਚੈਨਲ ਟੀਮ ਲਈ ਹਨ; ਸਿੱਧਾ ਸੁਨੇਹਾ ਤੁਹਾਡੇ ਦੋਵਾਂ ਵਿਚਕਾਰ ਰਹਿੰਦਾ ਹੈ ਅਤੇ ਹੋਰ ਕੋਈ ਉਸਨੂੰ ਪੜ੍ਹ ਨਹੀਂ ਸਕਦਾ। ਜਦੋਂ ਤੁਹਾਡੀ ਸਾਈਨ ਅੱਪ ਕਰਵਾਈ ਕੰਪਨੀ ਨੂੰ ਕੋਈ ਅਜਿਹੀ ਸਮੱਸਿਆ ਆਵੇ ਜੋ ਤੁਸੀਂ ਹੱਲ ਨਹੀਂ ਕਰ ਸਕਦੇ, ਤਾਂ ਇਹ ਟਿਕਟ ਨਾਲੋਂ ਤੇਜ਼ ਹੈ, ਅਤੇ ਜਿਹੜਾ ਬੰਦਾ ਉਸਨੂੰ ਹੱਲ ਕਰ ਸਕਦਾ ਹੈ ਉਹ ਪਹਿਲਾਂ ਹੀ ਇੱਥੇ ਹੈ।",
   "app.salesTour.playbookTitle": "ਬੋਲ, ਅਤੇ ਜਦੋਂ ਉਹ ਕਿਸੇ ਹੋਰ ਦਾ ਨਾਂ ਲੈਣ ਤਾਂ ਕੀ ਕਹਿਣਾ ਹੈ",
   "app.salesTour.playbookBody": "ਸਕ੍ਰਿਪਟਾਂ, ਵੀਹ ਇਤਰਾਜ਼ ਅਤੇ ਹਰ ਇੱਕ ਦਾ ਜਵਾਬ, ਅਤੇ ਹਰ ਉਸ ਮੁਕਾਬਲੇਬਾਜ਼ ਲਈ ਇੱਕ ਕਾਰਡ ਜਿਸਦਾ ਨਾਂ ਕੋਈ ਠੇਕੇਦਾਰ ਲੈ ਸਕਦਾ ਹੈ। ਇਹ ਕਾਰਡ ਉਨ੍ਹਾਂ ਹੀ ਅੰਕੜਿਆਂ ਤੋਂ ਬਣਦੇ ਹਨ ਜੋ ਜਨਤਕ ਤੁਲਨਾ ਵਾਲੇ ਸਫ਼ੇ ਵਰਤਦੇ ਹਨ, ਸੋ ਜਿਹੜੀ ਕੀਮਤ ਤੁਸੀਂ ਇੱਥੇ ਪੜ੍ਹਦੇ ਹੋ ਉਹ ਕੀਮਤ ਹੈ ਜਿਸ ਉੱਤੇ ਅਸੀਂ ਕਾਇਮ ਰਹਾਂਗੇ — ਅਤੇ ਜਿਹੜੀ ਪੁਰਾਣੀ ਪੈ ਜਾਂਦੀ ਹੈ ਉਹ ਦੋਵਾਂ ਥਾਵਾਂ ਤੋਂ ਉਸੇ ਦਿਨ ਗਾਇਬ ਹੋ ਜਾਂਦੀ ਹੈ।",
+
+  // ══ Sentences the SERVER composes, which a rep reads ══════════════════
+  //
+  // Commit cf099363 translated every /sales screen. What it could not reach
+  // was the text those screens RECEIVE already written: refusals, labels and
+  // explanations composed in lib/ and app/api/ and rendered verbatim. A rep
+  // on Spanish read a Spanish frame around English content — the
+  // half-translated state that change existed to remove, moved one layer
+  // down.
+  //
+  // Those modules are pure and are executed by a dozen check scripts under
+  // bare node, so none of them can import a translator. What they emit
+  // instead is the NAME of the sentence plus the values it needs, and their
+  // English rides along as the fallback. These are the sentences those names
+  // point at.
+
+  // ── The dial region, and the compliance refusals behind it ──────────────
+  //
+  // Every sentence lib/sales/dialSpace.js and lib/sales/callingRules.js
+  // compose for a rep who is being told they may not make a call. This is
+  // refusal copy, which is the half of a product that most needs to be in
+  // the reader's own language: a rep who cannot read WHY has only the
+  // absence of a button to go on.
+  //
+  // What is NOT here, deliberately: the statutes themselves. A
+  // jurisdiction's citation, Arizona's flat prohibition, Texas's
+  // registration and bond are quoted from the primary source, and a machine
+  // translation of a legal text reads as the law without being it. Those
+  // stay in the language the legislature wrote them in and the screen labels
+  // them as quoted — app.salesDial.quotedInEnglish is that label.
+  "app.salesDial.blocker.callCapReached.fix": "ਅੱਜ ਹੋਰ ਨਹੀਂ। ਇਹ ਹੱਦ ਜਿਸ ਨੂੰ ਫ਼ੋਨ ਕੀਤਾ ਜਾਂਦਾ ਹੈ ਉਸ ਪ੍ਰਤੀ ਹੈ, ਹਰ ਪ੍ਰਤੀਨਿਧੀ ਪ੍ਰਤੀ ਨਹੀਂ।",
+  "app.salesDial.blocker.callCapReached.title": "{jurisdiction} 24 ਘੰਟਿਆਂ ਵਿੱਚ ਇੱਕੋ ਕਾਰੋਬਾਰ ਨੂੰ ਇੱਕੋ ਵਿਸ਼ੇ ਉੱਤੇ {cap} ਕਾਲਾਂ ਦੀ ਇਜਾਜ਼ਤ ਦਿੰਦਾ ਹੈ, ਅਤੇ {made} ਹੋ ਚੁੱਕੀਆਂ ਹਨ।",
+  "app.salesDial.blocker.jurisdictionUnread.fix": "ਸੰਘੀ ਕਾਨੂੰਨ ਇਹ ਖੱਪਾ ਨਹੀਂ ਭਰਦਾ: ਕਾਰੋਬਾਰ-ਤੋਂ-ਕਾਰੋਬਾਰ ਕਾਲਾਂ Telemarketing Sales Rule ਤੋਂ ਪੂਰੀ ਤਰ੍ਹਾਂ ਛੋਟ ਵਿੱਚ ਹਨ, ਇਸ ਲਈ ਰਾਜ ਦਾ ਆਪਣਾ ਨਿਯਮ ਹੀ ਇਕੱਲਾ ਹੈ। ਇਹ ਮਾਲਕ ਦਾ ਕੰਮ ਹੈ — ਜਿਨ੍ਹਾਂ ਰਾਜਾਂ ਵਿੱਚ ਸੱਚਮੁੱਚ ਫ਼ੋਨ ਕੀਤੇ ਜਾਂਦੇ ਹਨ, ਉਨ੍ਹਾਂ ਦਾ ਕਾਨੂੰਨ ਪੜ੍ਹਵਾਉਣਾ। ਜਦੋਂ ਤੱਕ ਜਵਾਬ ਨਹੀਂ ਆਉਂਦਾ, ਇਸ ਦੀ ਇਜਾਜ਼ਤ ਦੀ ਪੁਸ਼ਟੀ ਨਹੀਂ ਹੋ ਸਕਦੀ।",
+  "app.salesDial.blocker.jurisdictionUnread.title": "{subdivision} ਦਾ ਟੈਲੀਫ਼ੋਨ ਰਾਹੀਂ ਵਿਕਰੀ ਬਾਰੇ ਕਾਨੂੰਨ ਕਿਸੇ ਨੇ ਨਹੀਂ ਪੜ੍ਹਿਆ।",
+  "app.salesDial.blocker.jurisdictionUnverified.title": "{jurisdiction} ਦੇ ਕਾਲਿੰਗ ਨਿਯਮਾਂ ਦੀ ਪੁਸ਼ਟੀ ਨਹੀਂ ਹੋਈ।",
+  "app.salesDial.blocker.locationUnknown.fix": "ਕਾਲ ਦੇ ਘੰਟੇ ਉਸ ਥਾਂ ਤੋਂ ਤੈਅ ਹੁੰਦੇ ਹਨ ਜਿੱਥੇ ਫ਼ੋਨ ਵੱਜਦਾ ਹੈ, ਅਤੇ ਹੇਠਾਂ ਕੋਈ ਸੰਘੀ ਨਿਯਮ ਨਹੀਂ ਜਿਸ ਦਾ ਸਹਾਰਾ ਲਿਆ ਜਾ ਸਕੇ — 16 CFR 310.6(b)(7) ਕਾਰੋਬਾਰੀ ਕਾਲਾਂ ਨੂੰ ਪੂਰੇ Telemarketing Sales Rule ਤੋਂ ਛੋਟ ਦਿੰਦਾ ਹੈ। ਜਦੋਂ ਤੱਕ ਇਸ ਰਿਕਾਰਡ ਵਿੱਚ ਦੇਸ਼ ਅਤੇ ਰਾਜ ਨਹੀਂ ਹੁੰਦਾ, ਕੋਈ ਨਹੀਂ ਕਹਿ ਸਕਦਾ ਕਿ ਫ਼ੋਨ ਕਰਨਾ ਜਾਇਜ਼ ਹੈ ਜਾਂ ਨਹੀਂ।",
+  "app.salesDial.blocker.locationUnknown.title": "ਸਾਨੂੰ ਪਤਾ ਨਹੀਂ ਕਿ ਇਹ ਕਾਰੋਬਾਰ ਕਿਸ ਰਾਜ ਜਾਂ ਸੂਬੇ ਵਿੱਚ ਹੈ।",
+  "app.salesDial.blocker.outsideWindow.fixCourtesyOpens": "ਇਹ FieldQuo ਦਾ ਆਪਣਾ ਨਿਯਮ ਹੈ — {jurisdiction} ਕੋਈ ਨਿਯਮ ਨਹੀਂ ਲਾਉਂਦਾ। ਵਿੰਡੋ {opensAt} ਵਜੇ ਖੁੱਲ੍ਹਦੀ ਹੈ। ਕੁਝ ਵੀ ਕਤਾਰ ਵਿੱਚ ਨਹੀਂ ਲੱਗਦਾ — ਕਾਲ ਤੁਸੀਂ ਦਬਾਉਂਦੇ ਹੋ।",
+  "app.salesDial.blocker.outsideWindow.fixCourtesyWait": "ਇਹ FieldQuo ਦਾ ਆਪਣਾ ਨਿਯਮ ਹੈ — {jurisdiction} ਕੋਈ ਨਿਯਮ ਨਹੀਂ ਲਾਉਂਦਾ। ਵਿੰਡੋ ਦੀ ਉਡੀਕ ਕਰੋ।",
+  "app.salesDial.blocker.outsideWindow.fixStatutoryOpens": "ਇਹ {jurisdiction} ਦਾ ਆਪਣਾ ਨਿਯਮ ਹੈ। ਵਿੰਡੋ {opensAt} ਵਜੇ ਖੁੱਲ੍ਹਦੀ ਹੈ। ਕੁਝ ਵੀ ਕਤਾਰ ਵਿੱਚ ਨਹੀਂ ਲੱਗਦਾ — ਕਾਲ ਤੁਸੀਂ ਦਬਾਉਂਦੇ ਹੋ।",
+  "app.salesDial.blocker.outsideWindow.fixStatutoryWait": "ਇਹ {jurisdiction} ਦਾ ਆਪਣਾ ਨਿਯਮ ਹੈ। ਵਿੰਡੋ ਦੀ ਉਡੀਕ ਕਰੋ।",
+  "app.salesDial.blocker.outsideWindow.title": "ਜਿੱਥੇ ਉਹ ਹਨ ਉੱਥੇ ਇਸ ਵੇਲੇ ਕਾਲ ਵਿੰਡੋ ਤੋਂ ਬਾਹਰ ਹੈ।",
+  "app.salesDial.blocker.timeZoneAmbiguous.fixOpens": "{subdivision} ਦੇ ਇੱਕ ਹਿੱਸੇ ਵਿੱਚ ਇਹ ਕਾਲ ਵਿੰਡੋ ਦੇ ਅੰਦਰ ਹੈ ਅਤੇ ਬਾਕੀ ਵਿੱਚ ਬਾਹਰ, ਅਤੇ ਇਹ ਰਿਕਾਰਡ ਨਹੀਂ ਦੱਸਦਾ ਕਿ ਕਿਹੜਾ ਹਿੱਸਾ। ਵੱਧ ਆਬਾਦੀ ਵਾਲੇ ਅੱਧ ਦਾ ਅੰਦਾਜ਼ਾ ਲਾਉਣ ਦੀ ਬਜਾਏ, ਕੁਝ ਵੀ ਪੁਸ਼ਟ ਨਹੀਂ ਕੀਤਾ ਜਾਂਦਾ। {opensAt} ਤੋਂ ਬਾਅਦ {subdivision} ਵਿੱਚ ਹਰ ਥਾਂ ਫ਼ੋਨ ਕਰਨਾ ਸੁਰੱਖਿਅਤ ਹੈ — ਜਾਂ ਉਨ੍ਹਾਂ ਤੋਂ ਪੁੱਛੋ ਕਿ ਉਹ ਕਿੱਥੇ ਹਨ ਅਤੇ ਉਨ੍ਹਾਂ ਦੇ ਲੀਡ ਉੱਤੇ ਸਮਾਂ-ਖੇਤਰ ਭਰੋ, ਜੋ ਇਸ ਦਾ ਪੱਕਾ ਜਵਾਬ ਹੈ।",
+  "app.salesDial.blocker.timeZoneAmbiguous.fixUnknownOpening": "{subdivision} ਦੇ ਇੱਕ ਹਿੱਸੇ ਵਿੱਚ ਇਹ ਕਾਲ ਵਿੰਡੋ ਦੇ ਅੰਦਰ ਹੈ ਅਤੇ ਬਾਕੀ ਵਿੱਚ ਬਾਹਰ, ਅਤੇ ਇਹ ਰਿਕਾਰਡ ਨਹੀਂ ਦੱਸਦਾ ਕਿ ਕਿਹੜਾ ਹਿੱਸਾ। ਵੱਧ ਆਬਾਦੀ ਵਾਲੇ ਅੱਧ ਦਾ ਅੰਦਾਜ਼ਾ ਲਾਉਣ ਦੀ ਬਜਾਏ, ਕੁਝ ਵੀ ਪੁਸ਼ਟ ਨਹੀਂ ਕੀਤਾ ਜਾਂਦਾ। ਅਗਲੇ ਉਸ ਵੇਲੇ ਦੀ ਉਡੀਕ ਕਰੋ ਜਦੋਂ ਦੋਵੇਂ ਅੱਧ ਮੇਲ ਖਾਣ — ਜਾਂ ਉਨ੍ਹਾਂ ਤੋਂ ਪੁੱਛੋ ਕਿ ਉਹ ਕਿੱਥੇ ਹਨ ਅਤੇ ਉਨ੍ਹਾਂ ਦੇ ਲੀਡ ਉੱਤੇ ਸਮਾਂ-ਖੇਤਰ ਭਰੋ, ਜੋ ਇਸ ਦਾ ਪੱਕਾ ਜਵਾਬ ਹੈ।",
+  "app.salesDial.blocker.timeZoneAmbiguous.title": "{subdivision} ਇੱਕ ਤੋਂ ਵੱਧ ਸਮਾਂ-ਖੇਤਰਾਂ ਵਿੱਚ ਫੈਲਿਆ ਹੋਇਆ ਹੈ, ਅਤੇ ਇਸ ਵੇਲੇ ਉਹ ਆਪਸ ਵਿੱਚ ਮੇਲ ਨਹੀਂ ਖਾਂਦੇ।",
+  "app.salesDial.blocker.timeZoneUnknown.fixCourtesy": "ਇਹ FieldQuo ਦਾ ਆਪਣਾ ਨਿਯਮ ਹੈ, ਕਿਉਂਕਿ {jurisdiction} ਕੋਈ ਨਿਯਮ ਨਹੀਂ ਲਾਉਂਦਾ, ਅਤੇ ਇਹ ਉਨ੍ਹਾਂ ਦੇ ਸਥਾਨਕ ਵੇਲੇ ਅਨੁਸਾਰ ਹੈ। ਸਾਡੇ ਕੋਲ {subdivision} ਲਈ ਕੋਈ ਸਮਾਂ-ਖੇਤਰ ਨਹੀਂ, ਇਸ ਲਈ ਜਾਂਚਣ ਲਈ ਕੁਝ ਨਹੀਂ — ਅਤੇ ਸਾਡੀ ਆਪਣੀ ਘੜੀ ਸਭ ਤੋਂ ਮਾੜਾ ਬਦਲ ਹੈ।",
+  "app.salesDial.blocker.timeZoneUnknown.fixStatutory": "ਇਹ {jurisdiction} ਦਾ ਆਪਣਾ ਨਿਯਮ ਹੈ, ਅਤੇ ਇਹ ਉਨ੍ਹਾਂ ਦੇ ਸਥਾਨਕ ਵੇਲੇ ਅਨੁਸਾਰ ਹੈ। ਸਾਡੇ ਕੋਲ {subdivision} ਲਈ ਕੋਈ ਸਮਾਂ-ਖੇਤਰ ਨਹੀਂ, ਇਸ ਲਈ ਜਾਂਚਣ ਲਈ ਕੁਝ ਨਹੀਂ — ਅਤੇ ਸਾਡੀ ਆਪਣੀ ਘੜੀ ਸਭ ਤੋਂ ਮਾੜਾ ਬਦਲ ਹੈ।",
+  "app.salesDial.blocker.timeZoneUnknown.title": "ਅਸੀਂ ਪਤਾ ਨਹੀਂ ਲਗਾ ਸਕਦੇ ਕਿ ਜਿੱਥੇ ਇਹ ਕਾਰੋਬਾਰ ਹੈ ਉੱਥੇ ਕੀ ਵੇਲਾ ਹੈ।",
+  "app.salesDial.quotedInEnglish": "ਅੰਗਰੇਜ਼ੀ ਵਿੱਚ, ਸਿੱਧਾ ਕਾਨੂੰਨ ਵਿੱਚੋਂ ਹਵਾਲਾ: ਕਾਨੂੰਨੀ ਪਾਠ ਦਾ ਅਨੁਵਾਦ ਕਾਨੂੰਨ ਵਾਂਗ ਪੜ੍ਹਿਆ ਜਾਵੇਗਾ ਭਾਵੇਂ ਉਹ ਕਾਨੂੰਨ ਨਹੀਂ।",
+  "app.salesDial.space.allowedNoNumber.detail": "ਕਾਲਿੰਗ ਨਿਯਮ ਇਸ ਕਾਲ ਦੀ ਇਜਾਜ਼ਤ ਦਿੰਦੇ ਹਨ ਪਰ ਇਸ ਰਿਕਾਰਡ ਵਿੱਚ ਕੋਈ ਨੰਬਰ ਨਹੀਂ ਜਿਸ ਉੱਤੇ ਕਾਲ ਕੀਤੀ ਜਾਵੇ। ਦੁਬਾਰਾ ਲੋਡ ਕਰੋ; ਜੇ ਫਿਰ ਵੀ ਰਹੇ ਤਾਂ ਸੰਭਾਵੀ ਗਾਹਕ ਨੂੰ ਫ਼ੋਨ ਨੰਬਰ ਚਾਹੀਦਾ ਹੈ।",
+  "app.salesDial.space.cannotConfirm.title": "ਅਸੀਂ ਪੁਸ਼ਟੀ ਨਹੀਂ ਕਰ ਸਕਦੇ ਕਿ ਇਹ ਕਾਲ ਕਰਨ ਦੀ ਇਜਾਜ਼ਤ ਹੈ।",
+  "app.salesDial.space.doNotContact.detail": "ਇਸ ਰਿਕਾਰਡ ਉੱਤੇ “ਸੰਪਰਕ ਨਾ ਕਰੋ” ਦਾ ਨਿਸ਼ਾਨ ਹੈ, ਇਸ ਲਈ ਇੱਥੇ ਡਾਇਲ ਕੰਟਰੋਲ ਨਹੀਂ ਦਿੱਤਾ ਜਾਂਦਾ।",
+  "app.salesDial.space.doNotContact.title": "ਸੰਪਰਕ ਨਾ ਕਰੋ",
+  "app.salesDial.space.doNotContactRecorded.noReason": "{date} ਨੂੰ ਦਰਜ ਕੀਤਾ ਗਿਆ। ਕੋਈ ਕਾਰਨ ਦਰਜ ਨਹੀਂ ਕੀਤਾ ਗਿਆ।",
+  "app.salesDial.space.doNotContactRecorded.withReason": "{date} ਨੂੰ ਦਰਜ ਕੀਤਾ ਗਿਆ। ਕਾਰਨ: {reason}",
+  "app.salesDial.space.noDecision.detail": "ਇਹ ਸਕ੍ਰੀਨ ਪਤਾ ਨਹੀਂ ਲਗਾ ਸਕੀ ਕਿ ਕਿਹੜੇ ਕਾਲਿੰਗ ਨਿਯਮ ਲਾਗੂ ਹੁੰਦੇ ਹਨ, ਇਸ ਲਈ ਇਹ ਅਜਿਹਾ ਡਾਇਲ ਕੰਟਰੋਲ ਨਹੀਂ ਦਿੰਦੀ ਜਿਸ ਦੀ ਜ਼ਿੰਮੇਵਾਰੀ ਨਾ ਲੈ ਸਕੇ। ਪੰਨਾ ਦੁਬਾਰਾ ਲੋਡ ਕਰੋ।",
+  "app.salesDial.space.noNumber.detail": "ਇਸ ਰਿਕਾਰਡ ਵਿੱਚ ਕੋਈ ਫ਼ੋਨ ਨੰਬਰ ਨਹੀਂ ਹੈ, ਇਸ ਲਈ ਇੱਥੋਂ ਡਾਇਲ ਕਰਨ ਲਈ ਕੁਝ ਨਹੀਂ। ਖੋਜ ਨੇ ਇਹ ਕਾਰੋਬਾਰ ਬਿਨਾਂ ਨੰਬਰ ਦੇ ਲੱਭਿਆ। ਉਨ੍ਹਾਂ ਦੀ ਵੈੱਬਸਾਈਟ ਜਾਂ ਡਾਇਰੈਕਟਰੀ ਵਿੱਚ ਹੋ ਸਕਦਾ ਹੈ — ਉਸਨੂੰ ਉਨ੍ਹਾਂ ਦੇ ਲੀਡ ਉੱਤੇ ਪਾਓ ਅਤੇ ਇਹ ਇੱਥੇ ਦਿਖਾਈ ਦੇਵੇਗਾ।",
+  "app.salesDial.space.noNumber.title": "ਅਜੇ ਕੋਈ ਸੇਲਜ਼ ਨੰਬਰ ਨਹੀਂ ਹੈ।",
+  "app.salesDial.space.noPhone.detail": "ਇਸ ਰਿਕਾਰਡ ਵਿੱਚ ਕੋਈ ਫ਼ੋਨ ਨੰਬਰ ਨਹੀਂ ਹੈ, ਇਸ ਲਈ ਇੱਥੋਂ ਡਾਇਲ ਕਰਨ ਲਈ ਕੁਝ ਨਹੀਂ ਹੈ।",
+  "app.salesDial.space.noPhone.title": "ਕੋਈ ਫ਼ੋਨ ਨੰਬਰ ਨਹੀਂ",
+  "app.salesDial.space.noProspect.title": "ਕੋਈ ਸੰਭਾਵੀ ਗਾਹਕ ਖੁੱਲ੍ਹਿਆ ਨਹੀਂ, ਇਸ ਲਈ ਡਾਇਲ ਕਰਨ ਲਈ ਕੁਝ ਨਹੀਂ ਹੈ।",
+  "app.salesDial.space.noProspectEmpty.detail": "ਇੱਕ ਕਿੱਤਾ ਚੁਣੋ, ਇੱਕ ਸੰਭਾਵੀ ਗਾਹਕ ਲਵੋ, ਅਤੇ ਕਾਲ ਬਟਨ ਇਸੇ ਥਾਂ ਆ ਜਾਵੇਗਾ। ਇਹ ਹਮੇਸ਼ਾ ਇਹੀ ਥਾਂ ਹੁੰਦੀ ਹੈ — ਖਾਲੀ ਹੋਣ ਦਾ ਮਤਲਬ ਹੈ ਕਿ ਤੁਸੀਂ ਕਿਸੇ ਨੂੰ ਨਹੀਂ ਲਿਆ, ਨਾ ਕਿ ਕਾਲਿੰਗ ਬੰਦ ਹੈ।",
+  "app.salesDial.space.noProspectHolding.detail": "ਤੁਹਾਡੇ ਕੋਲ {count} ਹਨ। ਸੂਚੀ ਵਿੱਚੋਂ ਇੱਕ ਚੁਣੋ — ਉਸ ਦਾ ਨੰਬਰ ਅਤੇ ਕੀ ਤੁਸੀਂ ਫ਼ੋਨ ਕਰ ਸਕਦੇ ਹੋ, ਇੱਥੇ ਹੀ ਦਿਖਾਈ ਦੇਣਗੇ।",
+  "app.salesDial.space.noProspectHolding.count": countedNoun("pa", { one: "ਸੰਭਾਵੀ ਗਾਹਕ", other: "ਸੰਭਾਵੀ ਗਾਹਕ" }),
+  "app.salesDial.space.optedOut.detail": "ਇਨਕਾਰ ਕਾਲਾਂ, ਸੁਨੇਹਿਆਂ ਅਤੇ ਈਮੇਲ — ਸਭ ਉੱਤੇ ਲਾਗੂ ਹੁੰਦਾ ਹੈ, ਇਸ ਲਈ ਇੱਥੇ ਡਾਇਲ ਕੰਟਰੋਲ ਨਹੀਂ ਦਿੱਤਾ ਜਾਂਦਾ। ਸਿਰਫ਼ ਸੁਪਰਐਡਮਿਨ ਹੀ ਇਸਨੂੰ ਹਟਾ ਸਕਦਾ ਹੈ, ਅਤੇ ਲਿਖਤੀ ਕਾਰਨ ਲਾਜ਼ਮੀ ਹੈ — ਇਸ ਲਈ ਜੇ ਇਹ ਗਲਤ ਲੱਗੇ ਤਾਂ ਦੱਸੋ, ਉਨ੍ਹਾਂ ਲਈ ਹੋਰ ਨੰਬਰ ਨਾ ਲੱਭੋ।",
+  "app.salesDial.space.optedOut.title": "ਉਨ੍ਹਾਂ ਨੇ ਸਾਨੂੰ ਰੁਕਣ ਲਈ ਕਿਹਾ ਹੈ।",
+  "app.salesDial.space.optedOutMeaning.detail": "ਇਨਕਾਰ ਕਾਲਾਂ, ਸੁਨੇਹਿਆਂ ਅਤੇ ਈਮੇਲ ਉੱਤੇ ਲਾਗੂ ਹੁੰਦਾ ਹੈ, ਇਸ ਲਈ ਡਾਇਲ ਕੰਟਰੋਲ ਨਹੀਂ ਦਿੱਤਾ ਜਾਂਦਾ। ਸਿਰਫ਼ ਸੁਪਰਐਡਮਿਨ ਹੀ, ਲਿਖਤੀ ਕਾਰਨ ਨਾਲ, ਇਸਨੂੰ ਹਟਾ ਸਕਦਾ ਹੈ।",
+  "app.salesDial.space.ourOwnNumber.detail": "ਸਾਡੇ ਆਪਣੇ ਸਿਸਟਮ ਨੂੰ ਫ਼ੋਨ ਕਰਨ ਨਾਲ ਲੂਪ ਬਣ ਜਾਂਦਾ ਹੈ ਅਤੇ ਦੋਵੇਂ ਪਾਸੇ ਦਾ ਬਿੱਲ ਲੱਗਦਾ ਹੈ, ਇਸ ਲਈ ਇੱਥੇ ਡਾਇਲ ਕੰਟਰੋਲ ਨਹੀਂ ਦਿੱਤਾ ਜਾਂਦਾ। ਜੇ ਇਹ ਸੱਚਮੁੱਚ ਸੰਭਾਵੀ ਗਾਹਕ ਦਾ ਨੰਬਰ ਹੈ, ਤਾਂ ਇਹ ਗਲਤੀ ਨਾਲ FieldQuo ਦੀਆਂ ਨੰਬਰ ਸੂਚੀਆਂ ਵਿੱਚੋਂ ਇੱਕ ਵਿੱਚ ਹੈ।",
+  "app.salesDial.space.ourOwnNumber.title": "ਇਹ ਸਾਡੇ ਆਪਣੇ ਨੰਬਰਾਂ ਵਿੱਚੋਂ ਇੱਕ ਹੈ।",
+  "app.salesDial.space.ready.title": "ਤੁਸੀਂ ਇਸ ਨੂੰ ਹੁਣ ਫ਼ੋਨ ਕਰ ਸਕਦੇ ਹੋ।",
+  "app.salesDial.space.readyNoWindow.detail": "ਸਾਰਣੀ ਵਿੱਚ ਕੋਈ ਵੀ ਅਧਿਕਾਰ-ਖੇਤਰ ਇਸ ਉੱਤੇ ਸਮਾਂ-ਵਿੰਡੋ ਨਹੀਂ ਲਾਉਂਦਾ।",
+  "app.salesDial.space.refusedForNow.title": "ਇਸ ਵੇਲੇ ਤੁਸੀਂ ਇਸ ਨੂੰ ਫ਼ੋਨ ਨਹੀਂ ਕਰ ਸਕਦੇ।",
+  "app.salesDial.space.refusedOutright.detail": "ਇਸ ਕਾਰੋਬਾਰ ਉੱਤੇ ਲਾਗੂ ਨਿਯਮ ਇਸ ਕਾਲ ਤੋਂ ਇਨਕਾਰ ਕਰਦਾ ਹੈ, ਅਤੇ ਇਹ ਕੋਈ ਸਮਾਂ-ਵਿੰਡੋ ਨਹੀਂ ਜੋ ਬਾਅਦ ਵਿੱਚ ਖੁੱਲ੍ਹੇ। ਕਾਰਨ ਹੇਠਾਂ ਹੈ।",
+  "app.salesDial.space.refusedOutright.title": "ਤੁਸੀਂ ਇਸ ਨੂੰ ਫ਼ੋਨ ਨਹੀਂ ਕਰ ਸਕਦੇ।",
+  "app.salesDial.space.unconfirmed.detail": "ਕਿਸੇ ਵੀ ਪਾਸੇ ਕੁਝ ਸਾਬਤ ਨਹੀਂ ਹੋਇਆ, ਇਸ ਲਈ ਡਾਇਲ ਕੰਟਰੋਲ ਨਹੀਂ ਦਿੱਤਾ ਜਾਂਦਾ। ਇਹ ਸਾਡੀ ਜਾਣਕਾਰੀ ਵਿੱਚ ਖੱਪਾ ਹੈ, ਇਨਕਾਰ ਨਹੀਂ।",
+  "app.salesDial.space.unreadableDecision.detail": "ਕਾਲਿੰਗ ਨਿਯਮਾਂ ਨੇ “{decision}” ਜਵਾਬ ਦਿੱਤਾ, ਜਿਸਨੂੰ ਇਹ ਸਕ੍ਰੀਨ ਪੜ੍ਹਨਾ ਨਹੀਂ ਜਾਣਦੀ। ਜਿਸ ਜਵਾਬ ਦਾ ਮਤਲਬ ਕੋਈ ਨਾ ਕੱਢ ਸਕੇ, ਉਸ ਉੱਤੇ ਡਾਇਲ ਕੰਟਰੋਲ ਨਹੀਂ ਦਿੱਤਾ ਜਾਂਦਾ।",
+  "app.salesDial.unenforced.callCapUncounted.fix": "FieldQuo ਵਿੱਚ ਅਜੇ ਕੁਝ ਵੀ ਕਾਲ ਦੀਆਂ ਕੋਸ਼ਿਸ਼ਾਂ ਦਰਜ ਨਹੀਂ ਕਰਦਾ, ਇਸ ਲਈ ਇਹ ਹੱਦ ਤੁਹਾਡੇ ਲਈ ਗਿਣੀ ਨਹੀਂ ਜਾ ਰਹੀ — ਆਪ ਹਿਸਾਬ ਰੱਖੋ। ਜਿਹੜੇ ਦੋ ਰਾਜ ਇਹ ਹੱਦ ਲਾਉਂਦੇ ਹਨ, ਉੱਥੇ ਇਸ ਉੱਤੇ ਨਿੱਜੀ ਮੁਕੱਦਮੇ ਦਾ ਹੱਕ ਹੈ।",
+  "app.salesDial.unenforced.callCapUncounted.title": "{jurisdiction} 24 ਘੰਟਿਆਂ ਵਿੱਚ ਇਸ ਕਾਰੋਬਾਰ ਨੂੰ ਇੱਕੋ ਵਿਸ਼ੇ ਉੱਤੇ ਵੱਧ ਤੋਂ ਵੱਧ {cap} ਕਾਲਾਂ ਦੀ ਇਜਾਜ਼ਤ ਦਿੰਦਾ ਹੈ।",
+  "app.salesDial.warning.dataAcquisitionRule.title": "{jurisdiction} ਇਹ ਤੈਅ ਕਰਦਾ ਹੈ ਕਿ ਇਸ ਸੰਭਾਵੀ ਗਾਹਕ ਦੀ ਜਾਣਕਾਰੀ ਕਿਵੇਂ ਲਈ ਜਾ ਸਕਦੀ ਹੈ।",
+  "app.salesDial.warning.registrationOutstanding.title": "{jurisdiction} ਵਿੱਚ ਵਿਕਰੀ ਕਾਲਾਂ ਕਰਨ ਲਈ FieldQuo ਦਾ ਰਜਿਸਟਰ ਹੋਣਾ ਲਾਜ਼ਮੀ ਹੈ।",
+  "app.salesDial.window.courtesyRule": "ਇਹ ਸਮਾਂ FieldQuo ਦਾ ਆਪਣਾ ਨਿਯਮ ਹੈ — {jurisdiction} ਕੋਈ ਨਿਯਮ ਨਹੀਂ ਲਾਉਂਦਾ।",
+  "app.salesDial.window.everyDay": "ਹਰ ਰੋਜ਼ {start}–{end}, ਸੰਭਾਵੀ ਗਾਹਕ ਦੇ ਆਪਣੇ ਸਮਾਂ-ਖੇਤਰ ਵਿੱਚ।",
+  "app.salesDial.window.everyDayClosed": "ਹਰ ਰੋਜ਼ {start}–{end}, ਸੰਭਾਵੀ ਗਾਹਕ ਦੇ ਆਪਣੇ ਸਮਾਂ-ਖੇਤਰ ਵਿੱਚ, ਅਤੇ {closedDays} ਨੂੰ ਬਿਲਕੁਲ ਕੋਈ ਕਾਲ ਨਹੀਂ।",
+  "app.salesDial.window.opensAt": "ਇਹ {opensAt} ਵਜੇ ਖੁੱਲ੍ਹਦਾ ਹੈ।",
+  "app.salesDial.window.split": "ਕੰਮ ਵਾਲੇ ਦਿਨ {start}–{end} ਅਤੇ ਹਫ਼ਤੇ ਦੇ ਅੰਤ ਵਿੱਚ {weekendStart}–{weekendEnd}, ਸੰਭਾਵੀ ਗਾਹਕ ਦੇ ਆਪਣੇ ਸਮਾਂ-ਖੇਤਰ ਵਿੱਚ।",
+  "app.salesDial.window.splitClosed": "ਕੰਮ ਵਾਲੇ ਦਿਨ {start}–{end} ਅਤੇ ਹਫ਼ਤੇ ਦੇ ਅੰਤ ਵਿੱਚ {weekendStart}–{weekendEnd}, ਸੰਭਾਵੀ ਗਾਹਕ ਦੇ ਆਪਣੇ ਸਮਾਂ-ਖੇਤਰ ਵਿੱਚ, ਅਤੇ {closedDays} ਨੂੰ ਬਿਲਕੁਲ ਕੋਈ ਕਾਲ ਨਹੀਂ।",
+  "app.salesDial.window.statutoryRule": "ਇਹ ਸਮਾਂ {jurisdiction} ਦਾ ਆਪਣਾ ਨਿਯਮ ਹੈ।",
+
+  // ── The queue's four research blocks ────────────────────────────────────
+  //
+  // The three layer headings ARE the interface for the rule that an
+  // inference must never read as a fact, and they were English on every
+  // screen. So are the two refusals that withhold an inference, the two that
+  // withhold a recommendation, and every sentence under "what we do not
+  // know".
+  //
+  // A fact row's VALUE is keyed only when the value is ours. A prospect's
+  // phone number, address and name are printed verbatim; translating data is
+  // inventing it.
+  "app.salesIntel.bucket.FRANCHISE_LIKELY": "ਸ਼ਾਇਦ ਫ਼੍ਰੈਂਚਾਈਜ਼",
+  "app.salesIntel.bucket.MULTI_TRADE": "ਕਈ ਕਿੱਤੇ",
+  "app.salesIntel.bucket.SMALL_BUSINESS": "ਛੋਟਾ ਕਾਰੋਬਾਰ",
+  "app.salesIntel.bucket.SOLO_LIKELY": "ਸ਼ਾਇਦ ਇਕੱਲਾ",
+  "app.salesIntel.confidencePercent": "{percent}% ਭਰੋਸਾ",
+  "app.salesIntel.confidenceUntested": "ਭਰੋਸੇ ਦਾ ਕੋਈ ਅੰਕੜਾ ਨਹੀਂ — ਇਸਨੂੰ ਅਜ਼ਮਾਇਆ ਹੋਇਆ ਨਾ ਸਮਝੋ।",
+  "app.salesIntel.fact.businessName.label": "ਕਾਰੋਬਾਰ",
+  "app.salesIntel.fact.businessName.missing": "ਇਸ ਰਿਕਾਰਡ ਉੱਤੇ ਕੋਈ ਨਾਮ ਨਹੀਂ",
+  "app.salesIntel.fact.businessStatus.label": "ਅਜੇ ਚੱਲ ਰਿਹਾ ਹੈ?",
+  "app.salesIntel.fact.businessStatus.missing": "ਸਰੋਤ ਨੇ ਨਹੀਂ ਦੱਸਿਆ। ਇਨ੍ਹਾਂ ਵਿੱਚੋਂ ਕੁਝ ਬੰਦ ਹੋ ਚੁੱਕੇ ਹਨ।",
+  "app.salesIntel.fact.contactBasis.closed": "ਬੰਦ — ਇਸ ਦੀ ਥਾਂ ਫ਼ੋਨ ਕਰੋ",
+  "app.salesIntel.fact.contactBasis.label": "ਈਮੇਲ ਅਤੇ ਸੁਨੇਹੇ",
+  "app.salesIntel.fact.location.label": "ਕਿੱਥੇ",
+  "app.salesIntel.fact.location.missing": "ਇਸ ਰਿਕਾਰਡ ਉੱਤੇ ਕੋਈ ਪਤਾ ਨਹੀਂ",
+  "app.salesIntel.fact.phone.label": "ਫ਼ੋਨ",
+  "app.salesIntel.fact.phone.missing": "ਇਸ ਰਿਕਾਰਡ ਉੱਤੇ ਕੋਈ ਫ਼ੋਨ ਨੰਬਰ ਨਹੀਂ",
+  "app.salesIntel.fact.rating.label": "ਰੇਟਿੰਗ",
+  "app.salesIntel.fact.rating.missing": "ਸਰੋਤ ਨੇ ਕੋਈ ਰੇਟਿੰਗ ਨਹੀਂ ਦਿੱਤੀ",
+  "app.salesIntel.fact.rating.value": "5 ਵਿੱਚੋਂ {rating}",
+  "app.salesIntel.fact.reviews.label": "ਸਮੀਖਿਆਵਾਂ",
+  "app.salesIntel.fact.reviews.missing": "ਸਰੋਤ ਨੇ ਸਮੀਖਿਆਵਾਂ ਦੀ ਗਿਣਤੀ ਨਹੀਂ ਦਿੱਤੀ",
+  "app.salesIntel.fact.reviews.value": countedNoun("pa", { one: "ਸਮੀਖਿਆ", other: "ਸਮੀਖਿਆਵਾਂ" }),
+  "app.salesIntel.fact.source.label": "ਇਹ ਕਿੱਥੋਂ ਆਇਆ",
+  "app.salesIntel.fact.sourceUpdatedAt.label": "ਸਰੋਤ ਆਖਰੀ ਵਾਰ ਤਾਜ਼ਾ ਕੀਤਾ",
+  "app.salesIntel.fact.sourceUpdatedAt.missing": "ਸਰੋਤ ਨੇ ਨਹੀਂ ਦੱਸਿਆ ਕਦੋਂ",
+  "app.salesIntel.fact.website.derivedConfirmed": "{site} — ਕੱਢਿਆ ਗਿਆ, ਅਤੇ ਸਾਈਟ ਨੇ ਇਸਦੀ ਪੁਸ਼ਟੀ ਕੀਤੀ",
+  "app.salesIntel.fact.website.guessed": "{site} — ਅਸੀਂ ਇਹ ਲਾਇਸੈਂਸ ਈਮੇਲ ਤੋਂ ਅੰਦਾਜ਼ਾ ਲਾਇਆ ਹੈ। ਕਿਸੇ ਨੇ ਇਹ ਪ੍ਰਕਾਸ਼ਿਤ ਨਹੀਂ ਕੀਤਾ ਅਤੇ ਸਾਈਟ ਨੇ ਪੁਸ਼ਟੀ ਨਹੀਂ ਕੀਤੀ।",
+  "app.salesIntel.fact.website.hasOne": "ਵੈੱਬਸਾਈਟ ਹੈ",
+  "app.salesIntel.fact.website.label": "ਵੈੱਬਸਾਈਟ",
+  "app.salesIntel.fact.website.listedUnchecked": "{url} — ਦਰਜ ਹੈ, ਅਜੇ ਜਾਂਚਿਆ ਨਹੀਂ",
+  "app.salesIntel.fact.website.noneWeLooked": "ਕੋਈ ਵੈੱਬਸਾਈਟ ਨਹੀਂ — ਅਸੀਂ ਵੇਖਿਆ",
+  "app.salesIntel.fact.website.sourceSilent": "ਸਰੋਤ ਨੇ ਕੋਈ ਵੈੱਬਸਾਈਟ ਨਹੀਂ ਦਿੱਤੀ। ਇਹ ਜਿੰਨੀ ਵਾਰ ਬਾਜ਼ਾਰ ਦਾ ਖੱਪਾ ਹੁੰਦਾ ਹੈ, ਓਨੀ ਵਾਰ ਡਾਇਰੈਕਟਰੀ ਦਾ ਵੀ।",
+  "app.salesIntel.inference.refusalCarriesNumber": "ਇਸ ਅੰਦਾਜ਼ੇ ਵਿੱਚ ਇੱਕ ਸੰਖਿਆ ਹੈ। ਸੰਭਾਲਿਆ ਮੁੱਲ ਇੱਕ ਵਰਗੀਕਰਨ ਹੈ — “ਛੋਟੀ ਟੀਮ”, ਕਦੇ ਵੀ “ਬਾਰਾਂ ਕਾਮੇ” ਨਹੀਂ — ਇਸ ਲਈ ਇਸਨੂੰ ਗਿਣਤੀ ਵਾਂਗ ਪੜ੍ਹਨ ਦੀ ਬਜਾਏ ਰੋਕ ਲਿਆ ਗਿਆ ਹੈ।",
+  "app.salesIntel.inference.refusalNoConfidence": "ਅੰਦਾਜ਼ਾ ਤਾਂ ਹੀ ਦਿਖਾਇਆ ਜਾਂਦਾ ਹੈ ਜਦੋਂ ਨਾਲ ਭਰੋਸੇ ਦਾ ਪੱਧਰ ਵੀ ਹੋਵੇ। ਇਸ ਦੇ ਪਿੱਛੇ ਅਜਿਹਾ ਕੁਝ ਨਹੀਂ ਜਿਸਨੂੰ ਭਰੋਸਾ-ਇੰਜਣ ਪਛਾਣਦਾ ਹੋਵੇ, ਇਸ ਲਈ ਦਿਖਾਉਣ ਲਈ ਕੋਈ ਅੰਕੜਾ ਨਹੀਂ ਅਤੇ ਦਾਅਵਾ ਰੋਕ ਲਿਆ ਗਿਆ ਹੈ।",
+  "app.salesIntel.inference.sourceCall": "ਉਨ੍ਹਾਂ ਨੇ ਇਹ ਕਾਲ ਦੌਰਾਨ ਕਿਹਾ — ਸਿੱਧਾ ਉਨ੍ਹਾਂ ਤੋਂ, ਤੇ ਫਿਰ ਵੀ ਇਹ ਇੱਕ ਅੰਦਾਜ਼ਾ ਹੈ।",
+  "app.salesIntel.inference.sourceObserved": "ਜੋ ਅਸੀਂ ਵੇਖਿਆ ਉਸ ਤੋਂ ਕੱਢਿਆ ਗਿਆ।",
+  "app.salesIntel.kind.company_scale": "ਕੰਪਨੀ ਦਾ ਆਕਾਰ",
+  "app.salesIntel.kind.trade": "ਕਿੱਤਾ",
+  "app.salesIntel.layer.fact.note": "ਤੱਥ। ਹਰ ਇੱਕ ਜਾਂ ਤਾਂ ਵੇਖਿਆ ਗਿਆ, ਜਾਂ ਜਾਣ-ਬੁੱਝ ਕੇ ਲੱਭਿਆ ਗਿਆ ਤੇ ਨਹੀਂ ਮਿਲਿਆ।",
+  "app.salesIntel.layer.fact.title": "ਅਸੀਂ ਕੀ ਵੇਖਿਆ",
+  "app.salesIntel.layer.inference.note": "ਸਿੱਟੇ ਜਿਨ੍ਹਾਂ ਨੂੰ ਸਬੂਤ ਸਹਾਰਾ ਦਿੰਦੇ ਹਨ ਪਰ ਸਾਬਤ ਨਹੀਂ ਕਰਦੇ। ਇਨ੍ਹਾਂ ਨੂੰ ਕਦੇ ਵੀ ਤੱਥ ਵਾਂਗ ਨਾ ਕਹੋ।",
+  "app.salesIntel.layer.inference.title": "ਅਸੀਂ ਕੀ ਅੰਦਾਜ਼ਾ ਲਾਉਂਦੇ ਹਾਂ",
+  "app.salesIntel.layer.recommendation.note": "ਉੱਪਰਲੇ ਦੋਹਾਂ ਤੋਂ ਬਣੇ ਦਲੀਲਾਂ। ਹਰ ਇੱਕ ਨਾਲ ਉਹ ਕਾਰਨ ਜੁੜਿਆ ਹੈ ਜਿਸ ਕਰਕੇ ਉਹ ਸਾਹਮਣੇ ਆਇਆ।",
+  "app.salesIntel.layer.recommendation.title": "ਕੀ ਪੇਸ਼ ਕਰਨਾ ਹੈ",
+  "app.salesIntel.noLeadScore": "ਇਸ ਸੰਭਾਵੀ ਗਾਹਕ ਲਈ ਕੋਈ ਲੀਡ ਸਕੋਰ ਨਹੀਂ ਕੱਢਿਆ ਗਿਆ।",
+  "app.salesIntel.opportunity.refusalNoEvidence": "ਇਹ ਸਿਫ਼ਾਰਸ਼ ਕਿਸੇ ਸਬੂਤ ਦਾ ਹਵਾਲਾ ਨਹੀਂ ਦਿੰਦੀ। ਇਸਨੂੰ ਪੜ੍ਹਨ ਦੀ ਬਜਾਏ ਟੁੱਟੀ ਹੋਈ ਵਜੋਂ ਦਿਖਾਇਆ ਜਾਂਦਾ ਹੈ — ਜਿਸ ਪੇਸ਼ਕਸ਼ ਪਿੱਛੇ ਕੁਝ ਨਾ ਹੋਵੇ, ਉਹੀ ਆਮ ਵਿਕਰੀ-ਭਰਤੀ ਹੈ ਜਿਸਨੂੰ ਰੋਕਣ ਲਈ ਸਬੂਤ-ਜਾਂਚ ਬਣੀ ਹੈ।",
+  "app.salesIntel.opportunity.refusalNoReason": "ਇਸ ਸਿਫ਼ਾਰਸ਼ ਨਾਲ ਕੋਈ ਕਾਰਨ ਨਹੀਂ, ਇਸ ਲਈ ਫ਼ੀਚਰ ਦੇ ਨਾਮ ਤੋਂ ਅੱਗੇ ਕਹਿਣ ਲਈ ਕੁਝ ਨਹੀਂ।",
+  "app.salesIntel.unknown.nothingInferred": "ਇਸ ਕਾਰੋਬਾਰ ਬਾਰੇ ਅਜੇ ਕੋਈ ਅੰਦਾਜ਼ਾ ਨਹੀਂ ਲਾਇਆ ਗਿਆ।",
+  "app.salesIntel.unknown.softwareNeverCrawled": "ਸਾਨੂੰ ਨਹੀਂ ਪਤਾ ਉਹ ਕਿਹੜਾ ਸਾਫ਼ਟਵੇਅਰ ਵਰਤਦੇ ਹਨ — ਕਿਸੇ ਨੇ ਉਨ੍ਹਾਂ ਨੂੰ ਕ੍ਰਾਲ ਨਹੀਂ ਕੀਤਾ।",
+  "app.salesIntel.unnamedCapability": "ਬਿਨਾਂ ਨਾਮ ਵਾਲੀ ਸਮਰੱਥਾ",
+
+  // ── The disposition a rep picks after every single call ─────────────────
+  //
+  // Ten outcomes, each with the one line explaining what it does to the
+  // queue. lib/sales/calls/dispositions.js derives these keys from its own
+  // codes, so an eleventh outcome cannot ship English by omission — it fails
+  // check:sales-server-copy until this block has it.
+  "app.salesCall.disposition.bad_number.hint": "ਬੰਦ ਹੈ, ਜਾਂ ਬਿਲਕੁਲ ਕਿਸੇ ਹੋਰ ਕੋਲ ਪਹੁੰਚ ਗਿਆ।",
+  "app.salesCall.disposition.bad_number.label": "ਗਲਤ ਜਾਂ ਬੰਦ ਨੰਬਰ",
+  "app.salesCall.disposition.busy.hint": "ਵਿਅਸਤ ਦੀ ਟੋਨ, ਜਾਂ ਘੰਟੀ ਵੱਜਣ ਤੋਂ ਪਹਿਲਾਂ ਹੀ ਕੱਟ ਗਈ।",
+  "app.salesCall.disposition.busy.label": "ਵਿਅਸਤ",
+  "app.salesCall.disposition.callback.hint": "ਉਹ ਵੇਲਾ ਜਿਸ ਉੱਤੇ ਉਹ ਸਹਿਮਤ ਹੋਏ। ਕਲੇਮ ਉਦੋਂ ਤੱਕ ਅਤੇ ਉਸ ਤੋਂ ਬਾਅਦ ਵੀ ਬਣਿਆ ਰਹਿੰਦਾ ਹੈ।",
+  "app.salesCall.disposition.callback.label": "ਉਨ੍ਹਾਂ ਨੇ ਮੈਨੂੰ ਦੁਬਾਰਾ ਫ਼ੋਨ ਕਰਨ ਲਈ ਕਿਹਾ",
+  "app.salesCall.disposition.do_not_call.hint": "ਉਨ੍ਹਾਂ ਦੇ ਆਪਣੇ ਸ਼ਬਦ, ਜਿੰਨੇ ਨੇੜੇ ਹੋ ਸਕਣ। ਇਹ ਪੱਕਾ ਹੈ।",
+  "app.salesCall.disposition.do_not_call.label": "ਦੁਬਾਰਾ ਫ਼ੋਨ ਨਾ ਕਰਨ ਲਈ ਕਿਹਾ",
+  "app.salesCall.disposition.gatekeeper.hint": "ਰਿਸੈਪਸ਼ਨਿਸਟ, ਭਾਈਵਾਲ, ਸਿਖਾਂਦਰੂ। ਪੇਸ਼ਕਸ਼ ਹੋਈ ਹੀ ਨਹੀਂ।",
+  "app.salesCall.disposition.gatekeeper.label": "ਕਿਸੇ ਨੇ ਜਵਾਬ ਦਿੱਤਾ, ਪਰ ਮਾਲਕ ਨੇ ਨਹੀਂ",
+  "app.salesCall.disposition.no_answer.hint": "ਘੰਟੀ ਵੱਜਦੀ ਰਹੀ। ਨਾ ਕਿਸੇ ਨੇ ਚੁੱਕਿਆ, ਨਾ ਕੋਈ ਮਸ਼ੀਨ ਬੋਲੀ।",
+  "app.salesCall.disposition.no_answer.label": "ਕੋਈ ਜਵਾਬ ਨਹੀਂ",
+  "app.salesCall.disposition.not_a_fit.hint": "ਪ੍ਰਚੂਨ ਦੁਕਾਨ, ਫ਼੍ਰੈਂਚਾਈਜ਼ ਦਾ ਮੁੱਖ ਦਫ਼ਤਰ, ਬੰਦ ਹੋ ਚੁੱਕਾ ਕਾਰੋਬਾਰ, ਗਲਤ ਕਿੱਤਾ।",
+  "app.salesCall.disposition.not_a_fit.label": "ਅਜਿਹਾ ਕਾਰੋਬਾਰ ਨਹੀਂ ਜਿਸਨੂੰ ਅਸੀਂ ਵੇਚ ਸਕੀਏ",
+  "app.salesCall.disposition.reached_interested.hint": "ਪੇਸ਼ਕਸ਼ ਅਸਰ ਕਰ ਗਈ। ਹੁਣ ਤੋਂ ਇਹ ਸੰਭਾਵੀ ਗਾਹਕ ਤੁਹਾਡਾ ਹੈ।",
+  "app.salesCall.disposition.reached_interested.label": "ਉਨ੍ਹਾਂ ਨਾਲ ਗੱਲ ਹੋਈ — ਦਿਲਚਸਪੀ ਹੈ",
+  "app.salesCall.disposition.reached_not_interested.hint": "ਉਨ੍ਹਾਂ ਨੇ ਸੁਣ ਕੇ ਨਾਂਹ ਕਹੀ। ਅਗਲੇ ਹਫ਼ਤੇ ਕਿਸੇ ਹੋਰ ਨੂੰ ਉਨ੍ਹਾਂ ਨੂੰ ਫ਼ੋਨ ਨਹੀਂ ਕਰਨਾ ਚਾਹੀਦਾ।",
+  "app.salesCall.disposition.reached_not_interested.label": "ਉਨ੍ਹਾਂ ਨਾਲ ਗੱਲ ਹੋਈ — ਦਿਲਚਸਪੀ ਨਹੀਂ",
+  "app.salesCall.disposition.voicemail.hint": "ਤੁਸੀਂ ਖੁਦ ਉਨ੍ਹਾਂ ਦੀ ਮਸ਼ੀਨ ਉੱਤੇ ਬੋਲੇ। ਕਦੇ ਵੀ ਰਿਕਾਰਡਿੰਗ ਨਹੀਂ।",
+  "app.salesCall.disposition.voicemail.label": "ਵੌਇਸਮੇਲ — ਮੈਂ ਸੁਨੇਹਾ ਛੱਡਿਆ",
+
+  // ── Why a check-in draft exists ─────────────────────────────────────────
+  //
+  // The headline above a suggested check-in. `angle` alongside it is NOT
+  // keyed and must not be: it is an instruction to the drafter, not
+  // something a rep reads.
+  "app.salesCheckin.reason.all_good": "ਕੁਝ ਵੀ ਗਲਤ ਨਹੀਂ ਲੱਗ ਰਿਹਾ",
+  "app.salesCheckin.reason.onboarding_unfinished": "ਉਨ੍ਹਾਂ ਨੇ ਸ਼ੁਰੂਆਤੀ ਸੈੱਟਅੱਪ ਕਦੇ ਪੂਰਾ ਨਹੀਂ ਕੀਤਾ",
+  "app.salesCheckin.reason.payment_failing": "ਉਨ੍ਹਾਂ ਦੀ ਸਬਸਕ੍ਰਿਪਸ਼ਨ ਦੀ ਅਦਾਇਗੀ ਫੇਲ੍ਹ ਹੋ ਰਹੀ ਹੈ",
+  "app.salesCheckin.reason.payments_not_connected": "ਉਹ ਅਜੇ ਭੁਗਤਾਨ ਨਹੀਂ ਲੈ ਸਕਦੇ",
+  "app.salesCheckin.reason.retention_milestone_near": "ਰਿਟੈਨਸ਼ਨ ਦਾ ਮੀਲ-ਪੱਥਰ ਨੇੜੇ ਹੈ",
+  "app.salesCheckin.reason.setup_steps_outstanding": "ਉਨ੍ਹਾਂ ਦੇ ਡੈਸ਼ਬੋਰਡ ਉੱਤੇ ਸੈੱਟਅੱਪ ਦੇ ਕਦਮ ਅਜੇ ਖੁੱਲ੍ਹੇ ਹਨ",
+  "app.salesCheckin.reason.trial_ends_before_retention": "ਉਨ੍ਹਾਂ ਦਾ ਮੁਫ਼ਤ ਸਮਾਂ ਰਿਟੈਨਸ਼ਨ ਤਾਰੀਖ ਤੋਂ ਪਹਿਲਾਂ ਖਤਮ ਹੋ ਰਿਹਾ ਹੈ",
+  "app.salesCheckin.reason.unknown_state": "ਸਾਨੂੰ ਨਹੀਂ ਦਿਸ ਰਿਹਾ ਕਿ ਉਨ੍ਹਾਂ ਦਾ ਕੀ ਹਾਲ ਹੈ",
+
+  // ── How a rep is engaged, and where their money goes ────────────────────
+  //
+  // The payout screen was English throughout — the method names, what each
+  // one costs on the way, and the label on the field asking for the account.
+  // Being told in a language you do not read that fees depend on your
+  // account's country is worse than not being told.
+  "app.salesPay.engagement.employee.label": "ਕਰਮਚਾਰੀ",
+  "app.salesPay.engagement.employee.note": "ਪੇਰੋਲ ਉੱਤੇ। ਤਨਖ਼ਾਹ ਵਾਲੀ ਛੁੱਟੀ ਜਮ੍ਹਾਂ ਹੁੰਦੀ ਹੈ, ਅਤੇ ਕਾਨੂੰਨੀ ਕਟੌਤੀਆਂ ਕੱਟਣੀਆਂ ਤੇ ਭੇਜਣੀਆਂ FieldQuo ਦੀ ਜ਼ਿੰਮੇਵਾਰੀ ਹੈ।",
+  "app.salesPay.engagement.freelancer.label": "ਫ੍ਰੀਲਾਂਸਰ",
+  "app.salesPay.engagement.freelancer.note": "ਆਪਣੇ ਕਮਿਸ਼ਨ ਦਾ ਬਿੱਲ ਭੇਜਦੇ ਹਨ। ਕੋਈ ਤਨਖ਼ਾਹ ਵਾਲੀ ਛੁੱਟੀ ਨਹੀਂ, ਛੁੱਟੀਆਂ ਦਾ ਜਮ੍ਹਾਂ ਹੋਣਾ ਨਹੀਂ, FieldQuo ਵੱਲੋਂ ਕੋਈ ਕਾਨੂੰਨੀ ਕਟੌਤੀ ਨਹੀਂ — ਉਹ ਆਪਣਾ ਹਿਸਾਬ ਆਪ ਰੱਖਦੇ ਹਨ।",
+  "app.salesPay.method.bank_transfer.handleLabel": "ਖਾਤੇ ਦੇ ਵੇਰਵੇ, ਜਾਂ IBAN",
+  "app.salesPay.method.bank_transfer.label": "ਬੈਂਕ ਟ੍ਰਾਂਸਫ਼ਰ",
+  "app.salesPay.method.bank_transfer.note": "ਪਹੁੰਚਣ ਵਿੱਚ ਸਭ ਤੋਂ ਹੌਲੀ ਅਤੇ ਭੇਜਣ ਵਿੱਚ ਸਭ ਤੋਂ ਸਸਤਾ। ਜਦੋਂ ਪ੍ਰਤੀਨਿਧੀ ਨੂੰ ਵੱਡੀ ਰਕਮ ਇਕੱਠੀ ਮਿਲਦੀ ਹੋਵੇ, ਉਦੋਂ ਸਭ ਤੋਂ ਵਧੀਆ।",
+  "app.salesPay.method.interac.handleLabel": "Interac ਲਈ ਰਜਿਸਟਰ ਕੀਤਾ ਈਮੇਲ ਪਤਾ",
+  "app.salesPay.method.interac.label": "Interac ਈ-ਟ੍ਰਾਂਸਫ਼ਰ",
+  "app.salesPay.method.interac.note": "ਸਿਰਫ਼ ਕੈਨੇਡੀਅਨ ਖਾਤੇ। ਆਮ ਤੌਰ ਉੱਤੇ ਮੁਫ਼ਤ ਅਤੇ ਉਸੇ ਦਿਨ।",
+  "app.salesPay.method.paypal.handleLabel": "PayPal ਦਾ ਈਮੇਲ ਪਤਾ",
+  "app.salesPay.method.paypal.label": "PayPal",
+  "app.salesPay.method.paypal.note": "PayPal ਟ੍ਰਾਂਸਫ਼ਰ ਵਜੋਂ ਭੇਜਿਆ ਜਾਂਦਾ ਹੈ। ਫ਼ੀਸਾਂ ਪ੍ਰਾਪਤ ਕਰਨ ਵਾਲੇ ਖਾਤੇ ਦੇ ਦੇਸ਼ ਅਤੇ ਕਿਸਮ ਉੱਤੇ ਨਿਰਭਰ ਕਰਦੀਆਂ ਹਨ।",
+  "app.salesPay.method.upwork.handleLabel": "Upwork ਦਾ ਕਰਾਰ ਜਾਂ ਪ੍ਰੋਫ਼ਾਈਲ ਲਿੰਕ",
+  "app.salesPay.method.upwork.label": "Upwork",
+  "app.salesPay.method.upwork.note": "ਕਰਾਰ ਦੇ ਮੀਲ-ਪੱਥਰਾਂ ਅਨੁਸਾਰ ਜਾਰੀ ਹੁੰਦਾ ਹੈ। Upwork ਦੀ ਆਪਣੀ ਫ਼ੀਸ ਲੱਗਦੀ ਹੈ ਅਤੇ ਪਹੁੰਚਣ ਵਾਲੀ ਰਕਮ ਵਿੱਚੋਂ ਕੱਟਦੀ ਹੈ, ਇਸ ਲਈ ਖਾਤੇ ਵਿਚਲਾ ਅੰਕੜਾ ਉਹ ਹੈ ਜੋ FieldQuo ਭੇਜਦਾ ਹੈ, ਨਾ ਕਿ ਜੋ ਪਹੁੰਚਦਾ ਹੈ।",
+  "app.salesPay.method.wise.handleLabel": "ਤੁਹਾਡੇ Wise ਖਾਤੇ ਦਾ ਈਮੇਲ ਪਤਾ, ਜਾਂ ਤੁਹਾਡੇ Wise ਖਾਤੇ ਦੇ ਵੇਰਵੇ",
+  "app.salesPay.method.wise.label": "Wise",
+  "app.salesPay.method.wise.note": "ਕੈਨੇਡਾ ਤੋਂ ਬਾਹਰ ਦੇ ਪ੍ਰਤੀਨਿਧੀ ਲਈ ਸਭ ਤੋਂ ਵਧੀਆ। ਵਿਚਕਾਰਲੀ ਬਾਜ਼ਾਰੀ ਦਰ ਉੱਤੇ ਬਦਲਦਾ ਹੈ ਅਤੇ ਫ਼ੀਸ ਪਹਿਲਾਂ ਹੀ ਦਿਖਾਈ ਜਾਂਦੀ ਹੈ, ਇਸ ਲਈ ਜੋ ਪਹੁੰਚਦਾ ਹੈ ਉਹ ਪਹਿਲਾਂ ਤੋਂ ਪਤਾ ਹੁੰਦਾ ਹੈ — ਅਤੇ ਇਹ ਤੁਹਾਡੀ ਆਪਣੀ ਕਰੰਸੀ ਵਿੱਚ ਆ ਸਕਦਾ ਹੈ।",
+  "app.salesPay.milestone.activation": "ਸਰਗਰਮ ਕੀਤਾ",
+  "app.salesPay.milestone.first_payment": "ਨਵਿਆਈ ਗਈ",
+  "app.salesPay.milestone.retention": "ਅਜੇ ਵੀ ਭੁਗਤਾਨ ਕਰ ਰਿਹਾ",
+  "app.salesPay.readiness.noEngagement.fix": "ਇਸ ਤੋਂ ਤੈਅ ਹੁੰਦਾ ਹੈ ਕਿ ਤਨਖ਼ਾਹ ਵਾਲੀ ਛੁੱਟੀ ਜਮ੍ਹਾਂ ਹੁੰਦੀ ਹੈ ਜਾਂ ਨਹੀਂ, ਅਤੇ FieldQuo ਕੁਝ ਕੱਟਦਾ ਹੈ ਜਾਂ ਨਹੀਂ। ਇਹ ਹੋਰ ਕਿਸੇ ਚੀਜ਼ ਤੋਂ ਅੰਦਾਜ਼ਾ ਨਹੀਂ ਲਾਇਆ ਜਾਂਦਾ।",
+  "app.salesPay.readiness.noEngagement.title": "ਕਿਸੇ ਨੇ ਨਹੀਂ ਦੱਸਿਆ ਕਿ ਇਹ ਪ੍ਰਤੀਨਿਧੀ ਫ੍ਰੀਲਾਂਸਰ ਹੈ ਜਾਂ ਕਰਮਚਾਰੀ।",
+  "app.salesPay.readiness.noHandle.fix": "ਮੰਜ਼ਿਲ ਭਰੋ: {field}।",
+  "app.salesPay.readiness.noHandle.title": "{method} ਚੁਣਿਆ ਗਿਆ ਹੈ, ਪਰ ਭੇਜਣ ਲਈ ਕੋਈ ਥਾਂ ਨਹੀਂ।",
+  "app.salesPay.readiness.noMethod.fix": "PayPal, Interac, ਬੈਂਕ ਟ੍ਰਾਂਸਫ਼ਰ, ਜਾਂ Upwork ਕਰਾਰ — ਚੋਣ ਪ੍ਰਤੀਨਿਧੀ ਦੀ ਹੈ।",
+  "app.salesPay.readiness.noMethod.title": "ਕੋਈ ਭੁਗਤਾਨ ਦਾ ਤਰੀਕਾ ਦਰਜ ਨਹੀਂ ਹੈ।",
+
+  // ── Which entry closed a channel, and how it got there ──────────────────
+  //
+  // Sixteen whole sentences: two subjects times eight ways a request reached
+  // us. NOT one stem with a clause slotted into it — the verb agrees with
+  // the subject in five of these languages, and a domain-wide entry is
+  // plural in some and singular in others. The sentence is the unit; only
+  // the value and the date are placeholders.
+  "app.salesSuppression.dateNotRecorded": "ਤਾਰੀਖ ਦਰਜ ਨਹੀਂ",
+  "app.salesSuppression.reason.detectedReply": "ਇਸ ਸੰਭਾਵੀ ਗਾਹਕ ਨੇ ਜਵਾਬ ਵਿੱਚ ਕਿਹਾ ਕਿ ਦੁਬਾਰਾ ਈਮੇਲ ਨਾ ਕੀਤੀ ਜਾਵੇ। ਇਹ ਬੇਨਤੀ ਪੂਰੇ FieldQuo ਲਈ ਹੈ, ਸਿਰਫ਼ ਕਿਸੇ ਇੱਕ ਪ੍ਰਤੀਨਿਧੀ ਦੀ ਨਕਲ ਲਈ ਨਹੀਂ।",
+  "app.salesSuppression.reason.domain.call": "{value} ਦੇ ਸਾਰੇ ਲੋਕ FieldQuo ਦੀ “ਸੰਪਰਕ ਨਾ ਕਰੋ” ਸੂਚੀ ਵਿੱਚ ਹਨ — ਉਨ੍ਹਾਂ ਨੇ ਫ਼ੋਨ ਉੱਤੇ ਕਿਹਾ, {date}। ਇਹ ਬੇਨਤੀ FieldQuo ਉੱਤੇ ਬੰਧਨਕਾਰੀ ਹੈ, ਕਿਸੇ ਇੱਕ ਪ੍ਰਤੀਨਿਧੀ ਦੀ ਨਕਲ ਉੱਤੇ ਨਹੀਂ।",
+  "app.salesSuppression.reason.domain.form": "{value} ਦੇ ਸਾਰੇ ਲੋਕ FieldQuo ਦੀ “ਸੰਪਰਕ ਨਾ ਕਰੋ” ਸੂਚੀ ਵਿੱਚ ਹਨ — ਉਨ੍ਹਾਂ ਨੇ ਇੱਕ ਫ਼ਾਰਮ ਰਾਹੀਂ ਕਿਹਾ, {date}। ਇਹ ਬੇਨਤੀ FieldQuo ਉੱਤੇ ਬੰਧਨਕਾਰੀ ਹੈ, ਕਿਸੇ ਇੱਕ ਪ੍ਰਤੀਨਿਧੀ ਦੀ ਨਕਲ ਉੱਤੇ ਨਹੀਂ।",
+  "app.salesSuppression.reason.domain.import": "{value} ਦੇ ਸਾਰੇ ਲੋਕ FieldQuo ਦੀ “ਸੰਪਰਕ ਨਾ ਕਰੋ” ਸੂਚੀ ਵਿੱਚ ਹਨ — ਪਹਿਲਾਂ ਤੋਂ ਮੌਜੂਦ ਸੂਚੀ ਵਿੱਚੋਂ ਲਿਆ ਗਿਆ, {date}। ਇਹ ਬੇਨਤੀ FieldQuo ਉੱਤੇ ਬੰਧਨਕਾਰੀ ਹੈ, ਕਿਸੇ ਇੱਕ ਪ੍ਰਤੀਨਿਧੀ ਦੀ ਨਕਲ ਉੱਤੇ ਨਹੀਂ।",
+  "app.salesSuppression.reason.domain.manual": "{value} ਦੇ ਸਾਰੇ ਲੋਕ FieldQuo ਦੀ “ਸੰਪਰਕ ਨਾ ਕਰੋ” ਸੂਚੀ ਵਿੱਚ ਹਨ — ਹੱਥੀਂ ਦਰਜ ਕੀਤਾ ਗਿਆ, {date}। ਇਹ ਬੇਨਤੀ FieldQuo ਉੱਤੇ ਬੰਧਨਕਾਰੀ ਹੈ, ਕਿਸੇ ਇੱਕ ਪ੍ਰਤੀਨਿਧੀ ਦੀ ਨਕਲ ਉੱਤੇ ਨਹੀਂ।",
+  "app.salesSuppression.reason.domain.regulator": "{value} ਦੇ ਸਾਰੇ ਲੋਕ FieldQuo ਦੀ “ਸੰਪਰਕ ਨਾ ਕਰੋ” ਸੂਚੀ ਵਿੱਚ ਹਨ — ਇੱਕ “ਫ਼ੋਨ ਨਾ ਕਰੋ” ਸੂਚੀ ਵਿੱਚੋਂ, {date}। ਇਹ ਬੇਨਤੀ FieldQuo ਉੱਤੇ ਬੰਧਨਕਾਰੀ ਹੈ, ਕਿਸੇ ਇੱਕ ਪ੍ਰਤੀਨਿਧੀ ਦੀ ਨਕਲ ਉੱਤੇ ਨਹੀਂ।",
+  "app.salesSuppression.reason.domain.reply": "{value} ਦੇ ਸਾਰੇ ਲੋਕ FieldQuo ਦੀ “ਸੰਪਰਕ ਨਾ ਕਰੋ” ਸੂਚੀ ਵਿੱਚ ਹਨ — ਉਨ੍ਹਾਂ ਨੇ ਜਵਾਬ ਵਿੱਚ ਰੁਕਣ ਲਈ ਕਿਹਾ, {date}। ਇਹ ਬੇਨਤੀ FieldQuo ਉੱਤੇ ਬੰਧਨਕਾਰੀ ਹੈ, ਕਿਸੇ ਇੱਕ ਪ੍ਰਤੀਨਿਧੀ ਦੀ ਨਕਲ ਉੱਤੇ ਨਹੀਂ।",
+  "app.salesSuppression.reason.domain.sms": "{value} ਦੇ ਸਾਰੇ ਲੋਕ FieldQuo ਦੀ “ਸੰਪਰਕ ਨਾ ਕਰੋ” ਸੂਚੀ ਵਿੱਚ ਹਨ — ਉਨ੍ਹਾਂ ਨੇ STOP ਲਿਖ ਕੇ ਭੇਜਿਆ, {date}। ਇਹ ਬੇਨਤੀ FieldQuo ਉੱਤੇ ਬੰਧਨਕਾਰੀ ਹੈ, ਕਿਸੇ ਇੱਕ ਪ੍ਰਤੀਨਿਧੀ ਦੀ ਨਕਲ ਉੱਤੇ ਨਹੀਂ।",
+  "app.salesSuppression.reason.domain.unrecorded": "{value} ਦੇ ਸਾਰੇ ਲੋਕ FieldQuo ਦੀ “ਸੰਪਰਕ ਨਾ ਕਰੋ” ਸੂਚੀ ਵਿੱਚ ਹਨ — ਦਰਜ ਕੀਤਾ ਗਿਆ, {date}। ਇਹ ਬੇਨਤੀ FieldQuo ਉੱਤੇ ਬੰਧਨਕਾਰੀ ਹੈ, ਕਿਸੇ ਇੱਕ ਪ੍ਰਤੀਨਿਧੀ ਦੀ ਨਕਲ ਉੱਤੇ ਨਹੀਂ।",
+  "app.salesSuppression.reason.person.call": "{value} FieldQuo ਦੀ “ਸੰਪਰਕ ਨਾ ਕਰੋ” ਸੂਚੀ ਵਿੱਚ ਹੈ — ਉਨ੍ਹਾਂ ਨੇ ਫ਼ੋਨ ਉੱਤੇ ਕਿਹਾ, {date}। ਇਹ ਬੇਨਤੀ FieldQuo ਉੱਤੇ ਬੰਧਨਕਾਰੀ ਹੈ, ਕਿਸੇ ਇੱਕ ਪ੍ਰਤੀਨਿਧੀ ਦੀ ਨਕਲ ਉੱਤੇ ਨਹੀਂ।",
+  "app.salesSuppression.reason.person.form": "{value} FieldQuo ਦੀ “ਸੰਪਰਕ ਨਾ ਕਰੋ” ਸੂਚੀ ਵਿੱਚ ਹੈ — ਉਨ੍ਹਾਂ ਨੇ ਇੱਕ ਫ਼ਾਰਮ ਰਾਹੀਂ ਕਿਹਾ, {date}। ਇਹ ਬੇਨਤੀ FieldQuo ਉੱਤੇ ਬੰਧਨਕਾਰੀ ਹੈ, ਕਿਸੇ ਇੱਕ ਪ੍ਰਤੀਨਿਧੀ ਦੀ ਨਕਲ ਉੱਤੇ ਨਹੀਂ।",
+  "app.salesSuppression.reason.person.import": "{value} FieldQuo ਦੀ “ਸੰਪਰਕ ਨਾ ਕਰੋ” ਸੂਚੀ ਵਿੱਚ ਹੈ — ਪਹਿਲਾਂ ਤੋਂ ਮੌਜੂਦ ਸੂਚੀ ਵਿੱਚੋਂ ਲਿਆ ਗਿਆ, {date}। ਇਹ ਬੇਨਤੀ FieldQuo ਉੱਤੇ ਬੰਧਨਕਾਰੀ ਹੈ, ਕਿਸੇ ਇੱਕ ਪ੍ਰਤੀਨਿਧੀ ਦੀ ਨਕਲ ਉੱਤੇ ਨਹੀਂ।",
+  "app.salesSuppression.reason.person.manual": "{value} FieldQuo ਦੀ “ਸੰਪਰਕ ਨਾ ਕਰੋ” ਸੂਚੀ ਵਿੱਚ ਹੈ — ਹੱਥੀਂ ਦਰਜ ਕੀਤਾ ਗਿਆ, {date}। ਇਹ ਬੇਨਤੀ FieldQuo ਉੱਤੇ ਬੰਧਨਕਾਰੀ ਹੈ, ਕਿਸੇ ਇੱਕ ਪ੍ਰਤੀਨਿਧੀ ਦੀ ਨਕਲ ਉੱਤੇ ਨਹੀਂ।",
+  "app.salesSuppression.reason.person.regulator": "{value} FieldQuo ਦੀ “ਸੰਪਰਕ ਨਾ ਕਰੋ” ਸੂਚੀ ਵਿੱਚ ਹੈ — ਇੱਕ “ਫ਼ੋਨ ਨਾ ਕਰੋ” ਸੂਚੀ ਵਿੱਚੋਂ, {date}। ਇਹ ਬੇਨਤੀ FieldQuo ਉੱਤੇ ਬੰਧਨਕਾਰੀ ਹੈ, ਕਿਸੇ ਇੱਕ ਪ੍ਰਤੀਨਿਧੀ ਦੀ ਨਕਲ ਉੱਤੇ ਨਹੀਂ।",
+  "app.salesSuppression.reason.person.reply": "{value} FieldQuo ਦੀ “ਸੰਪਰਕ ਨਾ ਕਰੋ” ਸੂਚੀ ਵਿੱਚ ਹੈ — ਉਨ੍ਹਾਂ ਨੇ ਜਵਾਬ ਵਿੱਚ ਰੁਕਣ ਲਈ ਕਿਹਾ, {date}। ਇਹ ਬੇਨਤੀ FieldQuo ਉੱਤੇ ਬੰਧਨਕਾਰੀ ਹੈ, ਕਿਸੇ ਇੱਕ ਪ੍ਰਤੀਨਿਧੀ ਦੀ ਨਕਲ ਉੱਤੇ ਨਹੀਂ।",
+  "app.salesSuppression.reason.person.sms": "{value} FieldQuo ਦੀ “ਸੰਪਰਕ ਨਾ ਕਰੋ” ਸੂਚੀ ਵਿੱਚ ਹੈ — ਉਨ੍ਹਾਂ ਨੇ STOP ਲਿਖ ਕੇ ਭੇਜਿਆ, {date}। ਇਹ ਬੇਨਤੀ FieldQuo ਉੱਤੇ ਬੰਧਨਕਾਰੀ ਹੈ, ਕਿਸੇ ਇੱਕ ਪ੍ਰਤੀਨਿਧੀ ਦੀ ਨਕਲ ਉੱਤੇ ਨਹੀਂ।",
+  "app.salesSuppression.reason.person.unrecorded": "{value} FieldQuo ਦੀ “ਸੰਪਰਕ ਨਾ ਕਰੋ” ਸੂਚੀ ਵਿੱਚ ਹੈ — ਦਰਜ ਕੀਤਾ ਗਿਆ, {date}। ਇਹ ਬੇਨਤੀ FieldQuo ਉੱਤੇ ਬੰਧਨਕਾਰੀ ਹੈ, ਕਿਸੇ ਇੱਕ ਪ੍ਰਤੀਨਿਧੀ ਦੀ ਨਕਲ ਉੱਤੇ ਨਹੀਂ।",
+
+  // ── The only feedback a new sales hire gets ─────────────────────────────
+  //
+  // /sales/login and /sales/invite are the first FieldQuo screens somebody
+  // hired into sales ever sees, and every word on them was English whatever
+  // language they were hired in.
+  //
+  // Four invite refusals and not one generic "invalid link": "ask for a
+  // new invitation", "sign in with the password you set" and "ask a
+  // superadmin about your account" are three different instructions. The
+  // LOGIN refusal is deliberately single — telling the failures apart would
+  // tell a stranger which FieldQuo staff addresses are real.
+  "app.salesAuth.invite.accepted": "ਇਹ ਸੱਦਾ ਪਹਿਲਾਂ ਹੀ ਵਰਤਿਆ ਜਾ ਚੁੱਕਾ ਹੈ। ਜੋ ਪਾਸਵਰਡ ਤੁਸੀਂ ਬਣਾਇਆ ਸੀ ਉਸ ਨਾਲ ਸਾਈਨ ਇਨ ਕਰੋ, ਜਾਂ ਭੁੱਲ ਗਏ ਹੋ ਤਾਂ ਨਵਾਂ ਸੱਦਾ ਮੰਗੋ।",
+  "app.salesAuth.invite.expired": "ਇਸ ਸੱਦੇ ਦੀ ਮਿਆਦ ਪੁੱਗ ਗਈ ਹੈ। ਕਿਸੇ FieldQuo ਸੁਪਰਐਡਮਿਨ ਨੂੰ ਨਵਾਂ ਭੇਜਣ ਲਈ ਕਹੋ।",
+  "app.salesAuth.invite.inactive": "ਇਹ ਸੇਲਜ਼ ਖਾਤਾ ਸਰਗਰਮ ਨਹੀਂ ਹੈ। ਇਸ ਬਾਰੇ ਕਿਸੇ FieldQuo ਸੁਪਰਐਡਮਿਨ ਤੋਂ ਪੁੱਛੋ।",
+  "app.salesAuth.invite.unknown": "ਇਹ ਸੱਦਾ ਲਿੰਕ ਵੈਧ ਨਹੀਂ ਹੈ। ਕਿਸੇ FieldQuo ਸੁਪਰਐਡਮਿਨ ਨੂੰ ਨਵਾਂ ਭੇਜਣ ਲਈ ਕਹੋ।",
+  "app.salesAuth.invite.weakPassword": "ਘੱਟੋ-ਘੱਟ {minLength} ਅੱਖਰਾਂ ਦਾ ਪਾਸਵਰਡ ਚੁਣੋ — ਇਹ ਖਾਤਾ ਉਨ੍ਹਾਂ ਸਾਰੀਆਂ ਕੰਪਨੀਆਂ ਨੂੰ ਵੇਖ ਸਕਦਾ ਹੈ ਜੋ ਤੁਸੀਂ ਲਿਆਂਦੀਆਂ ਹਨ।",
+  "app.salesAuth.login.invalid": "ਇਹ ਸਾਈਨ-ਇਨ ਵੇਰਵੇ ਸਵੀਕਾਰ ਨਹੀਂ ਕੀਤੇ ਗਏ।",
+  "app.salesAuth.login.missingFields": "ਆਪਣਾ ਈਮੇਲ ਪਤਾ ਅਤੇ ਪਾਸਵਰਡ ਭਰੋ।",
+
+  // ── What fetchJson says when the server said nothing usable ─────────────
+  //
+  // The last thing anybody reads before giving up, on every screen in the
+  // product. A 4xx the ROUTE explained keeps the route's own sentence and
+  // never reaches these — overwriting a specific explanation with a generic
+  // one would be a downgrade wearing a translation's clothes.
+  "app.fetchError.failed": "ਬੇਨਤੀ ਪੂਰੀ ਨਹੀਂ ਹੋਈ (ਕੋਡ {status})।",
+  "app.fetchError.forbidden": "ਤੁਹਾਨੂੰ ਇਹ ਕਰਨ ਦੀ ਇਜਾਜ਼ਤ ਨਹੀਂ ਹੈ।",
+  "app.fetchError.network": "ਸਰਵਰ ਤੱਕ ਨਹੀਂ ਪਹੁੰਚ ਸਕੇ। ਆਪਣਾ ਕਨੈਕਸ਼ਨ ਵੇਖੋ ਅਤੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+  "app.fetchError.notFound": "ਉਹ ਮੌਜੂਦ ਨਹੀਂ, ਜਾਂ ਤੁਸੀਂ ਉਸਨੂੰ ਵੇਖ ਨਹੀਂ ਸਕਦੇ।",
+  "app.fetchError.server": "ਸਾਡੇ ਪਾਸੇ ਕੁਝ ਗਲਤ ਹੋ ਗਿਆ (ਗਲਤੀ {status})। ਜੇ ਇਹ ਵਾਰ-ਵਾਰ ਹੁੰਦਾ ਰਹੇ, ਤਾਂ ਸਹਾਇਤਾ ਨੂੰ ਦੱਸੋ ਕਿ ਤੁਸੀਂ ਕੀ ਕਰ ਰਹੇ ਸੀ।",
+  "app.fetchError.tooMany": "ਬਹੁਤ ਜ਼ਿਆਦਾ ਕੋਸ਼ਿਸ਼ਾਂ। ਥੋੜ੍ਹਾ ਰੁਕੋ ਅਤੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+  "app.fetchError.unauthorised": "ਤੁਹਾਡਾ ਸੈਸ਼ਨ ਖਤਮ ਹੋ ਗਿਆ ਹੈ। ਦੁਬਾਰਾ ਸਾਈਨ ਇਨ ਕਰੋ।",
+  "app.fetchError.unexpectedBody": "ਸਰਵਰ ਨੇ ਅਜਿਹਾ ਕੁਝ ਵਾਪਸ ਭੇਜਿਆ ਜੋ ਇਹ ਸਕ੍ਰੀਨ ਪੜ੍ਹ ਨਹੀਂ ਸਕੀ।",
+
+  // ── A note that cannot be saved ─────────────────────────────────────────
+  //
+  // lib/sales/notes/model.js has always sent a `code` beside its sentence;
+  // the panel now keys off it. The English mentioned a file path and a
+  // schema block, which is an instruction to an engineer rather than to the
+  // rep reading it, so the catalogue entry says what happened to their words
+  // instead. The path is still named on the screen, separately.
+  "app.salesNotes.unavailableModelMissing": "ਪ੍ਰਤੀਨਿਧੀ ਦੇ ਨੋਟ ਅਜੇ ਚਾਲੂ ਨਹੀਂ ਹੋਏ — ਜਿਸ ਸਾਰਣੀ ਵਿੱਚ ਉਹ ਰਹਿੰਦੇ ਹਨ ਉਹ ਬਣੀ ਹੀ ਨਹੀਂ। ਜੋ ਤੁਸੀਂ ਲਿਖਿਆ ਸੀ ਉਹ ਸੰਭਾਲਿਆ ਨਹੀਂ ਗਿਆ।",
 };
 
 const tl = {
@@ -39881,6 +41351,300 @@ const tl = {
   "app.salesTour.teamBody": "Lahat ng nasa FieldQuo, sa iisang lugar — ang ibang rep at ang mga taong nag-aayos ng sira. Ang mga channel ay para sa buong team; ang direktang mensahe ay sa inyong dalawa lang at walang ibang makakabasa niyon. Kapag may problema ang kompanyang ikaw ang nagpasok at hindi mo kayang lutasin, mas mabilis ito kaysa sa ticket at nandito na ang taong kayang lutasin iyon.",
   "app.salesTour.playbookTitle": "Ang mga salita, at ang sasabihin kapag may ibang pangalan silang binanggit",
   "app.salesTour.playbookBody": "Ang mga script, ang dalawampung tutol na may sagot sa bawat isa, at isang card para sa bawat kakumpitensyang maaaring banggitin ng isang kontratista. Ang mga card ay binubuo mula sa parehong mga bilang na ginagamit ng mga pampublikong pahina ng paghahambing, kaya ang presyong nababasa mo dito ay presyong tatayuan namin — at ang naluma nang presyo ay nawawala sa dalawa sa iisang araw.",
+
+  // ══ Sentences the SERVER composes, which a rep reads ══════════════════
+  //
+  // Commit cf099363 translated every /sales screen. What it could not reach
+  // was the text those screens RECEIVE already written: refusals, labels and
+  // explanations composed in lib/ and app/api/ and rendered verbatim. A rep
+  // on Spanish read a Spanish frame around English content — the
+  // half-translated state that change existed to remove, moved one layer
+  // down.
+  //
+  // Those modules are pure and are executed by a dozen check scripts under
+  // bare node, so none of them can import a translator. What they emit
+  // instead is the NAME of the sentence plus the values it needs, and their
+  // English rides along as the fallback. These are the sentences those names
+  // point at.
+
+  // ── The dial region, and the compliance refusals behind it ──────────────
+  //
+  // Every sentence lib/sales/dialSpace.js and lib/sales/callingRules.js
+  // compose for a rep who is being told they may not make a call. This is
+  // refusal copy, which is the half of a product that most needs to be in
+  // the reader's own language: a rep who cannot read WHY has only the
+  // absence of a button to go on.
+  //
+  // What is NOT here, deliberately: the statutes themselves. A
+  // jurisdiction's citation, Arizona's flat prohibition, Texas's
+  // registration and bond are quoted from the primary source, and a machine
+  // translation of a legal text reads as the law without being it. Those
+  // stay in the language the legislature wrote them in and the screen labels
+  // them as quoted — app.salesDial.quotedInEnglish is that label.
+  "app.salesDial.blocker.callCapReached.fix": "Wala nang iba ngayong araw. Bawat tinatawagan ang bilang ng limitasyon, hindi bawat rep.",
+  "app.salesDial.blocker.callCapReached.title": "Pinapayagan ng {jurisdiction} ang {cap} tawag sa iisang negosyo tungkol sa iisang paksa sa loob ng 24 oras, at {made} na ang naitawag.",
+  "app.salesDial.blocker.jurisdictionUnread.fix": "Hindi pinupunan ng pederal na batas ang puwang na ito: lubusang exempt ang mga tawag na negosyo-sa-negosyo sa Telemarketing Sales Rule, kaya ang sariling patakaran ng estado lang ang mayroon. Item ito ng may-ari — pagbasa ng batas ng mga estadong talagang tinatawagan. Hangga't wala pa iyon, hindi makukumpirma na pinapayagan ito.",
+  "app.salesDial.blocker.jurisdictionUnread.title": "Walang nakabasa ng batas ng {subdivision} tungkol sa telephone solicitation.",
+  "app.salesDial.blocker.jurisdictionUnverified.title": "Hindi pa napapatunayan ang mga patakaran sa pagtawag ng {jurisdiction}.",
+  "app.salesDial.blocker.locationUnknown.fix": "Ang oras ng pagtawag ay itinatakda ng lugar kung saan tumutunog ang telepono, at walang pederal na patakaran sa ilalim na masasandalan — inieksempt ng 16 CFR 310.6(b)(7) ang mga tawag pangnegosyo sa buong Telemarketing Sales Rule. Hangga't walang bansa at estado ang record na ito, walang makakapagsabi kung pinapayagan silang tawagan.",
+  "app.salesDial.blocker.locationUnknown.title": "Hindi natin alam kung anong estado o probinsiya ang negosyong ito.",
+  "app.salesDial.blocker.outsideWindow.fixCourtesyOpens": "Sariling patakaran iyan ng FieldQuo — walang ipinapataw ang {jurisdiction}. Bubukas ang window nang {opensAt}. Walang pinipila — ikaw ang pipindot ng tawag.",
+  "app.salesDial.blocker.outsideWindow.fixCourtesyWait": "Sariling patakaran iyan ng FieldQuo — walang ipinapataw ang {jurisdiction}. Hintayin ang window.",
+  "app.salesDial.blocker.outsideWindow.fixStatutoryOpens": "Sariling patakaran iyan ng {jurisdiction}. Bubukas ang window nang {opensAt}. Walang pinipila — ikaw ang pipindot ng tawag.",
+  "app.salesDial.blocker.outsideWindow.fixStatutoryWait": "Sariling patakaran iyan ng {jurisdiction}. Hintayin ang window.",
+  "app.salesDial.blocker.outsideWindow.title": "Nasa labas ito ng calling window sa kinaroroonan nila.",
+  "app.salesDial.blocker.timeZoneAmbiguous.fixOpens": "Nasa loob ng calling window ito sa bahagi ng {subdivision} at nasa labas naman sa iba, at hindi sinasabi ng record na ito kung aling bahagi. Sa halip na hulaan ang mas matao, walang kinukumpirma. Ligtas tumawag saanman sa {subdivision} mula {opensAt} — o tanungin sila kung nasaan sila at itakda ang time zone nila sa lead, na eksaktong sumasagot dito.",
+  "app.salesDial.blocker.timeZoneAmbiguous.fixUnknownOpening": "Nasa loob ng calling window ito sa bahagi ng {subdivision} at nasa labas naman sa iba, at hindi sinasabi ng record na ito kung aling bahagi. Sa halip na hulaan ang mas matao, walang kinukumpirma. Hintayin ang susunod na pagkakataong magkasundo ang dalawang bahagi — o tanungin sila kung nasaan sila at itakda ang time zone nila sa lead, na eksaktong sumasagot dito.",
+  "app.salesDial.blocker.timeZoneAmbiguous.title": "Sumasaklaw ang {subdivision} sa mahigit isang time zone, at sa ngayon hindi sila magkasundo.",
+  "app.salesDial.blocker.timeZoneUnknown.fixCourtesy": "Sariling patakaran ito ng FieldQuo, dahil walang ipinapataw ang {jurisdiction}, at nakasaad ito sa KANILANG lokal na oras. Wala tayong time zone para sa {subdivision}, kaya walang masusuri — at ang sarili nating orasan ang pinakamasamang kapalit.",
+  "app.salesDial.blocker.timeZoneUnknown.fixStatutory": "Sariling patakaran ito ng {jurisdiction}, at nakasaad ito sa KANILANG lokal na oras. Wala tayong time zone para sa {subdivision}, kaya walang masusuri — at ang sarili nating orasan ang pinakamasamang kapalit.",
+  "app.salesDial.blocker.timeZoneUnknown.title": "Hindi natin malaman kung anong oras na sa kinaroroonan ng negosyong ito.",
+  "app.salesDial.quotedInEnglish": "Sinipi sa Ingles, mula mismo sa batas — ang salin ng isang legal na teksto ay mababasang parang batas nang hindi naman batas.",
+  "app.salesDial.space.allowedNoNumber.detail": "Pinapayagan ng mga patakaran ang tawag na ito pero walang numero ang record na ito na matatawagan. I-reload; kung nagpapatuloy, kailangan ng numero ng telepono ang prospect.",
+  "app.salesDial.space.cannotConfirm.title": "Hindi natin makumpirma na pinapayagan ang tawag na ito.",
+  "app.salesDial.space.doNotContact.detail": "Naka-flag na huwag kontakin ang record na ito, kaya walang inaalok na dial control dito.",
+  "app.salesDial.space.doNotContact.title": "Huwag kontakin",
+  "app.salesDial.space.doNotContactRecorded.noReason": "Naitala noong {date}. Walang naitalang dahilan.",
+  "app.salesDial.space.doNotContactRecorded.withReason": "Naitala noong {date}. Dahilan: {reason}",
+  "app.salesDial.space.noDecision.detail": "Hindi natukoy ng screen na ito kung aling mga patakaran sa pagtawag ang umiiral, kaya hindi ito nag-aalok ng dial control na hindi nito matatayuan. I-reload ang pahina.",
+  "app.salesDial.space.noNumber.detail": "Walang numero ng telepono ang record na ito, kaya walang maida-dial mula rito. Nakita ng discovery ang negosyo nang walang numero. Baka nasa website nila o sa isang direktoryo — ilagay mo sa lead nila at lilitaw ito rito.",
+  "app.salesDial.space.noNumber.title": "Wala pang sales number.",
+  "app.salesDial.space.noPhone.detail": "Walang numero ng telepono ang record na ito, kaya walang maida-dial mula rito.",
+  "app.salesDial.space.noPhone.title": "Walang numero ng telepono",
+  "app.salesDial.space.noProspect.title": "Walang bukás na prospect, kaya walang maida-dial.",
+  "app.salesDial.space.noProspectEmpty.detail": "Pumili ng trade, mag-claim ng isa, at lilitaw sa puwestong ito ang call button. Lagi itong nasa puwestong ito — kapag walang laman, ibig sabihin walang na-claim ka, hindi na naka-off ang pagtawag.",
+  "app.salesDial.space.noProspectHolding.detail": "May hawak kang {count}. Pumili ng isa sa listahan at lilitaw dito mismo ang numero niya at kung puwede mo siyang tawagan.",
+  "app.salesDial.space.noProspectHolding.count": countedNoun("tl", { one: "prospect", other: "prospect" }),
+  "app.salesDial.space.optedOut.detail": "Saklaw ng opt-out ang mga tawag, text at email, kaya walang inaalok na dial control dito. Superadmin lang ang makakaalis nito, at kailangan ng nakasulat na dahilan — kaya kung mukhang mali ito, sabihin mo, huwag kang maghanap ng ibang numero nila.",
+  "app.salesDial.space.optedOut.title": "Hiniling nilang tumigil na tayo.",
+  "app.salesDial.space.optedOutMeaning.detail": "Saklaw ng opt-out ang mga tawag, text at email, kaya walang inaalok na dial control. Superadmin lang ang makakaalis nito, at may nakasulat na dahilan.",
+  "app.salesDial.space.ourOwnNumber.detail": "Ang pagtawag sa sarili nating imprastraktura ay bumubuo ng loop at siningil ang dalawang dulo, kaya walang inaalok na dial control dito. Kung ito talaga ang numero ng prospect, nagkamali itong napasama sa isa sa mga listahan ng numero ng FieldQuo.",
+  "app.salesDial.space.ourOwnNumber.title": "Isa iyan sa sarili nating mga numero.",
+  "app.salesDial.space.ready.title": "Puwede mo na siyang tawagan ngayon.",
+  "app.salesDial.space.readyNoWindow.detail": "Walang hurisdiksiyon sa talaan na nagpapataw ng window para rito.",
+  "app.salesDial.space.refusedForNow.title": "Hindi mo puwedeng tawagan ito sa ngayon.",
+  "app.salesDial.space.refusedOutright.detail": "Tinatanggihan ng patakarang umiiral sa negosyong ito ang tawag na ito, at hindi ito isang window na magbubukas mamaya. Nasa ibaba ang dahilan.",
+  "app.salesDial.space.refusedOutright.title": "Hindi mo puwedeng tawagan ito.",
+  "app.salesDial.space.unconfirmed.detail": "Walang naitatag sa alinmang panig, kaya walang inaalok na dial control. Puwang ito sa alam natin, hindi pagtanggi.",
+  "app.salesDial.space.unreadableDecision.detail": "Sumagot ang mga patakaran sa pagtawag ng \"{decision}\", na hindi mabasa ng screen na ito. Walang inaalok na dial control sa sagot na walang makakaunawa.",
+  "app.salesDial.unenforced.callCapUncounted.fix": "Wala pang nagtatala ng mga pagtatangkang tumawag sa FieldQuo, kaya hindi binibilang para sa iyo ang limitasyong ito — ikaw ang magbilang. Isa itong private right of action sa dalawang estadong nagpapataw nito.",
+  "app.salesDial.unenforced.callCapUncounted.title": "Pinapayagan ng {jurisdiction} ang hanggang {cap} tawag sa negosyong ito tungkol sa iisang paksa sa loob ng 24 oras.",
+  "app.salesDial.warning.dataAcquisitionRule.title": "Isinasaayos ng {jurisdiction} kung paano puwedeng makuha ang mga detalye ng prospect na ito.",
+  "app.salesDial.warning.registrationOutstanding.title": "Kailangang rehistrado ang FieldQuo para makapagtawag pangbenta papuntang {jurisdiction}.",
+  "app.salesDial.window.courtesyRule": "Sariling patakaran ito ng FieldQuo — walang ipinapataw ang {jurisdiction}.",
+  "app.salesDial.window.everyDay": "{start}–{end} araw-araw, sa sariling time zone ng prospect.",
+  "app.salesDial.window.everyDayClosed": "{start}–{end} araw-araw, sa sariling time zone ng prospect, at walang anumang tawag tuwing {closedDays}.",
+  "app.salesDial.window.opensAt": "Magbubukas ito nang {opensAt}.",
+  "app.salesDial.window.split": "{start}–{end} tuwing weekdays at {weekendStart}–{weekendEnd} tuwing weekend, sa sariling time zone ng prospect.",
+  "app.salesDial.window.splitClosed": "{start}–{end} tuwing weekdays at {weekendStart}–{weekendEnd} tuwing weekend, sa sariling time zone ng prospect, at walang anumang tawag tuwing {closedDays}.",
+  "app.salesDial.window.statutoryRule": "Sariling patakaran ito ng {jurisdiction}.",
+
+  // ── The queue's four research blocks ────────────────────────────────────
+  //
+  // The three layer headings ARE the interface for the rule that an
+  // inference must never read as a fact, and they were English on every
+  // screen. So are the two refusals that withhold an inference, the two that
+  // withhold a recommendation, and every sentence under "what we do not
+  // know".
+  //
+  // A fact row's VALUE is keyed only when the value is ours. A prospect's
+  // phone number, address and name are printed verbatim; translating data is
+  // inventing it.
+  "app.salesIntel.bucket.FRANCHISE_LIKELY": "Malamang franchise",
+  "app.salesIntel.bucket.MULTI_TRADE": "Maraming trade",
+  "app.salesIntel.bucket.SMALL_BUSINESS": "Maliit na negosyo",
+  "app.salesIntel.bucket.SOLO_LIKELY": "Malamang mag-isa",
+  "app.salesIntel.confidencePercent": "{percent}% ang tiwala",
+  "app.salesIntel.confidenceUntested": "Walang bilang ng tiwala — ituring itong hindi pa nasusubok.",
+  "app.salesIntel.fact.businessName.label": "Negosyo",
+  "app.salesIntel.fact.businessName.missing": "Walang pangalan sa record na ito",
+  "app.salesIntel.fact.businessStatus.label": "Bukás pa ba?",
+  "app.salesIntel.fact.businessStatus.missing": "Hindi sinabi ng pinagmulan. May ilan dito na sarado na.",
+  "app.salesIntel.fact.contactBasis.closed": "Sarado — tumawag na lang",
+  "app.salesIntel.fact.contactBasis.label": "Email at text",
+  "app.salesIntel.fact.location.label": "Saan",
+  "app.salesIntel.fact.location.missing": "Walang address sa record na ito",
+  "app.salesIntel.fact.phone.label": "Telepono",
+  "app.salesIntel.fact.phone.missing": "Walang numero ng telepono sa record na ito",
+  "app.salesIntel.fact.rating.label": "Rating",
+  "app.salesIntel.fact.rating.missing": "Walang nakalistang rating ang pinagmulan",
+  "app.salesIntel.fact.rating.value": "{rating} sa 5",
+  "app.salesIntel.fact.reviews.label": "Mga review",
+  "app.salesIntel.fact.reviews.missing": "Walang nakalistang bilang ng review ang pinagmulan",
+  "app.salesIntel.fact.reviews.value": countedNoun("tl", { one: "review", other: "review" }),
+  "app.salesIntel.fact.source.label": "Saan ito nanggaling",
+  "app.salesIntel.fact.sourceUpdatedAt.label": "Huling pag-refresh ng pinagmulan",
+  "app.salesIntel.fact.sourceUpdatedAt.missing": "Hindi sinabi ng pinagmulan kung kailan",
+  "app.salesIntel.fact.website.derivedConfirmed": "{site} — hinango, at kinumpirma ito ng site",
+  "app.salesIntel.fact.website.guessed": "{site} — HINULA namin ito mula sa email ng lisensya. Walang naglathala nito at hindi ito kinumpirma ng site.",
+  "app.salesIntel.fact.website.hasOne": "May website",
+  "app.salesIntel.fact.website.label": "Website",
+  "app.salesIntel.fact.website.listedUnchecked": "{url} — nakalista, hindi pa nasusuri",
+  "app.salesIntel.fact.website.noneWeLooked": "Walang website — hinanap namin",
+  "app.salesIntel.fact.website.sourceSilent": "Walang nakalistang website ang pinagmulan. Kasingdalas iyang puwang sa direktoryo gaya ng puwang sa merkado.",
+  "app.salesIntel.inference.refusalCarriesNumber": "May bilang ang hinuhang ito. Klasipikasyon ang nakaimbak na halaga — \"maliit na koponan\", hindi kailanman \"labindalawang empleyado\" — kaya pinipigil ito sa halip na basahin bilang bilang.",
+  "app.salesIntel.inference.refusalNoConfidence": "Ipinapakita lang ang isang hinuha kasama kung gaano tayo katiyak. Walang nasa likod nito na senyales na kinikilala ng confidence engine, kaya walang bilang na maipapakita at pinipigil ang pahayag.",
+  "app.salesIntel.inference.sourceCall": "Sinabi nila ito sa isang tawag — mula mismo sa kanila, at hinuha pa rin.",
+  "app.salesIntel.inference.sourceObserved": "Hinango mula sa aming naobserbahan.",
+  "app.salesIntel.kind.company_scale": "Laki ng kumpanya",
+  "app.salesIntel.kind.trade": "Trade",
+  "app.salesIntel.layer.fact.note": "Mga katotohanan. Bawat isa ay nakita, o sinadyang hanapin at hindi nakita.",
+  "app.salesIntel.layer.fact.title": "Ang aming naobserbahan",
+  "app.salesIntel.layer.inference.note": "Mga konklusyong sinusuportahan ng ebidensiya pero hindi napapatunayan. Huwag na huwag itong sasabihin bilang katotohanan.",
+  "app.salesIntel.layer.inference.title": "Ang aming hinihinuha",
+  "app.salesIntel.layer.recommendation.note": "Mga argumentong binuo mula sa dalawa sa itaas. May kasamang dahilan ang bawat isa kung bakit ito lumitaw.",
+  "app.salesIntel.layer.recommendation.title": "Ano ang i-pitch",
+  "app.salesIntel.noLeadScore": "Walang lead score na nakalkula para sa prospect na ito.",
+  "app.salesIntel.opportunity.refusalNoEvidence": "Walang sinisipi na ebidensiya ang rekomendasyong ito. Ipinapakita itong sira sa halip na basahin — ang pitch na walang laman sa likod ay siya mismong generic na pampuno sa benta na pinipigilan ng evidence gate.",
+  "app.salesIntel.opportunity.refusalNoReason": "Walang dahilan ang rekomendasyong ito, kaya wala nang masasabi bukod sa pangalan ng feature.",
+  "app.salesIntel.unknown.nothingInferred": "Wala pang nahihinuha tungkol sa negosyong ito.",
+  "app.salesIntel.unknown.softwareNeverCrawled": "Hindi natin alam kung anong software ang ginagamit nila — wala pang nag-crawl sa kanila.",
+  "app.salesIntel.unnamedCapability": "Walang pangalang kakayahan",
+
+  // ── The disposition a rep picks after every single call ─────────────────
+  //
+  // Ten outcomes, each with the one line explaining what it does to the
+  // queue. lib/sales/calls/dispositions.js derives these keys from its own
+  // codes, so an eleventh outcome cannot ship English by omission — it fails
+  // check:sales-server-copy until this block has it.
+  "app.salesCall.disposition.bad_number.hint": "Disconnected, o ibang tao ang naabot.",
+  "app.salesCall.disposition.bad_number.label": "Maling numero o patay na numero",
+  "app.salesCall.disposition.busy.hint": "Busy tone, o naputol bago pa mag-ring.",
+  "app.salesCall.disposition.busy.label": "Busy",
+  "app.salesCall.disposition.callback.hint": "Oras na pinayagan nila. Hawak ang claim hanggang doon at lampas pa.",
+  "app.salesCall.disposition.callback.label": "Hiniling nilang tumawag ako ulit",
+  "app.salesCall.disposition.do_not_call.hint": "Sarili nilang mga salita, hangga't malapit sa tunay. Permanente ito.",
+  "app.salesCall.disposition.do_not_call.label": "Hiniling na huwag nang tawagan ulit",
+  "app.salesCall.disposition.gatekeeper.hint": "Isang receptionist, kasosyo, aprentis. Hindi pa nangyari ang pitch.",
+  "app.salesCall.disposition.gatekeeper.label": "May sumagot, pero hindi ang may-ari",
+  "app.salesCall.disposition.no_answer.hint": "Nag-ring hanggang matapos. Walang sumagot at walang machine na pumatol.",
+  "app.salesCall.disposition.no_answer.label": "Walang sumagot",
+  "app.salesCall.disposition.not_a_fit.hint": "Isang retailer, punong-tanggapan ng franchise, sarado na, maling trade.",
+  "app.salesCall.disposition.not_a_fit.label": "Hindi negosyong mabebentahan natin",
+  "app.salesCall.disposition.reached_interested.hint": "Tumama ang pitch. Sa iyo na ang prospect na ito mula ngayon.",
+  "app.salesCall.disposition.reached_interested.label": "Nakausap sila — interesado",
+  "app.salesCall.disposition.reached_not_interested.hint": "Narinig nila at tumanggi. Walang ibang dapat tumawag sa kanila sa susunod na linggo.",
+  "app.salesCall.disposition.reached_not_interested.label": "Nakausap sila — hindi interesado",
+  "app.salesCall.disposition.voicemail.hint": "Ikaw mismo ang nagsalita sa machine nila. Hindi kailanman recording.",
+  "app.salesCall.disposition.voicemail.label": "Voicemail — nag-iwan ako ng mensahe",
+
+  // ── Why a check-in draft exists ─────────────────────────────────────────
+  //
+  // The headline above a suggested check-in. `angle` alongside it is NOT
+  // keyed and must not be: it is an instruction to the drafter, not
+  // something a rep reads.
+  "app.salesCheckin.reason.all_good": "Walang mukhang mali",
+  "app.salesCheckin.reason.onboarding_unfinished": "Hindi nila natapos ang onboarding",
+  "app.salesCheckin.reason.payment_failing": "Palpak ang bayad sa subscription nila",
+  "app.salesCheckin.reason.payments_not_connected": "Hindi pa sila makakatanggap ng bayad",
+  "app.salesCheckin.reason.retention_milestone_near": "Malapit na ang milestone ng retention",
+  "app.salesCheckin.reason.setup_steps_outstanding": "May bukás pa ring hakbang sa setup sa dashboard nila",
+  "app.salesCheckin.reason.trial_ends_before_retention": "Nagtatapos ang libreng panahon nila bago ang petsa ng retention",
+  "app.salesCheckin.reason.unknown_state": "Hindi natin makita kung kumusta na sila",
+
+  // ── How a rep is engaged, and where their money goes ────────────────────
+  //
+  // The payout screen was English throughout — the method names, what each
+  // one costs on the way, and the label on the field asking for the account.
+  // Being told in a language you do not read that fees depend on your
+  // account's country is worse than not being told.
+  "app.salesPay.engagement.employee.label": "Empleyado",
+  "app.salesPay.engagement.employee.note": "Nasa payroll. Naiipon ang bayad na leave, at ang FieldQuo ang magkakaltas at magpapadala ng mga statutory na bayarin.",
+  "app.salesPay.engagement.freelancer.label": "Freelancer",
+  "app.salesPay.engagement.freelancer.note": "Nagbi-bill para sa kanilang komisyon. Walang bayad na leave, walang naiipong bakasyon, walang statutory na kaltas mula sa FieldQuo — sila ang bahala sa sarili nila.",
+  "app.salesPay.method.bank_transfer.handleLabel": "Mga detalye ng account, o ang IBAN",
+  "app.salesPay.method.bank_transfer.label": "Bank transfer",
+  "app.salesPay.method.bank_transfer.note": "Pinakamabagal dumating at pinakamura ipadala. Pinakamainam para sa rep na binabayaran ng malaking batch.",
+  "app.salesPay.method.interac.handleLabel": "Email address na nakarehistro sa Interac",
+  "app.salesPay.method.interac.label": "Interac e-Transfer",
+  "app.salesPay.method.interac.note": "Mga Canadian account lang. Karaniwang libre at same-day.",
+  "app.salesPay.method.paypal.handleLabel": "Email address sa PayPal",
+  "app.salesPay.method.paypal.label": "PayPal",
+  "app.salesPay.method.paypal.note": "Ipinapadala bilang PayPal transfer. Nakadepende ang bayarin sa bansa at uri ng tumatanggap na account.",
+  "app.salesPay.method.upwork.handleLabel": "Link ng kontrata o profile sa Upwork",
+  "app.salesPay.method.upwork.label": "Upwork",
+  "app.salesPay.method.upwork.note": "Inilalabas ayon sa mga milestone ng kontrata. May sariling bayarin ang Upwork at ibinabawas ito sa dumarating, kaya ang bilang sa ledger ay ang ipinapadala ng FieldQuo, hindi ang dumarating.",
+  "app.salesPay.method.wise.handleLabel": "Ang email address sa Wise account mo, o ang mga detalye ng Wise account mo",
+  "app.salesPay.method.wise.label": "Wise",
+  "app.salesPay.method.wise.note": "Pinakamainam para sa rep sa labas ng Canada. Nagko-convert sa mid-market rate at nakikita agad ang bayarin, kaya matatantiya ang darating — at puwedeng dumating sa sarili mong pera.",
+  "app.salesPay.milestone.activation": "Na-activate",
+  "app.salesPay.milestone.first_payment": "Na-renew",
+  "app.salesPay.milestone.retention": "Nagbabayad pa rin",
+  "app.salesPay.readiness.noEngagement.fix": "Ito ang nagpapasya kung naiipon ang bayad na leave at kung may kinakaltas ang FieldQuo. Hindi ito hinuhulaan mula sa kahit ano pa.",
+  "app.salesPay.readiness.noEngagement.title": "Walang nagsabi kung freelancer o empleyado ang rep na ito.",
+  "app.salesPay.readiness.noHandle.fix": "Idagdag ang patutunguhan: {field}.",
+  "app.salesPay.readiness.noHandle.title": "Napili ang {method}, pero walang padadalhan.",
+  "app.salesPay.readiness.noMethod.fix": "PayPal, Interac, bank transfer, o kontrata sa Upwork — ang rep ang pipili.",
+  "app.salesPay.readiness.noMethod.title": "Walang nakatalang paraan ng pagbabayad.",
+
+  // ── Which entry closed a channel, and how it got there ──────────────────
+  //
+  // Sixteen whole sentences: two subjects times eight ways a request reached
+  // us. NOT one stem with a clause slotted into it — the verb agrees with
+  // the subject in five of these languages, and a domain-wide entry is
+  // plural in some and singular in others. The sentence is the unit; only
+  // the value and the date are placeholders.
+  "app.salesSuppression.dateNotRecorded": "walang naitalang petsa",
+  "app.salesSuppression.reason.detectedReply": "Sumagot ang prospect na ito at hiniling na huwag na siyang i-email muli. May bisa ang kahilingang iyon sa buong FieldQuo, hindi lang sa kopya ng isang rep.",
+  "app.salesSuppression.reason.domain.call": "Lahat ng nasa {value} ay nasa do-not-contact list ng FieldQuo — hiniling nila ito sa telepono, {date}. Ang kahilingang iyon ay may bisa sa buong FieldQuo, hindi lang sa kopya ng isang rep.",
+  "app.salesSuppression.reason.domain.form": "Lahat ng nasa {value} ay nasa do-not-contact list ng FieldQuo — hiniling nila ito sa pamamagitan ng isang form, {date}. Ang kahilingang iyon ay may bisa sa buong FieldQuo, hindi lang sa kopya ng isang rep.",
+  "app.salesSuppression.reason.domain.import": "Lahat ng nasa {value} ay nasa do-not-contact list ng FieldQuo — iniload mula sa isang umiiral na listahan, {date}. Ang kahilingang iyon ay may bisa sa buong FieldQuo, hindi lang sa kopya ng isang rep.",
+  "app.salesSuppression.reason.domain.manual": "Lahat ng nasa {value} ay nasa do-not-contact list ng FieldQuo — manu-manong naitala, {date}. Ang kahilingang iyon ay may bisa sa buong FieldQuo, hindi lang sa kopya ng isang rep.",
+  "app.salesSuppression.reason.domain.regulator": "Lahat ng nasa {value} ay nasa do-not-contact list ng FieldQuo — mula sa isang do-not-call list, {date}. Ang kahilingang iyon ay may bisa sa buong FieldQuo, hindi lang sa kopya ng isang rep.",
+  "app.salesSuppression.reason.domain.reply": "Lahat ng nasa {value} ay nasa do-not-contact list ng FieldQuo — sumagot sila at hiniling na tumigil tayo, {date}. Ang kahilingang iyon ay may bisa sa buong FieldQuo, hindi lang sa kopya ng isang rep.",
+  "app.salesSuppression.reason.domain.sms": "Lahat ng nasa {value} ay nasa do-not-contact list ng FieldQuo — nag-text sila ng STOP, {date}. Ang kahilingang iyon ay may bisa sa buong FieldQuo, hindi lang sa kopya ng isang rep.",
+  "app.salesSuppression.reason.domain.unrecorded": "Lahat ng nasa {value} ay nasa do-not-contact list ng FieldQuo — naitala, {date}. Ang kahilingang iyon ay may bisa sa buong FieldQuo, hindi lang sa kopya ng isang rep.",
+  "app.salesSuppression.reason.person.call": "Nasa do-not-contact list ng FieldQuo ang {value} — hiniling nila ito sa telepono, {date}. Ang kahilingang iyon ay may bisa sa buong FieldQuo, hindi lang sa kopya ng isang rep.",
+  "app.salesSuppression.reason.person.form": "Nasa do-not-contact list ng FieldQuo ang {value} — hiniling nila ito sa pamamagitan ng isang form, {date}. Ang kahilingang iyon ay may bisa sa buong FieldQuo, hindi lang sa kopya ng isang rep.",
+  "app.salesSuppression.reason.person.import": "Nasa do-not-contact list ng FieldQuo ang {value} — iniload mula sa isang umiiral na listahan, {date}. Ang kahilingang iyon ay may bisa sa buong FieldQuo, hindi lang sa kopya ng isang rep.",
+  "app.salesSuppression.reason.person.manual": "Nasa do-not-contact list ng FieldQuo ang {value} — manu-manong naitala, {date}. Ang kahilingang iyon ay may bisa sa buong FieldQuo, hindi lang sa kopya ng isang rep.",
+  "app.salesSuppression.reason.person.regulator": "Nasa do-not-contact list ng FieldQuo ang {value} — mula sa isang do-not-call list, {date}. Ang kahilingang iyon ay may bisa sa buong FieldQuo, hindi lang sa kopya ng isang rep.",
+  "app.salesSuppression.reason.person.reply": "Nasa do-not-contact list ng FieldQuo ang {value} — sumagot sila at hiniling na tumigil tayo, {date}. Ang kahilingang iyon ay may bisa sa buong FieldQuo, hindi lang sa kopya ng isang rep.",
+  "app.salesSuppression.reason.person.sms": "Nasa do-not-contact list ng FieldQuo ang {value} — nag-text sila ng STOP, {date}. Ang kahilingang iyon ay may bisa sa buong FieldQuo, hindi lang sa kopya ng isang rep.",
+  "app.salesSuppression.reason.person.unrecorded": "Nasa do-not-contact list ng FieldQuo ang {value} — naitala, {date}. Ang kahilingang iyon ay may bisa sa buong FieldQuo, hindi lang sa kopya ng isang rep.",
+
+  // ── The only feedback a new sales hire gets ─────────────────────────────
+  //
+  // /sales/login and /sales/invite are the first FieldQuo screens somebody
+  // hired into sales ever sees, and every word on them was English whatever
+  // language they were hired in.
+  //
+  // Four invite refusals and not one generic "invalid link": "ask for a
+  // new invitation", "sign in with the password you set" and "ask a
+  // superadmin about your account" are three different instructions. The
+  // LOGIN refusal is deliberately single — telling the failures apart would
+  // tell a stranger which FieldQuo staff addresses are real.
+  "app.salesAuth.invite.accepted": "Nagamit na ang imbitasyong ito. Mag-sign in gamit ang password na itinakda mo, o humingi ng bagong imbitasyon kung nakalimutan mo na.",
+  "app.salesAuth.invite.expired": "Nag-expire na ang imbitasyong ito. Humingi sa isang FieldQuo superadmin ng bago.",
+  "app.salesAuth.invite.inactive": "Hindi aktibo ang sales account na ito. Magtanong sa isang FieldQuo superadmin tungkol dito.",
+  "app.salesAuth.invite.unknown": "Hindi wasto ang invitation link na ito. Humingi sa isang FieldQuo superadmin ng bago.",
+  "app.salesAuth.invite.weakPassword": "Pumili ng password na hindi bababa sa {minLength} karakter — nakikita ng account na ito ang lahat ng kumpanyang naipasok mo.",
+  "app.salesAuth.login.invalid": "Hindi tinanggap ang mga detalyeng iyon sa pag-sign in.",
+  "app.salesAuth.login.missingFields": "Ilagay ang iyong email address at ang iyong password.",
+
+  // ── What fetchJson says when the server said nothing usable ─────────────
+  //
+  // The last thing anybody reads before giving up, on every screen in the
+  // product. A 4xx the ROUTE explained keeps the route's own sentence and
+  // never reaches these — overwriting a specific explanation with a generic
+  // one would be a downgrade wearing a translation's clothes.
+  "app.fetchError.failed": "Hindi natuloy ang kahilingan (code {status}).",
+  "app.fetchError.forbidden": "Wala kang pahintulot na gawin iyon.",
+  "app.fetchError.network": "Hindi naabot ang server. Tingnan ang koneksiyon mo at subukan ulit.",
+  "app.fetchError.notFound": "Wala iyon, o hindi mo ito nakikita.",
+  "app.fetchError.server": "May nagkamali sa panig namin (error {status}). Kung paulit-ulit ito, sabihin sa support kung ano ang ginagawa mo.",
+  "app.fetchError.tooMany": "Masyadong maraming pagtatangka. Maghintay saglit at subukan ulit.",
+  "app.fetchError.unauthorised": "Nag-expire na ang session mo. Mag-sign in ulit.",
+  "app.fetchError.unexpectedBody": "May ibinalik ang server na hindi mabasa ng screen na ito.",
+
+  // ── A note that cannot be saved ─────────────────────────────────────────
+  //
+  // lib/sales/notes/model.js has always sent a `code` beside its sentence;
+  // the panel now keys off it. The English mentioned a file path and a
+  // schema block, which is an instruction to an engineer rather than to the
+  // rep reading it, so the catalogue entry says what happened to their words
+  // instead. The path is still named on the screen, separately.
+  "app.salesNotes.unavailableModelMissing": "Hindi pa naka-on ang mga rep note — hindi pa nagagawa ang table na tinitirhan ng mga ito. Walang na-save sa tinipa mo.",
 };
 
 const de = {
@@ -46888,6 +48652,300 @@ const de = {
   "app.salesText.whenButton": "Wann",
   "app.salesText.putAway": "Weglegen",
   "app.salesText.sendNow": "Jetzt senden",
+
+  // ══ Sentences the SERVER composes, which a rep reads ══════════════════
+  //
+  // Commit cf099363 translated every /sales screen. What it could not reach
+  // was the text those screens RECEIVE already written: refusals, labels and
+  // explanations composed in lib/ and app/api/ and rendered verbatim. A rep
+  // on Spanish read a Spanish frame around English content — the
+  // half-translated state that change existed to remove, moved one layer
+  // down.
+  //
+  // Those modules are pure and are executed by a dozen check scripts under
+  // bare node, so none of them can import a translator. What they emit
+  // instead is the NAME of the sentence plus the values it needs, and their
+  // English rides along as the fallback. These are the sentences those names
+  // point at.
+
+  // ── The dial region, and the compliance refusals behind it ──────────────
+  //
+  // Every sentence lib/sales/dialSpace.js and lib/sales/callingRules.js
+  // compose for a rep who is being told they may not make a call. This is
+  // refusal copy, which is the half of a product that most needs to be in
+  // the reader's own language: a rep who cannot read WHY has only the
+  // absence of a button to go on.
+  //
+  // What is NOT here, deliberately: the statutes themselves. A
+  // jurisdiction's citation, Arizona's flat prohibition, Texas's
+  // registration and bond are quoted from the primary source, and a machine
+  // translation of a legal text reads as the law without being it. Those
+  // stay in the language the legislature wrote them in and the screen labels
+  // them as quoted — app.salesDial.quotedInEnglish is that label.
+  "app.salesDial.blocker.callCapReached.fix": "Heute nichts mehr. Die Obergrenze gilt je angerufener Partei, nicht je Mitarbeiter.",
+  "app.salesDial.blocker.callCapReached.title": "{jurisdiction} erlaubt {cap} Anrufe beim selben Betrieb zum selben Thema in 24 Stunden, und {made} wurden bereits getätigt.",
+  "app.salesDial.blocker.jurisdictionUnread.fix": "Bundesrecht füllt diese Lücke nicht: Anrufe zwischen Unternehmen sind vollständig von der Telemarketing Sales Rule ausgenommen, also ist die Regel des Bundesstaats die einzige, die es gibt. Das ist Sache des Inhabers — eine Rechtsprüfung für die Staaten, die tatsächlich angerufen werden. Bis sie vorliegt, lässt sich die Zulässigkeit nicht bestätigen.",
+  "app.salesDial.blocker.jurisdictionUnread.title": "Niemand hat das Telefonwerbungsrecht von {subdivision} gelesen.",
+  "app.salesDial.blocker.jurisdictionUnverified.title": "Die Anrufregeln von {jurisdiction} wurden nicht überprüft.",
+  "app.salesDial.blocker.locationUnknown.fix": "Die Anrufzeiten richten sich nach dem Ort, an dem das Telefon klingelt, und darunter gibt es keine Bundesregel als Rückfallebene — 16 CFR 310.6(b)(7) nimmt geschäftliche Anrufe von der gesamten Telemarketing Sales Rule aus. Solange dieser Datensatz kein Land und keinen Bundesstaat trägt, kann niemand sagen, ob ein Anruf zulässig ist.",
+  "app.salesDial.blocker.locationUnknown.title": "Wir wissen nicht, in welchem Bundesstaat oder welcher Provinz dieser Betrieb liegt.",
+  "app.salesDial.blocker.outsideWindow.fixCourtesyOpens": "Das ist FieldQuos eigene Regel — {jurisdiction} schreibt keine vor. Das Fenster öffnet um {opensAt}. Nichts wird eingereiht — Sie drücken auf Anrufen.",
+  "app.salesDial.blocker.outsideWindow.fixCourtesyWait": "Das ist FieldQuos eigene Regel — {jurisdiction} schreibt keine vor. Warten Sie auf das Fenster.",
+  "app.salesDial.blocker.outsideWindow.fixStatutoryOpens": "Das ist die eigene Regel von {jurisdiction}. Das Fenster öffnet um {opensAt}. Nichts wird eingereiht — Sie drücken auf Anrufen.",
+  "app.salesDial.blocker.outsideWindow.fixStatutoryWait": "Das ist die eigene Regel von {jurisdiction}. Warten Sie auf das Fenster.",
+  "app.salesDial.blocker.outsideWindow.title": "Es liegt außerhalb des Anruffensters dort, wo sie sind.",
+  "app.salesDial.blocker.timeZoneAmbiguous.fixOpens": "In einem Teil von {subdivision} liegt es innerhalb des Anruffensters und im Rest außerhalb, und dieser Datensatz sagt nicht, welcher Teil. Statt die bevölkerungsreichere Hälfte zu raten, wird nichts bestätigt. Ab {opensAt} ist ein Anruf überall in {subdivision} unbedenklich — oder fragen Sie nach dem Ort und tragen Sie die Zeitzone beim Lead ein, was diese Frage genau beantwortet.",
+  "app.salesDial.blocker.timeZoneAmbiguous.fixUnknownOpening": "In einem Teil von {subdivision} liegt es innerhalb des Anruffensters und im Rest außerhalb, und dieser Datensatz sagt nicht, welcher Teil. Statt die bevölkerungsreichere Hälfte zu raten, wird nichts bestätigt. Warten Sie auf den nächsten Zeitpunkt, an dem beide Hälften übereinstimmen — oder fragen Sie nach dem Ort und tragen Sie die Zeitzone beim Lead ein, was diese Frage genau beantwortet.",
+  "app.salesDial.blocker.timeZoneAmbiguous.title": "{subdivision} erstreckt sich über mehr als eine Zeitzone, und im Moment stimmen sie nicht überein.",
+  "app.salesDial.blocker.timeZoneUnknown.fixCourtesy": "Es ist FieldQuos eigene Regel, weil {jurisdiction} keine vorschreibt, und es gilt in DEREN Ortszeit. Wir haben keine Zeitzone für {subdivision}, also gibt es nichts zu prüfen — und unsere eigene Uhr ist der schlechteste verfügbare Ersatz.",
+  "app.salesDial.blocker.timeZoneUnknown.fixStatutory": "Es ist die eigene Regel von {jurisdiction} und gilt in DEREN Ortszeit. Wir haben keine Zeitzone für {subdivision}, also gibt es nichts zu prüfen — und unsere eigene Uhr ist der schlechteste verfügbare Ersatz.",
+  "app.salesDial.blocker.timeZoneUnknown.title": "Wir können nicht ermitteln, wie spät es dort ist, wo dieser Betrieb liegt.",
+  "app.salesDial.quotedInEnglish": "Auf Englisch zitiert, direkt aus dem Gesetz — eine Übersetzung eines Rechtstextes läse sich wie das Gesetz, ohne es zu sein.",
+  "app.salesDial.space.allowedNoNumber.detail": "Die Anrufregeln erlauben diesen Anruf, und dieser Datensatz enthält keine Nummer, die man wählen könnte. Neu laden; bleibt es dabei, braucht der Interessent eine Telefonnummer.",
+  "app.salesDial.space.cannotConfirm.title": "Wir können nicht bestätigen, dass dieser Anruf zulässig ist.",
+  "app.salesDial.space.doNotContact.detail": "Dieser Datensatz ist als „nicht kontaktieren“ markiert, deshalb wird hier kein Wählknopf angeboten.",
+  "app.salesDial.space.doNotContact.title": "Nicht kontaktieren",
+  "app.salesDial.space.doNotContactRecorded.noReason": "Erfasst am {date}. Es wurde kein Grund festgehalten.",
+  "app.salesDial.space.doNotContactRecorded.withReason": "Erfasst am {date}. Grund: {reason}",
+  "app.salesDial.space.noDecision.detail": "Dieser Bildschirm konnte nicht ermitteln, welche Anrufregeln gelten, und bietet deshalb keinen Wählknopf an, für den er nicht einstehen kann. Laden Sie die Seite neu.",
+  "app.salesDial.space.noNumber.detail": "Dieser Datensatz enthält keine Telefonnummer, also gibt es von hier nichts zu wählen. Die Recherche hat den Betrieb ohne Nummer gefunden. Vielleicht steht sie auf ihrer Website oder in einem Verzeichnis — tragen Sie sie beim Lead ein, dann erscheint sie hier.",
+  "app.salesDial.space.noNumber.title": "Noch keine Vertriebsnummer.",
+  "app.salesDial.space.noPhone.detail": "Dieser Datensatz enthält keine Telefonnummer, also gibt es von hier nichts zu wählen.",
+  "app.salesDial.space.noPhone.title": "Keine Telefonnummer",
+  "app.salesDial.space.noProspect.title": "Kein Interessent geöffnet, also gibt es nichts zu wählen.",
+  "app.salesDial.space.noProspectEmpty.detail": "Wählen Sie ein Gewerk, beanspruchen Sie einen Interessenten, und der Anrufknopf erscheint an dieser Stelle. Es ist immer diese Stelle — leer heißt, Sie haben niemanden beansprucht, nicht dass Anrufen abgeschaltet ist.",
+  "app.salesDial.space.noProspectHolding.detail": "Sie halten {count}. Wählen Sie einen aus der Liste — die Nummer und ob Sie anrufen dürfen, erscheinen genau hier.",
+  "app.salesDial.space.noProspectHolding.count": countedNoun("de", { one: "Interessenten", other: "Interessenten" }),
+  "app.salesDial.space.optedOut.detail": "Ein Widerspruch gilt für Anrufe, SMS und E-Mail, deshalb wird hier kein Wählknopf angeboten. Nur ein Superadmin kann ihn aufheben, und es braucht einen schriftlichen Grund — wenn das falsch aussieht, sagen Sie es, statt eine andere Nummer für sie zu suchen.",
+  "app.salesDial.space.optedOut.title": "Sie haben uns gebeten aufzuhören.",
+  "app.salesDial.space.optedOutMeaning.detail": "Ein Widerspruch gilt für Anrufe, SMS und E-Mail, deshalb wird kein Wählknopf angeboten. Nur ein Superadmin kann ihn mit schriftlicher Begründung aufheben.",
+  "app.salesDial.space.ourOwnNumber.detail": "Ein Anruf bei unserer eigenen Infrastruktur erzeugt eine Schleife und wird auf beiden Seiten berechnet, deshalb wird hier kein Wählknopf angeboten. Falls das wirklich die Nummer des Interessenten ist, steht sie versehentlich auf einer von FieldQuos Nummernlisten.",
+  "app.salesDial.space.ourOwnNumber.title": "Das ist eine unserer eigenen Nummern.",
+  "app.salesDial.space.ready.title": "Diesen dürfen Sie jetzt anrufen.",
+  "app.salesDial.space.readyNoWindow.detail": "Keine Rechtsordnung in der Tabelle schreibt hierfür ein Zeitfenster vor.",
+  "app.salesDial.space.refusedForNow.title": "Diesen dürfen Sie im Moment nicht anrufen.",
+  "app.salesDial.space.refusedOutright.detail": "Die für diesen Betrieb geltende Regel verweigert diesen Anruf, und es ist kein Zeitfenster, das später aufgeht. Der Grund steht unten.",
+  "app.salesDial.space.refusedOutright.title": "Diesen dürfen Sie nicht anrufen.",
+  "app.salesDial.space.unconfirmed.detail": "Es wurde in keine Richtung etwas festgestellt, deshalb wird kein Wählknopf angeboten. Das ist eine Lücke in unserem Wissen, keine Ablehnung.",
+  "app.salesDial.space.unreadableDecision.detail": "Die Anrufregeln haben „{decision}“ geantwortet, und dieser Bildschirm kann das nicht lesen. Auf eine Antwort, die niemand deuten kann, wird kein Wählknopf angeboten.",
+  "app.salesDial.unenforced.callCapUncounted.fix": "Nichts in FieldQuo erfasst bisher Anrufversuche, deshalb wird diese Obergrenze nicht für Sie gezählt — führen Sie selbst Buch. In beiden Staaten, die sie vorschreiben, besteht dafür ein privates Klagerecht.",
+  "app.salesDial.unenforced.callCapUncounted.title": "{jurisdiction} erlaubt höchstens {cap} Anrufe bei diesem Betrieb zum selben Thema in 24 Stunden.",
+  "app.salesDial.warning.dataAcquisitionRule.title": "{jurisdiction} regelt, wie die Daten dieses Interessenten beschafft werden dürfen.",
+  "app.salesDial.warning.registrationOutstanding.title": "FieldQuo muss registriert sein, um Vertriebsanrufe nach {jurisdiction} zu führen.",
+  "app.salesDial.window.courtesyRule": "Diese Zeiten sind FieldQuos eigene Regel — {jurisdiction} schreibt keine vor.",
+  "app.salesDial.window.everyDay": "Täglich {start}–{end}, in der Zeitzone des Interessenten.",
+  "app.salesDial.window.everyDayClosed": "Täglich {start}–{end}, in der Zeitzone des Interessenten, und am {closedDays} überhaupt keine Anrufe.",
+  "app.salesDial.window.opensAt": "Es öffnet um {opensAt}.",
+  "app.salesDial.window.split": "Werktags {start}–{end} und am Wochenende {weekendStart}–{weekendEnd}, in der Zeitzone des Interessenten.",
+  "app.salesDial.window.splitClosed": "Werktags {start}–{end} und am Wochenende {weekendStart}–{weekendEnd}, in der Zeitzone des Interessenten, und am {closedDays} überhaupt keine Anrufe.",
+  "app.salesDial.window.statutoryRule": "Diese Zeiten sind die eigene Regel von {jurisdiction}.",
+
+  // ── The queue's four research blocks ────────────────────────────────────
+  //
+  // The three layer headings ARE the interface for the rule that an
+  // inference must never read as a fact, and they were English on every
+  // screen. So are the two refusals that withhold an inference, the two that
+  // withhold a recommendation, and every sentence under "what we do not
+  // know".
+  //
+  // A fact row's VALUE is keyed only when the value is ours. A prospect's
+  // phone number, address and name are printed verbatim; translating data is
+  // inventing it.
+  "app.salesIntel.bucket.FRANCHISE_LIKELY": "Wahrscheinlich Franchise",
+  "app.salesIntel.bucket.MULTI_TRADE": "Mehrere Gewerke",
+  "app.salesIntel.bucket.SMALL_BUSINESS": "Kleinbetrieb",
+  "app.salesIntel.bucket.SOLO_LIKELY": "Wahrscheinlich allein",
+  "app.salesIntel.confidencePercent": "{percent} % Sicherheit",
+  "app.salesIntel.confidenceUntested": "Kein Sicherheitswert — behandeln Sie es als ungeprüft.",
+  "app.salesIntel.fact.businessName.label": "Betrieb",
+  "app.salesIntel.fact.businessName.missing": "Kein Name in diesem Datensatz",
+  "app.salesIntel.fact.businessStatus.label": "Noch aktiv?",
+  "app.salesIntel.fact.businessStatus.missing": "Die Quelle sagte nichts dazu. Einige davon haben geschlossen.",
+  "app.salesIntel.fact.contactBasis.closed": "Geschlossen — rufen Sie stattdessen an",
+  "app.salesIntel.fact.contactBasis.label": "E-Mail und SMS",
+  "app.salesIntel.fact.location.label": "Wo",
+  "app.salesIntel.fact.location.missing": "Keine Adresse in diesem Datensatz",
+  "app.salesIntel.fact.phone.label": "Telefon",
+  "app.salesIntel.fact.phone.missing": "Keine Telefonnummer in diesem Datensatz",
+  "app.salesIntel.fact.rating.label": "Bewertung",
+  "app.salesIntel.fact.rating.missing": "Die Quelle nannte keine Bewertung",
+  "app.salesIntel.fact.rating.value": "{rating} von 5",
+  "app.salesIntel.fact.reviews.label": "Bewertungen",
+  "app.salesIntel.fact.reviews.missing": "Die Quelle nannte keine Anzahl an Bewertungen",
+  "app.salesIntel.fact.reviews.value": countedNoun("de", { one: "Bewertung", other: "Bewertungen" }),
+  "app.salesIntel.fact.source.label": "Woher das stammt",
+  "app.salesIntel.fact.sourceUpdatedAt.label": "Quelle zuletzt aktualisiert",
+  "app.salesIntel.fact.sourceUpdatedAt.missing": "Die Quelle sagte nicht wann",
+  "app.salesIntel.fact.website.derivedConfirmed": "{site} — abgeleitet, und die Website hat es bestätigt",
+  "app.salesIntel.fact.website.guessed": "{site} — das haben wir aus der E-Mail-Adresse der Lizenz ERRATEN. Niemand hat es veröffentlicht, und die Website hat es nicht bestätigt.",
+  "app.salesIntel.fact.website.hasOne": "Hat eine Website",
+  "app.salesIntel.fact.website.label": "Website",
+  "app.salesIntel.fact.website.listedUnchecked": "{url} — eingetragen, noch nicht geprüft",
+  "app.salesIntel.fact.website.noneWeLooked": "Keine Website — wir haben nachgesehen",
+  "app.salesIntel.fact.website.sourceSilent": "Die Quelle nannte keine Website. Das ist genauso oft eine Lücke im Verzeichnis wie eine Lücke im Markt.",
+  "app.salesIntel.inference.refusalCarriesNumber": "Diese Schlussfolgerung enthält eine Zahl. Der gespeicherte Wert ist eine Einstufung — „kleines Team“, nie „zwölf Beschäftigte“ —, deshalb wird sie zurückgehalten statt als Anzahl vorgelesen.",
+  "app.salesIntel.inference.refusalNoConfidence": "Eine Schlussfolgerung wird nur mit unserem Sicherheitsgrad gezeigt. Nichts dahinter ist ein Signal, das die Sicherheitsberechnung kennt, deshalb gibt es keinen Wert zu zeigen und die Aussage wird zurückgehalten.",
+  "app.salesIntel.inference.sourceCall": "Sie haben das in einem Gespräch gesagt — aus erster Hand, und trotzdem eine Schlussfolgerung.",
+  "app.salesIntel.inference.sourceObserved": "Aus dem abgeleitet, was wir beobachtet haben.",
+  "app.salesIntel.kind.company_scale": "Betriebsgröße",
+  "app.salesIntel.kind.trade": "Gewerk",
+  "app.salesIntel.layer.fact.note": "Fakten. Jedes davon wurde gesehen — oder gezielt gesucht und nicht gesehen.",
+  "app.salesIntel.layer.fact.title": "Was wir beobachtet haben",
+  "app.salesIntel.layer.inference.note": "Schlüsse, die die Belege stützen und nicht beweisen. Sagen Sie so etwas nie als Tatsache.",
+  "app.salesIntel.layer.inference.title": "Was wir daraus schließen",
+  "app.salesIntel.layer.recommendation.note": "Argumente, die auf den beiden Blöcken oben aufbauen. Jedes trägt den Grund, aus dem es ausgelöst wurde.",
+  "app.salesIntel.layer.recommendation.title": "Was Sie anbieten",
+  "app.salesIntel.noLeadScore": "Für diesen Interessenten wurde kein Lead-Score berechnet.",
+  "app.salesIntel.opportunity.refusalNoEvidence": "Diese Empfehlung nennt keinen Beleg. Sie wird als fehlerhaft angezeigt statt vorgelesen — ein Verkaufsargument ohne Grundlage ist genau die generische Füllware, die die Belegprüfung verhindern soll.",
+  "app.salesIntel.opportunity.refusalNoReason": "Diese Empfehlung trägt keinen Grund, also gibt es über den Funktionsnamen hinaus nichts zu sagen.",
+  "app.salesIntel.unknown.nothingInferred": "Über diesen Betrieb wurde noch nichts geschlossen.",
+  "app.salesIntel.unknown.softwareNeverCrawled": "Wir wissen nicht, welche Software sie einsetzen — nichts hat sie durchsucht.",
+  "app.salesIntel.unnamedCapability": "Unbenannte Funktion",
+
+  // ── The disposition a rep picks after every single call ─────────────────
+  //
+  // Ten outcomes, each with the one line explaining what it does to the
+  // queue. lib/sales/calls/dispositions.js derives these keys from its own
+  // codes, so an eleventh outcome cannot ship English by omission — it fails
+  // check:sales-server-copy until this block has it.
+  "app.salesCall.disposition.bad_number.hint": "Abgeschaltet, oder es kam jemand ganz anderer ans Telefon.",
+  "app.salesCall.disposition.bad_number.label": "Falsche oder tote Nummer",
+  "app.salesCall.disposition.busy.hint": "Besetztzeichen, oder abgebrochen, bevor es klingelte.",
+  "app.salesCall.disposition.busy.label": "Besetzt",
+  "app.salesCall.disposition.callback.hint": "Eine Zeit, der sie zugestimmt haben. Der Anspruch hält bis dahin und darüber hinaus.",
+  "app.salesCall.disposition.callback.label": "Sie haben mich gebeten, zurückzurufen",
+  "app.salesCall.disposition.do_not_call.hint": "Ihre eigenen Worte, so genau wie möglich. Das ist endgültig.",
+  "app.salesCall.disposition.do_not_call.label": "Hat gebeten, nicht mehr angerufen zu werden",
+  "app.salesCall.disposition.gatekeeper.hint": "Eine Empfangskraft, ein Partner, ein Auszubildender. Das Verkaufsgespräch hat nicht stattgefunden.",
+  "app.salesCall.disposition.gatekeeper.label": "Jemand hat abgenommen, aber nicht der Inhaber",
+  "app.salesCall.disposition.no_answer.hint": "Es hat durchgeklingelt. Niemand ist rangegangen, und kein Anrufbeantworter kam.",
+  "app.salesCall.disposition.no_answer.label": "Keine Antwort",
+  "app.salesCall.disposition.not_a_fit.hint": "Ein Einzelhändler, eine Franchisezentrale, außer Betrieb, das falsche Gewerk.",
+  "app.salesCall.disposition.not_a_fit.label": "Kein Betrieb, an den wir verkaufen können",
+  "app.salesCall.disposition.reached_interested.hint": "Das Verkaufsgespräch hat gesessen. Dieser Interessent gehört ab jetzt Ihnen.",
+  "app.salesCall.disposition.reached_interested.label": "Mit ihnen gesprochen — interessiert",
+  "app.salesCall.disposition.reached_not_interested.hint": "Sie haben es gehört und Nein gesagt. Niemand sonst sollte sie nächste Woche anrufen.",
+  "app.salesCall.disposition.reached_not_interested.label": "Mit ihnen gesprochen — kein Interesse",
+  "app.salesCall.disposition.voicemail.hint": "Sie haben selbst auf ihren Anrufbeantworter gesprochen. Niemals eine Aufnahme.",
+  "app.salesCall.disposition.voicemail.label": "Mailbox — ich habe eine Nachricht hinterlassen",
+
+  // ── Why a check-in draft exists ─────────────────────────────────────────
+  //
+  // The headline above a suggested check-in. `angle` alongside it is NOT
+  // keyed and must not be: it is an instruction to the drafter, not
+  // something a rep reads.
+  "app.salesCheckin.reason.all_good": "Es sieht nichts falsch aus",
+  "app.salesCheckin.reason.onboarding_unfinished": "Sie haben die Einrichtung nie abgeschlossen",
+  "app.salesCheckin.reason.payment_failing": "Ihre Abo-Zahlung schlägt fehl",
+  "app.salesCheckin.reason.payments_not_connected": "Sie können noch keine Zahlung annehmen",
+  "app.salesCheckin.reason.retention_milestone_near": "Der Bindungsmeilenstein ist nah",
+  "app.salesCheckin.reason.setup_steps_outstanding": "Auf ihrem Dashboard sind noch Einrichtungsschritte offen",
+  "app.salesCheckin.reason.trial_ends_before_retention": "Ihr Gratiszeitraum endet vor dem Bindungsstichtag",
+  "app.salesCheckin.reason.unknown_state": "Wir können nicht sehen, wie es ihnen geht",
+
+  // ── How a rep is engaged, and where their money goes ────────────────────
+  //
+  // The payout screen was English throughout — the method names, what each
+  // one costs on the way, and the label on the field asking for the account.
+  // Being told in a language you do not read that fees depend on your
+  // account's country is worse than not being told.
+  "app.salesPay.engagement.employee.label": "Angestellt",
+  "app.salesPay.engagement.employee.note": "In der Lohnabrechnung. Bezahlter Urlaub wird aufgebaut, und die gesetzlichen Abzüge muss FieldQuo einbehalten und abführen.",
+  "app.salesPay.engagement.freelancer.label": "Freiberuflich",
+  "app.salesPay.engagement.freelancer.note": "Stellt die eigene Provision in Rechnung. Kein bezahlter Urlaub, kein Urlaubsanspruch, keine gesetzlichen Abzüge durch FieldQuo — dafür sorgen sie selbst.",
+  "app.salesPay.method.bank_transfer.handleLabel": "Kontodaten oder die IBAN",
+  "app.salesPay.method.bank_transfer.label": "Banküberweisung",
+  "app.salesPay.method.bank_transfer.note": "Kommt am langsamsten an und ist am günstigsten zu senden. Am besten, wenn ein Mitarbeiter einen großen Stapel ausgezahlt bekommt.",
+  "app.salesPay.method.interac.handleLabel": "Bei Interac hinterlegte E-Mail-Adresse",
+  "app.salesPay.method.interac.label": "Interac e-Transfer",
+  "app.salesPay.method.interac.note": "Nur kanadische Konten. In der Regel kostenlos und noch am selben Tag.",
+  "app.salesPay.method.paypal.handleLabel": "PayPal-E-Mail-Adresse",
+  "app.salesPay.method.paypal.label": "PayPal",
+  "app.salesPay.method.paypal.note": "Wird als PayPal-Überweisung gesendet. Die Gebühren hängen vom Land und der Art des Empfängerkontos ab.",
+  "app.salesPay.method.upwork.handleLabel": "Link zum Upwork-Vertrag oder -Profil",
+  "app.salesPay.method.upwork.label": "Upwork",
+  "app.salesPay.method.upwork.note": "Wird gegen die Meilensteine des Vertrags freigegeben. Upworks eigene Gebühr fällt an und geht von dem ab, was ankommt — die Zahl im Buch ist also das, was FieldQuo sendet, nicht das, was eintrifft.",
+  "app.salesPay.method.wise.handleLabel": "Die E-Mail-Adresse Ihres Wise-Kontos oder Ihre Wise-Kontodaten",
+  "app.salesPay.method.wise.label": "Wise",
+  "app.salesPay.method.wise.note": "Am besten für Mitarbeiter außerhalb Kanadas. Rechnet zum Mittelkurs um, die Gebühr wird vorab angezeigt — was ankommt, ist also vorhersehbar, und es kann in Ihrer eigenen Währung eingehen.",
+  "app.salesPay.milestone.activation": "Aktiviert",
+  "app.salesPay.milestone.first_payment": "Verlängert",
+  "app.salesPay.milestone.retention": "Zahlt weiterhin",
+  "app.salesPay.readiness.noEngagement.fix": "Davon hängt ab, ob bezahlter Urlaub aufgebaut wird und ob FieldQuo etwas einbehält. Es wird aus nichts anderem erraten.",
+  "app.salesPay.readiness.noEngagement.title": "Niemand hat angegeben, ob dieser Mitarbeiter freiberuflich oder angestellt ist.",
+  "app.salesPay.readiness.noHandle.fix": "Tragen Sie das Ziel ein: {field}.",
+  "app.salesPay.readiness.noHandle.title": "{method} ist gewählt, aber es gibt kein Ziel für die Zahlung.",
+  "app.salesPay.readiness.noMethod.fix": "PayPal, Interac, eine Banküberweisung oder ein Upwork-Vertrag — der Mitarbeiter wählt.",
+  "app.salesPay.readiness.noMethod.title": "Keine Auszahlungsmethode hinterlegt.",
+
+  // ── Which entry closed a channel, and how it got there ──────────────────
+  //
+  // Sixteen whole sentences: two subjects times eight ways a request reached
+  // us. NOT one stem with a clause slotted into it — the verb agrees with
+  // the subject in five of these languages, and a domain-wide entry is
+  // plural in some and singular in others. The sentence is the unit; only
+  // the value and the date are placeholders.
+  "app.salesSuppression.dateNotRecorded": "Datum nicht erfasst",
+  "app.salesSuppression.reason.detectedReply": "Dieser Interessent hat geantwortet und gebeten, keine E-Mails mehr zu erhalten. Diese Bitte gilt für FieldQuo, nicht nur für die Kopie eines einzelnen Mitarbeiters.",
+  "app.salesSuppression.reason.domain.call": "Alle bei {value} stehen auf FieldQuos Nichtkontaktliste — sie haben es am Telefon gesagt, am {date}. Diese Bitte bindet FieldQuo, nicht die Kopie eines einzelnen Mitarbeiters.",
+  "app.salesSuppression.reason.domain.form": "Alle bei {value} stehen auf FieldQuos Nichtkontaktliste — sie haben es über ein Formular gebeten, am {date}. Diese Bitte bindet FieldQuo, nicht die Kopie eines einzelnen Mitarbeiters.",
+  "app.salesSuppression.reason.domain.import": "Alle bei {value} stehen auf FieldQuos Nichtkontaktliste — aus einer bestehenden Liste geladen, am {date}. Diese Bitte bindet FieldQuo, nicht die Kopie eines einzelnen Mitarbeiters.",
+  "app.salesSuppression.reason.domain.manual": "Alle bei {value} stehen auf FieldQuos Nichtkontaktliste — von Hand erfasst, am {date}. Diese Bitte bindet FieldQuo, nicht die Kopie eines einzelnen Mitarbeiters.",
+  "app.salesSuppression.reason.domain.regulator": "Alle bei {value} stehen auf FieldQuos Nichtkontaktliste — aus einer Robinsonliste, am {date}. Diese Bitte bindet FieldQuo, nicht die Kopie eines einzelnen Mitarbeiters.",
+  "app.salesSuppression.reason.domain.reply": "Alle bei {value} stehen auf FieldQuos Nichtkontaktliste — sie haben geantwortet und uns gebeten aufzuhören, am {date}. Diese Bitte bindet FieldQuo, nicht die Kopie eines einzelnen Mitarbeiters.",
+  "app.salesSuppression.reason.domain.sms": "Alle bei {value} stehen auf FieldQuos Nichtkontaktliste — sie haben STOP per SMS geschickt, am {date}. Diese Bitte bindet FieldQuo, nicht die Kopie eines einzelnen Mitarbeiters.",
+  "app.salesSuppression.reason.domain.unrecorded": "Alle bei {value} stehen auf FieldQuos Nichtkontaktliste — erfasst, am {date}. Diese Bitte bindet FieldQuo, nicht die Kopie eines einzelnen Mitarbeiters.",
+  "app.salesSuppression.reason.person.call": "{value} steht auf FieldQuos Nichtkontaktliste — sie haben es am Telefon gesagt, am {date}. Diese Bitte bindet FieldQuo, nicht die Kopie eines einzelnen Mitarbeiters.",
+  "app.salesSuppression.reason.person.form": "{value} steht auf FieldQuos Nichtkontaktliste — sie haben es über ein Formular gebeten, am {date}. Diese Bitte bindet FieldQuo, nicht die Kopie eines einzelnen Mitarbeiters.",
+  "app.salesSuppression.reason.person.import": "{value} steht auf FieldQuos Nichtkontaktliste — aus einer bestehenden Liste geladen, am {date}. Diese Bitte bindet FieldQuo, nicht die Kopie eines einzelnen Mitarbeiters.",
+  "app.salesSuppression.reason.person.manual": "{value} steht auf FieldQuos Nichtkontaktliste — von Hand erfasst, am {date}. Diese Bitte bindet FieldQuo, nicht die Kopie eines einzelnen Mitarbeiters.",
+  "app.salesSuppression.reason.person.regulator": "{value} steht auf FieldQuos Nichtkontaktliste — aus einer Robinsonliste, am {date}. Diese Bitte bindet FieldQuo, nicht die Kopie eines einzelnen Mitarbeiters.",
+  "app.salesSuppression.reason.person.reply": "{value} steht auf FieldQuos Nichtkontaktliste — sie haben geantwortet und uns gebeten aufzuhören, am {date}. Diese Bitte bindet FieldQuo, nicht die Kopie eines einzelnen Mitarbeiters.",
+  "app.salesSuppression.reason.person.sms": "{value} steht auf FieldQuos Nichtkontaktliste — sie haben STOP per SMS geschickt, am {date}. Diese Bitte bindet FieldQuo, nicht die Kopie eines einzelnen Mitarbeiters.",
+  "app.salesSuppression.reason.person.unrecorded": "{value} steht auf FieldQuos Nichtkontaktliste — erfasst, am {date}. Diese Bitte bindet FieldQuo, nicht die Kopie eines einzelnen Mitarbeiters.",
+
+  // ── The only feedback a new sales hire gets ─────────────────────────────
+  //
+  // /sales/login and /sales/invite are the first FieldQuo screens somebody
+  // hired into sales ever sees, and every word on them was English whatever
+  // language they were hired in.
+  //
+  // Four invite refusals and not one generic "invalid link": "ask for a
+  // new invitation", "sign in with the password you set" and "ask a
+  // superadmin about your account" are three different instructions. The
+  // LOGIN refusal is deliberately single — telling the failures apart would
+  // tell a stranger which FieldQuo staff addresses are real.
+  "app.salesAuth.invite.accepted": "Diese Einladung wurde bereits verwendet. Melden Sie sich mit dem von Ihnen gesetzten Passwort an, oder bitten Sie um eine neue Einladung, falls Sie es vergessen haben.",
+  "app.salesAuth.invite.expired": "Diese Einladung ist abgelaufen. Bitten Sie einen FieldQuo-Superadmin um eine neue.",
+  "app.salesAuth.invite.inactive": "Dieses Vertriebskonto ist nicht aktiv. Fragen Sie einen FieldQuo-Superadmin danach.",
+  "app.salesAuth.invite.unknown": "Dieser Einladungslink ist nicht gültig. Bitten Sie einen FieldQuo-Superadmin um einen neuen.",
+  "app.salesAuth.invite.weakPassword": "Wählen Sie ein Passwort mit mindestens {minLength} Zeichen — dieses Konto sieht jedes Unternehmen, das Sie gebracht haben.",
+  "app.salesAuth.login.invalid": "Diese Anmeldedaten wurden nicht akzeptiert.",
+  "app.salesAuth.login.missingFields": "Geben Sie Ihre E-Mail-Adresse und Ihr Passwort ein.",
+
+  // ── What fetchJson says when the server said nothing usable ─────────────
+  //
+  // The last thing anybody reads before giving up, on every screen in the
+  // product. A 4xx the ROUTE explained keeps the route's own sentence and
+  // never reaches these — overwriting a specific explanation with a generic
+  // one would be a downgrade wearing a translation's clothes.
+  "app.fetchError.failed": "Die Anfrage ist nicht durchgegangen (Code {status}).",
+  "app.fetchError.forbidden": "Sie haben keine Berechtigung dafür.",
+  "app.fetchError.network": "Der Server war nicht erreichbar. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
+  "app.fetchError.notFound": "Das gibt es nicht, oder Sie können es nicht sehen.",
+  "app.fetchError.server": "Bei uns ist etwas schiefgegangen (Fehler {status}). Wenn es weiter passiert, sagen Sie dem Support, was Sie gerade getan haben.",
+  "app.fetchError.tooMany": "Zu viele Versuche. Warten Sie einen Moment und versuchen Sie es erneut.",
+  "app.fetchError.unauthorised": "Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an.",
+  "app.fetchError.unexpectedBody": "Der Server hat etwas zurückgeschickt, das dieser Bildschirm nicht lesen konnte.",
+
+  // ── A note that cannot be saved ─────────────────────────────────────────
+  //
+  // lib/sales/notes/model.js has always sent a `code` beside its sentence;
+  // the panel now keys off it. The English mentioned a file path and a
+  // schema block, which is an instruction to an engineer rather than to the
+  // rep reading it, so the catalogue entry says what happened to their words
+  // instead. The path is still named on the screen, separately.
+  "app.salesNotes.unavailableModelMissing": "Notizen für Mitarbeiter sind noch nicht aktiviert — die Tabelle dafür wurde nicht angelegt. Nichts von dem, was Sie eingegeben haben, wurde gespeichert.",
 };
 
 const zh = {
@@ -53888,6 +55946,300 @@ const zh = {
   "app.salesText.whenButton": "时间",
   "app.salesText.putAway": "收起",
   "app.salesText.sendNow": "立即发送",
+
+  // ══ Sentences the SERVER composes, which a rep reads ══════════════════
+  //
+  // Commit cf099363 translated every /sales screen. What it could not reach
+  // was the text those screens RECEIVE already written: refusals, labels and
+  // explanations composed in lib/ and app/api/ and rendered verbatim. A rep
+  // on Spanish read a Spanish frame around English content — the
+  // half-translated state that change existed to remove, moved one layer
+  // down.
+  //
+  // Those modules are pure and are executed by a dozen check scripts under
+  // bare node, so none of them can import a translator. What they emit
+  // instead is the NAME of the sentence plus the values it needs, and their
+  // English rides along as the fallback. These are the sentences those names
+  // point at.
+
+  // ── The dial region, and the compliance refusals behind it ──────────────
+  //
+  // Every sentence lib/sales/dialSpace.js and lib/sales/callingRules.js
+  // compose for a rep who is being told they may not make a call. This is
+  // refusal copy, which is the half of a product that most needs to be in
+  // the reader's own language: a rep who cannot read WHY has only the
+  // absence of a button to go on.
+  //
+  // What is NOT here, deliberately: the statutes themselves. A
+  // jurisdiction's citation, Arizona's flat prohibition, Texas's
+  // registration and bond are quoted from the primary source, and a machine
+  // translation of a legal text reads as the law without being it. Those
+  // stay in the language the legislature wrote them in and the screen labels
+  // them as quoted — app.salesDial.quotedInEnglish is that label.
+  "app.salesDial.blocker.callCapReached.fix": "今天不能再打了。上限按被叫方计算，而不是按业务员计算。",
+  "app.salesDial.blocker.callCapReached.title": "{jurisdiction} 允许在 24 小时内就同一事项致电同一家企业 {cap} 次，而已经拨打了 {made} 次。",
+  "app.salesDial.blocker.jurisdictionUnread.fix": "联邦法律并不能填补这一空白：企业对企业的通话被完全豁免于 Telemarketing Sales Rule 之外，因此州法本身是唯一的依据。这属于所有者的事项——对实际拨打的各州做一次法律审读。在结果出来之前，无法确认此通话被允许。",
+  "app.salesDial.blocker.jurisdictionUnread.title": "还没有人读过 {subdivision} 的电话推销法规。",
+  "app.salesDial.blocker.jurisdictionUnverified.title": "{jurisdiction} 的通话规则尚未经过核实。",
+  "app.salesDial.blocker.locationUnknown.fix": "通话时段由电话响起的地点决定，其下并无可以依靠的联邦规则——16 CFR 310.6(b)(7) 将商业通话整体豁免于 Telemarketing Sales Rule 之外。在此记录填上国家和州之前，没有人能说致电他们是否被允许。",
+  "app.salesDial.blocker.locationUnknown.title": "我们不知道这家企业位于哪个州或省。",
+  "app.salesDial.blocker.outsideWindow.fixCourtesyOpens": "这是 FieldQuo 自定的规则——{jurisdiction} 并未设定任何规定。时段将在 {opensAt} 开放。系统不会排队——由您按下拨打。",
+  "app.salesDial.blocker.outsideWindow.fixCourtesyWait": "这是 FieldQuo 自定的规则——{jurisdiction} 并未设定任何规定。请等待时段开放。",
+  "app.salesDial.blocker.outsideWindow.fixStatutoryOpens": "这是 {jurisdiction} 自身的规定。时段将在 {opensAt} 开放。系统不会排队——由您按下拨打。",
+  "app.salesDial.blocker.outsideWindow.fixStatutoryWait": "这是 {jurisdiction} 自身的规定。请等待时段开放。",
+  "app.salesDial.blocker.outsideWindow.title": "在对方所在地，此刻处于通话时段之外。",
+  "app.salesDial.blocker.timeZoneAmbiguous.fixOpens": "在 {subdivision} 的一部分地区处于通话时段之内，其余地区则在其外，而此记录并未说明属于哪一部分。与其猜测人口更多的那一半，不如什么都不确认。从 {opensAt} 起在 {subdivision} 全境致电都是安全的——或者问清他们所在地并把时区填到该线索上，这能精确回答这个问题。",
+  "app.salesDial.blocker.timeZoneAmbiguous.fixUnknownOpening": "在 {subdivision} 的一部分地区处于通话时段之内，其余地区则在其外，而此记录并未说明属于哪一部分。与其猜测人口更多的那一半，不如什么都不确认。请等到两边一致的下一个时刻——或者问清他们所在地并把时区填到该线索上，这能精确回答这个问题。",
+  "app.salesDial.blocker.timeZoneAmbiguous.title": "{subdivision} 横跨不止一个时区，而此刻各时区的结论并不一致。",
+  "app.salesDial.blocker.timeZoneUnknown.fixCourtesy": "这是 FieldQuo 自定的规则，因为 {jurisdiction} 并未设定任何规定，并且按对方的当地时间计算。我们没有 {subdivision} 的时区信息，因此无从判断——而用我们自己的时钟是最糟的替代。",
+  "app.salesDial.blocker.timeZoneUnknown.fixStatutory": "这是 {jurisdiction} 自身的规定，并且按对方的当地时间计算。我们没有 {subdivision} 的时区信息，因此无从判断——而用我们自己的时钟是最糟的替代。",
+  "app.salesDial.blocker.timeZoneUnknown.title": "我们无法算出这家企业所在地现在几点。",
+  "app.salesDial.quotedInEnglish": "以英文原文引自法条本身——法律文本的译文读起来像法律，却并不是法律。",
+  "app.salesDial.space.allowedNoNumber.detail": "通话规则允许这通电话，但此记录中没有可拨打的号码。请重新加载；若仍然如此，说明该潜在客户需要补一个电话号码。",
+  "app.salesDial.space.cannotConfirm.title": "我们无法确认这通电话是被允许的。",
+  "app.salesDial.space.doNotContact.detail": "此记录已被标记为“请勿联系”，因此这里不提供拨号控件。",
+  "app.salesDial.space.doNotContact.title": "请勿联系",
+  "app.salesDial.space.doNotContactRecorded.noReason": "记录于 {date}。未记录任何原因。",
+  "app.salesDial.space.doNotContactRecorded.withReason": "记录于 {date}。原因：{reason}",
+  "app.salesDial.space.noDecision.detail": "本页面无法判断适用哪些通话规则，因此不会提供一个它无法负责的拨号控件。请重新加载页面。",
+  "app.salesDial.space.noNumber.detail": "此记录没有电话号码，因此这里没有可拨打的对象。发现流程找到这家企业时就没有号码。他们的网站或名录里可能有——把它填到该线索上，号码就会显示在这里。",
+  "app.salesDial.space.noNumber.title": "尚无销售电话号码。",
+  "app.salesDial.space.noPhone.detail": "此记录没有电话号码，因此这里没有可拨打的对象。",
+  "app.salesDial.space.noPhone.title": "无电话号码",
+  "app.salesDial.space.noProspect.title": "未打开任何潜在客户，因此没有可拨打的号码。",
+  "app.salesDial.space.noProspectEmpty.detail": "选择一个行业，认领一位潜在客户，通话按钮就会出现在这个位置。始终是这个位置——空着表示您还没有认领任何人，而不是通话功能被关闭了。",
+  "app.salesDial.space.noProspectHolding.detail": "您持有 {count}。从列表中选择一个，其号码以及您是否可以拨打，都会显示在这里。",
+  "app.salesDial.space.noProspectHolding.count": countedNoun("zh", { other: "位潜在客户" }),
+  "app.salesDial.space.optedOut.detail": "退出请求同时涵盖来电、短信和邮件，因此这里不提供拨号控件。只有超级管理员才能解除，并且需要书面理由——所以如果这看起来不对，请提出来，而不是另找一个号码。",
+  "app.salesDial.space.optedOut.title": "他们已要求我们停止联系。",
+  "app.salesDial.space.optedOutMeaning.detail": "退出请求同时涵盖来电、短信和邮件，因此不提供拨号控件。只有超级管理员凭书面理由才能解除。",
+  "app.salesDial.space.ourOwnNumber.detail": "拨打我们自己的基础设施会形成回路并对双向都计费，因此这里不提供拨号控件。如果这确实是潜在客户的真实号码，那它是被误列入了 FieldQuo 的某个号码清单。",
+  "app.salesDial.space.ourOwnNumber.title": "这是我们自己的号码之一。",
+  "app.salesDial.space.ready.title": "您现在可以拨打这一位。",
+  "app.salesDial.space.readyNoWindow.detail": "表中没有任何司法辖区对这一位设定通话时段。",
+  "app.salesDial.space.refusedForNow.title": "此刻您不能拨打这一位。",
+  "app.salesDial.space.refusedOutright.detail": "适用于这家企业的规则拒绝了这通电话，而且这不是一个稍后会开放的时段。原因见下方。",
+  "app.salesDial.space.refusedOutright.title": "您不能拨打这一位。",
+  "app.salesDial.space.unconfirmed.detail": "两个方向都没有得出结论，因此不提供拨号控件。这是我们所知的空白，而不是拒绝。",
+  "app.salesDial.space.unreadableDecision.detail": "通话规则返回了“{decision}”，本页面无法解读。对于无人能解释的答复，不提供拨号控件。",
+  "app.salesDial.unenforced.callCapUncounted.fix": "FieldQuo 目前还没有任何地方记录拨打尝试，因此系统不会替您统计这一上限——请自行记录。在设定该上限的两个州，这都可被私人提起诉讼。",
+  "app.salesDial.unenforced.callCapUncounted.title": "{jurisdiction} 允许在 24 小时内就同一事项最多致电这家企业 {cap} 次。",
+  "app.salesDial.warning.dataAcquisitionRule.title": "{jurisdiction} 对如何获取该潜在客户的资料作出了规定。",
+  "app.salesDial.warning.registrationOutstanding.title": "向 {jurisdiction} 拨打销售电话，FieldQuo 必须先完成注册。",
+  "app.salesDial.window.courtesyRule": "这一时段是 FieldQuo 自定的规则——{jurisdiction} 并未设定任何规定。",
+  "app.salesDial.window.everyDay": "每天 {start}–{end}，按潜在客户所在时区计。",
+  "app.salesDial.window.everyDayClosed": "每天 {start}–{end}，按潜在客户所在时区计，且 {closedDays} 完全不得致电。",
+  "app.salesDial.window.opensAt": "该时段将在 {opensAt} 开放。",
+  "app.salesDial.window.split": "工作日 {start}–{end}，周末 {weekendStart}–{weekendEnd}，按潜在客户所在时区计。",
+  "app.salesDial.window.splitClosed": "工作日 {start}–{end}，周末 {weekendStart}–{weekendEnd}，按潜在客户所在时区计，且 {closedDays} 完全不得致电。",
+  "app.salesDial.window.statutoryRule": "这一时段是 {jurisdiction} 自身的规定。",
+
+  // ── The queue's four research blocks ────────────────────────────────────
+  //
+  // The three layer headings ARE the interface for the rule that an
+  // inference must never read as a fact, and they were English on every
+  // screen. So are the two refusals that withhold an inference, the two that
+  // withhold a recommendation, and every sentence under "what we do not
+  // know".
+  //
+  // A fact row's VALUE is keyed only when the value is ours. A prospect's
+  // phone number, address and name are printed verbatim; translating data is
+  // inventing it.
+  "app.salesIntel.bucket.FRANCHISE_LIKELY": "很可能是加盟店",
+  "app.salesIntel.bucket.MULTI_TRADE": "多个行业",
+  "app.salesIntel.bucket.SMALL_BUSINESS": "小型企业",
+  "app.salesIntel.bucket.SOLO_LIKELY": "很可能是单干",
+  "app.salesIntel.confidencePercent": "把握 {percent}%",
+  "app.salesIntel.confidenceUntested": "没有把握度数值——请将其视为未经验证。",
+  "app.salesIntel.fact.businessName.label": "企业",
+  "app.salesIntel.fact.businessName.missing": "此记录中没有名称",
+  "app.salesIntel.fact.businessStatus.label": "仍在营业吗？",
+  "app.salesIntel.fact.businessStatus.missing": "来源没有说明。其中有些已经歇业。",
+  "app.salesIntel.fact.contactBasis.closed": "已关闭——请改为致电",
+  "app.salesIntel.fact.contactBasis.label": "邮件和短信",
+  "app.salesIntel.fact.location.label": "地点",
+  "app.salesIntel.fact.location.missing": "此记录中没有地址",
+  "app.salesIntel.fact.phone.label": "电话",
+  "app.salesIntel.fact.phone.missing": "此记录中没有电话号码",
+  "app.salesIntel.fact.rating.label": "评分",
+  "app.salesIntel.fact.rating.missing": "来源未列出评分",
+  "app.salesIntel.fact.rating.value": "5 分中的 {rating} 分",
+  "app.salesIntel.fact.reviews.label": "评价",
+  "app.salesIntel.fact.reviews.missing": "来源未列出评价数量",
+  "app.salesIntel.fact.reviews.value": countedNoun("zh", { other: "条评价" }),
+  "app.salesIntel.fact.source.label": "此条来自何处",
+  "app.salesIntel.fact.sourceUpdatedAt.label": "来源最后更新时间",
+  "app.salesIntel.fact.sourceUpdatedAt.missing": "来源未说明具体时间",
+  "app.salesIntel.fact.website.derivedConfirmed": "{site} — 推导得出，并已由该网站确认",
+  "app.salesIntel.fact.website.guessed": "{site} — 这是我们从执照邮箱推测出来的。没有人公布过它，该网站也未加以确认。",
+  "app.salesIntel.fact.website.hasOne": "有网站",
+  "app.salesIntel.fact.website.label": "网站",
+  "app.salesIntel.fact.website.listedUnchecked": "{url} — 已列出，尚未核查",
+  "app.salesIntel.fact.website.noneWeLooked": "没有网站——我们查过了",
+  "app.salesIntel.fact.website.sourceSilent": "来源未列出网站。这既可能是市场上的空白，也同样常常只是名录里的缺漏。",
+  "app.salesIntel.inference.refusalCarriesNumber": "这条推断里带着一个数字。存储的值是一种分类——“小团队”，绝不是“十二名员工”——因此它被扣下，而不会被当作数量读出。",
+  "app.salesIntel.inference.refusalNoConfidence": "推断只会连同我们的把握程度一起显示。这一条背后没有任何把握度引擎能识别的信号，因此没有数值可显示，该论断被扣下不予展示。",
+  "app.salesIntel.inference.sourceCall": "这是他们在通话中说的——第一手信息，但仍然只是推断。",
+  "app.salesIntel.inference.sourceObserved": "根据我们观察到的内容推导而来。",
+  "app.salesIntel.kind.company_scale": "公司规模",
+  "app.salesIntel.kind.trade": "行业",
+  "app.salesIntel.layer.fact.note": "事实。每一条要么是看到的，要么是特意去找而没有找到的。",
+  "app.salesIntel.layer.fact.title": "我们观察到的内容",
+  "app.salesIntel.layer.inference.note": "证据支持但并未证实的结论。切勿把它当作事实说出口。",
+  "app.salesIntel.layer.inference.title": "我们的推断",
+  "app.salesIntel.layer.recommendation.note": "基于上面两部分构建的论据。每一条都附带它被触发的原因。",
+  "app.salesIntel.layer.recommendation.title": "该推介什么",
+  "app.salesIntel.noLeadScore": "尚未为此潜在客户计算线索评分。",
+  "app.salesIntel.opportunity.refusalNoEvidence": "这条建议没有引用任何证据。它被显示为有问题，而不是被读出——背后空无一物的推介，正是证据门槛要拦下的那种泛泛销售套话。",
+  "app.salesIntel.opportunity.refusalNoReason": "这条建议没有附带任何理由，因此除了功能名称之外无话可说。",
+  "app.salesIntel.unknown.nothingInferred": "关于这家企业目前还没有任何推断。",
+  "app.salesIntel.unknown.softwareNeverCrawled": "我们不知道他们使用什么软件——还没有任何抓取访问过他们。",
+  "app.salesIntel.unnamedCapability": "未命名的能力",
+
+  // ── The disposition a rep picks after every single call ─────────────────
+  //
+  // Ten outcomes, each with the one line explaining what it does to the
+  // queue. lib/sales/calls/dispositions.js derives these keys from its own
+  // codes, so an eleventh outcome cannot ship English by omission — it fails
+  // check:sales-server-copy until this block has it.
+  "app.salesCall.disposition.bad_number.hint": "已停机，或者打到了完全不相干的人。",
+  "app.salesCall.disposition.bad_number.label": "号码有误或已停用",
+  "app.salesCall.disposition.busy.hint": "忙音，或者还没响铃就被切断。",
+  "app.salesCall.disposition.busy.label": "占线",
+  "app.salesCall.disposition.callback.hint": "他们同意的一个时间点。认领会保留到那时以及之后。",
+  "app.salesCall.disposition.callback.label": "他们让我回头再打",
+  "app.salesCall.disposition.do_not_call.hint": "尽量原样记下他们的原话。此项是永久性的。",
+  "app.salesCall.disposition.do_not_call.label": "要求不要再来电",
+  "app.salesCall.disposition.gatekeeper.hint": "接电话的是前台、合伙人或学徒。推介根本还没发生。",
+  "app.salesCall.disposition.gatekeeper.label": "有人接了，但不是老板",
+  "app.salesCall.disposition.no_answer.hint": "一直响到断线。没有人接，也没有留言机应答。",
+  "app.salesCall.disposition.no_answer.label": "无人接听",
+  "app.salesCall.disposition.not_a_fit.hint": "零售商、加盟总部、已停业、行业不对口。",
+  "app.salesCall.disposition.not_a_fit.label": "不是我们能销售的对象",
+  "app.salesCall.disposition.reached_interested.hint": "推介成功了。从此刻起这位潜在客户归您。",
+  "app.salesCall.disposition.reached_interested.label": "已通话——有兴趣",
+  "app.salesCall.disposition.reached_not_interested.hint": "他们听完并且拒绝了。下周不应再有别人打给他们。",
+  "app.salesCall.disposition.reached_not_interested.label": "已通话——没有兴趣",
+  "app.salesCall.disposition.voicemail.hint": "是您本人对着他们的留言机说话。绝不是录音播放。",
+  "app.salesCall.disposition.voicemail.label": "语音信箱——我留了言",
+
+  // ── Why a check-in draft exists ─────────────────────────────────────────
+  //
+  // The headline above a suggested check-in. `angle` alongside it is NOT
+  // keyed and must not be: it is an instruction to the drafter, not
+  // something a rep reads.
+  "app.salesCheckin.reason.all_good": "看起来没有任何问题",
+  "app.salesCheckin.reason.onboarding_unfinished": "他们一直没有完成初始设置",
+  "app.salesCheckin.reason.payment_failing": "他们的订阅扣款正在失败",
+  "app.salesCheckin.reason.payments_not_connected": "他们还无法收款",
+  "app.salesCheckin.reason.retention_milestone_near": "留存里程碑就快到了",
+  "app.salesCheckin.reason.setup_steps_outstanding": "他们的仪表板上还有未完成的设置步骤",
+  "app.salesCheckin.reason.trial_ends_before_retention": "他们的免费期在留存日期之前就结束了",
+  "app.salesCheckin.reason.unknown_state": "我们看不到他们目前的情况",
+
+  // ── How a rep is engaged, and where their money goes ────────────────────
+  //
+  // The payout screen was English throughout — the method names, what each
+  // one costs on the way, and the label on the field asking for the account.
+  // Being told in a language you do not read that fees depend on your
+  // account's country is worse than not being told.
+  "app.salesPay.engagement.employee.label": "员工",
+  "app.salesPay.engagement.employee.note": "列入工资单。带薪假会累积，法定款项由 FieldQuo 代扣代缴。",
+  "app.salesPay.engagement.freelancer.label": "自由职业者",
+  "app.salesPay.engagement.freelancer.note": "自行为佣金开具账单。没有带薪假、不累积年假，FieldQuo 也不代扣任何法定款项——由他们自行申报。",
+  "app.salesPay.method.bank_transfer.handleLabel": "账户信息，或 IBAN",
+  "app.salesPay.method.bank_transfer.label": "银行转账",
+  "app.salesPay.method.bank_transfer.note": "到账最慢，发送最便宜。最适合一次性支付较大批次的业务员。",
+  "app.salesPay.method.interac.handleLabel": "在 Interac 注册的电子邮箱地址",
+  "app.salesPay.method.interac.label": "Interac 电子转账",
+  "app.salesPay.method.interac.note": "仅限加拿大账户。通常免费且当日到账。",
+  "app.salesPay.method.paypal.handleLabel": "PayPal 电子邮箱地址",
+  "app.salesPay.method.paypal.label": "PayPal",
+  "app.salesPay.method.paypal.note": "以 PayPal 转账方式发送。手续费取决于收款账户所在国家和账户类型。",
+  "app.salesPay.method.upwork.handleLabel": "Upwork 合同或个人主页链接",
+  "app.salesPay.method.upwork.label": "Upwork",
+  "app.salesPay.method.upwork.note": "按合同里程碑放款。Upwork 会收取自己的费用并从到账金额中扣除，因此账目上的数字是 FieldQuo 发出的金额，而不是最终到账的金额。",
+  "app.salesPay.method.wise.handleLabel": "您 Wise 账户的电子邮箱地址，或您的 Wise 账户信息",
+  "app.salesPay.method.wise.label": "Wise",
+  "app.salesPay.method.wise.note": "最适合加拿大境外的业务员。按中间市场汇率兑换，费用事先明示，因此到账金额可预期——而且可以按您本国货币入账。",
+  "app.salesPay.milestone.activation": "已激活",
+  "app.salesPay.milestone.first_payment": "已续费",
+  "app.salesPay.milestone.retention": "仍在付费",
+  "app.salesPay.readiness.noEngagement.fix": "这决定了是否累积带薪假，以及 FieldQuo 是否代扣款项。这一点不会从其他任何信息推测出来。",
+  "app.salesPay.readiness.noEngagement.title": "还没有人说明这位业务员是自由职业者还是员工。",
+  "app.salesPay.readiness.noHandle.fix": "请填写收款去处：{field}。",
+  "app.salesPay.readiness.noHandle.title": "已选择 {method}，但没有可汇入的去处。",
+  "app.salesPay.readiness.noMethod.fix": "PayPal、Interac、银行转账或 Upwork 合同——由业务员自己选择。",
+  "app.salesPay.readiness.noMethod.title": "未记录任何付款方式。",
+
+  // ── Which entry closed a channel, and how it got there ──────────────────
+  //
+  // Sixteen whole sentences: two subjects times eight ways a request reached
+  // us. NOT one stem with a clause slotted into it — the verb agrees with
+  // the subject in five of these languages, and a domain-wide entry is
+  // plural in some and singular in others. The sentence is the unit; only
+  // the value and the date are placeholders.
+  "app.salesSuppression.dateNotRecorded": "未记录日期",
+  "app.salesSuppression.reason.detectedReply": "该潜在客户回信要求不要再发邮件。该请求对整个 FieldQuo 有效，而不仅仅是某位业务员手上的那份副本。",
+  "app.salesSuppression.reason.domain.call": "{value} 的所有人都已列入 FieldQuo 的请勿联系名单——他们在电话里提出了要求，{date}。该请求约束的是整个 FieldQuo，而不是某位业务员手上的那份副本。",
+  "app.salesSuppression.reason.domain.form": "{value} 的所有人都已列入 FieldQuo 的请勿联系名单——他们通过表单提出了要求，{date}。该请求约束的是整个 FieldQuo，而不是某位业务员手上的那份副本。",
+  "app.salesSuppression.reason.domain.import": "{value} 的所有人都已列入 FieldQuo 的请勿联系名单——从既有名单导入，{date}。该请求约束的是整个 FieldQuo，而不是某位业务员手上的那份副本。",
+  "app.salesSuppression.reason.domain.manual": "{value} 的所有人都已列入 FieldQuo 的请勿联系名单——由人工记录，{date}。该请求约束的是整个 FieldQuo，而不是某位业务员手上的那份副本。",
+  "app.salesSuppression.reason.domain.regulator": "{value} 的所有人都已列入 FieldQuo 的请勿联系名单——来自禁拨名单，{date}。该请求约束的是整个 FieldQuo，而不是某位业务员手上的那份副本。",
+  "app.salesSuppression.reason.domain.reply": "{value} 的所有人都已列入 FieldQuo 的请勿联系名单——他们回信要求我们停止，{date}。该请求约束的是整个 FieldQuo，而不是某位业务员手上的那份副本。",
+  "app.salesSuppression.reason.domain.sms": "{value} 的所有人都已列入 FieldQuo 的请勿联系名单——他们发送了 STOP 短信，{date}。该请求约束的是整个 FieldQuo，而不是某位业务员手上的那份副本。",
+  "app.salesSuppression.reason.domain.unrecorded": "{value} 的所有人都已列入 FieldQuo 的请勿联系名单——已记录，{date}。该请求约束的是整个 FieldQuo，而不是某位业务员手上的那份副本。",
+  "app.salesSuppression.reason.person.call": "{value} 已列入 FieldQuo 的请勿联系名单——他们在电话里提出了要求，{date}。该请求约束的是整个 FieldQuo，而不是某位业务员手上的那份副本。",
+  "app.salesSuppression.reason.person.form": "{value} 已列入 FieldQuo 的请勿联系名单——他们通过表单提出了要求，{date}。该请求约束的是整个 FieldQuo，而不是某位业务员手上的那份副本。",
+  "app.salesSuppression.reason.person.import": "{value} 已列入 FieldQuo 的请勿联系名单——从既有名单导入，{date}。该请求约束的是整个 FieldQuo，而不是某位业务员手上的那份副本。",
+  "app.salesSuppression.reason.person.manual": "{value} 已列入 FieldQuo 的请勿联系名单——由人工记录，{date}。该请求约束的是整个 FieldQuo，而不是某位业务员手上的那份副本。",
+  "app.salesSuppression.reason.person.regulator": "{value} 已列入 FieldQuo 的请勿联系名单——来自禁拨名单，{date}。该请求约束的是整个 FieldQuo，而不是某位业务员手上的那份副本。",
+  "app.salesSuppression.reason.person.reply": "{value} 已列入 FieldQuo 的请勿联系名单——他们回信要求我们停止，{date}。该请求约束的是整个 FieldQuo，而不是某位业务员手上的那份副本。",
+  "app.salesSuppression.reason.person.sms": "{value} 已列入 FieldQuo 的请勿联系名单——他们发送了 STOP 短信，{date}。该请求约束的是整个 FieldQuo，而不是某位业务员手上的那份副本。",
+  "app.salesSuppression.reason.person.unrecorded": "{value} 已列入 FieldQuo 的请勿联系名单——已记录，{date}。该请求约束的是整个 FieldQuo，而不是某位业务员手上的那份副本。",
+
+  // ── The only feedback a new sales hire gets ─────────────────────────────
+  //
+  // /sales/login and /sales/invite are the first FieldQuo screens somebody
+  // hired into sales ever sees, and every word on them was English whatever
+  // language they were hired in.
+  //
+  // Four invite refusals and not one generic "invalid link": "ask for a
+  // new invitation", "sign in with the password you set" and "ask a
+  // superadmin about your account" are three different instructions. The
+  // LOGIN refusal is deliberately single — telling the failures apart would
+  // tell a stranger which FieldQuo staff addresses are real.
+  "app.salesAuth.invite.accepted": "此邀请已被使用过。请用您设置的密码登录；若已忘记密码，请申请新的邀请。",
+  "app.salesAuth.invite.expired": "此邀请已过期。请让 FieldQuo 超级管理员重新发送一个。",
+  "app.salesAuth.invite.inactive": "此销售账户未激活。请向 FieldQuo 超级管理员咨询。",
+  "app.salesAuth.invite.unknown": "此邀请链接无效。请让 FieldQuo 超级管理员重新发送一个。",
+  "app.salesAuth.invite.weakPassword": "请设置至少 {minLength} 位字符的密码——该账户可以看到您带来的每一家公司。",
+  "app.salesAuth.login.invalid": "这些登录信息未被接受。",
+  "app.salesAuth.login.missingFields": "请输入您的电子邮箱地址和密码。",
+
+  // ── What fetchJson says when the server said nothing usable ─────────────
+  //
+  // The last thing anybody reads before giving up, on every screen in the
+  // product. A 4xx the ROUTE explained keeps the route's own sentence and
+  // never reaches these — overwriting a specific explanation with a generic
+  // one would be a downgrade wearing a translation's clothes.
+  "app.fetchError.failed": "请求未成功（代码 {status}）。",
+  "app.fetchError.forbidden": "您没有执行该操作的权限。",
+  "app.fetchError.network": "无法连接到服务器。请检查网络连接后重试。",
+  "app.fetchError.notFound": "该项不存在，或您无权查看。",
+  "app.fetchError.server": "我们这边出了问题（错误 {status}）。如果反复出现，请告诉支持团队您当时在做什么。",
+  "app.fetchError.tooMany": "尝试次数过多。请稍候再试。",
+  "app.fetchError.unauthorised": "您的会话已过期。请重新登录。",
+  "app.fetchError.unexpectedBody": "服务器返回了本页面无法解析的内容。",
+
+  // ── A note that cannot be saved ─────────────────────────────────────────
+  //
+  // lib/sales/notes/model.js has always sent a `code` beside its sentence;
+  // the panel now keys off it. The English mentioned a file path and a
+  // schema block, which is an instruction to an engineer rather than to the
+  // rep reading it, so the catalogue entry says what happened to their words
+  // instead. The path is still named on the screen, separately.
+  "app.salesNotes.unavailableModelMissing": "业务员笔记功能尚未启用——存放它们的数据表还没有创建。您输入的内容没有被保存。",
 };
 
 const it = {
@@ -61190,6 +63542,300 @@ const it = {
   "app.salesText.whenButton": "Quando",
   "app.salesText.putAway": "Riponi",
   "app.salesText.sendNow": "Invialo adesso",
+
+  // ══ Sentences the SERVER composes, which a rep reads ══════════════════
+  //
+  // Commit cf099363 translated every /sales screen. What it could not reach
+  // was the text those screens RECEIVE already written: refusals, labels and
+  // explanations composed in lib/ and app/api/ and rendered verbatim. A rep
+  // on Spanish read a Spanish frame around English content — the
+  // half-translated state that change existed to remove, moved one layer
+  // down.
+  //
+  // Those modules are pure and are executed by a dozen check scripts under
+  // bare node, so none of them can import a translator. What they emit
+  // instead is the NAME of the sentence plus the values it needs, and their
+  // English rides along as the fallback. These are the sentences those names
+  // point at.
+
+  // ── The dial region, and the compliance refusals behind it ──────────────
+  //
+  // Every sentence lib/sales/dialSpace.js and lib/sales/callingRules.js
+  // compose for a rep who is being told they may not make a call. This is
+  // refusal copy, which is the half of a product that most needs to be in
+  // the reader's own language: a rep who cannot read WHY has only the
+  // absence of a button to go on.
+  //
+  // What is NOT here, deliberately: the statutes themselves. A
+  // jurisdiction's citation, Arizona's flat prohibition, Texas's
+  // registration and bond are quoted from the primary source, and a machine
+  // translation of a legal text reads as the law without being it. Those
+  // stay in the language the legislature wrote them in and the screen labels
+  // them as quoted — app.salesDial.quotedInEnglish is that label.
+  "app.salesDial.blocker.callCapReached.fix": "Basta così per oggi. Il limite è per soggetto chiamato, non per addetto.",
+  "app.salesDial.blocker.callCapReached.title": "{jurisdiction} consente {cap} chiamate alla stessa attività sullo stesso argomento in 24 ore, e ne sono state fatte {made}.",
+  "app.salesDial.blocker.jurisdictionUnread.fix": "Il diritto federale non colma questa lacuna: le chiamate tra imprese sono del tutto esentate dalla Telemarketing Sales Rule, quindi la norma dello stato è l’unica che esista. Questo spetta al titolare: una lettura del diritto degli stati che si chiamano davvero. Finché non arriva, non si può confermare che sia consentito.",
+  "app.salesDial.blocker.jurisdictionUnread.title": "Nessuno ha letto la legge di {subdivision} sulla sollecitazione telefonica.",
+  "app.salesDial.blocker.jurisdictionUnverified.title": "Le regole di chiamata di {jurisdiction} non sono state verificate.",
+  "app.salesDial.blocker.locationUnknown.fix": "Gli orari di chiamata sono stabiliti dal luogo in cui squilla il telefono, e sotto non c’è alcuna norma federale a cui appoggiarsi: 16 CFR 310.6(b)(7) esenta le chiamate d’affari dall’intera Telemarketing Sales Rule. Finché questa scheda non riporta un paese e uno stato, nessuno può dire se sia consentito chiamarli.",
+  "app.salesDial.blocker.locationUnknown.title": "Non sappiamo in quale stato o provincia si trovi questa attività.",
+  "app.salesDial.blocker.outsideWindow.fixCourtesyOpens": "È una norma di FieldQuo: {jurisdiction} non ne impone alcuna. La fascia si apre alle {opensAt}. Non viene messo nulla in coda: sei tu a premere chiama.",
+  "app.salesDial.blocker.outsideWindow.fixCourtesyWait": "È una norma di FieldQuo: {jurisdiction} non ne impone alcuna. Aspetta la fascia oraria.",
+  "app.salesDial.blocker.outsideWindow.fixStatutoryOpens": "È la norma propria di {jurisdiction}. La fascia si apre alle {opensAt}. Non viene messo nulla in coda: sei tu a premere chiama.",
+  "app.salesDial.blocker.outsideWindow.fixStatutoryWait": "È la norma propria di {jurisdiction}. Aspetta la fascia oraria.",
+  "app.salesDial.blocker.outsideWindow.title": "Siamo fuori dalla fascia di chiamata dove si trovano.",
+  "app.salesDial.blocker.timeZoneAmbiguous.fixOpens": "In una parte di {subdivision} si è dentro la fascia di chiamata e nel resto fuori, e questa scheda non dice quale parte. Invece di indovinare la metà più popolosa, non si conferma nulla. È sicuro chiamare ovunque in {subdivision} a partire dalle {opensAt} — oppure chiedi loro dove si trovano e imposta il fuso orario sul contatto, che risponde esattamente a questo.",
+  "app.salesDial.blocker.timeZoneAmbiguous.fixUnknownOpening": "In una parte di {subdivision} si è dentro la fascia di chiamata e nel resto fuori, e questa scheda non dice quale parte. Invece di indovinare la metà più popolosa, non si conferma nulla. Aspetta il prossimo momento in cui le due metà concordano — oppure chiedi loro dove si trovano e imposta il fuso orario sul contatto, che risponde esattamente a questo.",
+  "app.salesDial.blocker.timeZoneAmbiguous.title": "{subdivision} si estende su più di un fuso orario, e in questo momento non concordano.",
+  "app.salesDial.blocker.timeZoneUnknown.fixCourtesy": "È una norma di FieldQuo, perché {jurisdiction} non ne impone alcuna, ed è espressa nella LORO ora locale. Non abbiamo alcun fuso orario per {subdivision}, quindi non c’è nulla da valutare — e il nostro orologio è il peggior sostituto disponibile.",
+  "app.salesDial.blocker.timeZoneUnknown.fixStatutory": "È la norma propria di {jurisdiction} ed è espressa nella LORO ora locale. Non abbiamo alcun fuso orario per {subdivision}, quindi non c’è nulla da valutare — e il nostro orologio è il peggior sostituto disponibile.",
+  "app.salesDial.blocker.timeZoneUnknown.title": "Non riusciamo a stabilire che ora sia dove si trova questa attività.",
+  "app.salesDial.quotedInEnglish": "Citato in inglese, dalla legge stessa: la traduzione di un testo giuridico si leggerebbe come la legge pur non essendolo.",
+  "app.salesDial.space.allowedNoNumber.detail": "Le regole di chiamata consentono questa chiamata, ma questa scheda non riporta alcun numero da comporre. Ricarica; se persiste, al potenziale cliente serve un numero di telefono.",
+  "app.salesDial.space.cannotConfirm.title": "Non possiamo confermare che questa chiamata sia consentita.",
+  "app.salesDial.space.doNotContact.detail": "Questa scheda è contrassegnata come «non contattare», quindi non viene offerto alcun comando di chiamata.",
+  "app.salesDial.space.doNotContact.title": "Non contattare",
+  "app.salesDial.space.doNotContactRecorded.noReason": "Registrato il {date}. Nessun motivo è stato annotato.",
+  "app.salesDial.space.doNotContactRecorded.withReason": "Registrato il {date}. Motivo: {reason}",
+  "app.salesDial.space.noDecision.detail": "Questa schermata non è riuscita a stabilire quali regole di chiamata si applichino, quindi non offre un comando di chiamata di cui non può rispondere. Ricarica la pagina.",
+  "app.salesDial.space.noNumber.detail": "Questa scheda non riporta alcun numero di telefono, quindi da qui non c’è nulla da chiamare. La ricerca ha trovato l’attività senza numero. Potrebbe essere sul loro sito o in un elenco: inseriscilo nel loro contatto e comparirà qui.",
+  "app.salesDial.space.noNumber.title": "Ancora nessun numero commerciale.",
+  "app.salesDial.space.noPhone.detail": "Questa scheda non riporta alcun numero di telefono, quindi da qui non c’è nulla da chiamare.",
+  "app.salesDial.space.noPhone.title": "Nessun numero di telefono",
+  "app.salesDial.space.noProspect.title": "Nessun potenziale cliente aperto, quindi non c’è nulla da chiamare.",
+  "app.salesDial.space.noProspectEmpty.detail": "Scegli un mestiere, prendi in carico un potenziale cliente e il pulsante di chiamata compare in questo punto. È sempre questo punto: se è vuoto vuol dire che non hai preso in carico nessuno, non che le chiamate siano disattivate.",
+  "app.salesDial.space.noProspectHolding.detail": "Hai {count}. Scegline uno dall’elenco: il suo numero e se puoi chiamarlo compaiono proprio qui.",
+  "app.salesDial.space.noProspectHolding.count": countedNoun("it", { one: "potenziale cliente", other: "potenziali clienti" }),
+  "app.salesDial.space.optedOut.detail": "Un’opposizione copre chiamate, messaggi ed e-mail, quindi qui non viene offerto alcun comando di chiamata. Solo un superamministratore può revocarla, e serve un motivo scritto: se ti sembra sbagliato, segnalalo invece di cercare un altro numero.",
+  "app.salesDial.space.optedOut.title": "Ci hanno chiesto di smettere.",
+  "app.salesDial.space.optedOutMeaning.detail": "Un’opposizione copre chiamate, messaggi ed e-mail, quindi non viene offerto alcun comando di chiamata. Solo un superamministratore può revocarla, con un motivo scritto.",
+  "app.salesDial.space.ourOwnNumber.detail": "Chiamare la nostra stessa infrastruttura crea un anello e addebita entrambe le tratte, quindi qui non viene offerto alcun comando di chiamata. Se questo è davvero il numero del potenziale cliente, è finito per errore in uno degli elenchi di numeri di FieldQuo.",
+  "app.salesDial.space.ourOwnNumber.title": "Questo è uno dei nostri numeri.",
+  "app.salesDial.space.ready.title": "Puoi chiamarlo adesso.",
+  "app.salesDial.space.readyNoWindow.detail": "Nessuna giurisdizione della tabella impone una fascia oraria per questo.",
+  "app.salesDial.space.refusedForNow.title": "In questo momento non puoi chiamarlo.",
+  "app.salesDial.space.refusedOutright.detail": "La norma che si applica a questa attività rifiuta questa chiamata, e non è una fascia oraria che si apre più tardi. Il motivo è qui sotto.",
+  "app.salesDial.space.refusedOutright.title": "Non puoi chiamarlo.",
+  "app.salesDial.space.unconfirmed.detail": "Non è stato stabilito nulla né in un senso né nell’altro, quindi non viene offerto alcun comando di chiamata. È una lacuna in ciò che sappiamo, non un rifiuto.",
+  "app.salesDial.space.unreadableDecision.detail": "Le regole di chiamata hanno risposto «{decision}», e questa schermata non sa interpretarlo. Su una risposta che nessuno può leggere non viene offerto alcun comando di chiamata.",
+  "app.salesDial.unenforced.callCapUncounted.fix": "Nulla in FieldQuo registra ancora i tentativi di chiamata, quindi questo limite non viene conteggiato per te: tienine tu il conto. Nei due stati che lo impongono dà luogo a un’azione privata.",
+  "app.salesDial.unenforced.callCapUncounted.title": "{jurisdiction} consente al massimo {cap} chiamate a questa attività sullo stesso argomento in 24 ore.",
+  "app.salesDial.warning.dataAcquisitionRule.title": "{jurisdiction} regola il modo in cui si possono ottenere i dati di questo potenziale cliente.",
+  "app.salesDial.warning.registrationOutstanding.title": "FieldQuo deve essere registrata per effettuare chiamate commerciali verso {jurisdiction}.",
+  "app.salesDial.window.courtesyRule": "Questi orari sono una norma di FieldQuo: {jurisdiction} non ne impone alcuna.",
+  "app.salesDial.window.everyDay": "Dalle {start} alle {end} tutti i giorni, nel fuso orario del potenziale cliente.",
+  "app.salesDial.window.everyDayClosed": "Dalle {start} alle {end} tutti i giorni, nel fuso orario del potenziale cliente, e nessuna chiamata di {closedDays}.",
+  "app.salesDial.window.opensAt": "Si apre alle {opensAt}.",
+  "app.salesDial.window.split": "Dalle {start} alle {end} nei giorni feriali e dalle {weekendStart} alle {weekendEnd} nei fine settimana, nel fuso orario del potenziale cliente.",
+  "app.salesDial.window.splitClosed": "Dalle {start} alle {end} nei giorni feriali e dalle {weekendStart} alle {weekendEnd} nei fine settimana, nel fuso orario del potenziale cliente, e nessuna chiamata di {closedDays}.",
+  "app.salesDial.window.statutoryRule": "Questi orari sono la norma propria di {jurisdiction}.",
+
+  // ── The queue's four research blocks ────────────────────────────────────
+  //
+  // The three layer headings ARE the interface for the rule that an
+  // inference must never read as a fact, and they were English on every
+  // screen. So are the two refusals that withhold an inference, the two that
+  // withhold a recommendation, and every sentence under "what we do not
+  // know".
+  //
+  // A fact row's VALUE is keyed only when the value is ours. A prospect's
+  // phone number, address and name are printed verbatim; translating data is
+  // inventing it.
+  "app.salesIntel.bucket.FRANCHISE_LIKELY": "Probabilmente un franchising",
+  "app.salesIntel.bucket.MULTI_TRADE": "Più mestieri",
+  "app.salesIntel.bucket.SMALL_BUSINESS": "Piccola impresa",
+  "app.salesIntel.bucket.SOLO_LIKELY": "Probabilmente da solo",
+  "app.salesIntel.confidencePercent": "{percent} % di confidenza",
+  "app.salesIntel.confidenceUntested": "Nessun valore di confidenza: consideralo non verificato.",
+  "app.salesIntel.fact.businessName.label": "Attività",
+  "app.salesIntel.fact.businessName.missing": "Nessun nome in questa scheda",
+  "app.salesIntel.fact.businessStatus.label": "Ancora in attività?",
+  "app.salesIntel.fact.businessStatus.missing": "La fonte non lo diceva. Alcune di queste hanno chiuso.",
+  "app.salesIntel.fact.contactBasis.closed": "Chiusi: chiama invece",
+  "app.salesIntel.fact.contactBasis.label": "E-mail e messaggi",
+  "app.salesIntel.fact.location.label": "Dove",
+  "app.salesIntel.fact.location.missing": "Nessun indirizzo in questa scheda",
+  "app.salesIntel.fact.phone.label": "Telefono",
+  "app.salesIntel.fact.phone.missing": "Nessun numero di telefono in questa scheda",
+  "app.salesIntel.fact.rating.label": "Valutazione",
+  "app.salesIntel.fact.rating.missing": "La fonte non riportava alcuna valutazione",
+  "app.salesIntel.fact.rating.value": "{rating} su 5",
+  "app.salesIntel.fact.reviews.label": "Recensioni",
+  "app.salesIntel.fact.reviews.missing": "La fonte non riportava il numero di recensioni",
+  "app.salesIntel.fact.reviews.value": countedNoun("it", { one: "recensione", other: "recensioni" }),
+  "app.salesIntel.fact.source.label": "Da dove arriva",
+  "app.salesIntel.fact.sourceUpdatedAt.label": "Ultimo aggiornamento della fonte",
+  "app.salesIntel.fact.sourceUpdatedAt.missing": "La fonte non diceva quando",
+  "app.salesIntel.fact.website.derivedConfirmed": "{site} — ricavato, e il sito lo ha confermato",
+  "app.salesIntel.fact.website.guessed": "{site} — l’abbiamo INDOVINATO dall’e-mail della licenza. Nessuno l’ha pubblicato e il sito non l’ha confermato.",
+  "app.salesIntel.fact.website.hasOne": "Ha un sito web",
+  "app.salesIntel.fact.website.label": "Sito web",
+  "app.salesIntel.fact.website.listedUnchecked": "{url} — indicato, non ancora verificato",
+  "app.salesIntel.fact.website.noneWeLooked": "Nessun sito web: abbiamo controllato",
+  "app.salesIntel.fact.website.sourceSilent": "La fonte non riportava alcun sito web. È tanto spesso una lacuna dell’elenco quanto una lacuna del mercato.",
+  "app.salesIntel.inference.refusalCarriesNumber": "Questa deduzione contiene un numero. Il valore memorizzato è una classificazione — «squadra piccola», mai «dodici dipendenti» — quindi viene trattenuto anziché letto come un conteggio.",
+  "app.salesIntel.inference.refusalNoConfidence": "Una deduzione viene mostrata solo insieme a quanto ne siamo sicuri. Dietro a questa non c’è alcun segnale riconosciuto dal motore di confidenza, quindi non c’è alcun valore da mostrare e l’affermazione viene trattenuta.",
+  "app.salesIntel.inference.sourceCall": "L’hanno detto durante una chiamata: di prima mano, e resta comunque una deduzione.",
+  "app.salesIntel.inference.sourceObserved": "Ricavato da ciò che abbiamo osservato.",
+  "app.salesIntel.kind.company_scale": "Dimensione dell’azienda",
+  "app.salesIntel.kind.trade": "Mestiere",
+  "app.salesIntel.layer.fact.note": "Fatti. Ciascuno è stato visto, oppure cercato di proposito e non trovato.",
+  "app.salesIntel.layer.fact.title": "Ciò che abbiamo osservato",
+  "app.salesIntel.layer.inference.note": "Conclusioni che gli indizi sostengono ma non dimostrano. Non dirle mai come se fossero fatti.",
+  "app.salesIntel.layer.inference.title": "Ciò che deduciamo",
+  "app.salesIntel.layer.recommendation.note": "Argomenti costruiti sui due blocchi qui sopra. Ognuno porta con sé il motivo per cui è scattato.",
+  "app.salesIntel.layer.recommendation.title": "Cosa proporre",
+  "app.salesIntel.noLeadScore": "Per questo potenziale cliente non è stato calcolato alcun punteggio.",
+  "app.salesIntel.opportunity.refusalNoEvidence": "Questa raccomandazione non cita alcuna prova. Viene mostrata come difettosa anziché letta: una proposta senza nulla dietro è esattamente il riempitivo commerciale generico che il controllo delle prove esiste per fermare.",
+  "app.salesIntel.opportunity.refusalNoReason": "Questa raccomandazione non porta alcun motivo, quindi non c’è nulla da dire oltre al nome della funzione.",
+  "app.salesIntel.unknown.nothingInferred": "Su questa attività non è ancora stato dedotto nulla.",
+  "app.salesIntel.unknown.softwareNeverCrawled": "Non sappiamo quale software usino: nulla li ha analizzati.",
+  "app.salesIntel.unnamedCapability": "Funzionalità senza nome",
+
+  // ── The disposition a rep picks after every single call ─────────────────
+  //
+  // Ten outcomes, each with the one line explaining what it does to the
+  // queue. lib/sales/calls/dispositions.js derives these keys from its own
+  // codes, so an eleventh outcome cannot ship English by omission — it fails
+  // check:sales-server-copy until this block has it.
+  "app.salesCall.disposition.bad_number.hint": "Disattivato, oppure è finita da tutt’altra persona.",
+  "app.salesCall.disposition.bad_number.label": "Numero errato o non attivo",
+  "app.salesCall.disposition.busy.hint": "Segnale di occupato, oppure interrotta prima di squillare.",
+  "app.salesCall.disposition.busy.label": "Occupato",
+  "app.salesCall.disposition.callback.hint": "Un orario che hanno accettato. La presa in carico resta fino ad allora e oltre.",
+  "app.salesCall.disposition.callback.label": "Mi hanno chiesto di richiamare",
+  "app.salesCall.disposition.do_not_call.hint": "Le loro stesse parole, il più fedelmente possibile. Questo è definitivo.",
+  "app.salesCall.disposition.do_not_call.label": "Ha chiesto di non essere più chiamato",
+  "app.salesCall.disposition.gatekeeper.hint": "Un receptionist, un socio, un apprendista. La presentazione non c’è stata.",
+  "app.salesCall.disposition.gatekeeper.label": "Ha risposto qualcuno, ma non il titolare",
+  "app.salesCall.disposition.no_answer.hint": "Ha squillato a vuoto. Nessuno ha risposto e non è partita alcuna segreteria.",
+  "app.salesCall.disposition.no_answer.label": "Nessuna risposta",
+  "app.salesCall.disposition.not_a_fit.hint": "Un rivenditore, la sede di un franchising, un’attività chiusa, il mestiere sbagliato.",
+  "app.salesCall.disposition.not_a_fit.label": "Non è un’attività a cui possiamo vendere",
+  "app.salesCall.disposition.reached_interested.hint": "La presentazione ha funzionato. Da qui in poi questo potenziale cliente è tuo.",
+  "app.salesCall.disposition.reached_interested.label": "Ho parlato con loro: interessati",
+  "app.salesCall.disposition.reached_not_interested.hint": "Hanno ascoltato e hanno detto no. Nessun altro dovrebbe chiamarli la settimana prossima.",
+  "app.salesCall.disposition.reached_not_interested.label": "Ho parlato con loro: non interessati",
+  "app.salesCall.disposition.voicemail.hint": "Hai parlato tu stesso alla loro segreteria. Mai una registrazione.",
+  "app.salesCall.disposition.voicemail.label": "Segreteria: ho lasciato un messaggio",
+
+  // ── Why a check-in draft exists ─────────────────────────────────────────
+  //
+  // The headline above a suggested check-in. `angle` alongside it is NOT
+  // keyed and must not be: it is an instruction to the drafter, not
+  // something a rep reads.
+  "app.salesCheckin.reason.all_good": "Non sembra esserci nulla che non va",
+  "app.salesCheckin.reason.onboarding_unfinished": "Non hanno mai completato l’avvio",
+  "app.salesCheckin.reason.payment_failing": "Il pagamento del loro abbonamento non va a buon fine",
+  "app.salesCheckin.reason.payments_not_connected": "Non possono ancora incassare un pagamento",
+  "app.salesCheckin.reason.retention_milestone_near": "Il traguardo di fidelizzazione è vicino",
+  "app.salesCheckin.reason.setup_steps_outstanding": "Sulla loro dashboard ci sono ancora passaggi di configurazione aperti",
+  "app.salesCheckin.reason.trial_ends_before_retention": "Il loro periodo gratuito finisce prima della data di fidelizzazione",
+  "app.salesCheckin.reason.unknown_state": "Non riusciamo a vedere come stanno andando",
+
+  // ── How a rep is engaged, and where their money goes ────────────────────
+  //
+  // The payout screen was English throughout — the method names, what each
+  // one costs on the way, and the label on the field asking for the account.
+  // Being told in a language you do not read that fees depend on your
+  // account's country is worse than not being told.
+  "app.salesPay.engagement.employee.label": "Dipendente",
+  "app.salesPay.engagement.employee.note": "In busta paga. I congedi retribuiti maturano e le trattenute di legge spettano a FieldQuo, che le trattiene e le versa.",
+  "app.salesPay.engagement.freelancer.label": "Libero professionista",
+  "app.salesPay.engagement.freelancer.note": "Fattura la propria provvigione. Nessun congedo retribuito, nessuna maturazione di ferie, nessuna trattenuta di legge da parte di FieldQuo: se ne occupa da sé.",
+  "app.salesPay.method.bank_transfer.handleLabel": "Dati del conto, oppure l’IBAN",
+  "app.salesPay.method.bank_transfer.label": "Bonifico bancario",
+  "app.salesPay.method.bank_transfer.note": "Il più lento ad arrivare e il più economico da inviare. Ideale quando a un addetto viene pagato un lotto consistente.",
+  "app.salesPay.method.interac.handleLabel": "Indirizzo e-mail registrato per Interac",
+  "app.salesPay.method.interac.label": "Interac e-Transfer",
+  "app.salesPay.method.interac.note": "Solo conti canadesi. Di solito gratuito e in giornata.",
+  "app.salesPay.method.paypal.handleLabel": "Indirizzo e-mail PayPal",
+  "app.salesPay.method.paypal.label": "PayPal",
+  "app.salesPay.method.paypal.note": "Inviato come bonifico PayPal. Le commissioni dipendono dal paese e dal tipo di conto ricevente.",
+  "app.salesPay.method.upwork.handleLabel": "Link del contratto o del profilo Upwork",
+  "app.salesPay.method.upwork.label": "Upwork",
+  "app.salesPay.method.upwork.note": "Erogato in base ai traguardi del contratto. Si applica la commissione di Upwork, che viene sottratta da ciò che arriva: la cifra nel registro è quella che FieldQuo invia, non quella che arriva.",
+  "app.salesPay.method.wise.handleLabel": "L’indirizzo e-mail del tuo conto Wise, oppure i dati del tuo conto Wise",
+  "app.salesPay.method.wise.label": "Wise",
+  "app.salesPay.method.wise.note": "L’opzione migliore per un addetto fuori dal Canada. Converte al tasso medio di mercato con la commissione mostrata in anticipo, quindi ciò che arriva è prevedibile — e può arrivare nella tua valuta.",
+  "app.salesPay.milestone.activation": "Attivata",
+  "app.salesPay.milestone.first_payment": "Rinnovata",
+  "app.salesPay.milestone.retention": "Paga ancora",
+  "app.salesPay.readiness.noEngagement.fix": "Da questo dipende se maturano congedi retribuiti e se FieldQuo trattiene qualcosa. Non si deduce da nient’altro.",
+  "app.salesPay.readiness.noEngagement.title": "Nessuno ha detto se questo addetto sia un libero professionista o un dipendente.",
+  "app.salesPay.readiness.noHandle.fix": "Aggiungi la destinazione: {field}.",
+  "app.salesPay.readiness.noHandle.title": "È stato scelto {method}, ma non c’è nessun posto dove inviarlo.",
+  "app.salesPay.readiness.noMethod.fix": "PayPal, Interac, un bonifico bancario o un contratto Upwork: sceglie l’addetto.",
+  "app.salesPay.readiness.noMethod.title": "Nessun metodo di pagamento registrato.",
+
+  // ── Which entry closed a channel, and how it got there ──────────────────
+  //
+  // Sixteen whole sentences: two subjects times eight ways a request reached
+  // us. NOT one stem with a clause slotted into it — the verb agrees with
+  // the subject in five of these languages, and a domain-wide entry is
+  // plural in some and singular in others. The sentence is the unit; only
+  // the value and the date are placeholders.
+  "app.salesSuppression.dateNotRecorded": "data non registrata",
+  "app.salesSuppression.reason.detectedReply": "Questo potenziale cliente ha risposto chiedendo di non ricevere più e-mail. Quella richiesta vale per FieldQuo, non solo per la copia che ne ha un singolo addetto.",
+  "app.salesSuppression.reason.domain.call": "Tutti a {value} sono nell’elenco «non contattare» di FieldQuo — l’hanno chiesto al telefono, il {date}. Quella richiesta vincola FieldQuo, non la copia che ne ha un singolo addetto.",
+  "app.salesSuppression.reason.domain.form": "Tutti a {value} sono nell’elenco «non contattare» di FieldQuo — l’hanno chiesto tramite un modulo, il {date}. Quella richiesta vincola FieldQuo, non la copia che ne ha un singolo addetto.",
+  "app.salesSuppression.reason.domain.import": "Tutti a {value} sono nell’elenco «non contattare» di FieldQuo — caricato da un elenco esistente, il {date}. Quella richiesta vincola FieldQuo, non la copia che ne ha un singolo addetto.",
+  "app.salesSuppression.reason.domain.manual": "Tutti a {value} sono nell’elenco «non contattare» di FieldQuo — registrato a mano, il {date}. Quella richiesta vincola FieldQuo, non la copia che ne ha un singolo addetto.",
+  "app.salesSuppression.reason.domain.regulator": "Tutti a {value} sono nell’elenco «non contattare» di FieldQuo — da un elenco di esclusione dalle chiamate, il {date}. Quella richiesta vincola FieldQuo, non la copia che ne ha un singolo addetto.",
+  "app.salesSuppression.reason.domain.reply": "Tutti a {value} sono nell’elenco «non contattare» di FieldQuo — hanno risposto chiedendoci di smettere, il {date}. Quella richiesta vincola FieldQuo, non la copia che ne ha un singolo addetto.",
+  "app.salesSuppression.reason.domain.sms": "Tutti a {value} sono nell’elenco «non contattare» di FieldQuo — hanno inviato STOP via SMS, il {date}. Quella richiesta vincola FieldQuo, non la copia che ne ha un singolo addetto.",
+  "app.salesSuppression.reason.domain.unrecorded": "Tutti a {value} sono nell’elenco «non contattare» di FieldQuo — registrato, il {date}. Quella richiesta vincola FieldQuo, non la copia che ne ha un singolo addetto.",
+  "app.salesSuppression.reason.person.call": "{value} è nell’elenco «non contattare» di FieldQuo — l’hanno chiesto al telefono, il {date}. Quella richiesta vincola FieldQuo, non la copia che ne ha un singolo addetto.",
+  "app.salesSuppression.reason.person.form": "{value} è nell’elenco «non contattare» di FieldQuo — l’hanno chiesto tramite un modulo, il {date}. Quella richiesta vincola FieldQuo, non la copia che ne ha un singolo addetto.",
+  "app.salesSuppression.reason.person.import": "{value} è nell’elenco «non contattare» di FieldQuo — caricato da un elenco esistente, il {date}. Quella richiesta vincola FieldQuo, non la copia che ne ha un singolo addetto.",
+  "app.salesSuppression.reason.person.manual": "{value} è nell’elenco «non contattare» di FieldQuo — registrato a mano, il {date}. Quella richiesta vincola FieldQuo, non la copia che ne ha un singolo addetto.",
+  "app.salesSuppression.reason.person.regulator": "{value} è nell’elenco «non contattare» di FieldQuo — da un elenco di esclusione dalle chiamate, il {date}. Quella richiesta vincola FieldQuo, non la copia che ne ha un singolo addetto.",
+  "app.salesSuppression.reason.person.reply": "{value} è nell’elenco «non contattare» di FieldQuo — hanno risposto chiedendoci di smettere, il {date}. Quella richiesta vincola FieldQuo, non la copia che ne ha un singolo addetto.",
+  "app.salesSuppression.reason.person.sms": "{value} è nell’elenco «non contattare» di FieldQuo — hanno inviato STOP via SMS, il {date}. Quella richiesta vincola FieldQuo, non la copia che ne ha un singolo addetto.",
+  "app.salesSuppression.reason.person.unrecorded": "{value} è nell’elenco «non contattare» di FieldQuo — registrato, il {date}. Quella richiesta vincola FieldQuo, non la copia che ne ha un singolo addetto.",
+
+  // ── The only feedback a new sales hire gets ─────────────────────────────
+  //
+  // /sales/login and /sales/invite are the first FieldQuo screens somebody
+  // hired into sales ever sees, and every word on them was English whatever
+  // language they were hired in.
+  //
+  // Four invite refusals and not one generic "invalid link": "ask for a
+  // new invitation", "sign in with the password you set" and "ask a
+  // superadmin about your account" are three different instructions. The
+  // LOGIN refusal is deliberately single — telling the failures apart would
+  // tell a stranger which FieldQuo staff addresses are real.
+  "app.salesAuth.invite.accepted": "Questo invito è già stato usato. Accedi con la password che hai impostato, oppure chiedi un nuovo invito se l’hai dimenticata.",
+  "app.salesAuth.invite.expired": "Questo invito è scaduto. Chiedi a un superamministratore FieldQuo di inviartene uno nuovo.",
+  "app.salesAuth.invite.inactive": "Questo account commerciale non è attivo. Chiedi informazioni a un superamministratore FieldQuo.",
+  "app.salesAuth.invite.unknown": "Questo link di invito non è valido. Chiedi a un superamministratore FieldQuo di inviartene uno nuovo.",
+  "app.salesAuth.invite.weakPassword": "Scegli una password di almeno {minLength} caratteri: questo account vede tutte le aziende che hai portato.",
+  "app.salesAuth.login.invalid": "Questi dati di accesso non sono stati accettati.",
+  "app.salesAuth.login.missingFields": "Inserisci il tuo indirizzo e-mail e la tua password.",
+
+  // ── What fetchJson says when the server said nothing usable ─────────────
+  //
+  // The last thing anybody reads before giving up, on every screen in the
+  // product. A 4xx the ROUTE explained keeps the route's own sentence and
+  // never reaches these — overwriting a specific explanation with a generic
+  // one would be a downgrade wearing a translation's clothes.
+  "app.fetchError.failed": "La richiesta non è andata a buon fine (codice {status}).",
+  "app.fetchError.forbidden": "Non hai il permesso di farlo.",
+  "app.fetchError.network": "Non è stato possibile raggiungere il server. Controlla la connessione e riprova.",
+  "app.fetchError.notFound": "Non esiste, oppure non puoi vederlo.",
+  "app.fetchError.server": "Qualcosa è andato storto da parte nostra (errore {status}). Se continua a succedere, di’ all’assistenza cosa stavi facendo.",
+  "app.fetchError.tooMany": "Troppi tentativi. Aspetta un momento e riprova.",
+  "app.fetchError.unauthorised": "La tua sessione è scaduta. Accedi di nuovo.",
+  "app.fetchError.unexpectedBody": "Il server ha restituito qualcosa che questa schermata non è riuscita a leggere.",
+
+  // ── A note that cannot be saved ─────────────────────────────────────────
+  //
+  // lib/sales/notes/model.js has always sent a `code` beside its sentence;
+  // the panel now keys off it. The English mentioned a file path and a
+  // schema block, which is an instruction to an engineer rather than to the
+  // rep reading it, so the catalogue entry says what happened to their words
+  // instead. The path is still named on the screen, separately.
+  "app.salesNotes.unavailableModelMissing": "Le note degli addetti non sono ancora attive: la tabella in cui vivono non è stata creata. Nulla di ciò che hai scritto è stato salvato.",
 };
 
 export const APP_MESSAGES = { en, fr, es, uk, pa, tl, de, zh, it };

@@ -67,7 +67,7 @@ function when(value) {
 
 export default function SalesLeadPage({ params }) {
   const { id } = use(params);
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -131,7 +131,20 @@ export default function SalesLeadPage({ params }) {
   // the phone, texted STOP, a regulator's list. Until 2026-09-03 the route sent
   // this and nothing read it, and the screen printed "they replied with an
   // unsubscribe request" over all seven mechanisms.
-  const optedOutReason = data?.optedOutReason;
+  // Resolved against the rep's catalogue when the route sent the key that
+  // composed it — see app/sales/threads/[id]/page.js for the whole argument.
+  // The server's English is the fallback, never a sentence invented here.
+  const optedOutReason = data?.optedOutReasonKey
+    ? t(data.optedOutReasonKey, {
+        ...(data.optedOutReasonParams || {}),
+        // A suppression row with no requestedAt cannot be written by
+        // suppress(), but the column is nullable — so the slot gets a
+        // translated "not recorded" rather than the word "null" or an
+        // invented day on a compliance notice.
+        date:
+          data.optedOutReasonParams?.date || t("app.salesSuppression.dateNotRecorded"),
+      })
+    : data?.optedOutReason;
 
   async function patch(body) {
     setBusy(true);
@@ -253,6 +266,11 @@ export default function SalesLeadPage({ params }) {
         },
         timeZone: call.callingContext.timeZone,
         now: new Date(clock ? clock.serverMs + (Date.now() - clock.localMs) : Date.now()),
+        // The reader's language, for the ONE string this produces that is a
+        // formatted instant rather than a sentence — "It opens at 08:00 on Tue
+        // 8 Sep". Everything else travels as a catalogue key; a date cannot,
+        // so it is formatted through CLDR here where the language is known.
+        language,
       })
     : null;
   // `tick` is read so the window above is re-judged every thirty seconds.
@@ -585,10 +603,11 @@ export default function SalesLeadPage({ params }) {
             {/* The computed sentence, not an invented one. A domain-wide entry
                 and a regulator's list are both reachable here, and neither is
                 "this person unsubscribed" — telling a rep it was is how they
-                ring back to argue about an email nobody sent. It therefore
-                renders in the language the route composed it in, English
-                today: keying it here would mean re-deciding which of the seven
-                sources closed the channel, and that decision is the route's. */}
+                ring back to argue about an email nobody sent. Which of the
+                eight sources closed the channel is still the route's decision
+                and not this screen's; the route now sends the catalogue key it
+                composed the sentence from, so the sentence arrives in the
+                rep's own language without this screen re-deciding anything. */}
             {optedOutReason ? (
               <p className="text-red-800 dark:text-red-300/90">{optedOutReason}</p>
             ) : null}

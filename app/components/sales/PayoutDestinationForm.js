@@ -130,8 +130,26 @@ export default function PayoutDestinationForm({ showEngagement = true, onSaved }
               <div className="flex gap-2">
                 <AlertTriangle size={16} className="shrink-0 mt-0.5" aria-hidden="true" />
                 <div>
-                  <div className="font-semibold">{p.title}</div>
-                  <p className="mt-0.5">{p.fix}</p>
+                  {/* The problem was reached by lib/sales/payoutDetails.js and
+                      is still its verdict; the key it names is how the verdict
+                      gets read in the rep's own language. `no_handle` needs
+                      two names resolved first — the method and the field it is
+                      asking for — because both are catalogue entries and
+                      neither is safe to lower-case by English rules. */}
+                  <div className="font-semibold">
+                    {p.titleKey
+                      ? t(p.titleKey, p.title, {
+                          method: p.params?.methodKey ? t(p.params.methodKey) : "",
+                        })
+                      : p.title}
+                  </div>
+                  <p className="mt-0.5">
+                    {p.fixKey
+                      ? t(p.fixKey, p.fix, {
+                          field: p.params?.handleKey ? t(p.params.handleKey) : "",
+                        })
+                      : p.fix}
+                  </p>
                 </div>
               </div>
             </div>
@@ -196,10 +214,12 @@ export default function PayoutDestinationForm({ showEngagement = true, onSaved }
                   className="mt-1 shrink-0"
                 />
                 <span className="min-w-0">
-                  <span className="block font-medium text-foreground">{m.label}</span>
+                  <span className="block font-medium text-foreground">{t(m.labelKey, m.label)}</span>
                   {/* Their own trade-offs, stated before the choice rather than
                       discovered when the money is short. */}
-                  <span className="block text-sm text-muted-foreground mt-0.5">{m.note}</span>
+                  <span className="block text-sm text-muted-foreground mt-0.5">
+                    {t(m.noteKey, m.note)}
+                  </span>
                 </span>
               </label>
             ))}
@@ -209,7 +229,7 @@ export default function PayoutDestinationForm({ showEngagement = true, onSaved }
         {chosen ? (
           <div className="space-y-2">
             <label htmlFor="payoutHandle" className="block text-sm font-semibold text-foreground">
-              {chosen.handleLabel}
+              {t(chosen.handleLabelKey, chosen.handleLabel)}
             </label>
             <input
               id="payoutHandle"
@@ -221,7 +241,7 @@ export default function PayoutDestinationForm({ showEngagement = true, onSaved }
               }}
               maxLength={300}
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
-              placeholder={chosen.handleLabel}
+              placeholder={t(chosen.handleLabelKey, chosen.handleLabel)}
             />
           </div>
         ) : null}
@@ -256,8 +276,8 @@ export default function PayoutDestinationForm({ showEngagement = true, onSaved }
           <h2 className="text-sm font-semibold text-foreground">{t("app.salesPay.engagementTitle")}</h2>
           {engagement ? (
             <>
-              <p className="text-sm text-foreground">{engagement.label}</p>
-              <p className="text-sm text-muted-foreground">{engagement.note}</p>
+              <p className="text-sm text-foreground">{t(engagement.labelKey, engagement.label)}</p>
+              <p className="text-sm text-muted-foreground">{t(engagement.noteKey, engagement.note)}</p>
               <p className="text-sm text-muted-foreground">
                 {data.accruesPaidLeave
                   ? t("app.salesPay.paidLeaveAccrues")

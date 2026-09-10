@@ -29,18 +29,25 @@
 // already there is exactly the stale instruction AGENTS.md asks be corrected
 // rather than left standing.
 //
-// The `detail` prop carries the server's own sentence and is what normally
-// shows; lib/sales/notes/model.js's NOTES_UNAVAILABLE still describes the old
-// state and is out of this brief's scope. It is named in the report.
+// The `detail` prop carries the server's own sentence. It arrives with a
+// `code` beside it — NOTES_UNAVAILABLE has always carried one — and the code
+// is what this panel now looks the sentence up by, so the one refusal a rep
+// sees when a note will not save is in their own language rather than in
+// lib/sales/notes/model.js's English. The English is the fallback.
 
 import { Database } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { NOTES_REFUSAL_KEYS } from "@/lib/sales/notes/model";
 
 /** The path this panel names. Not copy — it is a filename, in every language. */
 const SCHEMA_FILE = "prisma/schema.prisma";
 
-export default function RepNoteUnavailable({ detail }) {
+export default function RepNoteUnavailable({ detail, code = null }) {
   const { t } = useTranslation();
+  // The server's code names the sentence; the server's English is what shows
+  // if this build's catalogue has not got it yet, and this screen's own words
+  // are what show if no server sentence arrived at all.
+  const refusalKey = code ? NOTES_REFUSAL_KEYS[code] || null : null;
 
   // One key for the whole sentence, split on its own placeholder at render
   // time so the filename can keep its <code> styling. The obvious
@@ -56,10 +63,12 @@ export default function RepNoteUnavailable({ detail }) {
         <div className="min-w-0">
           <h2 className="font-semibold text-foreground">{t("app.salesNotes.unavailableHeading")}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            {/* `detail` is the server's own sentence and is still English —
-                it is written in lib/sales/notes/model.js, outside this
-                change. The fallback below is this screen's own words. */}
-            {detail || t("app.salesNotes.unavailableDetail")}
+            {/* Resolution order, most specific first: the catalogue entry the
+                server's own code names, then the server's English sentence,
+                then this screen's own words. */}
+            {refusalKey
+              ? t(refusalKey, detail || t("app.salesNotes.unavailableDetail"))
+              : detail || t("app.salesNotes.unavailableDetail")}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
             {beforeFile}

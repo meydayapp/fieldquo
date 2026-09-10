@@ -43,8 +43,58 @@ import {
   DIAL_REFUSED,
 } from "@/lib/sales/dialSpace";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { weekdayName } from "@/lib/format/localeDate";
 import CallPanel from "./CallPanel";
 import CallConsolePreview from "./CallConsolePreview";
+
+// ══ Resolving what the server composed ═════════════════════════════════════
+//
+// Every sentence in this region is decided elsewhere — lib/sales/dialSpace.js
+// and lib/sales/callingRules.js — because a decision written in JSX is a
+// decision a check script has to argue with a regex about. That has not
+// changed. What changed is that those modules now name the CATALOGUE KEY each
+// sentence was written from, alongside the English, so a rep reading the
+// portal in Spanish reads Spanish here too instead of a Spanish frame around
+// English refusal copy.
+//
+// This helper is the whole mechanism: prefer the key, fall back to the words.
+// The fallback is not decoration — a payload from a build that predates a key
+// still has to say something, and an English sentence is a far smaller failure
+// than a blank space where the reason a call cannot happen used to be.
+const say = (t, key, params, fallback) => {
+  if (!key) return fallback;
+  const values = params || {};
+  // ── The one convention worth having ────────────────────────────────────
+  //
+  // A branch whose sentence contains a COUNT names the counted noun's own key
+  // in `countKey` and the number in `countValue`, and this resolves the pair
+  // before interpolating it as {count}. That keeps the number and its noun
+  // declined together by the catalogue — countedNoun, through
+  // Intl.PluralRules — while the lib module that decided the branch never has
+  // to name a noun in any language, including English.
+  //
+  // Written here rather than at the one call site that needs it today,
+  // because the next branch with a count in it will otherwise reach for a
+  // ternary, and that ternary is what put a bare Latin "s" on a Mandarin
+  // screen the last time.
+  if (values.countKey) {
+    return t(key, { ...values, count: t(values.countKey, { value: values.countValue }) });
+  }
+  return t(key, values);
+};
+
+/**
+ * The suppression sentence's values, with a date that is always sayable.
+ *
+ * A row with no requestedAt cannot be written by suppress() — it always sets
+ * one — but the column is nullable, so a hand-made row can reach here. The
+ * placeholder gets a translated "date not recorded" rather than the word
+ * "null" or, worse, an invented day on a compliance notice.
+ */
+function suppressionValues(t, params) {
+  const p = params || {};
+  return { ...p, date: p.date || t("app.salesSuppression.dateNotRecorded") };
+}
 
 /** The three tones the sales surfaces already paint. Has / gap / unknown. */
 const TONE_CLASS = {
@@ -59,7 +109,8 @@ const TONE_CLASS = {
  * Exported because the queue prints caveats of its own alongside these and a
  * second box shape beside this one would read as a different kind of statement.
  */
-export function Notice({ tone, icon: Icon, title, fix }) {
+export function Notice({ tone, icon: Icon, title, fix, legalText = false }) {
+  const { t } = useTranslation();
   return (
     <div className={`rounded-lg border p-3 text-sm ${TONE_CLASS[tone] || TONE_CLASS.unknown}`}>
       <div className="flex items-start gap-2">
@@ -67,9 +118,79 @@ export function Notice({ tone, icon: Icon, title, fix }) {
         <div className="min-w-0">
           <p className="font-semibold break-words">{title}</p>
           {fix ? <p className="break-words">{fix}</p> : null}
+          {/* ── Why one body here stays English in every language ──────────
+              `legalText` marks a body that came out of the jurisdiction TABLE
+              rather than out of our own prose: a statute number and the words
+              the statute itself uses. Arizona's flat prohibition, Texas's
+              registration and bond, a state's rule on how a prospect's details
+              may be obtained. Machine-translating a quoted primary source
+              would hand a rep a sentence that reads as the law and is not it,
+              on the one question — "is this call lawful?" — where being nearly
+              right is worthless. So it is quoted as written and LABELLED as
+              quoted, which is the honest version of the same fact. The heading
+              above it is ours and is translated. */}
+          {legalText && fix ? (
+            <p className="mt-1 text-xs opacity-80 break-words">{t("app.salesDial.quotedInEnglish")}</p>
+          ) : null}
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * The calling window, as sentences rather than as one sentence with slots.
+ *
+ * ── Why three lines and not one string ────────────────────────────────────
+ *
+ * The English this replaces read "Washington's rule: 08:00–20:00 every day, in
+ * the prospect's own time zone. It opens at 08:00 on Tue 8 Sep." Three
+ * separate claims that English joins with a colon. Translating the join is
+ * what produces a Spanish stem wrapped around an English clause — the exact
+ * defect this session was sent to remove. Each line below is a whole sentence
+ * that stands up alone in every language, so the catalogue never owns a seam.
+ *
+ * The day names and the opening instant are NOT keys. They come from CLDR —
+ * weekdayName() here, Intl inside describeLocal() — for the reason
+ * /app/scheduler's translation recorded: Intl already ships those tables for
+ * languages this catalogue has never been translated into, and it gets the
+ * ORDER right, which seven keys per language would not.
+ */
+function WindowLines({ compliance }) {
+  const { t, language } = useTranslation();
+  if (!compliance?.windowKey) return null;
+
+  const p = compliance.windowParams || {};
+  const closed = Array.isArray(p.closedWeekdays) ? p.closedWeekdays : [];
+
+  return (
+    <>
+      {compliance.jurisdiction?.name ? (
+        <p className="break-words">
+          {/* Two whole sentences, one per branch. "Washington's rule applies"
+              and "FieldQuo's own rule applies — Washington imposes none" are
+              different claims about who is imposing the hours, not one
+              sentence with a swapped possessive. */}
+          {t(
+            compliance.statutoryWindow
+              ? "app.salesDial.window.statutoryRule"
+              : "app.salesDial.window.courtesyRule",
+            { jurisdiction: compliance.jurisdiction.name },
+          )}
+        </p>
+      ) : null}
+      <p className="break-words">
+        {t(compliance.windowKey, {
+          ...p,
+          closedDays: closed.map((d) => weekdayName(d, language)).join(", "),
+        })}
+      </p>
+      {compliance.opensAtText ? (
+        <p className="break-words">
+          {t("app.salesDial.window.opensAt", { opensAt: compliance.opensAtText })}
+        </p>
+      ) : null}
+    </>
   );
 }
 
@@ -106,7 +227,11 @@ export default function DialRegion({ space, compliance = null, target = null, on
             fallbackHref={space.href}
             onWorked={onWorked}
           />
-          <p className="text-xs text-muted-foreground break-words">{space.detail}</p>
+          <div className="text-xs text-muted-foreground break-words space-y-0.5">
+            {space.detailKey ? <p>{t(space.detailKey, space.params || {})}</p> : null}
+            {space.showWindow ? <WindowLines compliance={compliance} /> : null}
+            {!space.detailKey && !space.showWindow ? <p>{space.detail}</p> : null}
+          </div>
         </>
       ) : space.state === DIAL_DO_NOT_CONTACT ? (
         // Red, and not one of the three tones. The three are epistemic — we
@@ -118,8 +243,10 @@ export default function DialRegion({ space, compliance = null, target = null, on
           <div className="flex items-start gap-2">
             <Ban size={16} className="mt-0.5 shrink-0" />
             <div className="min-w-0">
-              <p className="font-semibold break-words">{space.title}</p>
-              <p className="break-words">{space.detail}</p>
+              <p className="font-semibold break-words">
+                {say(t, space.titleKey, space.params, space.title)}
+              </p>
+              <p className="break-words">{say(t, space.detailKey, space.params, space.detail)}</p>
               <p className="mt-1">{t("app.salesDial.noDialControlShown")}</p>
             </div>
           </div>
@@ -135,9 +262,24 @@ export default function DialRegion({ space, compliance = null, target = null, on
                   ? Clock
                   : CircleHelp
             }
-            title={space.title}
-            fix={space.detail}
+            title={say(t, space.titleKey, space.params, space.title)}
+            fix={
+              // The opt-out state is the one whose body is genuinely two
+              // sentences from two different authorities — the suppression
+              // list's account of which entry closed the channel, then ours
+              // about what an opt-out means. Printed in that order, each
+              // translated whole, rather than concatenated into one string
+              // that only one of them could be translated inside.
+              space.reasonKey
+                ? `${t(space.reasonKey, suppressionValues(t, space.reasonParams))} ${say(t, space.detailKey, space.params, space.detail)}`
+                : say(t, space.detailKey, space.params, space.detail)
+            }
           />
+          {space.showWindow ? (
+            <div className="text-xs text-muted-foreground break-words space-y-0.5">
+              <WindowLines compliance={compliance} />
+            </div>
+          ) : null}
           {/* ── Only when nobody is open ──────────────────────────────────
               An empty console teaches a rep nothing about what the console
               does, which is how the owner came to ask whether calling was
@@ -161,8 +303,9 @@ export default function DialRegion({ space, compliance = null, target = null, on
           key={b.code}
           tone={compliance?.decision === CALL_REFUSED ? "gap" : "unknown"}
           icon={compliance?.decision === CALL_REFUSED ? Clock : CircleHelp}
-          title={b.title}
-          fix={b.fix}
+          title={say(t, b.titleKey, b.params, b.title)}
+          fix={say(t, b.fixKey, b.params, b.fix)}
+          legalText={Boolean(b.legalText)}
         />
       ))}
 
@@ -170,10 +313,24 @@ export default function DialRegion({ space, compliance = null, target = null, on
           registration nobody has filed, are facts about THIS call — burying
           them in a document is how they stop being true. */}
       {(compliance?.unenforced || []).map((u) => (
-        <Notice key={u.code} tone="gap" icon={ShieldAlert} title={u.title} fix={u.fix} />
+        <Notice
+          key={u.code}
+          tone="gap"
+          icon={ShieldAlert}
+          title={say(t, u.titleKey, u.params, u.title)}
+          fix={say(t, u.fixKey, u.params, u.fix)}
+          legalText={Boolean(u.legalText)}
+        />
       ))}
       {(compliance?.warnings || []).map((w) => (
-        <Notice key={w.code} tone="gap" icon={ShieldAlert} title={w.title} fix={w.fix} />
+        <Notice
+          key={w.code}
+          tone="gap"
+          icon={ShieldAlert}
+          title={say(t, w.titleKey, w.params, w.title)}
+          fix={say(t, w.fixKey, w.params, w.fix)}
+          legalText={Boolean(w.legalText)}
+        />
       ))}
 
       {compliance?.decision === CALL_ALLOWED && compliance.windowText ? (
@@ -206,6 +363,12 @@ export default function DialRegion({ space, compliance = null, target = null, on
             {t("app.salesDial.whatJurisdictionSays", { jurisdiction: compliance.jurisdiction.name })}
           </summary>
           <p className="mt-1 break-words">{compliance.citation}</p>
+          {/* Same rule as `legalText` on a Notice: the citation is the statute
+              in the statute's own words, quoted so a rep can read it out when
+              asked what makes a call lawful. It is labelled as quoted rather
+              than machine-translated into a paraphrase that would carry the
+              authority of a citation without being one. */}
+          <p className="mt-1 opacity-80">{t("app.salesDial.quotedInEnglish")}</p>
         </details>
       ) : null}
     </>

@@ -72,6 +72,12 @@ export async function GET(request, { params }) {
     thread,
     optedOut: optOut.optedOut,
     optedOutReason: optOut.reason,
+    // The English sentence AND the key that composed it. The screen prefers
+    // the key so a Spanish rep reads Spanish; `optedOutReason` stays the
+    // fallback for a payload from a build that predates the key, and stays
+    // the thing check-sales-home.mjs asserts is rendered.
+    optedOutReasonKey: optOut.reasonKey || null,
+    optedOutReasonParams: optOut.reasonParams || null,
     outreach: await outreachStatus(rep),
   });
 }

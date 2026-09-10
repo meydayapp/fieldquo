@@ -522,9 +522,12 @@ export default function CallPanel({
           </div>
 
           {/* The disposition VALUE is an enum the server writes to
-              SalesCallAttempt. Only `d.label` is words, and it arrives already
-              written from lib/sales/calls/dispositions.js — this screen has no
-              say in it. */}
+              SalesCallAttempt. Only `d.label` is words, and WHICH words is
+              still lib/sales/calls/dispositions.js's decision — this screen
+              has no say in it. What the table now sends beside each label is
+              the catalogue key it was written from, so the one control a rep
+              touches on every call reads in the rep's own language. The
+              English label is the fallback and nothing else. */}
           <select
             className={FIELD}
             value={code}
@@ -534,12 +537,14 @@ export default function CallPanel({
             <option value="">{t("app.salesCall.pickOutcome")}</option>
             {dispositions.map((d) => (
               <option key={d.code} value={d.code}>
-                {d.label}
+                {t(d.labelKey, d.label)}
               </option>
             ))}
           </select>
           {chosen ? (
-            <p className="text-xs text-amber-900 dark:text-amber-200 break-words">{chosen.hint}</p>
+            <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
+              {t(chosen.hintKey, chosen.hint)}
+            </p>
           ) : null}
 
           {chosen?.requiresCallback ? (
