@@ -30,12 +30,15 @@ Everything below is on `main`, deployed, and has a check in `check:all`.
 | Free dial | A number a contractor gives you on the call ("ring him on his cell") is recorded against the business and can be dialled or texted. The browser sends an ID, never a number — the server re-reads the row, checks it belongs to the record being dialled, and re-runs the do-not-contact flag, the suppression list (across EVERY number of theirs), the calling window and the 24-hour cap against the number that will actually ring. A landline is refused for text with the reason said out loud. `check:free-dial`, 161 assertions. |
 | Editing from the queue | "What you learned on the call" writes the rep's OWN lead — contact name, email, phone, status — through the route that already writes it. It never touches the discovered Prospect: `phoneE164` is the dedupe key every past call, text and opt-out is filed against, and `country`/`province` decide which calling statute applies to every rep who will ever hold that row. |
 | Plan gate | A company that never finished checkout cannot send a quote or an invoice. |
+| Playbook, readable | `/sales/playbook`. The four scripts, the twenty objections, the six moments either side of the call and five competitor battlecards, in a tab. Before this the whole library was reachable ONLY from inside a claimed prospect's card, so a rep the night before a meeting had nowhere to read any of it. `check:playbook-copy` (570 assertions) and `check:sales-playbook-battlecards` (235). |
+| Battlecards | Assembled from `lib/marketing/competitors.js` — the same rows `/compare` renders — so the rep and the homeowner cannot be told two different versions of one fact. Nothing is hand-typed: a withheld claim never reaches a rep, a stale figure withdraws itself from the card the day it withdraws from the marketing page, and there is no saving where a competitor publishes no price. |
 
 ---
 
 ## In flight
 
-Nothing. Free dial landed on 2026-09-10 — see the two rows above.
+Nothing. Free dial landed on 2026-09-10 — see the two rows above, and the
+playbook work below landed the same day.
 
 ---
 
@@ -90,6 +93,28 @@ Nothing. Free dial landed on 2026-09-10 — see the two rows above.
   reads it now).
 
 ---
+
+## Done 2026-09-10 — the playbook the owner asked for
+
+- **The opener now asks permission before it explains itself.** It used to give
+  the reason in its second breath, which is textbook and sounds like a SaaS
+  salesperson. Name, company, "I know I'm catching you out of nowhere", then
+  "can I give you thirty seconds on why I called?" — and the reason moves one
+  beat later, onto the answer to a question about how a price actually reaches
+  a customer. The whole argument, including why this is NOT the banned
+  time-limit promise, is `docs/sales/SCRIPT-PRINCIPLES.md` §5a.
+- **The generator prompt got the same correction**, which matters more than the
+  four scripts did: it writes a sentence for every prospect in every campaign,
+  so a good prompt with bad principles reproduces the failure at scale.
+- **Twelve more objections, twenty in total.** The eight that shipped first
+  were all objections to the PITCH. None of them answered the ones that end a
+  call before the pitch happens: where did you get my number, ring me after the
+  season, I'd have to ask my wife, just tell me what it costs.
+- **`lib/sales/playbook/moments.js`** — the gatekeeper, the voicemail, the two
+  follow-ups, the demo and the ask. None is a stage of the call, which is why
+  they are not in `stages.js`.
+- **`docs/sales/PLAYBOOK.md`** — the printed version, and the check asserts
+  every sentence in it is still the one the software uses.
 
 ## Done 2026-09-10 — roof measurement and sales milestones
 

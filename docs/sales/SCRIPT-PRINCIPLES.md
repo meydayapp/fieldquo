@@ -26,6 +26,8 @@ tell that one is still there.
 | Neil Rackham's SPIN, as carried by Saylor ch.10 | Situation questions sparingly; implication questions with a number attached; benefits beat advantages, and only after investigation. |
 | Robert Cialdini, *Influence* | What is honestly available to a stranger in ninety seconds, and what is counterfeit. |
 | Seth Godin, *This Is Marketing* | Frequency, locality, tension-not-fear, and the arithmetic that licenses outbound at all. |
+| Cognism's cold-calling scripts (Frida Ottosson) | The permission-based opener; the gatekeeper's brevity; 70% prospect / 30% rep. One move refused — see §5a. |
+| Close, *Best practices for training an AI sales agent* | Define the escalation boundary explicitly; review the reasoning, not only the output. One piece of advice refused — see §5a. |
 | The owner's twenty TrueFinish conversations | How these buyers actually behave, with the outcomes known. |
 
 ---
@@ -55,8 +57,11 @@ purpose of the call **within the first twenty seconds**, because prospects
 decide their interest immediately. Ch.7 §3, on cold calling specifically:
 establish a connection **in the first thirty seconds**.
 
-**In the script:** every `open` stage is name → company → the reason for this
-particular call → permission. Read aloud, each runs about fourteen seconds.
+**In the script:** every `open` stage is name → company → the candour line →
+permission. Read aloud it runs about fourteen seconds. The REASON moved one beat
+later on 2026-09-10 and now lands in `relevance`, attached to what the
+contractor has just said about his own week — see §5a, which argues that this
+is the stronger reading of §3 rather than an exception to it.
 
 ## 3. Give a real reason — and know why "because" alone is not enough
 
@@ -83,9 +88,11 @@ form.
 A meeting is a twenty-page ask. So a reason is mandatory and a vacuous one is
 worthless.
 
-**In the script:** every opener says *because*, and what follows it is a fact
-about that specific business that we actually observed — a website we read this
-morning, a search we ran, a contact page we looked at.
+**In the script:** the reason is still mandatory and still real — it is the
+`PIVOT`, and what follows its *because* is what the contractor has just told
+you about how a price actually gets to a customer. That is a fact about that
+specific business supplied by the only person who cannot be wrong about it. The
+opener promises the reason; `relevance` delivers it. See §5a.
 
 ## 4. Credibility is bought with research, not credentials
 
@@ -118,8 +125,102 @@ Rackham's SPIN opening, via Saylor ch.10 §4, makes the same move at the next
 stage: the most important element of the opening is getting the customer's
 agreement to let you ask questions.
 
-**In the script:** every opener ends with "Is this a good time?", and every
-`discovery` stage opens by asking permission to ask.
+**In the script:** every opener ends with `PERMISSION_ASK` — "Can I give you
+thirty seconds on why I called?" — which is the same move Saylor prescribes,
+phrased so a yes helps and naming what the thirty seconds buys. §5a draws the
+line between that and the time-limit promise §6 bans. Every `discovery` stage
+still opens by asking permission to ask.
+
+## 5a. Where the reason goes — the owner's correction, 2026-09-10
+
+§5 above is unchanged and still correct: permission is asked, and it is phrased
+so YES is the helpful answer. What changed is the sentence *before* it, and the
+sentence *after* it.
+
+The four openers used to give the reason for the call in their second breath —
+"I'm calling because I went through your website this morning". Textbook
+Saylor: name, company and purpose inside twenty seconds. The owner listened to
+it and named what it sounds like from the other end: a SaaS salesperson with a
+script. His replacement, in his words:
+
+> Rep: "Hey Mike, Emilio calling from FieldQuo. I know I'm catching you out of
+> nowhere — can I take 30 seconds to tell you why I called?"
+> Contractor: "Sure."
+> Rep: "Thanks. Quick question first — when you go look at a job, are you
+> usually able to give the customer the quote while you're there, or do you
+> have to go home and put everything together afterward?"
+> Contractor: "Usually later that night."
+> Rep: "That's actually exactly why I'm calling."
+
+**This does not weaken Langer's finding; it strengthens it.** §3 above records
+the limit almost always dropped when the photocopier study is retold: at five
+pages a vacuous reason worked as well as a real one, and at twenty pages it
+collapsed back to the no-reason level. A meeting is a twenty-page ask, so the
+reason must carry information. Nothing carries more information than the words
+the contractor used thirty seconds ago. Moving the reason one beat later, so
+that it answers what he has just admitted, is the strongest version of the same
+rule — not an exception to it.
+
+Cognism reaches the same shape from the data side. Their opener after a
+transfer is a permission-based one, and their discovery rule is 70% prospect /
+30% rep, which an opener that spends its first breath explaining itself cannot
+hit.
+
+### The one word between the permission ask and the banned promise
+
+§6 bans "I promise I'm not going to waste your time" on Saylor's finding that
+it suggests you are somebody who might. A reader who stops there deletes
+`PERMISSION_ASK`, so the line is drawn here:
+
+| | |
+|---|---|
+| **Banned** | A promise about the REP'S behaviour, volunteered, unasked. "I'll be ninety seconds." "I won't waste your time." "I'll be quick." It is defensive, it is about us, and the prospect never gets a turn. |
+| **Permitted** | A QUESTION that hands the prospect control and names the size of the ask, so a yes is cheap and a no is real. "Can I give you thirty seconds on why I called?" |
+
+`scripts/check-playbook-copy.mjs` drives both spellings through the same
+detector and requires it to catch one and pass the other. The mutation that
+found the hole is in the file as `RETIRED.opener_thirty_promise`: the number
+alternation used to stop at "fifteen", so "I'll only take thirty seconds" —
+exactly what somebody writes reconstructing the ask from memory — walked
+straight past it.
+
+### The candour line is not an apology
+
+"I know I'm catching you out of nowhere, and you've never heard of me" is
+Cialdini ch.6, not Futrell's banned apology. It concedes something true and
+costly, which is the one move available to a stranger inside thirty seconds. It
+is a STATEMENT, deliberately: the moment it becomes a question — "have I caught
+you at a bad time?" — it is the move §6 bans, because agreeing with you ends
+the call.
+
+### The pivot is spoken in both branches
+
+"That's exactly why I'm calling" is only true if he gave the expected answer. A
+pivot that works on one branch is a dead control: the rep reads it out, the
+contractor says he prices on the spot, and the script has nothing. So `PIVOT`
+is conditional out loud and true either way round, and the check asserts both
+halves are present.
+
+### What was taken from the two new sources, and what was refused
+
+**Taken from Cognism:** the permission-based opener; the gatekeeper script's
+brevity and its refusal to pitch somebody who cannot buy; 70/30.
+
+**Refused from Cognism:** their answer to "what is it regarding?" — "I'm just
+following up on an email" / "chasing up on some emails". It works, and it is a
+lie. A rep put through to somebody who asks which email has lost the call and
+the relationship in one sentence, and FieldQuo would be a company whose reps
+open by inventing a history. `check-playbook-copy.mjs` refuses it by name.
+
+**Taken from Close:** define the escalation boundary explicitly, so the agent
+knows what it must not attempt — in `generate.js` that is "if nothing on your
+list answers what he described, write no point about it"; and review the
+reasoning rather than only the output, which is what the per-sentence evidence
+gate in `talkingPoints.js` already does.
+
+**Refused from Close:** their "quality in, quality out" advice to feed the
+agent historical customer data. Non-negotiable 8 — no tenant's data is quoted
+to another — and a prospect is not a tenant at all.
 
 ## 6. The banned openers, each with the reason it fails
 

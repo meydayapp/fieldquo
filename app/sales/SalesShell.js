@@ -141,6 +141,10 @@ export default function SalesShell({ children }) {
             // it is the screen a rep opens first in the morning, and the one
             // the whole discovery pipeline exists to fill.
             { href: "/sales/queue", label: t("app.salesPortal.navQueue") },
+            // The script, the twenty objections and the five battlecards, read
+            // before the call rather than only inside a claimed prospect's
+            // card. English literal for the same reason Notes is, below.
+            { href: "/sales/playbook", label: "Playbook" },
             { href: "/sales/leads", label: t("app.salesPortal.navLeads") },
             { href: "/sales/threads", label: t("app.salesPortal.navConversations") },
             // Texts, which are a different channel from the email threads next
