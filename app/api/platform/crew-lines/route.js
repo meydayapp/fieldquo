@@ -92,8 +92,11 @@ export async function GET(request) {
   // himself and he is not a rep. Listed with their email: an admin row may
   // carry no name, and "" in a picker is a row nobody can choose on purpose.
   const platformAdmins = await db.platformAdmin.findMany({
+    where: { active: true },
     orderBy: { email: "asc" },
-    select: { id: true, name: true, email: true },
+    // Email is the only human-readable thing on this model. There is no
+    // `name`, and selecting one is what 500'd this page.
+    select: { id: true, email: true },
   });
 
   return NextResponse.json({
@@ -116,7 +119,10 @@ export async function GET(request) {
   const platformRows = await db.platformSmsNumber.findMany({
     include: {
       assignedRep: { select: { id: true, name: true } },
-      assignedAdmin: { select: { id: true, name: true, email: true } },
+      // Email only: PlatformAdmin has no `name` column. Selecting one threw
+      // on every load of this page — a 500 on the screen the owner had just
+      // been asked to use.
+      assignedAdmin: { select: { id: true, email: true } },
     },
   });
 

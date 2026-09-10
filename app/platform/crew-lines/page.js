@@ -368,7 +368,7 @@ function LineRow({ line, reps = [], admins = [], assignHolder, releaseNumber, re
               <optgroup label="FieldQuo staff">
                 {admins.map((a) => (
                   <option key={a.id} value={`admin:${a.id}`}>
-                    {a.name || a.email}
+                    {a.email}
                   </option>
                 ))}
               </optgroup>
