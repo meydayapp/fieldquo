@@ -180,7 +180,10 @@ function SalesSupportInner() {
               <button
                 type="button"
                 onClick={loadBook}
-                className="font-semibold text-foreground underline underline-offset-2"
+                // A retry inside a sentence still has to be tappable: 44px is
+                // the floor check:mobile enforces, and py-1 keeps it reading as
+                // part of the sentence rather than becoming a block button.
+                className="min-h-[44px] py-1 font-semibold text-foreground underline underline-offset-2"
               >
                 Try again
               </button>
