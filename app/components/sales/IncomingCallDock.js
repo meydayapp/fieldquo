@@ -81,18 +81,41 @@ export default function IncomingCallDock() {
   const deviceRef = useRef(null);
   const callRef = useRef(null);
 
+  // The token AND how long it lasts. The lifetime is read from the server's
+  // own answer rather than imported: lib/sales/calls/browserDial.js exports
+  // TOKEN_TTL_SECONDS, but it also imports lib/voice/numberSearch, which drags
+  // `pg` and `dns` into whatever bundles it — a client component importing it
+  // broke the build once already. The route has always sent `expiresInSeconds`
+  // for exactly this, and reading it there keeps the refresh correct if the
+  // TTL is ever changed server-side.
   const fetchToken = useCallback(async () => {
     const body = await fetchJson("/api/sales/calls/token", { method: "POST" });
-    return body?.token || null;
+    return { token: body?.token || null, ttl: Number(body?.expiresInSeconds) || 0 };
   }, []);
 
   useEffect(() => {
     let cancelled = false;
     let device = null;
+    let refreshTimer = null;
+
+    /** Re-mint and re-register. Used when Twilio has already refused a token. */
+    const refreshAndRegister = async () => {
+      if (cancelled || !device) return false;
+      try {
+        const { token: fresh } = await fetchToken();
+        if (!fresh || cancelled) return false;
+        device.updateToken(fresh);
+        await device.register();
+        setError("");
+        return true;
+      } catch {
+        return false;
+      }
+    };
 
     (async () => {
       try {
-        const token = await fetchToken();
+        const { token, ttl } = await fetchToken();
         if (!token || cancelled) return;
 
         const { Device } = await import("@twilio/voice-sdk");
@@ -107,19 +130,66 @@ export default function IncomingCallDock() {
         device.on("registered", () => {
           if (!cancelled) setReady(true);
         });
-        device.on("error", (err) => {
+        device.on("error", async (err) => {
+          // 20101 is Twilio refusing an expired or invalid token. It is
+          // RECOVERABLE, and treating it as fatal is what leaves a rep with a
+          // dock that cannot ring and no idea why — so a fresh token is
+          // fetched and the device re-registered before anything is said.
+          if (err?.code === 20101 || err?.code === 31205) {
+            const ok = await refreshAndRegister();
+            if (ok) return;
+          }
           // Shown rather than swallowed: a dock that is silently unregistered
           // looks exactly like a quiet afternoon.
           if (!cancelled) setError(err?.message || "The call connection dropped.");
         });
-        device.on("tokenWillExpire", async () => {
+        // ── Keeping the token alive, three ways ──────────────────────────
+        //
+        // A sales access token lives TEN MINUTES (TOKEN_TTL_SECONDS). That
+        // length was chosen for an outbound call — long enough to cover one
+        // already in progress — and it is fine for CallPanel, which mints a
+        // token, places a call and throws the Device away.
+        //
+        // This dock is different: it registers when the portal opens and sits
+        // there all day. So the token has to be replaced roughly every ten
+        // minutes, for hours, and any single missed refresh ends with Twilio
+        // rejecting it — error 20101, "unable to validate your Access Token",
+        // which is what the owner hit. One event listener is not enough to
+        // hang that on:
+        //
+        //   1. `tokenWillExpire` — the SDK's own warning, ~3 minutes out. The
+        //      normal path.
+        //   2. A timer at half the TTL. A backgrounded tab throttles timers
+        //      and can swallow the SDK's own, so this is the belt to that
+        //      brace. Refreshing early is free; the token is replaced, not
+        //      accumulated.
+        //   3. The error itself. If a token does expire anyway, 20101 is
+        //      recoverable — fetch a new one and register again, rather than
+        //      leaving a dead dock on screen that looks like a quiet afternoon.
+        const refresh = async (why) => {
           try {
-            const fresh = await fetchToken();
-            if (fresh) device.updateToken(fresh);
+            const { token: fresh } = await fetchToken();
+            if (!fresh || cancelled) return false;
+            device.updateToken(fresh);
+            setError("");
+            return true;
           } catch {
-            if (!cancelled) setError("Could not refresh the calling connection. Reload the page.");
+            if (!cancelled) {
+              setError(
+                why === "expired"
+                  ? "The calling connection expired and could not be renewed. Reload the page."
+                  : "Could not refresh the calling connection. Reload the page.",
+              );
+            }
+            return false;
           }
-        });
+        };
+
+        device.on("tokenWillExpire", () => refresh("warning"));
+        // Half the lifetime the SERVER reported, floored at a minute so a
+        // misconfigured TTL cannot turn this into a request loop.
+        const everyMs = Math.max(60, Math.floor((ttl || 600) / 2)) * 1000;
+        refreshTimer = setInterval(() => refresh("timer"), everyMs);
 
         device.on("incoming", (call) => {
           if (cancelled) return;
@@ -168,6 +238,7 @@ export default function IncomingCallDock() {
 
     return () => {
       cancelled = true;
+      if (refreshTimer) clearInterval(refreshTimer);
       try {
         callRef.current?.disconnect?.();
       } catch {
