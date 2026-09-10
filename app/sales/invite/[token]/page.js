@@ -75,7 +75,19 @@ export default function SalesInvitePage({ params }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, password }),
       });
-      window.location.href = "/sales";
+      // /sales/welcome, not /sales. Accepting an invitation collects a
+      // password and nothing else, and two facts about the rep stayed unknown
+      // until somebody asked in a chat window: where their commission goes,
+      // and what language they work in. This is the one moment a new hire is
+      // sitting in front of the portal expecting to be asked things.
+      //
+      // A full page load rather than router.push, matching what this already
+      // did: the sign-in cookie was set by the POST above, and the shell has
+      // to be rendered by a server that can see it.
+      //
+      // Nothing on that screen is required — see its header for why a blocking
+      // first run would be worse than the gap it closes.
+      window.location.href = "/sales/welcome";
     } catch (err) {
       setError(err.message);
       setBusy(false);

@@ -8859,6 +8859,30 @@ model SalesRep {
   /// than presenting it as current.
   payoutConfirmedAt DateTime?
 
+  /// The language this rep works in. Null until they say, and null is NOT
+  /// English.
+  ///
+  /// Nullable with no default, for the reason lib/i18n/resolveLanguage.js
+  /// gives about User.language: storing "en" on somebody who never opened the
+  /// picker freezes them there, and every later change to how the fallback
+  /// works would then skip exactly the people who never expressed a
+  /// preference.
+  ///
+  /// The distinction is load-bearing on one screen in particular.
+  /// app/sales/layout.js hands <LanguageProvider> a `fromAccount` flag meaning
+  /// "this is a stated decision, skip the guesses", and it used to pass that
+  /// beside a hardcoded "en" — claiming a choice nobody had been offered, and
+  /// denying a francophone rep the browser fallback a stranger on the
+  /// marketing site gets. Null here is what makes the honest answer sayable.
+  ///
+  /// Validated against app/i18n/languages.js on the way in, and read back
+  /// through lib/sales/repLanguage.js's repLanguageOrNull() rather than
+  /// trusted: a language DROPPED from that list after a rep chose it has to
+  /// read as "no stated preference" rather than render the console against a
+  /// translation set that is no longer there. The column is left alone in that
+  /// case — the day the language comes back, so does their choice.
+  language String?
+
   createdAt DateTime @default(now())
 
   /// The last time this rep was seen IN THE PORTAL. Stamped by

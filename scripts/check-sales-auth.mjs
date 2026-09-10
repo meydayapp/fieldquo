@@ -115,6 +115,7 @@ const {
 } = await import("@/lib/sales/invite");
 const { requireSalesRep, REP_FORBIDDEN_WRITES } = await import("@/lib/sales/gate");
 const { PAYOUT_WRITES_ON_SALES_REP } = await import("@/lib/sales/payoutWrite");
+const { PREFERENCE_WRITES_ON_SALES_REP } = await import("@/lib/sales/preferenceWrite");
 
 let pass = 0;
 const failures = [];
@@ -822,6 +823,16 @@ const LIB_FORBIDDEN_WRITE_BY_DESIGN = {
     "company is credited to. The batch and the ledger stay forbidden, every " +
     "change is audited with the handle masked, and the key set is asserted " +
     "below rather than trusted.",
+  "lib/sales/preferenceWrite.js":
+    "saveRepLanguage(). Writes ONLY SalesRep.language — " +
+    "PREFERENCE_WRITES_ON_SALES_REP — which decides which words the chrome of " +
+    "the rep's own console is drawn in. It cannot change what is owed, who a " +
+    "company is credited to, whether a batch pays, or whether the rep can sign " +
+    "in tomorrow, and the value comes from a closed set validated against " +
+    "app/i18n/languages.js. Its own file rather than a second function in " +
+    "payoutWrite.js, because the payout fence below locates ONE update by " +
+    "index and a second one in that file would be scanned by nothing. Column " +
+    "asserted below.",
 };
 
 const stray = [];
@@ -966,6 +977,86 @@ for (const [file, why] of Object.entries(LIB_FORBIDDEN_WRITE_BY_DESIGN)) {
   ok(
     "…and takes the rep id from the caller's gate, never a request body",
     /salesRepId is required/.test(payoutSrc),
+  );
+}
+
+/**
+ * The top-level keys of the object literal whose opening brace is at `from`.
+ *
+ * Brace-matched, and tolerant of shorthand (`{ language }`) as well as explicit
+ * pairs (`{ language: x }`). Conservative on purpose: a nested object's keys
+ * are counted too, so a writer that grew a nested `data` FAILS the key-set
+ * comparison rather than slipping past it.
+ */
+function objectKeys(src, from) {
+  if (from < 0 || src[from] !== "{") return null;
+  let depth = 0;
+  let end = -1;
+  for (let i = from; i < src.length; i += 1) {
+    if (src[i] === "{") depth += 1;
+    else if (src[i] === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        end = i;
+        break;
+      }
+    }
+  }
+  if (end < 0) return null;
+  const body = src.slice(from + 1, end);
+  return [...body.matchAll(/(?:^|[,;{])\s*(\w+)/g)].map((m) => m[1]);
+}
+
+// ── The second sanctioned rep-row write: the interface language ────────────
+//
+// Same fence, same reason, and deliberately a DIFFERENT FILE from the payout
+// writer. The block above finds its update with indexOf("salesRep.update(") —
+// the first one in the file — so a second update added to payoutWrite.js would
+// sit past that index and be asserted by nothing at all. That is the
+// index-ordering trap this file's own comments say the repo has hit three
+// times, and the cheapest way not to hit it a fourth is one writer per file.
+{
+  const prefSrc = decomment(read("lib/sales/preferenceWrite.js"));
+  const columns = PREFERENCE_WRITES_ON_SALES_REP;
+  ok(
+    "the preference writer names its column as data",
+    Array.isArray(columns) && columns.length === 1 && columns[0] === "language",
+    columns,
+  );
+  // Exactly one update, so the index-based slice below cannot be walked past
+  // by adding a second one under it.
+  ok(
+    "…and the file makes exactly one write",
+    (prefSrc.match(/salesRep\.(update|updateMany|upsert|create|delete|deleteMany)\(/g) || []).length === 1,
+    (prefSrc.match(/salesRep\.\w+\(/g) || []),
+  );
+  const upd = prefSrc.indexOf("salesRep.update(");
+  const dataAt = prefSrc.indexOf("data: {", upd);
+  ok("the update's data block was located", upd > 0 && dataAt > upd, { upd, dataAt });
+  // Brace-matched rather than sliced to the next `select: {`, and the keys are
+  // read allowing SHORTHAND. The payout block above matches `(\w+):`, which is
+  // right for it — it writes three explicit pairs — but it would read
+  // `data: { language }` as an EMPTY object and pass while the writer set
+  // anything at all. A fence that cannot see the write it is fencing is worse
+  // than no fence, so this one is written to survive either spelling.
+  const written = objectKeys(prefSrc, prefSrc.indexOf("{", dataAt));
+  ok(
+    "the writer sets EXACTLY the language column and nothing else",
+    written.length === columns.length && written.every((k) => columns.includes(k)),
+    written,
+  );
+  ok(
+    "…and takes the rep id from the caller's gate, never a request body",
+    /salesRepId is required/.test(prefSrc),
+  );
+  // The one write a rep makes about themselves that is NOT audited, and the
+  // absence is a decision — a recordError row per settings save would bury the
+  // payout redirects that log exists to make findable. Asserted so the
+  // decision stays a decision rather than becoming an oversight nobody can
+  // date: if somebody adds logging here, they should have to say why.
+  ok(
+    "…and writes no audit row, unlike the payout writer",
+    !/recordError/.test(prefSrc),
   );
 }
 
