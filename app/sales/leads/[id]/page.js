@@ -39,7 +39,7 @@ import {
   Mail,
   MapPin,
   Send,
-} from "lucide-react";
+  LifeBuoy,} from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { jsonBody } from "@/lib/jsonBody";
 import { LEAD_STATUSES, LEAD_STATUS_LABELS } from "@/lib/sales/outreachPipeline";
@@ -411,12 +411,37 @@ export default function SalesLeadPage({ params }) {
           Signed up as
         </div>
         {lead.convertedCompanyId ? (
-          <p className="text-sm text-muted-foreground">
-            Linked to a company you brought in
-            {lead.convertedAt ? ` on ${when(lead.convertedAt)}` : ""}. Your
-            commission for them is computed from the attribution, not from this
-            link.
-          </p>
+          <>
+            <p className="text-sm text-muted-foreground">
+              Linked to a company you brought in
+              {lead.convertedAt ? ` on ${when(lead.convertedAt)}` : ""}. Your
+              commission for them is computed from the attribution, not from this
+              link.
+            </p>
+            {/* ── Escalating from the lead, which is where the rep is ──────
+                A rep hears a technical problem on a call about THIS lead. The
+                ticket exists — /sales/support and raiseSupportTicket() — but it
+                is keyed on a COMPANY, and nothing connected the two, so a rep
+                had to remember the company's name and go and find it on
+                another screen while the contractor was still talking.
+
+                Rendered ONLY once the lead has a linked company. A ticket
+                cannot be raised about a prospect who has not signed up —
+                decideEscalation() re-reads the attribution and refuses — and
+                offering the control before then would be a button that can
+                only fail. */}
+            <Link
+              href={`/sales/support?companyId=${encodeURIComponent(lead.convertedCompanyId)}&leadId=${encodeURIComponent(lead.id)}`}
+              className="inline-flex items-center gap-2 min-h-[44px] text-sm font-semibold px-3 rounded-lg border border-border text-foreground"
+            >
+              <LifeBuoy size={15} className="text-muted-foreground" aria-hidden="true" />
+              Raise a support ticket for them
+            </Link>
+            <p className="text-xs text-muted-foreground">
+              Goes to FieldQuo, not to them. Use it when something is broken
+              rather than when they have a question you can answer.
+            </p>
+          </>
         ) : candidates === null ? (
           <button
             onClick={loadCandidates}

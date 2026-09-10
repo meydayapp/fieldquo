@@ -25,7 +25,8 @@
 // the worse inconsistency.
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AlertCircle, CheckCircle2, LifeBuoy, Loader2, Send } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import {
@@ -59,14 +60,26 @@ function fmt(value) {
       });
 }
 
-export default function SalesSupportPage() {
+function SalesSupportInner() {
   const [book, setBook] = useState(null);
   const [bookFailed, setBookFailed] = useState("");
   const [data, setData] = useState(null);
   const [listFailed, setListFailed] = useState("");
   const [filter, setFilter] = useState("");
 
-  const [companyId, setCompanyId] = useState("");
+  // ── Prefilled from wherever the rep pressed "raise a ticket" ──────────
+  //
+  // A rep hears a problem on a call about ONE lead. Before this, the escalate
+  // link landed them on a blank form and they had to remember the company's
+  // name and find it in a list while the contractor was still talking — the
+  // form worked, and asked the rep to carry the context by hand.
+  //
+  // The id is only a PREFILL of the picker. It grants nothing: the route
+  // re-reads the attribution in the request that writes, so a companyId typed
+  // into the address bar for somebody else's company is refused there, exactly
+  // as it was before this existed.
+  const params = useSearchParams();
+  const [companyId, setCompanyId] = useState(params.get("companyId") || "");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [priority, setPriority] = useState("normal");
@@ -396,5 +409,23 @@ export default function SalesSupportPage() {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * useSearchParams needs a Suspense boundary above it, the same way
+ * app/sales/queue/page.js wraps its own.
+ */
+export default function SalesSupportPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="animate-spin" size={18} /> Opening support…
+        </div>
+      }
+    >
+      <SalesSupportInner />
+    </Suspense>
   );
 }
