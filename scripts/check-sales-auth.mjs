@@ -197,6 +197,26 @@ function namedFunctionBody(src, declaration) {
 
 const read = (rel) => readFileSync(join(ROOT, rel), "utf8");
 
+/**
+ * Every .js file under a directory.
+ *
+ * walk() below collects `route.js` ONLY, which is right for scanning routes and
+ * silently wrong for scanning a library: `walk("lib/sales")` returns an empty
+ * list, and a scan over an empty list passes every time. That is exactly what
+ * the first version of the lib scan did — it reported no strays because it read
+ * no files, and two planted violations sailed through it.
+ */
+function walkJs(dir, out = []) {
+  const full = join(ROOT, dir);
+  if (!existsSync(full)) return out;
+  for (const entry of readdirSync(full)) {
+    const rel = `${dir}/${entry}`;
+    if (statSync(join(ROOT, rel)).isDirectory()) walkJs(rel, out);
+    else if (entry.endsWith(".js")) out.push(rel);
+  }
+  return out;
+}
+
 function walk(dir, out = []) {
   const full = join(ROOT, dir);
   if (!existsSync(full)) return out;
@@ -772,6 +792,38 @@ const WRITE_RE = new RegExp(`\\bdb\\.(\\w+)\\.(${WRITE_OPS})\\b`, "g");
 const salesRoutes = walk("app/api/sales");
 ok("there are sales API routes to check", salesRoutes.length >= 4, salesRoutes);
 
+// ── The library, not just the routes ──────────────────────────────────────
+//
+// This scan used to cover app/api/sales only, and that was an escape hatch:
+// moving a forbidden write out of a route and into lib/ made it pass while
+// changing nothing. I did exactly that when /sales/payout turned this check
+// red, and adding a fence for the one file I had moved it to left the hatch
+// open for every other file in lib/sales.
+//
+// So the library is scanned on the same terms as the routes. Two writes to a
+// forbidden table are sanctioned and both are declared by name with the reason
+// — the same shape as FORBIDDEN_WRITE_BY_DESIGN above, and asserted below so a
+// declaration that stops matching a real write is itself a failure.
+const LIB_FORBIDDEN_WRITE_BY_DESIGN = {
+  "lib/sales/gate.js":
+    "stampLastSeen(). The value is the server's clock, no part of the request " +
+    "can change what is written, and nothing pays out on it — the most a rep " +
+    "can do by hammering the portal is be honestly recorded as present. " +
+    "GATE_WRITES_ON_SALES_REP names the single column.",
+  "lib/sales/demoAssign.js":
+    "Claiming and releasing a demo sandbox. Writes ONLY demoCompanyId — a " +
+    "pointer at a Company that isDemo, which decides nothing about what a rep " +
+    "is owed, credits no company, and mints no entry. The claim is a " +
+    "compare-and-set with `demoCompanyId: null` in the WHERE, so a rep cannot " +
+    "take one already held. Column asserted below.",
+  "lib/sales/payoutWrite.js":
+    "savePayoutDestination(). Writes ONLY the payout destination columns — " +
+    "PAYOUT_WRITES_ON_SALES_REP — which cannot change what is owed or who a " +
+    "company is credited to. The batch and the ledger stay forbidden, every " +
+    "change is audited with the handle masked, and the key set is asserted " +
+    "below rather than trusted.",
+};
+
 const stray = [];
 for (const file of salesRoutes) {
   if (FORBIDDEN_WRITE_BY_DESIGN[file]) continue;
@@ -780,6 +832,85 @@ for (const file of salesRoutes) {
     if (REP_FORBIDDEN_WRITES.includes(m[1])) stray.push(`${file}: ${m[1]}.${m[2]}`);
   }
 }
+
+// Routes call `db.` directly; library modules take an injected client so a
+// check can drive them, so a lib scan that only matched `db.` would miss every
+// one of them — payoutWrite.js writes `client.salesRep.update`, and the first
+// version of this scan waved it through. Named prefixes rather than `\w+.`,
+// which would match any object property chain and cry wolf.
+const LIB_WRITE_RE = new RegExp(`\\b(?:db|client|tx|prisma)\\.(\\w+)\\.(${WRITE_OPS})\\b`, "g");
+
+// ── What the REP-FACING routes can reach, one hop out ─────────────────────
+//
+// A blanket scan of lib/sales was the wrong rule and briefly shipped: it
+// flagged attribution.js, commission.js and payouts.js, which are the PLATFORM
+// modules that actually do the paying. REP_FORBIDDEN_WRITES governs what a
+// REP'S IDENTITY may write, not what the library may do on FieldQuo's behalf,
+// and conflating the two would have banned the product from paying anybody.
+//
+// The real hole is narrower and I opened it myself: the route scan cannot see
+// through a function call. When /sales/payout turned this check red I moved the
+// write into lib/ and the grep went quiet — nothing about the rep's power had
+// changed. So the modules a rep-facing route actually IMPORTS are scanned on
+// the same terms as the route, with the sanctioned ones declared by name.
+//
+// One hop, not transitive: a hop is what a route author can see and reason
+// about, and a full graph would drag in the platform modules again through some
+// shared helper and re-create the false rule above.
+const reachable = new Set();
+for (const file of salesRoutes) {
+  for (const m of decomment(read(file)).matchAll(/from "@\/(lib\/sales\/[\w./-]+)"/g)) {
+    const rel = m[1].endsWith(".js") ? m[1] : `${m[1]}.js`;
+    if (existsSync(join(ROOT, rel))) reachable.add(rel);
+  }
+}
+ok("the reachability scan found the modules routes import", reachable.size > 5, reachable.size);
+
+const libStray = [];
+for (const file of reachable) {
+  if (LIB_FORBIDDEN_WRITE_BY_DESIGN[file]) continue;
+  for (const m of decomment(read(file)).matchAll(LIB_WRITE_RE)) {
+    if (REP_FORBIDDEN_WRITES.includes(m[1])) libStray.push(`${file}: ${m[1]}.${m[2]}`);
+  }
+}
+ok(
+  "no module a rep-facing route imports writes a forbidden table, except the declared",
+  libStray.length === 0,
+  libStray,
+);
+// A declaration that no longer matches a real write is a stale permission, and
+// stale permissions are how a rule quietly stops meaning anything.
+for (const [file, why] of Object.entries(LIB_FORBIDDEN_WRITE_BY_DESIGN)) {
+  const writes = [...decomment(read(file)).matchAll(LIB_WRITE_RE)].filter((m) =>
+    REP_FORBIDDEN_WRITES.includes(m[1]),
+  );
+  ok(`${file} still makes the write it is exempted for`, writes.length > 0, why.slice(0, 40));
+}
+
+// ── The demo pointer, fenced the same way ─────────────────────────────────
+//
+// Declared above, so the reachability scan lets it through. A declaration is a
+// promise about which COLUMN, and a promise nothing checks is how `active` or
+// `commissionPlanId` ends up in the same update six months from now.
+{
+  const demoSrc = decomment(read("lib/sales/demoAssign.js"));
+  const blocks = [...demoSrc.matchAll(/salesRep\.updateMany\(\{[\s\S]{0,400}?\}\)/g)].map((m) => m[0]);
+  ok("the demo writer's updates were located", blocks.length >= 2, blocks.length);
+  const keys = new Set();
+  for (const b of blocks) {
+    const at = b.indexOf("data: {");
+    if (at < 0) continue;
+    for (const k of b.slice(at).matchAll(/(\w+):/g)) if (k[1] !== "data") keys.add(k[1]);
+  }
+  ok(
+    "…and they set demoCompanyId and nothing else",
+    keys.size === 1 && keys.has("demoCompanyId"),
+    [...keys],
+  );
+  // The compare-and-set that stops a rep taking a demo somebody already holds.
+  ok("…and claim is a compare-and-set on an unheld demo", /demoCompanyId: null/.test(demoSrc));
+}
+
 // ── The one sanctioned rep-row write, and its fence ────────────────────────
 //
 // Moving a forbidden write out of a route and into lib/ would make the grep
