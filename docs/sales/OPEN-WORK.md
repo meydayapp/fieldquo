@@ -27,17 +27,15 @@ Everything below is on `main`, deployed, and has a check in `check:all`.
 | Demo | A rep claims one of ten demo companies; login minted by a superadmin. |
 | Prospect → lead | "Work this one as a lead" carries the name, number and location across and links the records. |
 | Tour | 18 steps, in the rep's language. |
+| Free dial | A number a contractor gives you on the call ("ring him on his cell") is recorded against the business and can be dialled or texted. The browser sends an ID, never a number — the server re-reads the row, checks it belongs to the record being dialled, and re-runs the do-not-contact flag, the suppression list (across EVERY number of theirs), the calling window and the 24-hour cap against the number that will actually ring. A landline is refused for text with the reason said out loud. `check:free-dial`, 161 assertions. |
+| Editing from the queue | "What you learned on the call" writes the rep's OWN lead — contact name, email, phone, status — through the route that already writes it. It never touches the discovered Prospect: `phoneE164` is the dedupe key every past call, text and opt-out is filed against, and `country`/`province` decide which calling statute applies to every rep who will ever hold that row. |
 | Plan gate | A company that never finished checkout cannot send a quote or an invoice. |
 
 ---
 
 ## In flight
 
-- **Free dial and editing from the queue.** Record a number a contractor gives
-  you on the call ("ring him on his cell"), choose which number to dial, and
-  correct the record. Uses `lib/sales/contact/numbers.js`, which already knows
-  that a landline can be called and not texted — texting one is a SILENT
-  success, accepted by the carrier and delivered to nobody.
+Nothing. Free dial landed on 2026-09-10 — see the two rows above.
 
 ---
 
@@ -76,6 +74,17 @@ Everything below is on `main`, deployed, and has a check in `check:all`.
   contradicts `queueWhere`, and two different do-not-contact controls (the
   queue button writes one prospect row; the `do_not_call` disposition writes
   the row AND the platform list).
+- **The queue judges the calling window from the PROSPECT's location only.**
+  A rep who learns on the call that a business is actually in Ohio can say so
+  on their lead, and the lead screen and the calls route both read the lead's
+  pair ahead of the prospect's — but the queue's own compliance panel still
+  reads the discovered row. Deliberately not changed with free dial: letting a
+  rep move a business into a jurisdiction with a wider calling window, for
+  every rep at once, is a compliance decision and not a UI one.
+- **A number recorded in error cannot be removed**, only corrected — set its
+  kind, or record that it must not be called or texted. There is no delete, on
+  purpose: a gap invites the next rep to re-type the same wrong number, and a
+  row saying "do not ring this" is a statement they can read.
 - **`docs/sales/decks/train.js` is stale** on two slides — day-3 check-in (it
   is 1 and 7) and a "gap" where the queue ignores the suppression list (it
   reads it now).

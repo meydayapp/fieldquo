@@ -98,18 +98,37 @@ section("2. The dialler reads it, in the request that dials");
 
 {
   const route = decomment(read("app/api/sales/calls/route.js"));
-  ok("the outbound call route checks suppression", /checkSuppression\(db, \{/.test(route),
-    "app/api/sales/calls/route.js does not call checkSuppression");
+  // ── The loop moved, and got WIDER ──────────────────────────────────────
+  //
+  // Until free dial the route read the list once, for `target.phoneE164`, and
+  // this check asserted exactly that. Free dial made a per-number check a hole:
+  // a contractor texts STOP from the shop line, the rep rings the cell somebody
+  // gave them, and a check on the cell alone finds nothing. So the question is
+  // now asked about EVERY number on the record through firstSuppression(),
+  // which lives beside checkSuppression() and is asserted below on its own
+  // terms. The assertion followed the code rather than being deleted with it.
+  ok("the outbound call route reads the do-not-contact list",
+    /firstSuppression\(db, \{/.test(route),
+    "app/api/sales/calls/route.js does not call firstSuppression");
   ok("…on the phone channel", /channel: "phone"/.test(route));
-  ok("…for the number it is about to dial", /phone: target\.phoneE164/.test(route));
+  ok("…for every number on the record, not just the listed one",
+    /phones: everyNumber/.test(route) &&
+      /target\.phoneE164, \.\.\.contactRows\.map\(\(r\) => r\.e164\)/.test(route));
   ok("…and refuses when suppressed", /suppression\?\.suppressed/.test(route));
   ok("…with 409, the same status the other channels refuse with", /status: 409/.test(route));
 
-  // Fail CLOSED. "We could not read the list" is not permission to ring.
+  // The shared loop itself: it must ask the real function, and it must fail
+  // CLOSED. "We could not read the list" is not permission to ring.
+  const lib = decomment(read("lib/sales/suppression.js"));
+  const loop = lib.slice(lib.indexOf("export async function firstSuppression("));
+  ok("the shared loop asks checkSuppression per number",
+    /checkSuppression\(db, \{ channel, phone \}\)/.test(loop.slice(0, 900)));
   ok("a list that cannot be read refuses the call rather than risking it",
-    /suppressed: true, reason: `The do-not-contact list could not be read/.test(read("app/api/sales/calls/route.js")));
+    /\.catch\(\(err\) => \(\{\s*suppressed: true,/.test(loop.slice(0, 900)));
+  ok("…and one hit anywhere stops the whole dial",
+    /if \(verdict\?\.suppressed\) return \{ \.\.\.verdict, phone \}/.test(loop.slice(0, 900)));
 
-  // The original check must survive alongside it — they are different facts.
+  // The original checks must survive alongside it — they are different facts.
   ok("the do-not-contact flag is still refused", /target\.doNotContactAt/.test(route));
   ok("…and the calling window still applies", /salesCallReadiness\(/.test(route));
 }
@@ -169,7 +188,14 @@ section("3. Every outbound channel now agrees");
     ["inbound calls", "app/api/rep-dial/inbound/route.js"],
     ["outbound calls", "app/api/sales/calls/route.js"],
   ]) {
-    ok(`${what} consults the suppression list`, /checkSuppression\(/.test(decomment(read(file))));
+    // Either directly, or through firstSuppression() — the shared loop in
+    // lib/sales/suppression.js that asks it once per number. The outbound call
+    // and text paths use the loop because free dial gave a business more than
+    // one number; the rule being asserted is unchanged.
+    ok(
+      `${what} consults the suppression list`,
+      /checkSuppression\(|firstSuppression\(/.test(decomment(read(file))),
+    );
   }
 }
 

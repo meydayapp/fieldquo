@@ -453,7 +453,18 @@ ok(
 );
 ok(
   "…and moving between rows REPLACES rather than pushes",
-  /router\.replace\(/.test(consoleSrc) && !/router\.push\(/.test(consoleSrc),
+  // Scoped to the selection, not the whole file. `select()` is the function
+  // that moves between rows, and it must replace — one history entry per row
+  // click makes the back button useless for leaving. A router.push elsewhere
+  // in this file is a deliberate navigation AWAY from the queue (carrying a
+  // prospect across to its lead screen), which is exactly the kind of move a
+  // back button should undo, and the earlier whole-file rule turned that
+  // feature into a permanent red rather than a question.
+  (() => {
+    const at = consoleSrc.indexOf("function select(");
+    const body = at >= 0 ? consoleSrc.slice(at, consoleSrc.indexOf("\n  }", at)) : "";
+    return body.length > 20 && /setQuery\(|router\.replace\(/.test(body) && !/router\.push\(/.test(body);
+  })(),
   "one history entry per row click makes the back button useless for leaving",
 );
 ok(
@@ -488,7 +499,13 @@ ok(
 // see an unclaimed prospect. The console is allowed exactly two endpoints; a
 // third is a thing a reviewer must look at deliberately.
 {
-  const ALLOWED = ["/api/sales/queue", "/api/sales/notes"];
+  // /api/sales/leads joined the list when the queue learned to hand a prospect
+  // to the leads screen and, later, to correct what a call taught the rep. It
+  // is not a second source of PROSPECTS — it reads and writes the rep's OWN
+  // lead, POST refuses a prospect this rep does not hold, and neither method
+  // can list anything unclaimed. That is the property this block guards, and
+  // the assertion below still names it.
+  const ALLOWED = ["/api/sales/queue", "/api/sales/notes", "/api/sales/leads"];
   const called = [...new Set([...consoleSrc.matchAll(/["'`](\/api\/[A-Za-z0-9/_-]+)/g)].map((m) => m[1]))];
   const unexpected = called.filter((u) => !ALLOWED.some((a) => u === a || u.startsWith(`${a}/`)));
   ok(

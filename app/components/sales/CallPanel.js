@@ -132,6 +132,12 @@ export default function CallPanel({
   prospectId = null,
   leadId = null,
   phoneE164,
+  // WHICH stored number to ring, when the rep has picked one that is not the
+  // one on the listing. An ID, never a number: the server re-reads the row and
+  // checks it belongs to this record in the request that dials, because a
+  // request that could name its own destination is toll fraud on FieldQuo's
+  // Twilio account. lib/sales/contact/resolve.js carries the whole argument.
+  contactNumberId = null,
   businessName,
   fallbackHref,
   onWorked,
@@ -283,6 +289,10 @@ export default function CallPanel({
         body: JSON.stringify({
           action: "dial",
           ...(prospectId ? { prospectId } : { leadId }),
+          // Omitted entirely when the rep has not picked one, so the server
+          // falls back to its OWN best choice rather than to a null it has to
+          // interpret.
+          ...(contactNumberId ? { contactNumberId } : {}),
           channel,
         }),
       });

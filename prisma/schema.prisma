@@ -8954,6 +8954,9 @@ model SalesRep {
   /// note until they press send, which is why it hangs off the rep and not off
   /// the company.
   checkIns       SalesCheckIn[]
+  /// Numbers this rep wrote down. SetNull rather than Cascade on the other
+  /// side: a rep leaving must not delete the number a contractor gave us.
+  contactNumbers SalesContactNumber[]
 }
 
 /// What a rep earns, per milestone. A row rather than constants so the numbers
@@ -9223,6 +9226,92 @@ model SalesLead {
   @@index([salesRepId, status])
   repNotes SalesRepNote[]
   events   SalesEvent[]
+  /// Numbers a rep was TOLD to use, beside the one `phone` above. See
+  /// SalesContactNumber — one column cannot hold "call the shop, text my cell".
+  contactNumbers SalesContactNumber[]
+}
+
+/// A number somebody TOLD us to use, beside the one on the listing.
+///
+/// ══ Why a table and not a second column ═══════════════════════════════════
+///
+/// Prospect has one `phoneE164` and SalesLead has one `phone`, and both are
+/// whatever a directory printed. The ordinary shape of a real call is that the
+/// listed number is the shop, somebody answers, and says "call him on his
+/// cell, 613-555-0142". A contractor also says "call the shop, text my cell" —
+/// one column cannot hold that, and an `altPhone` column cannot hold the third
+/// number a bigger outfit gives you. Reach is per number AND per channel, so
+/// it is stored that way.
+///
+/// ══ canCall / canText are THREE-valued and that is the point ══════════════
+///
+/// Null means nobody said. It does NOT mean false. AGENTS.md failure class #5
+/// — padding absent data with a default — is the whole bug here: a landline
+/// defaulted to "textable" is a message the carrier accepts, the provider
+/// reports as sent, and nobody ever receives. lib/sales/contact/numbers.js's
+/// reaches() reads these, and an explicit value recorded by a rep who was TOLD
+/// outranks whatever the kind implies.
+///
+/// ══ Additive only ═════════════════════════════════════════════════════════
+///
+/// Nothing here overwrites Prospect.phoneE164 or SalesLead.phone. Those are
+/// identity — the dedupe key discovery matches on — and a rep correcting one
+/// on the strength of a phone call would silently re-point the deduplication
+/// of an org-wide row. A new number is a new row.
+model SalesContactNumber {
+  id String @id @default(cuid())
+
+  /// The discovered business, when the rep was working one out of the queue.
+  /// Both this and salesLeadId are nullable and at least one is always set —
+  /// see lib/sales/contact/resolve.js, which refuses to look up numbers when
+  /// it holds neither id rather than issuing a query that matches every row
+  /// with a null.
+  prospectId String?
+  prospect   Prospect? @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  /// The rep's own lead, when they were working one of those instead.
+  salesLeadId String?
+  salesLead   SalesLead? @relation(fields: [salesLeadId], references: [id], onDelete: Cascade)
+
+  /// E.164, normalised on write through the same normalisePhone() the
+  /// suppression list keys on. A number that will not normalise is refused at
+  /// the route rather than stored in a shape nothing can match.
+  e164 String
+
+  /// "mobile" | "landline" | "unknown". Defaults to unknown, never guessed
+  /// from the digits — no NANP prefix distinguishes a mobile from a landline.
+  kind String @default("unknown")
+
+  /// What the rep would call it: "owner's cell", "the shop", "after 5".
+  label String?
+
+  /// Three-valued. See the header.
+  canCall Boolean?
+  canText Boolean?
+
+  /// The one they said to use first. Sorted ahead of the rest by
+  /// contactChoices(); it is a preference, not a permission.
+  preferred Boolean @default(false)
+
+  /// Who wrote it down. SetNull: the number outlives the rep.
+  addedBySalesRepId String?
+  addedBy           SalesRep? @relation(fields: [addedBySalesRepId], references: [id], onDelete: SetNull)
+
+  /// What they actually said, in their words.
+  note String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// One row per number per record. The database refuses the duplicate rather
+  /// than the route remembering to look first — a rep typing the same cell
+  /// twice is the ordinary case, and two identical rows would be two
+  /// indistinguishable choices in the dial picker. Postgres treats NULLs as
+  /// distinct, so the prospect-scoped and lead-scoped uniques do not collide.
+  @@unique([prospectId, e164])
+  @@unique([salesLeadId, e164])
+  @@index([prospectId])
+  @@index([salesLeadId])
 }
 
 /// A rep's own calendar entry — an appointment they'll attend or a callback
@@ -9792,6 +9881,10 @@ model Prospect {
   repNotes SalesRepNote[]
   playbookAssignments SalesPlaybookAssignment[]
   talkingPoints       ProspectTalkingPoint[]
+  /// The second and third numbers, as a rep was given them on the phone.
+  /// Additive: nothing here ever overwrites `phoneE164` above, which is the
+  /// dedupe key every discovery run and every merge decision reads.
+  contactNumbers      SalesContactNumber[]
 }
 
 /// Something we OBSERVED. The bottom of the stack; everything above cites it.

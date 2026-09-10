@@ -24,6 +24,46 @@ import { contactOptedOut } from "@/lib/sales/outreachInbound";
 import { leadDialView } from "@/lib/sales/leadDial";
 import { isSalesSmsTimeZone } from "@/lib/sales/smsWindow";
 import { normaliseCountry, normaliseSubdivision } from "@/lib/sales/callingRules";
+import { ownNumbers } from "@/lib/sales/calls/store";
+import { CHANNEL_TEXT, CHANNEL_VOICE } from "@/lib/sales/contact/numbers";
+import { loadContactNumbers, pickContactNumber } from "@/lib/sales/contact/resolve";
+import { normalisePhone } from "@/lib/sales/suppressionRules";
+
+/**
+ * Every number this lead can be reached on, per channel.
+ *
+ * Built for both handlers so a PATCH answers the same question a GET does —
+ * two copies of "which numbers may be used" is how a screen ends up offering a
+ * choice the send path refuses.
+ *
+ * `blocked` carries the do-not-contact and the opt-out, so a refusal covers
+ * every number of theirs rather than only the one on the lead. A cell somebody
+ * gave us after they said stop is the same call they refused.
+ */
+async function contactNumbersFor(lead, { optedOut = null } = {}) {
+  const [rows, ours] = await Promise.all([
+    loadContactNumbers({ prospectId: lead?.prospect?.id || null, salesLeadId: lead?.id || null }),
+    ownNumbers().catch(() => []),
+  ]);
+  const args = {
+    target: { phoneE164: normalisePhone(lead?.phone) || lead?.prospect?.phoneE164 || null },
+    rows,
+    ourNumbers: ours,
+    blocked: Boolean(lead?.prospect?.doNotContactAt) || Boolean(optedOut?.optedOut),
+    blockedReason: optedOut?.reason || null,
+  };
+  const voice = pickContactNumber({ ...args, channel: CHANNEL_VOICE });
+  const text = pickContactNumber({ ...args, channel: CHANNEL_TEXT });
+  return {
+    stored: rows.map((r) => ({
+      id: r.id, e164: r.e164, kind: r.kind, label: r.label,
+      canCall: r.canCall, canText: r.canText, preferred: r.preferred,
+      note: r.note, createdAt: r.createdAt,
+    })),
+    voice: { choices: voice.choices, refused: voice.refused, reason: voice.code },
+    text: { choices: text.choices, refused: text.refused, reason: text.code },
+  };
+}
 
 /** The shape both handlers return, so the screen never sees two versions of a lead. */
 const LEAD_SELECT = {
@@ -129,6 +169,9 @@ export async function GET(request, { params }) {
     // second opinion, and a second opinion that disagreed with the gate is how
     // a Call button appears on a number nobody may ring.
     call: leadDialView(lead, { optedOut: phoneOptOut }),
+    // The picker beside the dial. Same shape the queue sends, so
+    // app/components/sales/ContactNumbers.js renders one thing on both screens.
+    numbers: await contactNumbersFor(lead, { optedOut: phoneOptOut }),
     // The server's clock, so the screen judges the calling window against it
     // and not against a laptop whose time zone is wrong — the same reason the
     // queue payload carries one. A rep's own clock is the substitute this
@@ -266,6 +309,7 @@ export async function PATCH(request, { params }) {
   return NextResponse.json({
     lead,
     call: lead ? leadDialView(lead, { optedOut: phoneOptOut }) : null,
+    numbers: lead ? await contactNumbersFor(lead, { optedOut: phoneOptOut }) : null,
     serverNow: new Date().toISOString(),
   });
 }

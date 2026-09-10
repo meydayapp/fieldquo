@@ -63,7 +63,9 @@ import {
 } from "@/lib/sales/calls/agentState";
 import { dialModeState } from "@/lib/sales/calls/dialMode";
 import { normalisePhone } from "@/lib/sales/suppressionRules";
-import { checkSuppression } from "@/lib/sales/suppression";
+import { firstSuppression } from "@/lib/sales/suppression";
+import { loadContactNumbers, pickContactNumber } from "@/lib/sales/contact/resolve";
+import { CHANNEL_VOICE } from "@/lib/sales/contact/numbers";
 import { TWIML_APP_ENV, browserDialReadiness, callPlan } from "@/lib/sales/calls/browserDial";
 import { repCallStats } from "@/lib/sales/calls/reporting";
 
@@ -305,12 +307,40 @@ export async function POST(request) {
         { status: 404 },
       );
     }
-    if (!target.phoneE164) {
-      return bad("This record carries no phone number, so there is nothing to dial.");
-    }
     if (target.doNotContactAt) {
       return bad("This business asked not to be contacted. That does not expire.", 409);
     }
+
+    // ── WHICH number, and why the browser does not get to say ─────────────
+    //
+    // The listed number is the shop. Somebody answers and says "call him on
+    // his cell" — so a rep records that number and then rings it, and this is
+    // the request where the second half happens.
+    //
+    // The wire carries `contactNumberId`, never a phone number. A request that
+    // could name its own destination is toll fraud waiting for one stolen
+    // session: a premium-rate line, dialled on FieldQuo's Twilio account,
+    // billed by the minute, and indistinguishable from a legitimate dial
+    // because a well-formed E.164 is exactly what an attacker would send. No
+    // validation fixes that; only refusing to accept one does.
+    //
+    // The rows are re-read in THIS request, scoped to the prospect and lead
+    // `targetFor()` already resolved through the rep's own claim — so an id
+    // belonging to somebody else's prospect is not in the set searched and is
+    // refused by the same path as a typo. See lib/sales/contact/resolve.js for
+    // why that is one step rather than a read-then-compare.
+    //
+    // Our own numbers are excluded here for BOTH channels now, not just the
+    // browser one. callPlan() has always refused them on the browser path;
+    // the handset path could still be handed one, and ringing our own
+    // infrastructure bridges a loop that bills both legs.
+    const [ours, contactRows] = await Promise.all([
+      ownNumbers().catch(() => []),
+      loadContactNumbers({
+        prospectId: target.prospectId,
+        salesLeadId: target.leadId,
+      }),
+    ]);
 
     // ── The suppression list, which this route did not read ───────────────
     //
@@ -329,14 +359,32 @@ export async function POST(request) {
     // Read in the request that places the call, not trusted from the screen
     // that drew the button — the same discipline the email path states above
     // itself, and the reason a stale screen cannot authorise a dial.
-    const suppression = await checkSuppression(db, {
-      channel: "phone",
-      phone: target.phoneE164,
-    }).catch((err) => {
-      // Fail CLOSED. If the list cannot be read we do not know whether they
-      // said stop, and "we could not check" is not permission to ring.
-      return { suppressed: true, reason: `The do-not-contact list could not be read (${err?.message}), so this call is refused rather than risked.` };
-    });
+    //
+    // ── EVERY number of theirs, not only the one about to ring ────────────
+    //
+    // A STOP is written to the list keyed on the number it arrived from, and
+    // free dial makes that a hole if the check is per-number: a contractor
+    // texts STOP from the shop line, the rep rings the cell somebody gave
+    // them, and a check on the cell alone finds nothing and lets the call
+    // through. The refusal is a fact about the BUSINESS — it is the same
+    // reasoning contactChoices()'s `blocked` and `doNotContactAt` above use —
+    // so the question is asked about every number on this record, and one hit
+    // anywhere refuses the whole dial.
+    //
+    // Asked BEFORE the number is chosen, so the choice cannot change the
+    // answer, and so a rep is never told "pick a different one".
+    const everyNumber = [
+      ...new Set(
+        [target.phoneE164, ...contactRows.map((r) => r.e164)].map(normalisePhone).filter(Boolean),
+      ),
+    ];
+    //
+    // firstSuppression() is the shared loop, in lib/sales/suppression.js beside
+    // checkSuppression — it asks about each number in turn, fails CLOSED on a
+    // lookup that throws, and names which number carried the refusal. Shared
+    // rather than written out here and again in the texting route, because the
+    // copy is the one that rots.
+    const suppression = await firstSuppression(db, { channel: "phone", phones: everyNumber });
     if (suppression?.suppressed) {
       return NextResponse.json(
         {
@@ -352,9 +400,34 @@ export async function POST(request) {
       );
     }
 
+    const chosen = pickContactNumber({
+      target,
+      rows: contactRows,
+      contactNumberId:
+        typeof body.contactNumberId === "string" ? body.contactNumberId.trim() : "",
+      channel: CHANNEL_VOICE,
+      ourNumbers: ours,
+    });
+    if (!chosen.ok) {
+      return NextResponse.json(
+        { error: chosen.error, reason: chosen.code, choices: chosen.choices, refused: chosen.refused },
+        // A refusal about WHICH number is a conflict with the world's state,
+        // not a malformed request — except a number that is not on this record
+        // at all, which is the caller naming something that does not exist.
+        { status: chosen.code === "not_on_this_record" ? 404 : 409 },
+      );
+    }
+
+    // Everything below this line reads `dialTo`, and nothing below it reads
+    // `target.phoneE164`. That is the point: the 24-hour cap and the caller-id
+    // plan have to be asked about the number that will actually ring, not
+    // about the one printed in the directory. A guard that runs against a
+    // number nobody dials is not a guard.
+    const dialTo = chosen.e164;
+
     // Counted for real now. Passing null here would put the cap back into
     // `unenforced` while the table sits there full of rows.
-    const attempts24h = await attemptsLast24h(target.phoneE164, { now });
+    const attempts24h = await attemptsLast24h(dialTo, { now });
 
     const readiness = salesCallReadiness({
       prospect: { country: target.country, province: target.province },
@@ -376,11 +449,16 @@ export async function POST(request) {
 
     let plan = null;
     if (channel === "browser") {
-      const [callerNumbers, ours] = await Promise.all([salesCallerNumbers(), ownNumbers()]);
+      const callerNumbers = await salesCallerNumbers();
       plan = callPlan({
-        toE164: target.phoneE164,
+        toE164: dialTo,
         readiness,
         callerNumbers,
+        // `ours` was read at the top of this branch and is the same list
+        // pickContactNumber() already refused against. Read once and used
+        // twice on purpose: two reads a few lines apart could disagree, and
+        // the disagreement would be a number one gate allowed and the other
+        // did not.
         ownNumbers: ours,
       });
       if (!plan.ok) return bad(plan.reason, 409);
@@ -390,7 +468,10 @@ export async function POST(request) {
       salesRepId: rep.id,
       prospectId: target.prospectId,
       leadId: target.leadId,
-      toE164: target.phoneE164,
+      // The bridge reads the destination off THIS row rather than from the
+      // browser (see app/api/rep-dial/bridge), so the chosen number has to
+      // land here or the free dial would ring the listing anyway.
+      toE164: dialTo,
       fromE164: plan?.callerId || null,
       dialChannel: channel,
       readiness,
@@ -416,7 +497,12 @@ export async function POST(request) {
       // Canada's Telemarketing Rules require identifying with a callback
       // number, and a rep who cannot see the one being presented cannot say it.
       callerId: plan?.callerId || null,
-      to: target.phoneE164,
+      to: dialTo,
+      // Which stored number this was, and what the rep called it. Sent back so
+      // the screen can say "ringing the owner's cell" rather than printing ten
+      // digits the rep has to recognise.
+      contactNumberId: chosen.numberId,
+      contactLabel: chosen.choice?.label || null,
       compliance: readiness,
       attemptsLast24h: attempts24h,
       serverNow: now.toISOString(),

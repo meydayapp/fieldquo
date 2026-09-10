@@ -81,8 +81,12 @@ export function Notice({ tone, icon: Icon, title, fix }) {
  * @param compliance the decision the screen recomputed on its own timer. Used
  *                   only for the caveats and the statute; the dial itself is
  *                   already decided inside `space`.
- * @param target     `{ prospectId }` or `{ leadId }`, plus the number and the
- *                   name. Passed through to CallPanel untouched.
+ * @param target     `{ prospectId }` or `{ leadId }`, plus the number, the
+ *                   name, and `contactNumberId` when the rep has picked a
+ *                   number other than the one on the listing. Passed through
+ *                   to CallPanel untouched — this file decides nothing about
+ *                   which number, the same way it decides nothing about
+ *                   whether the call may happen.
  * @param onWorked   called after a disposition is written, so the screen that
  *                   owns the record can reload it.
  */
@@ -95,6 +99,7 @@ export default function DialRegion({ space, compliance = null, target = null, on
             prospectId={target.prospectId || null}
             leadId={target.leadId || null}
             phoneE164={target.phoneE164}
+            contactNumberId={target.contactNumberId || null}
             businessName={target.businessName}
             fallbackHref={space.href}
             onWorked={onWorked}

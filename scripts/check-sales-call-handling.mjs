@@ -1027,7 +1027,15 @@ ok("the calling gate declares exactly the models the call routes may write", (()
     !REP_CALL_WRITES.includes("salesRep");
 })());
 ok("the calls routes write no model outside that list", (() => {
-  const files = ["app/api/sales/calls/route.js", "app/api/sales/calls/token/route.js"];
+  // Every route under app/api/sales/calls, named rather than walked, so a new
+  // one has to be added here deliberately. `numbers` joined on 2026-09-10 with
+  // free dial — it is the only route on this list that writes
+  // salesContactNumber, and REP_CALL_WRITES is where that is argued.
+  const files = [
+    "app/api/sales/calls/route.js",
+    "app/api/sales/calls/token/route.js",
+    "app/api/sales/calls/numbers/route.js",
+  ];
   const writes = /\b(?:db|tx|client|prisma)\.([a-zA-Z]+)\.(?:create|createMany|update|updateMany|upsert|delete|deleteMany)\b/g;
   for (const f of files) {
     const src = source(f);

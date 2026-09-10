@@ -45,17 +45,28 @@ export default function SignupLinkSms({ leadId }) {
   const [busy, setBusy] = useState(false);
   const [zone, setZone] = useState("");
   const [sent, setSent] = useState(null);
+  // WHICH number gets the text. An id of a stored row, never a number — the
+  // send route re-reads it against this lead. "" means the one the server puts
+  // first, so the default is decided in one place rather than copied here.
+  const [numberId, setNumberId] = useState("");
 
   const load = useCallback(async () => {
     setError("");
     try {
-      const next = await fetchJson(`/api/sales/sms?leadId=${encodeURIComponent(leadId)}`);
+      // The chosen number goes with the read, so the preview — the exact
+      // message, and the "goes to" line under it — is computed for the number
+      // that would actually be texted. A preview about a different number is
+      // the control that appears to work and doesn't.
+      const next = await fetchJson(
+        `/api/sales/sms?leadId=${encodeURIComponent(leadId)}` +
+          (numberId ? `&contactNumberId=${encodeURIComponent(numberId)}` : ""),
+      );
       setData(next);
       setZone(next.lead?.timeZone || "");
     } catch (err) {
       setError(err.message);
     }
-  }, [leadId]);
+  }, [leadId, numberId]);
 
   useEffect(() => {
     load();
@@ -69,7 +80,10 @@ export default function SignupLinkSms({ leadId }) {
       const result = await fetchJson("/api/sales/sms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: jsonBody({ leadId, ...(zone ? { timeZone: zone } : {}) }, "sms"),
+        body: jsonBody(
+          { leadId, ...(zone ? { timeZone: zone } : {}), ...(numberId ? { contactNumberId: numberId } : {}) },
+          "sms",
+        ),
       });
       setSent(result);
       await load();
@@ -99,6 +113,8 @@ export default function SignupLinkSms({ leadId }) {
   }
 
   const sms = data.sms || {};
+  const contact = data.contact || { choices: [], refused: [] };
+  const textable = contact.choices || [];
   const blockers = sms.blockers || [];
   // The one blocker the rep clears themselves, by saying where the person is.
   const zoneOnly = blockers.length > 0 && blockers.every((b) => b.code === "time_zone_unknown");
@@ -148,6 +164,46 @@ export default function SignupLinkSms({ leadId }) {
             <p className="font-semibold text-amber-900 dark:text-amber-200">{b.title}</p>
             <p className="text-amber-800 dark:text-amber-300/90">{b.fix}</p>
           </div>
+        </div>
+      ))}
+
+      {/* ── Which number, and the one that is refused ─────────────────────
+          A landline is NOT on this list, and the reason is printed instead of
+          the number being quietly dropped. Texting a landline is a silent
+          success — the carrier takes it, the provider reports it sent, nothing
+          arrives and nothing says so — which is the failure
+          lib/sales/contact/numbers.js exists to prevent. A rep who cannot see
+          the number they were given will text it from their own phone. */}
+      {textable.length > 1 && (
+        <label className="block text-xs text-muted-foreground">
+          Which number?
+          <select
+            value={numberId}
+            onChange={(e) => setNumberId(e.target.value)}
+            className="mt-1 block w-full min-h-[44px] rounded-md border border-border bg-background px-3 py-2 text-base text-foreground"
+          >
+            {textable.map((c) => (
+              <option key={c.id || c.e164} value={c.id || ""}>
+                {[c.e164, c.label].filter(Boolean).join(" — ")}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {(contact.refused || []).map((r, i) => (
+        <div
+          key={`${r.e164 || "none"}-${i}`}
+          className="rounded-md border border-amber-300 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2"
+        >
+          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+          <span className="break-words">
+            <span className="font-semibold tabular-nums">{r.e164 || "One entry"}</span>{" "}
+            {r.why === "landline_cannot_receive_text"
+              ? "is a landline. A text to it is accepted by the carrier and delivered to nobody — there is no bounce, so nothing would tell you it failed. Ring it and ask where to text."
+              : r.why === "one_of_ours"
+                ? "is one of FieldQuo's own numbers, so there is nothing to reach."
+                : "cannot be texted."}
+          </span>
         </div>
       ))}
 

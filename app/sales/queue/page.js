@@ -168,6 +168,8 @@ import {
   UserPlus,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import ContactNumbers from "@/app/components/sales/ContactNumbers";
+import QueueLeadEditor from "@/app/components/sales/QueueLeadEditor";
 import { LAYER_HEADINGS } from "@/lib/sales/prospectView";
 import { CALL_ALLOWED, CALL_REFUSED, dialHref, salesCallReadiness } from "@/lib/sales/callingRules";
 import {
@@ -558,6 +560,30 @@ function QueueConsole() {
     return () => clearInterval(id);
   }, []);
 
+  // ── WHICH number is about to ring ───────────────────────────────────────
+  //
+  // The rep's pick, held here rather than inside ContactNumbers, because the
+  // dial belongs to this screen: the href, the button's label and the id that
+  // goes on the wire all have to agree with the radio button, and state split
+  // across two components is how they stop agreeing.
+  //
+  // `""` means "the one the server put at the top", which is what the server
+  // will also do with no id — so the default is one decision in one place
+  // rather than a copy of it here.
+  const [numberId, setNumberId] = useState("");
+  const currentNumbers = current?.numbers || null;
+  useEffect(() => {
+    // Cleared whenever the open prospect changes. Carrying a number id across
+    // records would send an id the next prospect does not own — refused by the
+    // server, correctly, but as a confusing error rather than a fresh screen.
+    setNumberId("");
+  }, [current?.id]);
+
+  const chosenNumber =
+    (currentNumbers?.voice?.choices || []).find((c) => (c.id || "") === numberId) ||
+    (currentNumbers?.voice?.choices || [])[0] ||
+    null;
+
   const compliance = useMemo(() => {
     if (!current) return null;
     const ctx = current.callingContext;
@@ -588,7 +614,11 @@ function QueueConsole() {
     [data?.trades],
   );
 
-  const href = dialHref(compliance, current?.phoneE164);
+  // The chosen number, not the listing's. dialHref is still the only producer
+  // of a tel: target and still refuses anything but an `allowed` decision —
+  // what changed is WHICH number it is given, and that number came from the
+  // server's own list of ones it is willing to ring.
+  const href = dialHref(compliance, chosenNumber?.e164 || current?.phoneE164);
   // Everything that goes where the Call button goes, including the sentence
   // that goes there when there is no Call button. dialSpace re-gates the href
   // against the decision, so a bug here cannot manufacture a dial control.
@@ -839,13 +869,31 @@ function QueueConsole() {
                 current
                   ? {
                       prospectId: current.id,
-                      phoneE164: current.phoneE164,
+                      phoneE164: chosenNumber?.e164 || current.phoneE164,
+                      // An id of a row we stored, never a number. The server
+                      // re-reads it against this prospect before anything rings.
+                      contactNumberId: chosenNumber?.id || null,
                       businessName: current.businessName,
                     }
                   : null
               }
               onWorked={load}
             />
+
+            {/* ── The other numbers, and the one somebody just read out ─────
+                Under the dial rather than beside it: a rep reaches for the
+                Call button first, and the picker is what they touch when the
+                answer was "call him on his cell instead". */}
+            {current ? (
+              <ContactNumbers
+                prospectId={current.id}
+                numbers={currentNumbers}
+                selectedId={chosenNumber?.id || ""}
+                onSelect={(pick) => setNumberId(pick?.id || "")}
+                onChanged={load}
+                disabled={current.contact?.callable === false}
+              />
+            ) : null}
 
             {current ? (
               <p className="text-xs text-muted-foreground break-words">{current.claim.text}</p>
@@ -894,6 +942,20 @@ function QueueConsole() {
 
           {!loading && current ? (
             <>
+              {/* ── The record, corrected from the screen the rep is on ─────
+                  Writes the rep's own lead through the route that already
+                  writes it — never the discovered Prospect, whose phone number
+                  is a dedupe key and whose province decides a statute. The
+                  component's header argues that split at length. */}
+              <section className={CARD}>
+                <QueueLeadEditor
+                  prospectId={current.id}
+                  businessName={current.businessName}
+                  lead={current.lead || null}
+                  onChanged={load}
+                />
+              </section>
+
               {/* ── Notes, beside the call rather than a screen away ──────── */}
               <section className={CARD}>
                 <h2 className="text-base font-semibold text-foreground">

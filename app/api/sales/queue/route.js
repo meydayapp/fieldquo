@@ -50,6 +50,9 @@ import {
   queueWhere,
 } from "@/lib/sales/prospectView";
 import { salesCallReadiness } from "@/lib/sales/callingRules";
+import { ownNumbers } from "@/lib/sales/calls/store";
+import { CHANNEL_TEXT, CHANNEL_VOICE } from "@/lib/sales/contact/numbers";
+import { loadContactNumbers, pickContactNumber } from "@/lib/sales/contact/resolve";
 
 const ACTIONS = ["claim", "release", "worked", "do_not_contact"];
 const MAX_REASON = 300;
@@ -136,7 +139,7 @@ async function queueBody(rep, { tradeKey = null, prospectId = null } = {}) {
     });
 
     if (full) {
-      const [rules, signatures, suppression] = await Promise.all([
+      const [rules, signatures, suppression, contactRows, ours, myLead] = await Promise.all([
         db.confidenceRule.findMany(),
         db.technologySignature.findMany({ select: { code: true, name: true } }),
         // ── The list, read for the one prospect that gets a dial control ──
@@ -160,12 +163,53 @@ async function queueBody(rep, { tradeKey = null, prospectId = null } = {}) {
               reason: "The do-not-contact list could not be read, so no dial control is offered.",
             }))
           : Promise.resolve(null),
+        // Extra numbers a rep was given on the phone. Read here rather than
+        // behind a second fetch for the same reason the suppression verdict is:
+        // this is the screen where the Call button is drawn, and a picker that
+        // arrived a beat later would let a rep press the listing number while
+        // the cell they were told to use was still loading.
+        loadContactNumbers({ prospectId: full.id }),
+        ownNumbers().catch(() => []),
+        // The rep's OWN lead for this business, when they have carried it
+        // across. This is what "update and make changes to the lead" edits —
+        // see the note beside `lead` in the payload below for why a rep
+        // corrects their lead rather than the discovered row.
+        db.salesLead.findFirst({
+          where: { prospectId: full.id, salesRepId: rep.id },
+          select: {
+            id: true, businessName: true, contactName: true, email: true, phone: true,
+            timeZone: true, country: true, province: true, status: true, notes: true,
+          },
+        }),
       ]);
       const signatureNames = Object.fromEntries(signatures.map((s) => [s.code, s.name]));
 
+      // Which numbers may be rung, and which may be texted — they are not the
+      // same list, because a landline takes a call and silently swallows a
+      // text. Computed on both channels here so the screen never has to work
+      // out reach for itself.
+      const blocked = Boolean(full.doNotContactAt) || Boolean(suppression?.suppressed);
+      const numberArgs = {
+        target: { phoneE164: full.phoneE164 },
+        rows: contactRows,
+        ourNumbers: ours,
+        blocked,
+        blockedReason: suppression?.reason || null,
+      };
+      const voice = pickContactNumber({ ...numberArgs, channel: CHANNEL_VOICE });
+      const text = pickContactNumber({ ...numberArgs, channel: CHANNEL_TEXT });
+
       current = {
         ...prospectView({
-          prospect: full,
+          // The listing number OR the best one a rep recorded. contactability()
+          // asks "is there a number to ring", and once somebody has told us the
+          // owner's cell the answer is yes even when discovery found nothing —
+          // leaving it null would draw "no sales number yet" over a number the
+          // rep wrote down ten seconds ago, which is the dead control inverted.
+          //
+          // It does NOT write back: Prospect.phoneE164 is the dedupe key every
+          // discovery run matches on, and a call is not a reason to re-point it.
+          prospect: { ...full, phoneE164: full.phoneE164 || voice.choices[0]?.e164 || null },
           capabilities: full.capabilities,
           technologies: full.technologies.map((t) => ({
             ...t,
@@ -186,7 +230,26 @@ async function queueBody(rep, { tradeKey = null, prospectId = null } = {}) {
         tradeLabel: full.tradeKey ? DISCOVERY_TRADES[full.tradeKey]?.label || full.tradeKey : null,
         territory: full.territory,
         websiteUrl: full.websiteUrl,
-        phoneE164: full.phoneE164,
+        phoneE164: full.phoneE164 || voice.choices[0]?.e164 || null,
+        // ── The numbers, and the reasons some of them are not offered ──────
+        //
+        // `refused` travels with `choices` deliberately. A rep who was given a
+        // number and cannot see it anywhere will type it into a note and phone
+        // it off their own handset, which is a call nothing records and no
+        // calling window governs — so a refused number is SHOWN, with why.
+        numbers: {
+          stored: contactRows.map((r) => ({
+            id: r.id, e164: r.e164, kind: r.kind, label: r.label,
+            canCall: r.canCall, canText: r.canText, preferred: r.preferred,
+            note: r.note, createdAt: r.createdAt,
+          })),
+          voice: { choices: voice.choices, refused: voice.refused, reason: voice.code },
+          text: { choices: text.choices, refused: text.refused, reason: text.code },
+        },
+        // The rep's own lead for this business, or null when they have not
+        // carried it across yet. Null is a real state the screen acts on — it
+        // offers to create one — rather than a gap it papers over.
+        lead: myLead,
         // ── Whether this may be dialled, and where the screen re-asks ──────
         //
         // `compliance` is the answer at the moment this response was built, so

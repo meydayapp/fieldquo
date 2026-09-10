@@ -47,6 +47,7 @@ import { dialHref, salesCallReadiness } from "@/lib/sales/callingRules";
 import { dialSpace } from "@/lib/sales/dialSpace";
 import { SALES_SMS_TIME_ZONES } from "@/lib/sales/smsWindow";
 import DialRegion from "@/app/components/sales/DialRegion";
+import ContactNumbers from "@/app/components/sales/ContactNumbers";
 import OutreachNotice from "../OutreachNotice";
 import SignupLinkSms from "../SignupLinkSms";
 
@@ -110,6 +111,10 @@ export default function SalesLeadPage({ params }) {
   // opened a lead at 20:58 must not still be looking at a live Call button at
   // 21:01 — the queue re-asks on the same cadence and for the same reason.
   const [tick, setTick] = useState(0);
+  // The rep's pick of WHICH number rings. Held on the screen that owns the
+  // dial — see the same note in app/sales/queue/page.js — and empty meaning
+  // "whichever the server puts first", so the default is decided once.
+  const [numberId, setNumberId] = useState("");
   useEffect(() => {
     const id2 = setInterval(() => setTick((n) => n + 1), 30_000);
     return () => clearInterval(id2);
@@ -243,12 +248,20 @@ export default function SalesLeadPage({ params }) {
     : null;
   // `tick` is read so the window above is re-judged every thirty seconds.
   void tick;
+  const numbers = data?.numbers || null;
+  const chosenNumber =
+    (numbers?.voice?.choices || []).find((c) => (c.id || "") === numberId) ||
+    (numbers?.voice?.choices || [])[0] ||
+    null;
   const space = dialSpace({
     // dialSpace reads `contact` and nothing else off this object, and the
     // server built that in the shape it expects — see lib/sales/leadDial.js.
     prospect: call ? { contact: call.contact } : null,
     compliance,
-    href: dialHref(compliance, call?.phoneE164),
+    // The chosen number. dialHref still refuses anything but an `allowed`
+    // decision and is still the only producer of a tel: target; what changed
+    // is which of the record's numbers it is handed.
+    href: dialHref(compliance, chosenNumber?.e164 || call?.phoneE164),
     claimedCount: 0,
   });
 
@@ -292,12 +305,27 @@ export default function SalesLeadPage({ params }) {
             call
               ? {
                   leadId: lead.id,
-                  phoneE164: call.phoneE164,
+                  phoneE164: chosenNumber?.e164 || call.phoneE164,
+                  // An id of a stored row, never a number — the server re-reads
+                  // it against this lead in the request that dials.
+                  contactNumberId: chosenNumber?.id || null,
                   businessName: lead.businessName,
                 }
               : null
           }
           onWorked={load}
+        />
+
+        {/* The numbers somebody actually gave us, and the one about to ring.
+            Same component the queue renders, for the reason DialRegion is
+            shared: two copies of a reach rule is one too many. */}
+        <ContactNumbers
+          leadId={lead.id}
+          numbers={numbers}
+          selectedId={chosenNumber?.id || ""}
+          onSelect={(pick) => setNumberId(pick?.id || "")}
+          onChanged={load}
+          disabled={call?.contact?.callable === false}
         />
 
         {/* ── Where the phone rings ──────────────────────────────────────────
