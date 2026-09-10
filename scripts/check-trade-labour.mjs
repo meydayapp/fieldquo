@@ -1089,7 +1089,12 @@ check("roofing is priced, and against the Home Depot Canada reads", () => {
     layers: 1,
   });
   const line = (re) => b.materials.find((m) => re.test(m.name));
-  const shingles = line(/bundles/);
+  // Matched on the materialKey, not on the word "bundles" in the label. The
+  // label used to end "— bundles" for every roofing material including the two
+  // that are not sold in bundles; the unit now rides on `unit` and the key is
+  // the stable identity. See scripts/check-roof-materials.mjs.
+  const main = () => b.materials.find((m) => m.materialKey === "bundles");
+  const shingles = main();
   assert.equal(shingles.unitCost, 41.93);
   assert.equal(shingles.qty, 80);
   assert.equal(shingles.cost, 3354.4);
@@ -1117,14 +1122,15 @@ check("waste moves the quantity and never the unit cost", () => {
     layers: 1,
     dripEdgeFt: 180,
   });
-  const qty = (b, re) => b.materials.find((m) => re.test(m.name)).qty;
-  const unit = (b, re) => b.materials.find((m) => re.test(m.name)).unitCost;
-  assert.equal(qty(measured, /bundles/), 72);
-  assert.equal(qty(wasted, /bundles/), 80);
-  assert.equal(qty(measured, /Drip edge/), 18);
-  assert.equal(qty(wasted, /Drip edge/), 20);
-  for (const re of [/bundles/, /Drip edge/, /underlayment/i])
-    assert.equal(unit(measured, re), unit(wasted, re), String(re));
+  const byKey = (b, key) => b.materials.find((m) => m.materialKey === key);
+  const qty = (b, key) => byKey(b, key).qty;
+  const unit = (b, key) => byKey(b, key).unitCost;
+  assert.equal(qty(measured, "bundles"), 72);
+  assert.equal(qty(wasted, "bundles"), 80);
+  assert.equal(qty(measured, "dripEdge"), 18);
+  assert.equal(qty(wasted, "dripEdge"), 20);
+  for (const key of ["bundles", "dripEdge", "underlayment"])
+    assert.equal(unit(measured, key), unit(wasted, key), key);
   // Counted things are not wasted: nobody buys a tenth of a vent boot.
   const boots = (b) => b.materials.find((m) => /vent boots/i.test(m.name)).qty;
   const withBoots = (over) =>
@@ -1138,23 +1144,31 @@ check("waste moves the quantity and never the unit cost", () => {
 });
 
 check("a material that isn't three bundles to a square says so", () => {
-  // Metal panel and low-slope membrane carry their own bundlesPerSquare.
-  // Ordering 3 panels to a square would buy a third more roof than exists.
+  // Coverage and unit are both properties of the product now — see
+  // roofMaterialCoverage() and scripts/check-roof-materials.mjs, which owns the
+  // detail. This stays as the regression guard that the ROOFING BILL as a whole
+  // reads its main line off the material rather than off asphalt's constants.
   const at = (materialKey) =>
     bill("roofing_service", {
       areaSqft: 2400,
       pitchRise: 8,
       layers: 1,
       materialKey,
-    }).materials.find((m) => /bundles/.test(m.name));
-  // 24 squares + 10% at 4.3 panels a square (Vicwest UltraVic, 23.25 sqft).
-  assert.equal(at("metal_corrugated").qty, Math.ceil(24 * 1.1 * 4.3));
-  // One 100 sqft cap sheet roll to a square.
+    }).materials.find((m) => m.materialKey === "bundles");
+  // 24 squares + 10% at 21.75 sqft a panel — Vicwest UltraVic, 36" x 93" less
+  // its 6" end lap. WAS 4.3 a square, which was the panel's own area rather
+  // than what it covers.
+  assert.equal(at("metal_corrugated").qty, Math.ceil((24 * 1.1 * 100) / 21.75));
+  assert.equal(at("metal_corrugated").unit, "panel");
+  // One 100 sqft cap sheet ROLL to a square. GAF sells it as a roll.
   assert.equal(at("membrane_flat").qty, Math.ceil(24 * 1.1));
+  assert.equal(at("membrane_flat").unit, "roll");
   // Cedar's coverage is known (25 sqft a bundle) even though its price is not.
   const cedar = at("cedar_shake");
   assert.equal(cedar.qty, Math.ceil(24 * 1.1 * 4));
   assert.equal(cedar.unitCost, null);
+  // And the one the owner caught: standing seam is not bundles at all.
+  assert.equal(at("metal_standing_seam").unit, "sqft");
 });
 
 check("siding and insulation buy the box the product comes in", () => {
@@ -1237,7 +1251,8 @@ check("the bill follows the takeoff, not an average", () => {
     pitchRise: 6,
     layers: 1,
   });
-  const bundles = (b) => b.materials.find((m) => /bundles/.test(m.name)).qty;
+  const bundles = (b) =>
+    b.materials.find((m) => m.materialKey === "bundles").qty;
   // 3 bundles to a square, 24 squares, +10% waste: 79.2 rounded up.
   assert.equal(bundles(one), 80);
   assert.equal(bundles(two), 159);

@@ -51,6 +51,13 @@ import {
 } from "@/lib/pricing/insulation";
 import { useState } from "react";
 import { DRIVEWAY_LABELS } from "@/lib/pricing/tradeScope";
+import { useTranslation } from "@/app/hooks/useTranslation";
+// The one address picker in this codebase, not a second one. It already
+// handles the Places script load, the eleven-country question, the postal code
+// Google leaves out of a street-level result, and the Enter key that used to
+// submit whatever form it was sitting in — none of which is worth writing
+// twice (AGENTS.md failure class #4).
+import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 
 /** Complexity tiles — the whole rate grid moves with the selection. */
 function ComplexityPicker({ value, book, onChange }) {
@@ -1904,6 +1911,7 @@ function SnowRemovalTakeoff({ takeoff, book, onChange }) {
  */
 function RoofMeasurePanel({ takeoff, book, onApply, defaultAddress = "" }) {
   const money = useCompanyMoney();
+  const { t } = useTranslation();
   const [address, setAddress] = useState(defaultAddress);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
@@ -1926,22 +1934,26 @@ function RoofMeasurePanel({ takeoff, book, onApply, defaultAddress = "" }) {
     ridgeVentFt: book?.details?.ridgeVentPerLf,
   };
   const LABEL = {
-    areaSqft: "Roof surface",
-    pitchRise: "Pitch",
-    iceWaterFt: "Ice & water membrane",
-    dripEdgeFt: "Drip edge",
-    starterFt: "Starter course",
-    valleyFt: "Valleys",
-    ridgeHipFt: "Ridge & hip cap",
-    ridgeVentFt: "Ridge vent",
+    areaSqft: t("app.roof.areaSqft", "Roof surface"),
+    pitchRise: t("app.roof.pitch", "Pitch"),
+    iceWaterFt: t("app.roof.iceWater", "Ice & water membrane"),
+    dripEdgeFt: t("app.roof.dripEdge", "Drip edge"),
+    starterFt: t("app.roof.starter", "Starter course"),
+    valleyFt: t("app.roof.valleys", "Valleys"),
+    ridgeHipFt: t("app.roof.ridgeHip", "Ridge & hip cap"),
+    ridgeVentFt: t("app.roof.ridgeVent", "Ridge vent"),
   };
 
   const detailValue = patch
     ? Object.entries(patch).reduce((t, [k, v]) => t + num(v) * num(RATE[k]), 0)
     : 0;
 
-  async function measure() {
-    const query = address.trim();
+  // The address to measure is passed in rather than read off state when it
+  // comes from the picker: setAddress has not committed by the time
+  // place_changed fires, and measuring the half-typed string the estimator
+  // stopped at is exactly the wrong-building bug this panel exists to avoid.
+  async function measure(override) {
+    const query = String(override ?? address).trim();
     if (!query) return;
     setBusy(true);
     setError("");
@@ -1952,14 +1964,25 @@ function RoofMeasurePanel({ takeoff, book, onApply, defaultAddress = "" }) {
       if (!res.ok || !data?.ok) {
         // Named, not swallowed: an estimator who clicked a button and saw
         // nothing happen has no way to tell "no coverage here" from "broken".
-        setError(data?.message || "Roof measuring is unavailable. Enter the area below.");
+        setError(
+          data?.message ||
+            t(
+              "app.roof.measureUnavailable",
+              "Roof measuring is unavailable. Enter the area below.",
+            ),
+        );
         setResult(data?.satelliteImageUrl ? data : null);
         return;
       }
       setResult(data);
       if (data.trustworthy !== false) apply(data);
     } catch {
-      setError("Roof measuring is unavailable. Enter the area below.");
+      setError(
+        t(
+          "app.roof.measureUnavailable",
+          "Roof measuring is unavailable. Enter the area below.",
+        ),
+      );
     } finally {
       setBusy(false);
     }
@@ -1974,7 +1997,7 @@ function RoofMeasurePanel({ takeoff, book, onApply, defaultAddress = "" }) {
       pitchRise: num(data.predominantPitch?.rise),
       ...p,
       measuredFrom: "satellite",
-      measuredAddress: data.formattedAddress || address.trim(),
+      measuredAddress: data.formattedAddress || String(address).trim(),
     });
   }
 
@@ -1988,27 +2011,53 @@ function RoofMeasurePanel({ takeoff, book, onApply, defaultAddress = "" }) {
     <div className="rounded-lg border border-border p-3 space-y-2.5">
       <div className="flex flex-wrap items-end gap-2">
         <div className="min-w-0 flex-1">
-          <label className="text-xs text-muted-foreground">Measure the roof from an address</label>
-          <input
+          <label className="text-xs text-muted-foreground">
+            {t("app.roof.measureFromAddress", "Measure the roof from an address")}
+          </label>
+          {/* ── Places, not free text ──────────────────────────────────────
+              The address typed here is geocoded and handed to Google's Solar
+              API, and the whole failure this panel was built around is that
+              endpoint answering confidently about the wrong building. A typed
+              string resolves to whatever the geocoder makes of it; a picked
+              suggestion is Google's own canonical address, which geocodes to a
+              rooftop.
+
+              The picked address is what gets measured — the FORMATTED string,
+              not the letters the estimator stopped typing. Coordinates are
+              deliberately NOT passed through instead: measureRoof() sets
+              `precise` from the geocoder's location_type, Places returns no
+              such field, and the warning that says "the pin may not be on a
+              building" would quietly become a guess.
+
+              Picking a suggestion measures immediately. Enter no longer does,
+              because AddressAutocomplete's capture handler suppresses the
+              Enter that CHOOSES a suggestion and a bubble-phase handler here
+              would still fire — measuring the half-typed string underneath. */}
+          <AddressAutocomplete
             value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                measure();
-              }
+            onChange={setAddress}
+            onPlaceSelected={(place) => {
+              const picked = place?.address || "";
+              if (!picked) return;
+              setAddress(picked);
+              measure(picked);
             }}
-            placeholder="917 Littlerock St, Ottawa ON"
+            placeholder={t(
+              "app.roof.addressPlaceholder",
+              "Start typing the roof's address",
+            )}
             className={inputClass}
           />
         </div>
         <button
           type="button"
-          onClick={measure}
+          onClick={() => measure()}
           disabled={busy || !address.trim()}
           className="shrink-0 rounded border border-border px-3 py-2 text-xs hover:bg-muted disabled:opacity-50"
         >
-          {busy ? "Measuring…" : "Measure from satellite"}
+          {busy
+            ? t("app.roof.measuring", "Measuring…")
+            : t("app.roof.measureButton", "Measure from satellite")}
         </button>
       </div>
       {defaultAddress && address.trim() !== defaultAddress.trim() && (
@@ -2017,7 +2066,9 @@ function RoofMeasurePanel({ takeoff, book, onApply, defaultAddress = "" }) {
           onClick={() => setAddress(defaultAddress)}
           className="text-[11px] text-muted-foreground underline"
         >
-          Use the client&rsquo;s address ({defaultAddress})
+          {t("app.roof.useClientAddress", "Use the client's address ({address})", {
+            address: defaultAddress,
+          })}
         </button>
       )}
 
@@ -2037,7 +2088,10 @@ function RoofMeasurePanel({ takeoff, book, onApply, defaultAddress = "" }) {
       {result?.ok && result.trustworthy === false && (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 space-y-1.5">
           <p className="text-xs font-medium">
-            This does not look like the right building, so nothing was filled in.
+            {t(
+              "app.roof.wrongBuilding",
+              "This does not look like the right building, so nothing was filled in.",
+            )}
           </p>
           {(result.warnings || []).map((w) => (
             <p key={w.code} className="text-[11px] text-muted-foreground">
@@ -2049,7 +2103,7 @@ function RoofMeasurePanel({ takeoff, book, onApply, defaultAddress = "" }) {
             onClick={() => apply(result)}
             className="rounded border border-border bg-background px-2 py-1 text-[11px] hover:bg-muted"
           >
-            Use it anyway
+            {t("app.roof.useItAnyway", "Use it anyway")}
           </button>
         </div>
       )}
@@ -2075,8 +2129,12 @@ function RoofMeasurePanel({ takeoff, book, onApply, defaultAddress = "" }) {
             <div className="rounded-lg border border-border p-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-medium text-foreground">
-                  Filled in {changed.length} field{changed.length === 1 ? "" : "s"}
-                  {detailValue > 0 ? ` — ${money(detailValue)} of linear details` : ""}
+                  {t("app.roof.filledIn", "Filled in {count} fields", {
+                    count: changed.length,
+                  })}
+                  {detailValue > 0
+                    ? ` — ${t("app.roof.ofLinearDetails", "{amount} of linear details", { amount: money(detailValue) })}`
+                    : ""}
                 </span>
                 <button
                   type="button"
@@ -2086,7 +2144,7 @@ function RoofMeasurePanel({ takeoff, book, onApply, defaultAddress = "" }) {
                   }}
                   className="shrink-0 rounded border border-border px-2 py-0.5 text-[11px] hover:bg-muted"
                 >
-                  Undo
+                  {t("app.roof.undo", "Undo")}
                 </button>
               </div>
               <ul className="mt-1 grid gap-x-4 sm:grid-cols-2">
@@ -2116,21 +2174,30 @@ function RoofMeasurePanel({ takeoff, book, onApply, defaultAddress = "" }) {
                   onClick={() => onApply({ ...takeoff, ridgeVentFt: vent.ridgeVentFt, boxVents: 0 })}
                   className="rounded border border-border px-2 py-0.5 text-[11px] hover:bg-muted"
                 >
-                  {vent.ridgeVentFt} ft of ridge vent
+                  {t("app.roof.ridgeVentFt", "{n} ft of ridge vent", {
+                    n: vent.ridgeVentFt,
+                  })}
                 </button>
                 <button
                   type="button"
                   onClick={() => onApply({ ...takeoff, boxVents: vent.boxVents, ridgeVentFt: 0 })}
                   className="rounded border border-border px-2 py-0.5 text-[11px] hover:bg-muted"
                 >
-                  or {vent.boxVents} box vents
+                  {t("app.roof.orBoxVents", "or {n} box vents", {
+                    n: vent.boxVents,
+                  })}
                 </button>
               </div>
             </div>
           )}
 
           <div>
-            <p className="text-foreground">Still needs you — none of this is visible from above:</p>
+            <p className="text-foreground">
+              {t(
+                "app.roof.stillNeedsYou",
+                "Still needs you — none of this is visible from above:",
+              )}
+            </p>
             <ul className="ml-3 list-disc">
               {report.cannotKnow.map((line) => (
                 <li key={line}>{line}</li>
@@ -2147,6 +2214,7 @@ function RoofMeasurePanel({ takeoff, book, onApply, defaultAddress = "" }) {
 
 function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
   const money = useCompanyMoney();
+  const { t } = useTranslation();
   const set = (patch) => onChange({ ...takeoff, ...patch });
 
   const materials = book?.materials || {};
@@ -2163,16 +2231,19 @@ function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
     rates: book?.labour,
   });
 
+  // The same six names the measure panel labels its fill-in report with, from
+  // the same keys — one vocabulary, so a translated label cannot disagree with
+  // itself across two halves of the same card.
   const lf = [
-    ["iceWaterFt", "Ice & water membrane", book?.details?.iceWaterPerLf],
-    ["dripEdgeFt", "Drip edge", book?.details?.dripEdgePerLf],
-    ["starterFt", "Starter course", book?.details?.starterPerLf],
-    ["valleyFt", "Valleys", book?.details?.valleyPerLf],
-    ["ridgeHipFt", "Ridge & hip cap", book?.details?.ridgeCapPerLf],
-    ["ridgeVentFt", "Ridge vent", book?.details?.ridgeVentPerLf],
+    ["iceWaterFt", t("app.roof.iceWater", "Ice & water membrane"), book?.details?.iceWaterPerLf],
+    ["dripEdgeFt", t("app.roof.dripEdge", "Drip edge"), book?.details?.dripEdgePerLf],
+    ["starterFt", t("app.roof.starter", "Starter course"), book?.details?.starterPerLf],
+    ["valleyFt", t("app.roof.valleys", "Valleys"), book?.details?.valleyPerLf],
+    ["ridgeHipFt", t("app.roof.ridgeHip", "Ridge & hip cap"), book?.details?.ridgeCapPerLf],
+    ["ridgeVentFt", t("app.roof.ridgeVent", "Ridge vent"), book?.details?.ridgeVentPerLf],
     [
       "stepFlashingFt",
-      "Step flashing to wall",
+      t("app.roof.stepFlashing", "Step flashing to wall"),
       book?.details?.stepFlashingPerLf,
     ],
   ];
@@ -2193,7 +2264,7 @@ function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
       />
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <Field label="Roof surface (sqft)">
+        <Field label={t("app.roof.areaSqftField", "Roof surface (sqft)")}>
           <Num
             value={takeoff.areaSqft}
             step={10}
@@ -2201,11 +2272,15 @@ function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
           />
           <p className="mt-0.5 text-[11px] text-muted-foreground">
             {squares > 0
-              ? `${squares.toFixed(1)} squares${takeoff.measuredFrom === "satellite" ? " · measured" : ""}`
-              : "The sloped surface, not the footprint"}
+              ? `${t("app.roof.squaresCount", "{n} squares", { n: squares.toFixed(1) })}${
+                  takeoff.measuredFrom === "satellite"
+                    ? ` · ${t("app.roof.measured", "measured")}`
+                    : ""
+                }`
+              : t("app.roof.slopedNotFootprint", "The sloped surface, not the footprint")}
           </p>
         </Field>
-        <Field label="Pitch (rise per 12)">
+        <Field label={t("app.roof.pitchField", "Pitch (rise per 12)")}>
           <Num
             value={takeoff.pitchRise}
             step={1}
@@ -2213,10 +2288,10 @@ function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
             suffix="/12"
           />
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            {band.label} · labour ×{band.factor}
+            {band.label} · {t("app.takeoff.labourWord", "labour")} ×{band.factor}
           </p>
         </Field>
-        <Field label="Existing layers to strip">
+        <Field label={t("app.roof.layersField", "Existing layers to strip")}>
           <Num
             value={takeoff.layers}
             step={1}
@@ -2224,14 +2299,14 @@ function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
           />
           <p className="mt-0.5 text-[11px] text-muted-foreground">
             {num(takeoff.layers) === 0
-              ? "New deck — nothing to tear off"
-              : "Each layer adds to the strip, not to the install"}
+              ? t("app.roof.newDeck", "New deck — nothing to tear off")
+              : t("app.roof.layerHint", "Each layer adds to the strip, not to the install")}
           </p>
         </Field>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <Field label="Roofing material">
+        <Field label={t("app.roof.materialField", "Roofing material")}>
           <select
             value={materialKey}
             onChange={(e) => set({ materialKey: e.target.value })}
@@ -2244,18 +2319,20 @@ function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
             ))}
           </select>
         </Field>
-        <Field label="Storeys">
+        <Field label={t("app.takeoff.storeys", "Storeys")}>
           <select
             value={takeoff.storeys || "one"}
             onChange={(e) => set({ storeys: e.target.value })}
             className={inputClass}
           >
-            <option value="one">One storey</option>
-            <option value="two">Two storeys</option>
-            <option value="three_plus">Three or more</option>
+            <option value="one">{t("app.takeoff.storeyOne", "One storey")}</option>
+            <option value="two">{t("app.takeoff.storeyTwo", "Two storeys")}</option>
+            <option value="three_plus">
+              {t("app.takeoff.storeyThreePlus", "Three or more")}
+            </option>
           </select>
         </Field>
-        <Field label="Sheathing to replace">
+        <Field label={t("app.roof.sheathingField", "Sheathing to replace")}>
           <Num
             value={takeoff.deckSheets}
             step={1}
@@ -2263,14 +2340,14 @@ function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
             suffix="sheets"
           />
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            An allowance — reconcile it on the invoice
+            {t("app.roof.sheathingHint", "An allowance — reconcile it on the invoice")}
           </p>
         </Field>
       </div>
 
       <div>
         <h5 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Linear details
+          {t("app.roof.linearDetails", "Linear details")}
         </h5>
         <div className="grid gap-2 sm:grid-cols-4">
           {lf.map(([key, label, rate]) => (
@@ -2282,7 +2359,9 @@ function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
                 suffix="ft"
               />
               <p className="mt-0.5 text-[11px] text-muted-foreground">
-                {num(rate) > 0 ? `${money(rate)}/ft` : "not priced"}
+                {num(rate) > 0
+              ? `${money(rate)}/${t("app.takeoff.perFoot", "ft")}`
+              : t("app.takeoff.notPriced", "not priced")}
               </p>
             </Field>
           ))}
@@ -2291,7 +2370,7 @@ function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
 
       <div>
         <h5 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Penetrations
+          {t("app.roof.penetrations", "Penetrations")}
         </h5>
         <div className="grid gap-2 sm:grid-cols-4">
           {pens.map(([field, id]) => {
@@ -2305,7 +2384,9 @@ function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
                   onChange={(v) => set({ [field]: v })}
                 />
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  {money(entry.price)} each
+                  {t("app.takeoff.eachPrice", "{amount} each", {
+                    amount: money(entry.price),
+                  })}
                 </p>
               </Field>
             );
@@ -2318,7 +2399,7 @@ function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
         crewSize={takeoff.crewSize}
         onCrewSize={(v) => set({ crewSize: v })}
         crew={crew}
-        emptyHint="Enter the roof area first."
+        emptyHint={t("app.roof.enterAreaFirst", "Enter the roof area first.")}
         factorNote={
           labour.incomplete
             ? null
@@ -2330,13 +2411,16 @@ function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
         }
       />
 
-      <Field label="Scope notes">
+      <Field label={t("app.takeoff.scopeNotes", "Scope notes")}>
         <textarea
           value={takeoff.notes || ""}
           onChange={(e) => set({ notes: e.target.value })}
           rows={2}
           className={inputClass}
-          placeholder="Access, staging, anything the crew needs to know"
+          placeholder={t(
+            "app.takeoff.scopeNotesPlaceholder",
+            "Access, staging, anything the crew needs to know",
+          )}
         />
       </Field>
     </div>

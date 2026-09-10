@@ -1014,6 +1014,51 @@ export function QuoteBuilderForm({
     );
   }
 
+  /**
+   * A quantity or a unit price the estimator typed over on a bill-of-materials
+   * line, stored on the takeoff the bill was derived from.
+   *
+   * On the takeoff, not in component state, for the reason every override in
+   * this file lives where the thing it overrides lives: `QuoteScopeGroup.takeoff`
+   * is Json and round-trips verbatim, so this is saved with the quote and read
+   * back by lib/costing/tradeMaterials.js — which is the one function the cost
+   * panel, the job's sourcing list and the job-costing screen all already call.
+   * State here would have shown a corrected price on screen and sent the yard
+   * to buy against the old one.
+   *
+   * `patch === null` clears the material's entry entirely, which is what the
+   * line's "back to the price book" control asks for. A patch key set to null
+   * clears that one field and leaves the other — typing a price and then
+   * emptying the quantity box must not also throw the price away.
+   */
+  function updateMaterialOverride(groupTempId, materialKey, patch) {
+    if (!materialKey) return;
+    setScopeGroups((prev) =>
+      prev.map((g) => {
+        // `persisted` re-checked here as well as in the caller's list: this
+        // is the function that writes, and a guard on the screen is not a
+        // guard on the write.
+        if (g.tempId !== groupTempId || !g.takeoff || g.persisted) return g;
+        const all = { ...(g.takeoff.materialOverrides || {}) };
+        if (patch === null) {
+          delete all[materialKey];
+        } else {
+          const next = { ...(all[materialKey] || {}) };
+          for (const [k, v] of Object.entries(patch)) {
+            if (v === null || v === undefined || !Number.isFinite(Number(v))) {
+              delete next[k];
+            } else {
+              next[k] = Number(v);
+            }
+          }
+          if (Object.keys(next).length === 0) delete all[materialKey];
+          else all[materialKey] = next;
+        }
+        return { ...g, takeoff: { ...g.takeoff, materialOverrides: all } };
+      }),
+    );
+  }
+
   function updateIntakeValue(groupTempId, fieldKey, value) {
     setScopeGroups((prev) =>
       prev.map((g) =>
@@ -1758,7 +1803,9 @@ export function QuoteBuilderForm({
           the server is the actual gate here (AGENTS.md: hiding a button isn't
           access control). */}
       <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground mb-3">Assigned to</h2>
+        <h2 className="font-semibold text-foreground mb-3">
+          {t("app.quoteNew.assignedToHeading", "Assigned to")}
+        </h2>
         <select
           value={assignedToId}
           onChange={(e) => {
@@ -2016,6 +2063,16 @@ export function QuoteBuilderForm({
           subtotal={taxableBase}
           totalGroupCount={scopeGroups.length}
           marginTarget={marginTarget}
+          onMaterialOverride={updateMaterialOverride}
+          // Which groups' bills can actually be typed over. The same test the
+          // takeoff editor uses, and for the same reason: scopeGroupPayload
+          // returns early on a persisted group, so its takeoff never leaves
+          // this screen. Offering boxes there would be a control that appears
+          // to work and doesn't — the margin would move and the saved quote
+          // would not.
+          editableMaterialGroups={scopeGroups
+            .filter((g) => !g.persisted && g.takeoff)
+            .map((g) => g.tempId)}
         />
       )}
 

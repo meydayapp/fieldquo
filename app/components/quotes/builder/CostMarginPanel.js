@@ -28,8 +28,9 @@
 // keep honest, and the copy is always the one that rots.
 "use client";
 
-import { TrendingUp, AlertTriangle, Plus, Trash2 } from "lucide-react";
+import { TrendingUp, AlertTriangle, Plus, Trash2, Undo2 } from "lucide-react";
 import { formatAppMoney } from "@/lib/format/money";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 // toFixed does not group, so this panel printed $1113.11 and $2100.00 beside
 // a correctly-grouped total in the same sticky bar. Shared formatter now —
@@ -41,6 +42,132 @@ const SIGNAL_STYLES = {
   amber: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300",
   red: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300",
 };
+
+/**
+ * One line of a group's bill of materials, editable where the takeoff behind
+ * it is still live.
+ *
+ * ── Why the quantity and the price are both boxes ──────────────────────────
+ *
+ * The owner: "the company can change the linear details and sqft but also
+ * should be able to modify the price just in case… because if they can't
+ * modify the price and they lose money they'll be frustrated". The packaging
+ * constants and the August supplier reads behind these numbers are a good
+ * default and a bad promise — the roofer holding a real invoice is right.
+ *
+ * A line with no price used to be a dead end that said "set them on the rate
+ * card in Settings › Services" — true, and three screens away from the person
+ * who has the number in their hand. The box is here now, and it writes to the
+ * takeoff so it survives the save (lib/costing/tradeMaterials.js,
+ * applyMaterialOverrides).
+ *
+ * ── Read-only when there is nothing to write to ────────────────────────────
+ *
+ * No `onOverride` (the invoice's cost section) or no `materialKey` (a frozen
+ * estimate written before keys existed) and the row renders exactly as it did.
+ * A box that accepts a number nothing stores is the control this codebase gets
+ * swept for.
+ */
+function MaterialLine({ m, money, t, onOverride }) {
+  const editable = Boolean(onOverride && m.materialKey);
+  const unit = m.unit ? t(`app.materialUnit.${m.unit}`, m.unit) : "";
+
+  if (!editable) {
+    return (
+      <div className="flex justify-between">
+        <span>
+          {m.name} — {m.qty} {unit}
+        </span>
+        {/* A quantity with no supplier price shows as exactly that. It
+            used to be impossible to reach this state, because the only
+            trades with materials had every cost seeded; the takeoff-
+            derived bills have real quantities and mostly no prices yet,
+            and rendering those as $0.00 would put the biggest input in
+            a roofing job into the margin as free. */}
+        {m.unpriced ? (
+          <span className="shrink-0 text-amber-700 dark:text-amber-400">
+            {t("app.cost.noPriceSet", "no price set")}
+          </span>
+        ) : (
+          <span className="tabular-nums">{money(m.cost)}</span>
+        )}
+      </div>
+    );
+  }
+
+  const overridden = Boolean(m.overriddenQty || m.overriddenUnitCost);
+  // "" rather than 0 when nothing is set: a placeholder-zero in a price box
+  // reads as "this is free", which is the exact claim `unpriced` exists to
+  // avoid making.
+  const box =
+    "w-16 rounded border border-border bg-background px-1.5 py-0.5 text-right text-xs tabular-nums";
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 py-0.5">
+      <span className="min-w-0 flex-1 truncate" title={m.name}>
+        {m.name}
+      </span>
+      <span className="flex items-center gap-1.5">
+        <input
+          type="number"
+          min="0"
+          step="1"
+          value={m.qty ?? ""}
+          onChange={(e) =>
+            onOverride(m.materialKey, {
+              qty: e.target.value === "" ? null : Number(e.target.value),
+            })
+          }
+          className={box}
+          aria-label={t("app.cost.quantityOf", "Quantity — {name}", {
+            name: m.name,
+          })}
+        />
+        <span className="w-12 shrink-0 truncate text-[11px]">{unit}</span>
+        <input
+          type="number"
+          min="0"
+          step="1"
+          value={m.unitCost ?? ""}
+          placeholder={t("app.cost.pricePlaceholder", "price")}
+          onChange={(e) =>
+            onOverride(m.materialKey, {
+              unitCost: e.target.value === "" ? null : Number(e.target.value),
+            })
+          }
+          className={`${box} ${
+            m.unpriced ? "border-amber-500 dark:border-amber-600" : ""
+          }`}
+          aria-label={t("app.cost.unitPriceOf", "Price per {unit} — {name}", {
+            unit,
+            name: m.name,
+          })}
+        />
+        <span className="w-16 shrink-0 text-right tabular-nums">
+          {m.unpriced ? "—" : money(m.cost)}
+        </span>
+        {/* Only when something was overridden, and it restores BOTH numbers to
+            what the price book derived. An estimator who typed over a figure
+            has to be able to get the calculation back — an override with no way
+            out is how a calculation gets lost and nobody notices. */}
+        <button
+          type="button"
+          onClick={() => onOverride(m.materialKey, null)}
+          disabled={!overridden}
+          className={`shrink-0 ${
+            overridden
+              ? "text-muted-foreground hover:text-foreground"
+              : "invisible"
+          }`}
+          title={t("app.cost.resetToBook", "Back to the price book")}
+          aria-label={t("app.cost.resetToBook", "Back to the price book")}
+        >
+          <Undo2 size={12} />
+        </button>
+      </span>
+    </div>
+  );
+}
 
 function Row({ label, value, bold, tone }) {
   return (
@@ -87,16 +214,25 @@ export default function CostMarginPanel({
   // Rendered under the crew: where the numbers came from, and what is missing
   // from them. Null on a quote, which has no timesheets to seed from.
   crewNotice = null,
+  // (tempId, materialKey, patch | null) => void. Absent means the bill is
+  // read-only — the invoice's cost section passes nothing, and so does a quote
+  // whose scope group is already saved and whose takeoff is deliberately
+  // frozen. See MaterialLine.
+  onMaterialOverride = null,
+  // tempIds whose takeoff still round-trips on save. A group not in here keeps
+  // the read-only row even when a callback was passed.
+  editableMaterialGroups = [],
 }) {
+  const { t } = useTranslation();
   const money = (n) => formatAppMoney(n, currency, "en");
 
   return (
     <div className="bg-card border border-border rounded-xl p-5">
       <div className="flex items-center justify-between gap-3 flex-wrap mb-1">
         <h2 className="font-semibold text-foreground flex items-center gap-2">
-          <TrendingUp size={16} /> Cost &amp; margin
+          <TrendingUp size={16} /> {t("app.cost.title", "Cost & margin")}
           <span className="text-xs font-normal text-muted-foreground">
-            (internal — never shown to the client)
+            {t("app.cost.internalOnly", "(internal — never shown to the client)")}
           </span>
         </h2>
 
@@ -358,29 +494,35 @@ export default function CostMarginPanel({
           <div className="text-sm font-medium text-foreground mb-1">
             {g.label}{" "}
             <span className="text-xs text-muted-foreground">
-              · {g.summaryParts.join(" · ")}
+              ·{" "}
+              {/* The takeoff trades hand back the same summary twice: as
+                  English strings (what a stored costing row and the sourcing
+                  list carry) and as message keys with their numbers. A screen
+                  rendering live for the estimator uses the keys; anything
+                  without them — every recipe trade — falls back to the
+                  English, which is what shipped before. */}
+              {Array.isArray(g.summaryTokens) && g.summaryTokens.length
+                ? g.summaryTokens
+                    .map((s) => t(s.key, s.values))
+                    .join(" · ")
+                : g.summaryParts.join(" · ")}
             </span>
           </div>
           <div className="text-xs text-muted-foreground space-y-0.5">
             {g.materials.map((m, i) => (
-              <div key={`m${i}`} className="flex justify-between">
-                <span>
-                  {m.name} — {m.qty} {m.unit}
-                </span>
-                {/* A quantity with no supplier price shows as exactly that. It
-                    used to be impossible to reach this state, because the only
-                    trades with materials had every cost seeded; the takeoff-
-                    derived bills have real quantities and mostly no prices yet,
-                    and rendering those as $0.00 would put the biggest input in
-                    a roofing job into the margin as free. */}
-                {m.unpriced ? (
-                  <span className="shrink-0 text-amber-700 dark:text-amber-400">
-                    no price set
-                  </span>
-                ) : (
-                  <span className="tabular-nums">{money(m.cost)}</span>
-                )}
-              </div>
+              <MaterialLine
+                key={m.materialKey || `m${i}`}
+                m={m}
+                money={money}
+                t={t}
+                onOverride={
+                  onMaterialOverride &&
+                  editableMaterialGroups.includes(g.tempId)
+                    ? (materialKey, patch) =>
+                        onMaterialOverride(g.tempId, materialKey, patch)
+                    : null
+                }
+              />
             ))}
             {g.labourBreakdown.map((l, i) => (
               <div key={`l${i}`} className="flex justify-between">
@@ -477,11 +619,22 @@ export default function CostMarginPanel({
             below — never higher — and that is the direction worth stating. */}
         {estimate.unpricedMaterials > 0 && (
           <p className="text-[11px] text-amber-700 dark:text-amber-400">
-            {estimate.unpricedMaterials} material
-            {estimate.unpricedMaterials === 1 ? " has" : "s have"}{" "}
-            no price set,
-            so this is an understatement and the real margin is lower. Set them
-            on the rate card in Settings &rsaquo; Services.
+            {/* It used to end "set them on the rate card in Settings ›
+                Services" — true, and three screens away from the estimator
+                holding the supplier's number. The boxes are on the lines
+                above now, so the sentence points at them and keeps the rate
+                card for the price that should stick. */}
+            {onMaterialOverride && editableMaterialGroups.length > 0
+              ? t(
+                  "app.cost.unpricedFixable",
+                  "{count} material lines above have no price set, so this is an understatement and the real margin is lower. Type the price in beside the line for this job, or set it on the rate card in Settings › Services to keep it.",
+                  { count: estimate.unpricedMaterials },
+                )
+              : t(
+                  "app.cost.unpricedReadOnly",
+                  "{count} material lines have no price set, so this is an understatement and the real margin is lower. Set them on the rate card in Settings › Services.",
+                  { count: estimate.unpricedMaterials },
+                )}
           </p>
         )}
         <Row

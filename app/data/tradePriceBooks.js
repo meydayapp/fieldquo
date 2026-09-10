@@ -1090,33 +1090,77 @@ export const TRADE_PRICE_BOOKS = {
         label: "Corrugated / ribbed metal",
         pricePerSquare: 850,
         labourFactor: 1.5,
-        // Vicwest Cladding UltraVic, 36" x 93" 28-gauge steel, $72.28 — Home
-        // Depot Canada, read 25 Aug 2026. The product page states 36" of net
-        // coverage per sheet (the side lap is outside the 36"), so one panel
-        // is 23.25 sqft and 100/23.25 = 4.3 panels to a square.
-        bundlesPerSquare: 4.3,
+        // ── Vicwest Cladding UltraVic, 36" x 93", 28-gauge galvanized steel ──
+        // Home Depot Canada SKU 1001843408, $72.28, read 25 Aug 2026.
+        //
+        // The 36" is NET COVERAGE, not the sheet's physical width: a ribbed
+        // steel panel is catalogued by the width that ends up on the roof, and
+        // the side-lap rib sits outside it. That much was already recorded
+        // here and is kept.
+        //
+        // What was WRONG is the length. 36 x 93 was being treated as 23.25
+        // sqft of roof, which is the panel's own area and not what it covers.
+        // A 93" panel is 7'-9"; almost no residential slope is shorter than
+        // that, so panels lap up the run and the lap is roof you buy twice.
+        // 6" is the minimum end lap for a through-fastened panel at 3:12 and
+        // steeper, so a lapped panel puts 36" x 87" = 21.75 sqft on the roof
+        // and a square takes 4.6 panels, not 4.3.
+        //
+        // This slightly over-orders: in a two-panel run the BOTTOM panel laps
+        // nothing, so the true average is between 21.75 and 23.25. Said out
+        // loud rather than averaged, because the direction matters — an
+        // estimator who is one panel long finishes the roof, and one who is
+        // one panel short sends somebody back to the yard. A company ordering
+        // panels cut to the full slope length sets endLapIn to 0.
+        unit: "panel",
+        panel: { coverWidthIn: 36, lengthIn: 93, endLapIn: 6 },
         materialCostPerBundle: 72.28,
       },
       metal_standing_seam: {
         label: "Standing seam metal",
         pricePerSquare: 1300,
         labourFactor: 1.9,
-        // Home Depot Canada does not sell standing seam panel — the closest
-        // thing on the shelf is a metal SHINGLE (Vicwest True Nature, 50 sqft
-        // per box, $266.00), which is a different product and would be a
-        // dishonest stand-in. Stays unpriced until a real supplier is read.
+        // ── Sold by the square foot here, and NOT in bundles ────────────────
+        //
+        // This is the line the owner caught: a standing seam roof was being
+        // ordered as "72 bundle" with no price, because the bill had nothing
+        // to say about this product's packaging and fell through to asphalt's
+        // three-bundles-to-a-square. Standing seam does not come in bundles
+        // and does not come three to a square. Two wrong facts, one cause.
+        //
+        // Home Depot Canada still does not sell standing seam panel — the
+        // nearest shelf item is a metal SHINGLE (Vicwest True Nature, 50 sqft
+        // per box, $266.00), a different product that would be a dishonest
+        // stand-in — so there is still no price to put here and inventing one
+        // is not on offer.
+        //
+        // The unit is the square foot because that is how a supplier quotes
+        // it: panels are roll-formed to the slope length, so there is no
+        // stock panel to count, and a roofer with a supplier's number can
+        // type it straight in with no conversion. Quantity is now right and
+        // the price is one edit away, on the quote line or the rate card.
+        unit: "sqft",
+        sqftPerUnit: 1,
         materialCostPerBundle: null,
       },
       cedar_shake: {
         label: "Cedar shake",
         pricePerSquare: 1150,
         labourFactor: 2.2,
-        // Coverage IS known — IRVING 16" Eastern White Cedar states 25 sqft
-        // per bundle at 5" exposure, so four bundles to a square — but the
-        // only cedar Home Depot Canada stocks is WALLGRADE ($143.98), which
-        // is a siding shingle and must not be sold as a roof. The quantity is
-        // right; the price stays null until a roof-grade supplier is read.
-        bundlesPerSquare: 4,
+        // Coverage is known from two products that agree: IRVING 16" Eastern
+        // White Cedar states 25 sqft per bundle at 5" exposure, and the Rona
+        // "second clear" cedar shim/shingle bundle the owner sent (RONA
+        // 9879001) is also 25 sqft. Four bundles to a square either way.
+        //
+        // The price stays null on purpose. Both of those are SIDEWALL grades —
+        // the Home Depot cedar is WALLGRADE and a shim/shingle bundle is a
+        // siding and shimming product — and a #1 Blue Label roof shake is a
+        // different, dearer thing. Pricing a roof off a sidewall bundle would
+        // under-cost the biggest line in the job. Coverage is a product fact
+        // and is used; grade is a purchasing decision and is left to the
+        // company, which can now set the price on the line itself.
+        unit: "bundle",
+        sqftPerUnit: 25,
         materialCostPerBundle: null,
       },
       membrane_flat: {
@@ -1125,11 +1169,14 @@ export const TRADE_PRICE_BOOKS = {
         labourFactor: 1.3,
         // GAF Liberty SBS Self-Adhering Cap Sheet, 3 ft x 34 ft = 100 sqft,
         // $146.00 — Home Depot Canada, read 25 Aug 2026. One roll to a square.
+        // It is a ROLL and the bill now says so; it was reading "1 bundle"
+        // because bundlesPerSquare was the only packaging field there was.
         // This is the CAP sheet only; a two-ply system also needs a base sheet
         // (GAF #75 Tri-Ply, 300 sqft, $99.96), which this bill does not yet
         // carry — so a two-ply job is under-costed by about $33 a square and
         // an estimator should say so rather than trust this line alone.
-        bundlesPerSquare: 1,
+        unit: "roll",
+        sqftPerUnit: 100,
         materialCostPerBundle: 146,
       },
     },
@@ -2769,49 +2816,55 @@ export const PRICE_BOOK_FIELDS = {
     {
       path: "materials.asphalt_3tab.materialCostPerBundle",
       label: "3-tab asphalt shingles",
-      suffix: "$ / bundle",
+      suffix: "$ / bundle (33.3 sqft)",
       step: 5,
       group: "roofMaterialCost",
     },
     {
       path: "materials.asphalt_arch.materialCostPerBundle",
       label: "Architectural shingles",
-      suffix: "$ / bundle",
+      suffix: "$ / bundle (33.3 sqft)",
       step: 5,
       group: "roofMaterialCost",
     },
     {
       path: "materials.asphalt_premium.materialCostPerBundle",
       label: "Premium / designer shingles",
-      suffix: "$ / bundle",
+      suffix: "$ / bundle (33.3 sqft)",
       step: 5,
       group: "roofMaterialCost",
     },
     {
       path: "materials.metal_corrugated.materialCostPerBundle",
       label: "Corrugated / ribbed metal",
-      suffix: "$ / bundle",
+      // The suffix names the unit the bill of materials actually counts, not
+      // the field's own name. `materialCostPerBundle` is the stored path for
+      // every roofing material and keeps that name so saved overrides survive
+      // — but it has never meant "bundle" for a panel product, and a rate card
+      // asking for "$ / bundle" beside a quote line reading "122 panel" is two
+      // answers to one question.
+      suffix: "$ / panel (36in x 93in)",
       step: 5,
       group: "roofMaterialCost",
     },
     {
       path: "materials.metal_standing_seam.materialCostPerBundle",
       label: "Standing seam metal",
-      suffix: "$ / bundle",
+      suffix: "$ / sq ft",
       step: 5,
       group: "roofMaterialCost",
     },
     {
       path: "materials.cedar_shake.materialCostPerBundle",
       label: "Cedar shake",
-      suffix: "$ / bundle",
+      suffix: "$ / bundle (25 sqft)",
       step: 5,
       group: "roofMaterialCost",
     },
     {
       path: "materials.membrane_flat.materialCostPerBundle",
       label: "EPDM / modified bitumen",
-      suffix: "$ / bundle",
+      suffix: "$ / roll (100 sqft)",
       step: 5,
       group: "roofMaterialCost",
     },

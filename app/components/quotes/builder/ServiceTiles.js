@@ -53,6 +53,7 @@ import {
   Plus,
 } from "lucide-react";
 import { getSectionPresets } from "@/app/data/sectionPresets";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import { resolveServiceContent } from "@/lib/documents/serviceContent";
 
 // Curated rather than `import * as Icons from "lucide-react"` and indexing by
@@ -84,6 +85,7 @@ function iconFor(category) {
 }
 
 export default function ServiceTiles({ categories = [], onAdd }) {
+  const { t } = useTranslation();
   // Which tile is showing its section presets. One at a time — two open
   // accordions on a phone means the tiles below are off-screen.
   const [expanded, setExpanded] = useState(null);
@@ -91,9 +93,14 @@ export default function ServiceTiles({ categories = [], onAdd }) {
   if (!categories.length) {
     return (
       <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground mb-1">Add a service</h2>
+        <h2 className="font-semibold text-foreground mb-1">
+          {t("app.quoteNew.addServiceHeading", "Add a service")}
+        </h2>
         <p className="text-sm text-muted-foreground">
-          No services enabled yet — go to Settings → Services to turn some on.
+          {t(
+            "app.quoteNew.noServicesEnabled",
+            "No services enabled yet — go to Settings → Services to turn some on.",
+          )}
         </p>
       </div>
     );
@@ -104,10 +111,14 @@ export default function ServiceTiles({ categories = [], onAdd }) {
       className="bg-card border border-border rounded-xl p-5"
       data-tour="service-picker"
     >
-      <h2 className="font-semibold text-foreground mb-1">Add a service</h2>
+      <h2 className="font-semibold text-foreground mb-1">
+        {t("app.quoteNew.addServiceHeading", "Add a service")}
+      </h2>
       <p className="text-sm text-muted-foreground mb-4">
-        Tap one to add it to this quote. Your own pricing fills in
-        automatically.
+        {t(
+          "app.quoteNew.addServiceHint",
+          "Tap one to add it to this quote. Your own pricing fills in automatically.",
+        )}
       </p>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">

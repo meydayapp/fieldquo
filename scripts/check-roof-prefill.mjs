@@ -413,15 +413,26 @@ section("8. The panel, and the satellite still that is actually saved");
   const panel = t.slice(t.indexOf("function RoofMeasurePanel"), t.indexOf("function RoofingTakeoff"));
   ok("the panel exists", panel.length > 1000, panel.length);
   // Fault 3: it used to render only when the client had an address on file.
-  ok("there is an address input", /<input[\s\S]{0,200}value=\{address\}/.test(panel));
-  ok("…typed into by the estimator", /onChange=\{\(e\) => setAddress\(e\.target\.value\)\}/.test(panel));
+  //
+  // The bare <input> this used to assert is gone, and deliberately: the string
+  // typed here is geocoded and handed to Google Solar, so it is now the shared
+  // Places picker and the address measured is the one Google resolved. See
+  // scripts/check-roof-materials.mjs section 8, which owns that rule.
+  ok("there is an address input", /<AddressAutocomplete[\s\S]{0,200}value=\{address\}/.test(panel));
+  ok("…typed into by the estimator", /onChange=\{setAddress\}/.test(panel));
   ok("…seeded from the client's address, not gated on it", /useState\(defaultAddress\)/.test(panel));
   ok("the takeoff renders the panel unconditionally", /<RoofMeasurePanel/.test(t));
   ok(
     "…with no siteAddress guard in front of it",
     !/\{siteAddress && \(\s*<RoofMeasurePanel/.test(t),
   );
-  ok("Enter measures, because that is what Enter does in an address field", /e\.key === "Enter"/.test(panel));
+  // WAS: "Enter measures". It no longer does, and that is the fix rather than
+  // a regression. AddressAutocomplete suppresses the Enter that CHOOSES a
+  // suggestion at the capture phase; a handler here would still fire on the
+  // bubble and measure the half-typed street name underneath the dropdown —
+  // the wrong-building failure this whole file exists for. Picking a
+  // suggestion measures instead, which is one keystroke fewer either way.
+  ok("picking a suggestion measures it", /measure\(picked\)/.test(panel));
 
   // Fault 1, on the screen: an implausible reading must not be written in.
   ok("an untrustworthy result is not applied", /if \(data\.trustworthy !== false\) apply\(data\)/.test(panel));

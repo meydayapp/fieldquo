@@ -52,7 +52,9 @@ export default function ClientPicker({
         className="bg-card border border-border rounded-xl p-5"
         data-tour="client-picker"
       >
-        <h2 className="font-semibold text-foreground mb-3">Client</h2>
+        <h2 className="font-semibold text-foreground mb-3">
+          {t("app.quoteNew.clientHeading", "Client")}
+        </h2>
 
         {selectedClient ? (
           <div className="flex items-center justify-between bg-muted rounded-lg px-4 py-3">
