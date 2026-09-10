@@ -75,6 +75,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { askJennifer } from "@/lib/ai/jennifer/client";
+import { readerLanguage } from "@/lib/i18n/readerLanguage";
 import { escalationLabel } from "@/lib/ai/jennifer/escalate";
 import { isAiConfigured } from "@/lib/ai/provider";
 import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
@@ -289,6 +290,12 @@ async function handleCompanyPost(request, body, member) {
     member: { role: member.role },
     messages: [...priorMessages, { role: "user", content: message }],
     images,
+    // Support answers follow the person asking. Anonymous mode above passes
+    // nothing, because a stranger has no stated language to follow.
+    language: await readerLanguage({
+      userId: member.userId,
+      companyId: member.companyId,
+    }),
     onUsage: (u) =>
       recordAiUsage({
         companyId: member.companyId,

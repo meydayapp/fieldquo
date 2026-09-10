@@ -6,6 +6,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { generateExpenseSummary } from "@/lib/ai/expenseSummary";
 import { checkAiQuota } from "@/lib/ai/usage";
+import { readerLanguage } from "@/lib/i18n/readerLanguage";
 
 // Gated to user:manage — same bar as other financial settings pages (Company
 // Settings, Overhead) — since this calls a paid model API on every click and
@@ -39,9 +40,17 @@ export async function POST(request) {
   const body = await request.json().catch(() => ({}));
 
   try {
+    // Resolved here rather than inside the generator so the generator stays a
+    // pure "given these inputs, write this" unit that a check script can run.
+    // The reader is the person who pressed the button, not the company: two
+    // owners of the same company can read in different languages.
     const { summaryText, flags } = await generateExpenseSummary({
       companyId: member.companyId,
       month: body?.month,
+      language: await readerLanguage({
+        userId: member.userId,
+        companyId: member.companyId,
+      }),
     });
     return NextResponse.json({ summaryText, flags });
   } catch (err) {

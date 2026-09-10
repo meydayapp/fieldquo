@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember } from "@/lib/permissions/enforce";
 import { askCopilot } from "@/lib/ai/copilotClient";
+import { readerLanguage } from "@/lib/i18n/readerLanguage";
 import { isAiConfigured, AI_MODEL } from "@/lib/ai/provider";
 import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
 
@@ -79,6 +80,14 @@ export async function POST(request) {
       companyId: member.companyId,
       member: enforceable,
       messages,
+      // The answer is generated in the language this person reads, not
+      // translated into it afterwards — the owner's rule, and the reason the
+      // resolution happens at the edge rather than inside askCopilot: two
+      // people at the same company can read in different languages.
+      language: await readerLanguage({
+        userId: member.userId,
+        companyId: member.companyId,
+      }),
       onUsage: (u) =>
         recordAiUsage({
           companyId: member.companyId,

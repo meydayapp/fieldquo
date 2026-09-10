@@ -42,12 +42,25 @@ Status key: `TODO` · `IN PROGRESS (agent)` · `DONE + verified` · `NEEDS DECIS
 
 ## 2. Tours are rendering in UKRAINIAN
 
-  * `TODO` `/app/crew-inbox`, `/app/settings/refer`, `/app/settings/ai-credit` —
-    the tour appears in Ukrainian for a Spanish user. A language-resolution bug,
-    not a missing translation: the copy exists, the wrong locale is chosen.
-    Suspect the same class as the note in app/sales/layout.js about the portal
-    once coming up in German because localStorage is shared with the marketing
-    site on this origin.
+  * `CODE FIXED, NOT YET VERIFIED LIVE` — and the suspicion was right, down to
+    the mechanism. /app nests two LanguageProviders: the inner one is handed
+    the account's language with `fromAccount`, the root one (app/layout.js) has
+    no account to ask and follows localStorage, a key this origin shares with
+    the marketing site. `<AppTours />` is mounted AFTER `</LanguageProvider>` in
+    app/app/layout.js — a sibling of the account provider, a child of the root
+    one — so the tour, and only the tour, read the marketing site's leftover
+    "uk" while every other string on the same screen was Spanish.
+    Nothing was special about those three pages: EVERY tour was Ukrainian, and
+    those were the three he had not already dismissed. ErrorToast,
+    PlanRequiredPrompt and JenniferPanel are mounted out there too, and
+    `<html lang>` was being written twice, outer last, so the page was
+    announcing "uk" to screen readers.
+    Fixed in lib/i18n/statedLanguage.js: a stated account preference is a fact
+    about the PERSON, so once any provider on the page has been told one, every
+    other provider defers to it instead of to a browser guess. Deliberately not
+    "move the JSX tag" — that repairs one mount point and leaves the trap armed
+    for the next thing added beside it. `npm run check:tour-language` executes
+    the resolver against the owner's exact inputs; 7 mutations, all caught.
 
 ## 3. Screens with untranslated or half-translated text
 
@@ -101,9 +114,30 @@ that homeowner in the homeowner's language. This is different from UI strings.
 
 ## 5. AI output must follow the reader's language
 
-  * `TODO` The finance "Resumen de IA" has a Spanish heading and an English body.
-    Any AI-written summary shown to a user must be produced in that user's
-    language, not translated after the fact.
+  * `CODE FIXED, NOT YET VERIFIED LIVE` The expense summary is now GENERATED in
+    the reader's language — lib/i18n/aiLanguage.js adds the clause to the system
+    prompt, and there is no translation step after generation. Same treatment
+    for the two biggest blocks of AI prose a contractor reads: FieldQuo AI
+    (lib/ai/copilotClient.js) and Jennifer (lib/ai/jennifer/client.js). The
+    rule-based flags printed under the expense summary are computed in code, not
+    by the model, so they come from a template table (lib/i18n/aiSummaryCopy.js)
+    rather than being handed back to the model — the arithmetic stays in code.
+  * `TODO` Still English regardless of the reader:
+      - `lib/ai/monthlyDigest.js` — the whole monthly email. Subject line is
+        `toLocaleString("en-US")`, the flag bullets are English, and the digest
+        is stored ONCE per company but emailed to several owners. Half-fixing
+        it (Spanish paragraph, English subject and bullets) would be worse than
+        leaving it; it needs subject + flags + body together, and a decision on
+        whether one company gets one language or one call per recipient.
+      - `lib/ai/quoteReview.js` — its `rewrites` restate the contractor's own
+        document text, so the reader's language is the WRONG axis there:
+        non-negotiable #6 says a document keeps the language it was created in.
+        The review's commentary could follow the reader; the rewrites cannot.
+      - `lib/ai/conversationTemperature.js`, `lib/ai/callTranscriptDigest.js`,
+        `lib/ai/callLeadRecovery.js`, `lib/tasks/suggestFromJob.js`,
+        `lib/voice/knowledgeDraft.js` — all write prose a contractor reads, all
+        English-only. Same one-line fix each: `withLanguage(system, language)`
+        plus a `readerLanguage()` at the caller.
 
 ## 6. Broken
 
