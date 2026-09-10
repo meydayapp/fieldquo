@@ -180,7 +180,13 @@ export default function MessageThread({ messages, them, onRetry = null, renderDr
         const inbound = m.direction === "in";
         const failed = m.status === "failed";
         const pending = m.status === "pending";
-        const who = inbound ? them : "You";
+        // `m.who` is the author's own name, supplied by a room with more than
+        // two people in it. Without it this component can only say "them",
+        // which is right for a text conversation and wrong for a channel where
+        // six people are all "them" and each needs their own name and initials.
+        // Outbound is always "You" — a rep does not need their own name read
+        // back at them above every message they send.
+        const who = inbound ? m.who || them : "You";
 
         return (
           <div

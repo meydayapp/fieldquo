@@ -148,6 +148,12 @@ export default function SalesShell({ children }) {
             // is filed by phone, not by thread token. English literal for the
             // same reason Notes and Calendar are.
             { href: "/sales/messages", label: "Texts" },
+            // FieldQuo's own team chat, and a THIRD distinct thing beside the
+            // two above it: Conversations is email to a prospect, Texts is SMS
+            // to a prospect, and this is the people a rep works with. Placed
+            // next to them because it is the same verb — the difference is who
+            // is on the other end, not what you do.
+            { href: "/sales/team", label: "Team" },
             // English, and not a t() key, deliberately. The screen behind it is
             // English — docs/sales-intel/STATUS.md records that the outreach
             // surfaces are, while the shell is translated — and a translated tab

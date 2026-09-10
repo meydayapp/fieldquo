@@ -63,6 +63,9 @@ model PlatformAdmin {
   /// have written on one. See SupportTicket.
   supportTickets   SupportTicket[]
   supportNotes     SupportTicketNote[]
+  /// FieldQuo's own staff chat. See StaffRoom.
+  staffRooms       StaffRoomMember[]
+  staffMessages    StaffMessage[]
 }
 
 // When a FieldQuo admin will take a product demo booked from the marketing
@@ -8957,6 +8960,8 @@ model SalesRep {
   /// Numbers this rep wrote down. SetNull rather than Cascade on the other
   /// side: a rep leaving must not delete the number a contractor gave us.
   contactNumbers SalesContactNumber[]
+  staffRooms StaffRoomMember[]
+  staffMessages StaffMessage[]
 }
 
 /// What a rep earns, per milestone. A row rather than constants so the numbers
@@ -12935,4 +12940,142 @@ model SalesRepTourProgress {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+
+// ── FieldQuo's own staff chat ──────────────────────────────────────────────
+//
+// Everyone who works AT FieldQuo — platform staff in /platform and sales reps
+// in /sales — in one set of conversations. Not the contractor's customer inbox
+// (MessagingChannel) and not the per-company escalation thread
+// (SupportTicketNote); this is the team talking to each other.
+//
+// ══ The model is Rocket.Chat's, and the borrowed part is the membership ═══
+//
+// Read out of packages/core-typings: a Room carries `t` ('c' channel, 'd'
+// direct, 'p' private, 'l' livechat), and a SUBSCRIPTION joins one user to one
+// room and carries that user's own state — `open`, `unread`, `ls` (last seen),
+// `roles`. That separation is the whole design and the reason it scales: an
+// unread count belongs to a person, not to a room, so a room read by one rep
+// is still unread for the other and neither has to store the other's state.
+// StaffRoomMember below IS that subscription, under a name a reader of this
+// schema will recognise.
+//
+// A Team in Rocket.Chat is a Room plus a members table (ITeam.roomId), not a
+// separate kind of thing. Same here: `teamKey` marks a channel as a team's main
+// room, so "the sales team" and "tech support" are channels with membership
+// rather than a second concept with its own screens.
+//
+// ══ Two identities, on purpose ════════════════════════════════════════════
+//
+// FieldQuo has two staff auth systems that are not going to merge: platform
+// staff are `PlatformAdmin` rows behind getCurrentPlatformAdmin, and reps are
+// `SalesRep` rows with their own sign-in.
+//
+// NOT `User`. That was the first draft of this model and it was wrong in a way
+// worth recording: `User` is a CONTRACTOR'S EMPLOYEE inside a company tenant —
+// a painter's estimator — and wiring FieldQuo's own staff chat to it would
+// have put a tenant's staff in the same table as FieldQuo's, one join away
+// from each other, on the one boundary this product cannot get wrong. A participant is therefore EITHER,
+// as a nullable pair rather than a synthetic id, so the database keeps
+// referential integrity and a deleted rep's membership goes with them.
+// lib/staff/participants.js holds the one function that reads the pair, so
+// nothing else has to know which column is filled.
+
+model StaffRoom {
+  id String @id @default(cuid())
+
+  /// "channel" | "direct". Rocket.Chat's `t`, spelled out — 'c' and 'd' are
+  /// only short because they are in every Mongo document ever written.
+  kind String
+
+  /// Channels only. A direct room has no name of its own: it is named for
+  /// whoever the viewer is NOT talking to themselves about, which is a
+  /// per-viewer question and so is never stored.
+  name String?
+
+  topic String?
+
+  /// Set when this channel is a team's main room — "sales", "support". Unique,
+  /// because a second "sales" channel would split the team in half silently.
+  teamKey String? @unique
+
+  /// Every staff member is in it and nobody may leave. The one channel a new
+  /// hire is guaranteed to see, and the reason there is somewhere to say
+  /// anything at all on day one.
+  isDefault Boolean @default(false)
+
+  /// A stable key for a direct pair, so two people opening a DM at the same
+  /// moment cannot create two rooms. Built by directRoomKey() from the two
+  /// participants sorted, and unique — the DATABASE refuses the duplicate
+  /// rather than a read-then-write anybody can race.
+  directKey String? @unique
+
+  /// Denormalised for the list, which orders by it. Written in the same
+  /// transaction as the message so it cannot drift.
+  lastMessageAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  members  StaffRoomMember[]
+  messages StaffMessage[]
+
+  @@index([kind, lastMessageAt])
+}
+
+/// One person's membership of one room — Rocket.Chat's ISubscription.
+model StaffRoomMember {
+  id String @id @default(cuid())
+
+  roomId String
+  room   StaffRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  /// Exactly one of these is set. See the header above.
+  platformAdminId String?
+  platformAdmin   PlatformAdmin? @relation(fields: [platformAdminId], references: [id], onDelete: Cascade)
+
+  salesRepId String?
+  salesRep   SalesRep? @relation(fields: [salesRepId], references: [id], onDelete: Cascade)
+
+  /// When they last had this room open. Unread is COUNTED against this rather
+  /// than stored as a number: a stored counter is a second source of truth
+  /// that drifts the first time a message is deleted or a read is missed, and
+  /// counting from a timestamp cannot drift.
+  lastSeenAt DateTime?
+
+  /// Hidden from their list without leaving the room, so history survives.
+  /// Nothing is ever deleted here.
+  open Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@unique([roomId, platformAdminId])
+  @@unique([roomId, salesRepId])
+  @@index([platformAdminId])
+  @@index([salesRepId])
+}
+
+model StaffMessage {
+  id String @id @default(cuid())
+
+  roomId String
+  room   StaffRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  /// Exactly one of these is set, same pair as the membership.
+  authorPlatformAdminId String?
+  authorPlatformAdmin   PlatformAdmin? @relation(fields: [authorPlatformAdminId], references: [id])
+
+  authorSalesRepId String?
+  authorSalesRep   SalesRep? @relation(fields: [authorSalesRepId], references: [id])
+
+  body String
+
+  /// "message" | "system". A system line is "Daniel joined" — rendered muted
+  /// and never grouped with speech, which is exactly what Rocket.Chat's
+  /// isMessageSequential does when either side is a system message.
+  kind String @default("message")
+
+  sentAt DateTime @default(now())
+
+  @@index([roomId, sentAt])
 }

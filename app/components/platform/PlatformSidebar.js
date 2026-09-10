@@ -159,6 +159,10 @@ const GROUPS = [
       // which a customer's technical problem reaches FieldQuo from the person
       // who heard it. First in the group because it is the one with somebody
       // waiting on the other end of it.
+      // The same rooms a rep sees at /sales/team. Beside Escalations on
+      // purpose: an escalation is a ticket about one company, and this is the
+      // conversation that usually happens either side of raising one.
+      { label: "Team chat", href: "/platform/chat", icon: MessageSquare },
       { label: "Escalations", href: "/platform/support", icon: SirenIcon },
       { label: "Feedback", href: "/platform/feedback", icon: MessageSquare },
       // Conversations Jennifer (lib/ai/jennifer/) escalated rather than
