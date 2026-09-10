@@ -50,9 +50,69 @@ import {
   commissionRef,
   earnMilestone,
   qualifiesForRetention,
+  recordActivation,
 } from "@/lib/sales/commission";
 
 const BATCH = 200;
+
+/**
+ * Milestone 1 catch-up.
+ *
+ * Activation is decided entirely by `Company.stripeChargesEnabled`, which is
+ * written by the account.updated webhook AND by GET /api/stripe/connect/status.
+ * Only the webhook ever recorded the milestone, so a company whose column was
+ * set by the status route — which is most of them, since that route exists
+ * because the Connect webhook so often never arrives — was activated with
+ * nothing written to the ledger. Easy Roofers Inc. read "Taking payments" and
+ * "No milestones recorded" on the same row of the same screen.
+ *
+ * Both writers now call recordActivation. This exists for the ones that
+ * already happened: nothing will write their column again, so no future poll
+ * or webhook can ever catch them. It is not a one-off migration either — the
+ * same gap reopens for any company whose activation lands while the status
+ * route errors or the webhook is mid-reconfiguration.
+ *
+ * The query does the narrowing, for the same reason the retention sweep's
+ * does: a fixed batch that keeps re-reading companies it can never pay would
+ * eventually fill with them and starve the ones it can.
+ *
+ * `none: { milestone: activation }` carries no status filter, deliberately. A
+ * REVERSED activation must not be re-earned — the ledger keeps the earning and
+ * its reversal as a pair, and re-paying it would make that pair a lie.
+ */
+async function sweepActivations(counts) {
+  const attributions = await db.salesAttribution.findMany({
+    where: {
+      company: {
+        stripeChargesEnabled: true,
+        salesCommissionEntries: { none: { milestone: MILESTONES.ACTIVATION } },
+      },
+    },
+    select: { companyId: true },
+    orderBy: { capturedAt: "asc" },
+    take: BATCH,
+  });
+
+  for (const attributed of attributions) {
+    counts.activationConsidered++;
+    try {
+      // No Stripe event id: this is a sweep, not an event. occurredAt is left
+      // to earnMilestone's own `new Date()` rather than backdated to the
+      // company's creation — we know charges are enabled now, and we do not
+      // know when Stripe enabled them.
+      const entry = await recordActivation({ companyId: attributed.companyId });
+      if (entry) counts.activationEarned++;
+      else counts.activationSkipped++;
+    } catch (err) {
+      counts.failed++;
+      await recordError({
+        area: "cron:sales-retention",
+        message: `Activation milestone failed: ${err?.message}`,
+        companyId: attributed.companyId,
+      }).catch(() => {});
+    }
+  }
+}
 
 export async function GET(request) {
   const denied = requireCronSecret(request);
@@ -195,6 +255,13 @@ export async function GET(request) {
       }).catch(() => {});
     }
   }
+
+  // Run after the retention pass so a slow activation sweep can never delay
+  // the milestone that has a deadline attached to it.
+  counts.activationConsidered = 0;
+  counts.activationEarned = 0;
+  counts.activationSkipped = 0;
+  await sweepActivations(counts);
 
   return NextResponse.json({ ok: true, ...counts, reasons });
 }

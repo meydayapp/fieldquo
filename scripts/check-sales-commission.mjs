@@ -629,14 +629,31 @@ ok(
 
 const connect = fnBody("app/api/stripe/webhook/route.js", "POST");
 ok("the Connect webhook exists to check", connect !== null);
+// The rule MOVED, and these two assertions moved with it rather than being
+// relaxed. account.updated is not the only writer of stripeChargesEnabled —
+// GET /api/stripe/connect/status writes it too, and exists precisely because
+// that webhook so often never arrives on a connected account. It wrote the
+// column and recorded nothing, so a company read "Taking payments" beside "No
+// milestones recorded". recordActivation is now the single rule and both
+// routes call it; scripts/check-sales-milestones.mjs asserts that every writer
+// of the column calls it, by scanning the tree rather than by keeping a list.
 ok(
   "milestone 1 is recorded from account.updated",
-  connect?.includes("MILESTONES.ACTIVATION"),
+  /recordActivation\(\{/.test(connect || ""),
+);
+const activation = fnBody("lib/sales/commission.js", "recordActivation");
+ok("the shared activation rule exists to check", activation !== null);
+ok(
+  "…and it is the activation milestone it records",
+  /MILESTONES\.ACTIVATION/.test(activation || ""),
 );
 // Read back from the row, so the column and the milestone cannot disagree.
+// The caller has just written that column; re-reading it is the whole guard.
 ok(
   "and reads the stored column rather than trusting the event body alone",
-  /company\?\.stripeChargesEnabled/.test(connect || ""),
+  /prisma\.company\.findUnique/.test(activation || "") &&
+    /stripeChargesEnabled: true/.test(activation || "") &&
+    /qualifiesForActivation\(company\)/.test(activation || ""),
 );
 ok(
   "milestone 1 never consults onboarding completeness",
@@ -645,9 +662,24 @@ ok(
 
 const cronSrc = readFileSync("app/api/cron/sales-retention/route.js", "utf8");
 ok("the retention sweep demands the cron secret", cronSrc.includes("requireCronSecret(request)"));
+// Scoped to the HANDLER, not the file. sweepActivations is a helper defined
+// above GET and it reads salesAttribution too, so a whole-file ordering check
+// started comparing the secret gate against a query that is only ever reached
+// from inside the gate. The property being protected is unchanged: nothing in
+// the request path may touch the database before the cron secret is checked.
+const cronGet = fnBody("app/api/cron/sales-retention/route.js", "GET");
+ok("the retention handler exists to check", cronGet !== null);
 ok(
   "it refuses before doing any work",
-  orderedIn(cronSrc, "requireCronSecret(request)", "salesAttribution.findMany"),
+  orderedIn(cronGet || "", "requireCronSecret(request)", "salesAttribution.findMany"),
+);
+// And the catch-up sweep is reached only from inside that gate. Matched on the
+// bare call, not on `sweepActivations(counts)`: pinning the argument list meant
+// a second call with any other argument could sit ahead of the gate while this
+// assertion went on reading the well-behaved one below it.
+ok(
+  "the activation sweep runs behind the same secret",
+  orderedIn(cronGet || "", "requireCronSecret(request)", "sweepActivations("),
 );
 ok(
   "it uses the shared rule rather than its own date maths",

@@ -35,6 +35,7 @@ import {
   summariseConnectAccount,
   accountIdentityFor,
 } from "@/lib/stripe/connectAccount";
+import { recordActivation } from "@/lib/sales/commission";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -121,6 +122,30 @@ export async function GET(request) {
           stripeChargesEnabled: summary.chargesEnabled,
           stripeOnboarded: summary.detailsSubmitted,
         },
+      });
+    }
+
+    // ── The sales milestone, on the path that usually sets the column ──────
+    //
+    // Activation lived only on the account.updated webhook — the one this
+    // route exists because it so often never arrives. So a company that
+    // finished Connect while that webhook was unconfigured got its column
+    // written HERE and its rep got nothing, and the sales portal showed
+    // "Taking payments" beside "No milestones recorded" on one row.
+    //
+    // Outside the `if` above deliberately. That branch only runs when
+    // something CHANGED, and a company whose column was already true — every
+    // company this is meant to catch — changes nothing on any future poll.
+    // recordActivation re-reads the row and earnMilestone's unique ref makes
+    // the repeat calls free.
+    //
+    // Never allowed to break the answer: a missing commission row is
+    // reconcilable bookkeeping, and the nightly sweep re-checks anyway. A
+    // settings page that 500s is a company that cannot tell whether it can
+    // take payments.
+    if (summary.chargesEnabled) {
+      await recordActivation({ companyId: company.id }).catch((err) => {
+        console.error("[sales] activation milestone failed:", err?.message);
       });
     }
 

@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { db } from "@/lib/db";
-import { earnMilestone, MILESTONES } from "@/lib/sales/commission";
+import { earnMilestone, recordActivation, MILESTONES } from "@/lib/sales/commission";
 import { settleOccurrenceFromIntent } from "@/lib/servicePlans/run";
 import { settleCheckoutSession } from "@/lib/stripe/settleCheckoutSession";
 import { settleChargeEvent } from "@/lib/stripe/settleChargeEvent";
@@ -83,10 +83,11 @@ export async function POST(request) {
           where: { stripeAccountId: account.id },
           select: { id: true, stripeChargesEnabled: true },
         });
-        if (company?.stripeChargesEnabled) {
-          await earnMilestone({
+        if (company) {
+          // The qualification itself now lives in recordActivation, because
+          // this is not the only writer of stripeChargesEnabled — see there.
+          await recordActivation({
             companyId: company.id,
-            milestone: MILESTONES.ACTIVATION,
             stripeEventId: event.id,
             // Stripe's own second-precision timestamp, never new Date(), so a
             // replay months later cannot move when this happened — the same
