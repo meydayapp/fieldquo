@@ -262,11 +262,12 @@ function heading(s, text, sub) {
     ["Upwork", "Released against the contract's milestones. Upwork's own fee comes off what lands, so the figure in the ledger is what FieldQuo sends, not what arrives."],
     ["PayPal", "A PayPal transfer. Fees depend on the receiving account's country and type."],
     ["Interac e-Transfer", "Canadian accounts only. Usually free and same-day."],
+    ["Wise", "Best if you are outside Canada. Mid-market rate, fee shown up front, and it can land in your own currency."],
     ["Bank transfer", "Slowest to arrive, cheapest to send. Best if you are being paid a large batch at once."],
   ];
-  let y = 2.35;
+  let y = 2.25;
   methods.forEach((m) => {
-    s.addShape(p.ShapeType.rect, { x: M, y, w: 11.7, h: 0.92, fill: { color: CARD } });
+    s.addShape(p.ShapeType.rect, { x: M, y, w: 11.7, h: 0.86, fill: { color: CARD } });
     s.addText(m[0], {
       x: M + 0.25, y: y + 0.08, w: 3.2, h: 0.76, isTextBox: true, margin: 0,
       fontFace: "Calibri", fontSize: 15, bold: true, color: NAVY, valign: "middle",
@@ -275,7 +276,7 @@ function heading(s, text, sub) {
       x: M + 3.6, y: y + 0.08, w: 7.8, h: 0.76, isTextBox: true, margin: 0,
       fontFace: "Calibri", fontSize: 12.5, color: MUTED, valign: "middle",
     });
-    y += 1.05;
+    y += 0.97;
   });
   s.addText("Each trade-off is printed beside the choice, before you make it — not discovered when the money arrives short.", {
     x: M, y: 6.15, w: 11.7, h: 0.5, isTextBox: true,
