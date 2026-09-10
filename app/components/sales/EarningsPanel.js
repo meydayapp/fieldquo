@@ -36,6 +36,7 @@ import { fetchJson } from "@/lib/fetchJson";
 // browser bundle and failed the build.
 import { centsToMoney } from "@/lib/sales/money";
 import { AlertTriangle, Check, Circle, Loader2, RotateCcw } from "lucide-react";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 function day(value) {
   return value ? new Date(value).toLocaleDateString() : "—";
@@ -63,16 +64,24 @@ const RUNG_ICON = {
   pending: <Circle size={13} className="shrink-0 opacity-50" />,
 };
 
-const RUNG_NOTE = {
-  earned: null,
-  reversed: "taken back",
-  under_review: "under review",
-  pending: "not yet",
-};
+// A function taking `t` rather than the module-scope map this used to be: a
+// translated note cannot exist before the hook has resolved the rep's
+// language, and `earned` deliberately returns nothing so the caller falls
+// through to the date the rung was reached.
+function rungNote(state, t) {
+  if (state === "reversed") return t("app.salesPay.rungReversed");
+  if (state === "under_review") return t("app.salesPay.rungUnderReview");
+  if (state === "pending") return t("app.salesPay.rungPending");
+  return null;
+}
 
 export default function EarningsPanel() {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
-  const [error, setError] = useState("");
+  // A flag rather than the sentence itself: the sentence is now a translation,
+  // and one stored in state at fetch time would keep the old language after a
+  // rep changes it on the screen directly below this one.
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -84,7 +93,7 @@ export default function EarningsPanel() {
         // Named, not silent. Unlike the tour, a rep who cannot see their pay
         // needs to know the screen failed rather than concluding they earned
         // nothing — those two look identical and mean opposite things.
-        if (!cancelled) setError("Your earnings could not be loaded just now. Try again in a moment.");
+        if (!cancelled) setFailed(true);
       }
     })();
     return () => {
@@ -92,11 +101,11 @@ export default function EarningsPanel() {
     };
   }, []);
 
-  if (error) {
+  if (failed) {
     return (
       <section className="space-y-2">
-        <h2 className="text-base font-semibold text-foreground">Your earnings</h2>
-        <p className="text-sm text-muted-foreground">{error}</p>
+        <h2 className="text-base font-semibold text-foreground">{t("app.salesPay.earningsTitle")}</h2>
+        <p className="text-sm text-muted-foreground">{t("app.salesPay.earningsLoadFailed")}</p>
       </section>
     );
   }
@@ -104,10 +113,10 @@ export default function EarningsPanel() {
   if (!data) {
     return (
       <section className="space-y-2">
-        <h2 className="text-base font-semibold text-foreground">Your earnings</h2>
+        <h2 className="text-base font-semibold text-foreground">{t("app.salesPay.earningsTitle")}</h2>
         <p className="text-sm text-muted-foreground flex items-center gap-2">
           <Loader2 size={14} className="animate-spin motion-reduce:animate-none" />
-          Loading…
+          {t("app.salesPay.loading")}
         </p>
       </section>
     );
@@ -119,52 +128,65 @@ export default function EarningsPanel() {
   return (
     <section className="space-y-4">
       <div className="space-y-1">
-        <h2 className="text-base font-semibold text-foreground">Your earnings</h2>
-        <p className="text-sm text-muted-foreground">
-          Recorded by FieldQuo when each milestone actually happens. Nothing on this
-          screen can be edited from here — it is the same ledger the payout run reads.
-        </p>
+        <h2 className="text-base font-semibold text-foreground">{t("app.salesPay.earningsTitle")}</h2>
+        <p className="text-sm text-muted-foreground">{t("app.salesPay.earningsIntro")}</p>
       </div>
 
       {nothingYet ? (
         // Absence of a statement is not a statement: no ledger rows means
         // nothing has happened yet, not that anything is wrong or owed.
-        <p className="text-sm text-muted-foreground">
-          Nothing recorded yet. Your first commission lands when a company you signed
-          up can take payments — you will see it here the same day.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("app.salesPay.nothingRecorded")}</p>
       ) : (
         <>
           <div className="grid gap-2 sm:grid-cols-4">
-            <Stat label="Earned all time" cents={totals.lifetimeCents} strong hint="After anything taken back" />
-            <Stat label="Paid to you" cents={totals.paidCents} hint="Weeks marked paid" />
-            <Stat label="Closed, not paid yet" cents={totals.awaitingCents} hint="Waiting on the payout run" />
-            <Stat label="This week so far" cents={totals.thisWeekCents} hint="Closes Monday" />
+            <Stat
+              label={t("app.salesPay.statLifetime")}
+              cents={totals.lifetimeCents}
+              strong
+              hint={t("app.salesPay.statLifetimeHint")}
+            />
+            <Stat
+              label={t("app.salesPay.statPaid")}
+              cents={totals.paidCents}
+              hint={t("app.salesPay.statPaidHint")}
+            />
+            <Stat
+              label={t("app.salesPay.statAwaiting")}
+              cents={totals.awaitingCents}
+              hint={t("app.salesPay.statAwaitingHint")}
+            />
+            <Stat
+              label={t("app.salesPay.statThisWeek")}
+              cents={totals.thisWeekCents}
+              hint={t("app.salesPay.statThisWeekHint")}
+            />
           </div>
 
           {totals.lifetimeCents > 0 && !payoutReady && (
             <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 text-xs text-foreground">
-              You have money recorded and no payout destination set, so there is nowhere
-              to send it. Fill in the form below and it will go out with the next run.
+              {t("app.salesPay.noDestinationNotice")}
             </p>
           )}
 
           {/* ── Which company is at which stage ──────────────────────────── */}
           <div className="space-y-2">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Your companies
+              {t("app.salesPay.companiesHeading")}
             </h3>
             <div className="space-y-2">
               {companies.map((c) => (
                 <div key={c.companyId} className="rounded-lg border border-border p-3">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <span className="text-sm font-medium text-foreground">
-                      {c.companyName || "A company"}
+                      {c.companyName || t("app.salesPay.unnamedCompany")}
                     </span>
                     <span className="text-sm tabular-nums text-foreground">
                       {centsToMoney(c.cents)}
                       <span className="text-xs text-muted-foreground ml-2">
-                        {c.progress.reached} of {c.progress.total}
+                        {t("app.salesPay.progressOf", {
+                          reached: c.progress.reached,
+                          total: c.progress.total,
+                        })}
                       </span>
                     </span>
                   </div>
@@ -179,7 +201,7 @@ export default function EarningsPanel() {
                         {RUNG_ICON[rung.state]}
                         <span className="truncate">{rung.label}</span>
                         <span className="text-[11px] text-muted-foreground shrink-0">
-                          {RUNG_NOTE[rung.state] || day(rung.occurredAt)}
+                          {rungNote(rung.state, t) || day(rung.occurredAt)}
                         </span>
                       </li>
                     ))}
@@ -193,13 +215,15 @@ export default function EarningsPanel() {
           {(weeks.length > 0 || openLines.length > 0) && (
             <div className="space-y-2">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                By week
+                {t("app.salesPay.byWeekHeading")}
               </h3>
 
               {openLines.length > 0 && (
                 <div className="rounded-lg border border-dashed border-border p-3">
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-sm font-medium text-foreground">This week, still open</span>
+                    <span className="text-sm font-medium text-foreground">
+                      {t("app.salesPay.thisWeekStillOpen")}
+                    </span>
                     <span className="text-sm tabular-nums text-foreground">
                       {centsToMoney(totals.thisWeekCents)}
                     </span>
@@ -208,7 +232,7 @@ export default function EarningsPanel() {
                     {openLines.map((l) => (
                       <li key={l.id} className="flex justify-between gap-2 text-xs text-muted-foreground">
                         <span className="truncate">
-                          {l.companyName || "A company"} · {day(l.occurredAt)}
+                          {l.companyName || t("app.salesPay.unnamedCompany")} · {day(l.occurredAt)}
                         </span>
                         <span className="tabular-nums shrink-0">{centsToMoney(l.amountCents)}</span>
                       </li>
@@ -229,16 +253,17 @@ export default function EarningsPanel() {
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {w.status === "paid"
-                      ? `Paid ${day(w.paidAt)}`
-                      : "Closed. Waiting on the payout run — no transfer has been made yet."}
+                      ? t("app.salesPay.weekPaidOn", { date: day(w.paidAt) })
+                      : t("app.salesPay.weekClosedUnpaid")}
                   </p>
                   {/* Said out loud rather than reconciled behind the scenes: if
                       a reversal landed after the week closed, the figure a rep
                       was told at close is not the figure they are getting. */}
                   {w.movedSinceClose && (
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      This week was {centsToMoney(w.closedCents)} when it closed. Something
-                      changed after that — the figure above is the current one.
+                      {t("app.salesPay.weekMovedSinceClose", {
+                        amount: centsToMoney(w.closedCents),
+                      })}
                     </p>
                   )}
                 </div>

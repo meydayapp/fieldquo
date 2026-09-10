@@ -48,8 +48,10 @@ import { ArrowRight, Check } from "lucide-react";
 
 import PayoutDestinationForm from "@/app/components/sales/PayoutDestinationForm";
 import RepLanguageChoice from "@/app/components/sales/RepLanguageChoice";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function SalesWelcomePage() {
+  const { t } = useTranslation();
   // Purely so the two steps can tick. Nothing gates on them — see the header.
   const [payoutDone, setPayoutDone] = useState(false);
   const [languageDone, setLanguageDone] = useState(false);
@@ -59,29 +61,35 @@ export default function SalesWelcomePage() {
   // scripts/check-rep-settings.mjs asserts that region contains no `&&` and no
   // ternary, which is how "the skip is never gated on an answer" stays true
   // after the next edit. A guard added to that link would fail the check.
-  const exitLabel = payoutDone || languageDone ? "Go to the portal" : "Skip for now";
+  const exitLabel =
+    payoutDone || languageDone ? t("app.salesPay.exitGoToPortal") : t("app.salesPay.exitSkip");
+
+  // One sentence with one {tab} placeholder, split around it rather than
+  // written as three JSX fragments: where the tab name falls in the sentence
+  // differs by language, and a translator must never be handed markup to
+  // reassemble. Resolving the key with no values leaves {tab} in place to
+  // split on.
+  const introParts = t("app.salesPay.welcomeIntro").split("{tab}");
 
   return (
     <div className="space-y-10 max-w-2xl">
       <header className="space-y-2">
-        <h1 className="text-xl font-semibold text-foreground">Welcome to FieldQuo</h1>
+        <h1 className="text-xl font-semibold text-foreground">{t("app.salesPay.welcomeTitle")}</h1>
         <p className="text-sm text-muted-foreground">
-          Two things before you start, and neither of them is urgent. You can skip
-          both and set them later from the <strong className="font-semibold">Pay</strong>{" "}
-          tab — nothing in the portal is locked until you do.
+          {introParts[0]}
+          <strong className="font-semibold">{t("app.salesPay.payTabName")}</strong>
+          {introParts[1] || ""}
         </p>
       </header>
 
       <section className="space-y-4">
         <div className="flex items-center gap-2">
           <StepMark done={payoutDone} n={1} />
-          <h2 className="text-base font-semibold text-foreground">Where should we send your commission?</h2>
+          <h2 className="text-base font-semibold text-foreground">
+            {t("app.salesPay.payoutStepTitle")}
+          </h2>
         </div>
-        <p className="text-sm text-muted-foreground">
-          FieldQuo pays commission in weekly batches. Until there is a destination on
-          file the ledger knows what you are owed and has nowhere to send it, so this
-          is the one worth doing today.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("app.salesPay.payoutStepBody")}</p>
         {/* The engagement panel is left off here. It is FieldQuo's statement
             about the rep, not a question for them, and on a first-run screen it
             reads as another thing to fill in. It is on /sales/pay, where a rep
@@ -92,7 +100,9 @@ export default function SalesWelcomePage() {
       <section className="space-y-4 border-t border-border pt-8">
         <div className="flex items-center gap-2">
           <StepMark done={languageDone} n={2} />
-          <h2 className="text-base font-semibold text-foreground">What language should the portal be in?</h2>
+          <h2 className="text-base font-semibold text-foreground">
+            {t("app.salesPay.languageStepTitle")}
+          </h2>
         </div>
         <RepLanguageChoice onSaved={(code) => setLanguageDone(Boolean(code))} />
       </section>
@@ -107,7 +117,7 @@ export default function SalesWelcomePage() {
           <ArrowRight size={14} aria-hidden="true" />
         </Link>
         <span className="text-sm text-muted-foreground">
-          Both of these live on the Pay tab whenever you want them.
+          {t("app.salesPay.bothOnPayTab")}
         </span>
       </div>
     </div>

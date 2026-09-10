@@ -35,6 +35,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Loader2, PhoneForwarded, X } from "lucide-react";
 
 import { fetchJson } from "@/lib/fetchJson";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -89,7 +90,12 @@ export default function TransferControl({ attemptId = null, active = false, onEr
   const [showTransfer, setShowTransfer] = useState(false);
   const [busy, setBusy] = useState("");
 
-  const t = TONES[tone] || TONES.call;
+  const { t } = useTranslation();
+  // Named `skin`, not `t`. It was `t` until this file's copy was translated,
+  // and a local `t` beside the translation function is the shadow that crashes
+  // at render with "t is not a function" — check:t-shadow exists for exactly
+  // this. The class strings it holds are unchanged.
+  const skin = TONES[tone] || TONES.call;
   const say = useCallback(
     (message) => {
       if (typeof onError === "function") onError(message);
@@ -145,7 +151,7 @@ export default function TransferControl({ attemptId = null, active = false, onEr
       setXfer((prev) => ({ ...(prev || {}), transfer: body.transfer }));
       setShowTransfer(false);
     } catch (err) {
-      say(err?.message || "That transfer could not be started.");
+      say(err?.message || t("app.salesDial.transferNotStarted"));
     } finally {
       setBusy("");
     }
@@ -166,7 +172,7 @@ export default function TransferControl({ attemptId = null, active = false, onEr
       // assumes the caller can hear them.
       if (body?.warning) say(body.warning);
     } catch (err) {
-      say(err?.message || "That did not go through.");
+      say(err?.message || t("app.salesDial.transferActionFailed"));
     } finally {
       setBusy("");
       await loadTransfer();
@@ -177,9 +183,9 @@ export default function TransferControl({ attemptId = null, active = false, onEr
 
   if (xfer?.transfer) {
     return (
-      <div className={t.box}>
-        <p className={`text-sm font-semibold ${t.strong} break-words`}>
-          {xfer.transfer.describe || "Transferring…"}
+      <div className={skin.box}>
+        <p className={`text-sm font-semibold ${skin.strong} break-words`}>
+          {xfer.transfer.describe || t("app.salesDial.transferring")}
         </p>
         <div className="flex gap-2">
           {/* Only while they are actually talking. Putting the caller through
@@ -194,18 +200,18 @@ export default function TransferControl({ attemptId = null, active = false, onEr
               onClick={() => endTransfer("complete")}
             >
               {busy === "complete" ? <Loader2 className="animate-spin" size={16} /> : null}
-              Put them through
+              {t("app.salesDial.putThemThrough")}
             </button>
           ) : null}
           {xfer.transfer.state === "ringing" || xfer.transfer.state === "talking" ? (
             <button
               type="button"
-              className={`${BTN} ${t.outline} flex-1`}
+              className={`${BTN} ${skin.outline} flex-1`}
               disabled={Boolean(busy)}
               onClick={() => endTransfer("cancel")}
             >
               {busy === "cancel" ? <Loader2 className="animate-spin" size={16} /> : null}
-              Never mind
+              {t("app.salesDial.neverMind")}
             </button>
           ) : null}
         </div>
@@ -215,10 +221,17 @@ export default function TransferControl({ attemptId = null, active = false, onEr
 
   if (showTransfer) {
     return (
-      <div className={t.box}>
+      <div className={skin.box}>
         <div className="flex items-start justify-between gap-2">
-          <p className={`text-sm font-semibold ${t.strong}`}>Hand this caller to…</p>
-          <button type="button" aria-label="Close" className={t.strong} onClick={() => setShowTransfer(false)}>
+          <p className={`text-sm font-semibold ${skin.strong}`}>
+            {t("app.salesDial.handCallerTo")}
+          </p>
+          <button
+            type="button"
+            aria-label={t("app.salesDial.close")}
+            className={skin.strong}
+            onClick={() => setShowTransfer(false)}
+          >
             <X size={16} />
           </button>
         </div>
@@ -226,18 +239,14 @@ export default function TransferControl({ attemptId = null, active = false, onEr
           /* Said, not hidden. A rep who presses transfer and sees an empty box
              assumes the feature is broken; the truth is that everyone else is
              on a call. */
-          <p className={`text-xs ${t.soft}`}>
-            Nobody else is free right now. Presence goes stale after a quarter
-            of an hour, so a rep who has closed their laptop is not on this list
-            even if they never signed out.
-          </p>
+          <p className={`text-xs ${skin.soft}`}>{t("app.salesDial.nobodyElseFree")}</p>
         ) : (
           <ul className="space-y-2">
             {xfer.targets.map((target) => (
               <li key={target.key} className="space-y-1">
-                <p className={`text-sm ${t.strong} break-words`}>
+                <p className={`text-sm ${skin.strong} break-words`}>
                   {target.name || target.value}{" "}
-                  <span className={`text-xs ${t.faint}`}>— {target.why}</span>
+                  <span className={`text-xs ${skin.faint}`}>— {target.why}</span>
                 </p>
                 <div className="flex gap-2">
                   {/* Two buttons rather than a mode switch, because the two
@@ -251,26 +260,23 @@ export default function TransferControl({ attemptId = null, active = false, onEr
                     onClick={() => beginTransfer("warm", target.key)}
                   >
                     {busy === `warm:${target.key}` ? <Loader2 className="animate-spin" size={16} /> : null}
-                    Speak first
+                    {t("app.salesDial.speakFirst")}
                   </button>
                   <button
                     type="button"
-                    className={`${BTN} ${t.outline} flex-1`}
+                    className={`${BTN} ${skin.outline} flex-1`}
                     disabled={Boolean(busy)}
                     onClick={() => beginTransfer("cold", target.key)}
                   >
                     {busy === `cold:${target.key}` ? <Loader2 className="animate-spin" size={16} /> : null}
-                    Straight through
+                    {t("app.salesDial.straightThrough")}
                   </button>
                 </div>
               </li>
             ))}
           </ul>
         )}
-        <p className={`text-xs ${t.faint}`}>
-          Either way the caller goes on hold while it rings, and comes back to
-          you if nobody picks up.
-        </p>
+        <p className={`text-xs ${skin.faint}`}>{t("app.salesDial.transferHoldNotice")}</p>
       </div>
     );
   }
@@ -279,13 +285,13 @@ export default function TransferControl({ attemptId = null, active = false, onEr
     return (
       <button
         type="button"
-        className={`${BTN} ${t.outline} w-full`}
+        className={`${BTN} ${skin.outline} w-full`}
         onClick={() => {
           setShowTransfer(true);
           loadTransfer();
         }}
       >
-        <PhoneForwarded size={16} /> Transfer this call
+        <PhoneForwarded size={16} /> {t("app.salesDial.transferThisCall")}
       </button>
     );
   }

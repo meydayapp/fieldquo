@@ -53,6 +53,7 @@ import { Check, CloudOff, Loader2, RotateCcw } from "lucide-react";
 import { readStaleConflict } from "@/lib/concurrency/staleWriteClient";
 import { VERSION_FIELD } from "@/lib/concurrency/staleWrite";
 import { LIMITS, sanitiseBody, sanitiseTitle } from "@/lib/sales/notes/body";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import RepNoteConflict from "./RepNoteConflict";
 
 const DEBOUNCE_MS = 1500;
@@ -98,6 +99,7 @@ function clearDraft(noteId) {
  * @param {Function} [props.onSaved] called with the fresh row after each save
  */
 export default function RepNoteEditor({ note, onSaved }) {
+  const { t } = useTranslation();
   const [title, setTitle] = useState(note.title || "");
   const [body, setBody] = useState(note.body || "");
   const [state, setState] = useState("saved");
@@ -131,7 +133,7 @@ export default function RepNoteEditor({ note, onSaved }) {
     setTitle(draft.title ?? "");
     setBody(draft.body ?? "");
     setState("unsaved");
-    setMessage("Recovered from this device — the last save didn't reach the server.");
+    setMessage(t("app.salesNotes.draftRecovered"));
     // note.id only: re-running on a title change would clobber what the rep is
     // typing with a draft they already recovered.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -166,7 +168,16 @@ export default function RepNoteEditor({ note, onSaved }) {
         // true is that it is saved, and this is the sentence that says so.
         inFlight.current = false;
         setState("offline");
-        setMessage("Not saved — no connection. Your text is kept on this device.");
+        // The English sentence stays in the call as the fallback rather than
+        // moving wholly into the catalogue: scripts/check-rep-notes.mjs proves
+        // the autosave path has its own words by reading THIS branch's source,
+        // and a key on its own would leave that guard matching nothing.
+        setMessage(
+          t(
+            "app.salesNotes.saveOffline",
+            "Not saved — no connection. Your text is kept on this device.",
+          ),
+        );
         return;
       }
 
@@ -195,7 +206,7 @@ export default function RepNoteEditor({ note, onSaved }) {
         }
         inFlight.current = false;
         setState("error");
-        setMessage(text || `Not saved (${res.status}). Your text is kept on this device.`);
+        setMessage(text || t("app.salesNotes.saveFailed", { status: res.status }));
         return;
       }
 
@@ -216,7 +227,7 @@ export default function RepNoteEditor({ note, onSaved }) {
         save(queued);
       }
     },
-    [note.id, onSaved],
+    [note.id, onSaved, t],
   );
 
   /** Cancel the debounce and save immediately. Blur, tab-hide, unmount. */
@@ -278,18 +289,18 @@ export default function RepNoteEditor({ note, onSaved }) {
       res = await fetch(`/api/sales/notes/${note.id}`);
     } catch {
       setState("offline");
-      setMessage("Couldn't reach the server. Nothing was changed.");
+      setMessage(t("app.salesNotes.serverUnreachableNoChange"));
       return;
     }
     if (!res.ok) {
       setState("error");
-      setMessage(`Couldn't load the saved version (${res.status}). Nothing was changed.`);
+      setMessage(t("app.salesNotes.loadSavedFailed", { status: res.status }));
       return;
     }
     const data = await res.json().catch(() => null);
     if (!data?.note) {
       setState("error");
-      setMessage("Couldn't read the saved version. Nothing was changed.");
+      setMessage(t("app.salesNotes.loadSavedUnreadable"));
       return;
     }
     setTitle(data.note.title || "");
@@ -314,7 +325,7 @@ export default function RepNoteEditor({ note, onSaved }) {
 
       <div className="rounded-lg border border-border bg-card">
         <label className="sr-only" htmlFor="rep-note-title">
-          Title
+          {t("app.salesNotes.editorTitleLabel")}
         </label>
         <input
           id="rep-note-title"
@@ -322,12 +333,12 @@ export default function RepNoteEditor({ note, onSaved }) {
           onChange={(e) => change(sanitiseTitle(e.target.value), body)}
           onBlur={flush}
           maxLength={LIMITS.title}
-          placeholder="Title"
+          placeholder={t("app.salesNotes.editorTitleLabel")}
           className="w-full px-3 py-3 bg-transparent text-foreground font-semibold border-b border-border rounded-t-lg outline-none placeholder:text-muted-foreground"
         />
 
         <label className="sr-only" htmlFor="rep-note-body">
-          Note
+          {t("app.salesNotes.editorBodyLabel")}
         </label>
         <textarea
           id="rep-note-body"
@@ -336,7 +347,7 @@ export default function RepNoteEditor({ note, onSaved }) {
           onBlur={flush}
           maxLength={LIMITS.body}
           rows={16}
-          placeholder="What happened on the call…"
+          placeholder={t("app.salesNotes.editorBodyPlaceholder")}
           // min-h in vh rather than a pixel height: a fixed 400px box is
           // unreachable on a short screen with the keyboard up, which is every
           // phone. See the modal-height rule in check-mobile-surfaces.mjs.
@@ -357,11 +368,15 @@ export default function RepNoteEditor({ note, onSaved }) {
  * is the whole failure this component exists to avoid.
  */
 function SaveState({ state, message }) {
+  // A component of its own, so the hook belongs here rather than being handed
+  // down as a prop. `message` arrives already translated by its caller.
+  const { t } = useTranslation();
+
   if (state === "saving") {
     return (
       <p className="flex items-center gap-2 text-sm text-muted-foreground">
         <Loader2 size={14} className="animate-spin" />
-        Saving…
+        {t("app.salesNotes.saving")}
       </p>
     );
   }
@@ -370,7 +385,7 @@ function SaveState({ state, message }) {
     return (
       <p className="flex items-center gap-2 text-sm text-muted-foreground">
         <Check size={14} />
-        Saved
+        {t("app.salesNotes.saved")}
       </p>
     );
   }
@@ -379,7 +394,7 @@ function SaveState({ state, message }) {
     return (
       <p className="flex items-center gap-2 text-sm text-muted-foreground">
         <RotateCcw size={14} />
-        {message || "Not saved yet"}
+        {message || t("app.salesNotes.notSavedYet")}
       </p>
     );
   }
@@ -396,7 +411,7 @@ function SaveState({ state, message }) {
   return (
     <p className="flex items-start gap-2 text-sm text-amber-700 dark:text-amber-300">
       <CloudOff size={14} className="mt-0.5 shrink-0" />
-      {message || "Not saved. Your text is kept on this device."}
+      {message || t("app.salesNotes.notSavedFallback")}
     </p>
   );
 }

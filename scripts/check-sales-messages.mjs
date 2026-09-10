@@ -581,15 +581,19 @@ section("4. Suppression — the screen offers nothing and the server refuses");
 
   ok("a suppressed conversation renders NO compose box", !/<textarea/.test(suppressedHalf));
   ok("…and no send control", !/Send it/.test(suppressedHalf));
-  ok("…and says why instead", /closed|opted|Nothing can be sent/.test(suppressedHalf));
+  // The sentence moved into app/i18n/appMessages.js when the sales portal was
+  // translated, so this matches the KEY the screen renders. The words are
+  // still asserted — scripts/check-sales-portal-i18n.mjs section 6 holds the
+  // English catalogue value to them, which is where they now live.
+  ok("…and says why instead", /app\.salesText\.suppressed(Title|Body)/.test(suppressedHalf));
   ok("the compose box exists in the other half", /<textarea/.test(otherwiseHalf) && /id="reply"/.test(otherwiseHalf));
-  ok("…as does the manual follow-up control", /Park a follow-up/.test(otherwiseHalf));
+  ok("…as does the manual follow-up control", /app\.salesText\.parkOpen/.test(otherwiseHalf));
 
   // And the draft's own send button is withheld the same way.
   ok("drafts are told whether a send is possible", /canSend=\{!suppressed\}/.test(page));
   const draftUi = decomment(read("app/sales/messages/CheckInDraft.js"));
   ok("…and the draft withholds the button rather than disabling it",
-    /canSend \? \(/.test(draftUi) && /Send it now/.test(draftUi));
+    /canSend \? \(/.test(draftUi) && /app\.salesText\.sendNow/.test(draftUi));
 }
 
 {

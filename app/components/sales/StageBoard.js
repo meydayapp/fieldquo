@@ -30,33 +30,66 @@
 // where the sentence is composed so that this screen cannot word it
 // differently from anything else that shows it.
 
+import { useTranslation } from "@/app/hooks/useTranslation";
+
+// The state word is a KEY, not a sentence: the five words are the distinction
+// this board is for, and a rep reading the console in Spanish has to be able to
+// tell "running now" from "queued" in Spanish too. The map still owns which
+// word goes with which state, so the pairing cannot drift between languages.
 const TONE = {
   working: {
     dot: "bg-emerald-500",
     ring: "border-emerald-300 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/30",
-    word: "running now",
+    wordKey: "app.salesQueue.stageStateWorking",
   },
   waiting: {
     dot: "bg-sky-500",
     ring: "border-sky-200 dark:border-sky-900 bg-sky-50/50 dark:bg-sky-950/20",
-    word: "queued",
+    wordKey: "app.salesQueue.stageStateWaiting",
   },
   stopped: {
     dot: "bg-amber-500",
     ring: "border-amber-300 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/30",
-    word: "stopped",
+    wordKey: "app.salesQueue.stageStateStopped",
   },
   done: {
     dot: "bg-foreground/30",
     ring: "border-border",
-    word: "finished",
+    wordKey: "app.salesQueue.stageStateDone",
   },
   not_started: {
     dot: "bg-foreground/15",
     ring: "border-border",
-    word: "not started yet",
+    wordKey: "app.salesQueue.stageStateNotStarted",
   },
 };
+
+/**
+ * Emphasis inside a translated sentence.
+ *
+ * The words that carry the distinction are not the same words in every
+ * language, and they are rarely in the same place in the sentence, so the
+ * marker travels INSIDE the translated string and is unwrapped here. The
+ * obvious alternative — splicing `<span>` between three separate keys — is the
+ * assembled-sentence bug: it forces every translator into English word order.
+ */
+function emphasise(text, className) {
+  return String(text)
+    .split(/(\*\*[^*]+\*\*)/g)
+    .filter((part) => part !== "")
+    .map((part, i) =>
+      // The same shape the split captured, not `startsWith`: a bare "**"
+      // passes a loose test at both ends and would be eaten as an empty
+      // emphasis, silently deleting two characters of the sentence.
+      /^\*\*[^*]+\*\*$/.test(part) ? (
+        <span key={i} className={className}>
+          {part.slice(2, -2)}
+        </span>
+      ) : (
+        part
+      ),
+    );
+}
 
 function Count({ n, label, className = "" }) {
   // Zeros are not drawn. A row reading "0 failed · 0 abandoned" spends the
@@ -70,13 +103,16 @@ function Count({ n, label, className = "" }) {
 }
 
 export default function StageBoard({ stages = [], pipeline = null }) {
+  const { t } = useTranslation();
   const rows = Array.isArray(stages) ? stages : [];
   if (rows.length === 0) return null;
 
   return (
     <section className="space-y-3">
       <div className="flex items-baseline justify-between gap-3 flex-wrap">
-        <h3 className="text-sm font-semibold text-foreground">What the pipeline is doing</h3>
+        <h3 className="text-sm font-semibold text-foreground">
+          {t("app.salesQueue.stageBoardTitle")}
+        </h3>
         {pipeline?.sentence ? (
           <p className="text-xs text-muted-foreground break-words">{pipeline.sentence}</p>
         ) : null}
@@ -106,7 +142,7 @@ export default function StageBoard({ stages = [], pipeline = null }) {
                     {/* The state in words as well as colour — the dot alone is
                         not readable to a screen reader or to anyone who cannot
                         separate the two greens. */}
-                    <span className="text-xs text-muted-foreground">{tone.word}</span>
+                    <span className="text-xs text-muted-foreground">{t(tone.wordKey)}</span>
                   </div>
 
                   {s.what ? (
@@ -114,12 +150,24 @@ export default function StageBoard({ stages = [], pipeline = null }) {
                   ) : null}
 
                   <div className="flex items-baseline gap-x-3 gap-y-0.5 flex-wrap text-xs text-muted-foreground">
-                    <Count n={s.claimed} label="in flight" className="text-emerald-700 dark:text-emerald-400" />
-                    <Count n={s.queued} label="queued" />
-                    <Count n={s.done} label="done" />
-                    <Count n={s.failed} label="failed" className="text-amber-700 dark:text-amber-400" />
-                    <Count n={s.abandoned} label="abandoned" className="text-amber-700 dark:text-amber-400" />
-                    {s.total === 0 ? <span>nothing queued yet</span> : null}
+                    <Count
+                      n={s.claimed}
+                      label={t("app.salesQueue.stageCountInFlight")}
+                      className="text-emerald-700 dark:text-emerald-400"
+                    />
+                    <Count n={s.queued} label={t("app.salesQueue.stageCountQueued")} />
+                    <Count n={s.done} label={t("app.salesQueue.stageCountDone")} />
+                    <Count
+                      n={s.failed}
+                      label={t("app.salesQueue.stageCountFailed")}
+                      className="text-amber-700 dark:text-amber-400"
+                    />
+                    <Count
+                      n={s.abandoned}
+                      label={t("app.salesQueue.stageCountAbandoned")}
+                      className="text-amber-700 dark:text-amber-400"
+                    />
+                    {s.total === 0 ? <span>{t("app.salesQueue.stageNothingQueued")}</span> : null}
                   </div>
 
                   {/* Capped at 99 while anything is still queued or in flight —
@@ -132,7 +180,10 @@ export default function StageBoard({ stages = [], pipeline = null }) {
                       aria-valuenow={bar}
                       aria-valuemin={0}
                       aria-valuemax={100}
-                      aria-label={`${s.label}: ${bar}% settled`}
+                      aria-label={t("app.salesQueue.stageProgressLabel", {
+                        stage: s.label,
+                        percent: bar,
+                      })}
                     >
                       <div
                         className={`h-full rounded-full ${
@@ -150,18 +201,10 @@ export default function StageBoard({ stages = [], pipeline = null }) {
       </ol>
 
       <p className="text-xs text-muted-foreground break-words">
-        Each business moves down this list one stage at a time. A stage shows{" "}
-        <span className="font-semibold">queued</span> between runs — the pipeline drains on a
-        schedule, so that is the normal state most of the time, not a fault.{" "}
-        <span className="font-semibold">In flight</span> is what is being worked on this second. A
-        business with <span className="font-semibold">no website</span> skips the crawler and the two
-        stages after it, so those counts are lower than the number of businesses on purpose.
+        {emphasise(t("app.salesQueue.stageBoardHowItReads"), "font-semibold")}
       </p>
       <p className="text-xs text-muted-foreground break-words">
-        Counts carry downstream: a site that could not be read leaves the next stage nothing to
-        fingerprint, so it declines and the number appears here too. That is the pipeline working —
-        a business whose website could not be read is not stranded, it keeps moving down the
-        remaining stages and a rep can still call it, without the website intelligence.
+        {t("app.salesQueue.stageBoardDownstream")}
       </p>
     </section>
   );

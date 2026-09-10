@@ -23,11 +23,29 @@
 //
 // scripts/check-rep-notes.mjs asserts the import, and asserts that both screens
 // render this component.
+//
+// ══ Why the lib constant is still here now that this is translated ═════════
+//
+// Each of these four sentences is a t() key WITH the lib constant passed as
+// its fallback, rather than a key alone. Two reasons, and the second is the
+// load-bearing one:
+//
+//   * The English in the catalogue and the English in lib/sales/notes/ cannot
+//     drift into two different promises about who reads a rep's notes — the
+//     lib one is what the platform screen and the checks read, and it stays
+//     the source it always was.
+//   * A privacy statement must never fail to appear. The fallback chain is
+//     rep's language → English catalogue → this constant, so even a catalogue
+//     that lost the key still renders the sentence rather than a key name.
+//
+// The translations are literal on purpose. A visibility rule that is close
+// enough in another language is worse than one left in English.
 
 import { Eye } from "lucide-react";
 import { VISIBILITY_NOTICE } from "@/lib/sales/notes/visibility";
 import { RETENTION } from "@/lib/sales/notes/model";
 import { EDITOR } from "@/lib/sales/notes/body";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 /**
  * @param {object}  props
@@ -37,6 +55,8 @@ import { EDITOR } from "@/lib/sales/notes/body";
  *                  where it would be noise.
  */
 export default function RepNoteVisibilityNotice({ showEditorNote = false }) {
+  const { t } = useTranslation();
+
   return (
     <div className="rounded-lg border border-border bg-card p-3 sm:p-4 text-sm">
       <div className="flex items-start gap-2">
@@ -44,13 +64,19 @@ export default function RepNoteVisibilityNotice({ showEditorNote = false }) {
             would say the opposite of what the sentence beside it says. */}
         <Eye size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
         <div className="min-w-0">
-          <p className="font-medium text-foreground">{VISIBILITY_NOTICE.headline}</p>
-          <p className="mt-1 text-muted-foreground">{VISIBILITY_NOTICE.detail}</p>
+          <p className="font-medium text-foreground">
+            {t("app.salesNotes.visibilityHeadline", VISIBILITY_NOTICE.headline)}
+          </p>
+          <p className="mt-1 text-muted-foreground">
+            {t("app.salesNotes.visibilityDetail", VISIBILITY_NOTICE.detail)}
+          </p>
 
           {showEditorNote && (
             <p className="mt-2 text-muted-foreground">
-              <span className="font-medium text-foreground">{EDITOR.label}. </span>
-              {EDITOR.why}
+              <span className="font-medium text-foreground">
+                {t("app.salesNotes.editorKindLabel", EDITOR.label)}.{" "}
+              </span>
+              {t("app.salesNotes.editorKindWhy", EDITOR.why)}
             </p>
           )}
 
@@ -59,7 +85,9 @@ export default function RepNoteVisibilityNotice({ showEditorNote = false }) {
               somebody has to be able to read. See RETENTION in
               lib/sales/notes/model.js for why it is not built. */}
           {!RETENTION.applied && (
-            <p className="mt-2 text-muted-foreground">{RETENTION.statement}</p>
+            <p className="mt-2 text-muted-foreground">
+              {t("app.salesNotes.retentionStatement", RETENTION.statement)}
+            </p>
           )}
         </div>
       </div>

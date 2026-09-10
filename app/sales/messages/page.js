@@ -48,7 +48,8 @@ import {
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { raiseSupportTicket } from "@/lib/support/repClient";
-import MessageThread, { conversationInitials } from "./MessageThread";
+import { useTranslation } from "@/app/hooks/useTranslation";
+import MessageThread, { conversationInitials, sentenceAround } from "./MessageThread";
 import CheckInDraft from "./CheckInDraft";
 
 const BTN =
@@ -69,6 +70,7 @@ function when(value) {
 // not disabled — otherwise. A button that 404s is the dead control AGENTS.md
 // opens with.
 function EscalatePanel({ company }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
@@ -89,7 +91,7 @@ function EscalatePanel({ company }) {
             stop. */}
         <p className="text-sm text-muted-foreground break-words">{raised.statusLine}</p>
         <Link href="/sales/support" className={`${BTN} border border-border text-foreground w-full`}>
-          <LifeBuoy size={16} aria-hidden="true" /> Follow it on my tickets
+          <LifeBuoy size={16} aria-hidden="true" /> {t("app.salesText.escalateFollowTicket")}
         </Link>
       </div>
     );
@@ -102,29 +104,35 @@ function EscalatePanel({ company }) {
         onClick={() => setOpen(true)}
         className={`${BTN} border border-border text-foreground w-full`}
       >
-        <LifeBuoy size={16} aria-hidden="true" /> Hand this to tech support
+        <LifeBuoy size={16} aria-hidden="true" /> {t("app.salesText.escalateOpen")}
       </button>
     );
   }
 
+  // Split rather than interpolated: the company's name is emphasised inside
+  // the sentence, and t() stringifies its values — a <span> handed to it would
+  // arrive as "[object Object]". The sentence stays one key either way.
+  const [introBefore, introAfter] = sentenceAround(t("app.salesText.escalateIntro"), "{company}");
+
   return (
     <div className={CARD}>
       <p className="text-sm text-muted-foreground break-words">
-        A technical problem with <span className="font-medium text-foreground">{company.name}</span>.
-        Support sees the ticket, not this conversation — so say what happened.
+        {introBefore}
+        <span className="font-medium text-foreground">{company.name}</span>
+        {introAfter}
       </p>
       <label className="block text-sm font-medium text-foreground" htmlFor="ticket-subject">
-        One line
+        {t("app.salesText.escalateSubjectLabel")}
       </label>
       <input
         id="ticket-subject"
         value={subject}
         onChange={(e) => setSubject(e.target.value)}
-        placeholder="Invoice emails are not arriving"
+        placeholder={t("app.salesText.escalateSubjectPlaceholder")}
         className="w-full min-h-[44px] border border-border rounded-lg px-3 py-2.5 text-base bg-card text-foreground"
       />
       <label className="block text-sm font-medium text-foreground" htmlFor="ticket-body">
-        What happened
+        {t("app.salesText.escalateBodyLabel")}
       </label>
       <textarea
         id="ticket-body"
@@ -134,7 +142,7 @@ function EscalatePanel({ company }) {
         className="w-full border border-border rounded-lg px-3 py-2.5 text-base bg-card text-foreground"
       />
       <label className="block text-sm font-medium text-foreground" htmlFor="ticket-priority">
-        How urgent
+        {t("app.salesText.escalatePriorityLabel")}
       </label>
       <select
         id="ticket-priority"
@@ -142,10 +150,12 @@ function EscalatePanel({ company }) {
         onChange={(e) => setPriority(e.target.value)}
         className="w-full min-h-[44px] border border-border rounded-lg px-3 py-2.5 text-base bg-card text-foreground"
       >
-        <option value="low">Low</option>
-        <option value="normal">Normal</option>
-        <option value="high">High</option>
-        <option value="urgent">Urgent</option>
+        {/* The VALUES are what the route stores; only the labels are the
+            rep's language. */}
+        <option value="low">{t("app.salesText.escalatePriorityLow")}</option>
+        <option value="normal">{t("app.salesText.escalatePriorityNormal")}</option>
+        <option value="high">{t("app.salesText.escalatePriorityHigh")}</option>
+        <option value="urgent">{t("app.salesText.escalatePriorityUrgent")}</option>
       </select>
 
       {error ? (
@@ -170,7 +180,7 @@ function EscalatePanel({ company }) {
               });
               setRaised(ticket);
             } catch (err) {
-              setError(err?.message || "The ticket was not raised.");
+              setError(err?.message || t("app.salesText.escalateFailed"));
             } finally {
               setBusy(false);
             }
@@ -182,10 +192,10 @@ function EscalatePanel({ company }) {
           ) : (
             <LifeBuoy size={16} aria-hidden="true" />
           )}
-          Raise it
+          {t("app.salesText.escalateSubmit")}
         </button>
         <button type="button" onClick={() => setOpen(false)} className={`${BTN} text-muted-foreground`}>
-          Cancel
+          {t("app.salesText.cancel")}
         </button>
       </div>
     </div>
@@ -193,6 +203,7 @@ function EscalatePanel({ company }) {
 }
 
 export default function SalesMessagesPage() {
+  const { t } = useTranslation();
   const [list, setList] = useState(null);
   const [openWith, setOpenWith] = useState("");
   const [thread, setThread] = useState(null);
@@ -215,18 +226,21 @@ export default function SalesMessagesPage() {
     try {
       setList((await fetchJson("/api/sales/messages")).conversations || []);
     } catch (err) {
-      setError(err?.message || "Could not load your conversations.");
+      setError(err?.message || t("app.salesText.listLoadFailed"));
     }
-  }, []);
+  }, [t]);
 
-  const loadThread = useCallback(async (e164) => {
-    setError("");
-    try {
-      setThread(await fetchJson(`/api/sales/messages?with=${encodeURIComponent(e164)}`));
-    } catch (err) {
-      setError(err?.message || "Could not load that conversation.");
-    }
-  }, []);
+  const loadThread = useCallback(
+    async (e164) => {
+      setError("");
+      try {
+        setThread(await fetchJson(`/api/sales/messages?with=${encodeURIComponent(e164)}`));
+      } catch (err) {
+        setError(err?.message || t("app.salesText.threadLoadFailed"));
+      }
+    },
+    [t],
+  );
 
   useEffect(() => {
     loadList();
@@ -283,12 +297,14 @@ export default function SalesMessagesPage() {
       // carries the CASL footer, which is part of what was actually sent and
       // is not what the rep typed.
       setInFlight((rows) => rows.filter((r) => r.id !== tempId));
-      setThread((t) => ({ ...t, messages: next.messages }));
+      // `previous` rather than the one-letter name it had: this file now calls
+      // t() for its copy, and a state updater called `t` shadows it.
+      setThread((previous) => ({ ...previous, messages: next.messages }));
       await loadList();
     } catch (err) {
       // The server's own sentence, not a rewrite of it. It names the blocker —
       // opted out, outside their hours, no mailing address — and the fix.
-      const message = err?.message || "That did not send.";
+      const message = err?.message || t("app.salesText.sendFailed");
       setInFlight((rows) =>
         rows.map((r) => (r.id === tempId ? { ...r, status: "failed", error: message } : r)),
       );
@@ -308,13 +324,13 @@ export default function SalesMessagesPage() {
         await loadThread(openWith);
         return true;
       } catch (err) {
-        setDraftError(err?.message || "That did not work.");
+        setDraftError(err?.message || t("app.salesText.draftActionFailed"));
         return false;
       } finally {
         setDraftBusy("");
       }
     },
-    [loadThread, openWith],
+    [loadThread, openWith, t],
   );
 
   // ── One conversation ────────────────────────────────────────────────────
@@ -334,7 +350,7 @@ export default function SalesMessagesPage() {
           // min-h-[44px]: it is the only way back on a phone.
           className="min-h-[44px] text-sm text-muted-foreground flex items-center gap-1"
         >
-          <ArrowLeft size={14} aria-hidden="true" /> All conversations
+          <ArrowLeft size={14} aria-hidden="true" /> {t("app.salesText.backToAll")}
         </button>
 
         <header className="space-y-1">
@@ -345,7 +361,7 @@ export default function SalesMessagesPage() {
               <>
                 {" · "}
                 <Link href={`/sales/leads/${thread.lead.id}`} className="underline">
-                  open the lead
+                  {t("app.salesText.openLead")}
                 </Link>
               </>
             ) : null}
@@ -353,7 +369,7 @@ export default function SalesMessagesPage() {
               <>
                 {" · "}
                 <Link href="/sales/companies" className="underline">
-                  {thread.company.name} is a customer
+                  {t("app.salesText.companyIsCustomer", { company: thread.company.name })}
                 </Link>
               </>
             ) : null}
@@ -382,7 +398,7 @@ export default function SalesMessagesPage() {
           {!thread ? (
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="animate-spin motion-reduce:animate-none" size={15} aria-hidden="true" />{" "}
-              Loading…
+              {t("app.salesText.loading")}
             </p>
           ) : (
             <MessageThread
@@ -469,7 +485,7 @@ export default function SalesMessagesPage() {
           <div className="rounded-xl border border-border bg-muted p-4 space-y-2">
             <p className="flex items-start gap-2 text-sm font-semibold text-foreground">
               <ShieldOff size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
-              This conversation is closed.
+              {t("app.salesText.suppressedTitle")}
             </p>
             {blockers
               .filter((b) => b.code === "suppressed")
@@ -479,16 +495,14 @@ export default function SalesMessagesPage() {
                 </p>
               ))}
             <p className="text-sm text-muted-foreground break-words">
-              Nothing can be sent to this number on any channel — not a reply, not a check-in, not a
-              follow-up. FieldQuo removes somebody from that list only on a superadmin&rsquo;s written
-              request, because the row is the evidence behind a three-year obligation.
+              {t("app.salesText.suppressedBody")}
             </p>
           </div>
         ) : (
           <>
             <div className={CARD}>
               <label className="block text-sm font-medium text-foreground" htmlFor="reply">
-                Your reply
+                {t("app.salesText.replyLabel")}
               </label>
               <textarea
                 id="reply"
@@ -496,16 +510,19 @@ export default function SalesMessagesPage() {
                 className="w-full border border-border rounded-lg px-3 py-2.5 text-base bg-card text-foreground"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                placeholder="Thursday at eight works — I'll call then."
+                placeholder={t("app.salesText.replyPlaceholder")}
               />
               {/* Said before they type it, not after it is sent. The footer is not
                   optional and it is not the rep's to remove: CASL requires the
                   sender's address and an unsubscribe in every commercial message,
                   and this one is arranging the sale of software. */}
               <p className="text-xs text-muted-foreground break-words">
-                FieldQuo&rsquo;s address and &ldquo;Reply STOP to opt out&rdquo; are added to the end.
-                That is the law, not a setting — every commercial text carries them. Texts go from
-                FieldQuo&rsquo;s one shared sales number, not from your own line.
+                {/* The quoted phrase is the LITERAL text lib/sales/salesSmsRules.js
+                    appends, in English, to every outbound sales text. It is passed
+                    in rather than translated: a rep told in Spanish that the message
+                    carries a Spanish opt-out line would have been told something
+                    untrue about what goes over the wire. */}
+                {t("app.salesText.caslFooterNote", { optOut: "Reply STOP to opt out" })}
               </p>
               <button
                 type="button"
@@ -518,7 +535,7 @@ export default function SalesMessagesPage() {
                 ) : (
                   <Send size={16} aria-hidden="true" />
                 )}
-                Send it
+                {t("app.salesText.sendButton")}
               </button>
             </div>
 
@@ -526,18 +543,18 @@ export default function SalesMessagesPage() {
             {parking ? (
               <div className={CARD}>
                 <label className="block text-sm font-medium text-foreground" htmlFor="park-text">
-                  What do you want to say?
+                  {t("app.salesText.parkTextLabel")}
                 </label>
                 <textarea
                   id="park-text"
                   rows={3}
                   value={parkText}
                   onChange={(e) => setParkText(e.target.value)}
-                  placeholder="Following up on the quote we talked about — are you happy to go ahead?"
+                  placeholder={t("app.salesText.parkTextPlaceholder")}
                   className="w-full border border-border rounded-lg px-3 py-2.5 text-base bg-card text-foreground"
                 />
                 <label className="block text-sm font-medium text-foreground" htmlFor="park-when">
-                  When should this be in front of you?
+                  {t("app.salesText.parkWhenLabel")}
                 </label>
                 <input
                   id="park-when"
@@ -547,9 +564,7 @@ export default function SalesMessagesPage() {
                   className="w-full min-h-[44px] border border-border rounded-lg px-3 py-2.5 text-base bg-card text-foreground"
                 />
                 <p className="text-xs text-muted-foreground break-words">
-                  It waits as a draft. FieldQuo does not send it — you do, when you are ready. The time
-                  has to fall inside this contractor&rsquo;s texting hours, or there would be nothing to
-                  press send on when it arrives.
+                  {t("app.salesText.parkNote")}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <button
@@ -586,14 +601,14 @@ export default function SalesMessagesPage() {
                     ) : (
                       <CalendarPlus size={16} aria-hidden="true" />
                     )}
-                    Park it as a draft
+                    {t("app.salesText.parkSubmit")}
                   </button>
                   <button
                     type="button"
                     onClick={() => setParking(false)}
                     className={`${BTN} text-muted-foreground`}
                   >
-                    Cancel
+                    {t("app.salesText.cancel")}
                   </button>
                 </div>
               </div>
@@ -603,7 +618,7 @@ export default function SalesMessagesPage() {
                 onClick={() => setParking(true)}
                 className={`${BTN} border border-border text-foreground w-full`}
               >
-                <CalendarPlus size={16} aria-hidden="true" /> Park a follow-up for later
+                <CalendarPlus size={16} aria-hidden="true" /> {t("app.salesText.parkOpen")}
               </button>
             )}
           </>
@@ -618,12 +633,8 @@ export default function SalesMessagesPage() {
   return (
     <div className="space-y-4">
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold text-foreground">Texts</h1>
-        <p className="text-sm text-muted-foreground max-w-2xl">
-          Everyone you have texted, and everyone who has written back. A conversation is with a
-          person, so it is grouped by their number — one business may sit behind two leads and the
-          reply belongs to the same thread either way.
-        </p>
+        <h1 className="text-xl font-semibold text-foreground">{t("app.salesText.title")}</h1>
+        <p className="text-sm text-muted-foreground max-w-2xl">{t("app.salesText.listIntro")}</p>
       </header>
 
       {error ? (
@@ -638,19 +649,15 @@ export default function SalesMessagesPage() {
       {!list ? (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="animate-spin motion-reduce:animate-none" size={15} aria-hidden="true" />{" "}
-          Loading…
+          {t("app.salesText.loading")}
         </p>
       ) : list.length === 0 ? (
         // Nothing invented to fill it. A rep who has texted nobody has no
         // conversations, which is a true and ordinary state.
         <div className={CARD}>
-          <p className="text-sm text-muted-foreground break-words">
-            Nothing yet. The first text to a prospect goes from their lead — it carries your signup
-            link and the identification a first contact needs. After that, the conversation lives
-            here.
-          </p>
+          <p className="text-sm text-muted-foreground break-words">{t("app.salesText.listEmpty")}</p>
           <Link href="/sales/leads" className={`${BTN} border border-border text-foreground w-full`}>
-            <MessageSquare size={16} aria-hidden="true" /> Go to my leads
+            <MessageSquare size={16} aria-hidden="true" /> {t("app.salesText.goToLeads")}
           </Link>
         </div>
       ) : (
@@ -696,9 +703,14 @@ export default function SalesMessagesPage() {
                       className={`min-w-0 flex-1 truncate text-sm ${c.unanswered ? "text-foreground" : "text-muted-foreground"}`}
                     >
                       {/* Said, not implied: without it an outbound line reads
-                          as something they sent us. */}
-                      {c.lastDirection === "in" ? "" : "You: "}
-                      {c.lastBody}
+                          as something they sent us. The prefix and the body are
+                          ONE sentence to translate — "You:" alone would leave a
+                          translator guessing what it attaches to, and some
+                          languages do not put the speaker first. The body is
+                          the prospect's own words and is never translated. */}
+                      {c.lastDirection === "in"
+                        ? c.lastBody
+                        : t("app.salesText.lastFromYou", { message: c.lastBody })}
                     </span>
                     {/* The dot IS the status, and the text beside it is for a
                         screen reader — a coloured dot alone states nothing to
@@ -709,7 +721,7 @@ export default function SalesMessagesPage() {
                           aria-hidden="true"
                           className="shrink-0 h-2 w-2 rounded-full bg-amber-500"
                         />
-                        <span className="sr-only">they wrote last, waiting on you</span>
+                        <span className="sr-only">{t("app.salesText.unansweredSr")}</span>
                       </>
                     ) : null}
                   </span>

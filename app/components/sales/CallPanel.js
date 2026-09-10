@@ -77,6 +77,7 @@ import {
   CalendarPlus,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import CallPlaybook from "./CallPlaybook";
 import TransferControl from "./TransferControl";
 import EventModal from "@/app/sales/calendar/EventModal";
@@ -142,6 +143,10 @@ export default function CallPanel({
   fallbackHref,
   onWorked,
 }) {
+  // The rep's own language, not the prospect's. Everything on this panel is
+  // read by the person holding the phone; the words they SAY come from the
+  // playbook, which is a separate catalogue in a separate language.
+  const { t } = useTranslation();
   const [config, setConfig] = useState(null);
   const [mic, setMic] = useState(null);
   const [error, setError] = useState("");
@@ -182,13 +187,14 @@ export default function CallPanel({
   // has no discovery behind it, so lib/sales/playbook has nothing to build one
   // from — that is a fact about the record, not a failure, and it gets said
   // rather than rendered as an empty space.
-  const playbookUnavailable = prospectId
-    ? ""
-    : "No script for this one. A playbook is assembled from what discovery found about a " +
-      "business — its capabilities, what it already runs, what it is missing — and this lead " +
-      "was typed in by hand, so there is nothing to assemble one from. Work it from the " +
-      "objections you know.";
+  const playbookUnavailable = prospectId ? "" : t("app.salesCall.playbookUnavailableLead");
 
+  // `t` is deliberately NOT a dependency of this callback or of load() below.
+  // Both dep arrays are what re-runs the effects that call them, and a rep
+  // changing language mid-call would otherwise re-fetch the script and the
+  // calling setup underneath a live conversation. The only cost is that the
+  // fallback sentence for a fetch that fails immediately after a language
+  // switch is a beat behind; the alternative is a refetch during a call.
   const loadPlaybook = useCallback(async () => {
     if (!prospectId) return;
     setPlaybookLoading(true);
@@ -199,7 +205,7 @@ export default function CallPanel({
       // Its own error, never the panel's. A failed script must not read as a
       // failed call setup, and it must not clear the dial button.
       setPlaybook(null);
-      setPlaybookError(err?.message || "Something went wrong fetching it.");
+      setPlaybookError(err?.message || t("app.salesCall.playbookFetchFailed"));
     } finally {
       setPlaybookLoading(false);
     }
@@ -215,7 +221,7 @@ export default function CallPanel({
       setConfig(body);
       setPending(body?.pendingAttempt || null);
     } catch (err) {
-      setError(err?.message || "Could not load your calling setup.");
+      setError(err?.message || t("app.salesCall.loadSetupFailed"));
     }
   }, []);
 
@@ -344,7 +350,7 @@ export default function CallPanel({
         deviceRef.current = null;
       });
       call.on("error", (err) => {
-        setError(err?.message || "The call dropped.");
+        setError(err?.message || t("app.salesCall.callDropped"));
       });
     } catch (err) {
       // A refusal from the gate arrives with the whole decision attached, so
@@ -353,7 +359,7 @@ export default function CallPanel({
       setError(
         Array.isArray(blockers) && blockers.length
           ? blockers.map((b) => b.title).join(" ")
-          : err?.message || "That call could not be placed.",
+          : err?.message || t("app.salesCall.dialFailed"),
       );
     } finally {
       setBusy("");
@@ -399,7 +405,7 @@ export default function CallPanel({
       await load();
       onWorked?.();
     } catch (err) {
-      setError(err?.message || "That outcome could not be saved.");
+      setError(err?.message || t("app.salesCall.outcomeSaveFailed"));
     } finally {
       setBusy("");
     }
@@ -415,15 +421,24 @@ export default function CallPanel({
       <div className="space-y-2">
         {fallbackHref ? (
           <a href={fallbackHref} className={`${BTN} bg-primary text-primary-foreground w-full`}>
-            <Phone size={16} /> Call {phoneE164}
+            <Phone size={16} /> {t("app.salesCall.callName", { name: phoneE164 })}
           </a>
         ) : null}
         <div className="rounded-lg border border-dashed border-border bg-muted p-3 text-sm text-muted-foreground">
-          <p className="font-semibold text-foreground">Calls are not being recorded yet.</p>
+          <p className="font-semibold text-foreground">{t("app.salesCall.notRecordedTitle")}</p>
+          {/* Two whole sentences rather than one with an "is/are" hole in it.
+              The model names are identifiers and stay in English; the verb they
+              govern does not exist in half the languages this portal is read
+              in, so the count picks a SENTENCE and each language writes its own
+              agreement. */}
           <p className="break-words">
-            {config.store.missing.join(" and ")} {config.store.missing.length > 1 ? "are" : "is"} not in
-            the database, so nothing counts your dials and the three-per-24-hours cap in Oklahoma and
-            Florida is not being kept for you. Keep track yourself until it is.
+            {config.store.missing.length > 1
+              ? t("app.salesCall.notRecordedBodyMany", {
+                  models: config.store.missing.join(t("app.salesCall.listAnd")),
+                })
+              : t("app.salesCall.notRecordedBodyOne", {
+                  models: config.store.missing.join(t("app.salesCall.listAnd")),
+                })}
           </p>
         </div>
         {/* The call still happens on this path, so the words still belong on
@@ -456,7 +471,7 @@ export default function CallPanel({
         <div className="rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 p-4 space-y-3">
           <div className="flex items-baseline justify-between gap-2">
             <p className="font-semibold text-emerald-900 dark:text-emerald-100 break-words">
-              On a call with {businessName || phoneE164}
+              {t("app.salesCall.onCallWith", { name: businessName || phoneE164 })}
             </p>
             <p className="text-xl font-mono tabular-nums text-emerald-900 dark:text-emerald-100">
               {clock(elapsed)}
@@ -464,8 +479,7 @@ export default function CallPanel({
           </div>
           {attempt?.callerId ? (
             <p className="text-xs text-emerald-900 dark:text-emerald-200 break-words">
-              They can see {attempt.callerId}. Say it out loud — a callback number is part of
-              identifying yourself in Canada, and it is the number that reaches us.
+              {t("app.salesCall.callerIdNotice", { number: attempt.callerId })}
             </p>
           ) : null}
           <div className="flex gap-2">
@@ -475,14 +489,14 @@ export default function CallPanel({
               onClick={toggleMute}
             >
               {muted ? <MicOff size={16} /> : <Mic size={16} />}
-              {muted ? "Unmute" : "Mute"}
+              {muted ? t("app.salesCall.unmute") : t("app.salesCall.mute")}
             </button>
             <button
               type="button"
               className={`${BTN} bg-red-600 text-white flex-1`}
               onClick={hangUp}
             >
-              <PhoneOff size={16} /> Hang up
+              <PhoneOff size={16} /> {t("app.salesCall.hangUp")}
             </button>
           </div>
 
@@ -500,21 +514,24 @@ export default function CallPanel({
         <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 p-4 space-y-3">
           <div>
             <p className="font-semibold text-amber-900 dark:text-amber-100">
-              What happened on that call?
+              {t("app.salesCall.whatHappened")}
             </p>
             <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
-              You rang {pending.toE164}. Nothing else can tell us how it went, and every number on your
-              own screen is computed from these answers.
+              {t("app.salesCall.whatHappenedBody", { number: pending.toE164 })}
             </p>
           </div>
 
+          {/* The disposition VALUE is an enum the server writes to
+              SalesCallAttempt. Only `d.label` is words, and it arrives already
+              written from lib/sales/calls/dispositions.js — this screen has no
+              say in it. */}
           <select
             className={FIELD}
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            aria-label="Call outcome"
+            aria-label={t("app.salesCall.outcomeAria")}
           >
-            <option value="">Pick an outcome…</option>
+            <option value="">{t("app.salesCall.pickOutcome")}</option>
             {dispositions.map((d) => (
               <option key={d.code} value={d.code}>
                 {d.label}
@@ -527,7 +544,9 @@ export default function CallPanel({
 
           {chosen?.requiresCallback ? (
             <label className="block text-sm">
-              <span className="text-amber-900 dark:text-amber-100">When did they say to ring back?</span>
+              <span className="text-amber-900 dark:text-amber-100">
+                {t("app.salesCall.callbackWhen")}
+              </span>
               <input
                 type="datetime-local"
                 className={FIELD}
@@ -539,7 +558,9 @@ export default function CallPanel({
 
           <label className="block text-sm">
             <span className="text-amber-900 dark:text-amber-100">
-              {chosen?.requiresNote ? "What did they say? (required)" : "Anything worth remembering"}
+              {chosen?.requiresNote
+                ? t("app.salesCall.noteLabelRequired")
+                : t("app.salesCall.noteLabelOptional")}
             </span>
             <textarea
               className={FIELD}
@@ -548,8 +569,8 @@ export default function CallPanel({
               onChange={(e) => setNote(e.target.value)}
               placeholder={
                 chosen?.requiresNote
-                  ? "As close to their words as you can get."
-                  : "Optional."
+                  ? t("app.salesCall.notePlaceholderRequired")
+                  : t("app.salesCall.notePlaceholderOptional")
               }
             />
           </label>
@@ -561,7 +582,7 @@ export default function CallPanel({
             onClick={saveOutcome}
           >
             {busy === "disposition" ? <Loader2 className="animate-spin" size={16} /> : null}
-            Save the outcome
+            {t("app.salesCall.saveOutcome")}
           </button>
         </div>
       ) : null}
@@ -581,7 +602,7 @@ export default function CallPanel({
               ) : (
                 <Phone size={16} />
               )}
-              Call {businessName || phoneE164}
+              {t("app.salesCall.callName", { name: businessName || phoneE164 })}
             </button>
           ) : null}
 
@@ -597,7 +618,7 @@ export default function CallPanel({
               ) : (
                 <Phone size={16} />
               )}
-              Call {phoneE164} from your phone
+              {t("app.salesCall.callFromYourPhone", { phone: phoneE164 })}
             </button>
           ) : null}
 
@@ -615,16 +636,15 @@ export default function CallPanel({
                 <div className="min-w-0">
                   <p className="font-semibold text-foreground break-words">
                     {mic === "denied"
-                      ? "This browser has refused the microphone."
+                      ? t("app.salesCall.micRefusedTitle")
                       : blocked?.title
-                        ? `Calling through FieldQuo needs: ${blocked.title}`
-                        : "Calling through FieldQuo is not set up on this deployment."}
+                        ? t("app.salesCall.callingNeeds", { requirement: blocked.title })
+                        : t("app.salesCall.callingNotConfigured")}
                   </p>
                   <p className="break-words">
                     {mic === "denied"
-                      ? "Nothing can be spoken into, so the in-app call button is switched off rather than left looking live. Re-allow the microphone in this site's settings and reload."
-                      : blocked?.fix ||
-                        "Your call is still recorded — it goes out from your own phone instead, and the prospect sees your number rather than ours."}
+                      ? t("app.salesCall.micRefusedBody")
+                      : blocked?.fix || t("app.salesCall.handsetFallbackBody")}
                   </p>
                 </div>
               </div>
@@ -643,7 +663,7 @@ export default function CallPanel({
         onClick={() => setShowCallbackEvent(true)}
         className={`${BTN} w-full border border-border text-foreground`}
       >
-        <CalendarPlus size={16} /> Schedule a call back
+        <CalendarPlus size={16} /> {t("app.salesCall.scheduleCallback")}
       </button>
       {showCallbackEvent ? (
         <EventModal

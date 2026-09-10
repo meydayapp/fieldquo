@@ -107,7 +107,11 @@ section("2. Something is listening, on every screen");
   // it. disconnect() would end the call for the contractor — a rep declining
   // one call would hang up on them.
   ok("declining rejects rather than disconnects", /call\.reject\(\)/.test(dockCode));
-  ok("…and says so to the rep", /passes them to the next person on the ring plan/.test(dock));
+  // The sentence moved into app/i18n/appMessages.js when the sales portal was
+  // translated, so this matches the KEY the screen renders. The words are
+  // still asserted — scripts/check-sales-portal-i18n.mjs section 6 holds the
+  // English catalogue value to them, which is where they now live.
+  ok("…and says so to the rep", /app\.salesDial\.decliningNotice/.test(dock));
 
   // A token expires. A dock that registered once and never refreshed works for
   // an hour and then goes quiet with nothing on screen saying so.

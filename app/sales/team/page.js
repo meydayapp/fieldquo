@@ -5,8 +5,15 @@
 // A rep's view of FieldQuo's staff chat. The screen is
 // app/components/staff/StaffChat.js, rendered identically in /platform — see
 // its header for why that is one component and not two.
+//
+// Only the heading belongs to this file. Everything else a rep reads on this
+// screen is StaffChat's own copy, and it is translated there or not at all —
+// the same component serves /platform, so a second wording here would be the
+// copy that rots.
 import StaffChat from "@/app/components/staff/StaffChat";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function SalesTeamPage() {
-  return <StaffChat heading="Team" />;
+  const { t } = useTranslation();
+  return <StaffChat heading={t("app.salesNotes.teamHeading")} />;
 }

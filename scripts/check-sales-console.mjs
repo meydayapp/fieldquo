@@ -527,9 +527,15 @@ ok(
 // waiting across 28 trades, saw an empty "Yours to work" and a closed
 // dropdown, and asked whether discovery had failed. A number nobody scrolls a
 // select to find is a number nobody has.
+// Both sentences moved into app/i18n/appMessages.js when the sales portal was
+// translated, so these match the KEY the screen renders rather than the English
+// words the screen used to hold. Matching the words would now be satisfiable
+// only by an UNTRANSLATED console, which is the opposite of the assertion —
+// the subject here is that the total is stated outside the closed select, and
+// that is a fact about placement, not about which language it is stated in.
 ok(
   "the free-to-claim total is stated outside the select",
-  /free to claim/.test(consoleSrc) && /stocked\.reduce\(/.test(consoleSrc),
+  /app\.salesQueue\.poolFree/.test(consoleSrc) && /stocked\.reduce\(/.test(consoleSrc),
 );
 ok(
   "…and the trades with something in them are listed first",
@@ -537,7 +543,8 @@ ok(
 );
 ok(
   "…while the empty ones stay selectable rather than being filtered away",
-  /optgroup label="Nothing free right now"/.test(consoleSrc) && /empties\.map\(/.test(consoleSrc),
+  /<optgroup label=\{t\("app\.salesQueue\.tradeGroupEmpty"\)\}>/.test(consoleSrc) &&
+    /empties\.map\(/.test(consoleSrc),
 );
 ok(
   "…and it is still COUNTS only — no rep reads the pool and picks the good ones",

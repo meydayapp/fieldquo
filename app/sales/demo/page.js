@@ -41,9 +41,37 @@
 // written in none, on either side of the product.
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { AlertCircle, ExternalLink, Loader2, RefreshCw, Wrench, KeyRound, HandGrab } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { useTranslation } from "@/app/hooks/useTranslation";
+
+/**
+ * A translated sentence whose moving parts are MARKUP — a bold company name, a
+ * monospaced login address — rather than text.
+ *
+ * t() stringifies its values, so a React element interpolated through it
+ * arrives as "[object Object]". Splitting the sentence into two keys either
+ * side of the bold bit would hand a translator half a clause and, worse, freeze
+ * English word order: German and Chinese put the address somewhere else in the
+ * sentence. So the sentence stays ONE key with named {placeholders}, and the
+ * split happens after translation, in whatever order that language wrote them.
+ *
+ * MessageThread.js's sentenceAround() does the same job for ONE token; the
+ * request quoted on this screen has four, and importing a one-token helper to
+ * call it four times is worse than the eight lines.
+ */
+function withParts(text, parts) {
+  return String(text)
+    .split(/(\{\w+\})/g)
+    .map((chunk, index) => {
+      const name = /^\{(\w+)\}$/.exec(chunk)?.[1];
+      // An unknown placeholder renders as itself rather than disappearing: a
+      // visible {slug} in one language is a bug report, a silent gap is not.
+      if (!name || !(name in parts)) return chunk;
+      return <Fragment key={index}>{parts[name]}</Fragment>;
+    });
+}
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -52,6 +80,7 @@ const FIELD =
 const CARD = "rounded-xl border border-border bg-card p-4 space-y-3";
 
 export default function SalesDemoPage() {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
@@ -62,9 +91,9 @@ export default function SalesDemoPage() {
     try {
       setData(await fetchJson("/api/sales/demo"));
     } catch (err) {
-      setError(err?.message || "Could not load your demo.");
+      setError(err?.message || t("app.salesCal.demoLoadFailed"));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     load();
@@ -82,7 +111,7 @@ export default function SalesDemoPage() {
       setConfirmReset(false);
       await load();
     } catch (err) {
-      setError(err?.message || "That did not work.");
+      setError(err?.message || t("app.salesCal.demoActionFailed"));
     } finally {
       setBusy("");
     }
@@ -104,12 +133,10 @@ export default function SalesDemoPage() {
   const tradeCard = !company ? null : (
     <section className={CARD}>
       <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-        <Wrench size={16} /> What trade it is set up as
+        <Wrench size={16} /> {t("app.salesCal.demoTradeHeading")}
       </h2>
       <p className="text-sm text-muted-foreground break-words">
-        A roofer watching a cabinet maker&rsquo;s quote is doing translation work while you talk.
-        Switch it to their trade before the call and the services, the prices and the wording are
-        all theirs.
+        {t("app.salesCal.demoTradeBody")}
       </p>
       <select
         className={FIELD}
@@ -117,7 +144,9 @@ export default function SalesDemoPage() {
         disabled={Boolean(busy)}
         onChange={(e) => act({ action: "industry", industry: e.target.value })}
       >
-        <option value="">Not set</option>
+        <option value="">{t("app.salesCal.demoTradeNotSet")}</option>
+        {/* The trade labels come from lib/demo/industries via the API — server
+            data, not copy on this screen, and English there today. */}
         {(data?.industries || []).map((i) => (
           <option key={i.key} value={i.key}>
             {i.label}
@@ -126,7 +155,7 @@ export default function SalesDemoPage() {
       </select>
       {busy === "industry" ? (
         <p className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Loader2 className="animate-spin" size={13} /> Rebuilding it as that trade…
+          <Loader2 className="animate-spin" size={13} /> {t("app.salesCal.demoTradeRebuilding")}
         </p>
       ) : null}
     </section>
@@ -135,19 +164,17 @@ export default function SalesDemoPage() {
   const resetCard = !company ? null : (
     <section className={CARD}>
       <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-        <RefreshCw size={16} /> Start it clean
+        <RefreshCw size={16} /> {t("app.salesCal.demoResetHeading")}
       </h2>
       <p className="text-sm text-muted-foreground break-words">
-        Wipes everything you did in it and puts the sample data back. Worth doing after every demo,
-        so the next prospect does not open a quote addressed to the last one.
+        {t("app.salesCal.demoResetBody")}
       </p>
       {/* Two presses. It is only a fixture, and it is still somebody's
           half-built walkthrough twenty minutes before a call. */}
       {confirmReset ? (
         <div className="space-y-2">
           <p className="text-sm text-amber-900 dark:text-amber-200 break-words">
-            This clears every quote, job, invoice and client in {company.name}. It cannot be undone,
-            and it affects nobody but you.
+            {t("app.salesCal.demoResetConfirm", { company: company.name })}
           </p>
           <div className="flex flex-col sm:flex-row gap-2">
             <button
@@ -157,14 +184,14 @@ export default function SalesDemoPage() {
               className={`${BTN} bg-red-600 text-white flex-1`}
             >
               {busy === "reset" ? <Loader2 className="animate-spin" size={16} /> : <RefreshCw size={16} />}
-              Yes, wipe it
+              {t("app.salesCal.demoResetYes")}
             </button>
             <button
               type="button"
               onClick={() => setConfirmReset(false)}
               className={`${BTN} border border-border text-foreground flex-1`}
             >
-              Leave it alone
+              {t("app.salesCal.demoResetNo")}
             </button>
           </div>
         </div>
@@ -175,7 +202,7 @@ export default function SalesDemoPage() {
           onClick={() => setConfirmReset(true)}
           className={`${BTN} border border-border text-foreground w-full`}
         >
-          <RefreshCw size={16} /> Reset the data
+          <RefreshCw size={16} /> {t("app.salesCal.demoResetButton")}
         </button>
       )}
     </section>
@@ -184,11 +211,9 @@ export default function SalesDemoPage() {
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold text-foreground">Your demo account</h1>
+        <h1 className="text-xl font-semibold text-foreground">{t("app.salesCal.demoTitle")}</h1>
         <p className="text-sm text-muted-foreground max-w-2xl">
-          A real FieldQuo company with real data in it, that belongs to you. Sign into it and drive
-          it while somebody watches — write a quote, send it, take the payment. Nothing in it is a
-          customer&rsquo;s, so you can break it and put it back.
+          {t("app.salesCal.demoIntro")}
         </p>
       </header>
 
@@ -203,20 +228,27 @@ export default function SalesDemoPage() {
 
       {!data ? (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="animate-spin" size={15} /> Loading…
+          <Loader2 className="animate-spin" size={15} /> {t("app.salesCal.demoLoading")}
         </p>
       ) : !company ? (
         // STATE 1 — no demo. Never a blank screen, and never a button that
         // would 409: Claim renders only when the pool says something is
         // actually free.
         <section className={CARD}>
-          <h2 className="text-base font-semibold text-foreground">You don&rsquo;t have one yet</h2>
+          <h2 className="text-base font-semibold text-foreground">{t("app.salesCal.demoNoneHeading")}</h2>
           {data.pool?.free > 0 ? (
             <>
               <p className="text-sm text-muted-foreground break-words">
-                Take one. It becomes yours and stays yours, so the data you set up for your own
-                walkthrough is where you left it next time. {data.pool.free} of {data.pool.total}{" "}
-                {data.pool.total === 1 ? "is" : "are"} free right now.
+                {t("app.salesCal.demoClaimBody")}{" "}
+                {/* The "is/are" toggle that used to be here was English's
+                    agreement rule spelled out in JS, which is the one thing
+                    AGENTS.md and the i18n brief both forbid — four of the nine
+                    languages count differently. The noun is declined by
+                    Intl.PluralRules through the __counted__ entry instead. */}
+                {t("app.salesCal.demoPoolFreeLine", {
+                  free: data.pool.free,
+                  count: t("app.salesCal.demoPoolCount", { value: data.pool.total }),
+                })}
               </p>
               <button
                 type="button"
@@ -229,12 +261,10 @@ export default function SalesDemoPage() {
                 ) : (
                   <HandGrab size={16} />
                 )}
-                Claim a demo account
+                {t("app.salesCal.demoClaimButton")}
               </button>
               <p className="text-xs text-muted-foreground break-words">
-                Claiming assigns you the company. Signing into it needs a password, which only a
-                FieldQuo superadmin can set — this screen will tell you exactly what to ask for
-                once you have one.
+                {t("app.salesCal.demoClaimNote")}
               </p>
             </>
           ) : (
@@ -242,8 +272,14 @@ export default function SalesDemoPage() {
             // fails, and not a generic "try again later".
             <p className="text-sm text-muted-foreground break-words">
               {data.pool?.total > 0
-                ? `All ${data.pool.total} demo ${data.pool.total === 1 ? "company is" : "companies are"} already taken by other reps, so there is none to claim. Ask a FieldQuo superadmin to add one, or to release one that a rep who has left is still holding.`
-                : "There are no demo companies at all yet. Ask a FieldQuo superadmin to seed them — nothing on this screen creates one."}
+                ? // A second counted entry, not a reuse of demoPoolCount: this
+                  // sentence needs the verb agreeing with the count as well as
+                  // the noun ("1 demo company IS taken", "3 demo companies
+                  // ARE"), and the free line above needs the bare noun.
+                  t("app.salesCal.demoPoolTakenLine", {
+                    count: t("app.salesCal.demoPoolTakenCount", { value: data.pool.total }),
+                  })
+                : t("app.salesCal.demoPoolEmpty")}
             </p>
           )}
         </section>
@@ -260,27 +296,31 @@ export default function SalesDemoPage() {
             </div>
             <div className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3 space-y-2">
               <p className="text-sm font-semibold text-amber-900 dark:text-amber-200 flex items-center gap-2">
-                <KeyRound size={15} /> It has no sign-in yet
+                <KeyRound size={15} /> {t("app.salesCal.demoNoLoginHeading")}
               </p>
               <p className="text-sm text-amber-900 dark:text-amber-200 break-words">
-                The company is yours; the login on it does not exist. Ask a FieldQuo{" "}
-                <strong>superadmin</strong> — not an admin, not support, only a superadmin can
-                create one — for this exactly:
+                {withParts(t("app.salesCal.demoNoLoginBody"), {
+                  role: <strong>{t("app.salesCal.demoSuperadminRole")}</strong>,
+                })}
               </p>
               <p className="text-sm text-amber-900 dark:text-amber-200 break-words">
-                &ldquo;Please open /platform/demo, find <strong>{company.name}</strong> (
-                <span className="font-mono">{company.slug}</span>), and press{" "}
-                <strong>Assign</strong> with a password so{" "}
-                <span className="font-mono">{data.loginEmail}</span> can sign in.&rdquo;
+                {withParts(t("app.salesCal.demoAskQuote"), {
+                  name: <strong>{company.name}</strong>,
+                  slug: <span className="font-mono">{company.slug}</span>,
+                  // NOT translated: "Assign" is the literal label on the button
+                  // at /platform/demo, and the platform console is English for
+                  // everyone. Translating it would send a rep to ask for a
+                  // control nobody can find.
+                  assign: <strong>Assign</strong>,
+                  email: <span className="font-mono">{data.loginEmail}</span>,
+                })}
               </p>
               <p className="text-xs text-amber-800 dark:text-amber-300 break-words">
-                The address is fixed — it is built from the slug and cannot be pointed at your own
-                mailbox. They tell you the password once and it keeps working.
+                {t("app.salesCal.demoAddressFixed")}
               </p>
             </div>
             <p className="text-xs text-muted-foreground break-words">
-              Everything below already works without the login: it goes through this portal, not
-              through the demo company.
+              {t("app.salesCal.demoWorksWithoutLogin")}
             </p>
           </section>
           {tradeCard}
@@ -294,9 +334,9 @@ export default function SalesDemoPage() {
               <span className="text-xs text-muted-foreground">{company.slug}</span>
             </div>
             <p className="text-sm text-muted-foreground break-words">
-              Sign in at <span className="font-mono">{data.loginEmail}</span>. The password is set by
-              a FieldQuo admin — ask for it once and it keeps working. It is not shown here because
-              this screen cannot set it.
+              {withParts(t("app.salesCal.demoSignInLine"), {
+                email: <span className="font-mono">{data.loginEmail}</span>,
+              })}
             </p>
             <a
               href="/app"
@@ -304,11 +344,10 @@ export default function SalesDemoPage() {
               rel="noopener noreferrer"
               className={`${BTN} bg-primary text-primary-foreground w-full`}
             >
-              <ExternalLink size={16} /> Open the demo company
+              <ExternalLink size={16} /> {t("app.salesCal.demoOpenButton")}
             </a>
             <p className="text-xs text-muted-foreground break-words">
-              Opens in a new tab so this portal stays where it is — mid-demo you may want to change
-              the trade or wipe the data without navigating out of what the prospect is looking at.
+              {t("app.salesCal.demoOpenNote")}
             </p>
           </section>
 

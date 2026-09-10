@@ -25,17 +25,16 @@
 import EarningsPanel from "@/app/components/sales/EarningsPanel";
 import PayoutDestinationForm from "@/app/components/sales/PayoutDestinationForm";
 import RepLanguageChoice from "@/app/components/sales/RepLanguageChoice";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function SalesPayPage() {
+  const { t } = useTranslation();
+
   return (
     <div className="space-y-10 max-w-2xl">
       <header className="space-y-2">
-        <h1 className="text-xl font-semibold text-foreground">Your pay</h1>
-        <p className="text-sm text-muted-foreground">
-          What you have earned, which of your companies is at which stage, and where
-          FieldQuo sends it. The figures are read from the commission ledger — the same
-          one the payout run pays from — and nothing here can be edited from this screen.
-        </p>
+        <h1 className="text-xl font-semibold text-foreground">{t("app.salesPay.title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("app.salesPay.intro")}</p>
       </header>
 
       {/* Above the settings, and that order changed with this screen. A tab

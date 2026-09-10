@@ -46,6 +46,7 @@ import { LEAD_STATUSES, LEAD_STATUS_LABELS } from "@/lib/sales/outreachPipeline"
 import { dialHref, salesCallReadiness } from "@/lib/sales/callingRules";
 import { dialSpace } from "@/lib/sales/dialSpace";
 import { SALES_SMS_TIME_ZONES } from "@/lib/sales/smsWindow";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import DialRegion from "@/app/components/sales/DialRegion";
 import ContactNumbers from "@/app/components/sales/ContactNumbers";
 import OutreachNotice from "../OutreachNotice";
@@ -66,6 +67,7 @@ function when(value) {
 
 export default function SalesLeadPage({ params }) {
   const { id } = use(params);
+  const { t } = useTranslation();
 
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -211,7 +213,7 @@ export default function SalesLeadPage({ params }) {
     return (
       <div className="space-y-4">
         <Link href="/sales/leads" className="text-sm text-muted-foreground flex items-center gap-1">
-          <ArrowLeft size={14} /> My leads
+          <ArrowLeft size={14} /> {t("app.salesLeads.title")}
         </Link>
         {error ? (
           <div className="rounded-lg border border-red-300 dark:border-red-900 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-800 dark:text-red-300">
@@ -219,7 +221,7 @@ export default function SalesLeadPage({ params }) {
           </div>
         ) : (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 size={15} className="animate-spin" /> Loading…
+            <Loader2 size={15} className="animate-spin" /> {t("app.salesLeads.loading")}
           </div>
         )}
       </div>
@@ -227,6 +229,13 @@ export default function SalesLeadPage({ params }) {
   }
 
   const canCompose = Boolean(outreach?.canSend) && !optedOut && Boolean(lead.email);
+
+  // The WORD, never the value. `patch({ status: s })` still posts the enum;
+  // only the chip's caption is translated. Same keys the list screen uses —
+  // app.salesLeads.status.{new,contacted,demoed,signed,lost} — with the
+  // English in outreachPipeline.js as the fallback.
+  const statusLabel = (value) =>
+    t(`app.salesLeads.status.${value}`, LEAD_STATUS_LABELS[value] || value);
 
   // ── The call, decided exactly the way the queue decides it ───────────────
   //
@@ -268,14 +277,14 @@ export default function SalesLeadPage({ params }) {
   return (
     <div className="space-y-6">
       <Link href="/sales/leads" className="text-sm text-muted-foreground flex items-center gap-1">
-        <ArrowLeft size={14} /> My leads
+        <ArrowLeft size={14} /> {t("app.salesLeads.title")}
       </Link>
 
       <div>
         <h1 className="text-2xl font-bold text-foreground">{lead.businessName}</h1>
         <p className="text-sm text-muted-foreground mt-1">
           {[lead.contactName, lead.email, lead.phone].filter(Boolean).join(" · ") ||
-            "No contact details yet"}
+            t("app.salesLeads.noContactDetails")}
         </p>
       </div>
 
@@ -292,7 +301,7 @@ export default function SalesLeadPage({ params }) {
           it. */}
       <section className="rounded-lg border border-border bg-card p-4 space-y-3">
         <div className="flex items-baseline justify-between gap-2">
-          <h2 className="text-base font-semibold text-foreground">Call them</h2>
+          <h2 className="text-base font-semibold text-foreground">{t("app.salesLeads.callThem")}</h2>
           {call?.phoneE164 ? (
             <span className="text-xs text-muted-foreground tabular-nums">{call.phoneE164}</span>
           ) : null}
@@ -344,44 +353,48 @@ export default function SalesLeadPage({ params }) {
           <summary className="cursor-pointer text-xs text-muted-foreground flex items-center gap-1.5">
             <MapPin size={13} />
             {lead.country && lead.province
-              ? `Where they are: ${lead.province}, ${lead.country}`
-              : "Say where this business is"}
+              ? t("app.salesLeads.whereTheyAre", {
+                  province: lead.province,
+                  country: lead.country,
+                })
+              : t("app.salesLeads.sayWhereTheyAre")}
           </summary>
           <div className="mt-3 space-y-3">
             <p className="text-xs text-muted-foreground">
-              Nothing is inferred from the area code — it is wrong for every ported number, and a
-              guessed state would be a guessed statute.
+              {t("app.salesLeads.noAreaCodeGuess")}
             </p>
             <div className="grid gap-3 sm:grid-cols-3">
               <label className="block text-xs text-muted-foreground">
-                Country
+                {t("app.salesLeads.country")}
+                {/* The option VALUES are the ISO codes the statute lookup reads;
+                    only the names a rep sees are translated. */}
                 <select
                   className={FIELD}
                   value={place.country}
                   onChange={(e) => setPlace((p) => ({ ...p, country: e.target.value }))}
                 >
-                  <option value="">Not stated</option>
-                  <option value="CA">Canada</option>
-                  <option value="US">United States</option>
+                  <option value="">{t("app.salesLeads.notStated")}</option>
+                  <option value="CA">{t("app.salesLeads.countryCanada")}</option>
+                  <option value="US">{t("app.salesLeads.countryUnitedStates")}</option>
                 </select>
               </label>
               <label className="block text-xs text-muted-foreground">
-                State or province
+                {t("app.salesLeads.stateOrProvince")}
                 <input
                   className={FIELD}
                   value={place.province}
-                  placeholder="ON, QC, TX…"
+                  placeholder={t("app.salesLeads.provincePlaceholder")}
                   onChange={(e) => setPlace((p) => ({ ...p, province: e.target.value }))}
                 />
               </label>
               <label className="block text-xs text-muted-foreground">
-                Their time zone
+                {t("app.salesLeads.theirTimeZone")}
                 <select
                   className={FIELD}
                   value={place.timeZone}
                   onChange={(e) => setPlace((p) => ({ ...p, timeZone: e.target.value }))}
                 >
-                  <option value="">Not stated</option>
+                  <option value="">{t("app.salesLeads.notStated")}</option>
                   {SALES_SMS_TIME_ZONES.map((z) => (
                     <option key={z.value} value={z.value}>
                       {z.label}
@@ -403,7 +416,7 @@ export default function SalesLeadPage({ params }) {
               className="inline-flex items-center min-h-[44px] text-sm font-semibold px-4 rounded-lg border border-border disabled:opacity-60"
             >
               {busy ? <Loader2 size={15} className="animate-spin mr-2" /> : null}
-              Save where they are
+              {t("app.salesLeads.saveWhereTheyAre")}
             </button>
           </div>
         </details>
@@ -423,7 +436,7 @@ export default function SalesLeadPage({ params }) {
                 : "border-border text-muted-foreground"
             }`}
           >
-            {LEAD_STATUS_LABELS[s]}
+            {statusLabel(s)}
           </button>
         ))}
       </div>
@@ -436,15 +449,17 @@ export default function SalesLeadPage({ params }) {
       <div className="rounded-lg border border-border bg-card p-4 space-y-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <Building2 size={15} className="text-muted-foreground" />
-          Signed up as
+          {t("app.salesLeads.signedUpAs")}
         </div>
         {lead.convertedCompanyId ? (
           <>
             <p className="text-sm text-muted-foreground">
-              Linked to a company you brought in
-              {lead.convertedAt ? ` on ${when(lead.convertedAt)}` : ""}. Your
-              commission for them is computed from the attribution, not from this
-              link.
+              {/* Two whole sentences rather than a date glued into one: the
+                  date sits mid-sentence and lands in a different place in
+                  half of these languages. */}
+              {lead.convertedAt
+                ? t("app.salesLeads.linkedOn", { when: when(lead.convertedAt) })
+                : t("app.salesLeads.linked")}
             </p>
             {/* ── Escalating from the lead, which is where the rep is ──────
                 A rep hears a technical problem on a call about THIS lead. The
@@ -463,11 +478,10 @@ export default function SalesLeadPage({ params }) {
               className="inline-flex items-center gap-2 min-h-[44px] text-sm font-semibold px-3 rounded-lg border border-border text-foreground"
             >
               <LifeBuoy size={15} className="text-muted-foreground" aria-hidden="true" />
-              Raise a support ticket for them
+              {t("app.salesLeads.raiseSupportTicket")}
             </Link>
             <p className="text-xs text-muted-foreground">
-              Goes to FieldQuo, not to them. Use it when something is broken
-              rather than when they have a question you can answer.
+              {t("app.salesLeads.raiseSupportTicketHint")}
             </p>
           </>
         ) : candidates === null ? (
@@ -475,12 +489,11 @@ export default function SalesLeadPage({ params }) {
             onClick={loadCandidates}
             className="inline-flex items-center min-h-[44px] text-sm font-semibold px-3 rounded-lg border border-border"
           >
-            Link a signup
+            {t("app.salesLeads.linkASignup")}
           </button>
         ) : candidates.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            None of your signups are unlinked. A company only appears here once
-            it is attributed to you.
+            {t("app.salesLeads.noUnlinkedSignups")}
           </p>
         ) : (
           <div className="space-y-1.5">
@@ -495,8 +508,8 @@ export default function SalesLeadPage({ params }) {
                 <span className="text-muted-foreground">
                   {" · "}
                   {when(c.createdAt)}
-                  {c.isDemo ? " · demo account" : ""}
-                  {c.matchesEmail ? " · same email as this lead" : ""}
+                  {c.isDemo ? ` · ${t("app.salesLeads.candidateDemoAccount")}` : ""}
+                  {c.matchesEmail ? ` · ${t("app.salesLeads.candidateSameEmail")}` : ""}
                 </span>
               </button>
             ))}
@@ -505,7 +518,7 @@ export default function SalesLeadPage({ params }) {
       </div>
 
       <div className="rounded-lg border border-border bg-card p-4 space-y-2">
-        <label className="text-sm font-semibold text-foreground">Notes</label>
+        <label className="text-sm font-semibold text-foreground">{t("app.salesLeads.notes")}</label>
         <textarea
           rows={3}
           value={notes}
@@ -517,7 +530,7 @@ export default function SalesLeadPage({ params }) {
           onClick={() => patch({ notes })}
           className="inline-flex items-center min-h-[44px] text-sm font-semibold px-3 rounded-lg border border-border disabled:opacity-50"
         >
-          Save notes
+          {t("app.salesLeads.saveNotes")}
         </button>
       </div>
 
@@ -533,21 +546,27 @@ export default function SalesLeadPage({ params }) {
       <div className="space-y-3">
         <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <Mail size={15} className="text-muted-foreground" />
-          Conversations
+          {t("app.salesLeads.conversations")}
         </h2>
         {lead.threads.length === 0 && (
-          <p className="text-sm text-muted-foreground">Nothing sent yet.</p>
+          <p className="text-sm text-muted-foreground">{t("app.salesLeads.nothingSentYet")}</p>
         )}
-        {lead.threads.map((t) => (
+        {/* `thread`, not `t` — `t` is the translator in this file now, and a
+            parameter of that name would shadow it inside the row. */}
+        {lead.threads.map((thread) => (
           <Link
-            key={t.id}
-            href={`/sales/threads/${t.id}`}
+            key={thread.id}
+            href={`/sales/threads/${thread.id}`}
             className="block rounded-lg border border-border px-4 py-3 hover:bg-muted/50"
           >
-            <p className="text-sm font-medium text-foreground truncate">{t.subject}</p>
+            <p className="text-sm font-medium text-foreground truncate">{thread.subject}</p>
             <p className="text-xs text-muted-foreground">
-              {t.messages.length} message{t.messages.length === 1 ? "" : "s"} · last{" "}
-              {when(t.lastMessageAt)}
+              {/* The count is a counted noun, not "message" + an s: four of
+                  these nine languages do not form the plural that way. */}
+              {t("app.salesLeads.threadSummary", {
+                count: t("app.salesLeads.messageCount", { value: thread.messages.length }),
+                when: when(thread.lastMessageAt),
+              })}
             </p>
           </Link>
         ))}
@@ -561,19 +580,20 @@ export default function SalesLeadPage({ params }) {
           <Ban size={16} className="mt-0.5 text-red-700 dark:text-red-300 shrink-0" />
           <div>
             <p className="font-semibold text-red-900 dark:text-red-200">
-              FieldQuo may not email this prospect.
+              {t("app.salesLeads.optedOutTitle")}
             </p>
             {/* The computed sentence, not an invented one. A domain-wide entry
                 and a regulator's list are both reachable here, and neither is
                 "this person unsubscribed" — telling a rep it was is how they
-                ring back to argue about an email nobody sent. */}
+                ring back to argue about an email nobody sent. It therefore
+                renders in the language the route composed it in, English
+                today: keying it here would mean re-deciding which of the seven
+                sources closed the channel, and that decision is the route's. */}
             {optedOutReason ? (
               <p className="text-red-800 dark:text-red-300/90">{optedOutReason}</p>
             ) : null}
             <p className="text-red-800 dark:text-red-300/90">
-              There is no compose box, and the server refuses the send as well —
-              re-asked in the request that sends, so an opt-out that arrived
-              while you were typing still wins. CASL requires that to stick.
+              {t("app.salesLeads.optedOutBody")}
             </p>
           </div>
         </div>
@@ -581,14 +601,14 @@ export default function SalesLeadPage({ params }) {
 
       {!lead.email && !optedOut && (
         <p className="text-sm text-muted-foreground">
-          Add an email address to this lead to write to them.
+          {t("app.salesLeads.addEmailToWrite")}
         </p>
       )}
 
       {canCompose && (
         <form onSubmit={send} className="rounded-lg border border-border bg-card p-4 space-y-3">
           <div className="text-sm font-semibold text-foreground">
-            New email to {lead.email}
+            {t("app.salesLeads.newEmailTo", { email: lead.email })}
           </div>
           <p className="text-xs text-muted-foreground">
             {/* `outreach.from` is the WORK mailbox now, not the sign-in
@@ -596,16 +616,13 @@ export default function SalesLeadPage({ params }) {
                 Saying "your own address" over a mailbox a superadmin assigned
                 would be the sentence a rep reads before wondering where a
                 reply went. */}
-            Sent from your work mailbox, {outreach.from}. Their reply reaches it
-            and is filed here. FieldQuo&apos;s name and mailing address
-            and an unsubscribe line are added to the bottom — CASL requires both
-            in a commercial email.
+            {t("app.salesLeads.composeFooterNote", { from: outreach.from })}
           </p>
           <input
             required
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            placeholder="Subject"
+            placeholder={t("app.salesLeads.subjectPlaceholder")}
             className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
           />
           <textarea
@@ -613,7 +630,7 @@ export default function SalesLeadPage({ params }) {
             rows={8}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder="Write the email…"
+            placeholder={t("app.salesLeads.bodyPlaceholder")}
             className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
           />
           <button
@@ -622,7 +639,7 @@ export default function SalesLeadPage({ params }) {
             className="text-sm font-semibold px-3 py-2 rounded-lg bg-inverted text-inverted-foreground flex items-center gap-1.5 disabled:opacity-60"
           >
             {busy ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-            Send
+            {t("app.salesLeads.send")}
           </button>
         </form>
       )}

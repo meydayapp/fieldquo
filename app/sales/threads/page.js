@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, Mail, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import OutreachNotice from "../leads/OutreachNotice";
 
 function when(value) {
@@ -21,6 +22,7 @@ function when(value) {
 }
 
 export default function SalesThreadsPage() {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
 
@@ -44,10 +46,10 @@ export default function SalesThreadsPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Mail size={20} className="text-muted-foreground" />
-          Conversations
+          {t("app.salesNotes.threadsHeading")}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Sent from your own mailbox, kept here against the prospect.
+          {t("app.salesNotes.threadsSubtitle")}
         </p>
       </div>
 
@@ -61,24 +63,27 @@ export default function SalesThreadsPage() {
 
       {threads === undefined && !error && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 size={15} className="animate-spin" /> Loading…
+          <Loader2 size={15} className="animate-spin" /> {t("app.salesNotes.loading")}
         </div>
       )}
 
       {threads && threads.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          No conversations yet. Open a lead and write the first email.
+          {t("app.salesNotes.threadsEmpty")}
         </p>
       )}
 
       {threads && threads.length > 0 && (
         <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
-          {threads.map((t) => {
-            const last = t.messages[0];
+          {/* The row variable is `thread`, not `t`: `t` is the translator in
+              this file, and a parameter of that name would shadow it inside
+              exactly the block that needs it. */}
+          {threads.map((thread) => {
+            const last = thread.messages[0];
             return (
               <Link
-                key={t.id}
-                href={`/sales/threads/${t.id}`}
+                key={thread.id}
+                href={`/sales/threads/${thread.id}`}
                 className="flex items-start gap-3 px-4 py-3 hover:bg-muted/50"
               >
                 {last?.direction === "in" ? (
@@ -87,10 +92,14 @@ export default function SalesThreadsPage() {
                   <ArrowUpRight size={15} className="mt-1 text-muted-foreground shrink-0" />
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-foreground truncate">{t.subject}</p>
+                  <p className="text-sm font-medium text-foreground truncate">{thread.subject}</p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {t.lead?.businessName} · {t._count?.messages} message
-                    {t._count?.messages === 1 ? "" : "s"} · {when(t.lastMessageAt)}
+                    {/* "1 message / 2 messages" is an English rule and wrong in
+                        four of the portal's nine languages, so the number and
+                        its noun are one counted key rather than a ternary. */}
+                    {thread.lead?.businessName} ·{" "}
+                    {t("app.salesNotes.messageCount", { value: thread._count?.messages ?? 0 })} ·{" "}
+                    {when(thread.lastMessageAt)}
                   </p>
                 </div>
               </Link>

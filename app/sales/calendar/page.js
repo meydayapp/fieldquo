@@ -13,13 +13,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, Loader2, Phone, CalendarClock } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { useTranslation } from "@/app/hooks/useTranslation";
+import { formatTimeOfDay, weekdayNames } from "@/lib/format/localeDate";
+import { localeFormat } from "@/lib/calendar/monthGrid";
 import EventModal from "./EventModal";
 
-const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
+// Weekday and month names are NOT catalogue keys, and the ["Sun","Mon",…] and
+// ["January",…] arrays that used to sit here are gone for the reason
+// lib/format/dayNames.js gives at length: CLDR already ships those 19 words in
+// every language, and a hand-kept copy also gets the ORDER wrong — "September
+// 2026" is "septembre 2026" and "2026年9月". So the columns come from
+// weekdayNames() and the header from localeFormat(), both keyed on the rep's
+// app language.
 
 const ymd = (d) => {
   const p = (n) => String(n).padStart(2, "0");
@@ -41,10 +46,8 @@ function monthGrid(cursor) {
   });
 }
 
-const fmtTime = (iso) =>
-  new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-
 export default function SalesCalendarPage() {
+  const { t, language } = useTranslation();
   const [cursor, setCursor] = useState(() => new Date());
   const [events, setEvents] = useState([]);
   const [leads, setLeads] = useState([]);
@@ -96,6 +99,9 @@ export default function SalesCalendarPage() {
     return m;
   }, [events]);
 
+  // Indexed 0 = Sunday, which is the column order monthGrid() lays out.
+  const dowLabels = useMemo(() => weekdayNames(language, "short"), [language]);
+
   const today = new Date();
 
   function openNew(day) {
@@ -116,31 +122,31 @@ export default function SalesCalendarPage() {
     <div className="py-4">
       <div className="flex items-center justify-between mb-4 gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Calendar</h1>
-          <p className="text-sm text-muted-foreground">Your appointments and callbacks.</p>
+          <h1 className="text-2xl font-bold text-foreground">{t("app.salesCal.title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("app.salesCal.subtitle")}</p>
         </div>
         <button
           onClick={() => openNew(new Date())}
           className="inline-flex items-center gap-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 shrink-0"
         >
-          <Plus size={16} /> New event
+          <Plus size={16} /> {t("app.salesCal.newEvent")}
         </button>
       </div>
 
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-1">
-          <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))} className="p-2 rounded-lg border border-border" aria-label="Previous month">
+          <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))} className="p-2 rounded-lg border border-border" aria-label={t("app.salesCal.previousMonth")}>
             <ChevronLeft size={16} />
           </button>
           <button onClick={() => setCursor(new Date())} className="px-3 py-2 rounded-lg border border-border text-sm font-medium">
-            Today
+            {t("app.salesCal.today")}
           </button>
-          <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))} className="p-2 rounded-lg border border-border" aria-label="Next month">
+          <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))} className="p-2 rounded-lg border border-border" aria-label={t("app.salesCal.nextMonth")}>
             <ChevronRight size={16} />
           </button>
         </div>
         <div className="font-semibold text-foreground">
-          {MONTHS[cursor.getMonth()]} {cursor.getFullYear()}
+          {localeFormat(cursor, language, { month: "long", year: "numeric" })}
           {loading && <Loader2 size={14} className="inline ml-2 animate-spin text-muted-foreground" />}
         </div>
       </div>
@@ -148,14 +154,17 @@ export default function SalesCalendarPage() {
       {error ? (
         <div className="rounded-xl border border-red-300 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-300">
           {error}{" "}
-          <button onClick={load} className="underline font-medium py-2 min-h-[44px]">Try again</button>
+          <button onClick={load} className="underline font-medium py-2 min-h-[44px]">{t("app.salesCal.tryAgain")}</button>
         </div>
       ) : (
         <div className="overflow-x-auto">
           <div className="min-w-[640px]">
             <div className="grid grid-cols-7 gap-px mb-px">
-              {DOW.map((d) => (
-                <div key={d} className="text-center text-xs font-medium text-muted-foreground py-1">{d}</div>
+              {dowLabels.map((name, index) => (
+                // Keyed by column index, not by the name: CLDR gives some
+                // languages two identical short weekday names, and a duplicate
+                // React key drops a column.
+                <div key={index} className="text-center text-xs font-medium text-muted-foreground py-1">{name}</div>
               ))}
             </div>
             <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
@@ -187,11 +196,11 @@ export default function SalesCalendarPage() {
                           } ${e.status === "done" ? "line-through opacity-60" : ""}`}
                         >
                           {e.type === "callback" ? <Phone size={10} className="shrink-0" /> : <CalendarClock size={10} className="shrink-0" />}
-                          <span className="truncate">{fmtTime(e.startAt)} {e.businessName || e.title || (e.type === "callback" ? "Call back" : "Appointment")}</span>
+                          <span className="truncate">{formatTimeOfDay(e.startAt, language)} {e.businessName || e.title || t(e.type === "callback" ? "app.salesCal.callBack" : "app.salesCal.appointment")}</span>
                         </div>
                       ))}
                       {dayEvents.length > 3 && (
-                        <div className="text-[11px] text-muted-foreground pl-1">+{dayEvents.length - 3} more</div>
+                        <div className="text-[11px] text-muted-foreground pl-1">{t("app.salesCal.moreEvents", { count: dayEvents.length - 3 })}</div>
                       )}
                     </div>
                   </button>

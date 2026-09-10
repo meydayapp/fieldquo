@@ -30,6 +30,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Check, AlertTriangle, Info } from "lucide-react";
 
 import { fetchJson } from "@/lib/fetchJson";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 /**
  * @param showEngagement  the read-only "your engagement" panel. On /sales/pay
@@ -41,6 +42,7 @@ import { fetchJson } from "@/lib/fetchJson";
  *                        its step off without re-reading the route.
  */
 export default function PayoutDestinationForm({ showEngagement = true, onSaved }) {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [method, setMethod] = useState("");
   const [handle, setHandle] = useState("");
@@ -62,7 +64,12 @@ export default function PayoutDestinationForm({ showEngagement = true, onSaved }
       setHandle(json.payoutHandle || "");
       setError("");
     } catch (err) {
-      setError(err?.message || "Couldn't load your payout details.");
+      // The generic sentence is NOT put into state, and `t` is deliberately
+      // not a dependency of this callback: `t` changes identity when the rep
+      // changes language on the picker directly below this form, which would
+      // re-run the effect, re-read the route and overwrite whatever they had
+      // half-typed. The render below supplies the wording instead.
+      setError(err?.message || "");
     } finally {
       setLoading(false);
     }
@@ -91,19 +98,19 @@ export default function PayoutDestinationForm({ showEngagement = true, onSaved }
     } catch (err) {
       // Never a silent failure: the whole point of this control is that the
       // details are known to be right.
-      setError(err?.message || "Couldn't save that.");
+      setError(err?.message || t("app.salesPay.saveFailed"));
     } finally {
       setBusy(false);
     }
   }
 
   if (loading) {
-    return <p className="text-sm text-muted-foreground">Loading your payout details…</p>;
+    return <p className="text-sm text-muted-foreground">{t("app.salesPay.loadingPayout")}</p>;
   }
   if (!data) {
     return (
       <div className="rounded-xl border border-border p-4">
-        <p className="text-sm text-foreground">{error || "Couldn't load your payout details."}</p>
+        <p className="text-sm text-foreground">{error || t("app.salesPay.payoutLoadFailed")}</p>
       </div>
     );
   }
@@ -137,17 +144,25 @@ export default function PayoutDestinationForm({ showEngagement = true, onSaved }
           <div className="flex gap-2 text-sm text-foreground">
             <Check size={16} className="shrink-0 mt-0.5 text-primary" aria-hidden="true" />
             <div>
-              <div className="font-semibold">Your payout details are on file.</div>
+              <div className="font-semibold">{t("app.salesPay.detailsOnFile")}</div>
               <p className="mt-0.5 text-muted-foreground">
+                {/* The day count is a counted noun key, not "day" plus an s:
+                    English's one/other rule does not hold in Ukrainian,
+                    French, Chinese or Punjabi, and baking it in here would
+                    hand every translator a plural they cannot correct. */}
                 {data.confirmedDaysAgo === null
-                  ? "Confirmed."
+                  ? t("app.salesPay.confirmed")
                   : data.confirmedDaysAgo === 0
-                    ? "Confirmed today."
-                    : `Confirmed ${data.confirmedDaysAgo} day${data.confirmedDaysAgo === 1 ? "" : "s"} ago.`}
+                    ? t("app.salesPay.confirmedToday")
+                    : t("app.salesPay.confirmedAgo", {
+                        count: t("app.salesPay.dayCount", { value: data.confirmedDaysAgo }),
+                      })}
                 {/* Said out loud, because a stale confirmation is the case
-                    where money goes to an account that has since closed. */}
+                    where money goes to an account that has since closed. The
+                    space is a separator between two sentences, not part of
+                    either one, so it stays in the code. */}
                 {data.confirmedDaysAgo !== null && data.confirmedDaysAgo > 180
-                  ? " That was a while ago — worth re-confirming it is still right."
+                  ? ` ${t("app.salesPay.confirmedLongAgo")}`
                   : ""}
               </p>
             </div>
@@ -159,7 +174,7 @@ export default function PayoutDestinationForm({ showEngagement = true, onSaved }
       <form onSubmit={save} className="space-y-6">
         <fieldset className="space-y-3">
           <legend className="text-sm font-semibold text-foreground">
-            How would you like to be paid?
+            {t("app.salesPay.howPaidLegend")}
           </legend>
           <div className="space-y-2">
             {(data.methods || []).map((m) => (
@@ -223,39 +238,38 @@ export default function PayoutDestinationForm({ showEngagement = true, onSaved }
             disabled={busy || !method || !handle.trim() || !dirty}
             className="inline-flex items-center min-h-[44px] rounded-full bg-primary text-primary-foreground px-5 text-sm font-semibold disabled:opacity-50"
           >
-            {busy ? "Saving…" : data.payoutMethod ? "Confirm these details" : "Save"}
+            {busy
+              ? t("app.salesPay.saving")
+              : data.payoutMethod
+                ? t("app.salesPay.confirmDetails")
+                : t("app.salesPay.save")}
           </button>
-          {saved && !dirty ? <span className="text-sm text-muted-foreground">Saved.</span> : null}
+          {saved && !dirty ? (
+            <span className="text-sm text-muted-foreground">{t("app.salesPay.savedNote")}</span>
+          ) : null}
         </div>
       </form>
 
       {/* ── Read-only, and why ───────────────────────────────────────────── */}
       {showEngagement ? (
         <section className="rounded-xl border border-border p-4 space-y-2">
-          <h2 className="text-sm font-semibold text-foreground">Your engagement</h2>
+          <h2 className="text-sm font-semibold text-foreground">{t("app.salesPay.engagementTitle")}</h2>
           {engagement ? (
             <>
               <p className="text-sm text-foreground">{engagement.label}</p>
               <p className="text-sm text-muted-foreground">{engagement.note}</p>
               <p className="text-sm text-muted-foreground">
                 {data.accruesPaidLeave
-                  ? "Paid leave accrues on your arrangement."
-                  : "No paid leave or vacation accrues on your arrangement."}
+                  ? t("app.salesPay.paidLeaveAccrues")
+                  : t("app.salesPay.noPaidLeave")}
               </p>
             </>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              Nobody has recorded whether you are engaged as a freelancer or an
-              employee yet.
-            </p>
+            <p className="text-sm text-muted-foreground">{t("app.salesPay.engagementUnknown")}</p>
           )}
           <p className="text-xs text-muted-foreground flex gap-2 pt-1">
             <Info size={14} className="shrink-0 mt-0.5" aria-hidden="true" />
-            <span>
-              This one is set by FieldQuo, not here — it decides paid leave and what
-              is withheld, so it is not something to pick for yourself. If it looks
-              wrong, say so and it will be corrected.
-            </span>
+            <span>{t("app.salesPay.engagementSetByFieldQuo")}</span>
           </p>
         </section>
       ) : null}

@@ -58,16 +58,24 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Phone, PhoneOff, AlertTriangle, Headphones } from "lucide-react";
 
 import { fetchJson } from "@/lib/fetchJson";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import TransferControl from "./TransferControl";
 
-/** Digits → something a person can read. Never throws on a short string. */
-function pretty(e164) {
+/**
+ * Digits → something a person can read. Never throws on a short string.
+ *
+ * `t` is passed in rather than read from a hook because this runs at module
+ * scope, and the only translated thing here is what it says when there are no
+ * digits at all.
+ */
+function pretty(e164, t) {
   const s = String(e164 || "");
   const m = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(s);
-  return m ? `(${m[1]}) ${m[2]}-${m[3]}` : s || "an unknown number";
+  return m ? `(${m[1]}) ${m[2]}-${m[3]}` : s || t("app.salesDial.anUnknownNumber");
 }
 
 export default function IncomingCallDock() {
+  const { t } = useTranslation();
   const [incoming, setIncoming] = useState(null);
   const [live, setLive] = useState(false);
   const [error, setError] = useState("");
@@ -80,6 +88,12 @@ export default function IncomingCallDock() {
   const [answered, setAnswered] = useState(null);
   const deviceRef = useRef(null);
   const callRef = useRef(null);
+  // The registration effect below must NOT re-run when the rep switches
+  // language — tearing down a registered Device would drop a call in progress
+  // and unregister the browser — so the translator is read through a ref
+  // instead of being added to that effect's dependencies.
+  const sayRef = useRef(t);
+  sayRef.current = t;
 
   // The token AND how long it lasts. The lifetime is read from the server's
   // own answer rather than imported: lib/sales/calls/browserDial.js exports
@@ -141,7 +155,7 @@ export default function IncomingCallDock() {
           }
           // Shown rather than swallowed: a dock that is silently unregistered
           // looks exactly like a quiet afternoon.
-          if (!cancelled) setError(err?.message || "The call connection dropped.");
+          if (!cancelled) setError(err?.message || sayRef.current("app.salesDial.connectionDropped"));
         });
         // ── Keeping the token alive, three ways ──────────────────────────
         //
@@ -177,8 +191,8 @@ export default function IncomingCallDock() {
             if (!cancelled) {
               setError(
                 why === "expired"
-                  ? "The calling connection expired and could not be renewed. Reload the page."
-                  : "Could not refresh the calling connection. Reload the page.",
+                  ? sayRef.current("app.salesDial.connectionExpiredReload")
+                  : sayRef.current("app.salesDial.connectionRefreshFailed"),
               );
             }
             return false;
@@ -226,13 +240,13 @@ export default function IncomingCallDock() {
         try {
           const inputs = device.audio?.availableInputDevices;
           if (inputs && inputs.size === 0) {
-            setAudioWarning("No microphone is available. Plug your headset in — you will not be heard.");
+            setAudioWarning(sayRef.current("app.salesDial.noMicrophone"));
           }
         } catch {
           /* the SDK has no audio helper in this browser; the call still works */
         }
       } catch (err) {
-        if (!cancelled) setError(err?.message || "Could not start the calling connection.");
+        if (!cancelled) setError(err?.message || sayRef.current("app.salesDial.connectionStartFailed"));
       }
     })();
 
@@ -283,7 +297,7 @@ export default function IncomingCallDock() {
       setLive(true);
       setError("");
     } catch (err) {
-      setError(err?.message || "Could not pick up.");
+      setError(err?.message || t("app.salesDial.couldNotPickUp"));
       return;
     }
 
@@ -293,7 +307,7 @@ export default function IncomingCallDock() {
       // where the rep will see it rather than swallowed: the call itself is
       // fine, and what they need to know is that it will not be logged to
       // them.
-      setAnswered({ attemptId: null, note: "This call could not be matched to a record, so it cannot be handed on." });
+      setAnswered({ attemptId: null, note: t("app.salesDial.callNotMatched") });
       return;
     }
 
@@ -307,12 +321,12 @@ export default function IncomingCallDock() {
         // Only when the server says both legs are on the row. `transferable`
         // false renders no control at all rather than a button that refuses.
         attemptId: body?.transferable ? body.attemptId || null : null,
-        note: body?.transferable ? "" : "This call cannot be handed on: its own line was never recorded.",
+        note: body?.transferable ? "" : t("app.salesDial.callLegNotRecorded"),
       });
     } catch (err) {
       setAnswered({
         attemptId: null,
-        note: err?.message || "This call could not be matched to a record, so it cannot be handed on.",
+        note: err?.message || t("app.salesDial.callNotMatched"),
       });
     }
   }
@@ -369,18 +383,18 @@ export default function IncomingCallDock() {
           className="rounded-2xl border border-border bg-card shadow-lg p-4 space-y-3"
           role="alertdialog"
           aria-live="assertive"
-          aria-label="Incoming call"
+          aria-label={t("app.salesDial.incomingCall")}
         >
           <div>
             <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              {live ? "On a call" : "Incoming call"}
+              {live ? t("app.salesDial.onACall") : t("app.salesDial.incomingCall")}
             </div>
             <div className="mt-1 text-lg font-semibold text-foreground">
-              {pretty(incoming.from)}
+              {pretty(incoming.from, t)}
             </div>
             {incoming.to ? (
               <div className="text-xs text-muted-foreground">
-                Rang your number {pretty(incoming.to)}
+                {t("app.salesDial.rangYourNumber", { number: pretty(incoming.to, t) })}
               </div>
             ) : null}
           </div>
@@ -400,7 +414,7 @@ export default function IncomingCallDock() {
                 onClick={hangUp}
                 className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-destructive text-destructive-foreground px-4 py-2.5 text-sm font-semibold"
               >
-                <PhoneOff size={16} aria-hidden="true" /> Hang up
+                <PhoneOff size={16} aria-hidden="true" /> {t("app.salesDial.hangUp")}
               </button>
             ) : (
               <>
@@ -409,14 +423,14 @@ export default function IncomingCallDock() {
                   onClick={answer}
                   className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-primary text-primary-foreground px-4 py-2.5 text-sm font-semibold"
                 >
-                  <Phone size={16} aria-hidden="true" /> Pick up
+                  <Phone size={16} aria-hidden="true" /> {t("app.salesDial.pickUp")}
                 </button>
                 <button
                   type="button"
                   onClick={decline}
                   className="inline-flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-semibold text-foreground"
                 >
-                  Decline
+                  {t("app.salesDial.decline")}
                 </button>
               </>
             )}
@@ -446,13 +460,15 @@ export default function IncomingCallDock() {
             </>
           ) : (
             <p className="text-xs text-muted-foreground">
-              Declining passes them to the next person on the ring plan, not to voicemail.
+              {t("app.salesDial.decliningNotice")}
             </p>
           )}
         </div>
       ) : null}
 
-      <span className="sr-only">{ready ? "Ready to receive calls" : "Connecting"}</span>
+      <span className="sr-only">
+        {ready ? t("app.salesDial.readyToReceiveCalls") : t("app.salesDial.connecting")}
+      </span>
     </div>
   );
 }

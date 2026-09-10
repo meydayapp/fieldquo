@@ -134,66 +134,69 @@ export default function SalesShell({ children }) {
             is not. */}
         <nav className={`${container} grid grid-cols-3 sm:flex gap-1 -mb-px`}>
           {[
-            // The front door, and the only tab that answers "what do I do
-            // next". English literal for the same reason "Notes" is one, below.
-            { href: "/sales", label: "Today" },
+            // ── Every tab is a key now, and that reversed a decision ──────
+            //
+            // Seven of these were English LITERALS on purpose, and the reason
+            // was written here at length: the screen behind each of them was
+            // English, and a translated tab opening an English page is a worse
+            // inconsistency than an English tab. That reasoning was correct
+            // while it was true, and it stopped being true when the screens
+            // were translated. The order mattered — screen first, then its tab
+            // — so that at no point did a Spanish word open an English page.
+            //
+            // What the old arrangement actually shipped was the thing it was
+            // trying to avoid: the owner opened the portal on a Spanish rep
+            // account and read "Today | Cola | Playbook | Mis prospectos |
+            // Conversaciones | Texts | Team | Notes", five words in one
+            // language and seven in another, side by side in one row.
+            //
+            // The front door, and the only tab that answers "what do I do next".
+            { href: "/sales", label: t("app.salesPortal.navToday") },
             // The prospecting queue, before the rep's own typed-in leads:
             // it is the screen a rep opens first in the morning, and the one
             // the whole discovery pipeline exists to fill.
             { href: "/sales/queue", label: t("app.salesPortal.navQueue") },
             // The script, the twenty objections and the five battlecards, read
             // before the call rather than only inside a claimed prospect's
-            // card. English literal for the same reason Notes is, below.
-            { href: "/sales/playbook", label: "Playbook" },
+            // card.
+            { href: "/sales/playbook", label: t("app.salesPortal.navPlaybook") },
             { href: "/sales/leads", label: t("app.salesPortal.navLeads") },
             { href: "/sales/threads", label: t("app.salesPortal.navConversations") },
             // Texts, which are a different channel from the email threads next
             // to them: a reply to a text arrives at FieldQuo's sales number and
-            // is filed by phone, not by thread token. English literal for the
-            // same reason Notes and Calendar are.
-            { href: "/sales/messages", label: "Texts" },
+            // is filed by phone, not by thread token.
+            { href: "/sales/messages", label: t("app.salesPortal.navTexts") },
             // FieldQuo's own team chat, and a THIRD distinct thing beside the
             // two above it: Conversations is email to a prospect, Texts is SMS
             // to a prospect, and this is the people a rep works with. Placed
             // next to them because it is the same verb — the difference is who
             // is on the other end, not what you do.
-            { href: "/sales/team", label: "Team" },
-            // English, and not a t() key, deliberately. The screen behind it is
-            // English — docs/sales-intel/STATUS.md records that the outreach
-            // surfaces are, while the shell is translated — and a translated tab
-            // opening an English page is a worse inconsistency than an English
-            // tab. It becomes a key the day the notes screens are translated.
-            { href: "/sales/notes", label: "Notes" },
-            // The rep's own calendar — appointments and callbacks. English
-            // literal for the same reason Notes is: the screen behind it is
-            // English, and a translated tab onto an English page is the worse
-            // inconsistency.
-            { href: "/sales/calendar", label: "Calendar" },
+            { href: "/sales/team", label: t("app.salesPortal.navTeam") },
+            // The day the notes screens were translated, which the previous
+            // comment here named as the condition for this becoming a key.
+            { href: "/sales/notes", label: t("app.salesPortal.navNotes") },
+            // The rep's own calendar — appointments and callbacks.
+            { href: "/sales/calendar", label: t("app.salesPortal.navCalendar") },
             // The attributed-companies book. It was the portal root until the
             // Today screen took that slot; it keeps its translated label
             // because the screen behind THIS one is still translated.
             { href: "/sales/companies", label: t("app.salesPortal.myCompanies") },
-            // The account a rep drives in front of a prospect. English literal
-            // for the same reason Notes and Calendar are: the screen behind it
-            // is English, and a translated tab onto an English page is the
-            // worse inconsistency.
-            { href: "/sales/demo", label: "Demo" },
+            // The account a rep drives in front of a prospect.
+            { href: "/sales/demo", label: t("app.salesPortal.navDemo") },
             // Where a rep sends a technical problem they heard from one of
             // their contractors. Beside the companies book rather than at the
             // end: a rep opens it FROM a conversation about a company, and
             // burying it under Pay would make the channel that exists to stop
-            // reports evaporating hard to find. English literal for the same
-            // reason Notes and Calendar are.
-            { href: "/sales/support", label: "Support" },
-            // How the rep gets paid. Last, because it is a settings screen
-            // rather than a working one — visited once when they join and
-            // again when their bank changes, not every morning. English
-            // literal for the same reason Notes and Calendar are.
+            // reports evaporating hard to find.
+            { href: "/sales/support", label: t("app.salesPortal.navSupport") },
             // Messages left on the rep's own number. Before this screen the
             // only place a sales voicemail could be played was the superadmin
             // floor board, so the person the message was FOR could not hear it.
-            { href: "/sales/voicemail", label: "Voicemail" },
-            { href: "/sales/pay", label: "Pay" },
+            { href: "/sales/voicemail", label: t("app.salesPortal.navVoicemail") },
+            // How the rep gets paid. Last, because it is a settings screen
+            // rather than a working one — visited once when they join and
+            // again when their bank changes, not every morning.
+            { href: "/sales/pay", label: t("app.salesPortal.navPay") },
           ].map((tab) => {
             // Exact match for the portal root, prefix for the rest: /sales is a
             // prefix of every other tab, so "starts with" would light all six

@@ -18,6 +18,7 @@ import { Loader2, Plus, Users, Mail, CheckCircle2 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { jsonBody } from "@/lib/jsonBody";
 import { LEAD_STATUSES, LEAD_STATUS_LABELS } from "@/lib/sales/outreachPipeline";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import OutreachNotice from "./OutreachNotice";
 
 const STATUS_CLASS = {
@@ -31,6 +32,7 @@ const STATUS_CLASS = {
 const EMPTY_FORM = { businessName: "", contactName: "", email: "", phone: "" };
 
 export default function SalesLeadsPage() {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
@@ -78,18 +80,24 @@ export default function SalesLeadsPage() {
   const counts = data?.counts || {};
   const leads = data?.leads;
 
+  // The WORD, never the value. `status` stays the enum the API filters on;
+  // only what the rep reads is translated. Keys are
+  // app.salesLeads.status.{new,contacted,demoed,signed,lost}, and the English
+  // in outreachPipeline.js is the fallback so a missing key still names a
+  // stage rather than printing a dotted key at a rep.
+  const statusLabel = (value) =>
+    t(`app.salesLeads.status.${value}`, LEAD_STATUS_LABELS[value] || value);
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Users size={20} className="text-muted-foreground" />
-            My leads
+            {t("app.salesLeads.title")}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Prospects you&apos;re working. Email them from here and the whole
-            conversation is kept against the lead — as well as in your own
-            mailbox.
+            {t("app.salesLeads.intro")}
           </p>
         </div>
         <button
@@ -97,7 +105,7 @@ export default function SalesLeadsPage() {
           className="shrink-0 text-sm font-semibold px-3 py-2 rounded-lg bg-inverted text-inverted-foreground flex items-center gap-1.5"
         >
           <Plus size={15} />
-          Add lead
+          {t("app.salesLeads.addLead")}
         </button>
       </div>
 
@@ -116,7 +124,7 @@ export default function SalesLeadsPage() {
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="text-sm space-y-1">
-              <span className="text-muted-foreground">Business name</span>
+              <span className="text-muted-foreground">{t("app.salesLeads.businessName")}</span>
               <input
                 required
                 value={form.businessName}
@@ -125,7 +133,7 @@ export default function SalesLeadsPage() {
               />
             </label>
             <label className="text-sm space-y-1">
-              <span className="text-muted-foreground">Contact name</span>
+              <span className="text-muted-foreground">{t("app.salesLeads.contactName")}</span>
               <input
                 value={form.contactName}
                 onChange={(e) => setForm({ ...form, contactName: e.target.value })}
@@ -133,7 +141,7 @@ export default function SalesLeadsPage() {
               />
             </label>
             <label className="text-sm space-y-1">
-              <span className="text-muted-foreground">Email</span>
+              <span className="text-muted-foreground">{t("app.salesLeads.email")}</span>
               <input
                 type="email"
                 value={form.email}
@@ -142,7 +150,7 @@ export default function SalesLeadsPage() {
               />
             </label>
             <label className="text-sm space-y-1">
-              <span className="text-muted-foreground">Phone</span>
+              <span className="text-muted-foreground">{t("app.salesLeads.phone")}</span>
               <input
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
@@ -155,13 +163,16 @@ export default function SalesLeadsPage() {
             disabled={saving}
             className="text-sm font-semibold px-3 py-2 rounded-lg bg-inverted text-inverted-foreground disabled:opacity-60"
           >
-            {saving ? "Saving…" : "Save lead"}
+            {saving ? t("app.salesLeads.saving") : t("app.salesLeads.saveLead")}
           </button>
         </form>
       )}
 
       <div className="flex flex-wrap gap-1.5">
-        {[{ value: "", label: "All" }, ...LEAD_STATUSES.map((s) => ({ value: s, label: LEAD_STATUS_LABELS[s] }))].map(
+        {[
+          { value: "", label: t("app.salesLeads.filterAll") },
+          ...LEAD_STATUSES.map((s) => ({ value: s, label: statusLabel(s) })),
+        ].map(
           (s) => (
             <button
               key={s.value}
@@ -184,15 +195,15 @@ export default function SalesLeadsPage() {
       {leads === undefined && !error && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 size={15} className="animate-spin" />
-          Loading…
+          {t("app.salesLeads.loading")}
         </div>
       )}
 
       {leads && leads.length === 0 && (
         <p className="text-sm text-muted-foreground">
           {status
-            ? `No leads at "${LEAD_STATUS_LABELS[status]}".`
-            : "No leads yet. Add the first one above."}
+            ? t("app.salesLeads.emptyFiltered", { status: statusLabel(status) })
+            : t("app.salesLeads.emptyNone")}
         </p>
       )}
 
@@ -208,7 +219,7 @@ export default function SalesLeadsPage() {
                 <p className="font-medium text-foreground truncate">{lead.businessName}</p>
                 <p className="text-xs text-muted-foreground truncate">
                   {[lead.contactName, lead.email, lead.phone].filter(Boolean).join(" · ") ||
-                    "No contact details yet"}
+                    t("app.salesLeads.noContactDetails")}
                 </p>
               </div>
               {lead._count?.threads > 0 && (
@@ -220,13 +231,13 @@ export default function SalesLeadsPage() {
               {lead.convertedCompanyId && (
                 <span className="text-xs text-green-700 dark:text-green-300 flex items-center gap-1">
                   <CheckCircle2 size={13} />
-                  Signed up
+                  {t("app.salesLeads.signedUp")}
                 </span>
               )}
               <span
                 className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_CLASS[lead.status] || STATUS_CLASS.new}`}
               >
-                {LEAD_STATUS_LABELS[lead.status] || lead.status}
+                {statusLabel(lead.status)}
               </span>
             </Link>
           ))}

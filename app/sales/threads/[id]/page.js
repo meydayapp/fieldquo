@@ -19,6 +19,7 @@ import Link from "next/link";
 import { ArrowLeft, Ban, Loader2, Send } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { jsonBody } from "@/lib/jsonBody";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import OutreachNotice from "../../leads/OutreachNotice";
 import MessageThread from "../../messages/MessageThread";
 
@@ -32,6 +33,7 @@ function when(value) {
 
 export default function SalesThreadPage({ params }) {
   const { id } = use(params);
+  const { t } = useTranslation();
 
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -82,7 +84,7 @@ export default function SalesThreadPage({ params }) {
     return (
       <div className="space-y-4">
         <Link href="/sales/threads" className="text-sm text-muted-foreground flex items-center gap-1">
-          <ArrowLeft size={14} /> Conversations
+          <ArrowLeft size={14} /> {t("app.salesNotes.threadsHeading")}
         </Link>
         {error ? (
           <div className="rounded-lg border border-red-300 dark:border-red-900 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-800 dark:text-red-300">
@@ -90,7 +92,7 @@ export default function SalesThreadPage({ params }) {
           </div>
         ) : (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 size={15} className="animate-spin" /> Loading…
+            <Loader2 size={15} className="animate-spin" /> {t("app.salesNotes.loading")}
           </div>
         )}
       </div>
@@ -102,7 +104,7 @@ export default function SalesThreadPage({ params }) {
   return (
     <div className="space-y-6">
       <Link href="/sales/threads" className="text-sm text-muted-foreground flex items-center gap-1">
-        <ArrowLeft size={14} /> Conversations
+        <ArrowLeft size={14} /> {t("app.salesNotes.threadsHeading")}
       </Link>
 
       <div>
@@ -143,7 +145,7 @@ export default function SalesThreadPage({ params }) {
           // has to translate.
           at: m.sentAt,
         }))}
-        them={thread.lead?.contactName || thread.lead?.businessName || "them"}
+        them={thread.lead?.contactName || thread.lead?.businessName || t("app.salesNotes.threadThem")}
       />
 
       <OutreachNotice outreach={outreach} />
@@ -153,14 +155,18 @@ export default function SalesThreadPage({ params }) {
           <Ban size={16} className="mt-0.5 text-red-700 dark:text-red-300 shrink-0" />
           <div>
             <p className="font-semibold text-red-900 dark:text-red-200">
-              FieldQuo may not email this prospect.
+              {t("app.salesNotes.optedOutHeadline")}
             </p>
+            {/* Not translated, and deliberately: the route composes this
+                sentence — WHICH entry closed this prospect and how — and a
+                rewrite here would be a second opinion about a suppression rule
+                this screen does not own. It stays English until the route that
+                writes it keys it. */}
             {optedOutReason ? (
               <p className="text-red-800 dark:text-red-300/90">{optedOutReason}</p>
             ) : null}
             <p className="text-red-800 dark:text-red-300/90">
-              Replying by email is switched off here, and refused on the server
-              in the request that would have sent it.
+              {t("app.salesNotes.optedOutServerRefusal")}
             </p>
           </div>
         </div>
@@ -168,13 +174,13 @@ export default function SalesThreadPage({ params }) {
 
       {canReply && (
         <form onSubmit={reply} className="rounded-lg border border-border bg-card p-4 space-y-3">
-          <div className="text-sm font-semibold text-foreground">Reply</div>
+          <div className="text-sm font-semibold text-foreground">{t("app.salesNotes.replyHeading")}</div>
           <textarea
             required
             rows={7}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder="Write your reply…"
+            placeholder={t("app.salesNotes.replyPlaceholder")}
             className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
           />
           <button
@@ -183,7 +189,7 @@ export default function SalesThreadPage({ params }) {
             className="text-sm font-semibold px-3 py-2 rounded-lg bg-inverted text-inverted-foreground flex items-center gap-1.5 disabled:opacity-60"
           >
             {busy ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-            Send reply
+            {t("app.salesNotes.sendReply")}
           </button>
         </form>
       )}

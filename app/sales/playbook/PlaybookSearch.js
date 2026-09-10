@@ -26,12 +26,14 @@ import { Search } from "lucide-react";
 
 import { matchBattlecard } from "@/lib/sales/playbook/battlecards";
 import { matchObjectionText } from "@/lib/sales/playbook/objections";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const CARD = "rounded-xl border border-border bg-card";
 const FIELD =
   "w-full border border-border rounded-lg px-3 py-2.5 min-h-[44px] text-base bg-card text-foreground";
 
 export default function PlaybookSearch({ objections = [], cards = [] }) {
+  const { t } = useTranslation();
   const [heard, setHeard] = useState("");
 
   const { hits, named } = useMemo(() => {
@@ -49,7 +51,7 @@ export default function PlaybookSearch({ objections = [], cards = [] }) {
   return (
     <section className={`${CARD} p-4 space-y-3`}>
       <label htmlFor="heard" className="block text-sm font-semibold text-foreground">
-        What did they just say?
+        {t("app.salesPlay.heardLabel")}
       </label>
       <div className="relative">
         <Search
@@ -61,6 +63,15 @@ export default function PlaybookSearch({ objections = [], cards = [] }) {
           id="heard"
           value={heard}
           onChange={(e) => setHeard(e.target.value)}
+          // The one English string on this screen that must stay English.
+          // matchObjectionText and matchBattlecard compare against lower-cased
+          // ENGLISH substring cues with no stemming (lib/sales/playbook/
+          // objections.js argues why), so a translated example would invite a
+          // rep to type French and match nothing — an example demonstrating an
+          // input that cannot work. The label above and the hint below ARE
+          // translated, which is what makes this read as the contractor's own
+          // words rather than as a string somebody missed.
+          // scripts/check-sales-portal-i18n.mjs exempts it by name.
           placeholder="we already use jobber"
           className={`${FIELD} pl-9`}
           autoComplete="off"
@@ -71,18 +82,11 @@ export default function PlaybookSearch({ objections = [], cards = [] }) {
           which. An empty result under an empty box would read as "we have no
           answer to that", which is a lie about a library of twenty. */}
       {!typed ? (
-        <p className="text-xs text-muted-foreground">
-          Type the words they used. It matches on what a contractor actually says, not on our
-          names for things.
-        </p>
+        <p className="text-xs text-muted-foreground">{t("app.salesPlay.heardHint")}</p>
       ) : null}
 
       {typed && !hits.length && !named.length ? (
-        <p className="text-sm text-muted-foreground">
-          Nothing matches those words. That is a gap in the cues rather than a gap in the
-          library — scroll down and find it by hand, then say which words you heard so the cue
-          can be added.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("app.salesPlay.heardNoMatch")}</p>
       ) : null}
 
       {named.map((c) => (

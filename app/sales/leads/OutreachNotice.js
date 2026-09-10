@@ -22,8 +22,14 @@
 "use client";
 
 import { AlertTriangle, Info } from "lucide-react";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function OutreachNotice({ outreach, className = "" }) {
+  // Only the heading is ours. Each blocker's and warning's `title` and `fix`
+  // are written by the readiness computation on the server — translating them
+  // here would mean a second copy of sentences that change with the setting
+  // they name, so they stay in the language the API sent them in.
+  const { t } = useTranslation();
   if (!outreach) return null;
   const blockers = outreach.blockers || [];
   const warnings = outreach.warnings || [];
@@ -37,7 +43,7 @@ export default function OutreachNotice({ outreach, className = "" }) {
             <AlertTriangle size={16} className="mt-0.5 text-amber-700 dark:text-amber-300 shrink-0" />
             <div className="space-y-3 text-sm">
               <p className="font-semibold text-amber-900 dark:text-amber-200">
-                Email outreach isn&apos;t set up yet, so there&apos;s no compose box.
+                {t("app.salesLeads.outreachBlockedTitle")}
               </p>
               {blockers.map((b) => (
                 <div key={b.code}>

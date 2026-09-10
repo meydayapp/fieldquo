@@ -516,8 +516,12 @@ section("8. One transfer control, rendered by both screens");
   ok("it renders nothing without an attempt", /if \(!attemptId \|\| !active\) return null/.test(control));
   ok("…and nothing when the server says this call has no second leg",
     /xfer\?\.ready && xfer\?\.transferable/.test(control));
+  // The sentence moved into app/i18n/appMessages.js when the sales portal was
+  // translated, so this matches the KEY the screen renders. The words are
+  // still asserted — scripts/check-sales-portal-i18n.mjs section 6 holds the
+  // English catalogue value to them, which is where they now live.
   ok("…and says so when nobody is free rather than showing an empty picker",
-    /Nobody else is free right now/.test(control));
+    /app\.salesDial\.nobodyElseFree/.test(control));
 
   const panel = read("app/components/sales/CallPanel.js");
   ok("the outbound dialler renders the shared control", /<TransferControl/.test(panel));

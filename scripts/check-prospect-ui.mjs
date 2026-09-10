@@ -1189,8 +1189,9 @@ ok(
     );
     ok(
       "…and names the disposition that DOES bind every rep and channel",
-      /Asked not to be called again/.test(page) &&
-        /binds every rep and every channel/.test(page),
+      // Both halves of that sentence are one catalogue entry now — see
+      // scripts/check-sales-portal-i18n.mjs section 6, which asserts the words.
+      /app\.salesQueue\.dncScopeNote/.test(page),
     );
     ok(
       "…and the disposition it names is a real one that writes a suppression",

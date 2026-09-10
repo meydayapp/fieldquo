@@ -53,8 +53,32 @@
 import { useMemo } from "react";
 import { AlertTriangle, Clock, Loader2 } from "lucide-react";
 import { GROUPING_WINDOW_SECONDS, groupThread } from "@/lib/sales/messages/grouping";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const TIME = { hour: "numeric", minute: "2-digit" };
+
+/**
+ * A translated sentence whose moving part is MARKUP, split into the text
+ * either side of the placeholder.
+ *
+ * Used where the moving part is a bold name or an icon+time, which cannot be
+ * interpolated by t() — it stringifies its values, so a React element arrives
+ * as "[object Object]". Concatenating two keys instead would hand a translator
+ * "A technical problem with" and expect them to guess what follows; whole
+ * sentences are the unit here, so the sentence stays one key and the SPLIT
+ * happens after translation.
+ *
+ * Exported for the same reason scheduleLabel is: page.js and CheckInDraft.js
+ * both need it, and the copy of it is the one that would rot.
+ */
+export function sentenceAround(sentence, token) {
+  const text = String(sentence ?? "");
+  const at = text.indexOf(token);
+  // No placeholder in this language's wording: show the sentence rather than
+  // nothing, and let the caller still render the moving part after it.
+  if (at < 0) return [text, ""];
+  return [text.slice(0, at), text.slice(at + token.length)];
+}
 
 /**
  * Two letters for the gutter.
@@ -105,13 +129,13 @@ function timeLabel(at) {
  * hours ago can be two calendar days back, and "Yesterday" over the wrong
  * heading is worse than a date.
  */
-function dayLabel(dayKey, now = new Date()) {
+function dayLabel(dayKey, t, now = new Date()) {
   const key = (d) =>
     new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
   const today = key(now);
   const yesterday = key(new Date(now.getTime() - 24 * 60 * 60 * 1000));
-  if (dayKey === today) return "Today";
-  if (dayKey === yesterday) return "Yesterday";
+  if (dayKey === today) return t("app.salesText.dayToday");
+  if (dayKey === yesterday) return t("app.salesText.dayYesterday");
   const [y, m, d] = dayKey.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString(undefined, {
     weekday: "long",
@@ -127,6 +151,7 @@ function dayLabel(dayKey, now = new Date()) {
  *   label for a person whose name we are choosing not to use.
  */
 export default function MessageThread({ messages, them, onRetry = null, renderDraft = null }) {
+  const { t } = useTranslation();
   const rows = useMemo(
     () => groupThread(messages, { windowSeconds: GROUPING_WINDOW_SECONDS }),
     [messages],
@@ -137,7 +162,7 @@ export default function MessageThread({ messages, them, onRetry = null, renderDr
     // ordinary state and it says so in one sentence.
     return (
       <p className="text-sm text-muted-foreground break-words py-6 text-center">
-        Nothing has been said yet.
+        {t("app.salesText.threadEmpty")}
       </p>
     );
   }
@@ -146,7 +171,12 @@ export default function MessageThread({ messages, them, onRetry = null, renderDr
     // role="log" so a screen reader announces arrivals without the rep having
     // to go looking. aria-live="polite" rather than "assertive": a text is not
     // an interruption worth talking over whatever they are reading.
-    <div className="space-y-1" role="log" aria-live="polite" aria-label={`Conversation with ${them}`}>
+    <div
+      className="space-y-1"
+      role="log"
+      aria-live="polite"
+      aria-label={t("app.salesText.conversationWith", { them })}
+    >
       {rows.map((row) => {
         if (row.kind === "day") {
           return (
@@ -161,7 +191,7 @@ export default function MessageThread({ messages, them, onRetry = null, renderDr
             <div key={row.key} className="relative flex items-center justify-center pt-5 pb-3">
               <span className="absolute inset-x-0 top-1/2 h-px bg-border" aria-hidden="true" />
               <span className="relative rounded-full border border-border bg-card px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                {dayLabel(row.dayKey)}
+                {dayLabel(row.dayKey, t)}
               </span>
             </div>
           );
@@ -186,7 +216,7 @@ export default function MessageThread({ messages, them, onRetry = null, renderDr
         // six people are all "them" and each needs their own name and initials.
         // Outbound is always "You" — a rep does not need their own name read
         // back at them above every message they send.
-        const who = inbound ? m.who || them : "You";
+        const who = inbound ? m.who || them : t("app.salesText.senderYou");
 
         return (
           <div
@@ -230,7 +260,9 @@ export default function MessageThread({ messages, them, onRetry = null, renderDr
                     </time>
                   ) : null}
                   {row.undated ? (
-                    <span className="text-xs text-muted-foreground">time unknown</span>
+                    <span className="text-xs text-muted-foreground">
+                      {t("app.salesText.timeUnknown")}
+                    </span>
                   ) : null}
                 </p>
               ) : null}
@@ -253,7 +285,7 @@ export default function MessageThread({ messages, them, onRetry = null, renderDr
                       this screen, and a rep who has asked their phone to stop
                       animating has asked for this too. */}
                   <Loader2 size={12} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
-                  Sending…
+                  {t("app.salesText.sending")}
                 </p>
               ) : null}
             {failed ? (
@@ -262,7 +294,7 @@ export default function MessageThread({ messages, them, onRetry = null, renderDr
                   <AlertTriangle size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
                   {/* The server's own sentence. It names the blocker and the
                       fix; a friendlier rewrite here would drop the fix. */}
-                  <span>{m.error || "That did not send. Nothing went out."}</span>
+                  <span>{m.error || t("app.salesText.sendFailedFallback")}</span>
                 </p>
                 {onRetry ? (
                   <button
@@ -270,7 +302,7 @@ export default function MessageThread({ messages, them, onRetry = null, renderDr
                     onClick={() => onRetry(m)}
                     className="mt-1 min-h-[44px] px-3 text-xs font-semibold text-red-700 dark:text-red-300 underline"
                   >
-                    Put it back in the box
+                    {t("app.salesText.retryButton")}
                   </button>
                 ) : null}
               </div>

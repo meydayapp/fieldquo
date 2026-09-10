@@ -30,6 +30,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Check, Loader2, MessageSquare } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { jsonBody } from "@/lib/jsonBody";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 function when(value) {
   if (!value) return "";
@@ -40,6 +41,7 @@ function when(value) {
 }
 
 export default function SignupLinkSms({ leadId }) {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -105,7 +107,7 @@ export default function SignupLinkSms({ leadId }) {
           <span className="text-red-700 dark:text-red-300">{error}</span>
         ) : (
           <>
-            <Loader2 size={15} className="animate-spin" /> Checking whether this can be texted…
+            <Loader2 size={15} className="animate-spin" /> {t("app.salesLeads.smsChecking")}
           </>
         )}
       </div>
@@ -124,14 +126,14 @@ export default function SignupLinkSms({ leadId }) {
     <div className="rounded-lg border border-border bg-card p-4 space-y-3">
       <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
         <MessageSquare size={15} className="text-muted-foreground" />
-        Text them your signup link
+        {t("app.salesLeads.smsTitle")}
       </div>
 
       {data.messages?.length > 0 && (
         <div className="text-xs text-muted-foreground space-y-1">
           {data.messages.map((m) => (
             <p key={m.id}>
-              Sent to {m.toE164} on {when(m.sentAt)}.
+              {t("app.salesLeads.smsSentOn", { number: m.toE164, when: when(m.sentAt) })}
             </p>
           ))}
         </div>
@@ -140,7 +142,7 @@ export default function SignupLinkSms({ leadId }) {
       {sent && (
         <div className="rounded-md border border-emerald-300 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-2 text-sm text-emerald-900 dark:text-emerald-200 flex items-start gap-2">
           <Check size={15} className="mt-0.5 shrink-0" />
-          <span>Sent to {sent.to}.</span>
+          <span>{t("app.salesLeads.smsSentTo", { number: sent.to })}</span>
         </div>
       )}
 
@@ -153,7 +155,8 @@ export default function SignupLinkSms({ leadId }) {
       {/* Every blocker, always — including when the form renders. A rep who has
           to fix a time zone should still be able to see that FieldQuo's mailing
           address is set, rather than discovering the next problem one send at a
-          time. */}
+          time. Each blocker's wording is the server's — see the same note in
+          OutreachNotice — so it is rendered, not re-authored here. */}
       {blockers.map((b) => (
         <div
           key={b.code}
@@ -176,7 +179,7 @@ export default function SignupLinkSms({ leadId }) {
           the number they were given will text it from their own phone. */}
       {textable.length > 1 && (
         <label className="block text-xs text-muted-foreground">
-          Which number?
+          {t("app.salesLeads.smsWhichNumber")}
           <select
             value={numberId}
             onChange={(e) => setNumberId(e.target.value)}
@@ -196,13 +199,19 @@ export default function SignupLinkSms({ leadId }) {
           className="rounded-md border border-amber-300 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2"
         >
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+          {/* The number stays bold and the reason follows it, so each of these
+              three keys is written to read as the predicate of the number
+              above it rather than as a sentence of its own. `r.why` is the
+              server's enum and is compared, never shown. */}
           <span className="break-words">
-            <span className="font-semibold tabular-nums">{r.e164 || "One entry"}</span>{" "}
+            <span className="font-semibold tabular-nums">
+              {r.e164 || t("app.salesLeads.smsRefusedUnnamed")}
+            </span>{" "}
             {r.why === "landline_cannot_receive_text"
-              ? "is a landline. A text to it is accepted by the carrier and delivered to nobody — there is no bounce, so nothing would tell you it failed. Ring it and ask where to text."
+              ? t("app.salesLeads.smsRefusedLandline")
               : r.why === "one_of_ours"
-                ? "is one of FieldQuo's own numbers, so there is nothing to reach."
-                : "cannot be texted."}
+                ? t("app.salesLeads.smsRefusedOurs")
+                : t("app.salesLeads.smsRefusedOther")}
           </span>
         </div>
       ))}
@@ -210,15 +219,14 @@ export default function SignupLinkSms({ leadId }) {
       {showForm && (
         <form onSubmit={send} className="space-y-3">
           <label className="block text-xs text-muted-foreground">
-            Where are they? Texting is limited to 08:00–21:00 in their own time
-            zone, and nothing here guesses it from their area code.
+            {t("app.salesLeads.smsWhereAreThey")}
             <select
               required
               value={zone}
               onChange={(e) => setZone(e.target.value)}
               className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
             >
-              <option value="">Pick their time zone…</option>
+              <option value="">{t("app.salesLeads.smsPickTimeZone")}</option>
               {(data.timeZones || []).map((z) => (
                 <option key={z.value} value={z.value}>
                   {z.label}
@@ -227,17 +235,24 @@ export default function SignupLinkSms({ leadId }) {
             </select>
           </label>
 
+          {/* The message itself, verbatim. Not translated here on purpose: this
+              is the text that leaves the building, composed by
+              lib/sales/salesSms.js, and a preview in the rep's language over a
+              text sent in another is the preview that lies. */}
           {sms.body && (
             <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-foreground whitespace-pre-wrap">
               {sms.body}
             </div>
           )}
           <p className="text-xs text-muted-foreground">
-            {sms.to ? `Goes to ${sms.to}` : "Goes to the number on this lead"}
-            {sms.from ? `, from FieldQuo's own number ${sms.from}` : ""}. The
-            wording is fixed: CASL requires a commercial text to name who sent
-            it, carry FieldQuo&apos;s mailing address and offer a working
-            unsubscribe, and STOP is handled for real.
+            {sms.to
+              ? sms.from
+                ? t("app.salesLeads.smsGoesToFrom", { to: sms.to, from: sms.from })
+                : t("app.salesLeads.smsGoesTo", { to: sms.to })
+              : sms.from
+                ? t("app.salesLeads.smsGoesToLeadFrom", { from: sms.from })
+                : t("app.salesLeads.smsGoesToLead")}{" "}
+            {t("app.salesLeads.smsWordingFixed")}
           </p>
 
           <button
@@ -246,7 +261,7 @@ export default function SignupLinkSms({ leadId }) {
             className="text-sm font-semibold px-3 py-2 rounded-lg bg-inverted text-inverted-foreground flex items-center gap-1.5 disabled:opacity-60"
           >
             {busy ? <Loader2 size={15} className="animate-spin" /> : <MessageSquare size={15} />}
-            Send the text
+            {t("app.salesLeads.smsSend")}
           </button>
         </form>
       )}

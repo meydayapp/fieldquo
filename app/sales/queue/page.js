@@ -92,12 +92,19 @@
 // at it. The trade picker is the spine of the screen and there is no "all
 // trades" option to pick by accident.
 //
-// ══ English-only, like the rest of the outreach portal ════════════════════
+// ══ It follows the rep's own language now, not English ════════════════════
 //
-// /sales/leads and /sales/threads are English-only (docs/sales-intel/STATUS.md
-// records it); the shell and the companies list are translated. This follows
-// the outreach screens rather than the shell, because it is the same audience
-// doing the same job, and half a translated screen is worse than none.
+// This screen was English-only while the shell around it was translated, on
+// the argument that half a translated screen is worse than none. That was the
+// right rule read from the wrong side: the shell, the companies list and the
+// number picker were already translated, so the half left in English was this
+// one. Every sentence a rep can read here is a key under app.salesQueue.*.
+//
+// What translation is NOT allowed to blur: the three layers keep their
+// distinction in every language — an inference still reads as an impression
+// and never as a fact — and a refusal that names a jurisdiction is carried
+// across in full rather than shortened, because in those sentences the wording
+// IS the compliance, not a label on it.
 //
 // ══ Mobile-first ══════════════════════════════════════════════════════════
 //
@@ -183,6 +190,7 @@ import { displayTitle } from "@/lib/sales/notes/body";
 import RepNoteVisibilityNotice from "@/app/components/sales/RepNoteVisibilityNotice";
 import RepNoteUnavailable from "@/app/components/sales/RepNoteUnavailable";
 import DialRegion, { Notice } from "@/app/components/sales/DialRegion";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -217,6 +225,33 @@ function Pill({ tone = "unknown", children }) {
   );
 }
 
+/**
+ * Emphasis inside a translated sentence.
+ *
+ * The words that carry a distinction are not the same words in every language
+ * and are rarely in the same place in the sentence, so the marker travels
+ * INSIDE the translated string and is unwrapped here. The obvious alternative —
+ * splicing JSX between two half-sentences — hands every translator English word
+ * order, which is how "Sent 3 ago" gets shipped.
+ */
+function emphasise(text, Wrap = "strong", className) {
+  return String(text)
+    .split(/(\*\*[^*]+\*\*)/g)
+    .filter((part) => part !== "")
+    .map((part, i) =>
+      // The same shape the split captured, not `startsWith`: a bare "**"
+      // satisfies both ends of a loose test and would be eaten as an empty
+      // emphasis, silently deleting two characters of somebody's sentence.
+      /^\*\*[^*]+\*\*$/.test(part) ? (
+        <Wrap key={i} className={className}>
+          {part.slice(2, -2)}
+        </Wrap>
+      ) : (
+        part
+      ),
+    );
+}
+
 function LayerHeader({ layer }) {
   const heading = LAYER_HEADINGS[layer];
   return (
@@ -235,19 +270,30 @@ function LayerHeader({ layer }) {
  * distinguishes "good prospect" from "bad prospect": there is no such fact on
  * these rows, and an icon implying one would be the ranking the queue
  * deliberately does not have (nothing writes a ProspectScore in this build).
+ *
+ * `t` is a parameter rather than a hook because this is module scope; the
+ * conditions above it are untouched and still read `contact` and `claim` only.
  */
-function rowStatus(item) {
+function rowStatus(item, t) {
   if (!item?.contact?.callable) {
     return {
       Icon: item?.contact?.code === "do_not_contact" ? Ban : PhoneOff,
       className: "text-red-700 dark:text-red-300",
-      label: item?.contact?.title || "Cannot be called",
+      label: item?.contact?.title || t("app.salesQueue.rowCannotBeCalled"),
     };
   }
   if (item?.claim?.state === "mine_worked") {
-    return { Icon: CircleCheck, className: "text-emerald-700 dark:text-emerald-300", label: "Worked" };
+    return {
+      Icon: CircleCheck,
+      className: "text-emerald-700 dark:text-emerald-300",
+      label: t("app.salesQueue.rowWorked"),
+    };
   }
-  return { Icon: Phone, className: "text-muted-foreground", label: "Claimed, not called yet" };
+  return {
+    Icon: Phone,
+    className: "text-muted-foreground",
+    label: t("app.salesQueue.rowClaimedNotCalled"),
+  };
 }
 
 /**
@@ -268,6 +314,7 @@ function rowStatus(item) {
  * else returns nothing, which is the same answer as a prospect with no notes.
  */
 function ProspectNotes({ prospectId, businessName }) {
+  const { t } = useTranslation();
   const [notes, setNotes] = useState(null);
   const [error, setError] = useState("");
   const [unavailable, setUnavailable] = useState("");
@@ -283,7 +330,7 @@ function ProspectNotes({ prospectId, businessName }) {
       res = await fetch(`/api/sales/notes?prospectId=${encodeURIComponent(prospectId)}`);
     } catch {
       setNotes(null);
-      setError("Couldn't reach the server for your notes. Check your connection.");
+      setError(t("app.salesQueue.notesNetworkError"));
       return;
     }
     // Never `if (res.ok)` with no else — AGENTS.md failure class #2. The 503
@@ -297,11 +344,14 @@ function ProspectNotes({ prospectId, businessName }) {
     }
     if (!res.ok) {
       setNotes(null);
-      setError(payload?.error || "Your notes for this prospect didn't load.");
+      setError(payload?.error || t("app.salesQueue.notesLoadFailed"));
       return;
     }
     setNotes(Array.isArray(payload?.notes) ? payload.notes : []);
-  }, [prospectId]);
+    // `t` is a dependency because the fallback sentences above are built from
+    // it; it only changes when the rep changes language, and re-reading the
+    // notes at that moment is the correct answer anyway.
+  }, [prospectId, t]);
 
   // The prospect in the pane changed, so the notes must too. Cleared first:
   // leaving the previous prospect's notes on screen under a new name is the
@@ -335,7 +385,7 @@ function ProspectNotes({ prospectId, businessName }) {
       setDraft("");
       await load();
     } catch (err) {
-      setError(err?.message || "That note did not save. It is still in the box — try again.");
+      setError(err?.message || t("app.salesQueue.noteSaveFailed"));
     } finally {
       setSaving(false);
     }
@@ -355,14 +405,14 @@ function ProspectNotes({ prospectId, businessName }) {
 
       <label className="block text-sm">
         <span className="font-medium text-foreground">
-          What did they say? Type it while you can still hear it.
+          {t("app.salesQueue.notesPrompt")}
         </span>
         <textarea
           className={FIELD}
           rows={4}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="As close to their words as you can get."
+          placeholder={t("app.salesQueue.notesPlaceholder")}
         />
       </label>
       <button
@@ -372,18 +422,20 @@ function ProspectNotes({ prospectId, businessName }) {
         onClick={save}
       >
         {saving ? <Loader2 className="animate-spin" size={16} /> : <NotebookPen size={16} />}
-        Save this note against {businessName || "this prospect"}
+        {t("app.salesQueue.noteSaveAgainst", {
+          business: businessName || t("app.salesQueue.noteThisProspect"),
+        })}
       </button>
 
       {notes === null && !error ? (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 size={15} className="animate-spin" /> Loading your notes…
+          <Loader2 size={15} className="animate-spin" /> {t("app.salesQueue.notesLoading")}
         </p>
       ) : null}
 
       {Array.isArray(notes) && notes.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          You have written nothing about this one yet.
+          {t("app.salesQueue.notesEmpty")}
         </p>
       ) : null}
 
@@ -399,7 +451,9 @@ function ProspectNotes({ prospectId, businessName }) {
                   {displayTitle(n)}
                 </span>
                 <span className="block text-xs text-muted-foreground">
-                  Last edited {new Date(n.updatedAt).toISOString().slice(0, 16).replace("T", " ")} UTC
+                  {t("app.salesQueue.noteLastEdited", {
+                    stamp: new Date(n.updatedAt).toISOString().slice(0, 16).replace("T", " "),
+                  })}
                 </span>
               </Link>
             </li>
@@ -411,6 +465,7 @@ function ProspectNotes({ prospectId, businessName }) {
 }
 
 function QueueConsole() {
+  const { t } = useTranslation();
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -470,7 +525,7 @@ function QueueConsole() {
       stampClock(body);
       setData(body);
     } catch (err) {
-      setError(err?.message || "Could not load your queue.");
+      setError(err?.message || t("app.salesQueue.queueLoadFailed"));
     } finally {
       // `loading` is the FIRST load only. Every load after it leaves the list
       // on screen — a console whose list blanks each time a row is clicked is
@@ -479,7 +534,9 @@ function QueueConsole() {
       setLoading(false);
       setFetching(false);
     }
-  }, [tradeKey, prospectId, stampClock]);
+    // `t` only changes when the rep changes language; reloading the queue at
+    // that moment costs one request and keeps the fallback sentence honest.
+  }, [tradeKey, prospectId, stampClock, t]);
 
   useEffect(() => {
     load();
@@ -504,7 +561,7 @@ function QueueConsole() {
       });
       if (body?.lead?.id) router.push(`/sales/leads/${body.lead.id}`);
     } catch (err) {
-      setError(err?.message || "Could not carry this one across to a lead.");
+      setError(err?.message || t("app.salesQueue.carryToLeadFailed"));
     } finally {
       setBusy("");
     }
@@ -533,7 +590,7 @@ function QueueConsole() {
         setQuery({ prospectId: body?.current?.id || "" });
       }
     } catch (err) {
-      setError(err?.message || "That did not work.");
+      setError(err?.message || t("app.salesQueue.actionFailed"));
     } finally {
       setBusy("");
       setDncOpen(false);
@@ -606,11 +663,13 @@ function QueueConsole() {
   // claiming exists to enforce — see the queue route's header.
   const stocked = useMemo(
     () =>
-      (data?.trades || []).filter((t) => t.available > 0).sort((a, b) => b.available - a.available),
+      (data?.trades || [])
+        .filter((trade) => trade.available > 0)
+        .sort((a, b) => b.available - a.available),
     [data?.trades],
   );
   const empties = useMemo(
-    () => (data?.trades || []).filter((t) => !(t.available > 0)),
+    () => (data?.trades || []).filter((trade) => !(trade.available > 0)),
     [data?.trades],
   );
 
@@ -634,11 +693,8 @@ function QueueConsole() {
   return (
     <div className="space-y-4">
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold text-foreground">Today&rsquo;s queue</h1>
-        <p className="text-sm text-muted-foreground">
-          Your claims, whoever you are on, and the call controls in the same place every time. One trade at a time — you get better at a script by saying it forty
-          times, not by switching every call. What we could not establish says so.
-        </p>
+        <h1 className="text-xl font-semibold text-foreground">{t("app.salesQueue.pageTitle")}</h1>
+        <p className="text-sm text-muted-foreground">{t("app.salesQueue.pageIntro")}</p>
       </header>
 
       {error ? (
@@ -658,7 +714,7 @@ function QueueConsole() {
         >
           <section className={CARD}>
             <label className="block text-sm font-medium text-foreground" htmlFor="q-trade">
-              Which trade are you calling today?
+              {t("app.salesQueue.tradePickerLabel")}
             </label>
 
             {/* ── What is in the pool, before anybody opens the dropdown ────
@@ -674,15 +730,20 @@ function QueueConsole() {
                 claim mechanic exists to enforce. */}
             {stocked.length ? (
               <p className="text-xs text-muted-foreground break-words">
-                <span className="font-semibold text-foreground">
-                  {stocked.reduce((n, t) => n + t.available, 0)} free to claim
-                </span>{" "}
-                across {stocked.length} trade{stocked.length === 1 ? "" : "s"} — most in{" "}
-                {stocked
-                  .slice(0, 3)
-                  .map((t) => `${t.label} (${t.available})`)
-                  .join(", ")}
-                .
+                {emphasise(
+                  t("app.salesQueue.poolSummary", {
+                    free: t("app.salesQueue.poolFreeCount", {
+                      value: stocked.reduce((n, trade) => n + trade.available, 0),
+                    }),
+                    trades: t("app.salesQueue.tradeCount", { value: stocked.length }),
+                    top: stocked
+                      .slice(0, 3)
+                      .map((trade) => `${trade.label} (${trade.available})`)
+                      .join(", "),
+                  }),
+                  "span",
+                  "font-semibold text-foreground",
+                )}
               </p>
             ) : null}
 
@@ -692,22 +753,30 @@ function QueueConsole() {
               value={tradeKey}
               onChange={(e) => setQuery({ trade: e.target.value, prospectId: "" })}
             >
-              <option value="">Everything I have claimed</option>
+              <option value="">{t("app.salesQueue.tradeAll")}</option>
               {/* Trades with something in them first, biggest first, so the
                   ones a rep can actually work are not sorted underneath
                   eleven empty ones. The empty trades stay on the list rather
                   than being filtered out: a rep with claims in a trade whose
                   pool has run dry still has to be able to select it. */}
-              {stocked.map((t) => (
-                <option key={t.key} value={t.key}>
-                  {t.label} — {t.claimed} claimed, {t.available} free
+              {stocked.map((trade) => (
+                <option key={trade.key} value={trade.key}>
+                  {t("app.salesQueue.tradeOption", {
+                    label: trade.label,
+                    claimed: t("app.salesQueue.claimedCount", { value: trade.claimed }),
+                    free: t("app.salesQueue.freeCount", { value: trade.available }),
+                  })}
                 </option>
               ))}
               {empties.length ? (
-                <optgroup label="Nothing free right now">
-                  {empties.map((t) => (
-                    <option key={t.key} value={t.key}>
-                      {t.label} — {t.claimed} claimed, {t.available} free
+                <optgroup label={t("app.salesQueue.tradeGroupEmpty")}>
+                  {empties.map((trade) => (
+                    <option key={trade.key} value={trade.key}>
+                      {t("app.salesQueue.tradeOption", {
+                        label: trade.label,
+                        claimed: t("app.salesQueue.claimedCount", { value: trade.claimed }),
+                        free: t("app.salesQueue.freeCount", { value: trade.available }),
+                      })}
                     </option>
                   ))}
                 </optgroup>
@@ -721,32 +790,30 @@ function QueueConsole() {
                 onClick={() => act("claim")}
               >
                 {busy === "claim" ? <Loader2 className="animate-spin" size={16} /> : <Plus size={16} />}
-                Claim the next one
+                {t("app.salesQueue.claimNext")}
               </button>
             ) : (
-              <p className="text-xs text-muted-foreground">
-                Pick a trade to claim a new prospect. Claiming is what stops two reps phoning the same
-                contractor, so there is no way to work one without it. The numbers beside each trade are
-                counts, not a list — nobody gets to read the pool and pick.
-              </p>
+              <p className="text-xs text-muted-foreground">{t("app.salesQueue.claimHint")}</p>
             )}
           </section>
 
           <section className={CARD}>
             <div className="flex items-baseline justify-between gap-2">
-              <h2 className="text-base font-semibold text-foreground">Yours to work</h2>
+              <h2 className="text-base font-semibold text-foreground">
+                {t("app.salesQueue.yoursToWork")}
+              </h2>
               {loading ? (
                 <Loader2 className="animate-spin text-muted-foreground" size={15} />
               ) : (
                 <span className="text-xs text-muted-foreground">
-                  {items.length} claimed
+                  {t("app.salesQueue.claimedCount", { value: items.length })}
                 </span>
               )}
             </div>
 
             {loading ? (
               <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="animate-spin" size={15} /> Loading your queue…
+                <Loader2 className="animate-spin" size={15} /> {t("app.salesQueue.queueLoading")}
               </p>
             ) : null}
 
@@ -774,7 +841,7 @@ function QueueConsole() {
                   <p className="text-sm text-foreground break-words">{data.queue.emptyText}</p>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Nothing is invented to fill this screen. An empty queue is an empty queue.
+                  {t("app.salesQueue.emptyDisclaimer")}
                 </p>
               </div>
             ) : null}
@@ -782,7 +849,7 @@ function QueueConsole() {
             {items.length > 0 ? (
               <ul className="space-y-2">
                 {items.map((item) => {
-                  const status = rowStatus(item);
+                  const status = rowStatus(item, t);
                   const active = current?.id === item.id;
                   return (
                     <li key={item.id}>
@@ -829,13 +896,13 @@ function QueueConsole() {
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <h2 className="text-lg font-semibold text-foreground break-words">
-                  {current ? current.businessName : "Nobody open"}
+                  {current ? current.businessName : t("app.salesQueue.nobodyOpen")}
                 </h2>
                 <p className="text-sm text-muted-foreground break-words">
                   {current
                     ? [current.tradeLabel, current.territory?.name].filter(Boolean).join(" · ") ||
-                      "No trade or territory on this record"
-                    : "Pick one out of your queue, or claim one."}
+                      t("app.salesQueue.noTradeOrTerritory")
+                    : t("app.salesQueue.pickOrClaim")}
                 </p>
               </div>
               {fetching && !loading ? (
@@ -852,7 +919,9 @@ function QueueConsole() {
                 onClick={() => setListOpen((open) => !open)}
               >
                 <ListFilter size={16} />
-                {listOpen ? "Hide the queue" : `Show the queue (${items.length})`}
+                {listOpen
+                  ? t("app.salesQueue.hideQueue")
+                  : t("app.salesQueue.showQueue", { count: items.length })}
               </button>
             ) : null}
 
@@ -907,10 +976,10 @@ function QueueConsole() {
                   disabled={index <= 0}
                   onClick={() => select(items[index - 1].id)}
                 >
-                  <ChevronLeft size={16} /> Previous
+                  <ChevronLeft size={16} /> {t("app.salesQueue.previous")}
                 </button>
                 <span className="text-xs text-muted-foreground">
-                  {index + 1} of {items.length}
+                  {t("app.salesQueue.positionOf", { position: index + 1, total: items.length })}
                 </span>
                 <button
                   type="button"
@@ -918,7 +987,7 @@ function QueueConsole() {
                   disabled={index < 0 || index >= items.length - 1}
                   onClick={() => select(items[index + 1].id)}
                 >
-                  Next <ChevronRight size={16} />
+                  {t("app.salesQueue.next")} <ChevronRight size={16} />
                 </button>
               </div>
             ) : null}
@@ -930,12 +999,10 @@ function QueueConsole() {
           {!loading && !current ? (
             <section className={CARD}>
               <h2 className="text-base font-semibold text-foreground">
-                This is where the prospect goes
+                {t("app.salesQueue.paneEmptyTitle")}
               </h2>
               <p className="text-sm text-muted-foreground break-words">
-                Everything already researched about whoever you open — the facts, what we only think,
-                what we would pitch, and what nobody has established — reads here, under the call
-                controls. Your queue stays put while you work through it.
+                {t("app.salesQueue.paneEmptyBody")}
               </p>
             </section>
           ) : null}
@@ -960,7 +1027,7 @@ function QueueConsole() {
               <section className={CARD}>
                 <h2 className="text-base font-semibold text-foreground">
                   <NotebookPen size={16} className="inline mr-1" />
-                  Your notes on {current.businessName}
+                  {t("app.salesQueue.notesHeading", { business: current.businessName })}
                 </h2>
                 <ProspectNotes prospectId={current.id} businessName={current.businessName} />
               </section>
@@ -982,10 +1049,12 @@ function QueueConsole() {
                 </ul>
 
                 <div className="pt-2 space-y-2">
-                  <h3 className="text-sm font-medium text-foreground">What their site does</h3>
+                  <h3 className="text-sm font-medium text-foreground">
+                    {t("app.salesQueue.siteCapabilitiesHeading")}
+                  </h3>
                   {current.capabilities.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
-                      Nothing has crawled this business, so nothing is known about their site. Ask.
+                      {t("app.salesQueue.siteNotCrawled")}
                     </p>
                   ) : (
                     <ul className="space-y-2">
@@ -997,7 +1066,7 @@ function QueueConsole() {
                           ) : null}
                           {c.known && !c.sayable ? (
                             <p className="text-xs text-muted-foreground">
-                              Not verified — say it as an impression, not as a fact.
+                              {t("app.salesQueue.notVerifiedImpression")}
                             </p>
                           ) : null}
                         </li>
@@ -1007,7 +1076,9 @@ function QueueConsole() {
                 </div>
 
                 <div className="pt-2 space-y-1">
-                  <h3 className="text-sm font-medium text-foreground">Software they run</h3>
+                  <h3 className="text-sm font-medium text-foreground">
+                    {t("app.salesQueue.softwareHeading")}
+                  </h3>
                   <p className="text-sm text-foreground break-words">{current.competitor.text}</p>
                 </div>
               </section>
@@ -1017,7 +1088,7 @@ function QueueConsole() {
                 <LayerHeader layer="inference" />
                 {current.inferences.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    Nothing has been inferred about this business. Do not fill the gap on the call.
+                    {t("app.salesQueue.noInferences")}
                   </p>
                 ) : (
                   <ul className="space-y-3">
@@ -1025,11 +1096,24 @@ function QueueConsole() {
                       <li key={`${inf.kind}-${i}`}>
                         {inf.renderable ? (
                           <>
+                            {/* "We think" and the confidence travel together in
+                                every language: the prefix is what marks this as
+                                an impression rather than a finding, and a
+                                translation that dropped either would turn the
+                                whole layer into an assertion. */}
                             <p className="text-sm text-foreground break-words">
-                              We think: <strong>{inf.text}</strong> ({inf.kindText})
+                              {emphasise(
+                                t("app.salesQueue.inferenceLine", {
+                                  text: inf.text,
+                                  kind: inf.kindText,
+                                }),
+                              )}
                             </p>
                             <p className="text-xs text-muted-foreground break-words">
-                              {inf.confidenceText}. {inf.sourceText} This is not a fact — do not say it as one.
+                              {t("app.salesQueue.inferenceCaveat", {
+                                confidence: inf.confidenceText,
+                                source: inf.sourceText,
+                              })}
                             </p>
                           </>
                         ) : (
@@ -1049,8 +1133,7 @@ function QueueConsole() {
                 <LayerHeader layer="recommendation" />
                 {current.opportunities.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    Nothing is recommended for this prospect. A pitch needs an observation to cite, and there is
-                    none — open with a question instead.
+                    {t("app.salesQueue.noRecommendations")}
                   </p>
                 ) : (
                   <ol className="space-y-3">
@@ -1061,11 +1144,24 @@ function QueueConsole() {
                             <p className="text-sm text-foreground break-words">
                               <strong>{i + 1}. {o.name}</strong>
                             </p>
-                            <p className="text-sm text-foreground break-words">Because: {o.reason}</p>
+                            <p className="text-sm text-foreground break-words">
+                              {t("app.salesQueue.recommendationBecause", { reason: o.reason })}
+                            </p>
                             <p className="text-xs text-muted-foreground break-words">
-                              {o.confidenceText} · cites {o.evidenceIds.length} observation
-                              {o.evidenceIds.length === 1 ? "" : "s"}
-                              {o.ruleCode ? ` · rule ${o.ruleCode}` : ""}
+                              {o.ruleCode
+                                ? t("app.salesQueue.recommendationEvidenceWithRule", {
+                                    confidence: o.confidenceText,
+                                    observations: t("app.salesQueue.observationCount", {
+                                      value: o.evidenceIds.length,
+                                    }),
+                                    rule: o.ruleCode,
+                                  })
+                                : t("app.salesQueue.recommendationEvidence", {
+                                    confidence: o.confidenceText,
+                                    observations: t("app.salesQueue.observationCount", {
+                                      value: o.evidenceIds.length,
+                                    }),
+                                  })}
                             </p>
                           </>
                         ) : (
@@ -1084,13 +1180,13 @@ function QueueConsole() {
               <section className={CARD}>
                 <h2 className="text-base font-semibold text-foreground">
                   <CircleHelp size={16} className="inline mr-1" />
-                  What we do not know
+                  {t("app.salesQueue.unknownsHeading")}
                 </h2>
                 <p className="text-xs text-muted-foreground">
-                  Said out loud here so it is not guessed at on the call.
+                  {t("app.salesQueue.unknownsNote")}
                 </p>
                 {current.unknowns.length === 0 ? (
-                  <p className="text-sm text-foreground">Nothing outstanding on this record.</p>
+                  <p className="text-sm text-foreground">{t("app.salesQueue.unknownsNone")}</p>
                 ) : (
                   <ul className="list-disc pl-5 space-y-1">
                     {current.unknowns.map((u, i) => (
@@ -1104,7 +1200,9 @@ function QueueConsole() {
 
               {/* ── What happens next ──────────────────────────────────────── */}
               <section className={CARD}>
-                <h2 className="text-base font-semibold text-foreground">When you are done</h2>
+                <h2 className="text-base font-semibold text-foreground">
+                  {t("app.salesQueue.wrapUpHeading")}
+                </h2>
                 <button
                   type="button"
                   className={`${BTN} bg-primary text-primary-foreground w-full`}
@@ -1112,10 +1210,10 @@ function QueueConsole() {
                   onClick={() => act("worked", { prospectId: current.id })}
                 >
                   {busy === "worked" ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
-                  I spoke to them — keep this one
+                  {t("app.salesQueue.markWorked")}
                 </button>
                 <p className="text-xs text-muted-foreground">
-                  It stops lapsing and stays yours. A real conversation is not a lease.
+                  {t("app.salesQueue.markWorkedNote")}
                 </p>
 
                 <button
@@ -1125,7 +1223,7 @@ function QueueConsole() {
                   onClick={() => act("release", { prospectId: current.id })}
                 >
                   {busy === "release" ? <Loader2 className="animate-spin" size={16} /> : <Undo2 size={16} />}
-                  Put it back in the pool
+                  {t("app.salesQueue.release")}
                 </button>
 
                 {/* ── Carry it across to a lead ────────────────────────────────
@@ -1146,11 +1244,10 @@ function QueueConsole() {
                   onClick={() => carryToLead(current.id)}
                 >
                   {busy === "lead" ? <Loader2 className="animate-spin" size={16} /> : <UserPlus size={16} />}
-                  Work this one as a lead
+                  {t("app.salesQueue.carryToLeadButton")}
                 </button>
                 <p className="text-xs text-muted-foreground">
-                  Copies the name, the number and where they are onto a lead, so you can
-                  email and text them. It stays claimed by you either way.
+                  {t("app.salesQueue.carryToLeadNote")}
                 </p>
 
                 {/* ── Stop working this one ────────────────────────────────────
@@ -1167,14 +1264,14 @@ function QueueConsole() {
                 {dncOpen ? (
                   <div className="space-y-2">
                     <label className="block text-sm font-medium text-foreground" htmlFor="q-dnc">
-                      Why should we stop working this one?
+                      {t("app.salesQueue.dncReasonLabel")}
                     </label>
                     <input
                       id="q-dnc"
                       className={FIELD}
                       value={dncReason}
                       onChange={(e) => setDncReason(e.target.value)}
-                      placeholder="Sold the business — the new owner is not interested"
+                      placeholder={t("app.salesQueue.dncReasonPlaceholder")}
                     />
                     <button
                       type="button"
@@ -1183,7 +1280,7 @@ function QueueConsole() {
                       onClick={() => act("do_not_contact", { prospectId: current.id, reason: dncReason })}
                     >
                       {busy === "do_not_contact" ? <Loader2 className="animate-spin" size={16} /> : <Ban size={16} />}
-                      Stop working them — permanently
+                      {t("app.salesQueue.dncConfirm")}
                     </button>
                   </div>
                 ) : (
@@ -1193,19 +1290,20 @@ function QueueConsole() {
                     disabled={Boolean(busy)}
                     onClick={() => setDncOpen(true)}
                   >
-                    <Ban size={16} /> Stop working this one
+                    <Ban size={16} /> {t("app.salesQueue.dncOpenButton")}
                   </button>
                 )}
 
+                {/* The scope of this button, in full. It is the sentence that
+                    stops a rep believing they have honoured "never call me
+                    again" when they have written one Prospect row, so it is
+                    translated whole rather than trimmed to fit. */}
                 <p className="text-xs text-muted-foreground">
-                  Permanent on this prospect — it survives every pipeline stage and
-                  there is no control anywhere that lifts it. It does not put the
-                  number on FieldQuo&apos;s do-not-contact list: if they said it on
-                  the phone, close the call with{" "}
-                  <span className="font-medium text-foreground">
-                    Asked not to be called again
-                  </span>{" "}
-                  instead. That one binds every rep and every channel.
+                  {emphasise(
+                    t("app.salesQueue.dncScopeNote"),
+                    "span",
+                    "font-medium text-foreground",
+                  )}
                 </p>
               </section>
             </>
@@ -1225,11 +1323,12 @@ function QueueConsole() {
  * element.
  */
 export default function SalesQueuePage() {
+  const { t } = useTranslation();
   return (
     <Suspense
       fallback={
         <div className="flex items-center gap-2 text-muted-foreground">
-          <Loader2 className="animate-spin" size={18} /> Opening your console…
+          <Loader2 className="animate-spin" size={18} /> {t("app.salesQueue.openingConsole")}
         </div>
       }
     >

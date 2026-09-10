@@ -40,14 +40,23 @@
 import { useMemo, useState } from "react";
 import { AlertCircle, ChevronLeft, ChevronRight, CircleHelp, Loader2, ShieldAlert } from "lucide-react";
 import { objectionsToShow } from "@/lib/sales/playbook/objections";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
 const FIELD =
   "w-full border border-border rounded-lg px-3 py-2.5 min-h-[44px] text-base bg-card text-foreground disabled:opacity-60";
 
-/** One objection: label to scan, answer one tap down. */
+/**
+ * One objection: label to scan, answer one tap down.
+ *
+ * The label, the response and the evidence describing it are ROWS — written by
+ * a superadmin in lib/sales/playbook/objections.js and edited in the database,
+ * and rendered verbatim because a rep reads them out. Only the chrome around
+ * them belongs to the rep's own language.
+ */
 function Objection({ row }) {
+  const { t } = useTranslation();
   return (
     <details className="rounded-lg border border-border bg-card">
       <summary className="cursor-pointer list-none px-3 py-3 min-h-[44px] flex items-start gap-2">
@@ -57,7 +66,7 @@ function Objection({ row }) {
         <p className="text-sm text-foreground break-words">{row.response}</p>
         {row.context ? (
           <p className="text-xs text-muted-foreground break-words">
-            About this business: {row.context.describe}
+            {t("app.salesCall.aboutThisBusiness", { summary: row.context.describe })}
             {row.context.facts?.length
               ? ` — ${row.context.facts.map((f) => `${f.label}: ${f.value}`).join(", ")}`
               : ""}
@@ -67,7 +76,7 @@ function Objection({ row }) {
           // most common objection there is has nothing to cite, and dropping
           // the answer to it is dropping it exactly when it is needed.
           <p className="text-xs text-muted-foreground break-words">
-            A general answer — nothing we observed about this business changes it.
+            {t("app.salesCall.generalAnswer")}
           </p>
         )}
       </div>
@@ -93,6 +102,13 @@ export default function CallPlaybook({
   unavailable = "",
   onRetry,
 }) {
+  // Chrome only. Every stage name, purpose, line, prompt, talking point and
+  // refusal below arrives from /api/sales/playbook already written — some from
+  // a SalesPlaybook row, some from the seed library behind it — and is printed
+  // verbatim. Translating what a rep is about to READ ALOUD to an
+  // English-speaking contractor would be the one change on this screen that
+  // could not be undone by the time they heard it.
+  const { t } = useTranslation();
   const [stageIndex, setStageIndex] = useState(0);
   const [heard, setHeard] = useState("");
 
@@ -107,7 +123,7 @@ export default function CallPlaybook({
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="animate-spin" size={16} /> Loading the playbook…
+        <Loader2 className="animate-spin" size={16} /> {t("app.salesCall.playbookLoading")}
       </div>
     );
   }
@@ -118,7 +134,7 @@ export default function CallPlaybook({
         <div className="flex items-start gap-2">
           <AlertCircle size={16} className="mt-0.5 shrink-0" />
           <p className="break-words">
-            The playbook did not load, so you are on your own for the words. {error}
+            {t("app.salesCall.playbookLoadFailed", { detail: error })}
           </p>
         </div>
         {onRetry ? (
@@ -127,7 +143,7 @@ export default function CallPlaybook({
             className={`${BTN} border border-amber-400 text-amber-900 dark:text-amber-100 w-full`}
             onClick={onRetry}
           >
-            Try again
+            {t("app.salesCall.tryAgain")}
           </button>
         ) : null}
       </div>
@@ -156,19 +172,20 @@ export default function CallPlaybook({
     <div className="rounded-xl border border-border bg-card p-4 space-y-4">
       <div className="space-y-1">
         <h3 className="text-base font-semibold text-foreground break-words">
-          {data.playbook ? data.playbook.name : "No script for this one"}
+          {data.playbook ? data.playbook.name : t("app.salesCall.noScriptHeading")}
         </h3>
         {data.playbook ? (
           <p className="text-xs text-muted-foreground break-words">
-            Chosen because: {data.playbook.selectorLabel || data.playbook.describe}
+            {t("app.salesCall.chosenBecause", {
+              reason: data.playbook.selectorLabel || data.playbook.describe,
+            })}
             {data.playbook.facts?.length
               ? ` (${data.playbook.facts.map((f) => `${f.label}: ${f.value}`).join(", ")})`
               : ""}
           </p>
         ) : (
           <p className="text-sm text-muted-foreground break-words">
-            {data.noPlaybookReason} Open with a question rather than a claim — the objections below
-            still apply, they are the same on every call.
+            {data.noPlaybookReason} {t("app.salesCall.noPlaybookAdvice")}
           </p>
         )}
       </div>
@@ -178,18 +195,18 @@ export default function CallPlaybook({
         <div className="space-y-3">
           <label className="block text-sm">
             <span className="text-xs text-muted-foreground">
-              Stage {index + 1} of {stages.length}
+              {t("app.salesCall.stageOf", { current: index + 1, total: stages.length })}
             </span>
             <select
               className={FIELD}
               value={String(index)}
               onChange={(e) => setStageIndex(Number(e.target.value))}
-              aria-label="Which stage of the call"
+              aria-label={t("app.salesCall.stageSelectAria")}
             >
               {stages.map((s, i) => (
                 <option key={s.stageKey} value={String(i)}>
                   {i + 1}. {s.name}
-                  {(s.points || []).length ? " ·  about this business" : ""}
+                  {(s.points || []).length ? ` ·  ${t("app.salesCall.aboutThisBusinessTag")}` : ""}
                 </option>
               ))}
             </select>
@@ -205,14 +222,14 @@ export default function CallPlaybook({
             {stage.say.refusal ? (
               <p className="text-sm text-amber-900 dark:text-amber-200 break-words">
                 <ShieldAlert size={14} className="inline mr-1" />
-                {stage.say.refusalText} It names {stage.say.missing.join(", ")}, and we have no value
-                for that on this business. Say it in your own words.
+                {stage.say.refusalText}{" "}
+                {t("app.salesCall.sayRefusalDetail", { fields: stage.say.missing.join(", ") })}
               </p>
             ) : stage.say.text ? (
               <p className="text-base text-foreground break-words">{stage.say.text}</p>
             ) : (
               <p className="text-sm text-muted-foreground break-words">
-                Nothing is written for this stage — it is questions, not a line.
+                {t("app.salesCall.stageNoLine")}
               </p>
             )}
 
@@ -222,7 +239,7 @@ export default function CallPlaybook({
                   <li key={`${stage.stageKey}-${i}`} className="text-sm break-words">
                     {p.refusal ? (
                       <span className="text-amber-900 dark:text-amber-200">
-                        A question here names {p.missing.join(", ")}, which we do not have. Skipped.
+                        {t("app.salesCall.promptRefusal", { fields: p.missing.join(", ") })}
                       </span>
                     ) : (
                       <span className="text-foreground">{p.text}</span>
@@ -239,17 +256,23 @@ export default function CallPlaybook({
             {(stage.points || []).length ? (
               <div className="rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 p-3 space-y-2">
                 <p className="text-xs font-semibold text-emerald-900 dark:text-emerald-100">
-                  True of this business — you can defend these
+                  {t("app.salesCall.defensiblePoints")}
                 </p>
                 {stage.points.map((p, i) => (
                   <div key={`${p.capabilityCode}-${i}`}>
                     <p className="text-sm text-emerald-900 dark:text-emerald-100 break-words">
                       {p.text}
                     </p>
+                    {/* "cites 1 observation" pluralises on a rule English has
+                        and Ukrainian, French and Chinese do not, so the count
+                        and its noun are one catalogue entry rather than a
+                        trailing "s" bolted on here. */}
                     <p className="text-xs text-emerald-800 dark:text-emerald-200 break-words">
-                      {p.capabilityName} · cites {p.evidenceIds.length} observation
-                      {p.evidenceIds.length === 1 ? "" : "s"}
-                      {p.ruleCode ? ` · rule ${p.ruleCode}` : ""}
+                      {t("app.salesCall.pointCitation", {
+                        capability: p.capabilityName,
+                        cited: t("app.salesCall.observationCount", { value: p.evidenceIds.length }),
+                      })}
+                      {p.ruleCode ? t("app.salesCall.pointRule", { code: p.ruleCode }) : ""}
                     </p>
                   </div>
                 ))}
@@ -264,7 +287,7 @@ export default function CallPlaybook({
               disabled={index <= 0}
               onClick={() => setStageIndex(index - 1)}
             >
-              <ChevronLeft size={16} /> Back
+              <ChevronLeft size={16} /> {t("app.salesCall.back")}
             </button>
             <button
               type="button"
@@ -272,7 +295,7 @@ export default function CallPlaybook({
               disabled={index >= stages.length - 1}
               onClick={() => setStageIndex(index + 1)}
             >
-              Next <ChevronRight size={16} />
+              {t("app.salesCall.next")} <ChevronRight size={16} />
             </button>
           </div>
 
@@ -280,14 +303,13 @@ export default function CallPlaybook({
               stages it has and names the gap. */}
           {data.script.missingStages?.length ? (
             <p className="text-xs text-muted-foreground break-words">
-              This playbook has nothing written for: {data.script.missingStages.join(", ")}.
+              {t("app.salesCall.missingStages", { stages: data.script.missingStages.join(", ") })}
             </p>
           ) : null}
 
           {pointCount === 0 ? (
             <p className="text-xs text-muted-foreground break-words">
-              Nothing we observed supports a sentence about this business specifically, so every
-              line above is the one we say to everybody. Ask questions rather than filling the gap.
+              {t("app.salesCall.noPointsAtAll")}
             </p>
           ) : null}
         </div>
@@ -295,52 +317,61 @@ export default function CallPlaybook({
 
       {data.script && stages.length === 0 ? (
         <p className="text-sm text-muted-foreground break-words">
-          A playbook was selected and it carries no usable stage, so there is nothing written for
-          you to say. That is a fault in the playbook, not a quiet one — report it.
+          {t("app.salesCall.playbookNoStages")}
         </p>
       ) : null}
 
       {/* ── If they push back ────────────────────────────────────────────── */}
       <div className="space-y-2">
-        <h4 className="text-sm font-semibold text-foreground">If they push back</h4>
+        <h4 className="text-sm font-semibold text-foreground">
+          {t("app.salesCall.ifTheyPushBack")}
+        </h4>
         <label className="block text-sm">
           <span className="text-xs text-muted-foreground">
-            Type what they just said — no match shows everything rather than nothing.
+            {t("app.salesCall.typeWhatTheySaid")}
           </span>
+          {/* The placeholder stays English on purpose, in every language. It is
+              an example of an input that WORKS, and the cues it has to hit are
+              English substrings in lib/sales/playbook/objections.js — matched
+              exactly, because a close-enough match opens the wrong answer and
+              the rep reads it out. A translated example would demonstrate a
+              phrase that can never match. */}
           <input
             className={FIELD}
             value={heard}
             onChange={(e) => setHeard(e.target.value)}
             placeholder="we already use jobber"
-            aria-label="What the prospect just said"
+            aria-label={t("app.salesCall.heardAria")}
           />
         </label>
 
         {shown.missed ? (
           <p className="text-xs text-muted-foreground break-words">
             <CircleHelp size={14} className="inline mr-1" />
-            Nothing in the library matches those words, so here is all of it. The cues are matched
-            exactly — a close-enough match would open the wrong answer and you would read it out.
+            {t("app.salesCall.noCueMatch")}
           </p>
         ) : null}
         {shown.filtered ? (
           <div className="flex items-center gap-2">
             <p className="text-xs text-muted-foreground break-words">
-              {shown.rows.length} of {objections.length} match what you typed.
+              {t("app.salesCall.matchCount", {
+                shown: shown.rows.length,
+                total: objections.length,
+              })}
             </p>
             <button
               type="button"
               className={`${BTN} border border-border text-foreground`}
               onClick={() => setHeard("")}
             >
-              Show all
+              {t("app.salesCall.showAll")}
             </button>
           </div>
         ) : null}
 
         {objections.length === 0 ? (
           <p className="text-sm text-muted-foreground break-words">
-            The objection library is empty. Nothing has been written for you to fall back on.
+            {t("app.salesCall.objectionsEmpty")}
           </p>
         ) : (
           <div className="space-y-2">
@@ -355,8 +386,7 @@ export default function CallPlaybook({
       <div className="space-y-1 border-t border-border pt-3">
         {data.unchecked?.length ? (
           <p className="text-xs text-muted-foreground break-words">
-            We could not check: {data.unchecked.join(", ")}. That is not the same as finding nothing
-            — do not say it either way.
+            {t("app.salesCall.uncheckedNote", { items: data.unchecked.join(", ") })}
           </p>
         ) : null}
         {data.generation?.degraded ? (
@@ -364,8 +394,7 @@ export default function CallPlaybook({
         ) : null}
         {data.store && !data.store.ready ? (
           <p className="text-xs text-muted-foreground break-words">
-            These are the built-in starter scripts — nobody has been able to edit them yet, so
-            report a line that is wrong rather than expecting it to change.
+            {t("app.salesCall.starterScripts")}
           </p>
         ) : null}
       </div>

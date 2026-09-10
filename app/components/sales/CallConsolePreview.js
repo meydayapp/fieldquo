@@ -40,6 +40,7 @@
 "use client";
 
 import { CalendarPlus, Mic, Phone, PhoneOff } from "lucide-react";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 /** A button's shape, with nothing behind it. Never a `button` element. */
 function Shape({ children, className = "" }) {
@@ -53,10 +54,18 @@ function Shape({ children, className = "" }) {
 }
 
 export default function CallConsolePreview() {
+  const { t } = useTranslation();
+  const business = t("app.salesCall.previewBusiness");
   return (
     <div className="rounded-lg border border-dashed border-border bg-muted/60 p-3 space-y-3">
+      {/* The caption and the closing sentence pass their English through as
+          t()'s explicit fallback rather than relying on the catalogue alone.
+          scripts/check-sales-lead-dial.mjs reads this file's RAW source for
+          both sentences — they are what stops a picture of a Call button
+          reading as a fault, and that assertion has to keep meaning something
+          after the words moved into the catalogue. */}
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        An example — not a live call
+        {t("app.salesCall.previewCaption", "An example — not a live call")}
       </p>
 
       {/* aria-hidden AND pointer-events-none AND no interactive elements. The
@@ -66,14 +75,14 @@ export default function CallConsolePreview() {
         {/* Who you would be on. */}
         <div className="rounded-xl border border-border bg-card p-4 space-y-3">
           <div className="flex items-baseline justify-between gap-2">
-            <p className="text-sm font-semibold text-foreground">Example Painting Ltd</p>
+            <p className="text-sm font-semibold text-foreground">{business}</p>
             <p className="text-xs text-muted-foreground tabular-nums">+1 613 555 0142</p>
           </div>
           <Shape className="bg-primary text-primary-foreground w-full">
-            <Phone size={16} /> Call Example Painting Ltd
+            <Phone size={16} /> {t("app.salesCall.callName", { name: business })}
           </Shape>
           <Shape className="w-full border border-border text-foreground">
-            <CalendarPlus size={16} /> Schedule a call back
+            <CalendarPlus size={16} /> {t("app.salesCall.scheduleCallback")}
           </Shape>
         </div>
 
@@ -81,7 +90,7 @@ export default function CallConsolePreview() {
         <div className="rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 p-4 space-y-3">
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
-              On the call
+              {t("app.salesCall.previewOnCall")}
             </p>
             <p className="text-xl font-mono tabular-nums text-emerald-900 dark:text-emerald-100">
               2:14
@@ -89,10 +98,10 @@ export default function CallConsolePreview() {
           </div>
           <div className="flex gap-2">
             <Shape className="border border-emerald-400 text-emerald-900 dark:text-emerald-100 flex-1">
-              <Mic size={16} /> Mute
+              <Mic size={16} /> {t("app.salesCall.mute")}
             </Shape>
             <Shape className="bg-red-600 text-white flex-1">
-              <PhoneOff size={16} /> Hang up
+              <PhoneOff size={16} /> {t("app.salesCall.hangUp")}
             </Shape>
           </div>
         </div>
@@ -100,21 +109,25 @@ export default function CallConsolePreview() {
         {/* And what you owe afterwards. */}
         <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 p-4 space-y-2">
           <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
-            What happened on that call?
+            {t("app.salesCall.whatHappened")}
           </p>
+          {/* An example of a disposition, not a disposition. The real list is
+              the server's, and its VALUES are enum codes — nothing here is
+              sent anywhere, so the words may be read in the rep's language. */}
           <div className="rounded-lg border border-border bg-card px-3 py-2.5 min-h-[44px] text-sm text-muted-foreground flex items-center">
-            Booked a demo
+            {t("app.salesCall.previewDisposition")}
           </div>
           <div className="rounded-lg border border-border bg-card px-3 py-2.5 text-sm text-muted-foreground">
-            Wants it before the Thursday job. Sending the quote tonight.
+            {t("app.salesCall.previewNote")}
           </div>
         </div>
       </div>
 
       <p className="text-xs text-muted-foreground break-words">
-        That is the console, drawn here so you can see it before you need it. It appears in this
-        same spot, live, the moment you have somebody open — nothing above is pressable, and
-        nothing is switched off.
+        {t(
+          "app.salesCall.previewFooter",
+          "That is the console, drawn here so you can see it before you need it. It appears in this same spot, live, the moment you have somebody open — nothing above is pressable, and nothing is switched off.",
+        )}
       </p>
     </div>
   );

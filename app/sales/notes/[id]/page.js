@@ -19,12 +19,41 @@ import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Archive, ArchiveRestore } from "lucide-react";
 import { describeParent } from "@/lib/sales/notes/parents";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import RepNoteEditor from "@/app/components/sales/RepNoteEditor";
 import RepNoteVisibilityNotice from "@/app/components/sales/RepNoteVisibilityNotice";
 import RepNoteUnavailable from "@/app/components/sales/RepNoteUnavailable";
 
+/** Literal keys, not keys built from the kind — see the index screen. */
+const PARENT_KIND_KEYS = {
+  lead: "app.salesNotes.parentKindLead",
+  thread: "app.salesNotes.parentKindThread",
+  prospect: "app.salesNotes.parentKindProspect",
+};
+
+/**
+ * The same sentence the index screen builds, from the same describeParent()
+ * fields. Copied rather than shared because a page module is not somewhere to
+ * import a helper from; the home it belongs in is lib/sales/notes/parents.js,
+ * which is outside this change. Keep the two in step.
+ */
+function parentSentence(t, parent) {
+  if (!parent) return "";
+  if (parent.state === "attached") {
+    const kind = t(PARENT_KIND_KEYS[parent.kind] || PARENT_KIND_KEYS.lead);
+    return parent.label
+      ? t("app.salesNotes.parentNamed", { kind, label: parent.label })
+      : t("app.salesNotes.parentUnnamed", { kind });
+  }
+  if (parent.state === "orphaned") {
+    return t("app.salesNotes.parentGone", { label: parent.label });
+  }
+  return t("app.salesNotes.parentNone");
+}
+
 export default function SalesNotePage({ params }) {
   const { id } = use(params);
+  const { t } = useTranslation();
 
   const [note, setNote] = useState(null);
   const [error, setError] = useState("");
@@ -38,7 +67,7 @@ export default function SalesNotePage({ params }) {
     try {
       res = await fetch(`/api/sales/notes/${id}`);
     } catch {
-      setError("Couldn't reach the server. Check your connection and try again.");
+      setError(t("app.salesNotes.serverUnreachable"));
       return;
     }
     const payload = await res.json().catch(() => null);
@@ -49,11 +78,13 @@ export default function SalesNotePage({ params }) {
     if (!res.ok) {
       // A 404 here is also what a colleague's note id produces — see the GET
       // handler's own comment on why the two answers are the same.
-      setError(payload?.error || `Couldn't open that note (${res.status}).`);
+      setError(payload?.error || t("app.salesNotes.noteOpenFailed", { status: res.status }));
       return;
     }
     setNote(payload.note);
-  }, [id]);
+    // `t` only changes with the rep's language, so this does not re-fetch on
+    // every render; it is declared because it is read above.
+  }, [id, t]);
 
   useEffect(() => {
     load();
@@ -74,13 +105,20 @@ export default function SalesNotePage({ params }) {
       });
     } catch {
       setBusy(false);
-      setError("Couldn't reach the server. Nothing was changed.");
+      setError(t("app.salesNotes.serverUnreachableNoChange"));
       return;
     }
     const payload = await res.json().catch(() => null);
     setBusy(false);
     if (!res.ok) {
-      setError(payload?.error || `Couldn't ${archived ? "archive" : "restore"} it (${res.status}).`);
+      // Two whole sentences, not one sentence with a verb slotted into it: a
+      // verb that inflects in isolation is only translatable in English.
+      setError(
+        payload?.error ||
+          (archived
+            ? t("app.salesNotes.archiveFailed", { status: res.status })
+            : t("app.salesNotes.restoreFailed", { status: res.status })),
+      );
       return;
     }
     setNote((prev) => (prev ? { ...prev, archivedAt: payload.note.archivedAt } : prev));
@@ -98,7 +136,7 @@ export default function SalesNotePage({ params }) {
         className="inline-flex items-center gap-2 text-sm text-muted-foreground min-h-[44px]"
       >
         <ArrowLeft size={16} />
-        All notes
+        {t("app.salesNotes.allNotes")}
       </Link>
 
       <RepNoteVisibilityNotice showEditorNote />
@@ -112,7 +150,7 @@ export default function SalesNotePage({ params }) {
       )}
 
       {!unavailable && !error && !note && (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <p className="text-sm text-muted-foreground">{t("app.salesNotes.loading")}</p>
       )}
 
       {note && (
@@ -120,11 +158,11 @@ export default function SalesNotePage({ params }) {
           {/* What the note is about — including "the lead it was about is
               gone", which describeParent states rather than silently turning
               into a scratchpad. */}
-          <p className="text-sm text-muted-foreground break-words">{parent.text}</p>
+          <p className="text-sm text-muted-foreground break-words">{parentSentence(t, parent)}</p>
 
           {note.archivedAt ? (
             <p className="rounded-lg border border-border bg-muted p-3 text-sm text-muted-foreground">
-              Archived. It is still here and still readable — archiving is not a delete.
+              {t("app.salesNotes.archivedNotice")}
             </p>
           ) : null}
 
@@ -140,7 +178,7 @@ export default function SalesNotePage({ params }) {
             className="min-h-[44px] px-4 inline-flex items-center justify-center gap-2 rounded-md border border-border text-sm font-medium text-foreground disabled:opacity-60"
           >
             {note.archivedAt ? <ArchiveRestore size={16} /> : <Archive size={16} />}
-            {note.archivedAt ? "Restore" : "Archive"}
+            {note.archivedAt ? t("app.salesNotes.restore") : t("app.salesNotes.archive")}
           </button>
         </>
       )}

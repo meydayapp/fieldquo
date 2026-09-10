@@ -105,12 +105,21 @@ import { APP_MESSAGES } from "../app/i18n/appMessages.js";
 //
 // Measured 2026-09-03, after Spanish was completed. English is the source and
 // has no floor of its own.
+//
+// The three unfinished languages were raised on 2026-09-10, when the sales
+// portal was translated: 730 new keys landed in all nine blocks, and the 90
+// app.salesPortal.* / app.salesTour.* keys that had never had a Ukrainian,
+// Punjabi or Tagalog value got one — that namespace had been at 0/44 and 0/46,
+// so a rep reading any of those three languages had an English shell and an
+// English first-morning tour. Raised rather than left alone because this table
+// is the only thing that stops the gain being given back, and its own rule
+// above says so: raise a floor when you raise a language, never lower one.
 const FLOORS = {
   fr: { keys: 4965, complete: true },
   es: { keys: 4965, complete: true },
-  uk: { keys: 3416, complete: false },
-  pa: { keys: 3413, complete: false },
-  tl: { keys: 3363, complete: false },
+  uk: { keys: 5439, complete: false },
+  pa: { keys: 5436, complete: false },
+  tl: { keys: 5364, complete: false },
   de: { keys: 4965, complete: true },
   zh: { keys: 4965, complete: true },
   it: { keys: 4965, complete: true },

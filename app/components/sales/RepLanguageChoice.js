@@ -24,6 +24,7 @@ import { Languages } from "lucide-react";
 
 import { fetchJson } from "@/lib/fetchJson";
 import { useLanguageContext } from "@/app/providers/LanguageProvider";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 /** The sentinel the radio group uses for "no stated preference". */
 const BROWSER = "__browser__";
@@ -31,6 +32,7 @@ const BROWSER = "__browser__";
 export default function RepLanguageChoice({ onSaved }) {
   const router = useRouter();
   const { changeLanguage } = useLanguageContext();
+  const { t } = useTranslation();
 
   const [data, setData] = useState(null);
   const [choice, setChoice] = useState(BROWSER);
@@ -38,6 +40,11 @@ export default function RepLanguageChoice({ onSaved }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+
+  // Resolved outside the callback so the callback's dependency is a string
+  // rather than t(), which is a new function identity on every language change
+  // and would re-fire the load for no reason.
+  const loadFailedMessage = t("app.salesLang.loadFailed");
 
   // No setLoading(true) here for the same reason app/sales/pay's loader gives:
   // `loading` already starts true, and a synchronous set inside the effect
@@ -51,11 +58,11 @@ export default function RepLanguageChoice({ onSaved }) {
     } catch (err) {
       // Never a silent failure — the whole point of the control is that what
       // is on screen is what is in the database.
-      setError(err?.message || "Couldn't load your language setting.");
+      setError(err?.message || loadFailedMessage);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadFailedMessage]);
 
   useEffect(() => {
     load();
@@ -95,21 +102,19 @@ export default function RepLanguageChoice({ onSaved }) {
       router.refresh();
       onSaved?.(json.language);
     } catch (err) {
-      setError(err?.message || "Couldn't save that.");
+      setError(err?.message || t("app.salesLang.saveFailed"));
     } finally {
       setBusy(false);
     }
   }
 
   if (loading) {
-    return <p className="text-sm text-muted-foreground">Loading your language setting…</p>;
+    return <p className="text-sm text-muted-foreground">{t("app.salesLang.loading")}</p>;
   }
   if (!data) {
     return (
       <div className="rounded-xl border border-border p-4">
-        <p className="text-sm text-foreground">
-          {error || "Couldn't load your language setting."}
-        </p>
+        <p className="text-sm text-foreground">{error || loadFailedMessage}</p>
       </div>
     );
   }
@@ -122,26 +127,23 @@ export default function RepLanguageChoice({ onSaved }) {
         <Languages size={16} className="shrink-0 mt-0.5 text-muted-foreground" aria-hidden="true" />
         <div className="space-y-1">
           <h2 className="text-sm font-semibold text-foreground">
-            What language should the portal be in?
+            {t("app.salesLang.heading")}
           </h2>
-          {/* Said plainly rather than implied. The shell, the sign-in screen,
-              the invitation screen and the companies book are translated; the
-              queue, leads, conversations, texts, notes, calendar, demo,
-              support, voicemail and this screen are written in English. A
-              picker that let a rep expect a French console would be the
-              control that appears to work and doesn't — so it tells them what
-              it actually moves. */}
-          <p className="text-sm text-muted-foreground">
-            This changes the portal&rsquo;s menus, the sign-in screen and your companies
-            book. The prospecting screens — queue, leads, conversations, texts, notes,
-            calendar, demo, support and voicemail — are still written in English, so
-            picking another language moves the frame and not yet the pages inside it.
-          </p>
+          {/* Said plainly rather than implied, and REWRITTEN when it stopped
+              being true. This paragraph used to list ten screens that were
+              "still written in English" — queue, leads, conversations, texts,
+              notes, calendar, demo, support, voicemail and this one. They are
+              translated now, so the old sentence would be the control that
+              appears to work and doesn't, inverted: a picker under-promising
+              what it does. What is still English is named instead, because a
+              rep who meets one of those has to be able to tell "not translated
+              yet" from "this is somebody's own words". */}
+          <p className="text-sm text-muted-foreground">{t("app.salesLang.explainer")}</p>
         </div>
       </div>
 
       <fieldset className="space-y-2">
-        <legend className="sr-only">Portal language</legend>
+        <legend className="sr-only">{t("app.salesLang.legend")}</legend>
 
         {/* First, and selected when nothing is stored, because that is the
             state the row is actually in. */}
@@ -162,10 +164,11 @@ export default function RepLanguageChoice({ onSaved }) {
             className="mt-1 shrink-0"
           />
           <span className="min-w-0">
-            <span className="block font-medium text-foreground">Follow my browser</span>
+            <span className="block font-medium text-foreground">
+              {t("app.salesLang.followBrowser")}
+            </span>
             <span className="block text-sm text-muted-foreground mt-0.5">
-              No stated preference. FieldQuo uses whatever this browser asks for, which
-              can differ from one computer to the next.
+              {t("app.salesLang.followBrowserBody")}
             </span>
           </span>
         </label>
@@ -211,9 +214,11 @@ export default function RepLanguageChoice({ onSaved }) {
           disabled={busy || !dirty}
           className="inline-flex items-center min-h-[44px] rounded-full bg-primary text-primary-foreground px-5 text-sm font-semibold disabled:opacity-50"
         >
-          {busy ? "Saving…" : "Save language"}
+          {busy ? t("app.salesLang.saving") : t("app.salesLang.save")}
         </button>
-        {saved && !dirty ? <span className="text-sm text-muted-foreground">Saved.</span> : null}
+        {saved && !dirty ? (
+          <span className="text-sm text-muted-foreground">{t("app.salesLang.saved")}</span>
+        ) : null}
       </div>
     </form>
   );

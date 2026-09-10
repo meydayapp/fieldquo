@@ -42,6 +42,7 @@ import {
   DIAL_READY,
   DIAL_REFUSED,
 } from "@/lib/sales/dialSpace";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import CallPanel from "./CallPanel";
 import CallConsolePreview from "./CallConsolePreview";
 
@@ -91,6 +92,7 @@ export function Notice({ tone, icon: Icon, title, fix }) {
  *                   owns the record can reload it.
  */
 export default function DialRegion({ space, compliance = null, target = null, onWorked }) {
+  const { t } = useTranslation();
   return (
     <>
       {space.state === DIAL_READY && space.href && target ? (
@@ -118,10 +120,7 @@ export default function DialRegion({ space, compliance = null, target = null, on
             <div className="min-w-0">
               <p className="font-semibold break-words">{space.title}</p>
               <p className="break-words">{space.detail}</p>
-              <p className="mt-1">
-                No dial control is shown, because pressing one would be a mistake rather than a
-                refusal.
-              </p>
+              <p className="mt-1">{t("app.salesDial.noDialControlShown")}</p>
             </div>
           </div>
         </div>
@@ -179,11 +178,14 @@ export default function DialRegion({ space, compliance = null, target = null, on
 
       {compliance?.decision === CALL_ALLOWED && compliance.windowText ? (
         <p className="text-xs text-muted-foreground break-words">
-          Judged in{" "}
+          {/* One key per branch rather than a shared "Judged in …" stem with a
+              fragment slotted in: the two halves take different cases and
+              different word order in half the portal's languages, and a stem
+              that only reads correctly in English is the sentence-splitting
+              bug wearing a placeholder. */}
           {compliance.zoneSource === "stated"
-            ? "the time zone recorded on their lead"
-            : `the time zone their address implies (${compliance.zones.join(", ")})`}
-          .
+            ? t("app.salesDial.judgedInStatedZone")
+            : t("app.salesDial.judgedInImpliedZone", { zones: compliance.zones.join(", ") })}
         </p>
       ) : null}
 
@@ -201,7 +203,7 @@ export default function DialRegion({ space, compliance = null, target = null, on
       {compliance?.jurisdiction?.verified && compliance.citation ? (
         <details className="text-xs text-muted-foreground">
           <summary className="cursor-pointer">
-            What {compliance.jurisdiction.name} actually says
+            {t("app.salesDial.whatJurisdictionSays", { jurisdiction: compliance.jurisdiction.name })}
           </summary>
           <p className="mt-1 break-words">{compliance.citation}</p>
         </details>

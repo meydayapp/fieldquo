@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import { X, Loader2, Trash2, Check } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { jsonBody } from "@/lib/jsonBody";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 // A Date → the value a <input type="date"> / <input type="time"> wants, in the
 // viewer's own zone (a rep books in the time they are looking at).
@@ -28,6 +29,7 @@ const FIELD = "w-full rounded-lg border border-border bg-background px-3 py-2 te
 const LABEL = "block text-xs font-medium text-muted-foreground mb-1";
 
 export default function EventModal({ initial, leads, onClose, onSaved }) {
+  const { t } = useTranslation();
   const editing = Boolean(initial?.id);
 
   const start = initial?.startAt ? new Date(initial.startAt) : new Date();
@@ -72,7 +74,7 @@ export default function EventModal({ initial, leads, onClose, onSaved }) {
     setSaving(true);
     setError("");
     if (!date || !startTime) {
-      setError("Pick a date and a start time.");
+      setError(t("app.salesCal.needDateAndTime"));
       setSaving(false);
       return;
     }
@@ -140,35 +142,37 @@ export default function EventModal({ initial, leads, onClose, onSaved }) {
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-border sticky top-0 bg-card">
           <h2 className="font-semibold text-foreground">
-            {editing ? "Edit event" : "New event"}
+            {editing ? t("app.salesCal.editEvent") : t("app.salesCal.newEvent")}
           </h2>
-          <button onClick={onClose} className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-muted-foreground hover:text-foreground" aria-label="Close">
+          <button onClick={onClose} className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-muted-foreground hover:text-foreground" aria-label={t("app.salesCal.close")}>
             <X size={18} />
           </button>
         </div>
 
         <form onSubmit={save} className="p-5 space-y-4">
           <div className="flex gap-2">
-            {["callback", "appointment"].map((t) => (
+            {/* `kind`, not `t`: the loop variable used to shadow the
+                translator in a file that now calls t() inside the loop body. */}
+            {["callback", "appointment"].map((kind) => (
               <button
-                key={t}
+                key={kind}
                 type="button"
-                onClick={() => setType(t)}
+                onClick={() => setType(kind)}
                 className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium capitalize ${
-                  type === t
+                  type === kind
                     ? "border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300"
                     : "border-border text-muted-foreground"
                 }`}
               >
-                {t === "callback" ? "Call back" : "Appointment"}
+                {t(kind === "callback" ? "app.salesCal.callBack" : "app.salesCal.appointment")}
               </button>
             ))}
           </div>
 
           <div>
-            <label className={LABEL}>Lead (fills the contact)</label>
+            <label className={LABEL}>{t("app.salesCal.leadField")}</label>
             <select className={FIELD} value={leadId} onChange={(e) => pickLead(e.target.value)}>
-              <option value="">— No lead / other —</option>
+              <option value="">{t("app.salesCal.noLead")}</option>
               {(leads || []).map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.businessName}
@@ -180,57 +184,61 @@ export default function EventModal({ initial, leads, onClose, onSaved }) {
 
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-3 sm:col-span-1">
-              <label className={LABEL}>Date</label>
+              <label className={LABEL}>{t("app.salesCal.dateField")}</label>
               <input type="date" className={FIELD} value={date} onChange={(e) => setDate(e.target.value)} required />
             </div>
             <div>
-              <label className={LABEL}>Start</label>
+              <label className={LABEL}>{t("app.salesCal.startField")}</label>
               <input type="time" className={FIELD} value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
             </div>
             <div>
-              <label className={LABEL}>End</label>
+              <label className={LABEL}>{t("app.salesCal.endField")}</label>
               <input type="time" className={FIELD} value={endTime} onChange={(e) => setEndTime(e.target.value)} />
             </div>
           </div>
 
           <div>
-            <label className={LABEL}>Title</label>
+            <label className={LABEL}>{t("app.salesCal.titleField")}</label>
             <input
               className={FIELD}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder={type === "callback" ? "Call back re: quote" : "On-site walkthrough"}
+              placeholder={t(
+                type === "callback"
+                  ? "app.salesCal.titlePlaceholderCallback"
+                  : "app.salesCal.titlePlaceholderAppointment",
+              )}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={LABEL}>Business</label>
+              <label className={LABEL}>{t("app.salesCal.businessField")}</label>
               <input className={FIELD} value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
             </div>
             <div>
-              <label className={LABEL}>Contact</label>
+              <label className={LABEL}>{t("app.salesCal.contactField")}</label>
               <input className={FIELD} value={contactName} onChange={(e) => setContactName(e.target.value)} />
             </div>
             <div>
-              <label className={LABEL}>Phone</label>
+              <label className={LABEL}>{t("app.salesCal.phoneField")}</label>
               <input className={FIELD} value={phone} onChange={(e) => setPhone(e.target.value)} />
             </div>
             <div>
-              <label className={LABEL}>Website</label>
-              <input className={FIELD} value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="from the prospect" />
+              <label className={LABEL}>{t("app.salesCal.websiteField")}</label>
+              <input className={FIELD} value={website} onChange={(e) => setWebsite(e.target.value)} placeholder={t("app.salesCal.websitePlaceholder")} />
             </div>
           </div>
 
           {type === "appointment" && (
             <div>
-              <label className={LABEL}>Location</label>
-              <input className={FIELD} value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Address or meeting link" />
+              <label className={LABEL}>{t("app.salesCal.locationField")}</label>
+              <input className={FIELD} value={location} onChange={(e) => setLocation(e.target.value)} placeholder={t("app.salesCal.locationPlaceholder")} />
             </div>
           )}
 
           <div>
-            <label className={LABEL}>Notes</label>
+            <label className={LABEL}>{t("app.salesCal.notesField")}</label>
             <textarea className={`${FIELD} min-h-[80px]`} value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
 
@@ -243,7 +251,7 @@ export default function EventModal({ initial, leads, onClose, onSaved }) {
               className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 disabled:opacity-60"
             >
               {saving ? <Loader2 size={15} className="animate-spin" /> : null}
-              {editing ? "Save changes" : "Add to calendar"}
+              {editing ? t("app.salesCal.saveChanges") : t("app.salesCal.addToCalendar")}
             </button>
             {editing && (
               <>
@@ -253,7 +261,7 @@ export default function EventModal({ initial, leads, onClose, onSaved }) {
                   disabled={saving}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-border text-sm font-medium px-3 py-2 text-green-700 dark:text-green-400"
                 >
-                  <Check size={15} /> Done
+                  <Check size={15} /> {t("app.salesCal.markDone")}
                 </button>
                 <button
                   type="button"
@@ -261,7 +269,7 @@ export default function EventModal({ initial, leads, onClose, onSaved }) {
                   disabled={saving}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-border text-sm font-medium px-3 py-2 text-muted-foreground"
                 >
-                  <Trash2 size={15} /> Cancel event
+                  <Trash2 size={15} /> {t("app.salesCal.cancelEvent")}
                 </button>
               </>
             )}

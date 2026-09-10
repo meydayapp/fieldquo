@@ -10,9 +10,11 @@
 // are about not lying.
 //
 //   1. It composes "Sarah saved changes to this quote" through t() from
-//      app.staleWrite.* — and the sales portal's outreach screens are
-//      English-only (docs/sales-intel/STATUS.md records this), so half its
-//      sentence would land in a catalogue this surface does not use.
+//      app.staleWrite.*, which is keyed for a QUOTE. This surface is
+//      translated too now — the portal was keyed in full, so "that catalogue
+//      does not reach here" has stopped being the reason — but a note is not a
+//      quote, and borrowing the quote's wording would only buy this banner the
+//      wrong noun in nine languages instead of one.
 //   2. It says "someone on your team" when it cannot name the editor. On a
 //      note there is nobody else it could be. Only the author can write one —
 //      lib/sales/notes/visibility.js's canWriteNote — and a superadmin reading
@@ -38,6 +40,7 @@
 // for the quote.
 
 import { AlertTriangle } from "lucide-react";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 /**
  * @param {object}   props
@@ -47,6 +50,8 @@ import { AlertTriangle } from "lucide-react";
  * @param {boolean}  [props.busy]
  */
 export default function RepNoteConflict({ conflict, onKeepMine, onLoadSaved, busy }) {
+  const { t } = useTranslation();
+
   if (!conflict) return null;
 
   return (
@@ -61,14 +66,15 @@ export default function RepNoteConflict({ conflict, onKeepMine, onLoadSaved, bus
         />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-            This note changed somewhere else
+            {t("app.salesNotes.conflictHeadline")}
           </p>
           <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">
-            You saved it from another tab, or your phone, after opening it here.
-            Saving now would overwrite that.{" "}
+            {t("app.salesNotes.conflictExplain")}{" "}
             {/* The sentence that stops the panic, and it is only true because
-                nothing below resets the textarea. */}
-            <span className="font-medium">Nothing you typed is lost — it is still on screen.</span>
+                nothing below resets the textarea. Kept whole in one key: it is
+                the promise, and a promise assembled from clauses is the one
+                that comes out wrong in the ninth language. */}
+            <span className="font-medium">{t("app.salesNotes.conflictNothingLost")}</span>
           </p>
 
           <div className="mt-3 flex flex-col sm:flex-row gap-2">
@@ -78,7 +84,7 @@ export default function RepNoteConflict({ conflict, onKeepMine, onLoadSaved, bus
               disabled={busy}
               className="min-h-[44px] px-3 rounded-md bg-amber-700 dark:bg-amber-600 text-white text-sm font-medium disabled:opacity-60"
             >
-              {busy ? "Saving…" : "Keep what I typed"}
+              {busy ? t("app.salesNotes.saving") : t("app.salesNotes.conflictKeepMine")}
             </button>
             <button
               type="button"
@@ -86,11 +92,18 @@ export default function RepNoteConflict({ conflict, onKeepMine, onLoadSaved, bus
               disabled={busy}
               className="min-h-[44px] px-3 rounded-md border border-amber-400 dark:border-amber-700 text-sm font-medium text-amber-900 dark:text-amber-100 disabled:opacity-60"
             >
-              Load the saved one instead
+              {t("app.salesNotes.conflictLoadSaved")}
             </button>
           </div>
           <p className="mt-2 text-xs text-amber-800 dark:text-amber-200">
-            Loading the saved one replaces what is on screen.
+            {/* The English stays here as the fallback on purpose:
+                scripts/check-rep-notes.mjs proves the destructive control says
+                it is destructive by reading this line, and a bare key would
+                leave that guard matching nothing. */}
+            {t(
+              "app.salesNotes.conflictLoadSavedWarning",
+              "Loading the saved one replaces what is on screen.",
+            )}
           </p>
         </div>
       </div>

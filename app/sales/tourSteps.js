@@ -24,11 +24,22 @@
 //
 // ══ Naming the tab by the word on screen, not by the key ══════════════════
 //
-// SalesShell's tabs are a deliberate mix: five carry t() keys because the
-// screen behind them is translated, and seven are English literals because the
-// screen behind them is not (docs/sales-intel/STATUS.md records that split).
-// A step therefore declares EITHER `tabLabelKey` or `tabLabel`, matching how
-// the shell draws that tab — never both, never a guess.
+// A step declares EITHER `tabLabelKey` or `tabLabel`, matching how the shell
+// draws that tab — never both, never a guess. Today every tab in SalesShell
+// carries a t() key, so every step below uses `tabLabelKey`; `tabLabel` stays
+// supported because the day a tab is a proper noun that no language
+// translates, the honest answer is a literal on both sides.
+//
+// ══ "Abrir Today" — why the literal had to go ═════════════════════════════
+//
+// SalesTour's button reads t("app.salesTour.goTo", { tab }), and `tab` is
+// whatever this file says the tab is called. While the shell drew "Today" as an
+// English literal, this file had to say "Today" too — the check compares the
+// two — so a Spanish rep got a Spanish verb wrapped around an English noun:
+// "Abrir Today". Not a translation bug in the tour, which was fully keyed: the
+// tour was faithfully repeating a word the shell really did print in English.
+// Translating the SCREENS, then the tabs, then this file, is what makes the
+// sentence Spanish end to end. Nothing in SalesTour.js changed.
 //
 // This is the trap app/components/tours.js hit and documented: its welcome
 // tour pointed at the Leads item and called it "Requests", because somebody
@@ -59,7 +70,7 @@ export const SALES_TOUR_STEPS = Object.freeze([
   {
     key: "today",
     href: "/sales",
-    tabLabel: "Today",
+    tabLabelKey: "app.salesPortal.navToday",
     titleKey: "app.salesTour.todayTitle",
     bodyKey: "app.salesTour.todayBody",
   },
@@ -105,28 +116,28 @@ export const SALES_TOUR_STEPS = Object.freeze([
     // exact failure this file's header is about.
     key: "inbound",
     href: "/sales",
-    tabLabel: "Today",
+    tabLabelKey: "app.salesPortal.navToday",
     titleKey: "app.salesTour.inboundTitle",
     bodyKey: "app.salesTour.inboundBody",
   },
   {
     key: "transfer",
     href: "/sales",
-    tabLabel: "Today",
+    tabLabelKey: "app.salesPortal.navToday",
     titleKey: "app.salesTour.transferTitle",
     bodyKey: "app.salesTour.transferBody",
   },
   {
     key: "voicemail",
     href: "/sales/voicemail",
-    tabLabel: "Voicemail",
+    tabLabelKey: "app.salesPortal.navVoicemail",
     titleKey: "app.salesTour.voicemailTitle",
     bodyKey: "app.salesTour.voicemailBody",
   },
   {
     key: "texts",
     href: "/sales/messages",
-    tabLabel: "Texts",
+    tabLabelKey: "app.salesPortal.navTexts",
     titleKey: "app.salesTour.textsTitle",
     bodyKey: "app.salesTour.textsBody",
   },
@@ -147,14 +158,14 @@ export const SALES_TOUR_STEPS = Object.freeze([
   {
     key: "notes",
     href: "/sales/notes",
-    tabLabel: "Notes",
+    tabLabelKey: "app.salesPortal.navNotes",
     titleKey: "app.salesTour.notesTitle",
     bodyKey: "app.salesTour.notesBody",
   },
   {
     key: "calendar",
     href: "/sales/calendar",
-    tabLabel: "Calendar",
+    tabLabelKey: "app.salesPortal.navCalendar",
     titleKey: "app.salesTour.calendarTitle",
     bodyKey: "app.salesTour.calendarBody",
   },
@@ -168,21 +179,21 @@ export const SALES_TOUR_STEPS = Object.freeze([
   {
     key: "support",
     href: "/sales/support",
-    tabLabel: "Support",
+    tabLabelKey: "app.salesPortal.navSupport",
     titleKey: "app.salesTour.supportTitle",
     bodyKey: "app.salesTour.supportBody",
   },
   {
     key: "demo",
     href: "/sales/demo",
-    tabLabel: "Demo",
+    tabLabelKey: "app.salesPortal.navDemo",
     titleKey: "app.salesTour.demoTitle",
     bodyKey: "app.salesTour.demoBody",
   },
   {
     key: "pay",
     href: "/sales/pay",
-    tabLabel: "Pay",
+    tabLabelKey: "app.salesPortal.navPay",
     titleKey: "app.salesTour.payTitle",
     bodyKey: "app.salesTour.payBody",
   },
@@ -197,14 +208,14 @@ export const SALES_TOUR_STEPS = Object.freeze([
   {
     key: "playbook",
     href: "/sales/playbook",
-    tabLabel: "Playbook",
+    tabLabelKey: "app.salesPortal.navPlaybook",
     titleKey: "app.salesTour.playbookTitle",
     bodyKey: "app.salesTour.playbookBody",
   },
   {
     key: "team",
     href: "/sales/team",
-    tabLabel: "Team",
+    tabLabelKey: "app.salesPortal.navTeam",
     titleKey: "app.salesTour.teamTitle",
     bodyKey: "app.salesTour.teamBody",
   },

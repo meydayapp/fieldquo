@@ -18,16 +18,22 @@
 // the POST would answer 404 about. And the picker says so when the book is
 // empty rather than rendering a form that cannot succeed.
 //
-// ══ English, deliberately ══════════════════════════════════════════════════
+// ══ The rep's language, and the ticket's is not the same question ══════════
 //
-// Same reason app/sales/notes/page.js gives: the outreach screens are English
-// while the shell is translated, and a translated screen beside English ones is
-// the worse inconsistency.
+// The screen follows the rep's chosen language, as the shell around it always
+// did — a half-translated portal was the inconsistency, not a translated
+// screen. What does NOT follow it is the ticket itself: the subject and body
+// are the rep's own words, sent onward to FieldQuo staff exactly as typed, and
+// the sentence under a ticket saying where it landed (`statusLine`) is written
+// by the route, which is the only thing that knows a ticket landed on nobody.
+// Neither is translated here, and translating either would put a different
+// sentence in front of the rep than the one support is reading.
 "use client";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AlertCircle, CheckCircle2, LifeBuoy, Loader2, Send } from "lucide-react";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchJson } from "@/lib/fetchJson";
 import {
   PRIORITY_LABELS,
@@ -47,6 +53,46 @@ const STATUS_STYLE = {
   resolved: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300",
 };
 
+// ── Enum value → key, rather than a key built by string concatenation ──────
+//
+// STATUS_LABELS/PRIORITY_LABELS in lib/support/escalation.js stay the source of
+// truth for WHICH statuses exist and remain the fallback, so a status this map
+// has never heard of still renders its own name instead of a blank badge. The
+// maps are explicit because the catalogue is looked up by whole key: a
+// `app.salesPlay.supportStatus.${value}` built at run time resolves nothing.
+const STATUS_KEYS = {
+  open: "app.salesPlay.supportStatusOpen",
+  in_progress: "app.salesPlay.supportStatusInProgress",
+  resolved: "app.salesPlay.supportStatusResolved",
+};
+
+// The same three statuses mid-sentence ("Nothing raised with the status …"),
+// where English wants them lower-case and German does not. Lower-casing a
+// translated label with toLowerCase() is what produced that bug elsewhere.
+const STATUS_INLINE_KEYS = {
+  open: "app.salesPlay.supportStatusOpenInline",
+  in_progress: "app.salesPlay.supportStatusInProgressInline",
+  resolved: "app.salesPlay.supportStatusResolvedInline",
+};
+
+// ── Why the two loaders store a sentinel instead of a sentence ────────────
+//
+// A failed request with no message from the server is still a failure, and the
+// truthiness of `bookFailed` / `listFailed` is what decides the failure block
+// renders at all — so it cannot become "". Putting t() inside the loaders would
+// instead put `t` in their dependency arrays, and loadTickets clears the list
+// before refetching: changing language would blank the tickets and show a
+// spinner. So the loaders record THAT it failed and the wording is chosen at
+// render.
+const GENERIC_FAILURE = "__generic_failure__";
+
+const PRIORITY_KEYS = {
+  low: "app.salesPlay.supportPriorityLow",
+  normal: "app.salesPlay.supportPriorityNormal",
+  high: "app.salesPlay.supportPriorityHigh",
+  urgent: "app.salesPlay.supportPriorityUrgent",
+};
+
 function fmt(value) {
   if (!value) return "—";
   const d = new Date(value);
@@ -61,6 +107,7 @@ function fmt(value) {
 }
 
 function SalesSupportInner() {
+  const { t } = useTranslation();
   const [book, setBook] = useState(null);
   const [bookFailed, setBookFailed] = useState("");
   const [data, setData] = useState(null);
@@ -101,7 +148,7 @@ function SalesSupportInner() {
       // An empty picker on a failed fetch would read as "you have no
       // companies", which is a different and much more discouraging fact.
       setBook(null);
-      setBookFailed(err.message || "Couldn't load your companies.");
+      setBookFailed(err.message || GENERIC_FAILURE);
     }
   }, []);
 
@@ -111,7 +158,7 @@ function SalesSupportInner() {
     try {
       setData(await listSupportTickets(filter ? { status: filter } : {}));
     } catch (err) {
-      setListFailed(err.message || "Couldn't load your tickets.");
+      setListFailed(err.message || GENERIC_FAILURE);
     }
   }, [filter]);
 
@@ -130,15 +177,16 @@ function SalesSupportInner() {
     try {
       const res = await raiseSupportTicket({ companyId, subject, body, priority });
       // The server's own sentence about where it landed, including the honest
-      // one when no superadmin account was available to take it.
-      setNotice(res.ticket?.statusLine || "Raised with FieldQuo support.");
+      // one when no superadmin account was available to take it. It is not
+      // translated: it is the same sentence support is reading.
+      setNotice(res.ticket?.statusLine || t("app.salesPlay.supportRaised"));
       setSubject("");
       setBody("");
       setPriority("normal");
       setOpenId(res.ticket?.id || null);
       await loadTickets();
     } catch (err) {
-      setFormError(err.message || "That didn't go through.");
+      setFormError(err.message || t("app.salesPlay.supportSendFailed"));
     } finally {
       setSending(false);
     }
@@ -152,22 +200,23 @@ function SalesSupportInner() {
       setReply("");
       await loadTickets();
     } catch (err) {
-      setReplyError(err.message || "Couldn't send that reply.");
+      setReplyError(err.message || t("app.salesPlay.supportReplyFailed"));
     } finally {
       setReplying(false);
     }
   }
 
   const noBook = Array.isArray(book) && book.length === 0;
+  const statusLabel = (value) =>
+    STATUS_KEYS[value] ? t(STATUS_KEYS[value]) : STATUS_LABELS[value] || value;
+  const priorityLabel = (value) =>
+    PRIORITY_KEYS[value] ? t(PRIORITY_KEYS[value]) : PRIORITY_LABELS[value] || value;
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">FieldQuo tech support</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Something wrong at one of your companies? Send it here. It goes straight to the FieldQuo
-          owner account, and you can follow it below.
-        </p>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.salesPlay.supportTitle")}</h1>
+        <p className="text-sm text-muted-foreground mt-1">{t("app.salesPlay.supportIntro")}</p>
       </div>
 
       <form onSubmit={submit} className="bg-card border border-border rounded-xl p-5 space-y-4">
@@ -175,8 +224,8 @@ function SalesSupportInner() {
           <div className="text-sm text-muted-foreground flex items-start gap-2">
             <AlertCircle size={16} className="shrink-0 mt-0.5" />
             <span>
-              Your companies could not be loaded, so there is nothing to pick yet — this is a failed
-              request, not an empty book. {bookFailed}{" "}
+              {t("app.salesPlay.supportBookFailed")}{" "}
+              {bookFailed === GENERIC_FAILURE ? t("app.salesPlay.supportBookLoadFailed") : bookFailed}{" "}
               <button
                 type="button"
                 onClick={loadBook}
@@ -185,23 +234,20 @@ function SalesSupportInner() {
                 // part of the sentence rather than becoming a block button.
                 className="min-h-[44px] py-1 font-semibold text-foreground underline underline-offset-2"
               >
-                Try again
+                {t("app.salesPlay.supportRetry")}
               </button>
             </span>
           </div>
         ) : noBook ? (
           <div className="text-sm text-muted-foreground flex items-start gap-2">
             <LifeBuoy size={16} className="shrink-0 mt-0.5" />
-            <span>
-              No company is attributed to you yet, so there is nothing to raise a ticket about. A
-              ticket can only be about a company in your own book.
-            </span>
+            <span>{t("app.salesPlay.supportNoBook")}</span>
           </div>
         ) : (
           <>
             <div>
               <label htmlFor="support-company" className="block text-sm font-medium text-foreground mb-1">
-                Which company
+                {t("app.salesPlay.supportCompanyLabel")}
               </label>
               <select
                 id="support-company"
@@ -210,11 +256,11 @@ function SalesSupportInner() {
                 required
                 className="w-full min-h-[44px] rounded-lg border border-border bg-card px-3 text-sm text-foreground"
               >
-                <option value="">Choose…</option>
+                <option value="">{t("app.salesPlay.supportChoose")}</option>
                 {(book || []).map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
-                    {c.isDemo ? " (demo)" : ""}
+                    {c.isDemo ? ` ${t("app.salesPlay.supportDemoTag")}` : ""}
                   </option>
                 ))}
               </select>
@@ -222,7 +268,7 @@ function SalesSupportInner() {
 
             <div>
               <label htmlFor="support-subject" className="block text-sm font-medium text-foreground mb-1">
-                One line
+                {t("app.salesPlay.supportSubjectLabel")}
               </label>
               <input
                 id="support-subject"
@@ -230,14 +276,14 @@ function SalesSupportInner() {
                 onChange={(e) => setSubject(e.target.value)}
                 required
                 maxLength={140}
-                placeholder="Invoice emails aren't arriving"
+                placeholder={t("app.salesPlay.supportSubjectPlaceholder")}
                 className="w-full min-h-[44px] rounded-lg border border-border bg-card px-3 text-sm text-foreground"
               />
             </div>
 
             <div>
               <label htmlFor="support-body" className="block text-sm font-medium text-foreground mb-1">
-                What happened
+                {t("app.salesPlay.supportBodyLabel")}
               </label>
               <textarea
                 id="support-body"
@@ -245,14 +291,14 @@ function SalesSupportInner() {
                 onChange={(e) => setBody(e.target.value)}
                 required
                 rows={5}
-                placeholder="What they did, what they expected, what they got. Dates and a quote or invoice number help."
+                placeholder={t("app.salesPlay.supportBodyPlaceholder")}
                 className="w-full rounded-lg border border-border bg-card p-3 text-sm text-foreground"
               />
             </div>
 
             <div>
               <label htmlFor="support-priority" className="block text-sm font-medium text-foreground mb-1">
-                How urgent
+                {t("app.salesPlay.supportPriorityLabel")}
               </label>
               <select
                 id="support-priority"
@@ -262,7 +308,7 @@ function SalesSupportInner() {
               >
                 {SUPPORT_PRIORITIES.map((p) => (
                   <option key={p} value={p}>
-                    {PRIORITY_LABELS[p]}
+                    {priorityLabel(p)}
                   </option>
                 ))}
               </select>
@@ -288,14 +334,17 @@ function SalesSupportInner() {
               className="min-h-[44px] px-4 rounded-lg text-sm font-semibold bg-inverted text-inverted-foreground disabled:opacity-60 inline-flex items-center gap-2"
             >
               {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-              Escalate to FieldQuo
+              {t("app.salesPlay.supportSubmit")}
             </button>
           </>
         )}
       </form>
 
       <div className="flex gap-1.5 flex-wrap">
-        {[{ value: "", label: "All" }, ...SUPPORT_STATUSES.map((v) => ({ value: v, label: STATUS_LABELS[v] }))].map(
+        {[
+          { value: "", label: t("app.salesPlay.supportFilterAll") },
+          ...SUPPORT_STATUSES.map((v) => ({ value: v, label: statusLabel(v) })),
+        ].map(
           (f) => (
             <button
               key={f.value || "all"}
@@ -319,35 +368,48 @@ function SalesSupportInner() {
         <div className="bg-card border border-border rounded-xl p-8 text-center">
           <AlertCircle size={24} className="text-muted-foreground mx-auto" />
           <p className="mt-3 text-sm text-muted-foreground">
-            Your tickets could not be read — a failed request, not an empty list. {listFailed}
+            {t("app.salesPlay.supportListFailed")}{" "}
+            {listFailed === GENERIC_FAILURE
+              ? t("app.salesPlay.supportTicketsLoadFailed")
+              : listFailed}
           </p>
           <button
             onClick={loadTickets}
             className="mt-3 min-h-[44px] px-4 text-sm font-semibold text-foreground underline underline-offset-2"
           >
-            Try again
+            {t("app.salesPlay.supportRetry")}
           </button>
         </div>
       ) : !data ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground py-6">
-          <Loader2 size={16} className="animate-spin" /> Loading…
+          <Loader2 size={16} className="animate-spin" /> {t("app.salesPlay.supportLoading")}
         </div>
       ) : !data.tickets?.length ? (
         <div className="bg-card border border-border rounded-xl p-8 text-center">
           <LifeBuoy size={24} className="text-muted-foreground mx-auto" />
           <p className="mt-3 text-sm text-muted-foreground">
-            Nothing raised {filter ? `with the status ${STATUS_LABELS[filter].toLowerCase()}` : "yet"}.
+            {/* Two whole sentences rather than one with a hole in it: the
+                status word sits mid-sentence, where English wants it lower
+                case and German does not, so it comes from its own key rather
+                than from toLowerCase() on a translated label. */}
+            {filter && STATUS_INLINE_KEYS[filter]
+              ? t("app.salesPlay.supportNothingRaisedWithStatus", {
+                  status: t(STATUS_INLINE_KEYS[filter]),
+                })
+              : t("app.salesPlay.supportNothingRaisedYet")}
           </p>
         </div>
       ) : (
         <div className="space-y-3">
-          {data.tickets.map((t) => {
-            const isOpen = openId === t.id;
+          {/* `ticket`, not `t` — the file calls t() for translation and a
+              shadow here is the exact bug check:t-shadow exists for. */}
+          {data.tickets.map((ticket) => {
+            const isOpen = openId === ticket.id;
             return (
-              <div key={t.id} className="bg-card border border-border rounded-xl overflow-hidden">
+              <div key={ticket.id} className="bg-card border border-border rounded-xl overflow-hidden">
                 <button
                   onClick={() => {
-                    setOpenId(isOpen ? null : t.id);
+                    setOpenId(isOpen ? null : ticket.id);
                     setReply("");
                     setReplyError("");
                   }}
@@ -355,27 +417,30 @@ function SalesSupportInner() {
                 >
                   <div className="flex items-center gap-2 flex-wrap">
                     <span
-                      className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full ${STATUS_STYLE[t.status] || "bg-muted text-muted-foreground"}`}
+                      className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full ${STATUS_STYLE[ticket.status] || "bg-muted text-muted-foreground"}`}
                     >
-                      {STATUS_LABELS[t.status] || t.status}
+                      {statusLabel(ticket.status)}
                     </span>
                     <span className="inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                      {PRIORITY_LABELS[t.priority] || t.priority}
+                      {priorityLabel(ticket.priority)}
                     </span>
                   </div>
-                  <p className="text-sm font-semibold text-foreground break-words">{t.subject}</p>
+                  <p className="text-sm font-semibold text-foreground break-words">{ticket.subject}</p>
                   <p className="text-xs text-muted-foreground">
-                    {t.company?.name} · {fmt(t.createdAt)}
+                    {ticket.company?.name} · {fmt(ticket.createdAt)}
                   </p>
                   {/* The server's sentence, not a locally invented one — it is
-                      the only place that knows a ticket landed on nobody. */}
-                  <p className="text-xs text-muted-foreground">{t.statusLine}</p>
+                      the only place that knows a ticket landed on nobody, and
+                      it is the same sentence FieldQuo support is reading. */}
+                  <p className="text-xs text-muted-foreground">{ticket.statusLine}</p>
                 </button>
 
                 {isOpen && (
                   <div className="border-t border-border p-4 space-y-3">
-                    <p className="text-sm text-foreground whitespace-pre-wrap break-words">{t.body}</p>
-                    {t.notes?.map((n) => (
+                    <p className="text-sm text-foreground whitespace-pre-wrap break-words">
+                      {ticket.body}
+                    </p>
+                    {ticket.notes?.map((n) => (
                       <div key={n.id} className="rounded-lg bg-muted p-3 text-sm">
                         <p className="text-xs text-muted-foreground mb-1">
                           {n.authorLabel} · {fmt(n.createdAt)}
@@ -393,16 +458,16 @@ function SalesSupportInner() {
                       value={reply}
                       onChange={(e) => setReply(e.target.value)}
                       rows={3}
-                      placeholder="Reply to FieldQuo support…"
+                      placeholder={t("app.salesPlay.supportReplyPlaceholder")}
                       className="w-full rounded-lg border border-border bg-card p-3 text-sm text-foreground"
                     />
                     <button
-                      onClick={() => sendReply(t.id)}
+                      onClick={() => sendReply(ticket.id)}
                       disabled={replying || !reply.trim()}
                       className="min-h-[44px] px-4 rounded-lg text-sm font-semibold bg-inverted text-inverted-foreground disabled:opacity-60 inline-flex items-center gap-2"
                     >
                       {replying ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                      Send reply
+                      {t("app.salesPlay.supportSendReply")}
                     </button>
                   </div>
                 )}
@@ -420,11 +485,12 @@ function SalesSupportInner() {
  * app/sales/queue/page.js wraps its own.
  */
 export default function SalesSupportPage() {
+  const { t } = useTranslation();
   return (
     <Suspense
       fallback={
         <div className="flex items-center gap-2 text-muted-foreground">
-          <Loader2 className="animate-spin" size={18} /> Opening support…
+          <Loader2 className="animate-spin" size={18} /> {t("app.salesPlay.supportOpening")}
         </div>
       }
     >

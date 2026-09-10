@@ -34,24 +34,37 @@
 // state and is out of this brief's scope. It is named in the report.
 
 import { Database } from "lucide-react";
+import { useTranslation } from "@/app/hooks/useTranslation";
+
+/** The path this panel names. Not copy — it is a filename, in every language. */
+const SCHEMA_FILE = "prisma/schema.prisma";
 
 export default function RepNoteUnavailable({ detail }) {
+  const { t } = useTranslation();
+
+  // One key for the whole sentence, split on its own placeholder at render
+  // time so the filename can keep its <code> styling. The obvious
+  // alternative — a key for the words before the path and another for the
+  // words after — is the fragment assembly this catalogue's rules forbid, and
+  // it would put the path in the English position in every language.
+  const [beforeFile, afterFile = ""] = t("app.salesNotes.unavailableFix").split("{file}");
+
   return (
     <div className="rounded-lg border border-border bg-card p-4 sm:p-6">
       <div className="flex items-start gap-3">
         <Database size={18} className="mt-0.5 shrink-0 text-muted-foreground" />
         <div className="min-w-0">
-          <h2 className="font-semibold text-foreground">Notes aren&apos;t switched on yet</h2>
+          <h2 className="font-semibold text-foreground">{t("app.salesNotes.unavailableHeading")}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            {detail ||
-              "This deployment can't see the SalesRepNote table, so there is nowhere to put a note. Everything else — who can read them, how they save, how a clash is caught — is built and waiting on it."}
+            {/* `detail` is the server's own sentence and is still English —
+                it is written in lib/sales/notes/model.js, outside this
+                change. The fallback below is this screen's own words. */}
+            {detail || t("app.salesNotes.unavailableDetail")}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            The model is declared in{" "}
-            <code className="font-mono text-xs">prisma/schema.prisma</code>, so this is a
-            deployment that needs its Prisma client regenerating rather than a schema that
-            needs writing. Nothing is offered here in the meantime, because a compose box
-            with nowhere to save would lose whatever was typed into it.
+            {beforeFile}
+            <code className="font-mono text-xs">{SCHEMA_FILE}</code>
+            {afterFile}
           </p>
         </div>
       </div>

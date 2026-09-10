@@ -212,7 +212,11 @@ section("5. Zero seconds is not nothing");
   const unknown = voicemailView({ id: "a2", voicemailSeconds: null });
   ok("null seconds is not silent", unknown.silent === false && unknown.seconds === null);
   const page = read("app/sales/voicemail/page.js");
-  ok("the screen says what a silent message means", /heard the beep and hung up/.test(page));
+  // The sentence moved into app/i18n/appMessages.js when the sales portal was
+  // translated, so this matches the KEY the screen renders. The words are
+  // still asserted — scripts/check-sales-portal-i18n.mjs section 6 holds the
+  // English catalogue value to them, which is where they now live.
+  ok("the screen says what a silent message means", /app\.salesDial\.silentVoicemail/.test(page));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -267,7 +267,11 @@ section("4. One thread component draws both, and a channel names each speaker");
 
   const t = decomment(read("app/sales/messages/MessageThread.js"));
   ok("the thread renders an author when it has one", /m\.who \|\| them/.test(t));
-  ok("…and your own messages stay 'You'", /inbound \? m\.who \|\| them : "You"/.test(t));
+  // "You" is a catalogue entry since the portal was translated, and this
+  // component is shared with /platform — so the assertion is that the OWN-message
+  // branch still resolves a first-person label rather than the sender's name.
+  ok("…and your own messages stay 'You'",
+    /inbound \? m\.who \|\| them : t\("app\.salesText\.senderYou"\)/.test(t));
   const chat = decomment(read("app/components/staff/StaffChat.js"));
   ok("the staff chat reuses MessageThread rather than its own", /<MessageThread/.test(chat));
   ok("…imported from the texts screen", /from "@\/app\/sales\/messages\/MessageThread"/.test(chat));

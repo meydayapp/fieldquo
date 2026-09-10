@@ -34,13 +34,54 @@
 //
 // Nothing "recommended" is invented below that: an empty ladder says the day's
 // queue is clear, which is a real statement, rather than manufacturing busywork.
+//
+// ══ Two renderings of the same sentence, and why both are returned ════════
+//
+// The rep reads this sentence in THEIR language, so every rung names a
+// translation key and app/sales/page.js resolves it through t(). But this
+// module is also a pure function that scripts/check-sales-home.mjs executes
+// against hostile input — null counts, NaN, Infinity, a string, no argument at
+// all — and those assertions are about the WORDS ("a failed load is described
+// as a failed load, and names the card"), not about a key name. A check that
+// only compared key names would pass while the sentence said the wrong thing.
+//
+// So each answer carries both: `headlineKey`/`detailKey`/`ctaKey` for the
+// screen, and `headline`/`detail`/`cta` rendered in English for the check. The
+// English is NOT a second copy of the wording — it is resolved out of
+// APP_MESSAGES.en, the same entry t() falls back to — so there is exactly one
+// place the English lives and the two cannot drift.
 
-/** Which fetch feeds each rung, so an unknown answer can name what failed. */
+import { APP_MESSAGES } from "@/app/i18n/appMessages";
+
+/**
+ * The English rendering of a catalogue entry.
+ *
+ * Deliberately not useTranslation(): that is a React hook and this module is
+ * imported by a check script under bare node, with no React tree and no
+ * LanguageProvider. Function-valued entries (the counted nouns) are called with
+ * the values object exactly as t() calls them — see app/hooks/useTranslation.js.
+ */
+function en(key, values = {}) {
+  const entry = APP_MESSAGES.en[key];
+  if (typeof entry === "function") return entry(values);
+  return String(entry ?? key).replace(/\{(\w+)\}/g, (whole, name) =>
+    values[name] === undefined ? whole : String(values[name]),
+  );
+}
+
+/**
+ * Which fetch feeds each rung, so an unknown answer can name what failed.
+ *
+ * Keys rather than English since the portal was translated: the sentence
+ * "your conversations didn't load" is assembled from two catalogue entries and
+ * BOTH have to move when the rep reads French, or the screen ships the
+ * half-translated sentence this whole change exists to remove.
+ */
 export const RUNG_SOURCES = {
-  replies: "your conversations",
-  call: "your queue",
-  claim: "your queue",
-  write: "your leads",
+  replies: "app.salesToday.sourceReplies",
+  call: "app.salesToday.sourceQueue",
+  claim: "app.salesToday.sourceQueue",
+  write: "app.salesToday.sourceLeads",
 };
 
 /**
@@ -50,40 +91,45 @@ export const RUNG_SOURCES = {
  * independently of the wording — reordering these two lines is a behaviour
  * change and it should read like one.
  */
+// The singular/plural switch that used to live in each `headline` below is
+// gone on purpose, not lost. "n === 1 ? one : other" is an ENGLISH rule, and it
+// is wrong in four of the nine languages this portal ships in — French makes 0
+// singular, Ukrainian has three forms by the last digits, Mandarin has one.
+// The catalogue entries these keys name are countedNoun-shaped functions asking
+// Intl.PluralRules for the category, so each language declines by its own rule.
+// See lib/i18n/plurals.js.
 const LADDER = [
   {
     code: "replies",
     field: "repliesWaiting",
     href: "/sales/threads",
-    cta: "Open conversations",
-    headline: (n) => `${n} ${n === 1 ? "prospect has" : "prospects have"} written back`,
-    detail: () =>
-      "A reply is the only thing on this screen where somebody is already waiting on you.",
+    ctaKey: "app.salesToday.ladderRepliesCta",
+    headlineKey: "app.salesToday.ladderRepliesHeadline",
+    detailKey: "app.salesToday.ladderRepliesDetail",
   },
   {
     code: "call",
     field: "prospectsToCall",
     href: "/sales/queue",
-    cta: "Open the queue",
-    headline: (n) => `${n} claimed ${n === 1 ? "prospect" : "prospects"} you have not called yet`,
-    detail: () =>
-      "A claim stops every other rep phoning them. Working it is what makes holding it fair.",
+    ctaKey: "app.salesToday.ladderCallCta",
+    headlineKey: "app.salesToday.ladderCallHeadline",
+    detailKey: "app.salesToday.ladderCallDetail",
   },
   {
     code: "claim",
     field: "freeToClaim",
     href: "/sales/queue",
-    cta: "Claim the next one",
-    headline: (n) => `${n} researched ${n === 1 ? "contractor is" : "contractors are"} free to claim`,
-    detail: () => "Pick one trade and stay on it — the script gets better by repetition.",
+    ctaKey: "app.salesToday.ladderClaimCta",
+    headlineKey: "app.salesToday.ladderClaimHeadline",
+    detailKey: "app.salesToday.ladderClaimDetail",
   },
   {
     code: "write",
     field: "newLeads",
     href: "/sales/leads",
-    cta: "Open my leads",
-    headline: (n) => `${n} ${n === 1 ? "lead" : "leads"} you added and have not contacted`,
-    detail: () => "Yours, typed in by you. Nothing else is going to pick them up.",
+    ctaKey: "app.salesToday.ladderWriteCta",
+    headlineKey: "app.salesToday.ladderWriteHeadline",
+    detailKey: "app.salesToday.ladderWriteDetail",
   },
 ];
 
@@ -91,9 +137,38 @@ const LADDER = [
 export const LADDER_ORDER = LADDER.map((rung) => rung.code);
 
 /**
+ * One answer, in both renderings.
+ *
+ * `sourceKey` is separate from `values` because the sentence it goes into has
+ * to be assembled in ONE language: the screen passes `t(sourceKey)` into
+ * `t(detailKey)`, so a French rep reads "vos conversations n'ont pas chargé"
+ * rather than a French frame around an English fragment. That half-and-half
+ * sentence is the shape AGENTS.md records under "the payroll intro was not a
+ * missing translation".
+ */
+function answer({ code, blockedBy, href, headlineKey, detailKey, ctaKey, values, sourceKey }) {
+  const forEnglish = { ...values, ...(sourceKey ? { source: en(sourceKey) } : {}) };
+  return {
+    code,
+    blockedBy,
+    href,
+    headlineKey,
+    detailKey,
+    ctaKey,
+    sourceKey: sourceKey ?? null,
+    values: values ?? {},
+    headline: en(headlineKey, forEnglish),
+    detail: en(detailKey, forEnglish),
+    cta: ctaKey ? en(ctaKey) : null,
+  };
+}
+
+/**
  * @param {object} counts every value is `number | null`; null means unknown.
  * @returns {{code: string, headline: string, detail: string, href: string|null,
- *            cta: string|null, blockedBy: string|null}}
+ *            cta: string|null, blockedBy: string|null, headlineKey: string,
+ *            detailKey: string, ctaKey: string|null, sourceKey: string|null,
+ *            values: object}}
  */
 export function nextAction(counts = {}) {
   for (const rung of LADDER) {
@@ -101,47 +176,49 @@ export function nextAction(counts = {}) {
     // Undefined is treated exactly as null. A caller that forgot to pass a
     // field must not get a confident answer computed from the rungs below it.
     if (raw === null || raw === undefined) {
-      return {
+      return answer({
         code: "unknown",
         blockedBy: rung.code,
-        headline: "We can’t tell you what’s next",
-        detail: `${RUNG_SOURCES[rung.code]} didn’t load, and everything below it in the list could be outranked by what’s in there. Retry the card that failed.`,
         href: null,
-        cta: null,
-      };
+        headlineKey: "app.salesToday.unknownHeadline",
+        detailKey: "app.salesToday.unknownDetailLoad",
+        ctaKey: null,
+        sourceKey: RUNG_SOURCES[rung.code],
+      });
     }
     // A non-finite or negative count is a broken payload, not a zero.
     if (typeof raw !== "number" || !Number.isFinite(raw)) {
-      return {
+      return answer({
         code: "unknown",
         blockedBy: rung.code,
-        headline: "We can’t tell you what’s next",
-        detail: `${RUNG_SOURCES[rung.code]} came back in a shape we don’t recognise, so nothing below it can be trusted either.`,
         href: null,
-        cta: null,
-      };
+        headlineKey: "app.salesToday.unknownHeadline",
+        detailKey: "app.salesToday.unknownDetailShape",
+        ctaKey: null,
+        sourceKey: RUNG_SOURCES[rung.code],
+      });
     }
     if (raw > 0) {
-      return {
+      return answer({
         code: rung.code,
         blockedBy: null,
-        headline: rung.headline(raw),
-        detail: rung.detail(raw),
         href: rung.href,
-        cta: rung.cta,
-      };
+        headlineKey: rung.headlineKey,
+        detailKey: rung.detailKey,
+        ctaKey: rung.ctaKey,
+        values: { value: raw },
+      });
     }
   }
 
-  return {
+  return answer({
     code: "clear",
     blockedBy: null,
-    headline: "Nothing is waiting on you",
-    detail:
-      "No replies, no unworked claims, nothing free in the pool and no untouched leads. That is a real answer, not an empty screen.",
     href: null,
-    cta: null,
-  };
+    headlineKey: "app.salesToday.clearHeadline",
+    detailKey: "app.salesToday.clearDetail",
+    ctaKey: null,
+  });
 }
 
 /**
@@ -157,7 +234,7 @@ export function nextAction(counts = {}) {
  */
 export function repliesWaiting(threads) {
   if (!Array.isArray(threads)) return null;
-  return threads.filter((t) => t?.messages?.[0]?.direction === "in").length;
+  return threads.filter((thread) => thread?.messages?.[0]?.direction === "in").length;
 }
 
 /**
@@ -188,7 +265,7 @@ export function queueSummary(data) {
     lapsingSoon: items ? lapsingWithin(items, LAPSE_WARNING_HOURS) : null,
     freeToClaim: trades
       ? trades.reduce(
-          (sum, t) => (sum === null || !Number.isFinite(t?.available) ? null : sum + t.available),
+          (sum, trade) => (sum === null || !Number.isFinite(trade?.available) ? null : sum + trade.available),
           0,
         )
       : null,

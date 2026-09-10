@@ -15,12 +15,17 @@
 // rows, 44px targets, and "New note" is the first thing under the thumb rather
 // than a toolbar button in a corner.
 //
-// ══ English, deliberately ══════════════════════════════════════════════════
+// ══ Translated, like the rest of the portal ════════════════════════════════
 //
-// docs/sales-intel/STATUS.md records that the outreach screens are English-only
-// while the portal shell is translated. These sit beside them, and a translated
-// notes screen next to an English leads screen is a worse inconsistency than an
-// English one. The tab that reaches it is English for the same reason.
+// This screen used to be English on purpose: docs/sales-intel/STATUS.md
+// recorded that the outreach screens were English-only while the shell was
+// translated, and one translated screen beside eight English ones is a worse
+// inconsistency than an even one. That argument expired when the whole /sales
+// surface was keyed — the even state is now the translated one, so the
+// exception went with it.
+//
+// What is still English is what this screen does not write: a server-composed
+// error, and a note's own text. Neither is copy.
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -29,10 +34,52 @@ import { useRouter } from "next/navigation";
 import { Loader2, Plus, NotebookPen, Archive } from "lucide-react";
 import { displayTitle } from "@/lib/sales/notes/body";
 import { describeParent } from "@/lib/sales/notes/parents";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import RepNoteVisibilityNotice from "@/app/components/sales/RepNoteVisibilityNotice";
 import RepNoteUnavailable from "@/app/components/sales/RepNoteUnavailable";
 
+/**
+ * One key per parent kind, spelled out rather than built from the kind string.
+ *
+ * check-translations.mjs reads source text and cannot see a key assembled at
+ * runtime, so a computed one would render as its own name the day somebody
+ * mistyped it. Same reason app/sales/companies/page.js writes its milestone
+ * keys out longhand.
+ */
+const PARENT_KIND_KEYS = {
+  lead: "app.salesNotes.parentKindLead",
+  thread: "app.salesNotes.parentKindThread",
+  prospect: "app.salesNotes.parentKindProspect",
+};
+
+/**
+ * describeParent() composes its own English sentence; this rebuilds it from
+ * the same fields (state, kind, label) so the rep reads it in their language.
+ * The LABEL is never translated — it is the prospect's name, frozen at attach
+ * time, and it is data.
+ *
+ * Not exported, and copied in app/sales/notes/[id]/page.js rather than shared:
+ * a page module is not an importable home for a helper, and the home this
+ * belongs in is lib/sales/notes/parents.js — where describeParent would take
+ * `t` instead of composing English. That is one file outside this change; the
+ * two copies must move together until it happens.
+ */
+function parentSentence(t, parent) {
+  if (!parent) return "";
+  if (parent.state === "attached") {
+    const kind = t(PARENT_KIND_KEYS[parent.kind] || PARENT_KIND_KEYS.lead);
+    return parent.label
+      ? t("app.salesNotes.parentNamed", { kind, label: parent.label })
+      : t("app.salesNotes.parentUnnamed", { kind });
+  }
+  if (parent.state === "orphaned") {
+    return t("app.salesNotes.parentGone", { label: parent.label });
+  }
+  return t("app.salesNotes.parentNone");
+}
+
 export default function SalesNotesPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -47,7 +94,7 @@ export default function SalesNotesPage() {
     try {
       res = await fetch(`/api/sales/notes?archived=${showArchived ? "1" : "0"}`);
     } catch {
-      setError("Couldn't reach the server. Check your connection and try again.");
+      setError(t("app.salesNotes.serverUnreachable"));
       setData(null);
       return;
     }
@@ -61,12 +108,14 @@ export default function SalesNotesPage() {
       return;
     }
     if (!res.ok) {
-      setError(payload?.error || `Couldn't load your notes (${res.status}).`);
+      setError(payload?.error || t("app.salesNotes.notesLoadFailed", { status: res.status }));
       setData(null);
       return;
     }
     setData(payload);
-  }, [showArchived]);
+    // `t` changes only when the rep changes language, so it does not re-fetch
+    // on every render — but it is read in here, so it is declared.
+  }, [showArchived, t]);
 
   useEffect(() => {
     load();
@@ -87,13 +136,13 @@ export default function SalesNotesPage() {
       });
     } catch {
       setCreating(false);
-      setError("Couldn't reach the server. Check your connection and try again.");
+      setError(t("app.salesNotes.serverUnreachable"));
       return;
     }
     const payload = await res.json().catch(() => null);
     setCreating(false);
     if (!res.ok) {
-      setError(payload?.error || `Couldn't start a note (${res.status}).`);
+      setError(payload?.error || t("app.salesNotes.noteCreateFailed", { status: res.status }));
       return;
     }
     router.push(`/sales/notes/${payload.note.id}`);
@@ -108,7 +157,7 @@ export default function SalesNotesPage() {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <NotebookPen size={18} className="text-muted-foreground shrink-0" />
-        <h1 className="text-lg font-semibold text-foreground">My notes</h1>
+        <h1 className="text-lg font-semibold text-foreground">{t("app.salesNotes.notesHeading")}</h1>
       </div>
 
       <RepNoteVisibilityNotice />
@@ -131,7 +180,7 @@ export default function SalesNotesPage() {
             className="min-h-[44px] px-4 inline-flex items-center justify-center gap-2 rounded-md bg-foreground text-background text-sm font-medium disabled:opacity-60"
           >
             {creating ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-            New note
+            {t("app.salesNotes.newNote")}
           </button>
 
           {/* Rendered only when there is something behind it. A filter that
@@ -144,39 +193,52 @@ export default function SalesNotesPage() {
               className="min-h-[44px] px-4 inline-flex items-center justify-center gap-2 rounded-md border border-border text-sm font-medium text-foreground"
             >
               <Archive size={16} />
-              {showArchived ? "Show current" : `Archived (${data.archivedCount})`}
+              {showArchived
+                ? t("app.salesNotes.showCurrent")
+                : t("app.salesNotes.showArchived", { count: data.archivedCount })}
             </button>
           )}
         </div>
       )}
 
       {!unavailable && !error && !data && (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <p className="text-sm text-muted-foreground">{t("app.salesNotes.loading")}</p>
       )}
 
       {data?.notes?.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          {showArchived ? "Nothing archived." : "No notes yet. Start one before the next call."}
+          {showArchived
+            ? t("app.salesNotes.nothingArchived")
+            : t("app.salesNotes.notesEmpty")}
         </p>
       )}
 
       <ul className="space-y-2">
         {(data?.notes || []).map((note) => {
           const parent = describeParent(note);
+          // displayTitle() answers with the rep's OWN words, except in the one
+          // case where there are none — no title and no body — where its
+          // answer is copy rather than data. That case, and only that case, is
+          // keyed: a title a rep typed is never translated.
+          const untitled = !(note.title || "").trim() && !(note.body || "").trim();
           return (
             <li key={note.id}>
               <Link
                 href={`/sales/notes/${note.id}`}
                 className="block rounded-lg border border-border bg-card p-3 sm:p-4"
               >
-                <p className="font-medium text-foreground break-words">{displayTitle(note)}</p>
+                <p className="font-medium text-foreground break-words">
+                  {untitled ? t("app.salesNotes.untitledNote") : displayTitle(note)}
+                </p>
                 <p className="mt-1 text-sm text-muted-foreground break-words">
                   {/* The preview, not the note. The list carries 200
                       characters — see LIST_BODY_PREVIEW. */}
-                  {note.body ? `${note.body.split("\n")[0].slice(0, 120)}${note.bodyTruncated ? "…" : ""}` : "Empty"}
+                  {note.body
+                    ? `${note.body.split("\n")[0].slice(0, 120)}${note.bodyTruncated ? "…" : ""}`
+                    : t("app.salesNotes.noteBodyEmpty")}
                 </p>
                 <p className="mt-2 text-xs text-muted-foreground break-words">
-                  {parent.text} · {new Date(note.updatedAt).toLocaleString()}
+                  {parentSentence(t, parent)} · {new Date(note.updatedAt).toLocaleString()}
                 </p>
               </Link>
             </li>

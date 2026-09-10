@@ -39,26 +39,34 @@
 import { useState } from "react";
 import { AlertTriangle, Check, Loader2, Phone, PhoneOff, Plus, Star } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
 const FIELD =
   "w-full border border-border rounded-lg px-3 py-2.5 min-h-[44px] text-base bg-card text-foreground disabled:opacity-60";
 
-const KIND_LABEL = {
-  mobile: "Mobile",
-  landline: "Landline",
-  unknown: "Nobody has said",
-};
+// The two lookups below were plain objects keyed by the stored value. They are
+// spelled out as branches now that the text is translated, because a key built
+// by pasting the stored value onto a prefix is invisible to the translation
+// scan — a label that renders as its own key is the failure that scan exists
+// for. Both still return null for a value nobody has taught them, so the caller
+// keeps its own fallback.
+function kindLabel(t, kind) {
+  if (kind === "mobile") return t("app.salesDial.kindMobile");
+  if (kind === "landline") return t("app.salesDial.kindLandline");
+  if (kind === "unknown") return t("app.salesDial.kindUnknown");
+  return null;
+}
 
 /** The refusal codes, in the rep's own words. Mirrors sayRefusal() server-side. */
-const WHY = {
-  landline_cannot_receive_text:
-    "Recorded as a landline. A text to a landline is accepted by the carrier and delivered to nobody — there is no bounce, so nothing would tell you it failed.",
-  one_of_ours: "That is one of FieldQuo's own numbers, so there is nothing to reach.",
-  not_a_number: "Not a number we can use. Add it again in full, with the country code.",
-  not_callable: "Somebody recorded that this one must not be called.",
-};
+function refusalReason(t, why) {
+  if (why === "landline_cannot_receive_text") return t("app.salesDial.whyLandlineNoText");
+  if (why === "one_of_ours") return t("app.salesDial.whyOneOfOurs");
+  if (why === "not_a_number") return t("app.salesDial.whyNotANumber");
+  if (why === "not_callable") return t("app.salesDial.whyNotCallable");
+  return null;
+}
 
 /**
  * The number picker and the "they gave us another one" form.
@@ -86,6 +94,7 @@ export default function ContactNumbers({
   onChanged,
   disabled = false,
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -124,8 +133,8 @@ export default function ContactNumbers({
       });
       setSaved(
         body?.updated
-          ? "We already had that number — what you said about it is now on the record."
-          : "Recorded. It is on the list below.",
+          ? t("app.salesDial.numberAlreadyKnown")
+          : t("app.salesDial.numberRecorded"),
       );
       setE164("");
       setLabel("");
@@ -137,7 +146,7 @@ export default function ContactNumbers({
       // Never silent. fetchJson throws with the server's own sentence, which
       // for this route names the reason — a number that will not normalise, a
       // business that asked us to stop, a table that is not there yet.
-      setError(err?.message || "That number could not be recorded.");
+      setError(err?.message || t("app.salesDial.numberNotRecorded"));
     } finally {
       setBusy(false);
     }
@@ -146,9 +155,13 @@ export default function ContactNumbers({
   return (
     <div className="space-y-3">
       <div className="flex items-baseline justify-between gap-2">
-        <h3 className="text-sm font-semibold text-foreground">Which number?</h3>
+        <h3 className="text-sm font-semibold text-foreground">
+          {t("app.salesDial.whichNumber")}
+        </h3>
         {choices.length > 1 ? (
-          <span className="text-xs text-muted-foreground">{choices.length} to choose from</span>
+          <span className="text-xs text-muted-foreground">
+            {t("app.salesDial.numbersToChooseFrom", { count: choices.length })}
+          </span>
         ) : null}
       </div>
 
@@ -193,7 +206,7 @@ export default function ContactNumbers({
                       <span className="tabular-nums">{c.e164}</span>
                     </span>
                     <span className="block text-xs text-muted-foreground break-words">
-                      {[c.label, KIND_LABEL[c.kind] || c.kind].filter(Boolean).join(" · ")}
+                      {[c.label, kindLabel(t, c.kind) || c.kind].filter(Boolean).join(" · ")}
                     </span>
                     {c.doubt ? (
                       <span className="block text-xs text-amber-800 dark:text-amber-300 break-words">
@@ -203,9 +216,9 @@ export default function ContactNumbers({
                     {/* Whether this one can also be texted, said here rather
                         than discovered on the texting screen. */}
                     <span className="block text-xs text-muted-foreground">
-                      {(text.choices || []).some((t) => t.e164 === c.e164)
-                        ? "Can be texted too."
-                        : "Calls only — a text to this one would not arrive."}
+                      {(text.choices || []).some((textable) => textable.e164 === c.e164)
+                        ? t("app.salesDial.canBeTextedToo")
+                        : t("app.salesDial.callsOnlyNoText")}
                     </span>
                   </span>
                 </label>
@@ -215,8 +228,7 @@ export default function ContactNumbers({
         </ul>
       ) : (
         <p className="text-sm text-muted-foreground break-words">
-          No number on this record can be rung. Add the one they gave you and the call button
-          appears.
+          {t("app.salesDial.noRingableNumber")}
         </p>
       )}
 
@@ -231,9 +243,13 @@ export default function ContactNumbers({
               <span className="flex items-start gap-2">
                 <PhoneOff size={14} className="mt-0.5 shrink-0" />
                 <span className="min-w-0 break-words">
-                  <span className="font-semibold tabular-nums">{r.e164 || r.label || "That entry"}</span>
+                  <span className="font-semibold tabular-nums">
+                    {r.e164 || r.label || t("app.salesDial.thatEntry")}
+                  </span>
                   {r.label && r.e164 ? ` — ${r.label}` : ""}
-                  <span className="block">{WHY[r.why] || "Not offered for calls."}</span>
+                  <span className="block">
+                    {refusalReason(t, r.why) || t("app.salesDial.whyNotOffered")}
+                  </span>
                 </span>
               </span>
             </li>
@@ -244,12 +260,12 @@ export default function ContactNumbers({
       {/* ── They gave us another one ──────────────────────────────────────── */}
       {disabled ? (
         <p className="text-xs text-muted-foreground break-words">
-          This business asked us to stop, so no further numbers are recorded for them.
+          {t("app.salesDial.doNotContactNoNumbers")}
         </p>
       ) : open ? (
         <form onSubmit={add} className="space-y-2 rounded-lg border border-border bg-card p-3">
           <label className="block text-sm">
-            <span className="text-foreground">The number they gave you</span>
+            <span className="text-foreground">{t("app.salesDial.fieldNumber")}</span>
             <input
               type="tel"
               inputMode="tel"
@@ -261,40 +277,39 @@ export default function ContactNumbers({
             />
           </label>
           <label className="block text-sm">
-            <span className="text-foreground">What kind of line is it?</span>
+            <span className="text-foreground">{t("app.salesDial.fieldKind")}</span>
             <select className={FIELD} value={kind} onChange={(ev) => setKind(ev.target.value)}>
-              <option value="unknown">They didn&rsquo;t say</option>
-              <option value="mobile">A mobile</option>
-              <option value="landline">A landline</option>
+              <option value="unknown">{t("app.salesDial.optionTheyDidntSay")}</option>
+              <option value="mobile">{t("app.salesDial.optionAMobile")}</option>
+              <option value="landline">{t("app.salesDial.optionALandline")}</option>
             </select>
           </label>
           <label className="block text-sm">
-            <span className="text-foreground">What would you call it?</span>
+            <span className="text-foreground">{t("app.salesDial.fieldLabel")}</span>
             <input
               type="text"
               className={FIELD}
               value={label}
               onChange={(ev) => setLabel(ev.target.value)}
-              placeholder="Owner&rsquo;s cell"
+              placeholder={t("app.salesDial.fieldLabelPlaceholder")}
             />
           </label>
           <label className="block text-sm">
-            <span className="text-foreground">Did they say what to use it for?</span>
+            <span className="text-foreground">{t("app.salesDial.fieldSaid")}</span>
             <select className={FIELD} value={said} onChange={(ev) => setSaid(ev.target.value)}>
-              <option value="">They didn&rsquo;t say</option>
-              <option value="call">Call this one</option>
-              <option value="text">Text this one</option>
-              <option value="both">Call or text it</option>
+              <option value="">{t("app.salesDial.optionTheyDidntSay")}</option>
+              <option value="call">{t("app.salesDial.optionCallThisOne")}</option>
+              <option value="text">{t("app.salesDial.optionTextThisOne")}</option>
+              <option value="both">{t("app.salesDial.optionCallOrText")}</option>
             </select>
           </label>
           <p className="text-xs text-muted-foreground break-words">
-            What they told you beats what the line looks like. If they say a landline forwards to
-            their phone and to text it, say so here — no lookup knows that.
+            {t("app.salesDial.saidHint")}
           </p>
           <div className="flex gap-2">
             <button type="submit" className={`${BTN} bg-primary text-primary-foreground flex-1`} disabled={busy}>
               {busy ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
-              Save the number
+              {t("app.salesDial.saveTheNumber")}
             </button>
             <button
               type="button"
@@ -302,7 +317,7 @@ export default function ContactNumbers({
               onClick={() => setOpen(false)}
               disabled={busy}
             >
-              Cancel
+              {t("app.salesDial.cancel")}
             </button>
           </div>
         </form>
@@ -315,7 +330,7 @@ export default function ContactNumbers({
             setSaved("");
           }}
         >
-          <Plus size={16} /> They gave us another number
+          <Plus size={16} /> {t("app.salesDial.theyGaveAnotherNumber")}
         </button>
       )}
 
@@ -323,15 +338,13 @@ export default function ContactNumbers({
           rep hunting for a control that deliberately does not exist. */}
       <p className="text-xs text-muted-foreground break-words">
         <Phone size={12} className="inline mr-1" />
-        Adding a number never replaces the one on their listing — that is what every past call,
-        text and opt-out is filed against. It goes on the list, and you pick which one rings.
+        {t("app.salesDial.listingNumberNotice")}
       </p>
 
       {(voice.refused || []).some((r) => r.why === "landline_cannot_receive_text") ? (
         <p className="text-xs text-amber-800 dark:text-amber-300 break-words">
           <AlertTriangle size={12} className="inline mr-1" />
-          One of these is a landline. It can be rung and it cannot be texted, and FieldQuo refuses
-          the text rather than reporting one that was never delivered.
+          {t("app.salesDial.landlineTextNotice")}
         </p>
       ) : null}
     </div>

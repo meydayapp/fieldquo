@@ -28,14 +28,25 @@
 // AGENTS.md, a field written and never read, sitting on the one artefact a rep
 // actually hands to a contractor. Both are on this screen now.
 //
-// ══ English, like the four screens beside it ═════════════════════════════
+// ══ Translated, and that reversed an earlier decision ════════════════════
 //
-// The shell and /sales/companies are translated; queue, leads, threads and
-// notes are not (docs/sales-intel/STATUS.md records the decision). This is a
-// working screen next to those four, so it follows them. The keys it would
-// need are listed in the report that shipped it, ready to add to
-// app/i18n/appMessages.js — that catalogue is gated on English and French
-// only, so translating this surface is a smaller job than it looks.
+// This header used to say the screen was English "like the four screens beside
+// it", and that was a defensible call at the time: the shell and
+// /sales/companies were translated and the working screens were not, so
+// following the neighbours kept the portal internally consistent. It stopped
+// being defensible the moment the owner opened the portal with a Spanish rep
+// account and read a tab bar half in Spanish and half in English. Half
+// translated is worse than untranslated — it reads as broken rather than as
+// unsupported — so the screens moved rather than the tabs.
+//
+// One sentence on this screen is composed OUTSIDE it, in app/sales/nextAction.js,
+// and that module returns keys as well as English precisely so this file can
+// resolve them in the rep's language. See its header for why both.
+//
+// The UTC day boundary that lib/sales/repStats.js asks the UI to state lives in
+// "app.salesToday.signupsToday" ("today (UTC)") and in the paragraph below it —
+// scripts/check-sales-portal-i18n.mjs asserts the catalogue still says it in
+// every language, because the phrase left this file when it became a key.
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -53,6 +64,7 @@ import {
   Users,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import {
   LAPSE_WARNING_HOURS,
   nextAction,
@@ -73,7 +85,7 @@ const BTN =
  * and did not get an answer". Kept as one hook so no card can accidentally
  * collapse the two into a falsy check and render an empty list for a failure.
  */
-function useEndpoint(url) {
+function useEndpoint(url, loadFailedMessage) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -87,11 +99,11 @@ function useEndpoint(url) {
       // The failed load REPLACES the data. Leaving a stale payload beside a
       // red banner is how a screen shows yesterday's number as today's.
       setData(null);
-      setError(err?.message || "That didn’t load.");
+      setError(err?.message || loadFailedMessage);
     } finally {
       setLoading(false);
     }
-  }, [url]);
+  }, [url, loadFailedMessage]);
 
   useEffect(() => {
     load();
@@ -101,14 +113,14 @@ function useEndpoint(url) {
 }
 
 /** A card that says what failed and offers the one control that can fix it. */
-function CardError({ message, onRetry }) {
+function CardError({ message, onRetry, retryLabel }) {
   return (
     <div className="flex items-start gap-2 text-sm">
       <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-600 dark:text-red-400" />
       <div className="min-w-0 space-y-2">
         <p className="text-foreground break-words">{message}</p>
         <button type="button" onClick={onRetry} className={`${BTN} border border-border text-foreground`}>
-          <RefreshCw size={15} /> Try again
+          <RefreshCw size={15} /> {retryLabel}
         </button>
       </div>
     </div>
@@ -118,14 +130,14 @@ function CardError({ message, onRetry }) {
 /**
  * A number, or the reason there isn't one. Never a zero standing in for either.
  */
-function Figure({ value, label, loading }) {
+function Figure({ value, label, loading, notLoadedLabel }) {
   return (
     <div className="min-w-0">
       <p className="text-2xl font-semibold text-foreground tabular-nums">
         {loading ? (
           <Loader2 size={18} className="animate-spin inline text-muted-foreground" />
         ) : value === null || value === undefined ? (
-          <span className="text-base font-medium text-muted-foreground">Not loaded</span>
+          <span className="text-base font-medium text-muted-foreground">{notLoadedLabel}</span>
         ) : (
           value
         )}
@@ -136,12 +148,20 @@ function Figure({ value, label, loading }) {
 }
 
 export default function SalesHomePage() {
-  const me = useEndpoint("/api/sales/me");
+  const { t } = useTranslation();
+  // Resolved once, here, rather than inside useEndpoint: the hook is called
+  // four times and the sentence is the same one every time, and passing it in
+  // keeps useEndpoint free of the LanguageProvider it would otherwise need.
+  const loadFailed = t("app.salesToday.loadFailed");
+  const notLoaded = t("app.salesToday.notLoaded");
+  const tryAgain = t("app.salesToday.tryAgain");
+
+  const me = useEndpoint("/api/sales/me", loadFailed);
   // No trade filter: the home screen wants the rep's whole book and the whole
   // pool, which is what this route returns when nothing is named.
-  const queue = useEndpoint("/api/sales/queue");
-  const leads = useEndpoint("/api/sales/leads");
-  const threads = useEndpoint("/api/sales/threads");
+  const queue = useEndpoint("/api/sales/queue", loadFailed);
+  const leads = useEndpoint("/api/sales/leads", loadFailed);
+  const threads = useEndpoint("/api/sales/threads", loadFailed);
 
   const [copied, setCopied] = useState(false);
 
@@ -155,6 +175,15 @@ export default function SalesHomePage() {
     freeToClaim: q.freeToClaim,
     newLeads: untouched,
   });
+
+  // The sentence at the top, assembled in ONE language. `sourceKey` is
+  // resolved here and handed in as a value so "your conversations didn't load"
+  // is a French sentence for a French rep rather than a French frame around an
+  // English fragment — see app/sales/nextAction.js.
+  const actionValues = {
+    ...action.values,
+    ...(action.sourceKey ? { source: t(action.sourceKey) } : {}),
+  };
 
   const stillLoading = me.loading || queue.loading || leads.loading || threads.loading;
   const signupLink = me.data?.signupLink || null;
@@ -182,10 +211,10 @@ export default function SalesHomePage() {
       <header className="space-y-1">
         {/* Not "Good morning" — this is read at 07:00 and at 20:00 and the
             portal has no idea which, so it says nothing it cannot know. */}
-        <h1 className="text-xl font-semibold text-foreground break-words">Your day</h1>
-        <p className="text-sm text-muted-foreground">
-          Everything below is yours alone. Nothing here is another rep&rsquo;s book.
-        </p>
+        <h1 className="text-xl font-semibold text-foreground break-words">
+          {t("app.salesToday.title")}
+        </h1>
+        <p className="text-sm text-muted-foreground">{t("app.salesToday.intro")}</p>
       </header>
 
       {/* ── The one sentence ────────────────────────────────────────────────
@@ -199,10 +228,12 @@ export default function SalesHomePage() {
             : "border-border bg-card"
         }`}
       >
-        <p className="text-xs uppercase tracking-wide text-muted-foreground">Next</p>
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">
+          {t("app.salesToday.nextLabel")}
+        </p>
         {stillLoading && action.code === "unknown" ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 size={16} className="animate-spin" /> Working out what&rsquo;s waiting on you…
+            <Loader2 size={16} className="animate-spin" /> {t("app.salesToday.working")}
           </p>
         ) : (
           <>
@@ -213,7 +244,7 @@ export default function SalesHomePage() {
                   : "text-foreground"
               }`}
             >
-              {action.headline}
+              {t(action.headlineKey, actionValues)}
             </p>
             <p
               className={`text-sm break-words ${
@@ -222,11 +253,11 @@ export default function SalesHomePage() {
                   : "text-muted-foreground"
               }`}
             >
-              {action.detail}
+              {t(action.detailKey, actionValues)}
             </p>
             {action.href && (
               <Link href={action.href} className={`${BTN} bg-primary text-primary-foreground w-full`}>
-                {action.cta} <ArrowRight size={16} />
+                {t(action.ctaKey)} <ArrowRight size={16} />
               </Link>
             )}
           </>
@@ -242,22 +273,30 @@ export default function SalesHomePage() {
       <section className={CARD}>
         <div className="flex items-center gap-2">
           <Mail size={16} className="text-muted-foreground shrink-0" />
-          <h2 className="text-base font-semibold text-foreground">Conversations</h2>
+          <h2 className="text-base font-semibold text-foreground">
+            {t("app.salesToday.conversations")}
+          </h2>
         </div>
         {threads.error ? (
-          <CardError message={threads.error} onRetry={threads.reload} />
+          <CardError message={threads.error} onRetry={threads.reload} retryLabel={tryAgain} />
         ) : (
           <>
             <div className="flex gap-6">
-              <Figure value={replies} label="waiting on your reply" loading={threads.loading} />
+              <Figure
+                value={replies}
+                label={t("app.salesToday.waitingOnReply")}
+                loading={threads.loading}
+                notLoadedLabel={notLoaded}
+              />
               <Figure
                 value={threads.data?.threads ? threads.data.threads.length : null}
-                label="open threads"
+                label={t("app.salesToday.openThreads")}
                 loading={threads.loading}
+                notLoadedLabel={notLoaded}
               />
             </div>
             <Link href="/sales/threads" className={`${BTN} border border-border text-foreground w-full`}>
-              Open conversations
+              {t("app.salesToday.ladderRepliesCta")}
             </Link>
           </>
         )}
@@ -267,27 +306,48 @@ export default function SalesHomePage() {
       <section className={CARD}>
         <div className="flex items-center gap-2">
           <Phone size={16} className="text-muted-foreground shrink-0" />
-          <h2 className="text-base font-semibold text-foreground">Your queue</h2>
+          <h2 className="text-base font-semibold text-foreground">
+            {t("app.salesToday.yourQueue")}
+          </h2>
         </div>
         {queue.error ? (
-          <CardError message={queue.error} onRetry={queue.reload} />
+          <CardError message={queue.error} onRetry={queue.reload} retryLabel={tryAgain} />
         ) : (
           <>
             <div className="flex gap-6">
-              <Figure value={q.toCall} label="claimed, not called yet" loading={queue.loading} />
-              <Figure value={q.freeToClaim} label="free to claim" loading={queue.loading} />
+              <Figure
+                value={q.toCall}
+                label={t("app.salesToday.claimedNotCalled")}
+                loading={queue.loading}
+                notLoadedLabel={notLoaded}
+              />
+              <Figure
+                value={q.freeToClaim}
+                label={t("app.salesToday.freeToClaim")}
+                loading={queue.loading}
+                notLoadedLabel={notLoaded}
+              />
             </div>
             {/* Rendered only when it is true. A permanently visible "0 lapse
                 soon" trains a rep to stop reading the line that matters. */}
             {q.lapsingSoon ? (
               <p className="flex items-start gap-2 text-sm text-amber-900 dark:text-amber-200 break-words">
                 <Clock size={15} className="mt-0.5 shrink-0" />
-                {q.lapsingSoon} {q.lapsingSoon === 1 ? "claim lapses" : "claims lapse"} within{" "}
-                {LAPSE_WARNING_HOURS} hours and go back in the pool.
+                {/* Reworded from "N claims lapse within 12 hours" so no verb has
+                    to agree with the count: "N claims going back in the pool
+                    within 12 hours" is grammatical for one and for many, in
+                    every language here, and the two counted nouns decline
+                    themselves through Intl.PluralRules. The old
+                    `n === 1 ? … : …` was the English plural rule wearing a
+                    ternary. */}
+                {t("app.salesToday.lapsingLine", {
+                  count: t("app.salesToday.lapsingCount", { value: q.lapsingSoon }),
+                  hours: t("app.duration.hours", { value: LAPSE_WARNING_HOURS }),
+                })}
               </p>
             ) : null}
             <Link href="/sales/queue" className={`${BTN} border border-border text-foreground w-full`}>
-              Open the queue
+              {t("app.salesToday.ladderCallCta")}
             </Link>
           </>
         )}
@@ -297,22 +357,30 @@ export default function SalesHomePage() {
       <section className={CARD}>
         <div className="flex items-center gap-2">
           <Users size={16} className="text-muted-foreground shrink-0" />
-          <h2 className="text-base font-semibold text-foreground">My leads</h2>
+          <h2 className="text-base font-semibold text-foreground">
+            {t("app.salesToday.myLeads")}
+          </h2>
         </div>
         {leads.error ? (
-          <CardError message={leads.error} onRetry={leads.reload} />
+          <CardError message={leads.error} onRetry={leads.reload} retryLabel={tryAgain} />
         ) : (
           <>
             <div className="flex gap-6">
-              <Figure value={untouched} label="added, not contacted" loading={leads.loading} />
+              <Figure
+                value={untouched}
+                label={t("app.salesToday.addedNotContacted")}
+                loading={leads.loading}
+                notLoadedLabel={notLoaded}
+              />
               <Figure
                 value={leads.data?.counts ? (leads.data.counts.contacted ?? 0) : null}
-                label="contacted"
+                label={t("app.salesToday.contacted")}
                 loading={leads.loading}
+                notLoadedLabel={notLoaded}
               />
             </div>
             <Link href="/sales/leads" className={`${BTN} border border-border text-foreground w-full`}>
-              Open my leads
+              {t("app.salesToday.ladderWriteCta")}
             </Link>
           </>
         )}
@@ -320,29 +388,41 @@ export default function SalesHomePage() {
 
       {/* ── The rep's own numbers ─────────────────────────────────────────── */}
       <section className={CARD}>
-        <h2 className="text-base font-semibold text-foreground">Signups you brought in</h2>
+        <h2 className="text-base font-semibold text-foreground">
+          {t("app.salesToday.signupsTitle")}
+        </h2>
         {me.error ? (
-          <CardError message={me.error} onRetry={me.reload} />
+          <CardError message={me.error} onRetry={me.reload} retryLabel={tryAgain} />
         ) : (
           <>
             <div className="flex flex-wrap gap-6">
-              <Figure value={me.data?.signups?.today ?? null} label="today (UTC)" loading={me.loading} />
+              <Figure
+                value={me.data?.signups?.today ?? null}
+                label={t("app.salesToday.signupsToday")}
+                loading={me.loading}
+                notLoadedLabel={notLoaded}
+              />
               <Figure
                 value={me.data?.signups?.thisWeek ?? null}
-                label="this week (UTC, from Monday)"
+                label={t("app.salesToday.signupsThisWeek")}
                 loading={me.loading}
+                notLoadedLabel={notLoaded}
               />
-              <Figure value={me.data?.signups?.total ?? null} label="all time" loading={me.loading} />
+              <Figure
+                value={me.data?.signups?.total ?? null}
+                label={t("app.salesToday.signupsAllTime")}
+                loading={me.loading}
+                notLoadedLabel={notLoaded}
+              />
             </div>
             <p className="text-xs text-muted-foreground break-words">
               {/* lib/sales/repStats.js fixes the day boundary at UTC on purpose,
                   and its own comment asks the UI to say so rather than let a rep
                   read it as their local midnight. */}
-              Counted in UTC so every rep and the office agree on what &ldquo;today&rdquo; means — your
-              local evening may already be tomorrow here.
+              {t("app.salesToday.utcNote")}
             </p>
             <Link href="/sales/companies" className={`${BTN} border border-border text-foreground w-full`}>
-              What happened to them
+              {t("app.salesToday.whatHappened")}
             </Link>
           </>
         )}
@@ -350,18 +430,19 @@ export default function SalesHomePage() {
 
       {/* ── The signup link ───────────────────────────────────────────────── */}
       <section className={CARD}>
-        <h2 className="text-base font-semibold text-foreground">Your signup link</h2>
+        <h2 className="text-base font-semibold text-foreground">
+          {t("app.salesToday.signupLinkTitle")}
+        </h2>
         {me.error ? (
-          <CardError message={me.error} onRetry={me.reload} />
+          <CardError message={me.error} onRetry={me.reload} retryLabel={tryAgain} />
         ) : me.loading ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 size={16} className="animate-spin" /> Loading…
+            <Loader2 size={16} className="animate-spin" /> {t("app.salesToday.loading")}
           </p>
         ) : signupLink ? (
           <>
             <p className="text-sm text-muted-foreground break-words">
-              A company that signs up through this is attributed to you at signup. Nothing else
-              claims a company — there is no form anywhere that lets a rep assert one.
+              {t("app.salesToday.signupLinkIntro")}
             </p>
             {/* readOnly, not disabled: a disabled input cannot be selected, and
                 selecting the text is the fallback when there is no clipboard. */}
@@ -369,19 +450,25 @@ export default function SalesHomePage() {
               readOnly
               value={signupLink}
               onFocus={(e) => e.target.select()}
-              aria-label="Your signup link"
+              aria-label={t("app.salesToday.signupLinkTitle")}
               className="w-full border border-border rounded-lg px-3 py-2.5 min-h-[44px] text-base bg-muted text-foreground"
             />
             {canCopy && (
               <button type="button" onClick={copyLink} className={`${BTN} border border-border text-foreground w-full`}>
                 {copied ? <CheckCircle2 size={16} /> : <ClipboardCopy size={16} />}
-                {copied ? "Copied" : "Copy the link"}
+                {copied ? t("app.salesToday.copied") : t("app.salesToday.copyLink")}
               </button>
             )}
+            {/* One key with the code interpolated, rather than a sentence split
+                around a <span>: where the code falls in the sentence differs by
+                language, and handing a translator markup to reassemble is how a
+                sentence ends up half in one language. The monospace face on the
+                code went with the split — a rep code is one short token and
+                reads correctly in the body face, which is a cheaper loss than a
+                broken sentence in eight languages. */}
             {me.data?.code && (
               <p className="text-xs text-muted-foreground break-words">
-                Your code is <span className="font-mono">{me.data.code}</span>. It is fixed — a
-                changed code would quietly stop crediting the links already printed on a card.
+                {t("app.salesToday.repCode", { code: me.data.code })}
               </p>
             )}
           </>
@@ -389,8 +476,7 @@ export default function SalesHomePage() {
           // signupLinkFor() returns null when it has no origin or no code, and
           // a half-built URL handed to a contractor is worse than none.
           <p className="text-sm text-muted-foreground break-words">
-            No signup link could be built for your account. Ask a superadmin to check your rep code
-            on the Reps screen — nothing is shown here rather than a link that would not attribute.
+            {t("app.salesToday.noSignupLink")}
           </p>
         )}
       </section>

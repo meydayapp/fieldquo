@@ -48,21 +48,52 @@ import { useEffect, useState } from "react";
 import { Check, Loader2, UserPen } from "lucide-react";
 import Link from "next/link";
 import { fetchJson } from "@/lib/fetchJson";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
 const FIELD =
   "w-full border border-border rounded-lg px-3 py-2.5 min-h-[44px] text-base bg-card text-foreground disabled:opacity-60";
 
+// The left-hand value is the SalesLead.status the PATCH route stores and
+// compares — it is an enum, not a word, and it never changes with the rep's
+// language. Only the right-hand key moves.
 const STATUSES = [
-  ["new", "Not spoken to yet"],
-  ["contacted", "Spoken to"],
-  ["demoed", "Demoed"],
-  ["signed", "Signed up"],
-  ["lost", "Lost"],
+  ["new", "app.salesQueue.leadStatusNew"],
+  ["contacted", "app.salesQueue.leadStatusContacted"],
+  ["demoed", "app.salesQueue.leadStatusDemoed"],
+  ["signed", "app.salesQueue.leadStatusSigned"],
+  ["lost", "app.salesQueue.leadStatusLost"],
 ];
 
+/**
+ * The one sentence here that points somewhere else keeps its link.
+ *
+ * The linked words are not the same words in every language and are rarely in
+ * the same position, so the marker travels inside the translated sentence and
+ * is unwrapped at render. Splicing a <Link> between two half-sentences would
+ * force every translator into English word order.
+ */
+function withLink(text, href) {
+  return String(text)
+    .split(/(\*\*[^*]+\*\*)/g)
+    .filter((part) => part !== "")
+    .map((part, i) =>
+      // The same shape the split captured, not `startsWith`: a bare "**"
+      // passes a loose test at both ends and would become an empty link,
+      // silently deleting two characters of the sentence.
+      /^\*\*[^*]+\*\*$/.test(part) ? (
+        <Link key={i} href={href} className="underline">
+          {part.slice(2, -2)}
+        </Link>
+      ) : (
+        part
+      ),
+    );
+}
+
 export default function QueueLeadEditor({ prospectId, businessName, lead = null, onChanged }) {
+  const { t } = useTranslation();
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -99,7 +130,7 @@ export default function QueueLeadEditor({ prospectId, businessName, lead = null,
       });
       onChanged?.();
     } catch (err) {
-      setError(err?.message || "That prospect could not be carried across.");
+      setError(err?.message || t("app.salesQueue.leadCarryFailed"));
     } finally {
       setBusy("");
     }
@@ -123,7 +154,7 @@ export default function QueueLeadEditor({ prospectId, businessName, lead = null,
       setSaved(true);
       onChanged?.();
     } catch (err) {
-      setError(err?.message || "That could not be saved.");
+      setError(err?.message || t("app.salesQueue.leadSaveFailed"));
     } finally {
       setBusy("");
     }
@@ -133,7 +164,7 @@ export default function QueueLeadEditor({ prospectId, businessName, lead = null,
     <div className="space-y-3">
       <h3 className="text-sm font-semibold text-foreground">
         <UserPen size={15} className="inline mr-1" />
-        What you learned on the call
+        {t("app.salesQueue.leadEditorTitle")}
       </h3>
 
       {error ? (
@@ -145,8 +176,7 @@ export default function QueueLeadEditor({ prospectId, businessName, lead = null,
       {!lead ? (
         <>
           <p className="text-sm text-muted-foreground break-words">
-            {businessName} is not in your pipeline yet, so there is nowhere to put a contact name
-            or an address. Carrying them across makes the lead — it does not email anybody.
+            {t("app.salesQueue.leadNotInPipeline", { business: businessName })}
           </p>
           <button
             type="button"
@@ -155,23 +185,23 @@ export default function QueueLeadEditor({ prospectId, businessName, lead = null,
             onClick={carryAcross}
           >
             {busy === "create" ? <Loader2 className="animate-spin" size={16} /> : null}
-            Start a lead for {businessName}
+            {t("app.salesQueue.leadStartFor", { business: businessName })}
           </button>
         </>
       ) : (
         <form onSubmit={save} className="space-y-2">
           <label className="block text-sm">
-            <span className="text-foreground">Who did you speak to?</span>
+            <span className="text-foreground">{t("app.salesQueue.leadWhoSpokeTo")}</span>
             <input
               type="text"
               className={FIELD}
               value={form.contactName}
               onChange={(e) => setForm((f) => ({ ...f, contactName: e.target.value }))}
-              placeholder="Dave, the owner"
+              placeholder={t("app.salesQueue.leadContactPlaceholder")}
             />
           </label>
           <label className="block text-sm">
-            <span className="text-foreground">Their email</span>
+            <span className="text-foreground">{t("app.salesQueue.leadEmailLabel")}</span>
             <input
               type="email"
               className={FIELD}
@@ -180,7 +210,7 @@ export default function QueueLeadEditor({ prospectId, businessName, lead = null,
             />
           </label>
           <label className="block text-sm">
-            <span className="text-foreground">The number on their lead</span>
+            <span className="text-foreground">{t("app.salesQueue.leadPhoneLabel")}</span>
             <input
               type="tel"
               inputMode="tel"
@@ -191,21 +221,25 @@ export default function QueueLeadEditor({ prospectId, businessName, lead = null,
             {/* Said plainly, because the two boxes look alike and do different
                 things. This one replaces the number on the LEAD; the picker
                 above adds a second number without touching the first. */}
+            {/* The control it names is quoted from that control's OWN key, not
+                retyped here: a sentence that points at a button by name goes
+                wrong the moment the button is reworded in one language only. */}
             <span className="mt-1 block text-xs text-muted-foreground break-words">
-              This is the main number on your lead. A number somebody gave you as well as this one
-              goes in “They gave us another number” above, where it can be picked for a call.
+              {t("app.salesQueue.leadPhoneHelp", {
+                control: t("app.salesDial.theyGaveAnotherNumber"),
+              })}
             </span>
           </label>
           <label className="block text-sm">
-            <span className="text-foreground">Where are they now?</span>
+            <span className="text-foreground">{t("app.salesQueue.leadStageLabel")}</span>
             <select
               className={FIELD}
               value={form.status}
               onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
             >
-              {STATUSES.map(([value, text]) => (
+              {STATUSES.map(([value, labelKey]) => (
                 <option key={value} value={value}>
-                  {text}
+                  {t(labelKey)}
                 </option>
               ))}
             </select>
@@ -218,10 +252,12 @@ export default function QueueLeadEditor({ prospectId, businessName, lead = null,
               disabled={Boolean(busy)}
             >
               {busy === "save" ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
-              Save what you learned
+              {t("app.salesQueue.leadSaveButton")}
             </button>
             {saved ? (
-              <span className="text-xs text-emerald-700 dark:text-emerald-300">Saved.</span>
+              <span className="text-xs text-emerald-700 dark:text-emerald-300">
+                {t("app.salesQueue.leadSavedFlash")}
+              </span>
             ) : null}
           </div>
 
@@ -229,11 +265,10 @@ export default function QueueLeadEditor({ prospectId, businessName, lead = null,
               lead screen. State and time zone decide which calling statute
               applies, and they are edited beside the window that reports it. */}
           <p className="text-xs text-muted-foreground break-words">
-            Which state or province they are in, and their time zone, are edited on{" "}
-            <Link href={`/sales/leads/${lead.id}`} className="underline">
-              their lead
-            </Link>
-            , next to the calling window those two answers decide.
+            {withLink(
+              t("app.salesQueue.leadJurisdictionNote"),
+              `/sales/leads/${lead.id}`,
+            )}
           </p>
         </form>
       )}
