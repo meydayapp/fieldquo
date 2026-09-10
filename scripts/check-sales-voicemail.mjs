@@ -88,6 +88,12 @@ section("1. Whose message is it");
     !ownsVoicemail({ ...attributed, voicemailUrl: "   " }, { salesRepId: MINE }));
   ok("null does not throw", !ownsVoicemail(null, { salesRepId: MINE }));
   ok("hasRecording agrees", hasRecording(attributed) && !hasRecording({ voicemailUrl: "" }));
+
+  // The two halves must agree about which field carries our number. They did
+  // not, and that disagreement was invisible because each was correct alone.
+  const byColumn = { id: "a4", direction: "in", salesRepId: null, fromE164: MY_NUMBER, voicemailUrl: "https://x/RE4" };
+  ok("ownership reads the real column, not only the alias",
+    ownsVoicemail(byColumn, { salesRepId: MINE, ourNumbers: [MY_NUMBER] }));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -95,12 +101,44 @@ section("2. The query asks the same question");
 // ═══════════════════════════════════════════════════════════════════════════
 
 {
+  // ── Every key must be a REAL column ──────────────────────────────────
+  //
+  // The bug this catches, which shipped: the clause filtered on `ourE164`,
+  // which is this module's NAME for the idea and not a column — the schema has
+  // `toE164` (the contractor) and `fromE164` (our side). Prisma threw, but only
+  // for a rep who actually had a number assigned, because the clause is added
+  // `if (mine.length)`. It failed for exactly the reps the feature was built
+  // for and passed for everyone else.
+  //
+  // Read out of the schema rather than typed here, so renaming a column breaks
+  // this instead of breaking a rep's screen.
+  {
+    const model = read("prisma/schema.prisma");
+    const block = model.slice(model.indexOf("model SalesCallAttempt {"));
+    const columns = new Set(
+      block
+        .slice(0, block.indexOf("\n}"))
+        .split("\n")
+        .map((line) => (/^\s{2}(\w+)\s+\S/.exec(line) || [])[1])
+        .filter(Boolean),
+    );
+    ok("the SalesCallAttempt columns were parsed", columns.size > 10, columns.size);
+    const clause = voicemailWhere({ salesRepId: MINE, ourNumbers: [MY_NUMBER] });
+    const keys = [
+      ...Object.keys(clause).filter((k) => k !== "OR"),
+      ...(clause.OR || []).flatMap((o) => Object.keys(o)),
+    ];
+    const unknown = keys.filter((k) => !columns.has(k));
+    ok("every key the where clause emits is a real column", unknown.length === 0, unknown);
+  }
+
   const w = voicemailWhere({ salesRepId: MINE, ourNumbers: [MY_NUMBER] });
   ok("only rows with a recording", w.voicemailUrl?.not === null);
   ok("only inbound", w.direction === "in");
   ok("either mine by attribution or mine by number", w.OR.length === 2, w.OR);
   ok("…the first is attribution", w.OR[0].salesRepId === MINE);
-  ok("…the second is the rep's numbers", JSON.stringify(w.OR[1]) === JSON.stringify({ ourE164: { in: [MY_NUMBER] } }));
+  ok("…the second is the rep's numbers, by COLUMN name not the module's alias",
+    JSON.stringify(w.OR[1]) === JSON.stringify({ fromE164: { in: [MY_NUMBER] } }), w.OR[1]);
 
   // An empty `in` matches nothing, but writing the clause anyway invites
   // somebody to "fix" it later into one that matches everything.

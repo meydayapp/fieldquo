@@ -59,7 +59,14 @@ import {
   leadCallingContext,
   leadDialView,
 } from "@/lib/sales/leadDial";
-import { dialSpace, DIAL_READY, DIAL_NO_NUMBER, DIAL_UNCONFIRMED } from "@/lib/sales/dialSpace";
+import {
+  dialSpace,
+  DIAL_READY,
+  DIAL_NO_NUMBER,
+  DIAL_UNCONFIRMED,
+  DIAL_OPTED_OUT,
+  DIAL_STATES,
+} from "@/lib/sales/dialSpace";
 import { salesCallReadiness, dialHref, CALL_UNKNOWN } from "@/lib/sales/callingRules";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -526,6 +533,70 @@ section("9. The check is wired in");
     "…and check:all runs it, so it cannot quietly stop being run",
     (pkg.scripts?.["check:all"] || "").includes("check:sales-lead-dial"),
   );
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("An opt-out is not a missing phone number");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// contactability() and leadContactability() both return `opted_out` when the
+// suppression list carries the number — a contractor who texted STOP. Neither
+// dialSpace() nor the lead screen had a branch for it, so it fell through to
+// the no-number state and the rep read:
+//
+//   "No sales number yet. ... Their website or a directory listing may have
+//    it — put it on their lead and it appears here."
+//
+// The control was correctly withheld and the words were the opposite of the
+// truth: an instruction to go and find the number of somebody who has just
+// asked us never to ring them again. Worse than a blank state, because a
+// diligent rep would have acted on it.
+
+{
+  const optedOut = {
+    id: "p_opt",
+    businessName: "Northside Painting",
+    contact: {
+      callable: false,
+      code: "opted_out",
+      title: "They asked us to stop.",
+      text: "An opt-out covers calls, texts and email, so no dial control is offered here.",
+    },
+  };
+  const out = dialSpace({ prospect: optedOut, href: "tel:+16135550142" });
+
+  ok("an opt-out gets its own state", out.state === DIAL_OPTED_OUT, out.state);
+  ok("…which is in the closed set", DIAL_STATES.includes(DIAL_OPTED_OUT));
+  ok("…and is NOT reported as a missing number", out.state !== DIAL_NO_NUMBER, out.state);
+
+  // The specific sentence that was being shown, named so it cannot come back.
+  ok("…and never tells the rep to go and find their number",
+    !/directory listing/i.test(out.detail || "") && !/No sales number yet/i.test(out.title || ""),
+    { title: out.title, detail: out.detail });
+
+  ok("…it says who can lift it", /superadmin/i.test(out.detail || ""), out.detail);
+  ok("…and that it needs a written reason", /written reason/i.test(out.detail || ""), out.detail);
+
+  // An href was supplied and must still be refused: the copy is the second
+  // gate, not the only one.
+  ok("…and no dial target is offered even when one is passed in", out.href === null, out.href);
+
+  // The states either side must keep their own words.
+  const noNumber = dialSpace({ prospect: { id: "p2", businessName: "X", contact: { callable: false, code: "no_phone" } } });
+  ok("a genuinely missing number still says so", noNumber.state === DIAL_NO_NUMBER, noNumber.state);
+  const dnc = dialSpace({ prospect: { id: "p3", businessName: "Y", contact: { callable: false, code: "do_not_contact" } } });
+  ok("a do-not-contact flag keeps its own state", dnc.state === "do_not_contact", dnc.state);
+
+  // leadContactability returns the same code, so the lead screen inherits the
+  // fix only if it goes through the same function. Assert the code matches.
+  const leadView = leadDialView(
+    { id: "l1", phone: "+16135550142", businessName: "Northside" },
+    { optedOut: { optedOut: true, reason: "They replied STOP." } },
+  );
+  ok("a lead reports the same opt-out code", leadView.contact.code === "opted_out", leadView.contact.code);
+  ok("…so one branch serves both screens",
+    dialSpace({ prospect: { id: "l1", businessName: "Northside", contact: leadView.contact } }).state === DIAL_OPTED_OUT);
 }
 
 console.log(`\n${pass} checks, ${failures.length} failure(s).`);
