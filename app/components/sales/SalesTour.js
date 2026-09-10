@@ -64,6 +64,16 @@ import { ArrowLeft, ArrowRight, Compass, X } from "lucide-react";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchJson } from "@/lib/fetchJson";
+// The placement, the ring and the dim all come from lib/tours/anchor.js, which
+// the contractor app's OnboardingTour uses too. The owner's complaint was that
+// this tour "doesn't look like the fieldquo.com/app tours that we are offering
+// to companies" — and the reason it did not is that it had its own presentation.
+// Restyling it to match by eye would have left two implementations to drift
+// apart again; sharing the module is what actually keeps them the same.
+import { cardPosition, spotlightStyle, visibleTarget } from "@/lib/tours/anchor";
+
+/** Per browser session, so closing it once does not reopen it on every route. */
+const FIRST_RUN_KEY = "fieldquo.salesTour.offered";
 import { SALES_TOUR_STEPS, clampTourStep } from "@/app/sales/tourSteps";
 
 /**
@@ -75,14 +85,6 @@ import { SALES_TOUR_STEPS, clampTourStep } from "@/app/sales/tourSteps";
  * imported because that module is not exported from OnboardingTour.js and
  * widening its API for one caller is a bigger change than eight lines.
  */
-function visibleTarget(selector) {
-  if (!selector || typeof document === "undefined") return null;
-  for (const el of document.querySelectorAll(selector)) {
-    const r = el.getBoundingClientRect();
-    if (r.width > 0 && r.height > 0) return el;
-  }
-  return null;
-}
 
 /** Does this person want movement? Asked, not assumed. */
 function prefersReducedMotion() {
@@ -114,6 +116,37 @@ export default function SalesTour() {
         if (!cancelled) {
           setProgress(data);
           setStep(clampTourStep(data?.step));
+          // ── Open it, the first time ────────────────────────────────────
+          //
+          // It used to wait to be found, as a pill in the bottom-left corner
+          // of a 1349px screen. The owner could not find it and neither could
+          // I — a first-run tour that has to be discovered is not a first-run
+          // tour, it is a button.
+          //
+          // Once per browser session, and only for somebody who has never
+          // moved off step 0 and has not dismissed it. The session flag is
+          // what stops it reopening on every route change for a rep who closed
+          // it without dismissing: "I closed it" and "make it stop forever"
+          // are different requests, and the second one is the Dismiss button.
+          const untouched = !data?.dismissed && !data?.completed && !data?.step;
+          let alreadyOffered = true;
+          try {
+            alreadyOffered = sessionStorage.getItem(FIRST_RUN_KEY) === "1";
+          } catch {
+            // Private mode, or storage blocked. Falling back to "already
+            // offered" means it does not auto-open — the wrong way round for
+            // discoverability, the right way round for not reopening on every
+            // navigation in the one environment that cannot remember it was
+            // closed. The launcher is still there.
+          }
+          if (untouched && !alreadyOffered) {
+            try {
+              sessionStorage.setItem(FIRST_RUN_KEY, "1");
+            } catch {
+              /* see above */
+            }
+            setOpen(true);
+          }
         }
       } catch {
         // The portal is not broken because a walkthrough could not load, and a
@@ -269,20 +302,34 @@ export default function SalesTour() {
     );
   }
 
+  // Beside the thing it describes, not in the corner. Falls back to the middle
+  // of the screen when this step's tab is not on the current route, which is
+  // the honest rendering of "this step is about the page, not a control".
+  const { style: anchored } = cardPosition(
+    rect,
+    {
+      width: typeof window === "undefined" ? 0 : window.innerWidth,
+      height: typeof window === "undefined" ? 0 : window.innerHeight,
+    },
+    { cardWidth: 384, cardHeight: 260 },
+  );
+
   return (
     <>
-      {/* The ring. pointer-events-none so it never intercepts a click meant
-          for the tab it is drawn around. */}
+      {/* One element is both the ring and the dim: a huge spread box-shadow
+          darkens everything outside it. Stacking a separate dimmer over this
+          makes the page twice as dark on exactly the steps that work.
+
+          Still pointer-events-none, and still no aria-modal, deliberately.
+          Unlike the contractor app's tour — whose look this now shares — this
+          one walks a rep across twelve routes, and they are meant to click the
+          tab it is describing and read the real screen underneath. The
+          presentation is shared; the modal trap is not. */}
       {rect ? (
         <div
           aria-hidden="true"
-          className="fixed pointer-events-none rounded-lg border-2 border-brand-accent z-40 transition-all duration-200 motion-reduce:transition-none"
-          style={{
-            top: rect.top - 4,
-            left: rect.left - 4,
-            width: rect.width + 8,
-            height: rect.height + 8,
-          }}
+          className="fixed pointer-events-none rounded-lg border-2 border-white z-40 transition-all duration-200 motion-reduce:transition-none"
+          style={spotlightStyle(rect)}
         />
       ) : null}
 
@@ -291,7 +338,8 @@ export default function SalesTour() {
         onKeyDown={onPanelKeyDown}
         role="region"
         aria-label={t("app.salesTour.title")}
-        className="fixed bottom-4 left-4 right-4 sm:right-auto sm:w-[24rem] z-40 rounded-xl border border-border bg-card shadow-xl p-4 space-y-3"
+        className="fixed z-40 rounded-xl border border-border bg-card shadow-xl p-4 space-y-3"
+        style={anchored}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">

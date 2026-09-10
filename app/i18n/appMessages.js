@@ -1347,6 +1347,31 @@ const en = {
   "app.aiEmployee.skip.claimed_media_not_received": "The draft said it had received a photo. Nothing has been sent on this conversation, so it was not sent and the thread has gone to a person.",
   "app.clientImport.view": "View Clients",
 
+  // ── Lead import ──────────────────────────────────────────────────────────
+  //
+  // Deliberately the same shapes as app.clientImport.* three routes away: the
+  // two importers do the same job and a contractor who has used one should not
+  // have to learn the other. The counts are countedNoun() rather than
+  // "{n} rows" because the plural rule this screen used to carry was English's
+  // wearing a template literal — it printed a bare Latin "s" on a Mandarin
+  // screen and got Ukrainian's three forms wrong every time.
+  "app.leadImport.back": "Leads",
+  "app.leadImport.title": "Import leads",
+  "app.leadImport.subtitle":
+    "Upload a CSV of leads you bought or exported elsewhere. We'll match common columns (name, email, phone, address, notes, budget, timeline), score each one hot/warm/cold, and drop them into your pipeline. Budget and timeline are mapped where we can recognise them — otherwise the lead still scores on how reachable it is.",
+  "app.leadImport.readError": "Couldn't read that CSV file.",
+  "app.leadImport.failed": "Import failed.",
+  "app.leadImport.choose": "Choose a CSV file",
+  "app.leadImport.noContact": "no contact",
+  "app.leadImport.importing": "Importing…",
+  "app.leadImport.view": "View leads",
+  "app.leadImport.rowCount": countedNoun("en", { one: "row", other: "rows" }),
+  "app.leadImport.leadCount": countedNoun("en", { one: "lead", other: "leads" }),
+  "app.leadImport.found": "Found {count}. Preview:",
+  "app.leadImport.imported": "Imported {count}{skipped}.",
+  "app.leadImport.skipped": ", skipped {count} with no name or contact",
+  "app.leadImport.importN": "Import {count}",
+
   // ── Client detail ─────────────────────────────────────────────────────────
   "app.clientDetail.notFound": "Client not found.",
   "app.clientDetail.contactSuffix": "contact person",
@@ -6735,6 +6760,8 @@ const en = {
   "app.salesTour.demoBody": "A real FieldQuo account you sign into and drive while a prospect watches — not impersonation, which is read-only, so you could not write a quote in front of them. Claim a free one here; one rep holds one demo, so nobody can reset it out from under you mid-walkthrough. The password is not on this screen and cannot be: only a superadmin can create or reset that login.",
   "app.salesTour.payTitle": "Pay, and your language",
   "app.salesTour.payBody": "Your own settings: where FieldQuo sends your commission, and which language the portal talks to you in — this tour included. Change either whenever you like. The date beside your payout details is when you last confirmed they were right, because a closed bank account is exactly the thing a record goes quietly stale about.",
+  "app.salesTour.teamTitle": "The people you work with",
+  "app.salesTour.teamBody": "Everyone at FieldQuo, in one place — the other reps and the people who fix things. Channels are for the team; a direct message is between the two of you and nobody else can read it. When a company you signed up has a problem you cannot solve, this is faster than a ticket and it is where the person who can solve it already is.",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -7931,6 +7958,23 @@ const fr = {
   "app.notif.cause.unconfigured": "L’e-mail n’est pas configuré ici — rien n’a été envoyé, et cela vient de nous",
   "app.aiEmployee.skip.claimed_media_not_received": "Le brouillon disait avoir reçu une photo. Rien n’a été envoyé dans cette conversation : le message n’est pas parti et le fil a été confié à une personne.",
   "app.clientImport.view": "Voir les clients",
+
+  "app.leadImport.back": "Prospects",
+  "app.leadImport.title": "Importer des prospects",
+  "app.leadImport.subtitle":
+    "Téléversez un CSV de prospects achetés ou exportés d'ailleurs. Nous reconnaîtrons les colonnes courantes (nom, courriel, téléphone, adresse, notes, budget, échéance), classerons chacun chaud/tiède/froid, et les déposerons dans votre entonnoir. Le budget et l'échéance sont associés quand nous les reconnaissons — sinon le prospect est tout de même classé selon sa joignabilité.",
+  "app.leadImport.readError": "Impossible de lire ce fichier CSV.",
+  "app.leadImport.failed": "Échec de l'importation.",
+  "app.leadImport.choose": "Choisir un fichier CSV",
+  "app.leadImport.noContact": "aucune coordonnée",
+  "app.leadImport.importing": "Importation…",
+  "app.leadImport.view": "Voir les prospects",
+  "app.leadImport.rowCount": countedNoun("fr", { one: "ligne", many: "lignes", other: "lignes" }),
+  "app.leadImport.leadCount": countedNoun("fr", { one: "prospect", many: "prospects", other: "prospects" }),
+  "app.leadImport.found": "{count} trouvées. Aperçu :",
+  "app.leadImport.imported": "{count} importés{skipped}.",
+  "app.leadImport.skipped": ", {count} ignorés sans nom ni coordonnées",
+  "app.leadImport.importN": "Importer {count}",
 
   // ── Détail du client ──────────────────────────────────────────────────────
   "app.clientDetail.notFound": "Client introuvable.",
@@ -12999,6 +13043,8 @@ const fr = {
   "app.salesTour.demoBody": "Un vrai compte FieldQuo dans lequel vous vous connectez et que vous pilotez pendant qu’un prospect regarde — pas une usurpation, qui est en lecture seule et ne vous laisserait pas rédiger un devis devant lui. Réservez-en un libre ici ; un représentant détient une démo, donc personne ne peut la réinitialiser sous vos pieds en pleine présentation. Le mot de passe n’est pas sur cet écran et ne peut pas y être : seul un superadmin peut créer ou réinitialiser cet accès.",
   "app.salesTour.payTitle": "Paie, et votre langue",
   "app.salesTour.payBody": "Vos propres réglages : où FieldQuo envoie votre commission, et dans quelle langue le portail vous parle — cette visite comprise. Changez l’un ou l’autre quand vous voulez. La date à côté de vos coordonnées de paiement est celle de votre dernière confirmation qu’elles étaient exactes, parce qu’un compte bancaire fermé est exactement ce qui périme sans prévenir.",
+  "app.salesTour.teamTitle": "Les gens avec qui vous travaillez",
+  "app.salesTour.teamBody": "Tout le monde chez FieldQuo au même endroit — les autres représentants et ceux qui règlent les problèmes. Les canaux sont pour l’équipe ; un message direct reste entre vous deux et personne d’autre ne peut le lire. Quand une entreprise que vous avez inscrite a un problème que vous ne pouvez pas régler, c’est plus rapide qu’un billet, et la personne capable de le régler y est déjà.",
 };
 
 
@@ -13966,6 +14012,23 @@ const es = {
   "app.notif.cause.unconfigured": "El correo no está configurado aquí — no se envió nada, y esto es cosa nuestra",
   "app.aiEmployee.skip.claimed_media_not_received": "El borrador decía haber recibido una foto. En esta conversación no se ha enviado nada, así que no se envió y el hilo pasó a una persona.",
   "app.clientImport.view": "Ver clientes",
+
+  "app.leadImport.back": "Prospectos",
+  "app.leadImport.title": "Importar prospectos",
+  "app.leadImport.subtitle":
+    "Sube un CSV de prospectos que compraste o exportaste de otra herramienta. Reconoceremos las columnas habituales (nombre, correo, teléfono, dirección, notas, presupuesto, plazo), calificaremos cada uno como caliente/tibio/frío y los dejaremos en tu embudo. El presupuesto y el plazo se asignan cuando podemos reconocerlos; si no, el prospecto igual se califica según lo fácil que sea contactarlo.",
+  "app.leadImport.readError": "No se pudo leer ese archivo CSV.",
+  "app.leadImport.failed": "Falló la importación.",
+  "app.leadImport.choose": "Elegir un archivo CSV",
+  "app.leadImport.noContact": "sin contacto",
+  "app.leadImport.importing": "Importando…",
+  "app.leadImport.view": "Ver prospectos",
+  "app.leadImport.rowCount": countedNoun("es", { one: "fila", other: "filas" }),
+  "app.leadImport.leadCount": countedNoun("es", { one: "prospecto", other: "prospectos" }),
+  "app.leadImport.found": "{count} encontradas. Vista previa:",
+  "app.leadImport.imported": "{count} importados{skipped}.",
+  "app.leadImport.skipped": ", {count} omitidos sin nombre ni contacto",
+  "app.leadImport.importN": "Importar {count}",
   "app.clientDetail.notFound": "Cliente no encontrado.",
   "app.clientDetail.contactSuffix": "persona de contacto",
   "app.clientDetail.office": "oficina",
@@ -19607,6 +19670,8 @@ const es = {
   "app.salesTour.demoBody": "Una cuenta real de FieldQuo en la que inicias sesión y que manejas mientras un prospecto mira: no es suplantación, que es de solo lectura y no te dejaría redactar un presupuesto delante de él. Reserva aquí una libre; un representante retiene una demo, así que nadie puede reiniciarla por debajo a mitad de la presentación. La contraseña no está en esta pantalla y no puede estarlo: solo un superadministrador puede crear o restablecer ese acceso.",
   "app.salesTour.payTitle": "Pago y tu idioma",
   "app.salesTour.payBody": "Tus propios ajustes: adónde envía FieldQuo tu comisión y en qué idioma te habla el portal, este recorrido incluido. Cambia cualquiera de los dos cuando quieras. La fecha junto a tus datos de pago es la última vez que confirmaste que eran correctos, porque una cuenta bancaria cerrada es justo lo que caduca sin avisar.",
+  "app.salesTour.teamTitle": "La gente con la que trabajas",
+  "app.salesTour.teamBody": "Todos en FieldQuo en un mismo sitio: los demás representantes y quienes resuelven los problemas. Los canales son para el equipo; un mensaje directo queda entre ustedes dos y nadie más puede leerlo. Cuando una empresa que diste de alta tiene un problema que no puedes resolver, esto es más rápido que un ticket, y la persona que sí puede resolverlo ya está aquí.",
 };
 
 const uk = {
@@ -20505,6 +20570,33 @@ const uk = {
   "app.notif.cause.unconfigured": "Пошту тут не налаштовано — нічого не надіслано, і це наша провина",
   "app.aiEmployee.skip.claimed_media_not_received": "Чернетка стверджувала, що отримала фото. У цій розмові нічого не надсилали, тож лист не пішов, а розмову передано людині.",
   "app.clientImport.view": "Переглянути клієнтів",
+
+  "app.leadImport.back": "Потенційні клієнти",
+  "app.leadImport.title": "Імпорт потенційних клієнтів",
+  "app.leadImport.subtitle":
+    "Завантажте CSV із потенційними клієнтами, яких ви купили або експортували з іншого інструмента. Ми розпізнаємо звичні колонки (ім'я, електронна пошта, телефон, адреса, нотатки, бюджет, терміни), оцінимо кожного як гарячого/теплого/холодного та додамо їх до вашої воронки. Бюджет і терміни зіставляються, коли ми їх розпізнаємо — інакше клієнт усе одно отримує оцінку за тим, наскільки легко з ним зв'язатися.",
+  "app.leadImport.readError": "Не вдалося прочитати цей файл CSV.",
+  "app.leadImport.failed": "Не вдалося виконати імпорт.",
+  "app.leadImport.choose": "Виберіть файл CSV",
+  "app.leadImport.noContact": "немає контактів",
+  "app.leadImport.importing": "Імпортування…",
+  "app.leadImport.view": "Переглянути потенційних клієнтів",
+  "app.leadImport.rowCount": countedNoun("uk", {
+    one: "рядок",
+    few: "рядки",
+    many: "рядків",
+    other: "рядка",
+  }),
+  "app.leadImport.leadCount": countedNoun("uk", {
+    one: "потенційний клієнт",
+    few: "потенційні клієнти",
+    many: "потенційних клієнтів",
+    other: "потенційного клієнта",
+  }),
+  "app.leadImport.found": "Знайдено {count}. Попередній перегляд:",
+  "app.leadImport.imported": "Імпортовано {count}{skipped}.",
+  "app.leadImport.skipped": ", пропущено {count} без імені та контактів",
+  "app.leadImport.importN": "Імпортувати {count}",
   "app.clientDetail.notFound": "Клієнта не знайдено.",
   "app.clientDetail.contactSuffix": "контактна особа",
   "app.clientDetail.office": "офіс",
@@ -24837,6 +24929,23 @@ const pa = {
   "app.notif.cause.unconfigured": "ਇੱਥੇ ਈਮੇਲ ਸੈੱਟ ਨਹੀਂ ਹੈ — ਕੁਝ ਨਹੀਂ ਭੇਜਿਆ ਗਿਆ, ਅਤੇ ਇਹ ਸਾਡੇ ਵੱਲੋਂ ਹੈ",
   "app.aiEmployee.skip.claimed_media_not_received": "ਡਰਾਫਟ ਨੇ ਕਿਹਾ ਕਿ ਉਸਨੂੰ ਫੋਟੋ ਮਿਲੀ ਹੈ। ਇਸ ਗੱਲਬਾਤ ਵਿੱਚ ਕੁਝ ਨਹੀਂ ਭੇਜਿਆ ਗਿਆ, ਇਸ ਲਈ ਇਹ ਨਹੀਂ ਭੇਜਿਆ ਗਿਆ ਅਤੇ ਧਾਗਾ ਕਿਸੇ ਵਿਅਕਤੀ ਨੂੰ ਦਿੱਤਾ ਗਿਆ।",
   "app.clientImport.view": "ਗਾਹਕ ਵੇਖੋ",
+
+  "app.leadImport.back": "ਲੀਡਜ਼",
+  "app.leadImport.title": "ਲੀਡਜ਼ ਆਯਾਤ ਕਰੋ",
+  "app.leadImport.subtitle":
+    "ਉਹ ਲੀਡਜ਼ ਦੀ CSV ਅੱਪਲੋਡ ਕਰੋ ਜੋ ਤੁਸੀਂ ਖਰੀਦੀਆਂ ਜਾਂ ਕਿਸੇ ਹੋਰ ਟੂਲ ਤੋਂ ਬਰਾਮਦ ਕੀਤੀਆਂ। ਅਸੀਂ ਆਮ ਕਾਲਮ (ਨਾਮ, ਈਮੇਲ, ਫ਼ੋਨ, ਪਤਾ, ਨੋਟਸ, ਬਜਟ, ਸਮਾਂ-ਸੀਮਾ) ਪਛਾਣਾਂਗੇ, ਹਰੇਕ ਨੂੰ ਗਰਮ/ਕੋਸਾ/ਠੰਢਾ ਦਰਜਾ ਦੇਵਾਂਗੇ, ਅਤੇ ਤੁਹਾਡੀ ਪਾਈਪਲਾਈਨ ਵਿੱਚ ਪਾ ਦੇਵਾਂਗੇ। ਬਜਟ ਅਤੇ ਸਮਾਂ-ਸੀਮਾ ਉਦੋਂ ਜੋੜੇ ਜਾਂਦੇ ਹਨ ਜਦੋਂ ਅਸੀਂ ਉਹਨਾਂ ਨੂੰ ਪਛਾਣ ਸਕੀਏ — ਨਹੀਂ ਤਾਂ ਲੀਡ ਨੂੰ ਫਿਰ ਵੀ ਇਸ ਗੱਲ 'ਤੇ ਦਰਜਾ ਮਿਲਦਾ ਹੈ ਕਿ ਉਸ ਤੱਕ ਪਹੁੰਚਣਾ ਕਿੰਨਾ ਸੌਖਾ ਹੈ।",
+  "app.leadImport.readError": "ਉਹ CSV ਫ਼ਾਈਲ ਪੜ੍ਹੀ ਨਹੀਂ ਜਾ ਸਕੀ।",
+  "app.leadImport.failed": "ਆਯਾਤ ਅਸਫਲ ਰਿਹਾ।",
+  "app.leadImport.choose": "ਇੱਕ CSV ਫ਼ਾਈਲ ਚੁਣੋ",
+  "app.leadImport.noContact": "ਕੋਈ ਸੰਪਰਕ ਨਹੀਂ",
+  "app.leadImport.importing": "ਆਯਾਤ ਹੋ ਰਿਹਾ ਹੈ…",
+  "app.leadImport.view": "ਲੀਡਜ਼ ਵੇਖੋ",
+  "app.leadImport.rowCount": countedNoun("pa", { one: "ਕਤਾਰ", other: "ਕਤਾਰਾਂ" }),
+  "app.leadImport.leadCount": countedNoun("pa", { one: "ਲੀਡ", other: "ਲੀਡਜ਼" }),
+  "app.leadImport.found": "{count} ਮਿਲੀਆਂ। ਝਲਕ:",
+  "app.leadImport.imported": "{count} ਆਯਾਤ ਕੀਤੀਆਂ{skipped}।",
+  "app.leadImport.skipped": ", {count} ਛੱਡੀਆਂ ਜਿਨ੍ਹਾਂ ਦਾ ਨਾਮ ਜਾਂ ਸੰਪਰਕ ਨਹੀਂ ਸੀ",
+  "app.leadImport.importN": "{count} ਆਯਾਤ ਕਰੋ",
   "app.clientDetail.notFound": "ਗਾਹਕ ਨਹੀਂ ਮਿਲਿਆ।",
   "app.clientDetail.contactSuffix": "ਸੰਪਰਕ ਵਿਅਕਤੀ",
   "app.clientDetail.office": "ਦਫ਼ਤਰ",
@@ -29164,6 +29273,23 @@ const tl = {
   "app.notif.cause.unconfigured": "Hindi pa naka-set up ang email dito — walang naipadala, at sa amin ito",
   "app.aiEmployee.skip.claimed_media_not_received": "Sinabi ng draft na nakatanggap ito ng larawan. Walang naipadala sa usapang ito, kaya hindi ito naipadala at ipinasa sa isang tao ang thread.",
   "app.clientImport.view": "Tingnan ang mga kliyente",
+
+  "app.leadImport.back": "Mga lead",
+  "app.leadImport.title": "Mag-import ng mga lead",
+  "app.leadImport.subtitle":
+    "Mag-upload ng CSV ng mga lead na binili mo o na-export mula sa ibang tool. Tutugmain namin ang karaniwang mga column (pangalan, email, telepono, address, tala, badyet, takdang panahon), tatasahin ang bawat isa bilang mainit/katamtaman/malamig, at ilalagay sa iyong pipeline. Ang badyet at takdang panahon ay itinutugma kapag nakikilala namin ang mga ito — kung hindi, natatasa pa rin ang lead batay sa gaano kadaling makontak.",
+  "app.leadImport.readError": "Hindi mabasa ang CSV file na iyon.",
+  "app.leadImport.failed": "Nabigo ang pag-import.",
+  "app.leadImport.choose": "Pumili ng CSV file",
+  "app.leadImport.noContact": "walang kontak",
+  "app.leadImport.importing": "Ini-import…",
+  "app.leadImport.view": "Tingnan ang mga lead",
+  "app.leadImport.rowCount": countedNoun("tl", { one: "hanay", other: "hanay" }),
+  "app.leadImport.leadCount": countedNoun("tl", { one: "lead", other: "lead" }),
+  "app.leadImport.found": "May nakitang {count}. Preview:",
+  "app.leadImport.imported": "Na-import ang {count}{skipped}.",
+  "app.leadImport.skipped": ", nilaktawan ang {count} na walang pangalan o kontak",
+  "app.leadImport.importN": "Mag-import ng {count}",
   "app.clientDetail.notFound": "Hindi nahanap ang kliyente.",
   "app.clientDetail.contactSuffix": "taong kontakin",
   "app.clientDetail.office": "opisina",
@@ -33725,6 +33851,23 @@ const de = {
   "app.notif.cause.unconfigured": "E-Mail ist hier nicht eingerichtet — es wurde nichts gesendet, und das liegt an uns",
   "app.aiEmployee.skip.claimed_media_not_received": "Der Entwurf behauptete, ein Foto erhalten zu haben. In dieser Unterhaltung wurde nichts gesendet — also ging nichts raus und der Verlauf wurde an eine Person übergeben.",
   "app.clientImport.view": "Kunden ansehen",
+
+  "app.leadImport.back": "Leads",
+  "app.leadImport.title": "Leads importieren",
+  "app.leadImport.subtitle":
+    "Laden Sie eine CSV mit Leads hoch, die Sie gekauft oder aus einem anderen Tool exportiert haben. Wir erkennen die üblichen Spalten (Name, E-Mail, Telefon, Adresse, Notizen, Budget, Zeitrahmen), bewerten jeden Lead als heiß/warm/kalt und legen ihn in Ihre Pipeline. Budget und Zeitrahmen werden zugeordnet, wo wir sie erkennen — andernfalls wird der Lead trotzdem danach bewertet, wie gut er erreichbar ist.",
+  "app.leadImport.readError": "Diese CSV-Datei konnte nicht gelesen werden.",
+  "app.leadImport.failed": "Import fehlgeschlagen.",
+  "app.leadImport.choose": "CSV-Datei auswählen",
+  "app.leadImport.noContact": "keine Kontaktdaten",
+  "app.leadImport.importing": "Wird importiert…",
+  "app.leadImport.view": "Leads ansehen",
+  "app.leadImport.rowCount": countedNoun("de", { one: "Zeile", other: "Zeilen" }),
+  "app.leadImport.leadCount": countedNoun("de", { one: "Lead", other: "Leads" }),
+  "app.leadImport.found": "{count} gefunden. Vorschau:",
+  "app.leadImport.imported": "{count} importiert{skipped}.",
+  "app.leadImport.skipped": ", {count} ohne Namen oder Kontaktdaten übersprungen",
+  "app.leadImport.importN": "{count} importieren",
   "app.clientDetail.notFound": "Kunde nicht gefunden.",
   "app.clientDetail.contactSuffix": "Ansprechpartner",
   "app.clientDetail.office": "Büro",
@@ -38534,6 +38677,8 @@ const de = {
   "app.salesTour.demoBody": "Ein echtes FieldQuo-Konto, in das Sie sich anmelden und das Sie vorführen, während ein Interessent zusieht — keine Identitätsübernahme, die nur lesend ist und Sie kein Angebot vor seinen Augen schreiben ließe. Reservieren Sie hier ein freies; ein Vertriebler hält eine Demo, niemand kann sie Ihnen mitten in der Vorführung zurücksetzen. Das Passwort steht nicht auf diesem Bildschirm und kann es nicht: nur ein Superadmin kann diesen Zugang anlegen oder zurücksetzen.",
   "app.salesTour.payTitle": "Bezahlung und Ihre Sprache",
   "app.salesTour.payBody": "Ihre eigenen Einstellungen: wohin FieldQuo Ihre Provision schickt und in welcher Sprache das Portal mit Ihnen spricht — dieser Rundgang eingeschlossen. Ändern Sie beides, wann Sie wollen. Das Datum neben Ihren Auszahlungsdaten ist Ihre letzte Bestätigung, dass sie stimmen, denn ein geschlossenes Bankkonto ist genau das, was still veraltet.",
+  "app.salesTour.teamTitle": "Die Menschen, mit denen Sie arbeiten",
+  "app.salesTour.teamBody": "Alle bei FieldQuo an einem Ort — die anderen Vertriebler und die Leute, die Probleme lösen. Kanäle sind für das Team; eine Direktnachricht bleibt zwischen Ihnen beiden, und niemand sonst kann sie lesen. Wenn ein von Ihnen gewonnenes Unternehmen ein Problem hat, das Sie nicht lösen können, ist das schneller als ein Ticket — und wer es lösen kann, ist schon da.",
 };
 
 const zh = {
@@ -39645,6 +39790,23 @@ const zh = {
   "app.notif.cause.unconfigured": "本部署尚未配置邮件——什么都没有发出，这是我们这边的问题",
   "app.aiEmployee.skip.claimed_media_not_received": "草稿声称收到了照片。这段对话里从未有人发送过任何文件，因此没有发出，会话已交给真人处理。",
   "app.clientImport.view": "查看客户",
+
+  "app.leadImport.back": "潜在客户",
+  "app.leadImport.title": "导入潜在客户",
+  "app.leadImport.subtitle":
+    "上传您购买或从其他工具导出的潜在客户 CSV 文件。我们会匹配常见列（姓名、邮箱、电话、地址、备注、预算、时间要求），把每一条评为热门／一般／冷淡，并放入您的销售管道。能识别时会映射预算和时间要求；否则仍会根据联系难易程度评分。",
+  "app.leadImport.readError": "无法读取该 CSV 文件。",
+  "app.leadImport.failed": "导入失败。",
+  "app.leadImport.choose": "选择 CSV 文件",
+  "app.leadImport.noContact": "无联系方式",
+  "app.leadImport.importing": "正在导入…",
+  "app.leadImport.view": "查看潜在客户",
+  "app.leadImport.rowCount": countedNoun("zh", { other: "行" }),
+  "app.leadImport.leadCount": countedNoun("zh", { other: "条潜在客户" }),
+  "app.leadImport.found": "找到 {count}。预览：",
+  "app.leadImport.imported": "已导入 {count}{skipped}。",
+  "app.leadImport.skipped": "，跳过 {count} 条没有姓名或联系方式的记录",
+  "app.leadImport.importN": "导入 {count}",
   "app.clientDetail.notFound": "找不到这位客户。",
   "app.clientDetail.contactSuffix": "联系人",
   "app.clientDetail.office": "办公地址",
@@ -45587,6 +45749,23 @@ const it = {
   "app.aiEmployee.skip.claimed_media_not_received": "La bozza diceva di aver ricevuto una foto. In questa conversazione non è stato inviato nulla, quindi non è partita e il thread è passato a una persona.",
   "app.clientImport.view": "Vedi i clienti",
 
+  "app.leadImport.back": "Lead",
+  "app.leadImport.title": "Importa lead",
+  "app.leadImport.subtitle":
+    "Carica un CSV di lead che hai acquistato o esportato da un altro strumento. Riconosceremo le colonne più comuni (nome, email, telefono, indirizzo, note, budget, tempistiche), classificheremo ciascun lead come caldo/tiepido/freddo e li inseriremo nella tua pipeline. Budget e tempistiche vengono associati quando riusciamo a riconoscerli — altrimenti il lead viene comunque valutato in base a quanto è raggiungibile.",
+  "app.leadImport.readError": "Impossibile leggere questo file CSV.",
+  "app.leadImport.failed": "Importazione non riuscita.",
+  "app.leadImport.choose": "Scegli un file CSV",
+  "app.leadImport.noContact": "nessun contatto",
+  "app.leadImport.importing": "Importazione…",
+  "app.leadImport.view": "Vedi i lead",
+  "app.leadImport.rowCount": countedNoun("it", { one: "riga", other: "righe" }),
+  "app.leadImport.leadCount": countedNoun("it", { one: "lead", other: "lead" }),
+  "app.leadImport.found": "Trovate {count}. Anteprima:",
+  "app.leadImport.imported": "Importati {count}{skipped}.",
+  "app.leadImport.skipped": ", {count} saltati senza nome né contatto",
+  "app.leadImport.importN": "Importa {count}",
+
   // ── Scheda cliente ──────────────────────────────────────────────────────
   "app.clientDetail.notFound": "Cliente non trovato.",
   "app.clientDetail.contactSuffix": "persona di riferimento",
@@ -50620,6 +50799,8 @@ const it = {
   "app.salesTour.demoBody": "Un vero account FieldQuo in cui accedi e che guidi mentre un potenziale cliente guarda: non è impersonificazione, che è in sola lettura e non ti lascerebbe scrivere un preventivo davanti a lui. Prenotane uno libero qui; un agente tiene una demo, così nessuno può azzerarla sotto di te a metà presentazione. La password non è su questa schermata e non può esserci: solo un superadmin può creare o reimpostare quell’accesso.",
   "app.salesTour.payTitle": "Compenso e lingua",
   "app.salesTour.payBody": "Le tue impostazioni: dove FieldQuo manda la tua provvigione e in che lingua il portale ti parla — questo tour compreso. Cambia l’una o l’altra quando vuoi. La data accanto ai tuoi dati di pagamento è l’ultima volta che hai confermato che erano giusti, perché un conto bancario chiuso è proprio la cosa che scade in silenzio.",
+  "app.salesTour.teamTitle": "Le persone con cui lavori",
+  "app.salesTour.teamBody": "Tutti in FieldQuo in un solo posto: gli altri rappresentanti e chi risolve i problemi. I canali sono per la squadra; un messaggio diretto resta fra voi due e nessun altro può leggerlo. Quando un'azienda che hai portato ha un problema che non puoi risolvere, questo è più rapido di un ticket, e chi può risolverlo è già qui.",
 };
 
 export const APP_MESSAGES = { en, fr, es, uk, pa, tl, de, zh, it };

@@ -43,39 +43,24 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { X, ArrowRight } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+// Placement, the ring and the target lookup moved to lib/tours/anchor.js so
+// the sales portal's tour draws the same thing. They had nothing in common
+// but the idea, and the owner noticed: the sales tour "doesn't look like the
+// fieldquo.com/app tours that we are offering to companies". Restyling one to
+// match the other by eye would have left two implementations to drift apart
+// again — this is the part that keeps them the same.
+import {
+  cardPosition,
+  spotlightStyle,
+  visibleTarget,
+  waitForTarget,
+  CARD_WIDTH,
+  CARD_HEIGHT_ESTIMATE,
+  MARGIN,
+} from "@/lib/tours/anchor";
 
-const CARD_WIDTH = 288; // w-72
-const MARGIN = 12;
 
-/**
- * The first match that is actually on screen.
- *
- * `display:none` gives a zero-size rect, which is how a responsive layout that
- * renders both a desktop and a mobile copy of the same thing is told apart —
- * without this component needing to know a breakpoint.
- */
-function visibleTarget(selector) {
-  if (!selector) return null;
-  for (const el of document.querySelectorAll(selector)) {
-    const r = el.getBoundingClientRect();
-    if (r.width > 0 && r.height > 0) return el;
-  }
-  return null;
-}
 
-/** Poll for a target that's about to appear (a drawer animating open). */
-function waitForTarget(selector, timeoutMs = 1200) {
-  return new Promise((resolve) => {
-    const started = performance.now();
-    const tick = () => {
-      const el = visibleTarget(selector);
-      if (el) return resolve(el);
-      if (performance.now() - started > timeoutMs) return resolve(null);
-      requestAnimationFrame(tick);
-    };
-    tick();
-  });
-}
 
 export default function OnboardingTour({ steps, storageKey, serverSeen = false, onFinish }) {
   // Resolved HERE, not baked into tours.js. That module is plain data with no
@@ -238,26 +223,14 @@ export default function OnboardingTour({ steps, storageKey, serverSeen = false, 
   // inside the viewport either way. The old version always went below and
   // clamped to `innerHeight - 180`, which on a phone put the card ON TOP of
   // the thing it was describing whenever the target sat low on the screen.
-  const vw = typeof window !== "undefined" ? window.innerWidth : 0;
-  const vh = typeof window !== "undefined" ? window.innerHeight : 0;
-  const width = Math.min(CARD_WIDTH, vw - MARGIN * 2);
-
-  let cardStyle;
-  if (!rect) {
-    cardStyle = { top: "50%", left: "50%", transform: "translate(-50%,-50%)", width };
-  } else {
-    const below = vh - rect.bottom;
-    const CARD_EST = 190;
-    const top =
-      below > CARD_EST + MARGIN
-        ? rect.bottom + MARGIN
-        : Math.max(MARGIN, rect.top - CARD_EST - MARGIN);
-    cardStyle = {
-      top: Math.min(Math.max(MARGIN, top), Math.max(MARGIN, vh - CARD_EST - MARGIN)),
-      left: Math.min(Math.max(MARGIN, rect.left), Math.max(MARGIN, vw - width - MARGIN)),
-      width,
-    };
-  }
+  const { style: cardStyle } = cardPosition(
+    rect,
+    {
+      width: typeof window !== "undefined" ? window.innerWidth : 0,
+      height: typeof window !== "undefined" ? window.innerHeight : 0,
+    },
+    { cardWidth: CARD_WIDTH, cardHeight: CARD_HEIGHT_ESTIMATE, margin: MARGIN },
+  );
 
   return (
     <div className="fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-label={title}>
@@ -269,13 +242,7 @@ export default function OnboardingTour({ steps, storageKey, serverSeen = false, 
       {rect && (
         <div
           className="absolute border-2 border-white rounded-lg pointer-events-none transition-all duration-200"
-          style={{
-            top: rect.top - 6,
-            left: rect.left - 6,
-            width: rect.width + 12,
-            height: rect.height + 12,
-            boxShadow: "0 0 0 9999px rgba(0,0,0,0.55)",
-          }}
+          style={spotlightStyle(rect)}
         />
       )}
 

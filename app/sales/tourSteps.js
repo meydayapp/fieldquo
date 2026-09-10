@@ -186,6 +186,17 @@ export const SALES_TOUR_STEPS = Object.freeze([
     titleKey: "app.salesTour.payTitle",
     bodyKey: "app.salesTour.payBody",
   },
+  // Added the same hour the tab was. check:sales-tour reads SalesShell's own
+  // tab list and failed the moment Team appeared without a step here — which
+  // is the check earning its place: a tour that silently skips a tab teaches a
+  // new hire that the tab does not matter.
+  {
+    key: "team",
+    href: "/sales/team",
+    tabLabel: "Team",
+    titleKey: "app.salesTour.teamTitle",
+    bodyKey: "app.salesTour.teamBody",
+  },
 ]);
 
 /** How many steps there are. One place, so a clamp and a counter agree. */
