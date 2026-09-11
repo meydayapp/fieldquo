@@ -527,12 +527,15 @@ section("11. ensureResearchQueued, executed — idempotent, and it moves the lan
   // stage that was in flight at claim time loses the lane — priority.js says
   // so). The next call promotes it.
   enrich.status = "done";
-  store.tasks.push({ id: "c1", prospectId: "rich", kind: "CRAWL_WEBSITE", status: "queued", idempotencyKey: "CRAWL_WEBSITE:rich:t1", payload: { prospectId: "rich" }, createdAt: new Date(2026, 8, 12), notBefore: new Date(2026, 8, 12) });
+  store.tasks.push({ id: "c1", prospectId: "rich", kind: "CRAWL_WEBSITE", status: "queued", idempotencyKey: "CRAWL_WEBSITE:rich:t1", payload: { prospectId: "rich", priority: "backlog", phrase: false }, createdAt: new Date(2026, 8, 12), notBefore: new Date(2026, 8, 12) });
   const third = await ensureResearchQueued({ db, prospectIds: ["rich"], priority: "claimed" });
   ok("a waiting backlog stage is promoted into the lane", third.promoted === 1 && third.queued === 0, third);
   const crawl = store.tasks.find((t) => t.id === "c1");
   ok("…its notBefore moved to the front", crawl.notBefore === CLAIMED_NOT_BEFORE);
   ok("…and its payload carries the lane for the chain to inherit", crawl.payload.priority === "claimed" && crawl.payload.prospectId === "rich");
+  // Seen on the first live run: the backlog had reached the prospect first,
+  // and its phrase:false would have ridden the promotion to a plain brief.
+  ok("…and the backlog's phrase:false does not survive the promotion", !("phrase" in crawl.payload), crawl.payload);
 
   ok("no ids is a no-op, not a throw", (await ensureResearchQueued({ db, prospectIds: [], priority: "claimed" })).queued === 0);
   let threw = null;
