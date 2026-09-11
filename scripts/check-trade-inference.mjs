@@ -713,7 +713,7 @@ section("11. The stage is still free");
   const src = codeOnly(read("lib/sales/pipeline/kinds.js"));
   ok("ANALYZE_CAPABILITIES still spends nothing outside this process", /ANALYZE_CAPABILITIES:\s*"local"/.test(src), PROVIDER_BY_KIND.ANALYZE_CAPABILITIES);
   ok("…asserted on the shipped map too, not only on the source", PROVIDER_BY_KIND.ANALYZE_CAPABILITIES === "local");
-  ok("…and GENERATE_RESEARCH_BRIEF is still the only stage that calls a model", Object.entries(PROVIDER_BY_KIND).filter(([, p]) => p === "openai").map(([k]) => k).join(",") === "GENERATE_RESEARCH_BRIEF");
+  ok("…and only the brief and the two claimed-lane stages call a model", Object.entries(PROVIDER_BY_KIND).filter(([, p]) => p === "openai").map(([k]) => k).sort().join(",") === "GENERATE_CALL_SCRIPT,GENERATE_RESEARCH_BRIEF,INFER_FROM_SITE");
 }
 {
   const src = codeOnly(read("lib/sales/intel/tradeDetect.js"));

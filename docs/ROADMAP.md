@@ -286,6 +286,47 @@ is not taken here. What IS done: the research this work queues carries
   (robots + 6 pages at a 3 s crawl-delay, sequential, inside 300 s), ~840/hour,
   about 50 h. Budgets not raised. The backlog lane carries `phrase: false` —
   the brief composes from rows, no model, free.
+- **`INFER_FROM_SITE`, the tenth stage — "What we infer" filled from the
+  crawled pages, claimed lane only.** The layer read "Nothing has been
+  inferred" for almost every prospect because only two rules wrote it
+  (`trade`, `derived_site`). The owner asked whether AI should fill it; the
+  answer built: on the claimed lane, between the lead score and the brief
+  (`chain.js CLAIMED_TAIL` is now the detour plus the tail; `laneOrder()`
+  walks either lane), a model reads the same page excerpts the script reads
+  and answers a closed list of ten kinds (`lib/sales/inferenceKinds.js
+  SITE_INFERENCE_KINDS`: crew_size, years_in_business, founded_year,
+  owner_name, service_area, emphasis, hiring, licence_or_insurance_claim,
+  languages_spoken, busy_season), each `{ kind, value, quote, sourceUrl,
+  confidence }`. **A kind with no quote on the page is omitted, never
+  filled**; every quote is verified verbatim against the material by the
+  script's own verifier (`scriptVoice.js findQuoteSource`, extracted from
+  `lintCitations` and shared, not copied) and a quote not on the page is
+  dropped and counted. Values are words, never digits ("nineteen
+  ninety-eight" — the queue refuses a digit and the script may not say one);
+  confidence is answered as a word and mapped in code, because the schema
+  carries no numeric field (`lib/ai/jsonSchema.js`). Each kept entry is a
+  `ProspectInference` upsert citing a `page_content` evidence row that holds
+  the sentence (detector `site_inference`, one row per sentence per
+  prospect), so the queue renders it with the page_content signal's
+  confidence and no change to the screen. `ProspectInferenceRun` (additive,
+  pushed) keeps `inputHash`/`promptVersion`/counts per prospect — regenerate
+  only when the pages change; `research.js` plans the stage on a claim when
+  the run is missing, older than the crawl or from an older prompt. The brief
+  card carries the kinds as inference-layer known lines; the script prompt
+  prints them under WHAT WE INFERRED (and no longer as facts under WHAT WE
+  KNOW). Nothing is deleted: an inference an older crawl supported stays.
+  **Found on the way:** `selectPageExcerpts` deduplicated by URL in database
+  order and the capability detector files its notes under `page_content`
+  with the page's URL — Richmond Rolloff's script was given "718-356-2200"
+  as its home page while 2,180 characters of the page sat in the next row;
+  the longest text per URL is now the page. **Cost:** ≈1,750 prompt tokens
+  on an average crawled prospect, ≈2,560 on the fullest five (Melton
+  Electric, Triple O, Park Place Installations, Colonna's, Sloth Electric —
+  three or four pages each, 10.2k characters); with reasoning completions
+  like the script's, about **$0.001 per prospect, ≈$4.50/day at 4,000
+  claims/day**. No `PlatformAiBudget` row exists, so nothing caps it — said
+  in every task note; none was added. `check:site-inferences` (108, in
+  `check:all`), mutation-tested five ways with `cp` backups.
 - **DNS backoff per host**: `CrawlHostPolicy.dnsFailures` /
   `dnsBackoffUntil` (additive, pushed). A busy resolver answer on the
   robots.txt lookup holds the host 30 min, doubling, capped at 6 h, cleared

@@ -205,7 +205,7 @@ Ask three questions of this graph:
 ## The entity graph
 
 Every model, and what points at it. Generated from `prisma/schema.prisma`, so
-it cannot drift from the code. 189 models.
+it cannot drift from the code. 222 models.
 
 **Read it before adding anything.** The question it answers is "what already
 touches this, and what would my change touch" — which is the question that was
@@ -219,43 +219,44 @@ tenancy, so it carries no information.
 
 | Entity | Pointed at by | From |
 |---|---:|---|
-| **Job** | 15 | AssetUseLog, ChangeOrder, Invoice, JobDailyLog, JobDocument, JobMaterial, JobPaymentStage, JobPhoto, JobVisit, MarketingDesign +5 |
-| **Prospect** | 13 | PlatformVoiceCall, ProspectCapability, ProspectCorrection, ProspectEvidence, ProspectInference, ProspectOpportunity, ProspectScore, ProspectTalkingPoint, ProspectTechnology, SalesCallAttempt +3 |
-| **SalesRep** | 12 | Company, SalesAttribution, SalesAttributionTouch, SalesCallAttempt, SalesCommissionEntry, SalesEvent, SalesLead, SalesPayoutBatch, SalesRepActivity, SalesRepNote +2 |
+| **SalesRep** | 22 | Company, PlatformSmsNumber, SalesAttribution, SalesAttributionTouch, SalesCallAttempt, SalesCallTransfer, SalesCheckIn, SalesCommissionEntry, SalesContactNumber, SalesEvent +12 |
+| **Job** | 17 | AssetUseLog, ChangeOrder, Invoice, JobDailyLog, JobDocument, JobMaterial, JobPaymentStage, JobPhoto, JobSubcontractor, JobVisit +7 |
+| **Prospect** | 15 | PlatformVoiceCall, ProspectCapability, ProspectCorrection, ProspectEvidence, ProspectInference, ProspectOpportunity, ProspectScore, ProspectTalkingPoint, ProspectTechnology, SalesCallAttempt +5 |
 | **Quote** | 11 | Appointment, Booking, Invoice, Job, JobPaymentStage, LeadRequest, QuoteAddOn, QuoteCosting, QuoteImport, QuoteScopeGroup +1 |
+| **Worker** | 11 | LeaveBalance, LeaveRequest, LocationStamp, PayRunLine, Payout, SafetyIncident, Salary, Shift, TimeEntry, User +1 |
 | **Client** | 10 | Appointment, ClientEquipment, Invoice, Job, PamphletStop, Quote, ReferralLink, SatisfactionResponse, ServicePlan, Task |
-| **Worker** | 10 | LeaveBalance, LeaveRequest, PayRunLine, Payout, SafetyIncident, Salary, Shift, TimeEntry, User, WorkerSalaryComponent |
+| **PlatformAdmin** | 9 | DemoBooking, DemoHostAvailability, PlatformAuditLog, PlatformSmsNumber, SalesTelemarketerRegistration, StaffMessage, StaffRoomMember, SupportTicket, SupportTicketNote |
+| **SalesLead** | 9 | PlatformVoiceCall, SalesCallAttempt, SalesCheckIn, SalesContactNumber, SalesEvent, SalesLeadLinkEvent, SalesRepNote, SalesSmsMessage, SalesThread |
 | **Invoice** | 6 | ChangeOrder, InvoiceCosting, JobPaymentStage, Payment, ServicePlanOccurrence, Task |
-| **SalesLead** | 6 | PlatformVoiceCall, SalesCallAttempt, SalesEvent, SalesRepNote, SalesSmsMessage, SalesThread |
 | **Member** | 5 | AssetUseLog, JobPhotoComment, JobPhotoMention, NotificationDelivery, SafetyIncident |
 | **ServiceCategory** | 5 | CompanyServiceCategory, JobChecklistTemplate, LeadRequest, QuickAddItem, QuoteScopeGroup |
+| **Asset** | 3 | AssetDocument, AssetUseLog, Expense |
 | **MarketingCampaign** | 3 | MarketingCampaignDelivery, MarketingDesign, PamphletStop |
-| **PlatformAdmin** | 3 | DemoBooking, DemoHostAvailability, PlatformAuditLog |
+| **Subcontractor** | 3 | JobSubcontractor, SubcontractorDocument, SubcontractorPayment |
 | **VoiceAgent** | 3 | Company, VoiceCall, VoicePhoneNumber |
+| **AiEmployee** | 2 | AiEmployeeSource, Company |
 | **DocumentTemplate** | 2 | FollowUpRule, MarketingCampaign |
 | **Funnel** | 2 | FunnelEvent, FunnelResponse |
-| **JobPhoto** | 2 | JobPhotoComment, JobPhotoTagOnPhoto |
-| **LeadRequest** | 2 | LeadNote, Quote |
-| **LeavePolicy** | 2 | LeaveBalance, LeaveRequest |
 
 ### Every model, both directions
 
-<details><summary>189 models — expand</summary>
+<details><summary>222 models — expand</summary>
 
 | Model | Points at | Pointed at by |
 |---|---|---|
 | `AiCreditBundle` | — | Company |
-| `Appointment` | Booking, Client, Quote | Booking |
-| `Asset` | Debt | AssetUseLog |
 | `AiEmployee` | — | AiEmployeeSource, Company |
 | `AiEmployeeSource` | AiEmployee | — |
+| `Appointment` | Booking, Client, Quote | Booking |
+| `Asset` | Debt | AssetDocument, AssetUseLog, Expense |
+| `AssetDocument` | Asset | — |
 | `AssetUseLog` | Asset, Job, Member | — |
 | `Booking` | Appointment, EventType, Quote | Appointment |
 | `ChangeOrder` | Invoice, Job | — |
 | `Client` | — | Appointment, ClientEquipment, Invoice, Job, PamphletStop, Quote, ReferralLink, SatisfactionResponse, ServicePlan, Task |
 | `ClientEquipment` | Client | ClientEquipmentService |
 | `ClientEquipmentService` | ClientEquipment | — |
-| `Company` | AiCreditBundle, CompanySite, CrewInboxNumber, ForecastSettings, LinkPage, MetaAdConnection, SalesAttribution, SalesRep, Subscription, VoiceAgent, VoiceAutoTopup | AccountAbuseStrike, ActivityLog, AiCreditBundle, AiDigest, AiUsage, Appointment, Asset, AssetUseLog, CallConsent, Client, ClientEquipment, CompanyFeatureOverride, CompanyServiceCategory, CompanySite, CrewInboundMessage, CrewInboxNumber, CustomField, Debt, DocumentTemplate, EventType, Expense, ExpenseImportBatch, FollowUpRule, ForecastSettings, Funnel, InstantQuoteConfig, Invoice, Job, JobChecklistTemplate, JobDailyLog, JobDocument, JobPaymentStage, JobPhoto, JobPhotoComment, JobPhotoMention, JobPhotoTag, LeadRequest, LeavePolicy, LeaveRequest, LinkPage, MarketingCampaign, MarketingDesign, MarketingSpend, MarketingSubscriber, Material, MaterialRecipeSetting, Member, MetaAdConnection, MigrationRequest, NotificationDelivery, NotificationEvent, NotificationRule, PayRun, PaymentScheduleStage, PendingTeamProfile, Product, PurchaseOrder, QuickAddItem, Quote, QuoteImport, RecordEdit, ReferralCredit, ReferralInvite, SafetyIncident, Salary, SalaryComponent, SalesAttribution, SalesAttributionTouch, SalesCommissionEntry, SalesRep, SatisfactionResponse, ServiceCategory, ServicePlan, Shift, SmsOptOut, SocialPublish, StockMovement, Subscription, Supplier, SupportTicket, Task, TaxRate, VehicleDetail, VoiceAgent, VoiceAutoTopup, VoiceCall, VoiceCallTask, VoiceCreditEntry, VoicePhoneNumber, WhatsAppTemplate, WorkArea, Worker, WorkingHours |
+| `Company` | AiCreditBundle, AiEmployee, CompanySite, CrewInboxNumber, ForecastSettings, LinkPage, MetaAdConnection, SalesAttribution, SalesRep, Subscription, VoiceAgent, VoiceAutoTopup | AccountAbuseStrike, ActivityLog, AiCreditBundle, AiDigest, AiEmployee, AiEmployeeReply, AiEmployeeSource, AiUsage, Appointment, Asset, AssetUseLog, CallConsent, Client, ClientEquipment, CompanyFeatureOverride, CompanyServiceCategory, CompanySite, CrewInboundMessage, CrewInboxNumber, CustomField, Debt, DocumentTemplate, EventType, Expense, ExpenseImportBatch, FollowUpRule, ForecastSettings, Funnel, InstantQuoteConfig, Invoice, Job, JobChecklistTemplate, JobDailyLog, JobDocument, JobPaymentStage, JobPhoto, JobPhotoComment, JobPhotoMention, JobPhotoTag, JobSubcontractor, LeadRequest, LeavePolicy, LeaveRequest, LinkPage, LocationStamp, MarketingCampaign, MarketingDesign, MarketingSpend, MarketingSubscriber, Material, MaterialRecipeSetting, Member, MessageThread, MessagingChannel, MetaAdConnection, MetaLeadForm, MetaPageConnection, MigrationRequest, NotificationDelivery, NotificationEvent, NotificationRule, PayRun, PaymentScheduleStage, PendingTeamProfile, Product, PurchaseOrder, QuickAddItem, Quote, QuoteImport, RecordEdit, ReferralCredit, ReferralInvite, SafetyIncident, Salary, SalaryComponent, SalesAttribution, SalesAttributionTouch, SalesCheckIn, SalesCommissionEntry, SalesRep, SatisfactionResponse, ServiceCategory, ServicePlan, Shift, SmsOptOut, SocialPublish, StockMovement, Subcontractor, SubcontractorPayment, Subscription, Supplier, SupportTicket, Task, TaxRate, VehicleDetail, VoiceAgent, VoiceAutoTopup, VoiceCall, VoiceCallTask, VoiceCreditEntry, VoicePhoneNumber, WhatsAppTemplate, WorkArea, Worker, WorkingHours |
 | `CompanyServiceCategory` | ServiceCategory | — |
 | `CompanySite` | — | Company |
 | `CrewInboxNumber` | — | Company |
@@ -266,7 +267,7 @@ tenancy, so it carries no information.
 | `DemoHostAvailability` | PlatformAdmin | — |
 | `DocumentTemplate` | — | FollowUpRule, MarketingCampaign |
 | `EventType` | — | Booking |
-| `Expense` | ExpenseImportBatch, Material | MaterialPriceEntry |
+| `Expense` | Asset, ExpenseImportBatch, Material | MaterialPriceEntry |
 | `ExpenseImportBatch` | — | Expense |
 | `FieldQuoCapability` | — | ProspectOpportunity |
 | `FollowUpLog` | FollowUpRule | — |
@@ -280,7 +281,7 @@ tenancy, so it carries no information.
 | `InvoiceCosting` | Invoice | Invoice |
 | `JenniferConversation` | — | JenniferMessage |
 | `JenniferMessage` | JenniferConversation | — |
-| `Job` | Client, Quote, SatisfactionResponse | AssetUseLog, ChangeOrder, Invoice, JobDailyLog, JobDocument, JobMaterial, JobPaymentStage, JobPhoto, JobVisit, MarketingDesign, SafetyIncident, SatisfactionResponse, Shift, Task, TimeEntry |
+| `Job` | Client, Quote, SatisfactionResponse | AssetUseLog, ChangeOrder, Invoice, JobDailyLog, JobDocument, JobMaterial, JobPaymentStage, JobPhoto, JobSubcontractor, JobVisit, LocationStamp, MarketingDesign, SafetyIncident, SatisfactionResponse, Shift, Task, TimeEntry |
 | `JobChecklistTemplate` | ServiceCategory | — |
 | `JobDailyLog` | Job | — |
 | `JobDocument` | Job | — |
@@ -291,13 +292,15 @@ tenancy, so it carries no information.
 | `JobPhotoMention` | JobPhotoComment, Member | — |
 | `JobPhotoTag` | — | JobPhotoTagOnPhoto |
 | `JobPhotoTagOnPhoto` | JobPhoto, JobPhotoTag | — |
-| `JobVisit` | Job | — |
+| `JobSubcontractor` | Job, JobVisit, Subcontractor | SubcontractorPayment |
+| `JobVisit` | Job | JobSubcontractor, LocationStamp |
 | `LeadNote` | LeadRequest | — |
 | `LeadRequest` | Quote, ServiceCategory | LeadNote, Quote |
 | `LeaveBalance` | LeavePolicy, Worker | — |
 | `LeavePolicy` | — | LeaveBalance, LeaveRequest |
 | `LeaveRequest` | LeavePolicy, Worker | — |
 | `LinkPage` | — | Company |
+| `LocationStamp` | Job, JobVisit, TimeEntry, Worker | — |
 | `MarketingCampaign` | DocumentTemplate | MarketingCampaignDelivery, MarketingDesign, PamphletStop |
 | `MarketingCampaignDelivery` | MarketingCampaign, MarketingSubscriber | — |
 | `MarketingDesign` | Job, MarketingCampaign | MarketingDesignLayout, SocialPublish |
@@ -324,13 +327,13 @@ tenancy, so it carries no information.
 | `PaymentScheduleStage` | — | JobPaymentStage |
 | `Payout` | Worker | — |
 | `Plan` | — | Subscription |
-| `PlatformAdmin` | — | DemoBooking, DemoHostAvailability, PlatformAuditLog, SupportTicket, SupportTicketNote |
+| `PlatformAdmin` | — | DemoBooking, DemoHostAvailability, PlatformAuditLog, PlatformSmsNumber, SalesTelemarketerRegistration, StaffMessage, StaffRoomMember, SupportTicket, SupportTicketNote |
 | `PlatformAuditLog` | PlatformAdmin | — |
 | `PlatformPromoCode` | — | PlatformPromoRedemption |
 | `PlatformPromoRedemption` | PlatformPromoCode | — |
 | `PlatformSmsNumber` | PlatformAdmin, SalesRep | — |
 | `PlatformVoiceCall` | Prospect, SalesLead | — |
-| `Prospect` | ProspectCampaign, SalesTerritory | PlatformVoiceCall, ProspectCapability, ProspectCorrection, ProspectEvidence, ProspectInference, ProspectOpportunity, ProspectScore, ProspectTalkingPoint, ProspectTechnology, SalesCallAttempt, SalesLead, SalesPlaybookAssignment, SalesRepNote |
+| `Prospect` | ProspectCampaign, SalesTerritory | PlatformVoiceCall, ProspectCapability, ProspectCorrection, ProspectEvidence, ProspectInference, ProspectOpportunity, ProspectScore, ProspectTalkingPoint, ProspectTechnology, SalesCallAttempt, SalesContactNumber, SalesLead, SalesPlaybookAssignment, SalesQueueClaim, SalesRepNote |
 | `ProspectCampaign` | SalesTerritory | Prospect |
 | `ProspectCapability` | Prospect | — |
 | `ProspectCorrection` | Prospect | — |
@@ -354,22 +357,25 @@ tenancy, so it carries no information.
 | `SalaryComponent` | — | WorkerSalaryComponent |
 | `SalesAttribution` | SalesRep | Company |
 | `SalesAttributionTouch` | SalesRep | — |
-| `SalesCallAttempt` | Prospect, SalesLead, SalesRep | — |
+| `SalesCallAttempt` | Prospect, SalesLead, SalesRep | SalesCallTransfer |
 | `SalesCallTransfer` | SalesCallAttempt, SalesRep | — |
 | `SalesCheckIn` | SalesLead, SalesRep, SalesSmsMessage | SalesSmsMessage |
 | `SalesCommissionEntry` | SalesPayoutBatch, SalesRep | — |
 | `SalesCommissionPlan` | — | SalesRep |
+| `SalesContactNumber` | Prospect, SalesLead, SalesRep | — |
 | `SalesEvent` | SalesLead, SalesRep | — |
-| `SalesLead` | Prospect, SalesRep | PlatformVoiceCall, SalesCallAttempt, SalesEvent, SalesRepNote, SalesSmsMessage, SalesThread |
+| `SalesLead` | Prospect, SalesRep | PlatformVoiceCall, SalesCallAttempt, SalesCheckIn, SalesContactNumber, SalesEvent, SalesLeadLinkEvent, SalesRepNote, SalesSmsMessage, SalesThread |
+| `SalesLeadLinkEvent` | SalesLead, SalesRep | — |
 | `SalesMessage` | SalesThread | — |
 | `SalesPayoutBatch` | SalesRep | SalesCommissionEntry |
 | `SalesPlaybook` | — | SalesPlaybookExperiment |
 | `SalesPlaybookAssignment` | Prospect, SalesPlaybookExperiment | — |
 | `SalesPlaybookExperiment` | SalesPlaybook | SalesPlaybookAssignment |
-| `SalesRep` | SalesCommissionPlan | Company, SalesAttribution, SalesAttributionTouch, SalesCallAttempt, SalesCommissionEntry, SalesEvent, SalesLead, SalesPayoutBatch, SalesRepActivity, SalesRepNote, SalesSmsMessage, SalesThread, SupportTicket, SupportTicketNote |
+| `SalesQueueClaim` | Prospect, SalesRep | — |
+| `SalesRep` | SalesCommissionPlan | Company, PlatformSmsNumber, SalesAttribution, SalesAttributionTouch, SalesCallAttempt, SalesCallTransfer, SalesCheckIn, SalesCommissionEntry, SalesContactNumber, SalesEvent, SalesLead, SalesLeadLinkEvent, SalesPayoutBatch, SalesQueueClaim, SalesRepActivity, SalesRepNote, SalesSmsMessage, SalesThread, StaffMessage, StaffRoomMember, SupportTicket, SupportTicketNote |
 | `SalesRepActivity` | SalesRep | — |
 | `SalesRepNote` | Prospect, SalesLead, SalesRep, SalesThread | — |
-| `SalesSmsMessage` | SalesLead, SalesRep | — |
+| `SalesSmsMessage` | SalesCheckIn, SalesLead, SalesRep | SalesCheckIn |
 | `SalesSuppression` | — | SalesSuppressionEvent |
 | `SalesSuppressionEvent` | SalesSuppression | — |
 | `SalesTelemarketerRegistration` | PlatformAdmin | — |
@@ -382,12 +388,18 @@ tenancy, so it carries no information.
 | `ServicePlanOccurrence` | Invoice, ServicePlan | Invoice |
 | `Shift` | Job, Worker | — |
 | `SocialPublish` | MarketingDesign | — |
+| `StaffMessage` | PlatformAdmin, SalesRep, StaffRoom | — |
+| `StaffRoom` | — | StaffMessage, StaffRoomMember |
+| `StaffRoomMember` | PlatformAdmin, SalesRep, StaffRoom | — |
+| `Subcontractor` | — | JobSubcontractor, SubcontractorDocument, SubcontractorPayment |
+| `SubcontractorDocument` | Subcontractor | — |
+| `SubcontractorPayment` | JobSubcontractor, Subcontractor | — |
 | `Subscription` | Plan | Company |
 | `Supplier` | — | PurchaseOrder |
 | `SupportTicket` | PlatformAdmin, SalesRep | SupportTicketNote |
 | `SupportTicketNote` | PlatformAdmin, SalesRep, SupportTicket | — |
 | `Task` | Client, Invoice, Job, Quote, WorkArea | JobPhoto |
-| `TimeEntry` | Job, Worker | — |
+| `TimeEntry` | Job, Worker | LocationStamp |
 | `User` | Worker | Account, AccountDevice, Appointment, AvailabilitySchedule, ChangeOrder, EventType, Funnel, Invoice, JobMaterial, JobVisit, LeadNote, LeadRequest, MarketingCampaign, MarketingDesign, Member, OrgMember, PamphletStop, Quote, Session, Shift, Task, TimeEntry, TwoFactor, WorkAreaAssignment, Worker, WorkingHours |
 | `VehicleDetail` | — | VehicleMaintenance |
 | `VehicleMaintenance` | VehicleDetail | — |
@@ -397,7 +409,7 @@ tenancy, so it carries no information.
 | `VoicePhoneNumber` | VoiceAgent | VoiceCall |
 | `WorkArea` | — | Task, WorkAreaAssignment |
 | `WorkAreaAssignment` | WorkArea | — |
-| `Worker` | — | LeaveBalance, LeaveRequest, PayRunLine, Payout, SafetyIncident, Salary, Shift, TimeEntry, User, WorkerSalaryComponent |
+| `Worker` | — | LeaveBalance, LeaveRequest, LocationStamp, PayRunLine, Payout, SafetyIncident, Salary, Shift, TimeEntry, User, WorkerSalaryComponent |
 | `WorkerSalaryComponent` | SalaryComponent, Worker | — |
 
 </details>

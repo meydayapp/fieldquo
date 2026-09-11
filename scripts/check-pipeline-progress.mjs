@@ -42,7 +42,7 @@ import {
   describeStage,
 } from "@/lib/sales/pipeline/progress";
 import { TASK_KINDS } from "@/lib/sales/pipeline/kinds";
-import { CLAIMED_TAIL, NEXT_STAGE, advanceChain, nextStageFor } from "@/lib/sales/pipeline/chain";
+import { NEXT_STAGE, advanceChain, laneOrder, nextStageFor } from "@/lib/sales/pipeline/chain";
 import {
   CLAIMED_NOT_BEFORE,
   inheritedPayload,
@@ -114,11 +114,15 @@ section("1. Every stage is described, and the order is the chain's own");
   // asserting a pipeline shape this one deliberately does not have.
   // …and the claimed tail (CLAIMED_TAIL) continues past where NEXT_STAGE ends,
   // so the board's order is the backlog walk followed by the claimed walk.
-  let walked = ["CRAWL_WEBSITE"];
-  while (NEXT_STAGE[walked.at(-1)]) walked.push(NEXT_STAGE[walked.at(-1)]);
-  while (CLAIMED_TAIL[walked.at(-1)]) walked.push(CLAIMED_TAIL[walked.at(-1)]);
-  ok("the linear tail is in NEXT_STAGE's own order, then the claimed tail's",
+  // The claimed walk is the backlog walk with the claimed-only stages let
+  // in where the lane takes them — the inference detour before the brief,
+  // the script after it — so it is the one that visits every kind.
+  const walked = laneOrder("claimed");
+  ok("the linear tail is the claimed lane's walk, in the chain's own order",
     JSON.stringify(walked) === JSON.stringify(TASK_KINDS.slice(TASK_KINDS.indexOf("CRAWL_WEBSITE"))), walked);
+  const backlogWalk = laneOrder("backlog");
+  ok("…and the backlog walk is the same order with the claimed-only stages left out",
+    JSON.stringify(backlogWalk) === JSON.stringify(walked.filter((k) => !["INFER_FROM_SITE", "GENERATE_CALL_SCRIPT"].includes(k))), backlogWalk);
   ok("…and the two fan-out stages come before it",
     TASK_KINDS.slice(0, 2).join() === "DISCOVER_BUSINESSES,ENRICH_BUSINESS");
   ok("…and every kind has a declared place in the chain",

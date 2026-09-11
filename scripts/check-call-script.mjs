@@ -75,6 +75,7 @@ import { CLAIMED_NOT_BEFORE } from "@/lib/sales/pipeline/priority";
 import { RESEARCH_CHAIN, researchPlan } from "@/lib/sales/pipeline/research";
 import { STAGES } from "@/lib/sales/pipeline/progress";
 import { composeBrief } from "@/lib/sales/intel/brief";
+import { SITE_INFERENCE_VERSION } from "@/lib/sales/intel/siteInference";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(ROOT, p), "utf8");
@@ -231,7 +232,7 @@ section("1. The stage exists, is real, and is on the claimed lane only");
 
   ok("the backlog's chain ends at the brief", nextStageFor("GENERATE_RESEARCH_BRIEF") === null && nextStageFor("GENERATE_RESEARCH_BRIEF", { priority: "backlog" }) === null);
   ok("the claimed lane continues into the script", nextStageFor("GENERATE_RESEARCH_BRIEF", { priority: "claimed" }) === "GENERATE_CALL_SCRIPT");
-  ok("…and that is the whole claimed tail", JSON.stringify(CLAIMED_TAIL) === JSON.stringify({ GENERATE_RESEARCH_BRIEF: "GENERATE_CALL_SCRIPT" }));
+  ok("…and the claimed lane's table is the site-inference detour plus this tail", JSON.stringify(CLAIMED_TAIL) === JSON.stringify({ CALCULATE_LEAD_SCORE: "INFER_FROM_SITE", INFER_FROM_SITE: "GENERATE_RESEARCH_BRIEF", GENERATE_RESEARCH_BRIEF: "GENERATE_CALL_SCRIPT" }), CLAIMED_TAIL);
 
   // Executed: the brief settling on each lane.
   const created = [];
@@ -243,29 +244,32 @@ section("1. The stage exists, is real, and is on the claimed lane only");
   ok("…in the claimed lane, ahead of the backlog", created[0]?.payload?.priority === "claimed" && created[0]?.notBefore === CLAIMED_NOT_BEFORE);
 
   // The planner: a fully researched, claimed prospect with no script gets one.
+  // The site-inference run is current in every case below, so the plan
+  // reaches the script; check-site-inferences.mjs drives the inference half.
   const done = RESEARCH_CHAIN.map((k) => ({ id: k, kind: k, status: "done", createdAt: NOW }));
   const prospect = { id: "p", websiteUrl: "http://x.example/", lastCrawledAt: CRAWLED, doNotContactAt: null, campaignId: null };
-  const plan = researchPlan({ prospect, tasks: done, priority: "claimed", script: null });
+  const inferenceRun = { crawledAt: CRAWLED, promptVersion: SITE_INFERENCE_VERSION };
+  const plan = researchPlan({ prospect, tasks: done, priority: "claimed", script: null, inferenceRun });
   ok("ensureResearchQueued plans the script after a finished chain", plan.enqueue[0]?.kind === "GENERATE_CALL_SCRIPT", plan);
-  ok("…not on the backlog lane", researchPlan({ prospect, tasks: done, priority: "backlog", script: null }).skipped === "complete");
-  ok("…nor when a script for this crawl exists", researchPlan({ prospect, tasks: done, priority: "claimed", script: { crawledAt: CRAWLED } }).skipped === "complete");
+  ok("…not on the backlog lane", researchPlan({ prospect, tasks: done, priority: "backlog", script: null, inferenceRun }).skipped === "complete");
+  ok("…nor when a script for this crawl exists", researchPlan({ prospect, tasks: done, priority: "claimed", script: { crawledAt: CRAWLED }, inferenceRun }).skipped === "complete");
   ok("…but again when the crawl is newer than the script",
-    researchPlan({ prospect: { ...prospect, lastCrawledAt: NOW }, tasks: done, priority: "claimed", script: { crawledAt: CRAWLED } }).enqueue[0]?.kind === "GENERATE_CALL_SCRIPT");
+    researchPlan({ prospect: { ...prospect, lastCrawledAt: NOW }, tasks: done, priority: "claimed", script: { crawledAt: CRAWLED }, inferenceRun: { ...inferenceRun, crawledAt: NOW } }).enqueue[0]?.kind === "GENERATE_CALL_SCRIPT");
   // The version bump reaches stored rows through the planner, not only
   // through the hash: a v1 script for the current crawl is re-queued on the
   // next claim or open, and the handler's hash check is what stops a row
   // already at v2 from being paid for twice.
   ok("…and again when the script was written by an older prompt",
-    researchPlan({ prospect, tasks: done, priority: "claimed", script: { crawledAt: CRAWLED, promptVersion: "1" } }).enqueue[0]?.kind === "GENERATE_CALL_SCRIPT");
-  ok("…not when it is at the current version", researchPlan({ prospect, tasks: done, priority: "claimed", script: { crawledAt: CRAWLED, promptVersion: CALL_SCRIPT_VERSION } }).skipped === "complete");
+    researchPlan({ prospect, tasks: done, priority: "claimed", script: { crawledAt: CRAWLED, promptVersion: "1" }, inferenceRun }).enqueue[0]?.kind === "GENERATE_CALL_SCRIPT");
+  ok("…not when it is at the current version", researchPlan({ prospect, tasks: done, priority: "claimed", script: { crawledAt: CRAWLED, promptVersion: CALL_SCRIPT_VERSION }, inferenceRun }).skipped === "complete");
   // Three finished scripts are three scripts, not three failed tries: the
   // requeue bound must not count them, or the version bump never reaches a
   // prospect that has been scripted before.
   const thrice = [...done, ...[1, 2, 3].map((n) => ({ id: `s${n}`, kind: "GENERATE_CALL_SCRIPT", status: "done", createdAt: NOW }))];
   ok("…and a prospect scripted three times before is still re-queued for the new version",
-    researchPlan({ prospect, tasks: thrice, priority: "claimed", script: { crawledAt: CRAWLED, promptVersion: "1" } }).enqueue[0]?.kind === "GENERATE_CALL_SCRIPT");
+    researchPlan({ prospect, tasks: thrice, priority: "claimed", script: { crawledAt: CRAWLED, promptVersion: "1" }, inferenceRun }).enqueue[0]?.kind === "GENERATE_CALL_SCRIPT");
   const failedThrice = [...done, ...[1, 2, 3].map((n) => ({ id: `f${n}`, kind: "GENERATE_CALL_SCRIPT", status: "failed", createdAt: NOW }))];
-  ok("…while three failed tries still exhaust the bound", researchPlan({ prospect, tasks: failedThrice, priority: "claimed", script: null }).skipped === "requeues_exhausted");
+  ok("…while three failed tries still exhaust the bound", researchPlan({ prospect, tasks: failedThrice, priority: "claimed", script: null, inferenceRun }).skipped === "requeues_exhausted");
   const playbookRoute = decomment(read("app/api/sales/playbook/route.js"));
   ok("the playbook route re-queues an older-version script on open, fire-and-forget", /stored\.promptVersion !== CALL_SCRIPT_VERSION/.test(playbookRoute) && /ensureResearchQueued\(\{ db, prospectIds: \[prospectId\], priority: "claimed" \}\)/.test(playbookRoute) && !/await pipelineProgress/.test(playbookRoute));
 }

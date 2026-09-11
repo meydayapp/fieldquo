@@ -10991,6 +10991,44 @@ model ProspectCallScript {
   updatedAt DateTime @updatedAt
 }
 
+/// One row per prospect: the last time INFER_FROM_SITE read its pages.
+///
+/// The inferences themselves are ProspectInference rows, one per kind, each
+/// citing a `page_content` evidence row that holds the exact sentence the
+/// model quoted (lib/sales/pipeline/handlers/inferFromSite.js). What that
+/// table has no place for is "which pages, under which prompt, produced
+/// them" — so this row carries the same inputHash / promptVersion pair
+/// ProspectCallScript keeps, for the same reason: a stored run whose hash
+/// matches is left alone, a new crawl changes the hash, and a prompt bump
+/// reaches every row through research.js's staleness rule. `kept` and
+/// `dropped` are the counts the task note reports — how many entries the
+/// model offered that survived the quote check, and how many it offered
+/// that were not on the page.
+///
+/// No relation to Prospect, like ProspectCallScript beside it: additive,
+/// droppable, never a reason to touch the Prospect model.
+model ProspectInferenceRun {
+  id         String @id @default(cuid())
+  prospectId String @unique
+
+  /// Null when nothing was crawled and no model was asked.
+  model         String?
+  promptVersion String
+  inputHash     String
+
+  pages   Int @default(0)
+  kept    Int @default(0)
+  dropped Int @default(0)
+
+  /// The prospect's lastCrawledAt when the run happened — what research.js
+  /// compares against a newer crawl.
+  crawledAt   DateTime?
+  generatedAt DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // FieldQuo's own do-not-contact list
 // ═══════════════════════════════════════════════════════════════════════════

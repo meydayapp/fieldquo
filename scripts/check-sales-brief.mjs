@@ -240,9 +240,9 @@ ok("GENERATE_RESEARCH_BRIEF is the one that does", PROVIDER_BY_KIND.GENERATE_RES
 // Anything else joining this list is a stage that has started spending money
 // without saying so.
 ok(
-  "…and the call script is the only other stage on the openai budget",
+  "…and the site-inference stage and the call script are the only other stages on the openai budget",
   JSON.stringify(Object.entries(PROVIDER_BY_KIND).filter(([, p]) => p === "openai").map(([k]) => k).sort()) ===
-    JSON.stringify(["GENERATE_CALL_SCRIPT", "GENERATE_RESEARCH_BRIEF"]),
+    JSON.stringify(["GENERATE_CALL_SCRIPT", "GENERATE_RESEARCH_BRIEF", "INFER_FROM_SITE"]),
   Object.entries(PROVIDER_BY_KIND).filter(([, p]) => p === "openai"),
 );
 {
