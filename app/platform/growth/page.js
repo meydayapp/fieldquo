@@ -227,8 +227,10 @@ export default function PlatformGrowthPage() {
       {data && (
         <section className="rounded-lg border border-border bg-card overflow-x-auto">
           <div className="px-4 py-3 border-b border-border">
-            <h2 className="font-semibold">Actuals, last six full months</h2>
-            <p className="text-xs text-muted-foreground">The rows the rates are measured from. Demo companies excluded. The current month is not shown because it is not over.</p>
+            <h2 className="font-semibold">Actuals</h2>
+            <p className="text-xs text-muted-foreground">
+              Finished months are what the rates are measured from; the table starts the month FieldQuo's first customer arrived. {data.measured.actuals.currentMonth?.label} is shown so far because that is where the dialling is — it joins the rates when it is over. Demo companies excluded.
+            </p>
           </div>
           <table className="w-full text-sm whitespace-nowrap">
             <thead>
@@ -244,9 +246,24 @@ export default function PlatformGrowthPage() {
               </tr>
             </thead>
             <tbody>
-              {data.measured.actuals.byMonth.map((m) => (
-                <tr key={m.label} className="border-b border-border last:border-0 tabular-nums">
-                  <td className="px-4 py-1.5">{m.label}</td>
+              {[
+                // Months before the first customer are not printed: they are
+                // before FieldQuo existed, not zero observations.
+                ...data.measured.actuals.byMonth
+                  .filter((m) => data.measured.actuals.launchMonth && m.label >= data.measured.actuals.launchMonth)
+                  .map((m) =>
+                    data.measured.actuals.firstObservedMonth && m.label < data.measured.actuals.firstObservedMonth
+                      ? { ...m, note: "first customers arrived · not in the rates" }
+                      : m,
+                  ),
+                ...(data.measured.actuals.currentMonth ? [data.measured.actuals.currentMonth] : []),
+              ].map((m) => (
+                <tr key={m.label} className={`border-b border-border last:border-0 tabular-nums${m.partial ? " text-muted-foreground" : ""}`}>
+                  <td className="px-4 py-1.5">
+                    {m.label}
+                    {m.partial ? <span className="ml-2 text-xs">so far · day {m.dayOfMonth} · not in the rates</span> : null}
+                    {m.note ? <span className="ml-2 text-xs text-muted-foreground">{m.note}</span> : null}
+                  </td>
                   <td className="px-4 py-1.5">{nf.format(m.dials)}</td>
                   <td className="px-4 py-1.5">{nf.format(m.reached)}</td>
                   <td className="px-4 py-1.5">{nf.format(m.signups.rep)}</td>
