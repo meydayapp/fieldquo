@@ -276,8 +276,15 @@ section("2. What the model is shown, and what it may answer");
   ok("a well-formed reply is accepted", good.ok && good.script.threeQuestions.length === 3, good.problems);
   ok("a digit anywhere rejects the whole script", !validateCallScript({ ...goodReply(), whyThemNow: "They have 42 reviews." }).ok);
   ok("…named as such", validateCallScript({ ...goodReply(), closeAsk: "Thursday at 3?" }).problems.includes("digits"));
-  ok("two questions are not three", validateCallScript({ ...goodReply(), threeQuestions: ["a?", "b?"] }).problems.includes("list_size"));
-  ok("one objection is too few", validateCallScript({ ...goodReply(), objections: [goodReply().objections[0]] }).problems.includes("list_size"));
+  ok("two questions are not three", validateCallScript({ ...goodReply(), threeQuestions: ["a?", "b?"] }).problems.includes("list_short"));
+  ok("one objection is too few", validateCallScript({ ...goodReply(), objections: [goodReply().objections[0]] }).problems.includes("list_short"));
+  // The first script ever generated, in production, was rejected for eight
+  // whatWeSaw lines over a bound of six. Paid for and thrown away.
+  const generous = validateCallScript({ ...goodReply(), whatWeSaw: Array.from({ length: 9 }, (_, i) => `Fact ${"abcdefghi"[i]}.`), doNotSay: Array.from({ length: 8 }, (_, i) => `Skip ${"abcdefgh"[i]}.`) });
+  ok("a list past its bound is trimmed, not rejected", generous.ok && generous.script.whatWeSaw.length === CALL_SCRIPT_LIMITS.whatWeSaw.max && generous.script.doNotSay.length === CALL_SCRIPT_LIMITS.doNotSay.max, generous);
+  ok("…and the trim is reported by field", JSON.stringify(generous.trimmed) === JSON.stringify(["whatWeSaw", "doNotSay"]), generous.trimmed);
+  ok("…while four questions become three", validateCallScript({ ...goodReply(), threeQuestions: ["a?", "b?", "c?", "d?"] }).script?.threeQuestions.length === 3);
+  ok("the prompt states the bounds it will be held to", new RegExp(`the ${CALL_SCRIPT_LIMITS.whatWeSaw.max} or fewer things`).test(prompt) && new RegExp(`up to ${CALL_SCRIPT_LIMITS.doNotSay.max} things`).test(prompt), prompt.slice(-900));
   ok("an empty opener is refused", validateCallScript({ ...goodReply(), opener: "  " }).problems.includes("empty_field"));
   ok(`a line past ${CALL_SCRIPT_LIMITS.sentence} characters is refused`, validateCallScript({ ...goodReply(), opener: "x".repeat(400) }).problems.includes("too_long"));
   ok("not an object is refused", !validateCallScript("hello").ok && !validateCallScript(null).ok);
