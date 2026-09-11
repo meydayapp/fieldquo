@@ -314,6 +314,21 @@ export default function PlatformGrowthPage() {
                   className="w-full rounded-md border border-border bg-background px-2 py-1.5 tabular-nums"
                   required={fld.kind === "count"}
                 />
+                {/* A blank rate withholds the whole forecast. When the
+                    pipeline has already seen something, offer that number as
+                    the starting assumption — the owner can type over it. */}
+                {(() => {
+                  if (fld.kind === "count" || (form[fld.key] ?? "") !== "") return null;
+                  const r = fld.key === "organic" ? data.measured.organic : data.measured.rates[fld.key];
+                  if (!r || r.measured === null || r.measured === undefined || !Number.isFinite(r.measured)) return null;
+                  const asForm = fld.kind === "rate" && !fld.max ? String(Math.round(r.measured * 1000) / 10) : String(Math.round(r.measured * 100) / 100);
+                  const shown = fld.kind === "rate" && !fld.max ? `${asForm}%` : fld.key === "organic" ? `${asForm}/month` : asForm;
+                  return (
+                    <button type="button" onClick={() => setForm({ ...form, [fld.key]: asForm })} className="text-xs text-primary underline underline-offset-2">
+                      Blank withholds the forecast. Measured so far: {shown} — use it
+                    </button>
+                  );
+                })()}
               </label>
             ))}
           </div>
