@@ -75,8 +75,8 @@ recorded it.**
 
 | Permission | The honest reason |
 |---|---|
-| `whatsapp_business_messaging` | No WhatsApp anywhere. |
-| `whatsapp_business_management` | Same. |
+| `whatsapp_business_messaging` | ~~No WhatsApp anywhere.~~ **Superseded**: WhatsApp was built after this table was written (`lib/meta/whatsappConnect.js`, the WhatsApp panel, the 24-hour window). Keep both WhatsApp scopes and submit them as their own round per `META-WHATSAPP-SUBMISSION.md`. |
+| `whatsapp_business_management` | Same — keep, see above. |
 | `pages_manage_metadata` | Nothing subscribes to Page webhooks yet. The messaging build may change this — revisit in round two. |
 | `pages_manage_ads` | FieldQuo reads ad performance; it does not manage Page ads. |
 | `publish_video` | Images and text only. |
