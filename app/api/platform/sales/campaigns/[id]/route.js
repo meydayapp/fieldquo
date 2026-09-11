@@ -30,8 +30,6 @@ import {
   campaignSourceKeys,
   cursorFingerprint,
   describeSources,
-  mergeSourceState,
-  sourceStateFor,
   startProblems,
 } from "@/lib/sales/discovery/sources";
 import { campaignTradeLabel } from "@/lib/sales/discovery/trades";
@@ -50,6 +48,7 @@ import { campaignProgress, funnelProblems, funnelRows } from "@/lib/sales/discov
 import { stalenessOf } from "@/lib/sales/discovery/normalise";
 import { duplicateReason } from "@/lib/sales/discovery/dedupe";
 import { enqueuePipelineTask } from "@/lib/sales/pipeline/tasks";
+import { REDISCOVER_REASONS, retryDiscoveryPlan, unblockSourcePlan } from "@/lib/sales/discovery/rediscover";
 
 /**
  * The calling-rules table with FieldQuo's own certificates applied.
@@ -379,20 +378,104 @@ export async function PATCH(request, { params }) {
     // pipeline blocked for a settings problem, so it clears it here. Leaving
     // the block set would give a superadmin a Save button that reports success
     // and changes nothing about whether the source ever runs again.
-    const state = sourceStateFor(campaign, sourceKey);
-    await write(
-      admin,
-      campaign,
-      {
-        sourceConfigs: { ...(plainObject(campaign.sourceConfigs) || {}), [sourceKey]: config },
-        sourceState: mergeSourceState(campaign, {
-          [sourceKey]: { ...state, blocked: null, failures: 0, lastError: null, lastErrorAt: null },
-        }),
-      },
-      "sales_campaign_configured",
-      { sourceKey, summary: described.summary, unblocked: Boolean(state.blocked) },
-    );
-    return NextResponse.json({ ok: true });
+    //
+    // ── …and clearing the block has to bring discovery back ─────────────
+    //
+    // The discovery chain is one thread: each page queues the next, and the
+    // runner abandons a page that fails five times — which is the same
+    // moment the source is blocked. So by the time a superadmin fixes the
+    // settings, the thread is already dead, and an unblock that only cleared
+    // a flag left two California campaigns "running" at zero all night.
+    // lib/sales/discovery/rediscover.js decides whether a fresh task is
+    // needed (running campaign, no live task) and keys it on the unblock
+    // count so the same unblock cannot queue twice; the task is written in
+    // the same transaction as the unblock, the way Start writes its status
+    // and its task together.
+    const latestTask = await db.salesPipelineTask.findFirst({
+      where: { campaignId: campaign.id, kind: "DISCOVER_BUSINESSES" },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, status: true, idempotencyKey: true },
+    });
+    const plan = unblockSourcePlan({ campaign, sourceKey, latestTask });
+    let queued = null;
+    await db.$transaction(async (tx) => {
+      await tx.prospectCampaign.update({
+        where: { id: campaign.id },
+        data: {
+          sourceConfigs: { ...(plainObject(campaign.sourceConfigs) || {}), [sourceKey]: config },
+          sourceState: plan.sourceState,
+        },
+      });
+      if (plan.enqueue) {
+        const task = await enqueuePipelineTask(plan.enqueue, { deps: { db: tx } });
+        // A row without createdAt is the existing one, handed back on a key
+        // collision — the same unblock pressed twice. Counted as not queued.
+        queued = task && Object.hasOwn(task, "createdAt") ? task.idempotencyKey : null;
+      }
+      await tx.platformAuditLog.create({
+        data: {
+          platformAdminId: admin.id,
+          action: "sales_campaign_configured",
+          details: {
+            campaignId: campaign.id,
+            name: campaign.name,
+            sourceKey,
+            summary: described.summary,
+            unblocked: plan.unblocked,
+            discoveryQueued: queued,
+            discoveryNotQueued: plan.unblocked && !queued ? plan.reason || "already_queued" : null,
+          },
+        },
+      });
+    });
+    return NextResponse.json({
+      ok: true,
+      unblocked: plan.unblocked,
+      discoveryQueued: queued,
+      note: plan.unblocked && !queued ? REDISCOVER_REASONS[plan.reason] || "That discovery task was already queued." : null,
+    });
+  }
+
+  if (action === "retry_discovery") {
+    // ══ The thread died and nothing recorded why ══════════════════════════
+    //
+    // The unblock above covers a source the pipeline blocked. A task can
+    // also be abandoned with the source state untouched — a runner error, a
+    // deploy mid-page, a database timeout — and then the campaign is
+    // "running" with nothing behind it and no block to clear. This is the
+    // superadmin's button for that state, offered by the screen only when
+    // the campaign is running and no discovery task is queued or claimed,
+    // and refused here on the same terms so a stale tab cannot queue a
+    // second thread beside a live one.
+    const [latestTask, taskCount] = await Promise.all([
+      db.salesPipelineTask.findFirst({
+        where: { campaignId: campaign.id, kind: "DISCOVER_BUSINESSES" },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, status: true, idempotencyKey: true },
+      }),
+      db.salesPipelineTask.count({ where: { campaignId: campaign.id, kind: "DISCOVER_BUSINESSES" } }),
+    ]);
+    const plan = retryDiscoveryPlan({ campaign, latestTask, taskCount });
+    if (!plan.enqueue) return bad(REDISCOVER_REASONS[plan.reason] || "Discovery cannot be retried right now.");
+    let queued = null;
+    await db.$transaction(async (tx) => {
+      const task = await enqueuePipelineTask(plan.enqueue, { deps: { db: tx } });
+      queued = task && Object.hasOwn(task, "createdAt") ? task.idempotencyKey : null;
+      await tx.platformAuditLog.create({
+        data: {
+          platformAdminId: admin.id,
+          action: "sales_campaign_discovery_retried",
+          details: {
+            campaignId: campaign.id,
+            name: campaign.name,
+            latestTask: latestTask ? { id: latestTask.id, status: latestTask.status } : null,
+            discoveryQueued: queued,
+            discoveryNotQueued: queued ? null : "already_queued",
+          },
+        },
+      });
+    });
+    return NextResponse.json({ ok: true, discoveryQueued: queued, note: queued ? null : "That retry was already queued." });
   }
 
   if (action === "start" || action === "resume") {

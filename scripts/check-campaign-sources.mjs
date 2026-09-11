@@ -45,6 +45,8 @@ import {
   getDiscoveryProvider,
   registerDiscoveryProvider,
 } from "@/lib/sales/discovery/provider";
+import { REDISCOVER_REASONS, discoveryTaskLive, retryDiscoveryPlan, unblockSourcePlan } from "@/lib/sales/discovery/rediscover";
+import { enqueuePipelineTask } from "@/lib/sales/pipeline/tasks";
 import {
   EMPTY_SOURCE_STATE,
   MAX_SOURCE_FAILURES,
@@ -62,7 +64,7 @@ import {
   startProblems,
   unavailableReasonOf,
 } from "@/lib/sales/discovery/sources";
-import { runDiscoverBusinesses } from "@/lib/sales/pipeline/handlers/discoverBusinesses";
+import { runDiscoverBusinesses, stoppedShort } from "@/lib/sales/pipeline/handlers/discoverBusinesses";
 import { funnelRows } from "@/lib/sales/discovery/funnel";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -969,6 +971,124 @@ section("Every source ending finishes the campaign; one still open does not");
   ok("...and once the last source ends, the campaign completes", store.campaign().status === "completed");
 }
 
+section("Unblocking a source brings discovery back: a running campaign with a dead thread gets a task");
+{
+  // The night of 2026-09-11: both California Overture campaigns "running" at
+  // zero after their source was unblocked, because the DISCOVER task had been
+  // abandoned on the fifth failure and nothing re-queues one. The unblock
+  // itself now plans the task, in the same transaction, keyed on how many
+  // times the source has been unblocked.
+  const blockedCampaign = campaignRow({
+    discoverySources: ["overture"],
+    sourceConfigs: { overture: { snapshotUrl: "https://o.test/o" } },
+    sourceState: { overture: { ...EMPTY_SOURCE_STATE, cursor: "4900", blocked: "502 (gave up after 5 attempts)", failures: 5 } },
+  });
+  const abandoned = { id: "t-old", status: "abandoned", idempotencyKey: "discover:camp1:overture@4900" };
+
+  const first = unblockSourcePlan({ campaign: blockedCampaign, sourceKey: "overture", latestTask: abandoned });
+  ok("an unblock on a running campaign with an abandoned task plans a fresh discovery task",
+    first.unblocked === true && first.enqueue?.kind === "DISCOVER_BUSINESSES" && first.enqueue.campaignId === "camp1", first);
+  ok("...clearing the block and counting the unblock on the source",
+    first.sourceState.overture.blocked === null && first.sourceState.overture.failures === 0 && first.sourceState.overture.unblocks === 1, first.sourceState);
+  ok("...keyed on the fingerprint plus the unblock count, so it cannot collide with the abandoned task",
+    first.enqueue.idempotencyKey === "discover:camp1:overture@4900~u1:unblock-1" && first.enqueue.idempotencyKey !== abandoned.idempotencyKey, first.enqueue.idempotencyKey);
+  ok("...for the sources that are open after the unblock", JSON.stringify(first.enqueue.payload) === JSON.stringify({ sources: ["overture"] }));
+  ok("...and the cursor is kept — the page that failed is the page it reads next", first.sourceState.overture.cursor === "4900");
+
+  // The same unblock twice: the plan computes the same key, and the unique
+  // index turns two presses into one task. The store proves the second is a
+  // no-op rather than trusting the key's string equality.
+  const again = unblockSourcePlan({ campaign: blockedCampaign, sourceKey: "overture", latestTask: abandoned });
+  ok("the same unblock twice computes the same key", again.enqueue?.idempotencyKey === first.enqueue.idempotencyKey);
+  const store = makeStore(blockedCampaign);
+  const t1 = await enqueuePipelineTask(first.enqueue, { deps: { db: store.db } });
+  const t2 = await enqueuePipelineTask(again.enqueue, { deps: { db: store.db } });
+  ok("...and enqueues once", store.tasks.filter((t) => t.kind === "DISCOVER_BUSINESSES").length === 1 && t1.idempotencyKey === t2.idempotencyKey, store.tasks.length);
+
+  // A later unblock, after the requeued task has died too, is a new place.
+  const afterFirst = { ...blockedCampaign, sourceState: { overture: { ...first.sourceState.overture, blocked: "502 again", failures: 5 } } };
+  const second = unblockSourcePlan({ campaign: afterFirst, sourceKey: "overture", latestTask: { id: "t-new", status: "abandoned" } });
+  ok("a second unblock, later, increments the counter and gets its own task",
+    second.sourceState.overture.unblocks === 2 && second.enqueue?.idempotencyKey === "discover:camp1:overture@4900~u2:unblock-2", second.enqueue?.idempotencyKey);
+  ok("...and the page that task queues after it cannot collide with the pre-block page either",
+    cursorFingerprint({ ...afterFirst, sourceState: second.sourceState }) === "overture@4900~u2" && cursorFingerprint(blockedCampaign) === "overture@blocked");
+  ok("sourceStateFor keeps the counter, and reads rubbish as zero",
+    sourceStateFor({ ...afterFirst, sourceState: second.sourceState }, "overture").unblocks === 2 &&
+      sourceStateFor({ discoverySources: ["x"], sourceState: { x: { unblocks: "3" } } }, "x").unblocks === 0 &&
+      sourceStateFor({ discoverySources: ["x"], sourceState: { x: { unblocks: null } } }, "x").unblocks === 0 &&
+      EMPTY_SOURCE_STATE.unblocks === 0);
+
+  // A live task means no enqueue: it will page the unblocked source itself.
+  for (const status of ["queued", "claimed"]) {
+    const live = unblockSourcePlan({ campaign: blockedCampaign, sourceKey: "overture", latestTask: { id: "t", status } });
+    ok(`a ${status} task means the block is cleared and nothing is queued`, live.unblocked === true && live.enqueue === null && live.reason === "task_live" && live.sourceState.overture.blocked === null, live);
+  }
+  for (const status of ["done", "failed"]) {
+    const dead = unblockSourcePlan({ campaign: blockedCampaign, sourceKey: "overture", latestTask: { id: "t", status } });
+    ok(`a ${status} latest task is not live, so the unblock queues`, dead.enqueue !== null, dead.reason);
+  }
+  ok("no task at all is not live either", unblockSourcePlan({ campaign: blockedCampaign, sourceKey: "overture", latestTask: null }).enqueue !== null);
+
+  // Not running: Resume queues its own. Not blocked: a settings save is not a restart.
+  const pausedPlan = unblockSourcePlan({ campaign: { ...blockedCampaign, status: "paused" }, sourceKey: "overture", latestTask: abandoned });
+  ok("a paused campaign's unblock clears the block and queues nothing — Resume does that", pausedPlan.unblocked && pausedPlan.enqueue === null && pausedPlan.reason === "not_running");
+  ok("...and Resume's key then carries the unblock count, so it is a new task and not the abandoned one",
+    `discover:camp1:${cursorFingerprint({ ...blockedCampaign, sourceState: pausedPlan.sourceState })}` === "discover:camp1:overture@4900~u1");
+  const healthy = unblockSourcePlan({ campaign: campaignRow({ discoverySources: ["overture"], sourceState: { overture: { ...EMPTY_SOURCE_STATE, cursor: "10" } } }), sourceKey: "overture", latestTask: abandoned });
+  ok("a source that was not blocked is saved, not restarted, and the counter does not move",
+    healthy.unblocked === false && healthy.enqueue === null && healthy.reason === "not_blocked" && healthy.sourceState.overture.unblocks === 0);
+  ok("every reason has a sentence for the screen", ["not_blocked", "not_running", "task_live", "no_open_source"].every((r) => typeof REDISCOVER_REASONS[r] === "string" && REDISCOVER_REASONS[r].length > 20));
+
+  // Retry discovery: the same enqueue, by hand, for a thread that died with
+  // nothing blocked.
+  const running = campaignRow({ discoverySources: ["overture"], sourceState: { overture: { ...EMPTY_SOURCE_STATE, cursor: "4900" } } });
+  const retry = retryDiscoveryPlan({ campaign: running, latestTask: { id: "t", status: "abandoned" }, taskCount: 51 });
+  ok("retry on a running campaign with no live task plans a task keyed on the task count",
+    retry.enqueue?.idempotencyKey === "discover:camp1:overture@4900:retry-51" && JSON.stringify(retry.enqueue.payload) === JSON.stringify({ sources: ["overture"] }), retry);
+  ok("...two clicks at once compute the same key", retryDiscoveryPlan({ campaign: running, latestTask: { status: "abandoned" }, taskCount: 51 }).enqueue.idempotencyKey === retry.enqueue.idempotencyKey);
+  ok("...a click after that task settled computes the next", retryDiscoveryPlan({ campaign: running, latestTask: { status: "done" }, taskCount: 52 }).enqueue.idempotencyKey === "discover:camp1:overture@4900:retry-52");
+  ok("...a live task refuses", retryDiscoveryPlan({ campaign: running, latestTask: { status: "queued" }, taskCount: 51 }).reason === "task_live");
+  ok("...a campaign that is not running refuses", retryDiscoveryPlan({ campaign: { ...running, status: "completed" }, latestTask: null, taskCount: 1 }).reason === "not_running");
+  ok("...and one with every source blocked or ended refuses — there is nothing to page",
+    retryDiscoveryPlan({ campaign: blockedCampaign, latestTask: null, taskCount: 1 }).reason === "no_open_source");
+  ok("discoveryTaskLive knows exactly two live states", discoveryTaskLive({ status: "queued" }) && discoveryTaskLive({ status: "claimed" }) && !discoveryTaskLive({ status: "abandoned" }) && !discoveryTaskLive(null));
+}
+
+section("A campaign whose every source died is paused, not completed — one that ran out still completes");
+{
+  // Executed through the shipped handler: one source, blocked on this page.
+  __resetDiscoveryProvidersForTests();
+  const b = stubSource("beta", [{ businesses: [], nextCursor: null, error: "gone for good" }]);
+  registerDiscoveryProvider(b.provider);
+  const store = makeStore(
+    campaignRow({
+      discoverySources: ["beta"],
+      sourceConfigs: { beta: { snapshotUrl: "https://b.test/b" } },
+      sourceState: { beta: { ...EMPTY_SOURCE_STATE, failures: MAX_SOURCE_FAILURES - 1 } },
+    }),
+  );
+  const res = await runTask(store);
+  ok("the fifth failure blocks the only source", Boolean(sourceStateFor(store.campaign(), "beta").blocked));
+  ok("...and the whole page failed, so the task is reported failed, not done", res.done === false, res);
+  // The next task (the one the unblock or the retry queues) finds every
+  // source closed and finishes the campaign — short.
+  store.campaign().status = "running";
+  const next = await runTask(store);
+  ok("the next run stops the campaign", next.done === true && /stopped: source_ended/.test(next.note), next);
+  ok("...as PAUSED, because nothing ran out — every source is blocked", store.campaign().status === "paused", store.campaign().status);
+  ok("...with no completedAt, because it did not complete", store.campaign().completedAt == null);
+  ok("...and the note says why the word is paused", /every source is blocked/.test(next.note) && /paused, not completed/.test(next.note), next.note);
+  ok("stoppedShort is the pure rule: every source blocked, none ended, on source_ended",
+    stoppedShort(store.campaign(), "source_ended") === true &&
+      stoppedShort(store.campaign(), "target_reached") === false &&
+      stoppedShort({ discoverySources: ["a", "b"], sourceState: { a: { ...EMPTY_SOURCE_STATE, ended: true }, b: { ...EMPTY_SOURCE_STATE, blocked: "x" } } }, "source_ended") === false &&
+      stoppedShort({ discoverySources: ["a"], sourceState: { a: { ...EMPTY_SOURCE_STATE, ended: true } } }, "source_ended") === false &&
+      stoppedShort({ discoverySources: [], sourceState: {} }, "source_ended") === false);
+  // The mixed case above (section "A source that keeps failing is BLOCKED")
+  // still completes: one source ended cleanly and one was blocked, and the
+  // blocked one is named. This section changes nothing there.
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    5. What the screens render, on comment-stripped source
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -1056,7 +1176,22 @@ section("The campaign screen and its routes speak per source");
   ok("...and refuses a source this campaign does not draw from",
     /campaignSourceKeys\(campaign\)\.includes\(sourceKey\)/.test(detailRoute));
   ok("...and clears a block, because fixing the settings is the only thing that can",
-    /blocked: null/.test(detailRoute));
+    /unblockSourcePlan\(\{ campaign, sourceKey, latestTask \}\)/.test(detailRoute) && /blocked: null/.test(read("lib/sales/discovery/rediscover.js")));
+  ok("...writing the unblock and the discovery task it queues in ONE transaction, like Start",
+    /const plan = unblockSourcePlan[\s\S]*?db\.\$transaction\(async \(tx\) => \{[\s\S]*?sourceState: plan\.sourceState[\s\S]*?enqueuePipelineTask\(plan\.enqueue, \{ deps: \{ db: tx \} \}\)/.test(detailRoute));
+  ok("...with an audit row that says whether discovery was queued, and why not",
+    /discoveryQueued: queued/.test(detailRoute) && /discoveryNotQueued/.test(detailRoute));
+  const detailScreen = read("app/platform/sales/campaigns/[id]/page.js");
+  ok("the screen offers Retry discovery only for a running campaign with no live discovery task",
+    /const discoveryLive = \(data\.tasks\?\.queued \|\| 0\) \+ \(data\.tasks\?\.claimed \|\| 0\) > 0/.test(detailScreen) &&
+      /const discoveryDead = campaign\.status === "running" && !discoveryLive/.test(detailScreen) &&
+      /\{discoveryDead \? \([\s\S]{0,400}act\("retry_discovery"\)/.test(detailScreen));
+  ok("...and says why a paused campaign is paused when every source is blocked",
+    /campaign\.status === "paused" && everySourceBlocked \?/.test(detailScreen) && /Paused by the pipeline, not by a person/.test(detailScreen));
+  ok("...and shows the route's note when nothing was queued, rather than reporting success",
+    /if \(res\?\.note\) setNote\(String\(res\.note\)\)/.test(detailScreen) && /\{note \? \(/.test(detailScreen));
+  ok("retry_discovery is an action, refused on the planner's own reasons, with its own audit row",
+    /action === "retry_discovery"/.test(detailRoute) && /retryDiscoveryPlan\(\{ campaign, latestTask, taskCount \}\)/.test(detailRoute) && /sales_campaign_discovery_retried/.test(detailRoute));
   ok("the detail route never returns a source's stored settings",
     /sourceConfigs: undefined/.test(detailRoute) && /providerConfig: undefined/.test(detailRoute));
 }

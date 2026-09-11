@@ -286,6 +286,31 @@ is not taken here. What IS done: the research this work queues carries
   (robots + 6 pages at a 3 s crawl-delay, sequential, inside 300 s), ~840/hour,
   about 50 h. Budgets not raised. The backlog lane carries `phrase: false` —
   the brief composes from rows, no model, free.
+- **Unblocking a source brings discovery back to life.** Both California
+  Overture campaigns sat "running" at zero after their source was unblocked:
+  the DISCOVER_BUSINESSES chain is one self-queuing thread, the fifth failure
+  abandoned the task and blocked the source, `configure` cleared the block,
+  and nothing queued a page. `lib/sales/discovery/rediscover.js` (pure):
+  `unblockSourcePlan` clears the block, increments `sourceState[key].unblocks`
+  (new field, read by `sourceStateFor`, never reset) and — on a running
+  campaign whose latest discovery task is not queued/claimed — plans a task
+  keyed `discover:<id>:<fingerprint>:unblock-<n>`; `cursorFingerprint` now
+  carries `~u<n>`, so Resume's key and the next page's key cannot collide
+  with the task abandoned before the block either. The route writes the
+  unblock and the task in one transaction, the audit row says
+  `discoveryQueued`/`discoveryNotQueued`, and the response carries a `note`
+  the screen shows when nothing was queued. `retry_discovery` is the same
+  enqueue by hand, keyed on the campaign's discovery-task count
+  (`:retry-<count>`, research.js's pattern), offered by the screen only for a
+  running campaign with no live discovery task and refused by the route on
+  the same terms. **Status:** the vocabulary (draft/running/paused/cancelled/
+  completed) has no "stopped" and none was invented; a campaign whose EVERY
+  source is blocked and none ended (`stoppedShort`) is now recorded `paused`
+  with no completedAt — the status that means "not running, positions kept,
+  resumable", which is true of it and lets Resume work after the fix — and
+  the screen's header says "Paused by the pipeline, not by a person". A
+  campaign with one source ended and one blocked still completes, as before.
+  `check:campaign-sources` +39 (209), mutation-tested four ways with `cp`.
 - **`INFER_FROM_SITE`, the tenth stage — "What we infer" filled from the
   crawled pages, claimed lane only.** The layer read "Nothing has been
   inferred" for almost every prospect because only two rules wrote it

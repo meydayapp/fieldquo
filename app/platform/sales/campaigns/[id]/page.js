@@ -40,6 +40,7 @@ import {
   Loader2,
   Pause,
   Play,
+  RotateCw,
   Save,
   X,
 } from "lucide-react";
@@ -59,6 +60,11 @@ export default function PlatformSalesCampaignPage({ params }) {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [problems, setProblems] = useState([]);
+  // What the last action said it did NOT do — "that discovery task was
+  // already queued", "a task is live". Not an error: the request succeeded.
+  // Shown because a button that reports success and changes nothing is the
+  // dead control AGENTS.md forbids, and the route says why in a sentence.
+  const [note, setNote] = useState("");
 
   /**
    * @param quiet  a background refresh, not the first paint. It must NOT set
@@ -133,12 +139,15 @@ export default function PlatformSalesCampaignPage({ params }) {
     setBusy(action);
     setError("");
     setProblems([]);
+    setNote("");
     try {
-      await fetchJson(`/api/platform/sales/campaigns/${id}`, {
+      const res = await fetchJson(`/api/platform/sales/campaigns/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, ...extra }),
       });
+      if (res?.note) setNote(String(res.note));
+      else if (res?.discoveryQueued) setNote(`Discovery queued again (${res.discoveryQueued}). The next cron tick picks it up.`);
       await load();
     } catch (err) {
       setError(err?.message || `Could not ${action} this campaign.`);
@@ -187,6 +196,21 @@ export default function PlatformSalesCampaignPage({ params }) {
 
   const runnable = campaign.status === "draft" || campaign.status === "paused";
   const sources = data.sources || [];
+  // ── A running campaign with nothing behind it ─────────────────────────
+  //
+  // `data.tasks` is the DISCOVER_BUSINESSES count by status. A running
+  // campaign with no task queued or claimed is the state two California
+  // campaigns sat in all night: the thread died — abandoned, failed, or the
+  // source was blocked and unblocked before this existed — and nothing
+  // queues another. The route refuses the retry on the same terms (a live
+  // task, a campaign not running), so this is the same decision made once.
+  const discoveryLive = (data.tasks?.queued || 0) + (data.tasks?.claimed || 0) > 0;
+  const discoveryDead = campaign.status === "running" && !discoveryLive;
+  // Every source blocked and none ended: the handler records `paused` for
+  // that rather than `completed` (discoverBusinesses.js stoppedShort), and
+  // this is where the screen says so — "paused" alone reads as a person's
+  // choice.
+  const everySourceBlocked = sources.length > 0 && sources.every((s) => s.state?.blocked) && !sources.some((s) => s.state?.ended);
   // Every reason Start is not offered, in sentences the server produced — so
   // the screen and the route cannot disagree about whether this campaign can
   // run. A hidden button and a 400 that says why are the same decision made
@@ -223,7 +247,21 @@ export default function PlatformSalesCampaignPage({ params }) {
             read it exactly that way. No estimate of a finish time is offered:
             the rate depends on how many rows survive classification and on
             the per-provider budgets, and a wrong ETA is worse than none. */}
-        {isRunning ? (
+        {campaign.status === "paused" && everySourceBlocked ? (
+          <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
+            Paused by the pipeline, not by a person: every source on this campaign stopped for a reason
+            (see each source below) and none ran out of rows, so nothing was found that was going to be
+            found. Fix the source, then press Resume — a fixed source is read from where it stopped.
+          </p>
+        ) : null}
+        {discoveryDead ? (
+          <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
+            Running, but no discovery task is queued or in flight. The chain of pages ended — a page was
+            abandoned after five failures, or a source was blocked — and nothing queues the next one by
+            itself. Fixing a blocked source below queues it; for anything else, press Retry discovery.
+          </p>
+        ) : null}
+        {isRunning && !discoveryDead ? (
           <p className="text-xs text-muted-foreground break-words">
             Working. The pipeline takes twenty-five tasks a minute, so this counts up by roughly a
             hundred rows a minute while it pages the file, then slows as each accepted business is
@@ -244,6 +282,10 @@ export default function PlatformSalesCampaignPage({ params }) {
           </p>
         ) : null}
       </header>
+
+      {note ? (
+        <p className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-foreground break-words">{note}</p>
+      ) : null}
 
       {error ? (
         <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/40 p-3 text-sm text-red-800 dark:text-red-200">
@@ -331,6 +373,20 @@ export default function PlatformSalesCampaignPage({ params }) {
               disabled={Boolean(busy)}
             >
               <Pause size={16} /> Pause
+            </button>
+          ) : null}
+          {/* Only when the thread is dead. A retry beside a live task would
+              be refused by the route, and a button that is always there and
+              usually refused teaches people to ignore it. */}
+          {discoveryDead ? (
+            <button
+              type="button"
+              className={`${BTN} border border-border text-foreground`}
+              onClick={() => act("retry_discovery")}
+              disabled={Boolean(busy)}
+            >
+              {busy === "retry_discovery" ? <Loader2 className="animate-spin" size={16} /> : <RotateCw size={16} />}
+              Retry discovery
             </button>
           ) : null}
         </div>
