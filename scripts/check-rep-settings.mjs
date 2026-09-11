@@ -657,6 +657,10 @@ section("10. The column itself");
   ok("…and clears accruesPaidLeave when the rep is not an employee", /engagement !== "employee" \? \{ accruesPaidLeave: false \}/.test(admin));
   const create = src("app/api/platform/sales/reps/route.js");
   ok("the platform rep POST accepts `engagement` at set-up and refuses a bad value", /isEngagement\(engagement\)/.test(create) && /engagement,/.test(create));
+  // The select read it and the response map dropped it: the owner set
+  // Daniel to freelancer, pressed Save, and the card reloaded to "Not
+  // decided yet" while the row said freelancer.
+  ok("…and the list RESPONSE carries engagement, not just the select", /engagement: r\.engagement \|\| null,/.test(create) && /accruesPaidLeave: Boolean\(r\.accruesPaidLeave\),/.test(create));
   const page = src("app/platform/sales/reps/page.js");
   ok("the reps screen offers the choice at invite", /id="rep-engagement"/.test(page));
   ok("…and per rep, with a Set/Change control", /Engagement for \$\{rep\.name\}/.test(page) && /rep\.engagement \? "Change" : "Set"/.test(page));

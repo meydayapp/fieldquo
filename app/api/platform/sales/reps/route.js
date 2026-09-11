@@ -191,6 +191,12 @@ export async function GET(request) {
       // which option is selected, and that was the missing half of why
       // SalesCommissionPlan had a reader and no writer anywhere.
       commissionPlanId: r.commissionPlanId,
+      // Selected above and then dropped here on the first cut: the save
+      // landed in the database while the screen reloaded to "Not decided
+      // yet". A field the select reads and the map forgets is the failure
+      // class AGENTS.md lists first, one line lower than usual.
+      engagement: r.engagement || null,
+      accruesPaidLeave: Boolean(r.accruesPaidLeave),
       companyCount: r._count.attributions,
       // held = leased + worked; untouched + dialled = leased. openLeads are
       // SalesLeads not converted and not lost. See lib/sales/reassign.js.
