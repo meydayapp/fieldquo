@@ -85,9 +85,11 @@ file. `check-sales-outreach.mjs` §8 pins the new handlers and adds
 `lib/sales/leadLink.js` to the write scan.
 
 **The wrong row, corrected.** Unlinked through `unlinkLeadWithin` — not a raw
-update — from a scratchpad script: `convertedCompanyId`/`convertedAt` null,
-status back to `demoed`, an `unlinked` `SalesLeadLinkEvent` recording why.
-Easy Roofers' attribution is untouched.
+update — from a scratchpad script at 2026-09-11 14:51Z: `convertedCompanyId`
+and `convertedAt` null; the status, which the rep had already moved to `new`
+while the link stood, kept as it was (the rule: a status no longer "signed"
+is the rep's, not the link's); one `unlinked` `SalesLeadLinkEvent` recording
+why. Easy Roofers' attribution (`link`, 2026-09-10 17:06Z) is untouched.
 
 ## Meta Ads: every number Meta sends, in the company's own money, per campaign (11 September 2026)
 
