@@ -11,11 +11,13 @@
 // over it; the two are different enough that sharing a word was never going to
 // end well, so the chat is "chat" and the account admin keeps "team".
 import StaffChat from "@/app/components/staff/StaffChat";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function PlatformChatPage() {
+  const { t } = useTranslation();
   return (
     <div className="p-6">
-      <StaffChat heading="Team chat" />
+      <StaffChat heading={t("app.teamChat.heading")} />
     </div>
   );
 }

@@ -21,6 +21,18 @@
         "/private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness"
       ],
       "port": 4173
+    },
+    {
+      "name": "team-harness",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "4174",
+        "--directory",
+        "/private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness"
+      ],
+      "port": 4174
     }
   ]
 }
