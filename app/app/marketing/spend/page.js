@@ -29,7 +29,7 @@ import { fetchArray } from "@/lib/loadState";
 import { fetchJson } from "@/lib/fetchJson";
 import ListState from "@/app/components/ListState";
 import { formatDateOnly } from "@/lib/format/companyDate";
-import { CurrencyNotes } from "@/app/components/marketing/SpendCurrencyNotes";
+import { CurrencyNotes, excludedSentence } from "@/app/components/marketing/SpendCurrencyNotes";
 
 const PLATFORMS = ["facebook", "google", "tiktok", "pamphlet", "referral", "other"];
 
@@ -56,6 +56,148 @@ function toFormValues(entry) {
   };
 }
 
+// Every column reads one field off a campaignRollup row. `money` columns
+// print "≈" when that campaign's spend includes a converted row; `rate`
+// columns are four-place fractions printed as percentages; everything else
+// is a count. A null anywhere prints "—": Meta did not report it, or there
+// was nothing to divide by — never 0.
+const CAMPAIGN_COLUMNS = [
+  { key: "spend", label: "colSpend", fallback: "Spend", kind: "money" },
+  { key: "impressions", label: "colImpressions", fallback: "Impressions", kind: "count" },
+  { key: "reach", label: "colReach", fallback: "Daily reach, summed", kind: "count" },
+  { key: "clicks", label: "colClicks", fallback: "Clicks", kind: "count" },
+  { key: "linkClicks", label: "colLinkClicks", fallback: "Link clicks", kind: "count" },
+  { key: "ctr", label: "colCtr", fallback: "CTR", kind: "rate" },
+  { key: "cpc", label: "colCpc", fallback: "CPC", kind: "money" },
+  { key: "messagingConversations", label: "colConversations", fallback: "Conversations", kind: "count" },
+  { key: "costPerConversation", label: "colCostPerConversation", fallback: "Cost / conversation", kind: "money" },
+  { key: "videoViews", label: "colVideoViews", fallback: "Video views", kind: "count" },
+  { key: "postEngagements", label: "colEngagements", fallback: "Engagements", kind: "count" },
+  { key: "leads", label: "colLeads", fallback: "Leads", kind: "count" },
+  { key: "costPerLead", label: "colCostPerLead", fallback: "Cost / lead", kind: "money" },
+  { key: "quotes", label: "colQuotes", fallback: "Quotes", kind: "count" },
+  { key: "jobs", label: "colJobs", fallback: "Jobs", kind: "count" },
+  { key: "revenue", label: "colRevenue", fallback: "Invoiced", kind: "money" },
+];
+
+function CampaignsSection({ id, campaigns, error, loading, currency, onRetry, t }) {
+  const fmtMoney = (n, approximate) =>
+    n == null ? "—" : `${approximate ? "≈ " : ""}${new Intl.NumberFormat(undefined, { style: "currency", currency }).format(n)}`;
+  const fmtCount = (n) => (n == null ? "—" : new Intl.NumberFormat(undefined).format(n));
+  const fmtRate = (n) => (n == null ? "—" : new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 2 }).format(n));
+  const cell = (c, col) => {
+    const v = c[col.key];
+    if (col.kind === "money") return fmtMoney(v, c.approximate);
+    if (col.kind === "rate") return fmtRate(v);
+    return fmtCount(v);
+  };
+  const rows = campaigns?.campaigns || [];
+
+  return (
+    <section id={id} className="bg-card border border-border rounded-xl overflow-hidden scroll-mt-4">
+      <div className="px-5 py-3 border-b border-border">
+        <div className="text-sm font-semibold text-foreground">{t("app.marketingSpend.campaigns.title", "Campaigns")}</div>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {t(
+            "app.marketingSpend.campaigns.subtitle",
+            "Every Meta campaign FieldQuo has synced — what it cost, what Meta reports, and what became of the leads it sent you.",
+          )}
+        </p>
+      </div>
+
+      {error && (
+        <p className="px-5 py-4 text-sm text-muted-foreground">
+          {t("app.marketingSpend.campaigns.unavailable", "The campaign figures couldn't be worked out just now.")}{" "}
+          <button type="button" onClick={onRetry} className="underline font-medium">
+            {t("app.load.retry")}
+          </button>
+        </p>
+      )}
+
+      {!error && loading && !campaigns && <div className="px-5 py-4 animate-pulse h-16 bg-accent" />}
+
+      {!error && campaigns && rows.length === 0 && (
+        <p className="px-5 py-4 text-sm text-muted-foreground">
+          {t(
+            "app.marketingSpend.campaigns.empty",
+            "No campaigns synced yet. Connect your Meta ad account and press Sync now to see them here.",
+          )}
+        </p>
+      )}
+
+      {!error && rows.length > 0 && (
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm whitespace-nowrap">
+              <thead>
+                <tr className="text-left text-xs text-muted-foreground border-b border-border">
+                  <th className="px-5 py-2 font-medium">{t("app.marketingSpend.campaigns.colCampaign", "Campaign")}</th>
+                  <th className="px-3 py-2 font-medium">{t("app.marketingSpend.campaigns.colObjective", "Objective")}</th>
+                  {CAMPAIGN_COLUMNS.map((col) => (
+                    <th key={col.key} className="px-3 py-2 font-medium text-right">
+                      {t(`app.marketingSpend.campaigns.${col.label}`, col.fallback)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((c) => (
+                  <tr key={c.campaignId} className="border-b border-border last:border-0 align-top">
+                    <td className="px-5 py-2.5">
+                      <div className="font-medium text-foreground">{c.campaignName || c.campaignId}</div>
+                      {c.days > 0 && (
+                        <div className="text-[11px] text-muted-foreground">
+                          {t("app.marketingSpend.campaigns.period", { first: formatDateOnly(c.firstDate), last: formatDateOnly(c.lastDate), days: c.days })}
+                        </div>
+                      )}
+                      {/* The pinned rate refused this campaign's currency: its
+                          money is "—" above and this says what is missing. */}
+                      {c.spendExcluded && (
+                        <div className="text-[11px] text-amber-700 dark:text-amber-400">
+                          {excludedSentence(
+                            t,
+                            c.spendExcluded,
+                            new Intl.NumberFormat(undefined, { style: "currency", currency: c.spendExcluded.currency }).format(c.spendExcluded.amount),
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-muted-foreground">
+                      {c.objectiveLabelKey
+                        ? t(`app.marketingSpend.objective.${c.objectiveLabelKey}`, c.objective)
+                        : c.objective || "—"}
+                    </td>
+                    {CAMPAIGN_COLUMNS.map((col) => (
+                      <td key={col.key} className="px-3 py-2.5 text-right tabular-nums">
+                        {cell(c, col)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="px-5 py-2.5 border-t border-border space-y-1">
+            <p className="text-[11px] text-muted-foreground">
+              {t(
+                "app.marketingSpend.campaigns.leadsNote",
+                "Leads are the Meta lead-form submissions FieldQuo received for that campaign. A homeowner who saw the ad and phoned is not counted, so cost per lead here is the most a lead-form lead cost you — the blended figure above is the whole picture.",
+              )}
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              {t(
+                "app.marketingSpend.campaigns.reachNote",
+                "Reach is Meta's daily count added up across days — the same person on two days counts twice.",
+              )}
+            </p>
+            <CurrencyNotes totals={campaigns.totals} t={t} />
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 export default function MarketingSpendPage() {
   const { t } = useTranslation();
   // The company's own currency, from the provider that holds it for every
@@ -78,12 +220,18 @@ export default function MarketingSpendPage() {
   const [formError, setFormError] = useState("");
   const [banner, setBanner] = useState("");
   const [summaryError, setSummaryError] = useState("");
+  // Per-campaign figures — a third read, its own error state, for the same
+  // reason the summary has one: a failed campaigns call must not look like
+  // "no campaigns synced yet".
+  const [campaigns, setCampaigns] = useState(null);
+  const [campaignsError, setCampaignsError] = useState("");
 
   const load = useCallback(async () => {
     setErrorKey("");
-    const [entriesResult, summaryResult] = await Promise.all([
+    const [entriesResult, summaryResult, campaignsResult] = await Promise.all([
       fetchArray("/api/marketing-spend"),
       fetchJson("/api/marketing-spend/summary").catch((err) => ({ __error: err.message })),
+      fetchJson("/api/marketing-spend/campaigns").catch((err) => ({ __error: err.message })),
     ]);
     if (!entriesResult.aborted) {
       if (entriesResult.ok) setEntries(entriesResult.data);
@@ -99,6 +247,13 @@ export default function MarketingSpendPage() {
     } else {
       setSummary(summaryResult);
       setSummaryError("");
+    }
+    if (campaignsResult.__error) {
+      setCampaigns(null);
+      setCampaignsError(campaignsResult.__error);
+    } else {
+      setCampaigns(campaignsResult);
+      setCampaignsError("");
     }
     setLoading(false);
   }, []);
@@ -349,6 +504,23 @@ export default function MarketingSpendPage() {
           )}
         </div>
       )}
+
+      {/* ── Campaigns ──────────────────────────────────────────────────────
+          One row per Meta campaign: what it cost, what Meta reports it did,
+          and what FieldQuo can prove it became — lib/analytics/campaignRollup.js.
+          The id is a link target: the KPI page's marketing tile and the Meta
+          Ads settings panel both point at #campaigns. Always rendered once
+          the page has loaded, so the anchor exists even before the first
+          sync — an empty state is honest; a missing section is a dead link. */}
+      <CampaignsSection
+        id="campaigns"
+        campaigns={campaigns}
+        error={campaignsError}
+        loading={loading}
+        currency={currency}
+        onRetry={load}
+        t={t}
+      />
 
       {/* Meta Ads connection pointer — the import lives in Settings, this is
           just a link so the two halves of the feature find each other. */}
