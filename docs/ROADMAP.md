@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 11 September 2026 (Research on claim, the backlog fed, and the AI call script — `ensureResearchQueued({ db, prospectIds, priority })` in `lib/sales/pipeline/research.js` (re-exported from `progress.js`) queues the first missing research stage per prospect, `priority: "claimed"` ahead of the backlog by a fixed-past `notBefore`; the cron tops the backlog up 60 never-crawled websites a run under a 5,000-pending ceiling, phrasing nothing; `CrawlHostPolicy` holds a host after a busy resolver answer; `GENERATE_CALL_SCRIPT` writes `ProspectCallScript` once per claimed prospect per crawl, $0.00131 each measured, $5.23/day at 4,000 claims, drawn above the rules in `CallPlaybook.js`. Found and NOT decided here: `ENRICH_BUSINESS` moves rows to `researching`, which `claimCandidateWhere()` does not admit — every researched prospect is unclaimable; the research queued here sends `promote: false` so it stops making more of them. Section below.)
+Last updated: 11 September 2026 (The rep's status picker, the ledger's after_call transition, and a progressive autodialler — `lib/sales/autodial.js`, `app/components/sales/RepStatus.js`, `AutodialControl.js`; the section below; `check:sales-autodial`.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,54 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## The rep's status, the ledger's missing transition, and a progressive autodialler (11 September 2026)
+
+The owner: "can the sales rep have an option for autodial, calling the next
+lead automatically, with a switch to turn it off? and also status: Online,
+Break, Dinner, Off, Meeting — anything that is normal from the call center."
+
+- **Status picker** — `app/components/sales/RepStatus.js`. The states, the
+  write path, the router's `reachable()` and the floor board all existed; no
+  screen rendered a control. `RepPresenceProvider` holds the presence row
+  once for the portal (SalesShell), beats the heartbeat from there (it lived
+  in CallPanel and beat only on the two screens that render it), and draws
+  Available · Break · Dinner · Meeting · Training · Off in the header from
+  lg up and in the drawer below. `STATUS_CHOICES` in `agentState.js` is the
+  closed list; `dinner` joins `PAUSE_REASONS` beside lunch (rows already say
+  lunch). A rep in any state but available is not rung and is not
+  autodialled — `check:sales-autodial` executes `reachable()` against every
+  choice and every pause reason. Read-only presence GET:
+  `/api/sales/calls/state`; every transition still goes through
+  `POST /api/sales/calls` `action: "state"`, now attributed to the attempt
+  when the lifecycle posts it.
+- **The ledger is `SalesRepActivity`** — asked for as a new
+  `SalesAgentStateEvent` and not added: it is the same table under another
+  name, with the one writer. What was missing was `after_call`: nothing
+  wrote it. CallPanel posts it from Twilio's `disconnect`; the dock posts
+  `on_call` on answer and `after_call` on hangup. `stateLedger.js`
+  `summariseDay()` composes `activityTotals` + `pauseBreakdown` into
+  onCallMs / wrapMs / pausedMs / pauseByReason per rep per day. Not talk
+  time — `agentState.js`'s header still governs the word.
+- **Autodial next** — `lib/sales/autodial.js` (pure `nextDial()` →
+  dial / skip / stop; the header says why progressive and not predictive:
+  47 CFR 64.1200(a)(7), the CRTC abandonment ceiling), the clock and the
+  switch in `app/components/sales/AutodialControl.js`, the switch itself
+  `SalesRep.autodial` (additive, pushed) written through the fenced
+  `lib/sales/autodialWrite.js`. Armed only by an outcome logged, Available
+  pressed, the switch turned on, Resume/Skip, or the dialler's own visible
+  skip; never by the page loading or a pause ending. Five-second countdown,
+  Skip / Pause, cancelled by an inbound ring, a call up, a status change or
+  opening another row. At zero it re-asks with that row's readiness and
+  fires CallPanel's own `place("browser")` — one `device.connect` under
+  app/. Exhausted batch → says so, offers "Claim the next 100".
+- **Not done / owed**: the handset (`tel:`) path cannot be autodialled and
+  says so; an inbound call answered in the dock has no disposition form, so
+  after it the rep is "writing it up" until they press Available; a rep who
+  never pressed Available (offline) and dials by hand still gets no
+  `on_call` row, because the graph refuses offline → on_call (pre-existing).
+  Not visually verified in a browser this session — the checks and the
+  build are the evidence.
 
 ## Research on claim, the backlog fed, and the AI call script (11 September 2026)
 
