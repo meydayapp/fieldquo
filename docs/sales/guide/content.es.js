@@ -57,6 +57,9 @@ export const GUIDE = {
   title: "FieldQuo — la referencia de ventas",
   subtitle: "Qué vendemos, qué hace, y dónde están los límites.",
   generated: "Generado",
+  // Plantilla en vez de concatenar en el generador: el conteo no cae en el
+  // mismo lugar de la frase en cada idioma.
+  coverMeta: "Generado el {date} · {features} funciones · {partials} con límites",
   intro: {
     heading: "Cómo usar esto",
     body: [
@@ -92,6 +95,7 @@ export const GUIDE = {
   contentsHeading: "Contenido",
   backToContents: "Volver al contenido",
   limitLabel: "Lo que no hace",
+  limitInEnglish: "original en inglés",
   seeAlso: "Ver",
   partialBadge: "PARCIAL",
   shippedBadge: "ACTIVO",

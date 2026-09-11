@@ -52,6 +52,9 @@ export const GUIDE = {
   title: "FieldQuo — la référence de vente",
   subtitle: "Ce qu'on vend, ce que ça fait, et où sont les limites.",
   generated: "Généré",
+  // Gabarit plutôt qu'une concaténation dans le générateur : le compte ne
+  // tombe pas au même endroit dans la phrase d'une langue à l'autre.
+  coverMeta: "Généré le {date} · {features} fonctions · {partials} avec des limites",
   intro: {
     heading: "Comment se servir de ce document",
     body: [
@@ -87,6 +90,7 @@ export const GUIDE = {
   contentsHeading: "Table des matières",
   backToContents: "Retour à la table des matières",
   limitLabel: "Ce que ça ne fait pas",
+  limitInEnglish: "original anglais",
   seeAlso: "Voir",
   partialBadge: "PARTIEL",
   shippedBadge: "LIVRÉ",
