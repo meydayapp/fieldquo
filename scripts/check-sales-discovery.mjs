@@ -945,6 +945,27 @@ section("The snapshot manifest is checked at line 1, before a single row is read
   ok("one malformed row costs one business, not the whole file",
     oneBadRow.problems.length === 0 && oneBadRow.rows.length === 2 && oneBadRow.unreadable === 1);
   ok("an empty file is refused", readSnapshot("").problems.length === 1);
+
+  // ── A part of a larger extract is not a truncated download ──────────────
+  //
+  // overture-US-CA.part1/.part2 on R2: one 78,247-row extract split into
+  // 50,000 + 28,247, each part's manifest still saying 78,247. Both ended
+  // cleanly (trailing newline, last line JSON) and both were refused for a
+  // day as "truncated in transit". The reader now tells the two apart by the
+  // file's own ending, not by the count alone.
+  const partManifest = { ...manifest, count: 78247 };
+  const partBody = [JSON.stringify(partManifest), JSON.stringify({ id: "a" }), JSON.stringify({ id: "b" })].join("\n") + "\n";
+  const part = readSnapshot(partBody);
+  ok("a complete file whose manifest counts a bigger extract is ACCEPTED", part.problems.length === 0 && part.rows.length === 2, part.problems);
+  ok("…and carries the discrepancy as a note, not silence", part.notes.length === 1 && /78247/.test(part.notes[0]) && /holds 2/.test(part.notes[0]), part.notes);
+  ok("…and says it ended cleanly", part.endedCleanly === true);
+  const cutMidLine = partBody.slice(0, partBody.length - 5);
+  const cut = readSnapshot(cutMidLine);
+  ok("the same file cut mid-line is still refused as truncated in transit", cut.problems.length === 1 && /mid-line/.test(cut.problems[0]), cut.problems);
+  const noNewline = partBody.slice(0, partBody.length - 1);
+  ok("a complete last line with no trailing newline is treated as cut — a stream stops without one", readSnapshot(noNewline).problems.length === 1);
+  const exact = readSnapshot([JSON.stringify({ ...manifest, count: 2 }), JSON.stringify({ id: "a" }), JSON.stringify({ id: "b" })].join("\n") + "\n");
+  ok("a file whose count matches carries no note", exact.problems.length === 0 && exact.notes.length === 0);
   ok("a first line that is not JSON is refused", readSnapshot("hello\n{}").problems.length === 1);
 }
 
