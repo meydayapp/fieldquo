@@ -258,6 +258,14 @@ section("1. The stage exists, is real, and is on the claimed lane only");
   ok("…and again when the script was written by an older prompt",
     researchPlan({ prospect, tasks: done, priority: "claimed", script: { crawledAt: CRAWLED, promptVersion: "1" } }).enqueue[0]?.kind === "GENERATE_CALL_SCRIPT");
   ok("…not when it is at the current version", researchPlan({ prospect, tasks: done, priority: "claimed", script: { crawledAt: CRAWLED, promptVersion: CALL_SCRIPT_VERSION } }).skipped === "complete");
+  // Three finished scripts are three scripts, not three failed tries: the
+  // requeue bound must not count them, or the version bump never reaches a
+  // prospect that has been scripted before.
+  const thrice = [...done, ...[1, 2, 3].map((n) => ({ id: `s${n}`, kind: "GENERATE_CALL_SCRIPT", status: "done", createdAt: NOW }))];
+  ok("…and a prospect scripted three times before is still re-queued for the new version",
+    researchPlan({ prospect, tasks: thrice, priority: "claimed", script: { crawledAt: CRAWLED, promptVersion: "1" } }).enqueue[0]?.kind === "GENERATE_CALL_SCRIPT");
+  const failedThrice = [...done, ...[1, 2, 3].map((n) => ({ id: `f${n}`, kind: "GENERATE_CALL_SCRIPT", status: "failed", createdAt: NOW }))];
+  ok("…while three failed tries still exhaust the bound", researchPlan({ prospect, tasks: failedThrice, priority: "claimed", script: null }).skipped === "requeues_exhausted");
   const playbookRoute = decomment(read("app/api/sales/playbook/route.js"));
   ok("the playbook route re-queues an older-version script on open, fire-and-forget", /stored\.promptVersion !== CALL_SCRIPT_VERSION/.test(playbookRoute) && /ensureResearchQueued\(\{ db, prospectIds: \[prospectId\], priority: "claimed" \}\)/.test(playbookRoute) && !/await pipelineProgress/.test(playbookRoute));
 }
