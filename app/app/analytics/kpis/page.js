@@ -752,6 +752,12 @@ export default function KpiDashboardPage() {
                             "May overlap with a cost also logged in Expense Tracking — not combined with Expenses above.",
                           )}
                         </p>
+                        {/* The owner's ask, verbatim: a way from this figure to the
+                            campaigns behind it. #campaigns is the section id on the
+                            Spend page (app/app/marketing/spend/page.js). */}
+                        <Link href="/app/marketing/spend#campaigns" className="mt-2 inline-block text-xs underline text-foreground">
+                          {t("app.kpis.finance.marketingCampaignsLink", "See campaigns →")}
+                        </Link>
                       </>
                     ) : null
                   }

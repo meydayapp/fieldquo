@@ -23,6 +23,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Link2, RefreshCw, ShieldAlert } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
@@ -355,6 +356,17 @@ function MetaAdsPageScreen() {
             {status.connection.lastSyncedAt
               ? t("app.setMetaAds.lastSynced", { date: new Date(status.connection.lastSyncedAt).toLocaleString() })
               : t("app.setMetaAds.neverSynced", "Never synced yet.")}
+            {/* Only once something has synced — before that the section the
+                link lands on is an empty state, and a link to "your
+                campaigns" that shows none reads as broken. */}
+            {status.connection.lastSyncedAt && (
+              <>
+                {" "}
+                <Link href="/app/marketing/spend#campaigns" className="underline text-foreground">
+                  {t("app.setMetaAds.seeCampaigns", "See your campaigns →")}
+                </Link>
+              </>
+            )}
           </p>
 
           {syncResult && (
