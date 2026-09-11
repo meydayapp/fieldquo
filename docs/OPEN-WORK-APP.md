@@ -323,6 +323,26 @@ Each row: what actually works today / what the caveat means / the plan.
   `check:credit-currency` (`lib/ai/creditBundle.js` is a fifth crediter, from
   f4b4c5dd), `check:tenant-scope` (support-ticket routes).
 
+## 11. Shipped 2026-09-11 (evening) — sales portal, pipeline, Meta, mobile
+
+Landed on main, each with its own check script and mutation test:
+- Sales portal mobile (tab bar + drawer), tour pinned to 17 real targets, activation language picker — `73a5a260`
+- Link a signup BY EMAIL with predate + no-other-rep + no-referral rules; unlink ≤30d; the wrong link undone — `3b1fcc50`
+- "Claim the next 100" per trade, researched first, window-aware, daily cap 150, hourly day-end release; sticky-card overlap fixed — `0155071e`
+- Research on claim (`ensureResearchQueued`), backlog slice + DNS backoff, AI call script (9th stage) — `ec3bdecb` `203aaf28` `0f8fae29` + 3 live-run fixes
+- `researching` status admitted to the claim filter (13,734 researched rows were unclaimable) — `84d99ec9`
+- Agent status (Available/Break/Dinner/Meeting/Training/Off) + ledger; progressive autodial (5 s countdown, manual path reused) — `7f0eec23`
+- Human-voice script prompt v2 with page excerpts + citations; stage notes folded; demo offer replaces "I'll put that button"; no times in closes; email into the lead (1,748 backfilled); three next steps (demo 30m / signup → onboarding progress / walkthrough 60m on DemoHostAvailability) — `113fc22d`…`33969113`
+- Freelancer/employee control on /platform/sales/reps; rep no longer shown the sentence — `da1ed268`
+- Rep queue on the console: held/dialled/untouched, presence incl. stale, Release, Move to rep, deactivation gate — `4ac108e4`
+- Overture snapshot reader: a complete part with a larger manifest count is accepted; mid-line cut still refused; both California campaigns unblocked and re-enqueued by hand — `d26d9b01`
+- Meta: env set in prod, four permissions added, redirect URIs saved, Access Verification submitted (in review ≤5 d), sync date bug + NUL-byte bug fixed, full metrics + currency ≈ + per-campaign CPL, KPI crash on `cancelled` status — `a41f2b90` `3f1b6770`…`a5f9cbba`
+- Growth card labelled as a forecast — `90eab8db`
+
+**Open, owner's call:** Job's duplicate coordinate pair (§10); WhatsApp needs Access Verification approval; Facebook Page reconnect still not done (grant zero pages → "doesn't administer any Page"); Capacitor 8 for geofences (mobile branch); Apple/Play accounts; platform AI budget cap (scripts ≈ $5.2/day at 4,000 claims, inferences ≈ $4/day); "Assign to me" needs a SalesRep row on the admin's email; automatic night-before reminder (SalesEvent.reminderSentAt); a merge screen for `possibleDuplicateOf` pairs.
+
+**In flight:** AI inference stage + unblock-re-enqueues-discovery (agent).
+
 ## Already in flight this session (separate agents)
 
   * Roofing: material coverage from real products, editable price AND quantity on
