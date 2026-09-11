@@ -758,7 +758,11 @@ section("6. Source: the route, the gate, the cron, the screen, the sticky fix");
   ok("the single claim's cap refusal is by key, with the cap as a value", /reasonKey: "app\.salesQueue\.batchReason\.dailyCap"/.test(route));
   ok("research is asked for after every successful claim, batch and single, behind a typeof guard", /typeof fn !== "function"/.test(route) && (route.match(/queueResearchFor\(/g) || []).length >= 3 && /priority: "claimed"/.test(route));
   ok("…and never awaited on the response path", /Promise\.resolve\(\)\s*\.then\(\(\) => fn\(/.test(route));
-  ok("the route's Prospect list read is still scoped through queueWhere", /const claimedRows = await db\.prospect\.findMany\(\{\s*where: \{\s*\.\.\.queueWhere\(rep\.id/.test(route));
+  ok("the route's Prospect list read is still scoped through queueWhere", /const claimedRows = await db\.prospect\.findMany\(\{\s*where: queueWhere\(rep\.id/.test(route));
+  // The held list is EVERYTHING the rep holds. It used to be narrowed to the
+  // picked trade, so claiming a second trade made the first one vanish from
+  // the screen — the owner's "sometimes the leads briefly disappear".
+  ok("…and NOT narrowed to the picked trade — the picker chooses what to claim, never what to hide", !/const claimedRows = await db\.prospect\.findMany\(\{[\s\S]{0,400}?tradeKey \}/.test(route));
   ok("the day's list is ordered by the claim log's (claimedAt, position)", /orderBy: \[\{ claimedAt: "asc" \}, \{ position: "asc" \}\]/.test(route));
   ok("\"researching…\" is read from the pipeline's own task table, never inferred", /db\.salesPipelineTask\.findMany\(\{\s*where: \{ prospectId: \{ in: ids \}, status: \{ in: \["queued", "claimed"\] \}/.test(route));
   ok("the response carries the ordered ids for the autodialler", /claimedIds: won/.test(lib) && /result: batch/.test(route));

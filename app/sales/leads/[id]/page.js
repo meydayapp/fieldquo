@@ -398,6 +398,12 @@ export default function SalesLeadPage({ params }) {
                 }
               : null
           }
+          // The discovered business behind this lead, for the PLAYBOOK only.
+          // Deliberately not on the target: targetFor() reads prospectId
+          // before leadId and would log the call against the prospect row.
+          // Without this every lead read "typed in by hand, no script" —
+          // including the ones that came straight out of discovery.
+          playbookProspectId={lead.prospect?.id || lead.prospectId || null}
           onWorked={load}
         />
 

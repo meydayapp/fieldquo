@@ -144,11 +144,14 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
   const zone = repZoneFrom(timeZone, now);
   const lang = repLanguageOrNull(language) || "en";
 
+  // Everything the rep holds, whatever trade the picker is on. The list used
+  // to be narrowed to the picked trade, so a rep who claimed painters and
+  // then took a hundred roofers watched the painters vanish — "sometimes the
+  // leads briefly disappear", the owner said, and they had not gone anywhere.
+  // The trade picker decides what "Claim the next 100" pulls from; it never
+  // hides what is already held. Each row carries its own tradeLabel.
   const claimedRows = await db.prospect.findMany({
-    where: {
-      ...queueWhere(rep.id, { now }),
-      ...(tradeKey && DISCOVERY_TRADES[tradeKey] ? { tradeKey } : {}),
-    },
+    where: queueWhere(rep.id, { now }),
     orderBy: [{ assignedAt: "asc" }],
     select: QUEUE_SELECT,
   });

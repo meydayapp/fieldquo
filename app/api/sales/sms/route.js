@@ -52,13 +52,17 @@ const LEAD_SELECT = {
   email: true,
   phone: true,
   timeZone: true,
+  // Where they are, so the texting window can be judged from the province
+  // when no rep has stated a zone — lib/sales/leadTimeZone.js.
+  country: true,
+  province: true,
   // The discovered business behind this lead, when there is one. Read because
   // an extra number a rep was given hangs on the BUSINESS — see
   // app/api/sales/calls/numbers — so a lead that never saw the number itself
   // still has to be able to text it, and because a do-not-contact recorded
   // against the business covers every number of theirs.
   prospectId: true,
-  prospect: { select: { id: true, phoneE164: true, doNotContactAt: true } },
+  prospect: { select: { id: true, phoneE164: true, doNotContactAt: true, country: true, province: true } },
 };
 
 /**

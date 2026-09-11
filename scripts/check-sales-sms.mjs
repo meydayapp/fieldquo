@@ -1004,5 +1004,44 @@ section("10. The screen never renders a control the server would refuse");
   ok("…and the route it calls has a caller", /\/api\/sales\/sms/.test(panel));
 }
 
+section("11. The texting window's clock is the call window's clock");
+//
+// Amish Valley Sheds LLC, NY, straight from discovery: the call region said
+// "judged in the time zone their address implies (America/New_York)" and the
+// texting panel, three cards down, said "we don't know what time it is where
+// this prospect is" — and never sent the link. One rule now, in
+// lib/sales/leadTimeZone.js: stated beats derived, a single-zone subdivision
+// derives, a split one asks with its candidates, and the area code is still
+// never consulted.
+{
+  const { resolveLeadTimeZone } = await import("../lib/sales/leadTimeZone.js");
+  const ny = resolveLeadTimeZone({ timeZone: null, country: "US", province: "NY" });
+  ok("a New York lead with no stated zone derives America/New_York", ny.timeZone === "America/New_York" && ny.source === "derived");
+  const viaProspect = resolveLeadTimeZone({ timeZone: null, prospect: { country: "US", province: "NY" } });
+  ok("…and so does a lead whose province lives only on its linked prospect", viaProspect.timeZone === "America/New_York");
+  const fl = resolveLeadTimeZone({ timeZone: null, country: "US", province: "FL" });
+  ok("a split state derives nothing and names its candidates", fl.timeZone === null && fl.source === "ambiguous" && fl.candidates.length === 2);
+  ok("a stated zone beats the split", resolveLeadTimeZone({ timeZone: "America/Chicago", country: "US", province: "FL" }).source === "stated");
+  ok("a stated zone Intl cannot read falls through to the province", resolveLeadTimeZone({ timeZone: "Mars/Olympus", country: "US", province: "NY" }).timeZone === "America/New_York");
+  ok("no province anywhere is unknown, not guessed", resolveLeadTimeZone({ timeZone: null, phone: "+17162551194" }).timeZone === null);
+  ok("Quebec derives Toronto's clock", resolveLeadTimeZone({ country: "CA", province: "QC" }).timeZone === "America/Toronto");
+
+  const r = salesSmsReadiness({ repName: "D", signupLink: "https://x/signup?sales=d", fromNumber: "+17166383616", mailingAddress: "a", twilioConfigured: true, leadPhone: "+17162551194", leadTimeZone: ny.timeZone, leadTimeZoneSource: ny.source, leadTimeZoneCandidates: ny.candidates, suppression: { suppressed: false }, now: new Date("2026-09-11T23:14:00Z") });
+  ok("…so Amish Valley Sheds at 7:14 pm Eastern can be texted", r.canSend === true && r.timeZone === "America/New_York" && r.timeZoneSource === "derived");
+  const rf = salesSmsReadiness({ repName: "D", signupLink: "x", fromNumber: "+17166383616", mailingAddress: "a", leadPhone: "+13055550100", leadTimeZone: fl.timeZone, leadTimeZoneSource: fl.source, leadTimeZoneCandidates: fl.candidates, suppression: { suppressed: false } });
+  ok("a split state still asks, and lists the two clocks", rf.canSend === false && rf.blockers[0].code === "time_zone_unknown" && /America\/New_York or America\/Chicago/.test(rf.blockers[0].fix));
+
+  const status = read("lib/sales/salesSms.js");
+  ok("salesSmsStatus resolves the zone through the shared rule", /const zone = resolveLeadTimeZone\(lead\)/.test(status) && /leadTimeZone: zone\.timeZone/.test(status));
+  const route = read("app/api/sales/sms/route.js");
+  ok("…and the route loads the province it needs, from the lead and its prospect", /country: true,\s*province: true,/.test(route) && /prospect: \{ select: \{[^}]*province: true/.test(route));
+  const store = read("lib/sales/checkin/store.js");
+  ok("the messages thread judges its window by the same rule", /timeZone: lead \? resolveLeadTimeZone\(lead\)\.timeZone : null/.test(store));
+  const panel = read("app/sales/leads/SignupLinkSms.js");
+  ok("the panel prefills the derived zone and says where it came from", /next\.sms\?\.timeZone/.test(panel) && /smsZoneDerived/.test(panel));
+  ok("…and writes a zone to the lead only when the rep chose a different one", /zone !== \(data\?\.sms\?\.timeZone \|\| ""\)/.test(panel));
+  ok("the area code is still never consulted", !/areaCode|nanp/i.test(read("lib/sales/leadTimeZone.js")));
+}
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

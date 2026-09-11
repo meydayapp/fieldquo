@@ -324,10 +324,17 @@ section("4. The lead screen actually renders it, and hands it a lead");
     /leadId:\s*lead\.id/.test(region),
     region.slice(0, 400),
   );
+  // The TARGET carries no prospectId (targetFor reads it before leadId and
+  // would log the call on the prospect row). The linked prospect travels on
+  // its own prop, for the playbook only — a lead out of discovery reads its
+  // business's script instead of "typed in by hand".
+  const targetBlock = region.slice(region.indexOf("target="), region.indexOf("playbookProspectId=") > 0 ? region.indexOf("playbookProspectId=") : undefined);
   ok(
     "…and NOT a prospectId, which would log the call against the wrong row",
-    !/prospectId/.test(region),
+    !/prospectId/.test(targetBlock.replace(/\/\/[^\n]*/g, "")),
   );
+  ok("…while the linked business's playbook is asked for on its own prop", /playbookProspectId=\{lead\.prospect\?\.id \|\| lead\.prospectId \|\| null\}/.test(region));
+  ok("…which CallPanel uses for the script and never for the dial", (() => { const cp = decomment(read("app/components/sales/CallPanel.js")); return /const scriptProspectId = prospectId \|\| playbookProspectId \|\| null/.test(cp) && /playbook\?prospectId=\$\{encodeURIComponent\(scriptProspectId\)\}/.test(cp) && /\.\.\.\(prospectId \? \{ prospectId \} : \{ leadId \}\)/.test(cp); })());
 
   // The three steps, in the order the queue runs them.
   ok("the screen asks salesCallReadiness for the decision", /salesCallReadiness\(/.test(src));

@@ -71,7 +71,9 @@ export default function SignupLinkSms({ leadId, inThread = false, onSent = null 
           (numberId ? `&contactNumberId=${encodeURIComponent(numberId)}` : ""),
       );
       setData(next);
-      setZone(next.lead?.timeZone || "");
+      // Stated wins; otherwise the zone the server derived from the province
+      // (the same one the call region prints). The rep can still pick another.
+      setZone(next.lead?.timeZone || next.sms?.timeZone || "");
     } catch (err) {
       setError(err.message);
     }
@@ -90,7 +92,15 @@ export default function SignupLinkSms({ leadId, inThread = false, onSent = null 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: jsonBody(
-          { leadId, ...(zone ? { timeZone: zone } : {}), ...(numberId ? { contactNumberId: numberId } : {}) },
+          {
+            leadId,
+            // A zone is WRITTEN to the lead only when the rep chose one the
+            // record did not already carry. A derived zone left as-is is
+            // re-derived by the server; writing it would turn "their address
+            // implies" into "a rep stated", which is a different fact.
+            ...(zone && zone !== (data?.lead?.timeZone || "") && zone !== (data?.sms?.timeZone || "") ? { timeZone: zone } : {}),
+            ...(numberId ? { contactNumberId: numberId } : {}),
+          },
           "sms",
         ),
       });
@@ -240,7 +250,11 @@ export default function SignupLinkSms({ leadId, inThread = false, onSent = null 
       {showForm && (
         <form onSubmit={send} className="space-y-3">
           <label className="block text-xs text-muted-foreground">
-            {t("app.salesLeads.smsWhereAreThey")}
+            {sms.timeZoneSource === "derived" && sms.timeZone
+              ? t("app.salesLeads.smsZoneDerived", { zone: sms.timeZone })
+              : sms.timeZoneSource === "ambiguous"
+                ? t("app.salesLeads.smsZoneAmbiguous")
+                : t("app.salesLeads.smsWhereAreThey")}
             <select
               required
               value={zone}

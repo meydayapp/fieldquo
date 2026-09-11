@@ -185,7 +185,12 @@ function WindowLines({ compliance }) {
           closedDays: closed.map((d) => weekdayName(d, language)).join(", "),
         })}
       </p>
-      {compliance.opensAtText ? (
+      {/* nextOpening() answers "now" while the window is open, so printing
+          "It opens at 19:30" beside a live call button read as a closed
+          window to the owner. Open is said as open. */}
+      {compliance.decision === "allowed" ? (
+        <p className="break-words">{t("app.salesDial.window.openNow")}</p>
+      ) : compliance.opensAtText ? (
         <p className="break-words">
           {t("app.salesDial.window.opensAt", { opensAt: compliance.opensAtText })}
         </p>
@@ -216,6 +221,10 @@ export default function DialRegion({
   space,
   compliance = null,
   target = null,
+  // The prospect whose script to show when the TARGET is a lead — a lead
+  // linked to a discovered business dials by leadId (so the attempt lands on
+  // the lead) but reads the business's playbook. Null keeps today's answer.
+  playbookProspectId = null,
   onWorked,
   // The autodialler's press and its answer, handed straight through to
   // CallPanel. This file still decides nothing — see the header — and the
@@ -230,6 +239,7 @@ export default function DialRegion({
         <>
           <CallPanel
             prospectId={target.prospectId || null}
+            playbookProspectId={playbookProspectId}
             leadId={target.leadId || null}
             phoneE164={target.phoneE164}
             contactNumberId={target.contactNumberId || null}

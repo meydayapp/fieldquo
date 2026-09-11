@@ -133,6 +133,10 @@ async function micState() {
 // call gets logged against the wrong business.
 export default function CallPanel({
   prospectId = null,
+  // The prospect whose PLAYBOOK to read when the dial target is a lead. The
+  // dial itself never uses it — see DialRegion — so a lead's call is logged on
+  // the lead and its script comes from the business discovery found.
+  playbookProspectId = null,
   leadId = null,
   phoneE164,
   // WHICH stored number to ring, when the rep has picked one that is not the
@@ -211,7 +215,8 @@ export default function CallPanel({
   // has no discovery behind it, so lib/sales/playbook has nothing to build one
   // from — that is a fact about the record, not a failure, and it gets said
   // rather than rendered as an empty space.
-  const playbookUnavailable = prospectId ? "" : t("app.salesCall.playbookUnavailableLead");
+  const scriptProspectId = prospectId || playbookProspectId || null;
+  const playbookUnavailable = scriptProspectId ? "" : t("app.salesCall.playbookUnavailableLead");
 
   // `t` is deliberately NOT a dependency of this callback or of load() below.
   // Both dep arrays are what re-runs the effects that call them, and a rep
@@ -220,11 +225,11 @@ export default function CallPanel({
   // fallback sentence for a fetch that fails immediately after a language
   // switch is a beat behind; the alternative is a refetch during a call.
   const loadPlaybook = useCallback(async () => {
-    if (!prospectId) return;
+    if (!scriptProspectId) return;
     setPlaybookLoading(true);
     setPlaybookError("");
     try {
-      setPlaybook(await fetchJson(`/api/sales/playbook?prospectId=${encodeURIComponent(prospectId)}`));
+      setPlaybook(await fetchJson(`/api/sales/playbook?prospectId=${encodeURIComponent(scriptProspectId)}`));
     } catch (err) {
       // Its own error, never the panel's. A failed script must not read as a
       // failed call setup, and it must not clear the dial button.
@@ -233,7 +238,7 @@ export default function CallPanel({
     } finally {
       setPlaybookLoading(false);
     }
-  }, [prospectId]);
+  }, [scriptProspectId]);
 
   useEffect(() => {
     loadPlaybook();
