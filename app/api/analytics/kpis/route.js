@@ -350,14 +350,25 @@ export async function GET(request) {
             where: { jobId: { in: completedJobIds }, purchasedAt: { not: null } },
             select: { jobId: true, actualCost: true },
           }),
-          // Every non-draft, non-cancelled invoice billing these jobs — by an
-          // explicit Job link, or (when none) by the quote the job came from.
-          // Mirrors lib/invoices/jobLink.js's own resolution order without an
-          // N+1 per-invoice lookup.
+          // Every issued invoice billing these jobs — by an explicit Job
+          // link, or (when none) by the quote the job came from. Mirrors
+          // lib/invoices/jobLink.js's own resolution order without an N+1
+          // per-invoice lookup.
+          //
+          // `notIn: ["draft"]` — this used to read ["draft", "cancelled"],
+          // and InvoiceStatus has no `cancelled` member (draft · sent · paid
+          // · overdue · refunded · partially_refunded · disputed). Prisma
+          // validates enum filters before the query leaves the process:
+          // "Invalid value for argument `notIn`. Expected InvoiceStatus." So
+          // every KPI request for a company with one completed job in the
+          // period threw here, and the whole dashboard read as an error.
+          // Found by executing the same filter from
+          // app/api/marketing-spend/campaigns/route.js against the generated
+          // client; the two now agree.
           db.invoice.findMany({
             where: {
               companyId,
-              status: { notIn: ["draft", "cancelled"] },
+              status: { notIn: ["draft"] },
               OR: [
                 { jobId: { in: completedJobIds } },
                 { jobId: null, quoteId: { in: completedQuoteIds.length ? completedQuoteIds : ["__none__"] } },
