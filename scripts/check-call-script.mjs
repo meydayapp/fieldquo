@@ -50,6 +50,7 @@ import { AI_FAILURE } from "@/lib/ai/provider";
 import { estimateCostMicros, hasKnownPricing } from "@/lib/ai/usage";
 import { checkPlatformAiBudget, recordPlatformAiUsage } from "@/lib/ai/platformUsage";
 import { handleGenerateCallScript } from "@/lib/sales/pipeline/handlers/generateCallScript";
+import { loadBriefInputs } from "@/lib/sales/pipeline/handlers/generateResearchBrief";
 import { HANDLER_MODULES } from "@/lib/sales/pipeline/handlers/index";
 import { getHandler, isPlaceholder } from "@/lib/sales/pipeline/registry";
 import { PROVIDER_BY_KIND, TASK_KINDS } from "@/lib/sales/pipeline/kinds";
@@ -383,6 +384,22 @@ section("3. The handler, executed: builds, refuses, stores once, skips, regenera
   ok("no key is terminal — the same answer tomorrow", unconfigured.done === false && unconfigured.retry === false && /unconfigured/.test(unconfigured.reason));
   const missing = await handleGenerateCallScript({ task: task(), payload: task().payload, db: stubDb(), now: NOW, deps: { loadInputs: async () => ({ prospect: null }) } });
   ok("a missing prospect is terminal", missing.done === false && missing.retry === false);
+
+  // Every one of the first 93 stored scripts had crawledAt null: the brief's
+  // prospect select never read lastCrawledAt, and the handler copied the
+  // absence. Executed against a prisma that returns the column when asked.
+  const asked = [];
+  const readback = await loadBriefInputs({
+    prospect: { async findUnique({ select }) { asked.push(select); return Object.fromEntries(Object.keys(select).map((k) => [k, k === "lastCrawledAt" ? CRAWLED : `v:${k}`])); } },
+    prospectCapability: { async findMany() { return []; } },
+    prospectTechnology: { async findMany() { return []; } },
+    prospectInference: { async findMany() { return []; } },
+    prospectOpportunity: { async findMany() { return []; } },
+    prospectScore: { async findFirst() { return null; } },
+  }, "p1");
+  ok("the brief inputs read the prospect's lastCrawledAt", asked[0]?.lastCrawledAt === true && readback.prospect.lastCrawledAt === CRAWLED, asked[0]);
+  const loader = decomment(read("lib/sales/pipeline/handlers/generateCallScript.js"));
+  ok("…and the script stamps it as crawledAt", /crawledAt: rows\.prospect\.lastCrawledAt \?\? null/.test(loader));
 
   const src = decomment(read("lib/sales/pipeline/handlers/generateCallScript.js"));
   ok("the handler meters through platformUsage — checkPlatformAiBudget before, recordPlatformAiUsage after",
