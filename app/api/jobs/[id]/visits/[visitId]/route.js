@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { sendSms } from "@/lib/sms/twilioClient";
 import { renderMessage } from "@/lib/sms/renderTemplate";
+import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { maySms } from "@/lib/sms/optOut";
 import { ensureUpcomingVisit } from "@/lib/jobs/recurrence";
 import { normalizeChecklistItems } from "@/lib/jobs/checklistItems";
@@ -115,6 +116,11 @@ export async function PATCH(request, { params }) {
         body: renderMessage({
           type: "on_my_way",
           templates: visit.job.company.smsTemplates,
+          // The text follows the client's language like their quote did; the
+          // company's custom wording applies only to clients who read the
+          // language it was written in.
+          language: resolveClientLanguage({ client: visit.job.client, company: visit.job.company }),
+          templateLanguage: visit.job.company.defaultLanguage || "en",
           values: {
             company: visit.job.company.name,
             worker: updated.assignedTo?.name || "Your technician",

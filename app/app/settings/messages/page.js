@@ -6,7 +6,7 @@
 //
 // ── Only messages that actually send are here ──────────────────────────────
 //
-// Today that's one: the "on my way" text. The API returns only editable types,
+// Today that's two: "on my way" and the appointment reminder. The API returns only editable types,
 // so this page can't grow an editor for a message that never goes out — the
 // dead control this codebase keeps deleting. When another message gets a real
 // send path, it appears here automatically.
@@ -69,7 +69,8 @@ export default function ClientMessagesPage() {
           <MessageSquare size={22} /> {t("app.settings.messages")}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {t("app.setMessages.subtitle")}
+          {t("app.setMessages.subtitle")}{" "}
+          {t("app.setMessages.languageHint")}
         </p>
       </div>
 

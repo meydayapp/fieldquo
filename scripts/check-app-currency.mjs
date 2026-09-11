@@ -277,6 +277,14 @@ console.log("\nNo catalogue entry decides the currency of a number for the calle
     ["app.leads.budget1k5k", "See app.leads.budgetUnder1k — same four-band set."],
     ["app.leads.budget5k15k", "See app.leads.budgetUnder1k — same four-band set."],
     ["app.leads.budget15kPlus", "See app.leads.budgetUnder1k — same four-band set."],
+    [
+      "app.salesPlay.cardOursStartsAt",
+      "FieldQuo's OWN price, on the sales rep's battlecard, not a contractor's " +
+        "figure. The seat ladder is USD-only by the owner's decision " +
+        "(2026-09-06, lib/pricing/ladder.js), so the dollar sign is the fact, " +
+        "and a rep reading a French portal quotes \"99 $\" for the same reason. " +
+        "This key is read by /sales, which has no company currency to format in.",
+    ],
   ]);
 
   // A symbol touching a value. Prose that merely contains "$" — a comment, a

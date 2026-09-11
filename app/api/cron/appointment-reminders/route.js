@@ -22,7 +22,9 @@ import { NextResponse } from "next/server";
 import { requireCronSecret } from "@/lib/security/cronAuth";
 import { db } from "@/lib/db";
 import { sendSms, toE164 } from "@/lib/sms/twilioClient";
-import { appointmentReminderText } from "@/lib/sms/templates";
+import { formatWhen } from "@/lib/sms/templates";
+import { renderMessage } from "@/lib/sms/renderTemplate";
+import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { maySms } from "@/lib/sms/optOut";
 
 // Only look a week out, whatever a company's lead time is — bounds the query,
@@ -49,9 +51,20 @@ export async function GET(request) {
       id: true,
       scheduledAt: true,
       location: true,
-      client: { select: { phone: true } },
+      // language: the text follows the client, the way the quote and the
+      // covering email already do. timezone: the appointment is where the
+      // company is, and formatting without a zone gave every client UTC.
+      client: { select: { phone: true, language: true } },
       company: {
-        select: { id: true, name: true, appointmentReminderHours: true, smsFromNumber: true },
+        select: {
+          id: true,
+          name: true,
+          appointmentReminderHours: true,
+          smsFromNumber: true,
+          smsTemplates: true,
+          defaultLanguage: true,
+          timezone: true,
+        },
       },
     },
   });
@@ -92,12 +105,22 @@ export async function GET(request) {
       data: { reminderSentAt: now },
     });
 
+    const language = resolveClientLanguage({ client: appt.client, company: appt.company });
     const result = await sendSms({
       to: e164,
-      body: appointmentReminderText({
-        companyName: appt.company.name,
-        scheduledAt: appt.scheduledAt,
-        location: appt.location,
+      // The company's own wording when they set it and the client reads the
+      // language it was written in; the built-in wording in the client's
+      // language otherwise — see renderMessage.
+      body: renderMessage({
+        type: "appointment_reminder",
+        templates: appt.company.smsTemplates,
+        language,
+        templateLanguage: appt.company.defaultLanguage || "en",
+        values: {
+          company: appt.company.name,
+          when: formatWhen(appt.scheduledAt, { language, timezone: appt.company.timezone }),
+          location: appt.location,
+        },
       }),
       // The company's own number when they have one; the shared system number
       // (with the company name in the body) otherwise.
