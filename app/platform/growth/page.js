@@ -27,19 +27,31 @@ function basisChip(r) {
   const cls =
     r.basis === "measured"
       ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-      : r.basis === "assumed"
-        ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-        : "bg-red-500/15 text-red-700 dark:text-red-300";
-  const word = r.basis === "measured" ? "Measured" : r.basis === "assumed" ? "Assumed" : "Missing";
+      : r.basis === "blended"
+        ? "bg-sky-500/15 text-sky-700 dark:text-sky-300"
+        : r.basis === "assumed"
+          ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+          : "bg-red-500/15 text-red-700 dark:text-red-300";
+  const word =
+    r.basis === "measured"
+      ? "Measured"
+      : r.basis === "blended"
+        ? `Blended · ${Math.round((r.measuredWeight || 0) * 100)}% measured`
+        : r.basis === "assumed"
+          ? "Assumed"
+          : "Missing";
   return <span className={`inline-block rounded px-1.5 py-0.5 text-[11px] font-medium ${cls}`}>{word}</span>;
 }
 
 function soFar(r, field) {
   if (!r) return "";
   const unit = field?.floorOf || "rows";
-  if (r.basis === "measured") return `from ${nf.format(r.sampleSize)} ${unit}`;
-  const measuredText = r.measured === null ? "nothing measured yet" : field?.kind === "monthlyCount" ? `${r.measured.toFixed(1)}/month so far` : `${pct(r.measured)} so far`;
-  return `${measuredText} — ${nf.format(r.remaining)} more ${unit} before the measurement takes over`;
+  const measuredText = r.measured === null ? "nothing measured yet" : field?.kind === "monthlyCount" ? `${r.measured.toFixed(1)}/month measured` : `${pct(r.measured)} measured`;
+  if (r.basis === "measured") return `${measuredText} from ${nf.format(r.sampleSize)} ${unit}${r.assumed !== null && r.assumed !== undefined ? "; the assumption is under a tenth of the answer" : ""}`;
+  if (r.basis === "blended") {
+    return `${measuredText} from ${nf.format(r.sampleSize)} ${unit}, weighed against the assumption as ${nf.format(r.floor)} ${unit}${r.remaining > 0 ? ` — ${nf.format(r.remaining)} more before the measurement outweighs it` : ""}`;
+  }
+  return `${measuredText} — every ${unit.replace(/s$/, "")} counted moves the answer toward it`;
 }
 
 export default function PlatformGrowthPage() {
@@ -202,7 +214,7 @@ export default function PlatformGrowthPage() {
         <section className="rounded-lg border border-border bg-card">
           <div className="px-4 py-3 border-b border-border">
             <h2 className="font-semibold">The rates</h2>
-            <p className="text-xs text-muted-foreground">Measured from the pipeline once the floor is met; the saved assumption until then. A missing one stops the forecast rather than being guessed.</p>
+            <p className="text-xs text-muted-foreground">Each rate is the measurement blended with the saved assumption: the assumption counts as the floor's worth of rows, the pipeline counts as the rows it has, so the answer starts at the assumption and moves toward the real number with every row. Nothing jumps the day a floor is met. A missing assumption with too few rows stops the forecast rather than being guessed.</p>
           </div>
           <div className="overflow-x-auto">
           <table className="w-full text-sm">

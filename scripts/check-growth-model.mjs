@@ -30,10 +30,26 @@ const near = (a, b, eps = 1e-9) => Math.abs(a - b) < eps;
 // ── rate(): basis is a fact about the sample, not a mood ────────────────────
 ok("below the floor with no assumption is NONE, value null",
   (() => { const r = rate({ hit: 3, of: 12, floor: 200 }); return r.basis === "none" && r.value === null && r.remaining === 188 && near(r.measured, 0.25); })());
-ok("below the floor with an assumption is ASSUMED, and still shows what was measured so far",
-  (() => { const r = rate({ hit: 3, of: 12, floor: 200, assumed: 0.15 }); return r.basis === "assumed" && r.value === 0.15 && near(r.measured, 0.25) && r.sampleSize === 12; })());
-ok("at the floor the measurement takes over, whatever the assumption says",
-  (() => { const r = rate({ hit: 30, of: 200, floor: 200, assumed: 0.9 }); return r.basis === "measured" && near(r.value, 0.15) && r.remaining === 0 && r.assumed === 0.9; })());
+// ── The blend: the assumption is worth `floor` rows, the pipeline its own ──
+//
+// It used to be a switch — assumption below the floor, measurement at it —
+// and the forecast jumped the day 200 dials were dispositioned. The owner
+// asked for the real data to be combined with the estimate until there is
+// enough of it, which is exactly (floor·assumed + n·measured) / (floor + n).
+ok("with an assumption, twelve rows are BLENDED — mostly assumption, a little measurement",
+  (() => { const r = rate({ hit: 3, of: 12, floor: 200, assumed: 0.15 }); return r.basis === "blended" && near(r.value, (200 * 0.15 + 12 * 0.25) / 212) && near(r.measuredWeight, 12 / 212) && near(r.measured, 0.25) && r.sampleSize === 12 && r.remaining === 188; })());
+ok("at the floor it is half and half, not the measurement whole",
+  (() => { const r = rate({ hit: 30, of: 200, floor: 200, assumed: 0.9 }); return r.basis === "blended" && near(r.value, (0.9 + 0.15) / 2) && near(r.measuredWeight, 0.5) && r.remaining === 0 && r.assumed === 0.9; })());
+ok("nothing jumps at the floor: 199 rows and 200 rows differ by a hair",
+  (() => { const a = rate({ hit: 30, of: 199, floor: 200, assumed: 0.9 }).value; const b = rate({ hit: 30, of: 200, floor: 200, assumed: 0.9 }).value; return Math.abs(a - b) < 0.01; })());
+ok("every extra row moves the answer toward the measurement",
+  (() => { const v = [10, 50, 200, 800, 3000].map((n) => rate({ hit: Math.round(n * 0.15), of: n, floor: 200, assumed: 0.9 }).value); return v.every((x, i) => i === 0 || x < v[i - 1]) && v[4] > 0.15 && v[4] < 0.2; })());
+ok("at nine floors the assumption is a tenth of the answer and the basis is MEASURED",
+  (() => { const r = rate({ hit: 270, of: 1800, floor: 200, assumed: 0.9 }); return r.basis === "measured" && near(r.measuredWeight, 0.9) && near(r.value, 0.15 * 0.9 + 0.9 * 0.1); })());
+ok("no assumption and the floor met is the measurement alone",
+  (() => { const r = rate({ hit: 30, of: 200, floor: 200 }); return r.basis === "measured" && near(r.value, 0.15) && r.measuredWeight === 1; })());
+ok("an assumption with no rows yet is ASSUMED, weight zero",
+  (() => { const r = rate({ hit: 0, of: 0, floor: 200, assumed: 0.15 }); return r.basis === "assumed" && r.value === 0.15 && r.measuredWeight === 0; })());
 ok("more hits than the denominator clamps to 1, not 1.5", rate({ hit: 15, of: 10, floor: 5 }).value === 1);
 ok("the referral coefficient may exceed 1 when its max says so", rate({ hit: 30, of: 20, floor: 5, max: 10 }).value === 1.5);
 ok("NaN, negative and string counts are treated as zero rows, never as data",
@@ -43,8 +59,8 @@ ok("an assumption of exactly 0 or 1 is allowed (a rate can be zero)", rate({ of:
 ok("no arguments at all is NONE, not a crash", rate().basis === "none");
 
 // ── monthlyCount(): organic signups a month ─────────────────────────────────
-ok("organic: two observed months below a floor of three keep the assumption", (() => { const c = monthlyCount({ total: 9, months: 2, floorMonths: 3, assumed: 50 }); return c.basis === "assumed" && c.value === 50 && near(c.measured, 4.5); })());
-ok("organic: three months measured is their mean", (() => { const c = monthlyCount({ total: 9, months: 3, floorMonths: 3, assumed: 50 }); return c.basis === "measured" && c.value === 3; })());
+ok("organic: two observed months blend with the assumption, weighted 2 against 3", (() => { const c = monthlyCount({ total: 9, months: 2, floorMonths: 3, assumed: 50 }); return c.basis === "blended" && near(c.value, (3 * 50 + 2 * 4.5) / 5) && near(c.measured, 4.5) && near(c.measuredWeight, 0.4); })());
+ok("organic: three months with no assumption is their mean", (() => { const c = monthlyCount({ total: 9, months: 3, floorMonths: 3 }); return c.basis === "measured" && c.value === 3; })());
 ok("organic: nothing observed, nothing assumed is NONE", monthlyCount({ floorMonths: 3 }).basis === "none");
 
 // ── monthLabel: calendar months, UTC ────────────────────────────────────────
@@ -172,9 +188,10 @@ ok("the milestones are the owner's five", MILESTONES.join() === "100,1000,10000,
 
 // ── monthsRate(): churn and referral are sampled in months ─────────────────
 import { monthsRate } from "../lib/platform/growthModel.js";
-ok("churn: 2 qualifying months keep the assumption, and show the measurement forming",
-  (() => { const r = monthsRate({ hit: 3, of: 60, months: 2, floorMonths: 3, assumed: 0.05 }); return r.basis === "assumed" && r.value === 0.05 && near(r.measured, 0.05) && r.remaining === 1; })());
-ok("churn: 3 qualifying months are measured", monthsRate({ hit: 3, of: 100, months: 3, floorMonths: 3, assumed: 0.5 }).basis === "measured");
+ok("churn: 2 qualifying months are blended in MONTHS, not in subscribers",
+  (() => { const r = monthsRate({ hit: 3, of: 60, months: 2, floorMonths: 3, assumed: 0.05 }); return r.basis === "blended" && near(r.measuredWeight, 2 / 5) && near(r.value, 0.05) && near(r.measured, 0.05) && r.remaining === 1; })());
+ok("churn: 3 qualifying months with no assumption are measured", monthsRate({ hit: 3, of: 100, months: 3, floorMonths: 3 }).basis === "measured");
+ok("churn: 3 qualifying months against an assumption of 50% are half and half", near(monthsRate({ hit: 3, of: 100, months: 3, floorMonths: 3, assumed: 0.5 }).value, 0.265));
 ok("referral: a coefficient above 1 survives its own max", monthsRate({ hit: 40, of: 20, months: 3, floorMonths: 3, max: 10 }).value === 2);
 
 // ── The wiring: route, page, sidebar — pinned, because each is one line ────
@@ -198,6 +215,7 @@ const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
   ok("only FULL months are observed — never the current one", /for \(let i = MONTHS_BACK; i >= 1; i -= 1\)/.test(measured));
   const page = read("app/platform/growth/page.js");
   ok("the page shows a basis chip beside every rate", /basisChip\(r\)/.test(page) && /Measured/.test(page) && /Assumed/.test(page) && /Missing/.test(page));
+  ok("…and a blended rate says how much of it is measured", /Blended · \$\{Math\.round\(\(r\.measuredWeight/.test(page));
   ok("the page says 'not reachable at these rates' with the ceiling, in words", /Not reachable at these rates — the ceiling is/.test(page));
   ok("the page draws with the platform Sparkline, not a chart library", /from "@\/app\/components\/platform\/Sparkline"/.test(page) && !/recharts|chart\.js|d3/.test(page));
   ok("the page loads through fetchJson and catches, never if (res.ok) with no else", /await fetchJson\("\/api\/platform\/growth"\)/.test(page) && !/res\.ok/.test(page));
