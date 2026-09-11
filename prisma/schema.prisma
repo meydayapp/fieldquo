@@ -1679,6 +1679,17 @@ model Company {
   purchaseOrders        PurchaseOrder[]
   stockMovements        StockMovement[]
   vehicleDetails        VehicleDetail[]
+  // ── Subcontractors ─────────────────────────────────────────────────────
+  // The companies this company hires per job. Distinct from Worker (a person
+  // on the roster paid by the hour) — see model Subcontractor. The second
+  // relation is the OTHER side: when a sub is itself on FieldQuo, the row on
+  // the GC's side points at the sub's own company, so their quote link and
+  // their Stripe Connect account resolve without retyping anything.
+  subcontractors        Subcontractor[]        @relation("SubcontractorOwner")
+  subcontractedBy       Subcontractor[]        @relation("SubcontractorLinkedCompany")
+  jobSubcontractors     JobSubcontractor[]
+  subcontractorPayments SubcontractorPayment[]
+  locationStamps        LocationStamp[]
   aiEmployee            AiEmployee?
   aiEmployeeSources     AiEmployeeSource[]
   aiEmployeeReplies     AiEmployeeReply[]
@@ -2509,6 +2520,226 @@ model QuoteImport {
   @@unique([targetQuoteId, sourceQuoteId])
   @@index([sourceCompanyId])
   @@index([targetCompanyId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Subcontractors — the companies a contractor hires per job
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// A Worker is a PERSON on the roster, paid by the hour, clocking in. A
+// Subcontractor is a COMPANY hired for a fixed amount on a particular job —
+// the electrician the GC brings in, the roofer the painter subs the flashing
+// to. The two were conflated for a while under WorkerType.contractor, and the
+// result was that "pay contractors" meant hours × rate to a person, while the
+// real question — what do we owe the electrical company on job #1047, is their
+// insurance still valid, what do they go on the T5018 for — had nowhere to
+// live. These four models are that place.
+//
+// QuoteImport (above) is how a sub's FieldQuo quote becomes a cost line on the
+// GC's quote. JobSubcontractor.quoteImportId links the two, so an amount that
+// came from a real quote says so and is not retyped.
+
+model Subcontractor {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation("SubcontractorOwner", fields: [companyId], references: [id], onDelete: Cascade)
+
+  name        String
+  /// Free text, the trade as the contractor says it: "electrical", "roofing".
+  trade       String?
+  contactName String?
+  email       String?
+  phone       String?
+
+  /// When the sub is on FieldQuo too. Set by matching their quote's source
+  /// company on import, or by hand. Their Stripe Connect account and quote
+  /// links resolve through this; never a copy of their data.
+  linkedCompanyId String?
+  linkedCompany   Company? @relation("SubcontractorLinkedCompany", fields: [linkedCompanyId], references: [id])
+
+  /// Certificate of insurance and workers' compensation clearance (WSIB in
+  /// Ontario, WCB elsewhere). Expiry dates only — the document itself is a
+  /// SubcontractorDocument. Null means "not recorded", never "not required".
+  insuranceExpiresAt DateTime?
+  clearanceExpiresAt DateTime?
+  /// Whether this sub goes on the year-end contractor form (T5018 in Canada,
+  /// 1099-NEC in the US). Defaults true because that is the usual case for a
+  /// construction sub; an incorporated supplier of materials is the exception.
+  taxFormRequired Boolean @default(true)
+
+  notes  String?
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  jobs      JobSubcontractor[]
+  documents SubcontractorDocument[]
+  payments  SubcontractorPayment[]
+
+  @@index([companyId, active])
+  @@index([linkedCompanyId])
+}
+
+/// A file about a sub — the COI, the clearance certificate, a signed
+/// agreement. Stored the way JobDocument stores files (Cloudinary URL).
+model SubcontractorDocument {
+  id              String        @id @default(cuid())
+  companyId       String
+  subcontractorId String
+  subcontractor   Subcontractor @relation(fields: [subcontractorId], references: [id], onDelete: Cascade)
+  name            String
+  /// coi | clearance | agreement | other
+  kind            String        @default("other")
+  url             String
+  sizeBytes       Int?
+  mimeType        String?
+  /// For a COI or clearance, when it stops being valid. The sub's own
+  /// insuranceExpiresAt / clearanceExpiresAt are updated from the newest
+  /// document of that kind, so the panel and the paper agree.
+  expiresAt       DateTime?
+  uploadedById    String?
+  uploadedAt      DateTime      @default(now())
+
+  @@index([subcontractorId, kind])
+}
+
+/// One sub on one job: what was agreed and where it stands. This is the row
+/// job costing reads for subcontract cost — agreedAmount is the cost, whatever
+/// the GC marked it up to on the client's quote.
+model JobSubcontractor {
+  id              String        @id @default(cuid())
+  companyId       String
+  company         Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  jobId           String
+  job             Job           @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  subcontractorId String
+  subcontractor   Subcontractor @relation(fields: [subcontractorId], references: [id], onDelete: Cascade)
+  /// Optional: the visit the sub is expected on, so the schedule shows them.
+  visitId         String?
+  visit           JobVisit?     @relation(fields: [visitId], references: [id])
+
+  description   String?
+  agreedAmount  Decimal @db.Decimal(12, 2)
+  /// quoted → agreed → done → paid. Strings, not an enum, matching JobVisit.
+  status        String  @default("quoted")
+  /// The QuoteImport this amount came from, when it came from their FieldQuo
+  /// quote rather than being typed. Not a relation: QuoteImport rows belong to
+  /// the QUOTE and can be removed from it independently of the job.
+  quoteImportId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payments SubcontractorPayment[]
+
+  @@index([jobId])
+  @@index([subcontractorId, status])
+}
+
+/// Money paid TO a sub. Recorded (cash, cheque, e-transfer — the same
+/// PaymentMethod enum client payments use, minus the ones that only make
+/// sense inbound) or sent (Stripe Connect transfer, stripeTransferId set).
+/// Each one also writes an Expense against the job so job costing and the
+/// P&L see it once, and expenseId keeps the two from drifting.
+model SubcontractorPayment {
+  id                 String            @id @default(cuid())
+  companyId          String
+  company            Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  subcontractorId    String
+  subcontractor      Subcontractor     @relation(fields: [subcontractorId], references: [id], onDelete: Cascade)
+  jobSubcontractorId String?
+  jobSubcontractor   JobSubcontractor? @relation(fields: [jobSubcontractorId], references: [id])
+
+  amount           Decimal       @db.Decimal(12, 2)
+  method           PaymentMethod
+  date             DateTime      @default(now())
+  notes            String?
+  stripeTransferId String?
+  expenseId        String?
+  createdById      String?
+  createdAt        DateTime      @default(now())
+
+  @@index([subcontractorId, date])
+  @@index([companyId, date])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Location stamps — where the phone was when somebody tapped something
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Not tracking. A browser cannot track (foreground only; iOS suspends it the
+// moment the screen locks), and this product does not pretend to. What it CAN
+// do is ask the phone where it is at the moment a crew member taps clock in,
+// clock out, on my way, or complete — with their permission, once per tap —
+// and keep that beside the event. Compared against the job's geocoded address
+// that gives a timesheet a "2.1 km from the site" column, which is most of the
+// value of GPS timekeeping with none of the hardware.
+//
+// One table for every kind of event rather than lat/lng columns on TimeEntry
+// and JobVisit, because a telematics feed (Samsara, Geotab) later produces the
+// same shape — a point, a time, a reason — with a vehicle instead of a worker,
+// and should land in the same place.
+//
+// accuracyM is stored because a 1,500 m accuracy circle from a phone indoors
+// is not evidence of anything, and the distance flag must say so.
+
+model LocationStamp {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// clock_in | clock_out | on_the_way | completed | cancelled — the event the
+  /// tap was. Strings to match JobVisit.status vocabulary.
+  kind String
+
+  workerId    String?
+  worker      Worker?    @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  timeEntryId String?
+  timeEntry   TimeEntry? @relation(fields: [timeEntryId], references: [id], onDelete: Cascade)
+  jobId       String?
+  job         Job?       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  visitId     String?
+  visit       JobVisit?  @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  latitude  Decimal @db.Decimal(9, 6)
+  longitude Decimal @db.Decimal(9, 6)
+  /// The phone's own accuracy estimate, metres. Null when it did not say.
+  accuracyM Int?
+  /// Distance to the job's geocoded site at the time of the stamp, metres.
+  /// Computed once at write and stored, so a later address edit does not
+  /// silently rewrite history. Null when the job had no coordinates.
+  distanceToSiteM Int?
+
+  /// When the phone said it was there — the tap time, from the client, bounded
+  /// by the server to a sane window; `createdAt` is when we stored it.
+  at        DateTime
+  createdAt DateTime @default(now())
+
+  @@index([companyId, at])
+  @@index([timeEntryId])
+  @@index([visitId])
+  @@index([workerId, at])
+}
+
+/// A file about a vehicle or piece of equipment: registration, insurance
+/// policy, the bill of sale, a photo of the dent. Mirrors JobDocument.
+model AssetDocument {
+  id           String   @id @default(cuid())
+  companyId    String
+  assetId      String
+  asset        Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  name         String
+  /// registration | insurance | purchase | photo | other
+  kind         String   @default("other")
+  url          String
+  sizeBytes    Int?
+  mimeType     String?
+  expiresAt    DateTime?
+  uploadedById String?
+  uploadedAt   DateTime @default(now())
+
+  @@index([assetId, kind])
 }
 
 // An optional extra offered at the bottom of a quote.
@@ -3922,6 +4153,13 @@ model Job {
   // wrong: a property manager's billing address is an office, and sending a
   // crew there is worse than sending them nowhere.
   siteAddress    String?
+  /// Where the site is, geocoded from siteAddress (lib/geo/geocodeJob.js).
+  /// Nullable and never invented: a job whose address did not geocode has no
+  /// coordinates, and every distance built on these says "unknown" rather
+  /// than measuring from a guess. Read by the timesheet distance flag.
+  latitude       Decimal?  @db.Decimal(9, 6)
+  longitude      Decimal?  @db.Decimal(9, 6)
+  geocodedAt     DateTime?
   siteCity       String?
   siteProvince   String?
   sitePostalCode String?
@@ -3933,6 +4171,8 @@ model Job {
   siteGeocodedAt DateTime?
 
   jobDocuments  JobDocument[]
+  subcontractors JobSubcontractor[]
+  locationStamps LocationStamp[]
   dailyLogs     JobDailyLog[]
 
   /// Entered after the fact for the year's overview — see
@@ -4137,6 +4377,8 @@ model JobVisit {
   /// same reasoning Quote.declineReason gives for staying free text rather
   /// than a forced dropdown.
   returnNotes  String?
+  locationStamps LocationStamp[]
+  subcontractors JobSubcontractor[]
 }
 
 /// A scope change the client agreed to AFTER the original quote was
@@ -5412,6 +5654,7 @@ model Worker {
   createdAt                 DateTime   @default(now())
 
   timeEntries TimeEntry[]
+  locationStamps LocationStamp[]
   shifts      Shift[]
   payouts     Payout[]
   salaries    Salary[]
@@ -5435,6 +5678,7 @@ model TimeEntry {
   approvedBy   User?           @relation("TimeEntryApprovedBy", fields: [approvedById], references: [id])
   status       TimeEntryStatus @default(pending)
   createdAt    DateTime        @default(now())
+  locationStamps LocationStamp[]
 }
 
 // A scheduled shift assigned to a worker. Distinct from TimeEntry (hours the
@@ -5633,6 +5877,11 @@ model Expense {
   /// the supplier list useless.
   vendorName       String?
   supplierId       String?
+  /// The vehicle or piece of equipment this expense belongs to (fuel, a
+  /// repair, a toll). Optional: most expenses are not about an asset. Read
+  /// by lib/fleet for cost-per-vehicle; nothing else changes meaning.
+  assetId          String?
+  asset            Asset?   @relation(fields: [assetId], references: [id])
 }
 
 // One CSV upload, reviewed and committed in one sitting. Exists for two
@@ -6275,6 +6524,10 @@ model Asset {
   /// real utilisation figure, and (see actualJobCost.js) into a job cost that
   /// isn't already covered by the company's overhead share.
   useLogs AssetUseLog[]
+  /// Fuel, repairs, tolls — an Expense pinned to this asset so a van has a
+  /// cost per month and per km, not just a depreciation charge.
+  expenses  Expense[]
+  documents AssetDocument[]
 
   @@index([companyId, active])
   @@index([debtId])
