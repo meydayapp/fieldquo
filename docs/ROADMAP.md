@@ -149,9 +149,13 @@ built. The lint and the rules are in `lib/sales/scriptVoice.js`,
   spelled out as `CALL_SCRIPT_STYLE_RULES` (contractions, complete sentences,
   one idea per sentence, plain verbs, no "rather than", benefit before
   feature, the rep's first name from `SalesRep`), and `voiceLint()` refuses a
-  reply on: a sentence over 30 words (the brief said 28; the owner's own
-  sentence is 29, so 28 would have rejected the example), "rather than",
-  "that's not why I called", a sentence with no finite verb, "put that
+  reply on: a sentence over 40 words (the prompt asks for 30 — the brief said
+  28, the owner's own sentence is 29 — and anything between 30 and 40 is
+  quoted back on the retry as advice; the first two live v2 drafts for South
+  County were both thrown away, paid for, on a 31-word sentence and a few
+  verbs the list did not know, so the refusal moved to 40), "rather than",
+  "that's not why I called", a spoken sentence with no finite verb (the
+  rep's `doNotSay` notes are exempt — they are not read aloud), "put that
   button on the site". A failing draft is asked for ONCE more with the
   sentences quoted back; both calls metered; a second failure is terminal.
   `CALL_SCRIPT_VERSION = "2"` is inside the hash, so every stored script

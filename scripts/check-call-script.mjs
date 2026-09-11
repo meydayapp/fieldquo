@@ -60,7 +60,7 @@ import {
   validateCallScript,
 } from "@/lib/sales/intel/callScript";
 import { MAX_CHARS_PER_PAGE, MAX_EXCERPT_CHARS, integerInWords, ratingInWords, selectPageExcerpts } from "@/lib/sales/intel/pageExcerpts";
-import { MAX_WORDS, lintSentence, voiceLint, voiceRetryNote, wordCount } from "@/lib/sales/scriptVoice";
+import { HARD_MAX_WORDS, MAX_WORDS, lintSentence, longSentences, voiceLint, voiceRetryNote, wordCount } from "@/lib/sales/scriptVoice";
 import { assertStrictSchema } from "@/lib/ai/jsonSchema";
 import { AI_FAILURE } from "@/lib/ai/provider";
 import { estimateCostMicros, hasKnownPricing } from "@/lib/ai/usage";
@@ -549,7 +549,17 @@ const MODEL_OPENER =
   ok("the model's opener fails it", !model.ok, model);
   ok("…on \"rather than\"", model.problems.includes("rather_than"));
   ok("…and on a fragment with no verb (\"Daniel here, from FieldQuo.\")", model.problems.includes("no_finite_verb"), model.findings);
-  ok(`a sentence over ${MAX_WORDS} words fails`, lintSentence(Array.from({ length: MAX_WORDS + 1 }, () => "word").join(" ") + ".").includes("too_long"));
+  const words = (n) => `${Array.from({ length: n }, () => "word").join(" ")}.`;
+  ok(`a sentence over ${HARD_MAX_WORDS} words fails`, lintSentence(words(HARD_MAX_WORDS + 1)).includes("too_long"));
+  // Measured on the owner's own prospect: the first two live v2 drafts were
+  // both refused, paid for, on a thirty-one-word sentence and a few verbs
+  // the list did not know. Thirty is asked for and quoted back on the
+  // retry; only past forty is the script thrown away.
+  ok(`…but one of ${MAX_WORDS + 5} is advice on the retry, not a refusal`, !lintSentence(words(MAX_WORDS + 5)).includes("too_long") && longSentences({ whyThemNow: `I am here. ${words(MAX_WORDS + 5)}` }).length === 1);
+  ok("…and the retry note quotes it", /35 words; split it/.test(voiceRetryNote({ findings: [{ field: "opener", sentence: "x rather than y", problems: ["rather_than"] }] }, { long: longSentences({ whyThemNow: words(35) }) })));
+  ok("the rep's don'ts may be fragments — they are not read aloud", voiceLint({ ...goodReply(), doNotSay: ["Their crew size: unknown.", "Nothing about their reviews."] }).ok);
+  ok("…but what the rep says may not", !voiceLint({ ...goodReply(), whatWeSaw: ["An enquiry form, no booking button."] }).ok);
+  ok("a sentence about what the site does passes", ["The site lists residential and commercial work.", "Your site offers emergency call-outs.", "The about page names Mike Sousa as the owner."].every((x) => lintSentence(x).length === 0));
   ok("…and the owner's longest sentence is under the bound", wordCount("I'm calling because I've been through your website and we noticed a few things that are missing that could help you bring in more clients and book more jobs.") <= MAX_WORDS);
   ok("\"that's not why I called\" fails", lintSentence("That's not why I called.").includes("not_why_i_called") && lintSentence("That is not why I am calling.").includes("not_why_i_called"));
   ok("\"put that button on the site\" fails", lintSentence("Fifteen minutes and I'll put that button on the site you already have.").includes("put_that_button"));
