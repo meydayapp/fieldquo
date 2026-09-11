@@ -10149,6 +10149,14 @@ model Prospect {
   /// looked".
   hasWebsite Boolean?
   websiteUrl String?
+  /// The email address the crawler saw on their own site (a mailto: link or
+  /// an address in the page text), kept here so a lead made from this
+  /// prospect starts with it and a rep never retypes what the site already
+  /// said. Written only from ProspectEvidence for EMAIL_CONTACT — the
+  /// observation is the source of truth and this is its copy for the forms.
+  /// Null means the crawler saw none, never "unknown".
+  email        String?
+  emailSource  String?
 
   status String @default("discovered")
 
