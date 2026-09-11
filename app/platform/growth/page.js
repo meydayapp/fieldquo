@@ -173,16 +173,24 @@ export default function PlatformGrowthPage() {
       {f && (
         <section className="rounded-lg border border-border bg-card p-4 space-y-2">
           <div className="flex items-baseline justify-between">
-            <h2 className="font-semibold">Paying subscribers, by month</h2>
+            <h2 className="font-semibold">Forecast — paying subscribers by month</h2>
             <span className="text-xs text-muted-foreground">{series[0]?.label} → {series[series.length - 1]?.label}</span>
           </div>
+          {/* Said out loud, because the owner read "866 paying" against a
+              month that had not arrived and asked what it was. Nothing on
+              this card has happened; every figure is the model run forward
+              from the rates below, and the flat signup count past the list's
+              end is the model refusing to invent dials, not a plateau. */}
+          <p className="text-xs text-muted-foreground">
+            Projected, not recorded — every month here is the model run forward from the rates below. Where the signup count stops moving, the prospect list has run out and no organic or referral signups are assumed, so churn is the only thing still in the arithmetic.
+          </p>
           <Sparkline points={points} height={96} />
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
             {[6, 12, 24, 36, 60].filter((m) => series[m]).map((m) => (
               <div key={m} className="rounded border border-border px-2 py-1.5">
-                <div className="text-muted-foreground">{series[m].label}</div>
+                <div className="text-muted-foreground">{series[m].label} · projected</div>
                 <div className="font-semibold tabular-nums">{nf.format(series[m].paying)} paying</div>
-                <div className="text-muted-foreground tabular-nums">{nf.format(series[m].cumulativeSignups)} signups so far · {nf.format(series[m].signupsBySource.referral)} by referral</div>
+                <div className="text-muted-foreground tabular-nums">{nf.format(series[m].cumulativeSignups)} signups by then · {nf.format(series[m].signupsBySource.referral)} by referral</div>
               </div>
             ))}
           </div>
