@@ -18,7 +18,6 @@ import { NextResponse } from "next/server";
 import { resolveStaffViewer } from "@/lib/staff/viewer";
 import { ensureStaffRooms, roomsFor, staffDirectory, openDirect } from "@/lib/staff/store";
 import { staffRoomList } from "@/lib/staff/rooms";
-import { jsonBody } from "@/lib/jsonBody";
 
 export async function GET(request) {
   const { viewer, refusal } = await resolveStaffViewer(request);
@@ -44,7 +43,11 @@ export async function POST(request) {
   const { viewer, refusal } = await resolveStaffViewer(request);
   if (refusal) return NextResponse.json(refusal.body, { status: refusal.status });
 
-  const body = await jsonBody(request);
+  // request.json(), not lib/jsonBody — that helper is JSON.STRINGIFY with a
+  // better error, and calling it on the request produced "{}", a string whose
+  // .body is undefined. Every send answered 400 for a member and a stranger
+  // alike. That is the bug the owner hit live.
+  const body = await request.json().catch(() => null);
   const kind = body?.with?.kind;
   const id = body?.with?.id;
   if (kind !== "user" && kind !== "rep") {

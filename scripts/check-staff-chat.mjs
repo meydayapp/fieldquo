@@ -66,6 +66,8 @@ import {
   DEFAULT_TEAMS,
 } from "@/lib/staff/rooms";
 import { speakerOf, groupThread } from "@/lib/sales/messages/grouping";
+import { ensureTeamRooms, memberOrAutoJoin, activeStaff } from "@/lib/staff/teams";
+import { fakeDb } from "./staffChatFakeDb.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(ROOT, p), "utf8");
@@ -241,6 +243,73 @@ section("3. A direct room is named for whoever you are NOT");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+section("3b. Everybody is put in the team rooms, and a rep with no row can still post");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  // What production looked like on launch day: three rooms, ONE member (the
+  // admin who had opened the list), zero reps anywhere, a rep refused at a
+  // demo. The first version added only the viewer to their own teams.
+  const rep = { id: "r1", active: true, endedAt: null, acceptedAt: new Date(), passwordHash: "x" };
+  const pending = { id: "r2", active: true, endedAt: null, acceptedAt: null, passwordHash: null };
+  const gone = { id: "r3", active: false, endedAt: new Date(), acceptedAt: new Date(), passwordHash: "x" };
+  const db = fakeDb({
+    admins: [{ id: "a1", active: true }, { id: "a2", active: false }],
+    reps: [rep, pending, gone],
+    // The legacy key, seeded by the first version, with a member and history.
+    rooms: [{ id: "old", kind: "channel", teamKey: "everyone", name: "Everyone", isDefault: true }],
+    members: [{ id: "m0", roomId: "old", platformAdminId: "a1" }],
+  });
+
+  const staff = await activeStaff({ client: db });
+  ok("active staff is the one admin who is active", staff.admins.join() === "a1", staff.admins);
+  ok("…and the one rep who can sign in — not pending, not departed", staff.reps.join() === "r1", staff.reps);
+
+  await ensureTeamRooms({ client: db });
+  const rooms = db.tables.staffRoom;
+  ok("three team rooms exist", rooms.length === 3, rooms.map((r) => r.teamKey));
+  ok("the legacy 'everyone' room was RENAMED, not replaced", rooms.find((r) => r.id === "old")?.teamKey === "fieldquo");
+  ok("…and is still the default", rooms.find((r) => r.id === "old")?.isDefault === true);
+  const fq = rooms.find((r) => r.teamKey === "fieldquo");
+  const members = db.tables.staffRoomMember;
+  const inRoom = (roomId) => members.filter((m) => m.roomId === roomId && m.open !== false);
+  ok("the rep is in #fieldquo without having opened anything", inRoom(fq.id).some((m) => m.salesRepId === "r1"));
+  ok("the admin is still in it — same row, not a second one", inRoom(fq.id).filter((m) => m.platformAdminId === "a1").length === 1 && members.find((m) => m.id === "m0"));
+  ok("the inactive admin is not", !inRoom(fq.id).some((m) => m.platformAdminId === "a2"));
+  ok("the pending rep is not", !inRoom(fq.id).some((m) => m.salesRepId === "r2"));
+  ok("the departed rep is not", !inRoom(fq.id).some((m) => m.salesRepId === "r3"));
+  const sales = rooms.find((r) => r.teamKey === "sales");
+  ok("#sales has the rep AND the admin", inRoom(sales.id).some((m) => m.salesRepId === "r1") && inRoom(sales.id).some((m) => m.platformAdminId === "a1"));
+
+  const before = members.length;
+  await ensureTeamRooms({ client: db });
+  ok("running it again writes no new rows", members.length === before, [before, members.length]);
+
+  // The write path: a rep whose row does not exist yet posts in #sales.
+  members.splice(members.findIndex((m) => m.roomId === sales.id && m.salesRepId === "r1"), 1);
+  const joined = await memberOrAutoJoin({ kind: "rep", id: "r1" }, sales.id, { salesRepId: "r1" }, { client: db });
+  ok("a rep with no membership row can post in a team room", Boolean(joined?.open), joined);
+  ok("…and is a member afterwards", inRoom(sales.id).some((m) => m.salesRepId === "r1"));
+  // Somebody who cannot sign in is not let in by the write path either.
+  const notStaff = await memberOrAutoJoin({ kind: "rep", id: "r3" }, sales.id, { salesRepId: "r3" }, { client: db });
+  ok("a departed rep is refused", notStaff === null);
+  // A private group is not a team room; nobody is auto-joined to it.
+  db.tables.staffRoom.push({ id: "g1", kind: "channel", name: "west", slug: "west", private: true });
+  const stranger = await memberOrAutoJoin({ kind: "rep", id: "r1" }, "g1", { salesRepId: "r1" }, { client: db });
+  ok("a group they are not in still refuses", stranger === null);
+  // Leaving #sales sticks; leaving #fieldquo does not exist.
+  const row = members.find((m) => m.roomId === sales.id && m.salesRepId === "r1");
+  row.open = false;
+  ok("a rep who left #sales is not put back by the write path", (await memberOrAutoJoin({ kind: "rep", id: "r1" }, sales.id, { salesRepId: "r1" }, { client: db })) === null);
+  await ensureTeamRooms({ client: db });
+  ok("…nor by the next list read", row.open === false);
+  const fqRow = members.find((m) => m.roomId === fq.id && m.salesRepId === "r1");
+  fqRow.open = false;
+  await ensureTeamRooms({ client: db });
+  ok("but nobody stays out of #fieldquo", fqRow.open === true);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 section("4. One thread component draws both, and a channel names each speaker");
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -285,9 +354,11 @@ section("5. Membership is the permission, and User is not involved");
   const store = decomment(read("lib/staff/store.js"));
   // A role check here would mean an admin can read a DM they are not in, which
   // is not a chat anybody uses honestly.
-  ok("a room is fetched by membership", /members: \{ some: memberWhere\(viewer\) \}/.test(store));
+  // …and OPEN membership: a row with open=false is somebody who left or was
+  // removed, and they must not read what was said after.
+  ok("a room is fetched by OPEN membership", /members: \{ some: \{ \.\.\.memberWhere\(viewer\), open: true \} \}/.test(store));
   ok("…for the list too", (store.match(/memberWhere\(viewer\)/g) || []).length >= 3);
-  ok("posting re-checks membership as a QUERY", /staffRoomMember\.findFirst[\s\S]{0,200}memberWhere\(viewer\)/.test(store));
+  ok("posting re-checks membership as a QUERY", /memberOrAutoJoin\(viewer, roomId, memberWhere\(viewer\)\)/.test(store));
   ok("…and refuses rather than writing", /if \(!member\) return null;/.test(store));
   ok("saying something marks it seen", /lastSeenAt: new Date\(\)/.test(store));
   ok("the message and the room's order are one transaction", /\$transaction\(\[/.test(store));
@@ -299,7 +370,14 @@ section("5. Membership is the permission, and User is not involved");
   ok("not-a-member and does-not-exist answer identically", /status: 404/.test(route) && !/status: 403/.test(route));
   ok("params is awaited, because it is a Promise in Next 16", /await params/.test(route));
 
+  // The bug the owner hit live: lib/jsonBody is JSON.STRINGIFY (with a
+  // better error) and was being called on the REQUEST, which gave the string
+  // "{}" — whose .body is undefined — so every send answered 400, member or
+  // not. The routes must read the request, not serialise it.
+  ok("the thread route reads the request body", /await request\.json\(\)/.test(route));
+  ok("…and never stringifies the request", !/jsonBody\(request\)/.test(route));
   const list = decomment(read("app/api/staff/rooms/route.js"));
+  ok("the list route reads the request body too", /await request\.json\(\)/.test(list) && !/jsonBody\(request\)/.test(list));
   ok("the directory excludes the viewer", /p\.kind === viewer\.kind && p\.id === viewer\.id/.test(list));
   ok("a named person is checked against the live directory", /people\.find\(/.test(list));
 

@@ -10,7 +10,6 @@ import { resolveStaffViewer } from "@/lib/staff/viewer";
 import { roomFor, postStaffMessage, markRoomSeen } from "@/lib/staff/store";
 import { threadMessages, roomTitle } from "@/lib/staff/rooms";
 import { participantName } from "@/lib/staff/participants";
-import { jsonBody } from "@/lib/jsonBody";
 
 export async function GET(request, { params }) {
   const { viewer, refusal } = await resolveStaffViewer(request);
@@ -42,7 +41,11 @@ export async function POST(request, { params }) {
   if (refusal) return NextResponse.json(refusal.body, { status: refusal.status });
 
   const { id } = await params;
-  const body = await jsonBody(request);
+  // request.json(), not lib/jsonBody — that helper is JSON.STRINGIFY with a
+  // better error, and calling it on the request produced "{}", a string whose
+  // .body is undefined. Every send answered 400 for a member and a stranger
+  // alike. That is the bug the owner hit live.
+  const body = await request.json().catch(() => null);
   const sent = await postStaffMessage({ viewer, roomId: id, body: body?.body });
   // postStaffMessage returns null for a non-member as well as for empty text,
   // and both are the caller's fault rather than a server error.
