@@ -281,6 +281,9 @@ section("3b. Everybody is put in the team rooms, and a rep with no row can still
   ok("the legacy 'everyone' room was RENAMED, not replaced", rooms.find((r) => r.id === "old")?.teamKey === "fieldquo");
   ok("…and is still the default", rooms.find((r) => r.id === "old")?.isDefault === true);
   const fq = rooms.find((r) => r.teamKey === "fieldquo");
+  // The slug IS the key, so the unique index reserves a team's name at the
+  // database, not only in validateChannelName.
+  ok("a team room's slug is its key, so the index reserves the name", rooms.every((r) => r.slug === r.teamKey), rooms.map((r) => r.slug));
   const members = db.tables.staffRoomMember;
   const inRoom = (roomId) => members.filter((m) => m.roomId === roomId && m.open !== false);
   ok("the rep is in #fieldquo without having opened anything", inRoom(fq.id).some((m) => m.salesRepId === "r1"));
