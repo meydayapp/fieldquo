@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 11 September 2026 (Research on claim, the backlog fed, and the AI call script — `ensureResearchQueued({ db, prospectIds, priority })` in `lib/sales/pipeline/research.js` (re-exported from `progress.js`) queues the first missing research stage per prospect, `priority: "claimed"` ahead of the backlog by a fixed-past `notBefore`; the cron tops the backlog up 60 never-crawled websites a run under a 5,000-pending ceiling, phrasing nothing; `CrawlHostPolicy` holds a host after a busy resolver answer; `GENERATE_CALL_SCRIPT` writes `ProspectCallScript` once per claimed prospect per crawl, ~$0.0008 each, $3.24/day at 4,000 claims, drawn above the rules in `CallPlaybook.js`. Found and NOT decided here: `ENRICH_BUSINESS` moves rows to `researching`, which `claimCandidateWhere()` does not admit — every researched prospect is unclaimable; the research queued here sends `promote: false` so it stops making more of them. Section below.)
+Last updated: 11 September 2026 (Research on claim, the backlog fed, and the AI call script — `ensureResearchQueued({ db, prospectIds, priority })` in `lib/sales/pipeline/research.js` (re-exported from `progress.js`) queues the first missing research stage per prospect, `priority: "claimed"` ahead of the backlog by a fixed-past `notBefore`; the cron tops the backlog up 60 never-crawled websites a run under a 5,000-pending ceiling, phrasing nothing; `CrawlHostPolicy` holds a host after a busy resolver answer; `GENERATE_CALL_SCRIPT` writes `ProspectCallScript` once per claimed prospect per crawl, $0.00131 each measured, $5.23/day at 4,000 claims, drawn above the rules in `CallPlaybook.js`. Found and NOT decided here: `ENRICH_BUSINESS` moves rows to `researching`, which `claimCandidateWhere()` does not admit — every researched prospect is unclaimable; the research queued here sends `promote: false` so it stops making more of them. Section below.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -67,11 +67,14 @@ is not taken here. What IS done: the research this work queues carries
   nothing, still names no vendor) and `CallPlaybook.js` draws it above the
   stages when present, "Generated from what the crawler saw on <date>"; the
   rules and the objection rail stay below.
-- **Cost, measured on real prompts** (five of the fullest researched
-  prospects, 1,100–1,600 prompt tokens, ~640 completion): **$0.0008 per
-  script at gpt-5-mini, $3.24/day at 4,000 claims/day** (100 per rep × 40
-  reps); up to ~$7/day if the reasoning model spends its whole 1,600-token
-  completion budget. `PlatformAiBudget` rows cap it; none exist yet.
+- **Cost, from the ledger** after the first "Claim the next 100": 73 calls,
+  avg 1,433 prompt + 1,122 completion tokens (reasoning included),
+  **$0.00131 per script at gpt-5-mini → $5.23/day at 4,000 claims/day**
+  (100 per rep × 40 reps). The pre-run estimate was $3.24; the difference is
+  reasoning tokens. `PlatformAiBudget` rows cap it; none exist yet. Two
+  validator bounds contradicted the prompt on the first live run (a list
+  limit, a paragraph limit) and threw 18 paid scripts away — fixed in
+  `edacd5ca` and `10876468`; the next claim re-queues them.
 - Checks: `check:pipeline-progress` (196; §8–14 new) and `check:call-script`
   (100, new, in `check:all`). Mutation-tested five ways: a refusal re-queued,
   the lane's notBefore dropped, the runner ignoring a longer wait, the hash
