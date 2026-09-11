@@ -66,6 +66,13 @@ model PlatformAdmin {
   /// FieldQuo's own staff chat. See StaffRoom.
   staffRooms       StaffRoomMember[]
   staffMessages    StaffMessage[]
+  ownedStaffRooms  StaffRoom[]
+
+  /// When this admin last called the staff chat API. Stamped by
+  /// lib/staff/viewer.js, throttled, so the team directory can show a presence
+  /// dot for platform staff — who, unlike reps, declare no floor state. It
+  /// measures ONE thing: that they had the chat open. Nothing routes on it.
+  lastSeenAt DateTime?
 }
 
 // When a FieldQuo admin will take a product demo booked from the marketing
@@ -9275,6 +9282,7 @@ model SalesRep {
   contactNumbers SalesContactNumber[]
   staffRooms StaffRoomMember[]
   staffMessages StaffMessage[]
+  ownedStaffRooms StaffRoom[]
   queueClaims    SalesQueueClaim[]
 }
 
@@ -13534,6 +13542,27 @@ model StaffRoom {
   /// transaction as the message so it cannot drift.
   lastMessageAt DateTime?
 
+  /// Channels only: the name normalised by lib/staff/channels.js's slugify —
+  /// lowercase, dashes for spaces — and unique, so "Sales West" and
+  /// "sales-west" cannot both exist and split one conversation in two. The
+  /// DATABASE refuses the second, not a read-then-write. A team's slug is its
+  /// teamKey, which is what stops a user creating a second "#sales".
+  slug String? @unique
+
+  /// A private channel is invisible to anyone not in it: not listed, not
+  /// joinable, and a request for it by id answers 404 exactly as a room that
+  /// does not exist does. Public channels are listed under "Channels you can
+  /// join" for everyone.
+  private Boolean @default(false)
+
+  /// Who made the channel, as the same nullable pair every participant row
+  /// carries. The owner (or a superadmin) may rename it, set its topic and
+  /// remove people. Team rooms have no owner: nobody made them.
+  ownerPlatformAdminId String?
+  ownerPlatformAdmin   PlatformAdmin? @relation(fields: [ownerPlatformAdminId], references: [id], onDelete: SetNull)
+  ownerSalesRepId      String?
+  ownerSalesRep        SalesRep?      @relation(fields: [ownerSalesRepId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
 
   members  StaffRoomMember[]
@@ -13562,9 +13591,18 @@ model StaffRoomMember {
   /// counting from a timestamp cannot drift.
   lastSeenAt DateTime?
 
-  /// Hidden from their list without leaving the room, so history survives.
-  /// Nothing is ever deleted here.
+  /// False once they have left or been removed. The row STAYS — their
+  /// messages are attributed to it, and a membership that was deleted would
+  /// take "Daniel was in this channel until March" with it. Membership as
+  /// permission reads `open: true`, so a removed member can no longer read
+  /// the room; re-adding them flips it back and keeps the same row.
   open Boolean @default(true)
+
+  /// When they left or were removed. Set alongside open=false, cleared when
+  /// they are added again, so "was in it, left" and "never in it" stay
+  /// distinguishable — which the unique index below needs, since re-adding is
+  /// an update of this row and not a second one.
+  removedAt DateTime?
 
   createdAt DateTime @default(now())
 
@@ -13593,6 +13631,18 @@ model StaffMessage {
   /// and never grouped with speech, which is exactly what Rocket.Chat's
   /// isMessageSequential does when either side is a system message.
   kind String @default("message")
+
+  /// Participant keys ("rep:<id>" | "user:<id>") named with an @ in the body,
+  /// parsed ON WRITE by lib/staff/mentions.js against the room's members at
+  /// that moment. Stored rather than re-parsed on read so a member renamed
+  /// later, or added later, does not retroactively gain or lose a mention.
+  mentions String[] @default([])
+
+  /// System lines only: what happened, as data — { system: "added", names,
+  /// name, from, to } — so the screen can say it in the reader's language.
+  /// `body` keeps an English sentence for logs and for any reader without
+  /// the catalogue.
+  meta Json?
 
   sentAt DateTime @default(now())
 

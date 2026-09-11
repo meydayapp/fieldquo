@@ -68,6 +68,16 @@ import {
 import { speakerOf, groupThread } from "@/lib/sales/messages/grouping";
 import { ensureTeamRooms, memberOrAutoJoin, activeStaff } from "@/lib/staff/teams";
 import { fakeDb } from "./staffChatFakeDb.mjs";
+import {
+  slugify,
+  validateChannelName,
+  canManage,
+  canLeave,
+  groupOf,
+  isJoinable,
+  CHANNEL_NAME_MAX,
+} from "@/lib/staff/channels";
+import { parseMentions, mentionsFor, participantKey, parseParticipantKey, handlesOf } from "@/lib/staff/mentions";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(ROOT, p), "utf8");
@@ -310,6 +320,107 @@ section("3b. Everybody is put in the team rooms, and a rep with no row can still
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+section("3c. Groups: names, slugs, who may do what, and which list they land in");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  ok("a name slugs to lowercase dashes", slugify("Sales West") === "sales-west", slugify("Sales West"));
+  ok("…case and punctuation do not make a second channel", slugify("SALES  WEST!") === "sales-west" && slugify("sales-west") === "sales-west");
+  ok("…accents keep their letter", slugify("Équipe Québec") === "equipe-quebec", slugify("Équipe Québec"));
+  ok("…and nothing but punctuation is nothing", slugify("!!!") === "");
+  ok("…and a long name is cut, not refused, by slugify itself", slugify("a".repeat(100)).length === CHANNEL_NAME_MAX);
+
+  ok("a blank name is refused with a code", validateChannelName("   ").reason === "name_missing");
+  ok("a punctuation-only name is refused the same way", validateChannelName("###").reason === "name_missing");
+  ok("a long name is refused with its own code", validateChannelName("x".repeat(CHANNEL_NAME_MAX + 1)).reason === "name_too_long");
+  // A user must not be able to make a second "#sales" beside the real one.
+  ok("a team's name is reserved", validateChannelName("Sales").reason === "name_reserved");
+  ok("…however it is spelled", validateChannelName("  FIELDQUO ").reason === "name_reserved");
+  ok("a good name passes with its slug", validateChannelName("Sales West").ok === true && validateChannelName("Sales West").slug === "sales-west");
+  ok("a non-string is refused, not thrown on", validateChannelName(null).ok === false && validateChannelName(42).ok === false);
+
+  const owner = { kind: "rep", id: "r1" };
+  const other = { kind: "rep", id: "r2" };
+  const superadmin = { kind: "user", id: "a1", role: "superadmin" };
+  const support = { kind: "user", id: "a2", role: "support" };
+  const group = { kind: "channel", ownerSalesRepId: "r1" };
+  ok("the owner manages their group", canManage(group, owner));
+  ok("another rep does not", !canManage(group, other));
+  ok("a superadmin does", canManage(group, superadmin));
+  ok("a support admin does not", !canManage(group, support));
+  ok("a team room has no owner, so only a superadmin manages it", !canManage({ kind: "channel", teamKey: "sales" }, owner) && canManage({ kind: "channel", teamKey: "sales" }, superadmin));
+  ok("nobody manages nothing", !canManage(null, owner) && !canManage(group, null));
+
+  ok("the default room cannot be left", canLeave({ isDefault: true }).reason === "default_room");
+  ok("a direct message cannot be left", canLeave({ kind: "direct" }).reason === "direct_room");
+  ok("a group can", canLeave({ kind: "channel" }).ok === true);
+  ok("a team that is not the default can", canLeave({ kind: "channel", teamKey: "support" }).ok === true);
+
+  ok("a public channel is joinable", isJoinable({ kind: "channel", private: false }));
+  ok("a private one is not", !isJoinable({ kind: "channel", private: true }));
+  ok("a direct room is not", !isJoinable({ kind: "direct", private: false }));
+
+  // One group per room, Rocket.Chat's precedence: unread (when asked), team, channel, direct.
+  ok("a team room lands under Teams", groupOf({ kind: "channel", teamKey: "sales", unread: 0 }) === "team");
+  ok("a group lands under Channels", groupOf({ kind: "channel", teamKey: null, unread: 0 }) === "channel");
+  ok("a DM lands under Direct messages", groupOf({ kind: "direct", unread: 0 }) === "direct");
+  ok("unread on top pulls a room out of its group", groupOf({ kind: "direct", unread: 2 }, { unreadOnTop: true }) === "unread");
+  ok("…but only when asked", groupOf({ kind: "direct", unread: 2 }) === "direct");
+  ok("…and a mention alone counts", groupOf({ kind: "channel", teamKey: "sales", unread: 0, mentions: 1 }, { unreadOnTop: true }) === "unread");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("3d. Mentions: parsed on write, by name, counted apart from unread");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  const members = [
+    { kind: "rep", id: "r1", name: "Daniel", email: "daniel@x.com" },
+    { kind: "rep", id: "r2", name: "Jesus Gandara", email: "jesus@x.com" },
+    { kind: "user", id: "a1", name: "support@fieldquo.com", email: "support@fieldquo.com" },
+  ];
+  ok("a key is kind:id", participantKey({ kind: "rep", id: "r1" }) === "rep:r1");
+  ok("…and parses back", parseParticipantKey("user:a1")?.id === "a1" && parseParticipantKey("user:a1")?.kind === "user");
+  ok("…and garbage parses to null", parseParticipantKey("owner:1") === null && parseParticipantKey("") === null);
+  ok("an admin answers to the part of the email before the @", handlesOf(members[2]).includes("support"));
+
+  ok("@Daniel mentions Daniel", parseMentions("hey @Daniel can you take it", members).join() === "rep:r1");
+  ok("…case-blind", parseMentions("@daniel?", members).join() === "rep:r1");
+  ok("a two-word name works with its space", parseMentions("@Jesus Gandara look", members).join() === "rep:r2");
+  ok("@support reaches the admin without an address", parseMentions("@support one for you", members).join() === "user:a1");
+  ok("…and the full address works too", parseMentions("@support@fieldquo.com", members).join() === "user:a1");
+  // "@Dan" is not Daniel, and an address in a sentence is not a mention of
+  // whoever shares its local part.
+  ok("a prefix is not a mention", parseMentions("@Dan", members).length === 0);
+  ok("…and a longer name is not the shorter one — @Danielle is not Daniel", parseMentions("@Danielle is here", members).length === 0);
+  ok("an email address is not a mention", parseMentions("mail daniel@x.com", members).length === 0);
+  ok("a possessive still counts", parseMentions("@Daniel's turn", members).join() === "rep:r1");
+  ok("no @ is nobody", parseMentions("Daniel can you", members).length === 0);
+  ok("@all is everybody in the room", parseMentions("@all standup in 5", members).length === 3);
+  ok("named twice is listed once", parseMentions("@Daniel @Daniel", members).length === 1);
+  ok("no members is nobody", parseMentions("@Daniel", []).length === 0);
+  ok("a non-string body is nobody, not a crash", parseMentions(null, members).length === 0);
+
+  const at = (n) => new Date(Date.parse("2026-09-10T10:00:00Z") + n * 60000).toISOString();
+  const viewer = { kind: "rep", id: "r1" };
+  const messages = [
+    { id: "1", body: "@Daniel", sentAt: at(0), authorSalesRepId: "r2", mentions: ["rep:r1"] },
+    { id: "2", body: "hi", sentAt: at(5), authorSalesRepId: "r2", mentions: [] },
+    { id: "3", body: "@Daniel again", sentAt: at(10), authorSalesRepId: "r2", mentions: ["rep:r1"] },
+    { id: "4", body: "@Daniel me", sentAt: at(11), authorSalesRepId: "r1", mentions: ["rep:r1"] },
+    { id: "5", body: "joined", kind: "system", sentAt: at(12), authorSalesRepId: "r2", mentions: ["rep:r1"] },
+  ];
+  ok("mentions are counted apart from unread", mentionsFor({ messages, lastSeenAt: null, viewer }) === 2 && unreadFor({ messages, lastSeenAt: null, viewer }) === 3);
+  ok("seen after the first → one", mentionsFor({ messages, lastSeenAt: at(1), viewer }) === 1);
+  ok("your own @you never counts", mentionsFor({ messages: [messages[3]], lastSeenAt: null, viewer }) === 0);
+  ok("a system line never counts", mentionsFor({ messages: [messages[4]], lastSeenAt: null, viewer }) === 0);
+  ok("somebody else's mention is not yours", mentionsFor({ messages, lastSeenAt: null, viewer: { kind: "rep", id: "r2" } }) === 0);
+  ok("the list row carries both numbers", roomListRow({ id: "x", kind: "channel", name: "s", members: [{ salesRepId: "r1" }], messages }, viewer).mentions === 2);
+  ok("the thread marks the messages that say your name", threadMessages(messages, viewer)[0].mentionsMe === true && threadMessages(messages, viewer)[1].mentionsMe === false);
+  ok("a closed membership is not counted as a member", roomListRow({ id: "x", kind: "channel", name: "s", members: [{ salesRepId: "r1" }, { salesRepId: "r2", open: false }], messages: [] }, viewer).memberCount === 1);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 section("4. One thread component draws both, and a channel names each speaker");
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -341,9 +452,32 @@ section("4. One thread component draws both, and a channel names each speaker");
   // branch still resolves a first-person label rather than the sender's name.
   ok("…and your own messages stay 'You'",
     /inbound \? m\.who \|\| them : t\("app\.salesText\.senderYou"\)/.test(t));
+  // The screen is BUILT ON the shared chat kit — the same pieces the texts
+  // screen renders — and draws none of them itself. Two screens that should
+  // feel the same are rendered by the same components, not styled twice.
   const chat = decomment(read("app/components/staff/StaffChat.js"));
-  ok("the staff chat reuses MessageThread rather than its own", /<MessageThread/.test(chat));
-  ok("…imported from the texts screen", /from "@\/app\/sales\/messages\/MessageThread"/.test(chat));
+  ok("the staff chat is built on the chat kit", /from "@\/app\/components\/chat"/.test(chat));
+  for (const piece of ["ChatLayout", "RoomList", "Thread", "Composer", "ContextBar"]) {
+    ok(`…and renders the kit's ${piece}`, new RegExp(`<${piece}[\\s>]`).test(chat));
+  }
+  ok("…with the kit's thread arithmetic, not its own", /layoutThread\(items, \{ lastReadAt/.test(chat));
+  ok("the list is grouped by the shared rule", /groupOf\(r, \{ unreadOnTop: true \}\)/.test(chat));
+  ok("…in the shared order", /GROUP_ORDER\.filter/.test(chat));
+  ok("public channels the reader is not in are offered under their own group", /app\.teamChat\.group\.joinable/.test(chat));
+  ok("a joinable room is joined through the API, not opened", /staffApi\.join\(row\.id\)/.test(chat));
+  ok("mentions are offered from the ROOM's members, not the directory", /const mentionable = useMemo\(\s*\(\) => \(room\?\.members \|\| \[\]\)/.test(chat));
+  ok("…and the kit's ! canned list is not wired here", !/canned=/.test(chat));
+  ok("a system row is said in the reader's language from its meta", /app\.teamChat\.system\.\$\{meta\.system\}/.test(chat));
+  ok("every refusal code the client maps has a catalogue key", (() => {
+    const client = decomment(read("lib/staff/client.js"));
+    const keys = [...client.matchAll(/"(app\.teamChat\.refusal\.[a-zA-Z]+)"/g)].map((m) => m[1]);
+    const en = read("app/i18n/appMessages.js");
+    return keys.length >= 14 && keys.every((k) => en.includes(`"${k}":`));
+  })());
+  // Both mounts render THIS component.
+  ok("/sales/team mounts it", /<StaffChat/.test(read("app/sales/team/page.js")));
+  ok("/platform/chat mounts it", /<StaffChat/.test(read("app/platform/chat/page.js")));
+  ok("…and the platform heading is translated too", /t\("app\.teamChat\.heading"\)/.test(read("app/platform/chat/page.js")));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -378,8 +512,21 @@ section("5. Membership is the permission, and User is not involved");
   ok("…and never stringifies the request", !/jsonBody\(request\)/.test(route));
   const list = decomment(read("app/api/staff/rooms/route.js"));
   ok("the list route reads the request body too", /await request\.json\(\)/.test(list) && !/jsonBody\(request\)/.test(list));
-  ok("the directory excludes the viewer", /p\.kind === viewer\.kind && p\.id === viewer\.id/.test(list));
-  ok("a named person is checked against the live directory", /people\.find\(/.test(list));
+  ok("a named person is checked against the live directory", /resolvePeople\(\[\{ kind, id \}\]\)/.test(list));
+  ok("…and a group's members are too", /resolvePeople\(members\)/.test(store));
+  // Private rooms are excluded by the QUERY, never filtered after the read.
+  ok("joinable rooms are public channels the viewer is not in", /kind: "channel",\s*private: false,\s*NOT: \{ members: \{ some: \{ \.\.\.memberWhere\(viewer\), open: true \} \} \}/.test(store));
+  ok("joining a private room answers as if it did not exist", /if \(!room \|\| !isJoinable\(room\)\) return NO_ROOM;/.test(store));
+  // Removing NEVER deletes: the row is closed and stamped.
+  ok("removing closes the row and stamps removedAt", /data: \{ open: false, removedAt: new Date\(\) \}/.test(store));
+  ok("nothing in lib/staff deletes a membership", !/staffRoomMember\.delete/.test(store) && !/staffRoomMember\.deleteMany/.test(store) && !/staffRoomMember\.delete/.test(decomment(read("lib/staff/teams.js"))));
+  ok("…or a room", !/staffRoom\.delete/.test(store) && !/staffRoom\.delete/.test(decomment(read("lib/staff/teams.js"))));
+  // Twice: once for making a group, once for renaming one.
+  ok("a taken slug is the unique index refusing, read back as 409 — on create and on rename", (store.match(/P2002"\) \{?\s*return refuse\(409, "name_taken"/g) || []).length === 2, (store.match(/P2002"\) \{?\s*return refuse\(409, "name_taken"/g) || []).length);
+  ok("mentions are parsed on write against the room's open members", /parseMentions\(text, await openMembersOf\(roomId\)\)/.test(store));
+  ok("the default room refuses to remove anybody", /room\.isDefault\) return refuse\(400, "default_room"/.test(store));
+  ok("the directory leaves out reps who cannot sign in", /reps\.filter\(\(r\) => canAuthenticate\(r\)\)/.test(store));
+  ok("…and admins who are switched off", /platformAdmin\.findMany\(\{\s*where: \{ active: true \}/.test(store));
 
   // The wrong table, kept out on purpose.
   const schema = read("prisma/schema.prisma");
