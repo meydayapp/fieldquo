@@ -15,7 +15,7 @@
 // is a statement we have no business making.
 
 import { useEffect, useState } from "react";
-import { Receipt, Clock, AlertTriangle, Building2, Unlink } from "lucide-react";
+import { Receipt, Clock, AlertTriangle, Building2, Unlink, HardHat } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import CostReview from "@/app/components/jobs/CostReview";
 
@@ -29,7 +29,12 @@ function fmtDay(iso) {
     : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-export default function JobCosting({ jobId, jobStatus, costReviewedAt, autoOpenReview = false, onReviewed }) {
+/**
+ * @param refreshKey  bumped by the page when something OUTSIDE this panel
+ *                    changed the job's cost — the subcontractor panel below
+ *                    it writes the agreed amounts this panel sums.
+ */
+export default function JobCosting({ jobId, jobStatus, costReviewedAt, autoOpenReview = false, onReviewed, refreshKey = 0 }) {
   const { t } = useTranslation();
   const [data, setData] = useState(null);
   // Bumped after the review modal adds an expense, so the panel re-reads the
@@ -56,7 +61,7 @@ export default function JobCosting({ jobId, jobStatus, costReviewedAt, autoOpenR
     return () => {
       live = false;
     };
-  }, [jobId, reloadKey]);
+  }, [jobId, reloadKey, refreshKey]);
 
   if (!data?.actual) return null;
 
@@ -90,7 +95,8 @@ export default function JobCosting({ jobId, jobStatus, costReviewedAt, autoOpenR
     !actual.expenses.total &&
     !actual.labour.approvedHours &&
     !actual.labour.pendingHours &&
-    !actual.equipment?.total;
+    !actual.equipment?.total &&
+    !actual.subcontracts?.total;
   // Approved changes on a job with no quote are a real statement too — "$500
   // of agreed extra work, and no quoted total to add it to" is exactly the
   // sentence a contractor needs — so their presence keeps the panel open even
@@ -169,7 +175,13 @@ export default function JobCosting({ jobId, jobStatus, costReviewedAt, autoOpenR
       )}
 
       <div
-        className={`grid gap-4 ${actual.overhead ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}
+        className={`grid gap-4 ${
+          [actual.overhead, actual.subcontracts].filter(Boolean).length === 2
+            ? "sm:grid-cols-5"
+            : actual.overhead || actual.subcontracts
+              ? "sm:grid-cols-4"
+              : "sm:grid-cols-3"
+        }`}
       >
         <Stat
           icon={<Receipt size={14} />}
@@ -194,6 +206,25 @@ export default function JobCosting({ jobId, jobStatus, costReviewedAt, autoOpenR
             screen, and null is not zero: rendering a $0 overhead row would be
             a statement we have no basis for, and it would make the total below
             look complete when it isn't. Absent, so absent from the screen. */}
+        {/* ── Companies hired for a fixed price ─────────────────────────────
+            Null when the job has no subs — the same absence-is-not-zero rule
+            as overhead. The figure is the AGREED amount, not what has been
+            paid so far; the note under the grid says so, because a reader who
+            just recorded a $2,000 payment will look for it here. */}
+        {actual.subcontracts && (
+          <Stat
+            icon={<HardHat size={14} />}
+            label={t("app.jobCosting.subcontracts", "Subcontractors")}
+            value={money(actual.subcontracts.total)}
+            note={
+              actual.subcontracts.byStatus?.quoted > 0
+                ? t("app.jobCosting.subcontractsQuoted", "+{amount} quoted, not agreed", {
+                    amount: money(actual.subcontracts.byStatus.quoted),
+                  })
+                : undefined
+            }
+          />
+        )}
         {actual.overhead && (
           <Stat
             icon={<Building2 size={14} />}
@@ -207,6 +238,20 @@ export default function JobCosting({ jobId, jobStatus, costReviewedAt, autoOpenR
           strong
         />
       </div>
+
+      {/* The agreed amount is the cost; the payments settling it are NOT
+          added again. Said out loud whenever a payment or an imported quote
+          has written an expense this panel deliberately left out, because
+          "where did my $2,000 receipt go" is otherwise the first question. */}
+      {actual.subcontracts && actual.subcontracts.expensesExcluded > 0 && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {t(
+            "app.jobCosting.subcontractsNote",
+            "Subcontractors are costed at the amount agreed with them. The {amount} of subcontractor payments and imported quotes recorded as expenses on this job is inside that figure, not added to it.",
+            { amount: money(actual.subcontracts.expensesExcluded) },
+          )}
+        </p>
+      )}
 
       {/* Where that share came from, in the same words the quote screen uses
           for the same number — the two panels are costing one job and must not

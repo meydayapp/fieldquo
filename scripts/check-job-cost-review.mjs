@@ -44,10 +44,13 @@ ok("...and settles the task by its key", /resolveTaskBySource\(jobCostReviewKey\
 ok("...guarding request.json()", /catch \{\s*body = \{\};/.test(review));
 
 const panel = code("app/components/jobs/JobCosting.js");
-ok("the panel knows the job's status and review date", /export default function JobCosting\(\{ jobId, jobStatus, costReviewedAt, autoOpenReview = false, onReviewed \}\)/.test(panel));
+// `refreshKey` joined the props when the subcontractor panel (which writes the
+// agreed amounts this panel sums) needed a way to make it re-read — see
+// app/app/jobs/[id]/JobDetail.js.
+ok("the panel knows the job's status and review date", /export default function JobCosting\(\{ jobId, jobStatus, costReviewedAt, autoOpenReview = false, onReviewed, refreshKey = 0 \}\)/.test(panel));
 ok("a completed job shows a review date OR a prompt — never neither", /jobStatus === "completed" && \(\s*costReviewedAt \? \(/.test(panel));
 ok("a completed job with nothing recorded still renders (that is the job that needs asking)", /!hasUnattributed && !needsReview\)/.test(panel));
-ok("the modal reloads the panel after adding an expense", /onChanged=\{\(\) => setReloadKey\(\(k\) => k \+ 1\)\}/.test(panel) && /\}, \[jobId, reloadKey\]\);/.test(panel));
+ok("the modal reloads the panel after adding an expense", /onChanged=\{\(\) => setReloadKey\(\(k\) => k \+ 1\)\}/.test(panel) && /\}, \[jobId, reloadKey, refreshKey\]\);/.test(panel));
 
 const modal = code("app/components/jobs/CostReview.js");
 ok("the modal adds expenses through the one expense API, tagged to the job", /fetch\("\/api\/expenses"/.test(modal) && /projectId: jobId/.test(modal));

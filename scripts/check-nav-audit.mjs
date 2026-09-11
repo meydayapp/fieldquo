@@ -252,6 +252,8 @@ const DRILL_INS = {
   "/app/analytics/win-loss": "linked from the Insights hub",
   "/app/analytics/estimate-accuracy": "linked from the Insights hub and the KPI dashboard",
   "/app/settings": "redirects to /app/settings/company — not a destination of its own",
+  "/app/subcontractors/[id]": "one subcontractor — opened from the Subcontractors list and from a job's own \"Subs on this job\" panel",
+  "/app/subcontractors/new": "opened from the Subcontractors list page's own Add button",
 };
 
 console.log("\nEvery app/app page is reachable from the nav, or excused with a reason\n");

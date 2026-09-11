@@ -74,7 +74,6 @@ const en = {
   // Eight sentences, and the eight on this site where a loose paraphrase does
   // the most damage: every one of them is the reason a page is not a lie.
   "feature.door_hanger_routes.limits": "FieldQuo plans and tracks the route. It does not print the door hangers or arrange delivery — you supply the printed material.",
-  "feature.subcontractor_bids.limits": "This works when the subcontractor is also on FieldQuo and sends you their quote link. There is no list of the subs you use, no way to put one on a job or a visit, no way to pay the company whose price you took, and no insurance or tax-form tracking.",
   "feature.appointment_reminders.limits": "Reminders go by text message only. There is no email reminder, and the reminder wording is not editable yet — the on-my-way message is.",
   "feature.financing.limits": "Pay-over-time is offered at checkout through Stripe, where the lender decides. FieldQuo does not lend and does not approve anyone. The monthly figure shown on a quote appears only if you enter your own rate and term — we never invent one.",
   "feature.payroll.limits": "FieldQuo works out gross pay, produces the payslips and exports the run. It does not pay employees or file your payroll taxes — deductions are the ones you or your accountant supply.",
@@ -352,7 +351,7 @@ const en = {
   "featurePage.subcontractors.label": "Subcontractor prices",
   "featurePage.subcontractors.headline": "Take a sub's price into your bid without re-typing it",
   "featurePage.subcontractors.oneLine": "Pull a subcontractor's quote in as a cost, mark it up, and your client sees only your price.",
-  "featurePage.subcontractors.description": "Bring a subcontractor's quote into your own bid as a cost line, mark it up, and keep your client seeing one price — with the honest limits stated.",
+  "featurePage.subcontractors.description": "Bring a subcontractor's quote into your own bid as a cost line, mark it up, and keep your client seeing one price — then keep the same sub on the job, with their paperwork and what you paid them.",
   "featurePage.subcontractors.pain.1.pain": "The electrician's number arrives as a photograph of a page, and you re-type it into your bid at eleven at night.",
   "featurePage.subcontractors.pain.1.fix": "Their quote comes in as cost lines you can mark up, with nothing re-typed and nothing transposed.",
   "featurePage.subcontractors.pain.2.pain": "You mark it up in your head, forget which lines were theirs, and cannot tell afterwards what the job really made.",
@@ -363,8 +362,8 @@ const en = {
   "featurePage.subcontractors.how.1.body": "The subcontractor sends you the same link they would send a homeowner, and you import it as costs on your own bid instead of approving it.",
   "featurePage.subcontractors.how.2.step": "The markup is yours and it is not shown",
   "featurePage.subcontractors.how.2.body": "Imported lines land under a cost category you control. What the client reads is your price, not theirs plus a percentage.",
-  "featurePage.subcontractors.how.3.step": "Read the limits before you switch",
-  "featurePage.subcontractors.how.3.body": "This is a narrow, real piece of subcontractor work, not the whole of it. Exactly where it stops is written below rather than left for you to discover.",
+  "featurePage.subcontractors.how.3.step": "The sub stays on the job after the bid",
+  "featurePage.subcontractors.how.3.body": "Once the job is yours, the same company goes on it at the price you agreed. Their insurance and clearance dates sit on their record, what you pay them lands on the job's cost, and the year-end list for your accountant comes out of the same figures.",
 
   // /features/quote-from-the-call
   "featurePage.quote-from-the-call.label": "A quote from the call",

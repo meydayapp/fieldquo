@@ -57,7 +57,6 @@ const tl = {
   // The eight sentences on this site where a loose paraphrase does the most
   // damage. Not softened, not widened, not merged — see index.js.
   "feature.door_hanger_routes.limits": "Pinaplano at sinusubaybayan ng FieldQuo ang ruta. Hindi nito pinipirinta ang mga door hanger at hindi ito nag-aayos ng paghahatid — ikaw ang nagbibigay ng nakalimbag na materyal.",
-  "feature.subcontractor_bids.limits": "Gumagana ito kapag nasa FieldQuo din ang subcontractor at ipinadala niya sa iyo ang link ng quote niya. Walang listahan ng mga sub na ginagamit mo, walang paraan para ilagay ang isa sa isang trabaho o bisita, walang paraan para bayaran ang kumpanyang pinagkunan mo ng presyo, at walang pagsubaybay sa insurance o sa tax form.",
   "feature.appointment_reminders.limits": "Sa text message lang napapadala ang mga paalala. Walang paalala sa email, at hindi pa nababago ang pananalita ng paalala — ang mensaheng “papunta na ako” naman ay nababago.",
   "feature.financing.limits": "Inaalok ang hulugang bayad sa checkout sa pamamagitan ng Stripe, kung saan ang nagpapautang ang nagpapasya. Hindi nagpapautang ang FieldQuo at hindi nito inaaprubahan ang kahit sino. Ang buwanang halagang lumalabas sa isang quote ay lumalabas lang kung ikaw mismo ang naglagay ng sarili mong rate at termino — hindi kami kailanman gumagawa-gawa ng ganoong halaga.",
   "feature.payroll.limits": "Kinukuwenta ng FieldQuo ang gross pay, ginagawa ang mga payslip at ini-export ang pay run. Hindi nito binabayaran ang mga empleyado at hindi nito inihahain ang payroll taxes mo — ang mga bawas ay iyong ibinigay mo o ng accountant mo.",
@@ -335,7 +334,7 @@ const tl = {
   "featurePage.subcontractors.label": "Presyo ng subcontractor",
   "featurePage.subcontractors.headline": "Isama ang presyo ng sub sa alok mo nang hindi na tini-type ulit",
   "featurePage.subcontractors.oneLine": "Isama ang quote ng subcontractor bilang gastos, lagyan ng patong, at ang presyo mo lang ang makikita ng kliyente.",
-  "featurePage.subcontractors.description": "Isama ang quote ng subcontractor sa sarili mong alok bilang linya ng gastos, lagyan ng patong, at panatilihing isang presyo lang ang nakikita ng kliyente — kasama ang mga tapat na limitasyon.",
+  "featurePage.subcontractors.description": "Dalhin ang quote ng subcontractor sa sarili mong bid bilang linya ng gastos, lagyan ng markup, at panatilihing isang presyo lang ang nakikita ng kliyente — pagkatapos ay panatilihin ang parehong sub sa trabaho, kasama ang mga papeles niya at ang ibinayad mo sa kanya.",
   "featurePage.subcontractors.pain.1.pain": "Ang numero ng elektrisyan ay dumarating bilang litrato ng papel, at tini-type mo ito ulit sa alok mo ng alas-onse ng gabi.",
   "featurePage.subcontractors.pain.1.fix": "Ang quote nila ay pumapasok bilang mga linya ng gastos na kaya mong lagyan ng patong, walang tine-type ulit at walang napapalitang numero.",
   "featurePage.subcontractors.pain.2.pain": "Nilalagyan mo ito ng patong sa isip mo, nakakalimutan mo kung aling linya ang sa kanila, at hindi mo na masabi pagkatapos kung magkano talaga ang kinita ng trabaho.",
@@ -346,8 +345,8 @@ const tl = {
   "featurePage.subcontractors.how.1.body": "Ipinapadala sa iyo ng subcontractor ang parehong link na ipapadala niya sa isang may-bahay, at ini-import mo ito bilang gastos sa sarili mong alok sa halip na aprubahan ito.",
   "featurePage.subcontractors.how.2.step": "Sa iyo ang patong at hindi ito ipinapakita",
   "featurePage.subcontractors.how.2.body": "Ang mga na-import na linya ay napupunta sa kategorya ng gastos na ikaw ang may hawak. Ang presyo mo ang binabasa ng kliyente, hindi ang sa kanila na dinagdagan ng porsiyento.",
-  "featurePage.subcontractors.how.3.step": "Basahin ang mga limitasyon bago ka lumipat",
-  "featurePage.subcontractors.how.3.body": "Isa itong makitid pero totoong bahagi ng trabaho sa subcontractor, hindi ang kabuuan nito. Nakasulat sa ibaba kung saan mismo ito huminto sa halip na ipaubaya sa iyong matuklasan.",
+  "featurePage.subcontractors.how.3.step": "Nananatili ang sub sa trabaho pagkatapos ng bid",
+  "featurePage.subcontractors.how.3.body": "Kapag sa iyo na ang trabaho, ang parehong kumpanya ay nailalagay dito sa presyong napagkasunduan mo. Ang mga petsa ng kanilang insurance at clearance ay nasa kanilang record, ang ibinabayad mo sa kanila ay napupunta sa gastos ng trabaho, at ang listahan sa katapusan ng taon para sa accountant mo ay galing sa parehong mga numero.",
 
   // /features/quote-from-the-call
   "featurePage.quote-from-the-call.label": "Quote mula sa tawag",

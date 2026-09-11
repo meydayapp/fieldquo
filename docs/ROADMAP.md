@@ -1,12 +1,74 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 10 September 2026 (Where the phone was when they tapped. `LocationStamp` (schema commit d24980e3) now has writers and readers: the clock screen and the visit "On my way" / "Complete" buttons ask the phone for its position ONCE at the tap — `lib/location/capture.js`, `getCurrentPosition` with an 8-second timeout, a refusal remembered for the tab's session so nobody is asked twice — and send it as `stamp` beside the request they always sent. The server records it AFTER its own write, through `recordStampIfPresent()` which never throws, so a refused permission, a desktop browser or a malformed body produces byte-for-byte the response the route gave before; `check:location-stamps` asserts by brace-scoped source that nothing before either write reads `stamp`. The phone's clock is bounded to ±15 min of the server's. `Job.siteAddress` finally has a writer — the new-job and edit-job forms, POST and PATCH — and `lib/geo/geocodeJob.js` turns it into `Job.latitude/longitude/geocodedAt` through the ONE existing Google client, on create and on a real address change only (normalised compare; a re-save costs no call), refusing an APPROXIMATE town-centroid result and writing nulls rather than a guess. `lib/geo/distance.js` is a haversine plus a three-valued verdict: on site / away / unknown at a 250 m constant, where "unknown" covers no coordinates, no stamp, or an accuracy circle wider than the fence — a 1,500 m reading is not evidence of anything. The timesheet shows an In and an Out chip per row in all three states, the away chip amber with a title saying approval is still the manager's, and a one-line legend saying position is captured only at the tap and nothing is tracked between; the job page prints "Arrived 12 m from the site". Crew are told, above the OS prompt and only in the prompt state, what is captured and what is not — sixteen keys in nine languages. 139 assertions, seven mutations caught including the arcsine (an antipodal pair; every short-range pair passes without it). **Not done, on purpose:** no 30-day sweep of geocoded coordinates yet — `geocodedAt` is written so one can be; the crew-inbox GPS matcher still receives `lat: undefined` and could now read `job.latitude`; the schema carries BOTH `Job.latitude/longitude/geocodedAt` (this brief) and the older, still-unread `Job.siteLatitude/siteLongitude/siteGeocodedAt` from 37b4e9f3 — one pair should go)
+Last updated: 10 September 2026 (Subcontractors, end to end. The four schema models from d24980e3 have readers and writers: a roster at `/app/subcontractors` with the expiring-COI panel first, a detail page with documents through the existing `/api/upload` path, jobs history and a year-picked T5018 figure, a "Subs on this job" panel under the job's costing, and the accountant's year-end CSV. Job costing gained a `subcontracts` line at the AGREED amount and drops the expense rows the payments and imported quotes write, so a sub is costed once — `lib/subcontractors/money.js` says why the agreed amount and not the payments. Roster on `user:manage`, money on `jobCosting`; `check:subcontractors` executes both against every preset. Inbound payment methods refused, hand-typed `paid` refused, blank expiry is "not recorded". 145 assertions, seven mutations caught; 119 keys in nine languages; matrix entry `subcontractor_bids` shipped with its caveat removed. **Not done:** Stripe Connect payout to a linked sub — `stripeTransferId` stays unwritten.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## Subcontractors: the company you hire, on the job, paid, and on the T5018 (10 September 2026)
+
+A Worker is a PERSON paid by the hour; a Subcontractor is a COMPANY hired for a
+fixed amount on a job. The schema for the second (commit d24980e3: `Subcontractor`,
+`SubcontractorDocument`, `JobSubcontractor`, `SubcontractorPayment`) had no
+reader and no writer, and the matrix entry `subcontractor_bids` listed exactly
+what was missing: "no list of the subs you use, no way to put one on a job or a
+visit, no way to pay the company whose price you took, and no insurance or
+tax-form tracking." Those four are built and the caveat is gone.
+
+**What ships.** `/app/subcontractors` (attention panel first — expiring and
+expired COI/clearance on top, the /app/fleet shape), `/app/subcontractors/new`,
+`/app/subcontractors/[id]` (record, two expiry badges, documents with the
+existing `/api/upload` path, jobs history, year picker with the year-to-date
+paid figure, payments ledger), a "Subs on this job" panel under the costing on
+the job page (add a sub, agreed amount, status, record a payment, adopt an
+imported quote in one click), a sidebar row under People, and the accountant's
+year-end CSV (`/api/subcontractors/export?year=`).
+
+**The costing decision.** A sub's money reaches the database by two roads —
+`JobSubcontractor.agreedAmount`, and the Expense rows every payment writes (plus
+the one `materializeImportedCosts` has always written for an imported quote).
+Job costing takes the AGREED AMOUNT as the cost, its own `subcontracts` line,
+and drops the expense rows: by category (`"Subcontractor payment"`, always) and
+by id (an imported quote's expense, only when a counted JobSubcontractor adopted
+that import). A job whose imported quote was never adopted costs exactly what it
+cost before. For an adopted import a payment LINKS to the existing accrual
+expense instead of writing a second one, so the P&L does not read $10,000 for a
+$5,000 electrician either. `lib/subcontractors/money.js` carries the argument;
+`lib/quotes/importQuote.js` now writes its category by the shared constant.
+
+**The permission.** Roster and paperwork sit on `user:manage` (owner, admin,
+supervisor) like the vans — a lapsed COI is an operations fact the dispatcher
+needs. Everything with a dollar sign — agreed amounts, payments, year-to-date,
+the export — is behind `jobCosting` on top, the toggle the costing route reads
+for the same number. `lib/subcontractors/access.js`; the nav row and the API are
+executed against every preset by `check:subcontractors`.
+
+**Refused on purpose.** `stripe`, `visit_credit`, `card_elsewhere` and `shop`
+as a payment method (all money IN); a hand-typed `paid` status (the row moves
+to paid when payments cover the amount); removing a row with payments behind
+it; an agreed/done/paid row with no amount. Nothing is machine-defaulted: a
+blank expiry is "not recorded", never "expired" — the same
+`lib/expiry/window.js` rule the fleet and warranty screens use.
+
+Files: `lib/subcontractors/{access,expiry,money,payload}.js`,
+`app/api/subcontractors/**`, `app/api/jobs/[id]/subcontractors/**`,
+`app/app/subcontractors/**`, `app/components/subcontractors/*`,
+`app/components/jobs/JobSubcontractors.js`, `lib/costing/actualJobCost.js`,
+`app/api/jobs/[id]/costing/route.js`, `lib/tenant/ownedIds.js`,
+`lib/permissions/nav.js`, `scripts/check-subcontractors.mjs` (145 assertions,
+seven mutations caught), 119 keys in nine languages.
+
+**Not done, on purpose.** No Stripe Connect transfer to a linked FieldQuo
+company — `stripeTransferId` is written by nothing; that belongs with
+lib/stripe.js and the payout route. A sub's own FieldQuo company is linked by
+`linkedCompanyId` (set on import adoption or by hand) but nothing yet shows the
+sub "who imported my quote" from their side. The T5018/1099 threshold is not
+applied to the export — every sub is listed and the accountant decides.
 
 ---
 

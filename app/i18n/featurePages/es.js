@@ -57,7 +57,6 @@ const es = {
   // The eight sentences on this site where a loose paraphrase does the most
   // damage. Not softened, not widened, not merged — see index.js.
   "feature.door_hanger_routes.limits": "FieldQuo planea la ruta y le da seguimiento. No imprime los volantes ni organiza el reparto — el material impreso lo pones tú.",
-  "feature.subcontractor_bids.limits": "Esto funciona cuando el subcontratista también está en FieldQuo y te manda el enlace de su presupuesto. No hay una lista de los subcontratistas con los que trabajas, ni forma de ponerle uno a un trabajo o a una visita, ni forma de pagarle a la empresa cuyo precio tomaste, ni seguimiento de seguros ni de formularios de impuestos.",
   "feature.appointment_reminders.limits": "Los recordatorios salen solo por mensaje de texto. No hay recordatorio por correo, y el texto del recordatorio todavía no se puede editar — el mensaje de «voy en camino» sí.",
   "feature.financing.limits": "El pago a plazos se ofrece al momento de pagar, a través de Stripe, y ahí decide el prestamista. FieldQuo no presta y no aprueba a nadie. La cifra mensual que se ve en un presupuesto aparece solo si tú escribes tu propia tasa y tu propio plazo — nosotros nunca la inventamos.",
   "feature.payroll.limits": "FieldQuo calcula el pago bruto, genera los recibos y exporta la corrida. No paga a los empleados ni presenta tus impuestos de nómina — las deducciones son las que pongas tú o tu contador.",
@@ -335,7 +334,7 @@ const es = {
   "featurePage.subcontractors.label": "Precios del subcontratista",
   "featurePage.subcontractors.headline": "Mete el precio del subcontratista en tu oferta sin volver a teclearlo",
   "featurePage.subcontractors.oneLine": "Trae el presupuesto de un subcontratista como costo, súbele tu margen, y el cliente solo ve tu precio.",
-  "featurePage.subcontractors.description": "Trae el presupuesto de un subcontratista a tu propia oferta como línea de costo, súbele tu margen, y que el cliente siga viendo un solo precio — con los límites dichos con honestidad.",
+  "featurePage.subcontractors.description": "Trae el presupuesto de un subcontratista a tu propia oferta como línea de costo, súbele tu margen, y que el cliente siga viendo un solo precio — y luego mantén al mismo subcontratista en el trabajo, con sus papeles y lo que le pagaste.",
   "featurePage.subcontractors.pain.1.pain": "El número del electricista llega como la foto de una hoja, y lo vuelves a teclear en tu oferta a las once de la noche.",
   "featurePage.subcontractors.pain.1.fix": "Su presupuesto entra como líneas de costo a las que puedes subirles el margen, sin teclear nada de nuevo y sin números mal copiados.",
   "featurePage.subcontractors.pain.2.pain": "Le subes el margen de cabeza, se te olvida qué líneas eran suyas, y después no puedes decir lo que de verdad dejó el trabajo.",
@@ -346,8 +345,8 @@ const es = {
   "featurePage.subcontractors.how.1.body": "El subcontratista te manda el mismo enlace que le mandaría a un cliente, y tú lo importas como costos en tu propia oferta en vez de aprobarlo.",
   "featurePage.subcontractors.how.2.step": "El margen es tuyo y no se muestra",
   "featurePage.subcontractors.how.2.body": "Las líneas importadas caen en una categoría de costo que tú controlas. Lo que lee el cliente es tu precio, no el suyo más un porcentaje.",
-  "featurePage.subcontractors.how.3.step": "Lee los límites antes de cambiarte",
-  "featurePage.subcontractors.how.3.body": "Esto es una parte estrecha y real del trabajo con subcontratistas, no todo él. Dónde termina exactamente está escrito abajo, en vez de dejarte que lo descubras.",
+  "featurePage.subcontractors.how.3.step": "El subcontratista sigue en el trabajo después de la oferta",
+  "featurePage.subcontractors.how.3.body": "Cuando el trabajo es tuyo, la misma empresa queda en él al precio que acordaste. Sus fechas de seguro y constancia están en su ficha, lo que le pagas cae en el costo del trabajo, y la lista de fin de año para tu contador sale de las mismas cifras.",
 
   // /features/quote-from-the-call
   "featurePage.quote-from-the-call.label": "Un presupuesto desde la llamada",

@@ -47,7 +47,6 @@ const it = {
   // The eight sentences on this site where a loose paraphrase does the most
   // damage. Not softened, not widened, not merged.
   "feature.door_hanger_routes.limits": "FieldQuo pianifica e traccia il percorso. Non stampa i volantini appendiporta e non organizza la distribuzione — il materiale stampato lo fornisce lei.",
-  "feature.subcontractor_bids.limits": "Funziona quando anche il subappaltatore è su FieldQuo e le invia il link del suo preventivo. Non esiste un elenco dei subappaltatori che utilizza, nessun modo di assegnarne uno a un lavoro o a una visita, nessun modo di pagare l'impresa di cui ha preso il prezzo, e nessun monitoraggio delle assicurazioni né dei moduli fiscali.",
   "feature.appointment_reminders.limits": "I promemoria partono solo via SMS. Non esiste un promemoria via email, e il testo del promemoria non è ancora modificabile — quello del messaggio «sto arrivando» sì.",
   "feature.financing.limits": "Il pagamento dilazionato viene proposto al momento del pagamento tramite Stripe, dove decide il finanziatore. FieldQuo non concede prestiti e non approva nessuno. L'importo mensile mostrato su un preventivo compare solo se inserisce il suo tasso e la sua durata — noi non ne inventiamo mai uno.",
   "feature.payroll.limits": "FieldQuo calcola la retribuzione lorda, produce le buste paga ed esporta l'elaborazione. Non paga i dipendenti e non presenta le sue dichiarazioni contributive — le trattenute sono quelle che fornisce lei o il suo commercialista.",
@@ -325,7 +324,7 @@ const it = {
   "featurePage.subcontractors.label": "Prezzi dei subappaltatori",
   "featurePage.subcontractors.headline": "Porti il prezzo di un subappaltatore nella sua offerta senza ribatterlo",
   "featurePage.subcontractors.oneLine": "Importi il preventivo di un subappaltatore come costo, ci applichi il ricarico, e il suo cliente vede solo il suo prezzo.",
-  "featurePage.subcontractors.description": "Porti il preventivo di un subappaltatore nella sua offerta come voce di costo, ci applichi il ricarico, e faccia in modo che il suo cliente veda un prezzo solo — con i limiti dichiarati onestamente.",
+  "featurePage.subcontractors.description": "Porti il preventivo di un subappaltatore nella sua offerta come riga di costo, applichi il ricarico e il cliente continua a vedere un solo prezzo — poi tenga lo stesso subappaltatore sul lavoro, con i suoi documenti e quanto gli ha pagato.",
   "featurePage.subcontractors.pain.1.pain": "Il numero dell'elettricista arriva come fotografia di un foglio, e lei lo ribatte nella sua offerta alle undici di sera.",
   "featurePage.subcontractors.pain.1.fix": "Il loro preventivo entra come voci di costo su cui può applicare il ricarico, senza niente ribattuto e niente invertito.",
   "featurePage.subcontractors.pain.2.pain": "Applica il ricarico a mente, dimentica quali voci fossero loro, e dopo non riesce a dire quanto abbia reso davvero il lavoro.",
@@ -336,8 +335,8 @@ const it = {
   "featurePage.subcontractors.how.1.body": "Il subappaltatore le invia lo stesso link che manderebbe a un proprietario di casa, e lei lo importa come costi sulla sua offerta invece di approvarlo.",
   "featurePage.subcontractors.how.2.step": "Il ricarico è suo e non viene mostrato",
   "featurePage.subcontractors.how.2.body": "Le voci importate finiscono sotto una categoria di costo che controlla lei. Quello che il cliente legge è il suo prezzo, non il loro più una percentuale.",
-  "featurePage.subcontractors.how.3.step": "Legga i limiti prima di passarci",
-  "featurePage.subcontractors.how.3.body": "Questa è una parte ristretta e reale del lavoro sui subappaltatori, non tutto quanto. Dove si ferma esattamente è scritto qui sotto invece di essere lasciato alla sua scoperta.",
+  "featurePage.subcontractors.how.3.step": "Il subappaltatore resta sul lavoro dopo l'offerta",
+  "featurePage.subcontractors.how.3.body": "Quando il lavoro è suo, la stessa impresa vi viene messa al prezzo concordato. Le sue scadenze di assicurazione e certificato stanno nella sua scheda, quanto le paga finisce nel costo del lavoro e l'elenco di fine anno per il suo commercialista esce dagli stessi numeri.",
 
   // /features/quote-from-the-call
   "featurePage.quote-from-the-call.label": "Un preventivo dalla telefonata",

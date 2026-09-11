@@ -276,9 +276,11 @@ for (const slug of FEATURE_PAGE_SLUGS) {
    3. Every partial feature states its limit ON the page
    ═══════════════════════════════════════════════════════════════════════════
 
-   Eight of the matrix's entries are `partial`: subcontractor bids, payroll,
-   contractor payouts, financing, appointment reminders, checklists, door-hanger
-   routes and the language set. Each carries `limits` saying where it stops.
+   Seven of the matrix's entries are `partial`: payroll, contractor payouts,
+   financing, appointment reminders, checklists, door-hanger routes and the
+   language set. Each carries `limits` saying where it stops. (Subcontractor
+   bids was the eighth until the roster, the job assignment, the payments and
+   the insurance tracking its caveat listed were built — lib/subcontractors/.)
 
    A tick beside "Payroll" with the limit left in a data file is the dead
    control AGENTS.md forbids, moved onto a page where it costs a refund rather
@@ -1240,7 +1242,10 @@ ok(`...plus the page furniture (${CHROME_KEYS.length})`, CHROME_KEYS.length >= 2
 ok(`...the four group headings (${FEATURE_GROUP_KEYS.length})`, FEATURE_GROUP_KEYS.length === 8);
 ok(
   `...and the ${FEATURE_LIMIT_KEYS.length} caveats that used to be English under a translated name`,
-  FEATURE_LIMIT_KEYS.length === LIMIT_KEYS.length && FEATURE_LIMIT_KEYS.length >= 8,
+  // Seven, not eight, since the subcontractor entry shipped and lost its
+  // caveat. The floor is what stops a caveat being deleted to make a page
+  // read cleaner; it moves DOWN only when the feature behind it is built.
+  FEATURE_LIMIT_KEYS.length === LIMIT_KEYS.length && FEATURE_LIMIT_KEYS.length >= 7,
   FEATURE_LIMIT_KEYS.length,
 );
 ok("no key is claimed twice", new Set(ALL_PAGE_KEYS).size === ALL_PAGE_KEYS.length);

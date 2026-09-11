@@ -464,7 +464,10 @@ for (const language of OTHER) {
    ═══════════════════════════════════════════════════════════════════════════ */
 console.log("\n8. Where a partly-built thing stops, said in six languages");
 
-ok(`the matrix carries caveats to translate (${LIMIT_KEYS.length})`, LIMIT_KEYS.length >= 8,
+// Seven since the subcontractor entry shipped (lib/subcontractors/) and lost
+// its caveat; see check-feature-pages.mjs for why the floor moves down only
+// when the feature behind a caveat is built.
+ok(`the matrix carries caveats to translate (${LIMIT_KEYS.length})`, LIMIT_KEYS.length >= 7,
   LIMIT_KEYS.length);
 ok("...and only for features that are partly built",
   LIMIT_KEYS.every((k) => matrixEntry(k).readiness === "partial"),

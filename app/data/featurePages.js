@@ -936,7 +936,7 @@ const PAGES = [
     oneLine:
       "Pull a subcontractor's quote in as a cost, mark it up, and your client sees only your price.",
     description:
-      "Bring a subcontractor's quote into your own bid as a cost line, mark it up, and keep your client seeing one price — with the honest limits stated.",
+      "Bring a subcontractor's quote into your own bid as a cost line, mark it up, and keep your client seeing one price — then keep the same sub on the job, with their paperwork and what you paid them.",
     pains: [
       {
         pain:
@@ -969,9 +969,9 @@ const PAGES = [
           "Imported lines land under a cost category you control. What the client reads is your price, not theirs plus a percentage.",
       },
       {
-        step: "Read the limits before you switch",
+        step: "The sub stays on the job after the bid",
         body:
-          "This is a narrow, real piece of subcontractor work, not the whole of it. Exactly where it stops is written below rather than left for you to discover.",
+          "Once the job is yours, the same company goes on it at the price you agreed. Their insurance and clearance dates sit on their record, what you pay them lands on the job's cost, and the year-end list for your accountant comes out of the same figures.",
       },
     ],
     features: ["subcontractor_bids", "contractor_payouts"],

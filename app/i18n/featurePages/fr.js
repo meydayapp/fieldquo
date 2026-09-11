@@ -57,7 +57,6 @@ const fr = {
   // The eight sentences on this site where a loose paraphrase does the most
   // damage. Not softened, not widened, not merged — see index.js.
   "feature.door_hanger_routes.limits": "FieldQuo planifie et suit la tournée. Il n'imprime pas les accroche-portes et n'organise pas la distribution — c'est vous qui fournissez le matériel imprimé.",
-  "feature.subcontractor_bids.limits": "Ça fonctionne quand le sous-traitant est lui aussi sur FieldQuo et vous envoie le lien de sa soumission. Il n'y a pas de liste des sous-traitants que vous utilisez, aucun moyen d'en mettre un sur un chantier ou sur une visite, aucun moyen de payer l'entreprise dont vous avez pris le prix, et aucun suivi des assurances ni des formulaires fiscaux.",
   "feature.appointment_reminders.limits": "Les rappels partent par texto seulement. Il n'y a pas de rappel par courriel, et le texte du rappel n'est pas encore modifiable — celui du message « je suis en route » l'est.",
   "feature.financing.limits": "Le paiement échelonné est offert au moment de payer, par Stripe, et c'est le prêteur qui décide. FieldQuo ne prête pas et n'approuve personne. Le montant mensuel affiché sur une soumission n'apparaît que si vous entrez votre propre taux et votre propre durée — nous n'en inventons jamais un.",
   "feature.payroll.limits": "FieldQuo calcule la paie brute, produit les bulletins de paie et exporte la paie. Il ne paie pas les employés et ne produit pas vos déclarations de retenues à la source — les retenues sont celles que vous ou votre comptable fournissez.",
@@ -335,7 +334,7 @@ const fr = {
   "featurePage.subcontractors.label": "Prix des sous-traitants",
   "featurePage.subcontractors.headline": "Prenez le prix d'un sous-traitant dans votre soumission sans le retaper",
   "featurePage.subcontractors.oneLine": "Intégrez la soumission d'un sous-traitant comme coût, appliquez votre marge, et votre client ne voit que votre prix.",
-  "featurePage.subcontractors.description": "Amenez la soumission d'un sous-traitant dans la vôtre comme ligne de coût, appliquez votre marge, et gardez un seul prix devant votre client — avec les limites dites franchement.",
+  "featurePage.subcontractors.description": "Amenez la soumission d'un sous-traitant dans la vôtre comme ligne de coût, appliquez votre marge, et gardez un seul prix devant votre client — puis gardez le même sous-traitant sur le chantier, avec ses papiers et ce que vous lui avez payé.",
   "featurePage.subcontractors.pain.1.pain": "Le chiffre de l'électricien arrive en photo d'une feuille, et vous le retapez dans votre soumission à onze heures le soir.",
   "featurePage.subcontractors.pain.1.fix": "Sa soumission entre en lignes de coût auxquelles vous pouvez appliquer votre marge, sans rien retaper et sans rien inverser.",
   "featurePage.subcontractors.pain.2.pain": "Vous appliquez la marge dans votre tête, vous oubliez quelles lignes étaient les siennes, et après coup vous ne pouvez plus dire ce que le chantier a vraiment rapporté.",
@@ -346,8 +345,8 @@ const fr = {
   "featurePage.subcontractors.how.1.body": "Le sous-traitant vous envoie le même lien qu'il enverrait à un propriétaire, et vous l'importez en coûts sur votre propre soumission au lieu de l'approuver.",
   "featurePage.subcontractors.how.2.step": "La marge est la vôtre et elle n'est pas montrée",
   "featurePage.subcontractors.how.2.body": "Les lignes importées atterrissent sous une catégorie de coûts que vous contrôlez. Ce que le client lit, c'est votre prix, pas le sien plus un pourcentage.",
-  "featurePage.subcontractors.how.3.step": "Lisez les limites avant de changer",
-  "featurePage.subcontractors.how.3.body": "C'est un morceau étroit et bien réel du travail avec les sous-traitants, pas tout le travail. Où ça s'arrête exactement est écrit plus bas, plutôt que laissé à découvrir.",
+  "featurePage.subcontractors.how.3.step": "Le sous-traitant reste sur le chantier après la soumission",
+  "featurePage.subcontractors.how.3.body": "Une fois le chantier à vous, la même entreprise y est inscrite au prix convenu. Ses dates d'assurance et d'attestation sont sur sa fiche, ce que vous lui payez tombe dans le coût du chantier, et la liste de fin d'année pour votre comptable sort des mêmes chiffres.",
 
   // /features/quote-from-the-call
   "featurePage.quote-from-the-call.label": "Une soumission à partir de l'appel",

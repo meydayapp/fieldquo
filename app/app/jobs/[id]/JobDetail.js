@@ -34,6 +34,7 @@ import { isVisitOutsideJobRange } from "@/lib/jobs/visitInRange";
 import { callbackReasonLabel } from "@/lib/jobs/callbackReasons";
 import ChangeOrders from "@/app/components/jobs/ChangeOrders";
 import JobDocuments from "@/app/components/jobs/JobDocuments";
+import JobSubcontractors from "@/app/components/jobs/JobSubcontractors";
 import DailyLog from "@/app/components/jobs/DailyLog";
 import {
   ArrowLeft,
@@ -181,6 +182,9 @@ export default function JobDetail({ jobId }) {
   // review opens itself once. A job that arrives already completed shows the
   // review card instead and waits to be clicked.
   const [reviewPrompt, setReviewPrompt] = useState(false);
+  // Bumped when the subcontractor panel writes an agreed amount or a
+  // payment, so the costing panel above it re-reads the total it shows.
+  const [costingKey, setCostingKey] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -611,11 +615,19 @@ export default function JobDetail({ jobId }) {
         jobStatus={job.status}
         costReviewedAt={job.costReviewedAt}
         autoOpenReview={reviewPrompt}
+        refreshKey={costingKey}
         onReviewed={() => {
           setReviewPrompt(false);
           load();
         }}
       />
+
+      {/* The companies hired for a fixed price on this job — the electrician,
+          the roofer. Directly under the costing because their agreed amounts
+          ARE the subcontract line it just reported, and this is where those
+          amounts, the status and the payments are written. Renders itself
+          away for someone who can neither see a sub on the job nor add one. */}
+      <JobSubcontractors jobId={job.id} onChanged={() => setCostingKey((k) => k + 1)} />
 
       {/* Scope changes agreed after the quote was accepted — see the
           ChangeOrder model's own header for why this is a deliberate log,

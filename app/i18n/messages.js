@@ -411,9 +411,9 @@ const en = {
   "feature.bio_link.name": "One link for your profiles",
   "feature.bio_link.summary":
     "A single branded page for your Instagram or truck decal that points at everything you offer.",
-  "feature.subcontractor_bids.name": "Subcontractor prices in your bid",
+  "feature.subcontractor_bids.name": "Subcontractors",
   "feature.subcontractor_bids.summary":
-    "Pull a sub's quote straight into yours as a cost, mark it up, and your client sees only your price.",
+    "Keep the companies you hire on file, put one on a job at an agreed price, record what you pay them, and track their insurance and year-end tax forms.",
   "feature.jobs.name": "Jobs",
   "feature.jobs.summary":
     "An approved quote becomes a job with the scope, the address and the paperwork already on it.",
@@ -931,9 +931,9 @@ const fr = {
   "feature.bio_link.name": "Un seul lien pour vos profils",
   "feature.bio_link.summary":
     "Une page à votre image, pour votre Instagram ou le lettrage du camion, qui mène à tout ce que vous offrez.",
-  "feature.subcontractor_bids.name": "Prix du sous-traitant dans la soumission",
+  "feature.subcontractor_bids.name": "Sous-traitants",
   "feature.subcontractor_bids.summary":
-    "Intégrez la soumission d'un sous-traitant comme coût, appliquez votre marge, et le client ne voit que votre prix.",
+    "Gardez les entreprises que vous engagez au dossier, mettez-en une sur un chantier à un prix convenu, inscrivez ce que vous leur payez, et suivez leurs assurances et leurs relevés fiscaux de fin d'année.",
   "feature.jobs.name": "Chantiers",
   "feature.jobs.summary":
     "Une soumission approuvée devient un chantier avec la description, l'adresse et les documents déjà dessus.",
@@ -1434,9 +1434,9 @@ const es = {
   "feature.bio_link.name": "Un solo enlace para tus perfiles",
   "feature.bio_link.summary":
     "Una página con tu marca, para tu Instagram o la calcomanía de la camioneta, que lleva a todo lo que ofreces.",
-  "feature.subcontractor_bids.name": "Precios del subcontratista en tu oferta",
+  "feature.subcontractor_bids.name": "Subcontratistas",
   "feature.subcontractor_bids.summary":
-    "Trae el presupuesto del subcontratista como costo, súbele tu margen, y el cliente solo ve tu precio.",
+    "Ten a las empresas que contratas en tu lista, pon una en un trabajo a un precio acordado, registra lo que les pagas y sigue sus seguros y sus formularios fiscales de fin de año.",
   "feature.jobs.name": "Trabajos",
   "feature.jobs.summary":
     "Un presupuesto aprobado se convierte en un trabajo que ya trae el alcance, la dirección y los papeles.",
@@ -1938,9 +1938,9 @@ const uk = {
   "feature.bio_link.name": "Одне посилання для всіх профілів",
   "feature.bio_link.summary":
     "Одна фірмова сторінка для Instagram чи наклейки на авто, що веде до всього, що ви пропонуєте.",
-  "feature.subcontractor_bids.name": "Ціни субпідрядника у вашій пропозиції",
+  "feature.subcontractor_bids.name": "Субпідрядники",
   "feature.subcontractor_bids.summary":
-    "Підтягніть кошторис субпідрядника як витрату, додайте націнку — клієнт бачить лише вашу ціну.",
+    "Тримайте компанії, які ви наймаєте, в обліку, ставте їх на роботу за погодженою ціною, записуйте, скільки ви їм платите, і стежте за їхніми страховками та річними податковими формами.",
   "feature.jobs.name": "Роботи",
   "feature.jobs.summary":
     "Погоджений кошторис стає роботою, на якій уже є обсяг, адреса й документи.",
@@ -2441,9 +2441,9 @@ const pa = {
   "feature.bio_link.name": "ਸਾਰੇ ਪ੍ਰੋਫਾਈਲਾਂ ਲਈ ਇੱਕ ਲਿੰਕ",
   "feature.bio_link.summary":
     "ਤੁਹਾਡੇ Instagram ਜਾਂ ਟਰੱਕ ਦੇ ਸਟਿੱਕਰ ਲਈ ਇੱਕ ਹੀ ਪੰਨਾ, ਜੋ ਤੁਹਾਡੀਆਂ ਸਾਰੀਆਂ ਸੇਵਾਵਾਂ ਵੱਲ ਲੈ ਜਾਂਦਾ ਹੈ।",
-  "feature.subcontractor_bids.name": "ਤੁਹਾਡੀ ਬੋਲੀ ਵਿੱਚ ਸਬ-ਠੇਕੇਦਾਰ ਦੇ ਰੇਟ",
+  "feature.subcontractor_bids.name": "ਸਬ-ਠੇਕੇਦਾਰ",
   "feature.subcontractor_bids.summary":
-    "ਸਬ-ਠੇਕੇਦਾਰ ਦਾ ਕੋਟ ਸਿੱਧਾ ਲਾਗਤ ਵਜੋਂ ਲਵੋ, ਉੱਤੇ ਮੁਨਾਫ਼ਾ ਲਾਓ, ਅਤੇ ਗਾਹਕ ਨੂੰ ਸਿਰਫ਼ ਤੁਹਾਡੀ ਕੀਮਤ ਦਿਸੇ।",
+    "ਜਿਹੜੀਆਂ ਕੰਪਨੀਆਂ ਤੁਸੀਂ ਰੱਖਦੇ ਹੋ ਉਨ੍ਹਾਂ ਦਾ ਰਿਕਾਰਡ ਰੱਖੋ, ਕਿਸੇ ਨੂੰ ਤੈਅ ਕੀਮਤ 'ਤੇ ਜੌਬ 'ਤੇ ਲਾਓ, ਜੋ ਤੁਸੀਂ ਉਨ੍ਹਾਂ ਨੂੰ ਦਿੰਦੇ ਹੋ ਉਹ ਦਰਜ ਕਰੋ, ਅਤੇ ਉਨ੍ਹਾਂ ਦੇ ਬੀਮੇ ਤੇ ਸਾਲ ਦੇ ਅੰਤ ਵਾਲੇ ਟੈਕਸ ਫਾਰਮਾਂ 'ਤੇ ਨਜ਼ਰ ਰੱਖੋ।",
   "feature.jobs.name": "ਜੌਬਾਂ",
   "feature.jobs.summary":
     "ਮਨਜ਼ੂਰ ਹੋਇਆ ਕੋਟ ਜੌਬ ਬਣ ਜਾਂਦਾ ਹੈ, ਜਿਸ 'ਤੇ ਕੰਮ ਦਾ ਵੇਰਵਾ, ਪਤਾ ਅਤੇ ਕਾਗਜ਼ ਪਹਿਲਾਂ ਹੀ ਹੁੰਦੇ ਹਨ।",
@@ -2949,9 +2949,9 @@ const tl = {
   "feature.bio_link.name": "Isang link para sa lahat ng profile",
   "feature.bio_link.summary":
     "Isang pahinang may pangalan mo, para sa Instagram o sa sticker ng trak, na nagtuturo sa lahat ng alok mo.",
-  "feature.subcontractor_bids.name": "Presyo ng subcontractor sa alok mo",
+  "feature.subcontractor_bids.name": "Mga subcontractor",
   "feature.subcontractor_bids.summary":
-    "Isama ang quote ng sub bilang gastos, lagyan ng patong, at ang presyo mo lang ang makikita ng kliyente.",
+    "Itago sa file ang mga kumpanyang kinukuha mo, ilagay ang isa sa isang trabaho sa napagkasunduang presyo, itala ang ibinabayad mo sa kanila, at subaybayan ang kanilang insurance at mga tax form sa katapusan ng taon.",
   "feature.jobs.name": "Mga trabaho",
   "feature.jobs.summary":
     "Ang aprubadong quote ay nagiging trabaho na may saklaw, address at papeles na kasama na.",
@@ -3375,8 +3375,9 @@ const de = {
   "feature.embeds.summary": "Eine Zeile in Ihre bestehende Website einfügen und Buchung, Angebotsformular oder Bewertungen einbetten.",
   "feature.bio_link.name": "Ein Link für Ihre Profile",
   "feature.bio_link.summary": "Eine einzige Seite in Ihrem Design für Instagram oder die Aufschrift am Transporter, die auf alles verweist, was Sie anbieten.",
-  "feature.subcontractor_bids.name": "Preise von Nachunternehmern in Ihrem Angebot",
-  "feature.subcontractor_bids.summary": "Übernehmen Sie das Angebot eines Nachunternehmers direkt als Kosten, schlagen Sie auf, und Ihr Kunde sieht nur Ihren Preis.",
+  "feature.subcontractor_bids.name": "Nachunternehmer",
+  "feature.subcontractor_bids.summary":
+    "Führen Sie die Betriebe, die Sie beauftragen, in einer Liste, setzen Sie einen zum vereinbarten Preis auf einen Auftrag, erfassen Sie, was Sie ihm zahlen, und behalten Sie Versicherung und Jahressteuermeldung im Blick.",
   "feature.jobs.name": "Aufträge",
   "feature.jobs.summary": "Aus einem angenommenen Angebot wird ein Auftrag, an dem Leistungsumfang, Adresse und Papiere schon hängen.",
   "feature.scheduling.name": "Einsatzplanung und Disposition",
@@ -3739,8 +3740,9 @@ const zh = {
   "feature.embeds.summary": "在你现有的网站上粘一行代码，就能嵌入你的预约、报价表单或评价。",
   "feature.bio_link.name": "一个链接串起所有主页",
   "feature.bio_link.summary": "为你的 Instagram 或车身贴做的一张品牌页，指向你提供的全部服务。",
-  "feature.subcontractor_bids.name": "把分包价并进你的投标",
-  "feature.subcontractor_bids.summary": "把分包商的报价直接拉进你的单子当成本，加上加价，客户只看到你的价格。",
+  "feature.subcontractor_bids.name": "分包商",
+  "feature.subcontractor_bids.summary":
+    "把你雇用的公司记录在案，按约定价格把它放到某个工程上，记录付给它的款项，并跟踪它的保险和年末税表。",
   "feature.jobs.name": "工程",
   "feature.jobs.summary": "报价单一被批准就变成工程，施工范围、地址和相关文件都已经带上了。",
   "feature.scheduling.name": "排期与派工",
@@ -4198,9 +4200,9 @@ const it = {
   "feature.bio_link.name": "Un unico link per i suoi profili",
   "feature.bio_link.summary":
     "Una sola pagina personalizzata per il suo Instagram o per l'adesivo sul furgone, che rimanda a tutto ciò che offre.",
-  "feature.subcontractor_bids.name": "Prezzi dei subappaltatori nella sua offerta",
+  "feature.subcontractor_bids.name": "Subappaltatori",
   "feature.subcontractor_bids.summary":
-    "Importi il preventivo di un subappaltatore nel suo come costo, ci applichi il ricarico e il cliente vedrà solo il suo prezzo.",
+    "Tenga in archivio le imprese che ingaggia, ne metta una su un lavoro a un prezzo concordato, registri quanto le paga e tenga d'occhio assicurazioni e moduli fiscali di fine anno.",
   "feature.jobs.name": "Lavori",
   "feature.jobs.summary":
     "Un preventivo approvato diventa un lavoro che porta già con sé l'ambito, l'indirizzo e i documenti.",
