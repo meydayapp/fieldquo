@@ -56,6 +56,7 @@ import { normaliseWorkEmail, workEmailProblem } from "@/lib/sales/repAdmin";
 import { resolvePlanAssignment } from "@/lib/sales/commissionPlanServer";
 import { releaseUntouched } from "@/lib/sales/queueBatch";
 import { deactivationGate, openLeadWhere, queueCountsFor, reassignHeld } from "@/lib/sales/reassign";
+import { parseSellsIn, sellsInOf } from "@/lib/sales/leadLanguage";
 
 /**
  * The hand-off the gate approved, written on the transaction the rep update
@@ -128,6 +129,7 @@ export async function PATCH(request, { params }) {
       email: true,
       workEmail: true,
       commissionPlanId: true,
+      sellsIn: true,
     },
   });
   if (!existing) {
@@ -165,9 +167,24 @@ export async function PATCH(request, { params }) {
     );
   }
 
-  if (typeof active !== "boolean" && !touchesMailbox && !touchesPlan && !touchesEngagement) {
+  // The languages the rep can SELL in — the owner's control for "who can get
+  // the quebec leads". A superadmin sets it here so the Quebec closer hired
+  // today receives Quebec rows before they have opened their own settings.
+  // Validated by the same pure function the rep's own route uses, so the two
+  // writers cannot disagree about what a language code is. An empty list is
+  // a real value (English-only for allocation, "unset" on the rep's screen)
+  // and stays sendable.
+  const touchesSellsIn = "sellsIn" in body;
+  let sellsIn;
+  if (touchesSellsIn) {
+    const parsed = parseSellsIn(body);
+    if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+    sellsIn = parsed.sellsIn;
+  }
+
+  if (typeof active !== "boolean" && !touchesMailbox && !touchesPlan && !touchesEngagement && !touchesSellsIn) {
     return NextResponse.json(
-      { error: "Send active (true/false), workEmail, commissionPlanId, or engagement." },
+      { error: "Send active (true/false), workEmail, commissionPlanId, engagement, or sellsIn." },
       { status: 400 },
     );
   }
@@ -275,6 +292,7 @@ export async function PATCH(request, { params }) {
       ...(touchesEngagement
         ? { engagement, ...(engagement !== "employee" ? { accruesPaidLeave: false } : {}) }
         : {}),
+      ...(touchesSellsIn ? { sellsIn } : {}),
     },
     select: {
       id: true,
@@ -288,6 +306,9 @@ export async function PATCH(request, { params }) {
       commissionPlanId: true,
       engagement: true,
       accruesPaidLeave: true,
+      // Selected AND returned: the engagement column was once selected here
+      // and dropped from a response map, and the save read as a failure.
+      sellsIn: true,
       commissionPlan: { select: { id: true, name: true } },
     },
   });
@@ -395,11 +416,25 @@ export async function PATCH(request, { params }) {
       },
     });
   }
+  if (touchesSellsIn) {
+    const before = sellsInOf(existing);
+    const after = sellsInOf(updated);
+    if (before.length !== after.length || before.some((c) => !after.includes(c))) {
+      // Findable on its own: "why did Daniel stop getting Quebec rows" is
+      // answered by this row, not by an "edited" entry.
+      actions.push({
+        action: "sales_rep_sells_in_set",
+        details: { salesRepId: updated.id, email: updated.email, from: before, to: after },
+      });
+    }
+  }
   for (const entry of actions) {
     await db.platformAuditLog.create({
       data: { platformAdminId: admin.id, ...entry },
     });
   }
 
-  return NextResponse.json({ ...updated, ...(handled ? { handoff: handled } : {}) });
+  // sellsIn through sellsInOf(), as the list route returns it — the response
+  // the screen reloads from and the one it got from the save must agree.
+  return NextResponse.json({ ...updated, sellsIn: sellsInOf(updated), ...(handled ? { handoff: handled } : {}) });
 }

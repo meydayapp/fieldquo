@@ -99,6 +99,8 @@ import PlatformWriteGate, {
 } from "@/app/components/platform/PlatformWriteGate";
 import { codeProblem, suggestCode, workEmailProblem } from "@/lib/sales/repAdmin";
 import { ENGAGEMENTS } from "@/lib/sales/payoutDetails";
+import { LANGUAGES } from "@/app/i18n/languages";
+import { FRENCH } from "@/lib/sales/leadLanguage";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -223,6 +225,8 @@ export default function PlatformSalesRepsPage() {
   const [mailboxDraft, setMailboxDraft] = useState({});
   const [planDraft, setPlanDraft] = useState({});
   const [engagementDraft, setEngagementDraft] = useState({});
+  // rep id → the list being edited in that card's "Sells in" editor.
+  const [sellsInDraft, setSellsInDraft] = useState({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -618,6 +622,46 @@ export default function PlatformSalesRepsPage() {
       await load();
     } catch (err) {
       setError(err.message || "Could not save the engagement.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Which languages a rep can SELL in — the owner's control for "who can get
+   * the quebec leads". Draft-then-Save like the engagement: the list decides
+   * which prospects the queue hands this person, and a stray click on a
+   * checkbox is not a decision. The server validates against the same list
+   * the rep's own settings screen uses (lib/sales/leadLanguage.js).
+   */
+  async function saveSellsIn(rep) {
+    const value = sellsInDraft[rep.id] ?? [];
+    setBusy(true);
+    clearBanners();
+    try {
+      const saved = await fetchJson(`/api/platform/sales/reps/${rep.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sellsIn: value }),
+      });
+      setSellsInDraft((d) => {
+        const next = { ...d };
+        delete next[rep.id];
+        return next;
+      });
+      const names = (saved.sellsIn || []).map((c) => LANGUAGES.find((l) => l.code === c)?.name || c);
+      setNotice(
+        names.length
+          ? `${rep.name} sells in ${names.join(", ")}.${
+              (saved.sellsIn || []).includes(FRENCH)
+                ? " Quebec leads can now be handed to them."
+                : " No French, so the queue holds every Quebec lead back from them."
+            }`
+          : `${rep.name}'s languages are cleared — the queue treats them as English-only and their Pay screen asks them to answer.`,
+      );
+      await load();
+    } catch (err) {
+      setError(err.message || "Could not save the languages.");
     } finally {
       setBusy(false);
     }
@@ -1290,6 +1334,92 @@ export default function PlatformSalesRepsPage() {
                       you set it here.
                     </p>
                   ) : null}
+                </div>
+                <div>
+                  {/* The owner's rule: Quebec leads go only to a rep whose
+                      list carries French. The queue, the batch claim, Move
+                      and the inbound ring all read this column
+                      (lib/sales/leadLanguage.js), so this is where the Quebec
+                      closer gets ["fr","en"] before their first shift. */}
+                  <div className={LABEL}>Sells in</div>
+                  {rep.id in sellsInDraft && isSuperadmin ? (
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-2" role="group" aria-label={`Languages ${rep.name} sells in`}>
+                        {LANGUAGES.map((l) => {
+                          const on = (sellsInDraft[rep.id] || []).includes(l.code);
+                          return (
+                            <label
+                              key={l.code}
+                              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-sm cursor-pointer ${
+                                on ? "border-primary bg-primary/5 text-foreground" : "border-border text-foreground"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={on}
+                                onChange={() =>
+                                  setSellsInDraft((d) => {
+                                    const cur = d[rep.id] || [];
+                                    return {
+                                      ...d,
+                                      [rep.id]: on ? cur.filter((c) => c !== l.code) : [...cur, l.code],
+                                    };
+                                  })
+                                }
+                              />
+                              {l.nativeName}
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button onClick={() => saveSellsIn(rep)} disabled={busy} className={BTN_PRIMARY}>
+                          Save
+                        </button>
+                        <button
+                          onClick={() =>
+                            setSellsInDraft((d) => {
+                              const next = { ...d };
+                              delete next[rep.id];
+                              return next;
+                            })
+                          }
+                          className={BTN_QUIET}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm text-foreground">
+                        {(rep.sellsIn || []).length
+                          ? (rep.sellsIn || [])
+                              .map((c) => LANGUAGES.find((l) => l.code === c)?.nativeName || c)
+                              .join(", ")
+                          : "Not answered yet"}
+                      </span>
+                      {isSuperadmin ? (
+                        <button
+                          onClick={() => setSellsInDraft({ ...sellsInDraft, [rep.id]: rep.sellsIn || [] })}
+                          className={BTN_QUIET}
+                        >
+                          {(rep.sellsIn || []).length ? "Change" : "Set"}
+                        </button>
+                      ) : null}
+                    </div>
+                  )}
+                  {!(rep.sellsIn || []).includes(FRENCH) ? (
+                    <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                      No French, so the queue holds every Quebec lead back from
+                      this rep and Move refuses to hand them one. Tick Français
+                      here, or they can on their Pay tab.
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Can be handed Quebec leads.
+                    </p>
+                  )}
                 </div>
 
                 {/* The sending verdict, from the same function the rep's own

@@ -42,6 +42,7 @@ import { signupLinkFor } from "@/lib/sales/repStats";
 import { outreachStatus } from "@/lib/sales/outreachSender";
 import { resolvePlanAssignment } from "@/lib/sales/commissionPlanServer";
 import { queueCountsFor } from "@/lib/sales/reassign";
+import { sellsInOf } from "@/lib/sales/leadLanguage";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -84,6 +85,11 @@ export async function GET(request) {
       inviteExpiresAt: true,
       engagement: true,
       accruesPaidLeave: true,
+      // The languages they can SELL in — who may be handed a Quebec row.
+      // Selected AND mapped below; the engagement column was selected here
+      // and dropped from the map once, and the save looked like it had
+      // failed.
+      sellsIn: true,
       commissionPlanId: true,
       commissionPlan: { select: { id: true, name: true } },
       // The count is what makes "deactivate, never delete" legible on the
@@ -197,6 +203,9 @@ export async function GET(request) {
       // class AGENTS.md lists first, one line lower than usual.
       engagement: r.engagement || null,
       accruesPaidLeave: Boolean(r.accruesPaidLeave),
+      // Through sellsInOf so a code dropped from app/i18n/languages.js reads
+      // as not ticked here, exactly as allocation reads it.
+      sellsIn: sellsInOf(r),
       companyCount: r._count.attributions,
       // held = leased + worked; untouched + dialled = leased. openLeads are
       // SalesLeads not converted and not lost. See lib/sales/reassign.js.

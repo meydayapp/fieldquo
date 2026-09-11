@@ -9170,6 +9170,29 @@ model SalesRep {
   /// case — the day the language comes back, so does their choice.
   language String?
 
+  /// The languages this rep can SELL in — ISO codes from app/i18n/languages.js.
+  ///
+  /// Not `language`. That column is which words the portal's chrome is drawn
+  /// in; this one is who may be handed a prospect who will answer the phone
+  /// in French. The owner's rule, verbatim: "the leads from quebec will be
+  /// most likely french speakers so they can't be handed out to anybody
+  /// unless they have a French profile in their settings." A rep may read
+  /// the console in English and sell in French, or the other way round, so
+  /// the two are separate columns rather than one doing both jobs badly.
+  ///
+  /// Empty means "English only" for allocation — lib/sales/leadLanguage.js
+  /// keeps every Quebec row away from a rep whose list has no "fr" — and is
+  /// shown as unset on the rep's Pay & settings screen so they are asked.
+  /// Empty is deliberately NOT ["en"]: a default is a choice nobody made,
+  /// and the day allocation grows a second language rule, the reps who
+  /// never answered must not read as having said "English only".
+  ///
+  /// Written by lib/sales/sellsInWrite.js (the rep, about themselves) and by
+  /// the platform rep PATCH (a superadmin, about a rep). Read by every path
+  /// that hands a lead out: claimCandidateWhere(), the batch claim, the
+  /// console's Move, and the inbound ring plan.
+  sellsIn String[] @default([])
+
   createdAt DateTime @default(now())
 
   /// The last time this rep was seen IN THE PORTAL. Stamped by

@@ -117,6 +117,7 @@ const { requireSalesRep, REP_FORBIDDEN_WRITES } = await import("@/lib/sales/gate
 const { PAYOUT_WRITES_ON_SALES_REP } = await import("@/lib/sales/payoutWrite");
 const { PREFERENCE_WRITES_ON_SALES_REP } = await import("@/lib/sales/preferenceWrite");
 const { AUTODIAL_WRITES_ON_SALES_REP } = await import("@/lib/sales/autodialWrite");
+const { SELLS_IN_WRITES_ON_SALES_REP } = await import("@/lib/sales/sellsInWrite");
 
 let pass = 0;
 const failures = [];
@@ -856,6 +857,18 @@ const LIB_FORBIDDEN_WRITE_BY_DESIGN = {
     "writer refuses to coerce. Its own file for the reason preferenceWrite.js " +
     "gives — one writer per file, so the index-located fence sees it. Column " +
     "asserted below.",
+  "lib/sales/sellsInWrite.js":
+    "saveRepSellsIn(). Writes ONLY SalesRep.sellsIn — " +
+    "SELLS_IN_WRITES_ON_SALES_REP — the languages a rep says they can sell " +
+    "in, which lib/sales/leadLanguage.js reads before handing them a Quebec " +
+    "prospect. It cannot change what is owed, who a company is credited to, " +
+    "whether a batch pays, or whether the rep can sign in tomorrow; the worst " +
+    "a false claim achieves is a francophone contractor answered in English, " +
+    "which the console shows and a superadmin can correct. The value comes " +
+    "from a closed set validated by parseSellsIn() against " +
+    "app/i18n/languages.js. Its own file for preferenceWrite.js's reason — " +
+    "one writer per file, so the index-located fence sees it. Column " +
+    "asserted below.",
 };
 
 const stray = [];
@@ -1140,6 +1153,46 @@ function objectKeys(src, from) {
   ok("…and writes no audit row, like the language writer", !/recordError/.test(autoSrc));
   const callsRoute = decomment(read("app/api/sales/calls/route.js"));
   ok("the calls route reaches it only through saveRepAutodial, after its own boolean check", /typeof body\.on !== "boolean"/.test(callsRoute) && /saveRepAutodial\(\{ salesRepId: rep\.id, on: body\.on \}\)/.test(callsRoute) && !/db\.salesRep\.update/.test(callsRoute));
+}
+
+// ── The selling languages, fenced the same way ─────────────────────────────
+//
+// Same shape, separate file, same reason. This is the column the owner's
+// Quebec rule reads, so the fence also asserts the rep-facing route validates
+// through parseSellsIn() before the writer ever sees the value.
+{
+  const sellSrc = decomment(read("lib/sales/sellsInWrite.js"));
+  const columns = SELLS_IN_WRITES_ON_SALES_REP;
+  ok(
+    "the sellsIn writer names its column as data",
+    Array.isArray(columns) && columns.length === 1 && columns[0] === "sellsIn",
+    columns,
+  );
+  ok(
+    "…and the file makes exactly one write",
+    (sellSrc.match(/salesRep\.(update|updateMany|upsert|create|delete|deleteMany)\(/g) || []).length === 1,
+    (sellSrc.match(/salesRep\.\w+\(/g) || []),
+  );
+  const upd = sellSrc.indexOf("salesRep.update(");
+  const dataAt = sellSrc.indexOf("data: {", upd);
+  ok("the update's data block was located", upd > 0 && dataAt > upd, { upd, dataAt });
+  const written = objectKeys(sellSrc, sellSrc.indexOf("{", dataAt));
+  ok(
+    "the writer sets EXACTLY the sellsIn column and nothing else",
+    written.length === columns.length && written.every((k) => columns.includes(k)),
+    written,
+  );
+  ok("…and takes the rep id from the caller's gate, never a request body", /salesRepId is required/.test(sellSrc));
+  ok("…and refuses anything but a list rather than coercing it", /sellsIn must be a list/.test(sellSrc));
+  ok("…and writes no audit row, like the language writer", !/recordError/.test(sellSrc));
+  const sellRoute = decomment(read("app/api/sales/sells-in/route.js"));
+  ok(
+    "the sells-in route validates through parseSellsIn and reaches the writer only through saveRepSellsIn",
+    /parseSellsIn\(body\)/.test(sellRoute) &&
+      /saveRepSellsIn\(\{ salesRepId: rep\.id, sellsIn: parsed\.sellsIn \}\)/.test(sellRoute) &&
+      !/db\.salesRep\.update/.test(sellRoute),
+  );
+  ok("…behind the outreach gate, like the language route", /requireOutreachRep\(request\)/.test(sellRoute));
 }
 
 ok(

@@ -25,6 +25,7 @@
 import EarningsPanel from "@/app/components/sales/EarningsPanel";
 import PayoutDestinationForm from "@/app/components/sales/PayoutDestinationForm";
 import RepLanguageChoice from "@/app/components/sales/RepLanguageChoice";
+import RepSellsInChoice from "@/app/components/sales/RepSellsInChoice";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function SalesPayPage() {
@@ -52,6 +53,14 @@ export default function SalesPayPage() {
           they came for. */}
       <section className="border-t border-border pt-8">
         <RepLanguageChoice />
+      </section>
+
+      {/* Directly under the portal language, because it is the question a rep
+          confuses it with: that one is which words the tabs are drawn in,
+          this one is which prospects the queue may hand them. Quebec rows go
+          only to a rep with French here — lib/sales/leadLanguage.js. */}
+      <section className="border-t border-border pt-8">
+        <RepSellsInChoice />
       </section>
     </div>
   );

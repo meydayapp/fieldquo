@@ -48,6 +48,7 @@ import { ArrowRight, Check } from "lucide-react";
 
 import PayoutDestinationForm from "@/app/components/sales/PayoutDestinationForm";
 import RepLanguageChoice from "@/app/components/sales/RepLanguageChoice";
+import RepSellsInChoice from "@/app/components/sales/RepSellsInChoice";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function SalesWelcomePage() {
@@ -105,6 +106,16 @@ export default function SalesWelcomePage() {
           </h2>
         </div>
         <RepLanguageChoice onSaved={(code) => setLanguageDone(Boolean(code))} />
+      </section>
+
+      {/* Asked once, here, on the first morning: which languages the rep can
+          SELL in. Not the same question as the one above — that is the
+          portal's chrome, this is who the queue may hand a Quebec prospect
+          to — and a new hire who skips it is treated as English-only until
+          they answer on the Pay tab. Not a step with a tick: nothing gates on
+          it, and the exit below stays unconditional. */}
+      <section className="space-y-4 border-t border-border pt-8">
+        <RepSellsInChoice />
       </section>
 
       {/* THE WAY OUT — a control, not small print, and never gated. */}
