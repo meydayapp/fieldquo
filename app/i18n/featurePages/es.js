@@ -61,7 +61,7 @@ const es = {
   "feature.appointment_reminders.limits": "Los recordatorios salen solo por mensaje de texto. No hay recordatorio por correo, y el texto del recordatorio todavía no se puede editar — el mensaje de «voy en camino» sí.",
   "feature.financing.limits": "El pago a plazos se ofrece al momento de pagar, a través de Stripe, y ahí decide el prestamista. FieldQuo no presta y no aprueba a nadie. La cifra mensual que se ve en un presupuesto aparece solo si tú escribes tu propia tasa y tu propio plazo — nosotros nunca la inventamos.",
   "feature.payroll.limits": "FieldQuo calcula el pago bruto, genera los recibos y exporta la corrida. No paga a los empleados ni presenta tus impuestos de nómina — las deducciones son las que pongas tú o tu contador.",
-  "feature.contractor_payouts.limits": "Esto le paga a una persona de tu propia plantilla, por horas que marcó, a la tarifa que tú fijaste. No puede pagar una oferta cerrada a otra empresa. Hoy las transferencias salen en dólares canadienses, así que no está listo para un pago en Estados Unidos.",
+  "feature.contractor_payouts.limits": "Esto le paga a una persona de tu propia plantilla, por horas que marcó, a la tarifa que tú fijaste. No puede pagar una oferta cerrada a otra empresa.",
   "feature.marketing_spend.limits": "El costo por cliente potencial es un promedio combinado de todos los canales, sin desglose por canal ni por campaña — nada en FieldQuo vincula todavía un dólar de gasto concreto con un cliente potencial concreto.",
 
   // ══ The pages ═════════════════════════════════════════════════════════

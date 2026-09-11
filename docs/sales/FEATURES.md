@@ -207,7 +207,7 @@ Your numbers, your people, your prices, and your name on every document the home
 
 - **Payroll.** FieldQuo works out gross pay, produces the payslips and exports the run. It does not pay employees or file your payroll taxes — deductions are the ones you or your accountant supply.
 
-- **Pay contractors from the app.** This pays a person on your own roster, for hours they clocked, at the rate you set. It cannot pay a fixed bid to another company. Transfers are sent in Canadian dollars today, so it is not ready for a US payout.
+- **Pay contractors from the app.** This pays a person on your own roster, for hours they clocked, at the rate you set. It cannot pay a fixed bid to another company.
 
 - **English and French.** English and French are finished. Spanish, Ukrainian, Punjabi and Tagalog are translated and still being checked by a speaker, so they are not switched on yet.
 

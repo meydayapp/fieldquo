@@ -61,7 +61,7 @@ const fr = {
   "feature.appointment_reminders.limits": "Les rappels partent par texto seulement. Il n'y a pas de rappel par courriel, et le texte du rappel n'est pas encore modifiable — celui du message « je suis en route » l'est.",
   "feature.financing.limits": "Le paiement échelonné est offert au moment de payer, par Stripe, et c'est le prêteur qui décide. FieldQuo ne prête pas et n'approuve personne. Le montant mensuel affiché sur une soumission n'apparaît que si vous entrez votre propre taux et votre propre durée — nous n'en inventons jamais un.",
   "feature.payroll.limits": "FieldQuo calcule la paie brute, produit les bulletins de paie et exporte la paie. Il ne paie pas les employés et ne produit pas vos déclarations de retenues à la source — les retenues sont celles que vous ou votre comptable fournissez.",
-  "feature.contractor_payouts.limits": "Ça paie une personne inscrite à votre équipe, pour les heures qu'elle a pointées, au taux que vous fixez. Ça ne peut pas payer un prix forfaitaire à une autre entreprise. Les virements partent en dollars canadiens pour l'instant, donc ce n'est pas prêt pour un versement aux États-Unis.",
+  "feature.contractor_payouts.limits": "Ça paie une personne inscrite à votre équipe, pour les heures qu'elle a pointées, au taux que vous fixez. Ça ne peut pas payer un prix forfaitaire à une autre entreprise.",
   "feature.marketing_spend.limits": "Le coût par prospect est calculé en moyenne sur tous les canaux, sans détail par canal ni par campagne — rien dans FieldQuo ne relie encore un dollar de dépense précis à un prospect précis.",
 
   // ══ The pages ═════════════════════════════════════════════════════════

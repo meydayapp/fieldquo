@@ -78,7 +78,7 @@ const en = {
   "feature.appointment_reminders.limits": "Reminders go by text message only. There is no email reminder, and the reminder wording is not editable yet — the on-my-way message is.",
   "feature.financing.limits": "Pay-over-time is offered at checkout through Stripe, where the lender decides. FieldQuo does not lend and does not approve anyone. The monthly figure shown on a quote appears only if you enter your own rate and term — we never invent one.",
   "feature.payroll.limits": "FieldQuo works out gross pay, produces the payslips and exports the run. It does not pay employees or file your payroll taxes — deductions are the ones you or your accountant supply.",
-  "feature.contractor_payouts.limits": "This pays a person on your own roster, for hours they clocked, at the rate you set. It cannot pay a fixed bid to another company. Transfers are sent in Canadian dollars today, so it is not ready for a US payout.",
+  "feature.contractor_payouts.limits": "This pays a person on your own roster, for hours they clocked, at the rate you set. It cannot pay a fixed bid to another company.",
   "feature.marketing_spend.limits": "Cost per lead is blended across every channel, not broken out per channel or per campaign — nothing in FieldQuo links a specific dollar of spend to a specific lead yet.",
 
   // ══ Generated from app/data/featurePages.js — pinned, see the header ══
