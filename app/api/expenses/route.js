@@ -7,6 +7,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 import { recordActivity } from "@/lib/activity/log";
 import { dayRangeUtc } from "@/lib/analytics/dayRange";
+import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -56,6 +57,7 @@ export async function POST(request) {
     isOverhead,
     recurring,
     frequency,
+    assetId,
   } = body;
 
   if (!category || amount === undefined) {
@@ -72,6 +74,14 @@ export async function POST(request) {
     );
   }
 
+  // The vehicle has to be ours. A fuel receipt pinned to another tenant's van
+  // would land in THEIR cost per km (lib/fleet/cost.js) — and the fleet
+  // payload would then hand this company's category and amount back to them.
+  const badAsset = await ownedIdsRefusal(NextResponse, db, member.companyId, {
+    assetId: assetId || null,
+  });
+  if (badAsset) return badAsset;
+
   const expense = await db.expense.create({
     data: {
       companyId: member.companyId,
@@ -86,6 +96,9 @@ export async function POST(request) {
       isOverhead: !!isOverhead,
       recurring: !!recurring,
       frequency: frequency || "one_time",
+      // Optional. Null, not "" — an empty string is not an asset id and
+      // Postgres would refuse the foreign key.
+      assetId: assetId || null,
     },
   });
 
@@ -99,7 +112,11 @@ export async function POST(request) {
     summary: `Recorded a ${expense.category || "general"} expense${
       expense.amount != null ? ` of ${expense.amount}` : ""
     }`,
-    metadata: { amount: expense.amount ?? null, projectId: expense.projectId ?? null },
+    metadata: {
+      amount: expense.amount ?? null,
+      projectId: expense.projectId ?? null,
+      assetId: expense.assetId ?? null,
+    },
   });
 
   return NextResponse.json(expense, { status: 201 });

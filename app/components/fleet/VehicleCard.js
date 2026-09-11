@@ -2,7 +2,8 @@
 
 // app/components/fleet/VehicleCard.js
 //
-// One van: what is due, who has it, and what has been done to it.
+// One van: what is due, who has it, what has been done to it, what it costs
+// to run, and the paperwork behind it.
 //
 // ══ Four expiries, always all four ═════════════════════════════════════════
 //
@@ -29,6 +30,7 @@ import {
   Trash2,
   Wrench,
   AlertTriangle,
+  FileText,
 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
@@ -37,6 +39,8 @@ import { fetchList } from "@/lib/loadState";
 import ExpiryBadge from "@/app/components/ExpiryBadge";
 import VehicleForm from "./VehicleForm";
 import MaintenanceLog from "./MaintenanceLog";
+import VehicleCost from "./VehicleCost";
+import VehicleDocuments from "./VehicleDocuments";
 
 function formatDate(value, locale) {
   if (!value) return null;
@@ -90,6 +94,9 @@ export default function VehicleCard({
   const [log, setLog] = useState(null);
   const [logErrorKey, setLogErrorKey] = useState("");
   const [logLoading, setLogLoading] = useState(false);
+  const [docs, setDocs] = useState(null);
+  const [docsErrorKey, setDocsErrorKey] = useState("");
+  const [docsLoading, setDocsLoading] = useState(false);
 
   const attention = row.attention || { state: "unknown", expiries: [] };
   const name = row.name || t("app.fleet.unnamed", "Unnamed vehicle");
@@ -112,6 +119,25 @@ export default function VehicleCard({
   useEffect(() => {
     if (open && row.id && log === null && !logErrorKey) loadLog();
   }, [open, row.id, log, logErrorKey, loadLog]);
+
+  const loadDocs = useCallback(async () => {
+    if (!row.id) return;
+    setDocsLoading(true);
+    const result = await fetchList(`/api/fleet/${row.id}/documents`);
+    if (result.aborted) return;
+    if (!result.ok) {
+      setDocsErrorKey(result.errorKey);
+      setDocsLoading(false);
+      return;
+    }
+    setDocsErrorKey("");
+    setDocs(result.data && typeof result.data === "object" ? result.data : null);
+    setDocsLoading(false);
+  }, [row.id]);
+
+  useEffect(() => {
+    if (open && row.id && docs === null && !docsErrorKey) loadDocs();
+  }, [open, row.id, docs, docsErrorKey, loadDocs]);
 
   async function removeVehicle() {
     if (
@@ -342,6 +368,14 @@ export default function VehicleCard({
             />
           )}
 
+          {/* The running-cost block and the expense list exist on the row
+              only when the loader put them there (cost-basis gate), so a
+              dispatcher's card has nothing to mount here rather than a
+              hidden panel. */}
+          {canSeeCost && row.cost && (
+            <VehicleCost cost={row.cost} expenses={row.expenses || []} />
+          )}
+
           <div>
             <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
               <Wrench size={13} /> {t("app.fleet.maintenance", "Maintenance")}
@@ -357,8 +391,32 @@ export default function VehicleCard({
                 await loadLog();
                 // A logged service can move the odometer, which changes the
                 // service-due figure on the card above — so the whole fleet is
-                // reloaded rather than only the log.
-                if (payload?.odometerUpdated) onChanged?.(null);
+                // reloaded rather than only the log. For a member who sees
+                // the running costs, ANY change to the log moves the
+                // maintenance total and possibly the cost per km, so the
+                // reload is unconditional for them.
+                if (payload?.odometerUpdated || canSeeCost) onChanged?.(null);
+              }}
+            />
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+              <FileText size={13} /> {t("app.fleet.documents", "Documents")}
+            </p>
+            <VehicleDocuments
+              vehicleId={row.id}
+              data={docs}
+              loading={docsLoading}
+              errorKey={docsErrorKey}
+              onRetry={loadDocs}
+              onChanged={async (payload) => {
+                await loadDocs();
+                // A filed policy can move the renewal date, which changes the
+                // badge above and the due list at the top of the screen. The
+                // route answered with the whole fleet, so it is applied
+                // directly rather than fetched again.
+                if (payload?.expiryUpdated) onChanged?.(payload.fleet || null);
               }}
             />
           </div>

@@ -907,14 +907,18 @@ ok("stripVehicleCost tolerates an orphan with no asset", stripVehicleCost({ asse
 section("8. The whole fleet payload, built the way the route builds it");
 // ═══════════════════════════════════════════════════════════════════════════
 
-// A Prisma double covering exactly the three reads loadFleet makes. Enough to
+// A Prisma double covering exactly the reads loadFleet makes. Enough to
 // prove the join, the cost gate and the due list end to end — which is what
 // "the expiring-soon list" means once it has been through a real handler.
+// The two cost reads (expenses, maintenance) answer empty here; what they
+// feed is scripts/check-fleet-cost.mjs's subject, not this file's.
 function fakeDb() {
   return {
     vehicleDetail: {
       findMany: async () => [DETAIL_VAN, DETAIL_BLANK, DETAIL_ORPHAN],
     },
+    expense: { findMany: async () => [] },
+    vehicleMaintenance: { findMany: async () => [] },
     asset: {
       // The route's OR clause is what keeps an asset with a detail row in the
       // list even when its category was never set; the double honours both

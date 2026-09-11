@@ -357,6 +357,12 @@ export default function ExpenseTrackingPage() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState([]);
+  // The fleet register, for the optional vehicle picker. `null` until the
+  // server answers — and it stays null on a refusal (the fleet screen sits
+  // behind user:manage, which not everyone who records a receipt holds), in
+  // which case the picker is simply not drawn. An empty list here would mean
+  // "this company owns no vans", which on a 403 is a guess.
+  const [vehicles, setVehicles] = useState(null);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -370,6 +376,7 @@ export default function ExpenseTrackingPage() {
     jobId: "",
     recurring: false,
     frequency: "monthly",
+    assetId: "",
   });
 
   const [aiSummary, setAiSummary] = useState(null);
@@ -400,6 +407,22 @@ export default function ExpenseTrackingPage() {
   }, []);
 
   useEffect(() => {
+    // A plain fetch rather than fetchList: a 403 here is the expected answer
+    // for a crew member recording a receipt, not a failure worth a console
+    // error on every visit. Anything but a clean 200 leaves `vehicles` null.
+    fetch("/api/fleet")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data || !Array.isArray(data.vehicles)) return;
+        // Only a van with an Asset row can take an expense — Expense.assetId
+        // is a real foreign key, and an orphaned fleet record has nothing
+        // behind it.
+        setVehicles(data.vehicles.filter((v) => v.assetId && !v.assetMissing));
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     // Reset any stale AI summary when the viewed month changes.
     setAiSummary(null);
     setAiError("");
@@ -426,6 +449,7 @@ export default function ExpenseTrackingPage() {
           isOverhead: form.association === "overhead",
           recurring: form.recurring,
           frequency: form.recurring ? form.frequency : "one_time",
+          assetId: form.assetId || null,
         }),
       });
       if (res.ok) {
@@ -440,6 +464,7 @@ export default function ExpenseTrackingPage() {
           jobId: "",
           recurring: false,
           frequency: "monthly",
+          assetId: "",
         });
         loadSummary();
       } else {
@@ -872,6 +897,32 @@ export default function ExpenseTrackingPage() {
                   </label>
                 )}
               </div>
+
+              {/* The vehicle, when the company has any in the fleet register.
+                  Independent of the job/overhead choice above: fuel for a van
+                  that drove to a job is both. Not drawn at all when the
+                  register is empty or could not be read — a picker with one
+                  option that says "none" is a control that does nothing. */}
+              {vehicles && vehicles.length > 0 && (
+                <div>
+                  <label className="text-sm font-medium text-foreground block mb-1">
+                    {t("app.setExpenses.vehicle")}
+                  </label>
+                  <select
+                    className={inputClass}
+                    value={form.assetId}
+                    onChange={(e) => setForm({ ...form, assetId: e.target.value })}
+                  >
+                    <option value="">{t("app.setExpenses.vehicleNone")}</option>
+                    {vehicles.map((v) => (
+                      <option key={v.assetId} value={v.assetId}>
+                        {[v.name, v.plate].filter(Boolean).join(" · ") ||
+                          t("app.fleet.unnamed")}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="text-sm font-medium text-foreground block mb-1">

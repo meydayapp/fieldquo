@@ -8491,6 +8491,34 @@ with three vans asks what is due, what is expiring, and who has the van.
 - `check:mobile` walks only `/platform`, `/sales` and `/app/clock`, so neither
   new screen is covered by it. Both are built to the same rules.
 
+### Fleet: expenses, documents, cost per vehicle (10 September 2026)
+
+The schema landed in d24980e3 (`Expense.assetId`, `AssetDocument`); this is
+the reading and writing of it.
+
+- **Vehicle expenses.** The Add Expense modal on Settings → Expense tracking
+  offers a vehicle picker when the company has any in the register; the row's
+  `assetId` is proved against the caller's company (`ownedIdsRefusal`) on POST
+  and PATCH. Each van's card lists its last twelve months of expenses with the
+  month's total.
+- **Vehicle documents.** `/api/fleet/[id]/documents` mirrors the job store:
+  file goes to `/api/upload`, URL comes here, nothing is deleted. An
+  `insurance` or `registration` document with an expiry date moves the van's
+  own expiry column in the same transaction — the **newest by upload date**
+  wins (`lib/fleet/documents.js` explains why not by expiry). The bill of
+  sale is the price and sits behind the cost-basis gate in both directions.
+- **Cost per vehicle.** `lib/fleet/cost.js` `vehicleCostSummary()` — expenses
+  this month and over twelve months, maintenance over twelve months,
+  depreciation over twelve months from the shipped `assetCharge` schedule,
+  their total, and a cost per km. The per-km figure is cost incurred BETWEEN
+  the oldest and newest odometer readings divided by the kilometres between
+  them, and exists only when those readings are ≥ 30 days apart; below that
+  it is null with a reason, never a projection. All of it is gated by
+  `canSeeVehicleCost` exactly like the purchase price: `stripVehicleCost`
+  removes the block, and the loader never fetches the rows for a member who
+  could not see them. `scripts/check-fleet-cost.mjs` — 70 assertions,
+  mutation-tested five ways.
+
 ## Sales call handling — dispositions, agent state, in-browser calls (3 September 2026)
 
 Full write-up: `docs/sales-intel/CALL-HANDLING.md`. Informed by a read of

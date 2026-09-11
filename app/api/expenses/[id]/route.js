@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
+import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 
 /**
  * May this member touch this expense row?
@@ -58,7 +59,16 @@ export async function PATCH(request, { params }) {
     isOverhead,
     recurring,
     frequency,
+    assetId,
   } = body;
+
+  // Same proof as the create: a vehicle link is a foreign key into the fleet
+  // register, and re-pointing an expense at another tenant's van is the same
+  // hole as creating it there.
+  const badAsset = await ownedIdsRefusal(NextResponse, db, member.companyId, {
+    assetId: assetId || null,
+  });
+  if (badAsset) return badAsset;
 
   const updated = await db.expense.update({
     where: { id: _params.id },
@@ -71,6 +81,8 @@ export async function PATCH(request, { params }) {
       ...(isOverhead !== undefined && { isOverhead }),
       ...(recurring !== undefined && { recurring }),
       ...(frequency !== undefined && { frequency }),
+      // Absent key leaves the link alone; null or "" clears it.
+      ...(assetId !== undefined && { assetId: assetId || null }),
     },
   });
 
