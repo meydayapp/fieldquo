@@ -100,6 +100,25 @@ ok("a non-array rawRows never throws — treated as zero rows",
     plan.toCreate[0].currency === "USD");
   ok("…and it's still tagged source: meta_api with a real externalId",
     plan.toCreate[0].source === "meta_api" && plan.toCreate[0].externalId === externalIdFor({ campaignId: "1", date: "2026-08-01" }));
+  // MarketingSpend.date is a DateTime column. The owner's first real sync
+  // (three live campaigns) 500'd on a Prisma validation error because the row
+  // carried Meta's "YYYY-MM-DD" string here. A Date at midnight UTC, or it is
+  // not a row Prisma will write.
+  ok("the row's date is a real Date, not Meta's YYYY-MM-DD string",
+    plan.toCreate[0].date instanceof Date && !Number.isNaN(plan.toCreate[0].date.getTime()));
+  ok("…at midnight UTC of the day Meta reported",
+    plan.toCreate[0].date.toISOString() === "2026-08-01T00:00:00.000Z");
+}
+
+{
+  // The refresh route's "which stored forms are stale" count used a literal
+  // NUL byte as a stand-in for an empty `notIn` list. Postgres refuses NUL in
+  // text (22021), so a contractor with no lead forms — the first real one —
+  // got a 500 from the one branch the sentinel existed to cover.
+  const src = readFileSync(new URL("../app/api/meta/leads/forms/refresh/route.js", import.meta.url), "utf8");
+  ok("the lead-forms refresh route contains no NUL byte", !src.includes("\u0000"));
+  ok("…and the stale count has a real branch for 'no forms seen' rather than a sentinel",
+    /where: seen\.length\s*\?\s*\{ companyId: member\.companyId, formId: \{ notIn: seen \} \}\s*:\s*\{ companyId: member\.companyId \}/.test(src));
 }
 
 {
