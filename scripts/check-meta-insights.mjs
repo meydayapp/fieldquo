@@ -29,7 +29,7 @@ import { join } from "node:path";
 process.env.META_APP_ID ||= "test_app_id";
 
 import { naturalKey, externalIdFor, parseInsightsRow, buildImportPlan } from "@/lib/meta/insightsImport";
-import { classifyMetaError, buildAuthorizeUrl } from "@/lib/meta/client";
+import { classifyMetaError, buildAuthorizeUrl, CAMPAIGN_INSIGHT_FIELDS } from "@/lib/meta/client";
 
 let pass = 0;
 const fails = [];
@@ -157,6 +157,127 @@ ok("a non-array rawRows never throws — treated as zero rows",
     plan.errors.length === 1 && plan.toCreate.length === 0);
 }
 
+// ── The full picture: every metric Meta sends beside the dollar ────────────
+//
+// The owner connected a live ad account with three running campaigns and
+// asked what FieldQuo does with the rest of what Meta reports. Nothing —
+// because the sync kept four numbers and dropped the array. These two
+// fixtures are the two shapes a real row takes: one carrying every action
+// type a campaign can produce, one carrying none (an awareness campaign, or
+// a day with no delivery). The second is the one that matters: every metric
+// on it must be NULL, never 0, because a row that says "0 conversations"
+// about a campaign that has no messaging in it is a wrong statement.
+const FULL_ROW = {
+  campaign_id: "9001",
+  campaign_name: "Roof — click to message",
+  objective: "OUTCOME_ENGAGEMENT",
+  spend: "41.27",
+  impressions: "5120",
+  reach: "3877",
+  clicks: "210",
+  inline_link_clicks: "96",
+  actions: [
+    { action_type: "link_click", value: "96" },
+    { action_type: "post_engagement", value: "340" },
+    { action_type: "video_view", value: "1150" },
+    // A near-miss on the exact action type, placed BEFORE the real one so a
+    // prefix match finds it first — must NOT be counted as a conversation
+    // started.
+    { action_type: "onsite_conversion.messaging_first_reply", value: "9" },
+    { action_type: "onsite_conversion.messaging_conversation_started_7d", value: "14" },
+    { action_type: "lead", value: "3" },
+  ],
+  date_start: "2026-09-02",
+  date_stop: "2026-09-02",
+};
+const BARE_ROW = {
+  campaign_id: "9002",
+  campaign_name: "Old sync shape",
+  spend: "12.00",
+  impressions: "800",
+  clicks: "7",
+  date_start: "2026-09-02",
+  date_stop: "2026-09-02",
+};
+
+{
+  const row = parseInsightsRow(FULL_ROW);
+  ok("full row: objective is Meta's value verbatim, not a label", row.objective === "OUTCOME_ENGAGEMENT");
+  ok("full row: reach is read as a number", row.reach === 3877);
+  ok("full row: inline_link_clicks lands as linkClicks", row.linkClicks === 96);
+  ok("full row: conversations started come from the exact 7d action type", row.messagingConversations === 14);
+  ok("full row: …and the first-reply near-miss is not mistaken for it", row.messagingConversations !== 9 && row.messagingConversations !== 23);
+  ok("full row: video_view lands as videoViews", row.videoViews === 1150);
+  ok("full row: post_engagement lands as postEngagements", row.postEngagements === 340);
+  ok("full row: lead-shaped actions still sum into metaConversions", row.metaConversions === 3);
+  ok("full row: the whole actions array is kept raw, untouched",
+    Array.isArray(row.actionsRaw) && row.actionsRaw.length === 6 && row.actionsRaw[4].value === "14");
+}
+{
+  const row = parseInsightsRow(BARE_ROW);
+  ok("bare row: still parses — a row from the OLD field list is not an error", row.status === "ok");
+  ok("bare row: objective is null, not \"\"", row.objective === null);
+  ok("bare row: reach is null, not 0", row.reach === null);
+  ok("bare row: linkClicks is null, not 0", row.linkClicks === null);
+  ok("bare row: conversations started is null, not 0", row.messagingConversations === null);
+  ok("bare row: videoViews is null, not 0", row.videoViews === null);
+  ok("bare row: postEngagements is null, not 0", row.postEngagements === null);
+  ok("bare row: actionsRaw is null when Meta sent no array", row.actionsRaw === null);
+  ok("bare row: the four original metrics are unchanged", row.amount === 12 && row.impressions === 800 && row.clicks === 7 && row.metaConversions === 0);
+}
+{
+  const row = parseInsightsRow({ ...FULL_ROW, actions: [] });
+  ok("an EMPTY actions array is a statement: named actions are null, the raw array is kept as []",
+    row.messagingConversations === null && Array.isArray(row.actionsRaw) && row.actionsRaw.length === 0);
+  const garbage = parseInsightsRow({ ...FULL_ROW, reach: "lots", inline_link_clicks: {}, actions: [{ action_type: "video_view", value: "many" }] });
+  ok("unreadable counts are null, never NaN", garbage.reach === null && garbage.linkClicks === null && garbage.videoViews === null);
+}
+{
+  const plan = buildImportPlan({ rawRows: [FULL_ROW, BARE_ROW], existingSpend: [], companyCurrency: "CAD", adAccountCurrency: "CAD" });
+  const [full, bare] = plan.toCreate;
+  ok("the write plan carries campaignId on the row (the column the campaign rollup groups by)", full.campaignId === "9001" && bare.campaignId === "9002");
+  ok("the write plan carries every new column", ["objective", "reach", "linkClicks", "messagingConversations", "videoViews", "postEngagements", "actionsRaw"].every((k) => k in full));
+  ok("…with the full row's values", full.objective === "OUTCOME_ENGAGEMENT" && full.reach === 3877 && full.linkClicks === 96 && full.messagingConversations === 14 && full.videoViews === 1150 && full.postEngagements === 340 && Array.isArray(full.actionsRaw));
+  ok("…and nulls, not zeros, on the bare row", bare.objective === null && bare.reach === null && bare.linkClicks === null && bare.messagingConversations === null && bare.videoViews === null && bare.postEngagements === null && bare.actionsRaw === null);
+  ok("the plan never writes MarketingSpend.leads", !("leads" in full) && !("leads" in bare));
+}
+
+// ── The field list Meta is asked for ───────────────────────────────────────
+//
+// Meta rejects the whole request for one unrecognised field name, so a typo
+// here is not a blank column, it is a sync that never returns a row and a
+// lastSyncError the contractor has to read. The names are asserted against
+// Meta's own AdsInsights field enum (facebook-nodejs-business-sdk
+// src/objects/ads-insights.js, generated from the API spec; read 2026-09-11)
+// — verbatim, as a set, because the whole point is the spelling.
+const DOCUMENTED_INSIGHT_FIELDS = new Set([
+  "account_currency", "account_id", "account_name", "actions", "action_values", "ad_id", "ad_name",
+  "adset_id", "adset_name", "campaign_id", "campaign_name", "clicks", "conversions", "cost_per_action_type",
+  "cost_per_conversion", "cost_per_inline_link_click", "cost_per_unique_click", "cpc", "cpm", "cpp", "ctr",
+  "date_start", "date_stop", "frequency", "impressions", "inline_link_click_ctr", "inline_link_clicks",
+  "objective", "outbound_clicks", "reach", "social_spend", "spend", "unique_clicks", "unique_ctr",
+  "unique_inline_link_clicks", "video_p100_watched_actions", "video_p25_watched_actions",
+  "video_p50_watched_actions", "video_p75_watched_actions", "video_play_actions",
+  "video_thruplay_watched_actions", "website_ctr",
+]);
+ok("every field the sync asks Meta for is a documented AdsInsights field name, spelled exactly",
+  CAMPAIGN_INSIGHT_FIELDS.every((f) => DOCUMENTED_INSIGHT_FIELDS.has(f)),
+  CAMPAIGN_INSIGHT_FIELDS.filter((f) => !DOCUMENTED_INSIGHT_FIELDS.has(f)));
+ok("the two names the brief guessed at do not exist and are not requested",
+  !CAMPAIGN_INSIGHT_FIELDS.includes("video_thru_play_actions") && !CAMPAIGN_INSIGHT_FIELDS.includes("link_clicks") &&
+    !DOCUMENTED_INSIGHT_FIELDS.has("video_thru_play_actions") && !DOCUMENTED_INSIGHT_FIELDS.has("link_clicks"));
+ok("every field requested lands somewhere: each is read by parseInsightsRow",
+  (() => {
+    const src = readFileSync(new URL("../lib/meta/insightsImport.js", import.meta.url), "utf8");
+    return CAMPAIGN_INSIGHT_FIELDS.every((f) => src.includes(`raw?.${f}`) || src.includes(`raw.${f}`));
+  })(),
+  CAMPAIGN_INSIGHT_FIELDS);
+for (const f of ["campaign_id", "campaign_name", "objective", "spend", "impressions", "reach", "clicks", "inline_link_clicks", "actions"]) {
+  ok(`the sync asks for ${f}`, CAMPAIGN_INSIGHT_FIELDS.includes(f));
+}
+ok("…and nothing that no column stores (cost_per_action_type, the video threshold fields)",
+  !CAMPAIGN_INSIGHT_FIELDS.some((f) => f === "cost_per_action_type" || f.startsWith("video_")));
+
 console.log("\n2. lib/meta/client.js — pure helpers against hostile input\n");
 
 ok("classifyMetaError: code 190 is always an auth_error, regardless of HTTP status",
@@ -242,6 +363,49 @@ const MUTATIONS = [
       "const rowCurrency = currencyMismatch ? adAccountCurrency : null;",
       "const rowCurrency = adAccountCurrency;",
     ),
+  ],
+  [
+    "insightsImport.js",
+    INSIGHTS_LIB,
+    "reports a missing action type as 0 instead of null",
+    (s) => s.replace("  if (!row) return null;\n  const n = Number(row.value);", "  if (!row) return 0;\n  const n = Number(row.value);"),
+  ],
+  [
+    "insightsImport.js",
+    INSIGHTS_LIB,
+    "matches a messaging action type by prefix, double-counting first replies as conversations",
+    (s) => s.replace("const row = actions.find((a) => a && a.action_type === actionType);",
+      "const row = actions.find((a) => a && String(a.action_type).startsWith(actionType.slice(0, 27)));"),
+  ],
+  [
+    "insightsImport.js",
+    INSIGHTS_LIB,
+    "drops campaignId from the write plan (the column the campaign rollup groups by)",
+    (s) => s.replace("      campaignId: parsed.campaignId,\n", ""),
+  ],
+  [
+    "insightsImport.js",
+    INSIGHTS_LIB,
+    "drops the conversations-started column from the write plan",
+    (s) => s.replace("      messagingConversations: parsed.messagingConversations,\n", ""),
+  ],
+  [
+    "insightsImport.js",
+    INSIGHTS_LIB,
+    "stores an empty string instead of null for a missing objective",
+    (s) => s.replace('objective: raw?.objective ? String(raw.objective) : null,', 'objective: raw?.objective ? String(raw.objective) : "",'),
+  ],
+  [
+    "client.js",
+    CLIENT_LIB,
+    "asks Meta for a field that does not exist (the brief's spelling of the ThruPlay field)",
+    (s) => s.replace('  "actions",\n]);', '  "actions",\n  "video_thru_play_actions",\n]);'),
+  ],
+  [
+    "client.js",
+    CLIENT_LIB,
+    "stops asking Meta for reach",
+    (s) => s.replace('  "reach", // → reach\n', ""),
   ],
   [
     "client.js",
