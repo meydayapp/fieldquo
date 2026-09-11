@@ -42,7 +42,7 @@ import {
   describeStage,
 } from "@/lib/sales/pipeline/progress";
 import { TASK_KINDS } from "@/lib/sales/pipeline/kinds";
-import { NEXT_STAGE, advanceChain } from "@/lib/sales/pipeline/chain";
+import { CLAIMED_TAIL, NEXT_STAGE, advanceChain, nextStageFor } from "@/lib/sales/pipeline/chain";
 import {
   CLAIMED_NOT_BEFORE,
   inheritedPayload,
@@ -112,9 +112,12 @@ section("1. Every stage is described, and the order is the chain's own");
   // enrichment branches (no website means no crawl) — so the walk starts where
   // the chain becomes a line. Asserting a single walk from the top would be
   // asserting a pipeline shape this one deliberately does not have.
+  // …and the claimed tail (CLAIMED_TAIL) continues past where NEXT_STAGE ends,
+  // so the board's order is the backlog walk followed by the claimed walk.
   let walked = ["CRAWL_WEBSITE"];
   while (NEXT_STAGE[walked.at(-1)]) walked.push(NEXT_STAGE[walked.at(-1)]);
-  ok("the linear tail is in NEXT_STAGE's own order",
+  while (CLAIMED_TAIL[walked.at(-1)]) walked.push(CLAIMED_TAIL[walked.at(-1)]);
+  ok("the linear tail is in NEXT_STAGE's own order, then the claimed tail's",
     JSON.stringify(walked) === JSON.stringify(TASK_KINDS.slice(TASK_KINDS.indexOf("CRAWL_WEBSITE"))), walked);
   ok("…and the two fan-out stages come before it",
     TASK_KINDS.slice(0, 2).join() === "DISCOVER_BUSINESSES,ENRICH_BUSINESS");

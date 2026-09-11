@@ -40,6 +40,14 @@
 // copy, never a blank panel, the property lib/site/generateSite.js holds for
 // the same reason. Nothing here touches lib/ai/provider.js, so there is no
 // quota to check and no top-up to offer.
+//
+// The AI script the owner asked for does exist — and it is a ROW, not a call.
+// GENERATE_CALL_SCRIPT (lib/sales/pipeline/handlers/generateCallScript.js)
+// writes ProspectCallScript once per claimed prospect per crawl, in the
+// background, metered; this route reads it with one findUnique and reports
+// `callScript: null` when there is none yet. The rules-built script below it
+// is unchanged either way, so a prospect whose script has not been written
+// gets exactly the screen it got before.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -69,13 +77,24 @@ export async function GET(request) {
     );
   }
 
-  const result = await assembleProspectPlaybook({
-    prospectId,
-    rep: { id: rep.id, name: rep.name },
-    useAi: false,
-    persist: false,
-    assignVariant: false,
-  });
+  const [result, stored] = await Promise.all([
+    assembleProspectPlaybook({
+      prospectId,
+      rep: { id: rep.id, name: rep.name },
+      useAi: false,
+      persist: false,
+      assignVariant: false,
+    }),
+    // Guarded on the client having the model: a client generated before the
+    // table was added reads as "no script yet", never as a crash on a screen
+    // a rep is dialling from.
+    typeof db.prospectCallScript?.findUnique === "function"
+      ? db.prospectCallScript.findUnique({
+          where: { prospectId },
+          select: { script: true, model: true, generatedAt: true, crawledAt: true, promptVersion: true },
+        })
+      : Promise.resolve(null),
+  ]);
   if (!result.found) {
     return NextResponse.json({ error: "No prospect with that id." }, { status: 404 });
   }
@@ -105,6 +124,17 @@ export async function GET(request) {
     // phoning a stranger with words that claim to know something about them.
     noPlaybookReason: result.selection.selected ? null : result.selection.reasonText,
     script: result.script,
+    // Present exactly when the pipeline has written one. Null is a true
+    // answer — "not generated yet" — and the screen renders the rules alone.
+    callScript: stored?.script
+      ? {
+          ...stored.script,
+          generatedAt: stored.generatedAt,
+          crawledAt: stored.crawledAt,
+          model: stored.model,
+          version: stored.promptVersion,
+        }
+      : null,
     objections: result.objections,
     talkingPoints: result.talkingPoints,
     // Carried up so a three-line script off a business whose site timed out

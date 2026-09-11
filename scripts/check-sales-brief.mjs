@@ -235,9 +235,14 @@ ok(
 );
 ok("CALCULATE_LEAD_SCORE spends nothing", PROVIDER_BY_KIND.CALCULATE_LEAD_SCORE === "local");
 ok("GENERATE_RESEARCH_BRIEF is the one that does", PROVIDER_BY_KIND.GENERATE_RESEARCH_BRIEF === "openai");
+// Two, since the call script: both are one call per prospect at the END of
+// the chain, and the second only on the claimed lane (chain.js CLAIMED_TAIL).
+// Anything else joining this list is a stage that has started spending money
+// without saying so.
 ok(
-  "…and it is the ONLY stage on the openai budget",
-  Object.entries(PROVIDER_BY_KIND).filter(([, p]) => p === "openai").length === 1,
+  "…and the call script is the only other stage on the openai budget",
+  JSON.stringify(Object.entries(PROVIDER_BY_KIND).filter(([, p]) => p === "openai").map(([k]) => k).sort()) ===
+    JSON.stringify(["GENERATE_CALL_SCRIPT", "GENERATE_RESEARCH_BRIEF"]),
   Object.entries(PROVIDER_BY_KIND).filter(([, p]) => p === "openai"),
 );
 {

@@ -10937,6 +10937,43 @@ model CrawlHostPolicy {
   updatedAt DateTime @updatedAt
 }
 
+/// The AI-written call script for one claimed prospect.
+///
+/// Written by the GENERATE_CALL_SCRIPT pipeline stage, once per claim per
+/// crawl, and READ by /api/sales/playbook on every page view — the route
+/// never calls a model. `inputHash` is over everything the model was shown
+/// (lib/sales/intel/callScript.js); a stored row with a matching hash and
+/// version is left alone, so two claims between the same two crawls spend
+/// nothing the second time. `script` is the validated shape: opener,
+/// whatWeSaw[], whyThemNow, threeQuestions[], objections[{they,you}],
+/// closeAsk, doNotSay[] — strings only, no digit anywhere, by the same rule
+/// the research brief keeps. English only, by decision: reps read the
+/// portal in nine languages and a script per language multiplies the cost
+/// for words read to an English-speaking contractor.
+///
+/// No relation to Prospect on purpose — the same bare prospectId
+/// SalesPipelineTask keeps, so this table can be added, and later dropped,
+/// without touching the Prospect model.
+model ProspectCallScript {
+  id         String @id @default(cuid())
+  prospectId String @unique
+
+  script        Json
+  model         String
+  promptVersion String
+  inputHash     String
+
+  /// The prospect's lastCrawledAt when the script was written, so the screen
+  /// can say "Generated from what the crawler saw on <date>" and the planner
+  /// can tell a script that predates a newer crawl. Null when the website
+  /// had not been read — the screen says that instead.
+  crawledAt   DateTime?
+  generatedAt DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // FieldQuo's own do-not-contact list
 // ═══════════════════════════════════════════════════════════════════════════

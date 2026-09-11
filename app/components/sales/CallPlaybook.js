@@ -38,7 +38,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertCircle, ChevronLeft, ChevronRight, CircleHelp, Loader2, ShieldAlert } from "lucide-react";
+import { AlertCircle, ChevronLeft, ChevronRight, CircleHelp, Loader2, ShieldAlert, Sparkles } from "lucide-react";
 import { objectionsToShow } from "@/lib/sales/playbook/objections";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
@@ -85,6 +85,116 @@ function Objection({ row }) {
 }
 
 /**
+ * The script a model wrote for THIS call, above the rules.
+ *
+ * Rendered only when the route returned one (`data.callScript`), and the
+ * rules-built stages and the objection rail stay below it unchanged — the
+ * generated page is a layer on top of the fallback, never a replacement for
+ * it, so a prospect whose script has not been written yet gets the same
+ * screen as before. The sentences are English by decision and printed
+ * verbatim (lib/sales/intel/callScript.js says why); only the headings are
+ * the rep's language.
+ *
+ * The date is the crawl the script describes. A script written before the
+ * website was read says so rather than borrowing a date from elsewhere.
+ */
+function H({ children }) {
+  return <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand-accent-text">{children}</p>;
+}
+
+function AiScript({ script, language }) {
+  const { t } = useTranslation();
+  const crawled = script.crawledAt ? new Date(script.crawledAt) : null;
+  const when = crawled && !Number.isNaN(crawled.getTime())
+    ? crawled.toLocaleDateString(language || undefined, { year: "numeric", month: "short", day: "numeric" })
+    : null;
+  return (
+    <div
+      className="rounded-lg border border-brand-accent/40 bg-brand-accent/5 p-3 space-y-3"
+      data-testid="ai-call-script"
+    >
+      <div className="flex items-start gap-2">
+        <Sparkles size={16} className="mt-0.5 shrink-0 text-brand-accent-text" />
+        <div className="space-y-0.5 min-w-0">
+          <p className="text-sm font-semibold text-foreground">{t("app.salesCall.aiScriptHeading")}</p>
+          <p className="text-xs text-muted-foreground break-words">
+            {when
+              ? t("app.salesCall.aiScriptGenerated", { date: when })
+              : t("app.salesCall.aiScriptGeneratedNoCrawl")}
+          </p>
+        </div>
+      </div>
+
+      <div>
+        <H>{t("app.salesCall.aiScriptOpener")}</H>
+        <p className="text-base text-foreground break-words mt-1">{script.opener}</p>
+      </div>
+
+      {script.whatWeSaw?.length ? (
+        <div>
+          <H>{t("app.salesCall.aiScriptWhatWeSaw")}</H>
+          <ul className="list-disc pl-5 mt-1 space-y-1">
+            {script.whatWeSaw.map((line, i) => (
+              <li key={i} className="text-sm text-foreground break-words">{line}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <div>
+        <H>{t("app.salesCall.aiScriptWhyNow")}</H>
+        <p className="text-sm text-foreground break-words mt-1">{script.whyThemNow}</p>
+      </div>
+
+      {script.threeQuestions?.length ? (
+        <div>
+          <H>{t("app.salesCall.aiScriptQuestions")}</H>
+          <ol className="list-decimal pl-5 mt-1 space-y-1">
+            {script.threeQuestions.map((q, i) => (
+              <li key={i} className="text-sm text-foreground break-words">{q}</li>
+            ))}
+          </ol>
+        </div>
+      ) : null}
+
+      {script.objections?.length ? (
+        <div>
+          <H>{t("app.salesCall.aiScriptObjections")}</H>
+          <div className="mt-1 space-y-2">
+            {script.objections.map((o, i) => (
+              <div key={i} className="text-sm break-words">
+                <p className="text-muted-foreground italic">“{o.they}”</p>
+                <p className="text-foreground">{o.you}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <div>
+        <H>{t("app.salesCall.aiScriptClose")}</H>
+        <p className="text-sm text-foreground break-words mt-1">{script.closeAsk}</p>
+      </div>
+
+      {script.doNotSay?.length ? (
+        <div>
+          <H>{t("app.salesCall.aiScriptDoNotSay")}</H>
+          <ul className="list-disc pl-5 mt-1 space-y-1">
+            {script.doNotSay.map((line, i) => (
+              <li key={i} className="text-sm text-amber-900 dark:text-amber-200 break-words">{line}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <p className="text-xs text-muted-foreground break-words border-t border-border pt-2">
+        {t("app.salesCall.aiScriptRulesBelow")}
+      </p>
+    </div>
+  );
+}
+
+/**
  * @param unavailable  why there is no script to show, when that is a fact
  *                     rather than a failure. A lead the rep typed in has no
  *                     discovery behind it and therefore no playbook, and the
@@ -108,7 +218,7 @@ export default function CallPlaybook({
   // verbatim. Translating what a rep is about to READ ALOUD to an
   // English-speaking contractor would be the one change on this screen that
   // could not be undone by the time they heard it.
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [stageIndex, setStageIndex] = useState(0);
   const [heard, setHeard] = useState("");
 
@@ -189,6 +299,12 @@ export default function CallPlaybook({
           </p>
         )}
       </div>
+
+      {/* ── The generated script, when the pipeline has written one ───────
+          Above the stages, because it is about THIS business and the stages
+          are about every business of its tier. Absent, nothing is drawn: the
+          stages below are the whole screen, as they were. */}
+      {data.callScript ? <AiScript script={data.callScript} language={language} /> : null}
 
       {/* ── One stage, and the rep moves it ──────────────────────────────── */}
       {stage ? (

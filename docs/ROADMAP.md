@@ -1,12 +1,82 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 11 September 2026 (The rep queue claims a day, not a prospect. "Claim the next 100" — `lib/sales/queueBatch.js` — takes up to `QUEUE_BATCH_MAX` (100) rows of the picked trade in one transaction, researched first (`lastCrawledAt` plus a capability or opportunity) then unresearched, the pool's own order inside each, rows this rep released in the last 7 days last; only rows whose calling window is open before the rep's local midnight (the zone the browser sends; nothing on `SalesRep` holds one); at most `QUEUE_DAILY_CLAIM_CAP` (150) per rep per local day, counted from the new `SalesQueueClaim` log so claim-release-claim cannot walk past it. Winners are the rows the `updateMany` matched, read back by rep and instant; the log records dial order (`position`) and the response returns the ordered ids for the autodialler. "Just one" keeps the single path, logged and capped the same. "Release the rest" and the hourly `app/api/cron/sales-queue-release` give back every held row with no call attempt since the claim (`releaseUntouched`, one function for both), closing the log with `rest`/`day_end`; a dialled row is kept, a worked row is out of scope, nothing is deleted. The queue page lists the day in that order — name, trade · city, researched ✓ / researching… (from the pipeline's task table) / not researched, window opens/closes in the prospect's zone, last outcome. The dial card is no longer `lg:sticky`: taller than the viewport on a call, it pinned and the lead editor and notes scrolled up behind it; measured at 1280×800 (covered → not covered) and 390×844 (never applied). `check:sales-batch-claim` executes all of it against a scripted db; mutation-tested six ways.)
+Last updated: 11 September 2026 (Research on claim, the backlog fed, and the AI call script — `ensureResearchQueued({ db, prospectIds, priority })` in `lib/sales/pipeline/research.js` (re-exported from `progress.js`) queues the first missing research stage per prospect, `priority: "claimed"` ahead of the backlog by a fixed-past `notBefore`; the cron tops the backlog up 60 never-crawled websites a run under a 5,000-pending ceiling, phrasing nothing; `CrawlHostPolicy` holds a host after a busy resolver answer; `GENERATE_CALL_SCRIPT` writes `ProspectCallScript` once per claimed prospect per crawl, ~$0.0008 each, $3.24/day at 4,000 claims, drawn above the rules in `CallPlaybook.js`. Found and NOT decided here: `ENRICH_BUSINESS` moves rows to `researching`, which `claimCandidateWhere()` does not admit — every researched prospect is unclaimable; the research queued here sends `promote: false` so it stops making more of them. Section below.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## Research on claim, the backlog fed, and the AI call script (11 September 2026)
+
+Measured before anything was built: 321,668 prospects, `lastCrawledAt` on
+4,224, `hasWebsite: true` on 46,537, CRAWL_WEBSITE pending **0**. Research had
+run 13,734 times, every one queued by a Google/Overture discovery page; the
+267,087 board-imported rows never entered it. The rep's queue handed out
+"Richmond Rolloff Container Service" — website, URL, no crawl — and the
+playbook said "Nothing has been observed about this business yet".
+
+**And the finding that matters most:** `ENRICH_BUSINESS` promotes
+`discovered → researching`, and `claimCandidateWhere()` admits `discovered`
+and nothing else. Every one of the 13,734 researched prospects is
+**unclaimable for having been researched**, and 0 of the 184,799 claimable
+ones has a crawl. This is a one-line product decision for the queue —
+admit `researching` in `claimCandidateWhere`, or revert the 13,734 — and it
+is not taken here. What IS done: the research this work queues carries
+`promote: false`, so a claimable prospect stays claimable after being read.
+
+- **`ensureResearchQueued({ db, prospectIds, priority })`** in
+  `lib/sales/pipeline/research.js`, re-exported from `progress.js`. Plans the
+  first missing stage per prospect (`researchPlan`, pure) and queues that one;
+  the chain does the rest. `priority: "claimed"` puts the tasks ahead of the
+  backlog by a `notBefore` fixed at 2000-01-01 (`priority.js`) — the runner
+  already orders by `notBefore, createdAt`, so no column and no runner change;
+  the lane rides in `payload.priority` and `advanceChain` copies it onto each
+  successor. A retry's backoff is the one place the lane is lost, said in the
+  file. EBUSY / `TypeError` / `host_slot:*` crawl failures are re-queued, at
+  most `MAX_REQUEUES` (2) times; `robots_unreachable_*`, `resolves_private`,
+  `robots_disallowed` stay dealt with. The claim route is the caller — the
+  queue work above lands it.
+- **The backlog**: `topUpResearchBacklog` at the end of every
+  `/api/cron/sales-pipeline` tick — up to 60 never-crawled websites a run,
+  oldest claimable first, nothing while 5,000 enrich-or-crawl tasks wait.
+  Arithmetic in the file: 40 crawls/run × 60 = 2,400/hour at the provider
+  ceiling (17.7 h for 42,383); ~14 crawls/run at the run's wall clock
+  (robots + 6 pages at a 3 s crawl-delay, sequential, inside 300 s), ~840/hour,
+  about 50 h. Budgets not raised. The backlog lane carries `phrase: false` —
+  the brief composes from rows, no model, free.
+- **DNS backoff per host**: `CrawlHostPolicy.dnsFailures` /
+  `dnsBackoffUntil` (additive, pushed). A busy resolver answer on the
+  robots.txt lookup holds the host 30 min, doubling, capped at 6 h, cleared
+  when robots.txt is fetched; the crawler hands the wait out as
+  `retryAfterMs` and `failureOutcome` takes the longer of it and the ladder.
+- **`GENERATE_CALL_SCRIPT`**, the ninth stage, claimed lane only
+  (`chain.js CLAIMED_TAIL`), `openai` budget shared with the brief. Input =
+  the composed brief + capabilities + opportunities + the rules-built
+  playbook and objection library, as sentences; output = `{ opener,
+  whatWeSaw[], whyThemNow, threeQuestions[3], objections[{they,you}],
+  closeAsk, doNotSay[] }`, strict schema, no digit anywhere, English only by
+  decision (headings are keyed in nine languages). Stored on
+  **`ProspectCallScript`** (additive, pushed) with `inputHash` over what the
+  model saw — regenerated only when a crawl or an edit changes it. Metered
+  through `lib/ai/platformUsage.js` under `call_script`; a spent budget
+  refuses terminally. `/api/sales/playbook` reads the row (still writes
+  nothing, still names no vendor) and `CallPlaybook.js` draws it above the
+  stages when present, "Generated from what the crawler saw on <date>"; the
+  rules and the objection rail stay below.
+- **Cost, measured on real prompts** (five of the fullest researched
+  prospects, 1,100–1,600 prompt tokens, ~640 completion): **$0.0008 per
+  script at gpt-5-mini, $3.24/day at 4,000 claims/day** (100 per rep × 40
+  reps); up to ~$7/day if the reasoning model spends its whole 1,600-token
+  completion budget. `PlatformAiBudget` rows cap it; none exist yet.
+- Checks: `check:pipeline-progress` (196; §8–14 new) and `check:call-script`
+  (100, new, in `check:all`). Mutation-tested five ways: a refusal re-queued,
+  the lane's notBefore dropped, the runner ignoring a longer wait, the hash
+  skip removed, the screen drawing the block unconditionally — each red by
+  exit code, restored with `cp`.
 
 ---
 
