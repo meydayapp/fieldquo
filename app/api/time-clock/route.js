@@ -20,6 +20,16 @@
 // The job stays OPTIONAL. Travel, the yard and a morning of quoting are real
 // hours with no job, and a mandatory field would produce invented attributions
 // rather than better ones.
+//
+// ── Where the phone was ────────────────────────────────────────────────────
+//
+// The body may carry `stamp` — the phone's position at the tap, captured once
+// by lib/location/capture.js with the OS permission prompt in front of it.
+// It is recorded AFTER the entry is written, through a helper that never
+// throws, and nothing about the response depends on it: a refused permission,
+// a desktop browser, an old client or a malformed stamp all produce exactly
+// the response this route gave before the field existed. See
+// lib/location/stamps.js for what "not tracking" means here.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -28,6 +38,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember } from "@/lib/permissions/enforce";
 import { clockJobOptions, clockableJobWhere, dayBoundsInZone } from "@/lib/timeclock/jobChoices";
 import { todayHoursFrom } from "@/lib/timeclock/todayHours";
+import { recordStampIfPresent } from "@/lib/location/stamps";
 
 // The worker record tied to the signed-in user, or null if they were never
 // added under Workers (an admin has to create that link first).
@@ -217,6 +228,16 @@ export async function POST(request) {
       },
       select: { id: true, clockIn: true, jobId: true, job: { select: { id: true, title: true } } },
     });
+    // After the write, never before it, and never able to fail it.
+    await recordStampIfPresent({
+      db,
+      companyId: member.companyId,
+      kind: "clock_in",
+      stamp: body?.stamp,
+      workerId: worker.id,
+      timeEntryId: entry.id,
+      jobId: entry.jobId,
+    });
     return NextResponse.json({ ok: true, open: entry });
   }
 
@@ -232,6 +253,15 @@ export async function POST(request) {
       where: { id: open.id },
       data: { clockOut, hours },
       select: { id: true, clockIn: true, clockOut: true, hours: true, jobId: true },
+    });
+    await recordStampIfPresent({
+      db,
+      companyId: member.companyId,
+      kind: "clock_out",
+      stamp: body?.stamp,
+      workerId: worker.id,
+      timeEntryId: entry.id,
+      jobId: entry.jobId,
     });
     return NextResponse.json({ ok: true, entry });
   }
@@ -295,6 +325,31 @@ export async function POST(request) {
         select: { id: true, clockIn: true, jobId: true, job: { select: { id: true, title: true } } },
       }),
     ]);
+    // A switch is a clock-out and a clock-in at one instant, so the one
+    // position is kept beside both — the timesheet reads each entry on its
+    // own and each deserves its own answer. The mis-tap branch above records
+    // nothing: the entry was re-pointed, and its original clock-in stamp
+    // still says where the person was when they started.
+    if (body?.stamp != null) {
+      await recordStampIfPresent({
+        db,
+        companyId: member.companyId,
+        kind: "clock_out",
+        stamp: body.stamp,
+        workerId: worker.id,
+        timeEntryId: open.id,
+        jobId: open.jobId,
+      });
+      await recordStampIfPresent({
+        db,
+        companyId: member.companyId,
+        kind: "clock_in",
+        stamp: body.stamp,
+        workerId: worker.id,
+        timeEntryId: entry.id,
+        jobId: entry.jobId,
+      });
+    }
     return NextResponse.json({ ok: true, open: entry, closedHours: hours });
   }
 

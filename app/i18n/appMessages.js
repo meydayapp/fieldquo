@@ -8126,6 +8126,29 @@ const en = {
   // rep reading it, so the catalogue entry says what happened to their words
   // instead. The path is still named on the screen, separately.
   "app.salesNotes.unavailableModelMissing": "Rep notes aren't switched on yet — the table they live in hasn't been created. Nothing you typed was saved.",
+  // ── Where the phone was, at the tap ─────────────────────────────────────
+  //
+  // Position stamps beside a clock-in, a clock-out, an "on my way" and a
+  // "complete" — asked once, with permission, never in the background. The
+  // crew notice is the sentence Quebec's Law 25 s. 8.1 asks for before a
+  // technology that can locate someone is used; the timesheet legend says the
+  // same thing to the manager reading the flags. See lib/location/stamps.js.
+  "app.clock.locationNotice": "When you tap, your phone is asked where it is — once, with your permission — and that one position is kept beside this punch so the timesheet can show how far from the site you were. Nothing runs in the background and nothing is tracked between taps.",
+  "app.timesheets.stampIn": "In",
+  "app.timesheets.stampOut": "Out",
+  "app.timesheets.onSite": "On site",
+  "app.timesheets.onSiteTitle": "Tapped {distance} from the job's address.",
+  "app.timesheets.awayBy": "{distance} away",
+  "app.timesheets.awayTitle": "Tapped {distance} from the job's address. Worth a look — approving is still your call.",
+  "app.timesheets.stampUnknown": "No position to show: the phone didn't answer, the job has no site address, or the reading was too rough to trust.",
+  "app.timesheets.stampLegend": "Position is captured only at the moment they tap Clock in or Clock out, with their permission. Nothing is tracked in between. A flag is a question for you, not a verdict.",
+  "app.job.siteAddress": "Site address",
+  "app.job.siteNotPinned": "Couldn't place this address on a map, so distances can't be shown for this job. Check the address and save it again.",
+  "app.job.arrivedFrom": "Arrived {distance} from the site",
+  "app.job.completedFrom": "Completed {distance} from the site",
+  "app.job.stampNoDistance": "Position noted — the job had no site address to measure it against",
+  "app.jobEdit.siteAddressHint": "Where the work happens, if it isn't where the bill goes. Used to show how far from the site the crew was when they clocked in.",
+  "app.jobNew.siteAddressPlaceholder": "Street, city, postal code",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -15772,6 +15795,29 @@ const fr = {
   // rep reading it, so the catalogue entry says what happened to their words
   // instead. The path is still named on the screen, separately.
   "app.salesNotes.unavailableModelMissing": "Les notes des représentants ne sont pas encore activées — la table qui les contient n’a pas été créée. Rien de ce que vous avez saisi n’a été enregistré.",
+  // ── Where the phone was, at the tap ─────────────────────────────────────
+  //
+  // Position stamps beside a clock-in, a clock-out, an "on my way" and a
+  // "complete" — asked once, with permission, never in the background. The
+  // crew notice is the sentence Quebec's Law 25 s. 8.1 asks for before a
+  // technology that can locate someone is used; the timesheet legend says the
+  // same thing to the manager reading the flags. See lib/location/stamps.js.
+  "app.clock.locationNotice": "Quand vous appuyez, votre téléphone est interrogé sur sa position — une seule fois, avec votre permission — et cette position est conservée à côté de ce pointage pour que la feuille de temps puisse indiquer à quelle distance du chantier vous étiez. Rien ne tourne en arrière-plan et rien n'est suivi entre deux pointages.",
+  "app.timesheets.stampIn": "Entrée",
+  "app.timesheets.stampOut": "Sortie",
+  "app.timesheets.onSite": "Sur place",
+  "app.timesheets.onSiteTitle": "Pointé à {distance} de l'adresse du travail.",
+  "app.timesheets.awayBy": "à {distance}",
+  "app.timesheets.awayTitle": "Pointé à {distance} de l'adresse du travail. À vérifier — l'approbation reste votre décision.",
+  "app.timesheets.stampUnknown": "Aucune position à afficher : le téléphone n'a pas répondu, le travail n'a pas d'adresse de chantier, ou la lecture était trop imprécise pour être fiable.",
+  "app.timesheets.stampLegend": "La position n'est saisie qu'au moment où ils appuient sur Pointer l'entrée ou la sortie, avec leur permission. Rien n'est suivi entre-temps. Un drapeau est une question pour vous, pas un verdict.",
+  "app.job.siteAddress": "Adresse du chantier",
+  "app.job.siteNotPinned": "Impossible de placer cette adresse sur une carte : les distances ne peuvent pas être affichées pour ce travail. Vérifiez l'adresse et enregistrez-la de nouveau.",
+  "app.job.arrivedFrom": "Arrivé à {distance} du chantier",
+  "app.job.completedFrom": "Terminé à {distance} du chantier",
+  "app.job.stampNoDistance": "Position notée — le travail n'avait pas d'adresse de chantier pour la mesurer",
+  "app.jobEdit.siteAddressHint": "Où se fait le travail, si ce n'est pas là où va la facture. Sert à indiquer à quelle distance du chantier l'équipe était au pointage.",
+  "app.jobNew.siteAddressPlaceholder": "Rue, ville, code postal",
 };
 
 
@@ -23762,6 +23808,29 @@ const es = {
   // rep reading it, so the catalogue entry says what happened to their words
   // instead. The path is still named on the screen, separately.
   "app.salesNotes.unavailableModelMissing": "Las notas de los comerciales todavía no están activadas: la tabla en la que viven no se ha creado. No se ha guardado nada de lo que escribiste.",
+  // ── Where the phone was, at the tap ─────────────────────────────────────
+  //
+  // Position stamps beside a clock-in, a clock-out, an "on my way" and a
+  // "complete" — asked once, with permission, never in the background. The
+  // crew notice is the sentence Quebec's Law 25 s. 8.1 asks for before a
+  // technology that can locate someone is used; the timesheet legend says the
+  // same thing to the manager reading the flags. See lib/location/stamps.js.
+  "app.clock.locationNotice": "Al tocar, se le pregunta al teléfono dónde está — una sola vez, con tu permiso — y esa posición se guarda junto a esta marcación para que la hoja de horas muestre a qué distancia del sitio estabas. Nada corre en segundo plano y nada se rastrea entre marcaciones.",
+  "app.timesheets.stampIn": "Entrada",
+  "app.timesheets.stampOut": "Salida",
+  "app.timesheets.onSite": "En el sitio",
+  "app.timesheets.onSiteTitle": "Marcó a {distance} de la dirección del trabajo.",
+  "app.timesheets.awayBy": "a {distance}",
+  "app.timesheets.awayTitle": "Marcó a {distance} de la dirección del trabajo. Vale la pena revisarlo — aprobar sigue siendo tu decisión.",
+  "app.timesheets.stampUnknown": "Sin posición que mostrar: el teléfono no respondió, el trabajo no tiene dirección del sitio, o la lectura era demasiado imprecisa para confiar en ella.",
+  "app.timesheets.stampLegend": "La posición se captura solo en el momento en que tocan Marcar entrada o Marcar salida, con su permiso. Nada se rastrea entre medio. Una bandera es una pregunta para ti, no un veredicto.",
+  "app.job.siteAddress": "Dirección del sitio",
+  "app.job.siteNotPinned": "No se pudo ubicar esta dirección en un mapa, así que no se pueden mostrar distancias para este trabajo. Revisa la dirección y guárdala de nuevo.",
+  "app.job.arrivedFrom": "Llegó a {distance} del sitio",
+  "app.job.completedFrom": "Completado a {distance} del sitio",
+  "app.job.stampNoDistance": "Posición anotada — el trabajo no tenía dirección del sitio contra la cual medirla",
+  "app.jobEdit.siteAddressHint": "Dónde se hace el trabajo, si no es donde va la factura. Se usa para mostrar a qué distancia del sitio estaba la cuadrilla al marcar entrada.",
+  "app.jobNew.siteAddressPlaceholder": "Calle, ciudad, código postal",
 };
 
 const uk = {
@@ -29768,6 +29837,29 @@ const uk = {
   // rep reading it, so the catalogue entry says what happened to their words
   // instead. The path is still named on the screen, separately.
   "app.salesNotes.unavailableModelMissing": "Нотатки менеджера ще не ввімкнено — таблиця, у якій вони зберігаються, не створена. Нічого з того, що ви набрали, не збережено.",
+  // ── Where the phone was, at the tap ─────────────────────────────────────
+  //
+  // Position stamps beside a clock-in, a clock-out, an "on my way" and a
+  // "complete" — asked once, with permission, never in the background. The
+  // crew notice is the sentence Quebec's Law 25 s. 8.1 asks for before a
+  // technology that can locate someone is used; the timesheet legend says the
+  // same thing to the manager reading the flags. See lib/location/stamps.js.
+  "app.clock.locationNotice": "Коли ви натискаєте, телефон запитують, де він — один раз, з вашого дозволу — і цю одну позицію зберігають поруч із цією відміткою, щоб табель міг показати, як далеко від об'єкта ви були. Нічого не працює у фоні, і нічого не відстежується між натисканнями.",
+  "app.timesheets.stampIn": "Прихід",
+  "app.timesheets.stampOut": "Вихід",
+  "app.timesheets.onSite": "На об'єкті",
+  "app.timesheets.onSiteTitle": "Відмічено за {distance} від адреси роботи.",
+  "app.timesheets.awayBy": "за {distance}",
+  "app.timesheets.awayTitle": "Відмічено за {distance} від адреси роботи. Варто переглянути — затвердження залишається вашим рішенням.",
+  "app.timesheets.stampUnknown": "Немає позиції для показу: телефон не відповів, у роботи немає адреси об'єкта, або вимір був надто неточним, щоб йому довіряти.",
+  "app.timesheets.stampLegend": "Позиція фіксується лише в момент, коли вони натискають Прихід або Вихід, з їхнього дозволу. Між цим нічого не відстежується. Прапорець — це питання для вас, а не вирок.",
+  "app.job.siteAddress": "Адреса об'єкта",
+  "app.job.siteNotPinned": "Не вдалося знайти цю адресу на карті, тому відстані для цієї роботи не показуються. Перевірте адресу та збережіть її знову.",
+  "app.job.arrivedFrom": "Прибув за {distance} від об'єкта",
+  "app.job.completedFrom": "Завершено за {distance} від об'єкта",
+  "app.job.stampNoDistance": "Позицію зафіксовано — у роботи не було адреси об'єкта, щоб виміряти відстань",
+  "app.jobEdit.siteAddressHint": "Де виконується робота, якщо це не там, куди йде рахунок. Використовується, щоб показати, як далеко від об'єкта була бригада під час відмітки приходу.",
+  "app.jobNew.siteAddressPlaceholder": "Вулиця, місто, поштовий індекс",
 };
 
 const pa = {
@@ -35706,6 +35798,29 @@ const pa = {
   // rep reading it, so the catalogue entry says what happened to their words
   // instead. The path is still named on the screen, separately.
   "app.salesNotes.unavailableModelMissing": "ਪ੍ਰਤੀਨਿਧੀ ਦੇ ਨੋਟ ਅਜੇ ਚਾਲੂ ਨਹੀਂ ਹੋਏ — ਜਿਸ ਸਾਰਣੀ ਵਿੱਚ ਉਹ ਰਹਿੰਦੇ ਹਨ ਉਹ ਬਣੀ ਹੀ ਨਹੀਂ। ਜੋ ਤੁਸੀਂ ਲਿਖਿਆ ਸੀ ਉਹ ਸੰਭਾਲਿਆ ਨਹੀਂ ਗਿਆ।",
+  // ── Where the phone was, at the tap ─────────────────────────────────────
+  //
+  // Position stamps beside a clock-in, a clock-out, an "on my way" and a
+  // "complete" — asked once, with permission, never in the background. The
+  // crew notice is the sentence Quebec's Law 25 s. 8.1 asks for before a
+  // technology that can locate someone is used; the timesheet legend says the
+  // same thing to the manager reading the flags. See lib/location/stamps.js.
+  "app.clock.locationNotice": "ਜਦੋਂ ਤੁਸੀਂ ਟੈਪ ਕਰਦੇ ਹੋ, ਤੁਹਾਡੇ ਫ਼ੋਨ ਤੋਂ ਪੁੱਛਿਆ ਜਾਂਦਾ ਹੈ ਕਿ ਉਹ ਕਿੱਥੇ ਹੈ — ਸਿਰਫ਼ ਇੱਕ ਵਾਰ, ਤੁਹਾਡੀ ਇਜਾਜ਼ਤ ਨਾਲ — ਅਤੇ ਉਹ ਇੱਕ ਥਾਂ ਇਸ ਪੰਚ ਦੇ ਨਾਲ ਰੱਖੀ ਜਾਂਦੀ ਹੈ ਤਾਂ ਜੋ ਟਾਈਮਸ਼ੀਟ ਦਿਖਾ ਸਕੇ ਕਿ ਤੁਸੀਂ ਸਾਈਟ ਤੋਂ ਕਿੰਨੀ ਦੂਰ ਸੀ। ਪਿਛੋਕੜ ਵਿੱਚ ਕੁਝ ਨਹੀਂ ਚੱਲਦਾ ਅਤੇ ਟੈਪਾਂ ਦੇ ਵਿਚਕਾਰ ਕੁਝ ਵੀ ਟਰੈਕ ਨਹੀਂ ਹੁੰਦਾ।",
+  "app.timesheets.stampIn": "ਅੰਦਰ",
+  "app.timesheets.stampOut": "ਬਾਹਰ",
+  "app.timesheets.onSite": "ਸਾਈਟ 'ਤੇ",
+  "app.timesheets.onSiteTitle": "ਕੰਮ ਦੇ ਪਤੇ ਤੋਂ {distance} ਦੂਰ ਟੈਪ ਕੀਤਾ।",
+  "app.timesheets.awayBy": "{distance} ਦੂਰ",
+  "app.timesheets.awayTitle": "ਕੰਮ ਦੇ ਪਤੇ ਤੋਂ {distance} ਦੂਰ ਟੈਪ ਕੀਤਾ। ਦੇਖਣ ਲਾਇਕ ਹੈ — ਮਨਜ਼ੂਰੀ ਅਜੇ ਵੀ ਤੁਹਾਡਾ ਫ਼ੈਸਲਾ ਹੈ।",
+  "app.timesheets.stampUnknown": "ਦਿਖਾਉਣ ਲਈ ਕੋਈ ਥਾਂ ਨਹੀਂ: ਫ਼ੋਨ ਨੇ ਜਵਾਬ ਨਹੀਂ ਦਿੱਤਾ, ਕੰਮ ਦਾ ਕੋਈ ਸਾਈਟ ਪਤਾ ਨਹੀਂ, ਜਾਂ ਰੀਡਿੰਗ ਭਰੋਸੇ ਲਈ ਬਹੁਤ ਮੋਟੀ ਸੀ।",
+  "app.timesheets.stampLegend": "ਥਾਂ ਸਿਰਫ਼ ਉਸ ਪਲ ਲਈ ਜਾਂਦੀ ਹੈ ਜਦੋਂ ਉਹ ਕਲਾਕ ਇਨ ਜਾਂ ਕਲਾਕ ਆਊਟ ਟੈਪ ਕਰਦੇ ਹਨ, ਉਨ੍ਹਾਂ ਦੀ ਇਜਾਜ਼ਤ ਨਾਲ। ਵਿਚਕਾਰ ਕੁਝ ਵੀ ਟਰੈਕ ਨਹੀਂ ਹੁੰਦਾ। ਝੰਡਾ ਤੁਹਾਡੇ ਲਈ ਇੱਕ ਸਵਾਲ ਹੈ, ਫ਼ੈਸਲਾ ਨਹੀਂ।",
+  "app.job.siteAddress": "ਸਾਈਟ ਦਾ ਪਤਾ",
+  "app.job.siteNotPinned": "ਇਹ ਪਤਾ ਨਕਸ਼ੇ 'ਤੇ ਨਹੀਂ ਲੱਭਿਆ, ਇਸ ਲਈ ਇਸ ਕੰਮ ਲਈ ਦੂਰੀਆਂ ਨਹੀਂ ਦਿਖਾਈਆਂ ਜਾ ਸਕਦੀਆਂ। ਪਤਾ ਜਾਂਚੋ ਅਤੇ ਦੁਬਾਰਾ ਸੇਵ ਕਰੋ।",
+  "app.job.arrivedFrom": "ਸਾਈਟ ਤੋਂ {distance} ਦੂਰ ਪਹੁੰਚੇ",
+  "app.job.completedFrom": "ਸਾਈਟ ਤੋਂ {distance} ਦੂਰ ਪੂਰਾ ਕੀਤਾ",
+  "app.job.stampNoDistance": "ਥਾਂ ਨੋਟ ਕੀਤੀ — ਕੰਮ ਕੋਲ ਮਾਪਣ ਲਈ ਕੋਈ ਸਾਈਟ ਪਤਾ ਨਹੀਂ ਸੀ",
+  "app.jobEdit.siteAddressHint": "ਕੰਮ ਕਿੱਥੇ ਹੁੰਦਾ ਹੈ, ਜੇ ਉੱਥੇ ਨਹੀਂ ਜਿੱਥੇ ਬਿੱਲ ਜਾਂਦਾ ਹੈ। ਇਹ ਦਿਖਾਉਣ ਲਈ ਵਰਤਿਆ ਜਾਂਦਾ ਹੈ ਕਿ ਕਲਾਕ ਇਨ ਵੇਲੇ ਟੀਮ ਸਾਈਟ ਤੋਂ ਕਿੰਨੀ ਦੂਰ ਸੀ।",
+  "app.jobNew.siteAddressPlaceholder": "ਗਲੀ, ਸ਼ਹਿਰ, ਡਾਕ ਕੋਡ",
 };
 
 const tl = {
@@ -41651,6 +41766,29 @@ const tl = {
   // rep reading it, so the catalogue entry says what happened to their words
   // instead. The path is still named on the screen, separately.
   "app.salesNotes.unavailableModelMissing": "Hindi pa naka-on ang mga rep note — hindi pa nagagawa ang table na tinitirhan ng mga ito. Walang na-save sa tinipa mo.",
+  // ── Where the phone was, at the tap ─────────────────────────────────────
+  //
+  // Position stamps beside a clock-in, a clock-out, an "on my way" and a
+  // "complete" — asked once, with permission, never in the background. The
+  // crew notice is the sentence Quebec's Law 25 s. 8.1 asks for before a
+  // technology that can locate someone is used; the timesheet legend says the
+  // same thing to the manager reading the flags. See lib/location/stamps.js.
+  "app.clock.locationNotice": "Kapag nag-tap ka, tinatanong ang telepono mo kung nasaan ito — isang beses lang, nang may pahintulot mo — at ang posisyong iyon ay itinatabi sa punch na ito para maipakita ng timesheet kung gaano ka kalayo sa site. Walang tumatakbo sa background at walang sinusubaybayan sa pagitan ng mga tap.",
+  "app.timesheets.stampIn": "Pasok",
+  "app.timesheets.stampOut": "Labas",
+  "app.timesheets.onSite": "Nasa site",
+  "app.timesheets.onSiteTitle": "Nag-tap {distance} mula sa address ng trabaho.",
+  "app.timesheets.awayBy": "{distance} ang layo",
+  "app.timesheets.awayTitle": "Nag-tap {distance} mula sa address ng trabaho. Sulit tingnan — ikaw pa rin ang magpapasya sa pag-apruba.",
+  "app.timesheets.stampUnknown": "Walang posisyong maipapakita: hindi sumagot ang telepono, walang site address ang trabaho, o masyadong malabo ang reading para pagkatiwalaan.",
+  "app.timesheets.stampLegend": "Kinukuha lang ang posisyon sa sandaling i-tap nila ang Clock in o Clock out, nang may pahintulot nila. Walang sinusubaybayan sa pagitan. Ang flag ay tanong para sa iyo, hindi hatol.",
+  "app.job.siteAddress": "Address ng site",
+  "app.job.siteNotPinned": "Hindi mailagay ang address na ito sa mapa, kaya hindi maipapakita ang mga distansya para sa trabahong ito. Suriin ang address at i-save ulit.",
+  "app.job.arrivedFrom": "Dumating {distance} mula sa site",
+  "app.job.completedFrom": "Natapos {distance} mula sa site",
+  "app.job.stampNoDistance": "Naitala ang posisyon — walang site address ang trabaho na masusukat laban dito",
+  "app.jobEdit.siteAddressHint": "Kung saan ginagawa ang trabaho, kung hindi ito kung saan pinapadala ang bill. Ginagamit para ipakita kung gaano kalayo sa site ang crew nang mag-clock in sila.",
+  "app.jobNew.siteAddressPlaceholder": "Kalye, lungsod, postal code",
 };
 
 const de = {
@@ -48953,6 +49091,29 @@ const de = {
   // rep reading it, so the catalogue entry says what happened to their words
   // instead. The path is still named on the screen, separately.
   "app.salesNotes.unavailableModelMissing": "Notizen für Mitarbeiter sind noch nicht aktiviert — die Tabelle dafür wurde nicht angelegt. Nichts von dem, was Sie eingegeben haben, wurde gespeichert.",
+  // ── Where the phone was, at the tap ─────────────────────────────────────
+  //
+  // Position stamps beside a clock-in, a clock-out, an "on my way" and a
+  // "complete" — asked once, with permission, never in the background. The
+  // crew notice is the sentence Quebec's Law 25 s. 8.1 asks for before a
+  // technology that can locate someone is used; the timesheet legend says the
+  // same thing to the manager reading the flags. See lib/location/stamps.js.
+  "app.clock.locationNotice": "Beim Tippen wird Ihr Telefon gefragt, wo es ist — einmal, mit Ihrer Erlaubnis — und diese eine Position wird neben dieser Stempelung gespeichert, damit der Stundenzettel zeigen kann, wie weit Sie von der Baustelle entfernt waren. Nichts läuft im Hintergrund, und zwischen den Tipps wird nichts verfolgt.",
+  "app.timesheets.stampIn": "Kommen",
+  "app.timesheets.stampOut": "Gehen",
+  "app.timesheets.onSite": "Vor Ort",
+  "app.timesheets.onSiteTitle": "{distance} von der Adresse des Auftrags entfernt gestempelt.",
+  "app.timesheets.awayBy": "{distance} entfernt",
+  "app.timesheets.awayTitle": "{distance} von der Adresse des Auftrags entfernt gestempelt. Einen Blick wert — die Freigabe bleibt Ihre Entscheidung.",
+  "app.timesheets.stampUnknown": "Keine Position anzuzeigen: Das Telefon hat nicht geantwortet, der Auftrag hat keine Baustellenadresse, oder die Messung war zu ungenau, um ihr zu trauen.",
+  "app.timesheets.stampLegend": "Die Position wird nur in dem Moment erfasst, in dem auf Kommen oder Gehen getippt wird, mit Erlaubnis der Person. Dazwischen wird nichts verfolgt. Eine Markierung ist eine Frage an Sie, kein Urteil.",
+  "app.job.siteAddress": "Baustellenadresse",
+  "app.job.siteNotPinned": "Diese Adresse ließ sich nicht auf der Karte finden, daher können für diesen Auftrag keine Entfernungen angezeigt werden. Prüfen Sie die Adresse und speichern Sie sie erneut.",
+  "app.job.arrivedFrom": "{distance} von der Baustelle entfernt angekommen",
+  "app.job.completedFrom": "{distance} von der Baustelle entfernt abgeschlossen",
+  "app.job.stampNoDistance": "Position notiert — der Auftrag hatte keine Baustellenadresse, an der sie gemessen werden konnte",
+  "app.jobEdit.siteAddressHint": "Wo die Arbeit stattfindet, falls nicht dort, wohin die Rechnung geht. Wird genutzt, um zu zeigen, wie weit die Kolonne beim Einstempeln von der Baustelle entfernt war.",
+  "app.jobNew.siteAddressPlaceholder": "Straße, Ort, Postleitzahl",
 };
 
 const zh = {
@@ -56248,6 +56409,29 @@ const zh = {
   // rep reading it, so the catalogue entry says what happened to their words
   // instead. The path is still named on the screen, separately.
   "app.salesNotes.unavailableModelMissing": "业务员笔记功能尚未启用——存放它们的数据表还没有创建。您输入的内容没有被保存。",
+  // ── Where the phone was, at the tap ─────────────────────────────────────
+  //
+  // Position stamps beside a clock-in, a clock-out, an "on my way" and a
+  // "complete" — asked once, with permission, never in the background. The
+  // crew notice is the sentence Quebec's Law 25 s. 8.1 asks for before a
+  // technology that can locate someone is used; the timesheet legend says the
+  // same thing to the manager reading the flags. See lib/location/stamps.js.
+  "app.clock.locationNotice": "点击时，会询问您的手机所在位置——仅一次，且需您同意——这一个位置会与此次打卡一起保存，以便工时表显示您当时距工地多远。后台不会运行任何程序，两次点击之间也不会追踪。",
+  "app.timesheets.stampIn": "上班",
+  "app.timesheets.stampOut": "下班",
+  "app.timesheets.onSite": "在工地",
+  "app.timesheets.onSiteTitle": "在距工作地址 {distance} 处打卡。",
+  "app.timesheets.awayBy": "相距 {distance}",
+  "app.timesheets.awayTitle": "在距工作地址 {distance} 处打卡。值得看一眼——是否批准仍由您决定。",
+  "app.timesheets.stampUnknown": "没有可显示的位置：手机未响应、该工作没有工地地址，或读数过于粗略而不可信。",
+  "app.timesheets.stampLegend": "只在他们点击上班或下班打卡的那一刻，经其同意才记录位置。期间不做任何追踪。标记是给您的一个问题，而不是结论。",
+  "app.job.siteAddress": "工地地址",
+  "app.job.siteNotPinned": "无法在地图上定位此地址，因此无法显示该工作的距离。请检查地址后重新保存。",
+  "app.job.arrivedFrom": "在距工地 {distance} 处到达",
+  "app.job.completedFrom": "在距工地 {distance} 处完成",
+  "app.job.stampNoDistance": "已记录位置——该工作当时没有可用于测量的工地地址",
+  "app.jobEdit.siteAddressHint": "施工地点，如果与账单地址不同。用于显示班组打卡上班时距工地多远。",
+  "app.jobNew.siteAddressPlaceholder": "街道、城市、邮编",
 };
 
 const it = {
@@ -63845,6 +64029,29 @@ const it = {
   // rep reading it, so the catalogue entry says what happened to their words
   // instead. The path is still named on the screen, separately.
   "app.salesNotes.unavailableModelMissing": "Le note degli addetti non sono ancora attive: la tabella in cui vivono non è stata creata. Nulla di ciò che hai scritto è stato salvato.",
+  // ── Where the phone was, at the tap ─────────────────────────────────────
+  //
+  // Position stamps beside a clock-in, a clock-out, an "on my way" and a
+  // "complete" — asked once, with permission, never in the background. The
+  // crew notice is the sentence Quebec's Law 25 s. 8.1 asks for before a
+  // technology that can locate someone is used; the timesheet legend says the
+  // same thing to the manager reading the flags. See lib/location/stamps.js.
+  "app.clock.locationNotice": "Quando tocchi, al telefono viene chiesto dove si trova — una sola volta, con il tuo permesso — e quella posizione viene conservata accanto a questa timbratura, così il foglio ore può mostrare a che distanza dal cantiere eri. Niente gira in sottofondo e niente viene tracciato tra un tocco e l'altro.",
+  "app.timesheets.stampIn": "Entrata",
+  "app.timesheets.stampOut": "Uscita",
+  "app.timesheets.onSite": "In cantiere",
+  "app.timesheets.onSiteTitle": "Timbrato a {distance} dall'indirizzo del lavoro.",
+  "app.timesheets.awayBy": "a {distance}",
+  "app.timesheets.awayTitle": "Timbrato a {distance} dall'indirizzo del lavoro. Vale un'occhiata — approvare resta una tua decisione.",
+  "app.timesheets.stampUnknown": "Nessuna posizione da mostrare: il telefono non ha risposto, il lavoro non ha un indirizzo di cantiere, o la lettura era troppo imprecisa per fidarsi.",
+  "app.timesheets.stampLegend": "La posizione viene rilevata solo nel momento in cui toccano Timbra entrata o Timbra uscita, con il loro permesso. Nel frattempo non viene tracciato nulla. Una segnalazione è una domanda per te, non un verdetto.",
+  "app.job.siteAddress": "Indirizzo del cantiere",
+  "app.job.siteNotPinned": "Impossibile trovare questo indirizzo sulla mappa, quindi le distanze non possono essere mostrate per questo lavoro. Controlla l'indirizzo e salvalo di nuovo.",
+  "app.job.arrivedFrom": "Arrivato a {distance} dal cantiere",
+  "app.job.completedFrom": "Completato a {distance} dal cantiere",
+  "app.job.stampNoDistance": "Posizione annotata — il lavoro non aveva un indirizzo di cantiere su cui misurarla",
+  "app.jobEdit.siteAddressHint": "Dove si svolge il lavoro, se non è dove va la fattura. Serve a mostrare a che distanza dal cantiere era la squadra quando ha timbrato l'entrata.",
+  "app.jobNew.siteAddressPlaceholder": "Via, città, codice postale",
 };
 
 export const APP_MESSAGES = { en, fr, es, uk, pa, tl, de, zh, it };

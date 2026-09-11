@@ -44,6 +44,7 @@ export default function EditJobPage() {
   const [recurrenceRule, setRecurrenceRule] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [siteAddress, setSiteAddress] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -73,6 +74,7 @@ export default function EditJobPage() {
         setStatus(data.status || "scheduled");
         setRecurring(Boolean(data.recurring));
         setRecurrenceRule(data.recurrenceRule || "");
+        setSiteAddress(data.siteAddress || "");
         // yyyy-mm-dd, what a <input type="date"> reads and writes — the same
         // slice used everywhere else in this codebase a calendar-date column
         // feeds a plain date input (e.g. the invoice edit page's dueDate).
@@ -137,6 +139,10 @@ export default function EditJobPage() {
           // this screen only when the value truly didn't change.
           startDate,
           endDate,
+          // Sent as typed; the route compares it to what is stored and only
+          // geocodes on a real change (lib/geo/geocodeJob.js), so re-saving
+          // an untouched form costs no Google call. "" clears it.
+          siteAddress,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -197,6 +203,22 @@ export default function EditJobPage() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             className="w-full border border-border rounded-lg px-3 py-2 text-sm"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">
+            {t("app.job.siteAddress")}
+          </label>
+          <p className="text-xs text-muted-foreground mb-2">
+            {t("app.jobEdit.siteAddressHint")}
+          </p>
+          <input
+            value={siteAddress}
+            onChange={(e) => setSiteAddress(e.target.value)}
+            placeholder={t("app.jobNew.siteAddressPlaceholder")}
+            className="w-full border border-border rounded-lg px-3 py-2 text-sm"
+            aria-label={t("app.job.siteAddress")}
           />
         </div>
 

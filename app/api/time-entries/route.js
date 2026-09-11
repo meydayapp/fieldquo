@@ -45,6 +45,14 @@ export async function GET(request) {
       // stripped below for callers who may not see other people's pay.
       worker: { select: { id: true, name: true, hourlyRate: true, userId: true } },
       job: { select: { id: true, title: true } },
+      // Where the phone was at clock-in and clock-out, when it answered. The
+      // stored distance, not the raw point: the timesheet needs "2.1 km from
+      // the site", and never needs to draw the crew on a map. See
+      // LocationStamp and lib/geo/distance.js for what "unknown" covers.
+      locationStamps: {
+        orderBy: { at: "asc" },
+        select: { id: true, kind: true, distanceToSiteM: true, accuracyM: true, at: true },
+      },
     },
     orderBy: { clockIn: "desc" },
   });

@@ -12,6 +12,7 @@ import { ensureUpcomingVisit } from "@/lib/jobs/recurrence";
 import { normalizeChecklistItems } from "@/lib/jobs/checklistItems";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 import { isCallbackReason } from "@/lib/jobs/callbackReasons";
+import { recordStampIfPresent } from "@/lib/location/stamps";
 
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -55,7 +56,7 @@ export async function PATCH(request, { params }) {
   }
 
   const body = await request.json();
-  const { status, checklistItems, photos, notes, scheduledAt, returnReason, returnNotes } = body;
+  const { status, checklistItems, photos, notes, scheduledAt, returnReason, returnNotes, stamp } = body;
 
   if (returnReason !== undefined && returnReason !== null && !isCallbackReason(returnReason)) {
     return NextResponse.json(
@@ -91,6 +92,37 @@ export async function PATCH(request, { params }) {
     },
     include: { assignedTo: { select: { id: true, name: true } } },
   });
+
+  // ── Where the phone was when they tapped ──────────────────────────────────
+  //
+  // Only for a status change, and only after the update above has succeeded.
+  // recordStampIfPresent never throws and nothing below reads its result, so
+  // a refused permission, a desktop browser or a malformed `stamp` leaves
+  // this response byte-for-byte what it was before the field existed. The
+  // worker is the visit's assignee when that is who tapped, and nobody
+  // otherwise — an office member completing a visit from a desk is not a
+  // position of the crew. See lib/location/stamps.js.
+  if (status !== undefined && stamp != null) {
+    try {
+      const worker = mine
+        ? await db.worker.findFirst({
+            where: { companyId: visit.job.companyId, userId: member.userId },
+            select: { id: true },
+          })
+        : null;
+      await recordStampIfPresent({
+        db,
+        companyId: visit.job.companyId,
+        kind: status,
+        stamp,
+        workerId: worker?.id ?? null,
+        jobId: visit.jobId,
+        visitId: visit.id,
+      });
+    } catch (err) {
+      console.error("[visit status] location stamp not recorded:", err?.message);
+    }
+  }
 
   // Fire an "on my way" text when status flips to that state — don't let an SMS
   // failure block the actual status update from saving. Wrapped in an async

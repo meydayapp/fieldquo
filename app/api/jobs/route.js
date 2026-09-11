@@ -74,7 +74,7 @@ export async function POST(request) {
   }
 
   const body = await request.json();
-  const { clientId, quoteId, title, recurring, recurrenceRule, originalJobId, callbackReason } = body;
+  const { clientId, quoteId, title, recurring, recurrenceRule, originalJobId, callbackReason, siteAddress } = body;
 
   // The validation, the cross-tenant quote check and the imported-cost
   // materialisation moved to lib/jobs/createJob.js when the invoice detail page
@@ -90,6 +90,7 @@ export async function POST(request) {
     recurrenceRule,
     originalJobId,
     callbackReason,
+    siteAddress,
   });
   if (error) return NextResponse.json({ error }, { status });
 

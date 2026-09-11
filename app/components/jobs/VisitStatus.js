@@ -36,6 +36,16 @@
 // an opt-out check can run without holding the response. That means a 200 here
 // means "the status saved", never "the client got a text". Nothing below claims
 // otherwise.
+//
+// ── Where the phone was, once, at the tap ──────────────────────────────────
+//
+// "On my way" and "Complete" are the two moments a position beside a visit
+// means something, so the tap asks the phone where it is — once, with the
+// browser's own permission prompt, through lib/location/capture.js — and
+// sends it as `stamp` beside the status. The status change does not wait on
+// an answer it did not get: a refusal, a desktop, no fix inside eight seconds
+// all send the same request this button always sent, minus the stamp. There
+// is no background reading here; nothing runs between taps.
 "use client";
 
 import { useState } from "react";
@@ -45,6 +55,7 @@ import { visitActions, mayMoveVisit } from "@/lib/jobs/visitStatus";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
 import { useSession } from "@/lib/auth-client";
+import { captureStamp } from "@/lib/location/capture";
 
 export default function VisitStatus({ jobId, visit, client, onChanged }) {
   const [busy, setBusy] = useState(null);
@@ -67,10 +78,13 @@ export default function VisitStatus({ jobId, visit, client, onChanged }) {
   async function move(to) {
     setBusy(to);
     try {
+      // null whenever the phone did not answer; the body then carries no
+      // `stamp` key at all, which is exactly the request this sent before.
+      const stamp = await captureStamp();
       const res = await fetch(`/api/jobs/${jobId}/visits/${visit.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: to }),
+        body: JSON.stringify({ status: to, ...(stamp && { stamp }) }),
       });
       if (!res.ok) {
         await reportResponseError(res, "Couldn't update the visit.");

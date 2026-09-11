@@ -49,6 +49,7 @@ import {
   Archive,
 } from "lucide-react";
 import { formatAddress } from "@/lib/format/address";
+import { formatDistanceM } from "@/lib/geo/distance";
 import { useRouter } from "next/navigation";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
@@ -568,6 +569,37 @@ export default function JobDetail({ jobId }) {
             label={t("app.field.email")}
             value={job.client?.email || <Absent client={job.client} t={t} />}
           />
+          {/* Where the work is, when it is not where the bill goes. Only when
+              set — null means NOT ASKED (Job.siteAddress), and printing the
+              client's address here instead would be the invented default that
+              column's comment warns against. Same maps link as above. */}
+          {job.siteAddress && (
+            <Field
+              icon={MapPin}
+              label={t("app.job.siteAddress")}
+              value={
+                <>
+                  <a
+                    href={`https://maps.google.com/?q=${encodeURIComponent(job.siteAddress)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-foreground underline"
+                  >
+                    {job.siteAddress}
+                  </a>
+                  {/* Whether the distance chips on the timesheet can say
+                      anything for this job. A geocode that failed is not an
+                      error to the office, but it is a fact they can fix by
+                      tidying the address. */}
+                  {job.latitude == null && (
+                    <span className="block text-xs text-muted-foreground mt-0.5">
+                      {t("app.job.siteNotPinned")}
+                    </span>
+                  )}
+                </>
+              }
+            />
+          )}
         </div>
       </div>
 
@@ -706,6 +738,18 @@ export default function JobDetail({ jobId }) {
                         {v.photos?.length > 0 &&
                           ` · ${v.photos.length} photo${v.photos.length === 1 ? "" : "s"}`}
                       </p>
+                      {/* Where the phone was when they tapped — one line per
+                          stamp, nothing when there is none. A stamp with no
+                          distance (the job had no site address at the time) is
+                          still a fact worth a line, said as exactly that. */}
+                      {(v.locationStamps || [])
+                        .filter((st) => st.kind === "on_the_way" || st.kind === "completed")
+                        .map((st) => (
+                          <p key={st.id} className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                            <MapPin size={11} />
+                            {stampLine(st, t)}
+                          </p>
+                        ))}
                       {v.notes && (
                         <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap">
                           {v.notes}
@@ -777,6 +821,22 @@ function Absent({ client, t }) {
       {t("app.job.notSet", "Not set")}
     </span>
   );
+}
+
+/**
+ * "Arrived 12 m from the site" / "Completed 2.1 km from the site".
+ *
+ * The distance is the one stored at the tap (LocationStamp.distanceToSiteM),
+ * not recomputed against the job's current address — an address corrected a
+ * week later must not rewrite where somebody was. Null distance means the
+ * job had no coordinates then; the line says so rather than printing a blank.
+ */
+function stampLine(st, t) {
+  const distance = formatDistanceM(st.distanceToSiteM);
+  if (distance == null) return t("app.job.stampNoDistance");
+  return st.kind === "completed"
+    ? t("app.job.completedFrom", { distance })
+    : t("app.job.arrivedFrom", { distance });
 }
 
 function Field({ icon: Icon, label, value }) {

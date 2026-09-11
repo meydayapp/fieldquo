@@ -12,6 +12,59 @@ import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
+import { AlertTriangle, MapPin } from "lucide-react";
+import { stampVerdict, formatDistanceM } from "@/lib/geo/distance";
+
+// ── Where the phone was, as a chip ─────────────────────────────────────────
+//
+// One chip per punch — clock-in and clock-out — reading the LocationStamp
+// rows the entry carries. Three states and all three render: "On site",
+// "2.1 km away", and "—" for everything the product cannot honestly claim
+// (no stamp, a job with no site address, or an accuracy circle wider than the
+// fence — lib/geo/distance.js decides, this only draws). The away chip is a
+// flag, in the literal sense: amber, with a title that says it is a question.
+// Approval stays a button a person presses; nothing here disables it.
+function StampChip({ kind, stamp, t }) {
+  const verdict = stampVerdict({
+    distanceToSiteM: stamp?.distanceToSiteM,
+    accuracyM: stamp?.accuracyM,
+  });
+  const label = kind === "clock_in" ? t("app.timesheets.stampIn") : t("app.timesheets.stampOut");
+  if (verdict === "on_site") {
+    return (
+      <span
+        data-verdict="on_site"
+        className="inline-flex items-center gap-1 rounded-full border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300"
+        title={t("app.timesheets.onSiteTitle", { distance: formatDistanceM(stamp.distanceToSiteM) })}
+      >
+        <MapPin size={11} />
+        {label} · {t("app.timesheets.onSite")}
+      </span>
+    );
+  }
+  if (verdict === "away") {
+    const distance = formatDistanceM(stamp.distanceToSiteM);
+    return (
+      <span
+        data-verdict="away"
+        className="inline-flex items-center gap-1 rounded-full border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300"
+        title={t("app.timesheets.awayTitle", { distance })}
+      >
+        <AlertTriangle size={11} />
+        {label} · {t("app.timesheets.awayBy", { distance })}
+      </span>
+    );
+  }
+  return (
+    <span
+      data-verdict="unknown"
+      className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground"
+      title={t("app.timesheets.stampUnknown")}
+    >
+      {label} · —
+    </span>
+  );
+}
 
 // A blank manual-entry form. `date` defaults to today so the common case
 // (logging hours after the fact) is one worker-pick and two times away.
@@ -350,6 +403,23 @@ function TimesheetsPageScreen() {
                 {formatDate(e.clockIn)} ·{" "}
                 {e.hours ? `${e.hours}h` : t("app.timesheets.inProgress")}
               </div>
+              {/* Both punches, always — a missing chip would be indistinguishable
+                  from a missing stamp, and "—" is the honest word for that. The
+                  clock-out chip waits for a clock-out. */}
+              <div className="mt-1 flex flex-wrap items-center gap-1">
+                <StampChip
+                  kind="clock_in"
+                  stamp={e.locationStamps?.find((st) => st.kind === "clock_in") || null}
+                  t={t}
+                />
+                {e.clockOut && (
+                  <StampChip
+                    kind="clock_out"
+                    stamp={e.locationStamps?.find((st) => st.kind === "clock_out") || null}
+                    t={t}
+                  />
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {!e.clockOut && !e.hours && (
@@ -405,6 +475,14 @@ function TimesheetsPageScreen() {
           </div>
         ))}
       </div>
+
+      {/* The legend is the promise the chips depend on. A manager who reads
+          "2.1 km away" as "we track them" has been told something false by
+          omission; this says what was captured, when, and what was not. */}
+      <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+        <MapPin size={13} className="mt-0.5 shrink-0" />
+        <span>{t("app.timesheets.stampLegend")}</span>
+      </p>
 
       <DeleteConfirmModal
         isOpen={Boolean(confirmDelete)}

@@ -42,6 +42,7 @@ export default function NewJobPage() {
   const [title, setTitle] = useState("");
   const [recurring, setRecurring] = useState(false);
   const [recurrenceRule, setRecurrenceRule] = useState("");
+  const [siteAddress, setSiteAddress] = useState("");
   const [originalJob, setOriginalJob] = useState(null);
   const [callbackReason, setCallbackReason] = useState("");
 
@@ -129,6 +130,8 @@ export default function NewJobPage() {
           recurring,
           recurrenceRule: recurring ? recurrenceRule : null,
           ...(originalJobId && { originalJobId, callbackReason }),
+          // Blank stays blank — null means not asked, never "the client's".
+          ...(siteAddress.trim() && { siteAddress: siteAddress.trim() }),
         },
       });
       router.push(`/app/jobs/${data.id}`);
@@ -294,6 +297,21 @@ export default function NewJobPage() {
             onChange={(e) => setTitle(e.target.value)}
             placeholder={t("app.jobNew.titlePlaceholder")}
           />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-foreground block mb-1">
+            {t("app.job.siteAddress")}
+          </label>
+          <input
+            className={inputClass}
+            value={siteAddress}
+            onChange={(e) => setSiteAddress(e.target.value)}
+            placeholder={t("app.jobNew.siteAddressPlaceholder")}
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            {t("app.jobEdit.siteAddressHint")}
+          </p>
         </div>
 
         <label className="flex items-center gap-2.5 text-sm text-foreground">

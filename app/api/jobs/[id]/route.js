@@ -25,6 +25,7 @@ import {
   runGuardedWrite,
   settleGuardedWrite,
 } from "@/lib/concurrency/staleWrite";
+import { geocodeJob, normaliseSiteAddress, siteAddressChanged } from "@/lib/geo/geocodeJob";
 
 // Next 16: params is a Promise.
 export async function GET(request, { params }) {
@@ -54,7 +55,16 @@ export async function GET(request, { params }) {
       quote: { select: { id: true, quoteNumber: true } },
       visits: {
         orderBy: { scheduledAt: "asc" },
-        include: { assignedTo: { select: { id: true, name: true } } },
+        include: {
+          assignedTo: { select: { id: true, name: true } },
+          // Where the phone was when the crew tapped "on my way" / "complete"
+          // — see LocationStamp. The row's own distance, computed at the
+          // tap, not recomputed here against whatever the address is now.
+          locationStamps: {
+            orderBy: { at: "asc" },
+            select: { id: true, kind: true, distanceToSiteM: true, accuracyM: true, at: true },
+          },
+        },
       },
       // Empty for every job whose company has no structured payment
       // schedule — see lib/paymentSchedule/run.js. Internal staff view, so
@@ -126,7 +136,14 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await request.json();
-  const { title, status, recurring, recurrenceRule, archived, startDate, endDate } = body;
+  const { title, status, recurring, recurrenceRule, archived, startDate, endDate, siteAddress } = body;
+
+  // The site address is geocoded ONLY when it changes — the edit form sends
+  // every field on every save, and a Google call per save of an unrelated
+  // field would be a Google bill per typo fix. Compared normalised, so
+  // trailing whitespace is not a change. See lib/geo/geocodeJob.js.
+  const addressChanging =
+    siteAddress !== undefined && siteAddressChanged(existing.siteAddress, siteAddress);
 
   // The version the browser is editing FROM. See lib/concurrency/staleWrite.js.
   // The job page and the schedule board both write this row, from two
@@ -215,6 +232,16 @@ export async function PATCH(request, { params }) {
         ...(archived !== undefined && {
           archivedAt: archived ? new Date() : null,
         }),
+        // Written with the coordinates CLEARED in the same statement: between
+        // this write and the geocode below, a stamp recorded against the old
+        // pin would measure a crew member against an address that is no
+        // longer the job's. Nulls mean "unknown" for that gap, which is true.
+        ...(addressChanging && {
+          siteAddress: normaliseSiteAddress(siteAddress),
+          latitude: null,
+          longitude: null,
+          geocodedAt: null,
+        }),
       },
       include: { client: true },
     }),
@@ -236,6 +263,19 @@ export async function PATCH(request, { params }) {
   if (refusal) return NextResponse.json(refusal.body, { status: refusal.status });
 
   const updated = outcome.result;
+
+  // One geocode per address change, after the guarded write has settled — a
+  // 409 above means the address never changed and Google is never asked.
+  // geocodeJob never throws; a failure leaves the nulls written above and
+  // the job page shows no pin, which is the honest state.
+  if (addressChanging && updated.siteAddress) {
+    const coords = await geocodeJob(db, updated);
+    Object.assign(updated, {
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      geocodedAt: coords.geocodedAt,
+    });
+  }
 
   // Finishing the work is the moment to ask for the review, so leave a note on
   // the to-do list. Only on the FIRST flip — `completing` is already the

@@ -185,7 +185,16 @@ export async function PATCH(request, { params }) {
           status === "approved" ? member.userId : existing.approvedById,
       }),
     },
-    include: { worker: { select: { id: true, name: true } } },
+    include: {
+      worker: { select: { id: true, name: true } },
+      // The timesheet screen replaces its row with this response, so the
+      // same stamps GET /api/time-entries ships have to come back here too —
+      // or approving an entry would make its distance chip vanish.
+      locationStamps: {
+        orderBy: { at: "asc" },
+        select: { id: true, kind: true, distanceToSiteM: true, accuracyM: true, at: true },
+      },
+    },
   });
 
   // ── The trail the Activity Log page promises and didn't keep ────────────

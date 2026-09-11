@@ -21,18 +21,27 @@
 // guess. "No job" is always an option and is never presented as a failure:
 // travel, the yard and a morning of quoting are real hours.
 //
-// Nothing here detects arrival. There is no location permission, no coordinate
-// and no "you're at the Tremblay job" — a browser cannot know that (see
+// ── Where the phone was, at the tap ────────────────────────────────────────
+//
+// Nothing here detects arrival, and nothing here tracks. A browser cannot
+// know where a phone is except while its tab is open and in front (see
 // docs/construction/AUDIT-routing-geo.md §3), and implying it could is the
-// dishonest version of this screen.
+// dishonest version of this screen. What it CAN do is ask, once, at the
+// moment the person taps Clock in or Clock out — with the OS's own permission
+// sheet — and send that one position beside the punch as `stamp`. The
+// timesheet then shows how far from the site the tap was. Refusing the
+// permission, or having no fix, changes nothing about the punch: the request
+// goes without a stamp, exactly as it did before. The one-line note above
+// the button says all of this before the browser asks.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Clock, LogIn, LogOut, Loader2, Briefcase, ArrowRightLeft } from "lucide-react";
+import { Clock, LogIn, LogOut, Loader2, Briefcase, ArrowRightLeft, MapPin } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
 import { fetchList } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 import { todayHoursFrom } from "@/lib/timeclock/todayHours";
+import { captureStamp, locationPermissionState } from "@/lib/location/capture";
 
 function fmtClock(d) {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -61,6 +70,10 @@ export default function TimeClockPage() {
   const [switchTo, setSwitchTo] = useState("");
   const touched = useRef(false);
   const tick = useRef(null);
+  // Whether the next tap would put the browser's location sheet on screen.
+  // The explanation renders only in that state — once permission is granted
+  // there is nothing to warn about, and once refused there is nothing to ask.
+  const [locationState, setLocationState] = useState("unavailable");
 
   // ── A failed load must not read as "you're clocked out" ──────────────
   //
@@ -99,6 +112,16 @@ export default function TimeClockPage() {
     load().finally(() => setLoading(false));
   }, [load]);
 
+  useEffect(() => {
+    let cancelled = false;
+    locationPermissionState().then((state) => {
+      if (!cancelled) setLocationState(state);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // One-second heartbeat drives both the wall clock and the elapsed timer.
   useEffect(() => {
     tick.current = setInterval(() => setNow(new Date()), 1000);
@@ -108,12 +131,19 @@ export default function TimeClockPage() {
   async function punch(action, sendJobId) {
     setBusy(true);
     try {
+      // Asked once, here, at the tap. null when the phone did not answer, and
+      // then the body carries no `stamp` key — the same request as before.
+      const stamp = await captureStamp();
+      // The sheet has been answered one way or the other; re-read so the
+      // explanation line disappears once it has nothing left to explain.
+      locationPermissionState().then(setLocationState);
       const res = await fetch("/api/time-clock", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action,
           ...(action === "out" ? {} : { jobId: sendJobId || null }),
+          ...(stamp && { stamp }),
         }),
       });
       if (!res.ok) {
@@ -263,6 +293,19 @@ export default function TimeClockPage() {
                 : ""}
             </p>
           </div>
+        )}
+
+        {/* ── Said before the browser asks ──────────────────────────────────
+            Quebec's Law 25 s. 8.1 wants a person told, before a technology
+            that can locate them is used, what it does and how it is switched
+            on; the OS sheet is the switch, and this is the telling. Only in
+            the "prompt" state: granted needs no warning, refused gets no
+            second ask this session (lib/location/capture.js). */}
+        {locationState === "prompt" && (
+          <p className="mt-5 flex items-start gap-1.5 text-left text-xs text-muted-foreground">
+            <MapPin size={13} className="mt-0.5 shrink-0" />
+            <span>{t("app.clock.locationNotice")}</span>
+          </p>
         )}
 
         <button
