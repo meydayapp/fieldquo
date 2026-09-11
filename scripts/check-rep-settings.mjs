@@ -667,6 +667,49 @@ section("10. The column itself");
   ok("…and says out loud when nobody has decided", /Nobody has said whether this rep is a freelancer or an/.test(page));
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// "Languages I can sell in" — the second language question, and the one the
+// queue reads. Its own component, its own route, its own writer, next to the
+// portal-language picker on both screens; the platform console sets it too.
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const { readFileSync } = await import("node:fs");
+  const src = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  const { parseSellsIn, sellsInOf } = await import("@/lib/sales/leadLanguage");
+  const { SELLS_IN_WRITES_ON_SALES_REP } = await import("@/lib/sales/sellsInWrite");
+
+  const comp = src("app/components/sales/RepSellsInChoice.js");
+  ok("the control exists", comp.length > 0);
+  ok("…offers a checkbox per option the route sends, native name first", /type="checkbox"/.test(comp) && /\{o\.nativeName\}/.test(comp));
+  ok("…loads from and saves to /api/sales/sells-in", /fetchJson\("\/api\/sales\/sells-in"\)/.test(comp) && /body: JSON\.stringify\(\{ sellsIn: choice \}\)/.test(comp));
+  ok("…shows an empty list as UNSET rather than as English", /const unset = stored\.length === 0;/.test(comp) && /app\.salesSellsIn\.unset/.test(comp));
+  ok("…and carries the Quebec hint", /app\.salesSellsIn\.hint/.test(comp));
+  ok("it sits under the portal-language picker on Pay & settings", /<RepLanguageChoice \/>[\s\S]*<RepSellsInChoice \/>/.test(src("app/sales/pay/page.js")));
+  ok("…and on the first-run pass", /<RepLanguageChoice[\s\S]*<RepSellsInChoice \/>/.test(src("app/sales/welcome/page.js")));
+
+  const route = src("app/api/sales/sells-in/route.js");
+  ok("the route answers GET and PUT with the same view", /export async function GET/.test(route) && /export async function PUT/.test(route) && (route.match(/return NextResponse\.json\(view\(row\)\)/g) || []).length === 2);
+  ok("…validates the body through parseSellsIn before writing", /const parsed = parseSellsIn\(body\);/.test(route) && route.indexOf("parseSellsIn(body)") < route.indexOf("saveRepSellsIn("));
+  ok("…and the writer names exactly the sellsIn column", SELLS_IN_WRITES_ON_SALES_REP.length === 1 && SELLS_IN_WRITES_ON_SALES_REP[0] === "sellsIn");
+
+  // The round trip, executed: what the picker posts is what the view echoes.
+  const posted = parseSellsIn({ sellsIn: ["fr", "EN"] });
+  ok("a posted list survives validation in canonical form", posted.ok && posted.sellsIn.join(",") === "fr,en", posted);
+  ok("…and the view reads the stored row back identically", sellsInOf({ sellsIn: posted.sellsIn }).join(",") === "fr,en");
+  ok("an empty list round-trips as empty, not as null and not as English", parseSellsIn({ sellsIn: [] }).ok && sellsInOf({ sellsIn: [] }).length === 0);
+  ok("a code the product does not know is refused at the door", !parseSellsIn({ sellsIn: ["xx"] }).ok);
+
+  const admin = src("app/api/platform/sales/reps/[id]/route.js");
+  ok("the platform rep PATCH accepts `sellsIn`", /const touchesSellsIn = "sellsIn" in body;/.test(admin));
+  ok("…through the same validator", /parseSellsIn\(body\)/.test(admin));
+  ok("…and its RESPONSE carries it, not just the select", /sellsIn: sellsInOf\(updated\)/.test(admin));
+  const list = src("app/api/platform/sales/reps/route.js");
+  ok("the list RESPONSE carries sellsIn, not just the select", /sellsIn: true/.test(list) && /sellsIn: sellsInOf\(r\)/.test(list));
+  const page = src("app/platform/sales/reps/page.js");
+  ok("the reps screen has a Sells in row per rep with a Set/Change control", /Sells in/.test(page) && /\(rep\.sellsIn \|\| \[\]\)\.length \? "Change" : "Set"/.test(page));
+  ok("…and says out loud when there is no French", /holds every Quebec lead back/.test(page));
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed`);
 for (const f of failures) console.log(`  · ${f}`);
 process.exit(failures.length === 0 ? 0 : 1);

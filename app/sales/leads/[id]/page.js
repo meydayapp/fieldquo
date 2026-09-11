@@ -45,6 +45,7 @@ import { jsonBody } from "@/lib/jsonBody";
 import { LEAD_STATUSES, LEAD_STATUS_LABELS } from "@/lib/sales/outreachPipeline";
 import { LEAD_LINK_REASON_KEYS } from "@/lib/sales/leadLinkReasons";
 import { dialHref, salesCallReadiness } from "@/lib/sales/callingRules";
+import { requiredLanguageFor } from "@/lib/sales/leadLanguage";
 import { dialSpace } from "@/lib/sales/dialSpace";
 import { SALES_SMS_TIME_ZONES } from "@/lib/sales/smsWindow";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -339,7 +340,21 @@ export default function SalesLeadPage({ params }) {
       </Link>
 
       <div>
-        <h1 className="text-2xl font-bold text-foreground">{lead.businessName}</h1>
+        <h1 className="text-2xl font-bold text-foreground flex flex-wrap items-center gap-2">
+          {lead.businessName}
+          {/* A Quebec lead, by the same pure rule the queue claims with. A
+              rep holding one either has French on their list or was handed
+              it before the rule existed; the chip says which conversation
+              this is going to be either way. */}
+          {requiredLanguageFor(lead) === "fr" ? (
+            <span
+              className="inline-block rounded border border-border px-1.5 py-px text-xs font-normal leading-5 text-foreground"
+              title={t("app.salesQueue.frenchChipTitle")}
+            >
+              {t("app.salesQueue.frenchChip")}
+            </span>
+          ) : null}
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">
           {[lead.contactName, lead.email, lead.phone].filter(Boolean).join(" · ") ||
             t("app.salesLeads.noContactDetails")}

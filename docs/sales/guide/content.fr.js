@@ -61,6 +61,7 @@ export const GUIDE = {
       "C'est la référence derrière le script. Le guide d'appel vous dit quoi dire; celui-ci vous dit ce qui est vrai, pour que la question à laquelle vous ne vous attendiez pas trouve une réponse plutôt qu'une supposition.",
       "Chaque fonction listée ici vient de la matrice des fonctions du produit, qui nomme les fichiers qui doivent exister pour chacune d'elles. Si une fonction est dans ce document, elle est dans le produit. Si quelque chose ne s'y trouve pas, ne le promettez pas.",
       "Chaque fonction est décrite telle qu'elle fonctionne aujourd'hui. Quand quelque chose est plus récent que le reste, la section détaillée le dit. Si un entrepreneur demande une chose que vous ne trouvez pas dans ce document, dites que vous allez vérifier plutôt que de deviner — l'entrepreneur qui achète sur une promesse que vous ne pouvez pas tenir annule au deuxième mois, et il dit à tout le monde pourquoi.",
+      "Une règle sur ce qu'on vous confie : les prospects du Québec ne vont qu'aux commerciaux qui ont coché le français sous « Langues dans lesquelles je peux vendre » dans l'onglet Paie. Si un entrepreneur du Québec est à votre écran, c'est pour cette raison — prenez l'appel en français.",
     ],
   },
   pitchHeading: "Le seul argument à mettre en avant",

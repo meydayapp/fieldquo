@@ -119,6 +119,11 @@ function matches(row, where) {
       continue;
     }
     if ("in" in cond && !cond.in.includes(v)) return false;
+    // Postgres semantics, on purpose: NOT IN over a NULL is NULL, i.e. false.
+    // lib/sales/leadLanguage.js's fragment says `province IS NULL OR NOT IN`
+    // because of exactly this, and a matcher that waved NULL through would
+    // hide the bug the fragment exists to avoid.
+    if ("notIn" in cond && (v == null || cond.notIn.includes(v))) return false;
     if ("not" in cond) {
       if (cond.not === null && (v === null || v === undefined)) return false;
       if (cond.not !== null && v === cond.not) return false;
@@ -145,6 +150,10 @@ function scriptedDb({ prospects, claims = [], attempts = [], tasks = [], activit
   const db = {
     state,
     prospect: {
+      async count({ where }) {
+        state.log.push("prospect.count");
+        return state.prospects.filter((p) => matches(p, where)).length;
+      },
       async findMany({ where, orderBy, take, select }) {
         state.log.push("prospect.findMany");
         let rows = state.prospects.filter((p) => matches(p, where));
@@ -465,6 +474,48 @@ async function run() {
     ok("remainingToday came down by what was claimed", r.remainingToday === QUEUE_DAILY_CLAIM_CAP - 3, r.remainingToday);
   }
 
+  // ── The language rule: a Quebec row is not offered to a rep without French ─
+  //
+  // The owner: "the leads from quebec ... can't be handed out to anybody
+  // unless they have a French profile in their settings." The rule is in
+  // claimCandidateWhere() (lib/sales/leadLanguage.js), so the same scripted
+  // db, two reps, and the rows say who got what.
+  {
+    seq = 0;
+    const mk = () => [
+      researched({ id: "qc1", province: "QC" }),
+      researched({ id: "qc2", province: "Québec" }),
+      researched({ id: "on1", province: "ON" }),
+      researched({ id: "nb1", province: "NB" }),
+      researched({ id: "np1", province: null }),
+    ];
+    const english = { id: "rep_a", sellsIn: ["en"] };
+    const db = scriptedDb({ prospects: mk() });
+    const r = await claimBatch({ db, rep: english, tradeKey: "electrical", timeZone: ZONE, now: NOW });
+    ok("an English-only rep is not handed the Quebec rows", !r.claimedIds.includes("qc1") && !r.claimedIds.includes("qc2"), r.claimedIds);
+    ok("…but is handed Ontario and New Brunswick (bilingual, no requirement)", ["on1", "nb1"].every((id) => r.claimedIds.includes(id)), r.claimedIds);
+    ok("…and the two kept back are COUNTED as skippedForLanguage", r.skippedForLanguage === 2, r.skippedForLanguage);
+    ok("the row with NO province was kept back by the WINDOW rule (no jurisdiction), not the language one", r.skippedForWindow === 1 && r.skippedForLanguage === 2, r);
+    ok("…while the Quebec rows stay unassigned in the pool", db.state.prospects.filter((p) => p.id.startsWith("qc")).every((p) => p.assignedRepId === null));
+    const unset = { id: "rep_a" };
+    const db2 = scriptedDb({ prospects: mk() });
+    const r2 = await claimBatch({ db: db2, rep: unset, tradeKey: "electrical", timeZone: ZONE, now: NOW });
+    ok("a rep who never answered (no sellsIn) is treated as English-only", r2.claimedIds.length === 2 && r2.skippedForLanguage === 2, r2);
+    const french = { id: "rep_a", sellsIn: ["fr", "en"] };
+    const db3 = scriptedDb({ prospects: mk() });
+    const r3 = await claimBatch({ db: db3, rep: french, tradeKey: "electrical", timeZone: ZONE, now: NOW });
+    ok("a rep with French is offered the Quebec rows", r3.claimedIds.includes("qc1") && r3.claimedIds.includes("qc2"), r3.claimedIds);
+    ok("…and everything else the window allows", r3.claimed === 4 && r3.skippedForLanguage === 0, r3);
+    ok("…without a count query at all — nothing was kept back", !db3.state.log.includes("prospect.count"));
+    // Empty result still says what was kept back.
+    const db4 = scriptedDb({ prospects: [researched({ id: "qc9", province: "QC" })] });
+    const r4 = await claimBatch({ db: db4, rep: english, tradeKey: "electrical", timeZone: ZONE, now: NOW });
+    ok("a pool that is ALL Quebec gives an English rep nothing, and says two things: pool_empty and skippedForLanguage 1", r4.claimed === 0 && r4.reason === "pool_empty" && r4.skippedForLanguage === 1, r4);
+    for (const lang of Object.keys(APP_MESSAGES)) {
+      ok(`the sentence for it exists in ${lang}`, typeof APP_MESSAGES[lang]["app.salesQueue.batchSkippedForLanguage"] === "string");
+    }
+  }
+
   // ── The daily cap, from the log ───────────────────────────────────────────
   {
     seq = 0;
@@ -701,7 +752,7 @@ section("6. Source: the route, the gate, the cron, the screen, the sticky fix");
 
   ok("the route offers claim_batch and release_rest", /"claim_batch"/.test(route) && /"release_rest"/.test(route));
   ok("…and claim_batch delegates to claimBatch with the trade and the browser's zone", /claimBatch\(\{ db, rep, tradeKey, timeZone, now \}\)/.test(route));
-  ok("the trade filter is inside the updateMany's WHERE inside the transaction", /\$transaction\(async \(tx\) => \{[\s\S]*?tx\.prospect\.updateMany\(\{\s*where: \{ id: \{ in: picked\.ids \}, \.\.\.claimCandidateWhere\(\{ tradeKey, now: at \}\) \}/.test(lib));
+  ok("the trade filter is inside the updateMany's WHERE inside the transaction", /\$transaction\(async \(tx\) => \{[\s\S]*?tx\.prospect\.updateMany\(\{\s*where: \{ id: \{ in: picked\.ids \}, \.\.\.claimCandidateWhere\(\{ tradeKey, now: at, rep \}\) \}/.test(lib));
   ok("winners are read back by rep AND instant, so a row already held from an earlier claim is not counted twice", /where: \{ id: \{ in: picked\.ids \}, assignedRepId: rep\.id, assignedAt: at \}/.test(lib));
   ok("the single claim is logged and counted against the same cap", /logSingleClaim\(\{ db, rep, prospectId: candidate\.id, timeZone, now: at \}\)/.test(route) && /takenToday >= QUEUE_DAILY_CLAIM_CAP/.test(route));
   ok("the single claim's cap refusal is by key, with the cap as a value", /reasonKey: "app\.salesQueue\.batchReason\.dailyCap"/.test(route));

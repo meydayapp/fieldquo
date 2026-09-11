@@ -108,10 +108,11 @@ export async function GET(request, { params }) {
   if (!rep) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const now = new Date();
-  const [queue, targets] = await Promise.all([
-    repQueue(rep, now),
-    handoffTargets({ db, admin, excludeRepId: rep.id }),
-  ]);
+  // The queue first, because the targets depend on it: how many of the held
+  // rows are Quebec rows decides which reps the picker may offer — a rep
+  // without French is greyed, with the reason, when there are any.
+  const queue = await repQueue(rep, now);
+  const targets = await handoffTargets({ db, admin, excludeRepId: rep.id, frenchHeld: queue.french });
   return NextResponse.json({ rep, queue, ...targets, at: now.toISOString() });
 }
 
@@ -167,7 +168,10 @@ export async function POST(request, { params }) {
   }
   const toRep = await db.salesRep.findUnique({
     where: { id: toRepId },
-    select: { id: true, name: true, email: true, active: true },
+    // sellsIn: reassignHeld refuses the move when the target cannot take a
+    // Quebec row the source holds — lib/sales/leadLanguage.js — and it can
+    // only judge that from the row it is handed.
+    select: { id: true, name: true, email: true, active: true, sellsIn: true },
   });
   if (!toRep) return NextResponse.json({ error: "That rep does not exist." }, { status: 404 });
   if (!toRep.active) {
@@ -178,7 +182,14 @@ export async function POST(request, { params }) {
   }
 
   const moved = await reassignHeld({ db, fromRep: rep, toRep, now });
-  if (moved.error) return NextResponse.json({ error: moved.error }, { status: 409 });
+  // 409 with the reason — the language refusal carries `code: "language"`
+  // and the count, so the screen can say which rows and offer the fix.
+  if (moved.error) {
+    return NextResponse.json(
+      { error: moved.error, ...(moved.code ? { code: moved.code, cannot: moved.cannot } : {}) },
+      { status: 409 },
+    );
+  }
 
   await db.platformAuditLog.create({
     data: {

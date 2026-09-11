@@ -444,8 +444,15 @@ export default function PlatformSalesRepsPage() {
         [rep.id]: {
           counts,
           prospects: "release",
-          toRepId: panel.me?.id || "",
+          // "Me" pre-selected, unless the server marked me ineligible (Quebec
+          // rows held, no French on my card) — a disabled option cannot be
+          // the default without the button submitting a refusal.
+          toRepId:
+            panel.me?.id && (panel.targets || []).find((t) => t.id === panel.me.id)?.eligible !== false
+              ? panel.me.id
+              : "",
           targets: panel.targets || [],
+          frenchHeld: panel.frenchHeld || 0,
           me: panel.me || null,
           meNote: panel.meNote || "",
         },
@@ -1566,9 +1573,13 @@ function QueuePanel({ rep, panel, isSuperadmin, busy, moveTarget, onPickTarget, 
                 disabled={busy || targets.length === 0}
               >
                 <option value="">{targets.length === 0 ? "No other active rep" : "Choose a rep"}</option>
+                {/* A rep the server would refuse is offered greyed, not
+                    hidden: the superadmin needs to see WHO cannot take
+                    Quebec rows so they can fix that rep's card. */}
                 {targets.map((t) => (
-                  <option key={t.id} value={t.id}>
+                  <option key={t.id} value={t.id} disabled={t.eligible === false}>
                     {t.isMe ? `Me — ${t.name}` : t.name}
+                    {t.eligible === false ? " — no French" : ""}
                   </option>
                 ))}
               </select>
@@ -1581,6 +1592,13 @@ function QueuePanel({ rep, panel, isSuperadmin, busy, moveTarget, onPickTarget, 
               <ArrowRightLeft size={13} /> Move
             </button>
           </div>
+          {(panel.frenchHeld ?? 0) > 0 ? (
+            <p className="text-xs text-amber-700 dark:text-amber-300">
+              {plural(panel.frenchHeld, "held prospect")} {panel.frenchHeld === 1 ? "is" : "are"} in Quebec
+              and can only go to a rep who sells in French, so reps without French are greyed. Tick
+              Français under &quot;Sells in&quot; on their card to make them eligible.
+            </p>
+          ) : null}
           <p className={HELP}>
             Moves the held prospects (leases re-issued for 48 hours, dialled after
             what the other rep already holds) and the open leads. Companies{" "}
@@ -1649,12 +1667,20 @@ function DeactivatePanel({ rep, state, busy, onChange, onConfirm, onCancel }) {
           >
             <option value="">{targets.length === 0 ? "No other active rep" : "Choose a rep"}</option>
             {targets.map((t) => (
-              <option key={t.id} value={t.id}>
+              <option key={t.id} value={t.id} disabled={t.eligible === false}>
                 {t.isMe ? `Me — ${t.name}` : t.name}
+                {t.eligible === false ? " — no French" : ""}
               </option>
             ))}
           </select>
           <p className={HELP}>{state.meNote}</p>
+          {(state.frenchHeld ?? 0) > 0 ? (
+            <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+              {plural(state.frenchHeld, "held prospect")} {state.frenchHeld === 1 ? "is" : "are"} in Quebec
+              and can only go to a rep who sells in French — reps without French are greyed. The
+              server refuses the hand-off otherwise.
+            </p>
+          ) : null}
           {targets.length === 0 ? (
             <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
               There is no other active rep to move work to. Invite one, or reactivate

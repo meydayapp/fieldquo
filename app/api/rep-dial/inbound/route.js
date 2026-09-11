@@ -91,6 +91,7 @@ import twilio from "twilio";
 import { db } from "@/lib/db";
 import { verifyTwilioWebhook } from "@/lib/sms/verifyTwilioWebhook";
 import { ringPlan } from "@/lib/sales/calls/inboundDistribution";
+import { inboundNeedsFrench, repSellsFrench, requiredLanguageFor } from "@/lib/sales/leadLanguage";
 import { getAppOrigin } from "@/lib/appUrl";
 import { recordError } from "@/lib/platform/errorLog";
 import { normalisePhone } from "@/lib/sales/suppressionRules";
@@ -431,21 +432,26 @@ async function queueStage(request, params) {
 
   // Who is free RIGHT NOW. Re-read every round — the whole point of holding
   // somebody is that this answer changes while they wait.
-  const presence = store.ready
-    ? await db.salesRep
-        .findMany({ where: { active: true }, select: { id: true } })
-        .then((reps) => presenceFor(reps.map((r) => r.id)))
-        .catch(() => null)
+  // `sellsIn` beside the id: a Quebec caller in the hold queue may only be
+  // rung by a rep with French, re-judged every round like presence is.
+  const reps = store.ready
+    ? await db.salesRep.findMany({ where: { active: true }, select: { id: true, sellsIn: true } }).catch(() => null)
     : null;
+  const presence = reps ? await presenceFor(reps.map((r) => r.id)).catch(() => null) : null;
 
   const ourNumber = attempt?.fromE164 || normalisePhone(params.To) || null;
   const numberRung = ourNumber ? await salesVoiceNumber(ourNumber).catch(() => null) : null;
 
+  // The caller's number is the attempt row's OTHER party (toE164 — see the
+  // direction note in this function's header), else Twilio's From.
+  const callerNumber = attempt?.toE164 || normalisePhone(params.From) || null;
   const ring = ringPlan({
     assignedRepId: numberRung?.assignedRepId || null,
     presence,
     lastCalledBy: attempt?.salesRepId || null,
     transferTo: normalisePhone(process.env.FIELDQUO_SALES_TRANSFER_TO),
+    needsFrench: inboundNeedsFrench(callerNumber),
+    frenchRepIds: (reps || []).filter(repSellsFrench).map((r) => r.id),
   });
 
   const step = queueStep({
@@ -613,12 +619,14 @@ export async function POST(request) {
   // rather than `[]` where the difference matters — matchInboundCaller draws
   // the distinction between "nobody carries this number" and "we could not
   // look", and so does the presence read.
-  const [prospects, leads, lastOut, suppression, presence] = await Promise.all([
+  const [prospects, leads, lastOut, suppression, activeReps] = await Promise.all([
     caller
       ? db.prospect
           .findMany({
             where: { phoneE164: caller },
-            select: { id: true, businessName: true, assignedRepId: true },
+            // `province`: a matched Quebec row makes this a French call even
+            // when the caller's number is not a Quebec area code.
+            select: { id: true, businessName: true, assignedRepId: true, province: true },
             take: 5,
           })
           .catch(() => [])
@@ -642,13 +650,23 @@ export async function POST(request) {
     caller
       ? checkSuppression(db, { channel: "phone", phone: caller }).catch(() => null)
       : Promise.resolve(null),
+    // The active reps WITH their selling languages, kept for the ring plan
+    // below; presence is read for the same ids. Null on a failure, which
+    // ringPlan reads as "could not look" rather than "nobody".
     db.salesRep
-      .findMany({ where: { active: true }, select: { id: true } })
-      .then((reps) => presenceFor(reps.map((r) => r.id)))
+      .findMany({ where: { active: true }, select: { id: true, sellsIn: true } })
       .catch(() => null),
   ]);
+  const presenceRows = activeReps ? await presenceFor(activeReps.map((r) => r.id)).catch(() => null) : null;
 
   const match = matchInboundCaller({ fromE164: params.From, prospects, leads });
+  // French, by either signal: the caller's area code, or the row they
+  // matched sitting in Quebec — lib/sales/leadLanguage.js, the same rule
+  // the queue claims with.
+  const matchedProspect = match.prospectId ? prospects.find((p) => p.id === match.prospectId) : null;
+  const needsFrench =
+    inboundNeedsFrench(caller) || (matchedProspect ? requiredLanguageFor(matchedProspect) === "fr" : false);
+  const frenchRepIds = (activeReps || []).filter(repSellsFrench).map((r) => r.id);
 
   // The rep who rang them from THIS number wins over the rep who happens to
   // hold the claim: the contractor is ringing back the number on their screen,
@@ -664,7 +682,7 @@ export async function POST(request) {
     fromE164: caller,
     match,
     rep,
-    anyRepLive: anyRepLive(presence),
+    anyRepLive: anyRepLive(presenceRows),
     transferTo: normalisePhone(process.env.FIELDQUO_SALES_TRANSFER_TO),
     suppressed: Boolean(suppression?.suppressed),
   });
@@ -715,9 +733,11 @@ export async function POST(request) {
   // number. See lib/sales/calls/inboundDistribution.js.
   const ring = ringPlan({
     assignedRepId: numberRung.assignedRepId || null,
-    presence,
+    presence: presenceRows,
     lastCalledBy: lastOut?.salesRepId || null,
     transferTo: normalisePhone(process.env.FIELDQUO_SALES_TRANSFER_TO),
+    needsFrench,
+    frenchRepIds,
   });
 
   const origin = getAppOrigin(request);

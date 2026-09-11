@@ -38,6 +38,7 @@ export const GUIDE = {
       "This is the reference behind the script. The playbook tells you what to say; this tells you what is true, so that when a contractor asks a question you did not expect, you can answer it without guessing.",
       "Every feature listed here is taken from the product's own feature matrix, which names the files that must exist for each one. If a feature is in this document, it is in the product. If something is not here, do not promise it.",
       "Every feature here is described as it works today. Where something is newer than the rest, the deep dive says so. If a contractor asks for something you cannot find in this document, say you will check rather than guessing — a contractor who buys on a promise you could not keep cancels in month two and tells people why.",
+      "One rule about who you are handed: Quebec leads go only to reps who have set French under “Languages I can sell in” on the Pay tab. If a Quebec contractor is on your screen, that is why — take the call in French.",
     ],
   },
   pitchHeading: "The one thing to lead with",

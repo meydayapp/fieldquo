@@ -66,6 +66,7 @@ import {
 } from "@/lib/sales/queueBatch";
 import { groupByWindow } from "@/lib/sales/queueWindows";
 import { repLanguageOrNull } from "@/lib/sales/repLanguage";
+import { requiredLanguageFor } from "@/lib/sales/leadLanguage";
 // Namespace import, not a named one: the pipeline is growing
 // ensureResearchQueued() in a concurrent change, and a named import of an
 // export that is not there yet is a build error on one bundler and a silent
@@ -223,6 +224,10 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
         {
           city: p.city || null,
           province: p.province || null,
+          // "fr" on a Quebec row, else null: the card draws a Français chip
+          // from it, so a rep sees why this row reached them and not a
+          // colleague. Decided by the same function the claim used.
+          language: requiredLanguageFor(p),
           researched: isResearched(p),
           researching: !isResearched(p) && researchingIds.has(p.id),
           // windowFor()'s answer for this row: the decision, the prospect's
@@ -246,7 +251,11 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
     discoveryTradeKeys().map(async (key) => {
       const [mine, available] = await Promise.all([
         db.prospect.count({ where: { ...queueWhere(rep.id, { now }), tradeKey: key } }),
-        db.prospect.count({ where: claimCandidateWhere({ tradeKey: key, now }) }),
+        // THIS rep's pool, not the pool: a Quebec row an anglophone rep
+        // cannot be handed is not "available" to them, and a count that
+        // said 900 beside a button that claimed 12 would be the dead
+        // control in numbers. The campaigns console counts without a rep.
+        db.prospect.count({ where: claimCandidateWhere({ tradeKey: key, now, rep }) }),
       ]);
       return { key, label: DISCOVERY_TRADES[key].label, claimed: mine, available };
     }),
@@ -560,8 +569,10 @@ export async function POST(request) {
       // the two queries, so a claim that expired in that gap could be taken by
       // the read and refused by the write — or worse, the other way round.
       const at = new Date();
+      // `rep` carries the language rule: a Quebec row is not a candidate
+      // for a rep without French — lib/sales/leadLanguage.js.
       const candidate = await db.prospect.findFirst({
-        where: claimCandidateWhere({ tradeKey, now: at }),
+        where: claimCandidateWhere({ tradeKey, now: at, rep }),
         // Oldest first, so the pool drains rather than the same rows being
         // handed out. NOT by lead score: nothing in this build writes a
         // ProspectScore, and ordering by a column that is always null is a
@@ -582,7 +593,7 @@ export async function POST(request) {
       // claimed this row between the read and the write, count is 0 and we go
       // round again rather than overwriting their claim.
       const claimed = await db.prospect.updateMany({
-        where: { id: candidate.id, ...claimCandidateWhere({ tradeKey, now: at }) },
+        where: { id: candidate.id, ...claimCandidateWhere({ tradeKey, now: at, rep }) },
         data: {
           assignedRepId: rep.id,
           assignedAt: at,

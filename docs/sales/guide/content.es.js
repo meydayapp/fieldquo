@@ -66,6 +66,7 @@ export const GUIDE = {
       "Esta es la referencia que está detrás del guion. El playbook le dice qué decir; esto le dice qué es cierto, para que cuando un contratista haga la pregunta que usted no esperaba, la pueda contestar sin adivinar.",
       "Cada función de esta lista sale de la matriz de funciones del propio producto, que nombra los archivos que tienen que existir para cada una. Si una función está en este documento, está en el producto. Si algo no está aquí, no lo prometa.",
       "Cada función está descrita tal como funciona hoy. Cuando algo es más nuevo que el resto, la sección detallada lo dice. Si un contratista pide algo que usted no encuentra en este documento, diga que lo va a verificar en vez de adivinar — el contratista que compra por una promesa que usted no pudo cumplir cancela al segundo mes y le cuenta a todo el mundo por qué.",
+      "Una regla sobre lo que le entregan: los prospectos de Quebec solo van a representantes que marcaron francés en «Idiomas en los que puedo vender», en la pestaña Pago. Si un contratista de Quebec está en su pantalla, es por eso — atienda la llamada en francés.",
     ],
   },
   pitchHeading: "Lo único con lo que hay que abrir",

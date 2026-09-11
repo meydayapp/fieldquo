@@ -55,8 +55,8 @@ import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { normaliseWorkEmail, workEmailProblem } from "@/lib/sales/repAdmin";
 import { resolvePlanAssignment } from "@/lib/sales/commissionPlanServer";
 import { releaseUntouched } from "@/lib/sales/queueBatch";
-import { deactivationGate, openLeadWhere, queueCountsFor, reassignHeld } from "@/lib/sales/reassign";
-import { parseSellsIn, sellsInOf } from "@/lib/sales/leadLanguage";
+import { deactivationGate, frenchHeldCount, openLeadWhere, queueCountsFor, reassignHeld } from "@/lib/sales/reassign";
+import { parseSellsIn, repSellsFrench, sellsInOf } from "@/lib/sales/leadLanguage";
 
 /**
  * The hand-off the gate approved, written on the transaction the rep update
@@ -256,7 +256,7 @@ export async function PATCH(request, { params }) {
       }
       toRep = await db.salesRep.findUnique({
         where: { id: handoff.toRepId },
-        select: { id: true, name: true, email: true, active: true },
+        select: { id: true, name: true, email: true, active: true, sellsIn: true },
       });
       if (!toRep) {
         return NextResponse.json({ error: "That rep does not exist.", counts: gate.counts }, { status: 404 });
@@ -266,6 +266,29 @@ export async function PATCH(request, { params }) {
           { error: "That rep is deactivated. Work can only be moved to an active rep.", counts: gate.counts },
           { status: 409 },
         );
+      }
+      // The language rule, judged BEFORE the transaction opens so it is a
+      // 409 with a sentence rather than a thrown error inside performHandoff.
+      // "move" carries every held row; "release" carries only the prospects
+      // an open lead sits on — the same set performHandoff moves.
+      if (!repSellsFrench(toRep)) {
+        const cannot = await frenchHeldCount({
+          db,
+          salesRepId: existing.id,
+          now,
+          onlyWithOpenLead: handoff.prospects === "release",
+        });
+        if (cannot > 0) {
+          return NextResponse.json(
+            {
+              error: `${cannot} of the prospect${cannot === 1 ? " that would move is" : "s that would move are"} in Quebec and can only go to a rep who sells in French. ${toRep.name} has no French in their languages — set it on their card, or choose a rep who has.`,
+              code: "language",
+              cannot,
+              counts: gate.counts,
+            },
+            { status: 409 },
+          );
+        }
       }
     }
   }

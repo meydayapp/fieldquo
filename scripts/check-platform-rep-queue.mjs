@@ -41,6 +41,7 @@ import {
   deactivationGate,
   handoffTargets,
   heldBy,
+  heldSelect,
   isOpenLead,
   openLeadWhere,
   planReassign,
@@ -382,6 +383,38 @@ const fixture = () => ({
   ok("without includeDialled the dialled lease is kept, as the rep's own button keeps it", r2.kept === 1 && !r2.releasedIds.includes("p2"), r2);
 }
 
+// ── The language rule binds a move ─────────────────────────────────────────
+//
+// The owner's Quebec rule (lib/sales/leadLanguage.js): a rep without French
+// may not be handed a Quebec row, and the console's Move is a hand-out.
+{
+  const qc = () => {
+    const f = fixture();
+    f.prospects.find((p) => p.id === "p1").province = "QC";
+    f.prospects.find((p) => p.id === "p2").province = "ON";
+    f.prospects.find((p) => p.id === "p4").province = "QC"; // lapsed — not held
+    return f;
+  };
+  const db = scriptedDb(qc());
+  const refused = await reassignHeld({ db, fromRep: { id: "dan" }, toRep: { id: "eve", name: "Eve", active: true, sellsIn: ["en"] }, now: NOW });
+  ok("a move to a rep without French is refused when a held row is in Quebec", Boolean(refused.error), refused);
+  ok("…with code language and the count of rows that cannot go", refused.code === "language" && refused.cannot === 1, refused);
+  ok("…the lapsed Quebec lease not counted", refused.cannot === 1);
+  ok("…and nothing moved: the whole move, not the anglophone half", db.state.prospects.every((p) => p.id === "p5" || p.assignedRepId === "dan") && !db.state.log.includes("$transaction"), db.state.log);
+  ok("…and the sentence names the rep and the fix", /Eve has no French/.test(refused.error) && /set it on their card/.test(refused.error), refused.error);
+  const db2 = scriptedDb(qc());
+  const allowed = await reassignHeld({ db: db2, fromRep: { id: "dan" }, toRep: { id: "eve", active: true, sellsIn: ["fr"] }, now: NOW });
+  ok("the same move to a rep WITH French goes through", !allowed.error && allowed.prospects === 3, allowed);
+  const db3 = scriptedDb(fixture());
+  const noQc = await reassignHeld({ db: db3, fromRep: { id: "dan" }, toRep: { id: "eve", active: true, sellsIn: [] }, now: NOW });
+  ok("a rep with no languages at all may take rows that need none", !noQc.error && noQc.prospects === 3, noQc);
+  // summariseHeld counts the French rows for the picker.
+  const held = qc().prospects.filter((p) => p.assignedRepId === "dan").map((p) => ({ ...p, callAttempts: [] }));
+  const summary = summariseHeld(held, { salesRepId: "dan", now: NOW });
+  ok("summariseHeld counts the held Quebec rows (lapsed excluded)", summary.french === 1, summary);
+  ok("…and heldSelect reads the province it needs", heldSelect("dan").province === true);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 section("4. deactivationGate — pure");
 // ═══════════════════════════════════════════════════════════════════════════
@@ -490,6 +523,17 @@ section('6. "Me" — a match by sign-in email, or an honest absence');
   const without = await handoffTargets({ db: mk("nobody@fieldquo.com"), admin: { id: "a1" }, excludeRepId: "dan" });
   ok("a superadmin with no rep account gets no 'me'", without.me === null);
   ok("…and is told so rather than shown one", /no sales rep account/.test(without.meNote) && without.targets.every((t) => !t.isMe));
+
+  // Eligibility, for the picker: with Quebec rows held, a rep without French
+  // is offered greyed with the reason, never dropped.
+  reps.push({ id: "fra", name: "Françoise", code: "fra", email: "fra@x.com", active: true, sellsIn: ["fr", "en"] });
+  const withFrench = await handoffTargets({ db: mk("owner@fieldquo.com"), admin: { id: "a1" }, excludeRepId: "dan", frenchHeld: 3 });
+  ok("with Quebec rows held, a rep without French is offered but ineligible", withFrench.targets.find((t) => t.id === "eve")?.eligible === false);
+  ok("…with the reason", /3 of the held prospects are in Quebec/.test(withFrench.targets.find((t) => t.id === "eve")?.why || ""));
+  ok("…and the rep with French is eligible", withFrench.targets.find((t) => t.id === "fra")?.eligible === true && withFrench.targets.find((t) => t.id === "fra")?.sellsFrench === true);
+  ok("…and the count travels for the panel's sentence", withFrench.frenchHeld === 3);
+  const none = await handoffTargets({ db: mk("owner@fieldquo.com"), admin: { id: "a1" }, excludeRepId: "dan", frenchHeld: 0 });
+  ok("with no Quebec rows held everybody is eligible", none.targets.every((t) => t.eligible === true && t.why === null));
 }
 
 console.log(`\n${failures.length === 0 ? "ALL PASS" : "FAILED"} — ${pass} passed, ${failures.length} failed`);

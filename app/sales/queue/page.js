@@ -1085,6 +1085,16 @@ function QueueConsole() {
                     })}
                   </p>
                 ) : null}
+                {/* The rows the language rule kept back — the server counted
+                    them against the same trade's pool, so a rep without
+                    French reads why a 900-row trade yielded twelve. */}
+                {batchResult.skippedForLanguage > 0 ? (
+                  <p className="text-xs text-amber-800 dark:text-amber-200 break-words">
+                    {t("app.salesQueue.batchSkippedForLanguage", {
+                      count: batchResult.skippedForLanguage,
+                    })}
+                  </p>
+                ) : null}
                 {batchResult.reasonKey ? (
                   <p className="text-xs text-muted-foreground break-words">
                     {t(batchResult.reasonKey, { cap: data?.batch?.dailyCap ?? 0 })}
@@ -1217,6 +1227,14 @@ function QueueConsole() {
                                         title={meta.zoneId || undefined}
                                       >
                                         {meta.zone}
+                                      </span>
+                                    ) : null}
+                                    {item.language === "fr" ? (
+                                      <span
+                                        className="inline-block rounded border border-border px-1 py-px mr-1 text-[11px] leading-4 text-foreground"
+                                        title={t("app.salesQueue.frenchChipTitle")}
+                                      >
+                                        {t("app.salesQueue.frenchChip")}
                                       </span>
                                     ) : null}
                                     {[meta.research, meta.window].filter(Boolean).join(" · ")}

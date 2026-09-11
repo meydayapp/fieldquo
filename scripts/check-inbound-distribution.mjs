@@ -44,6 +44,7 @@ import {
   MAX_RING_TARGETS,
 } from "@/lib/sales/calls/inboundDistribution";
 import { PRESENCE_STALE_MINUTES, livePresence, STATE_AVAILABLE } from "@/lib/sales/calls/agentState";
+import { inboundNeedsFrench } from "@/lib/sales/leadLanguage";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(ROOT, p), "utf8");
@@ -151,6 +152,36 @@ section("3. Bounds, and the shapes of nothing");
   ok("the no-answer line names the rep when we know them", noAnswerSay({ repName: "Daniel" }).includes("Daniel"));
   ok("…and never prints undefined", !noAnswerSay({}).includes("undefined"));
   ok("…and always offers a way to leave a message", /leave your name/i.test(noAnswerSay({})));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("3b. A Quebec caller rings only reps with French");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The owner's rule for the queue — a Quebec lead goes only to a rep whose
+// languages carry French (lib/sales/leadLanguage.js) — binds the phone too.
+// The route decides `needsFrench` from the caller's area code or the row
+// they matched, and hands ringPlan the ids of reps with French.
+{
+  const rows = [fresh("anglo", 1), fresh("franco", 5), fresh("anglo2", 9)];
+  const fr = ringPlan({ presence: rows, needsFrench: true, frenchRepIds: ["franco"], now: NOW });
+  ok("a 514 caller rings only the rep with French", fr.targets.length === 1 && fr.targets[0].salesRepId === "franco", fr.targets);
+  ok("…the plan says so", fr.needsFrench === true);
+  const owner = ringPlan({ assignedRepId: "anglo", presence: rows, needsFrench: true, frenchRepIds: ["franco"], now: NOW });
+  ok("the number's owner is skipped when they have no French", !owner.targets.some((t) => t.salesRepId === "anglo") && owner.targets[0]?.salesRepId === "franco", owner.targets);
+  const last = ringPlan({ presence: rows, lastCalledBy: "anglo", needsFrench: true, frenchRepIds: ["franco"], now: NOW });
+  ok("…and so is whoever rang them last", !last.targets.some((t) => t.salesRepId === "anglo"));
+  const empty = ringPlan({ presence: [fresh("anglo")], needsFrench: true, frenchRepIds: [], now: NOW });
+  ok("no French rep live → an empty plan, so the route holds them and ends at voicemail as it does for nobody free", empty.targets.length === 0);
+  ok("…with its own reason, nobody_french, for the log", empty.reason === "nobody_french", empty.reason);
+  const transfer = ringPlan({ presence: [fresh("anglo")], needsFrench: true, frenchRepIds: [], transferTo: "+15551234567", now: NOW });
+  ok("the standing transfer number is a phone, not a rep, and is kept", transfer.targets.length === 1 && transfer.targets[0].kind === "number");
+  ok("without the flag the anglophones ring as before", ringPlan({ presence: rows, frenchRepIds: ["franco"], now: NOW }).targets.length === 3);
+  ok("inboundNeedsFrench: 514 yes, 416 no", inboundNeedsFrench("+15145550100") && !inboundNeedsFrench("+14165550100"));
+  const route = read("app/api/rep-dial/inbound/route.js");
+  ok("the route reads reps with sellsIn for both the first ring and the hold queue", (route.match(/select: \{ id: true, sellsIn: true \}/g) || []).length === 2);
+  ok("…decides French from the caller's area code OR the matched prospect's province", /inboundNeedsFrench\(caller\) \|\| \(matchedProspect \? requiredLanguageFor\(matchedProspect\) === "fr" : false\)/.test(route));
+  ok("…and passes needsFrench and frenchRepIds to ringPlan", /needsFrench,\s*frenchRepIds,/.test(route) && /needsFrench: inboundNeedsFrench\(callerNumber\)/.test(route));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
