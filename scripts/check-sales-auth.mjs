@@ -116,6 +116,7 @@ const {
 const { requireSalesRep, REP_FORBIDDEN_WRITES } = await import("@/lib/sales/gate");
 const { PAYOUT_WRITES_ON_SALES_REP } = await import("@/lib/sales/payoutWrite");
 const { PREFERENCE_WRITES_ON_SALES_REP } = await import("@/lib/sales/preferenceWrite");
+const { AUTODIAL_WRITES_ON_SALES_REP } = await import("@/lib/sales/autodialWrite");
 
 let pass = 0;
 const failures = [];
@@ -845,6 +846,16 @@ const LIB_FORBIDDEN_WRITE_BY_DESIGN = {
     "payoutWrite.js, because the payout fence below locates ONE update by " +
     "index and a second one in that file would be scanned by nothing. Column " +
     "asserted below.",
+  "lib/sales/autodialWrite.js":
+    "saveRepAutodial(). Writes ONLY SalesRep.autodial — " +
+    "AUTODIAL_WRITES_ON_SALES_REP — the switch that makes the rep's own queue " +
+    "screen count down and press Call after they log an outcome. It cannot " +
+    "change what is owed, who a company is credited to, whether a batch pays, " +
+    "or whether the rep can sign in tomorrow, and it authorises no call: every " +
+    "autodialled dial still passes the gate in /api/sales/calls. A boolean the " +
+    "writer refuses to coerce. Its own file for the reason preferenceWrite.js " +
+    "gives — one writer per file, so the index-located fence sees it. Column " +
+    "asserted below.",
 };
 
 const stray = [];
@@ -1095,6 +1106,40 @@ function objectKeys(src, from) {
     "…and writes no audit row, unlike the payout writer",
     !/recordError/.test(prefSrc),
   );
+}
+
+// ── The autodial switch, fenced the same way as the language ───────────────
+//
+// Same shape as the preference block above, and a separate block because the
+// writer is a separate file — by design, so each fence's index-located update
+// is the only one in its file.
+{
+  const autoSrc = decomment(read("lib/sales/autodialWrite.js"));
+  const columns = AUTODIAL_WRITES_ON_SALES_REP;
+  ok(
+    "the autodial writer names its column as data",
+    Array.isArray(columns) && columns.length === 1 && columns[0] === "autodial",
+    columns,
+  );
+  ok(
+    "…and the file makes exactly one write",
+    (autoSrc.match(/salesRep\.(update|updateMany|upsert|create|delete|deleteMany)\(/g) || []).length === 1,
+    (autoSrc.match(/salesRep\.\w+\(/g) || []),
+  );
+  const upd = autoSrc.indexOf("salesRep.update(");
+  const dataAt = autoSrc.indexOf("data: {", upd);
+  ok("the update's data block was located", upd > 0 && dataAt > upd, { upd, dataAt });
+  const written = objectKeys(autoSrc, autoSrc.indexOf("{", dataAt));
+  ok(
+    "the writer sets EXACTLY the autodial column and nothing else",
+    written.length === columns.length && written.every((k) => columns.includes(k)),
+    written,
+  );
+  ok("…and takes the rep id from the caller's gate, never a request body", /salesRepId is required/.test(autoSrc));
+  ok("…and refuses anything but a boolean rather than coercing it", /typeof on !== "boolean"/.test(autoSrc));
+  ok("…and writes no audit row, like the language writer", !/recordError/.test(autoSrc));
+  const callsRoute = decomment(read("app/api/sales/calls/route.js"));
+  ok("the calls route reaches it only through saveRepAutodial, after its own boolean check", /typeof body\.on !== "boolean"/.test(callsRoute) && /saveRepAutodial\(\{ salesRepId: rep\.id, on: body\.on \}\)/.test(callsRoute) && !/db\.salesRep\.update/.test(callsRoute));
 }
 
 ok(

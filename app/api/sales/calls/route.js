@@ -59,6 +59,7 @@ import {
   STATE_AVAILABLE,
   STATE_ON_CALL,
   STATE_ORDER,
+  STATUS_CHOICES,
   livePresence,
 } from "@/lib/sales/calls/agentState";
 import { dialModeState } from "@/lib/sales/calls/dialMode";
@@ -68,8 +69,9 @@ import { loadContactNumbers, pickContactNumber } from "@/lib/sales/contact/resol
 import { CHANNEL_VOICE } from "@/lib/sales/contact/numbers";
 import { TWIML_APP_ENV, browserDialReadiness, callPlan } from "@/lib/sales/calls/browserDial";
 import { repCallStats } from "@/lib/sales/calls/reporting";
+import { saveRepAutodial } from "@/lib/sales/autodialWrite";
 
-const ACTIONS = ["dial", "disposition", "state", "heartbeat"];
+const ACTIONS = ["dial", "disposition", "state", "heartbeat", "autodial"];
 const MAX_NOTE = 2000;
 
 const bad = (error, status = 400) => NextResponse.json({ error }, { status });
@@ -177,9 +179,10 @@ export async function GET(request) {
   const store = callStoreState();
   const mode = dialModeState();
 
-  const [numbers, open] = await Promise.all([
+  const [numbers, open, repRow] = await Promise.all([
     salesCallerNumbers().catch(() => []),
     currentActivity(rep.id).catch(() => null),
+    db.salesRep.findUnique({ where: { id: rep.id }, select: { autodial: true } }),
   ]);
 
   // Today's own numbers. A rep sees their own and nobody else's — the
@@ -221,6 +224,11 @@ export async function GET(request) {
     dispositions: dispositionOptions(),
     states: STATE_ORDER.map((code) => ({ code, ...REP_STATES[code] })),
     pauseReasons: PAUSE_REASON_ORDER.map((code) => PAUSE_REASONS[code]),
+    statusChoices: STATUS_CHOICES,
+    // The persisted switch. Read from the row, never defaulted: a missing
+    // column (a client a generation behind) reads as null, and the screen
+    // renders the switch off rather than inventing a preference.
+    autodial: repRow?.autodial === true,
     // `portalSeenAt: now` is not an assumption — this request IS the rep in
     // the portal, and it is the same fact lib/sales/gate.js stamps on the read
     // path. Leaving it null would hand the rep's own screen a presence object
@@ -282,10 +290,29 @@ export async function POST(request) {
   }
 
   if (action === "state") {
+    // ── The call lifecycle posts here too ─────────────────────────────────
+    //
+    // CallPanel posts `after_call` when Twilio reports the hangup, and the
+    // inbound dock posts `on_call` when a rep answers a callback, each naming
+    // the attempt so the ledger row points at the call it belongs to. The id
+    // is a loose pointer (see SalesRepActivity.callAttemptId) and is scoped
+    // below to an attempt this rep owns — a rep cannot hang another rep's
+    // call on their own row, and an id that is not theirs is dropped rather
+    // than refused, because the state change is the fact and the pointer is
+    // the commentary.
+    let callAttemptId = null;
+    if (typeof body.callAttemptId === "string" && body.callAttemptId.trim()) {
+      const owned = await db.salesCallAttempt.findFirst({
+        where: { id: body.callAttemptId.trim(), salesRepId: rep.id },
+        select: { id: true },
+      });
+      callAttemptId = owned?.id || null;
+    }
     const result = await setRepState({
       salesRepId: rep.id,
       to: typeof body.state === "string" ? body.state : null,
       pauseReason: typeof body.pauseReason === "string" ? body.pauseReason : null,
+      callAttemptId,
       now,
     });
     if (!result.ok) return bad(result.error, 409);
@@ -294,6 +321,19 @@ export async function POST(request) {
       presence: livePresence(result.activity, now, { portalSeenAt: now }),
       serverNow: now.toISOString(),
     });
+  }
+
+  if (action === "autodial") {
+    // A boolean and nothing else. The switch is a preference about the rep's
+    // own screen; it authorises no call on its own — every autodialled call
+    // still arrives at the `dial` branch below and is gated there.
+    //
+    // Written through lib/sales/autodialWrite.js, the fenced writer, because
+    // `salesRep` is a forbidden table for a rep-facing route (lib/sales/gate.js
+    // REP_FORBIDDEN_WRITES) and the fence is where the one column is argued.
+    if (typeof body.on !== "boolean") return bad("Send { on: true } or { on: false }.");
+    const updated = await saveRepAutodial({ salesRepId: rep.id, on: body.on });
+    return NextResponse.json({ ok: true, autodial: updated.autodial, serverNow: now.toISOString() });
   }
 
   if (action === "dial") {

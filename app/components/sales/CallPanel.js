@@ -78,9 +78,11 @@ import {
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { STATE_AFTER_CALL } from "@/lib/sales/calls/agentState";
 import CallPlaybook from "./CallPlaybook";
 import TransferControl from "./TransferControl";
 import EventModal from "@/app/sales/calendar/EventModal";
+import { useRepPresence } from "./RepStatus";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -142,6 +144,19 @@ export default function CallPanel({
   businessName,
   fallbackHref,
   onWorked,
+  // ── The autodialler's press ──────────────────────────────────────────
+  //
+  // `{ token, prospectId }`. When the token changes and the prospectId is
+  // THIS panel's, the panel calls place("browser") — the same function the
+  // Call button calls, with nothing in between. There is deliberately no
+  // second way to start a call: lib/sales/autodial.js decides, this file
+  // dials, and scripts/check-sales-autodial.mjs asserts the queue page holds
+  // no `device.connect` of its own. The panel refuses the press when it is
+  // not idle (a call up, an outcome unlogged, a press in flight) and reports
+  // what happened through onAutoDialResult, so the dialler can skip on a
+  // server refusal rather than sit on a row that will never ring.
+  autoDial = null,
+  onAutoDialResult = null,
 }) {
   // The rep's own language, not the prospect's. Everything on this panel is
   // read by the person holding the phone; the words they SAY come from the
@@ -182,6 +197,15 @@ export default function CallPanel({
 
   const deviceRef = useRef(null);
   const callRef = useRef(null);
+
+  // The portal-wide presence: the dialler reads `callUp` off it, and the two
+  // automatic ledger transitions this panel makes (hangup → after_call, and
+  // the re-read after the server moves the rep on dial and on disposition)
+  // go through it. Read through a ref inside the SDK's event handlers, which
+  // are bound once per call and would otherwise close over a stale object.
+  const presence = useRepPresence();
+  const presenceRef = useRef(presence);
+  presenceRef.current = presence;
 
   // Why there is no script, when there is no script. A lead the rep typed in
   // has no discovery behind it, so lib/sales/playbook has nothing to build one
@@ -239,20 +263,10 @@ export default function CallPanel({
     return () => clearInterval(id);
   }, [startedAt]);
 
-  // Say we are still here, so the supervisor board can tell "available" from
-  // "said they were available before the lid closed". Fire-and-forget: a
-  // missed beat ages the row, which is exactly what it is for.
-  useEffect(() => {
-    if (!config?.store?.ready) return undefined;
-    const beat = () =>
-      fetch("/api/sales/calls", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "heartbeat" }),
-      }).catch(() => {});
-    const id = setInterval(beat, 60_000);
-    return () => clearInterval(id);
-  }, [config?.store?.ready]);
+  // The heartbeat used to be here, which meant it beat only on the screens
+  // that render this panel — a rep reading notes went stale in fifteen
+  // minutes and dropped off the inbound ring plan. It is in
+  // RepPresenceProvider now, once, for every /sales screen.
 
   useEffect(
     () => () => {
@@ -281,6 +295,10 @@ export default function CallPanel({
   const chosen = dispositions.find((d) => d.code === code) || null;
 
   async function place(channel) {
+    // Never two at once, and never over a call. The Call button is not
+    // rendered in these states, so this guard exists for the autodialler's
+    // press, which arrives on a timer rather than from a thumb.
+    if (busy || startedAt || pending) return false;
     setBusy("dial");
     setError("");
     try {
@@ -303,6 +321,9 @@ export default function CallPanel({
         }),
       });
       setAttempt(body);
+      // The server moved the rep to on_call; the header should say so now
+      // rather than at the next beat.
+      presenceRef.current.refresh();
 
       if (channel !== "browser") {
         // The attempt is recorded; now hand off to the handset. The href comes
@@ -312,7 +333,7 @@ export default function CallPanel({
         if (fallbackHref) window.location.href = fallbackHref;
         setPending({ id: body.attemptId, toE164: body.to, dialledAt: body.serverNow });
         setAttempt(null);
-        return;
+        return true;
       }
 
       const { Device } = await import("@twilio/voice-sdk");
@@ -336,6 +357,7 @@ export default function CallPanel({
       callRef.current = call;
       setStartedAt(Date.now());
       setMuted(false);
+      presenceRef.current.setCallUp(true);
 
       call.on("disconnect", () => {
         callRef.current = null;
@@ -348,10 +370,17 @@ export default function CallPanel({
           /* already gone */
         }
         deviceRef.current = null;
+        presenceRef.current.setCallUp(false);
+        // The one automatic transition only this handler can make: the call
+        // has ended and the outcome has not been logged. On the ledger this
+        // is what separates time on the phone from time writing it up. Soft
+        // — the disposition below moves the rep on regardless.
+        presenceRef.current.postState({ state: STATE_AFTER_CALL, callAttemptId: body.attemptId });
       });
       call.on("error", (err) => {
         setError(err?.message || t("app.salesCall.callDropped"));
       });
+      return true;
     } catch (err) {
       // A refusal from the gate arrives with the whole decision attached, so
       // the reason shown is the same sentence the card above would print.
@@ -361,10 +390,37 @@ export default function CallPanel({
           ? blockers.map((b) => b.title).join(" ")
           : err?.message || t("app.salesCall.dialFailed"),
       );
+      return false;
     } finally {
       setBusy("");
     }
   }
+
+  // ── The autodialler's press, once per token ──────────────────────────
+  //
+  // A token this panel has already acted on is never acted on again, so a
+  // re-render cannot dial twice; a token for another prospect is ignored, so
+  // a countdown that ended after the rep clicked a different row rings
+  // nobody. The result goes back by token so the dialler can match it.
+  const autoDialSeen = useRef(null);
+  useEffect(() => {
+    if (!autoDial || !autoDial.token || autoDial.prospectId !== prospectId) return;
+    if (autoDialSeen.current === autoDial.token) return;
+    // Consumed the moment it is seen, whatever happens next. A token that
+    // waited for the panel to become idle would fire later, on its own, after
+    // the rep had logged an outcome — which is the one thing a progressive
+    // dialler must never do. Not idle now means not dialled, reported back.
+    autoDialSeen.current = autoDial.token;
+    const token = autoDial.token;
+    if (!browserReady || busy || startedAt || pending) {
+      onAutoDialResult?.({ token, ok: false, reason: "not_idle" });
+      return;
+    }
+    place("browser").then((ok) => onAutoDialResult?.({ token, ok: ok === true, reason: ok ? null : "refused" }));
+    // `place` is a plain function of this render; the guards above are what
+    // matter, and they are read from the same render the token arrived in.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoDial?.token, autoDial?.prospectId, prospectId]);
 
   function hangUp() {
     try {
@@ -402,6 +458,12 @@ export default function CallPanel({
       setCode("");
       setNote("");
       setCallbackAt("");
+      // The server moved the rep back to available. Awaited BEFORE onWorked,
+      // because the queue's autodialler arms on onWorked and reads the state
+      // through the same context — armed against a row still saying on_call
+      // it would stop with "not available" and wait for a press that is not
+      // coming.
+      await presenceRef.current.refresh();
       await load();
       onWorked?.();
     } catch (err) {

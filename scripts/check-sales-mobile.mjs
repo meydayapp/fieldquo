@@ -295,8 +295,11 @@ section("4. Every tour step's target is rendered on the page it names");
 // page mounts, since the attribute may sit inside one.
 
 const PAGE_FILES = {
-  "/sales": ["app/sales/page.js"],
-  "/sales/queue": ["app/sales/queue/page.js", "app/components/sales/DialRegion.js", "app/components/sales/QueueLeadEditor.js"],
+  // RepStatus.js is the status picker SalesShell mounts on every /sales
+  // screen (header from lg up, drawer below). It is listed under Today
+  // because that is the route its tour step names — see tourSteps.js.
+  "/sales": ["app/sales/page.js", "app/components/sales/RepStatus.js"],
+  "/sales/queue": ["app/sales/queue/page.js", "app/components/sales/DialRegion.js", "app/components/sales/QueueLeadEditor.js", "app/components/sales/AutodialControl.js"],
   "/sales/playbook": ["app/sales/playbook/page.js", "app/sales/playbook/PlaybookView.js"],
   "/sales/leads": ["app/sales/leads/page.js"],
   "/sales/threads": ["app/sales/threads/page.js"],

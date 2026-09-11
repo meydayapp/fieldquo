@@ -228,6 +228,7 @@ import { formatTimeOfDay } from "@/lib/format/localeDate";
 import RepNoteVisibilityNotice from "@/app/components/sales/RepNoteVisibilityNotice";
 import RepNoteUnavailable from "@/app/components/sales/RepNoteUnavailable";
 import DialRegion, { Notice } from "@/app/components/sales/DialRegion";
+import AutodialControl, { useAutodial } from "@/app/components/sales/AutodialControl";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 const BTN =
@@ -795,6 +796,57 @@ function QueueConsole() {
     // `tick` is here to re-run this every thirty seconds; it is not read.
   }, [current, clock, tick, language]);
 
+  // The chosen number, not the listing's. dialHref is still the only producer
+  // of a tel: target and still refuses anything but an `allowed` decision —
+  // what changed is WHICH number it is given, and that number came from the
+  // server's own list of ones it is willing to ring.
+  const href = dialHref(compliance, chosenNumber?.e164 || current?.phoneE164);
+  // Everything that goes where the Call button goes, including the sentence
+  // that goes there when there is no Call button. dialSpace re-gates the href
+  // against the decision, so a bug here cannot manufacture a dial control.
+  const space = dialSpace({
+    prospect: current,
+    compliance,
+    href,
+    claimedCount: items.length,
+  });
+
+  const showList = !current || listOpen;
+
+  // ── The autodialler ──────────────────────────────────────────────────
+  //
+  // The day's order, as the dialler reads it: the list this screen already
+  // draws, in the order the queue route sorted it (the claim log's
+  // `(claimedAt, position)` — see lib/sales/queueBatch.js), with each row
+  // marked dialled when a call attempt exists for it. `readiness` is THIS
+  // screen's own answer for the open row — dialSpace's state and the live
+  // calling-window decision — which is what the dialler is asked with when a
+  // countdown reaches zero. The server re-asks all of it on the dial itself.
+  const order = useMemo(
+    () => items.map((item) => ({ id: item.id, dialled: Boolean(item.lastOutcome), name: item.businessName })),
+    [items],
+  );
+  const readiness = useMemo(() => {
+    if (!current) return null;
+    if (space.state === DIAL_READY && compliance?.decision === CALL_ALLOWED) {
+      return { decision: "allowed", reason: null };
+    }
+    return {
+      decision: "refused",
+      reason: space.state !== DIAL_READY ? space.state : compliance?.decision || "unknown",
+    };
+    // `space` is rebuilt every render from the same inputs; keying on its
+    // state and the decision is what keeps this memo honest.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.id, space.state, compliance?.decision]);
+  const auto = useAutodial({ order, currentId: current?.id || null, readiness, select });
+  const worked = useCallback(() => {
+    // The flag first, the reload second: the dialler arms against the
+    // reloaded order, never the one that predates the call.
+    auto.onWorked();
+    load();
+  }, [auto.onWorked, load]);
+
   // ── The pool, split so the screen can lead with what is workable ───────
   //
   // `available` is a COUNT the server computed; this only orders them. A rep
@@ -812,22 +864,7 @@ function QueueConsole() {
     [data?.trades],
   );
 
-  // The chosen number, not the listing's. dialHref is still the only producer
-  // of a tel: target and still refuses anything but an `allowed` decision —
-  // what changed is WHICH number it is given, and that number came from the
-  // server's own list of ones it is willing to ring.
-  const href = dialHref(compliance, chosenNumber?.e164 || current?.phoneE164);
-  // Everything that goes where the Call button goes, including the sentence
-  // that goes there when there is no Call button. dialSpace re-gates the href
-  // against the decision, so a bug here cannot manufacture a dial control.
-  const space = dialSpace({
-    prospect: current,
-    compliance,
-    href,
-    claimedCount: items.length,
-  });
 
-  const showList = !current || listOpen;
 
   // The batch ceilings are the server's. `batchSize` is what the button says
   // it will do: never more than what is left of the day.
@@ -1196,6 +1233,19 @@ function QueueConsole() {
                 an icon. It lives in app/components/sales because the lead
                 screen renders the identical region — see its header for why a
                 second copy was refused. */}
+            {/* ── Autodial next ─────────────────────────────────────────────
+                The switch, the five-second countdown on the next row, and the
+                reason when it is not counting. Above the dial because the
+                countdown is about the same button: when it reaches zero, the
+                Call button below is what fires. lib/sales/autodial.js decides;
+                AutodialControl.js keeps the clock; CallPanel dials. */}
+            <AutodialControl
+              auto={auto}
+              claimLabel={tradeKey && remainingToday > 0 ? t("app.salesQueue.claimBatch", { count: batchSize }) : null}
+              onClaim={tradeKey && remainingToday > 0 ? () => act("claim_batch") : null}
+              busy={Boolean(busy)}
+            />
+
             <DialRegion
               space={space}
               compliance={compliance}
@@ -1211,7 +1261,9 @@ function QueueConsole() {
                     }
                   : null
               }
-              onWorked={load}
+              onWorked={worked}
+              autoDial={auto.token}
+              onAutoDialResult={auto.onResult}
             />
 
             {/* ── The other numbers, and the one somebody just read out ─────

@@ -37,6 +37,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
 import IncomingCallDock from "@/app/components/sales/IncomingCallDock";
+import { RepPresenceProvider, RepStatusPicker } from "@/app/components/sales/RepStatus";
 import SalesMobileTabBar from "@/app/components/sales/SalesMobileTabBar";
 import SalesTour from "@/app/components/sales/SalesTour";
 import { usePathname } from "next/navigation";
@@ -165,11 +166,19 @@ export default function SalesShell({ children }) {
   ];
 
   return (
-    // fq-sales-shell sets --fq-tab-bar-height for everything inside it below
-    // lg — the one place the bottom bar's footprint is declared, exactly as
-    // .fq-app-shell does for /app. See the "bottom dock" section of
-    // app/globals.css. The tour launcher and the incoming-call dock read the
-    // same variable to sit ABOVE the bar rather than under it.
+    // ── Presence is held above every screen ──────────────────────────────
+    //
+    // RepPresenceProvider loads the rep's own status once, beats the
+    // heartbeat, and hands the same object to the header picker, the drawer
+    // picker, the incoming-call dock and the queue's autodialler. It wraps the
+    // chrome as well as <main> because the dock — which reports "a call is
+    // ringing" into it — is mounted here, beside the tour.
+    <RepPresenceProvider>
+    {/* fq-sales-shell sets --fq-tab-bar-height for everything inside it below
+        lg — the one place the bottom bar's footprint is declared, exactly as
+        .fq-app-shell does for /app. See the "bottom dock" section of
+        app/globals.css. The tour launcher and the incoming-call dock read the
+        same variable to sit ABOVE the bar rather than under it. */}
     <div className="min-h-screen bg-muted fq-sales-shell">
       {/* Hidden below lg: SalesMobileTabBar draws the top bar there, with the
           same wordmark, and its drawer carries the name and the sign-out. */}
@@ -192,6 +201,12 @@ export default function SalesShell({ children }) {
               {t("app.salesPortal.title")}
             </span>
           </div>
+          {/* ── The status picker, from lg up ──────────────────────────────
+              Available · Break · Dinner · Meeting · Training · Off, with the
+              current state and how long. In the header rather than on a
+              screen because a rep goes to dinner from wherever they are; the
+              drawer carries the same control below lg. See RepStatus.js. */}
+          <RepStatusPicker layout="row" />
           <div className="flex items-center gap-4 min-w-0">
             {me?.name && (
               <span className="text-sm text-muted-foreground truncate hidden sm:inline">
@@ -265,7 +280,10 @@ export default function SalesShell({ children }) {
           it, the bar rendered at the foot of the document, measured at
           y=2336 on a 844px phone. The bottom bar and the drawer are fixed,
           so their place in the tree does not matter. */}
-      <SalesMobileTabBar tabs={tabs} name={me?.name || null} onSignOut={signOut} />
+      {/* drawerExtra: the same picker the header carries from lg up, as a
+          list of rows at the top of the drawer. Passed as a node so the bar
+          never names a status. */}
+      <SalesMobileTabBar tabs={tabs} name={me?.name || null} onSignOut={signOut} drawerExtra={<RepStatusPicker layout="list" />} />
       {/* The bottom padding reserves exactly what is pinned over the bottom
           of the viewport below lg — the tab bar's row plus the safe-area
           inset, through the variable app/globals.css declares — and only the
@@ -290,5 +308,6 @@ export default function SalesShell({ children }) {
           /sales/invite, which return above this. */}
       <SalesTour />
     </div>
+    </RepPresenceProvider>
   );
 }

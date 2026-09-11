@@ -212,7 +212,17 @@ function WindowLines({ compliance }) {
  * @param onWorked   called after a disposition is written, so the screen that
  *                   owns the record can reload it.
  */
-export default function DialRegion({ space, compliance = null, target = null, onWorked }) {
+export default function DialRegion({
+  space,
+  compliance = null,
+  target = null,
+  onWorked,
+  // The autodialler's press and its answer, handed straight through to
+  // CallPanel. This file still decides nothing — see the header — and the
+  // queue is the only screen that passes them.
+  autoDial = null,
+  onAutoDialResult = null,
+}) {
   const { t } = useTranslation();
   return (
     <>
@@ -226,6 +236,8 @@ export default function DialRegion({ space, compliance = null, target = null, on
             businessName={target.businessName}
             fallbackHref={space.href}
             onWorked={onWorked}
+            autoDial={autoDial}
+            onAutoDialResult={onAutoDialResult}
           />
           <div className="text-xs text-muted-foreground break-words space-y-0.5">
             {space.detailKey ? <p>{t(space.detailKey, space.params || {})}</p> : null}

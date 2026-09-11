@@ -59,7 +59,9 @@ import { Phone, PhoneOff, AlertTriangle, Headphones } from "lucide-react";
 
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { STATE_AFTER_CALL, STATE_ON_CALL } from "@/lib/sales/calls/agentState";
 import TransferControl from "./TransferControl";
+import { useRepPresence } from "./RepStatus";
 
 /**
  * Digits → something a person can read. Never throws on a short string.
@@ -94,6 +96,23 @@ export default function IncomingCallDock() {
   // instead of being added to that effect's dependencies.
   const sayRef = useRef(t);
   sayRef.current = t;
+  // ── What the rest of the portal is told ──────────────────────────────
+  //
+  // The queue's autodialler must never start a call over one that is ringing
+  // or up, so the dock reports both into the shared presence context, and
+  // posts the ledger's two automatic transitions for an inbound call: on_call
+  // when the rep answers, after_call when it ends. Read through a ref for the
+  // same reason `t` is — the registration effect must not re-run when the
+  // context object changes, because tearing down the Device drops the call.
+  const presence = useRepPresence();
+  const presenceRef = useRef(presence);
+  presenceRef.current = presence;
+  // Whether the call the SDK is about to report `disconnect` on was ever
+  // answered here. A ref rather than `live` state because the handler is
+  // bound at ring time and would read a stale closure; and read in the
+  // handler rather than in hangUp(), because the SDK fires `disconnect` for
+  // both sides' hang-ups and this must be written once from one place.
+  const liveRef = useRef(false);
 
   // The token AND how long it lasts. The lifetime is read from the server's
   // own answer rather than imported: lib/sales/calls/browserDial.js exports
@@ -212,20 +231,32 @@ export default function IncomingCallDock() {
             from: call?.parameters?.From || null,
             to: call?.parameters?.To || null,
           });
+          // Ringing. The autodialler's countdown is cancelled by this — a
+          // contractor ringing back outranks the next cold row.
+          presenceRef.current.setInboundRinging(true);
           call.on("cancel", () => {
             // They hung up before anybody answered.
             setIncoming(null);
             setLive(false);
             setAnswered(null);
             callRef.current = null;
+            presenceRef.current.setInboundRinging(false);
           });
           call.on("disconnect", () => {
+            const wasLive = liveRef.current;
+            liveRef.current = false;
             setIncoming(null);
             setLive(false);
             // Nothing about the last call belongs on the screen of the next
             // one — least of all an attempt id a transfer would act on.
             setAnswered(null);
             callRef.current = null;
+            presenceRef.current.setInboundRinging(false);
+            presenceRef.current.setCallUp(false);
+            // The call ended: the rep is writing it up, on the ledger, until
+            // they press Available. Soft — the row is commentary on a call
+            // that has already happened.
+            if (wasLive) presenceRef.current.postState({ state: STATE_AFTER_CALL });
           });
         });
 
@@ -294,8 +325,11 @@ export default function IncomingCallDock() {
       // contractor does not.
       call.accept();
       callRef.current = call;
+      liveRef.current = true;
       setLive(true);
       setError("");
+      presenceRef.current.setInboundRinging(false);
+      presenceRef.current.setCallUp(true);
     } catch (err) {
       setError(err?.message || t("app.salesDial.couldNotPickUp"));
       return;
@@ -308,6 +342,8 @@ export default function IncomingCallDock() {
       // fine, and what they need to know is that it will not be logged to
       // them.
       setAnswered({ attemptId: null, note: t("app.salesDial.callNotMatched") });
+      // Still on a call, for the ledger — just not one it can point at.
+      presenceRef.current.postState({ state: STATE_ON_CALL });
       return;
     }
 
@@ -323,11 +359,19 @@ export default function IncomingCallDock() {
         attemptId: body?.transferable ? body.attemptId || null : null,
         note: body?.transferable ? "" : t("app.salesDial.callLegNotRecorded"),
       });
+      // The automatic transition an answered callback makes. The attempt id
+      // is the one the server just matched, so the ledger row points at the
+      // call rather than at nothing.
+      presenceRef.current.postState({
+        state: STATE_ON_CALL,
+        callAttemptId: body?.attemptId || null,
+      });
     } catch (err) {
       setAnswered({
         attemptId: null,
         note: err?.message || t("app.salesDial.callNotMatched"),
       });
+      presenceRef.current.postState({ state: STATE_ON_CALL });
     }
   }
 
@@ -343,9 +387,13 @@ export default function IncomingCallDock() {
       /* already gone */
     }
     setIncoming(null);
+    presenceRef.current.setInboundRinging(false);
   }
 
   function hangUp() {
+    // disconnect() fires the call's own `disconnect` handler above, which is
+    // where the ledger and the shared flags are updated — once, from one
+    // place, whichever side hung up.
     try {
       callRef.current?.disconnect?.();
     } catch {
@@ -355,6 +403,7 @@ export default function IncomingCallDock() {
     setIncoming(null);
     setLive(false);
     setAnswered(null);
+    presenceRef.current.setCallUp(false);
   }
 
   // Nothing to say when nothing is happening. The dock is not a status light —

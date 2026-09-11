@@ -9192,6 +9192,15 @@ model SalesRep {
   /// saying they are ready for the next prospect.
   lastSeenAt DateTime?
 
+  /// The autodial switch on the queue screen: after the rep logs an outcome,
+  /// the next prospect in the day's order rings on its own after a five-second
+  /// countdown. Off by default and persisted per rep rather than per browser,
+  /// because a rep who turned it on at the desk expects it on when they open
+  /// the laptop at home. The switch is a PRECONDITION, not the dialler:
+  /// lib/sales/autodial.js still requires the rep to be `available`, no call
+  /// up, nothing ringing, and the calling gate to answer allowed for that row.
+  autodial Boolean @default(false)
+
   /// Who this rep reports to. The org chart lib/sales/team.js derives its
   /// team-lead tier from — there is deliberately no `tier` column, because a
   /// rep IS a team lead exactly when somebody reports to them, and a stored

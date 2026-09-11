@@ -147,6 +147,18 @@ export const SALES_TOUR_STEPS = Object.freeze([
     bodyKey: "app.salesTour.callingBody",
   },
   {
+    // The switch and the countdown. Its own step because it is the one
+    // control on this screen that acts without a press — a rep who does not
+    // know it exists would watch a call start on its own.
+    key: "autodial",
+    href: "/sales/queue",
+    target: at("sales-queue-autodial"),
+    ...reach("/sales/queue"),
+    tabLabelKey: "app.salesPortal.navQueue",
+    titleKey: "app.salesTour.autodialTitle",
+    bodyKey: "app.salesTour.autodialBody",
+  },
+  {
     key: "optOut",
     href: "/sales/queue",
     target: at("sales-queue-dial"),
@@ -163,6 +175,19 @@ export const SALES_TOUR_STEPS = Object.freeze([
     tabLabelKey: "app.salesPortal.navQueue",
     titleKey: "app.salesTour.workAsLeadTitle",
     bodyKey: "app.salesTour.workAsLeadBody",
+  },
+  {
+    // The status picker lives in the portal chrome — the header from lg up,
+    // the drawer below it — not on a page. It is pinned to Today's route
+    // because the tour needs a tab to ring when the target is not on screen,
+    // and Today is where a rep starts the day by pressing Available.
+    key: "status",
+    href: "/sales",
+    target: at("sales-status"),
+    ...reach("/sales"),
+    tabLabelKey: "app.salesPortal.navToday",
+    titleKey: "app.salesTour.statusTitle",
+    bodyKey: "app.salesTour.statusBody",
   },
   {
     // The incoming-call dock is mounted in SalesShell, so it reaches a rep on

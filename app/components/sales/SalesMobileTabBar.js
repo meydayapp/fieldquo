@@ -86,8 +86,12 @@ const ICONS = {
  * @param name      who is signed in, or null while /api/sales/me is in flight.
  * @param onSignOut SalesShell's sign-out, so the drawer's button is the same
  *                  control as the header's, not a second implementation.
+ * @param drawerExtra a node rendered at the top of the drawer, above the
+ *                  rows — the rep's status picker, which the header carries
+ *                  from lg up and has nowhere else to live on a phone. A node
+ *                  rather than a flag so this file names no status.
  */
-export default function SalesMobileTabBar({ tabs, name = null, onSignOut }) {
+export default function SalesMobileTabBar({ tabs, name = null, onSignOut, drawerExtra = null }) {
   const { t } = useTranslation();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -225,6 +229,10 @@ export default function SalesMobileTabBar({ tabs, name = null, onSignOut }) {
                 <X size={20} />
               </button>
             </div>
+
+            {drawerExtra ? (
+              <div className="px-4 py-3 border-b border-border">{drawerExtra}</div>
+            ) : null}
 
             <nav className="flex-1 overflow-y-auto py-2">
               {drawer.map((tab) => {
