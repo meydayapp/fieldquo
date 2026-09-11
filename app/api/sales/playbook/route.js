@@ -68,7 +68,10 @@ export async function GET(request) {
   const now = new Date();
   const mine = await db.prospect.findFirst({
     where: { id: prospectId, ...queueWhere(rep.id, { now }) },
-    select: { id: true },
+    // The published address rides along on the same ownership read: the call
+    // panel prints it with a copy control beside the script, so a rep who
+    // hears "email me" has it in front of them without leaving the call.
+    select: { id: true, email: true, emailSource: true },
   });
   if (!mine) {
     return NextResponse.json(
@@ -109,6 +112,10 @@ export async function GET(request) {
     prospect: {
       id: result.prospect.id,
       businessName: result.prospect.businessName,
+      // Null when the crawler saw none — never "" — so the screen can draw
+      // nothing rather than a copy button for an empty string.
+      email: mine.email || null,
+      emailSource: mine.email ? mine.emailSource || null : null,
     },
     playbook: result.selection.selected
       ? {

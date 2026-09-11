@@ -30,6 +30,8 @@ import { loadContactNumbers, pickContactNumber } from "@/lib/sales/contact/resol
 import { normalisePhone } from "@/lib/sales/suppressionRules";
 import { assignedCompanyWhere } from "@/lib/sales/scope";
 import { decideUnlink } from "@/lib/sales/leadLink";
+import { getOnboardingStatus } from "@/lib/onboarding";
+import { onboardingProgress, walkthroughGate } from "@/lib/sales/nextSteps";
 
 /**
  * The company a lead is linked to, as the rep may see it, plus whether the
@@ -51,12 +53,34 @@ async function linkedCompanyFor(rep, lead) {
     select: { id: true, name: true, createdAt: true },
   });
   const unlink = decideUnlink({ lead });
+
+  // ── How far the company has got with setup ───────────────────────────
+  //
+  // The owner's rule: once a lead has been sent to sign up, the REP is
+  // responsible for the company finishing onboarding. So the card says
+  // "3 of 8 setup steps done" from the same checklist the company's own
+  // dashboard reads (lib/onboarding.js), read only for a company in the
+  // rep's book — the same boundary the name above is read through. Null,
+  // never zeros, when the company is not theirs to see or the read failed:
+  // "0 of 0" would print as a company that has done nothing.
+  let onboarding = null;
+  if (company) {
+    try {
+      onboarding = await getOnboardingStatus(company.id);
+    } catch {
+      onboarding = null;
+    }
+  }
+  const walkthrough = walkthroughGate({ lead, onboarding });
   return {
     id: lead.convertedCompanyId,
     name: company?.name || null,
     createdAt: company?.createdAt || null,
     canUnlink: unlink.allowed,
     unlinkRefusal: unlink.reason,
+    onboarding: onboardingProgress(onboarding),
+    // Whether the one-hour walkthrough may be booked, and why not when not.
+    walkthrough: { allowed: walkthrough.allowed, reasonKey: walkthrough.reasonKey, reason: walkthrough.reason },
   };
 }
 

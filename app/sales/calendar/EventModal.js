@@ -94,20 +94,24 @@ export default function EventModal({ initial, leads, onClose, onSaved }) {
       notes: notes || null,
     };
     try {
+      // The saved row is handed back so a caller that books a demo from the
+      // call panel can send its invite for THAT event, by id, without a
+      // second read. The calendar page ignores the argument.
+      let saved = null;
       if (editing) {
-        await fetchJson(`/api/sales/events/${initial.id}`, {
+        saved = await fetchJson(`/api/sales/events/${initial.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: jsonBody(payload, "event"),
         });
       } else {
-        await fetchJson("/api/sales/events", {
+        saved = await fetchJson("/api/sales/events", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: jsonBody(payload, "event"),
         });
       }
-      onSaved();
+      onSaved(saved?.event || null);
     } catch (err) {
       setError(err.message);
       setSaving(false);
@@ -153,7 +157,11 @@ export default function EventModal({ initial, leads, onClose, onSaved }) {
           <div className="flex gap-2">
             {/* `kind`, not `t`: the loop variable used to shadow the
                 translator in a file that now calls t() inside the loop body. */}
-            {["callback", "appointment"].map((kind) => (
+            {/* A demo or a walkthrough (lib/sales/nextSteps.js) opens the
+                modal already typed, and the type is not switchable to a
+                callback — it is a different next step, booked from the call
+                panel. The toggle shows the kind it was opened with. */}
+            {(["demo", "walkthrough"].includes(type) ? [type] : ["callback", "appointment"]).map((kind) => (
               <button
                 key={kind}
                 type="button"
@@ -164,7 +172,15 @@ export default function EventModal({ initial, leads, onClose, onSaved }) {
                     : "border-border text-muted-foreground"
                 }`}
               >
-                {t(kind === "callback" ? "app.salesCal.callBack" : "app.salesCal.appointment")}
+                {t(
+                  kind === "callback"
+                    ? "app.salesCal.callBack"
+                    : kind === "demo"
+                      ? "app.salesCal.demo"
+                      : kind === "walkthrough"
+                        ? "app.salesCal.walkthrough"
+                        : "app.salesCal.appointment",
+                )}
               </button>
             ))}
           </div>
@@ -206,7 +222,9 @@ export default function EventModal({ initial, leads, onClose, onSaved }) {
               placeholder={t(
                 type === "callback"
                   ? "app.salesCal.titlePlaceholderCallback"
-                  : "app.salesCal.titlePlaceholderAppointment",
+                  : type === "demo"
+                    ? "app.salesCal.titlePlaceholderDemo"
+                    : "app.salesCal.titlePlaceholderAppointment",
               )}
             />
           </div>

@@ -125,6 +125,9 @@ export async function POST(request) {
         id: true,
         businessName: true,
         phoneE164: true,
+        // The address the crawler read off their site. Copied onto the lead
+        // only when the rep typed none — see the create below.
+        email: true,
         country: true,
         province: true,
         assignedRepId: true,
@@ -159,9 +162,19 @@ export async function POST(request) {
     // was meant to prevent.
     const existing = await db.salesLead.findFirst({
       where: { prospectId: source.id, salesRepId: rep.id },
-      select: { id: true, businessName: true, status: true },
+      select: { id: true, businessName: true, status: true, email: true },
     });
     if (existing) {
+      // A lead carried across before the crawler had read the address gets
+      // it now — and ONLY if the lead has none. `email: null` in the WHERE is
+      // what keeps a rep's own typing safe: an address a person entered is
+      // never replaced by one a crawler read, however the two compare.
+      if (!existing.email && source.email) {
+        await db.salesLead.updateMany({
+          where: { id: existing.id, salesRepId: rep.id, email: null },
+          data: { email: source.email },
+        });
+      }
       return NextResponse.json({ lead: existing, alreadyExisted: true }, { status: 200 });
     }
   }
@@ -176,7 +189,9 @@ export async function POST(request) {
       // the business and the directory has not.
       businessName: businessName || source?.businessName || "",
       contactName: sanitiseHeaderText(body.contactName, 200) || null,
-      email: email || null,
+      // Typed wins; the crawler's address fills the blank. Same order as
+      // the phone number below and for the same reason.
+      email: email || source?.email || null,
       phone: sanitiseHeaderText(body.phone, 40) || source?.phoneE164 || null,
       // Carried so lib/sales/callingRules.js can answer the calling-hours
       // question on the lead screen too. Null stays null — a missing province

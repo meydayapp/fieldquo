@@ -74,14 +74,14 @@ import {
   Phone,
   PhoneOff,
   ShieldAlert,
-  CalendarPlus,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { STATE_AFTER_CALL } from "@/lib/sales/calls/agentState";
 import CallPlaybook from "./CallPlaybook";
+import PublishedEmail from "./PublishedEmail";
 import TransferControl from "./TransferControl";
-import EventModal from "@/app/sales/calendar/EventModal";
+import NextSteps from "./NextSteps";
 import { useRepPresence } from "./RepStatus";
 
 const BTN =
@@ -179,12 +179,12 @@ export default function CallPanel({
   const [code, setCode] = useState("");
   const [note, setNote] = useState("");
   const [callbackAt, setCallbackAt] = useState("");
-  // The "Schedule a call back" calendar entry — separate from the disposition
-  // callback above (which is how a LOGGED call records the time agreed). This
-  // one puts the promise on the rep's own /sales/calendar with the contact
-  // already filled from who they're on the phone with, so it survives past the
-  // call whether or not the call gets dispositioned.
-  const [showCallbackEvent, setShowCallbackEvent] = useState(false);
+  // The "Schedule a call back" calendar entry — and the demo, the sign-up and
+  // the walkthrough beside it — live in NextSteps.js, separate from the
+  // disposition callback above (which is how a LOGGED call records the time
+  // agreed). They put the promise on the rep's own /sales/calendar with the
+  // contact already filled from who they're on the phone with, so it survives
+  // past the call whether or not the call gets dispositioned.
 
   // The script. Loaded with the prospect — see the header — and kept in its
   // own three fields rather than folded into `config`, because the calling
@@ -528,6 +528,11 @@ export default function CallPanel({
         </div>
       ) : null}
 
+      {/* The address their own site publishes, from the playbook read — it
+          rides on the same ownership query the script does. Nothing when
+          there is none. */}
+      <PublishedEmail email={playbook?.prospect?.email || null} source={playbook?.prospect?.emailSource || null} />
+
       {/* ── On a call ───────────────────────────────────────────────────── */}
       {startedAt ? (
         <div className="rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 p-4 space-y-3">
@@ -720,37 +725,14 @@ export default function CallPanel({
         </div>
       ) : null}
 
-      {/* ── Put a callback on the calendar ──────────────────────────────────
-          Available in every state: a rep books a callback when they reach
-          someone AND when they don't. Opens the same event editor the calendar
-          uses, with the business and number already filled from who they're
-          calling — the rep only picks the time. */}
-      <button
-        type="button"
-        onClick={() => setShowCallbackEvent(true)}
-        className={`${BTN} w-full border border-border text-foreground`}
-      >
-        <CalendarPlus size={16} /> {t("app.salesCall.scheduleCallback")}
-      </button>
-      {showCallbackEvent ? (
-        <EventModal
-          initial={{
-            type: "callback",
-            businessName: businessName || null,
-            phone: phoneE164 || null,
-            // Tomorrow at 10am, local — a default the rep will usually change.
-            startAt: (() => {
-              const d = new Date();
-              d.setDate(d.getDate() + 1);
-              d.setHours(10, 0, 0, 0);
-              return d.toISOString();
-            })(),
-          }}
-          leads={[]}
-          onClose={() => setShowCallbackEvent(false)}
-          onSaved={() => setShowCallbackEvent(false)}
-        />
-      ) : null}
+      {/* ── What happens next ────────────────────────────────────────────────
+          Available in every state: a rep books the next step when they reach
+          someone AND when they don't. The three next steps — a demo with the
+          rep, sent to sign up, a walkthrough with a specialist — and the
+          call-back, in one block (NextSteps.js says why three). Opens the
+          same event editor the calendar uses, with the business and number
+          already filled from who they're calling. */}
+      <NextSteps prospectId={prospectId} leadId={leadId} businessName={businessName} phoneE164={phoneE164} />
 
       {/* ── The words ────────────────────────────────────────────────────────
           Last in the DOM and in all three states — before the dial, during the

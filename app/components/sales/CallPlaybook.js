@@ -28,6 +28,18 @@
 // answer one tap away — which is what lib/sales/playbook/objections.js means
 // by "a label is what a rep scans for mid-call".
 //
+// ══ The stage shows its name and its lines, and nothing else by default ═══
+//
+// The owner read "Establish relevance — One sentence that could only have
+// been said to this business. Not a compliment — a reason this call is not a
+// cold list." on a live prospect and said he did not understand what it was
+// about. He was reading the author's note — the paragraph stages.js keeps
+// for whoever WRITES the lines — printed above the lines as if it were one
+// of them. So each stage now shows a two-word name in the rep's language
+// (stages.js `nameKey`) and the words to say. The note is in a <details>
+// labelled "why this stage exists", closed by default, for a rep who wants
+// it. scripts/check-playbook-voice.mjs holds the default closed.
+//
 // ══ Nothing on this screen is padded ══════════════════════════════════════
 //
 // A stage whose line names {city} on a prospect with no town renders the
@@ -187,6 +199,24 @@ function AiScript({ script, language }) {
         </div>
       ) : null}
 
+      {/* What the opener and the why-them paragraph were built from — the
+          model's own citations, verified against the page text before the
+          script was stored. Printed so a rep can say "it says on your site
+          that…" with the words in front of them. Absent on a script written
+          with nothing crawled, which is the honest generic one. */}
+      {script.citations?.length ? (
+        <div>
+          <H>{t("app.salesCall.aiScriptCitations")}</H>
+          <ul className="list-disc pl-5 mt-1 space-y-1">
+            {script.citations.map((c, i) => (
+              <li key={i} className="text-xs text-muted-foreground break-words">
+                “{c.quote}”{c.sourceUrl && c.sourceUrl !== "inference" ? ` — ${c.sourceUrl}` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <p className="text-xs text-muted-foreground break-words border-t border-border pt-2">
         {t("app.salesCall.aiScriptRulesBelow")}
       </p>
@@ -321,7 +351,7 @@ export default function CallPlaybook({
             >
               {stages.map((s, i) => (
                 <option key={s.stageKey} value={String(i)}>
-                  {i + 1}. {s.name}
+                  {i + 1}. {s.nameKey ? t(s.nameKey, s.name) : s.name}
                   {(s.points || []).length ? ` ·  ${t("app.salesCall.aboutThisBusinessTag")}` : ""}
                 </option>
               ))}
@@ -329,10 +359,9 @@ export default function CallPlaybook({
           </label>
 
           <div className="space-y-2">
-            <p className="text-sm font-semibold text-foreground break-words">{stage.name}</p>
-            {stage.purpose ? (
-              <p className="text-xs text-muted-foreground break-words">{stage.purpose}</p>
-            ) : null}
+            <p className="text-sm font-semibold text-foreground break-words">
+              {stage.nameKey ? t(stage.nameKey, stage.name) : stage.name}
+            </p>
 
             {/* The line, or the reason there is no line. Never a hole. */}
             {stage.say.refusal ? (
@@ -395,6 +424,20 @@ export default function CallPlaybook({
               </div>
             ) : null}
           </div>
+
+          {/* The author's note, off by default. A rep who wants to know why
+              the stage exists opens it; a rep on a call never has to read
+              past it to reach the words. Not a `useState`: a native
+              <details> is closed on every render and every stage change,
+              which is the default the owner asked for. */}
+          {stage.purpose ? (
+            <details className="rounded-lg border border-border bg-muted/40" data-testid="stage-purpose">
+              <summary className="cursor-pointer list-none px-3 py-2 min-h-[44px] flex items-center text-xs text-muted-foreground">
+                {t("app.salesCall.whyStage")}
+              </summary>
+              <p className="px-3 pb-3 text-xs text-muted-foreground break-words">{stage.purpose}</p>
+            </details>
+          ) : null}
 
           <div className="flex items-center gap-2">
             <button

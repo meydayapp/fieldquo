@@ -526,6 +526,35 @@ export default function SalesLeadPage({ params }) {
                 ? t("app.salesLeads.linkedOn", { when: when(lead.convertedAt) })
                 : t("app.salesLeads.linked")}
             </p>
+            {/* ── How far they have got with setup ───────────────────────────
+                The owner's rule: a rep who sent a company to sign up is
+                responsible for that company FINISHING onboarding. So the card
+                says the count from the company's own checklist
+                (lib/onboarding.js, through the lead route) and which steps
+                are still open, so the rep can chase by name. Nothing is
+                drawn when the company is not in the rep's book — the route
+                answers null, and "0 of 0" would read as nothing done. */}
+            {data?.linkedCompany?.onboarding ? (
+              <div className="rounded-md border border-border bg-muted/40 p-3 space-y-1" data-testid="lead-onboarding-progress">
+                <p className="text-sm text-foreground">
+                  {data.linkedCompany.onboarding.complete
+                    ? t("app.salesCall.onboardingComplete", { total: data.linkedCompany.onboarding.total })
+                    : t("app.salesCall.onboardingProgress", { done: data.linkedCompany.onboarding.done, total: data.linkedCompany.onboarding.total })}
+                </p>
+                {!data.linkedCompany.onboarding.complete && data.linkedCompany.onboarding.open?.length ? (
+                  <p className="text-xs text-muted-foreground break-words">
+                    {t("app.salesCall.onboardingOpenSteps", {
+                      steps: data.linkedCompany.onboarding.open.map((k) => t(`app.salesCall.onboardingStep.${k}`, k)).join(", "),
+                    })}
+                  </p>
+                ) : null}
+                <p className="text-xs text-muted-foreground break-words">
+                  {data.linkedCompany.walkthrough?.allowed
+                    ? t("app.salesCall.walkthroughAvailable")
+                    : t("app.salesCall.walkthroughAfterSetup", { done: data.linkedCompany.onboarding.done, total: data.linkedCompany.onboarding.total })}
+                </p>
+              </div>
+            ) : null}
             {/* ── Escalating from the lead, which is where the rep is ──────
                 A rep hears a technical problem on a call about THIS lead. The
                 ticket exists — /sales/support and raiseSupportTicket() — but it

@@ -67,7 +67,7 @@ import { dirname, join } from "node:path";
 // process.env at call time, so this is enough.
 delete process.env.OPENAI_API_KEY;
 
-import { CANDOUR, OPENER, PERMISSION_ASK, PIVOT, seedPlaybooks } from "../lib/sales/playbook/defaults.js";
+import { CANDOUR, NEXT_STEP_OFFER, OPENER, PERMISSION_ASK, PIVOT, seedPlaybooks } from "../lib/sales/playbook/defaults.js";
 import { SEAT_LADDER } from "../lib/pricing/ladder.js";
 import {
   MAX_GENERATED_POINTS,
@@ -286,9 +286,10 @@ section("The detectors recognise the sentences they retired");
   // shipped copy to drop the one move Saylor explicitly prescribes.
   const shouldPass = [
     "Is this a good time?",
-    "Then fifteen minutes on Thursday to look at it next to the last one you sent.",
+    "Give me fifteen minutes and I can show you in fifteen minutes how it works for a business like yours.",
     "If I don't hear anything I'll try you again in a couple of weeks.",
-    "I'd rather hear that now than after I've built you something.",
+    "I'd rather hear that now than fifteen minutes in.",
+    "What works better for you, mornings or afternoons? I'll send the invite and a reminder the night before.",
   ];
   for (const s of shouldPass) {
     ok(
@@ -990,7 +991,16 @@ section("Discovery — a survey, not an interrogation");
 // ═══════════════════════════════════════════════════════════════════════════
 section("Next step and close — specific, and the door left open");
 // ═══════════════════════════════════════════════════════════════════════════
+//
+// The close USED to be held to naming a weekday — "Thursday at eight then" —
+// and the owner read that line on a live prospect and asked what a rep does
+// on a Tuesday. A rule line is read out whatever day it is, so the specific
+// thing the close names is now the BOOKING, not the day: the alternative
+// choice of mornings or afternoons, with the slot read off the rep's own
+// calendar. scripts/check-playbook-voice.mjs is the check that holds every
+// close to "no weekday, no clock time"; this file asserts the positive half.
 const DAY = /\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i;
+const PROPOSES_BOOKING = /\bmornings or afternoons\b/i;
 // Futrell's twelfth key to a close: leave the door open. What that looks like in
 // a sentence — a contingency that keeps the sequence alive if the agreed step
 // does not happen.
@@ -1004,7 +1014,14 @@ const KEEPS_DOOR_OPEN =
     // information" is not a next step (stages.js says so too).
     ok(
       `${p.key}: the next step names something concrete`,
-      DAY.test(next) || /\bfifteen minutes\b/i.test(next) || /\bthree photos\b/i.test(next),
+      /\bfifteen minutes\b/i.test(next) || /\bthree photos\b/i.test(next),
+      next.slice(0, 90),
+    );
+    // The owner's rule: reps are not tech support. The next step is a demo,
+    // never a promise to build, install or put anything on their site.
+    ok(
+      `${p.key}: the next step is the demo, in the one sentence`,
+      next.includes(NEXT_STEP_OFFER),
       next.slice(0, 90),
     );
     ok(
@@ -1015,7 +1032,8 @@ const KEEPS_DOOR_OPEN =
 
     const close = sayOf(p, "close");
     ok(`${p.key}: the close is written`, close.trim().length > 0);
-    ok(`${p.key}: the close names the specific next step`, DAY.test(close), close.slice(0, 90));
+    ok(`${p.key}: the close proposes the booking as a choice of halves of the day`, PROPOSES_BOOKING.test(close), close.slice(0, 90));
+    ok(`${p.key}: the close names no weekday — the rep reads the slot off the calendar`, !DAY.test(close), close.match(DAY)?.[0]);
     ok(
       `${p.key}: the close does not invite a refusal`,
       !BANNED.find((b) => b.move === "foreclosing exit line").pattern.test(close),

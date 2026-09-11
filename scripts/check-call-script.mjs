@@ -25,11 +25,20 @@
 // the screen draws the generated script above the stages and only when it
 // was returned.
 //
+// ══ Version 2 (section 7) ═════════════════════════════════════════════════
+//
+// The owner's two corrections on the first live script — it must sound like
+// a person, and it must be about THIS company — are executed: the voice lint
+// is fired at his opener and at the model's, the prompt is read for the one
+// style example and each rule, page excerpts and inferences are shown to
+// reach the prompt, citations are verified against the material, and the
+// handler is driven through its one retry with a scripted model.
+//
 // ══ Mutation-tested ═══════════════════════════════════════════════════════
 //
 // The hash comparison, the lane gate and the screen's conditional were each
 // broken on disk, confirmed to fail here, and restored from a `cp` backup —
-// never `git checkout`.
+// never `git checkout`. Section 7's lint and citation rules likewise.
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -37,19 +46,26 @@ import { dirname, join } from "node:path";
 import {
   CALL_SCRIPT_AI_AREA,
   CALL_SCRIPT_LIMITS,
+  CALL_SCRIPT_NEXT_STEP,
+  CALL_SCRIPT_STYLE_EXAMPLE,
+  CALL_SCRIPT_STYLE_RULES,
+  CALL_SCRIPT_SYSTEM,
   CALL_SCRIPT_VERSION,
   callScriptCurrent,
   callScriptInputHash,
   callScriptInputs,
   callScriptPrompt,
   callScriptSchema,
+  citationSources,
   validateCallScript,
 } from "@/lib/sales/intel/callScript";
+import { MAX_CHARS_PER_PAGE, MAX_EXCERPT_CHARS, integerInWords, ratingInWords, selectPageExcerpts } from "@/lib/sales/intel/pageExcerpts";
+import { MAX_WORDS, lintSentence, voiceLint, voiceRetryNote, wordCount } from "@/lib/sales/scriptVoice";
 import { assertStrictSchema } from "@/lib/ai/jsonSchema";
 import { AI_FAILURE } from "@/lib/ai/provider";
 import { estimateCostMicros, hasKnownPricing } from "@/lib/ai/usage";
 import { checkPlatformAiBudget, recordPlatformAiUsage } from "@/lib/ai/platformUsage";
-import { handleGenerateCallScript } from "@/lib/sales/pipeline/handlers/generateCallScript";
+import { handleGenerateCallScript, loadCallScriptInputs } from "@/lib/sales/pipeline/handlers/generateCallScript";
 import { loadBriefInputs } from "@/lib/sales/pipeline/handlers/generateResearchBrief";
 import { HANDLER_MODULES } from "@/lib/sales/pipeline/handlers/index";
 import { getHandler, isPlaceholder } from "@/lib/sales/pipeline/registry";
@@ -479,6 +495,199 @@ section("6. Wired in");
   ok("check:call-script is a script", typeof pkg.scripts?.["check:call-script"] === "string");
   ok("…and check:all runs it", (pkg.scripts?.["check:all"] || "").includes("check:call-script"));
   ok("the schema carries ProspectCallScript with a unique prospectId and the hash", /model ProspectCallScript \{[\s\S]*prospectId String @unique[\s\S]*inputHash\s+String[\s\S]*crawledAt\s+DateTime\?/.test(read("prisma/schema.prisma")));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("7. Version 2 — it sounds like a person, and it is about THIS company");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The owner read the first live script for South County Electric and rewrote
+// the opener by hand: "missing prepositions and sentence structure that make
+// it sound natural and human. We are not pitching to robots." Then: "shouldn't
+// the SCRIPT be unique to this company, based on the information found and
+// what is inferred?" Two corrections, one version bump. Both are executed
+// here: the lint is fired at his sentence and at the model's, the prompt is
+// read for the rules and the example, and the handler is driven through the
+// one retry with a scripted model.
+
+// The two sentences, verbatim. The model's is what shipped for a real
+// prospect; the owner's is the register.
+const MODEL_OPENER =
+  "Hi — is that South County Electric, LLC? Daniel here, from FieldQuo. I've been through your " +
+  "website and it's about what happens after somebody's read it rather than about the site itself. " +
+  "Is this a good time?";
+
+{
+  ok("the prompt version moved to 2", CALL_SCRIPT_VERSION === "2");
+  const inputs = callScriptInputs(fixtureInputs());
+  ok("…and the version is inside the hashed inputs, so every stored v1 script regenerates on its next open",
+    inputs.version === "2" && callScriptInputHash(inputs) !== callScriptInputHash({ ...inputs, version: "1" }));
+  ok("a stored v1 script is not current, whatever its hash",
+    !callScriptCurrent({ inputHash: callScriptInputHash(inputs), promptVersion: "1" }, { inputHash: callScriptInputHash(inputs) }));
+
+  // ── The lint, fired at the sentences it was built for ──────────────────
+  const owner = voiceLint({ opener: CALL_SCRIPT_STYLE_EXAMPLE });
+  ok("the owner's opener passes the voice lint", owner.ok, owner.findings);
+  const model = voiceLint({ opener: MODEL_OPENER });
+  ok("the model's opener fails it", !model.ok, model);
+  ok("…on \"rather than\"", model.problems.includes("rather_than"));
+  ok("…and on a fragment with no verb (\"Daniel here, from FieldQuo.\")", model.problems.includes("no_finite_verb"), model.findings);
+  ok(`a sentence over ${MAX_WORDS} words fails`, lintSentence(Array.from({ length: MAX_WORDS + 1 }, () => "word").join(" ") + ".").includes("too_long"));
+  ok("…and the owner's longest sentence is under the bound", wordCount("I'm calling because I've been through your website and we noticed a few things that are missing that could help you bring in more clients and book more jobs.") <= MAX_WORDS);
+  ok("\"that's not why I called\" fails", lintSentence("That's not why I called.").includes("not_why_i_called") && lintSentence("That is not why I am calling.").includes("not_why_i_called"));
+  ok("\"put that button on the site\" fails", lintSentence("Fifteen minutes and I'll put that button on the site you already have.").includes("put_that_button"));
+  ok("a two-word interjection is not a fragment", lintSentence("Thanks.").length === 0 && lintSentence("Sure thing.").length === 0);
+  ok("a question with a verb passes", lintSentence("Who answers when the phone rings on a Saturday?").length === 0);
+  ok("the lint walks every field of a script and names where", (() => {
+    const r = voiceLint({ ...goodReply(), objections: [{ they: "No.", you: "Not a compliment rather than a reason." }, goodReply().objections[1]] });
+    return !r.ok && r.findings.some((f) => f.field === "objections[0].you" && f.problems.includes("rather_than"));
+  })());
+  ok("…but not the citations, which are quotes", voiceLint({ ...goodReply(), citations: [{ field: "opener", quote: "Family owned since 1998", sourceUrl: "x" }] }).ok);
+  ok("the retry note quotes the failing sentence and the rule", /rather than/.test(voiceRetryNote(model)) && /PREVIOUS DRAFT/.test(voiceRetryNote(model)));
+  ok("…and is empty when nothing failed", voiceRetryNote(owner) === "");
+
+  // ── The prompt carries the rules the lint enforces ─────────────────────
+  const prompt = callScriptPrompt(inputs);
+  ok("the prompt quotes the owner's opener as the ONE example", prompt.includes(CALL_SCRIPT_STYLE_EXAMPLE) && (prompt.match(/HOW IT HAS TO SOUND/g) || []).length === 1);
+  for (const rule of CALL_SCRIPT_STYLE_RULES) ok(`the prompt states: "${rule.slice(0, 48)}…"`, prompt.includes(rule));
+  ok("…contractions, complete sentences, one idea per sentence, plain verbs", /contractions/i.test(prompt) && /Complete sentences/.test(prompt) && /One idea per sentence/.test(prompt) && /bring in, book, get paid/.test(prompt));
+  ok("…no \"rather than\", no \"that's not why I called\"", /Never say "rather than"/.test(prompt) && /that's not why I called/.test(prompt));
+  ok("…benefit before feature", /Say the benefit before any feature/.test(prompt));
+  ok("…the rep's first name, from SalesRep", /The rep's first name: Dana/.test(callScriptPrompt(callScriptInputs({ ...fixtureInputs(), repName: "Dana Whitfield" }))));
+  ok("…the next step is the fifteen-minute demo, never building anything", prompt.includes(CALL_SCRIPT_NEXT_STEP) && /Never offer to build, install, set up or put anything on their website/.test(prompt));
+  ok("…and no day or time in the close", /No day of the week and no clock time/.test(prompt) && /mornings or afternoons/.test(prompt));
+  ok("the system prompt says it is spoken", /Spoken English, as a person talks/.test(CALL_SCRIPT_SYSTEM));
+
+  // ── The company material: pages, inferences, directory facts ───────────
+  const pages = [
+    { type: "page_content", sourceUrl: "https://x.example/contact", normalizedValue: "https://x.example/contact", rawValue: "Call us. Email us. " + "Contact form. ".repeat(20) },
+    { type: "page_content", sourceUrl: "https://x.example/", normalizedValue: "https://x.example/", rawValue: "Welcome to Richmond Rolloff. " + "We deliver bins across Richmond and Delta. ".repeat(40) },
+    { type: "page_content", sourceUrl: "https://x.example/about-us", normalizedValue: "https://x.example/about-us", rawValue: "Family owned since 1998, Richmond Rolloff is run by Mike and Dana Sousa. " + "We answer the phone ourselves. ".repeat(60) },
+    { type: "page_content", sourceUrl: "https://x.example/services", normalizedValue: "https://x.example/services", rawValue: "Same-day bin delivery for renovations and roofing tear-offs. " + "Sizes from ten to forty yards. ".repeat(60) },
+    { type: "link", sourceUrl: "https://x.example/", rawValue: JSON.stringify({ href: "/about-us", text: "About" }) },
+  ];
+  const excerpts = selectPageExcerpts(pages);
+  ok("the about page is served first, then services, then home, then contact", excerpts.map((p) => p.url).join(" ") === "https://x.example/about-us https://x.example/services https://x.example/ https://x.example/contact", excerpts.map((p) => p.url));
+  ok(`…each page capped at ${MAX_CHARS_PER_PAGE} and the lot under ${MAX_EXCERPT_CHARS}`, excerpts.every((p) => p.text.length <= MAX_CHARS_PER_PAGE) && excerpts.reduce((n, p) => n + p.text.length, 0) <= MAX_EXCERPT_CHARS);
+  ok("…only page_content rows count", !excerpts.some((p) => /About/.test(p.text) && p.text.startsWith("{")));
+  ok("…and nothing crawled is an empty list, never a placeholder", selectPageExcerpts([]).length === 0 && selectPageExcerpts(null).length === 0);
+  ok("a rating is spelled out, not written as a digit", ratingInWords(4.8) === "four point eight" && ratingInWords(5) === "five" && integerInWords(37) === "thirty-seven" && integerInWords(1250) === "one thousand two hundred and fifty");
+
+  const rich = callScriptInputs({
+    ...fixtureInputs(),
+    repName: "Dana Whitfield",
+    pages: excerpts,
+    inferences: [{ kind: "trade", value: "junk_removal" }, { kind: "crew_size", value: "two_to_five" }],
+    prospect: { ...PROSPECT, googleRating: 4.8, googleReviewCount: 37 },
+  });
+  const richPrompt = callScriptPrompt(rich);
+  ok("the prompt carries the page text under their own website", /WHAT THEIR OWN WEBSITE SAYS/.test(richPrompt) && /Mike and Dana Sousa/.test(richPrompt));
+  ok("…every inference by kind, generically", /crew size: two_to_five/.test(richPrompt) && /trade: junk_removal/.test(richPrompt));
+  ok("…the trade, the town, the rating in words, the source", /Trade: junk removal/.test(richPrompt) && /Where: Richmond, BC/.test(richPrompt) && /four point eight out of five, from thirty-seven reviews/.test(richPrompt) && /Listed by: overture/.test(richPrompt));
+  ok("…and no digit reaches the prompt from the directory facts", !/\d/.test(JSON.stringify(rich.facts)));
+  ok("…and REQUIRES a cited detail in the opener and whyThemNow", /must EACH use at least one specific detail/.test(richPrompt) && /citations: for every such detail/.test(richPrompt));
+  ok("with nothing crawled the prompt says so and asks for an empty citations list", /THEIR WEBSITE TEXT: none was read/.test(prompt) && /citations: an empty list/.test(prompt));
+  ok("the page text changes the hash — a new crawl regenerates", callScriptInputHash(rich) !== callScriptInputHash(callScriptInputs({ ...fixtureInputs(), repName: "Dana Whitfield" })));
+  ok("the schema carries citations, still strict, still no numbers", (() => { const s = callScriptSchema(); return s.required.includes("citations") && assertStrictSchema(s).ok && !/"type":"(number|integer)"/.test(JSON.stringify(s)); })());
+  ok("a citation with no quote is refused at validation", validateCallScript({ ...goodReply(), citations: [{ field: "opener", quote: "", sourceUrl: "" }] }).problems.includes("bad_citation"));
+  ok("…and a quote may carry the source's digits", validateCallScript({ ...goodReply(), citations: [{ field: "opener", quote: "since 1998", sourceUrl: "x" }] }).ok);
+
+  // ── Citations verified against the material ────────────────────────────
+  const sources = citationSources(rich);
+  ok("the sources are the pages and the inference lines", sources.length === excerpts.length + 2 && sources.some((s) => s.url === "inference"));
+  const cited = {
+    ...goodReply(),
+    opener: "Hi — is that Richmond Rolloff? My name's Dana and I'm from FieldQuo. I saw on your site that it's family owned and run by Mike and Dana Sousa.",
+    whyThemNow: "You do same-day bin delivery, and the site still asks people to phone for it. That's the gap I wanted to show you.",
+    citations: [
+      { field: "opener", quote: "Family owned since 1998, Richmond Rolloff is run by Mike and Dana Sousa", sourceUrl: "https://x.example/about-us" },
+      { field: "whyThemNow", quote: "Same-day bin delivery", sourceUrl: "https://x.example/services" },
+    ],
+  };
+  ok("a script that cites real words from the material passes", voiceLint(cited, { sources }).ok, voiceLint(cited, { sources }).findings);
+  ok("a script that cites nothing, when there was material, fails on no_citation", voiceLint({ ...cited, citations: [] }, { sources }).problems.includes("no_citation"));
+  ok("a quote that is not in the material fails on citation_not_in_source", voiceLint({ ...cited, citations: [{ field: "opener", quote: "twenty trucks and a yard in Surrey", sourceUrl: "x" }, cited.citations[1]] }, { sources }).problems.includes("citation_not_in_source"));
+  ok("a citation attached to a field that never uses it does not count", !voiceLint({ ...cited, opener: goodReply().opener }, { sources, ignoreWords: ["Richmond Rolloff Container Service"] }).ok);
+  ok("…and the business's own name, shared by every page and every opener, is not a use", !voiceLint({ ...cited, opener: "Hi — is that Richmond Rolloff? My name's Sam and I'm from FieldQuo." }, { sources, ignoreWords: ["Richmond Rolloff Container Service"] }).ok);
+  ok("with no material at all, no citation is required", voiceLint({ ...cited, citations: [] }, { sources: [] }).ok);
+
+  // ── The handler, executed: retry once, then store or refuse ────────────
+  const richRows = () => ({ ...fixtureInputs(), repName: "Dana Whitfield", pages: excerpts, inferences: [{ kind: "trade", value: "junk_removal" }], prospect: { ...PROSPECT, googleRating: 4.8, googleReviewCount: 37 } });
+  {
+    const db = stubDb();
+    const prompts = [];
+    const complete = async ({ prompt: p, onUsage }) => {
+      prompts.push(p);
+      await onUsage({ model: "gpt-5-mini", promptTokens: 3000, completionTokens: 700 });
+      // First draft: the model's robotic opener, no citations. Second: cited and human.
+      return { ok: true, data: prompts.length === 1 ? { ...goodReply(), opener: MODEL_OPENER } : cited };
+    };
+    const res = await handleGenerateCallScript({ task: task(), payload: task().payload, idempotencyKey: "v2-a", db, now: NOW, deps: { loadInputs: async () => richRows(), complete } });
+    ok("a first draft that fails the lint is asked for once more", prompts.length === 2 && res.done === true, res);
+    ok("…with the failing sentences quoted back", /YOUR PREVIOUS DRAFT DID NOT SOUND LIKE A PERSON/.test(prompts[1]) && /rather than/.test(prompts[1]));
+    ok("…both calls metered, the retry under its own ref", db.__rows.platformAiUsage.length === 2 && db.__rows.platformAiUsage[1].ref === "v2-a:retry");
+    ok("…the second draft stored, with its citations and version 2", db.__rows.prospectCallScript[0]?.script.citations.length === 2 && db.__rows.prospectCallScript[0].promptVersion === "2");
+    ok("…and the note says it was the second draft and what it cites", /second draft/.test(res.note) && /cites 2 detail/.test(res.note), res.note);
+  }
+  {
+    const db = stubDb();
+    let asked = 0;
+    const complete = async ({ onUsage }) => { asked++; await onUsage({ model: "gpt-5-mini", promptTokens: 3000, completionTokens: 700 }); return { ok: true, data: { ...goodReply(), opener: MODEL_OPENER } }; };
+    const res = await handleGenerateCallScript({ task: task(), payload: task().payload, idempotencyKey: "v2-b", db, now: NOW, deps: { loadInputs: async () => richRows(), complete } });
+    ok("a second failure is terminal — not paid for a third time, nothing stored", asked === 2 && res.done === false && res.retry === false && /voice/.test(res.reason) && db.__rows.prospectCallScript.length === 0, res);
+    ok("…and both spends are in the ledger", db.__rows.platformAiUsage.length === 2);
+  }
+  {
+    const db = stubDb();
+    let asked = 0;
+    const complete = async ({ onUsage }) => { asked++; await onUsage({ model: "gpt-5-mini", promptTokens: 1400, completionTokens: 700 }); return { ok: true, data: goodReply() }; };
+    const res = await handleGenerateCallScript({ task: task(), payload: task().payload, idempotencyKey: "v2-c", db, now: NOW, deps: { loadInputs: async () => fixtureInputs(), complete } });
+    ok("with nothing crawled a plain, uncited script is stored on the first draft and the note says generic", asked === 1 && res.done === true && /generic/.test(res.note), res);
+  }
+  {
+    const db = stubDb();
+    const complete = async ({ onUsage }) => { await onUsage({ model: "gpt-5-mini", promptTokens: 3000, completionTokens: 700 }); return { ok: true, data: cited }; };
+    const res = await handleGenerateCallScript({ task: task(), payload: task().payload, idempotencyKey: "v2-d", db, now: NOW, deps: { loadInputs: async () => richRows(), complete } });
+    ok("a cited, human first draft is stored on the first call", res.done === true && !/second draft/.test(res.note) && db.__rows.platformAiUsage.length === 1);
+  }
+
+  // ── loadCallScriptInputs, executed against a scripted prisma ───────────
+  {
+    const asked = [];
+    const prisma = {
+      prospect: { async findUnique({ select }) { asked.push(Object.keys(select).join(",")); return Object.fromEntries(Object.keys(select).map((k) => [k, k === "lastCrawledAt" ? CRAWLED : k === "assignedRepId" ? "rep-1" : k === "googleRating" ? 4.8 : k === "googleReviewCount" ? 37 : k === "id" ? "p1" : `v:${k}`])); } },
+      prospectCapability: { async findMany() { return []; } },
+      prospectTechnology: { async findMany() { return []; } },
+      prospectInference: { async findMany() { return [{ kind: "trade", value: "junk_removal", evidenceIds: [], source: "derived" }]; } },
+      prospectOpportunity: { async findMany() { return []; } },
+      prospectScore: { async findFirst() { return null; } },
+      salesRep: { async findUnique({ where }) { asked.push(`salesRep:${where.id}`); return { name: "Dana Whitfield" }; } },
+      prospectEvidence: { async findMany({ where }) { asked.push(`evidence:${where.type}`); return pages; } },
+    };
+    const rows = await loadCallScriptInputs(prisma, "p1", { assemble: async () => ({ found: true, selection: { selected: null }, script: { stages: [] }, objections: [], unchecked: [] }) });
+    ok("the loader reads the rep's name by the prospect's assignedRepId", asked.includes("salesRep:rep-1") && rows.repName === "Dana Whitfield");
+    ok("…the page_content evidence rows, chosen and capped", asked.includes("evidence:page_content") && rows.pages.length === 4 && rows.pages[0].url.endsWith("/about-us"));
+    ok("…every inference row", rows.inferences.length === 1 && rows.inferences[0].kind === "trade");
+    ok("…and the directory rating on the prospect", rows.prospect.googleRating === 4.8 && rows.prospect.googleReviewCount === 37);
+    const inputs2 = callScriptInputs(rows);
+    ok("…which reach the prompt", /Dana/.test(callScriptPrompt(inputs2)) && /four point eight/.test(callScriptPrompt(inputs2)) && /Mike and Dana Sousa/.test(callScriptPrompt(inputs2)));
+  }
+
+  // ── The screen prints the citations ────────────────────────────────────
+  const draw = decomment(read("app/components/sales/CallPlaybook.js"));
+  ok("the screen prints the citations under their own heading, only when there are any", /script\.citations\?\.length \?/.test(draw) && /aiScriptCitations/.test(draw));
+  ok("…keyed in nine languages", (read("app/i18n/appMessages.js").match(/"app\.salesCall\.aiScriptCitations":/g) || []).length === 9);
+
+  // ── What the rewrite costs ─────────────────────────────────────────────
+  const promptTokens = Math.ceil((richPrompt.length + 400) / 4);
+  const completionTokens = Math.ceil(JSON.stringify(cited).length / 4) + 400;
+  const micros = estimateCostMicros({ model: "gpt-5-mini", promptTokens, completionTokens });
+  const perScript = micros / 1_000_000;
+  const plain = Math.ceil((prompt.length + 400) / 4);
+  console.log(`  v2 prompt with the site read: ${richPrompt.length} chars ≈ ${promptTokens} tokens (v1-shaped prompt ≈ ${plain}; the page text adds ≈ ${promptTokens - plain}); ≈ $${perScript.toFixed(5)} per script, $${(perScript * 2).toFixed(5)} when the lint asks for a second draft`);
+  console.log(`  regenerating every stored script once at the new version: 101 rows × $${perScript.toFixed(5)} ≈ $${(perScript * 101).toFixed(2)} (up to $${(perScript * 101 * 2).toFixed(2)} if every one needs the retry)`);
+  ok("the v2 prompt with the site read stays under four thousand tokens", promptTokens < 4000, promptTokens);
+  ok("…and a script still costs well under a cent", perScript < 0.01, perScript);
 }
 
 console.log(`\n${pass} checks, ${failures.length} failure(s).`);

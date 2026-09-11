@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 11 September 2026 (The platform console can see, release and move a rep's queue, and a deactivation no longer strands it — `lib/sales/reassign.js`, `app/api/platform/sales/reps/[id]/queue`, the reps console; the section below; `check:platform-rep-queue`.)
+Last updated: 11 September 2026 (The owner read the first live call script and the playbook for South County Electric and sent six corrections — the script sounds like a person and cites their own site, the stage copy is the rep's not the author's, reps are not tech support, no weekday in a close, the crawler's email reaches the lead, and the disposition form offers demo · sent to sign up · specialist walkthrough — the section below; `check:playbook-voice`, `check:call-script` §7.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -127,6 +127,122 @@ Break, Dinner, Off, Meeting — anything that is normal from the call center."
   `on_call` row, because the graph refuses offline → on_call (pre-existing).
   Not visually verified in a browser this session — the checks and the
   build are the evidence.
+
+## The owner read the South County script: six corrections (11 September 2026)
+
+The first AI call script and the rules playbook for a real prospect, South
+County Electric, LLC, went to the owner. Six corrections came back, every one
+built. The lint and the rules are in `lib/sales/scriptVoice.js`,
+`lib/sales/intel/callScript.js` (v2), `lib/sales/intel/pageExcerpts.js`,
+`lib/sales/intel/prospectEmail.js`, `lib/sales/nextSteps.js`; the checks are
+`check:playbook-voice` (236, new, in `check:all`) and `check:call-script` §7
+(185 total).
+
+- **The script sounds like a person.** The owner rewrote the opener himself
+  — "Hi — is that South County Electric, LLC? My name's Daniel and I'm from
+  FieldQuo. I'm calling because I've been through your website and we noticed
+  a few things that are missing that could help you bring in more clients and
+  book more jobs. Do you have a few minutes so I can show you how?" — against
+  the model's "…and it's about what happens after somebody's read it rather
+  than about the site itself. Is this a good time?". His sentence is the ONE
+  style example in the prompt (`CALL_SCRIPT_STYLE_EXAMPLE`), the register is
+  spelled out as `CALL_SCRIPT_STYLE_RULES` (contractions, complete sentences,
+  one idea per sentence, plain verbs, no "rather than", benefit before
+  feature, the rep's first name from `SalesRep`), and `voiceLint()` refuses a
+  reply on: a sentence over 30 words (the brief said 28; the owner's own
+  sentence is 29, so 28 would have rejected the example), "rather than",
+  "that's not why I called", a sentence with no finite verb, "put that
+  button on the site". A failing draft is asked for ONCE more with the
+  sentences quoted back; both calls metered; a second failure is terminal.
+  `CALL_SCRIPT_VERSION = "2"` is inside the hash, so every stored script
+  regenerates on its next open.
+- **The script is about THIS company.** The owner: "shouldn't the SCRIPT be
+  unique to this company, based on the information found and what is
+  inferred?" It read as a template because its inputs were the capability
+  booleans. Now the model reads excerpts of the about, services and home
+  pages (`selectPageExcerpts`, ≈2,000 tokens, from the `page_content`
+  evidence rows the crawler already stored), every `ProspectInference` by
+  kind and value (generic — the AI inference stage's kinds will reach it
+  unedited), and the directory's trade, town, rating and review count
+  (spelled out: "four point eight out of five, from thirty-seven reviews",
+  because the script may not carry a digit). The prompt REQUIRES a detail
+  from that material in the opener and in whyThemNow and returns
+  `citations: [{ field, quote, sourceUrl }]`; `lintCitations()` verifies
+  every quote verbatim against the material and that the field shares a
+  content word with it (the business's own name excluded). No material →
+  the honest generic opener, and the task note says "generic".
+  **Cost:** the page text adds ≈1,700 prompt tokens: **$0.00109 per
+  script** at gpt-5-mini (was $0.00081), $0.00218 when the lint asks for a
+  second draft; regenerating the 101 stored scripts ≈ $0.11 (≤ $0.22).
+- **The stage copy is for the rep.** "Establish relevance — One sentence
+  that could only have been said to this business…" was the author's note
+  printed above the lines. Stages are now Open · Why them · Ask · How it
+  works today · What it costs them · What we do · If they push back · Next
+  step · Wrap up (`stages.js` `name` + `nameKey`, nine languages), and the
+  note is a closed `<details>` ("Why this stage exists") the rep can open.
+- **Reps are not tech support.** "Fifteen minutes and I'll put that button
+  on the site you already have", "I'll build one real quote", "I'll build
+  the form round them", "the afternoon is mine", and seven objection
+  answers ending "I will build / set it up" are gone. The next step
+  everywhere — four playbooks (`NEXT_STEP_OFFER`), eleven objection answers,
+  the battlecard ask, the follow-up moments, the prompt — is a fifteen-
+  minute demo: "I can show you in fifteen minutes how it works for a
+  business like yours". Retired fingerprints recorded in `seedHistory.js`;
+  `refreshBuiltIns` reaches the live rows.
+- **No day and no time in a close.** "Thursday at eight then, before you're
+  out" → `CLOSE_ASK`: "What works better for you, mornings or afternoons?
+  I'll send the invite and a reminder the night before." The invite is
+  automatic (below); the reminder is the rep's own text from their calendar
+  — nothing in the sales portal sends on a timer by decision (SalesCheckIn's
+  header), and an automatic one would need `SalesEvent.reminderSentAt` to be
+  once-only, which is not added here. `check:playbook-copy` had asserted a
+  weekday in every close; it now asserts the opposite.
+- **The email reaches the lead.** `Prospect.email` / `emailSource` are
+  written by `ANALYZE_CAPABILITIES` from the strongest EMAIL_CONTACT evidence
+  (`mailto:` over in-text; placeholders, retina filenames and non-mailbox
+  hosts refused), in the evidence transaction, never cleared. Backfilled
+  once: **1,748 prospects** (1,398 mailto, 350 in-text; 13 with no usable
+  address). "Work as a lead" copies it only when the rep typed none, and an
+  existing lead is filled only `WHERE email IS NULL`. The prospect view
+  prints it beside "Publishes an email address" (`detail`), and the call
+  panel has the copy control (`PublishedEmail.js`) — the pill list itself is
+  in `app/sales/queue/page.js`, another agent's file this session, so the
+  button sits on the panel and not on the pill.
+- **Three next steps** (`lib/sales/nextSteps.js`, `NextSteps.js` on the
+  call panel): **demo** — 30 min, `SalesEvent.type = "demo"` on the rep's
+  calendar through the existing events route, then the invite with the .ics
+  from the rep's mailbox (`/api/sales/events/[id]/invite`, outreach gate,
+  `deliverOutreach` + attachment); **sent to sign up** — the lead moves to
+  `demoed`, the pipeline's one state between contacted and signed, and the
+  lead card and the panel show "3 of 8 setup steps done" from
+  `lib/onboarding.js` once linked, with the open steps named;
+  **walkthrough** — 60 min with a specialist, offered only when the linked
+  company's onboarding is complete (`walkthroughGate`, re-asked from fresh
+  reads in the route), booked on FieldQuo's own `DemoHostAvailability`
+  calendar as a `DemoBooking` (`source: "walkthrough"`, blocks both half
+  hours via `bookingSpan`) plus a `SalesEvent` on the rep's calendar, in one
+  transaction; the specialist and the superadmins get the heads-up with the
+  .ics (`lib/demo/bookingEmails.js`, extracted from the homepage route).
+  `REP_CALENDAR_WRITES` gained `demoBooking`, argued in the gate's header.
+- Checks: `check:playbook-voice` (new; stage names ×9 languages, the note
+  collapsed, no build/install promise in rules · objections · battlecards ·
+  moments · prompts, no weekday/clock in any close, the email rule against
+  fixture evidence, the three kinds, the gate's four branches, the
+  specialist's hour on two slots) and `check:call-script` §7 (the lint fired
+  at both openers, the prompt's rules and example, page excerpts, citations
+  verified, the handler through its retry). Mutation-tested eight ways with
+  `cp` backups — the note opened by default, a weekday back in a close, "I
+  will build" back in an answer, placeholder hosts admitted, the gate
+  ignoring incomplete onboarding, the lint losing "rather than", the version
+  not bumped, citations unverified — each red by exit code.
+- Still owed: the copy control beside the pill on the queue page (one-line
+  edit once that file is free); an automatic night-before reminder
+  (`SalesEvent.reminderSentAt`); `check:tenant-scope` and
+  `check:ungated-routes` were already red at HEAD on files this work did not
+  touch (`app/api/sales/support/[id]`, `app/api/platform/support/[id]`,
+  `app/app/funnels/page.js`).
+
+---
 
 ## Research on claim, the backlog fed, and the AI call script (11 September 2026)
 

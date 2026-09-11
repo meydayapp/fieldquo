@@ -129,11 +129,11 @@ could cost you the meeting is the only honest move you have.
 
 > - Thanks. Quick question before I do — when you go out and look at a job, are you usually able to give them a price while you're standing there, or does it get put together back at the house afterwards?
 
-**Establish relevance** — *One sentence that could only have been said to this business. Not a compliment — a reason this call is not a cold list.*
+**Why them** — *One sentence that could only have been said to this business. Not a compliment — a reason this call is not a cold list.*
 
-> If that's how it goes, that's exactly why I'm calling. And if I've got it wrong — if it works the other way round for you — say so now, because then most of what I was going to say doesn't apply. You're already running {competitor} — so I'm not calling to tell you your scheduling is broken. You solved that, and I'm not going to pretend I know your business better than you do from the outside. The narrow thing I called about is whose name and whose colours a homeowner sees on the quote, the invoice and the emails in between. And the unhelpful half first: if that has never once bothered you, I'm the wrong call, and I'd rather hear that now than after I've built you something.
+> If that's how it goes, that's exactly why I'm calling. And if I've got it wrong — if it works the other way round for you — say so now, because then most of what I was going to say doesn't apply. You're already running {competitor} — so I'm not calling to tell you your scheduling is broken. You solved that, and I'm not going to pretend I know your business better than you do from the outside. The narrow thing I called about is whose name and whose colours a homeowner sees on the quote, the invoice and the emails in between. And the unhelpful half first: if that has never once bothered you, I'm the wrong call, and I'd rather hear that now than fifteen minutes in.
 
-**Discovery** — *Questions, not statements. What the business actually is: trades, crew size, how far they travel, how busy.*
+**Ask** — *Questions, not statements. What the business actually is: trades, crew size, how far they travel, how busy.*
 
 > Can I ask you three things about how the work comes in? Nothing about what you charge — I'm trying to work out whether there's anything here for you or not.
 
@@ -141,7 +141,7 @@ could cost you the meeting is the only honest move you have.
 > - Is most of it repeat and referral now, or are you still bidding against two others on a lot of jobs?
 > - How far out are you booked — weeks, or months?
 
-**Current process** — *How a job goes from a phone call to money in the bank today. Whatever we detected, they are the authority on this and we are guessing.*
+**How it works today** — *How a job goes from a phone call to money in the bank today. Whatever we detected, they are the authority on this and we are guessing.*
 
 > Everything I could see from outside is a guess. You're the only one who knows how it actually runs, so correct me where I've got it wrong.
 
@@ -149,27 +149,27 @@ could cost you the meeting is the only honest move you have.
 > - Does {competitor} carry it all the way through to the invoice, or is part of it still in a notebook?
 > - When the quote lands in their inbox, whose name is on the email it came from?
 
-**Pain** — *Which part of that process costs them, in their own words. Never our words — a pain the rep names is a pain the prospect disputes.*
+**What it costs them** — *Which part of that process costs them, in their own words. Never our words — a pain the rep names is a pain the prospect disputes.*
 
 > - Which part of that is the one that annoys you?
 > - In a normal month, how many quotes go out later than you meant them to?
 > - And when one goes out late, what usually happens to it?
 
-**FieldQuo fit** — *What we do about the thing they just described. This is the only stage that carries per-prospect talking points, and every one of them cites something observed.*
+**What we do** — *What we do about the thing they just described. This is the only stage that carries per-prospect talking points, and every one of them cites something observed.*
 
 > Then two things, and they answer what you just said. The first is whose name is on it: the quote, the invoice, the booking page and every email between them carry yours, and none of them carry ours — somebody holding three quotes cannot tell that two were written in the same software. The second is what happens before it goes: every quote gets read back to you, free, on every quote — what you have left off, and whether the price sits above or below what you have actually been winning at. Not what other contractors charge; your own accepted and declined jobs. Nobody else's numbers come into it and yours do not go out. Does the one you use now tell you that before you send it? And before you have to raise it: nothing comes off {competitor} to look at this. Nothing gets switched off, nothing gets imported, nobody learns anything this week.
 
-**Objection handling** — *What to say when they push back. Rendered from the objection store, filtered to this prospect, never authored inline.*
+**If they push back** — *What to say when they push back. Rendered from the objection store, filtered to this prospect, never authored inline.*
 
 > *(rendered from the objection library — never written into a script)*
 
 **Next step** — *One specific thing with a date on it. 'I'll send you some information' is not a next step.*
 
-> So here's what I'd like: give me your logo and the colour you use, and I'll build one real quote with your name on it and send it over. Then fifteen minutes on Thursday to look at it next to the last one you sent. You pick — first thing before you're out, or the end of the day.
+> So here's what I'd like. Give me fifteen minutes and I can show you in fifteen minutes how it works for a business like yours: a quote with your name on it next to the one you send now, and what the review says before it goes out. Nothing to set up on your side. You just watch.
 
-**Close** — *Confirm what was agreed, in their words, and get off the phone. A call that runs long after the agreement is a call that reopens it.*
+**Wrap up** — *Confirm what was agreed, in their words, and get off the phone. A call that runs long after the agreement is a call that reopens it.*
 
-> Thursday at half seven then, and the quote's with you Wednesday night so you've read it before we speak. I'll text you the morning of. And if Thursday falls apart — it's a job site, it happens — tell me and we'll move it rather than drop it. If I don't hear anything I'll try you again in a couple of weeks.
+> What works better for you, mornings or afternoons? I'll send the invite and a reminder the night before. And if the day falls apart — it's a job site, it happens — tell me and we'll move it rather than drop it. If I don't hear anything I'll try you again in a couple of weeks.
 
 ### Online presence — no website  `ONLINE_PRESENCE`
 
@@ -179,11 +179,11 @@ could cost you the meeting is the only honest move you have.
 
 > - Thanks. One question before I do — when somebody who's never met you goes looking to see whether you're any good, is there somewhere you'd send them, or is it whatever comes up when they search your name?
 
-**Establish relevance** — *One sentence that could only have been said to this business. Not a compliment — a reason this call is not a cold list.*
+**Why them** — *One sentence that could only have been said to this business. Not a compliment — a reason this call is not a cold list.*
 
 > If that's how it goes, that's exactly why I'm calling. And if I've got it wrong — if it works the other way round for you — say so now, because then most of what I was going to say doesn't apply. There's no website I could find. Your number's out there, so anyone who already has your name gets to you fine — it's the ones who don't have your name I called about. They search, they find two others with photographs of finished work, and you were never in that comparison at all. Now the part that costs me: what we'd build isn't a site somebody designed for you. It's put together out of jobs you've already done, it lives at an address on fieldquo.com, and while it's free it carries a small "Site by FieldQuo" line at the bottom. If that's beneath how you want to look, tell me — that's a real reason not to do this.
 
-**Discovery** — *Questions, not statements. What the business actually is: trades, crew size, how far they travel, how busy.*
+**Ask** — *Questions, not statements. What the business actually is: trades, crew size, how far they travel, how busy.*
 
 > Can I ask you three things about where the work comes from? Nothing about money — I want to know whether this is even for you.
 
@@ -191,7 +191,7 @@ could cost you the meeting is the only honest move you have.
 > - How many of you are there?
 > - How far will you travel for a job worth having?
 
-**Current process** — *How a job goes from a phone call to money in the bank today. Whatever we detected, they are the authority on this and we are guessing.*
+**How it works today** — *How a job goes from a phone call to money in the bank today. Whatever we detected, they are the authority on this and we are guessing.*
 
 > You're the authority on this and I'm guessing from outside. Tell me where I'm wrong.
 
@@ -199,27 +199,27 @@ could cost you the meeting is the only honest move you have.
 > - How do they get that number in the first place, if nobody's given it to them?
 > - Has anyone ever said they nearly went elsewhere because they couldn't find anything about you?
 
-**Pain** — *Which part of that process costs them, in their own words. Never our words — a pain the rep names is a pain the prospect disputes.*
+**What it costs them** — *Which part of that process costs them, in their own words. Never our words — a pain the rep names is a pain the prospect disputes.*
 
 > - How many of those calls come in while you're up a ladder?
 > - In a week, how many go to voicemail and never call back?
 > - Do people ask you for photos of previous work before they'll commit?
 
-**FieldQuo fit** — *What we do about the thing they just described. This is the only stage that carries per-prospect talking points, and every one of them cites something observed.*
+**What we do** — *What we do about the thing they just described. This is the only stage that carries per-prospect talking points, and every one of them cites something observed.*
 
-> Then the photos you've just described are the site. We build it out of the jobs you've already done: your name at the top, your colour, the work, and a way for somebody to ask you for a price at nine at night while you're asleep. You don't write anything. And the objection you're about to have — that it's a project — it isn't. It's an afternoon, and the afternoon is mine.
+> Then the photos you've just described are the site. We build it out of the jobs you've already done: your name at the top, your colour, the work, and a way for somebody to ask you for a price at nine at night while you're asleep. You don't write anything. And the objection you're about to have — that it's a project — it isn't. It's built out of what you've already done, and I can show you one in fifteen minutes.
 
-**Objection handling** — *What to say when they push back. Rendered from the objection store, filtered to this prospect, never authored inline.*
+**If they push back** — *What to say when they push back. Rendered from the objection store, filtered to this prospect, never authored inline.*
 
 > *(rendered from the objection library — never written into a script)*
 
 **Next step** — *One specific thing with a date on it. 'I'll send you some information' is not a next step.*
 
-> Here's what I'd like: send me three photos of a job you're proud of, to the number I'm calling from. I'll have something with your name on it to show you by Thursday. If you hate it, tell me what's wrong with it and I'll take another run at it.
+> Here's what I'd like. Give me fifteen minutes and I can show you in fifteen minutes how it works for a business like yours: a site built out of jobs you've already done, with your name on it, and what a homeowner sees at nine at night. Send me three photos of a job you're proud of, to the number I'm calling from, and we'll use those.
 
-**Close** — *Confirm what was agreed, in their words, and get off the phone. A call that runs long after the agreement is a call that reopens it.*
+**Wrap up** — *Confirm what was agreed, in their words, and get off the phone. A call that runs long after the agreement is a call that reopens it.*
 
-> Three photos to this number, then, and I'll call you Thursday morning with something to look at. If the photos don't happen this week that's fine — I'll call anyway and we'll do it on the phone.
+> What works better for you, mornings or afternoons? I'll send the invite and a reminder the night before. Three photos to this number whenever you get a minute. If the photos don't happen before then, that's fine — I'll call anyway and we'll use what's on your phone.
 
 ### Booking gap — a website with no way to book  `BOOKING_GAP`
 
@@ -229,11 +229,11 @@ could cost you the meeting is the only honest move you have.
 
 > - Thanks. One question first — when somebody's on your site at nine at night and wants you, can they put themselves in your diary there and then, or does it hang on them remembering to ring in the morning?
 
-**Establish relevance** — *One sentence that could only have been said to this business. Not a compliment — a reason this call is not a cold list.*
+**Why them** — *One sentence that could only have been said to this business. Not a compliment — a reason this call is not a cold list.*
 
 > If that's how it goes, that's exactly why I'm calling. And if I've got it wrong — if it works the other way round for you — say so now, because then most of what I was going to say doesn't apply. The site does its job — that's not what I called about. What it hasn't got is any way for somebody to put themselves into your diary: every page ends with give us a call. And the honest limit on it, before you spend anything: a booking page will not bring you one extra enquiry. It doesn't get you found. If the problem is that the phone isn't ringing enough, this is the wrong conversation and I'd rather say so now.
 
-**Discovery** — *Questions, not statements. What the business actually is: trades, crew size, how far they travel, how busy.*
+**Ask** — *Questions, not statements. What the business actually is: trades, crew size, how far they travel, how busy.*
 
 > Can I ask you three things about the enquiries you do get? Nothing about your rates.
 
@@ -241,7 +241,7 @@ could cost you the meeting is the only honest move you have.
 > - Who picks up when you're out on a job?
 > - Are you booking a visit to measure, or quoting off photos people send?
 
-**Current process** — *How a job goes from a phone call to money in the bank today. Whatever we detected, they are the authority on this and we are guessing.*
+**How it works today** — *How a job goes from a phone call to money in the bank today. Whatever we detected, they are the authority on this and we are guessing.*
 
 > Tell me where my guess is wrong here.
 
@@ -249,26 +249,26 @@ could cost you the meeting is the only honest move you have.
 > - How many messages back and forth before a time is actually agreed?
 > - Does that time go into a calendar, or is it in your head until the morning?
 
-**Pain** — *Which part of that process costs them, in their own words. Never our words — a pain the rep names is a pain the prospect disputes.*
+**What it costs them** — *Which part of that process costs them, in their own words. Never our words — a pain the rep names is a pain the prospect disputes.*
 
 > - Out of the ones who message you, how many go quiet before a time's agreed?
 > - Have you ever turned up and they'd forgotten, or had somebody else in?
 
-**FieldQuo fit** — *What we do about the thing they just described. This is the only stage that carries per-prospect talking points, and every one of them cites something observed.*
+**What we do** — *What we do about the thing they just described. This is the only stage that carries per-prospect talking points, and every one of them cites something observed.*
 
 > Nobody books a kitchen off a form and I'm not going to suggest they should. What gets booked is you turning up to measure — a slot you've allowed, the address, the photos already attached, and none of that back-and-forth to arrange it. And the bit you'd raise: you keep the site you've got. It gains a button. It doesn't get rebuilt.
 
-**Objection handling** — *What to say when they push back. Rendered from the objection store, filtered to this prospect, never authored inline.*
+**If they push back** — *What to say when they push back. Rendered from the objection store, filtered to this prospect, never authored inline.*
 
 > *(rendered from the objection library — never written into a script)*
 
 **Next step** — *One specific thing with a date on it. 'I'll send you some information' is not a next step.*
 
-> Fifteen minutes and I'll put that button on the site you already have, with the hours you're willing to accept and nothing outside them. You choose the hours before I build it, not after.
+> Give me fifteen minutes and I can show you in fifteen minutes how it works for a business like yours: somebody on your site at nine at night, picking a time you've already said you'll accept, and where that lands for you in the morning. Nothing gets rebuilt. You keep the site you've got.
 
-**Close** — *Confirm what was agreed, in their words, and get off the phone. A call that runs long after the agreement is a call that reopens it.*
+**Wrap up** — *Confirm what was agreed, in their words, and get off the phone. A call that runs long after the agreement is a call that reopens it.*
 
-> Thursday at eight then, before you're out. I'll send the link the night before so you've clicked it yourself first. If Thursday goes wrong, message me and we'll find another one — and if I don't hear back I'll try you again after month end.
+> What works better for you, mornings or afternoons? I'll send the invite and a reminder the night before. If the day goes wrong, message me and we'll find another one — and if I don't hear back I'll try you again after month end.
 
 ### Quote automation — enquiries arrive as email  `QUOTE_AUTOMATION`
 
@@ -278,11 +278,11 @@ could cost you the meeting is the only honest move you have.
 
 > - Thanks. One question before I do — when an enquiry comes in, does it usually arrive with enough on it to price, or are you writing back to ask the same few things before you can even start?
 
-**Establish relevance** — *One sentence that could only have been said to this business. Not a compliment — a reason this call is not a cold list.*
+**Why them** — *One sentence that could only have been said to this business. Not a compliment — a reason this call is not a cold list.*
 
 > If that's how it goes, that's exactly why I'm calling. And if I've got it wrong — if it works the other way round for you — say so now, because then most of what I was going to say doesn't apply. There's an email address on the site and nothing else — no form, no questions. So every enquiry arrives as somebody's free text, and you're the one writing back to ask the same four things before you can price any of it. What I should say straight away: a form doesn't fix all of that. Some people won't fill one in, and those will still land in your inbox exactly as they do now. What changes is the ones who do.
 
-**Discovery** — *Questions, not statements. What the business actually is: trades, crew size, how far they travel, how busy.*
+**Ask** — *Questions, not statements. What the business actually is: trades, crew size, how far they travel, how busy.*
 
 > Can I ask you three things about that inbox? Nothing about your prices.
 
@@ -290,7 +290,7 @@ could cost you the meeting is the only honest move you have.
 > - What do you always end up having to ask them?
 > - Who else can see it — anybody, or just you?
 
-**Current process** — *How a job goes from a phone call to money in the bank today. Whatever we detected, they are the authority on this and we are guessing.*
+**How it works today** — *How a job goes from a phone call to money in the bank today. Whatever we detected, they are the authority on this and we are guessing.*
 
 > Correct me where I've got this wrong.
 
@@ -298,26 +298,26 @@ could cost you the meeting is the only honest move you have.
 > - How long is it usually before you get to reply?
 > - How do you know which ones you've already answered?
 
-**Pain** — *Which part of that process costs them, in their own words. Never our words — a pain the rep names is a pain the prospect disputes.*
+**What it costs them** — *Which part of that process costs them, in their own words. Never our words — a pain the rep names is a pain the prospect disputes.*
 
 > - How many go cold while they're waiting on you?
 > - Have you ever priced the same job twice because the first one got lost?
 
-**FieldQuo fit** — *What we do about the thing they just described. This is the only stage that carries per-prospect talking points, and every one of them cites something observed.*
+**What we do** — *What we do about the thing they just described. This is the only stage that carries per-prospect talking points, and every one of them cites something observed.*
 
 > Then it's the four things you just named. They get asked before the enquiry reaches you, and what arrives isn't a note in an inbox — it's a job in a list, with the answers and the photos on it, one press from a quote you can send from the van. And before you ask: you keep the address that's on the site. Anyone who'd rather just email you still can.
 
-**Objection handling** — *What to say when they push back. Rendered from the objection store, filtered to this prospect, never authored inline.*
+**If they push back** — *What to say when they push back. Rendered from the objection store, filtered to this prospect, never authored inline.*
 
 > *(rendered from the objection library — never written into a script)*
 
 **Next step** — *One specific thing with a date on it. 'I'll send you some information' is not a next step.*
 
-> Tell me the four things you always end up asking and I'll build the form round them — your questions, not ours — on the site you already have. Fifteen minutes on Thursday and you'll see what comes out the other end.
+> Tell me the four things you always end up asking, and give me fifteen minutes. I can show you in fifteen minutes how it works for a business like yours: those four questions asked before the enquiry reaches you, and what lands in your list with the answers already on it. Your questions, not ours.
 
-**Close** — *Confirm what was agreed, in their words, and get off the phone. A call that runs long after the agreement is a call that reopens it.*
+**Wrap up** — *Confirm what was agreed, in their words, and get off the phone. A call that runs long after the agreement is a call that reopens it.*
 
-> Thursday morning then. Send me the four questions whenever they come to you, a text is fine. If they don't arrive I'll bring my guess at them and you can cross them out — and if Thursday moves, I'll find you the week after.
+> What works better for you, mornings or afternoons? I'll send the invite and a reminder the night before. Send me the four questions whenever they come to you, a text is fine. If they don't arrive I'll bring my guess at them and you can cross them out — and if the day moves, I'll find you the week after.
 
 ## 5. Either side of the call
 
@@ -351,7 +351,7 @@ could cost you the meeting is the only honest move you have.
 
 **The message, about twenty seconds**
 
-> {repName} at FieldQuo, for {businessName}. I read your website this morning and there's one thing on it I wanted to put to whoever writes your quotes — it's a question rather than a sales call. I'm on {repPhone}. That's {repPhone}. I'll try you again Thursday morning either way.
+> {repName} at FieldQuo, for {businessName}. I read your website this morning and there's one thing on it I wanted to put to whoever writes your quotes — it's a question rather than a sales call. I'm on {repPhone}. That's {repPhone}. I'll try you again in a couple of days either way.
 
 - Say the number twice and slow the second one down. Somebody writing it down misses the first three digits of the first.
 - Leave one on the first attempt, not the fourth. Four unexplained missed calls from a number nobody knows is how you get blocked.
@@ -363,11 +363,11 @@ could cost you the meeting is the only honest move you have.
 
 **After a call that agreed a time**
 
-> {repName} from FieldQuo. Thursday half seven as agreed - quote with your name on it lands Wednesday night.
+> {repName} from FieldQuo. Good to talk - the invite for our fifteen minutes is in your inbox. Reply here if it needs moving.
 
 **After a voicemail**
 
-> {repName} from FieldQuo. Left you a message about your quotes - no need to ring back, I'll try you Thursday.
+> {repName} from FieldQuo. Left you a message about your quotes - no need to ring back, I'll try you again in a couple of days.
 
 **After a call that went nowhere in particular**
 
@@ -394,7 +394,7 @@ could cost you the meeting is the only honest move you have.
 > 
 > Two things to look at when you have a minute: whose name is on the email it would have arrived from, and the part underneath that says what the quote has left off.
 > 
-> Thursday at half seven still suits me. If it stops suiting you, tell me and we'll move it rather than drop it.
+> The time we agreed still suits me. If it stops suiting you, tell me and we'll move it rather than drop it.
 > 
 > {repName}
 
@@ -441,7 +441,7 @@ could cost you the meeting is the only honest move you have.
 
 **If they say yes**
 
-> Good. Send me your rates however they exist — a spreadsheet, a photo of a page, whatever you actually use — and I'll have it ready to send from tomorrow. Then send one real quote out of it and ring me if it feels wrong.
+> Good. Your rates go in however they exist — a spreadsheet, a photo of a page, whatever you actually use — and the setup steps in your account walk you through it. Then send one real quote out of it and ring me if it feels wrong.
 
 - After you ask, stop talking. Futrell is emphatic about this: anything said after the question takes the pressure off the decision, and the pressure is the only thing making it happen now.
 - Waiting is a real answer and gets a real date. A rep who treats it as a loss argues, and arguing at the close is how a maybe becomes a no.
@@ -461,7 +461,7 @@ disposition.
 
 *You will hear it as:* already use, we have jobber, we use jobber, housecall, servicetitan, we're on
 
-> So you have already got that solved, and it works. Good — that is the right order to solve it in, and I am not going to tell you your scheduler is broken. Two things it may not be doing. Whose name the homeowner sees: with us the quote, the invoice, the booking page and every email between them carry yours and none of them carry ours. And what happens before the quote goes out — every one gets read back to you, free, every time: what you have left off it, and whether the price is above or below what you have actually been winning at. Your own accepted and declined jobs, not other contractors' numbers — yours do not go anywhere either. Does the one you use now do that? Give me your logo and your colour and I will build one real quote with your name on it, review and all — put it next to the last one you sent and tell me what is wrong with it.
+> So you have already got that solved, and it works. Good — that is the right order to solve it in, and I am not going to tell you your scheduler is broken. Two things it may not be doing. Whose name the homeowner sees: with us the quote, the invoice, the booking page and every email between them carry yours and none of them carry ours. And what happens before the quote goes out — every one gets read back to you, free, every time: what you have left off it, and whether the price is above or below what you have actually been winning at. Your own accepted and declined jobs, not other contractors' numbers — yours do not go anywhere either. Does the one you use now do that? Give me fifteen minutes and I will show you how it works for a business like yours — a quote with your name on it, review and all, next to the last one you sent. Then tell me what is wrong with it.
 
 ### 2. That sounds expensive / we can't afford another subscription
 
@@ -473,31 +473,31 @@ disposition.
 
 *You will hear it as:* no time, too busy, learn, set up, switch
 
-> So it is the changeover you are weighing, not the thing itself. That is the honest reason most people stay where they are and it is the one I would want answered too. Nothing has to move at once — the next quote goes out of the new one and everything else stays exactly where it is until you decide otherwise. If you want the old records brought across, that is a paid job we do for you, not an import screen we hand you. Rather than argue about how long it takes: give me one job you have already done and I will set it up the way it would really run, and you tell me whether that was the effort you were picturing.
+> So it is the changeover you are weighing, not the thing itself. That is the honest reason most people stay where they are and it is the one I would want answered too. Nothing has to move at once — the next quote goes out of the new one and everything else stays exactly where it is until you decide otherwise. If you want the old records brought across, that is a paid job we do for you, not an import screen we hand you. Rather than argue about how long it takes: give me fifteen minutes and one job you have already done, and I will show you how it would really run for you. Then you tell me whether that was the effort you were picturing.
 
 ### 4. All my work is word of mouth, I don't need a website
 
 *You will hear it as:* word of mouth, referral, don't need a website, do not need a website, busy enough
 
-> So the work comes from people who already know you. That is the best kind there is and I am not going to argue it down. The narrow thing word of mouth cannot do is answer at nine at night: your customer gives your name to a neighbour, the neighbour looks you up on their phone, finds nothing, and rings the second name instead. You would never hear about that one, which is exactly why it is worth a look rather than a shrug. Send me three photos of a job you are proud of and I will show you what that neighbour would have found — then tell me what is wrong with it.
+> So the work comes from people who already know you. That is the best kind there is and I am not going to argue it down. The narrow thing word of mouth cannot do is answer at nine at night: your customer gives your name to a neighbour, the neighbour looks you up on their phone, finds nothing, and rings the second name instead. You would never hear about that one, which is exactly why it is worth a look rather than a shrug. Give me fifteen minutes and three photos of a job you are proud of, and I will show you what that neighbour would have found — then tell me what is wrong with it.
 
 ### 5. People need to talk to me before I can book anything
 
 *You will hear it as:* need to talk, every job is different, can't just book, site visit
 
-> So what you are saying is a job like yours cannot be priced without seeing it. Agreed — nobody is booking a kitchen off a form, and if I told you otherwise you would be right not to believe the rest of it. What gets booked is the visit, not the job: they pick from hours you have already said you will accept, it lands in your calendar with the address and their photos already attached, and the four texts to arrange it never happen. Tell me the hours you would genuinely accept and I will set it up inside those, and you look at it before anybody else can.
+> So what you are saying is a job like yours cannot be priced without seeing it. Agreed — nobody is booking a kitchen off a form, and if I told you otherwise you would be right not to believe the rest of it. What gets booked is the visit, not the job: they pick from hours you have already said you will accept, it lands in your calendar with the address and their photos already attached, and the four texts to arrange it never happen. Tell me the hours you would genuinely accept, and give me fifteen minutes — I will show you how it works inside those hours, and you look at it before anybody else can.
 
 ### 6. My email address is on the site, that works fine
 
 *You will hear it as:* email works, they email me, my email is on there, inbox
 
-> So the address on the site is doing the job. For the people who write to you it is — the question is what happens between them writing and you answering. It works right up until you are on a roof, and then it is an email you will answer tonight, and tonight you are doing invoices. A form asks the four things you always end up asking anyway, and what lands is a job in a list with the answers already on it rather than a note in an inbox. You keep the address either way — anyone who would rather just email you still can. Tell me the four things you always end up asking and I will build it round yours, not ours.
+> So the address on the site is doing the job. For the people who write to you it is — the question is what happens between them writing and you answering. It works right up until you are on a roof, and then it is an email you will answer tonight, and tonight you are doing invoices. A form asks the four things you always end up asking anyway, and what lands is a job in a list with the answers already on it rather than a note in an inbox. You keep the address either way — anyone who would rather just email you still can. Tell me the four things you always end up asking, and give me fifteen minutes — I will show you how it works with your questions, not ours.
 
 ### 7. Just send me some information
 
 *You will hear it as:* send me, email me something, send information, brochure
 
-> So you want to see something in writing before you spend any more time on the phone. Fair — I would want the same, and I will send it. I would rather send the one that is about your problem than the one that is about all of them, so which is it more: the quotes going out, or the money coming back in? That is in your inbox today either way. The reason I would still like fifteen minutes on top is that a document read at eleven at night answers no questions back. Thursday morning, before you are out — and if Thursday is the wrong day, give me one that is not.
+> So you want to see something in writing before you spend any more time on the phone. Fair — I would want the same, and I will send it. I would rather send the one that is about your problem than the one that is about all of them, so which is it more: the quotes going out, or the money coming back in? That is in your inbox today either way. The reason I would still like fifteen minutes on top is that a document read at eleven at night answers no questions back. What works better for you, mornings or afternoons?
 
 ### 8. Not interested
 
@@ -509,13 +509,13 @@ disposition.
 
 *You will hear it as:* ask my wife, ask the wife, my partner, my husband, the boss, not my call, speak to my
 
-> So it is not only your decision, and whoever else is in it has not heard any of this. That is normal at this size and it is the right way round. What I would not do is ask you to sell it for me — my description of it arriving second hand at teatime is the worst version either of you could get. Two ways round it: fifteen minutes with both of you on the phone, or give me your logo and the colour you use and I will build one real quote with your name on it and send it over, so what they are looking at is the thing itself. Tell me which of those is easier this week.
+> So it is not only your decision, and whoever else is in it has not heard any of this. That is normal at this size and it is the right way round. What I would not do is ask you to sell it for me — my description of it arriving second hand at teatime is the worst version either of you could get. Two ways round it: fifteen minutes with both of you on the phone, or fifteen minutes with you now and I will send over what we looked at, so what they are looking at is the thing itself. Tell me which of those is easier this week.
 
 ### 10. Ring me after the season / in the new year
 
 *You will hear it as:* call me back, ring me next, after the summer, after christmas, new year, busy season, try me later, not right now
 
-> So the timing is wrong rather than the thing itself. Fair — the middle of a season is a bad week to change anything and I am not going to pretend otherwise. Two things though. The part that would take an afternoon is an afternoon of mine, not yours. And the month you are describing is the month the quotes go out late, which is the thing I called about — so waiting for it to be quiet means testing it in the week it matters least. Tell me the month you would want it working by and I will work backwards from that. Give me a date and it goes in my diary for that day rather than me ringing you at random.
+> So the timing is wrong rather than the thing itself. Fair — the middle of a season is a bad week to change anything and I am not going to pretend otherwise. Two things though. The part that would take an afternoon is fifteen minutes on a screen, not an afternoon of yours. And the month you are describing is the month the quotes go out late, which is the thing I called about — so waiting for it to be quiet means testing it in the week it matters least. Tell me the month you would want it working by and I will work backwards from that. Give me a date and it goes in my diary for that day rather than me ringing you at random.
 
 ### 11. Where did you get my number?
 
@@ -527,7 +527,7 @@ disposition.
 
 *You will hear it as:* just me, one man, one-man, only me, too small, on my own, sole trader, small outfit
 
-> So it is you, and there is nobody to hand any of it to. That is the case this was built for rather than the exception to it — the whole of the office job lands on the person who is also on the tools, which is why the evenings go the way they do. It starts at one seat, and anybody who ever works with you in a van is carried at no charge rather than billed per head, so taking somebody on does not become a reason to leave. Give me one job you have already done and I will set it up the way it would really run for one person, and you tell me whether that is more work than what you do now or less.
+> So it is you, and there is nobody to hand any of it to. That is the case this was built for rather than the exception to it — the whole of the office job lands on the person who is also on the tools, which is why the evenings go the way they do. It starts at one seat, and anybody who ever works with you in a van is carried at no charge rather than billed per head, so taking somebody on does not become a reason to leave. Give me fifteen minutes and one job you have already done, and I will show you how it would really run for one person. Then you tell me whether that is more work than what you do now or less.
 
 ### 13. I've got more work than I can handle already
 
@@ -545,13 +545,13 @@ disposition.
 
 *You will hear it as:* pen and paper, paper, spreadsheet, excel, notebook, in my head, word document
 
-> So the notebook works, and it has worked for years. Agreed, and I am not going to tell you it is broken, because for the job in front of you it is not. Two things it cannot do. It cannot hand a homeowner something with your name and your colours on it while you are still standing in their kitchen. And it cannot tell you that the price you have just written is under what you have been winning at, because that needs your own history read back to you. Give me one job out of the book — a real one, your own numbers — and I will put it next to what you would have sent, and you say which one you would rather a customer opened.
+> So the notebook works, and it has worked for years. Agreed, and I am not going to tell you it is broken, because for the job in front of you it is not. Two things it cannot do. It cannot hand a homeowner something with your name and your colours on it while you are still standing in their kitchen. And it cannot tell you that the price you have just written is under what you have been winning at, because that needs your own history read back to you. Give me fifteen minutes and one job out of the book — a real one, your own numbers — and I will show you it next to what you would have sent, and you say which one you would rather a customer opened.
 
 ### 16. Let me think about it
 
 *You will hear it as:* think about it, let me think, need to think, have a think, sleep on it, get back to you
 
-> Understood, and a decision like this should not be made on a phone call anyway. The reason I would rather not leave it there is what thinking about it turns into: in three weeks the thing you are weighing up is my description of it rather than the thing itself. So let me take the deciding out of it. Give me your logo and the colour you use and I will build one real quote with your name on it, at no cost and with nothing attached to it, and you can think about that instead of about me. Tell me which day next week I should keep clear of, and I will ring you on a different one.
+> Understood, and a decision like this should not be made on a phone call anyway. The reason I would rather not leave it there is what thinking about it turns into: in three weeks the thing you are weighing up is my description of it rather than the thing itself. So let me take the deciding out of it. Give me fifteen minutes and I will show you how it works for a business like yours — a real quote with your name on it, at no cost and with nothing attached to it — and you can think about that instead of about me. Tell me which day next week I should keep clear of, and I will ring you on a different one.
 
 ### 17. Just tell me what it costs
 
@@ -601,7 +601,7 @@ Three rules for this section:
 > Start with what Housecall Pro has that we do not: native mobile app (iOS / Android). Their own page says: "Free mobile app for iOS and Android". If that is what decides it for you, they are the better buy and I would rather say so now.
 > The narrow thing worth knowing: repeat jobs is on their Max plan at $329 a month. It is on every plan of ours, and ours starts at $99.
 > For 6 of you — say 2 pricing work and 4 in vans — their Max is $329 and our Crew is $169. Tell me your real numbers and I will do it again with yours.
-> Give me your logo and the colour you use and I will build one real quote with your name on it — put it next to the last one you sent out of Housecall Pro and tell me what is wrong with it.
+> Give me fifteen minutes and I will show you how it works for a business like yours — a quote with your name on it next to the last one you sent out of Housecall Pro — and you tell me what is wrong with it.
 
 **What they genuinely do well**
 
@@ -632,7 +632,7 @@ Full page a contractor reads: https://www.fieldquo.com/compare/fieldquo-vs-house
 
 > Before anything else, what we do not have: native mobile app (iOS / Android). That is true whoever you compare us with, and if it decides it for you then it decides it.
 > The thing to know about the price: ServiceTitan is reported to price per technician, not per company. That is what contractors report rather than anything they publish, so take it as that — but it is the term that decides the bill.
-> Give me your logo and the colour you use and I will build one real quote with your name on it — put it next to the last one you sent out of ServiceTitan and tell me what is wrong with it.
+> Give me fifteen minutes and I will show you how it works for a business like yours — a quote with your name on it next to the last one you sent out of ServiceTitan — and you tell me what is wrong with it.
 
 **What they genuinely do well**
 
@@ -662,7 +662,7 @@ Full page a contractor reads: https://www.fieldquo.com/compare/fieldquo-vs-servi
 > Start with what Projul has that we do not: book a guided demo with a salesperson. Their own page says: "Every Projul tier offers a scheduled demo". If that is what decides it for you, they are the better buy and I would rather say so now.
 > The narrow thing worth knowing: suggested add-ons is on their Pro plan at $1199 a month. It is on every plan of ours, and ours starts at $99.
 > For 6 of you — say 2 pricing work and 4 in vans — their Core is $399 and our Crew is $169. Tell me your real numbers and I will do it again with yours.
-> Give me your logo and the colour you use and I will build one real quote with your name on it — put it next to the last one you sent out of Projul and tell me what is wrong with it.
+> Give me fifteen minutes and I will show you how it works for a business like yours — a quote with your name on it next to the last one you sent out of Projul — and you tell me what is wrong with it.
 
 **What they genuinely do well**
 
@@ -697,7 +697,7 @@ Full page a contractor reads: https://www.fieldquo.com/compare/fieldquo-vs-proju
 > Before anything else, what we do not have: native mobile app (iOS / Android). That is true whoever you compare us with, and if it decides it for you then it decides it.
 > The narrow thing worth knowing: lead tracking is on their Plus plan at $499 a month. It is on every plan of ours, and ours starts at $99.
 > For 6 of you — say 2 pricing work and 4 in vans — their Plus is $499 and our Crew is $169. Tell me your real numbers and I will do it again with yours.
-> Give me your logo and the colour you use and I will build one real quote with your name on it — put it next to the last one you sent out of Jobber and tell me what is wrong with it.
+> Give me fifteen minutes and I will show you how it works for a business like yours — a quote with your name on it next to the last one you sent out of Jobber — and you tell me what is wrong with it.
 
 **What they genuinely do well**
 
@@ -727,7 +727,7 @@ Full page a contractor reads: https://www.fieldquo.com/compare/fieldquo-vs-jobbe
 > Start with what QuoteIQ has that we do not: A paid plan below FieldQuo's cheapest rung. Their own page says: "QuoteIQ starts at $29.99 a month for one user; FieldQuo's cheapest rung is $99". If that is what decides it for you, they are the better buy and I would rather say so now.
 > The narrow thing worth knowing: your own website is on their Max plan at $699 a month. It is on every plan of ours, and ours starts at $99.
 > For 6 of you — say 2 pricing work and 4 in vans — their Elite is $299 and our Crew is $169. Tell me your real numbers and I will do it again with yours.
-> Give me your logo and the colour you use and I will build one real quote with your name on it — put it next to the last one you sent out of QuoteIQ and tell me what is wrong with it.
+> Give me fifteen minutes and I will show you how it works for a business like yours — a quote with your name on it next to the last one you sent out of QuoteIQ — and you tell me what is wrong with it.
 
 **What they genuinely do well**
 

@@ -192,11 +192,21 @@ export default function SalesCalendarPage() {
                           className={`flex items-center gap-1 rounded px-1 py-0.5 text-[11px] leading-tight truncate ${
                             e.type === "callback"
                               ? "bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300"
-                              : "bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300"
+                              : e.type === "demo" || e.type === "walkthrough"
+                                ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300"
+                                : "bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300"
                           } ${e.status === "done" ? "line-through opacity-60" : ""}`}
                         >
                           {e.type === "callback" ? <Phone size={10} className="shrink-0" /> : <CalendarClock size={10} className="shrink-0" />}
-                          <span className="truncate">{formatTimeOfDay(e.startAt, language)} {e.businessName || e.title || t(e.type === "callback" ? "app.salesCal.callBack" : "app.salesCal.appointment")}</span>
+                          {/* The kind is said on the chip for a demo and a
+                              walkthrough — "Demo · Acme" — because the rep's
+                              day has three kinds of meeting on it now and
+                              the colour alone does not say which. */}
+                          <span className="truncate">
+                            {formatTimeOfDay(e.startAt, language)}{" "}
+                            {e.type === "demo" ? `${t("app.salesCal.demo")} · ` : e.type === "walkthrough" ? `${t("app.salesCal.walkthrough")} · ` : ""}
+                            {e.businessName || e.title || t(e.type === "callback" ? "app.salesCal.callBack" : "app.salesCal.appointment")}
+                          </span>
                         </div>
                       ))}
                       {dayEvents.length > 3 && (
