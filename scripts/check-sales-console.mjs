@@ -552,10 +552,29 @@ ok(
 );
 
 // ── The call controls are in one place, and it is the top of the pane ──────
-ok(
-  "the call region is pinned rather than scrolling away with the research",
-  /lg:sticky/.test(consoleSrc),
-);
+//
+// It WAS pinned (`lg:sticky lg:top-4 z-10`) and this assertion demanded it.
+// The owner then reported the lead editor and the notes "scrolling underneath,
+// blocking and making it hard to read": the card holds the call panel, which
+// on a call is taller than the viewport, and a sticky element taller than the
+// viewport never scrolls through — everything after it is covered until the
+// column ends. So the region is in normal flow, and this asserts the exact
+// class that caused it is not on the dial section. The list column keeps its
+// bounded sticky (max-h + overflow-y-auto), which never covers anything
+// because nothing sits under it in its own column.
+{
+  const dialTag = consoleSrc.match(/<section[^>]*data-tour="sales-queue-dial"[^>]*>/)?.[0] || "";
+  ok("the dial section is findable by its tour anchor", dialTag.length > 0);
+  ok(
+    "the call region is NOT sticky — a sticky card taller than the viewport covers the notes under it",
+    dialTag.length > 0 && !/\bsticky\b/.test(dialTag) && !/\bfixed\b/.test(dialTag),
+    dialTag.slice(0, 160),
+  );
+  ok(
+    "…and it is first in the pane, so the dial is still the first thing on the screen",
+    consoleSrc.indexOf('data-tour="sales-queue-dial"') < consoleSrc.indexOf("<QueueLeadEditor"),
+  );
+}
 ok(
   // CallPanel moved to app/components/sales when the lead screen started
   // rendering the same console — see DialRegion's header. The question is

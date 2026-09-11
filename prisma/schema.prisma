@@ -9243,6 +9243,7 @@ model SalesRep {
   contactNumbers SalesContactNumber[]
   staffRooms StaffRoomMember[]
   staffMessages StaffMessage[]
+  queueClaims    SalesQueueClaim[]
 }
 
 /// What a rep earns, per milestone. A row rather than constants so the numbers
@@ -10221,6 +10222,70 @@ model Prospect {
   /// Additive: nothing here ever overwrites `phoneE164` above, which is the
   /// dedupe key every discovery run and every merge decision reads.
   contactNumbers      SalesContactNumber[]
+  /// Every time a rep took this row, and how it left them. See SalesQueueClaim.
+  queueClaims         SalesQueueClaim[]
+}
+
+/// One rep taking one prospect, and how that claim ended.
+///
+/// ══ Why the lease on Prospect is not enough ════════════════════════════════
+///
+/// Prospect.assignedRepId / assignedAt / claimExpiresAt describe who holds a
+/// row NOW. Three questions the queue has to answer need what happened before:
+///
+///   * the per-rep daily ceiling (lib/sales/queueBatch.js QUEUE_DAILY_CLAIM_CAP)
+///     counts claims TAKEN today, released or not — counting rows still held
+///     would let claim-release-claim walk past it;
+///   * a row a rep released untouched must sort LAST for that rep for seven
+///     days, so "Claim the next 100" tomorrow is not the same hundred;
+///   * the day-end release has to know which day: the rep's, in the rep's zone,
+///     which nothing on SalesRep records — it is what the browser said at the
+///     moment of the claim, and it is kept here beside that claim.
+///
+/// Rows are written once and closed once. Nothing deletes them.
+model SalesQueueClaim {
+  id String @id @default(cuid())
+
+  salesRepId String
+  salesRep   SalesRep @relation(fields: [salesRepId], references: [id], onDelete: Cascade)
+
+  prospectId String
+  prospect   Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  claimedAt DateTime @default(now())
+  /// "batch" (Claim the next N) or "single" (Just one).
+  mode      String
+  /// Shared by every row one press produced, so a batch can be read back as a
+  /// batch; `position` is the dial order inside it, researched rows first.
+  batchId   String?
+  position  Int      @default(0)
+
+  /// The IANA zone the rep's browser reported when they claimed. The day-end
+  /// release judges "has this rep's day ended" in THIS zone, never in UTC and
+  /// never in the prospect's. Null only for a client too old to send one.
+  repTimeZone String?
+  /// The calendar date of the claim in repTimeZone, "YYYY-MM-DD". Written at
+  /// claim time so the cron compares two strings instead of re-deriving a
+  /// DST-crossing midnight for every open row every hour.
+  localDate   String
+
+  /// Set when the rep actually got somewhere — a disposition that ends the
+  /// lease, or "I spoke to them — keep this one". A worked claim is never
+  /// released and never de-prioritised.
+  workedAt DateTime?
+
+  /// Set when the row went back to the pool from this claim, with why:
+  /// "rep" (put back by hand), "rest" (Release the rest), "day_end" (the
+  /// hourly cron, the rep's local day over with no attempt), "lapsed" (the
+  /// 48-hour lease expired before anybody looked). Only "rep", "rest" and
+  /// "day_end" de-prioritise the row for this rep.
+  releasedAt    DateTime?
+  releaseReason String?
+
+  @@index([salesRepId, localDate])
+  @@index([salesRepId, releasedAt])
+  @@index([prospectId, salesRepId])
+  @@index([releasedAt, workedAt])
 }
 
 /// Something we OBSERVED. The bottom of the stack; everything above cites it.

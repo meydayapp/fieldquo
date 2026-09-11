@@ -131,6 +131,42 @@
 // scripts/check-sales-calling-window.mjs calls dialHref with each decision and
 // reads the answer, and separately asserts no `tel:` anywhere under app/sales.
 //
+// ══ The call region scrolls with the page — it was pinned, and pinned hid ══
+//
+// From 2026-09-04 to 2026-09-11 the dial card was `lg:sticky lg:top-4 z-10`
+// so "scrolling down through the research never takes the dial away". The
+// owner then opened it on a desktop and reported: "when I scroll down the
+// card of the lead sits on top and 'what you learned on the call' / 'your
+// notes on the lead' scrolls underneath, blocking and making it hard to
+// read." He was describing the mechanism exactly. That card is not a fixed
+// height: it holds the call panel, whose nine-stage playbook and the
+// disposition form make it taller than the viewport on a call. A sticky
+// element taller than the viewport pins at its top edge and never scrolls
+// through — so everything after it (the lead editor, the notes, the three
+// research layers) scrolled up BEHIND a card that never moved, unreadable
+// until the column ended. Capping its height with an inner scrollbar would
+// keep the covering; the sections below a sticky element are always under
+// it. So the card is in normal flow, and nothing on this screen is ever
+// covered. What was lost — the Call button in view while reading the
+// research — the day's list on the left keeps: a rep scrolls back up, or
+// taps the next row. scripts/check-sales-console.mjs asserts the region is
+// NOT sticky, with this paragraph as the reason.
+//
+// ══ The batch: "Claim the next 100", and the day it makes ═══════════════
+//
+// The owner: "they should not need to get 1 claimed at a time — that would
+// mean instead of 100–150 calls per day it might come down to 30". So the
+// primary control claims up to QUEUE_BATCH_MAX (100) prospects of the picked
+// trade in one press, researched ones first, only rows whose calling window
+// opens before the rep's local day ends, capped at QUEUE_DAILY_CLAIM_CAP
+// (150) per rep per day counted from the claim log — every one of those
+// decisions is lib/sales/queueBatch.js's and the button sends only the trade
+// and the browser's time zone. "Just one" keeps the single-claim path for a
+// rep who wants one more. The list on the left is the day, in dial order;
+// "Next" walks it; "Release the rest" gives back every row with no call
+// attempt, and app/api/cron/sales-queue-release does the same when the
+// rep's day ends.
+//
 // ══ There is still no greyed-out Call button — and no blank space either ══
 //
 // The rule stands: a control that looks broken teaches a rep to press it
@@ -187,6 +223,8 @@ import {
   dialSpace,
 } from "@/lib/sales/dialSpace";
 import { displayTitle } from "@/lib/sales/notes/body";
+import { dispositionFor } from "@/lib/sales/calls/dispositions";
+import { formatTimeOfDay } from "@/lib/format/localeDate";
 import RepNoteVisibilityNotice from "@/app/components/sales/RepNoteVisibilityNotice";
 import RepNoteUnavailable from "@/app/components/sales/RepNoteUnavailable";
 import DialRegion, { Notice } from "@/app/components/sales/DialRegion";
@@ -301,6 +339,81 @@ function rowStatus(item, t) {
     className: "text-muted-foreground",
     label: t("app.salesQueue.rowClaimedNotCalled"),
   };
+}
+
+/**
+ * The zone the rep's browser is in, as Intl names it — sent with every
+ * request so the server counts the day's claims against the rep's own
+ * calendar day and knows when that day ends. Read once; a browser does not
+ * change zone mid-session, and a laptop that does gets the new one on reload.
+ */
+function browserTimeZone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * "08:00" in the PROSPECT's zone, in the rep's language. The list says when a
+ * row's window opens or shuts where the phone rings, not where the rep sits —
+ * the latter is the mistake the calling rules exist to refuse.
+ */
+function hhmmIn(iso, zone, language) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  try {
+    return new Intl.DateTimeFormat(language || "en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      ...(zone ? { timeZone: zone } : {}),
+    }).format(d);
+  } catch {
+    return formatTimeOfDay(d, language);
+  }
+}
+
+/**
+ * The second and third lines of a day-list row, from what the server sent.
+ *
+ * Every value here was computed server-side — `researched`, `researching`,
+ * `window`, `lastOutcome` — and this only puts words to it. In particular
+ * "researching…" is only said when the server saw a pipeline task for the
+ * row; the absence of research is "not researched", a different sentence.
+ */
+function rowMeta(item, t, language) {
+  const place = [item.tradeLabel || null, item.city || null].filter(Boolean).join(" · ");
+  const research = item.researched
+    ? t("app.salesQueue.rowResearched")
+    : item.researching
+      ? t("app.salesQueue.rowResearching")
+      : t("app.salesQueue.rowNotResearched");
+  let window = "";
+  const w = item.window || null;
+  if (w?.decision === CALL_ALLOWED && w.closesAt) {
+    window = t("app.salesQueue.rowWindowClosesAt", { time: hhmmIn(w.closesAt, w.zone, language) });
+  } else if (w?.decision === CALL_ALLOWED) {
+    window = t("app.salesQueue.rowWindowOpen");
+  } else if (w?.opensAt) {
+    window = t("app.salesQueue.rowWindowOpensAt", { time: hhmmIn(w.opensAt, w.zone, language) });
+  } else if (w?.decision === CALL_REFUSED) {
+    window = t("app.salesQueue.rowWindowRefused");
+  } else if (w) {
+    window = t("app.salesQueue.rowWindowUnknown");
+  }
+  const outcome = item.lastOutcome?.disposition
+    ? t("app.salesQueue.rowLastOutcome", {
+        outcome: t(
+          `app.salesCall.disposition.${item.lastOutcome.disposition}.label`,
+          dispositionFor(item.lastOutcome.disposition)?.label || item.lastOutcome.disposition,
+        ),
+      })
+    : item.lastOutcome
+      ? t("app.salesQueue.rowLastOutcomeUnlogged")
+      : "";
+  return { place, research, window, outcome };
 }
 
 /**
@@ -528,6 +641,8 @@ function QueueConsole() {
       const search = new URLSearchParams();
       if (tradeKey) search.set("tradeKey", tradeKey);
       if (prospectId) search.set("prospectId", prospectId);
+      const zone = browserTimeZone();
+      if (zone) search.set("timeZone", zone);
       const body = await fetchJson(`/api/sales/queue?${search.toString()}`);
       stampClock(body);
       setData(body);
@@ -581,12 +696,13 @@ function QueueConsole() {
       const body = await fetchJson("/api/sales/queue", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, tradeKey, ...extra }),
+        body: JSON.stringify({ action, tradeKey, timeZone: browserTimeZone(), ...extra }),
       });
       if (body?.claimed === null) {
         // The server has an honest answer for "nothing to give you" and it is
-        // not an error. Say it, and leave the queue as it was.
-        setError(body.message);
+        // not an error. Say it, and leave the queue as it was. By key when
+        // the server named one, so the sentence is in the rep's language.
+        setError(body.reasonKey ? t(body.reasonKey, body.reasonParams || {}) : body.message);
       } else {
         stampClock(body);
         setData(body);
@@ -606,7 +722,18 @@ function QueueConsole() {
   }
 
   const current = data?.current || null;
-  const items = data?.queue?.items || [];
+  const tradeLabels = useMemo(
+    () => Object.fromEntries((data?.trades || []).map((trade) => [trade.key, trade.label])),
+    [data?.trades],
+  );
+  const items = useMemo(
+    () =>
+      (data?.queue?.items || []).map((item) => ({
+        ...item,
+        tradeLabel: item.tradeKey ? tradeLabels[item.tradeKey] || item.tradeKey : null,
+      })),
+    [data?.queue?.items, tradeLabels],
+  );
   const index = current ? items.findIndex((i) => i.id === current.id) : -1;
 
   function select(id) {
@@ -701,6 +828,19 @@ function QueueConsole() {
   });
 
   const showList = !current || listOpen;
+
+  // The batch ceilings are the server's. `batchSize` is what the button says
+  // it will do: never more than what is left of the day.
+  const remainingToday = Number.isFinite(data?.batch?.remainingToday)
+    ? data.batch.remainingToday
+    : 0;
+  const batchSize = Math.min(data?.batch?.max ?? 0, remainingToday);
+  const batchResult = data?.batch?.result || null;
+  // Rows the rep has not dialled yet — what "Release the rest" would give
+  // back. The server decides again at press time; this only sizes the label.
+  const untouchedCount = items.filter(
+    (item) => !item.lastOutcome && item.claim?.state !== "mine_worked",
+  ).length;
 
   return (
     <div className="space-y-4">
@@ -798,18 +938,90 @@ function QueueConsole() {
               ) : null}
             </select>
             {tradeKey ? (
-              <button
-                type="button"
-                className={`${BTN} bg-primary text-primary-foreground w-full`}
-                disabled={Boolean(busy)}
-                onClick={() => act("claim")}
-              >
-                {busy === "claim" ? <Loader2 className="animate-spin" size={16} /> : <Plus size={16} />}
-                {t("app.salesQueue.claimNext")}
-              </button>
+              <div className="space-y-2">
+                {/* ── The day, in one press ──────────────────────────────────
+                    The number is the SERVER's (batch.max), never typed here,
+                    so the label and the cap cannot drift apart. At the daily
+                    ceiling the button is not rendered greyed — it is replaced
+                    by the sentence saying why, which is the rule this screen
+                    follows for every control. */}
+                {remainingToday > 0 ? (
+                  <button
+                    type="button"
+                    className={`${BTN} bg-primary text-primary-foreground w-full`}
+                    disabled={Boolean(busy)}
+                    onClick={() => act("claim_batch")}
+                  >
+                    {busy === "claim_batch" ? (
+                      <Loader2 className="animate-spin" size={16} />
+                    ) : (
+                      <Plus size={16} />
+                    )}
+                    {t("app.salesQueue.claimBatch", { count: batchSize })}
+                  </button>
+                ) : (
+                  <p className="text-sm text-foreground break-words">
+                    {t("app.salesQueue.batchReason.dailyCap", { cap: data?.batch?.dailyCap ?? 0 })}
+                  </p>
+                )}
+                {remainingToday > 0 ? (
+                  <button
+                    type="button"
+                    className={`${BTN} border border-border text-foreground w-full`}
+                    disabled={Boolean(busy)}
+                    onClick={() => act("claim")}
+                  >
+                    {busy === "claim" ? <Loader2 className="animate-spin" size={16} /> : null}
+                    {t("app.salesQueue.claimJustOne")}
+                  </button>
+                ) : null}
+                <p className="text-xs text-muted-foreground break-words">
+                  {t("app.salesQueue.claimBatchNote", {
+                    remaining: t("app.salesQueue.claimsRemainingCount", { value: remainingToday }),
+                    cap: data?.batch?.dailyCap ?? 0,
+                  })}
+                </p>
+              </div>
             ) : (
               <p className="text-xs text-muted-foreground">{t("app.salesQueue.claimHint")}</p>
             )}
+
+            {/* ── What the last press did ──────────────────────────────────
+                Said in numbers rather than "done": how many were claimed, how
+                many came with research, how many are waiting on it, and how
+                many were left in the pool because their window is shut for
+                the rest of the rep's day. Every number is the server's. */}
+            {batchResult && typeof batchResult.claimed === "number" ? (
+              <div className="rounded-lg border border-border bg-muted p-3 text-sm text-foreground space-y-1">
+                <p className="break-words">
+                  {t("app.salesQueue.batchSummary", {
+                    claimed: t("app.salesQueue.prospectCount", { value: batchResult.claimed }),
+                    researched: batchResult.researched,
+                    waiting: batchResult.unresearched,
+                  })}
+                </p>
+                {batchResult.skippedForWindow > 0 ? (
+                  <p className="text-xs text-muted-foreground break-words">
+                    {t("app.salesQueue.batchSkippedForWindow", {
+                      count: t("app.salesQueue.prospectCount", { value: batchResult.skippedForWindow }),
+                    })}
+                  </p>
+                ) : null}
+                {batchResult.reasonKey ? (
+                  <p className="text-xs text-muted-foreground break-words">
+                    {t(batchResult.reasonKey, { cap: data?.batch?.dailyCap ?? 0 })}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+            {batchResult && typeof batchResult.released === "number" ? (
+              <p className="text-sm text-foreground break-words">
+                {t("app.salesQueue.releaseRestDone", {
+                  released: t("app.salesQueue.prospectCount", { value: batchResult.released }),
+                  kept: t("app.salesQueue.prospectCount", { value: batchResult.kept }),
+                })}
+              </p>
+            ) : null}
           </section>
 
           <section className={CARD}>
@@ -863,8 +1075,9 @@ function QueueConsole() {
 
             {items.length > 0 ? (
               <ul className="space-y-2">
-                {items.map((item) => {
+                {items.map((item, position) => {
                   const status = rowStatus(item, t);
+                  const meta = rowMeta(item, t, language);
                   const active = current?.id === item.id;
                   return (
                     <li key={item.id}>
@@ -883,12 +1096,21 @@ function QueueConsole() {
                           aria-hidden="true"
                           className={`mt-0.5 shrink-0 ${status.className}`}
                         />
-                        <span className="min-w-0">
+                        <span className="min-w-0 flex-1">
                           <span className="block text-sm font-medium break-words">
+                            <span className="text-muted-foreground tabular-nums mr-1">{position + 1}.</span>
                             {item.businessName}
                           </span>
+                          {meta.place ? (
+                            <span className="block text-xs text-muted-foreground break-words">
+                              {meta.place}
+                            </span>
+                          ) : null}
                           <span className="block text-xs text-muted-foreground break-words">
-                            {status.label}
+                            {[meta.research, meta.window].filter(Boolean).join(" · ")}
+                          </span>
+                          <span className="block text-xs text-muted-foreground break-words">
+                            {meta.outcome || status.label}
                           </span>
                         </span>
                       </button>
@@ -897,17 +1119,45 @@ function QueueConsole() {
                 })}
               </ul>
             ) : null}
+
+            {/* ── Give back what was never dialled ──────────────────────────
+                Every row with no call attempt since it was claimed. The server
+                decides the set at press time (releaseUntouched — the same
+                function the day-end cron runs), so a row dialled between the
+                render and the press is kept. Not offered when there is nothing
+                it would do: a button that releases zero rows is a dead one. */}
+            {!loading && untouchedCount > 0 ? (
+              <div className="space-y-1 pt-1">
+                <button
+                  type="button"
+                  className={`${BTN} border border-border text-foreground w-full`}
+                  disabled={Boolean(busy)}
+                  onClick={() => act("release_rest")}
+                >
+                  {busy === "release_rest" ? <Loader2 className="animate-spin" size={16} /> : <Undo2 size={16} />}
+                  {t("app.salesQueue.releaseRest", {
+                    count: t("app.salesQueue.prospectCount", { value: untouchedCount }),
+                  })}
+                </button>
+                <p className="text-xs text-muted-foreground break-words">
+                  {t("app.salesQueue.releaseRestNote")}
+                </p>
+              </div>
+            ) : null}
           </section>
         </aside>
 
         {/* ── The pane. Everything about the one they are on ──────────────── */}
         <div className="space-y-4 min-w-0">
-          {/* ── The call region, pinned ───────────────────────────────────────
-              First in the pane and sticky from lg: up, so scrolling down
-              through the research never takes the dial away. On a phone it is
-              simply the first thing on the screen, which is the same promise
-              at 375px. */}
-          <section className={`${CARD} lg:sticky lg:top-4 z-10`} data-tour="sales-queue-dial">
+          {/* ── The call region, first — and in normal flow ───────────────
+              First in the pane at every width. NOT sticky: this card holds
+              the call panel, whose playbook and disposition form make it
+              taller than the viewport on a call, and a sticky element taller
+              than the viewport never scrolls through — the lead editor and
+              the notes below it scrolled up behind it, unreadable. The
+              header's "The call region scrolls with the page" section is the
+              full account. */}
+          <section className={CARD} data-tour="sales-queue-dial">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <h2 className="text-lg font-semibold text-foreground break-words">

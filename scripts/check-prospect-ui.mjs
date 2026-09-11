@@ -1072,7 +1072,14 @@ ok(
   // write, the second catches somebody widening the list to allow one.
   const allowed = REP_QUEUE_WRITES;
   ok("REP_QUEUE_WRITES is declared beside the gate", Array.isArray(allowed) && allowed.length > 0, allowed);
-  ok("…and names exactly one model: prospect", allowed.length === 1 && allowed[0] === "prospect", allowed);
+  // Two models since the batch claim: the lease on Prospect, and the claim
+  // LOG (SalesQueueClaim) the daily ceiling and the seven-day rule are counted
+  // from. Exactly these two — a third is somebody widening the list.
+  ok(
+    "…and names exactly two models: prospect and its claim log",
+    allowed.length === 2 && allowed[0] === "prospect" && allowed[1] === "salesQueueClaim",
+    allowed,
+  );
   ok(
     "…and never the platform suppression list, which only a superadmin lifts",
     !allowed.includes("salesSuppression"),

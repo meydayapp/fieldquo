@@ -50,32 +50,89 @@ import {
   queueWhere,
 } from "@/lib/sales/prospectView";
 import { salesCallReadiness } from "@/lib/sales/callingRules";
+import {
+  QUEUE_BATCH_MAX,
+  QUEUE_DAILY_CLAIM_CAP,
+  claimBatch,
+  claimsTakenToday,
+  closeClaim,
+  isResearched,
+  logSingleClaim,
+  nextClosing,
+  releaseUntouched,
+  usableTimeZone,
+} from "@/lib/sales/queueBatch";
+// Namespace import, not a named one: the pipeline is growing
+// ensureResearchQueued() in a concurrent change, and a named import of an
+// export that is not there yet is a build error on one bundler and a silent
+// undefined on the other. The call site tests for the function before calling.
+import * as pipelineProgress from "@/lib/sales/pipeline/progress";
 import { ownNumbers } from "@/lib/sales/calls/store";
 import { CHANNEL_TEXT, CHANNEL_VOICE } from "@/lib/sales/contact/numbers";
 import { loadContactNumbers, pickContactNumber } from "@/lib/sales/contact/resolve";
 
-const ACTIONS = ["claim", "release", "worked", "do_not_contact"];
+const ACTIONS = ["claim", "claim_batch", "release", "release_rest", "worked", "do_not_contact"];
 const MAX_REASON = 300;
 /** Retries on a lost race before telling the rep the pool moved under them. */
 const CLAIM_ATTEMPTS = 3;
 
-/** The columns the queue list needs. Narrow, and the same for both handlers. */
+/**
+ * The columns the queue list needs. Narrow, and the same for both handlers.
+ *
+ * The list is the rep's DAY now — a hundred rows, walked top to bottom — so a
+ * row carries what a rep decides the next dial on: the city, whether research
+ * came back, when the window opens or shuts, and how the last call ended.
+ * Only rows the rep already holds are ever selected this way; the pool is
+ * still counted, never listed.
+ */
 const QUEUE_SELECT = {
   id: true,
   businessName: true,
   tradeKey: true,
+  city: true,
+  province: true,
+  country: true,
   assignedRepId: true,
   assignedAt: true,
   claimExpiresAt: true,
   doNotContactAt: true,
   doNotContactReason: true,
   phoneE164: true,
+  lastCrawledAt: true,
+  _count: { select: { capabilities: true, opportunities: true } },
+  leads: {
+    where: { timeZone: { not: null } },
+    orderBy: { updatedAt: "desc" },
+    take: 1,
+    select: { timeZone: true },
+  },
 };
 
-async function queueBody(rep, { tradeKey = null, prospectId = null } = {}) {
+/** Cheap, per-rep: the zone the rep's browser reported with the request. */
+function repZoneFrom(value, now) {
+  return usableTimeZone(value, now);
+}
+
+/**
+ * Fire-and-forget: ask the pipeline to research what was just claimed, ahead
+ * of the rest of the pool. Never awaited on the response path and never a
+ * reason the claim fails — a rep with a hundred unresearched rows still has
+ * a hundred rows.
+ */
+function queueResearchFor(prospectIds) {
+  const fn = pipelineProgress.ensureResearchQueued;
+  if (typeof fn !== "function" || !Array.isArray(prospectIds) || prospectIds.length === 0) return;
+  Promise.resolve()
+    .then(() => fn({ db, prospectIds, priority: "claimed" }))
+    .catch((err) => {
+      console.error("[sales/queue] ensureResearchQueued failed:", err?.message || err);
+    });
+}
+
+async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = null, batch = null } = {}) {
   const now = new Date();
 
-  const claimed = await db.prospect.findMany({
+  const claimedRows = await db.prospect.findMany({
     where: {
       ...queueWhere(rep.id, { now }),
       ...(tradeKey && DISCOVERY_TRADES[tradeKey] ? { tradeKey } : {}),
@@ -83,6 +140,77 @@ async function queueBody(rep, { tradeKey = null, prospectId = null } = {}) {
     orderBy: [{ assignedAt: "asc" }],
     select: QUEUE_SELECT,
   });
+
+  // ── The day's order, and what each row needs beside its name ────────────
+  //
+  // A batch is written with ONE assignedAt, so `assignedAt asc` alone leaves a
+  // hundred rows in whatever order the database felt like. The claim log
+  // carries the dial order (researched first, then the pool's own order —
+  // lib/sales/queueBatch.js); rows are sorted by (claimedAt, position) from
+  // it, and a row with no log entry (claimed before the log existed) keeps
+  // its assignedAt place.
+  const ids = claimedRows.map((p) => p.id);
+  const [openClaims, researching, lastAttempts] = ids.length
+    ? await Promise.all([
+        db.salesQueueClaim.findMany({
+          where: { salesRepId: rep.id, prospectId: { in: ids }, releasedAt: null },
+          orderBy: [{ claimedAt: "asc" }, { position: "asc" }],
+          select: { prospectId: true, claimedAt: true, position: true, batchId: true },
+        }),
+        // "Researching…" is a real state, not the absence of research: a task
+        // queued or in hand for the row. Read from the pipeline's own table so
+        // the screen never says "researching" about a row nothing will touch.
+        db.salesPipelineTask.findMany({
+          where: { prospectId: { in: ids }, status: { in: ["queued", "claimed"] } },
+          select: { prospectId: true },
+          distinct: ["prospectId"],
+        }),
+        db.salesCallAttempt.findMany({
+          where: { prospectId: { in: ids }, salesRepId: rep.id },
+          orderBy: { dialledAt: "desc" },
+          distinct: ["prospectId"],
+          select: { prospectId: true, disposition: true, dialledAt: true },
+        }),
+      ])
+    : [[], [], []];
+  const rank = new Map();
+  openClaims.forEach((c, i) => {
+    if (!rank.has(c.prospectId)) rank.set(c.prospectId, i);
+  });
+  const researchingIds = new Set(researching.map((r) => r.prospectId));
+  const lastById = new Map(lastAttempts.map((a) => [a.prospectId, a]));
+  const claimed = [...claimedRows].sort((a, b) => {
+    const ra = rank.has(a.id) ? rank.get(a.id) : Number.MAX_SAFE_INTEGER;
+    const rb = rank.has(b.id) ? rank.get(b.id) : Number.MAX_SAFE_INTEGER;
+    if (ra !== rb) return ra - rb;
+    return (a.assignedAt?.getTime?.() || 0) - (b.assignedAt?.getTime?.() || 0);
+  });
+  const rowExtras = new Map(
+    claimed.map((p) => {
+      const stated = p.leads?.[0]?.timeZone || null;
+      const readiness = salesCallReadiness({ prospect: p, timeZone: stated, now });
+      const closesAt = readiness.decision === "allowed" ? nextClosing({ prospect: p, timeZone: stated, now }) : null;
+      const last = lastById.get(p.id) || null;
+      return [
+        p.id,
+        {
+          city: p.city || null,
+          province: p.province || null,
+          researched: isResearched(p),
+          researching: !isResearched(p) && researchingIds.has(p.id),
+          window: {
+            decision: readiness.decision,
+            opensAt: readiness.opensAt ? readiness.opensAt.toISOString() : null,
+            closesAt: closesAt ? closesAt.toISOString() : null,
+            zone: readiness.zones?.[0] || null,
+          },
+          lastOutcome: last
+            ? { disposition: last.disposition || null, at: last.dialledAt?.toISOString?.() || null }
+            : null,
+        },
+      ];
+    }),
+  );
 
   // Per-trade counts, so the rep can pick a queue and see there is something in
   // it. Counts only — a count is not a list, and nothing here lets a rep read a
@@ -103,6 +231,7 @@ async function queueBody(rep, { tradeKey = null, prospectId = null } = {}) {
       : null;
 
   const queue = buildQueue({ prospects: claimed, repId: rep.id, now, availableToClaim, tradeKey });
+  queue.items = queue.items.map((item) => ({ ...item, ...(rowExtras.get(item.id) || {}) }));
 
   // One at a time. The rep asks for a specific prospect or gets the top of
   // their own queue; either way the row is re-read through queueWhere, so a
@@ -275,6 +404,9 @@ async function queueBody(rep, { tradeKey = null, prospectId = null } = {}) {
     }
   }
 
+  const zone = repZoneFrom(timeZone, now);
+  const takenToday = await claimsTakenToday({ db, salesRepId: rep.id, timeZone: zone, now });
+
   return {
     rep: { id: rep.id, name: rep.name, email: rep.email },
     tradeKey: tradeKey || null,
@@ -282,6 +414,20 @@ async function queueBody(rep, { tradeKey = null, prospectId = null } = {}) {
     queue,
     current,
     claimHours: CLAIM_HOURS,
+    // The two ceilings, and where today stands against the daily one. Sent so
+    // the button can say "Claim the next 100" with the server's number, and
+    // so a rep at 150 reads why the button is gone rather than a dead one.
+    batch: {
+      max: QUEUE_BATCH_MAX,
+      dailyCap: QUEUE_DAILY_CLAIM_CAP,
+      takenToday,
+      remainingToday: Math.max(0, QUEUE_DAILY_CLAIM_CAP - takenToday),
+      timeZone: zone,
+      // The result of the press that produced this response, when there was
+      // one: how many were claimed, how many came researched, how many are
+      // waiting on research, and the ids in dial order.
+      result: batch,
+    },
     // The screen re-evaluates the calling window on a timer, and it must not do
     // that against the rep's own machine clock: a laptop an hour fast would
     // open the window an hour early in a jurisdiction with a private right of
@@ -297,8 +443,9 @@ export async function GET(request) {
   const url = new URL(request.url);
   const tradeKey = (url.searchParams.get("tradeKey") || "").trim().slice(0, 40);
   const prospectId = (url.searchParams.get("prospectId") || "").trim().slice(0, 40);
+  const timeZone = (url.searchParams.get("timeZone") || "").trim().slice(0, 64);
 
-  return NextResponse.json(await queueBody(rep, { tradeKey, prospectId }));
+  return NextResponse.json(await queueBody(rep, { tradeKey, prospectId, timeZone }));
 }
 
 export async function POST(request) {
@@ -314,14 +461,57 @@ export async function POST(request) {
   }
 
   const now = new Date();
+  // The zone the rep's browser reported. It decides which calendar day a
+  // claim is counted against and when "the end of the rep's day" is — see
+  // lib/sales/queueBatch.js. Validated there; an unusable value is null.
+  const timeZone = typeof body.timeZone === "string" ? body.timeZone.trim().slice(0, 64) : "";
 
-  if (action === "claim") {
+  if (action === "claim" || action === "claim_batch") {
     const tradeKey = typeof body.tradeKey === "string" ? body.tradeKey.trim() : "";
     if (!DISCOVERY_TRADES[tradeKey]) {
       return bad(
         "A queue is one trade. A rep who says the same script forty times gets better at it; one who " +
           "switches trade every call never does.",
       );
+    }
+  }
+
+  if (action === "claim_batch") {
+    // ── The day, in one press ──────────────────────────────────────────────
+    //
+    // Everything that decides WHICH rows — the trade, the research-first
+    // order, the calling-window rule, both ceilings — is in claimBatch(), and
+    // the trade sits inside claimCandidateWhere() inside the updateMany's
+    // WHERE inside the transaction. The browser named a trade; the write is
+    // what honoured it.
+    const tradeKey = body.tradeKey.trim();
+    const result = await claimBatch({ db, rep, tradeKey, timeZone, now });
+    if (result.claimed > 0) queueResearchFor(result.claimedIds);
+    return NextResponse.json(
+      await queueBody(rep, {
+        tradeKey,
+        prospectId: result.claimedIds[0] || "",
+        timeZone,
+        batch: result,
+      }),
+    );
+  }
+
+  if (action === "claim") {
+    const tradeKey = body.tradeKey.trim();
+
+    // The same ceiling the batch is held to, from the same log. A rep at the
+    // cap is told so rather than handed a dead button; the sentence is a key
+    // so a Spanish console says it in Spanish.
+    const takenToday = await claimsTakenToday({ db, salesRepId: rep.id, timeZone: usableTimeZone(timeZone, now), now });
+    if (takenToday >= QUEUE_DAILY_CLAIM_CAP) {
+      return NextResponse.json({
+        claimed: null,
+        reason: "daily_cap",
+        reasonKey: "app.salesQueue.batchReason.dailyCap",
+        reasonParams: { cap: QUEUE_DAILY_CLAIM_CAP },
+        message: `You have claimed ${QUEUE_DAILY_CLAIM_CAP} today, which is the daily ceiling. Tomorrow's day starts fresh.`,
+      });
     }
 
     for (let attempt = 0; attempt < CLAIM_ATTEMPTS; attempt++) {
@@ -360,8 +550,12 @@ export async function POST(request) {
         },
       });
       if (claimed.count === 1) {
+        // Logged after the lease is won, never before: a log row for a claim
+        // that lost the race would count against the day's cap for nothing.
+        await logSingleClaim({ db, rep, prospectId: candidate.id, timeZone, now: at });
+        queueResearchFor([candidate.id]);
         return NextResponse.json(
-          await queueBody(rep, { tradeKey, prospectId: candidate.id }),
+          await queueBody(rep, { tradeKey, prospectId: candidate.id, timeZone }),
         );
       }
     }
@@ -371,6 +565,23 @@ export async function POST(request) {
       reason: "contended",
       message: "Another rep claimed the next few prospects while you were pressing the button. Try again.",
     });
+  }
+
+  if (action === "release_rest") {
+    // ── Everything untouched, back in one press ────────────────────────────
+    //
+    // Every row this rep holds on an unworked lease with no call attempt of
+    // theirs since the claim. A row they dialled is kept, a row they worked is
+    // out of scope. The same function the hourly cron calls for a rep whose
+    // day has ended, so the two cannot disagree about what "untouched" means.
+    const result = await releaseUntouched({ db, rep, reason: "rest", now });
+    return NextResponse.json(
+      await queueBody(rep, {
+        tradeKey: body.tradeKey || "",
+        timeZone,
+        batch: { released: result.released, kept: result.kept },
+      }),
+    );
   }
 
   const prospectId = typeof body.prospectId === "string" ? body.prospectId.trim() : "";
@@ -390,7 +601,10 @@ export async function POST(request) {
       data: { assignedRepId: null, assignedAt: null, claimExpiresAt: null },
     });
     if (done.count === 0) return notFound();
-    return NextResponse.json(await queueBody(rep, { tradeKey: body.tradeKey || "" }));
+    // The log closes with "rep" so the row sorts last for this rep for seven
+    // days — put back by hand is the strongest "not this one" a rep can say.
+    await closeClaim({ db, rep, prospectId, outcome: "released", now });
+    return NextResponse.json(await queueBody(rep, { tradeKey: body.tradeKey || "", timeZone }));
   }
 
   if (action === "worked") {
@@ -399,7 +613,8 @@ export async function POST(request) {
     // lapsing, and it leaves the rep's active queue.
     const done = await db.prospect.updateMany({ where: mine, data: { claimExpiresAt: null } });
     if (done.count === 0) return notFound();
-    return NextResponse.json(await queueBody(rep, { tradeKey: body.tradeKey || "" }));
+    await closeClaim({ db, rep, prospectId, outcome: "worked", now });
+    return NextResponse.json(await queueBody(rep, { tradeKey: body.tradeKey || "", timeZone }));
   }
 
   // do_not_contact
@@ -453,7 +668,7 @@ export async function POST(request) {
     });
     if (!already) return notFound();
   }
-  return NextResponse.json(await queueBody(rep, { tradeKey: body.tradeKey || "" }));
+  return NextResponse.json(await queueBody(rep, { tradeKey: body.tradeKey || "", timeZone }));
 }
 
 function bad(error) {
