@@ -65,8 +65,10 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { requireCronSecret } from "@/lib/security/cronAuth";
+import { db } from "@/lib/db";
 import { drainSalesPipeline } from "@/lib/sales/pipeline/runner";
 import { handlerStatus } from "@/lib/sales/pipeline/registry";
+import { topUpResearchBacklog } from "@/lib/sales/pipeline/research";
 
 // Same reasoning as grace-warning's BATCH: the query is driven by `status`,
 // not a cursor, so leftovers are picked up by the next tick and nothing is
@@ -158,6 +160,32 @@ export async function GET(request) {
     limit: Math.max(0, BATCH - discovery.considered),
   });
   result.discovery = discovery;
+
+  // ── Then the backlog: websites nobody has read, a slice per run ──────────
+  //
+  // 42,383 prospects had a website and no crawl when this was added, and only
+  // a discovery page had ever queued research — so a board-imported row could
+  // sit for ever with a URL nothing read. This adds up to
+  // BACKLOG_TOPUP_PER_RUN of them a run, oldest claimable first, and stops
+  // while BACKLOG_PENDING_CEILING enrich-or-crawl tasks are already waiting;
+  // the arithmetic (2,400 crawls an hour at the provider ceiling, ~840 at the
+  // run's wall clock — 18 to 50 hours for the lot) is printed above the
+  // function in lib/sales/pipeline/research.js. It runs AFTER the drains so a
+  // slow drain shortens this rather than the other way round, and it is two
+  // reads plus at most sixty small writes — a second, against the 100 s the
+  // duration rule budgets for the batch. Nothing in it calls a model: the
+  // backlog lane phrases nothing.
+  //
+  // Its own try/catch, because a failure here — Neon cold, a slow scan — must
+  // not turn a drain that already happened into a 500 the cron log reads as
+  // "the pipeline did not run".
+  let backlog;
+  try {
+    backlog = await topUpResearchBacklog({ db, now });
+  } catch (err) {
+    backlog = { error: err?.message || String(err) };
+  }
+  result.backlog = backlog;
 
   // handlers is in the response on purpose: until the eight stages are written,
   // the truthful answer to "did the pipeline run?" includes which stages exist.

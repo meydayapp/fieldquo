@@ -59,6 +59,23 @@ import {
   researchPlan,
 } from "@/lib/sales/pipeline/research";
 import { ensureResearchQueued as viaProgress } from "@/lib/sales/pipeline/progress";
+import {
+  BACKLOG_PENDING_CEILING,
+  BACKLOG_TOPUP_PER_RUN,
+  backlogRoom,
+  topUpResearchBacklog,
+} from "@/lib/sales/pipeline/research";
+import { PROVIDER_LIMITS } from "@/lib/sales/pipeline/limits";
+import { BACKOFF_MAX_MS, backoffMs, failureOutcome } from "@/lib/sales/pipeline/schedule";
+import {
+  DNS_BACKOFF_BASE_MS,
+  DNS_BACKOFF_MAX_MS,
+  dnsBackoffDecision,
+  nextDnsBackoff,
+  resolverBusy,
+} from "@/lib/sales/crawl/policy";
+import { HOST_POLICY_SELECT, recordDnsFailure } from "@/lib/sales/crawl/hostPolicy";
+import { crawlProspectSite } from "@/lib/sales/crawl/crawlSite";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(ROOT, p), "utf8");
@@ -534,6 +551,141 @@ section("12. The enrich stage honours promote:false, and says so");
   ok("…and the note says the row stayed claimable", /left claimable \(promote: false\)/.test(src));
   // The measured reason, kept in the file: research made a business unclaimable.
   ok("the file records why", /claimCandidateWhere\(\)/.test(src) && /admits[\s*]+`discovered` and nothing else/.test(src));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("13. The backlog — bounded, and the arithmetic is in the file");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  ok("the ceiling is five thousand pending", BACKLOG_PENDING_CEILING === 5000);
+  ok("a run adds a little more than the crawl budget, so the pool fills and holds",
+    BACKLOG_TOPUP_PER_RUN > PROVIDER_LIMITS.http_crawl.maxPerRun && BACKLOG_TOPUP_PER_RUN <= 2 * PROVIDER_LIMITS.http_crawl.maxPerRun,
+    { perRun: BACKLOG_TOPUP_PER_RUN, crawl: PROVIDER_LIMITS.http_crawl.maxPerRun });
+  ok("an empty queue takes a full slice", backlogRoom({ pending: 0 }) === BACKLOG_TOPUP_PER_RUN);
+  ok("a queue at the ceiling takes nothing", backlogRoom({ pending: 5000 }) === 0);
+  ok("…nor one past it", backlogRoom({ pending: 9000 }) === 0);
+  ok("a queue just under the ceiling takes only the gap", backlogRoom({ pending: 4990 }) === 10);
+  ok("garbage is nothing, not NaN", backlogRoom({ pending: "x", ceiling: null, perRun: undefined }) === 0);
+
+  // The arithmetic the comment prints, re-derived from the constants it cites
+  // so the sentence and the numbers cannot drift apart.
+  const src = read("lib/sales/pipeline/research.js");
+  const perHour = PROVIDER_LIMITS.http_crawl.maxPerRun * 60;
+  ok("the comment states crawls per hour from limits.js × 60 runs", new RegExp(`${perHour.toLocaleString("en-US")} crawls an hour`).test(src), perHour);
+  ok("…and the hours for the measured 42,383", /42,383 \/ 2,400 = 17\.7/.test(src));
+  ok("…and the wall-clock bound beside it", /about 14 crawls a run, 840 an hour/.test(src) && /about 50 hours/.test(src));
+  ok("…and does not raise a provider budget", PROVIDER_LIMITS.http_crawl.maxPerRun === 40 && PROVIDER_LIMITS.openai.maxPerRun === 40);
+  ok("the backlog lane phrases nothing — the comment says free and the plan says phrase:false",
+    /phrase: false/.test(src) && /Free by construction/.test(src));
+
+  // Executed: the pending count decides; the picker asks for `room` rows; the
+  // rows go to the backlog lane.
+  const calls = [];
+  let pendingNow = 0;
+  const picked = ["a", "b"];
+  const db = {
+    salesPipelineTask: {
+      async count() { return pendingNow; },
+      async findMany() { return []; },
+      async findUnique() { return null; },
+      async create({ data }) { calls.push(data); return { ...data, id: `t${calls.length}`, createdAt: new Date() }; },
+      async updateMany() { return { count: 0 }; },
+    },
+    prospect: { async findMany({ where }) { return where.id.in.map((id) => ({ id, websiteUrl: `http://${id}.example/`, lastCrawledAt: null, doNotContactAt: null, campaignId: null })); } },
+    async $queryRaw(strings, ...values) { calls.push({ raw: strings.join("?"), values }); return picked.map((id) => ({ id })); },
+  };
+  const full = await topUpResearchBacklog({ db, ceiling: 5000, perRun: 60 });
+  ok("an empty queue is topped up", full.considered === 2 && full.queued === 2 && full.room === 60, full);
+  const raw = calls.find((c) => c.raw);
+  ok("…asking for exactly `room` rows", raw && raw.values.includes(60), raw?.values);
+  ok("…oldest claimable first: discovered, a URL, no crawl, no task, trade first",
+    raw && /status = 'discovered'/.test(raw.raw) && /"lastCrawledAt" IS NULL/.test(raw.raw) && /NOT EXISTS/.test(raw.raw) && /"tradeKey" IS NULL\), p\."createdAt" ASC/.test(raw.raw));
+  ok("…and every row queued is in the backlog lane", calls.filter((c) => c.kind).every((c) => c.payload.priority === "backlog" && c.payload.phrase === false && !c.notBefore));
+  pendingNow = 5000;
+  calls.length = 0;
+  const held = await topUpResearchBacklog({ db, ceiling: 5000, perRun: 60 });
+  ok("a full queue is left alone — no scan, no writes", held.room === 0 && held.queued === 0 && calls.length === 0, held);
+
+  const route = read("app/api/cron/sales-pipeline/route.js");
+  ok("the cron calls it after both drains", route.indexOf("topUpResearchBacklog({ db, now })") > route.lastIndexOf("drainSalesPipeline({"));
+  ok("…inside its own try, so a slow scan cannot fail a drain that happened", /try \{\s*backlog = await topUpResearchBacklog/.test(route));
+  ok("…and reports it in the body", /result\.backlog = backlog/.test(route));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("14. DNS backoff per host — a busy resolver stops burning attempts");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  ok("EBUSY on the lookup is the resolver", resolverBusy("unsafe_host:dns_error:EBUSY"));
+  ok("EAI_AGAIN likewise", resolverBusy("robots_error:unsafe_host:dns_error:EAI_AGAIN"));
+  ok("out of descriptors likewise", resolverBusy("unsafe_host:dns_error:EMFILE"));
+  ok("ENOTFOUND is the name, not the resolver", !resolverBusy("unsafe_host:dns_error:ENOTFOUND"));
+  ok("a private address is the name", !resolverBusy("unsafe_host:resolves_private"));
+  ok("a timeout is not a lookup", !resolverBusy("timeout") && !resolverBusy(null));
+
+  const t0 = new Date("2026-09-11T12:00:00Z");
+  const first = nextDnsBackoff({ failures: 0, now: t0 });
+  ok("the first hold is half an hour", first.waitMs === DNS_BACKOFF_BASE_MS && first.failures === 1 && first.until.getTime() === t0.getTime() + DNS_BACKOFF_BASE_MS, first);
+  const ladder = [0, 1, 2, 3, 4, 5, 9].map((f) => nextDnsBackoff({ failures: f, now: t0 }).waitMs);
+  ok("…doubles per busy answer", ladder[1] === 2 * ladder[0] && ladder[2] === 4 * ladder[0] && ladder[3] === 8 * ladder[0], ladder);
+  ok("…and is capped at six hours", ladder[4] === DNS_BACKOFF_MAX_MS && ladder[5] === DNS_BACKOFF_MAX_MS && ladder[6] === DNS_BACKOFF_MAX_MS && DNS_BACKOFF_MAX_MS === BACKOFF_MAX_MS);
+  ok("a wild count cannot overflow into an Invalid Date", !Number.isNaN(nextDnsBackoff({ failures: 1e9, now: t0 }).until.getTime()));
+
+  ok("no hold is go", dnsBackoffDecision({ policy: { dnsBackoffUntil: null }, now: t0 }).act === "go");
+  ok("a hold in the past is go", dnsBackoffDecision({ policy: { dnsBackoffUntil: new Date(t0 - 1) }, now: t0 }).act === "go");
+  const hold = dnsBackoffDecision({ policy: { dnsBackoffUntil: new Date(t0.getTime() + 60_000) }, now: t0 });
+  ok("a hold in the future holds, with the wait", hold.act === "hold" && hold.waitMs === 60_000, hold);
+  ok("the policy select reads both columns", HOST_POLICY_SELECT.dnsFailures === true && HOST_POLICY_SELECT.dnsBackoffUntil === true);
+
+  // The runner: a handler may lengthen its wait, never shorten it.
+  const ladderMs = backoffMs(1);
+  ok("the ladder alone, when nothing was asked", failureOutcome({ attempts: 1, minDelayMs: 0 }).delayMs === ladderMs);
+  ok("a longer hold wins", failureOutcome({ attempts: 1, minDelayMs: 30 * 60_000 }).delayMs === 30 * 60_000);
+  ok("a shorter hold changes nothing", failureOutcome({ attempts: 3, minDelayMs: 1 }).delayMs === backoffMs(3));
+  ok("a hold past six hours is cut to six", failureOutcome({ attempts: 1, minDelayMs: 99 * 3600_000 }).delayMs === BACKOFF_MAX_MS);
+  ok("garbage is the ladder", failureOutcome({ attempts: 1, minDelayMs: "soon" }).delayMs === ladderMs);
+  ok("the ceiling still ends the task", failureOutcome({ attempts: 5, minDelayMs: 60_000 }).status === "failed");
+  const runner = read("lib/sales/pipeline/runner.js");
+  ok("the runner hands the handler's retryAfterMs to the ladder", /minDelayMs: Number\(result\?\.retryAfterMs\) \|\| 0/.test(runner));
+  const handler = read("lib/sales/pipeline/handlers/crawlWebsite.js");
+  ok("…and the crawl handler passes the crawler's through", /retryAfterMs: result\.retryAfterMs/.test(handler));
+
+  // Executed: a crawl of a held host returns before any packet leaves, and a
+  // busy lookup on robots.txt writes the hold. The fake database answers the
+  // exact reads crawlProspectSite makes and nothing wider.
+  const hosts = new Map();
+  let fetches = 0;
+  const fakeDb = {
+    prospect: { async findUnique() { return { id: "p", businessName: "Acme", domain: "acme-plumbing.com", websiteUrl: "https://acme-plumbing.com/", hasWebsite: true, lastCrawledAt: null, contentHash: null, doNotContactAt: null, doNotContactReason: null }; } },
+    salesSuppression: { async findMany() { return []; } },
+    crawlHostPolicy: {
+      async findUnique({ where }) { return hosts.get(where.host) || null; },
+      async create({ data }) { const row = { id: "h", robotsAllowed: null, robotsFetchedAt: null, crawlDelayMs: null, lastRequestAt: null, requestCount: 0, blockedUntil: null, blockReason: null, dnsFailures: 0, dnsBackoffUntil: null, ...data }; hosts.set(data.host, row); return row; },
+      async update({ where, data }) { const row = hosts.get(where.host); Object.assign(row, data); return row; },
+      async updateMany({ where, data }) { const row = hosts.get(where.host); if (!row) return { count: 0 }; Object.assign(row, data); return { count: 1 }; },
+    },
+  };
+  const busyLookup = async () => { const e = new Error("busy"); e.code = "EBUSY"; throw e; };
+  const net = async () => { fetches++; throw new Error("must not be reached"); };
+  const clock = () => t0;
+  const busy = await crawlProspectSite({ prospectId: "p", deps: { db: fakeDb, clock, lookup: busyLookup, fetchImpl: net } });
+  ok("a busy lookup on robots.txt is a retryable failure", busy.outcome === "failed" && busy.retry === true && /EBUSY/.test(busy.reason), busy);
+  ok("…that carries the hold as retryAfterMs", busy.retryAfterMs === DNS_BACKOFF_BASE_MS, busy.retryAfterMs);
+  ok("…and wrote it on the host", hosts.get("acme-plumbing.com")?.dnsFailures === 1 && hosts.get("acme-plumbing.com")?.dnsBackoffUntil?.getTime() === t0.getTime() + DNS_BACKOFF_BASE_MS, hosts.get("acme-plumbing.com"));
+  ok("…without a single fetch", fetches === 0);
+  const again = await crawlProspectSite({ prospectId: "p", deps: { db: fakeDb, clock, lookup: busyLookup, fetchImpl: net } });
+  ok("the next crawl finds the hold and returns before the lookup", again.reason === "dns_backoff" && again.retry === true && again.retryAfterMs === DNS_BACKOFF_BASE_MS, again);
+  ok("…and does not count it as another busy answer", hosts.get("acme-plumbing.com")?.dnsFailures === 1);
+  const later = () => new Date(t0.getTime() + DNS_BACKOFF_BASE_MS + 1);
+  const second = await crawlProspectSite({ prospectId: "p", deps: { db: fakeDb, clock: later, lookup: busyLookup, fetchImpl: net } });
+  ok("after the hold, a second busy answer doubles it", second.retryAfterMs === 2 * DNS_BACKOFF_BASE_MS && hosts.get("acme-plumbing.com")?.dnsFailures === 2, second);
+  const cleared = await recordDnsFailure(fakeDb, { host: "acme-plumbing.com", deps: { clock: later } });
+  ok("recordDnsFailure returns what it wrote", cleared.failures === 3);
+  const src = read("lib/sales/crawl/hostPolicy.js");
+  ok("a fetched robots.txt clears the hold and the count", /dnsFailures: 0,\s*dnsBackoffUntil: null,/.test(src));
+  ok("the schema carries both columns", /dnsFailures\s+Int\s+@default\(0\)/.test(read("prisma/schema.prisma")) && /dnsBackoffUntil DateTime\?/.test(read("prisma/schema.prisma")));
 }
 
 console.log(`\n${pass} checks, ${failures.length} failure(s).`);

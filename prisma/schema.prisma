@@ -10861,6 +10861,14 @@ model CrawlHostPolicy {
   blockedUntil DateTime?
   blockReason  String?
 
+  /// Our resolver said "busy" (EBUSY, EAI_AGAIN) about this host's name, this
+  /// many times since it last resolved. Not the host's fault — a fact about
+  /// our lookup capacity — so it is held apart from blockedUntil, which is the
+  /// host speaking. The hold doubles per busy answer and both columns clear
+  /// the moment robots.txt is fetched. See lib/sales/crawl/policy.js.
+  dnsFailures     Int       @default(0)
+  dnsBackoffUntil DateTime?
+
   updatedAt DateTime @updatedAt
 }
 
