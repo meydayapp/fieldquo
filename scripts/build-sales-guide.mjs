@@ -32,6 +32,7 @@ import { dirname, join } from "node:path";
 
 import { FEATURE_MATRIX, MATRIX_GROUPS } from "@/lib/marketing/featureMatrix";
 import { FEATURE_PAGE_MESSAGES } from "@/app/i18n/featurePages/index.js";
+import { MESSAGES } from "@/app/i18n/messages";
 import { SEAT_LADDER } from "@/lib/pricing/ladder";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -53,16 +54,24 @@ const { GUIDE, DEEP_DIVES } = await import(contentPath);
 // would produce a second French wording of a caveat, which is the one place a
 // second wording does real damage. So this reads the shipped catalogue, and
 // falls back to the matrix's English rather than inventing anything.
-const CATALOGUE = FEATURE_PAGE_MESSAGES[lang] || FEATURE_PAGE_MESSAGES.en;
+//
+// The same is true of every feature NAME and SUMMARY: app/i18n/messages.js
+// carries all 76 in nine languages, pinned character-for-character to the
+// matrix in English by check:feature-pages. The first FR/ES build printed them
+// in English because nobody looked — the translation was there the whole time.
+const CATALOGUE = { ...(FEATURE_PAGE_MESSAGES[lang] || {}), ...(MESSAGES[lang] || {}) };
 const translated = (key) => (typeof CATALOGUE[key] === "string" ? CATALOGUE[key] : null);
+const nameOf = (f) => translated(`feature.${f.key}.name`) || f.name;
+const summaryOf = (f) => translated(`feature.${f.key}.summary`) || f.summary;
 
-/** A partial feature's limit sentence, and whether it is in the reader's language.
- *  `translated` false means the English original is being shown, which the page
- *  then says out loud — a caveat a rep cannot read is worse than one they can. */
-const limitOf = (f) => {
-  const t = translated(`feature.${f.key}.limits`);
-  return t ? { text: t, translated: true } : { text: f.limits || "", translated: lang === "en" };
-};
+// ══ What the PDF deliberately does NOT carry ══════════════════════════════
+//
+// The matrix's `readiness` and `limits` are not rendered. The owner's call,
+// and a defensible one: a caveat in a sales guide is a promise to fix nothing,
+// whereas a caveat in docs/OPEN-WORK-APP.md is a job. So the "what it does not
+// do" sentences go to the owner as a game plan, and the guide describes the
+// product as the matrix proves it to be. If a limit is real and unfixable it
+// belongs in the matrix summary itself, where the public site shows it too.
 
 /** Escape for HTML text. Every string below is authored, but none is trusted. */
 const esc = (s) =>
@@ -70,6 +79,12 @@ const esc = (s) =>
 
 const byKey = new Map(FEATURE_MATRIX.map((f) => [f.key, f]));
 const partials = FEATURE_MATRIX.filter((f) => f.readiness !== "shipped");
+if (partials.length) {
+  console.log(
+    `${lang}: ${partials.length} matrix entries are still marked partial and are rendered without a badge — ` +
+      `their caveats are tracked in docs/OPEN-WORK-APP.md, not here: ${partials.map((f) => f.key).join(", ")}`,
+  );
+}
 
 /** Screenshots are optional. A missing one omits its figure rather than
  *  printing a broken image — the guide has to be shippable before somebody
@@ -84,8 +99,8 @@ const shot = (name, caption) => {
 
 const featureRow = (f) => `
   <tr id="f-${esc(f.key)}">
-    <td class="fname">${esc(f.name)}${f.readiness !== "shipped" ? ` <span class="badge partial">${esc(GUIDE.partialBadge)}</span>` : ""}</td>
-    <td>${esc(f.summary)}</td>
+    <td class="fname">${esc(nameOf(f))}</td>
+    <td>${esc(summaryOf(f))}</td>
   </tr>`;
 
 const sections = [
@@ -94,8 +109,6 @@ const sections = [
   { id: "deep", title: GUIDE.deepHeading },
   ...DEEP_DIVES.map((d) => ({ id: d.id, title: d.title, sub: true })),
   { id: "reference", title: GUIDE.referenceHeading },
-  { id: "partial", title: GUIDE.partialHeading },
-  { id: "gaps", title: GUIDE.gapsHeading },
   { id: "glossary", title: GUIDE.glossaryHeading },
 ];
 
@@ -124,11 +137,7 @@ const html = `<!doctype html>
   th { text-align: left; background: #f1f5f9; padding: 5pt 6pt; font-size: 8.5pt; text-transform: uppercase; letter-spacing: .06em; color: #475569; }
   td { padding: 5pt 6pt; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
   td.fname { font-weight: 600; width: 33%; }
-  .badge { font-size: 7pt; padding: 1pt 4pt; border-radius: 3px; letter-spacing: .06em; vertical-align: 1pt; }
-  .badge.partial { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
   .callout { border-left: 3px solid #c2410c; background: #fff7ed; padding: 9pt 11pt; margin: 10pt 0 14pt; }
-  .limit { background: #fffbeb; border: 1px solid #fde68a; padding: 8pt 10pt; margin: 5pt 0 13pt; font-size: 9.5pt; }
-  .limit strong { display: block; font-size: 8pt; text-transform: uppercase; letter-spacing: .06em; color: #92400e; margin-bottom: 3pt; }
   .chips a { display: inline-block; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 3px; padding: 1.5pt 6pt; margin: 0 3pt 3pt 0; font-size: 8.5pt; }
   .back { font-size: 8pt; color: #94a3b8; margin-top: 4pt; }
   figure { margin: 10pt 0; page-break-inside: avoid; }
@@ -145,10 +154,9 @@ const html = `<!doctype html>
   <h1>${esc(GUIDE.title)}</h1>
   <p class="sub">${esc(GUIDE.subtitle)}</p>
   <p class="meta">${esc(
-    (GUIDE.coverMeta || "{date} · {features} · {partials}")
+    (GUIDE.coverMeta || "{date} · {features}")
       .replace("{date}", new Date().toISOString().slice(0, 10))
-      .replace("{features}", String(FEATURE_MATRIX.length))
-      .replace("{partials}", String(partials.length)),
+      .replace("{features}", String(FEATURE_MATRIX.length)),
   )}</p>
 </div>
 
@@ -191,7 +199,7 @@ ${DEEP_DIVES.map((d) => `
   ${d.body.map((p) => `<p>${esc(p)}</p>`).join("\n  ")}
   ${shot(d.id, d.title)}
   <p class="chips">${d.keys.map((k) => byKey.get(k)).filter(Boolean)
-      .map((f) => `<a href="#f-${esc(f.key)}">${esc(f.name)}</a>`).join("")}</p>
+      .map((f) => `<a href="#f-${esc(f.key)}">${esc(nameOf(f))}</a>`).join("")}</p>
   <p class="back"><a href="#contents">${esc(GUIDE.backToContents)}</a></p>
 </section>`).join("\n")}
 
@@ -207,29 +215,10 @@ ${DEEP_DIVES.map((d) => `
   <p class="back"><a href="#contents">${esc(GUIDE.backToContents)}</a></p>
 </section>
 
-<section id="partial">
-  <h2>${esc(GUIDE.partialHeading)}</h2>
-  <p>${esc(GUIDE.partialIntro)}</p>
-  ${partials.map((f) => `
-  <h3><a href="#f-${esc(f.key)}">${esc(f.name)}</a></h3>
-  <p>${esc(f.summary)}</p>
-  <div class="limit"><strong>${esc(GUIDE.limitLabel)}${
-    limitOf(f).translated ? "" : ` — ${esc(GUIDE.limitInEnglish || "English original")}`
-  }</strong>${esc(limitOf(f).text)}</div>`).join("")}
-  <p class="back"><a href="#contents">${esc(GUIDE.backToContents)}</a></p>
-</section>
-
-<section id="gaps">
-  <h2>${esc(GUIDE.gapsHeading)}</h2>
-  <p>${esc(GUIDE.gapsIntro)}</p>
-  ${(GUIDE.gaps || []).map((g) => `<h3>${esc(g.title)}</h3><p>${esc(g.body)}</p>`).join("")}
-  <p class="back"><a href="#contents">${esc(GUIDE.backToContents)}</a></p>
-</section>
-
 <section id="glossary">
   <h2>${esc(GUIDE.glossaryHeading)}</h2>
   <p>${esc(GUIDE.glossaryIntro)}</p>
-  <dl>${(GUIDE.glossary || []).map((g) => `<dt id="g-${esc(g.term.toLowerCase().replace(/[^a-z0-9]+/g, "-"))}">${esc(g.term)}</dt><dd>${esc(g.def)}${g.key && byKey.get(g.key) ? ` <a href="#f-${esc(g.key)}">${esc(GUIDE.seeAlso)} ${esc(byKey.get(g.key).name)}</a>` : ""}</dd>`).join("")}</dl>
+  <dl>${(GUIDE.glossary || []).map((g) => `<dt id="g-${esc(g.term.toLowerCase().replace(/[^a-z0-9]+/g, "-"))}">${esc(g.term)}</dt><dd>${esc(g.def)}${g.key && byKey.get(g.key) ? ` <a href="#f-${esc(g.key)}">${esc(GUIDE.seeAlso)} ${esc(nameOf(byKey.get(g.key)))}</a>` : ""}</dd>`).join("")}</dl>
   <p class="back"><a href="#contents">${esc(GUIDE.backToContents)}</a></p>
 </section>
 
@@ -239,10 +228,7 @@ const outDir = join(ROOT, "docs/sales/guide/build");
 mkdirSync(outDir, { recursive: true });
 const out = join(outDir, `fieldquo-sales-guide.${lang}.html`);
 writeFileSync(out, html);
-const untranslated = partials.filter((f) => !limitOf(f).translated);
-console.log(`${lang}: ${FEATURE_MATRIX.length} features, ${DEEP_DIVES.length} deep dives, ${partials.length} with limits`);
-console.log(
-  `${lang}: ${partials.length - untranslated.length}/${partials.length} limit sentences in the reader's language` +
-    (untranslated.length ? ` — English original shown for: ${untranslated.map((f) => f.key).join(", ")}` : ""),
-);
+const englishNames = FEATURE_MATRIX.filter((f) => lang !== "en" && nameOf(f) === f.name).map((f) => f.key);
+console.log(`${lang}: ${FEATURE_MATRIX.length} features, ${DEEP_DIVES.length} deep dives`);
+if (englishNames.length) console.log(`${lang}: feature names still English: ${englishNames.join(", ")}`);
 console.log(`wrote ${out}`);

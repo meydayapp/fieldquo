@@ -76,11 +76,9 @@ const en = {
   "feature.door_hanger_routes.limits": "FieldQuo plans and tracks the route. It does not print the door hangers or arrange delivery — you supply the printed material.",
   "feature.subcontractor_bids.limits": "This works when the subcontractor is also on FieldQuo and sends you their quote link. There is no list of the subs you use, no way to put one on a job or a visit, no way to pay the company whose price you took, and no insurance or tax-form tracking.",
   "feature.appointment_reminders.limits": "Reminders go by text message only. There is no email reminder, and the reminder wording is not editable yet — the on-my-way message is.",
-  "feature.checklists.limits": "Checklist templates are pulled in when you create a visit from the visit screen. A visit created any other way starts with an empty list.",
   "feature.financing.limits": "Pay-over-time is offered at checkout through Stripe, where the lender decides. FieldQuo does not lend and does not approve anyone. The monthly figure shown on a quote appears only if you enter your own rate and term — we never invent one.",
   "feature.payroll.limits": "FieldQuo works out gross pay, produces the payslips and exports the run. It does not pay employees or file your payroll taxes — deductions are the ones you or your accountant supply.",
   "feature.contractor_payouts.limits": "This pays a person on your own roster, for hours they clocked, at the rate you set. It cannot pay a fixed bid to another company. Transfers are sent in Canadian dollars today, so it is not ready for a US payout.",
-  "feature.languages.limits": "English and French are finished. Spanish, Ukrainian, Punjabi and Tagalog are translated and still being checked by a speaker, so they are not switched on yet.",
   "feature.marketing_spend.limits": "Cost per lead is blended across every channel, not broken out per channel or per campaign — nothing in FieldQuo links a specific dollar of spend to a specific lead yet.",
 
   // ══ Generated from app/data/featurePages.js — pinned, see the header ══

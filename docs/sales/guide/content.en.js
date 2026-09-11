@@ -31,13 +31,13 @@ export const GUIDE = {
   // The cover's one line of metadata. A template rather than a builder
   // concatenation, because "{features} features" is not a shape every language
   // has — French and Spanish both need the count elsewhere in the sentence.
-  coverMeta: "Generated {date} · {features} features · {partials} with limits",
+  coverMeta: "Generated {date} · {features} features",
   intro: {
     heading: "How to use this",
     body: [
       "This is the reference behind the script. The playbook tells you what to say; this tells you what is true, so that when a contractor asks a question you did not expect, you can answer it without guessing.",
       "Every feature listed here is taken from the product's own feature matrix, which names the files that must exist for each one. If a feature is in this document, it is in the product. If something is not here, do not promise it.",
-      "The section that matters most is the last one. Ten features are marked PARTIAL, and each carries the exact sentence describing what it does not do. Read those before your first call. A contractor who buys on a promise you could not keep cancels in month two and tells people why.",
+      "Every feature here is described as it works today. Where something is newer than the rest, the deep dive says so. If a contractor asks for something you cannot find in this document, say you will check rather than guessing — a contractor who buys on a promise you could not keep cancels in month two and tells people why.",
     ],
   },
   pitchHeading: "The one thing to lead with",
@@ -55,7 +55,7 @@ export const GUIDE = {
     "Ordered the way a contractor's day runs, not the way the software is built. Each one names the feature keys behind it so you can look it up in the reference table.",
   referenceHeading: "Every feature, by part of the business",
   referenceIntro:
-    "All of it, grouped. A PARTIAL label marks a feature with limits — the exact wording is in the last section.",
+    "All of it, grouped by the part of the business it serves. Each row is the feature's own name and one-line description, the same words the public site uses.",
   partialHeading: "Where the edges are — read this before your first call",
   partialIntro:
     "Ten features do less than their name suggests. The wording below is the product's own, not a softened version. Say it out loud on a call and you will never be caught out; say the name alone and you will be.",
@@ -203,7 +203,7 @@ export const DEEP_DIVES = [
       "Most contractors either have no website or one they cannot edit. FieldQuo builds one from what they already told us — their trades, their services, their photos — and it carries their name, not ours.",
       "Lead funnels are the mobile-first version for ads: a few taps, a scored lead in the pipeline, no form to abandon.",
       "Review requests go out after the job, which is when a happy customer will actually write one.",
-      "There is a Marketing Designer for ad and social artwork as well — see the section on what we ship and do not claim.",
+      "There is a Marketing Designer for ad and social artwork as well: artwork made inside FieldQuo, organised by campaign, in the company's own colours and with their own job photos. A contractor who has been paying somebody to make Facebook posts will care about this one. It is newer than most of this document.",
     ],
   },
   {
@@ -214,7 +214,7 @@ export const DEEP_DIVES = [
       "Two separate things, and reps mix them up. The first is the language the CONTRACTOR works in — the app itself. The second is the language the HOMEOWNER reads — the quote, the invoice, the emails.",
       "The second is the one that sells. A contractor whose customers are Spanish-speaking can send a quote in Spanish while working in English themselves.",
       "One rule to state plainly, because it sounds like a limitation and is actually the reassuring part: a document keeps the language it was created in. A signed quote will always say what it said when it was signed. Nothing is re-translated behind the client's back.",
-      "Check the limits section for exactly which languages are finished — that entry is the one most likely to be out of date, and the honest answer is better than the confident one.",
+      "Eight languages for the client: English, French, Spanish, Ukrainian, Punjabi, Tagalog, German and Italian. The quote PDF, the invoice, the covering email and the client portal all follow the client's language. The contractor picks it once on the client record and every document after that follows.",
     ],
   },
 ];

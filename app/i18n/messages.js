@@ -545,7 +545,7 @@ const en = {
   "feature.contract_terms.name": "Your terms on every document",
   "feature.contract_terms.summary":
     "Payment terms and contract wording that attach themselves to what you send.",
-  "feature.languages.name": "English and French",
+  "feature.languages.name": "Your client's language",
   "feature.languages.summary":
     "Send a quote in the language your client speaks; a signed document keeps the words it was signed with.",
   "feature.ai_copilot.name": "Ask FieldQuo AI",
@@ -1065,7 +1065,7 @@ const fr = {
   "feature.contract_terms.name": "Vos conditions sur chaque document",
   "feature.contract_terms.summary":
     "Les conditions de paiement et le texte du contrat s'attachent d'eux-mêmes à ce que vous envoyez.",
-  "feature.languages.name": "Anglais et français",
+  "feature.languages.name": "La langue de votre client",
   "feature.languages.summary":
     "Envoyez une soumission dans la langue de votre client; un document signé garde les mots avec lesquels il a été signé.",
   "feature.ai_copilot.name": "Demandez à FieldQuo AI",
@@ -1568,7 +1568,7 @@ const es = {
   "feature.contract_terms.name": "Tus condiciones en cada documento",
   "feature.contract_terms.summary":
     "Las condiciones de pago y el texto del contrato se pegan solos a lo que envías.",
-  "feature.languages.name": "Inglés y francés",
+  "feature.languages.name": "El idioma de tu cliente",
   "feature.languages.summary":
     "Envía el presupuesto en el idioma de tu cliente; un documento firmado conserva las palabras con las que se firmó.",
   "feature.ai_copilot.name": "Pregúntale a FieldQuo AI",
@@ -2072,7 +2072,7 @@ const uk = {
   "feature.contract_terms.name": "Ваші умови на кожному документі",
   "feature.contract_terms.summary":
     "Умови оплати й текст договору самі додаються до того, що ви надсилаєте.",
-  "feature.languages.name": "Англійська та французька",
+  "feature.languages.name": "Мова вашого клієнта",
   "feature.languages.summary":
     "Надсилайте кошторис мовою, якою говорить клієнт; підписаний документ зберігає ті слова, з якими його підписали.",
   "feature.ai_copilot.name": "Запитайте FieldQuo AI",
@@ -2575,7 +2575,7 @@ const pa = {
   "feature.contract_terms.name": "ਹਰ ਦਸਤਾਵੇਜ਼ 'ਤੇ ਤੁਹਾਡੀਆਂ ਸ਼ਰਤਾਂ",
   "feature.contract_terms.summary":
     "ਭੁਗਤਾਨ ਦੀਆਂ ਸ਼ਰਤਾਂ ਅਤੇ ਠੇਕੇ ਦੀ ਇਬਾਰਤ ਆਪੇ ਉਸ ਨਾਲ ਲੱਗ ਜਾਂਦੀਆਂ ਹਨ ਜੋ ਤੁਸੀਂ ਭੇਜਦੇ ਹੋ।",
-  "feature.languages.name": "ਅੰਗਰੇਜ਼ੀ ਅਤੇ ਫਰਾਂਸੀਸੀ",
+  "feature.languages.name": "ਤੁਹਾਡੇ ਗਾਹਕ ਦੀ ਬੋਲੀ",
   "feature.languages.summary":
     "ਗਾਹਕ ਦੀ ਬੋਲੀ ਵਿੱਚ ਕੋਟ ਭੇਜੋ; ਦਸਤਖਤ ਹੋਇਆ ਦਸਤਾਵੇਜ਼ ਉਹੀ ਸ਼ਬਦ ਰੱਖਦਾ ਹੈ ਜਿਨ੍ਹਾਂ ਨਾਲ ਦਸਤਖਤ ਹੋਏ ਸਨ।",
   "feature.ai_copilot.name": "FieldQuo AI ਤੋਂ ਪੁੱਛੋ",
@@ -3083,7 +3083,7 @@ const tl = {
   "feature.contract_terms.name": "Mga tuntunin mo sa bawat dokumento",
   "feature.contract_terms.summary":
     "Ang mga tuntunin sa bayad at ang salita ng kontrata ay kusang nakakabit sa ipinapadala mo.",
-  "feature.languages.name": "Ingles at Pranses",
+  "feature.languages.name": "Ang wika ng kliyente mo",
   "feature.languages.summary":
     "Ipadala ang quote sa wikang sinasalita ng kliyente mo; ang napirmahang dokumento ay nananatili sa salitang pinirmahan.",
   "feature.ai_copilot.name": "Magtanong sa FieldQuo AI",
@@ -3464,7 +3464,7 @@ const de = {
   "feature.document_layouts.summary": "Wählen Sie, welche Abschnitte auf dem gedruckten Dokument erscheinen und welches Layout die Vorgabe ist.",
   "feature.contract_terms.name": "Ihre Bedingungen auf jedem Dokument",
   "feature.contract_terms.summary": "Zahlungsbedingungen und Vertragstext, die sich von selbst an das hängen, was Sie senden.",
-  "feature.languages.name": "Englisch und Französisch",
+  "feature.languages.name": "Die Sprache Ihres Kunden",
   "feature.languages.summary": "Senden Sie ein Angebot in der Sprache Ihres Kunden; ein unterschriebenes Dokument behält die Worte, mit denen es unterschrieben wurde.",
   "feature.ai_copilot.name": "FieldQuo AI fragen",
   "feature.ai_copilot.summary": "Stellen Sie eine Frage zu Ihrem eigenen Betrieb in normaler Sprache und bekommen Sie die Antwort aus Ihren eigenen Zahlen.",
@@ -3827,7 +3827,7 @@ const zh = {
   "feature.document_layouts.summary": "选择打印文件上出现哪些段落，以及哪一套是默认的。",
   "feature.contract_terms.name": "每份文件都带上你的条款",
   "feature.contract_terms.summary": "付款条款和合同措辞会自动附在你发出去的文件上。",
-  "feature.languages.name": "英语和法语",
+  "feature.languages.name": "客户的语言",
   "feature.languages.summary": "用客户说的语言发报价单；签过字的文件保持签字时的措辞。",
   "feature.ai_copilot.name": "问问 FieldQuo AI",
   "feature.ai_copilot.summary": "用大白话问自己生意上的问题，答案出自你自己的数字。",
@@ -4332,7 +4332,7 @@ const it = {
   "feature.contract_terms.name": "Le sue condizioni su ogni documento",
   "feature.contract_terms.summary":
     "Condizioni di pagamento e testo contrattuale che si allegano da soli a quello che invia.",
-  "feature.languages.name": "Inglese e francese",
+  "feature.languages.name": "La lingua del suo cliente",
   "feature.languages.summary":
     "Invii un preventivo nella lingua che il suo cliente parla; un documento firmato conserva le parole con cui è stato firmato.",
   "feature.ai_copilot.name": "Chieda a FieldQuo AI",

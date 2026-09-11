@@ -276,6 +276,33 @@ that homeowner in the homeowner's language. This is different from UI strings.
 
 ---
 
+## 9. The eight PARTIAL features — why, and the plan (2026-09-11)
+
+The owner saw PARTIAL badges in the sales guide and asked what each one meant.
+Two of the ten were STALE and are now shipped in the matrix (`languages`: the
+caveat outlived the PDF font bug it described; `checklists`: a template can be
+applied to any visit after the fact, so the caveat described a starting state,
+not a gap). The guide no longer prints badges or caveats — they live here.
+
+Each row: what actually works today / what the caveat means / the plan.
+
+| key | works | the caveat | plan |
+|---|---|---|---|
+| `appointment_reminders` | Cron texts the client N hours before, from the company's own number when they have one, the shared number with the company name otherwise. Opt-in per company. | SMS only, wording not editable, **English only with en-US dates regardless of client language**. | (a) Render the text in `client.language` via the same catalogue the emails use; localise the date. (b) Expose `appointment_reminder` in the message-templates editor — `renderTemplate.js` already declares it. (c) Email fallback when the client has no mobile. Then shipped. |
+| `subcontractor_bids` | Importing a sub's quote as a marked-up cost line — fully works when the sub is on FieldQuo. | No sub roster, no assigning a sub to a job/visit, no paying the sub's company, no COI/T5018 tracking. | Rename to what it is ("Sub quotes as a cost line") and mark shipped; open a NEW matrix entry "Subcontractor management" for the roster/assign/pay/insurance work, which is a real feature, not a caveat. |
+| `financing` | Affirm at Stripe checkout when eligible; a monthly figure on the quote when the company enters its own rate and term. | "FieldQuo does not lend" — this is a description, not a gap. It will never lend. | Move the sentence into the summary and mark shipped. The only real gap: no Canadian pay-over-time provider (Affirm is US). |
+| `marketing_spend` | Spend by channel, Meta import, blended cost per lead. | Not per-channel or per-campaign — no spend dollar is tied to a lead. | Leads carry `source`; spend rows carry `channel`. Joining them is a `kpis.js` function and one table on the spend page. Small. |
+| `payroll` | Gross pay, payslips, export. | Does not remit, does not file. | Statement, not a gap — a bookkeeping export is the product. Move to summary, mark shipped. Filing = a Wagepoint/ADP integration decision, owner's call. |
+| `contractor_payouts` | Approved hours × hourly rate → Stripe Connect transfer to a person on the roster. | Hours-only (no fixed amount), **CAD hardcoded** (`lib/stripe.js:231`). | Currency from the company (one line + a check). Fixed-amount payout = one more input on the same route. Then shipped. Answer to "how is it different from paying an invoice": an invoice is money IN from a client; this is money OUT to a person you employ by the hour. It is closer to payroll than to accounts payable — payroll produces a payslip and a file, this actually moves the money. Paying a sub COMPANY a fixed bid is the subcontractor-management entry above. |
+| `priced_options` | Good/better/best pricing and the three-quote group exist server-side (`tier-group` route). | No screen. | Build the screen or delete the route. Owner's call — it was started for a reason. |
+| `door_hanger_routes` | Route planning and stop tracking. | Does not print or deliver the hangers. | Statement, not a gap. Move to summary, mark shipped. |
+
+**Found on the way — client-facing text that ignores the client's language:**
+- `lib/sms/templates.js`: on-my-way, appointment reminder, booking confirmation — all English, `toLocaleString("en-US")`. `client.language` is never read.
+- `app/api/cron/follow-ups/route.js`: follow-up / marketing / custom email templates render the sections the company wrote, in whatever language they wrote them — a French client gets the English follow-up. `DocumentTemplate` has no `language` column and `FollowUpRule` points at one template.
+- Quote/invoice PDFs, covering emails, portal: **verified working in all eight** (`documentLabels`, `emailCopy`, `clientDocCopy`, PDF font stack).
+- Portuguese: the owner listed it. Not in `LANGUAGES`. Adding a ninth language is a catalogue-wide job (every `check:translations` floor), not a switch.
+
 ## Already in flight this session (separate agents)
 
   * Roofing: material coverage from real products, editable price AND quantity on

@@ -59,13 +59,13 @@ export const GUIDE = {
   generated: "Generado",
   // Plantilla en vez de concatenar en el generador: el conteo no cae en el
   // mismo lugar de la frase en cada idioma.
-  coverMeta: "Generado el {date} · {features} funciones · {partials} con límites",
+  coverMeta: "Generado el {date} · {features} funciones",
   intro: {
     heading: "Cómo usar esto",
     body: [
       "Esta es la referencia que está detrás del guion. El playbook le dice qué decir; esto le dice qué es cierto, para que cuando un contratista haga la pregunta que usted no esperaba, la pueda contestar sin adivinar.",
       "Cada función de esta lista sale de la matriz de funciones del propio producto, que nombra los archivos que tienen que existir para cada una. Si una función está en este documento, está en el producto. Si algo no está aquí, no lo prometa.",
-      "La sección que más importa es la última. Diez funciones están marcadas PARCIAL, y cada una lleva la frase exacta que dice lo que no hace. Léalas antes de su primera llamada. El contratista que compra por una promesa que usted no pudo cumplir cancela en el segundo mes, y le cuenta a todo el mundo por qué.",
+      "Cada función está descrita tal como funciona hoy. Cuando algo es más nuevo que el resto, la sección detallada lo dice. Si un contratista pide algo que usted no encuentra en este documento, diga que lo va a verificar en vez de adivinar — el contratista que compra por una promesa que usted no pudo cumplir cancela al segundo mes y le cuenta a todo el mundo por qué.",
     ],
   },
   pitchHeading: "Lo único con lo que hay que abrir",
@@ -83,7 +83,7 @@ export const GUIDE = {
     "En el orden en que corre el día de un contratista, no en el orden en que está construido el software. Cada una nombra las funciones que tiene detrás, para que las pueda buscar en la tabla de referencia.",
   referenceHeading: "Todas las funciones, por parte del negocio",
   referenceIntro:
-    "Todo, agrupado. La etiqueta PARCIAL señala una función con límites — la redacción exacta está en la última sección.",
+    "Todo, agrupado por la parte del negocio a la que sirve. Cada fila lleva el nombre de la función y su descripción en una línea — las mismas palabras que usa el sitio público.",
   partialHeading: "Dónde están los límites — lea esto antes de su primera llamada",
   partialIntro:
     "Diez funciones hacen menos de lo que su nombre sugiere. La redacción de abajo es la del propio producto, no una versión suavizada. Dígala tal cual en la llamada y nunca lo van a agarrar en falta; mencione solo el nombre de la función y sí lo van a agarrar.",
@@ -229,7 +229,7 @@ export const DEEP_DIVES = [
       "La mayoría de los contratistas no tiene sitio web, o tiene uno que no puede editar. FieldQuo arma uno con lo que ya nos dijeron — sus oficios, sus servicios, sus fotos — y lleva el nombre de ellos, no el nuestro.",
       "Los embudos de prospectos son la versión pensada para el teléfono, hecha para los anuncios: unos cuantos toques, un prospecto calificado que entra al pipeline, ningún formulario que abandonar a medias.",
       "Las solicitudes de reseñas salen después del trabajo, que es cuando un cliente contento de verdad va a escribir una.",
-      "También hay un Marketing Designer para el arte de anuncios y redes sociales — vea la sección sobre lo que entregamos y no anunciamos.",
+      "También hay un Marketing Designer para el arte de anuncios y redes sociales: piezas hechas dentro de FieldQuo, organizadas por campaña, con los colores de la empresa y sus propias fotos de obra. El contratista que le paga a alguien para hacer sus publicaciones de Facebook se va a interesar. Es más nuevo que la mayor parte de este documento.",
     ],
   },
   {
@@ -240,7 +240,7 @@ export const DEEP_DIVES = [
       "Son dos cosas distintas, y los vendedores las confunden. La primera es el idioma en el que trabaja el CONTRATISTA — la aplicación misma. La segunda es el idioma que lee el DUEÑO DE CASA — la cotización, la factura, los correos.",
       "La que vende es la segunda. Un contratista cuyos clientes hablan español puede mandar una cotización en español mientras él mismo trabaja en inglés.",
       "Una regla que hay que decir clarito, porque suena a limitación y en realidad es la parte que tranquiliza: un documento conserva el idioma en el que fue creado. Una cotización firmada siempre va a decir lo que decía cuando se firmó. Nada se vuelve a traducir a espaldas del cliente.",
-      "Revise en la sección de límites qué idiomas están de verdad terminados — esa entrada es la que más fácil queda desactualizada, y la respuesta honesta vale más que la respuesta segura.",
+      "Ocho idiomas para el cliente: inglés, francés, español, ucraniano, punyabí, tagalo, alemán e italiano. La cotización en PDF, la factura, el correo de envío y el portal del cliente siguen todos el idioma del cliente. El contratista lo elige una vez en la ficha del cliente y cada documento que sigue lo respeta.",
     ],
   },
 ];

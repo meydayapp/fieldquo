@@ -59,11 +59,9 @@ const es = {
   "feature.door_hanger_routes.limits": "FieldQuo planea la ruta y le da seguimiento. No imprime los volantes ni organiza el reparto — el material impreso lo pones tú.",
   "feature.subcontractor_bids.limits": "Esto funciona cuando el subcontratista también está en FieldQuo y te manda el enlace de su presupuesto. No hay una lista de los subcontratistas con los que trabajas, ni forma de ponerle uno a un trabajo o a una visita, ni forma de pagarle a la empresa cuyo precio tomaste, ni seguimiento de seguros ni de formularios de impuestos.",
   "feature.appointment_reminders.limits": "Los recordatorios salen solo por mensaje de texto. No hay recordatorio por correo, y el texto del recordatorio todavía no se puede editar — el mensaje de «voy en camino» sí.",
-  "feature.checklists.limits": "Las plantillas de lista de verificación se cargan cuando creas una visita desde la pantalla de visitas. Una visita creada de cualquier otra forma empieza con la lista vacía.",
   "feature.financing.limits": "El pago a plazos se ofrece al momento de pagar, a través de Stripe, y ahí decide el prestamista. FieldQuo no presta y no aprueba a nadie. La cifra mensual que se ve en un presupuesto aparece solo si tú escribes tu propia tasa y tu propio plazo — nosotros nunca la inventamos.",
   "feature.payroll.limits": "FieldQuo calcula el pago bruto, genera los recibos y exporta la corrida. No paga a los empleados ni presenta tus impuestos de nómina — las deducciones son las que pongas tú o tu contador.",
   "feature.contractor_payouts.limits": "Esto le paga a una persona de tu propia plantilla, por horas que marcó, a la tarifa que tú fijaste. No puede pagar una oferta cerrada a otra empresa. Hoy las transferencias salen en dólares canadienses, así que no está listo para un pago en Estados Unidos.",
-  "feature.languages.limits": "El inglés y el francés están terminados. El español, el ucraniano, el punyabí y el tagalo están traducidos y todavía los está revisando un hablante, así que aún no están activados.",
   "feature.marketing_spend.limits": "El costo por cliente potencial es un promedio combinado de todos los canales, sin desglose por canal ni por campaña — nada en FieldQuo vincula todavía un dólar de gasto concreto con un cliente potencial concreto.",
 
   // ══ The pages ═════════════════════════════════════════════════════════

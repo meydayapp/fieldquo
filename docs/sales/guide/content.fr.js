@@ -54,13 +54,13 @@ export const GUIDE = {
   generated: "Généré",
   // Gabarit plutôt qu'une concaténation dans le générateur : le compte ne
   // tombe pas au même endroit dans la phrase d'une langue à l'autre.
-  coverMeta: "Généré le {date} · {features} fonctions · {partials} avec des limites",
+  coverMeta: "Généré le {date} · {features} fonctions",
   intro: {
     heading: "Comment se servir de ce document",
     body: [
       "C'est la référence derrière le script. Le guide d'appel vous dit quoi dire; celui-ci vous dit ce qui est vrai, pour que la question à laquelle vous ne vous attendiez pas trouve une réponse plutôt qu'une supposition.",
       "Chaque fonction listée ici vient de la matrice des fonctions du produit, qui nomme les fichiers qui doivent exister pour chacune d'elles. Si une fonction est dans ce document, elle est dans le produit. Si quelque chose ne s'y trouve pas, ne le promettez pas.",
-      "La section la plus importante est la dernière. Dix fonctions sont marquées PARTIEL, et chacune porte la phrase exacte qui dit ce qu'elle ne fait pas. Lisez-les avant votre premier appel. L'entrepreneur qui achète sur une promesse que vous ne pouvez pas tenir annule au deuxième mois — et il dit à tout le monde pourquoi.",
+      "Chaque fonction est décrite telle qu'elle fonctionne aujourd'hui. Quand quelque chose est plus récent que le reste, la section détaillée le dit. Si un entrepreneur demande une chose que vous ne trouvez pas dans ce document, dites que vous allez vérifier plutôt que de deviner — l'entrepreneur qui achète sur une promesse que vous ne pouvez pas tenir annule au deuxième mois, et il dit à tout le monde pourquoi.",
     ],
   },
   pitchHeading: "Le seul argument à mettre en avant",
@@ -78,7 +78,7 @@ export const GUIDE = {
     "Dans l'ordre de la journée d'un entrepreneur, pas dans l'ordre où le logiciel est bâti. Chaque section nomme les fonctions qu'il y a derrière, pour que vous puissiez les retrouver dans le tableau de référence.",
   referenceHeading: "Toutes les fonctions, par partie de l'entreprise",
   referenceIntro:
-    "Tout, regroupé. L'étiquette PARTIEL signale une fonction qui a des limites — la formulation exacte est dans la dernière section.",
+    "Tout, regroupé par le volet de l'entreprise que ça sert. Chaque ligne porte le nom de la fonction et sa description en une phrase — les mêmes mots que le site public.",
   partialHeading: "Où sont les limites — à lire avant votre premier appel",
   partialIntro:
     "Dix fonctions font moins que ce que leur nom laisse croire. La formulation ci-dessous est celle du produit, pas une version adoucie. Dites-la telle quelle pendant l'appel et vous ne vous ferez jamais prendre; nommez seulement la fonction et vous allez vous faire prendre.",
@@ -225,7 +225,7 @@ export const DEEP_DIVES = [
       "La plupart des entrepreneurs n'ont pas de site web, ou en ont un qu'ils ne sont pas capables de modifier. FieldQuo en construit un à partir de ce qu'ils nous ont déjà dit — leurs métiers, leurs services, leurs photos — et il porte leur nom, pas le nôtre.",
       "Les entonnoirs de demandes, c'est la version pensée pour le téléphone, faite pour la publicité : quelques touches, une demande notée qui entre dans le pipeline, aucun formulaire à abandonner en chemin.",
       "Les demandes d'avis partent après les travaux, c'est-à-dire au moment où un client content va vraiment en écrire un.",
-      "Il y a aussi un Marketing Designer pour les visuels de publicité et de réseaux sociaux — voyez la section sur ce qu'on livre et qu'on n'annonce pas.",
+      "Il y a aussi un Marketing Designer pour les visuels de publicité et de réseaux sociaux : des visuels faits dans FieldQuo, classés par campagne, aux couleurs de l'entreprise et avec ses propres photos de chantier. L'entrepreneur qui paie quelqu'un pour faire ses publications Facebook va s'y intéresser. C'est plus récent que la plupart de ce document.",
     ],
   },
   {
@@ -236,7 +236,7 @@ export const DEEP_DIVES = [
       "Deux choses distinctes, et les représentants les mélangent. La première, c'est la langue dans laquelle l'ENTREPRENEUR travaille — l'application elle-même. La deuxième, c'est la langue que le PROPRIÉTAIRE lit — la soumission, la facture, les courriels.",
       "C'est la deuxième qui fait vendre. Un entrepreneur dont les clients sont hispanophones peut envoyer une soumission en espagnol tout en travaillant en anglais lui-même.",
       "Une règle à énoncer clairement, parce qu'elle sonne comme une limite alors que c'est justement la partie rassurante : un document garde la langue dans laquelle il a été créé. Une soumission signée dira toujours ce qu'elle disait au moment de la signature. Rien n'est retraduit dans le dos du client.",
-      "Vérifiez dans la section des limites quelles langues sont vraiment terminées — c'est l'entrée la plus susceptible d'être périmée, et la réponse honnête vaut mieux que la réponse assurée.",
+      "Huit langues pour le client : anglais, français, espagnol, ukrainien, pendjabi, tagalog, allemand et italien. La soumission en PDF, la facture, le courriel d'accompagnement et le portail client suivent tous la langue du client. L'entrepreneur la choisit une fois dans la fiche du client, et chaque document qui suit s'y conforme.",
     ],
   },
 ];
