@@ -29,6 +29,7 @@ import { fetchArray } from "@/lib/loadState";
 import { fetchJson } from "@/lib/fetchJson";
 import ListState from "@/app/components/ListState";
 import { formatDateOnly } from "@/lib/format/companyDate";
+import { CurrencyNotes } from "@/app/components/marketing/SpendCurrencyNotes";
 
 const PLATFORMS = ["facebook", "google", "tiktok", "pamphlet", "referral", "other"];
 
@@ -260,18 +261,24 @@ export default function MarketingSpendPage() {
           </div>
           {blended?.value != null ? (
             <>
+              {/* "≈" when the spend behind this figure includes rows converted
+                  from another currency at the pinned rate — see
+                  lib/analytics/spendCurrency.js. The note under the by-channel
+                  table names the amount and the rate's age. */}
               <div className="text-3xl font-bold text-foreground">
+                {summary.totals.approximate ? "≈ " : ""}
                 {new Intl.NumberFormat(undefined, { style: "currency", currency }).format(blended.value)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 {t("app.marketingSpend.blendedBody", {
-                  spend: new Intl.NumberFormat(undefined, { style: "currency", currency }).format(summary.totals.spend),
+                  spend: `${summary.totals.approximate ? "≈ " : ""}${new Intl.NumberFormat(undefined, { style: "currency", currency }).format(summary.totals.spend)}`,
                   leads: blended.sampleSize,
                 })}
                 {blended.excludedCount > 0 && (
                   <> {t("app.marketingSpend.blendedExcluded", { count: blended.excludedCount })}</>
                 )}
               </p>
+              <CurrencyNotes totals={summary.totals} t={t} />
               <p className="text-[11px] text-muted-foreground/80 mt-2 italic">
                 {t(
                   "app.marketingSpend.blendedDisclaimer",
@@ -310,7 +317,10 @@ export default function MarketingSpendPage() {
                 {summary.channels.map((c) => (
                   <tr key={c.platform} className="border-b border-border last:border-0">
                     <td className="px-5 py-2.5 capitalize">{t(`app.marketingSpend.platform.${c.platform}`, c.platform)}</td>
-                    <td className="px-5 py-2.5">{new Intl.NumberFormat(undefined, { style: "currency", currency }).format(c.spend)}</td>
+                    <td className="px-5 py-2.5">
+                      {c.approximate ? "≈ " : ""}
+                      {new Intl.NumberFormat(undefined, { style: "currency", currency }).format(c.spend)}
+                    </td>
                     {/* `c.leads || "—"` printed a deliberately-entered 0 as
                         "—", i.e. as unknown — and MarketingSpend.leads is
                         `Int @default(0)`, so a channel nobody filled in reads 0
@@ -329,11 +339,12 @@ export default function MarketingSpendPage() {
               </tbody>
             </table>
           </div>
-          {summary.excludedCurrencyMismatch?.count > 0 && (
-            <div className="px-5 py-2.5 border-t border-border text-[11px] text-muted-foreground">
-              {t("app.marketingSpend.currencyMismatchNote", {
-                count: summary.excludedCurrencyMismatch.count,
-              })}
+          {/* What was converted into the "≈" rows above, and what was refused.
+              This used to say "shown separately, not blended" — and the only
+              real ad spend in the system was shown nowhere the totals were. */}
+          {(summary.totals?.approximate || summary.totals?.excluded?.length > 0) && (
+            <div className="px-5 py-2.5 border-t border-border">
+              <CurrencyNotes totals={summary.totals} t={t} />
             </div>
           )}
         </div>

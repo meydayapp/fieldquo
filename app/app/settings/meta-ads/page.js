@@ -369,7 +369,11 @@ function MetaAdsPageScreen() {
               {syncResult.summary.possibleDuplicates > 0 && (
                 <div>{t("app.setMetaAds.syncDuplicates", { count: syncResult.summary.possibleDuplicates })}</div>
               )}
-              {syncResult.currencyMismatch && <div>{t("app.setMetaAds.syncCurrencyMismatch", "Some rows are in a different currency than your company's — shown separately, not blended into totals.")}</div>}
+              {/* This used to say "shown separately, not blended into totals" —
+                  and for the owner's USD ad account on a CAD company that
+                  meant a $0.00 KPI card. The rows now convert at read time,
+                  marked ≈ — lib/analytics/spendCurrency.js. */}
+              {syncResult.currencyMismatch && <div>{t("app.setMetaAds.syncCurrencyMismatch", "Some rows are in a different currency than your company's — totals convert them at a pinned exchange rate and are marked ≈ approximate.")}</div>}
             </div>
           )}
 

@@ -21,7 +21,12 @@
 //                arbitrary period would invent a proration rule nobody asked
 //                for. Shown labelled "per month" for exactly that reason.
 //   marketing    lib/analytics/marketingRollup.js's totals.spend for the
-//                period, unchanged.
+//                period, unchanged — including, since the owner's USD ad
+//                account met his CAD company, rows in another currency
+//                converted at the pinned rate and flagged `approximate`
+//                (lib/analytics/spendCurrency.js). The tile prints "≈" and
+//                names what was converted; when the rate is refused the
+//                rows are left out and `excluded` says so.
 //   backlog      NOT fetched here. lib/analytics/kpis.js's buildBacklogWeeks
 //                already computes it and the page already has the payload —
 //                fetching it twice would be the exact duplication AGENTS.md
@@ -224,7 +229,15 @@ export async function GET(request) {
       reasonText: everMarketingSpend
         ? null
         : "No marketing spend has ever been logged for this company.",
-      incomplete: false,
+      // `incomplete` is the MoneyTile's amber triangle — raised when rows
+      // were REFUSED conversion and are missing from `value`, never for a
+      // conversion that succeeded (that is `approximate`, a different claim:
+      // the number is all there, it is just not exact).
+      incomplete: everMarketingSpend && marketingRollup.totals.excluded.length > 0,
+      approximate: everMarketingSpend && marketingRollup.totals.approximate,
+      convertedFrom: everMarketingSpend ? marketingRollup.totals.convertedFrom : [],
+      currencyConversions: everMarketingSpend ? marketingRollup.totals.currencyConversions : [],
+      excluded: everMarketingSpend ? marketingRollup.totals.excluded : [],
       channels: everMarketingSpend ? marketingRollup.channels : [],
     },
   });

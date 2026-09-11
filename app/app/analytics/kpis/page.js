@@ -55,6 +55,7 @@ import Link from "next/link";
 import { TriangleAlert, Info } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { formatAppMoney } from "@/lib/format/money";
+import { excludedSentence } from "@/app/components/marketing/SpendCurrencyNotes";
 import { presetRange, PERIOD_PRESETS } from "@/lib/analytics/periodPresets";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import Sparkline from "@/app/components/charts/Sparkline";
@@ -187,8 +188,12 @@ function MoneyTile({ label, figure, trend, money, t, hint }) {
           />
         )}
       </div>
+      {/* "≈" when the figure includes a row converted from another currency at
+          the pinned rate (lib/analytics/spendCurrency.js). The hint below the
+          tile names what was converted and how old the rate is; the mark is
+          what stops the figure reading as exact when the hint is skimmed. */}
       <div className="mt-1 text-2xl font-semibold text-foreground">
-        {hasValue ? money(figure.value) : "—"}
+        {hasValue ? `${figure.approximate ? "≈ " : ""}${money(figure.value)}` : "—"}
       </div>
       <div className="mt-1 text-xs text-muted-foreground">
         {hasValue
@@ -718,12 +723,36 @@ export default function KpiDashboardPage() {
                   t={t}
                   hint={
                     finance.marketing?.available ? (
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {t(
-                          "app.kpis.finance.marketingOverlapHint",
-                          "May overlap with a cost also logged in Expense Tracking — not combined with Expenses above.",
-                        )}
-                      </p>
+                      <>
+                        {/* The owner's USD ad account, on his CAD company: the
+                            rows are IN the figure, converted at the pinned
+                            rate, and this line says so with the original
+                            amount and the rate's age — the reader can redo
+                            the arithmetic. One line per foreign currency. */}
+                        {(finance.marketing.currencyConversions || []).map((c) => (
+                          <p key={c.currency} className="mt-2 text-xs text-muted-foreground">
+                            {t("app.marketingSpend.approxNote", {
+                              amount: formatAppMoney(c.amount, c.currency, language),
+                              days: c.rateAgeDays,
+                            })}
+                          </p>
+                        ))}
+                        {/* The rate was refused — stale, or a pair fx.js does
+                            not hold — so these rows are NOT in the figure.
+                            Said with the amount, never left as a quietly
+                            smaller total. */}
+                        {(finance.marketing.excluded || []).map((x) => (
+                          <p key={x.currency} className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                            {excludedSentence(t, x, formatAppMoney(x.amount, x.currency, language))}
+                          </p>
+                        ))}
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {t(
+                            "app.kpis.finance.marketingOverlapHint",
+                            "May overlap with a cost also logged in Expense Tracking — not combined with Expenses above.",
+                          )}
+                        </p>
+                      </>
                     ) : null
                   }
                 />
