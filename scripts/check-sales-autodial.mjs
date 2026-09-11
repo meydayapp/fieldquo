@@ -235,7 +235,40 @@ ok("a null cursor starts from the top", nextDial({ ...base, cursor: null }).dial
 ok("a cursor not in the order reads as the top", nextDial({ ...base, cursor: "gone" }).dial === "p2");
 ok("bare ids are read as undialled rows", nextDial({ ...base, order: ["x", "y"], cursor: null }).dial === "x");
 ok("a skipped row is not offered again", nextDial({ ...base, skipped: ["p2"] }).dial === "p3");
-ok("it never dials backwards from the cursor", nextDial({ ...base, cursor: "p3" }).dial === "p3" && nextDial({ ...base, cursor: "p4" }).stop === true);
+ok("it resumes after the cursor first", nextDial({ ...base, cursor: "p3" }).dial === "p3" && nextDial({ ...base, cursor: "p1" }).dial === "p2");
+ok("…and when nothing after the cursor is left it continues from the top rather than calling a regrouped list exhausted", nextDial({ ...base, cursor: "p4" }).dial === "p2");
+ok("…the rep's choices survive that: a skipped row before the cursor is still not offered", nextDial({ ...base, cursor: "p4", skipped: ["p2"] }).dial === "p3" && nextDial({ ...base, cursor: "p4", skipped: ["p2", "p3"] }).reason === AUTODIAL_REASONS.exhausted);
+
+// ── The window wall ────────────────────────────────────────────────────────
+{
+  const T = Date.parse("2026-09-11T14:00:00Z"); // 10:00 ET
+  const opens11 = Date.parse("2026-09-11T15:00:00Z");
+  const grouped = [
+    { id: "e1", dialled: true, opensAt: null },
+    { id: "e2", dialled: false, opensAt: null },
+    { id: "c1", dialled: false, opensAt: opens11 },
+    { id: "c2", dialled: false, opensAt: new Date(opens11) },
+    { id: "c3", dialled: false, opensAt: new Date(opens11).toISOString() },
+    { id: "m1", dialled: false, opensAt: opens11 + 3_600_000 },
+  ];
+  const g = { ...base, order: grouped, cursor: "e1", now: T };
+  ok("a callable row before the wall is dialled", nextDial(g).dial === "e2");
+  const w = nextDial({ ...g, cursor: "e2", skipped: ["e2"] });
+  ok("with every callable row done it WAITS at the next group rather than dialling into it", w.wait === "c1" && w.reason === AUTODIAL_REASONS.window_not_open && w.opensAt === opens11, w);
+  ok("…counting the rows that open at that instant, whatever form the instant took (ms, Date, ISO)", w.count === 3, w.count);
+  ok("…and not the group after it", w.count !== 4);
+  ok("at the instant itself the wall is gone and the first row of the group is dialled", nextDial({ ...g, cursor: "e2", skipped: ["e2"], now: opens11 }).dial === "c1");
+  ok("…one millisecond before, it is still a wait", nextDial({ ...g, cursor: "e2", skipped: ["e2"], now: opens11 - 1 }).wait === "c1");
+  ok("the wait is asked AFTER the gates: a paused rep with a wall ahead hears 'paused', not a countdown", nextDial({ ...g, cursor: "e2", skipped: ["e2"], state: STATE_PAUSED }).reason === AUTODIAL_REASONS.not_available);
+  ok("…and with the switch off, 'switch off'", nextDial({ ...g, cursor: "e2", skipped: ["e2"], switchOn: false }).reason === AUTODIAL_REASONS.switch_off);
+  ok("a wall is never crossed to reach a callable row behind it in the order", (() => {
+    const order = [{ id: "a", dialled: true }, { id: "wall", opensAt: opens11 }, { id: "z", opensAt: null }];
+    return nextDial({ ...base, order, cursor: "a", now: T }).wait === "wall";
+  })());
+  ok("a row with a garbage opensAt is read as callable now (judged at zero by its readiness), not as a wall", nextDial({ ...base, order: [{ id: "x", opensAt: "not a date" }], cursor: null, now: T }).dial === "x");
+  ok("nextCandidate() answers null during a wait rather than a row", nextCandidate({ order: grouped, cursor: "e2", skipped: ["e2"], now: T }) === null);
+  ok("`now` defaults to the wall clock, so an omitted clock judges a wall in the past as open", nextDial({ ...base, order: [{ id: "old", opensAt: T }], cursor: null }).dial === "old");
+}
 
 ok("the switch off stops it", nextDial({ ...base, switchOn: false }).reason === AUTODIAL_REASONS.switch_off);
 ok("a call up stops it — never two at once", nextDial({ ...base, callUp: true }).reason === AUTODIAL_REASONS.call_up);
@@ -266,13 +299,14 @@ ok("no readiness at all is a skip, never a dial — absence is not permission", 
 ok("a readiness that is not an object is the same", nextDial({ ...base, readiness: "allowed" }).reason === AUTODIAL_REASONS.readiness_unknown);
 ok("only the literal decision 'allowed' dials", nextDial({ ...base, readiness: { decision: "ALLOWED" } }).skip === "p2");
 ok("the gates are asked before the order, so a paused rep with an empty order hears 'paused'", nextDial({ ...base, order: [], state: STATE_PAUSED }).reason === AUTODIAL_REASONS.not_available);
-ok("every answer is exactly one of the three shapes", (() => {
+ok("every answer is exactly one of the four shapes", (() => {
   const answers = [
     nextDial(base),
     nextDial({ ...base, readiness: null }),
     nextDial({ ...base, switchOn: false }),
+    nextDial({ ...base, order: [{ id: "w", opensAt: Date.now() + 60_000 }], cursor: null }),
   ];
-  return answers.every((d) => ["dial" in d, "skip" in d, "stop" in d].filter(Boolean).length === 1);
+  return answers.every((d) => ["dial" in d, "skip" in d, "stop" in d, "wait" in d].filter(Boolean).length === 1) && "wait" in answers[3];
 })());
 ok("nextDial() with no arguments stops rather than throws", nextDial().stop === true);
 ok("nextCandidate selects without judging readiness", nextCandidate({ order, cursor: "p1" }) === "p2" && nextCandidate({ order: [], cursor: null }) === null);
@@ -312,6 +346,11 @@ ok("…the switch's own press is what arms it", /else if \(turningOn\) auto\.res
 ok("…and a pause resumes only on the rep's press of Available, never on the state", /availablePresses/.test(control) && /prevPresses\.current === availablePresses\) return;/.test(control) && /availablePresses/.test(status) && /setAvailablePresses\(\(n\) => n \+ 1\)/.test(status));
 ok("the arm after an outcome waits for the reloaded order", /pendingArm\.current = true;/.test(control) && /\}, \[order, arm\]\);/.test(control));
 ok("the dialler selects the candidate before judging it, and judges it at zero with that row's readiness", /if \(id !== l\.currentId\) l\.select\?\.\(id\);/.test(control) && /const ready = loaded \? l\.readiness : null;/.test(control));
+ok("a wait is a phase of its own, entered only through arm(), and at zero it calls arm() again rather than dialling", /setPhase\("waiting"\)/.test(control) && (control.match(/setPhase\("waiting"\)/g) || []).length === 1 && /if \(phase !== "waiting" \|\| !endsAt\) return undefined;/.test(control) && /arm\(waiting\?\.cursor \|\| null\);/.test(control) && !/setToken\(\{[^}]*\}\);\s*\}\s*\}, \[phase, endsAt, waiting/.test(control));
+ok("…the wait is cancelled by the same world the countdown is (status, switch, call, ring), and Pause halts it", /if \(phase !== "countdown" && phase !== "waiting"\) return;/.test(control) && /if \(phase !== "countdown" && phase !== "waiting"\) return;\s*halt\("cancelled"\);/.test(control));
+ok("…and a press of Available while already waiting does not start a second clock", /phase === "waiting" \|\| phase === "dialling"\) return;/.test(control));
+ok("the dialler's clock is the server's, carried by an offset the queue stamps", /clockOffsetMs/.test(control) && /Date\.now\(\) \+ \(Number\(latest\.current\.clockOffsetMs\) \|\| 0\)/.test(control) && /clockOffsetMs = clock \? clock\.serverMs - clock\.localMs : 0/.test(queue) && /useAutodial\(\{[^}]*clockOffsetMs/.test(queue));
+ok("the queue hands the dialler each row's opening instant, null for a row callable now", /opensAt: item\.window\?\.callableNow \? null : item\.window\?\.opensAtIso \|\| null/.test(queue));
 ok("an inbound ring cancels a countdown", /if \(gate\.stop\) \{\s*halt\(gate\.reason/.test(control) && /inboundRinging/.test(control) && /setInboundRinging\(true\)/.test(dock));
 ok("the hangup writes after_call to the ledger, with the attempt", /postState\(\{ state: STATE_AFTER_CALL, callAttemptId: body\.attemptId \}\)/.test(panel));
 ok("…and an answered callback writes on_call", /state: STATE_ON_CALL,\s*callAttemptId: body\?\.attemptId/.test(dock));
@@ -343,6 +382,8 @@ ok("every autodial and status string exists in every language", (() => {
   const keys = Object.keys(APP_MESSAGES.en).filter((k) => k.startsWith("app.salesAutodial.") || k.startsWith("app.salesStatus."));
   return keys.length >= 45 && Object.keys(APP_MESSAGES).every((lang) => keys.every((k) => k in APP_MESSAGES[lang]));
 })());
+ok("the wait has its own sentence in every language, and the control says it", ["app.salesAutodial.waitingForWindow", "app.salesAutodial.waitingForWindowNoZone", "app.salesAutodial.waitingForWindowNote"].every((k) => Object.keys(APP_MESSAGES).every((lang) => typeof APP_MESSAGES[lang][k] === "string") && control.includes(`"${k}"`)));
+ok("the tour's autodial sentence says it waits for a window", /waits for the next window/.test(APP_MESSAGES.en["app.salesTour.autodialBody"]));
 const shell = decomment(read("app/sales/SalesShell.js"));
 ok("the shell mounts the provider around everything and the picker in the header and the drawer", /<RepPresenceProvider>/.test(shell) && /<RepStatusPicker layout="row" \/>/.test(shell) && /drawerExtra=\{<RepStatusPicker layout="list" \/>\}/.test(shell));
 

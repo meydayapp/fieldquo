@@ -167,6 +167,21 @@
 // attempt, and app/api/cron/sales-queue-release does the same when the
 // rep's day ends.
 //
+// ══ The list is grouped by when a row can be rung, on the rep's clock ═════
+//
+// The owner: a rep fetching a hundred leads at eight in the morning Eastern
+// should see which are Eastern and which are Pacific, "so that they can
+// focus on the ones that can be called". The server groups the held rows
+// (lib/sales/queueWindows.js) — Callable now, shuts-soonest first; then one
+// group per opening instant, "Opens at 11:00 (Pacific Time)"; then anything
+// not callable before the shift ends — and this screen draws a header per
+// group with its count, a zone chip on every row, and the opening or closing
+// time in the REP's own clock. The times are the server's strings, formatted
+// in the rep's zone and language from the same request that sent both;
+// nothing here re-derives a window from an IANA id. The autodialler walks
+// the same grouped order and waits at a group that is not open yet rather
+// than dialling into it (app/components/sales/AutodialControl.js).
+//
 // ══ There is still no greyed-out Call button — and no blank space either ══
 //
 // The rule stands: a control that looks broken teaches a rep to press it
@@ -199,7 +214,6 @@ import {
   ChevronRight,
   CircleCheck,
   CircleHelp,
-  Clock,
   ListFilter,
   Loader2,
   NotebookPen,
@@ -224,7 +238,6 @@ import {
 } from "@/lib/sales/dialSpace";
 import { displayTitle } from "@/lib/sales/notes/body";
 import { dispositionFor } from "@/lib/sales/calls/dispositions";
-import { formatTimeOfDay } from "@/lib/format/localeDate";
 import RepNoteVisibilityNotice from "@/app/components/sales/RepNoteVisibilityNotice";
 import RepNoteUnavailable from "@/app/components/sales/RepNoteUnavailable";
 import DialRegion, { Notice } from "@/app/components/sales/DialRegion";
@@ -357,34 +370,23 @@ function browserTimeZone() {
 }
 
 /**
- * "08:00" in the PROSPECT's zone, in the rep's language. The list says when a
- * row's window opens or shuts where the phone rings, not where the rep sits —
- * the latter is the mistake the calling rules exist to refuse.
- */
-function hhmmIn(iso, zone, language) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  try {
-    return new Intl.DateTimeFormat(language || "en-GB", {
-      hour: "2-digit",
-      minute: "2-digit",
-      ...(zone ? { timeZone: zone } : {}),
-    }).format(d);
-  } catch {
-    return formatTimeOfDay(d, language);
-  }
-}
-
-/**
  * The second and third lines of a day-list row, from what the server sent.
  *
  * Every value here was computed server-side — `researched`, `researching`,
  * `window`, `lastOutcome` — and this only puts words to it. In particular
  * "researching…" is only said when the server saw a pipeline task for the
  * row; the absence of research is "not researched", a different sentence.
+ *
+ * The window line is on the REP's clock: `opensAtLocal` / `closesAtLocal`
+ * were formatted by the queue route in the zone and language this browser
+ * sent with the request (lib/sales/queueWindows.js's repClock). Beside the
+ * zone chip that makes "PDT · Window opens 11:00" one fact with two clocks
+ * on it — the rule was judged where the phone rings, the time is when this
+ * rep may press Call. Until 2026-09-11 this line printed the PROSPECT's local
+ * time, which is the right clock for the rule and the wrong one for a rep
+ * asking "when can I ring these".
  */
-function rowMeta(item, t, language) {
+function rowMeta(item, t) {
   const place = [item.tradeLabel || null, item.city || null].filter(Boolean).join(" · ");
   const research = item.researched
     ? t("app.salesQueue.rowResearched")
@@ -393,12 +395,12 @@ function rowMeta(item, t, language) {
       : t("app.salesQueue.rowNotResearched");
   let window = "";
   const w = item.window || null;
-  if (w?.decision === CALL_ALLOWED && w.closesAt) {
-    window = t("app.salesQueue.rowWindowClosesAt", { time: hhmmIn(w.closesAt, w.zone, language) });
+  if (w?.decision === CALL_ALLOWED && w.closesAtLocal) {
+    window = t("app.salesQueue.rowWindowClosesAt", { time: w.closesAtLocal });
   } else if (w?.decision === CALL_ALLOWED) {
     window = t("app.salesQueue.rowWindowOpen");
-  } else if (w?.opensAt) {
-    window = t("app.salesQueue.rowWindowOpensAt", { time: hhmmIn(w.opensAt, w.zone, language) });
+  } else if (w?.opensAtLocal) {
+    window = t("app.salesQueue.rowWindowOpensAt", { time: w.opensAtLocal });
   } else if (w?.decision === CALL_REFUSED) {
     window = t("app.salesQueue.rowWindowRefused");
   } else if (w) {
@@ -414,7 +416,21 @@ function rowMeta(item, t, language) {
     : item.lastOutcome
       ? t("app.salesQueue.rowLastOutcomeUnlogged")
       : "";
-  return { place, research, window, outcome };
+  return { place, research, window, outcome, zone: w?.zoneShort || null, zoneId: w?.zone || null };
+}
+
+/**
+ * A window group's header: "Callable now · 42", "Opens at 11:00 (Pacific
+ * Time) · 31", "Not callable today · 2". The time and the zone name are the
+ * server's strings — rep's clock, rep's language — and the count is the
+ * group's own.
+ */
+function groupTitle(group, t) {
+  if (group.kind === "now") return t("app.salesQueue.windowGroup.now");
+  if (group.kind === "later") return t("app.salesQueue.windowGroup.later");
+  return group.zoneLabel
+    ? t("app.salesQueue.windowGroup.opensAt", { time: group.opensAtLocal || "", zone: group.zoneLabel })
+    : t("app.salesQueue.windowGroup.opensAtNoZone", { time: group.opensAtLocal || "" });
 }
 
 /**
@@ -644,6 +660,9 @@ function QueueConsole() {
       if (prospectId) search.set("prospectId", prospectId);
       const zone = browserTimeZone();
       if (zone) search.set("timeZone", zone);
+      // The language too: the route formats every "opens at" on the rep's
+      // clock in the rep's words, and it cannot read either off the session.
+      if (language) search.set("language", language);
       const body = await fetchJson(`/api/sales/queue?${search.toString()}`);
       stampClock(body);
       setData(body);
@@ -657,9 +676,10 @@ function QueueConsole() {
       setLoading(false);
       setFetching(false);
     }
-    // `t` only changes when the rep changes language; reloading the queue at
-    // that moment costs one request and keeps the fallback sentence honest.
-  }, [tradeKey, prospectId, stampClock, t]);
+    // `t` and `language` only change when the rep changes language; reloading
+    // the queue at that moment costs one request and keeps the fallback
+    // sentence — and every server-formatted time — honest.
+  }, [tradeKey, prospectId, stampClock, t, language]);
 
   useEffect(() => {
     load();
@@ -697,7 +717,7 @@ function QueueConsole() {
       const body = await fetchJson("/api/sales/queue", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, tradeKey, timeZone: browserTimeZone(), ...extra }),
+        body: JSON.stringify({ action, tradeKey, timeZone: browserTimeZone(), language, ...extra }),
       });
       if (body?.claimed === null) {
         // The server has an honest answer for "nothing to give you" and it is
@@ -822,10 +842,31 @@ function QueueConsole() {
   // screen's own answer for the open row — dialSpace's state and the live
   // calling-window decision — which is what the dialler is asked with when a
   // countdown reaches zero. The server re-asks all of it on the dial itself.
+  //
+  // `opensAt` is the row's opening instant for a row that is not callable
+  // yet, null for one that is — the dialler waits at the first such row
+  // rather than dialling past it (lib/sales/autodial.js). `opensAtLocal` and
+  // `zoneLabel` ride along so the wait can be said in the rep's clock.
   const order = useMemo(
-    () => items.map((item) => ({ id: item.id, dialled: Boolean(item.lastOutcome), name: item.businessName })),
+    () =>
+      items.map((item) => ({
+        id: item.id,
+        dialled: Boolean(item.lastOutcome),
+        name: item.businessName,
+        opensAt: item.window?.callableNow ? null : item.window?.opensAtIso || null,
+        opensAtLocal: item.window?.opensAtLocal || null,
+        zoneLabel: item.window?.zoneLabel || null,
+      })),
     [items],
   );
+  const groups = useMemo(() => {
+    const served = data?.queue?.windows?.groups;
+    if (Array.isArray(served) && served.length) return served;
+    // An older response with no groups: one group, the list as it came.
+    return items.length ? [{ key: "all", kind: "all", count: items.length, ids: items.map((i) => i.id) }] : [];
+  }, [data?.queue?.windows?.groups, items]);
+  const itemById = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
+  const clockOffsetMs = clock ? clock.serverMs - clock.localMs : 0;
   const readiness = useMemo(() => {
     if (!current) return null;
     if (space.state === DIAL_READY && compliance?.decision === CALL_ALLOWED) {
@@ -839,7 +880,7 @@ function QueueConsole() {
     // state and the decision is what keeps this memo honest.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current?.id, space.state, compliance?.decision]);
-  const auto = useAutodial({ order, currentId: current?.id || null, readiness, select });
+  const auto = useAutodial({ order, currentId: current?.id || null, readiness, select, clockOffsetMs });
   const worked = useCallback(() => {
     // The flag first, the reload second: the dialler arms against the
     // reloaded order, never the one that predates the call.
@@ -1110,51 +1151,89 @@ function QueueConsole() {
               </div>
             ) : null}
 
+            {/* ── The day, grouped by window ────────────────────────────────
+                One header per group from the server (queue.windows.groups),
+                with its count; the rows under it in the order the server
+                put them. The running number continues across groups so
+                "42." still means the forty-second row of the day. The zone
+                chip is the PROSPECT's zone as Intl names it in the rep's
+                language; the time beside it is the REP's clock. */}
             {items.length > 0 ? (
-              <ul className="space-y-2">
-                {items.map((item, position) => {
-                  const status = rowStatus(item, t);
-                  const meta = rowMeta(item, t, language);
-                  const active = current?.id === item.id;
-                  return (
-                    <li key={item.id}>
-                      <button
-                        type="button"
-                        aria-current={active ? "true" : undefined}
-                        onClick={() => select(item.id)}
-                        className={`${ROW} ${
-                          active
-                            ? "border-brand-accent bg-muted text-foreground"
-                            : "border-border bg-card text-foreground"
-                        }`}
-                      >
-                        <status.Icon
-                          size={16}
-                          aria-hidden="true"
-                          className={`mt-0.5 shrink-0 ${status.className}`}
-                        />
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-sm font-medium break-words">
-                            <span className="text-muted-foreground tabular-nums mr-1">{position + 1}.</span>
-                            {item.businessName}
-                          </span>
-                          {meta.place ? (
-                            <span className="block text-xs text-muted-foreground break-words">
-                              {meta.place}
-                            </span>
-                          ) : null}
-                          <span className="block text-xs text-muted-foreground break-words">
-                            {[meta.research, meta.window].filter(Boolean).join(" · ")}
-                          </span>
-                          <span className="block text-xs text-muted-foreground break-words">
-                            {meta.outcome || status.label}
-                          </span>
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+              <div className="space-y-3">
+                {(() => {
+                  let position = 0;
+                  return groups.map((group) => (
+                    <div key={group.key} className="space-y-2">
+                      {group.kind !== "all" ? (
+                        <div className="flex items-baseline justify-between gap-2 pt-1">
+                          <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground break-words">
+                            {groupTitle(group, t)}
+                          </h3>
+                          <span className="text-xs text-muted-foreground tabular-nums shrink-0">{group.count}</span>
+                        </div>
+                      ) : null}
+                      {group.kind === "later" ? (
+                        <p className="text-xs text-muted-foreground break-words">{t("app.salesQueue.windowGroup.laterNote")}</p>
+                      ) : null}
+                      <ul className="space-y-2">
+                        {group.ids.map((id) => {
+                          const item = itemById.get(id);
+                          if (!item) return null;
+                          position += 1;
+                          const status = rowStatus(item, t);
+                          const meta = rowMeta(item, t);
+                          const active = current?.id === item.id;
+                          return (
+                            <li key={item.id}>
+                              <button
+                                type="button"
+                                aria-current={active ? "true" : undefined}
+                                onClick={() => select(item.id)}
+                                className={`${ROW} ${
+                                  active
+                                    ? "border-brand-accent bg-muted text-foreground"
+                                    : "border-border bg-card text-foreground"
+                                }`}
+                              >
+                                <status.Icon
+                                  size={16}
+                                  aria-hidden="true"
+                                  className={`mt-0.5 shrink-0 ${status.className}`}
+                                />
+                                <span className="min-w-0 flex-1">
+                                  <span className="block text-sm font-medium break-words">
+                                    <span className="text-muted-foreground tabular-nums mr-1">{position}.</span>
+                                    {item.businessName}
+                                  </span>
+                                  {meta.place ? (
+                                    <span className="block text-xs text-muted-foreground break-words">
+                                      {meta.place}
+                                    </span>
+                                  ) : null}
+                                  <span className="block text-xs text-muted-foreground break-words">
+                                    {meta.zone ? (
+                                      <span
+                                        className="inline-block rounded border border-border px-1 py-px mr-1 font-mono text-[11px] leading-4 text-foreground"
+                                        title={meta.zoneId || undefined}
+                                      >
+                                        {meta.zone}
+                                      </span>
+                                    ) : null}
+                                    {[meta.research, meta.window].filter(Boolean).join(" · ")}
+                                  </span>
+                                  <span className="block text-xs text-muted-foreground break-words">
+                                    {meta.outcome || status.label}
+                                  </span>
+                                </span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  ));
+                })()}
+              </div>
             ) : null}
 
             {/* ── Give back what was never dialled ──────────────────────────

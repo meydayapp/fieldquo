@@ -53,15 +53,19 @@ import { salesCallReadiness } from "@/lib/sales/callingRules";
 import {
   QUEUE_BATCH_MAX,
   QUEUE_DAILY_CLAIM_CAP,
+  SHIFT_HOURS,
   claimBatch,
   claimsTakenToday,
   closeClaim,
   isResearched,
   logSingleClaim,
-  nextClosing,
   releaseUntouched,
+  shiftEndFrom,
+  shiftStartFor,
   usableTimeZone,
 } from "@/lib/sales/queueBatch";
+import { groupByWindow } from "@/lib/sales/queueWindows";
+import { repLanguageOrNull } from "@/lib/sales/repLanguage";
 // Namespace import, not a named one: the pipeline is growing
 // ensureResearchQueued() in a concurrent change, and a named import of an
 // export that is not there yet is a build error on one bundler and a silent
@@ -129,8 +133,15 @@ function queueResearchFor(prospectIds) {
     });
 }
 
-async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = null, batch = null } = {}) {
+async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = null, language = null, batch = null } = {}) {
   const now = new Date();
+  // The rep's zone and language, for every time this response prints. Both
+  // come from the browser with the request — the zone the way the batch
+  // claim reads it, the language the way the portal renders it — because
+  // neither is on the gate's row: SalesRep has no zone column at all, and
+  // its language column is a stated preference that may be null.
+  const zone = repZoneFrom(timeZone, now);
+  const lang = repLanguageOrNull(language) || "en";
 
   const claimedRows = await db.prospect.findMany({
     where: {
@@ -145,10 +156,11 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
   //
   // A batch is written with ONE assignedAt, so `assignedAt asc` alone leaves a
   // hundred rows in whatever order the database felt like. The claim log
-  // carries the dial order (researched first, then the pool's own order —
-  // lib/sales/queueBatch.js); rows are sorted by (claimedAt, position) from
-  // it, and a row with no log entry (claimed before the log existed) keeps
-  // its assignedAt place.
+  // carries the dial order (callable soonest, then researched first, then the
+  // pool's own order — lib/sales/queueBatch.js); rows are sorted by
+  // (claimedAt, position) from it, and a row with no log entry (claimed
+  // before the log existed) keeps its assignedAt place. That is the order
+  // INSIDE a window group; the groups are decided just below.
   const ids = claimedRows.map((p) => p.id);
   const [openClaims, researching, lastAttempts] = ids.length
     ? await Promise.all([
@@ -179,17 +191,32 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
   });
   const researchingIds = new Set(researching.map((r) => r.prospectId));
   const lastById = new Map(lastAttempts.map((a) => [a.prospectId, a]));
-  const claimed = [...claimedRows].sort((a, b) => {
+  const inClaimOrder = [...claimedRows].sort((a, b) => {
     const ra = rank.has(a.id) ? rank.get(a.id) : Number.MAX_SAFE_INTEGER;
     const rb = rank.has(b.id) ? rank.get(b.id) : Number.MAX_SAFE_INTEGER;
     if (ra !== rb) return ra - rb;
     return (a.assignedAt?.getTime?.() || 0) - (b.assignedAt?.getTime?.() || 0);
   });
+
+  // ── Grouped by when each row can be rung, in the rep's clock ─────────────
+  //
+  // lib/sales/queueWindows.js. The claim order above is the order INSIDE a
+  // group; the groups themselves are "callable now" (shuts soonest first),
+  // then one per opening instant, then what cannot be rung before the shift
+  // ends. The shift is the same one the batch claim judged against —
+  // SHIFT_HOURS from the rep's first Available today — so a row the claim
+  // took as "opens later in the shift" lands in an "Opens at" group here and
+  // never in "Not callable today".
+  const shiftStart = await shiftStartFor({ db, salesRepId: rep.id, timeZone: zone, now });
+  const shiftEnd = shiftEndFrom({ shiftStart, now });
+  const windows = groupByWindow(
+    inClaimOrder.map((p) => ({ id: p.id, country: p.country, province: p.province, timeZone: p.leads?.[0]?.timeZone || null })),
+    { repZone: zone, shiftEnd, now, language: lang },
+  );
+  const byId = new Map(inClaimOrder.map((p) => [p.id, p]));
+  const claimed = windows.order.map((id) => byId.get(id)).filter(Boolean);
   const rowExtras = new Map(
     claimed.map((p) => {
-      const stated = p.leads?.[0]?.timeZone || null;
-      const readiness = salesCallReadiness({ prospect: p, timeZone: stated, now });
-      const closesAt = readiness.decision === "allowed" ? nextClosing({ prospect: p, timeZone: stated, now }) : null;
       const last = lastById.get(p.id) || null;
       return [
         p.id,
@@ -198,12 +225,12 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
           province: p.province || null,
           researched: isResearched(p),
           researching: !isResearched(p) && researchingIds.has(p.id),
-          window: {
-            decision: readiness.decision,
-            opensAt: readiness.opensAt ? readiness.opensAt.toISOString() : null,
-            closesAt: closesAt ? closesAt.toISOString() : null,
-            zone: readiness.zones?.[0] || null,
-          },
+          // windowFor()'s answer for this row: the decision, the prospect's
+          // zone as a chip, and the opening/closing instant both as an ISO
+          // instant (for the dialler's clock) and on the rep's wall clock
+          // (for the row). Every value here is derived from
+          // salesCallReadiness — nothing is re-decided.
+          window: windows.byId[p.id] || null,
           lastOutcome: last
             ? { disposition: last.disposition || null, at: last.dialledAt?.toISOString?.() || null }
             : null,
@@ -232,6 +259,17 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
 
   const queue = buildQueue({ prospects: claimed, repId: rep.id, now, availableToClaim, tradeKey });
   queue.items = queue.items.map((item) => ({ ...item, ...(rowExtras.get(item.id) || {}) }));
+  // The groups, with their ids, so the screen draws a header per group and
+  // the dialler walks the same order the list shows. `shiftEnd` is said so a
+  // rep can read why a row is "not callable today".
+  queue.windows = {
+    repZone: zone,
+    language: lang,
+    shiftStart: (shiftStart || now).toISOString(),
+    shiftEnd: shiftEnd.toISOString(),
+    shiftHours: SHIFT_HOURS,
+    groups: windows.groups,
+  };
 
   // One at a time. The rep asks for a specific prospect or gets the top of
   // their own queue; either way the row is re-read through queueWhere, so a
@@ -404,7 +442,6 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
     }
   }
 
-  const zone = repZoneFrom(timeZone, now);
   const takenToday = await claimsTakenToday({ db, salesRepId: rep.id, timeZone: zone, now });
 
   return {
@@ -444,8 +481,9 @@ export async function GET(request) {
   const tradeKey = (url.searchParams.get("tradeKey") || "").trim().slice(0, 40);
   const prospectId = (url.searchParams.get("prospectId") || "").trim().slice(0, 40);
   const timeZone = (url.searchParams.get("timeZone") || "").trim().slice(0, 64);
+  const language = (url.searchParams.get("language") || "").trim().slice(0, 8);
 
-  return NextResponse.json(await queueBody(rep, { tradeKey, prospectId, timeZone }));
+  return NextResponse.json(await queueBody(rep, { tradeKey, prospectId, timeZone, language }));
 }
 
 export async function POST(request) {
@@ -465,6 +503,7 @@ export async function POST(request) {
   // claim is counted against and when "the end of the rep's day" is — see
   // lib/sales/queueBatch.js. Validated there; an unusable value is null.
   const timeZone = typeof body.timeZone === "string" ? body.timeZone.trim().slice(0, 64) : "";
+  const language = typeof body.language === "string" ? body.language.trim().slice(0, 8) : "";
 
   if (action === "claim" || action === "claim_batch") {
     const tradeKey = typeof body.tradeKey === "string" ? body.tradeKey.trim() : "";
@@ -492,6 +531,7 @@ export async function POST(request) {
         tradeKey,
         prospectId: result.claimedIds[0] || "",
         timeZone,
+        language,
         batch: result,
       }),
     );
@@ -555,7 +595,7 @@ export async function POST(request) {
         await logSingleClaim({ db, rep, prospectId: candidate.id, timeZone, now: at });
         queueResearchFor([candidate.id]);
         return NextResponse.json(
-          await queueBody(rep, { tradeKey, prospectId: candidate.id, timeZone }),
+          await queueBody(rep, { tradeKey, prospectId: candidate.id, timeZone, language }),
         );
       }
     }
@@ -579,6 +619,7 @@ export async function POST(request) {
       await queueBody(rep, {
         tradeKey: body.tradeKey || "",
         timeZone,
+        language,
         batch: { released: result.released, kept: result.kept },
       }),
     );
@@ -604,7 +645,7 @@ export async function POST(request) {
     // The log closes with "rep" so the row sorts last for this rep for seven
     // days — put back by hand is the strongest "not this one" a rep can say.
     await closeClaim({ db, rep, prospectId, outcome: "released", now });
-    return NextResponse.json(await queueBody(rep, { tradeKey: body.tradeKey || "", timeZone }));
+    return NextResponse.json(await queueBody(rep, { tradeKey: body.tradeKey || "", timeZone, language }));
   }
 
   if (action === "worked") {
@@ -614,7 +655,7 @@ export async function POST(request) {
     const done = await db.prospect.updateMany({ where: mine, data: { claimExpiresAt: null } });
     if (done.count === 0) return notFound();
     await closeClaim({ db, rep, prospectId, outcome: "worked", now });
-    return NextResponse.json(await queueBody(rep, { tradeKey: body.tradeKey || "", timeZone }));
+    return NextResponse.json(await queueBody(rep, { tradeKey: body.tradeKey || "", timeZone, language }));
   }
 
   // do_not_contact
@@ -668,7 +709,7 @@ export async function POST(request) {
     });
     if (!already) return notFound();
   }
-  return NextResponse.json(await queueBody(rep, { tradeKey: body.tradeKey || "", timeZone }));
+  return NextResponse.json(await queueBody(rep, { tradeKey: body.tradeKey || "", timeZone, language }));
 }
 
 function bad(error) {

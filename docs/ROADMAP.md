@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 11 September 2026 (The owner read the first live call script and the playbook for South County Electric and sent six corrections — the script sounds like a person and cites their own site, the stage copy is the rep's not the author's, reps are not tech support, no weekday in a close, the crawler's email reaches the lead, and the disposition form offers demo · sent to sign up · specialist walkthrough — the section below; `check:playbook-voice`, `check:call-script` §7.)
+Last updated: 11 September 2026 (The queue is grouped by when a row can be rung, on the rep's own clock — "Callable now" shuts-soonest first, then one group per opening instant, then not-today; the batch claim picks callable-soonest inside a 7-hour shift read from the ledger rather than "before midnight", the daily cap is 250, and the autodialler waits at a window instead of dialling into it — the section below; `check:queue-windows`, `check:sales-batch-claim`, `check:sales-autodial`.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,51 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## The queue tells time zones apart, the batch is the shift's, and the dialler waits at a window (11 September 2026)
+
+The owner: "in the queue when we fetch 100 leads is there a way to tell the
+agent these leads are from this time zone and these ones are from this other
+timezone so that they can focus on the ones that can be called — for example
+Eastern time if it is 8am ET — and not have a lead from California
+accidentally." And: "an average person can take 200 calls with the autodialer
+per day on a 7-hour shift with lunch and break, and they get batches of 100
+per request — it should be automatically sorted so it properly gets queued,
+based on the time the sales rep logged in."
+
+- **Grouped list** — `lib/sales/queueWindows.js` (pure `groupByWindow()`),
+  called by `GET /api/sales/queue`, which now serves `queue.items` in grouped
+  order and `queue.windows.groups` beside them. Callable now (sorted by
+  closing time, Atlantic before Pacific in the afternoon) → one group per
+  distinct opening instant, labelled in the REP's clock and language ("Opens
+  at 11:00 (Pacific Time, Mountain Standard Time)" — Phoenix shares the
+  instant in September and is named, not folded) → Not callable today (opens
+  after the shift, or nobody can say). Every row carries a zone chip (Intl
+  `short` in the rep's language: EDT/PDT, or GMT-7 where CLDR has no
+  abbreviation) and "Window opens 11:00" on the rep's clock. The browser
+  sends `language` beside `timeZone`; nothing on SalesRep carries either.
+- **Selection** — `selectBatch()` sorts callable-soonest first (open now by
+  closing time, then by opening time), researched-first demoted to a key
+  INSIDE each window; the bound is the SHIFT end: `SHIFT_HOURS = 7` from the
+  rep's first Available today (`shiftStartFor()` reads `SalesRepActivity`;
+  the claim instant stands in when there is no row). `QUEUE_DAILY_CLAIM_CAP`
+  150 → 250. The three batch sentences say "shift" in nine languages.
+- **Autodial** — `nextDial()` takes `now` and each row's `opensAt`; it answers
+  a fourth shape, `wait`, at the first row whose window is still shut, with
+  the instant and how many open with it. `AutodialControl` shows "Next 31
+  open at 11:00 (Pacific Time)" with a clock to it, and at zero calls
+  `arm()` again — every gate re-asked; a paused rep or a switched-off
+  dialler gets nothing. The cursor rule changed with the regrouping: after
+  the cursor first, then from the top, because a position is no longer a
+  choice (Skip and dialled are). Tour: the autodial sentence says it waits.
+- Checks: `check:queue-windows` (75, new, in `check:all`) executes the
+  grouping at 8 am / 1 pm / 8 pm ET for an Eastern and a Pacific rep with a
+  Phoenix row and a garbage zone; `check:sales-batch-claim` (183) holds the
+  shift rule, the ordering key and the cap; `check:sales-autodial` (125)
+  the wall and the gate order. Seven mutations, all caught by exit code.
+- **Not done / owed**: the platform console's rep-queue view still lists a
+  rep's rows in claim order, ungrouped; the "later" group is said but no
+  control releases it on its own (Release the rest covers it).
 
 ## The console can see a rep's queue, give it back, or hand it on (11 September 2026)
 

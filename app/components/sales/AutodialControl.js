@@ -23,6 +23,20 @@
 // Dinner presses Available, and THAT press is what resumes it. The page
 // mounting with the switch on shows the switch on and waits.
 //
+// ══ Waiting for a window is a countdown to the window, not a fifth press ══
+//
+// When every callable row is done and the next group opens at eleven,
+// nextDial() answers `wait` and this shows "Next 31 open at 11:00 (Pacific
+// Time)" with a clock running down to it. At zero it does NOT dial: it calls
+// arm() again — the same function the four presses call — which re-asks
+// nextDial() through every gate at that moment. A rep still Available with
+// the switch still on gets the ordinary five-second countdown on the first
+// row of that group; a rep who went to lunch gets nothing, because the
+// waiting phase was halted the moment their status changed (the same effect
+// that cancels a countdown) and a halted dialler resumes only from a press.
+// The wait therefore continues a press that already happened; it never
+// starts from a pause.
+//
 // ══ One candidate at a time, selected before it is judged ═════════════════
 //
 // The queue computes the calling window live for the OPEN prospect only —
@@ -42,6 +56,9 @@ import { useRepPresence } from "./RepStatus";
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
 
+/** The clock the windows are judged on: the server's, carried by an offset. */
+const WAIT_TICK_MS = 1000;
+
 /** Reasons the dialler stopped that a Resume press can clear. */
 const RESUMABLE = new Set([
   AUTODIAL_REASONS.call_up,
@@ -56,18 +73,22 @@ const RESUMABLE = new Set([
 /**
  * The dialler's state machine.
  *
- * @param order        `[{ id, dialled, name }]` in the day's dial order.
+ * @param order        `[{ id, dialled, name, opensAt, opensAtLocal, zoneLabel }]`
+ *                     in the day's grouped order — lib/sales/queueWindows.js's.
  * @param currentId    the open prospect.
  * @param readiness    `{ decision, reason }` for the open prospect, live.
  * @param select       puts a prospect in the URL (the queue's own select()).
  * @param browserReady whether CallPanel can dial in-browser; null = unknown.
+ * @param clockOffsetMs server clock minus the laptop's, from the queue's
+ *                     `serverNow` stamp, so a window is judged on the clock
+ *                     the server will judge the dial on.
  */
-export function useAutodial({ order, currentId, readiness, select, browserReady = null }) {
+export function useAutodial({ order, currentId, readiness, select, browserReady = null, clockOffsetMs = 0 }) {
   const presence = useRepPresence();
   const { autodial: switchOn, callUp, inboundRinging, availablePresses } = presence;
   const state = presence.presence?.state || null;
 
-  const [phase, setPhase] = useState("idle"); // idle | countdown | dialling | stopped
+  const [phase, setPhase] = useState("idle"); // idle | countdown | waiting | dialling | stopped
   const [target, setTarget] = useState(null);
   const [endsAt, setEndsAt] = useState(null);
   const [remaining, setRemaining] = useState(AUTODIAL_COUNTDOWN_SECONDS);
@@ -79,6 +100,10 @@ export function useAutodial({ order, currentId, readiness, select, browserReady 
   // the target itself, so "the rep opened a different row" has to mean a row
   // that is neither the one they were on nor the one being counted down.
   const [fromId, setFromId] = useState(null);
+  // The window being waited for: `{ id, opensAt, count, cursor }` — the first
+  // row of the group, the instant, how many open with it, and the cursor the
+  // wait was armed from so the re-ask at zero resumes from the same place.
+  const [waiting, setWaiting] = useState(null);
 
   const firedRef = useRef(null);
   // Everything the timer reads, as of the latest render. `select` is in here
@@ -86,7 +111,8 @@ export function useAutodial({ order, currentId, readiness, select, browserReady 
   // this ref rather than in arm()'s dependencies is what keeps arm — and the
   // interval that depends on it — stable across renders.
   const latest = useRef({});
-  latest.current = { order, currentId, readiness, state, switchOn, callUp, inboundRinging, browserReady, skipped, select };
+  latest.current = { order, currentId, readiness, state, switchOn, callUp, inboundRinging, browserReady, skipped, select, clockOffsetMs };
+  const nowMs = useCallback(() => Date.now() + (Number(latest.current.clockOffsetMs) || 0), []);
 
   const nameOf = useCallback(
     (id) => (Array.isArray(order) ? order.find((r) => r.id === id)?.name : null) || null,
@@ -98,6 +124,7 @@ export function useAutodial({ order, currentId, readiness, select, browserReady 
     setStop({ reason, ...extra });
     setEndsAt(null);
     setToken(null);
+    setWaiting(null);
   }, []);
 
   /**
@@ -115,6 +142,7 @@ export function useAutodial({ order, currentId, readiness, select, browserReady 
         order: l.order,
         cursor,
         skipped: skip,
+        now: nowMs(),
         readiness: { decision: "allowed" },
         state: l.state,
         switchOn: l.switchOn,
@@ -126,12 +154,27 @@ export function useAutodial({ order, currentId, readiness, select, browserReady 
         halt(gate.reason, { state: gate.state || null });
         return;
       }
-      const id = nextCandidate({ order: l.order, cursor, skipped: skip });
+      if (gate.wait) {
+        // The next group is not open yet. A countdown to the window, not to a
+        // dial — the header's "waiting" section. The selection is left where
+        // the rep has it; the row is selected when the window opens.
+        setStop(null);
+        setTarget(gate.wait);
+        setFromId(l.currentId || null);
+        setWaiting({ id: gate.wait, opensAt: gate.opensAt, count: gate.count, cursor: cursor || null });
+        setPhase("waiting");
+        setEndsAt(gate.opensAt);
+        setRemaining(Math.max(0, Math.ceil((gate.opensAt - nowMs()) / 1000)));
+        firedRef.current = null;
+        return;
+      }
+      const id = nextCandidate({ order: l.order, cursor, skipped: skip, now: nowMs() });
       if (!id) {
         halt(AUTODIAL_REASONS.exhausted);
         return;
       }
       setStop(null);
+      setWaiting(null);
       setTarget(id);
       setFromId(l.currentId || null);
       setPhase("countdown");
@@ -140,8 +183,32 @@ export function useAutodial({ order, currentId, readiness, select, browserReady 
       firedRef.current = null;
       if (id !== l.currentId) l.select?.(id);
     },
-    [halt],
+    [halt, nowMs],
   );
+
+  // ── The wait ───────────────────────────────────────────────────────────
+  //
+  // Ticks once a second against the server-corrected clock. At zero it does
+  // not dial and does not count down: it calls arm() with the cursor the wait
+  // was armed from, and arm() asks nextDial() again through every gate. If
+  // the group is open, a five-second countdown starts on its first row; if
+  // the clock says it is still shut (a laptop that ran fast), arm() answers
+  // `wait` again and the clock keeps running. Nothing here reads the switch
+  // or the status directly — those are the gates' job, and the "cancelled by
+  // the world" effect below has already halted this phase if either moved.
+  useEffect(() => {
+    if (phase !== "waiting" || !endsAt) return undefined;
+    const tick = () => {
+      const left = Math.max(0, Math.ceil((endsAt - nowMs()) / 1000));
+      setRemaining(left);
+      if (left > 0 || firedRef.current === endsAt) return;
+      firedRef.current = endsAt;
+      arm(waiting?.cursor || null);
+    };
+    tick();
+    const id = setInterval(tick, WAIT_TICK_MS);
+    return () => clearInterval(id);
+  }, [phase, endsAt, waiting, arm, nowMs]);
 
   // ── The clock ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -168,6 +235,7 @@ export function useAutodial({ order, currentId, readiness, select, browserReady 
         order: l.order,
         cursor: target,
         skipped: l.skipped,
+        now: nowMs(),
         readiness: ready,
         state: l.state,
         switchOn: l.switchOn,
@@ -185,6 +253,13 @@ export function useAutodial({ order, currentId, readiness, select, browserReady 
         arm(decision.skip, [decision.skip]);
         return;
       }
+      if (decision.wait) {
+        // The order regrouped under the countdown and the target now opens
+        // later — the reload after an outcome can do that at a window's edge.
+        // Re-arm from the target: arm() turns the same answer into a wait.
+        arm(target);
+        return;
+      }
       setPhase("dialling");
       setEndsAt(null);
       setToken({ token: `${decision.dial}:${Date.now()}`, prospectId: decision.dial });
@@ -192,7 +267,7 @@ export function useAutodial({ order, currentId, readiness, select, browserReady 
     tick();
     const id = setInterval(tick, 250);
     return () => clearInterval(id);
-  }, [phase, endsAt, target, arm, halt, nameOf]);
+  }, [phase, endsAt, target, arm, halt, nameOf, nowMs]);
 
   // ── Cancelled by the world ─────────────────────────────────────────────
   //
@@ -200,12 +275,21 @@ export function useAutodial({ order, currentId, readiness, select, browserReady 
   // changing status, or the rep opening a different row: any of these during
   // a countdown stops it. Evaluated through nextDial so the reason printed is
   // the same vocabulary the check executes.
+  //
+  // A WAIT is cancelled by the same things, bar one: opening a different row
+  // while waiting for eleven o'clock is reading, not leaving, so it does not
+  // halt. And a reload that regroups the list during a wait is re-read here —
+  // a fresh batch with callable rows in it, or the window arriving on the
+  // server's side of a reload, turns the wait into the ordinary countdown by
+  // the same arm() the timer would have called; a wait that is now for a
+  // different instant is re-timed.
   useEffect(() => {
-    if (phase !== "countdown") return;
+    if (phase !== "countdown" && phase !== "waiting") return;
     const gate = nextDial({
       order,
-      cursor: target,
+      cursor: phase === "waiting" ? waiting?.cursor || null : target,
       skipped,
+      now: nowMs(),
       readiness: { decision: "allowed" },
       state,
       switchOn,
@@ -217,8 +301,19 @@ export function useAutodial({ order, currentId, readiness, select, browserReady 
       halt(gate.reason, { state: gate.state || null });
       return;
     }
+    if (phase === "waiting") {
+      if (!gate.wait) {
+        arm(waiting?.cursor || null);
+      } else if (gate.wait !== waiting?.id || gate.opensAt !== waiting?.opensAt || gate.count !== waiting?.count) {
+        setTarget(gate.wait);
+        setWaiting((w) => ({ id: gate.wait, opensAt: gate.opensAt, count: gate.count, cursor: w?.cursor || null }));
+        setEndsAt(gate.opensAt);
+        firedRef.current = null;
+      }
+      return;
+    }
     if (currentId && target && currentId !== target && currentId !== fromId) halt("moved");
-  }, [phase, target, fromId, order, skipped, state, switchOn, callUp, inboundRinging, browserReady, currentId, halt]);
+  }, [phase, target, fromId, waiting, order, skipped, state, switchOn, callUp, inboundRinging, browserReady, currentId, halt, arm, nowMs]);
 
   // The switch going off ends everything, whatever phase. Going ON is not
   // handled here on purpose: the persisted switch arrives true from the
@@ -231,6 +326,7 @@ export function useAutodial({ order, currentId, readiness, select, browserReady 
     setStop(null);
     setEndsAt(null);
     setToken(null);
+    setWaiting(null);
   }, [switchOn]);
 
   // The rep pressed Available. Only the press — never the state — arms.
@@ -238,7 +334,7 @@ export function useAutodial({ order, currentId, readiness, select, browserReady 
   useEffect(() => {
     if (prevPresses.current === availablePresses) return;
     prevPresses.current = availablePresses;
-    if (!switchOn || phase === "countdown" || phase === "dialling") return;
+    if (!switchOn || phase === "countdown" || phase === "waiting" || phase === "dialling") return;
     arm(latest.current.currentId);
   }, [availablePresses, switchOn, phase, arm]);
 
@@ -298,13 +394,17 @@ export function useAutodial({ order, currentId, readiness, select, browserReady 
   }, [phase, target, arm, nameOf]);
 
   const pause = useCallback(() => {
-    if (phase !== "countdown") return;
+    if (phase !== "countdown" && phase !== "waiting") return;
     halt("cancelled");
   }, [phase, halt]);
 
   const resume = useCallback(() => {
     arm(latest.current.currentId);
   }, [arm]);
+
+  // What the wait is for, in words the row already carries from the server:
+  // the group's opening instant on the rep's clock and its zone's name.
+  const waitRow = waiting ? (Array.isArray(order) ? order.find((r) => r.id === waiting.id) : null) || null : null;
 
   return useMemo(
     () => ({
@@ -317,6 +417,9 @@ export function useAutodial({ order, currentId, readiness, select, browserReady 
       lastSkip,
       token,
       state,
+      waiting: waiting
+        ? { ...waiting, opensAtLocal: waitRow?.opensAtLocal || null, zoneLabel: waitRow?.zoneLabel || null }
+        : null,
       onResult,
       onWorked,
       skip,
@@ -325,8 +428,19 @@ export function useAutodial({ order, currentId, readiness, select, browserReady 
       setSwitch: presence.setAutodial,
       resumable: Boolean(stop && RESUMABLE.has(stop.reason) && state === STATE_AVAILABLE && !callUp),
     }),
-    [switchOn, phase, target, nameOf, remaining, stop, lastSkip, token, state, onResult, onWorked, skip, pause, resume, presence.setAutodial, callUp],
+    [switchOn, phase, target, nameOf, remaining, stop, lastSkip, token, state, waiting, waitRow, onResult, onWorked, skip, pause, resume, presence.setAutodial, callUp],
   );
+}
+
+/** "2h 04m 09s" / "4m 09s" / "9s" — a wait's remaining time, digits only. */
+function describeWait(seconds) {
+  const total = Math.max(0, Math.floor(Number(seconds) || 0));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (h > 0) return `${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`;
+  if (m > 0) return `${m}m ${String(s).padStart(2, "0")}s`;
+  return `${s}s`;
 }
 
 /**
@@ -457,6 +571,32 @@ export default function AutodialControl({ auto, claimLabel = null, onClaim = nul
               <Pause size={16} /> {t("app.salesAutodial.pause")}
             </button>
           </div>
+        </div>
+      ) : null}
+
+      {auto.switchOn && auto.phase === "waiting" && auto.waiting ? (
+        <div className="rounded-lg border border-sky-300 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 p-3 space-y-2">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="text-sm font-semibold text-sky-900 dark:text-sky-100 break-words">
+              {auto.waiting.zoneLabel
+                ? t("app.salesAutodial.waitingForWindow", {
+                    count: auto.waiting.count,
+                    time: auto.waiting.opensAtLocal || "",
+                    zone: auto.waiting.zoneLabel,
+                  })
+                : t("app.salesAutodial.waitingForWindowNoZone", {
+                    count: auto.waiting.count,
+                    time: auto.waiting.opensAtLocal || "",
+                  })}
+            </p>
+            <p className="text-lg font-mono tabular-nums text-sky-900 dark:text-sky-100 whitespace-nowrap" aria-live="polite">
+              {describeWait(auto.remaining)}
+            </p>
+          </div>
+          <p className="text-xs text-sky-900/80 dark:text-sky-100/80 break-words">{t("app.salesAutodial.waitingForWindowNote")}</p>
+          <button type="button" className={`${BTN} border border-sky-400 text-sky-900 dark:text-sky-100 w-full`} onClick={auto.pause}>
+            <Pause size={16} /> {t("app.salesAutodial.pause")}
+          </button>
         </div>
       ) : null}
 
