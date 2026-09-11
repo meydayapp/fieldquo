@@ -37,8 +37,15 @@ export async function GET(request) {
 
   const connection = await getConnection(member.companyId);
 
+  // The NAMES of the missing variables, never values. Printed on the screen
+  // so the person who can fix it — whoever runs this deployment — reads
+  // "META_APP_ID is not set" rather than a sentence blaming Meta's review for
+  // a blank environment. The owner read that sentence and concluded he was
+  // waiting on Meta while the app had no credentials at all.
+  const missing = ["META_APP_ID", "META_APP_SECRET"].filter((k) => !process.env[k]);
   return NextResponse.json({
     appConfigured: metaAppConfigured(),
+    missing,
     encryptionConfigured: tokenCryptoConfigured(),
     fullyConfigured: metaFullyConfigured(),
     connection: publicConnectionShape(connection),

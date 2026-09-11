@@ -226,10 +226,9 @@ function MetaAdsPageScreen() {
           <ShieldAlert size={32} className="mx-auto text-muted-foreground" />
           <h2 className="font-semibold text-foreground">{t("app.setMetaAds.notConfiguredTitle", "Not set up yet")}</h2>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            {t(
-              "app.setMetaAds.notConfiguredBody",
-              "FieldQuo hasn't been approved by Meta as an advertiser-facing app on this deployment, so there's nothing to connect to yet. See docs/META-ADS-BUILD.md for what that takes.",
-            )}
+            {t("app.setMetaAds.notConfiguredBody", {
+              names: (status.missing || []).join(", ") || "META_APP_ID, META_APP_SECRET",
+            })}
           </p>
         </div>
       )}
