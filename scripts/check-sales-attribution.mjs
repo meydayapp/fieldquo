@@ -528,10 +528,36 @@ for (const hostile of ["<script>alert(1)</script>", "amara<img src=x>", "<", ">"
 }
 
 // ══ 9. The source is a closed set ══════════════════════════════════════════
-section("9. Only the three sanctioned doors exist");
+section("9. Only the four sanctioned doors exist");
 
-ok("there are exactly three sources", ATTRIBUTION_SOURCES.length === 3);
-ok("link, manual and admin", ["link", "manual", "admin"].every((s) => ATTRIBUTION_SOURCES.includes(s)));
+// lead_link joined on 2026-09-11 — the one rep-side door, gated by a claim
+// (the email the company registered with, and the lead predating the signup)
+// that scripts/check-sales-lead-link.mjs executes branch by branch. Counted
+// here so a fifth door cannot appear without somebody editing this line.
+ok("there are exactly four sources", ATTRIBUTION_SOURCES.length === 4);
+ok("link, manual, admin and lead_link", ["link", "manual", "admin", "lead_link"].every((s) => ATTRIBUTION_SOURCES.includes(s)));
+{
+  // The claim gate, at the decision: a lead_link with no claim, a claim whose
+  // email is not the company's, or a claim whose lead came after the signup
+  // attributes nothing — before the self-dealing branch, so the caller can
+  // tell the two refusals apart.
+  const company = { ...CO, createdAt: new Date("2026-09-10T17:06:31Z"), ownerEmails: ["owner.login@paintco.example"] };
+  const before = new Date("2026-09-10T00:48:59Z");
+  const after = new Date("2026-09-11T00:00:00Z");
+  const base = { source: "lead_link", presented: true, rep: REP_A, company };
+  ok("lead_link with no claim attributes nothing", decideAttribution(base).outcome === "unverified_claim");
+  ok("...and names the missing claim", decideAttribution(base).detail === "no_claim");
+  ok("lead_link with the wrong email attributes nothing", decideAttribution({ ...base, claim: { email: "someone@else.example", leadCreatedAt: before } }).outcome === "unverified_claim");
+  ok("lead_link with a lead created AFTER the signup attributes nothing", decideAttribution({ ...base, claim: { email: CO.email, leadCreatedAt: after } }).outcome === "unverified_claim");
+  ok("...with the ordering named", decideAttribution({ ...base, claim: { email: CO.email, leadCreatedAt: after } }).detail === "predate");
+  ok("equal timestamps refuse", decideAttribution({ ...base, claim: { email: CO.email, leadCreatedAt: company.createdAt } }).outcome === "unverified_claim");
+  ok("the business email, upper-cased and padded, matches", decideAttribution({ ...base, claim: { email: "  OWNER@PaintCo.example ", leadCreatedAt: before } }).outcome === "attribute");
+  ok("the owner's login email matches too", decideAttribution({ ...base, claim: { email: "owner.login@paintco.example", leadCreatedAt: before } }).outcome === "attribute");
+  ok("a verified claim still cannot self-deal", decideAttribution({ ...base, repIsMember: true, claim: { email: CO.email, leadCreatedAt: before } }).outcome === "self_dealing");
+  ok("a verified claim on a colleague's company is a touch, not a takeover", decideAttribution({ ...base, existing: { salesRepId: REP_B.id }, claim: { email: CO.email, leadCreatedAt: before } }).outcome === "touch");
+  ok("an unverified claim is a miss worth logging", isAttributionMiss("unverified_claim") === true);
+  ok("the other three sources ignore the claim entirely", ["link", "manual", "admin"].every((source) => decideAttribution({ source, presented: true, rep: REP_A, company: CO }).outcome === "attribute"));
+}
 for (const bogus of ["webhook", "", null, "LINK", "self"]) {
   const v = decideAttribution({ source: bogus, presented: true, rep: REP_A, company: CO });
   ok(`an unrecognised source (${JSON.stringify(bogus)}) attributes nothing`, v.outcome === "invalid_source");

@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 11 September 2026 (Meta Ads, the rest of the picture. The owner connected a live USD ad account to his CAD company; the sync worked and the KPI card said MARKETING SPEND $0.00, because `marketingRollup.js` excluded a currency mismatch instead of converting it. Rows in another currency now convert at READ time through `lib/marketing/fx.js`'s pinned rate via `lib/analytics/spendCurrency.js` — totals carry `approximate: true`, the original amount and the rate's age, and print "≈ $1,140.90 · includes US$821.50 converted at the pinned exchange rate (14 days old)"; a stale rate excludes AND names the amount, in nine languages. The sync asks Meta for nine fields, all verbatim from the AdsInsights enum (`CAMPAIGN_INSIGHT_FIELDS`), and each lands in a column — objective, reach, link clicks, conversations started, video views, engagements, the raw actions array — null when absent, never 0. `lib/analytics/campaignRollup.js` + `GET /api/marketing-spend/campaigns` + a Campaigns section on `/app/marketing/spend#campaigns`: per campaign, spend, every Meta count, CTR/CPC/cost per conversation computed from stored counts, and the join nothing had — lead-form leads by `metaCampaignId`, their quotes, jobs and invoiced revenue, cost per lead per campaign. Linked from the KPI tile and the Meta settings panel. Matrix `marketing_spend.limits` narrowed to what is still true (phone leads and non-Meta channels blended). Found and fixed on the way: `app/api/analytics/kpis/route.js` filtered on `InvoiceStatus` `cancelled`, which does not exist — every KPI request for a company with a completed job threw. **Not done:** the sync is still manual; reach is a daily sum, not people; leads by phone are unattributed.)
+Last updated: 11 September 2026 (A lead linked to the wrong company. The owner's lead "truefinish cabinets" got linked to "Easy Roofers Inc." — different email, different business — because /sales/leads/[id]'s "Link a signup" listed every company attributed to the rep that no lead claimed and offered one candidate. The list is gone. The rep now types the email the client registered with; `lib/sales/leadLink.js` decides — `not_found`, `already_linked_to_lead`, `attributed_to_another_rep`, `referral_code`, `signed_up_before_lead` (the anti-gaming rule: the lead must predate the signup, equal timestamps refuse), `self_deal`, `demo_company`, `ok_already_yours` (link only), `ok_unclaimed` (link AND attribute, source `lead_link` — the one rep-side door into SalesAttribution, reopened by the owner, verified by the claim inside `decideAttribution()`); the name comes back only on an eligible verdict. POST re-decides inside the transaction; DELETE unlinks within 30 days, restores the pre-link status from the new append-only `SalesLeadLinkEvent`, and never touches the attribution. Nine languages. `check:sales-lead-link` executes every reason; `check:sales-auth` fences the door. The wrong link was undone through the same code path; Easy Roofers' attribution stands, as it should.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,85 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## A lead linked to the wrong company, and the guard that was missing (11 September 2026)
+
+Verified in the database: lead `cmtut7gb9003304ju87favwi9` ("truefinish
+cabinets", emilio.boves@…, created 2026-09-10 00:48Z) had
+`convertedCompanyId = cmtvs4kha000004js8lf58ls2` ("Easy Roofers Inc.",
+sierra_…@icloud.com, signed up 2026-09-10 17:06Z, attributed to the same rep
+by the signup link). The emails do not match. "Link a signup" on
+`/sales/leads/[id]` listed every company attributed to the rep that no lead
+claimed, Easy Roofers was the only row, and the rep took it. The "same email"
+hint the list drew was never read by the write.
+
+**The owner's design, built as stated.** The rep types the email the client
+registered with. `GET /api/sales/leads/[id]/link?email=` looks the company up
+by exactly that address — `Company.email` OR the owner-role member's login
+email, trimmed, case-insensitive, no prefix search, one lookup — and answers
+`{ found, company, eligible, reason }`. Reasons, in the order
+`lib/sales/leadLink.js` decides them: `not_found`, `lead_already_linked`,
+`demo_company`, `already_linked_to_lead`, `self_deal` (the same
+`selfDealReason()` the attribution sources use), `attributed_to_another_rep`,
+`signed_up_before_lead`, `ok_already_yours` (attributed to this rep already —
+link only), `referral_code`, `ok_unclaimed` (link AND attribute). The
+company's name comes back only on an eligible verdict; a rep who fails the
+gate learns the address is taken and nothing about whose it is.
+
+**The anti-gaming rule.** The lead must have been created BEFORE the company
+signed up — `leadPredatesCompany()`, strict, equal timestamps refuse.
+Without it a rep could create a lead today for any organic signup from last
+month and claim it. It gates `ok_already_yours` too, so a pipeline cannot be
+padded even where no money moves. When one email names several companies
+(the owner's own is on two), the company a lead led to is the FIRST signup
+after the lead; if none follows, `signed_up_before_lead`.
+
+**One rep-side door into SalesAttribution, reopened deliberately.**
+`ATTRIBUTION_SOURCES` gains `lead_link`. `decideAttribution()` takes a
+`claim` `{ email, leadCreatedAt }` for that source and re-verifies both
+against the company row loaded fresh inside the transaction — a missing or
+failed claim is `unverified_claim`, writes nothing, and is logged as a miss.
+Self-dealing and an existing attribution refuse exactly as for `manual`.
+`lib/sales/leadLink.js`'s `linkLeadWithin(tx)` writes the lead
+(compare-and-set on `convertedCompanyId: null`), a `SalesLeadLinkEvent`
+(new model, append-only, carrying `statusBefore`), and on `ok_unclaimed` only
+calls `captureAttributionWithin` with the SESSION's rep id and that one
+source; a capture that disagrees with the decision throws and rolls the lead
+back. The route runs it under `withUniqueRetry`, so a lost race re-decides
+rather than surfacing a P2002. The old `companyId` body form is removed.
+
+**Unlink.** `DELETE` within 30 days of the link: nulls the two columns,
+restores the status the link overwrote (from the matching `linked` event;
+`contacted` when there is none, and the event says so), writes an `unlinked`
+event with the rep's reason. It does NOT touch `SalesAttribution` — a wrong
+lead link does not make the company's attribution wrong; Easy Roofers was
+attributed by the signup link the rep handed out, and that stayed true.
+Outside the window the screen says whom to ask instead of offering a button
+that can only 409.
+
+**Screen.** Email field → Check → the verdict sentence in the rep's language
+(`LEAD_LINK_REASON_KEYS`, nine languages, in `lib/sales/leadLinkReasons.js`
+so the client bundle never imports the decider) → Link only on an eligible
+verdict; when linked, the company by name (read under
+`assignedCompanyWhere`), and Unlink with a confirm while the window is open.
+The list-era copy ("None of your signups are unlinked…") is gone.
+
+**Checks.** `scripts/check-sales-lead-link.mjs` (`check:sales-lead-link`, in
+`check:all`) executes every reason, the email both ways, the predate rule at
+equal timestamps, self-deal, the 30-day window at its edges, and both db
+halves against a scripted client; then reads the route, the loader and the
+screen. `check-sales-attribution.mjs` §9 counts four sources and executes
+the claim gate. `check-sales-auth.mjs` declares `lib/sales/attribution.js`
+for the link route and fences the shape: one import (`withUniqueRetry`), one
+capture call, `salesRepId: rep.id`, `source: "lead_link"`, no reach into
+`correctAttributionWithin`, and no other `/api/sales` route may import the
+file. `check-sales-outreach.mjs` §8 pins the new handlers and adds
+`lib/sales/leadLink.js` to the write scan.
+
+**The wrong row, corrected.** Unlinked through `unlinkLeadWithin` — not a raw
+update — from a scratchpad script: `convertedCompanyId`/`convertedAt` null,
+status back to `demoed`, an `unlinked` `SalesLeadLinkEvent` recording why.
+Easy Roofers' attribution is untouched.
 
 ## Meta Ads: every number Meta sends, in the company's own money, per campaign (11 September 2026)
 

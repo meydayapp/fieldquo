@@ -3,58 +3,97 @@
 // "This prospect is that company." The join that stops the pipeline and the
 // commission ledger being two lists that disagree.
 //
-// ══ What this writes, and what it deliberately does not ════════════════════
+// ══ What changed on 2026-09-11, and why ═══════════════════════════════════
 //
-// It writes SalesLead.convertedCompanyId — a field on the rep's own note about
-// a prospect. It does NOT write SalesAttribution, and cannot: attribution is
-// who gets PAID, it is captured and locked by lib/sales/attribution.js at
-// signup, and lib/sales/gate.js's REP_FORBIDDEN_WRITES lists it first precisely
-// because a rep who can write it is a rep who can pay themselves.
+// This route used to list every company attributed to the rep that no lead
+// claimed, and POST took a `companyId` off that list. The owner's lead
+// "truefinish cabinets" got linked to "Easy Roofers Inc." — different email,
+// different business — because it was the only candidate offered. The list
+// is gone. The rep now types the email the client registered with, GET says
+// whether that names a linkable company and why or why not, and POST re-runs
+// the same decision inside its transaction and writes only if it still holds.
+// lib/sales/leadLink.js holds the decision; its header lists every reason.
 //
-// So the direction of trust runs one way. A company may only be named here if
-// it is ALREADY attributed to this rep — the attribution is the fact, and this
-// link is the rep's own bookkeeping catching up to it. A rep cannot invent the
-// connection, and linking the wrong company gains them nothing, because nothing
-// downstream reads this field for money.
+// ══ What this writes now, and what it still does not ══════════════════════
 //
-// ══ Why the candidate list is a GET on the same route ══════════════════════
+// SalesLead.convertedCompanyId/convertedAt/status, a SalesLeadLinkEvent for
+// every change — and, on `ok_unclaimed` ONLY, a SalesAttribution through
+// lib/sales/attribution.js's captureAttributionWithin with source "lead_link".
+// That is the one rep-side write to the attribution table, reopened by the
+// owner on purpose; the header of lib/sales/attribution.js says what it costs
+// to walk through (the email must match, the lead must predate the signup,
+// nothing may have claimed the company, and the rep may not be selling to
+// themselves). `salesRepId` is the session's rep, never a body field.
 //
-// The screen has to offer the rep something to choose from, and the only safe
-// source for that list is the same scoping rule the POST enforces. One route,
-// one predicate, read and write — so the list can never offer a company the
-// write would then refuse.
+// DELETE undoes a link inside 30 days and touches SalesAttribution not at all
+// — unlinkLeadWithin's comment says why a wrong lead link is not a wrong
+// attribution.
+//
+// ══ Why GET and POST call the same function ═══════════════════════════════
+//
+// One predicate, read and write, so the verdict the screen shows can never
+// differ from the one the write enforces — except by the rows having changed
+// in between, which is exactly why POST reads them again.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireOutreachRep } from "@/lib/sales/outreachGate";
-import { leadWhere } from "@/lib/sales/outreach";
-import { assignedCompanyWhere } from "@/lib/sales/scope";
+import { isPlausibleEmail, leadWhere, sanitiseHeaderText } from "@/lib/sales/outreach";
+import { withUniqueRetry } from "@/lib/sales/attribution";
+import {
+  decideLeadLink,
+  linkLeadWithin,
+  loadLinkCandidates,
+  normaliseEmail,
+  unlinkLeadWithin,
+} from "@/lib/sales/leadLink";
+
+// The lead columns every handler here needs, and no more. `email` is NOT
+// read: the rep types the address, and the lead's own address is not a
+// shortcut — a lead entered from a directory listing carries the shop's
+// info@ while the owner signed up with their own.
+const LEAD_SELECT = { id: true, createdAt: true, convertedCompanyId: true, convertedAt: true, status: true };
 
 /**
- * The companies this rep brought in that no lead claims yet.
- *
- * REP_COMPANY_SELECT is not reused here on purpose: this list answers "which of
- * my signups is this prospect?", so it needs the name, when they signed up, and
- * whether the row is a demo — and nothing about their billing state, which is a
- * different screen's question.
+ * English fallbacks for the verdicts a rep can read. The screen resolves the
+ * `reason` code through its own catalogue (LEAD_LINK_REASON_KEYS); these are
+ * what a script, a log or a curl sees, and the fallback for a language with
+ * no entry yet — the same split lib/sales/authRefusals.js makes.
  */
-async function candidates(repId) {
-  const companies = await db.company.findMany({
-    where: assignedCompanyWhere(repId),
-    orderBy: { createdAt: "desc" },
-    take: 200,
-    select: { id: true, name: true, email: true, createdAt: true, isDemo: true },
-  });
-  if (!companies.length) return [];
+const REASON_TEXT = {
+  not_found: "No company has registered with that email.",
+  lead_already_linked: "This lead is already linked to a company.",
+  demo_company: "That email belongs to a demo account, which can't be linked to a lead.",
+  already_linked_to_lead: "That company is already linked to a lead.",
+  self_deal: "You can't link a company you belong to.",
+  attributed_to_another_rep: "That company is attributed to another rep.",
+  signed_up_before_lead: "That company signed up before this lead was created, so it can't be claimed from it.",
+  referral_code: "That company came in through a referral code, so it isn't a rep's sale to claim.",
+  ok_already_yours: "That company is attributed to you. Linking records that this lead became them.",
+  ok_unclaimed: "That company is unclaimed. Linking attributes it to you.",
+  not_linked: "This lead isn't linked to a company.",
+  no_link_date: "This link has no date on it, so the 30-day window can't be checked. Ask a superadmin.",
+  window_expired: "This link is more than 30 days old. Ask a superadmin to change it.",
+};
 
-  const claimed = await db.salesLead.findMany({
-    where: { convertedCompanyId: { in: companies.map((c) => c.id) } },
-    select: { convertedCompanyId: true },
-  });
-  const taken = new Set(claimed.map((l) => l.convertedCompanyId));
+/** A refusal the screen can translate: sentence in `error`, code in `code`/`reason`. */
+function refuse(reason, status = 409) {
+  return NextResponse.json({ error: REASON_TEXT[reason] || "Couldn't do that.", code: reason, reason }, { status });
+}
 
-  return companies.filter((c) => !taken.has(c.id));
+/**
+ * The email off a query string or a body, or null.
+ *
+ * Exact-match only. Length-capped and markup-refused before it reaches a
+ * query — the same second layer every rep-typed string here gets — and
+ * plausibility-checked so a bare word is refused as a bad email rather than
+ * reported as "no company has registered with that".
+ */
+function readEmail(raw) {
+  const text = sanitiseHeaderText(typeof raw === "string" ? raw : "").slice(0, 254);
+  const email = normaliseEmail(text);
+  return email && isPlausibleEmail(email) ? email : null;
 }
 
 export async function GET(request, { params }) {
@@ -62,27 +101,38 @@ export async function GET(request, { params }) {
   if (refusal) return NextResponse.json(refusal.body, { status: refusal.status });
 
   const { id } = await params;
-  const lead = await db.salesLead.findFirst({
-    where: leadWhere(rep.id, id),
-    select: { id: true, email: true, convertedCompanyId: true },
-  });
+  const lead = await db.salesLead.findFirst({ where: leadWhere(rep.id, id), select: LEAD_SELECT });
   if (!lead) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
-  const rows = await candidates(rep.id);
-  const leadEmail = String(lead.email || "").toLowerCase();
+  const email = readEmail(new URL(request.url).searchParams.get("email"));
+  if (!email) {
+    return NextResponse.json({ error: "Enter the email the client registered with." }, { status: 400 });
+  }
 
+  // One lookup per request, exact email, no prefix — see loadLinkCandidates.
+  const companies = await loadLinkCandidates(db, { email, rep });
+  const v = decideLeadLink({ email, lead, rep, companies });
   return NextResponse.json({
-    // `matchesEmail` is a HINT for the rep's eyes, never an automatic link. The
-    // rep is the one who knows whether the Northline that signed up is the
-    // Northline they called; an address match is evidence, not a decision, and
-    // auto-linking on it would quietly rewrite their pipeline.
-    candidates: rows.map((c) => ({
-      ...c,
-      matchesEmail: Boolean(leadEmail) && String(c.email || "").toLowerCase() === leadEmail,
-    })),
-    convertedCompanyId: lead.convertedCompanyId,
+    found: v.found,
+    company: v.company,
+    eligible: v.eligible,
+    reason: v.reason,
+    text: REASON_TEXT[v.reason] || "",
   });
 }
+
+/**
+ * A captureAttributionWithin outcome that disagreed with the decision, named
+ * in the lead-link vocabulary so the rep reads one kind of sentence. Reached
+ * only when the rows moved between the decision and the write inside the
+ * same transaction — which the retry below re-decides anyway.
+ */
+const ATTRIBUTION_OUTCOME_REASON = {
+  self_dealing: "self_deal",
+  touch: "attributed_to_another_rep",
+  already_attributed: "ok_already_yours",
+  unverified_claim: "signed_up_before_lead",
+};
 
 export async function POST(request, { params }) {
   const { rep, refusal } = await requireOutreachRep(request);
@@ -90,72 +140,63 @@ export async function POST(request, { params }) {
 
   const { id } = await params;
   const body = await request.json().catch(() => null);
-  const companyId = typeof body?.companyId === "string" ? body.companyId : "";
-  if (!companyId) {
-    return NextResponse.json({ error: "Pick the company that signed up." }, { status: 400 });
+  const email = readEmail(body?.email);
+  if (!email) {
+    return NextResponse.json({ error: "Enter the email the client registered with." }, { status: 400 });
   }
 
-  const lead = await db.salesLead.findFirst({
-    where: leadWhere(rep.id, id),
-    select: { id: true, convertedCompanyId: true, status: true },
-  });
-  if (!lead) return NextResponse.json({ error: "Not found." }, { status: 404 });
-  if (lead.convertedCompanyId) {
-    return NextResponse.json(
-      { error: "This lead is already linked to a company." },
-      { status: 409 },
-    );
-  }
-
-  // Re-read at write time from the attribution itself, never from the candidate
-  // list the browser was shown — that list could be minutes old, and an
-  // attribution correction by a superadmin in between is exactly the case this
-  // has to notice. Same rule as lib/migrations/state.js's canWrite().
-  const company = await db.company.findFirst({
-    where: { id: companyId, ...assignedCompanyWhere(rep.id) },
-    select: { id: true, name: true },
-  });
-  if (!company) {
-    return NextResponse.json(
-      {
-        error:
-          "That company isn't attributed to you, so it can't be linked. If you " +
-          "brought them in, ask a superadmin to correct the attribution first.",
-      },
-      { status: 403 },
-    );
-  }
-
+  // Everything — the lead, the companies, the decision, the three writes — in
+  // ONE transaction, and re-run once if Postgres refuses on a unique index:
+  // convertedCompanyId (another rep's lead took the company a moment ago) or
+  // SalesAttribution.companyId (another rep's signup link landed first). The
+  // second pass re-reads and refuses with the right reason rather than the
+  // rep seeing a constraint error. Same shape as captureSalesAttribution.
+  let result;
   try {
-    const { count } = await db.salesLead.updateMany({
-      // Both halves again, plus `convertedCompanyId: null` — which makes this
-      // a compare-and-set rather than a read-then-write, so two clicks a
-      // moment apart cannot both win.
-      where: { ...leadWhere(rep.id, id), convertedCompanyId: null },
-      data: {
-        convertedCompanyId: company.id,
-        convertedAt: new Date(),
-        // A signup IS the pipeline reaching its end. Set rather than left to
-        // the rep to remember, because a lead that converted and still reads
-        // "contacted" is the disagreement this whole route exists to remove.
-        status: "signed",
-      },
-    });
-    if (!count) {
-      return NextResponse.json({ error: "This lead is already linked." }, { status: 409 });
-    }
+    result = await withUniqueRetry(
+      () =>
+        db.$transaction(async (tx) => {
+          const lead = await tx.salesLead.findFirst({ where: leadWhere(rep.id, id), select: LEAD_SELECT });
+          if (!lead) return { notFound: true };
+          return linkLeadWithin(tx, { email, lead, rep });
+        }),
+      null,
+    );
   } catch (err) {
-    // convertedCompanyId is @unique across every rep's leads, so the database
-    // is the real arbiter of "one lead per company" — including against a lead
-    // belonging to a DIFFERENT rep, which this rep must not be told about.
-    if (err?.code === "P2002") {
-      return NextResponse.json(
-        { error: "That company is already linked to a lead." },
-        { status: 409 },
-      );
+    if (err?.code === "LEAD_LINK_ATTRIBUTION_REFUSED") {
+      return refuse(ATTRIBUTION_OUTCOME_REASON[err.outcome] || "attributed_to_another_rep");
     }
+    if (err?.code === "P2002") return refuse("already_linked_to_lead");
     throw err;
   }
 
-  return NextResponse.json({ linked: { companyId: company.id, name: company.name } });
+  if (result.notFound) return NextResponse.json({ error: "Not found." }, { status: 404 });
+  if (!result.linked) return refuse(result.reason, result.reason === "not_found" ? 404 : 409);
+
+  return NextResponse.json({
+    linked: { companyId: result.linked.companyId, name: result.linked.name },
+    reason: result.reason,
+    attributed: Boolean(result.linked.attribution),
+  });
+}
+
+export async function DELETE(request, { params }) {
+  const { rep, refusal } = await requireOutreachRep(request);
+  if (refusal) return NextResponse.json(refusal.body, { status: refusal.status });
+
+  const { id } = await params;
+  const body = await request.json().catch(() => null);
+  // Kept short and header-clean: it lands in an audit row a superadmin reads.
+  const reason = sanitiseHeaderText(typeof body?.reason === "string" ? body.reason : "").slice(0, 500);
+
+  const result = await db.$transaction(async (tx) => {
+    const lead = await tx.salesLead.findFirst({ where: leadWhere(rep.id, id), select: LEAD_SELECT });
+    if (!lead) return { notFound: true };
+    return unlinkLeadWithin(tx, { lead, rep, reason });
+  });
+
+  if (result.notFound) return NextResponse.json({ error: "Not found." }, { status: 404 });
+  if (!result.unlinked) return refuse(result.reason);
+
+  return NextResponse.json({ unlinked: result.unlinked });
 }

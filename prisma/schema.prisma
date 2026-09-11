@@ -9213,6 +9213,7 @@ model SalesRep {
   commissionEntries SalesCommissionEntry[]
   payoutBatches     SalesPayoutBatch[]
   leads             SalesLead[]
+  leadLinkEvents    SalesLeadLinkEvent[]
   threads           SalesThread[]
   smsMessages       SalesSmsMessage[]
   callAttempts      SalesCallAttempt[]
@@ -9514,6 +9515,56 @@ model SalesLead {
   /// Numbers a rep was TOLD to use, beside the one `phone` above. See
   /// SalesContactNumber — one column cannot hold "call the shop, text my cell".
   contactNumbers SalesContactNumber[]
+  /// Every time convertedCompanyId was set or cleared, and why. See the model.
+  linkEvents     SalesLeadLinkEvent[]
+}
+
+/// A lead's link to a company being set or cleared, append-only.
+///
+/// ══ Why a table when the link is two columns on the lead ══════════════════
+///
+/// On 2026-09-11 the owner's lead "truefinish cabinets" was linked to a roofing
+/// company with a different email, because the screen offered one candidate
+/// and the rep took it. Correcting that means clearing convertedCompanyId and
+/// convertedAt — an in-place edit that leaves no trace of what was wrong, who
+/// undid it, or what the lead's status was before "signed" overwrote it.
+/// SalesSuppressionEvent makes the same argument next to SalesSuppression: the
+/// current state is the columns, the sequence is the evidence, and the
+/// sequence is what an in-place edit destroys.
+///
+/// `statusBefore` is the one field that does work at read time: an unlink
+/// restores the status the link overwrote, read from the matching "linked"
+/// row, rather than guessing "contacted" for a lead that had been demoed.
+/// Absent (a link written before this table existed), the unlink falls back to
+/// "contacted" and says so in its own row's reason.
+model SalesLeadLinkEvent {
+  id String @id @default(cuid())
+
+  leadId String
+  lead   SalesLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  salesRepId String
+  salesRep   SalesRep @relation(fields: [salesRepId], references: [id], onDelete: Cascade)
+
+  /// "linked" | "unlinked". Validated in lib/sales/leadLink.js, not the DB.
+  action String
+
+  /// Loose pointer, like SalesSuppressionEvent's actor ids: the event outliving
+  /// the company is an acceptable failure, the event vanishing with it is not.
+  companyId String?
+
+  /// The lead's status the moment before this action. Written on both actions
+  /// so an unlink can put the pre-link status back.
+  statusBefore String?
+
+  /// For "linked": the decision's reason code (ok_unclaimed, ok_already_yours).
+  /// For "unlinked": what the rep typed, plus the window check that allowed it.
+  reason String?
+
+  occurredAt DateTime @default(now())
+
+  @@index([leadId, occurredAt])
+  @@index([salesRepId, occurredAt])
 }
 
 /// A number somebody TOLD us to use, beside the one on the listing.

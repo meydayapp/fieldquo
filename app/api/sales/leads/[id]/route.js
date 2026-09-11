@@ -28,6 +28,37 @@ import { ownNumbers } from "@/lib/sales/calls/store";
 import { CHANNEL_TEXT, CHANNEL_VOICE } from "@/lib/sales/contact/numbers";
 import { loadContactNumbers, pickContactNumber } from "@/lib/sales/contact/resolve";
 import { normalisePhone } from "@/lib/sales/suppressionRules";
+import { assignedCompanyWhere } from "@/lib/sales/scope";
+import { decideUnlink } from "@/lib/sales/leadLink";
+
+/**
+ * The company a lead is linked to, as the rep may see it, plus whether the
+ * rep can still undo the link themselves.
+ *
+ * The name is read through assignedCompanyWhere, like every other rep-facing
+ * company read: convertedCompanyId is a pointer, not a grant
+ * (lib/sales/checkin/store.js says the same). A link written by the old
+ * pick-from-a-list path was always to a company in the rep's book, and the
+ * email path only links to one that is or becomes theirs, so a null here
+ * means the attribution moved since — which is worth the rep seeing as
+ * "linked, but not in your book" rather than a name they are no longer
+ * entitled to.
+ */
+async function linkedCompanyFor(rep, lead) {
+  if (!lead?.convertedCompanyId) return null;
+  const company = await db.company.findFirst({
+    where: { id: lead.convertedCompanyId, ...assignedCompanyWhere(rep.id) },
+    select: { id: true, name: true, createdAt: true },
+  });
+  const unlink = decideUnlink({ lead });
+  return {
+    id: lead.convertedCompanyId,
+    name: company?.name || null,
+    createdAt: company?.createdAt || null,
+    canUnlink: unlink.allowed,
+    unlinkRefusal: unlink.reason,
+  };
+}
 
 /**
  * Every number this lead can be reached on, per channel.
@@ -161,6 +192,7 @@ export async function GET(request, { params }) {
 
   return NextResponse.json({
     lead,
+    linkedCompany: await linkedCompanyFor(rep, lead),
     optedOut: optOut.optedOut,
     optedOutReason: optOut.reason,
     // See the same pair in app/api/sales/threads/[id]/route.js: the sentence
@@ -314,6 +346,7 @@ export async function PATCH(request, { params }) {
 
   return NextResponse.json({
     lead,
+    linkedCompany: await linkedCompanyFor(rep, lead),
     call: lead ? leadDialView(lead, { optedOut: phoneOptOut }) : null,
     numbers: lead ? await contactNumbersFor(lead, { optedOut: phoneOptOut }) : null,
     serverNow: new Date().toISOString(),

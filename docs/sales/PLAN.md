@@ -379,6 +379,16 @@ signal, and is cleared only by a human. A rep must never be accused by a cron.
   the way `canWrite()` does in the migration service. Commission-on-influence
   means a rep who can write to their own ledger is a rep who can pay
   themselves.
+  - *Amended 2026-09-11, by the owner:* one narrow door into
+    `SalesAttribution` exists — source `lead_link`, from the lead screen. A
+    rep types the email the company registered with; FieldQuo links the lead
+    and attributes the company to the rep ONLY if nothing has claimed it (no
+    attribution, no referral code), the rep is not a member of it, and the
+    lead was created BEFORE the company signed up (the anti-gaming rule).
+    Decided in `lib/sales/leadLink.js` and `decideAttribution()`, re-read
+    inside the transaction, fenced by `scripts/check-sales-auth.mjs` and
+    executed by `scripts/check-sales-lead-link.mjs`. The ledger and the payout
+    batch stay closed.
 - **What a rep can read** is the open product question in §11. Default to the
   narrowest thing that makes the dashboard work: company name, signup date,
   milestone states, subscription status. Not the contractor's quotes, clients,

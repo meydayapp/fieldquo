@@ -40,9 +40,10 @@ import {
   MapPin,
   Send,
   LifeBuoy,} from "lucide-react";
-import { fetchJson } from "@/lib/fetchJson";
+import { errorText, fetchJson } from "@/lib/fetchJson";
 import { jsonBody } from "@/lib/jsonBody";
 import { LEAD_STATUSES, LEAD_STATUS_LABELS } from "@/lib/sales/outreachPipeline";
+import { LEAD_LINK_REASON_KEYS } from "@/lib/sales/leadLinkReasons";
 import { dialHref, salesCallReadiness } from "@/lib/sales/callingRules";
 import { dialSpace } from "@/lib/sales/dialSpace";
 import { SALES_SMS_TIME_ZONES } from "@/lib/sales/smsWindow";
@@ -75,7 +76,14 @@ export default function SalesLeadPage({ params }) {
   const [notes, setNotes] = useState("");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
-  const [candidates, setCandidates] = useState(null);
+  // The email the rep says the client registered with, and what the server
+  // said about it. `verdict` is cleared on every keystroke: a verdict is about
+  // ONE address, and a Link button left lit while the field changes underneath
+  // it would link whatever the server last agreed to, not what is typed.
+  const [linkEmail, setLinkEmail] = useState("");
+  const [verdict, setVerdict] = useState(null);
+  const [unlinkOpen, setUnlinkOpen] = useState(false);
+  const [unlinkReason, setUnlinkReason] = useState("");
   // Where the phone rings. Held separately from `lead` because these three are
   // an unsaved edit until Save is pressed, and writing them straight onto the
   // loaded lead would make the dial region flip to "allowed" before anything
@@ -174,29 +182,61 @@ export default function SalesLeadPage({ params }) {
     }
   }
 
-  async function loadCandidates() {
+  // The sentence for a verdict or a link refusal, in the rep's language. The
+  // server's English travels in `text`/`error` and is the fallback for a
+  // language with no entry — never a sentence invented here.
+  const reasonText = (reason, fallback) =>
+    reason && LEAD_LINK_REASON_KEYS[reason] ? t(LEAD_LINK_REASON_KEYS[reason], fallback) : fallback;
+
+  async function checkLink(event) {
+    event?.preventDefault?.();
+    setBusy(true);
     setError("");
     try {
-      const next = await fetchJson(`/api/sales/leads/${id}/link`);
-      setCandidates(next.candidates);
+      const next = await fetchJson(
+        `/api/sales/leads/${id}/link?email=${encodeURIComponent(linkEmail.trim())}`,
+      );
+      setVerdict(next);
     } catch (err) {
-      setError(err.message);
+      setError(errorText(t, err, LEAD_LINK_REASON_KEYS));
+    } finally {
+      setBusy(false);
     }
   }
 
-  async function link(companyId) {
+  async function link() {
     setBusy(true);
     setError("");
     try {
       await fetchJson(`/api/sales/leads/${id}/link`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: jsonBody({ companyId }, "link"),
+        body: jsonBody({ email: linkEmail.trim() }, "link"),
       });
-      setCandidates(null);
+      setVerdict(null);
+      setLinkEmail("");
       await load();
     } catch (err) {
-      setError(err.message);
+      setError(errorText(t, err, LEAD_LINK_REASON_KEYS));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function unlink() {
+    setBusy(true);
+    setError("");
+    try {
+      await fetchJson(`/api/sales/leads/${id}/link`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: jsonBody({ reason: unlinkReason.trim() }, "unlink"),
+      });
+      setUnlinkOpen(false);
+      setUnlinkReason("");
+      await load();
+    } catch (err) {
+      setError(errorText(t, err, LEAD_LINK_REASON_KEYS));
     } finally {
       setBusy(false);
     }
@@ -460,10 +500,11 @@ export default function SalesLeadPage({ params }) {
       </div>
 
       {/* ── Did they sign up? ───────────────────────────────────────────────
-          Only companies already attributed to this rep can be named here, and
-          the server re-checks that at write time. See the link route's header:
-          this is bookkeeping catching up to an attribution, never the other
-          way round. */}
+          The rep types the email the client registered with; the server says
+          whether that names a linkable company and why. No list to pick from
+          — a list is how the owner's cabinet lead got linked to a roofer. The
+          Link button exists only on an eligible verdict, and the server
+          re-decides at write time. See lib/sales/leadLink.js. */}
       <div className="rounded-lg border border-border bg-card p-4 space-y-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <Building2 size={15} className="text-muted-foreground" />
@@ -471,6 +512,12 @@ export default function SalesLeadPage({ params }) {
         </div>
         {lead.convertedCompanyId ? (
           <>
+            {/* The company by name when it is in the rep's book, the bare fact
+                of a link when it is not — linkedCompanyFor() says why the name
+                can be absent. */}
+            <p className="text-sm font-medium text-foreground">
+              {data?.linkedCompany?.name || t("app.salesLeads.linkedCompanyNotInBook")}
+            </p>
             <p className="text-sm text-muted-foreground">
               {/* Two whole sentences rather than a date glued into one: the
                   date sits mid-sentence and lands in a different place in
@@ -501,37 +548,108 @@ export default function SalesLeadPage({ params }) {
             <p className="text-xs text-muted-foreground">
               {t("app.salesLeads.raiseSupportTicketHint")}
             </p>
+            {/* ── Undo, inside the window ──────────────────────────────────
+                Rendered only while the server says the link can still be
+                undone by the rep (decideUnlink, 30 days). Past that, the
+                sentence says whom to ask instead of offering a button that
+                can only 409. */}
+            {data?.linkedCompany?.canUnlink ? (
+              unlinkOpen ? (
+                <div className="space-y-2 rounded-md border border-border p-3">
+                  <p className="text-sm text-foreground">{t("app.salesLeads.unlinkConfirm")}</p>
+                  <label className="block text-xs text-muted-foreground">
+                    {t("app.salesLeads.unlinkReason")}
+                    <input
+                      type="text"
+                      value={unlinkReason}
+                      onChange={(e) => setUnlinkReason(e.target.value)}
+                      maxLength={500}
+                      className={FIELD}
+                    />
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={unlink}
+                      className="inline-flex items-center min-h-[44px] text-sm font-semibold px-3 rounded-lg border border-border text-destructive disabled:opacity-50"
+                    >
+                      {t("app.salesLeads.unlinkDo")}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => setUnlinkOpen(false)}
+                      className="inline-flex items-center min-h-[44px] text-sm font-semibold px-3 rounded-lg border border-border disabled:opacity-50"
+                    >
+                      {t("app.salesLeads.unlinkCancel")}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setUnlinkOpen(true)}
+                  className="inline-flex items-center min-h-[44px] text-sm font-semibold px-3 rounded-lg border border-border disabled:opacity-50"
+                >
+                  {t("app.salesLeads.unlink")}
+                </button>
+              )
+            ) : data?.linkedCompany?.unlinkRefusal ? (
+              <p className="text-xs text-muted-foreground">
+                {reasonText(data.linkedCompany.unlinkRefusal, "")}
+              </p>
+            ) : null}
           </>
-        ) : candidates === null ? (
-          <button
-            onClick={loadCandidates}
-            className="inline-flex items-center min-h-[44px] text-sm font-semibold px-3 rounded-lg border border-border"
-          >
-            {t("app.salesLeads.linkASignup")}
-          </button>
-        ) : candidates.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {t("app.salesLeads.noUnlinkedSignups")}
-          </p>
         ) : (
-          <div className="space-y-1.5">
-            {candidates.map((c) => (
+          <form onSubmit={checkLink} className="space-y-2">
+            <p className="text-sm text-muted-foreground">{t("app.salesLeads.linkByEmailHint")}</p>
+            <label className="block text-sm text-foreground">
+              {t("app.salesLeads.linkEmailLabel")}
+              <input
+                type="email"
+                inputMode="email"
+                autoComplete="off"
+                value={linkEmail}
+                onChange={(e) => {
+                  setLinkEmail(e.target.value);
+                  setVerdict(null);
+                }}
+                className={FIELD}
+              />
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
               <button
-                key={c.id}
-                disabled={busy}
-                onClick={() => link(c.id)}
-                className="w-full text-left text-sm px-3 py-2 rounded-md border border-border hover:bg-muted/50 disabled:opacity-60"
+                type="submit"
+                disabled={busy || !linkEmail.trim()}
+                className="inline-flex items-center min-h-[44px] text-sm font-semibold px-3 rounded-lg border border-border disabled:opacity-50"
               >
-                <span className="font-medium text-foreground">{c.name}</span>
-                <span className="text-muted-foreground">
-                  {" · "}
-                  {when(c.createdAt)}
-                  {c.isDemo ? ` · ${t("app.salesLeads.candidateDemoAccount")}` : ""}
-                  {c.matchesEmail ? ` · ${t("app.salesLeads.candidateSameEmail")}` : ""}
-                </span>
+                {t("app.salesLeads.linkCheck")}
               </button>
-            ))}
-          </div>
+              {/* The Link button ONLY on an eligible verdict. Not disabled-
+                  but-present: a greyed Link beside "attributed to another
+                  rep" reads as "try again later", and there is no later. */}
+              {verdict?.eligible ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={link}
+                  className="inline-flex items-center min-h-[44px] text-sm font-semibold px-3 rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
+                >
+                  {t("app.salesLeads.linkDo")}
+                </button>
+              ) : null}
+            </div>
+            {verdict ? (
+              <p className={`text-sm ${verdict.eligible ? "text-foreground" : "text-muted-foreground"}`}>
+                {verdict.company?.name ? (
+                  <span className="font-medium">{verdict.company.name}{" — "}</span>
+                ) : null}
+                {reasonText(verdict.reason, verdict.text)}
+              </p>
+            ) : null}
+          </form>
         )}
       </div>
 

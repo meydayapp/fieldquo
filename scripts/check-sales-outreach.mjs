@@ -618,8 +618,9 @@ const ROUTES = [
   ["app/api/sales/leads/route.js", "POST", ["requireOutreachRep", "salesRepId: rep.id"]],
   ["app/api/sales/leads/[id]/route.js", "GET", ["requireOutreachRep", "leadWhere(rep.id"]],
   ["app/api/sales/leads/[id]/route.js", "PATCH", ["requireOutreachRep", "leadWhere(rep.id"]],
-  ["app/api/sales/leads/[id]/link/route.js", "GET", ["requireOutreachRep", "leadWhere(rep.id", "candidates(rep.id)"]],
-  ["app/api/sales/leads/[id]/link/route.js", "POST", ["requireOutreachRep", "leadWhere(rep.id", "assignedCompanyWhere(rep.id"]],
+  ["app/api/sales/leads/[id]/link/route.js", "GET", ["requireOutreachRep", "leadWhere(rep.id", "loadLinkCandidates(db", "decideLeadLink("]],
+  ["app/api/sales/leads/[id]/link/route.js", "POST", ["requireOutreachRep", "leadWhere(rep.id", "$transaction", "linkLeadWithin(tx"]],
+  ["app/api/sales/leads/[id]/link/route.js", "DELETE", ["requireOutreachRep", "leadWhere(rep.id", "$transaction", "unlinkLeadWithin(tx"]],
   ["app/api/sales/threads/route.js", "GET", ["requireOutreachRep", "threadListWhere(rep.id"]],
   ["app/api/sales/threads/route.js", "POST", ["requireOutreachRep", "leadWhere(rep.id", "contactOptedOut(db,"]],
   ["app/api/sales/threads/[id]/route.js", "GET", ["requireOutreachRep", "threadWhere(rep.id"]],
@@ -657,6 +658,11 @@ for (const [file, method, required] of ROUTES) {
     "app/api/sales/threads/[id]/messages/route.js",
     "lib/sales/outreachSender.js",
     "lib/sales/outreachInbound.js",
+    // The link route's db half. Its direct writes are the lead and the link
+    // event; the ONE attribution write goes through captureAttributionWithin,
+    // which this scan cannot see and scripts/check-sales-lead-link.mjs and
+    // scripts/check-sales-auth.mjs (LIB_FORBIDDEN_WRITE_BY_DESIGN) pin.
+    "lib/sales/leadLink.js",
   ];
   const offenders = [];
   for (const file of files) {
@@ -664,23 +670,27 @@ for (const [file, method, required] of ROUTES) {
       if (!REP_OUTREACH_WRITES.includes(m[1])) offenders.push(`${file}: ${m[1]}.${m[2]}`);
     }
   }
-  ok("outreach writes only to SalesLead / SalesThread / SalesMessage", offenders.length === 0, offenders);
+  ok("outreach writes only to the REP_OUTREACH_WRITES tables", offenders.length === 0, offenders);
   ok("nothing in the outreach paths deletes a message or a thread", !files.some((f) => /\b(?:db|tx)\.sales(Message|Thread|Lead)\.delete/.test(read(f))));
 }
 
 {
+  // The link route, after 2026-09-11: the rep types the email the company
+  // registered with, and the list-and-pick path that linked the owner's
+  // cabinet lead to a roofer is gone. The decision itself is executed in
+  // scripts/check-sales-lead-link.mjs; this pins the route's shape.
   const link = read("app/api/sales/leads/[id]/link/route.js");
-  ok("the link route never writes an attribution", !/salesAttribution\.(create|update|upsert)/.test(link));
-  // The candidate list GET offers and the company POST accepts must come from
-  // the SAME predicate, or the screen can offer a company the write refuses.
-  ok(
-    "the candidate list is built from assignedCompanyWhere",
-    (functionBody(link, "candidates") || "").includes("assignedCompanyWhere(repId)"),
-  );
+  ok("the link route never names the attribution table itself", !/salesAttribution\.(create|update|upsert|delete)/.test(link));
+  ok("the link route no longer builds a candidate list", functionBody(link, "candidates") === null && !/candidates:/.test(link));
   const post = functionBody(link, "POST");
-  ok("linking re-reads the company under the rep's scope at write time", /db\.company\.findFirst[\s\S]{0,200}assignedCompanyWhere\(rep\.id\)/.test(post || ""));
-  ok("linking is a compare-and-set on convertedCompanyId", /convertedCompanyId: null/.test(post || ""));
+  ok("POST no longer reads a companyId off the body", !/body\??\.companyId/.test(post || ""));
+  ok("POST reads an email off the body", /readEmail\(body\?\.email\)/.test(post || ""));
+  ok("POST decides and writes inside one transaction", /\$transaction[\s\S]{0,300}linkLeadWithin\(tx/.test(post || ""));
   ok("a P2002 is answered, not thrown at the rep", /P2002/.test(post || ""));
+  const lib = read("lib/sales/leadLink.js");
+  const within = functionBody(lib, "linkLeadWithin");
+  ok("linkLeadWithin re-decides from rows read in the transaction", /loadLinkCandidates\(tx[\s\S]{0,200}decideLeadLink\(/.test(within || ""));
+  ok("linking is a compare-and-set on convertedCompanyId", /convertedCompanyId: null/.test(within || ""));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -761,7 +771,13 @@ ok("nothing configured at all reports every blocker at once", outreachReadiness(
   const replyLine = thread.split("\n").find((l) => l.includes("const canReply"));
   ok("the thread screen gates its reply box the same way", Boolean(replyLine) && replyLine.includes("outreach?.canSend") && replyLine.includes("!optedOut"));
   ok("a message body is never rendered as markup", !thread.includes("dangerouslySetInnerHTML"));
-  ok("...it is rendered as pre-wrapped text", thread.includes("whitespace-pre-wrap"));
+  // The thread screen stopped drawing bodies itself and hands them to
+  // MessageThread, the one conversation layout /sales/messages also uses.
+  // This assertion read the screen alone and had been failing since that
+  // move, so the property is followed to where the body is actually drawn.
+  const messageThread = read("app/sales/messages/MessageThread.js");
+  ok("...it hands bodies to MessageThread", /<MessageThread[\s\S]{0,300}body: m\.body/.test(thread));
+  ok("...which renders them as pre-wrapped text, never markup", messageThread.includes("whitespace-pre-wrap") && !messageThread.includes("dangerouslySetInnerHTML"));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

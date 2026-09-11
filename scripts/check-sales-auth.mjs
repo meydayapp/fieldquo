@@ -823,6 +823,18 @@ const LIB_FORBIDDEN_WRITE_BY_DESIGN = {
     "company is credited to. The batch and the ledger stay forbidden, every " +
     "change is audited with the handle masked, and the key set is asserted " +
     "below rather than trusted.",
+  "lib/sales/attribution.js":
+    "The attribution library itself, reached by the lead-link route. Declared " +
+    "on 2026-09-11 when the owner reopened ONE rep-side door: a rep may claim " +
+    "an UNCLAIMED company for themselves by typing the email it registered " +
+    "with, from a lead created BEFORE the company signed up, source " +
+    "\"lead_link\". The claim is verified inside decideAttribution() against " +
+    "rows read in the same transaction; self-dealing and an existing " +
+    "attribution refuse exactly as they do for \"manual\". What a rep still " +
+    "cannot reach is fenced below: the route names only withUniqueRetry, the " +
+    "db half calls captureAttributionWithin with the SESSION's rep id and " +
+    "that one source, and nothing rep-facing touches correctAttributionWithin " +
+    "— the superadmin correction that can move or delete a row.",
   "lib/sales/preferenceWrite.js":
     "saveRepLanguage(). Writes ONLY SalesRep.language — " +
     "PREFERENCE_WRITES_ON_SALES_REP — which decides which words the chrome of " +
@@ -896,6 +908,31 @@ for (const [file, why] of Object.entries(LIB_FORBIDDEN_WRITE_BY_DESIGN)) {
     REP_FORBIDDEN_WRITES.includes(m[1]),
   );
   ok(`${file} still makes the write it is exempted for`, writes.length > 0, why.slice(0, 40));
+}
+
+// ── The lead-link door into attribution.js, fenced ────────────────────────
+//
+// Declared above so the reachability scan lets attribution.js through for the
+// link route. The declaration promises a SHAPE — one function, the session's
+// rep, one source — and this is where the shape is checked rather than trusted.
+{
+  const linkRoute = decomment(read("app/api/sales/leads/[id]/link/route.js"));
+  const leadLink = decomment(read("lib/sales/leadLink.js"));
+  const named = [...linkRoute.matchAll(/import \{([^}]*)\} from "@\/lib\/sales\/attribution"/g)]
+    .flatMap((m) => m[1].split(",").map((x) => x.trim()).filter(Boolean));
+  ok("the link route imports exactly one name from attribution.js", named.length === 1 && named[0] === "withUniqueRetry", named);
+  ok("the link route never names a capture or correction function", !/capture\w*Attribution|correct\w*Attribution/.test(linkRoute));
+  const calls = [...leadLink.matchAll(/captureAttributionWithin\(tx,\s*\{([\s\S]*?)\}\)/g)].map((m) => m[1]);
+  ok("leadLink.js captures attribution in exactly one place", calls.length === 1, calls.length);
+  ok("…with the session's rep id, never a body field", /salesRepId:\s*rep\.id/.test(calls[0] || ""));
+  ok("…with source \"lead_link\" and nothing else", /source:\s*"lead_link"/.test(calls[0] || "") && !/source:\s*"(link|manual|admin)"/.test(leadLink));
+  ok("…and passes the claim the decision verifies", /claim:\s*\{\s*email,\s*leadCreatedAt: lead\.createdAt\s*\}/.test(calls[0] || ""));
+  ok("leadLink.js never reaches the superadmin correction", !/correct\w*Attribution/.test(leadLink));
+  ok("leadLink.js never writes the attribution tables directly", !/\b(?:db|tx|client|prisma)\.salesAttribution\w*\.(create|update|updateMany|upsert|delete|deleteMany)/.test(leadLink));
+  // Nothing ELSE rep-facing may import attribution.js on the strength of this
+  // declaration. The exemption is for the link route's shape, not the file.
+  const importers = salesRoutes.filter((f) => /from "@\/lib\/sales\/attribution"/.test(decomment(read(f))));
+  ok("the link route is the only /api/sales route importing attribution.js", importers.length === 1 && importers[0] === "app/api/sales/leads/[id]/link/route.js", importers);
 }
 
 // ── The demo pointer, fenced the same way ─────────────────────────────────

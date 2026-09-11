@@ -26,6 +26,15 @@
 // and never read from a body — but the no-writes rule in lib/sales/gate.js has
 // to be reopened deliberately, by whoever owns it.
 //
+// The owner did, on 2026-09-11, for exactly that shape and one narrower:
+// app/api/sales/leads/[id]/link/route.js, source "lead_link", where a rep
+// claims an UNCLAIMED company by typing the email it registered with, from a
+// lead created before the signup. It goes through the outreach gate rather
+// than lib/sales/gate.js, which stays read-only; lib/sales/attribution.js's
+// header carries the rules and scripts/check-sales-auth.mjs fences the door.
+// This route is unchanged: manual attribution by a superadmin is still the
+// path for a company the email rule cannot reach.
+//
 // ── What a manual claim may and may not do ────────────────────────────────
 //
 // Claim a company nothing has claimed yet. It may never move, overwrite or
