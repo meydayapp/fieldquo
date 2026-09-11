@@ -251,6 +251,15 @@ section("1. The stage exists, is real, and is on the claimed lane only");
   ok("…nor when a script for this crawl exists", researchPlan({ prospect, tasks: done, priority: "claimed", script: { crawledAt: CRAWLED } }).skipped === "complete");
   ok("…but again when the crawl is newer than the script",
     researchPlan({ prospect: { ...prospect, lastCrawledAt: NOW }, tasks: done, priority: "claimed", script: { crawledAt: CRAWLED } }).enqueue[0]?.kind === "GENERATE_CALL_SCRIPT");
+  // The version bump reaches stored rows through the planner, not only
+  // through the hash: a v1 script for the current crawl is re-queued on the
+  // next claim or open, and the handler's hash check is what stops a row
+  // already at v2 from being paid for twice.
+  ok("…and again when the script was written by an older prompt",
+    researchPlan({ prospect, tasks: done, priority: "claimed", script: { crawledAt: CRAWLED, promptVersion: "1" } }).enqueue[0]?.kind === "GENERATE_CALL_SCRIPT");
+  ok("…not when it is at the current version", researchPlan({ prospect, tasks: done, priority: "claimed", script: { crawledAt: CRAWLED, promptVersion: CALL_SCRIPT_VERSION } }).skipped === "complete");
+  const playbookRoute = decomment(read("app/api/sales/playbook/route.js"));
+  ok("the playbook route re-queues an older-version script on open, fire-and-forget", /stored\.promptVersion !== CALL_SCRIPT_VERSION/.test(playbookRoute) && /ensureResearchQueued\(\{ db, prospectIds: \[prospectId\], priority: "claimed" \}\)/.test(playbookRoute) && !/await pipelineProgress/.test(playbookRoute));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

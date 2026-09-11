@@ -51,6 +51,8 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import * as pipelineProgress from "@/lib/sales/pipeline/progress";
+import { CALL_SCRIPT_VERSION } from "@/lib/sales/intel/callScript";
 import { db } from "@/lib/db";
 import { requireQueueRep } from "@/lib/sales/queueGate";
 import { queueWhere } from "@/lib/sales/prospectView";
@@ -100,6 +102,21 @@ export async function GET(request) {
   ]);
   if (!result.found) {
     return NextResponse.json({ error: "No prospect with that id." }, { status: 404 });
+  }
+
+  // ── A script from an older prompt is re-queued on open ──────────────────
+  //
+  // The route still calls no model and writes no row of its own. What it
+  // does when the stored script predates the current prompt version (or
+  // there is none for a claimed prospect) is what the claim route does on
+  // claim: ask the pipeline to queue the claimed tail. Fire-and-forget —
+  // never awaited on the response path, never a reason the page fails — and
+  // the handler's hash check refuses to spend on a row already current, so
+  // two opens in a minute queue one task and pay once.
+  if ((!stored || stored.promptVersion !== CALL_SCRIPT_VERSION) && typeof pipelineProgress.ensureResearchQueued === "function") {
+    Promise.resolve()
+      .then(() => pipelineProgress.ensureResearchQueued({ db, prospectIds: [prospectId], priority: "claimed" }))
+      .catch((err) => console.error("[sales/playbook] ensureResearchQueued failed:", err?.message || err));
   }
 
   // Shaped rather than passed through. `selection.trace` is the superadmin's
