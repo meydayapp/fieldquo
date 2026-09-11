@@ -115,6 +115,16 @@ const FINISHED = [
       "app/sales/messages/page.js",
       "app/sales/messages/MessageThread.js",
       "app/sales/messages/CheckInDraft.js",
+      "app/sales/messages/useThreadRefresh.js",
+      // The kit the screen is drawn with. scripts/check-chat-kit.mjs holds
+      // it to the same rule on its own; listed here too so the KEYS it asks
+      // for are checked against all nine languages alongside the screen's.
+      "app/components/chat/ChatLayout.js",
+      "app/components/chat/RoomList.js",
+      "app/components/chat/Thread.js",
+      "app/components/chat/Composer.js",
+      "app/components/chat/ContextBar.js",
+      "app/components/chat/Avatar.js",
     ],
   },
   { route: "/sales/team", files: ["app/sales/team/page.js"] },
@@ -169,7 +179,10 @@ const ATTR = /\b(aria-label|title|placeholder|alt)=("([^"]*)")/g;
 // Words that are the same in every language this portal ships in, so a literal
 // one is not a missing translation. Kept to proper nouns and protocol names —
 // if this list needs a heading it has stopped being a list of names.
-const NEUTRAL = new Set(["FieldQuo", "Stripe", "Wise", "Twilio", "Retell", "SMS", "URL", "UTC"]);
+// "STOP" is the carrier keyword a contact texts to opt out — the inbound
+// handler listens for that exact English token, so the red tag on
+// /sales/messages prints it verbatim, the way the CASL footer note does.
+const NEUTRAL = new Set(["FieldQuo", "Stripe", "Wise", "Twilio", "Retell", "SMS", "URL", "UTC", "STOP"]);
 
 const isNeutral = (value) =>
   value

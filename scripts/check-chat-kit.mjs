@@ -220,6 +220,14 @@ section("5. The canned-response filter");
   ok('"chk" finds check-in by subsequence', filterCanned(catalogue, "chk").some((e) => e.id === "c1"));
   ok("…ranked above the desk", filterCanned(catalogue, "chk")[0].id === "c1", filterCanned(catalogue, "chk").map((e) => e.id));
   ok("a word in the text matches when the title does not", filterCanned(catalogue, "ring").map((e) => e.id).join() === "c4");
+  // The group is searchable: the check-in wordings are titled by REASON.
+  const grouped = [
+    { id: "g1", title: "Nothing looks wrong", group: "Check-in", text: "How is it going so far?" },
+    { id: "g2", title: "Signup link", group: "Sales", text: "Here is the link." },
+  ];
+  ok('"chk" finds the check-in group', filterCanned(grouped, "chk").map((e) => e.id).join() === "g1");
+  ok("…and a title match still outranks a group match",
+    filterCanned([{ id: "t", title: "Check the roof", group: "Sales", text: "x" }, ...grouped], "check")[0].id === "t");
   ok("case does not matter", filterCanned(catalogue, "SIGNUP")[0].id === "c2");
   ok("no match → empty, not everything", filterCanned(catalogue, "zzzz").length === 0);
   ok("rubbish catalogue → empty", filterCanned(null, "x").length === 0 && filterCanned([null, undefined], "x").length === 0);

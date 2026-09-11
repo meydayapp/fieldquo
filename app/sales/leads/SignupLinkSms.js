@@ -27,6 +27,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { AlertTriangle, Check, Loader2, MessageSquare } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { jsonBody } from "@/lib/jsonBody";
@@ -40,7 +41,13 @@ function when(value) {
   });
 }
 
-export default function SignupLinkSms({ leadId }) {
+/**
+ * @param inThread  true when rendered INSIDE /sales/messages as the first-
+ *   contact composer of an empty thread — the "open in Texts" link is then
+ *   pointing at the screen it is on, and the card border is the thread's.
+ * @param onSent    called after a successful send, so the thread can re-read.
+ */
+export default function SignupLinkSms({ leadId, inThread = false, onSent = null }) {
   const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -89,6 +96,7 @@ export default function SignupLinkSms({ leadId }) {
       });
       setSent(result);
       await load();
+      onSent?.(result);
     } catch (err) {
       setError(err.message);
       // The refusal may have changed since the panel rendered — an opt-out that
@@ -123,10 +131,23 @@ export default function SignupLinkSms({ leadId }) {
   const showForm = sms.canSend || zoneOnly;
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-        <MessageSquare size={15} className="text-muted-foreground" />
-        {t("app.salesLeads.smsTitle")}
+    <div className={inThread ? "p-4 space-y-3" : "rounded-lg border border-border bg-card p-4 space-y-3"}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <MessageSquare size={15} className="text-muted-foreground" />
+          {inThread ? t("app.salesLeads.smsFirstContactTitle") : t("app.salesLeads.smsTitle")}
+        </div>
+        {/* The conversation lives in one place. From the lead screen this
+            opens it there — the thread if there is one, an empty one with
+            this same panel at the bottom if not. */}
+        {!inThread ? (
+          <Link
+            href={`/sales/messages?to=${encodeURIComponent(leadId)}`}
+            className="inline-flex items-center gap-1 min-h-[44px] text-sm font-medium text-foreground underline"
+          >
+            {t("app.salesLeads.smsOpenInTexts")}
+          </Link>
+        ) : null}
       </div>
 
       {data.messages?.length > 0 && (

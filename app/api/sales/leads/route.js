@@ -21,6 +21,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { createSalesLead } from "@/lib/sales/leadCreate";
 import { db } from "@/lib/db";
 import { requireOutreachRep } from "@/lib/sales/outreachGate";
 import { outreachStatus } from "@/lib/sales/outreachSender";
@@ -179,31 +180,22 @@ export async function POST(request) {
     }
   }
 
-  const lead = await db.salesLead.create({
-    data: {
-      // From the gate's fresh read of the session, never from the body. A
-      // salesRepId a client could name is a client that can file a prospect
-      // into a colleague's pipeline.
-      salesRepId: rep.id,
-      // What the rep typed wins over what discovery found: they have spoken to
-      // the business and the directory has not.
-      businessName: businessName || source?.businessName || "",
-      contactName: sanitiseHeaderText(body.contactName, 200) || null,
-      // Typed wins; the crawler's address fills the blank. Same order as
-      // the phone number below and for the same reason.
-      email: email || source?.email || null,
-      phone: sanitiseHeaderText(body.phone, 40) || source?.phoneE164 || null,
-      // Carried so lib/sales/callingRules.js can answer the calling-hours
-      // question on the lead screen too. Null stays null — a missing province
-      // makes the rules answer "unknown", which is the correct answer and the
-      // one the screen offers a way to fix.
-      country: source?.country || null,
-      province: source?.province || null,
-      notes: typeof body.notes === "string" ? body.notes.slice(0, 5000) : null,
-      status,
-      prospectId: source?.id || null,
-    },
-    select: { id: true, businessName: true, status: true },
+  // The create itself is lib/sales/leadCreate.js, shared with the texts
+  // screen's "new text to a number" path so the two cannot write different
+  // shapes of the same row. salesRepId comes from the gate's fresh read of
+  // the session, never from the body: a salesRepId a client could name is a
+  // client that can file a prospect into a colleague's pipeline. What the
+  // rep typed wins over what discovery found — they have spoken to the
+  // business and the directory has not.
+  const lead = await createSalesLead(db, {
+    salesRepId: rep.id,
+    businessName,
+    contactName: sanitiseHeaderText(body.contactName, 200) || null,
+    email,
+    phone: sanitiseHeaderText(body.phone, 40) || null,
+    notes: body.notes,
+    status,
+    source,
   });
 
   return NextResponse.json({ lead }, { status: 201 });

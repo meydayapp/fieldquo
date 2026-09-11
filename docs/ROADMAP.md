@@ -1,12 +1,127 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 11 September 2026 (The queue is grouped by when a row can be rung, on the rep's own clock — "Callable now" shuts-soonest first, then one group per opening instant, then not-today; the batch claim picks callable-soonest inside a 7-hour shift read from the ledger rather than "before midnight", the daily cap is 250, and the autodialler waits at a window instead of dialling into it — the section below; `check:queue-windows`, `check:sales-batch-claim`, `check:sales-autodial`.)
+Last updated: 11 September 2026 (/sales/messages is a chat client drawn with a shared kit — three panes, four room groups, a thread with day and unread dividers, a `!` composer, a contact bar, New message / New text to a Canadian or US number — rendered and screenshotted in docs/screens/sales-messages before it was called done; the section below; `check:chat-kit`, `check:sales-messages`.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## /sales/messages is a chat client, and the kit it is drawn with is shared (11 September 2026)
+
+The owner, launching: *"how come my /sales/messages is not more similar to
+that [Rocket.Chat's omnichannel agent screen] … I have told you many times to
+look at the UI … yet you failed multiple times to do it properly."* Two
+previous attempts shipped a list of cards and, behind a click, a thread with
+a textarea under it. This one IS the client, and it was LOOKED AT before it
+was called done: the real page, bundled with esbuild against fixture data
+and the portal's own compiled CSS, rendered in Chrome at 1280 and 375 — the
+screenshots are in `docs/screens/sales-messages/`.
+
+- **The kit** — `app/components/chat/` (`ChatLayout`, `RoomList` +
+  `RoomListGroup` + `RoomListItem`, `Thread`, `Composer`, `ContextBar`,
+  `Avatar`), every string in all nine languages. The arithmetic is
+  `lib/chat/threadLayout.js`, pure, on top of
+  `lib/sales/messages/grouping.js`: day dividers, the red "unread messages"
+  line placed once above the first of THEIR messages after the last read,
+  sequential grouping (same side within 300 s, never across a day, never
+  around a system row), system rows, the `!` canned-response filter (fuzzy
+  on title and group, substring on body). `scripts/check-chat-kit.mjs` (99
+  assertions) executes it and reads the components for untranslated
+  strings and for a send outside a press. Rendering the kit found a bug the
+  check had not: grouping.js reset its day anchor with its grouping anchor,
+  so every system row got a second "Yesterday" under it. Fixed and pinned.
+  The team-chat screen imports this kit.
+- **The screen** — `app/sales/messages/page.js`. LIST: "Needs a reply"
+  (their last word) · "Waiting on them" (ours) · "Drafts due" (an open
+  check-in) · "Done" (collapsed; the rep's filing, undone by their next
+  reply) — decided by `lib/sales/messages/rooms.js`, pure, executed. Title
+  is the business or the pretty-printed number; subtitle the last text,
+  "You:"-prefixed when ours; SMS badge; unread badge. HEADER: name · number
+  · SMS · lead stage · texting window "Open until 9:00 PM CDT" / "Closed —
+  opens 8:00 AM" from `salesSmsWindowState()` in the prospect's zone · a red
+  STOP tag when suppressed; actions Call (the lead screen's gated dial
+  region, `#lead-call` — no second tel: link), Open lead, Schedule
+  check-in, Mark done / Reopen, Contact. THREAD: the kit's, with system
+  rows for the rep's call attempts to this number (`SalesCallAttempt`, read
+  only, disposition labels from the existing catalogue), the STOP that
+  closed it, check-ins sent, and a closed texting window. COMPOSER: hint
+  line shows the pending draft ("Draft check-in due Sep 12 · Tab to load
+  it" — Tab loads it, Send then goes through the draft's OWN send route) or
+  the server's non-suppression blocker; `!` opens the catalogue the server
+  built (the rule-draft wording per check-in reason, with the rep's name and
+  the business, plus the signup link); a suppressed conversation gets no
+  composer and the reason. CONTEXT BAR: Details · Channels (numbers from
+  `SalesContactNumber` + email, each with last used) · History (calls, email
+  threads with links to `/sales/threads/[id]`, check-ins), and the
+  escalation panel where a company is attributed. Deep link
+  `/sales/messages?thread=<E.164>`; `?to=<leadId>` from the lead screen's
+  "Open in Texts" link. Mobile: one pane at a time, back arrow, the contact
+  bar as a sheet. `SalesShell` widens to `max-w-7xl` for this route.
+- **Unread and done are the rep's** — `SalesSmsThreadRead` (additive,
+  `prisma db push` done), keyed by rep and number; `lib/sales/messages/
+  readState.js` is the only writer; `POST /api/sales/messages/read` records
+  a read or a filing, behind `requireOutreachRep`. The list's `unread` is
+  `null` — not 0 — when the table cannot be read.
+- **Starting a conversation** — "New message" searches ONLY the rep's own
+  leads and claimed prospects (`GET /api/sales/messages/contacts`, scoped
+  by `salesRepId` and `queueWhere`); "New text to a number" posts to
+  `/api/sales/messages/start`, decided by `lib/sales/messages/startThread.js`:
+  normalised with `normalisePhone`, Canada/US only (`nanpRegionForAreaCode`
+  in `lib/voice/nanp.js`, which now lists the 21 Caribbean NANP codes;
+  Puerto Rico and the other US territories count as US), the
+  do-not-contact list asked FIRST and no row written on a refusal, a number
+  on another rep's lead / claimed prospect / stored contact number refused
+  with their name, the rep's own record opening its thread, an unknown
+  number creating one lead with only the number through the new shared
+  `lib/sales/leadCreate.js` (the leads route uses it too) and a second
+  attempt reusing it. All executed against an in-memory client in
+  `check:sales-messages` §14.
+- **The first text is still the introduction.** The reply route refuses a
+  first contact by design (its POST: a free-text send to a never-texted
+  number is a cold-contact path with none of the first-contact rules). So an
+  EMPTY thread's composer is the lead screen's own `SignupLinkSms` panel
+  rendered in-thread — the same `/api/sales/sms` route, the same refusals,
+  the time-zone question included — and the ordinary composer appears once a
+  text exists. `check:sales-messages` asserts the empty-thread branch holds
+  no free-text box.
+- **Nothing sends on its own.** page.js still has no timer; the one timer is
+  `useThreadRefresh.js`, which re-reads the open thread every 20 s while the
+  tab is visible and is pinned to GET and nothing else. The composer in an
+  SMS thread sends through `POST /api/sales/messages` → `deliverReplySms()`
+  (suppression re-read at the moment of the send, window judged in the
+  prospect's zone, CASL footer appended) — unchanged.
+- **Not done, and why.** The `!` catalogue is English only: the texts this
+  portal sends are English (the CASL footer and the STOP keyword are), and
+  no lead or prospect row records the contact's language, so there is
+  nothing to translate into without inventing it. `lib/sms/templates.js` is
+  NOT in the catalogue: its entries are a contractor's texts to a homeowner
+  ("your appointment is …", "on the way"), and offering them to a rep
+  texting a contractor would put an appointment reminder in a sales
+  conversation. The queue card has no text control to link (it never had
+  one); the lead screen's does link. `/sales/threads/*` stays as it is —
+  it is the EMAIL channel, not a second SMS list — and its threads appear
+  in the contact bar's History tab.
+
+Checks: `check:chat-kit` (new, in check:all), `check:sales-messages`
+(§11–§14 new; the suppression-structure assertions rewritten for the kit),
+`check:sales-portal-i18n` (kit files listed; STOP is a neutral token),
+`check:sales-outreach` (leadCreate.js and startThread.js scanned). Six
+mutations caught by exit code: the day anchor, the unread `>`, the
+suppression check removed, a draft outranking a person, 809 dropped, a
+free-text box on an empty thread.
+
+Files: `app/components/chat/*`, `lib/chat/threadLayout.js`,
+`app/sales/messages/{page,useThreadRefresh}.js`, `app/sales/leads/SignupLinkSms.js`,
+`app/api/sales/messages/{route,read,contacts,start}`, `lib/sales/messages/
+{rooms,readState,startThread,grouping}.js`, `lib/sales/leadCreate.js`,
+`lib/sales/smsWindow.js`, `lib/voice/nanp.js`, `lib/sales/salesSms.js`,
+`lib/sales/checkin/store.js`, `app/sales/SalesShell.js`, `prisma/schema.prisma`,
+`scripts/check-chat-kit.mjs`, `scripts/check-sales-messages.mjs`,
+`docs/screens/sales-messages/`.
 
 ---
 

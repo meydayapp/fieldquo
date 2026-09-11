@@ -566,28 +566,42 @@ section("4. Suppression — the screen offers nothing and the server refuses");
   ok("the screen reads the server's suppression verdict",
     /const suppressed = Boolean\(thread\?\.suppressed\)/.test(page));
 
-  // The compose box lives in the ELSE branch of that ternary. Located by
-  // brace matching rather than by "does the string appear", because the whole
-  // point is WHERE it appears.
+  // The composer lives in the ELSE branches of that ternary. Located by
+  // brace matching rather than by "does the string appear", because the
+  // whole point is WHERE it appears. The screen is a chat client now, so
+  // the box is the kit's <Composer>, and an EMPTY thread gets the
+  // signup-link panel instead (the reply route refuses a first contact by
+  // design) — three branches, and the suppressed one is still the first
+  // and still has no box of any kind in it.
   const marker = page.indexOf("{suppressed ? (");
   ok("the suppression branch is present", marker > 0, marker);
   const close = matchDelims(page, marker);
   ok("…and closes", close > marker);
   const ternary = page.slice(marker, close + 1);
-  const split = ternary.indexOf(") : (");
+  const split = ternary.indexOf(") : ");
   ok("…and has both halves", split > 0);
   const suppressedHalf = ternary.slice(0, split);
   const otherwiseHalf = ternary.slice(split);
 
-  ok("a suppressed conversation renders NO compose box", !/<textarea/.test(suppressedHalf));
-  ok("…and no send control", !/Send it/.test(suppressedHalf));
+  ok("a suppressed conversation renders NO compose box", !/<textarea/.test(suppressedHalf) && !/<Composer/.test(suppressedHalf));
+  ok("…and no send control", !/onSend/.test(suppressedHalf) && !/<SignupLinkSms/.test(suppressedHalf));
   // The sentence moved into app/i18n/appMessages.js when the sales portal was
   // translated, so this matches the KEY the screen renders. The words are
   // still asserted — scripts/check-sales-portal-i18n.mjs section 6 holds the
   // English catalogue value to them, which is where they now live.
   ok("…and says why instead", /app\.salesText\.suppressed(Title|Body)/.test(suppressedHalf));
-  ok("the compose box exists in the other half", /<textarea/.test(otherwiseHalf) && /id="reply"/.test(otherwiseHalf));
+  ok("the compose box exists in the other half", /<Composer/.test(otherwiseHalf) && /textareaId="reply"/.test(otherwiseHalf));
+  ok("…wired to the one send function", /onSend=\{send\}/.test(otherwiseHalf));
   ok("…as does the manual follow-up control", /app\.salesText\.parkOpen/.test(otherwiseHalf));
+  ok("an EMPTY thread gets the signup-link panel, not a free-text box",
+    /\(thread\.messages \|\| \[\]\)\.length === 0 && thread\.lead \? \(/.test(otherwiseHalf) && /<SignupLinkSms leadId=\{thread\.lead\.id\} inThread/.test(otherwiseHalf));
+  ok("…and that panel is the lead screen's own component", /import SignupLinkSms from "\.\.\/leads\/SignupLinkSms"/.test(page));
+  // The empty-thread branch, on its own: the introduction and NOTHING that
+  // takes free text. A composer beside the panel would post a first contact
+  // into the reply route's 409.
+  const emptyAt = otherwiseHalf.indexOf("length === 0 && thread.lead ? (");
+  const emptyBranch = emptyAt >= 0 ? otherwiseHalf.slice(emptyAt, otherwiseHalf.indexOf(") : ", emptyAt + 10)) : "";
+  ok("the empty-thread branch holds no free-text box", emptyBranch.length > 0 && !/<Composer/.test(emptyBranch) && !/<textarea/.test(emptyBranch), emptyBranch.slice(0, 80));
 
   // And the draft's own send button is withheld the same way.
   ok("drafts are told whether a send is possible", /canSend=\{!suppressed\}/.test(page));
@@ -816,6 +830,182 @@ section("10. Mobile and motion");
   const dateInputs = [...draftUi.matchAll(/type="datetime-local"[\s\S]{0,300}?className="([^"]+)"/g)].map((m) => m[1]);
   ok("every datetime picker is at least 44px and 16px", dateInputs.length > 0 &&
     dateInputs.every((c) => c.includes("min-h-[44px]") && c.includes("text-base")), dateInputs);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("11. A chat client, drawn with the kit");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  const page = decomment(read("app/sales/messages/page.js"));
+  for (const part of ["ChatLayout", "RoomList", "Thread", "Composer", "ContextBar"]) {
+    ok(`the screen renders the kit's ${part}`, new RegExp(`<${part}[\\s>]`).test(page));
+  }
+  ok("…imported from the shared kit, not redrawn", /from "@\/app\/components\/chat"/.test(page));
+  ok("the tour anchor survived the rebuild", /data-tour="sales-texts"/.test(page));
+  ok("the list is bucketed by the pure grouping function", /groupConversations\(list \|\| \[\]\)/.test(page));
+  ok("the thread rows come from layoutThread", /layoutThread\(\[\.\.\.messages, \.\.\.drafts, \.\.\.system, \.\.\.inFlight\]/.test(page));
+  ok("…with the unread line drawn from the read instant BEFORE the read was recorded", /lastReadAt: openedReadAt/.test(page));
+  ok("a deep link selects a thread", /params\.get\("thread"\)/.test(page));
+  ok("…and a lead link resolves through the contacts route", /\/api\/sales\/messages\/contacts\?leadId=/.test(page));
+  ok("the STOP tag is drawn from the server's verdict only", /\{suppressed && \([\s\S]{0,200}data-tag="stop"/.test(page));
+  ok("the texting window tag is the server's, in their zone", /data-tag="window"/.test(page) && /thread\?\.window/.test(page));
+  ok("the Call action opens the lead's gated dial region rather than a tel: link", /#lead-call/.test(page) && !/tel:/.test(page));
+  ok("…and the lead screen has that anchor", /id="lead-call"/.test(decomment(read("app/sales/leads/[id]/page.js"))));
+  ok("Mark done and Reopen go through the read route", /\/api\/sales\/messages\/read"[\s\S]{0,80}done/.test(page));
+  ok("the composer's catalogue is the server's, titled in the rep's language", /thread\?\.canned/.test(page) && /t\(c\.titleKey, c\.title\)/.test(page));
+  ok("Tab loads the pending draft into the box", /onHintAccept=/.test(page) && /setLoadedDraftId\(pendingDraft\.id\)/.test(page));
+  ok("…and sending it then goes through the draft's OWN send route", /checkins\/\$\{loadedDraftId\}\/send/.test(page));
+  ok("the New message picker exists", /function NewMessagePicker/.test(page) && /data-new-message-button/.test(page));
+  ok("…searches the contacts route", /\/api\/sales\/messages\/contacts\?q=/.test(page));
+  ok("…and starts a typed number through the start route", /\/api\/sales\/messages\/start/.test(page));
+
+  // The one timer is in its own file, and it reads.
+  const hook = decomment(read("app/sales/messages/useThreadRefresh.js"));
+  ok("the refresh hook sets an interval", /setInterval\(/.test(hook));
+  ok("…and clears it", /clearInterval\(/.test(hook));
+  ok("…stops while the tab is hidden", /visibilityState === "visible"/.test(hook));
+  ok("…never fetches, posts or names a route itself", !/fetch/.test(hook) && !/POST/.test(hook) && !/\/api\//.test(hook) && !/send/i.test(hook.replace(/\/\/.*$/gm, "")));
+  const refreshCall = page.match(/useThreadRefresh\(openWith, \(\) => \{[\s\S]{0,200}?\}\);/);
+  ok("the screen hands it a GET and nothing else", Boolean(refreshCall) && /loadThread\(openWith, \{ quiet: true \}\)/.test(refreshCall[0]) && !/send|POST|checkins/.test(refreshCall[0]), refreshCall?.[0]);
+
+  // The kit's own check runs in check:all.
+  const pkg = read("package.json");
+  ok("check:chat-kit is wired into check:all", /npm run check:chat-kit/.test(pkg));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("12. The four groups, executed");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  const { groupConversations, groupOf, GROUP_ORDER, isThreadDone } = await import("@/lib/sales/messages/rooms");
+  ok("the order is needs a reply · waiting · drafts · done", GROUP_ORDER.join() === "needsReply,waiting,drafts,done", GROUP_ORDER);
+  const theirs = { e164: "+1", lastDirection: "in", lastInboundAt: "2026-09-11T10:00:00Z", openDrafts: 0, readState: null, lastAt: "2026-09-11T10:00:00Z" };
+  const ours = { e164: "+2", lastDirection: "out", lastInboundAt: "2026-09-10T10:00:00Z", openDrafts: 0, readState: null, lastAt: "2026-09-11T09:00:00Z" };
+  const drafted = { ...ours, e164: "+3", openDrafts: 1 };
+  const filed = { ...theirs, e164: "+4", readState: { readAt: "2026-09-11T11:00:00Z", doneAt: "2026-09-11T11:00:00Z" } };
+  const revived = { ...filed, e164: "+5", lastInboundAt: "2026-09-11T12:00:00Z", lastAt: "2026-09-11T12:00:00Z" };
+  ok("their last word → needs a reply", groupOf(theirs) === "needsReply");
+  ok("our last word → waiting", groupOf(ours) === "waiting");
+  ok("our last word with a draft → drafts due", groupOf(drafted) === "drafts");
+  ok("their last word with a draft → still needs a reply (a person outranks a draft)", groupOf({ ...theirs, openDrafts: 1 }) === "needsReply");
+  ok("filed after their last word → done", groupOf(filed) === "done");
+  ok("…and a reply after the filing brings it back", groupOf(revived) === "needsReply");
+  ok("done with a draft is still done", groupOf({ ...filed, openDrafts: 2 }) === "done");
+  ok("isThreadDone with no filing is false", isThreadDone(null, "2026-09-11T10:00:00Z") === false);
+  ok("isThreadDone with a filing and no inbound ever is true", isThreadDone({ doneAt: "2026-09-11T11:00:00Z" }, null) === true);
+  const groups = groupConversations([ours, theirs, drafted, filed, revived, null]);
+  ok("every bucket is present even when empty", Object.keys(groups).join() === GROUP_ORDER.join());
+  ok("rubbish rows are dropped, not crashed on", groups.needsReply.length === 2 && groups.waiting.length === 1);
+  ok("newest activity first inside a bucket", groups.needsReply.map((c) => c.e164).join() === "+5,+1");
+  ok("null unread stays null through the route's shaping (absence, not zero)",
+    /unread: readStates \? 0 : null/.test(decomment(read("lib/sales/salesSms.js"))));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("13. Read markers: the rep's own table, behind the outreach gate");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  const { REP_THREAD_READ_WRITES } = await import("@/lib/sales/messages/readState");
+  ok("the read store declares one model", REP_THREAD_READ_WRITES.join() === "salesSmsThreadRead");
+  const store = decomment(read("lib/sales/messages/readState.js"));
+  const written = new Set([...store.matchAll(/client\.([a-zA-Z]+)\.(create|update|updateMany|upsert|delete|deleteMany|createMany)\b/g)].map((m) => m[1]));
+  ok("…and writes only that model", [...written].every((m) => REP_THREAD_READ_WRITES.includes(m)), [...written]);
+  ok("…never deleting", !/\.delete/.test(store));
+  ok("the clock is the server's, never the request's", /at = new Date\(\)/.test(store));
+  const route = decomment(read("app/api/sales/messages/read/route.js"));
+  ok("the read route exports POST behind requireOutreachRep", /export async function POST/.test(route) && /requireOutreachRep\(request\)/.test(route));
+  ok("…goes through the store", /markThreadRead\(/.test(route) && /markThreadDone\(/.test(route));
+  ok("…and writes nothing directly", !/\bdb\.[a-zA-Z]+\.(create|update|upsert|delete)/.test(route));
+  ok("…and sends nothing", !/sendSms|deliver|twilio/i.test(route));
+  ok("the schema has the table, keyed by rep and number", /model SalesSmsThreadRead \{[\s\S]*?@@unique\(\[salesRepId, e164\]\)/.test(read("prisma/schema.prisma")));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("14. New text to a number: Canada and the US, nobody else's, no duplicate");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  const { judgeNewTextNumber, startTextThread, START_REFUSALS } = await import("@/lib/sales/messages/startThread");
+  ok("+1 514 (Montréal) is accepted as CA", judgeNewTextNumber("+1 514 555 0134").ok === true && judgeNewTextNumber("+1 514 555 0134").country === "CA");
+  ok("+1 405 (Oklahoma) is accepted as US", judgeNewTextNumber("(405) 555-0132").country === "US");
+  ok("+1 787 (Puerto Rico) is accepted as US", judgeNewTextNumber("+17875550100").country === "US");
+  ok("+1 809 (Dominican Republic) is refused", judgeNewTextNumber("+1 809 555 0123").code === "outside_us_ca");
+  ok("+1 876 (Jamaica) is refused", judgeNewTextNumber("+18765550100").code === "outside_us_ca");
+  ok("+44 is refused", judgeNewTextNumber("+44 20 7946 0958").ok === false && /Canadian and US/.test(judgeNewTextNumber("+44 20 7946 0958").error));
+  ok("rubbish is refused, not guessed", judgeNewTextNumber("call me").code === "unreadable" && judgeNewTextNumber("").ok === false);
+  ok("the refusal sentence is the owner's", START_REFUSALS.outside_us_ca === "Texting is available for Canadian and US numbers only.");
+
+  // A fake client, in memory, so the rules are EXECUTED: suppression first
+  // and no row on a refusal; another rep's number refused; one lead per
+  // unknown number.
+  const fake = ({ suppressed = [], leads = [], prospects = [], numbers = [] } = {}) => {
+    const created = [];
+    return {
+      created,
+      leads,
+      salesSuppression: {
+        findMany: async ({ where }) => suppressed.filter((s) => where.OR.some((k) => k.kind === s.kind && k.value === s.value)),
+      },
+      salesLead: {
+        findMany: async ({ where }) => leads.filter((l) => (l.phone || "").includes(where.phone.contains)),
+        create: async ({ data }) => { const row = { id: `lead${created.length + 1}`, ...data }; created.push(row); leads.push({ ...row, salesRep: { name: "Me" } }); return row; },
+      },
+      prospect: { findFirst: async ({ where }) => prospects.find((p) => p.phoneE164 === where.phoneE164) || null },
+      salesContactNumber: { findMany: async ({ where }) => numbers.filter((n) => n.e164 === where.e164) },
+      salesRep: { findUnique: async ({ where }) => ({ name: where.id === "rep_b" ? "Priya N." : "Me" }) },
+    };
+  };
+  const rep = { id: "rep_a", name: "Rachel" };
+
+  {
+    const client = fake({ suppressed: [{ kind: "phone", value: "+15145550134", channels: ["sms", "phone"], source: "sms_stop", removedAt: null, retainUntil: new Date(Date.now() + 1e9) }] });
+    const r = await startTextThread(client, { rep, raw: "+1 514 555 0134" });
+    ok("a suppressed number is refused", r.ok === false && r.code === "suppressed", r);
+    ok("…before any lead is created", client.created.length === 0);
+  }
+  {
+    const client = fake({ leads: [{ id: "L9", phone: "(514) 555-0199", salesRepId: "rep_b", businessName: "Theirs", salesRep: { name: "Priya N." } }] });
+    const r = await startTextThread(client, { rep, raw: "+15145550199" });
+    ok("a number on another rep's lead is refused, naming them", r.ok === false && r.code === "held_by_other" && /Priya N\./.test(r.error), r);
+    ok("…and no lead is created", client.created.length === 0);
+  }
+  {
+    const client = fake({ prospects: [{ id: "P1", phoneE164: "+15145550177", businessName: "Claimed Co", assignedRepId: "rep_b" }] });
+    const r = await startTextThread(client, { rep, raw: "+15145550177" });
+    ok("a number on a prospect claimed by another rep is refused too", r.ok === false && r.code === "held_by_other" && /Priya N\./.test(r.error), r);
+  }
+  {
+    const client = fake({ leads: [{ id: "L1", phone: "514-555-0134", salesRepId: "rep_a", businessName: "Mine", salesRep: { name: "Me" } }] });
+    const r = await startTextThread(client, { rep, raw: "+1 (514) 555-0134" });
+    ok("the rep's own lead opens its thread", r.ok === true && r.leadId === "L1" && r.created === false, r);
+  }
+  {
+    const client = fake();
+    const first = await startTextThread(client, { rep, raw: "+1 514 555 0134" });
+    ok("an unknown number creates one lead, owned by the rep, with only the number", first.ok === true && first.created === true && client.created.length === 1 && client.created[0].salesRepId === "rep_a" && client.created[0].phone === "+15145550134" && client.created[0].businessName === "" && client.created[0].country === "CA", client.created[0]);
+    const second = await startTextThread(client, { rep, raw: "514 555 0134" });
+    ok("…and a second attempt reuses it", second.ok === true && second.created === false && second.leadId === first.leadId && client.created.length === 1, second);
+  }
+  {
+    const client = fake();
+    const r = await startTextThread(client, { rep, raw: "+1 809 555 0123" });
+    ok("a Dominican number never reaches the database", r.ok === false && client.created.length === 0);
+  }
+
+  const route = decomment(read("app/api/sales/messages/start/route.js"));
+  ok("the start route exports POST behind requireOutreachRep", /export async function POST/.test(route) && /requireOutreachRep\(request\)/.test(route));
+  ok("…decides through startTextThread and writes nothing itself", /startTextThread\(db, \{ rep, raw \}\)/.test(route) && !/\bdb\.[a-zA-Z]+\./.test(route));
+  ok("…and sends nothing", !/sendSms|deliver/.test(route));
+  const lib = decomment(read("lib/sales/messages/startThread.js"));
+  ok("the lead is created through the shared create", /createSalesLead\(client/.test(lib) && !/salesLead\.create/.test(lib));
+  ok("…which the leads route uses too", /createSalesLead\(db/.test(decomment(read("app/api/sales/leads/route.js"))));
+  const contacts = decomment(read("app/api/sales/messages/contacts/route.js"));
+  ok("the picker's search is scoped to the rep's leads", /salesRepId: rep\.id/.test(contacts));
+  ok("…and to prospects they hold, through queueWhere", /queueWhere\(rep\.id\)/.test(contacts));
+  ok("…and never returns a do-not-contact business", /doNotContactAt: null/.test(contacts));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

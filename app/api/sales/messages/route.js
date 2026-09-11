@@ -46,6 +46,23 @@
 // means there are none. The screen says different things for the two, because
 // "no drafts" and "we could not look" are different claims and only one of
 // them is reassuring. AGENTS.md failure class #5.
+// ══ The list is a chat client's list, and it says four more things ════════
+//
+// Unread (inbound rows after the rep last had the thread open — see
+// lib/sales/messages/readState.js), an open draft, the rep's own "done"
+// filing, and when the other side last wrote. Each is read from its own
+// table and each fails SEPARATELY and DISTINGUISHABLY: a list that cannot
+// count unread says `unread: null`, never 0. The bucket a conversation lands
+// in is lib/sales/messages/rooms.js, pure, executed by the check.
+//
+// ══ The thread is a chat client's thread, and it carries the room's context ═
+//
+// Beside the messages: the rep's call attempts to this number (read only —
+// they are drawn as system rows and in the History tab), the do-not-contact
+// row if one exists (the "STOP received" row and the red tag), the texting
+// window as an open/closed tag, and the contact's details for the bar on
+// the right. All of it is READ. The only write on this route is still POST,
+// and it still goes through every gate it always did.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -59,7 +76,61 @@ import {
 } from "@/lib/sales/salesSms";
 import { normalisePhone } from "@/lib/sales/suppressionRules";
 import { getAppOrigin } from "@/lib/appUrl";
-import { leadForThread, threadContext, openCheckIns, suggestionForThread } from "@/lib/sales/checkin/store";
+import {
+  leadForThread,
+  threadContext,
+  openCheckIns,
+  openCheckInsByThread,
+  suggestionForThread,
+} from "@/lib/sales/checkin/store";
+import { threadReadStates, threadReadState } from "@/lib/sales/messages/readState";
+import { salesSmsWindowState } from "@/lib/sales/smsWindow";
+import { findSuppressions } from "@/lib/sales/suppression";
+import { loadContactNumbers } from "@/lib/sales/contact/resolve";
+import { db } from "@/lib/db";
+import { ruleDraft } from "@/lib/sales/checkin/draft";
+import { CHECKIN_REASONS, REASON_CODES, checkinHeadlineKey } from "@/lib/sales/checkin/signals";
+import { signupLinkFor } from "@/lib/sales/repStats";
+
+/**
+ * The `!` catalogue for one conversation.
+ *
+ * Built HERE, not in the browser, because the wording comes from
+ * lib/sales/checkin/draft.js, which imports the model provider and must not
+ * be bundled into a client. Every entry is the deterministic rule draft —
+ * no model is asked while a page merely renders (store.js's rule) — with
+ * the rep's own name and this business's name in it. English only: the
+ * texts this portal sends are English (the CASL footer the send appends is
+ * English, and the STOP keyword the inbound handler listens for is English),
+ * and no lead or prospect row records the contact's language, so there is
+ * nothing to translate INTO without inventing it.
+ *
+ * `titleKey` lets the screen show the entry's title in the rep's language;
+ * the TEXT is what goes over the wire and stays as it is.
+ */
+function cannedFor({ rep, lead, origin }) {
+  const facts = { companyName: lead?.businessName || null };
+  const entries = REASON_CODES.map((code) => ({
+    id: `checkin:${code}`,
+    group: "checkin",
+    titleKey: checkinHeadlineKey(code),
+    title: CHECKIN_REASONS[code].headline,
+    text: ruleDraft({ primary: { code }, facts }, { repName: rep?.name }),
+  }));
+  const link = rep?.code ? signupLinkFor(origin, rep.code) : null;
+  if (link) {
+    entries.unshift({
+      id: "signup",
+      group: "sales",
+      titleKey: "app.salesText.cannedSignupTitle",
+      title: "Signup link",
+      // Identification first, the same order signupLinkSmsBody keeps and for
+      // the same reason: the name is what a stranger reads in the preview.
+      text: `Hi, it is ${String(rep?.name || "").trim() || "FieldQuo"} from FieldQuo. Here is the link to get started: ${link}`,
+    });
+  }
+  return entries;
+}
 
 export async function GET(request) {
   const { rep, refusal } = await requireSalesRep(request);
@@ -69,7 +140,33 @@ export async function GET(request) {
   const withE164 = normalisePhone(url.searchParams.get("with"));
 
   if (!withE164) {
-    return NextResponse.json({ conversations: await salesConversations({ salesRepId: rep.id }) });
+    // Two reads that fail soft and fail distinguishably, then the list.
+    let readStates = null;
+    let readStateError = null;
+    try {
+      readStates = await threadReadStates({ salesRepId: rep.id });
+    } catch (err) {
+      readStateError = "Read markers could not be read, so unread counts are not shown.";
+      console.error("[sales messages] read states unreadable:", err?.message);
+    }
+    let drafts = null;
+    let draftsError = null;
+    try {
+      drafts = await openCheckInsByThread({ salesRepId: rep.id });
+    } catch (err) {
+      draftsError = "Check-in drafts could not be read, so \"Drafts due\" may be missing conversations.";
+      console.error("[sales messages] drafts unreadable:", err?.message);
+    }
+    const conversations = (await salesConversations({ salesRepId: rep.id, readStates })).map((c) => {
+      const draft = drafts ? drafts.get(c.e164) || null : null;
+      return {
+        ...c,
+        // Null when the table could not be read — absence, not zero.
+        openDrafts: drafts ? draft?.count || 0 : null,
+        nextDraftDue: draft?.nextDue || null,
+      };
+    });
+    return NextResponse.json({ conversations, readStateError, draftsError });
   }
 
   const messages = await salesThread({ salesRepId: rep.id, withE164 });
@@ -85,6 +182,71 @@ export async function GET(request) {
     lead: lead || { phone: withE164, timeZone: null },
     origin: getAppOrigin(request),
   }).catch(() => null);
+
+  // The room's context, every piece read on its own so one missing table
+  // costs its own panel and nothing else. All read-only.
+  const now = new Date();
+  const [readState, calls, suppressions, numbers, emailThreads, pastCheckIns, prospectScore] =
+    await Promise.all([
+      threadReadState({ salesRepId: rep.id, e164: withE164 }).catch(() => null),
+      db.salesCallAttempt
+        .findMany({
+          where: { salesRepId: rep.id, toE164: withE164 },
+          orderBy: { dialledAt: "desc" },
+          take: 30,
+          select: {
+            id: true,
+            dialledAt: true,
+            direction: true,
+            disposition: true,
+            answeredAt: true,
+            talkSeconds: true,
+            dialChannel: true,
+            voicemailSeconds: true,
+          },
+        })
+        .catch(() => null),
+      findSuppressions(db, { phone: withE164 }).catch(() => null),
+      lead
+        ? loadContactNumbers({ prospectId: lead.prospectId || null, salesLeadId: lead.id }).catch(() => null)
+        : Promise.resolve([]),
+      lead
+        ? db.salesThread
+            .findMany({
+              where: { leadId: lead.id, salesRepId: rep.id },
+              orderBy: { lastMessageAt: "desc" },
+              take: 10,
+              select: { id: true, subject: true, lastMessageAt: true },
+            })
+            .catch(() => null)
+        : Promise.resolve([]),
+      db.salesCheckIn
+        .findMany({
+          where: { salesRepId: rep.id, toE164: withE164, status: { in: ["sent", "dismissed"] } },
+          orderBy: { updatedAt: "desc" },
+          take: 10,
+          select: { id: true, status: true, sentAt: true, dismissedAt: true, draftText: true, reasonCode: true },
+        })
+        .catch(() => null),
+      lead?.prospectId
+        ? db.prospectScore
+            .findFirst({
+              where: { prospectId: lead.prospectId },
+              orderBy: { computedAt: "desc" },
+              select: { score: true, computedAt: true },
+            })
+            .catch(() => null)
+        : Promise.resolve(null),
+    ]);
+
+  const prospect = lead?.prospectId
+    ? await db.prospect
+        .findUnique({
+          where: { id: lead.prospectId },
+          select: { id: true, tradeKey: true, city: true, province: true, phoneE164: true },
+        })
+        .catch(() => null)
+    : null;
 
   // Both reads fail soft and fail DISTINGUISHABLY. A missing SalesCheckIn
   // table — this deployment's Neon project is at its size limit and the table
@@ -117,7 +279,15 @@ export async function GET(request) {
     with: withE164,
     messages,
     lead: lead
-      ? { id: lead.id, businessName: lead.businessName, contactName: lead.contactName, timeZone: lead.timeZone }
+      ? {
+          id: lead.id,
+          businessName: lead.businessName,
+          contactName: lead.contactName,
+          timeZone: lead.timeZone,
+          email: lead.email || null,
+          status: lead.status || null,
+          prospectId: lead.prospectId || null,
+        }
       : null,
     // Only ever a company this rep is attributed to — threadContext re-checks
     // that through assignedCompanyWhere. The escalation control renders off
@@ -131,6 +301,52 @@ export async function GET(request) {
     checkIns,
     checkInError,
     suggestion,
+    // ── The chat client's context ─────────────────────────────────────
+    readState,
+    canned: cannedFor({ rep, lead, origin: getAppOrigin(request) }),
+    window: salesSmsWindowState(now, timeZone),
+    // Null when the table could not be read; [] when there were none.
+    calls: calls
+      ? calls.map((c) => ({
+          id: c.id,
+          at: c.dialledAt,
+          direction: c.direction,
+          disposition: c.disposition,
+          answered: Boolean(c.answeredAt),
+          talkSeconds: c.talkSeconds,
+          dialChannel: c.dialChannel,
+          voicemailSeconds: c.voicemailSeconds,
+        }))
+      : null,
+    // Live do-not-contact rows for this number: when it was asked for and
+    // from where. Removed rows are left out here — the header tag says
+    // what is true NOW; the readiness blockers above already carry the
+    // verdict the send will get.
+    suppressions: suppressions
+      ? suppressions
+          .filter((row) => !row.removedAt)
+          .map((row) => ({ id: row.id, requestedAt: row.requestedAt, source: row.source, reason: row.reason }))
+      : null,
+    contact: {
+      trade: prospect?.tradeKey || null,
+      city: prospect?.city || lead?.province || null,
+      province: prospect?.province || lead?.province || null,
+      score: prospectScore ? { value: prospectScore.score, at: prospectScore.computedAt } : null,
+      repName: rep.name || null,
+      numbers: numbers
+        ? numbers.map((n) => ({
+            id: n.id,
+            e164: n.e164,
+            kind: n.kind,
+            label: n.label,
+            canCall: n.canCall,
+            canText: n.canText,
+            preferred: n.preferred,
+          }))
+        : null,
+      emailThreads,
+      pastCheckIns,
+    },
   });
 }
 

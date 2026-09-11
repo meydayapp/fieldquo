@@ -663,6 +663,10 @@ for (const [file, method, required] of ROUTES) {
     // which this scan cannot see and scripts/check-sales-lead-link.mjs and
     // scripts/check-sales-auth.mjs (LIB_FORBIDDEN_WRITE_BY_DESIGN) pin.
     "lib/sales/leadLink.js",
+    // The lead create itself, shared with /sales/messages' "new text to a
+    // number" path. It writes salesLead and nothing else.
+    "lib/sales/leadCreate.js",
+    "lib/sales/messages/startThread.js",
   ];
   const offenders = [];
   for (const file of files) {

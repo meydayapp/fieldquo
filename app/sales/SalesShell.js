@@ -90,7 +90,13 @@ export default function SalesShell({ children }) {
   // "make it all wider" would have cost the four reading screens their measure
   // to fix one console. Header, tabs and body share the constant so the three
   // stay aligned.
-  const container = `${pathname.startsWith("/sales/queue") ? "max-w-7xl" : "max-w-5xl"} mx-auto px-4 sm:px-6`;
+  //
+  // /sales/messages joined the wide set when it became a three-pane chat
+  // client: a 280px room list, the thread, and a 340px contact bar do not
+  // fit in 1024px without the thread — the pane a rep reads — going below
+  // 400px.
+  const wide = pathname.startsWith("/sales/queue") || pathname.startsWith("/sales/messages");
+  const container = `${wide ? "max-w-7xl" : "max-w-5xl"} mx-auto px-4 sm:px-6`;
 
   // ── The one list of what the portal has ─────────────────────────────────
   //

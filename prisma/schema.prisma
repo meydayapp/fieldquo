@@ -13469,6 +13469,43 @@ model SalesRepTourProgress {
   updatedAt DateTime @updatedAt
 }
 
+/// Where a rep got to in one text conversation: when they last looked, and
+/// whether they filed it as done.
+///
+/// ── Why a table of its own, keyed by (rep, number) ───────────────────────
+///
+/// "Unread" belongs to a PERSON, not to a message. Two reps on the shared
+/// sales number read different threads at different times, and a flag on
+/// SalesSmsMessage would make the first reader's glance mark it read for the
+/// second. Rocket.Chat separates a room from a subscription for exactly this
+/// reason (StaffRoomMember below is that shape for the team chat); this is
+/// the same idea for SMS, where the "room" is the other party's number and
+/// needs no row of its own.
+///
+/// `readAt` is the instant the rep last had the thread open; every inbound
+/// message after it is unread. `doneAt` is the rep's own filing — a
+/// conversation they consider finished goes under "Done" in the list until
+/// the other side writes again, at which point it is not done any more and
+/// the list says so without anybody clearing a flag.
+///
+/// Same loose-pointer shape as SalesRepTourProgress, for the same reason: a
+/// SalesRep is never deleted, so a cascade could never fire.
+model SalesSmsThreadRead {
+  id String @id @default(cuid())
+
+  salesRepId String
+  e164       String
+
+  readAt DateTime?
+  doneAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([salesRepId, e164])
+  @@index([salesRepId, doneAt])
+}
+
 
 // ── FieldQuo's own staff chat ──────────────────────────────────────────────
 //

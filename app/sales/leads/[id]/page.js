@@ -372,7 +372,10 @@ export default function SalesLeadPage({ params }) {
           them is the thing a rep opened this screen to do. Never blank: every
           state DialRegion can be in says what is missing and what would fix
           it. */}
-      <section className="rounded-lg border border-border bg-card p-4 space-y-3">
+      <section id="lead-call" className="rounded-lg border border-border bg-card p-4 space-y-3">
+        {/* id="lead-call": /sales/messages links here for its Call action —
+            the dial stays behind this region's gate rather than getting a
+            second tel: link on the texts screen. */}
         <div className="flex items-baseline justify-between gap-2">
           <h2 className="text-base font-semibold text-foreground">{t("app.salesLeads.callThem")}</h2>
           {call?.phoneE164 ? (

@@ -1,63 +1,174 @@
 // app/sales/messages/page.js
 //
-// The rep's texts, drawn as a conversation rather than as a list of rows —
-// with the check-in this contractor is due sitting in it, unsent.
+// The rep's texts, as a chat client — not a list with a compose box.
 //
-// ══ What the owner asked for, in three clauses ═════════════════════════════
+// ══ What the owner asked for, and what he kept seeing instead ═════════════
 //
-//   "can the /sales/messages look more like a text message type UI"
-//   "the check-ins and follow-ups via text should be draft but not sent"
-//   "when it should be sent should be able to be changed by the sales rep, or
-//    set up a manual one based on a conversation"
+//   "how come my /sales/messages is not more similar to that
+//    [Rocket.Chat's omnichannel agent screen] … I have told you many times
+//    to look at the UI"
 //
-// All three are on this screen. The first is lib/sales/messages/grouping.js
-// plus MessageThread.js; the second and third are CheckInDraft.js plus the
-// three routes under /api/sales/checkins.
+// Two attempts shipped a list of cards and, behind a click, a thread with a
+// textarea under it. This one IS the client: rooms down the left in four
+// groups, the conversation in the middle with day dividers, an unread line
+// and sequential grouping, a composer with a `!` menu, and the contact in a
+// bar on the right. Every piece is app/components/chat — the same kit the
+// team chat renders — and the arithmetic behind the thread is executed by
+// scripts/check-chat-kit.mjs rather than eyeballed. The rendered result is
+// in docs/screens/sales-messages/, because a green build is not a screen.
+//
+// The three clauses the first version was built for still hold: the
+// conversation reads as one (lib/sales/messages/grouping.js), check-ins sit
+// in it as DRAFTS and nothing sends them (CheckInDraft.js), and the rep sets
+// or changes when — or parks a new one from the header.
 //
 // ══ Every refusal is the SERVER's ═════════════════════════════════════════
 //
-// The compose box does not decide whether a text may go: the suppression list
-// is read fresh at the moment of the send, the texting window is judged in the
-// prospect's own zone, and the mailing address CASL requires is checked there.
-// This screen shows the answer it gets back. A second copy of those rules here
-// is how a reply goes out at two in the morning to somebody who said STOP.
+// The composer does not decide whether a text may go: the suppression list
+// is read fresh at the moment of the send, the texting window is judged in
+// the prospect's own zone, and the mailing address CASL requires is checked
+// there. This screen shows the answer it gets back — as the hint line over
+// the box, as a failed row in the thread, as the red STOP tag in the header.
+// A second copy of those rules here is how a reply goes out at two in the
+// morning to somebody who said STOP.
 //
 // What the screen DOES do is stop offering a control the server would refuse:
-// a suppressed conversation gets no compose box and no send button, and the
+// a suppressed conversation gets no composer and no send button, and the
 // reason is printed instead. That is courtesy, not enforcement — the two
 // checkins routes and the reply route each refuse it again on their own.
 //
 // ══ Nothing on this page sends anything on its own ═════════════════════════
 //
 // There is no interval, no scheduler and no effect that calls a send. Every
-// path to the carrier starts with a press. scripts/check-sales-messages.mjs
-// asserts that by scanning this file for a send call outside an event handler.
+// path to the carrier starts with a press — Send, Enter, a draft's own
+// button. scripts/check-sales-messages.mjs asserts that by scanning this
+// file for a send call outside an event handler. The one timer near this
+// screen is useThreadRefresh.js, which RE-READS the open thread while the
+// tab is visible and is pinned by the same check to GET and nothing else.
+//
+// ══ Unread is the rep's, done is the rep's ════════════════════════════════
+//
+// Both live in SalesSmsThreadRead (lib/sales/messages/readState.js), keyed by
+// rep and number, so two reps on the shared sales number do not read each
+// other's threads for each other. Opening a thread records the read; the red
+// line is drawn from the instant BEFORE that write, so it stays where it was
+// until the rep leaves — the way every chat client does it.
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertCircle,
   ArrowLeft,
   CalendarPlus,
+  Check,
+  ExternalLink,
   LifeBuoy,
   Loader2,
   MessageSquare,
-  Send,
+  MessageSquarePlus,
+  Phone,
+  RotateCcw,
+  Search,
   ShieldOff,
+  UserRound,
+  X,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { raiseSupportTicket } from "@/lib/support/repClient";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import MessageThread, { conversationInitials, sentenceAround } from "./MessageThread";
+import {
+  ChatLayout,
+  RoomList,
+  Thread,
+  Composer,
+  ContextBar,
+  PANE_LIST,
+  PANE_THREAD,
+  PANE_CONTEXT,
+} from "@/app/components/chat";
+import { layoutThread } from "@/lib/chat/threadLayout";
+import {
+  GROUP_DONE,
+  GROUP_DRAFTS,
+  GROUP_NEEDS_REPLY,
+  GROUP_ORDER,
+  GROUP_WAITING,
+  groupConversations,
+} from "@/lib/sales/messages/rooms";
+import { LEAD_STATUS_LABELS } from "@/lib/sales/outreachPipeline";
+import { conversationInitials, sentenceAround } from "./MessageThread";
 import CheckInDraft from "./CheckInDraft";
+import SignupLinkSms from "../leads/SignupLinkSms";
+import { useThreadRefresh } from "./useThreadRefresh";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
 const CARD = "rounded-xl border border-border bg-card p-4 space-y-3";
+const ACTION =
+  "inline-flex items-center gap-1.5 min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-60";
+const TAG = "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold";
+
+/** The frame's height: the viewport minus the shell's chrome above and below. */
+const FRAME_HEIGHT =
+  "h-[calc(100dvh-var(--fq-tab-bar-height)-7rem)] lg:h-[calc(100dvh-11.5rem)]";
+
+const GROUP_TITLE_KEY = {
+  [GROUP_NEEDS_REPLY]: "app.salesText.groupNeedsReply",
+  [GROUP_WAITING]: "app.salesText.groupWaiting",
+  [GROUP_DRAFTS]: "app.salesText.groupDrafts",
+  [GROUP_DONE]: "app.salesText.groupDone",
+};
 
 function when(value) {
-  return new Date(value).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  if (!value) return "";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime())
+    ? ""
+    : d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+
+function dayOf(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/** "9:00 PM CDT" — the boundary of the texting window, in THEIR zone. */
+function zoneTime(value, timeZone) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  try {
+    return d.toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+      ...(timeZone ? { timeZone, timeZoneName: "short" } : {}),
+    });
+  } catch {
+    return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+}
+
+/** "+1 405 555 0132" from "+14055550132" — readable, still one number. */
+function prettyE164(e164) {
+  const s = String(e164 || "");
+  const m = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(s);
+  return m ? `+1 ${m[1]} ${m[2]} ${m[3]}` : s;
+}
+
+/** Does the viewport have room for the context bar as a column? */
+function useWide() {
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const update = () => setWide(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return wide;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -202,10 +313,434 @@ function EscalatePanel({ company }) {
   );
 }
 
-export default function SalesMessagesPage() {
+// ═══════════════════════════════════════════════════════════════════════════
+// The context bar's three tabs
+// ═══════════════════════════════════════════════════════════════════════════
+
+function Field({ label, children, mono = false }) {
+  if (children === null || children === undefined || children === "") return null;
+  return (
+    <div className="space-y-0.5">
+      <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className={`text-sm text-foreground break-words ${mono ? "tabular-nums" : ""}`}>{children}</dd>
+    </div>
+  );
+}
+
+function ContactDetails({ thread, openWith }) {
   const { t } = useTranslation();
+  const lead = thread?.lead;
+  const contact = thread?.contact || {};
+  const zone = thread?.timeZone;
+  return (
+    <div className="space-y-4">
+      <dl className="space-y-3">
+        <Field label={t("app.salesText.fieldBusiness")}>{lead?.businessName || thread?.company?.name || null}</Field>
+        <Field label={t("app.salesText.fieldContactName")}>{lead?.contactName || null}</Field>
+        <Field label={t("app.salesText.fieldNumber")} mono>
+          {prettyE164(openWith)}
+        </Field>
+        <Field label={t("app.salesText.fieldEmail")}>{lead?.email || null}</Field>
+        <Field label={t("app.salesText.fieldTrade")}>{contact.trade || null}</Field>
+        <Field label={t("app.salesText.fieldPlace")}>
+          {[contact.city, contact.province].filter(Boolean).join(", ") || null}
+        </Field>
+        <Field label={t("app.salesText.fieldTimeZone")}>{zone || t("app.salesText.timeZoneUnknown")}</Field>
+        <Field label={t("app.salesText.fieldLeadStage")}>
+          {lead?.status ? t(`app.salesLeads.status.${lead.status}`, LEAD_STATUS_LABELS[lead.status] || lead.status) : null}
+        </Field>
+        <Field label={t("app.salesText.fieldLeadScore")}>
+          {contact.score ? `${contact.score.value} · ${dayOf(contact.score.at)}` : null}
+        </Field>
+        <Field label={t("app.salesText.fieldAssignedRep")}>{contact.repName || null}</Field>
+      </dl>
+
+      <div className="flex flex-col gap-2">
+        {lead ? (
+          <Link href={`/sales/leads/${lead.id}`} className={`${BTN} border border-border text-foreground w-full`}>
+            <ExternalLink size={15} aria-hidden="true" /> {t("app.salesText.actionOpenLead")}
+          </Link>
+        ) : null}
+        {lead?.prospectId ? (
+          <Link
+            href={`/sales/queue?prospect=${encodeURIComponent(lead.prospectId)}`}
+            className={`${BTN} border border-border text-foreground w-full`}
+          >
+            <ExternalLink size={15} aria-hidden="true" /> {t("app.salesText.openProspect")}
+          </Link>
+        ) : null}
+        {thread?.company ? (
+          <Link href="/sales/companies" className={`${BTN} border border-border text-foreground w-full`}>
+            {t("app.salesText.companyIsCustomer", { company: thread.company.name })}
+          </Link>
+        ) : null}
+      </div>
+
+      <EscalatePanel company={thread?.company || null} />
+    </div>
+  );
+}
+
+function ContactChannels({ thread, openWith }) {
+  const { t } = useTranslation();
+  const numbers = thread?.contact?.numbers;
+  const messages = thread?.messages || [];
+  const calls = thread?.calls || [];
+  // "Last used" per number: the newest text or call that touched it.
+  const lastUsed = (e164) => {
+    let latest = null;
+    for (const m of messages) {
+      if (m.toE164 === e164 || m.fromE164 === e164) {
+        if (!latest || new Date(m.sentAt) > latest) latest = new Date(m.sentAt);
+      }
+    }
+    for (const c of calls) {
+      if (!latest || new Date(c.at) > latest) latest = new Date(c.at);
+    }
+    return latest;
+  };
+  const rows = [];
+  const seen = new Set();
+  const push = (e164, meta = {}) => {
+    if (!e164 || seen.has(e164)) return;
+    seen.add(e164);
+    rows.push({ e164, ...meta });
+  };
+  push(openWith, { kind: "sms", label: t("app.salesText.channelThisThread") });
+  for (const n of numbers || []) push(n.e164, { kind: n.kind, label: n.label, canText: n.canText, canCall: n.canCall, preferred: n.preferred });
+
+  return (
+    <div className="space-y-3">
+      {numbers === null ? (
+        <p className="text-xs text-muted-foreground">{t("app.salesText.numbersUnreadable")}</p>
+      ) : null}
+      <ul className="space-y-2">
+        {rows.map((row) => {
+          const used = lastUsed(row.e164);
+          return (
+            <li key={row.e164} className="rounded-lg border border-border p-2.5">
+              <p className="flex items-center justify-between gap-2">
+                <span className="text-sm font-medium text-foreground tabular-nums">{prettyE164(row.e164)}</span>
+                <span className={`${TAG} bg-muted text-muted-foreground`}>SMS</span>
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground break-words">
+                {[row.label, row.kind && row.kind !== "unknown" ? row.kind : null, row.preferred ? t("app.salesText.numberPreferred") : null]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {used ? t("app.salesText.lastUsed", { when: when(used) }) : t("app.salesText.neverUsed")}
+              </p>
+            </li>
+          );
+        })}
+        {thread?.lead?.email ? (
+          <li className="rounded-lg border border-border p-2.5">
+            <p className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium text-foreground break-all">{thread.lead.email}</span>
+              <span className={`${TAG} bg-muted text-muted-foreground`}>{t("app.salesText.channelEmail")}</span>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {thread?.contact?.emailThreads?.[0]?.lastMessageAt
+                ? t("app.salesText.lastUsed", { when: when(thread.contact.emailThreads[0].lastMessageAt) })
+                : t("app.salesText.neverUsed")}
+            </p>
+          </li>
+        ) : null}
+      </ul>
+    </div>
+  );
+}
+
+function ContactHistory({ thread }) {
+  const { t } = useTranslation();
+  const calls = thread?.calls;
+  const emailThreads = thread?.contact?.emailThreads;
+  const past = thread?.contact?.pastCheckIns;
+  const open = thread?.checkIns || [];
+  const outcome = (c) =>
+    c.disposition
+      ? t(`app.salesCall.disposition.${c.disposition}.label`, c.disposition)
+      : c.answered
+        ? t("app.salesText.callAnswered")
+        : t("app.salesText.callNoOutcome");
+  const Section = ({ title, children }) => (
+    <section className="space-y-1.5">
+      <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
+      {children}
+    </section>
+  );
+  const None = () => <p className="text-xs text-muted-foreground">{t("app.salesText.historyNone")}</p>;
+  const Unreadable = () => <p className="text-xs text-muted-foreground">{t("app.salesText.historyUnreadable")}</p>;
+  return (
+    <div className="space-y-4">
+      <Section title={t("app.salesText.historyCalls")}>
+        {calls === null ? <Unreadable /> : !calls?.length ? <None /> : (
+          <ul className="space-y-1">
+            {calls.map((c) => (
+              <li key={c.id} className="flex items-baseline justify-between gap-2 text-sm">
+                <span className="min-w-0 truncate text-foreground">
+                  {c.direction === "in" ? t("app.salesText.callInbound") : t("app.salesText.callOutbound")} · {outcome(c)}
+                </span>
+                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{when(c.at)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+      <Section title={t("app.salesText.historyEmailThreads")}>
+        {emailThreads === null ? <Unreadable /> : !emailThreads?.length ? <None /> : (
+          <ul className="space-y-1">
+            {emailThreads.map((th) => (
+              <li key={th.id} className="text-sm">
+                <Link href={`/sales/threads/${th.id}`} className="underline text-foreground break-words">
+                  {th.subject}
+                </Link>
+                <span className="ml-2 text-xs text-muted-foreground tabular-nums">{when(th.lastMessageAt)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+      <Section title={t("app.salesText.historyCheckIns")}>
+        {past === null ? <Unreadable /> : !past?.length && !open.length ? <None /> : (
+          <ul className="space-y-1">
+            {open.map((c) => (
+              <li key={c.id} className="text-sm text-foreground">
+                {t("app.salesText.draftBadge")}
+                {c.scheduledFor ? ` · ${when(c.scheduledFor)}` : ""}
+              </li>
+            ))}
+            {(past || []).map((c) => (
+              <li key={c.id} className="flex items-baseline justify-between gap-2 text-sm">
+                <span className="text-foreground">
+                  {c.status === "sent" ? t("app.salesText.checkInSent") : t("app.salesText.checkInDismissed")}
+                </span>
+                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                  {when(c.sentAt || c.dismissedAt)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// New message — a rep's own leads and claimed prospects, or a typed number
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Two entry points the owner asked for. The picker searches ONLY what the
+// rep holds (app/api/sales/messages/contacts scopes both queries), and
+// "New text" hands a number to app/api/sales/messages/start, which decides
+// everything — Canada/US only, not on the do-not-contact list, not held by
+// another rep — and creates the lead when nobody holds it. This component
+// shows the server's answer; it decides nothing about the number itself.
+function NewMessagePicker({ onOpen, onClose }) {
+  const { t } = useTranslation();
+  const [q, setQ] = useState("");
+  const [results, setResults] = useState(null);
+  const [searchError, setSearchError] = useState("");
+  const [phone, setPhone] = useState("");
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState("");
+  const [picking, setPicking] = useState("");
+  const searchRef = useRef(null);
+
+  useEffect(() => {
+    searchRef.current?.focus();
+  }, []);
+
+  const search = useCallback(
+    async (query) => {
+      setSearchError("");
+      try {
+        const data = await fetchJson(`/api/sales/messages/contacts?q=${encodeURIComponent(query)}`);
+        setResults(data.results || []);
+      } catch (err) {
+        setSearchError(err?.message || t("app.salesText.newSearchFailed"));
+      }
+    },
+    [t],
+  );
+
+  useEffect(() => {
+    search(q);
+  }, [q, search]);
+
+  async function pick(entry) {
+    setStartError("");
+    setPicking(entry.id);
+    try {
+      if (entry.kind === "prospect") {
+        // A prospect becomes the rep's lead through the leads route — the
+        // same carry-across the queue offers, with its claim check.
+        const { lead } = await fetchJson("/api/sales/leads", { method: "POST", body: { prospectId: entry.id } });
+        const { with: e164 } = await fetchJson(`/api/sales/messages/contacts?leadId=${encodeURIComponent(lead.id)}`);
+        if (!e164) throw new Error(t("app.salesText.newNoNumber"));
+        onOpen(e164);
+        return;
+      }
+      if (!entry.e164) throw new Error(t("app.salesText.newNoNumber"));
+      onOpen(entry.e164);
+    } catch (err) {
+      setStartError(err?.message || t("app.salesText.newOpenFailed"));
+    } finally {
+      setPicking("");
+    }
+  }
+
+  async function startWithNumber(event) {
+    event.preventDefault();
+    if (!phone.trim()) return;
+    setStarting(true);
+    setStartError("");
+    try {
+      const result = await fetchJson("/api/sales/messages/start", { method: "POST", body: { phone } });
+      onOpen(result.with);
+    } catch (err) {
+      // The server's own sentence: which rule refused and, for a held
+      // number, whose it is.
+      setStartError(err?.message || t("app.salesText.newOpenFailed"));
+    } finally {
+      setStarting(false);
+    }
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col" data-new-message>
+      <header className="flex items-center gap-2 border-b border-border px-3 py-2">
+        <h2 className="min-w-0 flex-1 text-sm font-semibold text-foreground">{t("app.salesText.newMessageTitle")}</h2>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={t("app.salesText.cancel")}
+          className="grid h-10 w-10 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
+        >
+          <X size={16} aria-hidden="true" />
+        </button>
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {/* ── Their own leads and claimed prospects ──────────────────────── */}
+        <div className="px-3 pt-3">
+          <label className="sr-only" htmlFor="new-message-search">
+            {t("app.salesText.newSearchLabel")}
+          </label>
+          <div className="relative">
+            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <input
+              id="new-message-search"
+              ref={searchRef}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder={t("app.salesText.newSearchPlaceholder")}
+              className="w-full min-h-[44px] rounded-lg border border-border bg-card pl-9 pr-3 text-base text-foreground"
+            />
+          </div>
+          <p className="mt-1 text-[11px] text-muted-foreground">{t("app.salesText.newSearchScope")}</p>
+        </div>
+
+        {searchError ? (
+          <p className="px-3 pt-2 text-sm text-red-700 dark:text-red-300 break-words">{searchError}</p>
+        ) : null}
+
+        <ul className="divide-y divide-border/60 px-1 pt-2" data-new-message-results>
+          {results === null ? (
+            <li className="flex items-center gap-2 px-2 py-3 text-sm text-muted-foreground">
+              <Loader2 className="animate-spin motion-reduce:animate-none" size={15} aria-hidden="true" />
+              {t("app.salesText.loading")}
+            </li>
+          ) : results.length === 0 ? (
+            <li className="px-2 py-3 text-sm text-muted-foreground">{t("app.salesText.newSearchEmpty")}</li>
+          ) : (
+            results.map((entry) => (
+              <li key={`${entry.kind}:${entry.id}`}>
+                <button
+                  type="button"
+                  disabled={Boolean(picking)}
+                  onClick={() => pick(entry)}
+                  className="flex w-full items-center gap-3 rounded-md px-2 py-2.5 text-left hover:bg-muted disabled:opacity-60 min-h-[52px]"
+                >
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-muted text-xs font-semibold text-foreground" aria-hidden="true">
+                    {conversationInitials({ name: entry.name, e164: entry.e164 })}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className={`block truncate text-sm font-medium text-foreground ${entry.name ? "" : "tabular-nums"}`}>
+                      {entry.name || prettyE164(entry.e164)}
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground tabular-nums">
+                      {[entry.name ? prettyE164(entry.e164) : null, entry.place].filter(Boolean).join(" · ") || t("app.salesText.newNoNumber")}
+                    </span>
+                  </span>
+                  <span className={`${TAG} bg-muted text-muted-foreground`}>
+                    {entry.kind === "lead" ? t("app.salesText.newKindLead") : t("app.salesText.newKindProspect")}
+                  </span>
+                  {picking === entry.id ? (
+                    <Loader2 className="animate-spin motion-reduce:animate-none" size={14} aria-hidden="true" />
+                  ) : null}
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+
+        {/* ── A typed number ─────────────────────────────────────────────── */}
+        <form onSubmit={startWithNumber} className="mt-3 border-t border-border px-3 py-3 space-y-2" data-new-text-form>
+          <label className="block text-sm font-semibold text-foreground" htmlFor="new-text-phone">
+            {t("app.salesText.newTextTitle")}
+          </label>
+          <p className="text-xs text-muted-foreground break-words">{t("app.salesText.newTextHelp")}</p>
+          <div className="flex gap-2">
+            <input
+              id="new-text-phone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="off"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder={t("app.salesText.newTextPlaceholder")}
+              className="min-w-0 flex-1 min-h-[44px] rounded-lg border border-border bg-card px-3 text-base text-foreground tabular-nums"
+            />
+            <button
+              type="submit"
+              disabled={starting || !phone.trim()}
+              className={`${BTN} bg-primary text-primary-foreground`}
+            >
+              {starting ? (
+                <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
+              ) : (
+                <MessageSquarePlus size={16} aria-hidden="true" />
+              )}
+              {t("app.salesText.newTextSubmit")}
+            </button>
+          </div>
+          {startError ? (
+            <p className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/40 p-2.5 text-sm text-red-800 dark:text-red-200 break-words" role="alert" data-new-text-error>
+              {startError}
+            </p>
+          ) : null}
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// The screen
+// ═══════════════════════════════════════════════════════════════════════════
+
+function SalesMessagesScreen() {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const params = useSearchParams();
+  const wide = useWide();
+
   const [list, setList] = useState(null);
-  const [openWith, setOpenWith] = useState("");
+  const [listMeta, setListMeta] = useState({ readStateError: null, draftsError: null });
+  const [openWith, setOpenWith] = useState(() => params.get("thread") || params.get("with") || "");
   const [thread, setThread] = useState(null);
   const [text, setText] = useState("");
   const [error, setError] = useState("");
@@ -220,23 +755,45 @@ export default function SalesMessagesPage() {
   const [parking, setParking] = useState(false);
   const [parkText, setParkText] = useState("");
   const [parkWhen, setParkWhen] = useState("");
+  const [pane, setPane] = useState(openWith ? PANE_THREAD : PANE_LIST);
+  // The New message picker, drawn in the thread pane while it is open.
+  const [composing, setComposing] = useState(false);
+  const toLeadId = params.get("to") || "";
+  const [showContext, setShowContext] = useState(true);
+  const [contextTab, setContextTab] = useState("details");
+  const [collapsed, setCollapsed] = useState([GROUP_DONE]);
+  const [focusedRoom, setFocusedRoom] = useState(null);
+  // The instant the rep had last looked BEFORE this opening — what the red
+  // line is drawn from. Frozen per thread so the line does not vanish the
+  // moment the read is recorded.
+  const [openedReadAt, setOpenedReadAt] = useState(null);
+  const openedFor = useRef("");
+  // The draft the rep loaded into the box with Tab. Sending then sends THAT
+  // draft (through its own route), rather than a plain reply that leaves the
+  // draft sitting there as if it had never been used.
+  const [loadedDraftId, setLoadedDraftId] = useState(null);
 
   const loadList = useCallback(async () => {
     setError("");
     try {
-      setList((await fetchJson("/api/sales/messages")).conversations || []);
+      const data = await fetchJson("/api/sales/messages");
+      setList(data.conversations || []);
+      setListMeta({ readStateError: data.readStateError || null, draftsError: data.draftsError || null });
     } catch (err) {
       setError(err?.message || t("app.salesText.listLoadFailed"));
     }
   }, [t]);
 
   const loadThread = useCallback(
-    async (e164) => {
-      setError("");
+    async (e164, { quiet = false } = {}) => {
+      if (!quiet) setError("");
       try {
-        setThread(await fetchJson(`/api/sales/messages?with=${encodeURIComponent(e164)}`));
+        const data = await fetchJson(`/api/sales/messages?with=${encodeURIComponent(e164)}`);
+        setThread(data);
+        return data;
       } catch (err) {
-        setError(err?.message || t("app.salesText.threadLoadFailed"));
+        if (!quiet) setError(err?.message || t("app.salesText.threadLoadFailed"));
+        return null;
       }
     },
     [t],
@@ -246,14 +803,118 @@ export default function SalesMessagesPage() {
     loadList();
   }, [loadList]);
 
+  // Opening a thread: read it, remember where the rep had got to, record the
+  // read. The record is FieldQuo's own bookkeeping — nothing is sent.
   useEffect(() => {
-    if (openWith) loadThread(openWith);
+    if (!openWith) return;
+    let cancelled = false;
+    (async () => {
+      const data = await loadThread(openWith);
+      if (cancelled || !data) return;
+      if (openedFor.current !== openWith) {
+        openedFor.current = openWith;
+        setOpenedReadAt(data.readState?.readAt || null);
+      }
+      try {
+        await fetchJson("/api/sales/messages/read", { method: "POST", body: { with: openWith } });
+        setList((rows) => (rows ? rows.map((c) => (c.e164 === openWith ? { ...c, unread: 0 } : c)) : rows));
+      } catch {
+        // A read marker that failed to write costs a stale badge, nothing
+        // more; the thread is already on screen.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [openWith, loadThread]);
 
-  // Messages, the rep's un-landed attempts, and any drafts — one list, ordered
-  // by the grouping function rather than by three separate renders.
-  const items = useMemo(() => {
-    const messages = (thread?.messages || []).map((m) => ({
+  // A link from the lead screen: /sales/messages?to=<leadId>. Resolved to
+  // the number the thread is keyed by — only for the rep's own lead.
+  useEffect(() => {
+    if (!toLeadId || openWith) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await fetchJson(`/api/sales/messages/contacts?leadId=${encodeURIComponent(toLeadId)}`);
+        if (cancelled) return;
+        if (data.with) openThread(data.with);
+        else setError(t("app.salesText.newNoNumber"));
+      } catch (err) {
+        if (!cancelled) setError(err?.message || t("app.salesText.newOpenFailed"));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toLeadId]);
+
+  // Re-read the open thread while the tab is visible. GET only — see the
+  // hook's header and the check that pins it.
+  useThreadRefresh(openWith, () => {
+    loadThread(openWith, { quiet: true });
+  });
+
+  // The URL carries the open thread, so a link from a lead page — or a
+  // reload — lands in the conversation rather than on the list.
+  useEffect(() => {
+    const current = params.get("thread") || "";
+    if ((openWith || "") === current) return;
+    const next = new URLSearchParams(params.toString());
+    if (openWith) next.set("thread", openWith);
+    else next.delete("thread");
+    next.delete("with");
+    if (openWith) next.delete("to");
+    router.replace(`/sales/messages${next.toString() ? `?${next}` : ""}`);
+  }, [openWith, params, router]);
+
+  const openThread = useCallback((e164) => {
+    setOpenWith(e164);
+    setThread(null);
+    setInFlight([]);
+    setText("");
+    setLoadedDraftId(null);
+    setParking(false);
+    setComposing(false);
+    setPane(PANE_THREAD);
+  }, []);
+
+  // ── The list, bucketed ────────────────────────────────────────────────
+  const groups = useMemo(() => {
+    const buckets = groupConversations(list || []);
+    return GROUP_ORDER.map((key) => ({
+      key,
+      title: t(GROUP_TITLE_KEY[key]),
+      rooms: buckets[key].map((c) => ({
+        id: c.e164,
+        title: c.name || prettyE164(c.e164),
+        mono: !c.name,
+        subtitle:
+          key === GROUP_DRAFTS && c.nextDraftDue
+            ? t("app.salesText.draftDueSubtitle", { when: dayOf(c.nextDraftDue) })
+            : c.lastDirection === "in"
+              ? c.lastBody
+              : t("app.salesText.lastFromYou", { message: c.lastBody }),
+        time: c.lastAt,
+        unread: c.unread ?? 0,
+        channel: "sms",
+        channelLabel: "SMS",
+        initials: conversationInitials(c),
+      })),
+    }));
+  }, [list, t]);
+
+  // ── The thread's rows ─────────────────────────────────────────────────
+  const them =
+    thread?.lead?.businessName || thread?.lead?.contactName || thread?.company?.name || prettyE164(openWith);
+  const suppressed = Boolean(thread?.suppressed);
+  const blockers = thread?.blockers || [];
+  const smsWindow = thread?.window || null;
+  const pendingDraft = (thread?.checkIns || [])[0] || null;
+
+  const rows = useMemo(() => {
+    if (!thread) return [];
+    const messages = (thread.messages || []).map((m) => ({
       id: m.id,
       direction: m.direction,
       body: m.body,
@@ -261,25 +922,112 @@ export default function SalesMessagesPage() {
       kind: "message",
       status: "sent",
     }));
-    const drafts = (thread?.checkIns || []).map((c) => ({
+    const drafts = (thread.checkIns || []).map((c) => ({
       ...c,
       id: c.id,
       direction: "out",
       body: c.draftText,
-      // A draft aimed at Thursday belongs at Thursday's end of the thread. One
-      // with no time sits where it was written.
+      // A draft aimed at Thursday belongs at Thursday's end of the thread.
+      // One with no time sits where it was written.
       at: c.scheduledFor || c.createdAt,
       kind: "draft",
     }));
-    return [...messages, ...drafts, ...inFlight];
-  }, [thread, inFlight]);
+    // Events, drawn as system rows: calls this rep made to this number, the
+    // STOP that closed the conversation, the check-ins that went. Read only
+    // — every one of them is a row somebody else's code wrote.
+    const system = [];
+    for (const c of thread.calls || []) {
+      const outcome = c.disposition
+        ? t(`app.salesCall.disposition.${c.disposition}.label`, c.disposition)
+        : c.answered
+          ? t("app.salesText.callAnswered")
+          : t("app.salesText.callNoOutcome");
+      system.push({
+        id: `call:${c.id}`,
+        kind: "system",
+        direction: "in",
+        at: c.at,
+        body: c.direction === "in" ? t("app.salesText.sysInboundCall", { outcome }) : t("app.salesText.sysCalled", { outcome }),
+      });
+    }
+    for (const s of thread.suppressions || []) {
+      system.push({ id: `stop:${s.id}`, kind: "system", direction: "in", at: s.requestedAt, body: t("app.salesText.sysStop") });
+    }
+    for (const c of thread.contact?.pastCheckIns || []) {
+      if (c.status === "sent" && c.sentAt) {
+        system.push({ id: `checkin:${c.id}`, kind: "system", direction: "in", at: c.sentAt, body: t("app.salesText.sysCheckInSent") });
+      }
+    }
+    if (smsWindow?.known && !smsWindow.open && !suppressed) {
+      // Undated on purpose: it is a statement about now, not an event at a
+      // time, so it sorts last and gets no day heading.
+      system.push({
+        id: "window:closed",
+        kind: "system",
+        direction: "in",
+        at: null,
+        body: t("app.salesText.sysWindowClosed", { time: zoneTime(smsWindow.until, smsWindow.timeZone) }),
+      });
+    }
+    return layoutThread([...messages, ...drafts, ...system, ...inFlight], { lastReadAt: openedReadAt });
+  }, [thread, inFlight, openedReadAt, suppressed, smsWindow, t]);
 
-  const them =
-    thread?.lead?.businessName || thread?.lead?.contactName || thread?.company?.name || openWith;
+  const canned = useMemo(
+    () =>
+      (thread?.canned || []).map((c) => ({
+        ...c,
+        title: c.titleKey ? t(c.titleKey, c.title) : c.title,
+        group: c.group === "checkin" ? t("app.salesText.cannedGroupCheckIn") : t("app.salesText.cannedGroupSales"),
+      })),
+    [thread, t],
+  );
+
+  /** One place that talks to the check-in routes, so every path refreshes. */
+  const checkInCall = useCallback(
+    async (url, options, key) => {
+      setDraftBusy(key);
+      setDraftError("");
+      try {
+        await fetchJson(url, options);
+        await loadThread(openWith);
+        return true;
+      } catch (err) {
+        setDraftError(err?.message || t("app.salesText.draftActionFailed"));
+        return false;
+      } finally {
+        setDraftBusy("");
+      }
+    },
+    [loadThread, openWith, t],
+  );
 
   async function send() {
     const words = text.trim();
     if (!words) return;
+
+    // A draft loaded with Tab goes out AS that draft: its wording saved if
+    // edited, then its own send route, which claims the row before anything
+    // leaves so a double press cannot send it twice.
+    if (loadedDraftId) {
+      const draft = (thread?.checkIns || []).find((d) => d.id === loadedDraftId);
+      setBusy(true);
+      try {
+        if (draft && draft.draftText !== words) {
+          await fetchJson(`/api/sales/checkins/${loadedDraftId}`, { method: "PATCH", body: { text: words } });
+        }
+        await fetchJson(`/api/sales/checkins/${loadedDraftId}/send`, { method: "POST" });
+        setText("");
+        setLoadedDraftId(null);
+        await loadThread(openWith);
+        await loadList();
+      } catch (err) {
+        setError(err?.message || t("app.salesText.sendFailed"));
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
     const tempId = `pending:${Date.now()}`;
     setBusy(true);
     setError("");
@@ -314,161 +1062,277 @@ export default function SalesMessagesPage() {
     }
   }
 
-  /** One place that talks to the check-in routes, so every path refreshes. */
-  const checkInCall = useCallback(
-    async (url, options, key) => {
-      setDraftBusy(key);
-      setDraftError("");
-      try {
-        await fetchJson(url, options);
-        await loadThread(openWith);
-        return true;
-      } catch (err) {
-        setDraftError(err?.message || t("app.salesText.draftActionFailed"));
-        return false;
-      } finally {
-        setDraftBusy("");
+  async function setDone(done) {
+    setDraftBusy("done");
+    try {
+      await fetchJson("/api/sales/messages/read", { method: "POST", body: { with: openWith, done } });
+      await loadThread(openWith, { quiet: true });
+      await loadList();
+    } catch (err) {
+      setError(err?.message || t("app.salesText.draftActionFailed"));
+    } finally {
+      setDraftBusy("");
+    }
+  }
+
+  const isDone = useMemo(() => {
+    const c = (list || []).find((x) => x.e164 === openWith);
+    return c ? groupConversations([c])[GROUP_DONE].length === 1 : false;
+  }, [list, openWith]);
+
+  const toggleContext = () => {
+    if (wide) {
+      setShowContext((v) => !v);
+    } else {
+      setShowContext(true);
+      setPane(PANE_CONTEXT);
+    }
+  };
+
+  // ── The composer's hint line: the server's blocker, or the draft ────────
+  const softBlocker = blockers.find((b) => b.code !== "suppressed") || null;
+  let hint = null;
+  if (pendingDraft) {
+    hint = (
+      <span className="inline-flex items-center gap-1.5">
+        <CalendarPlus size={13} aria-hidden="true" />
+        {pendingDraft.scheduledFor
+          ? t("app.salesText.draftDueHint", { when: dayOf(pendingDraft.scheduledFor) })
+          : t("app.salesText.draftWaitingHint")}
+      </span>
+    );
+  } else if (softBlocker) {
+    hint = (
+      <span className="inline-flex items-start gap-1.5 text-amber-900 dark:text-amber-200">
+        <AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+        {/* The server's sentence: what is in the way and what fixes it. */}
+        <span>
+          {softBlocker.title} {softBlocker.fix}
+        </span>
+      </span>
+    );
+  }
+
+  // ── Panes ─────────────────────────────────────────────────────────────
+  const listPane = (
+    <RoomList
+      groups={groups}
+      selectedId={openWith || null}
+      focusedId={focusedRoom}
+      onFocusItem={setFocusedRoom}
+      onSelect={(room) => openThread(room.id)}
+      collapsed={collapsed}
+      onToggleGroup={(key) =>
+        setCollapsed((c) => (c.includes(key) ? c.filter((k) => k !== key) : [...c, key]))
       }
-    },
-    [loadThread, openWith, t],
+      ariaLabel={t("app.salesText.title")}
+      header={
+        <div className="border-b border-border px-3 py-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <h1 className="text-sm font-semibold text-foreground">{t("app.salesText.title")}</h1>
+            <button
+              type="button"
+              onClick={() => {
+                setComposing(true);
+                setPane(PANE_THREAD);
+              }}
+              className={ACTION}
+              data-new-message-button
+              aria-pressed={composing}
+            >
+              <MessageSquarePlus size={13} aria-hidden="true" /> {t("app.salesText.newMessage")}
+            </button>
+          </div>
+          {listMeta.readStateError || listMeta.draftsError ? (
+            // Absence of a statement is not a statement: a badge that could
+            // not be counted is said to be uncounted, not shown as zero.
+            <p className="mt-1 text-[11px] text-muted-foreground break-words">
+              {listMeta.readStateError} {listMeta.draftsError}
+            </p>
+          ) : null}
+        </div>
+      }
+      empty={
+        !list ? (
+          <p className="flex items-center gap-2 px-3 py-4 text-sm text-muted-foreground">
+            <Loader2 className="animate-spin motion-reduce:animate-none" size={15} aria-hidden="true" />{" "}
+            {t("app.salesText.loading")}
+          </p>
+        ) : (
+          // Nothing invented to fill it. A rep who has texted nobody has no
+          // conversations, which is a true and ordinary state.
+          <div className="space-y-3 px-3 py-4">
+            <p className="text-sm text-muted-foreground break-words">{t("app.salesText.listEmpty")}</p>
+            <Link href="/sales/leads" className={`${BTN} border border-border text-foreground w-full`}>
+              <MessageSquare size={16} aria-hidden="true" /> {t("app.salesText.goToLeads")}
+            </Link>
+          </div>
+        )
+      }
+    />
   );
 
-  // ── One conversation ────────────────────────────────────────────────────
-  if (openWith) {
-    const suppressed = Boolean(thread?.suppressed);
-    const blockers = thread?.blockers || [];
-
-    return (
-      <div className="space-y-4">
-        <button
-          type="button"
-          onClick={() => {
-            setOpenWith("");
-            setThread(null);
-            setInFlight([]);
-          }}
-          // min-h-[44px]: it is the only way back on a phone.
-          className="min-h-[44px] text-sm text-muted-foreground flex items-center gap-1"
-        >
-          <ArrowLeft size={14} aria-hidden="true" /> {t("app.salesText.backToAll")}
-        </button>
-
-        <header className="space-y-1">
-          <h1 className="text-xl font-semibold text-foreground break-words">{them}</h1>
-          <p className="text-sm text-muted-foreground tabular-nums break-words">
-            {openWith}
-            {thread?.lead ? (
-              <>
-                {" · "}
-                <Link href={`/sales/leads/${thread.lead.id}`} className="underline">
-                  {t("app.salesText.openLead")}
-                </Link>
-              </>
-            ) : null}
-            {thread?.company ? (
-              <>
-                {" · "}
-                <Link href="/sales/companies" className="underline">
-                  {t("app.salesText.companyIsCustomer", { company: thread.company.name })}
-                </Link>
-              </>
-            ) : null}
-          </p>
-        </header>
-
-        {error ? (
-          <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 p-3 text-sm text-amber-900 dark:text-amber-200">
-            <div className="flex items-start gap-2">
-              <AlertCircle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
-              <p className="break-words">{error}</p>
-            </div>
-          </div>
-        ) : null}
-
-        {thread?.checkInError ? (
-          // Absence of a statement is not a statement: "we could not read the
-          // drafts" is a different claim from "there are none", and the rep
-          // gets the one that is true.
-          <div className="rounded-lg border border-border bg-muted p-3 text-sm text-muted-foreground break-words">
-            {thread.checkInError}
-          </div>
-        ) : null}
-
-        <div className={CARD}>
-          {!thread ? (
-            <p className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="animate-spin motion-reduce:animate-none" size={15} aria-hidden="true" />{" "}
-              {t("app.salesText.loading")}
-            </p>
-          ) : (
-            <MessageThread
-              messages={items}
-              them={them}
-              onRetry={(m) => {
-                // Back into the box, not straight back to the carrier. A retry
-                // that re-sends on one press is how a refused message becomes
-                // two sent ones once the blocker clears.
-                setText(m.body);
-                setInFlight((rows) => rows.filter((r) => r.id !== m.id));
-              }}
-              renderDraft={(d) => (
-                <CheckInDraft
-                  draft={d}
-                  busy={draftBusy === d.id}
-                  // The failure sentence is shown once, below the thread,
-                  // rather than repeated inside every draft. One banner is one
-                  // place to look.
-                  canSend={!suppressed}
-                  onSaveText={(next) =>
-                    checkInCall(`/api/sales/checkins/${d.id}`, { method: "PATCH", body: { text: next } }, d.id)
-                  }
-                  onReschedule={(iso) =>
-                    checkInCall(
-                      `/api/sales/checkins/${d.id}`,
-                      { method: "PATCH", body: { scheduledFor: iso } },
-                      d.id,
-                    )
-                  }
-                  onDismiss={() =>
-                    checkInCall(
-                      `/api/sales/checkins/${d.id}`,
-                      { method: "PATCH", body: { dismiss: true } },
-                      d.id,
-                    )
-                  }
-                  onSend={async () => {
-                    const done = await checkInCall(
-                      `/api/sales/checkins/${d.id}/send`,
-                      { method: "POST" },
-                      d.id,
-                    );
-                    if (done) await loadList();
-                  }}
-                />
+  const threadPane = composing ? (
+    <NewMessagePicker
+      onOpen={(e164) => openThread(e164)}
+      onClose={() => {
+        setComposing(false);
+        if (!openWith) setPane(PANE_LIST);
+      }}
+    />
+  ) : !openWith ? (
+    <div className="flex flex-1 items-center justify-center p-6 text-center">
+      <p className="max-w-sm text-sm text-muted-foreground break-words">{t("app.salesText.listIntro")}</p>
+    </div>
+  ) : (
+    <>
+      {/* ── Header: who, the tags, the actions ──────────────────────────── */}
+      <header className="border-b border-border px-3 py-2">
+        <div className="flex items-start gap-2">
+          <button
+            type="button"
+            onClick={() => setPane(PANE_LIST)}
+            className="md:hidden -ml-1 grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
+            aria-label={t("app.salesText.backToAll")}
+          >
+            <ArrowLeft size={18} aria-hidden="true" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-sm font-semibold text-foreground">{them}</h2>
+            <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="tabular-nums">{prettyE164(openWith)}</span>
+              <span className={`${TAG} bg-muted text-muted-foreground`}>SMS</span>
+              {suppressed && (
+                <span className={`${TAG} bg-red-600 text-white`} data-tag="stop">
+                  <ShieldOff size={11} aria-hidden="true" /> STOP
+                </span>
               )}
-            />
-          )}
-        </div>
-
-        {draftError ? (
-          <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 p-3 text-sm text-amber-900 dark:text-amber-200 break-words">
-            {draftError}
+              {thread?.lead?.status ? (
+                <span className={`${TAG} bg-muted text-foreground`} data-tag="stage">
+                  {t(`app.salesLeads.status.${thread.lead.status}`, LEAD_STATUS_LABELS[thread.lead.status] || thread.lead.status)}
+                </span>
+              ) : null}
+              {suppressed ? null : smsWindow?.known ? (
+                <span
+                  className={`${TAG} ${smsWindow.open ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100" : "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100"}`}
+                  data-tag="window"
+                >
+                  {smsWindow.open
+                    ? t("app.salesText.windowOpenUntil", { time: zoneTime(smsWindow.until, smsWindow.timeZone) })
+                    : t("app.salesText.windowClosedOpens", { time: zoneTime(smsWindow.until, smsWindow.timeZone) })}
+                </span>
+              ) : thread ? (
+                <span className={`${TAG} bg-muted text-muted-foreground`} data-tag="window">
+                  {t("app.salesText.timeZoneUnknown")}
+                </span>
+              ) : null}
+            </p>
           </div>
-        ) : null}
+        </div>
+        {/* One row that scrolls sideways on a phone rather than wrapping to
+            three: the thread is what the screen is for, and a header that
+            eats a third of it is a header that has to go. */}
+        <div className="mt-2 -mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5 [&>*]:shrink-0" data-thread-actions>
+          {thread?.lead ? (
+            // The call itself is gated by the calling rules on the lead
+            // screen (salesCallReadiness, dialHref); this opens that region
+            // rather than producing a tel: link that skips the gate.
+            <Link href={`/sales/leads/${thread.lead.id}#lead-call`} className={ACTION}>
+              <Phone size={13} aria-hidden="true" /> {t("app.salesText.actionCall")}
+            </Link>
+          ) : null}
+          {thread?.lead ? (
+            <Link href={`/sales/leads/${thread.lead.id}`} className={ACTION}>
+              <ExternalLink size={13} aria-hidden="true" /> {t("app.salesText.actionOpenLead")}
+            </Link>
+          ) : null}
+          {!suppressed && thread ? (
+            <button type="button" onClick={() => setParking((v) => !v)} className={ACTION} aria-expanded={parking}>
+              <CalendarPlus size={13} aria-hidden="true" /> {t("app.salesText.actionSchedule")}
+            </button>
+          ) : null}
+          {thread ? (
+            <button type="button" disabled={draftBusy === "done"} onClick={() => setDone(!isDone)} className={ACTION}>
+              {isDone ? <RotateCcw size={13} aria-hidden="true" /> : <Check size={13} aria-hidden="true" />}
+              {isDone ? t("app.salesText.actionReopen") : t("app.salesText.actionMarkDone")}
+            </button>
+          ) : null}
+          <button type="button" onClick={toggleContext} className={ACTION} aria-pressed={wide ? showContext : undefined}>
+            <UserRound size={13} aria-hidden="true" /> {t("app.salesText.actionContact")}
+          </button>
+        </div>
+      </header>
 
-        {/* ── The engine's suggestion, when it has one ────────────────── */}
-        {thread?.suggestion ? (
+      {error ? (
+        <div className="border-b border-amber-300 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-900 dark:text-amber-200">
+          <div className="flex items-start gap-2">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <p className="break-words">{error}</p>
+          </div>
+        </div>
+      ) : null}
+
+      {thread?.checkInError ? (
+        // Absence of a statement is not a statement: "we could not read the
+        // drafts" is a different claim from "there are none", and the rep
+        // gets the one that is true.
+        <div className="border-b border-border bg-muted px-3 py-2 text-sm text-muted-foreground break-words">
+          {thread.checkInError}
+        </div>
+      ) : null}
+
+      {/* ── The conversation ────────────────────────────────────────────── */}
+      <Thread
+        rows={rows}
+        them={them}
+        meLabel={t("app.salesText.senderYou")}
+        loading={!thread}
+        empty={<p className="py-10 text-center text-sm text-muted-foreground">{t("app.salesText.threadEmpty")}</p>}
+        onRetry={(m) => {
+          // Back into the box, not straight back to the carrier. A retry
+          // that re-sends on one press is how a refused message becomes
+          // two sent ones once the blocker clears.
+          setText(m.body);
+          setInFlight((rows) => rows.filter((r) => r.id !== m.id));
+        }}
+        renderDraft={(d) => (
+          <CheckInDraft
+            draft={d}
+            busy={draftBusy === d.id}
+            canSend={!suppressed}
+            onSaveText={(next) =>
+              checkInCall(`/api/sales/checkins/${d.id}`, { method: "PATCH", body: { text: next } }, d.id)
+            }
+            onReschedule={(iso) =>
+              checkInCall(`/api/sales/checkins/${d.id}`, { method: "PATCH", body: { scheduledFor: iso } }, d.id)
+            }
+            onDismiss={() =>
+              checkInCall(`/api/sales/checkins/${d.id}`, { method: "PATCH", body: { dismiss: true } }, d.id)
+            }
+            onSend={async () => {
+              const done = await checkInCall(`/api/sales/checkins/${d.id}/send`, { method: "POST" }, d.id);
+              if (done) await loadList();
+            }}
+          />
+        )}
+      />
+
+      {draftError ? (
+        <div className="border-t border-amber-300 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-900 dark:text-amber-200 break-words">
+          {draftError}
+        </div>
+      ) : null}
+
+      {/* ── The engine's suggestion, when it has one ──────────────────── */}
+      {thread?.suggestion ? (
+        <div className="border-t border-border px-3">
           <CheckInDraft
             draft={thread.suggestion}
             suggestion
             busy={draftBusy === "suggestion"}
             canSend={!suppressed}
             onAdopt={() =>
-              checkInCall(
-                "/api/sales/checkins",
-                { method: "POST", body: { to: openWith, origin: "engine" } },
-                "suggestion",
-              )
+              checkInCall("/api/sales/checkins", { method: "POST", body: { to: openWith, origin: "engine" } }, "suggestion")
             }
             onDismiss={() =>
               checkInCall(
@@ -478,267 +1342,218 @@ export default function SalesMessagesPage() {
               )
             }
           />
-        ) : null}
-
-        {/* ── Suppressed: no compose box at all ───────────────────────── */}
-        {suppressed ? (
-          <div className="rounded-xl border border-border bg-muted p-4 space-y-2">
-            <p className="flex items-start gap-2 text-sm font-semibold text-foreground">
-              <ShieldOff size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
-              {t("app.salesText.suppressedTitle")}
-            </p>
-            {blockers
-              .filter((b) => b.code === "suppressed")
-              .map((b) => (
-                <p key={b.code} className="text-sm text-muted-foreground break-words">
-                  {b.title} {b.fix}
-                </p>
-              ))}
-            <p className="text-sm text-muted-foreground break-words">
-              {t("app.salesText.suppressedBody")}
-            </p>
-          </div>
-        ) : (
-          <>
-            <div className={CARD}>
-              <label className="block text-sm font-medium text-foreground" htmlFor="reply">
-                {t("app.salesText.replyLabel")}
-              </label>
-              <textarea
-                id="reply"
-                rows={3}
-                className="w-full border border-border rounded-lg px-3 py-2.5 text-base bg-card text-foreground"
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder={t("app.salesText.replyPlaceholder")}
-              />
-              {/* Said before they type it, not after it is sent. The footer is not
-                  optional and it is not the rep's to remove: CASL requires the
-                  sender's address and an unsubscribe in every commercial message,
-                  and this one is arranging the sale of software. */}
-              <p className="text-xs text-muted-foreground break-words">
-                {/* The quoted phrase is the LITERAL text lib/sales/salesSmsRules.js
-                    appends, in English, to every outbound sales text. It is passed
-                    in rather than translated: a rep told in Spanish that the message
-                    carries a Spanish opt-out line would have been told something
-                    untrue about what goes over the wire. */}
-                {t("app.salesText.caslFooterNote", { optOut: "Reply STOP to opt out" })}
-              </p>
-              <button
-                type="button"
-                disabled={busy || !text.trim()}
-                onClick={send}
-                className={`${BTN} bg-primary text-primary-foreground w-full`}
-              >
-                {busy ? (
-                  <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
-                ) : (
-                  <Send size={16} aria-hidden="true" />
-                )}
-                {t("app.salesText.sendButton")}
-              </button>
-            </div>
-
-            {/* ── A follow-up the rep invents from the conversation ────── */}
-            {parking ? (
-              <div className={CARD}>
-                <label className="block text-sm font-medium text-foreground" htmlFor="park-text">
-                  {t("app.salesText.parkTextLabel")}
-                </label>
-                <textarea
-                  id="park-text"
-                  rows={3}
-                  value={parkText}
-                  onChange={(e) => setParkText(e.target.value)}
-                  placeholder={t("app.salesText.parkTextPlaceholder")}
-                  className="w-full border border-border rounded-lg px-3 py-2.5 text-base bg-card text-foreground"
-                />
-                <label className="block text-sm font-medium text-foreground" htmlFor="park-when">
-                  {t("app.salesText.parkWhenLabel")}
-                </label>
-                <input
-                  id="park-when"
-                  type="datetime-local"
-                  value={parkWhen}
-                  onChange={(e) => setParkWhen(e.target.value)}
-                  className="w-full min-h-[44px] border border-border rounded-lg px-3 py-2.5 text-base bg-card text-foreground"
-                />
-                <p className="text-xs text-muted-foreground break-words">
-                  {t("app.salesText.parkNote")}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={draftBusy === "park" || !parkText.trim()}
-                    onClick={async () => {
-                      const at = parkWhen ? new Date(parkWhen) : null;
-                      const done = await checkInCall(
-                        "/api/sales/checkins",
-                        {
-                          method: "POST",
-                          body: {
-                            to: openWith,
-                            text: parkText,
-                            scheduledFor: at && !Number.isNaN(at.getTime()) ? at.toISOString() : null,
-                          },
-                        },
-                        "park",
-                      );
-                      if (done) {
-                        setParking(false);
-                        setParkText("");
-                        setParkWhen("");
-                      }
-                    }}
-                    className={`${BTN} bg-primary text-primary-foreground`}
-                  >
-                    {draftBusy === "park" ? (
-                      <Loader2
-                        size={16}
-                        className="animate-spin motion-reduce:animate-none"
-                        aria-hidden="true"
-                      />
-                    ) : (
-                      <CalendarPlus size={16} aria-hidden="true" />
-                    )}
-                    {t("app.salesText.parkSubmit")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setParking(false)}
-                    className={`${BTN} text-muted-foreground`}
-                  >
-                    {t("app.salesText.cancel")}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setParking(true)}
-                className={`${BTN} border border-border text-foreground w-full`}
-              >
-                <CalendarPlus size={16} aria-hidden="true" /> {t("app.salesText.parkOpen")}
-              </button>
-            )}
-          </>
-        )}
-
-        <EscalatePanel company={thread?.company || null} />
-      </div>
-    );
-  }
-
-  // ── The list ────────────────────────────────────────────────────────────
-  return (
-    <div className="space-y-4" data-tour="sales-texts">
-      <header className="space-y-1">
-        <h1 className="text-xl font-semibold text-foreground">{t("app.salesText.title")}</h1>
-        <p className="text-sm text-muted-foreground max-w-2xl">{t("app.salesText.listIntro")}</p>
-      </header>
-
-      {error ? (
-        <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/40 p-3 text-sm text-red-800 dark:text-red-200">
-          <div className="flex items-start gap-2">
-            <AlertCircle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
-            <p className="break-words">{error}</p>
-          </div>
         </div>
       ) : null}
 
-      {!list ? (
+      {/* ── Suppressed: no composer at all ─────────────────────────────── */}
+      {suppressed ? (
+        <div className="border-t border-border bg-muted px-4 py-3 space-y-1.5" data-composer-suppressed>
+          <p className="flex items-start gap-2 text-sm font-semibold text-foreground">
+            <ShieldOff size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+            {t("app.salesText.suppressedTitle")}
+          </p>
+          {blockers
+            .filter((b) => b.code === "suppressed")
+            .map((b) => (
+              <p key={b.code} className="text-sm text-muted-foreground break-words">
+                {b.title} {b.fix}
+              </p>
+            ))}
+          <p className="text-sm text-muted-foreground break-words">{t("app.salesText.suppressedBody")}</p>
+        </div>
+      ) : thread && (thread.messages || []).length === 0 && thread.lead ? (
+        // ── An empty thread: the first text is the introduction ──────────
+        //
+        // The reply route refuses a first contact by design (its POST: a
+        // free-text send to a number never texted is a cold-contact path
+        // with none of the first-contact rules attached). So an empty
+        // thread's composer IS the signup-link panel from the lead screen —
+        // the same component, the same /api/sales/sms route, the same
+        // refusals — and the ordinary composer appears once a text exists.
+        <div className="border-t border-border" data-first-contact>
+          <SignupLinkSms leadId={thread.lead.id} inThread onSent={() => loadThread(openWith, { quiet: true }).then(loadList)} />
+        </div>
+      ) : thread && (thread.messages || []).length === 0 ? (
+        <div className="border-t border-border bg-muted px-4 py-3 text-sm text-muted-foreground break-words" data-first-contact>
+          {t("app.salesText.firstContactNoLead")}
+        </div>
+      ) : (
+        <>
+          {/* ── A follow-up the rep invents from the conversation ──────── */}
+          {parking ? (
+            <div className="border-t border-border px-3 py-3 space-y-2" data-park-form>
+              <label className="block text-sm font-medium text-foreground" htmlFor="park-text">
+                {t("app.salesText.parkTextLabel")}
+              </label>
+              <textarea
+                id="park-text"
+                rows={3}
+                value={parkText}
+                onChange={(e) => setParkText(e.target.value)}
+                placeholder={t("app.salesText.parkTextPlaceholder")}
+                className="w-full border border-border rounded-lg px-3 py-2.5 text-base bg-card text-foreground"
+              />
+              <label className="block text-sm font-medium text-foreground" htmlFor="park-when">
+                {t("app.salesText.parkWhenLabel")}
+              </label>
+              <input
+                id="park-when"
+                type="datetime-local"
+                value={parkWhen}
+                onChange={(e) => setParkWhen(e.target.value)}
+                className="w-full min-h-[44px] border border-border rounded-lg px-3 py-2.5 text-base bg-card text-foreground"
+              />
+              <p className="text-xs text-muted-foreground break-words">{t("app.salesText.parkNote")}</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={draftBusy === "park" || !parkText.trim()}
+                  onClick={async () => {
+                    const at = parkWhen ? new Date(parkWhen) : null;
+                    const done = await checkInCall(
+                      "/api/sales/checkins",
+                      {
+                        method: "POST",
+                        body: {
+                          to: openWith,
+                          text: parkText,
+                          scheduledFor: at && !Number.isNaN(at.getTime()) ? at.toISOString() : null,
+                        },
+                      },
+                      "park",
+                    );
+                    if (done) {
+                      setParking(false);
+                      setParkText("");
+                      setParkWhen("");
+                      await loadList();
+                    }
+                  }}
+                  className={`${BTN} bg-primary text-primary-foreground`}
+                >
+                  {draftBusy === "park" ? (
+                    <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                  ) : (
+                    <CalendarPlus size={16} aria-hidden="true" />
+                  )}
+                  {t("app.salesText.parkSubmit")}
+                </button>
+                <button type="button" onClick={() => setParking(false)} className={`${BTN} text-muted-foreground`}>
+                  {t("app.salesText.cancel")}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          <Composer
+            textareaId="reply"
+            value={text}
+            onChange={(next) => {
+              setText(next);
+              if (!next.trim()) setLoadedDraftId(null);
+            }}
+            onSend={send}
+            busy={busy}
+            disabled={!thread}
+            hint={hint}
+            onHintAccept={
+              pendingDraft
+                ? () => {
+                    setText(pendingDraft.draftText || "");
+                    setLoadedDraftId(pendingDraft.id);
+                  }
+                : null
+            }
+            canned={canned}
+            maxLength={306}
+            placeholder={t("app.salesText.replyPlaceholder")}
+            sendLabel={loadedDraftId ? t("app.salesText.sendNow") : t("app.salesText.sendButton")}
+            actions={
+              !parking ? (
+                <button
+                  type="button"
+                  onClick={() => setParking(true)}
+                  className={`${ACTION} border-transparent`}
+                  aria-label={t("app.salesText.parkOpen")}
+                  title={t("app.salesText.parkOpen")}
+                >
+                  <CalendarPlus size={13} aria-hidden="true" />
+                  <span className="hidden sm:inline">{t("app.salesText.parkOpen")}</span>
+                </button>
+              ) : null
+            }
+            // Said before they type it, not after it is sent. The footer is
+            // not optional and it is not the rep's to remove: CASL requires
+            // the sender's address and an unsubscribe in every commercial
+            // message. The quoted phrase is the LITERAL text
+            // lib/sales/salesSmsRules.js appends, in English, and is passed
+            // in rather than translated: a rep told in Spanish that the
+            // message carries a Spanish opt-out line would have been told
+            // something untrue about what goes over the wire.
+            footer={t("app.salesText.caslFooterNote", { optOut: "Reply STOP to opt out" })}
+          />
+        </>
+      )}
+    </>
+  );
+
+  const contextPane =
+    openWith && thread && (wide ? showContext : true) ? (
+      <ContextBar
+        title={them}
+        subtitle={prettyE164(openWith)}
+        onClose={() => {
+          setShowContext(false);
+          setPane(PANE_THREAD);
+        }}
+        tabs={[
+          { key: "details", label: t("app.salesText.tabDetails") },
+          { key: "channels", label: t("app.salesText.tabChannels") },
+          { key: "history", label: t("app.salesText.tabHistory") },
+        ]}
+        activeTab={contextTab}
+        onTab={setContextTab}
+      >
+        {contextTab === "details" ? <ContactDetails thread={thread} openWith={openWith} /> : null}
+        {contextTab === "channels" ? <ContactChannels thread={thread} openWith={openWith} /> : null}
+        {contextTab === "history" ? <ContactHistory thread={thread} /> : null}
+      </ContextBar>
+    ) : null;
+
+  return (
+    <div data-tour="sales-texts">
+      <ChatLayout
+        height={FRAME_HEIGHT}
+        pane={pane}
+        onCloseContext={() => setPane(PANE_THREAD)}
+        list={listPane}
+        thread={threadPane}
+        context={contextPane}
+      />
+    </div>
+  );
+}
+
+/**
+ * useSearchParams needs a Suspense boundary above it.
+ *
+ * app/sales/layout.js is force-dynamic, so nothing here prerenders and the
+ * boundary is never actually crossed in production — but Next 16 refuses the
+ * build without it, and a fallback that says what is happening costs one
+ * element.
+ */
+export default function SalesMessagesPage() {
+  const { t } = useTranslation();
+  return (
+    <Suspense
+      fallback={
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="animate-spin motion-reduce:animate-none" size={15} aria-hidden="true" />{" "}
           {t("app.salesText.loading")}
         </p>
-      ) : list.length === 0 ? (
-        // Nothing invented to fill it. A rep who has texted nobody has no
-        // conversations, which is a true and ordinary state.
-        <div className={CARD}>
-          <p className="text-sm text-muted-foreground break-words">{t("app.salesText.listEmpty")}</p>
-          <Link href="/sales/leads" className={`${BTN} border border-border text-foreground w-full`}>
-            <MessageSquare size={16} aria-hidden="true" /> {t("app.salesText.goToLeads")}
-          </Link>
-        </div>
-      ) : (
-        /* ── The list a messaging app has ────────────────────────────────
-           This was a stack of bordered cards showing a raw E.164 number and
-           two lines of body, and it is the screen a rep LANDS on — so the
-           thread rewrite next door was invisible to anyone who did not click
-           into a conversation. The owner looked at Texts, saw the same cards,
-           and said nothing had changed. They were right about the screen they
-           were looking at.
-
-           Now: an avatar gutter matching the thread's, the name where there is
-           one, one line of preview, the time on the right, and the waiting
-           state as a dot rather than a sentence — the shape every phone draws,
-           and the same gutter the thread underneath it uses. */
-        <ul className="divide-y divide-border rounded-xl border border-border bg-card overflow-hidden">
-          {list.map((c) => (
-            <li key={c.e164}>
-              <button
-                type="button"
-                onClick={() => setOpenWith(c.e164)}
-                className="w-full text-left px-3 py-3 flex items-start gap-3 hover:bg-muted transition-colors motion-reduce:transition-none"
-              >
-                <span
-                  aria-hidden="true"
-                  className="mt-0.5 shrink-0 grid h-9 w-9 place-items-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground"
-                >
-                  {conversationInitials(c)}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-baseline justify-between gap-3">
-                    <span
-                      className={`truncate ${c.unanswered ? "font-semibold text-foreground" : "font-medium text-foreground"} ${c.name ? "" : "tabular-nums"}`}
-                    >
-                      {c.name || c.e164}
-                    </span>
-                    <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                      {when(c.lastAt)}
-                    </span>
-                  </span>
-                  <span className="mt-0.5 flex items-center gap-2">
-                    <span
-                      className={`min-w-0 flex-1 truncate text-sm ${c.unanswered ? "text-foreground" : "text-muted-foreground"}`}
-                    >
-                      {/* Said, not implied: without it an outbound line reads
-                          as something they sent us. The prefix and the body are
-                          ONE sentence to translate — "You:" alone would leave a
-                          translator guessing what it attaches to, and some
-                          languages do not put the speaker first. The body is
-                          the prospect's own words and is never translated. */}
-                      {c.lastDirection === "in"
-                        ? c.lastBody
-                        : t("app.salesText.lastFromYou", { message: c.lastBody })}
-                    </span>
-                    {/* The dot IS the status, and the text beside it is for a
-                        screen reader — a coloured dot alone states nothing to
-                        somebody who cannot see it. */}
-                    {c.unanswered ? (
-                      <>
-                        <span
-                          aria-hidden="true"
-                          className="shrink-0 h-2 w-2 rounded-full bg-amber-500"
-                        />
-                        <span className="sr-only">{t("app.salesText.unansweredSr")}</span>
-                      </>
-                    ) : null}
-                  </span>
-                  {/* The number stays reachable when a name has replaced it —
-                      a rep checking they are texting the right line should not
-                      have to open the thread to see it. */}
-                  {c.name ? (
-                    <span className="mt-0.5 block truncate text-[11px] text-muted-foreground tabular-nums">
-                      {c.e164}
-                    </span>
-                  ) : null}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+      }
+    >
+      <SalesMessagesScreen />
+    </Suspense>
   );
 }
