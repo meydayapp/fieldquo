@@ -22,6 +22,14 @@
 //     the password. Single-use is enforced by the row, not by the reader — a
 //     link left in a mailbox is otherwise a standing password reset for an
 //     account somebody else now holds.
+//   · Accepting also writes SalesRep.language, in that same update, when the
+//     body carries a supported code. The accept screen asks (its header says
+//     why), and app/sales/layout.js reads the column on the next request.
+//     An absent key leaves the column alone; an unsupported value is read the
+//     way lib/sales/repLanguage.js reads the column itself — as no statement,
+//     stored as nothing — rather than refusing the whole activation over a
+//     field the picker cannot produce a bad value for. The account is the
+//     point of this request; the language has two more places to be set.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -38,6 +46,7 @@ import {
   hashInviteToken,
   inviteState,
 } from "@/lib/sales/invite";
+import { repLanguageOrNull } from "@/lib/sales/repLanguage";
 
 // One sentence per refusal, so the accept screen can say what is actually
 // wrong instead of "invalid link". Which one a visitor sees is decided by the
@@ -124,7 +133,8 @@ export async function POST(request) {
   // throttle is here. Same budget.
   const limited = rateLimit(request, "sales-invite", { limit: 10, windowMs: 15 * 60 * 1000 });
   if (limited) return limited;
-  const { token, password } = await request.json().catch(() => ({}));
+  const body = await request.json().catch(() => ({}));
+  const { token, password } = body;
 
   if (typeof password !== "string" || password.length < MIN_PASSWORD_LENGTH) {
     return NextResponse.json(
@@ -154,6 +164,10 @@ export async function POST(request) {
 
   const passwordHash = await bcrypt.hash(password, 10);
   const now = new Date();
+  // Only when the body says something: `"language" in body` keeps an old
+  // client that never sent the field from writing null over nothing, and
+  // repLanguageOrNull turns anything unsupported into null — no statement.
+  const language = "language" in body ? repLanguageOrNull(body.language) : undefined;
 
   // The `where` re-states acceptedAt: null rather than trusting the check
   // above. Two requests arriving together would both pass inviteState() and
@@ -168,6 +182,9 @@ export async function POST(request) {
       startedAt: now,
       inviteTokenHash: null,
       inviteExpiresAt: null,
+      // Omitted entirely when nothing was said, written (possibly as null)
+      // when something was. Prisma skips an undefined key.
+      ...(language === undefined ? {} : { language }),
     },
   });
 

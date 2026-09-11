@@ -363,7 +363,15 @@ export default function IncomingCallDock() {
   if (!incoming && !error && !audioWarning) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-[22rem] max-w-[calc(100vw-2rem)] space-y-2">
+    // bottom: above SalesMobileTabBar below lg — the bar's row plus the
+    // safe-area inset, through the variable app/globals.css declares, which is
+    // 0 from lg up. At bottom-4 a ringing call sat behind the tab bar on a
+    // phone, which is the one screen size a rep in a van is holding.
+    //
+    // z-[70]: above the tour's card (z-[60]) and the drawer (z-50). A
+    // contractor ringing back outranks a walkthrough and a menu — see
+    // SalesTour.js's header for the ordering.
+    <div className="fixed bottom-[calc(var(--fq-tab-bar-height)+1rem)] right-4 z-[70] w-[22rem] max-w-[calc(100vw-2rem)] space-y-2">
       {audioWarning && !incoming ? (
         <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/60 dark:border-amber-800 p-3 text-sm text-amber-900 dark:text-amber-200 flex gap-2">
           <Headphones size={16} className="shrink-0 mt-0.5" aria-hidden="true" />

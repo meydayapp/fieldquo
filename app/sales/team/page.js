@@ -15,5 +15,11 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function SalesTeamPage() {
   const { t } = useTranslation();
-  return <StaffChat heading={t("app.salesNotes.teamHeading")} />;
+  // The wrapper exists for one attribute: the portal tour's anchor. StaffChat
+  // is shared with /platform and must not carry a sales-only data-tour.
+  return (
+    <div data-tour="sales-team">
+      <StaffChat heading={t("app.salesNotes.teamHeading")} />
+    </div>
+  );
 }

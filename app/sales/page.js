@@ -222,6 +222,8 @@ export default function SalesHomePage() {
           When a card below it failed to load, this says so instead of ranking
           the rungs it can still see — see app/sales/nextAction.js. */}
       <section
+        // What the portal tour rings for its first step. See app/sales/tourSteps.js.
+        data-tour="sales-today-next"
         className={`rounded-xl border p-4 space-y-3 ${
           action.code === "unknown"
             ? "border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40"

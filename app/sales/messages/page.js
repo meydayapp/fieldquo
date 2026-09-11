@@ -631,7 +631,7 @@ export default function SalesMessagesPage() {
 
   // ── The list ────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-tour="sales-texts">
       <header className="space-y-1">
         <h1 className="text-xl font-semibold text-foreground">{t("app.salesText.title")}</h1>
         <p className="text-sm text-muted-foreground max-w-2xl">{t("app.salesText.listIntro")}</p>

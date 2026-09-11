@@ -119,7 +119,7 @@ export default function SalesCalendarPage() {
   }
 
   return (
-    <div className="py-4">
+    <div className="py-4" data-tour="sales-calendar">
       <div className="flex items-center justify-between mb-4 gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">{t("app.salesCal.title")}</h1>

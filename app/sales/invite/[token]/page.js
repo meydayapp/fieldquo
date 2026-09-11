@@ -13,6 +13,25 @@
 // A form rendered over a dead link would be the "control that appears to work
 // and doesn't" AGENTS.md leads with, and this one would fail at the worst
 // possible moment: the first thing a new hire ever does with FieldQuo.
+//
+// ══ The language is asked for HERE, not only later ════════════════════════
+//
+// The owner: the portal should "remember the language that has been set when
+// the sales rep activates and sets the password". Accepting an invitation used
+// to collect a password and nothing else; the language was first asked on
+// /sales/welcome, which nothing forces a rep through, and a rep who skipped it
+// worked in whatever their browser guessed until they found /sales/pay.
+//
+// So the picker is on this form. It defaults to the language this very screen
+// is rendering in — the invitation email is English-only
+// (lib/sales/inviteEmail.js), so there is no "language it was sent in" to
+// inherit, and the provider's own resolution (a stored marketing-site choice,
+// then the browser) is the best statement available before anybody has made
+// one. Changing it re-renders this form at once, so a rep can see the language
+// they are choosing; submitting writes SalesRep.language in the same update
+// as the password, and app/sales/layout.js reads that column on the very next
+// request — /sales/welcome, which this page loads in full so the server can
+// see the new cookie. Nothing waits on localStorage.
 "use client";
 
 import { use, useCallback, useEffect, useState } from "react";
@@ -20,6 +39,8 @@ import Link from "next/link";
 import { BadgeDollarSign, Loader2 } from "lucide-react";
 import { errorText, fetchJson } from "@/lib/fetchJson";
 import { AUTH_REFUSAL_KEYS } from "@/lib/sales/authRefusals";
+import { REP_LANGUAGE_OPTIONS } from "@/lib/sales/repLanguage";
+import { useLanguageContext } from "@/app/providers/LanguageProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 // Kept in step with lib/sales/invite.js's MIN_PASSWORD_LENGTH by the check
@@ -32,6 +53,10 @@ export default function SalesInvitePage({ params }) {
   // component.
   const { token } = use(params);
   const { t } = useTranslation();
+  // `language` is what this screen is rendering in right now — the picker's
+  // default and, until the rep touches it, what gets written. changeLanguage
+  // re-renders the form in the chosen language immediately.
+  const { language, changeLanguage } = useLanguageContext();
 
   const [invite, setInvite] = useState(null);
   const [checking, setChecking] = useState(true);
@@ -76,7 +101,9 @@ export default function SalesInvitePage({ params }) {
       await fetchJson("/api/sales/auth/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, password }),
+        // The language travels with the password: one write, one moment, and
+        // the layout reads it back on the page this redirects to.
+        body: JSON.stringify({ token, password, language }),
       });
       // /sales/welcome, not /sales. Accepting an invitation collects a
       // password and nothing else, and two facts about the rep stayed unknown
@@ -189,6 +216,33 @@ export default function SalesInvitePage({ params }) {
                 onChange={(e) => setConfirm(e.target.value)}
                 className="w-full border border-border rounded-lg px-3 py-2 text-base bg-card text-foreground"
               />
+            </div>
+
+            <div>
+              <label
+                htmlFor="sales-language"
+                className="block text-sm font-medium text-foreground mb-1"
+              >
+                {t("app.salesLang.legend")}
+              </label>
+              {/* A native select: nine options on a phone are a wheel, not a
+                  radio list, and this form is read on a phone more often than
+                  not. The native name leads for the same reason it does in
+                  RepLanguageChoice — a rep scanning for their own language
+                  looks for "Français", not "French". text-base, not text-sm:
+                  a 14px control makes iOS zoom the page. */}
+              <select
+                id="sales-language"
+                value={language}
+                onChange={(e) => changeLanguage(e.target.value)}
+                className="w-full min-h-[44px] border border-border rounded-lg px-3 py-2 text-base bg-card text-foreground"
+              >
+                {REP_LANGUAGE_OPTIONS.map((o) => (
+                  <option key={o.code} value={o.code}>
+                    {o.nativeName} — {o.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Paired for dark mode — see the same block in

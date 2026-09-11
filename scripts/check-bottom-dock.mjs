@@ -92,6 +92,26 @@ const ALLOWED = [
     reason:
       "the design editor's own bottom tool bar and sheets, mounted inside PhotoAnnotatorEditor's fixed inset-0 z-50 overlay, above the launchers",
   },
+  // ── The sales portal ────────────────────────────────────────────────────
+  //
+  // Three bottom-pinned elements under app/components/sales, none of them a
+  // Save bar: the portal has no useBottomDock and no launchers of /app's,
+  // so this file's dock contract does not apply to them. What DOES apply is
+  // the tab-bar term — .fq-sales-shell sets --fq-tab-bar-height exactly as
+  // .fq-app-shell does — and scripts/check-sales-mobile.mjs asserts the two
+  // floating ones read it and the bar itself pads for the safe area.
+  {
+    path: "app/components/sales/SalesMobileTabBar.js",
+    reason: "IS the sales portal's tab bar — .fq-sales-shell defines --fq-tab-bar-height for it",
+  },
+  {
+    path: "app/components/sales/SalesTour.js",
+    reason: "the tour's launcher pill; check-sales-mobile.mjs asserts it sits above the tab bar",
+  },
+  {
+    path: "app/components/sales/IncomingCallDock.js",
+    reason: "the ringing-call dock; check-sales-mobile.mjs asserts it sits above the tab bar",
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════

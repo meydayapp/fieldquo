@@ -34,10 +34,24 @@
 // It is a labelled region with a live announcement instead, which is the right
 // pattern for a persistent helper.
 //
-// z-40, one below IncomingCallDock's z-50, and that ordering is deliberate: a
-// contractor ringing back is the most important thing that can happen to a rep,
-// and it must cover the walkthrough rather than fight it for the bottom of a
-// phone screen.
+// z-[60] for the card and the ring, one below IncomingCallDock's z-[70], and
+// that ordering is deliberate: a contractor ringing back is the most important
+// thing that can happen to a rep, and it must cover the walkthrough rather than
+// fight it for the bottom of a phone screen. Above SalesMobileTabBar's drawer
+// (z-50) on purpose — a step whose tab lives in that drawer opens it and rings
+// the row, and a card underneath the drawer would be a card nobody could read.
+// The launcher pill stays at z-40, level with the bars.
+//
+// ══ Pinned to the thing, then to the way there ════════════════════════════
+//
+// Each step names a `target` — a data-tour attribute on the control or section
+// it is about, on its own page (app/sales/tourSteps.js). When the rep is on
+// that page the ring goes round the target. When they are not, it goes round
+// the tab that would take them there: the header tab from lg up; below lg the
+// bottom-bar tab, or the drawer row, which the step's `openWith` opens first
+// and `closeWith` puts back when the step moves on. Same mechanism the
+// contractor app's OnboardingTour uses for AdminSidebar's drawer; the
+// selectors differ, the idea does not.
 //
 // ══ Resumable, and dismissible, and those are different ═══════════════════
 //
@@ -70,21 +84,25 @@ import { fetchJson } from "@/lib/fetchJson";
 // to companies" — and the reason it did not is that it had its own presentation.
 // Restyling it to match by eye would have left two implementations to drift
 // apart again; sharing the module is what actually keeps them the same.
-import { cardPosition, spotlightStyle, visibleTarget } from "@/lib/tours/anchor";
+import { cardPosition, spotlightStyle, visibleTarget, waitForTarget } from "@/lib/tours/anchor";
 
 /** Per browser session, so closing it once does not reopen it on every route. */
 const FIRST_RUN_KEY = "fieldquo.salesTour.offered";
 import { SALES_TOUR_STEPS, clampTourStep } from "@/app/sales/tourSteps";
 
 /**
- * The first match that is actually on screen.
+ * How much of the bottom of the viewport SalesMobileTabBar occupies right now.
  *
- * Lifted in shape from OnboardingTour.js's `visibleTarget`, and for the same
- * reason it exists there: a responsive layout can render two copies of the same
- * control, and `display:none` gives a zero-size rect. Copied rather than
- * imported because that module is not exported from OnboardingTour.js and
- * widening its API for one caller is a bigger change than eight lines.
+ * Measured from the bar itself rather than read from the CSS variable, because
+ * the variable is calc() over env() and getComputedStyle hands it back
+ * unresolved. 0 from lg up, where the bar renders with display:none and
+ * measures 0 tall.
  */
+function tabBarHeight() {
+  if (typeof document === "undefined") return 0;
+  const bar = document.querySelector("[data-sales-tabbar]");
+  return bar ? bar.getBoundingClientRect().height : 0;
+}
 
 /** Does this person want movement? Asked, not assumed. */
 function prefersReducedMotion() {
@@ -166,45 +184,92 @@ export default function SalesTour() {
   const total = SALES_TOUR_STEPS.length;
   const isLast = step >= total - 1;
 
-  // ── The ring around the tab this step is about ──────────────────────────
+  // ── The ring around the thing this step is about ───────────────────────
   //
-  // Measured rather than styled onto the element: SalesShell owns those links'
-  // className and re-renders them on every navigation, so a class added from
-  // here would be wiped the moment the rep followed the link the panel just
-  // gave them.
+  // Measured rather than styled onto the element: the pages own those
+  // elements' className and re-render them freely, so a class added from here
+  // would be wiped the moment the rep followed the link the panel just gave
+  // them.
   //
-  // A target that is not found draws no ring and changes nothing else. That is
-  // not the "silently skip" behaviour this file's header rejects — the step,
-  // its words and its link are all still there; only the decoration is
-  // missing, and check:sales-tour is what guarantees the link itself is real.
+  // Nothing found draws no ring and changes nothing else. That is not the
+  // "silently skip" behaviour this file's header rejects — the step, its words
+  // and its link are all still there; only the decoration is missing, and
+  // scripts/check-sales-mobile.mjs is what guarantees each target and each
+  // tab anchor is really in the page source.
+  const anchorFor = useCallback((step) => {
+    if (!step) return null;
+    // The thing itself, when the rep is on its page.
+    if (step.target) {
+      const el = visibleTarget(step.target);
+      if (el) return el;
+    }
+    // Otherwise the way there — whichever copy of the tab is on screen.
+    return visibleTarget(`[data-sales-tour="${step.href}"]`);
+  }, []);
+
   const measure = useCallback(() => {
-    if (!open || !current?.href) return setRect(null);
-    const el = visibleTarget(`[data-sales-tour="${current.href}"]`);
+    if (!open || !current) return setRect(null);
+    const el = anchorFor(current);
     setRect(el ? el.getBoundingClientRect() : null);
-  }, [open, current?.href]);
+  }, [open, current, anchorFor]);
+
+  // Whether THIS component opened the drawer for the current step, so it is
+  // the one that closes it. A drawer the rep opened themselves is left alone.
+  const openedDrawer = useRef(false);
 
   useEffect(() => {
-    if (!open) return undefined;
-    measure();
-    const el = visibleTarget(`[data-sales-tour="${current?.href}"]`);
-    // `auto`, not `smooth`, for anybody who asked for less movement. The
-    // scroll still happens — they still need to see the tab — it just does not
-    // animate.
-    el?.scrollIntoView({
-      behavior: prefersReducedMotion() ? "auto" : "smooth",
-      block: "nearest",
-      inline: "nearest",
-    });
+    if (!open || !current) return undefined;
+    let cancelled = false;
+
+    (async () => {
+      let el = anchorFor(current);
+
+      // Neither the target nor the tab is on screen. If the step knows how to
+      // reveal its tab — a drawer row below lg — open it and wait for the row.
+      if (!el && current.openWith) {
+        const opener = visibleTarget(current.openWith);
+        if (opener) {
+          opener.click();
+          openedDrawer.current = true;
+          el = await waitForTarget(`[data-sales-tour="${current.href}"]`);
+        }
+      }
+      if (cancelled) return;
+
+      measure();
+      // `auto`, not `smooth`, for anybody who asked for less movement. The
+      // scroll still happens — they still need to see it — it just does not
+      // animate.
+      el?.scrollIntoView({
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+        block: "nearest",
+        inline: "nearest",
+      });
+      // Measure again once any scrolling settles; measuring only once
+      // captured the pre-scroll position.
+      setTimeout(() => {
+        if (!cancelled) measure();
+      }, 420);
+    })();
+
     const onChange = () => measure();
     window.addEventListener("scroll", onChange, true);
     window.addEventListener("resize", onChange);
     window.addEventListener("orientationchange", onChange);
     return () => {
+      cancelled = true;
       window.removeEventListener("scroll", onChange, true);
       window.removeEventListener("resize", onChange);
       window.removeEventListener("orientationchange", onChange);
+      // Put the drawer back on the way out of a step that opened it. A tour
+      // that opens the nav and leaves it open has changed the portal on its
+      // way through.
+      if (openedDrawer.current) {
+        openedDrawer.current = false;
+        visibleTarget(current.closeWith)?.click();
+      }
     };
-  }, [open, current?.href, measure]);
+  }, [open, current, anchorFor, measure]);
 
   /**
    * Write the position back.
@@ -287,7 +352,10 @@ export default function SalesTour() {
     if (progress.dismissed) return null;
     const started = progress.step > 0 || progress.completed;
     return (
-      <div className="fixed bottom-4 left-4 z-40 max-w-[calc(100vw-2rem)]">
+      // bottom: the tab bar's height plus a gap, through the variable
+      // app/globals.css declares — 0 from lg up, the bar's row plus the
+      // safe-area inset below it. A pill at bottom-4 sat under the bar.
+      <div className="fixed bottom-[calc(var(--fq-tab-bar-height)+1rem)] left-4 z-40 max-w-[calc(100vw-2rem)]">
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -303,13 +371,18 @@ export default function SalesTour() {
   }
 
   // Beside the thing it describes, not in the corner. Falls back to the middle
-  // of the screen when this step's tab is not on the current route, which is
-  // the honest rendering of "this step is about the page, not a control".
+  // of the screen only when neither the target nor any copy of the tab is on
+  // screen — the honest rendering of "nothing here to point at".
+  //
+  // The viewport handed to cardPosition stops at the top of the bottom tab
+  // bar when one is on screen, so the card's clamp keeps it above the bar
+  // rather than behind it — the same phone bug lib/tours/anchor.js was written
+  // to end, one row higher.
   const { style: anchored } = cardPosition(
     rect,
     {
       width: typeof window === "undefined" ? 0 : window.innerWidth,
-      height: typeof window === "undefined" ? 0 : window.innerHeight,
+      height: typeof window === "undefined" ? 0 : window.innerHeight - tabBarHeight(),
     },
     { cardWidth: 384, cardHeight: 260 },
   );
@@ -328,7 +401,7 @@ export default function SalesTour() {
       {rect ? (
         <div
           aria-hidden="true"
-          className="fixed pointer-events-none rounded-lg border-2 border-white z-40 transition-all duration-200 motion-reduce:transition-none"
+          className="fixed pointer-events-none rounded-lg border-2 border-white z-[60] transition-all duration-200 motion-reduce:transition-none"
           style={spotlightStyle(rect)}
         />
       ) : null}
@@ -338,7 +411,7 @@ export default function SalesTour() {
         onKeyDown={onPanelKeyDown}
         role="region"
         aria-label={t("app.salesTour.title")}
-        className="fixed z-40 rounded-xl border border-border bg-card shadow-xl p-4 space-y-3"
+        className="fixed z-[60] rounded-xl border border-border bg-card shadow-xl p-4 space-y-3"
         style={anchored}
       >
         <div className="flex items-start justify-between gap-3">

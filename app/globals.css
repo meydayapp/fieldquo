@@ -331,6 +331,21 @@
     --fq-tab-bar-height: 0px;
   }
 }
+/* The sales portal's shell (app/sales/SalesShell.js) carries the same bar —
+   app/components/sales/SalesMobileTabBar.js — at the same row height and the
+   same breakpoint, so it declares the same footprint under its own class.
+   The same VARIABLE, not a second one: the tour launcher and the incoming-call
+   dock read --fq-tab-bar-height and must not have to know which shell they
+   are mounted in. A separate rule rather than a shared selector list because
+   scripts/check-bottom-dock.mjs matches the /app rule by shape. */
+.fq-sales-shell {
+  --fq-tab-bar-height: calc(var(--fq-tab-bar-row) + env(safe-area-inset-bottom));
+}
+@media (min-width: 64rem) {
+  .fq-sales-shell {
+    --fq-tab-bar-height: 0px;
+  }
+}
 
 /* ── iOS Safari auto-zoom, fixed at the source ────────────────────────────
  *

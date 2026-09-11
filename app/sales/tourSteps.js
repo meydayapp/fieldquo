@@ -56,6 +56,49 @@
 // language they select when they create the account", and an English sentence
 // typed into this array is how that quietly stops being true for everyone.
 // The check refuses any value that is not a resolvable app.salesTour.* key.
+//
+// ══ Pinned to the thing, not only to the tab ══════════════════════════════
+//
+// Every step used to ring the tab in the header — the step about the calling
+// window rang "Queue", the same as the step about the claim button and the
+// step about "Work this one as a lead". The owner's ask: "the tour should be
+// pinned to each section and component". So a step now carries `target`, a
+// selector for the control or section on its OWN page (a `data-tour="…"`
+// attribute the page renders), and SalesTour rings that when the rep is on
+// that page. When they are not, it rings the tab — the header tab from lg up,
+// the bottom-bar tab below it, or the drawer row, which it opens first. The
+// tab is the way there; the target is the thing.
+//
+// `target: null` is a deliberate value, not a missing one, and two steps
+// carry it: inbound calls and transfers. The dock that shows an incoming call
+// and the transfer control both exist only WHILE a call is happening — mount
+// nothing otherwise, by design — so there is no element to ring at tour time,
+// and pinning the step to some other card would be a ring around the wrong
+// thing. Those two ring Today's tab and say what they have to say.
+//
+// scripts/check-sales-mobile.mjs opens each step's page source and fails if
+// the target's data-tour value is not rendered there, and fails if a step
+// whose tab lives in the drawer forgot to say how to open it.
+
+import { SALES_NAV_CLOSE, SALES_NAV_OPEN, isTabBarHref } from "@/lib/sales/portalTabs";
+
+/**
+ * How a step reaches its tab on a phone.
+ *
+ * A tab on the bottom bar is always on screen, so nothing needs opening. A tab
+ * in the drawer is not — the drawer starts closed — so the step names the
+ * control that opens it and the one that closes it, exactly as the contractor
+ * app's welcome tour does for AdminSidebar's drawer (app/components/tours.js).
+ * From lg up neither is used: the header row is visible and the drawer never
+ * renders. Derived from lib/sales/portalTabs.js rather than typed per step,
+ * so a tab moved between the bar and the drawer takes its instructions with it.
+ */
+function reach(href) {
+  return isTabBarHref(href) ? {} : { openWith: SALES_NAV_OPEN, closeWith: SALES_NAV_CLOSE };
+}
+
+/** The selector for a `data-tour` value on the step's own page. */
+const at = (slug) => `[data-tour="${slug}"]`;
 
 /**
  * The steps, in the order a rep meets them.
@@ -70,6 +113,8 @@ export const SALES_TOUR_STEPS = Object.freeze([
   {
     key: "today",
     href: "/sales",
+    target: at("sales-today-next"),
+    ...reach("/sales"),
     tabLabelKey: "app.salesPortal.navToday",
     titleKey: "app.salesTour.todayTitle",
     bodyKey: "app.salesTour.todayBody",
@@ -77,6 +122,8 @@ export const SALES_TOUR_STEPS = Object.freeze([
   {
     key: "queue",
     href: "/sales/queue",
+    target: at("sales-queue-claim"),
+    ...reach("/sales/queue"),
     tabLabelKey: "app.salesPortal.navQueue",
     titleKey: "app.salesTour.queueTitle",
     bodyKey: "app.salesTour.queueBody",
@@ -84,6 +131,8 @@ export const SALES_TOUR_STEPS = Object.freeze([
   {
     key: "research",
     href: "/sales/queue",
+    target: at("sales-queue-research"),
+    ...reach("/sales/queue"),
     tabLabelKey: "app.salesPortal.navQueue",
     titleKey: "app.salesTour.researchTitle",
     bodyKey: "app.salesTour.researchBody",
@@ -91,6 +140,8 @@ export const SALES_TOUR_STEPS = Object.freeze([
   {
     key: "calling",
     href: "/sales/queue",
+    target: at("sales-queue-dial"),
+    ...reach("/sales/queue"),
     tabLabelKey: "app.salesPortal.navQueue",
     titleKey: "app.salesTour.callingTitle",
     bodyKey: "app.salesTour.callingBody",
@@ -98,6 +149,8 @@ export const SALES_TOUR_STEPS = Object.freeze([
   {
     key: "optOut",
     href: "/sales/queue",
+    target: at("sales-queue-dial"),
+    ...reach("/sales/queue"),
     tabLabelKey: "app.salesPortal.navQueue",
     titleKey: "app.salesTour.optOutTitle",
     bodyKey: "app.salesTour.optOutBody",
@@ -105,6 +158,8 @@ export const SALES_TOUR_STEPS = Object.freeze([
   {
     key: "workAsLead",
     href: "/sales/queue",
+    target: at("sales-queue-work-as-lead"),
+    ...reach("/sales/queue"),
     tabLabelKey: "app.salesPortal.navQueue",
     titleKey: "app.salesTour.workAsLeadTitle",
     bodyKey: "app.salesTour.workAsLeadBody",
@@ -116,6 +171,8 @@ export const SALES_TOUR_STEPS = Object.freeze([
     // exact failure this file's header is about.
     key: "inbound",
     href: "/sales",
+    target: null,
+    ...reach("/sales"),
     tabLabelKey: "app.salesPortal.navToday",
     titleKey: "app.salesTour.inboundTitle",
     bodyKey: "app.salesTour.inboundBody",
@@ -123,6 +180,8 @@ export const SALES_TOUR_STEPS = Object.freeze([
   {
     key: "transfer",
     href: "/sales",
+    target: null,
+    ...reach("/sales"),
     tabLabelKey: "app.salesPortal.navToday",
     titleKey: "app.salesTour.transferTitle",
     bodyKey: "app.salesTour.transferBody",
@@ -130,6 +189,8 @@ export const SALES_TOUR_STEPS = Object.freeze([
   {
     key: "voicemail",
     href: "/sales/voicemail",
+    target: at("sales-voicemail"),
+    ...reach("/sales/voicemail"),
     tabLabelKey: "app.salesPortal.navVoicemail",
     titleKey: "app.salesTour.voicemailTitle",
     bodyKey: "app.salesTour.voicemailBody",
@@ -137,6 +198,8 @@ export const SALES_TOUR_STEPS = Object.freeze([
   {
     key: "texts",
     href: "/sales/messages",
+    target: at("sales-texts"),
+    ...reach("/sales/messages"),
     tabLabelKey: "app.salesPortal.navTexts",
     titleKey: "app.salesTour.textsTitle",
     bodyKey: "app.salesTour.textsBody",
@@ -144,6 +207,8 @@ export const SALES_TOUR_STEPS = Object.freeze([
   {
     key: "leads",
     href: "/sales/leads",
+    target: at("sales-leads"),
+    ...reach("/sales/leads"),
     tabLabelKey: "app.salesPortal.navLeads",
     titleKey: "app.salesTour.leadsTitle",
     bodyKey: "app.salesTour.leadsBody",
@@ -151,6 +216,8 @@ export const SALES_TOUR_STEPS = Object.freeze([
   {
     key: "conversations",
     href: "/sales/threads",
+    target: at("sales-conversations"),
+    ...reach("/sales/threads"),
     tabLabelKey: "app.salesPortal.navConversations",
     titleKey: "app.salesTour.conversationsTitle",
     bodyKey: "app.salesTour.conversationsBody",
@@ -158,6 +225,8 @@ export const SALES_TOUR_STEPS = Object.freeze([
   {
     key: "notes",
     href: "/sales/notes",
+    target: at("sales-notes"),
+    ...reach("/sales/notes"),
     tabLabelKey: "app.salesPortal.navNotes",
     titleKey: "app.salesTour.notesTitle",
     bodyKey: "app.salesTour.notesBody",
@@ -165,6 +234,8 @@ export const SALES_TOUR_STEPS = Object.freeze([
   {
     key: "calendar",
     href: "/sales/calendar",
+    target: at("sales-calendar"),
+    ...reach("/sales/calendar"),
     tabLabelKey: "app.salesPortal.navCalendar",
     titleKey: "app.salesTour.calendarTitle",
     bodyKey: "app.salesTour.calendarBody",
@@ -172,6 +243,8 @@ export const SALES_TOUR_STEPS = Object.freeze([
   {
     key: "companies",
     href: "/sales/companies",
+    target: at("sales-companies"),
+    ...reach("/sales/companies"),
     tabLabelKey: "app.salesPortal.myCompanies",
     titleKey: "app.salesTour.companiesTitle",
     bodyKey: "app.salesTour.companiesBody",
@@ -179,6 +252,8 @@ export const SALES_TOUR_STEPS = Object.freeze([
   {
     key: "support",
     href: "/sales/support",
+    target: at("sales-support"),
+    ...reach("/sales/support"),
     tabLabelKey: "app.salesPortal.navSupport",
     titleKey: "app.salesTour.supportTitle",
     bodyKey: "app.salesTour.supportBody",
@@ -186,6 +261,8 @@ export const SALES_TOUR_STEPS = Object.freeze([
   {
     key: "demo",
     href: "/sales/demo",
+    target: at("sales-demo"),
+    ...reach("/sales/demo"),
     tabLabelKey: "app.salesPortal.navDemo",
     titleKey: "app.salesTour.demoTitle",
     bodyKey: "app.salesTour.demoBody",
@@ -193,6 +270,8 @@ export const SALES_TOUR_STEPS = Object.freeze([
   {
     key: "pay",
     href: "/sales/pay",
+    target: at("sales-pay"),
+    ...reach("/sales/pay"),
     tabLabelKey: "app.salesPortal.navPay",
     titleKey: "app.salesTour.payTitle",
     bodyKey: "app.salesTour.payBody",
@@ -208,6 +287,8 @@ export const SALES_TOUR_STEPS = Object.freeze([
   {
     key: "playbook",
     href: "/sales/playbook",
+    target: at("sales-playbook"),
+    ...reach("/sales/playbook"),
     tabLabelKey: "app.salesPortal.navPlaybook",
     titleKey: "app.salesTour.playbookTitle",
     bodyKey: "app.salesTour.playbookBody",
@@ -215,6 +296,8 @@ export const SALES_TOUR_STEPS = Object.freeze([
   {
     key: "team",
     href: "/sales/team",
+    target: at("sales-team"),
+    ...reach("/sales/team"),
     tabLabelKey: "app.salesPortal.navTeam",
     titleKey: "app.salesTour.teamTitle",
     bodyKey: "app.salesTour.teamBody",

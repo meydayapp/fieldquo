@@ -634,6 +634,14 @@ section("7. Six tabs, and all six on a 375px screen");
 // overflow-x-auto fitted four, and Notes and My companies sat off the right
 // edge behind a scroll with no scrollbar, no fade and no arrow. A link that is
 // present and invisible is the same defect as a screen with no nav entry.
+//
+// The fix for that day was a three-column grid below sm:. At fourteen tabs
+// the grid was five rows of chrome on a phone, so below lg the row is hidden
+// and app/components/sales/SalesMobileTabBar.js carries every tab instead —
+// five on a bottom bar, the rest in a drawer. What this section holds onto is
+// the property, not the mechanism: every tab reachable at 375px, none behind
+// a horizontal scroll. scripts/check-sales-mobile.mjs asserts the bar and the
+// drawer between them account for the whole list.
 
 {
   const shell = codeOnly(read("app/sales/SalesShell.js"));
@@ -649,13 +657,14 @@ section("7. Six tabs, and all six on a 375px screen");
     ok(`the rail still links ${href}`, shell.includes(`"${href}"`));
   }
   ok(
-    "the rail wraps instead of hiding tabs behind a horizontal scroll",
-    /grid-cols-3/.test(shell) && !/overflow-x-auto/.test(shell),
+    "the rail never hides tabs behind a horizontal scroll",
+    !/overflow-x-auto/.test(shell),
     "overflow-x-auto on the nav is how two of six went missing",
   );
   ok(
-    "…and it is one row again once there is room for one",
-    /sm:flex/.test(shell),
+    "…it is a single row from lg up, and hands the list to the phone chrome below it",
+    /hidden lg:flex/.test(shell) && /<SalesMobileTabBar\s+tabs=\{tabs\}/.test(shell),
+    "below lg the tabs live in SalesMobileTabBar's bar and drawer, not in this row",
   );
   ok(
     "…and no tab refuses to wrap, which would clip rather than fold",

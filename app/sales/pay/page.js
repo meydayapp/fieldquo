@@ -31,7 +31,7 @@ export default function SalesPayPage() {
   const { t } = useTranslation();
 
   return (
-    <div className="space-y-10 max-w-2xl">
+    <div className="space-y-10 max-w-2xl" data-tour="sales-pay">
       <header className="space-y-2">
         <h1 className="text-xl font-semibold text-foreground">{t("app.salesPay.title")}</h1>
         <p className="text-sm text-muted-foreground">{t("app.salesPay.intro")}</p>

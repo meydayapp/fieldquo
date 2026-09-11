@@ -209,7 +209,7 @@ export default function SalesDemoPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-tour="sales-demo">
       <header className="space-y-1">
         <h1 className="text-xl font-semibold text-foreground">{t("app.salesCal.demoTitle")}</h1>
         <p className="text-sm text-muted-foreground max-w-2xl">

@@ -42,7 +42,7 @@ export default function SalesThreadsPage() {
   const threads = data?.threads;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-tour="sales-conversations">
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Mail size={20} className="text-muted-foreground" />

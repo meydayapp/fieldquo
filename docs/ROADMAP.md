@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 11 September 2026 (A lead linked to the wrong company. The owner's lead "truefinish cabinets" got linked to "Easy Roofers Inc." — different email, different business — because /sales/leads/[id]'s "Link a signup" listed every company attributed to the rep that no lead claimed and offered one candidate. The list is gone. The rep now types the email the client registered with; `lib/sales/leadLink.js` decides — `not_found`, `already_linked_to_lead`, `attributed_to_another_rep`, `referral_code`, `signed_up_before_lead` (the anti-gaming rule: the lead must predate the signup, equal timestamps refuse), `self_deal`, `demo_company`, `ok_already_yours` (link only), `ok_unclaimed` (link AND attribute, source `lead_link` — the one rep-side door into SalesAttribution, reopened by the owner, verified by the claim inside `decideAttribution()`); the name comes back only on an eligible verdict. POST re-decides inside the transaction; DELETE unlinks within 30 days, restores the pre-link status from the new append-only `SalesLeadLinkEvent`, and never touches the attribution. Nine languages. `check:sales-lead-link` executes every reason; `check:sales-auth` fences the door. The wrong link was undone through the same code path; Easy Roofers' attribution stands, as it should.)
+Last updated: 11 September 2026 (The sales portal on a phone, and the tour pinned to the thing. Below `lg` the portal is now the /app model — sticky top bar, five-tab bottom bar (Today, Queue, Playbook, My leads, Conversations: the shell's first five in its own order), drawer for the other nine — via `app/components/sales/SalesMobileTabBar.js` and `lib/sales/portalTabs.js`; `.fq-sales-shell` reserves the bar exactly as `.fq-app-shell` does, and the tour launcher and call dock ride above it. Every tour step carries a `data-tour` target on its own page and rings that, else the visible tab, opening the drawer first for drawer screens; two steps (inbound, transfer) are `null` by name because their components exist only in a live call. Activation now asks the language and writes `SalesRep.language` with the password; the layout already read it with `fromAccount`. `check:sales-mobile` renders the bar, executes the split, opens every step's page; `check:tour-language` §7 executes the precedence and reads the three writers. Mutation-tested five ways.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -218,6 +218,74 @@ sub "who imported my quote" from their side. The T5018/1099 threshold is not
 applied to the export — every sub is listed and the accountant decides.
 
 ---
+
+## The sales portal on a phone, and a tour pinned to the thing (11 September 2026)
+
+The owner, verbatim: *"it is also not mobile friendly not like /app"* and *"the
+tour should be pinned to each section and component and remember in the
+language that has been set when the sales rep activate and sets the password or
+when switching in the Pay tab."*
+
+**Mobile.** Below `lg` the portal had fourteen tabs in a three-column grid under
+the header — five rows of chrome above the first word of every screen at 390px,
+and no way back to the nav without scrolling to the top. It is now the /app
+model: `app/components/sales/SalesMobileTabBar.js` renders a sticky top bar
+(menu button + wordmark → Today), a fixed bottom bar with five tabs, and a
+drawer with the other nine plus who is signed in and sign-out. The five are the
+shell's FIRST five in the shell's own order — Today, Queue, Playbook, My leads,
+Conversations — because that order is the one the shell's comments argue for
+tab by tab, and Pay's comment ("visited once when they join … not every
+morning") is the argument against a settings tab in a thumb slot.
+`lib/sales/portalTabs.js` names the five and splits the shell's list; the shell
+keeps its array literal (twelve checks parse it) and hands the same list down.
+`.fq-sales-shell` in `app/globals.css` sets `--fq-tab-bar-height` exactly as
+`.fq-app-shell` does; the shell's `<main>` reserves it, and the tour launcher
+and IncomingCallDock ride above it (both had been at `bottom-4`, and
+`check:dock` had been red on them since the day they were written). Light
+tokens only — the portal is deliberately not the navy console. Found in the
+browser: mounted after `<main>`, the sticky top bar rendered at the FOOT of the
+document (y=2336); it is mounted before it now and asserted so.
+
+**Tour.** Every step in `app/sales/tourSteps.js` carries a `target` — a
+`data-tour="sales-…"` attribute on the control or section it is about, on its
+own page (the claim card, the facts layer, the dial card, the work-as-lead
+button, and each other screen's root). SalesTour rings the target when the rep
+is on that page, otherwise whichever copy of the tab is visible — header tab,
+bar tab, or drawer row, which steps for drawer screens open through
+`openWith`/`closeWith` derived from the same five-list. Two steps carry
+`target: null` by design and by name: inbound calls and transfers, whose
+components mount only during a live call. The card sits at z-[60] above the
+drawer; the call dock at z-[70] above both.
+
+**Language.** Activation (`/sales/invite/[token]`) now shows the picker,
+defaulting to the language the screen is rendering in (the invite email is
+English-only, so there is no sent-in language to inherit), re-rendering the form
+on change, and writing `SalesRep.language` in the same `updateMany` as the
+password. Pay and Welcome already wrote the column through `/api/sales/language`.
+The one reader, `app/sales/layout.js`, was already correct: a stored language
+reaches the provider with `fromAccount: true`, which makes localStorage and the
+browser irrelevant — asserted by execution in `check:tour-language` §7 alongside
+the three writers. Nothing new to translate: the chrome reuses keys /app already
+carries in nine languages.
+
+**Checks.** `scripts/check-sales-mobile.mjs` (new, in `check:all`) renders the
+bar through react-dom/server at four routes, executes the split against the
+real list and against garbage, opens every tour step's page source for its
+target, and refuses a drawer-only step with no `openWith`. Mutation-tested five
+ways (anchor removed, Pay promoted, safe-area padding removed, `reach()`
+dropped, activation write removed) — each fails by exit code. Not done: nothing
+stamps an `html.native-app` class anywhere in this codebase, so no rule keys off
+one; the bars pad on `env(safe-area-inset-*)` alone, which is 0 in a browser tab
+and real once installed to a home screen.
+
+Files: `app/components/sales/SalesMobileTabBar.js`, `lib/sales/portalTabs.js`,
+`app/sales/SalesShell.js`, `app/sales/tourSteps.js`,
+`app/components/sales/SalesTour.js`, `app/components/sales/IncomingCallDock.js`,
+`app/sales/invite/[token]/page.js`, `app/api/sales/auth/invite/route.js`,
+`app/globals.css`, seventeen `data-tour` anchors under `app/sales/`,
+`scripts/check-sales-mobile.mjs`, `scripts/check-tour-language.mjs`,
+`scripts/check-sales-console.mjs`, `scripts/check-bottom-dock.mjs`,
+`scripts/stub-next-navigation.js`.
 
 ## A tour of the sales portal, checked against the portal (10 September 2026)
 

@@ -14,18 +14,30 @@
 // rail goes".
 //
 // It landed: leads and conversations (docs/SALES-OUTREACH.md), then the queue,
-// then notes, then the Today screen — six. Still tabs in the header rather than
-// a sidebar: a rep works one screen at a time on a phone, and a rail costs
-// horizontal space a 375px screen does not have. The alternative — leaving the
-// rail out — would have shipped screens with no way to reach them, which is the
-// "route with no caller" failure scripts/check-route-callers.mjs exists for,
-// and which scripts/check-sales-home.mjs now asserts for this whole surface.
+// then notes, then the Today screen — six, then fourteen. Still tabs in the
+// header rather than a sidebar from `lg` up: a rep works one screen at a time,
+// and a rail costs horizontal space the queue's two-column console needs. The
+// alternative — leaving the rail out — would have shipped screens with no way
+// to reach them, which is the "route with no caller" failure
+// scripts/check-route-callers.mjs exists for, and which
+// scripts/check-sales-home.mjs now asserts for this whole surface.
+//
+// Below `lg` the header and the tab row are gone, and the chrome is the /app
+// model instead: a sticky top bar with a menu button, a bottom tab bar with
+// five screens, and a drawer with the other nine —
+// app/components/sales/SalesMobileTabBar.js. The owner's words were "not
+// mobile friendly, not like /app", and the specific failure was fourteen tabs
+// in a three-column grid: five rows of chrome above the first word of every
+// screen at 390px, and no way back to the nav without scrolling to the top.
+// The list below is the ONE list; the tab bar is handed it and never names a
+// tab of its own.
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
 import IncomingCallDock from "@/app/components/sales/IncomingCallDock";
+import SalesMobileTabBar from "@/app/components/sales/SalesMobileTabBar";
 import SalesTour from "@/app/components/sales/SalesTour";
 import { usePathname } from "next/navigation";
 import { LogOut, BadgeDollarSign } from "lucide-react";
@@ -79,9 +91,89 @@ export default function SalesShell({ children }) {
   // stay aligned.
   const container = `${pathname.startsWith("/sales/queue") ? "max-w-7xl" : "max-w-5xl"} mx-auto px-4 sm:px-6`;
 
+  // ── The one list of what the portal has ─────────────────────────────────
+  //
+  // Mapped twice — the desktop row below, and SalesMobileTabBar's bar and
+  // drawer — and declared once. Twelve check scripts parse this literal for
+  // the href/label pairs, which is why it stays an array literal in this file
+  // rather than moving to a module: it is the single source of "what the
+  // portal HAS", and everything that names a tab is checked against it.
+  const tabs = [
+    // ── Every tab is a key now, and that reversed a decision ──────
+    //
+    // Seven of these were English LITERALS on purpose, and the reason
+    // was written here at length: the screen behind each of them was
+    // English, and a translated tab opening an English page is a worse
+    // inconsistency than an English tab. That reasoning was correct
+    // while it was true, and it stopped being true when the screens
+    // were translated. The order mattered — screen first, then its tab
+    // — so that at no point did a Spanish word open an English page.
+    //
+    // What the old arrangement actually shipped was the thing it was
+    // trying to avoid: the owner opened the portal on a Spanish rep
+    // account and read "Today | Cola | Playbook | Mis prospectos |
+    // Conversaciones | Texts | Team | Notes", five words in one
+    // language and seven in another, side by side in one row.
+    //
+    // The front door, and the only tab that answers "what do I do next".
+    { href: "/sales", label: t("app.salesPortal.navToday") },
+    // The prospecting queue, before the rep's own typed-in leads:
+    // it is the screen a rep opens first in the morning, and the one
+    // the whole discovery pipeline exists to fill.
+    { href: "/sales/queue", label: t("app.salesPortal.navQueue") },
+    // The script, the twenty objections and the five battlecards, read
+    // before the call rather than only inside a claimed prospect's
+    // card.
+    { href: "/sales/playbook", label: t("app.salesPortal.navPlaybook") },
+    { href: "/sales/leads", label: t("app.salesPortal.navLeads") },
+    { href: "/sales/threads", label: t("app.salesPortal.navConversations") },
+    // Texts, which are a different channel from the email threads next
+    // to them: a reply to a text arrives at FieldQuo's sales number and
+    // is filed by phone, not by thread token.
+    { href: "/sales/messages", label: t("app.salesPortal.navTexts") },
+    // FieldQuo's own team chat, and a THIRD distinct thing beside the
+    // two above it: Conversations is email to a prospect, Texts is SMS
+    // to a prospect, and this is the people a rep works with. Placed
+    // next to them because it is the same verb — the difference is who
+    // is on the other end, not what you do.
+    { href: "/sales/team", label: t("app.salesPortal.navTeam") },
+    // The day the notes screens were translated, which the previous
+    // comment here named as the condition for this becoming a key.
+    { href: "/sales/notes", label: t("app.salesPortal.navNotes") },
+    // The rep's own calendar — appointments and callbacks.
+    { href: "/sales/calendar", label: t("app.salesPortal.navCalendar") },
+    // The attributed-companies book. It was the portal root until the
+    // Today screen took that slot; it keeps its translated label
+    // because the screen behind THIS one is still translated.
+    { href: "/sales/companies", label: t("app.salesPortal.myCompanies") },
+    // The account a rep drives in front of a prospect.
+    { href: "/sales/demo", label: t("app.salesPortal.navDemo") },
+    // Where a rep sends a technical problem they heard from one of
+    // their contractors. Beside the companies book rather than at the
+    // end: a rep opens it FROM a conversation about a company, and
+    // burying it under Pay would make the channel that exists to stop
+    // reports evaporating hard to find.
+    { href: "/sales/support", label: t("app.salesPortal.navSupport") },
+    // Messages left on the rep's own number. Before this screen the
+    // only place a sales voicemail could be played was the superadmin
+    // floor board, so the person the message was FOR could not hear it.
+    { href: "/sales/voicemail", label: t("app.salesPortal.navVoicemail") },
+    // How the rep gets paid. Last, because it is a settings screen
+    // rather than a working one — visited once when they join and
+    // again when their bank changes, not every morning.
+    { href: "/sales/pay", label: t("app.salesPortal.navPay") },
+  ];
+
   return (
-    <div className="min-h-screen bg-muted">
-      <header className="bg-card border-b border-border">
+    // fq-sales-shell sets --fq-tab-bar-height for everything inside it below
+    // lg — the one place the bottom bar's footprint is declared, exactly as
+    // .fq-app-shell does for /app. See the "bottom dock" section of
+    // app/globals.css. The tour launcher and the incoming-call dock read the
+    // same variable to sit ABOVE the bar rather than under it.
+    <div className="min-h-screen bg-muted fq-sales-shell">
+      {/* Hidden below lg: SalesMobileTabBar draws the top bar there, with the
+          same wordmark, and its drawer carries the name and the sign-out. */}
+      <header className="hidden lg:block bg-card border-b border-border">
         {/* py-2, not py-4: the sign-out button below is now a 44px target, so
             the old padding would have added 24px of dead chrome to the top of
             every phone screen in the portal. */}
@@ -118,86 +210,17 @@ export default function SalesShell({ children }) {
             </button>
           </div>
         </div>
-        {/* ── Six tabs, all of them on screen at 375px ─────────────────────
-            This used to be one row with overflow-x-auto. Measured in a browser
-            at 375px: four tabs fitted and TWO — Notes and My companies — sat
-            off the right edge behind a horizontal scroll with no scrollbar, no
-            fade and no arrow. Nobody discovers that. It is the same failure as
-            a screen with no nav entry, which is what
-            scripts/check-sales-home.mjs's reachability section exists to
-            catch, except the link was present and merely invisible.
-            The previous note claimed wrapping "pushes the content down"; it
-            does, by one 36px row, once. An undiscoverable tab costs more.
-            So: two rows of three below sm:, one row above it. No
-            whitespace-nowrap and no truncate — a label that needs two lines in
-            a 106px cell gets two lines, which is legible, where a clipped one
-            is not. */}
-        <nav className={`${container} grid grid-cols-3 sm:flex gap-1 -mb-px`}>
-          {[
-            // ── Every tab is a key now, and that reversed a decision ──────
-            //
-            // Seven of these were English LITERALS on purpose, and the reason
-            // was written here at length: the screen behind each of them was
-            // English, and a translated tab opening an English page is a worse
-            // inconsistency than an English tab. That reasoning was correct
-            // while it was true, and it stopped being true when the screens
-            // were translated. The order mattered — screen first, then its tab
-            // — so that at no point did a Spanish word open an English page.
-            //
-            // What the old arrangement actually shipped was the thing it was
-            // trying to avoid: the owner opened the portal on a Spanish rep
-            // account and read "Today | Cola | Playbook | Mis prospectos |
-            // Conversaciones | Texts | Team | Notes", five words in one
-            // language and seven in another, side by side in one row.
-            //
-            // The front door, and the only tab that answers "what do I do next".
-            { href: "/sales", label: t("app.salesPortal.navToday") },
-            // The prospecting queue, before the rep's own typed-in leads:
-            // it is the screen a rep opens first in the morning, and the one
-            // the whole discovery pipeline exists to fill.
-            { href: "/sales/queue", label: t("app.salesPortal.navQueue") },
-            // The script, the twenty objections and the five battlecards, read
-            // before the call rather than only inside a claimed prospect's
-            // card.
-            { href: "/sales/playbook", label: t("app.salesPortal.navPlaybook") },
-            { href: "/sales/leads", label: t("app.salesPortal.navLeads") },
-            { href: "/sales/threads", label: t("app.salesPortal.navConversations") },
-            // Texts, which are a different channel from the email threads next
-            // to them: a reply to a text arrives at FieldQuo's sales number and
-            // is filed by phone, not by thread token.
-            { href: "/sales/messages", label: t("app.salesPortal.navTexts") },
-            // FieldQuo's own team chat, and a THIRD distinct thing beside the
-            // two above it: Conversations is email to a prospect, Texts is SMS
-            // to a prospect, and this is the people a rep works with. Placed
-            // next to them because it is the same verb — the difference is who
-            // is on the other end, not what you do.
-            { href: "/sales/team", label: t("app.salesPortal.navTeam") },
-            // The day the notes screens were translated, which the previous
-            // comment here named as the condition for this becoming a key.
-            { href: "/sales/notes", label: t("app.salesPortal.navNotes") },
-            // The rep's own calendar — appointments and callbacks.
-            { href: "/sales/calendar", label: t("app.salesPortal.navCalendar") },
-            // The attributed-companies book. It was the portal root until the
-            // Today screen took that slot; it keeps its translated label
-            // because the screen behind THIS one is still translated.
-            { href: "/sales/companies", label: t("app.salesPortal.myCompanies") },
-            // The account a rep drives in front of a prospect.
-            { href: "/sales/demo", label: t("app.salesPortal.navDemo") },
-            // Where a rep sends a technical problem they heard from one of
-            // their contractors. Beside the companies book rather than at the
-            // end: a rep opens it FROM a conversation about a company, and
-            // burying it under Pay would make the channel that exists to stop
-            // reports evaporating hard to find.
-            { href: "/sales/support", label: t("app.salesPortal.navSupport") },
-            // Messages left on the rep's own number. Before this screen the
-            // only place a sales voicemail could be played was the superadmin
-            // floor board, so the person the message was FOR could not hear it.
-            { href: "/sales/voicemail", label: t("app.salesPortal.navVoicemail") },
-            // How the rep gets paid. Last, because it is a settings screen
-            // rather than a working one — visited once when they join and
-            // again when their bank changes, not every morning.
-            { href: "/sales/pay", label: t("app.salesPortal.navPay") },
-          ].map((tab) => {
+        {/* ── The tab row, from `lg` up ────────────────────────────────────
+            This used to be a three-column grid below sm: and one row above it,
+            at every width. The grid was the honest fix for its day — two of
+            six tabs had been hiding behind a horizontal scroll — and it stopped
+            being honest at fourteen tabs: five rows of chrome on a phone.
+            Below lg the bar and drawer in SalesMobileTabBar carry every one of
+            these same entries; this row is hidden there, not duplicated.
+            No whitespace-nowrap and no truncate — a label that needs two lines
+            gets two lines, which is legible, where a clipped one is not. */}
+        <nav className={`${container} hidden lg:flex gap-1 -mb-px`}>
+          {tabs.map((tab) => {
             // Exact match for the portal root, prefix for the rest: /sales is a
             // prefix of every other tab, so "starts with" would light all six
             // at once and the rail would never say where you are.
@@ -215,11 +238,11 @@ export default function SalesShell({ children }) {
                 // scripts/check-sales-tour.mjs's target assertion mean
                 // something. See app/sales/tourSteps.js.
                 data-sales-tour={tab.href}
-                // Centred in its grid cell below sm:, left-aligned and at its
-                // content width above it. Still no whitespace-nowrap: a label
-                // that needs two lines gets two lines, which is the honest
-                // failure mode where clipping is not.
-                className={`min-h-[44px] flex items-center justify-center sm:justify-start text-center sm:text-left sm:shrink-0 px-3 py-2 text-sm font-medium border-b-2 ${
+                // Left-aligned at its content width — this row only renders
+                // from lg up now. Still no whitespace-nowrap: a label that
+                // needs two lines gets two lines, which is the honest failure
+                // mode where clipping is not.
+                className={`min-h-[44px] flex items-center shrink-0 px-3 py-2 text-sm font-medium border-b-2 ${
                   active
                     ? // The underline is a non-text indicator, so 3:1 against the
                       // card is the applicable floor and raw orange clears it at
@@ -236,7 +259,23 @@ export default function SalesShell({ children }) {
           })}
         </nav>
       </header>
-      <main className={`${container} py-6 sm:py-8`}>{children}</main>
+      {/* The phone chrome: top bar, bottom bar, drawer. Renders nothing from
+          lg up. Handed the same list the row above maps over. Mounted BEFORE
+          <main> because the top bar is sticky in normal flow — mounted after
+          it, the bar rendered at the foot of the document, measured at
+          y=2336 on a 844px phone. The bottom bar and the drawer are fixed,
+          so their place in the tree does not matter. */}
+      <SalesMobileTabBar tabs={tabs} name={me?.name || null} onSignOut={signOut} />
+      {/* The bottom padding reserves exactly what is pinned over the bottom
+          of the viewport below lg — the tab bar's row plus the safe-area
+          inset, through the variable app/globals.css declares — and only the
+          ordinary page padding from lg up, where the variable is 0. Every
+          screen inherits it, so no page needs its own pb-24 guess. */}
+      <main
+        className={`${container} pt-6 sm:pt-8 pb-[calc(var(--fq-tab-bar-height)+1.5rem)] sm:pb-[calc(var(--fq-tab-bar-height)+2rem)]`}
+      >
+        {children}
+      </main>
       {/* Mounted once, here, so a contractor ringing back reaches the rep
           wherever they are in the portal. A listener that only existed on the
           dialler screen would ring only while somebody happened to be looking

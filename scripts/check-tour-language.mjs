@@ -44,6 +44,7 @@ import { expenseFlag, expenseFlagLines, EXPENSE_FLAG_KEYS } from "@/lib/i18n/aiS
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 import { LANGUAGES, DEFAULT_LANGUAGE } from "@/app/i18n/languages";
 import { TOURS } from "@/app/components/tours";
+import { shellLanguage, repLanguageOrNull } from "@/lib/sales/repLanguage";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
@@ -442,6 +443,92 @@ ok(
   expenseFlag("zz", "rose", { pct: 5 }) === expenseFlag("en", "rose", { pct: 5 }),
 );
 ok(`all ${EXPENSE_FLAG_KEYS.length} flag templates are covered`, EXPENSE_FLAG_KEYS.length >= 4);
+
+// ═══ 7. The sales portal: three writers, one reader, and the precedence ════
+console.log("\n7. The rep's language — written at activation, on Pay, on Welcome; read by the layout\n");
+//
+// The owner: the tour should "remember in the language that has been set when
+// the sales rep activates and sets the password, or when switching in the Pay
+// tab". Three places write SalesRep.language; exactly one place reads it, and
+// what it hands the provider decides whether localStorage and the browser get
+// a vote. Same bug shape as sections 2–5, one surface over.
+
+// The reader's precedence, executed. A stored language is a DECISION: the
+// provider must ignore a marketing-site leftover and the browser alike.
+{
+  const stated = shellLanguage({ language: "fr" });
+  eq("a stored language reaches the provider as an account choice", stated.language, "fr");
+  eq("…with fromAccount true", stated.fromAccount, true);
+  eq(
+    "…so a stored fr beats a stored-in-the-browser uk AND a German browser",
+    resolveShellLanguage({ initialLanguage: stated.language, fromAccount: stated.fromAccount, stored: "uk", browser: "de-DE" }),
+    "fr",
+  );
+  const nothing = shellLanguage({ language: null });
+  eq("no stored language hands the provider nothing", nothing.language, null);
+  eq("…with fromAccount false", nothing.fromAccount, false);
+  eq(
+    "…so the browser's fallbacks are live for a rep who never chose",
+    resolveShellLanguage({ initialLanguage: nothing.language, fromAccount: nothing.fromAccount, stored: null, browser: "fr-CA" }),
+    "fr",
+  );
+  eq("a dropped language reads as no statement, not as English", shellLanguage({ language: "zz" }).fromAccount, false);
+  eq("nobody signed in reads as no statement", shellLanguage(null).fromAccount, false);
+}
+
+// The one reader.
+{
+  const layout = stripComments(read("app/sales/layout.js"));
+  ok("the sales layout reads SalesRep.language", /select:\s*\{\s*language:\s*true\s*\}/.test(layout));
+  ok("…through shellLanguage, which decides the flag WITH the code", /shellLanguage\(await repLanguageRow\(\)\)/.test(layout));
+  ok(
+    "…and hands both to the provider together",
+    /<LanguageProvider initialLanguage=\{language\} fromAccount=\{fromAccount\}>/.test(layout),
+  );
+  ok("…with the shell — tabs, tab bar, tour — INSIDE that provider", /<LanguageProvider[^>]*>\s*<SalesShell>\{children\}<\/SalesShell>\s*<\/LanguageProvider>/.test(layout));
+  ok("the layout never reads navigator or localStorage itself", !/navigator|localStorage/.test(layout));
+  // force-dynamic is what makes "the next request" mean the next request: a
+  // cached layout would keep serving the language from before the switch.
+  ok("the layout is force-dynamic, so a switch is read on the next request", /export const dynamic = "force-dynamic"/.test(layout));
+  const shell = stripComments(read("app/sales/SalesShell.js"));
+  ok("the shell mounts the tour and the tab bar under that provider", /<SalesTour\s*\/>/.test(shell) && /<SalesMobileTabBar/.test(shell));
+}
+
+// Writer 1: activation.
+{
+  const page = stripComments(read("app/sales/invite/[token]/page.js"));
+  ok("the accept screen shows a language picker", /<select[\s\S]*id="sales-language"/.test(page));
+  ok("…offering REP_LANGUAGE_OPTIONS, the same list the validator judges", /REP_LANGUAGE_OPTIONS\.map/.test(page));
+  ok("…defaulting to the language the screen is rendering in", /value=\{language\}/.test(page) && /useLanguageContext\(\)/.test(page));
+  ok("…re-rendering the form in the chosen language at once", /onChange=\{\(e\) => changeLanguage\(e\.target\.value\)\}/.test(page));
+  ok("…and sending it with the password", /JSON\.stringify\(\{ token, password, language \}\)/.test(page));
+  const route = stripComments(read("app/api/sales/auth/invite/route.js"));
+  ok("the accept route validates it through repLanguageOrNull", /repLanguageOrNull\(body\.language\)/.test(route));
+  ok("…only when the body carries the key", /"language" in body/.test(route));
+  ok(
+    "…and writes it in the SAME update as the password",
+    /updateMany\(\{[\s\S]*?passwordHash,[\s\S]*?\.\.\.\(language === undefined \? \{\} : \{ language \}\)/.test(route),
+  );
+  // The validator, executed: what the route stores for what the picker sends.
+  eq("a supported code is stored as itself", repLanguageOrNull("fr"), "fr");
+  eq("an unsupported code is stored as nothing, not as English", repLanguageOrNull("zz"), null);
+  eq("a region tag is refused rather than narrowed", repLanguageOrNull("fr-CA"), null);
+  eq("a non-string is nothing", repLanguageOrNull({ code: "fr" }), null);
+}
+
+// Writer 2: the Pay tab. Writer 3: Welcome. One component, two homes.
+{
+  const picker = stripComments(read("app/components/sales/RepLanguageChoice.js"));
+  ok("the picker PUTs to /api/sales/language", /fetchJson\("\/api\/sales\/language",\s*\{\s*method:\s*"PUT"/.test(picker));
+  ok("…moves the chrome at once", /changeLanguage\(json\.language\)/.test(picker));
+  ok("…and re-runs the layout so fromAccount is recomputed from the column", /router\.refresh\(\)/.test(picker));
+  const route = stripComments(read("app/api/sales/language/route.js"));
+  ok("the language route writes the column through saveRepLanguage", /saveRepLanguage\(\{ salesRepId: rep\.id, language: parsed\.language \}\)/.test(route));
+  ok("Pay mounts the picker", /<RepLanguageChoice/.test(stripComments(read("app/sales/pay/page.js"))));
+  ok("Welcome mounts the picker", /<RepLanguageChoice/.test(stripComments(read("app/sales/welcome/page.js"))));
+  const writer = stripComments(read("lib/sales/preferenceWrite.js"));
+  ok("the writer writes language and nothing else on the row", /data: \{ language \}/.test(writer));
+}
 
 // ── Result ─────────────────────────────────────────────────────────────────
 console.log(

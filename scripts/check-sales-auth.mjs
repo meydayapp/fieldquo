@@ -784,8 +784,8 @@ const FORBIDDEN_WRITE_BY_DESIGN = {
   "app/api/sales/auth/invite/route.js":
     "Invite acceptance. The actor is not a signed-in rep — they have no session " +
     "at all — and the write is gated on a single-use, expiring token hash. It " +
-    "writes SalesRep.passwordHash/acceptedAt for the row that token names, and " +
-    "nothing else.",
+    "writes SalesRep.passwordHash/acceptedAt for the row that token names, plus " +
+    "SalesRep.language when the accept screen's picker sent one, and nothing else.",
 };
 
 const WRITE_OPS = "create|createMany|update|updateMany|upsert|delete|deleteMany";

@@ -108,7 +108,7 @@ export default function SalesPortalPage() {
       : "—";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-tour="sales-companies">
       <div>
         <h1 className="text-2xl font-bold text-foreground">
           {t("app.salesPortal.myCompanies")}

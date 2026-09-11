@@ -213,7 +213,7 @@ function SalesSupportInner() {
     PRIORITY_KEYS[value] ? t(PRIORITY_KEYS[value]) : PRIORITY_LABELS[value] || value;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-tour="sales-support">
       <div>
         <h1 className="text-2xl font-bold text-foreground">{t("app.salesPlay.supportTitle")}</h1>
         <p className="text-sm text-muted-foreground mt-1">{t("app.salesPlay.supportIntro")}</p>

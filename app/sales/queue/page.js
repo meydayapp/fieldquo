@@ -724,7 +724,10 @@ function QueueConsole() {
         <aside
           className={`${showList ? "block" : "hidden"} lg:block space-y-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto`}
         >
-          <section className={CARD}>
+          {/* data-tour: where the portal tour's queue step points. The four
+              values on this screen are named in app/sales/tourSteps.js and
+              asserted present by scripts/check-sales-mobile.mjs. */}
+          <section className={CARD} data-tour="sales-queue-claim">
             <label className="block text-sm font-medium text-foreground" htmlFor="q-trade">
               {t("app.salesQueue.tradePickerLabel")}
             </label>
@@ -904,7 +907,7 @@ function QueueConsole() {
               through the research never takes the dial away. On a phone it is
               simply the first thing on the screen, which is the same promise
               at 375px. */}
-          <section className={`${CARD} lg:sticky lg:top-4 z-10`}>
+          <section className={`${CARD} lg:sticky lg:top-4 z-10`} data-tour="sales-queue-dial">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <h2 className="text-lg font-semibold text-foreground break-words">
@@ -1045,7 +1048,7 @@ function QueueConsole() {
               </section>
 
               {/* ── Layer 1: facts ─────────────────────────────────────────── */}
-              <section className={CARD}>
+              <section className={CARD} data-tour="sales-queue-research">
                 <LayerHeader layer="fact" />
                 <ul className="space-y-2">
                   {current.facts.map((f) => (
@@ -1268,6 +1271,7 @@ function QueueConsole() {
                     second one. */}
                 <button
                   type="button"
+                  data-tour="sales-queue-work-as-lead"
                   className={`${BTN} border border-border text-foreground w-full`}
                   disabled={Boolean(busy)}
                   onClick={() => carryToLead(current.id)}

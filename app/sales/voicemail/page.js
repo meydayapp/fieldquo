@@ -81,7 +81,7 @@ export default function SalesVoicemailPage() {
   const list = data?.voicemails || [];
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6 max-w-3xl" data-tour="sales-voicemail">
       <header className="space-y-2">
         <h1 className="text-xl font-semibold text-foreground">{t("app.salesDial.voicemail")}</h1>
         <p className="text-sm text-muted-foreground">
