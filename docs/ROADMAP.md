@@ -1,12 +1,82 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 11 September 2026 (The rep's status picker, the ledger's after_call transition, and a progressive autodialler — `lib/sales/autodial.js`, `app/components/sales/RepStatus.js`, `AutodialControl.js`; the section below; `check:sales-autodial`.)
+Last updated: 11 September 2026 (The platform console can see, release and move a rep's queue, and a deactivation no longer strands it — `lib/sales/reassign.js`, `app/api/platform/sales/reps/[id]/queue`, the reps console; the section below; `check:platform-rep-queue`.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The console can see a rep's queue, give it back, or hand it on (11 September 2026)
+
+The owner: "in the /platform I should also see how many leads the sales have
+in their queue and manually release them if needed, in case they disconnect
+and do not reconnect, etc. And if I deactivate an account I should be able to
+handle their leads → maybe assign them to someone else or temporarily assign
+them to me."
+
+- **Every rep card says what they hold** — `app/platform/sales/reps/page.js`.
+  Counted by the same `queueWhere()` the rep's own screen lists, split by the
+  same untouched rule `Release the rest` uses: *held N — untouched, dialled
+  since claiming, worked · open leads*, and the age of the oldest live lease.
+  The list route (`GET /api/platform/sales/reps`) carries the counts; "Queue…"
+  opens `GET /api/platform/sales/reps/[id]/queue`, which adds presence from
+  `presenceFor()` (declared state, pause reason, and STALE printed as stale —
+  "this is the disconnected-and-not-reconnected case"), and the hand-off
+  targets.
+- **Release** — two buttons, one function. "Release untouched" and "Release
+  all held" both call `lib/sales/queueBatch.js`'s `releaseUntouched()`, the
+  function behind the rep's button and the hourly cron; the second passes a
+  new `includeDialled` option, and its confirm says the only thing that
+  changes: rows the rep dialled lose their place in the rep's list. Worked
+  rows are conversations, not leases, and stay. Claims close with the new
+  reason `admin`, which does not de-prioritise. Nothing is deleted. The check
+  asserts no route writes `assignedRepId: null` of its own.
+- **Move** — `lib/sales/reassign.js`. `planReassign()` is pure: refuses the
+  same rep and an inactive target; moves only what the old rep HOLDS (a
+  lapsed lease is already in the pool); re-issues leases for 48 hours from
+  now; a worked row stays worked; open leads (not converted, not lost) move;
+  new claim rows for the target carry `mode: "reassigned"`, a batchId naming
+  the source rep, and `position` continuing the target's own open order. The
+  old rep's open claims close `reassigned`. `reassignHeld()` writes it in one
+  transaction scoped to the old rep in every WHERE, and counts only what the
+  write matched. **Attribution and commission do not move** — a company a rep
+  brought in stays credited to them — and the confirm, the audit row
+  (`attributionsMoved: 0`) and the check all say so. Research already queued
+  carries over untouched: pipeline tasks are keyed on the prospect.
+- **"Assign to me."** PlatformAdmin and SalesRep are separate identity
+  systems with no link column, and leads are worked in the /sales portal,
+  which only a SalesRep can open. So "me" is the SalesRep whose sign-in email
+  is the superadmin's — a match by two unique columns, offered as "Me — Name"
+  and stated as a match. A superadmin with no rep account is told there is no
+  "me", and offered active reps only.
+- **Deactivation handles the work.** `PATCH active:false` for a rep who holds
+  a lease or an open lead is refused 409 with the counts
+  (`deactivationGate()`, pure, counted fresh on the request). The console
+  shows: "Daniel holds 37 leased prospects and 12 open leads. Release them, or
+  move them — then deactivate", with a picker; leads can only be moved (a lead
+  has to have a rep), and on "release" a prospect with an open lead follows
+  its lead rather than going back to the pool. One confirm sends
+  `handoff: { prospects, toRepId }` and the hand-off and the rep update ride
+  one `$transaction`. A rep with nothing held deactivates as before.
+- **Audit**: `sales_rep_queue_released` and `sales_rep_queue_reassigned`,
+  worded in `lib/platform/auditActions.js`, written by both routes (the
+  deactivation writes the hand-off row, then `sales_rep_deactivated` with the
+  counts at the moment).
+- Check: `check:platform-rep-queue` (131, new, in `check:all`) — the planner,
+  the scripted move with a row that changed hands mid-flight, the gate, the
+  release reuse, the attribution assertion, the audit wording, the "me"
+  match. Mutation-tested five ways (same-rep refusal removed, expiry carried
+  over, gate bypassed, wording removed, a second release path) — each red by
+  exit code, restored with `cp`.
+- **Still owed**: the moved rows count against the target's daily claim cap
+  (they are rows the target now holds; 150 − 100 still leaves a full batch),
+  and the release counts a lapsed lease along with the live ones exactly as
+  the rep's button always has — both are stated, neither is a decision a rep
+  screen has been asked to make.
 
 ---
 

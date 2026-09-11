@@ -41,6 +41,7 @@ import {
 import { signupLinkFor } from "@/lib/sales/repStats";
 import { outreachStatus } from "@/lib/sales/outreachSender";
 import { resolvePlanAssignment } from "@/lib/sales/commissionPlanServer";
+import { queueCountsFor } from "@/lib/sales/reassign";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -142,6 +143,16 @@ export async function GET(request) {
     ),
   );
 
+  // ── What each rep is holding ────────────────────────────────────────────
+  //
+  // The owner's "how many leads the sales have in their queue", on the card.
+  // Counts only, here: the per-rep GET /reps/[id]/queue answers with
+  // presence and the hand-off targets when a card is opened. Counted by the
+  // same queueWhere() the rep's own screen lists, so the console and the rep
+  // cannot disagree about what "held" means. One query for every rep.
+  const now = new Date();
+  const queueCounts = await queueCountsFor({ db, repIds: reps.map((r) => r.id), now });
+
   // FieldQuo's own sales texting number — one, shared, not per rep. See
   // NUMBER_CAPABILITIES for why there is no per-rep picker beside it.
   let salesNumber;
@@ -181,6 +192,9 @@ export async function GET(request) {
       // SalesCommissionPlan had a reader and no writer anywhere.
       commissionPlanId: r.commissionPlanId,
       companyCount: r._count.attributions,
+      // held = leased + worked; untouched + dialled = leased. openLeads are
+      // SalesLeads not converted and not lost. See lib/sales/reassign.js.
+      queue: queueCounts.get(r.id) || null,
       sending: {
         canSend: sending[i].canSend,
         blockers: sending[i].blockers,

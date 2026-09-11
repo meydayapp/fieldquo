@@ -47,6 +47,27 @@
 // Deactivating closes the door within one request — lib/sales/gate.js re-reads
 // `active` on every call — and leaves the record standing.
 //
+// ══ The queue, and what happens to it when the rep is gone ════════════════
+//
+// The owner: "in the /platform I should also see how many leads the sales
+// have in their queue and manually release them if needed, in case they
+// disconnect and do not reconnect, etc. And if I deactivate an account I
+// should be able to handle their leads → maybe assign them to someone else or
+// temporarily assign them to me."
+//
+// Every card now says what the rep holds — counted by the same queueWhere()
+// their own screen lists — and "Queue…" opens the panel: presence (declared,
+// with its staleness, never assumed), the split of held rows, and the three
+// controls. Release untouched and Release all held both call the ONE release
+// function the rep's own button and the hourly cron call; Move hands held
+// prospects and open leads to another active rep, or to "me" when the
+// superadmin's sign-in email is also a rep's. Attributions and commission
+// never move, and the confirm says so.
+//
+// Deactivating a rep who holds work is refused by the server with the counts,
+// and the same panel asks what to do with it first; one confirm does the
+// hand-off and the deactivation in one transaction.
+//
 // ══ Cards, not a table ════════════════════════════════════════════════════
 //
 // A rep's row now carries a signup link, a mailbox, a code, a status, a
@@ -59,9 +80,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
+  ArrowRightLeft,
   Check,
   Copy,
   HandCoins,
+  ListChecks,
   Loader2,
   Mail,
   Phone,
@@ -69,6 +92,7 @@ import {
   UserCheck,
   UserX,
 } from "lucide-react";
+import { describeDuration } from "@/lib/sales/calls/agentState";
 import { fetchJson } from "@/lib/fetchJson";
 import PlatformWriteGate, {
   usePlatformAdmin,
@@ -88,6 +112,68 @@ const CARD = "rounded-xl border border-border bg-card p-4";
 
 function formatDate(value) {
   return value ? new Date(value).toLocaleDateString() : "—";
+}
+
+function ago(value, now = Date.now()) {
+  if (!value) return null;
+  const at = new Date(value).getTime();
+  if (!Number.isFinite(at)) return null;
+  const d = describeDuration(Math.max(0, now - at));
+  return d ? `${d} ago` : null;
+}
+
+function plural(n, one, many = `${one}s`) {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+/**
+ * "Holding 37 prospects — 12 untouched, 20 dialled, 5 worked · 12 open leads".
+ *
+ * The three-way split is the one the release controls act on: untouched is
+ * what "Release untouched" gives back, dialled is what "Release all held"
+ * adds, worked is what neither touches. Printing them apart is what makes the
+ * two buttons' confirms readable as a difference rather than a guess.
+ */
+function queueSentence(q) {
+  if (!q) return "Queue not counted.";
+  if (q.held === 0 && q.openLeads === 0) return "Holding nothing. No open leads.";
+  const parts = [];
+  if (q.held > 0) {
+    parts.push(
+      `Holding ${plural(q.held, "prospect")} — ${q.untouched} untouched, ${q.dialled} dialled, ${q.worked} worked`,
+    );
+  }
+  parts.push(plural(q.openLeads, "open lead"));
+  return parts.join(" · ") + ".";
+}
+
+/**
+ * What the presence rows say, in the three-tone discipline the floor board
+ * uses: what was declared, and separately whether anybody has heard from them
+ * since. `null` is "the call store is not on this build", which is a
+ * different sentence from "offline".
+ */
+function presenceSentence(p) {
+  if (!p) return { text: "Presence unavailable on this build.", tone: "muted" };
+  if (!p.everSignedIn) return { text: "Never signed in to the sales portal.", tone: "muted" };
+  if (!p.everSeen) {
+    return {
+      text: `Signed in, nothing declared — last opened the portal ${ago(p.portalSeenAt) || "at an unknown time"}.`,
+      tone: "muted",
+    };
+  }
+  if (p.state === "offline") {
+    return { text: `Off${p.since ? ` since ${ago(p.since)}` : ""}.`, tone: "muted" };
+  }
+  const what = p.pauseLabel ? `${p.label} — ${p.pauseLabel}` : p.label;
+  const forHow = p.since ? describeDuration(Math.max(0, Date.now() - new Date(p.since).getTime())) : null;
+  if (p.stale) {
+    return {
+      text: `Says "${what}"${forHow ? ` for ${forHow}` : ""}, but nothing has been heard from their browser since ${ago(p.lastSeenAt) || "a while"} — stale. This is the disconnected-and-not-reconnected case.`,
+      tone: "amber",
+    };
+  }
+  return { text: `${what}${forHow ? ` for ${forHow}` : ""}.`, tone: "live" };
 }
 
 /**
@@ -143,6 +229,14 @@ export default function PlatformSalesRepsPage() {
   const [notice, setNotice] = useState("");
   const [warning, setWarning] = useState("");
   const [copied, setCopied] = useState("");
+  // rep id → the answer of GET /reps/[id]/queue (presence, split, targets),
+  // for the cards whose Queue… panel is open.
+  const [queuePanel, setQueuePanel] = useState({});
+  // rep id → the target picked in that card's Move picker.
+  const [moveTarget, setMoveTarget] = useState({});
+  // rep id → the deactivation panel: counts from the server, the chosen
+  // hand-off, and the targets. Opened from Deactivate, or by the 409.
+  const [deactivating, setDeactivating] = useState({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -230,7 +324,144 @@ export default function PlatformSalesRepsPage() {
     }
   }
 
+  async function loadQueue(rep) {
+    const data = await fetchJson(`/api/platform/sales/reps/${rep.id}/queue`);
+    setQueuePanel((q) => ({ ...q, [rep.id]: data }));
+    return data;
+  }
+
+  async function openQueue(rep) {
+    if (queuePanel[rep.id]) {
+      setQueuePanel((q) => {
+        const next = { ...q };
+        delete next[rep.id];
+        return next;
+      });
+      return;
+    }
+    setBusy(true);
+    clearBanners();
+    try {
+      await loadQueue(rep);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Give a rep's held prospects back to the pool. Same server function as the
+   * rep's own "Release the rest" and the hourly cron; the only difference
+   * between the two buttons is whether rows the rep dialled go too, and the
+   * confirm says exactly that and nothing more — nothing is deleted, no
+   * attempt or note is lost, the rows are simply claimable by somebody else.
+   */
+  async function releaseQueue(rep, scope) {
+    const q = queuePanel[rep.id]?.queue || rep.queue;
+    const all = scope === "release_all";
+    const n = all ? q?.leased ?? 0 : q?.untouched ?? 0;
+    if (n === 0) {
+      setWarning(all ? `${rep.name} holds nothing on a lease.` : `${rep.name} has no untouched prospects.`);
+      return;
+    }
+    const text = all
+      ? `Release all ${plural(n, "prospect")} ${rep.name} holds back to the pool? The ${q.dialled} they dialled lose their place in ${rep.name}'s list — the call attempts and notes stay on the prospect. ${q.worked > 0 ? `The ${plural(q.worked, "worked prospect")} stay with them: a conversation is not a lease. ` : ""}Nothing is deleted.`
+      : `Release the ${plural(n, "untouched prospect")} ${rep.name} holds back to the pool? The ${q.dialled} they dialled are kept. Nothing is deleted.`;
+    if (!confirm(text)) return;
+    setBusy(true);
+    clearBanners();
+    try {
+      const res = await fetchJson(`/api/platform/sales/reps/${rep.id}/queue`, {
+        method: "POST",
+        body: { action: scope },
+      });
+      setNotice(
+        `${plural(res.released, "prospect")} released from ${rep.name}'s queue${res.kept > 0 ? `; ${res.kept} kept` : ""}. They are claimable by any rep now.`,
+      );
+      await Promise.all([load(), loadQueue(rep)]);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function moveQueue(rep) {
+    const panel = queuePanel[rep.id];
+    const toRepId = moveTarget[rep.id] || "";
+    const target = (panel?.targets || []).find((t) => t.id === toRepId);
+    if (!target) {
+      setError("Choose who the work moves to.");
+      return;
+    }
+    const q = panel?.queue || rep.queue;
+    if (
+      !confirm(
+        `Move ${plural(q?.held ?? 0, "held prospect")} and ${plural(q?.openLeads ?? 0, "open lead")} from ${rep.name} to ${target.name}${target.isMe ? " (you)" : ""}? Leases are re-issued to ${target.name} for 48 hours and dial after what they already hold. Companies ${rep.name} brought in stay credited to ${rep.name} — attributions and commission do not move, only the work in progress. Research already queued for these prospects carries on.`,
+      )
+    )
+      return;
+    setBusy(true);
+    clearBanners();
+    try {
+      const res = await fetchJson(`/api/platform/sales/reps/${rep.id}/queue`, {
+        method: "POST",
+        body: { action: "reassign", toRepId },
+      });
+      setNotice(
+        `${plural(res.prospects, "prospect")} (${res.leases} on a lease, ${res.worked} worked) and ${plural(res.leads, "open lead")} moved from ${rep.name} to ${target.name}.`,
+      );
+      setMoveTarget((m) => {
+        const next = { ...m };
+        delete next[rep.id];
+        return next;
+      });
+      await Promise.all([load(), loadQueue(rep)]);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Open the deactivation panel for a rep who holds work, with the counts the
+   * SERVER reported — from the list, or from the 409 the PATCH just returned,
+   * which is the same shape. The panel needs the hand-off targets, so it
+   * loads the queue answer too.
+   */
+  async function askHandoff(rep, counts) {
+    setBusy(true);
+    try {
+      const panel = queuePanel[rep.id] || (await loadQueue(rep));
+      setDeactivating((d) => ({
+        ...d,
+        [rep.id]: {
+          counts,
+          prospects: "release",
+          toRepId: panel.me?.id || "",
+          targets: panel.targets || [],
+          me: panel.me || null,
+          meNote: panel.meNote || "",
+        },
+      }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function setActive(rep, active) {
+    if (!active) {
+      const q = rep.queue;
+      if (q && (q.leased > 0 || q.openLeads > 0)) {
+        clearBanners();
+        await askHandoff(rep, { leased: q.leased, openLeads: q.openLeads, worked: q.worked });
+        return;
+      }
+    }
     if (
       !confirm(
         active
@@ -250,6 +481,73 @@ export default function PlatformSalesRepsPage() {
       });
       await load();
     } catch (err) {
+      // The server counted fresh and found work the list did not know about
+      // — a batch claimed since the page loaded. Same panel, its counts.
+      if (err.status === 409 && err.data?.counts && !active) {
+        await askHandoff(rep, err.data.counts);
+        return;
+      }
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** The one confirm: hand-off and deactivation, one request, one transaction. */
+  async function confirmDeactivate(rep) {
+    const d = deactivating[rep.id];
+    if (!d) return;
+    const target = d.targets.find((t) => t.id === d.toRepId) || null;
+    const needsTarget = d.prospects === "move" || d.counts.openLeads > 0;
+    if (needsTarget && !target) {
+      setError(
+        d.prospects === "move"
+          ? "Choose who the work moves to."
+          : "Open leads can only be moved, never released — choose who takes them.",
+      );
+      return;
+    }
+    const what =
+      d.prospects === "move"
+        ? `move ${plural(d.counts.leased + d.counts.worked, "held prospect")} and ${plural(d.counts.openLeads, "open lead")} to ${target.name}${target.isMe ? " (you)" : ""}`
+        : `release ${plural(d.counts.leased, "leased prospect")} back to the pool${d.counts.openLeads > 0 ? ` and move ${plural(d.counts.openLeads, "open lead")} (with the prospects they sit on) to ${target.name}${target.isMe ? " (you)" : ""}` : ""}`;
+    if (
+      !confirm(
+        `This will ${what}, then deactivate ${rep.email} — one transaction, so neither happens without the other. Companies ${rep.name} brought in stay credited to them; attributions and commission do not move. Nothing is deleted.`,
+      )
+    )
+      return;
+    setBusy(true);
+    clearBanners();
+    try {
+      const res = await fetchJson(`/api/platform/sales/reps/${rep.id}`, {
+        method: "PATCH",
+        body: {
+          active: false,
+          handoff: { prospects: d.prospects, toRepId: needsTarget ? d.toRepId : null },
+        },
+      });
+      const h = res.handoff || {};
+      const moved = h.moved || null;
+      setNotice(
+        `${rep.name} deactivated. ${h.mode === "move" ? `${plural(moved?.prospects ?? 0, "prospect")} and ${plural(moved?.leads ?? 0, "open lead")} moved to ${target?.name || "the chosen rep"}.` : `${plural(h.released ?? 0, "prospect")} released to the pool${moved ? `; ${plural(moved.leads ?? 0, "open lead")} moved to ${target?.name || "the chosen rep"}` : ""}.`}`,
+      );
+      setDeactivating((all) => {
+        const next = { ...all };
+        delete next[rep.id];
+        return next;
+      });
+      setQueuePanel((all) => {
+        const next = { ...all };
+        delete next[rep.id];
+        return next;
+      });
+      await load();
+    } catch (err) {
+      if (err.status === 409 && err.data?.counts) {
+        // Counts moved again under us. Keep the panel, refresh its numbers.
+        setDeactivating((all) => ({ ...all, [rep.id]: { ...all[rep.id], counts: err.data.counts } }));
+      }
       setError(err.message);
     } finally {
       setBusy(false);
@@ -711,6 +1009,66 @@ export default function PlatformSalesRepsPage() {
                   </div>
                 </div>
 
+                {/* ── The queue ──────────────────────────────────────────
+                    Counted by the same queueWhere() the rep's own screen
+                    lists. The panel below is the owner's lever for a rep
+                    who disconnected and did not reconnect. */}
+                <div className="rounded-lg border border-border p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                        Queue
+                      </div>
+                      <div className="text-sm text-foreground">{queueSentence(rep.queue)}</div>
+                      {rep.queue?.oldestClaimMs != null ? (
+                        <div className="text-xs text-muted-foreground">
+                          Oldest lease taken {describeDuration(rep.queue.oldestClaimMs)} ago.
+                        </div>
+                      ) : null}
+                    </div>
+                    <button
+                      onClick={() => openQueue(rep)}
+                      disabled={busy}
+                      className={BTN_QUIET}
+                      aria-expanded={Boolean(queuePanel[rep.id])}
+                    >
+                      <ListChecks size={13} /> {queuePanel[rep.id] ? "Close" : "Queue…"}
+                    </button>
+                  </div>
+
+                  {queuePanel[rep.id] ? (
+                    <QueuePanel
+                      rep={rep}
+                      panel={queuePanel[rep.id]}
+                      isSuperadmin={isSuperadmin}
+                      busy={busy}
+                      moveTarget={moveTarget[rep.id] || ""}
+                      onPickTarget={(id) => setMoveTarget((m) => ({ ...m, [rep.id]: id }))}
+                      onRelease={(scope) => releaseQueue(rep, scope)}
+                      onMove={() => moveQueue(rep)}
+                    />
+                  ) : null}
+                </div>
+
+                {deactivating[rep.id] ? (
+                  <DeactivatePanel
+                    rep={rep}
+                    state={deactivating[rep.id]}
+                    busy={busy}
+                    onChange={(patch) =>
+                      setDeactivating((all) => ({ ...all, [rep.id]: { ...all[rep.id], ...patch } }))
+                    }
+                    onConfirm={() => confirmDeactivate(rep)}
+                    onCancel={() =>
+                      setDeactivating((all) => {
+                        const next = { ...all };
+                        delete next[rep.id];
+                        return next;
+                      })
+                    }
+                  />
+                ) : null}
+
                 <div>
                   <label htmlFor={`link-${rep.id}`} className={LABEL}>
                     Signup link
@@ -996,6 +1354,205 @@ export default function PlatformSalesRepsPage() {
         kind of reason: changing it would stop crediting every link already
         handed out, silently.
       </p>
+    </div>
+  );
+}
+
+/**
+ * One rep's queue, opened: presence, the split, and the three controls.
+ *
+ * The controls render only for a superadmin, and only when they would do
+ * something — a "Release untouched" over zero untouched rows is a button that
+ * appears to work and doesn't.
+ */
+function QueuePanel({ rep, panel, isSuperadmin, busy, moveTarget, onPickTarget, onRelease, onMove }) {
+  const q = panel.queue || {};
+  const presence = presenceSentence(q.presence);
+  const presenceClass =
+    presence.tone === "live"
+      ? "text-emerald-700 dark:text-emerald-300"
+      : presence.tone === "amber"
+        ? "text-amber-800 dark:text-amber-300"
+        : "text-muted-foreground";
+  const targets = panel.targets || [];
+  return (
+    <div className="space-y-3 pt-2 border-t border-border">
+      <div className="grid gap-3 sm:grid-cols-2 text-sm">
+        <div>
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">Presence</div>
+          <div className={presenceClass}>{presence.text}</div>
+        </div>
+        <div>
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">Held now</div>
+          <div className="text-foreground">
+            {plural(q.held ?? 0, "prospect")}: {q.untouched ?? 0} untouched, {q.dialled ?? 0} dialled since
+            claiming, {q.worked ?? 0} worked.
+          </div>
+          <div className="text-foreground">{plural(q.openLeads ?? 0, "open lead")}.</div>
+          {q.oldestClaimMs != null ? (
+            <div className="text-xs text-muted-foreground">
+              Oldest lease taken {describeDuration(q.oldestClaimMs)} ago; a lease lapses on its own after 48 hours.
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      {isSuperadmin ? (
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => onRelease("release_untouched")}
+              disabled={busy || !(q.untouched > 0)}
+              className={BTN_QUIET}
+            >
+              Release untouched ({q.untouched ?? 0})
+            </button>
+            <button
+              onClick={() => onRelease("release_all")}
+              disabled={busy || !(q.leased > 0)}
+              className={BTN_QUIET}
+            >
+              Release all held ({q.leased ?? 0})
+            </button>
+          </div>
+          <p className={HELP}>
+            Both put the rows back where any rep can claim them, through the same
+            release the rep&apos;s own &quot;Release the rest&quot; and the hourly
+            day-end sweep use. &quot;All held&quot; also gives back the rows they
+            dialled — those lose their place in {rep.name}&apos;s list, nothing
+            else. Worked rows are conversations, not leases, and stay.
+          </p>
+
+          <div className="flex flex-wrap gap-2 items-end">
+            <div className="flex-1 min-w-[12rem]">
+              <label htmlFor={`move-${rep.id}`} className={LABEL}>
+                Move to another rep…
+              </label>
+              <select
+                id={`move-${rep.id}`}
+                value={moveTarget}
+                onChange={(e) => onPickTarget(e.target.value)}
+                className={FIELD}
+                disabled={busy || targets.length === 0}
+              >
+                <option value="">{targets.length === 0 ? "No other active rep" : "Choose a rep"}</option>
+                {targets.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.isMe ? `Me — ${t.name}` : t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              onClick={onMove}
+              disabled={busy || !moveTarget || !((q.held ?? 0) > 0 || (q.openLeads ?? 0) > 0)}
+              className={BTN_PRIMARY}
+            >
+              <ArrowRightLeft size={13} /> Move
+            </button>
+          </div>
+          <p className={HELP}>
+            Moves the held prospects (leases re-issued for 48 hours, dialled after
+            what the other rep already holds) and the open leads. Companies{" "}
+            {rep.name} brought in stay credited to {rep.name} — attributions and
+            commission never move. {panel.meNote}
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * "Daniel holds 37 prospects and 12 open leads. Release them, or move them
+ * to: [picker] — then deactivate." One confirm does both, in one transaction.
+ */
+function DeactivatePanel({ rep, state, busy, onChange, onConfirm, onCancel }) {
+  const { counts, targets } = state;
+  const heldSentence = `${rep.name} holds ${plural(counts.leased, "leased prospect")}${counts.worked > 0 ? ` (and ${plural(counts.worked, "worked one")})` : ""} and ${plural(counts.openLeads, "open lead")}.`;
+  const needsTarget = state.prospects === "move" || counts.openLeads > 0;
+  return (
+    <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 p-3 space-y-3">
+      <div className="text-sm font-medium text-amber-900 dark:text-amber-200">
+        {heldSentence} Release them, or move them — then deactivate.
+      </div>
+
+      <div className="space-y-2 text-sm text-amber-900 dark:text-amber-200">
+        <label className="flex items-start gap-2">
+          <input
+            type="radio"
+            name={`handoff-${rep.id}`}
+            checked={state.prospects === "release"}
+            onChange={() => onChange({ prospects: "release" })}
+            className="mt-1"
+          />
+          <span>
+            Release the {plural(counts.leased, "leased prospect")} back to the pool.
+            {counts.openLeads > 0
+              ? ` The ${plural(counts.openLeads, "open lead")} can only be moved — a lead has to have a rep — and the prospects they sit on go with them.`
+              : ""}
+          </span>
+        </label>
+        <label className="flex items-start gap-2">
+          <input
+            type="radio"
+            name={`handoff-${rep.id}`}
+            checked={state.prospects === "move"}
+            onChange={() => onChange({ prospects: "move" })}
+            className="mt-1"
+          />
+          <span>Move everything held, and the open leads, to another rep.</span>
+        </label>
+      </div>
+
+      {needsTarget ? (
+        <div>
+          <label htmlFor={`handoff-to-${rep.id}`} className={LABEL}>
+            {state.prospects === "move" ? "Move to" : "Move the open leads to"}
+          </label>
+          <select
+            id={`handoff-to-${rep.id}`}
+            value={state.toRepId}
+            onChange={(e) => onChange({ toRepId: e.target.value })}
+            className={FIELD}
+            disabled={busy || targets.length === 0}
+          >
+            <option value="">{targets.length === 0 ? "No other active rep" : "Choose a rep"}</option>
+            {targets.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.isMe ? `Me — ${t.name}` : t.name}
+              </option>
+            ))}
+          </select>
+          <p className={HELP}>{state.meNote}</p>
+          {targets.length === 0 ? (
+            <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
+              There is no other active rep to move work to. Invite one, or reactivate
+              one, before deactivating {rep.name}.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      <p className={HELP}>
+        Companies {rep.name} brought in stay credited to {rep.name}; attributions and
+        commission do not move. Nothing is deleted. The hand-off and the deactivation
+        are one transaction — neither happens without the other.
+      </p>
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={onConfirm}
+          disabled={busy || (needsTarget && !state.toRepId)}
+          className={BTN_PRIMARY}
+        >
+          {busy && <Loader2 size={14} className="animate-spin" />}
+          <UserX size={13} /> {state.prospects === "move" ? "Move, then deactivate" : "Release, then deactivate"}
+        </button>
+        <button onClick={onCancel} disabled={busy} className={BTN_QUIET}>
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }
