@@ -286,7 +286,14 @@ section("2. What the model is shown, and what it may answer");
   ok("…while four questions become three", validateCallScript({ ...goodReply(), threeQuestions: ["a?", "b?", "c?", "d?"] }).script?.threeQuestions.length === 3);
   ok("the prompt states the bounds it will be held to", new RegExp(`the ${CALL_SCRIPT_LIMITS.whatWeSaw.max} or fewer things`).test(prompt) && new RegExp(`up to ${CALL_SCRIPT_LIMITS.doNotSay.max} things`).test(prompt), prompt.slice(-900));
   ok("an empty opener is refused", validateCallScript({ ...goodReply(), opener: "  " }).problems.includes("empty_field"));
-  ok(`a line past ${CALL_SCRIPT_LIMITS.sentence} characters is refused`, validateCallScript({ ...goodReply(), opener: "x".repeat(400) }).problems.includes("too_long"));
+  ok(`a list line past ${CALL_SCRIPT_LIMITS.sentence} characters is refused`, validateCallScript({ ...goodReply(), whatWeSaw: ["x".repeat(400)] }).problems.includes("too_long"));
+  // 17 of the first 73 paid scripts were thrown away here: a three-sentence
+  // whyThemNow is longer than one line, and the prompt asked for three.
+  ok(`a spoken paragraph may run to ${CALL_SCRIPT_LIMITS.paragraph}`, validateCallScript({ ...goodReply(), whyThemNow: "Word ".repeat(120).trim() }).ok);
+  ok("…but not past it", validateCallScript({ ...goodReply(), whyThemNow: "x".repeat(CALL_SCRIPT_LIMITS.paragraph + 1) }).problems.includes("too_long"));
+  ok("an objection's answer is a paragraph; what they say is a line",
+    validateCallScript({ ...goodReply(), objections: [{ they: "No.", you: "Word ".repeat(100).trim() }, goodReply().objections[1]] }).ok &&
+    !validateCallScript({ ...goodReply(), objections: [{ they: "Word ".repeat(100).trim(), you: "Fine." }, goodReply().objections[1]] }).ok);
   ok("not an object is refused", !validateCallScript("hello").ok && !validateCallScript(null).ok);
   ok("a rejected script is null, never patched", validateCallScript({ ...goodReply(), opener: "" }).script === null);
 
