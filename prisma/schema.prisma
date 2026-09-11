@@ -5960,6 +5960,33 @@ model MarketingSpend {
   // synced rows. See lib/meta/insightsImport.js on why a mismatched-currency
   // row is excluded from the blended total rather than silently summed.
   currency     String?
+  // ── What Meta reports beyond the dollar ──────────────────────────────────
+  //
+  // The sync used to keep spend, impressions, clicks and lead actions and
+  // drop everything else Meta sent. The owner connected a live ad account
+  // with three running campaigns and asked, reasonably, what FieldQuo does
+  // with the rest. Nothing — because nothing stored it. These are the raw
+  // counts the Insights API returns per campaign per day, kept as counts so
+  // every rate (CTR, CPC, cost per conversation) is computed at read time
+  // from the same numbers and never drifts from them. Null means Meta did
+  // not report the metric for that row, never zero.
+  campaignId              String?
+  /// OUTCOME_LEADS, OUTCOME_ENGAGEMENT, OUTCOME_TRAFFIC… Meta's own value,
+  /// stored verbatim so the screen can say what the campaign was FOR.
+  objective               String?
+  reach                   Int?
+  linkClicks              Int?
+  /// Messenger / Instagram / WhatsApp conversations the ad started
+  /// (onsite_conversion.messaging_conversation_started_7d). The metric a
+  /// "click to message" campaign is actually bought for.
+  messagingConversations  Int?
+  videoViews              Int?
+  postEngagements         Int?
+  /// The full `actions` array as Meta sent it, for anything above that a
+  /// later screen wants without another sync. Raw, never read for totals.
+  actionsRaw              Json?
+
+  @@index([companyId, campaignId, date])
 
   @@unique([companyId, source, externalId])
 }
