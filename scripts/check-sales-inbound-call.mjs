@@ -357,6 +357,32 @@ for (const [label, plan] of [
   ok("…which writes it to the row", /recordVoicemail\(/.test(src));
   ok("…and it is never transcribed, which is a per-minute charge", /transcribe: false/.test(src) && !/transcribe: true/.test(src));
   ok("…and something reads the column", /voicemailUrl/.test(source("app/platform/sales/floor/page.js")));
+
+  // ── The "nobody free" branch takes the message too ──────────────────────
+  //
+  // INBOUND_MESSAGE (floor signed out, or no transfer destination) used to
+  // fall into speak(), which said "we have logged your call" and hung up —
+  // the action named "message" took none. Both real callbacks to the sales
+  // line went that way. One <Record> builder now serves the queue's last stop
+  // and this branch, so they cannot drift apart.
+  ok(
+    "an INBOUND_MESSAGE plan is answered with takeMessage, not speak",
+    /if \(plan\.action === INBOUND_MESSAGE\) \{\s*return takeMessage\(plan\.say/.test(src),
+  );
+  ok("…and the branch runs before the generic refusal", src.indexOf("plan.action === INBOUND_MESSAGE") < src.indexOf("plan.action !== INBOUND_CONNECT"));
+  ok("…with the attempt id, so the recording has a row to land on", /takeMessage\(plan\.say, \{ origin, attemptId: attempt\?\.id/.test(src));
+  ok("there is exactly one <Record> builder in the route", (src.match(/twiml\.record\(/g) || []).length === 1);
+  ok(
+    "…and both the queue's last stop and takeMessage use it",
+    /function takeMessage[\s\S]*?offerMessage\(twiml, \{ origin, attemptId \}\)/.test(src) &&
+      /async function queueStage[\s\S]*?offerMessage\(twiml, \{ origin, attemptId: attempt\?\.id/.test(src),
+  );
+  ok(
+    "the offer and the thank-you promise no callback",
+    !/ring you back|call you back|get back to you/i.test(
+      [/offerMessage\(twiml[\s\S]*?\n\}/.exec(src)?.[0] || "", /async function afterVoicemail[\s\S]*?\n\}/.exec(src)?.[0] || ""].join(" "),
+    ),
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -422,6 +448,9 @@ const REP_CALL_WRITES_EXPECTED = [
   "prospect",
   "salesLead",
   "salesSuppression",
+  // "Call him on his cell" — a second number recorded on the call (6842dc80).
+  // It names a number; it moves no money.
+  "salesContactNumber",
 ];
 ok(
   `REP_CALL_WRITES is exactly the ${REP_CALL_WRITES_EXPECTED.length} declared models`,

@@ -99,6 +99,7 @@ import { canAuthenticate } from "@/lib/sales/invite";
 import { matchInboundCaller } from "@/lib/sales/calls/inboundMatch";
 import {
   INBOUND_CONNECT,
+  INBOUND_MESSAGE,
   afterTransfer,
   anyRepLive,
   fallbackSayFor,
@@ -173,14 +174,19 @@ function toQueue({ origin, attemptId, round = 0, afterRing = false }) {
  * says something true, and the machine-readable failure goes to
  * /platform/errors instead.
  *
- * ── It no longer offers a voicemail, and that is not a removal ──────────
+ * ── speak() is for REFUSALS only ─────────────────────────────────────────
  *
- * It used to, on one branch: the connect decision that found nobody free. That
- * branch now goes to the queue, and the queue's own last stop is the same
- * <Record>. What is left here is the set of REFUSALS — a suppressed caller, a
- * number that is not ours, a deployment that cannot write the row — and none
- * of those should be offered a message: inviting one from somebody we may not
- * act on is worse than not inviting one at all.
+ * A number that is not ours, a deployment that cannot write the row. Neither
+ * should be offered a message: inviting one from somebody we may not act on
+ * is worse than not inviting one at all.
+ *
+ * It is NOT for the "nobody free" case. That case used to end here too, and
+ * the comment above it claimed the queue had taken it over — but the queue is
+ * only reached from the CONNECT decision. A plan of INBOUND_MESSAGE (the floor
+ * signed out, or no transfer destination set) still came through speak(),
+ * which said "we have logged your call" and hung up. Both real callbacks to
+ * the sales line so far took that path; neither could leave a word. The
+ * action is literally named "message"; takeMessage() below is what it does.
  */
 function speak(lines) {
   const twiml = new twilio.twiml.VoiceResponse();
@@ -191,6 +197,36 @@ function speak(lines) {
     status: 200,
     headers: { "Content-Type": "text/xml" },
   });
+}
+
+/**
+ * The one <Record> in this file, so the queue's last stop and the empty-floor
+ * branch cannot drift into two voicemails with two behaviours.
+ *
+ * Nothing spoken here promises a callback — see fallbackSayFor() for why an
+ * inbound webhook cannot make that promise. The offer is the offer.
+ */
+function offerMessage(twiml, { origin, attemptId }) {
+  twiml.say({ voice: VOICE }, "If you would like to leave a message, please do so after the tone.");
+  twiml.record({
+    maxLength: 120,
+    playBeep: true,
+    timeout: 5,
+    transcribe: false,
+    action: attemptId
+      ? `${origin}/api/rep-dial/inbound?stage=after-voicemail&attemptId=${encodeURIComponent(attemptId)}`
+      : `${origin}/api/rep-dial/inbound?stage=after-voicemail`,
+    method: "POST",
+  });
+  twiml.hangup();
+}
+
+/** The "nobody free" answer: say what is true, then take the message. */
+function takeMessage(lines, { origin, attemptId }) {
+  const twiml = new twilio.twiml.VoiceResponse();
+  for (const line of lines || []) twiml.say({ voice: VOICE }, line);
+  offerMessage(twiml, { origin, attemptId });
+  return xml(twiml);
 }
 
 /**
@@ -459,17 +495,7 @@ async function queueStage(request, params) {
   }
 
   // voicemail — the end of every path through here.
-  twiml.record({
-    maxLength: 120,
-    playBeep: true,
-    timeout: 5,
-    transcribe: false,
-    action: attempt
-      ? `${origin}/api/rep-dial/inbound?stage=after-voicemail&attemptId=${encodeURIComponent(attempt.id)}`
-      : `${origin}/api/rep-dial/inbound?stage=after-voicemail`,
-    method: "POST",
-  });
-  twiml.hangup();
+  offerMessage(twiml, { origin, attemptId: attempt?.id || null });
   return xml(twiml);
 }
 
@@ -520,7 +546,10 @@ async function afterVoicemail(request, params) {
   }
 
   const twiml = new twilio.twiml.VoiceResponse();
-  twiml.say({ voice: VOICE }, "Thanks — we have got that, and somebody will ring you back.");
+  // Not "somebody will ring you back": a callback is an outbound call that
+  // has to clear the calling window and the do-not-contact list, and this
+  // webhook cannot promise it. See fallbackSayFor().
+  twiml.say({ voice: VOICE }, "Thanks — we have got your message.");
   twiml.hangup();
   return xml(twiml);
 }
@@ -691,9 +720,20 @@ export async function POST(request) {
     transferTo: normalisePhone(process.env.FIELDQUO_SALES_TRANSFER_TO),
   });
 
-  // A refusal — suppressed caller, a number that is not ours, a store that
-  // cannot record the call. Said and ended, with no voicemail offered: a
-  // message from somebody we may not act on is worse than no message.
+  const origin = getAppOrigin(request);
+
+  // Nobody free — the floor signed out, or no desk to transfer to. Told the
+  // truth and then offered the beep. The attempt row already exists
+  // (recordAttempt is true on both INBOUND_MESSAGE reasons), so the recording
+  // has a row to land on and a rep's Voicemail tab to show up in. This branch
+  // used to speak() and hang up, and the two real callbacks so far both did.
+  if (plan.action === INBOUND_MESSAGE) {
+    return takeMessage(plan.say, { origin, attemptId: attempt?.id || null });
+  }
+
+  // A refusal — a number that is not ours, a store that cannot record the
+  // call. Said and ended, with no voicemail offered: a message from somebody
+  // we may not act on is worse than no message.
   if (plan.action !== INBOUND_CONNECT) {
     return speak(plan.say);
   }
@@ -705,7 +745,6 @@ export async function POST(request) {
   // holds them, looks again, and reaches that same voicemail when looking runs
   // out. Never an empty <Dial>, which rings for twenty seconds and then hangs
   // up without a word.
-  const origin = getAppOrigin(request);
   if (ring.targets.length === 0) {
     return toQueue({ origin, attemptId: attempt?.id || null, round: 0 });
   }
