@@ -58,7 +58,7 @@ const zh = {
   "feature.financing.limits": "分期付款是在结账时通过 Stripe 提供的，由放款方决定。FieldQuo 不放贷，也不批准任何人。报价单上显示的月供金额，只有在你自己填了费率和期限时才会出现——我们绝不替你编一个。",
   "feature.payroll.limits": "FieldQuo 算出税前工资、生成工资单并导出这一批次。它不给员工发钱，也不替你申报或缴纳工资税——扣款项目由你或你的会计提供。",
   "feature.contractor_payouts.limits": "这只能给你自己人员名单上的人打款，按他们打卡的工时，用你设定的单价。它没法把一个固定报价付给另一家公司。",
-  "feature.marketing_spend.limits": "每条线索的成本是把所有渠道混在一起算的，没有按渠道或按广告系列拆分——FieldQuo 里目前还没有任何东西能把某一笔具体的花费和某一条具体的线索对上。",
+  "feature.marketing_spend.limits": "按广告系列算的每条线索成本只覆盖通过 Meta 线索表单进来的线索。其他所有渠道——以及看了广告后打电话来的业主——仍然是把所有渠道混在一起算的，因为没有任何东西能把那笔花费和那条线索对上。",
   "featurePage.quotes.label": "报价单与估价",
   "featurePage.quotes.headline": "一次把价报好，人还没上车就发出去",
   "featurePage.quotes.oneLine": "用你自己的单价做报价单，用你的配色导成 PDF 发出去，客户在线签字。",

@@ -78,7 +78,7 @@ const en = {
   "feature.financing.limits": "Pay-over-time is offered at checkout through Stripe, where the lender decides. FieldQuo does not lend and does not approve anyone. The monthly figure shown on a quote appears only if you enter your own rate and term — we never invent one.",
   "feature.payroll.limits": "FieldQuo works out gross pay, produces the payslips and exports the run. It does not pay employees or file your payroll taxes — deductions are the ones you or your accountant supply.",
   "feature.contractor_payouts.limits": "This pays a person on your own roster, for hours they clocked, at the rate you set. It cannot pay a fixed bid to another company.",
-  "feature.marketing_spend.limits": "Cost per lead is blended across every channel, not broken out per channel or per campaign — nothing in FieldQuo links a specific dollar of spend to a specific lead yet.",
+  "feature.marketing_spend.limits": "Per-campaign cost per lead covers leads that arrived through a Meta lead form. Every other channel — and a homeowner who saw the ad and phoned — is still blended across everything, because nothing links that spend to that lead.",
 
   // ══ Generated from app/data/featurePages.js — pinned, see the header ══
 

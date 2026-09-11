@@ -1020,7 +1020,7 @@ const ENTRIES = [
     related: ["lead", "close-rate", "average-job-size"],
     product: {
       key: "marketing_spend",
-      note: "FieldQuo sets spend by channel against the jobs it actually brought in, so you can stop paying for the channels that do not.",
+      note: "FieldQuo puts each Meta campaign's spend against the lead-form leads, quotes and jobs it actually produced, and blends everything else — so you can see which ad is paying for itself.",
     },
   },
   {

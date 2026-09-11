@@ -47,7 +47,7 @@ const de = {
   "feature.financing.limits": "Ratenzahlung wird beim Bezahlen über Stripe angeboten, wobei der Kreditgeber entscheidet. FieldQuo vergibt keine Kredite und erteilt niemandem eine Zusage. Die auf einem Angebot gezeigte Monatsrate erscheint nur, wenn Sie Ihren eigenen Zinssatz und Ihre eigene Laufzeit eintragen — wir erfinden nie eine.",
   "feature.payroll.limits": "FieldQuo ermittelt den Bruttolohn, erzeugt die Abrechnungen und exportiert den Lauf. Es zahlt Ihre Mitarbeiter nicht aus und reicht Ihre Lohnsteuern nicht ein — die Abzüge sind die, die Sie oder Ihre Buchhaltung liefern.",
   "feature.contractor_payouts.limits": "Damit wird eine Person auf Ihrer eigenen Liste bezahlt, für Stunden, die sie gestempelt hat, zu dem Satz, den Sie festgelegt haben. Ein Festpreisangebot an ein anderes Unternehmen kann damit nicht bezahlt werden.",
-  "feature.marketing_spend.limits": "Die Kosten je Anfrage sind über alle Kanäle gemischt, nicht je Kanal oder je Kampagne aufgeschlüsselt — nichts in FieldQuo verknüpft bisher einen bestimmten ausgegebenen Betrag mit einer bestimmten Anfrage.",
+  "feature.marketing_spend.limits": "Die Kosten je Anfrage pro Kampagne erfassen Anfragen, die über ein Meta-Lead-Formular eingegangen sind. Jeder andere Kanal — und der Hausbesitzer, der die Anzeige gesehen und angerufen hat — bleibt über alles gemischt, weil nichts diese Ausgabe mit dieser Anfrage verknüpft.",
   "featurePage.quotes.label": "Angebote und Kalkulationen",
   "featurePage.quotes.headline": "Den Auftrag einmal kalkulieren und senden, bevor Sie die Einfahrt verlassen",
   "featurePage.quotes.oneLine": "Bauen Sie ein Angebot aus Ihren eigenen Sätzen, senden Sie es als PDF in Ihren Farben und lassen Sie den Kunden online unterschreiben.",

@@ -61,7 +61,7 @@ const tl = {
   "feature.financing.limits": "Inaalok ang hulugang bayad sa checkout sa pamamagitan ng Stripe, kung saan ang nagpapautang ang nagpapasya. Hindi nagpapautang ang FieldQuo at hindi nito inaaprubahan ang kahit sino. Ang buwanang halagang lumalabas sa isang quote ay lumalabas lang kung ikaw mismo ang naglagay ng sarili mong rate at termino — hindi kami kailanman gumagawa-gawa ng ganoong halaga.",
   "feature.payroll.limits": "Kinukuwenta ng FieldQuo ang gross pay, ginagawa ang mga payslip at ini-export ang pay run. Hindi nito binabayaran ang mga empleyado at hindi nito inihahain ang payroll taxes mo — ang mga bawas ay iyong ibinigay mo o ng accountant mo.",
   "feature.contractor_payouts.limits": "Binabayaran nito ang taong nasa sarili mong roster, para sa oras na na-clock nila, sa rate na itinakda mo. Hindi nito kayang magbayad ng fixed bid sa ibang kumpanya.",
-  "feature.marketing_spend.limits": "Ang gastos kada lead ay pinagsama-sama sa lahat ng channel, hindi hiwa-hiwalay ayon sa channel o kampanya — wala pang koneksyon sa FieldQuo sa pagitan ng isang partikular na piso ng gastos at isang partikular na lead.",
+  "feature.marketing_spend.limits": "Sakop ng gastos kada lead kada campaign ang mga lead na dumating sa pamamagitan ng Meta lead form. Ang bawat ibang channel — at ang may-ari ng bahay na nakakita ng ad at tumawag — ay pinagsama-sama pa rin sa lahat, dahil walang nag-uugnay sa gastos na iyon sa lead na iyon.",
 
   // ══ The pages ═════════════════════════════════════════════════════════
 

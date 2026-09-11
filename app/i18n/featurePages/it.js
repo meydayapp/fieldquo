@@ -51,7 +51,7 @@ const it = {
   "feature.financing.limits": "Il pagamento dilazionato viene proposto al momento del pagamento tramite Stripe, dove decide il finanziatore. FieldQuo non concede prestiti e non approva nessuno. L'importo mensile mostrato su un preventivo compare solo se inserisce il suo tasso e la sua durata — noi non ne inventiamo mai uno.",
   "feature.payroll.limits": "FieldQuo calcola la retribuzione lorda, produce le buste paga ed esporta l'elaborazione. Non paga i dipendenti e non presenta le sue dichiarazioni contributive — le trattenute sono quelle che fornisce lei o il suo commercialista.",
   "feature.contractor_payouts.limits": "Questo paga una persona del suo organico, per le ore che ha timbrato, alla tariffa che stabilisce lei. Non può pagare un importo a forfait a un'altra impresa.",
-  "feature.marketing_spend.limits": "Il costo per lead è aggregato su tutti i canali, non suddiviso per canale o per campagna — al momento nulla in FieldQuo collega un dollaro specifico di spesa a un lead specifico.",
+  "feature.marketing_spend.limits": "Il costo per lead per campagna copre i lead arrivati tramite un modulo Meta. Ogni altro canale — e il proprietario che ha visto l'annuncio e ha telefonato — resta aggregato su tutto, perché nulla collega quella spesa a quel lead.",
 
   // ══ Generated from app/data/featurePages.js ══
 

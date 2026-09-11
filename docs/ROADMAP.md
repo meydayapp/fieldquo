@@ -1,12 +1,80 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 10 September 2026 (Subcontractors, end to end. The four schema models from d24980e3 have readers and writers: a roster at `/app/subcontractors` with the expiring-COI panel first, a detail page with documents through the existing `/api/upload` path, jobs history and a year-picked T5018 figure, a "Subs on this job" panel under the job's costing, and the accountant's year-end CSV. Job costing gained a `subcontracts` line at the AGREED amount and drops the expense rows the payments and imported quotes write, so a sub is costed once — `lib/subcontractors/money.js` says why the agreed amount and not the payments. Roster on `user:manage`, money on `jobCosting`; `check:subcontractors` executes both against every preset. Inbound payment methods refused, hand-typed `paid` refused, blank expiry is "not recorded". 145 assertions, seven mutations caught; 119 keys in nine languages; matrix entry `subcontractor_bids` shipped with its caveat removed. **Not done:** Stripe Connect payout to a linked sub — `stripeTransferId` stays unwritten.)
+Last updated: 11 September 2026 (Meta Ads, the rest of the picture. The owner connected a live USD ad account to his CAD company; the sync worked and the KPI card said MARKETING SPEND $0.00, because `marketingRollup.js` excluded a currency mismatch instead of converting it. Rows in another currency now convert at READ time through `lib/marketing/fx.js`'s pinned rate via `lib/analytics/spendCurrency.js` — totals carry `approximate: true`, the original amount and the rate's age, and print "≈ $1,140.90 · includes US$821.50 converted at the pinned exchange rate (14 days old)"; a stale rate excludes AND names the amount, in nine languages. The sync asks Meta for nine fields, all verbatim from the AdsInsights enum (`CAMPAIGN_INSIGHT_FIELDS`), and each lands in a column — objective, reach, link clicks, conversations started, video views, engagements, the raw actions array — null when absent, never 0. `lib/analytics/campaignRollup.js` + `GET /api/marketing-spend/campaigns` + a Campaigns section on `/app/marketing/spend#campaigns`: per campaign, spend, every Meta count, CTR/CPC/cost per conversation computed from stored counts, and the join nothing had — lead-form leads by `metaCampaignId`, their quotes, jobs and invoiced revenue, cost per lead per campaign. Linked from the KPI tile and the Meta settings panel. Matrix `marketing_spend.limits` narrowed to what is still true (phone leads and non-Meta channels blended). Found and fixed on the way: `app/api/analytics/kpis/route.js` filtered on `InvoiceStatus` `cancelled`, which does not exist — every KPI request for a company with a completed job threw. **Not done:** the sync is still manual; reach is a daily sum, not people; leads by phone are unattributed.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## Meta Ads: every number Meta sends, in the company's own money, per campaign (11 September 2026)
+
+Verified against a live account, not assumed: "Easy Roofers Inc." (CAD)
+connected `act_14771954` (USD), pressed Sync now, and 43 `MarketingSpend`
+rows landed. The KPI page and the Insights business-costs card then said
+MARKETING SPEND $0.00, because `lib/analytics/marketingRollup.js` EXCLUDED
+a row whose currency differed from the company's. Right instinct, wrong
+outcome: the only genuine ad spend in the system was invisible on the two
+screens that matter.
+
+**Money, honestly visible.** `lib/analytics/spendCurrency.js` converts a
+foreign-currency row at READ time through the one pinned rate in
+`lib/marketing/fx.js` (its date, its source, its 45-day refusal). Nothing
+stored is ever a converted number. Every total a converted row touches
+carries `approximate: true`, `convertedFrom`, and per currency the original
+amount, the rate, its date and its age; the KPI tile, the blended card and
+the by-channel table print "≈" with "Includes US$821.50 converted at the
+pinned exchange rate (14 days old)" under it. When fx.js refuses, the rows
+are excluded again AND the payload names the currency, the amount and a
+reason CODE the screen translates. Cents, not fx.js's two significant
+figures — argued in the file header. The same-currency path is
+byte-identical (`check:spend-currency`, 57 assertions, 14 mutants).
+
+**The sync pulls the full picture.** `CAMPAIGN_INSIGHT_FIELDS` in
+`lib/meta/client.js`: campaign_id, campaign_name, objective, spend,
+impressions, reach, clicks, inline_link_clicks, actions — all verbatim from
+Meta's AdsInsights enum, asserted by name in `check:meta-insights` because
+one unknown field fails the WHOLE request. `parseInsightsRow` maps them to
+the columns 30e98fdb added; a metric Meta did not send is null, never 0;
+the old six-field rows still parse so the next sync updates them in place.
+`cost_per_action_type` and the video-threshold fields are deliberately not
+requested: every rate is computed from stored counts at read time.
+
+**Per campaign.** `lib/analytics/campaignRollup.js` (pure) →
+`GET /api/marketing-spend/campaigns` → the Campaigns section on
+`/app/marketing/spend#campaigns`. Name (newest), objective as a label off
+Meta's OUTCOME_* values, spend (approximate-aware or null-with-reason),
+impressions, reach FLAGGED as a daily sum, clicks, link clicks, CTR, CPC,
+conversations started + cost per conversation, video views, engagements,
+Meta's own lead actions kept apart from leads FieldQuo received, cost per
+lead, quotes, jobs, invoiced revenue. The join: `MarketingSpend.campaignId`
+= `LeadRequest.metaCampaignId` → `LeadRequest.quoteId` → `Job.quoteId`
+(oldest, as `lib/invoices/jobLink.js`) → `Invoice.jobId` or the quote,
+latest version per family. Leads are lead-form submissions only — the
+homeowner who phoned is unattributed, the table says so, and the blended
+figure above it is the whole picture. `check:campaign-rollup`: 48
+assertions, 14 mutants. "See campaigns →" from the KPI tile and the Meta
+settings panel. `marketing_spend.limits` rewritten to the narrower truth
+in the matrix, `messages.js` and all nine feature-page catalogues.
+
+**Found on the way.** `app/api/analytics/kpis/route.js` filtered invoices
+with `status: { notIn: ["draft", "cancelled"] }`; `InvoiceStatus` has no
+`cancelled`, Prisma refuses the filter before the query leaves the process,
+and every KPI request for a company with one completed job in the period
+threw. Fixed in its own commit.
+
+### Still owed here
+
+- The sync is manual ("Sync now"). A daily cron was out of this brief.
+- Reach is summed across daily rows; the exact figure needs a second
+  insights call per campaign without `time_increment`.
+- Leads by phone: call-tracking numbers per campaign, or nothing.
+- `app/api/meta/leads/forms/route.js` still carries a comment saying a
+  per-campaign CPL "is a product decision"; the decision was made and the
+  figure lives on the Spend page. The file was off-limits tonight.
 
 ---
 

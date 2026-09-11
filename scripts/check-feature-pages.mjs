@@ -1392,8 +1392,10 @@ for (const [language, script] of Object.entries(SCRIPTS)) {
    cannot grow into "any English word is fine". */
 {
   const ALLOWED = new Set([
-    // Companies and products, ours and other people's.
-    "FieldQuo", "Stripe", "Affirm", "Instagram",
+    // Companies and products, ours and other people's. "Meta" arrived with
+    // the marketing_spend limits sentence, which has to name whose lead form
+    // the per-campaign figure covers — a brand does not transliterate.
+    "FieldQuo", "Stripe", "Affirm", "Instagram", "Meta",
     // The hostname a contractor's site actually lives at. It reaches the copy
     // because there are no custom domains — docs/ROADMAP.md:1770, "subdomains
     // only" — so the honest sentence has to name where the site really is. The

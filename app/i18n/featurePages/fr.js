@@ -61,7 +61,7 @@ const fr = {
   "feature.financing.limits": "Le paiement échelonné est offert au moment de payer, par Stripe, et c'est le prêteur qui décide. FieldQuo ne prête pas et n'approuve personne. Le montant mensuel affiché sur une soumission n'apparaît que si vous entrez votre propre taux et votre propre durée — nous n'en inventons jamais un.",
   "feature.payroll.limits": "FieldQuo calcule la paie brute, produit les bulletins de paie et exporte la paie. Il ne paie pas les employés et ne produit pas vos déclarations de retenues à la source — les retenues sont celles que vous ou votre comptable fournissez.",
   "feature.contractor_payouts.limits": "Ça paie une personne inscrite à votre équipe, pour les heures qu'elle a pointées, au taux que vous fixez. Ça ne peut pas payer un prix forfaitaire à une autre entreprise.",
-  "feature.marketing_spend.limits": "Le coût par prospect est calculé en moyenne sur tous les canaux, sans détail par canal ni par campagne — rien dans FieldQuo ne relie encore un dollar de dépense précis à un prospect précis.",
+  "feature.marketing_spend.limits": "Le coût par prospect par campagne couvre les prospects arrivés par un formulaire Meta. Tout autre canal — et le propriétaire qui a vu l'annonce et téléphoné — reste calculé en moyenne sur l'ensemble, parce que rien ne relie cette dépense à ce prospect.",
 
   // ══ The pages ═════════════════════════════════════════════════════════
 
