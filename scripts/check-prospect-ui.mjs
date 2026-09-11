@@ -628,10 +628,22 @@ ok(
     "the candidate query with no trade also refuses rather than widening",
     claimCandidateWhere({}).tradeKey === "__none__",
   );
-  ok(
-    "…and only ever offers a workable status",
-    claimCandidateWhere({ tradeKey: "painting" }).status === "discovered",
-  );
+  {
+    // Workable = discovered OR researching, and nothing else. `researching` is
+    // a progress marker ENRICH writes, not a judgement about the business; the
+    // day it was left out of this filter, every prospect the pipeline had
+    // researched became one a rep could not be handed (13,734 of them,
+    // measured 2026-09-11). needs_review / rejected stay opted OUT.
+    const status = claimCandidateWhere({ tradeKey: "painting" }).status;
+    const offered = Array.isArray(status?.in) ? [...status.in].sort() : [];
+    ok(
+      "…and only ever offers a workable status (discovered and researching, nothing else)",
+      offered.join(",") === "discovered,researching",
+      status,
+    );
+    ok("…never needs_review", !offered.includes("needs_review"));
+    ok("…never rejected", !offered.includes("rejected"));
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
