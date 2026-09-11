@@ -64,8 +64,17 @@ function view(rep) {
     // not the same claim as one confirmed last week, and the screen says so
     // rather than showing a tick either way.
     confirmedDaysAgo: payoutAgeDays(rep.payoutConfirmedAt),
+    // Only the problems the REP can fix. `no_engagement` is a decision
+    // FieldQuo makes about them on /platform/sales/reps — the owner's words:
+    // "they shouldn't need to see that in fieldquo.com/sales". Telling a rep
+    // to fix something only a superadmin can touch is a dead instruction.
+    // `ready` keeps payoutReadiness's full verdict (the payout run reads it
+    // and must not pay an undecided engagement); `problems` is the rep's list.
     ready: readiness.ready,
-    problems: readiness.problems,
+    problems: readiness.problems.filter((p) => p.code !== "no_engagement"),
+    // Named separately so the screen can stay quiet without pretending the
+    // verdict was clean, and a check can assert the split.
+    adminProblems: readiness.problems.filter((p) => p.code === "no_engagement"),
     // The vocabulary travels with the answer so the form cannot drift from the
     // validator that will judge it.
     methods: PAYOUT_METHODS,

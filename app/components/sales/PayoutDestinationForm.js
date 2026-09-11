@@ -123,7 +123,7 @@ export default function PayoutDestinationForm({ showEngagement = true, onSaved }
   return (
     <div className="space-y-8">
       {/* ── What is missing, before anything else ─────────────────────────── */}
-      {!data.ready && (data.problems || []).length ? (
+      {(data.problems || []).length ? (
         <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-800 p-4 space-y-3">
           {data.problems.map((p) => (
             <div key={p.code} className="text-sm text-amber-900 dark:text-amber-200">
@@ -271,7 +271,10 @@ export default function PayoutDestinationForm({ showEngagement = true, onSaved }
       </form>
 
       {/* ── Read-only, and why ───────────────────────────────────────────── */}
-      {showEngagement ? (
+      {/* Shown only once FieldQuo has decided — an undecided engagement is
+          the superadmin's to-do (/platform/sales/reps), not a sentence for
+          the rep to read every time they open Pay. */}
+      {showEngagement && engagement ? (
         <section className="rounded-xl border border-border p-4 space-y-2">
           <h2 className="text-sm font-semibold text-foreground">{t("app.salesPay.engagementTitle")}</h2>
           {engagement ? (

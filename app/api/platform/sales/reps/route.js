@@ -24,6 +24,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { ENGAGEMENTS, isEngagement } from "@/lib/sales/payoutDetails";
 import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { getAppOrigin } from "@/lib/appUrl";
@@ -80,6 +81,8 @@ export async function GET(request) {
       acceptedAt: true,
       endedAt: true,
       inviteExpiresAt: true,
+      engagement: true,
+      accruesPaidLeave: true,
       commissionPlanId: true,
       commissionPlan: { select: { id: true, name: true } },
       // The count is what makes "deactivate, never delete" legible on the
@@ -227,6 +230,17 @@ export async function POST(request) {
   const badMailbox = workEmailProblem(workEmail, email);
   if (badMailbox) return NextResponse.json({ error: badMailbox }, { status: 400 });
 
+  const engagement =
+    body.engagement === undefined || body.engagement === null || body.engagement === ""
+      ? null
+      : String(body.engagement);
+  if (engagement !== null && !isEngagement(engagement)) {
+    return NextResponse.json(
+      { error: `engagement must be one of ${ENGAGEMENTS.map((e) => e.key).join(", ")}, or left unset.` },
+      { status: 400 },
+    );
+  }
+
   // The plan, at creation. Optional in the same sense the work mailbox is —
   // a rep can exist before the terms are settled — but the consequence is
   // sharper and the screen says it in those words: until one is assigned, every
@@ -280,6 +294,9 @@ export async function POST(request) {
     try {
       rep = await db.salesRep.create({
         data: {
+          // Stated at set-up when the superadmin knows it; null otherwise, and
+          // the Pay screen keeps saying so until somebody says.
+          engagement,
           name,
           email,
           workEmail,

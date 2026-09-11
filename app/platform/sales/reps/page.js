@@ -74,6 +74,7 @@ import PlatformWriteGate, {
   usePlatformAdmin,
 } from "@/app/components/platform/PlatformWriteGate";
 import { codeProblem, suggestCode, workEmailProblem } from "@/lib/sales/repAdmin";
+import { ENGAGEMENTS } from "@/lib/sales/payoutDetails";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -120,6 +121,11 @@ const BLANK = {
   // ledger row is written at all. The form says so instead of defaulting to
   // whichever plan happens to be first.
   commissionPlanId: "",
+  // "" is "nobody has said" — a real state the Pay screen names, not a
+  // missing field. Deliberately not defaulted to freelancer even though every
+  // rep is one today: a default is what makes the first employee silently
+  // wrong. See SalesRep.engagement in the schema.
+  engagement: "",
 };
 
 export default function PlatformSalesRepsPage() {
@@ -130,6 +136,7 @@ export default function PlatformSalesRepsPage() {
   const [draft, setDraft] = useState(null);
   const [mailboxDraft, setMailboxDraft] = useState({});
   const [planDraft, setPlanDraft] = useState({});
+  const [engagementDraft, setEngagementDraft] = useState({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -198,6 +205,7 @@ export default function PlatformSalesRepsPage() {
           // the state rather than the empty box is what keeps the two apart on
           // this side too.
           commissionPlanId: draft.commissionPlanId || null,
+          engagement: draft.engagement || null,
         }),
       });
       setDraft(null);
@@ -288,6 +296,35 @@ export default function PlatformSalesRepsPage() {
    * saves on change: this field decides what somebody is paid, and a stray
    * click on a dropdown is not a decision.
    */
+  async function saveEngagement(rep) {
+    const value = engagementDraft[rep.id] ?? "";
+    setBusy(true);
+    clearBanners();
+    try {
+      await fetchJson(`/api/platform/sales/reps/${rep.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ engagement: value || null }),
+      });
+      setEngagementDraft((d) => {
+        const next = { ...d };
+        delete next[rep.id];
+        return next;
+      });
+      const chosen = ENGAGEMENTS.find((e) => e.key === value);
+      setNotice(
+        chosen
+          ? `${rep.name} is recorded as ${chosen.label.toLowerCase()}. ${chosen.note}`
+          : `${rep.name}'s engagement is back to "not decided" — their Pay screen will say so.`,
+      );
+      await load();
+    } catch (err) {
+      setError(err.message || "Could not save the engagement.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function savePlan(rep) {
     const value = planDraft[rep.id] ?? "";
     if (
@@ -552,6 +589,29 @@ export default function PlatformSalesRepsPage() {
               </p>
             ) : null}
           </div>
+          <div>
+            <label htmlFor="rep-engagement" className={LABEL}>
+              Freelancer or employee
+            </label>
+            <select
+              id="rep-engagement"
+              value={draft.engagement}
+              onChange={(e) => setDraft({ ...draft, engagement: e.target.value })}
+              className={FIELD}
+            >
+              <option value="">Not decided yet</option>
+              {ENGAGEMENTS.map((e) => (
+                <option key={e.key} value={e.key}>
+                  {e.label}
+                </option>
+              ))}
+            </select>
+            <p className={HELP}>
+              Decides whether paid leave accrues and whether FieldQuo withholds
+              anything. Until it is set, the rep&apos;s Pay screen says nobody has
+              decided — it is never guessed from the payout method.
+            </p>
+          </div>
 
           <p className="text-xs text-muted-foreground">
             They&apos;ll get an emailed link and choose their own password. The
@@ -802,6 +862,74 @@ export default function PlatformSalesRepsPage() {
                       companies reach. Assigning a plan starts recording from the
                       next milestone onwards — it does not backfill the ones that
                       passed while there was none.
+                    </p>
+                  ) : null}
+                </div>
+                <div>
+                  <div className={LABEL}>Freelancer or employee</div>
+                  {rep.id in engagementDraft && isSuperadmin ? (
+                    <div className="flex flex-wrap gap-2">
+                      <select
+                        aria-label={`Engagement for ${rep.name}`}
+                        value={engagementDraft[rep.id]}
+                        onChange={(e) =>
+                          setEngagementDraft({ ...engagementDraft, [rep.id]: e.target.value })
+                        }
+                        className={`${FIELD} flex-1`}
+                      >
+                        <option value="">Not decided yet</option>
+                        {ENGAGEMENTS.map((e) => (
+                          <option key={e.key} value={e.key}>
+                            {e.label}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => saveEngagement(rep)}
+                        disabled={busy}
+                        className={BTN_PRIMARY}
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() =>
+                          setEngagementDraft((d) => {
+                            const next = { ...d };
+                            delete next[rep.id];
+                            return next;
+                          })
+                        }
+                        className={BTN_QUIET}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm text-foreground">
+                        {ENGAGEMENTS.find((e) => e.key === rep.engagement)?.label ||
+                          "Not decided yet"}
+                      </span>
+                      {isSuperadmin ? (
+                        <button
+                          onClick={() =>
+                            setEngagementDraft({
+                              ...engagementDraft,
+                              [rep.id]: rep.engagement || "",
+                            })
+                          }
+                          className={BTN_QUIET}
+                        >
+                          {rep.engagement ? "Change" : "Set"}
+                        </button>
+                      ) : null}
+                    </div>
+                  )}
+                  {!rep.engagement ? (
+                    <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                      Nobody has said whether this rep is a freelancer or an
+                      employee. Their Pay screen shows this same sentence until
+                      you set it here.
                     </p>
                   ) : null}
                 </div>

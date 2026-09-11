@@ -635,6 +635,34 @@ section("10. The column itself");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Engagement is FieldQuo's decision, made on /platform/sales/reps — never a
+// sentence the rep is told to fix, and never guessed.
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const { readFileSync } = await import("node:fs");
+  const src = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  const payout = src("app/api/sales/payout/route.js");
+  ok("the rep's payout payload filters no_engagement out of `problems`",
+    /problems: readiness\.problems\.filter\(\(p\) => p\.code !== "no_engagement"\)/.test(payout));
+  ok("…and names it separately as adminProblems rather than dropping the verdict",
+    /adminProblems: readiness\.problems\.filter\(\(p\) => p\.code === "no_engagement"\)/.test(payout));
+  ok("…while `ready` still carries the full verdict the payout run reads", /ready: readiness\.ready,/.test(payout));
+  const form = src("app/components/sales/PayoutDestinationForm.js");
+  ok("the rep form shows the engagement panel only once one is set", /showEngagement && engagement \?/.test(form));
+  const admin = src("app/api/platform/sales/reps/[id]/route.js");
+  ok("the platform rep PATCH accepts `engagement`", /const touchesEngagement = "engagement" in body;/.test(admin));
+  ok("…validates it against ENGAGEMENTS", /isEngagement\(engagement\)/.test(admin) && /import \{ ENGAGEMENTS, isEngagement \} from "@\/lib\/sales\/payoutDetails"/.test(admin));
+  ok("…and clears accruesPaidLeave when the rep is not an employee", /engagement !== "employee" \? \{ accruesPaidLeave: false \}/.test(admin));
+  const create = src("app/api/platform/sales/reps/route.js");
+  ok("the platform rep POST accepts `engagement` at set-up and refuses a bad value", /isEngagement\(engagement\)/.test(create) && /engagement,/.test(create));
+  const page = src("app/platform/sales/reps/page.js");
+  ok("the reps screen offers the choice at invite", /id="rep-engagement"/.test(page));
+  ok("…and per rep, with a Set/Change control", /Engagement for \$\{rep\.name\}/.test(page) && /rep\.engagement \? "Change" : "Set"/.test(page));
+  ok("…and says out loud when nobody has decided", /Nobody has said whether this rep is a freelancer or an/.test(page));
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed`);
 for (const f of failures) console.log(`  · ${f}`);
 process.exit(failures.length === 0 ? 0 : 1);

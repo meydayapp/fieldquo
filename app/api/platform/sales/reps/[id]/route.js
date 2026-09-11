@@ -32,6 +32,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { ENGAGEMENTS, isEngagement } from "@/lib/sales/payoutDetails";
 import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { normaliseWorkEmail, workEmailProblem } from "@/lib/sales/repAdmin";
@@ -78,10 +79,28 @@ export async function PATCH(request, { params }) {
   // Same `in` test, same reason: null is "this rep has no plan", which is a
   // real state (and the one that earns them nothing), not a missing field.
   const touchesPlan = "commissionPlanId" in body;
-
-  if (typeof active !== "boolean" && !touchesMailbox && !touchesPlan) {
+  // Freelancer or employee. The rep's own Pay screen has said "Nobody has
+  // said whether this rep is a freelancer or an employee" since the column
+  // existed, and the owner looked for the control here and found none: the
+  // column had readers (payout readiness, leave accrual) and no writer. `in`
+  // again: null is a real value — "we have not decided" — and must stay
+  // sendable, so the field can be cleared if it was set wrongly.
+  const touchesEngagement = "engagement" in body;
+  const engagement = touchesEngagement
+    ? body.engagement === null || body.engagement === ""
+      ? null
+      : String(body.engagement)
+    : undefined;
+  if (touchesEngagement && engagement !== null && !isEngagement(engagement)) {
     return NextResponse.json(
-      { error: "Send active (true/false), workEmail, or commissionPlanId." },
+      { error: `engagement must be one of ${ENGAGEMENTS.map((e) => e.key).join(", ")}, or null.` },
+      { status: 400 },
+    );
+  }
+
+  if (typeof active !== "boolean" && !touchesMailbox && !touchesPlan && !touchesEngagement) {
+    return NextResponse.json(
+      { error: "Send active (true/false), workEmail, commissionPlanId, or engagement." },
       { status: 400 },
     );
   }
@@ -137,6 +156,13 @@ export async function PATCH(request, { params }) {
         : {}),
       ...(touchesMailbox ? { workEmail } : {}),
       ...(assignment ? { commissionPlanId: assignment.commissionPlanId } : {}),
+      // A freelancer never accrues paid leave through FieldQuo; an employee
+      // may, but that is a separate decision (see the schema comment), so
+      // moving to freelancer clears the flag and moving to employee leaves it
+      // for the superadmin to set — never inferred.
+      ...(touchesEngagement
+        ? { engagement, ...(engagement !== "employee" ? { accruesPaidLeave: false } : {}) }
+        : {}),
     },
     select: {
       id: true,
@@ -148,6 +174,8 @@ export async function PATCH(request, { params }) {
       endedAt: true,
       acceptedAt: true,
       commissionPlanId: true,
+      engagement: true,
+      accruesPaidLeave: true,
       commissionPlan: { select: { id: true, name: true } },
     },
   });
