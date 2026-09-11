@@ -303,6 +303,26 @@ Each row: what actually works today / what the caveat means / the plan.
 - Quote/invoice PDFs, covering emails, portal: **verified working in all eight** (`documentLabels`, `emailCopy`, `clientDocCopy`, PDF font stack).
 - Portuguese: the owner listed it. Not in `LANGUAGES`. Adding a ninth language is a catalogue-wide job (every `check:translations` floor), not a switch.
 
+## 10. Flags from the subcontractor / fleet / location builds (2026-09-11)
+
+- **`Job` carries two coordinate pairs.** `siteLatitude / siteLongitude /
+  siteGeocodedAt` (from 37b4e9f3, read by nothing) and `latitude / longitude /
+  geocodedAt` (d24980e3, now written by `lib/geo/geocodeJob.js` and read by the
+  timesheet distance flag). One pair should go. Dropping the older three is a
+  column deletion — **owner's call**, not taken here. Nothing reads them.
+- **Meta Ads screen has no uk / pa / tl keys at all** (`app.setMetaAds.*` is
+  absent from those three catalogues — falls back to English). Pre-existing;
+  the screen is 37 keys.
+- Position stamps: no 30-day sweep of geocoded coordinates (Google's terms
+  suggest one); `geocodedAt` is written so a cron can be. A deleting cron is a
+  decision, not a default. `lib/crew/inbox.js` still hands the GPS matcher
+  `lat: undefined` and could now read `job.latitude`.
+- Fleet: `PATCH /api/expenses/[id]` writes `projectId` without ownership
+  proof — pre-existing, flagged by the fleet agent, not fixed.
+- Pre-existing red checks noticed by the agents, none from this work:
+  `check:credit-currency` (`lib/ai/creditBundle.js` is a fifth crediter, from
+  f4b4c5dd), `check:tenant-scope` (support-ticket routes).
+
 ## Already in flight this session (separate agents)
 
   * Roofing: material coverage from real products, editable price AND quantity on
