@@ -42,7 +42,23 @@ import {
   describeStage,
 } from "@/lib/sales/pipeline/progress";
 import { TASK_KINDS } from "@/lib/sales/pipeline/kinds";
-import { NEXT_STAGE } from "@/lib/sales/pipeline/chain";
+import { NEXT_STAGE, advanceChain } from "@/lib/sales/pipeline/chain";
+import {
+  CLAIMED_NOT_BEFORE,
+  inheritedPayload,
+  notBeforeFor,
+  taskPriority,
+} from "@/lib/sales/pipeline/priority";
+import {
+  MAX_REQUEUES,
+  RESEARCH_CHAIN,
+  RESEARCH_CHAIN_NO_WEBSITE,
+  crawlRetryable,
+  ensureResearchQueued,
+  researchKey,
+  researchPlan,
+} from "@/lib/sales/pipeline/research";
+import { ensureResearchQueued as viaProgress } from "@/lib/sales/pipeline/progress";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(ROOT, p), "utf8");
@@ -230,15 +246,28 @@ section("6. It reaches the screen — the half that was missing");
   ok("the board states the state in words, not only colour", /tone\.word/.test(board));
   ok("…and every stage is drawn, including the empty ones", !/filter\(\(s\) => s\.total/.test(board));
   ok("…and the progress bar is labelled for a screen reader", /role="progressbar"/.test(board));
-  ok("…and says queued is normal rather than broken", /normal state most of the time, not a fault/.test(board));
+  // The three sentences below moved out of the component and into the
+  // catalogue when the sales portal was keyed (cf099363), and this check went
+  // on reading the component for them — red at HEAD for a day. It now reads
+  // the English catalogue entry the board renders, through the key the board
+  // names, so a sentence dropped from either side is still caught.
+  const catalogue = read("app/i18n/appMessages.js");
+  const english = (key) => {
+    const m = new RegExp(`^  "${key.replace(/\./g, "\\.")}": "((?:[^"\\\\]|\\\\.)*)",$`, "m").exec(catalogue);
+    return m ? m[1] : "";
+  };
+  ok("the board renders its reading guide through the catalogue",
+    /t\("app\.salesQueue\.stageBoardHowItReads"\)/.test(board) && /t\("app\.salesQueue\.stageBoardDownstream"\)/.test(board));
+  ok("…and says queued is normal rather than broken",
+    /normal state most of the time, not a fault/.test(english("app.salesQueue.stageBoardHowItReads")));
   // A business with no website never enters the crawler, so a crawl count
   // lower than the prospect count is correct rather than missing work.
-  ok("…and says why a business can skip the crawler", /no website/i.test(board));
+  ok("…and says why a business can skip the crawler", /no website/i.test(english("app.salesQueue.stageBoardHowItReads")));
   // 402 detections declined because the crawl before them had nothing to hand
   // over. That is shouldAdvance working as documented — "a failure does not
   // strand the prospect" — and a screen that presents it as a fault sends
   // somebody hunting a bug that is not there.
-  ok("…and says a declined stage does not strand the business", /not stranded/i.test(board));
+  ok("…and says a declined stage does not strand the business", /not stranded/i.test(english("app.salesQueue.stageBoardDownstream")));
 
   const stalled = read("app/platform/sales/campaigns/[id]/page.js");
   ok("abandoned is no longer described as nearly always configuration",
@@ -254,6 +283,257 @@ section("7. The check is wired in");
   const pkg = JSON.parse(read("package.json"));
   ok("check:pipeline-progress is a script", typeof pkg.scripts?.["check:pipeline-progress"] === "string");
   ok("…and check:all runs it", (pkg.scripts?.["check:all"] || "").includes("check:pipeline-progress"));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("8. Research on claim — the lane, and what rides in it");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  ok("the claim route imports the function from progress.js", viaProgress === ensureResearchQueued);
+
+  // The runner orders `notBefore asc, createdAt asc`. A claimed task's notBefore
+  // is fixed before any row this table ever held, so it sorts first; among
+  // claimed tasks, createdAt still decides.
+  const runner = read("lib/sales/pipeline/runner.js");
+  ok("the runner still orders by notBefore first", /orderBy: \[\{ notBefore: "asc" \}, \{ createdAt: "asc" \}\]/.test(runner));
+  ok("the claimed notBefore is fixed, in the past", CLAIMED_NOT_BEFORE.getTime() < Date.parse("2025-01-01"));
+  ok("…and is what the claimed lane gets", notBeforeFor("claimed") === CLAIMED_NOT_BEFORE);
+  ok("…while the backlog lane takes the column default", notBeforeFor("backlog") === null);
+
+  const rows = [
+    { id: "backlog-old", notBefore: new Date("2026-09-01"), createdAt: new Date("2026-09-01") },
+    { id: "claimed-2", notBefore: CLAIMED_NOT_BEFORE, createdAt: new Date("2026-09-11T10:00:01Z") },
+    { id: "backlog-new", notBefore: new Date("2026-09-11"), createdAt: new Date("2026-09-11") },
+    { id: "claimed-1", notBefore: CLAIMED_NOT_BEFORE, createdAt: new Date("2026-09-11T10:00:00Z") },
+  ];
+  const order = [...rows]
+    .sort((a, b) => a.notBefore - b.notBefore || a.createdAt - b.createdAt)
+    .map((r) => r.id);
+  ok("claimed tasks drain before every backlog row, oldest claim first",
+    JSON.stringify(order) === JSON.stringify(["claimed-1", "claimed-2", "backlog-old", "backlog-new"]), order);
+
+  ok("a task queued with no lane has none", taskPriority({ payload: { prospectId: "p" } }) === null);
+  ok("…and an invented lane is not one", taskPriority({ payload: { priority: "urgent" } }) === null);
+  ok("the lane rides in the payload", taskPriority({ payload: { priority: "claimed" } }) === "claimed");
+
+  // The brief stage caches its output under payload.brief. A successor that
+  // inherited it would carry a stale brief onto every downstream row.
+  const inherited = inheritedPayload({ payload: { priority: "claimed", phrase: false, brief: { x: 1 }, force: true } });
+  ok("a successor inherits the lane and the no-phrase flag only",
+    JSON.stringify(inherited) === JSON.stringify({ priority: "claimed", phrase: false }), inherited);
+  ok("…and nothing when the task had neither", JSON.stringify(inheritedPayload({ payload: { prospectId: "p" } })) === "{}");
+
+  // Executed: advanceChain queues the successor in the same lane.
+  const created = [];
+  const fakeDb = {
+    salesPipelineTask: {
+      async findUnique() { return null; },
+      async create({ data }) { created.push(data); return { ...data, id: `t${created.length}`, createdAt: new Date() }; },
+    },
+  };
+  await advanceChain({ kind: "CRAWL_WEBSITE", db: fakeDb,
+    task: { id: "crawl-1", prospectId: "p1", campaignId: null, payload: { prospectId: "p1", priority: "claimed" } } });
+  ok("a claimed crawl's successor is DETECT_TECHNOLOGY", created[0]?.kind === "DETECT_TECHNOLOGY", created[0]);
+  ok("…in the claimed lane", created[0]?.payload?.priority === "claimed");
+  ok("…with the claimed notBefore", created[0]?.notBefore === CLAIMED_NOT_BEFORE);
+  await advanceChain({ kind: "CRAWL_WEBSITE", db: fakeDb,
+    task: { id: "crawl-2", prospectId: "p2", campaignId: null, payload: { prospectId: "p2", priority: "backlog", phrase: false } } });
+  ok("a backlog crawl's successor keeps phrase:false", created[1]?.payload?.phrase === false);
+  ok("…and no notBefore, so the column default applies", created[1]?.notBefore === undefined);
+  await advanceChain({ kind: "CRAWL_WEBSITE", db: fakeDb,
+    task: { id: "crawl-3", prospectId: "p3", campaignId: null, payload: { prospectId: "p3" } } });
+  ok("a discovery-queued crawl's successor is unchanged: no lane, no flag",
+    JSON.stringify(created[2]?.payload) === JSON.stringify({ prospectId: "p3" }) && created[2]?.notBefore === undefined, created[2]);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("9. Which crawl failures are ours, and get another go");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  // The top failure in production, verbatim from lastError.
+  ok("EBUSY out of the resolver is retryable",
+    crawlRetryable("gave up after 5 attempts: robots_error:unsafe_host:dns_error:EBUSY"));
+  ok("EAI_AGAIN likewise", crawlRetryable("gave up after 5 attempts: robots_error:unsafe_host:dns_error:EAI_AGAIN"));
+  ok("undici's TypeError likewise", crawlRetryable("gave up after 5 attempts: robots_error:TypeError"));
+  ok("a host slot another lambda held likewise", crawlRetryable("gave up after 5 attempts: host_slot:defer"));
+  ok("our own DNS backoff likewise", crawlRetryable("dns_backoff — held until 2026-09-11T12:00:00.000Z"));
+  ok("…and without the runner's prefix too", crawlRetryable("robots_error:unsafe_host:dns_error:EBUSY"));
+
+  // Real refusals. A sixth try is a sixth copy of the same sentence.
+  ok("a robots.txt that redirects is not", !crawlRetryable("gave up after 5 attempts: robots_unreachable_301"));
+  ok("a 500 on robots.txt is not", !crawlRetryable("gave up after 5 attempts: robots_unreachable_500"));
+  ok("a name resolving to a private address is not",
+    !crawlRetryable("gave up after 5 attempts: robots_error:unsafe_host:resolves_private"));
+  ok("robots.txt saying no is not", !crawlRetryable("robots_disallowed — www.facebook.com robots.txt disallows / (cached)"));
+  ok("five timeouts are not", !crawlRetryable("gave up after 5 attempts: robots_error:timeout"));
+  ok("a redirect loop is not", !crawlRetryable("too_many_redirects — home page: too_many_redirects"));
+  ok("a database error that threw is not", !crawlRetryable("gave up after 5 attempts: threw: could not extend file"));
+  ok("nothing is not", !crawlRetryable(null) && !crawlRetryable(""));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("10. The plan — what one prospect still needs, from its rows alone");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  const site = { id: "p", websiteUrl: "http://www.richmondcontainer.com/", lastCrawledAt: null, doNotContactAt: null, campaignId: "c" };
+  const t = (kind, status, extra = {}) => ({ id: `${kind}-${status}-${Math.random().toString(36).slice(2, 6)}`, kind, status, lastError: null, payload: null, createdAt: new Date("2026-09-01"), ...extra });
+
+  ok("the chain is the chain's own order",
+    JSON.stringify(RESEARCH_CHAIN) === JSON.stringify(["ENRICH_BUSINESS", "CRAWL_WEBSITE", ...(() => { const w = ["CRAWL_WEBSITE"]; while (NEXT_STAGE[w.at(-1)]) w.push(NEXT_STAGE[w.at(-1)]); return w.slice(1); })()]), RESEARCH_CHAIN);
+  ok("…and the no-website chain skips exactly the three page-reading stages",
+    JSON.stringify(RESEARCH_CHAIN_NO_WEBSITE) === JSON.stringify(RESEARCH_CHAIN.filter((k) => !["CRAWL_WEBSITE", "DETECT_TECHNOLOGY", "ANALYZE_CAPABILITIES"].includes(k))));
+
+  // Richmond Rolloff, as found: website, URL, never enriched, never crawled.
+  const untouched = researchPlan({ prospect: site, tasks: [], priority: "claimed" });
+  ok("an untouched prospect gets ENRICH_BUSINESS first, and only that",
+    untouched.enqueue.length === 1 && untouched.enqueue[0].kind === "ENRICH_BUSINESS", untouched);
+  ok("…in the claimed lane", untouched.enqueue[0]?.payload?.priority === "claimed");
+  ok("…ahead of the backlog", untouched.enqueue[0]?.notBefore === CLAIMED_NOT_BEFORE);
+  ok("…without moving it out of the claim pool", untouched.enqueue[0]?.payload?.promote === false);
+  ok("…phrased, because a rep is waiting", untouched.enqueue[0]?.payload?.phrase === undefined);
+  ok("…under a key per prospect and kind", untouched.enqueue[0]?.idempotencyKey === researchKey({ kind: "ENRICH_BUSINESS", prospectId: "p", existing: 0 }));
+
+  const backlog = researchPlan({ prospect: site, tasks: [], priority: "backlog" });
+  ok("the backlog lane phrases nothing", backlog.enqueue[0]?.payload?.phrase === false);
+  ok("…and takes the column default position", backlog.enqueue[0]?.notBefore === null);
+  ok("…and also stays claimable", backlog.enqueue[0]?.payload?.promote === false);
+
+  const enriched = [t("ENRICH_BUSINESS", "done")];
+  const crawlNext = researchPlan({ prospect: site, tasks: enriched, priority: "claimed" });
+  ok("enriched with a website and no crawl gets CRAWL_WEBSITE", crawlNext.enqueue[0]?.kind === "CRAWL_WEBSITE", crawlNext);
+
+  const ebusy = t("CRAWL_WEBSITE", "failed", { lastError: "gave up after 5 attempts: robots_error:unsafe_host:dns_error:EBUSY" });
+  const requeued = researchPlan({ prospect: site, tasks: [...enriched, ebusy], priority: "claimed" });
+  ok("an EBUSY crawl is queued again", requeued.enqueue[0]?.kind === "CRAWL_WEBSITE", requeued);
+  ok("…under the NEXT key, beside the one that failed",
+    requeued.enqueue[0]?.idempotencyKey === researchKey({ kind: "CRAWL_WEBSITE", prospectId: "p", existing: 1 }));
+
+  const exhausted = researchPlan({ prospect: site, tasks: [...enriched, ebusy, { ...ebusy, id: "e2" }, { ...ebusy, id: "e3" }], priority: "claimed" });
+  ok(`…but not more than ${MAX_REQUEUES} times`, exhausted.enqueue.length === 0 && exhausted.skipped === "requeues_exhausted", exhausted);
+
+  const refused = t("CRAWL_WEBSITE", "abandoned", { lastError: "robots_error:unsafe_host:resolves_private" });
+  const past = researchPlan({ prospect: site, tasks: [...enriched, refused], priority: "claimed" });
+  ok("a refused crawl is NOT queued again", !past.enqueue.some((s) => s.kind === "CRAWL_WEBSITE"), past);
+  ok("…and the chain continues past it to DETECT_TECHNOLOGY", past.enqueue[0]?.kind === "DETECT_TECHNOLOGY", past);
+
+  const redirected = t("CRAWL_WEBSITE", "failed", { lastError: "gave up after 5 attempts: robots_unreachable_301" });
+  ok("a robots redirect is a statement about the site, not re-crawled",
+    !researchPlan({ prospect: site, tasks: [...enriched, redirected], priority: "claimed" }).enqueue.some((s) => s.kind === "CRAWL_WEBSITE"));
+
+  const crawled = { ...site, lastCrawledAt: new Date("2026-09-10") };
+  const done = RESEARCH_CHAIN.map((k) => t(k, "done"));
+  ok("a fully researched prospect needs nothing on the backlog lane",
+    researchPlan({ prospect: crawled, tasks: done, priority: "backlog" }).skipped === "complete");
+
+  const half = RESEARCH_CHAIN.slice(0, 4).map((k) => t(k, "done"));
+  const resume = researchPlan({ prospect: crawled, tasks: half, priority: "claimed" });
+  ok("a chain that stopped resumes at the first missing stage",
+    resume.enqueue[0]?.kind === RESEARCH_CHAIN[4], resume);
+
+  const waiting = t("DETECT_TECHNOLOGY", "queued", { payload: { prospectId: "p" } });
+  const promote = researchPlan({ prospect: crawled, tasks: [...half.slice(0, 2), waiting], priority: "claimed" });
+  ok("a stage already waiting is promoted, not duplicated",
+    promote.enqueue.length === 0 && promote.promote[0] === waiting.id, promote);
+  ok("…and on the backlog lane it is left where it is",
+    researchPlan({ prospect: crawled, tasks: [...half.slice(0, 2), waiting], priority: "backlog" }).skipped === "already_queued");
+  const inFlight = t("DETECT_TECHNOLOGY", "claimed");
+  ok("a stage in flight this second is left alone",
+    researchPlan({ prospect: crawled, tasks: [...half.slice(0, 2), inFlight], priority: "claimed" }).skipped === "in_flight");
+
+  ok("do-not-contact queues nothing", researchPlan({ prospect: { ...site, doNotContactAt: new Date() }, tasks: [], priority: "claimed" }).skipped === "do_not_contact");
+  ok("an enrich that refused ends the plan",
+    researchPlan({ prospect: site, tasks: [t("ENRICH_BUSINESS", "abandoned")], priority: "claimed" }).skipped === "enrich_refused");
+  ok("a missing prospect is a reason, not a throw", researchPlan({ prospect: null }).skipped === "prospect_not_found");
+  ok("an invented lane is refused", researchPlan({ prospect: site, priority: "urgent" }).skipped === "unknown_priority");
+
+  const noSite = { ...site, websiteUrl: null };
+  const straight = researchPlan({ prospect: noSite, tasks: enriched, priority: "claimed" });
+  ok("no website: enriched goes straight to DETECT_OPPORTUNITIES", straight.enqueue[0]?.kind === "DETECT_OPPORTUNITIES", straight);
+  const derived = researchPlan({ prospect: noSite, tasks: [...enriched, ebusy], priority: "claimed" });
+  ok("…unless enrich already routed it to a crawl (a derived RBQ domain), which is then retried",
+    derived.enqueue[0]?.kind === "CRAWL_WEBSITE", derived);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("11. ensureResearchQueued, executed — idempotent, and it moves the lane");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  const store = { prospects: new Map(), tasks: [] };
+  let seq = 0;
+  const db = {
+    prospect: { async findMany({ where }) { return where.id.in.map((id) => store.prospects.get(id)).filter(Boolean); } },
+    salesPipelineTask: {
+      async findMany({ where }) {
+        return store.tasks.filter((t) => where.prospectId.in.includes(t.prospectId) && where.kind.in.includes(t.kind));
+      },
+      async findUnique({ where }) { return store.tasks.find((t) => t.idempotencyKey === where.idempotencyKey) || null; },
+      async create({ data }) {
+        if (store.tasks.some((t) => t.idempotencyKey === data.idempotencyKey)) { const e = new Error("dup"); e.code = "P2002"; throw e; }
+        const row = { id: `t${++seq}`, status: "queued", attempts: 0, createdAt: new Date(2026, 8, 11, 0, 0, seq), notBefore: data.notBefore ?? new Date(2026, 8, 11, 0, 0, seq), ...data };
+        store.tasks.push(row);
+        return row;
+      },
+      async updateMany({ where, data }) {
+        let n = 0;
+        for (const t of store.tasks) if (t.id === where.id && t.status === where.status) { Object.assign(t, data); n++; }
+        return { count: n };
+      },
+    },
+  };
+  store.prospects.set("rich", { id: "rich", websiteUrl: "http://www.richmondcontainer.com/", lastCrawledAt: null, doNotContactAt: null, campaignId: null });
+  store.prospects.set("gone", { id: "gone", websiteUrl: "http://x.example/", lastCrawledAt: null, doNotContactAt: new Date(), campaignId: null });
+  // A backlog crawl already waiting, queued the ordinary way.
+  store.tasks.push({ id: "b1", prospectId: "other", kind: "CRAWL_WEBSITE", status: "queued", idempotencyKey: "x", payload: { prospectId: "other" }, createdAt: new Date(2026, 8, 1), notBefore: new Date(2026, 8, 1) });
+
+  const first = await ensureResearchQueued({ db, prospectIds: ["rich", "gone", "missing"], priority: "claimed" });
+  ok("the untouched prospect got one task", first.queued === 1 && first.prospects[0].queued[0] === "ENRICH_BUSINESS", first);
+  ok("the do-not-contact prospect got none, with the reason", first.prospects[1].skipped === "do_not_contact" && first.prospects[1].queued.length === 0);
+  ok("the missing prospect got none, with the reason", first.prospects[2].skipped === "prospect_not_found");
+  const enrich = store.tasks.find((t) => t.prospectId === "rich");
+  ok("…the row carries the claimed lane and promote:false",
+    enrich?.payload?.priority === "claimed" && enrich?.payload?.promote === false, enrich?.payload);
+  ok("…and sorts ahead of the backlog crawl that was already waiting",
+    [...store.tasks].sort((a, b) => a.notBefore - b.notBefore || a.createdAt - b.createdAt)[0]?.id === enrich?.id);
+
+  const second = await ensureResearchQueued({ db, prospectIds: ["rich"], priority: "claimed" });
+  ok("a second call queues nothing", second.queued === 0 && second.promoted === 0, second);
+  ok("…and says the stage is already waiting", second.prospects[0].skipped === "already_queued", second.prospects[0]);
+
+  // The enrich settles and the chain queues a crawl in the backlog lane (a
+  // stage that was in flight at claim time loses the lane — priority.js says
+  // so). The next call promotes it.
+  enrich.status = "done";
+  store.tasks.push({ id: "c1", prospectId: "rich", kind: "CRAWL_WEBSITE", status: "queued", idempotencyKey: "CRAWL_WEBSITE:rich:t1", payload: { prospectId: "rich" }, createdAt: new Date(2026, 8, 12), notBefore: new Date(2026, 8, 12) });
+  const third = await ensureResearchQueued({ db, prospectIds: ["rich"], priority: "claimed" });
+  ok("a waiting backlog stage is promoted into the lane", third.promoted === 1 && third.queued === 0, third);
+  const crawl = store.tasks.find((t) => t.id === "c1");
+  ok("…its notBefore moved to the front", crawl.notBefore === CLAIMED_NOT_BEFORE);
+  ok("…and its payload carries the lane for the chain to inherit", crawl.payload.priority === "claimed" && crawl.payload.prospectId === "rich");
+
+  ok("no ids is a no-op, not a throw", (await ensureResearchQueued({ db, prospectIds: [], priority: "claimed" })).queued === 0);
+  let threw = null;
+  try { await ensureResearchQueued({ db, prospectIds: ["rich"], priority: "urgent" }); } catch (e) { threw = e; }
+  ok("an invented lane throws at the caller, before any write", threw instanceof Error);
+  threw = null;
+  try { await ensureResearchQueued({ prospectIds: ["rich"] }); } catch (e) { threw = e; }
+  ok("no db throws", threw instanceof Error);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("12. The enrich stage honours promote:false, and says so");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  const src = read("lib/sales/pipeline/handlers/enrichBusiness.js");
+  ok("promotion is gated on the payload", /payload\.promote !== false && prospect\.status === RESEARCHABLE_STATUS/.test(src));
+  ok("…and the status write uses that gate", /\.\.\.\(mayPromote \? \{ status: RESEARCHING_STATUS \}/.test(src));
+  ok("…and the note says the row stayed claimable", /left claimable \(promote: false\)/.test(src));
+  // The measured reason, kept in the file: research made a business unclaimable.
+  ok("the file records why", /claimCandidateWhere\(\)/.test(src) && /admits[\s*]+`discovered` and nothing else/.test(src));
 }
 
 console.log(`\n${pass} checks, ${failures.length} failure(s).`);
