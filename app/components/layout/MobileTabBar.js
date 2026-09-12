@@ -6,7 +6,7 @@
 // pattern) currently stands in for it. Above `lg` this renders nothing —
 // AdminSidebar's real rail takes over there.
 //
-// ── Which four, and why ─────────────────────────────────────────────────
+// ── Which five, and why ─────────────────────────────────────────────────
 //
 // AdminSidebar's own comment on NAV_GROUPS names the order work actually
 // moves: "Requests -> Quotes -> Jobs -> Invoices". AGENTS.md's pipeline
@@ -17,17 +17,19 @@
 // them own a FEATURES entry), so they degrade to a permission check alone
 // and never disappear because a company's plan doesn't include them.
 //
+// The fifth is Chat — the crew's own screen, see the note on TAB_ITEMS.
+//
 // Home is deliberately NOT a tab: the mobile top bar AdminSidebar already
 // renders (the sticky bar with the logo, still visible below `lg`) links the
-// logo to /app, so Home stays one tap away without spending a fifth slot on
-// a destination that already has one.
+// logo to /app, so Home stays one tap away without spending a slot on a
+// destination that already has one.
 //
-// The fifth slot is "More", which opens the SAME drawer AdminSidebar
+// The last slot is "More", which opens the SAME drawer AdminSidebar
 // contains everything else in — not a second menu. See openAdminDrawer below
 // for how, given this file may not edit AdminSidebar.js.
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, FileText, Briefcase, Receipt, Menu } from "lucide-react";
+import { ClipboardList, FileText, Briefcase, Receipt, MessagesSquare, Menu } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useFeatureFlags } from "@/app/providers/FeatureProvider";
 import { usePermissions } from "@/app/providers/PermissionProvider";
@@ -37,11 +39,21 @@ import { filterNavItemsByPermission } from "@/lib/permissions/nav";
 // Same i18n keys AdminSidebar's own NAV_GROUPS rows use for these four
 // destinations — not new strings, so there is nothing to translate twice and
 // nothing that can drift from what the drawer calls the same page.
+//
+// Chat is the fifth, and it is the one a CREW member keeps. The four pipeline
+// tabs are gated on the document ladders (lib/permissions/nav.js), and the
+// Crew preset sits at `none` on every one of them — so for the person in the
+// van the bar used to hold nothing but More. Chat has no NAV_REQUIREMENTS
+// entry on purpose: everyone on the roster is in #general and in the rooms
+// of the jobs they are booked on, and the chat is the crew's own screen.
+// Same shell, same kit, same drawer for everything else. It is feature-gated
+// (team_chat) like every other row, through the same filterNavItems below.
 const TAB_ITEMS = [
   { key: "app.nav.requests", href: "/app/leads", icon: ClipboardList },
   { key: "app.nav.quotes", href: "/app/quotes", icon: FileText },
   { key: "app.nav.jobs", href: "/app/jobs", icon: Briefcase },
   { key: "app.nav.invoices", href: "/app/invoices", icon: Receipt },
+  { key: "app.nav.chat", href: "/app/chat", icon: MessagesSquare },
 ];
 
 /**

@@ -11,6 +11,7 @@ import { normalizeChecklistItems } from "@/lib/jobs/checklistItems";
 import { assignedJobWhere } from "@/lib/permissions/enforce";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { isCallbackReason } from "@/lib/jobs/callbackReasons";
+import { syncJobRoom } from "@/lib/company/chat/store";
 
 export async function GET(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -164,6 +165,12 @@ export async function POST(request, { params }) {
   if (job.quoteId) {
     await resolveTaskBySource(`quote_accepted:${job.quoteId}`);
   }
+
+  // Booking somebody on a visit puts them in the job's chat room — the room's
+  // membership is DERIVED from exactly this row (lib/company/chat/rules.js's
+  // jobRoomMemberIds), so the crew member can be @mentioned about the job
+  // before the next list read would have added them. Best-effort.
+  void syncJobRoom(member.companyId, _params.id);
 
   return NextResponse.json(visit, { status: 201 });
 }

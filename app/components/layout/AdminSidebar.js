@@ -50,6 +50,7 @@ import {
   ChevronDown,
   Menu,
   X,
+  MessagesSquare,
 } from "lucide-react";
 import ThemeToggle from "@/app/components/ThemeToggle";
 import Logo from "@/app/components/Logo";
@@ -143,6 +144,16 @@ const NAV_GROUPS = [
       // ("Client equipment" / "Vehicles") say which is which without needing
       // the group headings to do it.
       { key: "app.nav.clientEquipment", href: "/app/equipment", icon: ShieldCheck },
+      // The company talking to itself: #general, a room per active job, direct
+      // messages (app/app/chat, on the shared chat kit). Under People because
+      // it is about the roster — the rooms are DERIVED from who is on the team
+      // and who is booked on which job. Deliberately NOT under Grow beside the
+      // crew inbox and Facebook messages: those are conversations with people
+      // OUTSIDE the company; this is the crew and the office. No
+      // NAV_REQUIREMENTS entry on purpose — everyone on the roster is in
+      // #general, so a Crew member with `none` on every document ladder still
+      // gets this row, and it is the one row they are certain to keep.
+      { key: "app.nav.chat", href: "/app/chat", icon: MessagesSquare },
       // ── HR in one place ─────────────────────────────────────────────────
       //
       // "Manage Team" lived ONLY under Settings, so hiring someone meant

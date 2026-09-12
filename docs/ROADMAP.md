@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 12 September 2026 (the inbox pulls the conversations a Page already had — lib/messaging/pageImport.js over GET /<page-id>/conversations, through the webhook's own ingest, once at connect + a cron backstop + "Refresh from Facebook"; docs/screens/app-messages/desktop-import.png.)
+Last updated: 12 September 2026 (the company's own crew chat at /app/chat — #general, a room per active job, direct messages — on the shared chat kit, tenant-scoped through lib/company/chat/store.js, with a Chat tab in the crew's mobile bar; docs/screens/company-chat/.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,53 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## The company's own crew chat (12 September 2026)
+
+The owner: "Team for internal and one for companies." FieldQuo's staff had
+`/sales/team` and `/platform/chat`; every contractor company now has its own
+at `/app/chat`, drawn by the same kit.
+
+- **The rooms are derived, never made by hand** — `lib/company/chat/rules.js`
+  (pure). `#general` is every active Member; a job room exists for every
+  ACTIVE job (scheduled / in progress, not archived), named after it, and its
+  members are the crew on the job's visits (`JobVisit.assignedToId`, the same
+  fact `assignedJobWhere` reads for "my jobs") plus owner/admin/supervisor.
+  Somebody taken off the visits is CLOSED out of the room (`open=false`, row
+  kept); put back, the same row reopens. A finished job keeps its room and
+  history under "Finished jobs". A DM is two members, keyed on the sorted
+  pair so the unique index — not a read-then-write — stops the second room.
+- **One door** — `lib/company/chat/store.js`, every query scoped by the
+  member's companyId AND their open membership; not-a-member and not-there
+  answer the same 404. `ensureCompanyRooms` runs on every list read for
+  EVERYBODY (the lib/staff/teams.js lesson); `syncJobRoom` is also called
+  from the job PATCH and the visit POST so a room is right before the next
+  poll. A read-only support session sees every room of the company and is
+  refused every write at the store as well as at the method gate.
+- **Three tables, not the staff ones** — `CompanyChatRoom` /
+  `CompanyChatMember` / `CompanyChatMessage`, each carrying companyId with
+  cascade; the participant is the Member (a person in two companies is two
+  participants). Author is SetNull so a departed member's words stay.
+- **The screen** — `app/components/company/CompanyChat.js` on
+  `app/components/chat`: Unread · Company · Jobs · Direct messages ·
+  Finished jobs; a Members bar that lists and explains (no add/remove/leave
+  — the schedule decides); @ popup over the composer; New message picker
+  over the company roster; `?room=` opens the room a push lands on. Sidebar
+  row under People; a fifth **Chat** tab in the mobile bar with no
+  NAV_REQUIREMENTS entry, so a Crew member at `none` on every document
+  ladder keeps it. Feature `team_chat` (on) gates `/app/chat` + `/api/chat`.
+- **Told** — a mention pushes to the people named (never the author), a DM
+  to the other side, through `pushToUsers` in the recipient's language with
+  the company default as fallback; the screen's own `notify()` fires on the
+  same tag when a poll shows a mention or DM count rise.
+- **Executed** — `scripts/check-company-chat.mjs` (144) drives the real
+  store against `scripts/companyChatFakeDb.mjs` with two companies:
+  isolation, #general auto-membership, job-room membership following the
+  visits, impersonation read-only, mention/DM push recipients and language.
+  Captures: `docs/screens/company-chat/` (harness beside them).
+- **Not done** — no edit/delete of a message (the staff kit has none
+  either); Shift-based crew (Worker rows without a User) are not in job
+  rooms — only visit assignees; no message search.
 
 ## The check-in backlog: a company that signed up through the link gets its texts (12 September 2026)
 

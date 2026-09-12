@@ -1703,6 +1703,10 @@ model Company {
   aiEmployee            AiEmployee?
   aiEmployeeSources     AiEmployeeSource[]
   aiEmployeeReplies     AiEmployeeReply[]
+  // The company's own crew chat — see model CompanyChatRoom.
+  chatRooms             CompanyChatRoom[]
+  chatMemberships       CompanyChatMember[]
+  chatMessages          CompanyChatMessage[]
 }
 
 /// Configuration for the bio-link page at /l/<slug> — the single link an
@@ -1860,6 +1864,11 @@ model Member {
   // The feed's read state hangs off the Member, not the User — see the comment
   // on NotificationDelivery for why a user in two companies must not share one.
   notificationDeliveries NotificationDelivery[]
+
+  // The crew chat hangs off the Member for the same reason: a person in two
+  // companies is two participants, and neither may see the other's rooms.
+  chatMemberships CompanyChatMember[]
+  chatMessages    CompanyChatMessage[] @relation("CompanyChatAuthor")
 
   @@unique([userId, companyId])
 }
@@ -4144,6 +4153,8 @@ model Job {
 
   /// Which of the company's equipment was logged on this job, and for how
   /// long. See AssetUseLog and lib/costing/equipmentUsage.js.
+  /// The crew chat room for this job — see model CompanyChatRoom.
+  chatRoom CompanyChatRoom?
   assetUseLogs AssetUseLog[]
 
   // ── Where the work actually happens ─────────────────────────────────────
@@ -13896,4 +13907,141 @@ model PushSubscription {
   @@index([userId, disabledAt])
   @@index([salesRepId, disabledAt])
   @@index([platformAdminId, disabledAt])
+}
+
+/// ══ The company's own crew chat ═══════════════════════════════════════════
+///
+/// A contractor company talking to itself: #general for everyone on the
+/// roster, one room per active job for the crew booked on it and the office,
+/// and direct messages between two members. Read and written ONLY through
+/// lib/company/chat/store.js.
+///
+/// ── Deliberately NOT StaffRoom ────────────────────────────────────────────
+///
+/// StaffRoom is FieldQuo's own staff talking to each other, keyed on
+/// PlatformAdmin and SalesRep. A tenant's people must never share a table with
+/// FieldQuo's — one join is one join too many on the boundary this product
+/// cannot get wrong (scripts/check-staff-chat.mjs section 5 asserts `User`
+/// stays out of the staff tables for the same reason). So the company chat is
+/// its own three tables, and every one of them carries companyId: a member's
+/// rooms, memberships and messages are all found by their company first, and
+/// a company's deletion takes the whole conversation with it.
+///
+/// ── The participant is the Member, not the User ───────────────────────────
+///
+/// A person can be a Member of two companies. The rooms of one must not be
+/// visible from the other, and a message they wrote in one must not be
+/// attributed to them in the other. Member is the (user, company) pair, so it
+/// is the participant; the same reason NotificationDelivery hangs off Member.
+model CompanyChatRoom {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// "general" | "job" | "dm" — CHAT_ROOM_KINDS in lib/company/chat/rules.js.
+  kind String
+
+  /// The one identity a room has inside its company, and the unique index
+  /// that stops a second one: "general" for the everybody room, "job:<jobId>"
+  /// for a job's room, "dm:<memberId>|<memberId>" (sorted) for a direct pair.
+  /// The DATABASE refuses the duplicate — two tabs opening the same DM at the
+  /// same instant get one room because the second insert fails, never because
+  /// a read-then-write happened to win.
+  key String
+
+  /// Job rooms only. Cascade: a job that is deleted (only possible with no
+  /// hours or tasks on it — see the DELETE handler in app/api/jobs/[id]) takes
+  /// its chat with it; there is nothing left to have been talking about.
+  jobId String? @unique
+  job   Job?    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  /// #general and job rooms. A job room is named after its job and re-synced
+  /// from Job.title on every list read, so a renamed job renames its room. A
+  /// direct room has no name of its own: it is named for whoever the viewer is
+  /// not, which is a per-viewer question and never a column.
+  name String?
+
+  /// Denormalised for the list's ordering. Written in the same transaction as
+  /// the message so it cannot describe a message that failed to save.
+  lastMessageAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  members  CompanyChatMember[]
+  messages CompanyChatMessage[]
+
+  @@unique([companyId, key])
+  @@index([companyId, kind, lastMessageAt])
+}
+
+/// One member's membership of one room — the subscription that holds THAT
+/// PERSON's state (last seen, still in it). Membership IS the permission: what
+/// a member can read is the rooms they hold an open row in, which is a query
+/// and not a claim about their role.
+model CompanyChatMember {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  roomId String
+  room   CompanyChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  memberId String
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  /// When they last had this room open. Unread is COUNTED against this, never
+  /// stored as a number — a stored counter is a second source of truth that
+  /// drifts the first time a read is missed.
+  lastSeenAt DateTime?
+
+  /// False once they are out of the room — a crew member taken off a job's
+  /// visits, a member deactivated. The row STAYS: their messages are
+  /// attributed to it, and "was on this job until March" stays true. Putting
+  /// them back on the job flips it to true on the same row.
+  open Boolean @default(true)
+
+  removedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@unique([roomId, memberId])
+  @@index([companyId, memberId, open])
+}
+
+model CompanyChatMessage {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  roomId String
+  room   CompanyChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  /// SetNull rather than Cascade: a member row goes when its User is deleted,
+  /// and the words they said in #general are the company's record, not
+  /// theirs to take with them. The screen shows a departed author honestly.
+  authorMemberId String?
+  author         Member? @relation("CompanyChatAuthor", fields: [authorMemberId], references: [id], onDelete: SetNull)
+
+  body String
+
+  /// "message" | "system". A system line ("Maria was added to this job") is
+  /// rendered muted and never counted as unread.
+  kind String @default("message")
+
+  /// Member ids ("member:<id>") named with an @ in the body, parsed ON WRITE
+  /// against the room's members at that moment and stored, so somebody added
+  /// tomorrow does not acquire a mention from a message sent today.
+  mentions String[] @default([])
+
+  /// System lines only: what happened, as data, so the screen can say it in
+  /// the reader's language. `body` keeps an English sentence for logs.
+  meta Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([roomId, createdAt])
+  @@index([companyId, createdAt])
 }

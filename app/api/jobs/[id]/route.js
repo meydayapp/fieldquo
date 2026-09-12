@@ -26,6 +26,7 @@ import {
   settleGuardedWrite,
 } from "@/lib/concurrency/staleWrite";
 import { geocodeJob, normaliseSiteAddress, siteAddressChanged } from "@/lib/geo/geocodeJob";
+import { syncJobRoom } from "@/lib/company/chat/store";
 
 // Next 16: params is a Promise.
 export async function GET(request, { params }) {
@@ -263,6 +264,15 @@ export async function PATCH(request, { params }) {
   if (refusal) return NextResponse.json(refusal.body, { status: refusal.status });
 
   const updated = outcome.result;
+
+  // The job's chat room follows its status and its name (lib/company/chat/
+  // store.js): a job that just became scheduled gets its room before the
+  // next list read would have made it, and a renamed job renames its room.
+  // Fire-and-forget and best-effort — a chat room that lags a poll is not a
+  // reason for a schedule write to fail.
+  if (status !== undefined || schedulingByDate || title !== undefined || archived !== undefined) {
+    void syncJobRoom(member.companyId, id);
+  }
 
   // One geocode per address change, after the guarded write has settled — a
   // 409 above means the address never changed and Google is never asked.
