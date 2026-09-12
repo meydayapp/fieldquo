@@ -1,7 +1,7 @@
 // app/api/settings/social/finalize/route.js
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { cookies } from "next/headers";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
@@ -12,6 +12,7 @@ import {
   savePageMessagingChannels,
   disconnectPageMessagingChannels,
 } from "@/lib/messaging/pageChannels";
+import { importAfterConnect } from "@/lib/messaging/pageImport";
 import { PAGES_PENDING_TOKEN_COOKIE } from "@/lib/meta/oauthCookies";
 
 // The second half of a multi-Page connect: the callback left the long-lived
@@ -138,6 +139,11 @@ export async function POST(request) {
   } catch (err) {
     console.error(`[social-finalize] company=${member.companyId} inbox channels: ${err?.message}`);
   }
+
+  // Same as the callback's: the Page's existing conversations, pulled behind
+  // the response, guarded on importedAt inside, failures to the error log.
+  const companyId = member.companyId;
+  after(() => importAfterConnect({ companyId }));
 
   return NextResponse.json({ success: true, inbox });
 }

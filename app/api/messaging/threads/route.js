@@ -34,6 +34,7 @@ import { demoThreadSummaries } from "@/lib/messaging/demoThreads";
 import { noteColours } from "@/lib/messaging/noteTheme";
 import { readStatus, THREAD_STATUSES } from "@/lib/messaging/outcomes";
 import { isMessagingPlatform } from "@/lib/messaging/platforms";
+import { pageImportState } from "@/lib/messaging/pageImport";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -98,7 +99,9 @@ export async function GET(request) {
       ? matching.filter((t) => readStatus(t.status) === statusFilter)
       : matching;
     const threads = platformFilter ? byStatus.filter((t) => t.platform === platformFilter) : byStatus;
-    return NextResponse.json({ connection, note, threads });
+    // No import for the sample inbox: pageImportState answers "demo", and the
+    // screen draws no Refresh button over conversations that are computed.
+    return NextResponse.json({ connection, note, threads, pageImport: await pageImportState(member.companyId) });
   }
 
   const rows = await db.messageThread.findMany({
@@ -201,5 +204,11 @@ export async function GET(request) {
       : null,
   }));
 
-  return NextResponse.json({ connection, note, threads });
+  // Whether "Refresh from Facebook" may be drawn, and when it last ran —
+  // decided by the same function the import itself gates on, so the button
+  // and the route cannot disagree about the grant. A READ (this is a GET a
+  // superadmin can reach under impersonation); the import is the POST.
+  const pageImport = await pageImportState(member.companyId);
+
+  return NextResponse.json({ connection, note, threads, pageImport });
 }

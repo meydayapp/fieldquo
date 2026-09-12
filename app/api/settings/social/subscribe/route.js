@@ -1,7 +1,7 @@
 // app/api/settings/social/subscribe/route.js
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 import { metaFullyConfigured } from "@/lib/meta/client";
@@ -12,6 +12,7 @@ import {
 } from "@/lib/meta/pageConnection";
 import { subscribePageWebhook, missingWebhookPermissions } from "@/lib/meta/pageConnect";
 import { savePageMessagingChannels } from "@/lib/messaging/pageChannels";
+import { importAfterConnect } from "@/lib/messaging/pageImport";
 
 /**
  * Retry the webhook subscription on a Page that is already connected — and
@@ -153,6 +154,14 @@ export async function POST(request) {
       { status: 502 },
     );
   }
+
+  // The inbox channels exist now, so the Page's existing conversations can
+  // be pulled — behind the response, once, guarded on importedAt inside.
+  // This is the route "Connect the inbox" presses for a Page connected
+  // before the channels existed, which is exactly the Page with the most
+  // history waiting to be fetched.
+  const companyId = member.companyId;
+  after(() => importAfterConnect({ companyId }));
 
   return NextResponse.json({ subscribed: true, inbox });
 }

@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 12 September 2026 (the check-in backlog: every company a rep signed up gets its day-1 / day-7 / milestone draft written down, thread or not — lib/sales/checkin/plan.js + materialise.js, on the companies list, the Texts list and a 07:00 UTC cron, never sending; Easy Roofers Inc. backfilled in production; the demo company carries a marked, unsendable day-1 draft; docs/screens/sales-messages/desktop-company-checkin.png.)
+Last updated: 12 September 2026 (the inbox pulls the conversations a Page already had — lib/messaging/pageImport.js over GET /<page-id>/conversations, through the webhook's own ingest, once at connect + a cron backstop + "Refresh from Facebook"; docs/screens/app-messages/desktop-import.png.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -202,6 +202,55 @@ Quebec or a Latino contractor in the USA."
   removed, research.js reading any language's row, the route generating for
   the default too, meta dropped from the ledger, the switch drawn without a
   handler, Quebec defaulting to English — each red, each restored with `cp`.
+
+---
+
+## The conversations a Page already had (12 September 2026)
+
+The owner, minutes after connecting Truefinish Cabinets' Page and Instagram:
+*"/app/messages — I don't see the messages. Shouldn't we fetch them?"* The
+inbox was webhook-only, and a webhook delivers what happens AFTER the
+subscription — so a Page with two years of enquiries connected to an empty
+inbox that read as "nobody has ever messaged us".
+
+- **The pull** — `lib/messaging/pageImport.js`. `GET /<page-id>/conversations
+  ?platform=messenger|instagram&fields=id,participants,updated_time,
+  messages.limit(50){id,from,to,message,created_time,attachments}` with the
+  PAGE token (`lib/meta/client.js`'s `listPageConversations`, cursor-paged),
+  both platforms off the one Page token. Every message becomes the SAME event
+  shape `lib/messaging/envelope.js` produces (direction from `from.id` against
+  the Page/IG ids, `sourceUrl` attachments for the re-host cron, `imported:
+  true`) and goes through the SAME `ingestEvent` — so threads, numbers, unread,
+  waitingSince, activity and dedupe (`@@unique([threadId, externalId])`, Meta's
+  message id) behave exactly as for a delivery. A second run creates nothing.
+  Conversations updated in the last 30 days, 100 per platform; the
+  conversation is the unit (its last 50 messages come whole, oldest first).
+  The AI employee is kept off imported messages; nothing is marked read.
+- **Triggers.** The social callback, the finalize step and the subscribe
+  route schedule `importAfterConnect` with `after()` — once, guarded on the
+  additive `MessagingChannel.importedAt`; `/api/cron/messaging-import`
+  (quarter-hourly) sweeps never-imported live channels as the backstop, and
+  takes `?dry=1` as a diagnostic. `POST /api/messaging/import` is the manual
+  "Refresh from Facebook" (requests: view_create_edit; once per ten minutes
+  per company, on the stamp, so it holds across instances) under the channel
+  chips of /app/messages, and "Import past conversations · Last imported …"
+  on the Facebook & Instagram card in Settings → Meta Ads. Both drawn only
+  when Meta GRANTED `pages_messaging` (+ `instagram_manage_messages` for the
+  IG half); otherwise `{ kind: "not_granted" }` and no button. Demo companies
+  refuse (`kind: "demo"`). An auth error flips the channel to needs_reauth and
+  does not stamp.
+- **Checks.** `scripts/check-page-import.mjs` (182 assertions; seven
+  mutations caught: direction flipped, the sort removed, the stamp written on
+  failure, the rate limit off, the demo gate off, the AI-employee guard off,
+  the IG grant ignored). messaging, app-messages-kit, meta-pages-connect,
+  translations, language-completeness, undef, hooks, route-callers,
+  empty-vs-error green. Screen: `docs/screens/app-messages/desktop-import.png`.
+- **Not done here.** The owner's own company could not be imported from this
+  machine: the Page token is encrypted with `META_TOKEN_ENCRYPTION_KEY`, which
+  is production-only and could not be pulled locally. The cron backstop runs
+  it on the first quarter-hour after deploy (or `GET /api/cron/messaging-import`
+  with the cron secret runs it now); "Refresh from Facebook" does the same by
+  hand.
 
 ---
 

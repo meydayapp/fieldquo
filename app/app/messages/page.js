@@ -57,9 +57,10 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   MessageCircle, Search, ArrowLeft, Loader2, BarChart3, Link2, Check, RotateCcw,
-  ExternalLink, UserRound, ChevronDown, Info, RefreshCw, AlertTriangle,
+  ExternalLink, UserRound, ChevronDown, Info, RefreshCw, AlertTriangle, CloudDownload,
 } from "lucide-react";
 import { fetchList } from "@/lib/loadState";
+import { fetchJson } from "@/lib/fetchJson";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
@@ -183,6 +184,18 @@ function MessagesScreen() {
   // would tell a contractor their enquiries had vanished.
   const [threads, setThreads] = useState(null);
   const [connection, setConnection] = useState(null);
+  // Whether "Refresh from Facebook" may be drawn — decided by the server from
+  // Meta's GRANTED permissions (lib/messaging/pageImport.js's
+  // pageImportState), never assumed from the fact a channel exists. A Page
+  // connected for publishing alone gets no button rather than one that would
+  // answer 409.
+  const [pageImport, setPageImport] = useState(null);
+  const [importing, setImporting] = useState(false);
+  // The toast: { key, params, tone } after a press, cleared on a timer. Not
+  // the global error toast — a SUCCESSFUL import needs a sentence too, and
+  // "Imported 12 conversations · 3 new" is the whole reason the button is
+  // worth pressing.
+  const [importNotice, setImportNotice] = useState(null);
   // The private note's measured palette — see lib/messaging/noteTheme.js for
   // why it takes no company.
   const [note, setNote] = useState(null);
@@ -239,6 +252,7 @@ function MessagesScreen() {
     if (result.ok) {
       setThreads(result.data?.threads || []);
       setConnection(result.data?.connection || null);
+      setPageImport(result.data?.pageImport || null);
       setNote(result.data?.note || null);
     } else {
       setErrorKey(result.errorKey);
@@ -283,6 +297,54 @@ function MessagesScreen() {
     setThreadLoading(false);
     return null;
   }, []);
+
+  // The toast clears itself. Eight seconds, matching app/components/ErrorToast:
+  // long enough to read a number, short enough not to sit over the list.
+  useEffect(() => {
+    if (!importNotice) return undefined;
+    const id = setTimeout(() => setImportNotice(null), 8000);
+    return () => clearTimeout(id);
+  }, [importNotice]);
+
+  // "Refresh from Facebook": POST /api/messaging/import, then reload the
+  // list so the imported threads appear under the chips exactly as a webhook
+  // delivery would have put them. Every refusal has a sentence: the route
+  // answers a `kind`, and a 429 is "a moment ago", not "something went wrong".
+  const importFromMeta = useCallback(async () => {
+    if (importing) return;
+    setImporting(true);
+    setImportNotice(null);
+    try {
+      const data = await fetchJson("/api/messaging/import", { method: "POST" });
+      const conversations = Number(data?.conversations) || 0;
+      const created = Number(data?.created) || 0;
+      setImportNotice(
+        conversations
+          ? { key: "app.messages.import.done", params: { conversations, created }, tone: "ok" }
+          : { key: "app.messages.import.none", params: {}, tone: "ok" },
+      );
+      await load(query.trim(), platformFilter);
+    } catch (err) {
+      const kind = err?.data?.kind;
+      const lastKind = err?.data?.lastError?.kind;
+      setImportNotice({
+        key:
+          kind === "rate_limited"
+            ? "app.messages.import.rateLimited"
+            : lastKind === "auth_error"
+              ? "app.messages.import.reauth"
+              : "app.messages.import.failed",
+        params: {},
+        tone: "error",
+      });
+      // Also the global toast for the refusals that are about permissions or
+      // the connection, whose sentences the server wrote and the screen has
+      // no key for. The inline notice covers the three Meta-shaped ones.
+      if (kind && kind !== "rate_limited" && kind !== "error") await reportResponseError(err);
+    } finally {
+      setImporting(false);
+    }
+  }, [importing, load, query, platformFilter]);
 
   // Opening a thread: read it, remember where the reader had got to, record
   // the read. Marking read is a WRITE, so it goes through the same PATCH
@@ -501,6 +563,28 @@ function MessagesScreen() {
               );
             })}
           </div>
+          {/* "Refresh from Facebook" — drawn ONLY when the server says the
+              grant allows it (pageImport.available), and never for the demo
+              inbox or a member who cannot write. Beside the channel chips
+              because it is about the same thing they filter: which Page's
+              conversations are in this list. */}
+          {pageImport?.available && canEdit && !isDemo ? (
+            <button
+              type="button"
+              onClick={importFromMeta}
+              disabled={importing}
+              title={t("app.messages.import.hint")}
+              className={`${ACTION} w-full justify-center sm:w-auto`}
+              data-import-button
+            >
+              {importing ? (
+                <Loader2 className="animate-spin motion-reduce:animate-none" size={13} aria-hidden="true" />
+              ) : (
+                <CloudDownload size={13} aria-hidden="true" />
+              )}
+              {importing ? t("app.messages.import.running") : t("app.messages.import.button")}
+            </button>
+          ) : null}
           {errorKey && threads ? (
             // A refetch that failed with a list already on screen: the stale
             // list stays, and the failure is said rather than hidden.
@@ -758,6 +842,31 @@ function MessagesScreen() {
           {t("app.messages.reviewLink")}
         </Link>
       </div>
+
+      {/* The import toast. INLINE, under the header and above the frame —
+          never position: fixed, which this screen forbids (see the header
+          comment on the composer). It appears when a press finishes, says
+          the count, and clears itself eight seconds later, the same reading
+          time app/components/ErrorToast gives. role="status" so a screen
+          reader hears it without focus leaving the list. */}
+      {importNotice ? (
+        <div
+          role="status"
+          className={`mb-3 flex items-start gap-2.5 rounded-xl border px-4 py-3 text-sm shadow-sm bg-card ${
+            importNotice.tone === "error"
+              ? "border-red-200 dark:border-red-900 text-red-700 dark:text-red-300"
+              : "border-border text-foreground"
+          }`}
+          data-import-toast
+        >
+          {importNotice.tone === "error" ? (
+            <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+          ) : (
+            <Check size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+          )}
+          <span className="min-w-0 break-words">{t(importNotice.key, importNotice.params)}</span>
+        </div>
+      ) : null}
 
       {/* The connection state, said once, above everything. It is the answer
           to "why is this empty", with the way there on it, and it is not

@@ -12573,7 +12573,16 @@ model MessagingChannel {
   /// MetaAdConnection deletes on disconnect for the opposite reason — there is
   /// nothing under it worth keeping.
   disconnectedAt DateTime?
-  updatedAt      DateTime @updatedAt
+  /// When this channel's EXISTING conversations were last pulled from Meta's
+  /// Conversations API (lib/messaging/pageImport.js). The webhook only ever
+  /// delivers what happens after the connect, so without a pull the inbox is
+  /// empty until a stranger writes — the owner's first question on the live
+  /// screen. Null means "never imported": the connect flow runs the import
+  /// once when it sees null, and a reconnect that finds a stamp does not run
+  /// it again unasked. The manual "Refresh from Facebook" also reads it as
+  /// its rate limit. Facebook and Instagram only; WhatsApp has no such API.
+  importedAt DateTime?
+  updatedAt  DateTime  @updatedAt
 
   threads MessageThread[]
 

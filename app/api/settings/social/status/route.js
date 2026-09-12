@@ -14,6 +14,7 @@ import {
 import { getPageConnection, publicPageConnectionShape } from "@/lib/meta/pageConnection";
 import { missingWebhookPermissions } from "@/lib/meta/pageConnect";
 import { missingPageChannels } from "@/lib/messaging/pageChannels";
+import { pageImportState } from "@/lib/messaging/pageImport";
 
 // What the Facebook/Instagram publishing panel needs to render ONE honest
 // state and never a control that can't work:
@@ -85,6 +86,11 @@ export async function GET(request) {
             grantedScopes: shape.scopes,
             instagramUserId: shape.instagramUserId,
           }),
+          // "Import past conversations" and its last-run time. Same function
+          // the inbox list and the import route read, same reasoning as
+          // missingInboxChannels above: a read here, the write is a POST a
+          // member presses (/api/messaging/import).
+          pageImport: await pageImportState(member.companyId),
         }
       : null,
   });

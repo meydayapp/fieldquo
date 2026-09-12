@@ -101,6 +101,10 @@
       "schedule": "* * * * *"
     },
     {
+      "path": "/api/cron/messaging-import",
+      "schedule": "7,22,37,52 * * * *"
+    },
+    {
       "path": "/api/cron/sales-queue-release",
       "schedule": "5 * * * *"
     },

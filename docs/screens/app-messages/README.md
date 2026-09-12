@@ -30,6 +30,7 @@ the scratchpad the harness was built in; copy the folder and adjust `SP`).
 | `desktop-whatsapp-window.png` | A WhatsApp thread with the 24-hour window closed: the failed reply in red with Meta's sentence, the undated system row, the template picker, the typing box off with Send alive. |
 | `desktop-refused.png` | A reply the server refused: the sentence under the box, the failed row in the thread, the words kept in the box. |
 | `desktop-readonly.png` | A member at `requests: view_only`: the outcome chip disabled, no Mark done, status read-only, the composer off with the reason. |
+| `desktop-import.png` | "Refresh from Facebook" under the channel chips (drawn only when Meta granted `pages_messaging`), just pressed: the inline status strip reads "Imported 12 conversations · 3 new". The pull is `lib/messaging/pageImport.js` — the conversations the Page already had, fed through the webhook's own ingest. |
 | `desktop-blocked.png` | A real company with nothing connected: the connect card with its link to Meta Ads settings, an honest empty list, no invented conversations. |
 | `desktop-awaiting.png` | A real company waiting on Meta's `pages_messaging` approval: the card says so and where the Page lives. |
 | `desktop-demo.png` | The demo company: the shipped mock threads, the Sample tag, the composer off with the demo reason. |

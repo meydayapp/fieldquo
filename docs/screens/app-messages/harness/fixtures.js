@@ -148,6 +148,9 @@ const demoConnection = { connected: true, mock: true, reason: null, channels: []
 export const FIXTURES = {
   default: {
     connection: connected,
+    // "Refresh from Facebook" is drawn: the grant carries pages_messaging and
+    // instagram_manage_messages, and the Page was last pulled at connect time.
+    pageImport: { available: true, reason: null, granted: { facebook: true, instagram: true }, platforms: ["facebook", "instagram"], importedAt: new Date(now - 3 * 3600 * 1000).toISOString() },
     note,
     list: () => threads.map(summary),
     thread: (id) => threads.find((t) => t.id === id) || null,

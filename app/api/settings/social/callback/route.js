@@ -1,7 +1,7 @@
 // app/api/settings/social/callback/route.js
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { cookies } from "next/headers";
 import { getCurrentMember } from "@/lib/currentMember";
 import { isBillingAdmin } from "@/lib/billing/billingAdmin";
@@ -23,6 +23,7 @@ import {
   savePageMessagingChannels,
   disconnectPageMessagingChannels,
 } from "@/lib/messaging/pageChannels";
+import { importAfterConnect } from "@/lib/messaging/pageImport";
 import { getAppOrigin } from "@/lib/appUrl";
 import {
   PAGES_STATE_COOKIE,
@@ -221,6 +222,16 @@ export async function GET(request) {
   } catch (err) {
     console.error(`[social-callback] company=${member.companyId} inbox channels: ${err?.message}`);
   }
+
+  // The conversations the Page already had, pulled once the redirect has
+  // gone out. after() keeps the function alive for it on Vercel; the person
+  // is not kept waiting on facebook.com's tab for a pull of a hundred
+  // threads, and a pull that fails is written to the error log by
+  // importAfterConnect itself, never thrown into a redirect that has already
+  // been sent. Guarded inside on the channel's importedAt, so a reconnect
+  // does not re-import; app/api/cron/messaging-import is the backstop.
+  const companyId = member.companyId;
+  after(() => importAfterConnect({ companyId }));
 
   return toSettings(origin, { socialConnected: "1" });
 }

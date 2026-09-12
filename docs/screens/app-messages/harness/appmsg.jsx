@@ -24,7 +24,13 @@ window.fetch = async (url, options = {}) => {
     let threads = fx.list();
     if (q) threads = threads.filter((t) => (t.participantName || "").toLowerCase().includes(q) || (t.preview || "").toLowerCase().includes(q));
     if (platform) threads = threads.filter((t) => t.platform === platform);
-    return json({ connection: fx.connection, note: fx.note, threads });
+    return json({ connection: fx.connection, note: fx.note, threads, pageImport: fx.pageImport || { available: false, reason: fx.connection.mock ? "demo" : "not_connected", granted: { facebook: false, instagram: false }, platforms: [], importedAt: null } });
+  }
+  if (u.pathname === "/api/messaging/import" && method === "POST") {
+    // The Conversations API pull: twelve threads seen, three of them new.
+    if (params.get("import") === "limited") return json({ kind: "rate_limited", error: "Conversations were refreshed a moment ago. Try again in a few minutes.", retryAfterSeconds: 420 }, 429);
+    await delay(600);
+    return json({ kind: "ok", conversations: 12, messages: 41, created: 3, skipped: 0, errors: 0, platforms: { facebook: { conversations: 9, messages: 30, skipped: 0, errors: 0 }, instagram: { conversations: 3, messages: 11, skipped: 0, errors: 0 } }, lastError: null });
   }
   const m = /^\/api\/messaging\/threads\/([^/]+)(\/[a-z]+)?$/.exec(u.pathname);
   if (m) {
@@ -139,6 +145,11 @@ const type = async (sel, text) => {
     await click('[data-room-id="demo_thread_sandra"], [data-room-list] [data-room-id]');
     await until("[data-chat-scroller]");
   }
+  if (scene === "import") {
+    await click("[data-import-button]");
+    await until("[data-import-toast]");
+    await wait(300);
+  }
   if (scene === "filter-instagram") {
     await click('[data-channel-filter] button:nth-child(3)');
     await wait(500);
@@ -178,6 +189,10 @@ const type = async (sel, text) => {
   }
   await wait(500);
   document.documentElement.setAttribute("data-scene-ready", scene);
+  // cdp-shot.mjs waits on this when ?do=1 is passed, so a scene that takes
+  // real time (an import round trip) is captured after it lands.
+  document.documentElement.setAttribute("data-harness-done", "1");
 })().catch((err) => {
   document.documentElement.setAttribute("data-scene-error", String(err?.message || err));
+  document.documentElement.setAttribute("data-harness-done", "1");
 });

@@ -73,6 +73,7 @@ export default function SocialPublishingPanel() {
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [retryingWebhook, setRetryingWebhook] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const loadStatus = useCallback(async () => {
     try {
@@ -200,6 +201,30 @@ export default function SocialPublishingPanel() {
       setError(err.message);
     } finally {
       setRetryingWebhook(false);
+      await loadStatus();
+    }
+  }
+
+  // "Import past conversations": the same POST the inbox's "Refresh from
+  // Facebook" makes, from the card that explains the connection. One route,
+  // two doors, and the sentence back is the same count.
+  async function handleImport() {
+    setImporting(true);
+    setError("");
+    try {
+      const data = await fetchJson("/api/messaging/import", { method: "POST" });
+      const conversations = Number(data?.conversations) || 0;
+      const created = Number(data?.created) || 0;
+      setBanner({
+        tone: "success",
+        text: conversations
+          ? t("app.messages.import.done", { conversations, created })
+          : t("app.messages.import.none"),
+      });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setImporting(false);
       await loadStatus();
     }
   }
@@ -476,6 +501,35 @@ export default function SocialPublishingPanel() {
                 </button>
               </div>
             )}
+
+          {/* ── The conversations the Page already had ─────────────────────
+              A webhook carries only what happens after the connect. This is
+              the pull of what came before, drawn ONLY when the server says
+              the grant allows it (pageImport.available) — the same gate the
+              inbox's "Refresh from Facebook" sits behind — with the last run
+              beside it so the link says when it last ran rather than
+              implying it never has. */}
+          {connection.pageImport?.available && (
+            <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1" data-import-link>
+              <button
+                type="button"
+                onClick={handleImport}
+                disabled={importing}
+                className="font-semibold text-foreground underline underline-offset-2 disabled:opacity-50"
+              >
+                {importing
+                  ? t("app.messages.import.running")
+                  : t("app.setSocial.importLink", "Import past conversations")}
+              </button>
+              <span>
+                {connection.pageImport.importedAt
+                  ? t("app.setSocial.importLast", {
+                      date: new Date(connection.pageImport.importedAt).toLocaleString(),
+                    })
+                  : t("app.setSocial.importNever", "Not imported yet.")}
+              </span>
+            </p>
+          )}
 
           <p className="text-xs text-muted-foreground">
             {connection.connectedByName
