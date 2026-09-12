@@ -41,6 +41,10 @@ const ERROR_KEYS = {
   not_configured: "app.setSocial.errorNotConfigured",
   awaiting_review: "app.setSocial.errorAwaitingReview",
   no_pages: "app.setSocial.errorNoPages",
+  // The two other reasons /me/accounts can be empty, told apart by
+  // debug_token in the callback. Each has its own fix, so its own sentence.
+  no_pages_selected: "app.setSocial.errorNoPagesSelected",
+  pages_scope_missing: "app.setSocial.errorPagesScopeMissing",
   no_page_token: "app.setSocial.errorNoPageToken",
   auth_error: "app.setSocial.errorAuth",
   rate_limited: "app.setSocial.errorRateLimited",

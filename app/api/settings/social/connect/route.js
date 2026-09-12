@@ -10,6 +10,7 @@ import {
   metaFullyConfigured,
   metaPagesConnectEnabled,
   buildAuthorizeUrl,
+  metaPagesConfigId,
   metaPagesRequestedScope,
 } from "@/lib/meta/client";
 import { getAppOrigin } from "@/lib/appUrl";
@@ -78,6 +79,15 @@ export async function GET(request) {
   // connects "my Facebook Page", not "my Page for posting" and then again for
   // messages.
   return NextResponse.redirect(
-    buildAuthorizeUrl({ redirectUri, state, scope: metaPagesRequestedScope() }),
+    // With a Pages login CONFIGURATION set, the dialog is driven by it and
+    // the scope is not sent (the two are exclusive on Meta's dialog); without
+    // one, the scope list stands. See buildAuthorizeUrl for why the
+    // configuration is what finally lists the owner's Pages.
+    buildAuthorizeUrl({
+      redirectUri,
+      state,
+      scope: metaPagesRequestedScope(),
+      configId: metaPagesConfigId(),
+    }),
   );
 }

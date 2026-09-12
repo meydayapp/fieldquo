@@ -108,13 +108,37 @@ Configuration)
   `whatsapp_business_management`, `whatsapp_business_messaging`.
 - Save, copy the **Configuration ID** → `META_WHATSAPP_CONFIG_ID`.
 
-The ads and pages flows do **not** use a configuration: the code sends
-`scope`, and Facebook Login for Business accepts the classic `scope` dialog
-for Business apps. Do not create configurations for them — a `config_id` and
-a `scope` are mutually exclusive on the dialog, and the code would have to
-change to send one. If, during testing, the ads or pages dialog ever
-refuses with a message about a required configuration, that is the moment
-to add `config_id` support to `buildAuthorizeUrl`, not before.
+**Pages + Instagram → a configuration too (added 2026-09-12).** The pages
+flow ran on `scope` and the owner — admin of five Pages — got "That Facebook
+login doesn't administer any Page" on every attempt: the dialog completed,
+the token verified, `/me/accounts` answered an empty list. Meta's Facebook
+Login for Business page says it outright: "config_id has replaced scope
+(which should not be used)". So:
+
+- Facebook Login for Business → **Configurations → Create configuration**.
+- Login variation: **User access token** (NOT the business-integration
+  system user — that token is for a client business portfolio and does not
+  list the person's own Pages).
+- Assets: **Pages** and **Instagram accounts**.
+- Permissions: `pages_show_list`, `pages_manage_posts`,
+  `pages_read_engagement`, `pages_manage_metadata`, `instagram_basic`,
+  `instagram_content_publish`; add `pages_messaging`,
+  `instagram_manage_messages`, `pages_manage_ads` when their review lands.
+- Save, copy the **Configuration ID** → `META_PAGES_CONFIG_ID` in Vercel,
+  redeploy.
+
+With the id set, `buildAuthorizeUrl` sends `config_id` (and
+`override_default_response_type=true`) and NOT `scope` — the two are
+mutually exclusive on the dialog. The dialog then shows the **Page picker**;
+tick every Page the business posts from. If the list is still empty
+afterwards, the settings screen now says which of three things it was
+(`debug_token`): no Page ticked → remove FieldQuo under Facebook → Settings →
+Business integrations and connect again; `pages_show_list` not on the token
+→ the configuration lacks the Page permissions; granted and ticked but none
+listed → the account has no role on those Pages.
+
+The ads flow still runs on `scope` (`ads_read` alone, and it has connected
+fine that way); give it its own configuration only if it ever refuses.
 
 **WhatsApp → API Setup**: note the test business number Meta provisions and
 add your own mobile under "To" as a verified recipient (it messages a small

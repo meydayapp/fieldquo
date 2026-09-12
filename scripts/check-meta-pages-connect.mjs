@@ -36,6 +36,9 @@ import {
   META_MESSAGING_SCOPE,
   META_PAGES_SCOPE,
   metaPagesRequestedScope,
+  buildAuthorizeUrl,
+  metaPagesConfigId,
+  classifyEmptyPageList,
 } from "../lib/meta/client.js";
 import { parseMessagingEnvelope } from "../lib/messaging/envelope.js";
 import {
@@ -562,6 +565,43 @@ function stubFetch(reply) {
   const connect = code("app/api/settings/social/connect/route.js");
   ok("the connect route asks for the composed scope, not a hand-written list",
     /buildAuthorizeUrl\(\{[^}]*scope: metaPagesRequestedScope\(\)/.test(connect), "one flow, one scope");
+
+  // ── Facebook Login for Business: a configuration, when the owner has one ──
+  //
+  // Meta: "config_id has replaced scope (which should not be used)". The
+  // scope-only dialog completed for an admin of five Pages and /me/accounts
+  // answered nothing. With META_PAGES_CONFIG_ID set the dialog carries the
+  // configuration and NOT the scope — the two are exclusive on the dialog.
+  ok("…and hands the Pages configuration id through when one is set",
+    /configId: metaPagesConfigId\(\)/.test(connect));
+  {
+    const saved = { id: process.env.META_APP_ID, cfg: process.env.META_PAGES_CONFIG_ID };
+    process.env.META_APP_ID = "123";
+    process.env.META_PAGES_CONFIG_ID = "987654321";
+    const withCfg = new URL(buildAuthorizeUrl({ redirectUri: "https://x/cb", state: "s", scope: "pages_show_list", configId: metaPagesConfigId() }));
+    ok("with a configuration the dialog gets config_id and override_default_response_type", withCfg.searchParams.get("config_id") === "987654321" && withCfg.searchParams.get("override_default_response_type") === "true" && withCfg.searchParams.get("response_type") === "code");
+    ok("…and NOT scope — the two are mutually exclusive on Meta's dialog", withCfg.searchParams.get("scope") === null);
+    delete process.env.META_PAGES_CONFIG_ID;
+    const without = new URL(buildAuthorizeUrl({ redirectUri: "https://x/cb", state: "s", scope: "pages_show_list", configId: metaPagesConfigId() }));
+    ok("without one the scope dialog stands, unchanged", without.searchParams.get("scope") === "pages_show_list" && without.searchParams.get("config_id") === null);
+    process.env.META_APP_ID = saved.id; if (saved.id === undefined) delete process.env.META_APP_ID;
+    if (saved.cfg !== undefined) process.env.META_PAGES_CONFIG_ID = saved.cfg;
+  }
+
+  // ── An empty Page list is three different facts ───────────────────────────
+  ok("pages_show_list granted with no Page ticked is 'no_pages_selected'",
+    classifyEmptyPageList({ data: { scopes: ["pages_show_list", "public_profile"], granular_scopes: [{ scope: "pages_show_list", target_ids: [] }] } }) === "no_pages_selected");
+  ok("…also when the granular entry is absent altogether",
+    classifyEmptyPageList({ data: { scopes: ["pages_show_list"], granular_scopes: [] } }) === "no_pages_selected");
+  ok("pages_show_list missing from the token is 'pages_scope_missing'",
+    classifyEmptyPageList({ data: { scopes: ["public_profile"], granular_scopes: [] } }) === "pages_scope_missing");
+  ok("granted, Pages ticked, none listed is the original 'no_pages'",
+    classifyEmptyPageList({ data: { scopes: ["pages_show_list"], granular_scopes: [{ scope: "pages_show_list", target_ids: ["1", "2"] }] } }) === "no_pages");
+  ok("garbage is 'pages_scope_missing', never a crash", classifyEmptyPageList(null) === "pages_scope_missing");
+  const cb = code("app/api/settings/social/callback/route.js");
+  ok("the callback asks debug_token before saying 'no Page' and forwards the reason", /debugUserToken\(\{ accessToken: longToken \}\)/.test(cb) && /classifyEmptyPageList\(debug\.data\)/.test(cb) && /socialError: why/.test(cb));
+  const panel = code("app/components/settings/SocialPublishingPanel.js");
+  ok("…and the panel has a sentence for each of the three", /no_pages_selected: "app\.setSocial\.errorNoPagesSelected"/.test(panel) && /pages_scope_missing: "app\.setSocial\.errorPagesScopeMissing"/.test(panel));
 }
 
 // ── The grant, read per platform off what Meta ANSWERED ────────────────────

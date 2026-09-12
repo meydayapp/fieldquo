@@ -11,6 +11,8 @@ import {
   exchangeCodeForToken,
   exchangeForLongLivedToken,
   listPages,
+  debugUserToken,
+  classifyEmptyPageList,
 } from "@/lib/meta/client";
 import { resolveInstagram, resolveGrantedScopes, subscribePageWebhook } from "@/lib/meta/pageConnect";
 import { savePageConnection, disconnectPageConnection } from "@/lib/meta/pageConnection";
@@ -94,10 +96,14 @@ export async function GET(request) {
   const pages = Array.isArray(pagesRes.data?.data) ? pagesRes.data.data : [];
 
   if (pages.length === 0) {
-    // Not an error state to hide behind "something went wrong": the person has
-    // a Facebook account with no Page they administer, and the fix is on
-    // Meta's side (docs/SOCIAL-PUBLISHING.md, "what a contractor must set up").
-    return toSettings(origin, { socialError: "no_pages" });
+    // Not an error state to hide behind "something went wrong" — and not one
+    // sentence for three different facts either. The owner, an admin of five
+    // Pages, read "doesn't administer any Page" on every attempt; the truth
+    // was that the dialog had granted pages_show_list with NO Page ticked.
+    // debug_token says which it is; the screen says the matching fix.
+    const debug = await debugUserToken({ accessToken: longToken }).catch(() => ({ ok: false }));
+    const why = debug?.ok ? classifyEmptyPageList(debug.data) : "no_pages";
+    return toSettings(origin, { socialError: why });
   }
 
   if (pages.length > 1) {
