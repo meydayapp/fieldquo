@@ -875,6 +875,19 @@ section("The funnel's own arithmetic, and what it refuses to claim");
 section("Progress is measured against ACCEPTED, so paint stores never count");
 {
   ok("62 of 100 is 62%", campaignProgress({ targetCount: 100, acceptedCount: 62 }).percent === 62);
+  // A part of a split extract carries the WHOLE extract's target (78,247 for
+  // California); part 2 held 28,247 rows, read them all, accepted 23,494 and
+  // printed "30% · completed". Once every source has ended, the rows the
+  // file held are the target.
+  {
+    const part = { targetCount: 78247, acceptedCount: 23494, foundCount: 28247, sourceState: { overture: { ended: true, blocked: null } } };
+    const p = campaignProgress(part);
+    ok("a finished part is measured against the rows it held, not the whole extract", p.target === 28247 && p.percent === 83 && p.askedFor === 78247);
+    ok("…while it is still reading, the typed target stands", campaignProgress({ ...part, sourceState: { overture: { ended: false, blocked: null } } }).target === 78247);
+    ok("…and a blocked source is not 'ended'", campaignProgress({ ...part, sourceState: { overture: { ended: true, blocked: "rate_limited" } } }).target === 78247);
+    ok("a part that found MORE than the target keeps the target", campaignProgress({ targetCount: 100, acceptedCount: 90, foundCount: 500, sourceState: { a: { ended: true } } }).target === 100);
+    ok("askedFor is null when nothing differs", campaignProgress({ targetCount: 100, acceptedCount: 62 }).askedFor === null);
+  }
   ok("over-target caps at 100%", campaignProgress({ targetCount: 100, acceptedCount: 500 }).percent === 100);
   ok("no target means no percentage, not 0%", campaignProgress({ targetCount: 0, acceptedCount: 5 }).percent === null);
 }

@@ -238,6 +238,12 @@ export default function PlatformSalesCampaignPage({ params }) {
           {campaign.progress.accepted} of {campaign.progress.target} accepted
           {campaign.progress.percent === null ? "" : ` (${campaign.progress.percent}%)`} · {campaign.status}
         </p>
+        {campaign.progress.askedFor ? (
+          <p className="text-xs text-muted-foreground">
+            The target was typed as {campaign.progress.askedFor} — the whole extract. This part held{" "}
+            {campaign.progress.target} rows and read every one of them, so that is what it is measured against.
+          </p>
+        ) : null}
         {/* ── Said because 0% on a job measured in DAYS reads as broken ────
             The pipeline drains twenty-five tasks a minute, so a big campaign
             moves about a hundred rows a minute and takes hours to page and
