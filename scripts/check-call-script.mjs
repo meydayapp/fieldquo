@@ -62,6 +62,7 @@ import {
   defaultScriptLanguage,
   normalizeScriptLanguage,
   validateCallScript,
+  validationRetryNote,
 } from "@/lib/sales/intel/callScript";
 import { MAX_CHARS_PER_PAGE, MAX_EXCERPT_CHARS, integerInWords, ratingInWords, selectPageExcerpts } from "@/lib/sales/intel/pageExcerpts";
 import { ASK_TIME_GUARDS, HARD_MAX_WORDS, MAX_WORDS, askTimeGuardHit, hasFiniteVerb, lintSentence, longSentences, voiceLint, voiceRetryNote, wordCount } from "@/lib/sales/scriptVoice";
@@ -431,8 +432,29 @@ section("3. The handler, executed: builds, refuses, stores once, skips, regenera
 
   const db = stubDb();
   const digits = await handleGenerateCallScript({ task: task(), payload: task().payload, idempotencyKey: "k6", db, now: NOW, deps: { loadInputs: async () => fixtureInputs(), complete } });
-  ok("a reply with a digit is rejected and not stored", digits.done === false && /digits/.test(digits.reason) && db.__rows.prospectCallScript.length === 0, digits);
-  ok("…but the spend is still recorded — the vendor generated it", db.__rows.platformAiUsage.length === 1);
+  ok("a reply with a digit, twice, is rejected and not stored", digits.done === false && /rejected on retry — digits/.test(digits.reason) && db.__rows.prospectCallScript.length === 0, digits);
+  ok("…naming the field and quoting the line", /whyThemNow: digits "They run 3 trucks\."/.test(digits.reason), digits.reason);
+  ok("…both spends recorded — the vendor generated both", db.__rows.platformAiUsage.length === 2 && db.__rows.platformAiUsage[1].ref === "k6:retry");
+  {
+    // The shape retry: the first live French and Spanish drafts were refused
+    // on a digit with no second chance and no line named. Now a first draft
+    // that breaks a shape rule is asked for once more with the line quoted.
+    const db2 = stubDb();
+    const prompts = [];
+    const complete2 = async ({ prompt: p, onUsage }) => {
+      prompts.push(p);
+      await onUsage({ model: "gpt-5-mini", promptTokens: 10, completionTokens: 10 });
+      return { ok: true, data: prompts.length === 1 ? { ...goodReply(), whyThemNow: "They have run bins since 1998 across Richmond." } : goodReply() };
+    };
+    const fixed = await handleGenerateCallScript({ task: task(), payload: task().payload, idempotencyKey: "k6b", db: db2, now: NOW, deps: { loadInputs: async () => fixtureInputs(), complete: complete2 } });
+    ok("a first draft with a digit is asked for once more, with the line quoted back", prompts.length === 2 && /YOUR PREVIOUS DRAFT BROKE THE SHAPE RULES/.test(prompts[1]) && /whyThemNow: "They have run bins since 1998/.test(prompts[1]) && /write the number in words/.test(prompts[1]), prompts[1]?.slice(-400));
+    ok("…and the clean second draft is stored", fixed.done === true && /second draft/.test(fixed.note) && db2.__rows.prospectCallScript.length === 1, fixed);
+    const v = validateCallScript({ ...goodReply(), whyThemNow: "They run 3 trucks.", citations: [{ field: "opener", quote: "x".repeat(201), sourceUrl: "u" }] });
+    ok("the validator names each finding with its field and a snippet", v.findings.some((f) => f.field === "whyThemNow" && f.problem === "digits" && /3 trucks/.test(f.snippet)) && v.findings.some((f) => f.field === "citations[0]" && f.problem === "bad_citation" && /201 characters/.test(f.snippet)), v.findings);
+    const frNote = validationRetryNote(v, { language: "fr" });
+    ok("…and the retry note ends in the script's language", /Quebec French\.$/.test(frNote) && /No digits anywhere/.test(frNote));
+    ok("the French and Spanish register rules say no digits in their own words", /Aucun chiffre, nulle part/.test(REGISTER.fr.rules.join(" ")) && /Ningún dígito, en ninguna parte/.test(REGISTER.es.rules.join(" ")));
+  }
 
   const vendorDown = await handleGenerateCallScript({ task: task(), payload: task().payload, idempotencyKey: "k7", db: stubDb(), now: NOW, deps: { loadInputs: async () => fixtureInputs(), complete: async () => ({ ok: false, reason: AI_FAILURE.VENDOR_ERROR, message: "502" }) } });
   ok("a vendor outage is retried on the ladder", vendorDown.done === false && vendorDown.retry === true, vendorDown);
