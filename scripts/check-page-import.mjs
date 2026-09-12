@@ -36,6 +36,7 @@ import {
   importAfterConnect,
   IMPORT_MIN_INTERVAL_MS,
   IMPORT_DEFAULT_SINCE_DAYS,
+  defaultImportSince,
   PAGE_SHAPES,
 } from "../lib/messaging/pageImport.js";
 import { parseMessagingEnvelope } from "../lib/messaging/envelope.js";
@@ -444,6 +445,19 @@ async function seedConnected({ scopes = GRANTED_BOTH, instagram = true, isDemo =
   await seedConnected();
   const wide = await importPageConversations({ companyId: COMPANY, since: daysAgo(180), fetchConversations: fakeGraph().fetchConversations, now: NOW });
   ok("since=180 days imports the 45-day-old conversation too", wide.platforms.facebook.conversations === 3, wide.platforms);
+
+  // The default window starts at the company's signup, capped at thirty days
+  // — "fetch from the time they signed up so it doesn't go all the way back".
+  await seedConnected();
+  rows.company[0].createdAt = daysAgo(3);
+  ok("default since = signup when the company is younger than thirty days", (await defaultImportSince({ companyId: COMPANY, now: NOW })).getTime() === daysAgo(3).getTime());
+  rows.company[0].createdAt = daysAgo(400);
+  ok("…= thirty days ago when it is older", (await defaultImportSince({ companyId: COMPANY, now: NOW })).getTime() === daysAgo(IMPORT_DEFAULT_SINCE_DAYS).getTime());
+  ok("…= thirty days ago when there is no company row (never 'everything')", (await defaultImportSince({ companyId: "nobody", now: NOW })).getTime() === daysAgo(IMPORT_DEFAULT_SINCE_DAYS).getTime());
+  rows.company[0].createdAt = daysAgo(3);
+  const young = await importPageConversations({ companyId: COMPANY, fetchConversations: fakeGraph().fetchConversations, now: NOW });
+  ok("a three-day-old company's first pull skips a conversation updated before it signed up", young.platforms.facebook.conversations < 2, young.platforms);
+  delete rows.company[0].createdAt;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
