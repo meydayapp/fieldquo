@@ -1271,6 +1271,17 @@ export default function InvoiceDetailPage() {
                         })}
                       </span>
                     )}
+                    {/* Stripe's Connect account fees recovered on this
+                        payment — its own line, never folded into the
+                        processing fee (lib/stripe/connectFeeLedger.js). */}
+                    {p.accountFeeRecoveredCents > 0 && (
+                      <span className="block text-xs text-muted-foreground">
+                        {t("app.invoiceDetail.accountFeeLine", {
+                          amount: money(p.accountFeeRecoveredCents / 100),
+                          period: p.accountFeePeriod || "—",
+                        })}
+                      </span>
+                    )}
                     {/* A chargeback, in the contractor's numbers: what was
                         pulled back while it is open, the $15 fee, and — when
                         won — what came back (the fee does not; the line says

@@ -9095,6 +9095,14 @@ const en = {
   "app.invoiceDetail.disputeLine": "Dispute — {held} held, {fee} fee",
   "app.invoiceDetail.disputeWonLine": "Dispute won — {held} returned. Stripe does not refund the {fee} dispute fee.",
   "app.invoiceDetail.disputeLostLine": "Dispute lost — {held} taken back, {fee} fee",
+  "app.setPayments.instantDisclaimer": "Instant payout costs {rate} of the amount (Stripe's fee, passed through at cost — FieldQuo keeps none of it). Standard payouts to your bank are free and arrive in about 2 business days. Funds usually arrive within 30 minutes but can be delayed by your bank.",
+  "app.setPayments.instantConfirmLine": "Pay out {gross} now · fee {fee} · you receive {net}",
+  "app.setPayments.instantConfirm": "Confirm payout",
+  "app.setPayments.surcharge.international": "International card, when it applies",
+  "app.setPayments.surcharge.conversion": "Currency conversion, when it applies",
+  "app.setPayments.surchargeNote": "Stripe adds these on cards issued outside Canada or charged in another currency; they are passed through at Stripe's cost on the payment they apply to. Bank debit carries no surcharge.",
+  "app.setPayments.accountFeesNote": "Stripe's account fees (a small monthly fee in months you take payments, plus 0.25% + 25¢ per payout to your bank) are passed through at cost and appear as their own line on the next payment.",
+  "app.invoiceDetail.accountFeeLine": "Stripe account fees {amount} ({period})",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -17710,6 +17718,14 @@ const fr = {
   "app.invoiceDetail.disputeLine": "Litige — {held} retenus, {fee} de frais",
   "app.invoiceDetail.disputeWonLine": "Litige gagné — {held} rendus. Stripe ne rembourse pas les frais de litige de {fee}.",
   "app.invoiceDetail.disputeLostLine": "Litige perdu — {held} repris, {fee} de frais",
+  "app.setPayments.instantDisclaimer": "Le virement instantané coûte {rate} du montant (les frais de Stripe, refacturés au coût — FieldQuo n'en garde rien). Les virements standards vers votre banque sont gratuits et arrivent en environ 2 jours ouvrables. Les fonds arrivent généralement en 30 minutes, mais votre banque peut les retarder.",
+  "app.setPayments.instantConfirmLine": "Virer {gross} maintenant · frais {fee} · vous recevez {net}",
+  "app.setPayments.instantConfirm": "Confirmer le virement",
+  "app.setPayments.surcharge.international": "Carte internationale, lorsque cela s'applique",
+  "app.setPayments.surcharge.conversion": "Conversion de devise, lorsque cela s'applique",
+  "app.setPayments.surchargeNote": "Stripe les ajoute sur les cartes émises hors du Canada ou débitées dans une autre devise ; ils sont refacturés au coût de Stripe sur le paiement concerné. Le débit bancaire n'a aucun supplément.",
+  "app.setPayments.accountFeesNote": "Les frais de compte Stripe (petits frais mensuels les mois où vous encaissez, plus 0,25 % + 25 ¢ par virement vers votre banque) sont refacturés au coût et apparaissent comme une ligne à part sur le paiement suivant.",
+  "app.invoiceDetail.accountFeeLine": "Frais de compte Stripe {amount} ({period})",
 };
 
 
@@ -26667,6 +26683,14 @@ const es = {
   "app.invoiceDetail.disputeLine": "Disputa: {held} retenidos, {fee} de comisión",
   "app.invoiceDetail.disputeWonLine": "Disputa ganada: {held} devueltos. Stripe no reembolsa la comisión por disputa de {fee}.",
   "app.invoiceDetail.disputeLostLine": "Disputa perdida: {held} retirados, {fee} de comisión",
+  "app.setPayments.instantDisclaimer": "La transferencia instantánea cuesta {rate} del importe (la comisión de Stripe, trasladada al costo; FieldQuo no se queda con nada). Las transferencias estándar a su banco son gratuitas y llegan en unos 2 días hábiles. Los fondos suelen llegar en 30 minutos, pero su banco puede retrasarlos.",
+  "app.setPayments.instantConfirmLine": "Transferir {gross} ahora · comisión {fee} · recibe {net}",
+  "app.setPayments.instantConfirm": "Confirmar transferencia",
+  "app.setPayments.surcharge.international": "Tarjeta internacional, cuando aplica",
+  "app.setPayments.surcharge.conversion": "Conversión de moneda, cuando aplica",
+  "app.setPayments.surchargeNote": "Stripe los añade en tarjetas emitidas fuera de Canadá o cobradas en otra moneda; se trasladan al costo de Stripe en el pago al que aplican. El débito bancario no tiene recargo.",
+  "app.setPayments.accountFeesNote": "Las comisiones de cuenta de Stripe (una pequeña cuota mensual en los meses en que cobra, más 0,25 % + 25 ¢ por transferencia a su banco) se trasladan al costo y aparecen como una línea aparte en el siguiente pago.",
+  "app.invoiceDetail.accountFeeLine": "Comisiones de cuenta de Stripe {amount} ({period})",
 };
 
 const uk = {
@@ -33642,6 +33666,14 @@ const uk = {
   "app.invoiceDetail.disputeLine": "Спір — утримано {held}, комісія {fee}",
   "app.invoiceDetail.disputeWonLine": "Спір виграно — {held} повернуто. Stripe не повертає комісію за спір {fee}.",
   "app.invoiceDetail.disputeLostLine": "Спір програно — {held} списано, комісія {fee}",
+  "app.setPayments.instantDisclaimer": "Миттєва виплата коштує {rate} від суми (комісія Stripe, перевиставлена за собівартістю — FieldQuo нічого з неї не залишає). Звичайні виплати на ваш банківський рахунок безкоштовні й надходять приблизно за 2 робочі дні. Кошти зазвичай надходять протягом 30 хвилин, але ваш банк може їх затримати.",
+  "app.setPayments.instantConfirmLine": "Виплатити {gross} зараз · комісія {fee} · ви отримаєте {net}",
+  "app.setPayments.instantConfirm": "Підтвердити виплату",
+  "app.setPayments.surcharge.international": "Міжнародна картка, коли застосовується",
+  "app.setPayments.surcharge.conversion": "Конвертація валюти, коли застосовується",
+  "app.setPayments.surchargeNote": "Stripe додає їх для карток, випущених за межами Канади або списаних в іншій валюті; вони перевиставляються за собівартістю Stripe на тому платежі, якого стосуються. Банківський дебет не має надбавок.",
+  "app.setPayments.accountFeesNote": "Комісії Stripe за обліковий запис (невелика щомісячна плата в місяці, коли ви приймаєте платежі, плюс 0,25 % + 25 ¢ за кожну виплату на ваш банк) перевиставляються за собівартістю і показуються окремим рядком на наступному платежі.",
+  "app.invoiceDetail.accountFeeLine": "Комісії Stripe за обліковий запис {amount} ({period})",
 };
 
 const pa = {
@@ -40549,6 +40581,14 @@ const pa = {
   "app.invoiceDetail.disputeLine": "ਵਿਵਾਦ — {held} ਰੋਕੇ ਗਏ, {fee} ਫੀਸ",
   "app.invoiceDetail.disputeWonLine": "ਵਿਵਾਦ ਜਿੱਤਿਆ — {held} ਵਾਪਸ ਕੀਤੇ। Stripe {fee} ਦੀ ਵਿਵਾਦ ਫੀਸ ਵਾਪਸ ਨਹੀਂ ਕਰਦਾ।",
   "app.invoiceDetail.disputeLostLine": "ਵਿਵਾਦ ਹਾਰਿਆ — {held} ਵਾਪਸ ਲਏ ਗਏ, {fee} ਫੀਸ",
+  "app.setPayments.instantDisclaimer": "ਤੁਰੰਤ ਭੁਗਤਾਨ 'ਤੇ ਰਕਮ ਦਾ {rate} ਲੱਗਦਾ ਹੈ (Stripe ਦੀ ਫੀਸ, ਲਾਗਤ ਮੁੱਲ 'ਤੇ ਅੱਗੇ ਦਿੱਤੀ — FieldQuo ਇਸ ਵਿੱਚੋਂ ਕੁਝ ਨਹੀਂ ਰੱਖਦਾ)। ਤੁਹਾਡੇ ਬੈਂਕ ਨੂੰ ਆਮ ਭੁਗਤਾਨ ਮੁਫ਼ਤ ਹਨ ਅਤੇ ਲਗਭਗ 2 ਕਾਰੋਬਾਰੀ ਦਿਨਾਂ ਵਿੱਚ ਪਹੁੰਚਦੇ ਹਨ। ਪੈਸੇ ਆਮ ਤੌਰ 'ਤੇ 30 ਮਿੰਟਾਂ ਵਿੱਚ ਪਹੁੰਚ ਜਾਂਦੇ ਹਨ ਪਰ ਤੁਹਾਡਾ ਬੈਂਕ ਦੇਰੀ ਕਰ ਸਕਦਾ ਹੈ।",
+  "app.setPayments.instantConfirmLine": "{gross} ਹੁਣੇ ਭੇਜੋ · ਫੀਸ {fee} · ਤੁਹਾਨੂੰ ਮਿਲੇਗਾ {net}",
+  "app.setPayments.instantConfirm": "ਭੁਗਤਾਨ ਦੀ ਪੁਸ਼ਟੀ ਕਰੋ",
+  "app.setPayments.surcharge.international": "ਅੰਤਰਰਾਸ਼ਟਰੀ ਕਾਰਡ, ਜਦੋਂ ਲਾਗੂ ਹੋਵੇ",
+  "app.setPayments.surcharge.conversion": "ਮੁਦਰਾ ਤਬਦੀਲੀ, ਜਦੋਂ ਲਾਗੂ ਹੋਵੇ",
+  "app.setPayments.surchargeNote": "Stripe ਇਹ ਕੈਨੇਡਾ ਤੋਂ ਬਾਹਰ ਜਾਰੀ ਕੀਤੇ ਜਾਂ ਹੋਰ ਮੁਦਰਾ ਵਿੱਚ ਵਸੂਲੇ ਕਾਰਡਾਂ 'ਤੇ ਜੋੜਦਾ ਹੈ; ਇਹ ਜਿਸ ਭੁਗਤਾਨ 'ਤੇ ਲਾਗੂ ਹੋਣ ਉਸ 'ਤੇ Stripe ਦੀ ਲਾਗਤ ਮੁੱਲ 'ਤੇ ਅੱਗੇ ਦਿੱਤੇ ਜਾਂਦੇ ਹਨ। ਬੈਂਕ ਡੈਬਿਟ 'ਤੇ ਕੋਈ ਵਾਧੂ ਖਰਚ ਨਹੀਂ।",
+  "app.setPayments.accountFeesNote": "Stripe ਦੀਆਂ ਖਾਤਾ ਫੀਸਾਂ (ਜਿਨ੍ਹਾਂ ਮਹੀਨਿਆਂ ਵਿੱਚ ਤੁਸੀਂ ਭੁਗਤਾਨ ਲੈਂਦੇ ਹੋ ਉਨ੍ਹਾਂ ਵਿੱਚ ਛੋਟੀ ਮਹੀਨਾਵਾਰ ਫੀਸ, ਨਾਲ ਹੀ ਤੁਹਾਡੇ ਬੈਂਕ ਨੂੰ ਹਰ ਭੁਗਤਾਨ 'ਤੇ 0.25% + 25¢) ਲਾਗਤ ਮੁੱਲ 'ਤੇ ਅੱਗੇ ਦਿੱਤੀਆਂ ਜਾਂਦੀਆਂ ਹਨ ਅਤੇ ਅਗਲੇ ਭੁਗਤਾਨ 'ਤੇ ਆਪਣੀ ਵੱਖਰੀ ਲਾਈਨ ਵਜੋਂ ਦਿਖਦੀਆਂ ਹਨ।",
+  "app.invoiceDetail.accountFeeLine": "Stripe ਖਾਤਾ ਫੀਸਾਂ {amount} ({period})",
 };
 
 const tl = {
@@ -47463,6 +47503,14 @@ const tl = {
   "app.invoiceDetail.disputeLine": "Dispute — {held} naka-hold, {fee} na bayarin",
   "app.invoiceDetail.disputeWonLine": "Napanalunan ang dispute — {held} ibinalik. Hindi nire-refund ng Stripe ang {fee} na bayarin sa dispute.",
   "app.invoiceDetail.disputeLostLine": "Natalo ang dispute — {held} binawi, {fee} na bayarin",
+  "app.setPayments.instantDisclaimer": "Ang instant payout ay nagkakahalaga ng {rate} ng halaga (bayarin ng Stripe, ipinapasa sa halagang gastos — walang kinukuha ang FieldQuo). Libre ang karaniwang payout sa bangko mo at dumarating sa mga 2 araw ng negosyo. Kadalasang dumarating ang pera sa loob ng 30 minuto pero maaaring maantala ng bangko mo.",
+  "app.setPayments.instantConfirmLine": "I-payout ang {gross} ngayon · bayarin {fee} · matatanggap mo {net}",
+  "app.setPayments.instantConfirm": "Kumpirmahin ang payout",
+  "app.setPayments.surcharge.international": "International card, kapag naaangkop",
+  "app.setPayments.surcharge.conversion": "Palitan ng currency, kapag naaangkop",
+  "app.setPayments.surchargeNote": "Idinadagdag ito ng Stripe sa mga card na inisyu sa labas ng Canada o siningil sa ibang currency; ipinapasa sa gastos ng Stripe sa bayad na kinauukulan. Walang dagdag ang bank debit.",
+  "app.setPayments.accountFeesNote": "Ang mga bayarin sa account ng Stripe (maliit na buwanang bayad sa mga buwang tumatanggap ka ng bayad, at 0.25% + 25¢ bawat payout sa bangko mo) ay ipinapasa sa halagang gastos at lumalabas bilang sariling linya sa susunod na bayad.",
+  "app.invoiceDetail.accountFeeLine": "Mga bayarin sa Stripe account {amount} ({period})",
 };
 
 const de = {
@@ -55734,6 +55782,14 @@ const de = {
   "app.invoiceDetail.disputeLine": "Rückbuchung — {held} einbehalten, {fee} Gebühr",
   "app.invoiceDetail.disputeWonLine": "Rückbuchung gewonnen — {held} zurückerstattet. Stripe erstattet die Gebühr von {fee} nicht.",
   "app.invoiceDetail.disputeLostLine": "Rückbuchung verloren — {held} zurückgezogen, {fee} Gebühr",
+  "app.setPayments.instantDisclaimer": "Eine Sofortauszahlung kostet {rate} des Betrags (die Stripe-Gebühr, zum Selbstkostenpreis weitergegeben — FieldQuo behält nichts davon). Reguläre Auszahlungen auf Ihr Bankkonto sind kostenlos und dauern etwa 2 Werktage. Das Geld kommt meist innerhalb von 30 Minuten an, kann aber von Ihrer Bank verzögert werden.",
+  "app.setPayments.instantConfirmLine": "{gross} jetzt auszahlen · Gebühr {fee} · Sie erhalten {net}",
+  "app.setPayments.instantConfirm": "Auszahlung bestätigen",
+  "app.setPayments.surcharge.international": "Internationale Karte, falls zutreffend",
+  "app.setPayments.surcharge.conversion": "Währungsumrechnung, falls zutreffend",
+  "app.setPayments.surchargeNote": "Stripe berechnet sie bei Karten, die außerhalb Kanadas ausgegeben oder in einer anderen Währung belastet werden; sie werden zu Stripes Kosten auf der betroffenen Zahlung weitergegeben. Bankeinzug hat keinen Aufschlag.",
+  "app.setPayments.accountFeesNote": "Stripes Kontogebühren (eine kleine Monatsgebühr in Monaten mit Zahlungen, plus 0,25 % + 25 ¢ je Auszahlung auf Ihr Konto) werden zum Selbstkostenpreis weitergegeben und erscheinen als eigene Zeile auf der nächsten Zahlung.",
+  "app.invoiceDetail.accountFeeLine": "Stripe-Kontogebühren {amount} ({period})",
 };
 
 const zh = {
@@ -63998,6 +64054,14 @@ const zh = {
   "app.invoiceDetail.disputeLine": "争议——冻结 {held}，费用 {fee}",
   "app.invoiceDetail.disputeWonLine": "争议胜诉——已退回 {held}。Stripe 不退还 {fee} 的争议费。",
   "app.invoiceDetail.disputeLostLine": "争议败诉——扣回 {held}，费用 {fee}",
+  "app.setPayments.instantDisclaimer": "即时提现费用为金额的 {rate}（Stripe 的费用，按成本转嫁——FieldQuo 分文不取）。常规提现到你的银行免费，约 2 个工作日到账。资金通常在 30 分钟内到账，但可能被你的银行延迟。",
+  "app.setPayments.instantConfirmLine": "立即提现 {gross} · 费用 {fee} · 你将收到 {net}",
+  "app.setPayments.instantConfirm": "确认提现",
+  "app.setPayments.surcharge.international": "国际银行卡（适用时）",
+  "app.setPayments.surcharge.conversion": "货币换算（适用时）",
+  "app.setPayments.surchargeNote": "Stripe 对加拿大境外发行或以其他货币扣款的银行卡加收这些费用；按 Stripe 的成本在相应付款上转嫁。银行扣款无附加费。",
+  "app.setPayments.accountFeesNote": "Stripe 的账户费用（有收款的月份收取少量月费，另加每次提现到你银行的 0.25% + 25¢）按成本转嫁，并在下一笔付款上单独列示。",
+  "app.invoiceDetail.accountFeeLine": "Stripe 账户费用 {amount}（{period}）",
 };
 
 const it = {
@@ -72564,6 +72628,14 @@ const it = {
   "app.invoiceDetail.disputeLine": "Contestazione — {held} trattenuti, {fee} di commissione",
   "app.invoiceDetail.disputeWonLine": "Contestazione vinta — {held} restituiti. Stripe non rimborsa la commissione di {fee}.",
   "app.invoiceDetail.disputeLostLine": "Contestazione persa — {held} ripresi, {fee} di commissione",
+  "app.setPayments.instantDisclaimer": "Il bonifico istantaneo costa {rate} dell'importo (la commissione di Stripe, addebitata al costo: FieldQuo non ne trattiene nulla). I versamenti standard sul suo conto sono gratuiti e arrivano in circa 2 giorni lavorativi. I fondi di solito arrivano entro 30 minuti, ma la sua banca può ritardarli.",
+  "app.setPayments.instantConfirmLine": "Trasferisci {gross} ora · commissione {fee} · riceverà {net}",
+  "app.setPayments.instantConfirm": "Conferma il bonifico",
+  "app.setPayments.surcharge.international": "Carta internazionale, quando si applica",
+  "app.setPayments.surcharge.conversion": "Conversione di valuta, quando si applica",
+  "app.setPayments.surchargeNote": "Stripe li aggiunge sulle carte emesse fuori dal Canada o addebitate in un'altra valuta; vengono addebitati al costo di Stripe sul pagamento a cui si applicano. L'addebito bancario non ha maggiorazioni.",
+  "app.setPayments.accountFeesNote": "Le commissioni di conto di Stripe (una piccola quota mensile nei mesi in cui incassa, più 0,25 % + 25 ¢ per ogni versamento sul suo conto) vengono addebitate al costo e compaiono come riga a sé sul pagamento successivo.",
+  "app.invoiceDetail.accountFeeLine": "Commissioni di conto Stripe {amount} ({period})",
 };
 
 export const APP_MESSAGES = { en, fr, es, uk, pa, tl, de, zh, it };

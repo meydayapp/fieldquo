@@ -512,7 +512,8 @@ console.log("\n6. The Stripe integration, asserted statically\n");
   // scripts/check-processing-fee.mjs; here the mandate charge only has to be
   // shown to use the shared route rather than spelling its own.
   ok("the charge is a DESTINATION charge, like the existing pay link",
-    /\.\.\.destinationChargeParams\(/.test(mandate) &&
+    /destinationChargeParamsWithRecovery\(/.test(mandate) &&
+      /\.\.\.route,/.test(mandate) &&
       /transfer_data:\s*\{\s*destination/.test(stripeLib) &&
       /export function destinationChargeParams/.test(stripeLib));
   ok("  ^ with the same processing fee, passed through to the contractor (no literal fee here)",

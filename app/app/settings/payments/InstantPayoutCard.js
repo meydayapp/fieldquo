@@ -19,7 +19,10 @@ import { Zap } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
-import { INSTANT_PAYOUT_MIN_ACCOUNT_AGE_DAYS } from "@/lib/stripe/instantPayoutRules";
+import {
+  INSTANT_PAYOUTS_ENABLED,
+  INSTANT_PAYOUT_MIN_ACCOUNT_AGE_DAYS,
+} from "@/lib/stripe/instantPayoutRules";
 
 const REASONS_WITH_CARD_LINK = new Set(["no_external_account", "no_instant_destination"]);
 
@@ -30,6 +33,10 @@ export default function InstantPayoutCard({ connected, onOpenDashboard, openingD
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  // Two steps on purpose: the button opens a confirm line carrying Stripe's
+  // exact gross / fee / net for THIS payout and the fee sentence again, and
+  // only the confirm sends. Money leaves a balance here; one tap is not enough.
+  const [confirming, setConfirming] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -41,13 +48,17 @@ export default function InstantPayoutCard({ connected, onOpenDashboard, openingD
   }, [t]);
 
   useEffect(() => {
-    if (connected) load();
+    if (connected && INSTANT_PAYOUTS_ENABLED) load();
   }, [connected, load]);
 
-  if (!connected) return null;
+  // Behind the platform switch — see lib/stripe/instantPayoutRules.js. Off
+  // means nothing renders, rather than a disabled card: a control that
+  // cannot be used is not shown.
+  if (!INSTANT_PAYOUTS_ENABLED || !connected) return null;
 
   async function handlePayout() {
     if (sending) return;
+    setConfirming(false);
     setError("");
     setSent(false);
     setSending(true);
@@ -76,6 +87,13 @@ export default function InstantPayoutCard({ connected, onOpenDashboard, openingD
           <h2 className="font-semibold text-foreground">{t("app.setPayments.instantTitle")}</h2>
           <p className="text-sm text-muted-foreground mt-1">
             {t("app.setPayments.instantIntro", { rate: state?.expectedRate || "1%" })}
+          </p>
+          {/* The fee, said plainly and before the button — Stripe's
+              marketing rules want it clear and conspicuous, and a
+              contractor deciding whether to pay 1% deserves the sentence,
+              not a tooltip. Repeated on the confirm step below. */}
+          <p data-instant-disclaimer="card" className="text-sm text-foreground mt-2">
+            {t("app.setPayments.instantDisclaimer", { rate: state?.expectedRate || "1%" })}
           </p>
 
           {error && (
@@ -143,16 +161,49 @@ export default function InstantPayoutCard({ connected, onOpenDashboard, openingD
                   })}
                 </p>
               )}
-              <button
-                type="button"
-                onClick={handlePayout}
-                disabled={sending}
-                className="mt-4 bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
-              >
-                {sending
-                  ? t("app.setPayments.instantWorking")
-                  : t("app.setPayments.instantButton", { amount: money(state.netCents / 100) })}
-              </button>
+              {!confirming ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirming(true)}
+                  disabled={sending}
+                  className="mt-4 bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
+                >
+                  {sending
+                    ? t("app.setPayments.instantWorking")
+                    : t("app.setPayments.instantButton", { amount: money(state.netCents / 100) })}
+                </button>
+              ) : (
+                <div data-instant-confirm className="mt-4 border border-border rounded-xl p-4 space-y-3">
+                  <p className="text-sm font-semibold text-foreground tabular-nums">
+                    {t("app.setPayments.instantConfirmLine", {
+                      gross: money(state.grossCents / 100),
+                      fee: money(state.feeCents / 100),
+                      net: money(state.netCents / 100),
+                    })}
+                  </p>
+                  <p data-instant-disclaimer="confirm" className="text-sm text-muted-foreground">
+                    {t("app.setPayments.instantDisclaimer", { rate: state.expectedRate || "1%" })}
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setConfirming(false)}
+                      disabled={sending}
+                      className="border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold hover:bg-muted disabled:opacity-60"
+                    >
+                      {t("app.action.cancel")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handlePayout}
+                      disabled={sending}
+                      className="bg-inverted text-inverted-foreground px-5 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
+                    >
+                      {sending ? t("app.setPayments.instantWorking") : t("app.setPayments.instantConfirm")}
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           )}
 

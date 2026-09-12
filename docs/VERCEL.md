@@ -92,27 +92,37 @@ After swapping the secrets: "Send test event" on each destination — a 200 in
 Stripe's log proves the secret matches its route; a 400 means the secrets
 were crossed.
 
-**Fees are passed through to the contractor (2026-09-12).** Stripe debits the
-PLATFORM for its fees on a destination charge, so every homeowner charge now
-carries an `application_fee_amount` equal to the published processing fee —
-cards 3% + 30¢ (Stripe's 2.9% + 30¢ plus a 0.1% platform margin, the owner's
+**Every fee is passed through to the contractor (2026-09-12).** Stripe debits
+the PLATFORM for its fees on a destination charge, so every homeowner charge
+carries an `application_fee_amount`: the published processing fee — cards 3%
++ 30¢ (Stripe's 2.9% + 30¢ plus a 0.1% platform margin, the owner's
 decision), Canadian pre-authorized debit 1% + 40¢ capped at $5, US ACH 0.8%
 capped at $5 — from ONE place, `lib/stripe/processingFee.js` (read-only view
 on /platform/billing/plans; a rate change is a code change executed by
-`check:processing-fee`). The same charges name the contractor as
-`on_behalf_of` (settlement merchant — their descriptor, their country), which
-needs the `card_payments` capability: new Express accounts request it and
-`transfers` at creation, and the status poll requests it on older ones. The
-fee is recorded on `Payment.processingFeeCents/netCents/feeRateLabel` at
-settlement, refunds keep it (`refund_application_fee: false`), and a
-chargeback reverses the disputed amount plus Stripe's $15 dispute fee out of
-the contractor's transfer. **Instant payouts:** the settings card pays out
-Stripe's `net_available`; set the platform's instant-payout fee to **1%** in
-Stripe → Settings → Connect → Platform pricing → Instant payouts, so net =
-gross − 1% (Stripe's own charge to the platform — nothing is kept). The rate
-is not in code; the card shows whatever gross − net Stripe reports. Stripe's
-Express account fees (per active account, per payout) are NOT passed through
-— a platform cost covered by the subscription.
+`check:processing-fee`). At settlement the charge's balance transaction is
+read and, when Stripe's real cost is higher (international card +0.8%,
+currency conversion +2%, Affirm), the difference is reversed out of the
+contractor's transfer so they bear Stripe's actual cost + the margin, never
+less (`lib/stripe/paymentIntentFee.js`; `Payment.estimatedFeeCents` /
+`stripeFeeCents` keep expected vs actual). Stripe's Connect account fees
+(monthly active account, 0.25% + 25¢ per payout) are read off the platform's
+`stripe_fee` balance transactions by the daily `/api/cron/connect-fees` into
+`ConnectFeeRecovery` and added to the company's NEXT charge as its own line
+("Stripe account fees $2.25 (2026-09)"), capped so fee ≤ amount, remainder
+carrying forward — a company that never pays again stays outstanding on the
+/platform card, never written off silently. The same charges name the
+contractor as `on_behalf_of` (settlement merchant), which needs the
+`card_payments` capability: new Express accounts request it and `transfers`
+at creation, the status poll requests it on older ones. Refunds keep the fee
+(`refund_application_fee: false`); a chargeback reverses the disputed amount
+plus Stripe's $15 dispute fee out of the contractor's transfer.
+**Instant payouts are ON** (`INSTANT_PAYOUTS_ENABLED`), offered with the 1%
+fee stated on the card and again on the confirm step, at cost. Two dashboard
+settings make them work: Stripe → Settings → Connect → Platform pricing →
+Instant payouts = **1%** (so Stripe's `net_available` already reflects it —
+the card shows whatever gross − net Stripe reports, the rate is not in code),
+and Settings → Connect → Payouts → **Allow debit cards = Yes** (Canada pays
+out instantly to a debit card only).
 
 ### `RETELL_WEBHOOK_SECRET` is not a secret you invent
 

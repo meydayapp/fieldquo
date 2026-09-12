@@ -20,6 +20,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 import {
+  INSTANT_PAYOUTS_ENABLED,
   createInstantPayout,
   instantPayoutEligibility,
   loadInstantPayoutState,
@@ -47,7 +48,13 @@ function view(decision) {
   };
 }
 
+// Off by design (see INSTANT_PAYOUTS_ENABLED). A 404 rather than a 403: the
+// feature does not exist on this deployment, and nobody's permissions are
+// the reason.
+const OFF = () => NextResponse.json({ error: "Not found" }, { status: 404 });
+
 export async function GET(request) {
+  if (!INSTANT_PAYOUTS_ENABLED) return OFF();
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
   if (!member.impersonation && !isBillingAdmin(member.role)) {
@@ -84,6 +91,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
+  if (!INSTANT_PAYOUTS_ENABLED) return OFF();
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
   if (member.impersonation) {

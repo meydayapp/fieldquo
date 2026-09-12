@@ -45,6 +45,9 @@ const {
   FIELDQUO_CARD_RATE_BPS,
   FIELDQUO_CARD_MARGIN_BPS,
   INSTANT_PAYOUT_RATE,
+  CARD_SURCHARGES,
+  publishedSurcharges,
+  trueUpCents,
 } = fees;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -99,6 +102,31 @@ ok("instant payouts are priced at 1% (Stripe's charge) with a 50¢ minimum",
   INSTANT_PAYOUT_RATE.basisPoints === 100 && INSTANT_PAYOUT_RATE.minimumCents === 50 && INSTANT_PAYOUT_RATE.formula === "1%");
 ok("the rate module is pure — it imports nothing", !/^\s*import /m.test(read("lib/stripe/processingFee.js")));
 
+console.log("\n── 1b. Surcharges and the true-up rule, in numbers ──────────────────\n");
+
+ok("Stripe Canada surcharges: +0.8% international, +2% conversion; US: +1.5% / +1%",
+  CARD_SURCHARGES.ca.international.basisPoints === 80 && CARD_SURCHARGES.ca.conversion.basisPoints === 200 &&
+    CARD_SURCHARGES.us.international.basisPoints === 150 && CARD_SURCHARGES.us.conversion.basisPoints === 100);
+ok("the settings card lists both, as Stripe publishes them", publishedSurcharges().map((x) => x.formula).join() === "+0.8%,+2%");
+{
+  const est = 6810; const share = 226; // $2,260 card: estimate and FieldQuo's 0.1%
+  const domestic = trueUpCents({ estimatedFeeCents: est, platformShareCents: share, actualStripeFeeCents: 6584 });
+  ok("$2,260 DOMESTIC card: Stripe's actual $65.84 = the estimate's Stripe share → true-up $0, fee stays $68.10", domestic === 0);
+  const intl = trueUpCents({ estimatedFeeCents: est, platformShareCents: share, actualStripeFeeCents: 8392 });
+  ok("$2,260 INTERNATIONAL card (CA platform, +0.8%): Stripe's actual $83.92 → true-up $18.08 → fee $86.18",
+    intl === 1808 && est + intl === 8618, intl);
+  const fx = trueUpCents({ estimatedFeeCents: est, platformShareCents: share, actualStripeFeeCents: 12912 });
+  ok("$2,260 in USD from a US card on a CA contractor (+0.8% intl, +2% conversion): actual $129.12 → true-up $63.28 → fee $131.38",
+    fx === 6328 && est + fx === 13138, fx);
+  ok("  ^ in every case the contractor bears Stripe's actual cost + FieldQuo's $2.26, never less",
+    est + domestic - 6584 === 226 && est + intl - 8392 === 226 && est + fx - 12912 === 226);
+  ok("a cheaper-than-estimated card (actual $60.00) is NOT charged less — the published rate is the promise",
+    trueUpCents({ estimatedFeeCents: est, platformShareCents: share, actualStripeFeeCents: 6000 }) === 0);
+  ok("no actual fee known → no true-up", trueUpCents({ estimatedFeeCents: est, platformShareCents: share, actualStripeFeeCents: null }) === 0);
+  ok("PAD (no platform share): actual above the estimate is trued up in full",
+    trueUpCents({ estimatedFeeCents: 500, platformShareCents: 0, actualStripeFeeCents: 540 }) === 40);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 console.log("\n── 2. Every charge creator carries the fee, the destination and on_behalf_of ──\n");
 
@@ -115,6 +143,17 @@ const COMPANY = { id: "co1", stripeAccountId: "acct_contractor", currency: "CAD"
   let t = null;
   try { destinationChargeParams({ company: { id: "x" }, amountCents: 100, currency: "cad", method: "card" }); } catch (e) { t = e; }
   ok("  ^ throws without a connected account rather than creating a charge to nowhere", Boolean(t));
+  ok("  ^ metadata splits the fee for settlement: estimate 6810, recovery 0, companyId — as strings",
+    p.metadata.fq_fee_estimate_cents === "6810" && p.metadata.fq_recovery_cents === "0" && p.metadata.companyId === "co1");
+  const withRec = destinationChargeParams({ company: COMPANY, amountCents: 226_000, currency: "cad", method: "card", recoveryCents: 225, metadata: { invoiceId: "inv1" } });
+  ok("  ^ outstanding account fees ride on the application fee (6810 + 225) and are named in metadata, beside the caller's own",
+    withRec.application_fee_amount === 7035 && withRec.metadata.fq_recovery_cents === "225" && withRec.metadata.invoiceId === "inv1");
+  const capped = await stripeLib.destinationChargeParamsWithRecovery(
+    { company: COMPANY, amountCents: 1000, currency: "cad", method: "card" },
+    { ledger: async () => 5_000 },
+  );
+  ok("destinationChargeParamsWithRecovery caps the whole fee at the charge: $10 charge, $50 owed → fee = 60 + 940 = 1000, never more",
+    capped.application_fee_amount === 1000 && capped.metadata.fq_recovery_cents === "940", capped);
 }
 
 // Scripted Stripe: capture what each creator sends.
@@ -141,10 +180,12 @@ stripe.accounts.update = async (id, params) => {
 };
 
 const invoice = { id: "inv1", invoiceNumber: "INV-100", total: 2260, amountPaid: 0 };
+// The ledger seam: nothing outstanding unless a case says so.
+const NO_LEDGER = { ledger: async () => 0 };
 
 {
   captured.length = 0;
-  await stripeLib.createInvoiceCheckoutSession({ invoice, company: COMPANY, successUrl: "s", cancelUrl: "c" });
+  await stripeLib.createInvoiceCheckoutSession({ invoice, company: COMPANY, successUrl: "s", cancelUrl: "c" }, NO_LEDGER);
   const c = captured.find((x) => x.op === "checkout.sessions.create");
   const pid = c.params.payment_intent_data;
   ok("invoice pay link: card only, $68.10 application fee, destination + on_behalf_of",
@@ -154,14 +195,14 @@ const invoice = { id: "inv1", invoiceNumber: "INV-100", total: 2260, amountPaid:
 }
 {
   captured.length = 0;
-  await stripeLib.createInvoiceCheckoutSession({ invoice: { ...invoice, total: 2260, amountPaid: 1260 }, company: COMPANY, successUrl: "s", cancelUrl: "c" });
+  await stripeLib.createInvoiceCheckoutSession({ invoice: { ...invoice, total: 2260, amountPaid: 1260 }, company: COMPANY, successUrl: "s", cancelUrl: "c" }, NO_LEDGER);
   const c = captured.find((x) => x.op === "checkout.sessions.create");
   ok("a $1,000 balance is priced on the balance, not the total: $30.30",
     c.params.line_items[0].price_data.unit_amount === 100_000 && c.params.payment_intent_data.application_fee_amount === 3030);
 }
 {
   captured.length = 0;
-  await stripeLib.createInvoiceCheckoutSession({ invoice, company: { ...COMPANY, offerFinancing: true }, successUrl: "s", cancelUrl: "c" });
+  await stripeLib.createInvoiceCheckoutSession({ invoice, company: { ...COMPANY, offerFinancing: true }, successUrl: "s", cancelUrl: "c" }, NO_LEDGER);
   const c = captured.find((x) => x.op === "checkout.sessions.create");
   ok("Affirm-eligible link (card + affirm in ONE session) keeps the CARD fee — the lower — at creation",
     c.params.payment_method_types.join() === "card,affirm" && c.params.payment_intent_data.application_fee_amount === 6810);
@@ -170,14 +211,14 @@ const invoice = { id: "inv1", invoiceNumber: "INV-100", total: 2260, amountPaid:
 {
   captured.length = 0;
   globalThis.__affirmRejects = true;
-  await stripeLib.createInvoiceCheckoutSession({ invoice, company: { ...COMPANY, offerFinancing: true }, successUrl: "s", cancelUrl: "c" });
+  await stripeLib.createInvoiceCheckoutSession({ invoice, company: { ...COMPANY, offerFinancing: true }, successUrl: "s", cancelUrl: "c" }, NO_LEDGER);
   globalThis.__affirmRejects = false;
   const last = captured[captured.length - 1];
   ok("  ^ and the card-only fallback carries the same fee", last.params.payment_method_types.join() === "card" && last.params.payment_intent_data.application_fee_amount === 6810);
 }
 {
   captured.length = 0;
-  await stripeLib.createBookingFeeCheckoutSession({ bookingId: "bk1", company: { ...COMPANY, currency: "USD" }, label: "Visit", amountCents: 5000, successUrl: "s", cancelUrl: "c" });
+  await stripeLib.createBookingFeeCheckoutSession({ bookingId: "bk1", company: { ...COMPANY, currency: "USD" }, label: "Visit", amountCents: 5000, successUrl: "s", cancelUrl: "c" }, NO_LEDGER);
   const c = captured[0];
   ok("booking fee: $50 → $1.80 fee, USD, destination + on_behalf_of",
     c.params.line_items[0].price_data.currency === "usd" && c.params.payment_intent_data.application_fee_amount === 180 &&
@@ -192,7 +233,7 @@ const invoice = { id: "inv1", invoiceNumber: "INV-100", total: 2260, amountPaid:
     amountCents: 500_000,
     description: "Plan",
     idempotencyKey: "k1",
-  });
+  }, NO_LEDGER);
   const c = captured[0];
   ok("service-plan PAD charge: $5,000 → $5.00 fee (PAD rate, not the card rate)",
     r.outcome === "succeeded" && c.params.application_fee_amount === 500 && c.params.payment_method_types.join() === "acss_debit");
@@ -205,7 +246,7 @@ const invoice = { id: "inv1", invoiceNumber: "INV-100", total: 2260, amountPaid:
     authorisation: { stripeCustomerId: "cus_1", stripePaymentMethodId: "pm_2", paymentMethodType: "card" },
     amountCents: 226_000,
     description: "Plan",
-  });
+  }, NO_LEDGER);
   ok("service-plan card charge: $2,260 → $68.10", card.outcome === "succeeded" && captured[0].params.application_fee_amount === 6810);
   captured.length = 0;
   const bad = await mandate.chargeOccurrenceOffSession({
@@ -213,7 +254,7 @@ const invoice = { id: "inv1", invoiceNumber: "INV-100", total: 2260, amountPaid:
     authorisation: { stripeCustomerId: "cus_1", stripePaymentMethodId: "pm_3", paymentMethodType: "acss_debit" },
     amountCents: 1000,
     description: "Plan",
-  });
+  }, NO_LEDGER);
   ok("an unpriceable method/currency pair is a FAILED outcome, and no PaymentIntent is created",
     bad.outcome === "failed" && captured.length === 0, bad);
 }
@@ -224,19 +265,19 @@ const invoice = { id: "inv1", invoiceNumber: "INV-100", total: 2260, amountPaid:
   const stripeSrc = stripComments(read("lib/stripe.js"));
   const literalTransfers = (stripeSrc.match(/transfer_data:/g) || []).length;
   ok("lib/stripe.js spells transfer_data exactly once — inside destinationChargeParams", literalTransfers === 1);
-  ok("  ^ and application_fee_amount exactly once, from processingFeeCents",
-    (stripeSrc.match(/application_fee_amount:/g) || []).length === 1 && /application_fee_amount:\s*processingFeeCents\(/.test(stripeSrc));
+  ok("  ^ and application_fee_amount exactly once — the processingFeeCents estimate plus any account-fee recovery",
+    (stripeSrc.match(/application_fee_amount:/g) || []).length === 1 && /application_fee_amount:\s*estimate \+ recovery/.test(stripeSrc) && /const estimate = processingFeeCents\(/.test(stripeSrc));
   ok("  ^ no `application_fee_amount: 0` survives anywhere in lib/ or app/",
     !libFiles.some((f) => /application_fee_amount:\s*0\b/.test(stripComments(read(f)))));
   const mandateSrc = stripComments(read("lib/servicePlans/stripeMandate.js"));
-  ok("the mandate charge uses destinationChargeParams rather than its own keys",
-    /\.\.\.destinationChargeParams\(/.test(mandateSrc) && !/transfer_data:/.test(mandateSrc) && !/on_behalf_of:/.test(mandateSrc));
+  ok("the mandate charge uses destinationChargeParamsWithRecovery rather than its own keys",
+    /destinationChargeParamsWithRecovery\(/.test(mandateSrc) && /\.\.\.route,/.test(mandateSrc) && !/transfer_data:/.test(mandateSrc) && !/on_behalf_of:/.test(mandateSrc));
   const money = ["createInvoiceCheckoutSession", "createBookingFeeCheckoutSession"];
   for (const fn of money) {
     const body = stripeSrc.slice(stripeSrc.indexOf(`export async function ${fn}`));
     const end = body.indexOf("\nexport ");
-    ok(`${fn} builds payment_intent_data through destinationChargeParams`,
-      /payment_intent_data:\s*destinationChargeParams\(/.test(body.slice(0, end > 0 ? end : undefined)));
+    ok(`${fn} builds payment_intent_data through destinationChargeParamsWithRecovery`,
+      /payment_intent_data:\s*await destinationChargeParamsWithRecovery\(/.test(body.slice(0, end > 0 ? end : undefined)));
   }
 }
 
@@ -298,35 +339,88 @@ function fakeStripeForIntents(intents, log = []) {
     pi_card: { id: "pi_card", amount: 226_000, amount_received: 226_000, application_fee_amount: 6810, latest_charge: { id: "ch_1", payment_method_details: { type: "card" }, balance_transaction: { fee: 6584 }, transfer: "tr_1" } },
   }, log);
   const fee = await settledFeeFor("pi_card", { stripe: client });
-  ok("a card intent: fee 6810 (what was collected), net 219190, label 'card'",
-    fee.processingFeeCents === 6810 && fee.netCents === 219_190 && fee.feeRateLabel === "card", fee);
+  ok("a DOMESTIC card intent (actual 6584 ≤ estimate's Stripe share): fee 6810, net 219190, label 'card', estimate + actual recorded",
+    fee.processingFeeCents === 6810 && fee.netCents === 219_190 && fee.feeRateLabel === "card" && fee.estimatedFeeCents === 6810 && fee.stripeFeeCents === 6584, fee);
   ok("  ^ retrieved once with latest_charge.balance_transaction expanded",
     log.length === 1 && log[0].opts.expand.includes("latest_charge.balance_transaction"));
-  ok("  ^ no reversal for a card — Stripe's actual fee is FieldQuo's to absorb or keep, never the contractor's problem",
+  ok("  ^ no reversal — a domestic card is charged the published rate, not less and not more",
     !log.some((l) => l.op === "reversal"));
 }
 {
   const log = [];
   const client = fakeStripeForIntents({
-    pi_affirm: { id: "pi_affirm", amount: 226_000, amount_received: 226_000, application_fee_amount: 6810, latest_charge: { id: "ch_2", payment_method_details: { type: "affirm" }, balance_transaction: { fee: 13_590 }, transfer: "tr_2" } },
+    pi_intl: { id: "pi_intl", currency: "cad", amount: 226_000, amount_received: 226_000, application_fee_amount: 6810, metadata: { fq_fee_estimate_cents: "6810", fq_recovery_cents: "0", companyId: "co1" }, latest_charge: { id: "ch_i", payment_method_details: { type: "card" }, balance_transaction: { fee: 8392 }, transfer: "tr_i" } },
+  }, log);
+  const fee = await settledFeeFor("pi_intl", { stripe: client });
+  const rev = log.find((l) => l.op === "reversal");
+  ok("an INTERNATIONAL card (actual 8392): the 1808 above the estimate's Stripe share is reversed from the transfer",
+    rev && rev.tr === "tr_i" && rev.params.amount === 1808, rev?.params);
+  ok("  ^ idempotent per intent", rev?.opts?.idempotencyKey === "fq-fee-trueup-pi_intl");
+  ok("  ^ the row records the trued-up fee 8618, net 217382, estimate 6810, Stripe's actual 8392",
+    fee.processingFeeCents === 8618 && fee.netCents === 217_382 && fee.estimatedFeeCents === 6810 && fee.stripeFeeCents === 8392, fee);
+}
+{
+  const log = [];
+  const client = fakeStripeForIntents({
+    pi_fx: { id: "pi_fx", currency: "usd", amount: 226_000, amount_received: 226_000, application_fee_amount: 6810, metadata: { fq_fee_estimate_cents: "6810", fq_recovery_cents: "0", companyId: "co1" }, latest_charge: { id: "ch_f", payment_method_details: { type: "card" }, balance_transaction: { fee: 12912 }, transfer: "tr_f" } },
+  }, log);
+  const fee = await settledFeeFor("pi_fx", { stripe: client });
+  const rev = log.find((l) => l.op === "reversal");
+  ok("USD from a US card on a CA contractor (intl + conversion, actual 12912): 6328 reversed, fee 13138",
+    rev?.params.amount === 6328 && fee.processingFeeCents === 13_138 && fee.netCents === 212_862, fee);
+}
+{
+  const log = [];
+  const client = fakeStripeForIntents({
+    pi_cheap: { id: "pi_cheap", currency: "cad", amount: 226_000, amount_received: 226_000, application_fee_amount: 6810, latest_charge: { id: "ch_c", payment_method_details: { type: "card" }, balance_transaction: { fee: 6000 }, transfer: "tr_c" } },
+  }, log);
+  const fee = await settledFeeFor("pi_cheap", { stripe: client });
+  ok("a card Stripe charged LESS for than estimated: no reversal, fee stays the published 6810",
+    !log.some((l) => l.op === "reversal") && fee.processingFeeCents === 6810);
+}
+{
+  // Account-fee recovery riding on the charge, marked recovered at settlement.
+  const log = [];
+  const client = fakeStripeForIntents({
+    pi_rec: { id: "pi_rec", currency: "cad", amount: 226_000, amount_received: 226_000, application_fee_amount: 7035, metadata: { fq_fee_estimate_cents: "6810", fq_recovery_cents: "225", companyId: "co1" }, latest_charge: { id: "ch_r", payment_method_details: { type: "card" }, balance_transaction: { fee: 6584 }, transfer: "tr_r" } },
+  }, log);
+  const ledgerRows = new Map([["r1", { id: "r1", companyId: "co1", currency: "cad", feeCents: 200, recoveredCents: 0, period: "2026-08", createdAt: new Date(1) }], ["r2", { id: "r2", companyId: "co1", currency: "cad", feeCents: 100, recoveredCents: 0, period: "2026-09", createdAt: new Date(2) }]]);
+  const db = {
+    connectFeeRecovery: {
+      findMany: async ({ where, orderBy }) => [...ledgerRows.values()].filter((r) => (where.recoveredOnPaymentIntent ? r.recoveredOnPaymentIntent === where.recoveredOnPaymentIntent : r.companyId === where.companyId && r.currency === where.currency)).sort((a, b) => a.period.localeCompare(b.period)),
+      update: async ({ where, data }) => { const r = ledgerRows.get(where.id); r.recoveredCents += data.recoveredCents.increment; r.recoveredOnPaymentIntent = data.recoveredOnPaymentIntent; r.recoveredAt = data.recoveredAt; return r; },
+    },
+  };
+  const fee = await settledFeeFor("pi_rec", { stripe: client, db });
+  ok("a charge carrying 225 of account-fee recovery: processing fee 6810 (unchanged), account fee 225 its own figure, net 218965, period = the oldest month recovered",
+    fee.processingFeeCents === 6810 && fee.accountFeeRecoveredCents === 225 && fee.netCents === 218_965 && fee.accountFeePeriod === "2026-08", fee);
+  ok("  ^ the ledger rows are marked recovered oldest-first: 200 of Aug, 25 of Sept, stamped with the intent",
+    ledgerRows.get("r1").recoveredCents === 200 && ledgerRows.get("r2").recoveredCents === 25 && ledgerRows.get("r1").recoveredOnPaymentIntent === "pi_rec");
+  const again = await settledFeeFor("pi_rec", { stripe: client, db });
+  ok("  ^ a redelivered settlement allocates nothing more", again.accountFeeRecoveredCents === 225 && ledgerRows.get("r2").recoveredCents === 25);
+}
+{
+  const log = [];
+  const client = fakeStripeForIntents({
+    pi_affirm: { id: "pi_affirm", currency: "cad", amount: 226_000, amount_received: 226_000, application_fee_amount: 6810, latest_charge: { id: "ch_2", payment_method_details: { type: "affirm" }, balance_transaction: { fee: 13_590 }, transfer: "tr_2" } },
   }, log);
   const fee = await settledFeeFor("pi_affirm", { stripe: client });
   const rev = log.find((l) => l.op === "reversal");
-  ok("an Affirm intent: the difference to Stripe's ACTUAL Affirm fee is reversed from the transfer (13590 − 6810 = 6780)",
-    rev && rev.tr === "tr_2" && rev.params.amount === 6780, rev?.params);
-  ok("  ^ idempotent per intent", rev?.opts?.idempotencyKey === "fq-affirm-fee-pi_affirm");
-  ok("  ^ and the row records the full Affirm fee: 13590, net 212410, label 'affirm'",
-    fee.processingFeeCents === 13_590 && fee.netCents === 212_410 && fee.feeRateLabel === "affirm", fee);
+  ok("an Affirm intent: the difference to Stripe's ACTUAL Affirm fee is reversed from the transfer (13590 − (6810 − 226) = 7006)",
+    rev && rev.tr === "tr_2" && rev.params.amount === 7006, rev?.params);
+  ok("  ^ idempotent per intent, the same key every true-up uses", rev?.opts?.idempotencyKey === "fq-fee-trueup-pi_affirm");
+  ok("  ^ and the row records Affirm's actual fee + the margin: 13816, net 212184, label 'affirm'",
+    fee.processingFeeCents === 13_816 && fee.netCents === 212_184 && fee.feeRateLabel === "affirm", fee);
 }
 {
   const log = [];
   globalThis.__reversalFails = true;
   const client = fakeStripeForIntents({
-    pi_affirm2: { id: "pi_affirm2", amount: 10_000, amount_received: 10_000, application_fee_amount: 330, latest_charge: { id: "ch_3", payment_method_details: { type: "affirm" }, balance_transaction: { fee: 630 }, transfer: "tr_3" } },
+    pi_affirm2: { id: "pi_affirm2", currency: "cad", amount: 10_000, amount_received: 10_000, application_fee_amount: 330, latest_charge: { id: "ch_3", payment_method_details: { type: "affirm" }, balance_transaction: { fee: 630 }, transfer: "tr_3" } },
   }, log);
   const fee = await settledFeeFor("pi_affirm2", { stripe: client });
   globalThis.__reversalFails = false;
-  ok("a failed Affirm true-up still records the payment, with the fee that WAS collected (never overcharges)",
+  ok("a failed true-up still records the payment, with the fee that WAS collected (never overcharges)",
     fee.processingFeeCents === 330 && fee.netCents === 9670);
 }
 {
@@ -343,6 +437,9 @@ function fakeStripeForIntents(intents, log = []) {
   const client = fakeStripeForIntents({}, log);
   const fee = await settledFeeFor({ id: "pi_obj", amount_received: 5000, application_fee_amount: 180, latest_charge: { payment_method_details: { type: "card" } } }, { stripe: client });
   ok("an already-expanded intent object is read without a second retrieve", fee.processingFeeCents === 180 && log.length === 0);
+  ok("the settlement writes estimate / actual / account-fee columns on Payment and Booking",
+    /estimatedFeeCents:/.test(read("lib/invoices/recordStripePayment.js")) && /accountFeeRecoveredCents:/.test(read("lib/invoices/recordStripePayment.js")) &&
+      /feeEstimatedCents:/.test(read("lib/booking/settleBookingFee.js")) && /feeAccountRecoveredCents:/.test(read("lib/booking/settleBookingFee.js")));
 }
 
 // recordStripePayment writes the three columns.
@@ -478,10 +575,87 @@ ok("the dispute fee is $15 (1500¢)", DISPUTE_FEE_CENTS === 1500);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+console.log("\n── 6b. Connect account fees: the ledger, the cap, the carry-forward ──\n");
+
+{
+  const ledger = await import("@/lib/stripe/connectFeeLedger.js");
+  const { recoveryOnCharge, allocateRecovery, applyRecovery, outstandingRecoveryCents, connectFeeTotals } = ledger;
+  const r1 = recoveryOnCharge({ outstandingCents: 225, processingFeeCents: 6810, amountCents: 226_000 });
+  ok("$2.25 owed on a $2,260 charge: all of it rides, nothing carries forward", r1.recoverCents === 225 && r1.carryForwardCents === 0);
+  const r2 = recoveryOnCharge({ outstandingCents: 5_000, processingFeeCents: 60, amountCents: 1000 });
+  ok("$50 owed on a $10 charge: $9.40 rides (fee ≤ amount), $40.60 carries forward", r2.recoverCents === 940 && r2.carryForwardCents === 4060, r2);
+  const r3 = recoveryOnCharge({ outstandingCents: 0, processingFeeCents: 60, amountCents: 1000 });
+  ok("nothing owed → nothing rides", r3.recoverCents === 0);
+  const r4 = recoveryOnCharge({ outstandingCents: 300, processingFeeCents: 1000, amountCents: 1000 });
+  ok("a charge whose processing fee already equals the amount carries none of it", r4.recoverCents === 0 && r4.carryForwardCents === 300);
+  const alloc = allocateRecovery([{ id: "a", feeCents: 200, recoveredCents: 150, period: "2026-07" }, { id: "b", feeCents: 25, recoveredCents: 0, period: "2026-08" }, { id: "c", feeCents: 100, recoveredCents: 0, period: "2026-09" }], 90);
+  ok("allocation is oldest-first and never exceeds what a row still owes: 50 + 25 + 15",
+    alloc.updates.map((u) => `${u.id}:${u.addCents}`).join() === "a:50,b:25,c:15" && alloc.unallocatedCents === 0, alloc);
+
+  const rows = new Map([["x", { id: "x", companyId: "co1", currency: "cad", feeCents: 225, recoveredCents: 0, period: "2026-09", createdAt: new Date(1) }], ["y", { id: "y", companyId: "co1", currency: "usd", feeCents: 100, recoveredCents: 0, period: "2026-09", createdAt: new Date(2) }]]);
+  const db = {
+    connectFeeRecovery: {
+      findMany: async ({ where = {} }) => [...rows.values()].filter((r) => (where.recoveredOnPaymentIntent ? r.recoveredOnPaymentIntent === where.recoveredOnPaymentIntent : (!where.companyId || r.companyId === where.companyId) && (!where.currency || r.currency === where.currency))),
+      update: async ({ where, data }) => { const r = rows.get(where.id); r.recoveredCents += data.recoveredCents.increment; r.recoveredOnPaymentIntent = data.recoveredOnPaymentIntent; r.recoveredAt = data.recoveredAt; return r; },
+    },
+  };
+  ok("outstanding is per currency: 225 in CAD, 100 in USD — a CAD fee never rides on a USD charge",
+    (await outstandingRecoveryCents({ companyId: "co1", currency: "cad" }, { db })) === 225 && (await outstandingRecoveryCents({ companyId: "co1", currency: "usd" }, { db })) === 100);
+  const applied = await applyRecovery({ companyId: "co1", currency: "cad", cents: 225, paymentIntentId: "pi_1" }, { db });
+  ok("applyRecovery marks the CAD row recovered on the intent", applied.appliedCents === 225 && rows.get("x").recoveredCents === 225 && rows.get("x").recoveredOnPaymentIntent === "pi_1");
+  ok("  ^ and a second call on the same intent applies nothing", (await applyRecovery({ companyId: "co1", currency: "cad", cents: 225, paymentIntentId: "pi_1" }, { db })).appliedCents === 0);
+  ok("  ^ a company that never pays again simply stays outstanding — the USD row is untouched, never written off",
+    (await outstandingRecoveryCents({ companyId: "co1", currency: "usd" }, { db })) === 100);
+  const totals = await connectFeeTotals({ month: "2026-09" }, { db });
+  ok("platform totals per currency: CAD recovered 225 / outstanding 0; USD recovered 0 / outstanding 100",
+    totals.cad.recoveredThisMonthCents === 225 && totals.cad.outstandingCents === 0 && totals.usd.outstandingCents === 100 && totals.usd.billedThisMonthCents === 100, totals);
+
+  const feesLib = await import("@/lib/stripe/connectFees.js");
+  const { classifyFeeTransaction, collectConnectFees } = feesLib;
+  const active = classifyFeeTransaction({ id: "txn_a", type: "stripe_fee", amount: -200, currency: "cad", created: 1_788_000_000, description: "Connect: monthly active account fee for acct_contractor" });
+  ok("a stripe_fee naming an account and 'active' → active_account, 200¢, period from created", active && active.kind === "active_account" && active.feeCents === 200 && active.stripeAccountId === "acct_contractor" && /^\d{4}-\d{2}$/.test(active.period), active);
+  const payout = classifyFeeTransaction({ id: "txn_p", type: "stripe_fee", amount: -25, currency: "cad", created: 1_788_000_000, description: "Payout fee (acct_contractor)" });
+  ok("  ^ 'payout' → payout", payout?.kind === "payout" && payout.feeCents === 25);
+  ok("a stripe_fee with no account in its description is not a company's (Radar, Identity) → null",
+    classifyFeeTransaction({ id: "txn_r", type: "stripe_fee", amount: -5, currency: "cad", description: "Radar for Fraud Teams" }) === null);
+  ok("a connect_collection_transfer or a payout type is never read as a fee",
+    classifyFeeTransaction({ id: "t", type: "connect_collection_transfer", amount: 200, description: "acct_x" }) === null && classifyFeeTransaction({ id: "t", type: "payout", amount: -1000, description: "acct_x" }) === null);
+  ok("a positive stripe_fee (a refunded fee) is not a charge to recover", classifyFeeTransaction({ id: "t", type: "stripe_fee", amount: 200, description: "acct_x refund" }) === null);
+
+  // The cron, end to end, with a scripted Stripe and a fake ledger.
+  const written = [];
+  const listCalls = [];
+  const client = { balanceTransactions: { list: async (params) => { listCalls.push(params); return { data: [
+    { id: "txn_a", type: "stripe_fee", amount: -200, currency: "cad", created: 1_788_000_000, description: "Connect: monthly active account fee for acct_contractor" },
+    { id: "txn_p", type: "stripe_fee", amount: -25, currency: "cad", created: 1_788_000_000, description: "Payout fee (acct_contractor)" },
+    { id: "txn_u", type: "stripe_fee", amount: -25, currency: "cad", created: 1_788_000_000, description: "Payout fee (acct_unknown)" },
+    { id: "txn_r", type: "stripe_fee", amount: -5, currency: "cad", created: 1_788_000_000, description: "Radar" },
+  ], has_more: false }; } } };
+  const cronDb = {
+    company: { findMany: async () => [{ id: "co1", stripeAccountId: "acct_contractor" }] },
+    connectFeeRecovery: {
+      findUnique: async ({ where }) => written.find((w) => w.stripeBalanceTransactionId === where.stripeBalanceTransactionId) || null,
+      create: async ({ data }) => { written.push(data); return data; },
+    },
+  };
+  const stats = await collectConnectFees({ days: 3 }, { stripe: client, db: cronDb });
+  ok("the cron lists platform stripe_fee transactions for the window and writes one row per company fee",
+    listCalls[0].type === "stripe_fee" && stats.written === 2 && written.every((w) => w.companyId === "co1"), stats);
+  ok("  ^ skips fees naming no account (1) and accounts that are nobody's (1), and says so", stats.skippedNoAccount === 1 && stats.skippedUnknownCompany === 1);
+  const again = await collectConnectFees({ days: 3 }, { stripe: client, db: cronDb });
+  ok("  ^ a second run writes nothing (keyed on the balance transaction id)", again.written === 0 && written.length === 2);
+  ok("the cron is scheduled in vercel.json and authenticated", /\/api\/cron\/connect-fees/.test(read("vercel.json")) && /requireCronSecret/.test(read("app/api/cron/connect-fees/route.js")));
+  ok("the platform card reads the ledger totals through its own gated route",
+    /getCurrentPlatformAdmin/.test(read("app/api/platform/billing/connect-fees/route.js")) && /\/api\/platform\/billing\/connect-fees/.test(read("app/platform/billing/plans/ProcessingRatesCard.js")));
+  ok("the invoice screen prints the account fee as its own line", /app\.invoiceDetail\.accountFeeLine/.test(read("app/app/invoices/[id]/page.js")));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 console.log("\n── 7. Instant payouts: the gate, the numbers, the button ─────────────\n");
 
 const rules = await import("@/lib/stripe/instantPayoutRules.js");
-const { instantPayoutEligibility, reportedFeePercent, INSTANT_PAYOUT_MIN_ACCOUNT_AGE_DAYS } = rules;
+const { instantPayoutEligibility, reportedFeePercent, INSTANT_PAYOUT_MIN_ACCOUNT_AGE_DAYS, INSTANT_PAYOUTS_ENABLED } = rules;
+ok("the platform switch ships ON (owner, 2026-09-12: offered with the fee stated plainly)", INSTANT_PAYOUTS_ENABLED === true);
 const NOW = Date.parse("2026-09-12T12:00:00Z");
 const daysAgo = (d) => Math.floor((NOW - d * 86_400_000) / 1000);
 const card = { id: "card_1", object: "card", last4: "4242", currency: "cad", available_payout_methods: ["standard", "instant"] };
@@ -547,6 +721,25 @@ ok("refused: no balance object", instantPayoutEligibility({ company, account: ac
 
   const young = await createInstantPayout({ company, userId: "u1", requestId: "req-4" }, { stripe: { ...client, accounts: { retrieve: async () => account({ created: daysAgo(3) }) } }, db, now: NOW });
   ok("below the gate: refused before any payout is attempted", young.ok === false && young.reason === "account_too_new" && log.filter((l) => l.op === "payout").length === 2);
+  const off = await createInstantPayout({ company, userId: "u1", requestId: "req-5" }, { stripe: client, db, now: NOW, enabled: false });
+  ok("with the switch off: refused as 404 'disabled' before Stripe is read", off.ok === false && off.reason === "disabled" && off.status === 404 && log.filter((l) => l.op === "payout").length === 2);
+}
+{
+  const card = read("app/app/settings/payments/InstantPayoutCard.js");
+  const route = read("app/api/stripe/connect/instant-payout/route.js");
+  ok("the route answers 404 for GET and POST when the switch is off", (route.match(/if \(!INSTANT_PAYOUTS_ENABLED\) return OFF\(\);/g) || []).length === 2);
+  ok("the card renders nothing when the switch is off", /if \(!INSTANT_PAYOUTS_ENABLED \|\| !connected\) return null;/.test(card));
+  ok("the fee disclaimer is on the card BEFORE the button and again on the confirm step",
+    /data-instant-disclaimer="card"/.test(card) && /data-instant-disclaimer="confirm"/.test(card) && card.indexOf('data-instant-disclaimer="card"') < card.indexOf("instantButton"));
+  ok("the confirm step shows Stripe's exact gross · fee · net and only the confirm sends",
+    /instantConfirmLine/.test(card) && /gross: money\(state\.grossCents/.test(card) && /onClick=\{handlePayout\}/.test(card) && /onClick=\{\(\) => setConfirming\(true\)\}/.test(card));
+  const { APP_MESSAGES } = await import("@/app/i18n/appMessages.js");
+  const en = APP_MESSAGES.en["app.setPayments.instantDisclaimer"];
+  ok("the English disclaimer says 1%, at cost, FieldQuo keeps none, standard payouts free (~2 business days), ~30 minutes, bank may delay",
+    /\{rate\}/.test(en) && /at cost/.test(en) && /keeps none/.test(en) && /free/.test(en) && /2 business days/.test(en) && /30 minutes/.test(en) && /delayed by your bank/.test(en));
+  ok("  ^ and exists, translated, in all 9 languages",
+    Object.keys(APP_MESSAGES).every((l) => typeof APP_MESSAGES[l]["app.setPayments.instantDisclaimer"] === "string" && APP_MESSAGES[l]["app.setPayments.instantConfirmLine"]) &&
+      Object.keys(APP_MESSAGES).filter((l) => l !== "en").every((l) => APP_MESSAGES[l]["app.setPayments.instantDisclaimer"] !== en));
 }
 {
   const route = read("app/api/stripe/connect/instant-payout/route.js");
@@ -580,7 +773,17 @@ console.log("\n── 8. Export, invoice screen, i18n ────────�
     ],
   });
   const pay = out.files.find((f) => f.kind === "payments").csv.split("\n");
-  ok("the payments file carries Processing fee / Net deposited / Fee rate columns", /Processing fee,Net deposited,Fee rate/.test(pay[0]));
+  ok("the payments file carries Processing fee / Net deposited / Fee rate / Stripe account fees columns", /Processing fee,Net deposited,Fee rate,Stripe account fees/.test(pay[0]));
+  {
+    const withAcct = buildAccountingExport({
+      from: "2026-09-01", to: "2026-09-30", currency: "CAD",
+      invoices: [{ id: "i1", invoiceNumber: "INV-1", total: 2260, tax: 0, amountPaid: 2260, status: "paid", createdAt: new Date("2026-09-10"), client: { name: "H" } }],
+      payments: [{ id: "p1", invoiceId: "i1", amount: 2260, method: "stripe", date: new Date("2026-09-11"), stripePaymentIntentId: "pi_1", processingFeeCents: 6810, netCents: 218_965, feeRateLabel: "card", accountFeeRecoveredCents: 225, accountFeePeriod: "2026-08", invoice: { invoiceNumber: "INV-1", client: { name: "H" } } }],
+    });
+    const line = withAcct.files.find((f) => f.kind === "payments").csv.split("\n")[1];
+    ok("  ^ a payment carrying account-fee recovery prints it in its own column (2.25), beside — not inside — the processing fee", /68\.10,2189\.65,card,2\.25/.test(line), line);
+    ok("  ^ and the summary totals it separately", /Stripe account fees/.test(withAcct.files.find((f) => f.kind === "summary").csv) && withAcct.totals.CAD.accountFees === 2.25);
+  }
   ok("  ^ the Stripe payment shows 2260.00 gross, 68.10 fee, 2191.90 net, 'card'", /2260\.00,68\.10,2191\.90,card/.test(pay[1]), pay[1]);
   ok("  ^ the cash payment leaves the fee cells BLANK, not 0.00", /100\.00,,,,/.test(pay[2]), pay[2]);
   ok("  ^ payments received stays gross", out.totals.CAD.paid === 2360);
@@ -605,8 +808,10 @@ console.log("\n── 8. Export, invoice screen, i18n ────────�
 {
   const schema = read("prisma/schema.prisma");
   const paymentModel = schema.slice(schema.indexOf("model Payment {"), schema.indexOf("model Payment {") + schema.slice(schema.indexOf("model Payment {")).indexOf("\n}\n"));
-  ok("Payment has processingFeeCents / netCents / feeRateLabel and the three dispute columns, all nullable",
-    ["processingFeeCents Int?", "netCents           Int?", "feeRateLabel       String?", "disputeHeldCents     Int?", "disputeFeeCents      Int?", "disputeReturnedCents Int?"].every((c) => paymentModel.includes(c)));
+  ok("Payment has processingFeeCents / netCents / feeRateLabel, estimate / actual, account-fee and the three dispute columns, all nullable",
+    ["processingFeeCents Int?", "netCents           Int?", "feeRateLabel       String?", "estimatedFeeCents  Int?", "stripeFeeCents     Int?", "accountFeeRecoveredCents Int?", "accountFeePeriod         String?", "disputeHeldCents     Int?", "disputeFeeCents      Int?", "disputeReturnedCents Int?"].every((c) => paymentModel.includes(c)));
+  ok("ConnectFeeRecovery is company-scoped and keyed on the balance transaction",
+    /model ConnectFeeRecovery \{[\s\S]*companyId String[\s\S]*stripeBalanceTransactionId String @unique[\s\S]*recoveredCents\s+Int\s+@default\(0\)/.test(schema));
   ok("Booking has feeProcessingCents / feeNetCents / feeRateLabel", /feeProcessingCents\s+Int\?/.test(schema) && /feeNetCents\s+Int\?/.test(schema));
   ok("InstantPayout is company-scoped with gross, net and payout id", /model InstantPayout \{[\s\S]*companyId String[\s\S]*stripePayoutId String @unique[\s\S]*grossCents\s+Int[\s\S]*netCents\s+Int/.test(schema));
 }

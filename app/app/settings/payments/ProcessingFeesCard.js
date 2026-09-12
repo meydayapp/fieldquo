@@ -12,7 +12,7 @@
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
-import { publishedRates, feeBreakdown } from "@/lib/stripe/processingFee";
+import { publishedRates, publishedSurcharges, feeBreakdown } from "@/lib/stripe/processingFee";
 
 // The example every contractor sees: a mid-sized job, paid by card.
 const EXAMPLE_CENTS = 226_000;
@@ -39,7 +39,18 @@ export default function ProcessingFeesCard({ currency, offerFinancing }) {
             <dd className="tabular-nums font-medium text-foreground">{r.formula}</dd>
           </div>
         ))}
+        {/* Stripe's two card surcharges, listed as Stripe publishes them —
+            unknown until the card is charged, passed through at cost when
+            they apply (lib/stripe/paymentIntentFee.js trues the fee up). */}
+        {publishedSurcharges().map((x) => (
+          <div key={x.kind} className="flex items-center justify-between py-2.5 text-sm">
+            <dt className="text-muted-foreground">{t(`app.setPayments.surcharge.${x.kind}`)}</dt>
+            <dd className="tabular-nums text-muted-foreground">{x.formula}</dd>
+          </div>
+        ))}
       </dl>
+      <p className="mt-2 text-xs text-muted-foreground">{t("app.setPayments.surchargeNote")}</p>
+      <p className="mt-1.5 text-xs text-muted-foreground">{t("app.setPayments.accountFeesNote")}</p>
 
       <p className="mt-4 text-xs text-muted-foreground">
         {t("app.setPayments.feesExample", {

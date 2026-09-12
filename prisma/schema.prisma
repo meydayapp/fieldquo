@@ -1158,6 +1158,7 @@ model Company {
   /// Add @unique the next time this model is migrated deliberately.
   signupNudgeOptOutToken String?
   @@index([signupNudgeOptOutToken])
+  @@index([demoOwnerRepId])
 
   // Boilerplate "what happens next" copied onto every new quote — timelines,
   // site access, payment schedule, warranty, who to call. Written once in
@@ -1607,6 +1608,27 @@ model Company {
   /// Which industry preset this demo is currently dressed as
   /// (see lib/demo/industries.js). Null on real companies.
   demoIndustry String?
+
+  // ── A rep's own demo, as opposed to the shared pool ──────────────────────
+  //
+  // The ten seeded fixtures (demo1..demo10) have all three of these null: they
+  // are the POOL, held one-at-a-time through SalesRep.demoCompanyId and run by
+  // the platform console. A company with demoOwnerRepId set was seeded FOR one
+  // rep by lib/sales/repDemo.js, and nobody else is ever pointed at it — two
+  // reps demoing at the same time used to see each other's edits in a shared
+  // fixture, which is the whole reason these exist.
+  //
+  // demoRepSlot is "<repId>:<trade>" while the demo is live and null once it is
+  // retired, so the @unique is what makes seeding idempotent under two tabs:
+  // the second insert for the same rep and trade is refused by Postgres, not
+  // by a read that raced. A reset never deletes — it retires this row
+  // (demoRetiredAt, slot cleared) and seeds a fresh one for the same slot.
+  // Retired rows keep isDemo = true so every exclusion that keys on it keeps
+  // applying to them.
+  demoOwnerRepId String?
+  demoOwnerRep   SalesRep? @relation("RepOwnedDemos", fields: [demoOwnerRepId], references: [id], onDelete: SetNull)
+  demoRepSlot    String?   @unique
+  demoRetiredAt  DateTime?
   voiceCallTasks VoiceCallTask[]
   crewMessages CrewInboundMessage[]
   crewLine     CrewInboxNumber?
@@ -1713,6 +1735,7 @@ model Company {
   chatMessages          CompanyChatMessage[]
   // Instant payouts the company requested from Settings → Payments.
   instantPayouts        InstantPayout[]
+  connectFeeRecoveries  ConnectFeeRecovery[]
 }
 
 /// Configuration for the bio-link page at /l/<slug> — the single link an
@@ -3101,6 +3124,22 @@ model Payment {
   processingFeeCents Int?
   netCents           Int?
   feeRateLabel       String?
+  // The published-rate ESTIMATE the charge was created with, and Stripe's
+  // ACTUAL fee from the charge's balance transaction (which carries the
+  // international-card and currency-conversion surcharges). When the actual
+  // Stripe cost exceeds the estimate's Stripe share, the difference is
+  // reversed from the transfer and processingFeeCents above becomes the
+  // trued-up figure — see lib/stripe/paymentIntentFee.js. These two stay so
+  // "expected vs actual" can be reported; a row settled before true-ups
+  // shipped has them null.
+  estimatedFeeCents  Int?
+  stripeFeeCents     Int?
+  // Stripe's Connect account fees (monthly active account, per-payout)
+  // recovered on THIS payment as an extra application fee — its own line on
+  // the invoice, never folded into the processing fee. accountFeePeriod is
+  // the earliest month recovered ("2026-09"). See lib/stripe/connectFeeLedger.js.
+  accountFeeRecoveredCents Int?
+  accountFeePeriod         String?
 
   // ── What a chargeback cost the contractor ────────────────────────────────
   //
@@ -5607,6 +5646,9 @@ model Booking {
   feeProcessingCents       Int?
   feeNetCents              Int?
   feeRateLabel             String?
+  feeEstimatedCents        Int?
+  feeStripeCents           Int?
+  feeAccountRecoveredCents Int?
 
   // The Stripe Checkout Session this hold was sent to.
   //
@@ -9167,6 +9209,9 @@ model SalesRep {
   /// at the same demo and reset it out from under each other mid-walkthrough.
   demoCompanyId String?  @unique
   demoCompany   Company? @relation(fields: [demoCompanyId], references: [id])
+  /// Every demo company seeded for this rep, live and retired. The pointer
+  /// above is which one they are driving now; see Company.demoOwnerRepId.
+  ownedDemos    Company[] @relation("RepOwnedDemos")
 
   // ── How this person is engaged, and how they get paid ──────────────────
   //
@@ -9630,6 +9675,52 @@ model InstantPayout {
   createdAt DateTime @default(now())
 
   @@index([companyId, createdAt])
+}
+
+// ============================================================
+// CONNECT FEE RECOVERY — Stripe's Express account fees, billed to the
+// platform, recovered from the company on its next payment.
+//
+// Stripe bills the PLATFORM for a connected Express account: a monthly
+// active-account fee (C$2 / US$2, only in a month the account has activity)
+// and a per-payout fee (0.25% + 25¢ of each payout). Account debits — a
+// transfer from the connected account to the platform — are region-locked
+// and unavailable for a US contractor on a Canadian platform, so the
+// recovery rides on the company's NEXT destination charge as an addition to
+// its application fee, capped so fee ≤ amount, with the remainder carrying
+// forward. One row per Stripe balance transaction (its id is the unique
+// key), so the daily cron can re-read the same window without double
+// billing. A company that never pays again keeps an outstanding balance
+// that is never collected — reported as a platform cost on
+// /platform/billing/plans, never written off silently.
+// ============================================================
+model ConnectFeeRecovery {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// "active_account" | "payout" | "other" — from the balance transaction's description.
+  kind   String
+  /// The platform balance transaction (`txn_…`) that billed this fee.
+  stripeBalanceTransactionId String @unique
+  /// "2026-09" — the month Stripe billed it in.
+  period   String
+  currency String
+  feeCents Int
+  /// Stripe's own wording, kept for the platform's audit line.
+  description String?
+
+  /// How much of feeCents has been added to an application fee so far, and
+  /// on which PaymentIntent the last recovery rode. A row is outstanding
+  /// while recoveredCents < feeCents.
+  recoveredCents           Int       @default(0)
+  recoveredOnPaymentIntent String?
+  recoveredAt              DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, recoveredAt])
+  @@index([period])
 }
 
 model SalesPayoutBatch {
