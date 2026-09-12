@@ -1,12 +1,104 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 11 September 2026 (the rep console in the reference dialler's shape — sidebar, phone-style Dialer left, one tall tabbed card right, incoming call as a top drawer, "lead" everywhere a rep reads — and the rolling batch: 25 open-now rows, topped up under 5, zone chips ET/CT/MT/PT; the section below; `check:sales-console`, `check:sales-portal-i18n` §8; docs/screens/sales-console.)
+Last updated: 11 September 2026 (the Review folder at /platform/sales/review — every prospect that needs a human across every campaign, three honest trade suggestions per row with their basis, keyboard decisions, bulk assign/reject by filter, and the licence-register rule: an RBQ/CSLB/CCB row is a contractor by definition; 115,526 rows reclassified in production; `check:review-folder`; docs/screens/platform-review.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The Review folder: a trade for 117,000 licensed contractors nobody could dial (11 September 2026)
+
+Measured in production before this landed: the Quebec RBQ campaigns found
+49,187 licensed contractors (99.99% with a phone) and accepted **none** —
+39,654 sat in `needs_review` with "Nothing in the source says whether this is
+a contractor or a shop", 9,505 were `contractor` with `tradeKey: null`; the
+California CSLB parts banked ~68,000 more the same way. The queue claims by
+exact trade key, so not one could be dialled. The owner's decision, verbatim:
+"you can put it in a review folder.. where we can manually select the trade".
+
+- **The classification was wrong at the source, and is fixed there.**
+  `lib/sales/discovery/licenceRegisters.js` names the four contractor-licence
+  registers (rbq, us_ca_cslb, us_wa_lni, us_or_ccb); `planIngest` now turns a
+  `needs_review` verdict into `contractor` with "Holds a contractor licence
+  (Quebec RBQ)." for a row from one of them — ONLY needs_review; a supplier
+  NAME is still a retailer. The trade is still never guessed from a licence
+  (rbq/provider.js's header stands). `lib/sales/discovery/reclassifyRegisters.js`
+  + `scripts/reclassify-licence-registers.mjs` (and the folder's maintenance
+  panel, `POST /api/platform/sales/review/reclassify`) re-classified the
+  existing rows: dry run planned 115,454; the real run wrote **115,526**
+  (rbq 37,010 · us_ca_cslb 75,974 of which 25,226 carried a trade and are now
+  accepted and claimable · us_or_ccb 2,542) across 8 campaigns in 38 s, every
+  campaign's funnel reconciling before and after (funnelProblems() empty on
+  all 20). 3,314 dup-flagged rows were left in needs_review for the folder's
+  duplicate bucket. Idempotent: the second dry run planned 64 — new rows the
+  still-running Oregon campaign wrote under the old deploy.
+- **The folder** (`app/platform/sales/review/page.js`, sidebar row "Review
+  folder" with a count badge from `/api/platform/sales/review/count`,
+  superadmin only): every row that is `needs_review`, or contractor with no
+  trade, or flagged as a possible duplicate — 255,842 at the time of writing
+  — minus rows a rep holds and do-not-contact rows, which are excluded in the
+  WHERE and re-excluded on every write. Filters: reason · source · province ·
+  campaign · name/trading name/phone/licence search · website · shop-word.
+  Server-paginated at 50 over one raw WHERE (`reviewWhereSql`) shared by the
+  count, the page and the bulk select; sorted skipped-last, keyword-name
+  first, website next, oldest next. Each row: name, trading names, city ·
+  province, phone, website or "none", source + licence number, the licence's
+  authorisations IN WORDS (`lib/sales/discovery/rbq/subcategories.js` — the
+  Régie's own list, read off rbq.gouv.qc.ca; CSLB/L&I/CCB from
+  usBoard/classes.js), the classifier's reason, reason chips, the duplicate
+  it was flagged against, up to three suggested trades with a basis chip,
+  the trade picker, Accept · Duplicate · Not a contractor · Still unsure.
+  Keys: j/k, 1–9, Enter, x, d, s, /.
+- **Suggestions are honest and cheap** (`lib/sales/discovery/tradeSuggest.js`,
+  pure): name keywords in French and English on an accent-folded copy of the
+  name and every trading name ("toitur", "electro ", "plomb", "paysag",
+  "cuisine"/"armoire" → cabinets, "gypse" → drywall, "CVC"/"chauffage" → hvac,
+  "entrepreneur general" → general contracting…); the licence when, with the
+  general-contractor scope set aside the way CSLB's unrestricted B is, exactly
+  one specific kind of work remains (16 alone → electrical; 15.5 → plumbing;
+  7, 9, 12 name several trades and suggest nothing; a US ambiguous class like
+  C-6 offers both trades it names); a `trade` ProspectInference the crawler
+  already wrote. A shop word ("dépôt", "boutique", "supply", "quincaillerie"…)
+  switches every suggestion off and the row says so. Executed against 53
+  hostile fixtures.
+- **Decisions** (`lib/sales/discovery/reviewFolder.js` → `reviewDecide.js`,
+  `POST /api/platform/sales/review`): accept with trade sets tradeKey,
+  classification contractor, "A superadmin reviewed this and chose <trade>.",
+  clears the duplicate flag, writes a ProspectCorrection on field:tradeKey,
+  moves the campaign's counters by the bucket the row was READ in (needs_review
+  → accepted; banked → unmapped −1, banked −1, accepted +1; ready/noWebsite
+  subsets follow), audits, and queues research on the backlog lane. Reject
+  and duplicate keep the campaign route's semantics; skip stamps
+  `Prospect.reviewDeferredAt` (new, additive) so the row sorts behind the
+  rest. Every update is guarded on the status read and the untouchable rule;
+  a stale row is a 409 with nothing written.
+- **Bulk** (`lib/sales/discovery/reviewBulk.js`, `POST …/review/bulk`):
+  "Select all N matching this filter" → assign a trade, or — on the shop-word
+  filter only — reject all as shops, after a confirmation naming three rows.
+  The server re-runs the filter, refuses if the count drifted more than 2%,
+  writes in one transaction with the guard on every updateMany, one
+  correction per row (createMany), counters per campaign, ONE audit row
+  (`sales_prospects_bulk_reviewed`) with the filter and the count. Research
+  is not queued in bulk; the backlog cron and the claim path pick those up.
+- `scripts/check-review-folder.mjs` (236 checks, in check:all): the fixtures,
+  every (bucket × decision) pair leaves funnelProblems() empty, the single
+  and bulk writers against an in-memory client whose SELECT deliberately
+  returns a held row and a suppressed row (rollback, nothing half-applied),
+  planIngest's licence rule, the SQL and the wiring. Five mutations caught.
+  Screens: docs/screens/platform-review/.
+
+### Still owed here
+
+- The page sort evaluates the keyword regex over the filtered set on every
+  load — ~2.7 s for the 49,000 RBQ rows. Fine for one superadmin; a stored
+  hint column would be the fix if two people work the folder at once.
+- `check:platform-console` is red at HEAD before this work: `app/sales/
+  SalesShell.js` lost `text-brand-accent-text` / `border-brand-accent` in the
+  console redesign. Not touched here (another agent owns app/sales/**).
 
 ---
 

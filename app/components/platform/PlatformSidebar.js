@@ -73,6 +73,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Beaker,
@@ -118,6 +119,7 @@ import {
   BookOpenCheck,
   HandCoins,
   Trash2,
+  Inbox,
 } from "lucide-react";
 
 const HOME_ITEM = { label: "Dashboard", href: "/platform", icon: LayoutDashboard, exact: true };
@@ -248,6 +250,13 @@ const GROUPS = [
       // one trade and one target, and the single-trade queue it produces is
       // the whole reason it is a campaign rather than a filter.
       { label: "Discovery campaigns", href: "/platform/sales/campaigns", icon: Radar },
+      // The rows discovery could not finish: contractors with no trade,
+      // rows the classifier could not place, possible duplicates — every
+      // campaign in one list, with a trade picker. Directly under campaigns
+      // because it is where a campaign's output goes when it needs a human,
+      // and the badge is the number waiting (superadmin only; the count
+      // route answers null for anyone else and no badge is drawn).
+      { label: "Review folder", href: "/platform/sales/review", icon: Inbox, badge: "review" },
       // Directly under campaigns, because it is the one thing a campaign needs
       // that a campaign cannot ask for: the public base URL of the bucket the
       // snapshot files were uploaded to. Set once. Every campaign's snapshot
@@ -355,6 +364,26 @@ const GROUPS = [
 export default function PlatformSidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  // The one badge on this rail: rows waiting in the Review folder. Fetched
+  // once per mount and again when the pathname changes, so leaving the folder
+  // after a session of decisions shows the new number. Null (no count, or not
+  // a superadmin) draws nothing rather than a zero.
+  const [reviewCount, setReviewCount] = useState(null);
+  useEffect(() => {
+    if (pathname === "/platform/login") return undefined;
+    let cancelled = false;
+    fetch("/api/platform/sales/review/count")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => {
+        if (!cancelled) setReviewCount(Number.isFinite(body?.count) ? body.count : null);
+      })
+      .catch(() => {
+        if (!cancelled) setReviewCount(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
 
   if (pathname === "/platform/login") return null;
 
@@ -379,6 +408,13 @@ export default function PlatformSidebar() {
       >
         <Icon size={16} className="shrink-0" />
         <span className="truncate">{item.label}</span>
+        {item.badge === "review" && reviewCount !== null && reviewCount > 0 ? (
+          // The selected fill's own foreground pair, so the pill measures the
+          // same as the selected row — no new colour on this rail.
+          <span className="ml-auto rounded-full bg-sidebar-primary text-sidebar-primary-foreground px-2 py-0.5 text-[11px] font-semibold tabular-nums" data-review-badge>
+            {reviewCount > 999 ? `${Math.floor(reviewCount / 1000)}k` : reviewCount}
+          </span>
+        ) : null}
       </Link>
     );
   }

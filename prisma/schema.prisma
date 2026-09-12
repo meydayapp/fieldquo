@@ -10224,6 +10224,12 @@ model Prospect {
   /// provenance, and a wrong merge is unrecoverable.
   possibleDuplicateOfId String?
 
+  /// When a superadmin looked at this row in the Review folder
+  /// (/platform/sales/review) and passed — "still unsure". Not a decision:
+  /// the row keeps its status and stays in the folder, and this only sorts it
+  /// behind the rows nobody has looked at yet. Null means nobody passed on it.
+  reviewDeferredAt DateTime?
+
   lastCrawledAt            DateTime?
   lastGoogleRefreshAt      DateTime?
   lastOpportunityAnalysisAt DateTime?
