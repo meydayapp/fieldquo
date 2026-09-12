@@ -34,5 +34,10 @@ const STUB = pathToFileURL(join(HERE, "fixtures", "dbStub.mjs")).href;
 
 export async function resolve(specifier, context, nextResolve) {
   if (specifier === "@/lib/db") return { url: STUB, shortCircuit: true };
+  // `next/server` is an "exports"-map entry the bundler understands and bare
+  // node does not (lib/rateLimit.js imports it for NextResponse). The FILE
+  // behind it loads and works, so this is a resolution fix, not a substitute
+  // — the same line timeclock-stub-hooks.mjs carries, and for the same reason.
+  if (specifier === "next/server") return nextResolve("next/server.js", context);
   return nextResolve(specifier, context);
 }

@@ -404,6 +404,13 @@ const PLATFORM_MAY_WRITE = {
   platformErrorLog:
     "FieldQuo's own error log. It carries a companyId to say where an error came " +
     "from, which is why it looks like tenant data and is not.",
+  signupOrigin:
+    "FieldQuo's own record of where a signup REQUEST came from (IP, Vercel geo " +
+    "headers, which door) and the flag decided on it — same family as " +
+    "platformErrorLog: companyId says who the row is about, not whose row it " +
+    "is. The console's one write is the review stamp (reviewedAt / " +
+    "reviewedById / reviewNote) through lib/platform/signupOrigin.js — never " +
+    "the company's own records.",
   serviceCategory:
     "The shared service catalogue — rows with companyId null, seeded by us. The " +
     "console creates system categories; a company's OWN custom categories are " +

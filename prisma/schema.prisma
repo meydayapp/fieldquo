@@ -70,6 +70,8 @@ model PlatformAdmin {
   ownedStaffRooms  StaffRoom[]
   /// Browsers this admin turned notifications on in. See PushSubscription.
   pushSubscriptions PushSubscription[]
+  /// Flagged signups this admin marked reviewed. See SignupOrigin.
+  signupReviews     SignupOrigin[]
 
   /// When this admin last called the staff chat API. Stamped by
   /// lib/staff/viewer.js, throttled, so the team directory can show a presence
@@ -1673,6 +1675,8 @@ model Company {
 
   salesAttribution SalesAttribution?
   salesRepDemo     SalesRep?
+  /// Where the signup request came from — FieldQuo's own record, see SignupOrigin.
+  signupOrigin     SignupOrigin?
   salesAttributionTouches SalesAttributionTouch[]
   salesCommissionEntries  SalesCommissionEntry[]
   /// Check-in texts a rep has DRAFTED about this company, sent or not. Nothing
@@ -9267,6 +9271,8 @@ model SalesRep {
   attributions      SalesAttribution[]
   touches           SalesAttributionTouch[]
   commissionEntries SalesCommissionEntry[]
+  /// Signups that arrived on this rep's link, with where the request came from.
+  signupOrigins     SignupOrigin[]
   /// Browsers this rep turned notifications on in. See PushSubscription.
   pushSubscriptions PushSubscription[]
   payoutBatches     SalesPayoutBatch[]
@@ -9393,6 +9399,107 @@ model SalesAttributionAudit {
   at            DateTime @default(now())
 
   @@index([companyId])
+}
+
+/// Where a signup request came from: the IP and what Vercel's edge said about
+/// it, the browser, and which door (rep link, referral, direct) it walked in.
+///
+/// ── Why it exists ─────────────────────────────────────────────────────────
+///
+/// The owner: "check if the IP of the company or person that signed up is from
+/// Canada or USA, and flag when it isn't" — especially for signups that came
+/// through a sales rep's link, because a rep is paid per signup and a link
+/// that brings in accounts from outside the market is the first thing to look
+/// at. One row per company, written by lib/platform/signupOrigin.js right
+/// after the Company row and never on the signup's critical path: a failure
+/// to record is logged and the signup still succeeds.
+///
+/// ── Not tenant data, and non-negotiable #3 is untouched ───────────────────
+///
+/// Same family as SalesAttribution and SupportTicket: FieldQuo's own record
+/// ABOUT a company, never shown to the contractor, and `companyId` says who
+/// the row is about, not whose row it is. The only console write is the
+/// review stamp (reviewedAt / reviewedById / reviewNote) — the console's own
+/// bookkeeping of having looked, the same shape as DataDeletionRequest's
+/// completedById.
+///
+/// ── Where the geography comes from ────────────────────────────────────────
+///
+/// Vercel's edge sets x-vercel-ip-country / x-vercel-ip-country-region /
+/// x-vercel-ip-city on every request from its own GeoIP; no third-party lookup
+/// is made and there is no new cost. Absent headers (local dev, a proxy that
+/// strips them) leave the columns null, and null reads as "unknown" — never
+/// as "suspicious". Absence is not a statement (AGENTS.md failure class #5).
+///
+/// ── The IP is stored as given, not hashed ─────────────────────────────────
+///
+/// A hash cannot answer "is this the same address that signed up three
+/// companies this month" without the address, and cannot be looked at by a
+/// person deciding whether a signup is real. It is personal data under PIPEDA
+/// and the GDPR; the retention question is the owner's — see the report that
+/// shipped this and lib/platform/signupFlags.js.
+model SignupOrigin {
+  id String @id @default(cuid())
+
+  companyId String  @unique
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// First hop of x-forwarded-for, through lib/rateLimit.js's clientIp() —
+  /// the one IP reader in the codebase. Null when the request carried none.
+  ip        String?
+  /// ISO 3166-1 alpha-2 from x-vercel-ip-country, upper-cased. Null = unknown.
+  ipCountry String?
+  /// x-vercel-ip-country-region (a province or state code). Null = unknown.
+  ipRegion  String?
+  /// x-vercel-ip-city, percent-decoded. Null = unknown.
+  ipCity    String?
+
+  userAgent      String?
+  acceptLanguage String?
+
+  /// The country the company STATED at signup (Company.country at creation),
+  /// kept here so a later change on Company Settings does not rewrite what the
+  /// flag was decided against.
+  statedCountry String?
+
+  /// "sales_link" | "referral" | "direct" | "other". SIGNUP_VIAS in
+  /// lib/platform/signupFlags.js. Derived from what the signup route already
+  /// knew — a sales code presented, a referral code redeemed, a promo code
+  /// ("other") — never from the IP.
+  via String
+
+  /// The rep whose link this arrived on, when the attribution was captured.
+  /// Null on a direct signup and on a rep-link signup that did not attribute
+  /// (unknown code, self-dealing) — `via` still says a code was presented.
+  salesRepId String?
+  salesRep   SalesRep? @relation(fields: [salesRepId], references: [id])
+  /// The referral or promo code as presented, lower-cased. Never a rate, never
+  /// a price.
+  referralCode String?
+
+  /// "none" | "outside_ca_us" | "country_mismatch" | "repeat_ip" —
+  /// SIGNUP_FLAGS, decided by decideSignupFlag() and never re-derived on a
+  /// screen. "vpn_or_hosting" is in the vocabulary and is NOT produced: no
+  /// request header on Vercel carries that signal and no paid lookup is made.
+  flag       String  @default("none")
+  /// Every signal that fired, in words — the flag column holds the one that
+  /// won, this holds the rest so a reviewer sees "outside CA/US (FR); stated
+  /// CA; same IP as 2 signups in 30 days".
+  flagReason String?
+
+  /// The console's review stamp. Null = under review (when flagged) or
+  /// nothing to review (when not). One direction only.
+  reviewedAt   DateTime?
+  reviewedById String?
+  reviewedBy   PlatformAdmin? @relation(fields: [reviewedById], references: [id])
+  reviewNote   String?
+
+  createdAt DateTime @default(now())
+
+  /// The repeat-IP query: same address, last 30 days.
+  @@index([ip, createdAt])
+  @@index([flag, reviewedAt])
+  @@index([salesRepId])
 }
 
 /// The commission ledger. Append-only.

@@ -121,6 +121,7 @@ import { FRENCH } from "@/lib/sales/leadLanguage";
 import { centsToMoney } from "@/lib/sales/money";
 import RepPaymentsPanel from "@/app/components/platform/payouts/RepPaymentsPanel";
 import { OwedStrip } from "@/app/components/platform/payouts/OwedView";
+import SignupFlagChip from "@/app/components/platform/SignupFlagChip";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -1142,7 +1143,19 @@ export default function PlatformSalesRepsPage() {
                         <span className="block font-medium text-foreground">{rep.name}</span>
                         <span className="block text-xs text-muted-foreground break-all">{rep.email}</span>
                       </span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+                        {/* Signups on this rep's link waiting for a look —
+                            on the collapsed row, so a link bringing in
+                            accounts from outside CA/US is seen without
+                            opening anything. */}
+                        {rep.flaggedSignups > 0 ? (
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900 font-medium"
+                            data-rep-flagged={rep.id}
+                          >
+                            {rep.flaggedSignups} flagged {rep.flaggedSignups === 1 ? "signup" : "signups"}
+                          </span>
+                        ) : null}
                         {!rep.active ? (
                           <span>Deactivated {formatDate(rep.endedAt)}</span>
                         ) : rep.acceptedAt ? (
@@ -1199,6 +1212,46 @@ export default function PlatformSalesRepsPage() {
                     <div className="text-foreground">{rep.companyCount}</div>
                   </div>
                 </div>
+
+                {/* ── Each company, with where its signup came from ──────
+                    The flag chip is the same one /platform/signup-origins
+                    draws; a company that predates origin recording has no
+                    row and gets no chip rather than an invented one. */}
+                {(rep.companies || []).length > 0 ? (
+                  <div className="space-y-1" data-rep-companies={rep.id}>
+                    {rep.companies.map((c) => (
+                      <div key={c.id} className="flex flex-wrap items-center gap-2 text-sm">
+                        <Link href={`/platform/companies/${c.id}`} className="text-foreground hover:underline">
+                          {c.name || c.id}
+                        </Link>
+                        <span className="text-xs text-muted-foreground">
+                          {c.country || "—"}
+                          {c.origin?.ipCountry && c.origin.ipCountry !== c.country
+                            ? ` · request from ${c.origin.ipCountry}`
+                            : ""}
+                        </span>
+                        {c.origin ? (
+                          <SignupFlagChip
+                            flag={c.origin.flag}
+                            flagLabel={c.origin.flagLabel}
+                            reviewedAt={c.origin.reviewedAt}
+                            countryKnown={Boolean(c.origin.ipCountry)}
+                          />
+                        ) : (
+                          <span className="text-xs text-muted-foreground">no origin on file</span>
+                        )}
+                      </div>
+                    ))}
+                    {rep.flaggedSignups > 0 ? (
+                      <Link
+                        href="/platform/signup-origins?flagged=1"
+                        className="inline-block text-xs text-foreground underline"
+                      >
+                        Review flagged signups
+                      </Link>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 {/* ── Payments ───────────────────────────────────────────
                     The rep's batches, where and when each was paid, and

@@ -54,6 +54,8 @@ const PERMISSION_WORDS = {
     "read data-deletion requests and mark one done — which tells the person their data was deleted",
   "support:manage":
     "read and work the escalation queue — technical problems sales reps report about their companies",
+  "signup:review":
+    "mark a flagged signup reviewed — one whose request came from outside CA/US, disagreed with the stated country, or repeated an IP",
 };
 
 function describe(permissions) {

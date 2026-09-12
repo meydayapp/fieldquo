@@ -26,6 +26,8 @@ import { billingBasis } from "@/lib/signup/funnel";
 import { chargeFor, isBillingInterval } from "@/lib/billing/interval";
 import { containsMarkupCharacters } from "@/lib/security/rejectMarkupCharacters";
 import { recordError } from "@/lib/platform/errorLog";
+import { recordSignupOrigin } from "@/lib/platform/signupOrigin";
+import { deriveVia } from "@/lib/platform/signupFlags";
 
 export async function POST(request) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -330,12 +332,18 @@ export async function POST(request) {
   // No attribution is reported back to the browser. There is nothing to
   // promise the contractor — the rep's commission is FieldQuo's business, not
   // theirs — and the signup page renders no banner for it.
+  // Which rep the attribution landed on, for the origin row below. Null on
+  // an ordinary signup and on a rep-link signup that did not attribute.
+  let attributedRepId = null;
   try {
     const attributed = await captureSalesAttribution({
       companyId: company.id,
       rawCode: salesCode,
       source: "link",
     });
+    if (attributed.outcome === "attribute" || attributed.outcome === "already_attributed") {
+      attributedRepId = attributed.salesRepId;
+    }
     if (isAttributionMiss(attributed.outcome)) {
       await recordError({
         area: "sales_attribution",
@@ -353,6 +361,29 @@ export async function POST(request) {
       companyId: company.id,
     }).catch(() => {});
   }
+
+  // ── Where the request came from ─────────────────────────────────────────
+  //
+  // The IP and Vercel's geo headers, the browser, and which door this signup
+  // walked in — one SignupOrigin row, flagged when the request is from outside
+  // CA/US, disagrees with the stated country, or shares an address with
+  // another signup this month (lib/platform/signupFlags.js). Superadmins are
+  // pushed on a flag. Best-effort in the same sense as the attribution above:
+  // recordSignupOrigin() never throws, and a failure to record is on
+  // /platform/errors rather than in the contractor's way.
+  await recordSignupOrigin({
+    companyId: company.id,
+    request,
+    via: deriveVia({
+      salesCodePresented: typeof salesCode === "string" && salesCode.trim().length > 0,
+      referralApplied: Boolean(referral),
+      promoApplied: Boolean(promo?.ok),
+    }),
+    salesRepId: attributedRepId,
+    referralCode: typeof referralCode === "string" ? referralCode : null,
+    statedCountry: homeCountry,
+    companyName: name,
+  });
 
   // ── The org: external, and cannot join the transaction above ────────────
   //

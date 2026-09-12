@@ -125,6 +125,7 @@ import {
   Trash2,
   Inbox,
   Clock3,
+  Globe,
 } from "lucide-react";
 
 /** How often the console re-reads its two counts while the tab is visible. */
@@ -144,6 +145,13 @@ const GROUPS = [
       // the person looking for it is thinking "who signed up and didn't
       // finish", which is a question about the customer list.
       { label: "Incomplete signups", href: "/platform/signups", icon: DoorOpen },
+      // Where each signup's request came from and the flag decided on it
+      // (outside CA/US, stated-country mismatch, repeat IP). The badge is the
+      // number waiting for review — the owner asked for a FIRST-level flag,
+      // seen without opening anything. Same family as the row above: a
+      // question about the customer list, not about the sales team, even
+      // though a rep's link is the case it exists for.
+      { label: "Signup origins", href: "/platform/signup-origins", icon: Globe, badge: "signups" },
       {
         label: "Subscriptions",
         href: "/platform/billing/subscriptions",
@@ -394,22 +402,31 @@ const GROUPS = [
 export default function PlatformSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  // The one badge on this rail: rows waiting in the Review folder. Fetched
+  // The first badge on this rail: rows waiting in the Review folder. Fetched
   // once per mount and again when the pathname changes, so leaving the folder
   // after a session of decisions shows the new number. Null (no count, or not
   // a superadmin) draws nothing rather than a zero.
   const [reviewCount, setReviewCount] = useState(null);
+  // The second badge, same lifecycle: flagged signups waiting for review
+  // (/api/platform/signup-origins/count). Two fetches rather than one merged
+  // endpoint because they answer to different roles — the review folder is
+  // superadmin-only and answers null to everyone else; the signup count is
+  // for anyone who may view companies.
+  const [signupFlagCount, setSignupFlagCount] = useState(null);
   useEffect(() => {
     if (pathname === "/platform/login") return undefined;
     let cancelled = false;
-    fetch("/api/platform/sales/review/count")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((body) => {
-        if (!cancelled) setReviewCount(Number.isFinite(body?.count) ? body.count : null);
-      })
-      .catch(() => {
-        if (!cancelled) setReviewCount(null);
-      });
+    const readCount = (url, set) =>
+      fetch(url)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((body) => {
+          if (!cancelled) set(Number.isFinite(body?.count) ? body.count : null);
+        })
+        .catch(() => {
+          if (!cancelled) set(null);
+        });
+    readCount("/api/platform/sales/review/count", setReviewCount);
+    readCount("/api/platform/signup-origins/count", setSignupFlagCount);
     return () => {
       cancelled = true;
     };
@@ -472,6 +489,9 @@ export default function PlatformSidebar() {
 
   function Row({ item }) {
     const Icon = item.icon;
+    // Which count this row wears, if any. Null draws nothing rather than a zero.
+    const badge =
+      item.badge === "review" ? reviewCount : item.badge === "signups" ? signupFlagCount : null;
     return (
       <Link
         href={item.href}
@@ -483,11 +503,11 @@ export default function PlatformSidebar() {
       >
         <Icon size={16} className="shrink-0" />
         <span className="truncate">{item.label}</span>
-        {item.badge === "review" && reviewCount !== null && reviewCount > 0 ? (
+        {badge !== null && badge > 0 ? (
           // The selected fill's own foreground pair, so the pill measures the
           // same as the selected row — no new colour on this rail.
           <span className="ml-auto rounded-full bg-sidebar-primary text-sidebar-primary-foreground px-2 py-0.5 text-[11px] font-semibold tabular-nums" data-review-badge>
-            {reviewCount > 999 ? `${Math.floor(reviewCount / 1000)}k` : reviewCount}
+            {badge > 999 ? `${Math.floor(badge / 1000)}k` : badge}
           </span>
         ) : null}
       </Link>

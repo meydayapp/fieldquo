@@ -140,6 +140,16 @@ as "for development, not for production apps used by real advertisers."
   key; delete the stale record under `privateemail._domainkey`; root SPF must be
   `v=spf1 include:spf.privateemail.com ~all`. One SPF record per host — a second
   one breaks both.
+- **Signup origin geo headers — nothing to set.** `lib/platform/signupOrigin.js`
+  records where each signup request came from by reading the headers Vercel's
+  edge sets on every request from its own GeoIP: `x-vercel-ip-country`,
+  `x-vercel-ip-country-region` and `x-vercel-ip-city` (the IP itself comes
+  through `x-forwarded-for`, read by `lib/rateLimit.js`'s `clientIp()`). No
+  environment variable, no third-party lookup, no new cost. When the headers
+  are absent — local dev, a preview behind a proxy that strips them — the row
+  is written with the country **unknown** and no flag; `/platform/signup-origins`
+  prints "Country unknown", never "suspicious". The flag rules are
+  `lib/platform/signupFlags.js`; `npm run check:signup-origin` executes them.
 - **Check the AI model after deploying**: open `/platform`, or hit
   `/api/platform/ai-health`. An amber banner means the configured model is
   retired. Symptom if ignored: every AI feature returns nothing, silently, with

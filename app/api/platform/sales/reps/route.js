@@ -44,6 +44,7 @@ import { resolvePlanAssignment } from "@/lib/sales/commissionPlanServer";
 import { queueCountsFor } from "@/lib/sales/reassign";
 import { sellsInOf } from "@/lib/sales/leadLanguage";
 import { repMoney } from "@/lib/sales/payoutAdmin";
+import { SIGNUP_FLAG_LABELS, needsReview } from "@/lib/platform/signupFlags";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -178,6 +179,52 @@ export async function GET(request) {
     entriesByRep.get(e.salesRepId).push(e);
   }
 
+  // ── The companies each rep brought in, with where their signup came from ─
+  //
+  // The owner asked for the signup-origin flag to be visible on the rep too:
+  // a rep whose link brings accounts from outside CA/US should be visible
+  // HERE, where the commission is decided, not only on the origins page.
+  // Attributions (one query for the team) joined to their SignupOrigin row;
+  // a company that predates origin recording has none and is shown without a
+  // chip rather than with an invented "no flag".
+  const attributionRows = await db.salesAttribution.findMany({
+    where: { salesRepId: { in: reps.map((r) => r.id) } },
+    select: {
+      salesRepId: true,
+      capturedAt: true,
+      company: {
+        select: {
+          id: true,
+          name: true,
+          country: true,
+          signupOrigin: { select: { ipCountry: true, flag: true, flagReason: true, reviewedAt: true } },
+        },
+      },
+    },
+    orderBy: { capturedAt: "desc" },
+  });
+  const companiesByRep = new Map();
+  for (const a of attributionRows) {
+    if (!companiesByRep.has(a.salesRepId)) companiesByRep.set(a.salesRepId, []);
+    const o = a.company?.signupOrigin || null;
+    companiesByRep.get(a.salesRepId).push({
+      id: a.company?.id || null,
+      name: a.company?.name || null,
+      country: a.company?.country || null,
+      attributedAt: a.capturedAt,
+      origin: o
+        ? {
+            ipCountry: o.ipCountry,
+            flag: o.flag,
+            flagLabel: SIGNUP_FLAG_LABELS[o.flag] || o.flag,
+            flagReason: o.flagReason,
+            reviewedAt: o.reviewedAt,
+            needsReview: needsReview(o),
+          }
+        : null,
+    });
+  }
+
   // FieldQuo's own sales texting number — one, shared, not per rep. See
   // NUMBER_CAPABILITIES for why there is no per-rep picker beside it.
   let salesNumber;
@@ -226,6 +273,9 @@ export async function GET(request) {
       // as not ticked here, exactly as allocation reads it.
       sellsIn: sellsInOf(r),
       companyCount: r._count.attributions,
+      // Each attributed company with its signup-origin chip. See above.
+      companies: companiesByRep.get(r.id) || [],
+      flaggedSignups: (companiesByRep.get(r.id) || []).filter((c) => c.origin?.needsReview).length,
       // held = leased + worked; untouched + dialled = leased. openLeads are
       // SalesLeads not converted and not lost. See lib/sales/reassign.js.
       queue: queueCounts.get(r.id) || null,
