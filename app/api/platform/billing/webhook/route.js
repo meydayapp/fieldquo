@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { syncSubscriptionFromStripeEvent } from "@/lib/platform/stripeBilling";
 import { settleCheckoutSession } from "@/lib/stripe/settleCheckoutSession";
+import { invoiceSubscriptionId } from "@/lib/billing/subscriptionChargeEvent";
 import { settleChargeEvent } from "@/lib/stripe/settleChargeEvent";
 import { grantAiBundlePeriod, resolveAiBundleSubscription } from "@/lib/ai/creditBundle";
 import { recordError } from "@/lib/platform/errorLog";
@@ -174,8 +175,7 @@ export async function POST(request) {
   // the common case — and falls through exactly as it always has.
   if (event.type === "invoice.payment_succeeded" || event.type === "invoice.payment_failed") {
     const invoice = event.data.object;
-    const subscriptionId =
-      typeof invoice?.subscription === "string" ? invoice.subscription : invoice?.subscription?.id || null;
+    const subscriptionId = invoiceSubscriptionId(invoice);
 
     try {
       if (event.type === "invoice.payment_succeeded") {

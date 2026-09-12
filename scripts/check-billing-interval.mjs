@@ -146,6 +146,30 @@ ok("a tier with no annual price disables its own button", /const unsellable =/.t
 ok("'current plan' means the tier AND the cadence",
   /sameTier && \(subscription\?\.billingInterval \|\| "month"\) === billingInterval/.test(page));
 
+// ── Going live, 2026-09-12: Stripe Tax and the event-destination API version ─
+//
+// Stripe Tax was switched on in the live account, and the live event
+// destinations were created on API 2026-06-24 — two facts the code has to
+// meet. The tax goes on FieldQuo's OWN subscription checkouts and nowhere
+// near a contractor's homeowner payment (already taxed by the invoice); the
+// invoice.subscription read has to survive the move under `parent`.
+{
+  const homeowner = readFileSync("lib/stripe.js", "utf8");
+  const billingWebhook = readFileSync("app/api/platform/billing/webhook/route.js", "utf8");
+  const creditBundle = readFileSync("lib/ai/creditBundle.js", "utf8");
+  const spreads = (stripeBilling.match(/\.\.\.SUBSCRIPTION_TAX,/g) || []).length;
+  ok("both subscription Checkout sessions carry automatic tax (and only those two)", spreads === 2);
+  ok("the tax spread asks for the address Stripe Tax needs and writes it back to the Customer for renewals",
+    /automatic_tax: \{ enabled: true \}/.test(stripeBilling) && /billing_address_collection: "required"/.test(stripeBilling) && /customer_update: \{ address: "auto", name: "auto" \}/.test(stripeBilling));
+  ok("a homeowner's payment session is NOT auto-taxed — the invoice already carries the company's tax", !/automatic_tax/.test(homeowner));
+  ok("a plan-change schedule carries automatic tax from the current phase into the next, never defaults it",
+    (stripeBilling.match(/currentPhase\.automatic_tax\?\.enabled \? \{ automatic_tax: \{ enabled: true \} \} : \{\}/g) || []).length === 1 &&
+    (stripeBilling.match(/phase\.automatic_tax\?\.enabled \? \{ automatic_tax: \{ enabled: true \} \} : \{\}/g) || []).length === 1);
+  ok("the billing webhook reads the invoice's subscription through the version-tolerant helper",
+    /invoiceSubscriptionId\(invoice\)/.test(billingWebhook) && !/invoice\?\.subscription === "string"/.test(billingWebhook));
+  ok("…and so does the AI bundle grant", /invoiceSubscriptionId\(invoice\)/.test(creditBundle) && !/invoice\?\.subscription === "string"/.test(creditBundle));
+}
+
 console.log(
   fails.length
     ? `\nFAILED — ${fails.length} of ${pass + fails.length}\n${fails.map((f) => `  ✗ ${f}`).join("\n")}`

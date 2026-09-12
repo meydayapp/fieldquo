@@ -44,6 +44,54 @@ Generate the secrets with:
 openssl rand -base64 32
 ```
 
+### Stripe live mode — the two event destinations (set up 2026-09-12)
+
+Stripe's dashboard now calls webhook endpoints **event destinations**
+(Workbench → Event destinations). Test-mode destinations do not exist in
+live mode, so going live means creating two new ones and replacing the two
+signing secrets. The code needs nothing else: products and prices are
+created on first use (searched by `planId` metadata), no test price id is
+stored.
+
+There are two money flows and they stay apart — *"there's the subscription
+I charge to companies, and what companies charge their clients"*:
+
+| | FieldQuo bills a company | A company bills a homeowner |
+|---|---|---|
+| Route | `https://www.fieldquo.com/api/platform/billing/webhook` | `https://www.fieldquo.com/api/stripe/webhook` |
+| Secret | `STRIPE_BILLING_WEBHOOK_SECRET` | `STRIPE_CONNECT_WEBHOOK_SECRET` |
+| Destination scope | **Your account** | **Your account** — the homeowner's payment is a destination charge created on the platform account (`lib/stripe.js`), so it is a platform event. A "Connected accounts" destination receives none of them; that mistake cost five bookings once. |
+| Events | `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `invoice.payment_succeeded`, `invoice.payment_failed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `subscription_schedule.completed`, `subscription_schedule.released`, `subscription_schedule.canceled`, `charge.refunded`, `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed` | `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `payment_intent.succeeded`, `payment_intent.payment_failed`, `charge.refunded`, `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed`, `account.updated` |
+| Tax | `automatic_tax` on, via `SUBSCRIPTION_TAX` in `lib/platform/stripeBilling.js` (Stripe Tax switched on in the live account) | **Never** — the invoice already carries the tax the company's own settings compute; Stripe Tax here would tax the taxed total again |
+
+`account.updated` for a contractor's Express account is a *connected-account*
+event and does not reach a "Your account" destination; that is fine —
+`/api/stripe/connect/status` reads the account directly whenever the payments
+screen opens. A third destination with scope "Connected accounts" pointing at
+the same route would need its own secret, which the route does not hold; not
+done.
+
+**API version on the destination.** The payload shape follows the version
+picked on the destination, not the SDK's pin (`2025-01-27.acacia` in
+`lib/stripe.js`). The live destinations were created on `2026-06-24.dahlia`,
+where `invoice.subscription` has moved to
+`invoice.parent.subscription_details.subscription`; every reader goes through
+`invoiceSubscriptionId()` in `lib/billing/subscriptionChargeEvent.js`, which
+takes both shapes. Prefer `2025-01-27.acacia` in the dropdown if it is
+offered; either works.
+
+**Test-mode objects in the database.** Fifteen `Subscription` rows and twelve
+`Company.stripeAccountId` values reference test-mode customers, subscriptions
+and Express accounts. In live mode those ids do not exist: "Manage billing",
+renewals, refunds and a homeowner payment for those companies fail with "No
+such customer / account" until the ids are cleared and the company goes
+through checkout / Stripe onboarding again on live keys. Clearing them is a
+column update on the owner's say-so, never a row deletion.
+
+After swapping the secrets: "Send test event" on each destination — a 200 in
+Stripe's log proves the secret matches its route; a 400 means the secrets
+were crossed.
+
 ### `RETELL_WEBHOOK_SECRET` is not a secret you invent
 
 It used to be listed above as "generate it with `openssl rand`", and that was
