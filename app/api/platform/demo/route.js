@@ -14,6 +14,7 @@ import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { listDemos, applyIndustry, resetDemo } from "@/lib/demo/seedDemo";
 import { INDUSTRIES } from "@/lib/demo/industries";
+import { listAllRepDemos } from "@/lib/sales/repDemo";
 
 async function requireAdmin(request) {
   const admin = await getCurrentPlatformAdmin(request);
@@ -50,8 +51,15 @@ async function holdersByCompany() {
 export async function GET(request) {
   try {
     await requireAdmin(request);
-    const [demos, holders] = await Promise.all([listDemos(), holdersByCompany()]);
+    const [demos, holders, repDemos] = await Promise.all([
+      listDemos(),
+      holdersByCompany(),
+      // The reps' own demos, read-only on the console. listDemos() is the
+      // POOL only, on purpose — see its header — so these come separately.
+      listAllRepDemos(),
+    ]);
     return NextResponse.json({
+      repDemos,
       // `salesRepDemo` is the relation's own name on Company, used here so the
       // page reads the same field it would have got from an include — a null
       // means nobody holds it, which is the free state Claim draws from.

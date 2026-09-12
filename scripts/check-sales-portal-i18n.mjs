@@ -212,10 +212,11 @@ const isNeutral = (value) =>
 //     hint above each box ARE translated, which is what makes the English read
 //     as the contractor's own words rather than as a missed string.
 //
-//   · "Assign" on the demo screen is quoted inside a request a rep sends to a
-//     superadmin, and it is the literal label of a button on /platform — a
-//     console that is English for everybody. Translating the quotation would
-//     send the rep asking for a control that does not exist under that name.
+//   · (Retired 2026-09-12.) "Assign" on the demo screen was quoted inside a
+//     request a rep sent to a superadmin, the literal label of a button on
+//     /platform. Reps now seed their own demos (lib/sales/repDemo.js) and the
+//     screen no longer asks anybody for anything, so the exemption went with
+//     the sentence — the check below would have flagged it as stale.
 //
 // Anything not on this list is a failure. Adding to it needs the same kind of
 // sentence: not "this one is awkward", but "the translated version would be
@@ -223,7 +224,6 @@ const isNeutral = (value) =>
 const ALLOWED = new Map([
   ["app/components/sales/CallPlaybook.js", new Set(['placeholder="we already use jobber"'])],
   ["app/sales/playbook/PlaybookSearch.js", new Set(['placeholder="we already use jobber"'])],
-  ["app/sales/demo/page.js", new Set(["Assign"])],
 ]);
 
 /** Every bare user-facing English literal in one file. */

@@ -278,12 +278,14 @@ export default function PlatformDemoPage() {
           Use <strong>Run the demo</strong> on any card below: it opens that
           company in a new tab as its owner, for 30 minutes, and you can create
           quotes and invoices normally. A rep cannot use that door —
-          impersonation is superadmin-only — so a rep needs a demo{" "}
-          <strong>assigned</strong> to them <em>and</em> a{" "}
-          <strong>login</strong> minted on it. Both halves are on each card, and{" "}
-          <strong>Assign</strong> does them together. Switching the trade is
-          what wipes the data — nothing is cleared by opening it, and nothing is
-          cleared by releasing it.
+          impersonation is superadmin-only — so a rep signs into a demo of
+          their <strong>own</strong>: seeded for them the first time they open
+          their Demo page, one per trade, with a login they set the password
+          on themselves (listed below, read-only). The pool on this screen is
+          the platform’s; <strong>Assign</strong> still points a rep at one of
+          these by hand if you ever need to, and mints its login. Switching the
+          trade is what wipes a pool demo’s data — nothing is cleared by opening
+          it, and nothing is cleared by releasing it.
         </p>
       </div>
 
@@ -716,6 +718,61 @@ export default function PlatformDemoPage() {
           );
         })}
       </div>
+
+      {/* ── The reps' own demos — visible, not editable ─────────────────────
+          Since 2026-09-12 a rep gets a company seeded FOR them (one per
+          trade) instead of a pool demo — lib/sales/repDemo.js. They appear
+          here so the console can see everything (non-negotiable #3), and
+          carry no Reset, Assign or Switch trade: those are the rep's own
+          controls on /sales/demo, and a reset from here would land
+          mid-walkthrough with nothing on the rep's screen to explain it.
+          Retired copies are listed too, because nothing is deleted. */}
+      {!loadFailed && (
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Reps’ own demos</h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              Seeded automatically for each rep, one per trade, from the same
+              presets as the pool above. Read-only here: a rep opens, resets and
+              adds trades from their own Demo page, and a reset retires the copy
+              rather than wiping it — retired copies stay listed and count
+              nowhere.
+            </p>
+          </div>
+          {(data?.repDemos || []).length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              None yet — a rep’s first demo is created the first time they open
+              their Demo page or accept their invitation.
+            </p>
+          ) : (
+            (data?.repDemos || []).map((d) => (
+              <div
+                key={d.id}
+                className={`rounded-xl border border-border bg-card px-4 py-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 ${d.demoRetiredAt ? "opacity-60" : ""}`}
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground break-words">
+                    {d.name}
+                    {d.demoRetiredAt ? (
+                      <span className="ml-2 text-xs font-normal text-muted-foreground">
+                        retired {new Date(d.demoRetiredAt).toLocaleDateString()}
+                      </span>
+                    ) : null}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    <code>{d.slug}</code> · {d.demoIndustry || "no trade"} ·{" "}
+                    {d.demoOwnerRep ? `${d.demoOwnerRep.name} (${d.demoOwnerRep.email})` : "owner rep unknown"}
+                  </p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {d._count.quotes} quotes · {d._count.jobs} jobs · {d._count.clients} clients
+                  {d.authOrgId ? "" : " · no login yet"}
+                </p>
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }

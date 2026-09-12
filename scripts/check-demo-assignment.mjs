@@ -331,8 +331,15 @@ const claimWithStub = (db, repId) => claimDemoForRep(repId, db);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-section("3. The route actually reaches the claim (and the gate lets it)");
+section("3. The route: reps get their OWN demo now; the pool claim is the console's");
 // ═══════════════════════════════════════════════════════════════════════════
+//
+// 2026-09-12: the owner asked for a unique demo per rep, so /api/sales/demo
+// no longer hands out the pool — it seeds a company for the rep on first GET
+// (lib/sales/repDemo.js, executed by scripts/check-demo-per-rep.mjs). The
+// pool machinery in §1–§2 stays exactly as it was, because /platform/demo
+// still assigns and releases through it. What this section holds is that
+// the rep route rides the right gates and never reaches back into the pool.
 
 {
   const route = decomment(read("app/api/sales/demo/route.js"));
@@ -345,32 +352,12 @@ section("3. The route actually reaches the claim (and the gate lets it)");
   ok("POST no longer rides the read-only gate", postBody.length > 0 && !/requireSalesRep\(/.test(postBody));
   ok("...it rides requireDemoRep", /requireDemoRep\(request\)/.test(postBody));
   ok("GET still rides requireSalesRep, which refuses writes", /requireSalesRep\(request\)/.test(getBody));
-  ok('the "claim" action exists', /action === "claim"/.test(route));
-  ok("...and calls the race-safe helper", /claimDemoForRep\(rep\.id\)/.test(route));
-  ok("...and answers a refusal with the pure function's words", /claimRefusal\(decision\)/.test(route));
-
-  // Claim must be reachable BEFORE the "you have no demo" refusal, or it can
-  // never run — the exact ordering bug that would make this whole feature a
-  // dead button again.
-  // Both indexes are required to be real. `-1 < n` is true, so a claim block
-  // that had been deleted outright would otherwise satisfy this.
-  {
-    const claimIdx = route.indexOf('action === "claim"');
-    const refusalIdx = route.indexOf("No demo company is assigned to you yet");
-    ok(
-      "claim is handled before the no-demo refusal, or it could never run",
-      claimIdx > 0 && refusalIdx > 0 && claimIdx < refusalIdx,
-      { claimIdx, refusalIdx },
-    );
-  }
+  ok("the rep route no longer claims from the pool", !/claimDemoForRep\(|action === "claim"/.test(route));
+  ok("...it ensures the rep's own demo instead", /ensureRepDemo\(/.test(getBody));
+  ok("...and reads only from lib/sales/repDemo for the rep's state", /repDemoState\(/.test(route) && !/demoPoolCounts\(/.test(route));
 
   // The column that does not exist.
-  ok("the route no longer selects Company.industry", !/\bindustry:\s*true/.test(route));
-  ok("...it selects demoIndustry", /demoIndustry:\s*true/.test(route));
-
-  // The screen cannot render three states without being told which it is in.
-  ok("GET reports whether a login exists", /loginReady/.test(route));
-  ok("...and how big the pool is, so Claim renders only when it would work", /demoPoolCounts\(\)/.test(route));
+  ok("the route never selects Company.industry", !/\bindustry:\s*true/.test(route));
 }
 
 {
@@ -387,7 +374,7 @@ section("3. The route actually reaches the claim (and the gate lets it)");
   ok("the claim writes only while demoCompanyId is null", /where: \{ id: repId, demoCompanyId: null \}/.test(assign));
   ok("...via updateMany, so the condition is IN the write", /updateMany/.test(assign));
   ok("...and only P2002 is treated as a lost race", /err\?\.code !== "P2002"/.test(assign));
-  ok("the pool query only ever asks for demos", /where: \{ isDemo: true \}/.test(assign));
+  ok("the pool query only ever asks for demos — unowned ones, since reps have their own", /where: \{ isDemo: true, demoOwnerRepId: null \}/.test(assign));
   ok("releasing clears the pointer and deletes nothing", !/\.delete\(|deleteMany/.test(assign));
 }
 
@@ -421,40 +408,35 @@ section("4. The platform control the rep screen promises");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-section("5. The rep screen has three states, and never a dead sign-in");
+section("5. The rep screen never shows a dead sign-in");
 // ═══════════════════════════════════════════════════════════════════════════
+//
+// The screen's three pool states (no demo / no login / ready) collapsed to
+// two when reps got their own demos: the company always exists once GET has
+// answered, so what can be missing is only the LOGIN. The invariant that
+// mattered survives unchanged — a sign-in control renders only when signing
+// in can work — and check-demo-per-rep.mjs holds the rest of the new screen.
 
 {
   const page = decomment(read("app/sales/demo/page.js"));
 
-  ok("state 1 offers Claim", /action: "claim"/.test(page));
-  ok("...only when something is free", /data\.pool\?\.free > 0/.test(page));
-  ok("...and otherwise states the real counts", /already taken by other reps/.test(page));
-  ok("...distinguishing an empty pool from a full one", /no demo companies at all yet/.test(page));
-
-  ok("state 2 exists — assigned but no login", /!data\.loginReady/.test(page));
-  ok("...saying plainly that there is no way in yet", /It has no sign-in yet/.test(page));
-  ok("...and names superadmin as the only person who can fix it", /superadmin/.test(page));
-  ok("...naming the exact address to ask for", /data\.loginEmail/.test(page));
-
-  // THE one that matters: the sign-in control must be inside the loginReady
-  // branch. A rep with no login must not be shown a way in that cannot work.
-  const readyIdx = page.indexOf("!data.loginReady");
-  const openIdx = page.indexOf("Open the demo company");
-  ok("the 'Open the demo company' link exists at all", openIdx > 0);
-  ok("...and is rendered only after the no-login branch", openIdx > readyIdx && readyIdx > 0);
-  // `> readyIdx` alone would pass on readyIdx === -1, i.e. on a page with no
-  // no-login branch at all — the exact regression this is guarding.
-  ok("...with 'Sign in at' likewise behind it", readyIdx > 0 && page.indexOf("Sign in at") > readyIdx);
-
-  // The dead controls that were the reason to look at this file.
+  ok("no Claim on the rep screen any more", !/action: "claim"/.test(page));
   ok("the false 'it takes them a click' promise is gone", !/takes them a click/.test(page));
-  ok("the trade picker reads demoIndustry, the column that exists", /company\.demoIndustry/.test(page));
-  ok("...and not `industry`, which never did", !/company\.industry\b/.test(page));
+  ok("...and so is the request to a superadmin", !/superadmin/.test(page));
+
+  // THE one that matters: the sign-in control must be inside the loginExists
+  // branch. A rep with no login must not be shown a way in that cannot work.
+  const loginIdx = page.indexOf("loginExists ?");
+  const openIdx = page.indexOf("demoOpenButton");
+  const needsIdx = page.indexOf("demoOpenNeedsLogin");
+  ok("the login branch exists at all", loginIdx > 0);
+  ok("the Open control is rendered only inside it", openIdx > loginIdx && loginIdx > 0);
+  ok("...and the no-login state names what is missing instead of a button", needsIdx > openIdx && openIdx > 0);
+  ok("the password is chosen on the screen, never shown", /type="password"/.test(page) && !/data\.login\.password/.test(page));
 
   // Shared, not copy-pasted — the failure class this repo names.
-  ok("the trade and reset cards are defined once", (page.match(/const tradeCard/g) || []).length === 1);
-  ok("...and used by both states that have a demo", (page.match(/\{tradeCard\}/g) || []).length === 2);
+  ok("the password form is defined once", (page.match(/const passwordForm/g) || []).length === 1);
+  ok("...and used by both the create and the replace states", (page.match(/passwordForm\(/g) || []).length === 2);
 
   ok("every response is error-handled — fetchJson, never a bare res.ok", /fetchJson\(/.test(page) && !/if \(res\.ok\)/.test(page));
 }

@@ -1,6 +1,6 @@
 // app/api/sales/demo/route.js
 //
-// The demo tenant a rep shows a prospect, from the rep's side.
+// The demo tenants a rep shows a prospect — their own, one per trade.
 //
 // ══ Why a rep cannot use "Run the demo" ═══════════════════════════════════
 //
@@ -10,91 +10,85 @@
 // demo company could not write a quote, and watching a quote get written is
 // the only part of a demo a prospect cares about.
 //
-// So the rep signs into the demo company for real, with the login a superadmin
-// set on it. This route does not mint that login and cannot: creating users is
-// invite-only (non-negotiable #1), and the one exception —
-// lib/demo/demoLogin.js, reached through /api/platform/demo/* — is
-// superadmin-gated and derives the address from the slug so it cannot mint one
-// for an arbitrary email. A rep asking for a password gets told who to ask.
+// So the rep signs into their demo company for real, with a login they set
+// the password on themselves. That login is minted through the same mechanism
+// a superadmin uses for the pool (lib/demo/demoLogin.js — Better Auth's own
+// sign-up, an owner Member row, an Organization row), through a narrower door:
+// only for companies whose demoOwnerRepId is this rep's, re-read from the row.
+// lib/sales/repDemo.js's header carries the argument.
 //
-// ══ What a rep MAY do to their own demo ═══════════════════════════════════
+// ══ What happened to the pool ═════════════════════════════════════════════
 //
-// CLAIM a free one, reset it, and change which trade it is set up as.
+// Until 2026-09-12 this route handed out the ten seeded fixtures one per rep,
+// and in practice everybody signed in as demo1 because it was the one with a
+// login. The owner: "make sure that each sales rep gets a unique demo
+// account." A rep now gets a company seeded FOR them the first time this GET
+// runs (idempotent — see repDemo.js on the unique slot), and the pool stays
+// exactly as it is for the platform console. A rep who was holding a pool
+// demo is moved onto their own on that first GET; the pool demo is simply no
+// longer pointed at, and nothing on it changes.
 //
-// Claiming is new, and it is the half that was missing. The rep screen has
-// always said "ask a FieldQuo admin to assign you one — it takes them a
-// click", and there was no such click: SalesRep.demoCompanyId was read in
-// three places and written in none, on either side of the product. So the
-// sentence was a control that appeared to work and did not, in its
-// documentation form. A rep now takes a free one themselves — which creates no
-// user, mints no credential, and touches no company row (see
-// lib/sales/demoAssign.js) — and a superadmin can still assign and release on
-// /platform/demo.
+// ══ What a rep MAY do to their own demos ══════════════════════════════════
 //
-// Reset and industry are scoped by repDemoWhere() — which matches one id and
-// asserts isDemo, so a rep cannot reset another rep's demo mid-walkthrough or
-// touch a real tenant.
+//   GET            ensure one exists, and report all of them
+//   POST create    a demo for another trade
+//   POST open      make that one the demo their login lands in
+//   POST reset     retire it and seed a fresh one — nothing is deleted
+//   POST login     set (or replace) the password that opens them
 //
-// ══ Why POST no longer rides requireSalesRep ══════════════════════════════
+// No "industry" action any more: the pool's re-dress wiped the company's rows
+// in place, and a rep's demo is never wiped — a different trade is a different
+// company. Every action re-reads the target company and refuses unless it is
+// this rep's own, a demo, and not retired; a rep cannot touch a colleague's
+// demo, a pool demo, or a real tenant through any of them.
 //
-// Because it never worked. requireSalesRep() refuses every non-GET method
-// under /api/sales — correctly, that is its whole job — so Reset and the trade
-// picker both returned 403 "The sales portal is read-only" for as long as they
-// have existed. Nobody hit it because those controls only render for a rep who
-// has a demo, and until today nobody could have one. POST now goes through
-// lib/sales/demoGate.js's requireDemoRep, the narrow named exception, which
-// lists exactly what it permits.
+// ══ Why POST does not ride requireSalesRep ════════════════════════════════
+//
+// requireSalesRep() refuses every non-GET method under /api/sales — correctly,
+// that is its whole job. POST goes through lib/sales/demoGate.js's
+// requireDemoRep, the narrow named exception, which lists what it permits.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireSalesRep } from "@/lib/sales/gate";
 import { requireDemoRep } from "@/lib/sales/demoGate";
-import { repDemoWhere } from "@/lib/sales/scope";
-import { claimDemoForRep, demoPoolCounts } from "@/lib/sales/demoAssign";
-import { claimRefusal } from "@/lib/sales/demoPool";
-import { demoLoginReady } from "@/lib/demo/demoLogin";
-import { applyIndustry, resetDemo } from "@/lib/demo/seedDemo";
+import {
+  ensureRepDemo,
+  ensureRepDemoLogin,
+  openRepDemo,
+  repDemoState,
+  resetRepDemo,
+} from "@/lib/sales/repDemo";
 import { INDUSTRIES } from "@/lib/demo/industries";
 import { materialiseDemoCheckIn } from "@/lib/sales/checkin/materialise";
 
 const bad = (error, status = 400) => NextResponse.json({ error }, { status });
 
 /**
- * The rep's demo, or null — never another rep's, and never a real tenant.
- *
- * `demoIndustry`, not `industry`. Company has no `industry` column and never
- * has; this select named one, so this whole route threw a Prisma validation
- * error for any rep who had a demo. That was invisible for the same reason
- * everything else here was: nobody had one.
+ * The rep's row as the demo library wants it — code and name included, since
+ * the slug, the company name and the login address are derived from them and
+ * never from the request.
  */
-async function myDemo(rep) {
-  if (!rep?.demoCompanyId) return null;
-  return db.company.findFirst({
-    where: repDemoWhere(rep.demoCompanyId),
-    select: { id: true, name: true, slug: true, demoIndustry: true, isDemo: true },
+async function freshRep(id) {
+  return db.salesRep.findUnique({
+    where: { id },
+    select: { id: true, name: true, code: true, demoCompanyId: true },
   });
 }
 
-/**
- * Everything the screen needs to know which of its three states it is in.
- *
- * The three are real and different: no demo yet, a demo with no login on it,
- * and a demo a rep can actually sign into. A screen that collapsed the middle
- * one would render a sign-in control against an address no account exists
- * for — which fails at the password box with no explanation, mid-call.
- */
-async function demoState(rep) {
-  const company = await myDemo(rep);
-  if (!company) {
-    return { company: null, loginEmail: null, loginReady: false, pool: await demoPoolCounts() };
-  }
-  const login = await demoLoginReady({ companyId: company.id, slug: company.slug });
+/** The fixture day-1 check-in draft on the current demo. Fails soft. */
+async function draftCheckIn(repId) {
+  await materialiseDemoCheckIn({ salesRepId: repId }).catch((err) =>
+    console.error("[sales demo] demo check-in not written:", err?.message),
+  );
+}
+
+async function fullState(repId) {
+  const rep = await freshRep(repId);
   return {
-    company,
-    loginEmail: login.email,
-    loginReady: login.ready,
-    pool: await demoPoolCounts(),
+    ...(await repDemoState(rep)),
+    industries: Object.entries(INDUSTRIES).map(([key, v]) => ({ key, label: v.label })),
   };
 }
 
@@ -102,11 +96,20 @@ export async function GET(request) {
   const { rep, refusal } = await requireSalesRep(request);
   if (refusal) return NextResponse.json(refusal.body, { status: refusal.status });
 
-  const state = await demoState(rep);
-  return NextResponse.json({
-    ...state,
-    industries: Object.entries(INDUSTRIES).map(([key, v]) => ({ key, label: v.label })),
-  });
+  // The seed-on-first-open. A GET that writes is unusual enough to say why:
+  // the alternative is a "Create my demo" button that every rep presses
+  // exactly once, and a rep who has not pressed it has no demo to be told
+  // about. Idempotent by the unique slot, so a reload seeds nothing.
+  try {
+    const row = await freshRep(rep.id);
+    const { created } = await ensureRepDemo({ rep: row });
+    if (created) await draftCheckIn(rep.id);
+  } catch (err) {
+    console.error("[sales demo] could not ensure a demo:", err);
+    return bad(err?.message || "Could not set up your demo.", err?.status || 500);
+  }
+
+  return NextResponse.json(await fullState(rep.id));
 }
 
 export async function POST(request) {
@@ -115,63 +118,54 @@ export async function POST(request) {
 
   const body = await request.json().catch(() => ({}));
   const action = String(body?.action ?? "").trim();
+  const row = await freshRep(rep.id);
 
-  // Claim comes FIRST, before the "you have no demo" refusal below — it is the
-  // one action whose whole purpose is to be reachable without one.
-  if (action === "claim") {
-    const decision = await claimDemoForRep(rep.id);
-    const no = claimRefusal(decision);
-    if (no) return bad(no.error, no.status);
+  try {
+    if (action === "create") {
+      const trade = String(body?.trade ?? "").trim();
+      if (!INDUSTRIES[trade]) return bad("That is not one of the trades a demo can be set up as.");
+      const { company, created } = await ensureRepDemo({ rep: row, trade });
+      if (created) await draftCheckIn(rep.id);
+      return NextResponse.json({ ok: true, created, companyId: company.id, ...(await fullState(rep.id)) });
+    }
 
-    // Idempotent on purpose: a rep who already had one gets theirs back rather
-    // than a second. `claimed` says which happened, so the screen can say
-    // "here it is" instead of announcing a claim that did not occur.
-    const fresh = await db.salesRep.findUnique({
-      where: { id: rep.id },
-      select: { id: true, demoCompanyId: true },
-    });
-    // The fixture day-1 check-in on the demo, so the Texts screen has a
-    // "Drafts due" row on the rep's first morning. FieldQuo's own table,
-    // keyed, never sent — lib/sales/checkin/materialise.js says how. Fails
-    // soft: a demo with no draft is still a demo.
-    await materialiseDemoCheckIn({ salesRepId: rep.id }).catch((err) =>
-      console.error("[sales demo] demo check-in not written:", err?.message),
-    );
-    return NextResponse.json({
-      ok: true,
-      claimed: decision.claimed === true,
-      ...(await demoState(fresh)),
-    });
+    if (action === "open") {
+      const companyId = String(body?.companyId ?? "").trim();
+      if (!companyId) return bad("companyId is required.");
+      const opened = await openRepDemo({ rep: row, companyId });
+      if (!opened.ok) return bad(opened.error, opened.status);
+      await draftCheckIn(rep.id);
+      return NextResponse.json({ ok: true, ...(await fullState(rep.id)) });
+    }
+
+    if (action === "reset") {
+      const companyId = String(body?.companyId ?? "").trim();
+      if (!companyId) return bad("companyId is required.");
+      const result = await resetRepDemo({ rep: row, companyId });
+      if (!result.ok) return bad(result.error, result.status);
+      await draftCheckIn(rep.id);
+      return NextResponse.json({
+        ok: true,
+        retiredId: result.retired.id,
+        companyId: result.company.id,
+        ...(await fullState(rep.id)),
+      });
+    }
+
+    if (action === "login") {
+      const result = await ensureRepDemoLogin({ rep: row, password: body?.password });
+      if (!result.ok) return bad(result.error, result.status);
+      return NextResponse.json({
+        ok: true,
+        email: result.email,
+        replaced: result.replaced,
+        ...(await fullState(rep.id)),
+      });
+    }
+  } catch (err) {
+    console.error(`[sales demo] ${action} failed:`, err);
+    return bad(err?.message || "That did not work.", err?.status || 500);
   }
 
-  const company = await myDemo(rep);
-  if (!company) {
-    return bad(
-      "No demo company is assigned to you yet. Claim a free one from the demo " +
-        "screen, or ask a FieldQuo superadmin to assign you a particular one on " +
-        "/platform/demo.",
-      409,
-    );
-  }
-
-  if (action === "reset") {
-    // seedDemo re-reads the company and refuses anything without isDemo, so the
-    // guard is in one place and this route adds none of its own beyond scope.
-    await resetDemo(company.id);
-    // Same fixture draft as on claim. resetDemo() clears the tenant's own
-    // rows, not FieldQuo's SalesCheckIn, so this is idempotent on a re-reset.
-    await materialiseDemoCheckIn({ salesRepId: rep.id }).catch((err) =>
-      console.error("[sales demo] demo check-in not written:", err?.message),
-    );
-    return NextResponse.json({ ok: true, ...(await demoState(rep)) });
-  }
-
-  if (action === "industry") {
-    const key = String(body?.industry ?? "").trim();
-    if (!INDUSTRIES[key]) return bad("That is not one of the trades a demo can be set up as.");
-    await applyIndustry(company.id, key);
-    return NextResponse.json({ ok: true, ...(await demoState(rep)) });
-  }
-
-  return bad('Expected "claim", "reset" or "industry".');
+  return bad('Expected "create", "open", "reset" or "login".');
 }

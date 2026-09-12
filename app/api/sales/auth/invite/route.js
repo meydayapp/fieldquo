@@ -32,7 +32,7 @@
 //     point of this request; the language has two more places to be set.
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { rateLimit } from "@/lib/rateLimit";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
@@ -47,6 +47,8 @@ import {
   inviteState,
 } from "@/lib/sales/invite";
 import { repLanguageOrNull } from "@/lib/sales/repLanguage";
+import { ensureRepDemo, ensureRepDemoLogin } from "@/lib/sales/repDemo";
+import { materialiseDemoCheckIn } from "@/lib/sales/checkin/materialise";
 
 // One sentence per refusal, so the accept screen can say what is actually
 // wrong instead of "invalid link". Which one a visitor sees is decided by the
@@ -194,6 +196,35 @@ export async function POST(request) {
       { status: 409 },
     );
   }
+
+  // ── Their demo, ready before they open the tab ──────────────────────────
+  //
+  // Seeded now, after the response, so the accept is not held for the thirty
+  // inserts a fixture takes. The password is the one they just chose: the
+  // demo login (demo-<code>@fieldquo.com) is minted with it, so the manual can
+  // say "your demo sign-in is that address with your portal password" and be
+  // right on day one. Both are idempotent and both fail soft — /sales/demo's
+  // GET seeds the company if this did not, and its page offers to set the
+  // password if the login is missing. Nothing about the account itself
+  // depends on this block.
+  after(async () => {
+    try {
+      const row = await db.salesRep.findUnique({
+        where: { id: rep.id },
+        select: { id: true, name: true, code: true, demoCompanyId: true },
+      });
+      if (!row) return;
+      await ensureRepDemo({ rep: row });
+      const fresh = await db.salesRep.findUnique({
+        where: { id: rep.id },
+        select: { id: true, name: true, code: true, demoCompanyId: true },
+      });
+      await ensureRepDemoLogin({ rep: fresh, password });
+      await materialiseDemoCheckIn({ salesRepId: rep.id });
+    } catch (err) {
+      console.error("[sales invite] demo not seeded on accept:", err?.message);
+    }
+  });
 
   const sessionToken = await signSalesToken(rep.id);
   const response = NextResponse.json({ success: true });

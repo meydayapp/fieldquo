@@ -1,6 +1,7 @@
 // app/sales/demo/page.js
 //
-// The account a rep drives while a prospect watches.
+// The accounts a rep drives while a prospect watches — their own, one per
+// trade.
 //
 // ══ Why this is not "Run the demo" ════════════════════════════════════════
 //
@@ -8,41 +9,46 @@
 // and superadmin-only — twice enforced, deliberately. A rep impersonating
 // could not write a quote, and watching a quote get written is the only part
 // of a demo a prospect cares about. So a rep signs in for real, to a fixture
-// company FieldQuo owns, and can do everything in it.
+// company FieldQuo seeded for them, and can do everything in it.
+//
+// ══ One rep, their own companies ═════════════════════════════════════════
+//
+// Until 2026-09-12 this screen handed out one of ten shared fixtures, and in
+// practice every rep signed in as the one that had a login and watched each
+// other's quotes appear. Now GET /api/sales/demo seeds a company FOR the rep
+// the first time it runs (lib/sales/repDemo.js), so this screen never has a
+// "you don't have one" state: the list below is never empty once the request
+// has answered. What it can lack is a LOGIN, and that is the one thing the rep
+// sets here — a password, once, for an address derived from their code.
 //
 // ══ It says what it cannot do ═════════════════════════════════════════════
 //
-// The password is not on this screen and cannot be: creating and resetting a
-// login is superadmin-only (non-negotiable #1, and the one exception is gated
-// and derives the address from the slug). A screen that showed a blank field
-// labelled "password" would be a control that appears to work. This one names
-// who to ask.
+// The password is chosen here and never shown again: nothing on the server
+// can read one back, and nothing can reset one (lib/demo/demoLogin.js's
+// argument for not hand-writing a hash). So "lost it" is answered honestly —
+// a replacement address is minted and every company moves to it — rather than
+// with a "Reset password" control that could not work.
 //
-// ══ Three states, because getting a demo is a chain of two ════════════════
+// ══ Reset deletes nothing ═════════════════════════════════════════════════
 //
-// A demo is usable when BOTH are true: some SalesRep row points at it, and
-// demoN@fieldquo.com exists as an active owner of it. They are set by
-// different people through different doors, so they fail independently:
-//
-//   1. NO DEMO. Claim one — a free demo is one nobody holds, and taking it
-//      creates no user and touches no company. If none are free, say how many
-//      exist and that they are all taken, rather than offering a button that
-//      would 409.
-//   2. DEMO, NO LOGIN. The address exists as a string and as nothing else.
-//      This state used to render "Sign in at demo6@fieldquo.com" and an
-//      "Open the demo company" button — a sign-in control against an account
-//      that does not exist, which fails at the password box, mid-call, with no
-//      explanation. It now names the exact thing to ask for and who has it.
-//   3. READY. The address, and the way in.
-//
-// The screen used to have a fourth state that was a lie: "Ask a FieldQuo admin
-// to assign you one on the platform demo screen — it takes them a click."
-// There was no such click. SalesRep.demoCompanyId was read in three places and
-// written in none, on either side of the product.
+// "Reset this demo" retires the company and seeds a fresh one for the same
+// trade. The copy the rep used stays in the database, marked retired,
+// excluded from every figure a demo is excluded from. The confirmation says
+// so, because the previous wording ("It cannot be undone") described a wipe
+// this screen no longer performs.
 "use client";
 
 import { Fragment, useCallback, useEffect, useState } from "react";
-import { AlertCircle, ExternalLink, Loader2, RefreshCw, Wrench, KeyRound, HandGrab } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  ExternalLink,
+  KeyRound,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Wrench,
+} from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
@@ -51,15 +57,9 @@ import { useTranslation } from "@/app/hooks/useTranslation";
  * monospaced login address — rather than text.
  *
  * t() stringifies its values, so a React element interpolated through it
- * arrives as "[object Object]". Splitting the sentence into two keys either
- * side of the bold bit would hand a translator half a clause and, worse, freeze
- * English word order: German and Chinese put the address somewhere else in the
- * sentence. So the sentence stays ONE key with named {placeholders}, and the
- * split happens after translation, in whatever order that language wrote them.
- *
- * MessageThread.js's sentenceAround() does the same job for ONE token; the
- * request quoted on this screen has four, and importing a one-token helper to
- * call it four times is worse than the eight lines.
+ * arrives as "[object Object]". The sentence stays ONE key with named
+ * {placeholders}, and the split happens after translation, in whatever order
+ * that language wrote them.
  */
 function withParts(text, parts) {
   return String(text)
@@ -73,6 +73,8 @@ function withParts(text, parts) {
     });
 }
 
+const MIN_PASSWORD = 12;
+
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
 const FIELD =
@@ -84,7 +86,10 @@ export default function SalesDemoPage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
-  const [confirmReset, setConfirmReset] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(null);
+  const [password, setPassword] = useState("");
+  const [replacing, setReplacing] = useState(false);
+  const [trade, setTrade] = useState("");
 
   const load = useCallback(async () => {
     setError("");
@@ -99,111 +104,144 @@ export default function SalesDemoPage() {
     load();
   }, [load]);
 
-  async function act(body) {
-    setBusy(body.action);
+  async function act(body, key = body.action) {
+    setBusy(key);
     setError("");
     try {
-      await fetchJson("/api/sales/demo", {
+      const next = await fetchJson("/api/sales/demo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      setConfirmReset(false);
-      await load();
+      setConfirmReset(null);
+      setData(next);
+      return next;
     } catch (err) {
       setError(err?.message || t("app.salesCal.demoActionFailed"));
+      return null;
     } finally {
       setBusy("");
     }
   }
 
-  const company = data?.company;
+  /**
+   * Open a demo in a new tab.
+   *
+   * The tab is opened BEFORE the request, synchronously inside the click, and
+   * pointed at /app after it: a window.open that happens after an await is
+   * what popup blockers exist to stop, and a demo that "opens nothing" mid-call
+   * is the failure this screen must not have. If the switch fails the blank
+   * tab is closed and the error shows here.
+   */
+  async function openDemo(company) {
+    const tab = window.open("", "_blank");
+    const next = await act({ action: "open", companyId: company.id }, `open:${company.id}`);
+    if (!next) {
+      tab?.close();
+      return;
+    }
+    if (tab) tab.location = "/app";
+    else window.open("/app", "_blank");
+  }
 
-  // ── The two controls that work WITHOUT a login ──────────────────────────
+  async function submitLogin(e) {
+    e.preventDefault();
+    if (password.length < MIN_PASSWORD) return;
+    const next = await act({ action: "login", password }, "login");
+    if (next) {
+      setPassword("");
+      setReplacing(false);
+    }
+  }
+
+  const demos = data?.demos || [];
+  const usedTrades = new Set(demos.map((d) => d.demoIndustry));
+  const freeTrades = (data?.industries || []).filter((i) => !usedTrades.has(i.key));
+  const loginExists = Boolean(data?.login?.exists);
+
+  // ── The login card: set once, replace if lost ─────────────────────────────
   //
-  // Extracted so states 2 and 3 render exactly the same markup rather than two
-  // copies that drift — the copy-paste failure class this repo names, and the
-  // copy that rots is always the one nobody looks at. Both go through this
-  // portal's own API, not through the demo company, so a rep who is still
-  // waiting on a password can set the trade up for tomorrow's call today.
-  //
-  // `demoIndustry`, not `industry`: Company has no `industry` column. The
-  // select on this page read one, which meant it always showed "Not set"
-  // regardless of the trade the demo was actually dressed as.
-  const tradeCard = !company ? null : (
-    <section className={CARD}>
-      <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-        <Wrench size={16} /> {t("app.salesCal.demoTradeHeading")}
-      </h2>
-      <p className="text-sm text-muted-foreground break-words">
-        {t("app.salesCal.demoTradeBody")}
-      </p>
-      <select
-        className={FIELD}
-        value={company.demoIndustry || ""}
-        disabled={Boolean(busy)}
-        onChange={(e) => act({ action: "industry", industry: e.target.value })}
+  // One card for both states, so the password form is defined once. In the
+  // "exists" state it hides behind a deliberate "lost it" link — a rep who has
+  // a working login must not be offered a form that would quietly move every
+  // company to a new address.
+  const passwordForm = (submitKey) => (
+    <form onSubmit={submitLogin} className="space-y-2">
+      <label className="block text-sm text-foreground">
+        {t("app.salesCal.demoPasswordLabel", { min: MIN_PASSWORD })}
+        <input
+          type="password"
+          autoComplete="new-password"
+          minLength={MIN_PASSWORD}
+          className={`${FIELD} mt-1`}
+          value={password}
+          disabled={Boolean(busy)}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+      </label>
+      <button
+        type="submit"
+        disabled={Boolean(busy) || password.length < MIN_PASSWORD}
+        className={`${BTN} bg-primary text-primary-foreground w-full`}
       >
-        <option value="">{t("app.salesCal.demoTradeNotSet")}</option>
-        {/* The trade labels come from lib/demo/industries via the API — server
-            data, not copy on this screen, and English there today. */}
-        {(data?.industries || []).map((i) => (
-          <option key={i.key} value={i.key}>
-            {i.label}
-          </option>
-        ))}
-      </select>
-      {busy === "industry" ? (
-        <p className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Loader2 className="animate-spin" size={13} /> {t("app.salesCal.demoTradeRebuilding")}
-        </p>
-      ) : null}
-    </section>
+        {busy === "login" ? <Loader2 className="animate-spin" size={16} /> : <KeyRound size={16} />}
+        {t(submitKey)}
+      </button>
+    </form>
   );
 
-  const resetCard = !company ? null : (
+  const loginCard = !data ? null : (
     <section className={CARD}>
       <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-        <RefreshCw size={16} /> {t("app.salesCal.demoResetHeading")}
+        <KeyRound size={16} /> {t("app.salesCal.demoLoginHeading")}
       </h2>
-      <p className="text-sm text-muted-foreground break-words">
-        {t("app.salesCal.demoResetBody")}
-      </p>
-      {/* Two presses. It is only a fixture, and it is still somebody's
-          half-built walkthrough twenty minutes before a call. */}
-      {confirmReset ? (
-        <div className="space-y-2">
-          <p className="text-sm text-amber-900 dark:text-amber-200 break-words">
-            {t("app.salesCal.demoResetConfirm", { company: company.name })}
+      {loginExists ? (
+        <>
+          <p className="text-sm text-foreground break-words flex items-start gap-2">
+            <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-600" />
+            <span>
+              {withParts(t("app.salesCal.demoLoginReadyLine"), {
+                email: <span className="font-mono">{data.login.email}</span>,
+              })}
+            </span>
           </p>
-          <div className="flex flex-col sm:flex-row gap-2">
+          <p className="text-xs text-muted-foreground break-words">{t("app.salesCal.demoLoginKeep")}</p>
+          {replacing ? (
+            <div className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3 space-y-2">
+              <p className="text-sm text-amber-900 dark:text-amber-200 break-words">
+                {t("app.salesCal.demoLoginReplaceBody")}
+              </p>
+              {passwordForm("app.salesCal.demoLoginReplaceButton")}
+              <button
+                type="button"
+                onClick={() => {
+                  setReplacing(false);
+                  setPassword("");
+                }}
+                className={`${BTN} border border-border text-foreground w-full`}
+              >
+                {t("app.salesCal.demoResetNo")}
+              </button>
+            </div>
+          ) : (
             <button
               type="button"
-              disabled={Boolean(busy)}
-              onClick={() => act({ action: "reset" })}
-              className={`${BTN} bg-red-600 text-white flex-1`}
+              onClick={() => setReplacing(true)}
+              className="text-sm underline text-muted-foreground"
             >
-              {busy === "reset" ? <Loader2 className="animate-spin" size={16} /> : <RefreshCw size={16} />}
-              {t("app.salesCal.demoResetYes")}
+              {t("app.salesCal.demoLoginReplaceLink")}
             </button>
-            <button
-              type="button"
-              onClick={() => setConfirmReset(false)}
-              className={`${BTN} border border-border text-foreground flex-1`}
-            >
-              {t("app.salesCal.demoResetNo")}
-            </button>
-          </div>
-        </div>
+          )}
+        </>
       ) : (
-        <button
-          type="button"
-          disabled={Boolean(busy)}
-          onClick={() => setConfirmReset(true)}
-          className={`${BTN} border border-border text-foreground w-full`}
-        >
-          <RefreshCw size={16} /> {t("app.salesCal.demoResetButton")}
-        </button>
+        <>
+          <p className="text-sm text-muted-foreground break-words">
+            {withParts(t("app.salesCal.demoLoginSetBody"), {
+              email: <span className="font-mono">{data.login.plannedEmail}</span>,
+            })}
+          </p>
+          {passwordForm("app.salesCal.demoLoginCreateButton")}
+        </>
       )}
     </section>
   );
@@ -212,9 +250,7 @@ export default function SalesDemoPage() {
     <div className="space-y-6" data-tour="sales-demo">
       <header className="space-y-1">
         <h1 className="text-xl font-semibold text-foreground">{t("app.salesCal.demoTitle")}</h1>
-        <p className="text-sm text-muted-foreground max-w-2xl">
-          {t("app.salesCal.demoIntro")}
-        </p>
+        <p className="text-sm text-muted-foreground max-w-2xl">{t("app.salesCal.demoIntro")}</p>
       </header>
 
       {error ? (
@@ -227,132 +263,151 @@ export default function SalesDemoPage() {
       ) : null}
 
       {!data ? (
+        // The first load can take a few seconds when it is also the seed —
+        // thirty inserts on a database that may have been asleep — so the
+        // wait is named rather than left as a blank screen.
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="animate-spin" size={15} /> {t("app.salesCal.demoLoading")}
         </p>
-      ) : !company ? (
-        // STATE 1 — no demo. Never a blank screen, and never a button that
-        // would 409: Claim renders only when the pool says something is
-        // actually free.
-        <section className={CARD}>
-          <h2 className="text-base font-semibold text-foreground">{t("app.salesCal.demoNoneHeading")}</h2>
-          {data.pool?.free > 0 ? (
-            <>
-              <p className="text-sm text-muted-foreground break-words">
-                {t("app.salesCal.demoClaimBody")}{" "}
-                {/* The "is/are" toggle that used to be here was English's
-                    agreement rule spelled out in JS, which is the one thing
-                    AGENTS.md and the i18n brief both forbid — four of the nine
-                    languages count differently. The noun is declined by
-                    Intl.PluralRules through the __counted__ entry instead. */}
-                {t("app.salesCal.demoPoolFreeLine", {
-                  free: data.pool.free,
-                  count: t("app.salesCal.demoPoolCount", { value: data.pool.total }),
-                })}
-              </p>
-              <button
-                type="button"
-                disabled={Boolean(busy)}
-                onClick={() => act({ action: "claim" })}
-                className={`${BTN} bg-primary text-primary-foreground w-full`}
-              >
-                {busy === "claim" ? (
-                  <Loader2 className="animate-spin" size={16} />
-                ) : (
-                  <HandGrab size={16} />
-                )}
-                {t("app.salesCal.demoClaimButton")}
-              </button>
-              <p className="text-xs text-muted-foreground break-words">
-                {t("app.salesCal.demoClaimNote")}
-              </p>
-            </>
-          ) : (
-            // The honest refusal, with the real numbers. Not a button that
-            // fails, and not a generic "try again later".
-            <p className="text-sm text-muted-foreground break-words">
-              {data.pool?.total > 0
-                ? // A second counted entry, not a reuse of demoPoolCount: this
-                  // sentence needs the verb agreeing with the count as well as
-                  // the noun ("1 demo company IS taken", "3 demo companies
-                  // ARE"), and the free line above needs the bare noun.
-                  t("app.salesCal.demoPoolTakenLine", {
-                    count: t("app.salesCal.demoPoolTakenCount", { value: data.pool.total }),
-                  })
-                : t("app.salesCal.demoPoolEmpty")}
-            </p>
-          )}
-        </section>
-      ) : !data.loginReady ? (
-        // STATE 2 — assigned, no login. Deliberately no "Open the demo
-        // company" link and no sign-in instructions: the address below is a
-        // string, not an account, and telling a rep to sign in with it would
-        // send them to a password box that can never be satisfied.
-        <>
-          <section className={CARD}>
-            <div className="flex items-baseline justify-between gap-3">
-              <h2 className="text-base font-semibold text-foreground break-words">{company.name}</h2>
-              <span className="text-xs text-muted-foreground">{company.slug}</span>
-            </div>
-            <div className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3 space-y-2">
-              <p className="text-sm font-semibold text-amber-900 dark:text-amber-200 flex items-center gap-2">
-                <KeyRound size={15} /> {t("app.salesCal.demoNoLoginHeading")}
-              </p>
-              <p className="text-sm text-amber-900 dark:text-amber-200 break-words">
-                {withParts(t("app.salesCal.demoNoLoginBody"), {
-                  role: <strong>{t("app.salesCal.demoSuperadminRole")}</strong>,
-                })}
-              </p>
-              <p className="text-sm text-amber-900 dark:text-amber-200 break-words">
-                {withParts(t("app.salesCal.demoAskQuote"), {
-                  name: <strong>{company.name}</strong>,
-                  slug: <span className="font-mono">{company.slug}</span>,
-                  // NOT translated: "Assign" is the literal label on the button
-                  // at /platform/demo, and the platform console is English for
-                  // everyone. Translating it would send a rep to ask for a
-                  // control nobody can find.
-                  assign: <strong>Assign</strong>,
-                  email: <span className="font-mono">{data.loginEmail}</span>,
-                })}
-              </p>
-              <p className="text-xs text-amber-800 dark:text-amber-300 break-words">
-                {t("app.salesCal.demoAddressFixed")}
-              </p>
-            </div>
-            <p className="text-xs text-muted-foreground break-words">
-              {t("app.salesCal.demoWorksWithoutLogin")}
-            </p>
-          </section>
-          {tradeCard}
-          {resetCard}
-        </>
       ) : (
         <>
-          <section className={CARD}>
-            <div className="flex items-baseline justify-between gap-3">
-              <h2 className="text-base font-semibold text-foreground break-words">{company.name}</h2>
-              <span className="text-xs text-muted-foreground">{company.slug}</span>
-            </div>
-            <p className="text-sm text-muted-foreground break-words">
-              {withParts(t("app.salesCal.demoSignInLine"), {
-                email: <span className="font-mono">{data.loginEmail}</span>,
-              })}
-            </p>
-            <a
-              href="/app"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`${BTN} bg-primary text-primary-foreground w-full`}
-            >
-              <ExternalLink size={16} /> {t("app.salesCal.demoOpenButton")}
-            </a>
-            <p className="text-xs text-muted-foreground break-words">
-              {t("app.salesCal.demoOpenNote")}
-            </p>
+          {loginCard}
+
+          <section className="space-y-3">
+            <h2 className="text-base font-semibold text-foreground">{t("app.salesCal.demoMineHeading")}</h2>
+            {demos.map((company) => (
+              <article key={company.id} className={CARD}>
+                <div className="flex items-baseline justify-between gap-3 flex-wrap">
+                  <h3 className="text-base font-semibold text-foreground break-words">{company.name}</h3>
+                  <span className="text-xs text-muted-foreground font-mono">{company.slug}</span>
+                </div>
+                <p className="text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
+                  <Wrench size={14} />
+                  {t("app.salesCal.demoTradeLine", { trade: company.tradeLabel })}
+                  {company.current ? (
+                    <span className="rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-semibold">
+                      {t("app.salesCal.demoCurrentBadge")}
+                    </span>
+                  ) : null}
+                </p>
+
+                {loginExists ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled={Boolean(busy)}
+                      onClick={() => openDemo(company)}
+                      className={`${BTN} bg-primary text-primary-foreground w-full`}
+                    >
+                      {busy === `open:${company.id}` ? (
+                        <Loader2 className="animate-spin" size={16} />
+                      ) : (
+                        <ExternalLink size={16} />
+                      )}
+                      {t("app.salesCal.demoOpenButton")}
+                    </button>
+                    <p className="text-xs text-muted-foreground break-words">{t("app.salesCal.demoOpenNote")}</p>
+                  </>
+                ) : (
+                  // No sign-in control without a sign-in. The card still shows
+                  // the company — it exists and its data is being kept — and
+                  // names the one thing that is missing.
+                  <p className="text-sm text-amber-900 dark:text-amber-200 break-words">
+                    {t("app.salesCal.demoOpenNeedsLogin")}
+                  </p>
+                )}
+
+                {/* Two presses. It is only a fixture, and it is still somebody's
+                    half-built walkthrough twenty minutes before a call. */}
+                {confirmReset === company.id ? (
+                  <div className="space-y-2">
+                    <p className="text-sm text-amber-900 dark:text-amber-200 break-words">
+                      {t("app.salesCal.demoResetConfirm", { company: company.name })}
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <button
+                        type="button"
+                        disabled={Boolean(busy)}
+                        onClick={() => act({ action: "reset", companyId: company.id }, `reset:${company.id}`)}
+                        className={`${BTN} bg-red-600 text-white flex-1`}
+                      >
+                        {busy === `reset:${company.id}` ? (
+                          <Loader2 className="animate-spin" size={16} />
+                        ) : (
+                          <RefreshCw size={16} />
+                        )}
+                        {t("app.salesCal.demoResetYes")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmReset(null)}
+                        className={`${BTN} border border-border text-foreground flex-1`}
+                      >
+                        {t("app.salesCal.demoResetNo")}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <button
+                      type="button"
+                      disabled={Boolean(busy)}
+                      onClick={() => setConfirmReset(company.id)}
+                      className={`${BTN} border border-border text-foreground w-full`}
+                    >
+                      <RefreshCw size={16} /> {t("app.salesCal.demoResetButton")}
+                    </button>
+                    <p className="text-xs text-muted-foreground break-words">{t("app.salesCal.demoResetBody")}</p>
+                  </div>
+                )}
+              </article>
+            ))}
           </section>
 
-          {tradeCard}
-          {resetCard}
+          <section className={CARD}>
+            <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+              <Plus size={16} /> {t("app.salesCal.demoAddHeading")}
+            </h2>
+            <p className="text-sm text-muted-foreground break-words">{t("app.salesCal.demoAddBody")}</p>
+            {freeTrades.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("app.salesCal.demoAddAllUsed")}</p>
+            ) : (
+              <div className="flex flex-col sm:flex-row gap-2">
+                {/* The trade labels come from lib/demo/industries via the API —
+                    server data, not copy on this screen, and English there. */}
+                <select
+                  className={FIELD}
+                  value={trade}
+                  disabled={Boolean(busy)}
+                  onChange={(e) => setTrade(e.target.value)}
+                >
+                  <option value="">{t("app.salesCal.demoAddPick")}</option>
+                  {freeTrades.map((i) => (
+                    <option key={i.key} value={i.key}>
+                      {i.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={Boolean(busy) || !trade}
+                  onClick={async () => {
+                    const next = await act({ action: "create", trade }, "create");
+                    if (next) setTrade("");
+                  }}
+                  className={`${BTN} bg-primary text-primary-foreground sm:w-auto`}
+                >
+                  {busy === "create" ? <Loader2 className="animate-spin" size={16} /> : <Plus size={16} />}
+                  {t("app.salesCal.demoAddButton")}
+                </button>
+              </div>
+            )}
+            {busy === "create" ? (
+              <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="animate-spin" size={13} /> {t("app.salesCal.demoCreating")}
+              </p>
+            ) : null}
+          </section>
         </>
       )}
     </div>
