@@ -93,8 +93,22 @@ export default function ContactNumbers({
   onSelect,
   onChanged,
   disabled = false,
+  // ── Which parts to draw ──────────────────────────────────────────────
+  //
+  // "choose" is the heading, the radio list and the refused numbers;
+  // "add" is the "they gave us another one" control and its form. Both by
+  // default — the lead screen draws the whole thing in one place. The queue
+  // console draws "choose" in the Dialer card (where the Call button is) and
+  // "add" in the Contact card (where the person is), as two instances of
+  // THIS component: same route, same refusal sentences, same saved notice,
+  // no second copy of either.
+  // "refused" — the numbers the server would not offer, with the reason —
+  // is part of "choose" unless named alone: the console's Dialer card draws
+  // its own list of choices (DialerPad) and asks only for the refusals.
+  parts = ["choose", "add"],
 }) {
   const { t } = useTranslation();
+  const show = (part) => parts.includes(part);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -154,6 +168,7 @@ export default function ContactNumbers({
 
   return (
     <div className="space-y-3">
+      {show("choose") ? (
       <div className="flex items-baseline justify-between gap-2">
         <h3 className="text-sm font-semibold text-foreground">
           {t("app.salesDial.whichNumber")}
@@ -164,6 +179,7 @@ export default function ContactNumbers({
           </span>
         ) : null}
       </div>
+      ) : null}
 
       {error ? (
         <div className="rounded-lg border border-red-300 dark:border-red-900 bg-red-50 dark:bg-red-950/40 px-3 py-2 text-sm text-red-800 dark:text-red-300 break-words">
@@ -181,7 +197,7 @@ export default function ContactNumbers({
           Radio rather than a <select>: a rep glancing at this while somebody
           talks needs to see that there are two numbers and what each one is
           for, and a closed dropdown shows neither. */}
-      {choices.length ? (
+      {!show("choose") ? null : choices.length ? (
         <ul className="space-y-1.5">
           {choices.map((c) => {
             const id = c.id || "";
@@ -233,7 +249,7 @@ export default function ContactNumbers({
       )}
 
       {/* ── What was refused, and why ─────────────────────────────────────── */}
-      {(voice.refused || []).length ? (
+      {(show("choose") || show("refused")) && (voice.refused || []).length ? (
         <ul className="space-y-1.5">
           {voice.refused.map((r, i) => (
             <li
@@ -258,7 +274,7 @@ export default function ContactNumbers({
       ) : null}
 
       {/* ── They gave us another one ──────────────────────────────────────── */}
-      {disabled ? (
+      {!show("add") ? null : disabled ? (
         <p className="text-xs text-muted-foreground break-words">
           {t("app.salesDial.doNotContactNoNumbers")}
         </p>
@@ -336,12 +352,14 @@ export default function ContactNumbers({
 
       {/* The listing number is never edited from here, and saying so stops a
           rep hunting for a control that deliberately does not exist. */}
+      {show("add") ? (
       <p className="text-xs text-muted-foreground break-words">
         <Phone size={12} className="inline mr-1" />
         {t("app.salesDial.listingNumberNotice")}
       </p>
+      ) : null}
 
-      {(voice.refused || []).some((r) => r.why === "landline_cannot_receive_text") ? (
+      {show("choose") && (voice.refused || []).some((r) => r.why === "landline_cannot_receive_text") ? (
         <p className="text-xs text-amber-800 dark:text-amber-300 break-words">
           <AlertTriangle size={12} className="inline mr-1" />
           {t("app.salesDial.landlineTextNotice")}

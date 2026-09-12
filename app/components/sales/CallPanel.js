@@ -65,6 +65,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   AlertCircle,
   CircleHelp,
@@ -161,6 +162,42 @@ export default function CallPanel({
   // server refusal rather than sit on a row that will never ring.
   autoDial = null,
   onAutoDialResult = null,
+  // ── Where the console wants the pieces drawn ─────────────────────────
+  //
+  // `{ disposition, nextSteps, script, contact }` — DOM nodes the queue console
+  // registers for its bottom panel's tabs. When a node is given, that piece
+  // is rendered THROUGH A PORTAL into it instead of inline below the dial;
+  // when it is null (the lead screen, an older console) the piece renders
+  // where it always did. The state machine is untouched by this: the
+  // disposition form still reads `pending` from this component's state and
+  // still writes through saveOutcome(), the playbook is still fetched here
+  // with the prospect. Only the DOM position moves. A second copy of the
+  // form in the console would be AGENTS.md failure class 4 with a live call
+  // behind it.
+  slots = null,
+  // ── A number the rep typed, resolved before the press rings anything ──
+  //
+  // `async () => ({ ok, phoneE164, contactNumberId } | { ok: false, error })`.
+  // When given, place() awaits it FIRST and dials what it returns; when it
+  // says no, the press ends with its sentence and nothing is posted. The
+  // console uses it to turn a typed number into a stored one (through the
+  // numbers route, with its validation) and hand back the id — so a typed
+  // number reaches the dial route exactly as a stored one does, and the
+  // route's suppression check and jurisdiction gate see it the same way.
+  // Null keeps every existing caller byte-identical.
+  beforeDial = null,
+  // ── A press from a Dial button elsewhere on the console ───────────────
+  //
+  // `{ token }`. A new token calls place("browser") exactly as the Call
+  // button does — the Company and Contact cards' per-number Dial buttons
+  // paste the number into the display and hand the press here. Same
+  // function, same beforeDial, same gate; consumed once; refused with the
+  // panel's own sentence when a call is up or an outcome is unlogged.
+  dialRequest = null,
+  // Told the live Call object when a call goes up, and null when it ends —
+  // the console's keypad sends DTMF through it while a call is up. Never
+  // used to place or end a call; those stay here.
+  onLiveCall = null,
 }) {
   // The rep's own language, not the prospect's. Everything on this panel is
   // read by the person holding the phone; the words they SAY come from the
@@ -307,6 +344,18 @@ export default function CallPanel({
     setBusy("dial");
     setError("");
     try {
+      // The typed-number step, when the console asks for one. Awaited before
+      // the dial POST so a number that fails validation or is suppressed
+      // never reaches the wire; its refusal is this panel's error.
+      let dialTarget = { phoneE164, contactNumberId };
+      if (beforeDial) {
+        const pre = await beforeDial();
+        if (!pre?.ok) {
+          setError(pre?.error || t("app.salesCall.dialFailed"));
+          return false;
+        }
+        dialTarget = { phoneE164: pre.phoneE164 || phoneE164, contactNumberId: pre.contactNumberId || null };
+      }
       const body = await fetchJson("/api/sales/calls", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -321,7 +370,7 @@ export default function CallPanel({
           // Omitted entirely when the rep has not picked one, so the server
           // falls back to its OWN best choice rather than to a null it has to
           // interpret.
-          ...(contactNumberId ? { contactNumberId } : {}),
+          ...(dialTarget.contactNumberId ? { contactNumberId: dialTarget.contactNumberId } : {}),
           channel,
         }),
       });
@@ -363,9 +412,11 @@ export default function CallPanel({
       setStartedAt(Date.now());
       setMuted(false);
       presenceRef.current.setCallUp(true);
+      onLiveCall?.(call);
 
       call.on("disconnect", () => {
         callRef.current = null;
+        onLiveCall?.(null);
         setStartedAt(null);
         setPending({ id: body.attemptId, toE164: body.to, dialledAt: body.serverNow });
         setAttempt(null);
@@ -427,6 +478,21 @@ export default function CallPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoDial?.token, autoDial?.prospectId, prospectId]);
 
+  const dialRequestSeen = useRef(null);
+  useEffect(() => {
+    if (!dialRequest?.token || dialRequestSeen.current === dialRequest.token) return;
+    dialRequestSeen.current = dialRequest.token;
+    if (busy || startedAt || pending) {
+      setError(t("app.salesCall.dialWhileBusy"));
+      return;
+    }
+    if (!browserReady && !fallbackHref) return;
+    place(browserReady ? "browser" : "handset");
+    // `place` is a plain function of this render; the guards above are read
+    // from the same render the token arrived in.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dialRequest?.token]);
+
   function hangUp() {
     try {
       callRef.current?.disconnect?.();
@@ -477,6 +543,14 @@ export default function CallPanel({
       setBusy("");
     }
   }
+
+  /** Draw `node` in the console's slot when it has one, inline otherwise. */
+  const into = (slot, node) => (slot ? createPortal(node, slot) : node);
+  // The console's Call button is the big green one of the reference dialler;
+  // the lead screen keeps the portal's primary. Same button, same press.
+  const callClass = slots
+    ? "bg-emerald-600 hover:bg-emerald-700 text-white min-h-[52px] text-base"
+    : "bg-primary text-primary-foreground";
 
   // ── While the tables are absent ──────────────────────────────────────────
   //
@@ -536,7 +610,10 @@ export default function CallPanel({
       {/* The address their own site publishes, from the playbook read — it
           rides on the same ownership query the script does. Nothing when
           there is none. */}
-      <PublishedEmail email={playbook?.prospect?.email || null} source={playbook?.prospect?.emailSource || null} />
+      {into(
+        slots?.contact || null,
+        <PublishedEmail email={playbook?.prospect?.email || null} source={playbook?.prospect?.emailSource || null} />,
+      )}
 
       {/* ── On a call ───────────────────────────────────────────────────── */}
       {startedAt ? (
@@ -582,8 +659,10 @@ export default function CallPanel({
       ) : null}
 
       {/* ── An unlogged call, which outranks starting another ───────────── */}
-      {!startedAt && pending ? (
-        <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 p-4 space-y-3">
+      {into(
+        slots?.disposition || null,
+        !startedAt && pending ? (
+        <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 p-4 space-y-3" data-call-disposition>
           <div>
             <p className="font-semibold text-amber-900 dark:text-amber-100">
               {t("app.salesCall.whatHappened")}
@@ -662,7 +741,23 @@ export default function CallPanel({
             {t("app.salesCall.saveOutcome")}
           </button>
         </div>
-      ) : null}
+        ) : slots?.disposition ? (
+          // The console's Disposition tab, with no call to write up: say so,
+          // and list what a written-up call will ask for. A blank tab reads
+          // as a broken one.
+          <div className="rounded-lg border border-dashed border-border bg-muted p-3 text-sm text-muted-foreground space-y-2" data-call-disposition-empty>
+            <p className="font-semibold text-foreground">{t("app.salesCall.noCallToLog")}</p>
+            <p className="break-words">{t("app.salesCall.noCallToLogBody")}</p>
+            <ul className="flex flex-wrap gap-1.5">
+              {dispositions.map((d) => (
+                <li key={d.code} className="rounded-full border border-border bg-card px-2.5 py-1 text-xs text-foreground">
+                  {t(d.labelKey, d.label)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null,
+      )}
 
       {/* ── The call button ─────────────────────────────────────────────── */}
       {!startedAt && !pending ? (
@@ -670,9 +765,10 @@ export default function CallPanel({
           {browserReady ? (
             <button
               type="button"
-              className={`${BTN} bg-primary text-primary-foreground w-full`}
+              className={`${BTN} ${callClass} w-full`}
               disabled={Boolean(busy)}
               onClick={() => place("browser")}
+              data-call-button
             >
               {busy === "dial" ? (
                 <Loader2 className="animate-spin" size={16} />
@@ -686,9 +782,10 @@ export default function CallPanel({
           {!browserReady && fallbackHref ? (
             <button
               type="button"
-              className={`${BTN} bg-primary text-primary-foreground w-full`}
+              className={`${BTN} ${callClass} w-full`}
               disabled={Boolean(busy)}
               onClick={() => place("handset")}
+              data-call-button
             >
               {busy === "dial" ? (
                 <Loader2 className="animate-spin" size={16} />
@@ -737,7 +834,10 @@ export default function CallPanel({
           call-back, in one block (NextSteps.js says why three). Opens the
           same event editor the calendar uses, with the business and number
           already filled from who they're calling. */}
-      <NextSteps prospectId={prospectId} leadId={leadId} businessName={businessName} phoneE164={phoneE164} />
+      {into(
+        slots?.nextSteps || null,
+        <NextSteps prospectId={prospectId} leadId={leadId} businessName={businessName} phoneE164={phoneE164} />,
+      )}
 
       {/* ── The words ────────────────────────────────────────────────────────
           Last in the DOM and in all three states — before the dial, during the
@@ -746,13 +846,17 @@ export default function CallPanel({
           three states because the rep needs the opener before the ring, the
           objections while they are being pushed back on, and the stages again
           when they are writing down what was actually said. */}
-      <CallPlaybook
-        loading={playbookLoading}
-        error={playbookError}
-        data={playbook}
-        unavailable={playbookUnavailable}
-        onRetry={loadPlaybook}
-      />
+      {into(
+        slots?.script || null,
+        <CallPlaybook
+          loading={playbookLoading}
+          error={playbookError}
+          data={playbook}
+          unavailable={playbookUnavailable}
+          onRetry={loadPlaybook}
+          layout={slots?.script ? "console" : "stack"}
+        />,
+      )}
     </div>
   );
 }

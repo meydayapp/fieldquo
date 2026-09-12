@@ -453,7 +453,11 @@ function describeWait(seconds) {
  * @param onClaim     the claim card's own press, or null when no trade is
  *                    picked — then the sentence says to pick one.
  */
-export default function AutodialControl({ auto, claimLabel = null, onClaim = null, busy = false }) {
+// `compact`: the console's Dialer card draws the switch as one row —
+// "Auto-dial [switch]" — with no title paragraph; the countdown, the wait,
+// the skip and the stop blocks still render when they have something to
+// say, because a countdown a rep cannot see is a dial they did not choose.
+export default function AutodialControl({ auto, claimLabel = null, onClaim = null, busy = false, compact = false }) {
   const { t } = useTranslation();
   const [flipping, setFlipping] = useState(false);
   const [flipError, setFlipError] = useState("");
@@ -521,8 +525,12 @@ export default function AutodialControl({ auto, claimLabel = null, onClaim = nul
     <div className="space-y-2" data-tour="sales-queue-autodial">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-foreground">{t("app.salesAutodial.title")}</p>
-          <p className="text-xs text-muted-foreground break-words">{t("app.salesAutodial.intro")}</p>
+          <p className="text-sm font-semibold text-foreground">
+            {compact ? t("app.salesAutodial.switchLabel") : t("app.salesAutodial.title")}
+          </p>
+          {!compact ? (
+            <p className="text-xs text-muted-foreground break-words">{t("app.salesAutodial.intro")}</p>
+          ) : null}
         </div>
         <button
           type="button"

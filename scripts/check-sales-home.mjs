@@ -140,8 +140,10 @@ ok(
   // of small wrongness that makes a rep stop believing the rest of the screen.
   const one = nextAction({ ...ALL_ZERO, repliesWaiting: 1 }).headline;
   const two = nextAction({ ...ALL_ZERO, repliesWaiting: 2 }).headline;
-  ok("one reply reads as one", /1 prospect has/.test(one), one);
-  ok("two replies read as two", /2 prospects have/.test(two), two);
+  // "lead", not "prospect": every rep-facing sentence says lead (the
+  // owner, 2026-09-11; check-sales-portal-i18n.mjs §8 holds the rule).
+  ok("one reply reads as one", /1 lead has/.test(one), one);
+  ok("two replies read as two", /2 leads have/.test(two), two);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

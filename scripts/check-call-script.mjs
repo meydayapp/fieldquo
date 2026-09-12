@@ -463,7 +463,9 @@ section("4. The route reads it and the screen draws it above the rules — only 
   const screen = read("app/components/sales/CallPlaybook.js");
   const draw = decomment(screen);
   ok("the screen has the generated block", /function AiScript\(/.test(draw));
-  ok("…drawn only when the route returned one", /\{data\.callScript \? <AiScript script=\{data\.callScript\}/.test(draw));
+  // Two shapes now — the stacked card and the console's numbered steps —
+  // and both are drawn only inside the same `data.callScript ?` branch.
+  ok("…drawn only when the route returned one", /\{data\.callScript \? \(\s*layout === "console" \? \(\s*<ConsoleScript script=\{data\.callScript\}[\s\S]{0,120}<AiScript script=\{data\.callScript\}/.test(draw));
   ok("…above the stages", draw.indexOf("<AiScript") < draw.indexOf("{stage ? ("));
   ok("…and the stages and the objection rail still render below", draw.indexOf("{stage ? (") > 0 && /ifTheyPushBack/.test(draw) && /objectionsToShow/.test(draw));
   ok("…every section of the shape is printed", ["opener", "whatWeSaw", "whyThemNow", "threeQuestions", "objections", "closeAsk", "doNotSay"].every((k) => new RegExp(`script\\.${k}`).test(draw)));

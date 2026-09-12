@@ -458,6 +458,41 @@ for (const [bodyKey, buttonKey] of QUOTED_BUTTONS) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+section("8. A rep reads \"lead\", never \"prospect\"");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The owner, 2026-09-11: every rep-facing string in the portal says "lead".
+// "Prospect" is the MODEL's name (Prospect, prospectId, the /platform
+// console) and stays there; on a rep's screen the queue holds leads to call
+// and My leads holds their own. Checked across all nine languages with the
+// Latin noun — `prospect`, `prospects`, and Spanish `prospecto(s)` — because
+// fr/tl/es carried the English word too. "prospection" (French for
+// prospecting, the activity) is a different word and is not matched.
+//
+// The per-language nouns that replaced it (лід, ਲੀਡ, 线索, Lead) are what
+// the rest of the catalogue already used for SalesLead, so the two stay one
+// word. Exceptions: none today; add a key here WITH its reason if one is
+// ever needed, never by loosening the pattern.
+{
+  const PREFIXES = ["app.salesQueue.", "app.salesCall.", "app.salesLeads.", "app.salesDial.", "app.salesTour.", "app.salesAutodial.", "app.salesText.", "app.salesNotes."];
+  const EXCEPTIONS = new Map([]);
+  const NOUN = /\bprospects?\b|\bprospectos?\b/i;
+  const src = readFileSync(join(ROOT, "app/i18n/appMessages.js"), "utf8");
+  for (const lang of LANGS) {
+    const hits = Object.entries(APP_MESSAGES[lang])
+      .filter(([k]) => PREFIXES.some((p) => k.startsWith(p)) && !EXCEPTIONS.has(k))
+      .filter(([, v]) => typeof v === "string" && NOUN.test(v))
+      .map(([k]) => k);
+    ok(`${lang}: no rep-facing key says "prospect"`, hits.length === 0, hits.slice(0, 8));
+  }
+  // The counted nouns are functions, so the source is read for their forms.
+  const counted = [...src.matchAll(/"app\.sales[^"]+": countedNoun\("(\w+)", (\{[^}]*\})\)/g)]
+    .filter((m) => NOUN.test(m[2]))
+    .map((m) => `${m[1]}: ${m[2]}`);
+  ok("no counted noun in any language is \"prospect\"", counted.length === 0, counted);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 console.log(`\n${failures.length ? "FAILED" : "PASSED"} — ${pass} passed, ${failures.length} failed`);
 if (failures.length) {
   for (const name of failures) console.log(`  · ${name}`);

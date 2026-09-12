@@ -203,29 +203,50 @@
 // an hour fast would otherwise open the window an hour early.
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   AlertCircle,
   Ban,
+  Building2,
+  CalendarClock,
   Check,
   ChevronLeft,
   ChevronRight,
   CircleCheck,
   CircleHelp,
+  ClipboardCheck,
+  Clock,
+  FileText,
+  Globe,
+  History,
   ListFilter,
   Loader2,
+  Mail,
+  MapPin,
+  Maximize2,
+  Minimize2,
   NotebookPen,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Pencil,
   Phone,
+  PhoneIncoming,
+  PhoneMissed,
   PhoneOff,
+  PhoneOutgoing,
   Plus,
+  Search,
   ShieldAlert,
   Undo2,
   UserPlus,
+  UserRound,
+  X,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import ContactNumbers from "@/app/components/sales/ContactNumbers";
+import DialerPad, { typedToE164 } from "@/app/components/sales/DialerPad";
 import QueueLeadEditor from "@/app/components/sales/QueueLeadEditor";
 import { LAYER_HEADINGS } from "@/lib/sales/prospectView";
 import { CALL_ALLOWED, CALL_REFUSED, dialHref, salesCallReadiness } from "@/lib/sales/callingRules";
@@ -242,6 +263,8 @@ import RepNoteVisibilityNotice from "@/app/components/sales/RepNoteVisibilityNot
 import RepNoteUnavailable from "@/app/components/sales/RepNoteUnavailable";
 import DialRegion, { Notice } from "@/app/components/sales/DialRegion";
 import AutodialControl, { useAutodial } from "@/app/components/sales/AutodialControl";
+import { useSalesSearch } from "@/app/components/sales/SalesSearch";
+import { useConsoleSlots } from "@/app/components/sales/consoleSlots";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 const BTN =
@@ -601,6 +624,1075 @@ function ProspectNotes({ prospectId, businessName }) {
   );
 }
 
+const RAIL_KEY = "fq-queue-rail";
+
+/**
+ * Which side the phone-style dialler sits. The owner: "can the dialer be on
+ * the right side like a normal phone dialer". One word to flip it back:
+ * "left" puts the Dialer first and the Contact column last.
+ */
+const DIALER_SIDE = "left";
+const COLUMN_ORDER =
+  DIALER_SIDE === "right" ? { dialer: "lg:order-2", panel: "lg:order-1" } : { dialer: "lg:order-1", panel: "lg:order-2" };
+
+/** The bottom panel's tabs, in order. Labels are keys; icons are chrome. */
+const PANEL_TABS = [
+  { key: "company", labelKey: "app.salesQueue.cardCompany", Icon: Building2 },
+  { key: "contact", labelKey: "app.salesQueue.cardContact", Icon: UserRound },
+  { key: "script", labelKey: "app.salesQueue.tabScript", Icon: FileText },
+  { key: "research", labelKey: "app.salesQueue.tabResearch", Icon: Search },
+  { key: "notes", labelKey: "app.salesQueue.tabNotes", Icon: NotebookPen },
+  { key: "disposition", labelKey: "app.salesQueue.tabDisposition", Icon: ClipboardCheck },
+  { key: "tasks", labelKey: "app.salesQueue.tabTasks", Icon: CalendarClock },
+  { key: "leads", labelKey: "app.salesQueue.tabLeads", Icon: ListFilter },
+];
+
+/** Two letters for the avatar circle. "Toitures Ouellet" → "TO". */
+function initials(name) {
+  const words = String(name || "")
+    .split(/\s+/)
+    .filter((w) => /[\p{L}\p{N}]/u.test(w));
+  const picked = words.slice(0, 2).map((w) => [...w].find((ch) => /[\p{L}\p{N}]/u.test(ch)) || "");
+  return picked.join("").toUpperCase() || "?";
+}
+
+/** A date-time in the rep's language, or the raw string when it will not parse. */
+function whenText(iso, language, opts = { dateStyle: "medium", timeStyle: "short" }) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  try {
+    return new Intl.DateTimeFormat(language || undefined, opts).format(d);
+  } catch {
+    return d.toISOString().slice(0, 16).replace("T", " ");
+  }
+}
+
+/**
+ * The calling window as one tag on the Dialer card: "Open until 21:00 ·
+ * Oklahoma's rule · 1 of 3 / 24 h", or "Opens at 08:00 Tue 8 Sep". Every
+ * value is the decision's own — the rep-clock time is the row's server
+ * string, the jurisdiction is the rule's, the cap is the rule's. Nothing is
+ * derived here from an IANA id.
+ */
+function WindowTag({ compliance, row }) {
+  const { t } = useTranslation();
+  if (!compliance) return null;
+  const w = row?.window || null;
+  const parts = [];
+  if (compliance.decision === CALL_ALLOWED) {
+    parts.push(w?.closesAtLocal ? t("app.salesQueue.rowWindowClosesAt", { time: w.closesAtLocal }) : t("app.salesQueue.rowWindowOpen"));
+  } else if (w?.opensAtLocal) {
+    parts.push(t("app.salesQueue.rowWindowOpensAt", { time: w.opensAtLocal }));
+  } else if (compliance.opensAtText) {
+    parts.push(t("app.salesDial.window.opensAt", { opensAt: compliance.opensAtText }));
+  } else if (compliance.decision === CALL_REFUSED) {
+    parts.push(t("app.salesQueue.rowWindowRefused"));
+  } else {
+    parts.push(t("app.salesQueue.rowWindowUnknown"));
+  }
+  if (compliance.jurisdiction?.name) {
+    parts.push(
+      t(
+        compliance.statutoryWindow ? "app.salesQueue.windowTagStatutory" : "app.salesQueue.windowTagCourtesy",
+        { jurisdiction: compliance.jurisdiction.name },
+      ),
+    );
+  }
+  const open = compliance.decision === CALL_ALLOWED;
+  return (
+    <div className="space-y-1">
+      <p
+        className={`inline-flex flex-wrap items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${
+          open ? TONE_CLASS.has : compliance.decision === CALL_REFUSED ? TONE_CLASS.gap : TONE_CLASS.unknown
+        }`}
+        data-window-tag={open ? "open" : "closed"}
+      >
+        <Clock size={12} aria-hidden="true" />
+        <span className="break-words">{parts.join(" · ")}</span>
+      </p>
+    </div>
+  );
+}
+
+/**
+ * The 24-hour cap as one line under the Call button: the server's count
+ * against the rule's ceiling. Only when both are known — a cap with no
+ * count is the caveat DialRegion prints, not a "0 of 3" invented here.
+ */
+function CapLine({ compliance }) {
+  const { t } = useTranslation();
+  const cap = Number.isFinite(compliance?.attemptCap) ? compliance.attemptCap : null;
+  const used = Number.isFinite(compliance?.attemptsLast24h) ? compliance.attemptsLast24h : null;
+  if (cap === null || used === null) return null;
+  return (
+    <p className="text-xs text-muted-foreground tabular-nums break-words text-center" data-attempt-cap>
+      {t("app.salesQueue.windowTagAttempts", { used, cap, jurisdiction: compliance.jurisdiction?.name || "" })}
+    </p>
+  );
+}
+
+/** One coloured tag on the Company card. */
+function Tag({ tone = "unknown", children, title }) {
+  return (
+    <span className={`inline-block rounded-full border px-2 py-0.5 text-[11px] leading-4 font-medium ${TONE_CLASS[tone] || TONE_CLASS.unknown}`} title={title}>
+      {children}
+    </span>
+  );
+}
+
+/**
+ * Card 2: the business. Facts from lib/sales/prospectView.js's rows and the
+ * brief's phrased description (lib/sales/intel/brief.js) — a description
+ * only when the model wrote one; otherwise the card says there is none and
+ * whether research is running. Tags are the row's own flags.
+ */
+/** A small Dial button beside a number: pastes it into the display and presses Call. */
+function DialButton({ t, e164, onDial }) {
+  if (!onDial || !e164) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => onDial(e164)}
+      className="inline-flex items-center gap-1 min-h-[36px] py-2 px-2 rounded-md border border-emerald-300 dark:border-emerald-800 text-xs font-semibold text-emerald-800 dark:text-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+      aria-label={t("app.salesQueue.dialNumberAria", { number: e164 })}
+      data-dial-number-button={e164}
+    >
+      <Phone size={12} aria-hidden="true" /> {t("app.salesQueue.dialButton")}
+    </button>
+  );
+}
+
+function CompanyCard({ t, current, row, compliance, numbers, onDial = null }) {
+  const location = current.facts.find((f) => f.key === "location");
+  const zone = current.callingContext?.timeZone || null;
+  const zones = compliance?.zones || [];
+  const zoneText = zone
+    ? t("app.salesQueue.zoneStated", { zone })
+    : zones.length
+      ? t("app.salesQueue.zoneImplied", { zones: zones.join(", ") })
+      : t("app.salesQueue.zoneUnknown");
+  const phones = (numbers?.voice?.choices || []).map((c) => c.e164).filter(Boolean);
+  const description = current.brief?.description || null;
+  const dnc = current.contact?.callable === false;
+  const score = Number.isFinite(current.score?.value) ? current.score.value : null;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-start gap-3">
+        <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold" aria-hidden="true">
+          {initials(current.businessName)}
+        </span>
+        <div className="min-w-0">
+          <p className="text-lg font-semibold text-foreground break-words">
+            {current.businessNameKey ? t(current.businessNameKey, current.businessName) : current.businessName}
+          </p>
+          <p className="text-sm text-muted-foreground break-words">
+            {[current.tradeLabel, [row?.city, row?.province].filter(Boolean).join(", ")].filter(Boolean).join(" · ") ||
+              t("app.salesQueue.noTradeOrTerritory")}
+          </p>
+          <p className="text-xs text-muted-foreground break-words">{zoneText}</p>
+        </div>
+      </div>
+
+      {description ? (
+        <p className="text-sm text-foreground break-words" data-company-description>{description}</p>
+      ) : (
+        <p className="text-sm text-muted-foreground italic break-words" data-company-description="none">
+          {row?.researching ? t("app.salesQueue.noDescriptionResearching") : t("app.salesQueue.noDescriptionYet")}
+        </p>
+      )}
+
+      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
+        <dt className="text-muted-foreground flex items-center gap-1"><MapPin size={13} aria-hidden="true" />{t("app.salesQueue.fieldAddress")}</dt>
+        <dd className={`break-words ${location?.known ? "text-foreground" : "text-muted-foreground italic"}`}>
+          {location ? (location.textKey ? t(location.textKey, location.text, location.params || {}) : location.text) : t("app.salesIntel.fact.location.missing")}
+        </dd>
+        <dt className="text-muted-foreground flex items-center gap-1"><Globe size={13} aria-hidden="true" />{t("app.salesQueue.fieldWebsite")}</dt>
+        <dd className="break-words">
+          {current.websiteUrl ? (
+            <a href={current.websiteUrl} target="_blank" rel="noreferrer noopener" className="text-foreground underline break-all">
+              {current.websiteUrl.replace(/^https?:\/\//, "")}
+            </a>
+          ) : (
+            <span className="text-muted-foreground italic">{t("app.salesQueue.fieldNone")}</span>
+          )}
+        </dd>
+        <dt className="text-muted-foreground flex items-center gap-1"><Phone size={13} aria-hidden="true" />{t("app.salesQueue.fieldPhone")}</dt>
+        <dd className="break-words tabular-nums">
+          {phones.length ? (
+            <ul className="space-y-1">
+              {phones.map((e164) => (
+                <li key={e164} className="flex items-center gap-2 flex-wrap">
+                  <span className="text-foreground">{e164}</span>
+                  <DialButton t={t} e164={e164} onDial={onDial} />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <span className="text-muted-foreground italic">{t("app.salesQueue.fieldNone")}</span>
+          )}
+        </dd>
+        <dt className="text-muted-foreground flex items-center gap-1"><Mail size={13} aria-hidden="true" />{t("app.salesQueue.fieldEmail")}</dt>
+        <dd className="break-words">
+          {current.email ? (
+            <>
+              <span className="text-foreground break-all">{current.email}</span>
+              {current.emailSource ? (
+                <span className="block text-xs text-muted-foreground">{t("app.salesQueue.emailSource", { source: current.emailSource })}</span>
+              ) : null}
+            </>
+          ) : (
+            <span className="text-muted-foreground italic">{t("app.salesQueue.fieldNone")}</span>
+          )}
+        </dd>
+      </dl>
+
+      {/* Tags: each one is a flag the server set on this row. */}
+      <div className="flex flex-wrap gap-1.5" data-company-tags>
+        {current.tradeLabel ? <Tag tone="unknown">{current.tradeLabel}</Tag> : null}
+        <Tag tone={row?.researched ? "has" : "unknown"}>
+          {row?.researched ? t("app.salesQueue.rowResearched") : row?.researching ? t("app.salesQueue.rowResearching") : t("app.salesQueue.rowNotResearched")}
+        </Tag>
+        {row?.language === "fr" ? <Tag tone="unknown" title={t("app.salesQueue.frenchChipTitle")}>{t("app.salesQueue.frenchChip")}</Tag> : null}
+        {score !== null ? <Tag tone="has">{t("app.salesQueue.scoreTag", { score })}</Tag> : null}
+        {current.existingCustomer ? <Tag tone="has">{t("app.salesQueue.existingCustomerTag")}</Tag> : null}
+        {dnc ? <Tag tone="gap">{t("app.salesQueue.doNotContactTag")}</Tag> : null}
+      </div>
+
+      {/* Capabilities as chips: has / gap / unknown, the three tones. */}
+      <div className="space-y-1">
+        <p className="text-xs font-medium text-foreground">{t("app.salesQueue.siteCapabilitiesHeading")}</p>
+        {current.capabilities.length === 0 ? (
+          <p className="text-xs text-muted-foreground">{t("app.salesQueue.siteNotCrawled")}</p>
+        ) : (
+          <ul className="flex flex-wrap gap-1.5">
+            {current.capabilities.map((c) => (
+              <li key={c.code}>
+                <Pill tone={c.tone}>{c.text}</Pill>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Card 3: the person. The inferred owner with its confidence and, opened,
+ * the sentence it was read from; the numbers, the email, the website.
+ */
+function ContactCard({ t, current, numbers, onDial = null }) {
+  const owner = current.inferences.find((inf) => inf.kind === "owner_name") || null;
+  const ownerName = current.brief?.owner?.name || (owner?.renderable ? owner.text : null);
+  const quote = current.brief?.owner?.quote || null;
+  const phones = numbers?.voice?.choices || [];
+  return (
+    <div className="space-y-3">
+      <div className="flex items-start gap-3">
+        <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted text-foreground text-sm font-bold" aria-hidden="true">
+          {ownerName ? initials(ownerName) : <UserRound size={18} />}
+        </span>
+        <div className="min-w-0 space-y-0.5">
+          {ownerName ? (
+            <>
+              <p className="text-base font-semibold text-foreground break-words" data-contact-owner>{ownerName}</p>
+              <p className="text-xs text-muted-foreground break-words">
+                {owner?.renderable
+                  ? t("app.salesQueue.inferenceCaveat", {
+                      confidence: t(owner.confidenceTextKey, owner.confidenceText, { percent: owner.confidencePercent }),
+                      source: t(owner.sourceTextKey, owner.sourceText),
+                    })
+                  : t("app.salesQueue.ownerInferred")}
+              </p>
+              {quote ? (
+                <details className="text-xs text-muted-foreground">
+                  <summary className="cursor-pointer min-h-[44px] flex items-center">{t("app.salesQueue.ownerWhy")}</summary>
+                  <p className="italic break-words">“{quote}”</p>
+                </details>
+              ) : null}
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">{t("app.salesQueue.ownerUnknown")}</p>
+          )}
+        </div>
+      </div>
+
+      <ul className="space-y-1 text-sm">
+        {phones.map((c) => (
+          <li key={c.id || c.e164} className="flex items-center gap-2 text-foreground">
+            <Phone size={13} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+            <span className="min-w-0 flex-1">
+              <span className="block tabular-nums break-words">{c.e164}</span>
+              {c.label || c.kind ? <span className="block text-xs text-muted-foreground break-words">{[c.label, c.kind].filter(Boolean).join(" · ")}</span> : null}
+            </span>
+            <DialButton t={t} e164={c.e164} onDial={onDial} />
+          </li>
+        ))}
+        {phones.length === 0 ? (
+          <li className="text-muted-foreground italic">{t("app.salesDial.noRingableNumber")}</li>
+        ) : null}
+        <li className="flex items-center gap-2">
+          <Mail size={13} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+          {current.email ? <span className="text-foreground break-all">{current.email}</span> : <span className="text-muted-foreground italic">{t("app.salesQueue.fieldNone")}</span>}
+        </li>
+        <li className="flex items-center gap-2">
+          <Globe size={13} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+          {current.websiteUrl ? (
+            <a href={current.websiteUrl} target="_blank" rel="noreferrer noopener" className="text-foreground underline break-all">
+              {current.websiteUrl.replace(/^https?:\/\//, "")}
+            </a>
+          ) : (
+            <span className="text-muted-foreground italic">{t("app.salesQueue.fieldNone")}</span>
+          )}
+        </li>
+      </ul>
+    </div>
+  );
+}
+
+/** The last five attempts on this business by this rep. */
+function CallHistory({ t, current, language }) {
+  const rows = Array.isArray(current.history) ? current.history : [];
+  if (rows.length === 0) {
+    return <p className="text-sm text-muted-foreground">{t("app.salesQueue.historyEmpty")}</p>;
+  }
+  return (
+    <ul className="space-y-2" data-call-history>
+      {rows.map((a) => {
+        const inbound = a.direction === "in";
+        const missed = inbound && !a.answered;
+        const label = a.disposition
+          ? t(`app.salesCall.disposition.${a.disposition}.label`, dispositionFor(a.disposition)?.label || a.disposition)
+          : t("app.salesQueue.rowLastOutcomeUnlogged");
+        const duration = Number.isFinite(a.talkSeconds) && a.talkSeconds > 0
+          ? `${Math.floor(a.talkSeconds / 60)}:${String(a.talkSeconds % 60).padStart(2, "0")}`
+          : null;
+        return (
+          <li key={a.id} className="flex items-start gap-2 text-sm">
+            {missed ? (
+              <PhoneMissed size={15} className="mt-0.5 shrink-0 text-red-700 dark:text-red-300" aria-hidden="true" />
+            ) : inbound ? (
+              <PhoneIncoming size={15} className="mt-0.5 shrink-0 text-emerald-700 dark:text-emerald-300" aria-hidden="true" />
+            ) : (
+              <PhoneOutgoing size={15} className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+            )}
+            <span className="min-w-0">
+              <span className="block text-foreground break-words">
+                {missed ? t("app.salesQueue.historyMissed") : inbound ? t("app.salesQueue.historyInbound") : t("app.salesQueue.historyOutbound")}
+                {" · "}
+                <span className="text-muted-foreground">{whenText(a.dialledAt, language)}</span>
+                {duration ? <span className="text-muted-foreground"> · {duration}</span> : null}
+              </span>
+              <span className="block text-xs text-muted-foreground break-words">{label}</span>
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/**
+ * The Research tab: layer 1 facts (with software), layer 2 inferences,
+ * layer 3 recommendations, then what we do not know. Moved from the page's
+ * column into a tab; every sentence, every refusal and every key is what
+ * it was. The three-layer discipline the header describes lives in
+ * lib/sales/prospectView.js and is only printed here.
+ */
+function ResearchLayers({ t, current }) {
+  return (
+    <>
+      {/* ── Layer 1: facts ─────────────────────────────────────────── */}
+      <div className="space-y-3">
+        <LayerHeader layer="fact" />
+        <ul className="space-y-2">
+          {current.facts.map((f) => (
+            <li key={f.key} className="flex flex-col gap-0.5">
+              <span className="text-xs text-muted-foreground">{t(f.labelKey, f.label)}</span>
+              <span className={`text-sm break-words ${f.known ? "text-foreground" : "text-muted-foreground italic"}`}>
+                {/* A row with no textKey is one whose value is the
+                    PROSPECT'S OWN — their phone number, their address,
+                    the register's name for them. Those are printed
+                    verbatim; translating data is inventing it. */}
+                {f.textKey ? t(f.textKey, f.text, f.params || {}) : f.text}
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        <div className="pt-2 space-y-2">
+          <h3 className="text-sm font-medium text-foreground">{t("app.salesQueue.siteCapabilitiesHeading")}</h3>
+          {current.capabilities.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("app.salesQueue.siteNotCrawled")}</p>
+          ) : (
+            <ul className="space-y-2">
+              {current.capabilities.map((c) => (
+                <li key={c.code} className="space-y-1">
+                  <Pill tone={c.tone}>{c.text}</Pill>
+                  {c.detail ? <p className="text-xs text-muted-foreground break-words">{c.detail}</p> : null}
+                  {c.known && !c.sayable ? (
+                    <p className="text-xs text-muted-foreground">{t("app.salesQueue.notVerifiedImpression")}</p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="pt-2 space-y-1">
+          <h3 className="text-sm font-medium text-foreground">{t("app.salesQueue.softwareHeading")}</h3>
+          <p className="text-sm text-foreground break-words">{current.competitor.text}</p>
+        </div>
+      </div>
+
+      {/* ── Layer 2: inferences ────────────────────────────────────── */}
+      <div className="space-y-3 border-t border-border pt-4">
+        <LayerHeader layer="inference" />
+        {current.inferences.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t("app.salesQueue.noInferences")}</p>
+        ) : (
+          <ul className="space-y-3">
+            {current.inferences.map((inf, i) => (
+              <li key={`${inf.kind}-${i}`}>
+                {inf.renderable ? (
+                  <>
+                    {/* "We think" and the confidence travel together in
+                        every language: the prefix is what marks this as
+                        an impression rather than a finding, and a
+                        translation that dropped either would turn the
+                        whole layer into an assertion. */}
+                    <p className="text-sm text-foreground break-words">
+                      {emphasise(
+                        t("app.salesQueue.inferenceLine", {
+                          text: inf.textKey ? t(inf.textKey, inf.text) : inf.text,
+                          kind: inf.kindTextKey ? t(inf.kindTextKey, inf.kindText) : inf.kindText,
+                        }),
+                      )}
+                    </p>
+                    <p className="text-xs text-muted-foreground break-words">
+                      {t("app.salesQueue.inferenceCaveat", {
+                        confidence: t(inf.confidenceTextKey, inf.confidenceText, { percent: inf.confidencePercent }),
+                        source: t(inf.sourceTextKey, inf.sourceText),
+                      })}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
+                    <ShieldAlert size={14} className="inline mr-1" />
+                    {t(inf.refusalKey, inf.refusal)}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* ── Layer 3: recommendations ───────────────────────────────── */}
+      <div className="space-y-3 border-t border-border pt-4">
+        <LayerHeader layer="recommendation" />
+        {current.opportunities.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t("app.salesQueue.noRecommendations")}</p>
+        ) : (
+          <ol className="space-y-3">
+            {current.opportunities.map((o, i) => (
+              <li key={`${o.capabilityCode}-${i}`} className="space-y-1">
+                {o.renderable ? (
+                  <>
+                    <p className="text-sm text-foreground break-words">
+                      <strong>{i + 1}. {o.nameKey ? t(o.nameKey, o.name) : o.name}</strong>
+                    </p>
+                    <p className="text-sm text-foreground break-words">
+                      {t("app.salesQueue.recommendationBecause", { reason: o.reason })}
+                    </p>
+                    <p className="text-xs text-muted-foreground break-words">
+                      {o.ruleCode
+                        ? t("app.salesQueue.recommendationEvidenceWithRule", {
+                            confidence: t(o.confidenceTextKey, o.confidenceText, { percent: o.confidencePercent }),
+                            observations: t("app.salesQueue.observationCount", { value: o.evidenceIds.length }),
+                            rule: o.ruleCode,
+                          })
+                        : t("app.salesQueue.recommendationEvidence", {
+                            confidence: t(o.confidenceTextKey, o.confidenceText, { percent: o.confidencePercent }),
+                            observations: t("app.salesQueue.observationCount", { value: o.evidenceIds.length }),
+                          })}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
+                    <ShieldAlert size={14} className="inline mr-1" />
+                    {t(o.refusalKey, o.refusal)}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+
+      {/* ── What we do not know ────────────────────────────────────── */}
+      <div className="space-y-2 border-t border-border pt-4">
+        <h2 className="text-base font-semibold text-foreground">
+          <CircleHelp size={16} className="inline mr-1" />
+          {t("app.salesQueue.unknownsHeading")}
+        </h2>
+        <p className="text-xs text-muted-foreground">{t("app.salesQueue.unknownsNote")}</p>
+        {current.unknowns.length === 0 ? (
+          <p className="text-sm text-foreground">{t("app.salesQueue.unknownsNone")}</p>
+        ) : (
+          <ul className="list-disc pl-5 space-y-1">
+            {current.unknowns.map((u, i) => (
+              <li key={`${u.key || u.text}-${i}`} className="text-sm text-muted-foreground break-words">
+                {u.key ? t(u.key, u.text, u.params || {}) : u.text}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </>
+  );
+}
+
+/**
+ * The claim's own wrap-up, under the disposition: mark worked, release,
+ * carry to a lead, do-not-contact. Moved from the page's last card into the
+ * Disposition tab; every button posts what it posted.
+ */
+function WrapUp({ t, current, busy, act, carryToLead, dncOpen, setDncOpen, dncReason, setDncReason }) {
+  return (
+    <div className="space-y-3 border-t border-border pt-4">
+      <h3 className="text-sm font-semibold text-foreground">{t("app.salesQueue.wrapUpHeading")}</h3>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <button
+          type="button"
+          className={`${BTN} bg-primary text-primary-foreground w-full`}
+          disabled={Boolean(busy)}
+          onClick={() => act("worked", { prospectId: current.id })}
+        >
+          {busy === "worked" ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
+          {t("app.salesQueue.markWorked")}
+        </button>
+        <button
+          type="button"
+          className={`${BTN} border border-border text-foreground w-full`}
+          disabled={Boolean(busy)}
+          onClick={() => act("release", { prospectId: current.id })}
+        >
+          {busy === "release" ? <Loader2 className="animate-spin" size={16} /> : <Undo2 size={16} />}
+          {t("app.salesQueue.release")}
+        </button>
+      </div>
+      <p className="text-xs text-muted-foreground">{t("app.salesQueue.markWorkedNote")}</p>
+
+      {/* ── Carry it across to a lead ────────────────────────────────
+          SalesLead.prospectId has existed since the queue did, and
+          nothing wrote it from here: a rep who wanted to EMAIL or TEXT
+          somebody they had just researched and phoned had to retype the
+          name and the number on the leads screen. Slow, and it silently
+          broke the link — two records about one business, neither able
+          to see the other. Pressing it twice is the ordinary case, so
+          the server hands back the lead that already exists rather than
+          making a second one. */}
+      <button
+        type="button"
+        data-tour="sales-queue-work-as-lead"
+        className={`${BTN} border border-border text-foreground w-full`}
+        disabled={Boolean(busy)}
+        onClick={() => carryToLead(current.id)}
+      >
+        {busy === "lead" ? <Loader2 className="animate-spin" size={16} /> : <UserPlus size={16} />}
+        {t("app.salesQueue.carryToLeadButton")}
+      </button>
+      <p className="text-xs text-muted-foreground">{t("app.salesQueue.carryToLeadNote")}</p>
+
+      {/* ── Stop working this one ────────────────────────────────────
+          The distinction below sits OUTSIDE the disclosure, so it is read
+          before the press rather than after it. The button says what it
+          does — it writes one Prospect row, not the platform list — and
+          the sentence stands above both states. */}
+      {dncOpen ? (
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-foreground" htmlFor="q-dnc">
+            {t("app.salesQueue.dncReasonLabel")}
+          </label>
+          <input
+            id="q-dnc"
+            className={FIELD}
+            value={dncReason}
+            onChange={(e) => setDncReason(e.target.value)}
+            placeholder={t("app.salesQueue.dncReasonPlaceholder")}
+          />
+          <button
+            type="button"
+            className={`${BTN} bg-red-600 text-white w-full`}
+            disabled={Boolean(busy) || !dncReason.trim()}
+            onClick={() => act("do_not_contact", { prospectId: current.id, reason: dncReason })}
+          >
+            {busy === "do_not_contact" ? <Loader2 className="animate-spin" size={16} /> : <Ban size={16} />}
+            {t("app.salesQueue.dncConfirm")}
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className={`${BTN} border border-red-300 text-red-700 dark:text-red-300 w-full`}
+          disabled={Boolean(busy)}
+          onClick={() => setDncOpen(true)}
+        >
+          <Ban size={16} /> {t("app.salesQueue.dncOpenButton")}
+        </button>
+      )}
+      {/* The scope of this button, in full. It is the sentence that stops
+          a rep believing they have honoured "never call me again" when
+          they have written one Prospect row, so it is translated whole
+          rather than trimmed to fit. */}
+      <p className="text-xs text-muted-foreground">
+        {emphasise(t("app.salesQueue.dncScopeNote"), "span", "font-medium text-foreground")}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * The Tasks tab: callbacks this rep promised on this business (from the
+ * attempts' callbackAt) and check-in drafts due for its number (from
+ * SalesCheckIn, status draft). Both come with the queue payload — one
+ * read, no second endpoint. Nothing else is a "task" here, and the tab says
+ * so rather than listing the calendar's whole day.
+ */
+function TasksTab({ t, current, language }) {
+  const now = Date.now();
+  const callbacks = (Array.isArray(current.history) ? current.history : [])
+    .filter((a) => a.callbackAt)
+    .sort((a, b) => new Date(a.callbackAt) - new Date(b.callbackAt));
+  const checkIns = Array.isArray(current.checkIns) ? current.checkIns : [];
+  return (
+    <div className="space-y-4" data-console-tasks>
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold text-foreground">{t("app.salesQueue.tasksCallbacks")}</h3>
+        {callbacks.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t("app.salesQueue.tasksNoCallbacks")}</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {callbacks.map((a) => {
+              const due = new Date(a.callbackAt).getTime() < now;
+              return (
+                <li key={a.id} className={`flex items-start gap-2 rounded-lg border p-2.5 text-sm ${due ? TONE_CLASS.gap : "border-border bg-card text-foreground"}`}>
+                  <CalendarClock size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
+                  <span className="min-w-0 break-words">
+                    {t("app.salesQueue.tasksCallbackAt", { when: whenText(a.callbackAt, language) })}
+                    {due ? <span className="block text-xs">{t("app.salesQueue.tasksOverdue")}</span> : null}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold text-foreground">{t("app.salesQueue.tasksCheckIns")}</h3>
+        {checkIns.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t("app.salesQueue.tasksNoCheckIns")}</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {checkIns.map((c) => (
+              <li key={c.id} className="rounded-lg border border-border bg-card p-2.5 text-sm space-y-0.5">
+                <p className="text-xs text-muted-foreground">
+                  {c.scheduledFor
+                    ? t("app.salesQueue.tasksCheckInDue", { when: whenText(c.scheduledFor, language) })
+                    : t("app.salesQueue.tasksCheckInUnscheduled")}
+                </p>
+                <p className="text-foreground break-words">{c.draftText}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+        <Link href="/sales/messages" className="inline-flex items-center min-h-[44px] text-sm font-medium text-foreground underline">
+          {t("app.salesQueue.tasksOpenTexts")}
+        </Link>
+      </div>
+      <p className="text-xs text-muted-foreground break-words">{t("app.salesQueue.tasksScopeNote")}</p>
+    </div>
+  );
+}
+
+/**
+ * The day, grouped by window. One header per group from the server
+ * (queue.windows.groups), with its count; the rows under it in the order
+ * the server put them. The running number continues across groups so "42."
+ * still means the forty-second row of the day. The zone chip is the
+ * PROSPECT's zone as Intl names it in the rep's language; the time beside
+ * it is the REP's clock. `visibleIds` is the top bar's search: null means
+ * every row, a Set means only those. Drawn by the rail, the drawer and the
+ * Leads tab — one renderer, three places.
+ */
+function QueueList({ t, loading, data, items, groups, itemById, current, visibleIds, query, select, wide = false }) {
+  if (loading) {
+    return (
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="animate-spin" size={15} /> {t("app.salesQueue.queueLoading")}
+      </p>
+    );
+  }
+  return (
+    <div className="space-y-3" data-queue-list={wide ? "wide" : "rail"}>
+      {/* ── The four empty states, kept apart ───────────────────────────
+          buildQueue() distinguishes no_trade, unknown_pool, pool_empty
+          and nothing_claimed, and the difference is the whole value: "you
+          have not picked a trade", "we could not count", "the pool is
+          dry" and "there are some, go claim one" have four different
+          fixes. The sentence comes from the server so a second screen
+          cannot re-word it; only the icon is chosen here, and it is
+          chosen from the same four codes rather than from a truthiness
+          test. */}
+      {data?.queue?.empty ? (
+        <div className="space-y-2">
+          <div className="flex items-start gap-2">
+            {data.queue.emptyReason === "unknown_pool" ? (
+              <CircleHelp size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+            ) : data.queue.emptyReason === "nothing_claimed" ? (
+              <Plus size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+            ) : data.queue.emptyReason === "pool_empty" ? (
+              <Ban size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+            ) : (
+              <ListFilter size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+            )}
+            <p className="text-sm text-foreground break-words">{data.queue.emptyText}</p>
+          </div>
+          <p className="text-xs text-muted-foreground">{t("app.salesQueue.emptyDisclaimer")}</p>
+        </div>
+      ) : null}
+
+      {items.length > 0 && visibleIds && visibleIds.size === 0 ? (
+        <p className="text-sm text-muted-foreground break-words">{t("app.salesQueue.searchNoMatch", { query })}</p>
+      ) : null}
+
+      {items.length > 0 ? (
+        <div className={wide ? "grid gap-3 md:grid-cols-2 xl:grid-cols-3" : "space-y-3"}>
+          {(() => {
+            let position = 0;
+            return groups.map((group) => {
+              const shownIds = group.ids.filter((id) => !visibleIds || visibleIds.has(id));
+              return (
+              <div key={group.key} className={`space-y-2 ${shownIds.length === 0 ? "hidden" : ""}`}>
+                {group.kind !== "all" ? (
+                  <div className="flex items-baseline justify-between gap-2 pt-1">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground break-words">
+                      {groupTitle(group, t)}
+                    </h3>
+                    <span className="text-xs text-muted-foreground tabular-nums shrink-0">{group.count}</span>
+                  </div>
+                ) : null}
+                {group.kind === "later" ? (
+                  <p className="text-xs text-muted-foreground break-words">{t("app.salesQueue.windowGroup.laterNote")}</p>
+                ) : null}
+                <ul className="space-y-2">
+                  {group.ids.map((id) => {
+                    const item = itemById.get(id);
+                    if (!item) return null;
+                    position += 1;
+                    if (visibleIds && !visibleIds.has(id)) return null;
+                    const status = rowStatus(item, t);
+                    const meta = rowMeta(item, t);
+                    const active = current?.id === item.id;
+                    return (
+                      <li key={item.id}>
+                        <button
+                          type="button"
+                          aria-current={active ? "true" : undefined}
+                          onClick={() => select(item.id)}
+                          data-queue-row={item.id}
+                          className={`${ROW} ${
+                            active
+                              ? "border-brand-accent bg-muted text-foreground"
+                              : "border-border bg-card text-foreground"
+                          }`}
+                        >
+                          <status.Icon size={16} aria-hidden="true" className={`mt-0.5 shrink-0 ${status.className}`} />
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-medium break-words">
+                              <span className="text-muted-foreground tabular-nums mr-1">{position}.</span>
+                              {item.businessName}
+                            </span>
+                            {meta.place ? (
+                              <span className="block text-xs text-muted-foreground break-words">{meta.place}</span>
+                            ) : null}
+                            <span className="block text-xs text-muted-foreground break-words">
+                              {meta.zone ? (
+                                <span
+                                  className="inline-block rounded border border-border px-1 py-px mr-1 font-mono text-[11px] leading-4 text-foreground"
+                                  title={meta.zoneId || undefined}
+                                >
+                                  {meta.zone}
+                                </span>
+                              ) : null}
+                              {item.language === "fr" ? (
+                                <span
+                                  className="inline-block rounded border border-border px-1 py-px mr-1 text-[11px] leading-4 text-foreground"
+                                  title={t("app.salesQueue.frenchChipTitle")}
+                                >
+                                  {t("app.salesQueue.frenchChip")}
+                                </span>
+                              ) : null}
+                              {[meta.research, meta.window].filter(Boolean).join(" · ")}
+                            </span>
+                            <span className="block text-xs text-muted-foreground break-words">
+                              {meta.outcome || status.label}
+                            </span>
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+              );
+            });
+          })()}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The rail's whole content: the trade picker and the claim buttons, the
+ * grouped list, Release the rest, and the day's count at the foot. Drawn in
+ * the rail from lg up and in the drawer below it.
+ */
+function QueueRail(props) {
+  const { t, loading, data, items, untouchedCount, busy, act } = props;
+  const worked = items.length - untouchedCount;
+  return (
+    <div className="space-y-3">
+      <ClaimCard {...props} />
+      <section className={CARD}>
+        <div className="flex items-baseline justify-between gap-2">
+          <h3 className="text-sm font-semibold text-foreground">{t("app.salesQueue.yoursToWork")}</h3>
+          {loading ? (
+            <Loader2 className="animate-spin text-muted-foreground" size={15} />
+          ) : (
+            <span className="text-xs text-muted-foreground">{t("app.salesQueue.claimedCount", { value: items.length })}</span>
+          )}
+        </div>
+        <QueueList {...props} />
+        {/* ── Give back what was never dialled ──────────────────────────
+            Every row with no call attempt since it was claimed. The server
+            decides the set at press time (releaseUntouched — the same
+            function the day-end cron runs), so a row dialled between the
+            render and the press is kept. Not offered when there is nothing
+            it would do: a button that releases zero rows is a dead one. */}
+        {!loading && untouchedCount > 0 ? (
+          <div className="space-y-1 pt-1">
+            <button
+              type="button"
+              className={`${BTN} border border-border text-foreground w-full`}
+              disabled={Boolean(busy)}
+              onClick={() => act("release_rest")}
+            >
+              {busy === "release_rest" ? <Loader2 className="animate-spin" size={16} /> : <Undo2 size={16} />}
+              {t("app.salesQueue.releaseRest", {
+                count: t("app.salesQueue.prospectCount", { value: untouchedCount }),
+              })}
+            </button>
+            <p className="text-xs text-muted-foreground break-words">{t("app.salesQueue.releaseRestNote")}</p>
+          </div>
+        ) : null}
+        {/* The foot: how far through the day the rep is. */}
+        {!loading && items.length > 0 ? (
+          <div className="pt-2 border-t border-border space-y-1" data-queue-progress>
+            <p className="text-xs text-muted-foreground break-words">
+              {t("app.salesQueue.leadsLeft", { left: untouchedCount, total: items.length })}
+            </p>
+            <div className="h-1.5 rounded-full bg-muted overflow-hidden" role="progressbar" aria-valuemin={0} aria-valuemax={items.length} aria-valuenow={worked}>
+              <div className="h-full bg-primary" style={{ width: `${Math.round((worked / items.length) * 100)}%` }} />
+            </div>
+          </div>
+        ) : null}
+      </section>
+      {data?.batch?.result ? null : null}
+    </div>
+  );
+}
+
+/**
+ * The trade picker and the claim buttons — "Claim the next 100", "Just
+ * one", the pool's counts and what the last press did. Unchanged from the
+ * page's old left column; the rail and the drawer both draw it.
+ */
+function ClaimCard({ t, data, tradeKey, setQuery, stocked, empties, remainingToday, batchSize, batchResult, busy, act }) {
+  return (
+    <section className={CARD} data-tour="sales-queue-claim">
+      <label className="block text-sm font-medium text-foreground" htmlFor="q-trade">
+        {t("app.salesQueue.tradePickerLabel")}
+      </label>
+
+      {/* ── What is in the pool, before anybody opens the dropdown ────
+          The counts have always been here, one per trade, inside a
+          thirty-nine item <select>. That is not the same as being
+          visible: the owner opened this screen with 159 prospects
+          waiting across 28 trades, saw an empty "Yours to work" and a
+          closed dropdown, and asked whether discovery had failed. A
+          number nobody scrolls a select to find is a number nobody has.
+
+          Still counts, never a list — nothing here lets a rep read the
+          pool and pick the good ones, which is the rule the whole
+          claim mechanic exists to enforce. */}
+      {stocked.length ? (
+        <p className="text-xs text-muted-foreground break-words">
+          {emphasise(
+            t("app.salesQueue.poolSummary", {
+              free: t("app.salesQueue.poolFreeCount", {
+                value: stocked.reduce((n, trade) => n + trade.available, 0),
+              }),
+              trades: t("app.salesQueue.tradeCount", { value: stocked.length }),
+              top: stocked
+                .slice(0, 3)
+                .map((trade) => `${trade.label} (${trade.available})`)
+                .join(", "),
+            }),
+            "span",
+            "font-semibold text-foreground",
+          )}
+        </p>
+      ) : null}
+
+      <select
+        id="q-trade"
+        className={FIELD}
+        value={tradeKey}
+        onChange={(e) => setQuery({ trade: e.target.value, prospectId: "" })}
+      >
+        <option value="">{t("app.salesQueue.tradeAll")}</option>
+        {/* Trades with something in them first, biggest first, so the
+            ones a rep can actually work are not sorted underneath
+            eleven empty ones. The empty trades stay on the list rather
+            than being filtered out: a rep with claims in a trade whose
+            pool has run dry still has to be able to select it. */}
+        {stocked.map((trade) => (
+          <option key={trade.key} value={trade.key}>
+            {t("app.salesQueue.tradeOption", {
+              label: trade.label,
+              claimed: t("app.salesQueue.claimedCount", { value: trade.claimed }),
+              free: t("app.salesQueue.freeCount", { value: trade.available }),
+            })}
+          </option>
+        ))}
+        {empties.length ? (
+          <optgroup label={t("app.salesQueue.tradeGroupEmpty")}>
+            {empties.map((trade) => (
+              <option key={trade.key} value={trade.key}>
+                {t("app.salesQueue.tradeOption", {
+                  label: trade.label,
+                  claimed: t("app.salesQueue.claimedCount", { value: trade.claimed }),
+                  free: t("app.salesQueue.freeCount", { value: trade.available }),
+                })}
+              </option>
+            ))}
+          </optgroup>
+        ) : null}
+      </select>
+      {tradeKey ? (
+        <div className="space-y-2">
+          {/* ── The day, in one press ──────────────────────────────────
+              The number is the SERVER's (batch.max), never typed here,
+              so the label and the cap cannot drift apart. At the daily
+              ceiling the button is not rendered greyed — it is replaced
+              by the sentence saying why, which is the rule this screen
+              follows for every control. */}
+          {remainingToday > 0 ? (
+            <button
+              type="button"
+              className={`${BTN} bg-primary text-primary-foreground w-full`}
+              disabled={Boolean(busy)}
+              onClick={() => act("claim_batch")}
+            >
+              {busy === "claim_batch" ? (
+                <Loader2 className="animate-spin" size={16} />
+              ) : (
+                <Plus size={16} />
+              )}
+              {t("app.salesQueue.claimBatch", { count: batchSize })}
+            </button>
+          ) : (
+            <p className="text-sm text-foreground break-words">
+              {t("app.salesQueue.batchReason.dailyCap", { cap: data?.batch?.dailyCap ?? 0 })}
+            </p>
+          )}
+          {remainingToday > 0 ? (
+            <button
+              type="button"
+              className={`${BTN} border border-border text-foreground w-full`}
+              disabled={Boolean(busy)}
+              onClick={() => act("claim")}
+            >
+              {busy === "claim" ? <Loader2 className="animate-spin" size={16} /> : null}
+              {t("app.salesQueue.claimJustOne")}
+            </button>
+          ) : null}
+          <p className="text-xs text-muted-foreground break-words">
+            {t("app.salesQueue.claimBatchNote", {
+              remaining: t("app.salesQueue.claimsRemainingCount", { value: remainingToday }),
+              cap: data?.batch?.dailyCap ?? 0,
+            })}
+          </p>
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">{t("app.salesQueue.claimHint")}</p>
+      )}
+
+      {/* ── What the last press did ──────────────────────────────────
+          Said in numbers rather than "done": how many were claimed, how
+          many came with research, how many are waiting on it, and how
+          many were left in the pool because their window is shut for
+          the rest of the rep's day. Every number is the server's. */}
+      {batchResult && typeof batchResult.claimed === "number" ? (
+        <div className="rounded-lg border border-border bg-muted p-3 text-sm text-foreground space-y-1">
+          <p className="break-words">
+            {t("app.salesQueue.batchSummary", {
+              claimed: t("app.salesQueue.prospectCount", { value: batchResult.claimed }),
+              researched: batchResult.researched,
+              waiting: batchResult.unresearched,
+            })}
+          </p>
+          {batchResult.skippedForWindow > 0 ? (
+            <p className="text-xs text-muted-foreground break-words">
+              {t("app.salesQueue.batchSkippedForWindow", {
+                count: t("app.salesQueue.prospectCount", { value: batchResult.skippedForWindow }),
+              })}
+            </p>
+          ) : null}
+          {/* The rows the language rule kept back — the server counted
+              them against the same trade's pool, so a rep without
+              French reads why a 900-row trade yielded twelve. */}
+          {batchResult.skippedForLanguage > 0 ? (
+            <p className="text-xs text-amber-800 dark:text-amber-200 break-words">
+              {t("app.salesQueue.batchSkippedForLanguage", {
+                count: batchResult.skippedForLanguage,
+              })}
+            </p>
+          ) : null}
+          {batchResult.reasonKey ? (
+            <p className="text-xs text-muted-foreground break-words">
+              {t(batchResult.reasonKey, { cap: data?.batch?.dailyCap ?? 0 })}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+      {batchResult && typeof batchResult.released === "number" ? (
+        <p className="text-sm text-foreground break-words">
+          {t("app.salesQueue.releaseRestDone", {
+            released: t("app.salesQueue.prospectCount", { value: batchResult.released }),
+            kept: t("app.salesQueue.prospectCount", { value: batchResult.kept }),
+          })}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 function QueueConsole() {
   const { t, language } = useTranslation();
   const router = useRouter();
@@ -618,9 +1710,6 @@ function QueueConsole() {
   const [error, setError] = useState("");
   const [dncOpen, setDncOpen] = useState(false);
   const [dncReason, setDncReason] = useState("");
-  // Mobile only: the list folds away once a prospect is open, and this reopens
-  // it. On lg: both columns are on screen and this is never read.
-  const [listOpen, setListOpen] = useState(false);
 
   // What the server's clock read, and what ours read at the same moment. The
   // difference is applied to every window re-evaluation below.
@@ -759,9 +1848,6 @@ function QueueConsole() {
 
   function select(id) {
     setQuery({ prospectId: id });
-    // Fold the list on a phone; on lg: it never folded and this changes
-    // nothing anybody can see.
-    setListOpen(false);
   }
 
   // A counter, not a clock. The real time is read fresh below; this only
@@ -796,6 +1882,105 @@ function QueueConsole() {
     (currentNumbers?.voice?.choices || [])[0] ||
     null;
 
+  // ── The number in the field ──────────────────────────────────────────
+  //
+  // Prefilled with the chosen stored number and editable: "what if they
+  // need to type a phone number to reach the owner". `typed` is text; the
+  // NUMBER it means is decided on the press, by beforeDial() below — a
+  // stored one by its id, anything else saved on this record first and then
+  // dialled by the id that came back. The field never dials by itself and
+  // there is still no `tel:` in this file.
+  const [typed, setTyped] = useState("");
+  const [typedError, setTypedError] = useState("");
+  useEffect(() => {
+    setTyped(chosenNumber?.e164 || "");
+    setTypedError("");
+    // Re-filled when the chosen stored number changes — a new lead, or a tap
+    // on the list under the field.
+  }, [chosenNumber?.e164, current?.id]);
+  const typedE164 = typedToE164(typed);
+  const storedForTyped =
+    typedE164 ? (currentNumbers?.voice?.choices || []).find((c) => c.e164 === typedE164) || null : null;
+  // The live outbound call, for DTMF. Set by CallPanel through onLiveCall;
+  // never used to start or end a call.
+  const liveCallRef = useRef(null);
+  const [liveCallUp, setLiveCallUp] = useState(false);
+  const onLiveCall = useCallback((call) => {
+    liveCallRef.current = call || null;
+    setLiveCallUp(Boolean(call));
+  }, []);
+  // A Dial button beside a number on the Company or Contact card: the
+  // number goes into the display and the press goes to CallPanel — the
+  // same place("browser"), the same beforeDial, the same gate. This is the
+  // ordinary path; the keypad is for a number the rep is told.
+  const [dialRequest, setDialRequest] = useState(null);
+  const dialNumber = useCallback((e164) => {
+    setTyped(e164 || "");
+    setTypedError("");
+    setDialRequest({ token: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}` });
+  }, []);
+  const onDialKey = useCallback((key) => {
+    const call = liveCallRef.current;
+    // DTMF only while a call is up AND the SDK offers it — feature-detected,
+    // so a Call object without sendDigits (a handset dial, an older SDK)
+    // falls through to typing rather than throwing on a keypad press.
+    if (call && typeof call.sendDigits === "function") {
+      call.sendDigits(key);
+      return;
+    }
+    setTyped((v) => (v + key).slice(0, 24));
+    setTypedError("");
+  }, []);
+  /**
+   * What the Call button rings. Awaited by CallPanel.place() before its dial
+   * POST — see CallPanel's `beforeDial`.
+   */
+  const beforeDial = useCallback(async () => {
+    const e164 = typedToE164(typed);
+    if (!e164) {
+      const error = t("app.salesQueue.typedNumberInvalid");
+      setTypedError(error);
+      return { ok: false, error };
+    }
+    const stored = (currentNumbers?.voice?.choices || []).find((c) => c.e164 === e164);
+    if (stored) return { ok: true, phoneE164: e164, contactNumberId: stored.id || null };
+    if (!current?.id) return { ok: false, error: t("app.salesQueue.pickOrClaim") };
+    // Not one of the record's numbers: saved on THIS record first, through
+    // the route "they gave us another number" posts to — same
+    // normalisation, same refusals (a suppressed business, a number that
+    // will not normalise, a record that is not ours) — and dialled by the
+    // id the route hands back. The dial route then re-reads the record's
+    // numbers and checks suppression for every one of them, this one
+    // included, before anything rings.
+    try {
+      const body = await fetchJson("/api/sales/calls/numbers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prospectId: current.id,
+          e164,
+          kind: "unknown",
+          label: t("app.salesQueue.typedNumberLabel"),
+          canCall: true,
+        }),
+      });
+      const saved = (body?.numbers || []).find((n) => typedToE164(n.e164) === e164) || null;
+      if (!saved?.id) {
+        const error = t("app.salesQueue.typedNumberNotSaved");
+        setTypedError(error);
+        return { ok: false, error };
+      }
+      setTypedError("");
+      // The list under the field and the Contact card learn the new number.
+      load();
+      return { ok: true, phoneE164: e164, contactNumberId: saved.id };
+    } catch (err) {
+      const error = err?.message || t("app.salesQueue.typedNumberNotSaved");
+      setTypedError(error);
+      return { ok: false, error };
+    }
+  }, [typed, currentNumbers, current?.id, t, load]);
+
   const compliance = useMemo(() => {
     if (!current) return null;
     const ctx = current.callingContext;
@@ -807,6 +1992,10 @@ function QueueConsole() {
       prospect: { country: ctx.country, province: ctx.province },
       timeZone: ctx.timeZone,
       now: new Date(nowMs),
+      // The server's count for the number the dial rings — re-passed on
+      // every re-ask so the cap stays enforced between reloads rather than
+      // falling back to the "count unavailable" caveat every thirty seconds.
+      attemptsLast24h: Number.isFinite(ctx.attemptsLast24h) ? ctx.attemptsLast24h : null,
         // The reader's language, for the ONE string this produces that is a
         // formatted instant rather than a sentence — "It opens at 08:00 on Tue
         // 8 Sep". Everything else travels as a catalogue key; a date cannot,
@@ -820,7 +2009,10 @@ function QueueConsole() {
   // of a tel: target and still refuses anything but an `allowed` decision —
   // what changed is WHICH number it is given, and that number came from the
   // server's own list of ones it is willing to ring.
-  const href = dialHref(compliance, chosenNumber?.e164 || current?.phoneE164);
+  // The typed number when it normalises, else the chosen stored one — so a
+  // half-typed field keeps the Call button (its press will say what is
+  // wrong) rather than swapping the region for "no number".
+  const href = dialHref(compliance, typedE164 || chosenNumber?.e164 || current?.phoneE164);
   // Everything that goes where the Call button goes, including the sentence
   // that goes there when there is no Call button. dialSpace re-gates the href
   // against the decision, so a bug here cannot manufacture a dial control.
@@ -830,8 +2022,6 @@ function QueueConsole() {
     href,
     claimedCount: items.length,
   });
-
-  const showList = !current || listOpen;
 
   // ── The autodialler ──────────────────────────────────────────────────
   //
@@ -881,6 +2071,9 @@ function QueueConsole() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current?.id, space.state, compliance?.decision]);
   const auto = useAutodial({ order, currentId: current?.id || null, readiness, select, clockOffsetMs });
+  useEffect(() => {
+    setTab(auto.switchOn ? "disposition" : "script");
+  }, [auto.switchOn]);
   const worked = useCallback(() => {
     // The flag first, the reload second: the dialler arms against the
     // reloaded order, never the one that predates the call.
@@ -920,13 +2113,132 @@ function QueueConsole() {
     (item) => !item.lastOutcome && item.claim?.state !== "mine_worked",
   ).length;
 
-  return (
-    <div className="space-y-4">
-      <header className="space-y-1">
-        <h1 className="text-xl font-semibold text-foreground">{t("app.salesQueue.pageTitle")}</h1>
-        <p className="text-sm text-muted-foreground">{t("app.salesQueue.pageIntro")}</p>
-      </header>
+  // ── The console's own chrome state ───────────────────────────────────
+  //
+  // The rail (the day's list beside the cards) folds to a strip and is
+  // remembered per browser; below lg it is a drawer instead. The bottom
+  // panel's tab and its maximised state are per visit. None of this is in
+  // the URL: a link to a lead should open the lead, not somebody else's
+  // folded rail.
+  const [railOpen, setRailOpen] = useState(false);
+  const [queueDrawer, setQueueDrawer] = useState(false);
+  // Script first for a rep reading; Disposition first for one on autodial,
+  // whose next action after every call is to log it. The switch is the
+  // rep's own persisted setting (SalesRep.autodial), so this follows it
+  // rather than keeping a second memory of the same choice.
+  const [tab, setTab] = useState("script");
+  const [maximized, setMaximized] = useState(false);
+  const [editing, setEditing] = useState(false);
+  useEffect(() => {
+    // Remembered per browser. First visit: open only where three cards and
+    // the list fit side by side (2xl, 1536px); narrower than that the strip
+    // and the Leads tab carry the list, and the cards get the width the
+    // reference gives them.
+    try {
+      const stored = window.localStorage.getItem(RAIL_KEY);
+      setRailOpen(stored === null ? window.innerWidth >= 1536 : stored !== "0");
+    } catch {
+      setRailOpen(false);
+    }
+  }, []);
+  function toggleRail() {
+    setRailOpen((open) => {
+      try {
+        window.localStorage.setItem(RAIL_KEY, open ? "0" : "1");
+      } catch {
+        /* nothing to remember it in */
+      }
+      return !open;
+    });
+  }
+  // The lead editor folds shut when the lead changes: an open form for the
+  // last business under the next one's name is the confusing thing.
+  useEffect(() => {
+    setEditing(false);
+  }, [current?.id]);
 
+  // ── The top bar's search, over the held list ─────────────────────────
+  //
+  // Registered with the shell for as long as this screen is mounted (the
+  // box is drawn only while a screen listens — SalesSearch.js). Filters the
+  // rows already in hand by business, city or number; asks the server for
+  // nothing, so it can never widen what a rep is allowed to see.
+  const query = useSalesSearch({ placeholder: t("app.salesQueue.searchPlaceholder") });
+  const visibleIds = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return null;
+    const digits = q.replace(/\D/g, "");
+    return new Set(
+      items
+        .filter((item) => {
+          const hay = [item.businessName, item.city, item.tradeLabel].filter(Boolean).join(" ").toLowerCase();
+          if (hay.includes(q)) return true;
+          const phone = String(item.phoneE164 || "").replace(/\D/g, "");
+          return digits.length >= 3 && phone.includes(digits);
+        })
+        .map((item) => item.id),
+    );
+  }, [items, query]);
+
+  // ── The slots the bottom panel offers CallPanel ───────────────────────
+  //
+  // DOM nodes, held in state so a portal can target them the render after
+  // they mount. The panels stay mounted behind a hidden attribute when
+  // another tab is open, so the disposition form survives a flip to the
+  // script and back — a form that reset on a tab change would lose the
+  // note a rep was typing.
+  const [scriptSlot, setScriptSlot] = useState(null);
+  const [dispositionSlot, setDispositionSlot] = useState(null);
+  const [nextStepsSlot, setNextStepsSlot] = useState(null);
+  const [contactSlot, setContactSlot] = useState(null);
+  const slots = useMemo(
+    () => ({ script: scriptSlot, disposition: dispositionSlot, nextSteps: nextStepsSlot, contact: contactSlot }),
+    [scriptSlot, dispositionSlot, nextStepsSlot, contactSlot],
+  );
+  // Where an ANSWERED inbound call is drawn — the Dialer card's live-call
+  // slot, registered with the shell's IncomingCallDock (consoleSlots.js).
+  const consoleSlots = useConsoleSlots();
+  const setLiveCallNode = consoleSlots?.setLiveCallNode;
+  const liveCallSlotRef = useCallback(
+    (node) => {
+      setLiveCallNode?.(node || null);
+    },
+    [setLiveCallNode],
+  );
+  useEffect(() => () => setLiveCallNode?.(null), [setLiveCallNode]);
+
+  // "Next in queue": the row after this one in the grouped order, with its
+  // window on the rep's clock — the reference dialler's "next disposition"
+  // slot, answered with the fact that actually matters here.
+  const nextItem = index >= 0 && index < items.length - 1 ? items[index + 1] : null;
+  const nextMeta = nextItem ? rowMeta(nextItem, t) : null;
+
+  const currentRow = current ? itemById.get(current.id) || null : null;
+  const railProps = {
+    t,
+    loading,
+    data,
+    items,
+    groups,
+    itemById,
+    current,
+    visibleIds,
+    query,
+    select,
+    untouchedCount,
+    busy,
+    act,
+    tradeKey,
+    setQuery,
+    stocked,
+    empties,
+    remainingToday,
+    batchSize,
+    batchResult,
+  };
+
+  return (
+    <div className="space-y-4" data-sales-console>
       {error ? (
         <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 p-3 text-sm text-amber-900 dark:text-amber-200">
           <div className="flex items-start gap-2">
@@ -936,810 +2248,472 @@ function QueueConsole() {
         </div>
       ) : null}
 
-      {/* Two columns from lg: up. One below it, master then detail. */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:items-start">
-        {/* ── The list. It does not unmount, and it does not blank ────────── */}
-        <aside
-          className={`${showList ? "block" : "hidden"} lg:block space-y-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto`}
+      {/* Below lg: one button opens the day's list as a drawer. From lg up
+          the rail beside the cards is the list and this is not drawn. */}
+      <div className="lg:hidden flex items-center justify-between gap-2">
+        <h1 className="text-lg font-semibold text-foreground">{t("app.salesQueue.pageTitle")}</h1>
+        <button
+          type="button"
+          className={`${BTN} border border-border bg-card text-foreground`}
+          onClick={() => setQueueDrawer(true)}
+          aria-expanded={queueDrawer}
+          data-queue-drawer-open
         >
-          {/* data-tour: where the portal tour's queue step points. The four
-              values on this screen are named in app/sales/tourSteps.js and
-              asserted present by scripts/check-sales-mobile.mjs. */}
-          <section className={CARD} data-tour="sales-queue-claim">
-            <label className="block text-sm font-medium text-foreground" htmlFor="q-trade">
-              {t("app.salesQueue.tradePickerLabel")}
-            </label>
+          <ListFilter size={16} />
+          {t("app.salesQueue.showQueue", { count: items.length })}
+        </button>
+      </div>
 
-            {/* ── What is in the pool, before anybody opens the dropdown ────
-                The counts have always been here, one per trade, inside a
-                thirty-nine item <select>. That is not the same as being
-                visible: the owner opened this screen with 159 prospects
-                waiting across 28 trades, saw an empty "Yours to work" and a
-                closed dropdown, and asked whether discovery had failed. A
-                number nobody scrolls a select to find is a number nobody has.
-
-                Still counts, never a list — nothing here lets a rep read the
-                pool and pick the good ones, which is the rule the whole
-                claim mechanic exists to enforce. */}
-            {stocked.length ? (
-              <p className="text-xs text-muted-foreground break-words">
-                {emphasise(
-                  t("app.salesQueue.poolSummary", {
-                    free: t("app.salesQueue.poolFreeCount", {
-                      value: stocked.reduce((n, trade) => n + trade.available, 0),
-                    }),
-                    trades: t("app.salesQueue.tradeCount", { value: stocked.length }),
-                    top: stocked
-                      .slice(0, 3)
-                      .map((trade) => `${trade.label} (${trade.available})`)
-                      .join(", "),
-                  }),
-                  "span",
-                  "font-semibold text-foreground",
-                )}
-              </p>
-            ) : null}
-
-            <select
-              id="q-trade"
-              className={FIELD}
-              value={tradeKey}
-              onChange={(e) => setQuery({ trade: e.target.value, prospectId: "" })}
-            >
-              <option value="">{t("app.salesQueue.tradeAll")}</option>
-              {/* Trades with something in them first, biggest first, so the
-                  ones a rep can actually work are not sorted underneath
-                  eleven empty ones. The empty trades stay on the list rather
-                  than being filtered out: a rep with claims in a trade whose
-                  pool has run dry still has to be able to select it. */}
-              {stocked.map((trade) => (
-                <option key={trade.key} value={trade.key}>
-                  {t("app.salesQueue.tradeOption", {
-                    label: trade.label,
-                    claimed: t("app.salesQueue.claimedCount", { value: trade.claimed }),
-                    free: t("app.salesQueue.freeCount", { value: trade.available }),
-                  })}
-                </option>
-              ))}
-              {empties.length ? (
-                <optgroup label={t("app.salesQueue.tradeGroupEmpty")}>
-                  {empties.map((trade) => (
-                    <option key={trade.key} value={trade.key}>
-                      {t("app.salesQueue.tradeOption", {
-                        label: trade.label,
-                        claimed: t("app.salesQueue.claimedCount", { value: trade.claimed }),
-                        free: t("app.salesQueue.freeCount", { value: trade.available }),
-                      })}
-                    </option>
-                  ))}
-                </optgroup>
-              ) : null}
-            </select>
-            {tradeKey ? (
-              <div className="space-y-2">
-                {/* ── The day, in one press ──────────────────────────────────
-                    The number is the SERVER's (batch.max), never typed here,
-                    so the label and the cap cannot drift apart. At the daily
-                    ceiling the button is not rendered greyed — it is replaced
-                    by the sentence saying why, which is the rule this screen
-                    follows for every control. */}
-                {remainingToday > 0 ? (
-                  <button
-                    type="button"
-                    className={`${BTN} bg-primary text-primary-foreground w-full`}
-                    disabled={Boolean(busy)}
-                    onClick={() => act("claim_batch")}
-                  >
-                    {busy === "claim_batch" ? (
-                      <Loader2 className="animate-spin" size={16} />
-                    ) : (
-                      <Plus size={16} />
-                    )}
-                    {t("app.salesQueue.claimBatch", { count: batchSize })}
-                  </button>
-                ) : (
-                  <p className="text-sm text-foreground break-words">
-                    {t("app.salesQueue.batchReason.dailyCap", { cap: data?.batch?.dailyCap ?? 0 })}
-                  </p>
-                )}
-                {remainingToday > 0 ? (
-                  <button
-                    type="button"
-                    className={`${BTN} border border-border text-foreground w-full`}
-                    disabled={Boolean(busy)}
-                    onClick={() => act("claim")}
-                  >
-                    {busy === "claim" ? <Loader2 className="animate-spin" size={16} /> : null}
-                    {t("app.salesQueue.claimJustOne")}
-                  </button>
-                ) : null}
-                <p className="text-xs text-muted-foreground break-words">
-                  {t("app.salesQueue.claimBatchNote", {
-                    remaining: t("app.salesQueue.claimsRemainingCount", { value: remainingToday }),
-                    cap: data?.batch?.dailyCap ?? 0,
-                  })}
-                </p>
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">{t("app.salesQueue.claimHint")}</p>
-            )}
-
-            {/* ── What the last press did ──────────────────────────────────
-                Said in numbers rather than "done": how many were claimed, how
-                many came with research, how many are waiting on it, and how
-                many were left in the pool because their window is shut for
-                the rest of the rep's day. Every number is the server's. */}
-            {batchResult && typeof batchResult.claimed === "number" ? (
-              <div className="rounded-lg border border-border bg-muted p-3 text-sm text-foreground space-y-1">
-                <p className="break-words">
-                  {t("app.salesQueue.batchSummary", {
-                    claimed: t("app.salesQueue.prospectCount", { value: batchResult.claimed }),
-                    researched: batchResult.researched,
-                    waiting: batchResult.unresearched,
-                  })}
-                </p>
-                {batchResult.skippedForWindow > 0 ? (
-                  <p className="text-xs text-muted-foreground break-words">
-                    {t("app.salesQueue.batchSkippedForWindow", {
-                      count: t("app.salesQueue.prospectCount", { value: batchResult.skippedForWindow }),
-                    })}
-                  </p>
-                ) : null}
-                {/* The rows the language rule kept back — the server counted
-                    them against the same trade's pool, so a rep without
-                    French reads why a 900-row trade yielded twelve. */}
-                {batchResult.skippedForLanguage > 0 ? (
-                  <p className="text-xs text-amber-800 dark:text-amber-200 break-words">
-                    {t("app.salesQueue.batchSkippedForLanguage", {
-                      count: batchResult.skippedForLanguage,
-                    })}
-                  </p>
-                ) : null}
-                {batchResult.reasonKey ? (
-                  <p className="text-xs text-muted-foreground break-words">
-                    {t(batchResult.reasonKey, { cap: data?.batch?.dailyCap ?? 0 })}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-            {batchResult && typeof batchResult.released === "number" ? (
-              <p className="text-sm text-foreground break-words">
-                {t("app.salesQueue.releaseRestDone", {
-                  released: t("app.salesQueue.prospectCount", { value: batchResult.released }),
-                  kept: t("app.salesQueue.prospectCount", { value: batchResult.kept }),
-                })}
-              </p>
-            ) : null}
-          </section>
-
-          <section className={CARD}>
-            <div className="flex items-baseline justify-between gap-2">
-              <h2 className="text-base font-semibold text-foreground">
-                {t("app.salesQueue.yoursToWork")}
-              </h2>
-              {loading ? (
-                <Loader2 className="animate-spin text-muted-foreground" size={15} />
-              ) : (
-                <span className="text-xs text-muted-foreground">
-                  {t("app.salesQueue.claimedCount", { value: items.length })}
-                </span>
-              )}
-            </div>
-
-            {loading ? (
-              <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="animate-spin" size={15} /> {t("app.salesQueue.queueLoading")}
-              </p>
-            ) : null}
-
-            {/* ── The four empty states, kept apart ───────────────────────────
-                buildQueue() distinguishes no_trade, unknown_pool, pool_empty
-                and nothing_claimed, and the difference is the whole value: "you
-                have not picked a trade", "we could not count", "the pool is
-                dry" and "there are some, go claim one" have four different
-                fixes. The sentence comes from the server so a second screen
-                cannot re-word it; only the icon is chosen here, and it is
-                chosen from the same four codes rather than from a truthiness
-                test. */}
-            {!loading && data?.queue?.empty ? (
-              <div className="space-y-2">
-                <div className="flex items-start gap-2">
-                  {data.queue.emptyReason === "unknown_pool" ? (
-                    <CircleHelp size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
-                  ) : data.queue.emptyReason === "nothing_claimed" ? (
-                    <Plus size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
-                  ) : data.queue.emptyReason === "pool_empty" ? (
-                    <Ban size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
-                  ) : (
-                    <ListFilter size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
-                  )}
-                  <p className="text-sm text-foreground break-words">{data.queue.emptyText}</p>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {t("app.salesQueue.emptyDisclaimer")}
-                </p>
-              </div>
-            ) : null}
-
-            {/* ── The day, grouped by window ────────────────────────────────
-                One header per group from the server (queue.windows.groups),
-                with its count; the rows under it in the order the server
-                put them. The running number continues across groups so
-                "42." still means the forty-second row of the day. The zone
-                chip is the PROSPECT's zone as Intl names it in the rep's
-                language; the time beside it is the REP's clock. */}
-            {items.length > 0 ? (
-              <div className="space-y-3">
-                {(() => {
-                  let position = 0;
-                  return groups.map((group) => (
-                    <div key={group.key} className="space-y-2">
-                      {group.kind !== "all" ? (
-                        <div className="flex items-baseline justify-between gap-2 pt-1">
-                          <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground break-words">
-                            {groupTitle(group, t)}
-                          </h3>
-                          <span className="text-xs text-muted-foreground tabular-nums shrink-0">{group.count}</span>
-                        </div>
-                      ) : null}
-                      {group.kind === "later" ? (
-                        <p className="text-xs text-muted-foreground break-words">{t("app.salesQueue.windowGroup.laterNote")}</p>
-                      ) : null}
-                      <ul className="space-y-2">
-                        {group.ids.map((id) => {
-                          const item = itemById.get(id);
-                          if (!item) return null;
-                          position += 1;
-                          const status = rowStatus(item, t);
-                          const meta = rowMeta(item, t);
-                          const active = current?.id === item.id;
-                          return (
-                            <li key={item.id}>
-                              <button
-                                type="button"
-                                aria-current={active ? "true" : undefined}
-                                onClick={() => select(item.id)}
-                                className={`${ROW} ${
-                                  active
-                                    ? "border-brand-accent bg-muted text-foreground"
-                                    : "border-border bg-card text-foreground"
-                                }`}
-                              >
-                                <status.Icon
-                                  size={16}
-                                  aria-hidden="true"
-                                  className={`mt-0.5 shrink-0 ${status.className}`}
-                                />
-                                <span className="min-w-0 flex-1">
-                                  <span className="block text-sm font-medium break-words">
-                                    <span className="text-muted-foreground tabular-nums mr-1">{position}.</span>
-                                    {item.businessName}
-                                  </span>
-                                  {meta.place ? (
-                                    <span className="block text-xs text-muted-foreground break-words">
-                                      {meta.place}
-                                    </span>
-                                  ) : null}
-                                  <span className="block text-xs text-muted-foreground break-words">
-                                    {meta.zone ? (
-                                      <span
-                                        className="inline-block rounded border border-border px-1 py-px mr-1 font-mono text-[11px] leading-4 text-foreground"
-                                        title={meta.zoneId || undefined}
-                                      >
-                                        {meta.zone}
-                                      </span>
-                                    ) : null}
-                                    {item.language === "fr" ? (
-                                      <span
-                                        className="inline-block rounded border border-border px-1 py-px mr-1 text-[11px] leading-4 text-foreground"
-                                        title={t("app.salesQueue.frenchChipTitle")}
-                                      >
-                                        {t("app.salesQueue.frenchChip")}
-                                      </span>
-                                    ) : null}
-                                    {[meta.research, meta.window].filter(Boolean).join(" · ")}
-                                  </span>
-                                  <span className="block text-xs text-muted-foreground break-words">
-                                    {meta.outcome || status.label}
-                                  </span>
-                                </span>
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  ));
-                })()}
-              </div>
-            ) : null}
-
-            {/* ── Give back what was never dialled ──────────────────────────
-                Every row with no call attempt since it was claimed. The server
-                decides the set at press time (releaseUntouched — the same
-                function the day-end cron runs), so a row dialled between the
-                render and the press is kept. Not offered when there is nothing
-                it would do: a button that releases zero rows is a dead one. */}
-            {!loading && untouchedCount > 0 ? (
-              <div className="space-y-1 pt-1">
-                <button
-                  type="button"
-                  className={`${BTN} border border-border text-foreground w-full`}
-                  disabled={Boolean(busy)}
-                  onClick={() => act("release_rest")}
-                >
-                  {busy === "release_rest" ? <Loader2 className="animate-spin" size={16} /> : <Undo2 size={16} />}
-                  {t("app.salesQueue.releaseRest", {
-                    count: t("app.salesQueue.prospectCount", { value: untouchedCount }),
-                  })}
-                </button>
-                <p className="text-xs text-muted-foreground break-words">
-                  {t("app.salesQueue.releaseRestNote")}
-                </p>
-              </div>
-            ) : null}
-          </section>
-        </aside>
-
-        {/* ── The pane. Everything about the one they are on ──────────────── */}
-        <div className="space-y-4 min-w-0">
-          {/* ── The call region, first — and in normal flow ───────────────
-              First in the pane at every width. NOT sticky: this card holds
-              the call panel, whose playbook and disposition form make it
-              taller than the viewport on a call, and a sticky element taller
-              than the viewport never scrolls through — the lead editor and
-              the notes below it scrolled up behind it, unreadable. The
-              header's "The call region scrolls with the page" section is the
-              full account. */}
-          <section className={CARD} data-tour="sales-queue-dial">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <h2 className="text-lg font-semibold text-foreground break-words">
-                  {current ? current.businessName : t("app.salesQueue.nobodyOpen")}
-                </h2>
-                <p className="text-sm text-muted-foreground break-words">
-                  {current
-                    ? [current.tradeLabel, current.territory?.name].filter(Boolean).join(" · ") ||
-                      t("app.salesQueue.noTradeOrTerritory")
-                    : t("app.salesQueue.pickOrClaim")}
-                </p>
-              </div>
-              {fetching && !loading ? (
-                <Loader2 className="animate-spin text-muted-foreground shrink-0" size={16} />
-              ) : null}
-            </div>
-
-            {/* Back to the list, on a phone. Hidden from lg: up, where the list
-                is already on screen and a button to show it would do nothing. */}
-            {current ? (
+      {/* The drawer, below lg. Same rail, same rows, same buttons; a scrim
+          and a Close. Not a route: the list is still loaded and still in
+          the same scroll position underneath. */}
+      {queueDrawer ? (
+        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label={t("app.salesQueue.yoursToWork")} data-queue-drawer>
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40 min-h-[44px]"
+            aria-label={t("app.salesQueue.hideQueue")}
+            onClick={() => setQueueDrawer(false)}
+          />
+          <div className="absolute inset-y-0 left-0 w-[min(22rem,90vw)] bg-muted shadow-2xl overflow-y-auto p-3 space-y-3 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-base font-semibold text-foreground">{t("app.salesQueue.yoursToWork")}</h2>
               <button
                 type="button"
-                className={`${BTN} border border-border text-foreground w-full lg:hidden`}
-                onClick={() => setListOpen((open) => !open)}
+                className={`${BTN} border border-border bg-card text-foreground`}
+                onClick={() => setQueueDrawer(false)}
               >
-                <ListFilter size={16} />
-                {listOpen
-                  ? t("app.salesQueue.hideQueue")
-                  : t("app.salesQueue.showQueue", { count: items.length })}
+                <X size={16} /> {t("app.salesQueue.hideQueue")}
               </button>
-            ) : null}
+            </div>
+            <QueueRail {...railProps} select={(id) => { select(id); setQueueDrawer(false); }} />
+          </div>
+        </div>
+      ) : null}
 
-            {/* ── The dial, or the reason there is not one ──────────────────
-                Never blank. lib/sales/dialSpace.js decides which of the seven
-                states this is and supplies the sentence; DialRegion only picks
-                an icon. It lives in app/components/sales because the lead
-                screen renders the identical region — see its header for why a
-                second copy was refused. */}
-            {/* ── Autodial next ─────────────────────────────────────────────
-                The switch, the five-second countdown on the next row, and the
-                reason when it is not counting. Above the dial because the
-                countdown is about the same button: when it reaches zero, the
-                Call button below is what fires. lib/sales/autodial.js decides;
-                AutodialControl.js keeps the clock; CallPanel dials. */}
-            <AutodialControl
-              auto={auto}
-              claimLabel={tradeKey && remainingToday > 0 ? t("app.salesQueue.claimBatch", { count: batchSize }) : null}
-              onClaim={tradeKey && remainingToday > 0 ? () => act("claim_batch") : null}
-              busy={Boolean(busy)}
-            />
+      <div className="lg:flex lg:items-start lg:gap-4">
+        {/* ── The rail: the day, beside the cards ──────────────────────────
+            Sticky under the top bar for the viewport's height and scrolling
+            inside itself — the bounded sticky, which covers nothing because
+            nothing sits under it in its own column. Folded, it is a strip
+            with the count and the button to unfold it; the list is still
+            mounted and still where it was. */}
+        <aside
+          data-queue-rail={railOpen ? "open" : "collapsed"}
+          className={`hidden lg:block shrink-0 lg:sticky lg:top-[77px] lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto transition-[width] duration-200 motion-reduce:transition-none ${
+            railOpen ? "w-[18rem]" : "w-[3.5rem]"
+          }`}
+        >
+          {railOpen ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2 px-1">
+                <h2 className="text-base font-semibold text-foreground">{t("app.salesQueue.yoursToWork")}</h2>
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground hover:bg-card hover:text-foreground"
+                  onClick={toggleRail}
+                  aria-expanded="true"
+                  aria-label={t("app.salesQueue.collapseRail")}
+                  title={t("app.salesQueue.collapseRail")}
+                  data-queue-rail-toggle
+                >
+                  <PanelLeftClose size={18} />
+                </button>
+              </div>
+              <QueueRail {...railProps} />
+            </div>
+          ) : (
+            <div className="rounded-xl border border-border bg-card p-1.5 flex flex-col items-center gap-2">
+              <button
+                type="button"
+                className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                onClick={toggleRail}
+                aria-expanded="false"
+                aria-label={t("app.salesQueue.expandRail")}
+                title={t("app.salesQueue.expandRail")}
+                data-queue-rail-toggle
+              >
+                <PanelLeftOpen size={18} />
+              </button>
+              <span className="text-xs font-semibold tabular-nums text-foreground" title={t("app.salesQueue.claimedCount", { value: items.length })}>
+                {items.length}
+              </span>
+              {index >= 0 ? (
+                <span className="text-[11px] tabular-nums text-muted-foreground">
+                  {index + 1}/{items.length}
+                </span>
+              ) : null}
+            </div>
+          )}
+        </aside>
 
-            <DialRegion
-              space={space}
-              compliance={compliance}
-              target={
-                current
-                  ? {
-                      prospectId: current.id,
-                      phoneE164: chosenNumber?.e164 || current.phoneE164,
-                      // An id of a row we stored, never a number. The server
-                      // re-reads it against this prospect before anything rings.
-                      contactNumberId: chosenNumber?.id || null,
-                      businessName: current.businessName,
-                    }
-                  : null
-              }
-              onWorked={worked}
-              autoDial={auto.token}
-              onAutoDialResult={auto.onResult}
-            />
-
-            {/* ── The other numbers, and the one somebody just read out ─────
-                Under the dial rather than beside it: a rep reaches for the
-                Call button first, and the picker is what they touch when the
-                answer was "call him on his cell instead". */}
-            {current ? (
-              <ContactNumbers
-                prospectId={current.id}
-                numbers={currentNumbers}
-                selectedId={chosenNumber?.id || ""}
-                onSelect={(pick) => setNumberId(pick?.id || "")}
-                onChanged={load}
-                disabled={current.contact?.callable === false}
-              />
-            ) : null}
-
-            {current ? (
-              <p className="text-xs text-muted-foreground break-words">{current.claim.text}</p>
-            ) : null}
-
-            {items.length > 1 ? (
+        {/* ── The cards, and the panel under them ───────────────────────── */}
+        <div className="min-w-0 flex-1 space-y-4">
+          {/* ── Where you are in the day, and what is next ─────────────
+              One slim row above the cards: previous / position / next, and
+              the row after this one in the grouped order with its window on
+              the rep's clock. */}
+          {current ? (
+            <div className="flex flex-wrap items-center justify-between gap-2" data-console-nav>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  className={`${BTN} border border-border text-foreground flex-1`}
+                  className={`${BTN} border border-border bg-card text-foreground`}
                   disabled={index <= 0}
                   onClick={() => select(items[index - 1].id)}
                 >
                   <ChevronLeft size={16} /> {t("app.salesQueue.previous")}
                 </button>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs text-muted-foreground tabular-nums">
                   {t("app.salesQueue.positionOf", { position: index + 1, total: items.length })}
                 </span>
                 <button
                   type="button"
-                  className={`${BTN} border border-border text-foreground flex-1`}
+                  className={`${BTN} border border-border bg-card text-foreground`}
                   disabled={index < 0 || index >= items.length - 1}
                   onClick={() => select(items[index + 1].id)}
                 >
                   {t("app.salesQueue.next")} <ChevronRight size={16} />
                 </button>
               </div>
-            ) : null}
-          </section>
-
-          {/* Nothing selected. The pane says what would fill it rather than
-              standing empty — the same rule the dial region follows, for the
-              same reason. */}
-          {!loading && !current ? (
-            <section className={CARD}>
-              <h2 className="text-base font-semibold text-foreground">
-                {t("app.salesQueue.paneEmptyTitle")}
-              </h2>
-              <p className="text-sm text-muted-foreground break-words">
-                {t("app.salesQueue.paneEmptyBody")}
-              </p>
-            </section>
+              <div className="text-xs text-muted-foreground min-w-0 break-words" data-next-in-queue>
+                {t("app.salesQueue.nextInQueue")}{": "}
+                {nextItem ? (
+                  <button type="button" className="min-h-[44px] font-medium text-foreground underline" onClick={() => select(nextItem.id)}>
+                    {nextItem.businessName}
+                    {nextMeta?.window ? ` · ${nextMeta.window}` : ""}
+                  </button>
+                ) : (
+                  <span>{t("app.salesQueue.nextInQueueNone")}</span>
+                )}
+              </div>
+            </div>
           ) : null}
 
-          {!loading && current ? (
-            <>
+          {/* ── Two columns: the phone on one side, one tall tabbed card on
+              the other, DIALER_SIDE deciding which. Below lg they stack,
+              dialler first. */}
+          <div className="lg:flex lg:items-start lg:gap-4 space-y-4 lg:space-y-0">
+          {/* The dialler's column. Bounded sticky — max-h and its own
+              scrollbar, like the rail — so it stays in reach while the tall
+              card scrolls, and never covers anything: nothing sits under it
+              in its own column. The section inside is in normal flow. */}
+          <div className={`lg:w-[320px] lg:shrink-0 lg:sticky lg:top-[77px] lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto ${COLUMN_ORDER.dialer}`} data-dialer-column>
+            {/* ── The Dialer: a phone's, and nothing else ──────────────────
+                Window line · number display with × · round keypad · the
+                green Call · the cap line · Auto-dial. The Call button IS
+                DialRegion's — CallPanel, dialHref via dialSpace — and when
+                the record cannot be dialled, its refusal stands where the
+                button would. NOT sticky: on a call the live block makes it
+                taller than a phone's viewport, and a sticky element taller
+                than the viewport never scrolls through — see the header's
+                "The call region scrolls with the page". */}
+            <section className={CARD} data-tour="sales-queue-dial" data-console-card="dialer">
+              <div className="flex items-start justify-between gap-2">
+                <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+                  <Phone size={16} className="text-brand-accent-text" aria-hidden="true" />
+                  {t("app.salesQueue.cardDialer")}
+                </h2>
+                {fetching && !loading ? (
+                  <Loader2 className="animate-spin text-muted-foreground shrink-0" size={16} />
+                ) : null}
+              </div>
+
+              {/* The calling window, one small line above the display. */}
+              {current ? <WindowTag compliance={compliance} row={currentRow} /> : null}
+
+              <DialerPad
+                value={typed}
+                onChange={(v) => {
+                  setTyped(v);
+                  setTypedError("");
+                }}
+                onKey={onDialKey}
+                liveCall={liveCallUp}
+                disabled={!current || current.contact?.callable === false}
+                error={typedError}
+                typedNote={
+                  current && typedE164 && !storedForTyped
+                    ? t("app.salesQueue.typedNumberNote", { business: current.businessName })
+                    : ""
+                }
+              />
+
+              {/* Where an answered inbound call is drawn (consoleSlots.js).
+                  Empty until IncomingCallDock portals into it. */}
+              <div ref={liveCallSlotRef} data-live-call-slot />
+
+              {/* ── The Call button, or the reason there is not one ────────
+                  Never blank. lib/sales/dialSpace.js decides which of the
+                  seven states this is and supplies the sentence; DialRegion
+                  only picks an icon. CallPanel inside it draws the Call
+                  button here and portals its disposition form, next steps,
+                  script and the published-email box into the panel's tabs
+                  and the Contact card. */}
+              <DialRegion
+                space={space}
+                compliance={compliance}
+                target={
+                  current
+                    ? {
+                        prospectId: current.id,
+                        phoneE164: typedE164 || chosenNumber?.e164 || current.phoneE164,
+                        // An id of a row we stored, never a number. The server
+                        // re-reads it against this prospect before anything rings.
+                        // For a typed number beforeDial supplies the id.
+                        contactNumberId: storedForTyped?.id || chosenNumber?.id || null,
+                        businessName: current.businessName,
+                      }
+                    : null
+                }
+                onWorked={worked}
+                autoDial={auto.token}
+                onAutoDialResult={auto.onResult}
+                slots={slots}
+                compact
+                beforeDial={beforeDial}
+                onLiveCall={onLiveCall}
+                dialRequest={dialRequest}
+              />
+              {current ? <CapLine compliance={compliance} /> : null}
+
+              {/* ── Auto-dial, one row ───────────────────────────────────
+                  The switch, and — only while they have something to say —
+                  the five-second countdown on the next row, the wait for a
+                  window, the reason it stopped. lib/sales/autodial.js
+                  decides; AutodialControl.js keeps the clock; CallPanel
+                  dials. */}
+              <AutodialControl
+                auto={auto}
+                claimLabel={tradeKey && remainingToday > 0 ? t("app.salesQueue.claimBatch", { count: batchSize }) : null}
+                onClaim={tradeKey && remainingToday > 0 ? () => act("claim_batch") : null}
+                busy={Boolean(busy)}
+                compact
+              />
+            </section>
+
+          </div>
+
+          {/* ── The tall card: company · contact · script · research · notes ·
+              disposition · tasks · leads. Every panel stays mounted (hidden
+              attribute) so the portals have their targets and nothing a rep
+              typed is lost on a flip. Maximise takes the viewport. */}
+          <section
+            // @container: the Script tab's two-column layout keys on THIS
+            // card's width (Tailwind container query), not the viewport — with
+            // the rail open at 1280 the card is too narrow for a side column
+            // and the callouts drop under the steps instead of crushing them.
+            className={`${CARD} @container min-w-0 flex-1 ${COLUMN_ORDER.panel} ${maximized ? "fixed inset-0 z-40 rounded-none overflow-y-auto lg:left-[var(--fq-sales-rail,220px)] lg:top-[61px]" : ""}`}
+            data-console-panel={maximized ? "maximized" : "docked"}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex gap-0.5 overflow-x-auto -mx-1 px-1" role="tablist" aria-label={t("app.salesQueue.panelTabsAria")}>
+                {PANEL_TABS.map((entry) => (
+                  <button
+                    key={entry.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === entry.key}
+                    aria-controls={`console-tab-${entry.key}`}
+                    id={`console-tabbtn-${entry.key}`}
+                    onClick={() => setTab(entry.key)}
+                    data-console-tab={entry.key}
+                    className={`inline-flex items-center gap-1.5 min-h-[44px] px-1.5 2xl:px-3 rounded-lg text-sm font-medium border-b-2 shrink-0 ${
+                      tab === entry.key
+                        ? "border-brand-accent text-foreground bg-muted"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {/* Icons from 2xl only: below that the eight tabs need the width for their words. */}
+                    <entry.Icon size={15} aria-hidden="true" className="hidden 2xl:inline" />
+                    {t(entry.labelKey)}
+                    {entry.key === "leads" && items.length ? (
+                      <span className="hidden 2xl:inline rounded-full bg-muted px-1.5 text-[11px] tabular-nums">{items.length}</span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="hidden lg:inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground shrink-0"
+                onClick={() => setMaximized((m) => !m)}
+                aria-pressed={maximized}
+                aria-label={maximized ? t("app.salesQueue.restorePanel") : t("app.salesQueue.maximizePanel")}
+                title={maximized ? t("app.salesQueue.restorePanel") : t("app.salesQueue.maximizePanel")}
+                data-console-maximize
+              >
+                {maximized ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+              </button>
+            </div>
+
+            {/* Company: the business, with Edit and Dial beside each number */}
+            <div role="tabpanel" id="console-tab-company" aria-labelledby="console-tabbtn-company" hidden={tab !== "company"} className="space-y-3" data-console-card="company">
+              {current ? (
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 min-h-[44px] px-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted"
+                    onClick={() => setEditing((e) => !e)}
+                    aria-expanded={editing}
+                    data-company-edit
+                  >
+                    <Pencil size={14} /> {editing ? t("app.salesQueue.editClose") : t("app.salesQueue.edit")}
+                  </button>
+                </div>
+              ) : null}
+              {!loading && !current ? (
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">{t("app.salesQueue.paneEmptyTitle")}</p>
+                  <p className="text-sm text-muted-foreground break-words">{t("app.salesQueue.paneEmptyBody")}</p>
+                </div>
+              ) : null}
+              {!loading && current ? (
+                <CompanyCard
+                  t={t}
+                  current={current}
+                  row={currentRow}
+                  compliance={compliance}
+                  numbers={currentNumbers}
+                  onDial={current.contact?.callable === false ? null : dialNumber}
+                />
+              ) : null}
               {/* ── The record, corrected from the screen the rep is on ─────
                   Writes the rep's own lead through the route that already
                   writes it — never the discovered Prospect, whose phone number
                   is a dedupe key and whose province decides a statute. The
-                  component's header argues that split at length. */}
-              <section className={CARD}>
-                <QueueLeadEditor
-                  prospectId={current.id}
-                  businessName={current.businessName}
-                  lead={current.lead || null}
-                  onChanged={load}
-                />
-              </section>
-
-              {/* ── Notes, beside the call rather than a screen away ──────── */}
-              <section className={CARD}>
-                <h2 className="text-base font-semibold text-foreground">
-                  <NotebookPen size={16} className="inline mr-1" />
-                  {t("app.salesQueue.notesHeading", { business: current.businessName })}
-                </h2>
-                <ProspectNotes prospectId={current.id} businessName={current.businessName} />
-              </section>
-
-              {/* ── Layer 1: facts ─────────────────────────────────────────── */}
-              <section className={CARD} data-tour="sales-queue-research">
-                <LayerHeader layer="fact" />
-                <ul className="space-y-2">
-                  {current.facts.map((f) => (
-                    <li key={f.key} className="flex flex-col gap-0.5">
-                      <span className="text-xs text-muted-foreground">
-                        {t(f.labelKey, f.label)}
-                      </span>
-                      <span
-                        className={`text-sm break-words ${f.known ? "text-foreground" : "text-muted-foreground italic"}`}
-                      >
-                        {/* A row with no textKey is one whose value is the
-                            PROSPECT'S OWN — their phone number, their address,
-                            the register's name for them. Those are printed
-                            verbatim; translating data is inventing it. */}
-                        {f.textKey ? t(f.textKey, f.text, f.params || {}) : f.text}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-
-                <div className="pt-2 space-y-2">
-                  <h3 className="text-sm font-medium text-foreground">
-                    {t("app.salesQueue.siteCapabilitiesHeading")}
-                  </h3>
-                  {current.capabilities.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      {t("app.salesQueue.siteNotCrawled")}
-                    </p>
-                  ) : (
-                    <ul className="space-y-2">
-                      {current.capabilities.map((c) => (
-                        <li key={c.code} className="space-y-1">
-                          <Pill tone={c.tone}>{c.text}</Pill>
-                          {c.detail ? (
-                            <p className="text-xs text-muted-foreground break-words">{c.detail}</p>
-                          ) : null}
-                          {c.known && !c.sayable ? (
-                            <p className="text-xs text-muted-foreground">
-                              {t("app.salesQueue.notVerifiedImpression")}
-                            </p>
-                          ) : null}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                  component's header argues that split at length. Behind
+                  Edit, in this tab, because it is this tab's record. */}
+              {!loading && current && editing ? (
+                <div className="border-t border-border pt-3">
+                  <QueueLeadEditor
+                    prospectId={current.id}
+                    businessName={current.businessName}
+                    lead={current.lead || null}
+                    onChanged={load}
+                  />
                 </div>
+              ) : null}
+              {current ? (
+                <p className="text-xs text-muted-foreground break-words">{current.claim.text}</p>
+              ) : null}
+            </div>
 
-                <div className="pt-2 space-y-1">
-                  <h3 className="text-sm font-medium text-foreground">
-                    {t("app.salesQueue.softwareHeading")}
-                  </h3>
-                  <p className="text-sm text-foreground break-words">{current.competitor.text}</p>
-                </div>
-              </section>
-
-              {/* ── Layer 2: inferences ────────────────────────────────────── */}
-              <section className={CARD}>
-                <LayerHeader layer="inference" />
-                {current.inferences.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    {t("app.salesQueue.noInferences")}
-                  </p>
-                ) : (
-                  <ul className="space-y-3">
-                    {current.inferences.map((inf, i) => (
-                      <li key={`${inf.kind}-${i}`}>
-                        {inf.renderable ? (
-                          <>
-                            {/* "We think" and the confidence travel together in
-                                every language: the prefix is what marks this as
-                                an impression rather than a finding, and a
-                                translation that dropped either would turn the
-                                whole layer into an assertion. */}
-                            <p className="text-sm text-foreground break-words">
-                              {emphasise(
-                                t("app.salesQueue.inferenceLine", {
-                                  text: inf.textKey ? t(inf.textKey, inf.text) : inf.text,
-                                  kind: inf.kindTextKey
-                                    ? t(inf.kindTextKey, inf.kindText)
-                                    : inf.kindText,
-                                }),
-                              )}
-                            </p>
-                            <p className="text-xs text-muted-foreground break-words">
-                              {t("app.salesQueue.inferenceCaveat", {
-                                confidence: t(inf.confidenceTextKey, inf.confidenceText, {
-                                  percent: inf.confidencePercent,
-                                }),
-                                source: t(inf.sourceTextKey, inf.sourceText),
-                              })}
-                            </p>
-                          </>
-                        ) : (
-                          <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
-                            <ShieldAlert size={14} className="inline mr-1" />
-                            {t(inf.refusalKey, inf.refusal)}
-                          </p>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-
-              {/* ── Layer 3: recommendations ───────────────────────────────── */}
-              <section className={CARD}>
-                <LayerHeader layer="recommendation" />
-                {current.opportunities.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    {t("app.salesQueue.noRecommendations")}
-                  </p>
-                ) : (
-                  <ol className="space-y-3">
-                    {current.opportunities.map((o, i) => (
-                      <li key={`${o.capabilityCode}-${i}`} className="space-y-1">
-                        {o.renderable ? (
-                          <>
-                            <p className="text-sm text-foreground break-words">
-                              <strong>{i + 1}. {o.nameKey ? t(o.nameKey, o.name) : o.name}</strong>
-                            </p>
-                            <p className="text-sm text-foreground break-words">
-                              {t("app.salesQueue.recommendationBecause", { reason: o.reason })}
-                            </p>
-                            <p className="text-xs text-muted-foreground break-words">
-                              {o.ruleCode
-                                ? t("app.salesQueue.recommendationEvidenceWithRule", {
-                                    confidence: t(o.confidenceTextKey, o.confidenceText, {
-                                      percent: o.confidencePercent,
-                                    }),
-                                    observations: t("app.salesQueue.observationCount", {
-                                      value: o.evidenceIds.length,
-                                    }),
-                                    rule: o.ruleCode,
-                                  })
-                                : t("app.salesQueue.recommendationEvidence", {
-                                    confidence: t(o.confidenceTextKey, o.confidenceText, {
-                                      percent: o.confidencePercent,
-                                    }),
-                                    observations: t("app.salesQueue.observationCount", {
-                                      value: o.evidenceIds.length,
-                                    }),
-                                  })}
-                            </p>
-                          </>
-                        ) : (
-                          <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
-                            <ShieldAlert size={14} className="inline mr-1" />
-                            {t(o.refusalKey, o.refusal)}
-                          </p>
-                        )}
-                      </li>
-                    ))}
-                  </ol>
-                )}
-              </section>
-
-              {/* ── What we do not know ────────────────────────────────────── */}
-              <section className={CARD}>
-                <h2 className="text-base font-semibold text-foreground">
-                  <CircleHelp size={16} className="inline mr-1" />
-                  {t("app.salesQueue.unknownsHeading")}
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  {t("app.salesQueue.unknownsNote")}
-                </p>
-                {current.unknowns.length === 0 ? (
-                  <p className="text-sm text-foreground">{t("app.salesQueue.unknownsNone")}</p>
-                ) : (
-                  <ul className="list-disc pl-5 space-y-1">
-                    {current.unknowns.map((u, i) => (
-                      <li
-                        key={`${u.key || u.text}-${i}`}
-                        className="text-sm text-muted-foreground break-words"
-                      >
-                        {u.key ? t(u.key, u.text, u.params || {}) : u.text}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-
-              {/* ── What happens next ──────────────────────────────────────── */}
-              <section className={CARD}>
-                <h2 className="text-base font-semibold text-foreground">
-                  {t("app.salesQueue.wrapUpHeading")}
-                </h2>
-                <button
-                  type="button"
-                  className={`${BTN} bg-primary text-primary-foreground w-full`}
-                  disabled={Boolean(busy)}
-                  onClick={() => act("worked", { prospectId: current.id })}
-                >
-                  {busy === "worked" ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
-                  {t("app.salesQueue.markWorked")}
-                </button>
-                <p className="text-xs text-muted-foreground">
-                  {t("app.salesQueue.markWorkedNote")}
-                </p>
-
-                <button
-                  type="button"
-                  className={`${BTN} border border-border text-foreground w-full`}
-                  disabled={Boolean(busy)}
-                  onClick={() => act("release", { prospectId: current.id })}
-                >
-                  {busy === "release" ? <Loader2 className="animate-spin" size={16} /> : <Undo2 size={16} />}
-                  {t("app.salesQueue.release")}
-                </button>
-
-                {/* ── Carry it across to a lead ────────────────────────────────
-                    SalesLead.prospectId has existed since the queue did, and
-                    nothing wrote it from here: a rep who wanted to EMAIL or
-                    TEXT somebody they had just researched and phoned had to
-                    retype the name and the number on the leads screen. Slow,
-                    and it silently broke the link — two records about one
-                    business, neither able to see the other.
-
-                    Pressing it twice is the ordinary case, so the server hands
-                    back the lead that already exists rather than making a
-                    second one. */}
-                <button
-                  type="button"
-                  data-tour="sales-queue-work-as-lead"
-                  className={`${BTN} border border-border text-foreground w-full`}
-                  disabled={Boolean(busy)}
-                  onClick={() => carryToLead(current.id)}
-                >
-                  {busy === "lead" ? <Loader2 className="animate-spin" size={16} /> : <UserPlus size={16} />}
-                  {t("app.salesQueue.carryToLeadButton")}
-                </button>
-                <p className="text-xs text-muted-foreground">
-                  {t("app.salesQueue.carryToLeadNote")}
-                </p>
-
-                {/* ── Stop working this one ────────────────────────────────────
-                    The distinction below sits OUTSIDE the disclosure, so it is read
-                    before the press rather than after it. The body copy was
-                    corrected on 2026-09-03; the button that opened it still said
-                    "They asked not to be contacted", which is the sentence a rep
-                    hears on the phone and the promise this action does not keep —
-                    it writes one Prospect row, not the platform list. A retraction
-                    underneath a button that already made the promise is the
-                    refusal-shaped-as-an-afterthought AGENTS.md's design notes warn
-                    about, so the button now says what it does and the sentence
-                    stands above both states. */}
-                {dncOpen ? (
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-foreground" htmlFor="q-dnc">
-                      {t("app.salesQueue.dncReasonLabel")}
-                    </label>
-                    <input
-                      id="q-dnc"
-                      className={FIELD}
-                      value={dncReason}
-                      onChange={(e) => setDncReason(e.target.value)}
-                      placeholder={t("app.salesQueue.dncReasonPlaceholder")}
-                    />
-                    <button
-                      type="button"
-                      className={`${BTN} bg-red-600 text-white w-full`}
-                      disabled={Boolean(busy) || !dncReason.trim()}
-                      onClick={() => act("do_not_contact", { prospectId: current.id, reason: dncReason })}
-                    >
-                      {busy === "do_not_contact" ? <Loader2 className="animate-spin" size={16} /> : <Ban size={16} />}
-                      {t("app.salesQueue.dncConfirm")}
-                    </button>
+            {/* Contact: the person, their numbers with Dial, the published
+                email, the add-number control, and the call history at the foot */}
+            <div role="tabpanel" id="console-tab-contact" aria-labelledby="console-tabbtn-contact" hidden={tab !== "contact"} className="space-y-4" data-console-card="contact">
+              {!loading && !current ? (
+                <p className="text-sm text-muted-foreground">{t("app.salesQueue.pickOrClaim")}</p>
+              ) : null}
+              {!loading && current ? (
+                <>
+                  <ContactCard
+                    t={t}
+                    current={current}
+                    numbers={currentNumbers}
+                    onDial={current.contact?.callable === false ? null : dialNumber}
+                  />
+                  {/* The address their own site publishes, with Copy —
+                      CallPanel reads it with the playbook and portals it
+                      here (it is contact data, not dial data). */}
+                  <div ref={setContactSlot} data-slot="contact" />
+                  {/* Numbers the server would not offer, with the reason,
+                      and "they gave us another number" — the same
+                      component as the lead screen's, without the radios:
+                      the dialler's display is the choice now. */}
+                  <ContactNumbers
+                    prospectId={current.id}
+                    numbers={currentNumbers}
+                    selectedId={chosenNumber?.id || ""}
+                    onSelect={(pick) => setNumberId(pick?.id || "")}
+                    onChanged={load}
+                    disabled={current.contact?.callable === false}
+                    parts={["refused", "add"]}
+                  />
+                  <div className="border-t border-border pt-4 space-y-3" data-console-card="history">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                        <History size={15} className="text-brand-accent-text" aria-hidden="true" />
+                        {t("app.salesQueue.cardHistory")}
+                      </h3>
+                      {current.lead?.id ? (
+                        <Link href={`/sales/leads/${current.lead.id}`} className="text-sm font-medium text-foreground underline min-h-[44px] inline-flex items-center">
+                          {t("app.salesQueue.viewAll")}
+                        </Link>
+                      ) : null}
+                    </div>
+                    <CallHistory t={t} current={current} language={language} />
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    className={`${BTN} border border-red-300 text-red-700 dark:text-red-300 w-full`}
-                    disabled={Boolean(busy)}
-                    onClick={() => setDncOpen(true)}
-                  >
-                    <Ban size={16} /> {t("app.salesQueue.dncOpenButton")}
-                  </button>
-                )}
+                </>
+              ) : null}
+            </div>
 
-                {/* The scope of this button, in full. It is the sentence that
-                    stops a rep believing they have honoured "never call me
-                    again" when they have written one Prospect row, so it is
-                    translated whole rather than trimmed to fit. */}
-                <p className="text-xs text-muted-foreground">
-                  {emphasise(
-                    t("app.salesQueue.dncScopeNote"),
-                    "span",
-                    "font-medium text-foreground",
-                  )}
-                </p>
-              </section>
-            </>
-          ) : null}
+            {/* Script */}
+            <div role="tabpanel" id="console-tab-script" aria-labelledby="console-tabbtn-script" hidden={tab !== "script"} className="space-y-3">
+              {/* CallPanel portals the playbook here (layout="console"). */}
+              <div ref={setScriptSlot} data-slot="script" />
+              {!current && !loading ? (
+                <p className="text-sm text-muted-foreground">{t("app.salesQueue.pickOrClaim")}</p>
+              ) : null}
+            </div>
+
+            {/* Research: the three layers, in the same order every time */}
+            <div role="tabpanel" id="console-tab-research" aria-labelledby="console-tabbtn-research" hidden={tab !== "research"} className="space-y-4" data-tour="sales-queue-research">
+              {!loading && current ? <ResearchLayers t={t} current={current} /> : null}
+              {!current && !loading ? (
+                <p className="text-sm text-muted-foreground">{t("app.salesQueue.pickOrClaim")}</p>
+              ) : null}
+            </div>
+
+            {/* Notes */}
+            <div role="tabpanel" id="console-tab-notes" aria-labelledby="console-tabbtn-notes" hidden={tab !== "notes"} className="space-y-3">
+              {!loading && current ? (
+                <>
+                  <h3 className="text-sm font-semibold text-foreground">
+                    <NotebookPen size={15} className="inline mr-1" />
+                    {t("app.salesQueue.notesHeading", { business: current.businessName })}
+                  </h3>
+                  <ProspectNotes prospectId={current.id} businessName={current.businessName} />
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">{t("app.salesQueue.pickOrClaim")}</p>
+              )}
+            </div>
+
+            {/* Disposition: the form CallPanel portals here, then next steps,
+                then the claim's own wrap-up (worked / release / lead / DNC) */}
+            <div role="tabpanel" id="console-tab-disposition" aria-labelledby="console-tabbtn-disposition" hidden={tab !== "disposition"} className="space-y-4">
+              <div ref={setDispositionSlot} data-slot="disposition" />
+              <div ref={setNextStepsSlot} data-slot="next-steps" />
+              {!loading && current ? (
+                <WrapUp
+                  t={t}
+                  current={current}
+                  busy={busy}
+                  act={act}
+                  carryToLead={carryToLead}
+                  dncOpen={dncOpen}
+                  setDncOpen={setDncOpen}
+                  dncReason={dncReason}
+                  setDncReason={setDncReason}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">{t("app.salesQueue.pickOrClaim")}</p>
+              )}
+            </div>
+
+            {/* Tasks: callbacks promised and check-in drafts due */}
+            <div role="tabpanel" id="console-tab-tasks" aria-labelledby="console-tabbtn-tasks" hidden={tab !== "tasks"} className="space-y-3">
+              {!loading && current ? <TasksTab t={t} current={current} language={language} /> : (
+                <p className="text-sm text-muted-foreground">{t("app.salesQueue.pickOrClaim")}</p>
+              )}
+            </div>
+
+            {/* Leads: the batch, full width, same grouping, click selects */}
+            <div role="tabpanel" id="console-tab-leads" aria-labelledby="console-tabbtn-leads" hidden={tab !== "leads"} className="space-y-3">
+              <QueueList {...railProps} wide />
+            </div>
+          </section>
+          </div>
         </div>
       </div>
     </div>

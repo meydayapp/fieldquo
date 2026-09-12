@@ -50,7 +50,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertCircle, ChevronLeft, ChevronRight, CircleHelp, Loader2, ShieldAlert, Sparkles } from "lucide-react";
+import { AlertCircle, ChevronLeft, ChevronRight, CircleHelp, Loader2, ShieldAlert, Sparkles, Target } from "lucide-react";
 import { objectionsToShow } from "@/lib/sales/playbook/objections";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
@@ -225,6 +225,156 @@ function AiScript({ script, language }) {
 }
 
 /**
+ * The console's shape of the generated script — the reference dialler's
+ * "Call Script" panel: numbered steps down the left, each with the sentence
+ * to say; on the right, "Key talking points" and "Goal".
+ *
+ * The same `callScript` object AiScript reads, restructured and nothing
+ * more. The steps ARE the script's five parts in the order they are said —
+ * Open · What we saw · Why them now · Three questions · The ask. The talking
+ * points are the sentences the rules engine marked as defensible about
+ * THIS business (the stages' `points`, each citing an observation) with the
+ * script's own do-not-say list under them; the goal is the close — the
+ * fifteen-minute ask lib/sales/intel/callScript.js holds every script to.
+ * Nothing here is written by this file: a missing part is left out, never
+ * padded (AGENTS.md failure class 5).
+ */
+function ConsoleScript({ script, stages, language }) {
+  const { t } = useTranslation();
+  const crawled = script.crawledAt ? new Date(script.crawledAt) : null;
+  const when = crawled && !Number.isNaN(crawled.getTime())
+    ? crawled.toLocaleDateString(language || undefined, { year: "numeric", month: "short", day: "numeric" })
+    : null;
+  const steps = [
+    { key: "open", title: t("app.salesCall.aiScriptOpener"), text: script.opener || null, lines: null },
+    { key: "saw", title: t("app.salesCall.aiScriptWhatWeSaw"), text: null, lines: script.whatWeSaw?.length ? script.whatWeSaw : null },
+    { key: "why", title: t("app.salesCall.aiScriptWhyNow"), text: script.whyThemNow || null, lines: null },
+    { key: "questions", title: t("app.salesCall.aiScriptQuestions"), text: null, lines: script.threeQuestions?.length ? script.threeQuestions : null, ordered: true },
+    { key: "ask", title: t("app.salesCall.aiScriptClose"), text: script.closeAsk || null, lines: null },
+  ].filter((step) => step.text || step.lines);
+  const points = stages.flatMap((s) => (s.points || []).map((p) => ({ ...p, stageKey: s.stageKey })));
+
+  return (
+    <div className="grid gap-4 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,18rem)]" data-testid="ai-call-script">
+      <div className="space-y-3">
+        <div className="flex items-start gap-2">
+          <Sparkles size={16} className="mt-0.5 shrink-0 text-brand-accent-text" />
+          <div className="space-y-0.5 min-w-0">
+            <p className="text-sm font-semibold text-foreground">{t("app.salesCall.aiScriptHeading")}</p>
+            <p className="text-xs text-muted-foreground break-words">
+              {when ? t("app.salesCall.aiScriptGenerated", { date: when }) : t("app.salesCall.aiScriptGeneratedNoCrawl")}
+            </p>
+          </div>
+        </div>
+        <ol className="space-y-3">
+          {steps.map((step, i) => (
+            <li key={step.key} className="flex gap-3" data-script-step={step.key}>
+              <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold tabular-nums">
+                {i + 1}
+              </span>
+              <div className="min-w-0 space-y-1">
+                <p className="text-sm font-semibold text-foreground">{step.title}</p>
+                {step.text ? <p className="text-base text-foreground break-words">{step.text}</p> : null}
+                {step.lines ? (
+                  step.ordered ? (
+                    <ol className="list-decimal pl-5 space-y-1">
+                      {step.lines.map((line, j) => (
+                        <li key={j} className="text-sm text-foreground break-words">{line}</li>
+                      ))}
+                    </ol>
+                  ) : (
+                    <ul className="list-disc pl-5 space-y-1">
+                      {step.lines.map((line, j) => (
+                        <li key={j} className="text-sm text-foreground break-words">{line}</li>
+                      ))}
+                    </ul>
+                  )
+                ) : null}
+              </div>
+            </li>
+          ))}
+        </ol>
+        {script.objections?.length ? (
+          <div>
+            <H>{t("app.salesCall.aiScriptObjections")}</H>
+            <div className="mt-1 space-y-2">
+              {script.objections.map((o, i) => (
+                <div key={i} className="text-sm break-words">
+                  <p className="text-muted-foreground italic">“{o.they}”</p>
+                  <p className="text-foreground">{o.you}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {script.citations?.length ? (
+          <div>
+            <H>{t("app.salesCall.aiScriptCitations")}</H>
+            <ul className="list-disc pl-5 mt-1 space-y-1">
+              {script.citations.map((c, i) => (
+                <li key={i} className="text-xs text-muted-foreground break-words">
+                  “{c.quote}”{c.sourceUrl && c.sourceUrl !== "inference" ? ` — ${c.sourceUrl}` : ""}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="space-y-3">
+        <div className="rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 p-3 space-y-2" data-script-points>
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-900 dark:text-emerald-100">
+            {t("app.salesCall.keyTalkingPoints")}
+          </p>
+          {points.length ? (
+            <ul className="list-disc pl-4 space-y-1.5">
+              {points.map((p, i) => (
+                <li key={`${p.capabilityCode}-${i}`} className="text-sm text-emerald-900 dark:text-emerald-100 break-words">
+                  {p.text}
+                  <span className="block text-xs text-emerald-800 dark:text-emerald-200">
+                    {t("app.salesCall.pointCitation", {
+                      capability: p.capabilityName,
+                      cited: t("app.salesCall.observationCount", { value: p.evidenceIds.length }),
+                    })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-emerald-900/80 dark:text-emerald-100/80 break-words">{t("app.salesCall.noPointsAtAll")}</p>
+          )}
+          {script.doNotSay?.length ? (
+            <div className="pt-1 border-t border-emerald-200 dark:border-emerald-900">
+              <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">{t("app.salesCall.aiScriptDoNotSay")}</p>
+              <ul className="list-disc pl-4 mt-1 space-y-1">
+                {script.doNotSay.map((line, i) => (
+                  <li key={i} className="text-xs text-amber-900 dark:text-amber-200 break-words">{line}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+        {script.closeAsk ? (
+          <div className="rounded-lg border border-brand-accent/40 bg-brand-accent/5 p-3 space-y-1" data-script-goal>
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand-accent-text flex items-center gap-1.5">
+              <Target size={13} aria-hidden="true" /> {t("app.salesCall.goal")}
+            </p>
+            <p className="text-sm text-foreground break-words">{script.closeAsk}</p>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * @param layout       "stack" (default) is the card as it has always been —
+ *                     the generated script above one stage at a time. "console"
+ *                     is the queue's Script tab: the generated script as
+ *                     numbered steps with talking points and goal beside it
+ *                     (ConsoleScript), then the same stage stepper and the
+ *                     objection rail under it. Same data, same fetch, one
+ *                     more arrangement of it.
  * @param unavailable  why there is no script to show, when that is a fact
  *                     rather than a failure. A lead the rep typed in has no
  *                     discovery behind it and therefore no playbook, and the
@@ -241,6 +391,7 @@ export default function CallPlaybook({
   data = null,
   unavailable = "",
   onRetry,
+  layout = "stack",
 }) {
   // Chrome only. Every stage name, purpose, line, prompt, talking point and
   // refusal below arrives from /api/sales/playbook already written — some from
@@ -309,7 +460,7 @@ export default function CallPlaybook({
   const pointCount = pointStages.reduce((n, s) => n + s.points.length, 0);
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4 space-y-4">
+    <div className={layout === "console" ? "space-y-4" : "rounded-xl border border-border bg-card p-4 space-y-4"}>
       <div className="space-y-1">
         <h3 className="text-base font-semibold text-foreground break-words">
           {data.playbook ? data.playbook.name : t("app.salesCall.noScriptHeading")}
@@ -334,7 +485,13 @@ export default function CallPlaybook({
           Above the stages, because it is about THIS business and the stages
           are about every business of its tier. Absent, nothing is drawn: the
           stages below are the whole screen, as they were. */}
-      {data.callScript ? <AiScript script={data.callScript} language={language} /> : null}
+      {data.callScript ? (
+        layout === "console" ? (
+          <ConsoleScript script={data.callScript} stages={stages} language={language} />
+        ) : (
+          <AiScript script={data.callScript} language={language} />
+        )
+      ) : null}
 
       {/* ── One stage, and the rep moves it ──────────────────────────────── */}
       {stage ? (

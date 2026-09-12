@@ -397,7 +397,9 @@ const PANEL = "app/components/sales/CallPanel.js";
   ok("…and it is the thing that fetches the playbook", /\/api\/sales\/playbook/.test(loader));
   ok(
     "…keyed on the prospect, so a new card loads a new script",
-    /}, \[prospectId\]\);/.test(decomment(src)),
+    // `scriptProspectId` since the lead screen learned to dial: the prospect
+    // whose script this is, which is the dial target's or the linked one's.
+    /}, \[scriptProspectId\]\);/.test(decomment(src)),
   );
   ok(
     "…and run from an effect rather than from a handler",

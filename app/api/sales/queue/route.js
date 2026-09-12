@@ -72,8 +72,10 @@ import { requiredLanguageFor } from "@/lib/sales/leadLanguage";
 // export that is not there yet is a build error on one bundler and a silent
 // undefined on the other. The call site tests for the function before calling.
 import * as pipelineProgress from "@/lib/sales/pipeline/progress";
-import { ownNumbers } from "@/lib/sales/calls/store";
+import { attemptsLast24h, ownNumbers } from "@/lib/sales/calls/store";
 import { CHANNEL_TEXT, CHANNEL_VOICE } from "@/lib/sales/contact/numbers";
+import { composeBrief } from "@/lib/sales/intel/brief";
+import { openCheckIns } from "@/lib/sales/checkin/store";
 import { loadContactNumbers, pickContactNumber } from "@/lib/sales/contact/resolve";
 
 const ACTIONS = ["claim", "claim_batch", "release", "release_rest", "worked", "do_not_contact"];
@@ -318,7 +320,7 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
     });
 
     if (full) {
-      const [rules, signatures, suppression, contactRows, ours, myLead] = await Promise.all([
+      const [rules, signatures, suppression, contactRows, ours, myLead, history, briefTask, converted, checkIns] = await Promise.all([
         db.confidenceRule.findMany(),
         db.technologySignature.findMany({ select: { code: true, name: true } }),
         // ── The list, read for the one prospect that gets a dial control ──
@@ -360,6 +362,45 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
             timeZone: true, country: true, province: true, status: true, notes: true,
           },
         }),
+        // ── The console's "Call history" card ───────────────────────────
+        // This rep's attempts on this business, newest first, capped: the
+        // card shows five and links to the lead page for the rest. Scoped
+        // to the rep the way `lastOutcome` on the rows is — another rep's
+        // calls on a row they later released are theirs to read, not ours.
+        db.salesCallAttempt
+          .findMany({
+            where: { prospectId: full.id, salesRepId: rep.id },
+            orderBy: { dialledAt: "desc" },
+            take: 5,
+            select: {
+              id: true, direction: true, dialledAt: true, answeredAt: true, endedAt: true,
+              talkSeconds: true, disposition: true, callbackAt: true, dialChannel: true,
+            },
+          })
+          .catch(() => []),
+        // ── The research brief's phrasing, if the pipeline wrote one ──
+        // The brief itself is composed from the rows below on every read
+        // (composeBrief) so it cannot disagree with them; only the model's
+        // sentences are cached, on the task that produced them. The newest
+        // finished task wins. None → the card says "no description yet",
+        // never a sentence somebody has to disown on the phone.
+        db.salesPipelineTask
+          .findFirst({
+            where: { prospectId: full.id, kind: "GENERATE_RESEARCH_BRIEF", status: "done" },
+            orderBy: { claimedAt: "desc" },
+            select: { payload: true },
+          })
+          .catch(() => null),
+        // "Existing customer": a lead on this business that has converted
+        // into a company on the platform. A count, never the company — the
+        // console shows the rep a tag, not another tenant's record.
+        db.salesLead
+          .count({ where: { prospectId: full.id, convertedCompanyId: { not: null } } })
+          .catch(() => 0),
+        // Check-in drafts due for this business, by the number we hold.
+        full.phoneE164
+          ? openCheckIns({ salesRepId: rep.id, toE164: full.phoneE164 }).catch(() => [])
+          : Promise.resolve([]),
       ]);
       const signatureNames = Object.fromEntries(signatures.map((s) => [s.code, s.name]));
 
@@ -377,6 +418,9 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
       };
       const voice = pickContactNumber({ ...numberArgs, channel: CHANNEL_VOICE });
       const text = pickContactNumber({ ...numberArgs, channel: CHANNEL_TEXT });
+      const attempts24h = await attemptsLast24h(full.phoneE164 || voice.choices[0]?.e164 || null, { now }).catch(
+        () => null,
+      );
 
       current = {
         ...prospectView({
@@ -437,19 +481,81 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
         // because a decision computed at 19:59 and rendered until midnight is
         // exactly the dead control AGENTS.md forbids, wearing a live coat.
         //
-        // attemptsLast24h is deliberately not passed: nothing records a call
-        // attempt yet, and salesCallReadiness reports that gap rather than
-        // pretending the Oklahoma and Florida caps are being counted.
+        // attemptsLast24h IS passed now. Until 2026-09-11 this comment said
+        // "nothing records a call attempt yet" — untrue since the dial route
+        // began writing SalesCallAttempt and counting through
+        // lib/sales/calls/store.js — and the console printed a stale amber
+        // paragraph telling reps to count Oklahoma's cap by hand. The count
+        // is for the number the dial would ring (the listing number or the
+        // server's first choice), the same one the dial route counts, and it
+        // rides in callingContext so the screen's thirty-second re-ask
+        // passes it too. Null only when the store is absent.
         compliance: salesCallReadiness({
           prospect: full,
           timeZone: full.leads[0]?.timeZone || null,
           now,
+          attemptsLast24h: attempts24h,
         }),
         callingContext: {
           country: full.country,
           province: full.province,
           timeZone: full.leads[0]?.timeZone || null,
+          attemptsLast24h: attempts24h,
         },
+        // ── What the console's Company card reads, beyond prospectView ──
+        brief: (() => {
+          const cached = briefTask?.payload?.brief || null;
+          const phrasing = cached?.phrasing && typeof cached.phrasing === "object" ? cached.phrasing : null;
+          const brief = composeBrief({
+            prospect: full,
+            capabilities: full.capabilities,
+            technologies: full.technologies,
+            inferences: full.inferences,
+            opportunities: full.opportunities,
+            score: full.scores[0] || null,
+            phrasing,
+          });
+          // The inferred owner, with the sentence it was read from. The
+          // Contact card shows the name with its confidence word and, on
+          // request, the quote — a rep who says "is that Dave?" should be
+          // able to see the words that made us think so.
+          const ownerRow = full.inferences.find((i) => i?.kind === "owner_name" && i?.value);
+          const evidenceById = new Map(full.evidence.map((e) => [e.id, e]));
+          const ownerQuote = ownerRow
+            ? (Array.isArray(ownerRow.evidenceIds) ? ownerRow.evidenceIds : [])
+                .map((id) => evidenceById.get(id))
+                .map((e) => e?.rawValue || e?.normalizedValue || null)
+                .find(Boolean) || null
+            : null;
+          return {
+            owner: ownerRow ? { name: String(ownerRow.value).trim(), quote: ownerQuote, source: ownerRow.source || null } : null,
+            // The model's sentence about THIS business, or null. `opening`
+            // always has a value (a plain fallback built from rows), but the
+            // card wants the DESCRIPTION, and a fallback is not one — so
+            // only a phrased opening is offered as the description.
+            description: brief.phrased && phrasing?.opening ? brief.opening : null,
+            generatedAt: cached?.generatedAt || null,
+            crawled: brief.crawled,
+            talkingPoints: brief.talkingPoints,
+          };
+        })(),
+        history: history.map((a) => ({
+          id: a.id,
+          direction: a.direction,
+          dialledAt: a.dialledAt?.toISOString?.() || null,
+          answered: Boolean(a.answeredAt),
+          talkSeconds: Number.isFinite(a.talkSeconds) ? a.talkSeconds : null,
+          disposition: a.disposition || null,
+          callbackAt: a.callbackAt?.toISOString?.() || null,
+          channel: a.dialChannel || null,
+        })),
+        existingCustomer: converted > 0,
+        checkIns: checkIns.map((c) => ({
+          id: c.id,
+          scheduledFor: c.scheduledFor?.toISOString?.() || null,
+          draftText: c.draftText,
+          origin: c.origin,
+        })),
       };
     }
   }

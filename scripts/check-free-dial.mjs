@@ -678,7 +678,9 @@ ok(
   const queue = decomment(read("app/sales/queue/page.js"));
   ok("the queue renders the picker", /<ContactNumbers/.test(queue));
   ok("…and hands the dial the chosen number", /chosenNumber\?\.e164/.test(queue));
-  ok("…and the chosen id, not a number", /contactNumberId: chosenNumber\?\.id/.test(queue));
+  // A typed number resolves to a stored row's id first (storedForTyped);
+  // the chosen stored number is the fallback. Still an id, never a number.
+  ok("…and the chosen id, not a number", /contactNumberId: storedForTyped\?\.id \|\| chosenNumber\?\.id/.test(queue));
   ok(
     "dialHref is still the only thing producing a tel: target",
     /dialHref\(compliance,/.test(queue) && !/tel:/.test(queue),

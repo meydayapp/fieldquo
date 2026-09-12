@@ -48,6 +48,27 @@
 // rung at this rep's own client identity. Nothing here is trusted; the reply
 // is what the transfer control is rendered from.
 //
+// ══ 2026-09-11: a drawer at the top, not a card at the bottom ═════════════
+//
+// The owner: an incoming call "must NOT be a dock at the bottom or a card in
+// the flow. It is a drawer at the top of the screen that slides down from
+// under the top bar when a call rings — full width, over the cards, the page
+// underneath untouched." So this renders a fixed, full-width panel under the
+// top bar that translates in from above (translateY, 200ms, none under
+// prefers-reduced-motion): who is ringing — the business the inbound matcher
+// names, the number, and whose claim it is — a big Pick up, and a Decline.
+// Decline, or the ring ending, slides it back up and unmounts it.
+//
+// Pick up slides it up too, and the live call is drawn in the queue's Dialer
+// card — through the slot lib consoleSlots.js describes — so an answered
+// callback sits exactly where an outbound call would. On any other screen
+// there is no card to draw into, and the drawer stays down with the same
+// controls; a rep must always be able to hang up. The state machine did not
+// move: the Call object, the answered attempt, the transfer control and the
+// ledger transitions are all still here. Only WHERE the buttons are drawn
+// changed. The name IncomingCallDock stays, because the shell, the checks
+// and five headers know it by that name.
+//
 // ══ Tokens expire ═════════════════════════════════════════════════════════
 //
 // A Voice access token is short-lived. A dock that registered once and never
@@ -55,13 +76,25 @@
 // the worst shape a bug can take, because the screen still says you are signed
 // in. `tokenWillExpire` re-fetches and updates in place.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Phone, PhoneOff, AlertTriangle, Headphones } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Phone, PhoneOff, AlertTriangle, Headphones, PhoneIncoming } from "lucide-react";
 
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { STATE_AFTER_CALL, STATE_ON_CALL } from "@/lib/sales/calls/agentState";
 import TransferControl from "./TransferControl";
 import { useRepPresence } from "./RepStatus";
+import { useConsoleSlots } from "./consoleSlots";
+
+/** How long the drawer takes to slide. Matches the Tailwind duration below. */
+const SLIDE_MS = 200;
+
+/** "4:12" — the live call's clock. */
+function clock(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return "0:00";
+  const total = Math.floor(ms / 1000);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
 
 /**
  * Digits → something a person can read. Never throws on a short string.
@@ -88,6 +121,18 @@ export default function IncomingCallDock() {
   // never be shown a Transfer button over a call the server could not
   // identify, because pressing it would refuse.
   const [answered, setAnswered] = useState(null);
+  // Who is ringing, from /api/sales/calls/caller — the inbound matcher's own
+  // answer. Null until it replies, and the drawer prints the bare number
+  // until then rather than a guess.
+  const [who, setWho] = useState(null);
+  // The drawer's slide: `mounted` keeps it in the DOM through the closing
+  // animation, `down` is the translateY. Both false = nothing rendered.
+  const [mounted, setMounted] = useState(false);
+  const [down, setDown] = useState(false);
+  const [answeredAt, setAnsweredAt] = useState(null);
+  const [, setTick] = useState(0);
+  const slots = useConsoleSlots();
+  const liveCallNode = slots?.liveCallNode || null;
   const deviceRef = useRef(null);
   const callRef = useRef(null);
   // The registration effect below must NOT re-run when the rep switches
@@ -226,11 +271,22 @@ export default function IncomingCallDock() {
 
         device.on("incoming", (call) => {
           if (cancelled) return;
+          const from = call?.parameters?.From || null;
           setIncoming({
             call,
-            from: call?.parameters?.From || null,
+            from,
             to: call?.parameters?.To || null,
           });
+          setWho(null);
+          // Non-blocking, and never trusted for anything but the label: the
+          // buttons work whether or not this ever answers.
+          fetchJson(`/api/sales/calls/caller?from=${encodeURIComponent(from || "")}`)
+            .then((body) => {
+              if (!cancelled) setWho(body || null);
+            })
+            .catch(() => {
+              /* the number alone is still an honest label */
+            });
           // Ringing. The autodialler's countdown is cancelled by this — a
           // contractor ringing back outranks the next cold row.
           presenceRef.current.setInboundRinging(true);
@@ -239,6 +295,7 @@ export default function IncomingCallDock() {
             setIncoming(null);
             setLive(false);
             setAnswered(null);
+            setAnsweredAt(null);
             callRef.current = null;
             presenceRef.current.setInboundRinging(false);
           });
@@ -247,6 +304,7 @@ export default function IncomingCallDock() {
             liveRef.current = false;
             setIncoming(null);
             setLive(false);
+            setAnsweredAt(null);
             // Nothing about the last call belongs on the screen of the next
             // one — least of all an attempt id a transfer would act on.
             setAnswered(null);
@@ -327,6 +385,7 @@ export default function IncomingCallDock() {
       callRef.current = call;
       liveRef.current = true;
       setLive(true);
+      setAnsweredAt(Date.now());
       setError("");
       presenceRef.current.setInboundRinging(false);
       presenceRef.current.setCallUp(true);
@@ -402,130 +461,211 @@ export default function IncomingCallDock() {
     callRef.current = null;
     setIncoming(null);
     setLive(false);
+    setAnsweredAt(null);
     setAnswered(null);
     presenceRef.current.setCallUp(false);
   }
 
-  // Nothing to say when nothing is happening. The dock is not a status light —
-  // a permanent "ready to receive calls" badge on every screen is noise, and
-  // the errors below are the only quiet state worth interrupting for.
-  if (!incoming && !error && !audioWarning) return null;
+  // ── The slide ──────────────────────────────────────────────────────────
+  //
+  // A ring mounts the drawer and, one frame later, drops it; the ring
+  // ending (declined, cancelled, or answered into a card that can hold the
+  // call) lifts it and unmounts it after the slide. Answered with nowhere
+  // else to draw, it stays down with the live controls.
+  const wantDown = Boolean(incoming) && !(live && liveCallNode);
+  useEffect(() => {
+    if (wantDown) {
+      setMounted(true);
+      const raf = requestAnimationFrame(() => setDown(true));
+      return () => cancelAnimationFrame(raf);
+    }
+    setDown(false);
+    const id = setTimeout(() => setMounted(false), SLIDE_MS + 20);
+    return () => clearTimeout(id);
+  }, [wantDown]);
+
+  // The call clock, once a second while the call is up.
+  useEffect(() => {
+    if (!answeredAt || !live) return undefined;
+    const id = setInterval(() => setTick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [answeredAt, live]);
+
+  const fromText = incoming ? pretty(incoming.from, t) : "";
+  const business = who?.businessName || null;
+  const holderText = who?.holder
+    ? who.holder.mine
+      ? t("app.salesDial.callerClaimedByYou")
+      : t("app.salesDial.callerClaimedBy", { name: who.holder.name || t("app.salesDial.anotherRep") })
+    : who && who.outcome
+      ? t("app.salesDial.callerUnclaimed")
+      : "";
+
+  /**
+   * The live call's controls — one renderer, drawn either in the Dialer
+   * card's slot or in the drawer. Hang up, the transfer control, and the
+   * server's note about whether the call was matched.
+   */
+  const liveControls = live ? (
+    <div
+      className="rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 p-4 space-y-3"
+      data-inbound-live
+    >
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wider text-emerald-900/80 dark:text-emerald-200/80">
+            {t("app.salesDial.onACall")}
+          </p>
+          <p className="font-semibold text-emerald-900 dark:text-emerald-100 break-words">
+            {business ? `${business} · ${fromText}` : fromText}
+          </p>
+        </div>
+        <p className="text-xl font-mono tabular-nums text-emerald-900 dark:text-emerald-100">
+          {clock(answeredAt ? Date.now() - answeredAt : 0)}
+        </p>
+      </div>
+      {audioWarning ? (
+        <p className="text-xs text-amber-700 dark:text-amber-300 flex gap-1.5">
+          <Headphones size={13} className="shrink-0 mt-0.5" aria-hidden="true" />
+          {audioWarning}
+        </p>
+      ) : null}
+      {error ? <p className="text-xs text-amber-700 dark:text-amber-300">{error}</p> : null}
+      <button
+        type="button"
+        onClick={hangUp}
+        className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 text-white min-h-[44px] px-4 py-2.5 text-sm font-semibold"
+      >
+        <PhoneOff size={16} aria-hidden="true" /> {t("app.salesDial.hangUp")}
+      </button>
+      {/* ── Handing them to somebody else ─────────────────────────────
+          The SAME control the outbound dialler renders, imported rather
+          than copied: two pickers over one state machine is AGENTS.md
+          failure class 4 aimed at a live call, and the copy that rots
+          would be this one, because inbound calls are rarer.
+
+          `attemptId` is null until /api/sales/calls/answered has said
+          which logged call this is, and it stays null when the server
+          says the call has no rep leg to hand back from — so the control
+          renders nothing at all rather than a button that would refuse.
+          The reason is said below instead. */}
+      <TransferControl
+        attemptId={answered?.attemptId || null}
+        active={live}
+        onError={setError}
+        tone="dock"
+      />
+      {answered?.note ? <p className="text-xs text-muted-foreground">{answered.note}</p> : null}
+    </div>
+  ) : null;
+
+  // Nothing to say when nothing is happening. The drawer is not a status
+  // light — a permanent "ready to receive calls" badge on every screen is
+  // noise, and the errors below are the only quiet state worth interrupting
+  // for.
+  if (!mounted && !live && !error && !audioWarning) return null;
 
   return (
-    // bottom: above SalesMobileTabBar below lg — the bar's row plus the
-    // safe-area inset, through the variable app/globals.css declares, which is
-    // 0 from lg up. At bottom-4 a ringing call sat behind the tab bar on a
-    // phone, which is the one screen size a rep in a van is holding.
-    //
-    // z-[70]: above the tour's card (z-[60]) and the drawer (z-50). A
-    // contractor ringing back outranks a walkthrough and a menu — see
-    // SalesTour.js's header for the ordering.
-    <div className="fixed bottom-[calc(var(--fq-tab-bar-height)+1rem)] right-4 z-[70] w-[22rem] max-w-[calc(100vw-2rem)] space-y-2">
-      {audioWarning && !incoming ? (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/60 dark:border-amber-800 p-3 text-sm text-amber-900 dark:text-amber-200 flex gap-2">
-          <Headphones size={16} className="shrink-0 mt-0.5" aria-hidden="true" />
-          <span>{audioWarning}</span>
-        </div>
-      ) : null}
+    <>
+      {/* The answered call, in the Dialer card when the console is open. */}
+      {live && liveCallNode ? createPortal(liveControls, liveCallNode) : null}
 
-      {error && !incoming ? (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/60 dark:border-amber-800 p-3 text-sm text-amber-900 dark:text-amber-200 flex gap-2">
-          <AlertTriangle size={16} className="shrink-0 mt-0.5" aria-hidden="true" />
-          <span>{error}</span>
-        </div>
-      ) : null}
-
-      {incoming ? (
+      {/* ── The drawer ──────────────────────────────────────────────────
+          Fixed under the top bar (61px from lg up, 0 below it where the
+          phone chrome's own bar is sticky and the drawer sits over it), full
+          width of the body beside the rail. translateY does the slide; the
+          page underneath is untouched. z-[70]: above the tour's card (z-[60])
+          and the nav drawer (z-50) — a contractor ringing back outranks a
+          walkthrough and a menu. */}
+      {mounted && incoming ? (
         <div
-          className="rounded-2xl border border-border bg-card shadow-lg p-4 space-y-3"
+          className={`fixed inset-x-0 top-0 lg:top-[61px] lg:left-[var(--fq-sales-rail,220px)] z-[70] transition-transform duration-200 ease-out motion-reduce:transition-none ${
+            down ? "translate-y-0" : "-translate-y-full"
+          }`}
+          data-incoming-drawer={down ? "open" : "closing"}
           role="alertdialog"
           aria-live="assertive"
           aria-label={t("app.salesDial.incomingCall")}
         >
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              {live ? t("app.salesDial.onACall") : t("app.salesDial.incomingCall")}
-            </div>
-            <div className="mt-1 text-lg font-semibold text-foreground">
-              {pretty(incoming.from, t)}
-            </div>
-            {incoming.to ? (
-              <div className="text-xs text-muted-foreground">
-                {t("app.salesDial.rangYourNumber", { number: pretty(incoming.to, t) })}
+          <div className="bg-card border-b border-border shadow-lg px-4 sm:px-6 py-4">
+            {live ? (
+              liveControls
+            ) : (
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="flex items-start gap-3 min-w-0 flex-1">
+                  <span className="inline-flex items-center justify-center h-11 w-11 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 shrink-0 animate-pulse motion-reduce:animate-none">
+                    <PhoneIncoming size={20} aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      {t("app.salesDial.incomingCall")}
+                    </p>
+                    <p className="text-lg font-semibold text-foreground break-words">
+                      {business ? (
+                        <>
+                          {business} <span className="text-muted-foreground font-normal">· {fromText}</span>
+                        </>
+                      ) : (
+                        fromText
+                      )}
+                    </p>
+                    <p className="text-xs text-muted-foreground break-words">
+                      {[holderText, incoming.to ? t("app.salesDial.rangYourNumber", { number: pretty(incoming.to, t) }) : ""]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                    {audioWarning ? (
+                      <p className="text-xs text-amber-700 dark:text-amber-300 flex gap-1.5">
+                        <Headphones size={13} className="shrink-0 mt-0.5" aria-hidden="true" />
+                        {audioWarning}
+                      </p>
+                    ) : null}
+                    {error ? <p className="text-xs text-amber-700 dark:text-amber-300">{error}</p> : null}
+                  </div>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={answer}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 text-white min-h-[52px] px-6 text-base font-semibold"
+                  >
+                    <Phone size={18} aria-hidden="true" /> {t("app.salesDial.pickUp")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={decline}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-border min-h-[52px] px-5 text-base font-semibold text-foreground"
+                  >
+                    <PhoneOff size={18} aria-hidden="true" /> {t("app.salesDial.decline")}
+                  </button>
+                </div>
               </div>
+            )}
+            {!live ? (
+              <p className="mt-2 text-xs text-muted-foreground">{t("app.salesDial.decliningNotice")}</p>
             ) : null}
           </div>
+        </div>
+      ) : null}
 
-          {audioWarning ? (
-            <p className="text-xs text-amber-700 dark:text-amber-300 flex gap-1.5">
-              <Headphones size={13} className="shrink-0 mt-0.5" aria-hidden="true" />
-              {audioWarning}
-            </p>
-          ) : null}
-          {error ? <p className="text-xs text-amber-700 dark:text-amber-300">{error}</p> : null}
-
-          <div className="flex gap-2">
-            {live ? (
-              <button
-                type="button"
-                onClick={hangUp}
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-destructive text-destructive-foreground px-4 py-2.5 text-sm font-semibold"
-              >
-                <PhoneOff size={16} aria-hidden="true" /> {t("app.salesDial.hangUp")}
-              </button>
+      {/* The quiet-state notices: a lost registration, a missing headset.
+          Small, at the top, under the drawer's place. */}
+      {!incoming && (audioWarning || error) ? (
+        <div className="fixed inset-x-0 top-0 lg:top-[61px] lg:left-[var(--fq-sales-rail,220px)] z-[65] px-4 sm:px-6 pt-2 pointer-events-none">
+          <div className="pointer-events-auto rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/60 dark:border-amber-800 p-3 text-sm text-amber-900 dark:text-amber-200 flex gap-2 max-w-xl">
+            {audioWarning ? (
+              <Headphones size={16} className="shrink-0 mt-0.5" aria-hidden="true" />
             ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={answer}
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-primary text-primary-foreground px-4 py-2.5 text-sm font-semibold"
-                >
-                  <Phone size={16} aria-hidden="true" /> {t("app.salesDial.pickUp")}
-                </button>
-                <button
-                  type="button"
-                  onClick={decline}
-                  className="inline-flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-semibold text-foreground"
-                >
-                  {t("app.salesDial.decline")}
-                </button>
-              </>
+              <AlertTriangle size={16} className="shrink-0 mt-0.5" aria-hidden="true" />
             )}
+            <span>{audioWarning || error}</span>
           </div>
-          {/* ── Handing them to somebody else ─────────────────────────────
-              The SAME control the outbound dialler renders, imported rather
-              than copied: two pickers over one state machine is AGENTS.md
-              failure class 4 aimed at a live call, and the copy that rots
-              would be this one, because inbound calls are rarer.
-
-              `attemptId` is null until /api/sales/calls/answered has said
-              which logged call this is, and it stays null when the server
-              says the call has no rep leg to hand back from — so the control
-              renders nothing at all rather than a button that would refuse.
-              The reason is said below instead. */}
-          {live ? (
-            <>
-              <TransferControl
-                attemptId={answered?.attemptId || null}
-                active={live}
-                onError={setError}
-                tone="dock"
-              />
-              {answered?.note ? (
-                <p className="text-xs text-muted-foreground">{answered.note}</p>
-              ) : null}
-            </>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              {t("app.salesDial.decliningNotice")}
-            </p>
-          )}
         </div>
       ) : null}
 
       <span className="sr-only">
         {ready ? t("app.salesDial.readyToReceiveCalls") : t("app.salesDial.connecting")}
       </span>
-    </div>
+    </>
   );
 }

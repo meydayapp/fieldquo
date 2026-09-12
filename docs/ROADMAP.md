@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 11 September 2026 (/sales/messages is a chat client drawn with a shared kit — three panes, four room groups, a thread with day and unread dividers, a `!` composer, a contact bar, New message / New text to a Canadian or US number — rendered and screenshotted in docs/screens/sales-messages before it was called done; the section below; `check:chat-kit`, `check:sales-messages`.)
+Last updated: 11 September 2026 (the rep console in the reference dialler's shape: a sidebar with badges and "Calls today", a phone-style Dialer with a keypad on the left, one tall tabbed card on the right, the incoming call as a top drawer, "lead" everywhere a rep reads; the section below; `check:sales-console`, `check:sales-portal-i18n` §8; docs/screens/sales-console.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,85 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## The console is the dialler the owner drew, and a rep reads "lead" (11 September 2026)
+
+The owner sent a screenshot of a CRM dialler he liked, then redirected three
+times on the rendered frames (docs/screens/sales-console/first-cut-*.png — kept
+as history) and approved the fourth: TWO columns. `/sales/queue` now is:
+
+- **The shell** (`app/sales/SalesShell.js`): a vertical navy sidebar from lg —
+  icon + label rows from the same `tabs` literal, orange active row, badges on
+  Texts · Team · Voicemail, folds to icons, and at its foot "Calls today N / 100"
+  with a bar and a motto. The digits come from one new read,
+  `/api/sales/badges` (calls this rep dialled since their local day started;
+  unread texts; unread staff-room messages; voicemails left today — there is
+  no "heard" marker, so the badge says today, not unheard). The top bar is
+  search · status menu · name · sign out. The search box is drawn only while a
+  screen registers for it (`app/components/sales/SalesSearch.js`) so it is
+  never a box that searches nothing. Below lg nothing changed. Breakpoint is
+  lg, not the amendment's md: the bar, drawer, tour and four checks all switch
+  at lg; one constant.
+- **The Dialer** (left, 320px, bounded sticky): window line · a number display
+  with × · a round 3×4 keypad · the green Call · "1 of 3 calls in 24 h ·
+  Oklahoma" · one "Auto-dial" row. `app/components/sales/DialerPad.js` holds
+  a string and reports presses; the page decides what a typed number means
+  (`beforeDial` → CallPanel): a stored number dials by its id; anything else
+  is SAVED on the current record through `/api/sales/calls/numbers` (same
+  validation, same refusals) and dialled by the id that came back, through
+  the same gate; a refusal is the sentence under the display and no POST.
+  Keys send DTMF only while a call is up and the SDK offers `sendDigits`.
+  The Company and Contact tabs carry a Dial button beside every number — the
+  ordinary path; the keypad is for a number the rep is told. Still no `tel:`
+  outside dialHref. `DIALER_SIDE` flips the columns in one word.
+- **The tall card**: Company · Contact · Script · Research · Notes ·
+  Disposition · Tasks · Leads, one line, Maximize. CallPanel portals its
+  disposition form, next steps, script and published-email box into the
+  panel's slots (state machine untouched; the lead screen renders them inline
+  as before). Script is the AI script as numbered steps with Key talking
+  points (the evidence-cited stage points + do-not-say) and Goal (the close)
+  beside it — `CallPlaybook layout="console"`, same fetch. Default tab is
+  Script, or Disposition while Auto-dial is on. The Company tab reads the
+  brief's phrased description (`current.brief`, composed on read — never a
+  sentence the model did not write) and the Contact tab the inferred owner
+  with the sentence it was read from, the last five attempts, and the
+  callbacks and check-in drafts due (Tasks).
+- **The incoming call** is a drawer from under the top bar
+  (`IncomingCallDock.js`, name kept): business · number · "Claimed by you"
+  from the same matcher the webhook runs (`/api/sales/calls/caller`), Pick up,
+  Decline; translateY, reduced motion honoured. Picked up, the call's controls
+  are drawn in the Dialer's live-call slot (`consoleSlots.js`); on any other
+  screen the drawer stays down with them. Decline still hands the caller on;
+  a ring still cancels the countdown.
+- **The 24-hour cap was never being counted on the console.** The queue route
+  passed no `attemptsLast24h`, so `salesCallReadiness` printed a caveat saying
+  FieldQuo records no attempts — false since SalesCallAttempt landed. The
+  route counts now for the number the dial rings, the page re-passes it on
+  its thirty-second re-ask, the caveat says "unavailable" in nine languages,
+  and `check:sales-console` holds all of it.
+- **Vocabulary.** Every rep-facing string says "lead" — nine languages, 593
+  catalogue lines — with each language's own word for SalesLead (fr/es now
+  "lead" too, per the owner). `check:sales-portal-i18n` §8 refuses the noun
+  under the rep-facing prefixes; models, routes and the /platform console keep
+  "Prospect".
+
+Proof: docs/screens/sales-console/ — desktop idle, on a call, a typed number
+(accepted, refused, dialled with DTMF), the Dial button, each of the eight
+tabs, the rail unfolded, the ring drawer open / closed / answered, the status
+menu, maximized, and the phone with its queue drawer. The harness that made
+them is beside them.
+
+### Still owed here
+
+- The real generator's lint refuses digits in every field; the "no day, no
+  clock time" rule for the ask is prompt-only ("tomorrow at ten" in words
+  passes). A word-level guard would close it.
+- With the rail unfolded at 1280 the eight tabs scroll sideways; they fit
+  from 1536. The rail is the rep's own toggle and folds by default under
+  1536.
+- Two pre-existing red checks not touched by this work: `check:mobile`
+  (a `whitespace-nowrap` in app/sales/messages/page.js) and
+  `check:playbook-voice` (app/api/sales/leads/route.js's email copy).
 
 ## /sales/messages is a chat client, and the kit it is drawn with is shared (11 September 2026)
 

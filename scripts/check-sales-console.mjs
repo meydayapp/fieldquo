@@ -81,6 +81,9 @@ import {
   dialSpace,
 } from "@/lib/sales/dialSpace";
 import { buildQueue } from "@/lib/sales/prospectView";
+import { normalisePhone } from "@/lib/sales/suppressionRules";
+import { typedToE164 } from "@/lib/sales/typedNumber";
+import { APP_MESSAGES } from "@/app/i18n/appMessages";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -505,7 +508,11 @@ ok(
   // lead, POST refuses a prospect this rep does not hold, and neither method
   // can list anything unclaimed. That is the property this block guards, and
   // the assertion below still names it.
-  const ALLOWED = ["/api/sales/queue", "/api/sales/notes", "/api/sales/leads"];
+  // /api/sales/calls/numbers joined when the dialler grew a keypad: a
+  // typed number is SAVED on the rep's own record through that route (which
+  // refuses a record this rep does not hold — ownerFor(rep.id)) before it
+  // is dialled by the id that came back. It reads nothing from the pool.
+  const ALLOWED = ["/api/sales/queue", "/api/sales/notes", "/api/sales/leads", "/api/sales/calls/numbers"];
   const called = [...new Set([...consoleSrc.matchAll(/["'`](\/api\/[A-Za-z0-9/_-]+)/g)].map((m) => m[1]))];
   const unexpected = called.filter((u) => !ALLOWED.some((a) => u === a || u.startsWith(`${a}/`)));
   ok(
@@ -691,7 +698,8 @@ section("7. Six tabs, and all six on a 375px screen");
   );
   ok(
     "every tab is a 44px target",
-    /min-h-\[44px\][^`]*border-b-2/.test(shell),
+    // A sidebar row now: the active mark is a left rule, not an underline.
+    /min-h-\[44px\][^`]*border-l-2/.test(shell),
   );
   ok(
     "the console gets the width a two-column surface needs, and only it does",
@@ -713,6 +721,90 @@ section("7. Six tabs, and all six on a 375px screen");
     "…and the console is still named in STRICT_FILES",
     /"app\/sales\/queue\/page\.js"/.test(mobile),
   );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// The phone-style dialler (2026-09-11): a typed number, and the 24-hour cap
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The owner: "what if they need to type a phone number to reach the owner".
+// So the console's Dialer has a display and a keypad. What must stay true:
+//
+//   * a typed number NEVER becomes a tel: anywhere but dialHref — the pad
+//     holds a string, the page hands dialHref the normalised value, and the
+//     only fetch that dials is CallPanel's;
+//   * a typed number is STORED on the current record before it is dialled
+//     — through /api/sales/calls/numbers, the "they gave us another number"
+//     route, with its validation — and dialled by the id that came back, so
+//     the dial route's suppression check sees it like any stored number;
+//   * a refusal (will not normalise, suppressed, not ours) ends the press
+//     with a sentence under the field and no dial POST;
+//   * the keypad sends DTMF only while a call is up and the SDK offers it.
+//
+// And the cap: until 2026-09-11 the queue route passed no attemptsLast24h,
+// so the console printed a caveat saying FieldQuo records no attempts —
+// false since SalesCallAttempt landed. The route counts now, the page
+// re-passes the count on its thirty-second re-ask, and the caveat's wording
+// says "unavailable", never "never recorded".
+{
+  const pad = codeOnly(read("app/components/sales/DialerPad.js"));
+  const panel = codeOnly(read("app/components/sales/CallPanel.js"));
+  const route = codeOnly(read("app/api/sales/queue/route.js"));
+  const rules = read("lib/sales/callingRules.js");
+  const dialRoute = codeOnly(read("app/api/sales/calls/route.js"));
+
+  ok("the pad has no tel:, no Twilio and no fetch of its own", !/tel:|@twilio|fetch\(|fetchJson/.test(pad));
+  ok("the console's only dial target is dialHref, fed the typed number or the stored one", /dialHref\(compliance, typedE164 \|\| chosenNumber\?\.e164/.test(consoleSrc) && !/["'`]tel:/.test(consoleSrc));
+
+  const before = (() => {
+    const at = consoleSrc.indexOf("const beforeDial = useCallback(");
+    return at >= 0 ? consoleSrc.slice(at, consoleSrc.indexOf("\n  }, [", at)) : "";
+  })();
+  ok("beforeDial was found", before.length > 200, before.length);
+  ok("…a number that will not normalise is refused with a sentence and no request", /if \(!e164\) \{[\s\S]{0,200}return \{ ok: false, error \};/.test(before) && before.indexOf("if (!e164)") < before.indexOf("/api/sales/calls/numbers"));
+  ok("…a stored number is dialled by its id, with no save", /if \(stored\) return \{ ok: true, phoneE164: e164, contactNumberId: stored\.id \|\| null \};/.test(before));
+  ok("…anything else is saved on THIS record through the numbers route", /fetchJson\("\/api\/sales\/calls\/numbers", \{\s*method: "POST"[\s\S]{0,200}prospectId: current\.id,\s*e164,/.test(before));
+  ok("…and dialled by the id the route handed back, never by the number", /contactNumberId: saved\.id/.test(before) && !/contactNumberId: e164/.test(before));
+  ok("…a refusal from the route ends the press with its own sentence", /catch \(err\) \{[\s\S]{0,120}return \{ ok: false, error \};/.test(before));
+
+  const place = (() => {
+    const at = panel.indexOf("async function place(");
+    return at >= 0 ? panel.slice(at, panel.indexOf("\n  }\n", at)) : "";
+  })();
+  ok("CallPanel awaits beforeDial BEFORE the dial POST", /const pre = await beforeDial\(\);/.test(place) && place.indexOf("await beforeDial()") < place.indexOf('fetchJson("/api/sales/calls"'));
+  ok("…and a refused pre-check returns false with no request", /if \(!pre\?\.ok\) \{[\s\S]{0,120}return false;/.test(place));
+  ok("…and dials the id the pre-check resolved", /contactNumberId: dialTarget\.contactNumberId/.test(place));
+  ok("the dial route checks suppression for every number on the record, the new one included", /\[target\.phoneE164, \.\.\.contactRows\.map\(\(r\) => r\.e164\)\]/.test(dialRoute) && /firstSuppression\(db, \{ channel: "phone", phones: everyNumber \}\)/.test(dialRoute));
+  ok("a Dial button beside a number goes through the same place(), consumed once", /dialRequestSeen\.current === dialRequest\.token\) return;/.test(panel) && /place\(browserReady \? "browser" : "handset"\)/.test(panel));
+
+  const keyHandler = (() => {
+    const at = consoleSrc.indexOf("const onDialKey = useCallback(");
+    return at >= 0 ? consoleSrc.slice(at, consoleSrc.indexOf("\n  }, [", at)) : "";
+  })();
+  ok("DTMF only while a call is up AND the SDK offers sendDigits; otherwise the key types", /if \(call && typeof call\.sendDigits === "function"\) \{\s*call\.sendDigits\(key\);\s*return;/.test(keyHandler) && /setTyped\(/.test(keyHandler));
+  ok("…and the live call reaches the page only through CallPanel's onLiveCall", /onLiveCall\?\.\(call\)/.test(panel) && /onLiveCall\?\.\(null\)/.test(panel));
+
+  // The client pre-check and the server's normaliser must agree, on hostile
+  // input as well as on numbers. Run, not read.
+  const inputs = ["4055550100", "(405) 555-0100", "1 405 555 0100", "+14055550100", "+1 (405) 555-0100", "405555010", "+0", "", "   ", "abc", "+44 20 7946 0958", "0405550100", "555-0100", "+1405555010012345", "١٢٣", "+1-405-555-0100 ext 4"];
+  const disagree = inputs.filter((v) => typedToE164(v) !== normalisePhone(v)).map((v) => `${JSON.stringify(v)}: pad ${typedToE164(v)} vs server ${normalisePhone(v)}`);
+  ok("typedToE164 agrees with the server's normalisePhone on every input", disagree.length === 0, disagree);
+
+  // The cap.
+  ok("the queue route counts attempts for the number the dial rings", /const attempts24h = await attemptsLast24h\(full\.phoneE164 \|\| voice\.choices\[0\]\?\.e164 \|\| null, \{ now \}\)/.test(route));
+  ok("…and passes the count to salesCallReadiness AND into callingContext", /salesCallReadiness\(\{\s*prospect: full,[\s\S]{0,120}attemptsLast24h: attempts24h,/.test(route) && /callingContext: \{[\s\S]{0,160}attemptsLast24h: attempts24h,/.test(route));
+  ok("the console re-passes it on every re-ask", /attemptsLast24h: Number\.isFinite\(ctx\.attemptsLast24h\) \? ctx\.attemptsLast24h : null,/.test(consoleSrc));
+  ok("the readiness echoes the cap and the count for the screen's one line", /attemptCap: jurisdiction\?\.maxCallsPer24h \?\? null,/.test(rules));
+  ok("the uncounted caveat says the count is unavailable, never that nothing records attempts", !/records call attempts yet/.test(rules) && /not available here/.test(rules));
+  for (const lang of Object.keys(APP_MESSAGES)) {
+    ok(`${lang}: the caveat no longer claims FieldQuo records no attempts`, !/records call attempts yet|n’enregistre encore|registra los intentos|erfasst bisher|registra ancora|фіксує спроби|没有任何地方记录|nagtatala ng mga pagtatangkang|ਦਰਜ ਨਹੀਂ ਕਰਦਾ/.test(String(APP_MESSAGES[lang]["app.salesDial.unenforced.callCapUncounted.fix"])));
+  }
+
+  // The dialler's column is a BOUNDED sticky (max-h + its own scrollbar),
+  // the shape that covers nothing — the section inside is in normal flow,
+  // which the assertion above already holds.
+  const column = consoleSrc.match(/<div[^>]*data-dialer-column[^>]*>/)?.[0] || consoleSrc.match(/<div className=\{`lg:w-\[320px\][^`]*`\}[^>]*>/)?.[0] || "";
+  ok("the dialler column's sticky is bounded", /lg:sticky/.test(column) && /lg:max-h-\[/.test(column) && /lg:overflow-y-auto/.test(column), column.slice(0, 160));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

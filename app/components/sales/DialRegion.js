@@ -231,8 +231,61 @@ export default function DialRegion({
   // queue is the only screen that passes them.
   autoDial = null,
   onAutoDialResult = null,
+  // The console's slot nodes for the disposition form, the next steps and
+  // the script — handed straight through to CallPanel, which portals those
+  // three pieces into them. Null on the lead screen, where they render
+  // inline as before. This file still decides nothing.
+  slots = null,
+  // The console's Dialer card: the calling-rule prose (whose rule, the
+  // hours, the zone it was judged in, the citation) folds behind one
+  // disclosure instead of standing as paragraphs under the Call button —
+  // the owner's "the Dialer card is three times the height of the other
+  // two". The DECISION is unchanged and the sentences are the same
+  // sentences; only where they sit. False on the lead screen.
+  compact = false,
+  // Passed straight through to CallPanel — see its header for both. This
+  // file decides nothing about a typed number either.
+  beforeDial = null,
+  onLiveCall = null,
+  dialRequest = null,
 }) {
   const { t } = useTranslation();
+
+  // The window, the zone and the statute, as one block — drawn inline or
+  // folded, never twice.
+  const judged =
+    compliance?.decision === CALL_ALLOWED && compliance.windowText ? (
+      <p className="text-xs text-muted-foreground break-words">
+        {/* One key per branch rather than a shared "Judged in …" stem with a
+            fragment slotted in: the two halves take different cases and
+            different word order in half the portal's languages, and a stem
+            that only reads correctly in English is the sentence-splitting
+            bug wearing a placeholder. */}
+        {compliance.zoneSource === "stated"
+          ? t("app.salesDial.judgedInStatedZone")
+          : t("app.salesDial.judgedInImpliedZone", { zones: compliance.zones.join(", ") })}
+      </p>
+    ) : null;
+  // ── The citation, shown rather than stored ──────────────────────────
+  // `citation` was carried on every row and reached a human only through
+  // the "nobody has read this" blocker — so the verified half of the
+  // table, which is the half that lets a call happen, cited its statute
+  // to nobody. That is AGENTS.md failure class #1 with the safe-looking
+  // sign: written and never read. Same rule as `legalText` on a Notice:
+  // the statute in its own words, labelled as quoted rather than
+  // machine-translated into a paraphrase that would carry the authority
+  // of a citation without being one.
+  const citation =
+    compliance?.jurisdiction?.verified && compliance.citation ? (
+      <>
+        <p className="mt-1 break-words">{compliance.citation}</p>
+        <p className="mt-1 opacity-80">{t("app.salesDial.quotedInEnglish")}</p>
+      </>
+    ) : null;
+  const rulesSummary = compliance?.jurisdiction?.name
+    ? t("app.salesDial.whatJurisdictionSays", { jurisdiction: compliance.jurisdiction.name })
+    : t("app.salesDial.callingRules");
+
   return (
     <>
       {space.state === DIAL_READY && space.href && target ? (
@@ -248,12 +301,33 @@ export default function DialRegion({
             onWorked={onWorked}
             autoDial={autoDial}
             onAutoDialResult={onAutoDialResult}
+            slots={slots}
+            beforeDial={beforeDial}
+            onLiveCall={onLiveCall}
+            dialRequest={dialRequest}
           />
-          <div className="text-xs text-muted-foreground break-words space-y-0.5">
-            {space.detailKey ? <p>{t(space.detailKey, space.params || {})}</p> : null}
-            {space.showWindow ? <WindowLines compliance={compliance} /> : null}
-            {!space.detailKey && !space.showWindow ? <p>{space.detail}</p> : null}
-          </div>
+          {compact ? (
+            // Folded shut because a rep dialling their fortieth electrician
+            // does not want the hours and the statute above the radios; open
+            // in one click because the day they are asked "what makes this
+            // legal?" they need the answer on the screen they are on.
+            <details className="text-xs text-muted-foreground" data-dial-rules>
+              <summary className="cursor-pointer min-h-[44px] flex items-center">{rulesSummary}</summary>
+              <div className="space-y-0.5 pb-1 break-words">
+                {space.detailKey ? <p>{t(space.detailKey, space.params || {})}</p> : null}
+                {space.showWindow ? <WindowLines compliance={compliance} /> : null}
+                {!space.detailKey && !space.showWindow ? <p>{space.detail}</p> : null}
+                {judged}
+                {citation}
+              </div>
+            </details>
+          ) : (
+            <div className="text-xs text-muted-foreground break-words space-y-0.5">
+              {space.detailKey ? <p>{t(space.detailKey, space.params || {})}</p> : null}
+              {space.showWindow ? <WindowLines compliance={compliance} /> : null}
+              {!space.detailKey && !space.showWindow ? <p>{space.detail}</p> : null}
+            </div>
+          )}
         </>
       ) : space.state === DIAL_DO_NOT_CONTACT ? (
         // Red, and not one of the three tones. The three are epistemic — we
@@ -355,43 +429,18 @@ export default function DialRegion({
         />
       ))}
 
-      {compliance?.decision === CALL_ALLOWED && compliance.windowText ? (
-        <p className="text-xs text-muted-foreground break-words">
-          {/* One key per branch rather than a shared "Judged in …" stem with a
-              fragment slotted in: the two halves take different cases and
-              different word order in half the portal's languages, and a stem
-              that only reads correctly in English is the sentence-splitting
-              bug wearing a placeholder. */}
-          {compliance.zoneSource === "stated"
-            ? t("app.salesDial.judgedInStatedZone")
-            : t("app.salesDial.judgedInImpliedZone", { zones: compliance.zones.join(", ") })}
-        </p>
-      ) : null}
-
-      {/* ── The citation, shown rather than stored ──────────────────────────
-          `citation` was carried on every row and reached a human only through
-          the "nobody has read this" blocker — so the verified half of the
-          table, which is the half that lets a call happen, cited its statute
-          to nobody. That is AGENTS.md failure class #1 with the safe-looking
-          sign: written and never read.
-
-          Folded shut because a rep dialling their fortieth painter does not
-          want a statute number, and open in one click because the day they are
-          asked "what makes this legal?" they need the answer on the screen
-          they are already on. */}
-      {compliance?.jurisdiction?.verified && compliance.citation ? (
-        <details className="text-xs text-muted-foreground">
-          <summary className="cursor-pointer">
-            {t("app.salesDial.whatJurisdictionSays", { jurisdiction: compliance.jurisdiction.name })}
-          </summary>
-          <p className="mt-1 break-words">{compliance.citation}</p>
-          {/* Same rule as `legalText` on a Notice: the citation is the statute
-              in the statute's own words, quoted so a rep can read it out when
-              asked what makes a call lawful. It is labelled as quoted rather
-              than machine-translated into a paraphrase that would carry the
-              authority of a citation without being one. */}
-          <p className="mt-1 opacity-80">{t("app.salesDial.quotedInEnglish")}</p>
-        </details>
+      {/* Inline on the lead screen; inside the disclosure above on the
+          console (the READY branch), where the same nodes are drawn once. */}
+      {!compact || space.state !== DIAL_READY ? judged : null}
+      {!compact || space.state !== DIAL_READY ? (
+        citation ? (
+          <details className="text-xs text-muted-foreground">
+            <summary className="cursor-pointer">
+              {t("app.salesDial.whatJurisdictionSays", { jurisdiction: compliance.jurisdiction.name })}
+            </summary>
+            {citation}
+          </details>
+        ) : null
       ) : null}
     </>
   );

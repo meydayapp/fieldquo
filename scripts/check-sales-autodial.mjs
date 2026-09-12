@@ -385,7 +385,10 @@ ok("every autodial and status string exists in every language", (() => {
 ok("the wait has its own sentence in every language, and the control says it", ["app.salesAutodial.waitingForWindow", "app.salesAutodial.waitingForWindowNoZone", "app.salesAutodial.waitingForWindowNote"].every((k) => Object.keys(APP_MESSAGES).every((lang) => typeof APP_MESSAGES[lang][k] === "string") && control.includes(`"${k}"`)));
 ok("the tour's autodial sentence says it waits for a window", /waits for the next window/.test(APP_MESSAGES.en["app.salesTour.autodialBody"]));
 const shell = decomment(read("app/sales/SalesShell.js"));
-ok("the shell mounts the provider around everything and the picker in the header and the drawer", /<RepPresenceProvider>/.test(shell) && /<RepStatusPicker layout="row" \/>/.test(shell) && /drawerExtra=\{<RepStatusPicker layout="list" \/>\}/.test(shell));
+// The header's picker became the "menu" layout (one button, the six
+// choices under it) when the portal grew its sidebar; the drawer keeps
+// the list. Same control over the same context either way.
+ok("the shell mounts the provider around everything and the picker in the header and the drawer", /<RepPresenceProvider>/.test(shell) && /<RepStatusPicker layout="menu" \/>/.test(shell) && /drawerExtra=\{<RepStatusPicker layout="list" \/>\}/.test(shell));
 
 // ═══════════════════════════════════════════════════════════════════════════
 console.log(

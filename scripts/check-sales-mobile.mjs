@@ -270,7 +270,9 @@ section("3. The drawer holds the rest, and the tour knows how to open it");
   // Found in the browser, not by reading: mounted after <main>, the sticky
   // top bar rendered at the FOOT of the document (y=2336 on an 844px phone).
   ok("…mounted before <main>, so the sticky top bar is at the top", shellCode.indexOf("<SalesMobileTabBar") < shellCode.indexOf("<main"));
-  ok("…and the desktop row is hidden below lg", /<nav className=\{`\$\{container\} hidden lg:flex/.test(shellCode));
+  // The desktop nav is a sidebar column now (2026-09-11), still hidden
+  // below lg where the bar and the drawer carry the same list.
+  ok("…and the desktop nav is hidden below lg", /<nav className="hidden lg:flex flex-col/.test(shellCode));
   ok("…and the desktop header too", /<header className="hidden lg:block/.test(shellCode));
   // Nothing new to translate: the bar reuses the shell's tab labels and three
   // keys the /app chrome already carries in all nine languages.
@@ -346,7 +348,9 @@ const NO_TARGET_BY_DESIGN = {
   // The reasons behind the two exemptions are facts about the components, and
   // facts drift. The dock returns null while nothing is happening.
   const dock = decomment(read("app/components/sales/IncomingCallDock.js"));
-  ok("IncomingCallDock still mounts nothing while idle", /if \(!incoming && !error && !audioWarning\) return null;/.test(dock));
+  // `mounted` is the drawer's slide state: true only from a ring until the
+  // slide up has finished. Idle — no ring, no call, no error — is still null.
+  ok("IncomingCallDock still mounts nothing while idle", /if \(!mounted && !live && !error && !audioWarning\) return null;/.test(dock));
 
   // A slug nothing points at is dead decoration. Every data-tour="sales-…"
   // in the portal must be some step's target.
@@ -405,13 +409,18 @@ section("6. Every screen clears the bar");
     /\.fq-sales-shell\s*\{\s*--fq-tab-bar-height:\s*calc\(var\(--fq-tab-bar-row\)\s*\+\s*env\(safe-area-inset-bottom\)\);/.test(css),
   );
   ok(".fq-sales-shell zeroes it at lg (64rem)", /@media \(min-width: 64rem\)\s*\{\s*\.fq-sales-shell\s*\{\s*--fq-tab-bar-height:\s*0px;/.test(css));
-  ok("the shell wraps the portal in .fq-sales-shell", /className="min-h-screen bg-muted fq-sales-shell"/.test(shellCode));
+  ok("the shell wraps the portal in .fq-sales-shell", /className="min-h-screen bg-muted fq-sales-shell(?: [^"]*)?"/.test(shellCode));
   ok(
     "the shell's <main> reserves the bar's height below its content",
-    /<main\s+className=\{`\$\{container\} pt-6 sm:pt-8 pb-\[calc\(var\(--fq-tab-bar-height\)\+1\.5rem\)\] sm:pb-\[calc\(var\(--fq-tab-bar-height\)\+2rem\)\]`\}/.test(shellCode),
+    /<main\s+className=\{`\$\{container\} w-full pt-6 sm:pt-8 pb-\[calc\(var\(--fq-tab-bar-height\)\+1\.5rem\)\] sm:pb-\[calc\(var\(--fq-tab-bar-height\)\+2rem\)\]`\}/.test(shellCode),
   );
   ok("the tour's launcher rides above the bar", /bottom-\[calc\(var\(--fq-tab-bar-height\)\+1rem\)\] left-4/.test(decomment(read("app/components/sales/SalesTour.js"))));
-  ok("the incoming-call dock rides above the bar", /bottom-\[calc\(var\(--fq-tab-bar-height\)\+1rem\)\] right-4/.test(decomment(read("app/components/sales/IncomingCallDock.js"))));
+  // The incoming call is a drawer from the TOP now (2026-09-11) — under
+  // the top bar from lg, at the top edge below it — so it never meets the
+  // bottom bar at all. What is held onto: it is fixed, full width, and
+  // slides on transform, never pushing the page.
+  ok("the incoming-call drawer is fixed at the top, under the lg top bar", /fixed inset-x-0 top-0 lg:top-\[61px\]/.test(decomment(read("app/components/sales/IncomingCallDock.js"))));
+  ok("…and slides on a transform, with reduced motion honoured", /-translate-y-full/.test(decomment(read("app/components/sales/IncomingCallDock.js"))) && /motion-reduce:transition-none/.test(decomment(read("app/components/sales/IncomingCallDock.js"))));
 
   // Every page under app/sales renders inside that <main>, except the two the
   // shell is chromeless for. None of them may pin its own element to the

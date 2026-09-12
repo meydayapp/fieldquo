@@ -52,7 +52,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Loader2 } from "lucide-react";
+import { ChevronDown, Loader2 } from "lucide-react";
 
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -270,14 +270,26 @@ const TONE = {
   [STATE_OFFLINE]: "border-border bg-muted text-muted-foreground",
 };
 
+/** A dot in the state's colour, for the closed menu. Decorative — the words beside it carry the state. */
+const DOT = {
+  [STATE_AVAILABLE]: "bg-emerald-500",
+  on_call: "bg-emerald-500",
+  after_call: "bg-sky-500",
+  paused: "bg-amber-500",
+  [STATE_OFFLINE]: "bg-muted-foreground",
+};
+
 /**
  * The picker.
  *
- * `layout="row"` is the header from lg up — the six choices as pills in one
- * row, the current one filled. `layout="list"` is the drawer below lg — the
- * same six as full-width rows, one tap each. Both render the current state
- * and how long it has been that, and both are the same control: the row is
- * not a summary of the list.
+ * `layout="row"` is the six choices as pills in one row, the current one
+ * filled. `layout="list"` is the drawer below lg — the same six as
+ * full-width rows, one tap each. `layout="menu"` is the top bar from lg up:
+ * one button reading the current state ("Available · for 12m") that opens
+ * the same six as a menu underneath — the "Ready to Call" dropdown of the
+ * dialler the owner sent, over the same state machine. All three render the
+ * current state and how long it has been that, and all three are the same
+ * control: none is a summary of another.
  *
  * States the picker does not offer — on a call, writing it up, paused for a
  * reason that is not on the list — are printed as what they are, with no
@@ -317,6 +329,25 @@ export function RepStatusPicker({ layout = "row" }) {
   }
 
   const row = layout === "row";
+
+  if (layout === "menu") {
+    return (
+      <StatusMenu
+        t={t}
+        state={state}
+        stateLabel={stateLabel}
+        forText={forText}
+        stale={Boolean(presence?.stale)}
+        loading={loading}
+        choices={choices}
+        current={current}
+        busy={busy}
+        refused={refused}
+        onPick={pick}
+      />
+    );
+  }
+
   return (
     <div
       data-tour="sales-status"
@@ -368,6 +399,91 @@ export function RepStatusPicker({ layout = "row" }) {
         <p className={`text-xs text-amber-900 dark:text-amber-200 break-words ${row ? "basis-full" : ""}`}>
           {refused}
         </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The menu form of the picker. Module-level, not declared inside the
+ * picker's render — a component declared inside another's body is remounted
+ * on every render, which drops the open state on each thirty-second tick.
+ */
+function StatusMenu({ t, state, stateLabel, forText, stale, loading, choices, current, busy, refused, onPick }) {
+  const [open, setOpen] = useState(false);
+  const wrap = useRef(null);
+
+  // Closed by a click anywhere else or by Escape. Registered only while
+  // open, so a closed menu costs no listener.
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => {
+      if (wrap.current && !wrap.current.contains(e.target)) setOpen(false);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={wrap} className="relative" data-tour="sales-status" aria-label={t("app.salesStatus.pickerAria")}>
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className={`inline-flex items-center gap-2 min-h-[44px] rounded-lg border px-3 text-sm font-medium ${TONE[state] || TONE[STATE_OFFLINE]}`}
+      >
+        {loading ? (
+          <Loader2 size={12} className="animate-spin" />
+        ) : (
+          <span aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${DOT[state] || DOT[STATE_OFFLINE]}`} />
+        )}
+        <span className="break-words">
+          {forText ? t("app.salesStatus.currentFor", { state: stateLabel, duration: forText }) : stateLabel}
+        </span>
+        {stale ? <span className="opacity-80">{t("app.salesStatus.stale")}</span> : null}
+        <ChevronDown size={14} className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open ? (
+        <div
+          role="menu"
+          className="absolute right-0 z-40 mt-1 w-56 rounded-lg border border-border bg-card p-1 shadow-lg"
+        >
+          {choices.map((choice) => {
+            const active = current?.code === choice.code;
+            return (
+              <button
+                key={choice.code}
+                type="button"
+                role="menuitemradio"
+                aria-checked={active}
+                disabled={Boolean(busy)}
+                data-status-choice={choice.code}
+                onClick={async () => {
+                  await onPick(choice);
+                  setOpen(false);
+                }}
+                className={`w-full flex items-center gap-2 min-h-[44px] px-3 rounded-md text-left text-sm font-medium disabled:opacity-60 ${
+                  active ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted"
+                }`}
+              >
+                {busy === choice.code ? <Loader2 size={12} className="animate-spin" /> : null}
+                {t(choice.labelKey, choice.label)}
+              </button>
+            );
+          })}
+          {refused ? (
+            <p className="px-3 py-2 text-xs text-amber-900 dark:text-amber-200 break-words">{refused}</p>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );
