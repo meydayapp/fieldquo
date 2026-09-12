@@ -337,11 +337,9 @@ const COMPLETED_JOBS = [
   ["j_278", "Côté ensuite vanities", "2026-07-02", "2026-07-02", "2026-07-02", true],
   ["j_276", "Beaulieu media wall", "2026-06-29", "2026-07-01", "2026-07-01", true],
 ].map(([jobId, title, scheduledStart, scheduledEnd, completedAt, onTime]) => ({
-  // ONLY what lib/analytics/kpis.js emits. app/components/charts/GanttStrip.js
-  // reads `id`/`label`, which the shipped page never maps, so every row
-  // reads "Job" in production. The fixture does not paper over that: a
-  // figure in the sales guide shows the product as it ships, and the fix is
-  // a one-line mapping in app code (tracked), not a second spelling here.
+  // ONLY what lib/analytics/kpis.js emits — `jobId`/`title`. The KPIs page
+  // maps them to GanttStrip's `id`/`label`; the fixture stays the API's
+  // shape so a regression in that mapping shows up in the figure.
   jobId, title, scheduledStart, scheduledEnd, completedAt, onTime,
 }));
 
@@ -358,11 +356,9 @@ function kpisPayload(from, to) {
   const series = monthKeys.map((month) => {
     const rows = PAYMENTS.filter((p) => dayKey(p.date).startsWith(month));
     const amount = sum(rows);
-    // ONLY what lib/analytics/receivables.js emits. Sparkline.js reads
-    // `label`/`value` and the page never maps one to the other, so "Money
-    // received, last 6 months" says "Not enough periods yet" in production.
-    // Same rule as the Gantt rows above: the figure shows the product as it
-    // ships; the fix belongs in app code.
+    // ONLY what lib/analytics/receivables.js emits — `month`/`amount`. The
+    // KPIs page maps them to Sparkline's `label`/`value`; same rule as the
+    // Gantt rows above, the fixture is the API's shape.
     return { month, amount, count: rows.length, partial: month === "2026-09" };
   });
   const complete = series.filter((s) => !s.partial);

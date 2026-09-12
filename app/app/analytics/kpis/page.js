@@ -341,7 +341,26 @@ export default function KpiDashboardPage() {
       .map((d) => ({ key: d.key, label: d.label, value: d.medianPct, negative: d.medianPct > 0 }));
   }, [estimateDims]);
 
-  const ganttRows = data?.execution?.onTimeCompletion?.jobs || [];
+  // lib/analytics/kpis.js emits `{ jobId, title, … }` and GanttStrip reads
+  // `{ id, label, … }`; the same builder feeds the home page, so the mapping
+  // lives here rather than in either contract. Without it every row on the
+  // strip read the literal "Job".
+  const ganttRows = (data?.execution?.onTimeCompletion?.jobs || []).map((j) => ({
+    ...j,
+    id: j.id ?? j.jobId,
+    label: j.label ?? j.title,
+  }));
+  // lib/analytics/receivables.js emits `{ month, amount, partial }` and
+  // Sparkline reads `{ label, value, partial }`. app/app/page.js and
+  // /api/analytics/receivables consume the builder's shape as is, so the
+  // rename is the page's. Without it the sparkline filtered every point out
+  // and said "Not enough periods yet" for a company with six months of
+  // payments.
+  const revenueSeries = (data?.cash?.revenueTrend?.series || []).map((s) => ({
+    label: s.label ?? s.month,
+    value: s.value ?? s.amount,
+    partial: s.partial,
+  }));
 
   // Score distribution for the customer section's mini bar chart. Only built
   // once the KPI itself has a real value — `raw.counts` exists on the
@@ -974,7 +993,7 @@ export default function KpiDashboardPage() {
                   {t("app.kpis.revenueTrend", "Money received, last 6 months")}
                 </div>
                 {data.cash.revenueTrend?.available ? (
-                  <Sparkline series={data.cash.revenueTrend.series} formatValue={money} width={280} height={64} />
+                  <Sparkline series={revenueSeries} formatValue={money} width={280} height={64} />
                 ) : (
                   <p className="text-xs text-muted-foreground">
                     {t("app.kpis.noPaymentsYet", "No payments recorded yet.")}
