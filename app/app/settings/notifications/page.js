@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, AlertCircle, Bell, Check } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import BrowserNotifications from "@/app/components/notifications/BrowserNotifications";
 
 export default function NotificationsPage() {
   const { t } = useTranslation();
@@ -331,6 +332,11 @@ export default function NotificationsPage() {
           )}
         </p>
       </div>
+
+      {/* Per person, per browser — the company-level rules above decide WHAT
+          is announced; this decides whether this person's browser rings for
+          it. See the component's header. */}
+      <BrowserNotifications endpoint="/api/notifications/push-subscription" />
 
       <div className="bg-card border border-border rounded-xl p-5">
         <h2 className="font-semibold text-foreground">{t("app.setNotifications.clientEmailsTitle")}</h2>

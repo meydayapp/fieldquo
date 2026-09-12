@@ -67,6 +67,8 @@ model PlatformAdmin {
   staffRooms       StaffRoomMember[]
   staffMessages    StaffMessage[]
   ownedStaffRooms  StaffRoom[]
+  /// Browsers this admin turned notifications on in. See PushSubscription.
+  pushSubscriptions PushSubscription[]
 
   /// When this admin last called the staff chat API. Stamped by
   /// lib/staff/viewer.js, throttled, so the team directory can show a presence
@@ -1792,6 +1794,8 @@ model User {
   memberships           Member[]
   sessions              Session[]
   accounts              Account[]
+  /// Browsers this person turned notifications on in. See PushSubscription.
+  pushSubscriptions     PushSubscription[]
   quotesCreated         Quote[]                @relation("QuoteCreatedBy")
   quotesAssigned        Quote[]                @relation("QuoteAssignee")
   invoicesCreated       Invoice[]              @relation("InvoiceCreatedBy")
@@ -9250,6 +9254,8 @@ model SalesRep {
   attributions      SalesAttribution[]
   touches           SalesAttributionTouch[]
   commissionEntries SalesCommissionEntry[]
+  /// Browsers this rep turned notifications on in. See PushSubscription.
+  pushSubscriptions PushSubscription[]
   payoutBatches     SalesPayoutBatch[]
   leads             SalesLead[]
   leadLinkEvents    SalesLeadLinkEvent[]
@@ -13760,4 +13766,53 @@ model StaffMessage {
   sentAt DateTime @default(now())
 
   @@index([roomId, sentAt])
+}
+
+/// One browser that asked to be told things while its tab is closed —
+/// Web Push, through public/sw.js, sent by lib/notify/push.js.
+///
+/// Exactly ONE of userId / salesRepId / platformAdminId is set: the three
+/// staff surfaces have three identities and a subscription belongs to the
+/// person who flipped the switch on that surface. Kept in one table rather
+/// than three because the sender, the 410 handling and the "disable this
+/// endpoint" path are identical; the owner column is what differs.
+///
+/// `endpoint` is the push service's URL for this browser and is unique per
+/// browser per origin — so a second surface enabling notifications in the
+/// same browser re-owns the same row (upsert on endpoint), it does not
+/// duplicate it.
+///
+/// `disabledAt` is set when the person turns the switch off and when the
+/// push service answers 410 Gone or 404 (the browser unsubscribed, or the
+/// permission was revoked). Never deleted by code: the row is the audit of
+/// what was subscribed and when it stopped, and re-enabling clears it.
+///
+/// The keys (p256dh, auth) are the browser's public key and auth secret for
+/// this subscription. They encrypt payloads TO this browser; they cannot
+/// read anything back and are useless without the endpoint.
+model PushSubscription {
+  id String @id @default(cuid())
+
+  userId String?
+  user   User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  salesRepId String?
+  salesRep   SalesRep? @relation(fields: [salesRepId], references: [id], onDelete: Cascade)
+
+  platformAdminId String?
+  platformAdmin   PlatformAdmin? @relation(fields: [platformAdminId], references: [id], onDelete: Cascade)
+
+  endpoint   String  @unique
+  keysP256dh String
+  keysAuth   String
+  userAgent  String?
+
+  createdAt  DateTime  @default(now())
+  /// The last time a push was accepted by the push service for this row.
+  lastUsedAt DateTime?
+  disabledAt DateTime?
+
+  @@index([userId, disabledAt])
+  @@index([salesRepId, disabledAt])
+  @@index([platformAdminId, disabledAt])
 }

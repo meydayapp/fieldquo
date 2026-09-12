@@ -73,8 +73,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { notify } from "@/lib/notify/browser";
 import {
   Beaker,
   LayoutDashboard,
@@ -112,6 +113,7 @@ import {
   NotebookPen,
   GitBranch,
   SlidersHorizontal,
+  UserCog,
   Fingerprint,
   Contact,
   Radar,
@@ -121,6 +123,9 @@ import {
   Trash2,
   Inbox,
 } from "lucide-react";
+
+/** How often the console re-reads its two counts while the tab is visible. */
+const NOTIFY_POLL_MS = 60 * 1000;
 
 const HOME_ITEM = { label: "Dashboard", href: "/platform", icon: LayoutDashboard, exact: true };
 
@@ -357,6 +362,10 @@ const GROUPS = [
       { label: "Audit log", href: "/platform/audit-log", icon: ScrollText },
       { label: "Support runbook", href: "/platform/help", icon: LifeBuoy },
       { label: "Platform team", href: "/platform/team", icon: ShieldCheck },
+      // The admin's OWN preferences — browser notifications for new tickets
+      // and escalations. Last, and in Admin: it is about the person at the
+      // console, not about any company.
+      { label: "My settings", href: "/platform/settings", icon: UserCog },
     ],
   },
 ];
@@ -382,6 +391,51 @@ export default function PlatformSidebar() {
       });
     return () => {
       cancelled = true;
+    };
+  }, [pathname]);
+
+  // ── The in-tab half of browser notifications for the console ───────────
+  //
+  // Open tickets and escalated Jennifer conversations, re-read once a
+  // minute while the tab is visible; a count that ROSE is announced through
+  // notify() — a toast on a focused tab, a system notification on a
+  // background one (lib/notify/browser.js). Only from the second read on,
+  // so a reload does not announce the existing queue. Null (not permitted,
+  // could not count) is never compared. The server pushes the same events
+  // with the ticket's subject; this one, from counts, says only that there
+  // is a new one and where.
+  const countsSeen = useRef(null);
+  useEffect(() => {
+    if (pathname === "/platform/login") return undefined;
+    let cancelled = false;
+    const read = () =>
+      fetch("/api/platform/notifications/count")
+        .then((res) => (res.ok ? res.json() : null))
+        .then((body) => {
+          if (cancelled || !body) return;
+          const prev = countsSeen.current;
+          if (prev) {
+            if (Number.isFinite(body.tickets) && Number.isFinite(prev.tickets) && body.tickets > prev.tickets) {
+              notify({ title: "New support ticket", body: `${body.tickets} open`, tag: "platform-tickets", url: "/platform/support" });
+            }
+            if (Number.isFinite(body.escalations) && Number.isFinite(prev.escalations) && body.escalations > prev.escalations) {
+              notify({ title: "Jennifer escalated a conversation", body: `${body.escalations} waiting`, tag: "platform-escalations", url: "/platform/jennifer" });
+            }
+          }
+          countsSeen.current = { tickets: body.tickets, escalations: body.escalations };
+        })
+        .catch(() => {
+          /* chrome: a missed read is corrected by the next one */
+        });
+    read();
+    const tick = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      read();
+    };
+    const id = setInterval(tick, NOTIFY_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
     };
   }, [pathname]);
 

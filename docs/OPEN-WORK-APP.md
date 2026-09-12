@@ -24,6 +24,7 @@ Updated 2026-09-12 13:20 ET. One line each; move a line down when it lands.
 6. Upwork offer to Rachel K. — unsent in the owner's tab (US$90 = 14/29/47 for CA$125).
 7. Set "Sells in" French on Rachel/Daniel in /platform/sales/reps when hired.
 8. Access Verification (WhatsApp) — Meta's review, ≤5 business days from Sep 11.
+8b. Browser push keys — run `npx web-push generate-vapid-keys` once and set `WEB_PUSH_VAPID_PUBLIC_KEY`, `WEB_PUSH_VAPID_PRIVATE_KEY`, `WEB_PUSH_SUBJECT` (`mailto:…`) in Vercel (docs/VERCEL.md). Until then the Notifications block on all three surfaces says push is not set up and only the in-tab half works (toasts + system notifications while a tab is open). The toast layer itself (one portal, all surfaces; the half-hidden bell popover and the sales top-up toast under the tour pill) is done — docs/screens/notifications/.
 
 **Queued next**
 9. Per-jurisdiction calling-window override in /platform (enforce / warn only / off; OK/FL caps enforced by default; registration gate untouched — owner: "don't feed it to the companies until I check off the registration").

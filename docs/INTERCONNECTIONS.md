@@ -205,7 +205,7 @@ Ask three questions of this graph:
 ## The entity graph
 
 Every model, and what points at it. Generated from `prisma/schema.prisma`, so
-it cannot drift from the code. 222 models.
+it cannot drift from the code. 223 models.
 
 **Read it before adding anything.** The question it answers is "what already
 touches this, and what would my change touch" — which is the question that was
@@ -240,7 +240,7 @@ tenancy, so it carries no information.
 
 ### Every model, both directions
 
-<details><summary>222 models — expand</summary>
+<details><summary>223 models — expand</summary>
 
 | Model | Points at | Pointed at by |
 |---|---|---|
@@ -327,7 +327,7 @@ tenancy, so it carries no information.
 | `PaymentScheduleStage` | — | JobPaymentStage |
 | `Payout` | Worker | — |
 | `Plan` | — | Subscription |
-| `PlatformAdmin` | — | DemoBooking, DemoHostAvailability, PlatformAuditLog, PlatformSmsNumber, SalesTelemarketerRegistration, StaffMessage, StaffRoomMember, SupportTicket, SupportTicketNote |
+| `PlatformAdmin` | — | DemoBooking, DemoHostAvailability, PlatformAuditLog, PlatformSmsNumber, PushSubscription, SalesTelemarketerRegistration, StaffMessage, StaffRoomMember, SupportTicket, SupportTicketNote |
 | `PlatformAuditLog` | PlatformAdmin | — |
 | `PlatformPromoCode` | — | PlatformPromoRedemption |
 | `PlatformPromoRedemption` | PlatformPromoCode | — |
@@ -345,6 +345,7 @@ tenancy, so it carries no information.
 | `ProspectTechnology` | Prospect | — |
 | `PurchaseOrder` | Supplier | PurchaseOrderLine |
 | `PurchaseOrderLine` | PurchaseOrder | — |
+| `PushSubscription` | PlatformAdmin, SalesRep | — |
 | `QuickAddItem` | ServiceCategory | — |
 | `Quote` | Client, LeadRequest, QuoteCosting | Appointment, Booking, Invoice, Job, JobPaymentStage, LeadRequest, QuoteAddOn, QuoteCosting, QuoteImport, QuoteScopeGroup, Task |
 | `QuoteAddOn` | Quote | — |
@@ -372,7 +373,7 @@ tenancy, so it carries no information.
 | `SalesPlaybookAssignment` | Prospect, SalesPlaybookExperiment | — |
 | `SalesPlaybookExperiment` | SalesPlaybook | SalesPlaybookAssignment |
 | `SalesQueueClaim` | Prospect, SalesRep | — |
-| `SalesRep` | SalesCommissionPlan | Company, PlatformSmsNumber, SalesAttribution, SalesAttributionTouch, SalesCallAttempt, SalesCallTransfer, SalesCheckIn, SalesCommissionEntry, SalesContactNumber, SalesEvent, SalesLead, SalesLeadLinkEvent, SalesPayoutBatch, SalesQueueClaim, SalesRepActivity, SalesRepNote, SalesSmsMessage, SalesThread, StaffMessage, StaffRoomMember, SupportTicket, SupportTicketNote |
+| `SalesRep` | SalesCommissionPlan | Company, PlatformSmsNumber, PushSubscription, SalesAttribution, SalesAttributionTouch, SalesCallAttempt, SalesCallTransfer, SalesCheckIn, SalesCommissionEntry, SalesContactNumber, SalesEvent, SalesLead, SalesLeadLinkEvent, SalesPayoutBatch, SalesQueueClaim, SalesRepActivity, SalesRepNote, SalesSmsMessage, SalesThread, StaffMessage, StaffRoomMember, SupportTicket, SupportTicketNote |
 | `SalesRepActivity` | SalesRep | — |
 | `SalesRepNote` | Prospect, SalesLead, SalesRep, SalesThread | — |
 | `SalesSmsMessage` | SalesCheckIn, SalesLead, SalesRep | SalesCheckIn |
@@ -400,7 +401,7 @@ tenancy, so it carries no information.
 | `SupportTicketNote` | PlatformAdmin, SalesRep, SupportTicket | — |
 | `Task` | Client, Invoice, Job, Quote, WorkArea | JobPhoto |
 | `TimeEntry` | Job, Worker | LocationStamp |
-| `User` | Worker | Account, AccountDevice, Appointment, AvailabilitySchedule, ChangeOrder, EventType, Funnel, Invoice, JobMaterial, JobVisit, LeadNote, LeadRequest, MarketingCampaign, MarketingDesign, Member, OrgMember, PamphletStop, Quote, Session, Shift, Task, TimeEntry, TwoFactor, WorkAreaAssignment, Worker, WorkingHours |
+| `User` | Worker | Account, AccountDevice, Appointment, AvailabilitySchedule, ChangeOrder, EventType, Funnel, Invoice, JobMaterial, JobVisit, LeadNote, LeadRequest, MarketingCampaign, MarketingDesign, Member, OrgMember, PamphletStop, PushSubscription, Quote, Session, Shift, Task, TimeEntry, TwoFactor, WorkAreaAssignment, Worker, WorkingHours |
 | `VehicleDetail` | — | VehicleMaintenance |
 | `VehicleMaintenance` | VehicleDetail | — |
 | `VoiceAgent` | — | Company, VoiceCall, VoicePhoneNumber |

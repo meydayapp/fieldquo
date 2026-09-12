@@ -33,6 +33,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireOutreachRep } from "@/lib/sales/outreachGate";
 import { assignedCompanyWhere } from "@/lib/sales/scope";
+import { pushToPlatformAdmins, pushToPlatformRoles } from "@/lib/notify/push";
 import {
   SUPPORT_STATUSES,
   assignedAdminFor,
@@ -134,6 +135,19 @@ export async function GET(request) {
   });
 }
 
+/** What the push says: the subject, with the company and priority on the
+ *  second line. No body text — a lock screen is not the place for a
+ *  contractor's problem in full. */
+function ticketPayload(ticket) {
+  const priority = ticket.priority && ticket.priority !== "normal" ? ` · ${ticket.priority}` : "";
+  return {
+    title: `New support ticket: ${ticket.subject || "(no subject)"}`,
+    body: `${ticket.company?.name || "Unknown company"}${priority}`,
+    tag: `support-ticket:${ticket.id}`,
+    url: "/platform/support",
+  };
+}
+
 export async function POST(request) {
   const { rep, refusal } = await requireOutreachRep(request);
   if (refusal) return NextResponse.json(refusal.body, { status: refusal.status });
@@ -191,6 +205,14 @@ export async function POST(request) {
     data: { ...decision.ticket, assignedAdminId: adminId },
     select: TICKET_SELECT,
   });
+
+  // The push copy — to the admin it landed on, or to every active
+  // superadmin when nobody could be assigned. Fire-and-forget
+  // (lib/notify/push.js): the ticket is stored whatever the push service
+  // says. The console is English, so the sentence is too.
+  void (adminId
+    ? pushToPlatformAdmins({ platformAdminIds: [adminId], payload: ticketPayload(ticket) })
+    : pushToPlatformRoles({ roles: ["superadmin"], payload: ticketPayload(ticket) }));
 
   return NextResponse.json({ ticket: shapeTicket(ticket) }, { status: 201 });
 }

@@ -79,8 +79,9 @@ const ALLOWED = [
     reason: "a launcher; checked below for reading both variables and for clearing Jennifer",
   },
   {
-    path: "app/components/ErrorToast.js",
-    reason: "the toast; checked below for reading both variables",
+    path: "app/components/ToastLayer.js",
+    reason:
+      "the toast layer; positioned by app/globals.css's .fq-toast-layer rule, checked below for reading both variables",
   },
   {
     path: "app/app/settings/team/page.js",
@@ -280,12 +281,27 @@ section("Launchers and toast ride above the dock");
 
 const jennifer = stripComments(read("app/components/jennifer/JenniferPanel.js"));
 const help = stripComments(read("app/components/HelpButton.js"));
-const toast = stripComments(read("app/components/ErrorToast.js"));
+const toastLayer = stripComments(read("app/components/ToastLayer.js"));
+const toastCss = stripComments(read("app/globals.css"));
 
 const BOTH = /bottom-\[calc\(var\(--fq-tab-bar-height\)\+var\(--fq-dock-height\)\+[\d.]+rem\)\]/;
 ok("JenniferPanel launcher reads --fq-tab-bar-height + --fq-dock-height", BOTH.test(jennifer));
 ok("HelpButton reads --fq-tab-bar-height + --fq-dock-height", BOTH.test(help));
-ok("ErrorToast reads --fq-tab-bar-height + --fq-dock-height", BOTH.test(toast));
+// The toast layer is a portal at document.body (app/components/ToastLayer.js),
+// so its offset is a rule in globals.css rather than a class on the element
+// — and it must read the SAME two variables. max() with the safe-area inset
+// is for the surface with no tab bar (the platform console).
+const toastRule = (toastCss.match(/\.fq-toast-layer\s*\{[^}]*\}/) || [""])[0];
+ok("the toast layer has a positioning rule in globals.css", toastRule.length > 0);
+ok(
+  "the toast layer reads --fq-tab-bar-height + --fq-dock-height",
+  /bottom:\s*calc\(max\(var\(--fq-tab-bar-height\),\s*env\(safe-area-inset-bottom\)\)\s*\+\s*var\(--fq-dock-height\)\s*\+\s*[\d.]+rem\)/.test(toastRule),
+);
+ok("the toast layer is position: fixed", /position:\s*fixed/.test(toastRule));
+ok(
+  "the toast layer's root carries the surface's shell class, so the tab-bar term resolves outside the shell",
+  /fq-app-shell/.test(toastLayer) && /fq-sales-shell/.test(toastLayer) && /createPortal\(/.test(toastLayer),
+);
 
 // No launcher may sit ABOVE a modal: modals here are z-50 (BottomSheet,
 // settings/team, SendConfirmModal…). z-30 clears page content and nothing

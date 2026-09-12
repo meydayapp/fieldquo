@@ -347,6 +347,54 @@
   }
 }
 
+/* ── The toast layer (app/components/ToastLayer.js) ─────────────────────────
+ *
+ * Rendered through a portal at document.body, so it is outside every shell's
+ * subtree and no sidebar, drawer or overflow rule can clip it. Its root
+ * carries the surface's shell class (fq-app-shell / fq-sales-shell) so the
+ * tab-bar term above still resolves for it — a node at <body> would
+ * otherwise read :root's 0px and sit under the tab bar.
+ *
+ * Below lg: centred, above the tab bar and the page's Save bar. max() with
+ * the safe-area inset covers the surface with NO tab bar (the platform
+ * console): --fq-tab-bar-height is 0 there, and a phone with a home
+ * indicator still needs the inset. Where the bar IS present its height
+ * already includes the inset, and max() picks the bar.
+ *
+ * From lg up: bottom-right, above the Save bar, clear of the launcher
+ * column by --fq-toast-right (6rem on /app, where Jennifer and Help sit at
+ * right-5; 1.5rem elsewhere). The tab-bar term is 0 at this width, so the
+ * same calc() serves both; only the horizontal placement changes.
+ *
+ * z-index 120: above the sidebars (40), the drawers and dialogs (50), the
+ * incoming-call dock (70), the tours (100) and PlanRequiredPrompt (110). A
+ * toast is the one thing that must never be under the thing it reports on.
+ *
+ * pointer-events: none on the region, auto on each toast (a utility on the
+ * element), so the empty part of the column never blocks a click on the
+ * page beneath it. */
+.fq-toast-layer {
+  position: fixed;
+  z-index: 120;
+  bottom: calc(max(var(--fq-tab-bar-height), env(safe-area-inset-bottom)) + var(--fq-dock-height) + 1rem);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100vw - 2rem, 26rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+@media (min-width: 64rem) {
+  .fq-toast-layer {
+    left: auto;
+    right: var(--fq-toast-right, 1.5rem);
+    transform: none;
+    width: 24rem;
+    bottom: calc(var(--fq-dock-height) + 1.5rem);
+  }
+}
+
 /* ── iOS Safari auto-zoom, fixed at the source ────────────────────────────
  *
  * Safari zooms the whole page in whenever a focused input/select/textarea

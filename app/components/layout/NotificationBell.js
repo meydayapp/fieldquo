@@ -35,25 +35,46 @@
 // typing a reply; this is polling for something that happens a handful of times
 // a day.
 //
-// ── No channel toggle is offered, deliberately ─────────────────────────────
+// ── No channel toggle here, deliberately ───────────────────────────────────
 //
-// v1 delivers in-app and nothing else. There is no service worker, no
-// `web-push` dependency and no VAPID key in the whole product, and iOS Safari
-// can only subscribe to push from a web app added to the Home Screen — which
-// this product never prompts for, so for an iPhone user on the default setup
-// push cannot arrive at all. Not degraded: impossible. Offering a "Push
-// notifications" switch would be a control that appears to work and doesn't,
-// with the dead control being the permission prompt itself. So there is no
-// switch here. Company-level email alerts keep their existing home at
-// /app/settings/notifications.
+// Browser notifications (in-tab, and push through public/sw.js when the
+// deployment has VAPID keys) are switched on per person in
+// /app/settings/notifications — app/components/notifications/
+// BrowserNotifications.js — not from the bell. The switch says plainly when
+// push is not set up on this deployment rather than prompting for a
+// permission nothing would use; and iOS Safari only delivers push to a web
+// app added to the Home Screen, which the block also says. Company-level
+// email alerts keep their home on the same settings page.
+//
+// ── Where the panel is drawn, and why not under the bell ──────────────────
+//
+// The desktop bell sits at the RIGHT edge of a 256px rail (76px collapsed),
+// and the panel is 22rem wide. Anchored `absolute right-0` to the bell, a
+// third of the panel fell off the left edge of the viewport — most of it
+// with the rail folded. That was the owner's "the notification pop-ups are
+// half hidden". So from sm up the panel is `position: fixed`, rendered
+// through a portal at document.body (the rail is `sticky`, which is its own
+// stacking context, and the page's own sticky headers painted over the
+// panel), and placed from the bell's measured rect: its left edge at the
+// bell's, clamped so the whole panel stays inside the viewport. Below sm it
+// is the full-width sheet under the bar it always was. Re-measured on
+// resize; the rail is sticky, so scrolling does not move the bell.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Bell, Check, Loader2 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchJson } from "@/lib/fetchJson";
 import { noteKeysFor } from "@/lib/notifications/render";
+import { notify } from "@/lib/notify/browser";
 
 const POLL_MS = 60000;
+
+/** The panel's width from sm up (22rem) and the gap it keeps from the
+ *  viewport's edges. Measured in px because the clamp is arithmetic on a
+ *  getBoundingClientRect. */
+const PANEL_WIDTH_PX = 352;
+const PANEL_MARGIN_PX = 8;
 
 /** Money, only ever rendered from the `amount` the SERVER decided to send. */
 function formatAmount(amount, currency) {
@@ -77,6 +98,14 @@ export default function NotificationBell({ className = "" }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const wrapRef = useRef(null);
+  const panelRef = useRef(null);
+  // The unread count the poll last saw (null until it has seen one), and
+  // the ids this tab has already announced — see the poll.
+  const seen = useRef(null);
+  const announced = useRef(new Set());
+  // Where the fixed panel goes from sm up, measured from the bell. Null
+  // below sm, where the sheet's own classes position it.
+  const [anchor, setAnchor] = useState(null);
 
   // ── Seed from the shell's existing call ─────────────────────────────────
   useEffect(() => {
@@ -107,7 +136,34 @@ export default function NotificationBell({ className = "" }) {
       if (document.hidden || open) return;
       try {
         const data = await fetchJson("/api/notifications?count=1");
-        if (!cancelled) setUnread(Number(data?.unread) || 0);
+        if (cancelled) return;
+        const next = Number(data?.unread) || 0;
+        setUnread(next);
+        // ── The in-tab half of browser notifications ─────────────────────
+        //
+        // A count that ROSE since the last tick means something new landed
+        // — a lead, an approval, a payment. The person is told with the
+        // same sentence the feed row renders (their own language, their
+        // own catalogue), as a toast while they are looking at this tab and
+        // as a system notification when they are not (lib/notify/browser.js).
+        // Only rows this tab has not announced before, so a count that
+        // wobbles cannot re-announce; only from the SECOND tick on, so a
+        // reload does not replay the backlog. The push path (public/sw.js)
+        // uses the same tag, so a person with both sees each event once.
+        if (seen.current !== null && next > seen.current) {
+          const feed = await fetchJson("/api/notifications?limit=5");
+          if (cancelled) return;
+          for (const n of Array.isArray(feed?.notifications) ? feed.notifications : []) {
+            if (n.readAt || announced.current.has(n.id)) continue;
+            announced.current.add(n.id);
+            notify({
+              title: t(`app.notif.type.${n.type}`, n.params || {}),
+              tag: `notif:${n.id}`,
+              url: n.href || "/app",
+            });
+          }
+        }
+        seen.current = next;
       } catch {
         // Swallowed on purpose. A dropped poll on a bad connection in a
         // driveway must not put an error toast over the screen somebody is
@@ -143,7 +199,7 @@ export default function NotificationBell({ className = "" }) {
       stop();
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [open]);
+  }, [open, t]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -166,12 +222,36 @@ export default function NotificationBell({ className = "" }) {
     if (open) load();
   }, [open, load]);
 
+  // Measure on open and on resize. sm is Tailwind's 40rem (640px); below it
+  // the sheet is positioned by its classes and the anchor is unused.
+  useEffect(() => {
+    if (!open) return undefined;
+    const place = () => {
+      const btn = wrapRef.current;
+      if (!btn) return;
+      if (window.innerWidth < 640) {
+        setAnchor(null);
+        return;
+      }
+      const r = btn.getBoundingClientRect();
+      const width = Math.min(PANEL_WIDTH_PX, window.innerWidth - 2 * PANEL_MARGIN_PX);
+      const left = Math.max(PANEL_MARGIN_PX, Math.min(r.left, window.innerWidth - width - PANEL_MARGIN_PX));
+      setAnchor({ top: Math.round(r.bottom + 8), left: Math.round(left), width: Math.round(width) });
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, [open]);
+
   // Close on an outside click. Escape too — the panel covers the screen on a
-  // phone and a hardware keyboard is not the only way people back out.
+  // phone and a hardware keyboard is not the only way people back out. The
+  // panel is a portal, so "outside" means outside the bell AND the panel.
   useEffect(() => {
     if (!open) return;
     const onDown = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+      const inBell = wrapRef.current && wrapRef.current.contains(e.target);
+      const inPanel = panelRef.current && panelRef.current.contains(e.target);
+      if (!inBell && !inPanel) setOpen(false);
     };
     const onKey = (e) => {
       if (e.key === "Escape") setOpen(false);
@@ -253,22 +333,30 @@ export default function NotificationBell({ className = "" }) {
         )}
       </button>
 
-      {open && (
+      {open && typeof document !== "undefined" && createPortal(
         // ── 375px first ────────────────────────────────────────────────────
         //
         // On a phone this is a full-width sheet pinned under the bar
         // (`fixed inset-x-2`), not a dropdown hanging off a 44px button — a
         // 320px popover anchored to the right edge of a narrow bar is how a
-        // feed ends up 200px wide with every line wrapped twice. Above `sm` it
-        // becomes an ordinary anchored panel.
+        // feed ends up 200px wide with every line wrapped twice. From `sm`
+        // up it is the same fixed box, placed from the bell's rect (see the
+        // header) — never `absolute` inside the rail again.
         //
         // max-h with overflow-y-auto rather than a fixed height: the list is
         // between zero and twenty rows and a fixed-height box is either mostly
         // empty or clipped.
+        //
+        // z-[90]: above the rails and the mobile drawer (50) and the page's
+        // sticky headers; below the toast layer (120) and the plan prompt
+        // (110), which must stay reachable over it.
         <div
-          className="fixed inset-x-2 top-16 z-50 max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-background text-foreground shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-[22rem]"
+          ref={panelRef}
+          className="fixed inset-x-2 top-16 z-[90] max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-background text-foreground shadow-2xl sm:inset-x-auto"
+          style={anchor ? { top: anchor.top, left: anchor.left, width: anchor.width } : undefined}
           role="dialog"
           aria-label={t("app.notif.title")}
+          data-notification-panel
         >
           <div className="sticky top-0 flex items-center justify-between gap-2 border-b border-border bg-background px-4 py-3">
             <h2 className="text-sm font-semibold">{t("app.notif.title")}</h2>
@@ -308,7 +396,8 @@ export default function NotificationBell({ className = "" }) {
             items?.map((n) => (
               <NotificationRow key={n.id} n={n} t={t} onOpen={() => markOne(n.id)} />
             ))}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

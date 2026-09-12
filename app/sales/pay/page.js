@@ -26,6 +26,7 @@ import EarningsPanel from "@/app/components/sales/EarningsPanel";
 import PayoutDestinationForm from "@/app/components/sales/PayoutDestinationForm";
 import RepLanguageChoice from "@/app/components/sales/RepLanguageChoice";
 import RepSellsInChoice from "@/app/components/sales/RepSellsInChoice";
+import BrowserNotifications from "@/app/components/notifications/BrowserNotifications";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function SalesPayPage() {
@@ -61,6 +62,14 @@ export default function SalesPayPage() {
           only to a rep with French here — lib/sales/leadLanguage.js. */}
       <section className="border-t border-border pt-8">
         <RepSellsInChoice />
+      </section>
+
+      {/* A ringing call, a text back, an @mention, a topped-up queue — as a
+          system notification when the portal is in a background tab, and
+          with the tab closed where the deployment has push keys. The same
+          block /app and /platform mount; the endpoint is this surface's. */}
+      <section className="border-t border-border pt-8">
+        <BrowserNotifications endpoint="/api/sales/push-subscription" />
       </section>
     </div>
   );

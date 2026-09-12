@@ -36,6 +36,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Hash, Loader2, Lock, Pencil, Plus, Search, UserPlus, Users, X } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { errorText } from "@/lib/fetchJson";
+import { notify } from "@/lib/notify/browser";
 import { staffApi, STAFF_REFUSAL_KEYS } from "@/lib/staff/client";
 import { slugify, groupOf, GROUP_ORDER } from "@/lib/staff/channels";
 import { layoutThread } from "@/lib/chat/threadLayout";
@@ -365,10 +366,45 @@ export default function StaffChat({ heading = "Team" }) {
   tRef.current = t;
   const say = useCallback((err, fallbackKey) => errorText(tRef.current, err, STAFF_REFUSAL_KEYS) || tRef.current(fallbackKey), []);
 
+  // ── The in-tab half of browser notifications: @mentions ────────────────
+  //
+  // A room whose `mentions` count ROSE since the last list read means
+  // somebody said this person's name. Told through notify() — a toast while
+  // this tab is focused, a system notification when the chat is in a
+  // background tab (lib/notify/browser.js). Only from the second read on,
+  // so opening the screen does not replay the backlog; the badge on the
+  // row is that. Same tag as the server's push for the room, so a person
+  // with both sees each mention once.
+  const mentionsSeen = useRef(null);
+  const announceMentions = useCallback((next) => {
+    const rooms = Array.isArray(next?.rooms) ? next.rooms : [];
+    const prev = mentionsSeen.current;
+    const now = new Map(rooms.map((r) => [r.id, Number(r.mentions) || 0]));
+    if (prev) {
+      for (const r of rooms) {
+        const before = prev.get(r.id) || 0;
+        const after = now.get(r.id) || 0;
+        if (after > before) {
+          const roomName = r.kind === "direct" ? r.title : `#${r.slug || r.title}`;
+          notify({
+            title: tRef.current("app.notify.mention.title", { name: r.lastWho || r.title, room: roomName }),
+            body: r.lastBody || "",
+            tag: `staff-mention:${r.id}`,
+            // The chat screen itself: the row's @ badge is where to click.
+            url: window.location.pathname,
+          });
+        }
+      }
+    }
+    mentionsSeen.current = now;
+  }, []);
+
   // ── Loading ────────────────────────────────────────────────────────────
   const loadList = useCallback(async () => {
     try {
-      setData(await staffApi.list());
+      const next = await staffApi.list();
+      announceMentions(next);
+      setData(next);
       setError("");
     } catch (err) {
       // Named, not swallowed: an empty screen and a broken screen look

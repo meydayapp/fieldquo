@@ -1,77 +1,12 @@
 // app/components/ErrorToast.js
 //
-// Catches messages from lib/clientErrors.js and shows them.
+// Superseded by app/components/ToastLayer.js on 2026-09-12 — the one layer
+// for every surface, mounted through a portal so nothing in a shell can clip
+// it. This file stays as an alias rather than being deleted, so an import of
+// the old name still renders the real thing; there is nothing else here.
 //
-// Mounted once in the app layout, so any handler anywhere can report a failure
-// without that page needing its own error state and banner.
-//
-// Deliberately does NOT auto-dismiss on a timer alone for the first few
-// seconds of reading time — an error someone blinks and misses is barely
-// better than no error. It stays for 8 seconds and can be dismissed early.
+// New code mounts <ToastLayer surface="…" /> and calls showToast() /
+// showError() (lib/toast.js, lib/clientErrors.js).
 "use client";
 
-import { useEffect, useState } from "react";
-import { AlertCircle, X } from "lucide-react";
-import { ERROR_EVENT } from "@/lib/clientErrors";
-
-export default function ErrorToast() {
-  const [messages, setMessages] = useState([]);
-
-  useEffect(() => {
-    function onError(e) {
-      const message = e.detail?.message;
-      if (!message) return;
-      const id = Date.now() + Math.random();
-
-      setMessages((prev) => {
-        // Don't stack the same message twice — a double-clicked button
-        // shouldn't produce two identical toasts.
-        if (prev.some((m) => m.message === message)) return prev;
-        return [...prev, { id, message }];
-      });
-
-      setTimeout(() => {
-        setMessages((prev) => prev.filter((m) => m.id !== id));
-      }, 8000);
-    }
-
-    window.addEventListener(ERROR_EVENT, onError);
-    return () => window.removeEventListener(ERROR_EVENT, onError);
-  }, []);
-
-  if (messages.length === 0) return null;
-
-  return (
-    // Bottom on phones, bottom-right on desktop: out of the way of the thing
-    // that just failed, but not somewhere a thumb has to travel.
-    //
-    // The bottom offset clears the mobile tab bar and whatever Save bar the
-    // page has mounted (app/globals.css "bottom dock") — at bottom-4 this
-    // used to land on the very Save button whose failure it was reporting.
-    // The right edge stops short of the launcher column (Jennifer is 56px
-    // wide at right-5, so 76px from the edge): right-[5.5rem] on a phone,
-    // right-24 with a fixed width from sm up. Otherwise the toast's own
-    // Dismiss "X", which sits at its right end, is under the launcher.
-    <div className="fixed bottom-[calc(var(--fq-tab-bar-height)+var(--fq-dock-height)+1rem)] left-4 right-[5.5rem] sm:left-auto sm:right-24 sm:w-96 z-[100] space-y-2">
-      {messages.map((m) => (
-        <div
-          key={m.id}
-          role="alert"
-          className="bg-card border border-red-200 dark:border-red-900 shadow-lg rounded-xl px-4 py-3 flex items-start gap-2.5"
-        >
-          <AlertCircle size={17} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-          <p className="text-sm text-foreground flex-1">{m.message}</p>
-          <button
-            onClick={() =>
-              setMessages((prev) => prev.filter((x) => x.id !== m.id))
-            }
-            className="text-muted-foreground hover:text-foreground shrink-0"
-            aria-label="Dismiss"
-          >
-            <X size={15} />
-          </button>
-        </div>
-      ))}
-    </div>
-  );
-}
+export { default } from "@/app/components/ToastLayer";

@@ -62,6 +62,7 @@ import {
 import { fetchList } from "@/lib/loadState";
 import { fetchJson } from "@/lib/fetchJson";
 import { reportResponseError } from "@/lib/clientErrors";
+import { notify } from "@/lib/notify/browser";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
@@ -124,6 +125,11 @@ import {
 const ACTION =
   "inline-flex items-center gap-1.5 min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-60";
 const TAG = "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold";
+
+/** How often the list is re-read while the tab is visible. 60s, the bell's
+ *  cadence: a homeowner's reply is worth a minute, and the request is the
+ *  same list read the screen already makes. */
+const LIST_POLL_MS = 60 * 1000;
 const CHIP =
   "min-h-[36px] shrink-0 whitespace-nowrap rounded-full border px-3 text-xs font-medium";
 
@@ -225,6 +231,10 @@ function MessagesScreen() {
   // the open thread changes, so a reload lands in the conversation.
   const wanted = params.get("conversation") || params.get("thread") || "";
   const [activeId, setActiveId] = useState(wanted || null);
+  // The open thread, for the unread announcer below — a ref, because the
+  // announcer is bound once and must not re-bind on every navigation.
+  const activeRef = useRef(null);
+  activeRef.current = activeId;
   const [thread, setThread] = useState(null);
   const [threadLoading, setThreadLoading] = useState(false);
   const [threadErrorKey, setThreadErrorKey] = useState("");
@@ -240,9 +250,45 @@ function MessagesScreen() {
   const [openedReadAt, setOpenedReadAt] = useState(null);
   const openedFor = useRef("");
 
-  const load = useCallback(async (q, platform) => {
-    setLoading(true);
-    setErrorKey("");
+  // ── The in-tab half of browser notifications ─────────────────────────
+  //
+  // A thread whose `unread` ROSE since the last list read is a homeowner
+  // writing back. Told through notify(): a toast while this tab is focused,
+  // a system notification when the inbox is in a background tab
+  // (lib/notify/browser.js). Only from the second read on — opening the
+  // inbox must not announce the backlog the list already shows — and never
+  // for a thread that is OPEN in front of them, which is marked read by
+  // the thread pane and would announce itself. Same tag as the server's
+  // push for the thread (lib/messaging/pushInbound.js), so the two
+  // collapse. `quiet` loads (the poll) and loud ones (a search) both feed
+  // it; a search that narrows the list cannot raise a count.
+  const unreadSeen = useRef(null);
+  const tRef = useRef(t);
+  tRef.current = t;
+  const announceUnread = useCallback((rows) => {
+    const prev = unreadSeen.current;
+    const now = new Map(rows.map((r) => [r.id, Number(r.unread) || 0]));
+    if (prev) {
+      for (const r of rows) {
+        const after = now.get(r.id) || 0;
+        if (after > (prev.get(r.id) || 0) && r.id !== activeRef.current) {
+          notify({
+            title: tRef.current("app.notify.newMessage.title", { name: r.participantName || tRef.current("app.messages.unknownPerson") }),
+            body: r.preview || "",
+            tag: `inbox:${r.id}`,
+            url: `/app/messages?conversation=${encodeURIComponent(r.id)}`,
+          });
+        }
+      }
+    }
+    unreadSeen.current = now;
+  }, []);
+
+  const load = useCallback(async (q, platform, { quiet = false } = {}) => {
+    if (!quiet) {
+      setLoading(true);
+      setErrorKey("");
+    }
     const search = new URLSearchParams();
     if (q) search.set("q", q);
     if (platform) search.set("platform", platform);
@@ -250,15 +296,31 @@ function MessagesScreen() {
     const result = await fetchList("/api/messaging/threads" + suffix);
     if (result.aborted) return;
     if (result.ok) {
+      announceUnread(result.data?.threads || []);
       setThreads(result.data?.threads || []);
       setConnection(result.data?.connection || null);
       setPageImport(result.data?.pageImport || null);
       setNote(result.data?.note || null);
-    } else {
+    } else if (!quiet) {
       setErrorKey(result.errorKey);
     }
     setLoading(false);
-  }, []);
+  }, [announceUnread]);
+
+  // The list re-read once a minute while the tab is visible — the same
+  // gate the bell uses. There was no list polling before 2026-09-12: a
+  // homeowner's reply appeared on the next navigation or on reload, and
+  // the in-tab notification above has nothing to compare without it.
+  // Quiet: no spinner, no error banner over a list that is already drawn
+  // (a dropped poll in a driveway is corrected by the next one).
+  useEffect(() => {
+    const tick = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      load(query.trim(), platformFilter, { quiet: true });
+    };
+    const id = setInterval(tick, LIST_POLL_MS);
+    return () => clearInterval(id);
+  }, [load, query, platformFilter]);
 
   useEffect(() => {
     // A failure here leaves the assignee list empty, which renders as "nobody"

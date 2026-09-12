@@ -8,7 +8,7 @@ import BillingBanner from "@/app/components/layout/BillingBanner";
 import SeatSharingBanner from "@/app/components/layout/SeatSharingBanner";
 import AccountLocked from "@/app/components/layout/AccountLocked";
 import SetupIncomplete from "@/app/components/layout/SetupIncomplete";
-import ErrorToast from "@/app/components/ErrorToast";
+import ToastLayer from "@/app/components/ToastLayer";
 import PlanRequiredPrompt from "@/app/components/PlanRequiredPrompt";
 import AppTours from "@/app/components/AppTours";
 import JenniferPanel from "@/app/components/jennifer/JenniferPanel";
@@ -468,10 +468,12 @@ export default async function AppLayout({ children }) {
       </FeatureProvider>
       </CompanyPreferencesProvider>
       </LanguageProvider>
-      {/* Renders nothing until something calls showError(). Mounted here so
-          no individual page needs its own error state and banner — see
-          lib/clientErrors.js. */}
-      <ErrorToast />
+      {/* Renders nothing until something calls showToast() or showError().
+          Mounted here so no individual page needs its own error state and
+          banner — see lib/clientErrors.js and lib/toast.js. Rendered through
+          a portal at document.body, so its place in this tree is only "once
+          per surface". */}
+      <ToastLayer surface="app" />
       {/* Renders nothing unless a route refused a SEND because the company
           never finished checkout (lib/signup/planGate.js). Mounted beside the
           toast, for the same reason: the prompt has to be reachable from every
@@ -485,7 +487,7 @@ export default async function AppLayout({ children }) {
           FieldQuo AI copilot at /app/copilot, which helps run the business
           rather than fix it. See lib/ai/jennifer/ for the whole boundary.
           Mounted at the shell level, not per-page, for the same reason
-          ErrorToast is: one instance, reachable from anywhere in /app. */}
+          ToastLayer is: one instance, reachable from anywhere in /app. */}
       <JenniferPanel variant="app" />
     </div>
   );

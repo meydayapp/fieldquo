@@ -80,6 +80,7 @@ import { createPortal } from "react-dom";
 import { Phone, PhoneOff, AlertTriangle, Headphones, PhoneIncoming } from "lucide-react";
 
 import { fetchJson } from "@/lib/fetchJson";
+import { notify } from "@/lib/notify/browser";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { STATE_AFTER_CALL, STATE_ON_CALL } from "@/lib/sales/calls/agentState";
 import TransferControl from "./TransferControl";
@@ -118,6 +119,10 @@ function pretty(e164, t) {
 
 export default function IncomingCallDock() {
   const { t } = useTranslation();
+  // For the Device's "incoming" handler, which is bound once: the current
+  // t without re-binding the Device every time the language changes.
+  const tRef = useRef(t);
+  tRef.current = t;
   const [incoming, setIncoming] = useState(null);
   const [live, setLive] = useState(false);
   const [error, setError] = useState("");
@@ -301,9 +306,23 @@ export default function IncomingCallDock() {
           setWho(null);
           // Non-blocking, and never trusted for anything but the label: the
           // buttons work whether or not this ever answers.
+          // The in-tab half of browser notifications: with the portal in a
+          // background tab this is a system notification, so the rep sees
+          // the ring without watching the tab (lib/notify/browser.js). With
+          // the tab focused the drawer itself IS the notice, so notify() is
+          // told to stay quiet rather than draw a toast that says the same
+          // thing under it. Sent once with the number, then again with the
+          // business name when the lookup answers — the same tag, so the
+          // second replaces the first.
+          const ringTag = `sales-ring:${from || "withheld"}`;
+          notify({ title: tRef.current("app.notify.incomingCall.title"), body: from || "", tag: ringTag, url: "/sales/queue", quietWhenFocused: true });
           fetchJson(`/api/sales/calls/caller?from=${encodeURIComponent(from || "")}`)
             .then((body) => {
-              if (!cancelled) setWho(body || null);
+              if (cancelled) return;
+              setWho(body || null);
+              if (body?.businessName) {
+                notify({ title: tRef.current("app.notify.incomingCall.title"), body: body.businessName, tag: ringTag, url: "/sales/queue", quietWhenFocused: true });
+              }
             })
             .catch(() => {
               /* the number alone is still an honest label */

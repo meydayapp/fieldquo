@@ -352,7 +352,7 @@ ok("the arm after an outcome waits for the reloaded order", /pendingArm\.current
 // `[order, arm]` effect above arms against it. Nothing in the page arms
 // or dials on the top-up itself, and the row the rep is on is kept (the
 // URL is not moved on an auto claim).
-ok("a top-up appends through the same setData the press uses, keeping the rep's row", /if \(extra\.auto && body\?\.batch\?\.result\) setToast\(/.test(queue) && /if \(!extra\.auto\) setQuery\(\{ prospectId: body\?\.current\?\.id \|\| "" \}\);/.test(queue));
+ok("a top-up appends through the same setData the press uses, keeping the rep's row", /if \(extra\.auto && body\?\.batch\?\.result\) \{\s*notify\(\{/.test(queue) && /if \(!extra\.auto\) setQuery\(\{ prospectId: body\?\.current\?\.id \|\| "" \}\);/.test(queue));
 ok("…and the dialler's order is rebuilt from the list the top-up appended to, never from a second copy", /const order = useMemo\(\s*\(\) =>\s*walkItems\.map/.test(queue) && /\[walkItems\],\n/.test(queue) && !/order\.push\(|setOrder\(/.test(queue));
 ok("…so the walk continues without a press: the top-up never arms or dials on its own", !/auto\.resume\(\)/.test(queue.slice(queue.indexOf("The rolling batch"), queue.indexOf("The zone chips"))));
 ok("the dialler selects the candidate before judging it, and judges it at zero with that row's readiness", /if \(id !== l\.currentId\) l\.select\?\.\(id\);/.test(control) && /const ready = loaded \? l\.readiness : null;/.test(control));

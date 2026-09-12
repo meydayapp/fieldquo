@@ -100,6 +100,7 @@ import {
 } from "@/lib/sales/leadLanguage";
 import { getAppOrigin } from "@/lib/appUrl";
 import { recordError } from "@/lib/platform/errorLog";
+import { appSentence, pushToReps } from "@/lib/notify/push";
 import { normalisePhone } from "@/lib/sales/suppressionRules";
 import { checkSuppression } from "@/lib/sales/suppression";
 import { canAuthenticate } from "@/lib/sales/invite";
@@ -125,6 +126,32 @@ import {
   transferStoreState,
 } from "@/lib/sales/calls/store";
 import { callerConferenceTwiml } from "@/lib/sales/calls/transferRest";
+
+/**
+ * "Incoming call — Desert Sun Painting": a Web Push to every rep the plan is
+ * about to ring, so a rep whose portal tab is in the background (or closed,
+ * on a phone) sees the call the moment Twilio starts ringing their browser
+ * client. The Voice SDK's own `incoming` event is the in-tab half
+ * (IncomingCallDock.js). Same tag on both, so they collapse.
+ *
+ * Fire-and-forget, before the TwiML is returned: Twilio waits for this
+ * response to start ringing, so nothing here may be awaited. Only `client`
+ * targets — a transfer to a desk phone is not a browser.
+ */
+function pushRing(ring, { callerLabel = null, callerNumber = null } = {}) {
+  const salesRepIds = (ring?.targets || []).filter((x) => x.kind === "client" && x.salesRepId).map((x) => x.salesRepId);
+  if (!salesRepIds.length) return;
+  const who = callerLabel || callerNumber || "";
+  void pushToReps({
+    salesRepIds,
+    payload: async (language) => ({
+      title: await appSentence(language, "app.notify.incomingCall.title"),
+      body: who,
+      tag: `sales-ring:${callerNumber || "withheld"}`,
+      url: "/sales/queue",
+    }),
+  });
+}
 
 /** The voice Twilio's <Say> uses. The same one the bridge refuses with. */
 const VOICE = "alice";
@@ -431,6 +458,8 @@ async function queueStage(request, params) {
               fromE164: true,
               salesRepId: true,
               salesRep: { select: { name: true } },
+              // Only for the push's one line — who is ringing, by name.
+              prospect: { select: { businessName: true } },
             },
           })
           .catch(() => null)
@@ -490,6 +519,7 @@ async function queueStage(request, params) {
     // Every target inside ONE <Dial>, in order. A second <Dial> verb only
     // starts after the first gives up entirely, which is a different and much
     // slower behaviour than ringing a team.
+    pushRing(ring, { callerLabel: attempt?.prospect?.businessName || null, callerNumber });
     for (const target of ring.targets) {
       if (target.kind === "client") dial.client(target.value);
       else dial.number(target.value);
@@ -810,6 +840,13 @@ export async function POST(request) {
   // and the first to answer wins — which is what a rep expects when a call
   // "comes to the team" and is the behaviour a second <Dial> would not give,
   // because a second verb only runs after the first one gives up entirely.
+  pushRing(ring, {
+    callerLabel:
+      (matchedProspect && matchedProspect.businessName) ||
+      (match.salesLeadId && leads.find((l) => l.id === match.salesLeadId)?.businessName) ||
+      null,
+    callerNumber: caller,
+  });
   for (const target of ring.targets) {
     if (target.kind === "client") dial.client(target.value);
     else dial.number(target.value);

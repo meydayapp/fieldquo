@@ -56,13 +56,15 @@
 // owner wants tablets on the sidebar.
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 import IncomingCallDock from "@/app/components/sales/IncomingCallDock";
 import { RepPresenceProvider, RepStatusPicker } from "@/app/components/sales/RepStatus";
 import SalesMobileTabBar from "@/app/components/sales/SalesMobileTabBar";
 import SalesTour from "@/app/components/sales/SalesTour";
+import ToastLayer from "@/app/components/ToastLayer";
+import { notify } from "@/lib/notify/browser";
 import { SalesSearchProvider, useSalesSearchBox } from "@/app/components/sales/SalesSearch";
 import { ConsoleSlotsProvider } from "@/app/components/sales/consoleSlots";
 import { usePathname } from "next/navigation";
@@ -121,6 +123,10 @@ const TAB_BADGES = {
 };
 
 const COLLAPSE_KEY = "fq-sales-sidebar-collapsed";
+
+/** How often the badges are re-read while the tab is visible. 60s: a text
+ *  back is worth a minute, and it is one small request. */
+const BADGE_POLL_MS = 60 * 1000;
 
 /**
  * The top bar's search box. Drawn only while a screen has registered for
@@ -181,8 +187,10 @@ export default function SalesShell({ children }) {
   //
   // `collapsed` is remembered per browser, the way /app's rail remembers
   // itself. `badges` is /api/sales/badges' answer — re-asked on every
-  // navigation, never polled, so three digits of chrome cost one request per
-  // screen rather than one per minute. Null fields draw nothing.
+  // navigation and, since 2026-09-12, once a minute while the tab is
+  // visible: the texts badge is how the portal learns a contractor wrote
+  // back, and a number that only moved on navigation could not tell a rep
+  // sitting on one screen. Null fields draw nothing.
   const [collapsed, setCollapsed] = useState(false);
   const [badges, setBadges] = useState(null);
   useEffect(() => {
@@ -202,6 +210,12 @@ export default function SalesShell({ children }) {
       return !c;
     });
   }
+  // The unread-texts count the last read saw (null until one has), and the
+  // current t for the poll below — which is bound once per pathname, not
+  // once per language.
+  const textsSeen = useRef(null);
+  const tRef = useRef(t);
+  tRef.current = t;
   useEffect(() => {
     if (chromeless) return undefined;
     let cancelled = false;
@@ -211,21 +225,62 @@ export default function SalesShell({ children }) {
     } catch {
       zone = "";
     }
-    fetch(`/api/sales/badges${zone ? `?timeZone=${encodeURIComponent(zone)}` : ""}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((body) => {
-        if (!cancelled && body) setBadges(body);
-      })
-      .catch(() => {
-        /* the digits are chrome; a failed read draws none, never a wrong one */
-      });
+    const read = () =>
+      fetch(`/api/sales/badges${zone ? `?timeZone=${encodeURIComponent(zone)}` : ""}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((body) => {
+          if (cancelled || !body) return;
+          setBadges(body);
+          // ── The in-tab half of browser notifications: texts ──────────
+          //
+          // The badge is the one number this chrome already reads, and a
+          // count that ROSE since the last read is a contractor writing
+          // back. Told through notify(): a toast on a focused tab, a
+          // system notification on a background one (lib/notify/
+          // browser.js). Only from the second read on, so a reload does
+          // not announce a backlog the badge already shows. The server's
+          // push for the same text names the sender; this one cannot
+          // (a count is all the badge route returns) and says how many.
+          const texts = Number.isFinite(body.texts) ? body.texts : null;
+          if (texts !== null && textsSeen.current !== null && texts > textsSeen.current) {
+            notify({
+              title: tRef.current("app.notify.newTexts.title", { count: texts }),
+              tag: "sales-texts",
+              url: "/sales/messages",
+            });
+          }
+          if (texts !== null) textsSeen.current = texts;
+        })
+        .catch(() => {
+          /* the digits are chrome; a failed read draws none, never a wrong one */
+        });
+    read();
+    // Then once a minute while the tab is visible — the same gate the /app
+    // bell uses, for the same reason: a phone in a pocket should not spend
+    // data on three digits nobody is looking at.
+    const tick = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      read();
+    };
+    const id = setInterval(tick, BADGE_POLL_MS);
     return () => {
       cancelled = true;
+      clearInterval(id);
     };
   }, [chromeless, pathname]);
 
   if (chromeless) {
-    return <div className="min-h-screen bg-muted">{children}</div>;
+    return (
+      <div className="min-h-screen bg-muted">
+        {children}
+        {/* The sign-in and invite screens report failures through the same
+            showError() as the rest of the portal; without a layer here a
+            wrong password would fail silently. "bare", not "sales": the
+            sales surface class declares the tab bar's footprint below lg,
+            and these two screens have no bar to clear. */}
+        <ToastLayer surface="bare" />
+      </div>
+    );
   }
 
   // ── One width for reading, a wider one for the console ────────────────────
@@ -551,6 +606,12 @@ export default function SalesShell({ children }) {
           renders here for a rep who dismissed it, and nothing renders on
           /sales/login or /sales/invite, which return above this. */}
       <SalesTour />
+      {/* The toast layer — the queue's top-up notice, every showError() on
+          this surface (which reached nobody before 2026-09-12: nothing was
+          mounted to listen), and the in-tab half of browser notifications.
+          A portal at document.body, above the call dock and the tour's pill,
+          which used to cover the queue's own toast. */}
+      <ToastLayer surface="sales" />
     </div>
     </ConsoleSlotsProvider>
     </SalesSearchProvider>

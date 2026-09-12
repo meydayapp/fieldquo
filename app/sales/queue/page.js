@@ -285,6 +285,7 @@ import AutodialControl, { useAutodial } from "@/app/components/sales/AutodialCon
 import { useSalesSearch } from "@/app/components/sales/SalesSearch";
 import { useConsoleSlots } from "@/app/components/sales/consoleSlots";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { notify } from "@/lib/notify/browser";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -1984,7 +1985,19 @@ function QueueConsole() {
         setData(body);
         // A top-up says what it did in a quiet toast rather than a banner:
         // the rep did not press anything. Every number is the server's.
-        if (extra.auto && body?.batch?.result) setToast(topUpToast(t, body));
+        // Through notify(), not a toast of this page's own: with the tab in
+        // the background it is a system notification instead, and the
+        // toast it draws when focused is the shared layer's — the one this
+        // page drew itself sat under the tour's launcher pill on a phone.
+        if (extra.auto && body?.batch?.result) {
+          notify({
+            title: t("app.salesQueue.topUpTitle"),
+            body: topUpToast(t, body),
+            tag: "sales-queue-topup",
+            url: "/sales/queue",
+            tone: "success",
+          });
+        }
         // Mirrored into the URL so the new prospect is linkable and survives a
         // reload. When the id is unchanged this is a no-op; when it changes,
         // load() runs again and the two answers are guaranteed to agree,
@@ -2443,7 +2456,6 @@ function QueueConsole() {
   // decides everything else — what is open, the cap, the language rule —
   // and releases the rep's dead rows first. Autodial keeps walking: the
   // reloaded order is what it arms against (AutodialControl's pendingArm).
-  const [toast, setToast] = useState(null);
   const lastTopUp = useRef(0);
   const topUpBelow = Number.isFinite(data?.batch?.topUpBelow) ? data.batch.topUpBelow : QUEUE_TOP_UP_BELOW;
   const topUpInterval = Number.isFinite(data?.batch?.topUpIntervalMs) ? data.batch.topUpIntervalMs : QUEUE_TOP_UP_MIN_INTERVAL_MS;
@@ -2465,12 +2477,6 @@ function QueueConsole() {
     // every thirty seconds so a window closing under the rep is noticed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openHeld, loading, fetching, busy, tradeKey, remainingToday, topUpBelow, topUpInterval, tick, data?.serverNow]);
-  useEffect(() => {
-    if (!toast) return undefined;
-    const id = setTimeout(() => setToast(null), 8000);
-    return () => clearTimeout(id);
-  }, [toast]);
-
   const railProps = {
     t,
     loading,
@@ -2512,18 +2518,9 @@ function QueueConsole() {
         </div>
       ) : null}
 
-      {/* The top-up's quiet toast. */}
-      {toast ? (
-        <div
-          className="fixed bottom-[calc(var(--fq-tab-bar-height)+1rem)] left-1/2 -translate-x-1/2 z-40 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-card shadow-lg px-4 py-3 text-sm text-foreground flex items-start gap-2"
-          role="status"
-          aria-live="polite"
-          data-top-up-toast
-        >
-          <Plus size={16} className="mt-0.5 shrink-0 text-brand-accent-text" aria-hidden="true" />
-          <span className="break-words">{toast}</span>
-        </div>
-      ) : null}
+      {/* The top-up's quiet toast is the shared layer's now — see notify()
+          in act(). It used to be drawn here, fixed at the same bottom offset
+          and z-index as the tour's launcher pill, which covered it. */}
 
       {/* Below lg: one button opens the day's list as a drawer. From lg up
           the rail beside the cards is the list and this is not drawn. */}
