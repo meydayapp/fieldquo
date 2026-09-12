@@ -511,10 +511,23 @@ section("6. The connect guard, executed");
   await seedConnected();
   for (const c of rows.messagingChannel) c.importedAt = daysAgo(1);
   const skipped = await importAfterConnect({ companyId: COMPANY });
-  ok("importAfterConnect returns null for a company already imported", skipped === null, skipped);
+  ok("importAfterConnect returns null for a company whose channels are all imported", skipped === null, skipped);
 
   const src = code("lib/messaging/pageImport.js");
-  ok("importAfterConnect guards on state.importedAt before importing", /if \(!state\.available \|\| state\.importedAt\) return null;[\s\S]*?importPageConversations\(\{ companyId \}\)/.test(src));
+  ok("importAfterConnect guards on the unstamped platforms before importing", /if \(!state\.available \|\| !state\.pending\.length\) return null;[\s\S]*?importPageConversations\(\{ companyId, platforms: state\.pending \}\)/.test(src));
+
+  // Per platform, executed: Facebook stamped, Instagram not (Meta refused it
+  // last time) — the state owes Instagram alone, and a platforms-restricted
+  // run touches only that channel.
+  await seedConnected();
+  rows.messagingChannel.find((c) => c.platform === "facebook").importedAt = daysAgo(1);
+  const owed = await pageImportState(COMPANY);
+  ok("pending lists only the never-imported platform", owed.pending.join(",") === "instagram" && owed.platforms.length === 2, owed);
+  const g7 = fakeGraph();
+  const igOnly = await importPageConversations({ companyId: COMPANY, platforms: owed.pending, fetchConversations: g7.fetchConversations, now: NOW });
+  ok("a platforms-restricted run pulls only Instagram", igOnly.kind === "ok" && !igOnly.platforms.facebook && igOnly.platforms.instagram?.conversations === 1 && g7.calls.every((c) => c.platform === "instagram"), { platforms: igOnly.platforms, calls: g7.calls });
+  ok("…and the company then owes nothing", (await pageImportState(COMPANY)).pending.length === 0);
+  ok("importAfterConnect returns null once nothing is owed", (await importAfterConnect({ companyId: COMPANY })) === null);
   ok("…and records a failure to the platform error log rather than throwing", /recordError\(\{[\s\S]*?code: `page_import_\$\{result\.lastError\.kind\}`/.test(src) && /code: "page_import_threw"/.test(src));
   ok("the stamp is written only after a run that reached Meta", /if \(!dryRun && !failed\) \{\s*await stampChannelImported/.test(src));
 }

@@ -75,7 +75,12 @@ export async function GET(request) {
       skipped: result?.skipped ?? 0,
       errors: result?.errors ?? 0,
       platforms: result?.platforms ?? {},
-      lastError: result?.lastError ? { kind: result.lastError.kind, platform: result.lastError.platform } : null,
+      // Meta's own message too, here and only here: this response is read
+      // by a person holding the cron secret, never by a browser, and a kind
+      // alone ("unknown_error") cannot say which permission Meta wants.
+      lastError: result?.lastError
+        ? { kind: result.lastError.kind, platform: result.lastError.platform, message: result.lastError.message || null }
+        : null,
     });
   }
 
