@@ -42,7 +42,7 @@ if (!existsSync(contentPath)) {
   console.error(`No content module for "${lang}" — expected docs/sales/guide/content.${lang}.js`);
   process.exit(1);
 }
-const { GUIDE, DEEP_DIVES } = await import(contentPath);
+const { GUIDE, DEEP_DIVES, CONSOLE_SECTIONS = [] } = await import(contentPath);
 
 // ══ Where the non-prose strings come from ═════════════════════════════════
 //
@@ -90,12 +90,27 @@ if (partials.length) {
  *  printing a broken image — the guide has to be shippable before somebody
  *  has logged in to capture them. */
 const shotsDir = join(ROOT, "docs/sales/guide/shots");
-const shot = (name, caption) => {
-  const file = join(shotsDir, `${name}.png`);
+const figure = (file, caption) => {
   if (!existsSync(file)) return "";
   const b64 = readFileSync(file).toString("base64");
   return `<figure><img src="data:image/png;base64,${b64}" alt="${esc(caption)}"><figcaption>${esc(caption)}</figcaption></figure>`;
 };
+const shot = (name, caption) => figure(join(shotsDir, `${name}.png`), caption);
+
+// ══ The rep's own tools are a second list, not more deep dives ════════════
+//
+// DEEP_DIVES describe the PRODUCT — what a contractor buys — and every one
+// of them is chained to the feature matrix through its `keys`. The console,
+// the batch, the incoming-call drawer, Texts, Team and Pay are not features
+// FieldQuo sells; they are the room the rep works in, and nothing in the
+// matrix proves them. So they are a separate list with no `keys`, no chips,
+// and their own heading, and their proof is a different kind: the screens
+// under docs/screens/sales-console and docs/screens/sales-messages are the
+// REAL components rendered against fixtures, so a section may carry one as
+// its figure (`shot`, a path from the repo root). The image is the claim's
+// evidence in the same way a feature key is — a paragraph that describes a
+// control the frame does not show is the thing to catch in review.
+const consoleSections = Array.isArray(CONSOLE_SECTIONS) ? CONSOLE_SECTIONS : [];
 
 const featureRow = (f) => `
   <tr id="f-${esc(f.key)}">
@@ -108,6 +123,8 @@ const sections = [
   { id: "plans", title: GUIDE.plansHeading },
   { id: "deep", title: GUIDE.deepHeading },
   ...DEEP_DIVES.map((d) => ({ id: d.id, title: d.title, sub: true })),
+  ...(consoleSections.length ? [{ id: "console", title: GUIDE.consoleHeading }] : []),
+  ...consoleSections.map((d) => ({ id: d.id, title: d.title, sub: true })),
   { id: "reference", title: GUIDE.referenceHeading },
   { id: "glossary", title: GUIDE.glossaryHeading },
 ];
@@ -203,6 +220,20 @@ ${DEEP_DIVES.map((d) => `
   <p class="back"><a href="#contents">${esc(GUIDE.backToContents)}</a></p>
 </section>`).join("\n")}
 
+${consoleSections.length ? `
+<section id="console">
+  <h2>${esc(GUIDE.consoleHeading)}</h2>
+  ${(GUIDE.consoleIntro || []).map((p) => `<p>${esc(p)}</p>`).join("\n  ")}
+</section>
+
+${consoleSections.map((d) => `
+<section id="${esc(d.id)}">
+  <h3>${esc(d.title)}</h3>
+  ${d.body.map((p) => `<p>${esc(p)}</p>`).join("\n  ")}
+  ${d.shot ? figure(join(ROOT, d.shot), d.shotCaption || d.title) : ""}
+  <p class="back"><a href="#contents">${esc(GUIDE.backToContents)}</a></p>
+</section>`).join("\n")}` : ""}
+
 <section id="reference">
   <h2>${esc(GUIDE.referenceHeading)}</h2>
   <p>${esc(GUIDE.referenceIntro)}</p>
@@ -229,6 +260,8 @@ mkdirSync(outDir, { recursive: true });
 const out = join(outDir, `fieldquo-sales-guide.${lang}.html`);
 writeFileSync(out, html);
 const englishNames = FEATURE_MATRIX.filter((f) => lang !== "en" && nameOf(f) === f.name).map((f) => f.key);
-console.log(`${lang}: ${FEATURE_MATRIX.length} features, ${DEEP_DIVES.length} deep dives`);
+console.log(`${lang}: ${FEATURE_MATRIX.length} features, ${DEEP_DIVES.length} deep dives, ${consoleSections.length} console sections`);
+const missingShots = consoleSections.filter((d) => d.shot && !existsSync(join(ROOT, d.shot))).map((d) => d.shot);
+if (missingShots.length) console.log(`${lang}: figures named but not found (omitted): ${missingShots.join(", ")}`);
 if (englishNames.length) console.log(`${lang}: feature names still English: ${englishNames.join(", ")}`);
 console.log(`wrote ${out}`);

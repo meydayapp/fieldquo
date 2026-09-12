@@ -15,6 +15,11 @@
 //   égout / rive / faîte / arêtier / noue — the five linear details on a roof
 //   magasiner      — what a tyre-kicker is doing, in one verb
 //   chicane        — a dispute with a homeowner, in the word both would use
+//   lead           not prospect   — the portal's own tab is "Mes leads", and the
+//                                   owner's rule for the guide is the rep's word
+//   cellulaire     not portable/mobile — the phone in a contractor's pocket
+//   texto          not SMS in prose — the tab is labelled "SMS" and is quoted
+//                                   as such; the verb a rep uses is "texter"
 //
 // The trades the guide does not happen to name have the same rule waiting for
 // them if a section is ever added: gypse (not plaque de plâtre), CVAC (not the
@@ -61,7 +66,8 @@ export const GUIDE = {
       "C'est la référence derrière le script. Le guide d'appel vous dit quoi dire; celui-ci vous dit ce qui est vrai, pour que la question à laquelle vous ne vous attendiez pas trouve une réponse plutôt qu'une supposition.",
       "Chaque fonction listée ici vient de la matrice des fonctions du produit, qui nomme les fichiers qui doivent exister pour chacune d'elles. Si une fonction est dans ce document, elle est dans le produit. Si quelque chose ne s'y trouve pas, ne le promettez pas.",
       "Chaque fonction est décrite telle qu'elle fonctionne aujourd'hui. Quand quelque chose est plus récent que le reste, la section détaillée le dit. Si un entrepreneur demande une chose que vous ne trouvez pas dans ce document, dites que vous allez vérifier plutôt que de deviner — l'entrepreneur qui achète sur une promesse que vous ne pouvez pas tenir annule au deuxième mois, et il dit à tout le monde pourquoi.",
-      "Une règle sur ce qu'on vous confie : les prospects du Québec ne vont qu'aux commerciaux qui ont coché le français sous « Langues dans lesquelles je peux vendre » dans l'onglet Paie. Si un entrepreneur du Québec est à votre écran, c'est pour cette raison — prenez l'appel en français.",
+      "Une règle sur ce qu'on vous confie : les leads du Québec ne vont qu'aux représentants qui ont coché le français sous « Langues dans lesquelles je peux vendre » dans l'onglet Paie. Si un entrepreneur du Québec est à votre écran, c'est pour cette raison — prenez l'appel en français.",
+      "La première moitié de ce document, c'est le produit — ce que vous vendez. La deuxième, « Votre console », c'est la pièce d'où vous le vendez : le composeur, le lot, les textos, le clavardage d'équipe et votre paie. Lisez cette moitié-là dès le premier jour; c'est ce que fait l'écran devant vous.",
     ],
   },
   pitchHeading: "Le seul argument à mettre en avant",
@@ -77,6 +83,10 @@ export const GUIDE = {
   deepHeading: "Les parties sur lesquelles on va vous questionner",
   deepIntro:
     "Dans l'ordre de la journée d'un entrepreneur, pas dans l'ordre où le logiciel est bâti. Chaque section nomme les fonctions qu'il y a derrière, pour que vous puissiez les retrouver dans le tableau de référence.",
+  consoleHeading: "Votre console — la pièce d'où vous vendez",
+  consoleIntro: [
+    "Tout ce qui précède, c'est ce qu'un entrepreneur achète. Ceci, c'est ce dans quoi vous travaillez. Chaque section dit ce que l'écran montre et ce que vous y faites, rien de plus — chaque phrase a été vérifiée contre le code en marche et contre les écrans rendus dans docs/screens le jour où ce document a été bâti. Si l'écran devant vous contredit une phrase d'ici, c'est l'écran qui est plus récent; dites-le à l'équipe dans #sales.",
+  ],
   referenceHeading: "Toutes les fonctions, par partie de l'entreprise",
   referenceIntro:
     "Tout, regroupé par le volet de l'entreprise que ça sert. Chaque ligne porte le nom de la fonction et sa description en une phrase — les mêmes mots que le site public.",
@@ -109,15 +119,24 @@ export const GUIDE = {
   ],
   glossary: [
     { term: "Accès équipe", def: "Quelqu'un qui poinçonne, consulte son horaire et ajoute des photos. Gratuit, et n'utilise pas de poste.", key: "crew_shifts" },
+    { term: "Activée · Renouvelée · Paie toujours", def: "Les trois étapes de votre paie pour un client — 20 $ CA quand son compte Stripe peut encaisser, 40 $ CA quand il atteint son cycle de facturation suivant, 65 $ CA quand il est encore abonné soixante jours après son inscription." },
     { term: "Boîte de réception équipe", def: "Les textos avec les gars qui n'ont pas d'accès et qui n'installeront pas d'application. Ils textent un numéro; ça arrive au bureau, classé à leur nom.", key: "crew_inbox" },
+    { term: "Brouillon de suivi", def: "Un texto que FieldQuo rédige pour vous et dépose dans la conversation — au jour 1 et au jour 7 après l'inscription d'une entreprise, puis à l'approche du cap des 60 jours. Vous le modifiez et vous appuyez sur Envoyer. Rien ne l'envoie à votre place." },
     { term: "Carnet de prix", def: "Les taux de l'entrepreneur pour la main-d'œuvre, les matériaux et les services. Tout ce qui est chiffré dans FieldQuo vient de là.", key: "price_book" },
+    { term: "Cellulaire", def: "Le téléphone dans la poche de l'entrepreneur. C'est là que le propriétaire ouvre la soumission, et là que l'entrepreneur reçoit votre texto." },
     { term: "Coût de revient du chantier", def: "Le soumissionné comparé au réel, une fois les travaux finis — pour que les prix de l'an prochain soient bâtis sur ce qui s'est vraiment passé.", key: "job_costing" },
     { term: "Estimation instantanée", def: "Un prix que le propriétaire produit lui-même sur le site web de l'entrepreneur, à partir des taux de l'entrepreneur. Jamais des nôtres.", key: "instant_quotes" },
+    { term: "Lead", def: "Un entrepreneur qu'on veut comme client. Ceux que la file vous confie et ceux que vous avez entrés vous-même sont tous des leads; on ne dit pas « prospect ».", },
     { term: "Lecture IA approfondie", def: "La lecture de photos payante. À distinguer de la révision gratuite, qui regarde aussi les photos mais ne facture rien." },
+    { term: "Lot", def: "Les 25 leads que le serveur vous remet en une pression sur Réserver les 25 suivants — seulement des leads dont la plage d'appel est ouverte à cette minute-là. Il se recomplète tout seul quand il en reste moins de 5 à appeler." },
     { term: "Marque blanche", def: "Chaque document que le propriétaire voit porte le nom et les couleurs de l'entrepreneur, pas les nôtres. C'est le comportement par défaut, pas une option payante.", key: "white_label" },
     { term: "Métré", def: "Le formulaire propre au métier qui transforme des mesures en soumission chiffrée — des carrés de toiture, des pieds linéaires de gouttière, des portes et des tiroirs.", key: "quotes" },
+    { term: "Pastilles de fuseau", def: "Tous · ET · CT · MT · PT au-dessus de votre liste. Choisissez-en une et la liste, Suivant et l'appel automatique restent dans ce fuseau-là." },
+    { term: "Plage d'appel", def: "Les heures où une entreprise peut légalement être appelée, dans son propre fuseau, selon la règle de son État ou de sa province. La console n'affiche jamais de bouton Appeler en dehors." },
     { term: "Poste", def: "Quelqu'un qui crée et modifie des soumissions, des chantiers et des factures. Les postes sont la seule chose qui distingue les forfaits.", key: "team_access" },
+    { term: "Résultat", def: "Ce qui s'est passé pendant l'appel, choisi parmi dix issues, avec la prochaine étape. L'enregistrer met fin à « Rédaction du compte rendu » et, si l'appel automatique est activé, fait sonner le lead suivant." },
     { term: "Seuil de rentabilité", def: "Le prix sous lequel un chantier fait perdre de l'argent à l'entrepreneur, calculé à partir de ses propres frais généraux et de sa propre main-d'œuvre plutôt qu'avec une règle du pouce.", key: "break_even" },
+    { term: "Statut", def: "Ce que vous avez dit au portail que vous faisiez — Disponible, Pause, Souper, Réunion, Formation ou Hors ligne. Un appel entrant ne sonne que chez les représentants Disponibles; les deux états que le système règle lui-même sont En appel et Rédaction du compte rendu." },
     { term: "Supplément", def: "Un extra que le client peut accepter directement sur la soumission, dont le prix est calculé par le serveur et jamais par le navigateur. Le propriétaire le coche; le total se met à jour.", key: "add_on_upsell" },
   ],
 };
@@ -238,6 +257,102 @@ export const DEEP_DIVES = [
       "C'est la deuxième qui fait vendre. Un entrepreneur dont les clients sont hispanophones peut envoyer une soumission en espagnol tout en travaillant en anglais lui-même.",
       "Une règle à énoncer clairement, parce qu'elle sonne comme une limite alors que c'est justement la partie rassurante : un document garde la langue dans laquelle il a été créé. Une soumission signée dira toujours ce qu'elle disait au moment de la signature. Rien n'est retraduit dans le dos du client.",
       "Huit langues pour le client : anglais, français, espagnol, ukrainien, pendjabi, tagalog, allemand et italien. La soumission en PDF, la facture, le courriel d'accompagnement et le portail client suivent tous la langue du client. L'entrepreneur la choisit une fois dans la fiche du client, et chaque document qui suit s'y conforme.",
+    ],
+  },
+];
+
+
+/**
+ * Les outils du représentant, dans l'ordre d'un quart de travail : la console
+ * où l'on se connecte, le lot qu'elle remet, l'appel qui revient, le fil de
+ * textos, l'équipe derrière soi, la règle de langue, la messagerie vocale et
+ * la paie.
+ *
+ * Pas de `keys` — rien de tout ça n'est dans la matrice des fonctions, parce
+ * que rien de tout ça ne se vend. La preuve, c'est l'écran rendu : `shot`
+ * nomme une image sous docs/screens, le vrai composant dessiné contre des
+ * données de test, et le générateur l'insère sous la section. Les captures
+ * sont en anglais — c'est le portail tel qu'il a été rendu — et les mots à
+ * l'écran sont cités ici dans la langue du catalogue livré (app/i18n), pour
+ * qu'un représentant francophone lise « Réserver les 25 suivants » ici et
+ * sur son écran.
+ */
+export const CONSOLE_SECTIONS = [
+  {
+    id: "queue-screen",
+    title: "La console : la liste à gauche, le lead au centre, le téléphone sous la main",
+    shot: "docs/screens/sales-console/desktop-idle.png",
+    shotCaption: "L'écran File d'appels : la barre latérale, le menu de statut, le Composeur à gauche, la carte à onglets avec Script ouvert.",
+    body: [
+      "Chaque écran de /sales a la même barre latérale verticale à gauche : Aujourd'hui · File d'appels · Argumentaire · Mes leads · Conversations · SMS · Équipe · Notes · Agenda · Mes entreprises · Démo · Assistance · Messagerie · Paie. SMS, Équipe et Messagerie portent une pastille quand quelque chose vous attend. Au pied : « Appels aujourd'hui N / 250 » — les appels que vous avez composés depuis le début de votre journée, contre le plafond du jour. Elle se replie en icônes si vous voulez la largeur.",
+      "La barre du haut tient la boîte de recherche et votre statut. La pastille de statut dit ce que vous faites et depuis combien de temps — Disponible, En appel, Rédaction du compte rendu, Pause… — et ouvre un menu de six choix : Disponible · Pause · Souper · Réunion · Formation · Hors ligne. En appel et Rédaction du compte rendu ne sont pas dans le menu : appuyer sur Appeler règle le premier, raccrocher règle le deuxième, jusqu'à ce que vous enregistriez l'issue. Mettez-vous Hors ligne en partant, parce qu'un rappel ne sonne que chez les représentants Disponibles, et qu'un portable laissé sur Disponible sonne vingt secondes avant que l'appelant passe au suivant.",
+      "Le Composeur est à gauche de l'écran File d'appels et il est bâti comme un téléphone : le numéro en gros caractères, un clavier 3 × 4, et Appeler en dessous. La petite ligne au-dessus de l'afficheur, c'est la plage d'appel du lead et la règle qui s'applique — « Plage fermée à 21 h · Règle de Oklahoma », ou « Règle FieldQuo » quand l'État n'en impose aucune. Sous le bouton Appeler, quand un État limite le nombre d'appels à la même entreprise sur le même sujet, une deuxième ligne fait le compte : « 1 appel sur 3 en 24 h · Oklahoma ». Hors de la plage, il n'y a pas de bouton Appeler du tout, seulement la raison et l'heure d'ouverture; un bouton grisé qui ne fait rien, c'est la seule chose que cet écran refuse de dessiner.",
+      "Si le propriétaire vous donne un autre numéro — son cellulaire, souvent — tapez-le sur le clavier. Appeler l'enregistre d'abord sur ce lead, puis le compose avec les mêmes vérifications qu'un numéro déjà en fiche — jamais un numéro flottant, et un numéro sur la liste de ne-pas-contacter est refusé avec la phrase sous l'afficheur. Pendant l'appel, les mêmes touches envoient des tonalités, pour un menu téléphonique. L'appel automatique, c'est l'interrupteur sous le bouton : activé, le lead suivant sonne cinq secondes après que vous avez enregistré l'issue, et la carte s'ouvre sur Résultat au lieu de Script.",
+      "À droite, une seule grande carte à huit onglets : Entreprise · Contact · Script · Recherche · Notes · Résultat · Tâches · Leads. Chaque numéro sous Entreprise et Contact a un bouton Appeler à côté. Script, c'est l'appel en étapes numérotées, puis les Points clés et l'Objectif — la demande pour laquelle cet appel existe. Recherche, c'est trois couches dans le même ordre chaque fois : les faits, puis ce qu'on pense (toujours avec un niveau de confiance), puis ce qu'on recommande. Résultat, c'est les dix issues et la prochaine étape. Tâches tient les rappels et les brouillons de suivi. Leads, c'est votre lot, regroupé par plage d'appel. Précédent · Suivant parcourent le lot; Suivant dans la file saute au premier lead que vous pouvez appeler maintenant.",
+    ],
+  },
+  {
+    id: "batch",
+    title: "Votre lot : 25 à la fois, seulement des leads que vous pouvez appeler à cette minute",
+    shot: "docs/screens/sales-console/desktop-top-up.png",
+    shotCaption: "Le lot qui se recomplète tout seul : moins de 5 ouverts, trois leads du Pacifique ajoutés, deux leads de l'Est fermés libérés.",
+    body: [
+      "Choisissez un métier et appuyez sur Réserver les 25 suivants. C'est le serveur qui choisit — vous ne pouvez pas fouiller le bassin, et c'est voulu — et il ne vous remet que des leads dont la plage d'appel est ouverte à cette minute-là, celui qui ferme le plus tôt d'abord, les recherchés devant les autres. À huit heures du matin heure de l'Est, ça donne des leads de l'Est et de l'Atlantique; à neuf heures le soir, des leads du Pacifique. Un lot court dit pourquoi : « 12 ouverts maintenant — d'autres ouvrent à 11 h PT ».",
+      "Vous n'appuyez pas une deuxième fois. Quand il vous reste moins de 5 leads encore appelables, la console ajoute le lot suivant toute seule, au plus une fois par minute, et le dit sans faire de bruit : « 25 leads ouverts maintenant ajoutés (PT). 3 leads fermés libérés. » Au même moment, les leads que vous n'avez jamais touchés et dont la plage est fermée pour le reste de votre quart retournent au bassin. Un lead que vous avez appelé, ou sur lequel vous avez fixé un rappel, ne vous est jamais retiré. Le plafond du jour est de 250 réservations, et la barre latérale les compte.",
+      "Les pastilles de fuseau au-dessus de la liste — Tous · ET · CT · MT · PT, et AT · NT si vous en tenez — la filtrent, et la pastille choisie dit le prochain fait du fuseau : « ouvert jusqu'à 21 h PT », ou « fermé — ouvre à 8 h ». Suivant et l'appel automatique suivent le filtre : choisissez PT en fin de journée et la tournée reste sur la côte Ouest.",
+      "S'il arrive moins de leads que demandé et que la note dit « N leads du Québec non proposés — ajoutez le français à vos langues dans l'onglet Paie », c'est la règle de langue deux sections plus bas, pas un bogue.",
+    ],
+  },
+  {
+    id: "incoming",
+    title: "Quand un entrepreneur vous rappelle",
+    shot: "docs/screens/sales-console/desktop-ring.png",
+    shotCaption: "Le tiroir d'appel entrant, descendu sous la barre du haut : l'entreprise, le numéro, à qui est le lead, Décrocher, Refuser.",
+    body: [
+      "Un appel sur votre numéro sonne dans le portail, peu importe l'écran de /sales où vous êtes. Un tiroir descend sous la barre du haut avec le nom de l'entreprise, le numéro et à qui est le lead, et deux boutons : Décrocher et Refuser. Décrocher place l'appel en cours dans la case du Composeur, exactement là où un appel sortant se trouve, avec Couper le micro, Raccrocher et Transférer. Refuser redonne l'appel pour que le représentant suivant du plan de sonnerie le reçoive — ça n'envoie pas l'appelant dans la messagerie vocale. C'est seulement quand personne ne décroche que l'appelant patiente pendant que le système regarde encore, et qu'il atteint la messagerie vocale après.",
+      "Qui sonne : d'abord le représentant à qui appartient le numéro composé; ensuite celui qui a appelé cet entrepreneur en dernier; puis les représentants Disponibles dont on a eu des nouvelles récemment — au plus trois, vingt secondes chacun. En pause, Hors ligne et les portables endormis sont sautés, et c'est pour ça que votre statut compte. Un appelant avec un indicatif du Québec, ou un lead que l'appariement place au Québec, ne sonne que chez les représentants qui ont le français.",
+    ],
+  },
+  {
+    id: "texts",
+    title: "SMS : un client de clavardage, et rien ne s'envoie tout seul",
+    shot: "docs/screens/sales-messages/desktop-thread-bottom.png",
+    shotCaption: "SMS : les quatre groupes, une conversation avec un brouillon de suivi dedans, le composeur avec la ligne de plage, la barre de contact.",
+    body: [
+      "SMS, c'est un client de clavardage, pas une liste avec une boîte de rédaction. Les conversations à gauche sont en quatre groupes — À répondre · En attente de leur réponse · Brouillons à envoyer · Terminées —, la conversation est au centre avec les séparateurs de jour et la ligne rouge des non-lus, et le contact est dans une barre à droite (Détails · Canaux · Historique). Chaque texto part du numéro de vente de FieldQuo, et la réponse atterrit dans la même conversation.",
+      "La ligne au-dessus du composeur, c'est la plage de texto du lead dans SON fuseau — « Ouvert jusqu'à 21 h CDT », ou « Fermé — ouvre à 8 h ». Le fuseau vient de sa province, ou du fuseau que vous avez indiqué après lui avoir parlé; un État à cheval sur deux fuseaux (Floride, Texas, C.-B.) fait l'objet d'une question plutôt que d'une supposition, et il n'est jamais déduit de l'indicatif. Le serveur juge la plage une deuxième fois à l'instant où vous appuyez sur Envoyer.",
+      "STOP veut dire STOP. Une conversation où ils ont répondu STOP montre une étiquette STOP rouge et pas de composeur — rien ne peut être envoyé à ce numéro, sur aucun canal, et seule une demande écrite d'un superadministrateur la rouvre. Ne contournez pas ça avec votre propre cellulaire.",
+      "Les suivis sont des brouillons. Au jour 1 après l'inscription d'une entreprise (la configuration a-t-elle passé?) et au jour 7 (est-ce que ça marche sur un vrai chantier?), plus un à l'approche du cap des 60 jours quand il est dû, le brouillon apparaît dans la conversation et sous Brouillons à envoyer avec l'indice « Tab pour le charger ». Vous le lisez, vous le changez, vous appuyez sur Envoyer. Rien ne part tout seul, jamais. Tapez ! dans le composeur pour les formulations toutes prêtes — les groupes Suivi et Vente, et le lien d'inscription.",
+      "Nouveau message ouvre une conversation avec un de vos propres leads. Nouveau texto à un numéro prend un numéro que vous tapez — canadien ou américain seulement; un +1 des Caraïbes ou n'importe quoi d'outre-mer est refusé avec la raison, et un numéro qu'un autre représentant tient aussi. Un numéro que personne ne tient devient un lead avec seulement le numéro dessus, et le premier message est la présentation avec le lien d'inscription, envoyée par vous.",
+    ],
+  },
+  {
+    id: "team",
+    title: "Équipe : tout le monde chez FieldQuo, d'un seul écran",
+    body: [
+      "Équipe, c'est le clavardage de FieldQuo — les représentants et ceux qui les appuient, dans les mêmes salons, sur le même écran qu'un administrateur de la plateforme voit. Trois canaux où tout le monde est : #fieldquo, tout FieldQuo et le seul que personne ne peut quitter; #sales, les représentants au téléphone et les gens derrière eux; et #support, où vous passez le problème d'un client à quelqu'un qui peut le régler. Nouveau groupe crée un salon privé avec les représentants et le personnel FieldQuo que vous choisissez; Nouveau message ouvre un message direct avec une personne; @ dans le composeur liste les membres du salon, et une mention ne peut nommer que quelqu'un qui y est. Une question posée ici est lue par quelqu'un qui peut agir.",
+    ],
+  },
+  {
+    id: "sells-in",
+    title: "Langues dans lesquelles je peux vendre — et pourquoi le Québec peut ne pas vous parvenir",
+    body: [
+      "Dans Paie, sous la langue du portail, il y a Langues dans lesquelles je peux vendre. Cochez chaque langue dans laquelle vous pouvez prendre un appel de vente. Laissée sans réponse, elle compte comme anglais seulement. Les leads du Québec ne vont qu'aux représentants qui ont le français — à la réservation à l'unité, dans le lot, quand un lead vous est transféré, et quand un numéro du Québec appelle — et la file vous dit combien ont été retenus : « N leads du Québec non proposés — ajoutez le français à vos langues dans l'onglet Paie pour les recevoir. » Le Nouveau-Brunswick n'a pas cette règle. Si vous parlez français, cochez-le avant votre premier quart; un superadministrateur peut aussi le régler sur votre fiche de représentant.",
+    ],
+  },
+  {
+    id: "voicemail",
+    title: "Messagerie vocale",
+    body: [
+      "Un entrepreneur qui appelle votre numéro quand personne ne peut décrocher patiente un moment pendant que le système cherche quelqu'un de libre, et laisse un message après. Messagerie, c'est là que vous l'écoutez : chaque message avec le numéro, l'heure, le nombre de secondes parlées, un lecteur, et le lead à ouvrir. Un message de zéro seconde est affiché exprès — c'est quelqu'un qui a rappelé, entendu le bip et raccroché, et ça vaut un rappel. La pastille sur l'onglet compte les messages laissés depuis le début de votre journée.",
+    ],
+  },
+  {
+    id: "pay",
+    title: "Votre paie : un client, trois étapes, 125 $ CA",
+    body: [
+      "Tout ce que FieldQuo verse à un représentant est en dollars canadiens. Un client rapporte 125 $ CA, en trois étapes qui suivent le client à mesure qu'il fait ses preuves : 20 $ CA quand l'entreprise est Activée — Stripe l'a vérifiée et a activé les paiements, donc elle peut encaisser; 40 $ CA quand elle est Renouvelée — elle atteint son cycle de facturation suivant après le mois gratuit, que Stripe ait prélevé ou qu'un crédit de parrainage ait couvert; 65 $ CA quand elle Paie toujours — encore abonnée soixante jours après le jour de son inscription, essai compris. Le plan est une ligne sur votre fiche de représentant, donc un représentant embauché à d'autres conditions garde les siennes; et si vous partez, ce que vos entreprises continuent de rapporter reste à vous.",
+      "Paie le montre : Gagné depuis le début, Versé, Clôturé pas encore versé, Cette semaine jusqu'ici; chaque entreprise que vous avez amenée avec l'étape qu'elle a atteinte; et les semaines, chacune avec sa date de versement une fois le paiement passé. Les semaines se ferment du lundi au lundi et le paiement règle la semaine d'avant. Rien sur l'écran ne se modifie — c'est le registre à partir duquel le versement est payé. En dessous, où FieldQuo envoie l'argent (Virement Interac pour un compte canadien, Wise pour un représentant hors du Canada, PayPal, ou un virement bancaire), puis la langue du portail, puis Langues dans lesquelles je peux vendre.",
     ],
   },
 ];
