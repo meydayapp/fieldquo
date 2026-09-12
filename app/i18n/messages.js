@@ -293,6 +293,7 @@ const en = {
   "pricingPage.currencyNote":
     "All prices are in {currency}. Your billing currency is set by the country you choose when you sign up.",
   "pricingPage.taxNote": "Plus applicable taxes.",
+  "pricingPage.processingFees": "Taking payments: card payments cost {card} per transaction and bank debit in Canada {debit}, deducted from each payment before it reaches your bank — never billed separately, and no monthly fee for payments.",
   "pricingPage.emptyTitle":
     "Pricing plans are being finalised — check back shortly.",
   "pricingPage.emptyCta": "Ask us about early access pricing",
@@ -826,6 +827,7 @@ const fr = {
   "pricingPage.currencyNote":
     "Tous les prix sont en {currency}. Votre devise de facturation est déterminée par le pays que vous choisissez à l'inscription.",
   "pricingPage.taxNote": "Taxes en sus.",
+  "pricingPage.processingFees": "Encaissements : les paiements par carte coûtent {card} par transaction et le débit bancaire au Canada {debit}, déduits de chaque paiement avant qu'il n'atteigne votre compte — jamais facturés à part, sans frais mensuels pour les paiements.",
   "pricingPage.emptyTitle":
     "Les forfaits sont en cours de finalisation — revenez bientôt.",
   "pricingPage.emptyCta": "Demandez-nous les tarifs d'accès anticipé",
@@ -1329,6 +1331,7 @@ const es = {
   "pricingPage.currencyNote":
     "Todos los precios están en {currency}. Tu moneda de facturación la determina el país que elijas al registrarte.",
   "pricingPage.taxNote": "Más los impuestos aplicables.",
+  "pricingPage.processingFees": "Cobros: los pagos con tarjeta cuestan {card} por transacción y el débito bancario en Canadá {debit}, descontados de cada pago antes de llegar a su banco; nunca se facturan aparte y no hay cuota mensual por cobrar.",
   "pricingPage.emptyTitle":
     "Estamos afinando los planes — vuelve a consultarlo pronto.",
   "pricingPage.emptyCta": "Pregúntanos por los precios de acceso anticipado",
@@ -1833,6 +1836,7 @@ const uk = {
   "pricingPage.currencyNote":
     "Усі ціни вказано в {currency}. Валюта оплати визначається країною, яку ви обираєте під час реєстрації.",
   "pricingPage.taxNote": "Плюс відповідні податки.",
+  "pricingPage.processingFees": "Приймання платежів: оплата карткою коштує {card} за транзакцію, банківський дебет у Канаді — {debit}; утримується з кожного платежу до надходження на ваш рахунок, ніколи не виставляється окремо, без щомісячної плати за платежі.",
   "pricingPage.emptyTitle":
     "Тарифи ще узгоджуються — завітайте трохи пізніше.",
   "pricingPage.emptyCta": "Запитайте нас про ціни раннього доступу",
@@ -2336,6 +2340,7 @@ const pa = {
   "pricingPage.currencyNote":
     "ਸਾਰੀਆਂ ਕੀਮਤਾਂ {currency} ਵਿੱਚ ਹਨ। ਤੁਹਾਡੀ ਬਿਲਿੰਗ ਕਰੰਸੀ ਉਸ ਦੇਸ਼ ਤੋਂ ਤੈਅ ਹੁੰਦੀ ਹੈ ਜੋ ਤੁਸੀਂ ਸਾਈਨ ਅੱਪ ਵੇਲੇ ਚੁਣਦੇ ਹੋ।",
   "pricingPage.taxNote": "ਲਾਗੂ ਟੈਕਸ ਵੱਖਰੇ।",
+  "pricingPage.processingFees": "ਭੁਗਤਾਨ ਲੈਣਾ: ਕਾਰਡ ਭੁਗਤਾਨਾਂ 'ਤੇ ਪ੍ਰਤੀ ਲੈਣ-ਦੇਣ {card} ਅਤੇ ਕੈਨੇਡਾ ਵਿੱਚ ਬੈਂਕ ਡੈਬਿਟ 'ਤੇ {debit} ਲੱਗਦਾ ਹੈ, ਜੋ ਤੁਹਾਡੇ ਬੈਂਕ ਤੱਕ ਪਹੁੰਚਣ ਤੋਂ ਪਹਿਲਾਂ ਹਰ ਭੁਗਤਾਨ ਵਿੱਚੋਂ ਕੱਟਿਆ ਜਾਂਦਾ ਹੈ — ਕਦੇ ਵੱਖਰੇ ਬਿਲ ਨਹੀਂ, ਭੁਗਤਾਨਾਂ ਲਈ ਕੋਈ ਮਹੀਨਾਵਾਰ ਫੀਸ ਨਹੀਂ।",
   "pricingPage.emptyTitle":
     "ਪਲਾਨ ਅਜੇ ਤੈਅ ਹੋ ਰਹੇ ਹਨ — ਥੋੜ੍ਹੀ ਦੇਰ ਬਾਅਦ ਵੇਖੋ।",
   "pricingPage.emptyCta": "ਅਰਲੀ ਐਕਸੈਸ ਕੀਮਤਾਂ ਬਾਰੇ ਸਾਨੂੰ ਪੁੱਛੋ",
@@ -2844,6 +2849,7 @@ const tl = {
   "pricingPage.currencyNote":
     "Lahat ng presyo ay nasa {currency}. Ang currency ng inyong billing ay nakabatay sa bansang pipiliin ninyo sa pag-sign up.",
   "pricingPage.taxNote": "Hindi pa kasama ang mga buwis.",
+  "pricingPage.processingFees": "Pagtanggap ng bayad: {card} bawat transaksyon sa card at {debit} sa bank debit sa Canada, ibinabawas sa bawat bayad bago umabot sa bangko mo — hindi kailanman sinisingil nang hiwalay, at walang buwanang bayad para sa pagtanggap ng bayad.",
   "pricingPage.emptyTitle":
     "Tinatapos pa ang mga plano — bumalik po kayo mamaya.",
   "pricingPage.emptyCta": "Tanungin kami tungkol sa early access pricing",
@@ -3310,6 +3316,7 @@ const de = {
   "pricingPage.perMonth": "/Monat",
   "pricingPage.currencyNote": "Alle Preise verstehen sich in {currency}. Ihre Abrechnungswährung ergibt sich aus dem Land, das Sie bei der Anmeldung wählen.",
   "pricingPage.taxNote": "Zuzüglich anfallender Steuern.",
+  "pricingPage.processingFees": "Zahlungen annehmen: Kartenzahlungen kosten {card} pro Transaktion, Bankeinzug in Kanada {debit} — von jeder Zahlung abgezogen, bevor sie Ihr Konto erreicht, nie separat berechnet und ohne Monatsgebühr für Zahlungen.",
   "pricingPage.emptyTitle": "Die Tarife werden gerade finalisiert — schauen Sie bald wieder vorbei.",
   "pricingPage.emptyCta": "Fragen Sie uns nach Preisen für den frühen Zugang",
   "notFound.title": "Diese Seite finden wir nicht",
@@ -3676,6 +3683,7 @@ const zh = {
   "pricingPage.perMonth": "/月",
   "pricingPage.currencyNote": "所有价格均以 {currency} 计。结算货币由你注册时选择的国家决定。",
   "pricingPage.taxNote": "另加适用税费。",
+  "pricingPage.processingFees": "收款：银行卡付款每笔 {card}，加拿大银行扣款 {debit}，在到达你的银行之前从每笔付款中扣除——从不单独计费，收款没有月费。",
   "pricingPage.emptyTitle": "价格方案正在敲定——过一会儿再来看。",
   "pricingPage.emptyCta": "问问我们早期价格",
   "notFound.title": "找不到这个页面",
@@ -4101,6 +4109,7 @@ const it = {
   "pricingPage.currencyNote":
     "Tutti i prezzi sono in {currency}. La sua valuta di fatturazione è determinata dal Paese che sceglie alla registrazione.",
   "pricingPage.taxNote": "Oltre alle imposte applicabili.",
+  "pricingPage.processingFees": "Incassi: i pagamenti con carta costano {card} per transazione e l'addebito bancario in Canada {debit}, trattenuti da ogni pagamento prima che arrivi sul suo conto — mai fatturati a parte e senza canone mensile per gli incassi.",
   "pricingPage.emptyTitle":
     "I piani tariffari sono in fase di definizione — ricontrolli tra poco.",
   "pricingPage.emptyCta": "Ci chieda dei prezzi ad accesso anticipato",

@@ -70,6 +70,7 @@ import PricingPlans, {
   signupHref,
 } from "@/app/(marketing)/pricing/PricingPlans";
 import { resolvePlanSelection } from "@/app/signup/page";
+import { PROCESSING_RATES } from "@/lib/stripe/processingFee";
 
 // ── Rows in, HTML out, through the shipped page ────────────────────────────
 //
@@ -580,6 +581,13 @@ async function main() {
   {
     const allowed = new Set([
       ...SEAT_LADDER.map((t) => t.price),
+      // The processing-fee sentence: its dollar parts (the 30¢ on a card,
+      // the 40¢ and the $5 cap on bank debit) come from the ONE rate table
+      // the checkout charges from — lib/stripe/processingFee.js — so they
+      // are publishable by construction. Anything hand-typed still strays.
+      ...Object.values(PROCESSING_RATES).flatMap((r) =>
+        [r.fixedCents, r.capCents].filter((c) => c != null).map((c) => c / 100),
+      ),
       ...allAddOns()
         .filter((a) => withholdReason(a, TODAY) === null && a.price?.kind === PRICE_AMOUNT)
         .map((a) => a.price.amount),

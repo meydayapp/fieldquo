@@ -92,10 +92,16 @@ them:
    non-positive amount and refuses an overpayment rather than banking a credit.
    The only refund in the product is `Booking.feeRefundedAt/feeRefundedCents` —
    the visit fee, not an invoice.
-7. **No Stripe fee on `Payment`.** A $2,260 invoice paid by card deposits about
-   $2,194 into the bank. QBO users reconcile against a bank feed; a payment
-   recorded at face value with no fee line never reconciles. `lib/stripe.js`
-   sets `application_fee_amount: 0` and nothing reads the balance transaction.
+7. ~~**No Stripe fee on `Payment`.**~~ **Closed 2026-09-12.** A $2,260 invoice
+   paid by card now records `amount` 2,260.00 (gross), `processingFeeCents`
+   6810 and `netCents` 219190 on the `Payment` row, read from the
+   PaymentIntent's application fee at settlement
+   (`lib/stripe/paymentIntentFee.js`); the accounting export carries
+   "Processing fee" and "Net deposited" columns on each payment line and a
+   "Processing fees" total in the summary, so the bank feed matches "Net
+   deposited" and the fee posts as its own expense. Rows recorded before this
+   shipped, and every manual payment, leave the columns blank (absence, not
+   zero). Still open: refunds (item 6) and a QBO push (item 9).
 8. **No external-id or sync-state columns.** Nothing on `Invoice`, `Client`,
    `Payment` or `Product` can hold a QuickBooks id, and there is no per-company
    connection row. This is a schema change on four models plus one new one.

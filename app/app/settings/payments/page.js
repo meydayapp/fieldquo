@@ -18,6 +18,8 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
+import ProcessingFeesCard from "./ProcessingFeesCard";
+import InstantPayoutCard from "./InstantPayoutCard";
 
 function PaymentsPageScreen() {
   const { t } = useTranslation();
@@ -444,6 +446,21 @@ function PaymentsPageScreen() {
           </div>
         )}
       </div>
+
+      {/* ── What each payment costs, and instant payouts ────────────────────
+          The fee card renders in every state — a contractor deciding whether
+          to connect is the person who most needs the number. The instant
+          payout card only once there is a Stripe account to pay out from;
+          it explains its own refusals. */}
+      <ProcessingFeesCard
+        currency={company?.currency}
+        offerFinancing={Boolean(company?.offerFinancing)}
+      />
+      <InstantPayoutCard
+        connected={Boolean(active)}
+        onOpenDashboard={handleManageInStripe}
+        openingDashboard={openingDashboard}
+      />
 
       {/* ── Your Stripe account ────────────────────────────────────────────
           The contractor holds the Stripe relationship; FieldQuo holds the

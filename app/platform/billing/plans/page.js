@@ -37,6 +37,7 @@ import { planMoney } from "@/lib/pricing/ladder";
 // The card says what THIS says, and nothing else, about whether a plan can be
 // bought. See the note on PlanCard's status line.
 import { planStatus } from "@/lib/platform/sellablePlans";
+import ProcessingRatesCard from "./ProcessingRatesCard";
 import PlatformWriteGate, {
   usePlatformAdmin,
 } from "@/app/components/platform/PlatformWriteGate";
@@ -294,6 +295,8 @@ export default function PlatformPlansPage() {
           <AlertCircle size={16} className="shrink-0 mt-0.5" /> {error}
         </div>
       )}
+
+      <ProcessingRatesCard />
 
       {usageError && (
         <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl p-4 flex items-start gap-2 text-sm text-amber-800 dark:text-amber-200">

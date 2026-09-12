@@ -76,6 +76,7 @@ export const GUIDE = {
   pitch: [
     "Todas las funciones de este documento están en todos los planes. Todas. Los planes se diferencian por cuánta gente puede usarlas, y en nada más.",
     "Ese es el argumento de venta. El contratista que nos compara con Jobber o Housecall Pro está acostumbrado a una tabla donde lo que de verdad necesita queda dos niveles más arriba. Aquí no hay ningún nivel al que subir: el plan más barato es el producto completo para una persona, y pagar más solo agrega puestos.",
+    "Las comisiones de tarjeta, cuando pregunten: 3 % + 30 ¢ por un pago con tarjeta en línea — prácticamente el 2,99 % de Housecall Pro, y una décima de punto por encima del 2,9 % + 30 ¢ de Jobber, así que no diga que somos más baratos en tarjetas. Las tarjetas de empresa y Amex van al mismo 3 %, no a una tarifa recargada del 3,49 %. Donde ganamos es en el débito bancario en Canadá: 1 % + 40 ¢ con tope de 5 $ por pago — una factura de 5 000 $ pagada por débito preautorizado le cuesta 5 $ al contratista, mientras que los pagos bancarios de Jobber son un 1 % fijo sin tope. Cada comisión se descuenta del pago antes de llegar a su banco; nada se factura aparte y no hay cuota mensual por cobrar.",
   ],
   plansHeading: "Los planes, y lo que de verdad cambia",
   plansIntro: "Cuatro planes. Las únicas diferencias son los puestos, los accesos de cuadrilla y el precio.",

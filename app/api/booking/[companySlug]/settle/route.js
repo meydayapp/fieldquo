@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { stripe } from "@/lib/stripe";
 import { findBookingCompany } from "@/lib/booking/findBookingCompany";
-import { settleBookingFee } from "@/lib/booking/settleBookingFee";
+import { settleBookingFee, bookingPaymentFromSession } from "@/lib/booking/settleBookingFee";
 
 // Public — the client's own return from Stripe Checkout, and the second of the
 // three ways a paid booking gets confirmed.
@@ -81,15 +81,7 @@ export async function POST(request, { params }) {
     });
   }
 
-  const result = await settleBookingFee(booking.id, {
-    amountCents: session.amount_total,
-    currency: session.currency || null,
-    paymentIntentId:
-      typeof session.payment_intent === "string"
-        ? session.payment_intent
-        : session.payment_intent?.id || null,
-    checkoutSessionId: session.id,
-  });
+  const result = await settleBookingFee(booking.id, await bookingPaymentFromSession(session));
 
   const fresh = await db.booking.findUnique({
     where: { id: booking.id },

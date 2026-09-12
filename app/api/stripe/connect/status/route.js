@@ -24,7 +24,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { stripe } from "@/lib/stripe";
+import { stripe, ensureChargeCapabilities } from "@/lib/stripe";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 // The requirement wording and the identity gate both live in lib/stripe/ now:
@@ -109,6 +109,16 @@ export async function GET(request) {
   try {
     const account = await stripe.accounts.retrieve(company.stripeAccountId);
     const summary = summariseConnectAccount(account);
+
+    // Express accounts opened before every charge named the account as
+    // settlement merchant (`on_behalf_of`, lib/stripe.js) may not have
+    // card_payments requested; without it that charge fails. This poll is
+    // the one path every connected company hits, so the repair happens
+    // here, once, and is a no-op afterwards. Best-effort: a failed update is
+    // logged, and the status answer is still Stripe's.
+    await ensureChargeCapabilities(account).catch((err) => {
+      console.error("[stripe/connect/status] capability request failed:", err?.message);
+    });
 
     // Write it back, so the rest of the app — invoice pay links, the platform
     // company view — sees the same truth without each having to call Stripe.

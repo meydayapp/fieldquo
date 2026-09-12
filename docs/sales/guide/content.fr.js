@@ -74,6 +74,7 @@ export const GUIDE = {
   pitch: [
     "Toutes les fonctions de ce document sont dans tous les forfaits. Toutes. Les forfaits se distinguent par le nombre de personnes qui peuvent s'en servir, et par rien d'autre.",
     "C'est ça, l'argument de vente. L'entrepreneur qui nous compare à Jobber ou à Housecall Pro est habitué à une grille où ce dont il a vraiment besoin se trouve deux paliers plus haut. Ici, il n'y a pas de palier à gravir : le forfait le moins cher, c'est le produit au complet pour une personne, et payer plus n'ajoute que des postes.",
+    "Les frais de carte, quand on vous le demande : 3 % + 30 ¢ sur un paiement par carte en ligne — pratiquement le 2,99 % de Housecall Pro, et un dixième de point au-dessus du 2,9 % + 30 ¢ de Jobber, donc ne prétendez pas que nous sommes moins chers sur les cartes. Les cartes d'entreprise et Amex sont au même 3 %, pas un taux majoré de 3,49 %. Là où nous gagnons, c'est le débit bancaire au Canada : 1 % + 40 ¢ plafonné à 5 $ par paiement — une facture de 5 000 $ payée par débit préautorisé coûte 5 $ à l'entrepreneur, alors que les paiements bancaires de Jobber sont un 1 % fixe sans plafond. Chaque frais est retenu sur le paiement avant qu'il n'atteigne leur banque ; rien n'est facturé à part et il n'y a aucun frais mensuel pour encaisser.",
   ],
   plansHeading: "Les forfaits, et ce qui change vraiment",
   plansIntro: "Quatre forfaits. Les seules différences sont les postes, les accès équipe et le prix.",

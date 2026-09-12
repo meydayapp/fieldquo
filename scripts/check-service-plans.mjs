@@ -506,10 +506,18 @@ console.log("\n6. The Stripe integration, asserted statically\n");
   ok("the setup intent is usage: 'off_session'", /usage:\s*["']off_session["']/.test(mandate));
   ok("the charge confirms off-session",
     /off_session:\s*true/.test(mandate) && /confirm:\s*true/.test(mandate));
+  // The money route — transfer_data, on_behalf_of and the processing fee —
+  // comes from ONE function in lib/stripe.js (destinationChargeParams) so a
+  // charge creator cannot forget a key. The fee itself is executed in
+  // scripts/check-processing-fee.mjs; here the mandate charge only has to be
+  // shown to use the shared route rather than spelling its own.
   ok("the charge is a DESTINATION charge, like the existing pay link",
-    /transfer_data:\s*\{\s*destination/.test(mandate) &&
-      /transfer_data:\s*\{\s*destination/.test(stripeLib));
-  ok("  ^ with the same zero platform fee", /application_fee_amount:\s*0/.test(mandate));
+    /\.\.\.destinationChargeParams\(/.test(mandate) &&
+      /transfer_data:\s*\{\s*destination/.test(stripeLib) &&
+      /export function destinationChargeParams/.test(stripeLib));
+  ok("  ^ with the same processing fee, passed through to the contractor (no literal fee here)",
+    !/application_fee_amount/.test(mandate.replace(/\/\/.*$/gm, "")) &&
+      /method:\s*authorisation\.paymentMethodType/.test(mandate));
   ok("the mandate id is passed when there is one", /mandate:\s*authorisation\.stripeMandateId/.test(mandate));
   ok("the payment method type is pinned to the authorised one",
     /payment_method_types:\s*\[authorisation\.paymentMethodType\]/.test(mandate));

@@ -46,6 +46,7 @@ export const GUIDE = {
   pitch: [
     "Every feature in this document is in every plan. All of it. The plans differ by how many people can use it and nothing else.",
     "That is the argument. A contractor comparing us to Jobber or Housecall Pro is used to a grid where the thing they actually need sits two tiers up. Here there is no tier to climb: the cheapest plan is the whole product for one person, and paying more only adds seats.",
+    "Card fees, when they ask: 3% + 30¢ on a card payment online — pretty much Housecall Pro's 2.99%, and a tenth of a point above Jobber's 2.9% + 30¢, so do not claim we are cheaper on cards. Business and Amex cards are the same 3%, not a 3.49% surcharge rate. Where we win is bank debit in Canada: 1% + 40¢ capped at $5 per payment — a $5,000 invoice paid by pre-authorized debit costs the contractor $5, where Jobber's bank payments are a flat 1% with no cap. Every fee comes off the payment before it reaches their bank; nothing is billed separately and there is no monthly fee for taking payments.",
   ],
   plansHeading: "The plans, and what actually changes",
   plansIntro: "Four plans. The only differences are seats, crew logins and price.",

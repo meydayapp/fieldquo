@@ -66,6 +66,7 @@ import ClientMediaTile from "@/app/components/ClientMediaTile";
 import BrandTheme from "@/app/components/BrandTheme";
 import { moneyFormatter } from "@/lib/format/money";
 import { paymentMethodLabel } from "@/lib/payments/methodLabels";
+import { feeRateKey } from "@/lib/stripe/feeRateKey";
 import { documentLabels } from "@/lib/i18n/documentLabels";
 import { documentIssueDate } from "@/lib/documents/issueDate";
 import { taxStatement } from "@/lib/tax/documentTax";
@@ -1254,7 +1255,47 @@ export default function InvoiceDetailPage() {
                     paid, when, and how is not the amount — but their `amount`
                     is stripped, so the figure would read $0.00. */}
                 {!invoice.pricingHidden && (
-                  <span className="tabular-nums">{money(p.amount)}</span>
+                  <span className="tabular-nums text-right">
+                    {money(p.amount)}
+                    {/* What Stripe deducted before the money reached the
+                        bank — only on a row that carries it (a manual
+                        payment has no fee; a Stripe payment recorded before
+                        the fee was passed through has null, and null says
+                        nothing). */}
+                    {p.processingFeeCents != null && p.netCents != null && (
+                      <span className="block text-xs text-muted-foreground">
+                        {t("app.invoiceDetail.feeLine", {
+                          method: t(`app.feeRate.${feeRateKey(p.feeRateLabel)}`),
+                          fee: money(p.processingFeeCents / 100),
+                          net: money(p.netCents / 100),
+                        })}
+                      </span>
+                    )}
+                    {/* A chargeback, in the contractor's numbers: what was
+                        pulled back while it is open, the $15 fee, and — when
+                        won — what came back (the fee does not; the line says
+                        so). Only once the recovery has run: a dispute with
+                        a status and no figures says nothing about money. */}
+                    {p.disputeStatus && p.disputeHeldCents != null && (
+                      <span className="block text-xs text-red-700 dark:text-red-400">
+                        {t(
+                          p.disputeStatus === "won" && p.disputeReturnedCents != null
+                            ? "app.invoiceDetail.disputeWonLine"
+                            : p.disputeStatus === "lost"
+                              ? "app.invoiceDetail.disputeLostLine"
+                              : "app.invoiceDetail.disputeLine",
+                          {
+                            held: money(
+                              (p.disputeStatus === "won" && p.disputeReturnedCents != null
+                                ? p.disputeReturnedCents
+                                : p.disputeHeldCents) / 100,
+                            ),
+                            fee: money((p.disputeFeeCents || 0) / 100),
+                          },
+                        )}
+                      </span>
+                    )}
+                  </span>
                 )}
               </div>
             ))}

@@ -92,6 +92,28 @@ After swapping the secrets: "Send test event" on each destination — a 200 in
 Stripe's log proves the secret matches its route; a 400 means the secrets
 were crossed.
 
+**Fees are passed through to the contractor (2026-09-12).** Stripe debits the
+PLATFORM for its fees on a destination charge, so every homeowner charge now
+carries an `application_fee_amount` equal to the published processing fee —
+cards 3% + 30¢ (Stripe's 2.9% + 30¢ plus a 0.1% platform margin, the owner's
+decision), Canadian pre-authorized debit 1% + 40¢ capped at $5, US ACH 0.8%
+capped at $5 — from ONE place, `lib/stripe/processingFee.js` (read-only view
+on /platform/billing/plans; a rate change is a code change executed by
+`check:processing-fee`). The same charges name the contractor as
+`on_behalf_of` (settlement merchant — their descriptor, their country), which
+needs the `card_payments` capability: new Express accounts request it and
+`transfers` at creation, and the status poll requests it on older ones. The
+fee is recorded on `Payment.processingFeeCents/netCents/feeRateLabel` at
+settlement, refunds keep it (`refund_application_fee: false`), and a
+chargeback reverses the disputed amount plus Stripe's $15 dispute fee out of
+the contractor's transfer. **Instant payouts:** the settings card pays out
+Stripe's `net_available`; set the platform's instant-payout fee to **1%** in
+Stripe → Settings → Connect → Platform pricing → Instant payouts, so net =
+gross − 1% (Stripe's own charge to the platform — nothing is kept). The rate
+is not in code; the card shows whatever gross − net Stripe reports. Stripe's
+Express account fees (per active account, per payout) are NOT passed through
+— a platform cost covered by the subscription.
+
 ### `RETELL_WEBHOOK_SECRET` is not a secret you invent
 
 It used to be listed above as "generate it with `openssl rand`", and that was

@@ -20,6 +20,7 @@ import { COMPETITORS } from "@/lib/marketing/competitors";
 import AddOnStack from "../compare/AddOnStack";
 import { addOnStack } from "../compare/addOns";
 import { renderAsOf } from "../compare/asOf";
+import { PROCESSING_RATES } from "@/lib/stripe/processingFee";
 
 /**
  * How many columns the plan grid gets, given how many plans exist.
@@ -506,6 +507,18 @@ export default function PricingPlans({ plans, asOf = renderAsOf() }) {
               "One set of prices. Which money you're billed in comes from the business address you give when you sign up: Canadian companies are billed in Canadian dollars, US companies in US dollars — the same number either way, not a converted one.",
             )}{" "}
             {t("pricingPage.taxNote")}
+          </p>
+          {/* What taking a payment costs, from the same constants the
+              charge creators use (lib/stripe/processingFee.js) — the
+              pricing page cannot quote a rate the checkout does not
+              charge. One sentence, because the honest answer is one
+              sentence: the fee comes off each payment and nothing else is
+              billed for payments. */}
+          <p className="mt-3 text-center text-sm text-muted-foreground max-w-2xl mx-auto">
+            {t("pricingPage.processingFees", {
+              card: PROCESSING_RATES.card.formula,
+              debit: PROCESSING_RATES.acss_debit.formula,
+            })}
           </p>
         </>
       )}

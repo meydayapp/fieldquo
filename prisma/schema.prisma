@@ -1711,6 +1711,8 @@ model Company {
   chatRooms             CompanyChatRoom[]
   chatMemberships       CompanyChatMember[]
   chatMessages          CompanyChatMessage[]
+  // Instant payouts the company requested from Settings → Payments.
+  instantPayouts        InstantPayout[]
 }
 
 /// Configuration for the bio-link page at /l/<slug> — the single link an
@@ -3082,6 +3084,38 @@ model Payment {
   refundedAt     DateTime?
   disputeStatus  String?
   disputedAt     DateTime?
+
+  // ── The processing fee, as Stripe actually took it ───────────────────────
+  //
+  // Read back from the PaymentIntent's application_fee_amount at settlement
+  // (lib/stripe/paymentIntentFee.js), never recomputed from `amount`: the
+  // rate table can change between a link being minted and paid, and the
+  // number the contractor reconciles against is the one Stripe deducted.
+  // `amount` stays GROSS — it is what the client paid and what the invoice
+  // balance is computed from; netCents is what reached the contractor's
+  // Stripe balance. Null on a manual payment (cash, cheque, e-transfer — no
+  // fee), and null on a Stripe payment whose fee could not be read: absence,
+  // not zero, so the screens say nothing rather than "fee $0.00".
+  // feeRateLabel is Stripe's payment-method key ("card", "acss_debit",
+  // "affirm"), translated by the screens and written verbatim by the export.
+  processingFeeCents Int?
+  netCents           Int?
+  feeRateLabel       String?
+
+  // ── What a chargeback cost the contractor ────────────────────────────────
+  //
+  // Stripe debits the PLATFORM for a disputed destination charge — the
+  // disputed amount and a $15 dispute fee (US$15 / C$15). Both are recovered
+  // from the contractor by reversing the charge's transfer
+  // (lib/stripe/disputeRecovery.js): disputeHeldCents is what came back out
+  // of their balance while the dispute is open, disputeFeeCents the fee
+  // recovered alongside it. When the dispute is WON the held amount is
+  // transferred back — disputeReturnedCents — and the fee is not, because
+  // Stripe does not return it. Null until the dispute path has run; a
+  // dispute recorded before this shipped shows a status and no figures.
+  disputeHeldCents     Int?
+  disputeFeeCents      Int?
+  disputeReturnedCents Int?
 }
 
 // ============================================================
@@ -5566,6 +5600,13 @@ model Booking {
   feeCurrency              String?
   feeStripePaymentIntentId String?
   feeCreditedInvoiceId     String?
+  // The processing fee Stripe deducted from the visit fee before it reached
+  // the contractor — same three columns, same rules, as Payment: read from
+  // the PaymentIntent at settlement, null when unknown. feePaidCents stays
+  // gross.
+  feeProcessingCents       Int?
+  feeNetCents              Int?
+  feeRateLabel             String?
 
   // The Stripe Checkout Session this hold was sent to.
   //
@@ -9559,6 +9600,38 @@ model SalesCommissionEntry {
 /// No money moves from this build. A batch closes, is exported, and is marked
 /// paid by a human — paying reps automatically is a separate decision with its
 /// own compliance surface, and nothing in the brief requires it on day one.
+// ============================================================
+// INSTANT PAYOUTS — a contractor pulling their Stripe balance to a debit card
+// now rather than on Stripe's payout schedule. Requested from Settings →
+// Payments; the payout is created ON the connected account
+// (app/api/stripe/connect/instant-payout). Stripe's instant-payout fee and
+// any platform fee (set in Stripe's dashboard under Connect → Platform
+// pricing → Instant payouts, never in code) are already netted out of what
+// Stripe reports as instantly available; grossCents is the balance that was
+// available, netCents what Stripe sent to the card. The platform's margin
+// is the difference and is never sent to a browser as a rate.
+// ============================================================
+model InstantPayout {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// Stripe's `po_…` id on the connected account.
+  stripePayoutId String @unique
+  currency       String
+  grossCents     Int
+  netCents       Int
+  /// The external account (card) the payout went to — Stripe's `card_…`/`ba_…` id.
+  destination    String?
+  /// Who clicked. A user id, not a member id, so the row survives a member
+  /// being deactivated; null only for a row written by a repair script.
+  createdById String?
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, createdAt])
+}
+
 model SalesPayoutBatch {
   id String @id @default(cuid())
 

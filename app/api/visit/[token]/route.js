@@ -135,6 +135,14 @@ export async function POST(request, { params }) {
           // connected account, so the reversal has to come back out of it.
           // Without this FieldQuo pays the homeowner out of its own balance.
           reverse_transfer: true,
+          // The processing fee (application_fee_amount, lib/stripe/processingFee.js)
+          // is NOT returned. Stripe keeps its own fee on a refund, so returning
+          // ours would leave FieldQuo paying Stripe for a payment nobody kept;
+          // the contractor bears the fee on a refunded visit — the same rule
+          // Jobber applies. Spelled out rather than left to Stripe's default
+          // (which is also false) because reverse_transfer beside it reads as
+          // if the whole money route is being unwound, and it is not.
+          refund_application_fee: false,
           metadata: { bookingId: booking.id, companyId: company.id },
         },
         { idempotencyKey: `visit-cancel-refund-${booking.id}` },
