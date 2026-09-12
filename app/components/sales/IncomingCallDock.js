@@ -86,6 +86,13 @@ import TransferControl from "./TransferControl";
 import { useRepPresence } from "./RepStatus";
 import { useConsoleSlots } from "./consoleSlots";
 
+/**
+ * Twilio's codes for a token it will not accept — all recoverable by minting
+ * a new one. 20101 invalid · 20104 expired · 31204/31205 the same two as the
+ * signalling layer reports them.
+ */
+export const TOKEN_ERROR_CODES = new Set([20101, 20104, 31204, 31205]);
+
 /** How long the drawer takes to slide. Matches the Tailwind duration below. */
 const SLIDE_MS = 200;
 
@@ -175,6 +182,7 @@ export default function IncomingCallDock() {
     let cancelled = false;
     let device = null;
     let refreshTimer = null;
+    let onVisible = null;
 
     /** Re-mint and re-register. Used when Twilio has already refused a token. */
     const refreshAndRegister = async () => {
@@ -209,11 +217,16 @@ export default function IncomingCallDock() {
           if (!cancelled) setReady(true);
         });
         device.on("error", async (err) => {
-          // 20101 is Twilio refusing an expired or invalid token. It is
-          // RECOVERABLE, and treating it as fatal is what leaves a rep with a
-          // dock that cannot ring and no idea why — so a fresh token is
-          // fetched and the device re-registered before anything is said.
-          if (err?.code === 20101 || err?.code === 31205) {
+          // A refused token is RECOVERABLE, and treating it as fatal is what
+          // leaves a rep with a dock that cannot ring and no idea why — so a
+          // fresh token is fetched and the device re-registered before
+          // anything is said. Twilio has four spellings of "bad token" and
+          // the owner met the one this list lacked: 20104 AccessTokenExpired
+          // ("the Access Token provided to the Twilio API has expired"),
+          // shown on the queue page after a tab sat in the background long
+          // enough for both refresh timers to be throttled. 20101 invalid,
+          // 20104 expired, 31204/31205 the signalling layer's versions.
+          if (TOKEN_ERROR_CODES.has(err?.code)) {
             const ok = await refreshAndRegister();
             if (ok) return;
           }
@@ -268,6 +281,14 @@ export default function IncomingCallDock() {
         // misconfigured TTL cannot turn this into a request loop.
         const everyMs = Math.max(60, Math.floor((ttl || 600) / 2)) * 1000;
         refreshTimer = setInterval(() => refresh("timer"), everyMs);
+        //   4. Coming back to the tab. A backgrounded tab throttles BOTH the
+        //      SDK's warning and the timer above — that is how a ten-minute
+        //      token was found expired — so the moment the tab is visible
+        //      again the token is replaced without waiting for either.
+        onVisible = () => {
+          if (document.visibilityState === "visible") refresh("visible");
+        };
+        document.addEventListener("visibilitychange", onVisible);
 
         device.on("incoming", (call) => {
           if (cancelled) return;
@@ -342,6 +363,7 @@ export default function IncomingCallDock() {
     return () => {
       cancelled = true;
       if (refreshTimer) clearInterval(refreshTimer);
+      if (onVisible) document.removeEventListener("visibilitychange", onVisible);
       try {
         callRef.current?.disconnect?.();
       } catch {

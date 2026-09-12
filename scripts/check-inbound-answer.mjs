@@ -117,6 +117,20 @@ section("2. Something is listening, on every screen");
   // an hour and then goes quiet with nothing on screen saying so.
   ok("the token is refreshed before it expires", /device\.on\("tokenWillExpire"/.test(dockCode));
   ok("…by updating in place", /device\.updateToken\(/.test(dockCode));
+  // The owner saw "AccessTokenExpired (20104)" on the queue page: the error
+  // handler recovered from 20101 (invalid) but not from 20104 (expired), and
+  // a backgrounded tab had throttled both refresh timers. Every spelling of
+  // "bad token" is recoverable, and coming back to the tab refreshes at once.
+  {
+    // Read from the source rather than imported: the file is a "use client"
+    // component with JSX, which bare Node cannot load.
+    const setLine = /TOKEN_ERROR_CODES = new Set\(\[([^\]]*)\]\)/.exec(dockCode);
+    const codes = setLine ? setLine[1].split(",").map((n) => Number(n.trim())) : [];
+    ok("every token refusal Twilio can send is recoverable: 20101, 20104, 31204, 31205", [20101, 20104, 31204, 31205].every((c) => codes.includes(c)));
+    ok("…and the error handler consults that set, not a hand-typed pair", /TOKEN_ERROR_CODES\.has\(err\?\.code\)/.test(dockCode));
+    ok("the token is refreshed the moment the tab becomes visible again", /document\.addEventListener\("visibilitychange", onVisible\)/.test(dockCode) && /visibilityState === "visible"\) refresh\("visible"\)/.test(dockCode));
+    ok("…and that listener is removed on teardown", /removeEventListener\("visibilitychange", onVisible\)/.test(dockCode));
+  }
 
   // Registered is not the same as being rung. Who is rung is decided
   // server-side from presence; a client that also had an opinion is how a
