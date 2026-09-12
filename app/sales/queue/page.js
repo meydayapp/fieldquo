@@ -152,20 +152,38 @@
 // taps the next row. scripts/check-sales-console.mjs asserts the region is
 // NOT sticky, with this paragraph as the reason.
 //
-// ══ The batch: "Claim the next 100", and the day it makes ═══════════════
+// ══ The batch: "Claim the next 25", and the hours it makes ══════════════
 //
-// The owner: "they should not need to get 1 claimed at a time — that would
-// mean instead of 100–150 calls per day it might come down to 30". So the
-// primary control claims up to QUEUE_BATCH_MAX (100) prospects of the picked
-// trade in one press, researched ones first, only rows whose calling window
-// opens before the rep's local day ends, capped at QUEUE_DAILY_CLAIM_CAP
-// (150) per rep per day counted from the claim log — every one of those
-// decisions is lib/sales/queueBatch.js's and the button sends only the trade
-// and the browser's time zone. "Just one" keeps the single-claim path for a
-// rep who wants one more. The list on the left is the day, in dial order;
-// "Next" walks it; "Release the rest" gives back every row with no call
-// attempt, and app/api/cron/sales-queue-release does the same when the
-// rep's day ends.
+// The owner, first: "they should not need to get 1 claimed at a time — that
+// would mean instead of 100–150 calls per day it might come down to 30". So
+// the primary control claims a BATCH in one press rather than a row. The
+// batch was a hundred for the day, and the day is why it is not any more.
+//
+// A rep at 9:20 pm Eastern with a hundred leads claimed that morning had
+// nothing to dial: every window in the batch had shut, and no sort could put
+// a Pacific lead at the top of a list that held none. A batch composed for
+// the morning is dead weight by evening, because the callable continent
+// moves west through the shift. The owner's decision, that night: "a batch
+// of 25, and if there are fewer than 5 leads left it auto-fetches a new set
+// from the current time."
+//
+// So the claim is now QUEUE_BATCH_MAX (25) leads of the picked trade whose
+// calling window is OPEN AT THE CLAIM INSTANT, shutting soonest first — a
+// row that opens later is not claimed, however soon; a short batch says how
+// many were open and when more open. When the rep's held-and-callable rows
+// drop under QUEUE_TOP_UP_BELOW (5) this screen posts the same claim with
+// `auto: true`, at most every QUEUE_TOP_UP_MIN_INTERVAL_MS, and the server
+// first gives back the rep's untouched rows whose window is shut for the
+// rest of the shift (releaseClosedUntouched, reason "closed" — never a row
+// with an attempt or a callback) and then claims from what is open at THAT
+// moment. The day's ceiling is QUEUE_DAILY_CLAIM_CAP (250) per rep, counted
+// from the claim log, and it refuses a top-up the same as a press. Every one
+// of those decisions is lib/sales/queueBatch.js's; the button sends only the
+// trade, the browser's time zone and the auto flag. "Just one" keeps the
+// single-claim path. "Release the rest" still gives back every held row
+// with no call attempt, and app/api/cron/sales-queue-release still does
+// the same when the rep's day ends — the top-up's release is the third
+// path, and the only one that runs without anybody pressing anything.
 //
 // ══ The list is grouped by when a row can be rung, on the rep's clock ═════
 //
@@ -1665,7 +1683,7 @@ function QueueRail(props) {
 }
 
 /**
- * The trade picker and the claim buttons — "Claim the next 100", "Just
+ * The trade picker and the claim buttons — "Claim the next 25", "Just
  * one", the pool's counts and what the last press did. Unchanged from the
  * page's old left column; the rail and the drawer both draw it.
  */
