@@ -14,6 +14,8 @@ import {
   debugUserToken,
   classifyEmptyPageList,
   metaPagesConfigId,
+  grantedPageIds,
+  fetchPagesByIds,
 } from "@/lib/meta/client";
 import { resolveInstagram, resolveGrantedScopes, subscribePageWebhook } from "@/lib/meta/pageConnect";
 import { savePageConnection, disconnectPageConnection } from "@/lib/meta/pageConnection";
@@ -95,7 +97,17 @@ export async function GET(request) {
 
   const pagesRes = await listPages({ accessToken: longToken });
   if (!pagesRes.ok) return toSettings(origin, { socialError: pagesRes.kind });
-  const pages = Array.isArray(pagesRes.data?.data) ? pagesRes.data.data : [];
+  let pages = Array.isArray(pagesRes.data?.data) ? pagesRes.data.data : [];
+  let debugForFallback = null;
+
+  if (pages.length === 0) {
+    // The list can be empty while the GRANT names a Page — a Page held
+    // through a business portfolio (see fetchPagesByIds). Read those ids
+    // directly before concluding anything.
+    debugForFallback = await debugUserToken({ accessToken: longToken }).catch(() => ({ ok: false }));
+    const ids = debugForFallback?.ok ? grantedPageIds(debugForFallback.data) : [];
+    if (ids.length) pages = await fetchPagesByIds({ accessToken: longToken, pageIds: ids });
+  }
 
   if (pages.length === 0) {
     // Not an error state to hide behind "something went wrong" — and not one
@@ -103,7 +115,7 @@ export async function GET(request) {
     // Pages, read "doesn't administer any Page" on every attempt; the truth
     // was that the dialog had granted pages_show_list with NO Page ticked.
     // debug_token says which it is; the screen says the matching fix.
-    const debug = await debugUserToken({ accessToken: longToken }).catch(() => ({ ok: false }));
+    const debug = debugForFallback || (await debugUserToken({ accessToken: longToken }).catch(() => ({ ok: false })));
     const why = debug?.ok ? classifyEmptyPageList(debug.data) : "no_pages";
     // Written down, without any token: the owner has hit this three times and
     // each time the only record was a sentence on a screen. What Meta granted

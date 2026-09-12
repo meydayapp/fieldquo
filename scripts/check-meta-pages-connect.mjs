@@ -39,6 +39,7 @@ import {
   buildAuthorizeUrl,
   metaPagesConfigId,
   classifyEmptyPageList,
+  grantedPageIds,
 } from "../lib/meta/client.js";
 import { parseMessagingEnvelope } from "../lib/messaging/envelope.js";
 import {
@@ -124,7 +125,19 @@ for (const f of [
 }
 {
   // A redirect URL ends up in browser history and in server access logs.
+  // ── The list can be empty while the grant names a Page ───────────────────
+  //
+  // Measured 2026-09-12: pages_show_list granted with one target, every Page
+  // permission granted for it, /me/accounts → { data: [] }. The ids the
+  // grant names are read directly before anything is concluded.
+  ok("grantedPageIds reads the Page ids off the pages_show_list grant",
+    JSON.stringify(grantedPageIds({ data: { granular_scopes: [{ scope: "pages_show_list", target_ids: ["639940322527111", 12] }, { scope: "ads_read" }] } })) === JSON.stringify(["639940322527111", "12"]));
+  ok("…and nothing from a grant with no targets, or garbage", grantedPageIds({ data: { granular_scopes: [{ scope: "pages_show_list" }] } }).length === 0 && grantedPageIds(null).length === 0);
   const cb = code("app/api/settings/social/callback/route.js");
+  ok("the callback reads granted Pages directly when /me/accounts is empty", /grantedPageIds\(debugForFallback\.data\)/.test(cb) && /fetchPagesByIds\(\{ accessToken: longToken, pageIds: ids \}\)/.test(cb));
+  ok("…before it says 'no Page'", cb.indexOf("fetchPagesByIds({ accessToken: longToken") < cb.indexOf("classifyEmptyPageList(debug.data)"));
+  const fin = code("app/api/settings/social/finalize/route.js");
+  ok("…and the finalize step accepts a granted Page the list omitted, by id only", /grantedPageIds\(debug\.data\)\.filter\(\(id\) => id === pageId\)/.test(fin));
   ok("the callback never puts a token in a redirect",
     !/redirect\([^)]*[Tt]oken/.test(cb));
 }

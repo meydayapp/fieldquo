@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
-import { listPages } from "@/lib/meta/client";
+import { listPages, debugUserToken, grantedPageIds, fetchPagesByIds } from "@/lib/meta/client";
 import { resolveInstagram, resolveGrantedScopes, subscribePageWebhook } from "@/lib/meta/pageConnect";
 import { savePageConnection, disconnectPageConnection } from "@/lib/meta/pageConnection";
 import {
@@ -68,7 +68,15 @@ export async function POST(request) {
       { status: 502 },
     );
   }
-  const pages = Array.isArray(pagesRes.data?.data) ? pagesRes.data.data : [];
+  let pages = Array.isArray(pagesRes.data?.data) ? pagesRes.data.data : [];
+  if (!pages.some((p) => p?.id === pageId)) {
+    // The list can omit a Page the grant names (business-portfolio Pages —
+    // see fetchPagesByIds); the same fallback as the callback, so a Page
+    // that was offered in the picker can also be chosen.
+    const debug = await debugUserToken({ accessToken: pending.token }).catch(() => ({ ok: false }));
+    const ids = debug?.ok ? grantedPageIds(debug.data).filter((id) => id === pageId) : [];
+    if (ids.length) pages = pages.concat(await fetchPagesByIds({ accessToken: pending.token, pageIds: ids }));
+  }
   const page = pages.find((p) => p?.id === pageId);
   if (!page) {
     return NextResponse.json({ error: "That Page is not one Meta lists for this login." }, { status: 400 });
