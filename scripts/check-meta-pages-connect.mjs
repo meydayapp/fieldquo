@@ -574,6 +574,15 @@ function stubFetch(reply) {
   // configuration and NOT the scope — the two are exclusive on the dialog.
   ok("…and hands the Pages configuration id through when one is set",
     /configId: metaPagesConfigId\(\)/.test(connect));
+  ok("…and asks Facebook to re-ask (a once-emptied Page grant stays empty otherwise)", /rerequest: true/.test(connect));
+  {
+    const saved = process.env.META_APP_ID; process.env.META_APP_ID = "123";
+    const u = new URL(buildAuthorizeUrl({ redirectUri: "https://x/cb", state: "s", scope: "pages_show_list", rerequest: true }));
+    ok("rerequest puts auth_type=rerequest on the dialog", u.searchParams.get("auth_type") === "rerequest");
+    const v = new URL(buildAuthorizeUrl({ redirectUri: "https://x/cb", state: "s", scope: "ads_read" }));
+    ok("…and the ads dialog, which never asked for it, carries none", v.searchParams.get("auth_type") === null);
+    process.env.META_APP_ID = saved; if (saved === undefined) delete process.env.META_APP_ID;
+  }
   {
     const saved = { id: process.env.META_APP_ID, cfg: process.env.META_PAGES_CONFIG_ID };
     process.env.META_APP_ID = "123";

@@ -88,6 +88,9 @@ export async function GET(request) {
       state,
       scope: metaPagesRequestedScope(),
       configId: metaPagesConfigId(),
+      // Always on this flow: a Page grant that was once emptied stays empty
+      // until Facebook is asked again. See buildAuthorizeUrl.
+      rerequest: true,
     }),
   );
 }
