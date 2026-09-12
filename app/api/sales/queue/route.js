@@ -81,6 +81,7 @@ import { publicWindowPolicy, windowPolicyFor } from "@/lib/sales/windowPolicy";
 import { CHANNEL_TEXT, CHANNEL_VOICE } from "@/lib/sales/contact/numbers";
 import { composeBrief } from "@/lib/sales/intel/brief";
 import { openCheckIns } from "@/lib/sales/checkin/store";
+import { openTriageThreads } from "@/lib/sales/messages/triageStore";
 import { loadContactNumbers, pickContactNumber } from "@/lib/sales/contact/resolve";
 
 const ACTIONS = ["claim", "claim_batch", "release", "release_rest", "worked", "do_not_contact"];
@@ -329,7 +330,7 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
     });
 
     if (full) {
-      const [rules, signatures, suppression, contactRows, ours, myLead, history, briefTask, converted, checkIns] = await Promise.all([
+      const [rules, signatures, suppression, contactRows, ours, myLead, history, briefTask, converted, checkIns, openTriage] = await Promise.all([
         db.confidenceRule.findMany(),
         db.technologySignature.findMany({ select: { code: true, name: true } }),
         // ── The list, read for the one prospect that gets a dial control ──
@@ -409,6 +410,12 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
         // Check-in drafts due for this business, by the number we hold.
         full.phoneE164
           ? openCheckIns({ salesRepId: rep.id, toE164: full.phoneE164 }).catch(() => [])
+          : Promise.resolve([]),
+        // Their latest text was a roadblock or a question and nobody has
+        // written back: the Tasks tab's third list. Null when the read failed
+        // — absence, not an empty list — so the tab can say it could not look.
+        full.phoneE164
+          ? openTriageThreads({ salesRepId: rep.id, e164: full.phoneE164 }).then((r) => r.items).catch(() => null)
           : Promise.resolve([]),
       ]);
       const signatureNames = Object.fromEntries(signatures.map((s) => [s.code, s.name]));
@@ -566,6 +573,15 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
           channel: a.dialChannel || null,
         })),
         existingCustomer: converted > 0,
+        openTriage: openTriage
+          ? openTriage.map((o) => ({
+              e164: o.e164,
+              kind: o.kind,
+              reason: o.reason,
+              body: o.body,
+              sentAt: o.sentAt?.toISOString?.() || o.sentAt || null,
+            }))
+          : null,
         checkIns: checkIns.map((c) => ({
           id: c.id,
           scheduledFor: c.scheduledFor?.toISOString?.() || null,

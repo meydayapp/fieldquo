@@ -9848,12 +9848,42 @@ model SalesSmsMessage {
   /// thread and have no draft behind them.
   checkIn SalesCheckIn?
 
+  /// ── AI triage of an INBOUND reply ─────────────────────────────────────
+  ///
+  /// What kind of answer this is, so a rep sees it at a glance and a
+  /// roadblock is never lost in a list — the owner's "just in case we lose
+  /// them on a roadblock". One of lib/sales/messages/triage.js's
+  /// TRIAGE_KINDS: "roadblock" | "question" | "positive" | "not_interested" |
+  /// "stop" | "fine". Null on every OUTBOUND row, and null on an inbound row
+  /// nothing has classified yet or that the model failed on — absence, not a
+  /// verdict. An empty body is left null too: there is nothing to read.
+  ///
+  /// STOP is decided by the opt-out keywords, never by the model, and the
+  /// suppression it writes is lib/sales/salesSms.js's, untouched by anything
+  /// here. "stop" in this column is a LABEL for the list; the do-not-contact
+  /// row is the enforcement.
+  triage String?
+  /// One short sentence from the model saying why. Null on a rule verdict —
+  /// a keyword needs no explanation — and left as the model's own words
+  /// after a rep overrides the kind, so the audit shows what the model said.
+  triageReason String?
+  triagedAt DateTime?
+  /// Which model decided, from the provider's own report. Null on a rule
+  /// verdict and null on a rep's override.
+  triageModel String?
+  /// The rep who changed the chip by hand. Set means `triage` is a person's
+  /// word and the next automatic pass must not overwrite it.
+  triageOverriddenById String?
+
   @@index([salesRepId, sentAt])
   @@index([leadId, sentAt])
   /// The rep inbox reads by the OTHER party's number, because a conversation is
   /// with a person and not with a lead row — one contractor may hold two leads
   /// and a reply belongs to the thread either way.
   @@index([direction, sentAt])
+  /// The console's Tasks tab and the check-in cron ask "which inbound rows are
+  /// a roadblock or a question", by rep.
+  @@index([salesRepId, triage])
 }
 
 /// A check-in text a rep has DRAFTED but not sent.

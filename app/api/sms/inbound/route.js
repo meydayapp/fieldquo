@@ -79,7 +79,7 @@
 //      the crew line's webhook being FieldQuo's to set, not a tenant's.
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { db } from "@/lib/db";
 import { verifyTwilioWebhook } from "@/lib/sms/verifyTwilioWebhook";
 import { classifyInboundSms } from "@/lib/sms/optOutKeywords";
@@ -140,7 +140,11 @@ export async function POST(request) {
   // is the URL a number's messaging webhook points at. A second public webhook
   // would be a second signature check to keep correct.
   if (!company) {
-    await handleSalesInboundSms({ to, from, body }).catch(async (err) => {
+    // `schedule: after` — the reply's AI triage (lib/sales/replyTriage.js)
+    // runs once the TwiML below has gone out. Twilio retries a webhook that
+    // is slow to answer, and a retry here is the same text filed twice; the
+    // store and the STOP are awaited, the model is not.
+    await handleSalesInboundSms({ to, from, body, schedule: after }).catch(async (err) => {
       await recordError({
         area: "sales_sms",
         message: `Inbound sales SMS handling threw: ${err.message}`,

@@ -68,6 +68,7 @@ import {
   Loader2,
   MessageSquare,
   MessageSquarePlus,
+  OctagonAlert,
   Phone,
   RotateCcw,
   Search,
@@ -98,6 +99,13 @@ import {
   groupConversations,
 } from "@/lib/sales/messages/rooms";
 import { LEAD_STATUS_LABELS } from "@/lib/sales/outreachPipeline";
+import {
+  TRIAGE_KINDS,
+  TRIAGE_LABEL_KEY,
+  TRIAGE_ROADBLOCK,
+  isTriageKind,
+  triageShowsChip,
+} from "@/lib/sales/messages/triage";
 import { conversationInitials, sentenceAround } from "./MessageThread";
 import CheckInDraft from "./CheckInDraft";
 import SignupLinkSms from "../leads/SignupLinkSms";
@@ -152,6 +160,43 @@ function zoneTime(value, timeZone) {
 }
 
 /** "+1 405 555 0132" from "+14055550132" — readable, still one number. */
+// ── The triage chip ───────────────────────────────────────────────────────
+//
+// One colour per kind, and the pairs are the portal's existing ones (the
+// window tag's emerald and amber, the STOP tag's red) so no new text/ground
+// pairing is introduced without lib/documents/theme.js having measured it.
+// `fine` draws nothing: a chip on every ordinary reply is a list full of
+// chips, and the list needs the exceptions to stand out.
+const TRIAGE_CHIP_CLASS = {
+  roadblock: "bg-red-600 text-white",
+  question: "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100",
+  positive: "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100",
+  not_interested: "bg-muted text-muted-foreground",
+  stop: "bg-muted text-muted-foreground",
+};
+
+/**
+ * The chip: the kind, in the rep's language. Draws nothing for `fine`, for
+ * a kind it does not know, and for a reply nobody has classified — an
+ * unclassified reply is not "fine", it is unknown, and unknown is blank.
+ */
+function TriageChip({ triage, className = "" }) {
+  const { t } = useTranslation();
+  const kind = triage?.kind;
+  if (!triageShowsChip(kind)) return null;
+  return (
+    <span
+      className={`${TAG} ${TRIAGE_CHIP_CLASS[kind] || "bg-muted text-muted-foreground"} ${className}`}
+      data-triage={kind}
+      data-triage-overridden={triage?.overridden ? "true" : undefined}
+      title={triage?.reason || undefined}
+    >
+      {kind === TRIAGE_ROADBLOCK ? <OctagonAlert size={11} aria-hidden="true" /> : null}
+      {t(TRIAGE_LABEL_KEY[kind])}
+    </span>
+  );
+}
+
 function prettyE164(e164) {
   const s = String(e164 || "");
   const m = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(s);
@@ -763,6 +808,11 @@ function SalesMessagesScreen() {
   const [contextTab, setContextTab] = useState("details");
   const [collapsed, setCollapsed] = useState([GROUP_DONE]);
   const [focusedRoom, setFocusedRoom] = useState(null);
+  // "Roadblocks": the list narrowed to conversations whose latest reply the
+  // triage filed as a roadblock — the ones the owner is afraid of losing.
+  // A view, not a filing: nothing is written when it is toggled.
+  const [roadblocksOnly, setRoadblocksOnly] = useState(() => params.get("filter") === "roadblocks");
+  const [triageBusy, setTriageBusy] = useState(false);
   // The instant the rep had last looked BEFORE this opening — what the red
   // line is drawn from. Frozen per thread so the line does not vanish the
   // moment the read is recorded.
@@ -880,12 +930,20 @@ function SalesMessagesScreen() {
   }, []);
 
   // ── The list, bucketed ────────────────────────────────────────────────
+  const roadblockCount = useMemo(
+    () => (list || []).filter((c) => c.triage?.kind === TRIAGE_ROADBLOCK).length,
+    [list],
+  );
   const groups = useMemo(() => {
     const buckets = groupConversations(list || []);
+    // The filter narrows every bucket rather than replacing them: a
+    // roadblock the rep already answered is still a roadblock, and it stays
+    // under "Waiting on them" where its state is true.
+    const visible = (rooms) => (roadblocksOnly ? rooms.filter((c) => c.triage?.kind === TRIAGE_ROADBLOCK) : rooms);
     return GROUP_ORDER.map((key) => ({
       key,
       title: t(GROUP_TITLE_KEY[key]),
-      rooms: buckets[key].map((c) => ({
+      rooms: visible(buckets[key]).map((c) => ({
         id: c.e164,
         title: c.name || prettyE164(c.e164),
         mono: !c.name,
@@ -909,9 +967,12 @@ function SalesMessagesScreen() {
         channel: "sms",
         channelLabel: "SMS",
         initials: conversationInitials(c),
+        // The kind of their latest reply, after the subtitle. Blank for an
+        // ordinary reply and for one nobody has classified.
+        badges: <TriageChip triage={c.triage} />,
       })),
     }));
-  }, [list, t]);
+  }, [list, t, roadblocksOnly]);
 
   // ── The thread's rows ─────────────────────────────────────────────────
   const them =
@@ -1097,6 +1158,26 @@ function SalesMessagesScreen() {
     return c ? groupConversations([c])[GROUP_DONE].length === 1 : false;
   }, [list, openWith]);
 
+  // The rep relabels the latest reply. The server writes the rep's own row
+  // and nothing else; the STOP row a keyword wrote is not this column and
+  // is not touched by it.
+  async function setTriage(kind) {
+    if (!openWith || triageBusy) return;
+    const triage = kind === "" ? null : kind;
+    if (triage !== null && !isTriageKind(triage)) return;
+    setTriageBusy(true);
+    setError("");
+    try {
+      await fetchJson("/api/sales/messages/triage", { method: "POST", body: { with: openWith, triage } });
+      await loadThread(openWith, { quiet: true });
+      await loadList();
+    } catch (err) {
+      setError(err?.message || t("app.salesText.triageSaveFailed"));
+    } finally {
+      setTriageBusy(false);
+    }
+  }
+
   const toggleContext = () => {
     if (wide) {
       setShowContext((v) => !v);
@@ -1173,6 +1254,28 @@ function SalesMessagesScreen() {
               <MessageSquarePlus size={13} aria-hidden="true" /> {t("app.salesText.newMessage")}
             </button>
           </div>
+          {/* The one filter: roadblocks. A count on the button so a rep
+              scanning the header knows whether to press it, and pressed
+              state in aria so a screen reader knows it is a toggle. */}
+          <div className="mt-2 flex items-center gap-1.5" data-triage-filter>
+            <button
+              type="button"
+              onClick={() => setRoadblocksOnly((v) => !v)}
+              aria-pressed={roadblocksOnly}
+              className={`${TAG} min-h-[36px] px-2.5 transition-colors motion-reduce:transition-none ${
+                roadblocksOnly ? "bg-red-600 text-white" : "border border-border bg-card text-foreground hover:bg-muted"
+              }`}
+            >
+              <OctagonAlert size={12} aria-hidden="true" />
+              {t("app.salesText.filterRoadblocks")}
+              {roadblockCount > 0 ? <span className="tabular-nums">{roadblockCount}</span> : null}
+            </button>
+            {roadblocksOnly ? (
+              <button type="button" onClick={() => setRoadblocksOnly(false)} className={`${TAG} min-h-[36px] px-2 text-muted-foreground hover:bg-muted`}>
+                {t("app.salesText.filterAll")}
+              </button>
+            ) : null}
+          </div>
           {listMeta.readStateError || listMeta.draftsError ? (
             // Absence of a statement is not a statement: a badge that could
             // not be counted is said to be uncounted, not shown as zero.
@@ -1188,6 +1291,10 @@ function SalesMessagesScreen() {
             <Loader2 className="animate-spin motion-reduce:animate-none" size={15} aria-hidden="true" />{" "}
             {t("app.salesText.loading")}
           </p>
+        ) : roadblocksOnly && list.length ? (
+          // The filter hid everything: say that, not "you have no
+          // conversations", which would be false.
+          <p className="px-3 py-4 text-sm text-muted-foreground break-words">{t("app.salesText.filterNoRoadblocks")}</p>
         ) : (
           // Nothing invented to fill it. A rep who has texted nobody has no
           // conversations, which is a true and ordinary state.
@@ -1245,6 +1352,38 @@ function SalesMessagesScreen() {
               {thread?.lead?.status ? (
                 <span className={`${TAG} bg-muted text-foreground`} data-tag="stage">
                   {t(`app.salesLeads.status.${thread.lead.status}`, LEAD_STATUS_LABELS[thread.lead.status] || thread.lead.status)}
+                </span>
+              ) : null}
+              {thread?.triage ? (
+                // The chip and, beside it, the dropdown that overrides it.
+                // The select IS the control — a visible <select>, so a rep
+                // on a phone gets the native picker — and the chip is what
+                // the list shows. The reason is the model's sentence, and
+                // is dropped once a rep has had the last word.
+                <span className="inline-flex items-center gap-1" data-tag="triage">
+                  <TriageChip triage={thread.triage} />
+                  <label className="inline-flex items-center gap-1">
+                    <span className="sr-only">{t("app.salesText.triageLabel")}</span>
+                    <select
+                      value={thread.triage.kind || ""}
+                      disabled={triageBusy}
+                      onChange={(e) => setTriage(e.target.value)}
+                      className="h-7 max-w-[11rem] rounded-md border border-border bg-card px-1.5 text-[11px] text-foreground"
+                      data-triage-select
+                    >
+                      <option value="">{t("app.salesText.triageUnset")}</option>
+                      {TRIAGE_KINDS.map((k) => (
+                        <option key={k} value={k}>
+                          {t(TRIAGE_LABEL_KEY[k])}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {thread.triage.reason && !thread.triage.overridden ? (
+                    <span className="max-w-[18rem] truncate text-[11px] text-muted-foreground" title={thread.triage.reason}>
+                      {thread.triage.reason}
+                    </span>
+                  ) : null}
                 </span>
               ) : null}
               {suppressed ? null : smsWindow?.known ? (

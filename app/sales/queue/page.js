@@ -246,6 +246,7 @@ import {
   Maximize2,
   Minimize2,
   NotebookPen,
+  OctagonAlert,
   PanelLeftClose,
   PanelLeftOpen,
   Pencil,
@@ -1432,8 +1433,39 @@ function TasksTab({ t, current, language }) {
     .filter((a) => a.callbackAt)
     .sort((a, b) => new Date(a.callbackAt) - new Date(b.callbackAt));
   const checkIns = Array.isArray(current.checkIns) ? current.checkIns : [];
+  // Null means the read failed, [] means nothing is open. Different sentences.
+  const openTriage = Array.isArray(current.openTriage) ? current.openTriage : null;
   return (
     <div className="space-y-4" data-console-tasks>
+      <div className="space-y-2" data-console-triage>
+        <h3 className="text-sm font-semibold text-foreground">{t("app.salesQueue.tasksReplies")}</h3>
+        {openTriage === null ? (
+          <p className="text-sm text-muted-foreground break-words">{t("app.salesQueue.tasksRepliesUnreadable")}</p>
+        ) : openTriage.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t("app.salesQueue.tasksNoReplies")}</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {openTriage.map((o) => (
+              <li
+                key={o.e164 + o.sentAt}
+                className={`rounded-lg border p-2.5 text-sm space-y-1 ${o.kind === "roadblock" ? TONE_CLASS.gap : "border-border bg-card text-foreground"}`}
+                data-triage={o.kind}
+              >
+                <p className="flex items-center gap-1.5 text-xs font-semibold">
+                  {o.kind === "roadblock" ? <OctagonAlert size={13} aria-hidden="true" /> : <CircleHelp size={13} aria-hidden="true" />}
+                  {t(o.kind === "roadblock" ? "app.salesText.triage.roadblock" : "app.salesText.triage.question")}
+                  {o.sentAt ? <span className="font-normal text-muted-foreground">· {whenText(o.sentAt, language)}</span> : null}
+                </p>
+                <p className="text-foreground break-words">{o.body}</p>
+                {o.reason ? <p className="text-xs text-muted-foreground break-words">{o.reason}</p> : null}
+                <Link href={`/sales/messages?thread=${encodeURIComponent(o.e164)}`} className="inline-flex items-center min-h-[44px] text-sm font-medium text-foreground underline">
+                  {t("app.salesQueue.tasksAnswerInTexts")}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       <div className="space-y-2">
         <h3 className="text-sm font-semibold text-foreground">{t("app.salesQueue.tasksCallbacks")}</h3>
         {callbacks.length === 0 ? (

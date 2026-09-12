@@ -92,6 +92,7 @@ import { materialiseCheckInsForRep, materialiseDemoCheckIn } from "@/lib/sales/c
 import { ruleDraft } from "@/lib/sales/checkin/draft";
 import { CHECKIN_REASONS, REASON_CODES, checkinHeadlineKey } from "@/lib/sales/checkin/signals";
 import { signupLinkFor } from "@/lib/sales/repStats";
+import { threadTriage } from "@/lib/sales/messages/triage";
 
 /**
  * The `!` catalogue for one conversation.
@@ -394,6 +395,17 @@ export async function GET(request) {
     suggestion,
     // ── The chat client's context ─────────────────────────────────────
     readState,
+    // The latest reply's kind — the chip in the header and the dropdown
+    // that overrides it. Decided by the same pure function the list uses,
+    // over the rows above, so a thread and its row in the list cannot
+    // disagree. Null when they have never written; `kind: null` when the
+    // last reply was not classified, which the screen draws as no chip.
+    triage: (() => {
+      const verdict = threadTriage(messages);
+      return verdict
+        ? { kind: verdict.kind, reason: verdict.reason, overridden: verdict.overridden, at: verdict.at, open: verdict.open }
+        : null;
+    })(),
     canned: cannedFor({ rep, lead, origin: getAppOrigin(request) }),
     // The override rode in on the readiness (salesSmsStatus resolved it);
     // the tag reads the same mode so header and composer cannot disagree.
