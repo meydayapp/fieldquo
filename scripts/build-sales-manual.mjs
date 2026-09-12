@@ -23,10 +23,11 @@
 // ══ Figures come from a manifest with fallbacks ═══════════════════════════
 //
 // docs/sales/manual/figures.js maps a figure key to candidate paths, first
-// existing one wins, and a `*` in a candidate is a glob. The sales-portal
-// captures (docs/screens/sales-portal/NN-*.png) did not exist when this was
-// written — the owner's Chrome was not signed in — so those keys list the
-// eventual capture first and the closest rendered-component frame second.
+// existing one wins, a `*` in a candidate is a glob, and `{lang}` is the
+// language being built — so a key can prefer the live signed-in capture in
+// the manual's language (docs/screens/live/sales/<lang>/), then the
+// fixture render of the real component in that language
+// (docs/screens/sales-portal/NN-*.<lang>.png), then an English frame.
 // When nothing exists, a neutral "screenshot to follow" box is drawn in the
 // figure's place. Never a broken image: a broken image in a training PDF
 // reads as a broken product.
@@ -75,8 +76,11 @@ const esc = (s) =>
 
 // ── Figures ────────────────────────────────────────────────────────────────
 //
-// Resolved once per build, shared by every language. A candidate with `*`
-// is matched against the directory listing (first match in name order).
+// Resolved once per LANGUAGE: a candidate may carry `{lang}`, which is the
+// manual's language — the sales-portal frames exist in en/fr/es because the
+// portal itself does, and a French manual with an English screen in it
+// teaches a rep to distrust the manual. A candidate with `*` is matched
+// against the directory listing (first match in name order).
 function resolveCandidate(rel) {
   if (!rel.includes("*")) return existsSync(join(ROOT, rel)) ? rel : null;
   const dir = dirname(rel);
@@ -86,12 +90,16 @@ function resolveCandidate(rel) {
   const hit = readdirSync(abs).filter((f) => re.test(f)).sort()[0];
   return hit ? join(dir, hit) : null;
 }
-const resolvedFigures = new Map();
-for (const [key, candidates] of Object.entries(FIGURES)) {
-  const list = Array.isArray(candidates) ? candidates : [candidates];
-  const found = list.map(resolveCandidate).find(Boolean) || null;
-  resolvedFigures.set(key, { found, wanted: list[0] });
+function resolveFigures(lang) {
+  const resolved = new Map();
+  for (const [key, candidates] of Object.entries(FIGURES)) {
+    const list = (Array.isArray(candidates) ? candidates : [candidates]).map((c) => c.replaceAll("{lang}", lang));
+    const found = list.map(resolveCandidate).find(Boolean) || null;
+    resolved.set(key, { found, wanted: list[0] });
+  }
+  return resolved;
 }
+let resolvedFigures = new Map();
 const dataUri = (rel) => `data:image/png;base64,${readFileSync(join(ROOT, rel)).toString("base64")}`;
 
 // ── Labels ─────────────────────────────────────────────────────────────────
@@ -376,6 +384,7 @@ for (const lang of LANGS) {
   if (!existsSync(contentPath)) { console.error(`No content module for "${lang}" — expected docs/sales/manual/content.${lang}.js`); process.exit(1); }
   const { MANUAL: M } = await import(contentPath);
   const L = makeLabeller(lang);
+  resolvedFigures = resolveFigures(lang);
 
   // Pass 1 — pagination. Front matter, then each chapter alone, then each
   // section's prefix inside its chapter.

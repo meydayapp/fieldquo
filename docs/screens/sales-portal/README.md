@@ -1,4 +1,38 @@
-# Not captured — no signed-in session was reachable
+# Sales-portal frames — the real components, rendered against fixtures
+
+`NN-<key>.<lang>.png` (en / fr / es, 1280 wide) are the /sales pages the
+queue-console and Texts harnesses do not cover, rendered by
+`harness/portal.jsx`: the shipped page components inside the shipped
+SalesShell, fed by `harness/fixtures.js` through a `window.fetch` stub
+that answers every `/api/sales/*` read. The fixture is the training
+manual's worked example — Daniel (code `danielboves`), Easy Roofers Inc.
+signed up 10 Sep 2026 17:06 UTC, Activated CA$20 at 19:19 UTC — so the
+frames agree with the prose beside them (docs/sales/manual/). NN is the
+manual chapter the frame sits in.
+
+    OUT=/tmp/fq-portal-harness sh docs/screens/sales-portal/harness/build.sh
+    OUT=/tmp/fq-portal-harness sh docs/screens/sales-portal/harness/capture-all.sh
+
+Nothing here is drawn by hand: every frame is Chrome's own render of the
+component, and the scene driver only presses shipped controls. The lead
+detail and the note detail carry `params` as a resolved Promise, the way
+Next 16 hands them over; the playbook page (a server component) is stood
+in for by PlaybookView with the built-in seeds, which is what the route
+renders when the playbook tables are absent.
+
+Two things a fixture cannot be: the real session's data, and the real
+clock. Dates are pinned (only the calendar's month cursor is the machine's
+clock), and a rep's browser locale formats them — these were taken on an
+en-US Chrome, so the French and Spanish frames carry en-US dates, exactly
+as a French rep on an en-US Chrome would see them.
+
+LIVE captures from the owner's signed-in session land in
+`docs/screens/live/sales/<lang>/` and take precedence in the manual
+(docs/sales/manual/figures.js) wherever the figure is a whole route.
+
+---
+
+## Earlier note — the live capture that was not possible on 2026-09-12
 
 Attempted 2026-09-12. The Claude-in-Chrome extension reported exactly one
 connected browser ("Browser 1", macOS, local — the profile holding the
