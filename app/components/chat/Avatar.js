@@ -48,16 +48,22 @@ const TONES = {
  * @param tone       "them" | "us" | "muted"
  * @param channel    "sms" | "email" | "team" | null — the tiny badge
  * @param channelLabel  the badge's accessible name (the caller translates it)
+ * @param badge      optional: a node to draw in the corner INSTEAD of the
+ *                   lookup above — for a channel the kit has no glyph for
+ *                   (Facebook, Instagram, WhatsApp are brand marks lucide
+ *                   does not ship; the caller draws them). Same corner, same
+ *                   ring, same accessible name via `channelLabel`.
  */
 export default function Avatar({
   initials,
   tone = "them",
   channel = null,
   channelLabel = "",
+  badge = null,
   size = "md",
   className = "",
 }) {
-  const Badge = channel ? CHANNEL_ICONS[channel] : null;
+  const Badge = !badge && channel ? CHANNEL_ICONS[channel] : null;
   return (
     <span className={`relative inline-flex shrink-0 ${className}`}>
       <span
@@ -66,12 +72,12 @@ export default function Avatar({
       >
         {initials}
       </span>
-      {Badge ? (
+      {badge || Badge ? (
         <span
           className="absolute -bottom-0.5 -right-0.5 grid h-4 w-4 place-items-center rounded-full border border-card bg-card text-muted-foreground"
           title={channelLabel || undefined}
         >
-          <Badge size={10} aria-hidden="true" />
+          {badge || <Badge size={10} aria-hidden="true" />}
           {channelLabel ? <span className="sr-only">{channelLabel}</span> : null}
         </span>
       ) : null}

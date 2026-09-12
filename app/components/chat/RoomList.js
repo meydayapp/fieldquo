@@ -70,10 +70,11 @@ export function UnreadBadge({ count, className = "" }) {
 /**
  * One room.
  *
- * @param room  `{ id, title, subtitle, time, unread, channel, initials, mono, tone, badges }`
+ * @param room  `{ id, title, subtitle, time, unread, channel, initials, mono, tone, badges, channelBadge }`
  *   `mono` draws the title in tabular figures — a phone number, not a name.
  *   `badges` is an optional node drawn after the subtitle (a STOP tag, a
- *   draft clock).
+ *   draft clock). `channelBadge` is an optional node for the avatar's
+ *   corner when `channel` is not one the kit has a glyph for.
  */
 export function RoomListItem({ room, selected = false, focused = false, onSelect, onFocusItem }) {
   const { t } = useTranslation();
@@ -105,6 +106,7 @@ export function RoomListItem({ room, selected = false, focused = false, onSelect
           tone={room.tone || "them"}
           channel={room.channel || null}
           channelLabel={room.channelLabel || ""}
+          badge={room.channelBadge || null}
           className="mt-0.5"
         />
         <span className="min-w-0 flex-1">

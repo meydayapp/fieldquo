@@ -31,9 +31,9 @@ import {
 import { messagingConnection } from "@/lib/messaging/channels";
 import { serviceWindowNotice, needsServiceWindow } from "@/lib/messaging/serviceWindow";
 import { demoThreadSummaries } from "@/lib/messaging/demoThreads";
-import { bubbleColours } from "@/lib/messaging/bubbleTheme";
 import { noteColours } from "@/lib/messaging/noteTheme";
 import { readStatus, THREAD_STATUSES } from "@/lib/messaging/outcomes";
+import { isMessagingPlatform } from "@/lib/messaging/platforms";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -56,21 +56,25 @@ export async function GET(request) {
   const statusFilter = THREAD_STATUSES.includes(searchParams.get("status"))
     ? searchParams.get("status")
     : null;
+  // The channel chips (All · Facebook · Instagram · WhatsApp). Same shape as
+  // the status filter above and for the same reason: filtered HERE, so a chip
+  // means the same thing on row one and row 200 — and an unrecognised value
+  // is "no filter", never an empty inbox.
+  const platformFilter = isMessagingPlatform(searchParams.get("platform"))
+    ? searchParams.get("platform")
+    : null;
 
   const connection = await messagingConnection(member.companyId);
 
-  // The outbound bubble's colours, MEASURED server-side against the company's
-  // brand hex — see lib/messaging/bubbleTheme.js for why they are computed
-  // here rather than in the browser.
   const company = await db.company.findUnique({
     where: { id: member.companyId },
-    select: { name: true, brandColor: true },
+    select: { name: true },
   });
-  const bubbles = bubbleColours(company || {});
   // The private note's palette, which takes no company and derives from
-  // nothing — see lib/messaging/noteTheme.js for why that is the point. Sent
-  // alongside the brand-measured bubble pair so the screen paints both from
-  // one response and the two can be compared in the check.
+  // nothing — see lib/messaging/noteTheme.js for why that is the point. The
+  // thread itself is drawn by the shared chat kit in the app's own tokens
+  // (no brand-coloured bubbles — the back office is not a client surface),
+  // so the note wash is the one measured pair this screen still paints.
   const note = noteColours();
 
   // ── The demo company, and nothing else ─────────────────────────────────
@@ -90,10 +94,11 @@ export async function GET(request) {
     // The chips filter the sample inbox too. A demo where the chips are drawn
     // and do nothing is the dead control AGENTS.md's first rule forbids, shown
     // to the one audience that is being asked to buy the thing.
-    const threads = statusFilter
+    const byStatus = statusFilter
       ? matching.filter((t) => readStatus(t.status) === statusFilter)
       : matching;
-    return NextResponse.json({ connection, bubbles, note, threads });
+    const threads = platformFilter ? byStatus.filter((t) => t.platform === platformFilter) : byStatus;
+    return NextResponse.json({ connection, note, threads });
   }
 
   const rows = await db.messageThread.findMany({
@@ -105,6 +110,7 @@ export async function GET(request) {
       ...(statusFilter
         ? { status: statusFilter === "resolved" ? { in: ["resolved", "closed"] } : statusFilter }
         : {}),
+      ...(platformFilter ? { channel: { platform: platformFilter } } : {}),
       ...(q
         ? {
             OR: [
@@ -179,6 +185,10 @@ export async function GET(request) {
     temperature: t.temperature || null,
     score: Number.isFinite(t.score) ? t.score : null,
     preview: t.messages[0]?.body || "",
+    // Whose the preview is. "You: see you Tuesday" and "see you Tuesday" are
+    // two different rows on a list, and lib/messaging/rooms.js also reads it
+    // to file a pre-columns row (no waitingSince) in the right group.
+    lastDirection: t.messages[0]?.direction || null,
     // Surfaced on the list, not only inside the thread: a reply that never
     // reached the homeowner is the thing a contractor most needs to see
     // without opening anything.
@@ -191,5 +201,5 @@ export async function GET(request) {
       : null,
   }));
 
-  return NextResponse.json({ connection, bubbles, note, threads });
+  return NextResponse.json({ connection, note, threads });
 }

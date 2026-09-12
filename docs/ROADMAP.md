@@ -1,12 +1,67 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 11 September 2026 (the Review folder at /platform/sales/review — every prospect that needs a human across every campaign, three honest trade suggestions per row with their basis, keyboard decisions, bulk assign/reject by filter, and the licence-register rule: an RBQ/CSLB/CCB row is a contractor by definition; 115,526 rows reclassified in production; `check:review-folder`; docs/screens/platform-review.)
+Last updated: 12 September 2026 (/app/messages — the contractor's Facebook / Instagram / WhatsApp inbox — rebuilt on the shared chat kit: grouped room list, kit thread with day + unread dividers and system rows, kit composer with the existing reply / note / template / attachment paths, a Details · Outcome · History context bar; four live catalogue holes closed and pinned by `check:app-messages-kit`; docs/screens/app-messages.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## /app/messages on the shared chat kit (12 September 2026)
+
+The owner, looking at the live inbox while launching: *"make that page similar
+to the UI that we have for messages from the sales portal and platform"* — and
+three things on it: a raw `app.messages.status.open` on every row, chips that
+overflowed the page instead of scrolling, and a "Connect a Facebook Page" card
+that named a button it never linked to. The three shipped first (c7084063);
+the rebuild followed.
+
+- **The screen** — `app/app/messages/page.js`, on `app/components/chat`'s
+  ChatLayout / RoomList / Thread / Composer / ContextBar, the same components
+  /sales/messages and the team chat render. LIST: Needs a reply · Waiting on
+  them · Snoozed · Done (collapsed), decided by `lib/messaging/rooms.js`
+  (pure, executed); search and an All · Facebook · Instagram · WhatsApp
+  channel filter, both server-side parameters of `/api/messaging/threads`.
+  THREAD: `messageItem()` turns the four stored directions into the kit's
+  three kinds; the unread line is placed from the stored COUNT
+  (`lastReadInstant`), captured before the read is recorded; activity rows
+  are system rows; a note is painted in its measured wash through the kit's
+  new `renderBody`; the WhatsApp window closing is an undated system row
+  (only where the send path enforces it). Header: outcome chip with a menu,
+  Open client / lead / job / quote when linked, Mark done, Details. COMPOSER:
+  the kit's, with the existing reply / note / template / media / location
+  paths unchanged and the server's refusal under the box. CONTEXT: Details
+  (name, channel, first contact, number, links, status + snooze, assignee),
+  Outcome (temperature panel, the four chips, what each means), History
+  (activity rows, the review month, link to the review — which now takes
+  `?year=&month=`). `?conversation=<id>` deep link (`?thread=` still read).
+  A member at `requests: view_only` gets the controls disabled or absent, by
+  the same ladder the routes refuse on.
+- **Kit additions, all optional and default-off:** Avatar `badge` (a brand
+  mark in the corner), RoomListItem forwards `room.channelBadge`, Thread
+  `renderBody`, Composer `allowEmpty` / `inputDisabled` / `textareaStyle`.
+- **Four catalogue holes found by looking, closed in nine languages and
+  pinned:** the four status labels; every `app.messages.activity.*` sentence
+  (18 keys + 4 link-kind words — every system row rendered its raw key);
+  `waitedLabel` returned `{count}` against a `{n}` catalogue ("Waiting {n}
+  min"); `threadNumber` was called with `{number}` against `{n}`. The check
+  walks ACTIVITY_TYPES, THREAD_STATUSES and waitedLabel() through every
+  catalogue with the placeholders the functions actually return.
+- **Removed from `ConversationBits.js`** (nothing else imported them): the
+  initials avatar, day label, clock time, the left/right Bubble, ActivityLine,
+  StatusFilter. `lib/messaging/bubbleTheme.js` is no longer read by any
+  route (the kit paints no brand-coloured bubble on the back office); the
+  file stays, its pure-function checks still run.
+- `check:app-messages-kit` (571 assertions; seven mutations caught).
+  Screenshots + harness: `docs/screens/app-messages/`.
+- Known: the kit's sticky day bubble can sit over an inline divider for a
+  few pixels at the top edge of the scroller (kit behaviour, shared with
+  /sales/messages). No profile link is offered — Messenger / Instagram hand a
+  Page a page-scoped id, not a username. `check:mobile` is still red on the
+  pre-existing `whitespace-nowrap` in app/sales/messages/page.js.
 
 ---
 

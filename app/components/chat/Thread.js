@@ -75,6 +75,12 @@ export function DayBubble({ children, className = "" }) {
  *                    owns its controls
  * @param renderSystem(item)  optional: a custom system row. The default
  *                    draws `item.body` in italics with its time.
+ * @param renderBody(item)    optional: a custom BODY for a message row —
+ *                    the text plus whatever rode with it (a photo, a voice
+ *                    note, a private-note wash). The gutter, the sender
+ *                    line, the pending / failed states and the hover
+ *                    toolbar are still the kit's; only the words' box is
+ *                    the caller's. Returning null falls back to the default.
  * @param hoverActions(item)  optional: a node for the hover toolbar on a
  *                    message row (copy, retry, …)
  * @param onRetry(item)  for failed rows — puts the words back in the box
@@ -89,6 +95,7 @@ export default function Thread({
   meLabel = null,
   renderDraft = null,
   renderSystem = null,
+  renderBody = null,
   hoverActions = null,
   onRetry = null,
   initialsFor = null,
@@ -295,13 +302,15 @@ export default function Thread({
                     </p>
                   ) : null}
 
-                  <p
-                    className={`whitespace-pre-wrap break-words text-sm ${
-                      failed ? "text-red-900 dark:text-red-200" : pending ? "text-muted-foreground" : "text-foreground"
-                    }`}
-                  >
-                    {m.body}
-                  </p>
+                  {(renderBody ? renderBody(m) : null) ?? (
+                    <p
+                      className={`whitespace-pre-wrap break-words text-sm ${
+                        failed ? "text-red-900 dark:text-red-200" : pending ? "text-muted-foreground" : "text-foreground"
+                      }`}
+                    >
+                      {m.body}
+                    </p>
+                  )}
 
                   {pending ? (
                     <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">

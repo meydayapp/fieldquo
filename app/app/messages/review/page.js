@@ -89,8 +89,20 @@ export default function MessagesReviewPage() {
   const { formatDate } = useCompanyPreferences();
 
   const now = new Date();
-  const [year, setYear] = useState(now.getUTCFullYear());
-  const [month, setMonth] = useState(now.getUTCMonth() + 1);
+  // ?year=&month= — how a conversation's History tab opens the month it
+  // counts in. Read from the location rather than useSearchParams, which
+  // would need a Suspense boundary for two integers; an absent or unusable
+  // value falls back to this month, never to a blank screen. The drawer the
+  // values open renders only after the load, so the first paint is the same
+  // on the server and the client.
+  const [year, setYear] = useState(() => {
+    const y = Number(typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("year") : "");
+    return Number.isInteger(y) && y >= 2000 && y <= 2100 ? y : now.getUTCFullYear();
+  });
+  const [month, setMonth] = useState(() => {
+    const m = Number(typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("month") : "");
+    return Number.isInteger(m) && m >= 1 && m <= 12 ? m : now.getUTCMonth() + 1;
+  });
 
   const [review, setReview] = useState(null);
   const [loading, setLoading] = useState(true);

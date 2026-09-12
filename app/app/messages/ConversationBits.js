@@ -2,10 +2,22 @@
 
 // app/app/messages/ConversationBits.js
 //
-// The small pieces the inbox and the conversation pane both draw: initials
-// avatar, platform badge, day separator, message bubble, outcome chips.
+// The pieces of the inbox that are THIS screen's and not the chat kit's: the
+// platform badge, everything a customer can attach and the control that
+// attaches one, the private-note wash, the waiting badge, and the four
+// judgement controls (outcome, status, assignee, template).
 //
-// ── Why they live here and not in app/components/ ─────────────────────────
+// ── What moved to app/components/chat, and why ────────────────────────────
+//
+// The frame, the room list, the thread rows, the day and unread dividers and
+// the compose box are the shared kit — the same components /sales/messages
+// and the team chat render, so the three screens feel the same because they
+// ARE the same code. The initials avatar, the day label, the clock time, the
+// left/right bubbles and the status-filter chips that used to live here were
+// the kit's job drawn a second time, and the second copy is the one that
+// rots. Nothing here draws a row; it draws what goes INSIDE one.
+//
+// ── Why the rest lives here and not in app/components/ ────────────────────
 //
 // scripts/check-mobile-surfaces.mjs walks `app/app` and `app/components/mobile`
 // — it does NOT walk the rest of app/components. Its own header says so and
@@ -16,7 +28,7 @@
 
 import { useState } from "react";
 import {
-  AlertTriangle, Check, Clock, EyeOff, MessageSquare, StickyNote,
+  AlertTriangle, Clock, EyeOff, MessageSquare, StickyNote,
   Paperclip, Film, Mic, FileText, Loader2, X, MapPin, User, Phone, Mail,
   ExternalLink, UserPlus, Home, Smile,
 } from "lucide-react";
@@ -30,7 +42,6 @@ import {
   outcomeLabelKey,
   statusLabelKey,
 } from "@/lib/messaging/outcomes";
-import { activityLabel } from "@/lib/messaging/activity";
 import { waitedLabel, isWaiting } from "@/lib/messaging/waiting";
 import {
   attachmentTypeKey,
@@ -44,26 +55,6 @@ import {
 import { videoPosterUrl } from "@/lib/media/cloudinaryUrl";
 import { staticMapUrl, mapsLinkUrl, addressFromLocation } from "@/lib/messaging/locationLink";
 
-/** Two letters from a name, or a dash when Meta gave us none. */
-export function initials(name) {
-  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return "–";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
-export function Avatar({ name, size = "md" }) {
-  const box = size === "sm" ? "h-8 w-8 text-xs" : "h-10 w-10 text-sm";
-  return (
-    <span
-      aria-hidden="true"
-      className={"shrink-0 rounded-full bg-accent text-foreground font-semibold grid place-items-center " + box}
-    >
-      {initials(name)}
-    </span>
-  );
-}
-
 /**
  * Which network this conversation came in on. An icon AND the word: two
  * companies' worth of support calls in this repo have started with somebody
@@ -76,98 +67,6 @@ export function PlatformBadge({ platform, t }) {
       <SocialGlyph platform={platform} size={12} />
       {t("app.messages.platform." + platform)}
     </span>
-  );
-}
-
-/**
- * The date rule above a run of messages.
- *
- * Today and yesterday get words; anything older gets the company's own date
- * format, so this screen and every other one agree about what a date looks
- * like.
- */
-export function dayLabel(value, { t, formatDate }) {
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  const startOf = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
-  const today = startOf(new Date());
-  const day = startOf(d);
-  if (day === today) return t("app.messages.today");
-  if (day === today - 86400000) return t("app.messages.yesterday");
-  return formatDate(d);
-}
-
-/** hh:mm in the reader's own locale — a bubble timestamp, not a date. */
-export function clockTime(value) {
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-}
-
-/**
- * One bubble.
- *
- * Inbound uses the app's own tokens so it flips correctly in dark mode.
- * Outbound uses the two literal hex values the SERVER measured against the
- * company's brand colour (lib/messaging/bubbleTheme.js) — never a guess, and
- * never "is it dark? use white", which fails on exactly the mid-tones
- * contractors pick.
- */
-export function Bubble({ message, bubbles, note, onRetryAttachment, media, t }) {
-  // The two kinds of row that are NOT a message between two people. Handled
-  // first and returned early, so nothing below — the brand fill, the delivery
-  // tick, the "not delivered" warning — can ever be applied to one of them.
-  if (message.direction === "activity") return <ActivityLine message={message} t={t} />;
-  if (message.direction === "note") return <NoteBubble message={message} note={note} t={t} />;
-
-  const out = message.direction === "out";
-  const failed = Boolean(message.failedReason);
-
-  const style = out && !failed && bubbles?.outbound
-    ? { backgroundColor: bubbles.outbound.bg, color: bubbles.outbound.fg }
-    : undefined;
-
-  // A failed reply is NOT painted in the brand colour. It never reached the
-  // homeowner, and dressing it identically to the ones that did is the whole
-  // "appears to work" failure in one CSS rule.
-  const tone = failed
-    ? "bg-card border border-destructive text-foreground"
-    : out
-      ? ""
-      : "bg-muted text-foreground";
-
-  return (
-    <div className={out ? "flex justify-end" : "flex justify-start"}>
-      <div className="max-w-[85%] sm:max-w-[70%]">
-        <div
-          style={style}
-          className={"rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap break-words " + tone}
-        >
-          {message.body || ""}
-          {/* The pictures themselves, not a count of them. This used to render
-              "1 attachment" for a homeowner's photo of their kitchen, which is
-              the most-used half of a messaging channel described rather than
-              shown. See Attachments below for the four states. */}
-          <Attachments message={message} onRetry={onRetryAttachment} media={media} t={t} />
-        </div>
-        <div className={"mt-1 flex items-center gap-1.5 text-xs text-muted-foreground " + (out ? "justify-end" : "")}>
-          <span>{clockTime(message.sentAt)}</span>
-          {failed && (
-            <span className="inline-flex items-center gap-1 text-destructive font-medium">
-              <AlertTriangle size={11} aria-hidden="true" />
-              {t("app.messages.failed")}
-            </span>
-          )}
-          {!failed && out && message.readAt && <Check size={12} aria-hidden="true" />}
-        </div>
-        {failed && message.failedReason && (
-          // The reason, in full, on the bubble. A contractor who cannot see WHY
-          // a message did not send has no way to tell "Meta is down" from "you
-          // never connected a Page".
-          <p className="mt-1 text-xs text-muted-foreground">{message.failedReason}</p>
-        )}
-      </div>
-    </div>
   );
 }
 
@@ -220,13 +119,14 @@ export function Bubble({ message, bubbles, note, onRetryAttachment, media, t }) 
  *
  * ══ Colour ═════════════════════════════════════════════════════════════════
  *
- * Everything here inherits `currentColor` from the bubble. An outbound bubble
- * is painted in two hex values the SERVER measured against the company's brand
- * colour (lib/messaging/bubbleTheme.js); dropping a theme token like
- * `text-muted-foreground` onto it would put an unmeasured pair on a surface
- * whose whole point is that its pair was measured. Nothing below introduces a
- * colour — the borders are `border-current`, the icons inherit, and the map
- * thumbnail is a photograph.
+ * Everything here inherits `currentColor` from the row it sits in. Today
+ * that row is the kit's (app/components/chat/Thread.js, in the app's own
+ * foreground token); it used to be a bubble painted in a measured brand
+ * pair, and the rule that let the same renderer serve both is that nothing
+ * below introduces a colour — the borders are `border-current`, the icons
+ * inherit, and the map thumbnail is a photograph. Keep it that way: a
+ * `text-muted-foreground` dropped in here would be the one unmeasured pair
+ * on whatever surface this is next drawn on.
  *
  * @param media  the two things a card can DO, and whether this member may do
  *               them: { canEditClients, client, onAddClient, onSaveAddress }.
@@ -251,6 +151,26 @@ export function Attachments({ message, onRetry, media, t }) {
       ))}
     </span>
   );
+}
+
+/**
+ * Keep a thread pinned to its bottom when a late-loading attachment grows it.
+ *
+ * The kit's Thread pins to the bottom when ROWS arrive (app/components/chat/
+ * Thread.js) — it has no way to know that a row got taller a second later
+ * because a 640px photo finished downloading. Without this, opening a
+ * conversation whose last message is a picture lands the reader a screen
+ * above the newest row, which the harness screenshot showed. The rule is
+ * the kit's own: only a reader who was at the bottom is moved; somebody
+ * scrolled up to read is left alone. "Was at the bottom" is measured
+ * against the height the element just gained, since the growth already
+ * happened by the time `load` fires.
+ */
+function repinAfterGrowth(el) {
+  const scroller = el?.closest?.("[data-chat-scroller]");
+  if (!scroller) return;
+  const gap = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+  if (gap <= (el.clientHeight || 0) + 48) scroller.scrollTo({ top: scroller.scrollHeight });
 }
 
 /** The glyph for a kind of file. An icon AND the word, for the same reason
@@ -318,6 +238,7 @@ function AttachmentItem({ messageId, attachment, onRetry, media, t }) {
         <img
           src={attachment.url}
           alt={label}
+          onLoad={(e) => repinAfterGrowth(e.currentTarget)}
           className="max-h-64 w-auto max-w-full rounded-lg"
         />
       </a>
@@ -333,7 +254,7 @@ function AttachmentItem({ messageId, attachment, onRetry, media, t }) {
   if (attachment.state === "ready" && attachment.type === "sticker") {
     return (
       <span className="block">
-        <img src={attachment.url} alt={label} className="max-h-28 w-auto max-w-full" />
+        <img src={attachment.url} alt={label} onLoad={(e) => repinAfterGrowth(e.currentTarget)} className="max-h-28 w-auto max-w-full" />
       </span>
     );
   }
@@ -601,6 +522,7 @@ function VideoPlayer({ attachment, label, t }) {
         preload="metadata"
         playsInline
         aria-label={label}
+        onLoadedMetadata={(e) => repinAfterGrowth(e.currentTarget)}
         className="max-h-64 w-full max-w-full rounded-lg bg-black"
       />
       {/* The way to see it properly. A <video> in a bubble that is at most 85%
@@ -728,6 +650,7 @@ function LocationCard({ attachment, media, t }) {
           <img
             src={mapUrl}
             alt={t("app.messages.media.mapAlt")}
+            onLoad={(e) => repinAfterGrowth(e.currentTarget)}
             className="h-32 w-full object-cover"
           />
         </a>
@@ -882,8 +805,8 @@ function ContactEntry({ contact, media, fallbackName, divider, t }) {
 }
 
 /**
- * A private note, in the thread, styled so it can never be mistaken for a
- * message that went to the homeowner.
+ * A private note's body, inside a kit row, styled so it can never be
+ * mistaken for a message that went to the homeowner.
  *
  * Four separate signals say so at once, deliberately — colour alone is not
  * enough for the one control on this screen whose failure mode is a customer
@@ -896,11 +819,13 @@ function ContactEntry({ contact, media, fallbackName, divider, t }) {
  *   3. the word, in a label, in the reader's own language;
  *   4. an eye-off icon.
  *
- * The colours arrive MEASURED from the server, exactly as the outbound
- * bubble's do, so scripts/check-messaging.mjs tests the values this paints
- * rather than a copy of them.
+ * The colours arrive MEASURED from the server, exactly as they did when this
+ * was a bubble, so scripts/check-messaging.mjs tests the values this paints
+ * rather than a copy of them. The row around it — gutter, avatar, name, time
+ * — is the kit's (app/components/chat/Thread.js, through `renderBody`); this
+ * is only what goes in the words' box.
  */
-export function NoteBubble({ message, note, t }) {
+export function NoteBody({ message, note, t }) {
   const palette = note || {};
   const style = palette.bg
     ? {
@@ -911,44 +836,18 @@ export function NoteBubble({ message, note, t }) {
     : undefined;
 
   return (
-    <div className="flex justify-end">
-      <div className="max-w-[85%] sm:max-w-[70%]">
-        <div
-          style={style}
-          className="rounded-2xl border-l-4 border border-transparent px-3.5 py-2 text-sm whitespace-pre-wrap break-words"
-        >
-          <span className="mb-1 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide">
-            <EyeOff size={12} aria-hidden="true" />
-            {t("app.messages.note.label")}
-          </span>
-          {message.body || ""}
-        </div>
-        <p className="mt-1 text-right text-xs text-muted-foreground">
-          {t("app.messages.note.onlyYourTeam")} · {clockTime(message.sentAt)}
-        </p>
-      </div>
+    <div
+      style={style}
+      data-note-body
+      className="max-w-prose rounded-lg border-l-4 border border-transparent px-3 py-2 text-sm whitespace-pre-wrap break-words"
+    >
+      <span className="mb-1 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide">
+        <EyeOff size={12} aria-hidden="true" />
+        {t("app.messages.note.label")}
+        <span className="font-normal normal-case tracking-normal opacity-80">· {t("app.messages.note.onlyYourTeam")}</span>
+      </span>
+      {message.body || ""}
     </div>
-  );
-}
-
-/**
- * A system line: assigned, snoozed, quote linked.
- *
- * Centred, quiet, and NOT a bubble — it is not something anybody said. This is
- * the shape Chatwoot uses and the reason is legibility: the eye skips these
- * while reading the conversation and finds them when reading the story.
- *
- * Renders NOTHING for an activity this version does not recognise. A row
- * written by a newer deploy is silent rather than guessed at — see
- * lib/messaging/activity.js.
- */
-export function ActivityLine({ message, t }) {
-  const label = activityLabel(message.activity);
-  if (!label) return null;
-  return (
-    <p className="px-4 text-center text-xs text-muted-foreground">
-      {t(label.key, label.params)} · {clockTime(message.sentAt)}
-    </p>
   );
 }
 
@@ -965,49 +864,18 @@ export function WaitingBadge({ thread, t, now }) {
   if (!isWaiting(thread)) return null;
   const label = waitedLabel(thread.waitingSince, now);
   if (!label) return null;
+  // The clock and the duration are what the eye needs on a 280px row; the
+  // whole sentence ("Waiting 4 h") is what a screen reader gets.
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-foreground">
-      <Clock size={11} aria-hidden="true" />
-      {t("app.messages.waiting.for", { duration: t(label.key, label.params) })}
-    </span>
-  );
-}
-
-/**
- * The status filter chips above the inbox.
- *
- * All four states plus "everything", because a filter you cannot turn off is
- * a filter that eventually hides a conversation from somebody who has
- * forgotten it is on. The selected chip is pressed, not merely coloured, so a
- * screen reader gets the same fact the eye does.
- */
-export function StatusFilter({ value, onPick, counts, t }) {
-  const chip = (key, label, active) => (
-    <button
-      key={key || "all"}
-      type="button"
-      aria-pressed={active}
-      onClick={() => onPick(key)}
-      className={
-        "min-h-[44px] shrink-0 rounded-full border px-3 text-sm font-medium " +
-        (active
-          ? "border-transparent bg-inverted text-inverted-foreground"
-          : "border-border bg-card text-foreground hover:bg-muted")
-      }
+    <span
+      className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-medium text-foreground tabular-nums"
+      title={t("app.messages.waiting.for", { duration: t(label.key, label.params) })}
+      data-waiting-badge
     >
-      {label}
-      {counts && Number.isFinite(counts[key || "all"]) ? ` (${counts[key || "all"]})` : ""}
-    </button>
-  );
-
-  return (
-    // Scrolls sideways rather than wrapping to two rows on a phone: five chips
-    // at 44px each do not fit at 375px, and a wrapped second row pushes the
-    // first conversation off the screen.
-    <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-      {chip(null, t("app.messages.status.all"), !value)}
-      {THREAD_STATUSES.map((s) => chip(s, t(statusLabelKey(s)), value === s))}
-    </div>
+      <Clock size={11} aria-hidden="true" />
+      <span aria-hidden="true">{t(label.key, label.params)}</span>
+      <span className="sr-only">{t("app.messages.waiting.for", { duration: t(label.key, label.params) })}</span>
+    </span>
   );
 }
 

@@ -131,7 +131,15 @@ export default function LeadsPage() {
   const [q, setQ] = useState("");
   const [temp, setTemp] = useState(""); // "" = all
   const [sort, setSort] = useState("score"); // hottest-first by default
-  const [openId, setOpenId] = useState("");
+  // ?lead=<id> — how a Page / Instagram conversation's "Open lead" lands on
+  // the lead it is linked to rather than on the board. Read from the
+  // location rather than useSearchParams (which would need a Suspense
+  // boundary for one string); the drawer opens only once the lead is in
+  // the loaded list, so a stale or foreign id opens nothing, and the first
+  // paint is the same on the server and the client.
+  const [openId, setOpenId] = useState(() =>
+    typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("lead") || "" : "",
+  );
 
   const load = useCallback(async () => {
     setErrorKey("");

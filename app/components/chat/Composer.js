@@ -48,6 +48,21 @@ const MAX_LISTED = 8;
  * @param footer                   node under the toolbar (a legal note)
  * @param disabled / busy
  * @param maxLength                optional character ceiling, shown as a count
+ * @param allowEmpty               Send may go with an EMPTY box — for a
+ *                                 caller whose payload is not the words (an
+ *                                 approved template, a photo with no
+ *                                 caption, a dropped pin). Default false:
+ *                                 words are required, as before.
+ * @param inputDisabled            the textarea alone is off while Send stays
+ *                                 live — a closed messaging window where a
+ *                                 template is the only thing that may go, or
+ *                                 a location message that carries no
+ *                                 caption. `disabled` still switches off
+ *                                 both.
+ * @param textareaStyle            inline style for the box — a private note
+ *                                 is painted in its own measured wash before
+ *                                 a word is typed, which is the moment the
+ *                                 mistake would otherwise be made.
  */
 export default function Composer({
   value,
@@ -65,6 +80,9 @@ export default function Composer({
   maxLength = null,
   textareaId = null,
   autoFocus = false,
+  allowEmpty = false,
+  inputDisabled = false,
+  textareaStyle = undefined,
 }) {
   const { t } = useTranslation();
   const generatedId = useId();
@@ -120,7 +138,7 @@ export default function Composer({
     [token, value, onChange],
   );
 
-  const canSend = !disabled && !busy && String(value || "").trim().length > 0;
+  const canSend = !disabled && !busy && (allowEmpty || String(value || "").trim().length > 0);
 
   const onKeyDown = (e) => {
     if (popupOpen) {
@@ -217,7 +235,8 @@ export default function Composer({
           ref={box}
           rows={2}
           value={value}
-          disabled={disabled}
+          disabled={disabled || inputDisabled}
+          style={textareaStyle}
           placeholder={placeholder || t("app.chat.placeholder")}
           onChange={(e) => {
             onChange(e.target.value);

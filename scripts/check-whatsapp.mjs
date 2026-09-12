@@ -2036,7 +2036,7 @@ ok(
 );
 ok(
   "a pin disables the caption box, because WhatsApp carries no words with a location",
-  /sending \|\| sendingLocation/.test(pageAll),
+  /inputDisabled=\{composerBlocked \|\| sendingLocation\}/.test(pageAll),
 );
 
 // ── K. The file picker now offers what the send has always accepted ────────

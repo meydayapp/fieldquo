@@ -585,15 +585,20 @@ ok(
 // which executes that one at the boundary). The claim this assertion protects
 // is unchanged and is written so deleting EITHER guard fails: whatever
 // switches the box off is the same value that gets printed beside it.
+// On the chat kit the box is the kit's Composer: `inputDisabled` switches
+// the typing box off (Send stays alive for a template), `disabled` switches
+// both off when nothing could carry the words. Both are driven by the same
+// `composerBlocked`, and the window notice is still drawn beside it.
 ok(
   "the composer is disabled by the same decisions that print themselves",
   /const composerBlocked = mode === "reply" && \(Boolean\(blockKey\) \|\| windowClosed\)/.test(pageSrc) &&
-    /disabled=\{composerBlocked/.test(pageSrc) &&
+    /inputDisabled=\{composerBlocked/.test(pageSrc) &&
+    /disabled=\{demoBlocked \|\| !canEdit \|\| \(composerBlocked && !allowEmpty\)\}/.test(pageSrc) &&
     /<ServiceWindowNotice notice=\{windowNotice\}/.test(pageSrc),
 );
 ok(
   "the composer is disabled, not hidden",
-  !/blockKey \? null :/.test(pageSrc) && /<textarea/.test(pageSrc),
+  !/blockKey \? null :/.test(pageSrc) && /<Composer\b/.test(pageSrc) && !/blockKey \? null : <Composer/.test(pageSrc),
 );
 ok(
   "the empty inbox names what is missing",
@@ -845,14 +850,20 @@ for (const brandColor of HOSTILE) {
     `bg ${outbound.bg} / fg ${outbound.fg}`,
   );
 }
-// The page must actually PAINT the measured pair rather than a class.
+// The thread is drawn by the shared chat kit now — left-aligned rows in the
+// app's own tokens, no brand-coloured bubble on the back office at all (the
+// brand colour is for what the CLIENT sees; see app/app/layout.js). So the
+// claim moves: nothing on this screen paints a message in the brand colour,
+// and a FAILED reply is still marked as failed rather than dressed like one
+// that arrived — by the kit's failed state, fed from the stored reason.
 ok(
-  "the outbound bubble uses the measured colours",
-  /backgroundColor: bubbles\.outbound\.bg, color: bubbles\.outbound\.fg/.test(bitsSrc),
+  "the thread paints no message in the brand colour",
+  !/bubbles\??\.outbound/.test(pageSrc + bitsSrc) && !/brandColor/.test(pageSrc + bitsSrc),
 );
 ok(
-  "a FAILED outbound bubble is not painted in the brand colour",
-  /out && !failed && bubbles\?\.outbound/.test(bitsSrc),
+  "a FAILED reply is marked failed from the stored reason, never drawn as delivered",
+  /status: m\.failedReason \? "failed" : "sent"/.test(read("lib/messaging/rooms.js")) &&
+    /error: m\.failedReason \|\| null/.test(read("lib/messaging/rooms.js")),
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
