@@ -121,6 +121,7 @@ import {
   Database,
   BookOpenCheck,
   HandCoins,
+  Receipt,
   Trash2,
   Inbox,
   Clock3,
@@ -232,6 +233,11 @@ const GROUPS = [
       // purpose — Billing's Plans row is what FieldQuo CHARGES a contractor,
       // and the two answering to one word is how somebody edits the wrong one.
       { label: "Commission plans", href: "/platform/sales/plans", icon: HandCoins },
+      // Under the plans, because it is the plans paid out: what FieldQuo owes
+      // each rep by week or month, the closed batches to pay, and — once a
+      // person has paid one through Wise or Interac — where and when, with
+      // the receipt. No money moves from it; lib/sales/payouts.js says why.
+      { label: "Sales payouts", href: "/platform/sales/payouts", icon: Receipt },
       // Directly under the reps, because it is the same people counted. The
       // owner asked "where do i see the sales KPIs? and insights.. and the
       // leads?" and the honest answer was nowhere: SalesAttribution,

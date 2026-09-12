@@ -83,6 +83,7 @@ import {
   NotebookPen,
   PhoneCall,
   Search,
+  Settings,
   Sun,
   Users,
   UsersRound,
@@ -113,6 +114,7 @@ const TAB_ICONS = {
   "/sales/support": LifeBuoy,
   "/sales/voicemail": Voicemail,
   "/sales/pay": Wallet,
+  "/sales/settings": Settings,
 };
 
 /** Which badge each row wears, by href → field of /api/sales/badges. */
@@ -373,6 +375,12 @@ export default function SalesShell({ children }) {
     // rather than a working one — visited once when they join and
     // again when their bank changes, not every morning.
     { href: "/sales/pay", label: t("app.salesPortal.navPay") },
+    // Everything about the rep that is not money: the portal's language,
+    // the languages they sell in, browser notifications, their profile.
+    // Split out of Pay on the owner's instruction ("Pay and languages
+    // should not be in the same page"), and last for the same reason Pay
+    // is near the end — set once, changed rarely.
+    { href: "/sales/settings", label: t("app.salesPortal.navSettings") },
   ];
 
   const callsToday = Number.isFinite(badges?.callsToday) ? badges.callsToday : null;

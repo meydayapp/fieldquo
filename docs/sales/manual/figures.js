@@ -37,6 +37,11 @@ const PORTAL = (name) => [`docs/screens/sales-portal/*-${name}.{lang}.png`, `doc
 export const FIGURES = {
   // Chapter 1 — your account
   "login": ["docs/screens/sales-portal/*sales-login*.png", "docs/screens/public/08-sales-login.png"],
+  // 2026-09-12: the language pickers moved from Pay to their own Settings
+  // tab; the figure follows them. docs/screens/sales-settings/ is shot by
+  // that folder's harness; the old pay-languages screenshot stays as a
+  // fallback until the per-language settings shots exist.
+  "settings": ["docs/screens/sales-settings/settings-1280.{lang}.png", "docs/screens/sales-settings/settings-1280.png", ...PORTAL("pay-languages")],
   "pay-languages": PORTAL("pay-languages"),
 
   // Chapter 2 — demo account

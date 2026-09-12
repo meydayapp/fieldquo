@@ -68,6 +68,21 @@
 // and the same panel asks what to do with it first; one confirm does the
 // hand-off and the deactivation in one transaction.
 //
+// ══ An accordion, since 2026-09-12 ════════════════════════════════════════
+//
+// The owner: each rep is a collapsed header row — name, status, the
+// languages they sell in, this week / owed / paid at a glance — and clicking
+// it expands that rep to everything the card showed before. One open at a
+// time, and the open one is remembered in the URL hash (#rep-<id>) so a
+// refresh, or a link from the payouts table, lands on the right rep with it
+// open. Inside the panel, a Payments section: the rep's batches newest
+// first, with where and when each was paid and the receipt, and Mark paid
+// right there — the SAME BatchCard and MarkPaidForm /platform/sales/payouts
+// mounts. "I should be able to say where and when I paid them."
+//
+// The three figures on the header come from the ledger through repMoney()
+// (lib/sales/payoutAdmin.js) — never from totalCentsAtClose.
+//
 // ══ Cards, not a table ════════════════════════════════════════════════════
 //
 // A rep's row now carries a signup link, a mailbox, a code, a status, a
@@ -82,6 +97,8 @@ import {
   AlertCircle,
   ArrowRightLeft,
   Check,
+  ChevronDown,
+  ChevronRight,
   Copy,
   HandCoins,
   ListChecks,
@@ -101,6 +118,9 @@ import { codeProblem, suggestCode, workEmailProblem } from "@/lib/sales/repAdmin
 import { ENGAGEMENTS } from "@/lib/sales/payoutDetails";
 import { LANGUAGES } from "@/app/i18n/languages";
 import { FRENCH } from "@/lib/sales/leadLanguage";
+import { centsToMoney } from "@/lib/sales/money";
+import RepPaymentsPanel from "@/app/components/platform/payouts/RepPaymentsPanel";
+import { OwedStrip } from "@/app/components/platform/payouts/OwedView";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -241,6 +261,16 @@ export default function PlatformSalesRepsPage() {
   // rep id → the deactivation panel: counts from the server, the chosen
   // hand-off, and the targets. Opened from Deactivate, or by the 409.
   const [deactivating, setDeactivating] = useState({});
+  // ── The accordion ───────────────────────────────────────────────────────
+  // Which rep is expanded (one at a time), read from and written to the URL
+  // hash so a refresh keeps it. `highlightBatch` is the payouts table's
+  // ?batch= link, ringed inside the Payments section.
+  const [openRep, setOpenRep] = useState(null);
+  const [highlightBatch, setHighlightBatch] = useState(null);
+  // The owed strip at the top: the same snapshot /platform/sales/payouts
+  // draws. Null until read; absent (not a fabricated zero) when this admin
+  // may not read payouts.
+  const [owed, setOwed] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -261,6 +291,45 @@ export default function PlatformSalesRepsPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const loadOwed = useCallback(async () => {
+    try {
+      const data = await fetchJson("/api/platform/sales/payouts?period=week");
+      setOwed(data.snapshot || null);
+    } catch {
+      // Support cannot read payouts (403); the strip is simply not drawn.
+      // A refused read is not "nothing owed".
+      setOwed(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadOwed();
+  }, [loadOwed]);
+
+  // The hash is the accordion's state. Read on mount and on every hash
+  // change (the back button, a link from the payouts table), so the URL
+  // and the open panel cannot disagree.
+  useEffect(() => {
+    const readHash = () => {
+      const m = /^#rep-([A-Za-z0-9_-]+)$/.exec(window.location.hash || "");
+      setOpenRep(m ? m[1] : null);
+      const batch = new URLSearchParams(window.location.search).get("batch");
+      setHighlightBatch(batch || null);
+    };
+    readHash();
+    window.addEventListener("hashchange", readHash);
+    return () => window.removeEventListener("hashchange", readHash);
+  }, []);
+
+  function toggleRep(id) {
+    const next = openRep === id ? null : id;
+    setOpenRep(next);
+    // replaceState rather than assigning location.hash: the latter scrolls
+    // and adds a history entry per click, and the accordion is not a page.
+    const url = `${window.location.pathname}${window.location.search}${next ? `#rep-${next}` : ""}`;
+    window.history.replaceState(null, "", url);
+  }
 
   const takenCodes = useMemo(() => reps.map((r) => r.code), [reps]);
 
@@ -785,6 +854,21 @@ export default function PlatformSalesRepsPage() {
         </div>
       )}
 
+      {/* What the team is owed, at the top — the same three figures
+          /platform/sales/payouts leads with, from the same route. */}
+      {owed ? (
+        <div className="space-y-1">
+          <OwedStrip snapshot={owed} />
+          <p className="text-xs text-muted-foreground">
+            Re-summed from the commission ledger.{" "}
+            <Link href="/platform/sales/payouts" className="underline">
+              Sales payouts
+            </Link>{" "}
+            has the period table and every batch.
+          </p>
+        </div>
+      ) : null}
+
       <PlatformWriteGate
         status={roleStatus}
         allowed={isSuperadmin}
@@ -1027,24 +1111,80 @@ export default function PlatformSalesRepsPage() {
         <div className="space-y-4">
           {reps.map((rep) => {
             const editingMailbox = rep.id in mailboxDraft;
+            const open = openRep === rep.id;
+            const money = rep.money || null;
             return (
-              <div key={rep.id} className={`${CARD} space-y-3`}>
-                <div className="flex items-start justify-between gap-3 flex-wrap">
-                  <div>
-                    <div className="font-medium text-foreground">{rep.name}</div>
-                    <div className="text-xs text-muted-foreground break-all">{rep.email}</div>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {!rep.active ? (
-                      <span>Deactivated {formatDate(rep.endedAt)}</span>
-                    ) : rep.acceptedAt ? (
-                      <span>Active since {formatDate(rep.acceptedAt)}</span>
-                    ) : (
-                      <span>Invited {formatDate(rep.invitedAt)} — not accepted yet</span>
-                    )}
-                  </div>
-                </div>
+              <div
+                key={rep.id}
+                id={`rep-${rep.id}`}
+                className={`${CARD} space-y-3`}
+                data-rep-card={rep.id}
+                data-open={open ? "true" : "false"}
+              >
+                {/* ── The collapsed row ──────────────────────────────────
+                    A button, so the keyboard opens it; aria-expanded says
+                    which state it is in; the panel below carries the id it
+                    controls. */}
+                <button
+                  type="button"
+                  onClick={() => toggleRep(rep.id)}
+                  aria-expanded={open}
+                  aria-controls={`rep-panel-${rep.id}`}
+                  className="w-full min-h-[44px] text-left flex items-start gap-3"
+                  data-rep-toggle={rep.id}
+                >
+                  <span className="mt-0.5 shrink-0 text-muted-foreground">
+                    {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                  </span>
+                  <span className="min-w-0 flex-1 space-y-1">
+                    <span className="flex items-start justify-between gap-3 flex-wrap">
+                      <span className="min-w-0">
+                        <span className="block font-medium text-foreground">{rep.name}</span>
+                        <span className="block text-xs text-muted-foreground break-all">{rep.email}</span>
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {!rep.active ? (
+                          <span>Deactivated {formatDate(rep.endedAt)}</span>
+                        ) : rep.acceptedAt ? (
+                          <span>Active since {formatDate(rep.acceptedAt)}</span>
+                        ) : (
+                          <span>Invited {formatDate(rep.invitedAt)} — not accepted yet</span>
+                        )}
+                      </span>
+                    </span>
+                    <span className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                      <span className="text-muted-foreground">
+                        Sells in{" "}
+                        <span className="text-foreground">
+                          {(rep.sellsIn || []).length
+                            ? (rep.sellsIn || [])
+                                .map((c) => LANGUAGES.find((l) => l.code === c)?.name || c)
+                                .join(", ")
+                            : "not set"}
+                        </span>
+                      </span>
+                      {money ? (
+                        <span className="flex flex-wrap gap-x-3 tabular-nums" data-rep-money>
+                          <span className="text-muted-foreground">
+                            This week <span className="text-foreground">{centsToMoney(money.thisWeekCents)}</span>
+                          </span>
+                          <span className="text-muted-foreground">
+                            Owed{" "}
+                            <span className={money.owedCents > 0 ? "text-amber-800 dark:text-amber-300 font-medium" : "text-foreground"}>
+                              {centsToMoney(money.owedCents)}
+                            </span>
+                          </span>
+                          <span className="text-muted-foreground">
+                            Paid <span className="text-foreground">{centsToMoney(money.paidCents)}</span>
+                          </span>
+                        </span>
+                      ) : null}
+                    </span>
+                  </span>
+                </button>
 
+                {open ? (
+                <div id={`rep-panel-${rep.id}`} className="space-y-3 border-t border-border pt-3" data-rep-panel={rep.id}>
                 <div className="grid gap-3 sm:grid-cols-2 text-sm">
                   <div>
                     <div className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -1059,6 +1199,20 @@ export default function PlatformSalesRepsPage() {
                     <div className="text-foreground">{rep.companyCount}</div>
                   </div>
                 </div>
+
+                {/* ── Payments ───────────────────────────────────────────
+                    The rep's batches, where and when each was paid, and
+                    Mark paid for a ready one — one component with the
+                    payouts screen. After a save the header totals and the
+                    owed strip are re-read. */}
+                <RepPaymentsPanel
+                  repId={rep.id}
+                  highlightBatch={highlightBatch}
+                  onChanged={() => {
+                    load();
+                    loadOwed();
+                  }}
+                />
 
                 {/* ── The queue ──────────────────────────────────────────
                     Counted by the same queueWhere() the rep's own screen
@@ -1478,6 +1632,8 @@ export default function PlatformSalesRepsPage() {
                     </button>
                   </div>
                 )}
+                </div>
+                ) : null}
               </div>
             );
           })}

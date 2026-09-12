@@ -458,20 +458,31 @@ section("7. The route validates before it writes, and writes through the fence")
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-section("8. One place a rep changes their own settings — and one payout form");
+section("8. Pay is money, Settings is the rest — and one payout form");
 // ═══════════════════════════════════════════════════════════════════════════
 
 {
+  // 2026-09-12: the owner — "Pay and languages should not be in the same
+  // page". /sales/pay keeps the earnings and the payout destination;
+  // /sales/settings takes the language picker, sells-in, notifications and
+  // the profile. Both are asserted, and the split itself is: a language
+  // picker back on Pay is the thing this section now refuses.
   const pay = decomment(read("app/sales/pay/page.js"));
-  ok("/sales/pay renders the language picker", /<RepLanguageChoice/.test(pay));
-  ok("…and the payout form", /<PayoutDestinationForm/.test(pay));
-  // The screen is reachable: SalesShell's tab list is what makes it so, and
-  // scripts/check-sales-home.mjs holds that generally. Named here because THIS
-  // change is what made it the settings screen rather than the payout screen.
-  ok(
-    "…and the shell still has a tab that opens it",
-    decomment(read("app/sales/SalesShell.js")).includes('"/sales/pay"'),
-  );
+  const settings = decomment(read("app/sales/settings/page.js"));
+  ok("/sales/settings renders the language picker", /<RepLanguageChoice/.test(settings));
+  ok("/sales/pay renders the payout form", /<PayoutDestinationForm/.test(pay));
+  ok("…and no longer the language picker", !/<RepLanguageChoice/.test(pay));
+  ok("…and no longer the sells-in control", !/<RepSellsInChoice/.test(pay));
+  ok("…and no longer the notifications block", !/<BrowserNotifications/.test(pay));
+  ok("/sales/settings does not carry the payout form", !/<PayoutDestinationForm/.test(settings));
+  // The profile on Settings is read-only: no rep-side route writes name or
+  // email, so an input for either would be a control that saves nowhere.
+  ok("the profile on Settings is read-only (no inputs)", /data-rep-profile/.test(settings) && !/<input/.test(settings));
+  // Both screens are reachable: SalesShell's tab list is what makes it so,
+  // and scripts/check-sales-home.mjs holds that generally.
+  const shell = decomment(read("app/sales/SalesShell.js"));
+  ok("…and the shell has a tab that opens Pay", shell.includes('"/sales/pay"'));
+  ok("…and one that opens Settings", shell.includes('"/sales/settings"'));
 
   const form = "app/components/sales/PayoutDestinationForm.js";
   ok("the payout form lives in one component", existsSync(join(ROOT, form)));
@@ -485,6 +496,7 @@ section("8. One place a rep changes their own settings — and one payout form")
   const welcome = decomment(read("app/sales/welcome/page.js"));
   for (const [label, src] of [
     ["/sales/pay", pay],
+    ["/sales/settings", settings],
     ["/sales/welcome", welcome],
   ]) {
     ok(
@@ -684,7 +696,7 @@ section("10. The column itself");
   ok("…loads from and saves to /api/sales/sells-in", /fetchJson\("\/api\/sales\/sells-in"\)/.test(comp) && /body: JSON\.stringify\(\{ sellsIn: choice \}\)/.test(comp));
   ok("…shows an empty list as UNSET rather than as English", /const unset = stored\.length === 0;/.test(comp) && /app\.salesSellsIn\.unset/.test(comp));
   ok("…and carries the Quebec hint", /app\.salesSellsIn\.hint/.test(comp));
-  ok("it sits under the portal-language picker on Pay & settings", /<RepLanguageChoice \/>[\s\S]*<RepSellsInChoice \/>/.test(src("app/sales/pay/page.js")));
+  ok("it sits under the portal-language picker on Settings", /<RepLanguageChoice \/>[\s\S]*<RepSellsInChoice \/>/.test(src("app/sales/settings/page.js")));
   ok("…and on the first-run pass", /<RepLanguageChoice[\s\S]*<RepSellsInChoice \/>/.test(src("app/sales/welcome/page.js")));
 
   const route = src("app/api/sales/sells-in/route.js");

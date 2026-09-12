@@ -393,7 +393,7 @@ section("10. The column round-trips");
   const comp = decomment(read("app/components/sales/RepSellsInChoice.js"));
   ok("the rep's control loads and PUTs /api/sales/sells-in", /fetchJson\("\/api\/sales\/sells-in"\)/.test(comp) && /method: "PUT"/.test(comp));
   ok("…shows empty as unset, not as English", /const unset = stored\.length === 0;/.test(comp) && /app\.salesSellsIn\.unset/.test(comp));
-  ok("…is on Pay & settings", /<RepSellsInChoice \/>/.test(decomment(read("app/sales/pay/page.js"))));
+  ok("…is on Settings (split out of Pay on 2026-09-12)", /<RepSellsInChoice \/>/.test(decomment(read("app/sales/settings/page.js"))));
   ok("…and on the first-run pass", /<RepSellsInChoice \/>/.test(decomment(read("app/sales/welcome/page.js"))));
   const api = decomment(read("app/api/sales/sells-in/route.js"));
   ok("the rep route returns sellsIn on GET and PUT through sellsInOf", (api.match(/sellsIn: sellsInOf\(rep\)/g) || []).length === 1 && /export async function PUT/.test(api));

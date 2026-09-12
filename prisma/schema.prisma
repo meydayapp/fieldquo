@@ -9473,6 +9473,25 @@ model SalesPayoutBatch {
   paidAt    DateTime?
   createdAt DateTime  @default(now())
 
+  /// ── Proof of payment ──────────────────────────────────────────────────
+  ///
+  /// A person pays the batch outside the product, so the product's record of
+  /// the payment is what that person attaches here: the receipt or transfer
+  /// screenshot (an image or a PDF in Cloudinary, under FieldQuo's OWN folder
+  /// fieldquo/platform/payouts/<batchId> — never a company's), the transfer
+  /// reference, and where it was sent through ("Wise", "Interac", "Upwork" —
+  /// free text, because the rail is whatever the rep's destination needed).
+  /// A batch cannot be marked paid with neither a file nor a reference: the
+  /// rep reads these on their own Pay screen, and "paid" with nothing to show
+  /// for it is a claim the rep cannot check. See lib/sales/payoutProof.js.
+  /// Proof may be added to a batch already paid; nothing here is ever removed.
+  proofUrl         String?
+  proofPublicId    String?
+  proofFilename    String?
+  paymentReference String?
+  paymentNote      String?
+  paidVia          String?
+
   entries SalesCommissionEntry[]
 
   @@unique([salesRepId, periodStart])

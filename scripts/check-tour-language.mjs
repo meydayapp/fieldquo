@@ -524,7 +524,7 @@ console.log("\n7. The rep's language — written at activation, on Pay, on Welco
   ok("…and re-runs the layout so fromAccount is recomputed from the column", /router\.refresh\(\)/.test(picker));
   const route = stripComments(read("app/api/sales/language/route.js"));
   ok("the language route writes the column through saveRepLanguage", /saveRepLanguage\(\{ salesRepId: rep\.id, language: parsed\.language \}\)/.test(route));
-  ok("Pay mounts the picker", /<RepLanguageChoice/.test(stripComments(read("app/sales/pay/page.js"))));
+  ok("Settings mounts the picker", /<RepLanguageChoice/.test(stripComments(read("app/sales/settings/page.js"))));
   ok("Welcome mounts the picker", /<RepLanguageChoice/.test(stripComments(read("app/sales/welcome/page.js"))));
   const writer = stripComments(read("lib/sales/preferenceWrite.js"));
   ok("the writer writes language and nothing else on the row", /data: \{ language \}/.test(writer));

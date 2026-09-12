@@ -314,6 +314,7 @@ const PAGE_FILES = {
   "/sales/support": ["app/sales/support/page.js"],
   "/sales/voicemail": ["app/sales/voicemail/page.js"],
   "/sales/pay": ["app/sales/pay/page.js"],
+  "/sales/settings": ["app/sales/settings/page.js"],
 };
 
 // The two steps with no target, by name. A third one is a decision that has

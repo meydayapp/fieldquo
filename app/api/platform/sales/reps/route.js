@@ -43,6 +43,7 @@ import { outreachStatus } from "@/lib/sales/outreachSender";
 import { resolvePlanAssignment } from "@/lib/sales/commissionPlanServer";
 import { queueCountsFor } from "@/lib/sales/reassign";
 import { sellsInOf } from "@/lib/sales/leadLanguage";
+import { repMoney } from "@/lib/sales/payoutAdmin";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -159,6 +160,24 @@ export async function GET(request) {
   const now = new Date();
   const queueCounts = await queueCountsFor({ db, repIds: reps.map((r) => r.id), now });
 
+  // ── What each rep is owed, at a glance ──────────────────────────────────
+  //
+  // The accordion header says this week / owed / paid beside the name, so the
+  // owner can see who needs paying without opening a card. Summed from the
+  // ledger rows — two queries for the whole team — and never from
+  // totalCentsAtClose, for lib/sales/payouts.js's reason.
+  const [ledgerEntries, ledgerBatches] = await Promise.all([
+    db.salesCommissionEntry.findMany({
+      select: { salesRepId: true, amountCents: true, payoutBatchId: true },
+    }),
+    db.salesPayoutBatch.findMany({ select: { id: true, salesRepId: true, status: true } }),
+  ]);
+  const entriesByRep = new Map();
+  for (const e of ledgerEntries) {
+    if (!entriesByRep.has(e.salesRepId)) entriesByRep.set(e.salesRepId, []);
+    entriesByRep.get(e.salesRepId).push(e);
+  }
+
   // FieldQuo's own sales texting number — one, shared, not per rep. See
   // NUMBER_CAPABILITIES for why there is no per-rep picker beside it.
   let salesNumber;
@@ -210,6 +229,7 @@ export async function GET(request) {
       // held = leased + worked; untouched + dialled = leased. openLeads are
       // SalesLeads not converted and not lost. See lib/sales/reassign.js.
       queue: queueCounts.get(r.id) || null,
+      money: repMoney(entriesByRep.get(r.id) || [], ledgerBatches),
       sending: {
         canSend: sending[i].canSend,
         blockers: sending[i].blockers,

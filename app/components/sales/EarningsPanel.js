@@ -35,11 +35,16 @@ import { fetchJson } from "@/lib/fetchJson";
 // through commission.js, and importing it here put `pg` and `dns` in the
 // browser bundle and failed the build.
 import { centsToMoney } from "@/lib/sales/money";
-import { AlertTriangle, Check, Circle, Loader2, RotateCcw } from "lucide-react";
+import { AlertTriangle, Check, Circle, ExternalLink, Loader2, RotateCcw } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 function day(value) {
   return value ? new Date(value).toLocaleDateString() : "—";
+}
+
+/** Date AND time, in this browser's zone — "when I was paid" is an instant. */
+function when(value) {
+  return value ? new Date(value).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—";
 }
 
 /** One figure, large, with what it means under it. */
@@ -256,11 +261,45 @@ export default function EarningsPanel() {
                       {centsToMoney(w.cents)}
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {w.status === "paid"
-                      ? t("app.salesPay.weekPaidOn", { date: day(w.paidAt) })
-                      : t("app.salesPay.weekClosedUnpaid")}
-                  </p>
+                  {/* ── How it was paid ──────────────────────────────────
+                      paidAt is the moment FieldQuo pressed Mark paid, shown
+                      here in the rep's own timezone (toLocaleString). The
+                      receipt opens in a new tab — the Cloudinary URL is the
+                      rep's own payment record — and the reference is shown
+                      so a transfer can be looked up at the bank. A batch
+                      can only be marked paid with one of the two
+                      (lib/sales/payoutProof.js), so a paid week always has
+                      something here a rep can check. */}
+                  {w.status === "paid" ? (
+                    <div className="mt-0.5 space-y-0.5 text-xs text-muted-foreground" data-week-proof>
+                      <p className="flex flex-wrap items-center gap-x-2">
+                        <span>
+                          {w.paidVia
+                            ? t("app.salesPay.weekPaidVia", { date: when(w.paidAt), via: w.paidVia })
+                            : t("app.salesPay.weekPaidOn", { date: when(w.paidAt) })}
+                        </span>
+                        {w.proofUrl ? (
+                          <a
+                            href={w.proofUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 underline text-foreground"
+                            data-receipt-link
+                          >
+                            {t("app.salesPay.viewReceipt")} <ExternalLink size={11} aria-hidden="true" />
+                          </a>
+                        ) : null}
+                      </p>
+                      {w.paymentReference ? (
+                        <p className="break-all">{t("app.salesPay.paymentReference", { ref: w.paymentReference })}</p>
+                      ) : null}
+                      {w.paymentNote ? (
+                        <p className="whitespace-pre-wrap">{t("app.salesPay.paymentNote", { note: w.paymentNote })}</p>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground mt-0.5">{t("app.salesPay.weekClosedUnpaid")}</p>
+                  )}
                   {/* Said out loud rather than reconciled behind the scenes: if
                       a reversal landed after the week closed, the figure a rep
                       was told at close is not the figure they are getting. */}

@@ -150,7 +150,15 @@ const FINISHED = [
       "app/sales/pay/page.js",
       "app/components/sales/EarningsPanel.js",
       "app/components/sales/PayoutDestinationForm.js",
+    ],
+  },
+  // Split out of Pay on 2026-09-12: the language pickers and the profile.
+  {
+    route: "/sales/settings",
+    files: [
+      "app/sales/settings/page.js",
       "app/components/sales/RepLanguageChoice.js",
+      "app/components/sales/RepSellsInChoice.js",
     ],
   },
 ];

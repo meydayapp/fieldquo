@@ -68,6 +68,13 @@ export async function GET(request) {
         status: true,
         paidAt: true,
         totalCentsAtClose: true,
+        // The proof of payment — this rep's own batches only (the where
+        // above), so one rep can never read what another was paid.
+        paidVia: true,
+        paymentReference: true,
+        paymentNote: true,
+        proofUrl: true,
+        proofFilename: true,
       },
       orderBy: { periodStart: "desc" },
     }),

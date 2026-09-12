@@ -381,7 +381,7 @@ ok("the switch asks the browser from the click (requestPermission)", /await requ
 ok("'not set up on this deployment' is said in words when there are no keys", /pushNotSetUp/.test(block) && /!server\.configured/.test(block));
 ok("error and not-configured are different sentences", /pushLoadError/.test(block) && /server\.error/.test(block));
 ok("/app settings mounts the block on its own endpoint", /<BrowserNotifications endpoint="\/api\/notifications\/push-subscription" \/>/.test(decomment(read("app/app/settings/notifications/page.js"))));
-ok("/sales/pay mounts the block on its own endpoint", /<BrowserNotifications endpoint="\/api\/sales\/push-subscription" \/>/.test(decomment(read("app/sales/pay/page.js"))));
+ok("/sales/settings mounts the block on its own endpoint", /<BrowserNotifications endpoint="\/api\/sales\/push-subscription" \/>/.test(decomment(read("app/sales/settings/page.js"))));
 ok("/platform/settings mounts the block on its own endpoint", existsSync(join(ROOT, "app/platform/settings/page.js")) && /<BrowserNotifications endpoint="\/api\/platform\/push-subscription" \/>/.test(decomment(read("app/platform/settings/page.js"))));
 ok("the platform rail links to /platform/settings", /href: "\/platform\/settings"/.test(decomment(read("app/components/platform/PlatformSidebar.js"))));
 

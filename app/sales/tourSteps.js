@@ -301,6 +301,18 @@ export const SALES_TOUR_STEPS = Object.freeze([
     titleKey: "app.salesTour.payTitle",
     bodyKey: "app.salesTour.payBody",
   },
+  // Split out of Pay on 2026-09-12: the language pickers, "sells in" and
+  // browser notifications moved to their own tab, and this step follows
+  // them. Pay's step now says money only.
+  {
+    key: "settings",
+    href: "/sales/settings",
+    target: at("sales-settings"),
+    ...reach("/sales/settings"),
+    tabLabelKey: "app.salesPortal.navSettings",
+    titleKey: "app.salesTour.settingsTitle",
+    bodyKey: "app.salesTour.settingsBody",
+  },
   // Added the same hour the tab was. check:sales-tour reads SalesShell's own
   // tab list and failed the moment Team appeared without a step here — which
   // is the check earning its place: a tour that silently skips a tab teaches a

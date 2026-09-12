@@ -21,7 +21,9 @@ const handlers = pushSubscriptionHandlers(
     if (refusal) return { refusal };
     return { owner: { salesRepId: rep.id } };
   },
-  { testUrl: "/sales/pay" },
+  // The test push opens the screen the switch lives on — Settings since
+  // the 2026-09-12 split.
+  { testUrl: "/sales/settings" },
 );
 
 export const GET = handlers.GET;
