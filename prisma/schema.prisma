@@ -2136,6 +2136,7 @@ model Client {
   appointments          Appointment[]
   tasks                 Task[]
   pamphletStops         PamphletStop[]
+  messageThreads        MessageThread[]
   servicePlans          ServicePlan[]
   satisfactionResponses SatisfactionResponse[]
   equipment ClientEquipment[]
@@ -12907,6 +12908,13 @@ model MessageThread {
   leadId   String?
   jobId    String?
   quoteId  String?
+  // The relation the thread screen and the temperature reading select
+  // (`client: { select: { name } }`). It was missing while both routes
+  // already asked for it — every real conversation answered 500 the moment
+  // it was opened, and the list beside it kept working because the list
+  // never asks. SetNull, not Cascade: a client removed later leaves the
+  // conversation as history, the way the outcome columns above are kept.
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   /// "won" | "lost" | "no_reply" | "not_a_job" | null. Set by a person on the
   /// thread, which is what makes the month-end report worth reading — see
