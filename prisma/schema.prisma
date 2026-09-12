@@ -12714,6 +12714,18 @@ model PlatformGrowthAssumptions {
   churn               Float?
   referral            Float?
   organic             Float?
+  /// Prospects added to the list a month (discovery, registers, campaigns).
+  /// Null = not typed; counts as 0 until measured — the list is dialled once.
+  refill              Float?
+  /// Signups per dispositioned REPEAT dial — the yield of the re-dial pool.
+  /// Null = not typed; counts as 0 until measured — nobody is rung twice.
+  redial              Float?
+  /// Marketing signups a month, typed as a count …
+  marketing           Float?
+  /// … or as spend ÷ cost per signup, when the owner knows the budget and
+  /// the CPA but not the count. lib/platform/growthModel.js marketingAssumption().
+  marketingSpend         Float?
+  marketingCostPerSignup Float?
   updatedByAdminId    String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt

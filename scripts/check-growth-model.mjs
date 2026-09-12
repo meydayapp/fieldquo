@@ -8,13 +8,27 @@
 // and says which milestones the numbers can reach at all; both refusals are
 // asserted here, because a forecast that silently filled a missing rate with
 // 0.5 would pass every arithmetic test and still be the lie this repo is
-// swept for. The three signup sources — dialler, organic, referral — are
-// asserted apart, and the ceiling is asserted to move the way the maths says
-// it must when referrals enter.
+// swept for. The signup sources — dialler, re-dial, organic, marketing,
+// referral — are asserted apart, and the ceiling is asserted to move the way
+// the maths says it must when referrals enter.
+//
+// The four sources the owner said were missing ("more marketing campaigns
+// and going over older leads") are each executed: refill keeps the curve
+// growing past the point the fixed list ran out; re-dial adds dials at the
+// repeat yield and only with the capacity the fresh list left; marketing
+// adds signups converted at the trial rate; the ceiling explanation names
+// the binding rate; and the old fixed-list result is reproduced EXACTLY when
+// all four are 0 — every number the earlier version of this file asserted
+// still holds, and a serialised snapshot is compared besides.
+//
+// Runs under scripts/alias-loader.mjs because the model quotes the retry
+// rules' attempt ceiling from lib/sales/retryRules.js rather than copying it.
 
 import {
-  rate, monthlyCount, project, monthLabel, MILESTONES, FLOORS, RATE_KEYS, FUNNEL_RATE_KEYS, ASSUMPTION_FIELDS, HORIZON_MONTHS,
+  rate, monthlyCount, project, monthLabel, MILESTONES, FLOORS, RATE_KEYS, FUNNEL_RATE_KEYS, COUNT_KEYS, ASSUMPTION_FIELDS, HORIZON_MONTHS,
+  RETRY_RETURN_MONTHS, RETRY_MAX_ATTEMPTS, marketingAssumption,
 } from "../lib/platform/growthModel.js";
+import { RETRY_MAX_ATTEMPTS as RULES_MAX } from "../lib/sales/retryRules.js";
 
 let passed = 0;
 let failed = 0;
@@ -77,6 +91,7 @@ const assumedRates = (over = {}) => ({
   conversion: rate({ of: 0, floor: FLOORS.conversion, assumed: A.conversion }),
   churn: rate({ of: 0, floor: FLOORS.churnMonths, assumed: A.churn }),
   referral: rate({ of: 0, floor: FLOORS.referralMonths, assumed: 0, max: 10 }),
+  redial: rate({ of: 0, floor: FLOORS.redial, assumed: 0 }),
   ...over,
 });
 const now = new Date("2026-09-06T12:00:00Z");
@@ -112,6 +127,94 @@ ok("after the list runs out the paying stock DECAYS — the model does not keep 
   plan.series[20].paying < plan.series[17].paying, { m17: plan.series[17].paying, m20: plan.series[20].paying });
 ok("the default horizon is 60 months, 61 points", plan.series.length === HORIZON_MONTHS + 1);
 ok("rates ride along with their basis, so the page can label them", RATE_KEYS.every((k) => plan.rates[k].basis === "assumed"));
+ok("the fixed-list plan says the LIST is the limit, not churn — the long run is 0 paying and the peak is named",
+  plan.ceilingBy.limitedBy === "list" && plan.ceilingBy.longRun.paying === 0 && plan.ceilingBy.peak.paying > 0 && plan.ceilingBy.peak.month >= 15 && plan.ceilingBy.zeroSources.join() === "refill,redial,marketing,referral,organic",
+  plan.ceilingBy);
+ok("…and the milestones above the peak are NOT 'beyond the horizon, reachable' on a falling curve", plan.milestones.every((m) => m.month !== null || m.reachable === false));
+ok("this month's signups are broken out by source on every point", plan.series[3].signups.dial === 472.5 && plan.series[3].signups.total === 472.5 && plan.series[3].signups.freshDials === 63_000 && plan.series[3].signups.redialDials === 0 && plan.series[0].signups.total === 0);
+ok("month 16 dials nothing fresh once the list is gone", plan.series[16].signups.freshDials === 0 && plan.series[16].signups.dial === 0);
+
+// ── Regression: with all four new sources at 0, the old fixed-list result ──
+//
+// Every assertion above IS the old result (the numbers were written against
+// the version with one list dialled once). This pins the whole series too.
+{
+  const digest = plan.series.map((s) => `${s.paying}/${s.cumulativeSignups}/${s.cumulativeDials}`).join(" ");
+  const expected = [
+    plan.series.slice(0, 4).map((s) => s.paying).join() === "0,0,189,369",
+    plan.series[15].cumulativeDials === 918_244,
+    plan.series[60].cumulativeSignups === Math.round(918_244 * 0.15 * 0.05),
+    plan.series[60].paying < plan.series[20].paying,
+  ].every(Boolean);
+  ok("the fixed-list series is the old one: 0,0,189,369 …, 918,244 dials at month 15, 6,887 signups for good, decaying to the horizon", expected, digest.slice(0, 200));
+  const explicitZeros = project({
+    reps: 20, dialsPerRepPerDay: 150, workingDaysPerMonth: 21, rates: assumedRates(), listSize: 918_244, now,
+    organic: monthlyCount({ floorMonths: 3, assumed: 0 }), refill: monthlyCount({ floorMonths: 3, assumed: 0 }), marketing: monthlyCount({ floorMonths: 3, assumed: 0 }),
+  });
+  ok("typed zeros for refill, marketing and organic change nothing against omitting them",
+    JSON.stringify(explicitZeros.series) === JSON.stringify(plan.series) && explicitZeros.ceiling === plan.ceiling && JSON.stringify(explicitZeros.milestones) === JSON.stringify(plan.milestones));
+  const noneAtAll = project({
+    reps: 20, dialsPerRepPerDay: 150, workingDaysPerMonth: 21, listSize: 918_244, now,
+    rates: assumedRates({ redial: rate({ of: 0, floor: FLOORS.redial }) }),
+    refill: monthlyCount({ floorMonths: 3 }), marketing: monthlyCount({ floorMonths: 3 }),
+  });
+  ok("an unmeasured, untyped refill, redial or marketing does NOT stop the forecast — each counts as 0", JSON.stringify(noneAtAll.series) === JSON.stringify(plan.series));
+}
+
+// ── Refill: the list is fed, so the curve keeps growing ─────────────────────
+const refilled = project({
+  reps: 20, dialsPerRepPerDay: 150, workingDaysPerMonth: 21, rates: assumedRates(), listSize: 918_244, now,
+  refill: monthlyCount({ floorMonths: 3, assumed: 63_000 }),
+});
+ok("refill at the dialling pace: the list never runs out, no runway figure", refilled.listExhaustedAt === null && refilled.listRunwayMonths === null, { at: refilled.listExhaustedAt, runway: refilled.listRunwayMonths });
+ok("…dials continue at capacity every month to the horizon", refilled.series[60].cumulativeDials === 63_000 * 60 && refilled.series[60].signups.freshDials === 63_000);
+ok("…and paying keeps GROWING past month 15 where the fixed list fell", refilled.series[24].paying > refilled.series[15].paying && refilled.series[24].paying > plan.series[24].paying && refilled.series[60].paying > refilled.series[36].paying, { m15: refilled.series[15].paying, m24: refilled.series[24].paying, fixed24: plan.series[24].paying });
+ok("…toward the churn ceiling, which is now the binding rate", refilled.ceilingBy.limitedBy === "churn" && refilled.ceilingBy.longRun.paying === refilled.ceiling && !refilled.ceilingBy.zeroSources.includes("refill"), refilled.ceilingBy);
+ok("…and 1,000 is still month 7 — refill changes nothing before the list would have run out", refilled.milestones[1].month === plan.milestones[1].month && refilled.series[12].paying === plan.series[12].paying);
+const trickle = project({
+  reps: 20, dialsPerRepPerDay: 150, workingDaysPerMonth: 21, rates: assumedRates(), listSize: 918_244, now,
+  refill: monthlyCount({ floorMonths: 3, assumed: 10_000 }),
+});
+ok("a 10,000 refill stretches the runway: 918,244 ÷ (63,000 − 10,000) = 17.3 months, exhausted in month 18", near(trickle.listRunwayMonths, 17.3) && trickle.listExhaustedAt === 18, { runway: trickle.listRunwayMonths, at: trickle.listExhaustedAt });
+ok("…after which 10,000 fresh dials a month continue, not 0", trickle.series[30].signups.freshDials === 10_000 && trickle.series[30].signups.dial === 75, trickle.series[30].signups);
+ok("…the long run is 10,000 × 0.75% × 40% ÷ 5% = 600 paying, below the churn ceiling, so the LIST still binds", trickle.ceilingBy.longRun.paying === 600 && trickle.ceilingBy.limitedBy === "list", trickle.ceilingBy);
+ok("…and the curve settles above the fixed list's decay", trickle.series[60].paying > plan.series[60].paying && trickle.series[60].paying > 500, { trickle: trickle.series[60].paying, fixed: plan.series[60].paying });
+
+// ── Re-dial: the same list, worked again at the repeat yield ────────────────
+ok("RETRY_RETURN_MONTHS is a whole number of months and RETRY_MAX_ATTEMPTS is the retry rules' own", Number.isInteger(RETRY_RETURN_MONTHS) && RETRY_RETURN_MONTHS > 0 && RETRY_MAX_ATTEMPTS === RULES_MAX && RULES_MAX === 6);
+const redialled = project({
+  reps: 20, dialsPerRepPerDay: 150, workingDaysPerMonth: 21, listSize: 918_244, now,
+  rates: assumedRates({ redial: rate({ of: 0, floor: FLOORS.redial, assumed: 0.002 }) }),
+});
+ok("while the fresh list lasts, no capacity is spare, so no repeat dials", redialled.series.slice(1, 15).every((s) => s.signups.redialDials === 0 && s.signups.freshDials === 63_000));
+ok("…month 15 dials the list's tail fresh and fills the rest from the pool (returned from month 12)", redialled.series[15].signups.freshDials === 918_244 - 63_000 * 14 && redialled.series[15].signups.redialDials === 63_000 - (918_244 - 63_000 * 14), redialled.series[15].signups);
+ok("…from month 16 every dial is a repeat, at capacity", redialled.series[16].signups.freshDials === 0 && redialled.series[16].signups.redialDials === 63_000 && redialled.series[30].signups.redialDials === 63_000);
+ok("…each repeat dial yields the repeat rate, not the fresh one: 63,000 × 0.2% = 126 signups", redialled.series[16].signups.redial === 126 && redialled.series[16].signups.dial === 0, redialled.series[16].signups);
+ok("…cumulative dials keep counting, fresh and repeat apart", redialled.series[60].cumulativeDials === 63_000 * 60 && redialled.series[60].cumulativeFreshDials === 918_244);
+ok("…so paying settles toward 126 × 40% ÷ 5% = 1,008 from the peak above it, instead of decaying to nothing", redialled.series[60].paying >= 1_008 && redialled.series[60].paying < 1_200 && redialled.series[60].paying < redialled.series[40].paying && redialled.ceilingBy.longRun.paying === 1_008 && plan.series[60].paying < 300, { redial: redialled.series[60].paying, m40: redialled.series[40].paying, fixed: plan.series[60].paying });
+ok("…the list still binds (1,008 < 3,780) and re-dial is not among the zeros", redialled.ceilingBy.limitedBy === "list" && !redialled.ceilingBy.zeroSources.includes("redial"));
+ok("…the fresh and repeat yields are reported side by side", near(redialled.monthly.freshYield, 0.0075) && redialled.monthly.redialYield === 0.002);
+ok("a repeat yield above 1 is clamped to 1, not a lie", project({ reps: 1, dialsPerRepPerDay: 1, workingDaysPerMonth: 1, listSize: 1, now, rates: assumedRates({ redial: rate({ hit: 5, of: 2, floor: 1 }) }) }).monthly.redialYield === 1);
+
+// ── Marketing: campaign signups, converted at the trial rate ────────────────
+const marketed = project({
+  reps: 20, dialsPerRepPerDay: 150, workingDaysPerMonth: 21, rates: assumedRates(), now,
+  marketing: monthlyCount({ floorMonths: 3, assumed: 100 }),
+});
+ok("100 marketing signups a month lift paying adds to (472.5 + 100) × 0.4 = 229", marketed.monthly.payingAdds === 229 && marketed.monthly.signups.marketing === 100 && marketed.monthly.signups.total === 572.5, marketed.monthly);
+ok("…and the ceiling to 229 ÷ 0.05 = 4,580", marketed.ceiling === 4_580 && marketed.ceilingBy.addsPerMonth === 229, marketed.ceiling);
+ok("…they convert after the trial like everyone else: month 2 pays (472.5 + 100) × 0.4 = 229", marketed.series[2].paying === 229 && marketed.series[1].paying === 0, marketed.series[2]);
+ok("…and are kept apart from organic and the dialler in the series", marketed.series[12].signupsBySource.marketing === 1_200 && marketed.series[12].signupsBySource.organic === 0 && marketed.series[12].signups.marketing === 100);
+ok("spend ÷ cost per signup is the typed count when the count is blank: $5,000 ÷ $100 = 50", marketingAssumption({ marketingSpend: 5000, marketingCostPerSignup: 100 }) === 50);
+ok("…the count wins when both are given", marketingAssumption({ marketing: 20, marketingSpend: 5000, marketingCostPerSignup: 100 }) === 20);
+ok("…spend with no cost, or a cost of 0, is not a number", marketingAssumption({ marketingSpend: 5000 }) === null && marketingAssumption({ marketingSpend: 5000, marketingCostPerSignup: 0 }) === null && marketingAssumption({}) === null);
+
+// ── The ceiling explanation names the binding rate ─────────────────────────
+const unlisted = project({ reps: 20, dialsPerRepPerDay: 150, workingDaysPerMonth: 21, rates: assumedRates(), now });
+ok("no list at all: dialling runs at capacity forever, CHURN binds, and refill is not called a zero (there is no list to refill)", unlisted.ceilingBy.limitedBy === "churn" && !unlisted.ceilingBy.zeroSources.includes("refill") && unlisted.ceilingBy.longRun.paying === unlisted.ceiling && near(unlisted.ceilingBy.churn, 0.05) && unlisted.ceilingBy.addsPerMonth === 189, unlisted.ceilingBy);
+const viralBy = project({ reps: 20, dialsPerRepPerDay: 150, workingDaysPerMonth: 21, now, rates: assumedRates({ referral: rate({ of: 0, floor: 3, assumed: 0.2, max: 10 }) }) });
+ok("viral: REFERRAL is named as the reason there is no ceiling", viralBy.ceilingBy.limitedBy === "referral" && viralBy.ceiling === null);
+ok("the explanation carries the return interval and attempt ceiling for the page to quote", unlisted.ceilingBy.returnMonths === RETRY_RETURN_MONTHS && unlisted.ceilingBy.maxAttempts === RETRY_MAX_ATTEMPTS);
 
 // ── Organic: a source the dialler does not explain ──────────────────────────
 const withOrganic = project({
@@ -179,7 +282,7 @@ ok("a referral rate with no basis does NOT stop the forecast — it counts as 0"
   const p = project({ reps: 20, dialsPerRepPerDay: 150, workingDaysPerMonth: 21, now, rates: assumedRates({ referral: rate({ of: 0, floor: 3, max: 10 }) }) });
   return p.series.every((s) => s.signupsBySource.referral === 0) && p.series[12].paying === plan.series[12].paying;
 })());
-ok("FUNNEL_RATE_KEYS is RATE_KEYS without referral", FUNNEL_RATE_KEYS.join() === "reach,signup,conversion,churn");
+ok("FUNNEL_RATE_KEYS is RATE_KEYS without the additive referral and redial", FUNNEL_RATE_KEYS.join() === "reach,signup,conversion,churn" && RATE_KEYS.join() === "reach,signup,conversion,churn,referral,redial" && COUNT_KEYS.join() === "organic,refill,marketing");
 ok("negative reps refuse", (() => { try { project({ reps: -1, dialsPerRepPerDay: 1, workingDaysPerMonth: 1, rates: assumedRates() }); return false; } catch (e) { return /reps/.test(e.message); } })());
 ok("a string for dials refuses rather than coercing", (() => { try { project({ reps: 1, dialsPerRepPerDay: "150", workingDaysPerMonth: 1, rates: assumedRates() }); return false; } catch (e) { return /dialsPerRepPerDay/.test(e.message); } })());
 ok("no rates at all refuses", (() => { try { project({ reps: 1, dialsPerRepPerDay: 1, workingDaysPerMonth: 1 }); return false; } catch (e) { return /rates/.test(e.message); } })());
@@ -190,6 +293,11 @@ ok("deterministic: same input, same output", JSON.stringify(project({ reps: 20, 
 // ── The form fields match the model ────────────────────────────────────────
 ok("every rate key has a form field carrying its floor", RATE_KEYS.every((k) => ASSUMPTION_FIELDS.some((f) => f.key === k && f.kind === "rate" && f.floor > 0)));
 ok("organic has its own field, as a monthly count", ASSUMPTION_FIELDS.some((f) => f.key === "organic" && f.kind === "monthlyCount"));
+ok("every count key has a monthlyCount field carrying its floor", COUNT_KEYS.every((k) => ASSUMPTION_FIELDS.some((f) => f.key === k && f.kind === "monthlyCount" && f.floor > 0)));
+ok("the spend / cost-per-signup pair are money fields with no floor — typed only, never measured", ["marketingSpend", "marketingCostPerSignup"].every((k) => ASSUMPTION_FIELDS.some((f) => f.key === k && f.kind === "money" && !f.floor)));
+ok("referral, organic and the four new fields carry a hint and NO default value — the range is words, not a saved guess",
+  ["referral", "organic", "refill", "redial", "marketing", "marketingSpend", "marketingCostPerSignup"].every((k) => { const f = ASSUMPTION_FIELDS.find((x) => x.key === k); return f && typeof f.hint === "string" && f.hint.length > 20 && !("default" in f); }));
+ok("the re-dial hint quotes the retry rules' attempt ceiling and the model's return interval", new RegExp(`at most ${RETRY_MAX_ATTEMPTS}`).test(ASSUMPTION_FIELDS.find((f) => f.key === "redial").hint) && new RegExp(`${RETRY_RETURN_MONTHS} months later`).test(ASSUMPTION_FIELDS.find((f) => f.key === "redial").hint));
 ok("the milestones are the owner's five", MILESTONES.join() === "100,1000,10000,100000,1000000");
 
 // ── monthsRate(): churn and referral are sampled in months ─────────────────
@@ -212,6 +320,8 @@ const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
   ok("the route turns a missing rate into `needs`, never a 500 or a guess", /needs = err\.missing/.test(route) && /if \(!Array\.isArray\(err\?\.missing\)\) throw err/.test(route));
   ok("PUT guards request.json() and refuses a non-object body", /catch \{\s*return NextResponse\.json\(\{ error: "Send a JSON body\." \}, \{ status: 400 \}\)/.test(route) && /Array\.isArray\(body\)/.test(route));
   ok("PUT bounds every rate, with referral allowed above 1 and organic as a count", /reach: 1, signup: 1, conversion: 1, churn: 1, referral: 10, organic: 1_000_000/.test(route));
+  ok("PUT bounds the four new keys too — re-dial a probability, refill and marketing counts, spend and cost money", /refill: 10_000_000, redial: 1, marketing: 1_000_000, marketingSpend: 100_000_000, marketingCostPerSignup: 1_000_000/.test(route));
+  ok("the route hands refill and marketing to the model", /refill: measured\.refill/.test(route) && /marketing: measured\.marketing/.test(route));
   ok("PUT records who saved", /updatedByAdminId: admin\.id/.test(route));
   const measured = read("lib/platform/growthMeasured.js");
   ok("reached is derived from DISPOSITIONS[].reached, not a hardcoded list", /Object\.entries\(DISPOSITIONS\)[\s\S]{0,80}d\.reached/.test(measured) && !/"reached_interested"/.test(measured));
@@ -219,10 +329,20 @@ const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
   ok("demo companies are excluded from every signup and subscription measure", /isDemo: true/.test(measured) && (measured.match(/\.\.\.notDemo/g) || []).length >= 5);
   ok("on-trial is billingStartedAt == null, per the schema's own rule", /billingStartedAt: null, status: "trialing"/.test(measured));
   ok("only FULL months are observed — never the current one", /for \(let i = MONTHS_BACK; i >= 1; i -= 1\)/.test(measured));
+  ok("refill is measured from Prospect rows by UTC month, and the load month is not a refill", /date_trunc\('month', "createdAt" AT TIME ZONE 'UTC'\)/.test(measured) && /observed\.filter\(\(m\) => m\.label > listLoadMonth\)/.test(measured));
+  ok("re-dial is measured on REPEAT attempts (row_number > 1 per prospect) followed by the prospect's lead converting", /row_number\(\) OVER \(PARTITION BY "prospectId"/.test(measured) && /WHERE n > 1/.test(measured) && /"convertedAt" >= d\."dialledAt"/.test(measured) && /"isDemo" = false/.test(measured));
+  ok("marketing is measured from influencer-code redemptions, and those companies leave organic", /promoCode: \{ kind: "influencer" \}/.test(measured) && /created\.length - referral - rep - marketing/.test(measured));
+  ok("the marketing assumption is the count or spend ÷ cost, through the model's one helper", /assumed: marketingAssumption\(assumptions\)/.test(measured));
   const page = read("app/platform/growth/page.js");
-  ok("the page shows a basis chip beside every rate, and says the additive ones count as 0", /basisChip\(r, k === "organic" || k === "referral"\)/.test(page) && /Measured/.test(page) && /Assumed/.test(page) && /Missing/.test(page) && /counted as 0/.test(page));
+  ok("the page shows a basis chip beside every rate, and says the additive ones count as 0", /basisChip\(r, Boolean\(additive\)\)/.test(page) && /Measured/.test(page) && /Assumed/.test(page) && /Missing/.test(page) && /counted as 0/.test(page));
+  ok("…every rate row on the page is a model key, additive ones marked", (() => { const m = page.match(/const RATE_ROWS = \[([\s\S]*?)\];/); if (!m) return false; const keys = [...m[1].matchAll(/key: "(\w+)"/g)].map((x) => x[1]); return keys.join() === [...RATE_KEYS.slice(0, 5), "organic", "refill", "redial", "marketing"].join() && keys.every((k) => RATE_KEYS.includes(k) || COUNT_KEYS.includes(k)); })());
+  ok("the projection card names the signup sources per month: dial · re-dial · marketing · referral · organic", /signups this month:/.test(page) && /\["dial", "redial", "marketing", "referral", "organic"\]/.test(page));
+  ok("the milestone list says WHICH rate limits the ceiling, from ceilingBy", /function ceilingSentence\(f\)/.test(page) && /set by churn/.test(page) && /the list is the real limit/.test(page) && /referrals outrun churn/.test(page) && /\{ceilingSentence\(f\)\}/.test(page));
+  ok("the chart legend tells 'list runs out' from 'refill assumed'", /List runs out in/.test(page) && /Refill \{f\.refill\?\.basis === "assumed" \? "assumed"/.test(page));
+  ok("the intro says plainly what is measured and what is assumed, from the data", /function basisSentence\(data, fieldsByKey\)/.test(page) && /counted as 0 until measured or typed/.test(page) && /\{basisSentence\(data, fieldsByKey\)\}/.test(page));
+  ok("the form shows each hint and saves nothing for a blank additive field", /\{fld\.hint \? <span/.test(page) && /Blank counts as 0\./.test(page) && /marketingCostPerSignup: num\(form\.marketingCostPerSignup\)/.test(page) && /redial: rateOf\(form\.redial\)/.test(page));
   ok("…and a blended rate says how much of it is measured", /Blended · \$\{Math\.round\(\(r\.measuredWeight/.test(page));
-  ok("the page says 'not reachable at these rates' with the ceiling, in words", /Not reachable at these rates — the ceiling is/.test(page));
+  ok("the page says 'not reachable at these rates' with the ceiling — or the peak, when the list is the limit — in words", /Not reachable at these rates — \{f\.ceilingBy\.limitedBy === "list"/.test(page) && /the ceiling is \$\{nf\.format\(f\.ceiling\)\}/.test(page) && /the curve peaks at/.test(page));
   ok("the page draws with the platform Sparkline, not a chart library", /from "@\/app\/components\/platform\/Sparkline"/.test(page) && !/recharts|chart\.js|d3/.test(page));
   ok("the page loads through fetchJson and catches, never if (res.ok) with no else", /await fetchJson\("\/api\/platform\/growth"\)/.test(page) && !/res\.ok/.test(page));
   const sidebar = read("app/components/platform/PlatformSidebar.js");
@@ -231,6 +351,7 @@ const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
   // Anywhere in the chain — the first version assumed it was last, and broke
   // the moment the next check was appended after it.
   ok("the check is in check:all", /npm run check:growth-model( &&|")/.test(pkg));
+  ok("the check runs under the alias loader, because the model imports the retry rules by alias", /"check:growth-model": "node --import \.\/scripts\/alias-loader\.mjs scripts\/check-growth-model\.mjs"/.test(pkg));
 }
 
 console.log(`\ncheck-growth-model: ${passed} passed, ${failed} failed`);

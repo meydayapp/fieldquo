@@ -28,7 +28,15 @@ import { project, ASSUMPTION_FIELDS, FLOORS, MILESTONES } from "@/lib/platform/g
 const SINGLETON = "singleton";
 const DEFAULTS = Object.freeze({ reps: 20, dialsPerRepPerDay: 150, workingDaysPerMonth: 21 });
 const COUNT_KEYS = ["reps", "dialsPerRepPerDay", "workingDaysPerMonth"];
-const RATE_BOUNDS = Object.freeze({ reach: 1, signup: 1, conversion: 1, churn: 1, referral: 10, organic: 1_000_000 });
+// Every typed rate and count, with the most it may be. Probabilities cap at
+// 1; the referral coefficient may exceed 1; the counts are bounded only
+// against a typo with an extra zero or three (a million organic signups a
+// month, ten million prospects a month, a hundred million in spend).
+const RATE_BOUNDS = Object.freeze({
+  reach: 1, signup: 1, conversion: 1, churn: 1, referral: 10, organic: 1_000_000,
+  refill: 10_000_000, redial: 1, marketing: 1_000_000, marketingSpend: 100_000_000, marketingCostPerSignup: 1_000_000,
+});
+const NULLABLE_KEYS = Object.keys(RATE_BOUNDS);
 
 async function gate(request) {
   const admin = await getCurrentPlatformAdmin(request);
@@ -43,7 +51,7 @@ async function loadAssumptions() {
   const row = await db.platformGrowthAssumptions.findUnique({ where: { id: SINGLETON } });
   return {
     ...DEFAULTS,
-    reach: null, signup: null, conversion: null, churn: null, referral: null, organic: null,
+    ...Object.fromEntries(NULLABLE_KEYS.map((k) => [k, null])),
     ...(row || {}),
     saved: Boolean(row),
   };
@@ -62,6 +70,8 @@ async function buildResponse() {
       workingDaysPerMonth: assumptions.workingDaysPerMonth,
       rates: measured.rates,
       organic: measured.organic,
+      refill: measured.refill,
+      marketing: measured.marketing,
       startingPaying: measured.starting.paying,
       startingTrialing: measured.starting.trialing,
       listSize: measured.listSize,

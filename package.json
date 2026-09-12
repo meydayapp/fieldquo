@@ -373,7 +373,7 @@
     "check:estimate-accuracy": "node --import ./scripts/alias-loader.mjs scripts/check-estimate-accuracy.mjs",
     "check:kpis": "node --import ./scripts/alias-loader.mjs scripts/check-kpis.mjs",
     "check:report-dates": "node scripts/check-report-dates.mjs",
-    "check:growth-model": "node scripts/check-growth-model.mjs",
+    "check:growth-model": "node --import ./scripts/alias-loader.mjs scripts/check-growth-model.mjs",
     "check:snapshot-cache": "node scripts/check-snapshot-cache.mjs",
     "check:sales-calendar": "node scripts/check-sales-calendar.mjs",
     "check:quote-number": "node scripts/check-quote-number.mjs",
