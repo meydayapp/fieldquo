@@ -32,8 +32,8 @@ Scopes the dialogs ask for (lib/meta/client.js):
 Webhooks the code answers (each verifies `hub.verify_token` against
 `META_WEBHOOK_VERIFY_TOKEN` and checks `X-Hub-Signature-256` with the app
 secret):
-- `https://www.fieldquo.com/api/meta/messaging/webhook` — Page + Instagram `messages`
-- `https://www.fieldquo.com/api/meta/leads/webhook` — Page `leadgen`
+- `https://www.fieldquo.com/api/meta/messaging/webhook` — Page + Instagram `messages`, and Page `leadgen` (handed to the leads import; one URL per object)
+- `https://www.fieldquo.com/api/meta/leads/webhook` — Page `leadgen`, for a dashboard that points that field here instead
 - `https://www.fieldquo.com/api/meta/whatsapp/webhook` — WhatsApp `messages`
 - `https://www.fieldquo.com/api/meta/data-deletion` — the data-deletion callback
 
@@ -215,11 +215,43 @@ No new environment variable: the route needs `META_APP_ID`,
 sign-up button. `META_WHATSAPP_CONFIG_ID` is *not* required for this door.
 
 **Webhooks** (Products → Webhooks, or under each product's Configuration page)
-- Object **Page**: callback `https://www.fieldquo.com/api/meta/messaging/webhook`,
-  verify token = `META_WEBHOOK_VERIFY_TOKEN`; subscribe to `messages`,
-  `messaging_postbacks`. Object **Page** again (same callback is fine, or the
-  leads one): `leadgen` → `https://www.fieldquo.com/api/meta/leads/webhook`.
-- Object **Instagram**: `messages` → the messaging webhook.
+
+> **Checked 2026-09-12, 17:40 UTC — NOT configured.** Both the Page and the
+> Instagram objects had an empty Callback URL, an empty Verify token and
+> every field "Unsubscribed". That is why a message sent to Truefinish
+> Cabinets on Facebook or Instagram never reached FieldQuo: the per-Page
+> `subscribed_apps` call FieldQuo makes at connect time (it succeeded —
+> `webhookSubscribedAt` is set) says *which Pages* deliver to the app; only
+> this dashboard form says *where*. Without it Meta has no URL to POST to.
+> The 84 Facebook conversations now in /app/messages came from the
+> 15-minute import cron reading the inbox, not from webhooks.
+
+An object holds ONE callback URL, so the Page object cannot point `messages`
+at one route and `leadgen` at another. Point everything at the messaging
+webhook — it hands `leadgen` changes to the same import the leads route runs
+(`lib/meta/leadsWebhookIngest.js`).
+
+- Object **Page**: Callback URL `https://www.fieldquo.com/api/meta/messaging/webhook`
+  (with the `www` — the bare domain answers 308 and Meta does not follow
+  redirects), Verify token = the value of `META_WEBHOOK_VERIFY_TOKEN` in
+  Vercel, press **Verify and save**. Then press **Subscribe** on:
+  `messages`, `message_echoes`, `message_deliveries`, `message_reads`,
+  `messaging_postbacks`, and `leadgen`.
+- Object **Instagram**: same Callback URL and Verify token, **Verify and
+  save**, then Subscribe on `messages`, `messaging_postbacks`,
+  `messaging_seen`, `message_reactions`.
+- The red banner on both objects reads: *"Apps will only be able to receive
+  test webhooks sent from the dashboard while the app is unpublished. No
+  production data, including from app admins, developers or testers, will be
+  delivered unless the app has been published."* So after saving, switch
+  **App Mode** to **Live** (top of the dashboard; needs the Privacy Policy
+  URL and Data-deletion callback already set under App settings → Basic —
+  both are). Live mode with Standard access still delivers only for people
+  with a role on the app until App Review grants Advanced access — that is
+  Meta's rule, not ours.
+- The `Test` button beside a field sends a sample to the URL; a 200 in the
+  dashboard proves the signature and routing. Then send a real message to
+  the Page from an account that has a role on the app.
 - Object **WhatsApp Business Account**: `messages` →
   `https://www.fieldquo.com/api/meta/whatsapp/webhook`.
 - Meta GETs the URL with `hub.challenge` when you press Verify and save —

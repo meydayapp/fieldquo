@@ -8,6 +8,11 @@
 // developers.facebook.com against the `page` object, field `leadgen`. Nothing
 // in this repo ever fetches it — Meta does.
 //
+// The Page object takes ONE callback URL in the App Dashboard, and today that
+// URL is /api/meta/messaging/webhook — which is why the loop below lives in
+// lib/meta/leadsWebhookIngest.js and that route runs it too. This route
+// stays for a dashboard that points `leadgen` here instead.
+//
 // ══ What actually arrives ══════════════════════════════════════════════════
 //
 //   { object: "page",
@@ -48,14 +53,11 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import {
   verifyWebhookSignature,
   verifySubscriptionHandshake,
 } from "@/lib/meta/leadsWebhookSignature";
-import { resolveCompanyForPage } from "@/lib/meta/leadsImport";
-import { ingestLeadgenId } from "@/lib/meta/leadsFetch";
-import { getConnection } from "@/lib/meta/connection";
+import { ingestLeadgenChanges } from "@/lib/meta/leadsWebhookIngest";
 
 /**
  * Meta's subscription handshake. Called once, by hand, when the webhook is
@@ -126,84 +128,7 @@ export async function POST(request) {
     return new NextResponse(null, { status: 400 });
   }
 
-  // Meta batches: several entries, each with several changes. Every one is
-  // processed, and one failing does not abandon the rest.
-  const entries = Array.isArray(body?.entry) ? body.entry : [];
-  let retryNeeded = false;
-  const results = [];
-
-  for (const entry of entries) {
-    for (const change of Array.isArray(entry?.changes) ? entry.changes : []) {
-      if (change?.field !== "leadgen") continue; // Another subscription's field.
-      const value = change.value || {};
-      const leadgenId = value.leadgen_id ? String(value.leadgen_id) : null;
-      // The Page from the ENTRY, falling back to the change value. Both are
-      // Meta's; neither is trusted as a tenant — they are lookup keys.
-      const pageId = String(value.page_id || entry?.id || "");
-      const formId = value.form_id ? String(value.form_id) : null;
-      if (!leadgenId || !pageId) {
-        results.push({ leadgenId, status: "skipped", reason: "incomplete_payload" });
-        continue;
-      }
-
-      const companyId = await resolveCompanyForPage(pageId);
-      if (!companyId) {
-        // No company has ever registered this Page. Acknowledged, not retried:
-        // Meta redelivering it for hours will not make the Page ours, and this
-        // is the ordinary state of a webhook subscribed at APP level while
-        // only some Pages are connected.
-        results.push({ leadgenId, status: "skipped", reason: "unknown_page" });
-        continue;
-      }
-
-      // The form has to be one this company switched ON. A form row that
-      // does not exist is also a refusal — a delivery for a form nobody has
-      // seen in the settings panel is not something to import silently.
-      const form = await db.metaLeadForm.findFirst({
-        where: { companyId, ...(formId ? { formId } : { pageId }) },
-        select: { active: true, formId: true },
-      });
-      if (!form?.active) {
-        results.push({ leadgenId, status: "skipped", reason: "form_inactive" });
-        continue;
-      }
-
-      const connection = await getConnection(companyId);
-      if (!connection) {
-        // The Page is registered but the ad-account connection is gone, so
-        // there is no token to fetch the lead with. Not retryable by Meta —
-        // it needs a human to reconnect — so it is acknowledged and logged
-        // loudly rather than turned into an hours-long retry storm.
-        console.error(
-          `[meta/leads/webhook] company ${companyId} has lead forms but no Meta connection — lead ${leadgenId} could not be fetched.`,
-        );
-        results.push({ leadgenId, status: "skipped", reason: "no_connection" });
-        continue;
-      }
-
-      let result;
-      try {
-        result = await ingestLeadgenId({
-          companyId,
-          connection,
-          pageId,
-          formId: form.formId || formId,
-          leadgenId,
-        });
-      } catch (err) {
-        console.error(`[meta/leads/webhook] lead ${leadgenId} threw: ${err?.message}`);
-        result = { status: "error", retryable: true, reason: "exception" };
-      }
-
-      if (result.status === "error" && result.retryable) retryNeeded = true;
-      if (result.status === "error") {
-        console.error(
-          `[meta/leads/webhook] lead ${leadgenId} failed (${result.reason}): ${result.message || ""}`,
-        );
-      }
-      results.push({ leadgenId, ...result });
-    }
-  }
+  const { results, retryNeeded } = await ingestLeadgenChanges(body);
 
   if (retryNeeded) {
     // A 500 asks Meta to deliver again. Chosen only for failures that a later

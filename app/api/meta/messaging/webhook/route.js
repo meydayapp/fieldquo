@@ -34,6 +34,17 @@
 // event type and an empty batch are all "received, nothing to do": 200 with a
 // count. Only a FAILED SIGNATURE is refused, because that is the one case
 // where answering 200 would be agreeing with a forgery.
+//
+// ══ Why lead-ad forms arrive here too ══════════════════════════════════════
+//
+// The App Dashboard holds ONE callback URL per webhook object, and the Page
+// object carries both `messages` and `leadgen`. This is the URL the dashboard
+// holds for Page (docs/META-DASHBOARD-CURRENT.md), so a homeowner's lead-ad
+// form lands here alongside the messages — and is handed to the same import
+// the leads route runs (lib/meta/leadsWebhookIngest.js). A retryable lead
+// failure is NOT turned into a 500 here, unlike on the leads route: a non-200
+// would make Meta redeliver the whole batch, messages included, and the hourly
+// app/api/cron/meta-leads re-reads the same window anyway.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -44,6 +55,7 @@ import {
 } from "@/lib/messaging/webhookSignature";
 import { parseMessagingEnvelope } from "@/lib/messaging/envelope";
 import { ingestEvents } from "@/lib/messaging/ingest";
+import { hasLeadgenChanges, ingestLeadgenChanges } from "@/lib/meta/leadsWebhookIngest";
 
 /**
  * The subscribe handshake, run once when the callback URL is saved in Meta's
@@ -111,9 +123,22 @@ export async function POST(request) {
     return NextResponse.json({ received: true, events: 0 }, { status: 200 });
   }
 
+  let leads = 0;
+  if (payload?.object === "page" && hasLeadgenChanges(payload)) {
+    const { results, retryNeeded } = await ingestLeadgenChanges(payload, {
+      log: "meta-messaging-webhook/leadgen",
+    });
+    leads = results.length;
+    if (retryNeeded) {
+      console.warn(
+        "[meta-messaging-webhook] a lead-ad import failed retryably; the hourly meta-leads cron is the second attempt",
+      );
+    }
+  }
+
   const { events, dropped } = parseMessagingEnvelope(payload);
   if (!events.length) {
-    return NextResponse.json({ received: true, events: 0, dropped }, { status: 200 });
+    return NextResponse.json({ received: true, events: 0, dropped, leads }, { status: 200 });
   }
 
   const summary = await ingestEvents(events);
@@ -128,7 +153,7 @@ export async function POST(request) {
   }
 
   return NextResponse.json(
-    { received: true, events: summary.handled, created: summary.created },
+    { received: true, events: summary.handled, created: summary.created, leads },
     { status: 200 },
   );
 }

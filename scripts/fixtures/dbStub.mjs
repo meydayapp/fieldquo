@@ -65,6 +65,11 @@ export const rows = {
   // properties of an upsert keyed on a compound unique, which no amount of
   // reading lib/messaging/ingest.js can establish.
   messagingChannel: [],
+  // Lead-ad forms and the ad-account connection, read by
+  // lib/meta/leadsWebhookIngest.js — check-meta-leads-webhook executes the
+  // Page-webhook `leadgen` loop against these rather than asserting about it.
+  metaLeadForm: [],
+  metaAdConnection: [],
   messageThread: [],
   message: [],
   // The Facebook Page / Instagram PUBLISHING connection
@@ -131,6 +136,8 @@ export function resetDbStub() {
   rows.subscription = [];
   rows.plan = [];
   rows.messagingChannel = [];
+  rows.metaLeadForm = [];
+  rows.metaAdConnection = [];
   rows.messageThread = [];
   rows.message = [];
   rows.metaPageConnection = [];
@@ -341,6 +348,8 @@ export const db = new Proxy(
     subscription: model("subscription"),
     plan: model("plan"),
     messagingChannel: model("messagingChannel"),
+    metaLeadForm: model("metaLeadForm"),
+    metaAdConnection: model("metaAdConnection"),
     messageThread: model("messageThread"),
     message: model("message"),
     metaPageConnection: model("metaPageConnection"),
