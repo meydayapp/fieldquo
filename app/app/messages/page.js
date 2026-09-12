@@ -52,6 +52,9 @@ import ConversationTemperature, { TemperatureChip } from "@/app/components/messa
 // and executed by scripts/check-messaging.mjs. See that file's header for why
 // it does not live in this component.
 import { composerBlock, connectionBlurb } from "@/lib/messaging/composerState";
+// Where the Page gets connected. One constant shared with the connect and
+// callback routes, so the card below cannot point at a screen that moved.
+import { SOCIAL_SETTINGS_PATH } from "@/lib/social/settingsPath";
 // The one table that knows what WhatsApp will accept, and Meta's own size
 // limits with it. Read here so the file picker offers exactly what the send
 // path takes — a picker that offers more is a control that appears to work.
@@ -207,6 +210,27 @@ export default function MessagesPage() {
             <Link2 size={15} aria-hidden="true" /> {t("app.messages.connect.title")}
           </h2>
           <p className="text-sm text-foreground mt-2">{t(blurbKey)}</p>
+          {/* The way there, on the card that says what is missing. A card
+              that names a button on another screen without linking to it
+              sends a contractor hunting through settings — the owner found
+              exactly that on the live inbox. FieldQuo's own misconfiguration
+              (`not_configured`) gets no link: there is nothing on that
+              screen a contractor can do about it. */}
+          {connection?.reason === "awaiting_meta_approval" && (
+            <p className="text-sm text-muted-foreground mt-2">{t("app.messages.connect.awaitingApprovalLink")}</p>
+          )}
+          {connection?.reason !== "not_configured" && (
+            <Link
+              href={SOCIAL_SETTINGS_PATH}
+              className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-full bg-inverted px-4 text-sm font-bold text-inverted-foreground"
+              data-connect-link
+            >
+              <Link2 size={15} aria-hidden="true" />
+              {connection?.reason === "needs_reauth"
+                ? t("app.messages.connect.reconnect")
+                : t("app.messages.connect.openSettings")}
+            </Link>
+          )}
         </div>
       )}
 

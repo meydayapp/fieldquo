@@ -60,7 +60,13 @@ import {
 } from "@/lib/messaging/monthlyReview";
 import { composerBlock, connectionBlurb } from "@/lib/messaging/composerState";
 import { bubbleColours } from "@/lib/messaging/bubbleTheme";
-import { normaliseOutcome, normaliseStatus, THREAD_OUTCOMES } from "@/lib/messaging/outcomes";
+import {
+  normaliseOutcome,
+  normaliseStatus,
+  THREAD_OUTCOMES,
+  THREAD_STATUSES,
+  statusLabelKey,
+} from "@/lib/messaging/outcomes";
 import {
   normaliseAttachment,
   normaliseAttachments,
@@ -955,6 +961,23 @@ for (const lang of LANGS) {
     THREAD_OUTCOMES.every((o) => APP_MESSAGES[lang]?.[`app.messages.outcome.${o}`]),
   );
 }
+// Every STATUS label, in every language, resolved through the same function
+// the screen builds the key with. The inbox row printed the raw key
+// "app.messages.status.open" to the owner on the live site (2026-09-12): the
+// key was assembled by concatenation, so check-translations saw no literal
+// and nine catalogues carried none of the four. A key built from a closed
+// list must be walked through the catalogue by the list, not by a grep.
+for (const lang of LANGS) {
+  const missing = THREAD_STATUSES.filter((s) => !APP_MESSAGES[lang]?.[statusLabelKey(s)]);
+  ok(`${lang}: every status has a label`, missing.length === 0, missing.join(", "));
+}
+// The connect card carries the way there. A card naming a button on another
+// screen without linking to it sends a contractor hunting — the owner found
+// exactly that on the live inbox.
+ok(
+  "the connect card links to the Meta settings screen where the Page is connected",
+  /SOCIAL_SETTINGS_PATH/.test(pageSrc) && /href=\{SOCIAL_SETTINGS_PATH\}/.test(pageSrc),
+);
 // No bare currency symbol anywhere in this feature's copy — check:app-currency
 // enforces this globally, and it is asserted here too because a chat screen is
 // where somebody will eventually type "$500".
