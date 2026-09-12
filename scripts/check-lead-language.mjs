@@ -83,12 +83,45 @@ ok("CA-QC → fr", requiredLanguageFor({ province: "CA-QC" }) === FRENCH);
 ok("PQ → fr (the old abbreviation)", requiredLanguageFor({ province: "PQ" }) === FRENCH);
 ok(" qc  → fr (whitespace)", requiredLanguageFor({ province: " qc " }) === FRENCH);
 ok("NB → null — bilingual, no requirement", requiredLanguageFor({ province: "NB" }) === null);
-ok("ON → null", requiredLanguageFor({ province: "ON" }) === null);
+// ── The rule is symmetric now (owner, 2026-09-12: "someone who sets their
+// sales language to French only will only receive leads from Quebec?") ──
+ok("ON → en: everywhere that is not Quebec is an English call", requiredLanguageFor({ province: "ON" }) === "en");
+ok("TX → en", requiredLanguageFor({ province: "TX" }) === "en");
+ok("Nouveau-Brunswick → null, bilingual either way", requiredLanguageFor({ province: "Nouveau-Brunswick" }) === null);
+ok("a French-only rep may take Quebec and not Ontario", repCanTake({ sellsIn: ["fr"] }, { province: "QC" }) && !repCanTake({ sellsIn: ["fr"] }, { province: "ON" }));
+ok("…but may take New Brunswick and a row with no province", repCanTake({ sellsIn: ["fr"] }, { province: "NB" }) && repCanTake({ sellsIn: ["fr"] }, { province: null }));
+ok("an unset rep is English only: Ontario yes, Quebec no", repCanTake({ sellsIn: [] }, { province: "ON" }) && !repCanTake({ sellsIn: [] }, { province: "QC" }));
+ok("a bilingual rep takes both", repCanTake({ sellsIn: ["en", "fr"] }, { province: "ON" }) && repCanTake({ sellsIn: ["en", "fr"] }, { province: "QC" }));
+ok("a Spanish-only rep takes neither Ontario nor Quebec", !repCanTake({ sellsIn: ["es"] }, { province: "ON" }) && !repCanTake({ sellsIn: ["es"] }, { province: "QC" }));
+{
+  const frOnly = languageWhereFor({ sellsIn: ["fr"] });
+  const j = JSON.stringify(frOnly);
+  ok("a French-only rep's WHERE keeps Quebec, New Brunswick and no-province rows", /"province":null/.test(j) && /"QC"/.test(j) && /"NB"/.test(j) && !/notIn/.test(j));
+  ok("a bilingual rep's WHERE is empty", JSON.stringify(languageWhereFor({ sellsIn: ["fr", "en"] })) === "{}");
+  const ex = JSON.stringify(languageExcludedWhereFor({ sellsIn: ["fr"] }));
+  ok("…and what it kept back is every provinced row outside Quebec and New Brunswick", /"not":null/.test(ex) && /notIn/.test(ex) && /"QC"/.test(ex) && /"NB"/.test(ex));
+  const esOnly = JSON.stringify(languageWhereFor({ sellsIn: ["es"] }));
+  ok("a Spanish-only rep's WHERE is only the open rows", /"province":null/.test(esOnly) && /"NB"/.test(esOnly) && !/"QC"/.test(esOnly));
+}
 ok("no province → null: absence is not a statement", requiredLanguageFor({ province: null }) === null);
 ok("no prospect → null", requiredLanguageFor(null) === null && requiredLanguageFor(undefined) === null);
 ok("a number is not a province", requiredLanguageFor({ province: 12 }) === null);
-ok("Quebec City as a CITY does not make ON a French row", requiredLanguageFor({ city: "Québec", province: "ON" }) === null);
+ok("Quebec City as a CITY does not make ON a French row", requiredLanguageFor({ city: "Québec", province: "ON" }) === "en");
 ok("every listed spelling is recognised by isQuebec", QUEBEC_PROVINCE_SPELLINGS.every(isQuebec));
+{
+  const { inboundNeedsEnglish } = await import("../lib/sales/leadLanguage.js");
+  ok("a 416 caller is an English call", inboundNeedsEnglish("+14165550100") === true);
+  ok("a 514 caller is not", inboundNeedsEnglish("+15145550100") === false);
+  ok("a 506 (New Brunswick) caller is neither", inboundNeedsEnglish("+15065550100") === false && inboundNeedsFrench("+15065550100") === false);
+  ok("garbage is not an English call", inboundNeedsEnglish("hello") === false && inboundNeedsEnglish(null) === false);
+  const { ringPlan } = await import("../lib/sales/calls/inboundDistribution.js");
+  const { livePresence, STATE_AVAILABLE } = await import("../lib/sales/calls/agentState.js");
+  const now = Date.now();
+  const live = (id) => ({ salesRepId: id, presence: livePresence({ state: STATE_AVAILABLE, startedAt: new Date(now), heartbeatAt: new Date(now), endedAt: null }, now, { portalSeenAt: new Date(now) }) });
+  const presence = [live("fr-only"), live("both")];
+  const plan = ringPlan({ presence, needsEnglish: true, englishRepIds: ["both"], now: new Date(now) });
+  ok("an English caller does not ring a French-only rep", plan.targets.every((t) => t.value !== "fr-only") && plan.targets.some((t) => String(t.value).includes("both")), plan.targets);
+}
 ok("…and the list carries the bare code the data actually holds", QUEBEC_PROVINCE_SPELLINGS.includes("QC"));
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -234,7 +267,11 @@ section("7. planReassign refuses a target who cannot take a held row");
   ok("…and the sentence names Quebec, French, and the fix", /Quebec/.test(refused.error) && /French/.test(refused.error) && /set it on their card/.test(refused.error));
   ok("…and does not count the lapsed Quebec lease", refused.cannot === 1);
   const allowed = planReassign({ prospects, leads: [], fromRepId: "dan", toRepId: "eve", toRep: { id: "eve", active: true, sellsIn: ["fr"] }, now: NOW });
-  ok("a French target is allowed", !allowed.error && allowed.counts.prospects === 2, allowed.counts);
+  // Two rows, one Quebec and one Ontario: a French-ONLY target may take the
+  // Quebec row but not the Ontario one now, so the whole move is refused.
+  ok("a French-only target is refused the Ontario row", Boolean(allowed.error), allowed.counts);
+  const bilingual = planReassign({ prospects, leads: [], fromRepId: "dan", toRepId: "eve", toRep: { id: "eve", active: true, sellsIn: ["fr", "en"] }, now: NOW });
+  ok("a bilingual target is allowed", !bilingual.error && bilingual.counts.prospects === 2, bilingual.counts);
   const onlyOn = planReassign({ prospects: [prospects[1]], leads: [], fromRepId: "dan", toRepId: "eve", toRep: { id: "eve", active: true, sellsIn: [] }, now: NOW });
   ok("an unset target may take ON rows", !onlyOn.error);
   const unset = planReassign({ prospects, leads: [], fromRepId: "dan", toRepId: "eve", toRep: { id: "eve", active: true, sellsIn: [] }, now: NOW });
@@ -286,7 +323,8 @@ section("9. Every hand-out path carries the rule — source");
       ok(`${key} exists in ${lang}`, typeof APP_MESSAGES[lang][key] === "string" && APP_MESSAGES[lang][key].length > 0);
     }
   }
-  ok("the English skipped line tells the rep the fix", /add French to your languages/.test(APP_MESSAGES.en["app.salesQueue.batchSkippedForLanguage"]));
+  ok("the English skipped line tells the rep the fix, both directions", /French for Quebec, English everywhere else/.test(APP_MESSAGES.en["app.salesQueue.batchSkippedForLanguage"]) && /Pay tab/.test(APP_MESSAGES.en["app.salesQueue.batchSkippedForLanguage"]));
+  ok("…and the settings hint says the rule is symmetric", /everywhere else needs English/.test(APP_MESSAGES.en["app.salesSellsIn.hint"]));
 
   const reassign = decomment(read("lib/sales/reassign.js"));
   ok("planReassign judges every held row with repCanTake", /held\.filter\(\(p\) => !repCanTake\(toRep, p\)\)/.test(reassign));

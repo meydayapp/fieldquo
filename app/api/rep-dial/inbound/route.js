@@ -91,7 +91,13 @@ import twilio from "twilio";
 import { db } from "@/lib/db";
 import { verifyTwilioWebhook } from "@/lib/sms/verifyTwilioWebhook";
 import { ringPlan } from "@/lib/sales/calls/inboundDistribution";
-import { inboundNeedsFrench, repSellsFrench, requiredLanguageFor } from "@/lib/sales/leadLanguage";
+import {
+  inboundNeedsFrench,
+  inboundNeedsEnglish,
+  repSellsFrench,
+  repSellsEnglish,
+  requiredLanguageFor,
+} from "@/lib/sales/leadLanguage";
 import { getAppOrigin } from "@/lib/appUrl";
 import { recordError } from "@/lib/platform/errorLog";
 import { normalisePhone } from "@/lib/sales/suppressionRules";
@@ -452,6 +458,8 @@ async function queueStage(request, params) {
     transferTo: normalisePhone(process.env.FIELDQUO_SALES_TRANSFER_TO),
     needsFrench: inboundNeedsFrench(callerNumber),
     frenchRepIds: (reps || []).filter(repSellsFrench).map((r) => r.id),
+    needsEnglish: inboundNeedsEnglish(callerNumber),
+    englishRepIds: (reps || []).filter(repSellsEnglish).map((r) => r.id),
   });
 
   const step = queueStep({
@@ -667,6 +675,11 @@ export async function POST(request) {
   const needsFrench =
     inboundNeedsFrench(caller) || (matchedProspect ? requiredLanguageFor(matchedProspect) === "fr" : false);
   const frenchRepIds = (activeReps || []).filter(repSellsFrench).map((r) => r.id);
+  // And English, by the same two signals, for the other direction of the rule.
+  const needsEnglish =
+    !needsFrench &&
+    (inboundNeedsEnglish(caller) || (matchedProspect ? requiredLanguageFor(matchedProspect) === "en" : false));
+  const englishRepIds = (activeReps || []).filter(repSellsEnglish).map((r) => r.id);
 
   // The rep who rang them from THIS number wins over the rep who happens to
   // hold the claim: the contractor is ringing back the number on their screen,
@@ -738,6 +751,8 @@ export async function POST(request) {
     transferTo: normalisePhone(process.env.FIELDQUO_SALES_TRANSFER_TO),
     needsFrench,
     frenchRepIds,
+    needsEnglish,
+    englishRepIds,
   });
 
   const origin = getAppOrigin(request);

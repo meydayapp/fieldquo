@@ -403,8 +403,12 @@ const fixture = () => ({
   ok("…and nothing moved: the whole move, not the anglophone half", db.state.prospects.every((p) => p.id === "p5" || p.assignedRepId === "dan") && !db.state.log.includes("$transaction"), db.state.log);
   ok("…and the sentence names the rep and the fix", /Eve has no French/.test(refused.error) && /set it on their card/.test(refused.error), refused.error);
   const db2 = scriptedDb(qc());
-  const allowed = await reassignHeld({ db: db2, fromRep: { id: "dan" }, toRep: { id: "eve", active: true, sellsIn: ["fr"] }, now: NOW });
-  ok("the same move to a rep WITH French goes through", !allowed.error && allowed.prospects === 3, allowed);
+  // The fixture holds a Quebec row AND an Ontario row: the rule is symmetric
+  // now, so the target needs both languages for the whole move to go.
+  const frOnly = await reassignHeld({ db: scriptedDb(qc()), fromRep: { id: "dan" }, toRep: { id: "eve", active: true, sellsIn: ["fr"] }, now: NOW });
+  ok("a French-ONLY target is refused the Ontario row, and the sentence says English", frOnly.code === "language" && /English/.test(frOnly.error), frOnly);
+  const allowed = await reassignHeld({ db: db2, fromRep: { id: "dan" }, toRep: { id: "eve", active: true, sellsIn: ["fr", "en"] }, now: NOW });
+  ok("the same move to a rep WITH French and English goes through", !allowed.error && allowed.prospects === 3, allowed);
   const db3 = scriptedDb(fixture());
   const noQc = await reassignHeld({ db: db3, fromRep: { id: "dan" }, toRep: { id: "eve", active: true, sellsIn: [] }, now: NOW });
   ok("a rep with no languages at all may take rows that need none", !noQc.error && noQc.prospects === 3, noQc);
