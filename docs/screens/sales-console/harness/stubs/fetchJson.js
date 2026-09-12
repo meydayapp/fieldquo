@@ -1,6 +1,6 @@
 // @/lib/fetchJson for the console harness. Answers from fixtures; keeps a
 // little state so claiming, dialling and dispositions are visible.
-import { ITEMS, GROUPS, ITEMS_SHUT, GROUPS_SHUT, TRADES, PLAYBOOK, NOTES, ME, BADGES, currentFor } from "../fixtures.js";
+import { ITEMS, GROUPS, ITEMS_SHUT, GROUPS_SHUT, TRADES, PLAYBOOK, NOTES, ME, BADGES, currentFor, playbookIn } from "../fixtures.js";
 import { dispositionOptions } from "@/lib/sales/calls/dispositions";
 import { STATUS_CHOICES, STATE_ORDER, REP_STATES, PAUSE_REASON_ORDER, PAUSE_REASONS } from "@/lib/sales/calls/agentState";
 
@@ -102,7 +102,13 @@ export async function fetchJson(url, options = {}) {
     if (!state.extraNumbers.some((n) => n.e164 === e164)) state.extraNumbers.push({ id: "n-typed-" + state.extraNumbers.length, e164, kind: body.kind, label: body.label, preferred: false });
     return { ok: true, updated: false, numbers: [{ id: "n1", e164: "+14055550100" }, { id: "n2", e164: "+14055550177" }, ...state.extraNumbers] };
   }
-  if (p === "/api/sales/playbook") return PLAYBOOK;
+  // ?language=fr|es answers with that language's script, after the pause a
+  // real on-demand generation takes, so the switch's loading state is real.
+  if (p === "/api/sales/playbook") {
+    const language = u.searchParams.get("language");
+    if (language && language !== "en") { await delay(400); return playbookIn(language); }
+    return PLAYBOOK;
+  }
   if (p === "/api/sales/notes" && method === "POST") { state.notes.unshift({ id: "n" + Date.now(), title: body.body.slice(0, 40), body: body.body, updatedAt: new Date().toISOString() }); return { ok: true }; }
   if (p === "/api/sales/leads" && method === "POST") return { lead: { id: "lead1" } };
   if (p.startsWith("/api/sales/leads/")) return { lead: { id: "lead1", status: "new" } };

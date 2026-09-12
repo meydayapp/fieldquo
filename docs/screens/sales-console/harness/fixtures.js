@@ -177,11 +177,64 @@ export const PLAYBOOK = {
     crawledAt: iso(-3000),
     model: "gpt-4.1-mini",
     version: "2",
+    language: "en",
   },
+  // The switch's state as the route reports it: English is the default for
+  // a New York row, and the rep may ask for the other two.
+  scriptLanguage: { current: "en", default: "en", leadLanguage: "en", available: ["en", "fr", "es"], fallback: null, repId: "r1" },
   unchecked: [],
   generation: { degraded: false },
   store: { ready: true },
 };
+
+// The same script in the other two languages — what /api/sales/playbook
+// answers with ?language=fr / ?language=es. The register the prompt asks
+// for (lib/sales/intel/callScript.js REGISTER): vous, soumission, cellulaire;
+// usted, cotización, celular. The citations stay in the site's own English.
+// Both pass validateCallScript and the voice lint for their language.
+export const CALL_SCRIPT_FR = {
+  opener: "Bonjour — c'est bien South County Electric? Je m'appelle Daniel et je suis chez FieldQuo. Je vous appelle parce que j'ai regardé votre site web et j'ai remarqué deux ou trois choses qui pourraient vous aider à booker plus de contrats. Avez-vous quelques minutes pour que je vous montre comment?",
+  whatWeSaw: ["Votre site prend les demandes de soumission par un formulaire, mais le client ne peut pas choisir une heure — chaque contrat attend un rappel.", "Une bonne note Google avec des dizaines d'avis — les gens vous font déjà confiance, ils ne peuvent juste pas vous réserver.", "Les factures se paient par chèque ou à la porte, selon votre FAQ."],
+  whyThemNow: "Norman s'en va vers la saison des tempêtes, et les entreprises qui laissent les gens réserver une heure en ligne sont celles qui remplissent leur horaire en premier.",
+  threeQuestions: ["Comment les soumissions reviennent-elles au client aujourd'hui — c'est vous, après les heures?", "Quand quelqu'un veut payer, qu'est-ce qui se passe?", "Combien d'appels par semaine manquez-vous parce que vous êtes dans une échelle?"],
+  objections: [
+    { they: "On est assez occupés.", you: "Alors la question, c'est quels contrats vous prenez — la réservation en ligne vous laisse garder les bons." },
+    { they: "Envoyez-moi un courriel.", you: "Avec plaisir — qu'est-ce qui compte le plus pour vous, la réservation ou les paiements? Je vais garder ça sur un écran." },
+  ],
+  closeAsk: "Je peux vous montrer en quinze minutes comment ça marche pour une entreprise comme la vôtre. Qu'est-ce qui vous convient le mieux, le matin ou l'après-midi?",
+  doNotSay: ["Ne donnez pas de prix sur cet appel.", "Ne dites pas que le formulaire est brisé — il marche, il ne peut juste pas réserver."],
+  citations: [{ field: "opener", quote: "Request a quote and we'll call you back within one business day.", sourceUrl: "https://southcountyelectric.com/contact" }],
+  generatedAt: iso(-5),
+  crawledAt: iso(-3000),
+  model: "gpt-4.1-mini",
+  version: "2",
+  language: "fr",
+};
+
+export const CALL_SCRIPT_ES = {
+  opener: "Hola, ¿hablo con South County Electric? Me llamo Daniel y soy de FieldQuo. Le llamo porque revisé su sitio web y noté un par de cosas que le podrían ayudar a agendar más trabajos. ¿Tiene unos minutos para que le muestre cómo?",
+  whatWeSaw: ["Su sitio recibe pedidos de cotización por un formulario, pero el cliente no puede elegir una hora: cada trabajo espera una llamada de vuelta.", "Una buena calificación en Google con decenas de reseñas: la gente ya confía en ustedes, solo que no puede reservarlos.", "Las facturas se pagan con cheque o en la puerta, según su página de preguntas."],
+  whyThemNow: "Norman entra en temporada de tormentas, y los negocios que dejan a la gente reservar una hora en línea son los que llenan la agenda primero.",
+  threeQuestions: ["¿Cómo le llegan las cotizaciones al cliente hoy? ¿Es usted, fuera de horario?", "Cuando alguien quiere pagar, ¿qué pasa?", "¿Cuántas llamadas a la semana pierde porque está en una escalera?"],
+  objections: [
+    { they: "Ya tenemos bastante trabajo.", you: "Entonces la pregunta es cuáles trabajos toma usted: reservar en línea le deja quedarse con los buenos." },
+    { they: "Mándeme un correo.", you: "Con gusto. ¿Qué le importa más, las reservas o los pagos? Así lo dejo en una sola pantalla." },
+  ],
+  closeAsk: "Le puedo mostrar en quince minutos cómo funciona para un negocio como el suyo. ¿Qué le conviene más, las mañanas o las tardes?",
+  doNotSay: ["No dé un precio en esta llamada.", "No diga que el formulario está roto: funciona, solo que no puede reservar."],
+  citations: [{ field: "opener", quote: "Request a quote and we'll call you back within one business day.", sourceUrl: "https://southcountyelectric.com/contact" }],
+  generatedAt: iso(-5),
+  crawledAt: iso(-3000),
+  model: "gpt-4.1-mini",
+  version: "2",
+  language: "es",
+};
+
+/** The playbook as the route answers it for one language. */
+export function playbookIn(language) {
+  const script = language === "fr" ? CALL_SCRIPT_FR : language === "es" ? CALL_SCRIPT_ES : PLAYBOOK.callScript;
+  return { ...PLAYBOOK, callScript: script, scriptLanguage: { ...PLAYBOOK.scriptLanguage, current: script.language } };
+}
 
 export const NOTES = [
   { id: "note1", title: "Dave — spoke Tue", body: "Dave answers himself after 4pm. Wants to see booking first, payment later.", updatedAt: iso(-1400), parentKind: "prospect", parentId: "p1" },

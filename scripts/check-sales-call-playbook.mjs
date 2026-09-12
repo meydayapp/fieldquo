@@ -394,12 +394,17 @@ const PANEL = "app/components/sales/CallPanel.js";
 
   const loader = arrowBody(src, "const loadPlaybook = useCallback(");
   ok("the loader was found and parsed", loader.length > 100, loader.length);
-  ok("…and it is the thing that fetches the playbook", /\/api\/sales\/playbook/.test(loader));
+  // The URL is built by playbookUrl() beside the loader now, so the language
+  // switch and the loader cannot spell the route two ways; the loader
+  // fetches through it.
+  ok("…and it is the thing that fetches the playbook", /fetchJson\(playbookUrl\(/.test(loader) && /const playbookUrl = useCallback\(\s*\(language\) =>\s*`\/api\/sales\/playbook\?prospectId=/.test(decomment(src)));
   ok(
     "…keyed on the prospect, so a new card loads a new script",
     // `scriptProspectId` since the lead screen learned to dial: the prospect
     // whose script this is, which is the dial target's or the linked one's.
-    /}, \[scriptProspectId\]\);/.test(decomment(src)),
+    // playbookUrl is itself keyed on scriptProspectId, so the loader's deps
+    // reduce to the prospect.
+    /}, \[scriptProspectId, playbookUrl\]\);/.test(decomment(src)) && /\[scriptProspectId\],\s*\);/.test(decomment(src)),
   );
   ok(
     "…and run from an effect rather than from a handler",

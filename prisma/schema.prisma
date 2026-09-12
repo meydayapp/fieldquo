@@ -11001,16 +11001,29 @@ model CrawlHostPolicy {
 /// nothing the second time. `script` is the validated shape: opener,
 /// whatWeSaw[], whyThemNow, threeQuestions[], objections[{they,you}],
 /// closeAsk, doNotSay[] — strings only, no digit anywhere, by the same rule
-/// the research brief keeps. English only, by decision: reps read the
-/// portal in nine languages and a script per language multiplies the cost
-/// for words read to an English-speaking contractor.
+/// the research brief keeps.
+///
+/// One row per prospect PER LANGUAGE. The owner on 2026-09-12: the script
+/// "should also have the option to be in English, French and Spanish, just
+/// in case we find ourselves with a French speaker in Quebec or a Latino
+/// contractor in the USA." The pipeline writes the prospect's DEFAULT
+/// language only (Quebec → fr, else the rep's portal language when it is
+/// one of the three, else en — lib/sales/intel/callScript.js
+/// defaultScriptLanguage), so the backlog costs what it did; the other two
+/// are written on demand by /api/sales/playbook when a rep asks for them.
+/// The rows that predate the column are English, which is what they were.
 ///
 /// No relation to Prospect on purpose — the same bare prospectId
 /// SalesPipelineTask keeps, so this table can be added, and later dropped,
 /// without touching the Prospect model.
 model ProspectCallScript {
   id         String @id @default(cuid())
-  prospectId String @unique
+  prospectId String
+
+  /// "en" | "fr" | "es" — SCRIPT_LANGUAGES in lib/sales/intel/callScript.js.
+  /// The language the script BODY is written in; the quoted evidence in
+  /// `citations` stays in the site's own words whatever this says.
+  language String @default("en")
 
   script        Json
   model         String
@@ -11026,6 +11039,10 @@ model ProspectCallScript {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  /// Replaces the old `prospectId @unique`: an index change, not a data one.
+  /// Existing rows keep their prospectId and read as language "en".
+  @@unique([prospectId, language])
 }
 
 /// One row per prospect: the last time INFER_FROM_SITE read its pages.
@@ -11273,6 +11290,13 @@ model PlatformAiUsage {
 
   /// Idempotency, so a retried pipeline task cannot double-count spend.
   ref String? @unique
+
+  /// What the spend was FOR, when the area alone does not say: for
+  /// "call_script", `{ language, trigger }` — which of the three script
+  /// languages, and whether the pipeline or a rep's switch asked for it. A
+  /// rep's on-demand asks are rate-limited by counting rows, and the meta
+  /// is what lets a spike be read as "French, on demand" rather than "AI".
+  meta Json?
 
   createdAt DateTime @default(now())
 

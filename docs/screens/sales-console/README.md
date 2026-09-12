@@ -10,7 +10,11 @@ the DevTools protocol with device emulation. `harness/` is everything that
 produced them (`build.sh`, then `shot.sh` / `mshot.sh` with a `scene=`).
 
 The fixture call script passes `validateCallScript` (no digits anywhere) and
-its ask names no day and no clock time.
+its ask names no day and no clock time. The French and Spanish fixtures
+(`CALL_SCRIPT_FR`, `CALL_SCRIPT_ES` in `fixtures.js`) pass the same validator
+and the voice lint for their language; the stub answers
+`/api/sales/playbook?language=fr|es` with them after a short pause, so the
+switch's loading state is the real one.
 
 | File | What it shows |
 |---|---|
@@ -28,6 +32,7 @@ its ask names no day and no clock time.
 | `desktop-zone-pt.png` | The zone chips (All · ET · CT · MT · PT) with PT selected: the list filtered inside its window groups, "closed — opens 11:00 AM" under the chip, the walk (Next, Next in queue) following the filter. |
 | `desktop-all-shut.png` | 9:20 pm Eastern with every held row shut: "All 8 of your leads are outside their calling window right now" and the one button, Claim the next 25 (open now only). |
 | `desktop-top-up.png` | The rolling batch topping itself up: fewer than 5 open → three Pacific rows appended, two dead Eastern rows released, the quiet toast "Added 3 leads open now (PT). 2 closed leads released.", the header line "3 open now · 6 closed · next batch auto-adds below 5". |
+| `desktop-script-fr.png` / `desktop-script-es.png` | The Script tab's language switch (English · Français · Español) pressed to Français and to Español: the same five steps in that language — vous, soumission, cellulaire; usted, cotización — the headings still in the rep's portal language, the "Generated from what the crawler saw on …" line unchanged, the citation still in the site's own English. |
 | `desktop-status-menu.png` | The rep-status dropdown open. |
 | `desktop-maximized.png` | The tabbed card taking the viewport. |
 | `mobile-idle.png` / `mobile-drawer.png` / `mobile-tab-contact.png` / `mobile-tab-script.png` | The phone: dialler first, then the tabbed card; the queue as a drawer. |

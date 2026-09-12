@@ -80,6 +80,7 @@ import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { STATE_AFTER_CALL } from "@/lib/sales/calls/agentState";
 import CallPlaybook from "./CallPlaybook";
+import { rememberScriptLanguage, rememberedScriptLanguage } from "@/lib/sales/scriptLanguageMemory";
 import PublishedEmail from "./PublishedEmail";
 import TransferControl from "./TransferControl";
 import NextSteps from "./NextSteps";
@@ -235,6 +236,13 @@ export default function CallPanel({
   const [playbook, setPlaybook] = useState(null);
   const [playbookLoading, setPlaybookLoading] = useState(false);
   const [playbookError, setPlaybookError] = useState("");
+  // The script's language switch. Null means "the default" — the route
+  // decides what that is for this lead and this rep — and a code means the
+  // rep flipped it. Its own loading flag: switching language re-reads the
+  // playbook UNDER the script that is already on screen, and the whole
+  // panel must not blank while a rep is mid-call.
+  const [scriptLanguage, setScriptLanguage] = useState(null);
+  const [scriptLanguageLoading, setScriptLanguageLoading] = useState(false);
 
   const deviceRef = useRef(null);
   const callRef = useRef(null);
@@ -261,12 +269,39 @@ export default function CallPanel({
   // calling setup underneath a live conversation. The only cost is that the
   // fallback sentence for a fetch that fails immediately after a language
   // switch is a beat behind; the alternative is a refetch during a call.
+  const playbookUrl = useCallback(
+    (language) =>
+      `/api/sales/playbook?prospectId=${encodeURIComponent(scriptProspectId)}${language ? `&language=${encodeURIComponent(language)}` : ""}`,
+    [scriptProspectId],
+  );
+
   const loadPlaybook = useCallback(async () => {
     if (!scriptProspectId) return;
     setPlaybookLoading(true);
     setPlaybookError("");
     try {
-      setPlaybook(await fetchJson(`/api/sales/playbook?prospectId=${encodeURIComponent(scriptProspectId)}`));
+      // The first read is the default language. If this rep chose another
+      // language for leads of this kind before (remembered per rep, per
+      // language-of-lead — a Quebec lead and a Texas lead are two habits),
+      // the same read is made again in that language, under the default
+      // that is already on screen. Two reads only when there is a habit.
+      const first = await fetchJson(playbookUrl(null));
+      setPlaybook(first);
+      const remembered = rememberedScriptLanguage(first?.scriptLanguage);
+      if (remembered && remembered !== first?.scriptLanguage?.current && first?.scriptLanguage?.available?.includes(remembered)) {
+        setScriptLanguage(remembered);
+        setScriptLanguageLoading(true);
+        try {
+          setPlaybook(await fetchJson(playbookUrl(remembered)));
+        } catch {
+          // The default is on screen and is a true script; a habit that
+          // could not be honoured is not a failure of the panel.
+        } finally {
+          setScriptLanguageLoading(false);
+        }
+      } else {
+        setScriptLanguage(null);
+      }
     } catch (err) {
       // Its own error, never the panel's. A failed script must not read as a
       // failed call setup, and it must not clear the dial button.
@@ -275,11 +310,33 @@ export default function CallPanel({
     } finally {
       setPlaybookLoading(false);
     }
-  }, [scriptProspectId]);
+  }, [scriptProspectId, playbookUrl]);
 
   useEffect(() => {
     loadPlaybook();
   }, [loadPlaybook]);
+
+  // The switch. The script that is on screen stays there, dimmed, until the
+  // other language arrives; a failure leaves it and says nothing new — the
+  // route's own fallback sentence covers the case where it answered with
+  // the default instead.
+  const changeScriptLanguage = useCallback(
+    async (language) => {
+      if (!scriptProspectId || !language) return;
+      setScriptLanguage(language);
+      setScriptLanguageLoading(true);
+      try {
+        const next = await fetchJson(playbookUrl(language));
+        setPlaybook(next);
+        rememberScriptLanguage(next?.scriptLanguage, language);
+      } catch (err) {
+        setPlaybookError(err?.message || t("app.salesCall.playbookFetchFailed"));
+      } finally {
+        setScriptLanguageLoading(false);
+      }
+    },
+    [scriptProspectId, playbookUrl],
+  );
 
   const load = useCallback(async () => {
     try {
@@ -591,6 +648,9 @@ export default function CallPanel({
           data={playbook}
           unavailable={playbookUnavailable}
           onRetry={loadPlaybook}
+          scriptLanguage={scriptLanguage}
+          scriptLanguageLoading={scriptLanguageLoading}
+          onScriptLanguage={changeScriptLanguage}
         />
       </div>
     );
@@ -855,6 +915,9 @@ export default function CallPanel({
           unavailable={playbookUnavailable}
           onRetry={loadPlaybook}
           layout={slots?.script ? "console" : "stack"}
+          scriptLanguage={scriptLanguage}
+          scriptLanguageLoading={scriptLanguageLoading}
+          onScriptLanguage={changeScriptLanguage}
         />,
       )}
     </div>

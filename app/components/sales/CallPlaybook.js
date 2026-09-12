@@ -52,6 +52,7 @@
 import { useMemo, useState } from "react";
 import { AlertCircle, ChevronLeft, ChevronRight, CircleHelp, Loader2, ShieldAlert, Sparkles, Target } from "lucide-react";
 import { objectionsToShow } from "@/lib/sales/playbook/objections";
+import { languageMeta } from "@/app/i18n/languages";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 const BTN =
@@ -103,9 +104,10 @@ function Objection({ row }) {
  * rules-built stages and the objection rail stay below it unchanged — the
  * generated page is a layer on top of the fallback, never a replacement for
  * it, so a prospect whose script has not been written yet gets the same
- * screen as before. The sentences are English by decision and printed
- * verbatim (lib/sales/intel/callScript.js says why); only the headings are
- * the rep's language.
+ * screen as before. The sentences are printed verbatim in the language the
+ * script was written in — English, French or Spanish, the switch below the
+ * heading (lib/sales/intel/callScript.js says which is the default and
+ * why); the headings are the rep's portal language, whatever the script's.
  *
  * The date is the crawl the script describes. A script written before the
  * website was read says so rather than borrowing a date from elsewhere.
@@ -114,7 +116,66 @@ function H({ children }) {
   return <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand-accent-text">{children}</p>;
 }
 
-function AiScript({ script, language }) {
+/**
+ * English · Français · Español — the script's language switch.
+ *
+ * The labels are each language's own name (app/i18n/languages.js
+ * nativeName), the way lib/sales/repLanguage.js argues a picker should be
+ * labelled: a rep looking for French looks for "Français". The current one
+ * is the route's `scriptLanguage.current` — the default until the rep
+ * chooses — and choosing asks CallPanel to re-read the playbook in that
+ * language, which writes the script on demand if it has to. While that
+ * read is in flight the switch is disabled and says so; the script already
+ * on screen stays where it is. When the route could not deliver the
+ * language asked for it says which one is showing instead, under the
+ * switch, so a rep who pressed Français and is reading English knows why.
+ */
+function ScriptLanguageSwitch({ scriptLanguage, chosen, loading, onChange }) {
+  const { t } = useTranslation();
+  if (!scriptLanguage?.available?.length || !onChange) return null;
+  const current = chosen || scriptLanguage.current || scriptLanguage.default;
+  const name = (code) => languageMeta(code).nativeName;
+  return (
+    <div className="space-y-1" data-script-language-switch>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-muted-foreground">{t("app.salesCall.scriptLanguage")}</span>
+        <div className="inline-flex rounded-lg border border-border overflow-hidden" role="group" aria-label={t("app.salesCall.scriptLanguage")}>
+          {scriptLanguage.available.map((code) => {
+            const active = code === current;
+            return (
+              <button
+                key={code}
+                type="button"
+                disabled={loading || active}
+                aria-pressed={active}
+                data-script-language={code}
+                onClick={() => onChange(code)}
+                className={`min-h-[36px] px-3 text-xs font-semibold ${active ? "bg-primary text-primary-foreground" : "bg-card text-foreground hover:bg-muted"} disabled:opacity-100`}
+              >
+                {name(code)}
+              </button>
+            );
+          })}
+        </div>
+        {loading ? (
+          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" data-script-language-loading>
+            <Loader2 className="animate-spin" size={12} /> {t("app.salesCall.scriptLanguageLoading", { language: name(current) })}
+          </span>
+        ) : null}
+      </div>
+      {!loading && scriptLanguage.fallback ? (
+        <p className="text-xs text-amber-900 dark:text-amber-200 break-words" data-script-language-fallback>
+          {t("app.salesCall.scriptLanguageFallback", {
+            requested: name(scriptLanguage.fallback.requested),
+            shown: name(scriptLanguage.fallback.shown),
+          })}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function AiScript({ script, language, switchProps }) {
   const { t } = useTranslation();
   const crawled = script.crawledAt ? new Date(script.crawledAt) : null;
   const when = crawled && !Number.isNaN(crawled.getTime())
@@ -122,8 +183,9 @@ function AiScript({ script, language }) {
     : null;
   return (
     <div
-      className="rounded-lg border border-brand-accent/40 bg-brand-accent/5 p-3 space-y-3"
+      className={`rounded-lg border border-brand-accent/40 bg-brand-accent/5 p-3 space-y-3${switchProps?.loading ? " opacity-60" : ""}`}
       data-testid="ai-call-script"
+      data-script-language-shown={script.language || "en"}
     >
       <div className="flex items-start gap-2">
         <Sparkles size={16} className="mt-0.5 shrink-0 text-brand-accent-text" />
@@ -136,6 +198,7 @@ function AiScript({ script, language }) {
           </p>
         </div>
       </div>
+      {switchProps ? <ScriptLanguageSwitch {...switchProps} /> : null}
 
       <div>
         <H>{t("app.salesCall.aiScriptOpener")}</H>
@@ -239,7 +302,7 @@ function AiScript({ script, language }) {
  * Nothing here is written by this file: a missing part is left out, never
  * padded (AGENTS.md failure class 5).
  */
-function ConsoleScript({ script, stages, language }) {
+function ConsoleScript({ script, stages, language, switchProps }) {
   const { t } = useTranslation();
   const crawled = script.crawledAt ? new Date(script.crawledAt) : null;
   const when = crawled && !Number.isNaN(crawled.getTime())
@@ -255,7 +318,11 @@ function ConsoleScript({ script, stages, language }) {
   const points = stages.flatMap((s) => (s.points || []).map((p) => ({ ...p, stageKey: s.stageKey })));
 
   return (
-    <div className="grid gap-4 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,18rem)]" data-testid="ai-call-script">
+    <div
+      className={`grid gap-4 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,18rem)]${switchProps?.loading ? " opacity-60" : ""}`}
+      data-testid="ai-call-script"
+      data-script-language-shown={script.language || "en"}
+    >
       <div className="space-y-3">
         <div className="flex items-start gap-2">
           <Sparkles size={16} className="mt-0.5 shrink-0 text-brand-accent-text" />
@@ -266,6 +333,7 @@ function ConsoleScript({ script, stages, language }) {
             </p>
           </div>
         </div>
+        {switchProps ? <ScriptLanguageSwitch {...switchProps} /> : null}
         <ol className="space-y-3">
           {steps.map((step, i) => (
             <li key={step.key} className="flex gap-3" data-script-step={step.key}>
@@ -384,6 +452,9 @@ function ConsoleScript({ script, stages, language }) {
  *                     Same argument lib/sales/dialSpace.js makes for the dial:
  *                     absence of UI is indistinguishable from absence of
  *                     feature, so the space says which one it is.
+ * @param scriptLanguage         the code the rep chose, or null for the default
+ * @param scriptLanguageLoading  a re-read in another language is in flight
+ * @param onScriptLanguage       (code) => void — CallPanel re-reads the playbook
  */
 export default function CallPlaybook({
   loading = false,
@@ -392,6 +463,9 @@ export default function CallPlaybook({
   unavailable = "",
   onRetry,
   layout = "stack",
+  scriptLanguage = null,
+  scriptLanguageLoading = false,
+  onScriptLanguage = null,
 }) {
   // Chrome only. Every stage name, purpose, line, prompt, talking point and
   // refusal below arrives from /api/sales/playbook already written — some from
@@ -456,6 +530,12 @@ export default function CallPlaybook({
 
   const index = Math.min(stageIndex, Math.max(0, stages.length - 1));
   const stage = stages[index] || null;
+  // The switch exists only when the route described the languages and the
+  // panel gave it somewhere to send a choice — a caller that renders this
+  // read-only gets no control that would do nothing.
+  const switchProps = data.scriptLanguage && onScriptLanguage
+    ? { scriptLanguage: data.scriptLanguage, chosen: scriptLanguage, loading: scriptLanguageLoading, onChange: onScriptLanguage }
+    : null;
   const pointStages = stages.filter((s) => (s.points || []).length > 0);
   const pointCount = pointStages.reduce((n, s) => n + s.points.length, 0);
 
@@ -487,10 +567,15 @@ export default function CallPlaybook({
           stages below are the whole screen, as they were. */}
       {data.callScript ? (
         layout === "console" ? (
-          <ConsoleScript script={data.callScript} stages={stages} language={language} />
+          <ConsoleScript script={data.callScript} stages={stages} language={language} switchProps={switchProps} />
         ) : (
-          <AiScript script={data.callScript} language={language} />
+          <AiScript script={data.callScript} language={language} switchProps={switchProps} />
         )
+      ) : switchProps ? (
+        // No script in any language yet — the switch still stands, because
+        // pressing another language writes one, and the fallback sentence
+        // is where "the French one could not be written" is said.
+        <ScriptLanguageSwitch {...switchProps} />
       ) : null}
 
       {/* ── One stage, and the rep moves it ──────────────────────────────── */}

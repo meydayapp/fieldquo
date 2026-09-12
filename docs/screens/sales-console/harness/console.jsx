@@ -33,6 +33,14 @@ const pressCall = async () => (await until('[data-console-card="dialer"] [data-c
   // refused window has none, so the wait is best-effort there.
   await until('[data-slot="script"] [data-testid="ai-call-script"]', 30).catch(() => null);
   await wait(300);
+  if (scene === "script-fr" || scene === "script-es") {
+    // The Script tab's language switch: press Français / Español, wait for
+    // the other language's script to arrive.
+    const code = scene.slice(-2);
+    await click(`[data-slot="script"] [data-script-language="${code}"]`);
+    await until(`[data-slot="script"] [data-script-language-shown="${code}"]`);
+    await wait(300);
+  }
   if (scene === "call") {
     await pressCall();
     await until('[data-console-card="dialer"] .font-mono');
