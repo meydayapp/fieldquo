@@ -756,7 +756,9 @@ async function run() {
     const page = decomment(read("app/sales/queue/page.js"));
     ok("the console tops up under the threshold, at most once an interval, posting only the flag", /act\("claim_batch", \{ auto: true \}\)/.test(page) && /if \(openHeld >= topUpBelow\) return;/.test(page) && /if \(nowMs - lastTopUp\.current < topUpInterval\) return;/.test(page));
     ok("…never while a press is in flight, and never past the cap", /if \(loading \|\| fetching \|\| busy \|\| !data \|\| !tradeKey\) return;/.test(page) && /if \(!\(remainingToday > 0\)\) return;/.test(page));
-    ok("…and openHeld counts rows callable now with no outcome, not marked worked", /item\.window\?\.callableNow && !item\.lastOutcome && item\.claim\?\.state !== "mine_worked"/.test(page));
+    // A DUE RETRY has an outcome and is still open work — lib/sales/retryRules.js
+    // said "try again" and the time has come — so it counts, and only it.
+    ok("…and openHeld counts rows callable now with no outcome (or a due retry), not marked worked", /item\.window\?\.callableNow && \(!item\.lastOutcome \|\| item\.retry\?\.due\) && item\.claim\?\.state !== "mine_worked"/.test(page));
     ok("the top-up's toast names the count and the zones it added", /app\.salesQueue\.topUpToast/.test(page) && /zoneAcronym/.test(page));
     ok("the list's one line says open · closed · the threshold", /app\.salesQueue\.openNowSummary/.test(page));
     ok("QUEUE_TOP_UP_BELOW is 5 and the interval a minute", QUEUE_TOP_UP_BELOW === 5 && QUEUE_TOP_UP_MIN_INTERVAL_MS === 60_000);

@@ -38,6 +38,7 @@ import {
   Loader2,
   Mail,
   MapPin,
+  RotateCcw,
   Send,
   LifeBuoy,} from "lucide-react";
 import { errorText, fetchJson } from "@/lib/fetchJson";
@@ -99,7 +100,17 @@ export default function SalesLeadPage({ params }) {
   const load = useCallback(async () => {
     setError("");
     try {
-      const next = await fetchJson(`/api/sales/leads/${id}`);
+      // The zone and language ride along so "Retry 2 of 4 — next at 14:30"
+      // comes back on this rep's clock, the way the queue route prints it.
+      const q = new URLSearchParams();
+      try {
+        const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (zone) q.set("timeZone", zone);
+      } catch {
+        /* no zone: the server prints UTC and says so */
+      }
+      if (language) q.set("language", language);
+      const next = await fetchJson(`/api/sales/leads/${id}?${q}`);
       setData(next);
       setNotes(next.lead.notes || "");
       setPlace({
@@ -112,7 +123,7 @@ export default function SalesLeadPage({ params }) {
     } catch (err) {
       setError(err.message);
     }
-  }, [id]);
+  }, [id, language]);
 
   useEffect(() => {
     load();
@@ -320,6 +331,16 @@ export default function SalesLeadPage({ params }) {
   // `tick` is read so the window above is re-judged every thirty seconds.
   void tick;
   const numbers = data?.numbers || null;
+  // The retry pool's sentence — the same three the queue's rows print.
+  const retryText = (() => {
+    const r = data?.retry;
+    if (!r) return "";
+    if (r.exhausted) return t("app.salesQueue.retry.exhausted", { count: r.attemptCount });
+    const n = r.attemptCount + 1;
+    if (r.scheduled && r.nextAttemptAtLocal) return t("app.salesQueue.retry.next", { n, max: r.maxAttempts, time: r.nextAttemptAtLocal });
+    if (r.due) return t("app.salesQueue.retry.due", { n, max: r.maxAttempts });
+    return "";
+  })();
   const chosenNumber =
     (numbers?.voice?.choices || []).find((c) => (c.id || "") === numberId) ||
     (numbers?.voice?.choices || [])[0] ||
@@ -409,6 +430,24 @@ export default function SalesLeadPage({ params }) {
           playbookProspectId={lead.prospect?.id || lead.prospectId || null}
           onWorked={load}
         />
+
+        {/* ── Where this row stands in the retry pool ─────────────────────
+            lib/sales/retryRules.js, through the lead route's `retry`: the
+            dial that is coming and when, or that the rule is done with it.
+            Nothing for a hand-typed lead — it is not in the pool. */}
+        {retryText ? (
+          <p
+            className={`inline-flex flex-wrap items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${
+              data.retry.exhausted
+                ? "bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-800"
+                : "bg-muted text-muted-foreground border-border"
+            }`}
+            data-retry-tag={data.retry.exhausted ? "exhausted" : data.retry.due ? "due" : "scheduled"}
+          >
+            <RotateCcw size={12} aria-hidden="true" />
+            <span className="break-words">{retryText}</span>
+          </p>
+        ) : null}
 
         {/* The numbers somebody actually gave us, and the one about to ring.
             Same component the queue renders, for the reason DialRegion is

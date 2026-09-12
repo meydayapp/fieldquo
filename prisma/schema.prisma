@@ -10296,6 +10296,47 @@ model Prospect {
   /// behind the rows nobody has looked at yet. Null means nobody passed on it.
   reviewDeferredAt DateTime?
 
+  // ── The retry pool: what happened on the last dial, and when the next one is ─
+  //
+  // lib/sales/retryRules.js decides these; lib/sales/calls/store.js writes
+  // them beside every disposition. The model is OMniLeads' per-outcome rule
+  // (read for design only): no answer → try again later in a DIFFERENT part
+  // of the day, busy → soon, voicemail left → days, up to a ceiling — and past
+  // the ceiling the row leaves the pool until a superadmin recycles it.
+  //
+  // On the PROSPECT rather than on SalesCallAttempt, because the pool is a
+  // property of the business, not of one call: "how many times has anybody
+  // rung them, and when may the next rep try" has to be answerable by the
+  // claim WHERE without a join over every attempt row.
+
+  /// Dispositioned dials since discovery, or since the last recycle. Every
+  /// outcome counts one — a "not interested" is still a dial that happened —
+  /// and only the retry outcomes read it against their ceiling.
+  attemptCount Int @default(0)
+  /// The earliest instant the next dial may be offered. Null means "now" for
+  /// a fresh row and "never, by this rule" for a finished one; the claim
+  /// WHERE admits only null or past. A callback writes the agreed time here
+  /// too, so one column holds every "not before".
+  nextAttemptAt DateTime?
+  /// The DISPOSITIONS code of the last dial, copied here so the pool can be
+  /// read without the attempt table. Kept through a recycle: the history is
+  /// the point of it.
+  lastOutcome   String?
+  /// Which part of the prospect's day the next dial is aimed at —
+  /// lib/sales/retryRules.js RETRY_BLOCKS ("morning" … "evening") — so the
+  /// rotation can move to the next one. Null when nothing is scheduled or the
+  /// zone is unknown.
+  retryBlock    String?
+  /// Set when a retry rule's ceiling was reached. Out of the pool while set;
+  /// never deleted, and nothing but a recycle clears it.
+  exhaustedAt   DateTime?
+  /// The last recycle — a superadmin putting an exhausted row back with a
+  /// fresh count. Who did it is a loose pointer to PlatformAdmin, the shape
+  /// SalesSuppression uses: an admin leaving must not delete the fact that a
+  /// row was recycled.
+  recycledAt    DateTime?
+  recycledById  String?
+
   lastCrawledAt            DateTime?
   lastGoogleRefreshAt      DateTime?
   lastOpportunityAnalysisAt DateTime?
@@ -10335,6 +10376,11 @@ model Prospect {
   @@index([campaignId, classification])
   @@index([phoneE164])
   @@index([domain])
+  /// The retry pool's two reads: "due retries first" in the claim scan, and
+  /// the platform's Exhausted list. Both are filtered by trade/status already;
+  /// these keep the sort from touching every row.
+  @@index([nextAttemptAt])
+  @@index([exhaustedAt])
   repNotes SalesRepNote[]
   playbookAssignments SalesPlaybookAssignment[]
   talkingPoints       ProspectTalkingPoint[]

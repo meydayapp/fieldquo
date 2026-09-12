@@ -97,6 +97,17 @@ export const rows = {
   // of the `data` a create() received, which reading the route cannot settle.
   user: [],
   activityLog: [],
+  // ── The sales retry pool (scripts/check-sales-retry-pool.mjs) ──────────
+  // Prospect rows for the claim scan and the platform's Exhausted list, the
+  // claim log the batch writes, the attempt rows a disposition updates, the
+  // presence ledger the shift start is read from, and the audit row a
+  // recycle writes. Fixture rows carry `_count` for the relation filters
+  // (`capabilities: { some: {} }`) and `leads` for the zone read.
+  prospect: [],
+  salesQueueClaim: [],
+  salesCallAttempt: [],
+  salesRepActivity: [],
+  platformAuditLog: [],
 };
 
 /** Every write the product attempted, in order: { model, action, data }. */
@@ -145,6 +156,11 @@ export function resetDbStub() {
   rows.leadRequest = [];
   rows.user = [];
   rows.activityLog = [];
+  rows.prospect = [];
+  rows.salesQueueClaim = [];
+  rows.salesCallAttempt = [];
+  rows.salesRepActivity = [];
+  rows.platformAuditLog = [];
   writes.length = 0;
   reads.length = 0;
   failNext.model = null;
@@ -172,6 +188,20 @@ function matches(row, where = {}) {
     // subscription id — a stub that answered "no row" to an OR would let the
     // clear pass vacuously.
     if (key === "OR" && Array.isArray(value)) return value.some((branch) => matches(row, branch));
+    // Prisma's AND: every branch. lib/sales/prospectView.js's claim WHERE
+    // carries the retry-pool clause and the language rule's as an AND
+    // beside the lease's OR, and a stub that skipped it would hand out an
+    // exhausted row — the thing the clause exists to stop.
+    if (key === "AND" && Array.isArray(value)) return value.every((branch) => matches(row, branch));
+    // Relation filters, answered from the row's own `_count` the way
+    // check-sales-batch-claim's matcher does: `{ some: {} }` is "has any",
+    // `{ none: {} }` is "has none". A relation the fixture does not count
+    // is read as empty.
+    if (value && typeof value === "object" && !Array.isArray(value) && ("some" in value || "none" in value)) {
+      const n = Number(row._count?.[key]) || 0;
+      if ("some" in value) return n > 0;
+      return n === 0;
+    }
     // `where: { disconnectedAt: null }` must match a row that never set the
     // column. In Postgres an unwritten nullable column IS null, and a fixture
     // row is an object literal — so without this, a `create` that omitted the
@@ -182,7 +212,26 @@ function matches(row, where = {}) {
     if (value === null) return row[key] === null || row[key] === undefined;
     if (value && typeof value === "object" && !Array.isArray(value)) {
       if ("in" in value) return value.in.includes(row[key]);
-      if ("not" in value) return row[key] !== value.not;
+      // Postgres semantics: NOT IN over a NULL is NULL, i.e. false.
+      if ("notIn" in value) return row[key] != null && !value.notIn.includes(row[key]);
+      if ("not" in value) {
+        if (value.not === null) return row[key] !== null && row[key] !== undefined;
+        return row[key] !== value.not;
+      }
+      // Comparisons over dates or numbers. A NULL never satisfies one — the
+      // lease clause `claimExpiresAt: { lt: now }` must not hand out a live
+      // claim, and `nextAttemptAt: { lt: now }` must not offer a row that
+      // has no instant (the OR's other branch is what admits those).
+      const cmp = (a, b) => {
+        if (a == null || b == null) return null;
+        const x = a instanceof Date ? a.getTime() : Number(a);
+        const y = b instanceof Date ? b.getTime() : Number(b);
+        return Number.isFinite(x) && Number.isFinite(y) ? x - y : null;
+      };
+      if ("lt" in value) { const d = cmp(row[key], value.lt); return d !== null && d < 0; }
+      if ("lte" in value) { const d = cmp(row[key], value.lte); return d !== null && d <= 0; }
+      if ("gt" in value) { const d = cmp(row[key], value.gt); return d !== null && d > 0; }
+      if ("gte" in value) { const d = cmp(row[key], value.gte); return d !== null && d >= 0; }
       return true;
     }
     return row[key] === value;
@@ -202,19 +251,81 @@ function maybeFailCreate(name) {
   }
 }
 
+/** The filtered, ordered, paged, relation-selected read behind findMany / findFirst. */
+function selectMany(name, args = {}) {
+  let out = rows[name].filter((r) => matches(r, args.where));
+
+  // orderBy, take and skip, honoured so a paged or ordered read can be
+  // asserted on — `{ createdAt: "asc" }` or `[{ claimedAt: "asc" },
+  // { position: "asc" }]`. A stub that ignored the order would let a
+  // "due retries first" claim pass on fixture order alone.
+  const orders = Array.isArray(args.orderBy) ? args.orderBy : args.orderBy ? [args.orderBy] : [];
+  if (orders.length) {
+    const val = (v) => (v instanceof Date ? v.getTime() : v == null ? null : v);
+    out = [...out].sort((a, b) => {
+      for (const o of orders) {
+        const [k, dir] = Object.entries(o)[0] || [];
+        if (!k) continue;
+        const x = val(a[k]);
+        const y = val(b[k]);
+        if (x === y) continue;
+        if (x == null) return 1;
+        if (y == null) return -1;
+        const c = x < y ? -1 : 1;
+        return dir === "desc" ? -c : c;
+      }
+      return 0;
+    });
+  }
+  if (Number.isFinite(args.skip) && args.skip > 0) out = out.slice(args.skip);
+  if (Number.isFinite(args.take)) out = out.slice(0, args.take);
+  // Relation selects the sales queue reads: a prospect's claim rows,
+  // attempt rows and leads, filtered by the nested where. Answered from
+  // the sibling fixture tables so the read is a join, not a copy.
+  if (args.select && name === "prospect") {
+    out = out.map((p) => {
+      const r = { ...p };
+      if (args.select.queueClaims) {
+        const q = args.select.queueClaims;
+        r.queueClaims = rows.salesQueueClaim.filter((c) => c.prospectId === p.id && matches(c, q.where)).slice(0, q.take || 1e9);
+      }
+      if (args.select.callAttempts) {
+        const q = args.select.callAttempts;
+        r.callAttempts = rows.salesCallAttempt.filter((a) => a.prospectId === p.id && matches(a, q.where));
+      }
+      if (args.select.leads) r.leads = Array.isArray(p.leads) ? p.leads : [];
+      return r;
+    });
+  }
+  if (args.select && name === "salesQueueClaim" && args.select.prospect) {
+    out = out.map((c) => {
+      const p = rows.prospect.find((x) => x.id === c.prospectId) || null;
+      return { ...c, prospect: p ? { assignedRepId: p.assignedRepId, claimExpiresAt: p.claimExpiresAt } : null };
+    });
+  }
+  return out;
+  return out;
+}
+
 function model(name) {
   return {
     findUnique: async (args = {}) => {
       reads.push({ model: name, action: "findUnique", args });
-      return rows[name].find((r) => matches(r, args.where)) || null;
+      const row = rows[name].find((r) => matches(r, args.where)) || null;
+      if (row && name === "prospect" && args.select?.leads) return { ...row, leads: Array.isArray(row.leads) ? row.leads : [] };
+      return row;
     },
     findFirst: async (args = {}) => {
       reads.push({ model: name, action: "findFirst", args });
+      // An ordered findFirst is the first row of the ordered read — the
+      // shift-start read asks for the earliest Available row, and "first
+      // in fixture order" would be a different answer.
+      if (args.orderBy) return (await selectMany(name, { ...args, take: 1 }))[0] || null;
       return rows[name].find((r) => matches(r, args.where)) || null;
     },
     findMany: async (args = {}) => {
       reads.push({ model: name, action: "findMany", args });
-      return rows[name].filter((r) => matches(r, args.where));
+      return selectMany(name, args);
     },
     // Recording the read like its siblings rather than the shorter form the
     // campaign work added: check-public-payload inspects what a route ASKED
@@ -229,6 +340,13 @@ function model(name) {
       const row = { id: `${name}_${rows[name].length + 1}`, ...data };
       rows[name].push(row);
       return row;
+    },
+    /** Prisma's createMany: every row, in order, and `{ count }` back. */
+    createMany: async ({ data } = {}) => {
+      const list = Array.isArray(data) ? data : [];
+      writes.push({ model: name, action: "createMany", data: list });
+      for (const d of list) rows[name].push({ id: `${name}_${rows[name].length + 1}`, ...d });
+      return { count: list.length };
     },
     // Applies the change to the fixture row as well as recording it. The
     // original returned a merged copy and left `rows` untouched, which is fine
@@ -357,6 +475,11 @@ export const db = new Proxy(
     leadRequest: model("leadRequest"),
     user: model("user"),
     activityLog: model("activityLog"),
+    prospect: model("prospect"),
+    salesQueueClaim: model("salesQueueClaim"),
+    salesCallAttempt: model("salesCallAttempt"),
+    salesRepActivity: model("salesRepActivity"),
+    platformAuditLog: model("platformAuditLog"),
     marketingCampaignDelivery: uniqueCreateModel("marketingCampaignDelivery", [
       "campaignId",
       "subscriberId",

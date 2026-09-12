@@ -68,6 +68,7 @@ import {
   usableTimeZone,
 } from "@/lib/sales/queueBatch";
 import { groupByWindow, repClock, zoneAcronym } from "@/lib/sales/queueWindows";
+import { regroupForRetry, retryViewFor } from "@/lib/sales/retryPool";
 import { repLanguageOrNull } from "@/lib/sales/repLanguage";
 import { requiredLanguageFor } from "@/lib/sales/leadLanguage";
 // Namespace import, not a named one: the pipeline is growing
@@ -112,6 +113,14 @@ const QUEUE_SELECT = {
   doNotContactReason: true,
   phoneE164: true,
   lastCrawledAt: true,
+  // The retry pool's state on the row — lib/sales/retryRules.js retryStateOf
+  // reads exactly these — so a row can say "Retry 2 of 4 — next at 14:30".
+  attemptCount: true,
+  nextAttemptAt: true,
+  lastOutcome: true,
+  retryBlock: true,
+  exhaustedAt: true,
+  recycledAt: true,
   _count: { select: { capabilities: true, opportunities: true } },
   leads: {
     where: { timeZone: { not: null } },
@@ -225,10 +234,22 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
   // never in "Not callable today".
   const shiftStart = await shiftStartFor({ db, salesRepId: rep.id, timeZone: zone, now });
   const shiftEnd = shiftEndFrom({ shiftStart, now });
-  const windows = groupByWindow(
+  const grouped = groupByWindow(
     inClaimOrder.map((p) => ({ id: p.id, country: p.country, province: p.province, timeZone: p.leads?.[0]?.timeZone || null })),
     { repZone: zone, shiftEnd, now, language: lang, policyContext },
   );
+  // ── Then the retry pool re-orders those groups ─────────────────────────
+  //
+  // lib/sales/retryPool.js: a due retry goes to the FRONT of "Callable now"
+  // (its header says why it outranks a fresh row); a retry whose instant is
+  // still ahead is held in an "opens at" group keyed by that instant, so the
+  // list and the autodialler both wait for it rather than ringing a business
+  // fifteen minutes after it said busy; an exhausted row is "later", with
+  // its reason, until the lease lapses and the pool forgets it.
+  const retries = Object.fromEntries(
+    inClaimOrder.map((p) => [p.id, retryViewFor(p, { repZone: zone, language: lang, now })]),
+  );
+  const windows = regroupForRetry(grouped, retries, { shiftEnd, now });
   const byId = new Map(inClaimOrder.map((p) => [p.id, p]));
   const claimed = windows.order.map((id) => byId.get(id)).filter(Boolean);
   const rowExtras = new Map(
@@ -254,6 +275,9 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
           lastOutcome: last
             ? { disposition: last.disposition || null, at: last.dialledAt?.toISOString?.() || null }
             : null,
+          // "Retry 2 of 4 — next at 14:30", "Exhausted after 4 attempts":
+          // every value the row prints is the server's, on the rep's clock.
+          retry: retries[p.id] || null,
         },
       ];
     }),
@@ -562,6 +586,9 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
             talkingPoints: brief.talkingPoints,
           };
         })(),
+        // The pool's state for the Dialer card — the same object the row
+        // carries, read from the same columns.
+        retry: retryViewFor(full, { repZone: zone, language: lang, now }),
         history: history.map((a) => ({
           id: a.id,
           direction: a.direction,

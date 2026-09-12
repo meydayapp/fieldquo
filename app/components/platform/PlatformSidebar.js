@@ -117,6 +117,7 @@ import {
   Fingerprint,
   Contact,
   Radar,
+  RotateCcw,
   Database,
   BookOpenCheck,
   HandCoins,
@@ -269,6 +270,13 @@ const GROUPS = [
       // and the badge is the number waiting (superadmin only; the count
       // route answers null for anyone else and no badge is drawn).
       { label: "Review folder", href: "/platform/sales/review", icon: Inbox, badge: "review" },
+      // The other list a rep's queue drains into: prospects the retry rule
+      // has finished with (four no-answers, three voicemails —
+      // lib/sales/retryRules.js). Under the review folder because it is the
+      // same kind of screen — rows that left the pool and a superadmin
+      // deciding whether they go back — and the rule table is printed beside
+      // them so the owner can read the numbers the queue is ordered by.
+      { label: "Retry pool", href: "/platform/sales/retry-pool", icon: RotateCcw },
       // Directly under campaigns, because it is the one thing a campaign needs
       // that a campaign cannot ask for: the public base URL of the bucket the
       // snapshot files were uploaded to. Set once. Every campaign's snapshot

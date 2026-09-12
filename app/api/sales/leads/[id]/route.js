@@ -34,6 +34,9 @@ import { assignedCompanyWhere } from "@/lib/sales/scope";
 import { decideUnlink } from "@/lib/sales/leadLink";
 import { getOnboardingStatus } from "@/lib/onboarding";
 import { onboardingProgress, walkthroughGate } from "@/lib/sales/nextSteps";
+import { retryViewFor } from "@/lib/sales/retryPool";
+import { usableTimeZone } from "@/lib/sales/queueBatch";
+import { repLanguageOrNull } from "@/lib/sales/repLanguage";
 
 /**
  * The company a lead is linked to, as the rep may see it, plus whether the
@@ -146,6 +149,14 @@ const LEAD_SELECT = {
       province: true,
       doNotContactAt: true,
       doNotContactReason: true,
+      // The retry pool's state on the discovered row, for the sentence under
+      // the dial — lib/sales/retryRules.js retryStateOf reads exactly these.
+      attemptCount: true,
+      nextAttemptAt: true,
+      lastOutcome: true,
+      retryBlock: true,
+      exhaustedAt: true,
+      recycledAt: true,
     },
   },
   convertedCompanyId: true,
@@ -174,6 +185,23 @@ const LEAD_SELECT = {
     },
   },
 };
+
+/**
+ * "Retry 2 of 4 — next at 14:30" for the lead's discovered row, on the rep's
+ * clock: the zone and language the browser sent with the request, the way
+ * the queue route reads them. Null for a lead with no prospect — a
+ * hand-typed lead is not in the pool and the screen says nothing.
+ */
+function retryFor(lead, request) {
+  if (!lead?.prospect) return null;
+  const url = new URL(request.url);
+  const now = new Date();
+  return retryViewFor(lead.prospect, {
+    repZone: usableTimeZone((url.searchParams.get("timeZone") || "").trim().slice(0, 64), now),
+    language: repLanguageOrNull((url.searchParams.get("language") || "").trim().slice(0, 8)) || "en",
+    now,
+  });
+}
 
 export async function GET(request, { params }) {
   const { rep, refusal } = await requireOutreachRep(request);
@@ -245,6 +273,7 @@ export async function GET(request, { params }) {
     // whole feature exists to avoid.
     serverNow: new Date().toISOString(),
     outreach: await outreachStatus(rep),
+    retry: retryFor(lead, request),
   });
 }
 
@@ -384,5 +413,6 @@ export async function PATCH(request, { params }) {
       : null,
     numbers: lead ? await contactNumbersFor(lead, { optedOut: phoneOptOut }) : null,
     serverNow: new Date().toISOString(),
+    retry: retryFor(lead, request),
   });
 }

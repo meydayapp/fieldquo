@@ -256,6 +256,7 @@ import {
   PhoneOff,
   PhoneOutgoing,
   Plus,
+  RotateCcw,
   Search,
   ShieldAlert,
   Undo2,
@@ -464,7 +465,26 @@ function rowMeta(item, t) {
     : item.lastOutcome
       ? t("app.salesQueue.rowLastOutcomeUnlogged")
       : "";
-  return { place, research, window, outcome, zone: w?.zoneShort || null, zoneId: w?.zone || null };
+  // The retry pool's word on the row — lib/sales/retryRules.js, through the
+  // queue route's `retry`. "Retry 2 of 4 — next at 14:30" counts the dial
+  // that is COMING (attemptCount + 1); "Exhausted after 4 attempts" counts
+  // the ones made. On a held retry the window line is dropped: the server
+  // re-keyed the row's "opens at" to the retry instant, and printing that as
+  // the window's opening would be a true time with a false reason.
+  const retry = retryLine(item.retry, t);
+  if (w?.retryHold) window = "";
+  return { place, research, window, outcome, retry, zone: w?.zoneShort || null, zoneId: w?.zone || null };
+}
+
+/** One sentence for a row's place in the retry pool, or "" when it has none. */
+function retryLine(r, t) {
+  if (!r) return "";
+  if (r.exhausted) return t("app.salesQueue.retry.exhausted", { count: r.attemptCount });
+  const n = r.attemptCount + 1;
+  const max = r.maxAttempts;
+  if (r.scheduled && r.nextAttemptAtLocal) return t("app.salesQueue.retry.next", { n, max, time: r.nextAttemptAtLocal });
+  if (r.due) return t("app.salesQueue.retry.due", { n, max });
+  return "";
 }
 
 /**
@@ -476,6 +496,9 @@ function rowMeta(item, t) {
 function groupTitle(group, t) {
   if (group.kind === "now") return t("app.salesQueue.windowGroup.now");
   if (group.kind === "later") return t("app.salesQueue.windowGroup.later");
+  // A group the retry pool made (lib/sales/retryPool.js regroupForRetry):
+  // its instant is a retry's, not a window's, and the header says which.
+  if (group.retry) return t("app.salesQueue.windowGroup.retryAt", { time: group.opensAtLocal || "" });
   return group.zoneLabel
     ? t("app.salesQueue.windowGroup.opensAt", { time: group.opensAtLocal || "", zone: group.zoneLabel })
     : t("app.salesQueue.windowGroup.opensAtNoZone", { time: group.opensAtLocal || "" });
@@ -823,6 +846,27 @@ function whenText(iso, language, opts = { dateStyle: "medium", timeStyle: "short
   } catch {
     return d.toISOString().slice(0, 16).replace("T", " ");
   }
+}
+
+/**
+ * The retry pool's tag on the Dialer card: "Retry 2 of 4 — next at 14:30",
+ * "Retry 3 of 4 — due now", "Exhausted after 4 attempts". Same sentences
+ * the row prints; nothing for a row the pool has no word on.
+ */
+function RetryTag({ retry }) {
+  const { t } = useTranslation();
+  const text = retryLine(retry, t);
+  if (!text) return null;
+  const tone = retry.exhausted ? TONE_CLASS.gap : retry.due ? TONE_CLASS.has : TONE_CLASS.unknown;
+  return (
+    <p
+      className={`inline-flex flex-wrap items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${tone}`}
+      data-retry-tag={retry.exhausted ? "exhausted" : retry.due ? "due" : "scheduled"}
+    >
+      <RotateCcw size={12} aria-hidden="true" />
+      <span className="break-words">{text}</span>
+    </p>
+  );
 }
 
 /**
@@ -1649,7 +1693,7 @@ function QueueList({ t, loading, data, items, groups, itemById, current, visible
                               {[meta.research, meta.window].filter(Boolean).join(" · ")}
                             </span>
                             <span className="block text-xs text-muted-foreground break-words">
-                              {meta.outcome || status.label}
+                              {[meta.outcome || status.label, meta.retry].filter(Boolean).join(" · ")}
                             </span>
                           </span>
                         </button>
@@ -2318,7 +2362,12 @@ function QueueConsole() {
     () =>
       walkItems.map((item) => ({
         id: item.id,
-        dialled: Boolean(item.lastOutcome),
+        // A row with an outcome is not rung again by the machine — a retry
+        // is a decision — and the retry pool is that decision: a DUE retry
+        // (lib/sales/retryRules.js said "try again, and the time has come")
+        // is undialled to the dialler. A scheduled one is a wall through
+        // `opensAt`, keyed by the server to the retry instant.
+        dialled: Boolean(item.lastOutcome) && !item.retry?.due,
         name: item.businessName,
         opensAt: item.window?.callableNow ? null : item.window?.opensAtIso || null,
         opensAtLocal: item.window?.opensAtLocal || null,
@@ -2508,7 +2557,8 @@ function QueueConsole() {
   const topUpBelow = Number.isFinite(data?.batch?.topUpBelow) ? data.batch.topUpBelow : QUEUE_TOP_UP_BELOW;
   const topUpInterval = Number.isFinite(data?.batch?.topUpIntervalMs) ? data.batch.topUpIntervalMs : QUEUE_TOP_UP_MIN_INTERVAL_MS;
   const openHeld = items.filter(
-    (item) => item.window?.callableNow && !item.lastOutcome && item.claim?.state !== "mine_worked",
+    (item) =>
+      item.window?.callableNow && (!item.lastOutcome || item.retry?.due) && item.claim?.state !== "mine_worked",
   ).length;
   const closedHeld = items.filter((item) => !item.window?.callableNow).length;
   useEffect(() => {
@@ -2746,6 +2796,7 @@ function QueueConsole() {
 
               {/* The calling window, one small line above the display. */}
               {current ? <WindowTag compliance={compliance} row={currentRow} /> : null}
+              {current ? <RetryTag retry={current.retry || currentRow?.retry || null} /> : null}
 
               <DialerPad
                 value={typed}

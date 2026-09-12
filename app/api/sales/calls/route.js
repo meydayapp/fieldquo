@@ -581,6 +581,20 @@ export async function POST(request) {
       disposition: result.attempt.disposition,
       callbackAt: result.attempt.callbackAt,
     },
+    // What the retry pool decided on this dial (lib/sales/retryRules.js):
+    // the count after it, when the next one is, whether there is one. The
+    // console reloads the queue and reads the same facts off the row; this
+    // is here so the response is honest to anything else that reads it.
+    retry: result.retry
+      ? {
+          kind: result.retry.kind,
+          attemptCount: result.retry.attemptCount,
+          maxAttempts: result.retry.maxAttempts,
+          nextAttemptAt: result.retry.nextAttemptAt ? result.retry.nextAttemptAt.toISOString() : null,
+          block: result.retry.block,
+          exhausted: result.retry.exhausted,
+        }
+      : null,
     serverNow: now.toISOString(),
   });
 }

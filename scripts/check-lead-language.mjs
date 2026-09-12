@@ -190,9 +190,14 @@ section("4. claimCandidateWhere carries it");
   const en = claimCandidateWhere({ tradeKey: "painting", now: NOW, rep: EN_REP });
   const fr = claimCandidateWhere({ tradeKey: "painting", now: NOW, rep: FR_REP });
   const none = claimCandidateWhere({ tradeKey: "painting", now: NOW });
-  ok("with an English rep the WHERE carries the AND fragment", Array.isArray(en.AND) && en.AND[0]?.OR?.some((c) => c.province === null), en);
-  ok("with a French rep it does not", !("AND" in fr), fr);
-  ok("with no rep it does not — the pool count stays total", !("AND" in none), none);
+  // The AND also carries the retry pool's clause (lib/sales/retryRules.js
+  // retryAvailableWhere — first), so the language fragment is looked for
+  // anywhere in it rather than at [0], and "absent" means no province clause.
+  const languageClause = (w) => (Array.isArray(w.AND) ? w.AND : []).find((c) => c?.OR?.some((b) => b.province === null || b.province?.notIn));
+  ok("with an English rep the WHERE carries the AND fragment", Boolean(languageClause(en)), en);
+  ok("with a French rep it does not", !languageClause(fr), fr);
+  ok("with no rep it does not — the pool count stays total", !languageClause(none), none);
+  ok("the retry-pool clause is in the AND for every rep, so the two never fight over the key", [en, fr, none].every((w) => w.AND?.[0]?.exhaustedAt === null && Array.isArray(w.AND[0].OR)));
   ok("the lease OR is still there beside it", Array.isArray(en.OR) && en.OR.length === 2);
   ok("…and the trade, status and do-not-contact clauses are untouched", en.tradeKey === "painting" && en.doNotContactAt === null && Array.isArray(en.status.in));
 }
@@ -297,7 +302,7 @@ section("9. Every hand-out path carries the rule — source");
 {
   const pv = decomment(read("lib/sales/prospectView.js"));
   ok("claimCandidateWhere takes `rep`", /export function claimCandidateWhere\(\{ tradeKey = null, now = new Date\(\), rep = null \}/.test(pv));
-  ok("…and spreads languageWhereFor(rep)", /\.\.\.\(rep \? languageWhereFor\(rep\) : \{\}\)/.test(pv));
+  ok("…and carries languageWhereFor(rep)'s AND beside the retry pool's", /const language = rep \? languageWhereFor\(rep\) : \{\};/.test(pv) && /AND: \[retryAvailableWhere\(at\), \.\.\.\(Array\.isArray\(language\.AND\) \? language\.AND : \[\]\)\]/.test(pv));
 
   const route = decomment(read("app/api/sales/queue/route.js"));
   ok("the single claim's read passes the rep", /findFirst\(\{\s*where: claimCandidateWhere\(\{ tradeKey, now: at, rep \}\)/.test(route));
