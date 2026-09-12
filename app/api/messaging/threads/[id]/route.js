@@ -37,6 +37,7 @@ import {
   readStatus,
 } from "@/lib/messaging/outcomes";
 import { writeActivity } from "@/lib/messaging/activity";
+import { recordError, errorDetail } from "@/lib/platform/errorLog";
 
 /** The member with their grid attached — a scope decided without it widens. */
 async function graded(member) {
@@ -49,6 +50,27 @@ export async function GET(request, { params }) {
   const { id } = await params;
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+  try {
+    return await readThread({ id, member });
+  } catch (err) {
+    // An empty 500 is what this route answered for a day while the schema
+    // lacked a relation it selected, and nothing named the cause anywhere a
+    // person could read it. The message goes to the platform error log
+    // (never to the browser — a Prisma message names columns) and the
+    // browser gets a sentence it can show.
+    console.error(`[messaging/thread] GET ${id} threw: ${err?.message || err}`);
+    await recordError({
+      area: "messaging",
+      code: "thread_read_threw",
+      message: `Thread ${id} could not be read: ${err?.message || "unknown"}`,
+      companyId: member.companyId,
+      detail: errorDetail(err),
+    });
+    return NextResponse.json({ error: "Something went wrong on our side. Try again in a moment." }, { status: 500 });
+  }
+}
+
+async function readThread({ id, member }) {
 
   // Graded once and kept: the read gate below needs it, and so do the two
   // booleans at the bottom of this response that decide whether a control on a
