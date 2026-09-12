@@ -22,7 +22,7 @@ const RATE_KEYS = ["reach", "signup", "conversion", "churn", "referral"];
 const nf = new Intl.NumberFormat("en-CA");
 const pct = (v, digits = 1) => (typeof v === "number" && Number.isFinite(v) ? `${(v * 100).toFixed(digits)}%` : UNKNOWN);
 
-function basisChip(r) {
+function basisChip(r, additive = false) {
   if (!r) return null;
   const cls =
     r.basis === "measured"
@@ -31,7 +31,9 @@ function basisChip(r) {
         ? "bg-sky-500/15 text-sky-700 dark:text-sky-300"
         : r.basis === "assumed"
           ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-          : "bg-red-500/15 text-red-700 dark:text-red-300";
+          : additive
+            ? "bg-muted text-muted-foreground"
+            : "bg-red-500/15 text-red-700 dark:text-red-300";
   const word =
     r.basis === "measured"
       ? "Measured"
@@ -39,7 +41,9 @@ function basisChip(r) {
         ? `Blended · ${Math.round((r.measuredWeight || 0) * 100)}% measured`
         : r.basis === "assumed"
           ? "Assumed"
-          : "Missing";
+          : additive
+            ? "Not yet · counted as 0"
+            : "Missing";
   return <span className={`inline-block rounded px-1.5 py-0.5 text-[11px] font-medium ${cls}`}>{word}</span>;
 }
 
@@ -214,7 +218,7 @@ export default function PlatformGrowthPage() {
         <section className="rounded-lg border border-border bg-card">
           <div className="px-4 py-3 border-b border-border">
             <h2 className="font-semibold">The rates</h2>
-            <p className="text-xs text-muted-foreground">Each rate is the measurement blended with the saved assumption: the assumption counts as the floor's worth of rows, the pipeline counts as the rows it has, so the answer starts at the assumption and moves toward the real number with every row. Nothing jumps the day a floor is met. A missing assumption with too few rows stops the forecast rather than being guessed.</p>
+            <p className="text-xs text-muted-foreground">Each rate is the measurement blended with the saved assumption: the assumption counts as the floor's worth of rows, the pipeline counts as the rows it has, so the answer starts at the assumption and moves toward the real number with every row. Nothing jumps the day a floor is met. A missing funnel rate with too few rows stops the forecast rather than being guessed; referral and organic are additive and count as 0 until measured or typed.</p>
           </div>
           <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -223,9 +227,9 @@ export default function PlatformGrowthPage() {
                 <tr key={k} className="border-b border-border last:border-0 align-top">
                   <td className="px-4 py-2 w-1/3">{fieldsByKey[k]?.label || k}</td>
                   <td className="px-4 py-2 tabular-nums font-medium">
-                    {k === "organic" ? (r?.value === null || r?.value === undefined ? UNKNOWN : `${r.value.toFixed(1)}/month`) : k === "referral" ? (r?.value === null || r?.value === undefined ? UNKNOWN : `${r.value.toFixed(2)} per paying`) : pct(r?.value)}
+                    {k === "organic" ? (r?.value === null || r?.value === undefined ? "0/month" : `${r.value.toFixed(1)}/month`) : k === "referral" ? (r?.value === null || r?.value === undefined ? "0 per paying" : `${r.value.toFixed(2)} per paying`) : pct(r?.value)}
                   </td>
-                  <td className="px-4 py-2">{basisChip(r)}</td>
+                  <td className="px-4 py-2">{basisChip(r, k === "organic" || k === "referral")}</td>
                   <td className="px-4 py-2 text-xs text-muted-foreground">{soFar(r, fieldsByKey[k])}</td>
                 </tr>
               ))}

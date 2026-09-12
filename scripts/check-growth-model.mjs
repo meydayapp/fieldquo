@@ -13,7 +13,7 @@
 // it must when referrals enter.
 
 import {
-  rate, monthlyCount, project, monthLabel, MILESTONES, FLOORS, RATE_KEYS, ASSUMPTION_FIELDS, HORIZON_MONTHS,
+  rate, monthlyCount, project, monthLabel, MILESTONES, FLOORS, RATE_KEYS, FUNNEL_RATE_KEYS, ASSUMPTION_FIELDS, HORIZON_MONTHS,
 } from "../lib/platform/growthModel.js";
 
 let passed = 0;
@@ -168,12 +168,18 @@ ok("two missing rates are both named, in funnel order", (() => {
     return false;
   } catch (e) { return e.missing?.join() === "reach,conversion"; }
 })());
-ok("an organic count with no basis is named too", (() => {
-  try {
-    project({ reps: 1, dialsPerRepPerDay: 1, workingDaysPerMonth: 1, rates: assumedRates(), organic: monthlyCount({ floorMonths: 3 }) });
-    return false;
-  } catch (e) { return e.missing?.join() === "organic"; }
+// Referral and organic are ADDITIVE sources: unmeasured and untyped they are
+// the one honest zero in the model, drawn as 0 rather than refusing the
+// whole plan (the owner watched a blank page for a week over these two).
+ok("an organic count with no basis does NOT stop the forecast — it counts as 0", (() => {
+  const p = project({ reps: 20, dialsPerRepPerDay: 150, workingDaysPerMonth: 21, now, rates: assumedRates(), organic: monthlyCount({ floorMonths: 3 }) });
+  return p.monthly.signups.organic === 0 && p.series[12].paying === plan.series[12].paying;
 })());
+ok("a referral rate with no basis does NOT stop the forecast — it counts as 0", (() => {
+  const p = project({ reps: 20, dialsPerRepPerDay: 150, workingDaysPerMonth: 21, now, rates: assumedRates({ referral: rate({ of: 0, floor: 3, max: 10 }) }) });
+  return p.series.every((s) => s.signupsBySource.referral === 0) && p.series[12].paying === plan.series[12].paying;
+})());
+ok("FUNNEL_RATE_KEYS is RATE_KEYS without referral", FUNNEL_RATE_KEYS.join() === "reach,signup,conversion,churn");
 ok("negative reps refuse", (() => { try { project({ reps: -1, dialsPerRepPerDay: 1, workingDaysPerMonth: 1, rates: assumedRates() }); return false; } catch (e) { return /reps/.test(e.message); } })());
 ok("a string for dials refuses rather than coercing", (() => { try { project({ reps: 1, dialsPerRepPerDay: "150", workingDaysPerMonth: 1, rates: assumedRates() }); return false; } catch (e) { return /dialsPerRepPerDay/.test(e.message); } })());
 ok("no rates at all refuses", (() => { try { project({ reps: 1, dialsPerRepPerDay: 1, workingDaysPerMonth: 1 }); return false; } catch (e) { return /rates/.test(e.message); } })());
@@ -214,7 +220,7 @@ const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
   ok("on-trial is billingStartedAt == null, per the schema's own rule", /billingStartedAt: null, status: "trialing"/.test(measured));
   ok("only FULL months are observed — never the current one", /for \(let i = MONTHS_BACK; i >= 1; i -= 1\)/.test(measured));
   const page = read("app/platform/growth/page.js");
-  ok("the page shows a basis chip beside every rate", /basisChip\(r\)/.test(page) && /Measured/.test(page) && /Assumed/.test(page) && /Missing/.test(page));
+  ok("the page shows a basis chip beside every rate, and says the additive ones count as 0", /basisChip\(r, k === "organic" || k === "referral"\)/.test(page) && /Measured/.test(page) && /Assumed/.test(page) && /Missing/.test(page) && /counted as 0/.test(page));
   ok("…and a blended rate says how much of it is measured", /Blended · \$\{Math\.round\(\(r\.measuredWeight/.test(page));
   ok("the page says 'not reachable at these rates' with the ceiling, in words", /Not reachable at these rates — the ceiling is/.test(page));
   ok("the page draws with the platform Sparkline, not a chart library", /from "@\/app\/components\/platform\/Sparkline"/.test(page) && !/recharts|chart\.js|d3/.test(page));
