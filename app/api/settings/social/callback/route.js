@@ -13,6 +13,7 @@ import {
   listPages,
   debugUserToken,
   classifyEmptyPageList,
+  metaPagesConfigId,
 } from "@/lib/meta/client";
 import { resolveInstagram, resolveGrantedScopes, subscribePageWebhook } from "@/lib/meta/pageConnect";
 import { savePageConnection, disconnectPageConnection } from "@/lib/meta/pageConnection";
@@ -27,6 +28,7 @@ import {
   baseCookieOptions,
 } from "@/lib/meta/oauthCookies";
 import { SOCIAL_SETTINGS_PATH } from "@/lib/social/settingsPath";
+import { recordError } from "@/lib/platform/errorLog";
 
 // Meta's redirect target for the PUBLISHING connect flow. Everything fails
 // toward the settings screen, never a bare error page — same reasoning as
@@ -103,6 +105,29 @@ export async function GET(request) {
     // debug_token says which it is; the screen says the matching fix.
     const debug = await debugUserToken({ accessToken: longToken }).catch(() => ({ ok: false }));
     const why = debug?.ok ? classifyEmptyPageList(debug.data) : "no_pages";
+    // Written down, without any token: the owner has hit this three times and
+    // each time the only record was a sentence on a screen. What Meta granted
+    // (scopes, and how many Pages each granular grant names), whether the
+    // login ran on the configuration, and what /me/accounts answered — so the
+    // next attempt can be read from /platform/errors instead of guessed at.
+    const d = debug?.ok ? debug.data?.data || debug.data || {} : null;
+    await recordError({
+      area: "social_connect",
+      code: `pages_empty_${why}`,
+      message: `Facebook & Instagram connect for company ${member.companyId} returned no Page (${why}).`,
+      detail: {
+        configUsed: Boolean(metaPagesConfigId()),
+        debugOk: Boolean(debug?.ok),
+        debugKind: debug?.ok ? null : debug?.kind || null,
+        scopes: Array.isArray(d?.scopes) ? d.scopes : null,
+        granular: Array.isArray(d?.granular_scopes)
+          ? d.granular_scopes.map((g) => ({ scope: g?.scope, targets: Array.isArray(g?.target_ids) ? g.target_ids.length : null }))
+          : null,
+        appIdOnToken: d?.app_id || null,
+        tokenType: d?.type || null,
+        pagesAnswer: pagesRes.data && typeof pagesRes.data === "object" ? Object.keys(pagesRes.data) : null,
+      },
+    }).catch(() => {});
     return toSettings(origin, { socialError: why });
   }
 
