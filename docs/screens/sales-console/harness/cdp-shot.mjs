@@ -40,6 +40,8 @@ for (let i = 0; i < 40; i++) {
   await sleep(200);
 }
 await sleep(400);
+const errAttr = await send("Runtime.evaluate", { expression: "document.documentElement.getAttribute('data-scene-error') || ''", returnByValue: true });
+if (errAttr.result?.result?.value) console.log("scene error:", errAttr.result.result.value);
 const shot = await send("Page.captureScreenshot", { format: "png" });
 writeFileSync(out, Buffer.from(shot.result.data, "base64"));
 console.log("wrote", out);

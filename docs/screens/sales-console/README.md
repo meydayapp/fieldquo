@@ -25,6 +25,9 @@ its ask names no day and no clock time.
 | `desktop-rail-expanded.png` | The queue rail unfolded: trade picker, the grouped day, the current row highlighted. |
 | `desktop-ring.png` / `desktop-ring-closed.png` | The incoming-call drawer down from under the top bar (business · number · Claimed by you · Pick up · Decline), and the same screen after Decline. |
 | `desktop-ring-answered.png` | Picked up: the drawer gone, the inbound call's controls in the Dialer's live-call slot. |
+| `desktop-zone-pt.png` | The zone chips (All · ET · CT · MT · PT) with PT selected: the list filtered inside its window groups, "closed — opens 11:00 AM" under the chip, the walk (Next, Next in queue) following the filter. |
+| `desktop-all-shut.png` | 9:20 pm Eastern with every held row shut: "All 8 of your leads are outside their calling window right now" and the one button, Claim the next 25 (open now only). |
+| `desktop-top-up.png` | The rolling batch topping itself up: fewer than 5 open → three Pacific rows appended, two dead Eastern rows released, the quiet toast "Added 3 leads open now (PT). 2 closed leads released.", the header line "3 open now · 6 closed · next batch auto-adds below 5". |
 | `desktop-status-menu.png` | The rep-status dropdown open. |
 | `desktop-maximized.png` | The tabbed card taking the viewport. |
 | `mobile-idle.png` / `mobile-drawer.png` / `mobile-tab-contact.png` / `mobile-tab-script.png` | The phone: dialler first, then the tabbed card; the queue as a drawer. |

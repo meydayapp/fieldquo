@@ -944,7 +944,7 @@ ok("the walk can see lib/voice/outboundCall.js exists, so the target is not a ty
 section("7. The window sentence is derived, never retyped");
 // ═══════════════════════════════════════════════════════════════════════════
 
-ok("a flat window is described as flat", describeWindow(FIELDQUO_COURTESY_WINDOW) === "08:00–20:00 every day, in the prospect's own time zone");
+ok("a flat window is described as flat", describeWindow(FIELDQUO_COURTESY_WINDOW) === "08:00–20:00 every day, in the lead's own time zone");
 ok("a split window names both halves", (() => {
   const text = describeWindow(CALLING_JURISDICTIONS.CA.window);
   return /09:00–21:30 weekdays/.test(text) && /10:00–18:00 weekends/.test(text);

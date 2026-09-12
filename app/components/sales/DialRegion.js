@@ -372,9 +372,19 @@ export default function DialRegion({
             }
           />
           {space.showWindow ? (
-            <div className="text-xs text-muted-foreground break-words space-y-0.5">
-              <WindowLines compliance={compliance} />
-            </div>
+            compact ? (
+              <details className="text-xs text-muted-foreground" data-dial-rules>
+                <summary className="cursor-pointer min-h-[44px] flex items-center">{rulesSummary}</summary>
+                <div className="space-y-0.5 pb-1 break-words">
+                  <WindowLines compliance={compliance} />
+                  {citation}
+                </div>
+              </details>
+            ) : (
+              <div className="text-xs text-muted-foreground break-words space-y-0.5">
+                <WindowLines compliance={compliance} />
+              </div>
+            )
           ) : null}
           {/* ── Only when nobody is open ──────────────────────────────────
               An empty console teaches a rep nothing about what the console
@@ -432,7 +442,7 @@ export default function DialRegion({
       {/* Inline on the lead screen; inside the disclosure above on the
           console (the READY branch), where the same nodes are drawn once. */}
       {!compact || space.state !== DIAL_READY ? judged : null}
-      {!compact || space.state !== DIAL_READY ? (
+      {!compact || (space.state !== DIAL_READY && !space.showWindow) ? (
         citation ? (
           <details className="text-xs text-muted-foreground">
             <summary className="cursor-pointer">

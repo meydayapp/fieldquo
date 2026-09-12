@@ -16,7 +16,7 @@ createRoot(document.getElementById("root")).render(
 // real controls in order. Nothing rendered here that a rep could not reach.
 const scene = params.get("scene") || "";
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-const until = async (sel, tries = 60) => {
+const until = async (sel, tries = 150) => {
   for (let i = 0; i < tries; i++) {
     const el = document.querySelector(sel);
     if (el) return el;
@@ -25,15 +25,16 @@ const until = async (sel, tries = 60) => {
   throw new Error(`scene: never found ${sel}`);
 };
 const click = async (sel) => (await until(sel)).click();
+const pressCall = async () => (await until('[data-console-card="dialer"] [data-call-button]')).click();
 (async () => {
   await until('[data-sales-console]');
-  await until('[data-console-card="company"] [data-company-description]');
-  await until('[data-slot="script"] [data-testid="ai-call-script"]');
+  await until('[data-console-card="company"] [data-company-description]', 80);
+  // The script only arrives with a READY dial (CallPanel fetches it); a
+  // refused window has none, so the wait is best-effort there.
+  await until('[data-slot="script"] [data-testid="ai-call-script"]', 30).catch(() => null);
   await wait(300);
   if (scene === "call") {
-    const btn = [...document.querySelectorAll('[data-console-card="dialer"] button')].find((b) => /^\s*Call\b/.test(b.textContent));
-    if (!btn) throw new Error("no Call button");
-    btn.click();
+    await pressCall();
     await until('[data-console-card="dialer"] .font-mono');
     await wait(2200);
   }
@@ -42,11 +43,29 @@ const click = async (sel) => (await until(sel)).click();
     await wait(100);
     for (const d of digits) { (await until(`[data-dial-key="${d}"]`)).click(); await wait(30); }
   };
-  const pressCall = async () => {
-    const btn = [...document.querySelectorAll('[data-console-card="dialer"] button')].find((b) => /^\s*Call\b/.test(b.textContent));
-    if (!btn) throw new Error("no Call button");
-    btn.click();
-  };
+  if (scene === "zone-pt") {
+    await click('[data-queue-rail-toggle]');
+    await click('[data-queue-rail="open"] [data-zone-chip="PT"]');
+    await wait(300);
+  }
+  if (scene === "shut") {
+    await click('[data-queue-rail-toggle]');
+    await until('[data-none-open-now]');
+    await wait(200);
+  }
+  if (scene === "topup") {
+    // The "shut" scenario has 0 open rows: the console tops up on its own.
+    await until('[data-top-up-toast]');
+    await click('[data-queue-rail-toggle]');
+    await until('[data-queue-rail="open"] [data-zone-chip="PT"]');
+    await wait(300);
+  }
+  if (scene === "shut-claimed") {
+    await click('[data-queue-rail-toggle]');
+    await click('[data-queue-rail="open"] [data-claim-open-now]');
+    await until('[data-none-open-now-result]');
+    await wait(300);
+  }
   if (scene === "typed") {
     await keyIn("4055550142");
     await wait(300);

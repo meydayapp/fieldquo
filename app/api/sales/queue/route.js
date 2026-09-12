@@ -53,18 +53,21 @@ import { salesCallReadiness } from "@/lib/sales/callingRules";
 import {
   QUEUE_BATCH_MAX,
   QUEUE_DAILY_CLAIM_CAP,
+  QUEUE_TOP_UP_BELOW,
+  QUEUE_TOP_UP_MIN_INTERVAL_MS,
   SHIFT_HOURS,
   claimBatch,
   claimsTakenToday,
   closeClaim,
   isResearched,
   logSingleClaim,
+  releaseClosedUntouched,
   releaseUntouched,
   shiftEndFrom,
   shiftStartFor,
   usableTimeZone,
 } from "@/lib/sales/queueBatch";
-import { groupByWindow } from "@/lib/sales/queueWindows";
+import { groupByWindow, repClock, zoneAcronym } from "@/lib/sales/queueWindows";
 import { repLanguageOrNull } from "@/lib/sales/repLanguage";
 import { requiredLanguageFor } from "@/lib/sales/leadLanguage";
 // Namespace import, not a named one: the pipeline is growing
@@ -574,6 +577,9 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
     // so a rep at 150 reads why the button is gone rather than a dead one.
     batch: {
       max: QUEUE_BATCH_MAX,
+      // The console tops up below this many open rows, at most this often.
+      topUpBelow: QUEUE_TOP_UP_BELOW,
+      topUpIntervalMs: QUEUE_TOP_UP_MIN_INTERVAL_MS,
       dailyCap: QUEUE_DAILY_CLAIM_CAP,
       takenToday,
       remainingToday: Math.max(0, QUEUE_DAILY_CLAIM_CAP - takenToday),
@@ -642,7 +648,36 @@ export async function POST(request) {
     // WHERE inside the transaction. The browser named a trade; the write is
     // what honoured it.
     const tradeKey = body.tradeKey.trim();
+    // ── The rolling batch ──────────────────────────────────────────────
+    // `auto: true` is the console topping itself up because the rep's open
+    // rows ran low (a boolean from the browser, nothing else). Before the
+    // claim it gives back the rep's untouched rows whose window is shut for
+    // the rest of the shift, so dead rows are not carried across the day;
+    // the count rides back as releasedClosed. Two tabs cannot double-claim:
+    // the claim is one transaction whose updateMany carries the candidate
+    // WHERE (unassigned or lapsed), and the winners are read back by rep
+    // and instant — the second tab's press matches nothing already taken.
+    // The daily cap is counted from the claim log inside claimBatch, so a
+    // top-up at the cap is refused with daily_cap like any press.
+    const auto = body.auto === true;
+    let releasedClosed = 0;
+    if (auto) {
+      const zone = repZoneFrom(timeZone, now);
+      const shiftStart = await shiftStartFor({ db, salesRepId: rep.id, timeZone: zone, now });
+      const shiftEnd = shiftEndFrom({ shiftStart, now });
+      releasedClosed = (await releaseClosedUntouched({ db, rep, shiftEnd, now })).released;
+    }
     const result = await claimBatch({ db, rep, tradeKey, timeZone, now });
+    result.auto = auto;
+    result.releasedClosed = releasedClosed;
+    if (result.nextOpensAt) {
+      // On the rep's clock, in the rep's language, with the zone's acronym —
+      // the same formatter every "opens at" on the list goes through.
+      const zone = repZoneFrom(timeZone, now);
+      const lang = repLanguageOrNull(language) || "en";
+      result.nextOpensAtLocal = repClock(new Date(result.nextOpensAt), { repZone: zone, language: lang, now });
+      result.nextOpensAtZone = zoneAcronym(zone, { at: now });
+    }
     if (result.claimed > 0) queueResearchFor(result.claimedIds);
     return NextResponse.json(
       await queueBody(rep, {

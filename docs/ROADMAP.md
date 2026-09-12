@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 11 September 2026 (the rep console in the reference dialler's shape: a sidebar with badges and "Calls today", a phone-style Dialer with a keypad on the left, one tall tabbed card on the right, the incoming call as a top drawer, "lead" everywhere a rep reads; the section below; `check:sales-console`, `check:sales-portal-i18n` §8; docs/screens/sales-console.)
+Last updated: 11 September 2026 (the rep console in the reference dialler's shape — sidebar, phone-style Dialer left, one tall tabbed card right, incoming call as a top drawer, "lead" everywhere a rep reads — and the rolling batch: 25 open-now rows, topped up under 5, zone chips ET/CT/MT/PT; the section below; `check:sales-console`, `check:sales-portal-i18n` §8; docs/screens/sales-console.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -70,6 +70,17 @@ as history) and approved the fourth: TWO columns. `/sales/queue` now is:
   "lead" too, per the owner). `check:sales-portal-i18n` §8 refuses the noun
   under the rep-facing prefixes; models, routes and the /platform console keep
   "Prospect".
+
+- **The rolling batch (owner, 9:20 pm Eastern, "none of the leads it has are
+  Pacific, so I cannot dial").** `QUEUE_BATCH_MAX` is 25; the selection is
+  open NOW, closing soonest first (a row that opens later waits, and the
+  short batch says "N open now — more open at 8:00 AM ET"); the console
+  tops itself up under 5 open rows, once a minute at most, releasing the
+  rep's untouched shut rows first (`releaseClosedUntouched`, never a row
+  with an attempt or a callback); a quiet toast says what came. Zone chips
+  — All · ET · CT · MT · PT (· AT · NT) from `zoneAcronym`, Intl-derived —
+  filter the list and the walk. The daily cap is unchanged at 250 and the
+  sidebar's "Calls today" counts against it.
 
 Proof: docs/screens/sales-console/ — desktop idle, on a call, a typed number
 (accepted, refused, dialled with DTMF), the Dial button, each of the eight

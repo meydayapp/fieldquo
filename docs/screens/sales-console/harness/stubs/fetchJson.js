@@ -1,6 +1,6 @@
 // @/lib/fetchJson for the console harness. Answers from fixtures; keeps a
 // little state so claiming, dialling and dispositions are visible.
-import { ITEMS, GROUPS, TRADES, PLAYBOOK, NOTES, ME, BADGES, currentFor } from "../fixtures.js";
+import { ITEMS, GROUPS, ITEMS_SHUT, GROUPS_SHUT, TRADES, PLAYBOOK, NOTES, ME, BADGES, currentFor } from "../fixtures.js";
 import { dispositionOptions } from "@/lib/sales/calls/dispositions";
 import { STATUS_CHOICES, STATE_ORDER, REP_STATES, PAUSE_REASON_ORDER, PAUSE_REASONS } from "@/lib/sales/calls/agentState";
 
@@ -10,18 +10,28 @@ const scenario = () => new URLSearchParams(window.location.search).get("scenario
 
 function queueBody(prospectId) {
   const empty = scenario() === "empty";
-  const items = empty ? [] : ITEMS;
-  const cur = empty ? null : currentFor(prospectId || "p1");
+  const shut = scenario() === "shut";
+  const items = empty ? [] : shut ? (state.topped ? [
+    { ...ITEMS_SHUT[5], id: "t1", businessName: "Cascade Volt Works", city: "Bend", province: "OR", window: { ...ITEMS[0].window, zoneShort: "PDT", zone: "America/Los_Angeles", zoneLabel: "Pacific Time", zoneAcronym: "PT", closesAtLocal: "11:00 PM" } },
+    { ...ITEMS_SHUT[5], id: "t2", businessName: "Tahoe Electric Co.", city: "Truckee", province: "CA", window: { ...ITEMS[0].window, zoneShort: "PDT", zone: "America/Los_Angeles", zoneLabel: "Pacific Time", zoneAcronym: "PT", closesAtLocal: "11:00 PM" } },
+    { ...ITEMS_SHUT[5], id: "t3", businessName: "Puget Sound Wiring", city: "Tacoma", province: "WA", window: { ...ITEMS[0].window, zoneShort: "PDT", zone: "America/Los_Angeles", zoneLabel: "Pacific Time", zoneAcronym: "PT", closesAtLocal: "11:00 PM" } },
+    ...ITEMS_SHUT.slice(2)] : ITEMS_SHUT) : ITEMS;
+  const wanted = prospectId && items.some((i) => i.id === prospectId) ? prospectId : items[0]?.id;
+  const cur = empty ? null : currentFor(wanted || (shut ? "s1" : "p1"));
+  if (shut && cur) { cur.callingContext = { country: "US", province: "NY", timeZone: "America/New_York", attemptsLast24h: 0 }; cur.compliance = null; }
   if (cur && cur.id === "p1" && state.extraNumbers?.length) cur.numbers.voice.choices = [...cur.numbers.voice.choices, ...state.extraNumbers];
   return {
     rep: { id: ME.id, name: ME.name, email: ME.email },
     tradeKey: "electrical",
     trades: TRADES,
-    queue: { items, empty, emptyReason: empty ? "nothing_claimed" : null, emptyText: empty ? "You have nothing claimed in Electrical. 62 are free to claim — press the button." : null, windows: { repZone: "America/New_York", language: "en", groups: empty ? [] : GROUPS } },
+    queue: { items, empty, emptyReason: empty ? "nothing_claimed" : null, emptyText: empty ? "You have nothing claimed in Electrical. 62 are free to claim — press the button." : null, windows: { repZone: "America/New_York", language: "en", groups: empty ? [] : shut ? (state.topped ? [{ key: "now", kind: "now", count: 3, ids: ["t1", "t2", "t3"] }, ...GROUPS_SHUT.slice(1)] : GROUPS_SHUT) : GROUPS } },
     current: cur,
     claimHours: 48,
-    batch: { max: 100, dailyCap: 150, takenToday: 11, remainingToday: 139, timeZone: "America/New_York", result: null },
-    serverNow: new Date().toISOString(),
+    batch: { max: 25, topUpBelow: 5, topUpIntervalMs: 60000, dailyCap: 250, takenToday: 11, remainingToday: 239, timeZone: "America/New_York", result: null },
+    // A fixed clock, so the window the console recomputes is the fixture's
+    // and not the machine's: 2:00 pm Central for the day scenario, 9:20 pm
+    // Eastern for the shut one.
+    serverNow: shut ? "2026-09-12T01:20:00.000Z" : "2026-09-11T19:00:00.000Z",
   };
 }
 
@@ -34,7 +44,22 @@ export async function fetchJson(url, options = {}) {
   const p = u.pathname;
   if (p === "/api/sales/queue" && method === "GET") return queueBody(u.searchParams.get("prospectId"));
   if (p === "/api/sales/queue" && method === "POST") {
-    const b = queueBody(body.prospectId || "p1");
+    const b = queueBody(body.prospectId || new URLSearchParams(window.location.search).get("prospectId") || null);
+    if (body.action === "claim_batch" && body.auto && scenario() === "shut") {
+      // The top-up: three Pacific rows open now, appended; two dead Eastern rows released.
+      const added = [
+        { ...ITEMS_SHUT[5], id: "t1", businessName: "Cascade Volt Works", city: "Bend", province: "OR", window: { ...ITEMS[0].window, zoneShort: "PDT", zone: "America/Los_Angeles", zoneLabel: "Pacific Time", zoneAcronym: "PT", closesAtLocal: "11:00 PM" } },
+        { ...ITEMS_SHUT[5], id: "t2", businessName: "Tahoe Electric Co.", city: "Truckee", province: "CA", window: { ...ITEMS[0].window, zoneShort: "PDT", zone: "America/Los_Angeles", zoneLabel: "Pacific Time", zoneAcronym: "PT", closesAtLocal: "11:00 PM" } },
+        { ...ITEMS_SHUT[5], id: "t3", businessName: "Puget Sound Wiring", city: "Tacoma", province: "WA", window: { ...ITEMS[0].window, zoneShort: "PDT", zone: "America/Los_Angeles", zoneLabel: "Pacific Time", zoneAcronym: "PT", closesAtLocal: "11:00 PM" } },
+      ];
+      state.topped = true;
+      b.queue.items = [...added, ...ITEMS_SHUT.slice(2)];
+      b.current = { ...currentFor("s6"), id: "t1", businessName: "Cascade Volt Works", callingContext: { country: "US", province: "OR", timeZone: "America/Los_Angeles", attemptsLast24h: 0 } };
+      b.current = { ...currentFor("s6"), id: "t1", businessName: "Cascade Volt Works", callingContext: { country: "US", province: "OR", timeZone: "America/Los_Angeles", attemptsLast24h: 0 } };
+      b.queue.windows.groups = [{ key: "now", kind: "now", count: 3, ids: ["t1", "t2", "t3"] }, ...GROUPS_SHUT.slice(1)];
+      b.batch.result = { claimed: 3, claimedIds: ["t1", "t2", "t3"], researched: 3, unresearched: 0, skippedForWindow: 40, skippedForLanguage: 0, openNow: 3, nextOpensAt: new Date().toISOString(), nextOpensAtLocal: "8:00 AM", nextOpensAtZone: "ET", reason: "partial_open", reasonKey: "app.salesQueue.batchReason.partialOpen", auto: true, releasedClosed: 2 };
+      return b;
+    }
     if (body.action === "claim_batch") b.batch.result = { claimed: 11, researched: 8, unresearched: 3, skippedForWindow: 1, skippedForLanguage: 0, reasonKey: null };
     if (body.action === "release_rest") b.batch.result = { released: 6, kept: 5 };
     return b;

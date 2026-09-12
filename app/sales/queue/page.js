@@ -250,6 +250,7 @@ import DialerPad, { typedToE164 } from "@/app/components/sales/DialerPad";
 import QueueLeadEditor from "@/app/components/sales/QueueLeadEditor";
 import { LAYER_HEADINGS } from "@/lib/sales/prospectView";
 import { CALL_ALLOWED, CALL_REFUSED, dialHref, salesCallReadiness } from "@/lib/sales/callingRules";
+import { QUEUE_TOP_UP_BELOW, QUEUE_TOP_UP_MIN_INTERVAL_MS } from "@/lib/sales/queueBatch";
 import {
   DIAL_DO_NOT_CONTACT,
   DIAL_NO_NUMBER,
@@ -646,6 +647,138 @@ const PANEL_TABS = [
   { key: "tasks", labelKey: "app.salesQueue.tabTasks", Icon: CalendarClock },
   { key: "leads", labelKey: "app.salesQueue.tabLeads", Icon: ListFilter },
 ];
+
+/** The chips' order: the trade's four, then the Atlantic pair, then anything else alphabetically. */
+const ZONE_CHIP_ORDER = ["ET", "CT", "MT", "PT", "AT", "NT"];
+
+/**
+ * The batch result's reason, in the rep's language. The one reason that
+ * carries a time — none_open_now — says when the pool's earliest window
+ * opens, on the rep's clock with the acronym; without a time it says only
+ * that nothing is open.
+ */
+function batchReasonText(t, result, cap) {
+  if (result?.reason === "none_open_now") {
+    return result.nextOpensAtLocal
+      ? t("app.salesQueue.batchReason.noneOpenNow", { time: result.nextOpensAtLocal, zone: result.nextOpensAtZone || "" })
+      : t("app.salesQueue.batchReason.noneOpenNowNoTime");
+  }
+  if (result?.reason === "partial_open") {
+    return result.nextOpensAtLocal
+      ? t("app.salesQueue.batchReason.partialOpen", { open: result.openNow ?? result.claimed, time: result.nextOpensAtLocal, zone: result.nextOpensAtZone || "" })
+      : t("app.salesQueue.batchReason.partialOpenNoTime", { open: result.openNow ?? result.claimed });
+  }
+  return t(result.reasonKey, { cap });
+}
+
+/**
+ * What a top-up says. "Added 25 leads open now (PT)" with the zones of the
+ * rows it added, read off the reloaded list; at the cap or with nothing
+ * open, the server's reason; released dead rows appended when any were.
+ */
+function topUpToast(t, body) {
+  const result = body?.batch?.result || {};
+  const added = Array.isArray(result.claimedIds) ? result.claimedIds : [];
+  const byId = new Map((body?.queue?.items || []).map((item) => [item.id, item]));
+  const zones = [...new Set(added.map((id) => byId.get(id)?.window?.zoneAcronym).filter(Boolean))];
+  let text;
+  if (added.length > 0) {
+    text = t("app.salesQueue.topUpToast", { count: added.length, zones: zones.join(", ") || "—" });
+  } else if (result.reasonKey) {
+    text = batchReasonText(t, result, body?.batch?.dailyCap ?? 0);
+  } else {
+    text = t("app.salesQueue.topUpNothing");
+  }
+  if (result.releasedClosed > 0) {
+    text = `${text} ${t("app.salesQueue.topUpReleased", { count: result.releasedClosed })}`;
+  }
+  return text;
+}
+
+/**
+ * The zone chips. Drawn above the list in the rail, the drawer and the
+ * Leads tab — one renderer. The selected chip says the zone's next fact:
+ * "open until 9:00 PM PT" when any of its rows can be rung now, else
+ * "closed — opens 8:00 AM". Both strings are the server's, on the rep's
+ * clock.
+ */
+function ZoneChips({ t, zones, zoneFilter, onZone, total }) {
+  if (!zones.length) return null;
+  const chip = (key, label, count, active) => (
+    <button
+      key={key}
+      type="button"
+      onClick={() => onZone(key)}
+      aria-pressed={active}
+      data-zone-chip={key || "all"}
+      className={`inline-flex items-center gap-1.5 min-h-[36px] py-2 px-2.5 rounded-full border text-xs font-semibold ${
+        active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground hover:bg-muted"
+      }`}
+    >
+      {label}
+      <span className={`tabular-nums ${active ? "opacity-90" : "text-muted-foreground"}`}>{count}</span>
+    </button>
+  );
+  const selected = zones.find((z) => z.zone === zoneFilter) || null;
+  return (
+    <div className="space-y-1.5" data-zone-chips>
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("app.salesQueue.zoneChipsAria")}>
+        {chip("", t("app.salesQueue.zoneAll"), total, !zoneFilter)}
+        {zones.map((z) => chip(z.zone, z.zone, z.count, zoneFilter === z.zone))}
+      </div>
+      {selected ? (
+        <p className="text-xs text-muted-foreground break-words" data-zone-status={selected.openNow > 0 ? "open" : "closed"}>
+          {selected.openNow > 0
+            ? selected.openUntil?.local
+              ? t("app.salesQueue.zoneOpenUntil", { time: selected.openUntil.local, zone: selected.zone })
+              : t("app.salesQueue.rowWindowOpen")
+            : selected.opensAt?.local
+              ? t("app.salesQueue.zoneClosedOpens", { time: selected.opensAt.local })
+              : t("app.salesQueue.rowWindowRefused")}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Nothing held can be rung at this instant. Said plainly, with one button:
+ * claim rows whose window is open now — the same batch claim, same trade,
+ * same cap, same language rule, with `onlyCallableNow` narrowing the
+ * selection server-side. No count on the button: counting the pool's open
+ * rows means the same readiness pass the claim itself makes, so it is not
+ * cheap and is not faked.
+ */
+function NoneOpenNow({ t, total, tradeKey, remainingToday, batchSize, busy, act, batchResult }) {
+  return (
+    <div className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 p-3 space-y-2" data-none-open-now>
+      <p className="text-sm font-semibold text-amber-900 dark:text-amber-100 break-words">
+        {t("app.salesQueue.allOutsideWindow", { count: total })}
+      </p>
+      {tradeKey && remainingToday > 0 ? (
+        <button
+          type="button"
+          className={`${BTN} bg-primary text-primary-foreground w-full`}
+          disabled={Boolean(busy)}
+          onClick={() => act("claim_batch")}
+          data-claim-open-now
+        >
+          {busy === "claim_batch" ? <Loader2 className="animate-spin" size={16} /> : <Plus size={16} />}
+          {t("app.salesQueue.claimBatch", { count: batchSize })}
+        </button>
+      ) : (
+        <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
+          {remainingToday > 0 ? t("app.salesQueue.claimHint") : t("app.salesQueue.batchReason.dailyCap", { cap: 0 })}
+        </p>
+      )}
+      {batchResult?.reason === "none_open_now" || batchResult?.reason === "partial_open" ? (
+        <p className="text-xs text-amber-900 dark:text-amber-200 break-words" data-none-open-now-result>
+          {batchReasonText(t, batchResult, 0)}
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
 /** Two letters for the avatar circle. "Toitures Ouellet" → "TO". */
 function initials(name) {
@@ -1328,7 +1461,7 @@ function TasksTab({ t, current, language }) {
  * every row, a Set means only those. Drawn by the rail, the drawer and the
  * Leads tab — one renderer, three places.
  */
-function QueueList({ t, loading, data, items, groups, itemById, current, visibleIds, query, select, wide = false }) {
+function QueueList({ t, loading, data, items, groups, itemById, current, visibleIds, query, select, wide = false, zones = [], zoneFilter = "", setZoneFilter, noneOpenNow = false, tradeKey = "", remainingToday = 0, batchSize = 0, busy = "", act, batchResult = null, openHeld = 0, closedHeld = 0, topUpBelow = QUEUE_TOP_UP_BELOW }) {
   if (loading) {
     return (
       <p className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -1363,6 +1496,20 @@ function QueueList({ t, loading, data, items, groups, itemById, current, visible
           </div>
           <p className="text-xs text-muted-foreground">{t("app.salesQueue.emptyDisclaimer")}</p>
         </div>
+      ) : null}
+
+      {/* The rolling batch's one line: what is open, what is shut, and when
+          the next batch comes. Every number is this list's own. */}
+      {items.length > 0 ? (
+        <p className="text-xs text-muted-foreground break-words" data-open-now-summary>
+          {t("app.salesQueue.openNowSummary", { open: openHeld, closed: closedHeld, threshold: topUpBelow })}
+        </p>
+      ) : null}
+      {items.length > 0 ? (
+        <ZoneChips t={t} zones={zones} zoneFilter={zoneFilter} onZone={(z) => setZoneFilter?.(z)} total={items.length} />
+      ) : null}
+      {noneOpenNow ? (
+        <NoneOpenNow t={t} total={items.length} tradeKey={tradeKey} remainingToday={remainingToday} batchSize={batchSize} busy={busy} act={act} batchResult={batchResult} />
       ) : null}
 
       {items.length > 0 && visibleIds && visibleIds.size === 0 ? (
@@ -1636,6 +1783,7 @@ function ClaimCard({ t, data, tradeKey, setQuery, stocked, empties, remainingTod
             {t("app.salesQueue.claimBatchNote", {
               remaining: t("app.salesQueue.claimsRemainingCount", { value: remainingToday }),
               cap: data?.batch?.dailyCap ?? 0,
+              threshold: Number.isFinite(data?.batch?.topUpBelow) ? data.batch.topUpBelow : QUEUE_TOP_UP_BELOW,
             })}
           </p>
         </div>
@@ -1676,7 +1824,7 @@ function ClaimCard({ t, data, tradeKey, setQuery, stocked, empties, remainingTod
           ) : null}
           {batchResult.reasonKey ? (
             <p className="text-xs text-muted-foreground break-words">
-              {t(batchResult.reasonKey, { cap: data?.batch?.dailyCap ?? 0 })}
+              {batchReasonText(t, batchResult, data?.batch?.dailyCap ?? 0)}
             </p>
           ) : null}
         </div>
@@ -1816,11 +1964,14 @@ function QueueConsole() {
       } else {
         stampClock(body);
         setData(body);
+        // A top-up says what it did in a quiet toast rather than a banner:
+        // the rep did not press anything. Every number is the server's.
+        if (extra.auto && body?.batch?.result) setToast(topUpToast(t, body));
         // Mirrored into the URL so the new prospect is linkable and survives a
         // reload. When the id is unchanged this is a no-op; when it changes,
         // load() runs again and the two answers are guaranteed to agree,
-        // which is worth one request.
-        setQuery({ prospectId: body?.current?.id || "" });
+        // which is worth one request. A top-up keeps the row the rep is on.
+        if (!extra.auto) setQuery({ prospectId: body?.current?.id || "" });
       }
     } catch (err) {
       setError(err?.message || t("app.salesQueue.actionFailed"));
@@ -1844,7 +1995,54 @@ function QueueConsole() {
       })),
     [data?.queue?.items, tradeLabels],
   );
-  const index = current ? items.findIndex((i) => i.id === current.id) : -1;
+  // ── The zone chips: All · ET · CT · MT · PT (· AT · NT · the rest) ──────
+  //
+  // The owner at 9:20 pm Eastern, holding a batch of shut windows: "fix
+  // them by time zones with a little tab — ET, PT, the acronyms". Each chip
+  // is one acronym the server put on the row (lib/sales/queueWindows.js's
+  // zoneAcronym, from Intl) with its count and, for the selected one, the
+  // earliest "open until" or "opens at" on the rep's clock. Selecting one
+  // filters the list — the grouping stays inside the filter — and the
+  // walk: Next, Previous and the autodialler follow the filtered order, so
+  // a rep who picked PT is not handed an Eastern row at nine at night.
+  const [zoneFilter, setZoneFilter] = useState("");
+  const zones = useMemo(() => {
+    const byZone = new Map();
+    for (const item of items) {
+      const z = item.window?.zoneAcronym || null;
+      if (!z) continue;
+      const entry = byZone.get(z) || { zone: z, count: 0, openUntil: null, opensAt: null, openNow: 0 };
+      entry.count += 1;
+      if (item.window?.callableNow) {
+        entry.openNow += 1;
+        // Earliest close among the open rows: the server's string, but the
+        // ordering needs an instant, so the ISO rides along.
+        if (item.window.closesAtIso && (!entry.openUntil || item.window.closesAtIso < entry.openUntil.iso)) {
+          entry.openUntil = { iso: item.window.closesAtIso, local: item.window.closesAtLocal };
+        }
+      } else if (item.window?.opensAtIso && (!entry.opensAt || item.window.opensAtIso < entry.opensAt.iso)) {
+        entry.opensAt = { iso: item.window.opensAtIso, local: item.window.opensAtLocal };
+      }
+      byZone.set(z, entry);
+    }
+    const rank = (z) => {
+      const i = ZONE_CHIP_ORDER.indexOf(z);
+      return i === -1 ? ZONE_CHIP_ORDER.length : i;
+    };
+    return [...byZone.values()].sort((a, b) => rank(a.zone) - rank(b.zone) || a.zone.localeCompare(b.zone));
+  }, [items]);
+  // A chip for a zone no held row carries any more is not a filter, it is a
+  // way to see nothing; the selection falls back to All.
+  useEffect(() => {
+    if (zoneFilter && !zones.some((z) => z.zone === zoneFilter)) setZoneFilter("");
+  }, [zoneFilter, zones]);
+  const walkItems = useMemo(
+    () => (zoneFilter ? items.filter((item) => item.window?.zoneAcronym === zoneFilter) : items),
+    [items, zoneFilter],
+  );
+  const index = current ? walkItems.findIndex((i) => i.id === current.id) : -1;
+  // Nothing held can be rung at this instant — the state that started this.
+  const noneOpenNow = items.length > 0 && !items.some((item) => item.window?.callableNow);
 
   function select(id) {
     setQuery({ prospectId: id });
@@ -2039,7 +2237,7 @@ function QueueConsole() {
   // `zoneLabel` ride along so the wait can be said in the rep's clock.
   const order = useMemo(
     () =>
-      items.map((item) => ({
+      walkItems.map((item) => ({
         id: item.id,
         dialled: Boolean(item.lastOutcome),
         name: item.businessName,
@@ -2047,7 +2245,7 @@ function QueueConsole() {
         opensAtLocal: item.window?.opensAtLocal || null,
         zoneLabel: item.window?.zoneLabel || null,
       })),
-    [items],
+    [walkItems],
   );
   const groups = useMemo(() => {
     const served = data?.queue?.windows?.groups;
@@ -2166,11 +2364,13 @@ function QueueConsole() {
   const query = useSalesSearch({ placeholder: t("app.salesQueue.searchPlaceholder") });
   const visibleIds = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return null;
+    if (!q && !zoneFilter) return null;
     const digits = q.replace(/\D/g, "");
     return new Set(
       items
+        .filter((item) => !zoneFilter || item.window?.zoneAcronym === zoneFilter)
         .filter((item) => {
+          if (!q) return true;
           const hay = [item.businessName, item.city, item.tradeLabel].filter(Boolean).join(" ").toLowerCase();
           if (hay.includes(q)) return true;
           const phone = String(item.phoneE164 || "").replace(/\D/g, "");
@@ -2178,7 +2378,7 @@ function QueueConsole() {
         })
         .map((item) => item.id),
     );
-  }, [items, query]);
+  }, [items, query, zoneFilter]);
 
   // ── The slots the bottom panel offers CallPanel ───────────────────────
   //
@@ -2210,10 +2410,49 @@ function QueueConsole() {
   // "Next in queue": the row after this one in the grouped order, with its
   // window on the rep's clock — the reference dialler's "next disposition"
   // slot, answered with the fact that actually matters here.
-  const nextItem = index >= 0 && index < items.length - 1 ? items[index + 1] : null;
+  const nextItem = index < 0 ? walkItems[0] || null : index < walkItems.length - 1 ? walkItems[index + 1] : null;
   const nextMeta = nextItem ? rowMeta(nextItem, t) : null;
 
   const currentRow = current ? itemById.get(current.id) || null : null;
+  // ── The rolling batch: top up when the open rows run low ──────────────
+  //
+  // The owner: "a batch of 25, and if there are fewer than 5 leads left it
+  // auto-fetches a new set from the current time". `openHeld` is what a rep
+  // can ring right now and has not rung: callable at this instant, no
+  // outcome logged, not marked worked. Under the server's threshold, the
+  // console posts the same claim the button posts with `auto: true`, at
+  // most once a minute, and never while a press is in flight. The server
+  // decides everything else — what is open, the cap, the language rule —
+  // and releases the rep's dead rows first. Autodial keeps walking: the
+  // reloaded order is what it arms against (AutodialControl's pendingArm).
+  const [toast, setToast] = useState(null);
+  const lastTopUp = useRef(0);
+  const topUpBelow = Number.isFinite(data?.batch?.topUpBelow) ? data.batch.topUpBelow : QUEUE_TOP_UP_BELOW;
+  const topUpInterval = Number.isFinite(data?.batch?.topUpIntervalMs) ? data.batch.topUpIntervalMs : QUEUE_TOP_UP_MIN_INTERVAL_MS;
+  const openHeld = items.filter(
+    (item) => item.window?.callableNow && !item.lastOutcome && item.claim?.state !== "mine_worked",
+  ).length;
+  const closedHeld = items.filter((item) => !item.window?.callableNow).length;
+  useEffect(() => {
+    if (loading || fetching || busy || !data || !tradeKey) return;
+    if (openHeld >= topUpBelow) return;
+    // At the cap the top-up would be refused; say so once rather than ask
+    // every minute. The rail's own cap sentence stands.
+    if (!(remainingToday > 0)) return;
+    const nowMs = Date.now();
+    if (nowMs - lastTopUp.current < topUpInterval) return;
+    lastTopUp.current = nowMs;
+    act("claim_batch", { auto: true });
+    // `act` is a plain function of this render; `tick` re-runs the check
+    // every thirty seconds so a window closing under the rep is noticed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openHeld, loading, fetching, busy, tradeKey, remainingToday, topUpBelow, topUpInterval, tick, data?.serverNow]);
+  useEffect(() => {
+    if (!toast) return undefined;
+    const id = setTimeout(() => setToast(null), 8000);
+    return () => clearTimeout(id);
+  }, [toast]);
+
   const railProps = {
     t,
     loading,
@@ -2235,6 +2474,13 @@ function QueueConsole() {
     remainingToday,
     batchSize,
     batchResult,
+    zones,
+    zoneFilter,
+    setZoneFilter,
+    noneOpenNow,
+    openHeld,
+    closedHeld,
+    topUpBelow,
   };
 
   return (
@@ -2245,6 +2491,19 @@ function QueueConsole() {
             <AlertCircle size={16} className="mt-0.5 shrink-0" />
             <p className="break-words">{error}</p>
           </div>
+        </div>
+      ) : null}
+
+      {/* The top-up's quiet toast. */}
+      {toast ? (
+        <div
+          className="fixed bottom-[calc(var(--fq-tab-bar-height)+1rem)] left-1/2 -translate-x-1/2 z-40 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-card shadow-lg px-4 py-3 text-sm text-foreground flex items-start gap-2"
+          role="status"
+          aria-live="polite"
+          data-top-up-toast
+        >
+          <Plus size={16} className="mt-0.5 shrink-0 text-brand-accent-text" aria-hidden="true" />
+          <span className="break-words">{toast}</span>
         </div>
       ) : null}
 
@@ -2360,18 +2619,21 @@ function QueueConsole() {
                   type="button"
                   className={`${BTN} border border-border bg-card text-foreground`}
                   disabled={index <= 0}
-                  onClick={() => select(items[index - 1].id)}
+                  onClick={() => select(walkItems[index - 1].id)}
                 >
                   <ChevronLeft size={16} /> {t("app.salesQueue.previous")}
                 </button>
                 <span className="text-xs text-muted-foreground tabular-nums">
-                  {t("app.salesQueue.positionOf", { position: index + 1, total: items.length })}
+                  {t("app.salesQueue.positionOf", { position: index < 0 ? "—" : index + 1, total: walkItems.length })}
+                  {zoneFilter ? ` · ${zoneFilter}` : ""}
                 </span>
+                {/* Outside the selected zone (index −1), Next goes to the
+                    zone's first row rather than sitting disabled. */}
                 <button
                   type="button"
                   className={`${BTN} border border-border bg-card text-foreground`}
-                  disabled={index < 0 || index >= items.length - 1}
-                  onClick={() => select(items[index + 1].id)}
+                  disabled={index < 0 ? walkItems.length === 0 : index >= walkItems.length - 1}
+                  onClick={() => select(walkItems[index < 0 ? 0 : index + 1].id)}
                 >
                   {t("app.salesQueue.next")} <ChevronRight size={16} />
                 </button>

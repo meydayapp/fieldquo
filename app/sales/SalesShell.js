@@ -43,9 +43,9 @@
 // and the body beside them. Below lg nothing changed: SalesMobileTabBar's bar
 // and drawer carry the list exactly as before.
 //
-// The sidebar's foot is "Calls today N / 100" — dials this rep placed since
-// their local day started, against the batch the queue promises
-// (QUEUE_BATCH_MAX) — and a motto. Both numbers come from
+// The sidebar's foot is "Calls today N / 250" — dials this rep placed since
+// their local day started, against the day's ceiling
+// (QUEUE_DAILY_CLAIM_CAP; the batch itself rolls in 25s) — and a motto. Both numbers come from
 // /api/sales/badges, the one request this chrome makes for its digits; a
 // count that could not be read is null there and draws nothing here.
 //
@@ -321,7 +321,7 @@ export default function SalesShell({ children }) {
   ];
 
   const callsToday = Number.isFinite(badges?.callsToday) ? badges.callsToday : null;
-  const batchMax = Number.isFinite(badges?.batchMax) ? badges.batchMax : null;
+  const batchMax = Number.isFinite(badges?.dayCap) ? badges.dayCap : null;
   const progress =
     callsToday !== null && batchMax ? Math.max(0, Math.min(100, Math.round((callsToday / batchMax) * 100))) : 0;
 

@@ -45,8 +45,10 @@ import {
   groupByWindow,
   repClock,
   windowFor,
+  zoneAcronym,
   zoneLongName,
   zoneShortName,
+  ZONE_ACRONYMS,
 } from "@/lib/sales/queueWindows";
 import { SHIFT_HOURS, shiftEndFrom } from "@/lib/sales/queueBatch";
 import { CALL_ALLOWED, salesCallReadiness } from "@/lib/sales/callingRules";
@@ -151,6 +153,40 @@ section("1. 8 am Eastern: callable now, then one group per opening, then not tod
   ok("a row opening inside the shift is an 'opens' group; one opening at the shift's end is 'later' with opens_after_shift", edge.byId.hi.kind === WINDOW_GROUP_OPENS && edge.byId.hi.opensAtLocal === "14:00" && edge.byId.hi9.kind === WINDOW_GROUP_LATER && edge.byId.hi9.reasonCode === "opens_after_shift" && edge.byId.hi9.opensAtLocal === "15:00", { hi: edge.byId.hi, hi9: edge.byId.hi9 });
   ok(`…the shift bound is SHIFT_HOURS (${SHIFT_HOURS}) from the start, the same instant selectBatch judged`, shiftEnd.toISOString() === "2026-09-11T19:00:00.000Z");
   ok("with no shift bound every opening is today's", groupByWindow([{ id: "hi9", country: "CA", province: "BC", timeZone: "Pacific/Honolulu" }], { repZone: ET, now: EIGHT_ET }).byId.hi9.kind === WINDOW_GROUP_OPENS);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("1b. The chips' acronyms: ET · CT · MT · PT · AT · NT, run through Intl");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The owner: "fix them by time zones with a little tab — ET, PT, the
+// acronyms". Executed for the nine zones a row can carry, in September (DST)
+// and in January, because "EDT"/"EST" is the trap the generic form avoids.
+{
+  const JAN = new Date("2026-01-15T17:00:00Z");
+  const expect = [
+    ["America/New_York", "ET"], ["America/Toronto", "ET"], ["America/Chicago", "CT"], ["America/Winnipeg", "CT"],
+    ["America/Denver", "MT"], ["America/Phoenix", "MT"], ["America/Los_Angeles", "PT"], ["America/Vancouver", "PT"],
+    ["America/Halifax", "AT"], ["America/St_Johns", "NT"],
+  ];
+  for (const [zone, want] of expect) {
+    ok(`${zone} → ${want} in September`, zoneAcronym(zone, { at: EIGHT_ET }) === want, zoneAcronym(zone, { at: EIGHT_ET }));
+    ok(`${zone} → ${want} in January`, zoneAcronym(zone, { at: JAN }) === want, zoneAcronym(zone, { at: JAN }));
+  }
+  ok("the six the list wears are the exported set", ZONE_ACRONYMS.join(",") === "ET,CT,MT,PT,AT,NT");
+  ok("a zone outside the six falls back to its short form, never to nothing", typeof zoneAcronym("Pacific/Honolulu", { at: EIGHT_ET }) === "string" && zoneAcronym("Pacific/Honolulu", { at: EIGHT_ET }).length > 0 && !ZONE_ACRONYMS.includes(zoneAcronym("Pacific/Honolulu", { at: EIGHT_ET })), zoneAcronym("Pacific/Honolulu", { at: EIGHT_ET }));
+  ok("garbage is echoed as itself, not thrown", zoneAcronym("Mars/Olympus", { at: EIGHT_ET }) === "Mars/Olympus" && zoneAcronym(null) === null);
+  const r = groupByWindow(rows, { repZone: ET, shiftEnd: shiftEndFrom({ now: EIGHT_ET }), now: EIGHT_ET, language: "fr" });
+  ok("every grouped row carries its acronym — English even for a French rep", r.byId.ny.zoneAcronym === "ET" && r.byId.ca.zoneAcronym === "PT" && r.byId.ns.zoneAcronym === "AT" && r.byId.il.zoneAcronym === "CT", { ny: r.byId.ny.zoneAcronym, ca: r.byId.ca.zoneAcronym });
+  // The filter keeps the grouping: selecting PT leaves the "opens" group
+  // with only its Pacific rows and drops a group with none — the same
+  // shape the console's QueueList draws (a group hides when its filtered
+  // ids are empty; the running number keeps counting across groups).
+  const keep = new Set(Object.keys(r.byId).filter((id) => r.byId[id].zoneAcronym === "PT"));
+  const filtered = r.groups.map((g) => ({ kind: g.kind, ids: g.ids.filter((id) => keep.has(id)) })).filter((g) => g.ids.length);
+  ok("filtering to PT keeps the window grouping and only the Pacific rows", filtered.length >= 1 && filtered.every((g) => g.ids.every((id) => r.byId[id].zoneAcronym === "PT")) && filtered.some((g) => g.ids.includes("ca")), filtered);
+  ok("…and the console filters inside the groups rather than re-grouping", /group\.ids\.filter\(\(id\) => !visibleIds \|\| visibleIds\.has\(id\)\)/.test(decomment(read("app/sales/queue/page.js"))) && /item\.window\?\.zoneAcronym === zoneFilter/.test(decomment(read("app/sales/queue/page.js"))));
+  ok("…and the walk (Next, the autodialler) follows the filtered list", /walkItems\.map\(\(item\) => \(\{/.test(decomment(read("app/sales/queue/page.js"))) && /\[walkItems\],\n/.test(decomment(read("app/sales/queue/page.js"))));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -266,7 +302,11 @@ for (const key of KEYS) {
 }
 ok("the opens-at label carries {time} and {zone} in every language", langs.every((l) => /\{time\}/.test(APP_MESSAGES[l]["app.salesQueue.windowGroup.opensAt"]) && /\{zone\}/.test(APP_MESSAGES[l]["app.salesQueue.windowGroup.opensAt"])));
 ok("the wait sentence carries {count}, {time} and {zone} in every language", langs.every((l) => ["{count}", "{time}", "{zone}"].every((p) => APP_MESSAGES[l]["app.salesAutodial.waitingForWindow"].includes(p))));
-ok("the batch note no longer promises 'before your day ends' — it is the shift now", /shift ends/.test(APP_MESSAGES.en["app.salesQueue.claimBatchNote"]) && !/day ends/.test(APP_MESSAGES.en["app.salesQueue.claimBatchNote"]) && /shift/.test(APP_MESSAGES.en["app.salesQueue.batchSkippedForWindow"]) && /shift/.test(APP_MESSAGES.en["app.salesQueue.batchReason.noneCallableToday"]));
+// 2026-09-11: the batch is what is open NOW and tops itself up; the note
+// says so, and no longer promises the shift. The skip sentences still name
+// the shift, which is still the bound.
+ok("the batch note says open now, and that the next batch adds itself", /open right now/.test(APP_MESSAGES.en["app.salesQueue.claimBatchNote"]) && /on its own/.test(APP_MESSAGES.en["app.salesQueue.claimBatchNote"]) && !/day ends/.test(APP_MESSAGES.en["app.salesQueue.claimBatchNote"]) && /shift/.test(APP_MESSAGES.en["app.salesQueue.batchSkippedForWindow"]) && /shift/.test(APP_MESSAGES.en["app.salesQueue.batchReason.noneCallableToday"]));
+ok("…and carries {threshold} in every language", Object.keys(APP_MESSAGES).every((l) => /\{threshold\}/.test(APP_MESSAGES[l]["app.salesQueue.claimBatchNote"])));
 ok("…and no language still says 'journée / jornada / Tag' in the batch note", !/journée/.test(APP_MESSAGES.fr["app.salesQueue.claimBatchNote"]) && !/jornada/.test(APP_MESSAGES.es["app.salesQueue.claimBatchNote"]) && !/Tages/.test(APP_MESSAGES.de["app.salesQueue.claimBatchNote"]));
 
 const pkg = JSON.parse(read("package.json"));

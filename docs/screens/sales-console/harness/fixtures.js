@@ -12,10 +12,10 @@ const mk = (id, businessName, city, province, zoneShort, zone, opts = {}) => ({
   contact: { callable: opts.callable ?? true, code: opts.callable === false ? "do_not_contact" : "ok", title: opts.callable === false ? "Asked not to be contacted" : "" },
   claim: { state: opts.worked ? "mine_worked" : "mine", text: "Claimed by you until 4:12 PM tomorrow." },
   lastOutcome: opts.outcome ? { disposition: opts.outcome, at: iso(-40) } : null,
-  window: opts.window || { decision: "allowed", callableNow: true, opensAtIso: null, opensAtLocal: null, closesAtLocal: "9:00 PM", zoneShort, zone, zoneLabel: opts.zoneLabel || "Central Time" },
+  window: opts.window || { decision: "allowed", callableNow: true, opensAtIso: null, opensAtLocal: null, closesAtIso: iso(120), closesAtLocal: "9:00 PM", zoneShort, zone, zoneLabel: opts.zoneLabel || "Central Time", zoneAcronym: opts.acronym || "CT" },
 });
 
-const later = (opens, zoneShort, zone, zoneLabel) => ({ decision: "refused", callableNow: false, opensAtIso: iso(120), opensAtLocal: opens, closesAtLocal: null, zoneShort, zone, zoneLabel });
+const later = (opens, zoneShort, zone, zoneLabel, acronym = "PT", opensIn = 120) => ({ decision: "refused", callableNow: false, opensAtIso: iso(opensIn), opensAtLocal: opens, closesAtLocal: null, zoneShort, zone, zoneLabel, zoneAcronym: acronym });
 
 export const ITEMS = [
   mk("p1", "South County Electric, LLC", "Norman", "OK", "CDT", "America/Chicago"),
@@ -24,11 +24,30 @@ export const ITEMS = [
   mk("p4", "Sooner Sparks Electric", "Moore", "OK", "CDT", "America/Chicago", { outcome: "reached_interested", worked: true }),
   mk("p5", "Lone Star Volt", "Plano", "TX", "CDT", "America/Chicago", { outcome: "voicemail" }),
   mk("p6", "Hill Country Electric", "Austin", "TX", "CDT", "America/Chicago", { callable: false }),
-  mk("p7", "Golden State Wiring", "Fresno", "CA", "PDT", "America/Los_Angeles", { window: later("11:00 AM", "PDT", "America/Los_Angeles", "Pacific Time") }),
-  mk("p8", "Sierra Electrical Services", "Reno", "NV", "PDT", "America/Los_Angeles", { window: later("11:00 AM", "PDT", "America/Los_Angeles", "Pacific Time") }),
-  mk("p9", "Pacific Amp Co.", "Portland", "OR", "PDT", "America/Los_Angeles", { window: later("11:00 AM", "PDT", "America/Los_Angeles", "Pacific Time"), researched: false }),
-  mk("p10", "Électricité Bouchard", "Laval", "QC", "EDT", "America/Toronto", { language: "fr" }),
-  mk("p11", "Grand Canyon Electric", "Phoenix", "AZ", "MST", "America/Phoenix", { window: { decision: "refused", callableNow: false, opensAtIso: null, opensAtLocal: null, closesAtLocal: null, zoneShort: "MST", zone: "America/Phoenix", zoneLabel: "Mountain Time" } }),
+  mk("p7", "Golden State Wiring", "Fresno", "CA", "PDT", "America/Los_Angeles", { window: later("11:00 AM", "PDT", "America/Los_Angeles", "Pacific Time", "PT") }),
+  mk("p8", "Sierra Electrical Services", "Reno", "NV", "PDT", "America/Los_Angeles", { window: later("11:00 AM", "PDT", "America/Los_Angeles", "Pacific Time", "PT") }),
+  mk("p9", "Pacific Amp Co.", "Portland", "OR", "PDT", "America/Los_Angeles", { window: later("11:00 AM", "PDT", "America/Los_Angeles", "Pacific Time", "PT"), researched: false }),
+  mk("p10", "Électricité Bouchard", "Laval", "QC", "EDT", "America/Toronto", { language: "fr", acronym: "ET", zoneLabel: "Eastern Time" }),
+  mk("p11", "Grand Canyon Electric", "Phoenix", "AZ", "MST", "America/Phoenix", { window: { decision: "refused", callableNow: false, opensAtIso: null, opensAtLocal: null, closesAtLocal: null, zoneShort: "MST", zone: "America/Phoenix", zoneLabel: "Mountain Time", zoneAcronym: "MT" } }),
+];
+
+// 9:20 pm Eastern: every held row shut. Eastern opens 8:00 AM, Central 9:00
+// AM ET, Pacific 11:00 AM ET — nothing before then.
+const shutAt = (opens, zoneShort, zone, zoneLabel, acronym, opensIn) => later(opens, zoneShort, zone, zoneLabel, acronym, opensIn);
+export const ITEMS_SHUT = [
+  mk("s1", "Hudson Valley Electric", "Kingston", "NY", "EDT", "America/New_York", { window: shutAt("8:00 AM", "EDT", "America/New_York", "Eastern Time", "ET", 640) }),
+  mk("s2", "Garden State Wiring", "Trenton", "NJ", "EDT", "America/New_York", { window: shutAt("8:00 AM", "EDT", "America/New_York", "Eastern Time", "ET", 640), outcome: "no_answer" }),
+  mk("s3", "Électricité Bouchard", "Laval", "QC", "EDT", "America/Toronto", { language: "fr", window: shutAt("9:00 AM", "EDT", "America/Toronto", "Eastern Time", "ET", 700) }),
+  mk("s4", "Bright Current Electrical", "Tulsa", "OK", "CDT", "America/Chicago", { window: shutAt("9:00 AM", "CDT", "America/Chicago", "Central Time", "CT", 700) }),
+  mk("s5", "Red Dirt Wiring Co.", "Edmond", "OK", "CDT", "America/Chicago", { researched: false, researching: true, window: shutAt("9:00 AM", "CDT", "America/Chicago", "Central Time", "CT", 700) }),
+  mk("s6", "Golden State Wiring", "Fresno", "CA", "PDT", "America/Los_Angeles", { window: shutAt("11:00 AM", "PDT", "America/Los_Angeles", "Pacific Time", "PT", 820) }),
+  mk("s7", "Sierra Electrical Services", "Reno", "NV", "PDT", "America/Los_Angeles", { window: shutAt("11:00 AM", "PDT", "America/Los_Angeles", "Pacific Time", "PT", 820) }),
+  mk("s8", "Pacific Amp Co.", "Portland", "OR", "PDT", "America/Los_Angeles", { researched: false, window: shutAt("11:00 AM", "PDT", "America/Los_Angeles", "Pacific Time", "PT", 820) }),
+];
+export const GROUPS_SHUT = [
+  { key: "opens:8", kind: "opens", count: 2, ids: ["s1", "s2"], opensAtLocal: "8:00 AM", zoneLabel: "Eastern Time" },
+  { key: "opens:9", kind: "opens", count: 3, ids: ["s3", "s4", "s5"], opensAtLocal: "9:00 AM", zoneLabel: "Eastern Time, Central Time" },
+  { key: "opens:11", kind: "opens", count: 3, ids: ["s6", "s7", "s8"], opensAtLocal: "11:00 AM", zoneLabel: "Pacific Time" },
 ];
 
 export const GROUPS = [
@@ -40,7 +59,7 @@ export const GROUPS = [
 const capability = (code, tone, text, detail, extra = {}) => ({ code, tone, text, detail, known: tone !== "unknown", sayable: tone !== "unknown", state: tone === "has" ? "has" : tone === "gap" ? "no" : "unknown", subject: code, ...extra });
 
 export function currentFor(id) {
-  const item = ITEMS.find((i) => i.id === id) || ITEMS[0];
+  const item = [...ITEMS, ...ITEMS_SHUT].find((i) => i.id === id) || ITEMS[0];
   const isP1 = item.id === "p1";
   return {
     id: item.id,
@@ -169,4 +188,4 @@ export const NOTES = [
 ];
 
 export const ME = { id: "r1", name: "Daniel Roy", email: "daniel@fieldquo.com", code: "DAN1", signups: { today: 1, thisWeek: 4, total: 27 } };
-export const BADGES = { callsToday: 24, batchMax: 100, texts: 3, team: 1, voicemail: 2 };
+export const BADGES = { callsToday: 24, dayCap: 250, texts: 3, team: 1, voicemail: 2 };

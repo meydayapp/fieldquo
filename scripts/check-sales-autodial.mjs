@@ -345,6 +345,16 @@ ok("the control never arms from the switch's stored value", /useEffect\(\(\) => 
 ok("…the switch's own press is what arms it", /else if \(turningOn\) auto\.resume\(\);/.test(control));
 ok("…and a pause resumes only on the rep's press of Available, never on the state", /availablePresses/.test(control) && /prevPresses\.current === availablePresses\) return;/.test(control) && /availablePresses/.test(status) && /setAvailablePresses\(\(n\) => n \+ 1\)/.test(status));
 ok("the arm after an outcome waits for the reloaded order", /pendingArm\.current = true;/.test(control) && /\}, \[order, arm\]\);/.test(control));
+// ── The walk continues across a top-up ─────────────────────────────────
+// A top-up (queue page: act("claim_batch", { auto: true })) lands through
+// the same setData the button's press does, so `items` and therefore the
+// dialler's `order` are rebuilt from the appended list, and the
+// `[order, arm]` effect above arms against it. Nothing in the page arms
+// or dials on the top-up itself, and the row the rep is on is kept (the
+// URL is not moved on an auto claim).
+ok("a top-up appends through the same setData the press uses, keeping the rep's row", /if \(extra\.auto && body\?\.batch\?\.result\) setToast\(/.test(queue) && /if \(!extra\.auto\) setQuery\(\{ prospectId: body\?\.current\?\.id \|\| "" \}\);/.test(queue));
+ok("…and the dialler's order is rebuilt from the list the top-up appended to, never from a second copy", /const order = useMemo\(\s*\(\) =>\s*walkItems\.map/.test(queue) && /\[walkItems\],\n/.test(queue) && !/order\.push\(|setOrder\(/.test(queue));
+ok("…so the walk continues without a press: the top-up never arms or dials on its own", !/auto\.resume\(\)/.test(queue.slice(queue.indexOf("The rolling batch"), queue.indexOf("The zone chips"))));
 ok("the dialler selects the candidate before judging it, and judges it at zero with that row's readiness", /if \(id !== l\.currentId\) l\.select\?\.\(id\);/.test(control) && /const ready = loaded \? l\.readiness : null;/.test(control));
 ok("a wait is a phase of its own, entered only through arm(), and at zero it calls arm() again rather than dialling", /setPhase\("waiting"\)/.test(control) && (control.match(/setPhase\("waiting"\)/g) || []).length === 1 && /if \(phase !== "waiting" \|\| !endsAt\) return undefined;/.test(control) && /arm\(waiting\?\.cursor \|\| null\);/.test(control) && !/setToken\(\{[^}]*\}\);\s*\}\s*\}, \[phase, endsAt, waiting/.test(control));
 ok("…the wait is cancelled by the same world the countdown is (status, switch, call, ring), and Pause halts it", /if \(phase !== "countdown" && phase !== "waiting"\) return;/.test(control) && /if \(phase !== "countdown" && phase !== "waiting"\) return;\s*halt\("cancelled"\);/.test(control));

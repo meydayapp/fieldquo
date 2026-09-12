@@ -4,7 +4,7 @@
 //
 //   npm run check:sales-batch-claim
 //
-// "Claim the next 100", and "Release the rest" — executed, not read.
+// "Claim the next 25", and "Release the rest" — executed, not read.
 //
 // ══ What this holds ═══════════════════════════════════════════════════════
 //
@@ -37,6 +37,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   BATCH_REASON_KEYS,
+  QUEUE_TOP_UP_BELOW,
+  QUEUE_TOP_UP_MIN_INTERVAL_MS,
+  releaseClosedUntouched,
   CANDIDATE_SCAN,
   DEPRIORITISING_RELEASES,
   QUEUE_BATCH_MAX,
@@ -287,7 +290,7 @@ const researched = (over = {}) =>
 // ═══════════════════════════════════════════════════════════════════════════
 section("0. The numbers are the owner's, and the reasons are keys");
 
-ok("QUEUE_BATCH_MAX is 100 — one press, the owner's number", QUEUE_BATCH_MAX === 100, QUEUE_BATCH_MAX);
+ok("QUEUE_BATCH_MAX is 25 — one press or one top-up, the owner's number of 2026-09-11", QUEUE_BATCH_MAX === 25, QUEUE_BATCH_MAX);
 ok("QUEUE_DAILY_CLAIM_CAP is 250 — 200 calls a day plus room for no-answers and redials", QUEUE_DAILY_CLAIM_CAP === 250);
 ok("SHIFT_HOURS is 7 — the owner's shift, lunch and break inside it", SHIFT_HOURS === 7);
 ok("released rows sort last for 7 days", RELEASE_DEPRIORITISE_DAYS === 7);
@@ -416,7 +419,7 @@ section("3. selectBatch: callable soonest, then researched first, released-recen
     shiftEnd: dayEnd,
     want: 100,
   });
-  ok("250 eligible rows → exactly 100, all researched (there were 125)", many.ids.length === 100 && many.researched === 100, { n: many.ids.length, researched: many.researched });
+  ok("250 eligible rows → exactly QUEUE_BATCH_MAX (25), all researched (there were 125)", many.ids.length === QUEUE_BATCH_MAX && many.researched === QUEUE_BATCH_MAX, { n: many.ids.length, researched: many.researched });
   ok("the older `dayEnd` name still names the same bound", selectBatch({ candidates, dayEnd, want: 100 }).ids.join(",") === r.ids.join(","));
 
   // ── Callability outranks research ──────────────────────────────────────
@@ -431,8 +434,11 @@ section("3. selectBatch: callable soonest, then researched first, released-recen
     mk("noclose", { researched: true, readiness: allowed, closesAt: null }),
   ];
   const w = selectBatch({ candidates: win, shiftEnd: dayEnd, want: 100 });
-  ok("callable-now rows come first, shuts-soonest first, researched first inside the same closing; then opens-soonest", w.ids.join(",") === "at,et2,et,noclose,ct,pt", w.ids);
-  ok("an unresearched row that is callable now beats a researched one that opens in an hour", w.ids.indexOf("et") < w.ids.indexOf("ct"));
+  // 2026-09-11: the batch is open-now ONLY. Rows that open later — even in
+  // an hour, even researched — are skipped and counted, and the earliest of
+  // their openings is named for the "more open at" sentence.
+  ok("open-now rows only, shuts-soonest first, researched first inside the same closing", w.ids.join(",") === "at,et2,et,noclose", w.ids);
+  ok("a researched row that opens in an hour is NOT taken; it is counted, and its opening named", !w.ids.includes("ct") && !w.ids.includes("pt") && w.skippedForWindow === 2 && w.nextOpensAt === new Date(NOW.getTime() + 1 * H).toISOString(), { skipped: w.skippedForWindow, next: w.nextOpensAt });
   ok("windowSortKey: open now is tier 0 at closesAt; shut is tier 1 at opensAt; neither instant → Infinity, never 0", (() => {
     const a = windowSortKey({ readiness: allowed, closesAt: new Date(5000) });
     const b = windowSortKey({ readiness: opensIn(1) });
@@ -543,7 +549,7 @@ async function run() {
     const yesterday = claims.map((c) => ({ ...c, localDate: "2026-09-10" }));
     const db2 = scriptedDb({ prospects: pool.map((p) => ({ ...p })), claims: yesterday });
     const fresh = await claimBatch({ db2, db: db2, rep: REP, tradeKey: "electrical", timeZone: ZONE, now: NOW });
-    ok("yesterday's claims do not count against today: a full 100", fresh.claimed === 100, fresh.claimed);
+    ok("yesterday's claims do not count against today: a full batch", fresh.claimed === QUEUE_BATCH_MAX, fresh.claimed);
     ok("a pool of 120 eligible rows gives exactly QUEUE_BATCH_MAX, no shortfall reason", fresh.claimed === QUEUE_BATCH_MAX && fresh.reason === null, fresh.reason);
   }
 
@@ -564,14 +570,15 @@ async function run() {
       r.claimedIds,
     );
     ok("…and the rows left for the window are counted (ON, NY; AZ is not a window)", r.skippedForWindow === 3, r.skippedForWindow);
-    ok("…with the shortfall named as none_callable_today", r.reason === "none_callable_today", r.reason);
+    ok("…with the shortfall named as partial_open, and tomorrow's earliest opening", r.reason === "partial_open" && typeof r.nextOpensAt === "string", { reason: r.reason, next: r.nextOpensAt });
     const van = scriptedDb({ prospects: pool.map((p) => ({ ...p })) });
     const r2 = await claimBatch({ db: van, rep: REP, tradeKey: "electrical", timeZone: "America/Vancouver", now: EVENING });
     ok("the same instant for a Vancouver rep (19:30, day ends at 03:00 Toronto): still only BC — ON/NY open at 05:00 Vancouver, after that rep's midnight", r2.claimedIds.join(",") === "bc1", r2.claimedIds);
     const morning = scriptedDb({ prospects: pool.map((p) => ({ ...p })) });
     const r3 = await claimBatch({ db: morning, rep: REP, tradeKey: "electrical", timeZone: ZONE, now: NOW });
-    ok("at 10:00 Toronto: ON and NY open now, BC opens at 11:00 Toronto (in the shift) — all three; Arizona never", r3.claimedIds.slice().sort().join(",") === "bc1,ny1,on1", r3.claimedIds);
-    ok("…in dial order: NY (shuts 21:00) before ON (21:30), then BC (opens later)", r3.claimedIds.join(",") === "ny1,on1,bc1", r3.claimedIds);
+    ok("at 10:00 Toronto: ON and NY open now are taken; BC (opens 11:00 Toronto) waits for the top-up; Arizona never", r3.claimedIds.slice().sort().join(",") === "ny1,on1" && !r3.claimedIds.includes("bc1"), r3.claimedIds);
+    ok("…in dial order: NY (shuts 21:00) before ON (21:30)", r3.claimedIds.join(",") === "ny1,on1", r3.claimedIds);
+    ok("…and BC's opening is what the shortfall names", r3.reason === "partial_open" && r3.nextOpensAt === salesCallReadiness({ prospect: { country: "CA", province: "BC" }, now: NOW }).opensAt.toISOString(), r3.nextOpensAt);
     ok("…and the response says when the shift ends", r3.shiftEnd === shiftEndFrom({ now: NOW }).toISOString() && typeof r3.shiftStart === "string", r3);
   }
 
@@ -598,9 +605,9 @@ async function run() {
     const db = scriptedDb({ prospects: pool, activity });
     const r = await claimBatch({ db, rep: REP, tradeKey: "electrical", timeZone: "America/New_York", now: at805 });
     ok("the shift was read from the ledger: 08:00 + 7h = 15:00 ET", r.shiftStart === eightET.toISOString() && r.shiftEnd === "2026-09-11T19:00:00.000Z", r);
-    ok("no row that opens at or after 15:00 ET is claimed", !r.claimedIds.includes("late") && r.skippedForWindow === 1, r);
-    ok("the Pacific row opening 11:00 ET IS claimed, and sorts after the Eastern and Atlantic ones", r.claimedIds.indexOf("ca1") > r.claimedIds.indexOf("ny2") && r.claimedIds.indexOf("ca1") > r.claimedIds.indexOf("ns1"), r.claimedIds);
-    ok("…the whole order: Atlantic (shuts 20:30 ET) → New York (21:00) → Pacific (opens 11:00) → Alaska (12:00) → Hawaii (14:00)", r.claimedIds.join(",") === "ns1,ny2,ca1,ak1,hi1", r.claimedIds);
+    ok("no row that opens at or after 15:00 ET is claimed, nor any that opens later at all: only what is open at 08:05 ET", !r.claimedIds.includes("late") && !r.claimedIds.includes("ca1") && r.skippedForWindow === 4, r);
+    ok("the Pacific row opening 11:00 ET is left for the top-up, and is the earliest opening named", r.nextOpensAt === "2026-09-11T15:00:00.000Z", r.nextOpensAt);
+    ok("…the order: Atlantic (shuts 20:30 ET) → New York (21:00); Pacific, Alaska and Hawaii wait for the top-ups at 11:00, 12:00 and 14:00", r.claimedIds.join(",") === "ns1,ny2", r.claimedIds);
 
     // 11:30 ET, same rep, same shift: a second batch leads with what is
     // callable at 11:30 — Pacific is open now and sorts by closing time.
@@ -608,7 +615,7 @@ async function run() {
     const pool2 = pool.map((p) => ({ ...p, id: `${p.id}b` }));
     const db2 = scriptedDb({ prospects: pool2, activity });
     const r2 = await claimBatch({ db: db2, rep: REP, tradeKey: "electrical", timeZone: "America/New_York", now: at1130 });
-    ok("at 11:30 the batch leads with rows callable at 11:30, shuts-soonest first: NS, NY, CA (20:00 PT = 23:00 ET), then AK and HI opening later", r2.claimedIds.join(",") === "ns1b,ny2b,ca1b,ak1b,hi1b", r2.claimedIds);
+    ok("at 11:30 the batch is what is callable at 11:30, shuts-soonest first: NS, NY, CA (20:00 PT = 23:00 ET); AK and HI open later and wait", r2.claimedIds.join(",") === "ns1b,ny2b,ca1b" && r2.nextOpensAt === "2026-09-11T16:00:00.000Z", { ids: r2.claimedIds, next: r2.nextOpensAt });
     ok("…and the shift end did not move: still 15:00 ET", r2.shiftEnd === "2026-09-11T19:00:00.000Z", r2.shiftEnd);
     // With no Available row the claim instant stands in: 11:30 + 7h = 18:30
     // ET, and Hawaii (opens 14:00 ET) is still in.
@@ -660,6 +667,99 @@ async function run() {
     const db = scriptedDb({ prospects: pool, claims });
     const r = await claimBatch({ db, rep: REP, tradeKey: "electrical", timeZone: ZONE, now: NOW });
     ok("d1 (released by this rep 2 days ago) sorts LAST; d2 (9 days ago) and d3 (another rep's release) keep pool order", r.claimedIds.join(",") === "d2,d3,d1", r.claimedIds);
+  }
+
+  // ── The rolling batch: 25, open NOW, topped up under 5 ────────────────
+  //
+  // The owner, 2026-09-11 at 9:20 pm Eastern with a batch of shut windows:
+  // "a batch of 25, and if there are fewer than 5 leads left it auto-fetches
+  // a new set from the current time". So the selection is open-now only,
+  // closing soonest first; a row that opens later — even inside the shift —
+  // is skipped and counted, and the earliest of those openings rides back
+  // so a short batch can say "N open now — more open at 8:00 AM". The
+  // trade, the cap and the language rule sit above the selection as before.
+  {
+    const LATE = new Date("2026-09-12T02:00:00Z"); // 22:00 EDT Friday (Ontario shut at 21:30), 19:00 PDT (open)
+    seq = 0;
+    const pool = [
+      researched({ id: "on1", country: "CA", province: "ON" }),
+      researched({ id: "bc1", country: "CA", province: "BC" }),
+      prospect({ id: "bc2", country: "CA", province: "BC" }),
+      researched({ id: "roof", country: "CA", province: "BC", tradeKey: "roofing" }),
+      researched({ id: "qc1", country: "CA", province: "QC" }),
+    ];
+    const english = { id: "rep_a", sellsIn: ["en"] };
+    const db = scriptedDb({ prospects: pool });
+    const r = await claimBatch({ db, rep: english, tradeKey: "electrical", timeZone: ZONE, now: LATE });
+    ok("the batch takes the rows open at this instant", r.claimedIds.join(",") === "bc1,bc2", r.claimedIds);
+    ok("…skips the shut Eastern row and COUNTS it", !r.claimedIds.includes("on1") && r.skippedForWindow >= 1, r);
+    ok("…never a roofer, never a Quebec row for an English-only rep", !r.claimedIds.includes("roof") && !r.claimedIds.includes("qc1"), r.claimedIds);
+    ok("…and says how many were open, and that the rest open later", r.openNow === 2 && r.reason === "partial_open" && typeof r.nextOpensAt === "string", { openNow: r.openNow, reason: r.reason, next: r.nextOpensAt });
+
+    // 10:30 am Eastern: Ontario open in both its zones, BC opens at 11 am
+    // Eastern — inside the shift, and still NOT taken: it is not open now.
+    const MORNING = new Date("2026-09-11T14:30:00Z");
+    const morningPool = [researched({ id: "on1", country: "CA", province: "ON" }), researched({ id: "bc1", country: "CA", province: "BC" })];
+    const morning = await claimBatch({ db: scriptedDb({ prospects: morningPool }), rep: english, tradeKey: "electrical", timeZone: ZONE, now: MORNING });
+    ok("a row that opens later in the shift is left for the top-up, and counted", morning.claimedIds.join(",") === "on1" && morning.skippedForWindow === 1 && morning.reason === "partial_open", morning.claimedIds);
+    ok("…with the earliest opening among the rows left", morning.nextOpensAt === salesCallReadiness({ prospect: { country: "CA", province: "BC" }, now: MORNING }).opensAt.toISOString(), morning.nextOpensAt);
+
+    // A top-up appends: the second claim, a minute later, takes rows the
+    // first did not and never the ones already held — the candidate WHERE
+    // is inside the transaction's updateMany, and winners are read back by
+    // rep and instant.
+    const LATER = new Date(LATE.getTime() + 60 * 1000);
+    const again = await claimBatch({ db, rep: english, tradeKey: "electrical", timeZone: ZONE, now: LATER });
+    ok("a top-up a minute later takes nothing it already holds", again.claimedIds.every((id) => !r.claimedIds.includes(id)), again.claimedIds);
+    ok("…and the held set is the union with no duplicate", (() => { const held = db.state.prospects.filter((p) => p.assignedRepId === "rep_a").map((p) => p.id); return new Set(held).size === held.length && held.includes("bc1") && held.includes("bc2"); })());
+
+    const capped = await claimBatch({ db: scriptedDb({ prospects: pool, claims: Array.from({ length: QUEUE_DAILY_CLAIM_CAP }, (_, i) => ({ id: `k${i}`, salesRepId: "rep_a", prospectId: `x${i}`, claimedAt: LATE, localDate: "2026-09-11", mode: "batch", releasedAt: null })) }), rep: english, tradeKey: "electrical", timeZone: ZONE, now: LATE });
+    ok("the daily cap refuses a top-up like any press", capped.claimed === 0 && capped.reason === "daily_cap", capped.reason);
+
+    const shut = await claimBatch({ db: scriptedDb({ prospects: [researched({ id: "on9", country: "CA", province: "ON" }), researched({ id: "ns9", country: "CA", province: "NS" })] }), rep: english, tradeKey: "electrical", timeZone: ZONE, now: LATE });
+    ok("nothing open now → none_open_now, by key", shut.claimed === 0 && shut.reason === "none_open_now" && shut.reasonKey === BATCH_REASON_KEYS.none_open_now, shut);
+    ok("…carrying the EARLIEST next opening from the readiness the selection computed", typeof shut.nextOpensAt === "string" && new Date(shut.nextOpensAt).getTime() > LATE.getTime() && new Date(shut.nextOpensAt).getTime() - LATE.getTime() < 13 * 60 * 60 * 1000, shut.nextOpensAt);
+    const sel = selectBatch({ candidates: [{ id: "a", readiness: { decision: CALL_ALLOWED, blockers: [] } }, { id: "b", readiness: { decision: CALL_REFUSED, blockers: [{ code: "outside_window" }], opensAt: new Date(LATE.getTime() + 3600e3) } }], want: 10 });
+    ok("selectBatch itself: open now taken, shut skipped and counted, its opening named", sel.ids.join(",") === "a" && sel.skippedForWindow === 1 && sel.nextOpensAt === new Date(LATE.getTime() + 3600e3).toISOString(), sel);
+
+    // ── The dead rows go back before a top-up ─────────────────────────
+    // Held, untouched, shut for the rest of the shift → released with
+    // reason "closed" (which does not de-prioritise). A row with an
+    // attempt, a row with a callback promised, and a row that opens later
+    // in the shift are all kept.
+    const shiftEnd = shiftEndFrom({ shiftStart: LATE, now: LATE }); // 05:00 EDT
+    const claimedAt = new Date(LATE.getTime() - 3600e3);
+    const heldRows = [
+      researched({ id: "dead1", country: "CA", province: "ON", assignedRepId: "rep_a", assignedAt: claimedAt, claimExpiresAt: new Date(LATE.getTime() + DAY) }),
+      researched({ id: "rung", country: "CA", province: "ON", assignedRepId: "rep_a", assignedAt: claimedAt, claimExpiresAt: new Date(LATE.getTime() + DAY) }),
+      researched({ id: "promised", country: "CA", province: "ON", assignedRepId: "rep_a", assignedAt: claimedAt, claimExpiresAt: new Date(LATE.getTime() + DAY) }),
+      researched({ id: "open", country: "CA", province: "BC", assignedRepId: "rep_a", assignedAt: claimedAt, claimExpiresAt: new Date(LATE.getTime() + DAY) }),
+    ];
+    const dbHeld = scriptedDb({
+      prospects: heldRows,
+      claims: heldRows.map((p, i) => ({ id: `h${i}`, salesRepId: "rep_a", prospectId: p.id, claimedAt, localDate: "2026-09-11", mode: "batch", releasedAt: null, workedAt: null })),
+      attempts: [
+        { id: "a1", prospectId: "rung", salesRepId: "rep_a", dialledAt: new Date(LATE.getTime() - 600e3), callbackAt: null },
+        { id: "a2", prospectId: "promised", salesRepId: "rep_a", dialledAt: new Date(LATE.getTime() - 600e3), callbackAt: new Date(LATE.getTime() + DAY) },
+      ],
+    });
+    const rel = await releaseClosedUntouched({ db: dbHeld, rep: english, shiftEnd, now: LATE });
+    ok("the untouched row whose window is shut for the shift is released", rel.releasedIds.join(",") === "dead1", rel);
+    ok("…a row with an attempt is NOT released", dbHeld.state.prospects.find((p) => p.id === "rung").assignedRepId === "rep_a");
+    ok("…a row with a callback promised is NOT released", dbHeld.state.prospects.find((p) => p.id === "promised").assignedRepId === "rep_a");
+    ok("…a row that is open now is NOT released", dbHeld.state.prospects.find((p) => p.id === "open").assignedRepId === "rep_a");
+    ok("…the log says 'closed', a reason that does not de-prioritise", dbHeld.state.claims.find((c) => c.prospectId === "dead1").releaseReason === "closed" && RELEASE_REASONS.includes("closed") && !DEPRIORITISING_RELEASES.includes("closed"));
+
+    const route = decomment(read("app/api/sales/queue/route.js"));
+    ok("the route reads `auto` as a boolean, releases the dead rows first, then claims", /const auto = body\.auto === true;/.test(route) && route.indexOf("releaseClosedUntouched({ db, rep, shiftEnd, now })") < route.indexOf("claimBatch({ db, rep, tradeKey, timeZone, now })") && /result\.releasedClosed = releasedClosed;/.test(route));
+    ok("…and the batch tells the console the threshold and the interval", /topUpBelow: QUEUE_TOP_UP_BELOW,/.test(route) && /topUpIntervalMs: QUEUE_TOP_UP_MIN_INTERVAL_MS,/.test(route));
+    const page = decomment(read("app/sales/queue/page.js"));
+    ok("the console tops up under the threshold, at most once an interval, posting only the flag", /act\("claim_batch", \{ auto: true \}\)/.test(page) && /if \(openHeld >= topUpBelow\) return;/.test(page) && /if \(nowMs - lastTopUp\.current < topUpInterval\) return;/.test(page));
+    ok("…never while a press is in flight, and never past the cap", /if \(loading \|\| fetching \|\| busy \|\| !data \|\| !tradeKey\) return;/.test(page) && /if \(!\(remainingToday > 0\)\) return;/.test(page));
+    ok("…and openHeld counts rows callable now with no outcome, not marked worked", /item\.window\?\.callableNow && !item\.lastOutcome && item\.claim\?\.state !== "mine_worked"/.test(page));
+    ok("the top-up's toast names the count and the zones it added", /app\.salesQueue\.topUpToast/.test(page) && /zoneAcronym/.test(page));
+    ok("the list's one line says open · closed · the threshold", /app\.salesQueue\.openNowSummary/.test(page));
+    ok("QUEUE_TOP_UP_BELOW is 5 and the interval a minute", QUEUE_TOP_UP_BELOW === 5 && QUEUE_TOP_UP_MIN_INTERVAL_MS === 60_000);
   }
 }
 
@@ -751,7 +851,7 @@ section("6. Source: the route, the gate, the cron, the screen, the sticky fix");
   const vercel = JSON.parse(read("vercel.json"));
 
   ok("the route offers claim_batch and release_rest", /"claim_batch"/.test(route) && /"release_rest"/.test(route));
-  ok("…and claim_batch delegates to claimBatch with the trade and the browser's zone", /claimBatch\(\{ db, rep, tradeKey, timeZone, now \}\)/.test(route));
+  ok("…and claim_batch delegates to claimBatch with the trade and the browser's zone — nothing else", /claimBatch\(\{ db, rep, tradeKey, timeZone, now \}\)/.test(route));
   ok("the trade filter is inside the updateMany's WHERE inside the transaction", /\$transaction\(async \(tx\) => \{[\s\S]*?tx\.prospect\.updateMany\(\{\s*where: \{ id: \{ in: picked\.ids \}, \.\.\.claimCandidateWhere\(\{ tradeKey, now: at, rep \}\) \}/.test(lib));
   ok("winners are read back by rep AND instant, so a row already held from an earlier claim is not counted twice", /where: \{ id: \{ in: picked\.ids \}, assignedRepId: rep\.id, assignedAt: at \}/.test(lib));
   ok("the single claim is logged and counted against the same cap", /logSingleClaim\(\{ db, rep, prospectId: candidate\.id, timeZone, now: at \}\)/.test(route) && /takenToday >= QUEUE_DAILY_CLAIM_CAP/.test(route));

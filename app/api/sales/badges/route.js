@@ -26,8 +26,9 @@
 //               batch claim counts against — lib/sales/queueBatch.js). Every
 //               dial counts, answered or not: a rep's "calls today" is what
 //               they pressed, not what was picked up.
-//   batchMax    QUEUE_BATCH_MAX — the size of "Claim the next N", so the
-//               sidebar's "24 / 100" is the same 100 the queue promises.
+//   dayCap      QUEUE_DAILY_CLAIM_CAP — the day's ceiling the owner set
+//               ("200 calls a day plus room"), so the sidebar's "24 / 250"
+//               is the day and not the rolling batch of 25.
 //   texts       unread inbound texts across the rep's SMS conversations,
 //               from the same read markers /sales/messages uses.
 //   team        unread messages across the staff rooms the rep is in.
@@ -39,7 +40,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireSalesRep } from "@/lib/sales/gate";
-import { QUEUE_BATCH_MAX, startOfLocalDay } from "@/lib/sales/queueBatch";
+import { QUEUE_DAILY_CLAIM_CAP, startOfLocalDay } from "@/lib/sales/queueBatch";
 import { salesConversations } from "@/lib/sales/salesSms";
 import { threadReadStates } from "@/lib/sales/messages/readState";
 import { roomsFor } from "@/lib/staff/store";
@@ -95,7 +96,7 @@ export async function GET(request) {
 
   return NextResponse.json({
     callsToday,
-    batchMax: QUEUE_BATCH_MAX,
+    dayCap: QUEUE_DAILY_CLAIM_CAP,
     dayStartsAt: dayStart.toISOString(),
     texts,
     team,

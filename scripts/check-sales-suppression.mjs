@@ -757,7 +757,7 @@ section("7. The calling window — the prospect's clock, not ours");
   ok("the description is derived from the numbers, not retyped",
      describeSalesCallWindow().includes("09:00–21:30") && describeSalesCallWindow().includes("10:00–18:00"),
      describeSalesCallWindow());
-  ok("...and says whose time zone it is in", /prospect's own time zone/.test(describeSalesCallWindow()));
+  ok("...and says whose time zone it is in", /lead's own time zone/.test(describeSalesCallWindow()));
 
   // The whole reason this module exists: it is NOT the homeowner window.
   ok("this is NOT the homeowner window it would have been tempting to reuse",
