@@ -89,8 +89,20 @@ Quebec or a Latino contractor in the USA."
   strings (`SITE_INFERENCE_LABELS` keyed through `t()`) and follow the rep's
   portal language as before. The script's own whatWeSaw / whyThemNow ARE the
   model-phrased sentences on the Script tab, and they follow the switch.
-- **Cost, measured:** see the commit that reports it — fr and es generated for
-  two real prospects through the metered path.
+- **Cost, measured on the deployed pipeline** (fr + es for South County
+  Electric, LLC and Executive Sweeps LLC, gpt-5-mini, read off
+  `PlatformAiUsage`): **15 calls, 58,003 prompt + 24,790 completion tokens,
+  $0.0323 in all, for 4 stored scripts — $0.0081 per script landed, $0.0022
+  per call.** A single clean draft is ≈ $0.0020 (≈3,000 prompt + 1,600
+  completion); the rest is what the two live findings cost: the first run
+  (6 calls, $0.0127) stored NOTHING — every French and Spanish draft was
+  refused on a digit, terminally, with no retry and no line named — and the
+  second run's one French refusal was my finite-verb list, not the model.
+  Both fixed in the two follow-up commits (the shape rules get the same one
+  retry the voice lint has, with the line quoted; the register says "no
+  digits" in the language's own words; the French list learned the verbs
+  an objection answer uses; a three-word interjection is exempt in fr/es).
+  The last run: 4 of 4 stored, two on the second draft.
 - Checks: `check:call-script` §8 (296, was 195), `check:sales-call-playbook`
   adjusted for `playbookUrl()`. Mutation-tested six ways: the ask guard
   removed, research.js reading any language's row, the route generating for
