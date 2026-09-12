@@ -9,6 +9,33 @@ Status key: `TODO` · `IN PROGRESS (agent)` · `DONE + verified` · `NEEDS DECIS
 
 ---
 
+## 0. LAUNCH LIST — kept current (owner: "make a list so you don't forget and update it")
+
+Updated 2026-09-12 13:20 ET. One line each; move a line down when it lands.
+
+**Running now (agents, in parallel)**
+1. Check-in drafts for EVERY company attributed to a rep, thread or not (Easy Roofers has none today because drafts were only produced inside an existing text thread) — Texts → Drafts due, My companies, console Tasks; 07:00 UTC cron; backfill; demo company gets one. (started 2026-09-12 ~12:45 ET)
+2. Call script + brief in EN / FR / ES — default from the lead's language (Quebec → fr), switch on the Script tab, on-demand generation ≈ $0.001. (started ~12:25 ET)
+3. Sales Portal Training Manual EN/FR/ES (docs/sales/manual) — Daniel → Easy Roofers as the pay example; index, glossary, resources; console/Texts/Team screenshots now, /sales captures when the owner's Chrome is signed in. (started ~12:45 ET)
+
+**Waiting on the owner**
+4. Facebook Page connect — retry after `ae66b297` (reads the granted Page by id when /me/accounts is empty). `META_PAGES_CONFIG_ID` is set.
+5. Sign in to /app and /sales in the Chrome with the Upwork tabs → product-guide screenshots (every sidebar + Settings item), RBAC section (Crew/Estimator/Dispatcher/Manager/Owner + Custom), sales-portal captures.
+6. Upwork offer to Rachel K. — unsent in the owner's tab (US$90 = 14/29/47 for CA$125).
+7. Set "Sells in" French on Rachel/Daniel in /platform/sales/reps when hired.
+8. Access Verification (WhatsApp) — Meta's review, ≤5 business days from Sep 11.
+
+**Queued next**
+9. Per-jurisdiction calling-window override in /platform (enforce / warn only / off; OK/FL caps enforced by default; registration gate untouched — owner: "don't feed it to the companies until I check off the registration").
+10. Retry-pool cadence (no answer → scheduled retry, time-block rotation, max attempts, exhausted/recycle) — OMniLeads' ReglasIncidencia model as the reference.
+11. AI triage of inbound text replies (roadblock / question / fine) — owner asked "just in case we lose them on a roadblock".
+12. Call recording + transcription + daily AI review (owner's Twilio question) — needs the owner's yes on recording consent and ≈$5/day.
+13. Company-side crew chat in /app on the chat kit (#general, room per job, DMs).
+14. Mobile app native feel (branch `mobile`) — on hold: "don't work on that yet".
+15. Pre-existing reds: check:mobile (app/sales/messages whitespace-nowrap), check:playbook-voice (app/api/sales/leads/route.js), check:snapshot-campaigns (shouldPoll), check:platform-console (two brand-accent classes in the sales shell).
+
+**Done 2026-09-12** — symmetric language rule (French-only ⇒ Quebec only); rolling batch 25 / top-up under 5 / zone chips; rep console (dialer left, tabbed card); Texts, Team, /platform/chat and /app/messages on one chat kit; Review folder + 115,526 licensees reclassified; Amish Valley text zone + "Open now" + playbook on leads + held list not narrowed by trade; growth table months + blended rates + fill-from-measured; Meta: login configuration, three-way diagnosis, error log, auth_type=rerequest, direct Page read; Twilio token 20104 recovery; California campaign denominator; sales guide PDFs EN/FR/ES (+ Desktop copies); "leads and leads" strings.
+
 ## 1. PRIORITY — a company is using a number it did not buy
 
   * `CODE FIXED, LIVE ROWS NOT` — root cause found and gated (commit 67ee6cd0).
