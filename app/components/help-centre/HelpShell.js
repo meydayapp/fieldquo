@@ -40,10 +40,15 @@ export default function HelpShell({ lang, t, children, showSearch = true }) {
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6">
-          <Logo variant="horizontal" href={MARKETING_ORIGIN} height={28} />
+          {/* The navy wordmark vanishes on the dark header; the composed
+              icon + live-text mark takes over there (Logo's onDark). Two
+              marks, one visible at a time — the server does not know the
+              theme, CSS does. */}
+          <span className="dark:hidden inline-flex shrink-0"><Logo variant="horizontal" href={MARKETING_ORIGIN} height={28} /></span>
+          <span className="hidden dark:inline-flex shrink-0"><Logo variant="horizontal" href={MARKETING_ORIGIN} height={28} onDark /></span>
           <Link
             href={helpPath(lang)}
-            className="hidden sm:inline-flex items-center rounded-full border border-border px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground"
+            className="hidden sm:inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-border px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground"
           >
             {t("nav.home")}
           </Link>

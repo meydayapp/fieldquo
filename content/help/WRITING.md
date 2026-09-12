@@ -1,7 +1,7 @@
 # Writing a help-centre article
 
 Read this before touching `content/help/<lang>/<category>.js`. The check
-(`ONLY=<category> npm run check:help-centre`) enforces most of it; the rest
+(`npm run check:help-centre -- --only=<category>`) enforces most of it; the rest
 is what makes the article worth reading.
 
 ## Who reads it
@@ -120,9 +120,9 @@ is the owner's file; the build merges it.
 ## Check your work
 
 ```sh
-ONLY=<category> npm run check:help-centre     # your category only
+npm run check:help-centre -- --only=<category>     # your category only
 npm run build:help                             # copies figures, rebuilds the index and TREE.md
 ```
 
-The full `npm run check:help-centre` (no ONLY) is what gates the build; it
+The full `npm run check:help-centre` (no `--only`) is what gates the build; it
 fails until every category is written in all three languages.

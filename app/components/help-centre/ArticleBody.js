@@ -58,13 +58,17 @@ export function Block({ block, lang, bodyLang, figureSources, fallbackLabel }) {
     const fallback = took !== bodyLang;
     return (
       <figure className="my-6">
-        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        {/* Live captures are full-page and can be 2,000px tall. The figure is
+            capped and cropped from the top — the part that names the screen —
+            and the whole capture opens in a new tab on click, which on a phone
+            is also the way to pinch-zoom it. */}
+        <a href={src} target="_blank" rel="noopener" className="block overflow-hidden rounded-xl border border-border bg-card shadow-sm">
           {/* Plain <img>, not next/image: these are quantised PNGs copied into
               public/ at build time with no known dimensions, and an optimiser
               pass over a 1280-wide screenshot on a Vercel function per view
               is cost for no benefit — the file is already small. */}
-          <img src={src} alt={block.caption || ""} loading="lazy" decoding="async" className="block w-full h-auto" />
-        </div>
+          <img src={src} alt={block.caption || ""} loading="lazy" decoding="async" className="block w-full h-auto max-h-[70vh] object-cover object-top" />
+        </a>
         {(block.caption || fallback) && (
           <figcaption className="mt-2 text-sm text-muted-foreground">
             {block.caption ? <Inline text={block.caption} lang={lang} /> : null}

@@ -186,6 +186,31 @@ as "for development, not for production apps used by real advertisers."
   ```
   Switch a demo's trade any time at `/platform/demo`.
 
+- **`help.fieldquo.com` — the public help centre (2026-09-12).** No new
+  environment variable. The pages already serve at
+  `https://www.fieldquo.com/help/en` (and `/fr`, `/es`) today; the subdomain
+  is the canonical address and needs two owner steps:
+  1. **Vercel → Project → Settings → Domains → Add** `help.fieldquo.com`.
+     Vercel prints the record it wants; for a subdomain that is a **CNAME**
+     — copy the exact target it shows (today's default is
+     `cname.vercel-dns.com`, and `www` was added the same way, so match
+     whatever record type and target `www` has).
+  2. **DNS (where fieldquo.com's records live)**: add `CNAME help →
+     <the target Vercel showed>`. Wait for Vercel's domain row to turn green
+     (it issues the certificate itself). If the wildcard `*.fieldquo.com`
+     below is ever added, `help.fieldquo.com` would reach the project through
+     it and `middleware.js` would still serve the help centre (its host check
+     runs before the tenant lookup, and `help` is a reserved name) — an
+     explicit record is still the right thing: it works before the wildcard
+     exists, and it does not depend on one.
+  What happens on the host: `middleware.js` rewrites `help.fieldquo.com/en/…`
+  to `/help/en/…` before any session gate (a reader has no account), the
+  sitemap answers at `help.fieldquo.com/sitemap.xml`, and the "Was this
+  helpful?" votes land in `HelpFeedback` through `/api/help/feedback` (public,
+  rate-limited, no personal data). Verify with `curl -sI
+  https://help.fieldquo.com/en | head -3` (200) and `curl -sI
+  https://help.fieldquo.com/help/en` (308 → `/en`). `npm run check:help-centre`
+  asserts the middleware order from the source.
 - **Wildcard domain `*.fieldquo.com`** in Vercel → Domains. Until it exists **no
   tenant website resolves at all**. The code is ready; the DNS isn't. Locally
   `sunset.localhost:3000` works with no setup, which is why this is easy to miss.

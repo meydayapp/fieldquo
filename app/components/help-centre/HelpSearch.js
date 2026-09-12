@@ -122,7 +122,7 @@ export default function HelpSearch({ lang, placeholder, label, noneLabel, countL
       </div>
 
       {showPanel && (
-        <div className="absolute left-0 right-0 z-30 mt-2 max-h-[70vh] overflow-y-auto rounded-2xl border border-border bg-card p-2 shadow-xl">
+        <div className="absolute left-0 right-0 z-30 mt-2 max-h-[70vh] overflow-y-auto rounded-2xl border border-border bg-card p-2 text-left shadow-xl">
           {!index && !failed && <p className="px-3 py-2 text-sm text-muted-foreground">…</p>}
           {failed && <p className="px-3 py-2 text-sm text-muted-foreground">{noneLabel.replace("{q}", q)}</p>}
           {index && results.length === 0 && (

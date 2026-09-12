@@ -2,6 +2,7 @@
 //
 //   node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-help-centre.mjs
 //   npm run check:help-centre
+//   npm run check:help-centre -- --only=settings     # one category, no build run
 //
 // The public help centre (help.fieldquo.com, /help/*), held to its promises:
 //
@@ -57,13 +58,16 @@ import { rows, writes, resetDbStub as reset } from "./fixtures/dbStub.mjs";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(ROOT, p), "utf8");
 
-// ONLY=<category> narrows the content sections (3, 4) to one category and
-// skips the build run — for a writer checking their own module while the
+// `--only=<category>` narrows the content sections (3, 4) to one category
+// and skips the build run — for a writer checking their own module while the
 // other categories are still being written. The full run is what gates.
-const ONLY = process.env.ONLY || null;
+// An argument, not an environment variable: check-env-docs.mjs requires every
+// process.env read to be documented in docs/VERCEL.md, and a writer's local
+// switch has no business there.
+const ONLY = (process.argv.find((a) => a.startsWith("--only=")) || "").slice("--only=".length) || null;
 const ARTS = ONLY ? HELP_ARTICLES.filter((a) => a.category === ONLY) : HELP_ARTICLES;
 if (ONLY && !REAL_CATEGORY_KEYS.includes(ONLY)) {
-  console.error(`ONLY=${ONLY} is not a category`);
+  console.error(`--only=${ONLY} is not a category`);
   process.exit(1);
 }
 
