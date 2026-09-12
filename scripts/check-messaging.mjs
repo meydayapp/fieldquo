@@ -1290,6 +1290,37 @@ ok(
 
 
 // ═══════════════════════════════════════════════════════════════════════════
+section("13. Every relation a thread route selects exists on the model");
+//
+// The thread screen answered 500 for every real conversation for a day:
+// app/api/messaging/threads/[id]/route.js selected `client: { select }` on
+// MessageThread, and the schema had `clientId` as a bare scalar with no
+// relation. The db stub cannot catch that — it answers any select — so this
+// reads the schema's MessageThread block and checks each relation name the
+// routes ask for is declared there. The list beside it never asks, which is
+// why the list kept working while every click on it failed.
+{
+  const schema = read("prisma/schema.prisma");
+  const block = schema.match(/^model MessageThread \{[\s\S]*?^\}/m)?.[0] || "";
+  const relations = new Set([...block.matchAll(/^\s+(\w+)\s+\w+\??\s+@relation/gm)].map((m) => m[1]));
+  const routes = [
+    "app/api/messaging/threads/[id]/route.js",
+    "app/api/messaging/threads/[id]/temperature/route.js",
+    "app/api/messaging/threads/route.js",
+  ];
+  for (const file of routes) {
+    const src = read(file);
+    const asked = new Set([...src.matchAll(/^\s+(client|channel|company|messages|assignedTo|lead|job|quote):\s*\{\s*(?:select|include)/gm)].map((m) => m[1]));
+    for (const name of asked) {
+      const declared = relations.has(name) || /^\s+messages\s+Message\[\]/m.test(block) && name === "messages";
+      ok(`${file} selects \`${name}\` and MessageThread declares it`, declared);
+    }
+  }
+  ok("MessageThread.client is a relation to Client (the thread screen and the temperature reading both select it)", /^\s+client\s+Client\?\s+@relation\(fields: \[clientId\]/m.test(block));
+  ok("…and Client carries the back-relation", /^\s+messageThreads\s+MessageThread\[\]/m.test(schema.match(/^model Client \{[\s\S]*?^\}/m)?.[0] || ""));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 
 console.log(`\n${pass} passed, ${failures.length} failed\n`);
 if (failures.length) {
