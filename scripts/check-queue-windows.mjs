@@ -271,11 +271,11 @@ const page = decomment(read("app/sales/queue/page.js"));
 const control = decomment(read("app/components/sales/AutodialControl.js"));
 const lib = decomment(read("lib/sales/queueWindows.js"));
 
-ok("the route groups the held rows with the rep's zone, the ledger's shift and the rep's language", /groupByWindow\(\s*inClaimOrder\.map/.test(route) && /\{ repZone: zone, shiftEnd, now, language: lang \}/.test(route));
+ok("the route groups the held rows with the rep's zone, the ledger's shift and the rep's language", /groupByWindow\(\s*inClaimOrder\.map/.test(route) && /\{ repZone: zone, shiftEnd, now, language: lang, policyContext \}/.test(route));
 ok("…and serves the list in the grouped order, with the groups beside it", /const claimed = windows\.order\.map\(\(id\) => byId\.get\(id\)\)/.test(route) && /queue\.windows = \{/.test(route) && /groups: windows\.groups/.test(route));
 ok("…each row carrying windowFor's answer, never a second decision", /window: windows\.byId\[p\.id\] \|\| null/.test(route) && !/nextClosing\(/.test(route));
 ok("the rep's zone comes from the browser the way the batch claim's does, and the language beside it", /url\.searchParams\.get\("timeZone"\)/.test(route) && /url\.searchParams\.get\("language"\)/.test(route) && /repLanguageOrNull\(language\) \|\| "en"/.test(route));
-ok("the library evaluates the window through salesCallReadiness and closes it through nextClosing — no rule of its own", /salesCallReadiness\(\{ prospect, timeZone, now, language \}\)/.test(lib) && /nextClosing\(\{ prospect, timeZone, now \}\)/.test(lib) && !/startMinute|endMinute/.test(lib));
+ok("the library evaluates the window through salesCallReadiness and closes it through nextClosing — no rule of its own", /salesCallReadiness\(\{\s*prospect,\s*timeZone,\s*now,\s*language,\s*windowPolicy: policyContext \? windowPolicyFor\(prospect, policyContext\) : null,\s*\}\)/.test(lib) && /nextClosing\(\{ prospect, timeZone, now \}\)/.test(lib) && !/startMinute|endMinute/.test(lib));
 ok("…zone names come from Intl in the rep's language, never a table", /timeZoneName: style/.test(lib) && /"longGeneric"/.test(lib) && /"short"/.test(lib) && !/"Pacific Time"|"Eastern Time"/.test(lib));
 ok("the page sends its language with the zone", /search\.set\("language", language\)/.test(page) && /timeZone: browserTimeZone\(\), language,/.test(page));
 ok("the page draws one header per group with its count, and the 'later' group's sentence", /groups\.map\(\(group\) =>/.test(page) && /groupTitle\(group, t\)/.test(page) && /\{group\.count\}/.test(page) && /app\.salesQueue\.windowGroup\.laterNote/.test(page));

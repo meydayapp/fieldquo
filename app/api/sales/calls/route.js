@@ -37,6 +37,7 @@ import { db } from "@/lib/db";
 import { requireCallingRep } from "@/lib/sales/calls/gate";
 import { queueWhere } from "@/lib/sales/prospectView";
 import { salesCallReadiness, CALL_ALLOWED } from "@/lib/sales/callingRules";
+import { windowPolicyForProspect } from "@/lib/sales/windowOverrides";
 import { twilioConfigured } from "@/lib/sms/twilioClient";
 import { getAppOrigin } from "@/lib/appUrl";
 import {
@@ -474,6 +475,11 @@ export async function POST(request) {
       timeZone: target.timeZone,
       attemptsLast24h: attempts24h,
       now,
+      // Read fresh from the database at the moment of the dial, never from
+      // what the screen was told a minute ago — the same discipline as the
+      // suppression read. The resolver holds any override at enforce where a
+      // registration is outstanding; this route sees only the mode that binds.
+      windowPolicy: await windowPolicyForProspect({ country: target.country, province: target.province }, { now }),
     });
 
     if (readiness.decision !== CALL_ALLOWED) {

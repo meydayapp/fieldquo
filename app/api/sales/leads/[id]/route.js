@@ -21,7 +21,9 @@ import {
   sanitiseHeaderText,
 } from "@/lib/sales/outreach";
 import { contactOptedOut } from "@/lib/sales/outreachInbound";
-import { leadDialView } from "@/lib/sales/leadDial";
+import { leadCallingContext, leadDialView } from "@/lib/sales/leadDial";
+import { windowPolicyForProspect } from "@/lib/sales/windowOverrides";
+import { publicWindowPolicy } from "@/lib/sales/windowPolicy";
 import { isSalesSmsTimeZone } from "@/lib/sales/smsWindow";
 import { normaliseCountry, normaliseSubdivision } from "@/lib/sales/callingRules";
 import { ownNumbers } from "@/lib/sales/calls/store";
@@ -230,7 +232,10 @@ export async function GET(request, { params }) {
     // screen that worked out for itself whether a lead was callable would be a
     // second opinion, and a second opinion that disagreed with the gate is how
     // a Call button appears on a number nobody may ring.
-    call: leadDialView(lead, { optedOut: phoneOptOut }),
+    call: leadDialView(lead, {
+      optedOut: phoneOptOut,
+      windowPolicy: publicWindowPolicy(await windowPolicyForProspect(leadCallingContext(lead))),
+    }),
     // The picker beside the dial. Same shape the queue sends, so
     // app/components/sales/ContactNumbers.js renders one thing on both screens.
     numbers: await contactNumbersFor(lead, { optedOut: phoneOptOut }),
@@ -371,7 +376,12 @@ export async function PATCH(request, { params }) {
   return NextResponse.json({
     lead,
     linkedCompany: await linkedCompanyFor(rep, lead),
-    call: lead ? leadDialView(lead, { optedOut: phoneOptOut }) : null,
+    call: lead
+      ? leadDialView(lead, {
+          optedOut: phoneOptOut,
+          windowPolicy: publicWindowPolicy(await windowPolicyForProspect(leadCallingContext(lead))),
+        })
+      : null,
     numbers: lead ? await contactNumbersFor(lead, { optedOut: phoneOptOut }) : null,
     serverNow: new Date().toISOString(),
   });

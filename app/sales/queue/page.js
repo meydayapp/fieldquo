@@ -438,7 +438,11 @@ function rowMeta(item, t) {
       : t("app.salesQueue.rowNotResearched");
   let window = "";
   const w = item.window || null;
-  if (w?.decision === CALL_ALLOWED && w.closesAtLocal) {
+  if (w?.decision === CALL_ALLOWED && w.inWindow === false && w.override) {
+    // Callable by the platform console's override, not by the clock — the
+    // row says which mode rather than "open", which it is not.
+    window = t(w.override === "off" ? "app.salesQueue.rowWindowOverrideOff" : "app.salesQueue.rowWindowOverrideWarn");
+  } else if (w?.decision === CALL_ALLOWED && w.closesAtLocal) {
     window = t("app.salesQueue.rowWindowClosesAt", { time: w.closesAtLocal });
   } else if (w?.decision === CALL_ALLOWED) {
     window = t("app.salesQueue.rowWindowOpen");
@@ -832,7 +836,15 @@ function WindowTag({ compliance, row }) {
   if (!compliance) return null;
   const w = row?.window || null;
   const parts = [];
-  if (compliance.decision === CALL_ALLOWED) {
+  if (compliance.decision === CALL_ALLOWED && compliance.inWindow === false && compliance.windowOverride) {
+    parts.push(
+      t(
+        compliance.windowOverride.mode === "off"
+          ? "app.salesQueue.rowWindowOverrideOff"
+          : "app.salesQueue.rowWindowOverrideWarn",
+      ),
+    );
+  } else if (compliance.decision === CALL_ALLOWED) {
     parts.push(w?.closesAtLocal ? t("app.salesQueue.rowWindowClosesAt", { time: w.closesAtLocal }) : t("app.salesQueue.rowWindowOpen"));
   } else if (w?.opensAtLocal) {
     parts.push(t("app.salesQueue.rowWindowOpensAt", { time: w.opensAtLocal }));
@@ -2225,6 +2237,10 @@ function QueueConsole() {
       // every re-ask so the cap stays enforced between reloads rather than
       // falling back to the "count unavailable" caveat every thirty seconds.
       attemptsLast24h: Number.isFinite(ctx.attemptsLast24h) ? ctx.attemptsLast24h : null,
+      // The platform console's override, resolved on the server (the
+      // registration hold included) and re-passed as-is. This screen holds
+      // no override rows and resolves nothing; absent, it is enforce.
+      windowPolicy: ctx.windowPolicy || null,
         // The reader's language, for the ONE string this produces that is a
         // formatted instant rather than a sentence — "It opens at 08:00 on Tue
         // 8 Sep". Everything else travels as a catalogue key; a date cannot,

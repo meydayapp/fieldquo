@@ -55,6 +55,7 @@ model PlatformAdmin {
 
   auditLogs        PlatformAuditLog[]
   telemarketerRegistrations SalesTelemarketerRegistration[]
+  jurisdictionOverrides     SalesJurisdictionOverride[]
   /// Numbers this admin calls and texts from.
   phoneNumbers              PlatformSmsNumber[]
   demoAvailability DemoHostAvailability[]
@@ -10749,6 +10750,56 @@ model SalesTelemarketerRegistration {
   updatedAt DateTime @updatedAt
 
   @@index([revokedAt, expiresAt])
+}
+
+/// How hard the sales dialler applies one jurisdiction's calling window and
+/// per-24h cap — a platform decision laid over lib/sales/callingRules.js.
+///
+/// The law file says what each jurisdiction's window IS; this row says whether
+/// FieldQuo's own screens REFUSE on it ("enforce", the default and the
+/// behaviour with no row at all), let the call through beside a visible
+/// warning ("warn"), or do not apply it ("off"). Read through ONE function,
+/// lib/sales/windowPolicy.js's effectiveWindowPolicy(), by the queue route,
+/// the dial refusal and the texting window alike.
+///
+/// What a row can NEVER do is relax a registration gate. A jurisdiction that
+/// requires a telemarketer registration FieldQuo has not recorded stays at
+/// "enforce" whatever this row says — the owner's instruction was "don't feed
+/// it to the companies until I check off the registration" — and the resolver
+/// reports the row as held rather than applied so the console can say so.
+///
+/// Never deleted. A row set back to "enforce" is the default, and the row
+/// stays as the record of who relaxed what and when.
+model SalesJurisdictionOverride {
+  id String @id @default(cuid())
+
+  /// ISO country, "CA" or "US", spelled the way callingRules.js normalises it.
+  country String
+  /// The state or province code — "OK", "FL" — or the empty string for a
+  /// jurisdiction the law file keys at country level (Canada is one federal
+  /// row). Empty rather than null so the unique index can hold it: Postgres
+  /// treats two nulls as distinct, and two live rows for Canada is not a
+  /// state anybody can reason about.
+  region String @default("")
+
+  /// "enforce" | "warn" | "off". A string rather than an enum so the resolver
+  /// can treat an unrecognised value as "enforce" — the safe direction — rather
+  /// than the write failing at the database after the screen accepted it.
+  mode String @default("enforce")
+
+  /// Why. Shown on the rep's warning line and the console row, so a relaxed
+  /// window carries its reason with it.
+  note String?
+
+  /// Who set it last. Restrict rather than Cascade — an admin leaving must
+  /// not delete the record that Florida's cap was switched off.
+  setById String
+  setBy   PlatformAdmin @relation(fields: [setById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([country, region])
 }
 
 model SalesTerritory {

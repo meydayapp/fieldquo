@@ -972,7 +972,10 @@ function SalesMessagesScreen() {
         system.push({ id: `checkin:${c.id}`, kind: "system", direction: "in", at: c.sentAt, body: t("app.salesText.sysCheckInSent") });
       }
     }
-    if (smsWindow?.known && !smsWindow.open && !suppressed) {
+    // Not when the console has relaxed the window: the header tag says
+    // "warn only" or "off" instead, and a system line saying "closed" under
+    // a composer that sends would be the two disagreeing.
+    if (smsWindow?.known && !smsWindow.open && !smsWindow.override && !suppressed) {
       // Undated on purpose: it is a statement about now, not an event at a
       // time, so it sorts last and gets no day heading.
       system.push({
@@ -1105,6 +1108,7 @@ function SalesMessagesScreen() {
 
   // ── The composer's hint line: the server's blocker, or the draft ────────
   const softBlocker = blockers.find((b) => b.code !== "suppressed") || null;
+  const softWarning = (thread?.warnings || [])[0] || null;
   let hint = null;
   if (pendingDraft) {
     hint = (
@@ -1122,6 +1126,18 @@ function SalesMessagesScreen() {
         {/* The server's sentence: what is in the way and what fixes it. */}
         <span>
           {softBlocker.title} {softBlocker.fix}
+        </span>
+      </span>
+    );
+  } else if (softWarning) {
+    // A Send that works, with the console's override said beside it — the
+    // texting window is warn-only or off for this state. Same amber as a
+    // blocker so it is read; the composer stays enabled because it is one.
+    hint = (
+      <span className="inline-flex items-start gap-1.5 text-amber-900 dark:text-amber-200" data-window-override={softWarning.code}>
+        <AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+        <span>
+          {softWarning.title} {softWarning.fix}
         </span>
       </span>
     );
@@ -1238,7 +1254,16 @@ function SalesMessagesScreen() {
                 >
                   {smsWindow.open
                     ? t("app.salesText.windowOpenUntil", { time: zoneTime(smsWindow.until, smsWindow.timeZone) })
-                    : t("app.salesText.windowClosedOpens", { time: zoneTime(smsWindow.until, smsWindow.timeZone) })}
+                    : smsWindow.override
+                      ? // Shut by the clock, open by the platform console's
+                        // override — said as both, never as "open".
+                        t(
+                          smsWindow.override === "off"
+                            ? "app.salesText.windowClosedOverrideOff"
+                            : "app.salesText.windowClosedOverrideWarn",
+                          { time: zoneTime(smsWindow.until, smsWindow.timeZone) },
+                        )
+                      : t("app.salesText.windowClosedOpens", { time: zoneTime(smsWindow.until, smsWindow.timeZone) })}
                 </span>
               ) : thread ? (
                 <span className={`${TAG} bg-muted text-muted-foreground`} data-tag="window">

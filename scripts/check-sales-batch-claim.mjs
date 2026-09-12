@@ -751,7 +751,7 @@ async function run() {
     ok("…the log says 'closed', a reason that does not de-prioritise", dbHeld.state.claims.find((c) => c.prospectId === "dead1").releaseReason === "closed" && RELEASE_REASONS.includes("closed") && !DEPRIORITISING_RELEASES.includes("closed"));
 
     const route = decomment(read("app/api/sales/queue/route.js"));
-    ok("the route reads `auto` as a boolean, releases the dead rows first, then claims", /const auto = body\.auto === true;/.test(route) && route.indexOf("releaseClosedUntouched({ db, rep, shiftEnd, now })") < route.indexOf("claimBatch({ db, rep, tradeKey, timeZone, now })") && /result\.releasedClosed = releasedClosed;/.test(route));
+    ok("the route reads `auto` as a boolean, releases the dead rows first, then claims", /const auto = body\.auto === true;/.test(route) && route.indexOf("releaseClosedUntouched({ db, rep, shiftEnd, now, policyContext })") < route.indexOf("claimBatch({ db, rep, tradeKey, timeZone, now, policyContext })") && /result\.releasedClosed = releasedClosed;/.test(route));
     ok("…and the batch tells the console the threshold and the interval", /topUpBelow: QUEUE_TOP_UP_BELOW,/.test(route) && /topUpIntervalMs: QUEUE_TOP_UP_MIN_INTERVAL_MS,/.test(route));
     const page = decomment(read("app/sales/queue/page.js"));
     ok("the console tops up under the threshold, at most once an interval, posting only the flag", /act\("claim_batch", \{ auto: true \}\)/.test(page) && /if \(openHeld >= topUpBelow\) return;/.test(page) && /if \(nowMs - lastTopUp\.current < topUpInterval\) return;/.test(page));
@@ -851,7 +851,7 @@ section("6. Source: the route, the gate, the cron, the screen, the sticky fix");
   const vercel = JSON.parse(read("vercel.json"));
 
   ok("the route offers claim_batch and release_rest", /"claim_batch"/.test(route) && /"release_rest"/.test(route));
-  ok("…and claim_batch delegates to claimBatch with the trade and the browser's zone — nothing else", /claimBatch\(\{ db, rep, tradeKey, timeZone, now \}\)/.test(route));
+  ok("…and claim_batch delegates to claimBatch with the trade and the browser's zone — nothing else", /claimBatch\(\{ db, rep, tradeKey, timeZone, now, policyContext \}\)/.test(route));
   ok("the trade filter is inside the updateMany's WHERE inside the transaction", /\$transaction\(async \(tx\) => \{[\s\S]*?tx\.prospect\.updateMany\(\{\s*where: \{ id: \{ in: picked\.ids \}, \.\.\.claimCandidateWhere\(\{ tradeKey, now: at, rep \}\) \}/.test(lib));
   ok("winners are read back by rep AND instant, so a row already held from an earlier claim is not counted twice", /where: \{ id: \{ in: picked\.ids \}, assignedRepId: rep\.id, assignedAt: at \}/.test(lib));
   ok("the single claim is logged and counted against the same cap", /logSingleClaim\(\{ db, rep, prospectId: candidate\.id, timeZone, now: at \}\)/.test(route) && /takenToday >= QUEUE_DAILY_CLAIM_CAP/.test(route));

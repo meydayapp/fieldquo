@@ -395,7 +395,15 @@ export async function GET(request) {
     // ── The chat client's context ─────────────────────────────────────
     readState,
     canned: cannedFor({ rep, lead, origin: getAppOrigin(request) }),
-    window: salesSmsWindowState(now, timeZone),
+    // The override rode in on the readiness (salesSmsStatus resolved it);
+    // the tag reads the same mode so header and composer cannot disagree.
+    window: salesSmsWindowState(now, timeZone, {
+      windowPolicy: readiness?.windowOverride ? { mode: readiness.windowOverride } : null,
+    }),
+    // Caveats beside a Send that works — today only the console's
+    // calling-window override produces one. Null when the readiness could
+    // not be read, the same as `blockers`.
+    warnings: readiness ? readiness.warnings : null,
     // Null when the table could not be read; [] when there were none.
     calls: calls
       ? calls.map((c) => ({

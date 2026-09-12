@@ -76,6 +76,8 @@ import { requiredLanguageFor } from "@/lib/sales/leadLanguage";
 // undefined on the other. The call site tests for the function before calling.
 import * as pipelineProgress from "@/lib/sales/pipeline/progress";
 import { attemptsLast24h, ownNumbers } from "@/lib/sales/calls/store";
+import { loadWindowPolicyContext } from "@/lib/sales/windowOverrides";
+import { publicWindowPolicy, windowPolicyFor } from "@/lib/sales/windowPolicy";
 import { CHANNEL_TEXT, CHANNEL_VOICE } from "@/lib/sales/contact/numbers";
 import { composeBrief } from "@/lib/sales/intel/brief";
 import { openCheckIns } from "@/lib/sales/checkin/store";
@@ -148,6 +150,10 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
   // its language column is a stated preference that may be null.
   const zone = repZoneFrom(timeZone, now);
   const lang = repLanguageOrNull(language) || "en";
+  // The platform console's calling-window overrides, read once for the whole
+  // response so the list grouping, the current row's decision and what the
+  // browser re-asks with all see the same rows. lib/sales/windowPolicy.js.
+  const policyContext = await loadWindowPolicyContext({ now });
 
   // Everything the rep holds, whatever trade the picker is on. The list used
   // to be narrowed to the picked trade, so a rep who claimed painters and
@@ -220,7 +226,7 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
   const shiftEnd = shiftEndFrom({ shiftStart, now });
   const windows = groupByWindow(
     inClaimOrder.map((p) => ({ id: p.id, country: p.country, province: p.province, timeZone: p.leads?.[0]?.timeZone || null })),
-    { repZone: zone, shiftEnd, now, language: lang },
+    { repZone: zone, shiftEnd, now, language: lang, policyContext },
   );
   const byId = new Map(inClaimOrder.map((p) => [p.id, p]));
   const claimed = windows.order.map((id) => byId.get(id)).filter(Boolean);
@@ -498,12 +504,19 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
           timeZone: full.leads[0]?.timeZone || null,
           now,
           attemptsLast24h: attempts24h,
+          windowPolicy: windowPolicyFor(full, policyContext),
         }),
         callingContext: {
           country: full.country,
           province: full.province,
           timeZone: full.leads[0]?.timeZone || null,
           attemptsLast24h: attempts24h,
+          // The console's override for this state, RESOLVED here — the
+          // registration hold included — and re-passed by the screen on
+          // every re-ask. The browser never resolves it itself: it holds no
+          // override rows and no certificate list, and a client-side copy of
+          // the hold is the second copy this feature refuses to have.
+          windowPolicy: publicWindowPolicy(windowPolicyFor(full, policyContext)),
         },
         // ── What the console's Company card reads, beyond prospectView ──
         brief: (() => {
@@ -660,14 +673,17 @@ export async function POST(request) {
     // The daily cap is counted from the claim log inside claimBatch, so a
     // top-up at the cap is refused with daily_cap like any press.
     const auto = body.auto === true;
+    // Read once for the release and the claim, so both judge a row by the
+    // same override rows — see lib/sales/windowOverrides.js.
+    const policyContext = await loadWindowPolicyContext({ now });
     let releasedClosed = 0;
     if (auto) {
       const zone = repZoneFrom(timeZone, now);
       const shiftStart = await shiftStartFor({ db, salesRepId: rep.id, timeZone: zone, now });
       const shiftEnd = shiftEndFrom({ shiftStart, now });
-      releasedClosed = (await releaseClosedUntouched({ db, rep, shiftEnd, now })).released;
+      releasedClosed = (await releaseClosedUntouched({ db, rep, shiftEnd, now, policyContext })).released;
     }
-    const result = await claimBatch({ db, rep, tradeKey, timeZone, now });
+    const result = await claimBatch({ db, rep, tradeKey, timeZone, now, policyContext });
     result.auto = auto;
     result.releasedClosed = releasedClosed;
     if (result.nextOpensAt) {

@@ -122,6 +122,7 @@ import {
   HandCoins,
   Trash2,
   Inbox,
+  Clock3,
 } from "lucide-react";
 
 /** How often the console re-reads its two counts while the tab is visible. */
@@ -255,6 +256,12 @@ const GROUPS = [
       // one trade and one target, and the single-trade queue it produces is
       // the whole reason it is a campaign rather than a filter.
       { label: "Discovery campaigns", href: "/platform/sales/campaigns", icon: Radar },
+      // How hard each state's calling window and 24-hour cap are applied on
+      // the rep's screens — enforce, warn only, off — laid over the law in
+      // lib/sales/callingRules.js. Under campaigns because the registration
+      // list lives there and this control is the one thing that list gates:
+      // a registration outstanding holds every override at enforce.
+      { label: "Calling windows", href: "/platform/sales/windows", icon: Clock3 },
       // The rows discovery could not finish: contractors with no trade,
       // rows the classifier could not place, possible duplicates — every
       // campaign in one list, with a trade picker. Directly under campaigns

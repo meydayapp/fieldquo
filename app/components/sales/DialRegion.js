@@ -109,7 +109,7 @@ const TONE_CLASS = {
  * Exported because the queue prints caveats of its own alongside these and a
  * second box shape beside this one would read as a different kind of statement.
  */
-export function Notice({ tone, icon: Icon, title, fix, legalText = false }) {
+export function Notice({ tone, icon: Icon, title, fix, legalText = false, note = null }) {
   const { t } = useTranslation();
   return (
     <div className={`rounded-lg border p-3 text-sm ${TONE_CLASS[tone] || TONE_CLASS.unknown}`}>
@@ -118,6 +118,14 @@ export function Notice({ tone, icon: Icon, title, fix, legalText = false }) {
         <div className="min-w-0">
           <p className="font-semibold break-words">{title}</p>
           {fix ? <p className="break-words">{fix}</p> : null}
+          {/* The superadmin's own words from the platform console's
+              calling-window override — free text, in whatever language it
+              was typed, labelled as such rather than passed off as ours. */}
+          {note ? (
+            <p className="mt-1 text-xs opacity-80 break-words">
+              {t("app.salesDial.override.noteLabel")} {note}
+            </p>
+          ) : null}
           {/* ── Why one body here stays English in every language ──────────
               `legalText` marks a body that came out of the jurisdiction TABLE
               rather than out of our own prose: a statute number and the words
@@ -188,7 +196,20 @@ function WindowLines({ compliance }) {
       {/* nextOpening() answers "now" while the window is open, so printing
           "It opens at 19:30" beside a live call button read as a closed
           window to the owner. Open is said as open. */}
-      {compliance.decision === "allowed" ? (
+      {compliance.decision === "allowed" && compliance.inWindow === false ? (
+        // Allowed by the platform console's override, not by the clock.
+        // "Open now" here would be the dead control wearing a live coat:
+        // the window is shut and the button is there anyway, and the line
+        // says exactly that in one sentence per mode.
+        <p className="break-words font-semibold">
+          {t(
+            compliance.windowOverride?.mode === "off"
+              ? "app.salesDial.window.overrideOff"
+              : "app.salesDial.window.overrideWarn",
+            { opensAt: compliance.opensAtText || "" },
+          )}
+        </p>
+      ) : compliance.decision === "allowed" ? (
         <p className="break-words">{t("app.salesDial.window.openNow")}</p>
       ) : compliance.opensAtText ? (
         <p className="break-words">
@@ -426,6 +447,7 @@ export default function DialRegion({
           title={say(t, u.titleKey, u.params, u.title)}
           fix={say(t, u.fixKey, u.params, u.fix)}
           legalText={Boolean(u.legalText)}
+          note={u.note || null}
         />
       ))}
       {(compliance?.warnings || []).map((w) => (
@@ -436,6 +458,7 @@ export default function DialRegion({
           title={say(t, w.titleKey, w.params, w.title)}
           fix={say(t, w.fixKey, w.params, w.fix)}
           legalText={Boolean(w.legalText)}
+          note={w.note || null}
         />
       ))}
 

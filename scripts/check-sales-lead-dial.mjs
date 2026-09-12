@@ -510,7 +510,7 @@ section("8. The API returns the dial view on read AND on write");
   ok("GET carries the server's clock", /serverNow:/.test(gets));
   ok(
     "PATCH returns the RECOMPUTED dial view, so saving a location clears the refusal",
-    /call: lead \? leadDialView\(/.test(patches),
+    /call: lead\s*\? leadDialView\(/.test(patches),
   );
   ok(
     "the location is normalised through the calling rules' own functions",
