@@ -133,13 +133,70 @@ function App() {
       const inflight = window.__inflight || 0;
       if ((inflight === 0 && quiet > 700) || performance.now() - started > 7000) {
         clearInterval(tick);
-        document.documentElement.setAttribute("data-harness-done", "1");
+        // The rail is taller than the frame: bring the row being
+        // photographed into view, the way a person who just clicked it
+        // would have it. The sidebar's own scroll container, not the page.
+        const active = document.querySelector(`aside a[href="${screen.href}"], nav a[href="${screen.href}"]`);
+        active?.scrollIntoView({ block: "center" });
+        window.scrollTo(0, 0);
+        runScene(screen.scene)
+          .catch((err) => document.documentElement.setAttribute("data-scene-error", String(err?.message || err)))
+          .then(() => document.documentElement.setAttribute("data-harness-done", "1"));
       }
     }, 100);
     return () => clearInterval(tick);
   }, []);
   const body = screen.settings ? <SettingsShell><Page /></SettingsShell> : <Page />;
   return <Shell>{body}</Shell>;
+}
+
+// ── Scenes: the real controls, clicked in order ───────────────────────────
+//
+// A few figures are a page in a STATE — the access editor open on a member,
+// say — and the state is reached by operating the shipped controls exactly
+// as a hand would, never by rendering the inner component on its own.
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const until = async (sel, tries = 50) => {
+  for (let i = 0; i < tries; i++) {
+    const el = document.querySelector(sel);
+    if (el) return el;
+    await wait(100);
+  }
+  throw new Error(`scene: never found ${sel}`);
+};
+const setSelect = (el, value) => {
+  Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, "value").set.call(el, value);
+  el.dispatchEvent(new Event("change", { bubbles: true }));
+};
+async function runScene(scene) {
+  if (!scene) return;
+  if (scene === "access-editor") {
+    // Manage Team: the access dropdown on Samuel Roy (an Estimator) set to
+    // "Custom…", which opens the grid — app/app/settings/team/page.js
+    // applyChoice → openAccess.
+    const selects = [...document.querySelectorAll("main select")];
+    const row = selects.find((sel) => [...sel.options].some((o) => o.value === "__custom__") && sel.closest("li, tr, div")?.textContent?.includes("Samuel Roy"));
+    if (!row) throw new Error("scene: no access select for Samuel Roy");
+    setSelect(row, "__custom__");
+    await until("main input[type=checkbox], main button");
+    await wait(400);
+    return;
+  }
+  if (scene === "messages-open") {
+    // The inbox opens a thread from ?conversation=, which the harness's
+    // navigation stub does not carry; click the first row, as a person does.
+    (await until("[data-room-list] [data-room-id]")).click();
+    await until("[data-chat-scroller]");
+    await wait(500);
+    return;
+  }
+  if (scene === "chat-open") {
+    (await until('[data-room-id="j1"]')).click();
+    await until("[data-chat-scroller]");
+    await wait(500);
+    return;
+  }
+  throw new Error(`scene: unknown "${scene}"`);
 }
 
 window.addEventListener("error", (e) => {

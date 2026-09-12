@@ -16,13 +16,19 @@ import { ROUTES_MONEY } from "./routes-money.js";
 import { ROUTES_GROW } from "./routes-grow.js";
 import { ROUTES_SETTINGS_A } from "./routes-settings-a.js";
 import { ROUTES_SETTINGS_B } from "./routes-settings-b.js";
+import { ROUTES_CHAT } from "./routes-chat.js";
 
+// Settings B before Grow: both answer /api/settings/document-templates,
+// and only the settings file's list carries the PDF layouts and the
+// isDefault flags the Email/PDF Templates pages draw; it also includes the
+// two rows Marketing reads, so the order costs Grow nothing.
 export const ROUTES = [
   ...ROUTES_WORK,
   ...ROUTES_PEOPLE,
   ...ROUTES_MONEY,
+  ...ROUTES_SETTINGS_B,
   ...ROUTES_GROW,
   ...ROUTES_SETTINGS_A,
-  ...ROUTES_SETTINGS_B,
+  ...ROUTES_CHAT,
   ...ROUTES_CORE,
 ];

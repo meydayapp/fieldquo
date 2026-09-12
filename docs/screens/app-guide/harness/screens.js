@@ -27,6 +27,9 @@ export const SCREENS = [
   // People
   { slug: "clients", nav: "app.nav.clients", href: "/app/clients", page: "app/app/clients/page.js" },
   { slug: "client-equipment", nav: "app.nav.clientEquipment", href: "/app/equipment", page: "app/app/equipment/page.js" },
+  // The crew chat opens on the room list; the scene opens the job room so
+  // the figure shows a thread, a mention and the composer.
+  { slug: "chat", nav: "app.nav.chat", href: "/app/chat", page: "app/app/chat/page.js", scene: "chat-open" },
   { slug: "team", nav: "app.nav.team", href: "/app/settings/team", page: "app/app/settings/team/page.js", settings: true },
   { slug: "subcontractors", nav: "app.nav.subcontractors", href: "/app/subcontractors", page: "app/app/subcontractors/page.js" },
   { slug: "scheduler", nav: "app.nav.scheduler", href: "/app/scheduler", page: "app/app/scheduler/page.js" },
@@ -49,7 +52,7 @@ export const SCREENS = [
   { slug: "funnels", nav: "app.nav.funnels", href: "/app/funnels", page: "app/app/funnels/page.js" },
   { slug: "receptionist", nav: "app.nav.receptionist", href: "/app/receptionist", page: "app/app/receptionist/page.js" },
   { slug: "crew-inbox", nav: "app.nav.crewInbox", href: "/app/crew-inbox", page: "app/app/crew-inbox/page.js" },
-  { slug: "messages", nav: "app.nav.messages", href: "/app/messages", page: "app/app/messages/page.js" },
+  { slug: "messages", nav: "app.nav.messages", href: "/app/messages", page: "app/app/messages/page.js", scene: "messages-open" },
   { slug: "refer", nav: "app.nav.refer", href: "/app/settings/refer", page: "app/app/settings/refer/page.js", settings: true },
   // Bottom of the rail
   { slug: "help", nav: "app.nav.help", href: "/app/help", page: "app/app/help/page.js" },
@@ -109,4 +112,9 @@ export const SCREENS = [
   { slug: "settings-voice", nav: "app.settings.voice", href: "/app/settings/voice", page: "app/app/settings/voice/page.js", settings: true },
   { slug: "settings-ai-employee", nav: "app.settings.aiEmployee", href: "/app/settings/ai-employee", page: "app/app/settings/ai-employee/page.js", settings: true },
   { slug: "settings-reviews", nav: "app.settings.reviews", href: "/app/settings/reviews", page: "app/app/settings/reviews/page.js", settings: true },
+
+  // ── Figures for the "Roles and access" chapter (not sidebar rows) ──────
+  // Manage Team with the Custom access editor open on one member; reached
+  // by operating the page's own access dropdown (guide.jsx runScene).
+  { slug: "access-editor", nav: "app.settings.team", href: "/app/settings/team", page: "app/app/settings/team/page.js", settings: true, scene: "access-editor", chapter: "roles" },
 ];

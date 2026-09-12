@@ -356,3 +356,422 @@ export const CONSOLE_SECTIONS = [
     ],
   },
 ];
+
+// ══ Chaque écran ══════════════════════════════════════════════════════════
+//
+// Une entrée par ligne des deux menus latéraux, indexée par le slug de
+// docs/screens/app-guide/harness/screens.js. Le TITRE n'est pas ici : le
+// générateur imprime le libellé du menu tel que app/i18n/appMessages.js le
+// donne en français, pour que le titre du guide soit le mot à l'écran. La
+// figure est une capture du vrai écran. Deux ou trois phrases chacune : ce
+// que l'écran montre, ce que l'entrepreneur y fait. Rien ici que la figure
+// ne montre pas.
+export const SCREENS_CHAPTER = {
+  heading: "Chaque écran, dans l'ordre du menu",
+  intro: [
+    "Le back-office, c'est un seul menu latéral. Ce chapitre le parcourt de haut en bas — Accueil, FieldQuo IA, puis les cinq groupes Travail, Personnel, Finances, Analyses et Croissance, puis Aide, Forfait et Paramètres — et parcourt ensuite le menu Paramètres de la même façon. Chaque entrée est le vrai écran, capturé depuis le compte d'un propriétaire connecté le jour où ce guide a été généré — et, quand l'écran a un bouton Nouveau ou Ajouter, une deuxième figure montre ce qui s'ouvre quand on appuie dessus (capturée en anglais).",
+    "Servez-vous-en de deux façons. En démo, c'est l'itinéraire : ouvrez les écrans dans cet ordre et vous avez montré tout le produit en vingt minutes. En appel, c'est la réponse à « où est-ce que je fais X ? » — trouvez la ligne, lisez la phrase, dites les mots qui sont à l'écran.",
+    "Un écran peut manquer dans le menu d'un client. Ce n'est pas une panne : le menu masque les lignes que le niveau d'accès de la personne connectée n'autorise pas (voir « Rôles et accès »), et Tarifs des armoires et Coût des matériaux n'apparaissent que pour les métiers qui tarifent ainsi.",
+  ],
+  railHeading: "Le menu principal",
+  settingsHeading: "Le menu Paramètres",
+  createCaption: "{title} — ce qui s'ouvre quand on appuie sur « {button} »",
+  items: {
+    // ── Accueil, IA ───────────────────────────────────────────────────────
+    home: { body: [
+      "« Tableau de bord » — ce qui se passe dans l'entreprise. Il s'ouvre sur « En attente de vous » : la facture en retard avec un bouton « Relancer le paiement », les soumissions dont le prix attend d'être approuvé, et le prochain rendez-vous que la réceptionniste a réservé. Puis « Revenus ce mois-ci » avec une courbe de l'argent reçu, et quatre tuiles — « Soumissions envoyées ce mois-ci », « Taux de conversion », « Argent dû », « Visites à venir ».",
+      "« Le détail » en dessous : le graphique mensuel en barres (3, 6 ou 12 mois), l'échelle d'âge des comptes clients avec chaque facture due et son contact, la barre de rythme de l'objectif de revenus, « Soumissions récentes » et « Prochains rendez-vous ». Une nouvelle soumission, « Voir les clients » et « Planifier un rendez-vous » sont les trois boutons.",
+    ] },
+    ai: { body: [
+      "« FieldQuo IA » — poser des questions sur ses propres soumissions, factures, clients et coûts de matériaux ; il cherche les vrais chiffres au lieu de deviner. Une conversation vide avec des suggestions « Essayez de demander » (quels clients n'ont pas encore été facturés, la valeur moyenne des soumissions du mois) et une boîte pour poser sa question.",
+      "Il ne répond qu'à propos des données de cette entreprise et refuse les demandes générales — c'est l'argument honnête, et la raison pour laquelle on peut lui confier les chiffres d'un entrepreneur.",
+    ] },
+    // ── Travail ───────────────────────────────────────────────────────────
+    requests: { body: [
+      "« Prospects » — les demandes venues de la page de réservation et des formulaires. Un tableau à quatre colonnes — « Nouveau », « Contacté », « Gagné », « Perdu » — où les cartes se glissent d'une colonne à l'autre. Chaque carte porte un score chaud / tiède / froid, des puces de délai et de budget, la catégorie, le nombre de photos, le numéro de soumission lié et le responsable.",
+      "Des filtres par température, un tri « Plus chauds », une recherche et un bouton « Importer ». C'est ici qu'atterrissent le formulaire du site, le lien de réservation, la réceptionniste et une recommandation.",
+    ] },
+    quotes: { body: [
+      "« Soumissions » — des puces de statut avec leur compte (toutes, « Brouillon », « Envoyée », « Acceptée », « Refusée »), une recherche, et la liste : numéro, statut, client, montant, âge. Une soumission envoyée sans réponse remonte en tête avec sa date de validité ; une estimation instantanée porte « À réviser ».",
+      "« Nouvelle soumission » ouvre l'éditeur. La soumission garde la langue dans laquelle elle a été créée ; le client la voit en page web et en PDF avec l'image de marque de l'entreprise.",
+    ] },
+    "estimate-reviews": { body: [
+      "« Révision des estimations » — les estimations instantanées du site web arrivent ici d'abord ; on confirme le prix, en l'ajustant si la propriété l'exige, avant que la soumission puisse partir. Chaque carte nomme le client et la source (« Saisi par le client » ou « Tiré d'un appel téléphonique », avec un bouton « Écouter »), le responsable, la taille et le matériau, la fourchette que le client a vue et son budget déclaré, et le détail des lignes.",
+      "Un bouton « Approuver » au montant proposé, et « Ouvrir la soumission ». Rien de ce qu'un algorithme a chiffré n'atteint un client sans qu'une personne appuie ici.",
+    ] },
+    jobs: { body: [
+      "« Chantiers » — le travail planifié et en cours. Des puces « À planifier / Planifié / En cours / Terminé », un interrupteur « Archivés », une recherche, et la liste avec titre, badge de statut, client et nombre de visites.",
+      "« Nouveau chantier » en crée un à la main ; la plupart naissent d'une soumission acceptée. « Travaux passés » importe l'historique d'un ancien système.",
+    ] },
+    invoices: { body: [
+      "« Factures » — trois tuiles — « Impayé » (avec la part en retard), « Payée », « Total facturé » — puis la liste : numéro, statut (« Envoyée », « Payée », « En retard »), client, échéance, le nombre de jours de retard en rouge, et le solde ou « Payée en totalité ».",
+      "« Nouvelle facture » en émet une ; une facture d'acompte se crée d'habitude depuis le calendrier de paiement de la soumission. Les factures reflètent les soumissions — mêmes sections, même image de marque — et se paient en ligne par le compte Stripe de l'entreprise.",
+    ] },
+    plans: { body: [
+      "« Forfaits de service » — du travail récurrent vendu en forfait, facturé à la cadence choisie. Chaque forfait : nom, « Actif », client, cadence (« Une fois par an », « Tous les trois mois »), prix par visite, mode de perception, et soit le total du terme avec sa remise, soit « Jusqu’à annulation ».",
+      "« Nouveau forfait » en vend un. Un forfait est une consigne permanente de créer une visite et une facture — c'est pourquoi la ligne suit Factures.",
+    ] },
+    calendar: { body: [
+      "« Rendez-vous » — les visites en personne et les affectations sur site. Des puces « Planifié / Superviseur requis / Terminé » avec leur compte, une grille mensuelle (semaine du lundi, aujourd'hui entouré, les entrées sur leur jour), et en dessous les lignes : client, statut, un badge « Visite de chantier », heure, téléphone et adresse, responsable, « Ouvrir le contrat ».",
+      "« Nouveau rendez-vous » en réserve un. Les visites créées depuis un chantier, les réservations de la page publique et les rappels réservés par la réceptionniste apparaissent tous ici.",
+    ] },
+    tasks: { body: [
+      "« Tâches » — des rappels internes pour l'équipe, distincts des chantiers qui sont du travail planifié chez un client. Le compte des tâches ouvertes ; les en retard d'abord, puis par priorité ; chaque ligne avec une case, une puce de priorité, l'échéance, le responsable, le client et un lien vers son chantier ; une tâche qui exige des photos affiche le compte de photos.",
+      "« Nouvelle tâche » en ajoute une ; « Afficher les terminées » révèle celles qui sont faites.",
+    ] },
+    chat: { body: [
+      "« Clavardage » — l'entreprise qui se parle, sur le même kit de clavardage que Messages. Le salon général est toute l'équipe ; chaque chantier du calendrier a son propre salon pour l'équipe qui y est réservée et le bureau ; un message direct est entre deux personnes. Les salons se groupent en « Non lus », « Entreprise », chantiers, « Messages directs » et « Travaux terminés ».",
+      "Dans un salon : le fil avec un séparateur des non-lus, les mentions @ qui avertissent la personne nommée, la liste des membres et le compositeur. « Nouveau message » ouvre un message direct avec n'importe qui de l'équipe.",
+    ] },
+    // ── Équipe ────────────────────────────────────────────────────────────
+    clients: { body: [
+      "Chaque client, en fiche : nom, courriel, téléphone, ville, et un pied de fiche qui compte ses soumissions et ses factures. Une entreprise affiche sa personne-ressource sous le nom de la compagnie.",
+      "« Nouveau client » en ajoute un ; « Importer » charge un CSV depuis l'outil que l'entrepreneur utilisait avant. Ouvrir une fiche donne accès aux soumissions, chantiers, factures et équipements de ce client au même endroit.",
+    ] },
+    "client-equipment": { body: [
+      "« Garanties qui se terminent » — les fournaises, panneaux et armoires que l'entreprise a installés et dont la couverture est terminée ou sur le point de l'être. C'est une liste d'appels, et la page le dit en toutes lettres.",
+      "Un sélecteur de fenêtre (« 30 prochains jours » jusqu'à « 365 prochains jours ») et un décompte — hors garantie, bientôt terminée, sans date — puis une fiche par pièce avec un numéro à composer d'un tap et un bouton « Courriel », pour réserver une visite de renouvellement depuis la fiche.",
+    ] },
+    team: { body: [
+      "« Gérer l'équipe » : d'abord le panneau des postes — 4 / 6 sièges utilisés, 3 / 11 équipiers inclus gratuitement, avec « Ajouter un équipier — gratuit » et « Ajouter un siège » — puis la liste avec le niveau d'accès de chacun en liste déroulante : Manager, Estimator, Dispatcher, Crew ou « Personnalisé… ».",
+      "Changer la liste déroulante reclasse le palier et les permissions de la personne en une étape ; « Ajouter un utilisateur » invite quelqu'un ; une invitation en attente s'affiche « Invité » avec « Annuler l’invitation ». C'est l'écran dont parle le chapitre Rôles.",
+    ] },
+    subcontractors: { body: [
+      "Les entreprises embauchées par chantier — l'électricien, le fabricant de comptoirs — avec le métier, le contact, et si leur assurance ou leur attestation est à jour, bientôt due ou expirée ; celles qui expirent remontent dans un panneau en haut pour que personne ne mette le pied sur le chantier sans couverture.",
+      "Un sélecteur d'année « Payé en » totalise ce que chaque sous-traitant a reçu, et « Liste de fin d'année (CSV) » exporte la liste T5018.",
+    ] },
+    scheduler: { body: [
+      "« Horaire » — la semaine de l'équipe en sept cartes-jours. « Ajouter un quart » place une personne sur un chantier avec des heures et une note (« Charger le camion, livrer les armoires ») ; les quarts restent en brouillon, invisibles pour l'équipe, jusqu'à « Publier la semaine ».",
+      "L'écran du répartiteur : bâtir la semaine, déplacer, publier une fois.",
+    ] },
+    "team-schedule": { body: [
+      "« Horaire de l'équipe » — tout le monde sur une page : une carte par personne avec son palier, une bande lundi–dimanche de disponibilités (« 08:00–17:00 », « — » les jours de congé), un bouton « Modifier les heures », et « 2 prochaines semaines » de ce qui est réservé, par client.",
+      "Le propriétaire voit d'un coup d'œil qui est réservable quand, et corrige les heures de n'importe qui d'ici.",
+    ] },
+    clock: { body: [
+      "« Pointeuse » — le pointage de la personne connectée : l'heure en direct, une pastille « En service », le temps écoulé depuis le pointage, le chantier en cours, et un bouton rouge « Pointer la sortie ». Un sélecteur de chantier bascule l'entrée en cours sur un autre chantier.",
+      "En dessous, le bloc du jour totalise les heures de la journée et liste chaque entrée. C'est ce que l'équipe ouvre sur son téléphone ; le bureau révise le résultat dans Feuilles de temps.",
+    ] },
+    timesheets: { body: [
+      "« Feuilles de temps » — une ligne par pointage : l'équipe d'aujourd'hui en cours avec une puce « sur place », les lignes de la semaine dernière avec les heures et un bouton « Approuver », les plus anciennes approuvées. Un pointage pris loin du chantier est signalé en ambre avec la distance.",
+      "Un gestionnaire approuve les heures ici avant qu'elles n'entrent dans une paie ; « Ajouter une entrée » enregistre à la main un pointage oublié.",
+    ] },
+    "time-off": { body: [
+      "« Congés » — des cartes de solde (Vacances, Jours de maladie, Journée personnelle) avec l'accumulé et le pris, la liste de vos demandes avec « Demander un congé », et un bouton pour retirer une demande en attente.",
+      "L'onglet « Équipe », pour un gestionnaire, liste les demandes en attente avec « Approuver » et « Refuser », qui est en congé bientôt, et les soldes de tout le monde.",
+    ] },
+    safety: { body: [
+      "« Sécurité » — blessures et quasi-accidents. Un bouton « Signaler », des filtres ouverts / révisés / fermés, et une fiche par incident avec son type (quasi-accident, dommage matériel), si le travail a été arrêté, où, qui l'a signalé et son statut.",
+      "Chaque fiche a un volet « Suivi » où un gestionnaire fixe le statut et note ce qui a été fait. L'équipe peut signaler ; seuls les gestionnaires font le suivi.",
+    ] },
+    // ── Croissance ────────────────────────────────────────────────────────
+    marketing: { body: [
+      "« Marketing » — une carte par campagne avec son statut (active, brouillon), son type (distribution de dépliants, Meta / publicités payantes, envoi de courriels), sa progression (une tournée de dépliants affiche 26/40 arrêts et 9 rencontrés ; une publicité affiche son budget) et son responsable.",
+      "« Nouvelle campagne » en démarre une ; « Abonnés » et « Dépenses marketing » sont à côté. Une campagne de dépliants se travaille arrêt par arrêt depuis le téléphone.",
+    ] },
+    "marketing-designer": { body: [
+      "« Créateur marketing » — concevoir une publicité une fois et l'exporter dans tous les formats que demandent les réseaux sociaux (Instagram, TikTok, Facebook et YouTube) sans refaire la mise en page à la main.",
+      "Les designs sont listés sous leur campagne avec approuvé / non approuvé, des puces pour les cinq formats (publication Instagram, story Instagram, TikTok, fil Facebook, vignette YouTube) et le nombre de formats prêts. « Créer une publication à partir d'un chantier » transforme les photos avant-après d'un chantier en publication ; « Nouveau visuel » ouvre une toile vide.",
+    ] },
+    funnels: { body: [
+      "« Entonnoirs » — des entonnoirs de prospects pensés pour le mobile, en quelques taps, pour les publicités et le lien en bio ; chacun qualifie le visiteur et dépose un prospect noté dans le pipeline. Chaque ligne : nom, publié ou brouillon, son canal (Web, Instagram, TikTok, YouTube) et le nombre de prospects produits.",
+      "« Nouvel entonnoir » ouvre le générateur IA (décrire l'entonnoir, « Générer ») et les modèles par canal ; une ligne ouvre l'éditeur et son rapport d'abandon.",
+    ] },
+    receptionist: { body: [
+      "« Réceptionniste » — les appels que l'agent a pris pour vous, et ce qui en est sorti. Le journal de l'agent téléphonique IA, groupé en à traiter, en attente de vous et archivés, chaque appel avec le numéro, l'heure, la durée et le coût, le résumé, et ce qu'il a produit : enregistré comme prospect, visite réservée, un bouton pour écouter l'enregistrement, rédiger une soumission à partir de l'appel, planifier un rappel.",
+      "Une ligne en haut compte les rendez-vous que les appels ont réservés. « Récupérer les appels manqués » et « Réglages du réceptionniste » sont les deux boutons.",
+    ] },
+    "crew-inbox": { body: [
+      "« Boîte équipe » — les photos et nouvelles que l'équipe a envoyées par texto ; celles qui sont classées sont sur leurs chantiers. Le panneau vert « Textos de l'équipe » affiche le numéro que l'équipe texte, le solde de crédit et les tarifs (2 ¢ le texto, 5 ¢ la photo).",
+      "Un bloc à traiter retient une photo que le système n'a pas pu classer, avec la question « pour quel chantier ? » et une puce par chantier candidat ; le bloc des classées liste le reste avec le chantier où elles ont atterri.",
+    ] },
+    messages: { body: [
+      "« Messages » — les messages de la page Facebook et du compte Instagram professionnel, répondus ici. Les conversations à gauche, groupées entre celles qui attendent une réponse et celles où l'on attend le client, chacune avec le pictogramme du canal, le temps d'attente et une puce de température ; les puces de canal filtrent Tous / Facebook / Instagram / WhatsApp.",
+      "La conversation ouverte est au centre avec « Répondre » et une « Note » privée ; le volet de droite tient les détails de la personne, le statut (ouvert, en attente, en veille, résolu), qui s'en occupe, et « Ouvrir le prospect ». « Bilan mensuel » est le bouton en haut à droite.",
+    ] },
+    refer: { body: [
+      "Recommander une autre entreprise donne un autre mois de FieldQuo gratuit une fois qu'elle est cliente payante. Le lien de l'entreprise avec « Copier » — assez court pour le dire à voix haute, sur une carte d'affaires, un pied de facture ou un camion — un bouton de partage WhatsApp, et « Envoyer l'invitation » par courriel ou texto.",
+      "En dessous, les mois gagnés, les entreprises recommandées (créditée ou pas encore payante) et les invitations envoyées.",
+    ] },
+    help: { body: [
+      "« Centre d'aide » — des guides pas à pas pour tout dans FieldQuo : soumissions, chantiers, factures, encaissement, réservation, site web, équipe, et l'utilisation sur le téléphone. Une boîte de recherche, un bouton pour rejouer la visite guidée, et des articles groupés par sujet.",
+      "Les articles s'ouvrent sur place. Envoyez-y l'entrepreneur avant qu'il n'appelle le soutien.",
+    ] },
+    plan: { body: [
+      "« Compte et facturation » — le forfait, les sièges et les informations de paiement. La carte du forfait indique le nom du forfait, son statut, le prix mensuel, les sièges, les équipiers inclus gratuitement et la prochaine date de facturation, avec « Gérer la facturation et le mode de paiement », un lien vers ce que les clients ont payé et « Annuler le forfait ».",
+      "Sous « Forfaits », un interrupteur « Mensuel » / « Engagement d'un an » et les quatre paliers — Solo, Crew, Shop, Scale — chacun avec ses sièges et ses accès équipe et « Choisir ce forfait » ; le forfait actuel indique « Forfait actuel ». Propriétaire et administrateurs seulement.",
+    ] },
+    // ── Finances ──────────────────────────────────────────────────────────
+    payroll: { body: [
+      "« Paie » — FieldQuo calcule ce que chaque personne doit recevoir à partir de ses heures approuvées et des taux enregistrés, et produit les fiches de paie ; l'entrepreneur paie par sa propre banque ou son fournisseur de paie — FieldQuo ne déplace pas l'argent. Dites cette dernière phrase à chaque appel : c'est la question qu'on vous pose.",
+      "« Nouvelle période de paie » est pré-remplie avec la dernière période close du cycle de paie de l'entreprise (« Toutes les 2 semaines ») ; « Calculer » prévisualise le brut, les retenues et le net par personne, puis « Enregistrer comme brouillon ». « Périodes de paie » liste chaque période avec ses dates, l'effectif, le net total et son statut.",
+    ] },
+    expenses: { body: [
+      "« Suivi des dépenses » — où va l'argent, par chantier, frais généraux et catégorie, plus le taux de dépense mensuel. Un sélecteur de mois au-dessus de quatre cartes : les dépenses suivies du mois, le taux de dépense mensuel (frais généraux + salaires + dettes), la marge de manœuvre et les dépenses liées aux chantiers.",
+      "En dessous : une carte « Résumé IA », la répartition mensuelle et les dépenses par catégorie en barres, la tendance sur 6 mois, et les dépenses récentes avec chaque reçu étiqueté frais généraux ou lié à un chantier. « Ajouter une dépense », « Importer depuis un CSV bancaire », et une carte « Export comptable » qui télécharge une plage de dates en CSV pour le comptable.",
+    ] },
+    purchasing: { body: [
+      "« Achats » — chez qui on achète, ce qui est en commande, et ce qu'il y a sur l'étagère. Trois onglets : « Commandes », « Stock », « Fournisseurs ». Commandes liste chaque bon de commande avec son fournisseur, combien de lignes sont reçues, son statut et son total ; « Nouvelle commande » en crée un.",
+      "Ouvrir une commande permet d'enregistrer une livraison ligne par ligne ; le stock reçu atterrit dans l'onglet Stock, qui montre ce qui est sur l'étagère et signale tout ce qui passe sous son seuil de réapprovisionnement.",
+    ] },
+    fleet: { body: [
+      "« Véhicules » — ce qui est dû, ce qui expire, et qui a le camion ; ce que chacun a coûté vit dans le registre des actifs. Un panneau « Échu ou à venir » d'abord — assurance, immatriculation, entretien par date ou par kilométrage — puis une carte par camion avec sa plaque, son modèle, son année et qui l'a.",
+      "Une carte se déplie sur les quatre échéances, l'odomètre, le NIV, le coût et la valeur comptable, un bouton de modification, le journal « Entretien » et les « Documents ».",
+    ] },
+    // ── Analyses ──────────────────────────────────────────────────────────
+    insights: { body: [
+      "« Comment vous vous comparez » — le prix moyen des soumissions de l'entreprise contre la moyenne anonymisée de la plateforme, par catégorie de service. Une ligne par catégorie avec le nombre de soumissions dans la région ce trimestre, « Votre moyenne », « Moyenne de la plateforme » et l'écart en pourcentage. Sur adhésion, agrégats seulement — un concurrent ne voit jamais les prix d'une entreprise.",
+      "Cette page est aussi le carrefour du reste du groupe : « Résumés hebdomadaires », « États financiers », « Gagnées et perdues », « Justesse des estimations » et « Tableau de bord des indicateurs clés » sont les liens sous le titre.",
+    ] },
+    kpis: { body: [
+      "« Tableau de bord des indicateurs clés » — ventes, profit, exécution et trésorerie, au même endroit. Des boutons de période (ce mois-ci, le mois dernier, « Ce trimestre », depuis le début de l'année, l'an dernier), puis les sections : ventes (taux de conversion, valeur moyenne d'un chantier, prospects convertis en soumissions, carnet en semaines), flux d'argent (revenus, dépenses, reste, par jour), coûts d'exploitation, profit (marge brute et nette, coût de main-d'œuvre), exécution (livraison à temps, utilisation de la main-d'œuvre, justesse des estimations), qualité, trésorerie (comptes clients par âge, en retard) et clientèle.",
+      "Une carte sans données dit pourquoi au lieu d'afficher un zéro, et une section finale « Non suivi » nomme les deux indicateurs que FieldQuo refuse d'inventer. Exige que les coûts de chantier soient activés pour la personne qui regarde.",
+    ] },
+    settings: { body: [
+      "« Paramètres » ouvre le menu des paramètres et atterrit sur le Profil de l'entreprise. Le menu compte huit groupes — Compte, Entreprise, Équipe et horaires, Services et tarifs, Documents et modèles, Messagerie et alertes, Encaissement, Côté client — fermés par défaut pour se lire comme un index, le groupe où l'on se trouve étant ouvert.",
+      "Chaque ligne est parcourue ci-dessous. Une boîte de recherche en haut du menu trouve une ligne en tapant son nom.",
+    ] },
+    // ── Paramètres : Compte ───────────────────────────────────────────────
+    "settings-account-billing": { body: [
+      "Le même écran que « Forfait » dans le menu principal, atteint depuis le menu Paramètres : la carte du forfait avec le statut, le prix, les sièges, les accès équipe et la prochaine date de facturation ; « Gérer la facturation et le mode de paiement », « Annuler le forfait » ; et les quatre forfaits avec « Choisir ce forfait ».",
+      "Propriétaire et administrateurs seulement — un Manager ne voit pas cette ligne.",
+    ] },
+    "settings-refer": { body: [
+      "La même page « Parrainage » que dans le menu principal : le lien de parrainage de l'entreprise, le partage et l'invitation, les mois gagnés et les entreprises recommandées.",
+      "Un mois gratuit chacun, pour celui qui recommande et pour celui qui est recommandé, une fois que l'entreprise recommandée paie.",
+    ] },
+    "settings-migration": { body: [
+      "« Migration de données » — le service payant où FieldQuo importe les anciennes données d'une entreprise. La carte de la demande montre ce qu'elle a dit apporter (QuickBooks, Jobber…), son statut (« Devis prêt »), le prix de FieldQuo avec sa note, et « Accepter » / « Refuser » ; en dessous, « Documents » avec « Téléverser un fichier » pour les exports.",
+      "Le personnel de FieldQuo crée de nouveaux clients et de nouvelles soumissions dans le compte, ne touche jamais à ce qui existe déjà, et chaque écriture est journalisée. Le prix se paie par la facturation FieldQuo, pas par le Stripe de l'entrepreneur.",
+    ] },
+    "settings-product-updates": { body: [
+      "« Nouveautés du produit » — un journal daté des changements, chaque entrée avec « Lire la nouveauté complète ». Rien à configurer ; c'est là qu'un entrepreneur voit ce qui a changé depuis le mois dernier.",
+    ] },
+    // ── Paramètres : Entreprise ───────────────────────────────────────────
+    "settings-company": { body: [
+      "« Profil de l'entreprise » — les coordonnées, les heures, les taxes et les préférences régionales. Les cartes de haut en bas : « Description des travaux et conditions » (le texte de procédé par défaut de chaque nouvelle soumission, et « Conditions de paiement »), « Échéancier de paiement » (50 % d'acompte à la réservation, 50 % à l'installation, « Enregistrer l'échéancier »), l'industrie et les types de soumission, les coordonnées avec l'adresse, « Heures d'ouverture », « Disponibilités pour la prise de rendez-vous » et « Paramètres de taxes » (TPS, TVQ, TPS + TVQ, « Créer un taux de taxe »).",
+      "C'est le premier écran après l'inscription, et celui sur lequel atterrit la ligne Paramètres du menu.",
+    ] },
+    "settings-branding": { body: [
+      "« Image de marque » — le logo et la couleur de marque apparaissent sur chaque soumission, facture et courriel que voient les clients. Une carte « Logo » avec « Téléverser un logo », « Couleurs de marque » avec « Principale » et « Secondaire », et un aperçu d'une soumission en mode clair et sombre.",
+      "Une seule couleur pilote toutes les surfaces côté client ; le contraste est calculé, donc un jaune ou un gris moyen reste lisible à l'impression.",
+    ] },
+    "settings-language": { body: [
+      "« Langue » — « Votre langue », une ligne par langue avec sa couverture de l'interface, sous une option « Suivre la valeur par défaut de l'entreprise » ; et une carte « Valeur par défaut de l'entreprise » en dessous.",
+      "Le propriétaire choisit la langue dans laquelle il lit l'application ; la valeur par défaut de l'entreprise couvre les coéquipiers et les clients qui n'ont jamais choisi. Un document garde la langue dans laquelle il a été créé.",
+    ] },
+    "settings-activity": { body: [
+      "« Journal d'activité » — la piste d'audit de l'entreprise : soumission créée, envoyée, relancée, acceptée ; facture envoyée et relancée ; chantier planifié ; membre invité ; tarifs mis à jour ; client ajouté — chacun avec qui l'a fait, son rôle et quand.",
+      "Lecture seule, propriétaire et administrateurs seulement. C'est la réponse à « qui a changé ça ? ».",
+    ] },
+    // ── Paramètres : Équipe et horaires ───────────────────────────────────
+    "settings-team": { body: [
+      "Le même écran « Gérer l'équipe » que « Votre équipe » dans le menu principal : le panneau des sièges, la liste avec le niveau d'accès de chacun, « Ajouter un utilisateur », et les invitations en attente.",
+      "Voir « Rôles et accès » pour ce que signifie chaque niveau de la liste déroulante.",
+    ] },
+    "settings-availability": { body: [
+      "« Vos heures » — un sélecteur « Heures de qui », puis « Heures de travail » (le quart, pour les horaires et les feuilles de temps) et « Heures réservables » (la fenêtre qu'offre la page de rendez-vous publique), avec un « Enregistrer les heures » fixé au bas.",
+      "Les deux sont volontairement séparées, et toutes deux par personne : les heures d'ouverture de l'entreprise vivent dans le Profil de l'entreprise, pour qu'un jour de congé d'estimateur ne soit jamais publié comme une fermeture de l'atelier.",
+    ] },
+    "settings-leave": { body: [
+      "« Politiques de congés » — « Politiques » avec « Ajouter une politique » : par exemple des vacances à nombre de jours fixe par an avec report, et des congés de maladie approuvés automatiquement, chacune avec « Modifier » ; et une carte « Fin d'année » qui reporte les soldes de l'an dernier sur celui-ci.",
+      "Propriétaire et administrateurs seulement ; les soldes s'affichent sur l'écran Congés de chaque personne.",
+    ] },
+    "settings-booking-page": { body: [
+      "« Page de rendez-vous » — le code à intégrer au site (« Copier le code »), « Combien de temps dure une visite? » avec les modes de rencontre (chez le client, appel téléphonique), le tampon de déplacement, la fenêtre d'arrivée et la durée par défaut, les règles de changement et d'annulation (délai de préavis, remboursement des frais), puis une carte par type de rendez-vous — une consultation de design de 60 minutes gratuite, une visite de mesure de 45 minutes avec des frais et un prix promotionnel.",
+      "« Nouveau type de rendez-vous » ajoute un type de rendez-vous qu'un client peut réserver lui-même.",
+    ] },
+    "settings-work-areas": { body: [
+      "« Zones de travail » — des zones ou projets nommés (Laval, île de Montréal, Rive-Nord), chacun avec une puce par membre de l'équipe ; une puce pleine veut dire que la personne y est affectée. Un champ en haut en ajoute une.",
+      "Sert à grouper chantiers et tâches par territoire ; l'affectation est réservée au propriétaire, aux administrateurs et aux superviseurs.",
+    ] },
+    // ── Paramètres : Services et tarifs ───────────────────────────────────
+    "settings-products": { body: [
+      "« Produits et services » — le catalogue de prix : un tableau avec nom, description et type (service ou produit), chaque article étiqueté des types de soumission où il peut apparaître, avec modification et suppression, une recherche, « Ajouter un article » et un import CSV.",
+      "Une ligne de soumission se choisit ici, donc le prix que voit le client est celui que le propriétaire a fixé.",
+    ] },
+    "settings-services": { body: [
+      "« Services et tarifs » — une carte par type de soumission avec une case marche/arrêt : les types propres à l'entreprise (personnalisés) avec leurs champs d'admission et leurs tarifs à l'unité, et ceux du métier fournis d'office (le refinissage d'armoires, tarifé à la porte ou à la façade de tiroir, avec l'option d'un prix instantané pour les clients et une carte de tarifs repliable). « Ce que dit la soumission » sous chacun est le texte que le client lit.",
+      "« Ajouter un type de soumission personnalisé » et l'affichage des services des autres métiers sont les deux boutons. Les tarifs ne quittent jamais cet écran — les points d'accès publics renvoient les services et les champs, pas les prix.",
+    ] },
+    "settings-material-costs": { body: [
+      "« Coût des matériaux » — quand demander une révision du coûtage (un seuil, « Enregistrer »), puis une recette par service (le refinissage d'armoires, marqué personnalisé avec « Rétablir les valeurs par défaut ») : apprêt et couches de finition, couverture, prix au gallon, durcisseur, heures de préparation et consommables.",
+      "Ces valeurs alimentent l'estimation interne de coût et de marge d'une soumission ; elles ne sont jamais montrées au client. Affiché seulement pour les métiers qui tarifent ainsi.",
+    ] },
+    "settings-cabinet-rates": { body: [
+      "« Tarification des armoires » — « Comment vous tarifez une armoire » (« Par pied linéaire » ou « Coût majoré du matériau »), « Tarifs par pied linéaire » (base, haut, garde-manger, îlot, supplément tiroir, aménagement de placard, vanité, et si l'installation est comprise), puis « Multiplicateurs de matériau ».",
+      "Le concepteur de cuisine tarife à partir de ces valeurs côté serveur. Affiché seulement pour les métiers de l'armoire.",
+    ] },
+    "settings-overhead": { body: [
+      "« Frais généraux » — « Votre prix minimum » : chantiers par semaine, et des tuiles pour les coûts fixes mensuels, les chantiers par mois, le coût par chantier et le prix minimum qu'un chantier doit rapporter pour couvrir l'atelier ; les heures payées qui n'ont jamais atteint un chantier (main-d'œuvre non absorbée par travailleur) ; puis les registres — « Coûts fixes », « Salaires », « Dette », actifs et amortissement, et « Factures à payer » avec l'en cours, ce qui sort ce mois-ci et le retard.",
+      "Le chiffre qu'un entrepreneur veut le plus et a le moins souvent. Exige les coûts de chantier.",
+    ] },
+    "settings-custom-fields": { body: [
+      "« Champs personnalisés » — des champs définis par type de dossier (des champs de soumission comme le style de porte, le fini, le fini de la quincaillerie, avec leur type et leur caractère obligatoire).",
+      "La page elle-même dit « À venir » pour leur affichage sur les dossiers : les champs se définissent ici mais n'apparaissent pas encore sur une soumission. Ne promettez pas qu'ils le font.",
+    ] },
+    // ── Paramètres : Documents et modèles ─────────────────────────────────
+    "settings-quote-email": { body: [
+      "« Courriel de soumission » — ce que contient le courriel qui porte les soumissions, au-delà de la soumission elle-même. Une carte liste ce que le courriel porte toujours, puis « Références » — d'anciens clients qui ont accepté de prendre un appel, avec l'option de les inclure sur chaque nouvelle soumission — et une section de photos avant-après.",
+      "L'entrepreneur ajoute des noms et des numéros, téléverse des paires de photos et choisit ce qui part. Le courriel lui-même est envoyé dans la langue de la soumission, au nom de l'entreprise.",
+    ] },
+    "settings-email-templates": { body: [
+      "« Modèles de courriel » — personnaliser les courriels que reçoivent les clients. Groupés en automatisés, marketing et personnalisés, une ligne par modèle avec un badge actif, un bouton pour le rendre actif, modifier, dupliquer et supprimer ; « Nouveau modèle » et « Ajouter les modèles par défaut » pour partir d'un jeu de départ.",
+    ] },
+    "settings-pdf-templates": { body: [
+      "« Modèles PDF » — la mise en page des PDF de soumission et de facture que reçoivent les clients. Deux cartes, PDF de soumission et PDF de facture, chacune listant ses mises en page avec le nombre de sections et un badge actif ; un bouton crée une autre mise en page à modifier.",
+      "Les factures reflètent les soumissions à dessein : les mêmes sections, dans le même ordre, pour que le client reconnaisse le second document comme le jumeau du premier.",
+    ] },
+    "settings-translations": { body: [
+      "« Traductions » — le libellé que voient les clients sur les soumissions et factures rédigées dans une autre langue. Un sélecteur de langue, un compteur de ce qui manque encore, et par service des colonnes anglais / français avec « Marquer comme révisé » ; « Rédiger les ébauches manquantes » comble les trous avec des ébauches IA qu'une personne révise.",
+      "C'est ainsi qu'un atelier québécois soumissionne en français et en anglais à partir d'un seul catalogue de prix. Rien n'est traduit automatiquement au moment de l'envoi.",
+    ] },
+    "settings-checklists": { body: [
+      "« Listes de vérification » — les étapes standard que l'équipe suit sur place. Les listes propres à l'entreprise avec leur badge de phase (sur le chantier / avant de partir), le nombre d'étapes et le service, avec modification ; des listes de départ par métier avec « Utiliser celle-ci ».",
+    ] },
+    "settings-job-photo-tags": { body: [
+      "« Étiquettes des photos de chantier » — les propres mots de l'entreprise pour dire ce qui se passe sur une photo. Une liste ordonnée d'étiquettes avec pastilles de couleur, monter / descendre et « Retirer », un formulaire « Ajouter une étiquette » avec un sélecteur de couleur, et un bloc d'étiquettes de départ.",
+      "L'équipe choisit une étiquette en textant une photo ; c'est par cette étiquette que le bureau filtre ensuite.",
+    ] },
+    // ── Paramètres : Messagerie et alertes ────────────────────────────────
+    "settings-messages": { body: [
+      "« Messages aux clients » — les textos que reçoivent les clients. Un éditeur par type de texto — en route, rappel de rendez-vous — avec des jetons, un aperçu de ce que voit le client, « Enregistrer » et « Utiliser le texte par défaut ».",
+      "Deux types de textos et pas plus ; ne promettez pas d'autres textos automatiques depuis cet écran.",
+    ] },
+    "settings-follow-ups": { body: [
+      "« Relances » — envoyer automatiquement un modèle un certain temps après qu'une soumission, une facture ou un chantier atteint un état donné. Un schéma en lecture seule du fonctionnement (déclencheur → attente → envoi du courriel → arrêt) tiré des règles en dessous, où chaque règle a « Mettre en pause » et supprimer ; « Nouvelle règle » ouvre le formulaire déclencheur / délai / modèle.",
+      "Une soumission sans réponse après trois jours, une facture en retard de sept jours : les deux règles que chaque atelier devrait activer.",
+    ] },
+    "settings-notifications": { body: [
+      "« Notifications » — quand FieldQuo doit envoyer un courriel au propriétaire à propos de ce qui se passe dans le compte. Des cartes pour une grosse soumission créée (avec le seuil), une facture payée, les rappels de rendez-vous (désactivés, ou 2 / 24 / 48 heures avant) et les notifications du navigateur.",
+      "Propriétaire et administrateurs seulement.",
+    ] },
+    "settings-email-domain": { body: [
+      "« Domaine d'envoi » — envoyer les courriels aux clients depuis le domaine de l'entreprise plutôt que le nôtre. Le domaine avec son statut « Vérifié » et « Déconnecter », l'éditeur d'« Adresse d'expéditeur » (soumissions@…), et où vont les réponses.",
+      "C'est la promesse de marque blanche rendue littérale : la boîte de réception du client montre le domaine de l'entrepreneur dans l'expéditeur, pas celui de FieldQuo.",
+    ] },
+    // ── Paramètres : Encaissement ─────────────────────────────────────────
+    "settings-payments": { body: [
+      "« Paiements » — connecter Stripe pour que les clients paient les factures en ligne, directement dans le compte bancaire de l'entreprise. Stripe connecté et actif avec « Gérer dans Stripe » et « Déconnecter », puis le compte : son identifiant avec copie, le courriel de connexion, ce que Stripe a activé (encaissements, virements) et ce qu'il attend encore.",
+      "Stripe Connect, au nom de l'entrepreneur : l'argent va dans sa banque, et FieldQuo ne le détient jamais. Propriétaire et administrateurs seulement.",
+    ] },
+    "settings-meta-ads": { body: [
+      "« Publicités Meta » — le compte publicitaire connecté avec « Synchroniser maintenant », « Déconnecter » et un lien vers les campagnes ; les formulaires de prospects Facebook avec un interrupteur par formulaire, le nombre de prospects et les campagnes ; la publication Facebook et Instagram et la carte WhatsApp Business avec son numéro et ses modèles.",
+      "Une seule connexion alimente trois choses : les dépenses publicitaires dans les indicateurs, les formulaires dans Prospects, et les messages de la page, d'Instagram et de WhatsApp dans Messages.",
+    ] },
+    "settings-expense-tracking": { body: [
+      "Le même écran « Suivi des dépenses » que « Dépenses » dans le menu principal : les cartes du mois, la répartition, la tendance, les reçus récents et l'export comptable.",
+    ] },
+    "settings-ai-credit": { body: [
+      "« Crédit IA » — tout ce qui dépense du crédit IA, au même endroit. Le solde de crédit téléphonique avec « Ajouter du crédit téléphonique » et où le crédit est allé ; le solde de crédit d'images IA avec des recharges ; et la carte du plan de crédit IA mensuel.",
+      "Les minutes téléphoniques et les images IA sont mesurées contre du crédit que l'entreprise achète ; FieldQuo IA et le copilote sont inclus dans tous les forfaits.",
+    ] },
+    "settings-payroll": { body: [
+      "« Paramètres de paie » — « Quand vous payez » (fréquence, jour de clôture de la période, jour de paie, période courante et précédente), puis les composantes de retenues et de gains : tranches d'impôt statutaires, pourcentages et allocations fixes, chacune avec désactivation et suppression, plus des modèles statutaires régionaux pour démarrer.",
+      "Propriétaire et administrateurs seulement ; c'est à partir de ceci que Paie calcule.",
+    ] },
+    // ── Paramètres : Côté client ──────────────────────────────────────────
+    "settings-website": { body: [
+      "« Votre site web » — l'éditeur : l'adresse du site avec un badge « En ligne », « Ouvrir », « Enregistrer » et « Mettre à jour » ; un volet de conversation où l'entrepreneur tape une consigne (plus audacieux, commencer par les avis, page plus courte), des sélecteurs de mise en page et de style, « Ajuster », et un volet aperçu / sections avec bascule bureau et mobile.",
+      "Le modèle n'écrit que des phrases ; la mise en page, les services et les témoignages viennent des données de l'entreprise, donc un site n'est jamais inventé. Les sites gratuits portent un petit pied de page « Site par FieldQuo ».",
+    ] },
+    "settings-instant-quotes": { body: [
+      "« Soumissions instantanées » — laisser les propriétaires obtenir une vraie estimation de départ depuis le site web en quelques secondes. Un compte de ce qui est en ligne avec « Voir ce que voient les propriétaires », un code à intégrer avec « Copier le code », puis une carte par métier avec un interrupteur, le choix de ce que voit le propriétaire, et les champs de tarifs.",
+      "Chaque estimation instantanée atterrit dans Révision des estimations avant de pouvoir être envoyée ; la page publique ne montre jamais la carte de tarifs.",
+    ] },
+    "settings-lead-form": { body: [
+      "« Partager vos liens » — à mettre partout où l'entreprise est déjà. Des cartes pour demander une soumission, réserver une visite, l'estimation instantanée et chaque entonnoir publié, chacune avec le lien, « Copier le lien », « Ouvrir » et un code à intégrer.",
+    ] },
+    "settings-bio-link": { body: [
+      "« Lien de profil » — une page pour le seul lien qu'Instagram et TikTok permettent. « Votre lien » avec copier / ouvrir et l'état en ligne, un titre et une ligne dessous, les identifiants à suivre, les interrupteurs de liens ordonnés, et un « Aperçu » dans un cadre de téléphone avec bascule clair / sombre et « Enregistrer ».",
+    ] },
+    "settings-voice": { body: [
+      "« Réceptionniste téléphonique » — répond aux appels manqués, prend les coordonnées et réserve des visites contre les vraies disponibilités. Le numéro avec son état de réponse ; le crédit (solde, minutes, recharges, recharge automatique) ; « Votre numéro » ; les cartes d'accueil, de connaissances, de voix et de réglage fin ; les rappels de soumission ; l'interrupteur de la boîte équipe ; et « Vérifier de bout en bout ».",
+      "Un numéro local dans la région de l'entrepreneur, qui répond dans la langue de l'appelant et réserve dans le calendrier que voit le bureau. Le journal des appels est l'écran Réceptionniste du menu principal.",
+    ] },
+    "settings-ai-employee": { body: [
+      "« Employé IA » — un assistant qui répond aux messages des clients pour l'entreprise. « Quel poste occupe-t-il ? » (closer, réceptionniste, soutien technique, ou autre, avec ce qu'il peut et ne peut pas faire), « Comment il écrit » (nom, ton, phrase d'ouverture, consignes), la matière qu'il lit, et les brouillons en attente de révision.",
+      "Il rédige ; une personne envoie. Les brouillons apparaissent dans Messages.",
+    ] },
+    "settings-reviews": { body: [
+      "« Avis » — demander automatiquement un avis aux clients une fois le chantier terminé. « Votre lien d'avis » avec enregistrement, un interrupteur « Demander automatiquement », des puces « Quand demander » pour le délai, un résumé de la file, et « Avis sur votre site web » qui liste les témoignages avec des interrupteurs afficher / masquer et un import par collage.",
+    ] },
+  },
+};
+
+// ══ Rôles et accès ════════════════════════════════════════════════════════
+//
+// Les cinq personnes qu'un entrepreneur peut créer, et ce que chacune voit.
+// Les deux tableaux de ce chapitre ne sont PAS écrits ici — le générateur
+// exécute lib/permissions/nav.js et lib/permissions/settingsAccess.js contre
+// la vraie grille de chaque préréglage, le code même qui masque une ligne du
+// menu à cette personne.
+export const ROLES_CHAPTER = {
+  heading: "Rôles et accès — qui voit quoi",
+  intro: [
+    "L'entrepreneur ajoute une personne depuis Gérer l'équipe et choisit un niveau d'accès parmi cinq : Crew, Estimator, Dispatcher, Manager, ou son propre niveau de propriétaire. Les quatre premiers sont des préréglages — une grille remplie de onze domaines de permission et trois interrupteurs — et le propriétaire peut ensuite modifier n'importe quel réglage, ce qui transforme le préréglage en « Personnalisé ». Les tableaux ci-dessous sont calculés à partir du code de permissions du produit lui-même, le jour où ce guide a été généré ; ils disent donc ce que le menu fait réellement.",
+    "Deux choses à bien dire en appel. D'abord, un accès Crew n'est pas un poste : une personne dont l'accès est au niveau Crew ou en dessous ne coûte rien et ne compte pas dans les postes complets du forfait — c'est le sens de la colonne « accès équipe » du tableau des forfaits. Estimator, Dispatcher, Manager et le propriétaire sont des postes complets. Ensuite, masquer une ligne n'est pas la sécurité : chaque API du produit revérifie la même grille côté serveur, et une personne qui tape une adresse qu'on ne lui a pas montrée reçoit un refus, pas la page.",
+    "Il y a un sixième choix dans la liste, « Nommer administrateur », qui donne tout ce que le propriétaire a, sauf la propriété elle-même. Il existe pour un associé ou un comptable qui doit voir la facturation. Ne le proposez pas pour le personnel.",
+  ],
+  tierNote: "palier {tier}",
+  productSays: "La description du produit lui-même :",
+  roles: [
+    {
+      key: "worker",
+      body: [
+        "La personne dans le camion. Elle voit son propre horaire et le marque terminé, pointe ses heures, note ses propres dépenses et son temps, signale un incident de sécurité et lit les notes des chantiers qui lui sont assignés — nom et adresse du client, rien de plus. Aucun prix nulle part, pas de soumissions, pas de factures, pas de demandes. Les chantiers sont en lecture seule, et seulement ceux où elle est assignée.",
+        "C'est le niveau des installateurs et des aides. Il est gratuit, et c'est ce qui permet à l'équipe d'utiliser le même produit que le bureau sans que le bureau s'inquiète de ce que l'équipe peut voir.",
+      ],
+    },
+    {
+      key: "estimator",
+      body: [
+        "Rédige des soumissions et gère les clients, avec les prix. Il peut créer et modifier des demandes et des soumissions, voir et modifier les fiches clients complètes, lire toutes les notes, et voir (sans modifier) les chantiers et les factures. Son propre horaire, son temps et ses dépenses seulement. Pas de gestion du personnel, pas de paie au-delà de ses propres fiches, pas de coûts de chantier.",
+        "Pour un vendeur ou un deuxième estimateur qui doit pouvoir chiffrer et envoyer, sans diriger l'atelier.",
+      ],
+    },
+    {
+      key: "dispatcher",
+      body: [
+        "Gère l'horaire. L'horaire de tout le monde est modifiable, le temps de tout le monde aussi, et les chantiers, soumissions, factures et demandes peuvent être créés et modifiés — mais pas supprimés. Fiches clients complètes, toutes les notes, les incidents de sécurité de tout le monde. Toujours ses propres dépenses seulement, toujours pas de coûts de chantier ni d'encaissement.",
+        "Le chef d'équipe qui réserve les gars, déplace les visites et tient la semaine à jour, sans le pouvoir de rien effacer.",
+      ],
+    },
+    {
+      key: "manager",
+      body: [
+        "Gère le quotidien, suppression comprise : soumissions, chantiers, factures, demandes et clients peuvent tous être créés, modifiés et supprimés ; l'horaire, le temps et les dépenses de tout le monde ; coûts de chantier activés ; encaissement activé. Ce qu'un Manager n'a pas, c'est la paie (ses propres fiches seulement) et la facturation de l'entreprise — le forfait, la carte, l'abonnement — qui restent au propriétaire.",
+        "C'est le gérant de bureau ou l'associé qui dirige les opérations. Si un entrepreneur demande « je peux donner tout sauf l'argent à quelqu'un ? », c'est la réponse.",
+      ],
+    },
+    {
+      key: "owner",
+      body: [
+        "Tout, sans grille à consulter : la personne qui a inscrit l'entreprise. Seul un propriétaire ou un administrateur peut ouvrir Compte et facturation, Migration de données, Parrainage, Journal d'activité, Notifications, Politiques de congés, Paiements et Publicités Meta, lancer la paie, changer l'accès d'une personne existante ou la désactiver. (Un Manager ou un Dispatcher peut inviter des gens, mais seulement au palier Worker — Crew ou Estimator — et seulement avec des réglages qui ne dépassent pas les siens.) Le propriétaire est toujours un poste complet.",
+      ],
+    },
+  ],
+  seesHeading: "Ce que chaque niveau voit dans le menu",
+  seesIntro: [
+    "Un Oui en vert veut dire que la ligne est dans le menu de cette personne ; un Non en rouge veut dire qu'elle est masquée et que la page derrière la refuse. Calculé en passant chaque préréglage dans le filtre même du menu. Les lignes des Paramètres sont filtrées deux fois — par la règle du menu principal quand la ligne s'y trouve aussi, et par celle du menu Paramètres — et les deux doivent passer.",
+  ],
+  screenCol: "Écran",
+  gridHeading: "La grille de permissions derrière chaque préréglage",
+  gridIntro: [
+    "Les onze domaines et les trois interrupteurs qu'un propriétaire voit dans l'éditeur d'accès personnalisé, avec le niveau que chaque préréglage inscrit. Les mots sont ceux du produit, en anglais à l'écran quelle que soit la langue.",
+  ],
+  areaCol: "Domaine",
+  toggleNames: {
+    showPricing: "Voir les prix (showPricing)",
+    jobCosting: "Coûts de chantier",
+    payments: "Encaisser des paiements",
+  },
+  yes: "Oui",
+  no: "Non",
+  editorHeading: "L'éditeur d'accès personnalisé",
+  editorBody: [
+    "Dans Gérer l'équipe, chaque personne a une liste déroulante avec les mêmes cinq choix que l'écran d'invitation — Crew, Estimator, Dispatcher, Manager, Administrateur — plus « Personnalisé », qui ouvre la grille. Choisir un préréglage applique son palier et ses permissions d'un coup. Personnalisé affiche les onze domaines en listes déroulantes et les trois interrupteurs en cases à cocher, en partant de ce que la personne a maintenant, et une puce « Palier Worker » / « Palier Manager » sur chaque préréglage dit quel palier il produit (Dispatcher et Manager partagent le palier Manager ; Crew et Estimator partagent le palier Worker).",
+    "On ne peut donner que ce qu'on détient : quand un Manager invite quelqu'un, le serveur ramène chaque réglage au niveau du Manager et retire tout interrupteur qu'il n'a pas. Changer l'accès d'une personne existante, nommer un administrateur et révoquer un accès sont réservés au propriétaire et aux administrateurs.",
+  ],
+  editorCaption: "Gérer l'équipe — l'éditeur d'accès personnalisé ouvert sur un Estimator.",
+};

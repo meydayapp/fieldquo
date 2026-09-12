@@ -8,7 +8,7 @@
 // Dates are anchored to a fixed "today" so a capture run in March and one in
 // September show the same week, and so "3 days ago" is a fact and not a
 // function of the clock on the machine that ran it.
-export const TODAY = new Date("2026-09-14T13:00:00-04:00"); // Monday 14 Sept 2026, 9:00 Montreal
+export const TODAY = new Date("2026-09-14T13:00:00-04:00"); // Monday 14 Sept 2026, 1:00 PM Montreal
 export const iso = (d) => new Date(d).toISOString();
 export const day = (offset, hour = 9, minute = 0) => {
   const d = new Date(TODAY);
@@ -48,7 +48,10 @@ export const COMPANY = {
   address: "1420 boul. Curé-Labelle",
   city: "Laval",
   province: "QC",
-  industries: ["cabinet_making"],
+  // Slugs from app/data/industries.js — the catalogue has no cabinetry
+  // preset; the cabinet trades live under painting (refinishing) and
+  // general contracting (millwork).
+  industries: ["construction-contracting", "painting"],
   postalCode: "H7V 2W3",
   country: "CA",
   servesAbroad: false,
@@ -60,7 +63,8 @@ export const COMPANY = {
   brandColor: "#1f4e3d",
   brandColors: null,
   paymentTerms: "50% deposit to book, balance on installation.",
-  defaultProcessNotes: "",
+  defaultProcessNotes:
+    "We measure on site, then build every box and door in our Laval shop. Doors are sprayed in the booth, never on site. Installation takes two days for a typical kitchen: day one we remove the old cabinets and set the boxes level and plumb; day two we hang doors, fit drawers, adjust hinges and install hardware. Countertops, plumbing and electrical reconnection are not included unless a line above says so.",
   taxRate: 14.975,
   paymentMethods: ["card", "etransfer", "cheque"],
   shareAnonymizedPricing: true,
@@ -82,12 +86,19 @@ export const COMPANY = {
   dateFormat: "YYYY-MM-DD",
   weekStartsOn: 1,
   currency: "CAD",
-  businessHours: {
-    mon: [{ open: "08:00", close: "17:00" }], tue: [{ open: "08:00", close: "17:00" }], wed: [{ open: "08:00", close: "17:00" }],
-    thu: [{ open: "08:00", close: "17:00" }], fri: [{ open: "08:00", close: "16:00" }], sat: [], sun: [],
-  },
+  // One row per weekday, 0 = Sunday — the shape lib/company/businessHours.js
+  // normaliseHours reads. A mon/tue map renders as seven closed days.
+  businessHours: [
+    { day: 0, closed: true, open: "09:00", close: "17:00" },
+    { day: 1, closed: false, open: "08:00", close: "17:00" },
+    { day: 2, closed: false, open: "08:00", close: "17:00" },
+    { day: 3, closed: false, open: "08:00", close: "17:00" },
+    { day: 4, closed: false, open: "08:00", close: "17:00" },
+    { day: 5, closed: false, open: "08:00", close: "16:00" },
+    { day: 6, closed: true, open: "09:00", close: "13:00" },
+  ],
   defaultVisitMinutes: 60,
-  bookingModes: ["estimate", "consultation"],
+  bookingModes: ["visit", "call"], // app/app/settings/booking-page/page.js MODES
   travelCheckEnabled: true,
   travelBufferMinutes: 20,
   arrivalWindowMinutes: 60,

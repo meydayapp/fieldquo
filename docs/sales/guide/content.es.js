@@ -356,3 +356,422 @@ export const CONSOLE_SECTIONS = [
     ],
   },
 ];
+
+// ══ Cada pantalla ═════════════════════════════════════════════════════════
+//
+// Una entrada por fila de los dos menús laterales, indexada por el slug de
+// docs/screens/app-guide/harness/screens.js. El TÍTULO no está aquí: el
+// generador imprime la etiqueta del menú tal como app/i18n/appMessages.js la
+// da en español, para que el título del guía sea la palabra en pantalla. La
+// figura es una captura de la pantalla real. Dos o tres frases cada una: qué
+// muestra la pantalla, qué hace el contratista en ella. Nada aquí que la
+// figura no muestre.
+export const SCREENS_CHAPTER = {
+  heading: "Cada pantalla, en el orden del menú",
+  intro: [
+    "La oficina es un solo menú lateral. Este capítulo lo recorre de arriba abajo — Inicio, FieldQuo IA, luego los cinco grupos Trabajo, Personas, Finanzas, Análisis y Crecer, luego Ayuda, Plan y Configuración — y después recorre el menú de Configuración de la misma manera. Cada entrada es la pantalla real, capturada desde la cuenta de un propietario conectado el día en que se generó esta guía — y, cuando la pantalla tiene un botón Nuevo o Agregar, una segunda figura muestra lo que se abre al pulsarlo (capturada en inglés).",
+    "Úsalo de dos formas. En una demo, es la ruta: abre las pantallas en este orden y habrás mostrado todo el producto en veinte minutos. En una llamada, es la respuesta a «¿dónde hago X?» — busca la fila, lee la frase, di las palabras que están en pantalla.",
+    "Una pantalla puede faltar en el menú de un cliente. No es un fallo: el menú oculta las filas que el nivel de acceso de la persona conectada no permite (ver «Roles y acceso»), y Precios de gabinetes y Costos de materiales aparecen solo para los oficios que cotizan así.",
+  ],
+  railHeading: "El menú principal",
+  settingsHeading: "El menú de Configuración",
+  createCaption: "{title} — lo que se abre al pulsar « {button} »",
+  items: {
+    // ── Inicio, IA ────────────────────────────────────────────────────────
+    home: { body: [
+      "« Panel » — lo que está pasando en el negocio. Abre con « Pendientes de ti »: la factura atrasada con un botón « Reclamar el pago », las cotizaciones cuyo precio espera aprobación, y la próxima cita que reservó el recepcionista. Luego « Ingresos este mes » con una curva del dinero recibido, y cuatro tarjetas — « Cotizaciones enviadas este mes », « Tasa de conversión », « Dinero que te deben », « Próximas visitas ».",
+      "« El detalle » debajo: el gráfico mensual de barras (3, 6 o 12 meses), la escalera de antigüedad de las cuentas por cobrar con cada factura pendiente y su contacto, la barra de ritmo de la meta de ingresos, « Cotizaciones recientes » y « Próximas citas ». Una nueva cotización, « Ver clientes » y « Programar cita » son los tres botones.",
+    ] },
+    ai: { body: [
+      "« FieldQuo IA » — preguntar sobre las propias cotizaciones, facturas, clientes y costos de materiales; busca los números reales en lugar de adivinar. Una conversación vacía con sugerencias « Prueba a preguntar » (qué clientes aún no se han facturado, el valor medio de las cotizaciones del mes) y un cuadro para escribir la pregunta.",
+      "Solo responde sobre los datos de esta empresa y rechaza las peticiones generales — ese es el argumento honesto, y la razón por la que se le pueden confiar los números de un contratista.",
+    ] },
+    // ── Trabajo ───────────────────────────────────────────────────────────
+    requests: { body: [
+      "« Prospectos » — las consultas que llegan de la página de reservas y los formularios. Un tablero de cuatro columnas — « Nuevo », « Contactado », « Ganada », « Perdida » — por el que las tarjetas se arrastran. Cada tarjeta lleva una puntuación caliente / tibio / frío, etiquetas de plazo y presupuesto, la categoría, el número de fotos, la cotización vinculada y el responsable.",
+      "Filtros por temperatura, un orden « Más calientes », búsqueda y un botón « Importar ». Aquí aterrizan el formulario del sitio, el enlace de reservas, el recepcionista y una recomendación.",
+    ] },
+    quotes: { body: [
+      "« Cotizaciones » — etiquetas de estado con su recuento (todas, « Borrador », « Enviada », « Aprobada », « Rechazada »), un buscador, y la lista: número, estado, cliente, importe, antigüedad. Una cotización enviada sin respuesta sube al principio con su fecha de validez; una estimación instantánea lleva « Requiere revisión ».",
+      "« Nueva cotización » abre el editor. La cotización conserva el idioma en que se creó; el cliente la ve como página y como PDF con la marca de la empresa.",
+    ] },
+    "estimate-reviews": { body: [
+      "« Revisión de estimaciones » — las estimaciones instantáneas del sitio web llegan aquí primero; se confirma el precio, ajustándolo si la propiedad lo exige, antes de que la cotización pueda enviarse. Cada tarjeta nombra al cliente y la fuente (« Ingresado por el propietario » o « Tomado de una llamada telefónica », con un botón « Escuchar »), el responsable, el tamaño y el material, el rango que vio el propietario y su presupuesto declarado, y el desglose por líneas.",
+      "Un botón « Aprobar » al importe propuesto, y « Abrir el presupuesto ». Nada que haya cotizado un algoritmo llega a un propietario sin que una persona pulse aquí.",
+    ] },
+    jobs: { body: [
+      "« Trabajos » — el trabajo programado y en curso. Etiquetas « Falta fecha / Programado / En curso / Completado », un interruptor « Archivados », búsqueda, y la lista con título, etiqueta de estado, cliente y número de visitas.",
+      "« Nuevo trabajo » crea uno a mano; la mayoría nacen de una cotización aprobada. « Trabajos pasados » importa el historial de un sistema anterior.",
+    ] },
+    invoices: { body: [
+      "« Facturas » — tres tarjetas — « Pendiente » (con la parte atrasada), « Pagada », « Total facturado » — y luego la lista: número, estado (« Enviada », « Pagada », « Atrasada »), cliente, vencimiento, los días de retraso en rojo, y el saldo o « Pagada por completo ».",
+      "« Nueva factura » emite una; una factura de depósito suele crearse desde el calendario de pagos de la cotización. Las facturas reflejan las cotizaciones — mismas secciones, misma marca — y se pagan en línea por la cuenta de Stripe de la empresa.",
+    ] },
+    plans: { body: [
+      "« Planes de servicio » — trabajo recurrente vendido como paquete, facturado con la cadencia elegida. Cada plan: nombre, « Activo », cliente, cadencia (« Una vez al año », « Trimestral »), precio por visita, cómo se cobra, y o bien el total del plazo con su descuento o « Sigue hasta que se cancele ».",
+      "« Nuevo plan » vende uno. Un plan es una instrucción permanente de crear una visita y una factura — por eso la fila va después de Facturas.",
+    ] },
+    calendar: { body: [
+      "« Citas » — las visitas en persona y las asignaciones en obra. Etiquetas « Programado / Se requiere supervisor / Completado » con su recuento, una cuadrícula mensual (semana que empieza en lunes, hoy marcado, las entradas en su día), y debajo las filas: cliente, estado, una etiqueta « Visita de obra », hora, teléfono y dirección, responsable, « Abrir el trabajo ».",
+      "« Nueva cita » reserva una. Las visitas creadas desde un trabajo, las reservas de la página pública y las devoluciones de llamada que reservó el recepcionista aparecen todas aquí.",
+    ] },
+    tasks: { body: [
+      "« Tareas » — recordatorios internos para el equipo, distintos de los trabajos, que son trabajo programado en casa de un cliente. El recuento de tareas abiertas; primero las atrasadas, luego por prioridad; cada fila con una casilla, una etiqueta de prioridad, la fecha, el responsable, el cliente y un enlace a su trabajo; una tarea que exige fotos muestra el recuento de fotos.",
+      "« Nueva tarea » añade una; « Mostrar completadas » revela las hechas.",
+    ] },
+    chat: { body: [
+      "« Chat » — la empresa hablando consigo misma, sobre el mismo kit de chat que Mensajes. La sala general es todo el equipo; cada trabajo del calendario tiene su propia sala para la cuadrilla reservada en él y la oficina; un mensaje directo es entre dos personas. Las salas se agrupan en « No leídos », « Empresa », trabajos, « Mensajes directos » y « Trabajos terminados ».",
+      "En una sala: el hilo con un separador de no leídos, las menciones @ que avisan a la persona nombrada, la lista de miembros y el compositor. « Nuevo mensaje » abre un mensaje directo con cualquiera del equipo.",
+    ] },
+    // ── Personas ──────────────────────────────────────────────────────────
+    clients: { body: [
+      "Cada cliente, como tarjeta: nombre, correo, teléfono, ciudad, y un pie que cuenta sus presupuestos y facturas. Una empresa muestra a su persona de contacto bajo el nombre de la compañía.",
+      "« Nuevo cliente » añade uno; « Importar » carga un CSV desde lo que el contratista usaba antes. Abrir una tarjeta lleva a los presupuestos, trabajos, facturas y equipos de ese cliente en un solo lugar.",
+    ] },
+    "client-equipment": { body: [
+      "« Garantías que se acaban » — las calderas, paneles y gabinetes que la empresa instaló y cuya cobertura terminó o está por terminar. Es una lista de llamadas, y la página lo dice en esas palabras.",
+      "Un selector de ventana (de los próximos 30 días a los próximos 365) y un recuento — fuera de garantía, por terminar, sin fecha registrada — y luego una tarjeta por pieza con un número para llamar de un toque y un botón de correo, para reservar la visita de renovación desde la tarjeta.",
+    ] },
+    team: { body: [
+      "« Gestionar equipo »: primero el panel de licencias — 4 / 6 licencias usadas, 3 / 11 cuadrilla incluidos sin costo, con « Agregar cuadrilla — sin costo » y « Agregar una licencia » — y luego la lista con el nivel de acceso de cada persona como desplegable: Manager, Estimator, Dispatcher, Crew o « Personalizado… ».",
+      "Cambiar el desplegable reclasifica el nivel y los permisos de esa persona en un paso; « Agregar usuario » invita a alguien; una invitación pendiente aparece como « Invitado » con « Cancelar invitación ». Esta es la pantalla de la que trata el capítulo de Roles.",
+    ] },
+    subcontractors: { body: [
+      "Las empresas contratadas por trabajo — el electricista, el fabricante de encimeras — con oficio, contacto, y si su seguro o su certificado está al día, por vencer o vencido; los que vencen suben a un panel arriba para que nadie pise la obra sin cobertura.",
+      "Un selector de año totaliza lo pagado a cada subcontratista, y « Lista de fin de año (CSV) » exporta la lista T5018.",
+    ] },
+    scheduler: { body: [
+      "« Programación » — la semana de la cuadrilla en siete tarjetas de día. « Agregar turno » pone a una persona en un trabajo con horas y una nota (cargar la furgoneta, entregar los gabinetes); los turnos quedan en borrador, invisibles para la cuadrilla, hasta « Publicar semana ».",
+      "La pantalla del despachador: armar la semana, mover cosas, publicar una vez.",
+    ] },
+    "team-schedule": { body: [
+      "« Horario del equipo » — todos en una página: una tarjeta por persona con su nivel, una franja lunes–domingo de disponibilidad (08:00–17:00, « — » los días libres), un botón « Editar horas », y las próximas dos semanas de lo que tiene reservado, por cliente.",
+      "El propietario ve de un vistazo quién está disponible cuándo, y corrige las horas de cualquiera desde aquí.",
+    ] },
+    clock: { body: [
+      "« Reloj de tiempo » — el fichaje de la persona conectada: el reloj en vivo, una etiqueta « En turno », el tiempo transcurrido desde que fichó, el trabajo en el que está, y un botón rojo « Registrar salida ». Un selector de trabajo cambia la entrada en curso a otro trabajo.",
+      "Debajo, el bloque del día suma las horas y lista cada entrada. Esto es lo que la cuadrilla abre en su teléfono; la oficina revisa el resultado en Hojas de horas.",
+    ] },
+    timesheets: { body: [
+      "« Hojas de horas » — una fila por fichaje: la cuadrilla de hoy en curso con una etiqueta de « en sitio », las filas de la semana pasada con horas y un botón « Aprobar », las más antiguas aprobadas. Un fichaje hecho lejos de la obra se marca en ámbar con la distancia.",
+      "Un gerente aprueba las horas aquí antes de que lleguen a una nómina; « Agregar entrada » registra a mano un fichaje olvidado.",
+    ] },
+    "time-off": { body: [
+      "« Tiempo libre » — tarjetas de saldo (vacaciones, días de enfermedad, día personal) con lo acumulado y lo tomado, la lista de tus solicitudes con « Solicitar tiempo libre », y un botón para retirar una solicitud pendiente.",
+      "La pestaña de equipo, para un gerente, lista las solicitudes pendientes con « Aprobar » y « Rechazar », quién está libre próximamente, y los saldos de todos.",
+    ] },
+    safety: { body: [
+      "« Seguridad » — lesiones y cuasi accidentes. Un botón « Reportar », filtros abiertos / revisados / cerrados, y una tarjeta por incidente con su tipo (cuasi accidente, daño material), si se detuvo el trabajo, dónde, quién lo reportó y su estado.",
+      "Cada tarjeta tiene un desplegable « Seguimiento » donde un gerente fija el estado y anota lo que se hizo. La cuadrilla puede reportar; solo los gerentes dan seguimiento.",
+    ] },
+    // ── Crecer ────────────────────────────────────────────────────────────
+    marketing: { body: [
+      "« Marketing » — una tarjeta por campaña con su estado (activa, borrador), su tipo (reparto de folletos, Meta / anuncios pagados, envío de correos), su progreso (una ruta de folletos muestra 26/40 paradas y 9 atendidos; un anuncio muestra su presupuesto) y su responsable.",
+      "« Nueva campaña » inicia una; « Suscriptores » y « Gasto en marketing » están al lado. Una campaña de folletos se trabaja parada por parada desde el teléfono.",
+    ] },
+    "marketing-designer": { body: [
+      "« Diseñador de marketing » — diseñar un anuncio una vez y exportarlo en todos los tamaños que piden las redes sociales (Instagram, TikTok, Facebook y YouTube) sin rehacer el diseño a mano.",
+      "Los diseños se listan bajo su campaña con aprobado / no aprobado, etiquetas para los cinco formatos (publicación de Instagram, historia de Instagram, TikTok, feed de Facebook, miniatura de YouTube) y el número de formatos listos. « Crear una publicación a partir de un trabajo » convierte las fotos de antes y después de un trabajo en una publicación; « Nuevo diseño » abre un lienzo en blanco.",
+    ] },
+    funnels: { body: [
+      "« Embudos » — embudos de captación pensados para el móvil, en unos toques, para los anuncios y el enlace en la bio; cada uno califica al visitante y deposita un lead puntuado en el pipeline. Cada fila: nombre, publicado o borrador, su canal (Web, Instagram, TikTok, YouTube) y cuántos leads produjo.",
+      "« Nuevo embudo » abre el generador con IA (describir el embudo, « Generar ») y las plantillas por canal; una fila abre el editor y su informe de abandono.",
+    ] },
+    receptionist: { body: [
+      "« Recepcionista » — las llamadas que el agente atendió por ti, y lo que salió de ellas. El registro del agente telefónico con IA, agrupado en pendientes, esperando por ti y archivadas, cada llamada con el número, la hora, la duración y el costo, el resumen, y lo que produjo: guardada como lead, visita reservada, un botón para escuchar la grabación, redactar un presupuesto a partir de la llamada, programar una devolución de llamada.",
+      "Una línea arriba cuenta las citas que las llamadas reservaron. « Recuperar llamadas perdidas » y « Ajustes del recepcionista » son los dos botones.",
+    ] },
+    "crew-inbox": { body: [
+      "« Bandeja del equipo » — las fotos y novedades que la cuadrilla envió por mensaje; las archivadas están en sus trabajos. El panel verde « Mensajes del equipo » muestra el número al que escribe la cuadrilla, el saldo de crédito y las tarifas (2 ¢ por mensaje, 5 ¢ por foto).",
+      "Un bloque pendiente retiene una foto que el sistema no pudo archivar, con la pregunta de para qué trabajo es y una etiqueta por trabajo candidato; el bloque de archivadas lista el resto con el trabajo en el que quedaron.",
+    ] },
+    messages: { body: [
+      "« Mensajes » — los mensajes de la página de Facebook y de la cuenta profesional de Instagram, respondidos aquí. Las conversaciones a la izquierda, agrupadas entre las que esperan respuesta y aquellas en las que se espera al cliente, cada una con el ícono del canal, cuánto lleva esperando y una etiqueta de temperatura; las etiquetas de canal filtran Todos / Facebook / Instagram / WhatsApp.",
+      "La conversación abierta está en el centro con « Responder » y una « Nota » privada; el panel derecho tiene los datos de la persona, el estado (abierta, en espera, pospuesta, resuelta), quién se ocupa, y « Abrir el lead ». « Resumen mensual » es el botón de arriba a la derecha.",
+    ] },
+    refer: { body: [
+      "Recomendar otra empresa da otro mes de FieldQuo gratis una vez que es cliente de pago. El enlace de la empresa con « Copiar » — lo bastante corto para decirlo en voz alta, en una tarjeta de visita, un pie de factura o una furgoneta — un botón para compartir por WhatsApp, y « Enviar invitación » por correo o mensaje.",
+      "Debajo, los meses ganados, las empresas recomendadas (acreditada o aún sin pagar) y las invitaciones enviadas.",
+    ] },
+    help: { body: [
+      "« Centro de ayuda » — guías paso a paso para todo en FieldQuo: presupuestos, trabajos, facturas, cobros, reservas, sitio web, equipo, y el uso en el teléfono. Un cuadro de búsqueda, un botón para repetir el recorrido de configuración, y artículos agrupados por tema.",
+      "Los artículos se abren en el mismo lugar. Manda al contratista aquí antes de que llame a soporte.",
+    ] },
+    plan: { body: [
+      "« Cuenta y facturación » — el plan, las licencias y los datos de pago. La tarjeta del plan muestra el nombre del plan, su estado, el precio mensual, las licencias, la cuadrilla incluida sin costo y la próxima fecha de facturación, con « Gestionar facturación y método de pago », un enlace a lo que pagaron los clientes y « Cancelar plan ».",
+      "Bajo los planes, un interruptor « Mensual » / « Compromiso de 1 año » y los cuatro escalones — Solo, Crew, Shop, Scale — cada uno con sus licencias y accesos de cuadrilla y « Elegir plan »; el actual dice « Plan actual ». Solo propietario y administradores.",
+    ] },
+    // ── Finanzas ──────────────────────────────────────────────────────────
+    payroll: { body: [
+      "« Nómina » — FieldQuo calcula lo que debe cobrar cada persona a partir de sus horas aprobadas y las tarifas guardadas, y produce los recibos de pago; el contratista paga por su propio banco o proveedor de nómina — FieldQuo no mueve el dinero. Di esa última frase en cada llamada: es la pregunta que hacen.",
+      "« Nuevo ciclo de pago » viene prellenado con el último período cerrado del ciclo de pago de la empresa (« Cada 2 semanas »); « Calcular » previsualiza bruto, deducciones y neto por persona, y luego « Guardar como borrador ». « Ciclos de pago » lista cada período con sus fechas, la plantilla, el neto total y su estado.",
+    ] },
+    expenses: { body: [
+      "« Seguimiento de gastos » — a dónde va el dinero, por trabajo, gastos generales y categoría, más la tasa de gasto mensual. Un selector de mes sobre cuatro tarjetas: los gastos registrados del mes, la tasa de gasto mensual (generales + salarios + deudas), el margen de maniobra y el gasto ligado a trabajos.",
+      "Debajo: una tarjeta « Resumen de IA », el desglose mensual y el gasto por categoría en barras, la tendencia de 6 meses, y los gastos recientes con cada recibo etiquetado como general o ligado a un trabajo. « Agregar gasto », « Importar desde un CSV del banco », y una tarjeta « Exportación contable » que descarga un rango de fechas en CSV para el contador.",
+    ] },
+    purchasing: { body: [
+      "« Compras » — a quién se le compra, qué hay pedido y qué hay en el estante. Tres pestañas: « Pedidos », « Existencias », « Proveedores ». Pedidos lista cada orden de compra con su proveedor, cuántas líneas se recibieron, su estado y su total; « Nuevo pedido » crea una.",
+      "Abrir un pedido permite registrar una entrega línea por línea; el material recibido aterriza en la pestaña Existencias, que muestra lo que hay en el estante y marca lo que cae por debajo de su nivel de reposición.",
+    ] },
+    fleet: { body: [
+      "« Vehículos » — qué vence, qué caduca y quién tiene la furgoneta; lo que costó cada una vive en el registro de activos. Primero un panel « Pendiente o por vencer » — seguro, matrícula, servicio por fecha o por kilometraje — y luego una tarjeta por furgoneta con su placa, modelo, año y quién la tiene.",
+      "Una tarjeta se despliega en los cuatro vencimientos, el odómetro, el VIN, el costo y el valor en libros, un botón de edición, el registro de « Mantenimiento » y los « Documentos ».",
+    ] },
+    // ── Análisis ──────────────────────────────────────────────────────────
+    insights: { body: [
+      "« Cómo te comparas » — el precio medio de los presupuestos de la empresa frente al promedio anonimizado de la plataforma, por categoría de servicio. Una fila por categoría con el número de presupuestos en la región este trimestre, « Tu promedio », « Promedio de la plataforma » y la diferencia en porcentaje. Voluntario, solo agregados — un competidor nunca ve los precios de una empresa.",
+      "Esta página es también el centro del resto del grupo: « Resúmenes semanales », « Estados financieros », « Ganadas y perdidas », « Precisión de las estimaciones » y « Panel de KPI » son los enlaces bajo el título.",
+    ] },
+    kpis: { body: [
+      "« Panel de KPI » — ventas, beneficio, ejecución y caja, en un solo lugar. Botones de período (este mes, el mes pasado, « Este trimestre », el año hasta hoy, el año pasado), y luego las secciones: ventas (tasa de cierre, valor medio del trabajo, conversión de lead a presupuesto, cartera en semanas), flujo de dinero (ingresos, gastos, restante, por día), costos del negocio, beneficio (margen bruto y neto, costo de mano de obra), ejecución (entrega a tiempo, utilización de la mano de obra, precisión de las estimaciones), calidad, caja (cuentas por cobrar por antigüedad, vencidas) y cliente.",
+      "Una tarjeta sin datos dice por qué en lugar de mostrar un cero, y una sección final « Sin seguimiento » nombra los dos indicadores que FieldQuo se niega a inventar. Requiere que el costeo de trabajos esté activado para quien mira.",
+    ] },
+    settings: { body: [
+      "« Configuración » abre el menú de configuración y aterriza en la Configuración de la empresa. El menú tiene ocho grupos — Cuenta, Negocio, Equipo y horarios, Servicios y precios, Documentos y plantillas, Mensajería y alertas, Cobros, De cara al cliente — cerrados por defecto para leerse como un índice, con el grupo en el que estás abierto.",
+      "Cada fila se recorre abajo. Un cuadro de búsqueda arriba del menú encuentra una fila escribiendo su nombre.",
+    ] },
+    // ── Configuración: Cuenta ─────────────────────────────────────────────
+    "settings-account-billing": { body: [
+      "La misma pantalla que « Plan » en el menú principal, alcanzada desde el menú de Configuración: la tarjeta del plan con estado, precio, licencias, accesos de cuadrilla y próxima fecha de facturación; « Gestionar facturación y método de pago », « Cancelar plan »; y los cuatro planes con « Elegir plan ».",
+      "Solo propietario y administradores — un Manager no ve esta fila.",
+    ] },
+    "settings-refer": { body: [
+      "La misma página « Recomienda y gana » que en el menú principal: el enlace de recomendación de la empresa, compartir e invitar, los meses ganados y las empresas recomendadas.",
+      "Un mes gratis para cada uno, quien recomienda y quien es recomendado, una vez que la empresa recomendada paga.",
+    ] },
+    "settings-migration": { body: [
+      "« Migración de datos » — el servicio de pago en el que FieldQuo importa los datos antiguos de una empresa. La tarjeta de la solicitud muestra lo que dijo que traería (QuickBooks, Jobber…), su estado (« Presupuesto listo »), el precio de FieldQuo con su nota, y « Aceptar » / « Rechazar »; debajo, « Documentos » con « Subir un archivo » para las exportaciones.",
+      "El personal de FieldQuo crea clientes y cotizaciones nuevos dentro de la cuenta, nunca toca lo que ya existe, y cada escritura queda registrada. El precio se paga por la facturación de FieldQuo, no por el Stripe del contratista.",
+    ] },
+    "settings-product-updates": { body: [
+      "« Novedades del producto » — un registro fechado de cambios, cada entrada con « Leer la novedad completa ». Nada que configurar; es donde un contratista ve qué cambió desde el mes pasado.",
+    ] },
+    // ── Configuración: Negocio ────────────────────────────────────────────
+    "settings-company": { body: [
+      "« Configuración de la empresa » — los datos del negocio, el horario, los impuestos y las preferencias regionales. Las tarjetas de arriba abajo: « Alcance del trabajo y condiciones » (el texto de proceso por defecto con el que empieza cada cotización, y « Condiciones de pago »), « Calendario de pagos » (50 % de depósito al reservar, 50 % en la instalación, « Guardar calendario »), la industria y los tipos de cotización, los datos con la dirección, « Horario de apertura », « Disponibilidad para reservas » y « Configuración de impuestos » (GST, QST, GST + QST, « Crear tasa de impuesto »).",
+      "Es la primera pantalla tras el registro, y aquella en la que aterriza la fila de Configuración del menú.",
+    ] },
+    "settings-branding": { body: [
+      "« Marca » — el logotipo y el color de marca aparecen en cada cotización, factura y correo que ven los clientes. Una tarjeta « Logotipo » con « Subir logotipo », « Colores de marca » con « Principal » y « Secundario », y una vista previa de una cotización en modo claro y oscuro.",
+      "Un solo color rige todas las superficies de cara al cliente; el contraste se calcula, así que un amarillo o un gris medio siguen imprimiéndose legibles.",
+    ] },
+    "settings-language": { body: [
+      "« Idioma » — « Tu idioma », una fila por idioma con su cobertura de la interfaz, bajo una opción « Usar el predeterminado de la empresa »; y una tarjeta « Predeterminado de la empresa » debajo.",
+      "El propietario elige en qué idioma lee la aplicación; el predeterminado de la empresa cubre a los compañeros y clientes que nunca eligieron. Un documento conserva el idioma en que se creó.",
+    ] },
+    "settings-activity": { body: [
+      "« Registro de actividad » — la pista de auditoría de la empresa: cotización creada, enviada, reclamada, aprobada; factura enviada y reclamada; trabajo programado; miembro invitado; precios actualizados; cliente añadido — cada uno con quién lo hizo, su rol y cuándo.",
+      "Solo lectura, solo propietario y administradores. Es la respuesta a «¿quién cambió esto?».",
+    ] },
+    // ── Configuración: Equipo y horarios ──────────────────────────────────
+    "settings-team": { body: [
+      "La misma pantalla « Gestionar equipo » que « Tu equipo » en el menú principal: el panel de licencias, la lista con el nivel de acceso de cada persona, « Agregar usuario », y las invitaciones pendientes.",
+      "Ver « Roles y acceso » para lo que significa cada nivel del desplegable.",
+    ] },
+    "settings-availability": { body: [
+      "« Tu horario » — un selector « Horario de quién », luego « Horario de trabajo » (el turno, para la programación y las hojas de horas) y « Horas reservables » (la ventana que ofrece la página pública de reservas), con un « Guardar horario » fijo abajo.",
+      "Las dos están separadas a propósito, y ambas son por persona: el horario de apertura de la empresa vive en la Configuración de la empresa, para que el día libre de un estimador nunca se publique como un cierre del taller.",
+    ] },
+    "settings-leave": { body: [
+      "« Políticas de tiempo libre » — « Políticas » con « Agregar política »: por ejemplo vacaciones con días fijos al año y arrastre, y bajas por enfermedad aprobadas automáticamente, cada una con « Editar »; y una tarjeta « Fin de año » que traslada los saldos del año pasado a este.",
+      "Solo propietario y administradores; los saldos se muestran en la pantalla de Tiempo libre de cada persona.",
+    ] },
+    "settings-booking-page": { body: [
+      "« Página de reservas » — el código para incrustar en el sitio (« Copiar código »), « ¿Cuánto dura una visita? » con los modos de encuentro (en casa del cliente, llamada telefónica), el margen de desplazamiento, la ventana de llegada y la duración por defecto, las reglas de cambios y cancelaciones (horas de aviso, reembolso de la tarifa), y luego una tarjeta por tipo de evento — una consulta de diseño de 60 minutos gratuita, una visita de medición de 45 minutos con tarifa y precio promocional.",
+      "« Nuevo tipo de evento » añade un tipo de cita que un propietario puede reservar por sí mismo.",
+    ] },
+    "settings-work-areas": { body: [
+      "« Áreas de trabajo » — zonas o proyectos con nombre (Laval, isla de Montreal, Rive-Nord), cada uno con una etiqueta por miembro del equipo; una etiqueta rellena significa que esa persona está asignada. Un campo arriba añade una.",
+      "Sirve para agrupar trabajos y tareas por territorio; la asignación es solo para propietario, administradores y supervisores.",
+    ] },
+    // ── Configuración: Servicios y precios ────────────────────────────────
+    "settings-products": { body: [
+      "« Productos y servicios » — el catálogo de precios: una tabla con nombre, descripción y tipo (servicio o producto), cada artículo etiquetado con los tipos de cotización en los que puede aparecer, con editar y borrar, búsqueda, « Agregar artículo » y una importación CSV.",
+      "Una línea de cotización se elige de aquí, así que el precio que ve el propietario de la casa es el que fijó el dueño del negocio.",
+    ] },
+    "settings-services": { body: [
+      "« Servicios y precios » — una tarjeta por tipo de cotización con una casilla de encendido/apagado: los tipos propios de la empresa (personalizados) con sus campos de admisión y sus tarifas por unidad, y los del oficio incluidos de serie (el reacabado de gabinetes, cotizado por puerta o por frente de cajón, con la opción de un precio instantáneo para los propietarios y una tarjeta de tarifas plegable). « Lo que dice el presupuesto » bajo cada uno es el texto que lee el cliente.",
+      "« Agregar tipo de presupuesto personalizado » y mostrar los servicios de otros oficios son los dos botones. Las tarifas nunca salen de esta pantalla — los puntos de acceso públicos devuelven servicios y campos, no precios.",
+    ] },
+    "settings-material-costs": { body: [
+      "« Costos de materiales » — cuándo pedir una revisión del costeo (un umbral, « Guardar »), y luego una receta por servicio (el reacabado de gabinetes, marcado como personalizado con « Restablecer valores predeterminados »): imprimación y capas de acabado, rendimiento, precio por galón, endurecedor, horas de preparación y consumibles.",
+      "Estos valores alimentan la estimación interna de costo y margen de una cotización; nunca se muestran al cliente. Solo aparece para los oficios que cotizan así.",
+    ] },
+    "settings-cabinet-rates": { body: [
+      "« Precios de gabinetes » — « Cómo fijas el precio de un gabinete » (« Por pie lineal » o « Costo más margen del material »), « Tarifas por pie lineal » (base, superior, despensa, isla, recargo por cajón, armarios empotrados, tocador, y si la instalación está incluida), y luego « Multiplicadores de material ».",
+      "El diseñador de cocinas cotiza a partir de estos valores en el servidor. Solo aparece para los oficios de gabinetes.",
+    ] },
+    "settings-overhead": { body: [
+      "« Gastos generales » — « Tu precio mínimo »: trabajos por semana, y tarjetas para los costos fijos mensuales, los trabajos por mes, el costo por trabajo y el precio mínimo que un trabajo debe dejar para cubrir el taller; las horas pagadas que nunca llegaron a un trabajo (mano de obra no absorbida por trabajador); y luego los registros — « Costos fijos », « Salarios », « Deuda », activos y depreciación, y « Facturas por pagar » con lo pendiente, lo que sale este mes y lo atrasado.",
+      "El número que un contratista más quiere y menos veces tiene. Requiere costeo de trabajos.",
+    ] },
+    "settings-custom-fields": { body: [
+      "« Campos personalizados » — campos definidos por tipo de registro (campos de cotización como estilo de puerta, acabado, acabado de la herrajería, con su tipo y si son obligatorios).",
+      "La propia página dice « Próximamente » para mostrarlos en los registros: los campos se definen aquí pero aún no aparecen en una cotización. No prometas que sí.",
+    ] },
+    // ── Configuración: Documentos y plantillas ────────────────────────────
+    "settings-quote-email": { body: [
+      "« Correo de presupuesto » — lo que contiene el correo que lleva las cotizaciones, más allá de la cotización misma. Una tarjeta lista lo que el correo siempre lleva, luego « Referencias » — clientes anteriores que aceptaron atender una llamada, con la opción de incluirlos en cada nueva cotización — y una sección de fotos de antes y después.",
+      "El contratista añade nombres y números, sube pares de fotos y elige qué sale. El correo mismo se envía en el idioma de la cotización, a nombre de la empresa.",
+    ] },
+    "settings-email-templates": { body: [
+      "« Plantillas de correo electrónico » — personalizar los correos que reciben los clientes. Agrupadas en automatizadas, marketing y personalizadas, una fila por plantilla con una etiqueta de activa, un botón para activarla, editar, duplicar y borrar; « Nueva plantilla » y « Agregar plantillas predeterminadas » para partir de un juego inicial.",
+    ] },
+    "settings-pdf-templates": { body: [
+      "« Plantillas PDF » — el diseño de los PDF de cotización y factura que reciben los clientes. Dos tarjetas, PDF de cotización y PDF de factura, cada una con sus diseños, el número de secciones y una etiqueta de activo; un botón crea otro diseño para editar.",
+      "Las facturas reflejan las cotizaciones a propósito: las mismas secciones, en el mismo orden, para que el propietario reconozca el segundo documento como gemelo del primero.",
+    ] },
+    "settings-translations": { body: [
+      "« Traducciones » — el texto que ven los clientes en cotizaciones y facturas escritas en otro idioma. Un selector de idioma, un contador de lo que aún falta, y por servicio columnas inglés / francés con « Marcar como revisado »; « Redactar los que faltan » rellena los huecos con borradores de IA que una persona revisa.",
+      "Así es como un taller de Quebec cotiza en francés y en inglés desde un solo catálogo de precios. Nada se traduce automáticamente al enviar.",
+    ] },
+    "settings-checklists": { body: [
+      "« Listas de verificación » — los pasos estándar que la cuadrilla sigue en la obra. Las listas propias de la empresa con su etiqueta de fase (en la obra / antes de irse), el número de pasos y el servicio, con edición; listas iniciales por oficio con « Usar esta ».",
+    ] },
+    "settings-job-photo-tags": { body: [
+      "« Etiquetas de fotos de trabajo » — las propias palabras de la empresa para decir qué pasa en una foto. Una lista ordenada de etiquetas con muestras de color, subir / bajar y « Retirar », un formulario « Agregar una etiqueta » con selector de color, y un bloque de etiquetas iniciales.",
+      "La cuadrilla elige una etiqueta al enviar una foto por mensaje; por esa etiqueta filtra luego la oficina.",
+    ] },
+    // ── Configuración: Mensajería y alertas ───────────────────────────────
+    "settings-messages": { body: [
+      "« Mensajes de clientes » — los mensajes de texto que reciben los clientes. Un editor por tipo — en camino, recordatorio de cita — con fichas de campos, una vista previa de lo que ve el cliente, « Guardar » y « Usar el predeterminado ».",
+      "Dos tipos de mensaje y no más; no prometas otros mensajes automáticos desde esta pantalla.",
+    ] },
+    "settings-follow-ups": { body: [
+      "« Seguimientos » — enviar automáticamente una plantilla cierto tiempo después de que una cotización, factura o trabajo llegue a un estado. Un esquema de solo lectura de cómo funcionan (disparador → espera → envío del correo → parada) tomado de las reglas de abajo, donde cada regla tiene « Pausar » y borrar; « Nueva regla » abre el formulario de disparador / retraso / plantilla.",
+      "Una cotización sin respuesta a los tres días, una factura con siete días de retraso: las dos reglas que todo taller debería tener activas.",
+    ] },
+    "settings-notifications": { body: [
+      "« Notificaciones » — cuándo FieldQuo debe enviar un correo al dueño sobre lo que pasa en la cuenta. Tarjetas para una cotización grande creada (con el umbral), una factura pagada, los recordatorios de cita (apagados, o 2 / 24 / 48 horas antes) y las notificaciones del navegador.",
+      "Solo propietario y administradores.",
+    ] },
+    "settings-email-domain": { body: [
+      "« Dominio de correo » — enviar los correos a los clientes desde el dominio de la empresa en lugar del nuestro. El dominio con su estado « Verificado » y « Desconectar », el editor de « Dirección del remitente » (presupuestos@…), y a dónde van las respuestas.",
+      "Es la promesa de marca blanca hecha literal: la bandeja del propietario muestra el dominio del contratista como remitente, no el de FieldQuo.",
+    ] },
+    // ── Configuración: Cobros ─────────────────────────────────────────────
+    "settings-payments": { body: [
+      "« Pagos » — conectar Stripe para que los clientes paguen las facturas en línea, directamente a la cuenta bancaria de la empresa. Stripe conectado y activo con « Gestionar en Stripe » y « Desconectar », y luego la cuenta: su identificador con copiar, el correo de acceso, lo que Stripe ha activado (cobros, transferencias) y lo que aún espera.",
+      "Stripe Connect, a nombre del contratista: el dinero va a su banco, y FieldQuo nunca lo retiene. Solo propietario y administradores.",
+    ] },
+    "settings-meta-ads": { body: [
+      "« Meta Ads » — la cuenta publicitaria conectada con « Sincronizar ahora », « Desconectar » y un enlace a las campañas; los formularios de leads de Facebook con un interruptor por formulario, recuento de leads y campañas; la publicación en Facebook e Instagram y la tarjeta de WhatsApp Business con su número y plantillas.",
+      "Una sola conexión alimenta tres cosas: el gasto publicitario en los KPI, los formularios en Prospectos, y los mensajes de la página, de Instagram y de WhatsApp en Mensajes.",
+    ] },
+    "settings-expense-tracking": { body: [
+      "La misma pantalla « Seguimiento de gastos » que « Gastos » en el menú principal: las tarjetas del mes, el desglose, la tendencia, los recibos recientes y la exportación contable.",
+    ] },
+    "settings-ai-credit": { body: [
+      "« Crédito de IA » — todo lo que gasta crédito de IA, en un solo lugar. El saldo de crédito telefónico con « Agregar crédito telefónico » y a dónde fue el crédito; el saldo de crédito de imágenes de IA con recargas; y la tarjeta del plan mensual de crédito de IA.",
+      "Los minutos telefónicos y las imágenes de IA se miden contra crédito que la empresa compra; FieldQuo IA y el copiloto están incluidos en todos los planes.",
+    ] },
+    "settings-payroll": { body: [
+      "« Configuración de nómina » — « Cuándo pagas » (frecuencia, día de cierre del período, día de pago, período actual y anterior), y luego los componentes de deducciones y devengos: tramos fiscales legales, porcentajes y asignaciones fijas, cada uno con apagar y borrar, más plantillas legales regionales para empezar.",
+      "Solo propietario y administradores; a partir de esto calcula Nómina.",
+    ] },
+    // ── Configuración: De cara al cliente ─────────────────────────────────
+    "settings-website": { body: [
+      "« Tu sitio web » — el editor: la dirección del sitio con una etiqueta « En vivo », « Abrir », « Guardar » y « Actualizar »; un panel de conversación donde el contratista escribe una instrucción (más atrevido, empezar por las reseñas, página más corta), selectores de diseño y estilo, « Ajustar », y un panel de vista previa / secciones con alternancia de escritorio y móvil.",
+      "El modelo solo escribe frases; el diseño, los servicios y los testimonios vienen de los datos de la empresa, así que un sitio nunca se inventa. Los sitios gratuitos llevan un pequeño pie « Sitio por FieldQuo ».",
+    ] },
+    "settings-instant-quotes": { body: [
+      "« Cotizaciones instantáneas » — dejar que los propietarios obtengan una estimación inicial real desde el sitio web en segundos. Un recuento de lo que está en vivo con « Ver lo que ven los propietarios », un código para incrustar con « Copiar código », y luego una tarjeta por oficio con un interruptor, la elección de lo que ve el propietario, y los campos de tarifas.",
+      "Cada estimación instantánea aterriza en Revisión de estimaciones antes de poder enviarse; la página pública nunca muestra la tarjeta de tarifas.",
+    ] },
+    "settings-lead-form": { body: [
+      "« Comparte tus enlaces » — para poner en todos los sitios donde la empresa ya está. Tarjetas para pedir una cotización, reservar una visita, la estimación instantánea y cada embudo publicado, cada una con el enlace, « Copiar enlace », « Abrir » y un código para incrustar.",
+    ] },
+    "settings-bio-link": { body: [
+      "« Enlace para la bio » — una página para el único enlace que permiten Instagram y TikTok. « Tu enlace » con copiar / abrir y el estado en vivo, un título y una línea debajo, las cuentas a seguir, los interruptores de enlaces ordenados, y una « Vista previa » en un marco de teléfono con alternancia claro / oscuro y « Guardar ».",
+    ] },
+    "settings-voice": { body: [
+      "« Recepcionista telefónica » — atiende las llamadas que no se pueden atender, toma los datos y reserva visitas contra la disponibilidad real. El número con su estado de respuesta; el crédito (saldo, minutos, recargas, recarga automática); « Tu número »; las tarjetas de saludo, conocimiento, voz y ajuste fino; las devoluciones de llamada de cotizaciones; el interruptor de la bandeja del equipo; y « Comprobarlo de principio a fin ».",
+      "Un número local en la zona del contratista, que responde en el idioma de quien llama y reserva en el calendario que ve la oficina. El registro de llamadas es la pantalla Recepcionista del menú principal.",
+    ] },
+    "settings-ai-employee": { body: [
+      "« Empleado de IA » — un asistente que responde los mensajes de los clientes por la empresa. « ¿Qué puesto ocupa? » (cerrador de ventas, recepcionista, soporte técnico u otro, con lo que puede y no puede hacer), « Cómo escribe » (nombre, tono, frase de apertura, instrucciones), el material que lee, y los borradores pendientes de revisión.",
+      "Él redacta; una persona envía. Los borradores aparecen en Mensajes.",
+    ] },
+    "settings-reviews": { body: [
+      "« Reseñas » — pedir automáticamente una reseña a los clientes una vez terminado el trabajo. « Tu enlace de reseñas » con guardar, un interruptor « Pedir automáticamente », etiquetas « Cuándo preguntar » para el retraso, un resumen de la cola, y « Reseñas en tu sitio web » que lista los testimonios con interruptores de mostrar / ocultar y una importación por pegado.",
+    ] },
+  },
+};
+
+// ══ Roles y acceso ════════════════════════════════════════════════════════
+//
+// Las cinco personas que un contratista puede crear, y lo que ve cada una.
+// Las dos tablas de este capítulo NO están escritas aquí — el generador
+// ejecuta lib/permissions/nav.js y lib/permissions/settingsAccess.js contra
+// la cuadrícula real de cada preajuste, el mismo código que oculta una fila
+// del menú a esa persona.
+export const ROLES_CHAPTER = {
+  heading: "Roles y acceso — quién ve qué",
+  intro: [
+    "El contratista añade a una persona desde Gestionar equipo y elige uno de cinco niveles de acceso: Crew, Estimator, Dispatcher, Manager, o su propio nivel de propietario. Los cuatro primeros son preajustes — una cuadrícula rellena de once áreas de permiso y tres interruptores — y el propietario puede cambiar cualquier ajuste después, lo que convierte el preajuste en «Personalizado». Las tablas de abajo se calculan a partir del propio código de permisos del producto el día en que se generó esta guía, así que dicen lo que el menú hace de verdad.",
+    "Dos cosas que decir bien en una llamada. Primero, un acceso Crew no es un asiento: una persona cuyo acceso está en el nivel Crew o por debajo no cuesta nada y no cuenta contra los asientos completos del plan — eso significa la columna «accesos de cuadrilla» de la tabla de planes. Estimator, Dispatcher, Manager y el propietario son asientos completos. Segundo, ocultar una fila no es la seguridad: cada API del producto vuelve a comprobar la misma cuadrícula en el servidor, y quien escribe una dirección que no se le mostró recibe un rechazo, no la página.",
+    "Hay una sexta opción en la lista, «Hacer administrador», que otorga todo lo que tiene el propietario salvo la propiedad misma. Existe para un socio o un contador que debe ver la facturación. No la sugieras para el personal.",
+  ],
+  tierNote: "nivel {tier}",
+  productSays: "La descripción del propio producto:",
+  roles: [
+    {
+      key: "worker",
+      body: [
+        "La persona en la furgoneta. Ve su propio horario y lo marca como completado, ficha entrada y salida, registra sus propios gastos y su tiempo, reporta un incidente de seguridad y lee las notas de los trabajos que tiene asignados — nombre y dirección del cliente, nada más. Sin precios en ningún sitio, sin presupuestos, sin facturas, sin solicitudes. Los trabajos son de solo lectura, y solo los suyos.",
+        "Este es el nivel para instaladores y ayudantes. Es gratuito, y es la razón por la que la cuadrilla puede usar el mismo producto que la oficina sin que la oficina se preocupe por lo que la cuadrilla puede ver.",
+      ],
+    },
+    {
+      key: "estimator",
+      body: [
+        "Escribe presupuestos y gestiona clientes, con precios. Puede crear y editar solicitudes y presupuestos, ver y editar las fichas completas de clientes, leer todas las notas, y ver (no editar) trabajos y facturas. Solo su propio horario, tiempo y gastos. Sin gestión de personas, sin nómina más allá de sus propios recibos, sin costeo de trabajos.",
+        "Para un vendedor o un segundo estimador que debe poder cotizar y enviar, pero no dirigir el taller.",
+      ],
+    },
+    {
+      key: "dispatcher",
+      body: [
+        "Lleva el horario. El horario de todos es editable, el tiempo de todos es editable, y los trabajos, presupuestos, facturas y solicitudes se pueden crear y editar — pero no borrar. Fichas completas de clientes, todas las notas, los incidentes de seguridad de todos. Todavía solo sus propios gastos, todavía sin costeo de trabajos ni cobro de pagos.",
+        "El jefe de equipo que reserva a la cuadrilla, mueve visitas y mantiene la semana en orden, sin el poder de eliminar nada.",
+      ],
+    },
+    {
+      key: "manager",
+      body: [
+        "Lleva el día a día, borrado incluido: presupuestos, trabajos, facturas, solicitudes y clientes se pueden crear, editar y borrar; el horario, el tiempo y los gastos de todos; costeo de trabajos activado; cobro de pagos activado. Lo que un Manager no tiene es la nómina (solo sus propios recibos) y la facturación de la empresa — el plan, la tarjeta, la suscripción — que se quedan con el propietario.",
+        "Es el gerente de oficina o el socio que dirige las operaciones. Si un contratista pregunta «¿puedo darle a alguien todo menos el dinero?», esta es la respuesta.",
+      ],
+    },
+    {
+      key: "owner",
+      body: [
+        "Todo, sin cuadrícula que consultar: la persona que dio de alta la empresa. Solo un propietario o un administrador puede abrir Cuenta y facturación, Migración de datos, Recomienda y gana, Registro de actividad, Notificaciones, Políticas de ausencias, Pagos y Meta Ads, ejecutar la nómina, cambiar el acceso de una persona existente o desactivarla. (Un Manager o un Dispatcher puede invitar a gente, pero solo en el nivel Worker — Crew o Estimator — y solo con ajustes que no superen los suyos.) El propietario siempre es un asiento completo.",
+      ],
+    },
+  ],
+  seesHeading: "Lo que cada nivel ve en el menú",
+  seesIntro: [
+    "Un Sí en verde significa que la fila está en el menú de esa persona; un No en rojo significa que está oculta y que la página detrás la rechaza. Calculado pasando cada preajuste por el propio filtro del menú. Las filas de Configuración se filtran dos veces — por la regla del menú principal cuando la fila también está ahí, y por la del menú de Configuración — y ambas deben pasar.",
+  ],
+  screenCol: "Pantalla",
+  gridHeading: "La cuadrícula de permisos detrás de cada preajuste",
+  gridIntro: [
+    "Las once áreas y los tres interruptores que un propietario ve en el editor de acceso personalizado, con el nivel que escribe cada preajuste. Las palabras son las del producto, en inglés en pantalla sea cual sea el idioma.",
+  ],
+  areaCol: "Área",
+  toggleNames: {
+    showPricing: "Ver precios (showPricing)",
+    jobCosting: "Costeo de trabajos",
+    payments: "Cobrar pagos",
+  },
+  yes: "Sí",
+  no: "No",
+  editorHeading: "El editor de acceso personalizado",
+  editorBody: [
+    "En Gestionar equipo, cada persona tiene un desplegable con las mismas cinco opciones que la pantalla de invitación — Crew, Estimator, Dispatcher, Manager, Administrador — más «Personalizado», que abre la cuadrícula. Elegir un preajuste aplica su nivel y sus permisos de una vez. Personalizado muestra las once áreas como desplegables y los tres interruptores como casillas, partiendo de lo que la persona tiene ahora, y una etiqueta «Nivel Worker» / «Nivel Manager» en cada preajuste dice qué nivel produce (Dispatcher y Manager comparten el nivel Manager; Crew y Estimator comparten el nivel Worker).",
+    "Solo se puede dar lo que se tiene: cuando un Manager invita a alguien, el servidor limita cada ajuste al nivel del Manager y quita cualquier interruptor que el Manager no tenga. Cambiar el acceso de una persona existente, nombrar un administrador y revocar un acceso son solo para el propietario y los administradores.",
+  ],
+  editorCaption: "Gestionar equipo — el editor de acceso personalizado abierto sobre un Estimator.",
+};

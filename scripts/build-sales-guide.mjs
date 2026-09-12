@@ -1,8 +1,11 @@
 // scripts/build-sales-guide.mjs
 //
-//   node --import ./scripts/alias-loader.mjs scripts/build-sales-guide.mjs en
+//   node --import ./scripts/alias-loader.mjs scripts/build-sales-guide.mjs en          # HTML only
+//   node --import ./scripts/alias-loader.mjs scripts/build-sales-guide.mjs en --pdf    # + Chrome print
+//   npm run build:sales-guide                                                          # en fr es, PDFs
 //
-// Builds the sales reference guide as HTML, ready for Chrome's --print-to-pdf.
+// Builds the sales reference guide as HTML, then (with --pdf) prints it through
+// headless Chrome to docs/sales/guide/build/FieldQuo-Sales-Guide-<LANG>.pdf.
 //
 // ══ Why it is generated and not written ═══════════════════════════════════
 //
@@ -26,23 +29,78 @@
 // links to all of them, every feature name in a deep dive links to its row in
 // the table, and each section links back. Chrome carries internal anchors into
 // the PDF, so the links work in the file a rep opens on a phone in a car park.
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { execFileSync } from "node:child_process";
 
 import { FEATURE_MATRIX, MATRIX_GROUPS } from "@/lib/marketing/featureMatrix";
 import { FEATURE_PAGE_MESSAGES } from "@/app/i18n/featurePages/index.js";
 import { MESSAGES } from "@/app/i18n/messages";
+import { APP_MESSAGES } from "@/app/i18n/appMessages";
 import { SEAT_LADDER } from "@/lib/pricing/ladder";
+import { PERMISSION_PRESETS, PERMISSION_CATEGORIES, PERMISSION_TOGGLES, PRESET_TO_ROLE } from "@/lib/permissions";
+import { ROLE_LABELS } from "@/lib/permissions/roleManagement";
+import { navRowAllowed } from "@/lib/permissions/nav";
+import { canSeeSettingsRow, SETTINGS_ROW_CAPABILITY } from "@/lib/permissions/settingsAccess";
+import { SCREENS } from "../docs/screens/app-guide/harness/screens.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const lang = (process.argv[2] || "en").toLowerCase();
+const argv = process.argv.slice(2);
+const wantPdf = argv.includes("--pdf");
+const lang = (argv.find((a) => !a.startsWith("--")) || "en").toLowerCase();
 const contentPath = join(ROOT, "docs/sales/guide", `content.${lang}.js`);
 if (!existsSync(contentPath)) {
   console.error(`No content module for "${lang}" — expected docs/sales/guide/content.${lang}.js`);
   process.exit(1);
 }
-const { GUIDE, DEEP_DIVES, CONSOLE_SECTIONS = [] } = await import(contentPath);
+const { GUIDE, DEEP_DIVES, CONSOLE_SECTIONS = [], SCREENS_CHAPTER, ROLES_CHAPTER } = await import(contentPath);
+
+// ══ A translation is the same shape as the English, or the build fails ═══
+//
+// The manual's builder refuses an unknown label key; this guide has no label
+// keys, so the equivalent promise is structural: every key the English
+// content module carries must exist in the module being built, and every
+// screen in screens.js must have its paragraph. A French guide that quietly
+// printed an English sentence where the French one was never written is the
+// failure this guards — it was found once already, in the feature names.
+if (lang !== "en") {
+  const en = await import(join(ROOT, "docs/sales/guide", "content.en.js"));
+  const missing = [];
+  const walk = (a, b, path) => {
+    if (a && typeof a === "object" && !Array.isArray(a)) {
+      for (const k of Object.keys(a)) {
+        if (b == null || !(k in b)) missing.push(`${path}.${k}`);
+        else walk(a[k], b[k], `${path}.${k}`);
+      }
+    } else if (Array.isArray(a) && a.length && a[0] && typeof a[0] === "object" && !Array.isArray(a[0])) {
+      // Lists of objects: matched by `id`/`key` when the items carry one
+      // (deep dives, roles), so a section the translator never wrote is
+      // named; the glossary is sorted per language and may carry an extra
+      // local term, so it is only required not to be shorter.
+      if (!Array.isArray(b)) { missing.push(`${path}[none]`); return; }
+      const ident = (x) => x?.id ?? x?.key ?? null;
+      if (a.every((x) => ident(x) !== null)) {
+        for (const item of a) {
+          const hit = b.find((y) => ident(y) === ident(item));
+          if (!hit) missing.push(`${path}[${ident(item)}]`);
+          else walk(item, hit, `${path}[${ident(item)}]`);
+        }
+      } else if (b.length < a.length) {
+        missing.push(`${path}[length ${a.length} vs ${b.length}]`);
+      }
+    } else if (typeof a === "string" && (typeof b !== "string" || !b.trim())) {
+      missing.push(path);
+    }
+  };
+  walk(en.GUIDE, GUIDE, "GUIDE");
+  walk(en.SCREENS_CHAPTER, SCREENS_CHAPTER, "SCREENS_CHAPTER");
+  walk(en.ROLES_CHAPTER, ROLES_CHAPTER, "ROLES_CHAPTER");
+  if (missing.length) {
+    console.error(`${lang}: content.${lang}.js is missing ${missing.length} key(s) the English has — an untranslated sentence is not an omission the PDF may hide:\n  ${missing.join("\n  ")}`);
+    process.exit(1);
+  }
+}
 
 // ══ Where the non-prose strings come from ═════════════════════════════════
 //
@@ -125,9 +183,198 @@ const sections = [
   ...DEEP_DIVES.map((d) => ({ id: d.id, title: d.title, sub: true })),
   ...(consoleSections.length ? [{ id: "console", title: GUIDE.consoleHeading }] : []),
   ...consoleSections.map((d) => ({ id: d.id, title: d.title, sub: true })),
+  ...(SCREENS_CHAPTER ? [
+    { id: "screens", title: SCREENS_CHAPTER.heading },
+    { id: "screens-rail", title: SCREENS_CHAPTER.railHeading, sub: true },
+    { id: "screens-settings", title: SCREENS_CHAPTER.settingsHeading, sub: true },
+  ] : []),
+  ...(ROLES_CHAPTER ? [{ id: "roles", title: ROLES_CHAPTER.heading }] : []),
   { id: "reference", title: GUIDE.referenceHeading },
   { id: "glossary", title: GUIDE.glossaryHeading },
 ];
+
+// ══ "Every screen": one figure per sidebar row, resolved live-first ══════
+//
+// The rows come from docs/screens/app-guide/harness/screens.js — the same
+// list the capture harness renders, in the order the two sidebars draw them.
+// Each row's TITLE is the sidebar label in the language being built, read
+// from app/i18n/appMessages.js (a missing translation fails the build, the
+// way the manual's label lookup does); the paragraph is the content module's.
+//
+// The figure is resolved in this order:
+//   1. docs/screens/live/app/<lang>/<route-slug>.png — a capture of the
+//      owner's real signed-in session (route-slug: the href without its
+//      leading slash, "/" → "-"; /app/settings/branding → app-settings-branding);
+//   2. docs/screens/app-guide/<lang>/NN-<slug>.png — the harness render of
+//      the real component against the fixture company.
+// So the PDFs rebuild with one command the moment live files land, and a
+// screen nobody has captured live still ships as a real render. A figure
+// with NEITHER fails the build: a "screenshot to follow" box in a guide the
+// rep hands a contractor reads as a screen that does not exist.
+const APP_CAT = APP_MESSAGES[lang] || {};
+const screenTitle = (row) => {
+  const v = APP_CAT[row.nav];
+  if (typeof v !== "string" || !v.trim()) {
+    console.error(`${lang}: sidebar label ${row.nav} has no ${lang} string in app/i18n/appMessages.js`);
+    process.exit(1);
+  }
+  return v;
+};
+const routeSlug = (href) => href.replace(/^\//, "").replace(/\//g, "-");
+const harnessDir = join(ROOT, "docs/screens/app-guide", lang);
+const harnessFiles = existsSync(harnessDir) ? readdirSync(harnessDir) : [];
+const figureFile = (row) => {
+  const live = join(ROOT, "docs/screens/live/app", lang, `${routeSlug(row.href)}.png`);
+  if (!row.chapter && existsSync(live)) return { file: live, source: "live" };
+  const hit = harnessFiles.find((f) => /^\d+-/.test(f) && f.slice(f.indexOf("-") + 1) === `${row.slug}.png`);
+  return hit ? { file: join(harnessDir, hit), source: "harness" } : null;
+};
+const figureSources = { live: 0, harness: 0 };
+const missingFigures = [];
+const screenFigure = (row, caption) => {
+  const f = figureFile(row);
+  if (!f) { missingFigures.push(`${row.slug} (${lang})`); return ""; }
+  figureSources[f.source]++;
+  return figure(f.file, caption);
+};
+
+// ══ "What opens when you press …": the Create captures ═══════════════════
+//
+// docs/screens/live/actions/<lang>/<route-slug>-create.png is what the
+// owner's session showed after pressing a list page's primary New / Add /
+// Create button. The language folder is tried first and English second —
+// a real capture of the real form in English is still the form, and the
+// caption says which button it is in the reader's language, looked up from
+// the same catalogue as the sidebar labels.
+const CREATE_BUTTON_KEY = {
+  quotes: "app.quotes.new", invoices: "app.invoices.new", jobs: "app.jobs.new", tasks: "app.tasks.new",
+  calendar: "app.appts.new", plans: "app.plans.new", clients: "app.clients.new", subcontractors: "app.subcontractors.add",
+  fleet: "app.fleet.add", purchasing: "app.purchasing.orders.new", marketing: "app.marketing.newCampaign", funnels: "app.funnels.new",
+  team: "app.setTeam.addUser", "settings-team": "app.setTeam.addUser", "settings-services": "app.setServices.addCustomType",
+  "settings-products": "app.setProducts.addItem", "settings-pdf-templates": "app.pdfTemplates.newButton",
+  "settings-checklists": "app.setChecklists.new", "settings-bio-link": "app.setBioLink.addCustom",
+};
+const createFigure = (row, title) => {
+  const key = CREATE_BUTTON_KEY[row.slug];
+  if (!key) return "";
+  const name = `${routeSlug(row.href)}-create.png`;
+  const file = [lang, "en"].map((l) => join(ROOT, "docs/screens/live/actions", l, name)).find(existsSync);
+  if (!file) return "";
+  const button = APP_CAT[key] || APP_MESSAGES.en[key] || key;
+  const caption = (SCREENS_CHAPTER.createCaption || "{title} — {button}").replace("{title}", title).replace("{button}", button);
+  figureSources.create = (figureSources.create || 0) + 1;
+  return figure(file, caption);
+};
+
+function screensChapterHtml() {
+  if (!SCREENS_CHAPTER) return "";
+  const rows = SCREENS.filter((r) => !r.chapter);
+  const part = (id, heading, list) => `
+  <h3 id="${id}" class="part">${esc(heading)}</h3>
+  ${list.map((row) => {
+    const entry = SCREENS_CHAPTER.items[row.slug];
+    if (!entry || !Array.isArray(entry.body) || !entry.body.length) {
+      console.error(`${lang}: SCREENS_CHAPTER.items.${row.slug} is missing from content.${lang}.js`);
+      process.exit(1);
+    }
+    const title = screenTitle(row);
+    // A row that is the same page as an earlier row (Team appears in the
+    // main rail and under Settings) still gets its own figure and its own
+    // sentences: a reader arrives from the sidebar they are looking at.
+    return `
+  <section id="s-${esc(row.slug)}" class="screen">
+    <h4>${esc(title)}<span class="path">${esc(row.href)}</span></h4>
+    ${entry.body.map((p) => `<p>${esc(p)}</p>`).join("\n    ")}
+    ${screenFigure(row, `${title} — ${row.href}`)}
+    ${createFigure(row, title)}
+  </section>`;
+  }).join("\n")}`;
+  return `
+<section id="screens">
+  <h2>${esc(SCREENS_CHAPTER.heading)}</h2>
+  ${SCREENS_CHAPTER.intro.map((p) => `<p>${esc(p)}</p>`).join("\n  ")}
+  ${part("screens-rail", SCREENS_CHAPTER.railHeading, rows.filter((r) => !r.slug.startsWith("settings-")))}
+  ${part("screens-settings", SCREENS_CHAPTER.settingsHeading, rows.filter((r) => r.slug.startsWith("settings-")))}
+  <p class="back"><a href="#contents">${esc(GUIDE.backToContents)}</a></p>
+</section>`;
+}
+
+// ══ "Roles and access": tables executed from the permission code ══════════
+//
+// Nothing in these tables is typed by hand. The five people a contractor can
+// create are the four presets in lib/permissions.js plus the owner; each is
+// run through the SAME functions the sidebar uses to hide a row
+// (lib/permissions/nav.js navRowAllowed, lib/permissions/settingsAccess.js
+// canSee) so a cell says what the product does, and changes when it does.
+// The grid table reads PERMISSION_PRESETS directly. The category, level and
+// preset labels are the product's own strings — untranslated in the product
+// too (app/components/team/AccessEditor.js prints cat.label and lvl.label),
+// so a French reader sees here exactly what they see on the screen.
+const ROLE_MEMBERS = [
+  { key: "worker", label: PERMISSION_PRESETS.worker.label, member: { role: PRESET_TO_ROLE.worker, permissions: PERMISSION_PRESETS.worker.values } },
+  { key: "estimator", label: PERMISSION_PRESETS.estimator.label, member: { role: PRESET_TO_ROLE.estimator, permissions: PERMISSION_PRESETS.estimator.values } },
+  { key: "dispatcher", label: PERMISSION_PRESETS.dispatcher.label, member: { role: PRESET_TO_ROLE.dispatcher, permissions: PERMISSION_PRESETS.dispatcher.values } },
+  { key: "manager", label: PERMISSION_PRESETS.manager.label, member: { role: PRESET_TO_ROLE.manager, permissions: PERMISSION_PRESETS.manager.values } },
+  { key: "owner", label: ROLE_LABELS.owner, member: { role: "owner", permissions: null } },
+];
+const roleSees = (row, rm) => {
+  if (row.slug.startsWith("settings-") || row.settings) {
+    // A settings row is gated twice: the main rail's rule for the rows that
+    // also sit there (Team, Timesheets, Expenses, Refer, Plan), and the
+    // settings sidebar's capability for every settings row.
+    // canSeeSettingsRow is what SettingsSidebar filters with: the role's
+    // capability AND the row's grid requirement (showPricing for the price
+    // book, expenses:view_record_edit_all for the roll-up). A main-rail key
+    // (app.nav.team) has no settings capability, so only its nav rule applies.
+    const navOk = navRowAllowed(row.nav, rm.member);
+    const settingsOk = SETTINGS_ROW_CAPABILITY[row.nav]
+      ? canSeeSettingsRow({ role: rm.member.role, impersonation: false }, row.nav, rm.member)
+      : true;
+    return navOk && settingsOk;
+  }
+  return navRowAllowed(row.nav, rm.member);
+};
+
+function rolesChapterHtml() {
+  if (!ROLES_CHAPTER) return "";
+  const R = ROLES_CHAPTER;
+  const yes = `<span class="yes">${esc(R.yes)}</span>`;
+  const no = `<span class="no">${esc(R.no)}</span>`;
+  const rows = SCREENS.filter((r) => !r.chapter && !r.sameAs);
+  const seesTable = `
+  <table class="roles"><thead><tr><th>${esc(R.screenCol)}</th>${ROLE_MEMBERS.map((rm) => `<th>${esc(rm.label)}</th>`).join("")}</tr></thead>
+  <tbody>${rows.map((row) => `<tr><td class="fname">${esc(screenTitle(row))}</td>${ROLE_MEMBERS.map((rm) => `<td class="c">${roleSees(row, rm) ? yes : no}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+  const presets = ROLE_MEMBERS.filter((rm) => rm.key !== "owner");
+  const levelLabel = (catKey, value) => PERMISSION_CATEGORIES[catKey].levels.find((l) => l.value === value)?.label || value;
+  const gridTable = `
+  <table class="roles grid"><thead><tr><th>${esc(R.areaCol)}</th>${presets.map((rm) => `<th>${esc(rm.label)}</th>`).join("")}</tr></thead>
+  <tbody>
+  ${Object.entries(PERMISSION_CATEGORIES).map(([catKey, cat]) => `<tr><td class="fname">${esc(cat.label)}</td>${presets.map((rm) => `<td>${esc(levelLabel(catKey, rm.member.permissions[catKey]))}</td>`).join("")}</tr>`).join("")}
+  ${Object.keys(PERMISSION_TOGGLES).map((tog) => `<tr><td class="fname">${esc(R.toggleNames[tog] || tog)}</td>${presets.map((rm) => `<td class="c">${rm.member.permissions[tog] ? yes : no}</td>`).join("")}</tr>`).join("")}
+  </tbody></table>`;
+  const editorRow = SCREENS.find((r) => r.slug === "access-editor");
+  const roleCards = R.roles.map((role) => {
+    const rm = ROLE_MEMBERS.find((x) => x.key === role.key);
+    const tier = rm.key === "owner" ? "" : ` <span class="tier">${esc(R.tierNote.replace("{tier}", ROLE_LABELS[rm.member.role]))}</span>`;
+    return `<h3 id="role-${esc(role.key)}">${esc(rm.label)}${tier}</h3>${role.body.map((p) => `<p>${esc(p)}</p>`).join("")}${rm.key === "owner" ? "" : `<p class="desc">${esc(R.productSays)} “${esc(PERMISSION_PRESETS[rm.key].description)}”</p>`}`;
+  }).join("\n");
+  return `
+<section id="roles">
+  <h2>${esc(R.heading)}</h2>
+  ${R.intro.map((p) => `<p>${esc(p)}</p>`).join("\n  ")}
+  ${roleCards}
+  <h3 id="roles-sees">${esc(R.seesHeading)}</h3>
+  ${R.seesIntro.map((p) => `<p>${esc(p)}</p>`).join("\n  ")}
+  ${seesTable}
+  <h3 id="roles-grid">${esc(R.gridHeading)}</h3>
+  ${R.gridIntro.map((p) => `<p>${esc(p)}</p>`).join("\n  ")}
+  ${gridTable}
+  <h3 id="roles-editor">${esc(R.editorHeading)}</h3>
+  ${R.editorBody.map((p) => `<p>${esc(p)}</p>`).join("\n  ")}
+  ${editorRow ? screenFigure(editorRow, R.editorCaption) : ""}
+  <p class="back"><a href="#contents">${esc(GUIDE.backToContents)}</a></p>
+</section>`;
+}
 
 const html = `<!doctype html>
 <html lang="${esc(GUIDE.lang)}" dir="${esc(GUIDE.dir)}">
@@ -163,6 +410,21 @@ const html = `<!doctype html>
   section { page-break-inside: auto; }
   dt { font-weight: 600; margin-top: 8pt; }
   dd { margin: 2pt 0 0; color: #334155; }
+  h3.part { font-size: 14pt; margin-top: 22pt; border-top: 1px solid #e2e8f0; padding-top: 10pt; }
+  section.screen { page-break-inside: avoid; margin-top: 10pt; }
+  section.screen h4 { font-size: 11.5pt; margin: 12pt 0 4pt; page-break-after: avoid; color: #0f172a; }
+  section.screen h4 .path { font: 8.5pt Menlo, Consolas, monospace; color: #94a3b8; margin-left: 8pt; font-weight: normal; }
+  /* Live captures are full-page and can be 2000px tall; a figure taller than
+     the page overflows it. Crop to the top screenful rather than shrink to
+     a postage stamp — the top is the part the caption describes. */
+  section.screen figure img { width: 100%; max-height: 150mm; object-fit: cover; object-position: top; }
+  table.roles { font-size: 8.5pt; }
+  table.roles td.c { text-align: center; }
+  table.roles.grid td { font-size: 8pt; }
+  .yes { color: #15803d; font-weight: 600; }
+  .no { color: #b91c1c; }
+  .tier { font-size: 9pt; color: #64748b; font-weight: normal; margin-left: 6pt; }
+  p.desc { color: #475569; font-style: italic; }
 </style></head>
 <body>
 
@@ -234,6 +496,10 @@ ${consoleSections.map((d) => `
   <p class="back"><a href="#contents">${esc(GUIDE.backToContents)}</a></p>
 </section>`).join("\n")}` : ""}
 
+${screensChapterHtml()}
+
+${rolesChapterHtml()}
+
 <section id="reference">
   <h2>${esc(GUIDE.referenceHeading)}</h2>
   <p>${esc(GUIDE.referenceIntro)}</p>
@@ -264,4 +530,29 @@ console.log(`${lang}: ${FEATURE_MATRIX.length} features, ${DEEP_DIVES.length} de
 const missingShots = consoleSections.filter((d) => d.shot && !existsSync(join(ROOT, d.shot))).map((d) => d.shot);
 if (missingShots.length) console.log(`${lang}: figures named but not found (omitted): ${missingShots.join(", ")}`);
 if (englishNames.length) console.log(`${lang}: feature names still English: ${englishNames.join(", ")}`);
+if (SCREENS_CHAPTER) console.log(`${lang}: screen figures — ${figureSources.live} live, ${figureSources.harness} harness render, ${figureSources.create || 0} create screens`);
+if (missingFigures.length) {
+  console.error(`${lang}: ${missingFigures.length} screen(s) have no figure at all (no live capture, no harness render): ${missingFigures.join(", ")}`);
+  process.exit(1);
+}
 console.log(`wrote ${out}`);
+
+// ══ PDF ═══════════════════════════════════════════════════════════════════
+//
+// Same Chrome invocation as scripts/build-sales-manual.mjs, same CHROME_BIN
+// override. The page count is read back and printed so a rebuild that lost
+// a chapter is noticed at the terminal, not by a rep.
+if (wantPdf) {
+  const CHROME =
+    process.env.CHROME_BIN ||
+    ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "/usr/bin/google-chrome", "/usr/bin/chromium"].find(existsSync);
+  if (!CHROME) { console.error("No Chrome found — set CHROME_BIN"); process.exit(1); }
+  const pdf = join(outDir, `FieldQuo-Sales-Guide-${lang.toUpperCase()}.pdf`);
+  execFileSync(CHROME, [
+    "--headless=new", "--disable-gpu", "--no-sandbox", "--no-pdf-header-footer",
+    "--run-all-compositor-stages-before-draw", "--virtual-time-budget=20000",
+    `--print-to-pdf=${pdf}`, `file://${out}`,
+  ], { stdio: ["ignore", "ignore", "ignore"], timeout: 300000 });
+  const pages = (readFileSync(pdf, "latin1").match(/\/Type\s*\/Page(?![s])/g) || []).length;
+  console.log(`${lang}: printed ${pdf} — ${pages} pages`);
+}

@@ -45,7 +45,15 @@ const ws = new WebSocket(target.webSocketDebuggerUrl);
 await new Promise((r) => (ws.onopen = r));
 let id = 0;
 const pending = new Map();
-ws.onmessage = (e) => { const m = JSON.parse(e.data); if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); } };
+let exceptions = [];
+ws.onmessage = (e) => {
+  const m = JSON.parse(e.data);
+  if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); }
+  // An exception thrown before the harness's own error listener is mounted
+  // (a module that fails at import time) would otherwise leave a blank
+  // frame with nothing to explain it.
+  if (m.method === "Runtime.exceptionThrown") exceptions.push(m.params?.exceptionDetails?.exception?.description || m.params?.exceptionDetails?.text || "exception");
+};
 const send = (method, params = {}) => new Promise((r) => { const n = ++id; pending.set(n, r); ws.send(JSON.stringify({ id: n, method, params })); });
 const evaluate = async (expression) => (await send("Runtime.evaluate", { expression, returnByValue: true })).result?.result?.value;
 
@@ -66,6 +74,7 @@ for (const screen of SCREENS) {
     const file = join(dir, `${String(n).padStart(2, "0")}-${screen.slug}.png`);
     const url = `file://${OUT}/guide.html?page=${screen.slug}&lang=${lang}`;
     const t0 = Date.now();
+    exceptions = [];
     await send("Page.navigate", { url });
     await sleep(300);
     for (let i = 0; i < 100; i++) {
@@ -73,7 +82,7 @@ for (const screen of SCREENS) {
       await sleep(150);
     }
     await sleep(250);
-    const err = await evaluate("document.documentElement.getAttribute('data-scene-error') || ''");
+    const err = (await evaluate("document.documentElement.getAttribute('data-scene-error') || ''")) || exceptions[0]?.split("\n").slice(0, 4).join(" | ") || "";
     const unanswered = (await evaluate("JSON.stringify(window.__unanswered || [])")) || "[]";
     const rootText = (await evaluate("(document.getElementById('root')||{}).innerText || ''")) || "";
     const shot = await send("Page.captureScreenshot", { format: "png", clip: { x: 0, y: 0, width: WIDTH, height: HEIGHT, scale: 1 } });
