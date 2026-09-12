@@ -889,12 +889,21 @@ function SalesMessagesScreen() {
         id: c.e164,
         title: c.name || prettyE164(c.e164),
         mono: !c.name,
-        subtitle:
+        // A thread that exists only as a draft never says "You: …" — nothing
+        // went. A demo says it is one before anything else, so a rep cannot
+        // mistake the fixture for a customer.
+        subtitle: [
+          c.isDemo ? t("app.salesPortal.demoBadge") : null,
           key === GROUP_DRAFTS && c.nextDraftDue
             ? t("app.salesText.draftDueSubtitle", { when: dayOf(c.nextDraftDue) })
-            : c.lastDirection === "in"
-              ? c.lastBody
-              : t("app.salesText.lastFromYou", { message: c.lastBody }),
+            : c.draftOnly
+              ? t("app.salesText.draftWaitingSubtitle")
+              : c.lastDirection === "in"
+                ? c.lastBody
+                : t("app.salesText.lastFromYou", { message: c.lastBody }),
+        ]
+          .filter(Boolean)
+          .join(" · "),
         time: c.lastAt,
         unread: c.unread ?? 0,
         channel: "sms",
@@ -906,7 +915,12 @@ function SalesMessagesScreen() {
 
   // ── The thread's rows ─────────────────────────────────────────────────
   const them =
-    thread?.lead?.businessName || thread?.lead?.contactName || thread?.company?.name || prettyE164(openWith);
+    thread?.lead?.businessName ||
+    thread?.lead?.contactName ||
+    thread?.company?.name ||
+    thread?.draftCompany?.name ||
+    prettyE164(openWith);
+  const demoThread = Boolean(thread?.demo);
   const suppressed = Boolean(thread?.suppressed);
   const blockers = thread?.blockers || [];
   const smsWindow = thread?.window || null;
@@ -1207,6 +1221,11 @@ function SalesMessagesScreen() {
                   <ShieldOff size={11} aria-hidden="true" /> STOP
                 </span>
               )}
+              {demoThread ? (
+                <span className={`${TAG} border border-border bg-card text-muted-foreground uppercase tracking-wide`} data-tag="demo">
+                  {t("app.salesPortal.demoBadge")}
+                </span>
+              ) : null}
               {thread?.lead?.status ? (
                 <span className={`${TAG} bg-muted text-foreground`} data-tag="stage">
                   {t(`app.salesLeads.status.${thread.lead.status}`, LEAD_STATUS_LABELS[thread.lead.status] || thread.lead.status)}
@@ -1299,7 +1318,7 @@ function SalesMessagesScreen() {
           <CheckInDraft
             draft={d}
             busy={draftBusy === d.id}
-            canSend={!suppressed}
+            canSend={!suppressed && !demoThread}
             onSaveText={(next) =>
               checkInCall(`/api/sales/checkins/${d.id}`, { method: "PATCH", body: { text: next } }, d.id)
             }
@@ -1330,7 +1349,7 @@ function SalesMessagesScreen() {
             draft={thread.suggestion}
             suggestion
             busy={draftBusy === "suggestion"}
-            canSend={!suppressed}
+            canSend={!suppressed && !demoThread}
             onAdopt={() =>
               checkInCall("/api/sales/checkins", { method: "POST", body: { to: openWith, origin: "engine" } }, "suggestion")
             }
@@ -1360,6 +1379,22 @@ function SalesMessagesScreen() {
               </p>
             ))}
           <p className="text-sm text-muted-foreground break-words">{t("app.salesText.suppressedBody")}</p>
+        </div>
+      ) : thread && (thread.messages || []).length === 0 && demoThread ? (
+        // ── The demo: nothing is ever sent from it, and the screen says so ──
+        <div className="border-t border-border bg-muted px-4 py-3 text-sm text-muted-foreground break-words" data-first-contact="demo">
+          {t("app.salesText.demoThreadNote")}
+        </div>
+      ) : thread && (thread.messages || []).length === 0 && (thread.company || thread.draftCompany) ? (
+        // ── A company that signed up and was never texted ─────────────────
+        //
+        // The signup-link panel would hand a customer the link they already
+        // used. The first text to a signed-up company is its check-in, and
+        // the draft above carries its own Send — sendCheckIn() does not need
+        // a prior message, deliverReplySms() applies every gate it always
+        // does — so the composer's job here is to say that.
+        <div className="border-t border-border bg-muted px-4 py-3 text-sm text-muted-foreground break-words" data-first-contact="signed-up">
+          {t("app.salesText.firstContactSignedUp")}
         </div>
       ) : thread && (thread.messages || []).length === 0 && thread.lead ? (
         // ── An empty thread: the first text is the introduction ──────────

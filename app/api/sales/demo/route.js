@@ -56,6 +56,7 @@ import { claimRefusal } from "@/lib/sales/demoPool";
 import { demoLoginReady } from "@/lib/demo/demoLogin";
 import { applyIndustry, resetDemo } from "@/lib/demo/seedDemo";
 import { INDUSTRIES } from "@/lib/demo/industries";
+import { materialiseDemoCheckIn } from "@/lib/sales/checkin/materialise";
 
 const bad = (error, status = 400) => NextResponse.json({ error }, { status });
 
@@ -129,6 +130,13 @@ export async function POST(request) {
       where: { id: rep.id },
       select: { id: true, demoCompanyId: true },
     });
+    // The fixture day-1 check-in on the demo, so the Texts screen has a
+    // "Drafts due" row on the rep's first morning. FieldQuo's own table,
+    // keyed, never sent — lib/sales/checkin/materialise.js says how. Fails
+    // soft: a demo with no draft is still a demo.
+    await materialiseDemoCheckIn({ salesRepId: rep.id }).catch((err) =>
+      console.error("[sales demo] demo check-in not written:", err?.message),
+    );
     return NextResponse.json({
       ok: true,
       claimed: decision.claimed === true,
@@ -150,6 +158,11 @@ export async function POST(request) {
     // seedDemo re-reads the company and refuses anything without isDemo, so the
     // guard is in one place and this route adds none of its own beyond scope.
     await resetDemo(company.id);
+    // Same fixture draft as on claim. resetDemo() clears the tenant's own
+    // rows, not FieldQuo's SalesCheckIn, so this is idempotent on a re-reset.
+    await materialiseDemoCheckIn({ salesRepId: rep.id }).catch((err) =>
+      console.error("[sales demo] demo check-in not written:", err?.message),
+    );
     return NextResponse.json({ ok: true, ...(await demoState(rep)) });
   }
 

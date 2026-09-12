@@ -88,6 +88,7 @@ import { salesSmsWindowState } from "@/lib/sales/smsWindow";
 import { findSuppressions } from "@/lib/sales/suppression";
 import { loadContactNumbers } from "@/lib/sales/contact/resolve";
 import { db } from "@/lib/db";
+import { materialiseCheckInsForRep, materialiseDemoCheckIn } from "@/lib/sales/checkin/materialise";
 import { ruleDraft } from "@/lib/sales/checkin/draft";
 import { CHECKIN_REASONS, REASON_CODES, checkinHeadlineKey } from "@/lib/sales/checkin/signals";
 import { signupLinkFor } from "@/lib/sales/repStats";
@@ -140,6 +141,25 @@ export async function GET(request) {
   const withE164 = normalisePhone(url.searchParams.get("with"));
 
   if (!withE164) {
+    // ── The backlog first, so "Drafts due" is true when it renders ────────
+    //
+    // The day-1 / day-7 / milestone drafts for every company this rep signed
+    // up, written if they are not there yet (lib/sales/checkin/materialise.js
+    // — idempotent, rule-worded, never sent), plus the fixture draft on the
+    // rep's demo company. A company that signed up through the link and was
+    // never texted has no message row, so without this the list could not
+    // show it at all — the gap the owner named. Fails soft: a backlog that
+    // could not be written is reported under `draftsError` below, with the
+    // list still drawn from what IS on record.
+    let backlogError = null;
+    try {
+      await materialiseCheckInsForRep({ salesRepId: rep.id });
+      await materialiseDemoCheckIn({ salesRepId: rep.id });
+    } catch (err) {
+      backlogError = "Check-ins for your companies could not be written, so \"Drafts due\" may be missing one.";
+      console.error("[sales messages] backlog unwritable:", err?.message);
+    }
+
     // Two reads that fail soft and fail distinguishably, then the list.
     let readStates = null;
     let readStateError = null;
@@ -161,12 +181,54 @@ export async function GET(request) {
       const draft = drafts ? drafts.get(c.e164) || null : null;
       return {
         ...c,
+        // A thread that has messages but no lead can still be named by the
+        // company its draft is about.
+        name: c.name || draft?.name || null,
+        isDemo: Boolean(draft?.isDemo),
         // Null when the table could not be read — absence, not zero.
         openDrafts: drafts ? draft?.count || 0 : null,
         nextDraftDue: draft?.nextDue || null,
       };
     });
-    return NextResponse.json({ conversations, readStateError, draftsError });
+
+    // ── Threads that exist only as a draft ──────────────────────────────
+    //
+    // A company the backlog drafted for and nobody has texted yet has no
+    // SalesSmsMessage row, so salesConversations() cannot know it. It is a
+    // conversation all the same — the next thing to happen in it is written
+    // down — so it is listed from the draft: the company's name, the draft's
+    // wording as the preview, `lastDirection: "out"` so the rooms rule files
+    // it under "Drafts due" and never under "Needs a reply", and
+    // `draftOnly: true` so the screen does not print "You: …" over words
+    // that never went.
+    if (drafts) {
+      const seen = new Set(conversations.map((c) => c.e164));
+      for (const [e164, draft] of drafts) {
+        if (seen.has(e164)) continue;
+        conversations.push({
+          e164,
+          lastAt: draft.nextDue || draft.firstCreatedAt,
+          lastBody: draft.draftText,
+          lastDirection: "out",
+          leadId: null,
+          name: draft.name,
+          isDemo: Boolean(draft.isDemo),
+          count: 0,
+          unanswered: false,
+          lastInboundAt: null,
+          unread: readStates ? 0 : null,
+          readState: readStates ? readStates.get(e164) || null : null,
+          openDrafts: draft.count,
+          nextDraftDue: draft.nextDue || null,
+          draftOnly: true,
+        });
+      }
+    }
+    return NextResponse.json({
+      conversations,
+      readStateError,
+      draftsError: draftsError || backlogError,
+    });
   }
 
   const messages = await salesThread({ salesRepId: rep.id, withE164 });
@@ -275,6 +337,30 @@ export async function GET(request) {
     console.error("[sales messages] check-ins unreadable:", err?.message);
   }
 
+  // ── A thread with no lead, named by the draft it holds ────────────────
+  //
+  // The company behind an open draft, read off the rep's own row, for the
+  // thread that exists only because the backlog wrote it (a demo draft has
+  // no lead at all; a numberless company's lead may not carry the thread's
+  // number). Scoped by the row's salesRepId, which the openCheckIns read
+  // already applied. A demo is said in data so the screen can refuse the
+  // composer for the same reason the send path will.
+  let draftCompany = null;
+  const draftCompanyId = !company && checkIns?.length ? checkIns.find((c) => c.companyId)?.companyId || null : null;
+  if (draftCompanyId) {
+    draftCompany = await db.company
+      .findUnique({ where: { id: draftCompanyId }, select: { id: true, name: true, isDemo: true } })
+      .catch(() => null);
+  }
+  const demoThread = Boolean(draftCompany?.isDemo) || (checkIns || []).some((c) => c.origin === "demo");
+  const demoBlocker = demoThread
+    ? {
+        code: "demo_company",
+        title: "This is your demo company. Nothing is sent from a demo.",
+        fix: "The draft is here so you can see what a day-1 check-in looks like; on a real signup it is sendable.",
+      }
+    : null;
+
   return NextResponse.json({
     with: withE164,
     messages,
@@ -294,10 +380,15 @@ export async function GET(request) {
     // this and off nothing else, because a support ticket needs a signed-up
     // company and decideEscalation() refuses without one.
     company: company ? { id: company.id, name: company.name } : null,
+    // The company an open draft is ABOUT, when the thread has no lead to
+    // name it. Never a company the rep is not attributed to or does not hold
+    // as a demo: the row it came from is theirs.
+    draftCompany: draftCompany ? { id: draftCompany.id, name: draftCompany.name, isDemo: draftCompany.isDemo } : null,
+    demo: demoThread,
     timeZone,
-    canSend: readiness ? readiness.canSend : false,
+    canSend: demoThread ? false : readiness ? readiness.canSend : false,
     suppressed: readiness ? readiness.blockers.some((b) => b.code === "suppressed") : false,
-    blockers: readiness ? readiness.blockers : null,
+    blockers: demoBlocker ? [demoBlocker, ...(readiness ? readiness.blockers : [])] : readiness ? readiness.blockers : null,
     checkIns,
     checkInError,
     suggestion,

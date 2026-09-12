@@ -9905,7 +9905,17 @@ model SalesCheckIn {
   /// with a person and not with a lead row — the same reasoning
   /// SalesSmsMessage's index carries. One contractor may hold two leads and
   /// the draft belongs in the same thread either way.
-  toE164 String
+  ///
+  /// Nullable since 2026-09-12, for ONE writer: lib/sales/checkin/materialise.js,
+  /// which drafts the day-1 / day-7 / milestone check-ins for every company a
+  /// rep is attributed to, thread or not. A company whose record holds no
+  /// textable number — no Company.phone, no owner or admin Member.phone, no
+  /// phone on the rep's lead — still gets its row, with nothing here, so the
+  /// companies screen can say "no number on file, add one" rather than the
+  /// company silently never appearing. A null row has no thread and cannot be
+  /// sent: sendCheckIn() refuses it before the claim, and the list skips it.
+  /// Every other writer still supplies a normalised number.
+  toE164 String?
 
   /// What would be sent, before the CASL footer the send path adds.
   ///
@@ -9913,10 +9923,12 @@ model SalesCheckIn {
   /// starting sentence, not a script.
   draftText String
 
-  /// "engine" | "manual" — did lib/sales/checkin/signals.js raise this, or did
-  /// the rep park it from the conversation? Kept because the two are different
-  /// claims about why a contractor is being texted, and a screen that shows
-  /// them identically cannot explain itself.
+  /// "engine" | "manual" | "demo" — did lib/sales/checkin/signals.js raise
+  /// this, did the rep park it from the conversation, or is it the fixture
+  /// draft on the rep's own demo company? Kept because the three are
+  /// different claims about why a contractor is being texted, and a screen
+  /// that shows them identically cannot explain itself. "demo" is refused by
+  /// the send path outright — see lib/sales/checkin/store.js.
   origin String @default("engine")
 
   /// The primary reason code from the decision, when there was one. Null for a
@@ -9967,6 +9979,12 @@ model SalesCheckIn {
   /// draft does not silence the company forever — tomorrow is a different key.
   /// Null for manual drafts, and Postgres treats NULLs in a unique index as
   /// distinct, so any number of hand-made follow-ups can coexist.
+  ///
+  /// The materialised backlog (lib/sales/checkin/plan.js) uses a second shape,
+  /// `scheduled:<companyId>:<1|7|retention>` — one per company per TOUCHPOINT
+  /// rather than per day, because a job that wrote a fresh day-1 draft every
+  /// morning until somebody dealt with it would be a nag aimed at the rep.
+  /// A demo draft is `demo:<companyId>:1`, and its origin is "demo".
   dedupeKey String?
 
   createdAt DateTime @default(now())

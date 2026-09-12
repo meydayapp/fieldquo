@@ -23,3 +23,4 @@ a green build, and the owner opened them and saw a list with a compose box.
 | `desktop-new-text-accepted.png` | `+1 514 …` accepted: an empty thread with the first-contact (signup-link) panel as its composer. |
 | `mobile-list.png` → `mobile-thread.png` → `mobile-context.png` → `mobile-back.png` | One pane at a time on a phone: list, thread with the back arrow, the contact sheet, back to the list. |
 | `mobile-new.png` | The New message picker on a phone. |
+| `desktop-company-checkin.png` | A company that signed up through the rep's link and was never texted (Easy Roofers Inc., as production looked on 2026-09-12 after the backlog was materialised): listed under Drafts due by its company name, the day-1 draft open in an otherwise empty thread with its own Send, the "signed up through your link" note where the signup-link panel would have been, and the rep's demo company beside it marked Demo. |

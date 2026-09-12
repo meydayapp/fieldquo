@@ -322,6 +322,19 @@ section("6. The reasons, and the order a rep works them in");
   ok("…one ending after it is not", !codes(trialLate).includes("trial_ends_before_retention"), codes(trialLate));
   ok("…and with no trial date read, nothing is guessed from the status",
     !codes(decide({ subscriptionStatus: "trialing" })).includes("trial_ends_before_retention"));
+  // Day 1 of a free month on a 60-day plan: the trial ends before the
+  // milestone, and it is not "soon". Found when the backlog made day-1 drafts
+  // reachable and every one of them opened with the free period ending.
+  // The first real company: "Easy Roofers Inc." ended the greeting with a
+  // double full stop until the name's own punctuation was dropped.
+  {
+    const inc = ruleDraft({ primary: { code: "all_good" }, facts: { companyName: "Easy Roofers Inc." } }, { repName: "Daniel" });
+    ok("a company name ending in a full stop does not double it", /about Easy Roofers Inc\. How/.test(inc) && !/\.\./.test(inc), inc);
+  }
+  const trialFar = decide({ subscriptionStatus: "trialing", signedUpAt: dayAgo(1) }, { trialEndsAt: new Date(NOW.getTime() + 29 * DAY) });
+  ok("…a free period ending in a month is not raised as ending soon", !codes(trialFar).includes("trial_ends_before_retention"), codes(trialFar));
+  const trialNear = decide({ subscriptionStatus: "trialing", signedUpAt: dayAgo(20) }, { trialEndsAt: new Date(NOW.getTime() + RETENTION_NEAR_DAYS * DAY) });
+  ok("…one ending within the near window is", codes(trialNear).includes("trial_ends_before_retention"), codes(trialNear));
 
   const many = decide({ subscriptionStatus: "past_due", chargesEnabled: false, onboardingCompletedAt: null }, { setup: THREE_OPEN });
   ok("several problems all appear", many.reasons.length === 4, codes(many));

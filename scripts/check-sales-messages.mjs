@@ -355,12 +355,42 @@ const SEND_ROUTE = "app/api/sales/checkins/[id]/send/route.js";
   // not show up as a reference to the function.
   const cronFiles = walk("app/api/cron");
   ok("there are cron routes to scan (the scan is not vacuous)", cronFiles.length > 3, cronFiles.length);
-  const cronTouching = cronFiles.filter((f) => /salesCheckIn|checkin\/store|sendCheckIn/.test(decomment(read(f))));
-  ok("no cron route touches the check-in table or its send path", cronTouching.length === 0, cronTouching);
+  // twilioClient is not on this list: tenant crons (appointment reminders)
+  // text a contractor's CLIENTS on the contractor's own line, which is a
+  // different sender, a different opt-out and a different table. The sales
+  // send path is deliverReplySms in salesSms.js, and that is what no cron
+  // may reach.
+  const cronTouching = cronFiles.filter((f) => /salesCheckIn|checkin\/store|sendCheckIn|deliverReplySms|salesSms/.test(decomment(read(f))));
+  ok("no cron route touches the check-in table directly or the sales send path", cronTouching.length === 0, cronTouching);
+
+  // ── The ONE cron that may reach the check-in feature, and how far ──────
+  //
+  // app/api/cron/sales-checkins writes DRAFTS (the backlog: day 1, day 7,
+  // the milestone approach) through lib/sales/checkin/materialise.js. It is
+  // allowed to import that module and nothing else from the feature, and
+  // that module is allowed to import nothing that sends. Asserted on the
+  // import lines, not on prose.
+  const BACKLOG_CRON = "app/api/cron/sales-checkins/route.js";
+  const backlog = decomment(read(BACKLOG_CRON));
+  const backlogImports = [...backlog.matchAll(/from "([^"]+)"/g)].map((m) => m[1]);
+  ok("the backlog cron imports the materialiser", backlogImports.includes("@/lib/sales/checkin/materialise"), backlogImports);
+  ok("…and no other module under lib/sales", backlogImports.filter((i) => /lib\/sales\//.test(i)).length === 1, backlogImports);
+  ok("…and is guarded by requireCronSecret", /requireCronSecret\(request\)/.test(backlog) && /if \(denied\) return denied/.test(backlog));
+  const materialise = decomment(read("lib/sales/checkin/materialise.js"));
+  const materialiseImports = [...materialise.matchAll(/from "([^"]+)"/g)].map((m) => m[1]);
+  ok("the materialiser imports neither store.js nor the sms path",
+    materialiseImports.every((i) => !/checkin\/store|salesSms|twilio|sms\//.test(i)), materialiseImports);
+  ok("…and writes only draft rows", /status: "draft"/.test(materialise) && !/status: "sent"/.test(materialise));
+  ok("…and never marks anything sent", !/sentAt:\s*(now|new Date)/.test(materialise));
+  const materialiseCronMentions = cronFiles.filter((f) => /checkin\/materialise/.test(decomment(read(f))));
+  ok("exactly one cron reaches the materialiser", materialiseCronMentions.length === 1 && materialiseCronMentions[0] === BACKLOG_CRON, materialiseCronMentions);
 
   const vercel = read("vercel.json");
   ok("vercel.json schedules nothing under /api/sales", !/\/api\/sales/.test(vercel));
-  ok("…and nothing named checkin", !/checkin/i.test(vercel));
+  const checkinSchedules = [...vercel.matchAll(/"path":\s*"([^"]*checkin[^"]*)"/gi)].map((m) => m[1]);
+  ok("…and the only schedule named checkin is the backlog cron", checkinSchedules.length === 1 && checkinSchedules[0] === "/api/cron/sales-checkins", checkinSchedules);
+  const schedule = /"\/api\/cron\/sales-checkins",\s*"schedule":\s*"([^"]+)"/.exec(vercel)?.[1];
+  ok("…at 07:00 UTC daily, before any North American texting window opens", schedule === "0 7 * * *", schedule);
 }
 
 {
@@ -428,10 +458,52 @@ function stubClient(rows) {
       },
     },
     salesLead: { findMany: async () => [] },
+    // The company row a draft is ABOUT, re-read by the send path so a demo
+    // is refused on the row and not on a flag the request could carry.
+    company: {
+      findUnique: async ({ where }) => (where.id === "co_demo" ? { isDemo: true } : where.id ? { isDemo: false } : null),
+    },
   };
 }
 
 const REP = { id: "rep_1", name: "Daniel", code: "DANIEL" };
+
+{
+  // A demo draft (the fixture materialise.js writes on the rep's demo
+  // company): refused on the company row, before the claim, whatever the
+  // request says.
+  const rows = [{ id: "ck_demo", salesRepId: "rep_1", companyId: "co_demo", origin: "demo", status: "draft", sendingStartedAt: null, toE164: "+16135550150", draftText: "Hi" }];
+  let delivered = 0;
+  const result = await sendCheckIn({
+    rep: REP, id: "ck_demo", client: stubClient(rows),
+    deliver: async () => { delivered += 1; return { ok: true }; },
+  });
+  ok("a demo company's draft is refused by the send path", result.ok === false && result.status === 409 && result.demo === true, result);
+  ok("…before the claim, so the row is untouched", rows[0].sendingStartedAt === null && rows[0].status === "draft");
+  ok("…and the carrier was not reached", delivered === 0);
+}
+
+{
+  // The same refusal when only the ORIGIN says demo — the company row is
+  // what binds, but a row that calls itself a demo is not sent either.
+  const rows = [{ id: "ck_d2", salesRepId: "rep_1", companyId: "co_real", origin: "demo", status: "draft", sendingStartedAt: null, toE164: "+16135550150", draftText: "Hi" }];
+  const result = await sendCheckIn({ rep: REP, id: "ck_d2", client: stubClient(rows), deliver: async () => ({ ok: true }) });
+  ok("a row with origin demo is refused even on a non-demo company id", result.ok === false && result.demo === true, result);
+}
+
+{
+  // A numberless draft (a company with no phone on record): refused in
+  // words, with nothing claimed.
+  const rows = [{ id: "ck_nn", salesRepId: "rep_1", companyId: "co_real", status: "draft", sendingStartedAt: null, toE164: null, draftText: "Hi" }];
+  let delivered = 0;
+  const result = await sendCheckIn({
+    rep: REP, id: "ck_nn", client: stubClient(rows),
+    deliver: async () => { delivered += 1; return { ok: true }; },
+  });
+  ok("a draft with no number is refused, naming the fix", result.ok === false && result.status === 409 && /number/i.test(result.error), result);
+  ok("…without claiming the row", rows[0].sendingStartedAt === null);
+  ok("…and without reaching the carrier", delivered === 0);
+}
 
 {
   const rows = [{ id: "ck_1", salesRepId: "rep_1", status: "draft", sendingStartedAt: null, toE164: "+15145550134", draftText: "Hi" }];
@@ -604,7 +676,7 @@ section("4. Suppression — the screen offers nothing and the server refuses");
   ok("the empty-thread branch holds no free-text box", emptyBranch.length > 0 && !/<Composer/.test(emptyBranch) && !/<textarea/.test(emptyBranch), emptyBranch.slice(0, 80));
 
   // And the draft's own send button is withheld the same way.
-  ok("drafts are told whether a send is possible", /canSend=\{!suppressed\}/.test(page));
+  ok("drafts are told whether a send is possible", /canSend=\{!suppressed && !demoThread\}/.test(page));
   const draftUi = decomment(read("app/sales/messages/CheckInDraft.js"));
   ok("…and the draft withholds the button rather than disabling it",
     /canSend \? \(/.test(draftUi) && /app\.salesText\.sendNow/.test(draftUi));
@@ -901,6 +973,34 @@ section("12. The four groups, executed");
   ok("newest activity first inside a bucket", groups.needsReply.map((c) => c.e164).join() === "+5,+1");
   ok("null unread stays null through the route's shaping (absence, not zero)",
     /unread: readStates \? 0 : null/.test(decomment(read("lib/sales/salesSms.js"))));
+
+  // ── A thread that exists only as a draft ────────────────────────────
+  //
+  // The shape app/api/sales/messages/route.js builds for a company the
+  // backlog drafted for and nobody has texted (Easy Roofers Inc. on
+  // 2026-09-12): no message rows, `lastDirection: "out"`, one open draft.
+  // It must land in "Drafts due" and nowhere else — a company nobody has
+  // written to is not waiting on a reply from anybody.
+  const draftOnly = { e164: "+6", lastDirection: "out", lastInboundAt: null, openDrafts: 1, readState: null, lastAt: "2026-09-12T13:00:00Z", draftOnly: true, name: "Easy Roofers Inc." };
+  ok("a draft-only thread files under drafts due", groupOf(draftOnly) === "drafts");
+  ok("…not under needs a reply", groupOf(draftOnly) !== "needsReply");
+  const route = decomment(read("app/api/sales/messages/route.js"));
+  ok("the list route adds a conversation for every open draft whose number has no message row",
+    /for \(const \[e164, draft\] of drafts\)/.test(route) && /if \(seen\.has\(e164\)\) continue/.test(route) && /draftOnly: true/.test(route));
+  ok("…with lastDirection out, so the rooms rule cannot read it as theirs", /lastDirection: "out",\s*leadId: null/.test(route));
+  ok("…and named by the draft's company or lead", /name: draft\.name/.test(route));
+  ok("the list runs the backlog before it is drawn", /await materialiseCheckInsForRep\(\{ salesRepId: rep\.id \}\)/.test(route));
+  ok("…and the demo fixture beside it", /await materialiseDemoCheckIn\(\{ salesRepId: rep\.id \}\)/.test(route));
+  ok("…failing soft into draftsError, not into a 500", /backlogError = /.test(route) && /draftsError: draftsError \|\| backlogError/.test(route));
+  ok("the thread refuses the composer on a demo", /canSend: demoThread \? false/.test(route));
+  const byThread = decomment(read("lib/sales/checkin/store.js"));
+  ok("a numberless draft never becomes a thread", /if \(!r\.toE164\) continue/.test(byThread));
+  const page = decomment(read("app/sales/messages/page.js"));
+  ok("the screen never prints \"You:\" over a draft-only thread", /c\.draftOnly\s*\?\s*t\("app\.salesText\.draftWaitingSubtitle"\)/.test(page));
+  ok("…marks a demo thread as one in the list", /c\.isDemo \? t\("app\.salesPortal\.demoBadge"\)/.test(page));
+  ok("…and offers no send on a demo draft", (page.match(/canSend=\{!suppressed && !demoThread\}/g) || []).length === 2);
+  ok("…and does not offer the signup link to a company that already signed up",
+    /thread\.company \|\| thread\.draftCompany\) \? \(/.test(page) && page.indexOf("thread.draftCompany) ? (") < page.indexOf("&& thread.lead ? ("));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

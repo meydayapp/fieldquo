@@ -30,6 +30,16 @@
 // belong to the contractor. A rep is FieldQuo staff, not staff of the company
 // they sold to.
 //
+// ══ The check-in column ══════════════════════════════════════════════════
+//
+// Added 2026-09-12, when the owner looked for the day-1 follow-up text on the
+// one company a rep had signed up and found it nowhere. Each row now says
+// what the next check-in is and where it stands — "Day-1 check-in due Sep 11,
+// 9:00 AM · draft ready", "Sent Sep 11", "No number on file" — from the same
+// plan that wrote the draft (lib/sales/checkin/plan.js), so this column and
+// the Texts screen cannot disagree. A draft that is ready opens in Texts; the
+// send still happens there, behind a press, and nowhere else.
+//
 // ══ Nothing on this page writes ══════════════════════════════════════════
 //
 // There is no button here that changes anything, which is the honest shape
@@ -37,10 +47,13 @@
 // handler sees it (lib/sales/gate.js), so a control that appeared to correct an
 // attribution would be a control that 403s. When corrections ship they belong
 // on the superadmin's screen, where the audit row can be written beside them.
+// (The GET this page calls materialises the check-in backlog on the way in —
+// FieldQuo's own rows, idempotent; see app/api/sales/companies/route.js.)
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertCircle, Loader2, CheckCircle2, CircleDashed } from "lucide-react";
+import Link from "next/link";
+import { AlertCircle, Loader2, CheckCircle2, CircleDashed, MessageSquareText } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
@@ -71,9 +84,89 @@ const SUBSCRIPTION_KEYS = {
   canceled: "app.salesPortal.subCanceled",
 };
 
+// The engine's six suppressions (lib/sales/checkin/signals.js SUPPRESSIONS),
+// as literal keys for the same reason MILESTONE_KEYS is a table.
+const SUPPRESSION_KEYS = {
+  demo_company: "app.salesPortal.checkInSuppressedDemo",
+  signup_date_unknown: "app.salesPortal.checkInSuppressedNoDate",
+  subscription_ended: "app.salesPortal.checkInSuppressedEnded",
+  too_soon: "app.salesPortal.checkInSuppressedTooSoon",
+  recently_checked_in: "app.salesPortal.checkInSuppressedRecent",
+  milestone_passed: "app.salesPortal.checkInSuppressedPassed",
+};
+
+/**
+ * One sentence about a company's check-in, from the route's summary.
+ *
+ * The summary is the plan's own reading of the rows; nothing here re-decides.
+ * "retention" is the milestone-approach touchpoint; a number is a day.
+ */
+function CheckInCell({ summary, t, language }) {
+  if (summary === null || summary === undefined) {
+    return <span className="text-muted-foreground">{t("app.salesPortal.checkInUnreadable")}</span>;
+  }
+  const when = (value, withTime) =>
+    value
+      ? new Date(value).toLocaleString(language, {
+          month: "short",
+          day: "numeric",
+          ...(withTime ? { hour: "numeric", minute: "2-digit", timeZoneName: "short" } : {}),
+        })
+      : "";
+  const touch = (touchpoint, dueKey, retentionKey, values) =>
+    touchpoint === "retention" ? t(retentionKey, values) : t(dueKey, { ...values, day: touchpoint });
+
+  const lines = [];
+  if (summary.draft) {
+    if (summary.noNumber) {
+      lines.push(
+        <span key="none" className="text-amber-900 dark:text-amber-200">
+          {t("app.salesPortal.checkInNoNumber")}
+        </span>,
+      );
+    } else {
+      lines.push(
+        <Link
+          key="draft"
+          href={`/sales/messages?with=${encodeURIComponent(summary.draft.toE164)}`}
+          className="inline-flex items-center gap-1 min-h-[44px] font-medium text-foreground underline underline-offset-2"
+        >
+          <MessageSquareText size={13} aria-hidden="true" />
+          {summary.draft.scheduledFor
+            ? touch(summary.touchpoint, "app.salesPortal.checkInDue", "app.salesPortal.checkInRetentionDue", {
+                when: when(summary.draft.scheduledFor, true),
+              })
+            : touch(summary.touchpoint, "app.salesPortal.checkInDueUntimed", "app.salesPortal.checkInRetentionDueUntimed", {})}
+        </Link>,
+      );
+    }
+  } else if (summary.state === "suppressed" && SUPPRESSION_KEYS[summary.code]) {
+    lines.push(<span key="sup">{t(SUPPRESSION_KEYS[summary.code])}</span>);
+  } else if (summary.upcoming) {
+    lines.push(
+      <span key="up">
+        {touch(summary.upcoming.touchpoint, "app.salesPortal.checkInUpcoming", "app.salesPortal.checkInRetentionUpcoming", {
+          when: when(summary.upcoming.at, summary.upcoming.timed),
+        })}
+      </span>,
+    );
+  } else {
+    lines.push(<span key="nothing">{t("app.salesPortal.checkInNone")}</span>);
+  }
+  if (summary.lastSentAt) {
+    lines.push(
+      <span key="sent" className="block text-xs">
+        {t("app.salesPortal.checkInSent", { when: when(summary.lastSentAt, false) })}
+      </span>,
+    );
+  }
+  return <div className="space-y-0.5 text-muted-foreground">{lines}</div>;
+}
+
 export default function SalesPortalPage() {
   const { t, language } = useTranslation();
   const [companies, setCompanies] = useState(null);
+  const [checkInError, setCheckInError] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -83,6 +176,9 @@ export default function SalesPortalPage() {
     try {
       const data = await fetchJson("/api/sales/companies");
       setCompanies(data.companies || []);
+      // The backlog's own failure, kept apart from the list's: the companies
+      // are still true, the check-in column is the thing that could not look.
+      setCheckInError(data.checkInError || "");
     } catch (err) {
       // The failed load replaces the list rather than sitting beside an empty
       // state — lib/loadState.js's rule: "0 companies" next to a red banner is
@@ -136,6 +232,13 @@ export default function SalesPortalPage() {
         </div>
       )}
 
+      {checkInError && !loading && (
+        <div className="bg-card border border-amber-300 rounded-xl p-3 text-sm text-amber-900 dark:text-amber-200 flex items-start gap-2">
+          <AlertCircle size={16} className="shrink-0 mt-0.5" />
+          <p>{checkInError}</p>
+        </div>
+      )}
+
       {loading && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 size={16} className="animate-spin" />
@@ -166,6 +269,9 @@ export default function SalesPortalPage() {
                   </th>
                   <th className="px-4 py-3 font-semibold">
                     {t("app.salesPortal.colMilestones")}
+                  </th>
+                  <th className="px-4 py-3 font-semibold">
+                    {t("app.salesPortal.colCheckIn")}
                   </th>
                 </tr>
               </thead>
@@ -229,6 +335,9 @@ export default function SalesPortalPage() {
                           ))}
                         </div>
                       )}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <CheckInCell summary={c.checkIn} t={t} language={language} />
                     </td>
                   </tr>
                 ))}

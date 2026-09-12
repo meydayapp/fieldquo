@@ -15,13 +15,23 @@
 // against a fixture rep in scripts/check-sales-auth.mjs rather than reviewed by
 // eye. A comment claiming a filter is correct is not evidence.
 //
-// ══ Read-only, twice ══════════════════════════════════════════════════════
+// ══ Read-only, twice — and the one write that is not the rep's ═══════════
 //
 // There is no POST/PATCH/DELETE in this file, and there could not usefully be
 // one: requireSalesRep refuses any method that is not a read, before a handler
 // sees it, and middleware.js's /api/sales gate stands in front of that. The
 // reason is in lib/sales/gate.js — commission-on-influence means a rep who can
 // write their own ledger can pay themselves.
+//
+// What this GET does on the way in is materialise the check-in BACKLOG for
+// the rep's companies (lib/sales/checkin/materialise.js): the day-1, day-7
+// and milestone drafts the engine says are owed, written as rows so the
+// screen can show "day-1 check-in due, draft ready" beside each company. That
+// is FieldQuo's own table (SalesCheckIn) and FieldQuo's own lead rows, never
+// the contractor's data, and it is idempotent — a hundred loads write what one
+// load writes. It is not a rep writing their ledger; it is the product
+// writing down what it already decided. The daily cron does the same thing
+// for reps who never open this tab.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -32,11 +42,24 @@ import {
   REP_MILESTONE_SELECT,
   assignedCompanyWhere,
 } from "@/lib/sales/scope";
+import { materialiseCheckInsForRep } from "@/lib/sales/checkin/materialise";
 
 export async function GET(request) {
   const { rep, refusal } = await requireSalesRep(request);
   if (refusal) {
     return NextResponse.json(refusal.body, { status: refusal.status });
+  }
+
+  // Fails soft and fails DISTINGUISHABLY: a backlog that could not be
+  // written leaves `checkIn: null` on every row — "we could not look" —
+  // never a reassuring "nothing due". AGENTS.md failure class #5.
+  let summaries = null;
+  let checkInError = null;
+  try {
+    ({ summaries } = await materialiseCheckInsForRep({ salesRepId: rep.id }));
+  } catch (err) {
+    checkInError = "Check-ins could not be read for these companies. Nothing was sent and nothing was lost.";
+    console.error("[sales companies] check-in backlog failed:", err?.message);
   }
 
   const companies = await db.company.findMany({
@@ -87,6 +110,10 @@ export async function GET(request) {
       // AGENTS.md failure class #5 — and inventing a milestone timeline for a
       // ledger nothing has written to yet is exactly that.
       milestones: byCompany.get(c.id) || [],
+      // The next check-in on this company, from the same plan that wrote the
+      // draft. Null when the backlog could not be read — see above.
+      checkIn: summaries ? summaries.get(c.id) || null : null,
     })),
+    checkInError,
   });
 }

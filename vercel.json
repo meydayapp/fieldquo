@@ -103,6 +103,10 @@
     {
       "path": "/api/cron/sales-queue-release",
       "schedule": "5 * * * *"
+    },
+    {
+      "path": "/api/cron/sales-checkins",
+      "schedule": "0 7 * * *"
     }
   ]
 }

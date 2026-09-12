@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 12 September 2026 (the AI call script in English, French and Spanish: one `ProspectCallScript` row per language, the pipeline writes the lead's default — Quebec → fr — and the other two are written on demand by `/api/sales/playbook?language=`, metered, rate-limited, falling back to the default with a reason; a word-level no-day/no-clock guard on the ask in all three languages; the English · Français · Español switch on the Script tab and the lead page; docs/screens/sales-console/desktop-script-fr.png, -es.png.)
+Last updated: 12 September 2026 (the check-in backlog: every company a rep signed up gets its day-1 / day-7 / milestone draft written down, thread or not — lib/sales/checkin/plan.js + materialise.js, on the companies list, the Texts list and a 07:00 UTC cron, never sending; Easy Roofers Inc. backfilled in production; the demo company carries a marked, unsendable day-1 draft; docs/screens/sales-messages/desktop-company-checkin.png.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,100 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## The check-in backlog: a company that signed up through the link gets its texts (12 September 2026)
+
+The owner, looking at production: "I didn't see the text follow-up drafts for
+the company that had signed up… shouldn't it be somewhere so that I can see it
+in the demo". Measured: Easy Roofers Inc. (attributed 2026-09-10, activation
+earned) had no `SalesCheckIn` row and no lead pointing at it, because the
+only producer of a draft — `suggestionForThread()` — walked FROM a texts
+thread to a company, and a company that signed up straight from the rep's
+link has no thread.
+
+- **The rule is unchanged and not forked.** `lib/sales/checkin/plan.js`
+  (pure) calls `checkInSignals()` and adds bookkeeping only: which
+  TOUCHPOINT a due decision belongs to (`scheduledDay` 1 or 7, or the
+  milestone approach when `retention_milestone_near` is among the reasons),
+  whether a row for it exists and in what state (`due` / `refresh` / `open` /
+  `settled` / `not_due` / `suppressed` / `no_signal`), the next touchpoint
+  after today (`nextTouchpoint`, off the same two constants), and the
+  number (`resolveCompanyNumber`: `Company.phone`, then an owner's or
+  admin's `Member.phone`, then the rep's lead's phone, else null — never a
+  guess). One row per company per touchpoint, keyed
+  `scheduled:<company>:<1|7|retention>`; a put-away touchpoint stays put
+  away, the next arrives on its own key. An untouched rule-worded day-1
+  draft still open on day 7 is re-aimed, not joined by a second draft.
+- **The materialiser** — `lib/sales/checkin/materialise.js`. For a rep:
+  attributed, non-demo companies (isDemo re-asserted in the query), the
+  cheap pass, the setup snapshot only for a due one (bounded by a snapshot
+  budget on request paths), the RULE draft (the model is asked only when a
+  rep presses, as before), the lead created through `createSalesLead()`
+  when none anywhere points at the company (named after it, `signed`,
+  `convertedCompanyId` on the same insert so the unique index decides,
+  province copied, a zone the rep had typed on another lead at the same
+  number carried over — Ontario is a split province — and a
+  `SalesLeadLinkEvent` with reason `signup`). A company with no textable
+  number still gets its row with `toE164` null (the column is nullable
+  since today, for this one writer) so the companies screen says "no
+  number on file"; the row is re-addressed when a number appears. Writes
+  `salesCheckIn`, `salesLead`, `salesLeadLinkEvent` and nothing else;
+  imports neither `store.js` nor the SMS path. Idempotent, proven by
+  running twice against an in-memory client.
+- **When it runs.** `GET /api/sales/companies` and the Texts list (both
+  fail soft into their own error field), and `app/api/cron/sales-checkins`
+  at 07:00 UTC daily (before any North American window opens),
+  `requireCronSecret`-guarded, registered in `vercel.json`.
+  `scripts/check-sales-messages.mjs` now asserts the ONE cron that may reach
+  the feature imports only the materialiser, and that the materialiser
+  reaches no send path.
+- **Where the rep sees it.** Texts: a thread that exists only as a draft is
+  listed under "Drafts due" by the company's name with the draft's wording
+  as preview and no "You:"; opened, it shows the draft with its own Send
+  and, in place of the signup-link panel, "This company signed up through
+  your link — send it from the draft". `leadForThread()` prefers the
+  converted lead when one number sits on several. My companies: a
+  "Check-in" column — "Day-1 check-in due Sep 12, 1:06 PM EDT · draft
+  ready" (a link into the thread) / "Sent Sep 11" / "Day-7 check-in
+  upcoming Sep 17" / "No number on file — add one to the lead" / the six
+  suppressions in words / "Could not be read". Console Tasks tab: unchanged
+  — it lists the open drafts for the prospect on screen by number, so a
+  company draft appears there only when that prospect shares the number.
+- **The demo.** `materialiseDemoCheckIn()`: the rep's own demo company gets a
+  day-1 draft on claim, on reset, on the Texts list and from the cron —
+  `origin: "demo"`, key `demo:<id>:1`, addressed to the fictional
+  `+1 613 555 0150`, worded by `ruleDraft()` over a stand-in (yesterday's
+  signup, the demo's real setup facts), no attribution written. The thread
+  carries a DEMO tag, no Send, and the sentence; `sendCheckIn()` re-reads
+  the company row and refuses on `isDemo` (and on `origin: "demo"`, and on a
+  null number) before the claim. `DEMO_GATE_WRITES` names it.
+- **Two engine fixes the backlog exposed.** `trial_ends_before_retention`
+  now also requires the trial to end within `RETENTION_NEAR_DAYS` — on a
+  60-day plan with a 30-day free month every day-1 text had opened with "Your
+  free period is coming to an end soon", 29 days early. And `ruleDraft()`
+  drops a company name's trailing punctuation: "about Easy Roofers Inc.. I
+  noticed".
+- **Backfill, production, 2026-09-12 17:06 UTC.** Dry run listed one draft
+  and one lead; applied: Daniel → Easy Roofers Inc. day-1 draft
+  (`onboarding_unfinished`, to +1 819 238 7263 from `Company.phone`, aimed at
+  now in America/Toronto — the zone typed on the older leads at that number),
+  lead `cmtymzq830000i7t6w4ewal76` linked with reason `signup`, day 7
+  upcoming Sep 17; the demo draft on Cedar & Co. Flooring. Four other reps:
+  no attributions, nothing written. A second apply wrote nothing.
+- **Checks.** `scripts/check-sales-checkin-materialise.mjs` (149 assertions,
+  in `check:all`): the planner on fixtures (day 0/1/2/7/8/30/50/59/61, a
+  cancelled subscription, a demo, no signup date, a missing snapshot, each
+  existing-row state, the untouched/edited/mid-send/manual open draft, the
+  number resolver, the zone rule), the materialiser against an in-memory
+  client (creates once, links a lead once, refreshes on day 7, repairs a
+  numberless row, respects another rep's lead, honours the snapshot budget,
+  dry-runs nothing, never writes for a demo or another rep's company, never
+  touches a message table), the demo fixture, the cron (executed: 401 without
+  the secret), the two screens and all nine catalogues. Five mutations
+  caught (listed in the header). `check-sales-messages` gained the demo and
+  numberless send refusals and the draft-only grouping; `check-sales-checkin`
+  the two engine fixes.
+- **Screens.** `docs/screens/sales-messages/desktop-company-checkin.png`.
 
 ## The call script in English, French and Spanish (12 September 2026)
 
