@@ -608,7 +608,16 @@ section("7. The triggers, the route, the button, the card, the cron");
   ok("the status route carries pageImport", /pageImport: await pageImportState\(member\.companyId\)/.test(status));
 
   const cron = code("app/api/cron/messaging-import/route.js");
-  ok("the cron sweeps never-imported live page channels only", /importedAt: null/.test(cron) && /disconnectedAt: null/.test(cron) && /PAGE_CHANNEL_PLATFORMS/.test(cron));
+  ok("the cron sweeps never-imported live page channels for the first pull", /importedAt: null/.test(cron) && /disconnectedAt: null/.test(cron) && /PAGE_CHANNEL_PLATFORMS/.test(cron));
+  // Webhooks do not arrive in Development mode nor, until Advanced access,
+  // from customers — so the cron also re-pulls every stamped channel,
+  // incrementally: only conversations updated since the stamp (minus an
+  // overlap), a small limit, re-stamped by the pull itself.
+  ok("…and re-pulls stamped channels incrementally (since the oldest stamp minus an overlap, small limit, same `now` for the re-stamp)",
+    /importedAt: \{ lte: new Date\(now\.getTime\(\) - RESYNC_MS\) \}/.test(cron) &&
+    /since: new Date\(stamp\.getTime\(\) - RESYNC_OVERLAP_MS\)/.test(cron) &&
+    /limit: RESYNC_LIMIT/.test(cron) && /dryRun: dry/.test(cron) && /\bnow,\s*\}\)/.test(cron));
+  ok("…a company whose first pull just ran is not re-pulled in the same run", /if \(companies\.includes\(c\.companyId\)\) continue;/.test(cron));
   ok("…behind the cron secret", /requireCronSecret\(request\)/.test(cron));
   ok("…through importAfterConnect (the same guard)", /await importAfterConnect\(\{ companyId \}\)/.test(cron));
   ok("vercel.json schedules it", JSON.parse(read("vercel.json")).crons.some((c) => c.path === "/api/cron/messaging-import"));
