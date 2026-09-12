@@ -36,6 +36,7 @@ import {
   importAfterConnect,
   IMPORT_MIN_INTERVAL_MS,
   IMPORT_DEFAULT_SINCE_DAYS,
+  PAGE_SHAPES,
 } from "../lib/messaging/pageImport.js";
 import { parseMessagingEnvelope } from "../lib/messaging/envelope.js";
 import { savePageMessagingChannels } from "../lib/messaging/pageChannels.js";
@@ -43,6 +44,8 @@ import { savePageConnection } from "../lib/meta/pageConnection.js";
 import {
   CONVERSATION_FIELDS,
   CONVERSATION_PLATFORM_PARAM,
+  conversationFields,
+  isTooMuchDataError,
   nextConversationCursor,
 } from "../lib/meta/client.js";
 import { rows, writes, resetDbStub } from "./fixtures/dbStub.mjs";
@@ -218,8 +221,13 @@ section("1. The Graph call — fields, platform spelling, cursor");
   ok("no paging, no cursor", nextConversationCursor({}) === null && nextConversationCursor(null) === null);
   const client = code("lib/meta/client.js");
   ok("listPageConversations goes through graphFetch", /export async function listPageConversations[\s\S]*?graphFetch\(`\/\$\{pageId\}\/conversations`/.test(client));
-  ok("…with the platform param and the field list", /params = \{ platform: platformParam, fields: CONVERSATION_FIELDS/.test(client));
+  ok("…with the platform param and the field list", /params = \{ platform: platformParam, fields: conversationFields\(messagesLimit\)/.test(client));
   ok("no second fetch() to graph.facebook.com in pageImport", !/fetch\(/.test(code("lib/messaging/pageImport.js")));
+  ok("the nested message count is a parameter", /messages\.limit\(10\)\{/.test(conversationFields(10)) && conversationFields(0) === CONVERSATION_FIELDS);
+  ok("…passed through to the call", /fields: conversationFields\(messagesLimit\)/.test(client));
+  ok("Meta's too-much-data refusal is recognised by its sentence", isTooMuchDataError({ ok: false, kind: "unknown_error", message: "Please reduce the amount of data you're asking for, then retry your request" }));
+  ok("…and nothing else is", !isTooMuchDataError({ ok: false, kind: "auth_error", message: "Session has expired" }) && !isTooMuchDataError({ ok: true }) && !isTooMuchDataError(null));
+  ok("the shapes step down and end at one conversation", PAGE_SHAPES[0].limit === 25 && PAGE_SHAPES[0].messagesLimit === 50 && PAGE_SHAPES.at(-1).limit === 1);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -310,11 +318,16 @@ section("4. The whole loop, twice, against an in-memory Graph client");
 // ═══════════════════════════════════════════════════════════════════════════
 
 /** A scriptable Graph. Pages: messenger has two pages (cursor), instagram one. */
-function fakeGraph({ messenger = [[MESSENGER_CONVERSATION], [MESSENGER_ANSWERED, MESSENGER_STALE]], instagram = [[INSTAGRAM_CONVERSATION]], fail = null } = {}) {
+function fakeGraph({ messenger = [[MESSENGER_CONVERSATION], [MESSENGER_ANSWERED, MESSENGER_STALE]], instagram = [[INSTAGRAM_CONVERSATION]], fail = null, tooMuchAbove = null } = {}) {
   const calls = [];
-  const fetchConversations = async ({ pageAccessToken, pageId, platform, after }) => {
-    calls.push({ pageAccessToken, pageId, platform, after });
+  const fetchConversations = async ({ pageAccessToken, pageId, platform, after, limit, messagesLimit }) => {
+    calls.push({ pageAccessToken, pageId, platform, after, limit, messagesLimit });
     if (fail && fail.platform === platform) return { ok: false, ...fail.result };
+    // Meta's size refusal: any ask above `tooMuchAbove` messages per
+    // conversation is "too much data" for this platform.
+    if (tooMuchAbove && tooMuchAbove.platform === platform && messagesLimit > tooMuchAbove.messagesLimit) {
+      return { ok: false, kind: "unknown_error", message: "Please reduce the amount of data you're asking for, then retry your request" };
+    }
     const pages = platform === "facebook" ? messenger : instagram;
     const idx = after ? Number(after.replace("cursor_", "")) : 0;
     const data = pages[idx] || [];
@@ -478,6 +491,24 @@ section("5. Refusals — demo, not granted, auth error, rate limit, the connect 
   ok("…the channel is flipped to needs_reauth with the reason", fb?.status === "needs_reauth" && /import:/.test(fb?.lastError || ""), fb);
   ok("…and importedAt is NOT stamped (retried by the next connect or press)", !fb?.importedAt);
   ok("…and nothing was imported", rows.messageThread.length === 0);
+
+  // Meta's size refusal: the same page is asked for again in a smaller
+  // shape, and the run succeeds without counting an error — what the owner's
+  // Instagram inbox needed on the first real run.
+  await seedConnected();
+  const g8 = fakeGraph({ tooMuchAbove: { platform: "instagram", messagesLimit: 25 } });
+  const shrunk = await importPageConversations({ companyId: COMPANY, fetchConversations: g8.fetchConversations, now: NOW });
+  const igCalls = g8.calls.filter((c) => c.platform === "instagram");
+  ok("too much data: the Instagram page is retried in a smaller shape and lands", shrunk.kind === "ok" && shrunk.platforms.instagram?.conversations === 1 && shrunk.errors === 0, { shrunk, igCalls });
+  ok("…first ask 25×50, second 10×25", igCalls.length === 2 && igCalls[0].messagesLimit === 50 && igCalls[1].limit === 10 && igCalls[1].messagesLimit === 25, igCalls);
+  ok("…the same page both times (no cursor advanced)", igCalls.every((c) => c.after === null));
+  ok("…Facebook was not shrunk (its first ask was fine)", g8.calls.filter((c) => c.platform === "facebook").every((c) => c.messagesLimit === 50));
+  ok("…both channels stamped", rows.messagingChannel.every((c) => c.importedAt));
+  const g9 = fakeGraph({ tooMuchAbove: { platform: "instagram", messagesLimit: 0 } });
+  await seedConnected();
+  const hopeless = await importPageConversations({ companyId: COMPANY, fetchConversations: g9.fetchConversations, now: NOW });
+  ok("too much data at every shape: reported as an error after the last shape, not looped", hopeless.platforms.instagram?.errors === 1 && g9.calls.filter((c) => c.platform === "instagram").length === PAGE_SHAPES.length && /reduce the amount/.test(hopeless.lastError?.message || ""), { calls: g9.calls.length, lastError: hopeless.lastError });
+  ok("…and Instagram is not stamped", !rows.messagingChannel.find((c) => c.platform === "instagram").importedAt);
 
   // A rate-limited Graph answer is reported, not retried into a loop.
   await seedConnected({ instagram: false });
