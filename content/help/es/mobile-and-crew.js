@@ -1,0 +1,7 @@
+// content/help/es/mobile-and-crew.js
+//
+// Articles of the “mobile-and-crew” category in es. Keyed by slug; the slugs are
+// listed in lib/help/tree.js and scripts/check-help-centre.mjs refuses a
+// module that is missing one or carries one the tree does not.
+// Not written yet.
+export const ARTICLES = {};

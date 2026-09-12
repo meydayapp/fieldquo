@@ -39,13 +39,24 @@ export default function HelpCenterPage() {
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
       <h1 className="text-3xl font-bold text-foreground mb-4">Help Center</h1>
       <p className="text-muted-foreground">
-        Setup guides and detailed how-tos are still being written. Until they
-        are here, the fastest way to get an answer is to ask us —{" "}
+        {/* The help centre itself lives at /help (help.fieldquo.com): every
+            screen, every flow, in English, French and Spanish. This page stays
+            as the glossary's front door — see the header — and now points at
+            the real thing first. */}
+        Step-by-step guides for every screen and every flow in FieldQuo — in
+        English, French and Spanish — are on the help centre. If you cannot
+        find an answer there,{" "}
         <Link href="/contact" className="underline text-foreground">
           send a message
         </Link>{" "}
         and a person replies.
       </p>
+      <Link
+        href="/help"
+        className="mt-6 inline-flex items-center gap-2 min-h-[44px] rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground"
+      >
+        Open the help centre <ArrowRight size={16} aria-hidden="true" />
+      </Link>
 
       <div className="mt-10 rounded-2xl border border-border p-6">
         <h2 className="text-lg font-semibold text-foreground">

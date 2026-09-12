@@ -60,3 +60,8 @@ next-env.d.ts
 # A stale `pb-[env(...)]` in a code COMMENT here broke `next dev` on every
 # route for days, and editing the live file could not fix it.
 .claude/worktrees/
+scratch/
+
+# The help centre copies its figures and search index here at build time
+# (scripts/build-help-content.mjs); the sources live under docs/screens.
+public/help/

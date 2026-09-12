@@ -83,52 +83,52 @@ import { usePermissions } from "@/app/providers/PermissionProvider";
 import { filterSettingsGroups } from "@/lib/permissions/settingsAccess";
 import { filterSettingsGroupsByTrade } from "@/lib/settings/tradeGateNav";
 
-const GROUPS = [
+export const GROUPS = [
   {
     key: "app.settings.group.account",
     items: [
-      { key: "app.settings.accountBilling", href: "/app/settings/account-billing", icon: CreditCard },
-      { key: "app.settings.refer", href: "/app/settings/refer", icon: Gift },
+      { key: "app.settings.accountBilling", href: "/app/settings/account-billing", icon: CreditCard, helpArticle: "settings-account-billing" },
+      { key: "app.settings.refer", href: "/app/settings/refer", icon: Gift, helpArticle: "settings-refer" },
       // FieldQuo billing the COMPANY for a one-off surcharge, same shelf as
       // Account & Billing — see SETTINGS_ROW_CAPABILITY, gated "billing" for
       // the same reason: the price and the payment button are the owner's
       // business, not an employee's.
-      { key: "app.settings.migration", href: "/app/settings/migration", icon: ArrowUpDown },
-      { key: "app.settings.productUpdates", href: "/app/settings/product-updates", icon: Megaphone },
+      { key: "app.settings.migration", href: "/app/settings/migration", icon: ArrowUpDown, helpArticle: "settings-migration" },
+      { key: "app.settings.productUpdates", href: "/app/settings/product-updates", icon: Megaphone, helpArticle: "settings-product-updates" },
     ],
   },
   {
     key: "app.settings.group.business",
     items: [
-      { key: "app.settings.company", href: "/app/settings/company", icon: Building2 },
-      { key: "app.settings.branding", href: "/app/settings/branding", icon: Palette },
-      { key: "app.settings.language", href: "/app/settings/language", icon: Languages },
+      { key: "app.settings.company", href: "/app/settings/company", icon: Building2, helpArticle: "settings-company" },
+      { key: "app.settings.branding", href: "/app/settings/branding", icon: Palette, helpArticle: "settings-branding" },
+      { key: "app.settings.language", href: "/app/settings/language", icon: Languages, helpArticle: "settings-language" },
       // Moved in from a "Records" group that held this one row and nothing
       // else — the owner's own rule for the main rail ("a group with one item
       // is usually a group that should not exist") applies here too. The
       // company's own action history sits with the company's own identity.
-      { key: "app.settings.activity", href: "/app/activity", icon: Activity },
+      { key: "app.settings.activity", href: "/app/activity", icon: Activity, helpArticle: "settings-activity" },
     ],
   },
   {
     key: "app.settings.group.team",
     items: [
-      { key: "app.settings.team", href: "/app/settings/team", icon: Users },
-      { key: "app.settings.availability", href: "/app/settings/availability", icon: Clock },
-      { key: "app.settings.leave", href: "/app/settings/leave", icon: CalendarClock },
-      { key: "app.settings.bookingPage", href: "/app/settings/booking-page", icon: CalendarDays },
-      { key: "app.settings.workAreas", href: "/app/settings/work-areas", icon: Map },
+      { key: "app.settings.team", href: "/app/settings/team", icon: Users, helpArticle: "settings-team" },
+      { key: "app.settings.availability", href: "/app/settings/availability", icon: Clock, helpArticle: "settings-availability" },
+      { key: "app.settings.leave", href: "/app/settings/leave", icon: CalendarClock, helpArticle: "settings-leave" },
+      { key: "app.settings.bookingPage", href: "/app/settings/booking-page", icon: CalendarDays, helpArticle: "settings-booking-page" },
+      { key: "app.settings.workAreas", href: "/app/settings/work-areas", icon: Map, helpArticle: "settings-work-areas" },
     ],
   },
   {
     key: "app.settings.group.pricing",
     items: [
-      { key: "app.settings.products", href: "/app/settings/products", icon: Package },
-      { key: "app.settings.services", href: "/app/settings/services", icon: Tags },
-      { key: "app.settings.materialCosts", href: "/app/settings/material-costs", icon: Droplet },
-      { key: "app.settings.cabinetRates", href: "/app/settings/cabinet-rates", icon: Ruler },
-      { key: "app.settings.overhead", href: "/app/settings/overhead", icon: TrendingUp },
-      { key: "app.settings.customFields", href: "/app/settings/custom-fields", icon: ListPlus },
+      { key: "app.settings.products", href: "/app/settings/products", icon: Package, helpArticle: "settings-products" },
+      { key: "app.settings.services", href: "/app/settings/services", icon: Tags, helpArticle: "settings-services" },
+      { key: "app.settings.materialCosts", href: "/app/settings/material-costs", icon: Droplet, helpArticle: "settings-material-costs" },
+      { key: "app.settings.cabinetRates", href: "/app/settings/cabinet-rates", icon: Ruler, helpArticle: "settings-cabinet-rates" },
+      { key: "app.settings.overhead", href: "/app/settings/overhead", icon: TrendingUp, helpArticle: "settings-overhead" },
+      { key: "app.settings.customFields", href: "/app/settings/custom-fields", icon: ListPlus, helpArticle: "settings-custom-fields" },
     ],
   },
   // Nine rows under one "Documents & messaging" heading was the group the
@@ -142,53 +142,53 @@ const GROUPS = [
   {
     key: "app.settings.group.documents",
     items: [
-      { key: "app.settings.quoteEmail", href: "/app/settings/quote-email", icon: MailOpen },
-      { key: "app.settings.emailTemplates", href: "/app/settings/email-templates", icon: Mail },
-      { key: "app.settings.pdfTemplates", href: "/app/settings/templates", icon: FileText },
-      { key: "app.settings.translations", href: "/app/settings/translations", icon: Globe },
-      { key: "app.settings.checklists", href: "/app/settings/checklists", icon: ListChecks },
-      { key: "app.settings.jobPhotoTags", href: "/app/settings/job-photo-tags", icon: Tag },
+      { key: "app.settings.quoteEmail", href: "/app/settings/quote-email", icon: MailOpen, helpArticle: "settings-quote-email" },
+      { key: "app.settings.emailTemplates", href: "/app/settings/email-templates", icon: Mail, helpArticle: "settings-email-templates" },
+      { key: "app.settings.pdfTemplates", href: "/app/settings/templates", icon: FileText, helpArticle: "settings-pdf-templates" },
+      { key: "app.settings.translations", href: "/app/settings/translations", icon: Globe, helpArticle: "settings-translations" },
+      { key: "app.settings.checklists", href: "/app/settings/checklists", icon: ListChecks, helpArticle: "settings-checklists" },
+      { key: "app.settings.jobPhotoTags", href: "/app/settings/job-photo-tags", icon: Tag, helpArticle: "settings-job-photo-tags" },
     ],
   },
   {
     key: "app.settings.group.messaging",
     items: [
-      { key: "app.settings.messages", href: "/app/settings/messages", icon: MessageSquare },
-      { key: "app.settings.followUps", href: "/app/settings/follow-ups", icon: Clock },
-      { key: "app.settings.notifications", href: "/app/settings/notifications", icon: Bell },
-      { key: "app.settings.emailDomain", href: "/app/settings/email-domain", icon: AtSign },
+      { key: "app.settings.messages", href: "/app/settings/messages", icon: MessageSquare, helpArticle: "settings-messages" },
+      { key: "app.settings.followUps", href: "/app/settings/follow-ups", icon: Clock, helpArticle: "settings-follow-ups" },
+      { key: "app.settings.notifications", href: "/app/settings/notifications", icon: Bell, helpArticle: "settings-notifications" },
+      { key: "app.settings.emailDomain", href: "/app/settings/email-domain", icon: AtSign, helpArticle: "settings-email-domain" },
     ],
   },
   {
     key: "app.settings.group.paid",
     items: [
-      { key: "app.settings.payments", href: "/app/settings/payments", icon: Receipt },
+      { key: "app.settings.payments", href: "/app/settings/payments", icon: Receipt, helpArticle: "settings-payments" },
       // Same shelf as Payments — a third-party account a company connects
       // its own money/spend to, not a price charged to a client. See
       // lib/permissions/settingsAccess.js: gated "billing", same as Payments.
-      { key: "app.settings.metaAds", href: "/app/settings/meta-ads", icon: Share2 },
-      { key: "app.settings.expenseTracking", href: "/app/settings/expense-tracking", icon: Wallet },
-      { key: "app.settings.aiCredit", href: "/app/settings/ai-credit", icon: Sparkles },
+      { key: "app.settings.metaAds", href: "/app/settings/meta-ads", icon: Share2, helpArticle: "settings-meta-ads" },
+      { key: "app.settings.expenseTracking", href: "/app/settings/expense-tracking", icon: Wallet, helpArticle: "settings-expense-tracking" },
+      { key: "app.settings.aiCredit", href: "/app/settings/ai-credit", icon: Sparkles, helpArticle: "settings-ai-credit" },
       // Moved in from Services & pricing: a deduction rate isn't a price
       // charged to a client, it's money moving the OTHER way — the same
       // shelf as Payments and Expense Tracking, not the price book.
-      { key: "app.settings.payroll", href: "/app/settings/payroll", icon: Wallet },
+      { key: "app.settings.payroll", href: "/app/settings/payroll", icon: Wallet, helpArticle: "settings-payroll" },
     ],
   },
   {
     key: "app.settings.group.clientFacing",
     items: [
-      { key: "app.settings.website", href: "/app/settings/website", icon: Globe },
-      { key: "app.settings.instantQuotes", href: "/app/settings/instant-quotes", icon: Zap },
-      { key: "app.settings.leadForm", href: "/app/settings/lead-form", icon: ClipboardList },
-      { key: "app.settings.bioLink", href: "/app/settings/links", icon: Link2 },
-      { key: "app.settings.voice", href: "/app/settings/voice", icon: Headset },
+      { key: "app.settings.website", href: "/app/settings/website", icon: Globe, helpArticle: "settings-website" },
+      { key: "app.settings.instantQuotes", href: "/app/settings/instant-quotes", icon: Zap, helpArticle: "settings-instant-quotes" },
+      { key: "app.settings.leadForm", href: "/app/settings/lead-form", icon: ClipboardList, helpArticle: "settings-lead-form" },
+      { key: "app.settings.bioLink", href: "/app/settings/links", icon: Link2, helpArticle: "settings-bio-link" },
+      { key: "app.settings.voice", href: "/app/settings/voice", icon: Headset, helpArticle: "settings-voice" },
       // Beside the phone receptionist rather than under Messaging, and for the
       // same reason the receptionist is here: both are an agent a STRANGER
       // meets. The Messaging group is about the wording of what the company
       // sends; this is about who answers.
-      { key: "app.settings.aiEmployee", href: "/app/settings/ai-employee", icon: Bot },
-      { key: "app.settings.reviews", href: "/app/settings/reviews", icon: Star },
+      { key: "app.settings.aiEmployee", href: "/app/settings/ai-employee", icon: Bot, helpArticle: "settings-ai-employee" },
+      { key: "app.settings.reviews", href: "/app/settings/reviews", icon: Star, helpArticle: "settings-reviews" },
     ],
   },
 ];

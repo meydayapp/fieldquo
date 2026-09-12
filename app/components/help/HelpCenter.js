@@ -31,7 +31,7 @@ function Block({ block }) {
   return null;
 }
 
-export default function HelpCenter({ audience, title, intro }) {
+export default function HelpCenter({ audience, title, intro, above = null }) {
   const router = useRouter();
   const all = useMemo(() => articlesFor(audience), [audience]);
   const [query, setQuery] = useState("");
@@ -107,6 +107,8 @@ export default function HelpCenter({ audience, title, intro }) {
           className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-2 text-sm"
         />
       </div>
+
+      {!query && above}
 
       {audience === "company" && !query && (
         <button

@@ -113,37 +113,37 @@ import NotificationBell from "@/app/components/layout/NotificationBell";
 // `pinned` is that rule, made explicit and enforced: check:sidebar fails if any
 // group holding a `tour` item is foldable, so moving Requests elsewhere breaks
 // a check instead of breaking the tour.
-const NAV_GROUPS = [
+export const NAV_GROUPS = [
   {
     key: "app.nav.group.work",
     pinned: true,
     items: [
-      { key: "app.nav.requests", href: "/app/leads", icon: ClipboardList, tour: "nav-requests" },
-      { key: "app.nav.quotes", href: "/app/quotes", icon: FileText, tour: "nav-quotes" },
-      { key: "app.nav.estimateReviews", href: "/app/estimate-reviews", icon: BadgeCheck, tour: "nav-estimate-reviews" },
-      { key: "app.nav.jobs", href: "/app/jobs", icon: Briefcase },
-      { key: "app.nav.invoices", href: "/app/invoices", icon: Receipt },
+      { key: "app.nav.requests", href: "/app/leads", icon: ClipboardList, tour: "nav-requests", helpArticle: "requests" },
+      { key: "app.nav.quotes", href: "/app/quotes", icon: FileText, tour: "nav-quotes", helpArticle: "quotes" },
+      { key: "app.nav.estimateReviews", href: "/app/estimate-reviews", icon: BadgeCheck, tour: "nav-estimate-reviews", helpArticle: "estimate-reviews" },
+      { key: "app.nav.jobs", href: "/app/jobs", icon: Briefcase, helpArticle: "jobs" },
+      { key: "app.nav.invoices", href: "/app/invoices", icon: Receipt, helpArticle: "invoices" },
       // Recurring work sold as a package. Sits after Invoices because that is
       // what it produces — a plan is a standing instruction to raise one.
-      { key: "app.nav.plans", href: "/app/plans", icon: CalendarSync },
-      { key: "app.nav.calendar", href: "/app/appointments", icon: Calendar },
+      { key: "app.nav.plans", href: "/app/plans", icon: CalendarSync, helpArticle: "plans" },
+      { key: "app.nav.calendar", href: "/app/appointments", icon: Calendar, helpArticle: "calendar" },
       // /app/tasks existed, worked, and was reachable from NOTHING — no nav
       // entry and no link from any page. 380 lines of working to-do list that
       // only somebody typing the URL could find.
-      { key: "app.nav.tasks", href: "/app/tasks", icon: ListTodo },
+      { key: "app.nav.tasks", href: "/app/tasks", icon: ListTodo, helpArticle: "tasks" },
     ],
   },
   {
     key: "app.nav.group.people",
     items: [
-      { key: "app.nav.clients", href: "/app/clients", icon: Users },
+      { key: "app.nav.clients", href: "/app/clients", icon: Users, helpArticle: "clients" },
       // The CUSTOMER's kit — their furnace, their panel — and whose warranty
       // is about to run out. Next to Clients because that is what it is a fact
       // about, and deliberately NOT next to Vehicles below: the contractor's
       // own van is `Asset` and a different subject entirely. The two labels
       // ("Client equipment" / "Vehicles") say which is which without needing
       // the group headings to do it.
-      { key: "app.nav.clientEquipment", href: "/app/equipment", icon: ShieldCheck },
+      { key: "app.nav.clientEquipment", href: "/app/equipment", icon: ShieldCheck, helpArticle: "client-equipment" },
       // The company talking to itself: #general, a room per active job, direct
       // messages (app/app/chat, on the shared chat kit). Under People because
       // it is about the roster — the rooms are DERIVED from who is on the team
@@ -153,43 +153,43 @@ const NAV_GROUPS = [
       // NAV_REQUIREMENTS entry on purpose — everyone on the roster is in
       // #general, so a Crew member with `none` on every document ladder still
       // gets this row, and it is the one row they are certain to keep.
-      { key: "app.nav.chat", href: "/app/chat", icon: MessagesSquare },
+      { key: "app.nav.chat", href: "/app/chat", icon: MessagesSquare, helpArticle: "chat" },
       // ── HR in one place ─────────────────────────────────────────────────
       //
       // "Manage Team" lived ONLY under Settings, so hiring someone meant
       // hunting through a 31-item settings list while Timesheets and Time Off
       // sat right here. Employee records, their hours and their leave are one
       // job; splitting them across two menus is why people ask where things are.
-      { key: "app.nav.team", href: "/app/settings/team", icon: UserCog },
+      { key: "app.nav.team", href: "/app/settings/team", icon: UserCog, helpArticle: "team" },
       // The companies hired per job — the electrician, the roofer — as
       // opposed to the people on the roster above. Under People because that
       // is where somebody looks for "who do we work with", and gated on the
       // same `user:manage` its API requires (lib/permissions/nav.js), so the
       // row and the endpoint never disagree about who gets in.
-      { key: "app.nav.subcontractors", href: "/app/subcontractors", icon: HardHat },
-      { key: "app.nav.scheduler", href: "/app/scheduler", icon: CalendarClock },
-      { key: "app.nav.teamSchedule", href: "/app/schedule", icon: Calendar },
-      { key: "app.nav.clock", href: "/app/clock", icon: Clock },
-      { key: "app.nav.timesheets", href: "/app/settings/team/timesheets", icon: Clock },
+      { key: "app.nav.subcontractors", href: "/app/subcontractors", icon: HardHat, helpArticle: "subcontractors" },
+      { key: "app.nav.scheduler", href: "/app/scheduler", icon: CalendarClock, helpArticle: "scheduler" },
+      { key: "app.nav.teamSchedule", href: "/app/schedule", icon: Calendar, helpArticle: "team-schedule" },
+      { key: "app.nav.clock", href: "/app/clock", icon: Clock, helpArticle: "clock" },
+      { key: "app.nav.timesheets", href: "/app/settings/team/timesheets", icon: Clock, helpArticle: "timesheets" },
       // Top-level, not buried in settings: everyone uses it, not just admins.
-      { key: "app.nav.timeOff", href: "/app/time-off", icon: CalendarClock },
+      { key: "app.nav.timeOff", href: "/app/time-off", icon: CalendarClock, helpArticle: "time-off" },
       // Same shelf as the rest of the crew's own records — a near-miss is
       // worth logging exactly as fast as clocking in. See lib/permissions.js's
       // "safety" category for who this hides from (report_own is the floor,
       // not `none`, so this row shows for a Crew member too).
-      { key: "app.nav.safety", href: "/app/safety", icon: ShieldAlert },
+      { key: "app.nav.safety", href: "/app/safety", icon: ShieldAlert, helpArticle: "safety" },
     ],
   },
   {
     key: "app.nav.group.money",
     items: [
-      { key: "app.nav.payroll", href: "/app/payroll", icon: Wallet },
-      { key: "app.nav.expenses", href: "/app/settings/expense-tracking", icon: Wallet },
+      { key: "app.nav.payroll", href: "/app/payroll", icon: Wallet, helpArticle: "payroll" },
+      { key: "app.nav.expenses", href: "/app/settings/expense-tracking", icon: Wallet, helpArticle: "expenses" },
       // Suppliers, purchase orders and stock. In Money rather than Work
       // because buying is spending — it is gated on the same `expenses`
       // ladder as the row above it, and a contractor looking for "what did we
       // spend at Northline this year" looks here, not in the job pipeline.
-      { key: "app.nav.purchasing", href: "/app/purchasing", icon: ShoppingCart },
+      { key: "app.nav.purchasing", href: "/app/purchasing", icon: ShoppingCart, helpArticle: "purchasing" },
       // The vans. In Money for the same reason Purchasing is: a vehicle is an
       // `Asset` whose depreciation already sits in this group's cost basis
       // (the register lives inside Settings → Overhead, which the construction
@@ -197,7 +197,7 @@ const NAV_GROUPS = [
       // "insurance lapses Thursday" is the same person who reads Expenses.
       // Gated on the same `user:manage` its API requires, so the row and the
       // endpoint never disagree about who gets in.
-      { key: "app.nav.fleet", href: "/app/fleet", icon: Truck },
+      { key: "app.nav.fleet", href: "/app/fleet", icon: Truck, helpArticle: "fleet" },
     ],
   },
   // Insights used to live inside Money, and that was a mislabel rather than a
@@ -220,8 +220,8 @@ const NAV_GROUPS = [
   {
     key: "app.nav.group.insights",
     items: [
-      { key: "app.nav.insights", href: "/app/analytics/benchmark", icon: Compass },
-      { key: "app.nav.kpis", href: "/app/analytics/kpis", icon: Gauge },
+      { key: "app.nav.insights", href: "/app/analytics/benchmark", icon: Compass, helpArticle: "insights" },
+      { key: "app.nav.kpis", href: "/app/analytics/kpis", icon: Gauge, helpArticle: "kpis" },
     ],
   },
   // Marketing Designer (the ad-creative canvas editor, marketing_designer in
@@ -237,23 +237,23 @@ const NAV_GROUPS = [
   {
     key: "app.nav.group.grow",
     items: [
-      { key: "app.nav.marketing", href: "/app/marketing", icon: Megaphone },
+      { key: "app.nav.marketing", href: "/app/marketing", icon: Megaphone, helpArticle: "marketing" },
       // The multi-ratio ad canvas editor — its own row, not folded into the
       // Marketing hub link above, because it is a different verb (design one
       // asset in five sizes vs. run a campaign) and the check-sidebar.mjs
       // "every item is found by typing its own label" rule needs its own
       // href to prove reachable.
-      { key: "app.nav.marketingDesigner", href: "/app/marketing/designer", icon: Palette },
-      { key: "app.nav.funnels", href: "/app/funnels", icon: Filter },
-      { key: "app.nav.receptionist", href: "/app/receptionist", icon: Headset },
-      { key: "app.nav.crewInbox", href: "/app/crew-inbox", icon: MessageSquare },
+      { key: "app.nav.marketingDesigner", href: "/app/marketing/designer", icon: Palette, helpArticle: "marketing-designer" },
+      { key: "app.nav.funnels", href: "/app/funnels", icon: Filter, helpArticle: "funnels" },
+      { key: "app.nav.receptionist", href: "/app/receptionist", icon: Headset, helpArticle: "receptionist" },
+      { key: "app.nav.crewInbox", href: "/app/crew-inbox", icon: MessageSquare, helpArticle: "crew-inbox" },
       // Facebook Page and Instagram business messages. In "Grow" rather than
       // beside the crew inbox one row up: those two are both "messages", but
       // the crew inbox is work coming IN FROM the van, and this is a stranger
       // who found the company on Facebook — a lead, which is what everything
       // else in this group is about.
-      { key: "app.nav.messages", href: "/app/messages", icon: MessageCircle },
-      { key: "app.nav.refer", href: "/app/settings/refer", icon: Gift },
+      { key: "app.nav.messages", href: "/app/messages", icon: MessageCircle, helpArticle: "messages" },
+      { key: "app.nav.refer", href: "/app/settings/refer", icon: Gift, helpArticle: "refer" },
     ],
   },
 ];
@@ -268,14 +268,14 @@ const QUICK_ADD_ITEMS = [
 ];
 
 // Bottom-of-sidebar items, above Log Out.
-const BOTTOM_ITEMS = [
-  { key: "app.nav.help", href: "/app/help", icon: LifeBuoy },
-  { key: "app.nav.plan", href: "/app/settings/account-billing", icon: CreditCard },
-  { key: "app.nav.settings", href: "/app/settings", icon: Settings, tour: "nav-settings" },
+export const BOTTOM_ITEMS = [
+  { key: "app.nav.help", href: "/app/help", icon: LifeBuoy, helpArticle: "help" },
+  { key: "app.nav.plan", href: "/app/settings/account-billing", icon: CreditCard, helpArticle: "plan" },
+  { key: "app.nav.settings", href: "/app/settings", icon: Settings, tour: "nav-settings", helpArticle: "settings" },
 ];
 
-const HOME_ITEM = { key: "app.nav.home", href: "/app", icon: Home };
-const AI_ITEM = { key: "app.nav.ai", href: "/app/copilot", icon: Sparkles, tour: "nav-ai" };
+export const HOME_ITEM = { key: "app.nav.home", href: "/app", icon: Home, helpArticle: "home" };
+export const AI_ITEM = { key: "app.nav.ai", href: "/app/copilot", icon: Sparkles, tour: "nav-ai", helpArticle: "ai" };
 
 // What the filter box searches. Home and the bottom section are pulled in so
 // typing "settings" finds Settings — a menu search that quietly can't reach a

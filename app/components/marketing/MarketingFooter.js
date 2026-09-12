@@ -36,7 +36,10 @@ const FOOTER_COLUMNS = [
       // here and both 404'd — the catalogue keys are kept because they'd be
       // wanted again the day those pages ship, but a link to nothing is worse
       // than no link.
-      { key: "footer.links.help", href: "/resources/help" },
+      // The public help centre (help.fieldquo.com; /help on this host works
+      // before the DNS record does). Label key kept: it already says "Help
+      // Center" in every language, and the page behind it is now real.
+      { key: "footer.links.help", href: "/help" },
       { key: "nav.glossary", href: "/glossary" },
       { key: "footer.links.contact", href: "/contact" },
     ],

@@ -63,6 +63,7 @@ import {
   allowsWrites,
 } from "@/lib/platform/impersonationToken";
 import { subdomainFromHost } from "@/lib/site/subdomain";
+import { isHelpHost } from "@/lib/help/host";
 import { SALES_COOKIE, carriesScope, verifySalesToken } from "@/lib/sales/auth";
 
 const PLATFORM_SECRET = new TextEncoder().encode(
@@ -158,6 +159,40 @@ const PLATFORM_BILLING_PASSTHROUGH = [
 
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
+
+  // ── The public help centre on help.fieldquo.com ────────────────────────
+  //
+  // Runs FIRST, before the tenant rewrite and before every gate below, for
+  // the same reason the tenant rewrite runs before the gates: a contractor
+  // reading a help article in a driveway has no session and must never be
+  // asked for one. The host is a reserved subdomain (lib/site/subdomain.js)
+  // so subdomainFromHost would already answer null for it; this block is
+  // what makes the name SERVE something.
+  //
+  // A REWRITE: help.fieldquo.com/en/… renders app/help/en/… while the
+  // address bar keeps the short URL. /api and /_next pass through so the
+  // feedback endpoint and the page's own assets load from the host they were
+  // served on. The one redirect is the other direction: the pages are
+  // statically rendered with /help-prefixed links (lib/help/urls.js explains
+  // why), so a /help/… path on THIS host is sent to its short spelling —
+  // one hop to the canonical URL, and never a loop, because the rewritten
+  // path is not seen by this function again.
+  //
+  // scripts/check-help-centre.mjs asserts, from the source, that this block
+  // precedes the impersonation gate and the /app session gate.
+  if (isHelpHost(request.headers.get("host"))) {
+    if (pathname.startsWith("/api") || pathname.startsWith("/_next")) {
+      return NextResponse.next();
+    }
+    if (pathname === "/help" || pathname.startsWith("/help/")) {
+      const url = request.nextUrl.clone();
+      url.pathname = pathname.slice("/help".length) || "/";
+      return NextResponse.redirect(url, 308);
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = `/help${pathname === "/" ? "" : pathname}`;
+    return NextResponse.rewrite(url);
+  }
 
   // ── Tenant websites on subdomains ──────────────────────────────────────
   //
@@ -449,6 +484,11 @@ export const config = {
     // routes (/api/public/*, /api/portal/*, webhooks) are unaffected — they
     // carry no impersonation cookie and fall straight through.
     "/api/:path*",
+    // The help centre's sitemap. The catch-all below skips anything with a
+    // file extension, so help.fieldquo.com/sitemap.xml would never reach the
+    // rewrite above and would 404; naming it here costs one invocation per
+    // crawler visit. On the apex it falls straight through (no such file).
+    "/sitemap.xml",
     // The subdomain check above needs to see the root path, and every path
     // on a tenant host. This matcher excludes Next's own internals and
     // anything with a file extension, so static assets never pay for a

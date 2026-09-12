@@ -52,6 +52,11 @@ export const rows = {
   // assert that by regex would have passed on the version that couldn't.
   member: [],
   pendingTeamProfile: [],
+  // "Was this helpful?" votes from the public help centre
+  // (app/api/help/feedback). check-help-centre.mjs executes the route and
+  // reads the write back to prove the row carries slug/lang/helpful and
+  // nothing about the sender.
+  helpFeedback: [],
   // No `include` support here, so a fixture row carries its plan inline:
   // { companyId, plan: { maxUsers: 20 } }.
   subscription: [],
@@ -463,6 +468,7 @@ export const db = new Proxy(
     marketingSubscriber: model("marketingSubscriber"),
     member: model("member"),
     pendingTeamProfile: model("pendingTeamProfile"),
+    helpFeedback: model("helpFeedback"),
     subscription: model("subscription"),
     plan: model("plan"),
     messagingChannel: model("messagingChannel"),

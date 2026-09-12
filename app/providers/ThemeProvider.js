@@ -62,14 +62,22 @@ function systemPrefersDark() {
 // light. An allow-list means a page added tomorrow is light by default rather
 // than accidentally themeable and half-converted, which is how dark mode
 // broke here the first time.
-function isThemeablePath(pathname) {
-  return ["/app", "/platform"].some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`),
+//
+// /help — the public help centre — is on the list (2026-09-12): its
+// components were written on semantic tokens from the start, and a
+// contractor reads it on the same phone, at the same hour, as the app it
+// documents. On help.fieldquo.com the pathname carries no /help prefix (the
+// middleware rewrite keeps the short URL), so the hostname is checked too.
+function isThemeablePath(pathname, hostname = "") {
+  return (
+    ["/app", "/platform", "/help"].some(
+      (p) => pathname === p || pathname.startsWith(`${p}/`),
+    ) || String(hostname).startsWith("help.")
   );
 }
 
 function applyTheme(theme) {
-  if (!DARK_MODE_ENABLED || !isThemeablePath(window.location.pathname)) {
+  if (!DARK_MODE_ENABLED || !isThemeablePath(window.location.pathname, window.location.hostname)) {
     document.documentElement.classList.remove("dark");
     document.documentElement.style.colorScheme = "light";
     return false;

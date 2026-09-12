@@ -21,6 +21,7 @@
 "use client";
 
 import HelpCenter from "@/app/components/help/HelpCenter";
+import ScreenGuides from "@/app/components/help/ScreenGuides";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 export default function HelpPage() {
@@ -30,6 +31,11 @@ export default function HelpPage() {
       audience="company"
       title={t("app.help.title")}
       intro={t("app.help.intro")}
+      // The public help centre (help.fieldquo.com) has an article for every
+      // sidebar row, in the reader's language; this block is the bridge
+      // from the screen they are on to that article. Company audience only:
+      // the platform runbook has no public counterpart.
+      above={<ScreenGuides />}
     />
   );
 }

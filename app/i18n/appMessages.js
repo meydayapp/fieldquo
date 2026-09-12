@@ -9102,6 +9102,9 @@ const en = {
   "app.setPayments.surchargeNote": "Stripe adds these on cards issued outside Canada or charged in another currency; they are passed through at Stripe's cost on the payment they apply to. Bank debit carries no surcharge.",
   "app.setPayments.accountFeesNote": "Stripe's account fees (a small monthly fee in months you take payments, plus 0.25% + 25¢ per payout to your bank) are passed through at cost and appear as their own line on the next payment.",
   "app.invoiceDetail.accountFeeLine": "Stripe account fees {amount} ({period})",
+  "app.help.screenGuides.title": "The guide for every screen",
+  "app.help.screenGuides.open": "Open the help centre",
+  "app.help.screenGuides.intro": "Every row of the sidebar and of Settings has a step-by-step article on the help centre, with the real screen and what each control does.",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -17724,6 +17727,9 @@ const fr = {
   "app.setPayments.surchargeNote": "Stripe les ajoute sur les cartes émises hors du Canada ou débitées dans une autre devise ; ils sont refacturés au coût de Stripe sur le paiement concerné. Le débit bancaire n'a aucun supplément.",
   "app.setPayments.accountFeesNote": "Les frais de compte Stripe (petits frais mensuels les mois où vous encaissez, plus 0,25 % + 25 ¢ par virement vers votre banque) sont refacturés au coût et apparaissent comme une ligne à part sur le paiement suivant.",
   "app.invoiceDetail.accountFeeLine": "Frais de compte Stripe {amount} ({period})",
+  "app.help.screenGuides.title": "Le guide de chaque écran",
+  "app.help.screenGuides.open": "Ouvrir le centre d'aide",
+  "app.help.screenGuides.intro": "Chaque ligne de la barre latérale et des Réglages a son article pas à pas dans le centre d'aide, avec l'écran réel et ce que fait chaque contrôle.",
 };
 
 
@@ -26688,6 +26694,9 @@ const es = {
   "app.setPayments.surchargeNote": "Stripe los añade en tarjetas emitidas fuera de Canadá o cobradas en otra moneda; se trasladan al costo de Stripe en el pago al que aplican. El débito bancario no tiene recargo.",
   "app.setPayments.accountFeesNote": "Las comisiones de cuenta de Stripe (una pequeña cuota mensual en los meses en que cobra, más 0,25 % + 25 ¢ por transferencia a su banco) se trasladan al costo y aparecen como una línea aparte en el siguiente pago.",
   "app.invoiceDetail.accountFeeLine": "Comisiones de cuenta de Stripe {amount} ({period})",
+  "app.help.screenGuides.title": "La guía de cada pantalla",
+  "app.help.screenGuides.open": "Abrir el centro de ayuda",
+  "app.help.screenGuides.intro": "Cada fila de la barra lateral y de Configuración tiene un artículo paso a paso en el centro de ayuda, con la pantalla real y lo que hace cada control.",
 };
 
 const uk = {
@@ -33670,6 +33679,9 @@ const uk = {
   "app.setPayments.surchargeNote": "Stripe додає їх для карток, випущених за межами Канади або списаних в іншій валюті; вони перевиставляються за собівартістю Stripe на тому платежі, якого стосуються. Банківський дебет не має надбавок.",
   "app.setPayments.accountFeesNote": "Комісії Stripe за обліковий запис (невелика щомісячна плата в місяці, коли ви приймаєте платежі, плюс 0,25 % + 25 ¢ за кожну виплату на ваш банк) перевиставляються за собівартістю і показуються окремим рядком на наступному платежі.",
   "app.invoiceDetail.accountFeeLine": "Комісії Stripe за обліковий запис {amount} ({period})",
+  "app.help.screenGuides.title": "Посібник до кожного екрана",
+  "app.help.screenGuides.open": "Відкрити довідковий центр",
+  "app.help.screenGuides.intro": "Кожен рядок бічної панелі та Налаштувань має покрокову статтю в довідковому центрі — зі справжнім екраном і поясненням кожного елемента.",
 };
 
 const pa = {
@@ -40584,6 +40596,9 @@ const pa = {
   "app.setPayments.surchargeNote": "Stripe ਇਹ ਕੈਨੇਡਾ ਤੋਂ ਬਾਹਰ ਜਾਰੀ ਕੀਤੇ ਜਾਂ ਹੋਰ ਮੁਦਰਾ ਵਿੱਚ ਵਸੂਲੇ ਕਾਰਡਾਂ 'ਤੇ ਜੋੜਦਾ ਹੈ; ਇਹ ਜਿਸ ਭੁਗਤਾਨ 'ਤੇ ਲਾਗੂ ਹੋਣ ਉਸ 'ਤੇ Stripe ਦੀ ਲਾਗਤ ਮੁੱਲ 'ਤੇ ਅੱਗੇ ਦਿੱਤੇ ਜਾਂਦੇ ਹਨ। ਬੈਂਕ ਡੈਬਿਟ 'ਤੇ ਕੋਈ ਵਾਧੂ ਖਰਚ ਨਹੀਂ।",
   "app.setPayments.accountFeesNote": "Stripe ਦੀਆਂ ਖਾਤਾ ਫੀਸਾਂ (ਜਿਨ੍ਹਾਂ ਮਹੀਨਿਆਂ ਵਿੱਚ ਤੁਸੀਂ ਭੁਗਤਾਨ ਲੈਂਦੇ ਹੋ ਉਨ੍ਹਾਂ ਵਿੱਚ ਛੋਟੀ ਮਹੀਨਾਵਾਰ ਫੀਸ, ਨਾਲ ਹੀ ਤੁਹਾਡੇ ਬੈਂਕ ਨੂੰ ਹਰ ਭੁਗਤਾਨ 'ਤੇ 0.25% + 25¢) ਲਾਗਤ ਮੁੱਲ 'ਤੇ ਅੱਗੇ ਦਿੱਤੀਆਂ ਜਾਂਦੀਆਂ ਹਨ ਅਤੇ ਅਗਲੇ ਭੁਗਤਾਨ 'ਤੇ ਆਪਣੀ ਵੱਖਰੀ ਲਾਈਨ ਵਜੋਂ ਦਿਖਦੀਆਂ ਹਨ।",
   "app.invoiceDetail.accountFeeLine": "Stripe ਖਾਤਾ ਫੀਸਾਂ {amount} ({period})",
+  "app.help.screenGuides.title": "ਹਰ ਸਕ੍ਰੀਨ ਦੀ ਗਾਈਡ",
+  "app.help.screenGuides.open": "ਮਦਦ ਕੇਂਦਰ ਖੋਲ੍ਹੋ",
+  "app.help.screenGuides.intro": "ਸਾਈਡਬਾਰ ਅਤੇ ਸੈਟਿੰਗਾਂ ਦੀ ਹਰ ਕਤਾਰ ਲਈ ਮਦਦ ਕੇਂਦਰ ਵਿੱਚ ਇੱਕ ਕਦਮ-ਦਰ-ਕਦਮ ਲੇਖ ਹੈ, ਅਸਲ ਸਕ੍ਰੀਨ ਅਤੇ ਹਰ ਕੰਟਰੋਲ ਦੇ ਕੰਮ ਸਮੇਤ।",
 };
 
 const tl = {
@@ -47505,6 +47520,9 @@ const tl = {
   "app.setPayments.surchargeNote": "Idinadagdag ito ng Stripe sa mga card na inisyu sa labas ng Canada o siningil sa ibang currency; ipinapasa sa gastos ng Stripe sa bayad na kinauukulan. Walang dagdag ang bank debit.",
   "app.setPayments.accountFeesNote": "Ang mga bayarin sa account ng Stripe (maliit na buwanang bayad sa mga buwang tumatanggap ka ng bayad, at 0.25% + 25¢ bawat payout sa bangko mo) ay ipinapasa sa halagang gastos at lumalabas bilang sariling linya sa susunod na bayad.",
   "app.invoiceDetail.accountFeeLine": "Mga bayarin sa Stripe account {amount} ({period})",
+  "app.help.screenGuides.title": "Ang gabay para sa bawat screen",
+  "app.help.screenGuides.open": "Buksan ang help centre",
+  "app.help.screenGuides.intro": "Bawat hilera ng sidebar at ng Settings ay may sunud-sunod na artikulo sa help centre, kasama ang totoong screen at kung ano ang ginagawa ng bawat control.",
 };
 
 const de = {
@@ -55783,6 +55801,9 @@ const de = {
   "app.setPayments.surchargeNote": "Stripe berechnet sie bei Karten, die außerhalb Kanadas ausgegeben oder in einer anderen Währung belastet werden; sie werden zu Stripes Kosten auf der betroffenen Zahlung weitergegeben. Bankeinzug hat keinen Aufschlag.",
   "app.setPayments.accountFeesNote": "Stripes Kontogebühren (eine kleine Monatsgebühr in Monaten mit Zahlungen, plus 0,25 % + 25 ¢ je Auszahlung auf Ihr Konto) werden zum Selbstkostenpreis weitergegeben und erscheinen als eigene Zeile auf der nächsten Zahlung.",
   "app.invoiceDetail.accountFeeLine": "Stripe-Kontogebühren {amount} ({period})",
+  "app.help.screenGuides.title": "Die Anleitung zu jedem Bildschirm",
+  "app.help.screenGuides.open": "Hilfe-Center öffnen",
+  "app.help.screenGuides.intro": "Jede Zeile der Seitenleiste und der Einstellungen hat einen Schritt-für-Schritt-Artikel im Hilfe-Center, mit dem echten Bildschirm und dem, was jedes Element tut.",
 };
 
 const zh = {
@@ -64054,6 +64075,9 @@ const zh = {
   "app.setPayments.surchargeNote": "Stripe 对加拿大境外发行或以其他货币扣款的银行卡加收这些费用；按 Stripe 的成本在相应付款上转嫁。银行扣款无附加费。",
   "app.setPayments.accountFeesNote": "Stripe 的账户费用（有收款的月份收取少量月费，另加每次提现到你银行的 0.25% + 25¢）按成本转嫁，并在下一笔付款上单独列示。",
   "app.invoiceDetail.accountFeeLine": "Stripe 账户费用 {amount}（{period}）",
+  "app.help.screenGuides.title": "每个界面的指南",
+  "app.help.screenGuides.open": "打开帮助中心",
+  "app.help.screenGuides.intro": "侧边栏和设置的每一行在帮助中心都有一篇分步文章，附真实界面以及每个控件的作用。",
 };
 
 const it = {
@@ -72627,6 +72651,9 @@ const it = {
   "app.setPayments.surchargeNote": "Stripe li aggiunge sulle carte emesse fuori dal Canada o addebitate in un'altra valuta; vengono addebitati al costo di Stripe sul pagamento a cui si applicano. L'addebito bancario non ha maggiorazioni.",
   "app.setPayments.accountFeesNote": "Le commissioni di conto di Stripe (una piccola quota mensile nei mesi in cui incassa, più 0,25 % + 25 ¢ per ogni versamento sul suo conto) vengono addebitate al costo e compaiono come riga a sé sul pagamento successivo.",
   "app.invoiceDetail.accountFeeLine": "Commissioni di conto Stripe {amount} ({period})",
+  "app.help.screenGuides.title": "La guida a ogni schermata",
+  "app.help.screenGuides.open": "Apri il centro assistenza",
+  "app.help.screenGuides.intro": "Ogni riga della barra laterale e delle Impostazioni ha un articolo passo passo nel centro assistenza, con la schermata reale e cosa fa ogni controllo.",
 };
 
 export const APP_MESSAGES = { en, fr, es, uk, pa, tl, de, zh, it };

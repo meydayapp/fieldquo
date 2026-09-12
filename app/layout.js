@@ -31,9 +31,15 @@ const NO_FLASH = `
 (function () {
   try {
     var p = window.location.pathname;
+    // /help — the public help centre — is themeable too: a contractor reads
+    // it on the same phone, often at night, as the app it documents. On
+    // help.fieldquo.com the pathname has no /help prefix (middleware
+    // rewrite), so the hostname is the tell there.
     var themeable =
       p === "/app" || p.indexOf("/app/") === 0 ||
-      p === "/platform" || p.indexOf("/platform/") === 0;
+      p === "/platform" || p.indexOf("/platform/") === 0 ||
+      p === "/help" || p.indexOf("/help/") === 0 ||
+      window.location.hostname.indexOf("help.") === 0;
 
     if (!themeable) {
       document.documentElement.classList.remove("dark");

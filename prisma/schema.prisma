@@ -14401,3 +14401,28 @@ model CompanyChatMessage {
   @@index([roomId, createdAt])
   @@index([companyId, createdAt])
 }
+
+// ============================================================
+// Help centre feedback — "Was this helpful?" on help.fieldquo.com
+// ============================================================
+//
+// One row per press of Yes or No on a public help article. Deliberately
+// carries NO identity: no user, no company, no IP, no user agent, no free
+// text — a vote on a public page needs none, and the endpoint is reachable
+// by anyone on the internet without a session (app/api/help/feedback), so
+// anything personal stored here would be personal data collected from
+// strangers for no purpose. Abuse is limited by lib/rateLimit.js per IP at
+// the door, and the IP is dropped there. Additive: nothing else references
+// this model.
+model HelpFeedback {
+  id        String   @id @default(cuid())
+  /// The article slug (lib/help/tree.js). Checked against the tree before
+  /// the write so a stranger cannot fill the table with arbitrary strings.
+  slug      String
+  /// The language the reader was reading in (a chrome language code).
+  lang      String
+  helpful   Boolean
+  createdAt DateTime @default(now())
+
+  @@index([slug, createdAt])
+}
