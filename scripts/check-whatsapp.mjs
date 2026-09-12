@@ -95,8 +95,12 @@ import { videoPosterUrl } from "@/lib/media/cloudinaryUrl";
 import { staticMapUrl, mapsLinkUrl, addressFromLocation } from "@/lib/messaging/locationLink";
 import { classifyMedia, uploadPublicId, MESSAGING_DOCUMENT_TYPES } from "@/lib/media/validate";
 import { rehostAttachment, resolveWhatsAppMediaUrl, isMetaMediaUrl } from "@/lib/messaging/mediaFetch";
-import { encryptToken } from "@/lib/meta/tokenCrypto";
+import { encryptToken, decryptToken } from "@/lib/meta/tokenCrypto";
 import { sendOnChannel } from "@/lib/messaging/send";
+import { finishWhatsAppConnection, CONNECTED_VIA } from "@/lib/messaging/whatsappConnect";
+import { validateManualCredentials, MANUAL_REQUIRED_SCOPES } from "@/lib/messaging/whatsappManual";
+import { channelForExternalId, publicChannelShape } from "@/lib/messaging/channels";
+import { register } from "node:module";
 import {
   templateRefusal,
   templatePayload,
@@ -1096,9 +1100,25 @@ ok(
   "the callback re-checks the flag rather than trusting /connect",
   /metaWhatsAppEnabled\(\)/.test(callbackSrc),
 );
+// The finish — subscribe, resolve the number, store — moved out of the
+// callback into lib/messaging/whatsappConnect.js so the pasted-credential
+// door runs the SAME one. The intent of the old assertion ("a failed
+// subscription fails the connect") is kept: it is asserted on the shared file
+// here, on the callback's use of it, and EXECUTED in section 14.
+const finishSrc = read("lib/messaging/whatsappConnect.js");
 ok(
-  "the callback FAILS the connect when the webhook subscription fails",
-  /subscribeAppToWaba[\s\S]{0,300}no_webhook/.test(callbackSrc),
+  "the shared finish FAILS the connect when the webhook subscription fails",
+  /subscribeAppToWaba[\s\S]{0,400}no_webhook/.test(finishSrc),
+);
+ok(
+  "…and the callback finishes through it rather than its own copy",
+  /finishWhatsAppConnection\(/.test(callbackSrc) &&
+    !/subscribeAppToWaba/.test(callbackSrc) &&
+    !/saveChannel\(/.test(callbackSrc),
+);
+ok(
+  "…stamping connectedVia \"embedded_signup\"",
+  /connectedVia: "embedded_signup"/.test(callbackSrc),
 );
 ok(
   "the callback verifies the OAuth state against a cookie",
@@ -2178,6 +2198,30 @@ const NEW_KEYS = [
   "app.setWhatsApp.templatesSynced",
   "app.setWhatsApp.disconnect",
   "app.setWhatsApp.noTemplates",
+  // The second door — pasted Cloud API credentials.
+  "app.setWhatsApp.manual.toggle",
+  "app.setWhatsApp.manual.intro",
+  "app.setWhatsApp.manual.step1",
+  "app.setWhatsApp.manual.step2",
+  "app.setWhatsApp.manual.step3",
+  "app.setWhatsApp.manual.guideLink",
+  "app.setWhatsApp.manual.wabaId",
+  "app.setWhatsApp.manual.phoneNumberId",
+  "app.setWhatsApp.manual.token",
+  "app.setWhatsApp.manual.tokenHint",
+  "app.setWhatsApp.manual.submit",
+  "app.setWhatsApp.manual.submitting",
+  "app.setWhatsApp.viaManual",
+  "app.setWhatsApp.viaSignup",
+  "app.setWhatsApp.errorBadWabaId",
+  "app.setWhatsApp.errorBadPhoneNumberId",
+  "app.setWhatsApp.errorSameIds",
+  "app.setWhatsApp.errorBadToken",
+  "app.setWhatsApp.errorWrongApp",
+  "app.setWhatsApp.errorMissingScope",
+  "app.setWhatsApp.errorNumberNotOnWaba",
+  "app.setWhatsApp.errorNetwork",
+  "app.activity.event.whatsappConnectedManual",
   // The pictures.
   "app.messages.media.image",
   "app.messages.media.video",
@@ -2240,6 +2284,468 @@ ok("no new string contains a literal currency symbol", withDollar.length === 0, 
 // The 24-hour rule has to be SAID, not merely enforced — in every language.
 const missingRule = LANGS.filter((l) => !/24/.test(APP_MESSAGES[l]["app.setWhatsApp.windowBody"] || ""));
 ok("every language states the 24-hour rule in the settings panel", missingRule.length === 0, missingRule.join(","));
+
+// The how-to has to NAME the dashboard path and the two permissions in every
+// language — a translation that dropped "API Setup" or a scope name is a
+// how-to nobody can follow.
+const missingHowTo = LANGS.filter(
+  (l) =>
+    !/API/.test(APP_MESSAGES[l]["app.setWhatsApp.manual.step1"] || "") ||
+    !/whatsapp_business_messaging/.test(APP_MESSAGES[l]["app.setWhatsApp.manual.step2"] || "") ||
+    !/whatsapp_business_management/.test(APP_MESSAGES[l]["app.setWhatsApp.manual.step2"] || ""),
+);
+ok("every language's how-to names API Setup and both WhatsApp permissions", missingHowTo.length === 0, missingHowTo.join(","));
+const missingParam = LANGS.filter((l) => !/\{number\}/.test(APP_MESSAGES[l]["app.activity.event.whatsappConnectedManual"] || ""));
+ok("every language's activity line keeps the {number} placeholder", missingParam.length === 0, missingParam.join(","));
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("14. THE SECOND DOOR — pasted Cloud API credentials, executed");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Embedded Signup is shut until Meta's Access Verification lands, so a company
+// admin can paste a WABA id, a phone number id and a permanent system user
+// token instead (app/api/settings/whatsapp/manual). What has to be TRUE and
+// is executed here rather than read:
+//
+//   * the validator refuses everything that is not two digit strings and a
+//     token — including path segments aimed at the Graph URL;
+//   * the shared finish subscribes BEFORE it reads, fails on a failed
+//     subscription with NO row written, refuses a number that is not on the
+//     WABA, and writes the one channel shape the send path and the webhook
+//     read;
+//   * the route stores nothing until the token has been proven against Meta —
+//     four refusals, each with no row and no token anywhere in what came back;
+//   * a manually connected number resolves the SAME webhook and feeds the
+//     SAME send path as a signup-connected one;
+//   * disconnect works on it unchanged;
+//   * the token never appears in a response, a log line or the activity row.
+
+// ── A. The validator, against hostile input ────────────────────────────────
+const V = (body) => validateManualCredentials(body);
+ok("a good body validates and is trimmed", (() => {
+  const r = V({ wabaId: " 1234567890 ", phoneNumberId: "9876543210\n", accessToken: "  EAAG.tok.en  " });
+  return r.ok && r.wabaId === "1234567890" && r.phoneNumberId === "9876543210" && r.accessToken === "EAAG.tok.en";
+})());
+for (const [label, body, code] of [
+  ["a WABA id with letters", { wabaId: "12345abc", phoneNumberId: "9876543210", accessToken: "t" }, "bad_waba_id"],
+  ["a WABA id that is a Graph path segment", { wabaId: "../oauth", phoneNumberId: "9876543210", accessToken: "t" }, "bad_waba_id"],
+  ["a phone number id with a slash", { wabaId: "1234567890", phoneNumberId: "me/messages", accessToken: "t" }, "bad_phone_number_id"],
+  ["a phone number id with a query string", { wabaId: "1234567890", phoneNumberId: "9876543210?fields=x", accessToken: "t" }, "bad_phone_number_id"],
+  ["a phone number id that is a phone NUMBER", { wabaId: "1234567890", phoneNumberId: "+1 555 010 0199", accessToken: "t" }, "bad_phone_number_id"],
+  ["the same id pasted twice", { wabaId: "1234567890", phoneNumberId: "1234567890", accessToken: "t" }, "same_ids"],
+  ["an empty token", { wabaId: "1234567890", phoneNumberId: "9876543210", accessToken: "   " }, "bad_token"],
+  ["a token with whitespace inside", { wabaId: "1234567890", phoneNumberId: "9876543210", accessToken: "EAAG abc" }, "bad_token"],
+  ["a token longer than any Meta issues", { wabaId: "1234567890", phoneNumberId: "9876543210", accessToken: "x".repeat(2000) }, "bad_token"],
+  ["numbers instead of strings", { wabaId: 1234567890, phoneNumberId: 9876543210, accessToken: "t" }, "bad_waba_id"],
+  ["a missing body", undefined, "bad_waba_id"],
+  ["an array body", [], "bad_waba_id"],
+]) {
+  const r = V(body);
+  ok(`refuses ${label} (${code})`, !r.ok && r.code === code, `got ${JSON.stringify(r)}`);
+}
+ok(
+  "no refusal echoes the token back",
+  !JSON.stringify(V({ wabaId: "1", phoneNumberId: "2", accessToken: "SECRET-TOKEN-XYZ" })).includes("SECRET-TOKEN-XYZ"),
+);
+ok(
+  "the two required scopes are exactly the WhatsApp pair, and business_management is not one",
+  MANUAL_REQUIRED_SCOPES.length === 2 &&
+    MANUAL_REQUIRED_SCOPES.includes("whatsapp_business_messaging") &&
+    MANUAL_REQUIRED_SCOPES.includes("whatsapp_business_management"),
+);
+
+// ── B. The shared finish, executed against a scripted Meta ─────────────────
+const APP_ID = "1122334455";
+process.env.META_APP_ID = APP_ID;
+process.env.META_APP_SECRET = "app-secret";
+process.env.META_TOKEN_ENCRYPTION_KEY = "0".repeat(64);
+process.env.META_WHATSAPP_ENABLED = "1";
+
+const PASTED_TOKEN = "EAAGsystemUserTokenThatMustNeverLeak0123456789";
+const WABA = "2468013579";
+const PHONE_ID = "1357924680";
+
+/**
+ * Meta, scripted. `plan` names what each endpoint answers; `calls` records
+ * every request — method, path, and whether the bearer header carried the
+ * token — so the assertions are about what was SENT, not what the file says.
+ */
+let metaCalls = [];
+function scriptMeta(plan = {}) {
+  metaCalls = [];
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(String(input));
+    const method = (init.method || "GET").toUpperCase();
+    const auth = init.headers?.Authorization || init.headers?.authorization || "";
+    metaCalls.push({ method, path: url.pathname, query: url.search, bearer: auth.replace(/^Bearer /, "") });
+    const respond = (status, body) =>
+      new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+    const bearerOk = auth === `Bearer ${PASTED_TOKEN}` || auth === "Bearer signup-business-token";
+    if (url.pathname.endsWith("/debug_token")) {
+      if (plan.debug === "other_app") return respond(200, { data: { app_id: "999", is_valid: true, scopes: ["whatsapp_business_messaging", "whatsapp_business_management"] } });
+      if (plan.debug === "no_messaging") return respond(200, { data: { app_id: APP_ID, is_valid: true, scopes: ["whatsapp_business_management"] } });
+      if (plan.debug === "invalid") return respond(200, { data: { app_id: APP_ID, is_valid: false, scopes: [] } });
+      if (plan.debug === "refused") return respond(400, { error: { message: "Invalid OAuth access token.", code: 190 } });
+      return respond(200, { data: { app_id: APP_ID, is_valid: true, expires_at: 0, scopes: ["whatsapp_business_messaging", "whatsapp_business_management", "business_management"] } });
+    }
+    if (!bearerOk) return respond(401, { error: { message: "Invalid OAuth access token.", code: 190 } });
+    if (url.pathname.endsWith(`/${WABA}/subscribed_apps`)) {
+      if (plan.subscribe === "refused") return respond(400, { error: { message: "(#100) no permission", code: 100 } });
+      return respond(200, { success: true });
+    }
+    if (url.pathname.endsWith(`/${WABA}/phone_numbers`)) {
+      if (plan.numbers === "refused") return respond(403, { error: { message: "(#10) no permission", code: 10 } });
+      const list = plan.numbers === "other_number"
+        ? [{ id: "5555555555", display_phone_number: "+1 555 000 0000", verified_name: "Someone Else" }]
+        : plan.numbers === "empty"
+          ? []
+          : [
+              { id: "1111111111", display_phone_number: "+1 555 010 0100", verified_name: "First Number" },
+              { id: PHONE_ID, display_phone_number: "+1 555 010 0199", verified_name: "TrueFinish Cabinets", quality_rating: "GREEN" },
+            ];
+      return respond(200, { data: list });
+    }
+    if (url.pathname.endsWith(`/${PHONE_ID}`)) {
+      if (plan.number === "refused") return respond(400, { error: { message: "Unsupported get request. Object with ID does not exist", code: 100 } });
+      return respond(200, { id: PHONE_ID, display_phone_number: "+1 555 010 0199", verified_name: "TrueFinish Cabinets", quality_rating: "GREEN", code_verification_status: "VERIFIED" });
+    }
+    if (url.pathname.endsWith(`/${WABA}`)) {
+      if (plan.waba === "refused") return respond(400, { error: { message: "Unsupported get request.", code: 100 } });
+      return respond(200, { id: WABA, name: "TrueFinish WABA" });
+    }
+    return respond(404, { error: { message: `unscripted ${method} ${url.pathname}`, code: 803 } });
+  };
+}
+
+const FINISH = (over = {}) =>
+  finishWhatsAppConnection({
+    companyId: "company_REAL",
+    connectedByUserId: "user_1",
+    accessToken: PASTED_TOKEN,
+    wabaId: WABA,
+    phoneNumberId: PHONE_ID,
+    connectedVia: "manual",
+    ...over,
+  });
+
+resetDbStub();
+scriptMeta({ subscribe: "refused" });
+let fin = await FINISH();
+ok("a failed webhook subscription FAILS the finish by name", !fin.ok && fin.kind === "no_webhook", JSON.stringify(fin));
+ok("…and writes NO channel row", rows.messagingChannel.length === 0);
+ok(
+  "…and never got as far as reading the numbers",
+  !metaCalls.some((c) => c.path.endsWith("/phone_numbers")),
+);
+
+resetDbStub();
+scriptMeta({ numbers: "other_number" });
+fin = await FINISH();
+ok("a number that is NOT on the WABA is refused by name", !fin.ok && fin.kind === "number_not_on_waba", JSON.stringify(fin));
+ok("…and writes NO channel row", rows.messagingChannel.length === 0);
+
+resetDbStub();
+scriptMeta({ numbers: "refused" });
+fin = await FINISH();
+ok("a refused listing surfaces Meta's classified kind", !fin.ok && typeof fin.kind === "string" && fin.kind !== "no_number", JSON.stringify(fin));
+ok("…and writes NO channel row", rows.messagingChannel.length === 0);
+
+resetDbStub();
+scriptMeta({ numbers: "empty" });
+fin = await FINISH({ phoneNumberId: null, connectedVia: "embedded_signup", accessToken: "signup-business-token" });
+ok("the signup door with an empty WABA is refused as no_number", !fin.ok && fin.kind === "no_number", JSON.stringify(fin));
+
+let threw = null;
+try {
+  await FINISH({ connectedVia: "pasted" });
+} catch (err) {
+  threw = err;
+}
+ok("an unknown connectedVia THROWS rather than storing null", Boolean(threw) && /connectedVia/.test(threw.message));
+ok("the closed set is exactly the two doors", CONNECTED_VIA.length === 2 && CONNECTED_VIA.includes("manual") && CONNECTED_VIA.includes("embedded_signup"));
+
+// The success, through the manual door.
+resetDbStub();
+scriptMeta();
+fin = await FINISH();
+ok("the manual finish succeeds", fin.ok === true, JSON.stringify(fin));
+const stored = rows.messagingChannel[0];
+ok("…writing ONE channel row", rows.messagingChannel.length === 1);
+ok("…with platform whatsapp", stored?.platform === "whatsapp");
+ok("…whose externalId is the PASTED phone number id, not the first number on the WABA", stored?.externalId === PHONE_ID, stored?.externalId);
+ok("…whose wabaId is the WABA", stored?.wabaId === WABA);
+ok("…with the display number and verified name Meta gave", stored?.displayPhoneNumber === "+1 555 010 0199" && stored?.verifiedName === "TrueFinish Cabinets");
+ok("…named after the verified name", stored?.name === "TrueFinish Cabinets");
+ok("…stamped connectedVia manual", stored?.connectedVia === "manual");
+ok("…status connected, not disconnected", stored?.status === "connected" && !stored?.disconnectedAt);
+ok("…tokenExpiresAt null — never a padded date", stored?.tokenExpiresAt === null);
+ok("…and the token is NOT at rest in plain text", typeof stored?.accessTokenEnc === "string" && stored.accessTokenEnc !== PASTED_TOKEN && !stored.accessTokenEnc.includes(PASTED_TOKEN));
+ok("…but decrypts back to exactly what was pasted", decryptToken(stored.accessTokenEnc) === PASTED_TOKEN);
+ok(
+  "the subscription was POSTed BEFORE the numbers were read",
+  metaCalls.findIndex((c) => c.method === "POST" && c.path.endsWith("/subscribed_apps")) <
+    metaCalls.findIndex((c) => c.path.endsWith("/phone_numbers")),
+  metaCalls.map((c) => `${c.method} ${c.path}`).join(" → "),
+);
+ok(
+  "every Graph call carried the token as a BEARER header, never in the query string",
+  metaCalls.every((c) => c.bearer === PASTED_TOKEN && !c.query.includes(PASTED_TOKEN)),
+);
+ok("the public shape of the stored row carries connectedVia and NO token", (() => {
+  const shape = publicChannelShape(stored);
+  return shape.connectedVia === "manual" && !("accessTokenEnc" in shape) && !JSON.stringify(shape).includes(PASTED_TOKEN);
+})());
+
+// The same finish, through the signup door: FIRST number, other stamp.
+resetDbStub();
+scriptMeta();
+fin = await FINISH({ phoneNumberId: null, connectedVia: "embedded_signup", accessToken: "signup-business-token" });
+ok("the signup finish takes the first number on the WABA", fin.ok && rows.messagingChannel[0]?.externalId === "1111111111");
+ok("…stamped connectedVia embedded_signup", rows.messagingChannel[0]?.connectedVia === "embedded_signup");
+
+// Reconnecting the SAME number through the other door revives the row and
+// re-stamps it — one row per number, never two.
+resetDbStub();
+rows.messagingChannel.push({
+  id: "chan_old", companyId: "company_REAL", platform: "whatsapp", externalId: PHONE_ID,
+  accessTokenEnc: encryptToken("old-token"), status: "needs_reauth", lastError: "expired",
+  disconnectedAt: new Date("2026-01-01"), connectedVia: "embedded_signup",
+});
+scriptMeta();
+fin = await FINISH();
+ok("reconnecting an existing number UPDATES its row rather than adding one", fin.ok && rows.messagingChannel.length === 1);
+ok("…reviving it: disconnectedAt cleared, status connected, lastError cleared", rows.messagingChannel[0].disconnectedAt === null && rows.messagingChannel[0].status === "connected" && rows.messagingChannel[0].lastError === null);
+ok("…re-stamped with the door the NEW token came through", rows.messagingChannel[0].connectedVia === "manual");
+ok("…holding the new token", decryptToken(rows.messagingChannel[0].accessTokenEnc) === PASTED_TOKEN);
+
+// ── C. The route, executed ─────────────────────────────────────────────────
+//
+// "@/lib/currentMember" and "next/server" are swapped for stubs through a
+// module hook registered here, AFTER every top-level import above resolved
+// against the real files; only the route (imported dynamically below) and
+// what it pulls in freshly see the stubs. "@/lib/db" is already the stub
+// this whole script runs on.
+globalThis.__FQ_MEMBER = async () => globalThis.__FQ_SESSION;
+register(
+  `data:text/javascript,${encodeURIComponent(`
+const STUBS = { "@/lib/currentMember": "fq-stub:member", "next/server": "fq-stub:next" };
+export async function resolve(specifier, context, nextResolve) {
+  if (STUBS[specifier]) return { url: STUBS[specifier], shortCircuit: true };
+  return nextResolve(specifier, context);
+}
+export async function load(url, context, nextLoad) {
+  if (url === "fq-stub:member") {
+    return { format: "module", shortCircuit: true,
+      source: "export const getCurrentMember = (...a) => globalThis.__FQ_MEMBER(...a);" };
+  }
+  if (url === "fq-stub:next") {
+    return { format: "module", shortCircuit: true, source: \`
+export class NextResponse {
+  constructor(body, init) { this.body = body; this.status = init?.status ?? 200; this.headers = new Map(Object.entries(init?.headers ?? {})); }
+  static json(body, init) { const r = new NextResponse(body, init); r.json = async () => body; return r; }
+}\` };
+  }
+  return nextLoad(url, context);
+}
+`)}`,
+);
+const manualRoute = await import("@/app/api/settings/whatsapp/manual/route.js");
+
+const ADMIN = { id: "mem_1", userId: "user_1", companyId: "company_REAL", role: "owner" };
+let ipSeq = 0;
+const logged = [];
+const realConsoleError = console.error;
+const realConsoleWarn = console.warn;
+const realConsoleLog = console.log;
+function captureConsole() {
+  logged.length = 0;
+  console.error = (...a) => logged.push(a.map(String).join(" "));
+  console.warn = (...a) => logged.push(a.map(String).join(" "));
+}
+function restoreConsole() {
+  console.error = realConsoleError;
+  console.warn = realConsoleWarn;
+  console.log = realConsoleLog;
+}
+async function postManual(body, { session = ADMIN, sameIp = false, method = "POST" } = {}) {
+  globalThis.__FQ_SESSION = session;
+  if (!sameIp) ipSeq++;
+  const req = new Request("http://app.local/api/settings/whatsapp/manual", {
+    method,
+    headers: { "content-type": "application/json", "x-forwarded-for": `10.0.0.${ipSeq}` },
+    body: body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body),
+  });
+  captureConsole();
+  let res;
+  try {
+    res = await manualRoute.POST(req);
+  } finally {
+    restoreConsole();
+  }
+  const json = typeof res.json === "function" ? await res.json() : res.body;
+  return { status: res.status, json, text: JSON.stringify(json ?? res.body ?? ""), logs: [...logged] };
+}
+const GOOD = { wabaId: WABA, phoneNumberId: PHONE_ID, accessToken: PASTED_TOKEN };
+
+// The stubbed getCurrentMember stands in for the real gate, so the real
+// gate's refusals are asserted the way the real one raises them: a thrown
+// error with a numeric status, which memberOrRefusal turns into a response.
+resetDbStub();
+scriptMeta();
+let r = await postManual(GOOD, { session: null });
+ok("no session → 401, nothing stored", r.status === 401 && rows.messagingChannel.length === 0, `${r.status} ${r.text}`);
+
+globalThis.__FQ_MEMBER = async () => {
+  const err = new Error("You're viewing this account read-only. Support access can't change a customer's data.");
+  err.status = 403;
+  throw err;
+};
+r = await postManual(GOOD);
+ok("an IMPERSONATED (platform console) session is refused 403 by the member gate — non-negotiable #3", r.status === 403 && rows.messagingChannel.length === 0, `${r.status} ${r.text}`);
+ok("…and Meta was never called for it", metaCalls.length === 0);
+globalThis.__FQ_MEMBER = async () => globalThis.__FQ_SESSION;
+
+r = await postManual(GOOD, { session: { ...ADMIN, role: "estimator" } });
+ok("a non-billing-admin member is refused 403", r.status === 403 && rows.messagingChannel.length === 0, `${r.status}`);
+
+const savedFlag = process.env.META_WHATSAPP_ENABLED;
+delete process.env.META_WHATSAPP_ENABLED;
+delete process.env.META_APP_MODE;
+r = await postManual(GOOD);
+ok("with the WhatsApp flag off the route refuses (awaiting_review), same as the other door", r.status === 409 && r.json?.code === "awaiting_review", `${r.status} ${r.text}`);
+process.env.META_WHATSAPP_ENABLED = savedFlag;
+
+r = await postManual({ ...GOOD, wabaId: "abc" });
+ok("a bad id is refused 400 with its code and NO Meta call", r.status === 400 && r.json?.code === "bad_waba_id" && metaCalls.length === 0, `${r.status} ${r.text}`);
+
+r = await postManual("not json");
+ok("a non-JSON body is a 400, not a 500", r.status === 400, `${r.status}`);
+
+// Four ways a real-looking token fails against Meta. Each: refused, no row.
+for (const [label, plan, code, status] of [
+  ["a token from ANOTHER Meta app", { debug: "other_app" }, "wrong_app", 400],
+  ["a token without whatsapp_business_messaging", { debug: "no_messaging" }, "missing_scope", 400],
+  ["a token Meta reports invalid", { debug: "invalid" }, "auth_error", 502],
+  ["a token debug_token itself refuses", { debug: "refused" }, "auth_error", 502],
+  ["a token that cannot read the NUMBER", { number: "refused" }, "unknown_error", 502],
+  ["a token that cannot read the WABA", { waba: "refused" }, "unknown_error", 502],
+  ["a WABA the app cannot subscribe to", { subscribe: "refused" }, "no_webhook", 502],
+  ["a number that is not on that WABA", { numbers: "other_number" }, "number_not_on_waba", 502],
+]) {
+  resetDbStub();
+  scriptMeta(plan);
+  r = await postManual(GOOD);
+  ok(`${label} is refused (${code})`, r.status === status && r.json?.code === code, `${r.status} ${r.text}`);
+  ok(`…with NO channel row and NO activity row`, rows.messagingChannel.length === 0 && rows.activityLog.length === 0);
+  ok(`…and the token is in neither the response nor any log line`, !r.text.includes(PASTED_TOKEN) && !r.logs.some((l) => l.includes(PASTED_TOKEN)));
+}
+resetDbStub();
+scriptMeta({ debug: "no_messaging" });
+r = await postManual(GOOD);
+ok(
+  "the missing-scope refusal names the missing scope, not the token",
+  /whatsapp_business_messaging/.test(r.json?.error || "") && !/whatsapp_business_management/.test(r.json?.error || "") && !r.text.includes(PASTED_TOKEN),
+  r.text,
+);
+
+// The success.
+resetDbStub();
+rows.user.push({ id: "user_1", name: "Emilio", email: "emilio@example.com" });
+scriptMeta();
+r = await postManual(GOOD);
+ok("a proven token connects: 200", r.status === 200 && r.json?.connected === true, `${r.status} ${r.text}`);
+ok("…the response is the public channel shape, connectedVia manual", r.json?.channel?.connectedVia === "manual" && r.json?.channel?.externalId === PHONE_ID);
+ok("…and carries no token, encrypted or plain", !("accessTokenEnc" in (r.json?.channel || {})) && !r.text.includes(PASTED_TOKEN) && !r.text.includes(rows.messagingChannel[0]?.accessTokenEnc));
+ok("…and nothing was logged to the console on the happy path", r.logs.length === 0, r.logs.join(" | "));
+ok(
+  "the route's four reads ran in order: debug_token, the number, the WABA, then subscribe, then the listing",
+  (() => {
+    const seq = metaCalls.map((c) => `${c.method} ${c.path.split("/").slice(-1)[0] === "subscribed_apps" ? "subscribed_apps" : c.path.endsWith("/phone_numbers") ? "phone_numbers" : c.path.endsWith("/debug_token") ? "debug_token" : c.path.endsWith(`/${PHONE_ID}`) ? "number" : c.path.endsWith(`/${WABA}`) ? "waba" : c.path}`);
+    return seq.join(",") === "GET debug_token,GET number,GET waba,POST subscribed_apps,GET phone_numbers";
+  })(),
+  metaCalls.map((c) => `${c.method} ${c.path}`).join(" → "),
+);
+ok(
+  "the number read asked for the fields the spec names",
+  metaCalls.find((c) => c.path.endsWith(`/${PHONE_ID}`))?.query.includes("code_verification_status") === true,
+);
+const act = rows.activityLog[0];
+ok("the connection is in the activity log", Boolean(act) && act.action === "whatsapp.connected" && act.companyId === "company_REAL");
+ok("…attributed to the admin", act?.actorUserId === "user_1" && act?.actorName === "Emilio");
+ok("…naming the door and the number, never the token", JSON.stringify(act).includes('"manual"') && JSON.stringify(act).includes(PHONE_ID) && !JSON.stringify(act).includes(PASTED_TOKEN));
+ok("…in the reader's language via a key", act?.metadata?.i18n?.key === "app.activity.event.whatsappConnectedManual");
+
+// ── D. The manually connected number is the SAME channel to the inbox ──────
+//
+// The webhook resolves a tenant by phone number id (lib/messaging/ingest.js →
+// channelForExternalId) and the send path posts to /<externalId>/messages
+// with the decrypted token. Neither knows which door the row came through —
+// asserted by running both against the row the route just wrote.
+const manualRow = rows.messagingChannel[0];
+ok("the webhook's tenant lookup resolves the manual row by phone number id", (await channelForExternalId("whatsapp", PHONE_ID))?.id === manualRow.id);
+const inboundOnManual = parseWhatsAppEnvelope(
+  JSON.parse(inboundBody({ metadata: { display_phone_number: "15550100199", phone_number_id: PHONE_ID } })),
+).events;
+const ingested = await ingestEvents(inboundOnManual);
+ok("an inbound message on the manual number is ingested into that company", ingested.handled === 1 && rows.messageThread[0]?.companyId === "company_REAL" && rows.messageThread[0]?.channelId === manualRow.id, JSON.stringify(ingested));
+
+let sentTo = null;
+globalThis.fetch = async (input, init = {}) => {
+  sentTo = { url: String(input), auth: init.headers?.Authorization, body: JSON.parse(init.body) };
+  return new Response(JSON.stringify({ messages: [{ id: "wamid.OUT1" }] }), { status: 200, headers: { "content-type": "application/json" } });
+};
+const sent = await sendWhatsAppMessage({
+  channel: manualRow,
+  recipientExternalId: "15551234567",
+  text: "Yes — we do kitchen cabinets.",
+  lastInboundAt: new Date(),
+  kind: "text",
+  now: new Date(),
+});
+ok("the send path accepts the manual row and posts to /<phone number id>/messages", sent.ok === true && sentTo?.url.endsWith(`/${PHONE_ID}/messages`), JSON.stringify(sent));
+ok("…with the decrypted pasted token as the bearer", sentTo?.auth === `Bearer ${PASTED_TOKEN}`);
+ok("…and the WhatsApp send body", sentTo?.body?.messaging_product === "whatsapp" && sentTo?.body?.to === "15551234567");
+
+// ── E. Disconnect, unchanged ───────────────────────────────────────────────
+const disconnectRoute = await import("@/app/api/settings/whatsapp/disconnect/route.js");
+globalThis.__FQ_SESSION = ADMIN;
+const dres = await disconnectRoute.POST(
+  new Request("http://app.local/api/settings/whatsapp/disconnect", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ channelId: manualRow.id }),
+  }),
+);
+ok("disconnect stamps the manual row rather than deleting it", dres.status === 200 && rows.messagingChannel.length === 1 && rows.messagingChannel[0].disconnectedAt instanceof Date);
+ok("…and the webhook lookup still finds the row (history survives), while the send refuses it", (await channelForExternalId("whatsapp", PHONE_ID))?.id === manualRow.id && (await sendWhatsAppMessage({ channel: rows.messagingChannel[0], recipientExternalId: "1", text: "x", lastInboundAt: new Date(), kind: "text", now: new Date() })).ok === false);
+
+// ── F. The rate limit ──────────────────────────────────────────────────────
+resetDbStub();
+scriptMeta({ number: "refused" });
+let last = null;
+for (let i = 0; i < 12; i++) last = await postManual(GOOD, { sameIp: true });
+ok("the eleventh attempt from one address in ten minutes is 429", last.status === 429, `${last.status}`);
+
+// ── G. The token field and the route, as text ──────────────────────────────
+const manualSrc = read("app/api/settings/whatsapp/manual/route.js");
+const panelSrc2 = read("app/components/settings/WhatsAppPanel.js");
+ok("the token field is a password input with autocomplete off", /type="password"[\s\S]{0,120}autoComplete="off"/.test(panelSrc2));
+ok("…posted to the manual route", /\/api\/settings\/whatsapp\/manual/.test(panelSrc2));
+ok("…and cleared from state after a refusal", /accessToken: ""/.test(panelSrc2));
+ok("the panel withholds the form under a read-only (impersonated) session", /!status\?\.readOnly/.test(panelSrc2));
+ok("…and the status route reports readOnly from the member's impersonation flag", /readOnly: Boolean\(member\.impersonation\)/.test(read("app/api/settings/whatsapp/status/route.js")));
+ok("the panel prints which door a connected number came through", /viaManual/.test(panelSrc2) && /viaSignup/.test(panelSrc2));
+ok("the manual route goes through memberOrRefusal and isBillingAdmin", /memberOrRefusal\(request\)/.test(manualSrc) && /isBillingAdmin\(member\.role\)/.test(manualSrc));
+ok("…finishes through the shared step", /finishWhatsAppConnection\(/.test(manualSrc) && /connectedVia: "manual"/.test(manualSrc));
+ok("…never logs the token: the one console.error prints err?.message only", (manualSrc.match(/console\.(error|log|warn)/g) || []).length === 1 && /console\.error\("\[whatsapp-manual\][^\n]*err\?\.message\)/.test(manualSrc) && !/console\.[a-z]+\([^\n]*accessToken/.test(manualSrc));
+ok("…never returns the token: no accessToken in any NextResponse.json", !/NextResponse\.json\([^\n]*accessToken/.test(manualSrc));
+ok("…and never records it: recordError is not used, and recordActivity's metadata names ids only", !/recordError/.test(manualSrc) && /metadata: \{ wabaId, phoneNumberId, connectedVia: "manual" \}/.test(manualSrc));
+ok("…validates through the pure helper rather than an inline regex", /validateManualCredentials\(body\)/.test(manualSrc));
+ok("the schema column is additive and nullable", /connectedVia String\?/.test(read("prisma/schema.prisma")));
+ok("the feature registry's prefix covers the new route", feature?.apiPrefixes.some((p) => "/api/settings/whatsapp/manual".startsWith(p)));
+ok("the dashboard doc has the API Setup + system user subsection", /API Setup \+ system user token/.test(read("docs/META-DASHBOARD-CURRENT.md")));
+
+globalThis.fetch = realFetch;
 
 // ═══════════════════════════════════════════════════════════════════════════
 console.log(

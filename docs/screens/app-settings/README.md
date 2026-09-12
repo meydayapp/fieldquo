@@ -31,3 +31,24 @@ job-photo-tags, client-messages, follow-ups, notifications, email-domain,
 payments, meta-ads, expense-tracking, ai-credit, payroll, your-website,
 instant-quotes, share-your-links, bio-link, phone-receptionist, ai-employee,
 reviews.
+
+## Captured through the harness — the WhatsApp card (2026-09-12)
+
+The signed-in session above was never reachable, so these frames come from
+`harness/` — the REAL `app/components/settings/WhatsAppPanel.js` bundled
+with esbuild against fixture stubs, `window.fetch` answered from fixtures,
+screenshotted through the DevTools protocol (same pattern as
+`../app-messages/harness`). Rebuild with `OUT=<dir> sh harness/build.sh`,
+then `node --experimental-websocket harness/cdp-shot.mjs <out.png> 900 1320 2
+"file://<dir>/whatsapp.html?scenario=ready&scene=manual&do=1"`.
+
+- `whatsapp-manual.png` — nothing connected: the Embedded Signup button, and
+  the "Connect with Cloud API credentials (advanced)" section opened, with
+  the three fields filled (the token as a password field).
+- `whatsapp-manual-refused.png` — the same form after Meta refused the token
+  as belonging to another app (`wrong_app`): the sentence under the fields,
+  the token cleared.
+- `whatsapp-manual-connected.png` — a number connected through that door:
+  "Connected via API credentials · +1 716 555 0199", the 24-hour rule, the
+  same Refresh templates / Disconnect controls as the sign-up door.
+- `whatsapp-manual-fr.png` — the open form in French (`?lang=fr`).

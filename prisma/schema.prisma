@@ -12560,6 +12560,25 @@ model MessagingChannel {
   /// may differ and is not the one on the phone.
   verifiedName String?
 
+  /// "embedded_signup" | "manual" — which door the credential came through.
+  ///
+  ///   embedded_signup  Meta's Embedded Signup (app/api/settings/whatsapp/
+  ///                    callback): a business token minted from a code.
+  ///   manual           app/api/settings/whatsapp/manual: a PERMANENT system
+  ///                    user token the company's admin generated in Meta's
+  ///                    App Dashboard (WhatsApp → API Setup) and pasted in —
+  ///                    the way in while Access Verification is pending and
+  ///                    Embedded Signup refuses the business.
+  ///
+  /// Nullable, and null on every row written before the column existed and
+  /// on every Facebook/Instagram row: "we did not record which" is not the
+  /// same fact as either value, and padding it would tell the settings panel
+  /// to say something nobody knows (AGENTS.md failure class 5). Kept because
+  /// the two tokens fail differently — a system user token never expires but
+  /// dies when the system user is removed, and the reconnect instructions
+  /// the panel gives depend on which one the company holds.
+  connectedVia String?
+
   /// "connected" | "needs_reauth" | "error" — mirrors MetaAdConnection.status
   /// so a support conversation about either integration uses one vocabulary.
   status        String  @default("connected")

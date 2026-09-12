@@ -77,6 +77,11 @@ export async function GET(request) {
     appConfigured: metaAppConfigured(),
     fullyConfigured: metaFullyConfigured(),
     signupConfigured: whatsAppSignupConfigured(),
+    // A support session reads this screen and may change nothing on it
+    // (non-negotiable #3; every non-GET is refused inside getCurrentMember).
+    // Said here so the panel can withhold the pasted-credential form rather
+    // than draw one whose submit would be refused.
+    readOnly: Boolean(member.impersonation),
     channels,
     templates,
   });

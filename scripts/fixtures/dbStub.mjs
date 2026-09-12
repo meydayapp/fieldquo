@@ -86,6 +86,12 @@ export const rows = {
   // Client.address/city/province/country, and it is exactly the regression a
   // source-level check would keep passing through.
   leadRequest: [],
+  // The tenant activity trail and the actor lookup lib/activity/log.js makes
+  // before writing it (check-whatsapp.mjs). The claim that needs executing is
+  // "the connection is logged and the token is not in the row" — a property
+  // of the `data` a create() received, which reading the route cannot settle.
+  user: [],
+  activityLog: [],
 };
 
 /** Every write the product attempted, in order: { model, action, data }. */
@@ -130,6 +136,8 @@ export function resetDbStub() {
   rows.metaPageConnection = [];
   rows.whatsAppTemplate = [];
   rows.leadRequest = [];
+  rows.user = [];
+  rows.activityLog = [];
   writes.length = 0;
   reads.length = 0;
   failNext.model = null;
@@ -338,6 +346,8 @@ export const db = new Proxy(
     metaPageConnection: model("metaPageConnection"),
     whatsAppTemplate: model("whatsAppTemplate"),
     leadRequest: model("leadRequest"),
+    user: model("user"),
+    activityLog: model("activityLog"),
     marketingCampaignDelivery: uniqueCreateModel("marketingCampaignDelivery", [
       "campaignId",
       "subscriberId",

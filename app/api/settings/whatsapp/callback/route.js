@@ -6,9 +6,13 @@
 //   1. code -> business token           lib/meta/whatsappConnect.js
 //   2. which WABAs was it granted over? (debug_token granular_scopes)
 //   3. subscribe this app to that WABA  ← the one whose failure fails the
-//                                         connect; without it no inbound
-//                                         message is ever delivered
-//   4. read the number's display form and verified name
+//                                         connect; without it no inbound      ┐ lib/messaging/
+//                                         message is ever delivered           │ whatsappConnect.js
+//   4. read the number's display form and verified name, store the row      ┘
+//
+// Steps 3 and 4 are the FINISH — the same finish app/api/settings/whatsapp/
+// manual runs on a pasted system user token — and live in one function so the
+// two doors cannot drift into two shapes of channel row.
 //
 // Everything fails toward the settings screen, never a bare error page: the
 // person is staring at a tab that just came back from facebook.com, and the
@@ -20,13 +24,8 @@ import { cookies } from "next/headers";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin } from "@/lib/billing/billingAdmin";
 import { metaFullyConfigured, metaWhatsAppEnabled } from "@/lib/meta/client";
-import {
-  exchangeWhatsAppCode,
-  whatsAppAccountsForToken,
-  subscribeAppToWaba,
-  listWhatsAppNumbers,
-} from "@/lib/meta/whatsappConnect";
-import { saveChannel } from "@/lib/messaging/channels";
+import { exchangeWhatsAppCode, whatsAppAccountsForToken } from "@/lib/meta/whatsappConnect";
+import { finishWhatsAppConnection } from "@/lib/messaging/whatsappConnect";
 import { getAppOrigin } from "@/lib/appUrl";
 import { WHATSAPP_STATE_COOKIE } from "@/lib/meta/oauthCookies";
 import { WHATSAPP_SETTINGS_PATH } from "@/lib/messaging/whatsappSettingsPath";
@@ -101,48 +100,24 @@ export async function GET(request) {
   // account connects that one.
   const wabaId = wabaIds[0];
 
-  // The call whose failure FAILS the connect. Everything else about a
-  // connection without it looks perfect — the token works, the send works —
-  // and not one inbound message ever arrives. A channel row written here would
-  // be a control that appears to work and doesn't.
-  const subscribed = await subscribeAppToWaba({ accessToken: businessToken, wabaId });
-  if (!subscribed.ok) return toSettings(origin, { whatsappError: "no_webhook" });
-
-  const numbers = await listWhatsAppNumbers({ accessToken: businessToken, wabaId });
-  if (!numbers.ok) return toSettings(origin, { whatsappError: numbers.kind });
-  const list = Array.isArray(numbers.data?.data) ? numbers.data.data : [];
-  const number = list.find((n) => typeof n?.id === "string" && n.id);
-  if (!number) return toSettings(origin, { whatsappError: "no_number" });
-
+  // Subscribe, resolve the number, store the row — the shared finish. Its
+  // failures are already the `whatsappError` vocabulary the panel speaks
+  // (no_webhook, no_number, or a classified Meta kind).
+  let finished;
   try {
-    await saveChannel({
+    finished = await finishWhatsAppConnection({
       companyId: member.companyId,
-      platform: "whatsapp",
-      // The PHONE NUMBER ID, which is both the tenant key the webhook resolves
-      // on and the path the send posts to. See the schema comment on
-      // MessagingChannel.externalId for why there is no second column holding
-      // the same value.
-      externalId: number.id,
-      // What the contractor calls it. The verified name where Meta gave one,
-      // the printed number otherwise, and never a fabricated label: a channel
-      // called "WhatsApp" tells a company with two numbers nothing.
-      name: number.verified_name || number.display_phone_number || null,
-      accessToken: businessToken,
-      // Deliberately not stamped. Meta's business tokens from Embedded Signup
-      // do not carry an expiry we were told about, and "we were not told" and
-      // "it expires on this date" are different answers — padding the first
-      // into a far-future date would hide a dead connection (the schema's own
-      // note on tokenExpiresAt).
-      tokenExpiresAt: null,
       connectedByUserId: member.userId || null,
+      accessToken: businessToken,
       wabaId,
-      displayPhoneNumber: number.display_phone_number || null,
-      verifiedName: number.verified_name || null,
+      phoneNumberId: null,
+      connectedVia: "embedded_signup",
     });
   } catch (err) {
     console.error("[whatsapp-callback] failed to store channel:", err?.message);
     return toSettings(origin, { whatsappError: "unknown_error" });
   }
+  if (!finished.ok) return toSettings(origin, { whatsappError: finished.kind });
 
   return toSettings(origin, { whatsappConnected: "1" });
 }

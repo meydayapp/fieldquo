@@ -145,6 +145,75 @@ add your own mobile under "To" as a verified recipient (it messages a small
 fixed list until Advanced access). This is what you message from your phone
 in the WhatsApp recording.
 
+### WhatsApp before Access Verification: API Setup + system user token
+
+Embedded Signup (the "Connect WhatsApp" button) refuses the business until
+Meta's Access Verification of the app lands (submitted 2026-09-11). Meta's
+own get-started guide (developers.facebook.com/docs/whatsapp/cloud-api/
+get-started) says what an app admin can do meanwhile, and FieldQuo has a
+second door for exactly it: Settings → Meta Ads → WhatsApp card → **Connect
+with Cloud API credentials (advanced)**, which posts to
+`app/api/settings/whatsapp/manual`. The dashboard clicks, in order:
+
+1. **App Dashboard → WhatsApp → API Setup.** Under *Send and receive
+   messages*, the *From* dropdown lists the test number Meta provisioned and
+   any business number you have added. To use your own number: *Add phone
+   number* → the business portfolio → the display name and category → the
+   number itself → verify it by SMS or voice. (The number must not be
+   registered on the WhatsApp or WhatsApp Business app on a phone; delete
+   the account there first or it cannot be added.)
+2. On the same page copy two values shown beside the *From* number:
+   **Phone number ID** and **WhatsApp Business Account ID**. Both are long
+   decimal strings — not the phone number, and not the app id.
+3. Do **not** use the *Temporary access token* on that page: it dies in 24
+   hours. Instead: **Business Settings (business.facebook.com/settings) →
+   Users → System users → Add.** Name it (e.g. `fieldquo-whatsapp`), role
+   **Admin**.
+4. Select the new system user → **Add assets → Apps** → tick the FieldQuo
+   Meta app → *Manage app* → Save. Then **Add assets → WhatsApp accounts**
+   → tick the WhatsApp Business Account → *Manage WhatsApp business
+   account* → Save.
+5. Still on the system user → **Generate new token** → choose the FieldQuo
+   Meta app → token expiration **Never** → tick
+   `whatsapp_business_messaging`, `whatsapp_business_management` and
+   `business_management` → Generate token. Copy it once; Meta never shows it
+   again.
+6. In FieldQuo, open the WhatsApp card → *Connect with Cloud API credentials
+   (advanced)* → paste the three values → **Verify and connect**.
+
+What FieldQuo does with them before storing anything (all with the pasted
+token, none of it trusted from the form):
+
+- `GET /debug_token` — the token must belong to **this** app
+  (`META_APP_ID`) and carry both WhatsApp scopes. A token generated under a
+  different Meta app would read the number perfectly and route every inbound
+  webhook to that other app's callback URL, which is a number that sends and
+  never receives; the route refuses it as `wrong_app`.
+- `GET /<phone-number-id>?fields=id,display_phone_number,verified_name,
+  quality_rating,code_verification_status` and `GET /<waba-id>?fields=id,name`
+  — the token reaches both objects.
+- `POST /<waba-id>/subscribed_apps` — subscribes this app to the WABA so
+  `/api/meta/whatsapp/webhook` receives messages; a failure here fails the
+  connect (`no_webhook`).
+- `GET /<waba-id>/phone_numbers` — the pasted number must be on that
+  account (`number_not_on_waba` otherwise); its display number and verified
+  name are what the card then shows.
+
+The row it writes is the same `MessagingChannel` Embedded Signup writes
+(`externalId` = the phone number id, `wabaId`, token encrypted), stamped
+`connectedVia: "manual"`; the send path and the webhook do not know which
+door a number came through. The connection is written to the company's
+activity log without the token. Disconnect is the same button as before.
+
+The **Webhooks → WhatsApp Business Account → `messages`** subscription on
+the app (below) still has to exist and be verified — `subscribed_apps` says
+*which WABAs* deliver to the app, the product webhook says *where*.
+
+No new environment variable: the route needs `META_APP_ID`,
+`META_APP_SECRET`, `META_TOKEN_ENCRYPTION_KEY` and the same
+`META_WHATSAPP_ENABLED=1` / `META_APP_MODE=development` switch as the
+sign-up button. `META_WHATSAPP_CONFIG_ID` is *not* required for this door.
+
 **Webhooks** (Products → Webhooks, or under each product's Configuration page)
 - Object **Page**: callback `https://www.fieldquo.com/api/meta/messaging/webhook`,
   verify token = `META_WEBHOOK_VERIFY_TOKEN`; subscribe to `messages`,
