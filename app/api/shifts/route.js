@@ -11,8 +11,163 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { can } from "@/lib/permissions";
 import { assessShiftFit } from "@/lib/scheduling/loadShiftFit";
-import { workersMissingHours } from "@/lib/scheduling/shiftFit";
+import {
+  workersMissingHours,
+  availabilityWindowsBetween,
+} from "@/lib/scheduling/shiftFit";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
+import { validateBreaks } from "@/lib/shifts/coverage";
+import { hasBusinessHours, normaliseHours } from "@/lib/company/businessHours";
+
+// What a job contributes to a block's label: the client, the SITE address and
+// the title. siteAddress, never client.address — the schema is explicit that a
+// null site means "not asked", and a property manager's billing office is not
+// where the crew should be sent. A job with no site shows no address at all.
+// (There is no job number in the schema; nothing here invents one.)
+const JOB_SELECT = {
+  id: true,
+  title: true,
+  siteAddress: true,
+  siteCity: true,
+  client: { select: { name: true } },
+};
+
+// Every read of a shift carries its breaks. One select shape, because the day
+// board, the week list and the worker's own view must not disagree about
+// whether a lunch exists.
+const BREAKS_SELECT = {
+  select: { id: true, start: true, end: true, kind: true, paid: true },
+  orderBy: { start: "asc" },
+};
+
+// ── What the day board needs beside the shifts ──────────────────────────────
+//
+// The board draws three things the week list never did: approved leave as a
+// full-row OUT block, the hours a person has NOT said they are available for
+// as grey cells, and the company's opening hours as the axis. All three are
+// answered from the same rows the create route already consults
+// (lib/scheduling/loadShiftFit.js), so what the board draws grey is exactly
+// what the route would refuse — a board that greyed one thing and refused
+// another would be a control that appears to work and doesn't.
+async function boardContext(companyId, workers, from, to) {
+  if (!from || !to || isNaN(from) || isNaN(to) || to <= from) {
+    return { leave: [], availability: [], visits: [], live: [], businessHours: null };
+  }
+  const workerIds = workers.map((w) => w.id);
+  const userIds = workers.map((w) => w.userId).filter(Boolean);
+  const [leave, availRows, company, visitRows, liveRows] = await Promise.all([
+    workerIds.length
+      ? db.leaveRequest.findMany({
+          // APPROVED only, same as the fit check: a pending request is not a
+          // day off yet, and drawing it as OUT would hide a person the manager
+          // may be about to schedule.
+          where: {
+            companyId,
+            workerId: { in: workerIds },
+            status: "approved",
+            startDate: { lte: to },
+            endDate: { gte: from },
+          },
+          select: {
+            workerId: true,
+            startDate: true,
+            endDate: true,
+            halfDay: true,
+            policy: { select: { name: true } },
+          },
+        })
+      : [],
+    userIds.length
+      ? db.availabilitySchedule.findMany({
+          where: { userId: { in: userIds } },
+          select: { userId: true, dayOfWeek: true, startTime: true, endTime: true, timezone: true },
+        })
+      : [],
+    db.company.findUnique({ where: { id: companyId }, select: { businessHours: true } }),
+    // ── Who has been dispatched where ───────────────────────────────────
+    //
+    // A visit is booked from the job page and assigned to a USER; a shift is
+    // built here and belongs to a WORKER. They are two records of the same
+    // morning, and the board draws both on the same row so they cannot
+    // disagree in silence — a visit at 9 on a row with no shift is the thing
+    // a dispatcher needs to see. Visits are read-only here; they are edited
+    // on the job. Cancelled ones are not a dispatch and are left out.
+    userIds.length
+      ? db.jobVisit.findMany({
+          where: {
+            job: { companyId },
+            assignedToId: { in: userIds },
+            scheduledAt: { gte: from, lt: to },
+            status: { notIn: ["cancelled", "canceled"] },
+          },
+          orderBy: { scheduledAt: "asc" },
+          select: {
+            id: true,
+            jobId: true,
+            scheduledAt: true,
+            status: true,
+            assignedToId: true,
+            job: { select: JOB_SELECT },
+          },
+        })
+      : [],
+    // ── The timer drives the dot ────────────────────────────────────────
+    //
+    // An OPEN TimeEntry (clocked in, not out) is the live truth about who is
+    // on site right now, and a running TimeEntryBreak on it is who is at
+    // lunch right now. The board turns the dot green or amber from these,
+    // never from the plan: "scheduled 8–4" and "clocked in at 7:42" are
+    // different facts and the whole point of the dot is telling them apart.
+    // Always for now — an open entry has no day but today — and cheap: one
+    // indexed read of the handful of open rows.
+    workerIds.length
+      ? db.timeEntry.findMany({
+          where: { workerId: { in: workerIds }, clockOut: null },
+          select: {
+            workerId: true,
+            clockIn: true,
+            jobId: true,
+            breaks: {
+              select: { start: true, end: true, kind: true, paid: true },
+              orderBy: { start: "asc" },
+            },
+          },
+        })
+      : [],
+  ]);
+  const workerByUser = {};
+  for (const w of workers) if (w.userId) workerByUser[w.userId] = w.id;
+  const visits = visitRows.map((v) => ({
+    id: v.id,
+    jobId: v.jobId,
+    scheduledAt: v.scheduledAt,
+    status: v.status,
+    workerId: workerByUser[v.assignedToId] || null,
+    job: v.job,
+  }));
+  const rowsByUser = {};
+  for (const r of availRows) (rowsByUser[r.userId] ||= []).push(r);
+  // Only workers who have DECLARED something get windows. A worker with no
+  // rows is absent from the list, and the board greys nothing for them —
+  // silence is not a refusal (shiftFit.js).
+  const availability = workers
+    .filter((w) => w.userId && rowsByUser[w.userId]?.length)
+    .map((w) => ({
+      workerId: w.id,
+      windows: availabilityWindowsBetween(rowsByUser[w.userId], from, to),
+    }));
+  return {
+    leave,
+    availability,
+    visits,
+    live: liveRows,
+    // Null when the company has never set hours, so the board falls back to
+    // 7–18 rather than drawing an invented Monday-to-Friday.
+    businessHours: hasBusinessHours(company?.businessHours)
+      ? normaliseHours(company.businessHours)
+      : null,
+  };
+}
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -21,8 +176,16 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const from = searchParams.get("from");
   const to = searchParams.get("to");
+  const fromDate = from ? new Date(from) : null;
+  const toDate = to ? new Date(to) : null;
+  // Overlap, not "starts inside": a 22:00–06:00 shift that began yesterday is
+  // still somebody on the tools this morning, and the day board must draw it.
+  // The week list groups by start day and simply does not show a shift whose
+  // start falls outside its seven days, so it is unchanged by this.
   const range =
-    from && to ? { start: { gte: new Date(from), lte: new Date(to) } } : {};
+    fromDate && toDate
+      ? { start: { lte: toDate }, end: { gte: fromDate } }
+      : {};
 
   const isManager = can(member.role, "user:view");
 
@@ -46,16 +209,37 @@ export async function GET(request) {
           // shrug; "Sarah overrode this on the 3rd" is a conversation.
           availabilityOverrideBy: { select: { name: true } },
           worker: { select: { name: true } },
-          job: { select: { id: true, title: true } },
+          // The client's name and street label the block on the day board —
+          // "Dubois – 12 rue Principale" is what a dispatcher reads, not the
+          // job's internal title.
+          job: { select: JOB_SELECT },
+          breaks: BREAKS_SELECT,
         },
       }),
       // Only workers who can actually be scheduled — active, in this company.
+      // `title` (Foreman, Receptionist…) goes under the name on the board;
+      // null shows nothing there, never a fallback word.
       db.worker.findMany({
         where: { companyId: member.companyId, active: true },
         orderBy: { name: "asc" },
-        select: { id: true, name: true, userId: true },
+        select: { id: true, name: true, userId: true, title: true },
       }),
     ]);
+
+    // Jobs a shift can be attached to, for the picker. Open work only — a
+    // completed job is not somewhere to send anyone — and capped, because the
+    // picker is a <select>, not a search.
+    const jobs = await db.job.findMany({
+      where: {
+        companyId: member.companyId,
+        status: { in: ["unscheduled", "scheduled", "in_progress"] },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 200,
+      select: JOB_SELECT,
+    });
+
+    const board = await boardContext(member.companyId, workers, fromDate, toDate);
 
     // ── Who has no hours set ──────────────────────────────────────────────
     //
@@ -82,13 +266,20 @@ export async function GET(request) {
       }),
     );
 
-    return NextResponse.json({ manager: true, shifts, workers, missingHours });
+    return NextResponse.json({
+      manager: true,
+      shifts,
+      workers,
+      missingHours,
+      jobs,
+      ...board,
+    });
   }
 
   // A worker: their own published shifts only.
   const worker = await db.worker.findFirst({
     where: { companyId: member.companyId, userId: member.userId },
-    select: { id: true },
+    select: { id: true, name: true, userId: true, title: true },
   });
   if (!worker)
     return NextResponse.json({ manager: false, shifts: [], workers: [] });
@@ -115,10 +306,21 @@ export async function GET(request) {
       availabilityOverrideAt: true,
       availabilityOverrideNote: true,
       availabilityOverrideBy: { select: { name: true } },
-      job: { select: { id: true, title: true } },
+      job: { select: JOB_SELECT },
+      breaks: BREAKS_SELECT,
     },
   });
-  return NextResponse.json({ manager: false, shifts, workers: [] });
+  // Their own row on the day board: their own leave, their own availability.
+  // `workers` stays empty — it is the manager's dropdown, and a worker has
+  // nobody to pick — so the board reads `self` for the one row it draws.
+  const board = await boardContext(member.companyId, [worker], fromDate, toDate);
+  return NextResponse.json({
+    manager: false,
+    shifts,
+    workers: [],
+    self: { id: worker.id, name: worker.name, title: worker.title },
+    ...board,
+  });
 }
 
 export async function POST(request) {
@@ -161,6 +363,13 @@ export async function POST(request) {
       { error: "The shift's end must be after its start." },
       { status: 400 },
     );
+  }
+  // Breaks are checked before anything is looked up: inside the shift, not
+  // overlapping, a kind the schema knows. The rule lives in
+  // lib/shifts/coverage.js so the edit route applies the identical one.
+  const breaksCheck = validateBreaks(s, e, body.breaks);
+  if (!breaksCheck.ok) {
+    return NextResponse.json({ error: breaksCheck.error }, { status: 400 });
   }
 
   // The worker must belong to this company — never schedule across tenants.
@@ -221,6 +430,9 @@ export async function POST(request) {
     );
   }
 
+  // The breaks are written with the shift, in one create — a shift that saved
+  // while its lunch did not would draw a person on the tools for eight hours
+  // straight and tell payroll the same.
   const shift = await db.shift.create({
     data: {
       companyId: member.companyId,
@@ -229,6 +441,9 @@ export async function POST(request) {
       end: e,
       jobId: jobId || null,
       note: note?.slice(0, 300) || null,
+      breaks: breaksCheck.breaks.length
+        ? { create: breaksCheck.breaks }
+        : undefined,
       // Recorded on the shift, not merely confirmed in a dialog. A
       // confirmation that lives only in the manager's browser is theatre: they
       // click OK, feel informed, and the worker still finds out on the morning.
@@ -252,6 +467,7 @@ export async function POST(request) {
       published: true,
       availabilityOverrideAt: true,
       availabilityOverrideNote: true,
+      breaks: BREAKS_SELECT,
     },
   });
   // Warnings ride back with the created shift rather than blocking it: the

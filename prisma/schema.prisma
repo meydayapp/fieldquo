@@ -5889,6 +5889,35 @@ model TimeEntry {
   status       TimeEntryStatus @default(pending)
   createdAt    DateTime        @default(now())
   locationStamps LocationStamp[]
+  /// Lunch and breaks the person actually took, from the time clock. See
+  /// TimeEntryBreak — not ShiftBreak, which is the plan.
+  breaks       TimeEntryBreak[]
+}
+
+/// A lunch or break the person ACTUALLY took, punched from /app/clock while
+/// clocked in. The counterpart of ShiftBreak, and kept apart from it on
+/// purpose: a Shift is the plan the manager published and a TimeEntry is what
+/// happened, and payroll pays what happened. The day board shows both — the
+/// planned lunch hatched inside the shift block, the live one on the status
+/// dot — so a manager can see that the 12:00 lunch actually started at 12:20.
+///
+/// `end` is null while the break is running; the clock-out closes any break
+/// still open at the clock-out instant rather than leaving a break that never
+/// ended. An unpaid break comes off TimeEntry.hours when the entry is closed
+/// (lib/timeclock/entryHours.js — the ONE place that arithmetic lives, used by
+/// the self-serve clock-out, the job switch and the manager's manual
+/// clock-out alike); a paid one is recorded and changes nothing.
+model TimeEntryBreak {
+  id          String         @id @default(cuid())
+  timeEntryId String
+  timeEntry   TimeEntry      @relation(fields: [timeEntryId], references: [id], onDelete: Cascade)
+  start       DateTime
+  end         DateTime?
+  kind        ShiftBreakKind @default(break)
+  paid        Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+
+  @@index([timeEntryId, start])
 }
 
 // A scheduled shift assigned to a worker. Distinct from TimeEntry (hours the

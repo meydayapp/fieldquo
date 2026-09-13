@@ -476,33 +476,56 @@ export const ARTICLES = {
   "the-scheduler-and-crew-shifts": {
     title: "The Scheduler: draft and publish the crew's week",
     summary:
-      "Assign shifts puts a person on a day with a start, an end and a note; shifts stay Draft and invisible to the crew until you press Publish week, and FieldQuo warns when a shift lands outside someone's hours or on approved time off.",
-    updated: "2026-09-12",
+      "Assign shifts is a day board — a row per person, a column per hour — and a week list. You draft shifts with lunch and breaks, see the coverage strip say who is left on site, watch the time clock turn the dots green and amber, and publish once; the crew sees nothing until you do.",
+    updated: "2026-09-13",
     intro: [
-      "**Assign shifts** in the sidebar opens **Scheduling**: the crew's week as seven day cards, Sunday to Saturday. You draft shifts, move between weeks, and publish once. Until you publish, the crew sees nothing — a half-built week never lands on somebody's phone.",
-      "A shift is a person's hours, not a trip to an address. Visits live on the job and the calendar; shifts say who is working when.",
+      "**Assign shifts** in the sidebar opens **Scheduling**, with a **Day | Week** toggle at the top right. **Day** is the dispatch board: one day at a time, a row per person, a column per hour, shifts as blocks. **Week** is the list of seven day cards. Both draft the same shifts, share the same form, and publish through the same button — shifts stay **Draft** and invisible to the crew until you publish.",
+      "A shift is a person's hours, not a trip to an address. Visits live on the job and the calendar; shifts say who is working when. The day board draws both on the same row so they cannot disagree in silence.",
     ],
     sections: [
       {
         id: "overview",
         heading: "What is on the screen",
         blocks: [
-          { p: "The heading **Scheduling** and the line “Add shifts for the week, then Publish so your team can see them — shifts stay hidden until you publish.” Then **Previous week**, **This week**, **Next week** and the date range; **Add shift**; **Publish week** once a draft exists; and seven day cards, each with a plus, **Today** on the current day and **No shifts scheduled.** when empty. A shift row shows the person, the hours, the note, a **Draft** badge until it is published, and an ✕ for those allowed to delete." },
+          { p: "On **Day**: **Previous day**, **Today**, **Next day**, a date field and the day's name; for those who can edit, **Copy last Monday** (the same weekday a week earlier) and **Publish this day** once a draft exists. Then the board: a **Coverage** strip, an hour header, and a row per active worker — initials with a status dot, the name, their title when one is set, and a second line such as **8h 00m · on site since 7:42**, **7h 30m · not clocked in**, **Time off · Vacation** or **Not scheduled**. A legend under the board names every colour." },
+          { p: "A shift is a filled block labelled with its times and its job — the client, the site address and the job title, when the shift has one; otherwise its note. A **draft** has a dashed border and says so. A **lunch or break** is a hatched amber stripe inside the block, labelled when there is room. Approved time off fills the whole row with a muted **Out — Vacation** block. The hours a person has not said they are available for are grey. A **job visit** booked from the job page is a small dashed chip with a pin below the shift band, coloured by its status; it is read-only here and opens the job. A red line marks the current time." },
+          { p: "On **Week**: the heading, “Add shifts for the week, then Publish so your team can see them — shifts stay hidden until you publish.”, **Previous week**, **This week**, **Next week** and the date range; **Add shift**; **Publish week** once a draft exists; and seven day cards, each with a plus, **Today** on the current day and **No shifts scheduled.** when empty. A shift row shows the person, the hours, the job or note, its lunch and breaks, a **Draft** badge until it is published, **Edit**, and an ✕ for those allowed to delete." },
           { figure: "live:app-scheduler", caption: "Scheduling — the week's seven cards, Add shift, and the amber notice that a team member has no working hours set." },
           { p: "An amber banner names anyone with no working hours: “No working hours set for … Until they have some, nothing flags a shift at an odd hour for them and payroll has nothing to check their logged time against.” **Set their hours** goes straight to their Availability." },
         ],
       },
       {
+        id: "coverage",
+        heading: "The coverage strip",
+        blocks: [
+          { p: "Above the rows, one cell per half hour. The big number is how many people are **working** — on a shift and not on a break; a small **2 brk** under it is how many of those on shift are at lunch or on a break. A cell inside the company's opening hours where nobody is working turns **red**: that is the gap to cover. Hover a cell for the sentence." },
+          { p: "The board's hours come from your opening hours (**Settings → Business hours**), one hour either side; a company with none set sees 7:00–18:00. A shift outside that range widens the board rather than being cut off." },
+          { note: "Lunches are per shift, not a company rule, on purpose. The point of the strip is staggering them — two people at 12:00 and one at 12:30 keeps somebody on site — and a staggered rota is a different time per person per day." },
+        ],
+      },
+      {
         id: "add-and-publish",
-        heading: "How to draft and publish a week",
+        heading: "How to draft and publish a day",
         blocks: [
           { steps: [
-            "Press **Add shift** (or the plus on a day card).",
-            "In **New shift**, pick the **Worker**, the **Date**, **Start** and **End**, and a **Note (optional)** — the placeholder suggests “e.g. site address, what to bring”. There is no job picker on a shift; put the site in the note.",
-            "Press **Add to draft**. The shift appears on its day with a **Draft** badge.",
-            "Repeat for the week, then press **Publish week**. Every draft shift in the week becomes visible to the people on it.",
+            "On the day board, click an empty hour in a person's row (or the dashed **+** on an empty row). On the week list, press **Add shift** or a day card's plus.",
+            "In **New shift**, check the **Worker**, **Date**, **Start** and **End** — a board click fills them in with that hour and eight hours on. Pick a **Job (optional)** from your open jobs, or leave **No job** and put the site in the **Note (optional)**.",
+            "Under **Lunch and breaks**, press **Add 30-min lunch at midpoint** or **Add break**, then set each one's type, times and whether it is **Paid**. Breaks must fall inside the shift and not overlap; the form says so before you save.",
+            "Press **Add to draft**. The block appears with a dashed border.",
+            "Click a block to change it — times, job, note, breaks — and press **Save changes**; **Delete shift** is there for those allowed to delete.",
+            "Press **Publish this day** (or **Publish week** on the list). Every draft in that range becomes visible to the people on it, and the notice says how many.",
           ] },
+          { p: "**Copy last Monday** copies the same weekday's shifts and breaks from seven days earlier into this day as drafts, after asking. Anyone who already has a shift on the day is skipped, and so is a copy the checks below refuse (now on leave, now unavailable); the notice says how many were copied and how many skipped." },
           { note: "Publishing shows the shifts on each person's own Assign shifts screen — “These are the shifts your manager has published. Check back for changes.” It does not send an email or a text." },
+        ],
+      },
+      {
+        id: "the-clock-and-the-dots",
+        heading: "The time clock drives the dots",
+        blocks: [
+          { p: "The dot on each person's initials comes from the [[the-time-clock|time clock]], not from the plan. **Green** means clocked in now — the line says **on site since 7:42**. **Amber** means they pressed **Start lunch** or **Start break** on the clock and have not ended it — **on break since 12:03**. **Grey** means scheduled today and not clocked in. A hollow dot is not scheduled; a muted one is on approved leave." },
+          { p: "The board re-reads itself every thirty seconds while the tab is open, and at once when you come back to it, so a break punched in the van changes the colour here without a reload. The planned lunch stays hatched inside the block; the dot shows the real one — so you can see that the 12:00 lunch actually started at 12:20." },
+          { p: "A break punched on the clock is recorded on the person's time entry, not on the shift. Unpaid breaks come off the hours booked at clock-out, and the [[timesheets-and-approving-hours|timesheet]] shows the minutes beside the hours." },
         ],
       },
       {
@@ -512,10 +535,11 @@ export const ARTICLES = {
           { table: {
             head: ["The shift falls…", "What happens"],
             rows: [
-              ["Outside the hours the person said they are available", "The form stops: “Check with them before you go ahead — they won't have agreed to this yet.” You can add a reason under **Why?** and press **Schedule anyway**; the shift is then marked **Outside stated availability**, and the person sees that when it is published."],
-              ["On approved time off", "Blocked. “Change the date, or amend their time off first.” Approved leave is a decision already made, and there is no override."],
+              ["Outside the hours the person said they are available", "The form stops: “Check with them before you go ahead — they won't have agreed to this yet.” You can add a reason under **Why?** and press **Schedule anyway**; the shift is then marked **Outside stated availability** with a warning glyph on the block, and the person sees that when it is published."],
+              ["On approved time off", "Blocked. “Change the date, or amend their time off first.” Approved leave is a decision already made, and there is no override. The row shows **Out** instead of hour cells."],
               ["Outside their normal working hours", "Saved, with a warning after **Shift added.** Overtime is not an error."],
-              ["On someone with no hours set at all", "Saved. Silence is not a refusal — the banner nudges you to set their hours."],
+              ["On someone with no hours set at all", "Saved. Silence is not a refusal — the banner nudges you to set their hours, and nothing on their row is greyed."],
+              ["With a break outside the shift, or two that overlap", "Refused: “Breaks must fall inside the shift, end after they start, and not overlap.” Moving a shift re-checks its breaks against the new times."],
             ],
           } },
           { p: "Availability, working hours and time off are three different things — see [[working-hours-and-bookable-hours|Working hours and bookable hours]] and [[time-off-requests|Time off requests]]." },
@@ -526,9 +550,9 @@ export const ARTICLES = {
         heading: "Who can do what",
         blocks: [
           { bullets: [
-            "**Add shift** and **Publish week** need the Schedule area at **Edit everyone's schedule** — Dispatchers, Managers, owners and administrators.",
-            "**Deleting a shift** (the ✕) needs **Edit and delete everyone's schedule** — Managers, owners and administrators. A Dispatcher drafts and publishes but does not delete.",
-            "**Crew and Estimators** open the same row and see only their own published shifts, with the note that their manager publishes them.",
+            "**Adding, editing, copying and publishing** need the Schedule area at **Edit everyone's schedule** — Dispatchers, Managers, owners and administrators.",
+            "**Deleting a shift** (the ✕, or **Delete shift** in the form) needs **Edit and delete everyone's schedule** — Managers, owners and administrators. A Dispatcher drafts and publishes but does not delete.",
+            "**Crew and Estimators** open the same board and see only their own row, only published shifts, with their lunch and breaks, and the note that their manager publishes them. Nothing on it is clickable for them.",
           ] },
         ],
       },
@@ -537,6 +561,8 @@ export const ARTICLES = {
       { q: "Can I unpublish a week?", a: "Not from the screen. Delete the shift that is wrong and add the right one; the new one is Draft until you publish again." },
       { q: "Does a shift put anything on the client's calendar?", a: "No. Shifts are internal. The client is told about visits, never shifts." },
       { q: "Why can I add a shift on a Sunday?", a: "Working hours only warn; they do not block. Only approved time off blocks." },
+      { q: "Why is a visit on the board with no shift under it?", a: "Because it was booked from the job page and assigned to that person, and nobody has built them a shift for that day yet. The board shows both so the two never disagree in silence." },
+      { q: "Can I drag a block to move it?", a: "No. Click it and change the times in the form — that is where the availability and time-off checks run." },
     ],
   },
 

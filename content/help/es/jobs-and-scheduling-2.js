@@ -471,51 +471,75 @@ export const ARTICLES = {
   },
 
   "the-scheduler-and-crew-shifts": {
-    title: "La programación: preparar y publicar la semana de la cuadrilla",
+    title: "El programador: preparar y publicar la semana del equipo",
     summary:
-      "Asignar turnos pone a una persona en un día con un inicio, un fin y una nota; los turnos quedan en borrador, invisibles para la cuadrilla, hasta que pulsa Publicar semana, y FieldQuo avisa cuando un turno cae fuera de las horas de alguien o sobre tiempo libre aprobado.",
-    updated: "2026-09-12",
+      "Asignar turnos es un tablero de día —una fila por persona, una columna por hora— y una lista semanal. Preparas turnos con almuerzo y descansos, la franja de cobertura dice quién queda en el sitio, el reloj de fichaje pone los puntos en verde y ámbar, y publicas una vez; el equipo no ve nada hasta entonces.",
+    updated: "2026-09-13",
     intro: [
-      "**Asignar turnos** en la barra lateral abre **Programación**: la semana de la cuadrilla en siete tarjetas, de domingo a sábado. Usted prepara los turnos, pasa de una semana a otra y publica una vez. Hasta que publica, la cuadrilla no ve nada — una semana a medio hacer nunca aterriza en el teléfono de nadie.",
-      "Un turno son las horas de una persona, no un viaje a una dirección. Las visitas viven en el trabajo y en el calendario; los turnos dicen quién trabaja cuándo.",
+      "**Asignar turnos** en la barra lateral abre **Programación**, con un selector **Día | Semana** arriba a la derecha. **Día** es el tablero de despacho: un día a la vez, una fila por persona, una columna por hora, los turnos como bloques. **Semana** es la lista de siete tarjetas de día. Ambos preparan los mismos turnos, comparten el mismo formulario y publican con el mismo botón: los turnos quedan en **Borrador**, invisibles para el equipo, hasta que publicas.",
+      "Un turno son las horas de una persona, no un viaje a una dirección. Las visitas viven en el trabajo y el calendario; los turnos dicen quién trabaja cuándo. El tablero de día dibuja ambos en la misma fila para que no se contradigan en silencio.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Qué hay en la pantalla",
         blocks: [
-          { p: "El título **Programación** y la línea « Añade los turnos de la semana y luego pulsa Publicar para que tu equipo los vea: los turnos permanecen ocultos hasta que publicas. » Luego **Semana anterior**, **Esta semana**, **Semana siguiente** y el rango de fechas; **Agregar turno**; **Publicar semana** en cuanto existe un borrador; y siete tarjetas de día, cada una con un más, **Hoy** en el día actual y **No hay turnos programados.** cuando está vacía. Una fila de turno muestra la persona, las horas, la nota, una insignia **Borrador** hasta que se publica, y una ✕ para quienes pueden eliminar." },
-          { figure: "live:app-scheduler", caption: "Programación — las siete tarjetas de la semana, Agregar turno, y el aviso ámbar de que un miembro del equipo no tiene horas de trabajo definidas." },
-          { p: "Un cartel ámbar nombra a quien no tiene horas de trabajo: « No hay horas de trabajo definidas para … Hasta que las tengan, nada avisa de un turno a una hora extraña para esas personas y la nómina no tiene con qué contrastar las horas que registran. » **Definir sus horas** lleva directo a su Disponibilidad." },
+          { p: "En **Día**: **Día anterior**, **Hoy**, **Día siguiente**, un campo de fecha y el nombre del día; para quienes pueden editar, **Copiar el lunes pasado** (el mismo día de la semana anterior) y **Publicar este día** en cuanto exista un borrador. Luego el tablero: una franja **Cobertura**, una cabecera de horas y una fila por trabajador activo: iniciales con un punto de estado, el nombre, su título si tiene uno, y una segunda línea como **8h 00m · en el sitio desde las 7:42**, **7h 30m · sin fichar**, **Tiempo libre · Vacaciones** o **Sin programar**. Una leyenda bajo el tablero nombra cada color." },
+          { p: "Un turno es un bloque relleno con sus horas y su trabajo —el cliente, la dirección del sitio y el título del trabajo, cuando el turno tiene uno; si no, su nota. Un **borrador** tiene borde discontinuo y lo dice. Un **almuerzo o descanso** es una franja rayada ámbar dentro del bloque, con etiqueta cuando hay espacio. El tiempo libre aprobado llena toda la fila con un bloque atenuado **Ausente — Vacaciones**. Las horas en que una persona no dijo estar disponible van en gris. Una **visita de trabajo** reservada desde la página del trabajo es una pequeña ficha discontinua con un pin bajo la banda de turnos, coloreada por su estado; aquí es de solo lectura y abre el trabajo. Una línea roja marca la hora actual." },
+          { p: "En **Semana**: el encabezado, «Añade los turnos de la semana y luego pulsa Publicar para que tu equipo los vea: los turnos permanecen ocultos hasta que publicas.», **Semana anterior**, **Esta semana**, **Semana siguiente** y el rango de fechas; **Agregar turno**; **Publicar semana** en cuanto exista un borrador; y siete tarjetas de día, cada una con un más, **Hoy** en el día actual y **No hay turnos programados.** cuando está vacía. Una fila de turno muestra la persona, las horas, el trabajo o la nota, su almuerzo y descansos, una insignia **Borrador** hasta publicarse, **Editar**, y una ✕ para quienes pueden eliminar." },
+          { figure: "live:app-scheduler", caption: "Programación: las siete tarjetas de la semana, Agregar turno y el aviso ámbar de que un miembro del equipo no tiene horas de trabajo definidas." },
+          { p: "Un banner ámbar nombra a quien no tiene horas de trabajo: «No hay horas de trabajo definidas para … Hasta que las tengan, nada señala un turno a una hora rara y la nómina no tiene contra qué comprobar sus horas.» **Definir sus horas** lleva directamente a su Disponibilidad." },
+        ],
+      },
+      {
+        id: "coverage",
+        heading: "La franja de cobertura",
+        blocks: [
+          { p: "Sobre las filas, una celda por media hora. El número grande es cuántas personas están **trabajando** —en turno y no en descanso—; un pequeño **2 desc.** debajo es cuántas de las que están en turno están almorzando o en descanso. Una celda dentro del horario de atención de la empresa donde nadie trabaja se pone **roja**: ese es el hueco a cubrir. Pasa el cursor por una celda para leer la frase." },
+          { p: "Las horas del tablero salen de tu horario de atención (**Configuración → Horario comercial**), una hora a cada lado; una empresa sin horario ve 7:00–18:00. Un turno fuera de ese rango amplía el tablero en lugar de cortarse." },
+          { note: "Los almuerzos son por turno, no una regla de empresa, a propósito. La gracia de la franja es escalonarlos —dos personas a las 12:00 y una a las 12:30 dejan a alguien en el sitio— y un horario escalonado es una hora distinta por persona y por día." },
         ],
       },
       {
         id: "add-and-publish",
-        heading: "Cómo preparar y publicar una semana",
+        heading: "Cómo preparar y publicar un día",
         blocks: [
           { steps: [
-            "Pulse **Agregar turno** (o el más de una tarjeta de día).",
-            "En **Nuevo turno**, elija el **Trabajador**, la **Fecha**, el **Inicio** y el **Fin**, y una **Nota (opcional)** — el ejemplo propuesto es « ej. dirección del sitio, qué llevar ». No hay selector de trabajo en un turno; ponga el sitio en la nota.",
-            "Pulse **Agregar al borrador**. El turno aparece en su día con una insignia **Borrador**.",
-            "Repita para la semana y luego pulse **Publicar semana**. Cada turno en borrador de la semana se vuelve visible para las personas que están en él.",
+            "En el tablero de día, haz clic en una hora vacía de la fila de una persona (o en el **+** discontinuo de una fila vacía). En la lista semanal, pulsa **Agregar turno** o el más de una tarjeta.",
+            "En **Nuevo turno**, revisa **Trabajador**, **Fecha**, **Inicio** y **Fin** —un clic en el tablero los rellena con esa hora y ocho horas más. Elige un **Trabajo (opcional)** entre tus trabajos abiertos, o deja **Sin trabajo** y pon el sitio en la **Nota (opcional)**.",
+            "Bajo **Almuerzo y descansos**, pulsa **Agregar almuerzo de 30 min a la mitad** o **Agregar descanso**, y fija el tipo, las horas y si es **Pagado**. Los descansos deben caer dentro del turno y no solaparse; el formulario lo dice antes de guardar.",
+            "Pulsa **Agregar al borrador**. El bloque aparece con borde discontinuo.",
+            "Haz clic en un bloque para cambiarlo —horas, trabajo, nota, descansos— y pulsa **Guardar cambios**; **Eliminar turno** está ahí para quienes pueden eliminar.",
+            "Pulsa **Publicar este día** (o **Publicar semana** en la lista). Cada borrador de ese rango se vuelve visible para las personas implicadas, y el aviso dice cuántos.",
           ] },
-          { note: "Publicar muestra los turnos en la pantalla Asignar turnos de cada persona — « Estos son los turnos que publicó tu gerente. Vuelve para ver cambios. » No se envía ningún correo ni mensaje de texto." },
+          { p: "**Copiar el lunes pasado** copia los turnos y descansos del mismo día de la semana, siete días antes, a este día como borradores, tras preguntar. Se omite a quien ya tenga un turno ese día, y también una copia que las comprobaciones de abajo rechacen (ahora de permiso, ahora no disponible); el aviso dice cuántos se copiaron y cuántos se omitieron." },
+          { note: "Publicar muestra los turnos en la pantalla Asignar turnos de cada persona: «Estos son los turnos que publicó tu gerente. Vuelve para ver cambios.» No envía correo ni mensaje de texto." },
+        ],
+      },
+      {
+        id: "the-clock-and-the-dots",
+        heading: "El reloj de fichaje mueve los puntos",
+        blocks: [
+          { p: "El punto sobre las iniciales de cada persona sale del [[the-time-clock|reloj de fichaje]], no del plan. **Verde** significa fichado ahora —la línea dice **en el sitio desde las 7:42**. **Ámbar** significa que pulsó **Iniciar almuerzo** o **Iniciar descanso** en el reloj y no lo ha terminado —**en descanso desde las 12:03**. **Gris** significa programado hoy y sin fichar. Un punto hueco no está programado; uno atenuado está de permiso aprobado." },
+          { p: "El tablero se relee cada treinta segundos mientras la pestaña está abierta, y al instante cuando vuelves a ella, así que un descanso fichado en la furgoneta cambia el color aquí sin recargar. El almuerzo planificado sigue rayado dentro del bloque; el punto muestra el real —así ves que el almuerzo de las 12:00 empezó de verdad a las 12:20." },
+          { p: "Un descanso fichado en el reloj se registra en la entrada de tiempo de la persona, no en el turno. Los descansos no pagados se restan de las horas anotadas al fichar la salida, y la [[timesheets-and-approving-hours|hoja de horas]] muestra los minutos junto a las horas." },
         ],
       },
       {
         id: "what-fieldquo-checks",
-        heading: "Qué comprueba FieldQuo cuando agrega un turno",
+        heading: "Qué comprueba FieldQuo al agregar un turno",
         blocks: [
           { table: {
             head: ["El turno cae…", "Qué pasa"],
             rows: [
-              ["Fuera de las horas en que la persona dijo estar disponible", "El formulario se detiene: « Confírmalo con esa persona antes de continuar: todavía no lo ha aceptado. » Puede dar un motivo bajo **¿Por qué?** y pulsar **Programar de todos modos**; el turno queda entonces marcado **Fuera de la disponibilidad declarada**, y la persona lo ve cuando se publica."],
-              ["Sobre tiempo libre aprobado", "Bloqueado. « Cambia la fecha o modifica antes su tiempo libre. » El tiempo libre aprobado es una decisión ya tomada, y no hay forma de saltársela."],
-              ["Fuera de su horario de trabajo habitual", "Se guarda, con una advertencia después de **Turno añadido.** Las horas extra no son un error."],
-              ["Sobre alguien sin ninguna hora definida", "Se guarda. El silencio no es un rechazo — el cartel le invita a definir sus horas."],
+              ["Fuera de las horas en que la persona dijo estar disponible", "El formulario se detiene: «Confírmalo con la persona antes de seguir: todavía no lo ha aceptado.» Puedes añadir un motivo en **¿Por qué?** y pulsar **Programar de todos modos**; el turno queda marcado **Fuera de la disponibilidad declarada** con un símbolo de aviso en el bloque, y la persona lo ve al publicarse."],
+              ["En tiempo libre aprobado", "Bloqueado. «Cambia la fecha o modifica antes su tiempo libre.» El permiso aprobado es una decisión ya tomada y no hay forma de saltársela. La fila muestra **Ausente** en lugar de celdas de horas."],
+              ["Fuera de sus horas de trabajo habituales", "Guardado, con un aviso tras **Turno agregado.** Las horas extra no son un error."],
+              ["En alguien sin horas definidas", "Guardado. El silencio no es un rechazo: el banner te anima a definir sus horas, y nada de su fila va en gris."],
+              ["Con un descanso fuera del turno, o dos que se solapan", "Rechazado: «Los descansos deben caer dentro del turno, terminar después de empezar y no solaparse.» Mover un turno vuelve a comprobar sus descansos contra las nuevas horas."],
             ],
           } },
-          { p: "Disponibilidad, horario de trabajo y tiempo libre son tres cosas distintas — vea [[working-hours-and-bookable-hours|Horario de trabajo y horas reservables]] y [[time-off-requests|Solicitudes de tiempo libre]]." },
+          { p: "Disponibilidad, horas de trabajo y tiempo libre son tres cosas distintas: ver [[working-hours-and-bookable-hours|Horas de trabajo y horas reservables]] y [[time-off-requests|Solicitudes de tiempo libre]]." },
         ],
       },
       {
@@ -523,17 +547,19 @@ export const ARTICLES = {
         heading: "Quién puede hacer qué",
         blocks: [
           { bullets: [
-            "**Agregar turno** y **Publicar semana** requieren el área Schedule en el nivel **Edit everyone's schedule** — los Dispatcher, los Manager, el propietario y los administradores.",
-            "**Eliminar un turno** (la ✕) requiere **Edit and delete everyone's schedule** — los Manager, el propietario y los administradores. Un Dispatcher prepara y publica, pero no elimina.",
-            "**Los Crew y los Estimator** abren la misma fila y ven solo sus propios turnos publicados, con la nota de que su gerente los publica.",
+            "**Agregar, editar, copiar y publicar** requieren el área Schedule en **Edit everyone's schedule**: Dispatchers, Managers, propietarios y administradores.",
+            "**Eliminar un turno** (la ✕, o **Eliminar turno** en el formulario) requiere **Edit and delete everyone's schedule**: Managers, propietarios y administradores. Un Dispatcher prepara y publica, pero no elimina.",
+            "**Crew y Estimators** abren el mismo tablero y ven solo su propia fila, solo los turnos publicados, con su almuerzo y descansos, y la nota de que su gerente los publica. Nada es clicable para ellos.",
           ] },
         ],
       },
     ],
     faq: [
-      { q: "¿Puedo despublicar una semana?", a: "No desde la pantalla. Elimine el turno equivocado y agregue el correcto; el nuevo queda en borrador hasta que vuelva a publicar." },
+      { q: "¿Puedo despublicar una semana?", a: "No desde la pantalla. Elimina el turno equivocado y agrega el correcto; el nuevo queda en Borrador hasta que publiques de nuevo." },
       { q: "¿Un turno pone algo en el calendario del cliente?", a: "No. Los turnos son internos. Al cliente se le informa de las visitas, nunca de los turnos." },
-      { q: "¿Por qué puedo agregar un turno un domingo?", a: "El horario de trabajo solo advierte; no bloquea. Solo el tiempo libre aprobado bloquea." },
+      { q: "¿Por qué puedo agregar un turno un domingo?", a: "Las horas de trabajo solo avisan; no bloquean. Solo el tiempo libre aprobado bloquea." },
+      { q: "¿Por qué aparece una visita en el tablero sin un turno debajo?", a: "Porque se reservó desde la página del trabajo y se asignó a esa persona, y nadie le ha preparado todavía un turno ese día. El tablero muestra ambos para que nunca se contradigan en silencio." },
+      { q: "¿Puedo arrastrar un bloque para moverlo?", a: "No. Haz clic en él y cambia las horas en el formulario: ahí es donde se ejecutan las comprobaciones de disponibilidad y tiempo libre." },
     ],
   },
 

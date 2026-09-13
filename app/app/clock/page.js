@@ -35,12 +35,13 @@
 // the button says all of this before the browser asks.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Clock, LogIn, LogOut, Loader2, Briefcase, ArrowRightLeft, MapPin } from "lucide-react";
+import { Clock, LogIn, LogOut, Loader2, Briefcase, ArrowRightLeft, MapPin, Coffee, Utensils, Play } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
 import { fetchList } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 import { todayHoursFrom } from "@/lib/timeclock/todayHours";
+import { openBreak, unpaidBreakMs } from "@/lib/timeclock/entryHours";
 import { captureStamp, locationPermissionState } from "@/lib/location/capture";
 
 function fmtClock(d) {
@@ -158,6 +159,32 @@ export default function TimeClockPage() {
     }
   }
 
+  // ── Lunch and breaks ───────────────────────────────────────────────────
+  //
+  // Recorded on the open TimeEntry (what happened), never on the Shift (the
+  // plan) — see TimeEntryBreak in the schema. No location stamp: a break is
+  // not a punch, and asking the phone where it is at every coffee would be
+  // the tracking the header above says this screen does not do. The day
+  // board on /app/scheduler reads the same rows and turns the person's dot
+  // amber within its next poll.
+  async function breakPunch(action, kind) {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/time-clock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ...(kind ? { kind } : {}) }),
+      });
+      if (!res.ok) {
+        await reportResponseError(res, t("app.clock.breakError", "Couldn't record the break."));
+        return;
+      }
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-[60vh] grid place-items-center">
@@ -199,6 +226,8 @@ export default function TimeClockPage() {
   const open = data?.open;
   const clockedIn = Boolean(open);
   const elapsedMs = open ? now.getTime() - new Date(open.clockIn).getTime() : 0;
+  const runningBreak = open ? openBreak(open.breaks) : null;
+  const breakMs = runningBreak ? now.getTime() - new Date(runningBreak.start).getTime() : 0;
   // Today's total, recomputed on every heartbeat rather than read once from
   // the payload. `data.todayHours` is correct at request time and frozen
   // afterwards — this screen never refetches — so it showed 07:12:33 elapsed
@@ -245,6 +274,53 @@ export default function TimeClockPage() {
                 ? t("app.clock.onJob", "On {job}", { job: currentJobName })
                 : t("app.clock.noJobEntry", "Not linked to a job")}
             </div>
+
+            {/* ── Lunch and breaks ────────────────────────────────────────
+                One running break at a time. While one runs, the only offer
+                is to end it — a second "Start" beside it would be a control
+                the server refuses. */}
+            {runningBreak ? (
+              <div className="mt-4">
+                <div className="inline-flex items-center gap-2 rounded-full bg-amber-50 dark:bg-amber-950/40 px-3 py-1 text-xs font-semibold text-amber-800 dark:text-amber-300">
+                  <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                  {runningBreak.kind === "lunch"
+                    ? t("app.clock.onLunchSince", { time: fmtTime(runningBreak.start) })
+                    : t("app.clock.onBreakSince", { time: fmtTime(runningBreak.start) })}
+                  <span className="tabular-nums">{fmtElapsed(breakMs)}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => breakPunch("break_end")}
+                  disabled={busy}
+                  className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-5 py-3 text-base font-semibold text-amber-900 hover:bg-amber-100 disabled:opacity-60 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+                >
+                  {busy ? <Loader2 size={18} className="animate-spin" /> : <Play size={16} />}
+                  {t("app.clock.endBreak")}
+                </button>
+              </div>
+            ) : (
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => breakPunch("break_start", "lunch")}
+                  disabled={busy}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-3 py-3 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-60"
+                >
+                  <Utensils size={15} />
+                  {t("app.clock.startLunch")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => breakPunch("break_start", "break")}
+                  disabled={busy}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-3 py-3 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-60"
+                >
+                  <Coffee size={15} />
+                  {t("app.clock.startBreak")}
+                </button>
+              </div>
+            )}
+            <p className="mt-2 text-xs text-muted-foreground">{t("app.clock.breakNote")}</p>
           </div>
         ) : (
           <div className="mt-5 text-sm text-muted-foreground">{t("app.clock.notClockedIn")}</div>
@@ -393,6 +469,18 @@ export default function TimeClockPage() {
                   <span className="block text-xs text-muted-foreground break-words">
                     {e.job?.title || t("app.clock.noJobEntry", "Not linked to a job")}
                   </span>
+                  {/* The breaks that came off this entry — the reason its
+                      hours are less than clock-in to clock-out. Unpaid only:
+                      that is what was deducted. */}
+                  {e.breaks?.length > 0 && (
+                    <span className="block text-xs text-muted-foreground">
+                      {t("app.clock.breakMinutes", {
+                        minutes: Math.round(
+                          unpaidBreakMs(e.breaks, e.clockIn, e.clockOut || now) / 60_000,
+                        ),
+                      })}
+                    </span>
+                  )}
                 </span>
                 <span className="text-muted-foreground tabular-nums shrink-0">
                   {e.clockOut && e.hours != null ? t("app.clock.hoursValue", { hours: Number(e.hours).toFixed(2) }) : "—"}

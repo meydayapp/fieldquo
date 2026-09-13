@@ -45,6 +45,12 @@ export async function GET(request) {
       // stripped below for callers who may not see other people's pay.
       worker: { select: { id: true, name: true, hourlyRate: true, userId: true } },
       job: { select: { id: true, title: true } },
+      // The lunch and breaks punched on the clock — why `hours` is less than
+      // clock-in to clock-out, shown as minutes on the timesheet row.
+      breaks: {
+        orderBy: { start: "asc" },
+        select: { id: true, start: true, end: true, kind: true, paid: true },
+      },
       // Where the phone was at clock-in and clock-out, when it answered. The
       // stored distance, not the raw point: the timesheet needs "2.1 km from
       // the site", and never needs to draw the crew on a map. See

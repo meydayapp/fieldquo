@@ -39,6 +39,23 @@ import { loadEnforceableMember } from "@/lib/permissions/enforce";
 import { clockJobOptions, clockableJobWhere, dayBoundsInZone } from "@/lib/timeclock/jobChoices";
 import { todayHoursFrom } from "@/lib/timeclock/todayHours";
 import { recordStampIfPresent } from "@/lib/location/stamps";
+import { entryHours, openBreak } from "@/lib/timeclock/entryHours";
+import { BREAK_KINDS } from "@/lib/shifts/coverage";
+
+// The breaks on an entry, as every read of the open entry returns them: the
+// clock screen needs the running one to offer "End break", and the day board
+// reads the same rows to turn the dot amber.
+const BREAKS_SELECT = {
+  select: { id: true, start: true, end: true, kind: true, paid: true },
+  orderBy: { start: "asc" },
+};
+const OPEN_SELECT = {
+  id: true,
+  clockIn: true,
+  jobId: true,
+  job: { select: { id: true, title: true } },
+  breaks: BREAKS_SELECT,
+};
 
 // The worker record tied to the signed-in user, or null if they were never
 // added under Workers (an admin has to create that link first).
@@ -72,6 +89,7 @@ const ENTRY_SELECT = {
   status: true,
   jobId: true,
   job: { select: { id: true, title: true } },
+  breaks: BREAKS_SELECT,
 };
 
 export async function GET(request) {
@@ -103,7 +121,7 @@ export async function GET(request) {
     db.timeEntry.findFirst({
       where: { workerId: worker.id, clockOut: null },
       orderBy: { clockIn: "desc" },
-      select: { id: true, clockIn: true, jobId: true, job: { select: { id: true, title: true } } },
+      select: OPEN_SELECT,
     }),
     db.timeEntry.findMany({
       where: { workerId: worker.id, clockIn: { gte: start } },
@@ -204,7 +222,41 @@ export async function POST(request) {
   const open = await db.timeEntry.findFirst({
     where: { workerId: worker.id, clockOut: null },
     orderBy: { clockIn: "desc" },
+    include: { breaks: BREAKS_SELECT },
   });
+
+  // ── Lunch and breaks, from the clock ──────────────────────────────────────
+  //
+  // Recorded on the TimeEntry — what happened — never on the Shift, which is
+  // the plan. One running break at a time, only while clocked in. The kind
+  // is the person's to say (a lunch and a coffee are paid differently in most
+  // companies); `paid` is not theirs to say and is left at the schema default,
+  // because a worker marking their own lunch as paid is a pay decision made
+  // on a phone in a van. A manager who disagrees amends the entry.
+  if (action === "break_start") {
+    if (!open) {
+      return NextResponse.json({ error: "You're not clocked in." }, { status: 409 });
+    }
+    if (openBreak(open.breaks)) {
+      return NextResponse.json({ error: "You're already on a break — end it first." }, { status: 409 });
+    }
+    const kind = BREAK_KINDS.includes(body?.kind) ? body.kind : "break";
+    await db.timeEntryBreak.create({
+      data: { timeEntryId: open.id, start: new Date(), kind },
+    });
+    const entry = await db.timeEntry.findUnique({ where: { id: open.id }, select: OPEN_SELECT });
+    return NextResponse.json({ ok: true, open: entry });
+  }
+
+  if (action === "break_end") {
+    const running = open ? openBreak(open.breaks) : null;
+    if (!open || !running) {
+      return NextResponse.json({ error: "You're not on a break." }, { status: 409 });
+    }
+    await db.timeEntryBreak.update({ where: { id: running.id }, data: { end: new Date() } });
+    const entry = await db.timeEntry.findUnique({ where: { id: open.id }, select: OPEN_SELECT });
+    return NextResponse.json({ ok: true, open: entry });
+  }
 
   if (action === "in") {
     // One open entry at a time — the same guard the manual API enforces.
@@ -226,7 +278,7 @@ export async function POST(request) {
         // statement the row should make, not an absence of one.
         jobId: resolved.jobId,
       },
-      select: { id: true, clockIn: true, jobId: true, job: { select: { id: true, title: true } } },
+      select: OPEN_SELECT,
     });
     // After the write, never before it, and never able to fail it.
     await recordStampIfPresent({
@@ -246,14 +298,28 @@ export async function POST(request) {
       return NextResponse.json({ error: "You're not clocked in." }, { status: 409 });
     }
     const clockOut = new Date();
-    // Same rounding the manual clock-out uses, so hours are identical whichever
-    // path created them (payroll reads hours, not the timestamps).
-    const hours = Math.round(((clockOut.getTime() - new Date(open.clockIn).getTime()) / 3600000) * 100) / 100;
-    const entry = await db.timeEntry.update({
-      where: { id: open.id },
-      data: { clockOut, hours },
-      select: { id: true, clockIn: true, clockOut: true, hours: true, jobId: true },
-    });
+    // A break still running is closed at the same instant — a lunch that
+    // never ended would otherwise eat every hour after it. Then the same
+    // arithmetic the manual clock-out uses (lib/timeclock/entryHours.js), so
+    // hours are identical whichever path created them: clock-in to clock-out,
+    // less the unpaid breaks. Payroll reads hours, not the timestamps.
+    const running = openBreak(open.breaks);
+    const breaks = (open.breaks || []).map((b) =>
+      running && b.id === running.id ? { ...b, end: clockOut } : b,
+    );
+    const hours = entryHours(open.clockIn, clockOut, breaks);
+    const ops = [];
+    if (running) {
+      ops.push(db.timeEntryBreak.update({ where: { id: running.id }, data: { end: clockOut } }));
+    }
+    ops.push(
+      db.timeEntry.update({
+        where: { id: open.id },
+        data: { clockOut, hours },
+        select: { id: true, clockIn: true, clockOut: true, hours: true, jobId: true },
+      }),
+    );
+    const entry = (await db.$transaction(ops)).at(-1);
     await recordStampIfPresent({
       db,
       companyId: member.companyId,
@@ -301,16 +367,27 @@ export async function POST(request) {
       const entry = await db.timeEntry.update({
         where: { id: open.id },
         data: { jobId: resolved.jobId },
-        select: { id: true, clockIn: true, jobId: true, job: { select: { id: true, title: true } } },
+        select: OPEN_SELECT,
       });
       return NextResponse.json({ ok: true, open: entry, corrected: true });
     }
 
-    const hours = Math.round((elapsedMs / 3600000) * 100) / 100;
+    // A running break is closed with the entry it belongs to, and the hours
+    // are net of the unpaid ones — the same rule as clocking out, because a
+    // switch IS a clock-out at this instant.
+    const running = openBreak(open.breaks);
+    const closedBreaks = (open.breaks || []).map((b) =>
+      running && b.id === running.id ? { ...b, end: at } : b,
+    );
+    const hours = entryHours(open.clockIn, at, closedBreaks);
     // One transaction: a close without its reopen leaves somebody off the clock
     // who believes they are on it, and an open without its close is two open
     // entries — the state every other path in this file refuses.
-    const [, entry] = await db.$transaction([
+    const ops = [];
+    if (running) {
+      ops.push(db.timeEntryBreak.update({ where: { id: running.id }, data: { end: at } }));
+    }
+    ops.push(
       db.timeEntry.update({
         where: { id: open.id },
         data: { clockOut: at, hours },
@@ -322,9 +399,10 @@ export async function POST(request) {
           status: "pending",
           jobId: resolved.jobId,
         },
-        select: { id: true, clockIn: true, jobId: true, job: { select: { id: true, title: true } } },
+        select: OPEN_SELECT,
       }),
-    ]);
+    );
+    const entry = (await db.$transaction(ops)).at(-1);
     // A switch is a clock-out and a clock-in at one instant, so the one
     // position is kept beside both — the timesheet reads each entry on its
     // own and each deserves its own answer. The mis-tap branch above records
@@ -353,5 +431,8 @@ export async function POST(request) {
     return NextResponse.json({ ok: true, open: entry, closedHours: hours });
   }
 
-  return NextResponse.json({ error: "action must be 'in', 'out' or 'switch'" }, { status: 400 });
+  return NextResponse.json(
+    { error: "action must be 'in', 'out', 'switch', 'break_start' or 'break_end'" },
+    { status: 400 },
+  );
 }

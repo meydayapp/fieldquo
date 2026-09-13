@@ -7,6 +7,7 @@ import {
   shouldReopenForApproval,
 } from "@/lib/payroll/timesheetEdit";
 import { db } from "@/lib/db";
+import { entryHours, openBreak } from "@/lib/timeclock/entryHours";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
@@ -21,7 +22,13 @@ export async function PATCH(request, { params }) {
 
   const existing = await db.timeEntry.findFirst({
     where: { id: _params.id, worker: { companyId: member.companyId } },
-    include: { worker: true },
+    include: {
+      worker: true,
+      // The breaks come off the hours booked below, exactly as the self-serve
+      // clock-out books them — a manager closing an entry from the timesheet
+      // must not pay a lunch the clock would have deducted.
+      breaks: { select: { id: true, start: true, end: true, kind: true, paid: true } },
+    },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -141,7 +148,11 @@ export async function PATCH(request, { params }) {
         { status: 400 },
       );
     }
-    hours = Math.round(((clockOutMs - clockInMs) / 3600000) * 100) / 100;
+    // Clock-in to clock-out less the unpaid breaks, through the same function
+    // the self-serve clock-out and the job switch use, so a pay run sees one
+    // arithmetic whichever door closed the entry. A break still running is
+    // counted up to this clock-out and closed at it below.
+    hours = entryHours(clockInMs, clockOutMs, existing.breaks);
   }
 
   const selfApproved =
@@ -177,7 +188,20 @@ export async function PATCH(request, { params }) {
   const updated = await db.timeEntry.update({
     where: { id: _params.id },
     data: {
-      ...(clockOut !== undefined && { clockOut: resolvedClockOut, hours }),
+      ...(clockOut !== undefined && {
+        clockOut: resolvedClockOut,
+        hours,
+        // The running break, if any, ends when the entry does.
+        ...(resolvedClockOut &&
+          openBreak(existing.breaks) && {
+            breaks: {
+              update: {
+                where: { id: openBreak(existing.breaks).id },
+                data: { end: resolvedClockOut },
+              },
+            },
+          }),
+      }),
       ...(reopen && { status: "pending", approvedById: null }),
       ...(status !== undefined && {
         status,

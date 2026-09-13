@@ -473,33 +473,56 @@ export const ARTICLES = {
   "the-scheduler-and-crew-shifts": {
     title: "L'horaire : préparer et publier la semaine de l'équipe",
     summary:
-      "Attribuer les quarts place une personne sur une journée avec un début, une fin et une note ; les quarts restent en brouillon, invisibles pour l'équipe, jusqu'à ce que vous appuyiez sur Publier la semaine, et FieldQuo vous avertit quand un quart tombe hors des heures de quelqu'un ou sur un congé approuvé.",
-    updated: "2026-09-12",
+      "Attribuer les quarts est un tableau de journée — une ligne par personne, une colonne par heure — et une liste de semaine. Vous préparez les quarts avec le dîner et les pauses, la bande de couverture dit qui reste sur place, l'horodateur colore les points en vert et en ambre, et vous publiez une fois ; l'équipe ne voit rien avant.",
+    updated: "2026-09-13",
     intro: [
-      "**Attribuer les quarts** dans la barre latérale ouvre **Horaire** : la semaine de l'équipe en sept cartes, du dimanche au samedi. Vous préparez les quarts, passez d'une semaine à l'autre et publiez une fois. Tant que vous n'avez pas publié, l'équipe ne voit rien — une semaine à moitié faite n'atterrit jamais sur le téléphone de quelqu'un.",
-      "Un quart, ce sont les heures d'une personne, pas un déplacement à une adresse. Les visites vivent sur le chantier et le calendrier ; les quarts disent qui travaille quand.",
+      "**Attribuer les quarts** dans la barre latérale ouvre **Horaire**, avec un sélecteur **Jour | Semaine** en haut à droite. **Jour** est le tableau de répartition : une journée à la fois, une ligne par personne, une colonne par heure, les quarts en blocs. **Semaine** est la liste de sept cartes de journée. Les deux préparent les mêmes quarts, partagent le même formulaire et publient par le même bouton — les quarts restent en **Brouillon**, invisibles pour l'équipe, jusqu'à la publication.",
+      "Un quart, ce sont les heures d'une personne, pas un déplacement à une adresse. Les visites vivent sur le chantier et le calendrier ; les quarts disent qui travaille quand. Le tableau de journée dessine les deux sur la même ligne pour qu'ils ne puissent pas se contredire en silence.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Ce qu'il y a à l'écran",
         blocks: [
-          { p: "Le titre **Horaire** et la ligne « Ajoutez les quarts de la semaine, puis cliquez sur Publier pour que votre équipe les voie — les quarts restent masqués jusqu'à la publication. » Puis **Semaine précédente**, **Cette semaine**, **Semaine suivante** et la plage de dates ; **Ajouter un quart** ; **Publier la semaine** dès qu'un brouillon existe ; et sept cartes de journée, chacune avec un plus, **Aujourd'hui** sur la journée courante et **Aucun quart planifié.** quand elle est vide. Une ligne de quart montre la personne, les heures, la note, un badge **Brouillon** tant qu'il n'est pas publié, et un ✕ pour ceux qui peuvent supprimer." },
+          { p: "Sur **Jour** : **Jour précédent**, **Aujourd'hui**, **Jour suivant**, un champ de date et le nom de la journée ; pour ceux qui peuvent modifier, **Copier lundi dernier** (le même jour de la semaine, une semaine plus tôt) et **Publier cette journée** dès qu'un brouillon existe. Puis le tableau : une bande **Couverture**, un en-tête d'heures et une ligne par intervenant actif — les initiales avec un point d'état, le nom, son titre s'il en a un, et une seconde ligne comme **8h 00m · sur place depuis 7:42**, **7h 30m · pas encore pointé**, **Congé · Vacances** ou **Non planifié**. Une légende sous le tableau nomme chaque couleur." },
+          { p: "Un quart est un bloc plein portant ses heures et son chantier — le client, l'adresse du site et le titre du travail, quand le quart en a un ; sinon sa note. Un **brouillon** a une bordure pointillée et le dit. Un **dîner ou une pause** est une bande hachurée ambre dans le bloc, nommée quand il y a de la place. Un congé approuvé remplit toute la ligne d'un bloc atténué **Absent — Vacances**. Les heures où une personne ne s'est pas dite disponible sont grises. Une **visite de chantier** réservée depuis la page du travail est une petite puce pointillée avec une épingle sous la bande des quarts, colorée selon son statut ; elle est en lecture seule ici et ouvre le travail. Une ligne rouge marque l'heure courante." },
+          { p: "Sur **Semaine** : le titre, « Ajoutez les quarts de la semaine, puis cliquez sur Publier pour que votre équipe les voie — les quarts restent masqués jusqu'à la publication. », **Semaine précédente**, **Cette semaine**, **Semaine suivante** et la plage de dates ; **Ajouter un quart** ; **Publier la semaine** dès qu'un brouillon existe ; et sept cartes de journée, chacune avec un plus, **Aujourd'hui** sur la journée courante et **Aucun quart planifié.** quand elle est vide. Une ligne de quart montre la personne, les heures, le travail ou la note, son dîner et ses pauses, un badge **Brouillon** tant qu'il n'est pas publié, **Modifier**, et un ✕ pour ceux qui peuvent supprimer." },
           { figure: "live:app-scheduler", caption: "Horaire — les sept cartes de la semaine, Ajouter un quart, et l'avis ambre indiquant qu'un membre de l'équipe n'a pas d'heures de travail définies." },
           { p: "Une bannière ambre nomme quiconque n'a pas d'heures de travail : « Aucune heure de travail définie pour … Tant qu'il n'y en a pas, rien ne signale un quart à une heure inhabituelle pour ces personnes et la paie n'a rien pour vérifier les heures qu'elles inscrivent. » **Définir leurs heures** mène directement à leurs Disponibilités." },
         ],
       },
       {
+        id: "coverage",
+        heading: "La bande de couverture",
+        blocks: [
+          { p: "Au-dessus des lignes, une cellule par demi-heure. Le grand nombre est le nombre de personnes **au travail** — en quart et pas en pause ; un petit **2 pause** dessous est le nombre de celles en quart qui sont au dîner ou en pause. Une cellule dans les heures d'ouverture de l'entreprise où personne ne travaille devient **rouge** : c'est le trou à couvrir. Survolez une cellule pour la phrase." },
+          { p: "Les heures du tableau viennent de vos heures d'ouverture (**Paramètres → Heures d'ouverture**), une heure de chaque côté ; une entreprise sans heures voit 7:00–18:00. Un quart hors de cette plage élargit le tableau au lieu d'être coupé." },
+          { note: "Les dîners sont par quart, pas une règle d'entreprise, et c'est voulu. L'intérêt de la bande est de les décaler — deux personnes à 12:00 et une à 12:30 gardent quelqu'un sur place — et un horaire décalé, c'est une heure différente par personne et par jour." },
+        ],
+      },
+      {
         id: "add-and-publish",
-        heading: "Comment préparer et publier une semaine",
+        heading: "Comment préparer et publier une journée",
         blocks: [
           { steps: [
-            "Appuyez sur **Ajouter un quart** (ou sur le plus d'une carte de journée).",
-            "Dans **Nouveau quart**, choisissez l'**Intervenant**, la **Date**, le **Début** et la **Fin**, et une **Note (facultatif)** — l'exemple proposé est « ex. adresse du chantier, quoi apporter ». Il n'y a pas de sélecteur de chantier sur un quart ; mettez le chantier dans la note.",
-            "Appuyez sur **Ajouter au brouillon**. Le quart apparaît sur sa journée avec un badge **Brouillon**.",
-            "Répétez pour la semaine, puis appuyez sur **Publier la semaine**. Chaque quart en brouillon de la semaine devient visible pour les personnes concernées.",
+            "Sur le tableau de journée, cliquez sur une heure vide dans la ligne d'une personne (ou sur le **+** pointillé d'une ligne vide). Sur la liste de semaine, appuyez sur **Ajouter un quart** ou sur le plus d'une carte.",
+            "Dans **Nouveau quart**, vérifiez l'**Intervenant**, la **Date**, le **Début** et la **Fin** — un clic sur le tableau les remplit avec cette heure et huit heures de plus. Choisissez un **Travail (facultatif)** parmi vos travaux ouverts, ou laissez **Aucun travail** et mettez le chantier dans la **Note (facultatif)**.",
+            "Sous **Dîner et pauses**, appuyez sur **Ajouter un dîner de 30 min au milieu** ou **Ajouter une pause**, puis réglez le type, les heures et **Payée** de chacune. Les pauses doivent tomber dans le quart et ne pas se chevaucher ; le formulaire le dit avant l'enregistrement.",
+            "Appuyez sur **Ajouter au brouillon**. Le bloc apparaît avec une bordure pointillée.",
+            "Cliquez sur un bloc pour le changer — heures, travail, note, pauses — et appuyez sur **Enregistrer les changements** ; **Supprimer le quart** est là pour ceux qui peuvent supprimer.",
+            "Appuyez sur **Publier cette journée** (ou **Publier la semaine** sur la liste). Chaque brouillon de cette plage devient visible pour les personnes concernées, et l'avis dit combien.",
           ] },
+          { p: "**Copier lundi dernier** copie les quarts et pauses du même jour de la semaine, sept jours plus tôt, dans cette journée en brouillon, après confirmation. Quiconque a déjà un quart ce jour-là est ignoré, de même qu'une copie que les vérifications ci-dessous refusent (maintenant en congé, maintenant indisponible) ; l'avis dit combien ont été copiés et combien ignorés." },
           { note: "Publier affiche les quarts sur l'écran Attribuer les quarts de chaque personne — « Voici les quarts publiés par votre gestionnaire. Revenez pour les changements. » Rien n'est envoyé par courriel ni par texto." },
+        ],
+      },
+      {
+        id: "the-clock-and-the-dots",
+        heading: "L'horodateur pilote les points",
+        blocks: [
+          { p: "Le point sur les initiales de chaque personne vient de l'[[the-time-clock|horodateur]], pas du plan. **Vert** : pointé en ce moment — la ligne dit **sur place depuis 7:42**. **Ambre** : la personne a appuyé sur **Commencer le dîner** ou **Commencer une pause** sur l'horodateur sans y mettre fin — **en pause depuis 12:03**. **Gris** : planifié aujourd'hui et pas encore pointé. Un point creux n'est pas planifié ; un point atténué est en congé approuvé." },
+          { p: "Le tableau se relit toutes les trente secondes tant que l'onglet est ouvert, et immédiatement quand vous y revenez, si bien qu'une pause pointée dans le camion change la couleur ici sans recharger. Le dîner prévu reste hachuré dans le bloc ; le point montre le vrai — vous voyez donc que le dîner de 12:00 a réellement commencé à 12:20." },
+          { p: "Une pause pointée sur l'horodateur est inscrite sur l'entrée de temps de la personne, pas sur le quart. Les pauses non payées sont déduites des heures inscrites au pointage de sortie, et la [[timesheets-and-approving-hours|feuille de temps]] affiche les minutes à côté des heures." },
         ],
       },
       {
@@ -509,10 +532,11 @@ export const ARTICLES = {
           { table: {
             head: ["Le quart tombe…", "Ce qui se passe"],
             rows: [
-              ["Hors des heures où la personne s'est dite disponible", "Le formulaire s'arrête : « Vérifiez avec la personne avant de poursuivre — elle n'a pas encore accepté. » Vous pouvez donner une raison sous **Pourquoi ?** et appuyer sur **Planifier quand même** ; le quart est alors marqué **En dehors des disponibilités déclarées**, et la personne le voit à la publication."],
-              ["Sur un congé approuvé", "Bloqué. « Changez la date, ou modifiez d'abord leur congé. » Un congé approuvé est une décision déjà prise, et il n'y a pas de contournement."],
+              ["Hors des heures où la personne s'est dite disponible", "Le formulaire s'arrête : « Vérifiez avec la personne avant de poursuivre — elle n'a pas encore accepté. » Vous pouvez donner une raison sous **Pourquoi ?** et appuyer sur **Planifier quand même** ; le quart est alors marqué **En dehors des disponibilités déclarées** avec un pictogramme d'avertissement sur le bloc, et la personne le voit à la publication."],
+              ["Sur un congé approuvé", "Bloqué. « Changez la date, ou modifiez d'abord leur congé. » Un congé approuvé est une décision déjà prise, et il n'y a pas de contournement. La ligne affiche **Absent** au lieu des cellules d'heures."],
               ["Hors de ses heures de travail habituelles", "Enregistré, avec un avertissement après **Quart ajouté.** Les heures supplémentaires ne sont pas une erreur."],
-              ["Sur quelqu'un sans aucune heure définie", "Enregistré. Le silence n'est pas un refus — la bannière vous invite à définir ses heures."],
+              ["Sur quelqu'un sans aucune heure définie", "Enregistré. Le silence n'est pas un refus — la bannière vous invite à définir ses heures, et rien n'est grisé sur sa ligne."],
+              ["Avec une pause hors du quart, ou deux qui se chevauchent", "Refusé : « Les pauses doivent tomber dans le quart, finir après leur début et ne pas se chevaucher. » Déplacer un quart revérifie ses pauses contre les nouvelles heures."],
             ],
           } },
           { p: "Disponibilités, heures de travail et congés sont trois choses différentes — voir [[working-hours-and-bookable-hours|Heures de travail et heures réservables]] et [[time-off-requests|Demandes de congé]]." },
@@ -523,9 +547,9 @@ export const ARTICLES = {
         heading: "Qui peut faire quoi",
         blocks: [
           { bullets: [
-            "**Ajouter un quart** et **Publier la semaine** demandent le domaine Schedule au niveau **Edit everyone's schedule** — les Dispatcher, les Manager, le propriétaire et les administrateurs.",
-            "**Supprimer un quart** (le ✕) demande **Edit and delete everyone's schedule** — les Manager, le propriétaire et les administrateurs. Un Dispatcher prépare et publie, mais ne supprime pas.",
-            "**Les Crew et les Estimator** ouvrent la même ligne et ne voient que leurs propres quarts publiés, avec la note que leur gestionnaire les publie.",
+            "**Ajouter, modifier, copier et publier** demandent le domaine Schedule au niveau **Edit everyone's schedule** — les Dispatcher, les Manager, le propriétaire et les administrateurs.",
+            "**Supprimer un quart** (le ✕, ou **Supprimer le quart** dans le formulaire) demande **Edit and delete everyone's schedule** — les Manager, le propriétaire et les administrateurs. Un Dispatcher prépare et publie, mais ne supprime pas.",
+            "**Les Crew et les Estimator** ouvrent le même tableau et ne voient que leur propre ligne, seulement les quarts publiés, avec leur dîner et leurs pauses, et la note que leur gestionnaire les publie. Rien n'y est cliquable pour eux.",
           ] },
         ],
       },
@@ -534,6 +558,8 @@ export const ARTICLES = {
       { q: "Puis-je dépublier une semaine ?", a: "Pas depuis l'écran. Supprimez le quart erroné et ajoutez le bon ; le nouveau est en brouillon jusqu'à ce que vous publiiez de nouveau." },
       { q: "Un quart met-il quelque chose au calendrier du client ?", a: "Non. Les quarts sont internes. Le client est informé des visites, jamais des quarts." },
       { q: "Pourquoi puis-je ajouter un quart un dimanche ?", a: "Les heures de travail ne font qu'avertir ; elles ne bloquent pas. Seul un congé approuvé bloque." },
+      { q: "Pourquoi une visite apparaît-elle sur le tableau sans quart dessous ?", a: "Parce qu'elle a été réservée depuis la page du travail et assignée à cette personne, et que personne ne lui a encore préparé de quart ce jour-là. Le tableau montre les deux pour qu'ils ne se contredisent jamais en silence." },
+      { q: "Puis-je glisser un bloc pour le déplacer ?", a: "Non. Cliquez dessus et changez les heures dans le formulaire — c'est là que les vérifications de disponibilité et de congé s'exécutent." },
     ],
   },
 

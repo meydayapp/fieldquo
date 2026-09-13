@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { fetchJson } from "@/lib/fetchJson";
 import { personOptionLabel } from "@/lib/team/personLabel";
 import { reportResponseError } from "@/lib/clientErrors";
+import { unpaidBreakMs } from "@/lib/timeclock/entryHours";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -403,6 +404,18 @@ function TimesheetsPageScreen() {
               <div className="text-xs text-muted-foreground">
                 {formatDate(e.clockIn)} ·{" "}
                 {e.hours ? `${e.hours}h` : t("app.timesheets.inProgress")}
+                {/* The unpaid minutes already taken off `hours`, so a
+                    manager reading 7.5h beside an 8-to-4 punch sees why. */}
+                {e.breaks?.length > 0 && e.clockOut && (
+                  <>
+                    {" · "}
+                    {t("app.timesheets.breakMinutes", {
+                      minutes: Math.round(
+                        unpaidBreakMs(e.breaks, e.clockIn, e.clockOut) / 60_000,
+                      ),
+                    })}
+                  </>
+                )}
               </div>
               {/* Both punches, always — a missing chip would be indistinguishable
                   from a missing stamp, and "—" is the honest word for that. The

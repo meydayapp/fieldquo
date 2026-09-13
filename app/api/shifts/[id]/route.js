@@ -8,6 +8,49 @@ import { assessShiftFit } from "@/lib/scheduling/loadShiftFit";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { can } from "@/lib/permissions";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
+import { validateBreaks } from "@/lib/shifts/coverage";
+
+const SHIFT_SELECT = {
+  id: true,
+  workerId: true,
+  start: true,
+  end: true,
+  note: true,
+  published: true,
+  availabilityOverrideAt: true,
+  availabilityOverrideNote: true,
+  breaks: {
+    select: { id: true, start: true, end: true, kind: true, paid: true },
+    orderBy: { start: "asc" },
+  },
+};
+
+// ── Breaks are replaced as a set, with the shift, in one transaction ────────
+//
+// The modal sends the whole list every time it saves. Diffing it against the
+// rows (this one moved, that one is new, the third is gone) would be more code
+// with a second way to be wrong; replacing the set is one statement whose
+// result is exactly what the manager was looking at when they pressed Save.
+// Inside the same transaction as the shift update, so a shift whose times
+// moved never keeps a lunch that now falls outside them.
+//
+// `breaks` absent from the body means "not touching them" — the week list's
+// PATCH callers (publish, rename) never send the field and must not clear a
+// lunch by omission. An explicit empty list clears them, which is what the
+// modal sends after the last ✕.
+async function updateShift(id, data, breaks) {
+  if (breaks === undefined) {
+    return db.shift.update({ where: { id }, data, select: SHIFT_SELECT });
+  }
+  return db.$transaction(async (tx) => {
+    await tx.shiftBreak.deleteMany({ where: { shiftId: id } });
+    return tx.shift.update({
+      where: { id },
+      data: { ...data, breaks: breaks.length ? { create: breaks } : undefined },
+      select: SHIFT_SELECT,
+    });
+  });
+}
 
 async function ownShift(member, id) {
   return db.shift.findFirst({ where: { id, companyId: member.companyId } });
@@ -68,6 +111,35 @@ export async function PATCH(request, { params }) {
     );
   }
 
+  // Checked against the shift's NEW times, so moving a shift to 13:00–21:00
+  // while its 12:00 lunch stays in the body is refused rather than written.
+  // Same validator as the create route (lib/shifts/coverage.js).
+  let breaks;
+  if (body.breaks !== undefined) {
+    const breaksCheck = validateBreaks(start, end, body.breaks);
+    if (!breaksCheck.ok) {
+      return NextResponse.json({ error: breaksCheck.error }, { status: 400 });
+    }
+    breaks = breaksCheck.breaks;
+  } else if (data.start !== undefined || data.end !== undefined) {
+    // Times moved and the caller said nothing about breaks. The rows already
+    // on the shift are re-checked against the new times rather than quietly
+    // kept (a lunch at 12:00 on a shift now starting at 13:00) or quietly
+    // dropped (data deleted by omission). A caller that wants to move the
+    // shift sends the breaks it wants to keep; the modal always does.
+    const existingBreaks = await db.shiftBreak.findMany({
+      where: { shiftId: id },
+      select: { start: true, end: true, kind: true, paid: true },
+    });
+    const keep = validateBreaks(start, end, existingBreaks);
+    if (!keep.ok) {
+      return NextResponse.json(
+        { error: `${keep.error} Move or remove the shift's breaks first.` },
+        { status: 400 },
+      );
+    }
+  }
+
   // Moving a shift has to face the same question creating one does. Checking
   // only on create would mean the rule holds until somebody drags the block —
   // which is how most shifts actually get their final times.
@@ -125,20 +197,7 @@ export async function PATCH(request, { params }) {
         data.availabilityOverrideNote = null;
       }
 
-      const shift = await db.shift.update({
-        where: { id },
-        data,
-        select: {
-          id: true,
-          workerId: true,
-          start: true,
-          end: true,
-          note: true,
-          published: true,
-          availabilityOverrideAt: true,
-          availabilityOverrideNote: true,
-        },
-      });
+      const shift = await updateShift(id, data, breaks);
       return NextResponse.json({
         ok: true,
         shift,
@@ -148,18 +207,7 @@ export async function PATCH(request, { params }) {
     }
   }
 
-  const shift = await db.shift.update({
-    where: { id },
-    data,
-    select: {
-      id: true,
-      workerId: true,
-      start: true,
-      end: true,
-      note: true,
-      published: true,
-    },
-  });
+  const shift = await updateShift(id, data, breaks);
   return NextResponse.json({ ok: true, shift });
 }
 

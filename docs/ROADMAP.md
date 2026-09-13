@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 13 September 2026 (the public help centre is live at help.fieldquo.com — 311 articles in English, French and Spanish, one per screen, per Settings row and per flow, figures only from the product's own captures; lib/help/tree.js is the spine, content/help/ the words, check:help-centre the gate.)
+Last updated: 13 September 2026 (the crew scheduler has a day board — a row per person, a column per hour, lunches and breaks hatched inside the shifts, a coverage strip per half hour, approved leave as OUT, job visits on the row, and the time clock's Start lunch / Start break turning the dot green and amber live; lib/shifts/coverage.js is the arithmetic, check:shift-board executes it.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,56 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## The scheduler's day board, lunches and breaks, and a dot the time clock drives (13 September 2026)
+
+The owner: "can they set and create the schedule of the team in this style
+and form [a dispatch board]… also in there they can set the lunch and breaks
+so that it can be visual in a way that allows them to know who is on break at
+the various times so if they need coverage they can check that there is
+coverage" — then "we can also see who has been dispatched to what job", and
+"if they go on break or lunch they can set that in that timer thing in /app
+and that can IN REAL TIME change the color of the visualization."
+
+- **Day | Week on /app/scheduler** — `app/app/scheduler/DayBoard.js`: a row
+  per active worker, a column per hour (the company's opening hours ± 1 h,
+  7–18 when none are set, widened to fit any shift), shifts as blocks
+  labelled client · site address · title (never the billing address), a
+  stable colour per job id, dashed = draft, hatched amber = lunch/break,
+  full-row muted OUT for approved leave (`LeaveRequest`, policy named), grey
+  cells for hours outside the person's `AvailabilitySchedule`, job visits
+  (`JobVisit`, one-hour chip, status-coloured, links to the job), a red
+  now-line. Click an empty hour → new shift at that hour; click a block →
+  edit. No drag. The week list is unchanged and now has Edit.
+- **Coverage strip** — per half hour, how many are working and how many of
+  those are on break; a slot inside opening hours with nobody working is
+  red. `lib/shifts/coverage.js` is pure (placement, DST-safe hour columns,
+  coverage, break validation, midpoint lunch, scheduled minutes);
+  `scripts/check-shift-board.mjs` (`npm run check:shift-board`, pinned to
+  America/Toronto) executes it against overlaps, breaks outside shifts, the
+  two DST days, a 22:00–06:00 shift and an empty day.
+- **Breaks on the plan** — `ShiftBreak` (child of `Shift`: start, end,
+  lunch|break, paid). POST/PATCH `/api/shifts` take `breaks[]`, validated
+  (inside the shift, non-overlapping) and written in the shift's own
+  transaction; moving a shift re-checks its breaks. The modal has Add
+  30-min lunch at midpoint / Add break / paid. Copy last <weekday> copies
+  shifts and breaks a week forward as drafts; Publish this day publishes
+  the day.
+- **Breaks that happened** — `TimeEntryBreak` (child of `TimeEntry`).
+  `/app/clock` has Start lunch / Start break / End break
+  (`/api/time-clock` actions `break_start` / `break_end`); clock-out and a
+  job switch close a running break and book hours net of unpaid ones through
+  `lib/timeclock/entryHours.js` — the manager's manual clock-out uses the
+  same function, the timesheet shows the minutes, and the live figure on the
+  clock (`todayHoursFrom`) subtracts them too.
+- **The dot** — green = an open `TimeEntry` now ("on site since 7:42"),
+  amber = a running `TimeEntryBreak` ("on break since 12:03"), grey =
+  scheduled today and not clocked in, hollow = not scheduled, muted = out.
+  The board polls the same GET every 30 s while visible
+  (`app/hooks/useVisibleRefresh.js`) and re-reads the dots every minute.
+- `Worker.title` (Foreman, Receptionist…) sits under the name on the row when
+  set; nothing when null. There is no job number in the schema, so blocks
+  carry none.
 
 ## A job title beside every name, and the seat word only where the seat is edited (13 September 2026)
 

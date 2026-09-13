@@ -2,9 +2,19 @@
 
 // app/app/scheduler/page.js
 //
-// Shift scheduling. Managers draft shifts for the week and publish them; workers
-// see only their own published shifts. Day-grouped rather than a worker×day grid
-// so it stays readable on a phone. Pure scheduling — no pay, no money.
+// Shift scheduling. Managers draft shifts and publish them; workers see only
+// their own published shifts. Pure scheduling — no pay, no money.
+//
+// Two views of the same rows, one toggle:
+//
+//   Week  the original list, seven day cards — readable on a phone, the
+//         place to see the shape of a week.
+//   Day   the dispatch board (DayBoard.js): a row per person, a column per
+//         hour, lunches and breaks hatched inside the blocks, approved leave
+//         as OUT, and a coverage strip so a manager can see who is left on
+//         site while two people are at lunch. The owner asked for the board
+//         in so many words; the week list stays because it is the view that
+//         fits a phone, and the two share the modal and the routes.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -15,6 +25,7 @@ import {
   X,
   Loader2,
   CalendarDays,
+  Copy,
   Send,
 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -22,12 +33,19 @@ import {
   formatDayMonth,
   formatTimeOfDay,
   formatWeekdayDayMonth,
+  weekdayName,
 } from "@/lib/format/localeDate";
 import { reportResponseError } from "@/lib/clientErrors";
 import { fetchList } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
+import { dayBoundsLocal, localYmd } from "@/lib/shifts/coverage";
+import { useVisibleRefresh } from "@/app/hooks/useVisibleRefresh";
+import DayBoard from "./DayBoard";
+import ShiftModal from "./ShiftModal";
+
+const VIEW_KEY = "scheduler.view";
 
 function startOfWeek(d) {
   const x = new Date(d);
@@ -57,19 +75,51 @@ function fmtTime(iso, language) {
 
 export default function SchedulerPage() {
   const { t, language } = useTranslation();
+  // "day" | "week". Remembered per browser: a dispatcher who lives on the
+  // board should not be handed the list every morning. A stored value that
+  // is not one of the two is ignored rather than trusted.
+  const [view, setViewState] = useState("day");
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(VIEW_KEY);
+      if (stored === "week" || stored === "day") setViewState(stored);
+    } catch {
+      /* private mode: the default stands */
+    }
+  }, []);
+  const setView = (v) => {
+    setViewState(v);
+    try {
+      window.localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      /* not remembered, still shown */
+    }
+  };
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
+  const [dateStr, setDateStr] = useState(() => localYmd(new Date()));
   const [data, setData] = useState(null);
   const [errorKey, setErrorKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [modal, setModal] = useState(null); // { dateStr } when adding
+  // { dateStr } for a new shift from the week list; { workerId, dateStr,
+  // start, end } for a new one from a board cell; { shift } to edit one.
+  const [modal, setModal] = useState(null);
   const [shiftNotice, setShiftNotice] = useState(null); // warnings from the last save
+  // "Copied 4, skipped 1" / "Published 6" — the result of a toolbar action,
+  // said once, in a sentence, rather than left to be inferred from the board.
+  const [actionNotice, setActionNotice] = useState(null);
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const weekEnd = useMemo(() => addDays(weekStart, 7), [weekStart]);
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
     [weekStart],
   );
+  const dayBounds = useMemo(() => dayBoundsLocal(dateStr), [dateStr]);
 
   // ── A week that failed to load is not a week with no shifts ────────────
   //
@@ -85,9 +135,15 @@ export default function SchedulerPage() {
   //     empty state, because nothing about it looks wrong.
   //
   // `setData(null)` closes the second and the error key closes the first.
+  //
+  // The day board asks for exactly its day, the week list for its week; the
+  // route answers both with the same shape, so one loader serves both views.
   const load = useCallback(async () => {
+    const from =
+      view === "day" && dayBounds ? new Date(dayBounds.start) : weekStart;
+    const to = view === "day" && dayBounds ? new Date(dayBounds.end) : weekEnd;
     const result = await fetchList(
-      `/api/shifts?from=${weekStart.toISOString()}&to=${weekEnd.toISOString()}`,
+      `/api/shifts?from=${from.toISOString()}&to=${to.toISOString()}`,
     );
     if (result.aborted) return;
     if (!result.ok) {
@@ -97,12 +153,28 @@ export default function SchedulerPage() {
     }
     setErrorKey("");
     setData(result.data);
-  }, [weekStart, weekEnd]);
+  }, [view, dayBounds, weekStart, weekEnd]);
 
   useEffect(() => {
     setLoading(true);
     load().finally(() => setLoading(false));
   }, [load]);
+
+  // ── The board follows the time clock, live ──────────────────────────────
+  //
+  // A lunch punched on /app/clock has to change the dot here without anyone
+  // pressing reload. Same GET, every thirty seconds while the tab is visible
+  // and at once when it becomes visible (app/hooks/useVisibleRefresh.js);
+  // between polls the one-minute `now` tick above re-reads the dots from the
+  // timestamps already loaded, so a colour is never more than a minute stale.
+  // Not while a modal is open — a refetch under a half-typed shift would
+  // redraw the board behind it for nothing — and not after a failed load,
+  // which has its own Retry.
+  useVisibleRefresh(
+    view === "day" && !modal && !errorKey,
+    30_000,
+    () => load(),
+  );
 
   // `manager` comes from the API and means user:view — "may see the whole
   // rota". It is the right gate for READING everyone's week: the subtitle and
@@ -135,22 +207,115 @@ export default function SchedulerPage() {
     return map;
   }, [data]);
 
-  async function publish() {
+  // The same route for "Publish week" and "Publish this day" — it already
+  // took a range; the day button simply sends a shorter one.
+  async function publish(from, to) {
     setBusy(true);
     try {
       const res = await fetch("/api/shifts/publish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          from: weekStart.toISOString(),
-          to: weekEnd.toISOString(),
-        }),
+        body: JSON.stringify({ from: from.toISOString(), to: to.toISOString() }),
       });
       if (!res.ok)
         return reportResponseError(
           res,
           t("app.scheduler.publishError", "Couldn't publish."),
         );
+      const body = await res.json().catch(() => null);
+      setActionNotice(t("app.scheduler.publishedCount", { count: body?.count ?? 0 }));
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  }
+  const publishWeek = () => publish(weekStart, weekEnd);
+  const publishDay = () =>
+    dayBounds && publish(new Date(dayBounds.start), new Date(dayBounds.end));
+
+  // ── Copy from last week ──────────────────────────────────────────────────
+  //
+  // The same weekday seven days earlier, shifts AND breaks, moved forward a
+  // week and created as drafts through the ordinary create route — so every
+  // copied shift faces the same availability and leave check a typed one
+  // does. A person who already has a shift on the day is skipped (their day
+  // was already decided); a copy the route refuses (now on leave, now
+  // unavailable) is counted as skipped rather than forced through with an
+  // override nobody chose. Confirmed first, because it creates rows.
+  async function copyFromLastWeek() {
+    if (!dayBounds) return;
+    const sourceStart = new Date(dayBounds.start);
+    sourceStart.setDate(sourceStart.getDate() - 7);
+    const sourceStr = localYmd(sourceStart);
+    const source = dayBoundsLocal(sourceStr);
+    const dow = new Date(dayBounds.start).getDay();
+    if (
+      !window.confirm(
+        t("app.scheduler.copyConfirm", {
+          weekday: weekdayName(dow, language),
+          date: formatDayMonth(sourceStart, language),
+        }),
+      )
+    )
+      return;
+    setBusy(true);
+    try {
+      const result = await fetchList(
+        `/api/shifts?from=${new Date(source.start).toISOString()}&to=${new Date(source.end).toISOString()}`,
+      );
+      if (!result.ok) {
+        setActionNotice(t("app.scheduler.copyLoadFailed"));
+        return;
+      }
+      const sourceShifts = (result.data?.shifts || []).filter(
+        (s) => new Date(s.start) >= source.start && new Date(s.start) < source.end,
+      );
+      if (sourceShifts.length === 0) {
+        setActionNotice(
+          t("app.scheduler.copyNothing", { date: formatDayMonth(sourceStart, language) }),
+        );
+        return;
+      }
+      const taken = new Set((data?.shifts || []).map((s) => s.workerId));
+      // Seven local days forward, through the Date constructor, so a copy
+      // across a clock change keeps its wall-clock time.
+      const forward = (iso) => {
+        const d = new Date(iso);
+        d.setDate(d.getDate() + 7);
+        return d.toISOString();
+      };
+      let copied = 0;
+      let skipped = 0;
+      for (const s of sourceShifts) {
+        if (taken.has(s.workerId)) {
+          skipped += 1;
+          continue;
+        }
+        const res = await fetch("/api/shifts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            workerId: s.workerId,
+            start: forward(s.start),
+            end: forward(s.end),
+            jobId: s.job?.id || null,
+            note: s.note || undefined,
+            breaks: (s.breaks || []).map((b) => ({
+              start: forward(b.start),
+              end: forward(b.end),
+              kind: b.kind,
+              paid: b.paid === true,
+            })),
+          }),
+        });
+        if (res.ok) {
+          copied += 1;
+          taken.add(s.workerId);
+        } else {
+          skipped += 1;
+        }
+      }
+      setActionNotice(t("app.scheduler.copyDone", { copied, skipped }));
       await load();
     } finally {
       setBusy(false);
@@ -165,27 +330,157 @@ export default function SchedulerPage() {
 
   const weekLabel = `${formatDayMonth(weekStart, language)} – ${formatDayMonth(addDays(weekStart, 6), language)}`;
   const anyDraft = (data?.shifts || []).some((s) => !s.published);
+  const todayStr = localYmd(now);
+  const shiftDay = (n) => {
+    const d = new Date(dayBounds ? dayBounds.start : Date.now());
+    d.setDate(d.getDate() + n);
+    setDateStr(localYmd(d));
+  };
+  const pad = (n) => String(n).padStart(2, "0");
+  // A board cell: this person, this hour, eight hours long, kept inside the
+  // day — a click at 16:00 offers 16:00–23:59, not a shift into tomorrow the
+  // modal cannot express.
+  const openNewAt = (workerId, startMs) => {
+    const start = new Date(startMs);
+    const endMs = Math.min(startMs + 8 * 3_600_000, dayBounds.end - 60_000);
+    const end = new Date(endMs);
+    setModal({
+      workerId,
+      dateStr,
+      start: `${pad(start.getHours())}:${pad(start.getMinutes())}`,
+      end: `${pad(end.getHours())}:${pad(end.getMinutes())}`,
+    });
+  };
+
+  const viewToggle = (
+    <div
+      role="tablist"
+      aria-label={t("app.scheduler.viewLabel")}
+      className="inline-flex rounded-lg border border-border p-0.5"
+    >
+      {["day", "week"].map((v) => (
+        <button
+          key={v}
+          type="button"
+          role="tab"
+          aria-selected={view === v}
+          onClick={() => setView(v)}
+          className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+            view === v
+              ? "bg-inverted text-inverted-foreground"
+              : "text-muted-foreground hover:bg-muted"
+          }`}
+        >
+          {v === "day" ? t("app.scheduler.viewDay") : t("app.scheduler.viewWeek")}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
-    <div className="max-w-3xl mx-auto p-4 sm:p-6">
-      <div className="mb-4">
-        <div className="flex items-center gap-2">
-          <CalendarDays size={20} className="text-foreground" />
-          <h1 className="text-2xl font-bold text-foreground">
-            {t("app.scheduler.title")}
-          </h1>
+    <div
+      className={`${view === "day" ? "max-w-6xl" : "max-w-3xl"} mx-auto p-4 sm:p-6`}
+    >
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <CalendarDays size={20} className="text-foreground" />
+            <h1 className="text-2xl font-bold text-foreground">
+              {t("app.scheduler.title")}
+            </h1>
+          </div>
+          {isManager && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              {view === "day"
+                ? t("app.scheduler.boardSubtitle")
+                : t(
+                    "app.scheduler.managerSubtitle",
+                    "Add shifts for the week, then Publish so your team can see them — shifts stay hidden until you publish.",
+                  )}
+            </p>
+          )}
         </div>
-        {isManager && (
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t(
-              "app.scheduler.managerSubtitle",
-              "Add shifts for the week, then Publish so your team can see them — shifts stay hidden until you publish.",
-            )}
-          </p>
-        )}
+        {viewToggle}
       </div>
 
-      {/* Week nav */}
+      {view === "day" ? (
+        /* ── Day toolbar ───────────────────────────────────────────────── */
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => shiftDay(-1)}
+              className="p-2 rounded-lg border border-border hover:bg-muted"
+              aria-label={t("app.scheduler.prevDay")}
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setDateStr(todayStr)}
+              className="px-3 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted"
+            >
+              {t("app.scheduler.today")}
+            </button>
+            <button
+              type="button"
+              onClick={() => shiftDay(1)}
+              className="p-2 rounded-lg border border-border hover:bg-muted"
+              aria-label={t("app.scheduler.nextDay")}
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+          <input
+            type="date"
+            value={dateStr}
+            onChange={(e) => e.target.value && setDateStr(e.target.value)}
+            aria-label={t("app.scheduler.date")}
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+          />
+          <span className="text-sm font-semibold text-foreground">
+            {dayBounds && formatWeekdayDayMonth(new Date(dayBounds.start), language)}
+            {dateStr === todayStr && (
+              <span className="ml-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                {t("app.scheduler.today")}
+              </span>
+            )}
+          </span>
+          {canEditSchedule && (
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={copyFromLastWeek}
+                disabled={busy || loading || Boolean(errorKey)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-muted disabled:opacity-60"
+              >
+                <Copy size={14} />
+                {t("app.scheduler.copyLastWeek", {
+                  weekday: dayBounds
+                    ? weekdayName(new Date(dayBounds.start).getDay(), language)
+                    : "",
+                })}
+              </button>
+              {anyDraft && (
+                <button
+                  type="button"
+                  onClick={publishDay}
+                  disabled={busy}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2 disabled:opacity-60"
+                >
+                  {busy ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : (
+                    <Send size={15} />
+                  )}
+                  {t("app.scheduler.publishDay")}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+      /* Week nav */
       <div
         data-tour="scheduler-week"
         className="flex items-center justify-between gap-2 mb-4"
@@ -216,12 +511,13 @@ export default function SchedulerPage() {
           {weekLabel}
         </span>
       </div>
+      )}
 
       {/* Gated on canEditSchedule, not isManager — POST /api/shifts and
           POST /api/shifts/publish both require schedule at edit_all, and
           isManager only means user:view. See the comment above the two
           constants. */}
-      {canEditSchedule && (
+      {view === "week" && canEditSchedule && (
         <div className="flex items-center gap-2 mb-4">
           <button
             data-tour="scheduler-add"
@@ -240,7 +536,7 @@ export default function SchedulerPage() {
           </button>
           {anyDraft && (
             <button
-              onClick={publish}
+              onClick={publishWeek}
               disabled={busy}
               className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2 disabled:opacity-60"
             >
@@ -295,6 +591,19 @@ export default function SchedulerPage() {
           {t("app.scheduler.shiftAdded")} {shiftNotice.join(" ")}
         </div>
       )}
+      {actionNotice && (
+        <div className="mb-3 flex items-start justify-between gap-2 rounded-xl border border-border bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">
+          <span>{actionNotice}</span>
+          <button
+            type="button"
+            onClick={() => setActionNotice(null)}
+            aria-label={t("app.action.close")}
+            className="shrink-0"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {errorKey ? (
         /* The week could not be read. Seven cards saying "No shifts
@@ -308,6 +617,36 @@ export default function SchedulerPage() {
         <div className="min-h-[30vh] grid place-items-center">
           <Loader2 className="animate-spin text-muted-foreground" />
         </div>
+      ) : view === "day" ? (
+        <>
+          <DayBoard
+            data={data}
+            dateStr={dateStr}
+            now={now}
+            isManager={Boolean(isManager)}
+            canEditSchedule={canEditSchedule}
+            canDeleteShift={canDeleteShift}
+            language={language}
+            t={t}
+            onAddAt={openNewAt}
+            onEditShift={(shift) => setModal({ shift })}
+          />
+          {/* The board has drawn every row and none of them holds a shift.
+              Said once under the board, not as a separate empty panel that
+              would hide the rows, the OUT blocks and the visits. */}
+          {(data?.shifts || []).length === 0 && (
+            <p className="mt-3 text-sm text-muted-foreground">
+              {isManager
+                ? t("app.scheduler.emptyDay")
+                : t("app.scheduler.emptyDayWorker")}
+            </p>
+          )}
+          {canEditSchedule && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t("app.scheduler.boardHint")}
+            </p>
+          )}
+        </>
       ) : (
         <div className="space-y-3">
           {days.map((day) => {
@@ -369,6 +708,19 @@ export default function SchedulerPage() {
                                 .join(" · ")}
                             </div>
                           )}
+                          {/* The lunch is part of the shift; a list that
+                              hid it would tell a worker to be on the tools
+                              for eight hours straight. */}
+                          {s.breaks?.length > 0 && (
+                            <div className="text-xs text-muted-foreground truncate">
+                              {s.breaks
+                                .map(
+                                  (b) =>
+                                    `${b.kind === "lunch" ? t("app.scheduler.lunch") : t("app.scheduler.break")} ${fmtTime(b.start, language)}–${fmtTime(b.end, language)}`,
+                                )
+                                .join(" · ")}
+                            </div>
+                          )}
                           {/* The worker sees this on their OWN shift. That is
                               the point of recording it rather than confirming
                               it in a dialog: they were scheduled outside what
@@ -391,6 +743,20 @@ export default function SchedulerPage() {
                             <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
                               {t("app.scheduler.draft")}
                             </span>
+                          )}
+                          {/* Same modal the board opens: times, job, note,
+                              lunch and breaks. Edit was only reachable from
+                              the board until this button; the list is the
+                              phone view and a phone user has the same
+                              shifts to fix. */}
+                          {canEditSchedule && (
+                            <button
+                              type="button"
+                              onClick={() => setModal({ shift: s })}
+                              className="text-xs font-medium text-foreground underline"
+                            >
+                              {t("app.action.edit")}
+                            </button>
                           )}
                           {isManager && canDeleteShift && (
                             <button
@@ -419,239 +785,25 @@ export default function SchedulerPage() {
       )}
 
       {modal && isManager && (
-        <AddShiftModal
-          dateStr={modal.dateStr}
-          workers={data.workers}
+        <ShiftModal
+          shift={modal.shift || null}
+          initial={modal.shift ? {} : modal}
+          workers={data?.workers || []}
+          jobs={data?.jobs || []}
+          canDelete={canDeleteShift}
           onClose={() => setModal(null)}
           onSaved={async (warnings) => {
             setModal(null);
             setShiftNotice(warnings?.length ? warnings : null);
             await load();
           }}
+          onDeleted={async () => {
+            setModal(null);
+            await load();
+          }}
           t={t}
         />
       )}
-    </div>
-  );
-}
-
-function AddShiftModal({ dateStr, workers, onClose, onSaved, t }) {
-  const [workerId, setWorkerId] = useState(workers?.[0]?.id || "");
-  const [date, setDate] = useState(dateStr);
-  const [start, setStart] = useState("09:00");
-  const [end, setEnd] = useState("17:00");
-  const [note, setNote] = useState("");
-  const [saving, setSaving] = useState(false);
-  // A refusal belongs INSIDE the modal, beside the time fields that caused it.
-  // Sent to the global toast instead, it would vanish while the manager was
-  // still looking at the wrong times with no idea which number to change.
-  const [refusal, setRefusal] = useState(null);
-  // A reason for going ahead anyway. Optional — an emergency should not be
-  // gated on typing — but offered, because the record is worth reading later.
-  const [overrideNote, setOverrideNote] = useState("");
-
-  // ── `override === true`, not `Boolean(override)` ─────────────────────────
-  //
-  // "Add to draft" wired this as `onClick={save}`, so React passed the CLICK
-  // EVENT as `override` — a default parameter only fires for `undefined`, and
-  // an event is not undefined. The event was truthy, so `override || undefined`
-  // put a React synthetic event in the request body and JSON.stringify threw
-  // "Converting circular structure to JSON" (Safari: "cannot serialize cyclic
-  // structures"). No fetch was ever made: the primary Add-to-draft button on
-  // the scheduler could not create a shift at all.
-  //
-  // Same defect, same shape, as the quote page's Send button. The call site is
-  // fixed too; this guard stays because the next person to wire a handler
-  // straight to onClick will make the same mistake and the failure it produces
-  // names nothing about where it came from.
-  async function save(overrideArg = false) {
-    const override = overrideArg === true;
-    if (!workerId || end <= start) return;
-    setSaving(true);
-    if (!override) setRefusal(null);
-    try {
-      const res = await fetch("/api/shifts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          workerId,
-          start: new Date(`${date}T${start}`).toISOString(),
-          end: new Date(`${date}T${end}`).toISOString(),
-          note: note.trim() || undefined,
-          override: override || undefined,
-          overrideNote:
-            override && overrideNote.trim() ? overrideNote.trim() : undefined,
-        }),
-      });
-      if (!res.ok) {
-        // 409 is the fit check: this person is not available, or is on
-        // approved leave. It has reasons worth reading, unlike a 500.
-        const body = await res.json().catch(() => null);
-        if (res.status === 409 && body?.blocks?.length) {
-          // canOverride false is approved leave — a decision the company
-          // already made and honoured. There is no "anyway" button for it, and
-          // offering one would be offering to break a promise.
-          setRefusal({
-            reasons: body.blocks,
-            canOverride: Boolean(body.canOverride),
-          });
-          return;
-        }
-        return reportResponseError(
-          res,
-          t("app.scheduler.saveError", "Couldn't save the shift."),
-        );
-      }
-      // Warnings are not refusals — the shift was created. Passed up so the
-      // manager is told it is outside this person's usual pattern, which is
-      // how a mistyped hour reads as a mistyped hour.
-      const body = await res.json().catch(() => null);
-      await onSaved(body?.warnings || []);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-sm rounded-2xl bg-card p-5 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-foreground">
-            {t("app.scheduler.newShift")}
-          </h2>
-          <button onClick={onClose} aria-label={t("app.action.close")}>
-            <X size={18} className="text-muted-foreground" />
-          </button>
-        </div>
-        <div className="space-y-3">
-          {refusal && (
-            <div
-              className={`rounded-lg border px-3 py-2 text-xs ${
-                refusal.canOverride
-                  ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
-                  : "border-red-300 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"
-              }`}
-            >
-              {refusal.reasons.map((r) => (
-                <p key={r}>{r}</p>
-              ))}
-
-              {refusal.canOverride ? (
-                <>
-                  <p className="mt-1.5 font-medium">
-                    {t("app.scheduler.checkFirst")}
-                  </p>
-                  <input
-                    value={overrideNote}
-                    onChange={(e) => setOverrideNote(e.target.value)}
-                    placeholder={t("app.scheduler.overrideWhy")}
-                    className="mt-1.5 w-full rounded border border-amber-300 bg-background px-2 py-1 text-xs dark:border-amber-800"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => save(true)}
-                    disabled={saving}
-                    className="mt-1.5 rounded bg-amber-700 px-2.5 py-1 text-xs font-medium text-white hover:bg-amber-800 disabled:opacity-50"
-                  >
-                    {t("app.scheduler.scheduleAnyway")}
-                  </button>
-                  <p className="mt-1 opacity-80">
-                    {t("app.scheduler.overrideMarked")}
-                  </p>
-                </>
-              ) : (
-                // Approved leave. No override, and the way out is named rather
-                // than left for someone to hunt for.
-                <p className="mt-1.5 opacity-90">
-                  {t("app.scheduler.changeDateInstead")}
-                </p>
-              )}
-            </div>
-          )}
-          <label className="block">
-            <span className="text-xs text-muted-foreground">
-              {t("app.scheduler.worker")}
-            </span>
-            <select
-              value={workerId}
-              onChange={(e) => setWorkerId(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            >
-              {(workers || []).map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="text-xs text-muted-foreground">
-              {t("app.scheduler.date")}
-            </span>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            />
-          </label>
-          <div className="flex gap-3">
-            <label className="block flex-1">
-              <span className="text-xs text-muted-foreground">
-                {t("app.scheduler.start")}
-              </span>
-              <input
-                type="time"
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="block flex-1">
-              <span className="text-xs text-muted-foreground">
-                {t("app.scheduler.end")}
-              </span>
-              <input
-                type="time"
-                value={end}
-                onChange={(e) => setEnd(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-              />
-            </label>
-          </div>
-          <label className="block">
-            <span className="text-xs text-muted-foreground">
-              {t("app.scheduler.noteOptional")}
-            </span>
-            <input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder={t("app.scheduler.notePlaceholder")}
-              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            />
-          </label>
-          {end <= start && (
-            <p className="text-xs text-red-600">
-              {t("app.scheduler.endAfterStart")}
-            </p>
-          )}
-          <button
-            // Wrapped, not passed. `onClick={save}` handed save the click event
-            // as its `override` argument — see the note on save().
-            onClick={() => save()}
-            disabled={saving || !workerId || end <= start}
-            className="w-full rounded-lg bg-inverted text-inverted-foreground py-2.5 text-sm font-semibold disabled:opacity-60"
-          >
-            {saving ? t("app.action.saving") : t("app.scheduler.addToDraft")}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
