@@ -222,7 +222,9 @@ export default function WorkerDocumentsPanel({ mode = "manager", workerId = null
                     {doc.sizeBytes ? ` · ${formatBytes(doc.sizeBytes)}` : ""}
                     {" · "}
                     {t("app.hr.docs.filedOn", { date: formatDate(doc.createdAt) })}
-                    {doc.uploadedByKind === "worker" ? ` · ${t("app.hr.docs.byWorker")}` : ""}
+                    {/* "uploaded by them" is the manager's sentence; on the
+                        person's own screen the row is theirs by default. */}
+                    {mode === "manager" && doc.uploadedByKind === "worker" ? ` · ${t("app.hr.docs.byWorker")}` : ""}
                   </span>
                   {mode === "manager" && doc.note ? <span className="block text-xs text-muted-foreground mt-1">{doc.note}</span> : null}
                 </div>
