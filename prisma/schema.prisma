@@ -10891,6 +10891,25 @@ model SalesMessage {
   /// so a delivery failure can be traced back to the provider's own record.
   providerId String?
 
+  /// Inbound only, and only through the Resend Receiving door: the Resend id
+  /// of the COPY FieldQuo forwarded to the rep's real mailbox after filing
+  /// this. A reply that lands at the reply domain reaches Resend, not a
+  /// human, so the forward is what puts it in front of the rep — and this
+  /// column is the evidence it happened. Null on outbound rows and on replies
+  /// that arrived through the generic forwarder (§5), which the rep's mailbox
+  /// already had. Nullable and additive: rows written before it existed are
+  /// simply "not forwarded by us", which is true.
+  forwardProviderId String?
+
+  /// Inbound only: what the prospect attached, re-hosted to Cloudinary, in the
+  /// same shape as Message.attachments so lib/messaging/attachments.js reads
+  /// both — [{ type, url, mimeType, filename, bytes, fetchError }]. The
+  /// provider's own download URL is signed and expires in an hour, so it is
+  /// never stored; a fetch that failed is kept as an entry with `fetchError`
+  /// and no url, so the screen can say "kitchen-plan.pdf couldn't be stored"
+  /// rather than showing nothing where the prospect sent something.
+  attachments Json?
+
   /// When the message actually happened, from the provider's own header where
   /// there is one — not when we wrote the row.
   sentAt DateTime @default(now())
@@ -10898,6 +10917,54 @@ model SalesMessage {
   createdAt DateTime @default(now())
 
   @@index([threadId, sentAt])
+}
+
+/// One received email at the Resend Receiving door, whatever became of it.
+///
+/// ── Why a ledger and not just the message row ──────────────────────────────
+///
+/// Resend redelivers a webhook it did not get a 2xx for, and the same event
+/// can arrive twice for other reasons. SalesMessage only exists for a reply
+/// that FILED — a reply with no token, or a token no thread has, writes no
+/// message row, and without this table its second delivery would forward a
+/// second copy to the rep. `resendEmailId` is unique, so the second delivery
+/// hits the constraint and is answered `duplicate` before anything is fetched
+/// or sent. That is the idempotency the door promises, and it is a database
+/// fact rather than a lookup that races.
+///
+/// It is also where an unfiled message's forward is recorded, since there is
+/// no message row to put it on — and where a message that could not be
+/// forwarded to anyone is visible, by Resend id, so it can be found in
+/// Resend's own Receiving inbox.
+model SalesInboundReceipt {
+  id String @id @default(cuid())
+
+  /// Resend's id for the received email — the `email_id` on the event.
+  resendEmailId String @unique
+
+  /// The RFC Message-ID, when the event carried one.
+  messageId String?
+
+  /// "processing" while the door is working on it; then the filing outcome —
+  /// "filed" | "no_token" | "unknown_token" | "own_outbound" | "duplicate" —
+  /// or "error" when our own write failed and Resend should retry.
+  outcome String @default("processing")
+
+  /// Set when the message filed.
+  threadId       String?
+  salesMessageId String?
+
+  /// Where the copy went, and Resend's id for it. `forwardedTo` is the rep's
+  /// mailbox; null with `forwardError` set means nobody received it, and the
+  /// error log carries the reason.
+  forwardedTo       String?
+  forwardProviderId String?
+  forwardError      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([outcome, createdAt])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -1702,9 +1702,27 @@ export default function PlatformSalesRepsPage() {
                     console reports a rep as ready while their compose box
                     refuses to render. */}
                 {rep.sending?.canSend ? (
-                  <p className="text-sm text-emerald-700 dark:text-emerald-300">
-                    Can send outreach.
-                  </p>
+                  <div className="space-y-2">
+                    <p className="text-sm text-emerald-700 dark:text-emerald-300">
+                      Can send outreach.
+                    </p>
+                    {/* Warnings are the "sends, but…" states — the one that
+                        matters is "Replies are not being filed". The console
+                        used to drop these and show a bare green line, so the
+                        owner asked whether replies would land in the rep's
+                        conversation page and nothing on this screen could
+                        have told them. Same objects the rep's own compose
+                        screen shows. */}
+                    {(rep.sending?.warnings || []).map((w) => (
+                      <div
+                        key={w.code}
+                        className="rounded-lg border border-border bg-muted/40 p-3 text-sm"
+                      >
+                        <div className="font-medium text-foreground">{w.title}</div>
+                        <div className="text-xs text-muted-foreground">{w.fix}</div>
+                      </div>
+                    ))}
+                  </div>
                 ) : (
                   <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 p-3 space-y-2">
                     <div className="text-sm font-medium text-amber-900 dark:text-amber-200">

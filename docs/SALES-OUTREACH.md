@@ -17,17 +17,25 @@ Mail leaves only when a rep presses Send on something they typed.
 
 ## 1. What has to be configured before it works
 
-Four settings. Three of them BLOCK sending until they are set, and the portal
+Six settings. Three of them BLOCK sending until they are set, and the portal
 says which one is missing instead of rendering a compose box that would fail —
 `lib/sales/outreachReadiness.js` is the one place that decides this, and both
-the screens and the send route ask it.
+the screens and the send route ask it. The last three are the inbound half —
+pick ONE of the two doors (§5b is the one that works with the reps' Namecheap
+mailboxes; §5 is for a mailbox that can POST to a URL).
 
 | Setting | Where | Blocks sending? | What it is |
 |---|---|---|---|
 | The rep's domain, verified in Resend | Resend dashboard | **Yes** | Resend only sends from a domain verified on the account |
 | `SALES_REPLY_ADDRESSING` | Vercel env | **Yes** | `plus` or `plain` — see §3 |
 | `SALES_MAILING_ADDRESS` | Vercel env | **Yes** | FieldQuo's business mailing address; CASL requires it in the message |
-| `SALES_INBOUND_SECRET` | Vercel env | No — but replies are not filed without it | The shared secret on the inbound endpoint |
+| `SALES_REPLY_DOMAIN` | Vercel env + Resend + DNS | **Yes, once set** — blocked until Resend receives for it | The subdomain replies are routed through — §5b |
+| `RESEND_INBOUND_WEBHOOK_SECRET` | Vercel env, from Resend | **Yes, when `SALES_REPLY_DOMAIN` is set** | The signing secret of the `email.received` webhook — §5b |
+| `SALES_INBOUND_SECRET` | Vercel env | No — but replies are not filed without it (or §5b) | The shared secret on the generic inbound endpoint — §5 |
+
+Without either inbound door the compose box still renders, with the notice
+*"Replies are not being filed: no inbound path is configured"* above it — on
+the rep's compose screens and on each rep's card in `/platform/sales/reps`.
 
 ---
 
@@ -99,6 +107,15 @@ bottom of every message we send, which an ordinary reply quotes back. Weaker: a
 reply that quotes nothing (someone who deletes the quoted text) files nowhere,
 and shows up in the platform error log as `no_token`.
 
+### With `SALES_REPLY_DOMAIN` set, choose `plus`
+
+When replies are routed through Resend (§5b) the sub-addressing question goes
+away: Resend receives for **every** address at the reply domain, so
+`emilio+fqs…@reply.fieldquo.com` cannot bounce, and the token rides in the
+reply's own `To:` header. `plain` still works there (`emilio@reply.fieldquo.com`,
+token in the `Ref:` line) but has no advantage. The readiness blocker says the
+same when the mode is unset and the domain is set.
+
 ---
 
 ## 4. `SALES_MAILING_ADDRESS` — required by law, not by taste
@@ -118,8 +135,9 @@ Ref: fqs…
 ```
 
 The unsubscribe mechanism is a reply address, which CASL permits, and it is a
-**real** one: the Reply-To is the rep's human-read mailbox, and the inbound side
-reads opt-outs too (§6). There is no invented machinery behind that sentence.
+**real** one: the Reply-To reaches the rep's human-read mailbox (directly, or
+forwarded through the §5b door), and the inbound side reads opt-outs too (§6).
+There is no invented machinery behind that sentence.
 
 There is no default and no placeholder. `lib/legal/privacyOfficer.js` set the
 precedent for a legally-required detail FieldQuo had not supplied — ship the gap
@@ -140,7 +158,15 @@ product, that is a schema change and a product decision.
 
 ---
 
-## 5. Inbound — the forwarding rule you have to set up
+## 5. Inbound — the forwarding rule you have to set up (generic door)
+
+> **On this deployment, read §5b instead.** The reps' mailboxes are on
+> Namecheap Private Email (MX `mx1`/`mx2.privateemail.com`), which can forward
+> mail to another *address* but cannot POST to a URL. Nothing has ever called
+> this endpoint, which is why no reply has ever appeared on a rep's
+> conversation page. This section stays as the alternative for a mailbox
+> provider that can drive a webhook, and as the contract the Resend door maps
+> onto.
 
 FieldQuo cannot read the rep's mailbox. Their mailbox has to send us a copy.
 
@@ -214,6 +240,162 @@ filing them would double every message and, worse, read our own footer's
 
 ---
 
+## 5b. Inbound via Resend Receiving — the door that works with Namecheap
+
+The idea: stop expecting the mailbox to talk to us, and make the reply come to
+a domain **we** receive for. The rep's outreach still goes out **From**
+`name@fieldquo.com`. Only the **Reply-To** moves, to
+`name+fqs<token>@reply.fieldquo.com`. Resend receives the prospect's reply,
+posts an `email.received` event to `/api/webhooks/resend-inbound`, and FieldQuo:
+
+1. fetches the message from Resend (the event carries metadata only, never the
+   body — Resend's design, for large attachments);
+2. files it on the thread through the **same** function as §5 —
+   `lib/sales/inboundEmail.js` — so every rule there (token never read from the
+   sender, echoes discarded, duplicates refused, opt-outs honoured) applies
+   unchanged;
+3. re-hosts any attachments to Cloudinary and stores them on the message, in
+   the same shape as the messaging inbox, so the thread shows them;
+4. **forwards a copy to the rep's real mailbox** — `From` the platform sender,
+   `Reply-To` the prospect, same subject, the prospect's own text and HTML,
+   attachments included up to 20 MB — with one line at the top:
+   *"Filed on Dana · Acme Painting in FieldQuo — reply from FieldQuo to keep the
+   thread there (a reply sent from this mailbox reaches them but is not
+   filed)."* or *"Not filed in FieldQuo: <reason>."* This forward is not a
+   nicety: with this door the reply went to Resend, not to the rep, and the
+   forward is the only way a human sees it. It happens for `no_token` and
+   `unknown_token` too, addressed to the rep whose local part is on the reply
+   address. The forward's Resend id is recorded on the message row
+   (`SalesMessage.forwardProviderId`) and on the receipt.
+5. records a `SalesInboundReceipt` keyed on Resend's email id — the
+   idempotency: a redelivered event is answered `duplicate` and forwards
+   nothing a second time.
+
+### What "both halves" means now
+
+The rep's mailbox still has every reply (the forwarded copy), searchable and
+answerable from a phone. FieldQuo has it filed against the prospect. **A reply
+typed in the mailbox is not captured** — it goes straight to the prospect — so
+the copy's first line says to reply from FieldQuo. That is the honest version
+of "both"; the previous one never delivered either half.
+
+### Setup — DNS (Namecheap, `fieldquo.com`)
+
+Resend's own guidance, quoted: *"If you already have existing MX records for
+your domain (because you're already using it for a real inbox, for example),
+we recommend that you create a subdomain (e.g. `subdomain.example.com`) and add
+the MX record there."* `fieldquo.com` already has Namecheap's MX records for
+the reps' mailboxes, so the reply domain is a **subdomain**. Never add Resend's
+MX to the root: *"you will not receive emails at Resend if the required MX
+record is not the lowest priority value for the domain"* — and making it the
+lowest would divert the reps' real mail to Resend.
+
+**Copy the exact record from the Resend dashboard** (it is shown when
+Receiving is enabled, below). For the `us-east-1` region it is:
+
+| Type | Host | Value | Priority | TTL |
+|---|---|---|---|---|
+| `MX` | `reply` (i.e. `reply.fieldquo.com`) | `inbound-smtp.us-east-1.amazonaws.com` | `10` | Automatic |
+
+(The region in the value follows the domain's region on the Resend account —
+the dashboard's copy is authoritative; this table is what to expect.)
+
+Nothing else. Sending is not enabled on the reply subdomain and needs no
+SPF/DKIM there; the rep's `From` is `fieldquo.com`, which §2 already verified.
+
+### Setup — Resend dashboard
+
+1. **Domains → Add domain** → `reply.fieldquo.com` (same region as
+   `fieldquo.com`). Verify it. (Resend: *"If you have not already done so, add
+   and verify your domain."*)
+2. On that domain's page, **switch on Receiving** — Resend: *"you can enable
+   receiving by using the toggle in the receiving section of the domain details
+   page. After enabling receiving, you'll see a modal showing the MX record
+   that you need to add to your DNS provider."* Add the record at Namecheap
+   (Advanced DNS → Mail Settings for the subdomain, or a Custom MX record with
+   host `reply`), click **I've added the record**, and wait for the receiving
+   record to show **verified**. The API then reports
+   `capabilities.receiving: "enabled"`, which is what readiness checks.
+3. **Webhooks → Add webhook**: endpoint
+   `https://<your-app-host>/api/webhooks/resend-inbound`, event
+   **`email.received`** only. Open the webhook's page and copy its **signing
+   secret** (`whsec_…`).
+
+### Setup — Vercel
+
+| Variable | Value |
+|---|---|
+| `SALES_REPLY_DOMAIN` | `reply.fieldquo.com` |
+| `RESEND_INBOUND_WEBHOOK_SECRET` | the `whsec_…` from step 3 |
+| `SALES_REPLY_ADDRESSING` | `plus` (§3) |
+
+Redeploy. Until every one of these is true, sending is **blocked** with the
+specific missing piece named (`reply_domain_not_receiving`,
+`reply_domain_without_webhook`, `reply_domain_invalid`) — a Reply-To at a
+domain that bounces, or that Resend receives into a hole with no webhook, would
+lose every reply invisibly, which is the one outcome §3's "no default" rule
+exists to prevent. `RESEND_API_KEY` must be set too: the door fetches the
+message and sends the forward with it.
+
+### The webhook's own rules
+
+- **Signature.** Resend signs through Svix: `svix-id`, `svix-timestamp`,
+  `svix-signature` headers over the raw body, HMAC-SHA256 with the
+  base64-decoded secret. Verified by hand in `lib/sales/resendInbound.js`
+  (timing-safe, five-minute timestamp tolerance, rotation-aware), against
+  Svix's published reference vector in `scripts/check-resend-inbound.mjs`.
+  **An unset secret denies everything**, the same as every other secret here.
+  A failed check is a `401` — so a wrong secret shows as failing in Resend's
+  webhook log rather than as working.
+- **Everything after that is a `200` with a reason** (§5's table, plus
+  `forwarded`, `forwardedTo`, `forwardError`), except our own failure — a
+  `500`, which Resend retries; the receipt is marked `error` so the retry is
+  let through.
+- **Idempotent on Resend's email id.** `SalesInboundReceipt.resendEmailId` is
+  unique; a second delivery is `duplicate` before anything is fetched or sent.
+- **The token is read from `to` first, never from `from`** — the mapper in
+  `lib/sales/resendInbound.js` puts the sender in `from` and nowhere else,
+  and the check script asserts that a token in the From files nowhere.
+- **Attachments** come from `GET /emails/receiving/:id/attachments`, whose
+  `download_url` is signed and expires in an hour — so the bytes are fetched
+  in the webhook and put on Cloudinary (`sales-inbound/<threadId>`); the
+  stored entry never carries Resend's URL. A file that could not be fetched is
+  stored **by name** with the reason, and the thread says
+  *"kitchen-plan.pdf couldn't be stored"* rather than showing nothing.
+  Per-file cap 25 MB; the forwarded copy carries up to 20 MB in total and names
+  what it left out.
+- **Where the copy goes when nothing filed.** The local part of the reply
+  address (`emilio+fqs…@reply.fieldquo.com` → `emilio`) is matched against
+  `SalesRep.workEmail` — our own rows, never the sender. No match: nothing is
+  forwarded, and the platform error log records `forward_failed` with the
+  Resend email id so the message can be found under **Emails → Receiving** in
+  the Resend dashboard.
+
+### Test procedure
+
+1. Readiness first: open a rep's compose screen (or their card in
+   `/platform/sales/reps`). No blocker, no *"Replies are not being filed"*
+   warning.
+2. Send yourself an email from the portal. In the received message, check the
+   headers: `From: <rep>@fieldquo.com`, `Reply-To: <rep>+fqs…@reply.fieldquo.com`.
+3. Reply from that address. Within a moment:
+   - the reply is on the thread in `/sales/threads/<id>`, with *"A copy is in
+     your mailbox"* under it;
+   - the rep's real mailbox has the copy, first line *"Filed on … in FieldQuo"*,
+     `Reply-To` your address.
+4. Reply again with a PDF attached. The thread shows the file as a link; the
+   copy carries it.
+5. In Resend → Webhooks → the endpoint → **Logs**, resend the same event. The
+   response is `{"filed":false,"reason":"duplicate"}` and no second copy
+   arrives.
+6. Reply with the single word `unsubscribe` and confirm the compose box
+   disappears.
+
+If step 3 shows nothing: Resend → Emails → **Receiving** tab. If the reply is
+not there, the MX record is wrong (check `dig MX reply.fieldquo.com`). If it
+is there, the webhook is: check its Logs for the status code — a `401` is the
+secret, a `500` is in the platform error log under `sales_inbound`.
+
 ## 6. Opt-outs
 
 An inbound reply whose first few typed lines are an unsubscribe request —
@@ -243,15 +425,22 @@ cannot drift apart, and no schema change was needed for it.
 | `lib/sales/outreachReadiness.js` | Can this rep send, and if not, exactly what to fix |
 | `lib/sales/outreachSender.js` | The Resend domain constraint, and send-then-record |
 | `lib/sales/outreachInbound.js` | Filing an inbound message against its thread |
+| `lib/sales/inboundEmail.js` | Parse → file → log, shared by both inbound doors |
+| `lib/sales/resendInbound.js` | Pure: the Svix signature check, the event→contract mapper, the forwarded copy's words |
+| `lib/sales/resendInboundDoor.js` | The Resend door end to end: claim, fetch, file, re-host, forward, record — every dependency injected |
+| `lib/sales/inboundAttachments.js` | Re-hosting a reply's attachments to Cloudinary |
+| `lib/email/resendReceiving.js` | `GET /emails/receiving/:id` and its `/attachments` |
 | `lib/sales/outreachGate.js` | The narrow write gate — the exception to `lib/sales/gate.js` |
 | `app/api/sales/leads/**`, `app/api/sales/threads/**` | The rep's API |
-| `app/api/webhooks/inbound-sales-email/` | The inbound endpoint |
+| `app/api/webhooks/inbound-sales-email/` | The generic inbound endpoint (§5) |
+| `app/api/webhooks/resend-inbound/` | The Resend Receiving endpoint (§5b) |
 | `app/sales/leads/**`, `app/sales/threads/**` | The screens |
 | `scripts/check-sales-outreach.mjs` | `npm run check:sales-outreach` |
+| `scripts/check-resend-inbound.mjs` | `npm run check:resend-inbound` — the signature against Svix's vector and a tampered copy, unset secret denies, event→contract, duplicate event forwards nothing, token never from From |
 
 ---
 
-## 8. Verifying it end to end
+## 8. Verifying it end to end (generic door — for §5b see its own test procedure)
 
 1. `SALES_INBOUND_SECRET` set, `SALES_MAILING_ADDRESS` set,
    `SALES_REPLY_ADDRESSING` chosen, the rep's domain verified in Resend.

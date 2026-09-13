@@ -160,6 +160,8 @@ export default function SalesThreadPage({ params }) {
           id: m.id,
           body: m.body,
           direction: m.direction,
+          attachments: m.attachments,
+          forwardedToMailbox: m.forwardedToMailbox,
           // MessageThread reads `at`; the mail schema calls it sentAt. Mapped
           // here rather than renamed in the API, because the SMS thread and
           // the mail thread have genuinely different columns and one of them

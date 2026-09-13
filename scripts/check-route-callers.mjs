@@ -144,6 +144,12 @@ const EXTERNAL_CALLERS = {
     "shared secret (SALES_INBOUND_SECRET), which DENIES when unset. The " +
     "contract, and the forwarding rule the owner has to set up, are written " +
     "out in docs/SALES-OUTREACH.md.",
+  "/api/webhooks/resend-inbound":
+    "Resend posts `email.received` events here for mail arriving at " +
+    "SALES_REPLY_DOMAIN — the webhook is created in the Resend dashboard, so " +
+    "no in-app caller can exist. Verified against the Svix signature with " +
+    "RESEND_INBOUND_WEBHOOK_SECRET in lib/sales/resendInbound.js, which " +
+    "DENIES when the secret is unset. docs/SALES-OUTREACH.md §5b.",
   "/api/meta-ads/callback":
     "Meta's OAuth redirect target — set as this app's redirect_uri in Meta's " +
     "App Dashboard (see docs/META-ADS-BUILD.md), never fetched by our own " +

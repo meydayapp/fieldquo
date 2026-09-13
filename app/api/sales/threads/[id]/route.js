@@ -15,6 +15,7 @@ import { requireOutreachRep } from "@/lib/sales/outreachGate";
 import { outreachStatus } from "@/lib/sales/outreachSender";
 import { threadWhere } from "@/lib/sales/outreach";
 import { contactOptedOut } from "@/lib/sales/outreachInbound";
+import { publicAttachments } from "@/lib/messaging/attachments";
 
 export async function GET(request, { params }) {
   const { rep, refusal } = await requireOutreachRep(request);
@@ -49,12 +50,27 @@ export async function GET(request, { params }) {
           subject: true,
           body: true,
           sentAt: true,
+          // Inbound only, through the Resend Receiving door: what the prospect
+          // attached, re-hosted, and whether a copy of the message went to the
+          // rep's own mailbox. Both null on outbound rows and on rows written
+          // before the columns existed.
+          attachments: true,
+          forwardProviderId: true,
         },
       },
     },
   });
 
   if (!thread) return NextResponse.json({ error: "Not found." }, { status: 404 });
+
+  // The same public shape the messaging inbox serves — the fetcher-only
+  // fields (sourceUrl, mediaId) never reach a browser — and a boolean rather
+  // than Resend's id for the forward, which no screen needs.
+  thread.messages = thread.messages.map(({ attachments, forwardProviderId, ...m }) => ({
+    ...m,
+    attachments: publicAttachments(attachments),
+    forwardedToMailbox: Boolean(forwardProviderId),
+  }));
 
   // The screen must reach the same verdict the send path enforces, through
   // the same function. Reading it from this thread's messages alone was the

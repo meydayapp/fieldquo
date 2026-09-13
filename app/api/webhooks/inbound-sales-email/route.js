@@ -38,9 +38,8 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { parseInboundEmail, verifyInboundSecret } from "@/lib/sales/outreach";
-import { fileInboundMessage } from "@/lib/sales/outreachInbound";
-import { recordError } from "@/lib/platform/errorLog";
+import { verifyInboundSecret } from "@/lib/sales/outreach";
+import { ingestInboundEmail } from "@/lib/sales/inboundEmail";
 
 // A forwarded thread with quoted history is large; a mail bomb is larger. One
 // megabyte is comfortably past any real reply and far short of anything that
@@ -92,45 +91,9 @@ export async function POST(request) {
     );
   }
 
-  const parsed = parseInboundEmail(payload);
-
-  try {
-    const result = await fileInboundMessage(db, parsed);
-
-    if (!result.filed && (result.reason === "no_token" || result.reason === "unknown_token")) {
-      // The two reasons that mean somebody's setup is wrong rather than a
-      // message being an ordinary duplicate. Recorded with the sender REDACTED
-      // to its domain: this is a prospect's personal address arriving on a path
-      // that could not be matched, and an error log is the wrong place to
-      // accumulate those.
-      await recordError({
-        area: "sales_inbound",
-        code: result.reason,
-        message:
-          result.reason === "no_token"
-            ? "An inbound sales email carried no reply token"
-            : "An inbound sales email carried a reply token no thread has",
-        detail: {
-          fromDomain: String(parsed.fromAddress || "").split("@").pop() || null,
-          subject: parsed.subject,
-          token: parsed.token,
-        },
-      }).catch(() => {});
-    }
-
-    return NextResponse.json(result);
-  } catch (err) {
-    await recordError({
-      area: "sales_inbound",
-      code: "file_failed",
-      message: `Filing an inbound sales email failed: ${err.message}`,
-      detail: { token: parsed.token },
-    }).catch(() => {});
-    // 500 here, deliberately unlike the outcomes above: this one IS worth a
-    // retry, because the message is real and the failure was ours.
-    return NextResponse.json(
-      { filed: false, reason: "error", error: "Couldn't file that message." },
-      { status: 500 },
-    );
-  }
+  // Parse, file, and log a misconfiguration — shared with the Resend Receiving
+  // door (app/api/webhooks/resend-inbound/route.js) so the two cannot answer
+  // the same outcome differently. lib/sales/inboundEmail.js says why.
+  const { status, body } = await ingestInboundEmail(db, payload, { source: "forwarder" });
+  return NextResponse.json(body, { status });
 }

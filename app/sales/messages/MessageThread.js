@@ -51,8 +51,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { AlertTriangle, Clock, Loader2 } from "lucide-react";
+import { AlertTriangle, Clock, Inbox, Loader2, Paperclip } from "lucide-react";
 import { GROUPING_WINDOW_SECONDS, groupThread } from "@/lib/sales/messages/grouping";
+import { formatBytes } from "@/lib/messaging/attachments";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 const TIME = { hour: "numeric", minute: "2-digit" };
@@ -278,6 +279,46 @@ export default function MessageThread({ messages, them, onRetry = null, renderDr
               >
                 {m.body}
               </p>
+
+              {/* ── What they attached ────────────────────────────────────
+                  Email replies carry files; texts here do not, so this is
+                  empty for every SMS row. One line per file: a link to the
+                  durable copy, or — when the fetch failed — the file's NAME
+                  and that it could not be stored. A prospect who sent a plan
+                  must never see a row where nothing says they did. */}
+              {Array.isArray(m.attachments) && m.attachments.length ? (
+                <ul className="mt-1 space-y-0.5">
+                  {m.attachments.map((a) => {
+                    const name = a.filename || t("app.salesText.attachmentFallbackName");
+                    const size = formatBytes(a.bytes);
+                    return (
+                      <li key={a.index} className="flex items-start gap-1.5 text-xs break-words">
+                        <Paperclip size={12} className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                        {a.url ? (
+                          <a href={a.url} target="_blank" rel="noopener noreferrer" className="underline text-foreground">
+                            {name}
+                            {size ? <span className="text-muted-foreground"> · {size}</span> : null}
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground">
+                            {t("app.salesText.attachmentNotStored", { name })}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
+
+              {/* The reply came in through Resend and FieldQuo forwarded a copy
+                  to the rep's own mailbox. Said once, quietly: it answers "is
+                  this also in my inbox" without the rep going to look. */}
+              {inbound && m.forwardedToMailbox ? (
+                <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Inbox size={12} aria-hidden="true" />
+                  {t("app.salesText.copyInMailbox")}
+                </p>
+              ) : null}
 
               {pending ? (
                 <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
