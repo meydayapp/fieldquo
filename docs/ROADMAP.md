@@ -11768,3 +11768,45 @@ phone that is as easy. What shipped, and the decisions behind it:
   refused ones.
 - Screens in `docs/screens/employee-home/`; help articles EN/FR/ES; nine
   languages; §0 line 21 in docs/OPEN-WORK-APP.md carries what is not done.
+
+## The four product pages, full: screenshots, sections, the matrix grid, a FAQ (13 September 2026)
+
+The owner: "can you improve /product/quoting, /product/scheduling,
+/product/team, /product/analytics with the actual screenshots and
+information we have so that it looks more full and complete?" Each was a
+label, a headline, four bullets and two buttons.
+
+- **One component, data-driven** (`ProductPageContent.js` reads
+  `app/data/productFeatures.js`): a hero with a real capture, five or six
+  capability sections alternating image and text — three bullets, a
+  screenshot, a "Read how it works →" link to the help article in the
+  reader's language (English with a note where the help centre is not
+  written in it: `lib/marketing/productHelp.js`, `bodyLang` moved to
+  `lib/help/urls.js`) — an "Everything under <label>" grid of matrix keys
+  rendered through `featureEntry()` so a partial entry carries its limit,
+  a FAQ (the homepage's `FAQ` component, now taking `items`), and the
+  homepage's `ClosingCTA`.
+- **Screenshots** under `public/product/<slug>/`: 49 WebPs converted from
+  `docs/screens/live/app/{en,fr,es}` (the reader's language, English
+  fallback, `PRODUCT_SCREEN_LANGS`), `scheduler-board/`, `employee-home/`,
+  `team-homebase/`, `hr/`, `company-chat/` and the `actions/` invite form
+  for the access dials. Every one ≤ 100 KB; nothing from `platform-*`; the
+  Manage Team capture was dropped because it shows a demo login's email.
+- **Truth over fullness.** Three overstatements in the old copy are gone
+  ("every version tracked", "reminders by email and text", "pay
+  contractors directly") and `scripts/forbidden-claims.mjs` now holds the
+  banned-phrase lists once for `check:feature-matrix`, `check:feature-pages`
+  and `check:product-pages`. The FAQ says where FieldQuo's name does
+  appear (website footer off a paid plan, bio link) and that starting rates
+  exist and are the contractor's to edit.
+- **Nine languages**, 206 keys per module in `app/i18n/productPages/`;
+  `check:product-pages` grew from 9 to 15 sections (230 assertions): every
+  image exists at its declared size within budget, every help slug is in
+  `lib/help/tree.js` and its href renders, the grid prints every name in
+  every language, the forbidden and overstated phrases are absent from the
+  rendered pages, the localized captures follow the reader.
+- The owner's 18 ad creatives on the Desktop were reviewed and none used:
+  each is an ad with an English headline and a mock phone UI baked in, and
+  fifteen carry statistics the site does not state anywhere (`30%`, `$38K`,
+  `62%`, `77%`, `2.6%`…) — listed in the session report as "not used —
+  unsourced".

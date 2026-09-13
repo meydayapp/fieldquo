@@ -53,6 +53,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { FORBIDDEN_CLAIMS, JARGON } from "./forbidden-claims.mjs";
 
 process.removeAllListeners("warning");
 process.on("warning", (w) => {
@@ -322,22 +323,14 @@ ok(
    "mobile app". The /app pages are responsive — that is a true sentence and a
    different sentence.
 
-   The patterns live HERE and not in the matrix. A ban that ships inside the
-   file it polices gets edited away in the same commit that breaks it. */
+   The patterns live in scripts/forbidden-claims.mjs — beside the checkers,
+   shared with check-feature-pages.mjs and check-product-pages.mjs — and not
+   in the matrix. A ban that ships inside the file it polices gets edited away
+   in the same commit that breaks it. */
 
 console.log("\n── The two claims that may never appear ────────────────────────\n");
 
-const FORBIDDEN = [
-  [/mobile app/i, "a mobile app"],
-  [/native app/i, "a native app"],
-  [/\bapp store\b/i, "the App Store"],
-  [/google play/i, "Google Play"],
-  [/\b(ios|android)\b/i, "iOS or Android"],
-  [/download (the|our) app/i, "downloading an app"],
-  [/\bdemos?\b/i, "a demo"],
-  [/see it in action/i, "a demo, by another name"],
-  [/\bsandbox\b/i, "a sandbox"],
-];
+const FORBIDDEN = FORBIDDEN_CLAIMS;
 
 // Every human-readable string in the matrix, with the field it came from, so a
 // failure says where to go. Proof PATHS are excluded — a path is a filename,
@@ -693,10 +686,6 @@ function scanFor(needle, dirs) {
 
 console.log("\n── It reads like a contractor wrote it ─────────────────────────\n");
 
-const JARGON = [
-  "webhook", "endpoint", "schema", "prisma", "cron", "middleware", "boolean",
-  "json", "api route", "tenant", "multi-tenant", "crud",
-];
 {
   const jargonHits = [];
   for (const [where, s] of humanText) {

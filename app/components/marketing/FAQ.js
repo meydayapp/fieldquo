@@ -1,4 +1,15 @@
 // app/components/marketing/FAQ.js
+//
+// The accordion the homepage ends its argument on, and — since 2026-09-13 —
+// the one /product/<slug> asks its own three or four questions in.
+//
+// `items` and `title` are optional. With neither, this is the homepage FAQ
+// exactly as it was: app/data/faqs.js resolved through t(). With `items`
+// ([{ id, q, a }] already in the reader's language), it renders those
+// instead. One component rather than a copy in the product page, because the
+// open-row border, the 44px row, aria-expanded and the inset rule between
+// question and answer were each a bug fix here once, and a copy would have
+// had to find them all again.
 "use client";
 
 import { useState } from "react";
@@ -6,18 +17,21 @@ import { ChevronDown } from "lucide-react";
 import { FAQS } from "@/app/data/faqs";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
-export default function FAQ() {
+export default function FAQ({ items, title }) {
   const { t } = useTranslation();
   const [openIndex, setOpenIndex] = useState(0);
+
+  const rows =
+    items || FAQS.map((faq) => ({ id: faq.id, q: t(`faq.items.${faq.id}.q`), a: t(`faq.items.${faq.id}.a`) }));
 
   return (
     <section className="bg-muted border-t border-border">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <h2 className="text-2xl sm:text-3xl font-bold text-foreground text-center mb-10">
-          {t("faq.title")}
+          {title || t("faq.title")}
         </h2>
         <div className="space-y-3">
-          {FAQS.map((faq, i) => {
+          {rows.map((faq, i) => {
             const isOpen = openIndex === i;
             return (
               // The open row was drawn identically to the five closed ones —
@@ -41,7 +55,7 @@ export default function FAQ() {
                   className="w-full flex items-center justify-between gap-3 min-h-[44px] px-5 py-4 text-left"
                 >
                   <span className="font-medium text-foreground">
-                    {t(`faq.items.${faq.id}.q`)}
+                    {faq.q}
                   </span>
                   <ChevronDown
                     size={18}
@@ -53,7 +67,7 @@ export default function FAQ() {
                   // same padding as the text: without it the answer reads as a
                   // second line of the question rather than the reply to it.
                   <div className="mx-5 border-t border-border pt-4 pb-5 text-muted-foreground text-sm leading-relaxed">
-                    {t(`faq.items.${faq.id}.a`)}
+                    {faq.a}
                   </div>
                 )}
               </div>

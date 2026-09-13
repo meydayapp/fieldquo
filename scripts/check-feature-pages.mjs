@@ -40,6 +40,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { createElement } from "react";
+import { FORBIDDEN_PAGE_CLAIMS, OVERSTATED, JARGON } from "./forbidden-claims.mjs";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import {
@@ -325,10 +326,11 @@ for (const slug of FEATURE_PAGE_SLUGS) {
    orders. All three are things a feature page invents by itself: every
    competitor's site has them, and the shape of the page asks for them.
 
-   The mobile-app ban is inherited from check-feature-matrix.mjs, whose header
-   explains why the patterns live in the CHECKER and not in the data — a ban
-   that ships inside the file it polices gets edited away in the same commit
-   that breaks it. The demo ban comes with it: there is a demo booker, it is
+   The patterns live in scripts/forbidden-claims.mjs, shared with
+   check-feature-matrix.mjs and check-product-pages.mjs, whose header explains
+   why they live beside the CHECKERS and not in the data — a ban that ships
+   inside the file it polices gets edited away in the same commit that breaks
+   it. The demo ban comes with it: there is a demo booker, it is
    mounted on the homepage only, and a feature page must not imply a contractor
    gets one.
 
@@ -338,21 +340,7 @@ for (const slug of FEATURE_PAGE_SLUGS) {
 
 console.log("\n── The claims that may never appear ────────────────────────────\n");
 
-const FORBIDDEN = [
-  [/mobile app/i, "a mobile app"],
-  [/native app/i, "a native app"],
-  [/\bapp store\b/i, "an app store"],
-  [/google play/i, "Google Play"],
-  [/\b(ios|android)\b/i, "iOS or Android"],
-  [/download (the|our) app/i, "an app to download"],
-  [/quickbooks/i, "QuickBooks"],
-  [/\bxero\b/i, "Xero"],
-  [/zapier/i, "Zapier"],
-  [/change orders?\b/i, "change orders"],
-  [/\bdemos?\b/i, "a demo"],
-  [/see it in action/i, "a demo, by another name"],
-  [/\bsandbox\b/i, "a sandbox"],
-];
+const FORBIDDEN = FORBIDDEN_PAGE_CLAIMS;
 
 const surfaces = [
   ...FEATURE_PAGE_SLUGS.map((s) => [`/features/${s}`, rendered.get(s).text]),
@@ -373,29 +361,21 @@ for (const [pattern, what] of FORBIDDEN) {
   ok(`nothing claims ${what}`, hits.length === 0, hits.join(" "));
 }
 
-/* Four sentences from app/data/productFeatures.js, which drives the older
-   /product/[slug] pages and was found to overstate in exactly these places.
-   Named here so the copy cannot be lifted across: "every version tracked" (only
-   invoices keep their earlier version), "reminders by email and text" (text
-   only), and "pay contractors directly through the app" (roster people, hourly,
-   one currency). The fourth — its roles list — is covered by the jargon and
-   claim assertions rather than by a phrase. */
-const OVERSTATED = [
-  [/every version tracked/i, '"every version tracked"'],
-  [/reminders by email and text/i, '"reminders by email and text"'],
-  [/pay contractors directly/i, '"pay contractors directly"'],
-];
+/* Three sentences the first version of app/data/productFeatures.js said and
+   were not true — "every version tracked" (only invoices keep their earlier
+   version), "reminders by email and text" (text only), "pay contractors
+   directly through the app" (roster people, hourly, one currency). Gone from
+   that file since 2026-09-13 and banned from here and there alike, so the copy
+   cannot be lifted back in either direction. The list is OVERSTATED in
+   scripts/forbidden-claims.mjs. */
 for (const [pattern, what] of OVERSTATED) {
   const hits = surfaces.filter(([, body]) => pattern.test(body)).map(([where]) => where);
   ok(`no page repeats ${what}`, hits.length === 0, hits.join(" "));
 }
 
-/* And the register. Same list check-feature-matrix.mjs uses on the matrix's own
-   names: a page written in our vocabulary has failed at the only job it has. */
-const JARGON = [
-  "webhook", "endpoint", "schema", "prisma", "cron", "middleware", "boolean",
-  "json", "api route", "tenant", "multi-tenant", "crud",
-];
+/* And the register — JARGON in scripts/forbidden-claims.mjs, the list
+   check-feature-matrix.mjs holds the matrix's own names to: a page written in
+   our vocabulary has failed at the only job it has. */
 {
   const hits = [];
   for (const [where, body] of surfaces.slice(0, FEATURE_PAGE_SLUGS.length + 1)) {

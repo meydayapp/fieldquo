@@ -4,88 +4,274 @@
 // lives in React context (needs "use client") while generateStaticParams and
 // generateMetadata must stay in a server component.
 //
-// Before this existed, the whole page was app/data/productFeatures.js rendered
-// raw, and the two buttons had "Start Free Trial" and "See Pricing" typed into
-// the JSX. Three navigation surfaces link here — MarketingHeader,
-// MarketingFooter, and the homepage feature cards — so a French or Ukrainian
-// visitor left a fully translated homepage and landed on an English page from
-// the main nav.
+// ══ What this page is ══════════════════════════════════════════════════════
+//
+// Until 2026-09-13 this was a label, a headline, four bullets and two buttons.
+// The owner read the four pages beside the real screens and asked for pages
+// that look full and complete, from the screenshots and the facts we already
+// hold. So it is now, top to bottom:
+//
+//   hero          label, headline, paragraph, the two buttons, a screenshot
+//   sections      five or six capabilities, image and text alternating sides,
+//                 each with three bullets, a real capture, and a link to the
+//                 help article about it
+//   everything    every shipped matrix entry under this heading, from
+//                 lib/marketing/featureMatrix.js through featureEntry() — the
+//                 same cards /features renders, partial ones with their limit
+//   faq           three or four honest questions
+//   closing       the ClosingCTA the homepage ends on
+//
+// It is one component driven by app/data/productFeatures.js: adding a section
+// is adding an object there and its nine translations to app/i18n/productPages,
+// and scripts/check-product-pages.mjs refuses a section whose image, help
+// slug or translations are missing.
+//
+// ══ Layout borrowed, not forked ════════════════════════════════════════════
+//
+// The hero grid, the figure frame, the check-bullets and the feature cards are
+// the classes FeaturePageContent.js uses, so /product/quoting and
+// /features/quotes read as one site. The FAQ is the homepage's FAQ component
+// with this page's items passed in, and the closing band IS the homepage's.
+//
+// ══ Three resolvers, and why they are not interchangeable ══════════════════
+//
+//   productSay()   app/i18n/productPages — the prose, the alts, the chrome.
+//                  NOT merged into MESSAGES (that directory's index.js says
+//                  why), so t() cannot see it.
+//   t()            messages.js — the label (product.<slug>.label, already in
+//                  nine languages for the nav), the two buttons, the borrowed
+//                  hero alts (hero.tabs.*.alt), "Where this stops", the FAQ
+//                  heading, and every feature name in the grid through
+//                  featureEntry().
+//   language       picks the screenshot: the live captures exist in en/fr/es
+//                  and the reader gets theirs, else English. A screenshot is
+//                  a picture; nothing is machine-translated.
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2 } from "lucide-react";
-import { productPageCopy } from "@/app/data/productFeatures";
+import Image from "next/image";
+import { ArrowRight, Check, Info } from "lucide-react";
+import {
+  productPageCopy,
+  productChromeCopy,
+  productImageSrc,
+  productHeroSrc,
+} from "@/app/data/productFeatures";
 import { productSay } from "@/app/i18n/productPages";
+import { featureEntry } from "@/lib/marketing/featureLabels";
+import { productHelpUrl } from "@/lib/marketing/productHelp";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import FAQ from "@/app/components/marketing/FAQ";
+import ClosingCTA from "@/app/components/marketing/ClosingCTA";
 
 export default function ProductPageContent({ slug }) {
   const { t, language } = useTranslation();
 
-  // Two resolvers on purpose, and they are not interchangeable.
-  //
-  // The prose comes from app/i18n/productPages/, which is NOT merged into
-  // MESSAGES — see that directory's index.js for why — so t() cannot see it
-  // and productSay() walks the same chain over the same nine modules.
-  //
-  // The label comes from t(), because `product.<slug>.label` is already in
-  // messages.js in all nine languages and the header dropdown, the footer and
-  // the homepage band all render it. Copying the word into a second catalogue
-  // would be a second wording of it, and the copy nobody looks at is the one
-  // that rots.
-  const copy = productPageCopy(slug, productSay(language));
+  const say = productSay(language);
+  const copy = productPageCopy(slug, say, t);
   if (!copy) return null;
+  const chrome = productChromeCopy(say);
+  const label = t(`product.${slug}.label`, copy.label);
+
+  // Resolved through the label layer rather than read off the matrix entry —
+  // `f.name` sprinkled through JSX is how /pricing came to render Ukrainian
+  // headings over English feature names. An unknown key is dropped rather
+  // than improvised; the check script fails it by name.
+  const everything = copy.everything.map((key) => featureEntry(key, t)).filter(Boolean);
+
+  // Help links go to the reader's language when the help centre is written in
+  // it (en, fr, es) and to English otherwise, with a small note saying so.
+  const help = (articleSlug) => productHelpUrl(articleSlug, language);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-      <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-        {t(`product.${slug}.label`, copy.label)}
-      </p>
-      <h1 className="mt-2 text-3xl sm:text-4xl font-bold text-foreground">
-        {copy.headline}
-      </h1>
-      <p className="mt-4 text-lg text-muted-foreground max-w-2xl">
-        {copy.description}
-      </p>
+    <div>
+      {/* Hero — the same two-column grid as /features/[slug]. */}
+      <div className="bg-muted border-b border-border">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {label}
+              </p>
+              <h1 className="mt-2 text-3xl sm:text-4xl font-bold text-foreground leading-tight max-w-3xl">
+                {copy.headline}
+              </h1>
+              <p className="mt-4 text-lg text-muted-foreground max-w-2xl">
+                {copy.description}
+              </p>
 
-      <ul className="mt-8 space-y-3 max-w-xl">
-        {copy.bullets.map((b) => (
-          <li key={b} className="flex items-start gap-3">
-            <CheckCircle2
-              size={20}
-              className="text-green-600 shrink-0 mt-0.5"
-            />
-            <span className="text-foreground">{b}</span>
-          </li>
-        ))}
-      </ul>
+              <ul className="mt-6 space-y-2.5 max-w-xl">
+                {copy.bullets.map((b) => (
+                  <li key={b} className="flex items-start gap-3">
+                    <Check size={18} className="text-emerald-600 shrink-0 mt-1" />
+                    <span className="text-foreground">{b}</span>
+                  </li>
+                ))}
+              </ul>
 
-      <div className="mt-10 flex gap-3">
-        {/* Both labels are borrowed rather than written, because both already
-            exist in all nine languages and a tenth wording of "Start free
-            trial" is a tenth thing to keep in step.
+              <div className="mt-8 flex flex-wrap items-center gap-3">
+                {/* Both labels are borrowed rather than written, because both
+                    already exist in all nine languages and a tenth wording of
+                    "Start free trial" is a tenth thing to keep in step.
 
-            hero.cta is already shared — Hero and ClosingCTA both render it.
+                    hero.cta is already shared — Hero and ClosingCTA both
+                    render it. featurePage.chrome.seePricing is namespaced to
+                    /features and used here anyway: it is the same button on
+                    the same kind of page. It is a SHARED key now —
+                    scripts/check-product-pages.mjs asserts these pages render
+                    it in every language, so deleting it with /features fails
+                    this build too. */}
+                <Link
+                  href="/signup"
+                  className="inline-flex items-center gap-2 min-h-[44px] bg-primary text-primary-foreground px-6 py-3 rounded-full text-sm font-semibold"
+                >
+                  {t("hero.cta")} <ArrowRight size={16} />
+                </Link>
+                <Link
+                  href="/pricing"
+                  className="inline-flex items-center min-h-[44px] border border-border px-6 py-3 rounded-full text-sm font-semibold text-foreground hover:bg-card"
+                >
+                  {t("featurePage.chrome.seePricing")}
+                </Link>
+              </div>
+              {/* The part of the offer both the homepage and /industries agree
+                  on — see the same note in FeaturePageContent.js. */}
+              <p className="mt-3 text-sm text-muted-foreground">
+                {t("featurePage.chrome.firstMonthFree")}
+              </p>
+            </div>
 
-            featurePage.chrome.seePricing is namespaced to /features and used
-            here anyway: it is the same button on the same kind of page, and
-            duplicating the string into productPages/ would put the same two
-            words in two catalogues in nine languages each. It is a SHARED key
-            now, not the feature pages' private one — scripts/check-product-
-            pages.mjs asserts these pages render it in every language, so
-            deleting it with /features fails this build too. */}
-        <Link
-          href="/signup"
-          className="bg-primary text-primary-foreground px-6 py-3 rounded-full text-sm font-semibold"
-        >
-          {t("hero.cta")}
-        </Link>
-        <Link
-          href="/pricing"
-          className="border border-border px-6 py-3 rounded-full text-sm font-semibold"
-        >
-          {t("featurePage.chrome.seePricing")}
-        </Link>
+            <figure className="rounded-2xl border border-border bg-card overflow-hidden">
+              <Image
+                src={productHeroSrc(copy.hero)}
+                alt={copy.hero.alt}
+                width={copy.hero.width}
+                height={copy.hero.height}
+                sizes="(min-width: 1024px) 36rem, 100vw"
+                priority
+                className="w-full h-auto"
+              />
+            </figure>
+          </div>
+        </div>
       </div>
+
+      {/* The capabilities. Image and text swap sides each row on desktop and
+          stack image-first on a phone, where the picture is what a visitor
+          scrolls for. */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        {copy.sections.map((s, i) => {
+          const url = help(s.help);
+          const flip = i % 2 === 1;
+          const phone = !!s.image.phone;
+          const tall = !!s.image.tall;
+          return (
+            <section
+              key={s.id}
+              id={s.id}
+              className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-center py-10 sm:py-14 border-b border-border last:border-b-0"
+            >
+              <figure
+                className={`${flip ? "lg:order-2" : ""} ${
+                  phone
+                    ? "max-w-[18rem] mx-auto"
+                    : tall
+                      ? "max-w-md mx-auto"
+                      : ""
+                }`}
+              >
+                <div className="rounded-2xl border border-border bg-muted overflow-hidden">
+                  <Image
+                    src={productImageSrc(slug, s.image, language)}
+                    alt={s.image.alt}
+                    width={s.image.width}
+                    height={s.image.height}
+                    sizes={
+                      phone
+                        ? "18rem"
+                        : tall
+                          ? "(min-width: 640px) 28rem, 100vw"
+                          : "(min-width: 1024px) 36rem, 100vw"
+                    }
+                    className="w-full h-auto"
+                  />
+                </div>
+              </figure>
+
+              <div className={flip ? "lg:order-1" : ""}>
+                <h2 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight">
+                  {s.heading}
+                </h2>
+                <p className="mt-4 text-muted-foreground">{s.body}</p>
+                <ul className="mt-5 space-y-2.5">
+                  {s.bullets.map((b) => (
+                    <li key={b} className="flex items-start gap-3">
+                      <Check size={18} className="text-emerald-600 shrink-0 mt-1" />
+                      <span className="text-foreground">{b}</span>
+                    </li>
+                  ))}
+                </ul>
+                {/* Absolute, to help.fieldquo.com: the help centre is its own
+                    host and a relative /help/... would be rewritten there. */}
+                <a
+                  href={url.href}
+                  className="mt-6 inline-flex items-center gap-1.5 min-h-[44px] text-sm font-semibold text-primary hover:underline"
+                >
+                  {chrome.readHow}
+                  {url.fallback ? (
+                    <span className="font-normal text-muted-foreground">
+                      {" "}
+                      ({chrome.inEnglish})
+                    </span>
+                  ) : null}
+                  <ArrowRight size={16} />
+                </a>
+              </div>
+            </section>
+          );
+        })}
+      </div>
+
+      {/* Everything under this heading — the matrix's own cards. A partial
+          entry is never a bare tick: its limit is printed exactly as
+          /features prints it. */}
+      <div className="bg-card border-y border-border">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground">
+            {chrome.everythingTitle.replace("{label}", label)}
+          </h2>
+          <p className="mt-3 text-muted-foreground max-w-2xl">{chrome.everythingBody}</p>
+
+          <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {everything.map((f) => (
+              <li key={f.key} className="border border-border rounded-xl p-4 bg-background">
+                <div className="flex items-start gap-3">
+                  <Check size={18} className="text-emerald-600 shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-foreground">{f.name}</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">{f.summary}</p>
+                    {f.readiness === "partial" && (
+                      <p className="mt-2 flex items-start gap-1.5 text-xs text-foreground">
+                        <Info size={14} className="text-muted-foreground shrink-0 mt-0.5" />
+                        <span>
+                          <span className="font-semibold">
+                            {t("featurePage.chrome.whereStops")}{" "}
+                          </span>
+                          {f.limits}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <FAQ title={chrome.faqTitle} items={copy.faq} />
+
+      <ClosingCTA />
     </div>
   );
 }
