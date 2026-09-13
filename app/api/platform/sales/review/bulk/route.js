@@ -50,12 +50,24 @@ import { db } from "@/lib/db";
 import { superadminOrRefusal } from "@/lib/sales/intel/configAdmin";
 import { isDiscoveryTradeKey, discoveryTradeLabel } from "@/lib/sales/discovery/trades";
 import { parseReviewFilter } from "@/lib/sales/discovery/reviewFolder";
-import { bulkReview } from "@/lib/sales/discovery/reviewBulk";
+import { TRADE_SOURCES, bulkReview } from "@/lib/sales/discovery/reviewBulk";
+import { suggestedGroupAccepts, suggestedGroupReject } from "@/lib/sales/discovery/suggestedGroups";
 
 /** A bulk request is refused when nothing narrows it: "every row" is not a decision. */
 function filterIsNarrow(filter) {
-  return Boolean(filter.campaignId || filter.source || filter.province || filter.q || filter.retail || filter.reason);
+  return Boolean(filter.campaignId || filter.source || filter.province || filter.q || filter.retail || filter.reason || filter.suggested || filter.ids);
 }
+
+// ══ The By-suggestion mode's requests ═══════════════════════════════════════
+//
+// `filter.suggested` names a card and `filter.ids` the rows the reviewer left
+// ticked on the page they were looking at; the server re-runs both, so a
+// row that left the card since the page loaded is not written. `tradeSource`
+// says which trade an accept writes — the card's key, each row's current
+// trade, or each row's suggested one — and the card decides which of those
+// it allows (suggestedGroups.js): the "not a contractor" card cannot be
+// accepted in bulk under any source, and a plain filter accepts only a given
+// key. Reject is allowed on the cards that list it and on every trade card.
 
 export async function POST(request) {
   const { admin, refusal } = await superadminOrRefusal(request);
@@ -65,12 +77,23 @@ export async function POST(request) {
   const filter = parseReviewFilter(body?.filter && typeof body.filter === "object" ? body.filter : {});
   const decision = body?.decision === "reject" ? "reject" : body?.decision === "accept" ? "accept" : null;
   const tradeKey = typeof body?.tradeKey === "string" ? body.tradeKey.trim() : null;
+  const tradeSource = typeof body?.tradeSource === "string" && TRADE_SOURCES.includes(body.tradeSource) ? body.tradeSource : "given";
   const expectedCount = Number.isInteger(body?.expectedCount) ? body.expectedCount : null;
 
   if (!decision) return bad('A bulk review is "accept" (with a trade) or "reject".');
-  if (decision === "accept" && !isDiscoveryTradeKey(tradeKey)) return bad("Assigning needs a trade from the catalogue.");
+  if (decision === "accept" && tradeSource === "given" && !isDiscoveryTradeKey(tradeKey)) return bad("Assigning needs a trade from the catalogue.");
   if (!filterIsNarrow(filter)) return bad("Narrow the folder first — a bulk decision over every row is not a decision.");
   if (expectedCount === null) return bad("Say how many rows you expect to change, so a moved count is refused rather than applied.");
+  if (filter.suggested) {
+    const allowed = suggestedGroupAccepts(filter.suggested, { isTradeKey: isDiscoveryTradeKey });
+    if (decision === "accept" && !allowed.includes(tradeSource)) {
+      return bad(allowed.length ? `This card accepts only as ${allowed.join(" or ")}.` : "This card is not accepted in bulk — it is a list to read, not a decision.");
+    }
+    if (decision === "accept" && tradeSource === "given" && tradeKey !== filter.suggested) return bad("A trade card assigns its own trade.");
+    if (decision === "reject" && !suggestedGroupReject(filter.suggested, { isTradeKey: isDiscoveryTradeKey })) return bad("This card is not rejected in bulk.");
+  } else if (tradeSource !== "given") {
+    return bad("A per-row trade source needs a By-suggestion card.");
+  }
 
   try {
     const result = await bulkReview({
@@ -78,6 +101,7 @@ export async function POST(request) {
       filter,
       decision,
       tradeKey,
+      tradeSource,
       expectedCount,
       adminId: admin.id,
       now: new Date(),
@@ -85,7 +109,7 @@ export async function POST(request) {
     if (!result.ok) return NextResponse.json(result, { status: 409 });
     return NextResponse.json({
       ...result,
-      tradeLabel: decision === "accept" ? discoveryTradeLabel(tradeKey) : null,
+      tradeLabel: decision === "accept" ? (tradeSource === "given" ? discoveryTradeLabel(tradeKey) : tradeSource === "current" ? "their current trade" : "the name's trade") : null,
       research: "Not queued here. The backlog cron researches rows with a website, trade first; a claim queues the rest.",
     });
   } catch (err) {

@@ -208,6 +208,18 @@ correctly flagged as over two years old.
 row with no coordinates survived the radius guard and had its distance measured
 from the equator.
 
+**The Review folder by suggestion (2026-09-13).** The 299,945 folder rows
+(`/platform/sales/review`) are now also grouped by what each NAME says the
+trade is: `lib/sales/discovery/suggestTradesBatch.js` runs the chip suggester
+over the folder and stores it on `Prospect.suggested*` (never `tradeKey`), and
+the screen's "By suggestion" mode shows one card per trade plus agree /
+conflict / shop-word-beside-a-trade / not-a-contractor / no-suggestion cards,
+fifty names a page, accepted through the existing bulk route. First run:
+48,753 trade-less rows got a name suggestion, 5,080 agree with their Overture
+trade, 3,823 conflict, 153,748 have nothing in the name — Phase 2 (AI over
+those names, `suggestTradesAi.js`, ≈ $6.86 on gpt-5-mini) is built behind a
+typed confirmation and not run. docs/ROADMAP.md carries the full write-up.
+
 **Live, end to end, against the current release (`2026-08-19.0`):** Ottawa
 painting, 25 km radius — 89 found, 11 not usable for this campaign, 7 shops
 rejected, 1 needs review, **70 accepted contractors, 67 ready to call**. That

@@ -643,7 +643,7 @@ section("8. The folder's WHERE, and what the screen wires");
   const order = reviewOrderSql();
   ok("the sort puts skipped rows last, keyword names first, then websites, then oldest",
     order.sql.indexOf('"reviewDeferredAt" IS NOT NULL) ASC') < order.sql.indexOf("~*") && order.sql.indexOf("~*") < order.sql.indexOf('"websiteUrl" IS NOT NULL) DESC') && order.sql.endsWith('"createdAt" ASC, "id" ASC') && order.values.includes(nameKeywordPgRegex()));
-  ok("parseReviewFilter drops junk", JSON.stringify(parseReviewFilter({ reason: "nope", website: "maybe", retail: "no" })) === JSON.stringify({ campaignId: null, source: null, province: null, reason: null, q: null, website: null, retail: null }));
+  ok("parseReviewFilter drops junk", JSON.stringify(parseReviewFilter({ reason: "nope", website: "maybe", retail: "no" })) === JSON.stringify({ campaignId: null, source: null, province: null, reason: null, q: null, website: null, retail: null, suggested: null, ids: null }));
   ok("the guard where matches the guard SQL", JSON.stringify(untouchableGuardWhere(NOW)) === JSON.stringify({ doNotContactAt: null, OR: [{ assignedRepId: null }, { claimExpiresAt: { lt: NOW } }] }));
 
   const page = read("app/platform/sales/review/page.js");

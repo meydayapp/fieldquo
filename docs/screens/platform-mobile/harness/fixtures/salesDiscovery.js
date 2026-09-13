@@ -692,9 +692,17 @@ const REVIEW_BASE = {
 function reviewFolder(url) {
   const g = (k) => url.searchParams.get(k) || null;
   const q = (g("q") || "").toLowerCase();
-  const filter = { campaignId: g("campaignId"), source: g("source"), province: g("province"), reason: g("reason"), q: g("q"), website: g("website"), retail: g("retail") };
+  const filter = { campaignId: g("campaignId"), source: g("source"), province: g("province"), reason: g("reason"), q: g("q"), website: g("website"), retail: g("retail"), suggested: g("suggested"), ids: null };
   let out = reviewRows;
   let total = reviewTotal;
+  if (filter.suggested) {
+    // A card: the rows whose first live suggestion is that trade, with the
+    // stored form the batch would have written beside them.
+    out = reviewRows
+      .filter((r) => r.suggestions[0]?.tradeKey === filter.suggested)
+      .map((r) => ({ ...r, stored: { tradeKey: r.suggestions[0].tradeKey, tradeKeys: r.suggestions.map((s) => s.tradeKey), basis: r.suggestions[0].source, notContractor: false, note: r.suggestions.map((s) => s.basis).join(" · ") } }));
+    total = filter.suggested === "roofing" ? 4120 : out.length;
+  }
   if (q) { out = out.filter((r) => r.businessName.toLowerCase().includes(q)); total = 583; }
   if (filter.retail === "yes") { out = out.filter((r) => r.retailWord); total = 1093; }
   if (filter.reason) { out = out.filter((r) => r.reasons.includes(filter.reason)); total = filter.reason === "no_trade" ? 44006 : filter.reason === "unclear" ? 2396 : 83; }
@@ -1233,6 +1241,40 @@ export default function answer({ method, path, url, body }) {
   if (path === "/api/platform/sales/review" && method === "POST") {
     if (body?.decision !== "skip") { reviewRows = reviewRows.filter((r) => r.id !== body?.prospectId); reviewTotal -= 1; }
     return { ok: true, decision: body?.decision, bucket: "banked", counters: {}, research: { queued: 1 } };
+  }
+  // The By-suggestion mode: the cards, the compute button, the AI estimate.
+  if (path === "/api/platform/sales/review/suggested/ai" && method === "POST") {
+    return { considered: 100, written: 100, unknown: 61, notContractor: 4, byTrade: { general_contracting: 20, remodeling: 9, plumbing: 6 }, dropped: 0, batches: 1, promptTokens: 1740, completionTokens: 4100, costMicros: 4326, model: "gpt-5-mini", stopped: null, remaining: 163211, seconds: 9.4, cost: "<$0.01", estimate: { rows: 163311, costMicros: 7_100_000 } };
+  }
+  if (path === "/api/platform/sales/review/suggested/ai") {
+    return { rows: 163311, batches: 1634, model: "gpt-5-mini", priced: true, avgChars: 31.2, promptTokens: 3_213_000, completionTokens: 6_860_000, costMicros: 7_277_000, cost: "$7.28", configured: true, confirmPhrase: "COMPUTE AI SUGGESTIONS" };
+  }
+  if (path === "/api/platform/sales/review/suggested" && method === "POST") {
+    return { mode: body?.mode || "stale", version: "2026-09-13.1", considered: 5000, written: 5000, remaining: 0, byTrade: { roofing: 412, plumbing: 380 }, notContractor: 61, mixed: 12, none: 3900, seconds: 4.2 };
+  }
+  if (path === "/api/platform/sales/review/suggested") {
+    const fixed = (key, label, note, count, accepts, reject, checkedByDefault) => ({ key, label, note, count, accepts, reject, checkedByDefault });
+    return {
+      version: "2026-09-13.1",
+      trades: [
+        fixed("roofing", "Roofing", "Trade-less rows whose name, licence, site or domain says this trade.", 4120, ["given"], true, true),
+        fixed("plumbing", "Plumbing", "Trade-less rows whose name, licence, site or domain says this trade.", 3805, ["given"], true, true),
+        fixed("electrical", "Electrical", "Trade-less rows whose name, licence, site or domain says this trade.", 3611, ["given"], true, true),
+        fixed("hvac", "Heating and cooling", "Trade-less rows whose name, licence, site or domain says this trade.", 1204, ["given"], true, true),
+      ],
+      fixed: [
+        fixed("agree", "Name agrees with the current trade", "Already carries a trade from the source's category, and the name says the same.", 3120, ["current"], false, true),
+        fixed("conflict", "Name disagrees with the current trade", "Carries a trade from the source, and the name says a different one.", 412, ["current", "suggested"], false, false),
+        fixed("mixed", "Shop word beside a trade word", "A nursery that also landscapes, a farm that also excavates.", 388, ["suggested"], true, true),
+        fixed("not_contractor", "Not a contractor", "A supply house, a depot, a farm, a nursery, a products company.", 2311, [], true, true),
+        fixed("none", "No suggestion", "Nothing in the name, the licence, a crawl or the domain names a trade.", 163311, [], false, false),
+        fixed("current_only", "Current trade only", "Carries a trade already and the name says nothing either way.", 24011, [], false, false),
+        fixed("pending", "Not computed yet", "Rows the suggestion batch has not reached.", 0, [], false, false),
+      ],
+      duplicatesExcluded: 58315,
+      stale: 0,
+      cachedFor: 0,
+    };
   }
   if (path === "/api/platform/sales/review") return reviewFolder(url);
 

@@ -25,3 +25,11 @@ Build: `harness/build-review.sh` (paths point at the session scratchpad; edit
 | `maintenance-1280.png` | The maintenance panel after a dry run: the per-provider counts, Apply enabled. |
 | `sidebar-badge-1280.png` | The tall frame: "Review folder · 255k" on the rail under Discovery campaigns, and the licence-only row ("9410-5111 Québec inc." — `licence: only 16 électricité`). |
 | `folder-375.png` / `picked-375.png` | The phone: full-width controls, one column, the active row scrolled into view. |
+
+Since 2026-09-13 the page has a second mode, **By suggestion**
+(`?mode=suggested`): cards per stored suggestion, fifty names a page with the
+matched word highlighted, tick / untick, accept or reject the ticked rows
+through the same bulk route. The platform-mobile harness
+(`docs/screens/platform-mobile/harness/fixtures/salesDiscovery.js`) answers its
+routes (`/api/platform/sales/review/suggested`, `…/suggested/ai`); no frame of
+it is filed here yet.

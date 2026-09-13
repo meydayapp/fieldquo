@@ -18,8 +18,13 @@
 // page is fifty ids in decidability order, then one Prisma read for the rows
 // — a raw SELECT of every column would bypass Prisma's Decimal handling and
 // the campaign join for nothing. Suggestions are computed here, per row, from
-// lib/sales/discovery/tradeSuggest.js; they are never stored, because a
-// suggestion is not a fact about the business.
+// lib/sales/discovery/tradeSuggest.js. Since 2026-09-13 the SAME function's
+// answer is also stored on the row by suggestTradesBatch.js — not because a
+// suggestion became a fact about the business (it did not; nothing writes
+// tradeKey but POST here and the bulk route) but because 299,000 rows can only
+// be confirmed in batches when "every row whose name says HVAC" is a query.
+// The stored form rides beside the live chips as `stored`; the By-suggestion
+// mode filters on it (`?suggested=hvac`, reviewFolder.js's suggestedGroupSql).
 //
 // ══ POST ═══════════════════════════════════════════════════════════════════
 //
@@ -110,7 +115,7 @@ export async function GET(request) {
 
   const [[{ n: total }], idRows, facetData] = await Promise.all([
     db.$queryRaw`SELECT COUNT(*)::int AS n FROM "Prospect" WHERE ${where}`,
-    db.$queryRaw`SELECT id FROM "Prospect" WHERE ${where} ORDER BY ${reviewOrderSql()} LIMIT ${REVIEW_PAGE_SIZE} OFFSET ${page * REVIEW_PAGE_SIZE}`,
+    db.$queryRaw`SELECT id FROM "Prospect" WHERE ${where} ORDER BY ${reviewOrderSql(filter)} LIMIT ${REVIEW_PAGE_SIZE} OFFSET ${page * REVIEW_PAGE_SIZE}`,
     facets(now),
   ]);
   const ids = idRows.map((r) => r.id);
@@ -130,6 +135,12 @@ export async function GET(request) {
           licenceNumber: true,
           sourceCategories: true,
           reviewDeferredAt: true,
+          suggestedTradeKey: true,
+          suggestedTradeKeys: true,
+          suggestedTradeBasis: true,
+          suggestedNotContractor: true,
+          suggestedTradeNote: true,
+          suggestedAt: true,
           campaign: { select: { id: true, name: true } },
           inferences: { where: { kind: TRADE_INFERENCE_KIND }, select: { kind: true, value: true } },
         },
@@ -183,6 +194,18 @@ export async function GET(request) {
         campaign: p.campaign,
         suggestions,
         retailWord,
+        // The STORED suggestion, for the By-suggestion mode: what the batch
+        // wrote, which may lag the chips above by a keyword-table version.
+        // The screen highlights the note's words and shows the second trade.
+        stored: p.suggestedAt
+          ? {
+              tradeKey: p.suggestedTradeKey,
+              tradeKeys: p.suggestedTradeKeys,
+              basis: p.suggestedTradeBasis,
+              notContractor: Boolean(p.suggestedNotContractor),
+              note: p.suggestedTradeNote,
+            }
+          : null,
         duplicateOf: other
           ? { id: other.id, businessName: other.businessName, city: other.city, status: other.status, tradeKey: other.tradeKey }
           : p.possibleDuplicateOfId

@@ -69,6 +69,7 @@ import { db } from "@/lib/db";
 import { drainSalesPipeline } from "@/lib/sales/pipeline/runner";
 import { handlerStatus } from "@/lib/sales/pipeline/registry";
 import { topUpResearchBacklog } from "@/lib/sales/pipeline/research";
+import { SUGGEST_CRON_SLICE, suggestTradesBatch } from "@/lib/sales/discovery/suggestTradesBatch";
 
 // Same reasoning as grace-warning's BATCH: the query is driven by `status`,
 // not a cursor, so leftovers are picked up by the next tick and nothing is
@@ -186,6 +187,29 @@ export async function GET(request) {
     backlog = { error: err?.message || String(err) };
   }
   result.backlog = backlog;
+
+  // ── Then the Review folder's name suggestions, for rows that just arrived ─
+  //
+  // The By-suggestion mode (/platform/sales/review) groups the folder by a
+  // STORED suggestion (Prospect.suggested*), and a row a running campaign
+  // banked a minute ago has none until something computes it. This is that
+  // something: up to SUGGEST_CRON_SLICE rows a tick whose suggestedAt is
+  // null, through the same pure suggester the screen's chips use, written
+  // in three two-thousand-row statements. Nothing outside this process is
+  // touched and no trade is written (the batch's header). "missing" only —
+  // a keyword-table change is recomputed from the folder's own button or
+  // scripts/suggest-trades.mjs, because a version bump over 300,000 rows is
+  // a deliberate act and not something a cron should start on its own.
+  //
+  // Its own try/catch, for the backlog's reason: a slow scan must not turn a
+  // drain that already happened into a 500.
+  let suggestions;
+  try {
+    suggestions = await suggestTradesBatch({ db, mode: "missing", limit: SUGGEST_CRON_SLICE, deadlineMs: 20_000, now });
+  } catch (err) {
+    suggestions = { error: err?.message || String(err) };
+  }
+  result.suggestions = suggestions;
 
   // handlers is in the response on purpose: until the eight stages are written,
   // the truthful answer to "did the pipeline run?" includes which stages exist.

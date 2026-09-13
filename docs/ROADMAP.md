@@ -735,6 +735,78 @@ exact trade key, so not one could be dialled. The owner's decision, verbatim:
 
 ---
 
+## The Review folder, by suggestion: 299,945 rows as forty cards a person confirms fifty at a time (13 September 2026)
+
+The owner: "in the review we have 299k. is it possible to take a look at the
+name of the company and use AI to infer the trade? … It might put it in a list
+for me to confirm by batches." Row by row could not clear the pile whatever the
+chips said, because the bottleneck was a person looking at one row at a time.
+
+- **The suggestion is stored** — additive `Prospect.suggestedTradeKey /
+  suggestedTradeKeys / suggestedTradeBasis / suggestedTradeConfidence /
+  suggestedNotContractor / suggestedTradeNote / suggestedAt / suggestedVersion`
+  (schema comment there) — because "every row whose name says HVAC" has to be a
+  query before it can be a batch. `lib/sales/discovery/suggestTradesBatch.js`
+  runs the SAME pure suggester the chips use (`suggestionColumns()`) over the
+  folder in 2,000-row `UPDATE … FROM unnest` statements; `scripts/
+  suggest-trades.mjs` from a laptop, a "Compute name suggestions" button on the
+  folder (`POST /api/platform/sales/review/suggested`), and a 5,000-row
+  "missing" slice in the sales-pipeline cron for rows that arrive later. Version-
+  stamped, so a keyword added tomorrow reaches every row and the same version
+  twice writes nothing. **Nothing writes `tradeKey`** — the accept routes stay
+  the only writers, and `scripts/check-trade-suggestions.mjs` greps for it.
+- **The table grew where the owner's examples showed gaps, measured first**
+  (`tradeSuggest.js`'s header): a random 2,000 of the 210,969 trade-less rows,
+  forty names per top trade hand-checked; added plaster, dirtwork/grading/
+  backhoe, blacktop/sealcoat, cement, cooling/furnace, rooter/sewer/septic,
+  hardwood/laminate, spa/hot tub, mold/PuroClean/Servpro, termite, fireplace,
+  eavestrough, sprinkler, ferblanterie; "store" became a whole word (forty
+  "Storefronts" were glass contractors). Not-a-contractor words: farm/farms,
+  tree farm, christmas, nursery, greenhouse, garden centre, products, precast,
+  ready mix, aggregate, manufacturer, dealer — plus classify.js's own
+  `SUPPLIER_NAME_PATTERNS`, reused not copied. "Tree service" is landscaping
+  first, tree care second (the owner, twice, against a catalogue with both —
+  one line in the table to reverse). A fourth, weaker basis: the DOMAIN
+  ("treeservicesangola.com"), substring-matched with guards measured on 20,000
+  domains (proof, street, harbor, fresno, versatile…), reported as "site name".
+- **The By-suggestion mode** (`/platform/sales/review?mode=suggested`): one
+  card per suggested trade over trade-less rows, plus `suggestedGroups.js`'s
+  fixed cards — *name agrees with the current trade* (accept writes each row's
+  OWN trade), *name disagrees* (both shown, nothing picked, unticked by
+  default), *shop word beside a trade word* (accept as the name's trade, or
+  reject), *not a contractor* (reject), *no suggestion*, *current trade only*.
+  A card is fifty names in name order with the word highlighted, a tickbox each
+  (ticked by default), the second trade as "+ chip", `space` / `Enter` / `j` /
+  `k`, and the EXISTING bulk route + confirm modal: `filter: { suggested, ids }`
+  plus a `tradeSource` (given · current · suggested) that `reviewBulk.js` now
+  honours per row. The server re-runs the card's WHERE over the ids, so a row
+  that left the card is not written. Flagged duplicates are in no card.
+- **Phase 2, built and gated, NOT run**: `suggestTradesAi.js` — batches of 100
+  names (+ city, province; numbered, never the id) → one `complete()` through
+  `lib/ai/provider.js` on the default model with a strict JSON schema whose enum
+  is the real trade keys + `not_contractor` + `unknown`; `checkPlatformAiBudget`
+  before, `recordPlatformAiUsage` after (area `trade_suggestion`); the parser
+  drops an unknown key rather than mapping it. Written to the same columns,
+  basis `ai`; an `unknown` is written too so a row is not asked twice; a
+  recompute keeps a paid answer. The button shows the count and a cost computed
+  from measured name lengths × `lib/ai/usage.js`'s price table (no price in the
+  UI) and needs `COMPUTE AI SUGGESTIONS` typed.
+- **Run for real (Phase 1 only), 2026-09-13**: 299,947 rows in 107 s. Cards:
+  48,753 trade-less rows with a suggestion (remodelling 6,012 · carpentry 3,971
+  · electrical 3,953 · excavation 3,657 · cabinets 2,977 · plumbing 2,932 ·
+  masonry/concrete 2,778 · landscaping 2,324 · painting 2,222 · general
+  contracting 1,938 · drywall 1,663 · flooring 1,631 · HVAC 1,546 · roofing
+  1,521 · restoration 1,308 · paving 1,154 …), agree 5,080, conflict 3,823,
+  mixed 888, not a contractor 1,204, no suggestion **153,748**, current trade
+  only 13,383, duplicates excluded 73,066 — cards + fixed + duplicates =
+  299,945, the folder total, exactly. Bases: name 90,569 · licence 6,797 ·
+  site name 1,821 · site 1,707. **Phase 2 estimate for the 153,748: 1,538
+  calls, ≈ $6.86 on gpt-5-mini** — waiting on the owner's yes.
+- `scripts/check-trade-suggestions.mjs` (184 checks, in check:all): the six
+  examples, hostile names, the domain guards, the stored form, the batch's
+  cursor and idempotence against a fake client, the per-row trade sources, the
+  AI parser and the cost arithmetic, and the grep. Five mutations caught.
+
 ## The console is the dialler the owner drew, and a rep reads "lead" (11 September 2026)
 
 The owner sent a screenshot of a CRM dialler he liked, then redirected three

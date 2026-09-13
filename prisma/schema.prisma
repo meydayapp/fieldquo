@@ -11098,6 +11098,50 @@ model Prospect {
   /// behind the rows nobody has looked at yet. Null means nobody passed on it.
   reviewDeferredAt DateTime?
 
+  // ── A suggested trade, stored so 299,000 rows can be confirmed in batches ─
+  //
+  // The Review folder computes up to three suggested trades per row at render
+  // time (lib/sales/discovery/tradeSuggest.js) and shows them as chips. That
+  // is the right shape for one row at a time and the wrong shape for the pile:
+  // "every row whose NAME says HVAC" cannot be a query when the suggestion
+  // only exists inside a request. So the same pure suggester is run over the
+  // folder by lib/sales/discovery/suggestTradesBatch.js and its answer is
+  // written here, where `GROUP BY "suggestedTradeKey"` turns 299,000 rows into
+  // forty cards a person can confirm fifty at a time.
+  //
+  // NOTHING HERE IS A TRADE. `tradeKey` above is still written by exactly one
+  // path — a superadmin's accept in the folder (reviewDecide.js / reviewBulk.js)
+  // — and the batch never touches it; scripts/check-trade-suggestions.mjs
+  // asserts that by grep. A suggestion is a prompt with its reason beside it,
+  // and a row stays trade-less until a human says otherwise.
+  //
+  /// The primary suggestion, a DISCOVERY_TRADES key, or null when nothing in
+  /// the name, the licence or a crawl names one. The group card's key.
+  suggestedTradeKey        String?
+  /// Every trade suggested, primary first, at most three — "Plumbing Heating
+  /// & Air" carries plumbing AND hvac. Only the primary is ever accepted in
+  /// bulk: `tradeKey` is one column and there is no secondary.
+  suggestedTradeKeys       String[]  @default([])
+  /// What the primary rests on: name | site_name | licence | site | ai.
+  suggestedTradeBasis      String?
+  /// Measured precision of that basis on a hand-checked draw (rule bases —
+  /// tradeSuggest.js's header records the draw), or the model's own number
+  /// for `ai`. Never a guess typed in.
+  suggestedTradeConfidence Decimal?  @db.Decimal(3, 2)
+  /// True when the name carries a not-a-contractor word — a supply house, a
+  /// depot, a tree farm, a nursery. May sit beside a suggestedTradeKey
+  /// ("Nursery & Landscaping"): that is the classify.js three-valued case,
+  /// and the screen groups those apart so a person decides.
+  suggestedNotContractor   Boolean?
+  /// The words behind it, for the screen to highlight: "name: 'plumb' ·
+  /// name: 'heating'", or the model's eight-word why.
+  suggestedTradeNote       String?
+  suggestedAt              DateTime?
+  /// tradeSuggest.js's SUGGEST_VERSION at the time. A table change bumps it
+  /// and the batch recomputes rows carrying an older one; the same version
+  /// twice writes nothing, which is what makes the cron slice idempotent.
+  suggestedVersion         String?
+
   // ── The retry pool: what happened on the last dial, and when the next one is ─
   //
   // lib/sales/retryRules.js decides these; lib/sales/calls/store.js writes
@@ -11183,6 +11227,10 @@ model Prospect {
   /// these keep the sort from touching every row.
   @@index([nextAttemptAt])
   @@index([exhaustedAt])
+  /// The By-suggestion mode's GROUP BY and its group pages.
+  @@index([suggestedTradeKey])
+  /// The cron slice's "rows not yet suggested" scan.
+  @@index([suggestedAt])
   repNotes SalesRepNote[]
   playbookAssignments SalesPlaybookAssignment[]
   talkingPoints       ProspectTalkingPoint[]

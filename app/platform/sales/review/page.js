@@ -33,6 +33,24 @@
 // Off while an input has focus, so typing "9" into the search box does not
 // pick a trade.
 //
+// ══ Two modes, since 2026-09-13 ════════════════════════════════════════════
+//
+// The owner: "we have 299k. is it possible to take a look at the name of the
+// company and use AI to infer the trade? … It might put it in a list for me
+// to confirm by batches." Row by row was never going to clear 299,000 rows,
+// however good the chips were, because the bottleneck was a person looking
+// at one row at a time. So a second mode, BY SUGGESTION: the same suggester,
+// run over the whole folder and STORED (lib/sales/discovery/
+// suggestTradesBatch.js), grouped into one card per suggested trade plus
+// the fixed cards in suggestedGroups.js. Open a card, read fifty names with
+// the word that put them there highlighted, untick the wrong ones, "Accept
+// 48 as Heating and cooling" — the existing bulk route, the existing confirm.
+// Unticked rows stay for the next pass. Nothing is written until a person
+// presses the button; the batch writes suggestions, never trades.
+//
+// Keys in this mode: j/k move · space tick / untick · Enter accept the ticked
+// rows · / search is off (no search box here).
+//
 // ══ English ════════════════════════════════════════════════════════════════
 //
 // /platform is English-only by convention (app/platform/sales/notes/page.js
@@ -41,7 +59,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertCircle, Check, Copy, HelpCircle, Loader2, Wrench, X } from "lucide-react";
+import { AlertCircle, Check, Copy, HelpCircle, Loader2, Sparkles, Wrench, X } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 
 const BTN =
@@ -61,6 +79,53 @@ function readFilterFromUrl() {
   return out;
 }
 
+/** `?mode=suggested&card=hvac` — the By-suggestion mode is a URL, like the filters. */
+function readModeFromUrl() {
+  if (typeof window === "undefined") return { mode: "rows", card: null };
+  const params = new URLSearchParams(window.location.search);
+  return { mode: params.get("mode") === "suggested" ? "suggested" : "rows", card: params.get("card") || null };
+}
+
+// The words a stored note quotes — "name: 'plumb' · site name: 'roof'" —
+// as accent-tolerant, case-insensitive regexes over the RAW name, the same
+// vowel expansion tradeSuggest.js compiles for Postgres. So "plomb"
+// highlights "Plomberie" and "electri" highlights "Électricité".
+const ACCENTS = { a: "[aàâä]", e: "[eéèêë]", i: "[iîï]", o: "[oôö]", u: "[uùûü]", c: "[cç]" };
+function noteWords(note) {
+  return [...String(note || "").matchAll(/'([^']+)'/g)].map((m) => m[1]).filter(Boolean);
+}
+function highlightRe(words) {
+  const alts = words
+    .map((w) =>
+      [...w].map((ch) => (ch === " " ? "[^a-z0-9]+" : ACCENTS[ch] || (/[a-z0-9]/i.test(ch) ? ch : `\\${ch}`))).join(""),
+    )
+    .filter(Boolean);
+  if (!alts.length) return null;
+  try {
+    return new RegExp(`(${alts.join("|")})`, "i");
+  } catch {
+    return null;
+  }
+}
+function Highlighted({ text, words }) {
+  const re = highlightRe(words);
+  if (!re || !text) return <>{text}</>;
+  const parts = String(text).split(re);
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 === 1 ? (
+          <mark key={i} className="rounded bg-amber-200 dark:bg-amber-700/60 px-0.5 text-inherit">
+            {part}
+          </mark>
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+    </>
+  );
+}
+
 function filterToParams(filter, page) {
   const params = new URLSearchParams();
   for (const k of FILTER_KEYS) if (filter[k]) params.set(k, filter[k]);
@@ -69,6 +134,49 @@ function filterToParams(filter, page) {
 }
 
 export default function PlatformSalesReviewPage() {
+  const [{ mode, card }, setModeState] = useState(() => readModeFromUrl());
+  const setMode = (next, nextCard = null) => {
+    setModeState({ mode: next, card: nextCard });
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (next === "suggested") params.set("mode", "suggested");
+      else params.delete("mode");
+      if (nextCard) params.set("card", nextCard);
+      else params.delete("card");
+      params.delete("page");
+      const url = params.toString() ? `?${params}` : window.location.pathname;
+      window.history.replaceState(null, "", url);
+    }
+  };
+
+  const modeSwitch = (
+    <div className="inline-flex rounded-lg border border-border p-0.5" role="tablist" aria-label="Mode" data-review-mode>
+      {[
+        ["rows", "Row by row"],
+        ["suggested", "By suggestion"],
+      ].map(([key, label]) => (
+        <button
+          key={key}
+          type="button"
+          role="tab"
+          aria-selected={mode === key}
+          className={`min-h-[44px] px-4 rounded-md text-sm font-semibold ${mode === key ? "bg-primary text-primary-foreground" : "text-foreground"}`}
+          onClick={() => setMode(key, key === "suggested" ? card : null)}
+          data-mode={key}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (mode === "suggested") {
+    return <SuggestedMode card={card} setCard={(c) => setMode("suggested", c)} modeSwitch={modeSwitch} />;
+  }
+  return <RowsMode modeSwitch={modeSwitch} />;
+}
+
+function RowsMode({ modeSwitch }) {
   const [filter, setFilter] = useState(() => readFilterFromUrl());
   const [page, setPage] = useState(0);
   const [data, setData] = useState(null);
@@ -281,7 +389,10 @@ export default function PlatformSalesReviewPage() {
   return (
     <div className="space-y-5 max-w-5xl">
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold text-foreground">Review folder</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-xl font-semibold text-foreground">Review folder</h1>
+          {modeSwitch}
+        </div>
         <p className="text-sm text-muted-foreground">
           Prospects that need a human before any rep can dial them: contractors with no trade, rows the classifier
           could not place, and possible duplicates — every campaign, one list. Pick a trade and the row goes to that
@@ -681,5 +792,591 @@ function Categories({ lines, register }) {
         </button>
       ) : null}
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// By suggestion
+// ═══════════════════════════════════════════════════════════════════════════
+
+function SuggestedMode({ card, setCard, modeSwitch }) {
+  const [cards, setCards] = useState(null);
+  const [cardsError, setCardsError] = useState("");
+  const [computing, setComputing] = useState(null); // { mode, considered, remaining } | null
+  const [error, setError] = useState("");
+  const [note, setNote] = useState("");
+  const [ai, setAi] = useState(null); // the estimate
+  const [aiConfirm, setAiConfirm] = useState(null); // { typed } | null
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiResult, setAiResult] = useState(null);
+
+  const loadCards = useCallback(async () => {
+    setCardsError("");
+    try {
+      const [c, est] = await Promise.all([
+        fetchJson("/api/platform/sales/review/suggested"),
+        fetchJson("/api/platform/sales/review/suggested/ai").catch((err) => ({ error: err?.message || "estimate unavailable" })),
+      ]);
+      setCards(c);
+      setAi(est);
+    } catch (err) {
+      setCardsError(err?.message || "Could not load the suggestion cards.");
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCards();
+  }, [loadCards]);
+
+  // ── Compute: call until the server says nothing remains ──────────────────
+  const [stopCompute, setStopCompute] = useState(false);
+  async function compute(mode) {
+    setError("");
+    setStopCompute(false);
+    let progress = { mode, considered: 0, remaining: null };
+    setComputing(progress);
+    try {
+      for (let i = 0; i < 200; i++) {
+        const res = await fetchJson("/api/platform/sales/review/suggested", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode }),
+        });
+        progress = { mode, considered: progress.considered + (res.considered || 0), remaining: res.remaining };
+        setComputing({ ...progress });
+        if (!res.remaining || !res.considered || stopCompute) break;
+      }
+      setNote(`Computed suggestions for ${progress.considered.toLocaleString()} rows${progress.remaining ? ` · ${progress.remaining.toLocaleString()} still to do` : ""}.`);
+    } catch (err) {
+      setError(err?.message || "The suggestion batch did not run.");
+    } finally {
+      setComputing(null);
+      await loadCards();
+    }
+  }
+
+  async function runAi() {
+    if (!ai?.confirmPhrase || aiConfirm?.typed !== ai.confirmPhrase) return;
+    setAiBusy(true);
+    setError("");
+    try {
+      const res = await fetchJson("/api/platform/sales/review/suggested/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: aiConfirm.typed }),
+      });
+      setAiResult(res);
+      setAiConfirm(null);
+      setNote(
+        `AI read ${res.considered.toLocaleString()} names on ${res.model || "the model"} for ${res.cost}: ${Object.values(res.byTrade || {}).reduce((a, b) => a + b, 0)} with a trade, ${res.notContractor} not contractors, ${res.unknown} unknown${res.stopped ? ` — stopped: ${res.stopped}` : ""}. ${res.remaining.toLocaleString()} remain.`,
+      );
+      await loadCards();
+    } catch (err) {
+      setError(err?.message || "The AI pass did not run.");
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
+  const pending = cards?.fixed?.find((f) => f.key === "pending")?.count || 0;
+  const allCards = cards ? [...cards.trades, ...cards.fixed.filter((f) => f.key !== "pending")] : [];
+  const openCard = card ? allCards.find((c) => c.key === card) || null : null;
+
+  return (
+    <div className="space-y-5 max-w-5xl">
+      <header className="space-y-1">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-xl font-semibold text-foreground">Review folder</h1>
+          {modeSwitch}
+        </div>
+        <p className="text-sm text-muted-foreground">
+          The folder grouped by what each row&apos;s NAME says its trade is — the same suggester as the chips, run over every
+          row and stored. Open a card, untick the ones that are wrong, accept the rest as that trade. Nothing is assigned
+          until you press the button; untouched rows stay for the next pass. Possible duplicates are not in these cards.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Keys: <kbd>j</kbd>/<kbd>k</kbd> move · <kbd>space</kbd> tick / untick · <kbd>Enter</kbd> accept the ticked rows
+        </p>
+      </header>
+
+      {error ? (
+        <p className="text-sm text-red-700 dark:text-red-300 inline-flex items-center gap-2" data-review-error>
+          <AlertCircle size={16} /> {error}
+        </p>
+      ) : null}
+      {cardsError ? (
+        <p className="text-sm text-red-700 dark:text-red-300 inline-flex items-center gap-2" data-review-error>
+          <AlertCircle size={16} /> {cardsError}
+        </p>
+      ) : null}
+      {note ? (
+        <p className="text-sm text-emerald-800 dark:text-emerald-200" data-review-note>
+          {note}
+        </p>
+      ) : null}
+
+      {/* ── Compute ───────────────────────────────────────────────────── */}
+      <section className="rounded-xl border border-border bg-card p-4 space-y-3" data-suggest-compute>
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-foreground font-medium">
+            {cards
+              ? pending
+                ? `${pending.toLocaleString()} rows have no suggestion computed yet`
+                : "Every row has a suggestion computed"
+              : "…"}
+            {cards?.stale ? ` · ${cards.stale.toLocaleString()} computed on an older keyword table` : ""}
+            {cards ? ` · table ${cards.version}` : ""}
+          </span>
+          <span className="flex-1" />
+          {cards && (pending || cards.stale) ? (
+            <button
+              type="button"
+              className={`${BTN} bg-primary text-primary-foreground`}
+              disabled={Boolean(computing)}
+              onClick={() => compute(pending ? "missing" : "stale")}
+              data-suggest-compute-go
+            >
+              {computing ? <Loader2 className="animate-spin" size={16} /> : <Wrench size={16} />}
+              {computing
+                ? `Computing… ${computing.considered.toLocaleString()} done${computing.remaining !== null ? `, ${computing.remaining.toLocaleString()} left` : ""}`
+                : pending
+                  ? `Compute name suggestions (${pending.toLocaleString()} rows)`
+                  : `Recompute on table ${cards.version} (${cards.stale.toLocaleString()} rows)`}
+            </button>
+          ) : null}
+          {computing ? (
+            <button type="button" className={`${BTN} border border-border text-foreground`} onClick={() => setStopCompute(true)}>
+              Stop after this slice
+            </button>
+          ) : null}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Free: the name, the licence, a crawl and the domain, through the same keyword table as the chips. Writes a
+          suggestion on each row and nothing else — no trade, no status. New rows are picked up by the pipeline cron a
+          few thousand a minute.
+        </p>
+
+        {/* ── Phase 2 ──────────────────────────────────────────────────── */}
+        <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-800 p-3 space-y-2" data-suggest-ai>
+          <p className="text-sm text-amber-900 dark:text-amber-200">
+            <Sparkles size={14} className="inline mr-1" />
+            AI for the rest: {ai && !ai.error ? `${ai.rows.toLocaleString()} rows the table could not read` : ai?.error || "…"}
+            {ai && !ai.error
+              ? ai.priced
+                ? ` · ≈ ${ai.cost} on ${ai.model} (${ai.batches.toLocaleString()} calls of 100 names; ≈${ai.promptTokens.toLocaleString()} prompt + ${ai.completionTokens.toLocaleString()} completion tokens, priced from lib/ai/usage.js)`
+                : ` · ${ai.model} has no checked price in lib/ai/usage.js — unpriced`
+              : ""}
+            {ai && ai.configured === false ? " · AI is not configured on this deployment" : ""}
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <button
+              type="button"
+              className={`${BTN} border border-amber-400 text-amber-900 dark:text-amber-100`}
+              disabled={!ai || ai.error || !ai.rows || aiBusy || ai.configured === false}
+              onClick={() => setAiConfirm({ typed: "" })}
+              data-suggest-ai-open
+            >
+              <Sparkles size={16} /> Compute AI suggestions for the rest{ai && !ai.error ? ` (${ai.rows.toLocaleString()} rows${ai.priced ? `, ≈ ${ai.cost}` : ""})` : ""}
+            </button>
+          </div>
+          {aiConfirm ? (
+            <div className="space-y-2" data-suggest-ai-confirm>
+              <p className="text-sm text-amber-900 dark:text-amber-200">
+                This sends {ai.rows.toLocaleString()} business names (with city and province, nothing else) to {ai.model} in
+                batches of 100, under the platform AI budget, and costs about {ai.priced ? ai.cost : "an unpriced amount"}. It
+                writes a suggestion per row — never a trade. Each press runs for up to four minutes and reports what it
+                actually cost. Type <strong>{ai.confirmPhrase}</strong> to run it.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  className={`${FIELD} flex-1`}
+                  value={aiConfirm.typed}
+                  onChange={(e) => setAiConfirm({ typed: e.target.value })}
+                  placeholder={ai.confirmPhrase}
+                  aria-label="Type the confirmation phrase"
+                  data-suggest-ai-typed
+                />
+                <button
+                  type="button"
+                  className={`${BTN} bg-primary text-primary-foreground`}
+                  disabled={aiBusy || aiConfirm.typed !== ai.confirmPhrase}
+                  onClick={runAi}
+                  data-suggest-ai-go
+                >
+                  {aiBusy ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />} Run the paid pass
+                </button>
+                <button type="button" className={`${BTN} text-muted-foreground`} onClick={() => setAiConfirm(null)} disabled={aiBusy}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : null}
+          {aiResult ? (
+            <pre className="text-xs whitespace-pre-wrap rounded-lg bg-muted p-3 text-foreground">{JSON.stringify(aiResult, null, 2)}</pre>
+          ) : null}
+        </div>
+      </section>
+
+      {/* ── Cards ─────────────────────────────────────────────────────── */}
+      {!openCard ? (
+        <section className="space-y-3" data-suggest-cards>
+          {!cards ? (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="animate-spin" size={18} /> Loading…
+            </div>
+          ) : null}
+          {cards && !cards.trades.length && !cards.fixed.some((f) => f.count && f.key !== "pending") ? (
+            <p className="text-sm text-muted-foreground">No suggestions stored yet — compute them above.</p>
+          ) : null}
+          {cards?.trades.length ? (
+            <>
+              <h2 className="text-sm font-semibold text-foreground">By suggested trade — trade-less rows</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {cards.trades.map((c) => (
+                  <CardButton key={c.key} card={c} onOpen={() => setCard(c.key)} />
+                ))}
+              </div>
+            </>
+          ) : null}
+          {cards ? (
+            <>
+              <h2 className="text-sm font-semibold text-foreground">Everything else</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {cards.fixed
+                  .filter((c) => c.key !== "pending")
+                  .map((c) => (
+                    <CardButton key={c.key} card={c} onOpen={() => setCard(c.key)} />
+                  ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {cards.duplicatesExcluded.toLocaleString()} possible duplicates are in no card — the duplicate question comes first, in
+                row-by-row mode.
+              </p>
+            </>
+          ) : null}
+        </section>
+      ) : (
+        <SuggestedGroup
+          card={openCard}
+          onBack={() => {
+            setCard(null);
+            loadCards();
+          }}
+          onChanged={loadCards}
+          setNote={setNote}
+          setError={setError}
+        />
+      )}
+    </div>
+  );
+}
+
+function CardButton({ card, onOpen }) {
+  return (
+    <button
+      type="button"
+      className="min-h-[44px] rounded-xl border border-border bg-card p-3 text-left hover:border-primary disabled:opacity-60"
+      onClick={onOpen}
+      disabled={!card.count}
+      data-suggest-card={card.key}
+    >
+      <p className="font-medium text-foreground break-words">
+        {card.label} <span className="text-muted-foreground font-normal">— {card.count.toLocaleString()}</span>
+      </p>
+      <p className="text-xs text-muted-foreground">{card.note}</p>
+    </button>
+  );
+}
+
+function SuggestedGroup({ card, onBack, onChanged, setNote, setError }) {
+  const [page, setPage] = useState(0);
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [checked, setChecked] = useState({});
+  const [focus, setFocus] = useState(0);
+  const [confirm, setConfirm] = useState(null); // { decision, tradeSource, tradeKey, ids, count, sample }
+  const [busy, setBusy] = useState(false);
+  const rowRefs = useRef([]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ suggested: card.key, page: String(page) });
+      const res = await fetchJson(`/api/platform/sales/review?${params}`);
+      setData(res);
+      const next = {};
+      for (const r of res.rows) next[r.id] = card.checkedByDefault;
+      setChecked(next);
+      setFocus(0);
+    } catch (err) {
+      setError(err?.message || "Could not load this card.");
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [card.key, card.checkedByDefault, page, setError]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const rows = data?.rows || [];
+  const tradeLabel = useMemo(() => {
+    const m = new Map((data?.trades || []).map((t) => [t.key, t.label]));
+    return (key) => m.get(key) || key;
+  }, [data?.trades]);
+  const tickedIds = rows.filter((r) => checked[r.id]).map((r) => r.id);
+  const isTradeCard = !["agree", "conflict", "mixed", "not_contractor", "none", "current_only", "pending"].includes(card.key);
+
+  const open = (decision, tradeSource) => {
+    if (!tickedIds.length) return;
+    const ticked = rows.filter((r) => checked[r.id]);
+    setConfirm({
+      decision,
+      tradeSource,
+      tradeKey: isTradeCard ? card.key : null,
+      ids: tickedIds,
+      count: tickedIds.length,
+      sample: ticked.slice(0, 3).map((r) => r.businessName),
+    });
+  };
+
+  // ── Keyboard ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    function onKey(e) {
+      const tag = (e.target?.tagName || "").toLowerCase();
+      if (tag === "input" || tag === "select" || tag === "textarea" || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (confirm) return;
+      if (e.key === "j") {
+        e.preventDefault();
+        setFocus((i) => Math.min(i + 1, rows.length - 1));
+      } else if (e.key === "k") {
+        e.preventDefault();
+        setFocus((i) => Math.max(i - 1, 0));
+      } else if (e.key === " " && rows[focus]) {
+        e.preventDefault();
+        const id = rows[focus].id;
+        setChecked((c) => ({ ...c, [id]: !c[id] }));
+      } else if (e.key === "Enter" && card.accepts.length === 1) {
+        e.preventDefault();
+        open("accept", card.accepts[0]);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, focus, confirm, card.accepts, checked]);
+
+  useEffect(() => {
+    rowRefs.current[focus]?.scrollIntoView?.({ block: "nearest" });
+  }, [focus]);
+
+  async function runBulk() {
+    if (!confirm) return;
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetchJson("/api/platform/sales/review/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filter: { suggested: card.key, ids: confirm.ids },
+          decision: confirm.decision,
+          tradeKey: confirm.tradeKey,
+          tradeSource: confirm.tradeSource || "given",
+          expectedCount: confirm.count,
+        }),
+      });
+      setConfirm(null);
+      setNote(
+        confirm.decision === "accept"
+          ? `Assigned ${res.tradeLabel} to ${res.count} rows across ${res.campaigns} campaign${res.campaigns === 1 ? "" : "s"}. ${res.research}`
+          : `Rejected ${res.count} rows across ${res.campaigns} campaign${res.campaigns === 1 ? "" : "s"}.`,
+      );
+      // The written rows have left the card; the same page now shows the
+      // next fifty. Unticked rows come back first (name order), which is
+      // the "stays for the next pass" the mode promises.
+      await load();
+      onChanged();
+    } catch (err) {
+      setError(err?.message || "The bulk decision did not apply.");
+      setConfirm(null);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const sourceLabel = (src) =>
+    src === "given" ? `as ${card.label}` : src === "current" ? "as their current trade" : "as the name's trade";
+  const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
+
+  return (
+    <section className="space-y-3" data-suggest-group={card.key}>
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" className={`${BTN} border border-border text-foreground`} onClick={onBack} data-suggest-back>
+          ← All cards
+        </button>
+        <h2 className="text-base font-semibold text-foreground">
+          {card.label} <span className="text-muted-foreground font-normal">— {data ? data.total.toLocaleString() : "…"} rows</span>
+        </h2>
+      </div>
+      <p className="text-xs text-muted-foreground">{card.note}</p>
+
+      <div className="flex flex-wrap items-center gap-2 sticky top-0 bg-background py-2 z-10" data-suggest-actions>
+        <label className="inline-flex items-center gap-2 min-h-[44px] px-1 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={rows.length > 0 && tickedIds.length === rows.length}
+            onChange={(e) => {
+              const next = {};
+              for (const r of rows) next[r.id] = e.target.checked;
+              setChecked(next);
+            }}
+            aria-label="Tick every row on this page"
+          />
+          {tickedIds.length} of {rows.length} ticked
+        </label>
+        <span className="flex-1" />
+        {card.accepts.map((src) => (
+          <button
+            key={src}
+            type="button"
+            className={`${BTN} bg-primary text-primary-foreground`}
+            disabled={!tickedIds.length || busy}
+            onClick={() => open("accept", src)}
+            data-suggest-accept={src}
+          >
+            <Check size={16} /> Accept {tickedIds.length} {sourceLabel(src)}
+          </button>
+        ))}
+        {card.reject ? (
+          <button
+            type="button"
+            className={`${BTN} border border-border text-foreground`}
+            disabled={!tickedIds.length || busy}
+            onClick={() => open("reject", null)}
+            data-suggest-reject
+          >
+            <X size={16} /> Reject {tickedIds.length} as not contractors
+          </button>
+        ) : null}
+        {!card.accepts.length && !card.reject ? (
+          <span className="text-xs text-muted-foreground">A list to read, not a decision — use row-by-row mode for these.</span>
+        ) : null}
+      </div>
+
+      {loading && !data ? (
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="animate-spin" size={18} /> Loading…
+        </div>
+      ) : null}
+      {data && rows.length === 0 && !loading ? <p className="text-sm text-muted-foreground">Nothing left on this card.</p> : null}
+
+      <div className="space-y-1" data-suggest-rows>
+        {rows.map((p, i) => {
+          const stored = p.stored || {};
+          const words = noteWords(stored.note);
+          const others = (stored.tradeKeys || []).filter((k) => k !== (isTradeCard ? card.key : stored.tradeKeys?.[0]));
+          const active = i === focus;
+          return (
+            <label
+              key={p.id}
+              ref={(el) => (rowRefs.current[i] = el)}
+              onClick={() => setFocus(i)}
+              className={`flex items-start gap-3 rounded-lg border bg-card px-3 py-2 min-h-[44px] cursor-pointer ${active ? "border-primary ring-2 ring-primary/30" : "border-border"} ${checked[p.id] ? "" : "opacity-60"}`}
+              data-suggest-row={p.id}
+              data-active={active ? "1" : undefined}
+            >
+              <input
+                type="checkbox"
+                className="mt-1.5"
+                checked={Boolean(checked[p.id])}
+                onChange={(e) => setChecked((c) => ({ ...c, [p.id]: e.target.checked }))}
+                aria-label={`Tick ${p.businessName}`}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-foreground break-words">
+                  <Highlighted text={p.businessName || "(no name)"} words={words} />
+                </p>
+                <p className="text-xs text-muted-foreground break-words">
+                  {[p.city, p.province].filter(Boolean).join(" · ") || "no address"}
+                  {p.websiteUrl ? ` · ${p.websiteUrl.replace(/^https?:\/\//, "")}` : ""}
+                  {p.tradeLabel ? ` · currently ${p.tradeLabel}` : ""}
+                  {stored.note ? ` · ${stored.note}` : ""}
+                  {stored.basis === "ai" ? " · ai" : ""}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-1 justify-end">
+                {card.key === "conflict" || card.key === "agree" ? (
+                  <span className="rounded-full border border-border px-2 py-0.5 text-[11px] text-foreground">now: {p.tradeLabel || "—"}</span>
+                ) : null}
+                {(stored.tradeKeys || []).slice(0, 1).map((k) =>
+                  isTradeCard && k === card.key ? null : (
+                    <span key={k} className="rounded-full border border-primary px-2 py-0.5 text-[11px] text-foreground">
+                      name: {tradeLabel(k)}
+                    </span>
+                  ),
+                )}
+                {others.map((k) => (
+                  <span key={k} className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
+                    + {tradeLabel(k)}
+                  </span>
+                ))}
+              </div>
+            </label>
+          );
+        })}
+      </div>
+
+      {data && data.total > data.pageSize ? (
+        <nav className="flex items-center gap-3 text-sm text-foreground">
+          <button type="button" className={`${BTN} border border-border`} disabled={page === 0 || loading} onClick={() => setPage((p) => Math.max(0, p - 1))}>
+            Previous
+          </button>
+          <span>
+            Page {page + 1} of {pages.toLocaleString()}
+          </span>
+          <button type="button" className={`${BTN} border border-border`} disabled={page + 1 >= pages || loading} onClick={() => setPage((p) => p + 1)}>
+            Next
+          </button>
+        </nav>
+      ) : null}
+
+      {confirm ? (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" data-bulk-confirm>
+          <div className="w-full max-w-md rounded-xl border border-border bg-card p-5 space-y-4">
+            <h2 className="text-base font-semibold text-foreground">
+              {confirm.decision === "accept"
+                ? `Accept ${confirm.count.toLocaleString()} rows ${sourceLabel(confirm.tradeSource)}?`
+                : `Reject ${confirm.count.toLocaleString()} rows as not contractors?`}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {confirm.decision === "accept"
+                ? "Each ticked row becomes an accepted contractor in that trade's queue. Written as one audited act, with a correction on each row; the server re-checks that every row is still on this card."
+                : "Each ticked row is rejected and marked do-not-contact, so a re-import cannot put it back in front of a rep."}
+            </p>
+            <div className="text-sm text-foreground">
+              <p className="font-medium">For example:</p>
+              <ul className="list-disc pl-5">
+                {confirm.sample.map((n, i) => (
+                  <li key={i} className="break-words">
+                    {n}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button type="button" className={`${BTN} bg-primary text-primary-foreground`} onClick={runBulk} disabled={busy} data-bulk-go>
+                {busy ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
+                {confirm.decision === "accept" ? `Accept ${confirm.count.toLocaleString()} rows` : `Reject ${confirm.count.toLocaleString()} rows`}
+              </button>
+              <button type="button" className={`${BTN} border border-border text-foreground`} onClick={() => setConfirm(null)} disabled={busy}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </section>
   );
 }
