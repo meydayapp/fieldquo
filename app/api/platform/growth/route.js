@@ -35,6 +35,10 @@ const COUNT_KEYS = ["reps", "dialsPerRepPerDay", "workingDaysPerMonth"];
 const RATE_BOUNDS = Object.freeze({
   reach: 1, signup: 1, conversion: 1, churn: 1, referral: 10, organic: 1_000_000,
   refill: 10_000_000, redial: 1, marketing: 1_000_000, marketingSpend: 100_000_000, marketingCostPerSignup: 1_000_000,
+  // Attempts per prospect is a ratio ≥ 1 in practice; twenty rings of one
+  // business is already a typo. Completion is a probability. Ad spend and
+  // cost per trial are money.
+  attemptsPerProspect: 20, completion: 1, adSpend: 100_000_000, costPerTrial: 1_000_000,
 });
 const NULLABLE_KEYS = Object.keys(RATE_BOUNDS);
 
@@ -72,6 +76,7 @@ async function buildResponse() {
       organic: measured.organic,
       refill: measured.refill,
       marketing: measured.marketing,
+      ads: measured.ads,
       startingPaying: measured.starting.paying,
       startingTrialing: measured.starting.trialing,
       listSize: measured.listSize,

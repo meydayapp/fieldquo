@@ -26,7 +26,7 @@
 
 import {
   rate, monthlyCount, project, monthLabel, MILESTONES, FLOORS, RATE_KEYS, FUNNEL_RATE_KEYS, COUNT_KEYS, ASSUMPTION_FIELDS, HORIZON_MONTHS,
-  RETRY_RETURN_MONTHS, RETRY_MAX_ATTEMPTS, marketingAssumption,
+  RETRY_RETURN_MONTHS, RETRY_MAX_ATTEMPTS, marketingAssumption, adsAssumption, reachPerProspect, DEFAULT_ATTEMPTS_PER_PROSPECT,
 } from "../lib/platform/growthModel.js";
 import { RETRY_MAX_ATTEMPTS as RULES_MAX } from "../lib/sales/retryRules.js";
 
@@ -92,6 +92,10 @@ const assumedRates = (over = {}) => ({
   churn: rate({ of: 0, floor: FLOORS.churnMonths, assumed: A.churn }),
   referral: rate({ of: 0, floor: FLOORS.referralMonths, assumed: 0, max: 10 }),
   redial: rate({ of: 0, floor: FLOORS.redial, assumed: 0 }),
+  // 2026-09-13: attempts at 0 (→ 1, one dial per prospect) and completion
+  // with no basis (→ not applied) are what reproduce yesterday's series.
+  attempts: rate({ of: 0, floor: FLOORS.attempts, assumed: 0, max: 20 }),
+  completion: rate({ of: 0, floor: FLOORS.completion }),
   ...over,
 });
 const now = new Date("2026-09-06T12:00:00Z");
@@ -126,9 +130,9 @@ ok("the list is exhausted in month 15 and the dials stop there",
 ok("after the list runs out the paying stock DECAYS — the model does not keep inventing signups",
   plan.series[20].paying < plan.series[17].paying, { m17: plan.series[17].paying, m20: plan.series[20].paying });
 ok("the default horizon is 60 months, 61 points", plan.series.length === HORIZON_MONTHS + 1);
-ok("rates ride along with their basis, so the page can label them", RATE_KEYS.every((k) => plan.rates[k].basis === "assumed"));
+ok("rates ride along with their basis, so the page can label them (completion is 'none' here by design — not applied)", RATE_KEYS.filter((k) => k !== "completion").every((k) => plan.rates[k].basis === "assumed") && plan.rates.completion.basis === "none");
 ok("the fixed-list plan says the LIST is the limit, not churn — the long run is 0 paying and the peak is named",
-  plan.ceilingBy.limitedBy === "list" && plan.ceilingBy.longRun.paying === 0 && plan.ceilingBy.peak.paying > 0 && plan.ceilingBy.peak.month >= 15 && plan.ceilingBy.zeroSources.join() === "refill,redial,marketing,referral,organic",
+  plan.ceilingBy.limitedBy === "list" && plan.ceilingBy.longRun.paying === 0 && plan.ceilingBy.peak.paying > 0 && plan.ceilingBy.peak.month >= 15 && plan.ceilingBy.zeroSources.join() === "refill,redial,marketing,ads,referral,organic",
   plan.ceilingBy);
 ok("…and the milestones above the peak are NOT 'beyond the horizon, reachable' on a falling curve", plan.milestones.every((m) => m.month !== null || m.reachable === false));
 ok("this month's signups are broken out by source on every point", plan.series[3].signups.dial === 472.5 && plan.series[3].signups.total === 472.5 && plan.series[3].signups.freshDials === 63_000 && plan.series[3].signups.redialDials === 0 && plan.series[0].signups.total === 0);
@@ -209,6 +213,57 @@ ok("spend ÷ cost per signup is the typed count when the count is blank: $5,000 
 ok("…the count wins when both are given", marketingAssumption({ marketing: 20, marketingSpend: 5000, marketingCostPerSignup: 100 }) === 20);
 ok("…spend with no cost, or a cost of 0, is not a number", marketingAssumption({ marketingSpend: 5000 }) === null && marketingAssumption({ marketingSpend: 5000, marketingCostPerSignup: 0 }) === null && marketingAssumption({}) === null);
 
+// ── Attempts per prospect: reach per PROSPECT, dials spent per prospect ────
+ok("reach per prospect is 1 − (1 − r)^N", near(reachPerProspect(0.099, 3), 1 - Math.pow(0.901, 3)) && near(reachPerProspect(0.15, 1), 0.15) && near(reachPerProspect(0.15, 0), 0.15) && near(reachPerProspect(0.15, NaN), 0.15) && reachPerProspect(NaN, 3) === 0);
+ok("Belkins' sanity check: 9.9% per dial → 24.5% per prospect at about three attempts (2.7)", near(reachPerProspect(0.099, 2.7), 0.245, 0.002) && reachPerProspect(0.099, 3) > 0.245 && reachPerProspect(0.099, 3) < 0.28);
+ok("the default is 3", DEFAULT_ATTEMPTS_PER_PROSPECT === 3);
+const three = project({ reps: 20, dialsPerRepPerDay: 150, workingDaysPerMonth: 21, listSize: 918_244, now, rates: assumedRates({ attempts: rate({ of: 0, floor: FLOORS.attempts, assumed: 3, max: 20 }) }) });
+ok("3 attempts: 63,000 dials work 21,000 prospects a month and reach 1 − 0.85³ = 38.6% of them", three.monthly.prospectsWorked === 21_000 && near(three.monthly.reachPerProspect, 1 - Math.pow(0.85, 3)) && three.monthly.reached === Math.round(21_000 * (1 - Math.pow(0.85, 3))) && three.monthly.attempts === 3 && near(three.monthly.reachPerDial, 0.15), three.monthly);
+ok("…both reach figures ride along: per dial and per prospect", near(three.monthly.reachPerDial, A.reach) && three.monthly.reachPerProspect > three.monthly.reachPerDial);
+ok("…signups per month are prospects × reach per prospect × signup: 21,000 × 38.59% × 5% = 405.2", three.monthly.signups.dial === 405.2, three.monthly.signups);
+ok("…the list runway is in prospects: 918,244 ÷ 21,000 = 43.7 months, three times the one-attempt 14.6", near(three.listRunwayMonths, 43.7) && three.listExhaustedAt === 44 && near(plan.listRunwayMonths, 14.6), { three: three.listRunwayMonths, one: plan.listRunwayMonths });
+ok("…and every dial is still spent: 63,000 fresh dials a month while the list lasts", three.series[1].signups.freshDials === 63_000 && three.series[43].signups.freshDials === 63_000 && three.series[44].signups.freshDials < 63_000);
+ok("the comparison runs the same plan at one attempt and says which won", three.attemptsComparison && three.attemptsComparison.oneAttempt.attempts === 1 && three.attemptsComparison.withAttempts.attempts === 3 && ["reach", "runway", "even"].includes(three.attemptsComparison.wins), three.attemptsComparison);
+ok("…the one-attempt half IS yesterday's plan", three.attemptsComparison.oneAttempt.cumulativeSignups === plan.series[60].cumulativeSignups && three.attemptsComparison.oneAttempt.peakPaying === plan.ceilingBy.peak.paying && near(three.attemptsComparison.oneAttempt.signupsPerMonth, 472.5));
+ok("…on the owner's fixed list, ringing three times reaches fewer businesses a month (406 < 472.5 signups) but the list lasts three times longer, so over 60 months the runway wins on cumulative signups",
+  three.attemptsComparison.withAttempts.cumulativeSignups > three.attemptsComparison.oneAttempt.cumulativeSignups && three.attemptsComparison.wins === "reach" && three.attemptsComparison.withAttempts.signupsPerMonth < three.attemptsComparison.oneAttempt.signupsPerMonth, three.attemptsComparison);
+ok("at one attempt there is no comparison to draw", plan.attemptsComparison === null && plan.monthly.attempts === 1);
+ok("attempts below 1 (a typo of 0.5) are rung once, not half a time", project({ reps: 1, dialsPerRepPerDay: 100, workingDaysPerMonth: 1, now, rates: assumedRates({ attempts: rate({ of: 0, floor: 10, assumed: 0.5, max: 20 }) }) }).monthly.attempts === 1);
+ok("the refill's prospects cost attempts dials each in the long run", (() => {
+  const p = project({ reps: 20, dialsPerRepPerDay: 150, workingDaysPerMonth: 21, listSize: 918_244, now, rates: assumedRates({ attempts: rate({ of: 0, floor: 10, assumed: 3, max: 20 }) }), refill: monthlyCount({ floorMonths: 3, assumed: 10_000 }) });
+  return p.ceilingBy.longRun.freshDials === 30_000 && near(p.listRunwayMonths, 918_244 / 11_000, 0.1);
+})());
+
+// ── The self-serve step: agreed on the call → completed with card ──────────
+const completed = project({ reps: 20, dialsPerRepPerDay: 150, workingDaysPerMonth: 21, listSize: 918_244, now, rates: assumedRates({ completion: rate({ of: 0, floor: FLOORS.completion, assumed: 0.6 }) }) });
+ok("60% completion: 472.5 agreed become 283.5 signups a month, and the ceiling falls to 283.5 × 0.4 ÷ 0.05 = 2,268", completed.monthly.signups.dial === 283.5 && completed.ceiling === 2_268 && completed.monthly.completion === 0.6 && completed.monthly.completionApplied === true, completed.monthly);
+ok("…applied between the signup rate and the trial conversion: month 2 pays 283.5 × 0.4 = 113", completed.series[2].paying === 113 && completed.series[1].trialing === 284, completed.series[2]);
+ok("…on the dial path only: 100 marketing signups still add 100", project({ reps: 0, dialsPerRepPerDay: 0, workingDaysPerMonth: 0, now, rates: assumedRates({ completion: rate({ of: 0, floor: 20, assumed: 0.6 }) }), marketing: monthlyCount({ floorMonths: 3, assumed: 100 }) }).monthly.signups.total === 100);
+ok("…a blank completion is NOT APPLIED (×1) and says so, never a withheld forecast", plan.monthly.completion === 1 && plan.monthly.completionApplied === false && plan.rates.completion.basis === "none");
+ok("…a measured completion of 12 of 40 blended against 60% is between the two", (() => { const r = rate({ hit: 12, of: 40, floor: FLOORS.completion, assumed: 0.6 }); return r.basis === "blended" && r.value > 0.3 && r.value < 0.6; })());
+
+// ── Ads: spend ÷ cost per trial, a source of its own ───────────────────────
+ok("$5,000 ÷ $80 = 62.5 trials a month", adsAssumption({ adSpend: 5000, costPerTrial: 80 }) === 62.5);
+ok("spend with no cost, a cost of 0, or nothing at all is not a number", adsAssumption({ adSpend: 5000 }) === null && adsAssumption({ adSpend: 5000, costPerTrial: 0 }) === null && adsAssumption({}) === null && adsAssumption({ costPerTrial: 80 }) === null);
+const advertised = project({ reps: 20, dialsPerRepPerDay: 150, workingDaysPerMonth: 21, rates: assumedRates(), now, ads: monthlyCount({ floorMonths: 3, assumed: 62.5 }) });
+ok("62.5 ad trials a month lift paying adds to (472.5 + 62.5) × 0.4 = 214", advertised.monthly.payingAdds === 214 && advertised.monthly.signups.ads === 62.5 && advertised.monthly.signups.total === 535, advertised.monthly);
+ok("…they convert at the trial rate after the trial like everyone else: month 2 pays 214", advertised.series[2].paying === 214 && advertised.series[1].paying === 0);
+ok("…and ads are their own source in the series, apart from marketing and organic", advertised.series[12].signupsBySource.ads === 750 && advertised.series[12].signupsBySource.marketing === 0 && advertised.series[12].signups.ads === 62.5 && !advertised.ceilingBy.zeroSources.includes("ads") && plan.ceilingBy.zeroSources.includes("ads"));
+ok("…an ad trial skips completion: it already has a card", project({ reps: 0, dialsPerRepPerDay: 0, workingDaysPerMonth: 0, now, rates: assumedRates({ completion: rate({ of: 0, floor: 20, assumed: 0.6 }) }), ads: monthlyCount({ floorMonths: 3, assumed: 40 }) }).monthly.signups.total === 40);
+
+// ── Zeros reproduce yesterday's series exactly ─────────────────────────────
+{
+  const yesterday = project({ reps: 20, dialsPerRepPerDay: 150, workingDaysPerMonth: 21, rates: assumedRates(), listSize: 918_244, now });
+  const zeros = project({
+    reps: 20, dialsPerRepPerDay: 150, workingDaysPerMonth: 21, listSize: 918_244, now,
+    rates: assumedRates({ attempts: rate({ of: 0, floor: 10, assumed: 1, max: 20 }), completion: rate({ of: 0, floor: 20, assumed: 1 }) }),
+    ads: monthlyCount({ floorMonths: 3, assumed: 0 }),
+  });
+  const strip = (p) => JSON.stringify({ series: p.series, ceiling: p.ceiling, milestones: p.milestones, listRunwayMonths: p.listRunwayMonths, listExhaustedAt: p.listExhaustedAt, longRun: p.ceilingBy.longRun, limitedBy: p.ceilingBy.limitedBy });
+  ok("attempts 1, completion 100% and ads 0 reproduce the omitted-fields series exactly", strip(zeros) === strip(yesterday));
+  ok("…which is the fixed-list series every assertion above was written against: 0,0,189,369 … exhausted at 15, 6,887 signups", yesterday.series.slice(0, 4).map((s) => s.paying).join() === "0,0,189,369" && yesterday.listExhaustedAt === 15 && yesterday.series[60].cumulativeSignups === Math.round(918_244 * 0.15 * 0.05));
+}
+
 // ── The ceiling explanation names the binding rate ─────────────────────────
 const unlisted = project({ reps: 20, dialsPerRepPerDay: 150, workingDaysPerMonth: 21, rates: assumedRates(), now });
 ok("no list at all: dialling runs at capacity forever, CHURN binds, and refill is not called a zero (there is no list to refill)", unlisted.ceilingBy.limitedBy === "churn" && !unlisted.ceilingBy.zeroSources.includes("refill") && unlisted.ceilingBy.longRun.paying === unlisted.ceiling && near(unlisted.ceilingBy.churn, 0.05) && unlisted.ceilingBy.addsPerMonth === 189, unlisted.ceilingBy);
@@ -282,7 +337,7 @@ ok("a referral rate with no basis does NOT stop the forecast — it counts as 0"
   const p = project({ reps: 20, dialsPerRepPerDay: 150, workingDaysPerMonth: 21, now, rates: assumedRates({ referral: rate({ of: 0, floor: 3, max: 10 }) }) });
   return p.series.every((s) => s.signupsBySource.referral === 0) && p.series[12].paying === plan.series[12].paying;
 })());
-ok("FUNNEL_RATE_KEYS is RATE_KEYS without the additive referral and redial", FUNNEL_RATE_KEYS.join() === "reach,signup,conversion,churn" && RATE_KEYS.join() === "reach,signup,conversion,churn,referral,redial" && COUNT_KEYS.join() === "organic,refill,marketing");
+ok("FUNNEL_RATE_KEYS is RATE_KEYS without the additive referral and redial, the plan's attempts and the ×1 completion", FUNNEL_RATE_KEYS.join() === "reach,signup,conversion,churn" && RATE_KEYS.join() === "reach,signup,conversion,churn,referral,redial,attempts,completion" && COUNT_KEYS.join() === "organic,refill,marketing,ads");
 ok("negative reps refuse", (() => { try { project({ reps: -1, dialsPerRepPerDay: 1, workingDaysPerMonth: 1, rates: assumedRates() }); return false; } catch (e) { return /reps/.test(e.message); } })());
 ok("a string for dials refuses rather than coercing", (() => { try { project({ reps: 1, dialsPerRepPerDay: "150", workingDaysPerMonth: 1, rates: assumedRates() }); return false; } catch (e) { return /dialsPerRepPerDay/.test(e.message); } })());
 ok("no rates at all refuses", (() => { try { project({ reps: 1, dialsPerRepPerDay: 1, workingDaysPerMonth: 1 }); return false; } catch (e) { return /rates/.test(e.message); } })());
@@ -291,9 +346,9 @@ ok("an invalid `now` falls back to the clock rather than NaN labels", /^\d{4}-\d
 ok("deterministic: same input, same output", JSON.stringify(project({ reps: 20, dialsPerRepPerDay: 150, workingDaysPerMonth: 21, rates: assumedRates(), listSize: 918_244, now })) === JSON.stringify(plan));
 
 // ── The form fields match the model ────────────────────────────────────────
-ok("every rate key has a form field carrying its floor", RATE_KEYS.every((k) => ASSUMPTION_FIELDS.some((f) => f.key === k && f.kind === "rate" && f.floor > 0)));
+ok("every rate key has a form field carrying its floor (attempts as a ratio, under its own key)", RATE_KEYS.every((k) => ASSUMPTION_FIELDS.some((f) => (f.key === k || (k === "attempts" && f.key === "attemptsPerProspect")) && (f.kind === "rate" || f.kind === "ratio") && f.floor > 0)));
 ok("organic has its own field, as a monthly count", ASSUMPTION_FIELDS.some((f) => f.key === "organic" && f.kind === "monthlyCount"));
-ok("every count key has a monthlyCount field carrying its floor", COUNT_KEYS.every((k) => ASSUMPTION_FIELDS.some((f) => f.key === k && f.kind === "monthlyCount" && f.floor > 0)));
+ok("every count key has a field carrying its floor (ads is typed as spend, under adSpend)", COUNT_KEYS.every((k) => ASSUMPTION_FIELDS.some((f) => (f.key === k || (k === "ads" && f.key === "adSpend")) && (f.kind === "monthlyCount" || f.kind === "money") && f.floor > 0)));
 ok("the spend / cost-per-signup pair are money fields with no floor — typed only, never measured", ["marketingSpend", "marketingCostPerSignup"].every((k) => ASSUMPTION_FIELDS.some((f) => f.key === k && f.kind === "money" && !f.floor)));
 ok("referral, organic and the four new fields carry a hint and NO default value — the range is words, not a saved guess",
   ["referral", "organic", "refill", "redial", "marketing", "marketingSpend", "marketingCostPerSignup"].every((k) => { const f = ASSUMPTION_FIELDS.find((x) => x.key === k); return f && typeof f.hint === "string" && f.hint.length > 20 && !("default" in f); }));
@@ -321,7 +376,8 @@ const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
   ok("PUT guards request.json() and refuses a non-object body", /catch \{\s*return NextResponse\.json\(\{ error: "Send a JSON body\." \}, \{ status: 400 \}\)/.test(route) && /Array\.isArray\(body\)/.test(route));
   ok("PUT bounds every rate, with referral allowed above 1 and organic as a count", /reach: 1, signup: 1, conversion: 1, churn: 1, referral: 10, organic: 1_000_000/.test(route));
   ok("PUT bounds the four new keys too — re-dial a probability, refill and marketing counts, spend and cost money", /refill: 10_000_000, redial: 1, marketing: 1_000_000, marketingSpend: 100_000_000, marketingCostPerSignup: 1_000_000/.test(route));
-  ok("the route hands refill and marketing to the model", /refill: measured\.refill/.test(route) && /marketing: measured\.marketing/.test(route));
+  ok("the route hands refill, marketing and ads to the model", /refill: measured\.refill/.test(route) && /marketing: measured\.marketing/.test(route) && /ads: measured\.ads/.test(route));
+  ok("PUT bounds attempts, completion, ad spend and cost per trial", /attemptsPerProspect: 20, completion: 1, adSpend: 100_000_000, costPerTrial: 1_000_000/.test(route));
   ok("PUT records who saved", /updatedByAdminId: admin\.id/.test(route));
   const measured = read("lib/platform/growthMeasured.js");
   ok("reached is derived from DISPOSITIONS[].reached, not a hardcoded list", /Object\.entries\(DISPOSITIONS\)[\s\S]{0,80}d\.reached/.test(measured) && !/"reached_interested"/.test(measured));
@@ -331,12 +387,28 @@ const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
   ok("only FULL months are observed — never the current one", /for \(let i = MONTHS_BACK; i >= 1; i -= 1\)/.test(measured));
   ok("refill is measured from Prospect rows by UTC month, and the load month is not a refill", /date_trunc\('month', "createdAt" AT TIME ZONE 'UTC'\)/.test(measured) && /observed\.filter\(\(m\) => m\.label > listLoadMonth\)/.test(measured));
   ok("re-dial is measured on REPEAT attempts (row_number > 1 per prospect) followed by the prospect's lead converting", /row_number\(\) OVER \(PARTITION BY "prospectId"/.test(measured) && /WHERE n > 1/.test(measured) && /"convertedAt" >= d\."dialledAt"/.test(measured) && /"isDemo" = false/.test(measured));
-  ok("marketing is measured from influencer-code redemptions, and those companies leave organic", /promoCode: \{ kind: "influencer" \}/.test(measured) && /created\.length - referral - rep - marketing/.test(measured));
+  ok("marketing is measured from influencer-code redemptions, and those companies leave organic", /promoCode: \{ kind: "influencer" \}/.test(measured) && /created\.length - referral - rep - ads - marketing/.test(measured));
+  ok("ads are measured from a paid utm tag on the SignupOrigin row, decided by the one predicate, and outrank an influencer code", /isPaidAdSignup\(o\)/.test(measured) && /utmSource: true, utmMedium: true/.test(measured) && /!viaAds\.has\(c\.id\) && viaCampaign\.has\(c\.id\)/.test(measured));
+  ok("attempts are measured as dispositioned dials ÷ distinct prospects", /count\(DISTINCT "prospectId"\)::int AS prospects/.test(measured) && /hit: attemptDials, of: attemptProspects/.test(measured));
+  ok("completion is measured agreed → attributed-with-Subscription, keyed per business like the funnel", /hit: attributedWithCard, of: agreedCount/.test(measured) && /disposition: AGREED_CODE/.test(measured) && /salesAttribution: \{ isNot: null \}/.test(measured));
+  ok("the signup rate is now measured to the agreed stage", /signup: rate\(\{ hit: agreedCount, of: reached/.test(measured));
+  const flags = read("lib/platform/signupFlags.js");
+  ok("the utm reader caps, lower-cases and refuses non-strings; the paid test matches exactly", /slice\(0, UTM_MAX\)/.test(flags) && /PAID_UTM_MEDIUMS\.includes\(medium\) \|\| AD_UTM_SOURCES\.includes\(source\)/.test(flags));
+  const signup = read("app/signup/page.js");
+  ok("the signup page reads utm_source / utm_medium / utm_campaign off the query and posts them as `utm`", /\["utm_source", "utm_medium", "utm_campaign"\]/.test(signup) && /utm: utm \|\| undefined/.test(signup));
+  const companies = read("app/api/companies/route.js");
+  ok("the signup route hands the tags to recordSignupOrigin", /utm: utm && typeof utm === "object" \? utm : null/.test(companies));
+  const origin = read("lib/platform/signupOrigin.js");
+  ok("SignupOrigin stores the three cleaned columns", /\.\.\.readUtm\(utm\)/.test(origin) && /utmCampaign: true/.test(origin));
   ok("the marketing assumption is the count or spend ÷ cost, through the model's one helper", /assumed: marketingAssumption\(assumptions\)/.test(measured));
   const page = read("app/platform/growth/page.js");
-  ok("the page shows a basis chip beside every rate, and says the additive ones count as 0", /basisChip\(r, Boolean\(additive\)\)/.test(page) && /Measured/.test(page) && /Assumed/.test(page) && /Missing/.test(page) && /counted as 0/.test(page));
-  ok("…every rate row on the page is a model key, additive ones marked", (() => { const m = page.match(/const RATE_ROWS = \[([\s\S]*?)\];/); if (!m) return false; const keys = [...m[1].matchAll(/key: "(\w+)"/g)].map((x) => x[1]); return keys.join() === [...RATE_KEYS.slice(0, 5), "organic", "refill", "redial", "marketing"].join() && keys.every((k) => RATE_KEYS.includes(k) || COUNT_KEYS.includes(k)); })());
-  ok("the projection card names the signup sources per month: dial · re-dial · marketing · referral · organic", /signups this month:/.test(page) && /\["dial", "redial", "marketing", "referral", "organic"\]/.test(page));
+  ok("the page shows a basis chip beside every rate, and says the additive ones count as 0", /basisChip\(r, Boolean\(additive\), blankWord\)/.test(page) && /Measured/.test(page) && /Assumed/.test(page) && /Missing/.test(page) && /counted as 0/.test(page) && /basisChip\(r, Boolean\(additive\), blankWord\)/.test(page));
+  ok("the page says which won — reach or runway — from attemptsComparison, and shows both reach figures", /function AttemptsNote/.test(page) && /the reach wins/.test(page) && /the runway wins/.test(page) && /reach per prospect after \{f\.monthly\.attempts\} attempts/.test(page));
+  ok("the page names ads as a source in the engine note and in the milestone explanation", /\+ \$\{f\.monthly\.signups\.ads\.toFixed\(0\)\} ads/.test(page) && /ads: "ads"/.test(page));
+  ok("the assumptions form carries the two ad fields with the hint, not a default", (() => { const a = ASSUMPTION_FIELDS.find((x) => x.key === "adSpend"); const c = ASSUMPTION_FIELDS.find((x) => x.key === "costPerTrial"); return a && c && /\$50–100/.test(c.hint) && /a hint, not a default/.test(c.hint) && !("default" in a) && !("default" in c); })());
+  ok("the completion field says blank is not applied, and attempts says blank assumes 3", /Blank is not applied/.test(ASSUMPTION_FIELDS.find((x) => x.key === "completion").hint) && /Blank assumes 3/.test(ASSUMPTION_FIELDS.find((x) => x.key === "attemptsPerProspect").hint) && ASSUMPTION_FIELDS.find((x) => x.key === "attemptsPerProspect").default === 3);
+  ok("…every rate row on the page is a model key, additive ones marked", (() => { const m = page.match(/const RATE_ROWS = \[([\s\S]*?)\];/); if (!m) return false; const keys = [...m[1].matchAll(/key: "(\w+)"/g)].map((x) => x[1]); return keys.join() === ["attempts", "reach", "signup", "completion", "conversion", "churn", "referral", "organic", "refill", "redial", "marketing", "ads"].join() && keys.every((k) => RATE_KEYS.includes(k) || COUNT_KEYS.includes(k)); })());
+  ok("the projection card names the signup sources per month: dial · re-dial · marketing · ads · referral · organic", /signups this month:/.test(page) && /\["dial", "redial", "marketing", "ads", "referral", "organic"\]/.test(page));
   ok("the milestone list says WHICH rate limits the ceiling, from ceilingBy", /function ceilingSentence\(f\)/.test(page) && /set by churn/.test(page) && /the list is the real limit/.test(page) && /referrals outrun churn/.test(page) && /\{ceilingSentence\(f\)\}/.test(page));
   ok("the chart legend tells 'list runs out' from 'refill assumed'", /List runs out in/.test(page) && /Refill \{f\.refill\?\.basis === "assumed" \? "assumed"/.test(page));
   ok("the intro says plainly what is measured and what is assumed, from the data", /function basisSentence\(data, fieldsByKey\)/.test(page) && /counted as 0 until measured or typed/.test(page) && /\{basisSentence\(data, fieldsByKey\)\}/.test(page));

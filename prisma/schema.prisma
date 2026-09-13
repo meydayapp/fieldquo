@@ -9642,6 +9642,19 @@ model SignupOrigin {
   /// a price.
   referralCode String?
 
+  /// The advert this signup came from, when the link carried one:
+  /// utm_source / utm_medium / utm_campaign as presented on /signup (query
+  /// string, carried in the page's own draft like the codes above — never a
+  /// cookie, for the same reason ?ref= is not one). Lower-cased, trimmed,
+  /// capped at 100 characters, null when absent. Absent is "no advert
+  /// named", never "organic": a link with no tag says nothing about where it
+  /// was clicked (AGENTS.md failure class #5). Read by
+  /// lib/platform/growthMeasured.js to count paid-ad trials a month — the
+  /// one thing the growth model could not measure before these existed.
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+
   /// "none" | "outside_ca_us" | "country_mismatch" | "repeat_ip" —
   /// SIGNUP_FLAGS, decided by decideSignupFlag() and never re-derived on a
   /// screen. "vpn_or_hosting" is in the vocabulary and is NOT produced: no
@@ -12969,6 +12982,18 @@ model PlatformGrowthAssumptions {
   /// the CPA but not the count. lib/platform/growthModel.js marketingAssumption().
   marketingSpend         Float?
   marketingCostPerSignup Float?
+  /// How many times the closers ring one prospect before moving on. Null =
+  /// not typed; the model assumes 3 (Belkins' ~3 attempts) and says so.
+  /// Measured as dispositioned dials ÷ distinct prospects dialled.
+  attemptsPerProspect    Float?
+  /// Agreed on the call → signup completed with card: the self-serve step
+  /// the rep does not control. Null = not typed; counted as 100% (not
+  /// applied) until measured from the funnel or typed — 60% is the hint.
+  completion             Float?
+  /// Paid ads as a source: spend a month ÷ cost per card trial = trials a
+  /// month, converted at the trial rate. Both null = no ads assumed.
+  adSpend                Float?
+  costPerTrial           Float?
   updatedByAdminId    String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt

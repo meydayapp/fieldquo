@@ -92,6 +92,7 @@ import { materialiseCheckInsForRep, materialiseDemoCheckIn } from "@/lib/sales/c
 import { ruleDraft } from "@/lib/sales/checkin/draft";
 import { CHECKIN_REASONS, REASON_CODES, checkinHeadlineKey } from "@/lib/sales/checkin/signals";
 import { signupLinkFor } from "@/lib/sales/repStats";
+import { markAgreedOnCall } from "@/lib/sales/agreedOnCall";
 import { threadTriage } from "@/lib/sales/messages/triage";
 
 /**
@@ -110,6 +111,9 @@ import { threadTriage } from "@/lib/sales/messages/triage";
  * `titleKey` lets the screen show the entry's title in the rep's language;
  * the TEXT is what goes over the wire and stays as it is.
  */
+/** The one shape of a rep's link (lib/sales/repStats.js signupLinkFor) — what marks a text as the link being sent. */
+const LINK_MARK = "/signup?sales=";
+
 function cannedFor({ rep, lead, origin }) {
   const facts = { companyName: lead?.businessName || null };
   const entries = REASON_CODES.map((code) => ({
@@ -506,5 +510,11 @@ export async function POST(request) {
       { status: result.status || 409 },
     );
   }
-  return NextResponse.json({ ok: true, messages: await salesThread({ salesRepId: rep.id, withE164 }) });
+  // A free-text send that carries the rep's signup link is "agreed on the
+  // call" exactly as the dedicated send is — the same write, so the funnel's
+  // agreed stage does not depend on which composer the rep used.
+  const agreedOnCall = lead?.id && result.body?.includes(LINK_MARK)
+    ? await markAgreedOnCall({ repId: rep.id, lead })
+    : null;
+  return NextResponse.json({ ok: true, agreedOnCall, messages: await salesThread({ salesRepId: rep.id, withE164 }) });
 }

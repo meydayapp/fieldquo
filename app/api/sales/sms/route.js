@@ -44,6 +44,7 @@ import { firstSuppression } from "@/lib/sales/suppression";
 import { ownNumbers } from "@/lib/sales/calls/store";
 import { CHANNEL_TEXT } from "@/lib/sales/contact/numbers";
 import { loadContactNumbers, pickContactNumber } from "@/lib/sales/contact/resolve";
+import { markAgreedOnCall } from "@/lib/sales/agreedOnCall";
 
 /** The only columns this route reads, so both handlers see the same lead. */
 const LEAD_SELECT = {
@@ -273,11 +274,18 @@ export async function POST(request) {
     );
   }
 
+  // The link went: that is "agreed on the call". Written on the open attempt
+  // when there is one, so the funnel's agreed stage does not depend on the
+  // rep logging the same fact a second time — lib/sales/agreedOnCall.js says
+  // which attempt and why a failure here never fails the send.
+  const agreed = await markAgreedOnCall({ repId: rep.id, lead });
+
   return NextResponse.json({
     ok: true,
     messageId: result.messageId,
     to: result.to,
     body: result.body,
     sentAt: result.sentAt,
+    agreedOnCall: agreed,
   });
 }

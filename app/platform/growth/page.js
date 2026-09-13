@@ -22,8 +22,12 @@ import Sparkline from "@/app/components/platform/Sparkline";
 // additive sources. Keys match lib/platform/growthModel.js RATE_KEYS and
 // COUNT_KEYS — `kind` says which shape the value has.
 const RATE_ROWS = [
+  // attempts is the plan's ratio (assumed 3 until measured); completion is
+  // the self-serve step, ×1 until measured or typed — both say so in the chip.
+  { key: "attempts", kind: "ratio", field: "attemptsPerProspect" },
   { key: "reach", kind: "rate" },
   { key: "signup", kind: "rate" },
+  { key: "completion", kind: "rate", additive: true, blankWord: "Not applied · counted as 100%" },
   { key: "conversion", kind: "rate" },
   { key: "churn", kind: "rate" },
   { key: "referral", kind: "referral", additive: true },
@@ -31,14 +35,17 @@ const RATE_ROWS = [
   { key: "refill", kind: "count", additive: true },
   { key: "redial", kind: "rate", additive: true },
   { key: "marketing", kind: "count", additive: true },
+  { key: "ads", kind: "count", additive: true, field: "adSpend" },
 ];
 const ADDITIVE_KEYS = RATE_ROWS.filter((r) => r.additive).map((r) => r.key);
-const SOURCE_LABELS = { dial: "dial", redial: "re-dial", marketing: "marketing", referral: "referral", organic: "organic" };
+const SOURCE_LABELS = { dial: "dial", redial: "re-dial", marketing: "marketing", ads: "ads", referral: "referral", organic: "organic" };
 const nf = new Intl.NumberFormat("en-CA");
 const pct = (v, digits = 1) => (typeof v === "number" && Number.isFinite(v) ? `${(v * 100).toFixed(digits)}%` : UNKNOWN);
-const measuredOf = (data, key) => (key === "organic" || key === "refill" || key === "marketing" ? data?.measured?.[key] : data?.measured?.rates?.[key]);
+const measuredOf = (data, key) => (key === "organic" || key === "refill" || key === "marketing" || key === "ads" ? data?.measured?.[key] : data?.measured?.rates?.[key]);
 const valueText = (key, kind, r) => {
   const v = r?.value;
+  if (kind === "ratio") return v === null || v === undefined ? "1 per prospect" : `${(Math.round(v * 100) / 100).toString()} per prospect`;
+  if (key === "completion") return v === null || v === undefined ? "100% (not applied)" : pct(v);
   if (kind === "count") return v === null || v === undefined ? "0/month" : `${nf.format(Math.round(v * 10) / 10)}/month`;
   if (kind === "referral") return v === null || v === undefined ? "0 per paying" : `${v.toFixed(2)} per paying`;
   if (key === "redial") return v === null || v === undefined ? "0%" : pct(v, 2);
@@ -56,13 +63,13 @@ function basisSentence(data, fieldsByKey) {
   for (const row of RATE_ROWS) {
     const r = measuredOf(data, row.key);
     const b = r?.basis || "none";
-    (by[b] || by.none).push((fieldsByKey[row.key]?.label || row.key).toLowerCase());
+    (by[b] || by.none).push((fieldsByKey[row.field || row.key]?.label || row.key).toLowerCase());
   }
   const parts = [];
   if (by.measured.length) parts.push(`measured: ${by.measured.join(", ")}`);
   if (by.blended.length) parts.push(`blended with the assumption: ${by.blended.join(", ")}`);
   if (by.assumed.length) parts.push(`assumed: ${by.assumed.join(", ")}`);
-  if (by.none.length) parts.push(`counted as 0 until measured or typed: ${by.none.join(", ")}`);
+  if (by.none.length) parts.push(`counted as 0 until measured or typed (completion as 100%): ${by.none.join(", ")}`);
   return parts.length ? `Right now — ${parts.join("; ")}.` : null;
 }
 
@@ -92,7 +99,7 @@ function ceilingSentence(f) {
   return `Ceiling ${nf.format(f.ceiling)} — set by churn ${pct(c.churn)}/month against ${c.addsPerMonth.toFixed(0)} adds/month; ${zerosText}.`;
 }
 
-function basisChip(r, additive = false) {
+function basisChip(r, additive = false, blankWord = null) {
   if (!r) return null;
   const cls =
     r.basis === "measured"
@@ -112,7 +119,7 @@ function basisChip(r, additive = false) {
         : r.basis === "assumed"
           ? "Assumed"
           : additive
-            ? "Not yet · counted as 0"
+            ? blankWord || "Not yet · counted as 0"
             : "Missing";
   return <span className={`inline-block rounded px-1.5 py-0.5 text-[11px] font-medium ${cls}`}>{word}</span>;
 }
@@ -120,7 +127,7 @@ function basisChip(r, additive = false) {
 function soFar(r, field) {
   if (!r) return "";
   const unit = field?.floorOf || "rows";
-  const measuredText = r.measured === null ? "nothing measured yet" : field?.kind === "monthlyCount" ? `${r.measured.toFixed(1)}/month measured` : `${pct(r.measured, field?.key === "redial" ? 2 : 1)} measured`;
+  const measuredText = r.measured === null ? "nothing measured yet" : field?.kind === "monthlyCount" || field?.kind === "money" ? `${r.measured.toFixed(1)}/month measured` : field?.kind === "ratio" ? `${r.measured.toFixed(2)} per prospect measured` : `${pct(r.measured, field?.key === "redial" ? 2 : 1)} measured`;
   if (r.basis === "measured") return `${measuredText} from ${nf.format(r.sampleSize)} ${unit}${r.assumed !== null && r.assumed !== undefined ? "; the assumption is under a tenth of the answer" : ""}`;
   if (r.basis === "blended") {
     return `${measuredText} from ${nf.format(r.sampleSize)} ${unit}, weighed against the assumption as ${nf.format(r.floor)} ${unit}${r.remaining > 0 ? ` — ${nf.format(r.remaining)} more before the measurement outweighs it` : ""}`;
@@ -212,7 +219,7 @@ export default function PlatformGrowthPage() {
             is MetricCard's sentence for a failed fetch, and it would be a lie
             here: the fetch worked and the model declined. "Waiting" with the
             reason is the true state. UNKNOWN stays for a real load failure. */}
-        <MetricCard label="Paying adds a month" value={f ? f.monthly.payingAdds.toFixed(0) : data ? "Waiting" : UNKNOWN} note={f ? `${nf.format(f.monthly.dials)} dials → ${nf.format(f.monthly.reached)} reached → ${f.monthly.signups.dial.toFixed(0)} signups${f.monthly.signups.marketing > 0 ? ` + ${f.monthly.signups.marketing.toFixed(0)} marketing` : ""}${f.monthly.signups.organic > 0 ? ` + ${f.monthly.signups.organic.toFixed(0)} organic` : ""}` : data ? "until the rates below are measured or typed" : undefined} />
+        <MetricCard label="Paying adds a month" value={f ? f.monthly.payingAdds.toFixed(0) : data ? "Waiting" : UNKNOWN} note={f ? `${nf.format(f.monthly.dials)} dials${f.monthly.attempts > 1 ? ` (${nf.format(f.monthly.prospectsWorked)} prospects × ${f.monthly.attempts} attempts)` : ""} → ${nf.format(f.monthly.reached)} reached → ${f.monthly.signups.dial.toFixed(0)} signups${f.monthly.completionApplied ? ` (after ${pct(f.monthly.completion, 0)} complete the card step)` : ""}${f.monthly.signups.marketing > 0 ? ` + ${f.monthly.signups.marketing.toFixed(0)} marketing` : ""}${f.monthly.signups.ads > 0 ? ` + ${f.monthly.signups.ads.toFixed(0)} ads` : ""}${f.monthly.signups.organic > 0 ? ` + ${f.monthly.signups.organic.toFixed(0)} organic` : ""}` : data ? "until the rates below are measured or typed" : undefined} />
         <MetricCard
           label="Ceiling"
           value={f ? (f.viral ? "None" : f.ceiling === null ? "None" : count(f.ceiling)) : data ? "Waiting" : UNKNOWN}
@@ -312,7 +319,7 @@ export default function PlatformGrowthPage() {
                     dial · re-dial · marketing · referral · organic. A source at
                     0 is printed as 0, not dropped — the zeros are the point. */}
                 <div className="text-muted-foreground tabular-nums mt-1">
-                  signups this month: {series[m].signups.total.toFixed(0)} — {["dial", "redial", "marketing", "referral", "organic"].map((k) => `${SOURCE_LABELS[k]} ${series[m].signups[k].toFixed(0)}`).join(" · ")}
+                  signups this month: {series[m].signups.total.toFixed(0)} — {["dial", "redial", "marketing", "ads", "referral", "organic"].map((k) => `${SOURCE_LABELS[k]} ${(series[m].signups[k] ?? 0).toFixed(0)}`).join(" · ")}
                 </div>
                 <div className="text-muted-foreground tabular-nums">{nf.format(series[m].signups.freshDials)} fresh dials{series[m].signups.redialDials > 0 ? ` · ${nf.format(series[m].signups.redialDials)} repeat` : ""}</div>
               </div>
@@ -331,18 +338,23 @@ export default function PlatformGrowthPage() {
           <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <tbody>
-              {RATE_ROWS.map(({ key: k, kind, additive }) => {
+              {RATE_ROWS.map(({ key: k, kind, additive, field, blankWord }) => {
                 const r = measuredOf(data, k);
+                const fld = fieldsByKey[field || k];
                 return (
                   <tr key={k} className="border-b border-border last:border-0 align-top">
                     <td className="px-4 py-2 w-1/3">
-                      {fieldsByKey[k]?.label || k}
-                      {k === "redial" && f ? <span className="block text-xs text-muted-foreground">a first dial yields {pct(f.monthly.freshYield, 2)} (reach × signup)</span> : null}
-                      {k === "marketing" ? <span className="block text-xs text-muted-foreground">counts influencer-code redemptions; paid-ad signups are not attributed yet and land in organic</span> : null}
+                      {fld?.label || k}
+                      {k === "attempts" && f ? <AttemptsNote f={f} /> : null}
+                      {k === "reach" && f && f.monthly.attempts > 1 ? <span className="block text-xs text-muted-foreground">per dial {pct(f.monthly.reachPerDial)} · reach per prospect after {f.monthly.attempts} attempts {pct(f.monthly.reachPerProspect)}</span> : null}
+                      {k === "redial" && f ? <span className="block text-xs text-muted-foreground">a first dial yields {pct(f.monthly.freshYield, 2)} (reach per prospect ÷ attempts × signup × completion)</span> : null}
+                      {k === "marketing" ? <span className="block text-xs text-muted-foreground">counts influencer-code redemptions; paid ads are the row below</span> : null}
+                      {k === "ads" ? <span className="block text-xs text-muted-foreground">card trials from paid ads: spend ÷ cost per trial when typed; measured from signups whose link carried a paid utm tag{data.measured.actuals.adsImpliedCostPerTrial ? ` — the typed spend implies $${nf.format(Math.round(data.measured.actuals.adsImpliedCostPerTrial))} per measured trial` : ""}</span> : null}
+                      {k === "completion" ? <span className="block text-xs text-muted-foreground">the self-serve step — agreed on the call → card entered; measured {data.measured.actuals.attributedWithCard} of {data.measured.actuals.agreedCount} agreed so far</span> : null}
                     </td>
                     <td className="px-4 py-2 tabular-nums font-medium">{valueText(k, kind, r)}</td>
-                    <td className="px-4 py-2">{basisChip(r, Boolean(additive))}</td>
-                    <td className="px-4 py-2 text-xs text-muted-foreground">{soFar(r, fieldsByKey[k])}</td>
+                    <td className="px-4 py-2">{basisChip(r, Boolean(additive), blankWord)}</td>
+                    <td className="px-4 py-2 text-xs text-muted-foreground">{soFar(r, fld)}</td>
                   </tr>
                 );
               })}
@@ -369,6 +381,7 @@ export default function PlatformGrowthPage() {
                 <th className="px-4 py-2 font-medium">Reached</th>
                 <th className="px-4 py-2 font-medium">Signups via rep</th>
                 <th className="px-4 py-2 font-medium">By referral</th>
+                <th className="px-4 py-2 font-medium">Ads</th>
                 <th className="px-4 py-2 font-medium">Marketing</th>
                 <th className="px-4 py-2 font-medium">Organic</th>
                 <th className="px-4 py-2 font-medium">Prospects added</th>
@@ -399,6 +412,7 @@ export default function PlatformGrowthPage() {
                   <td className="px-4 py-1.5">{nf.format(m.reached)}</td>
                   <td className="px-4 py-1.5">{nf.format(m.signups.rep)}</td>
                   <td className="px-4 py-1.5">{nf.format(m.signups.referral)}</td>
+                  <td className="px-4 py-1.5">{nf.format(m.signups.ads ?? 0)}</td>
                   <td className="px-4 py-1.5">{nf.format(m.signups.marketing)}</td>
                   <td className="px-4 py-1.5">{nf.format(m.signups.organic)}</td>
                   <td className="px-4 py-1.5">
@@ -431,8 +445,8 @@ export default function PlatformGrowthPage() {
                   type="number"
                   inputMode="decimal"
                   step={fld.kind === "count" ? 1 : "any"}
-                  min={0}
-                  max={fld.kind === "count" ? 100000 : fld.kind === "rate" && !fld.max ? 100 : undefined}
+                  min={fld.kind === "ratio" ? 1 : 0}
+                  max={fld.kind === "count" ? 100000 : fld.kind === "rate" && !fld.max ? 100 : fld.kind === "ratio" ? 20 : undefined}
                   value={form[fld.key] ?? ""}
                   onChange={(e) => setForm({ ...form, [fld.key]: e.target.value })}
                   className="w-full rounded-md border border-border bg-background px-2 py-1.5 tabular-nums"
@@ -446,11 +460,11 @@ export default function PlatformGrowthPage() {
                     assumption — the owner can type over it. */}
                 {(() => {
                   if (fld.kind === "count" || fld.kind === "money" || (form[fld.key] ?? "") !== "") return null;
-                  const r = measuredOf(data, fld.key);
+                  const r = measuredOf(data, fld.key === "attemptsPerProspect" ? "attempts" : fld.key);
                   if (!r || r.measured === null || r.measured === undefined || !Number.isFinite(r.measured)) return null;
                   const asForm = fld.kind === "rate" && !fld.max ? String(Math.round(r.measured * 1000) / 10) : String(Math.round(r.measured * 100) / 100);
                   const shown = fld.kind === "rate" && !fld.max ? `${asForm}%` : fld.kind === "monthlyCount" ? `${asForm}/month` : asForm;
-                  const blankMeans = ADDITIVE_KEYS.includes(fld.key) ? "Blank counts as 0." : "Blank withholds the forecast.";
+                  const blankMeans = fld.key === "completion" ? "Blank is not applied (100%)." : fld.key === "attemptsPerProspect" ? `Blank assumes ${data.fields.find((x) => x.key === "attemptsPerProspect")?.default ?? 3}.` : ADDITIVE_KEYS.includes(fld.key) ? "Blank counts as 0." : "Blank withholds the forecast.";
                   return (
                     <button type="button" onClick={() => setForm({ ...form, [fld.key]: asForm })} className="text-xs text-primary underline underline-offset-2">
                       {blankMeans} Measured so far: {shown} — use it
@@ -472,7 +486,8 @@ export default function PlatformGrowthPage() {
 
       <section className="text-xs text-muted-foreground space-y-1">
         <p><strong>How this works.</strong> Dials × reach × signup gives signups from the closers, drawn on the loaded list plus the refill each month; when the fresh list runs out, the spare capacity re-dials prospects that did not sign up — a row leaves the pool after its retry rule's attempts (at most {data?.forecast?.ceilingBy?.maxAttempts ?? 6}) and is assumed recycled {data?.forecast?.ceilingBy?.returnMonths ?? 3} months later — at the repeat yield; organic and marketing add flat monthly counts; referral adds a share of every paying subscriber each month. Signups pay after a one-month trial at the conversion rate, and the paying stock loses the churn rate each month. Months are calendar months, UTC.</p>
-        <p><strong>Not tracked.</strong> Seasonality, price changes, rep ramp-up time, the recycle actually happening on the assumed cadence, paid-ad attribution for FieldQuo's own signups, and the cost of any of it — this is a subscriber count, not a P&amp;L.</p>
+        <p><strong>Attempts, the card step and ads.</strong> Each prospect is rung up to the attempts figure, so reach is per prospect (1 − (1 − reach)^attempts) and a month works dials ÷ attempts businesses; the list depletes that many times slower. Of the conversations that agree, the completion share enter a card on the self-serve signup — the rep does not take one — and only those become trials; blank means the step is not applied. Ads add spend ÷ cost per trial card trials a month, converted at the trial rate like every other trial.</p>
+        <p><strong>Not tracked.</strong> Seasonality, price changes, rep ramp-up time, the recycle actually happening on the assumed cadence, ad signups whose link carried no utm tag (unknown, not organic), and the cost of any of it — this is a subscriber count, not a P&amp;L.</p>
       </section>
     </div>
   );
@@ -496,6 +511,10 @@ function formFrom(a) {
     marketing: a.marketing === null || a.marketing === undefined ? "" : String(a.marketing),
     marketingSpend: a.marketingSpend === null || a.marketingSpend === undefined ? "" : String(a.marketingSpend),
     marketingCostPerSignup: a.marketingCostPerSignup === null || a.marketingCostPerSignup === undefined ? "" : String(a.marketingCostPerSignup),
+    attemptsPerProspect: a.attemptsPerProspect === null || a.attemptsPerProspect === undefined ? "" : String(a.attemptsPerProspect),
+    completion: pctOf(a.completion),
+    adSpend: a.adSpend === null || a.adSpend === undefined ? "" : String(a.adSpend),
+    costPerTrial: a.costPerTrial === null || a.costPerTrial === undefined ? "" : String(a.costPerTrial),
   };
 }
 
@@ -518,5 +537,34 @@ function payloadFrom(form) {
     marketing: num(form.marketing),
     marketingSpend: num(form.marketingSpend),
     marketingCostPerSignup: num(form.marketingCostPerSignup),
+    attemptsPerProspect: num(form.attemptsPerProspect),
+    completion: rateOf(form.completion),
+    adSpend: num(form.adSpend),
+    costPerTrial: num(form.costPerTrial),
   };
+}
+
+/**
+ * Which won — the reach or the runway. From `attemptsComparison`, never
+ * re-derived here: the model ran the same plan at one attempt and this only
+ * puts the two side by side in a sentence.
+ */
+function AttemptsNote({ f }) {
+  const c = f.attemptsComparison;
+  if (!c) return <span className="block text-xs text-muted-foreground">one dial per prospect — reach per prospect is reach per dial</span>;
+  const w = c.withAttempts;
+  const o = c.oneAttempt;
+  const runway = (x) => (x.listRunwayMonths === null ? "never runs out" : `${x.listRunwayMonths} months of list`);
+  const verdict =
+    c.wins === "reach"
+      ? "the reach wins: more signups over the horizon"
+      : c.wins === "runway"
+        ? "the runway wins on nothing but time: fewer signups over the horizon"
+        : "it is a wash over the horizon";
+  return (
+    <span className="block text-xs text-muted-foreground">
+      per dial {pct(o.reachPerProspect)} → per prospect after {w.attempts} attempts {pct(w.reachPerProspect)}. A month works {nf.format(w.prospectsWorked)} prospects instead of {nf.format(o.prospectsWorked)}:
+      signups {o.signupsPerMonth.toFixed(0)} → {w.signupsPerMonth.toFixed(0)} a month, {runway(o)} → {runway(w)}, {nf.format(o.cumulativeSignups)} → {nf.format(w.cumulativeSignups)} signups by the horizon — {verdict}.
+    </span>
+  );
 }

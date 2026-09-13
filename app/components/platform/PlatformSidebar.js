@@ -78,6 +78,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { notify } from "@/lib/notify/browser";
 import {
   Beaker,
+  Filter,
   LayoutDashboard,
   Building2,
   CreditCard,
@@ -259,6 +260,10 @@ const GROUPS = [
       // the other is a period you read.
       { label: "Sales floor", href: "/platform/sales/floor", icon: Headphones },
       { label: "Sales performance", href: "/platform/sales/performance", icon: TrendingUp },
+      // Per rep per month, dial to retained-at-60-days, with the owner's
+      // bands and the ramp — the screen performance's "what did they sell"
+      // does not answer, which is "how many calls did that take".
+      { label: "Sales funnel", href: "/platform/sales/funnel", icon: Filter },
       { label: "Growth", href: "/platform/growth", icon: TrendingUp },
       // Beside performance, because it is the same question asked the other
       // way round: performance is what a rep sold, this is what they heard.

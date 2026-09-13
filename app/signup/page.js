@@ -536,6 +536,12 @@ export default function SignupPage() {
   // "is this rep code real" would let anyone enumerate FieldQuo's sales roster.
   // The server resolves it and stays silent about the result.
   const [salesCode, setSalesCode] = useState("");
+  // The advert this visit came from — utm_source / utm_medium / utm_campaign
+  // off the query string, held like the two codes above (state and the
+  // session draft, never a cookie) and posted with the company so
+  // SignupOrigin can say which signups came from paid ads. Nothing on this
+  // page renders because of them.
+  const [utm, setUtm] = useState(null);
   // Where to return after checkout, when signup began from a flow like "add this
   // quote to your project" (?next=/q/<token>). Internal paths only.
   const [nextPath, setNextPath] = useState("");
@@ -649,6 +655,16 @@ export default function SignupPage() {
   useEffect(() => {
     const code = new URLSearchParams(window.location.search).get("sales");
     if (code) setSalesCode(code);
+  }, []);
+
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const tags = {};
+    for (const k of ["utm_source", "utm_medium", "utm_campaign"]) {
+      const v = q.get(k);
+      if (v && v.trim()) tags[k] = v.trim().slice(0, 100);
+    }
+    if (Object.keys(tags).length) setUtm(tags);
   }, []);
 
   // Confirm the referral code is real before promising anything. A typo'd link
@@ -858,6 +874,7 @@ export default function SignupPage() {
         const query = new URLSearchParams(window.location.search);
         if (draft?.referralCode && !query.get("ref")) setReferralCode(draft.referralCode);
         if (draft?.salesCode && !query.get("sales")) setSalesCode(draft.salesCode);
+        if (draft?.utm && !query.get("utm_source") && !query.get("utm_medium")) setUtm(draft.utm);
         // Applied later, once we know whether the account behind it still
         // exists — see the resume effect below.
         draftStepRef.current = draft?.step || null;
@@ -892,6 +909,7 @@ export default function SignupPage() {
           // rejects a cookie for.
           referralCode,
           salesCode,
+          utm,
         }),
       );
     } catch {
@@ -909,6 +927,7 @@ export default function SignupPage() {
     step,
     referralCode,
     salesCode,
+    utm,
   ]);
 
   // ── Browser history ─────────────────────────────────────────────────────
@@ -1378,6 +1397,7 @@ export default function SignupPage() {
           // Its own field, never folded into referralCode — see the third
           // namespace note in app/api/companies/route.js.
           salesCode: salesCode || undefined,
+          utm: utm || undefined,
           next: nextPath || undefined,
         }),
       });

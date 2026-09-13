@@ -80,7 +80,7 @@ const LANGS = Object.keys(APP_MESSAGES);
 // front of an English component is the same half-translated surface as an
 // English page, and only listing the page would miss it.
 const FINISHED = [
-  { route: "/sales", files: ["app/sales/page.js", "app/sales/nextAction.js"] },
+  { route: "/sales", files: ["app/sales/page.js", "app/sales/nextAction.js", "app/sales/MyFunnelCard.js", "app/components/sales/FunnelView.js"] },
   {
     route: "/sales/queue",
     files: [

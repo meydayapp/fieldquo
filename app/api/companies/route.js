@@ -92,6 +92,11 @@ export async function POST(request) {
     // Where to send the user after checkout — set when signup began from a flow
     // like "add this quote to your project". Validated to an internal path below.
     next,
+    // The advert the link carried — utm_source / utm_medium / utm_campaign as
+    // the signup page read them off its query string. Recorded on the
+    // SignupOrigin row so paid-ad trials can be counted; never read for
+    // anything the contractor sees.
+    utm,
     // The company's chosen interface language (default for staff + fallback for
     // client documents). `country` is already destructured above and derives
     // the billing currency.
@@ -383,6 +388,7 @@ export async function POST(request) {
     referralCode: typeof referralCode === "string" ? referralCode : null,
     statedCountry: homeCountry,
     companyName: name,
+    utm: utm && typeof utm === "object" ? utm : null,
   });
 
   // ── The org: external, and cannot join the transaction above ────────────

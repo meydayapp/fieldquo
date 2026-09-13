@@ -113,7 +113,7 @@ ok("busy: 15 min, 6 attempts, same block", RETRY_RULES.busy.delayMinutes === 15 
 ok("voicemail: 2 days, 3 attempts, rotates", RETRY_RULES.voicemail.delayMinutes === 2 * 24 * 60 && RETRY_RULES.voicemail.maxAttempts === 3 && RETRY_RULES.voicemail.rotateBlock === true);
 ok("gatekeeper: 1 day, 4 attempts, rotates", RETRY_RULES.gatekeeper.delayMinutes === 24 * 60 && RETRY_RULES.gatekeeper.maxAttempts === 4);
 ok("callback is its own kind with no ceiling", RETRY_RULES.callback.kind === RETRY_KIND_CALLBACK && RETRY_RULES.callback.maxAttempts === null);
-for (const code of ["reached_interested", "reached_not_interested", "do_not_call", "bad_number", "not_a_fit"]) {
+for (const code of ["reached_interested", "agreed_link_sent", "reached_not_interested", "do_not_call", "bad_number", "not_a_fit"]) {
   ok(`${code} is final`, RETRY_RULES[code].kind === RETRY_KIND_FINAL);
 }
 ok("busy's ceiling is the highest, so 'Retry 1 of M' before a dial reads M = 6", RETRY_MAX_ATTEMPTS === 6);
@@ -193,7 +193,7 @@ section("2c. callback and final outcomes");
   const none = nextAttempt({ outcome: "callback", attemptCount: 1, now: new Date("2026-09-11T14:00:00Z"), timeZone: TORONTO, callbackAt: "not a date" });
   ok("a callback with no usable time schedules nothing rather than now", none.nextAttemptAt === null);
 }
-for (const code of ["reached_interested", "reached_not_interested", "do_not_call", "bad_number", "not_a_fit"]) {
+for (const code of ["reached_interested", "agreed_link_sent", "reached_not_interested", "do_not_call", "bad_number", "not_a_fit"]) {
   const d = nextAttempt({ outcome: code, attemptCount: 7, now: new Date("2026-09-11T14:00:00Z"), timeZone: TORONTO });
   ok(`${code}: counted, nothing scheduled, never exhausted`, d.kind === RETRY_KIND_FINAL && d.attemptCount === 8 && d.nextAttemptAt === null && d.exhausted === false);
 }

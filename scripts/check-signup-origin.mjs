@@ -450,5 +450,31 @@ console.log("\n7. What is not produced");
   ok("a push for an unknown country says so", p.body.includes("unknown country"));
 }
 
+// ── utm tags: the advert, cleaned, and "paid" decided exactly ─────────────
+{
+  const { readUtm, isPaidAdSignup, UTM_MAX } = await import("../lib/platform/signupFlags.js");
+  const clean = readUtm({ utm_source: "  Meta ", utm_medium: "PAID_SOCIAL", utm_campaign: "x".repeat(500) });
+  ok("utm: trimmed, lower-cased, capped", clean.utmSource === "meta" && clean.utmMedium === "paid_social" && clean.utmCampaign.length === UTM_MAX);
+  ok("utm: absent, empty, non-string and non-object are null — never a default", (() => {
+    const a = readUtm(null), b = readUtm("cpc"), c = readUtm([1]), d = readUtm({ utm_source: 42, utm_medium: "   ", utm_campaign: { x: 1 } });
+    return [a, b, c, d].every((r) => r.utmSource === null && r.utmMedium === null && r.utmCampaign === null);
+  })());
+  ok("utm: the column names are accepted too (a re-read of a stored row)", readUtm({ utmSource: "google", utmMedium: "cpc" }).utmSource === "google");
+  ok("paid: a paid medium or an ad platform as source, matched exactly", isPaidAdSignup({ utmMedium: "cpc" }) && isPaidAdSignup({ utmSource: "Facebook" }) && isPaidAdSignup({ utmSource: "newsletter", utmMedium: "paid_social" }));
+  ok("paid: organic_social, email and an untagged link are NOT paid — and untagged is unknown, not organic", !isPaidAdSignup({ utmMedium: "organic_social" }) && !isPaidAdSignup({ utmSource: "newsletter", utmMedium: "email" }) && !isPaidAdSignup({}) && !isPaidAdSignup(null) && !isPaidAdSignup({ utmMedium: "cpc-ish" }));
+  const wrote = [];
+  const fakeDb = {
+    signupOrigin: { findMany: async () => [], create: async ({ data }) => { wrote.push(data); return { id: "o1", ...data }; } },
+    salesRep: { findUnique: async () => null },
+  };
+  await recordSignupOrigin(
+    { companyId: "c1", request: new Request("https://x/", { headers: {} }), via: "direct", utm: { utm_source: "Meta", utm_medium: "paid_social", utm_campaign: "Trades-Q4" } },
+    { db: fakeDb, recordError: async () => {}, push: () => {} },
+  );
+  ok("the row carries the cleaned tags", wrote[0]?.utmSource === "meta" && wrote[0]?.utmMedium === "paid_social" && wrote[0]?.utmCampaign === "trades-q4");
+  await recordSignupOrigin({ companyId: "c2", request: new Request("https://x/", { headers: {} }), via: "direct" }, { db: fakeDb, recordError: async () => {}, push: () => {} });
+  ok("…and null when the signup carried none", wrote[1]?.utmSource === null && wrote[1]?.utmMedium === null && wrote[1]?.utmCampaign === null);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
