@@ -1761,6 +1761,27 @@ function QueueRail(props) {
             <p className="text-xs text-muted-foreground break-words">{t("app.salesQueue.releaseRestNote")}</p>
           </div>
         ) : null}
+        {/* ── Give back all of them ─────────────────────────────────────
+            Dialled rows included. For the rep who discovers the batch is
+            wrong for them — the site was misread, the trade is not what
+            discovery said — and has no reason to hold any of it till day
+            end. Confirmed first because it also gives up rows with calls
+            behind them, which release_rest deliberately never does. */}
+        {!loading && items.length > 0 ? (
+          <button
+            type="button"
+            className={`${BTN} border border-border text-muted-foreground w-full`}
+            disabled={Boolean(busy)}
+            onClick={() => {
+              if (window.confirm(t("app.salesQueue.releaseAllConfirm", { value: items.length }))) act("release_all");
+            }}
+          >
+            {busy === "release_all" ? <Loader2 className="animate-spin" size={16} /> : <Undo2 size={16} />}
+            {t("app.salesQueue.releaseAll", {
+              count: t("app.salesQueue.prospectCount", { value: items.length }),
+            })}
+          </button>
+        ) : null}
         {/* The foot: how far through the day the rep is. */}
         {!loading && items.length > 0 ? (
           <div className="pt-2 border-t border-border space-y-1" data-queue-progress>

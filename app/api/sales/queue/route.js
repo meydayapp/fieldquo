@@ -842,6 +842,27 @@ export async function POST(request) {
     );
   }
 
+  // ── Give back everything, dialled or not ─────────────────────────────
+  //
+  // release_rest keeps the rows a rep has called, on the theory that a call
+  // makes the lead theirs. The owner's case (2026-09-13) is the opposite: a
+  // rep who finds the pitch is wrong for the batch they hold — the crawler
+  // read a site wrong, the trade is not what discovery said — has nothing to
+  // do with those rows and should not sit on them until day end. Reason
+  // "rep": chosen by hand, so it de-prioritises exactly as a single release
+  // does (DEPRIORITISING_RELEASES), no more.
+  if (action === "release_all") {
+    const result = await releaseUntouched({ db, rep, reason: "rep", includeDialled: true, now });
+    return NextResponse.json(
+      await queueBody(rep, {
+        tradeKey: body.tradeKey || "",
+        timeZone,
+        language,
+        batch: { released: result.released, kept: result.kept },
+      }),
+    );
+  }
+
   const prospectId = typeof body.prospectId === "string" ? body.prospectId.trim() : "";
   if (!prospectId) return bad("Which prospect?");
 
