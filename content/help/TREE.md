@@ -70,7 +70,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-09-13 — 311 articles in the tree; written: en 189, fr 189, es 189; “Only in FieldQuo”: 34._
+_Generated 2026-09-13 — 311 articles in the tree; written: en 292, fr 189, es 189; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -305,116 +305,116 @@ _Generated 2026-09-13 — 311 articles in the tree; written: en 189, fr 189, es 
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
-| `using-fieldquo-on-your-phone` — Using FieldQuo on your phone | · | · | · |  | time_clock |  |
-| `install-it-like-an-app` — Install it like an app | · | · | · |  | time_clock |  |
-| `the-crew-tab-bar` — The crew tab bar | · | · | · |  | crew_shifts |  |
-| `what-a-crew-member-sees` — What a crew member sees | · | · | · |  | team_access |  |
-| `clock-in-and-out-on-your-phone` — Clock in and out on your phone | · | · | · | clock | time_clock |  |
-| `your-schedule-on-your-phone` — Your schedule on your phone | · | · | · |  | crew_shifts |  |
-| `photos-from-the-field` — Photos from the field | · | · | · |  | job_photos |  |
-| `text-a-photo-to-the-crew-inbox` — Text a photo in without an app | · | · | · | crew-inbox | crew_inbox |  |
-| `chat-on-your-phone` — Chat on your phone | · | · | · | chat | team_chat |  |
-| `time-off-on-your-phone` — Ask for time off from your phone | · | · | · | time-off | time_off |  |
-| `report-a-safety-incident` — Report a safety incident | · | · | · | safety | proof |  |
-| `push-notifications` — Push notifications | · | · | · |  | appointment_reminders |  |
-| `bad-connections-and-offline` — Bad connections, and why there is no offline mode | · | · | · |  | time_clock |  |
+| `using-fieldquo-on-your-phone` — Using FieldQuo on your phone | ✓ | · | · |  | time_clock |  |
+| `install-it-like-an-app` — Install it like an app | ✓ | · | · |  | time_clock |  |
+| `the-crew-tab-bar` — The crew tab bar | ✓ | · | · |  | crew_shifts |  |
+| `what-a-crew-member-sees` — What a crew member sees | ✓ | · | · |  | team_access |  |
+| `clock-in-and-out-on-your-phone` — Clock in and out on your phone | ✓ | · | · | clock | time_clock |  |
+| `your-schedule-on-your-phone` — Your schedule on your phone | ✓ | · | · |  | crew_shifts |  |
+| `photos-from-the-field` — Photos from the field | ✓ | · | · |  | job_photos |  |
+| `text-a-photo-to-the-crew-inbox` — Text a photo in without an app | ✓ | · | · | crew-inbox | crew_inbox |  |
+| `chat-on-your-phone` — Chat on your phone | ✓ | · | · | chat | team_chat |  |
+| `time-off-on-your-phone` — Ask for time off from your phone | ✓ | · | · | time-off | time_off |  |
+| `report-a-safety-incident` — Report a safety incident | ✓ | · | · | safety | proof |  |
+| `push-notifications` — Push notifications | ✓ | · | · |  | appointment_reminders |  |
+| `bad-connections-and-offline` — Bad connections, and why there is no offline mode | ✓ | · | · |  | time_clock |  |
 
 ### reports-and-insights (21)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
-| `the-dashboard-in-detail` — The dashboard in detail | · | · | · | home | dashboard |  |
-| `the-revenue-goal` — The revenue goal | · | · | · | home | goals |  |
-| `how-you-compare` — How You Compare: your prices against the platform | · | · | · | insights | benchmark | ✓ |
-| `the-kpi-dashboard` — The KPI dashboard | · | · | · | kpis | kpi_dashboard | ✓ |
-| `kpi-sales` — KPIs: Sales | · | · | · | kpis | kpi_dashboard |  |
-| `kpi-money-flow` — KPIs: Money flow | · | · | · | kpis | kpi_dashboard |  |
-| `kpi-business-costs` — KPIs: Business costs | · | · | · | kpis | kpi_dashboard |  |
-| `kpi-profit` — KPIs: Profit | · | · | · | kpis | kpi_dashboard |  |
-| `kpi-execution` — KPIs: Execution | · | · | · | kpis | kpi_dashboard |  |
-| `kpi-quality` — KPIs: Quality | · | · | · | kpis | kpi_dashboard |  |
-| `kpi-cash` — KPIs: Cash | · | · | · | kpis | kpi_dashboard |  |
-| `kpi-customer` — KPIs: Customer | · | · | · | kpis | kpi_dashboard |  |
-| `the-metrics-fieldquo-refuses-to-invent` — The metrics FieldQuo refuses to invent | · | · | · | kpis | kpi_dashboard |  |
-| `weekly-digests` — Weekly digests | · | · | · |  | dashboard |  |
-| `the-monthly-digest-email` — The monthly digest email | · | · | · |  | monthly_digest |  |
-| `financial-statements` — Financial statements | · | · | · |  | dashboard |  |
-| `won-and-lost` — Won and lost | · | · | · |  | dashboard |  |
-| `estimate-accuracy` — Estimate accuracy | · | · | · |  | job_costing |  |
-| `expense-tracking-and-burn-rate` — Expense tracking and your burn rate | · | · | · | expenses | expenses |  |
-| `import-expenses-from-a-bank-csv` — Import expenses from a bank CSV | · | · | · | expenses | expenses |  |
-| `overhead-and-your-minimum-price` — Overhead and your minimum price | · | · | · | settings-overhead | break_even |  |
+| `the-dashboard-in-detail` — The dashboard in detail | ✓ | · | · | home | dashboard |  |
+| `the-revenue-goal` — The revenue goal | ✓ | · | · | home | goals |  |
+| `how-you-compare` — How You Compare: your prices against the platform | ✓ | · | · | insights | benchmark | ✓ |
+| `the-kpi-dashboard` — The KPI dashboard | ✓ | · | · | kpis | kpi_dashboard | ✓ |
+| `kpi-sales` — KPIs: Sales | ✓ | · | · | kpis | kpi_dashboard |  |
+| `kpi-money-flow` — KPIs: Money flow | ✓ | · | · | kpis | kpi_dashboard |  |
+| `kpi-business-costs` — KPIs: Business costs | ✓ | · | · | kpis | kpi_dashboard |  |
+| `kpi-profit` — KPIs: Profit | ✓ | · | · | kpis | kpi_dashboard |  |
+| `kpi-execution` — KPIs: Execution | ✓ | · | · | kpis | kpi_dashboard |  |
+| `kpi-quality` — KPIs: Quality | ✓ | · | · | kpis | kpi_dashboard |  |
+| `kpi-cash` — KPIs: Cash | ✓ | · | · | kpis | kpi_dashboard |  |
+| `kpi-customer` — KPIs: Customer | ✓ | · | · | kpis | kpi_dashboard |  |
+| `the-metrics-fieldquo-refuses-to-invent` — The metrics FieldQuo refuses to invent | ✓ | · | · | kpis | kpi_dashboard |  |
+| `weekly-digests` — Weekly digests | ✓ | · | · |  | dashboard |  |
+| `the-monthly-digest-email` — The monthly digest email | ✓ | · | · |  | monthly_digest |  |
+| `financial-statements` — Financial statements | ✓ | · | · |  | dashboard |  |
+| `won-and-lost` — Won and lost | ✓ | · | · |  | dashboard |  |
+| `estimate-accuracy` — Estimate accuracy | ✓ | · | · |  | job_costing |  |
+| `expense-tracking-and-burn-rate` — Expense tracking and your burn rate | ✓ | · | · | expenses | expenses |  |
+| `import-expenses-from-a-bank-csv` — Import expenses from a bank CSV | ✓ | · | · | expenses | expenses |  |
+| `overhead-and-your-minimum-price` — Overhead and your minimum price | ✓ | · | · | settings-overhead | break_even |  |
 
 ### settings (45)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
-| `the-settings-menu` — The Settings menu | · | · | · | settings |  |  |
-| `settings-company` — Company Settings | · | · | · | settings-company |  |  |
-| `opening-hours` — Opening hours | · | · | · | settings-company | booking_page |  |
-| `tax-settings` — Tax settings | · | · | · | settings-company | sales_tax |  |
-| `industry-and-quote-types` — Industry and quote types | · | · | · | settings-company | quotes |  |
-| `settings-branding` — Branding | · | · | · | settings-branding | white_label |  |
-| `settings-language` — Language | · | · | · | settings-language | languages |  |
-| `settings-activity-log` — Activity Log | · | · | · | settings-activity | activity_log |  |
-| `settings-team` — Team | · | · | · | settings-team | team_access |  |
-| `settings-your-hours` — Your hours | · | · | · | settings-availability | booking_page |  |
-| `settings-time-off-policies` — Time off policies | · | · | · | settings-leave | time_off |  |
-| `settings-booking-page` — Booking Page | · | · | · | settings-booking-page | booking_page |  |
-| `settings-work-areas` — Work Areas | · | · | · | settings-work-areas | work_areas |  |
-| `settings-products` — Products & Services (the price book) | · | · | · | settings-products | price_book |  |
-| `settings-services` — Services & Pricing | · | · | · | settings-services | quotes |  |
-| `settings-material-costs` — Material Costs | · | · | · | settings-material-costs | material_costs |  |
-| `settings-cabinet-rates` — Cabinet pricing | · | · | · | settings-cabinet-rates | kitchen_designer |  |
-| `settings-overhead` — Overhead | · | · | · | settings-overhead | break_even |  |
-| `settings-custom-fields` — Custom Fields | · | · | · | settings-custom-fields |  |  |
-| `settings-quote-email` — Quote Email | · | · | · | settings-quote-email | quote_email_wording |  |
-| `settings-email-templates` — Email Templates | · | · | · | settings-email-templates | quote_email_wording |  |
-| `settings-pdf-templates` — PDF Templates | · | · | · | settings-pdf-templates | document_layouts |  |
-| `settings-translations` — Translations | · | · | · | settings-translations | languages |  |
-| `settings-checklists` — Checklists | · | · | · | settings-checklists | checklists |  |
-| `settings-job-photo-tags` — Job photo tags | · | · | · | settings-job-photo-tags | job_photos |  |
-| `settings-client-messages` — Client messages | · | · | · | settings-messages | appointment_reminders |  |
-| `settings-follow-ups` — Follow-ups | · | · | · | settings-follow-ups | follow_ups |  |
-| `settings-notifications` — Notifications | · | · | · | settings-notifications |  |  |
-| `settings-email-domain` — Email Domain | · | · | · | settings-email-domain | own_email_domain |  |
-| `settings-payments` — Payments | · | · | · | settings-payments | stripe_connect |  |
-| `settings-meta-ads` — Meta Ads | · | · | · | settings-meta-ads | marketing_spend |  |
-| `settings-expense-tracking` — Expense Tracking | · | · | · | settings-expense-tracking | expenses |  |
-| `settings-ai-credit` — AI credit | · | · | · | settings-ai-credit | ai_copilot |  |
-| `settings-payroll` — Payroll settings | · | · | · | settings-payroll | payroll |  |
-| `settings-website` — Your website | · | · | · | settings-website | website_builder |  |
-| `settings-instant-quotes` — Instant Quotes | · | · | · | settings-instant-quotes | instant_quotes |  |
-| `settings-share-your-links` — Share your links | · | · | · | settings-lead-form | embeds |  |
-| `settings-bio-link` — Bio link | · | · | · | settings-bio-link | bio_link |  |
-| `settings-phone-receptionist` — Phone receptionist | · | · | · | settings-voice | voice_receptionist |  |
-| `settings-ai-employee` — AI employee | · | · | · | settings-ai-employee | ai_employee |  |
-| `settings-reviews` — Reviews | · | · | · | settings-reviews | review_requests |  |
-| `settings-data-migration` — Data Migration | · | · | · | settings-migration |  |  |
-| `settings-product-updates` — Product Updates | · | · | · | settings-product-updates |  |  |
-| `settings-account-and-billing` — Account & Billing | · | · | · | settings-account-billing |  |  |
-| `settings-refer-and-earn` — Refer & Earn | · | · | · | settings-refer | referrals |  |
+| `the-settings-menu` — The Settings menu | ✓ | · | · | settings |  |  |
+| `settings-company` — Company Settings | ✓ | · | · | settings-company |  |  |
+| `opening-hours` — Opening hours | ✓ | · | · | settings-company | booking_page |  |
+| `tax-settings` — Tax settings | ✓ | · | · | settings-company | sales_tax |  |
+| `industry-and-quote-types` — Industry and quote types | ✓ | · | · | settings-company | quotes |  |
+| `settings-branding` — Branding | ✓ | · | · | settings-branding | white_label |  |
+| `settings-language` — Language | ✓ | · | · | settings-language | languages |  |
+| `settings-activity-log` — Activity Log | ✓ | · | · | settings-activity | activity_log |  |
+| `settings-team` — Team | ✓ | · | · | settings-team | team_access |  |
+| `settings-your-hours` — Your hours | ✓ | · | · | settings-availability | booking_page |  |
+| `settings-time-off-policies` — Time off policies | ✓ | · | · | settings-leave | time_off |  |
+| `settings-booking-page` — Booking Page | ✓ | · | · | settings-booking-page | booking_page |  |
+| `settings-work-areas` — Work Areas | ✓ | · | · | settings-work-areas | work_areas |  |
+| `settings-products` — Products & Services (the price book) | ✓ | · | · | settings-products | price_book |  |
+| `settings-services` — Services & Pricing | ✓ | · | · | settings-services | quotes |  |
+| `settings-material-costs` — Material Costs | ✓ | · | · | settings-material-costs | material_costs |  |
+| `settings-cabinet-rates` — Cabinet pricing | ✓ | · | · | settings-cabinet-rates | kitchen_designer |  |
+| `settings-overhead` — Overhead | ✓ | · | · | settings-overhead | break_even |  |
+| `settings-custom-fields` — Custom Fields | ✓ | · | · | settings-custom-fields |  |  |
+| `settings-quote-email` — Quote Email | ✓ | · | · | settings-quote-email | quote_email_wording |  |
+| `settings-email-templates` — Email Templates | ✓ | · | · | settings-email-templates | quote_email_wording |  |
+| `settings-pdf-templates` — PDF Templates | ✓ | · | · | settings-pdf-templates | document_layouts |  |
+| `settings-translations` — Translations | ✓ | · | · | settings-translations | languages |  |
+| `settings-checklists` — Checklists | ✓ | · | · | settings-checklists | checklists |  |
+| `settings-job-photo-tags` — Job photo tags | ✓ | · | · | settings-job-photo-tags | job_photos |  |
+| `settings-client-messages` — Client messages | ✓ | · | · | settings-messages | appointment_reminders |  |
+| `settings-follow-ups` — Follow-ups | ✓ | · | · | settings-follow-ups | follow_ups |  |
+| `settings-notifications` — Notifications | ✓ | · | · | settings-notifications |  |  |
+| `settings-email-domain` — Email Domain | ✓ | · | · | settings-email-domain | own_email_domain |  |
+| `settings-payments` — Payments | ✓ | · | · | settings-payments | stripe_connect |  |
+| `settings-meta-ads` — Meta Ads | ✓ | · | · | settings-meta-ads | marketing_spend |  |
+| `settings-expense-tracking` — Expense Tracking | ✓ | · | · | settings-expense-tracking | expenses |  |
+| `settings-ai-credit` — AI credit | ✓ | · | · | settings-ai-credit | ai_copilot |  |
+| `settings-payroll` — Payroll settings | ✓ | · | · | settings-payroll | payroll |  |
+| `settings-website` — Your website | ✓ | · | · | settings-website | website_builder |  |
+| `settings-instant-quotes` — Instant Quotes | ✓ | · | · | settings-instant-quotes | instant_quotes |  |
+| `settings-share-your-links` — Share your links | ✓ | · | · | settings-lead-form | embeds |  |
+| `settings-bio-link` — Bio link | ✓ | · | · | settings-bio-link | bio_link |  |
+| `settings-phone-receptionist` — Phone receptionist | ✓ | · | · | settings-voice | voice_receptionist |  |
+| `settings-ai-employee` — AI employee | ✓ | · | · | settings-ai-employee | ai_employee |  |
+| `settings-reviews` — Reviews | ✓ | · | · | settings-reviews | review_requests |  |
+| `settings-data-migration` — Data Migration | ✓ | · | · | settings-migration |  |  |
+| `settings-product-updates` — Product Updates | ✓ | · | · | settings-product-updates |  |  |
+| `settings-account-and-billing` — Account & Billing | ✓ | · | · | settings-account-billing |  |  |
+| `settings-refer-and-earn` — Refer & Earn | ✓ | · | · | settings-refer | referrals |  |
 
 ### billing-and-subscription (16)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
-| `your-plan-and-seats` — Your plan and seats | · | · | · | plan |  |  |
-| `the-four-plans` — The four plans: Solo, Crew, Shop, Scale | · | · | · |  | team_access |  |
-| `free-first-month` — Your first month is free | · | · | · |  |  |  |
-| `monthly-or-a-year-commitment` — Monthly, or a one-year commitment | · | · | · |  |  |  |
-| `change-your-plan` — Change your plan | · | · | · |  |  |  |
-| `add-a-seat-or-a-crew-login` — Add a seat, or a free crew login | · | · | · |  | team_access |  |
-| `update-your-payment-method` — Update your payment method | · | · | · |  |  |  |
-| `invoices-and-receipts-from-fieldquo` — Invoices and receipts from FieldQuo | · | · | · |  |  |  |
-| `failed-payments-and-the-grace-period` — Failed payments and the grace period | · | · | · |  |  |  |
-| `renewal-reminders` — Renewal reminders | · | · | · |  |  |  |
-| `cancel-your-subscription` — Cancel your subscription | · | · | · |  |  |  |
-| `referral-months` — Referral months | · | · | · |  | referrals |  |
-| `ai-credit-and-phone-credit` — AI credit and phone credit | · | · | · | settings-ai-credit |  |  |
-| `paying-for-the-migration-service` — Paying for the migration service | · | · | · | settings-migration |  |  |
-| `taxes-and-currency-on-your-subscription` — Taxes and currency on your subscription | · | · | · |  |  |  |
-| `closing-your-account` — Closing your account and your data | · | · | · |  |  |  |
+| `your-plan-and-seats` — Your plan and seats | ✓ | · | · | plan |  |  |
+| `the-four-plans` — The four plans: Solo, Crew, Shop, Scale | ✓ | · | · |  | team_access |  |
+| `free-first-month` — Your first month is free | ✓ | · | · |  |  |  |
+| `monthly-or-a-year-commitment` — Monthly, or a one-year commitment | ✓ | · | · |  |  |  |
+| `change-your-plan` — Change your plan | ✓ | · | · |  |  |  |
+| `add-a-seat-or-a-crew-login` — Add a seat, or a free crew login | ✓ | · | · |  | team_access |  |
+| `update-your-payment-method` — Update your payment method | ✓ | · | · |  |  |  |
+| `invoices-and-receipts-from-fieldquo` — Invoices and receipts from FieldQuo | ✓ | · | · |  |  |  |
+| `failed-payments-and-the-grace-period` — Failed payments and the grace period | ✓ | · | · |  |  |  |
+| `renewal-reminders` — Renewal reminders | ✓ | · | · |  |  |  |
+| `cancel-your-subscription` — Cancel your subscription | ✓ | · | · |  |  |  |
+| `referral-months` — Referral months | ✓ | · | · |  | referrals |  |
+| `ai-credit-and-phone-credit` — AI credit and phone credit | ✓ | · | · | settings-ai-credit |  |  |
+| `paying-for-the-migration-service` — Paying for the migration service | ✓ | · | · | settings-migration |  |  |
+| `taxes-and-currency-on-your-subscription` — Taxes and currency on your subscription | ✓ | · | · |  |  |  |
+| `closing-your-account` — Closing your account and your data | ✓ | · | · |  |  |  |
 
 ### what-your-clients-see (16)
 
@@ -428,14 +428,14 @@ _Generated 2026-09-13 — 311 articles in the tree; written: en 189, fr 189, es 
 | `the-booking-page` — The booking page | · | · | · |  | booking_page |  |
 | `managing-a-booked-visit` — Managing a booked visit | · | · | · |  | client_reschedule |  |
 | `the-instant-estimate-page` — The instant estimate page | · | · | · |  | instant_quotes |  |
-| `the-self-quote-form-as-a-client` — The self-quote form | · | · | · |  | self_quote |  |
-| `the-review-request` — The review request | · | · | · |  | review_requests |  |
-| `the-referral-page` — The referral page | · | · | · |  | referrals |  |
-| `your-website-as-a-visitor` — Your website | · | · | · |  | website_builder |  |
-| `the-kitchen-design-link` — The kitchen design link | · | · | · |  | kitchen_designer |  |
-| `the-bio-link-page` — The bio link page | · | · | · |  | bio_link |  |
-| `a-funnel-as-a-visitor` — A funnel | · | · | · |  | funnels |  |
-| `the-texts-clients-receive` — The texts clients receive | · | · | · |  | appointment_reminders |  |
+| `the-self-quote-form-as-a-client` — The self-quote form | ✓ | · | · |  | self_quote |  |
+| `the-review-request` — The review request | ✓ | · | · |  | review_requests |  |
+| `the-referral-page` — The referral page | ✓ | · | · |  | referrals |  |
+| `your-website-as-a-visitor` — Your website | ✓ | · | · |  | website_builder |  |
+| `the-kitchen-design-link` — The kitchen design link | ✓ | · | · |  | kitchen_designer |  |
+| `the-bio-link-page` — The bio link page | ✓ | · | · |  | bio_link |  |
+| `a-funnel-as-a-visitor` — A funnel | ✓ | · | · |  | funnels |  |
+| `the-texts-clients-receive` — The texts clients receive | ✓ | · | · |  | appointment_reminders |  |
 
 ### integrations (11)
 
