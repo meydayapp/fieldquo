@@ -91,10 +91,11 @@
 // to work on one. A card per rep reads down instead of across.
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
+  Archive,
   ArrowRightLeft,
   Check,
   ChevronDown,
@@ -268,6 +269,21 @@ export default function PlatformSalesRepsPage() {
   // ?batch= link, ringed inside the Payments section.
   const [openRep, setOpenRep] = useState(null);
   const [highlightBatch, setHighlightBatch] = useState(null);
+  // ── Archived reps sit apart ─────────────────────────────────────────────
+  // A deactivated rep stayed in the one list, between people who are on the
+  // phone today — the owner: "any sales reps I have deactivated should be
+  // sent to archives, not sit with everyone else that is active." Nothing
+  // changes about the record (deactivated, never deleted); only where it is
+  // drawn: under an "Archived" heading, folded by default. A hash link to an
+  // archived rep (the payouts table, a bookmark) unfolds it, because a link
+  // that lands on nothing is worse than a list that is one section longer.
+  const [showArchived, setShowArchived] = useState(false);
+  const activeReps = useMemo(() => reps.filter((r) => r.active), [reps]);
+  const archivedReps = useMemo(() => reps.filter((r) => !r.active), [reps]);
+  useEffect(() => {
+    if (openRep && archivedReps.some((r) => r.id === openRep)) setShowArchived(true);
+  }, [openRep, archivedReps]);
+  const visibleReps = showArchived ? [...activeReps, ...archivedReps] : activeReps;
   // The owed strip at the top: the same snapshot /platform/sales/payouts
   // draws. Null until read; absent (not a fabricated zero) when this admin
   // may not read payouts.
@@ -1110,13 +1126,25 @@ export default function PlatformSalesRepsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {reps.map((rep) => {
+          {activeReps.length === 0 ? (
+            <div className={`${CARD} text-center text-sm text-muted-foreground`}>
+              No active sales reps. {archivedReps.length} archived below.
+            </div>
+          ) : null}
+          {visibleReps.map((rep, idx) => {
             const editingMailbox = rep.id in mailboxDraft;
             const open = openRep === rep.id;
             const money = rep.money || null;
+            const firstArchived = !rep.active && (idx === 0 || visibleReps[idx - 1].active);
             return (
+              <Fragment key={rep.id}>
+              {firstArchived ? (
+                <h2 className="pt-4 text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                  <Archive size={14} /> Archived ({archivedReps.length})
+                  <span className="font-normal">— deactivated, never deleted; attributions and commission stay on the record</span>
+                </h2>
+              ) : null}
               <div
-                key={rep.id}
                 id={`rep-${rep.id}`}
                 className={`${CARD} space-y-3`}
                 data-rep-card={rep.id}
@@ -1721,8 +1749,19 @@ export default function PlatformSalesRepsPage() {
                 </div>
                 ) : null}
               </div>
+              </Fragment>
             );
           })}
+          {archivedReps.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setShowArchived((v) => !v)}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
+            >
+              <Archive size={13} />
+              {showArchived ? "Hide archived" : `Show archived (${archivedReps.length})`}
+            </button>
+          ) : null}
         </div>
       )}
 
