@@ -35,7 +35,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Sparkles, Loader2, ArrowUp, Monitor, Smartphone, ExternalLink,
-  Eye, Save, RefreshCw, ImagePlus, Check, AlertCircle, Globe, ChevronDown, Copy,
+  Eye, EyeOff, Save, RefreshCw, ImagePlus, Check, AlertCircle, Globe, ChevronDown, Copy,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { embedSnippet } from "@/lib/embed/snippet";
@@ -87,6 +87,7 @@ export default function Builder({ data, onReload }) {
   const [handEdited, setHandEdited] = useState(Boolean(site?.handEditedAt));
   const [confirmRegen, setConfirmRegen] = useState(null);
   const [confirmPublish, setConfirmPublish] = useState(false);
+  const [confirmUnpublish, setConfirmUnpublish] = useState(false);
   const [langBusy, setLangBusy] = useState("");
   // The snippet below has to carry an absolute origin — it runs on someone
   // else's domain, where a relative src means their server.
@@ -157,6 +158,9 @@ export default function Builder({ data, onReload }) {
   const previewUrl = site?.subdomain
     ? `/site/${site.subdomain}${previewPage && previewPage !== "home" ? `/${previewPage}` : ""}?preview=1&v=${previewKey}`
     : null;
+
+  const gapActionLabel = (gap) =>
+    gap.action?.labelKey ? t(gap.action.labelKey, gap.action.label) : gap.action?.label;
 
   const say = useCallback((role, text, meta) => {
     setThread((prev) => [...prev, { role, text, at: new Date().toISOString(), ...(meta ? { meta } : {}) }]);
@@ -269,10 +273,15 @@ export default function Builder({ data, onReload }) {
       if (result.composition) setComposition(result.composition);
       if (Array.isArray(result.pages)) setPages(result.pages);
 
-      const label =
-        (composition && (data?.compositions || []).find((c) => c.key === composition)?.label) ||
-        (nextStyle && (data?.siteStyles || []).find((s) => s.key === nextStyle)?.label) ||
-        t("app.siteBuilder.newLook", "a new look");
+      const picked =
+        (composition && (data?.compositions || []).find((c) => c.key === composition)) ||
+        (nextStyle && (data?.siteStyles || []).find((s) => s.key === nextStyle)) ||
+        null;
+      const label = picked
+        ? composition
+          ? t(`app.siteComposition.${picked.key}`, picked.label)
+          : t(`app.siteStyle.${picked.key}.label`, picked.label)
+        : t("app.siteBuilder.newLook", "a new look");
       say(
         "assistant",
         t("app.siteBuilder.appliedTemplate", "Applied {label}. Your photos and wording carried over — edit anything, then Save.", { label }),
@@ -350,6 +359,32 @@ export default function Builder({ data, onReload }) {
           ...(handEdited ? { handEdited: true } : {}),
         }),
       });
+      setPreviewKey((k) => k + 1);
+      await onReload?.();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  /**
+   * Take the site off the public internet. Content, photos, languages and the
+   * conversation all survive — DELETE /api/settings/website only clears
+   * `published`, and /site/[subdomain] answers a visitor with its "not
+   * published" page from then on. Publish again puts the same site back.
+   *
+   * This route existed with no caller for as long as the builder has been a
+   * conversation, while the subscription-cancel flow told people to "unpublish
+   * the site first" — an instruction with nothing behind it.
+   */
+  async function unpublish() {
+    setConfirmUnpublish(false);
+    setSaving(true);
+    setError("");
+    try {
+      await fetchJson("/api/settings/website", { method: "DELETE" });
+      say("assistant", t("app.siteBuilder.unpublished", "Your site is offline. Nothing was deleted — publish again whenever you're ready."));
       setPreviewKey((k) => k + 1);
       await onReload?.();
     } catch (err) {
@@ -560,6 +595,16 @@ export default function Builder({ data, onReload }) {
               <ExternalLink size={13} /> {t("app.siteBuilder.open", "Open")}
             </a>
           )}
+          {site?.published && (
+            <button
+              onClick={() => setConfirmUnpublish(true)}
+              disabled={saving}
+              data-tour="website-unpublish"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60"
+            >
+              <EyeOff size={12} /> {t("app.siteBuilder.unpublish", "Unpublish")}
+            </button>
+          )}
           <button
             onClick={() => save()}
             disabled={saving}
@@ -614,9 +659,15 @@ export default function Builder({ data, onReload }) {
             {/* ── What's missing, as messages rather than a form ── */}
             {(data?.gaps || []).map((gap) => (
               <div key={gap.key} className="rounded-2xl border border-border bg-card p-3.5">
-                <p className="text-sm font-semibold text-foreground">{gap.question}</p>
+                {/* The server writes the gap in English and names the catalogue
+                    key beside it (lib/site/gaps.js); the English is the fallback
+                    t() already falls through to, so a key nobody translated yet
+                    reads as before rather than as "app.siteGaps.…". */}
+                <p className="text-sm font-semibold text-foreground">
+                  {gap.questionKey ? t(gap.questionKey, gap.question, gap.params) : gap.question}
+                </p>
                 <p className="text-[13px] text-muted-foreground mt-1 leading-relaxed">
-                  {gap.detail}
+                  {gap.detailKey ? t(gap.detailKey, gap.detail, gap.params) : gap.detail}
                 </p>
                 <div className="mt-2.5">
                   {gap.action?.kind === "pair" && (
@@ -624,7 +675,7 @@ export default function Builder({ data, onReload }) {
                       onClick={() => setPairing(true)}
                       className="inline-flex items-center gap-1.5 rounded-full bg-inverted text-inverted-foreground px-3.5 py-1.5 text-xs font-bold"
                     >
-                      {gap.action.label}
+                      {gapActionLabel(gap)}
                     </button>
                   )}
                   {gap.action?.kind === "photos" && (
@@ -634,7 +685,7 @@ export default function Builder({ data, onReload }) {
                       ) : (
                         <ImagePlus size={12} />
                       )}
-                      {gap.action.label}
+                      {gapActionLabel(gap)}
                       <input
                         type="file"
                         accept="image/*"
@@ -649,7 +700,7 @@ export default function Builder({ data, onReload }) {
                       href={gap.action.href}
                       className="inline-flex items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-xs font-bold"
                     >
-                      {gap.action.label}
+                      {gapActionLabel(gap)}
                     </a>
                   )}
                 </div>
@@ -689,7 +740,7 @@ export default function Builder({ data, onReload }) {
                             : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/40"
                         }`}
                       >
-                        {c.label}
+                        {t(`app.siteComposition.${c.key}`, c.label)}
                       </button>
                     ))}
                   </div>
@@ -706,7 +757,7 @@ export default function Builder({ data, onReload }) {
                         key={s.key}
                         type="button"
                         disabled={busy}
-                        title={s.hint}
+                        title={t(`app.siteStyle.${s.key}.hint`, s.hint)}
                         onClick={() => applyTemplate({ styleKey: s.key })}
                         className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold disabled:opacity-50 ${
                           styleKey === s.key
@@ -714,7 +765,7 @@ export default function Builder({ data, onReload }) {
                             : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/40"
                         }`}
                       >
-                        {s.label}
+                        {t(`app.siteStyle.${s.key}.label`, s.label)}
                       </button>
                     ))}
                   </div>
@@ -1067,6 +1118,49 @@ export default function Builder({ data, onReload }) {
                 className="rounded-full bg-inverted text-inverted-foreground px-4 py-2 text-sm font-bold"
               >
                 {t("app.siteBuilder.publishAnyway", "Publish anyway")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unpublish is reversible and deletes nothing, and the dialog says
+          both — the reason to confirm at all is that the site goes dark for
+          every visitor the moment the button is pressed. */}
+      {confirmUnpublish && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setConfirmUnpublish(false)} />
+          <div className="relative w-full max-w-md rounded-2xl bg-card p-5 shadow-xl">
+            <h2 className="font-bold text-foreground">
+              {t("app.siteBuilder.unpublishTitle", "Take your website offline?")}
+            </h2>
+            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+              {t("app.siteBuilder.unpublishBody", "Visitors to {host} will see a “not published” page straight away, and your Google listing will drop it over the following days.", {
+                host: site?.subdomain ? `${site.subdomain}.fieldquo.com` : t("app.siteBuilder.yourWebsite", "Your website"),
+              })}
+            </p>
+            <ul className="mt-3 space-y-1.5 text-sm">
+              <li className="flex items-start gap-2 text-foreground">
+                <Check size={15} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                {t("app.siteBuilder.unpublishKept", "Every section, photo and language is kept — nothing is deleted")}
+              </li>
+              <li className="flex items-start gap-2 text-foreground">
+                <Check size={15} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                {t("app.siteBuilder.unpublishRepublish", "Press Publish to put the same site back whenever you like")}
+              </li>
+            </ul>
+            <div className="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+              <button
+                onClick={() => setConfirmUnpublish(false)}
+                className="rounded-full border border-border px-4 py-2 text-sm font-semibold"
+              >
+                {t("app.siteBuilder.keepItLive", "Keep it live")}
+              </button>
+              <button
+                onClick={unpublish}
+                className="rounded-full bg-inverted text-inverted-foreground px-4 py-2 text-sm font-bold"
+              >
+                {t("app.siteBuilder.unpublishConfirm", "Take it offline")}
               </button>
             </div>
           </div>

@@ -9,13 +9,22 @@
 //
 // Owners and admins only. A published page is the company's public face, and
 // an employee with quote access has no business rewriting it.
+//
+// ── Why the role test and not requirePermission(…, "user:manage") ──────────
+//
+// This file used to gate on `user:manage`, which a supervisor holds, while the
+// two routes beside it (languages/, photos/) asked for owner-or-admin and this
+// header promised the same. So a supervisor could open the builder, save and
+// publish, and get a 403 the moment they added a language or a photo — a
+// control that appears to work and doesn't. One rule now, in all three files
+// and in lib/permissions/settingsAccess.js's "owner-admin" row, which is what
+// hides the sidebar entry from everyone the routes would refuse.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusalPlain } from "@/lib/apiMember";
 import { planOrRefusal } from "@/lib/signup/planGate";
-import { requirePermission } from "@/lib/permissions";
 import { sanitiseBlocks, siteFromCompany } from "@/app/data/siteBlocks";
 import { validateSubdomain, suggestSubdomain } from "@/lib/site/subdomain";
 import {
@@ -34,6 +43,7 @@ import { siteGaps } from "@/lib/site/gaps";
 import { countPlaceholders, isPlaceholder } from "@/lib/site/placeholderImages";
 import { SITE_LANGUAGES } from "@/lib/site/siteCopy";
 import { categoryLabel } from "@/lib/i18n/translateContent";
+import { isWebsiteAdmin } from "@/lib/site/access";
 
 const COMPANY_SELECT = {
   id: true,
@@ -71,11 +81,9 @@ async function requireAdmin(request, { read = false } = {}) {
   const { member, refusal } = await memberOrRefusalPlain(request);
   if (refusal) return refusal;
   if (read && member.impersonation) return { member };
-  try {
-    requirePermission(member.role, "user:manage");
-  } catch {
+  if (!isWebsiteAdmin(member.role)) {
     return {
-      error: "Only owners and admins can edit the website.",
+      error: "Only an owner or admin can change the website.",
       status: 403,
     };
   }

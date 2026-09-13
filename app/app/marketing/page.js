@@ -20,23 +20,14 @@ import ListState from "@/app/components/ListState";
 import { can } from "@/lib/permissions";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
+import { isArchived, STATUS_LABEL_KEY } from "@/lib/marketing/campaignStatus";
+import { CampaignStatusActions, STATUS_STYLES } from "@/app/components/marketing/CampaignStatus";
 
 const TYPE_LABELS = {
   pamphlet: "Pamphlet distribution",
   meta_ads: "Meta / paid ads",
   email: "Email blast",
   other: "Other",
-};
-
-const STATUS_STYLES = {
-  draft: "bg-muted text-muted-foreground",
-  active: "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300",
-  completed: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
-  // An email send that didn't reach every subscriber yet — see
-  // app/api/marketing/campaigns/[id]/send/route.js. Amber rather than the
-  // "completed" blue: this campaign is not done, and the card should read
-  // that way at a glance, not just on the detail page.
-  partial: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300",
 };
 
 const inputClass =
@@ -95,6 +86,11 @@ export default function MarketingPage() {
   // Separate from `error`, which lives inside the create modal. A failed load
   // is not a form problem and must not share its banner.
   const [errorKey, setErrorKey] = useState("");
+  // Archived campaigns stay in the database and off the list, unless asked.
+  const [showArchived, setShowArchived] = useState(false);
+  // A status change that the server refused. Its own banner: the create
+  // modal's `error` is inside the modal, and this happens on the list.
+  const [actionError, setActionError] = useState("");
 
   const loadMembers = useCallback(async () => {
     const result = await fetchArray("/api/settings/members");
@@ -167,6 +163,17 @@ export default function MarketingPage() {
   const isPamphlet = form.type === "pamphlet";
   const isEmail = form.type === "email";
 
+  const archivedCount = (campaigns ?? []).filter(isArchived).length;
+  const visible = (campaigns ?? []).filter((c) => showArchived || !isArchived(c));
+
+  // A status change comes back as the full row; splice it in rather than
+  // re-fetching the list, so the chip changes under the finger that pressed it.
+  function replaceCampaign(updated) {
+    setCampaigns((prev) =>
+      (prev ?? []).map((c) => (c.id === updated.id ? { ...c, status: updated.status } : c)),
+    );
+  }
+
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
       <div className="flex items-start justify-between gap-4">
@@ -206,11 +213,31 @@ export default function MarketingPage() {
         </div>
       </div>
 
+      {actionError && (
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
+          {actionError}
+        </div>
+      )}
+
+      {archivedCount > 0 && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setShowArchived((v) => !v)}
+            className="text-xs font-semibold text-muted-foreground hover:text-foreground underline"
+          >
+            {showArchived
+              ? t("app.marketing.hideArchived", "Hide archived")
+              : t("app.marketing.showArchived", "Show archived ({count})", { count: archivedCount })}
+          </button>
+        </div>
+      )}
+
       <ListState
         loading={loading}
         errorKey={errorKey}
         onRetry={load}
-        isEmpty={(campaigns ?? []).length === 0}
+        isEmpty={visible.length === 0}
         skeleton={
           <div className="grid sm:grid-cols-2 gap-4 animate-pulse">
             {[1, 2].map((i) => (
@@ -228,7 +255,7 @@ export default function MarketingPage() {
         }
       >
         <div className="grid sm:grid-cols-2 gap-4">
-          {(campaigns ?? []).map((c) => {
+          {visible.map((c) => {
             const pct =
               c.stopCount > 0
                 ? Math.round((c.visitedCount / c.stopCount) * 100)
@@ -238,9 +265,9 @@ export default function MarketingPage() {
                 <div className="flex items-center justify-between gap-2">
                   <h2 className="font-semibold text-foreground">{c.name}</h2>
                   <span
-                    className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${STATUS_STYLES[c.status] || "bg-muted text-muted-foreground"}`}
+                    className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLES[c.status] || "bg-muted text-muted-foreground"}`}
                   >
-                    {c.status}
+                    {STATUS_LABEL_KEY[c.status] ? t(STATUS_LABEL_KEY[c.status], c.status) : c.status}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -310,13 +337,25 @@ export default function MarketingPage() {
             );
             // Pamphlet and email campaigns have a detail workflow worth
             // opening (route/stops, or template + send); paid-ads/other are
-            // just a record card.
-            return c.type === "pamphlet" || c.type === "email" ? (
-              <Link key={c.id} href={`/app/marketing/${c.id}`}>
-                {inner}
-              </Link>
-            ) : (
-              <div key={c.id}>{inner}</div>
+            // just a record card. The status buttons sit UNDER the link, not
+            // inside it — a button inside an anchor navigates as it archives.
+            return (
+              <div key={c.id} className={`flex flex-col gap-2 ${isArchived(c) ? "opacity-70" : ""}`}>
+                {c.type === "pamphlet" || c.type === "email" ? (
+                  <Link href={`/app/marketing/${c.id}`} className="block h-full">
+                    {inner}
+                  </Link>
+                ) : (
+                  inner
+                )}
+                {canManageMarketing && (
+                  <CampaignStatusActions
+                    campaign={c}
+                    onChanged={replaceCampaign}
+                    onError={setActionError}
+                  />
+                )}
+              </div>
             );
           })}
         </div>

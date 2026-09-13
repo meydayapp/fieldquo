@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { can, requirePermission } from "@/lib/permissions";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
+import { canSetStatus } from "@/lib/marketing/campaignStatus";
 
 async function loadOwned(companyId, id) {
   const campaign = await db.marketingCampaign.findUnique({ where: { id } });
@@ -98,6 +99,20 @@ export async function PATCH(request, { params }) {
   const body = await request.json();
   const { name, type, status, assignedToId, budget, externalUrl, notes, templateId } = body;
 
+  // ── Status is a person's statement, and only some statements are theirs ──
+  //
+  // `completed` and `partial` belong to the send route, which writes them
+  // from what happened to the deliveries; a browser asking for either is
+  // refused. The rest go through lib/marketing/campaignStatus.js, the same
+  // table that decides which buttons the list and the detail page draw — so
+  // an email campaign cannot be made "active" by hand any more than by click.
+  if (status !== undefined && status !== existing.status && !canSetStatus(existing, status)) {
+    return NextResponse.json(
+      { error: `A ${existing.type} campaign can't be moved from ${existing.status} to ${status}.` },
+      { status: 400 },
+    );
+  }
+
   // The campaign itself was company-scoped by loadOwned; the two ids being
   // written onto it were not, and both come back through the `include`.
   const notOurs = await ownedIdsRefusal(NextResponse, db, member.companyId, {
@@ -129,24 +144,12 @@ export async function PATCH(request, { params }) {
   return NextResponse.json(updated);
 }
 
-export async function DELETE(request, { params }) {
-  const { id } = await params;
-  const { member, response } = await memberOrRefusal(request);
-  if (response) return response;
-
-  try {
-    requirePermission(member.role, "user:manage");
-  } catch (err) {
-    return NextResponse.json(
-      { error: "Only owners, admins, or supervisors can manage marketing" },
-      { status: err.status || 403 },
-    );
-  }
-
-  const existing = await loadOwned(member.companyId, id);
-  if (!existing)
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  await db.marketingCampaign.delete({ where: { id } });
-  return NextResponse.json({ ok: true });
-}
+// ── There is no DELETE here any more ───────────────────────────────────────
+//
+// It existed, gated on user:manage, and nothing in the product ever called
+// it. Had something called it, `db.marketingCampaign.delete` would have
+// cascaded every PamphletStop (the record of which doors were knocked and
+// what was said) and every MarketingCampaignDelivery (the proof of who was
+// emailed, which is what stops a re-send from emailing them twice). A
+// campaign that is over is ARCHIVED through PATCH { status: "archived" } —
+// see lib/marketing/campaignStatus.js — and keeps all of that.

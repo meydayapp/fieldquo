@@ -24,12 +24,10 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { isWebsiteAdmin } from "@/lib/site/access";
 import { makeBlock, sanitiseBlocks } from "@/app/data/siteBlocks";
 import { recordActivity } from "@/lib/activity/log";
 
-function isAdmin(role) {
-  return role === "owner" || role === "admin";
-}
 
 /** Same guard the block sanitiser uses — these land in src on a public page. */
 function safeUrl(value) {
@@ -129,7 +127,7 @@ function dropPairsUsing(list, url, counter) {
 export async function POST(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
-  if (!isAdmin(member.role)) {
+  if (!isWebsiteAdmin(member.role)) {
     return NextResponse.json(
       { error: "Only an owner or admin can change the website." },
       { status: 403 },
@@ -172,7 +170,7 @@ export async function POST(request) {
 export async function PUT(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
-  if (!isAdmin(member.role)) {
+  if (!isWebsiteAdmin(member.role)) {
     return NextResponse.json(
       { error: "Only an owner or admin can change the website." },
       { status: 403 },
@@ -219,7 +217,7 @@ export async function PUT(request) {
 export async function DELETE(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
-  if (!isAdmin(member.role)) {
+  if (!isWebsiteAdmin(member.role)) {
     return NextResponse.json(
       { error: "Only an owner or admin can change the website." },
       { status: 403 },

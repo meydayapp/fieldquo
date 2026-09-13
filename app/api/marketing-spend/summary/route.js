@@ -7,6 +7,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { getMarketingRollup, getLeadCountsBySource } from "@/lib/analytics/marketingRollup";
 import { buildBlendedCostPerLead } from "@/lib/analytics/kpis";
+import { campaignBudgets, channelsWithBudgets } from "@/lib/analytics/campaignBudgets";
 
 // The one read the marketing spend screen (app/app/marketing/spend/page.js)
 // actually needs: the per-channel rollup, the REAL blended cost-per-lead
@@ -32,10 +33,24 @@ export async function GET(request) {
   const fromDate = from ? new Date(from) : null;
   const toDate = to ? new Date(to) : null;
 
-  const [rollup, leadCountsBySource] = await Promise.all([
+  const [rollup, leadCountsBySource, campaignRows] = await Promise.all([
     getMarketingRollup({ companyId: member.companyId, from: fromDate, to: toDate }),
     getLeadCountsBySource({ companyId: member.companyId, from: fromDate, to: toDate }),
+    // Every live campaign with a budget — not bounded by from/to, because a
+    // budget is for the campaign's whole life, not for a period. Archived
+    // ones are dropped in campaignBudgets(); the query keeps them out of the
+    // wire too.
+    db.marketingCampaign.findMany({
+      where: { companyId: member.companyId, budget: { not: null }, status: { not: "archived" } },
+      select: { id: true, name: true, type: true, status: true, budget: true },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
+
+  // Budgeted beside spent, per channel — lib/analytics/campaignBudgets.js.
+  // The budgets touch no total and no rate: `totals.spend` and the blended
+  // cost per lead below are exactly what they were.
+  const budgets = campaignBudgets(campaignRows);
 
   const blended = buildBlendedCostPerLead({
     totalSpend: rollup.totals.spend,
@@ -43,8 +58,9 @@ export async function GET(request) {
   });
 
   return NextResponse.json({
-    channels: rollup.channels,
-    totals: rollup.totals,
+    channels: channelsWithBudgets(rollup.channels, budgets),
+    totals: { ...rollup.totals, budgeted: budgets.total },
+    budgets,
     excludedCurrencyMismatch: rollup.excludedCurrencyMismatch,
     companyCurrency: rollup.companyCurrency,
     leadCountsBySource,

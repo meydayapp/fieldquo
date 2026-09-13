@@ -10,8 +10,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Mail, Send, Users } from "lucide-react";
 import { planRequiredFrom } from "@/lib/signup/planRequired";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function EmailCampaignDetail({ campaign, onSent }) {
+  const { t, language } = useTranslation();
   const [subscribedCount, setSubscribedCount] = useState(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -42,7 +44,7 @@ export default function EmailCampaignDetail({ campaign, onSent }) {
         setConfirming(false);
         return;
       }
-      if (!res.ok) throw new Error(data.error || "Could not send campaign");
+      if (!res.ok) throw new Error(data.error || t("app.mkEmail.sendError", "Could not send campaign"));
       setConfirming(false);
       onSent?.(data.campaign);
     } catch (err) {
@@ -65,7 +67,7 @@ export default function EmailCampaignDetail({ campaign, onSent }) {
           <div className="flex items-center gap-2">
             <Mail size={16} className="text-muted-foreground" />
             <span className="text-sm font-medium text-foreground">
-              {campaign.template?.name || "No template selected"}
+              {campaign.template?.name || t("app.mkEmail.noTemplate", "No template selected")}
             </span>
           </div>
           {campaign.template && (
@@ -73,7 +75,7 @@ export default function EmailCampaignDetail({ campaign, onSent }) {
               href={`/app/settings/email-templates/${campaign.template.id}`}
               className="text-xs text-muted-foreground hover:text-foreground underline"
             >
-              Edit template
+              {t("app.mkEmail.editTemplate", "Edit template")}
             </Link>
           )}
         </div>
@@ -81,12 +83,12 @@ export default function EmailCampaignDetail({ campaign, onSent }) {
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Users size={14} className="text-muted-foreground" />
           {subscribedCount == null ? (
-            "Loading subscribers…"
+            t("app.mkEmail.loadingSubscribers", "Loading subscribers…")
           ) : (
             <>
-              {subscribedCount} subscribed recipient{subscribedCount === 1 ? "" : "s"} —{" "}
+              {t("app.mkEmail.subscribedCount", "{count} subscribed recipients", { count: subscribedCount })} —{" "}
               <Link href="/app/marketing/subscribers" className="underline">
-                manage list
+                {t("app.mkEmail.manageList", "manage list")}
               </Link>
             </>
           )}
@@ -94,9 +96,10 @@ export default function EmailCampaignDetail({ campaign, onSent }) {
 
         {campaign.sentAt ? (
           <div className="bg-emerald-50 text-emerald-700 text-sm rounded-lg px-4 py-3">
-            Sent to {campaign.recipientCount ?? 0} subscriber
-            {campaign.recipientCount === 1 ? "" : "s"} on{" "}
-            {new Date(campaign.sentAt).toLocaleString()}.
+            {t("app.mkEmail.sentOn", "Sent to {count} subscribers on {when}.", {
+              count: campaign.recipientCount ?? 0,
+              when: new Date(campaign.sentAt).toLocaleString(language),
+            })}
           </div>
         ) : campaign.status === "partial" ? (
           // A previous send didn't reach everyone — a crash, a cold-start DB
@@ -107,10 +110,10 @@ export default function EmailCampaignDetail({ campaign, onSent }) {
           // state — not "Sent" — is what shows until it does.
           <div className="border border-amber-200 bg-amber-50 rounded-lg p-4 space-y-3">
             <p className="text-sm text-amber-800">
-              Partially sent — {campaign.recipientCount ?? 0} of{" "}
-              {subscribedCount ?? campaign.recipientCount ?? 0}{" "}
-              subscribed recipients have
-              this campaign. The rest haven&apos;t been emailed yet.
+              {t("app.mkEmail.partial", "Partially sent — {sent} of {total} subscribed recipients have this campaign. The rest haven't been emailed yet.", {
+                sent: campaign.recipientCount ?? 0,
+                total: subscribedCount ?? campaign.recipientCount ?? 0,
+              })}
             </p>
             {error && <p className="text-sm text-red-700">{error}</p>}
             <button
@@ -118,14 +121,16 @@ export default function EmailCampaignDetail({ campaign, onSent }) {
               disabled={sending}
               className="bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
             >
-              {sending ? "Sending…" : "Resume send"}
+              {sending ? t("app.mkEmail.sending", "Sending…") : t("app.mkEmail.resumeSend", "Resume send")}
             </button>
           </div>
         ) : confirming ? (
           <div className="border border-amber-200 bg-amber-50 rounded-lg p-4 space-y-3">
             <p className="text-sm text-amber-800">
-              Send &quot;{campaign.name}&quot; to all {subscribedCount ?? 0} subscribed
-              recipients right now? This can't be undone.
+              {t("app.mkEmail.confirm", "Send “{name}” to all {count} subscribed recipients right now? This can't be undone.", {
+                name: campaign.name,
+                count: subscribedCount ?? 0,
+              })}
             </p>
             <div className="flex gap-2">
               <button
@@ -133,14 +138,14 @@ export default function EmailCampaignDetail({ campaign, onSent }) {
                 disabled={sending || !subscribedCount}
                 className="bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
               >
-                {sending ? "Sending…" : "Yes, send now"}
+                {sending ? t("app.mkEmail.sending", "Sending…") : t("app.mkEmail.sendNow", "Yes, send now")}
               </button>
               <button
                 onClick={() => setConfirming(false)}
                 disabled={sending}
                 className="text-sm text-muted-foreground px-3 py-2"
               >
-                Cancel
+                {t("app.action.cancel", "Cancel")}
               </button>
             </div>
           </div>
@@ -150,14 +155,14 @@ export default function EmailCampaignDetail({ campaign, onSent }) {
             disabled={!campaign.template || !subscribedCount}
             title={
               !campaign.template
-                ? "Pick a template first"
+                ? t("app.mkEmail.pickTemplateFirst", "Pick a template first")
                 : !subscribedCount
-                  ? "No subscribed recipients yet"
+                  ? t("app.mkEmail.noRecipients", "No subscribed recipients yet")
                   : ""
             }
             className="flex items-center gap-2 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2.5 rounded-lg disabled:opacity-40"
           >
-            <Send size={14} /> Send Campaign
+            <Send size={14} /> {t("app.mkEmail.sendCampaign", "Send campaign")}
           </button>
         )}
       </div>

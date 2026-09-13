@@ -14,6 +14,7 @@ import { Loader2, Check, ArrowLeft, Building2, AlertCircle, Lock } from "lucide-
 import { readableForeground, ensureContrast } from "@/lib/brand/colour";
 import { documentTheme, fillPair } from "@/lib/documents/theme";
 import { estimateRange } from "@/lib/estimate/estimateMoney";
+import { pixelScripts, fireLeadEvents } from "@/lib/funnels/pixels";
 import MediaUploader from "@/app/components/MediaUploader";
 
 const FALLBACK_ACCENT = "#06356b";
@@ -79,6 +80,29 @@ export default function FunnelRunner({ companySlug, funnelSlug, embedded = false
 
   const steps = data?.funnel?.steps || [];
   const step = steps[idx] || null;
+
+  // ── Ad-platform pixels ────────────────────────────────────────────────────
+  //
+  // The public API has returned `funnel.pixels` since the builder grew its
+  // Pixels panel, and nothing here read it — three saved ids, no tag on the
+  // page. Injected once the funnel has loaded, only for ids that are set and
+  // shaped like the platform issues them (lib/funnels/pixels.js), and never
+  // twice: React Strict Mode double-runs effects in development, and a
+  // second fbq init is a double PageView on the ad account. The `data-fq-
+  // pixel` marker is what makes the guard survive that.
+  const pixels = data?.funnel?.pixels || null;
+  useEffect(() => {
+    if (!pixels || typeof document === "undefined") return;
+    for (const tag of pixelScripts(pixels)) {
+      if (document.querySelector(`script[data-fq-pixel="${tag.key}"]`)) continue;
+      const el = document.createElement("script");
+      el.setAttribute("data-fq-pixel", tag.key);
+      el.async = true;
+      if (tag.src) el.src = tag.src;
+      else el.text = tag.inline;
+      document.head.appendChild(el);
+    }
+  }, [pixels]);
 
   // Fire a view beacon whenever a new step is shown (best-effort).
   const beacon = useCallback(
@@ -218,6 +242,11 @@ export default function FunnelRunner({ companySlug, funnelSlug, embedded = false
       const d = await res.json().catch(() => null);
       if (!res.ok) throw new Error(d?.error || "Couldn't send that.");
       beacon("complete", step?.id || "done");
+      // The lead is saved; tell the ad platforms so the campaign can optimise
+      // toward this rather than toward clicks. After the server answered, not
+      // before — an event for a submission the server refused is a lead that
+      // does not exist.
+      fireLeadEvents(pixels);
       setSubmitted(true);
       setEstimates((p) => ({ ...p, ...(d?.estimates || {}) }));
 

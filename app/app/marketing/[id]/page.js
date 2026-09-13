@@ -22,23 +22,16 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
 import { fetchList } from "@/lib/loadState";
 import { fetchJson } from "@/lib/fetchJson";
+import { STATUS_LABEL_KEY } from "@/lib/marketing/campaignStatus";
+import { CampaignStatusActions, STATUS_STYLES } from "@/app/components/marketing/CampaignStatus";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
-// ── i18n PENDING ───────────────────────────────────────────────────────────
-//
-// These five labels are the door-knock stop's status chip — raw English on a
-// page whose every other word goes through t(). Not wired here, because a t()
-// call on a key that does not exist yet turns check:translations red for every
-// other agent in the tree (commit 080999e). Reported, keyed by the stop's own
-// status value so the map stays one-to-one with what the API stores:
-//
-//   app.mkDetail.stop.pending    en "Pending"          fr "En attente"
-//   app.mkDetail.stop.delivered  en "Delivered"        fr "Livré"
-//   app.mkDetail.stop.spoke      en "Spoke to owner"   fr "Parlé au propriétaire"
-//   app.mkDetail.stop.not_home   en "Not home"         fr "Absent"
-//   app.mkDetail.stop.skipped    en "Skipped"          fr "Sauté"
+// The door-knock stop's status chip. The label here is the English FALLBACK;
+// the chip renders t("app.mkStop.<status>", label), and the five keys exist in
+// every language (the "i18n PENDING" note that used to stand here predates
+// them — commit 080999e is the reason it was once deferred).
 //
 // The COLOURS stay here and are already exhaustive over the five: `pending`
 // and `skipped` share the neutral chip deliberately — neither is a visit that
@@ -51,6 +44,14 @@ const STATUS_META = {
   not_home: { label: "Not home", cls: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300" },
   skipped: { label: "Skipped", cls: "bg-muted text-muted-foreground" },
 };
+
+function StatusChip({ status, t }) {
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLES[status] || "bg-muted text-muted-foreground"}`}>
+      {STATUS_LABEL_KEY[status] ? t(STATUS_LABEL_KEY[status], status) : status}
+    </span>
+  );
+}
 
 // Static Maps route preview — numbered markers in route order plus a path
 // line through them. No JS SDK (avoids the multi-load Google Maps conflict
@@ -280,8 +281,24 @@ export default function CampaignDetailPage() {
           >
             <ArrowLeft size={14} /> {t("app.mkDetail.backToMarketing")}
           </Link>
-          <h1 className="text-2xl font-bold text-foreground">{campaign.name}</h1>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-2xl font-bold text-foreground">{campaign.name}</h1>
+            <StatusChip status={campaign.status} t={t} />
+          </div>
+          <div className="mt-2">
+            <CampaignStatusActions
+              campaign={campaign}
+              size="sm"
+              onChanged={(updated) => setCampaign((prev) => ({ ...prev, status: updated.status }))}
+              onError={setError}
+            />
+          </div>
         </div>
+        {error && (
+          <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
+            {error}
+          </div>
+        )}
         <EmailCampaignDetail
           campaign={campaign}
           onSent={(updated) => setCampaign((prev) => ({ ...prev, ...updated }))}
@@ -305,7 +322,10 @@ export default function CampaignDetailPage() {
           <ArrowLeft size={14} /> {t("app.mkDetail.backToMarketing")}
         </Link>
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold text-foreground">{campaign.name}</h1>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-2xl font-bold text-foreground">{campaign.name}</h1>
+            <StatusChip status={campaign.status} t={t} />
+          </div>
           <span className="text-sm text-muted-foreground">
             {t("app.mkDetail.visitedCount", {
               visited,
@@ -318,6 +338,17 @@ export default function CampaignDetailPage() {
             {t("app.mkDetail.assignedTo", { name: campaign.assignedTo.name })}
           </p>
         )}
+        {/* Activate when the route starts being walked, Pause when it stops,
+            Archive when it is over. The chip above is what these write; before
+            they existed nothing on any screen changed a campaign's status. */}
+        <div className="mt-2">
+          <CampaignStatusActions
+            campaign={campaign}
+            size="sm"
+            onChanged={(updated) => setCampaign((prev) => ({ ...prev, status: updated.status }))}
+            onError={setError}
+          />
+        </div>
       </div>
 
       {error && (

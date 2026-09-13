@@ -824,7 +824,7 @@ for (const c of COMPETITORS) {
   //
   // It was one rule for both directions, and it broke on the owner's Projul
   // feature lists. Those name five things we do not have — a mobile app,
-  // QuickBooks, Gantt charts, purchase orders, daily logs — and nobody re-read
+  // QuickBooks, Gantt charts, daily logs, geofencing — and nobody re-read
   // Projul's page for them, so under the old rule none of them published and
   // the page quietly conceded only the cheap one.
   //
@@ -915,7 +915,11 @@ console.log("\nThe inconvenient half of Projul's feature lists reaches the page"
 // are things FieldQuo does not have, and the failure mode on a comparison page
 // is not getting them wrong — it is leaving them out. Each is asserted against
 // the capability ledger, which carries evidence read out of this repository.
-for (const key of ["mobile_app", "accounting_sync", "gantt_charts", "purchase_orders", "daily_logs", "geofencing"]) {
+// purchase_orders left this list when /app/purchasing shipped — the ledger
+// entry flipped to has: true and the Projul concession went with it. The
+// assertion just below is what would have caught it staying: a concession
+// of something the ledger says we have is `consistent: false`.
+for (const key of ["mobile_app", "accounting_sync", "gantt_charts", "daily_logs", "geofencing"]) {
   ok(`the ledger records that FieldQuo has no ${key}`, FIELDQUO_CAPABILITIES[key]?.has === false, FIELDQUO_CAPABILITIES[key]);
   ok(`...with evidence from this repo, not an opinion`,
     /schema\.prisma|node_modules|repo|identifier|INTEGRATIONS|occurrence|No /.test(FIELDQUO_CAPABILITIES[key].evidence),

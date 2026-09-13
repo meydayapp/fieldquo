@@ -27,7 +27,7 @@ export function BlockEditor({ block, onChange, onToggle, onError }) {
       className={`bg-card border border-border rounded-xl p-5 ${hidden ? "opacity-60" : ""}`}
     >
       <div className="flex items-center justify-between gap-3 mb-3">
-        <h2 className="font-semibold text-foreground">{def.label}</h2>
+        <h2 className="font-semibold text-foreground">{t(`app.siteBlock.${block.type}`, def.label)}</h2>
         {/* Required blocks can't be hidden: a page with no header or no way to
             contact anyone isn't a shorter site, it's a broken one. */}
         {!def.required && (

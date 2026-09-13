@@ -20,6 +20,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { isWebsiteAdmin } from "@/lib/site/access";
 import { generateSite } from "@/lib/site/generateSite";
 import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
 import { recordActivity } from "@/lib/activity/log";
@@ -29,9 +30,6 @@ import { applyStyleStructure } from "@/lib/site/styleLayout";
 import { recentJobPhotos, jobPhotoPairs } from "@/lib/site/jobPhotos";
 import { categoryLabel } from "@/lib/i18n/translateContent";
 
-function isAdmin(role) {
-  return role === "owner" || role === "admin";
-}
 
 /**
  * Everything generateSite needs. Mirrors loadSource in the parent route.
@@ -98,7 +96,7 @@ async function loadSource(companyId, language) {
 export async function PUT(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
-  if (!isAdmin(member.role)) {
+  if (!isWebsiteAdmin(member.role)) {
     return NextResponse.json(
       { error: "Only an owner or admin can change the website." },
       { status: 403 },
@@ -164,7 +162,7 @@ export async function PUT(request) {
 export async function POST(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
-  if (!isAdmin(member.role)) {
+  if (!isWebsiteAdmin(member.role)) {
     return NextResponse.json(
       { error: "Only an owner or admin can change the website." },
       { status: 403 },

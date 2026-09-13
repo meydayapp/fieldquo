@@ -326,7 +326,11 @@ const SERVER_ENFORCEMENT = [
   // read open, which is written down beside them in settingsAccess.js.
   ["app/api/settings/cabinet-rates/route.js", 'requirePermission(member.role, "user:manage")', "cabinet rates"],
   ["app/api/settings/email-domain/route.js", 'requirePermission(member.role, "user:manage")', "sending domain"],
-  ["app/api/settings/website/route.js", 'requirePermission(member.role, "user:manage")', "website builder"],
+  // Owner-or-admin through lib/site/access.js — the same predicate the
+  // languages/ and photos/ routes under it use, which is the point: one rule.
+  ["app/api/settings/website/route.js", "isWebsiteAdmin(member.role)", "website builder"],
+  ["app/api/settings/website/languages/route.js", "isWebsiteAdmin(member.role)", "website languages"],
+  ["app/api/settings/website/photos/route.js", "isWebsiteAdmin(member.role)", "website photos"],
   ["app/api/settings/voice/route.js", 'requirePermission(member.role, "user:manage")', "AI receptionist"],
   // These three moved off a bare requirePermission onto the shared cost-basis
   // rule when QA found a Dispatcher reading cost per job and target margin

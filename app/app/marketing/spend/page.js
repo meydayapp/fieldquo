@@ -452,7 +452,10 @@ export default function MarketingSpendPage() {
       )}
 
       {/* Per-channel table — spend, self-reported leads (as entered, not
-          computed), never divided against the real lead count above. */}
+          computed), never divided against the real lead count above.
+          "Budgeted" is the campaign hub's budget field summed per channel
+          (lib/analytics/campaignBudgets.js): what was set aside, beside what
+          was spent. It is not in any total and not in any rate. */}
       {summary?.channels?.length > 0 && (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-5 py-3 border-b border-border text-sm font-semibold text-foreground">
@@ -463,7 +466,8 @@ export default function MarketingSpendPage() {
               <thead>
                 <tr className="text-left text-xs text-muted-foreground border-b border-border">
                   <th className="px-5 py-2 font-medium">{t("app.marketingSpend.colChannel", "Channel")}</th>
-                  <th className="px-5 py-2 font-medium">{t("app.marketingSpend.colSpend", "Spend")}</th>
+                  <th className="px-5 py-2 font-medium">{t("app.marketingSpend.colSpent", "Spent")}</th>
+                  <th className="px-5 py-2 font-medium">{t("app.marketingSpend.colBudgeted", "Budgeted (campaigns)")}</th>
                   <th className="px-5 py-2 font-medium">{t("app.marketingSpend.colLeadsEntered", "Leads (as entered)")}</th>
                   <th className="px-5 py-2 font-medium">{t("app.marketingSpend.colCplEntered", "Cost/lead (as entered)")}</th>
                 </tr>
@@ -473,8 +477,14 @@ export default function MarketingSpendPage() {
                   <tr key={c.platform} className="border-b border-border last:border-0">
                     <td className="px-5 py-2.5 capitalize">{t(`app.marketingSpend.platform.${c.platform}`, c.platform)}</td>
                     <td className="px-5 py-2.5">
-                      {c.approximate ? "≈ " : ""}
-                      {new Intl.NumberFormat(undefined, { style: "currency", currency }).format(c.spend)}
+                      {c.budgetOnly
+                        ? <span className="text-muted-foreground">{t("app.marketingSpend.nothingLoggedYet", "nothing logged yet")}</span>
+                        : <>{c.approximate ? "≈ " : ""}{new Intl.NumberFormat(undefined, { style: "currency", currency }).format(c.spend)}</>}
+                    </td>
+                    <td className="px-5 py-2.5 tabular-nums">
+                      {c.budgeted != null
+                        ? new Intl.NumberFormat(undefined, { style: "currency", currency }).format(c.budgeted)
+                        : "—"}
                     </td>
                     {/* `c.leads || "—"` printed a deliberately-entered 0 as
                         "—", i.e. as unknown — and MarketingSpend.leads is
@@ -500,6 +510,31 @@ export default function MarketingSpendPage() {
           {(summary.totals?.approximate || summary.totals?.excluded?.length > 0) && (
             <div className="px-5 py-2.5 border-t border-border">
               <CurrencyNotes totals={summary.totals} t={t} />
+            </div>
+          )}
+          {summary.budgets?.campaigns?.length > 0 && (
+            <div className="px-5 py-3 border-t border-border space-y-2">
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {t("app.marketingSpend.budgetNote", "Budgeted is what you set aside on each campaign in Marketing — for its whole life, not for a period. Spent is what was logged here or synced from Meta. Budgets never enter a total or a cost per lead; archiving a campaign removes its budget from this column.")}
+              </p>
+              <ul className="text-xs text-muted-foreground divide-y divide-border">
+                {summary.budgets.campaigns.map((c) => (
+                  <li key={c.id} className="py-1.5 flex items-center justify-between gap-3">
+                    <span className="min-w-0 truncate">
+                      <Link href={c.type === "pamphlet" || c.type === "email" ? `/app/marketing/${c.id}` : "/app/marketing"} className="text-foreground hover:underline">
+                        {c.name}
+                      </Link>
+                      {" · "}
+                      {t(`app.marketingSpend.platform.${c.platform}`, c.platform)}
+                      {" · "}
+                      {t(`app.marketing.status.${c.status}`, c.status)}
+                    </span>
+                    <span className="tabular-nums shrink-0">
+                      {new Intl.NumberFormat(undefined, { style: "currency", currency }).format(c.budget)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </div>

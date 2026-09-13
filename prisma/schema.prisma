@@ -5171,6 +5171,16 @@ enum MarketingCampaignStatus {
   /// skips whoever already has a MarketingCampaignDelivery row), but the UI
   /// must not tell the contractor the campaign is done when it isn't.
   partial
+  /// Set by the contractor, from the campaign list or detail — the pamphlet
+  /// route is on hold, the ad set is switched off. `active` above is likewise
+  /// only ever written by a person (Activate / Resume); nothing infers it.
+  paused
+  /// Out of the way, never deleted. The DELETE route that used to sit beside
+  /// PATCH had no caller and would have destroyed the stops, the deliveries
+  /// and the budget record with it; a campaign that is over is archived and
+  /// the list hides it behind "Show archived". Its budget stops counting on
+  /// the Spend page from this moment (lib/analytics/campaignBudgets.js).
+  archived
 }
 
 enum PamphletStopStatus {

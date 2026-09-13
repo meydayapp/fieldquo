@@ -401,13 +401,13 @@ export default function FunnelBuilderPage() {
           {saving ? (
             <Loader2 size={14} className="animate-spin" />
           ) : dirty ? (
-            "Save"
+            t("app.action.save", "Save")
           ) : savedAt ? (
             <>
-              <Check size={14} /> Saved
+              <Check size={14} /> {t("app.funnels.saved", "Saved")}
             </>
           ) : (
-            "Save"
+            t("app.action.save", "Save")
           )}
         </button>
         <button
@@ -423,7 +423,7 @@ export default function FunnelBuilderPage() {
           className="inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-1.5 rounded-full text-sm font-semibold disabled:opacity-50"
           data-tour="funnel-publish"
         >
-          {funnel.status === "published" ? "Unpublish" : "Publish"}
+          {funnel.status === "published" ? t("app.funnels.unpublish", "Unpublish") : t("app.funnels.publish", "Publish")}
         </button>
       </div>
 
@@ -438,7 +438,7 @@ export default function FunnelBuilderPage() {
       {estimateBlockers.length > 0 && funnel.status !== "published" && (
         <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
           <div className="font-semibold">
-            This funnel can&rsquo;t go live yet
+            {t("app.funnels.cantGoLive", "This funnel can't go live yet")}
           </div>
           <ul className="list-disc ml-4 mt-1 space-y-0.5">
             {estimateBlockers.map((b) => (
@@ -459,7 +459,7 @@ export default function FunnelBuilderPage() {
             className="inline-flex items-center gap-1 text-xs font-semibold text-foreground"
           >
             {copied ? <Check size={13} /> : <Copy size={13} />}{" "}
-            {copied ? "Copied" : "Copy link"}
+            {copied ? t("app.action.copied", "Copied") : t("app.funnels.copyLink", "Copy link")}
           </button>
           <a
             href={publicUrl}
@@ -467,7 +467,7 @@ export default function FunnelBuilderPage() {
             rel="noopener noreferrer"
             className="text-xs font-semibold text-foreground underline"
           >
-            Open
+            {t("app.funnels.open", "Open")}
           </a>
         </div>
       )}
@@ -483,7 +483,7 @@ export default function FunnelBuilderPage() {
               className="inline-flex items-center gap-1 text-xs font-semibold text-foreground shrink-0"
             >
               {copiedEmbed ? <Check size={13} /> : <Copy size={13} />}{" "}
-              {copiedEmbed ? "Copied" : "Copy code"}
+              {copiedEmbed ? t("app.action.copied", "Copied") : t("app.action.copyCode", "Copy code")}
             </button>
           </div>
           <pre className="mt-2 bg-muted border border-border rounded p-2 text-[11px] overflow-x-auto">
@@ -496,13 +496,13 @@ export default function FunnelBuilderPage() {
       {analytics && analytics.starts > 0 && (
         <div className="bg-card border border-border rounded-lg p-4">
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground mb-3">
-            <BarChart3 size={15} /> Performance
+            <BarChart3 size={15} /> {t("app.funnels.performance", "Performance")}
           </div>
           <div className="grid grid-cols-3 gap-3 text-center mb-3">
-            <Stat label="Starts" value={analytics.starts} />
-            <Stat label="Leads" value={analytics.completions} />
+            <Stat label={t("app.funnels.stat.starts", "Starts")} value={analytics.starts} />
+            <Stat label={t("app.funnels.stat.leads", "Leads")} value={analytics.completions} />
             <Stat
-              label="Conversion"
+              label={t("app.funnels.stat.conversion", "Conversion")}
               value={
                 analytics.conversionRate != null
                   ? `${analytics.conversionRate}%`
@@ -539,7 +539,7 @@ export default function FunnelBuilderPage() {
         {/* Step list */}
         <div className="space-y-2" data-tour="funnel-steps">
           <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-            Steps
+            {t("app.funnels.steps", "Steps")}
           </div>
           {steps.map((s, i) => (
             <div
@@ -643,7 +643,15 @@ export default function FunnelBuilderPage() {
           </span>
         </button>
         {showPixels && (
-          <div className="px-4 pb-4 grid gap-3 sm:grid-cols-3">
+          <div className="px-4 pb-4 space-y-3">
+            {/* What the ids DO, now that they do something: base tag +
+                PageView on every step, a Lead event when the form is
+                accepted. And what FieldQuo does not add — a consent banner —
+                said here rather than discovered by a lawyer. */}
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {t("app.funnels.pixelsNote", "Each pixel loads on your public funnel page and records a page view; when a visitor sends the contact form it fires the platform's lead event (Meta “Lead”, GA4 “generate_lead”, TikTok “SubmitForm”) with no personal details attached. FieldQuo adds no cookie-consent banner — if your visitors are in a place that requires one, that is yours to provide.")}
+            </p>
+          <div className="grid gap-3 sm:grid-cols-3">
             {[
               ["metaPixelId", "app.funnels.pixel.meta"],
               ["tiktokPixelId", "app.funnels.pixel.tiktok"],
@@ -661,6 +669,7 @@ export default function FunnelBuilderPage() {
                 />
               </label>
             ))}
+          </div>
           </div>
         )}
       </div>
