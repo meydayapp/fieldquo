@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 12 September 2026 (the company's own crew chat at /app/chat — #general, a room per active job, direct messages — on the shared chat kit, tenant-scoped through lib/company/chat/store.js, with a Chat tab in the crew's mobile bar; docs/screens/company-chat/.)
+Last updated: 12 September 2026 (every demo company is now a six-month business on every screen — lib/demo/seedContent.js, per-trade profiles with real streets and 555-01xx phones, run by scripts/seed-demo-content.mjs for the pool and by applyIndustry for a rep's demo; check:demo-content executes it against an in-memory Prisma.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,49 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Demo companies are real-looking businesses (12 September 2026)
+
+The owner: "use fake real names and real addresses and random phone numbers
+in the parts and sections where it is warranted, same for payroll and
+calendar etc and booking." He records product videos from a demo; the help
+centre screenshots one.
+
+- **One seed, three doors** — `lib/demo/seedContent.js`'s
+  `seedDemoCompany(companyId, { trade, now })`, reached by the pool script
+  (`scripts/seed-demo-content.mjs`, dry run unless `--write`), by a rep's
+  demo on creation and Reset (`lib/sales/repDemo.js` → `applyIndustry`) and
+  by the platform console's reset. Re-reads the company and refuses unless
+  `isDemo` is true.
+- **Where each trade lives** — `lib/demo/profiles.js`: a real street in a
+  real city per trade (Ottawa, Laval, Québec, London ON, Montréal,
+  Mississauga, Gatineau, Hamilton; Austin and Denver in USD), the
+  province's or state's tax as TaxRate rows, twelve real client streets,
+  materials, a supplier, a van, a subcontractor, client-owned equipment for
+  plumbing / HVAC / electrical. People and pools in `lib/demo/people.js`:
+  every phone is `+1 AAA 555 01xx`, every email is on example.com, names
+  come from fr / en / es pools and the cabinets roster is the help-centre
+  harness's (Marc Tremblay … Ana Pereira, client Sophie Dubois).
+- **What a demo contains** — 30 clients, 10 leads (every source and score
+  band), 17 quote stories (19 rows: every status, a signed acceptance with
+  its audit hash, a Good/Better/Best trio, add-ons, an AI review, a large
+  quote flagged), 10 jobs (completed with photos + ticked checklists, this
+  week's with a change order and a daily log, next month's, a weekly
+  recurring one), 12 invoices (card and bank-debit payments through
+  `recordStripePayment` with `demo_pi_*` intents and the processing fee
+  recorded, an e-transfer, overdue and chased, refunded, disputed, a job
+  partway through its deposit/balance schedule), a service plan with a
+  mandate and five occurrences, five bookings (one with a fee), two weeks
+  of timesheets, a pay run paid and one approved with payslip lines from
+  `computePayRun`, leave next week, a safety report, two purchase orders
+  (one received into stock), a van with maintenance, a subcontractor with
+  insurance, a pamphlet route, an email campaign, a designer post, reviews,
+  a testimonial, crew chat through the store, the receptionist's call log,
+  the activity trail. Idempotent by natural keys — a second run creates
+  nothing, nothing is ever deleted.
+- **Proved** — `check:demo-content` (149, in check:all) seeds all ten trades
+  into `scripts/fixtures/memoryPrisma.mjs` (served as `@/lib/db` by
+  `memory-db-loader.mjs`) and reads every table back.
 
 ## The company's own crew chat (12 September 2026)
 

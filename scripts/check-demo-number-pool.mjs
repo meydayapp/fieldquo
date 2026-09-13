@@ -324,8 +324,12 @@ ok(
 
 section("11. A demo shows a populated call list without a real line ever ringing");
 
-const seedSrc = stripComments(read("lib/demo/seedDemo.js"));
-ok(/db\.voiceCall\.create/.test(seedSrc), "seedDemoContent seeds VoiceCall rows so the receptionist screen is never empty");
+// The dressing moved to lib/demo/seedContent.js on 2026-09-12 (six months
+// of a business, every screen); seedDemo.js keeps the wipe. Both files are
+// read, because the claim is about the pair: one writes the calls, the other
+// clears them, and neither touches a real line.
+const seedSrc = stripComments(read("lib/demo/seedDemo.js")) + "\n" + stripComments(read("lib/demo/seedContent.js"));
+ok(/"voiceCall",/.test(seedSrc) && /providerCallId: `demo-seed-/.test(seedSrc), "seedDemoContent seeds VoiceCall rows so the receptionist screen is never empty");
 ok(/db\.voiceCall\.deleteMany/.test(seedSrc), "…and a reset clears them, same as the quotes and jobs beside them");
 // The three the OTHER check script (check-demo-number.mjs) already guards —
 // re-affirmed with the SAME regex it uses, so a change to either file's
