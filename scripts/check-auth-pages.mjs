@@ -383,6 +383,12 @@ const EXPECTED_BODY = [
   // scripts/check-sales-attribution.mjs, which asserts the two namespaces stay
   // separate at this boundary.
   "salesCode",
+  // Added 2026-09-13 with the growth model's paid-ads source: the utm_*
+  // query the ad landed with, so an ad signup is measurable on SignupOrigin.
+  "utm",
+  // Added 2026-09-13 with the rep's live signup stepper: the token minted
+  // when a rep TEXTED the link, so the completion stamps the right row.
+  "signupLinkToken",
   "next",
 ];
 ok(

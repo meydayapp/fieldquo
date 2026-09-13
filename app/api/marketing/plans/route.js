@@ -9,7 +9,17 @@ import { recordError } from "@/lib/platform/errorLog";
 // Public — the signup page needs to show plans without a session. This is
 // deliberately separate from /api/platform/billing/plans (which is platform-admin-
 // only and includes internal fields like stripePriceId).
-export async function GET() {
+export async function GET(request) {
+  // ── An unlisted plan, reachable by its link only ─────────────────────────
+  //
+  // A private plan (isPublic = false) is kept off the pricing page and off
+  // the picker — a bespoke rate, or the owner's own live test — but a link
+  // carrying `?plan=<id>` is a deliberate hand-off: the person who received
+  // it was told about that plan. It is returned to THAT request alone,
+  // flagged `unlisted`, with the same money rules as any other row (a plan
+  // with no usable price is still withheld). Nothing changes for a request
+  // without the parameter, which is every visit to the pricing page.
+  const wantedPlanId = new URL(request.url).searchParams.get("plan") || null;
   const plans = await db.plan.findMany({
     orderBy: { priceMonthly: "asc" },
     select: {
@@ -103,10 +113,19 @@ export async function GET() {
     }).catch(() => {});
   }
 
+  const unlisted = wantedPlanId
+    ? withheld.find(
+        (p) => p.id === wantedPlanId && p.isPublic === false && Number(p.priceMonthly) > 0,
+      )
+    : null;
+
   return NextResponse.json({
     // isPublic dropped — it is an internal decision, not a plan attribute a
     // visitor has any use for. (stripePriceId is no longer selected at all.)
-    plans: sellable.map(({ isPublic, ...plan }) => plan),
+    plans: [
+      ...sellable.map(({ isPublic, ...plan }) => plan),
+      ...(unlisted ? [{ ...(({ isPublic, ...rest }) => rest)(unlisted), unlisted: true }] : []),
+    ],
     // The signup page needs to tell "we have no plans configured" apart from
     // "these plans exist but none can be bought right now". They look
     // identical as an empty array and mean completely different things.

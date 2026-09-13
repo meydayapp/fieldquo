@@ -841,7 +841,13 @@ export default function SignupPage() {
     (p) => !planCurrency || !p.currency || p.currency === planCurrency,
   );
   const ladderRows = forCurrency.filter((p) => p.tierKey);
-  const visiblePlans = ladderRows.length > 0 ? ladderRows : forCurrency;
+  // An unlisted plan the link asked for is shown beside the ladder — it has no
+  // tierKey by design (it is not a rung anyone else can climb to).
+  const unlistedRows = forCurrency.filter((p) => p.unlisted);
+  const visiblePlans = [
+    ...(ladderRows.length > 0 ? ladderRows : forCurrency.filter((p) => !p.unlisted)),
+    ...unlistedRows,
+  ];
 
   // Annual is offered per PLAN, because Plan.priceAnnual is nullable and null
   // means "this tier has no annual option" — including every bespoke Custom
@@ -1187,7 +1193,14 @@ export default function SignupPage() {
     const query = new URLSearchParams(window.location.search);
     wantedRef.current = { tier: query.get("tier"), planId: query.get("plan") };
 
-    fetch("/api/marketing/plans")
+    // The wished-for plan id rides along so an UNLISTED plan (private, sent by
+    // link — a bespoke rate or the owner's live test) comes back for this
+    // visitor; the pricing page never asks and never sees it.
+    fetch(
+      wantedRef.current.planId
+        ? `/api/marketing/plans?plan=${encodeURIComponent(wantedRef.current.planId)}`
+        : "/api/marketing/plans",
+    )
       .then((r) => r.json())
       .then((data) => {
         // The endpoint now returns { plans, unavailable } so the page can tell
