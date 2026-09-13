@@ -1944,11 +1944,104 @@ const PAGES = [
     group: "getting_paid",
     label: "Getting paid",
     feature: "card_payments",
+    // The one feature page with the full product-page treatment (2026-09-13):
+    // a real capture in the hero, capability rows with captures, and copy
+    // that says what the fee actually is. The captures are the app-guide
+    // harness renders of the real components against a fixture
+    // (docs/screens/app-guide/{en,fr,es}), converted into
+    // public/product/payments/ and served in the reader's language.
+    image: {
+      dir: "payments",
+      name: "invoices",
+      localized: true,
+      alt: "The Invoices list: outstanding, paid and total billed on top, then three invoices — one sent, one paid, one overdue with the days late",
+      width: 1280,
+      height: 860,
+      caption:
+        "The invoices list as the office sees it: what is outstanding, what was paid, and the one that is twelve days late.",
+    },
+    sections: [
+      {
+        id: "invoice",
+        heading: "One click from the approved quote, paid from the link",
+        body:
+          "The invoice is built from the quote, so it says what the quote said. It goes out in an email from your address with a pay-now button inside; the client pays from their phone and the payment history lands on the invoice, with the fee shown next to what reached your bank.",
+        bullets: [
+          "Emailed from your address, with a link to the invoice and a pay button",
+          "Cash or e-transfer you already took comes off before the card is charged",
+          "The payment, the fee and the deposit into your bank, recorded on the invoice",
+        ],
+        image: { dir: "payments", name: "invoice-detail", localized: true, width: 1280, height: 1000,
+          alt: "An invoice marked Paid in full: the lines from the quote, what the invoice says, the total and the balance due of zero" },
+        help: "how-clients-pay-online",
+      },
+      {
+        id: "fees",
+        heading: "One fee, deducted before the money lands — never a bill",
+        body:
+          "A card payment costs 3% + $0.30. Bank debit is cheaper: 1% + $0.40 capped at $5.00 in Canada, 0.8% capped at $5.00 in the US — on a $5,000 invoice that is $5 instead of $150. The fee comes off each payment before it reaches your bank. There is no monthly fee and nothing is billed separately.",
+        bullets: [
+          "Cards 3% + $0.30; Canadian bank debit 1% + $0.40 (max $5.00); US bank debit 0.8% (max $5.00)",
+          "An international card adds 0.8% and a currency conversion 2%, only when they apply",
+          "Instant payout to your bank is optional, at 1% — the standard payout needs nothing switched on",
+        ],
+        image: { dir: "payments", name: "fees", localized: true, width: 1280, height: 860,
+          alt: "The Payments settings: Stripe connected, then the processing fees — card payments, bank debit, international card and currency conversion — with what each costs" },
+        help: "payment-processing-fees-and-payouts",
+      },
+      {
+        id: "deposits",
+        heading: "Deposits and stage payments, on the quote the client signs",
+        body:
+          "Ask for a deposit to book the shop time and the balance on installation, or split a long job into stages. The terms sit on the quote the client approves, each stage is requested on your schedule, and the client can pay any of them by bank debit from their portal, not only the final invoice.",
+        bullets: [
+          "Payment terms printed on the quote, next to the total the client signs for",
+          "Each stage requested when it is due — paid by card from the link, or by bank debit from the portal",
+          "A deposit already paid comes off the final invoice automatically",
+        ],
+        image: { dir: "payments", name: "deposit-terms", localized: true, width: 680, height: 530, tall: true,
+          alt: "The bottom of a client's quote approval page: payment terms of 50% deposit to book the shop time and 50% on installation, the total, and the Approve and Decline buttons" },
+        help: "deposits-and-payment-schedules",
+      },
+      {
+        id: "portal",
+        heading: "One link for everything they owe",
+        body:
+          "The client portal is a single link per client — no account to create, no password to forget. It shows the balance owing, every invoice with its pay button, and every quote with its status, under your company's name and nobody else's.",
+        bullets: [
+          "Balance owing at the top, then the invoices and the quotes",
+          "Pay from the portal by card or bank debit",
+          "Your name, your logo — the page never says FieldQuo",
+        ],
+        image: { dir: "payments", name: "portal", localized: true, width: 1280, height: 560,
+          alt: "The client portal: the balance owing, one invoice with a Pay button, and two quotes — one approved, one declined" },
+        help: "the-client-portal",
+      },
+      {
+        id: "chase",
+        heading: "Reminders and refunds, from the invoice itself",
+        body:
+          "An overdue invoice says how many days late it is and what is still owing. Chase it in one click with a note in the client's language, or let the follow-up rules you set do it on schedule. A refund, in full or in part, is issued from the same invoice and goes back to the card or account it came from.",
+        bullets: [
+          "Chase from the invoice: a short note, sent in the client's language",
+          "Automatic reminders on the schedule you set, in your words",
+          "Refund the whole payment or part of it, from the invoice — the processing fee is not returned, as with any card processor",
+        ],
+        image: { dir: "payments", name: "chase", localized: true, width: 1280, height: 860,
+          alt: "An overdue invoice with the Chase this payment dialog open: a note to the client and a Send the reminder button" },
+        help: "invoice-reminders-and-chasing",
+      },
+    ],
     details: [
       {
         label: "The money goes to your account",
         body:
-          "The charge is routed to your own connected account, and FieldQuo takes no cut of what your client pays.",
+          "The charge is routed to your own connected account. The processing fee is deducted from each payment before it reaches your bank — never billed separately, and there is no monthly fee.",
+      },
+      {
+        label: "What the fee is",
+        body:
+          "Cards 3% + $0.30. Bank debit 1% + $0.40 capped at $5.00 in Canada and 0.8% capped at $5.00 in the US. An international card adds 0.8% and a currency conversion 2%, only when they apply. Instant payout is optional at 1%.",
       },
       {
         label: "Cash you already took comes off the card amount",
@@ -1973,9 +2066,9 @@ const PAGES = [
     ],
     headline: "They pay from the driveway, and it lands in your account",
     oneLine:
-      "Card payment from the invoice or the client portal, settling into your own bank — not ours.",
+      "Card or bank debit from the invoice, a deposit or the client portal, settling into your own bank — with one fee taken off each payment and nothing billed separately.",
     description:
-      "Card payments that settle into the contractor's own bank account, a client portal showing what is owed, and recurring maintenance plans.",
+      "Card and bank-debit payments that settle into the contractor's own bank account with one pass-through fee, deposits and stage payments, a client portal showing what is owed, refunds from the invoice, and recurring maintenance plans.",
     pains: [
       {
         pain:
@@ -1985,27 +2078,33 @@ const PAGES = [
       },
       {
         pain:
+          "Card fees on a $5,000 job take a real bite.",
+        fix:
+          "Offer bank debit on the same invoice: 1% capped at $5.00 in Canada, 0.8% capped at $5.00 in the US, instead of 3% + $0.30 on a card.",
+      },
+      {
+        pain:
           "Chasing money means ringing people you like and asking them for money.",
         fix:
-          "The client can open one link and see every quote, every invoice and exactly what is still outstanding.",
+          "The client can open one link and see every quote, every invoice and exactly what is still outstanding — and the overdue invoice chases itself on your schedule.",
       },
       {
         pain:
           "Maintenance clients are invoiced when you remember, which is not monthly.",
         fix:
-          "A recurring plan charges the card on schedule without you asking anybody for anything.",
+          "A recurring plan charges the card or the bank account on schedule without you asking anybody for anything.",
       },
     ],
     how: [
       {
         step: "The money goes to your account",
         body:
-          "You connect your own bank once. Client payments settle into your account directly, with FieldQuo taking no cut of them.",
+          "You connect your own bank once. Client payments settle into your account directly; the processing fee comes off each payment before it lands, and nothing is billed to you separately.",
       },
       {
         step: "Deposits are handled properly",
         body:
-          "A client who has already paid a deposit is asked for the balance, not for the whole amount a second time.",
+          "A client who has already paid a deposit is asked for the balance, not for the whole amount a second time — and a deposit can be paid by bank debit too.",
       },
       {
         step: "One link for everything they owe",
@@ -2016,8 +2115,10 @@ const PAGES = [
     features: [
       "card_payments",
       "stripe_connect",
+      "invoice_send",
       "client_portal",
       "service_plans",
+      "financing",
     ],
     related: ["invoicing", "financing", "reporting"],
   },
@@ -3149,18 +3250,50 @@ export const PAGE_EXCLUSIONS = Object.freeze([]);
   // picture on a page selling reliability. The path shape is checked here; that
   // the file exists is asserted by scripts/check-feature-pages.mjs, which can
   // read the filesystem where a bundled module should not.
+  //
+  // An image is either a full `src` (an illustration in public/marketing) or
+  // a `dir` + `name` under public/product/, converted from docs/screens and,
+  // when `localized`, present in every capture language — the shape
+  // lib/marketing/screenshots.js resolves. Its alt is a catalogue key when it
+  // has one (`altKey`, an existing hero.tabs.* sentence) and otherwise a
+  // sentence of this page's own, carried by featurePageStrings() below.
+  const imageOk = (page, img, where) => {
+    const bySrc = typeof img.src === "string";
+    if (bySrc && (!img.src.startsWith("/") || !/\.(webp|png|jpg|jpeg|svg)$/i.test(img.src))) {
+      throw new Error(`featurePages: "${page.slug}" ${where} image src is not a public path`);
+    }
+    if (!bySrc && !(/^[a-z0-9-]+$/.test(img.dir || "") && /^[a-z0-9-]+$/.test(img.name || ""))) {
+      throw new Error(`featurePages: "${page.slug}" ${where} image has neither a src nor a dir and name`);
+    }
+    if (!img.alt?.trim()) {
+      throw new Error(`featurePages: "${page.slug}" ${where} image has no alt`);
+    }
+    if (!Number.isFinite(img.width) || !Number.isFinite(img.height)) {
+      throw new Error(`featurePages: "${page.slug}" ${where} image has no intrinsic size`);
+    }
+  };
   for (const page of PAGES) {
-    for (const img of [page.image, page.inlineImage]) {
+    for (const [where, img] of [["hero", page.image], ["inline", page.inlineImage]]) {
       if (!img) continue;
-      if (!img.src?.startsWith("/") || !/\.(webp|png|jpg|jpeg|svg)$/i.test(img.src)) {
-        throw new Error(`featurePages: "${page.slug}" has an image src that is not a public path`);
+      imageOk(page, img, where);
+      if (!img.caption?.trim()) {
+        throw new Error(`featurePages: "${page.slug}" ${where} image has no caption`);
       }
-      if (!img.alt?.trim() || !img.altKey?.trim() || !img.caption?.trim()) {
-        throw new Error(`featurePages: "${page.slug}" has an image with no alt, key or caption`);
+    }
+    // The capability rows a page may carry — the /product/<slug> shape. Each
+    // needs its picture, its three bullets and the help article it points at;
+    // the slug is checked against lib/help/tree.js by the check script.
+    const ids = new Set();
+    for (const sec of page.sections || []) {
+      if (!sec.id || ids.has(sec.id)) {
+        throw new Error(`featurePages: "${page.slug}" has a section with a missing or repeated id`);
       }
-      if (!Number.isFinite(img.width) || !Number.isFinite(img.height)) {
-        throw new Error(`featurePages: "${page.slug}" has an image with no intrinsic size`);
+      ids.add(sec.id);
+      if (!sec.heading?.trim() || !sec.body?.trim() || sec.bullets?.length !== 3 || !sec.help) {
+        throw new Error(`featurePages: "${page.slug}" section "${sec.id}" needs a heading, a body, three bullets and a help slug`);
       }
+      if (!sec.image) throw new Error(`featurePages: "${page.slug}" section "${sec.id}" has no image`);
+      imageOk(page, sec.image, `section ${sec.id}`);
     }
   }
 }
@@ -3299,8 +3432,10 @@ export function featurePageKey(slug, field) {
  * one list means the three cannot come to disagree about what "every prose
  * field" means — which is the failure mode of writing the list out three times.
  *
- * `image.alt` is NOT here: it already carries `altKey`, an existing catalogue
- * key translated into all six. See featurePageCopy for the bug that was.
+ * An image alt is here only when the image has no `altKey` — a borrowed
+ * illustration's alt is an existing catalogue key translated into all nine
+ * (see featurePageCopy for the bug that was); a capture's alt is a sentence
+ * of this page's own, and so is carried like the rest of its prose.
  */
 export function featurePageStrings(page) {
   const out = [
@@ -3310,9 +3445,19 @@ export function featurePageStrings(page) {
     { field: "description", english: page.description },
   ];
   if (page.image?.caption) out.push({ field: "imageCaption", english: page.image.caption });
+  if (page.image && !page.image.altKey) out.push({ field: "imageAlt", english: page.image.alt });
   if (page.inlineImage?.caption) {
     out.push({ field: "inlineCaption", english: page.inlineImage.caption });
   }
+  if (page.inlineImage && !page.inlineImage.altKey) {
+    out.push({ field: "inlineAlt", english: page.inlineImage.alt });
+  }
+  (page.sections || []).forEach((sec) => {
+    out.push({ field: `section.${sec.id}.heading`, english: sec.heading });
+    out.push({ field: `section.${sec.id}.body`, english: sec.body });
+    sec.bullets.forEach((b, i) => out.push({ field: `section.${sec.id}.bullet.${i + 1}`, english: b }));
+    if (!sec.image.altKey) out.push({ field: `section.${sec.id}.alt`, english: sec.image.alt });
+  });
   (page.pains || []).forEach((p, i) => {
     out.push({ field: `pain.${i + 1}.pain`, english: p.pain });
     out.push({ field: `pain.${i + 1}.fix`, english: p.fix });
@@ -3370,8 +3515,12 @@ export function featurePageCopy(slug, t) {
 
   const say = (field, english) =>
     typeof t === "function" ? t(featurePageKey(slug, field), english) : english;
-  const alt = (img) =>
-    typeof t === "function" && img.altKey ? t(img.altKey, img.alt) : img.alt;
+  // A borrowed illustration resolves its alt through the existing hero.tabs
+  // key; a capture of this page's own resolves it through this page's field.
+  const alt = (img, field) =>
+    img.altKey
+      ? typeof t === "function" ? t(img.altKey, img.alt) : img.alt
+      : say(field, img.alt);
 
   return {
     ...page,
@@ -3382,17 +3531,24 @@ export function featurePageCopy(slug, t) {
     image: page.image
       ? {
           ...page.image,
-          alt: alt(page.image),
+          alt: alt(page.image, "imageAlt"),
           caption: say("imageCaption", page.image.caption),
         }
       : undefined,
     inlineImage: page.inlineImage
       ? {
           ...page.inlineImage,
-          alt: alt(page.inlineImage),
+          alt: alt(page.inlineImage, "inlineAlt"),
           caption: say("inlineCaption", page.inlineImage.caption),
         }
       : undefined,
+    sections: (page.sections || []).map((sec) => ({
+      ...sec,
+      heading: say(`section.${sec.id}.heading`, sec.heading),
+      body: say(`section.${sec.id}.body`, sec.body),
+      bullets: sec.bullets.map((b, i) => say(`section.${sec.id}.bullet.${i + 1}`, b)),
+      image: { ...sec.image, alt: alt(sec.image, `section.${sec.id}.alt`) },
+    })),
     pains: (page.pains || []).map((p, i) => ({
       pain: say(`pain.${i + 1}.pain`, p.pain),
       fix: say(`pain.${i + 1}.fix`, p.fix),

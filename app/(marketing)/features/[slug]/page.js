@@ -62,17 +62,24 @@
 // French title is already WRITTEN, in app/i18n/featurePages/fr.js, so the day
 // those routes land this function gains a language and nothing else.
 //
-// ══ Images: four real screenshots, and the pages that do not get one ═══════
+// ══ Images: four illustrations, the captures, and the pages with none ══════
 //
-// public/marketing holds exactly four product images and no more can be made —
-// the app is behind a login. `page.image` is therefore rare and each one is
+// public/marketing holds four product illustrations. `page.image` was rare
+// because the app is behind a login and no more could be made; each one is
 // assigned to the page whose subject the picture actually shows, which is NOT
 // always what the filename says: hero-scheduling.webp is the client's booking
 // page, not the dispatch calendar, and hero-invoicing.webp is a quote with an
 // Approve button, not an invoice. Their own alt text in app/i18n/messages.js
-// says as much — and it is now actually READ, through `altKey`; see
-// featurePageCopy() in app/data/featurePages.js for the field that was written
-// and rendered by nothing.
+// says as much — and it is READ, through `altKey`; see featurePageCopy() in
+// app/data/featurePages.js for the field that was written and rendered by
+// nothing.
+//
+// Since 2026-09-13 a page may also carry CAPTURES — the harness renders of
+// the real components in docs/screens/app-guide/{en,fr,es}, converted into
+// public/product/<dir>/ and served in the reader's language
+// (lib/marketing/screenshots.js) — and `sections`, the capability rows the
+// /product/<slug> pages have. /features/payments is the first; a page with
+// neither still carries its own weight through `details`.
 
 import { notFound } from "next/navigation";
 import { FEATURE_PAGES, featurePage } from "@/app/data/featurePages";

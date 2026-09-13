@@ -41,6 +41,13 @@
 import { existsSync, readFileSync } from "node:fs";
 import { createElement } from "react";
 import { FORBIDDEN_PAGE_CLAIMS, OVERSTATED, JARGON } from "./forbidden-claims.mjs";
+import { SCREEN_LANGS, screenLang, screenSrc } from "@/lib/marketing/screenshots";
+import { productHelpUrl } from "@/lib/marketing/productHelp";
+import {
+  PROCESSING_RATES,
+  INSTANT_PAYOUT_RATE,
+  publishedSurcharges,
+} from "@/lib/stripe/processingFee";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import {
@@ -111,6 +118,18 @@ const ok = (label, cond, detail) => {
  * appointments"). Comparing raw markup against raw data would quietly never
  * match, and a check that never matches passes for the wrong reason.
  */
+/** The same entity decoding on RAW markup, for strings that live in attributes. */
+function decodeEntities(html) {
+  return html
+    .replace(/&#x27;|&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ");
+}
+
 function textOf(html) {
   return html
     .replace(/<[^>]*>/g, " ")
@@ -1002,8 +1021,9 @@ console.log("\n── Group pages hand off to the pages under them ────�
    12. Pictures of things that exist
    ═══════════════════════════════════════════════════════════════════════════
 
-   public/marketing holds four product screenshots and no more can be made —
-   the back office is behind a login. So the risks here are not "is it pretty":
+   public/marketing holds four product illustrations, and since 2026-09-13
+   public/product/<dir>/ holds captures of the real components in the three
+   languages they were rendered in. So the risks here are not "is it pretty":
    a src pointing at a file that is not there renders a broken frame on a page
    selling reliability, and an image on the wrong page is a claim, because a
    reader takes a screenshot as evidence of the thing described beside it.
@@ -1019,36 +1039,117 @@ console.log("\n── Every picture is a file, and every alt a real key ──�
 {
   const used = [];
   for (const page of FEATURE_PAGES) {
-    for (const [where, img] of [["hero", page.image], ["inline", page.inlineImage]]) {
+    const images = [
+      ["hero", page.image],
+      ["inline", page.inlineImage],
+      ...(page.sections || []).map((sec) => [`section ${sec.id}`, sec.image]),
+    ];
+    for (const [where, img] of images) {
       if (!img) continue;
       used.push(`${page.slug}:${where}`);
-      const path = `public${img.src}`;
-      ok(`/features/${page.slug} ${where} image is a file that exists`, existsSync(path), path);
-      ok(`...with a caption`, !!img.caption?.trim());
+      // A capture exists in every language it was taken in; an illustration
+      // is one file. Each is checked on disk and the English one in the
+      // rendered (English) page.
+      const langs = img.localized ? SCREEN_LANGS : ["en"];
+      const missing = langs.map((l) => `public${screenSrc(img, l)}`).filter((f) => !existsSync(f));
+      ok(`/features/${page.slug} ${where} image is a file that exists${img.localized ? ` in ${langs.join("/")}` : ""}`,
+        missing.length === 0, missing.join(" "));
+      if (img.caption !== undefined || where === "hero" || where === "inline") {
+        ok(`...with a caption`, !!img.caption?.trim());
+      }
       ok(`...and alt text`, !!img.alt?.trim());
       // next/image rewrites the src into its own URL, so look for either form.
       const { html, text } = rendered.get(page.slug);
-      ok(
-        `...actually rendered on the page`,
-        html.includes(img.src) || html.includes(encodeURIComponent(img.src)),
-      );
-      ok(`...with the alt in the markup`, html.includes(img.alt.slice(0, 40)));
-      ok(`...and the caption where a reader can see it`, text.includes(img.caption));
+      const src = screenSrc(img, "en");
+      ok(`...actually rendered on the page`, html.includes(src) || html.includes(encodeURIComponent(src)));
+      ok(`...with the alt in the markup`, decodeEntities(html).includes(img.alt.slice(0, 40)));
+      if (img.caption) ok(`...and the caption where a reader can see it`, text.includes(img.caption));
     }
   }
   ok("some page does carry a real screenshot", used.length >= 3, used.join(" "));
 
-  // Every alt hangs off a key that already exists in the English catalogue, so
-  // the day these pages get a translation context there is nothing to write.
-  const catalogue = readFileSync("app/i18n/messages.js", "utf8");
+  // Every alt is a catalogue key: a borrowed illustration's through `altKey`
+  // (an existing hero.tabs.* sentence in MESSAGES), a capture's through the
+  // page's own featurePage.<slug>.* field, which 12a holds to nine languages.
   for (const page of FEATURE_PAGES) {
-    for (const img of [page.image, page.inlineImage]) {
+    for (const [where, img] of [["hero", page.image], ["inline", page.inlineImage],
+      ...(page.sections || []).map((sec) => [`section ${sec.id}`, sec.image])]) {
       if (!img) continue;
-      ok(
-        `${page.slug} alt hangs off the existing key ${img.altKey}`,
-        catalogue.includes(`"${img.altKey}":`),
-      );
+      if (img.altKey) {
+        ok(`${page.slug} ${where} alt hangs off the existing key ${img.altKey}`,
+          typeof MESSAGES.en[img.altKey] === "string" && MESSAGES.en[img.altKey].trim() !== "");
+      } else {
+        const field = where === "hero" ? "imageAlt" : where === "inline" ? "inlineAlt" : `${where.replace(" ", ".")}.alt`;
+        ok(`${page.slug} ${where} alt is carried as ${featurePageKey(page.slug, field)}`,
+          FEATURE_PAGE_TEXT_KEYS.includes(featurePageKey(page.slug, field)));
+      }
     }
+  }
+
+  // A localized capture follows the reader: the French page carries the
+  // French file and a language the captures were not taken in gets English.
+  for (const language of ["fr", "uk"]) {
+    const want = screenLang(language);
+    const wrong = [];
+    for (const page of FEATURE_PAGES) {
+      const imgs = [page.image, page.inlineImage, ...(page.sections || []).map((x) => x.image)].filter(Boolean);
+      if (!imgs.some((i) => i.localized)) continue;
+      const html = await renderPage(page.slug, language);
+      for (const img of imgs) {
+        if (!img.localized) continue;
+        const src = screenSrc(img, want);
+        if (!html.includes(src) && !html.includes(encodeURIComponent(src))) wrong.push(`${page.slug}:${img.name}`);
+      }
+    }
+    ok(`${language}: localized captures render in ${want}`, wrong.length === 0, wrong.join(" "));
+  }
+
+  // The capability rows: every help slug is an article in lib/help/tree.js,
+  // its canonical href renders on the page, and the row's heading and
+  // bullets are on the page too — the same bar /product/<slug> is held to.
+  for (const page of FEATURE_PAGES) {
+    for (const sec of page.sections || []) {
+      const url = productHelpUrl(sec.help, "en");
+      ok(`/features/${page.slug} section "${sec.id}" links to a real help article (${sec.help})`, !!url);
+      const { html, text } = rendered.get(page.slug);
+      if (url) ok(`...and the link is on the page`, html.includes(`href="${url.href}"`), url.href);
+      ok(`...with its heading and three bullets`,
+        text.includes(sec.heading) && sec.bullets.every((b) => text.includes(b)));
+    }
+  }
+
+  // The numbers /features/payments prints are lib/stripe/processingFee.js's
+  // own, not typed from memory. The page said "FieldQuo takes no cut" until
+  // 2026-09-12, when the owner made the fee pass-through; a page that names a
+  // rate must name the one the charge is created with, and the day a rate
+  // moves this fails by name rather than the page quietly overstating.
+  {
+    const payments = FEATURE_PAGES.find((p) => p.slug === "payments");
+    const text = rendered.get("payments").text;
+    const card = PROCESSING_RATES.card.formula;                 // "3% + $0.30"
+    const pad = PROCESSING_RATES.acss_debit.formula;            // "1% + $0.40, max $5.00"
+    const ach = PROCESSING_RATES.us_bank_account.formula;       // "0.8%, max $5.00"
+    const [intl, conv] = publishedSurcharges().map((x) => x.formula.replace(/^\+/, ""));
+    const expect = [
+      ["the card rate", card],
+      ["the Canadian bank-debit rate", "1% + $0.40"],
+      ["...and its cap", "$5.00"],
+      ["the US bank-debit rate", "0.8%"],
+      ["the international-card surcharge", `${intl}`],
+      ["the currency-conversion surcharge", `${conv}`],
+      ["the instant-payout rate", `${INSTANT_PAYOUT_RATE.formula}`],
+    ];
+    for (const [what, needle] of expect) {
+      ok(`/features/payments prints ${what} as processingFee.js says it (${needle})`, text.includes(needle));
+    }
+    ok("processingFee.js still carries the three published formulas the page was written against",
+      card === "3% + $0.30" && pad === "1% + $0.40, max $5.00" && ach === "0.8%, max $5.00",
+      `${card} | ${pad} | ${ach}`);
+    ok('/features/payments no longer says FieldQuo "takes no cut"',
+      !/no cut/i.test(text) && !/takes no cut/i.test(decomment(readFileSync("app/data/featurePages.js", "utf8"))));
+    ok("/features/payments says the fee is deducted, not billed", /deducted|comes off|taken off/i.test(text) && /never billed separately|nothing is billed/i.test(text));
+    ok("...and names the surcharges as conditional", /only when they apply/i.test(text));
+    ok("...and carries the capability rows", (payments.sections || []).length >= 5, String((payments.sections || []).length));
   }
 
   // Nothing anywhere in the page set points at an image that is not on disk.
@@ -1513,8 +1614,13 @@ console.log("\n── 12e. THE RENDER — five languages, no English left standi
 const byLanguage = new Map();
 for (const language of OTHER) {
   const pages = new Map();
+  const markup = new Map();
   for (const slug of FEATURE_PAGE_SLUGS) {
-    pages.set(slug, textOf(await renderPage(slug, language)));
+    const html = await renderPage(slug, language);
+    pages.set(slug, textOf(html));
+    // An image alt is an attribute: textOf() strips the tag it sits in, so
+    // alts are looked for in the entity-decoded markup instead.
+    markup.set(slug, decodeEntities(html));
   }
   const index = textOf(
     renderToStaticMarkup(
@@ -1525,7 +1631,7 @@ for (const language of OTHER) {
       ),
     ),
   );
-  byLanguage.set(language, { pages, index });
+  byLanguage.set(language, { pages, markup, index });
 }
 
 /* What counts as "English prose that survived".
@@ -1560,7 +1666,7 @@ const substantial = (page) =>
     .filter((x) => x.field !== "description" && x.english.length >= 40);
 
 for (const language of OTHER) {
-  const { pages, index } = byLanguage.get(language);
+  const { pages, markup, index } = byLanguage.get(language);
 
   // (a) Every page renders at all, and renders something.
   {
@@ -1578,7 +1684,8 @@ for (const language of OTHER) {
       const text = pages.get(page.slug);
       for (const { field } of substantial(page)) {
         const want = said_(language, featurePageKey(page.slug, field));
-        if (want && !text.includes(flat(want))) absent.push(`${page.slug}.${field}`);
+        const where = /(^|\.)(imageAlt|inlineAlt|alt)$/.test(field) ? markup.get(page.slug) : text;
+        if (want && !where.includes(flat(want))) absent.push(`${page.slug}.${field}`);
       }
     }
     ok(`${language}: every sentence on every page is printed in ${language}`,

@@ -53,30 +53,19 @@
 // the same device app/data/featurePages.js uses). The fourth (team) has no
 // illustration, so its hero is a real capture and its alt lives in this file.
 
-/**
- * The languages docs/screens/live/app/ was captured in, and therefore the
- * languages a `localized` screenshot exists in. Derived from the capture
- * folders, not from LANGUAGES: a Ukrainian reader gets the English capture,
- * which is a true picture of the product with a caption in their own language.
- */
-export const PRODUCT_SCREEN_LANGS = Object.freeze(["en", "fr", "es"]);
-
-/** The language a screenshot is served in for a reader's language. */
-export function productScreenLang(language) {
-  return PRODUCT_SCREEN_LANGS.includes(language) ? language : "en";
-}
+import { SCREEN_LANGS, screenLang, screenSrc } from "@/lib/marketing/screenshots";
 
 /**
- * The public path of a section image for a reader's language.
- *
- * A section image normally lives under public/product/<slug>/ by `name`; one
- * that reuses an illustration from public/marketing carries a full `src`
- * instead, so the file is not copied into a second place to be forgotten.
+ * The languages a `localized` screenshot exists in — lib/marketing/screenshots.js
+ * owns the list and the path shape, shared with /features/<slug>; re-exported
+ * under the names the check script reads.
  */
+export const PRODUCT_SCREEN_LANGS = SCREEN_LANGS;
+export const productScreenLang = screenLang;
+
+/** The public path of a section image for a reader's language. */
 export function productImageSrc(slug, image, language = "en") {
-  if (image.src) return image.src;
-  const suffix = image.localized ? `.${productScreenLang(language)}` : "";
-  return `/product/${slug}/${image.name}${suffix}.webp`;
+  return screenSrc(image.src ? image : { ...image, dir: slug }, language);
 }
 
 /** The public path of a hero image. Heroes carry a full `src`. */

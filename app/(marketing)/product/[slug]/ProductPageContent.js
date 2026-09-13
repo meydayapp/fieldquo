@@ -14,7 +14,8 @@
 //   hero          label, headline, paragraph, the two buttons, a screenshot
 //   sections      five or six capabilities, image and text alternating sides,
 //                 each with three bullets, a real capture, and a link to the
-//                 help article about it
+//                 help article about it — CapabilitySections, shared with
+//                 /features/<slug>
 //   everything    every shipped matrix entry under this heading, from
 //                 lib/marketing/featureMatrix.js through featureEntry() — the
 //                 same cards /features renders, partial ones with their limit
@@ -51,6 +52,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, Check, Info } from "lucide-react";
+import CapabilitySections from "@/app/components/marketing/CapabilitySections";
 import {
   productPageCopy,
   productChromeCopy,
@@ -156,81 +158,15 @@ export default function ProductPageContent({ slug }) {
         </div>
       </div>
 
-      {/* The capabilities. Image and text swap sides each row on desktop and
-          stack image-first on a phone, where the picture is what a visitor
-          scrolls for. */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-        {copy.sections.map((s, i) => {
-          const url = help(s.help);
-          const flip = i % 2 === 1;
-          const phone = !!s.image.phone;
-          const tall = !!s.image.tall;
-          return (
-            <section
-              key={s.id}
-              id={s.id}
-              className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-center py-10 sm:py-14 border-b border-border last:border-b-0"
-            >
-              <figure
-                className={`${flip ? "lg:order-2" : ""} ${
-                  phone
-                    ? "max-w-[18rem] mx-auto"
-                    : tall
-                      ? "max-w-md mx-auto"
-                      : ""
-                }`}
-              >
-                <div className="rounded-2xl border border-border bg-muted overflow-hidden">
-                  <Image
-                    src={productImageSrc(slug, s.image, language)}
-                    alt={s.image.alt}
-                    width={s.image.width}
-                    height={s.image.height}
-                    sizes={
-                      phone
-                        ? "18rem"
-                        : tall
-                          ? "(min-width: 640px) 28rem, 100vw"
-                          : "(min-width: 1024px) 36rem, 100vw"
-                    }
-                    className="w-full h-auto"
-                  />
-                </div>
-              </figure>
-
-              <div className={flip ? "lg:order-1" : ""}>
-                <h2 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight">
-                  {s.heading}
-                </h2>
-                <p className="mt-4 text-muted-foreground">{s.body}</p>
-                <ul className="mt-5 space-y-2.5">
-                  {s.bullets.map((b) => (
-                    <li key={b} className="flex items-start gap-3">
-                      <Check size={18} className="text-emerald-600 shrink-0 mt-1" />
-                      <span className="text-foreground">{b}</span>
-                    </li>
-                  ))}
-                </ul>
-                {/* Absolute, to help.fieldquo.com: the help centre is its own
-                    host and a relative /help/... would be rewritten there. */}
-                <a
-                  href={url.href}
-                  className="mt-6 inline-flex items-center gap-1.5 min-h-[44px] text-sm font-semibold text-primary hover:underline"
-                >
-                  {chrome.readHow}
-                  {url.fallback ? (
-                    <span className="font-normal text-muted-foreground">
-                      {" "}
-                      ({chrome.inEnglish})
-                    </span>
-                  ) : null}
-                  <ArrowRight size={16} />
-                </a>
-              </div>
-            </section>
-          );
-        })}
-      </div>
+      {/* The capabilities — the shared rows, so /features/payments and this
+          page cannot drift into two layouts of the same idea. */}
+      <CapabilitySections
+        sections={copy.sections}
+        srcFor={(image) => productImageSrc(slug, image, language)}
+        helpFor={help}
+        readHow={chrome.readHow}
+        inEnglish={chrome.inEnglish}
+      />
 
       {/* Everything under this heading — the matrix's own cards. A partial
           entry is never a bare tick: its limit is printed exactly as

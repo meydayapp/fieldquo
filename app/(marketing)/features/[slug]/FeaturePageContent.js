@@ -41,11 +41,16 @@ import {
   moreInThisArea,
 } from "@/app/data/featurePages";
 import { featureEntry, featureGroup } from "@/lib/marketing/featureLabels";
+import { screenSrc } from "@/lib/marketing/screenshots";
+import { productHelpUrl } from "@/lib/marketing/productHelp";
+import { productChromeCopy } from "@/app/data/productFeatures";
+import { productSay } from "@/app/i18n/productPages";
 import { LANGUAGES } from "@/app/i18n/languages";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import CapabilitySections from "@/app/components/marketing/CapabilitySections";
 
 export default function FeaturePageContent({ slug }) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
   const page = featurePageCopy(slug, t);
   if (!page) return null;
@@ -64,6 +69,15 @@ export default function FeaturePageContent({ slug }) {
   const image = page.image || null;
   const inline = page.inlineImage || null;
   const groupHeading = featureGroup(page.group, t)?.label || "";
+  // A capture is served in the reader's language where one was taken
+  // (lib/marketing/screenshots.js); an illustration carries a full src.
+  const src = (img) => screenSrc(img, language);
+  // The capability rows and their two words of furniture ("Read how it
+  // works", "in English") come from the product-page catalogue, because
+  // /features/payments IS a product page in that shape and a second wording
+  // of the same link in nine languages would be the copy that rots.
+  const sections = page.sections || [];
+  const chrome = productChromeCopy(productSay(language));
 
   return (
     <div>
@@ -127,7 +141,7 @@ export default function FeaturePageContent({ slug }) {
                     shape, which is the layout shift width/height exist to
                     prevent. */}
                 <Image
-                  src={image.src}
+                  src={src(image)}
                   alt={image.alt}
                   width={image.width}
                   height={image.height}
@@ -193,7 +207,7 @@ export default function FeaturePageContent({ slug }) {
             <figure className="mt-10 grid sm:grid-cols-[minmax(0,20rem)_1fr] gap-6 items-center">
               <div className="rounded-2xl border border-border bg-muted overflow-hidden">
                 <Image
-                  src={inline.src}
+                  src={src(inline)}
                   alt={inline.alt}
                   width={inline.width}
                   height={inline.height}
@@ -226,6 +240,18 @@ export default function FeaturePageContent({ slug }) {
           )}
         </div>
       </div>
+
+      {/* The capability rows — only on a page that carries them (payments,
+          since 2026-09-13), in the same component /product/<slug> uses. */}
+      {sections.length > 0 && (
+        <CapabilitySections
+          sections={sections}
+          srcFor={src}
+          helpFor={(helpSlug) => productHelpUrl(helpSlug, language)}
+          readHow={chrome.readHow}
+          inEnglish={chrome.inEnglish}
+        />
+      )}
 
       {/* The specifics.
           ─────────────────────────────────────────────────────────────────────

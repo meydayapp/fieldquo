@@ -11810,3 +11810,29 @@ label, a headline, four bullets and two buttons.
   fifteen carry statistics the site does not state anywhere (`30%`, `$38K`,
   `62%`, `77%`, `2.6%`…) — listed in the session report as "not used —
   unsourced".
+
+## /features/payments: the captures, the rows, and the fee the page had stopped telling the truth about (13 September 2026)
+
+The page said "FieldQuo takes no cut of what your client pays" — true until
+2026-09-12, when the owner made the processing fee pass-through
+(`lib/stripe/processingFee.js`). Now it says what the fee is: cards 3% +
+$0.30; bank debit 1% + $0.40 capped at $5.00 in Canada and 0.8% capped at
+$5.00 in the US; +0.8% international card and +2% currency conversion only
+when they apply; instant payout optional at 1% — deducted from each payment
+before it reaches the bank, never billed separately, no monthly fee.
+`check:feature-pages` pins those numbers to `PROCESSING_RATES`,
+`publishedSurcharges()` and `INSTANT_PAYOUT_RATE`, and refuses "no cut".
+
+- The page got the product-page treatment: a capture in the hero (the
+  invoices list), five capability rows — invoice + pay link, the fee
+  schedule, deposits and stage payments (the client's approval page with
+  50/50 terms), the client portal, chase and refund — each with a capture
+  from `docs/screens/app-guide/{en,fr,es}` served in the reader's language
+  (`lib/marketing/screenshots.js`, shared with /product), three bullets and
+  a help link. `CapabilitySections` is the one component both page families
+  render the rows with; `featurePages.js` gained `sections`, captures by
+  `dir`+`name`, and alts of a page's own (`imageAlt`, `section.<id>.alt`).
+- Bank debit on invoices, deposits and stages (paid from the portal),
+  refunds from the invoice with the fee not returned, and the client portal
+  are all named; financing stays partial with its limit.
+- Nine languages: 62 `featurePage.payments.*` keys per module.
