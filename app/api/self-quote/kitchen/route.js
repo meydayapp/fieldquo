@@ -23,6 +23,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createScoredLead } from "@/lib/leads/createLead";
+import { findBookingCompany } from "@/lib/booking/findBookingCompany";
 import { emailRefusal } from "@/lib/validation";
 import { buildLeadIntake } from "@/lib/leads/intakeShape";
 import { normaliseFinish, describeFinish } from "@/lib/kitchen/finishes";
@@ -120,9 +121,16 @@ export async function POST(request) {
     );
   }
 
-  const company = await db.company.findUnique({
-    where: { slug: String(companySlug) },
-    select: { id: true, name: true, slug: true, dateFormat: true, email: true },
+  // bookingSlug first, then slug — the resolver the page hosting this form
+  // and /api/self-quote both use. The browser posts back whatever slug the
+  // page was opened with, so the two must agree or a link that rendered the
+  // designer refuses the layout drawn on it.
+  const company = await findBookingCompany(String(companySlug), {
+    id: true,
+    name: true,
+    slug: true,
+    dateFormat: true,
+    email: true,
   });
   if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 });
 

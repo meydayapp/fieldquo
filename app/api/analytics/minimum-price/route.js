@@ -3,10 +3,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
-import {
-  calculateMinimumPrice,
-  normaliseTargetMargin,
-} from "@/lib/analytics/minimumPrice";
+import { calculateMinimumPrice } from "@/lib/analytics/minimumPrice";
 import {
   loadEnforceableMember,
   permissionErrorResponse,
@@ -41,14 +38,17 @@ export async function GET(request) {
 
   // `Number("abc")` is NaN and `Number("2")` is a margin above 100%; both used
   // to reach the formula untouched and produce a nonsense floor. Anything
-  // unusable falls back to the 20% default rather than 400ing — the caller
-  // asking for a price floor should still get the real one.
-  const targetMargin = normaliseTargetMargin(
-    new URL(request.url).searchParams.get("targetMargin"),
-  );
+  // unusable falls through — see resolveTargetMargin — rather than 400ing:
+  // the caller asking for a price floor should still get the real one.
+  //
+  // Passed through RAW, not pre-normalised. normaliseTargetMargin turns an
+  // absent query into 0.2, and 0.2 handed to calculateMinimumPrice reads as
+  // "the caller asked for 20%", which silently beat the margin the owner
+  // saved on Settings → Overhead. Absence has to reach the resolver as
+  // absence so the saved figure gets its turn.
   const result = await calculateMinimumPrice({
     companyId: member.companyId,
-    targetMargin,
+    targetMargin: new URL(request.url).searchParams.get("targetMargin"),
   });
 
   if (result.error) return NextResponse.json(result, { status: 400 });

@@ -22,17 +22,17 @@ import { getDefaultLineItems } from "@/app/data/defaultLineItems";
 import { getLineItemGroups } from "@/app/data/lineItemGroups";
 import { getBenchmark } from "@/lib/pricing/benchmarkGuidance";
 import { formatAppMoney } from "@/lib/format/money";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 // Above this many suggestions a flat row of chips stops being a picker and
 // becomes a wall. Electrical ships 54 and plumbing 82; every other trade ships
 // six to nine and is better off flat, so the switch is on count, not on trade.
 const GROUPED_PICKER_THRESHOLD = 20;
 
-// Shown greyed in the box, so an estimator can see the SHAPE of a good scope
-// note without having to be told. Deliberately about prep and process — the
-// parts a client cannot see and therefore assumes are not happening.
-const detailPlaceholder =
-  "What this includes — prep, materials, how many coats, what's excluded (optional)";
+// The scope-note placeholder (app.lineItems.detailPlaceholder) is shown greyed
+// in the box, so an estimator can see the SHAPE of a good scope note without
+// having to be told. Deliberately about prep and process — the parts a client
+// cannot see and therefore assumes are not happening.
 
 export default function LineItemsTable({
   // The company's billing currency. Without it these rendered a bare
@@ -47,6 +47,8 @@ export default function LineItemsTable({
   onAddProduct,
   onAddSuggested,
 }) {
+  const { t, language } = useTranslation();
+  const detailPlaceholder = t("app.lineItems.detailPlaceholder");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -89,16 +91,16 @@ export default function LineItemsTable({
       {items.length > 0 && (
         <div className="hidden sm:grid grid-cols-12 gap-2 mb-1.5 px-1">
           <span className="col-span-5 text-[11px] font-medium text-muted-foreground">
-            Description
+            {t("app.lineItems.description")}
           </span>
           <span className="col-span-2 text-[11px] font-medium text-muted-foreground">
-            Qty
+            {t("app.lineItems.qty")}
           </span>
           <span className="col-span-2 text-[11px] font-medium text-muted-foreground">
-            Rate
+            {t("app.lineItems.rate")}
           </span>
           <span className="col-span-2 text-[11px] font-medium text-muted-foreground text-right">
-            Amount
+            {t("app.lineItems.amount")}
           </span>
           <span className="col-span-1" />
         </div>
@@ -119,13 +121,13 @@ export default function LineItemsTable({
             <input
               value={item.description}
               onChange={(e) => onChange(i, "description", e.target.value)}
-              placeholder="Description"
+              placeholder={t("app.lineItems.description")}
               className="w-full sm:col-span-5 border border-border rounded px-2 py-2 sm:py-1.5 text-sm"
             />
             <div className="flex items-center gap-2 sm:contents">
               <label className="flex-1 sm:contents">
                 <span className="sm:hidden block text-[10px] font-medium text-muted-foreground mb-0.5">
-                  Qty
+                  {t("app.lineItems.qty")}
                 </span>
                 <input
                   type="number"
@@ -136,7 +138,7 @@ export default function LineItemsTable({
               </label>
               <label className="flex-1 sm:contents">
                 <span className="sm:hidden block text-[10px] font-medium text-muted-foreground mb-0.5">
-                  Rate
+                  {t("app.lineItems.rate")}
                 </span>
                 <input
                   type="number"
@@ -147,14 +149,14 @@ export default function LineItemsTable({
                 />
               </label>
               <div className="sm:col-span-2 text-sm font-medium text-foreground text-right tabular-nums shrink-0 self-end pb-2 sm:pb-0">
-                {formatAppMoney(item.amount, currency, "en")}
+                {formatAppMoney(item.amount, currency, language)}
               </div>
               <button
                 type="button"
                 onClick={() => onRemove(i)}
                 // 40px hit area on mobile; the desktop version stays a bare icon.
                 className="sm:col-span-1 shrink-0 self-end p-2 sm:p-0 -mr-1 sm:mr-0 text-muted-foreground hover:text-red-600"
-                aria-label="Remove line"
+                aria-label={t("app.lineItems.removeLine")}
               >
                 <X size={14} />
               </button>
@@ -191,7 +193,7 @@ export default function LineItemsTable({
           onClick={onAdd}
           className="text-xs font-medium text-foreground flex items-center gap-1"
         >
-          <Plus size={12} /> Add line item
+          <Plus size={12} /> {t("app.lineItems.addLine")}
         </button>
 
         {/* Gated on the unfiltered list, not the filtered one: a search that
@@ -203,7 +205,7 @@ export default function LineItemsTable({
             className="text-xs font-medium text-muted-foreground hover:text-foreground flex items-center gap-1"
           >
             <Plus size={12} />
-            {showSuggestions ? "Hide" : "Common for this trade"}
+            {showSuggestions ? t("app.action.hide") : t("app.lineItems.commonForTrade")}
           </button>
         )}
 
@@ -219,12 +221,12 @@ export default function LineItemsTable({
             }}
             className="text-xs border border-border rounded-full px-3 py-1.5 bg-card"
           >
-            <option value="">+ Add from Products &amp; Services…</option>
+            <option value="">{t("app.lineItems.addFromProducts")}</option>
             {products.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
                 {p.unitPrice != null
-                  ? ` — ${formatAppMoney(p.unitPrice, currency, "en")}`
+                  ? ` — ${formatAppMoney(p.unitPrice, currency, language)}`
                   : ""}
               </option>
             ))}
@@ -238,8 +240,7 @@ export default function LineItemsTable({
       {showSuggestions && all.length > 0 && (
         <div className="mt-3 border border-dashed border-border rounded-lg p-3">
           <p className="text-[11px] text-muted-foreground mb-2">
-            Tap to add. You&apos;ll need to fill in the price — these are the
-            things this trade usually bills for, not what to charge.
+            {t("app.lineItems.suggestionsHint")}
           </p>
 
           {/* Search appears with the sections. Fifty-four chips are navigable
@@ -253,7 +254,7 @@ export default function LineItemsTable({
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder={`Search ${all.length} items…`}
+                placeholder={t("app.lineItems.searchItems", { count: all.length })}
                 className="w-full border border-border rounded-lg pl-7 pr-2 py-1.5 text-xs bg-card"
               />
             </div>
@@ -261,7 +262,7 @@ export default function LineItemsTable({
 
           {sections.length === 0 ? (
             <p className="text-xs text-muted-foreground py-1">
-              Nothing matches “{query}”.
+              {t("app.lineItems.noMatches", { query })}
             </p>
           ) : (
             <div className="space-y-3">
@@ -318,7 +319,16 @@ export default function LineItemsTable({
  * Never client-facing: this is FieldQuo's own research, not the company's rate
  * card, and it exists only in the back-office builder.
  */
+const CONFIDENCE_KEYS = {
+  inferred: "app.lineItems.confidenceInferred",
+  derived: "app.lineItems.confidenceDerived",
+  market_typical: "app.lineItems.confidenceMarket",
+  unverified: "app.lineItems.confidenceUnverified",
+  guess: "app.lineItems.confidenceGuess",
+};
+
 function BenchmarkHint({ item, categoryKey }) {
+  const { t } = useTranslation();
   const rate = Number(item.rate) || 0;
   if (rate > 0 || !item.catalogKey) return null;
 
@@ -333,14 +343,22 @@ function BenchmarkHint({ item, categoryKey }) {
       }`}
       title={b.detail}
     >
-      {isNumber ? "Typical: " : ""}
+      {isNumber ? `${t("app.lineItems.typical")} ` : ""}
       {b.label}
       {b.kind === "range" && b.currency !== "USD" ? ` ${b.currency}` : ""}
       {/* A range read off published estimates and one inferred from a single
           job are not the same claim, so the weaker ones say so rather than
           borrowing the confidence of the rest. */}
       {b.confidence !== "read" && isNumber ? (
-        <span className="opacity-70"> · {b.confidence}</span>
+        <span className="opacity-70">
+          {" · "}
+          {/* The closed vocabulary lib/pricing/benchmarkGuidance.js emits;
+              a value this screen has never heard of prints as itself
+              rather than vanishing. */}
+          {CONFIDENCE_KEYS[b.confidence]
+            ? t(CONFIDENCE_KEYS[b.confidence])
+            : b.confidence}
+        </span>
       ) : null}
     </p>
   );

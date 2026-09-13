@@ -36,7 +36,14 @@ import {
   doubleCountWarning,
 } from "@/lib/accounting/depreciation";
 import { combineBurnRate } from "@/lib/analytics/burnRate";
-import { priceFromBurn, normaliseTargetMargin } from "@/lib/analytics/minimumPrice";
+import {
+  priceFromBurn,
+  normaliseTargetMargin,
+  resolveTargetMargin,
+  DEFAULT_TARGET_MARGIN,
+} from "@/lib/analytics/minimumPrice";
+import fs from "node:fs";
+import path from "node:path";
 
 let failures = 0;
 function ok(label, cond, detail) {
@@ -221,6 +228,84 @@ ok("an asset with no in-service date charges nothing rather than guessing a life
     .depreciation === 0);
 ok("monthlyInterest on a $0-rate debt is $0, not NaN from a 0/0",
   monthlyInterest({ principal: 10000, interestRate: 0, monthlyPayment: 500, startDate: "2024-01-01" }, now) === 0);
+
+/* ══ 7. The target margin is the owner's, not a constant ═════════════════ */
+//
+// Until ForecastSettings.targetMargin existed, calculateMinimumPrice took
+// `targetMargin = 0.2` as a parameter default and the Overhead page called
+// its route with no query — so 20% was the only margin the floor had ever
+// used, on every company, and the screen printed "At a 20% target margin"
+// as if the owner had chosen it. resolveTargetMargin is the pure ordering
+// the calculation now applies: explicit request, then the saved column,
+// then the default. Every branch below is a real call to it.
+
+section("Target margin: request, then the saved setting, then the default");
+
+ok("nothing requested, nothing saved -> the 20% default",
+  resolveTargetMargin(undefined, null) === DEFAULT_TARGET_MARGIN);
+ok("the default IS 0.2 — the number the owner's $846 was computed at",
+  DEFAULT_TARGET_MARGIN === 0.2);
+ok("nothing requested, 0.35 saved -> the saved margin wins over the default",
+  resolveTargetMargin(undefined, 0.35) === 0.35);
+ok("a saved Prisma Decimal (arrives as a string) is read as a number",
+  resolveTargetMargin(undefined, "0.3") === 0.3);
+ok("an explicit what-if request beats the saved setting without touching it",
+  resolveTargetMargin("0.5", 0.35) === 0.5);
+ok("a saved 0 is 'price at cost', not 'nothing saved' — it is NOT replaced by 20%",
+  resolveTargetMargin(undefined, 0) === 0);
+ok("a requested 0 is honoured the same way",
+  resolveTargetMargin(0, 0.35) === 0);
+ok("an empty-string request (absent query param) is absence, so the saved margin applies",
+  resolveTargetMargin("", 0.35) === 0.35);
+ok("a garbage request falls through to the SAVED margin, not to the default",
+  resolveTargetMargin("abc", 0.35) === 0.35);
+ok("a negative request falls through to the saved margin too",
+  resolveTargetMargin(-1, 0.35) === 0.35);
+ok("a saved margin above the ceiling is clamped to 0.95, never Infinity",
+  resolveTargetMargin(undefined, 3) === 0.95);
+ok("garbage at both levels -> the default, never NaN",
+  resolveTargetMargin("x", "y") === DEFAULT_TARGET_MARGIN);
+
+// The saved figure reaches the same formula the owner's numbers were checked
+// through. A 35% margin on the $677.14 cost per job is 677.14 / 0.65.
+{
+  const at35 = priceFromBurn({ burn, capacity: 1, targetMargin: resolveTargetMargin(undefined, 0.35) });
+  ok("the floor at a saved 35% is cost / 0.65 = $1,042 — computed, not cost x 1.35 ($914)",
+    Math.round(at35.minimumPrice) === 1042 && Math.round(at35.costPerJob * 1.35) === 914);
+  ok("the response reports the margin actually used, so the screen's sentence is true",
+    at35.targetMargin === 0.35);
+}
+
+// The other half of "written AND read": the column exists, the settings
+// route writes it, the calculation reads it, the screen offers it. Source
+// checks, because none of those four can run without a database.
+{
+  const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+  const read = (rel) => fs.readFileSync(path.join(root, rel), "utf8");
+  const schema = read("prisma/schema.prisma");
+  const forecastRoute = read("app/api/settings/forecast/route.js");
+  const calc = read("lib/analytics/minimumPrice.js");
+  const analyticsRoute = read("app/api/analytics/minimum-price/route.js");
+  const screen = read("app/app/settings/overhead/page.js");
+  const kpis = read("app/api/analytics/kpis/route.js");
+
+  ok("ForecastSettings.targetMargin exists and is NULLABLE — 'never set' is distinct from 0",
+    /model ForecastSettings \{[\s\S]*?targetMargin\s+Decimal\?/.test(schema));
+  ok("PUT /api/settings/forecast writes targetMargin from targetMarginPct",
+    /targetMarginPct/.test(forecastRoute) && /targetMargin: margin\.value/.test(forecastRoute));
+  ok("the route refuses a margin outside 0–95 instead of clamping it",
+    /n > 95\) return \{ error: true \}/.test(forecastRoute));
+  ok("calculateMinimumPrice reads forecast.targetMargin through resolveTargetMargin",
+    /resolveTargetMargin\(targetMargin, forecast\?\.targetMargin\)/.test(calc));
+  ok("GET /api/analytics/minimum-price passes the query through RAW so absence reaches the resolver",
+    /targetMargin: new URL\(request\.url\)\.searchParams\.get\("targetMargin"\)/.test(analyticsRoute)
+      && !/normaliseTargetMargin\(/.test(analyticsRoute));
+  ok("the Overhead screen has the field and sends it with the capacity",
+    /targetMarginPct: marginPct === "" \? null : Number\(marginPct\)/.test(screen)
+      && /app\.setOverhead\.targetMargin"/.test(screen));
+  ok("the KPI route no longer hardcodes 0.2 over the saved margin",
+    !/targetMargin: 0\.2/.test(kpis));
+}
 
 function round2(n) {
   return Math.round(n * 100) / 100;

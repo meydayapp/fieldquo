@@ -55,6 +55,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Loader2, Check, ArrowLeft, Building2, AlertCircle } from "lucide-react";
 import { documentTheme, fillPair, ruleColor } from "@/lib/documents/theme";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
+import { KITCHEN_DESIGN_KEY } from "@/lib/kitchen/key";
 import { LANGUAGES } from "@/app/i18n/languages";
 import { formatPhoneInput } from "@/lib/validation";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
@@ -390,6 +391,26 @@ export default function SelfQuoteFlow({ companySlug, embedded = false }) {
               <p className="text-sm mb-4" style={{ color: theme.inkMuted }}>
                 {copy.step2Hint}
               </p>
+
+              {/* The homeowner picked Kitchen Design, and this company has a
+                  page where they can draw it themselves — the service being
+                  in this list IS the condition that page renders on
+                  (lib/kitchen/access.js), so the link cannot 404. A plain
+                  anchor, not the embed: the designer is a full page and
+                  belongs in a new tab, especially inside an iframe. */}
+              {service.key === KITCHEN_DESIGN_KEY && (
+                <p className="text-sm mb-4">
+                  <a
+                    href={`/quote/${encodeURIComponent(companySlug)}/kitchen`}
+                    target={embedded ? "_blank" : undefined}
+                    rel={embedded ? "noreferrer" : undefined}
+                    className="underline underline-offset-2"
+                    style={{ color: theme.ink }}
+                  >
+                    {copy.designKitchen}
+                  </a>
+                </p>
+              )}
 
               {service.fields?.length > 0 && (
                 <div className="grid grid-cols-2 gap-3 mb-4">

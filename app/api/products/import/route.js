@@ -11,6 +11,20 @@
 //
 // Owner/admin, matching the writes in ../route.js: a rate card is a business
 // decision, not a job.
+//
+// ── No translation drafting here, and the screen says so ───────────────────
+//
+// POST /api/products (Add Item) calls translateFields as it saves, so a single
+// new row arrives with its French and Spanish wording drafted. This route
+// does not: rows land in the language they were typed in and nothing else.
+// Deliberate, for now — drafting a whole catalogue on upload is a model call
+// per language per batch, and that spend has not been approved; Settings →
+// Translations already drafts in batches against the company's metered AI
+// credit, with a person reviewing the result. The import card on
+// Settings → Products & Services names the gap and links there, so it is a
+// stated limit rather than a silent one. Wiring it in later means copying the
+// draft route's quota contract (checkAiQuota before, recordAiUsage after,
+// shouldContinue between batches), never Add Item's unmetered call.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";

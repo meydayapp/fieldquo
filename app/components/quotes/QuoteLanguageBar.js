@@ -16,6 +16,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Languages, AlertTriangle } from "lucide-react";
 import { LANGUAGES } from "@/app/i18n/languages";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function QuoteLanguageBar({
   language,
@@ -23,6 +24,7 @@ export default function QuoteLanguageBar({
   companyDefault = "en",
   client,
 }) {
+  const { t } = useTranslation();
   const [gaps, setGaps] = useState(null);
 
   const effective = language || companyDefault;
@@ -63,7 +65,7 @@ export default function QuoteLanguageBar({
       <div className="flex items-center gap-3 flex-wrap">
         <Languages size={16} className="text-muted-foreground shrink-0" />
         <span className="text-sm font-medium text-foreground">
-          Write this quote in
+          {t("app.quoteLanguage.writeIn")}
         </span>
         <select
           value={effective}
@@ -83,16 +85,18 @@ export default function QuoteLanguageBar({
           But the mismatch should be visible. */}
       {mismatch && (
         <p className="text-xs text-amber-700 dark:text-amber-300">
-          {client.name} is set to receive documents in{" "}
-          {LANGUAGES.find((l) => l.code === clientPrefers)?.nativeName ||
-            clientPrefers}
-          .{" "}
+          {t("app.quoteLanguage.clientPrefers", {
+            name: client.name,
+            language:
+              LANGUAGES.find((l) => l.code === clientPrefers)?.nativeName ||
+              clientPrefers,
+          })}{" "}
           <button
             type="button"
             onClick={() => onChange(clientPrefers)}
             className="underline font-semibold"
           >
-            Use that instead
+            {t("app.quoteLanguage.useThat")}
           </button>
         </p>
       )}
@@ -101,16 +105,19 @@ export default function QuoteLanguageBar({
         <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
           <AlertTriangle size={14} className="shrink-0 mt-0.5" />
           <div>
-            {gaps.missing} of your {gaps.total} services don&apos;t have{" "}
-            {meta?.nativeName || effective} wording yet — those line items will
-            come out in {LANGUAGES.find((l) => l.code === companyDefault)
-              ?.nativeName || companyDefault}
-            .{" "}
+            {t("app.quoteLanguage.gaps", {
+              missing: gaps.missing,
+              total: gaps.total,
+              language: meta?.nativeName || effective,
+              fallback:
+                LANGUAGES.find((l) => l.code === companyDefault)?.nativeName ||
+                companyDefault,
+            })}{" "}
             <Link
               href="/app/settings/translations"
               className="underline font-semibold"
             >
-              Review translations
+              {t("app.quoteLanguage.reviewTranslations")}
             </Link>
           </div>
         </div>

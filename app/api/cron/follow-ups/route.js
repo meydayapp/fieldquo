@@ -54,6 +54,46 @@ async function alreadySentEntityIds(ruleId) {
 // that typed in its 2024 and forty "how did we do?" emails going out at 8am.
 const NOT_HISTORICAL = { historicalImportedAt: null };
 
+// ── An enquiry nobody has answered ────────────────────────────────────────
+//
+// The one finder that starts BEFORE a quote exists. status "new" is the
+// column a person or the lifecycle flips the moment anything happens to the
+// lead — a quote sent moves it to "contacted" (lib/quotes/quoteLifecycle.js),
+// a hand-set status is anything but "new" — and quoteId is the second guard,
+// so a lead someone converted but never sent is not chased either: the
+// quote_no_response rule owns it from there.
+//
+// LeadRequest has no client relation and no historicalImportedAt (leads are
+// never back-filled). The cron's shared code reads `entity.client.email` and
+// `entity.client.name` for every entity type, so the lead's own columns are
+// shaped into that slot rather than teaching four downstream sites a fifth
+// shape — the lead IS the client here, before a Client row exists for them.
+async function findLeadNoResponse(rule) {
+  const excluded = await alreadySentEntityIds(rule.id);
+  const leads = await db.leadRequest.findMany({
+    where: {
+      companyId: rule.companyId,
+      status: "new",
+      quoteId: null,
+      email: { not: null },
+      createdAt: { lte: cutoffFor(rule) },
+      ...(excluded.length > 0 && { id: { notIn: excluded } }),
+    },
+    include: { company: true, category: { select: { label: true } } },
+  });
+  return leads.map((lead) => ({
+    ...lead,
+    client: {
+      name: lead.name,
+      email: lead.email,
+      phone: lead.phone,
+      // Where the job is lives inside the intake blob when the form asked
+      // (lib/leads/intakeShape.js); the lead row has no address column.
+      address: lead.intake?.address || "",
+    },
+  }));
+}
+
 async function findQuoteNoResponse(rule) {
   const excluded = await alreadySentEntityIds(rule.id);
   return db.quote.findMany({
@@ -205,10 +245,17 @@ function mergeDataFor(entityType, entity, request, portalToken) {
   if (entityType === "job") {
     return { ...base, jobTitle: entity.title };
   }
+  if (entityType === "lead") {
+    // No quote tokens: there is no quote yet, and a template that prints
+    // the quote link on an enquiry renders an empty href. The settings page
+    // says which fields a lead can fill (app.followFlow.leadFields).
+    return { ...base, jobTitle: entity.category?.label || "" };
+  }
   return base;
 }
 
 const FINDERS = {
+  lead_no_response: { entityType: "lead", find: findLeadNoResponse },
   quote_no_response: { entityType: "quote", find: findQuoteNoResponse },
   invoice_overdue: { entityType: "invoice", find: findInvoiceOverdue },
   job_completed: { entityType: "job", find: findJobCompleted },

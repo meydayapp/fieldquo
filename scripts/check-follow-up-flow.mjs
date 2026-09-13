@@ -35,6 +35,7 @@ import {
   STOP_KEYS,
   ONCE_KEYS,
   TRIGGER_LABEL_KEYS,
+  TRIGGER_DESCRIPTION_KEYS,
 } from "../lib/followUps/flow.js";
 import { DURATION_UNIT_KEYS } from "../lib/i18n/duration.js";
 import { APP_MESSAGES } from "../app/i18n/appMessages.js";
@@ -164,16 +165,55 @@ console.log("\nMessages\n");
 
 const usedKeys = [
   ...Object.values(TRIGGER_LABEL_KEYS),
+  ...Object.values(TRIGGER_DESCRIPTION_KEYS),
   ...Object.values(STOP_KEYS),
   ...Object.values(ONCE_KEYS),
   ...Object.values(DURATION_UNIT_KEYS),
   ...[...diagram.matchAll(/"(app\.followFlow\.[A-Za-z0-9]+)"/g)].map((m) => m[1]),
+  ...[...page.matchAll(/"(app\.followFlow\.[A-Za-z0-9]+)"/g)].map((m) => m[1]),
 ];
 
 for (const [code, dict] of Object.entries(APP_MESSAGES)) {
   const missing = [...new Set(usedKeys)].filter((k) => !(k in dict));
   ok(`${code}: all ${new Set(usedKeys).size} diagram keys present`, missing.length === 0, missing.join(", "));
 }
+
+// ── 7b. The enquiry trigger: a rule can chase a lead before any quote exists ─
+//
+// app.setMetaLeads.whatHappens tells a company that a Meta lead gets "your
+// own follow-up rules". Every finder in the cron used to start at a quote, an
+// invoice or a job, so that sentence was false for the one thing a lead IS
+// before somebody quotes it. These pin the trigger that makes it true.
+console.log("\nThe enquiry trigger\n");
+
+ok("lead_no_response is a supported trigger", SUPPORTED_TRIGGERS.includes("lead_no_response"));
+ok("its entity is the lead itself", TRIGGER_META.lead_no_response?.entityType === "lead");
+ok("it is transactional — a reply to the person's own request, like quote_no_response",
+  TRIGGER_META.lead_no_response?.commercial === false);
+ok("it stops the way the metadata says: lead_answered has a stop sentence and a once sentence",
+  stopKeysFor("lead_no_response").stopKey === STOP_KEYS.lead_answered
+    && stopKeysFor("lead_no_response").onceKey === ONCE_KEYS.lead);
+{
+  const finder = cron.slice(cron.indexOf("async function findLeadNoResponse"), cron.indexOf("async function findQuoteNoResponse"));
+  ok("the finder only takes leads still at status 'new'", /status: "new"/.test(finder));
+  ok("…with no quote yet — once converted, quote_no_response owns it", /quoteId: null/.test(finder));
+  ok("…that have an address to send to", /email: \{ not: null \}/.test(finder));
+  ok("…older than the rule's delay, by createdAt (a lead has no sentAt)", /createdAt: \{ lte: cutoffFor\(rule\) \}/.test(finder));
+  ok("…and never the same lead twice for one rule", /notIn: excluded/.test(finder));
+  ok("the lead is shaped into the `client` slot the shared send code reads",
+    /client: \{\s*name: lead\.name,\s*email: lead\.email/.test(finder));
+  ok("mergeDataFor has a lead branch that supplies no quote token",
+    /if \(entityType === "lead"\) \{[\s\S]{0,400}?jobTitle: entity\.category\?\.label/.test(cron)
+      && !/if \(entityType === "lead"\) \{[\s\S]{0,400}?quoteUrl/.test(cron));
+}
+ok("the settings page prints translated trigger labels, never TRIGGER_META.label raw",
+  !/meta\.label/.test(page) && /t\(TRIGGER_LABEL_KEYS\[/.test(page));
+ok("the settings page prints translated descriptions, never TRIGGER_META.description raw",
+  !/\.description\}/.test(page) && /t\(TRIGGER_DESCRIPTION_KEYS\[/.test(page));
+ok("choosing the enquiry trigger tells the user which fields a lead can fill",
+  /entityType === "lead"[\s\S]{0,200}?app\.followFlow\.leadFields/.test(page));
+ok("the Meta leads copy's claim still names follow-up rules (the thing this trigger backs)",
+  /follow-up rules/.test(APP_MESSAGES.en["app.setMetaLeads.whatHappens"] || ""));
 
 // ── 8. buildFlows against rows nobody wants to be handed ───────────────────
 console.log("\nbuildFlows on hostile input\n");

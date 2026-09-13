@@ -169,14 +169,47 @@ export function newBlock(type) {
   };
 }
 
+// ── `sentBy`: what actually sends a template of this type ──────────────────
+//
+// Follow-up rules (FollowUpRule.templateId) and campaigns
+// (MarketingCampaign.templateId) each pick ONE template by id and render it.
+// That is the whole list. The quote, receipt and instructions emails are
+// built from the document itself — lib/email/quoteEmail.js and the invoice
+// senders read the quote, the client's language and the company's own
+// sections, never a DocumentTemplate — so a template of those three types
+// is authored, previewed, and sent by nothing.
+//
+// The Email Templates screen used to mark one template per type "Active"
+// (DocumentTemplate.isDefault) and say the Active one "is the one that's
+// actually sent". No email send path reads isDefault; only the PDF routes
+// do, for quote_pdf and invoice_pdf, which have their own screen. So the
+// flag is gone from this screen, and a type with `sentBy: null` is listed
+// only when a company already has rows of it, flagged as unsent. Wiring
+// the three back in is a product decision with a rule attached: the
+// covering email keeps the document's language (AGENTS.md, non-negotiable
+// 6), which a single-language authored template cannot promise.
 export const TEMPLATE_TYPE_META = {
-  quote_email: { label: "Quote email", group: "Automated" },
-  instructions_email: { label: "Instructions email", group: "Automated" },
-  receipt_email: { label: "Receipt / invoice email", group: "Automated" },
-  follow_up_email: { label: "Follow-up email", group: "Automated" },
-  marketing_email: { label: "Marketing email", group: "Marketing" },
-  custom_email: { label: "Custom", group: "Custom" },
+  quote_email: { label: "Quote email", group: "Automated", sentBy: null },
+  instructions_email: { label: "Instructions email", group: "Automated", sentBy: null },
+  receipt_email: { label: "Receipt / invoice email", group: "Automated", sentBy: null },
+  follow_up_email: { label: "Follow-up email", group: "Automated", sentBy: "follow_up_rule" },
+  marketing_email: { label: "Marketing email", group: "Marketing", sentBy: "campaign" },
+  custom_email: { label: "Custom", group: "Custom", sentBy: "campaign_or_rule" },
 };
+
+/** True when some send path renders templates of this type. */
+export function templateTypeIsSent(type) {
+  return Boolean(TEMPLATE_TYPE_META[type]?.sentBy);
+}
+
+/**
+ * The template types whose `isDefault` row is READ by something: the PDF
+ * routes pick the active quote_pdf / invoice_pdf. No email type is on this
+ * list, which is why the two "activate" routes refuse email types — an
+ * Active badge that nothing consults is the dead control AGENTS.md warns
+ * about, wearing a star.
+ */
+export const ACTIVE_FLAG_TYPES = Object.freeze(["quote_pdf", "invoice_pdf"]);
 
 // Starter content below is adapted from a real cabinet-refinishing shop's
 // email templates (structure: header greeting → confirmation/summary →

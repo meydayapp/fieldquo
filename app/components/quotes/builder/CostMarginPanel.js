@@ -210,7 +210,9 @@ export default function CostMarginPanel({
   hoursAreActual = false,
   // What the price row is called. "Quote price" on an invoice would be wrong
   // twice over: wrong document, and the figure is what was billed, not offered.
-  priceLabel = "Quote price (pre-tax)",
+  // Undefined means "this is a quote" and the panel names the row itself in
+  // the reader's language; the invoice section passes its own wording.
+  priceLabel,
   // Rendered under the crew: where the numbers came from, and what is missing
   // from them. Null on a quote, which has no timesheets to seed from.
   crewNotice = null,
@@ -223,8 +225,8 @@ export default function CostMarginPanel({
   // the read-only row even when a callback was passed.
   editableMaterialGroups = [],
 }) {
-  const { t } = useTranslation();
-  const money = (n) => formatAppMoney(n, currency, "en");
+  const { t, language } = useTranslation();
+  const money = (n) => formatAppMoney(n, currency, language);
 
   return (
     <div className="bg-card border border-border rounded-xl p-5">
@@ -243,18 +245,18 @@ export default function CostMarginPanel({
             }`}
           >
             {estimate.signal !== "green" && <AlertTriangle size={12} />}
-            {estimate.marginPct}% margin
-            {estimate.signal === "red" && " · losing money"}
+            {t("app.cost.marginPct", { pct: estimate.marginPct })}
+            {estimate.signal === "red" && ` · ${t("app.cost.losingMoney")}`}
             {estimate.signal === "amber" &&
               !estimate.costIncomplete &&
               !estimate.crewUnrated &&
-              ` · below ${marginTarget}% target`}
-            {estimate.costIncomplete && " · labour not costed"}
+              ` · ${t("app.cost.belowTarget", { pct: marginTarget })}`}
+            {estimate.costIncomplete && ` · ${t("app.cost.labourNotCosted")}`}
             {/* Says which, because "labour not costed" over a crew where two
                 of three ARE costed reads as a bug in the panel. */}
             {!estimate.costIncomplete &&
               estimate.crewUnrated > 0 &&
-              " · some labour not costed"}
+              ` · ${t("app.cost.someLabourNotCosted")}`}
           </span>
         )}
       </div>
@@ -272,12 +274,12 @@ export default function CostMarginPanel({
           <div className="mb-1 flex items-center justify-between gap-2">
             <label className="text-xs text-muted-foreground">
               {hoursAreActual
-                ? "Crew — hours worked, edit any that are wrong"
-                : "Crew — hours are shared between them"}
+                ? t("app.cost.crewActual")
+                : t("app.cost.crewShared")}
             </label>
             {estimate.blendedRate != null && (
               <span className="text-xs text-muted-foreground">
-                blended {money(estimate.blendedRate)}/hr
+                {t("app.cost.blended", { rate: money(estimate.blendedRate) })}
               </span>
             )}
           </div>
@@ -285,8 +287,7 @@ export default function CostMarginPanel({
           <div className="rounded-lg border border-border">
             {crew.length === 0 && (
               <p className="px-3 py-2 text-xs text-muted-foreground">
-                Nobody on the crew yet, so labour costs nothing and the margin
-                below is higher than the job&apos;s.
+                {t("app.cost.noCrew")}
               </p>
             )}
             {/* Hidden on a quote, where blank means "take an even share of the
@@ -295,10 +296,10 @@ export default function CostMarginPanel({
                 columns need naming. */}
             {hoursAreActual && crew.length > 0 && (
               <div className="hidden sm:grid grid-cols-12 gap-2 border-b border-border px-3 py-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                <span className="col-span-4">Name</span>
-                <span className="col-span-3">Cost $/hr</span>
-                <span className="col-span-3">Hours worked</span>
-                <span className="col-span-1 text-right">Cost</span>
+                <span className="col-span-4">{t("app.cost.colName")}</span>
+                <span className="col-span-3">{t("app.cost.colRate")}</span>
+                <span className="col-span-3">{t("app.cost.colHours")}</span>
+                <span className="col-span-1 text-right">{t("app.cost.colCost")}</span>
                 <span className="col-span-1" />
               </div>
             )}
@@ -311,7 +312,7 @@ export default function CostMarginPanel({
                 >
                   <input
                     className="col-span-12 rounded border border-border px-2 py-1 text-sm sm:col-span-4"
-                    placeholder="Name or role"
+                    placeholder={t("app.cost.nameOrRole")}
                     value={m.name || ""}
                     onChange={(e) =>
                       onCrewChange(
@@ -326,7 +327,7 @@ export default function CostMarginPanel({
                       type="number"
                       min="0"
                       step="1"
-                      placeholder="$/hr"
+                      placeholder={t("app.cost.perHour")}
                       value={m.rate ?? ""}
                       onChange={(e) =>
                         onCrewChange(
@@ -355,7 +356,7 @@ export default function CostMarginPanel({
                       type="number"
                       min="0"
                       step="0.5"
-                      placeholder={priced ? `${priced.hours} h` : "hours"}
+                      placeholder={priced ? `${priced.hours} h` : t("app.cost.hoursPlaceholder")}
                       value={m.hours ?? ""}
                       onChange={(e) =>
                         onCrewChange(
@@ -382,7 +383,9 @@ export default function CostMarginPanel({
                     type="button"
                     onClick={() => onCrewChange(crew.filter((_, j) => j !== i))}
                     className="col-span-1 text-muted-foreground hover:text-red-600"
-                    aria-label={`Remove ${m.name || "crew member"}`}
+                    aria-label={t("app.cost.removeMember", {
+                      name: m.name || t("app.cost.crewMember"),
+                    })}
                   >
                     <Trash2 size={14} />
                   </button>
@@ -399,7 +402,7 @@ export default function CostMarginPanel({
               }
               className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
             >
-              <Plus size={15} /> Add crew member
+              <Plus size={15} /> {t("app.cost.addCrewMember")}
             </button>
             {workers.length > 0 && (
               <select
@@ -411,7 +414,7 @@ export default function CostMarginPanel({
                     ...crew,
                     {
                       id: w.id,
-                      name: w.name || "Crew member",
+                      name: w.name || t("app.cost.crewMember"),
                       // A worker with no rate on file joins at 0 and is
                       // flagged, rather than being quietly left off the job.
                       rate: Number(w.hourlyRate) || 0,
@@ -421,13 +424,13 @@ export default function CostMarginPanel({
                 }}
                 className="rounded border border-border px-2 py-1 text-sm"
               >
-                <option value="">Add from your team…</option>
+                <option value="">{t("app.cost.addFromTeam")}</option>
                 {workers.map((w) => (
                   <option key={w.id} value={w.id}>
                     {w.name}
                     {w.hourlyRate != null
-                      ? ` — ${money(w.hourlyRate)}/hr`
-                      : " — no rate set"}
+                      ? ` — ${t("app.cost.ratePerHour", { rate: money(w.hourlyRate) })}`
+                      : ` — ${t("app.cost.noRateSet")}`}
                   </option>
                 ))}
               </select>
@@ -442,11 +445,7 @@ export default function CostMarginPanel({
 
           {estimate.crewUnrated > 0 && (
             <p className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-              {estimate.crewUnrated} on the crew{" "}
-              {estimate.crewUnrated === 1 ? "has" : "have"}{" "}
-              no rate, so their
-              hours cost nothing here. The margin below is higher than the
-              job&apos;s until every rate is filled in.
+              {t("app.cost.crewUnrated", { value: estimate.crewUnrated })}
             </p>
           )}
         </div>
@@ -457,7 +456,7 @@ export default function CostMarginPanel({
         {estimate.overheadBasis !== "per_job" && (
           <div>
             <label className="text-xs text-muted-foreground block mb-1">
-              Overhead % of price
+              {t("app.cost.overheadPct")}
             </label>
             <input
               type="number"
@@ -471,10 +470,7 @@ export default function CostMarginPanel({
 
       {estimate.costIncomplete && (
         <p className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-          {estimate.labourHours}{" "}
-          hours of work are costed at $0 because nobody
-          on the crew has a rate. Add someone above — until then this margin is
-          higher than the job&apos;s.
+          {t("app.cost.hoursAtZero", { hours: estimate.labourHours })}
         </p>
       )}
 
@@ -483,9 +479,7 @@ export default function CostMarginPanel({
           the absence of a prediction nobody wanted. */}
       {!hoursAreActual && !estimate.hasRecipeEstimate && (
         <p className="mt-2 text-sm text-muted-foreground">
-          No materials-and-labour recipe covers the trades on this quote — so
-          far only cabinet refinishing and exterior painting have one. Enter the
-          hours and materials you expect below and the margin works from those.
+          {t("app.cost.noRecipe")}
         </p>
       )}
 
@@ -527,7 +521,7 @@ export default function CostMarginPanel({
             {g.labourBreakdown.map((l, i) => (
               <div key={`l${i}`} className="flex justify-between">
                 <span>
-                  {l.name} — {l.hours} hrs
+                  {l.name} — {t("app.cost.hrs", { hours: l.hours })}
                 </span>
                 <span className="tabular-nums">{money(l.cost)}</span>
               </div>
@@ -548,7 +542,7 @@ export default function CostMarginPanel({
         {!hoursAreActual && (
           <div>
             <label className="text-xs text-muted-foreground">
-              Extra labour hours
+              {t("app.cost.extraLabourHours")}
             </label>
             <input
               type="number"
@@ -560,13 +554,13 @@ export default function CostMarginPanel({
               placeholder="0"
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              Hours beyond what the recipe predicts, charged at the rate above.
+              {t("app.cost.extraLabourHint")}
             </p>
           </div>
         )}
         <div>
           <label className="text-xs text-muted-foreground">
-            {hoursAreActual ? "Materials for this job" : "Extra material cost"}
+            {hoursAreActual ? t("app.cost.materialsForJob") : t("app.cost.extraMaterialCost")}
           </label>
           <input
             type="number"
@@ -579,8 +573,8 @@ export default function CostMarginPanel({
           />
           <p className="mt-1 text-xs text-muted-foreground">
             {hoursAreActual
-              ? "What the job actually consumed — paint, hardware, a slab, a rental."
-              : "What you are buying in for this job — a supplier quote, a slab, a rental."}
+              ? t("app.cost.materialsActualHint")
+              : t("app.cost.materialsExtraHint")}
           </p>
         </div>
       </div>
@@ -591,26 +585,26 @@ export default function CostMarginPanel({
             "Materials $0.00" above the real figure is noise that makes the
             column stop adding up on a read-through. One row, the total. */}
         {hoursAreActual ? (
-          <Row label="Materials" value={money(estimate.materialTotal)} />
+          <Row label={t("app.cost.materials")} value={money(estimate.materialTotal)} />
         ) : estimate.purchasedMaterial > 0 ? (
           <>
             <Row
-              label="Materials — consumables"
+              label={t("app.cost.materialsConsumables")}
               value={money(estimate.recipeMaterialTotal)}
             />
             <Row
-              label="Materials — purchased (doors, slabs)"
+              label={t("app.cost.materialsPurchased")}
               value={money(estimate.purchasedMaterial)}
             />
           </>
         ) : (
           // recipeMaterialTotal, not materialTotal: the added-by-hand figure
           // gets its own row below, and materialTotal already contains it.
-          <Row label="Materials" value={money(estimate.recipeMaterialTotal)} />
+          <Row label={t("app.cost.materials")} value={money(estimate.recipeMaterialTotal)} />
         )}
         {!hoursAreActual && estimate.addedMaterial > 0 && (
           <Row
-            label="Materials — added by hand"
+            label={t("app.cost.materialsByHand")}
             value={money(estimate.addedMaterial)}
           />
         )}
@@ -640,16 +634,16 @@ export default function CostMarginPanel({
         <Row
           label={
             estimate.labourHours > 0
-              ? `Labour — ${estimate.labourHours} hrs`
-              : "Labour"
+              ? `${t("app.cost.labour")} — ${t("app.cost.hrs", { hours: estimate.labourHours })}`
+              : t("app.cost.labour")
           }
           value={money(estimate.labourCost)}
         />
         <Row
           label={
             estimate.overheadBasis === "per_job"
-              ? "Overhead (this job's share)"
-              : `Overhead (${overheadPct}% of price — estimated)`
+              ? t("app.cost.overheadShare")
+              : t("app.cost.overheadEstimated", { pct: overheadPct })
           }
           value={money(estimate.overhead)}
         />
@@ -659,16 +653,16 @@ export default function CostMarginPanel({
               and materials that were bought. Overhead stays an apportionment
               either way, which is what the note below the table is for. */}
           <Row
-            label={hoursAreActual ? "Job cost" : "Estimated cost"}
+            label={hoursAreActual ? t("app.cost.jobCost") : t("app.cost.estimatedCost")}
             value={money(estimate.estimatedCost)}
             bold
           />
         </div>
-        <Row label={priceLabel} value={money(subtotal)} />
+        <Row label={priceLabel ?? t("app.cost.quotePrice")} value={money(subtotal)} />
 
         {estimate.marginPct != null && (
           <Row
-            label={hoursAreActual ? "Profit on this job" : "Estimated profit"}
+            label={hoursAreActual ? t("app.cost.profitOnJob") : t("app.cost.estimatedProfit")}
             value={`${money(estimate.profit)} (${estimate.marginPct}%)`}
             bold
             tone={estimate.signal === "red" ? "red" : undefined}
@@ -681,15 +675,14 @@ export default function CostMarginPanel({
           we're guessing, the panel says we're guessing. */}
       {estimate.overheadBasis === "per_job" && overheadSource ? (
         <p className="mt-2 text-xs text-muted-foreground">
-          Overhead is {money(overheadSource.monthlyFixedCosts)}/month of fixed
-          costs spread across {overheadSource.jobsPerMonth} jobs a month.
+          {t("app.cost.overheadSource", {
+            monthly: money(overheadSource.monthlyFixedCosts),
+            jobs: overheadSource.jobsPerMonth,
+          })}
         </p>
       ) : (
         <p className="mt-2 text-xs text-muted-foreground">
-          Overhead is a flat percentage of the price because we don&apos;t know
-          your capacity yet. Set your monthly costs in Settings → Overhead and
-          your jobs-per-week in Forecast, and this becomes your real cost per
-          job instead of an assumption.
+          {t("app.cost.overheadGuess")}
         </p>
       )}
 
@@ -697,9 +690,7 @@ export default function CostMarginPanel({
           quote is worse than no margin figure. */}
       {estimate.groups.length < totalGroupCount && (
         <p className="text-xs text-muted-foreground mt-3">
-          Only quote types with a cost recipe are estimated (cabinet refinishing
-          and exterior painting so far). The other line items aren&apos;t
-          included in this figure yet.
+          {t("app.cost.partialCoverage")}
         </p>
       )}
     </div>

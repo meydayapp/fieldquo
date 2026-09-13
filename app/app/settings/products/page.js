@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import Link from "next/link";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import BackToHome from "@/app/components/BackToHome";
 
@@ -476,6 +477,24 @@ export default function ProductsPage() {
           </h2>
           <p className="text-sm text-muted-foreground mb-3">
             {t("app.setProducts.importBody")}
+          </p>
+          {/* Add Item drafts the other languages' wording as it saves; the
+              import does not — it writes rows with createMany and asks no
+              model anything, so a company selling in French and English gets
+              two hundred English-only rows and no hint. Said here, with the
+              screen that fixes it, rather than wired in: drafting a whole
+              catalogue on upload is an AI spend the owner has not approved,
+              and Settings → Translations already drafts in batches against
+              the company's own metered credit. */}
+          <p className="text-xs text-muted-foreground mb-3">
+            {t(
+              "app.setProducts.importNoTranslations",
+              "Imported items keep the language they were written in — nothing is translated on upload. To draft the other languages your quotes go out in, use",
+            )}{" "}
+            <Link href="/app/settings/translations" className="underline underline-offset-2">
+              {t("app.settings.translations", "Translations")}
+            </Link>
+            .
           </p>
           {importMessage && (
             <p className="text-sm text-foreground mb-2">{importMessage}</p>

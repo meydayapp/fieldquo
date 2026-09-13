@@ -6920,6 +6920,16 @@ model ForecastSettings {
   invoiceSentToPaid   Decimal   @default(0.80) @db.Decimal(6, 3)
   avgJobValue         Decimal   @default(7000) @db.Decimal(12, 2)
   jobsPerWeekCapacity Int       @default(3)
+  /// The margin the price floor is worked out at, as a fraction (0.25 = 25%).
+  ///
+  /// NULL means "never set", and lib/analytics/minimumPrice.js then uses its
+  /// own 20% default — nullable on purpose so the screen can tell "the owner
+  /// chose 20%" from "nobody has said", which the marginNote sentence has to
+  /// get right. 0 is a real value (price at cost), not an absence. Bounded
+  /// 0–0.95 on write (app/api/settings/forecast) and again on read
+  /// (normaliseTargetMargin), because a stored 3.0 would make the floor
+  /// negative.
+  targetMargin        Decimal?  @db.Decimal(5, 4)
   leadsPer1000        Decimal   @default(12) @db.Decimal(8, 2)
   leadToSale          Decimal   @default(0.60) @db.Decimal(6, 3)
   curveType           CurveType @default(log)

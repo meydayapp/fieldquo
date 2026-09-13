@@ -38,6 +38,7 @@ import {
 } from "@/lib/pricing/paverTakeoff";
 import { Check, Plus, Ruler, Trash2, Undo2, X } from "lucide-react";
 import { Field, Num, inputClass } from "./fields";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 /* ── Geometry, exported for the check script ───────────────────────────────
  *
@@ -161,6 +162,7 @@ const SURFACES = [
   {
     key: "patio",
     label: "Patio",
+    labelKey: "app.paver.surfacePatio",
     takeoffKey: "patioSqft",
     stroke: "#b45309",
     fill: "rgba(217,119,6,0.28)",
@@ -168,6 +170,7 @@ const SURFACES = [
   {
     key: "walkway",
     label: "Walkway",
+    labelKey: "app.paver.surfaceWalkway",
     takeoffKey: "walkwaySqft",
     stroke: "#1d4ed8",
     fill: "rgba(37,99,235,0.28)",
@@ -175,6 +178,7 @@ const SURFACES = [
   {
     key: "driveway",
     label: "Driveway",
+    labelKey: "app.paver.surfaceDriveway",
     takeoffKey: "drivewaySqft",
     stroke: "#0f766e",
     fill: "rgba(13,148,136,0.28)",
@@ -191,30 +195,39 @@ const PATTERNS = [
   {
     value: "running_bond",
     label: "Running bond",
+    labelKey: "app.paver.patternRunningBond",
     waste: "straight",
     note: "Straight courses, half-bond offset. Least cutting.",
+    noteKey: "app.paver.patternRunningBondNote",
   },
   {
     value: "herringbone",
     label: "Herringbone",
+    labelKey: "app.paver.patternHerringbone",
     waste: "herringbone",
     note: "45° or 90° weave. Every edge course is a cut.",
+    noteKey: "app.paver.patternHerringboneNote",
   },
   {
     value: "basketweave",
     label: "Basketweave",
+    labelKey: "app.paver.patternBasketweave",
     waste: "straight",
     note: "Pairs laid square to the edges, so it cuts like running bond.",
+    noteKey: "app.paver.patternBasketweaveNote",
   },
 ];
 
 const patternOf = (value) =>
   PATTERNS.find((p) => p.value === value) || PATTERNS[0];
 
+// `label` is the English seed each table keeps for anything that reads the
+// data without a translator (tests, the engine's own summaries); `labelKey` is
+// what the screen prints, through t(). Same for `note`/`noteKey` above.
 const JOINT_WIDTHS = [
-  { value: "narrow", label: 'Narrow joints (up to 1/4")' },
-  { value: "wide", label: 'Wide joints (1/4"–1")' },
-  { value: "flagstone", label: "Flagstone / irregular" },
+  { value: "narrow", label: 'Narrow joints (up to 1/4")', labelKey: "app.paver.jointNarrow" },
+  { value: "wide", label: 'Wide joints (1/4"–1")', labelKey: "app.paver.jointWide" },
+  { value: "flagstone", label: "Flagstone / irregular", labelKey: "app.paver.jointFlagstone" },
 ];
 
 function blankDesign() {
@@ -252,6 +265,7 @@ export default function PaverDesigner({
   imageUrl = "",
   className = "",
 }) {
+  const { t } = useTranslation();
   // Controlled only when the parent supplies BOTH halves. A `design` prop with
   // no way to report edits would render a canvas that swallows every change —
   // the exact "control that appears to work" this codebase keeps finding — so
@@ -350,7 +364,7 @@ export default function PaverDesigner({
         ...asShapes(prev.shapes),
         {
           id: nextShapeId(),
-          name: defaultName(asShapes(prev.shapes), draft.surface),
+          name: defaultName(asShapes(prev.shapes), draft.surface, t),
           surface: draft.surface,
           points: pts,
         },
@@ -617,10 +631,9 @@ export default function PaverDesigner({
     <div className={`space-y-3 ${className}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="text-sm font-medium">Paver design</h3>
+          <h3 className="text-sm font-medium">{t("app.paver.title")}</h3>
           <p className="text-xs text-muted-foreground">
-            Trace each area, set the scale once, and the square footage below
-            fills the paving takeoff.
+            {t("app.paver.intro")}
           </p>
         </div>
         <div className="flex flex-wrap gap-1.5">
@@ -632,7 +645,7 @@ export default function PaverDesigner({
               className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:border-foreground/30"
             >
               <Plus size={13} style={{ color: s.stroke }} />
-              {s.label}
+              {t(s.labelKey)}
             </button>
           ))}
           <button
@@ -645,7 +658,7 @@ export default function PaverDesigner({
             }`}
           >
             <Ruler size={13} />
-            {scalePts ? "Redraw scale" : "Set scale"}
+            {scalePts ? t("app.paver.redrawScale") : t("app.paver.setScale")}
           </button>
         </div>
       </div>
@@ -654,6 +667,7 @@ export default function PaverDesigner({
           and an estimator who traces five shapes before discovering that is an
           estimator who traces them twice. */}
       <ScaleBar
+        t={t}
         scale={scalePts}
         fpp={fpp}
         mode={mode}
@@ -673,13 +687,15 @@ export default function PaverDesigner({
           <span className="font-medium">
             {mode === "scale"
               ? scaleDraft
-                ? "Click or press Enter on the far end of the reference line"
-                : "Click or press Enter on one end of a known distance"
-              : `Tracing ${surfaceOf(draft?.surface).label.toLowerCase()} — ${draftPoints.length} point${draftPoints.length === 1 ? "" : "s"}`}
+                ? t("app.paver.scaleFarEnd")
+                : t("app.paver.scaleNearEnd")
+              : t("app.paver.tracing", {
+                  surface: t(surfaceOf(draft?.surface).labelKey).toLowerCase(),
+                  points: t("app.paver.pointCount", { value: draftPoints.length }),
+                })}
           </span>
           <span className="text-muted-foreground">
-            Arrow keys move the crosshair · Shift for fine · Enter places ·
-            Backspace removes the last · Esc cancels
+            {t("app.paver.keyHints")}
           </span>
           <span className="ml-auto flex gap-1.5">
             {mode === "draw" && (
@@ -694,7 +710,7 @@ export default function PaverDesigner({
                   disabled={draftPoints.length === 0}
                   className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 disabled:opacity-40"
                 >
-                  <Undo2 size={12} /> Undo point
+                  <Undo2 size={12} /> {t("app.paver.undoPoint")}
                 </button>
                 <button
                   type="button"
@@ -702,7 +718,7 @@ export default function PaverDesigner({
                   disabled={draftPoints.length < 3}
                   className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 disabled:opacity-40"
                 >
-                  <Check size={12} /> Close shape
+                  <Check size={12} /> {t("app.paver.closeShape")}
                 </button>
               </>
             )}
@@ -711,7 +727,7 @@ export default function PaverDesigner({
               onClick={cancelDraft}
               className="inline-flex items-center gap-1 rounded border border-border px-2 py-1"
             >
-              <X size={12} /> Cancel
+              <X size={12} /> {t("app.action.cancel")}
             </button>
           </span>
         </div>
@@ -726,7 +742,7 @@ export default function PaverDesigner({
         className="w-full rounded-lg border border-border bg-muted text-foreground touch-none"
         style={{ cursor: mode === "idle" ? "default" : "crosshair" }}
         role="application"
-        aria-label="Paver design canvas. Arrow keys move the crosshair, Enter places a point, Backspace removes the last point, Escape cancels."
+        aria-label={t("app.paver.canvasAria")}
         tabIndex={0}
         onKeyDown={onCanvasKeyDown}
         onBlur={() => setKeyboardMode(false)}
@@ -798,10 +814,10 @@ export default function PaverDesigner({
                 paintOrder="stroke"
                 pointerEvents="none"
               >
-                {shape.name || s.label}
+                {shape.name || t(s.labelKey)}
                 {m.ok
-                  ? ` · ${Math.round(m.areaSqFt)} sqft`
-                  : " · scale not set"}
+                  ? ` · ${t("app.paver.sqft", { n: Math.round(m.areaSqFt) })}`
+                  : ` · ${t("app.paver.scaleNotSetShort")}`}
               </text>
             </g>
           );
@@ -823,7 +839,11 @@ export default function PaverDesigner({
               strokeWidth={3}
               tabIndex={0}
               role="button"
-              aria-label={`${selected.name || surfaceOf(selected.surface).label} corner ${i + 1} of ${asPoints(selected.points).length}. Arrow keys move it.`}
+              aria-label={t("app.paver.cornerAria", {
+                name: selected.name || t(surfaceOf(selected.surface).labelKey),
+                index: i + 1,
+                total: asPoints(selected.points).length,
+              })}
               style={{ cursor: "grab" }}
               onPointerDown={beginDrag({
                 kind: "shape",
@@ -907,8 +927,8 @@ export default function PaverDesigner({
               pointerEvents="none"
             >
               {fpp
-                ? `${round2(numOf(scalePts.lengthFt))} ft`
-                : "length not set"}
+                ? t("app.paver.ft", { n: round2(numOf(scalePts.lengthFt)) })
+                : t("app.paver.lengthNotSet")}
             </text>
             {mode === "idle" &&
               ["a", "b"].map((end) => (
@@ -922,7 +942,11 @@ export default function PaverDesigner({
                   strokeWidth={3}
                   tabIndex={0}
                   role="button"
-                  aria-label={`Scale line ${end === "a" ? "start" : "end"}. Arrow keys move it.`}
+                  aria-label={
+                    end === "a"
+                      ? t("app.paver.scaleStartAria")
+                      : t("app.paver.scaleEndAria")
+                  }
                   style={{ cursor: "grab" }}
                   onPointerDown={beginDrag({ kind: "scale", end })}
                   onKeyDown={(e) => {
@@ -972,7 +996,7 @@ export default function PaverDesigner({
 
       {imageUrl && (
         <Field
-          label={`Background image opacity — ${Math.round(opacity * 100)}%`}
+          label={t("app.paver.imageOpacity", { pct: Math.round(opacity * 100) })}
         >
           <input
             type="range"
@@ -988,6 +1012,7 @@ export default function PaverDesigner({
       )}
 
       <ShapeList
+        t={t}
         measured={measured}
         selectedId={selectedId}
         onSelect={setSelectedId}
@@ -1007,17 +1032,15 @@ export default function PaverDesigner({
         tolerance={numOf(doc.toleranceFt)}
       />
 
-      <SurfaceTotals totals={totals} emitted={emitted} fpp={fpp} />
+      <SurfaceTotals t={t} totals={totals} emitted={emitted} fpp={fpp} />
 
-      <PaverSpec doc={doc} pattern={pattern} update={update} />
+      <PaverSpec t={t} doc={doc} pattern={pattern} update={update} />
 
-      <MaterialsPanel materials={materials} pattern={pattern} />
+      <MaterialsPanel t={t} materials={materials} pattern={pattern} />
 
       {!controlled && (
         <p className="text-xs text-muted-foreground">
-          This drawing lives in this screen only — the square footage it
-          produces is what gets saved with the quote. Closing the quote loses
-          the outline.
+          {t("app.paver.notSavedNote")}
         </p>
       )}
     </div>
@@ -1026,47 +1049,46 @@ export default function PaverDesigner({
 
 /* ── Pieces ────────────────────────────────────────────────────────────── */
 
-function ScaleBar({ scale, fpp, mode, placing, onLength, onStart }) {
+function ScaleBar({ t, scale, fpp, mode, placing, onLength, onStart }) {
   if (!scale) {
     return (
       <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-        <strong className="font-medium">Scale not set.</strong> Draw a line
-        along something you know the length of — a garage door, a driveway
-        width, a tape measure laid on the ground — and type that length. Until
-        then shapes can be traced but nothing can be measured.{" "}
+        <strong className="font-medium">{t("app.paver.scaleNotSet")}</strong>{" "}
+        {t("app.paver.scaleNotSetHelp")}{" "}
         {mode !== "scale" && (
           <button
             type="button"
             onClick={onStart}
             className="underline underline-offset-2"
           >
-            Set the scale
+            {t("app.paver.setTheScale")}
           </button>
         )}
-        {placing && <span> Now click the far end.</span>}
+        {placing && <span> {t("app.paver.nowClickFarEnd")}</span>}
       </div>
     );
   }
   return (
     <div className="flex flex-wrap items-end gap-3 rounded border border-border px-3 py-2">
-      <Field label="Reference line is this long" className="w-40">
+      <Field label={t("app.paver.referenceLength")} className="w-40">
         <Num
           value={scale.lengthFt}
           step={0.5}
-          suffix="ft"
+          suffix={t("app.paver.ftUnit")}
           onChange={onLength}
         />
       </Field>
       <p className="pb-1.5 text-xs text-muted-foreground">
         {fpp
-          ? `1 canvas pixel = ${round2(fpp * 12)} in. Drag either end of the dashed line to re-measure.`
-          : "Type the real length of the dashed line. Until it is a positive number, nothing is measured."}
+          ? t("app.paver.pixelIs", { inches: round2(fpp * 12) })
+          : t("app.paver.typeRealLength")}
       </p>
     </div>
   );
 }
 
 function ShapeList({
+  t,
   measured,
   selectedId,
   onSelect,
@@ -1077,8 +1099,7 @@ function ShapeList({
   if (measured.length === 0) {
     return (
       <p className="rounded border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
-        No areas traced yet. Pick a surface above, then click each corner and
-        press Close shape.
+        {t("app.paver.noAreas")}
       </p>
     );
   }
@@ -1102,19 +1123,19 @@ function ShapeList({
               <input
                 value={shape.name || ""}
                 onChange={(e) => onPatch(shape.id, { name: e.target.value })}
-                placeholder={s.label}
-                aria-label="Area name"
+                placeholder={t(s.labelKey)}
+                aria-label={t("app.paver.areaName")}
                 className="min-w-0 flex-1 border border-border rounded px-2 py-1.5 text-sm font-medium"
               />
               <select
                 value={s.key}
                 onChange={(e) => onPatch(shape.id, { surface: e.target.value })}
-                aria-label="Surface type"
+                aria-label={t("app.paver.surfaceType")}
                 className="border border-border rounded px-2 py-1.5 text-sm"
               >
                 {SURFACES.map((o) => (
                   <option key={o.key} value={o.key}>
-                    {o.label}
+                    {t(o.labelKey)}
                   </option>
                 ))}
               </select>
@@ -1123,13 +1144,13 @@ function ShapeList({
                 onClick={() => onSelect(active ? null : shape.id)}
                 className="rounded border border-border px-2 py-1.5 text-xs"
               >
-                {active ? "Done" : "Adjust"}
+                {active ? t("app.action.done") : t("app.paver.adjust")}
               </button>
               <button
                 type="button"
                 onClick={() => onRemove(shape.id)}
                 className="p-1.5 text-muted-foreground hover:text-red-600"
-                aria-label={`Remove ${shape.name || s.label}`}
+                aria-label={t("app.paver.removeArea", { name: shape.name || t(s.labelKey) })}
               >
                 <Trash2 size={15} />
               </button>
@@ -1139,22 +1160,22 @@ function ShapeList({
               {m.ok ? (
                 <>
                   <span className="tabular-nums">
-                    <span className="text-muted-foreground">Area </span>
-                    {Math.round(m.areaSqFt)} sqft
+                    <span className="text-muted-foreground">{t("app.paver.area")} </span>
+                    {t("app.paver.sqft", { n: Math.round(m.areaSqFt) })}
                   </span>
                   <span className="tabular-nums">
-                    <span className="text-muted-foreground">Perimeter </span>
-                    {m.perimeterFt.toFixed(1)} ft
+                    <span className="text-muted-foreground">{t("app.paver.perimeter")} </span>
+                    {t("app.paver.ft", { n: m.perimeterFt.toFixed(1) })}
                   </span>
                   <span className="text-muted-foreground">
-                    {m.points} corners
+                    {t("app.paver.corners", { value: m.points })}
                   </span>
                 </>
               ) : (
                 <span className="text-muted-foreground">
                   {m.reason === "no_scale"
-                    ? "Scale not set — no measurement"
-                    : `Only ${m.points} point${m.points === 1 ? "" : "s"} — an area needs three`}
+                    ? t("app.paver.scaleNotSetNoMeasure")
+                    : t("app.paver.tooFewPoints", { points: t("app.paver.pointCount", { value: m.points }) })}
                 </span>
               )}
             </div>
@@ -1164,12 +1185,12 @@ function ShapeList({
                 that looks rectangular and isn't. */}
             {check && !check.square && (
               <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-                Not square: the diagonals disagree by {check.differenceFt} ft
-                (two sides imply {check.diagonal} ft, the trace measures{" "}
-                {check.diagonal2} ft) against a {tolerance} ft tolerance. The
-                area above is still right — the shoelace formula does not care —
-                but length × width is not, so check the corners before ordering
-                edge restraint or cutting a border.
+                {t("app.paver.notSquare", {
+                  diff: check.differenceFt,
+                  implied: check.diagonal,
+                  measured: check.diagonal2,
+                  tolerance,
+                })}
               </p>
             )}
           </div>
@@ -1179,25 +1200,25 @@ function ShapeList({
   );
 }
 
-function SurfaceTotals({ totals, emitted, fpp }) {
+function SurfaceTotals({ t, totals, emitted, fpp }) {
   const any = SURFACES.some((s) => numOf(emitted[s.takeoffKey]) > 0);
   return (
     <div className="rounded-lg border border-border p-3">
       <div className="grid gap-2 sm:grid-cols-3">
         {SURFACES.map((s) => (
           <div key={s.key}>
-            <div className="text-xs text-muted-foreground">{s.label}</div>
+            <div className="text-xs text-muted-foreground">{t(s.labelKey)}</div>
             <div className="text-lg font-medium tabular-nums">
               {fpp ? (
                 <>
                   {Math.round(totals.bySurface[s.key])}{" "}
                   <span className="text-sm font-normal text-muted-foreground">
-                    sqft
+                    {t("app.paver.sqftUnit")}
                   </span>
                 </>
               ) : (
                 <span className="text-sm font-normal text-muted-foreground">
-                  scale not set
+                  {t("app.paver.scaleNotSetShort")}
                 </span>
               )}
             </div>
@@ -1206,19 +1227,22 @@ function SurfaceTotals({ totals, emitted, fpp }) {
       </div>
       <p className="mt-2 text-xs text-muted-foreground">
         {any
-          ? `These three numbers are the paving takeoff — ${totals.areaSqFt.toFixed(0)} sqft in total, ${totals.perimeterFt.toFixed(1)} ft of edge. Rounded to whole square feet, because a traced outline is not accurate to a hundredth of a foot.`
-          : "Nothing measured yet, so the takeoff still holds whatever was typed by hand."}
+          ? t("app.paver.totalsNote", {
+              sqft: totals.areaSqFt.toFixed(0),
+              edge: totals.perimeterFt.toFixed(1),
+            })
+          : t("app.paver.nothingMeasured")}
       </p>
     </div>
   );
 }
 
-function PaverSpec({ doc, pattern, update }) {
+function PaverSpec({ t, doc, pattern, update }) {
   const wasteFromPattern = PAVER_WASTE[pattern.waste] ?? PAVER_WASTE.straight;
   return (
     <div className="rounded-lg border border-border p-3 space-y-3">
       <div>
-        <span className="text-xs text-muted-foreground">Laying pattern</span>
+        <span className="text-xs text-muted-foreground">{t("app.paver.layingPattern")}</span>
         <div className="mt-1 grid gap-2 sm:grid-cols-3">
           {PATTERNS.map((p) => {
             const active = pattern.value === p.value;
@@ -1234,13 +1258,14 @@ function PaverSpec({ doc, pattern, update }) {
                     : "border-border hover:border-foreground/30"
                 }`}
               >
-                <span className="block text-sm font-medium">{p.label}</span>
+                <span className="block text-sm font-medium">{t(p.labelKey)}</span>
                 <span className="mt-0.5 block text-xs text-muted-foreground">
-                  {p.note}
+                  {t(p.noteKey)}
                 </span>
                 <span className="mt-0.5 block text-xs text-muted-foreground">
-                  {Math.round((PAVER_WASTE[p.waste] ?? 0) * 100)}% cutting
-                  allowance
+                  {t("app.paver.cuttingAllowance", {
+                    pct: Math.round((PAVER_WASTE[p.waste] ?? 0) * 100),
+                  })}
                 </span>
               </button>
             );
@@ -1249,28 +1274,28 @@ function PaverSpec({ doc, pattern, update }) {
       </div>
 
       <div className="grid gap-2 sm:grid-cols-4">
-        <Field label="Paver length (in)">
+        <Field label={t("app.paver.paverLength")}>
           <Num
             value={doc.paverLengthIn}
             step={0.25}
             onChange={(v) => update({ paverLengthIn: v })}
           />
         </Field>
-        <Field label="Paver width (in)">
+        <Field label={t("app.paver.paverWidth")}>
           <Num
             value={doc.paverWidthIn}
             step={0.25}
             onChange={(v) => update({ paverWidthIn: v })}
           />
         </Field>
-        <Field label="Joint width (in)">
+        <Field label={t("app.paver.jointWidth")}>
           <Num
             value={doc.jointIn}
             step={0.0625}
             onChange={(v) => update({ jointIn: v })}
           />
         </Field>
-        <Field label="Waste % (blank = pattern)">
+        <Field label={t("app.paver.wastePct")}>
           <input
             type="number"
             min={0}
@@ -1289,7 +1314,7 @@ function PaverSpec({ doc, pattern, update }) {
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2">
-        <Field label="Polymeric sand joint">
+        <Field label={t("app.paver.polySandJoint")}>
           <select
             value={doc.jointWidth || "narrow"}
             onChange={(e) => update({ jointWidth: e.target.value })}
@@ -1297,12 +1322,12 @@ function PaverSpec({ doc, pattern, update }) {
           >
             {JOINT_WIDTHS.map((j) => (
               <option key={j.value} value={j.value}>
-                {j.label}
+                {t(j.labelKey)}
               </option>
             ))}
           </select>
         </Field>
-        <Field label="Square tolerance (ft)">
+        <Field label={t("app.paver.squareTolerance")}>
           <Num
             value={doc.toleranceFt}
             step={0.25}
@@ -1312,69 +1337,72 @@ function PaverSpec({ doc, pattern, update }) {
               shape traced over a satellite tile will rarely meet it, so the
               number is editable rather than the warning being softened. */}
           <p className="mt-1 text-xs text-muted-foreground">
-            Three inches is what a crew holds with a tape. A shape traced over
-            an image will not — raise it when you are tracing rather than
-            measuring.
+            {t("app.paver.toleranceHint")}
           </p>
         </Field>
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Joint width defaults to 0 because the published coverage tables absorb
-        the joint into the waste allowance. Enter one only if you have taken it
-        out of the waste percentage too, or the order comes up short.
+        {t("app.paver.jointHint")}
       </p>
     </div>
   );
 }
 
-function MaterialsPanel({ materials, pattern }) {
+function MaterialsPanel({ t, materials, pattern }) {
   if (!materials) return null;
   const { pavers, base, poly } = materials;
   return (
     <div className="rounded-lg border border-border p-3 space-y-2">
       <div className="flex items-baseline justify-between gap-2">
-        <h4 className="text-sm font-medium">Materials to order</h4>
+        <h4 className="text-sm font-medium">{t("app.paver.materialsToOrder")}</h4>
         <span className="rounded bg-muted px-2 py-0.5 text-[11px] uppercase tracking-wide text-muted-foreground">
-          Internal estimate — not for the client
+          {t("app.paver.internalEstimate")}
         </span>
       </div>
 
       <dl className="grid gap-2 sm:grid-cols-2">
         <Stat
-          label="Pavers"
+          label={t("app.paver.pavers")}
           value={pavers.order > 0 ? `${pavers.order}` : "—"}
           hint={
             pavers.order > 0
-              ? `${pavers.exact} to cover the area, +${Math.round(pavers.wastePct * 100)}% for ${pattern.label.toLowerCase()} cutting · ${pavers.perSqFt} per sqft`
-              : "Enter a paver size to count them"
+              ? t("app.paver.paversHint", {
+                  exact: pavers.exact,
+                  pct: Math.round(pavers.wastePct * 100),
+                  pattern: t(pattern.labelKey).toLowerCase(),
+                  perSqFt: pavers.perSqFt,
+                })
+              : t("app.paver.enterPaverSize")
           }
         />
         <Stat
-          label="Base gravel"
-          value={`${base.gravelCuYd} cu yd`}
-          hint={`${base.bySurface.map((b) => `${b.label.toLowerCase()} ${b.gravelDepthIn}"`).join(", ")} compacted, ordered 20% over for compaction`}
+          label={t("app.paver.baseGravel")}
+          value={t("app.paver.cuYd", { n: base.gravelCuYd })}
+          hint={t("app.paver.gravelHint", {
+            depths: base.bySurface
+              .map((b) => `${t(b.labelKey).toLowerCase()} ${b.gravelDepthIn}"`)
+              .join(", "),
+          })}
         />
         <Stat
-          label="Bedding sand"
-          value={`${base.sandCuYd} cu yd`}
-          hint="1 in screeded, no compaction factor — it is screeded, not compacted"
+          label={t("app.paver.beddingSand")}
+          value={t("app.paver.cuYd", { n: base.sandCuYd })}
+          hint={t("app.paver.sandHint")}
         />
         <Stat
-          label="Polymeric sand"
+          label={t("app.paver.polySand")}
           value={
             poly.low === poly.high
-              ? `${poly.low} bags`
-              : `${poly.low}–${poly.high} bags`
+              ? t("app.paver.bags", { value: poly.low })
+              : t("app.paver.bagsRange", { low: poly.low, high: poly.high })
           }
-          hint="50 lb bags, at the coverage printed on the bag for this joint width"
+          hint={t("app.paver.polyHint")}
         />
       </dl>
 
       <p className="text-xs text-muted-foreground">
-        Quantities only. What these cost is the price book&apos;s business, and
-        what the client sees is the installed rate — these numbers carry waste
-        and compaction and would read as padding on a quote.
+        {t("app.paver.quantitiesOnly")}
       </p>
     </div>
   );
@@ -1402,8 +1430,11 @@ function centroid(points) {
   return { x: sum.x / pts.length, y: sum.y / pts.length };
 }
 
-function defaultName(existing, surface) {
+// The name is UI-only (the drawing is not saved — see notSavedNote), so the
+// reader's language is the right one for it.
+function defaultName(existing, surface, t) {
   const s = surfaceOf(surface);
+  const label = t ? t(s.labelKey) : s.label;
   const n = asShapes(existing).filter((x) => x.surface === surface).length + 1;
-  return n === 1 ? s.label : `${s.label} ${n}`;
+  return n === 1 ? label : `${label} ${n}`;
 }

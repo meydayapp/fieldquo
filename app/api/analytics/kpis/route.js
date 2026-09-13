@@ -400,7 +400,9 @@ export async function GET(request) {
           // costPerJob only — see lib/analytics/minimumPrice.js. Never
           // defaulted: needsCapacity means ForecastSettings.jobsPerWeekCapacity
           // was never set, and netMarginPct stays null rather than guessing it.
-          calculateMinimumPrice({ companyId, targetMargin: 0.2 }),
+          // No targetMargin passed: costPerJob does not depend on it, and a
+          // literal 0.2 here would override the margin the owner saved.
+          calculateMinimumPrice({ companyId }),
           // Jobs that point BACK at one of these as their originalJobId — the
           // "big enough to be its own job" shape of a callback (the other
           // shape, a same-job return visit, is already in `visits` above via
@@ -461,7 +463,7 @@ export async function GET(request) {
             where: { companyId, status: "paid", paidDate: { gte, lte } },
             _sum: { total: true },
           }),
-          await calculateMinimumPrice({ companyId, targetMargin: 0.2 }), // forecastResult
+          await calculateMinimumPrice({ companyId }), // forecastResult
           [], // callbackJobs
           [], // changeOrders
           [], // satisfactionResponses

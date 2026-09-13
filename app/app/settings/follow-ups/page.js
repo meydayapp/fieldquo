@@ -12,7 +12,7 @@ import { TRIGGER_META } from "@/lib/followUps/triggers";
 import { TEMPLATE_TYPE_META } from "@/app/data/emailTemplateBlocks";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { stopKeysFor } from "@/lib/followUps/flow";
+import { stopKeysFor, TRIGGER_LABEL_KEYS, TRIGGER_DESCRIPTION_KEYS } from "@/lib/followUps/flow";
 import { formatDuration } from "@/lib/i18n/duration";
 import FlowDiagram from "./FlowDiagram";
 
@@ -212,7 +212,6 @@ export default function FollowUpsPage() {
       ) : (
         <div className="bg-card border border-border rounded-xl divide-y divide-border">
           {rules.map((rule) => {
-            const meta = TRIGGER_META[rule.triggerEvent];
             // The same two sentences the diagram draws as a "Stops" node. The
             // diagram is aria-hidden, so this is where a screen reader — and
             // anyone who just prefers reading — gets the exit conditions.
@@ -237,7 +236,14 @@ export default function FollowUpsPage() {
                       list and the picture can't drift apart. */}
                   {formatDuration(t, rule.delayValue, rule.delayUnit)}{" "}
                   {t("app.setFollowUps.after")}{" "}
-                  {meta?.label || rule.triggerEvent} →{" "}
+                  {/* The translated label, not TRIGGER_META's raw English one — that is the
+                      English seed the dropdown used to print raw on a French
+                      screen. An unknown trigger (a newer deploy's value read
+                      by an older page) still shows its key. */}
+                  {TRIGGER_LABEL_KEYS[rule.triggerEvent]
+                    ? t(TRIGGER_LABEL_KEYS[rule.triggerEvent])
+                    : rule.triggerEvent}{" "}
+                  →{" "}
                   {rule.template?.name || t("app.setFollowUps.templateDeleted")}
                 </p>
                 {(stopKey || onceKey) && (
@@ -308,15 +314,24 @@ export default function FollowUpsPage() {
                   onChange={(e) => handleTriggerChange(e.target.value)}
                   className={inputClass}
                 >
-                  {Object.entries(TRIGGER_META).map(([key, meta]) => (
+                  {Object.keys(TRIGGER_META).map((key) => (
                     <option key={key} value={key}>
-                      {meta.label}
+                      {t(TRIGGER_LABEL_KEYS[key])}
                     </option>
                   ))}
                 </select>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {TRIGGER_META[form.triggerEvent].description}
+                  {t(TRIGGER_DESCRIPTION_KEYS[form.triggerEvent])}
                 </p>
+                {/* An enquiry has no quote yet, so the quote chips in a
+                    template ({{quoteUrl}}, {{quoteTotal}}) render as nothing.
+                    Said here, where the template is chosen, rather than
+                    discovered in a homeowner's inbox. */}
+                {TRIGGER_META[form.triggerEvent]?.entityType === "lead" && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t("app.followFlow.leadFields")}
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-2">

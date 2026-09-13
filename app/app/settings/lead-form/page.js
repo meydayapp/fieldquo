@@ -36,7 +36,9 @@ import {
   CalendarDays,
   Zap,
   Megaphone,
+  Ruler,
 } from "lucide-react";
+import { KITCHEN_DESIGN_KEY } from "@/lib/kitchen/key";
 import { fetchJson } from "@/lib/fetchJson";
 import { embedSnippet } from "@/lib/embed/snippet";
 import { reportResponseError } from "@/lib/clientErrors";
@@ -134,6 +136,38 @@ export default function LeadFormPage() {
   const [funnelsError, setFunnelsError] = useState("");
   const [funnelsRestricted, setFunnelsRestricted] = useState(false);
   const [error, setError] = useState("");
+  // ── The kitchen designer link ────────────────────────────────────────────
+  //
+  // /quote/<slug>/kitchen existed, worked, and was handed out by nothing: a
+  // company that switched "Kitchen Design & New Installs" on had a public
+  // page a stranger could draw their kitchen on and no screen that told them
+  // its address. The block below appears only when that service is on —
+  // the exact condition the page checks before it renders, so this never
+  // offers a link that 404s. Read from the services list rather than a new
+  // field on business-info: it is the row the switch lives on.
+  const [kitchenOffered, setKitchenOffered] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      try {
+        const list = await fetchJson("/api/settings/service-categories");
+        if (!live) return;
+        setKitchenOffered(
+          (Array.isArray(list) ? list : []).some(
+            (c) => c.key === KITCHEN_DESIGN_KEY && c.enabled === true,
+          ),
+        );
+      } catch {
+        // Silent on purpose: this only decides whether ONE more card shows.
+        // Failing to read the services list must not paint an error above
+        // three links that are perfectly good.
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, []);
 
   useEffect(() => {
     // Published only. An unpublished funnel's link 404s for a visitor, and
@@ -186,6 +220,9 @@ export default function LeadFormPage() {
   const quoteUrl = `${origin}/quote/${slug}`;
   const bookUrl = `${origin}/book/${slug}`;
   const instantUrl = `${origin}/instant-quote/${slug}`;
+  // Resolved the same way the three above are — bookingSlug first, then slug
+  // — because the kitchen page now uses findBookingCompany like its siblings.
+  const kitchenUrl = `${origin}/quote/${slug}/kitchen`;
 
   /**
    * The embed snippet.
@@ -263,6 +300,20 @@ export default function LeadFormPage() {
         url={instantUrl}
         embed={embed("instant-quote")}
       />
+
+      {/* No embed: there is no /embed/.../kitchen widget, and a snippet that
+          framed the full page would be a claim this app can't keep. */}
+      {kitchenOffered && (
+        <ShareBlock
+          icon={Ruler}
+          title={t("app.setLeadForm.kitchenTitle", "Design your kitchen")}
+          description={t(
+            "app.setLeadForm.kitchenDesc",
+            "A homeowner lays out their own kitchen — cabinets, finishes, the lot — and sends it to you as an enquiry with the drawing attached. Shown because Kitchen Design & New Installs is switched on under Services.",
+          )}
+          url={kitchenUrl}
+        />
+      )}
 
       {funnelsError && (
         <p className="text-sm text-red-600 dark:text-red-400">{funnelsError}</p>

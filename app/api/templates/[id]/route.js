@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { ACTIVE_FLAG_TYPES } from "@/app/data/emailTemplateBlocks";
 import { requirePermission } from "@/lib/permissions";
 
 export async function GET(request, { params }) {
@@ -120,7 +121,11 @@ export async function DELETE(request, { params }) {
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  if (existing.isDefault) {
+  // Only for the types whose active row is READ (the PDF routes). An email
+  // template seeded with isDefault=true before the flag was found to be
+  // unread must stay deletable, or the row nothing sends becomes the row
+  // nobody can remove.
+  if (existing.isDefault && ACTIVE_FLAG_TYPES.includes(existing.type)) {
     return NextResponse.json(
       {
         error:

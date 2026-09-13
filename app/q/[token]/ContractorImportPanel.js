@@ -21,10 +21,16 @@
 import { useEffect, useState } from "react";
 import { Loader2, Plus, Check, ExternalLink } from "lucide-react";
 import { formatMoney } from "@/lib/currency";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const MARKUP_PRESETS = [0, 10, 20, 30];
 
 export default function ContractorImportPanel({ token }) {
+  // The viewer here is a signed-in contractor, never the homeowner, so the
+  // app catalogue (their own language) is the right one — the white-label
+  // document above this card speaks the QUOTE's language, this card speaks
+  // the reader's.
+  const { t } = useTranslation();
   const [ctx, setCtx] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -100,21 +106,22 @@ export default function ContractorImportPanel({ token }) {
           <Check size={18} className="text-green-700 shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-semibold text-[#2d2520]">
-              Added to {done.quoteNumber || "your quote"}
+              {t("app.quoteImport.addedTo", {
+                quote: done.quoteNumber || t("app.quoteImport.yourQuote"),
+              })}
             </p>
             <p className="text-sm text-[#2d2520]/70 mt-1">
-              Your client price for this trade is{" "}
-              <strong>{money(done.clientPrice)}</strong>
+              {t("app.quoteImport.clientPriceIs", { price: money(done.clientPrice) })}
               {done.targetTotal != null && (
-                <> — your quote total is now {money(done.targetTotal)}.</>
+                <> {t("app.quoteImport.totalNow", { total: money(done.targetTotal) })}</>
               )}{" "}
-              It shows as pending until your own client approves your quote.
+              {t("app.quoteImport.pendingUntil")}
             </p>
             <a
               href="/app/quotes"
               className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#06356b] mt-3"
             >
-              Open your quotes <ExternalLink size={13} />
+              {t("app.quoteImport.openQuotes")} <ExternalLink size={13} />
             </a>
           </div>
         </div>
@@ -140,7 +147,7 @@ export default function ContractorImportPanel({ token }) {
         }),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error || "Couldn't add that cost.");
+      if (!res.ok) throw new Error(data?.error || t("app.quoteImport.addError"));
       const q = ctx.openQuotes.find((x) => x.id === targetQuoteId);
       setDone({
         targetTotal: data.targetTotal,
@@ -158,24 +165,24 @@ export default function ContractorImportPanel({ token }) {
   return (
     <Frame>
       <p className="text-sm font-semibold text-[#2d2520]">
-        Add this to one of your quotes
+        {t("app.quoteImport.title")}
       </p>
       <p className="text-xs text-[#2d2520]/60 mt-0.5">
-        {ctx.sourceCompanyName ? `${ctx.sourceCompanyName}'s ` : ""}price is{" "}
-        <strong>{money(cost)}</strong> — your cost. Mark it up and it becomes a
-        line on your own quote.
+        {ctx.sourceCompanyName
+          ? t("app.quoteImport.introNamed", { company: ctx.sourceCompanyName, price: money(cost) })
+          : t("app.quoteImport.intro", { price: money(cost) })}
       </p>
 
       {noQuotes ? (
         <div className="mt-4 rounded-lg border border-black/10 bg-white px-4 py-3">
           <p className="text-sm text-[#2d2520]/70">
-            You don&apos;t have an open quote to add it to yet.
+            {t("app.quoteImport.noOpenQuote")}
           </p>
           <a
             href="/app/quotes/new"
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#06356b] mt-2"
           >
-            Create a quote first <ExternalLink size={13} />
+            {t("app.quoteImport.createFirst")} <ExternalLink size={13} />
           </a>
         </div>
       ) : (
@@ -183,7 +190,7 @@ export default function ContractorImportPanel({ token }) {
           {/* Which of the contractor's quotes to add it to */}
           <label className="block">
             <span className="block text-xs font-medium text-[#2d2520]/70 mb-1">
-              Add to quote
+              {t("app.quoteImport.addToQuote")}
             </span>
             <select
               value={targetQuoteId}
@@ -202,7 +209,7 @@ export default function ContractorImportPanel({ token }) {
           {/* Markup */}
           <div>
             <span className="block text-xs font-medium text-[#2d2520]/70 mb-1">
-              Your markup
+              {t("app.quoteImport.yourMarkup")}
             </span>
             <div className="flex flex-wrap gap-1.5">
               {MARKUP_PRESETS.map((p) => (
@@ -231,7 +238,7 @@ export default function ContractorImportPanel({ token }) {
                     : "bg-white text-[#2d2520] border-black/15"
                 }`}
               >
-                Custom
+                {t("app.quoteImport.custom")}
               </button>
               {useCustom && (
                 <div className="flex items-center gap-1">
@@ -252,12 +259,12 @@ export default function ContractorImportPanel({ token }) {
           {/* How it shows to the client */}
           <div>
             <span className="block text-xs font-medium text-[#2d2520]/70 mb-1">
-              On your client&apos;s quote
+              {t("app.quoteImport.onClientQuote")}
             </span>
             <div className="flex gap-1.5">
               {[
-                ["blended", "One line"],
-                ["itemized", "Itemised"],
+                ["blended", t("app.quoteImport.oneLine")],
+                ["itemized", t("app.quoteImport.itemised")],
               ].map(([val, txt]) => (
                 <button
                   key={val}
@@ -274,19 +281,19 @@ export default function ContractorImportPanel({ token }) {
               ))}
             </div>
             <p className="text-[11px] text-[#2d2520]/45 mt-1">
-              Your client never sees the subcontractor or your markup.
+              {t("app.quoteImport.neverSees")}
             </p>
           </div>
 
           {/* Label */}
           <label className="block">
             <span className="block text-xs font-medium text-[#2d2520]/70 mb-1">
-              Label (optional)
+              {t("app.quoteImport.labelOptional")}
             </span>
             <input
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder="e.g. Electrical"
+              placeholder={t("app.quoteImport.labelPlaceholder")}
               className="w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm"
             />
           </label>
@@ -294,9 +301,9 @@ export default function ContractorImportPanel({ token }) {
           {/* Live client-price preview */}
           <div className="flex items-center justify-between rounded-lg bg-white border border-black/10 px-4 py-3">
             <div className="text-sm text-[#2d2520]/70">
-              Your client price
+              {t("app.quoteImport.yourClientPrice")}
               <span className="text-[11px] text-[#2d2520]/45 block">
-                {money(cost)} + {markup}% markup
+                {t("app.quoteImport.priceFormula", { cost: money(cost), markup })}
               </span>
             </div>
             <div className="text-lg font-bold tabular-nums text-[#2d2520]">
@@ -317,7 +324,7 @@ export default function ContractorImportPanel({ token }) {
             ) : (
               <Plus size={15} />
             )}
-            Add to my quote
+            {t("app.quoteImport.submit")}
           </button>
         </div>
       )}

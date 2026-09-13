@@ -7,16 +7,17 @@
 // a beat, and on the one surface where FieldQuo must be invisible, a flash of
 // generic chrome is the thing that gives it away.
 import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
 import { companyOffersKitchenDesign } from "@/lib/kitchen/access";
+// The SAME resolver as /quote/[companySlug] next door — bookingSlug first,
+// then slug. This page read `Company.slug` alone, so the link Share your
+// links hands out (built from bookingSlug, like every other public link) 404'd
+// for any company whose two slugs differ, and nothing said why.
+import { findBookingCompany } from "@/lib/booking/findBookingCompany";
 import KitchenSelfQuote from "./KitchenSelfQuote";
 
 export async function generateMetadata({ params }) {
   const { companySlug } = await params;
-  const company = await db.company.findUnique({
-    where: { slug: companySlug },
-    select: { name: true },
-  });
+  const company = await findBookingCompany(companySlug, { name: true });
   if (!company) return { title: "Not found" };
   return {
     title: `Design your kitchen — ${company.name}`,
@@ -26,9 +27,12 @@ export async function generateMetadata({ params }) {
 
 export default async function Page({ params }) {
   const { companySlug } = await params;
-  const company = await db.company.findUnique({
-    where: { slug: companySlug },
-    select: { id: true, slug: true, name: true, logoUrl: true, brandColor: true },
+  const company = await findBookingCompany(companySlug, {
+    id: true,
+    slug: true,
+    name: true,
+    logoUrl: true,
+    brandColor: true,
   });
   // A wrong slug is a 404, not an empty designer. Someone who mistypes a
   // contractor's link should be told, not handed a blank kitchen to fill in for

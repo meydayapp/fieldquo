@@ -121,6 +121,13 @@ function OverheadEditor() {
   // describing something that didn't exist.
   const [capacity, setCapacity] = useState("");
   const [capacitySaving, setCapacitySaving] = useState(false);
+  // The margin the floor is marked up by, as a whole percent. "" means the
+  // company has never set one, and the floor then uses its 20% default. Until
+  // this field existed the default was the only margin the floor ever used —
+  // marginNote below printed "At a 20% target margin" on every company as if
+  // the owner had chosen it. Saved with the capacity, read by the same
+  // calculation (resolveTargetMargin in lib/analytics/minimumPrice.js).
+  const [marginPct, setMarginPct] = useState("");
   const [minPrice, setMinPrice] = useState(null);
   const [debts, setDebts] = useState([]);
   // Null until the server answers, never []. An empty array is a claim that
@@ -293,6 +300,9 @@ function OverheadEditor() {
           ? ""
           : String(forecast.jobsPerWeekCapacity),
       );
+      setMarginPct(
+        forecast?.targetMarginPct == null ? "" : String(forecast.targetMarginPct),
+      );
       setLoading(false);
     });
     loadMinPrice();
@@ -439,9 +449,20 @@ function OverheadEditor() {
       const res = await fetch("/api/settings/forecast", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobsPerWeekCapacity: capacity === "" ? null : Number(capacity) }),
+        body: JSON.stringify({
+          jobsPerWeekCapacity: capacity === "" ? null : Number(capacity),
+          // "" is sent as null — "clear it, back to the default" — never
+          // omitted, so a blanked field really does blank the column.
+          targetMarginPct: marginPct === "" ? null : Number(marginPct),
+        }),
       });
       if (res.ok) {
+        // The response is the row as saved; echo it so a rounded or cleared
+        // value is what the field shows, not what was typed.
+        const saved = await res.json().catch(() => null);
+        if (saved && "targetMarginPct" in saved) {
+          setMarginPct(saved.targetMarginPct == null ? "" : String(saved.targetMarginPct));
+        }
         await loadMinPrice();
       } else {
         await reportResponseError(res, t("app.setOverhead.saveCapacityError"));
@@ -617,6 +638,21 @@ function OverheadEditor() {
               className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
             />
           </label>
+          <label className="flex-1">
+            <span className="text-xs font-medium text-muted-foreground block mb-1">
+              {t("app.setOverhead.targetMargin", "Target margin %")}
+            </span>
+            <input
+              type="number"
+              min="0"
+              max="95"
+              step="1"
+              value={marginPct}
+              onChange={(e) => setMarginPct(e.target.value)}
+              placeholder={t("app.setOverhead.targetMarginDefault", "20 (default)")}
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+            />
+          </label>
           <button
             disabled={capacitySaving}
             className="rounded-lg bg-inverted text-inverted-foreground px-4 py-2 text-sm font-semibold disabled:opacity-60"
@@ -727,6 +763,11 @@ function OverheadEditor() {
             {t("app.setOverhead.marginNote", {
               pct: Math.round(minPrice.targetMargin * 100),
             })}
+            {/* Two facts, not one: when the field above is blank the 20% the
+                floor used is the product's default, not the owner's figure,
+                and the sentence has to say so. */}
+            {marginPct === "" &&
+              ` ${t("app.setOverhead.marginIsDefault", "That is the default — set your own above.")}`}
           </p>
         )}
       </div>

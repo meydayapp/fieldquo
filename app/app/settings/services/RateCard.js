@@ -26,6 +26,7 @@
 
 import { useMemo, useState } from "react";
 import { ChevronDown, RotateCcw, Lock } from "lucide-react";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import {
   PRICE_BOOK_FIELDS,
   PRICE_BOOK_GROUPS,
@@ -54,6 +55,7 @@ function groupFields(fields) {
 }
 
 export default function RateCard({ category, overrides, onChange }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const fields = PRICE_BOOK_FIELDS[category.key] || [];
   const book = useMemo(
@@ -101,10 +103,10 @@ export default function RateCard({ category, overrides, onChange }) {
         className="flex w-full items-center justify-between text-sm"
       >
         <span className="font-medium text-foreground">
-          Rate card
+          {t("app.rateCard.title")}
           {customised && (
             <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-normal text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
-              customised
+              {t("app.rateCard.customised")}
             </span>
           )}
         </span>
@@ -117,9 +119,7 @@ export default function RateCard({ category, overrides, onChange }) {
       {open && (
         <div className="mt-3 space-y-4">
           <p className="text-xs text-muted-foreground">
-            What you charge for the main scope of this trade. Quotes build their
-            core lines from these. One-off extras — handles, hinges, a rush fee
-            — live in Products &amp; Services instead.
+            {t("app.rateCard.intro")}
           </p>
 
           {blocks.map((block, bi) => (
@@ -144,9 +144,9 @@ export default function RateCard({ category, overrides, onChange }) {
                         {field.internal && (
                           <span
                             className="ml-1.5 inline-flex items-center gap-0.5 text-[11px] text-muted-foreground"
-                            title="Internal only — never shown to the client"
+                            title={t("app.rateCard.internalTitle")}
                           >
-                            <Lock size={10} /> internal
+                            <Lock size={10} /> {t("app.rateCard.internal")}
                           </span>
                         )}
                       </span>
@@ -173,7 +173,7 @@ export default function RateCard({ category, overrides, onChange }) {
                           type="button"
                           onClick={() => setField(field.path, "")}
                           className="p-1 text-muted-foreground hover:text-foreground"
-                          title="Reset to the default"
+                          title={t("app.rateCard.resetToDefault")}
                         >
                           <RotateCcw size={13} />
                         </button>
@@ -188,9 +188,7 @@ export default function RateCard({ category, overrides, onChange }) {
           ))}
 
           <p className="text-xs text-muted-foreground">
-            Highlighted fields are yours. Everything else follows the built-in
-            defaults and will keep improving with them — reset a field to go
-            back to inheriting.
+            {t("app.rateCard.outro")}
           </p>
         </div>
       )}

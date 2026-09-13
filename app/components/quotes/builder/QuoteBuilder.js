@@ -1815,7 +1815,9 @@ export function QuoteBuilderForm({
           className="w-full border border-border rounded px-3 py-2 text-sm bg-background text-foreground"
         >
           <option value="">
-            {isEdit ? "Unassigned — needs review" : "Me (default)"}
+            {isEdit
+              ? t("app.quoteNew.unassignedNeedsReview", "Unassigned — needs review")
+              : t("app.quoteNew.meDefault", "Me (default)")}
           </option>
           {teamRoster
             // The current assignee stays offered even if they've since gone
@@ -1830,7 +1832,7 @@ export function QuoteBuilderForm({
             )
             .map((m) => (
               <option key={m.userId} value={m.userId}>
-                {m.user?.name || m.user?.email || "Unnamed"}
+                {m.user?.name || m.user?.email || t("app.quoteDetail.unnamed")}
               </option>
             ))}
         </select>
@@ -1860,7 +1862,11 @@ export function QuoteBuilderForm({
           per-trade accent all live in ServiceTiles — this component keeps the
           state and the pricing rules. */}
       {canEditScope && (
-        <ServiceTiles categories={categories} onAdd={addScopeGroup} />
+        <ServiceTiles
+          categories={categories}
+          onAdd={addScopeGroup}
+          documentLanguage={quoteLanguage}
+        />
       )}
 
       {isEdit && scopeGroups.length === 0 && !canEditScope && (

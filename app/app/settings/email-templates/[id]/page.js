@@ -23,7 +23,6 @@ import {
   Send,
   Smartphone,
   Monitor,
-  Star,
   Pencil,
   Eye,
 } from "lucide-react";
@@ -506,8 +505,6 @@ export default function EmailTemplateEditorPage() {
   // will actually receive rather than a generic placeholder.
   const [company, setCompany] = useState({});
   const [themeOpen, setThemeOpen] = useState(false);
-  const [isActive, setIsActive] = useState(false);
-  const [activating, setActivating] = useState(false);
   const [lastFocused, setLastFocused] = useState(null); // { blockId, field }
   const [addOpen, setAddOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -547,7 +544,6 @@ export default function EmailTemplateEditorPage() {
         setSubject(data.subject || "");
         setSections(Array.isArray(data.sections) ? data.sections : []);
         setTheme(data.theme || null);
-        setIsActive(!!data.isDefault);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -651,20 +647,6 @@ export default function EmailTemplateEditorPage() {
     setSaving(false);
   }
 
-  async function handleActivate() {
-    if (isActive) return;
-    setActivating(true);
-    const res = await fetch(
-      `/api/settings/document-templates/${id}/activate`,
-      { method: "POST" },
-    );
-    if (res.ok) setIsActive(true); else {
-      // Was silent: a failed request did nothing visible at all.
-      await reportResponseError(res);
-    }
-    setActivating(false);
-  }
-
   async function handleSendTest() {
     if (!testEmail.trim()) return;
     setSendingTest(true);
@@ -748,19 +730,10 @@ export default function EmailTemplateEditorPage() {
               className="text-base sm:text-xl font-bold text-foreground border-none focus:outline-none focus:ring-0 px-0 min-w-0 w-full"
             />
           </div>
+          {/* No "Set active" here: nothing reads DocumentTemplate.isDefault
+              for an email type — a rule or campaign picks a template by
+              name. See the list page's header comment. */}
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={handleActivate}
-              disabled={activating || isActive}
-              className={`hidden sm:flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border ${
-                isActive
-                  ? "border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 cursor-default"
-                  : "border-border text-foreground hover:bg-muted"
-              }`}
-            >
-              <Star size={13} className={isActive ? "fill-emerald-700" : ""} />
-              {isActive ? t("app.status.active", "Active") : activating ? t("app.emailEditor.activating", "Activating…") : t("app.emailEditor.setActive", "Set active")}
-            </button>
             {savedFlash && (
               <span className="text-xs text-emerald-600 dark:text-emerald-400 hidden sm:inline">
                 {t("app.action.saved", "Saved")}
@@ -809,24 +782,6 @@ export default function EmailTemplateEditorPage() {
             mobileView === "edit" ? "block" : "hidden"
           } lg:block space-y-3`}
         >
-          {/* Active row for mobile */}
-          <button
-            onClick={handleActivate}
-            disabled={activating || isActive}
-            className={`sm:hidden w-full flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border ${
-              isActive
-                ? "border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300"
-                : "border-border text-foreground"
-            }`}
-          >
-            <Star size={13} className={isActive ? "fill-emerald-700" : ""} />
-            {isActive
-              ? t("app.emailEditor.activeTemplate", "Active template")
-              : activating
-                ? t("app.emailEditor.activating", "Activating…")
-                : t("app.emailEditor.setAsActive", "Set as active")}
-          </button>
-
           {/* Subject line */}
           <div className="bg-card border border-border rounded-xl p-4">
             <label

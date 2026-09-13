@@ -84,7 +84,9 @@ function iconFor(category) {
   return ICONS[category.icon] || Package;
 }
 
-export default function ServiceTiles({ categories = [], onAdd }) {
+// `documentLanguage` is the QUOTE's language, not the reader's: a section
+// preset becomes the scope group's label on the document the client reads.
+export default function ServiceTiles({ categories = [], onAdd, documentLanguage }) {
   const { t } = useTranslation();
   // Which tile is showing its section presets. One at a time — two open
   // accordions on a phone means the tiles below are off-screen.
@@ -124,7 +126,7 @@ export default function ServiceTiles({ categories = [], onAdd }) {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
         {categories.map((cat) => {
           const Icon = iconFor(cat);
-          const presets = getSectionPresets(cat.key);
+          const presets = getSectionPresets(cat.key, documentLanguage);
           // Same resolver the document uses, so the colour on this tile is
           // the colour on the client's copy.
           const accent = resolveServiceContent(cat.key).accent;
@@ -168,7 +170,7 @@ export default function ServiceTiles({ categories = [], onAdd }) {
               <span className="text-xs text-muted-foreground inline-flex items-center gap-0.5">
                 {presets ? (
                   <>
-                    {presets.length} options
+                    {t("app.serviceTiles.options", { count: presets.length })}
                     <ChevronRight
                       size={12}
                       className={`transition-transform ${isOpen ? "rotate-90" : ""}`}
@@ -177,7 +179,7 @@ export default function ServiceTiles({ categories = [], onAdd }) {
                 ) : (
                   <>
                     <Plus size={12} />
-                    Add
+                    {t("app.action.add")}
                   </>
                 )}
               </span>
@@ -192,7 +194,7 @@ export default function ServiceTiles({ categories = [], onAdd }) {
       {expanded &&
         (() => {
           const cat = categories.find((c) => c.id === expanded);
-          const presets = cat ? getSectionPresets(cat.key) : null;
+          const presets = cat ? getSectionPresets(cat.key, documentLanguage) : null;
           if (!cat || !presets) return null;
           const accent = resolveServiceContent(cat.key).accent;
 
@@ -202,7 +204,7 @@ export default function ServiceTiles({ categories = [], onAdd }) {
               style={{ borderColor: `${accent}55`, backgroundColor: `${accent}0a` }}
             >
               <p className="text-xs font-medium text-muted-foreground mb-2">
-                {cat.label} — pick a section
+                {t("app.serviceTiles.pickSection", { label: cat.label })}
               </p>
               <div className="flex flex-wrap gap-2">
                 {presets.map((sectionLabel) => (
@@ -231,7 +233,7 @@ export default function ServiceTiles({ categories = [], onAdd }) {
                   className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
                 >
                   <Plus size={13} />
-                  Something else
+                  {t("app.serviceTiles.somethingElse")}
                 </button>
               </div>
             </div>

@@ -12,10 +12,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Save, Check, Link2, UserCheck } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Check, Link2, UserCheck, Copy } from "lucide-react";
 import { useTheme } from "@/app/providers/ThemeProvider";
 import { designerTheme } from "@/lib/kitchen/designerTheme";
 import { reportResponseError } from "@/lib/clientErrors";
+import { fetchJson } from "@/lib/fetchJson";
 import KitchenDesigner from "@/app/components/kitchen/KitchenDesigner";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
@@ -31,6 +32,26 @@ export default function KitchenPage({ company }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
+  // The locked note below tells the user to duplicate the quote. For a long
+  // time nothing anywhere did that — the note described a control that did
+  // not exist. The button beside it now calls the same route the quote
+  // detail's Duplicate does and lands on the COPY's designer, unlocked.
+  const [duplicating, setDuplicating] = useState(false);
+
+  async function duplicateQuote() {
+    setDuplicating(true);
+    try {
+      const copy = await fetchJson(`/api/quotes/${id}/duplicate`, { method: "POST" });
+      router.push(`/app/quotes/${copy.id}/kitchen`);
+    } catch (err) {
+      // fetchJson already composed a readable sentence; the toast carries it.
+      await reportResponseError(
+        new Response(JSON.stringify({ error: err.message }), { status: err.status || 500 }),
+        t("app.quoteDetail.duplicateError", "Couldn't duplicate this quote."),
+      );
+      setDuplicating(false);
+    }
+  }
 
   useEffect(() => {
     let live = true;
@@ -174,11 +195,26 @@ export default function KitchenPage({ company }) {
       </div>
 
       {locked && (
-        <div className="rounded-lg border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
-          {t(
-            "app.kitchen.lockedNote",
-            "This quote has already been sent, so the design is read-only. Duplicate the quote to change it — a sent quote is a commitment, and repricing one underneath the client leaves you both looking at different numbers.",
-          )}
+        <div className="rounded-lg border border-border bg-muted px-4 py-3 text-sm text-muted-foreground flex flex-wrap items-center gap-3">
+          <p className="flex-1 min-w-[12rem]">
+            {t(
+              "app.kitchen.lockedNote",
+              "This quote has already been sent, so the design is read-only. Duplicate the quote to change it — a sent quote is a commitment, and repricing one underneath the client leaves you both looking at different numbers.",
+            )}
+          </p>
+          <button
+            type="button"
+            onClick={duplicateQuote}
+            disabled={duplicating}
+            className="flex items-center gap-1.5 border border-border bg-card text-foreground px-3 py-1.5 rounded-full text-sm font-semibold disabled:opacity-60"
+          >
+            {duplicating ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Copy size={14} />
+            )}
+            {t("app.quoteDetail.duplicate", "Duplicate")}
+          </button>
         </div>
       )}
 

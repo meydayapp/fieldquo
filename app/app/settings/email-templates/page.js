@@ -1,16 +1,26 @@
 // app/app/settings/email-templates/page.js
 //
 // Manage every email template a company has, grouped by what it's used for.
-// One template per (type) can be "Active" — that's the one an automated
-// send (quote/instructions/receipt/follow-up) or a Follow-up rule uses.
 // Editing a template's content happens on its own page — see [id]/page.js.
+//
+// ── There is no "Active" template here any more ────────────────────────────
+//
+// This screen used to star one template per type and say the starred one
+// "is the one that's actually sent". Nothing read the star: a follow-up rule
+// and a campaign each pick a template BY NAME, and the quote, receipt and
+// instructions emails are built from the document itself — lib/email/
+// quoteEmail.js never opens a DocumentTemplate. A star nothing consults is
+// the control-that-appears-to-work AGENTS.md is about, so it is gone, the
+// subtitle says what really decides, and the three types nothing sends are
+// listed only when a company already wrote one — flagged as unsent, with no
+// button to write another. See `sentBy` in app/data/emailTemplateBlocks.js.
 "use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Star, Copy, Trash2, Pencil, Sparkles } from "lucide-react";
-import { TEMPLATE_TYPE_META } from "@/app/data/emailTemplateBlocks";
+import { Plus, Copy, Trash2, Pencil, Sparkles } from "lucide-react";
+import { TEMPLATE_TYPE_META, templateTypeIsSent } from "@/app/data/emailTemplateBlocks";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -153,18 +163,6 @@ export default function EmailTemplatesPage() {
     setBusyId(null);
   }
 
-  async function handleActivate(id) {
-    setBusyId(id);
-    const res = await fetch(`/api/settings/document-templates/${id}/activate`, {
-      method: "POST",
-    });
-    if (res.ok) load(); else {
-      // Was silent: a failed request did nothing visible at all.
-      await reportResponseError(res);
-    }
-    setBusyId(null);
-  }
-
   if (loading) {
     return (
       <div className="p-4 sm:p-6 max-w-3xl mx-auto animate-pulse space-y-4">
@@ -180,9 +178,10 @@ export default function EmailTemplatesPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">{t("app.emailTemplates.title", "Email Templates")}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {t("app.emailTemplates.descPart1", "Customize the emails your clients get. The template marked")}{" "}
-            <strong>{t("app.status.active", "Active")}</strong>{" "}
-            {t("app.emailTemplates.descPart2", "for each type is the one that's actually sent — build as many drafts and variations as you want.")}
+            {t(
+              "app.emailTemplates.whatSends",
+              "A follow-up rule or a campaign picks one of these by name — that is what decides which template goes out. The quote, receipt and instructions emails are built from the document itself, in the client's language, and don't use a template.",
+            )}
           </p>
           {seedMsg && <p className="text-xs text-muted-foreground mt-2">{seedMsg}</p>}
           <BackToHome />
@@ -208,6 +207,11 @@ export default function EmailTemplatesPage() {
             <div className="space-y-4">
               {typesInGroup.map(([type, meta]) => {
                 const typeTemplates = templates.filter((tpl) => tpl.type === type);
+                const sent = templateTypeIsSent(type);
+                // A type nothing sends is shown only when there is already
+                // something to show. Offering "New Template" for it would
+                // be inviting somebody to write an email that cannot leave.
+                if (!sent && typeTemplates.length === 0) return null;
                 return (
                   <div
                     key={type}
@@ -215,17 +219,27 @@ export default function EmailTemplatesPage() {
                   >
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="font-semibold text-foreground">{meta.label}</h3>
-                      <button
-                        onClick={() => openCreate(type)}
-                        className="flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-foreground"
-                      >
-                        <Plus size={14} /> {t("app.emailTemplates.newTemplate", "New Template")}
-                      </button>
+                      {sent && (
+                        <button
+                          onClick={() => openCreate(type)}
+                          className="flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-foreground"
+                        >
+                          <Plus size={14} /> {t("app.emailTemplates.newTemplate", "New Template")}
+                        </button>
+                      )}
                     </div>
+                    {!sent && (
+                      <p className="text-xs text-muted-foreground mb-3">
+                        {t(
+                          "app.emailTemplates.notSent",
+                          "Nothing sends this type — this email is built from the document itself. Kept because you wrote it; delete it or copy its wording into a follow-up template.",
+                        )}
+                      </p>
+                    )}
 
                     {typeTemplates.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
-                        {t("app.emailTemplates.noTemplates", "No templates yet — using the built-in default.")}
+                        {t("app.emailTemplates.noneYet", "No templates yet.")}
                       </p>
                     ) : (
                       <div className="divide-y divide-border">
@@ -236,23 +250,8 @@ export default function EmailTemplatesPage() {
                           >
                             <div className="flex items-center gap-2">
                               <span className="text-sm text-foreground">{tpl.name}</span>
-                              {tpl.isDefault && (
-                                <span className="flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">
-                                  <Star size={11} className="fill-emerald-700" />
-                                  {t("app.status.active")}
-                                </span>
-                              )}
                             </div>
                             <div className="flex items-center gap-3">
-                              {!tpl.isDefault && (
-                                <button
-                                  onClick={() => handleActivate(tpl.id)}
-                                  disabled={busyId === tpl.id}
-                                  className="text-xs font-medium text-muted-foreground hover:text-foreground"
-                                >
-                                  Set Active
-                                </button>
-                              )}
                               <Link
                                 href={`/app/settings/email-templates/${tpl.id}`}
                                 className="text-muted-foreground hover:text-foreground"
@@ -329,9 +328,10 @@ export default function EmailTemplatesPage() {
         </div>
       )}
 
-      {/* The warning differs for the Active one: "you can make another" and
-          "the next quote email reverts to the built-in wording" are not the
-          same consequence. */}
+      {/* Deleting a template a follow-up rule or campaign points at leaves
+          that rule with no template — the cron skips it and the rule shows
+          "template deleted". The modal names the template; the rule's own
+          list shows the consequence. */}
       <DeleteConfirmModal
         isOpen={Boolean(confirmDelete)}
         onClose={() => setConfirmDelete(null)}
@@ -341,12 +341,7 @@ export default function EmailTemplatesPage() {
         }}
         busy={busyId === confirmDelete?.id}
         title={t("app.action.delete")}
-        // Whether this is the ACTIVE template is the whole question, and
-        // app.status.active already says it in nine languages. Fuller warning
-        // copy needs new keys, which this pass does not own — see the report.
-        itemName={`${confirmDelete?.name || ""}${
-          confirmDelete?.isDefault ? ` · ${t("app.status.active")}` : ""
-        }`}
+        itemName={confirmDelete?.name || ""}
       />
     </div>
   );

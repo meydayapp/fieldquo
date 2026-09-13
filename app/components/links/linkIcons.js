@@ -66,6 +66,8 @@ import {
 const ROW_ICONS = {
   instant: Zap,
   quote: FileText,
+  // The same glyph the quote detail's "Kitchen Designer" button wears.
+  kitchen: Ruler,
   book: CalendarDays,
   site: Globe,
   phone: Phone,

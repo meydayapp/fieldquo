@@ -84,12 +84,14 @@ import {
   Building2,
   PhoneCall,
   PhoneOff,
+  Download,
+  Copy,
 } from "lucide-react";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import BrandTheme from "@/app/components/BrandTheme";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { useFeatureFlags } from "@/app/providers/FeatureProvider";
-import { hasLevel } from "@/lib/permissions/enforce";
+import { hasLevel, hasToggle } from "@/lib/permissions/enforce";
 // The SAME gate POST /api/quotes/[id]/call runs, not a description of it.
 // quoteCallScope.js has no imports precisely so a browser bundle can execute
 // it — see its header — which is what keeps the button and the endpoint from
@@ -217,6 +219,20 @@ export default function QuoteDetailPage() {
   // dashboard note in app/app/page.js is about — the refusal reads as an
   // answer ("nothing happened") instead of as a refusal.
   const canCallClient = hasLevel(caller, "quotes", "view_create_edit");
+  // Duplicating mints a new quote, so it takes the rung POST /api/quotes and
+  // POST /api/quotes/[id]/duplicate both ask for. Absent, not greyed, below it.
+  const canDuplicateQuote = hasLevel(caller, "quotes", "view_create_edit");
+  // The PDF is the priced document and nothing else — /api/quotes/[id]/pdf
+  // refuses without showPricing rather than rendering a quote with the numbers
+  // taken out (its header says why). The same read here, so a member whose
+  // totals are already replaced by "pricing is hidden" on this page is not
+  // offered a download that answers 403. `quote.pricingHidden` is the API's
+  // own verdict on the same toggle, checked as well so the button follows what
+  // the payload actually did, not only what the provider says.
+  const canDownloadPdf =
+    hasToggle(caller, "showPricing") && !quote?.pricingHidden;
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   // And gone entirely for a tenant with no phone receptionist. `null` flags
   // mean "show everything", the same rule lib/features/nav.js applies — a
   // provider that hasn't resolved must not blank working controls.
@@ -532,6 +548,66 @@ export default function QuoteDetailPage() {
     }
   }
 
+  /**
+   * The PDF the client would receive, for the office to keep or print.
+   *
+   * POSTs rather than opens a link, matching the invoice page: the route is a
+   * POST because it also archives a copy, and a GET would let a plain <a>
+   * bypass the money gate with a prefetch. The document's language is the
+   * quote's own, resolved server-side — non-negotiable 6 — so nothing here
+   * says which language it wants.
+   */
+  async function handleDownloadPdf() {
+    setDownloadingPdf(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/quotes/${id}/pdf`, { method: "POST" });
+      if (!res.ok) {
+        // Never a bare `if (res.ok)`: a 403 from a toggle that changed since
+        // the page loaded has to say so, or the press reads as having worked.
+        await reportResponseError(
+          res,
+          setError,
+          t("app.quoteDetail.pdfError", "Couldn't build the PDF."),
+        );
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `quote-${quote.quoteNumber}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }
+
+  /**
+   * A fresh draft copied from this quote, then straight to it.
+   *
+   * The server decides what a copy carries — lib/quotes/duplicateQuote.js is
+   * the list. Nothing about the original changes, which is the point: the
+   * kitchen designer's locked note sends people here precisely so a sent
+   * quote is never repriced underneath the client.
+   */
+  async function handleDuplicate() {
+    setDuplicating(true);
+    setError("");
+    try {
+      const data = await fetchJson(`/api/quotes/${id}/duplicate`, {
+        method: "POST",
+      });
+      router.push(`/app/quotes/${data.id}`);
+    } catch (err) {
+      setError(
+        err.message || t("app.quoteDetail.duplicateError", "Couldn't duplicate this quote."),
+      );
+      setDuplicating(false);
+    }
+  }
+
   async function handleConvert() {
     setError("");
     setActionLoading(true);
@@ -733,6 +809,38 @@ export default function QuoteDetailPage() {
           >
             <Pencil size={14} /> {t("app.action.edit")}
           </Link>
+          {canDuplicateQuote && (
+            <button
+              onClick={handleDuplicate}
+              disabled={duplicating}
+              className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
+            >
+              {duplicating ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Copy size={14} />
+              )}
+              {t("app.quoteDetail.duplicate", "Duplicate")}
+            </button>
+          )}
+          {/* Absent rather than disabled without showPricing — see
+              canDownloadPdf. The invoice page keeps its icon-only button; this
+              one carries a word because "Download PDF" was the control the
+              help-centre writers could not find on this screen. */}
+          {canDownloadPdf && (
+            <button
+              onClick={handleDownloadPdf}
+              disabled={downloadingPdf}
+              className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
+            >
+              {downloadingPdf ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Download size={14} />
+              )}
+              {t("app.quoteDetail.downloadPdf", "Download PDF")}
+            </button>
+          )}
           {/* Hidden, not disabled — same as Jobs. A greyed trash icon still
               says "somebody could delete this quote here", which is a question
               the owner asks their team about, not a fact about this screen. */}

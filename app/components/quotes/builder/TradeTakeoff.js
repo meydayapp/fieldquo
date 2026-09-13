@@ -1491,14 +1491,17 @@ function HomeInspectionTakeoff({ takeoff, book, onChange }) {
 
 /* ── Interlock and paving ──────────────────────────────────────────────── */
 
+// Labels are the same three keys PaverDesigner prints, so the drawing and
+// the boxes below it name a surface the same way.
 const PAVING_SURFACES = [
-  ["patioSqft", "Patio", "patioPricePerSqft", false],
-  ["walkwaySqft", "Walkway", "walkwayPricePerSqft", false],
-  ["drivewaySqft", "Driveway", "drivewayPricePerSqft", true],
+  ["patioSqft", "app.paver.surfacePatio", "patioPricePerSqft", false],
+  ["walkwaySqft", "app.paver.surfaceWalkway", "walkwayPricePerSqft", false],
+  ["drivewaySqft", "app.paver.surfaceDriveway", "drivewayPricePerSqft", true],
 ];
 
 function PavingTakeoff({ takeoff, book, onChange, siteImageUrl }) {
   const money = useCompanyMoney();
+  const { t } = useTranslation();
   const level = takeoff.complexityLevel || "standard";
   // The hours come from the same tier and access answers the estimator has
   // already given above — see lib/pricing/paverLabour.js for why the panel does
@@ -1544,30 +1547,28 @@ function PavingTakeoff({ takeoff, book, onChange, siteImageUrl }) {
       />
 
       <div className="grid gap-2 sm:grid-cols-3">
-        {PAVING_SURFACES.map(([key, label, rateKey, isDriveway]) => {
+        {PAVING_SURFACES.map(([key, labelKey, rateKey, isDriveway]) => {
           const rate =
             num(c[rateKey]) +
             (isDriveway ? num(e.drivewayPaverUpchargePerSqft) : 0);
           return (
-            <Field key={key} label={`${label} (sqft)`}>
+            <Field key={key} label={`${t(labelKey)} (${t("app.paver.sqftUnit")})`}>
               <Num value={takeoff[key]} onChange={(v) => set({ [key]: v })} />
               <div className="mt-1 text-xs text-muted-foreground">
-                {money(rate)}/sqft installed
+                {t("app.paving.installedRate", { rate: money(rate) })}
               </div>
             </Field>
           );
         })}
       </div>
 
-      <Field label="Retaining / garden wall (sqft of face)">
+      <Field label={t("app.paving.wallLabel")}>
         <Num
           value={takeoff.wallFaceSqft}
           onChange={(v) => set({ wallFaceSqft: v })}
         />
         <div className="mt-1 text-xs text-muted-foreground">
-          {money(book?.wallPricePerFaceSqft)}/sqft of wall face — its base,
-          structural units, capping and any steps built into it. Measured by
-          face area rather than length, because that is how it is invoiced.
+          {t("app.paving.wallHint", { rate: money(book?.wallPricePerFaceSqft) })}
         </div>
       </Field>
 
@@ -1583,16 +1584,15 @@ function PavingTakeoff({ takeoff, book, onChange, siteImageUrl }) {
           silently applying an invented surcharge. */}
       {belowAssumed && (
         <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-          These rates assume a job of at least {num(book.assumesMinSqft)} sqft
-          with machine access. At {totalSqft} sqft the real cost per foot is
-          higher — every contractor says so and none of them publishes a number,
-          so nothing has been added automatically. Move the complexity up, or
-          add a line by hand.
+          {t("app.paving.belowAssumed", {
+            min: num(book.assumesMinSqft),
+            total: totalSqft,
+          })}
         </p>
       )}
 
       <div className="grid gap-2 sm:grid-cols-2">
-        <Field label="Paver">
+        <Field label={t("app.paving.paver")}>
           <select
             value={takeoff.paverOption || "standard"}
             onChange={(e2) => set({ paverOption: e2.target.value })}
@@ -1600,12 +1600,12 @@ function PavingTakeoff({ takeoff, book, onChange, siteImageUrl }) {
           >
             {Object.entries(options).map(([key, opt]) => (
               <option key={key} value={key}>
-                {opt.label} — {money(opt.costPerSqft)}/sqft
+                {opt.label} — {t("app.paving.perSqft", { amount: money(opt.costPerSqft) })}
               </option>
             ))}
           </select>
         </Field>
-        <Field label="Or your own paver cost ($/sqft)">
+        <Field label={t("app.paving.ownPaverCost")}>
           <Num
             prefix="$"
             step={0.5}
@@ -1622,9 +1622,11 @@ function PavingTakeoff({ takeoff, book, onChange, siteImageUrl }) {
         chosen &&
         num(chosen.minThicknessMm) < num(book?.drivewayMinThicknessMm) && (
           <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-            {chosen.label} is a {num(chosen.minThicknessMm)} mm paver and this
-            quote includes a driveway. Vehicles need at least{" "}
-            {num(book.drivewayMinThicknessMm)} mm.
+            {t("app.paving.tooThin", {
+              paver: chosen.label,
+              mm: num(chosen.minThicknessMm),
+              min: num(book.drivewayMinThicknessMm),
+            })}
           </p>
         )}
 
@@ -1632,19 +1634,18 @@ function PavingTakeoff({ takeoff, book, onChange, siteImageUrl }) {
           installed rate, so only the excess is billable — charging the whole
           paver price bills the stone twice. */}
       <p className="text-xs text-muted-foreground">
-        {money(allowance)}/sqft of paver is already included in the installed
-        rate.{" "}
+        {t("app.paving.allowanceIncluded", { amount: money(allowance) })}{" "}
         {uplift > 0
-          ? `This one costs ${money(paverCost)}, so ${money(uplift)}/sqft is added.`
-          : "This one is inside the allowance, so nothing is added."}
+          ? t("app.paving.allowanceExceeded", { cost: money(paverCost), uplift: money(uplift) })
+          : t("app.paving.allowanceWithin")}
       </p>
 
       <div>
         <OptionRow
           checked={takeoff.removeExisting}
           onToggle={(v) => set({ removeExisting: v })}
-          label="Remove and dispose of the existing surface"
-          hint={`${money(e.removeExistingPerSqft)}/sqft`}
+          label={t("app.paving.removeExisting")}
+          hint={t("app.paving.perSqft", { amount: money(e.removeExistingPerSqft) })}
           amount={
             takeoff.removeExisting
               ? totalSqft * num(e.removeExistingPerSqft)
@@ -1654,29 +1655,29 @@ function PavingTakeoff({ takeoff, book, onChange, siteImageUrl }) {
         <OptionRow
           checked={takeoff.poorAccess}
           onToggle={(v) => set({ poorAccess: v })}
-          label="Restricted site access"
-          hint={`${money(e.poorAccessPerSqft)}/sqft — no machine route, wheelbarrow distance`}
+          label={t("app.paving.poorAccess")}
+          hint={t("app.paving.poorAccessHint", { amount: money(e.poorAccessPerSqft) })}
           amount={takeoff.poorAccess ? totalSqft * num(e.poorAccessPerSqft) : 0}
         />
         <OptionRow
           checked={takeoff.curvesCuts}
           onToggle={(v) => set({ curvesCuts: v })}
-          label="Curves, borders and cutting"
-          hint={`${money(e.curvesCutsPerSqft)}/sqft`}
+          label={t("app.paving.curvesCuts")}
+          hint={t("app.paving.perSqft", { amount: money(e.curvesCutsPerSqft) })}
           amount={takeoff.curvesCuts ? totalSqft * num(e.curvesCutsPerSqft) : 0}
         />
         <OptionRow
           checked={takeoff.sealing}
           onToggle={(v) => set({ sealing: v })}
-          label="Sealing"
-          hint={`${money(e.sealingPerSqft)}/sqft`}
+          label={t("app.paving.sealing")}
+          hint={t("app.paving.perSqft", { amount: money(e.sealingPerSqft) })}
           amount={takeoff.sealing ? totalSqft * num(e.sealingPerSqft) : 0}
         />
         <OptionRow
           checked={takeoff.permeable}
           onToggle={(v) => set({ permeable: v })}
-          label="Permeable system"
-          hint={`+${money(e.permeableUpliftPct)}% on the work above`}
+          label={t("app.paving.permeable")}
+          hint={t("app.paving.permeableHint", { pct: money(e.permeableUpliftPct) })}
           amount={0}
         />
       </div>
@@ -1686,15 +1687,21 @@ function PavingTakeoff({ takeoff, book, onChange, siteImageUrl }) {
         crewSize={takeoff.crewSize}
         onCrewSize={(v) => set({ crewSize: v })}
         crew={crew}
-        emptyHint="Enter an area above first."
+        emptyHint={t("app.paving.enterAreaFirst")}
         factorNote={
           labour.incomplete
             ? null
-            : `On-site work ${labour.onSiteHours} h (${labour.complexity.tier} ×${labour.complexity.tierFactor}${
-                labour.complexity.accessFactor !== 1
-                  ? `, poor access ×${labour.complexity.accessFactor}`
-                  : ""
-              }) · mobilising, compaction passes and ${labour.spoilCuYd} cu yd of spoil hauled away ${labour.fixedHours} h, which do not scale with either.`
+            : t("app.paving.factorNote", {
+                onSite: labour.onSiteHours,
+                tier: labour.complexity.tier,
+                tierFactor: labour.complexity.tierFactor,
+                access:
+                  labour.complexity.accessFactor !== 1
+                    ? t("app.paving.poorAccessFactor", { factor: labour.complexity.accessFactor })
+                    : "",
+                spoil: labour.spoilCuYd,
+                fixed: labour.fixedHours,
+              })
         }
       />
     </div>

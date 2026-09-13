@@ -34,13 +34,17 @@ import { formatAppMoney } from "@/lib/format/money";
 import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
 import { VISION_PASS_CENTS } from "@/lib/ai/imageEconomics";
 import { visionPillState } from "@/lib/ai/visionPill";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import {
   AiCreditTopupDialog,
   useAiCreditTopup,
 } from "@/app/components/ai/AiCreditTopupDialog";
 
-const money = (n) =>
-  Number(n ?? 0).toLocaleString("en-CA", {
+// Whole dollars in the reader's own locale. This was pinned to en-CA/CAD,
+// which printed "CA$1,200" for an American company and "1 200 $CA" for
+// nobody — the panel is internal, so the reader's language is the right one.
+const moneyFor = (language) => (n) =>
+  Number(n ?? 0).toLocaleString(language || "en", {
     style: "currency",
     currency: "CAD",
     maximumFractionDigits: 0,
@@ -74,6 +78,8 @@ export default function SuggestAddOns({
   onProcessNotes,
   autoReview = false,
 }) {
+  const { t, language } = useTranslation();
+  const money = moneyFor(language);
   const [addOns, setAddOns] = useState([]);
   const [review, setReview] = useState(null);
   const [reviewedAt, setReviewedAt] = useState(null);
@@ -279,8 +285,7 @@ export default function SuggestAddOns({
     return (
       <Panel>
         <p className="text-sm text-muted-foreground">
-          Save this quote as a draft first — the review reads what&apos;s
-          actually on it.
+          {t("app.quoteReview.saveFirst")}
         </p>
       </Panel>
     );
@@ -314,17 +319,19 @@ export default function SuggestAddOns({
             {/* -text variant, not the raw accent: #ff5a00 as TEXT on a light
                 card is 2.9:1, under the floor. See globals.css. */}
             <Sparkles size={16} className="text-brand-accent-text" />
-            Review &amp; optional extras
+            {t("app.quoteReview.title")}
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
             {reviewedAt
-              ? `Last reviewed ${new Date(reviewedAt).toLocaleString("en-CA", {
-                  day: "numeric",
-                  month: "short",
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}`
-              : "Checks the quote for the things that stop clients signing."}
+              ? t("app.quoteReview.lastReviewed", {
+                  date: new Date(reviewedAt).toLocaleString(language || "en", {
+                    day: "numeric",
+                    month: "short",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  }),
+                })
+              : t("app.quoteReview.intro")}
           </p>
         </div>
 
@@ -341,10 +348,10 @@ export default function SuggestAddOns({
               <Sparkles size={14} />
             )}
             {reviewing
-              ? "Reviewing..."
+              ? t("app.quoteReview.reviewing")
               : reviewedAt
-                ? "Review again"
-                : "Review this quote"}
+                ? t("app.quoteReview.reviewAgain")
+                : t("app.quoteReview.review")}
           </button>
         )}
       </div>
@@ -378,10 +385,8 @@ export default function SuggestAddOns({
             </div>
             <p className="text-sm text-muted-foreground">
               {review.checks.length === 0
-                ? "Nothing obvious missing — this one's ready to send."
-                : `${review.checks.length} thing${
-                    review.checks.length > 1 ? "s" : ""
-                  } worth fixing before you send it.`}
+                ? t("app.quoteReview.readyToSend")
+                : t("app.quoteReview.thingsToFix", { value: review.checks.length })}
             </p>
           </div>
 
@@ -411,15 +416,15 @@ export default function SuggestAddOns({
             <div className="border border-border rounded-lg px-4 py-3">
               <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
                 <TrendingUp size={14} className="text-muted-foreground" />
-                Price check
+                {t("app.quoteReview.priceCheck")}
                 {review.pricing.verdict === "high" && (
                   <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300">
-                    above your usual
+                    {t("app.quoteReview.aboveUsual")}
                   </span>
                 )}
                 {review.pricing.verdict === "low" && (
                   <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300">
-                    below your usual
+                    {t("app.quoteReview.belowUsual")}
                   </span>
                 )}
               </p>
@@ -430,8 +435,7 @@ export default function SuggestAddOns({
                   "compared to your own history" are very different claims,
                   and only the second one is true here. */}
               <p className="text-[11px] text-muted-foreground/70 mt-1.5">
-                Compared against your own accepted quotes only — never other
-                companies&apos;.
+                {t("app.quoteReview.ownHistoryOnly")}
               </p>
             </div>
           )}
@@ -439,7 +443,7 @@ export default function SuggestAddOns({
           {review.rewrites?.length > 0 && (
             <div>
               <p className="text-sm font-medium text-foreground mb-2">
-                Clearer wording
+                {t("app.quoteReview.clearerWording")}
               </p>
               <div className="space-y-2">
                 {review.rewrites.map((r, i) => (
@@ -455,8 +459,7 @@ export default function SuggestAddOns({
                 ))}
               </div>
               <p className="text-[11px] text-muted-foreground/70 mt-2">
-                Copy these into the line items yourself — nothing is changed for
-                you.
+                {t("app.quoteReview.copyYourself")}
               </p>
             </div>
           )}
@@ -480,7 +483,7 @@ export default function SuggestAddOns({
             <div className="border border-border rounded-lg px-4 py-3">
               <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
                 <Camera size={14} className="text-muted-foreground" />
-                What the photos show
+                {t("app.quoteReview.photosShow")}
               </p>
               {review.photoNotes?.length > 0 ? (
                 <>
@@ -496,16 +499,14 @@ export default function SuggestAddOns({
                     ))}
                   </ul>
                   <p className="text-[11px] text-muted-foreground/70 mt-2.5">
-                    Things to check on site — not measurements, and not for the
-                    client to read. Nothing has been added to the quote.
+                    {t("app.deepRead.notForClient")}
                   </p>
                 </>
               ) : (
                 <p className="text-xs text-muted-foreground mt-1.5">
-                  Nothing in{" "}
-                  {review.photosRead === 1 ? "the photo" : `the ${review.photosRead} photos`}{" "}
-                  that the quote
-                  doesn&apos;t already cover.
+                  {review.photosRead === 1
+                    ? t("app.quoteReview.photoNothingOne")
+                    : t("app.quoteReview.photoNothingMany", { count: review.photosRead })}
                 </p>
               )}
             </div>
@@ -514,7 +515,7 @@ export default function SuggestAddOns({
           {review.suggestedProcessNotes && onProcessNotes && (
             <div className="border border-border rounded-lg px-4 py-3">
               <p className="text-sm font-medium text-foreground">
-                Suggested &ldquo;what happens next&rdquo;
+                {t("app.quoteReview.suggestedProcess")}
               </p>
               <p className="text-xs text-muted-foreground whitespace-pre-wrap mt-1.5">
                 {review.suggestedProcessNotes}
@@ -524,11 +525,10 @@ export default function SuggestAddOns({
                 onClick={() => onProcessNotes(review.suggestedProcessNotes)}
                 className="mt-2.5 text-xs font-semibold text-foreground underline"
               >
-                Use this
+                {t("app.quoteReview.useThis")}
               </button>
               <p className="text-[11px] text-muted-foreground/70 mt-1.5">
-                Fill in anything in [square brackets] — those are guesses left
-                blank on purpose.
+                {t("app.quoteReview.fillBrackets")}
               </p>
             </div>
           )}
@@ -552,7 +552,7 @@ export default function SuggestAddOns({
             <div>
               <p className="text-sm font-medium text-foreground flex items-center gap-1.5 flex-wrap">
                 <Eye size={14} className="text-muted-foreground" />
-                Deep photo read
+                {t("app.deepRead.title")}
                 {/* Amber: pressing the button spends this much and will work.
                     Red: the wallet can't cover one read — the shortfall is
                     the number. Green: already read today; nothing more is
@@ -563,7 +563,7 @@ export default function SuggestAddOns({
                     spend: visionSpend,
                     passes: visionPasses,
                     costCents: VISION_PASS_CENTS,
-                    money: (cents) => formatAppMoney(cents / 100, CREDIT_CURRENCY, "en"),
+                    money: (cents) => formatAppMoney(cents / 100, CREDIT_CURRENCY, language),
                   });
                   return (
                     <span
@@ -576,11 +576,10 @@ export default function SuggestAddOns({
                 })()}
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                A closer look at every photo on this quote — up to 8, read at
-                full resolution instead of the quick check above. Costs{" "}
-                {formatAppMoney(VISION_PASS_CENTS / 100, CREDIT_CURRENCY, "en")}{" "}
-                of AI credit each time it runs, separate from your phone
-                balance.
+                {t("app.deepRead.description", {
+                  max: 8,
+                  price: formatAppMoney(VISION_PASS_CENTS / 100, CREDIT_CURRENCY, language),
+                })}
               </p>
             </div>
             {!readOnly && (
@@ -596,10 +595,10 @@ export default function SuggestAddOns({
                   <Eye size={14} />
                 )}
                 {visionRunning
-                  ? "Reading..."
+                  ? t("app.deepRead.running")
                   : visionPasses.length > 0
-                    ? "Run again"
-                    : "Run deep read"}
+                    ? t("app.deepRead.runAgain")
+                    : t("app.deepRead.run")}
               </button>
             )}
           </div>
@@ -619,7 +618,7 @@ export default function SuggestAddOns({
                 >
                   <p className="text-[11px] text-muted-foreground/70">
                     {p.at
-                      ? new Date(p.at).toLocaleString("en-CA", {
+                      ? new Date(p.at).toLocaleString(language || "en", {
                           day: "numeric",
                           month: "short",
                           hour: "numeric",
@@ -627,11 +626,11 @@ export default function SuggestAddOns({
                         })
                       : "—"}
                     {" · "}
-                    {p.photosRead} photo{p.photosRead === 1 ? "" : "s"} read
+                    {t("app.deepRead.photosRead", { value: p.photosRead })}
                     {typeof p.costCents === "number" && (
                       <>
                         {" · "}
-                        {formatAppMoney(p.costCents / 100, CREDIT_CURRENCY, "en")}
+                        {formatAppMoney(p.costCents / 100, CREDIT_CURRENCY, language)}
                       </>
                     )}
                   </p>
@@ -651,22 +650,19 @@ export default function SuggestAddOns({
                     </ul>
                   ) : (
                     <p className="text-xs text-muted-foreground mt-1.5">
-                      Nothing found beyond what the quote already covers.
+                      {t("app.deepRead.nothingFound")}
                     </p>
                   )}
                 </div>
               ))}
               <p className="text-[11px] text-muted-foreground/70">
-                Things to check on site — not measurements, and not for the
-                client to read. Nothing has been added to the quote.
+                {t("app.deepRead.notForClient")}
               </p>
             </div>
           ) : (
             !readOnly && (
               <p className="text-xs text-muted-foreground mt-2.5">
-                Not run yet. This is a closer look than the free check above —
-                worth it before a job with photos that are hard to judge from
-                a quick glance.
+                {t("app.deepRead.notRunYet")}
               </p>
             )
           )}
@@ -678,7 +674,7 @@ export default function SuggestAddOns({
       {suggestions.length > 0 && !readOnly && (
         <div className="mt-5">
           <p className="text-sm font-medium text-foreground mb-2">
-            You often sell these alongside this work
+            {t("app.quoteReview.oftenSold")}
           </p>
           <div className="space-y-2">
             {suggestions.map((s) => (
@@ -695,9 +691,10 @@ export default function SuggestAddOns({
                   )}
                   <p className="text-[11px] text-muted-foreground/70 mt-1">
                     {s.note}
+                    {" · "}
                     {s.amount
-                      ? ` · you usually charge about ${money(s.amount)}`
-                      : " · no price history yet"}
+                      ? t("app.quoteReview.usuallyCharge", { amount: money(s.amount) })
+                      : t("app.quoteReview.noPriceHistory")}
                   </p>
                 </div>
                 <button
@@ -705,7 +702,7 @@ export default function SuggestAddOns({
                   onClick={() => acceptSuggestion(s)}
                   className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold border border-border px-3 py-1.5 rounded-full"
                 >
-                  <Plus size={12} /> Add
+                  <Plus size={12} /> {t("app.action.add")}
                 </button>
               </div>
             ))}
@@ -716,7 +713,7 @@ export default function SuggestAddOns({
       <div className="mt-5">
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm font-medium text-foreground">
-            Offered at the bottom of the quote
+            {t("app.quoteReview.offeredAtBottom")}
           </p>
           {!readOnly && (
             <button
@@ -724,15 +721,14 @@ export default function SuggestAddOns({
               onClick={addBlank}
               className="text-xs font-semibold text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
             >
-              <Plus size={12} /> Add one
+              <Plus size={12} /> {t("app.quoteReview.addOne")}
             </button>
           )}
         </div>
 
         {addOns.length === 0 ? (
           <p className="text-xs text-muted-foreground mt-2">
-            Nothing offered yet. Extras the client can tick themselves are the
-            cheapest revenue in the business — they&apos;re already saying yes.
+            {t("app.quoteReview.nothingOffered")}
           </p>
         ) : (
           <div className="mt-3 space-y-3">
@@ -754,7 +750,7 @@ export default function SuggestAddOns({
                     value={a.description}
                     onChange={(e) => update(i, { description: e.target.value })}
                     disabled={locked}
-                    placeholder="Gutter guards"
+                    placeholder={t("app.quoteReview.extraPlaceholder")}
                     className="flex-1 min-w-0 border border-border rounded-lg px-3 py-2 text-sm bg-card disabled:opacity-70"
                   />
                   <div className="relative w-28 shrink-0">
@@ -775,7 +771,7 @@ export default function SuggestAddOns({
                       type="button"
                       onClick={() => remove(i)}
                       className="shrink-0 text-muted-foreground hover:text-red-600 p-2"
-                      aria-label="Remove"
+                      aria-label={t("app.action.remove")}
                     >
                       <Trash2 size={15} />
                     </button>
@@ -786,7 +782,7 @@ export default function SuggestAddOns({
                   value={a.detail || ""}
                   onChange={(e) => update(i, { detail: e.target.value })}
                   disabled={locked}
-                  placeholder="Why it's worth having — one line"
+                  placeholder={t("app.quoteReview.detailPlaceholder")}
                   className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card disabled:opacity-70"
                 />
 
@@ -797,19 +793,18 @@ export default function SuggestAddOns({
                     onChange={(e) => update(i, { taxable: e.target.checked })}
                     disabled={locked}
                   />
-                  Taxable
+                  {t("app.quoteReview.taxable")}
                 </label>
 
                 {fromTakeoff && (
                   <p className="text-xs text-muted-foreground">
-                    Marked optional in the takeoff. Edit it there — this row is
-                    rebuilt from the scope every time the quote is saved.
+                    {t("app.quoteReview.fromTakeoff")}
                   </p>
                 )}
 
                 {a.selected && (
                   <p className="text-xs text-green-700 dark:text-green-400 flex items-center gap-1">
-                    <Check size={12} /> The client added this
+                    <Check size={12} /> {t("app.quoteReview.clientAdded")}
                   </p>
                 )}
               </div>
@@ -825,19 +820,19 @@ export default function SuggestAddOns({
                   className="inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-full disabled:opacity-60"
                 >
                   {saving && <Loader2 size={13} className="animate-spin" />}
-                  Save extras
+                  {t("app.quoteReview.saveExtras")}
                 </button>
                 {/* Saved separately from the quote, so there has to be some
                     signal that pressing the quote's own Save didn't cover
                     this. */}
                 {dirty && (
                   <span className="text-xs text-amber-600 dark:text-amber-400">
-                    Unsaved
+                    {t("app.quoteReview.unsaved")}
                   </span>
                 )}
                 {savedAt && !dirty && (
                   <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
-                    <Check size={12} /> Saved
+                    <Check size={12} /> {t("app.action.saved")}
                   </span>
                 )}
               </div>

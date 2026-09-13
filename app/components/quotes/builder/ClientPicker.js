@@ -72,7 +72,7 @@ export default function ClientPicker({
                 onClick={onClear}
                 className="text-sm text-muted-foreground underline shrink-0 ml-3"
               >
-                Change
+                {t("app.clientPicker.change")}
               </button>
             )}
           </div>
@@ -93,7 +93,7 @@ export default function ClientPicker({
               <input
                 value={search}
                 onChange={(e) => onSearchChange(e.target.value)}
-                placeholder="Search clients…"
+                placeholder={t("app.clients.search")}
                 className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-sm"
               />
             </div>
@@ -102,7 +102,7 @@ export default function ClientPicker({
               <div className="border border-border rounded-lg divide-y divide-border max-h-48 overflow-y-auto mb-2">
                 {clients.length === 0 && (
                   <p className="px-3 py-3 text-sm text-muted-foreground">
-                    No matches.
+                    {t("app.clients.noMatch")}
                   </p>
                 )}
                 {clients.map((c) => (
@@ -126,7 +126,7 @@ export default function ClientPicker({
               onClick={onOpenNewClient}
               className="text-sm font-medium text-foreground flex items-center gap-1"
             >
-              <Plus size={14} /> Add new client
+              <Plus size={14} /> {t("app.clientPicker.addNew")}
             </button>
           </div>
         )}
@@ -136,11 +136,11 @@ export default function ClientPicker({
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-card rounded-xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-foreground">New client</h2>
+              <h2 className="font-semibold text-foreground">{t("app.clients.new")}</h2>
               <button
                 type="button"
                 onClick={onCloseNewClient}
-                aria-label="Close"
+                aria-label={t("app.action.close")}
               >
                 <X size={18} />
               </button>
@@ -160,7 +160,7 @@ export default function ClientPicker({
                       : "border-border"
                   }`}
                 >
-                  Homeowner
+                  {t("app.clientNew.homeowner")}
                 </button>
                 <button
                   type="button"
@@ -171,14 +171,16 @@ export default function ClientPicker({
                       : "border-border"
                   }`}
                 >
-                  Company / contractor
+                  {t("app.clientNew.company")}
                 </button>
               </div>
 
               <input
                 required
                 placeholder={
-                  newClient.type === "company" ? "Company name" : "Name"
+                  newClient.type === "company"
+                    ? t("app.clientNew.companyName")
+                    : t("app.field.name")
                 }
                 value={newClient.name}
                 onChange={(e) => onNewClientChange({ name: e.target.value })}
@@ -187,7 +189,7 @@ export default function ClientPicker({
 
               {newClient.type === "company" && (
                 <input
-                  placeholder="Contact person"
+                  placeholder={t("app.clientNew.contactPerson")}
                   value={newClient.contactName}
                   onChange={(e) =>
                     onNewClientChange({ contactName: e.target.value })
@@ -198,7 +200,7 @@ export default function ClientPicker({
 
               <input
                 type="email"
-                placeholder="Email"
+                placeholder={t("app.field.email")}
                 value={newClient.email}
                 onChange={(e) => onNewClientChange({ email: e.target.value })}
                 className={inputClass}
@@ -266,8 +268,8 @@ export default function ClientPicker({
                 }
                 placeholder={
                   newClient.type === "company"
-                    ? "Business address (optional)"
-                    : "Address"
+                    ? t("app.clientNew.businessAddress")
+                    : t("app.field.address")
                 }
                 className={inputClass}
               />
@@ -286,7 +288,7 @@ export default function ClientPicker({
                 disabled={creating}
                 className="w-full bg-inverted text-inverted-foreground py-2 rounded-full text-sm font-semibold disabled:opacity-60"
               >
-                {creating ? "Creating…" : "Create client"}
+                {creating ? t("app.clientNew.creating") : t("app.clientNew.create")}
               </button>
             </form>
           </div>
