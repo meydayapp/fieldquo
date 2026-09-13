@@ -25,6 +25,9 @@ const STATUS_FILTERS = [
   // filter exists so somebody already IN the company list can see the same
   // population without having to know that screen is there.
   { value: "incomplete", label: "Never finished checkout" },
+  // The ten seeded sales demos. Excluded from every other filter server-side
+  // (statusWhere) so the customer list never counts them.
+  { value: "demo", label: "Demo" },
 ];
 
 const STATUS_STYLES = {
@@ -139,7 +142,7 @@ export default function PlatformCompaniesPage() {
           <p className="mt-3 text-sm text-muted-foreground">
             {query || status
               ? "No companies match that."
-              : "No companies yet."}
+              : "No customer companies yet. The sales demos are under the Demo filter."}
           </p>
         </div>
       ) : (
@@ -165,14 +168,27 @@ export default function PlatformCompaniesPage() {
                       <span className="font-medium text-foreground truncate">
                         {c.name}
                       </span>
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full border ${
-                          STATUS_STYLES[c.onboardingStatus] ||
-                          "bg-muted text-muted-foreground border-border"
-                        }`}
-                      >
-                        {c.onboardingStatus}
-                      </span>
+                      {c.isDemo ? (
+                        /* A demo has no onboarding and no checkout to finish;
+                           printing "pending" on it is a lie about a company
+                           that was never going to pay. */
+                        <span className="text-xs px-2 py-0.5 rounded-full border bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-900">
+                          {c.demoRetiredAt
+                            ? "Retired rep demo"
+                            : c.demoOwnerRepId
+                              ? "Rep demo"
+                              : "Demo"}
+                        </span>
+                      ) : (
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full border ${
+                            STATUS_STYLES[c.onboardingStatus] ||
+                            "bg-muted text-muted-foreground border-border"
+                          }`}
+                        >
+                          {c.onboardingStatus}
+                        </span>
+                      )}
                       {/* The row's own status badge says "pending", which is
                           what onboardingStatus holds for a company that never
                           reached Stripe — and it says the same for one that is
@@ -180,7 +196,7 @@ export default function PlatformCompaniesPage() {
                           separates them, on the row, without opening anything.
                           Keyed off the subscription the API already includes,
                           not off a second query or a guess. */}
-                      {!c.subscription && (
+                      {!c.subscription && !c.isDemo && (
                         <span className="text-xs px-2 py-0.5 rounded-full border bg-muted text-muted-foreground border-border">
                           Never finished checkout
                         </span>
@@ -209,7 +225,7 @@ export default function PlatformCompaniesPage() {
 
                   <div className="text-right shrink-0">
                     <div className="text-sm font-medium text-foreground">
-                      {plan || "No plan"}
+                      {c.isDemo ? "Not billed" : plan || "No plan"}
                     </div>
                     {/* Was `{c.subscription.status}` — the raw enum, so a
                         company FieldQuo cannot currently bill said "past_due"

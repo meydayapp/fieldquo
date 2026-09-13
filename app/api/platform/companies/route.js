@@ -21,9 +21,16 @@ import { incompleteSignupWhere } from "@/lib/signup/abandoned";
  * companies" over a page showing 3.
  */
 function statusWhere(status) {
-  if (!status) return {};
-  if (status === "incomplete") return incompleteSignupWhere();
-  return { onboardingStatus: status };
+  // The demo companies are FieldQuo's own sales props, not customers, and
+  // they never see Stripe. The day after the test companies were purged this
+  // list was ten rows of "pending · Never finished checkout · No plan" — all
+  // demos, read by the owner as ten abandoned signups. Every customer filter
+  // (All included) now leaves them out, and "demo" is the one place they
+  // show — the same line /platform/signups and the analytics overview draw.
+  if (status === "demo") return { isDemo: true };
+  if (!status) return { isDemo: false };
+  if (status === "incomplete") return { isDemo: false, ...incompleteSignupWhere() };
+  return { isDemo: false, onboardingStatus: status };
 }
 
 export async function GET(request) {
