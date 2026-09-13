@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 12 September 2026 (every demo company is now a six-month business on every screen — lib/demo/seedContent.js, per-trade profiles with real streets and 555-01xx phones, run by scripts/seed-demo-content.mjs for the pool and by applyIndustry for a rep's demo; check:demo-content executes it against an in-memory Prisma.)
+Last updated: 13 September 2026 (the public help centre is live at help.fieldquo.com — 311 articles in English, French and Spanish, one per screen, per Settings row and per flow, figures only from the product's own captures; lib/help/tree.js is the spine, content/help/ the words, check:help-centre the gate.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
