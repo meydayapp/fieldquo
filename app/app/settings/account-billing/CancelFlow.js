@@ -202,6 +202,13 @@ export default function CancelFlow({ open, onClose, onCancelled, periodEnd, form
         `/api/settings/subscription/retention?reason=${encodeURIComponent(key)}`,
       );
       const d = res.ok ? await res.json() : { offers: [] };
+      // Stripe already ended it (the route asked Stripe, not just our row).
+      // There is nothing to offer and nothing to cancel: close the flow and
+      // let the page render the cancelled state it has just been told about.
+      if (d.state === "canceled") {
+        onCancelled?.();
+        return;
+      }
       setOffers(d.offers || []);
       setCooldown(d.cooldown || null);
       // Nothing to offer — for "I'm closing the business" there is nothing to

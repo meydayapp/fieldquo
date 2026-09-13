@@ -9,6 +9,7 @@ import { invoiceSubscriptionId } from "@/lib/billing/subscriptionChargeEvent";
 import { settleChargeEvent } from "@/lib/stripe/settleChargeEvent";
 import { grantAiBundlePeriod, resolveAiBundleSubscription } from "@/lib/ai/creditBundle";
 import { recordError } from "@/lib/platform/errorLog";
+import { stampWebhookReceived } from "@/lib/platform/webhookHealth";
 
 // Raw body required for Stripe signature verification — Next.js needs the request
 // body untouched by JSON parsing before this point.
@@ -29,6 +30,12 @@ export async function POST(request) {
       { status: 400 },
     );
   }
+
+  // After the signature check, before any handling: the platform dashboard
+  // reads this back as "Billing: last event <when> (<type>)" — or "never",
+  // which is the sentence that would have found 2026-09-13's outage in
+  // minutes instead of a day. Never throws.
+  await stampWebhookReceived("billing", event);
 
   // ── Not every completed session here is a subscription ────────────────────
   //

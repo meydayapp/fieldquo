@@ -9,6 +9,7 @@ import { settleOccurrenceFromIntent } from "@/lib/servicePlans/run";
 import { settleCheckoutSession, failCheckoutSession } from "@/lib/stripe/settleCheckoutSession";
 import { bankDebitMethodFor } from "@/lib/stripe/bankDebit";
 import { settleChargeEvent } from "@/lib/stripe/settleChargeEvent";
+import { stampWebhookReceived } from "@/lib/platform/webhookHealth";
 
 // There is deliberately no route-local invoice recorder here any more. Both
 // checkout events — completed AND async_payment_succeeded — dispatch through
@@ -50,6 +51,10 @@ export async function POST(request) {
       { status: 400 },
     );
   }
+
+  // Verified, so it counts. The platform dashboard reads this back as
+  // "Connect: last event <when>" or "never" — see lib/platform/webhookHealth.js.
+  await stampWebhookReceived("connect", event);
 
   switch (event.type) {
     case "account.updated": {

@@ -191,7 +191,7 @@ export const ARTICLES = {
             "**Before you go** — the screen shows what you have built up (quotes, clients, invoices) and asks what is making you cancel: too expensive, paying for people who do not use it, seasonal work, not using it enough, a missing feature, moving elsewhere, closing the business, or something else. Pick one, or press **Skip this and cancel**.",
             "**One thing first** — if an offer fits, it is shown here (the table below). Take it and the plan stays; or press **No thanks — cancel my account**.",
             "**Cancel your plan** — read the consequences, add a note if you like (it is the only way we find out what to fix), and press **Cancel my plan**. **Keep my plan** closes the flow with nothing changed.",
-            "An email confirms the cancellation. The plan card now reads **Cancelled** and the **Cancel plan** button is gone.",
+            "An email confirms the cancellation. The plan card now reads **Cancelled** with the date it happened, the **Cancel plan** button is gone, and the only action left on the card is **Start a new plan** — a cancelled subscription cannot be paused, discounted or changed, only replaced.",
           ] },
           { figure: "live:app-settings-account-billing", caption: "Account & Billing — Cancel plan sits under the plan card, next to Manage billing & payment method." },
           { note: "Everything in the flow is decided on the server. The offer you see is the one your account is entitled to, and a cancellation is only ever recorded once Stripe has actually ended the subscription." },

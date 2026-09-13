@@ -23,7 +23,8 @@
 // March would be indefensible.
 
 import { offersFor, offerCooldownOver, cooldownMessage, isValidReason,
-         CANCEL_REASONS, DISCOUNT_PERCENT, DISCOUNT_MONTHS, OFFER_COOLDOWN_MONTHS } from "@/lib/billing/retention";
+         CANCEL_REASONS, DISCOUNT_PERCENT, DISCOUNT_MONTHS, OFFER_COOLDOWN_MONTHS,
+         retentionCouponName, STRIPE_COUPON_NAME_MAX } from "@/lib/billing/retention";
 let fail=0; const ok=(c,m)=>{console.log((c?"✓ ":"✗ ")+m); if(!c)fail++;};
 const NOW = new Date("2026-07-30T12:00:00Z");
 const monthsAgo = n => new Date(NOW.getTime() - n*30.44*864e5);
@@ -81,6 +82,18 @@ ok(offersFor({subscription:null, seats:0, activeMembers:0, now:NOW}).every(o=>o.
 ok(offersFor({subscription:{}, seats:1, activeMembers:99, reason:"x", now:NOW}).every(o=>o.key!=="reduce_licenses"),
    "more members than seats can't produce a negative reduction");
 ok(DISCOUNT_PERCENT>0 && DISCOUNT_PERCENT<100 && DISCOUNT_MONTHS>0, `${DISCOUNT_PERCENT}% for ${DISCOUNT_MONTHS} months`);
+
+// ── The coupon Stripe will actually accept ───────────────────────────────
+// Stripe caps coupon names at 40 characters. The discount offer used
+// "Retention 25% — <cuid>" (41) and every acceptance failed with "Invalid
+// string … must be at most 40 characters" — reproduced in test mode
+// 2026-09-13. The name is bounded by construction now; the wider executed
+// check is scripts/check-billing-sync.mjs.
+const cuid = "cmtzyunut000004jncwlnob1g";
+ok(retentionCouponName(cuid).length <= STRIPE_COUPON_NAME_MAX,
+   `the coupon name "${retentionCouponName(cuid)}" fits Stripe's ${STRIPE_COUPON_NAME_MAX}-char cap`);
+ok(`Retention ${DISCOUNT_PERCENT}% — ${cuid}`.length > STRIPE_COUPON_NAME_MAX,
+   "the old shape did not — the bug, reproduced");
 
 console.log(`\n${fail===0?"ALL PASS":fail+" FAILED"}`);
 process.exit(fail?1:0);

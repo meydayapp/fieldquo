@@ -148,7 +148,11 @@ function AccountBillingScreen() {
 
   function load() {
     return Promise.all([
-      fetch("/api/settings/subscription"),
+      // `live=1`: the route asks Stripe once and heals the row before
+      // answering, so a subscription Stripe ended is rendered as cancelled
+      // here rather than as a plan with a Cancel button (2026-09-13). The
+      // sidebar badge calls the same route without it.
+      fetch("/api/settings/subscription?live=1"),
       fetch("/api/settings/plans"),
     ]).then(async ([subRes, planRes]) => {
       // A non-ok subscription response is an { error } body, not a plan — the
@@ -290,6 +294,10 @@ function AccountBillingScreen() {
   // classifier needs — and the route guarantees the current plan is in it.
   function planChangeFor(plan) {
     const currentPlan = plans.find((p) => p.id === currentPlanId) || subscription?.plan;
+    // A cancelled subscription is not changed, it is replaced: Checkout, as
+    // for a company with no plan. Confirming "a downgrade takes effect at the
+    // end of the period" on a plan that has already ended would be wrong.
+    if (subscription?.status === "canceled") return null;
     if (!subscription?.plan || !currentPlan) return null;
     return classifyPlanChange({
       currentPlan,
@@ -411,8 +419,15 @@ function AccountBillingScreen() {
   }
 
   const isTrialing = subscription?.status === "trialing";
+  // Stripe ended it (or we did, on their instruction). Offers, pause and
+  // change-plan all act on a live subscription and none of them can act on
+  // this one, so the card says the state and the one thing that works next.
+  const isCancelled = subscription?.status === "canceled";
   const trialDays = isTrialing ? daysLeft(subscription.trialEndsAt) : null;
-  const currentPlanId = subscription?.plan?.id;
+  // On a cancelled row the old tier is NOT "current": its card must be
+  // buyable again, or the one plan they had is the one plan they cannot
+  // restart.
+  const currentPlanId = subscription?.status === "canceled" ? null : subscription?.plan?.id;
   // The plan a booked change moves them to, named from the list. The
   // subscription payload carries only the id (it is what the row holds), and
   // a card reading "Switching to clx8… on the 1st" is not a sentence.
@@ -483,10 +498,22 @@ function AccountBillingScreen() {
                 {t("app.billing.trialEnds", "Trial ends in {days} day{plural}", { days: trialDays, plural: trialDays === 1 ? "" : "s" })}
               </p>
             )}
-            {!isTrialing && subscription?.currentPeriodEnd && (
+            {!isTrialing && !isCancelled && subscription?.currentPeriodEnd && (
               <p className="text-xs text-muted-foreground mt-2">
                 {t("app.billing.nextBillingDate", "Next billing date")}{" "}
                 {formatDate(subscription.currentPeriodEnd)}
+              </p>
+            )}
+            {isCancelled && (
+              <p className="text-sm text-foreground mt-2 max-w-md">
+                {subscription.canceledAt
+                  ? t("app.billing.cancelledOn", "Your subscription was cancelled on {date}.", {
+                      date: formatDate(subscription.canceledAt),
+                    })
+                  : t("app.billing.cancelledNoDate", "Your subscription has been cancelled.")}{" "}
+                <a href="#plans" className="font-semibold underline underline-offset-2">
+                  {t("app.billing.startNewPlan", "Start a new plan →")}
+                </a>
               </p>
             )}
 
@@ -597,8 +624,8 @@ function AccountBillingScreen() {
         </div>
       </div>
 
-      {/* Available plans */}
-      <div>
+      {/* Available plans — the anchor is the "Start a new plan" link's target */}
+      <div id="plans">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <h2 className="text-base font-semibold text-foreground">{t("app.billing.plansHeading", "Plans")}</h2>
 

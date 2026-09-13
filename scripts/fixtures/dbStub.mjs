@@ -126,6 +126,13 @@ export const rows = {
   // its own stub, this one only has to be present and quiet.
   analyticsEvent: [],
   analyticsDaily: [],
+  // The platform error log and the platform key/value store, for
+  // check-billing-sync.mjs: "a drifted row is filed as billing_drift" and
+  // "a verified webhook stamps stripe_webhook_last.<endpoint>" are claims
+  // about rows written, and recordError swallows a missing model silently —
+  // which is exactly how an un-recorded drift would pass.
+  platformErrorLog: [],
+  platformSetting: [],
 };
 
 /** Every write the product attempted, in order: { model, action, data }. */
@@ -181,6 +188,8 @@ export function resetDbStub() {
   rows.platformAuditLog = [];
   rows.salesRetryRule = [];
   rows.salesSignupProgress = [];
+  rows.platformErrorLog = [];
+  rows.platformSetting = [];
   writes.length = 0;
   reads.length = 0;
   failNext.model = null;
@@ -505,6 +514,8 @@ export const db = new Proxy(
     salesSignupProgress: model("salesSignupProgress"),
     analyticsEvent: model("analyticsEvent"),
     analyticsDaily: model("analyticsDaily"),
+    platformErrorLog: model("platformErrorLog"),
+    platformSetting: model("platformSetting"),
     marketingCampaignDelivery: uniqueCreateModel("marketingCampaignDelivery", [
       "campaignId",
       "subscriberId",

@@ -278,6 +278,11 @@ const GATED = [
     permission: "billing:manage",
   },
   {
+    file: "app/platform/companies/[id]/CompanyActions.js",
+    route: "app/api/platform/companies/[id]/sync-subscription/route.js",
+    permission: "billing:manage",
+  },
+  {
     file: "app/platform/service-categories/page.js",
     route: "app/api/platform/service-categories/route.js",
     permission: "service_category:manage",

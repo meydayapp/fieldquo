@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, seesBillingState } from "@/lib/billing/billingAdmin";
+import { syncSubscriptionFromStripe } from "@/lib/platform/stripeSync";
 
 // Feeds the AdminSidebar TrialBadge AND the Account & Billing page.
 //
@@ -48,6 +49,23 @@ export async function GET(request) {
   // server: a client-side `role === "owner"` check is a hint, not a gate.
   const showTrialBadge = seesBillingState(member.role);
 
+  // ── `?live=1`: ask Stripe first, then read the row ──────────────────────
+  //
+  // Only the Account & Billing page sends it. The sidebar badge calls this
+  // route on every navigation and must not cost a Stripe round-trip each
+  // time; the billing page opens once and is where a stale row does harm —
+  // on 2026-09-13 it offered Cancel plan, Choose plan and the save-flow
+  // offers on a subscription Stripe had ended hours earlier, because the row
+  // was only ever written by a webhook that was not arriving. One retrieve,
+  // the row healed through the shared mapping, and the page below renders
+  // "cancelled on <date>" from what Stripe holds. A Stripe failure here is
+  // not the page's failure: the row's word stands and nothing is said.
+  const wantsLive = new URL(request.url).searchParams.get("live") === "1";
+  let liveSync = null;
+  if (wantsLive && seesPlan) {
+    liveSync = await syncSubscriptionFromStripe(member.companyId).catch(() => null);
+  }
+
   const subscription = await db.subscription.findUnique({
     where: { companyId: member.companyId },
     select: {
@@ -65,6 +83,8 @@ export async function GET(request) {
       pendingPlanId: true,
       pendingBillingInterval: true,
       pendingEffectiveAt: true,
+      // When the plan ended, for "Your subscription was cancelled on <date>".
+      canceledAt: true,
       plan: {
         // seats and crewSeats, not just maxUsers — the card describes the plan as
         // "1 seat · 5 crew", and a field the screen reads but the route never
@@ -90,7 +110,17 @@ export async function GET(request) {
     return NextResponse.json({ status: null, trialEndsAt: null, plan: null, showTrialBadge: false });
   }
 
-  if (seesPlan) return NextResponse.json({ ...subscription, showTrialBadge });
+  if (seesPlan) {
+    return NextResponse.json({
+      ...subscription,
+      showTrialBadge,
+      // What the live read found, so the page can say "checked with Stripe"
+      // or "could not reach Stripe" rather than implying either.
+      ...(wantsLive
+        ? { live: liveSync?.ok ? { stripeStatus: liveSync.stripeStatus, changed: liveSync.changed } : null }
+        : {}),
+    });
+  }
 
   // ── Everyone else learns nothing about the company's billing ────────────
   //

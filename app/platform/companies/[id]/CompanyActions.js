@@ -20,7 +20,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Gift, ShieldAlert } from "lucide-react";
+import { Loader2, Gift, ShieldAlert, RefreshCw } from "lucide-react";
 import PlatformWriteGate, {
   usePlatformAdmin,
 } from "@/app/components/platform/PlatformWriteGate";
@@ -89,6 +89,40 @@ export default function CompanyActions({ companyId, companyName, trialEndsAt, on
       setEndBusy(false);
     }
   }
+
+  // ── Sync from Stripe ──────────────────────────────────────────────────
+  // Rewrites OUR row from what Stripe holds. No reason asked: it changes
+  // nothing about what the company pays, and the audit row carries the
+  // fields that moved. Its result is shown field by field because "synced"
+  // alone would hide the one thing worth knowing — whether anything was wrong.
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [syncResult, setSyncResult] = useState(null);
+  const [syncError, setSyncError] = useState("");
+
+  async function syncFromStripe() {
+    setSyncBusy(true);
+    setSyncError("");
+    setSyncResult(null);
+    try {
+      const res = await fetch(`/api/platform/companies/${companyId}/sync-subscription`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || `Request failed (${res.status}).`);
+      setSyncResult(json);
+      onDone?.();
+    } catch (e) {
+      setSyncError(e.message);
+    } finally {
+      setSyncBusy(false);
+    }
+  }
+
+  const fmt = (v) => {
+    if (v === null || v === undefined) return "—";
+    const d = typeof v === "string" && /^\d{4}-\d{2}-\d{2}T/.test(v) ? new Date(v) : null;
+    return d && !Number.isNaN(d.getTime()) ? d.toLocaleString() : String(v);
+  };
 
   return (
     <div className="bg-card border border-border rounded-xl p-5">
@@ -204,6 +238,52 @@ export default function CompanyActions({ companyId, companyName, trialEndsAt, on
             {endResult.latestInvoice ? ` · invoice ${endResult.latestInvoice}` : ""}
             {endResult.currentPeriodEnd ? ` · next renewal ${new Date(endResult.currentPeriodEnd).toLocaleDateString()}` : ""}
           </p>
+        )}
+      </div>
+
+      <div className="rounded-lg border border-border p-4 mt-3">
+        <div className="flex items-center gap-2 mb-3">
+          <RefreshCw size={15} className="text-muted-foreground" />
+          <span className="text-sm font-semibold text-foreground">Sync from Stripe</span>
+          <span className="text-xs text-muted-foreground">
+            · rewrites our status, period end, trial end and cancelled-at from what Stripe holds
+          </span>
+        </div>
+        <PlatformWriteGate
+          status={roleStatus}
+          allowed={canExtend}
+          error={roleError}
+          action="Syncing a subscription from Stripe"
+          who="superadmin"
+        >
+          <button
+            onClick={syncFromStripe}
+            disabled={syncBusy}
+            className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-1.5 border border-border text-foreground rounded-full px-4 py-2 text-xs font-bold disabled:opacity-50"
+          >
+            {syncBusy ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+            Sync from Stripe
+          </button>
+        </PlatformWriteGate>
+        {syncError && <p className="text-xs text-red-600 mt-2">{syncError}</p>}
+        {syncResult && (
+          <div className="mt-2 text-xs">
+            <p className="text-emerald-700 dark:text-emerald-300 font-semibold">
+              Stripe says &quot;{syncResult.stripeStatus}&quot;
+              {syncResult.changed?.length
+                ? ` · ${syncResult.changed.length} field${syncResult.changed.length === 1 ? "" : "s"} corrected`
+                : " · our row already agreed"}
+            </p>
+            {syncResult.changed?.length > 0 && (
+              <ul className="mt-1 space-y-0.5 font-mono text-muted-foreground">
+                {syncResult.changed.map((c) => (
+                  <li key={c.field}>
+                    {c.field}: {fmt(c.before)} → {fmt(c.after)}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         )}
       </div>
     </div>

@@ -38,8 +38,8 @@ import { upsertSubscriptionFromCheckoutSession } from "@/lib/platform/stripeBill
 import { recordError } from "@/lib/platform/errorLog";
 import { recordActivity } from "@/lib/activity/log";
 import { notifySubscriptionState } from "@/lib/billing/notify";
-import { intervalFromStripeSubscription } from "@/lib/billing/interval";
 import { CLEAR_PENDING } from "@/lib/platform/planChange";
+import { subscriptionFieldsFromStripe } from "@/lib/billing/subscriptionFields";
 
 /** Stripe statuses that mean "this company is entitled to use the product". */
 const LIVE = ["active", "trialing", "past_due"];
@@ -99,7 +99,7 @@ export async function POST(request) {
     // ── Mode 2: no session — sync from the customer ──
     const existing = await db.subscription.findUnique({
       where: { companyId: member.companyId },
-      select: { stripeCustomerId: true, planId: true, pendingPlanId: true },
+      select: { stripeCustomerId: true, planId: true, pendingPlanId: true, canceledAt: true },
     });
 
     let customerId = existing?.stripeCustomerId || null;
@@ -199,28 +199,23 @@ export async function POST(request) {
     // running.
     const nowLive = LIVE.includes(live.status);
 
+    // status (in our enum), period end, trial end, cadence, canceledAt when
+    // Stripe says canceled, and the grace clears when it says live — the one
+    // mapping shared with the webhook and every Stripe-holding route
+    // (lib/billing/subscriptionFields.js). `nowLive` is kept for the two
+    // grace-warning markers: see the schema comment on
+    // graceWarnedAt/graceFinalWarnedAt — leaving the second one set would
+    // mean a company that relapses months from now skips straight to
+    // "already sent the final warning" on day one.
+    const fields = subscriptionFieldsFromStripe(live, { now: existing?.canceledAt || new Date() });
     await db.subscription.upsert({
       where: { companyId: member.companyId },
       update: {
         planId,
         stripeCustomerId: customerId,
         stripeSubscriptionId: live.id,
-        status: live.status,
-        // Both grace-warning markers, not just the first — see the schema
-        // comment on graceWarnedAt/graceFinalWarnedAt. Leaving the second one
-        // set would mean a company that relapses months from now skips
-        // straight to "already sent the final warning" on day one.
+        ...fields,
         ...(nowLive ? { pastDueSince: null, graceWarnedAt: null, graceFinalWarnedAt: null } : {}),
-        currentPeriodEnd: live.current_period_end
-          ? new Date(live.current_period_end * 1000)
-          : null,
-        trialEndsAt: live.trial_end ? new Date(live.trial_end * 1000) : null,
-        // Same rule as the webhook: the live price says how they are billed,
-        // and a shape we can't read leaves the stored cadence alone rather
-        // than overwriting a year with a guessed month.
-        ...(intervalFromStripeSubscription(live)
-          ? { billingInterval: intervalFromStripeSubscription(live) }
-          : {}),
         // A change that was booked for the end of the period and has now
         // landed — Stripe's metadata names the plan we were waiting for. The
         // webhook clears these too; this is the "Check with Stripe" button
@@ -233,17 +228,7 @@ export async function POST(request) {
         planId,
         stripeCustomerId: customerId,
         stripeSubscriptionId: live.id,
-        status: live.status,
-        currentPeriodEnd: live.current_period_end
-          ? new Date(live.current_period_end * 1000)
-          : null,
-        trialEndsAt: live.trial_end ? new Date(live.trial_end * 1000) : null,
-        // Same rule as the webhook: the live price says how they are billed,
-        // and a shape we can't read leaves the stored cadence alone rather
-        // than overwriting a year with a guessed month.
-        ...(intervalFromStripeSubscription(live)
-          ? { billingInterval: intervalFromStripeSubscription(live) }
-          : {}),
+        ...fields,
       },
     });
 

@@ -31,6 +31,7 @@ import { db } from "@/lib/db";
 import { stripe } from "@/lib/stripe";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
+import { subscriptionFieldsFromStripe } from "@/lib/billing/subscriptionFields";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -109,13 +110,12 @@ export async function POST(request, { params }) {
   const now = new Date();
   await db.$transaction([
     db.company.update({ where: { id }, data: { trialEndsAt: now } }),
+    // The same mapping every Stripe-holding route writes with
+    // (lib/billing/subscriptionFields.js): status in OUR enum, period end,
+    // trial end null now that there is none, the grace clears.
     db.subscription.update({
       where: { companyId: id },
-      data: {
-        status: after.status,
-        trialEndsAt: null,
-        currentPeriodEnd: after.current_period_end ? new Date(after.current_period_end * 1000) : undefined,
-      },
+      data: subscriptionFieldsFromStripe(after),
     }),
     db.platformAuditLog.create({
       data: {

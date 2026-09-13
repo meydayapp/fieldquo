@@ -280,6 +280,25 @@ as "for development, not for production apps used by real advertisers."
   — no email, no SMS, no AI. A company with nobody on a checklist and no
   dated certificate costs nothing beyond the invocation.
 - **`/api/cron/time-clock-watch` — every 15 minutes (2026-09-13). Nothing to set** beyond `CRON_SECRET`. Asks a worker "Still clocked in?" (push + bell) and tells their manager once when an open time entry has outlived its published shift by 30 min (14 h with no shift), and writes the late / no-show / early-out verdict per published shift (`ShiftAttendance`). It never closes an entry. Cost: **96 invocations a day** (~2,900 a month), each a handful of indexed reads bounded at 500 open entries and 2,000 shifts; a company with no published shifts and nobody clocked in costs one query per run. `vercel.json` carries the schedule.
+- **`/api/cron/billing-sync` — every 6 hours at :20 (2026-09-13). Nothing to
+  set** beyond `CRON_SECRET` and the live `STRIPE_SECRET_KEY` already there.
+  Reads every non-demo subscription with a Stripe id back from Stripe and
+  writes what Stripe says (status, period end, trial end, cadence,
+  cancelled-at — `lib/platform/stripeSync.js`); a row that disagreed is filed
+  on /platform/errors as `billing_drift` with the fields that moved, so a
+  webhook outage is visible within six hours instead of never (the owner's
+  live cancel test found no Stripe event reaching the deployment all day).
+  "No such subscription" is filed as `billing_sync_missing`, never written as
+  cancelled. Cost: **4 invocations a day**, one Stripe retrieve per
+  subscription (sequential; ~200 reads for a 200-company book), one DB write
+  per drifted row and none otherwise. The same sync is the "Sync from Stripe"
+  button on a platform company page and `scripts/sync-subscription.mjs`.
+- **Stripe webhook health is on `/platform`** — "Stripe webhooks · Billing:
+  last event 4 min ago (invoice.paid) · Connect: …" or, in red, **"never — no
+  event has reached this deployment"**. Both webhook routes stamp
+  `PlatformSetting` after signature verification. If it says never, the
+  event destination in Stripe is pointed elsewhere or its signing secret is
+  not the one in `STRIPE_BILLING_WEBHOOK_SECRET` / `STRIPE_CONNECT_WEBHOOK_SECRET`.
 - **Rotate three secrets** — they were pasted into a chat transcript:
   Cloudinary API secret, the Neon database password, `BETTER_AUTH_SECRET`.
 - **Resend DNS for `fieldquo.com`**: TXT at `resend._domainkey` with Resend's

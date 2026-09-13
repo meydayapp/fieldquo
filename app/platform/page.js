@@ -24,6 +24,19 @@ import MetricCard, { money, count } from "@/app/components/platform/MetricCard";
 import Sparkline from "@/app/components/platform/Sparkline";
 import TenantBoard from "./TenantBoard";
 
+/** "4 min ago" / "3 h ago" / "2 d ago" — coarse on purpose; a timestamp is
+ *  a fact, "ago" is the question the line answers. */
+function relativeTime(iso) {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return new Date(iso).toLocaleString();
+  const min = Math.round(ms / 60000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min} min ago`;
+  const h = Math.round(min / 60);
+  if (h < 48) return `${h} h ago`;
+  return `${Math.round(h / 24)} d ago`;
+}
+
 export default function PlatformDashboardPage() {
   // ── Two boards, because they are two businesses ─────────────────────────
   //
@@ -50,6 +63,11 @@ export default function PlatformDashboardPage() {
   // company's calls, and call billing hangs off a webhook whose failure looks
   // exactly like a phone nobody rang. See app/api/platform/voice-health.
   const [voiceHealth, setVoiceHealth] = useState(null);
+  // Whether a Stripe event has EVER reached this deployment, per endpoint.
+  // The one line that would have found 2026-09-13's outage — a cancelled
+  // subscription whose row stayed "active" because no webhook was arriving —
+  // in minutes. See app/api/platform/webhook-health.
+  const [webhookHealth, setWebhookHealth] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -99,6 +117,11 @@ export default function PlatformDashboardPage() {
     fetch("/api/platform/voice-health")
       .then((r) => (r.ok ? r.json() : null))
       .then(setVoiceHealth)
+      .catch(() => {});
+
+    fetch("/api/platform/webhook-health")
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setWebhookHealth)
       .catch(() => {});
   }, []);
 
@@ -300,6 +323,46 @@ export default function PlatformDashboardPage() {
             </div>
           );
         })()}
+
+      {/* ── Stripe webhooks ──────────────────────────────────────────────
+          Always shown once the check has answered, healthy or not, because
+          the healthy line ("last event 4 min ago") is what makes the red one
+          believable. "never" is the word: it is not "no recent event", it is
+          no event since this deployment existed. Rendered from the stamp the
+          webhook routes write AFTER signature verification, so a probe cannot
+          turn it green. */}
+      {webhookHealth && (
+        <div
+          className={`rounded-xl border p-4 text-sm ${
+            webhookHealth.healthy
+              ? "border-border bg-card text-muted-foreground"
+              : "bg-red-50 dark:bg-red-950/40 border-red-300 dark:border-red-900 text-red-800 dark:text-red-200"
+          }`}
+        >
+          <span className="font-semibold text-foreground">Stripe webhooks</span>
+          {[
+            ["billing", "Billing"],
+            ["connect", "Connect"],
+          ].map(([key, label]) => {
+            const last = webhookHealth[key];
+            return (
+              <span key={key} className="block sm:inline sm:ml-3">
+                {label}:{" "}
+                {last ? (
+                  <>
+                    last event {relativeTime(last.at)}
+                    {last.type ? ` (${last.type})` : ""}
+                  </>
+                ) : (
+                  <span className="font-semibold text-red-700 dark:text-red-300">
+                    never — no event has reached this deployment
+                  </span>
+                )}
+              </span>
+            );
+          })}
+        </div>
+      )}
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>

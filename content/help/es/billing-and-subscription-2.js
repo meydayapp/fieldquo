@@ -186,7 +186,7 @@ export const ARTICLES = {
             "**Antes de irte**: la pantalla muestra lo que ha acumulado (presupuestos, clientes, facturas) y pregunta qué lo lleva a cancelar: demasiado caro, paga por gente que no lo usa, trabajo de temporada, no lo usa lo suficiente, le falta una función, se cambia a otra cosa, cierra el negocio, u otra cosa. Elija una, o pulse **Omitir esto y cancelar**.",
             "**Una cosa primero**: si una oferta encaja, se muestra aquí (la tabla de abajo). Tómela y el plan se queda; o pulse **No, gracias — cancelar mi cuenta**.",
             "**Cancelar tu plan**: lea las consecuencias, agregue una nota si quiere (es la única forma en que nos enteramos de qué arreglar), y pulse **Cancelar mi plan**. **Mantener mi plan** cierra el flujo sin cambiar nada.",
-            "Un correo confirma la cancelación. La tarjeta del plan ahora dice **Cancelado** y el botón **Cancelar plan** ya no está.",
+            "Un correo confirma la cancelación. La tarjeta del plan ahora dice **Cancelado** con la fecha, el botón **Cancelar plan** ya no está, y la única acción que queda en la tarjeta es **Iniciar un nuevo plan** — una suscripción cancelada no se puede pausar, descontar ni cambiar, solo reemplazar.",
           ] },
           { figure: "live:app-settings-account-billing", caption: "Cuenta y facturación — Cancelar plan está bajo la tarjeta del plan, junto a Gestionar facturación y método de pago." },
           { note: "Todo en el flujo se decide en el servidor. La oferta que ve es la que corresponde a su cuenta, y una cancelación solo se registra una vez que Stripe ha terminado realmente la suscripción." },

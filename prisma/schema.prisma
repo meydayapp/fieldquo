@@ -477,6 +477,22 @@ model PlatformFeature {
   createdAt   DateTime @default(now())
 }
 
+/// A platform-wide fact with no company and no history — a key and a JSON
+/// value. First use: `stripe_webhook_last.<billing|connect>`, the last Stripe
+/// event each webhook endpoint verified (lib/platform/webhookHealth.js).
+///
+/// Not PlatformFeature: that table is the feature registry, listed on
+/// /platform/features and validated against a registry on write — a webhook
+/// stamp in it would show up as a feature nobody named. Not PlatformErrorLog:
+/// a delivery that ARRIVED is not an error, and an error log that records
+/// successes stops meaning anything. Not a column on a singleton: the next
+/// fact of this shape would need another push. Key/value, deliberately dull.
+model PlatformSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
 /// One company's answer, overriding the global. Absent row = inherit.
 ///
 /// No foreign key to PlatformFeature on purpose: an override is meaningful

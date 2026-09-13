@@ -20,6 +20,9 @@ import { recordError } from "@/lib/platform/errorLog";
 import { recordActivity } from "@/lib/activity/log";
 import { getAppOrigin } from "@/lib/appUrl";
 import { resolveCheckoutInterval } from "@/lib/billing/interval";
+import { stripe } from "@/lib/stripe";
+import { writeSubscriptionFromStripe } from "@/lib/platform/stripeSync";
+import { isCanceledSubscriptionError, subscriptionStatusFromStripe } from "@/lib/billing/subscriptionFields";
 
 // Note: this is called by a COMPANY (upgrading their own plan), not a platform admin —
 // hence getCurrentMember, not getCurrentPlatformAdmin. It lives under /platform/billing
@@ -105,7 +108,38 @@ export async function POST(request) {
     include: { plan: true },
   });
   const LIVE = new Set(["active", "trialing", "past_due"]);
-  if (existing?.stripeSubscriptionId && LIVE.has(existing.status)) {
+
+  // ── Ask Stripe before moving anything ────────────────────────────────────
+  //
+  // The row can say "active" after Stripe has cancelled (2026-09-13: no
+  // webhook was reaching the deployment, and this route answered a plan
+  // change on a cancelled subscription with Stripe's "cannot migrate a
+  // subscription that is currently in the canceled status" as a 502). One
+  // retrieve here: the row is healed from it, and a cancelled subscription
+  // falls through to Checkout below — which IS the way to start a new plan.
+  let liveStatus = existing?.status || null;
+  if (existing?.stripeSubscriptionId) {
+    try {
+      const live = await stripe.subscriptions.retrieve(existing.stripeSubscriptionId);
+      await writeSubscriptionFromStripe(member.companyId, live, { row: existing });
+      // In our enum, not Stripe's: `unpaid` is a past_due company that may
+      // still upgrade, and the LIVE set below is written in our words.
+      liveStatus = subscriptionStatusFromStripe(live.status) || existing.status;
+    } catch (err) {
+      if (isCanceledSubscriptionError(err)) {
+        await writeSubscriptionFromStripe(
+          member.companyId,
+          { id: existing.stripeSubscriptionId, status: "canceled", canceled_at: null },
+          { row: existing },
+        ).catch(() => {});
+        liveStatus = "canceled";
+      }
+      // Any other Stripe error: the row's word stands, and the update below
+      // will surface a real failure on its own.
+    }
+  }
+
+  if (existing?.stripeSubscriptionId && LIVE.has(liveStatus)) {
     if (existing.planId === plan.id && (existing.billingInterval || "month") === interval) {
       return NextResponse.json({ changed: false, note: "You're already on that plan." });
     }

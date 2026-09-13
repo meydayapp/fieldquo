@@ -1,12 +1,89 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 13 September 2026 (team management in the Homebase shape: publishing tells the crew, My schedule at /app/me/schedule, labour cost and overtime on the board before publish, a time-clock watch cron that asks "still clocked in?" and flags late / no-show / early-out, an audit trail on every shift edit and punch, blackout dates + a most-off-at-once cap + a statutory-holiday table by province/state, and the raw timesheet CSV — lib/shifts/attendance.js, lib/shifts/labourCost.js, lib/leave/rules.js, lib/leave/statutoryHolidays.js; check:shift-notify executes them.)
+Last updated: 13 September 2026 (the Subscription row agrees with Stripe without a webhook: every route that mutates a subscription at Stripe writes Stripe's reply through one mapping — lib/billing/subscriptionFields.js — a "Sync from Stripe" button on the platform company page, a six-hourly /api/cron/billing-sync that files `billing_drift`, "Stripe webhooks: … / never" on /platform, the cancelled state on Account & Billing, and the 41-char retention coupon name fixed; check:billing-sync executes it.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The row agrees with Stripe without a webhook (13 September 2026)
+
+The owner's own $1 live payment test found it: he cancelled from the
+product at 20:06 UTC, Stripe ended the subscription at once, and our
+Subscription row said `active` for the rest of the day — the cancel route
+wrote nothing and waited for `customer.subscription.deleted`, and no Stripe
+event had reached the deployment all day (six hours of logs, zero webhook
+POSTs). Every screen then offered a pause ("A canceled subscription can only
+update its cancellation_details and metadata"), a plan change ("cannot
+migrate a subscription that is currently in the canceled status") and a
+second cancel ("No such subscription"), each shown as a 502 "try again". A
+second bug sat under the discount offer: the coupon name was 41 characters,
+Stripe's cap is 40, so no retention discount had ever been applied.
+
+**One mapping, every writer.** `lib/billing/subscriptionFields.js` turns a
+Stripe Subscription object into our columns — status in OUR enum (`unpaid`
+and `paused` → past_due, `incomplete_expired` → canceled, `incomplete` →
+nothing; `obj.status` written straight through was a Prisma error the day
+dunning gave up), period end (on the object or, for the basil API shape, on
+the items), trial end, cadence, `canceledAt` from Stripe's clock, the grace
+clears. `lib/platform/stripeSync.js` writes it and churns the company on a
+cancel. The webhook uses it; so now does every route that holds a Stripe
+reply of its own: cancel, the three retention offers, change-plan, end-trial,
+extend (referral months), `syncStripeTrialEnd`, and the Check-with-Stripe
+reconcile. The cancel route writes the row BEFORE the email and the activity
+row, and answers "already cancelled" (with the row healed) to Stripe's three
+refusals rather than 500.
+
+**Read live before offering anything.** The retention GET/POST and the
+change-plan route retrieve the subscription once; a cancelled one answers
+`{ state: "canceled", canceledAt }` with no offers (409 on POST), and the
+row is healed in the same request. Account & Billing asks
+`/api/settings/subscription?live=1` (the sidebar badge does not — it calls
+the same route on every navigation) and renders "Your subscription was
+cancelled on <date>. Start a new plan →" in nine languages; the old tier's
+card is buyable again rather than greyed as "Current plan".
+
+**Sync, on demand and on a schedule.** "Sync from Stripe" on
+/platform/companies/[id] (billing:manage, audit `subscription_synced` with
+the fields that moved). `/api/cron/billing-sync` every six hours: every
+non-demo subscription with a Stripe id, one retrieve each, a row that
+disagreed corrected and filed on /platform/errors as `billing_drift` naming
+the fields — a webhook outage is visible within six hours instead of never.
+"No such subscription" is filed as `billing_sync_missing` and never written
+as cancelled (a key from the other mode would otherwise lock every paying
+company out in one run). `scripts/sync-subscription.mjs <companyId>` is the
+same function from a shell and refuses a test-mode key by name.
+
+**Webhook health, visible.** Both Stripe webhook routes stamp
+`PlatformSetting` `stripe_webhook_last.<billing|connect>` after signature
+verification (a new key/value table — nothing of that shape existed;
+PlatformFeature is the feature registry and PlatformErrorLog records
+failures, not arrivals). `/platform` prints "Stripe webhooks · Billing: last
+event 4 min ago (invoice.paid) · Connect: …" or, in red, **"never — no event
+has reached this deployment"**.
+
+`npm run check:billing-sync` executes the mapping over every Stripe status,
+the drift, the three refusal phrasings, the sync against the db/Stripe
+fakes (including "missing is not cancelled" and "a second sync writes
+nothing"), the deleted webhook through the mapping, the stamp round-trip,
+the cron route end to end (drift filed, agreeing row silent, missing row
+left alone), and the coupon-name bound; source pins hold the routes to it.
+`check:retention` carries the coupon bound too.
+
+### Still owed here
+
+- **Test Inc.'s row** (`cmtzyunut000004jncwlnob1g`) still says `active` until
+  someone with the live key runs the sync: the "Sync from Stripe" button on
+  its platform page, or the cron's first tick. The local key is test-mode
+  and the script refuses it on purpose.
+- **Why no Stripe event reaches the deployment** is a Stripe-dashboard
+  question (the event destination's URL, or its signing secret vs
+  `STRIPE_BILLING_WEBHOOK_SECRET`). The dashboard line now says "never"
+  until the first one lands; the cron keeps the rows right meanwhile.
 
 ---
 

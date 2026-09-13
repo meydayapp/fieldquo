@@ -69,6 +69,10 @@
       "schedule": "0 9 * * *"
     },
     {
+      "path": "/api/cron/billing-sync",
+      "schedule": "20 */6 * * *"
+    },
+    {
       "path": "/api/cron/signup-recovery",
       "schedule": "30 14 * * *"
     },
