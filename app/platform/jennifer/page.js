@@ -13,7 +13,7 @@
 // documented in a comment nobody using it will read.
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Loader2, MessageCircle, AlertCircle, Send, CheckCircle2 } from "lucide-react";
 
@@ -56,6 +56,15 @@ export default function PlatformJenniferPage() {
   const [selectedId, setSelectedId] = useState(null);
   const [conversation, setConversation] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  // Below lg the reading pane sits UNDER the whole list; tapping a row on a
+  // phone would otherwise change nothing on screen. Scroll the pane up to
+  // the top bar when a row is picked there — from lg up the two columns are
+  // side by side and the scroll would only jump the page.
+  const paneRef = useRef(null);
+  useEffect(() => {
+    if (!selectedId || typeof window === "undefined" || window.innerWidth >= 1024) return;
+    paneRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [selectedId]);
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -153,7 +162,7 @@ export default function PlatformJenniferPage() {
               setConversation(null);
               setDetailError("");
             }}
-            className={`px-3 py-2 rounded-lg text-sm font-medium border ${
+            className={`min-h-[44px] min-w-[44px] lg:min-h-0 px-3 py-2 rounded-lg text-sm font-medium border ${
               status === s.value
                 ? "bg-inverted text-inverted-foreground border-inverted"
                 : "border-border text-muted-foreground hover:bg-muted"
@@ -171,7 +180,11 @@ export default function PlatformJenniferPage() {
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+      {/* minmax(0,1fr) in BOTH layouts: a bare `grid` column is minmax(auto,1fr),
+          and the truncated preview lines below have a min-content width of
+          the whole sentence — on a phone the column grew to 970px and the
+          page scrolled sideways to follow it. */}
+      <div className="grid gap-4 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <div className="space-y-3">
           {loading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground py-8">
@@ -224,7 +237,7 @@ export default function PlatformJenniferPage() {
           )}
         </div>
 
-        <div className="bg-card border border-border rounded-xl p-5 min-h-[24rem]">
+        <div ref={paneRef} className="bg-card border border-border rounded-xl p-5 min-h-[24rem] scroll-mt-16">
           {!selectedId ? (
             <p className="text-sm text-muted-foreground">Select a conversation to read it.</p>
           ) : detailLoading ? (
@@ -292,7 +305,7 @@ export default function PlatformJenniferPage() {
                     type="button"
                     onClick={() => submitReply(false)}
                     disabled={sending || !reply.trim()}
-                    className="flex items-center gap-1.5 rounded-lg bg-inverted px-3 py-2 text-sm font-semibold text-inverted-foreground disabled:opacity-60"
+                    className="min-h-[44px] lg:min-h-0 flex items-center gap-1.5 rounded-lg bg-inverted px-3 py-2 text-sm font-semibold text-inverted-foreground disabled:opacity-60"
                   >
                     {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                     Reply

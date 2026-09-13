@@ -885,8 +885,15 @@ function ProspectDetail({ detail }) {
         ) : (
           <ul className="list-disc pl-5 space-y-1">
             {p.unknowns.map((u, i) => (
-              <li key={`${u}-${i}`} className="text-sm text-muted-foreground break-words">
-                {u}
+              // lib/sales/prospectView.js hands an unknown over as
+              // { key, params, text } (the rep's queue translates the key);
+              // this English-only console reads the sentence. Rendering
+              // the object itself threw "Objects are not valid as a React
+              // child" and took the whole detail panel down on any
+              // prospect with an unknown — found by the phone audit's
+              // harness (docs/screens/platform-mobile), not by a user.
+              <li key={`${u?.key || u?.text || u}-${i}`} className="text-sm text-muted-foreground break-words">
+                {typeof u === "string" ? u : u?.text || u?.key}
               </li>
             ))}
           </ul>

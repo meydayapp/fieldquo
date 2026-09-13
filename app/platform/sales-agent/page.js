@@ -365,7 +365,7 @@ export default function PlatformSalesAgentPage() {
           <button
             onClick={() => send({ action: "save", enabled, notes }, "save", "Saved and pushed.")}
             disabled={Boolean(busy) || !dirty}
-            className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+            className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
           >
             {busy === "save" ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
             Save and push

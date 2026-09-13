@@ -314,7 +314,7 @@ export default function PlatformSalesWindowsPage() {
                           <button
                             onClick={() => save(row)}
                             disabled={busy === row.key}
-                            className="inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-60"
+                            className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-60"
                           >
                             {busy === row.key ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
                             Save

@@ -714,7 +714,7 @@ export default function StaffChat({ heading = "Team" }) {
             aria-haspopup="menu"
             aria-expanded={newMenu}
             data-new-button
-            className="inline-flex min-h-[36px] items-center gap-1 rounded-lg border border-border px-2.5 text-sm font-medium text-foreground hover:bg-muted"
+            className="inline-flex min-h-[44px] lg:min-h-[36px] items-center gap-1 rounded-lg border border-border px-2.5 text-sm font-medium text-foreground hover:bg-muted"
           >
             <Plus size={14} aria-hidden="true" /> {t("app.teamChat.new")}
           </button>
@@ -768,7 +768,7 @@ export default function StaffChat({ heading = "Team" }) {
             }}
             aria-pressed={context === "members"}
             data-members-button
-            className="inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground hover:bg-muted"
+            className="inline-flex min-h-[44px] lg:min-h-[36px] shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground hover:bg-muted"
           >
             <Users size={14} aria-hidden="true" />
             {t("app.teamChat.memberCount", { count: room.memberCount })}
@@ -979,8 +979,8 @@ function MembersBar({ roomId, me, onClose, onChanged, onLeave }) {
             <input value={topic} onChange={(e) => setTopic(e.target.value)} maxLength={200} placeholder={t("app.teamChat.groupTopicPlaceholder")} className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-base text-foreground placeholder:text-muted-foreground" />
           </label>
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => setEditing(false)} className="min-h-[36px] rounded-lg px-3 text-sm text-muted-foreground hover:bg-muted">{t("app.teamChat.cancel")}</button>
-            <button type="submit" disabled={busy} className="min-h-[36px] rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">{t("app.teamChat.save")}</button>
+            <button type="button" onClick={() => setEditing(false)} className="min-h-[44px] lg:min-h-[36px] rounded-lg px-3 text-sm text-muted-foreground hover:bg-muted">{t("app.teamChat.cancel")}</button>
+            <button type="submit" disabled={busy} className="min-h-[44px] lg:min-h-[36px] rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">{t("app.teamChat.save")}</button>
           </div>
         </form>
       ) : null}
@@ -1006,7 +1006,7 @@ function MembersBar({ roomId, me, onClose, onChanged, onLeave }) {
                   </span>
                 </span>
                 {m.canRemove ? (
-                  <button type="button" disabled={busy} onClick={() => remove(m)} className="shrink-0 min-h-[36px] rounded-lg px-2 text-xs font-medium text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/40">
+                  <button type="button" disabled={busy} onClick={() => remove(m)} className="shrink-0 min-h-[44px] lg:min-h-[36px] rounded-lg px-2 text-xs font-medium text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/40">
                     {t("app.teamChat.remove")}
                   </button>
                 ) : null}
@@ -1045,8 +1045,8 @@ function MembersBar({ roomId, me, onClose, onChanged, onLeave }) {
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-muted-foreground">{t("app.teamChat.groupSelected", { count: selected.size })}</span>
                 <span className="flex gap-2">
-                  <button type="button" onClick={() => { setAdding(false); setSelected(new Set()); }} className="min-h-[36px] rounded-lg px-3 text-sm text-muted-foreground hover:bg-muted">{t("app.teamChat.cancel")}</button>
-                  <button type="button" disabled={busy || !selected.size} onClick={add} className="min-h-[36px] rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">{t("app.teamChat.add")}</button>
+                  <button type="button" onClick={() => { setAdding(false); setSelected(new Set()); }} className="min-h-[44px] lg:min-h-[36px] rounded-lg px-3 text-sm text-muted-foreground hover:bg-muted">{t("app.teamChat.cancel")}</button>
+                  <button type="button" disabled={busy || !selected.size} onClick={add} className="min-h-[44px] lg:min-h-[36px] rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">{t("app.teamChat.add")}</button>
                 </span>
               </div>
             </>

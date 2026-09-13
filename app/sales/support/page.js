@@ -349,7 +349,7 @@ function SalesSupportInner() {
             <button
               key={f.value || "all"}
               onClick={() => setFilter(f.value)}
-              className={`px-3 py-2 min-h-[44px] rounded-lg text-sm font-medium border ${
+              className={`px-3 py-2 min-h-[44px] min-w-[44px] rounded-lg text-sm font-medium border ${
                 filter === f.value
                   ? "bg-inverted text-inverted-foreground border-inverted"
                   : "border-border text-muted-foreground hover:bg-muted"

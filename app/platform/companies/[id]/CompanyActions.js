@@ -111,7 +111,7 @@ export default function CompanyActions({ companyId, companyName, trialEndsAt, on
           <button
             onClick={extendTrial}
             disabled={!canSubmit}
-            className="inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground rounded-full px-4 py-2 text-xs font-bold disabled:opacity-50"
+            className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground rounded-full px-4 py-2 text-xs font-bold disabled:opacity-50"
           >
             {busy && <Loader2 size={13} className="animate-spin" />}
             Extend

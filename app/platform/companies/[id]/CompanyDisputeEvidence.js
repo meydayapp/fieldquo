@@ -150,7 +150,7 @@ export default function CompanyDisputeEvidence({ companyId, companyName }) {
           type="button"
           onClick={assemble}
           disabled={busy}
-          className="rounded-lg bg-primary text-primary-foreground px-3 py-1.5 text-sm font-medium disabled:opacity-60 flex items-center gap-2"
+          className="min-h-[44px] lg:min-h-0 rounded-lg bg-primary text-primary-foreground px-3 py-1.5 text-sm font-medium disabled:opacity-60 flex items-center gap-2"
         >
           {busy && <Loader2 size={14} className="animate-spin" />}
           {data ? "Reassemble" : "Assemble evidence"}

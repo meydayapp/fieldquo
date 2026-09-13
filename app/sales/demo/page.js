@@ -227,7 +227,7 @@ export default function SalesDemoPage() {
             <button
               type="button"
               onClick={() => setReplacing(true)}
-              className="text-sm underline text-muted-foreground"
+              className="min-h-[44px] text-sm underline text-muted-foreground"
             >
               {t("app.salesCal.demoLoginReplaceLink")}
             </button>

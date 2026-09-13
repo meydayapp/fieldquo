@@ -758,7 +758,7 @@ function ZoneChips({ t, zones, zoneFilter, onZone, total }) {
       onClick={() => onZone(key)}
       aria-pressed={active}
       data-zone-chip={key || "all"}
-      className={`inline-flex items-center gap-1.5 min-h-[36px] py-2 px-2.5 rounded-full border text-xs font-semibold ${
+      className={`inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] py-2 px-2.5 rounded-full border text-xs font-semibold ${
         active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground hover:bg-muted"
       }`}
     >
@@ -963,7 +963,7 @@ function DialButton({ t, e164, onDial }) {
     <button
       type="button"
       onClick={() => onDial(e164)}
-      className="inline-flex items-center gap-1 min-h-[36px] py-2 px-2 rounded-md border border-emerald-300 dark:border-emerald-800 text-xs font-semibold text-emerald-800 dark:text-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+      className="inline-flex items-center gap-1 min-h-[44px] lg:min-h-[36px] py-2 px-2 rounded-md border border-emerald-300 dark:border-emerald-800 text-xs font-semibold text-emerald-800 dark:text-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
       aria-label={t("app.salesQueue.dialNumberAria", { number: e164 })}
       data-dial-number-button={e164}
     >

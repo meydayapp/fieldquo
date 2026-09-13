@@ -113,7 +113,7 @@ export function PeriodTable({ table, period, onPeriod }) {
               role="tab"
               aria-selected={period === p}
               onClick={() => onPeriod(p)}
-              className={`rounded-md px-3 py-1 text-xs font-medium ${
+              className={`min-h-[44px] lg:min-h-0 rounded-md px-3 py-1 text-xs font-medium ${
                 period === p ? "bg-inverted text-inverted-foreground" : "text-foreground"
               }`}
               data-period-switch={p}
@@ -134,11 +134,18 @@ export function PeriodTable({ table, period, onPeriod }) {
         Weeks are Monday to Monday in UTC — the same weeks the payout run closes. Each cell links to the rep;
         a single closed week links to its batch.
       </p>
+      {/* A table, on purpose, at every width: eight reps by five weeks is a
+          grid a person reads across, and cards would hide the comparison.
+          It scrolls sideways inside this container; the period column is
+          sticky so the row you are reading keeps its name while the reps
+          go by on a phone (docs/screens/platform-mobile/after/
+          sales__payouts-375.png). Opaque fills on the sticky cells, or the
+          scrolled columns show through them. */}
       <div className="overflow-x-auto rounded-lg border border-border">
         <table className="min-w-full text-sm">
           <thead className="bg-muted/60">
             <tr>
-              <th className="px-2 py-1.5 text-left text-xs font-medium text-muted-foreground">Period</th>
+              <th className="sticky left-0 z-10 bg-muted px-2 py-1.5 text-left text-xs font-medium text-muted-foreground">Period</th>
               {table.columns.map((c) => (
                 <th key={c.id} className="px-2 py-1.5 text-right text-xs font-medium text-muted-foreground whitespace-nowrap">
                   {c.name}
@@ -150,7 +157,7 @@ export function PeriodTable({ table, period, onPeriod }) {
           <tbody>
             {table.rows.map((row) => (
               <tr key={row.key} className="border-t border-border" data-period-row={row.key}>
-                <td className="px-2 py-1.5 text-foreground whitespace-nowrap">{row.label}</td>
+                <td className="sticky left-0 z-10 bg-card px-2 py-1.5 text-foreground whitespace-nowrap">{row.label}</td>
                 {row.cells.map((cell) => (
                   <Cell key={cell.repId} cell={cell} repHref={`/platform/sales/reps#rep-${encodeURIComponent(cell.repId)}`} />
                 ))}
@@ -160,7 +167,7 @@ export function PeriodTable({ table, period, onPeriod }) {
               </tr>
             ))}
             <tr className="border-t-2 border-border bg-muted/40 font-medium">
-              <td className="px-2 py-1.5 text-foreground">Total</td>
+              <td className="sticky left-0 z-10 bg-muted px-2 py-1.5 text-foreground">Total</td>
               {table.totals.byRep.map((t) => (
                 <td key={t.repId} className="px-2 py-1.5 text-right tabular-nums text-foreground" data-col-total={t.cents}>
                   {centsToMoney(t.cents)}

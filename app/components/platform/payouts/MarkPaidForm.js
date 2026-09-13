@@ -30,7 +30,7 @@ const FIELD =
   "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground";
 const LABEL = "block text-xs font-medium text-foreground mb-1";
 const BTN =
-  "inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium disabled:opacity-50";
+  "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-0 rounded-lg px-3 py-2 text-sm font-medium disabled:opacity-50";
 
 /**
  * @param batch    { id, status, paymentReference, proofUrl, paidVia, paymentNote, cents }

@@ -208,7 +208,7 @@ export default function SalesThreadPage({ params }) {
           <button
             type="submit"
             disabled={busy}
-            className="text-sm font-semibold px-3 py-2 rounded-lg bg-inverted text-inverted-foreground flex items-center gap-1.5 disabled:opacity-60"
+            className="min-h-[44px] text-sm font-semibold px-3 py-2 rounded-lg bg-inverted text-inverted-foreground flex items-center gap-1.5 disabled:opacity-60"
           >
             {busy ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
             {t("app.salesNotes.sendReply")}

@@ -554,7 +554,7 @@ export default function SalesLeadPage({ params }) {
             onClick={() => patch({ status: s })}
             // 44px: these five chips are how a rep moves a lead through the
             // pipeline one-handed, and they were 26px tall.
-            className={`inline-flex items-center min-h-[44px] text-xs font-semibold px-3 rounded-full border disabled:opacity-60 ${
+            className={`inline-flex items-center justify-center min-h-[44px] min-w-[44px] text-xs font-semibold px-3 rounded-full border disabled:opacity-60 ${
               lead.status === s
                 ? "bg-inverted text-inverted-foreground border-inverted"
                 : "border-border text-muted-foreground"
@@ -868,7 +868,7 @@ export default function SalesLeadPage({ params }) {
           <button
             type="submit"
             disabled={busy}
-            className="text-sm font-semibold px-3 py-2 rounded-lg bg-inverted text-inverted-foreground flex items-center gap-1.5 disabled:opacity-60"
+            className="min-h-[44px] text-sm font-semibold px-3 py-2 rounded-lg bg-inverted text-inverted-foreground flex items-center gap-1.5 disabled:opacity-60"
           >
             {busy ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
             {t("app.salesLeads.send")}

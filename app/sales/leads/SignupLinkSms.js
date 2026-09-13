@@ -293,7 +293,7 @@ export default function SignupLinkSms({ leadId, inThread = false, onSent = null 
           <button
             type="submit"
             disabled={busy || !zone}
-            className="text-sm font-semibold px-3 py-2 rounded-lg bg-inverted text-inverted-foreground flex items-center gap-1.5 disabled:opacity-60"
+            className="min-h-[44px] text-sm font-semibold px-3 py-2 rounded-lg bg-inverted text-inverted-foreground flex items-center gap-1.5 disabled:opacity-60"
           >
             {busy ? <Loader2 size={15} className="animate-spin" /> : <MessageSquare size={15} />}
             {t("app.salesLeads.smsSend")}

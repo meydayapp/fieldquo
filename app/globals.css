@@ -460,3 +460,20 @@
     font-size: 16px;
   }
 }
+
+/* A <select> is as wide as its longest option, and an <input> as wide as
+ * its `size`. Inside a grid track (`1fr` is minmax(auto, 1fr)) or a
+ * flex-wrap row, that intrinsic width is the item's minimum contribution,
+ * so one option reading "Unassigned — shared across the whole floor" made
+ * the track — and the page — 489px wide on a 375px phone. Measured on
+ * /platform/audit-log, /platform/crew-lines and /platform/migrations/[id]
+ * (docs/screens/platform-mobile/before/audit.json). min-width: 0 lets the
+ * track fit the container and the control stretch to the track; max-width
+ * caps it in a wrapping flex row, where the container is definite. Only
+ * under pressure: a control with room keeps its intrinsic width. Unlayered,
+ * like the iOS rule above, so a `w-` utility still wins. */
+select,
+input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="image"]) {
+  max-width: 100%;
+  min-width: 0;
+}

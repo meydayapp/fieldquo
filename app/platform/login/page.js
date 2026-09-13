@@ -85,7 +85,7 @@ export default function PlatformLoginPage() {
         <button
           type="submit"
           disabled={busy}
-          className="w-full bg-inverted text-inverted-foreground text-sm font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 disabled:opacity-60"
+          className="w-full min-h-[44px] bg-inverted text-inverted-foreground text-sm font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 disabled:opacity-60"
         >
           {busy && <Loader2 size={14} className="animate-spin" />}
           Sign in

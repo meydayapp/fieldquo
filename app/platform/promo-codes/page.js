@@ -217,7 +217,7 @@ export default function PromoCodesPage() {
           <button
             type="submit"
             disabled={!canGenerate}
-            className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
+            className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-2 bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
           >
             {creating ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
             Generate code

@@ -562,7 +562,7 @@ function QuoteForm({ id, currentCurrency, onSaved }) {
       <button
         type="submit"
         disabled={saving || !amount}
-        className="inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
+        className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
       >
         {saving && <Loader2 size={14} className="animate-spin" />}
         Send quote
@@ -700,7 +700,7 @@ function AddClientForm({ id, setError, setNote, onCreated }) {
       <button
         type="submit"
         disabled={saving || !name.trim()}
-        className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg disabled:opacity-60"
+        className="inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-0 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg disabled:opacity-60"
       >
         {saving && <Loader2 size={13} className="animate-spin" />}
         Add client
@@ -801,7 +801,7 @@ function AddQuoteForm({
       <button
         type="submit"
         disabled={saving || !clientId || amount === ""}
-        className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg disabled:opacity-60"
+        className="inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-0 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg disabled:opacity-60"
       >
         {saving && <Loader2 size={13} className="animate-spin" />}
         Add quote

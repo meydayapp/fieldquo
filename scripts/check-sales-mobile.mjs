@@ -263,8 +263,15 @@ section("3. The drawer holds the rest, and the tour knows how to open it");
   ok("…and the open button is what the tour clicks first", /data-tour-open="sales-nav"/.test(src));
   ok("the two selectors in portalTabs.js name those attributes", SALES_NAV_OPEN === "[data-tour-open='sales-nav']" && SALES_NAV_CLOSE === "[data-tour-close='sales-nav']");
   ok("the drawer closes on navigation", /useEffect\(\(\) => \{\s*setOpen\(false\);\s*\}, \[pathname\]\)/.test(src));
-  ok("the drawer sits above both bars", /fixed inset-0 z-50/.test(src));
-  ok("…and pads for both safe areas", /pt-\[env\(safe-area-inset-top\)\] pb-\[env\(safe-area-inset-bottom\)\]/.test(src));
+  // The container moved to app/components/layout/NavDrawer.js with the
+  // platform console's phone chrome (2026-09-13) — one slide-over for the
+  // three sidebars. The two properties below are still asserted, on the file
+  // that now carries them, plus that this bar renders THAT drawer with the
+  // safe-area padding switched on.
+  const drawer = decomment(read("app/components/layout/NavDrawer.js"));
+  ok("the bar renders the shared NavDrawer, with safe areas", /<NavDrawer[\s\S]{0,240}?\bsafeArea\b/.test(src));
+  ok("the drawer sits above both bars", /fixed inset-0 z-50/.test(drawer));
+  ok("…and pads for both safe areas", /pt-\[env\(safe-area-inset-top\)\] pb-\[env\(safe-area-inset-bottom\)\]/.test(drawer));
   ok("the drawer carries the sign-out, wired to the shell's own handler", /onClick=\{onSignOut\}/.test(src));
   ok("the shell hands it the same list the desktop row maps", /<SalesMobileTabBar tabs=\{tabs\} name=\{me\?\.name \|\| null\} onSignOut=\{signOut\}/.test(shellCode));
   // Found in the browser, not by reading: mounted after <main>, the sticky

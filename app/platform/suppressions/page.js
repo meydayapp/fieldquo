@@ -192,7 +192,7 @@ export default function PlatformSuppressionsPage() {
           </button>
           <button
             onClick={() => setDraft({ kind: "email", value: "", source: "manual", reason: "" })}
-            className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg"
+            className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg"
           >
             <Plus size={14} /> Add
           </button>
@@ -292,7 +292,7 @@ export default function PlatformSuppressionsPage() {
             <button
               onClick={addOne}
               disabled={busy || !draft.value.trim()}
-              className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-50"
+              className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-50"
             >
               {busy ? <Loader2 size={14} className="animate-spin" /> : <Ban size={14} />} Suppress
             </button>
@@ -324,7 +324,7 @@ export default function PlatformSuppressionsPage() {
             <button
               onClick={importList}
               disabled={busy || !bulk.trim()}
-              className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-50"
+              className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-50"
             >
               {busy ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} Import
             </button>
@@ -352,7 +352,7 @@ export default function PlatformSuppressionsPage() {
             className="w-full border border-border rounded-lg pl-9 pr-3 py-2 text-sm bg-background"
           />
         </div>
-        <button type="submit" className="border border-border text-sm px-4 py-2 rounded-lg">
+        <button type="submit" className="min-h-[44px] lg:min-h-0 border border-border text-sm px-4 py-2 rounded-lg">
           Search
         </button>
       </form>

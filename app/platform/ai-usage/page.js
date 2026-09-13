@@ -269,7 +269,7 @@ export default function AiUsagePage() {
                           <button
                             onClick={() => saveCap(r.companyId)}
                             disabled={savingId === r.companyId}
-                            className="inline-flex items-center gap-1 bg-inverted text-inverted-foreground text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-60"
+                            className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-1 bg-inverted text-inverted-foreground text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-60"
                           >
                             {savingId === r.companyId ? (
                               <Loader2 size={11} className="animate-spin" />

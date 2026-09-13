@@ -27,7 +27,7 @@ import SignupFlagChip from "@/app/components/platform/SignupFlagChip";
 import { count } from "@/app/components/platform/MetricCard";
 
 const BTN =
-  "inline-flex items-center justify-center gap-2 min-h-[40px] px-3 py-2 rounded-lg text-sm font-semibold disabled:opacity-60";
+  "inline-flex items-center justify-center gap-2 min-h-[44px] lg:min-h-[40px] px-3 py-2 rounded-lg text-sm font-semibold disabled:opacity-60";
 
 function when(value) {
   if (!value) return "—";

@@ -9,6 +9,7 @@ import { useSession, signOut } from "@/lib/auth-client";
 import { useImpersonation } from "@/app/hooks/useImpersonation";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import TrialBadge from "@/app/components/layout/TrialBadge";
+import NavDrawer from "@/app/components/layout/NavDrawer";
 import {
   MessageSquare,
   MessageCircle,
@@ -864,18 +865,11 @@ export default function AdminSidebar() {
         {sidebarContent({ forceExpanded: false })}
       </aside>
 
-      {/* Mobile drawer */}
-      {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 z-50">
-          <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            onClick={() => setMobileOpen(false)}
-          />
-          <aside className="absolute left-0 top-0 h-full w-[min(20rem,86vw)] max-w-[86vw] bg-sidebar text-sidebar-foreground shadow-2xl flex flex-col">
-            {sidebarContent({ forceExpanded: true })}
-          </aside>
-        </div>
-      )}
+      {/* Mobile drawer — the shared slide-over; the rows inside are this
+          rail's own. */}
+      <NavDrawer open={mobileOpen} onClose={() => setMobileOpen(false)} label={t("app.sidebar.openMenu")}>
+        {sidebarContent({ forceExpanded: true })}
+      </NavDrawer>
     </>
   );
 }

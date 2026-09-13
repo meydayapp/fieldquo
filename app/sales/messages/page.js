@@ -114,8 +114,12 @@ import { useThreadRefresh } from "./useThreadRefresh";
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
 const CARD = "rounded-xl border border-border bg-card p-4 space-y-3";
+// 44px below lg, 36 from lg up: the phone audit (docs/screens/sales-mobile)
+// measured every one of these at 36px on a 375px phone, under the floor the
+// BTN above states; the desktop keeps its density because the row it sits
+// in is beside a thread there. Same rule in StaffChat.js and the queue.
 const ACTION =
-  "inline-flex items-center gap-1.5 min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-60";
+  "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-60";
 const TAG = "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold";
 
 /** The frame's height: the viewport minus the shell's chrome above and below. */
@@ -1262,7 +1266,7 @@ function SalesMessagesScreen() {
               type="button"
               onClick={() => setRoadblocksOnly((v) => !v)}
               aria-pressed={roadblocksOnly}
-              className={`${TAG} min-h-[36px] px-2.5 transition-colors motion-reduce:transition-none ${
+              className={`${TAG} min-h-[44px] lg:min-h-[36px] px-2.5 transition-colors motion-reduce:transition-none ${
                 roadblocksOnly ? "bg-red-600 text-white" : "border border-border bg-card text-foreground hover:bg-muted"
               }`}
             >
@@ -1271,7 +1275,7 @@ function SalesMessagesScreen() {
               {roadblockCount > 0 ? <span className="tabular-nums">{roadblockCount}</span> : null}
             </button>
             {roadblocksOnly ? (
-              <button type="button" onClick={() => setRoadblocksOnly(false)} className={`${TAG} min-h-[36px] px-2 text-muted-foreground hover:bg-muted`}>
+              <button type="button" onClick={() => setRoadblocksOnly(false)} className={`${TAG} min-h-[44px] lg:min-h-[36px] px-2 text-muted-foreground hover:bg-muted`}>
                 {t("app.salesText.filterAll")}
               </button>
             ) : null}

@@ -127,7 +127,7 @@ export default function SalesLoginPage() {
           <button
             type="submit"
             disabled={busy}
-            className="w-full inline-flex items-center justify-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2.5 rounded-lg disabled:opacity-60"
+            className="w-full inline-flex items-center justify-center gap-2 min-h-[44px] bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2.5 rounded-lg disabled:opacity-60"
           >
             {busy && <Loader2 size={14} className="animate-spin" />}
             {busy ? t("app.salesPortal.signingIn") : t("app.salesPortal.signIn")}

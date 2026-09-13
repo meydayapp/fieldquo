@@ -1,0 +1,757 @@
+{
+ "/platform @375": {
+  "file": "dashboard-tenants-375.png",
+  "vw": 375,
+  "vh": 1109,
+  "docW": 512,
+  "docH": 12388,
+  "scrollsSideways": true,
+  "overflow": [
+   {
+    "tag": "div",
+    "cls": "",
+    "text": "DashboardHow FieldQuo itself is doing.",
+    "x": 264,
+    "y": 6017,
+    "w": 123,
+    "h": 76,
+    "right": 387
+   },
+   {
+    "tag": "div",
+    "cls": "inline-flex items-center gap-1 p-1 rounded-lg bg-muted",
+    "text": "FieldQuoOur customers",
+    "x": 264,
+    "y": 6161,
+    "w": 183,
+    "h": 52,
+    "right": 447
+   },
+   {
+    "tag": "div",
+    "cls": "",
+    "text": "2 of 12 companies have never written a quote83.3% of companies reach t",
+    "x": 315,
+    "y": 6266,
+    "w": 83,
+    "h": 404,
+    "right": 398
+   },
+   {
+    "tag": "div",
+    "cls": "w-16 text-sm font-semibold tabular-nums text-foreground",
+    "text": "754",
+    "x": 350,
+    "y": 6938,
+    "w": 27,
+    "h": 20,
+    "right": 377
+   },
+   {
+    "tag": "div",
+    "cls": "w-20 text-right text-xs tabular-nums text-muted-foreground",
+    "text": "\u2014",
+    "x": 409,
+    "y": 6940,
+    "w": 11,
+    "h": 16,
+    "right": 420
+   },
+   {
+    "tag": "div",
+    "cls": "w-20 text-right text-xs tabular-nums text-muted-foreground",
+    "text": "85.9%",
+    "x": 395,
+    "y": 7015,
+    "w": 37,
+    "h": 16,
+    "right": 433
+   },
+   {
+    "tag": "div",
+    "cls": "w-16 text-sm font-semibold tabular-nums text-foreground",
+    "text": "309",
+    "x": 363,
+    "y": 7078,
+    "w": 27,
+    "h": 20,
+    "right": 390
+   },
+   {
+    "tag": "div",
+    "cls": "w-20 text-right text-xs tabular-nums text-muted-foreground",
+    "text": "47.7%",
+    "x": 422,
+    "y": 7080,
+    "w": 37,
+    "h": 16,
+    "right": 459
+   },
+   {
+    "tag": "div",
+    "cls": "w-16 text-sm font-semibold tabular-nums text-foreground",
+    "text": "309",
+    "x": 353,
+    "y": 7133,
+    "w": 27,
+    "h": 20,
+    "right": 380
+   },
+   {
+    "tag": "div",
+    "cls": "w-20 text-right text-xs tabular-nums text-muted-foreground",
+    "text": "100%",
+    "x": 412,
+    "y": 7135,
+    "w": 34,
+    "h": 16,
+    "right": 446
+   }
+  ],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 680,
+    "y": 7724,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Trade"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "a",
+    "cls": "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium bg-sidebar-primary text-sidebar-primary-foreground font-semibold",
+    "text": "Dashboard",
+    "x": 12,
+    "y": 72,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-",
+    "text": "Companies",
+    "x": 12,
+    "y": 147,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-",
+    "text": "Incomplete signups",
+    "x": 12,
+    "y": 191,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-",
+    "text": "Signup origins3",
+    "x": 12,
+    "y": 235,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-",
+    "text": "Subscriptions",
+    "x": 12,
+    "y": 279,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-",
+    "text": "Reports",
+    "x": 12,
+    "y": 323,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-",
+    "text": "Migrations",
+    "x": 12,
+    "y": 367,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-",
+    "text": "Team chat",
+    "x": 12,
+    "y": 442,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-",
+    "text": "Escalations",
+    "x": 12,
+    "y": 486,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-",
+    "text": "Feedback",
+    "x": 12,
+    "y": 530,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-",
+    "text": "Jennifer",
+    "x": 12,
+    "y": 574,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-",
+    "text": "Data deletion",
+    "x": 12,
+    "y": 618,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [
+   {
+    "tag": "button",
+    "cls": "flex items-center gap-3 px-3 py-2.5 mt-4 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sid",
+    "text": "Sign out",
+    "x": 12,
+    "y": 12324,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": true,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground",
+    "text": "Refresh",
+    "x": 264,
+    "y": 6109,
+    "w": 74,
+    "h": 20,
+    "right": 338,
+    "inline": false,
+    "primary": true,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors text-muted-foreground hover:text-foreground",
+    "text": "FieldQuo",
+    "x": 268,
+    "y": 6173,
+    "w": 81,
+    "h": 28,
+    "right": 349,
+    "inline": false,
+    "primary": true,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "w-full flex justify-between text-sm gap-4 text-left hover:bg-muted rounded px-2 -mx-2 py-1",
+    "text": "Prairie Plumbing & Heating (1987) Ltd.77 quote(s) \u00b7 quiet 41d",
+    "x": 277,
+    "y": 9436,
+    "w": 45,
+    "h": 28,
+    "right": 322,
+    "inline": false,
+    "primary": true,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "w-full flex justify-between text-sm gap-4 text-left hover:bg-muted rounded px-2 -mx-2 py-1",
+    "text": "Tidewater Flooring Installers of Hampton Roads58 quote(s) \u00b7 quiet 36d",
+    "x": 277,
+    "y": 9470,
+    "w": 45,
+    "h": 28,
+    "right": 322,
+    "inline": false,
+    "primary": true,
+    "type": null
+   }
+  ],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "w-60 shrink-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border min-h-screen px-3 py-6 flex flex-col overflow-y-auto",
+    "text": "PlatformDashboardCompaniesCompaniesIncomplete signupsSignup origins3Su",
+    "x": 0,
+    "y": 0,
+    "w": 240,
+    "h": 12388,
+    "right": 240,
+    "fixed": false
+   }
+  ],
+  "mainRect": {
+   "x": 240,
+   "y": 0,
+   "w": 135,
+   "h": 12388,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [
+   {
+    "tag": "div",
+    "cls": "bg-card border border-border rounded-xl overflow-x-auto",
+    "text": "TradeCompaniesQuotesWonWin rateMedian quotePipelineRoofing244217947.9%",
+    "x": 264,
+    "y": 7723,
+    "w": 87,
+    "h": 624,
+    "right": 351
+   }
+  ],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Dashboard"
+  ],
+  "textLength": 6276,
+  "consoleErrors": [],
+  "tapCount": 57,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "/platform @768": {
+  "file": "dashboard-tenants-768.png",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 4552,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 680,
+    "y": 1880,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Trade"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "a",
+    "cls": "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium bg-sidebar-primary text-sidebar-primary-foreground font-semibold",
+    "text": "Dashboard",
+    "x": 12,
+    "y": 72,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-",
+    "text": "Companies",
+    "x": 12,
+    "y": 147,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-",
+    "text": "Incomplete signups",
+    "x": 12,
+    "y": 191,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-",
+    "text": "Signup origins3",
+    "x": 12,
+    "y": 235,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-",
+    "text": "Subscriptions",
+    "x": 12,
+    "y": 279,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-",
+    "text": "Reports",
+    "x": 12,
+    "y": 323,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-",
+    "text": "Migrations",
+    "x": 12,
+    "y": 367,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-",
+    "text": "Team chat",
+    "x": 12,
+    "y": 442,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-",
+    "text": "Escalations",
+    "x": 12,
+    "y": 486,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-",
+    "text": "Feedback",
+    "x": 12,
+    "y": 530,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-",
+    "text": "Jennifer",
+    "x": 12,
+    "y": 574,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-",
+    "text": "Data deletion",
+    "x": 12,
+    "y": 618,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [
+   {
+    "tag": "button",
+    "cls": "flex items-center gap-3 px-3 py-2.5 mt-4 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sid",
+    "text": "Sign out",
+    "x": 12,
+    "y": 4488,
+    "w": 215,
+    "h": 40,
+    "right": 227,
+    "inline": false,
+    "primary": true,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground",
+    "text": "Refresh",
+    "x": 662,
+    "y": 1045,
+    "w": 74,
+    "h": 20,
+    "right": 736,
+    "inline": false,
+    "primary": true,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors text-muted-foreground hover:text-foreground",
+    "text": "FieldQuo",
+    "x": 276,
+    "y": 1137,
+    "w": 81,
+    "h": 28,
+    "right": 357,
+    "inline": false,
+    "primary": true,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors bg-background text-foreground shadow-sm",
+    "text": "Our customers",
+    "x": 361,
+    "y": 1137,
+    "w": 115,
+    "h": 28,
+    "right": 476,
+    "inline": false,
+    "primary": true,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "w-full flex justify-between text-sm gap-4 text-left hover:bg-muted rounded px-2 -mx-2 py-1",
+    "text": "Prairie Plumbing & Heating (1987) Ltd.77 quote(s) \u00b7 quiet 41d",
+    "x": 285,
+    "y": 2920,
+    "w": 422,
+    "h": 28,
+    "right": 707,
+    "inline": false,
+    "primary": true,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "w-full flex justify-between text-sm gap-4 text-left hover:bg-muted rounded px-2 -mx-2 py-1",
+    "text": "Tidewater Flooring Installers of Hampton Roads58 quote(s) \u00b7 quiet 36d",
+    "x": 285,
+    "y": 2954,
+    "w": 422,
+    "h": 28,
+    "right": 707,
+    "inline": false,
+    "primary": true,
+    "type": null
+   }
+  ],
+  "truncated": [
+   {
+    "tag": "span",
+    "cls": "text-foreground truncate underline decoration-dotted underline-offset-2",
+    "text": "Prairie Plumbing & Heating (1987) Ltd.",
+    "x": 293,
+    "y": 2924,
+    "w": 240,
+    "h": 20,
+    "right": 533
+   },
+   {
+    "tag": "span",
+    "cls": "text-foreground truncate underline decoration-dotted underline-offset-2",
+    "text": "Tidewater Flooring Installers of Hampton Roads",
+    "x": 293,
+    "y": 2958,
+    "w": 240,
+    "h": 20,
+    "right": 533
+   },
+   {
+    "tag": "div",
+    "cls": "text-sm text-foreground truncate",
+    "text": "Les Entreprises de Toiture Rive-Sud Beauchemin & Fils inc.",
+    "x": 293,
+    "y": 3800,
+    "w": 321,
+    "h": 20,
+    "right": 614
+   },
+   {
+    "tag": "div",
+    "cls": "text-sm text-foreground truncate",
+    "text": "Easy Roofers & Exterior Renovations of Greater Moncton Ltd.",
+    "x": 293,
+    "y": 3861,
+    "w": 321,
+    "h": 20,
+    "right": 614
+   },
+   {
+    "tag": "div",
+    "cls": "text-sm text-foreground truncate",
+    "text": "Summit Cabinetry and Custom Millwork Company of Colorado, LLC",
+    "x": 293,
+    "y": 4105,
+    "w": 330,
+    "h": 20,
+    "right": 623
+   },
+   {
+    "tag": "div",
+    "cls": "text-sm text-foreground truncate",
+    "text": "Verdant Landscapes \u2014 Am\u00e9nagement paysager Verdant",
+    "x": 293,
+    "y": 4288,
+    "w": 339,
+    "h": 20,
+    "right": 632
+   }
+  ],
+  "dialogs": [],
+  "fixed": [],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "w-60 shrink-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border min-h-screen px-3 py-6 flex flex-col overflow-y-auto",
+    "text": "PlatformDashboardCompaniesCompaniesIncomplete signupsSignup origins3Su",
+    "x": 0,
+    "y": 0,
+    "w": 240,
+    "h": 4552,
+    "right": 240,
+    "fixed": false
+   }
+  ],
+  "mainRect": {
+   "x": 240,
+   "y": 0,
+   "w": 528,
+   "h": 4552,
+   "right": 768
+  },
+  "smallInputs": [],
+  "scrollers": [
+   {
+    "tag": "div",
+    "cls": "bg-card border border-border rounded-xl overflow-x-auto",
+    "text": "TradeCompaniesQuotesWonWin rateMedian quotePipelineRoofing244217947.9%",
+    "x": 272,
+    "y": 1879,
+    "w": 464,
+    "h": 624,
+    "right": 736
+   }
+  ],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Dashboard"
+  ],
+  "textLength": 6276,
+  "consoleErrors": [],
+  "tapCount": 59,
+  "truncatedCount": 7,
+  "smallInputCount": 0
+ }
+}

@@ -614,12 +614,15 @@ function BuyNumberPanel({ onChanged }) {
             className="mt-1 block w-24 px-2 py-1.5 rounded-lg border border-border bg-background text-sm text-foreground"
           />
         </label>
-        <label className="text-xs text-muted-foreground">
+        {/* max-w-full on the label, w-full on the select: the longest option
+            is a 90-character sentence, and a flex-wrap item is at least as
+            wide as its content — 596px on a 375px phone. */}
+        <label className="text-xs text-muted-foreground max-w-full min-w-0">
           Purpose
           <select
             value={purpose}
             onChange={(e) => setPurpose(e.target.value)}
-            className="mt-1 block px-2 py-1.5 rounded-lg border border-border bg-background text-sm text-foreground"
+            className="mt-1 block w-full max-w-full px-2 py-1.5 rounded-lg border border-border bg-background text-sm text-foreground"
           >
             <option value="system">System — outbound From</option>
             <option value="shared_test">Shared test line — lent out</option>
@@ -631,7 +634,7 @@ function BuyNumberPanel({ onChanged }) {
           type="button"
           onClick={search}
           disabled={busy === "search"}
-          className="px-3 py-1.5 rounded-lg bg-foreground text-background text-sm font-medium disabled:opacity-50"
+          className="min-h-[44px] lg:min-h-0 px-3 py-1.5 rounded-lg bg-foreground text-background text-sm font-medium disabled:opacity-50"
         >
           {busy === "search" ? "Searching…" : "Search"}
         </button>
@@ -700,7 +703,7 @@ function BuyNumberPanel({ onChanged }) {
             <button
               type="button"
               onClick={() => buy(confirming.e164)}
-              className="px-3 py-1.5 rounded-lg bg-foreground text-background text-sm font-medium"
+              className="min-h-[44px] lg:min-h-0 px-3 py-1.5 rounded-lg bg-foreground text-background text-sm font-medium"
             >
               Buy it
             </button>

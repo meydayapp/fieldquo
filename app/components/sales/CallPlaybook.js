@@ -150,7 +150,7 @@ function ScriptLanguageSwitch({ scriptLanguage, chosen, loading, onChange }) {
                 aria-pressed={active}
                 data-script-language={code}
                 onClick={() => onChange(code)}
-                className={`min-h-[36px] px-3 text-xs font-semibold ${active ? "bg-primary text-primary-foreground" : "bg-card text-foreground hover:bg-muted"} disabled:opacity-100`}
+                className={`min-h-[44px] lg:min-h-[36px] px-3 text-xs font-semibold ${active ? "bg-primary text-primary-foreground" : "bg-card text-foreground hover:bg-muted"} disabled:opacity-100`}
               >
                 {name(code)}
               </button>

@@ -102,7 +102,7 @@ export default function SalesLeadsPage() {
         </div>
         <button
           onClick={() => setAdding((v) => !v)}
-          className="shrink-0 text-sm font-semibold px-3 py-2 rounded-lg bg-inverted text-inverted-foreground flex items-center gap-1.5"
+          className="shrink-0 min-h-[44px] text-sm font-semibold px-3 py-2 rounded-lg bg-inverted text-inverted-foreground flex items-center gap-1.5"
         >
           <Plus size={15} />
           {t("app.salesLeads.addLead")}
@@ -161,7 +161,7 @@ export default function SalesLeadsPage() {
           <button
             type="submit"
             disabled={saving}
-            className="text-sm font-semibold px-3 py-2 rounded-lg bg-inverted text-inverted-foreground disabled:opacity-60"
+            className="min-h-[44px] text-sm font-semibold px-3 py-2 rounded-lg bg-inverted text-inverted-foreground disabled:opacity-60"
           >
             {saving ? t("app.salesLeads.saving") : t("app.salesLeads.saveLead")}
           </button>
@@ -179,7 +179,7 @@ export default function SalesLeadsPage() {
               onClick={() => setStatus(s.value)}
               // min-h-[44px] on the chip itself, not on a wrapper: the mobile
               // rule reads one tag, and so does a thumb.
-              className={`inline-flex items-center min-h-[44px] text-xs font-semibold px-3 rounded-full border ${
+              className={`inline-flex items-center justify-center min-h-[44px] min-w-[44px] text-xs font-semibold px-3 rounded-full border ${
                 status === s.value
                   ? "bg-inverted text-inverted-foreground border-inverted"
                   : "border-border text-muted-foreground"
@@ -213,11 +213,16 @@ export default function SalesLeadsPage() {
             <Link
               key={lead.id}
               href={`/sales/leads/${lead.id}`}
-              className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50"
+              // flex-wrap, and the name is not truncated: on a 375px phone
+              // the three badges beside it left the name 118px — "Easy
+              // Roofers I…" — and a list you cannot read the names in is
+              // not a list. The badges wrap under the name there and sit
+              // beside it from sm up, where the row has the width.
+              className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 hover:bg-muted/50"
             >
-              <div className="min-w-0 flex-1">
-                <p className="font-medium text-foreground truncate">{lead.businessName}</p>
-                <p className="text-xs text-muted-foreground truncate">
+              <div className="min-w-0 flex-1 basis-full sm:basis-auto">
+                <p className="font-medium text-foreground break-words">{lead.businessName}</p>
+                <p className="text-xs text-muted-foreground break-words">
                   {[lead.contactName, lead.email, lead.phone].filter(Boolean).join(" · ") ||
                     t("app.salesLeads.noContactDetails")}
                 </p>

@@ -202,7 +202,7 @@ export default function PlatformSalesCapabilitiesPage() {
           <button
             onClick={runSeed}
             disabled={busy === "seed"}
-            className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
+            className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
           >
             {busy === "seed" ? (
               <Loader2 size={14} className="animate-spin" />
@@ -462,7 +462,7 @@ export default function PlatformSalesCapabilitiesPage() {
                         });
                       }}
                       disabled={busy === cap.code}
-                      className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
+                      className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
                     >
                       {busy === cap.code ? (
                         <Loader2 size={14} className="animate-spin" />

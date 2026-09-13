@@ -139,7 +139,7 @@ export default function PlatformFeedbackPage() {
           <button
             key={s.value}
             onClick={() => setStatus(s.value)}
-            className={`px-3 py-2 rounded-lg text-sm font-medium border ${
+            className={`min-h-[44px] min-w-[44px] lg:min-h-0 px-3 py-2 rounded-lg text-sm font-medium border ${
               status === s.value
                 ? "bg-inverted text-inverted-foreground border-inverted"
                 : "border-border text-muted-foreground hover:bg-muted"

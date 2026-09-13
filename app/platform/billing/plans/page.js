@@ -272,7 +272,7 @@ export default function PlatformPlansPage() {
           {canManage && (
             <button
               onClick={() => setDraft({ ...BLANK })}
-              className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg"
+              className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg"
             >
               <Plus size={14} /> New plan
             </button>
@@ -503,7 +503,7 @@ export default function PlatformPlansPage() {
             <button
               onClick={save}
               disabled={busy || !draft.name.trim()}
-              className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
+              className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
             >
               {busy && <Loader2 size={14} className="animate-spin" />}
               Save

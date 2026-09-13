@@ -159,7 +159,10 @@ export function RoomListGroup({ group, collapsed = false, onToggle, children }) 
         onClick={() => onToggle?.(group.key)}
         aria-expanded={!collapsed}
         aria-controls={`room-group-${group.key}`}
-        className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground min-h-[32px]"
+        // 44px below lg: a section toggle is the control that shows or hides
+        // every room under it, and 32px is under the thumb floor. 32 from lg
+        // up, where the list is a rail beside a thread and density matters.
+        className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground min-h-[44px] lg:min-h-[32px]"
       >
         <Chevron size={13} aria-hidden="true" className="shrink-0" />
         <span className="min-w-0 flex-1 truncate">{group.title}</span>

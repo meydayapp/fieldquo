@@ -87,7 +87,7 @@ export default function PlatformMigrationsPage() {
           <button
             key={s.value}
             onClick={() => setStatus(s.value)}
-            className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${
+            className={`min-h-[44px] min-w-[44px] lg:min-h-0 text-xs font-semibold px-3 py-1.5 rounded-full border ${
               status === s.value ? "bg-inverted text-inverted-foreground border-inverted" : "border-border text-muted-foreground"
             }`}
           >

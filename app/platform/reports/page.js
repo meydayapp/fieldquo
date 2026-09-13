@@ -97,7 +97,7 @@ export default function PlatformReportsPage() {
             <button
               onClick={() => download(r.key)}
               disabled={busy === r.key}
-              className="mt-4 inline-flex items-center justify-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
+              className="min-h-[44px] lg:min-h-0 mt-4 inline-flex items-center justify-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
             >
               {busy === r.key ? (
                 <Loader2 size={14} className="animate-spin" />

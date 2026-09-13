@@ -70,12 +70,32 @@
 // would be new surface area the audit didn't ask for. If this list keeps
 // growing, that's the next thing to add — see check-sidebar.mjs, which
 // currently parses AdminSidebar and SettingsSidebar only.
+//
+// ── Below lg: a top bar and a drawer, not a 240px rail ──────────────────────
+//
+// The owner, 2026-09-13: "the platform is not mobile friendly". Measured
+// (docs/screens/platform-mobile/before/audit.json): this <aside> kept its
+// w-60 at every width, so on a 375px phone <main> was 135px wide and every
+// screen rendered as a 240px navy column beside a strip of squeezed text.
+// Below lg it is now the /app model — AdminSidebar's sticky top bar with a
+// hamburger, and a slide-over drawer (app/components/layout/NavDrawer.js,
+// the same container the /app and /sales sidebars render) carrying the same
+// sixty rows and the sign-out. From lg up the rail is what it was, now
+// sticky for the viewport and scrolling its own rows.
+//
+// The rows are drawn once, in railContent(), for both places — the rail and
+// the drawer cannot disagree about what the console has. The tour/check hooks
+// follow the convention the other two sidebars set: data-tour-open=
+// "platform-nav" on the hamburger, data-tour-close="platform-nav" on the
+// drawer's X. scripts/check-platform-mobile.mjs opens and closes it through
+// those and measures every route at 375.
 "use client";
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { notify } from "@/lib/notify/browser";
+import NavDrawer from "@/app/components/layout/NavDrawer";
 import {
   Beaker,
   Filter,
@@ -127,6 +147,8 @@ import {
   Inbox,
   Clock3,
   Globe,
+  Menu,
+  X,
 } from "lucide-react";
 
 /** How often the console re-reads its two counts while the tab is visible. */
@@ -418,6 +440,13 @@ export default function PlatformSidebar() {
   // superadmin-only and answers null to everyone else; the signup count is
   // for anyone who may view companies.
   const [signupFlagCount, setSignupFlagCount] = useState(null);
+  // The phone drawer. Closed whenever the route changes — the row that was
+  // tapped is now the screen, and a drawer still over it would need a second
+  // tap for nothing (the same effect AdminSidebar runs on pathname).
+  const [mobileOpen, setMobileOpen] = useState(false);
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
   useEffect(() => {
     if (pathname === "/platform/login") return undefined;
     let cancelled = false;
@@ -500,7 +529,9 @@ export default function PlatformSidebar() {
     return (
       <Link
         href={item.href}
-        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium ${
+        // min-h-[44px] below lg: in the drawer every row is a thumb target.
+        // From lg up the rail keeps py-2.5's 40px so sixty rows stay scannable.
+        className={`flex items-center gap-3 px-3 py-2.5 min-h-[44px] lg:min-h-0 rounded-lg text-sm font-medium ${
           isActive(item)
             ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold"
             : "text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -519,45 +550,148 @@ export default function PlatformSidebar() {
     );
   }
 
+  // ── The rail's contents, drawn twice ─────────────────────────────────────
+  //
+  // Once in the desktop <aside>, once in the phone drawer. Same rows, same
+  // sign-out, same badges — the drawer additionally carries the close button
+  // the tour presses (data-tour-close), exactly where AdminSidebar puts its.
+  function railContent({ inDrawer = false } = {}) {
+    return (
+      <>
+        <div className="flex items-center justify-between gap-2 px-3 pt-4 pb-4 shrink-0">
+          {/* Orange as a FILL, not as text. #ff5a00 measures 5.62:1 on the old
+              near-black but only 3.88:1 on --sidebar, so moving the rail to
+              navy would have quietly pushed the wordmark under the floor — the
+              exact "contrast assumed rather than measured" trade the rest of
+              this fix is about. globals.css says the same thing about
+              --brand-accent: as a fill with dark text on it, it is 5.59:1 and
+              safe in both themes. */}
+          <Wordmark />
+          {inDrawer ? (
+            <button
+              type="button"
+              onClick={() => setMobileOpen(false)}
+              aria-label="Close menu"
+              data-tour-close="platform-nav"
+              className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] -mr-2 rounded-lg text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            >
+              <X size={20} />
+            </button>
+          ) : null}
+        </div>
+
+        <nav className="space-y-4 flex-1 overflow-y-auto px-3 pb-2">
+          <Row item={HOME_ITEM} />
+
+          {GROUPS.map((group) => (
+            <div key={group.label}>
+              <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-muted-foreground">
+                {group.label}
+              </div>
+              <div className="space-y-1">
+                {group.items.map((item) => (
+                  <Row key={item.href} item={item} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        <div className="px-3 pb-4 pt-2 shrink-0 border-t border-sidebar-border">
+          <button
+            onClick={signOut}
+            className="w-full flex items-center gap-3 px-3 min-h-[44px] rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          >
+            <LogOut size={16} />
+            Sign out
+          </button>
+        </div>
+      </>
+    );
+  }
+
   return (
-    <aside className="w-60 shrink-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border min-h-screen px-3 py-6 flex flex-col overflow-y-auto">
-      {/* Orange as a FILL, not as text. #ff5a00 measures 5.62:1 on the old
-          near-black but only 3.88:1 on --sidebar, so moving the rail to navy
-          would have quietly pushed the wordmark under the floor — the exact
-          "contrast assumed rather than measured" trade the rest of this fix is
-          about. globals.css says the same thing about --brand-accent: as a fill
-          with dark text on it, it is 5.59:1 and safe in both themes. */}
-      <div className="mx-3 mb-6 px-2 py-1 rounded-md bg-sidebar-primary text-sidebar-primary-foreground inline-flex items-center gap-2 self-start">
-        <ShieldCheck size={16} />
-        <span className="text-xs font-bold uppercase tracking-[0.18em]">
-          Platform
-        </span>
+    <>
+      {/* ── Phone top bar ─────────────────────────────────────────────────
+          Below lg. Sticky and in normal flow — AdminSidebar's header explains
+          why not a floating button: pages start at their padding, and a
+          floating hamburger lands on the page's own <h1>. h-14 is the row;
+          the safe-area inset pads ABOVE it. Painted --sidebar like the rail it
+          stands in for, so the console keeps its dark chrome on a phone and
+          is still not mistakable for the tenant app. */}
+      <div
+        data-platform-topbar
+        className="lg:hidden sticky top-0 z-40 pt-[env(safe-area-inset-top)] text-sidebar-foreground border-b border-sidebar-border/60 bg-sidebar/80 supports-[backdrop-filter]:bg-sidebar/65 backdrop-blur-xl backdrop-saturate-150"
+      >
+        <div className="h-14 flex items-center gap-2 px-3">
+          <button
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open menu"
+            aria-expanded={mobileOpen}
+            // The one node a tour (or a check) opens the drawer through —
+            // the same convention as AdminSidebar's [data-tour-open="nav"]
+            // and SalesMobileTabBar's "sales-nav".
+            data-tour-open="platform-nav"
+            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] -ml-2 rounded-lg hover:bg-sidebar-accent"
+          >
+            <Menu size={20} />
+          </button>
+          <Link href="/platform" className="inline-flex items-center min-h-[44px] min-w-0" aria-label="Dashboard">
+            <Wordmark />
+          </Link>
+          {/* The two counts that matter first thing, at the right edge and
+              NOT inside the drawer: a badge you have to open a menu to see is
+              a badge that never gets looked at (AdminSidebar's bell says the
+              same). Each is the row's own link. */}
+          <div className="ml-auto flex items-center gap-1">
+            {signupFlagCount ? <TopBadge href="/platform/signup-origins" label="signups to review" count={signupFlagCount} /> : null}
+            {reviewCount ? <TopBadge href="/platform/sales/review" label="rows in the review folder" count={reviewCount} /> : null}
+          </div>
+        </div>
       </div>
 
-      <nav className="space-y-4 flex-1">
-        <Row item={HOME_ITEM} />
+      {/* ── Desktop rail ──────────────────────────────────────────────────
+          From lg up. Sticky for the viewport's height and scrolling its own
+          sixty rows, so the group you want is reachable from the foot of a
+          long page — it used to be min-h-screen in the flow, and on a tall
+          companies list the rail had scrolled away with the page. */}
+      <aside data-platform-rail className="hidden lg:flex w-60 shrink-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border h-screen sticky top-0 flex-col">
+        {railContent()}
+      </aside>
 
-        {GROUPS.map((group) => (
-          <div key={group.label}>
-            <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-muted-foreground">
-              {group.label}
-            </div>
-            <div className="space-y-1">
-              {group.items.map((item) => (
-                <Row key={item.href} item={item} />
-              ))}
-            </div>
-          </div>
-        ))}
-      </nav>
+      {/* ── Phone drawer ──────────────────────────────────────────────────
+          The shared slide-over (app/components/layout/NavDrawer.js), with
+          the same rows the desktop rail draws. data-platform-drawer is what
+          scripts/check-platform-mobile.mjs opens and closes. */}
+      <NavDrawer open={mobileOpen} onClose={() => setMobileOpen(false)} label="Platform" safeArea panelAttrs={{ "data-platform-drawer": "" }}>
+        {railContent({ inDrawer: true })}
+      </NavDrawer>
+    </>
+  );
+}
 
-      <button
-        onClick={signOut}
-        className="flex items-center gap-3 px-3 py-2.5 mt-4 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-      >
-        <LogOut size={16} />
-        Sign out
-      </button>
-    </aside>
+/** The "Platform" chip — one drawing for the rail, the drawer and the top bar. */
+function Wordmark() {
+  return (
+    <span className="px-2 py-1 rounded-md bg-sidebar-primary text-sidebar-primary-foreground inline-flex items-center gap-2 self-start">
+      <ShieldCheck size={16} />
+      <span className="text-xs font-bold uppercase tracking-[0.18em]">Platform</span>
+    </span>
+  );
+}
+
+/** A count on the phone top bar, linking to the screen it counts. */
+function TopBadge({ href, label, count }) {
+  return (
+    <Link
+      href={href}
+      aria-label={`${count} ${label}`}
+      className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-1"
+    >
+      <span className="rounded-full bg-sidebar-primary text-sidebar-primary-foreground px-2 py-0.5 text-[11px] font-semibold tabular-nums" data-review-badge>
+        {count > 999 ? `${Math.floor(count / 1000)}k` : count}
+      </span>
+    </Link>
   );
 }

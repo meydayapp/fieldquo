@@ -172,7 +172,7 @@ export default function VoiceWebhooksPage() {
                 type="button"
                 onClick={repair}
                 disabled={busy}
-                className="mt-3 inline-flex items-center gap-2 rounded-lg bg-foreground text-background px-3.5 py-2 text-sm font-semibold disabled:opacity-60"
+                className="min-h-[44px] lg:min-h-0 mt-3 inline-flex items-center gap-2 rounded-lg bg-foreground text-background px-3.5 py-2 text-sm font-semibold disabled:opacity-60"
               >
                 {busy ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
                 Point {s.wrong} agent{s.wrong === 1 ? "" : "s"} back here

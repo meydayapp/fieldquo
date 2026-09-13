@@ -129,7 +129,7 @@ export default function PlatformErrorsPage() {
       <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={() => setArea("")}
-          className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${
+          className={`min-h-[44px] min-w-[44px] lg:min-h-0 text-xs font-semibold px-3 py-1.5 rounded-full border ${
             area === "" ? "border-foreground bg-inverted text-inverted-foreground" : "border-border text-muted-foreground"
           }`}
         >
@@ -139,7 +139,7 @@ export default function PlatformErrorsPage() {
           <button
             key={a.area}
             onClick={() => setArea(a.area)}
-            className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${
+            className={`min-h-[44px] min-w-[44px] lg:min-h-0 text-xs font-semibold px-3 py-1.5 rounded-full border ${
               area === a.area ? "border-foreground bg-inverted text-inverted-foreground" : "border-border text-muted-foreground"
             }`}
           >

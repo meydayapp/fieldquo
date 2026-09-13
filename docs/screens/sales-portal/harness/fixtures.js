@@ -189,10 +189,16 @@ export const DEMO_INDUSTRIES = [
   { key: "landscaping", label: "Landscaping & lawn care" }, { key: "cleaning", label: "Cleaning" }, { key: "plumbing", label: "Plumbing" },
   { key: "hvac", label: "HVAC" }, { key: "roofing", label: "Roofing" }, { key: "electrical", label: "Electrical" }, { key: "handyman", label: "Handyman / general contracting" },
 ];
+// The shape of GET /api/sales/demo after 3914247a (one demo per rep per
+// trade, a login the rep sets): lib/sales/repDemo.js's repDemoState plus
+// the industries list. The earlier { company, loginEmail, pool } shape
+// crashed the page on `data.login.plannedEmail`.
 export const DEMO = {
-  company: { id: "c4", name: "Demo 3", slug: "demo3", demoIndustry: "roofing", isDemo: true },
-  loginEmail: "demo3@fieldquo.com",
-  loginReady: true,
-  pool: { free: 2, total: 6 },
+  demos: [
+    { id: "c4", name: "Daniel Roofing Demo", slug: "danielboves-roofing", demoIndustry: "roofing", tradeLabel: "Roofing", createdAt: T("2026-09-08T14:00:00Z"), current: true, loginReady: true },
+    { id: "c5", name: "Daniel Painting Demo", slug: "danielboves-painting", demoIndustry: "painting", tradeLabel: "Painting", createdAt: T("2026-09-11T09:30:00Z"), current: false, loginReady: true },
+  ],
+  current: "c4",
+  login: { email: "demo-danielboves@fieldquo.com", exists: true, plannedEmail: "demo-danielboves@fieldquo.com" },
   industries: DEMO_INDUSTRIES,
 };

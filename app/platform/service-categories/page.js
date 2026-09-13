@@ -117,7 +117,7 @@ export default function ServiceCategoriesPage() {
               })
             }
             disabled={!categories}
-            className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-50"
+            className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-50"
           >
             <Plus size={14} /> New category
           </button>
@@ -230,7 +230,7 @@ export default function ServiceCategoriesPage() {
               disabled={
                 busy || !draft.label.trim() || !isValidCategoryKey(draft.key)
               }
-              className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
+              className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
             >
               {busy && <Loader2 size={14} className="animate-spin" />}
               Create

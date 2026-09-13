@@ -475,7 +475,7 @@ export default function PlatformGrowthPage() {
             ))}
           </div>
           <div className="px-4 pb-4 flex items-center gap-3">
-            <button type="submit" disabled={saving} className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-60">
+            <button type="submit" disabled={saving} className="min-h-[44px] lg:min-h-0 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-60">
               {saving ? "Saving…" : "Save assumptions"}
             </button>
             {saveError && <span className="text-sm text-red-700 dark:text-red-300">{saveError}</span>}

@@ -10,6 +10,10 @@ import {
 import { PAYOUT_METHODS, ENGAGEMENTS } from "@/lib/sales/payoutDetails";
 import { REP_LANGUAGE_OPTIONS } from "@/lib/sales/repLanguage";
 import { STATUS_CHOICES, STATE_ORDER, REP_STATES, PAUSE_REASON_ORDER, PAUSE_REASONS } from "@/lib/sales/calls/agentState";
+// Texts and Team are answered by the fixtures their own harnesses carry, so
+// the rows here are the rows those frames show.
+import { fetchJson as messagesFetch } from "../../../sales-messages/harness/stubs/fetchJson.js";
+import { fetchJson as staffFetch } from "../../../team-chat/harness/staffFetch.js";
 
 // One lead opened in full — the shape of GET /api/sales/leads/[id]. Bright
 // Current, not Easy Roofers: the link-a-signup box only shows on a lead
@@ -63,6 +67,22 @@ function answer(p, u, method, body) {
   if (p === "/api/sales/leads") return { leads: LEADS, counts: LEAD_COUNTS, outreach: OUTREACH };
   if (/^\/api\/sales\/leads\/[^/]+$/.test(p)) { const d = leadDetail(p.split("/").pop()); return d || json({ error: "Not found." }, 404); }
   if (p === "/api/sales/threads") return { threads: THREADS, outreach: OUTREACH };
+  if (/^\/api\/sales\/threads\/[^/]+$/.test(p)) {
+    const base = THREADS.find((t) => t.id === p.split("/").pop());
+    if (!base) return json({ error: "Not found." }, 404);
+    const lead = LEADS.find((l) => l.id === base.leadId);
+    return {
+      thread: { ...base, createdAt: "2026-09-09T15:40:00.000Z", lead: { id: lead.id, businessName: lead.businessName, contactName: lead.contactName, email: lead.email, phone: lead.phone, status: lead.status },
+        messages: [
+          { id: "m1", direction: "out", fromAddress: ME.email, toAddress: lead.email, subject: "A quicker way to quote roofing jobs", sentAt: "2026-09-09T15:40:00.000Z", body: "Hi Dave — Daniel from FieldQuo. You mentioned on the phone that quotes take you an evening each; here is the two-minute version we talked about. Would Thursday work for a quick walkthrough?" },
+          { id: "m2", direction: "in", fromAddress: lead.email, toAddress: ME.email, subject: "Re: A quicker way to quote roofing jobs", sentAt: "2026-09-11T22:05:00.000Z", body: "Thursday could work. What time?" },
+          { id: "m3", direction: "in", fromAddress: lead.email, toAddress: ME.email, subject: "Re: A quicker way to quote roofing jobs", sentAt: "2026-09-12T13:20:00.000Z", body: "Thursday afternoon works — can you show the invoice side too?" },
+        ] },
+      optedOut: false, optedOutReason: null, optedOutReasonKey: null, optedOutReasonParams: null, outreach: OUTREACH,
+    };
+  }
+  if (p === "/api/sales/auth/invite" && method === "GET") return { name: "Daniel Roy", email: "daniel@fieldquo.com" };
+  if (p === "/api/sales/auth/login" && method === "POST") return { success: true };
   // The first-text panel on a lead: can send, one textable number, one text already sent.
   if (p === "/api/sales/sms")
     return {
@@ -114,8 +134,21 @@ function answer(p, u, method, body) {
     if (method === "POST" && body?.state) state.presence = { ...state.presence, state: body.state, pauseReason: body.pauseReason || null, forMs: 0 };
     return { presence: state.presence, store: { ready: true }, choices: STATUS_CHOICES, autodial: state.autodial };
   }
-  if (p === "/api/sales/messages" || p.startsWith("/api/sales/messages")) return { threads: [], groups: [] };
   return null;
+}
+
+// Texts and Team: the other harnesses' fetchJson-level stubs, wrapped back
+// into a Response so the shipped lib/fetchJson in this bundle can unwrap it.
+async function delegated(p, url, options) {
+  const stub = p.startsWith("/api/sales/messages") ? messagesFetch : p.startsWith("/api/staff/") ? staffFetch : null;
+  if (!stub) return null;
+  try {
+    let body = options.body;
+    if (typeof body === "string") { try { body = JSON.parse(body); } catch {} }
+    return json(await stub(url, { ...options, body }));
+  } catch (err) {
+    return json({ error: String(err?.message || err) }, 400);
+  }
 }
 
 const realFetch = window.fetch.bind(window);
@@ -127,6 +160,8 @@ window.fetch = async (url, options = {}) => {
   try { body = options.body ? JSON.parse(options.body) : null; } catch {}
   (window.__harnessCalls ||= []).push({ url: u.pathname + u.search, method, body });
   await new Promise((r) => setTimeout(r, 20));
+  const handed = await delegated(u.pathname, String(url), options);
+  if (handed) return handed;
   const out = answer(u.pathname, u, method, body);
   if (out instanceof Response) return out;
   if (out === null) {

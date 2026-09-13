@@ -230,7 +230,7 @@ export default function PlatformPromotionsPage() {
         {canManage && (
           <button
             onClick={() => setDraft({ ...BLANK })}
-            className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg"
+            className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg"
           >
             <Plus size={14} /> New promotion
           </button>
@@ -366,7 +366,7 @@ function PromotionRow({ promo, plans, now, busy, canManage, onToggle, onEdit }) 
           <button
             onClick={onToggle}
             disabled={busy}
-            className={`text-sm font-semibold px-3 py-1.5 rounded-lg disabled:opacity-60 inline-flex items-center gap-2 ${
+            className={`min-h-[44px] lg:min-h-0 text-sm font-semibold px-3 py-1.5 rounded-lg disabled:opacity-60 inline-flex items-center gap-2 ${
               promo.active
                 ? "border border-border text-foreground hover:bg-muted"
                 : "bg-inverted text-inverted-foreground"
@@ -589,7 +589,7 @@ function PromotionEditor({ draft, setDraft, plans, saving, onSave, onCancel }) {
         <button
           onClick={onSave}
           disabled={saving || !draft.label.trim() || !draft.endsAt}
-          className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
+          className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
         >
           {saving && <Loader2 size={14} className="animate-spin" />}
           Save

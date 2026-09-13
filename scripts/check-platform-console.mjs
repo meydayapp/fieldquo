@@ -118,6 +118,12 @@ const HOVER_MAX = 2.0;
 const SIDEBAR = "app/components/platform/PlatformSidebar.js";
 const SALES = "app/sales/SalesShell.js";
 const LOGIN = "app/platform/login/page.js";
+// The portal's phone chrome. Since 2026-09-11 SalesShell is a navy rail from
+// lg up (the owner's reference dialler), and the orange wordmark and the
+// active-tab accent that used to sit in its header on --card now sit in
+// this file's top bar and drawer, still on --card. The pairings moved
+// files; the tokens and the surface did not.
+const SALES_MOBILE = "app/components/sales/SalesMobileTabBar.js";
 
 // Every text/background pairing these two shells render, named by the tokens
 // that supply each side, with the file and class that must exist for the
@@ -138,9 +144,13 @@ const TEXT_PAIRS = [
     "text-sidebar-foreground"],
   ["rail wordmark chip", "--sidebar-primary-foreground", "--sidebar-primary", SIDEBAR,
     "text-sidebar-primary-foreground"],
-  // ── the sales portal header, which sits on a card, NOT on a dark rail ──
-  ["sales header wordmark", "--brand-accent-text", "--card", SALES,
+  // ── the sales portal: a card-surfaced top bar below lg, a navy rail above ──
+  ["sales top-bar wordmark", "--brand-accent-text", "--card", SALES_MOBILE,
     "text-brand-accent-text"],
+  ["sales rail idle row", "--sidebar-muted-foreground", "--sidebar", SALES,
+    "text-sidebar-muted-foreground"],
+  ["sales rail selected row", "--sidebar-primary-foreground", "--sidebar-primary", SALES,
+    "bg-sidebar-primary"],
   ["sales header muted text", "--muted-foreground", "--card", SALES,
     "text-muted-foreground"],
   ["sales header hovered text", "--foreground", "--card", SALES,
@@ -158,7 +168,7 @@ const TEXT_PAIRS = [
 // has never been held to would be a rule invented for one of two copies of the
 // same edge. Its ratio is printed below as reference instead of asserted.
 const GRAPHIC_PAIRS = [
-  ["sales active tab underline", "--brand-accent", "--card", SALES, "border-brand-accent"],
+  ["sales drawer active-row rule", "--brand-accent", "--card", SALES_MOBILE, "border-brand-accent"],
 ];
 
 const HOVER_FILLS = [
@@ -332,18 +342,24 @@ ok("the rail does not paint text with text-sidebar-primary",
   !/text-sidebar-primary(?![-a-z])/.test(railCode),
   "orange on --sidebar is 3.88:1 in light mode");
 
-// ── The sales portal is a header on a card, not a rail ─────────────────────
+// ── The sales portal: a card header, then (from 2026-09-11) a navy rail ────
 //
-// The audit that produced this task expected SalesShell to have copied the
-// sidebar's mistake. It had not: it sits on --card, where
-// text-muted-foreground is the correct token and measures 6.46:1. What it DID
-// have was raw #ff5a00 as text on that card — 3.13:1. Both facts are asserted
-// so neither can be quietly reversed.
+// The audit that produced this check expected SalesShell to have copied the
+// sidebar's mistake. It had not: it sat on --card, where text-muted-foreground
+// is the correct token. What it DID have was raw #ff5a00 as text on that
+// card — 3.13:1. Then the owner asked for a vertical rail like his reference
+// dialler, and the shell grew a bg-sidebar <aside> from lg up — which this
+// check, still asserting "no dark surface", failed on for two days while the
+// real rule it guards (no muted-on-dark) held. So the assertion is now the
+// rule itself: a dark surface here must speak in the sidebar tokens, and the
+// card header keeps its own. The per-string scan below is what actually
+// catches a muted token on a navy string.
 const salesCode = stripComments(read(SALES));
-console.log("\n Sales portal header\n");
-ok("SalesShell paints no dark surface", !/bg-(?:sidebar|inverted)\b/.test(salesCode),
-  "if it ever does, its muted text needs the sidebar tokens instead");
-ok("SalesShell still uses text-muted-foreground on its card",
+console.log("\n Sales portal header and rail\n");
+ok("SalesShell's rail is on --sidebar with the sidebar's text tokens",
+  /bg-sidebar text-sidebar-foreground/.test(salesCode) && /text-sidebar-muted-foreground/.test(salesCode),
+  "a dark surface here must not borrow text-muted-foreground");
+ok("SalesShell still uses text-muted-foreground on its card header",
   salesCode.includes("text-muted-foreground"));
 ok("SalesShell names no arbitrary hex",
   !/(?:bg|text|border)-\[#[0-9a-fA-F]{3,8}\]/.test(salesCode),
@@ -362,7 +378,7 @@ const files = [];
     else if (e.name.endsWith(".js")) files.push(rel);
   }
 })("app/platform");
-files.push(SIDEBAR, SALES);
+files.push(SIDEBAR, SALES, SALES_MOBILE);
 const offenders = [];
 for (const file of files) {
   for (const m of stripComments(read(file)).matchAll(/"([^"\n]*)"/g)) {

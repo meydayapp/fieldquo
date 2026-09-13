@@ -67,6 +67,7 @@ import {
   X,
 } from "lucide-react";
 
+import NavDrawer from "@/app/components/layout/NavDrawer";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { isActiveTab, splitPortalTabs } from "@/lib/sales/portalTabs";
 
@@ -175,7 +176,10 @@ export default function SalesMobileTabBar({ tabs, name = null, onSignOut, drawer
                   // 6.49:1 dark); text-muted-foreground measures 6.46:1 /
                   // 7.78:1 there. Both numbers are the header's, on the
                   // same surface. Raw orange would be 3.13:1 and fail.
-                  className={`flex flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 min-h-[44px] min-w-[44px] justify-center ${
+                  // px-1, not px-2: at 375px each of five slots is 75px,
+                  // and "Conversations" at 10px semibold needs 68 of them —
+                  // with 16px of padding it broke to "Conversation / s".
+                  className={`flex flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 min-h-[44px] min-w-[44px] justify-center ${
                     active
                       ? "text-brand-accent-text bg-brand-accent/10"
                       : "text-muted-foreground"
@@ -186,7 +190,7 @@ export default function SalesMobileTabBar({ tabs, name = null, onSignOut, drawer
                       which is legible where a clipped one is not — the same
                       rule the desktop row states. leading-tight keeps two
                       lines inside the 4rem row. */}
-                  <span className="text-[10px] font-semibold leading-tight text-center break-words max-w-[4.5rem]">
+                  <span className="text-[10px] font-semibold leading-tight text-center break-words max-w-[4.75rem]">
                     {tab.label}
                   </span>
                 </span>
@@ -201,78 +205,67 @@ export default function SalesMobileTabBar({ tabs, name = null, onSignOut, drawer
           signed in and the way out. z-50: above both bars. The tour's card is
           z-[60] so it can sit beside a row in here; IncomingCallDock is
           z-[70] so a contractor ringing back still covers everything. */}
-      {open ? (
-        <div className="lg:hidden fixed inset-0 z-50">
-          <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+      <NavDrawer open={open} onClose={() => setOpen(false)} label={t("app.salesPortal.title")} surface="card" safeArea>
+        <div className="h-14 flex items-center justify-between gap-2 px-3 border-b border-border">
+          <span className="inline-flex items-center gap-2 min-w-0">
+            <BadgeDollarSign size={16} className="text-brand-accent-text shrink-0" />
+            <span className="text-xs font-bold uppercase tracking-[0.18em] text-brand-accent-text">
+              {t("app.salesPortal.title")}
+            </span>
+          </span>
+          <button
+            type="button"
             onClick={() => setOpen(false)}
-          />
-          <aside
-            className="absolute left-0 top-0 h-full w-[min(20rem,86vw)] max-w-[86vw] bg-card text-foreground shadow-2xl flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
-            aria-label={t("app.salesPortal.title")}
+            aria-label={t("app.sidebar.closeMenu")}
+            // How the tour puts the drawer back when it moves on.
+            data-tour-close="sales-nav"
+            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] -mr-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
           >
-            <div className="h-14 flex items-center justify-between gap-2 px-3 border-b border-border">
-              <span className="inline-flex items-center gap-2 min-w-0">
-                <BadgeDollarSign size={16} className="text-brand-accent-text shrink-0" />
-                <span className="text-xs font-bold uppercase tracking-[0.18em] text-brand-accent-text">
-                  {t("app.salesPortal.title")}
-                </span>
-              </span>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label={t("app.sidebar.closeMenu")}
-                // How the tour puts the drawer back when it moves on.
-                data-tour-close="sales-nav"
-                className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] -mr-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {drawerExtra ? (
-              <div className="px-4 py-3 border-b border-border">{drawerExtra}</div>
-            ) : null}
-
-            <nav className="flex-1 overflow-y-auto py-2">
-              {drawer.map((tab) => {
-                const active = isActiveTab(pathname, tab.href);
-                return (
-                  <Link
-                    key={tab.href}
-                    href={tab.href}
-                    aria-current={active ? "page" : undefined}
-                    data-sales-tour={tab.href}
-                    className={`flex items-center min-h-[44px] px-4 py-2 text-sm font-medium border-l-2 ${
-                      active
-                        ? "border-brand-accent text-foreground bg-muted"
-                        : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted"
-                    }`}
-                  >
-                    {tab.label}
-                  </Link>
-                );
-              })}
-            </nav>
-
-            <div className="border-t border-border px-4 py-3 space-y-2">
-              {name ? (
-                <p className="text-sm text-muted-foreground break-words">
-                  {t("app.salesPortal.signedInAs", { name })}
-                </p>
-              ) : null}
-              <button
-                type="button"
-                onClick={onSignOut}
-                className="inline-flex items-center gap-2 min-h-[44px] text-sm font-medium text-muted-foreground hover:text-foreground"
-              >
-                <LogOut size={14} />
-                {t("app.salesPortal.signOut")}
-              </button>
-            </div>
-          </aside>
+            <X size={20} />
+          </button>
         </div>
-      ) : null}
+
+        {drawerExtra ? (
+          <div className="px-4 py-3 border-b border-border">{drawerExtra}</div>
+        ) : null}
+
+        <nav className="flex-1 overflow-y-auto py-2">
+          {drawer.map((tab) => {
+            const active = isActiveTab(pathname, tab.href);
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                aria-current={active ? "page" : undefined}
+                data-sales-tour={tab.href}
+                className={`flex items-center min-h-[44px] px-4 py-2 text-sm font-medium border-l-2 ${
+                  active
+                    ? "border-brand-accent text-foreground bg-muted"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                {tab.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="border-t border-border px-4 py-3 space-y-2">
+          {name ? (
+            <p className="text-sm text-muted-foreground break-words">
+              {t("app.salesPortal.signedInAs", { name })}
+            </p>
+          ) : null}
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="inline-flex items-center gap-2 min-h-[44px] text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
+            <LogOut size={14} />
+            {t("app.salesPortal.signOut")}
+          </button>
+        </div>
+      </NavDrawer>
     </>
   );
 }

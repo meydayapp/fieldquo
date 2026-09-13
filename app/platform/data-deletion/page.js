@@ -236,7 +236,7 @@ export default function PlatformDataDeletionPage() {
                         ) : (
                           <>
                             {row.name ? `${row.name} · ` : ""}
-                            <a className="underline underline-offset-2" href={`mailto:${row.email}`}>{row.email}</a>
+                            <a className="underline underline-offset-2 break-all" href={`mailto:${row.email}`}>{row.email}</a>
                           </>
                         )}
                         {row.companyName ? <span className="text-muted-foreground"> · records at {row.companyName}</span> : null}

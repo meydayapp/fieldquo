@@ -413,7 +413,7 @@ export default function PlatformDemoPage() {
                             ? setConfirming(key)
                             : act(d.id, { companyId: d.id, industry: ind.key }, "PATCH")
                         }
-                        className={`text-xs px-3 py-1.5 rounded-full border transition-colors disabled:opacity-40 ${
+                        className={`min-h-[44px] min-w-[44px] lg:min-h-0 text-xs px-3 py-1.5 rounded-full border transition-colors disabled:opacity-40 ${
                           current
                             ? "bg-inverted text-inverted-foreground border-transparent"
                             : confirming === key
@@ -471,7 +471,7 @@ export default function PlatformDemoPage() {
                   <button
                     onClick={() => enterDemo(d)}
                     disabled={entering === d.id}
-                    className="inline-flex items-center gap-2 bg-foreground text-background text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
+                    className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-2 bg-foreground text-background text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
                   >
                     {entering === d.id ? (
                       <Loader2 size={14} className="animate-spin" />
@@ -521,7 +521,7 @@ export default function PlatformDemoPage() {
                       <button
                         onClick={() => createLogin(d)}
                         disabled={password.length < 12}
-                        className="text-sm font-semibold bg-foreground text-background rounded-lg px-3 py-1.5 disabled:opacity-40"
+                        className="min-h-[44px] lg:min-h-0 text-sm font-semibold bg-foreground text-background rounded-lg px-3 py-1.5 disabled:opacity-40"
                       >
                         Create
                       </button>
@@ -642,7 +642,7 @@ export default function PlatformDemoPage() {
                             // refuse it here than to half-succeed.
                             (assignPassword.length > 0 && assignPassword.length < 12)
                           }
-                          className="inline-flex items-center gap-1.5 text-sm font-semibold bg-foreground text-background rounded-lg px-3 py-1.5 disabled:opacity-40"
+                          className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-1.5 text-sm font-semibold bg-foreground text-background rounded-lg px-3 py-1.5 disabled:opacity-40"
                         >
                           {busy === d.id ? (
                             <Loader2 size={13} className="animate-spin" />

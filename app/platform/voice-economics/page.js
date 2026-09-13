@@ -116,7 +116,7 @@ export default function VoiceEconomicsPage() {
               key={d}
               type="button"
               onClick={() => setDays(d)}
-              className={`text-sm font-semibold px-3 py-1.5 rounded-lg border ${
+              className={`min-h-[44px] min-w-[44px] lg:min-h-0 text-sm font-semibold px-3 py-1.5 rounded-lg border ${
                 d === days
                   ? "bg-foreground text-background border-foreground"
                   : "border-border hover:bg-muted"
@@ -129,7 +129,7 @@ export default function VoiceEconomicsPage() {
             type="button"
             onClick={load}
             disabled={state === "loading"}
-            className="inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-lg border border-border hover:bg-muted disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-0 text-sm font-semibold px-3 py-1.5 rounded-lg border border-border hover:bg-muted disabled:opacity-50"
           >
             {state === "loading" ? (
               <Loader2 size={13} className="animate-spin" />
