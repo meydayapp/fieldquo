@@ -95,7 +95,7 @@ export default function WorkerHome() {
           {/* ── Coming up ───────────────────────────────────────────── */}
           {data.upcoming?.length ? (
             <Card>
-              <CardTitle action={<Link href={data.me.quoter ? "/app/me/schedule" : "/app/me/schedule"} className="text-xs font-semibold text-foreground underline">{t("app.me.seeSchedule")}</Link>}>
+              <CardTitle action={<Link href="/app/me/schedule" className="text-xs font-semibold text-foreground underline">{t("app.me.seeSchedule")}</Link>}>
                 {t("app.me.comingUp")}
               </CardTitle>
               <ul className="divide-y divide-border">
