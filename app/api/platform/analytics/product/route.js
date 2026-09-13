@@ -59,6 +59,9 @@ export async function GET(request) {
   const marketing = {
     pages: topPaths(rows, "marketing", { limit: 25 }),
     languages: byLanguage(rows, "marketing"),
+    // One word per landing — facebook / instagram / google / direct — with
+    // click ids folded in, because the Facebook app sends no referrer.
+    traffic: dimension(rows, "source", { surface: "marketing" }),
     referrers: dimension(rows, "referrer", { surface: "marketing" }),
     campaigns: dimension(rows, "utm_campaign", { surface: "marketing" }),
     sources: dimension(rows, "utm_source", { surface: "marketing" }),

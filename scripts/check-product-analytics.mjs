@@ -37,6 +37,7 @@ import {
 } from "@/lib/analytics/product/routes.js";
 import {
   sanitiseBatch, sanitiseEvent, cleanReferrerHost, cleanHelpQuery, cleanLanguage, cleanVisitorId,
+  foldReferrerHost, cleanClickNetwork, trafficSource,
   BROWSER_EVENTS, FEATURES, FEATURE_KEYS, SIGNUP_FUNNEL, MAX_EVENTS_PER_BATCH,
 } from "@/lib/analytics/product/events.js";
 import {
@@ -120,6 +121,18 @@ section("3. sanitiseBatch");
   ok("a page_view with a foreign path is refused", sanitiseEvent({ e: "page_view", p: "/evil" }) === null);
   const pv = sanitiseEvent({ e: "page_view", p: "/app/quotes/cm123/edit?x=1", r: "https://www.google.com/search?q=x", us: "Google", um: "cpc", uc: "Spring Push" });
   ok("a good page_view is normalised", pv && pv.path === "/app/quotes/[id]/edit" && pv.surface === "app" && pv.referrerHost === "google.com" && pv.utmSource === "google" && pv.utmCampaign === "spring push");
+  // 2026-09-13: "are we able to see if people come from facebook?" — the
+  // referrer table showed google.com and nothing else, because Facebook's
+  // app sends no referrer and its web redirector is l.facebook.com.
+  ok("referrer redirectors fold to one family host", cleanReferrerHost("https://l.facebook.com/l.php?u=x") === "facebook.com" && cleanReferrerHost("lm.facebook.com") === "facebook.com" && cleanReferrerHost("https://l.instagram.com/") === "instagram.com" && cleanReferrerHost("www.google.ca") === "google.com" && foldReferrerHost("t.co") === "x.com" && foldReferrerHost("yelp.com") === "yelp.com");
+  ok("a click network is a closed list", cleanClickNetwork("facebook") === "facebook" && cleanClickNetwork("instagram") === "instagram" && cleanClickNetwork("evil") === null && cleanClickNetwork(null) === null);
+  ok("traffic source: click id beats utm beats referrer beats direct", trafficSource({ clickNetwork: "facebook", utmSource: "google", referrerHost: "bing.com" }) === "facebook" && trafficSource({ utmSource: "IG", referrerHost: "google.com" }) === "instagram" && trafficSource({ utmSource: "google", utmMedium: "cpc" }) === "google_ads" && trafficSource({ referrerHost: "facebook.com" }) === "facebook" && trafficSource({ referrerHost: "yelp.com" }) === "yelp.com" && trafficSource({}) === "direct" && trafficSource({ utmSource: "<b>weird source</b>" }) === "_b_weird_source_b_");
+  {
+    const landing = sanitiseEvent({ e: "page_view", p: "/pricing", r: null, c: "facebook" });
+    const later = sanitiseEvent({ e: "page_view", p: "/pricing" });
+    ok("only a landing carries a source; an in-site view is never 'direct'", landing?.meta?.src === "facebook" && later?.meta === null);
+    ok("a landing with nothing is direct", sanitiseEvent({ e: "page_view", p: "/pricing", r: null })?.meta?.src === "direct");
+  }
   ok("our own host is not a referrer", cleanReferrerHost("https://www.fieldquo.com/pricing") === null && cleanReferrerHost("sunset.fieldquo.com") === null && cleanReferrerHost("http://localhost:3000/") === null && cleanReferrerHost("x.vercel.app") === null);
   ok("a bare word is not a referrer host", cleanReferrerHost("google") === null && cleanReferrerHost("<script>") === null);
   ok("a signup step must be one of the four", sanitiseEvent({ e: "signup_step", p: "trades" })?.path === "trades" && sanitiseEvent({ e: "signup_step", p: "completed" }) === null && sanitiseEvent({ e: "signup_step", p: "card" }) === null);

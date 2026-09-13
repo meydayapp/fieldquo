@@ -277,6 +277,9 @@ export default function PlatformAnalyticsPage() {
                 <section className={CARD}>
                   <h2 className="text-base font-semibold text-foreground">By language</h2>
                   <RankTable rows={data.marketing.languages} label="Language" empty="No views yet." />
+                  <h2 className="text-base font-semibold text-foreground pt-2">Where landings came from</h2>
+                  <p className="text-xs text-muted-foreground">Facebook, Instagram, Google… from the click id on the link, the UTM source, or the referrer — in that order. "direct" is a floor: a Facebook app link without an fbclid looks direct.</p>
+                  <RankTable rows={data.marketing.traffic} label="Source" empty="No landings recorded in this range." showUniques={false} />
                   <h2 className="text-base font-semibold text-foreground pt-2">By referrer</h2>
                   <RankTable rows={data.marketing.referrers} label="Referring site" empty="No outside referrers recorded — a direct visit or a link from our own pages carries none." showUniques={false} />
                 </section>
