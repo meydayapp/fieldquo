@@ -64,6 +64,7 @@ import {
 import {
   ABSENCE_SCOPE,
   CAPABILITY_DETECTOR,
+  CAPABILITY_DETECTOR_VERSION,
   DETECTED_CAPABILITY_CODES,
   absenceConfidence,
   absenceEligibility,
@@ -846,7 +847,8 @@ const detectSrc = codeOnly(read("lib/sales/pipeline/handlers/detectTechnology.js
 {
   const body = bodyOf(analyzeSrc, "async function writeCapabilities");
   if (ok("writeCapabilities is findable", Boolean(body))) {
-    ok("…refuses to overwrite a known value with a null", /capability\.value\s*===\s*null\s*&&\s*known\.get\(capability\.code\)\s*!=\s*null/.test(body), body.slice(0, 600));
+    ok("…refuses to overwrite a known value with a null", /capability\.value\s*===\s*null\s*&&\s*before\?\.value\s*!=\s*null/.test(body), body.slice(0, 600));
+    ok("…but only one the SAME detector version wrote", /before\.detectorVersion[\s\S]{0,40}CAPABILITY_DETECTOR_VERSION/.test(body), body.slice(0, 900));
     ok(
       "…deletes only its OWN detector's evidence",
       /deleteMany\(\{\s*where:\s*\{\s*prospectId,\s*detector:\s*CAPABILITY_DETECTOR\s*\}\s*\}\)/.test(body),
@@ -1033,8 +1035,9 @@ function stubDb({
   ok("…and the note says absence was provable", /absence provable/.test(result.note), result.note);
 }
 {
-  // Rule 1, executed: a failed crawl must not erase last week's finding.
-  const db = stubDb({ capabilities: [{ code: "ONLINE_BOOKING", value: true }] });
+  // Rule 1, executed: a failed crawl must not erase last week's finding —
+  // one THIS detector version made.
+  const db = stubDb({ capabilities: [{ code: "ONLINE_BOOKING", value: true, detectorVersion: CAPABILITY_DETECTOR_VERSION }] });
   const result = await handleAnalyzeCapabilities({
     task: { prospectId: "p1" },
     payload: { prospectId: "p1", pages: [failedPage] },
@@ -1043,6 +1046,20 @@ function stubDb({
   ok("a failed crawl still completes the stage", result.done === true, result);
   ok("…and does NOT overwrite a known finding with a null", !db.written.capabilities.some((c) => c.code === "ONLINE_BOOKING"), db.written.capabilities);
   ok("…and says how many findings it kept", /kept/.test(result.note), result.note);
+}
+{
+  // …whereas a finding an OLDER detector version wrote is superseded by the
+  // current version's null: detector "1" wrote false off probed crawls, and
+  // keeping that against a "2" null would keep the unearned claim for ever.
+  const db = stubDb({ capabilities: [{ code: "ONLINE_BOOKING", value: false, detectorVersion: "1" }] });
+  const result = await handleAnalyzeCapabilities({
+    task: { prospectId: "p1" },
+    payload: { prospectId: "p1", pages: [failedPage] },
+    db,
+  });
+  ok("an older version's finding IS overwritten by the current version's null", db.written.capabilities.some((c) => c.code === "ONLINE_BOOKING" && c.value === null && c.detectorVersion === CAPABILITY_DETECTOR_VERSION), db.written.capabilities);
+  ok("…and nothing was reported as kept", !/kept/.test(result.note), result.note);
+  ok("the current detector version is 2 — absence is refused from a probed crawl", CAPABILITY_DETECTOR_VERSION === "2");
 }
 {
   // …but a genuinely new observation DOES overwrite.
