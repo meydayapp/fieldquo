@@ -17,12 +17,17 @@ import { ROUTES_GROW } from "./routes-grow.js";
 import { ROUTES_SETTINGS_A } from "./routes-settings-a.js";
 import { ROUTES_SETTINGS_B } from "./routes-settings-b.js";
 import { ROUTES_CHAT } from "./routes-chat.js";
+import { ROUTES_HELP } from "./routes-help.js";
 
 // Settings B before Grow: both answer /api/settings/document-templates,
 // and only the settings file's list carries the PDF layouts and the
 // isDefault flags the Email/PDF Templates pages draw; it also includes the
 // two rows Marketing reads, so the order costs Grow nothing.
+// Help first: it answers the detail pages and the client-facing routes no
+// sidebar row reads, and it is where a page every group answers for the
+// owner is answered differently for the crew (see its header).
 export const ROUTES = [
+  ...ROUTES_HELP,
   ...ROUTES_WORK,
   ...ROUTES_PEOPLE,
   ...ROUTES_MONEY,

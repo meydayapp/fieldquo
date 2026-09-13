@@ -35,7 +35,7 @@ const PHOTO_SITE = swatch("#8b9aa6", "#4b5a66");
 // app/api/marketing/campaigns GET: a bare array with the stop summary the hub
 // cards read. The pamphlet one is the route the crew walks; the paid-ads one
 // is the container the Designer's artwork hangs off.
-const CAMPAIGNS = [
+export const CAMPAIGNS = [
   {
     id: "mc_flyers",
     name: "Fall flyer drop — Sainte-Rose",
@@ -460,7 +460,7 @@ const REFERRAL = {
 // ── Account & Billing ──────────────────────────────────────────────────────
 // app/api/settings/plans GET: { plans, currency } — the ladder in the
 // company's own currency only, priced at the ladder's default annual deal.
-const PLANS = SEAT_LADDER.map((rung) => ({
+export const PLANS = SEAT_LADDER.map((rung) => ({
   id: `plan_${rung.tierKey}`,
   name: rung.label,
   priceMonthly: rung.price,

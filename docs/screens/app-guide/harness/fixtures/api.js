@@ -24,16 +24,24 @@ export function installFetch({ screen, lang }) {
     window.__onFetch?.();
     try {
       await delay(30);
-      for (const route of ROUTES) {
-        const m = typeof route.path === "string" ? (route.path === key ? [] : null) : key.match(route.path);
-        if (!m) continue;
-        if (route.method && route.method !== method) continue;
-        const body = await route.reply({ params: m, search: u.searchParams, method, body: options.body, screen, lang });
-        if (body instanceof Response) return body;
-        return json(body, route.status || 200);
-      }
-      window.__unanswered.push(method + " " + key + u.search);
-      return json({ error: `Harness has no answer for ${method} ${key}` }, 404);
+      // First match wins — unless its reply calls ctx.next(), which hands
+      // the request to the next route that matches. That is how
+      // routes-help.js answers a route for the crew and leaves the owner's
+      // answer where it always was.
+      const answer = async (from) => {
+        for (let i = from; i < ROUTES.length; i++) {
+          const route = ROUTES[i];
+          const m = typeof route.path === "string" ? (route.path === key ? [] : null) : key.match(route.path);
+          if (!m) continue;
+          if (route.method && route.method !== method) continue;
+          const body = await route.reply({ params: m, search: u.searchParams, method, body: options.body, screen, lang, next: () => answer(i + 1) });
+          if (body instanceof Response) return body;
+          return json(body, route.status || 200);
+        }
+        window.__unanswered.push(method + " " + key + u.search);
+        return json({ error: `Harness has no answer for ${method} ${key}` }, 404);
+      };
+      return await answer(0);
     } finally {
       window.__inflight--;
       window.__onFetch?.();

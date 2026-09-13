@@ -72,6 +72,30 @@ import P69 from "@/app/app/settings/links/page.js";
 import P70 from "@/app/app/settings/voice/page.js";
 import P71 from "@/app/app/settings/ai-employee/page.js";
 import P72 from "@/app/app/settings/reviews/page.js";
+import P73 from "@/app/q/[token]/QuoteApproval.js";
+import P74 from "@/app/book/[companySlug]/BookingFlow.js";
+import P75 from "@/app/portal/[token]/ClientPortal.js";
+import P76 from "@/app/instant-quote/[companySlug]/InstantQuoteFlow.js";
+import P77 from "@/app/quote/[companySlug]/SelfQuoteFlow.js";
+import P78 from "@/app/visit/[token]/VisitManager.js";
+import P79 from "@/app/site/[subdomain]/SiteBlocks.js";
+import P80 from "@/app/components/links/LinkPageView.js";
+import P81 from "@/app/f/[companySlug]/[funnelSlug]/FunnelRunner.js";
+import P82 from "@/app/design/[token]/DesignClient.js";
+import P83 from "@/app/app/quotes/[id]/page.js";
+import P84 from "@/app/app/quotes/new/page.js";
+import P85 from "@/app/app/jobs/[id]/JobDetail.js";
+import P86 from "@/app/app/invoices/[id]/page.js";
+import P87 from "@/app/app/clients/[id]/page.js";
+import P88 from "@/app/app/plans/[id]/page.js";
+import P89 from "@/app/app/payroll/[id]/page.js";
+import P90 from "@/app/app/funnels/[id]/page.js";
+import P91 from "@/app/app/marketing/[id]/page.js";
+import P92 from "@/app/app/messages/review/page.js";
+import P93 from "@/app/app/clients/import/page.js";
+import P94 from "@/app/app/jobs/import/page.js";
+import P95 from "@/app/accept-invitation/[id]/page.js";
+import P96 from "@/app/signup/page.js";
 export const PAGES = {
   "app/app/page.js": P0,
   "app/app/copilot/page.js": P1,
@@ -146,4 +170,28 @@ export const PAGES = {
   "app/app/settings/voice/page.js": P70,
   "app/app/settings/ai-employee/page.js": P71,
   "app/app/settings/reviews/page.js": P72,
+  "app/q/[token]/QuoteApproval.js": P73,
+  "app/book/[companySlug]/BookingFlow.js": P74,
+  "app/portal/[token]/ClientPortal.js": P75,
+  "app/instant-quote/[companySlug]/InstantQuoteFlow.js": P76,
+  "app/quote/[companySlug]/SelfQuoteFlow.js": P77,
+  "app/visit/[token]/VisitManager.js": P78,
+  "app/site/[subdomain]/SiteBlocks.js": P79,
+  "app/components/links/LinkPageView.js": P80,
+  "app/f/[companySlug]/[funnelSlug]/FunnelRunner.js": P81,
+  "app/design/[token]/DesignClient.js": P82,
+  "app/app/quotes/[id]/page.js": P83,
+  "app/app/quotes/new/page.js": P84,
+  "app/app/jobs/[id]/JobDetail.js": P85,
+  "app/app/invoices/[id]/page.js": P86,
+  "app/app/clients/[id]/page.js": P87,
+  "app/app/plans/[id]/page.js": P88,
+  "app/app/payroll/[id]/page.js": P89,
+  "app/app/funnels/[id]/page.js": P90,
+  "app/app/marketing/[id]/page.js": P91,
+  "app/app/messages/review/page.js": P92,
+  "app/app/clients/import/page.js": P93,
+  "app/app/jobs/import/page.js": P94,
+  "app/accept-invitation/[id]/page.js": P95,
+  "app/signup/page.js": P96,
 };

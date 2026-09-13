@@ -42,12 +42,12 @@ const person = (id, first, last, email, phone, address, city, postalCode, langua
   country: "CA",
   language,
 });
-const LAVOIE = person("cl_lavoie", "Martin", "Lavoie", "m.lavoie@example.com", "+1 450 555 0122", "214 rue Principale", "Laval", "H7X 1B4");
+export const LAVOIE = person("cl_lavoie", "Martin", "Lavoie", "m.lavoie@example.com", "+1 450 555 0122", "214 rue Principale", "Laval", "H7X 1B4");
 const HADDAD = person("cl_haddad", "Nadia", "Haddad", "nadia.haddad@example.com", "+1 514 555 0163", "37 av. des Pins", "Laval", "H7L 2R8");
 const BELANGER = person("cl_belanger", "Chantal", "Bélanger", "cbelanger@example.com", "+1 450 555 0139", "902 boul. des Laurentides", "Laval", "H7G 2V8");
 const BENALI = person("cl_benali", "Karim", "Benali", "karim.benali@example.com", "+1 450 555 0174", "15 rue Lachapelle", "Boisbriand", "J7G 1L2");
-const FORTIN = person("cl_fortin", "Isabelle", "Fortin", "isabelle.fortin@example.com", "+1 514 555 0198", "61 rue de la Sapinière", "Laval", "H7Y 1K6");
-const RIVENORD = person("cl_rivenord", "Groupe Immobilier", "Rive-Nord", "comptes@rivenord.example.com", "+1 450 555 0150", "3000 boul. Le Corbusier, bureau 210", "Laval", "H7L 3W2");
+export const FORTIN = person("cl_fortin", "Isabelle", "Fortin", "isabelle.fortin@example.com", "+1 514 555 0198", "61 rue de la Sapinière", "Laval", "H7Y 1K6");
+export const RIVENORD = person("cl_rivenord", "Groupe Immobilier", "Rive-Nord", "comptes@rivenord.example.com", "+1 450 555 0150", "3000 boul. Le Corbusier, bureau 210", "Laval", "H7L 3W2");
 
 // ── Quotes ──────────────────────────────────────────────────────────────────
 // Q-1042 is company.js's accepted quote. The list route sends every column
@@ -85,8 +85,8 @@ const quote = (id, number, title, status, client, subtotal, dates, extra = {}) =
   ...extra,
 });
 
-const Q_1042 = { ...QUOTE, autoEstimated: false, needsReview: false, assignedTo: who(SAM), assignedToId: SAM.userId, scopeGroups: [], acceptedAt: QUOTE.approvedAt };
-const Q_1044 = quote("q_1044", "Q-1044", "Kitchen refacing — 22 doors, painted maple", "sent", LAVOIE, 9800, {
+export const Q_1042 = { ...QUOTE, autoEstimated: false, needsReview: false, assignedTo: who(SAM), assignedToId: SAM.userId, scopeGroups: [], acceptedAt: QUOTE.approvedAt };
+export const Q_1044 = quote("q_1044", "Q-1044", "Kitchen refacing — 22 doors, painted maple", "sent", LAVOIE, 9800, {
   created: day(-5, 14), sent: day(-4, 10), validUntil: day(26),
 });
 const Q_1045 = quote("q_1045", "Q-1045", "Bathroom vanity — walnut, wall-hung", "draft", BENALI, 4850, {
@@ -147,7 +147,7 @@ const Q_1047 = {
   recordingHref: "/api/voice/calls/vc_0913_1502/recording",
 };
 
-const QUOTES = [Q_1046, Q_1045, Q_1044, Q_1042, Q_1047, Q_1039];
+export const QUOTES = [Q_1046, Q_1045, Q_1044, Q_1042, Q_1047, Q_1039];
 
 // ── Jobs ────────────────────────────────────────────────────────────────────
 // J-318 is company.js's. The list reads title, status, client.name, visits,
@@ -161,7 +161,7 @@ const visit = (id, job, at, assignee, status = "scheduled", notes = null) => ({
   assignedToId: assignee.userId,
   assignedTo: who(assignee),
 });
-const J_318 = {
+export const J_318 = {
   ...JOB,
   recurring: false,
   visits: [],
@@ -221,7 +221,7 @@ const J_315 = {
   visits: [],
 };
 J_315.visits = [visit("v_315a", J_315, day(-4, 8), ANA, "completed", null)];
-const JOBS = [J_318, J_321, J_315];
+export const JOBS = [J_318, J_321, J_315];
 
 // ── Invoices ────────────────────────────────────────────────────────────────
 // INV-2071 is company.js's (sent, due in nine days). One paid last week, one
@@ -261,16 +261,26 @@ const invoice = (id, number, status, client, subtotal, dates, extra = {}) => {
   };
 };
 const INV_2071 = { ...INVOICE, version: 1, parentInvoiceId: null, paidDate: null, lastChasedAt: null, chaseCount: 0, payments: [], versions: [], client: { id: CLIENT.id, name: CLIENT.name, email: CLIENT.email } };
-const INV_2069 = invoice("inv_2069", "INV-2069", "paid", FORTIN, 6320, { sent: day(-4, 16), due: day(10), paid: day(-3, 11) }, {
+export const INV_2069 = invoice("inv_2069", "INV-2069", "paid", FORTIN, 6320, { sent: day(-4, 16), due: day(10), paid: day(-3, 11) }, {
   jobId: J_315.id,
   items: [{ id: "ii2069", name: "Laundry room — cabinets, counter and installation", quantity: 1, unitPrice: 6320, total: 6320 }],
 });
-INV_2069.payments = [{ id: "pay_2069", invoiceId: "inv_2069", amount: INV_2069.total, method: "etransfer", date: iso(day(-3, 11)) }];
-const INV_2066 = invoice("inv_2066", "INV-2066", "overdue", RIVENORD, 3450, { sent: day(-42, 9), due: day(-12), chased: day(-5, 14, 41) }, {
+// Paid by card through the payment link, so the row carries what Stripe
+// reported: the fee it kept and what reached the bank (Payment.
+// processingFeeCents / netCents / feeRateLabel — the invoice page prints
+// "card processing $… · deposited $…" from exactly these three).
+const FEE_2069 = Math.round(INV_2069.total * 100 * 0.029) + 30;
+INV_2069.payments = [{
+  id: "pay_2069", invoiceId: "inv_2069", amount: INV_2069.total, method: "stripe", date: iso(day(-3, 11)), notes: null, createdAt: iso(day(-3, 11)),
+  refundedAmount: 0, refundedAt: null, disputeStatus: null, disputedAt: null,
+  processingFeeCents: FEE_2069, netCents: Math.round(INV_2069.total * 100) - FEE_2069, feeRateLabel: "card", estimatedFeeCents: FEE_2069, stripeFeeCents: FEE_2069,
+  accountFeeRecoveredCents: 0, accountFeePeriod: null, disputeHeldCents: null, disputeFeeCents: null, disputeReturnedCents: null,
+}];
+export const INV_2066 = invoice("inv_2066", "INV-2066", "overdue", RIVENORD, 3450, { sent: day(-42, 9), due: day(-12), chased: day(-5, 14, 41) }, {
   jobId: null,
   items: [{ id: "ii2066", name: "Model-home vanities — 3 units, delivered", quantity: 3, unitPrice: 1150, total: 3450 }],
 });
-const INVOICES = [INV_2071, INV_2069, INV_2066];
+export const INVOICES = [INV_2071, INV_2069, INV_2066];
 
 // ── Money received, month by month ──────────────────────────────────────────
 // Payment rows for the trend chart: a shop billing roughly $35k a month, with
@@ -485,7 +495,7 @@ const plan = (o) => {
     ...o,
   };
 };
-const PLANS = [
+export const PLANS = [
   plan({
     id: "sp_dubois", name: "Annual hardware & finish tune-up", serviceName: "Cabinet tune-up visit",
     client: { id: CLIENT.id, name: CLIENT.name, email: CLIENT.email },
@@ -546,7 +556,7 @@ const visitEntry = (v, job) => ({
   latitude: null,
   longitude: null,
 });
-const APPOINTMENTS = [
+export const APPOINTMENTS = [
   visitEntry(J_315.visits[0], J_315),
   appointment("ap_bergeron", day(0, 14), person("cl_bergeron", "Amélie", "Bergeron", "amelie.bergeron@example.com", "+1 450 555 0127", "48 rue des Cèdres", "Laval", "H7W 3K1"), SAM, {
     notes: "Estimate visit — full kitchen, bring the shaker door samples and the white-oak island sample.",
@@ -605,7 +615,7 @@ const task = (o) => ({
   updatedAt: iso(day(-3, 9)),
   ...o,
 });
-const TASKS = [
+export const TASKS = [
   task({
     id: "tk_1", title: "Order Blum soft-close hinges for Dubois uppers", description: "24 × Blumotion 110°, plus 6 spares. Richelieu — 2-day delivery.",
     dueDate: iso(day(0, 17)), priority: "high", assignedToId: DAN.userId, assignedTo: who(DAN), clientId: CLIENT.id, client: { id: CLIENT.id, name: CLIENT.name }, jobId: J_318.id, job: { id: J_318.id, title: J_318.title, status: J_318.status },

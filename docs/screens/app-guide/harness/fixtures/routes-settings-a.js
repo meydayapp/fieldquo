@@ -131,7 +131,7 @@ const PRODUCTS = [
 ].map((p) => ({ ...p, translations: null, companyId: COMPANY.id, createdAt: iso(day(-200)) }));
 
 // ── Booking page ──────────────────────────────────────────────────────────
-const EVENT_TYPES = [
+export const EVENT_TYPES = [
   { id: "et_consult", companyId: COMPANY.id, userId: PEOPLE[2].userId, user: { id: PEOPLE[2].userId, name: PEOPLE[2].name }, name: "Kitchen design consultation", slug: "kitchen-design-consultation", durationMinutes: 60, bufferBefore: 0, bufferAfter: 15, location: "At your home", active: true, feeCents: null, promoFeeCents: null, promoActive: false, createdAt: iso(day(-180)) },
   { id: "et_measure", companyId: COMPANY.id, userId: PEOPLE[2].userId, user: { id: PEOPLE[2].userId, name: PEOPLE[2].name }, name: "Measurement visit", slug: "measurement-visit", durationMinutes: 45, bufferBefore: 0, bufferAfter: 15, location: "At your home", active: true, feeCents: 7500, promoFeeCents: 4900, promoActive: true, createdAt: iso(day(-180)) },
 ];

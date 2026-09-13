@@ -40,14 +40,20 @@ import { ThemeProvider } from "@/app/providers/ThemeProvider";
 import { SCREENS } from "./screens.js";
 import { PAGES } from "./pages.gen.jsx";
 import { installFetch } from "./fixtures/api.js";
-import { COMPANY, MEMBER, FEATURE_FLAGS } from "./fixtures/company.js";
+import { COMPANY, MEMBER, CREW_MEMBER, CREW, DISPATCHER, DISPATCHER_MEMBER, OWNER, FEATURE_FLAGS } from "./fixtures/company.js";
+import { PUBLIC_PROPS } from "./fixtures/public.js";
+import { documentTheme } from "@/lib/documents/theme";
 
 const params = new URLSearchParams(window.location.search);
 const slug = params.get("page") || "home";
 const lang = params.get("lang") || "en";
 const screen = SCREENS.find((s) => s.slug === slug);
 if (!screen) throw new Error(`unknown screen "${slug}"`);
-window.__harness = { href: screen.href, slug, lang };
+const VIEWERS = { crew: [CREW, CREW_MEMBER], dispatcher: [DISPATCHER, DISPATCHER_MEMBER] };
+if (screen.member && !VIEWERS[screen.member]) throw new Error(`unknown member "${screen.member}"`);
+const [user, member] = VIEWERS[screen.member] || [OWNER, MEMBER];
+// A public row is a stranger: no session for the auth stub to report.
+window.__harness = { href: screen.href, slug, lang, params: screen.params || {}, user: screen.mode === "public" ? null : user };
 // The real LanguageProvider prefers a stored choice over a guess; the
 // account's stated choice (fromAccount) beats storage, but clear it anyway so
 // a previous run's language can never leak into this frame.
@@ -73,6 +79,11 @@ installFetch({ screen, lang });
 
 const Page = PAGES[screen.page];
 if (!Page) throw new Error(`no page module bundled for ${screen.page}`);
+// `props` is either the component's props themselves ({ token }) or the
+// name of a builder in fixtures/public.js for the pages whose props the
+// server would have computed from the database.
+const pageProps = typeof screen.props === "string" ? PUBLIC_PROPS[screen.props]?.({ lang, screen }) : screen.props;
+if (typeof screen.props === "string" && !pageProps) throw new Error(`no fixtures/public.js props builder "${screen.props}"`);
 
 function Shell({ children }) {
   return (
@@ -84,7 +95,7 @@ function Shell({ children }) {
       <LanguageProvider initialLanguage={lang} fromAccount>
         <CompanyPreferencesProvider initialCurrency={COMPANY.currency}>
           <FeatureProvider flags={FEATURE_FLAGS}>
-            <PermissionProvider role={MEMBER.role} permissions={MEMBER.permissions}>
+            <PermissionProvider role={member.role} permissions={member.permissions}>
               <div className="lg:flex">
                 <AdminSidebar />
                 <main className="flex-1 min-w-0 pb-[calc(var(--fq-tab-bar-height)+var(--fq-dock-height))]">
@@ -102,9 +113,29 @@ function Shell({ children }) {
   );
 }
 
+// A client-facing route: app/layout.js's pair and nothing else. The
+// language is the one the client's document carries in the fixture, which
+// public.js keeps equal to ?lang so the French figure shows the French client's
+// page — the covering email and the page agree, as they must (AGENTS.md #6).
+// What the route's page.js puts around the component, where it puts
+// anything: the booking page paints the document paper to the bottom of the
+// window (its comment says why); the website paints white in the brand ink.
+// The other client pages mount their component bare, and so do their rows.
+const WRAPS = {
+  bookingPage: (children) => <div className="min-h-dvh" style={{ backgroundColor: documentTheme(COMPANY).page }}>{children}</div>,
+  sitePage: (children) => <div style={{ backgroundColor: "#ffffff", color: documentTheme(COMPANY).ink }}>{children}</div>,
+};
+function PublicShell({ children }) {
+  const wrap = screen.wrap ? WRAPS[screen.wrap] : null;
+  if (screen.wrap && !wrap) throw new Error(`unknown wrap "${screen.wrap}"`);
+  return (
+    <ThemeProvider><LanguageProvider initialLanguage={lang} fromAccount>{wrap ? wrap(children) : children}</LanguageProvider></ThemeProvider>
+  );
+}
+
 function SettingsShell({ children }) {
   return (
-    <SettingsAccessProvider access={{ role: MEMBER.role, impersonation: false }}>
+    <SettingsAccessProvider access={{ role: member.role, impersonation: false }}>
       <SettingsDrillDownProvider>
         <div className="lg:flex min-h-screen">
           <SettingsSidebar tradeGate={COMPANY.tradeGate} />
@@ -146,7 +177,8 @@ function App() {
     }, 100);
     return () => clearInterval(tick);
   }, []);
-  const body = screen.settings ? <SettingsShell><Page /></SettingsShell> : <Page />;
+  if (screen.mode === "public") return <PublicShell><Page {...(pageProps || {})} /></PublicShell>;
+  const body = screen.settings ? <SettingsShell><Page {...(pageProps || {})} /></SettingsShell> : <Page {...(pageProps || {})} />;
   return <Shell>{body}</Shell>;
 }
 
@@ -163,6 +195,17 @@ const until = async (sel, tries = 50) => {
     await wait(100);
   }
   throw new Error(`scene: never found ${sel}`);
+};
+// The button carrying a fixture string (an event type's name, a trade's
+// label, a funnel step's button text) — never an interface string, which
+// changes with ?lang.
+const clickButton = async (text, tries = 50) => {
+  for (let i = 0; i < tries; i++) {
+    const el = [...document.querySelectorAll("button")].find((b) => b.textContent.includes(text));
+    if (el) { el.click(); return el; }
+    await wait(100);
+  }
+  throw new Error(`scene: no button containing "${text}"`);
 };
 const setSelect = (el, value) => {
   Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, "value").set.call(el, value);
@@ -194,6 +237,75 @@ async function runScene(scene) {
     (await until('[data-room-id="j1"]')).click();
     await until("[data-chat-scroller]");
     await wait(500);
+    return;
+  }
+  if (scene === "booking-pick") {
+    // The booking page opens on the menu of event types; the figure is the
+    // calendar a person reaches by picking the consultation.
+    await clickButton("Kitchen design consultation");
+    await wait(900);
+    // …and Thursday the 17th, so the times the fixture offers are on screen.
+    const day17 = [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "17" && !b.disabled);
+    if (!day17) throw new Error("scene: no day 17 in the calendar");
+    day17.click();
+    await wait(500);
+    return;
+  }
+  if (scene === "instant-pick") {
+    // The estimator opens with nothing picked ("Pick a service"); picking a
+    // trade is the first thing anyone does, and it reveals the intake.
+    await clickButton("Cabinet refinishing");
+    await wait(400);
+    return;
+  }
+  if (scene === "kpis-cash") {
+    // The Cash section has no anchor of its own; it is the section before
+    // the one the tour marks as "not tracked". Scrolled to the top of the
+    // frame, the way a person reading down the page would have it.
+    const cash = (await until('[data-tour="kpis-not-tracked"]')).previousElementSibling;
+    if (!cash) throw new Error("scene: no section before kpis-not-tracked");
+    window.scrollTo(0, cash.getBoundingClientRect().top + window.scrollY - 16);
+    await wait(300);
+    return;
+  }
+  if (scene === "scroll-visits") {
+    const el = await until('[data-tour="job-visits"]');
+    window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 16);
+    await wait(300);
+    return;
+  }
+  if (scene === "invoice-chase") {
+    // The Request payment button is the one in the command strip carrying
+    // the mail icon (app/app/invoices/[id]/page.js setShowChase).
+    (await until("main button svg.lucide-mail")).closest("button").click();
+    await until("main textarea, main input[type=text], .fixed textarea");
+    await wait(300);
+    return;
+  }
+  if (scene === "client-edit") {
+    // The Edit button beside the client's name opens the edit sheet.
+    (await until("main button svg.lucide-pencil, main button svg.lucide-edit, main button svg.lucide-square-pen")).closest("button").click();
+    await until("main form, .fixed form, .fixed input");
+    await wait(400);
+    return;
+  }
+  if (scene === "appointment-new") {
+    (await until('[data-tour="appts-new"]')).click();
+    await until("main form, .fixed form, .fixed input");
+    await wait(400);
+    return;
+  }
+  if (scene === "safety-report") {
+    // The Report button opens the incident form in place (app/app/safety/
+    // page.js setShowForm) — the only button in the page header.
+    (await until("main h1 ~ * button, main .flex.items-start.justify-between button")).click();
+    await until("main form, main textarea");
+    await wait(300);
+    return;
+  }
+  if (scene === "funnel-start") {
+    await clickButton("Start");
+    await wait(400);
     return;
   }
   throw new Error(`scene: unknown "${scene}"`);

@@ -117,4 +117,81 @@ export const SCREENS = [
   // Manage Team with the Custom access editor open on one member; reached
   // by operating the page's own access dropdown (guide.jsx runScene).
   { slug: "access-editor", nav: "app.settings.team", href: "/app/settings/team", page: "app/app/settings/team/page.js", settings: true, scene: "access-editor", chapter: "roles" },
+
+  // ── Figures for the help centre (not sidebar rows) ─────────────────────
+  // lib/help/figures.js resolves `harness:<slug>` to these. Appended, never
+  // inserted: NN is the row's index and the files above keep their names.
+  // Every row carries `chapter: "help"` so check-app-guide-screens.mjs
+  // leaves it out of the sidebar comparison.
+  //
+  // What a homeowner opens from a link — outside the /app shell (mode:
+  // "public"). Each is the client component the route's page.js mounts, with
+  // the token or slug it would have been given; fixtures/routes-help.js
+  // answers what the component fetches, fixtures/public.js builds the props
+  // the two server-rendered pages (website, bio link) would have computed.
+  // Taller frames where the point of the page is at its foot: the add-ons
+  // and the Approve button, the plan under the designer's palette.
+  { slug: "client-quote-approval", href: "/q/qt_8f2c1a7d4e", page: "app/q/[token]/QuoteApproval.js", props: { token: "qt_8f2c1a7d4e" }, mode: "public", height: 2400, chapter: "help" },
+  { slug: "client-booking-page", href: "/book/erable-design", page: "app/book/[companySlug]/BookingFlow.js", props: { companySlug: "erable-design" }, mode: "public", wrap: "bookingPage", scene: "booking-pick", chapter: "help" },
+  { slug: "client-portal", href: "/portal/pt_3a9d7c2f1b", page: "app/portal/[token]/ClientPortal.js", props: { token: "pt_3a9d7c2f1b" }, mode: "public", chapter: "help" },
+  { slug: "client-instant-estimate", href: "/instant-quote/erable-design", page: "app/instant-quote/[companySlug]/InstantQuoteFlow.js", props: { companySlug: "erable-design" }, mode: "public", scene: "instant-pick", chapter: "help" },
+  { slug: "client-self-quote-form", href: "/quote/erable-design", page: "app/quote/[companySlug]/SelfQuoteFlow.js", props: { companySlug: "erable-design" }, mode: "public", chapter: "help" },
+  { slug: "client-visit-manage", href: "/visit/vm_5c1e8b3a2d", page: "app/visit/[token]/VisitManager.js", props: { token: "vm_5c1e8b3a2d" }, mode: "public", chapter: "help" },
+  { slug: "client-website", href: "/site/erable-design", page: "app/site/[subdomain]/SiteBlocks.js", props: "site", mode: "public", wrap: "sitePage", chapter: "help" },
+  { slug: "client-bio-link", href: "/l/erable-design", page: "app/components/links/LinkPageView.js", props: "bioLink", mode: "public", chapter: "help" },
+  { slug: "client-funnel", href: "/f/erable-design/kitchen-quote", page: "app/f/[companySlug]/[funnelSlug]/FunnelRunner.js", props: { companySlug: "erable-design", funnelSlug: "kitchen-quote" }, mode: "public", scene: "funnel-start", chapter: "help" },
+  { slug: "client-kitchen-design", href: "/design/qt_8f2c1a7d4e", page: "app/design/[token]/DesignClient.js", params: { token: "qt_8f2c1a7d4e" }, mode: "public", height: 1500, chapter: "help" },
+
+  // The detail pages the sidebar rows link to — inside the /app shell, as
+  // the owner. `params` is what useParams() hands the page; the ids are
+  // company.js's quote, job, client and the group files' rows.
+  { slug: "quote-detail", href: "/app/quotes", page: "app/app/quotes/[id]/page.js", params: { id: "q_1042" }, chapter: "help" },
+  { slug: "quote-builder", href: "/app/quotes", page: "app/app/quotes/new/page.js", chapter: "help" },
+  // app/app/jobs/[id]/page.js is a server shell (it awaits params); the
+  // client component it mounts is photographed with the prop it would pass.
+  { slug: "job-detail", href: "/app/jobs", page: "app/app/jobs/[id]/JobDetail.js", props: { jobId: "j_318" }, height: 2200, chapter: "help" },
+  // The same job scrolled to its visits (checklist, location stamps) and the
+  // photo timeline below them — the lower half of a page too tall for one frame.
+  { slug: "job-detail-visits", href: "/app/jobs", page: "app/app/jobs/[id]/JobDetail.js", props: { jobId: "j_318" }, scene: "scroll-visits", height: 2000, chapter: "help" },
+  { slug: "invoice-detail", href: "/app/invoices", page: "app/app/invoices/[id]/page.js", params: { id: "inv_2069" }, height: 1560, chapter: "help" },
+  { slug: "client-detail", href: "/app/clients", page: "app/app/clients/[id]/page.js", params: { id: "cl_dubois" }, chapter: "help" },
+  { slug: "plan-detail", href: "/app/plans", page: "app/app/plans/[id]/page.js", params: { id: "sp_dubois" }, chapter: "help" },
+  { slug: "payroll-run", href: "/app/payroll", page: "app/app/payroll/[id]/page.js", params: { id: "run_0913" }, chapter: "help" },
+  { slug: "funnel-builder", href: "/app/funnels", page: "app/app/funnels/[id]/page.js", params: { id: "fn_kitchen" }, chapter: "help" },
+  { slug: "campaign-detail", href: "/app/marketing", page: "app/app/marketing/[id]/page.js", params: { id: "mc_flyers" }, chapter: "help" },
+  { slug: "messages-review", href: "/app/messages", page: "app/app/messages/review/page.js", chapter: "help" },
+  // The KPI page scrolled to its Cash section (the full page is row 27).
+  { slug: "kpis-cash", href: "/app/analytics/kpis", page: "app/app/analytics/kpis/page.js", scene: "kpis-cash", chapter: "help" },
+
+  // The crew's phone: 375 wide, Léo Bouchard (Crew preset) signed in, the
+  // tab bar at the foot. The same page modules the owner's rows use — a
+  // crew member has no other app — answered as the API answers him
+  // (fixtures/routes-help.js, the crew block).
+  { slug: "mobile-home", href: "/app", page: "app/app/page.js", member: "crew", width: 375, chapter: "help" },
+  { slug: "mobile-clock", href: "/app/clock", page: "app/app/clock/page.js", member: "crew", width: 375, chapter: "help" },
+  { slug: "mobile-schedule", href: "/app/schedule", page: "app/app/schedule/page.js", member: "crew", width: 375, chapter: "help" },
+  { slug: "mobile-chat", href: "/app/chat", page: "app/app/chat/page.js", member: "crew", width: 375, scene: "chat-open", chapter: "help" },
+  // The job scrolled to its visits: on the crew's phone the visit — On my
+  // way, the checklist, Mark complete — is the page.
+  { slug: "mobile-job", href: "/app/jobs", page: "app/app/jobs/[id]/JobDetail.js", props: { jobId: "j_318" }, member: "crew", width: 375, scene: "scroll-visits", chapter: "help" },
+  { slug: "mobile-time-off", href: "/app/time-off", page: "app/app/time-off/page.js", member: "crew", width: 375, chapter: "help" },
+  { slug: "mobile-safety-report", href: "/app/safety", page: "app/app/safety/page.js", member: "crew", width: 375, scene: "safety-report", chapter: "help" },
+
+  // More figures the writers asked for. The same rules: real components,
+  // reached by operating the page's own controls.
+  { slug: "invoice-chase", href: "/app/invoices", page: "app/app/invoices/[id]/page.js", params: { id: "inv_2066" }, scene: "invoice-chase", chapter: "help" },
+  { slug: "client-edit", href: "/app/clients", page: "app/app/clients/[id]/page.js", params: { id: "cl_dubois" }, scene: "client-edit", chapter: "help" },
+  { slug: "clients-import", href: "/app/clients", page: "app/app/clients/import/page.js", chapter: "help" },
+  { slug: "jobs-import", href: "/app/jobs", page: "app/app/jobs/import/page.js", chapter: "help" },
+  { slug: "appointment-new", href: "/app/appointments", page: "app/app/appointments/page.js", scene: "appointment-new", chapter: "help" },
+  // The home page as a Dispatcher and as a Crew member, at desktop width, so
+  // the rail shows what each level holds (Léo's phone is mobile-home above).
+  { slug: "sidebar-dispatcher", href: "/app", page: "app/app/page.js", member: "dispatcher", chapter: "help" },
+  { slug: "sidebar-crew", href: "/app", page: "app/app/page.js", member: "crew", chapter: "help" },
+  // A stranger with an invitation, and a stranger signing a company up.
+  { slug: "accept-invitation", href: "/accept-invitation/inv_k7d2m9", page: "app/accept-invitation/[id]/page.js", params: { id: "inv_k7d2m9" }, mode: "public", chapter: "help" },
+  { slug: "signup", href: "/signup", page: "app/signup/page.js", mode: "public", height: 1200, chapter: "help" },
+  // A quote still out with the client — the page with Send again, Follow up
+  // and Get approved on it (Q-1042 above is approved and converted).
+  { slug: "quote-detail-sent", href: "/app/quotes", page: "app/app/quotes/[id]/page.js", params: { id: "q_1044" }, chapter: "help" },
 ];

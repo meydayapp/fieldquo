@@ -17,6 +17,7 @@ NODE_PATH=$ROOT/node_modules npx esbuild "$H/guide.jsx" --bundle --format=iife -
   --alias:next/dynamic=$H/stubs/dynamic.js \
   --alias:@/lib/auth-client=$H/stubs/auth-client.js \
   --alias:@/lib/notify/swClient=$H/stubs/swClient.js \
+  --alias:@/lib/ai/provider=$H/stubs/ai-provider.js \
   --define:process.env.NODE_ENV='"development"' \
   --define:process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY='""' \
   --define:process.env.NEXT_PUBLIC_APP_URL='"https://app.fieldquo.com"' \

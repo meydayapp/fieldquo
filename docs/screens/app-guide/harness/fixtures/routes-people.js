@@ -71,7 +71,7 @@ const worker = (p, extra) => ({
   name: p.name, email: p.email, phone: p.phone, active: true, type: "employee",
   createdAt: p.createdAt, user: { id: p.userId, email: p.email }, ...extra,
 });
-const WORKERS = [
+export const WORKERS = [
   worker(ANA, { hourlyRate: 28 }),
   worker(DAN, { hourlyRate: 34 }),
   worker(JULIE, { hourlyRate: 38 }),
@@ -79,7 +79,7 @@ const WORKERS = [
   worker(MARC, { hourlyRate: 45 }),
   worker(SAM, { hourlyRate: 32 }),
 ];
-const W = Object.fromEntries(WORKERS.map((w) => [w.userId, w]));
+export const W = Object.fromEntries(WORKERS.map((w) => [w.userId, w]));
 
 // ── Manage Team ────────────────────────────────────────────────────────────
 // The roster route nests the login under `user` and adds lastLoginAt; the
@@ -126,7 +126,7 @@ const shift = (id, p, offset, from, to, job, note, published = true) => ({
   availabilityOverrideAt: null, availabilityOverrideNote: null, availabilityOverrideBy: null,
   worker: { name: p.name }, job: job ? { id: job.id, title: job.title } : null,
 });
-const SHIFTS = [
+export const SHIFTS = [
   shift("sh_01", LEO, 0, 7, 15, JOB, "Load the van, deliver cabinets"),
   shift("sh_02", ANA, 0, 7, 15, JOB, "Load the van, deliver cabinets"),
   shift("sh_03", DAN, 0, 8, 16, null, "Shop — cut list for Khoury"),
@@ -156,8 +156,8 @@ const entry = (id, p, offset, from, to, status, job, opts = {}) => {
     locationStamps: opts.stamps || [],
   };
 };
-const BEAULIEU_JOB = { id: "j_312", title: "Beaulieu — 4 bathroom vanities" };
-const TIME_ENTRIES = [
+export const BEAULIEU_JOB = { id: "j_312", title: "Beaulieu — 4 bathroom vanities" };
+export const TIME_ENTRIES = [
   // This morning, still open — Léo and Ana loading for the Dubois install.
   entry("te_20", LEO, 0, 7, null, "pending", JOB, { inMin: 28, stamps: [stamp("ls_20a", "clock_in", day(0, 7, 28), 40)] }),
   entry("te_21", ANA, 0, 7, null, "pending", JOB, { inMin: 31, stamps: [stamp("ls_21a", "clock_in", day(0, 7, 31), 55)] }),
@@ -172,7 +172,7 @@ const TIME_ENTRIES = [
 ];
 
 // ── Time off ───────────────────────────────────────────────────────────────
-const POLICIES = [
+export const POLICIES = [
   { id: "lp_vac", companyId: COMPANY.id, name: "Vacation", kind: "vacation", paid: true, requiresApproval: true, accrualMethod: "fixed_days", daysPerYear: 15, percentOfGross: null, carryoverMaxDays: 5, active: true },
   { id: "lp_sick", companyId: COMPANY.id, name: "Sick days", kind: "sick", paid: true, requiresApproval: false, accrualMethod: "fixed_days", daysPerYear: 5, percentOfGross: null, carryoverMaxDays: 0, active: true },
   { id: "lp_personal", companyId: COMPANY.id, name: "Personal day", kind: "personal", paid: false, requiresApproval: true, accrualMethod: "fixed_days", daysPerYear: 3, percentOfGross: null, carryoverMaxDays: 0, active: true },
@@ -194,7 +194,7 @@ const MY_REQUESTS = [
   leave("lr_marc1", MARC, "lp_vac", 25, 29, 5, "approved", "Fishing week at the chalet"),
   leave("lr_marc0", MARC, "lp_vac", -70, -66, 5, "approved", null),
 ];
-const TEAM_REQUESTS = [
+export const TEAM_REQUESTS = [
   leave("lr_leo1", LEO, "lp_personal", 11, 11, 1, "pending", "Moving day", { routing: { approverWorkerId: W.u_julie.id, label: "Waiting on Julie Gagnon.", note: null, canAct: true } }),
   leave("lr_ana1", ANA, "lp_vac", 21, 25, 5, "approved", "Family visit in Porto", { reviewedById: JULIE.userId }),
   ...MY_REQUESTS,
@@ -206,7 +206,7 @@ const MY_BALANCES = [
   balance("lb_marc_sick", MARC, "lp_sick", 5, 0),
   balance("lb_marc_pers", MARC, "lp_personal", 3, 0),
 ];
-const TEAM_BALANCES = [
+export const TEAM_BALANCES = [
   ...MY_BALANCES,
   balance("lb_julie_vac", JULIE, "lp_vac", 15, 4),
   balance("lb_sam_vac", SAM, "lp_vac", 10, 2),
@@ -219,7 +219,7 @@ const TEAM_BALANCES = [
 
 // ── Safety ─────────────────────────────────────────────────────────────────
 const reportedBy = (p) => ({ id: p.id, user: { name: p.name, email: p.email } });
-const INCIDENTS = [
+export const INCIDENTS = [
   {
     id: "si_02", kind: "near_miss", status: "open", occurredAt: iso(day(-3, 14, 20)),
     location: "Beaulieu site — garage, unloading", jobId: BEAULIEU_JOB.id, job: BEAULIEU_JOB,
@@ -259,7 +259,7 @@ const TEAM_SCHEDULES = [
 // /api/time-clock resolves the worker from the session, so this is one
 // person's punch, not the roster's. Marc is on site with the crew this morning.
 const MARC_OPEN = { id: "te_22", clockIn: iso(day(0, 7, 30)), jobId: JOB.id, job: { id: JOB.id, title: JOB.title } };
-const CLOCK = {
+export const CLOCK = {
   worker: { id: W.u_marc.id, name: MARC.name },
   open: MARC_OPEN,
   today: [{ ...MARC_OPEN, clockOut: null, hours: null, status: "pending", workerId: W.u_marc.id }],

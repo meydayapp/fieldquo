@@ -155,8 +155,41 @@ function payCycleShape() {
 // Pay period boundaries are calendar days stored at midnight UTC (see the
 // page's own note on formatCalendarDay).
 const utcDay = (key) => `${key}T00:00:00.000Z`;
-const PAY_RUNS = [
-  { id: "run_0913", periodStart: utcDay("2026-08-31"), periodEnd: utcDay("2026-09-13"), status: "approved", grossTotal: 11480, deductionTotal: 2412.8, netTotal: 9067.2, region: "CA", approvedAt: iso(day(0, 8, 40)), paidAt: null, _count: { lines: 5 } },
+// The lines of the run that closed yesterday — one per person on the
+// roster, hours from the fortnight's timesheets, the statutory deductions
+// Settings › Payroll lists (routes-settings-b.js PAYROLL_COMPONENTS) at the
+// first bracket. The run's totals are summed from these, so the list row
+// and the run page (app/app/payroll/[id]) show the same money.
+const [, JULIE_, SAM_, DAN_, LEO_, ANA_] = PEOPLE;
+const payLine = (id, p, hours, ot, rate) => {
+  const regular = round2(hours * rate);
+  const overtime = round2(ot * rate * 1.5);
+  const gross = round2(regular + overtime);
+  const deductions = [
+    { kind: "deduction", label: "Federal income tax", amount: round2(gross * 0.15) },
+    { kind: "deduction", label: "Québec income tax", amount: round2(gross * 0.14) },
+    { kind: "deduction", label: "QPP", amount: round2(gross * 0.064) },
+    { kind: "deduction", label: "EI (Québec rate)", amount: round2(gross * 0.0132) },
+    { kind: "deduction", label: "QPIP", amount: round2(gross * 0.00494) },
+  ];
+  const ded = round2(deductions.reduce((t, d) => t + d.amount, 0));
+  return {
+    id, payRunId: "run_0913", workerId: `w_${p.userId.slice(2)}`, workerName: p.name, workerType: "employee", hourlyRate: rate, regularHours: hours, overtimeHours: ot,
+    items: [{ kind: "earning", label: "Regular hours", amount: regular }, ...(ot ? [{ kind: "earning", label: "Overtime (1.5×)", amount: overtime }] : []), ...deductions],
+    gross, deductions: ded, net: round2(gross - ded), paidAt: null, payoutId: null, createdAt: iso(day(0, 8, 40)),
+  };
+};
+export const PAY_RUN_LINES = [
+  payLine("pl_1", JULIE_, 80, 0, 42),
+  payLine("pl_2", SAM_, 80, 0, 36),
+  payLine("pl_3", DAN_, 76, 2, 34),
+  payLine("pl_4", LEO_, 80, 6, 34),
+  payLine("pl_5", ANA_, 72, 0, 40),
+];
+const RUN_GROSS = round2(PAY_RUN_LINES.reduce((t, l) => t + l.gross, 0));
+const RUN_DED = round2(PAY_RUN_LINES.reduce((t, l) => t + l.deductions, 0));
+export const PAY_RUNS = [
+  { id: "run_0913", periodStart: utcDay("2026-08-31"), periodEnd: utcDay("2026-09-13"), status: "approved", grossTotal: RUN_GROSS, deductionTotal: RUN_DED, netTotal: round2(RUN_GROSS - RUN_DED), region: "CA", approvedAt: iso(day(0, 8, 40)), paidAt: null, _count: { lines: 5 } },
   { id: "run_0830", periodStart: utcDay("2026-08-17"), periodEnd: utcDay("2026-08-30"), status: "paid", grossTotal: 11812, deductionTotal: 2486.5, netTotal: 9325.5, region: "CA", approvedAt: iso(day(-13, 9)), paidAt: iso(day(-11, 10)), _count: { lines: 5 } },
   { id: "run_0816", periodStart: utcDay("2026-08-03"), periodEnd: utcDay("2026-08-16"), status: "paid", grossTotal: 10944, deductionTotal: 2298.2, netTotal: 8645.8, region: "CA", approvedAt: iso(day(-27, 9)), paidAt: iso(day(-25, 10)), _count: { lines: 5 } },
 ];

@@ -6,7 +6,9 @@
 //
 // Drives one headless Chrome through the DevTools protocol over every row of
 // screens.js in every language, and writes docs/screens/app-guide/<lang>/
-// NN-<slug>.png at 1280 wide. One Chrome, one tab, navigated in a loop —
+// NN-<slug>.png at 1280 wide — or at the row's own `width` (375 for the
+// crew's phone), emulated as a phone when it is narrower than a tablet so
+// the shell draws its tab bar and not its rail. One Chrome, one tab, navigated in a loop —
 // spawning a browser per frame is what made earlier captures take an hour.
 //
 // A frame is written only when the harness signalled data-harness-done and
@@ -15,8 +17,8 @@
 // difference between "the list is empty in the fixture" and "the list is
 // empty because the request 404ed", and only the first is a real render.
 import { spawn } from "node:child_process";
-import { writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { writeFileSync, mkdirSync, existsSync, readFileSync } from "node:fs";
+import { dirname, join, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SCREENS } from "./screens.js";
 
@@ -29,11 +31,11 @@ const CHROME =
 const args = process.argv.slice(2);
 const LANGS = (process.env.LANGS || args.filter((a) => ["en", "fr", "es"].includes(a)).join(",") || "en,fr,es").split(",");
 const only = (process.env.ONLY || args.filter((a) => !["en", "fr", "es"].includes(a)).join(",")).split(",").filter(Boolean);
-const WIDTH = 1280;
-const HEIGHT = Number(process.env.HEIGHT || 860);
+const DEFAULT_WIDTH = 1280;
+const DEFAULT_HEIGHT = Number(process.env.HEIGHT || 860);
 
 const port = 9333 + Math.floor(Math.random() * 500);
-const chrome = spawn(CHROME, [`--remote-debugging-port=${port}`, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--allow-file-access-from-files", `--window-size=${WIDTH},${HEIGHT}`, "--user-data-dir=/tmp/cdp-profile-" + port, "about:blank"], { stdio: "ignore" });
+const chrome = spawn(CHROME, [`--remote-debugging-port=${port}`, "--headless=new", "--disable-gpu", "--hide-scrollbars", `--window-size=${DEFAULT_WIDTH},${DEFAULT_HEIGHT}`, "--user-data-dir=/tmp/cdp-profile-" + port, "about:blank"], { stdio: "ignore" });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let target = null;
 for (let i = 0; i < 40 && !target; i++) {
@@ -46,9 +48,32 @@ await new Promise((r) => (ws.onopen = r));
 let id = 0;
 const pending = new Map();
 let exceptions = [];
+// ── The page lives at https://app.fieldquo.com, not file:// ───────────────
+//
+// The harness bundle is served by intercepting every request to the app's
+// own origin (CDP Fetch) and answering it from the build output or from
+// public/. A file:// page was where earlier captures ran, and it showed:
+// every control that prints window.location.origin — the funnel's share
+// link, the embed snippet, the bio link's URL — printed "file:///f/…". The
+// fixture API never reaches this layer: guide.jsx replaces window.fetch
+// before the first page module runs.
+const ORIGIN = "https://app.fieldquo.com";
+const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".svg": "image/svg+xml", ".ico": "image/x-icon", ".webp": "image/webp", ".woff2": "font/woff2", ".woff": "font/woff", ".json": "application/json", ".webmanifest": "application/manifest+json" };
+const serve = (pathname) => {
+  const local = ["/guide.html", "/guide.js", "/app.css"].includes(pathname) ? join(OUT, pathname) : join(ROOT, "public", pathname);
+  if (!existsSync(local)) return null;
+  return { body: readFileSync(local).toString("base64"), type: MIME[extname(pathname)] || "application/octet-stream" };
+};
 ws.onmessage = (e) => {
   const m = JSON.parse(e.data);
   if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); }
+  if (m.method === "Fetch.requestPaused") {
+    const { requestId, request } = m.params;
+    const found = serve(new URL(request.url).pathname);
+    if (found) send("Fetch.fulfillRequest", { requestId, responseCode: 200, responseHeaders: [{ name: "Content-Type", value: found.type }], body: found.body });
+    else send("Fetch.fulfillRequest", { requestId, responseCode: 404, responseHeaders: [{ name: "Content-Type", value: "text/plain" }], body: Buffer.from("harness: not in public/").toString("base64") });
+    return;
+  }
   // An exception thrown before the harness's own error listener is mounted
   // (a module that fails at import time) would otherwise leave a blank
   // frame with nothing to explain it.
@@ -59,7 +84,18 @@ const evaluate = async (expression) => (await send("Runtime.evaluate", { express
 
 await send("Page.enable");
 await send("Runtime.enable");
-await send("Emulation.setDeviceMetricsOverride", { width: WIDTH, height: HEIGHT, deviceScaleFactor: 1, mobile: false });
+await send("Fetch.enable", { patterns: [{ urlPattern: `${ORIGIN}/*`, requestStage: "Request" }] });
+// A row may ask for its own frame: 375 wide for the crew's phone, taller
+// than 860 for a client document whose point is below the fold (the Approve
+// button at the foot of a quote). Narrower than a tablet is emulated as a
+// phone so the shell draws its tab bar and not its rail.
+let current = "";
+const setFrame = async (width, height) => {
+  if (`${width}x${height}` === current) return;
+  current = `${width}x${height}`;
+  await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: width < 768 });
+};
+await setFrame(DEFAULT_WIDTH, DEFAULT_HEIGHT);
 await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: "light" }] });
 await send("Emulation.setTimezoneOverride", { timezoneId: "America/Toronto" });
 
@@ -72,9 +108,12 @@ for (const screen of SCREENS) {
     const dir = join(ROOT, "docs/screens/app-guide", lang);
     mkdirSync(dir, { recursive: true });
     const file = join(dir, `${String(n).padStart(2, "0")}-${screen.slug}.png`);
-    const url = `file://${OUT}/guide.html?page=${screen.slug}&lang=${lang}`;
+    const url = `${ORIGIN}/guide.html?page=${screen.slug}&lang=${lang}`;
     const t0 = Date.now();
     exceptions = [];
+    const WIDTH = screen.width || DEFAULT_WIDTH;
+    const HEIGHT = screen.height || DEFAULT_HEIGHT;
+    await setFrame(WIDTH, HEIGHT);
     await send("Page.navigate", { url });
     await sleep(300);
     for (let i = 0; i < 100; i++) {
@@ -85,7 +124,10 @@ for (const screen of SCREENS) {
     const err = (await evaluate("document.documentElement.getAttribute('data-scene-error') || ''")) || exceptions[0]?.split("\n").slice(0, 4).join(" | ") || "";
     const unanswered = (await evaluate("JSON.stringify(window.__unanswered || [])")) || "[]";
     const rootText = (await evaluate("(document.getElementById('root')||{}).innerText || ''")) || "";
-    const shot = await send("Page.captureScreenshot", { format: "png", clip: { x: 0, y: 0, width: WIDTH, height: HEIGHT, scale: 1 } });
+    // The clip is in page coordinates: a scene that scrolled the window (the
+    // KPI page's Cash section) is photographed where it left the viewport.
+    const scrollY = Number(await evaluate("window.scrollY")) || 0;
+    const shot = await send("Page.captureScreenshot", { format: "png", clip: { x: 0, y: scrollY, width: WIDTH, height: HEIGHT, scale: 1 } });
     writeFileSync(file, Buffer.from(shot.result.data, "base64"));
     const calls = JSON.parse((await evaluate("JSON.stringify((window.__calls||[]).map(c=>c.method+' '+c.url))")) || "[]");
     const line = { slug: screen.slug, lang, file: file.replace(ROOT + "/", ""), error: err || null, unanswered: JSON.parse(unanswered), calls, chars: rootText.length, ms: Date.now() - t0 };

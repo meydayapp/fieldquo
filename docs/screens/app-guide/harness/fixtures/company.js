@@ -36,6 +36,14 @@ export const PEOPLE = [
 ];
 
 export const MEMBER = { id: OWNER.id, userId: OWNER.userId, role: "owner", permissions: null, companyId: "c_erable" };
+// The crew scenes are Léo's phone: an employee on the Crew preset, booked on
+// J-318 this week (routes-work.js), clocked in this morning.
+export const CREW = PEOPLE[4];
+export const CREW_MEMBER = { id: CREW.id, userId: CREW.userId, role: CREW.role, permissions: CREW.permissions, companyId: "c_erable" };
+// Daniel runs the schedule: the Dispatcher preset, for the figure that
+// shows what that level's sidebar holds.
+export const DISPATCHER = PEOPLE[3];
+export const DISPATCHER_MEMBER = { id: DISPATCHER.id, userId: DISPATCHER.userId, role: DISPATCHER.role, permissions: DISPATCHER.permissions, companyId: "c_erable" };
 
 // null keeps the menu exactly as the sidebar declares it (lib/features/nav.js).
 export const FEATURE_FLAGS = null;

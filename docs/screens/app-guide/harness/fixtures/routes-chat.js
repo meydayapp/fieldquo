@@ -1,18 +1,35 @@
 // Fixture routes for the company crew chat (/app/chat) — ported from
 // docs/screens/company-chat/harness/chatFetch.js onto the fixture company.
-// The owner is signed in, so `me` is Marc; #general, a room per active job,
-// a finished job's room, and two direct messages.
-import { PEOPLE, OWNER, JOB, day, iso } from "./company.js";
+// `me` is whoever the row signed in: Marc on the sidebar rows, Léo on the
+// crew's phone (screens.js `member: "crew"`) — and the same conversation
+// reads differently to each of them: direction, "isYou", which @ is theirs,
+// and which rooms they are in at all. So the rooms are built per viewer.
+// #general, a room per active job, a finished job's room, and two direct
+// messages.
+import { PEOPLE, OWNER, CREW, JOB, day, iso } from "./company.js";
 
 const at = (minAgo) => iso(new Date(day(0, 13).getTime() - minAgo * 60000));
-const person = (id) => { const p = PEOPLE.find((x) => x.id === id); return { id: p.id, name: p.name, email: p.email, role: p.role, label: p.role, isYou: p.id === OWNER.id }; };
-const ME = { id: OWNER.id, role: "owner", readOnly: false };
-const msg = (id, whoId, body, minAgo, extra = {}) => ({
-  id, body, at: at(minAgo), kind: "message", direction: whoId === ME.id ? "out" : "in",
-  who: person(whoId).name, whoKey: `member:${whoId}`, mentionsMe: false, meta: null, ...extra,
-});
+const viewerOf = (ctx) => (ctx?.screen?.member === "crew" ? CREW : OWNER);
+const built = new Map();
+function forViewer(ctx) {
+  const viewer = viewerOf(ctx);
+  if (built.has(viewer.id)) return built.get(viewer.id);
+  const person = (id) => { const p = PEOPLE.find((x) => x.id === id); return { id: p.id, name: p.name, email: p.email, role: p.role, label: p.role, isYou: p.id === viewer.id }; };
+  const ME = { id: viewer.id, role: viewer.role, readOnly: false };
+  const msg = (id, whoId, body, minAgo, extra = {}) => ({
+    id, body, at: at(minAgo), kind: "message", direction: whoId === ME.id ? "out" : "in",
+    who: person(whoId).name, whoKey: `member:${whoId}`, mentionsMe: body.includes(`@${viewer.name}`), meta: null, ...extra,
+  });
+  const all = buildRooms(person, msg);
+  // Only the rooms the viewer is a member of — the API scopes the list the
+  // same way, and a crew member is not in the owner's DMs.
+  const rooms = Object.fromEntries(Object.entries(all).filter(([, r]) => r.members.some((m) => m.id === viewer.id)));
+  const out = { ME, rooms, person };
+  built.set(viewer.id, out);
+  return out;
+}
 
-const rooms = {
+const buildRooms = (person, msg) => ({
   general: { id: "general", kind: "general", jobId: null, active: true, title: "general", titleMissing: false,
     members: PEOPLE.map((p) => person(p.id)), lastSeenAt: at(400),
     messages: [
@@ -27,7 +44,7 @@ const rooms = {
       msg("k1", "m_dan", "Countertop template is Thursday, so uppers and lowers both need to be set by Wednesday night.", 1500),
       msg("k2", "m_leo", "Lowers are in. Two of the drawer fronts came scratched — photos in the job.", 1430),
       msg("k3", "m_marc", "I'll call the supplier in the morning", 1420),
-      msg("k4", "m_dan", "@Marc Tremblay can you be on site at 7:30 tomorrow? Sophie wants a walk-through before work starts.", 40, { mentionsMe: true }),
+      msg("k4", "m_dan", "@Marc Tremblay @Léo Bouchard can you be on site at 7:30 tomorrow? Sophie wants a walk-through before work starts.", 40),
       msg("k5", "m_dan", "Bring the shim pack too, the floor drops 12mm at the fridge wall", 39),
       msg("k6", "m_ana", "I can do 7:30 as well if Léo can't", 12),
     ] },
@@ -43,9 +60,9 @@ const rooms = {
   dm2: { id: "dm2", kind: "dm", jobId: null, active: true, title: "Léo Bouchard", titleMissing: false,
     members: [person("m_leo"), person("m_marc")], lastSeenAt: at(1),
     messages: [msg("q1", "m_leo", "lunch?", 2000), msg("q2", "m_marc", "yes, 12:30", 1990)] },
-};
+});
 
-function listRow(r) {
+function listRow(r, ME) {
   const spoken = r.messages.filter((m) => m.kind !== "system");
   const last = spoken[spoken.length - 1] || null;
   const since = new Date(r.lastSeenAt).getTime();
@@ -60,8 +77,8 @@ function listRow(r) {
 }
 
 export const ROUTES_CHAT = [
-  { path: "/api/chat/rooms", method: "GET", reply: () => ({ me: ME, rooms: Object.values(rooms).map(listRow).sort((a, b) => (Boolean(a.unread) !== Boolean(b.unread) ? (a.unread ? -1 : 1) : new Date(b.lastAt || 0) - new Date(a.lastAt || 0))) }) },
-  { path: "/api/chat/directory", reply: () => ({ me: ME, people: PEOPLE.map((p) => person(p.id)) }) },
-  { path: /^\/api\/chat\/rooms\/([^/]+)\/members$/, reply: ({ params }) => { const r = rooms[decodeURIComponent(params[1])]; return { room: { id: r.id, kind: r.kind, name: r.title, jobId: r.jobId }, members: r.members.map((p) => ({ ...p, departed: false })) }; } },
-  { path: /^\/api\/chat\/rooms\/([^/]+)$/, method: "GET", reply: ({ params }) => { const r = rooms[decodeURIComponent(params[1])]; const seen = r.lastSeenAt; return { id: r.id, lastSeenAt: seen, kind: r.kind, jobId: r.jobId, active: r.active, title: r.title, titleMissing: r.titleMissing, memberCount: r.members.length, readOnly: false, members: r.members, messages: r.messages }; } },
+  { path: "/api/chat/rooms", method: "GET", reply: (ctx) => { const { ME, rooms } = forViewer(ctx); return { me: ME, rooms: Object.values(rooms).map((r) => listRow(r, ME)).sort((a, b) => (Boolean(a.unread) !== Boolean(b.unread) ? (a.unread ? -1 : 1) : new Date(b.lastAt || 0) - new Date(a.lastAt || 0))) }; } },
+  { path: "/api/chat/directory", reply: (ctx) => { const { ME, person } = forViewer(ctx); return { me: ME, people: PEOPLE.map((p) => person(p.id)) }; } },
+  { path: /^\/api\/chat\/rooms\/([^/]+)\/members$/, reply: (ctx) => { const { rooms } = forViewer(ctx); const r = rooms[decodeURIComponent(ctx.params[1])]; return { room: { id: r.id, kind: r.kind, name: r.title, jobId: r.jobId }, members: r.members.map((p) => ({ ...p, departed: false })) }; } },
+  { path: /^\/api\/chat\/rooms\/([^/]+)$/, method: "GET", reply: (ctx) => { const { rooms } = forViewer(ctx); const r = rooms[decodeURIComponent(ctx.params[1])]; const seen = r.lastSeenAt; return { id: r.id, lastSeenAt: seen, kind: r.kind, jobId: r.jobId, active: r.active, title: r.title, titleMissing: r.titleMissing, memberCount: r.members.length, readOnly: false, members: r.members, messages: r.messages }; } },
 ];

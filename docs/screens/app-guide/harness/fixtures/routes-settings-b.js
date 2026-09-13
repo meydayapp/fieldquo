@@ -259,7 +259,7 @@ const FUNNELS = [
 ];
 
 // ── Bio link ─────────────────────────────────────────────────────────────────
-const LINK_CANDIDATES = [
+export const LINK_CANDIDATES = [
   { key: "instant", kind: "internal", url: `/instant-quote/${SLUG}`, label: "Instant estimate", group: "price", defaultOn: true },
   { key: "quote", kind: "internal", url: `/quote/${SLUG}`, label: "Get a free quote", group: "price", defaultOn: true },
   { key: "book", kind: "internal", url: `/book/${SLUG}`, label: "Book a visit", group: "book", defaultOn: true },
@@ -269,7 +269,7 @@ const LINK_CANDIDATES = [
   { key: "email", kind: "contact", url: "mailto:hello@erabledesign.ca", label: "Email us", group: "contact", defaultOn: true },
   { key: "review", kind: "external", url: "https://g.page/r/erable-design-cabinetry/review", label: "Leave a review", group: "more", defaultOn: true },
 ];
-const LINK_PAGE = {
+export const LINK_PAGE = {
   slug: SLUG,
   published: true,
   headline: "Custom kitchens, built in Laval",
@@ -757,7 +757,7 @@ const PAY_CYCLE = {
 };
 
 // ── Website ───────────────────────────────────────────────────────────────────
-const SITE_BLOCKS = [
+export const SITE_BLOCKS = [
   { id: "b_hero", type: "hero", content: { heading: "Custom kitchens, built in Laval", subheading: "Shaker doors, white oak islands and full refits — designed, built and installed by one team.", cta: "Get a free quote" } },
   { id: "b_services", type: "services", content: {} },
   { id: "b_gallery", type: "gallery", content: { images: [] } },
@@ -767,7 +767,7 @@ const SITE_BLOCKS = [
   { id: "b_cta", type: "cta", content: { heading: "Ready to talk about your kitchen?", body: "Send a few photos and we'll come back with a range within a day." } },
   { id: "b_contact", type: "contact", content: {} },
 ];
-const WEBSITE = {
+export const WEBSITE = {
   gaps: [],
   photoPool: [],
   suggestedPairs: [],
@@ -824,6 +824,15 @@ const WEBSITE = {
   compositions: COMPOSITION_KEYS.map((key) => ({ key, label: COMPOSITION_PRESETS[key].label, sections: COMPOSITION_PRESETS[key].sections })),
   siteStyles: SITE_STYLE_KEYS.map((key) => ({ key, label: SITE_STYLES[key].label, hint: SITE_STYLES[key].hint })),
 };
+
+// ── Testimonials ──────────────────────────────────────────────────────────────
+// Settings › Reviews lists them; the public website (fixtures/public.js)
+// prints the approved ones — the same two quotes on both figures.
+export const TESTIMONIALS = [
+  { id: "tm_1", authorName: "Isabelle Fortin", authorTitle: null, companyLabel: "Sainte-Rose, Laval", quote: "Marc and his team rebuilt our kitchen in eight weeks, exactly as drawn. The painted shaker doors are flawless and the install crew left the house cleaner than they found it.", approved: true, sortOrder: 0, source: "google", createdAt: iso(day(-60)) },
+  { id: "tm_2", authorName: "Karim Bensaïd", authorTitle: null, companyLabel: "Vimont, Laval", quote: "The white oak island is the first thing everyone comments on. Quote was clear, price didn't move, and they showed up when they said they would.", approved: true, sortOrder: 1, source: "google", createdAt: iso(day(-35)) },
+  { id: "tm_3", authorName: "Nathalie Roy", authorTitle: null, companyLabel: "Rosemère", quote: "Built-in wall unit for the living room — beautiful work, and Samuel's measurements were spot on.", approved: false, sortOrder: 2, source: "manual", createdAt: iso(day(-4)) },
+];
 
 export const ROUTES_SETTINGS_B = [
   // Quote email — the covering email's optional sections.
@@ -975,6 +984,26 @@ export const ROUTES_SETTINGS_B = [
   },
 
   // Payments — Stripe Connect live, payouts on.
+  // The instant-payout card beside it (app/app/settings/payments/
+  // InstantPayoutCard.js): what Stripe says can be paid out right now, the
+  // fee stated plainly, and last week's payout.
+  {
+    path: "/api/stripe/connect/instant-payout",
+    method: "GET",
+    reply: () => ({
+      eligible: true,
+      reason: null,
+      currency: "cad",
+      grossCents: 726642,
+      netCents: 719376,
+      feeCents: 7266,
+      feePercent: 1,
+      expectedRate: "1%",
+      destination: { last4: "4417", kind: "bank_account" },
+      accountAgeDays: 412,
+      recent: [{ id: "ip_1", createdAt: iso(day(-11, 16, 5)), currency: "cad", grossCents: 415000, netCents: 410850 }],
+    }),
+  },
   {
     path: "/api/stripe/connect/status",
     method: "GET",
@@ -1055,12 +1084,8 @@ export const ROUTES_SETTINGS_B = [
     path: "/api/settings/testimonials",
     method: "GET",
     reply: () => ({
-      testimonials: [
-        { id: "tm_1", authorName: "Isabelle Fortin", authorTitle: null, companyLabel: "Sainte-Rose, Laval", quote: "Marc and his team rebuilt our kitchen in eight weeks, exactly as drawn. The painted shaker doors are flawless and the install crew left the house cleaner than they found it.", approved: true, sortOrder: 0, source: "google", createdAt: iso(day(-60)) },
-        { id: "tm_2", authorName: "Karim Bensaïd", authorTitle: null, companyLabel: "Vimont, Laval", quote: "The white oak island is the first thing everyone comments on. Quote was clear, price didn't move, and they showed up when they said they would.", approved: true, sortOrder: 1, source: "google", createdAt: iso(day(-35)) },
-        { id: "tm_3", authorName: "Nathalie Roy", authorTitle: null, companyLabel: "Rosemère", quote: "Built-in wall unit for the living room — beautiful work, and Samuel's measurements were spot on.", approved: false, sortOrder: 2, source: "manual", createdAt: iso(day(-4)) },
-      ],
-      publishedCount: 2,
+      testimonials: TESTIMONIALS,
+      publishedCount: TESTIMONIALS.filter((t) => t.approved).length,
       embedSlug: SLUG,
     }),
   },
