@@ -1085,9 +1085,9 @@ for (const [what, needle] of [
   ["it is not a filing", /not a filing/i],
   ["no sales-tax return", /sales-tax return/i],
   ["no expense tax or supplier", /no tax and no supplier/i],
-  ["no refunds or credit notes", /refunds and no credit notes/i],
+  ["refunds are negative lines, no credit notes", /negative lines[^\n]*Credit notes do not exist/i],
   ["no chart of accounts", /chart of accounts/i],
-  ["no Stripe fee", /Stripe's fee/i],
+  ["Stripe's fee has its own columns, blank on older and manual payments", /Stripe's fee/i],
   ["UTC days and no issue-date column", /issue-date field/i],
 ]) {
   ok(`the card says: ${what}`, needle.test(cardBody));

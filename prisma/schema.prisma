@@ -1218,6 +1218,14 @@ model Company {
   stripeAccountId      String?
   stripeOnboarded      Boolean @default(false)
   stripeChargesEnabled Boolean @default(false)
+  // Whether Stripe has ACTIVATED the bank-debit capability on the connected
+  // account (acss_debit_payments for a Canadian account, us_bank_account_ach_
+  // payments for a US one). Written from Stripe's answer on the status poll
+  // and the account.updated webhook, exactly like stripeChargesEnabled; read
+  // by the client portal to decide whether "Pay from bank account" renders.
+  // A capability that was requested but not granted leaves this false — no
+  // button that fails.
+  stripeBankDebitEnabled Boolean @default(false)
 
   createdAt DateTime @default(now())
   // Added because the platform churn metric queried it and the field didn't
@@ -2929,6 +2937,22 @@ model Invoice {
   // for one — see computeInvoiceState's header). refundedAt/disputedAt are
   // stamped once, the same convention paidDate and sentAt already use.
   amountRefunded Decimal   @default(0) @db.Decimal(12, 2)
+  // ── A bank-debit payment on its way ───────────────────────────────────
+  //
+  // Pre-authorized debit (Canada) and ACH (US) are delayed-notification
+  // methods: Checkout completes with the session UNPAID and the money clears
+  // 3–5 business days later (checkout.session.async_payment_succeeded) or
+  // bounces (async_payment_failed). Nothing about amountPaid moves until it
+  // clears — see lib/stripe/settleCheckoutSession.js — so these columns are
+  // what lets the invoice say "Bank payment pending" instead of a false
+  // balance owing, and "Bank payment failed: <reason>" instead of silence.
+  // Cleared when the payment records; the failure stays until the next
+  // attempt replaces it.
+  pendingPaymentMethod   String?
+  pendingPaymentIntentId String?
+  pendingPaymentAt       DateTime?
+  pendingPaymentFailedAt DateTime?
+  pendingPaymentFailure  String?
   refundedAt     DateTime?
   disputedAt     DateTime?
 
@@ -3087,6 +3111,25 @@ model Payment {
   stripePaymentIntentId String?       @unique
   date                  DateTime      @default(now())
   createdAt             DateTime      @default(now())
+
+  // ── Refunds issued FROM FieldQuo ─────────────────────────────────────────
+  //
+  // A refund is its own row: kind "refund", a NEGATIVE amount, and
+  // refundOfPaymentId pointing at the payment it returns money from — so the
+  // invoice balance, the payment history and the accounting export all show
+  // it as a line, the way a bookkeeper expects, rather than as a silently
+  // smaller original. `method` is the original payment's (a cash refund is
+  // "cash"); a Stripe refund carries stripeRefundId (unique — the
+  // idempotency key the charge.refunded webhook uses to recognise a refund
+  // FieldQuo itself initiated and not count it twice against
+  // refundedAmount; see lib/invoices/recordStripeRefund.js). A manual
+  // refund (cash, cheque, e-transfer handed back) has no Stripe call and no
+  // stripeRefundId. See lib/invoices/refund.js.
+  kind              String    @default("payment")
+  refundOfPaymentId String?
+  stripeRefundId    String?   @unique
+  refundReason      String?
+  refundedById      String?
 
   // ── What Stripe took back, after the fact ────────────────────────────────
   //

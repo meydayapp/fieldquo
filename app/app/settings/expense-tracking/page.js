@@ -244,7 +244,7 @@ function BookkeepingExportCard() {
     ),
     t(
       "app.setExpenses.exportLimitRefunds",
-      "FieldQuo records no refunds and no credit notes. If money went back to a client, it is not in this file.",
+      "Refunds issued from FieldQuo appear as their own negative lines in the payments file. Credit notes do not exist; a refund made directly in Stripe shows on the original payment's refunded amount, not as a line.",
     ),
     t(
       "app.setExpenses.exportLimitAccounts",
@@ -252,7 +252,7 @@ function BookkeepingExportCard() {
     ),
     t(
       "app.setExpenses.exportLimitStripeFee",
-      "Card payments are listed at face value. Stripe's fee is not recorded, so this will not reconcile against a bank feed line for line.",
+      "Card payments are listed gross, with Stripe's fee and the net deposited in their own columns for payments taken after September 2026; older card payments and manual payments leave those columns blank.",
     ),
     t(
       "app.setExpenses.exportLimitDates",

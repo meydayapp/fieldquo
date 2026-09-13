@@ -88,6 +88,7 @@ const fr = {
   "compare.capability.field_worker_quotes": "L’équipe de terrain peut chiffrer et envoyer une soumission depuis la camionnette",
   "compare.capability.entry_price_below_our_floor": "Un forfait payant sous l’échelon le moins cher de FieldQuo",
   "compare.capability.ai_receptionist_no_monthly_floor": "Réceptionniste téléphonique IA sur tous les forfaits, sans minimum mensuel",
+  "compare.capability.bank_debit_capped": "Débit bancaire au Canada plafonné à cinq dollars par paiement",
   "compare.capability.self_serve_signup": "S’inscrire et commencer sans parler à personne",
   "compare.capability.published_price": "Prix publié ouvertement, sans appel de vente",
   "compare.capability.monthly_billing": "Paiement mensuel, aucun engagement annuel exigé",

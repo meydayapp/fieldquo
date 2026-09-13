@@ -898,7 +898,7 @@ const PAGES = [
         pain:
           "Your best clients would happily recommend you and nobody ever asks them.",
         fix:
-          "After the job is finished and paid, one polite ask goes out — and a contractor you refer earns you both a free month.",
+          "After the job is marked done, one polite ask goes out — and a contractor you refer earns you both a free month.",
       },
     ],
     how: [
@@ -915,7 +915,7 @@ const PAGES = [
       {
         step: "The ask is timed, not nagged",
         body:
-          "The review request waits until the work is done and the invoice is paid, which is the only moment it is fair to ask.",
+          "The review request waits until the job is marked done, then goes out once, after the delay you choose.",
       },
     ],
     features: [
@@ -1928,7 +1928,7 @@ const PAGES = [
       {
         step: "Sent as you, with a way to pay in it",
         body:
-          "It goes out from your address with the PDF attached and a pay-now link inside, in the language the document was written in.",
+          "It goes out from your address with a link to the invoice and a pay-now button inside, in the language the document was written in.",
       },
       {
         step: "Numbered so your accountant is not angry",

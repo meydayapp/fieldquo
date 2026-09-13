@@ -52,7 +52,7 @@ import {
 } from "lucide-react";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import { usePermissions } from "@/app/providers/PermissionProvider";
-import { hasLevel } from "@/lib/permissions/enforce";
+import { hasLevel, hasToggle } from "@/lib/permissions/enforce";
 import { reportResponseError } from "@/lib/clientErrors";
 import { jsonBody } from "@/lib/jsonBody";
 import { fetchList } from "@/lib/loadState";
@@ -67,6 +67,8 @@ import BrandTheme from "@/app/components/BrandTheme";
 import { moneyFormatter } from "@/lib/format/money";
 import { paymentMethodLabel } from "@/lib/payments/methodLabels";
 import { feeRateKey } from "@/lib/stripe/feeRateKey";
+import RefundDialog from "./RefundDialog";
+import { refundableCents } from "@/lib/invoices/refund";
 import { documentLabels } from "@/lib/i18n/documentLabels";
 import { documentIssueDate } from "@/lib/documents/issueDate";
 import { taxStatement } from "@/lib/tax/documentTax";
@@ -117,6 +119,13 @@ export default function InvoiceDetailPage() {
     "invoices",
     "view_create_edit_delete",
   );
+  // POST /api/payments refuses a member without the `payments` toggle
+  // (requireToggle in app/api/payments/route.js); the button follows the
+  // route rather than rendering a control that 403s.
+  const canRecordPayment = hasToggle(caller, "payments");
+  // Same gate as the refund route: the payments toggle AND invoice editing.
+  const canRefund = canRecordPayment && hasLevel(caller, "invoices", "view_create_edit");
+  const [refunding, setRefunding] = useState(null);
   const [showPayment, setShowPayment] = useState(false);
   const [showChase, setShowChase] = useState(false);
   const [chaseNote, setChaseNote] = useState("");
@@ -558,7 +567,7 @@ export default function InvoiceDetailPage() {
                   : t("app.action.send")}
               </button>
             )}
-            {owing && (
+            {owing && canRecordPayment && (
               <button
                 onClick={() => setShowPayment(true)}
                 className="flex items-center gap-1.5 bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold"
@@ -1247,9 +1256,28 @@ export default function InvoiceDetailPage() {
               >
                 <span>
                   {formatDate(p.date)} —{" "}
-                  {p.method === "visit_credit"
-                    ? t("app.invoiceDetail.visitCreditLabel")
-                    : paymentMethodLabel(p.method)}
+                  {p.kind === "refund"
+                    ? t("app.invoiceDetail.refundLabel", {
+                        method: paymentMethodLabel(p.method),
+                        reason: p.refundReason || "",
+                      })
+                    : p.method === "visit_credit"
+                      ? t("app.invoiceDetail.visitCreditLabel")
+                      : paymentMethodLabel(p.method)}
+                  {/* Refund: only on a payment row that still holds money,
+                      for members the route would let through. */}
+                  {p.kind !== "refund" &&
+                    canRefund &&
+                    !invoice.pricingHidden &&
+                    refundableCents(p, invoice.payments) > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setRefunding(p)}
+                        className="ml-2 text-xs font-semibold underline text-foreground"
+                      >
+                        {t("app.invoiceDetail.refundAction")}
+                      </button>
+                    )}
                 </span>
                 {/* The payment ROWS survive a redaction — that somebody
                     paid, when, and how is not the amount — but their `amount`
@@ -1355,6 +1383,17 @@ export default function InvoiceDetailPage() {
             : null
         }
       />
+
+      {refunding && (
+        <RefundDialog
+          invoiceId={id}
+          payment={refunding}
+          refundRows={invoice.payments || []}
+          money={money}
+          onClose={() => setRefunding(null)}
+          onDone={refresh}
+        />
+      )}
 
       {showPayment && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">

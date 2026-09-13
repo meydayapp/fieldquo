@@ -83,6 +83,7 @@ const pa = {
   "compare.capability.field_worker_quotes": "ਫ਼ੀਲਡ ਕਰੂ ਵੈਨ ਵਿੱਚੋਂ ਹੀ ਕੋਟ ਦੀ ਕੀਮਤ ਲਾ ਕੇ ਭੇਜ ਸਕਦਾ ਹੈ",
   "compare.capability.entry_price_below_our_floor": "FieldQuo ਦੇ ਸਭ ਤੋਂ ਸਸਤੇ ਪੜਾਅ ਤੋਂ ਹੇਠਾਂ ਕੋਈ ਪੈਸੇ ਵਾਲਾ ਪਲਾਨ",
   "compare.capability.ai_receptionist_no_monthly_floor": "ਹਰ ਪਲਾਨ ਵਿੱਚ AI ਫ਼ੋਨ ਰਿਸੈਪਸ਼ਨਿਸਟ, ਕੋਈ ਮਹੀਨਾਵਾਰ ਘੱਟੋ-ਘੱਟ ਨਹੀਂ",
+  "compare.capability.bank_debit_capped": "ਕੈਨੇਡਾ ਵਿੱਚ ਬੈਂਕ ਡੈਬਿਟ, ਪ੍ਰਤੀ ਭੁਗਤਾਨ ਵੱਧ ਤੋਂ ਵੱਧ ਪੰਜ ਡਾਲਰ",
   "compare.capability.self_serve_signup": "ਕਿਸੇ ਨਾਲ ਗੱਲ ਕੀਤੇ ਬਿਨਾਂ ਸਾਈਨ ਅੱਪ ਕਰੋ ਅਤੇ ਸ਼ੁਰੂ ਕਰੋ",
   "compare.capability.published_price": "ਕੀਮਤ ਖੁੱਲ੍ਹੇਆਮ ਛਪੀ ਹੋਈ, ਕੋਈ ਸੇਲਜ਼ ਕਾਲ ਨਹੀਂ",
   "compare.capability.monthly_billing": "ਮਹੀਨਾਵਾਰ ਭਰੋ, ਸਾਲਾਨਾ ਵਚਨਬੱਧਤਾ ਦੀ ਲੋੜ ਨਹੀਂ",

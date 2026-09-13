@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { createInvoiceCheckoutSession } from "@/lib/stripe";
 import { latestInFamily, refreshFamilyLedger } from "@/lib/invoices/family";
 import { getAppOrigin } from "@/lib/appUrl";
+import { companyBankDebitMethod } from "@/lib/stripe/bankDebit";
 
 export async function POST(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -24,7 +25,13 @@ export async function POST(request, { params }) {
       { error: "We couldn't read that request. Please try again." },
       { status: 400 },
     );
-  const { invoiceId, stageId } = body;
+  // `method` names HOW the client wants to pay — "card" (default) or "bank"
+  // — never what it costs. Resolved below against what the company can
+  // actually take; anything else is refused rather than passed to Stripe.
+  const { invoiceId, stageId, method: requestedMethod = "card" } = body;
+  if (requestedMethod !== "card" && requestedMethod !== "bank") {
+    return NextResponse.json({ error: "Unknown payment method" }, { status: 400 });
+  }
   if (!invoiceId)
     return NextResponse.json(
       { error: "invoiceId is required" },
@@ -101,6 +108,19 @@ export async function POST(request, { params }) {
 
   const baseUrl = getAppOrigin(request);
 
+  // "Pay from bank account" is only offered when Stripe has activated the
+  // capability on THIS account and the company bills in that currency —
+  // the same rule the portal uses to render the button, re-checked here
+  // because hiding a button is not access control.
+  const bankMethod = companyBankDebitMethod(company);
+  if (requestedMethod === "bank" && !bankMethod) {
+    return NextResponse.json(
+      { error: "This company can't take bank payments online yet" },
+      { status: 400 },
+    );
+  }
+  const method = requestedMethod === "bank" ? bankMethod : "card";
+
   // ── A stage's own share, re-derived here, never trusted from the browser ──
   //
   // stageId only NAMES which JobPaymentStage this checkout is for. The
@@ -132,9 +152,13 @@ export async function POST(request, { params }) {
   const session = await createInvoiceCheckoutSession({
     invoice: current,
     company,
-    successUrl: `${baseUrl}/portal/${_params.token}?paid=true`,
+    // A bank debit is not "paid" on return — it clears in 3–5 business days
+    // — so the portal is told which kind of return this is and says
+    // "pending", not "received".
+    successUrl: `${baseUrl}/portal/${_params.token}?paid=${method === "card" ? "true" : "bank"}`,
     cancelUrl: `${baseUrl}/portal/${_params.token}`,
     amountCents,
+    method,
   });
 
   return NextResponse.json({ checkoutUrl: session.url });

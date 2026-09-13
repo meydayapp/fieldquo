@@ -399,7 +399,7 @@ const en = {
     "Plan the streets, assign them, and tick off the stops as your crew works the neighbourhood.",
   "feature.review_requests.name": "Review requests",
   "feature.review_requests.summary":
-    "After the job is done and paid, the client gets one polite ask for a review.",
+    "After the job is marked done, the client gets one polite ask for a review.",
   "feature.testimonials.name": "Testimonials on your site",
   "feature.testimonials.summary":
     "Collect what clients said and show it on your website and in your quotes.",
@@ -471,7 +471,7 @@ const en = {
     "An approved quote turns into an invoice that looks like the quote, because it is built from it.",
   "feature.invoice_send.name": "Send an invoice",
   "feature.invoice_send.summary":
-    "Emailed from your address with the PDF attached and a pay-now link inside.",
+    "Emailed from your address with a link to the invoice and a pay-now button inside.",
   "feature.invoice_changes.name": "Changed invoices, tracked",
   "feature.invoice_changes.summary":
     "Amend an issued invoice and the old one is kept, so there is never a question about what was agreed.",
@@ -920,7 +920,7 @@ const fr = {
     "Planifiez les rues, assignez-les, et cochez les arrêts pendant que votre équipe fait le quartier.",
   "feature.review_requests.name": "Demandes d'avis",
   "feature.review_requests.summary":
-    "Une fois le chantier fini et payé, le client reçoit une seule demande d'avis, poliment.",
+    "Une fois le chantier marqué terminé, le client reçoit une seule demande d'avis, poliment.",
   "feature.testimonials.name": "Témoignages sur votre site",
   "feature.testimonials.summary":
     "Recueillez ce que vos clients ont dit et affichez-le sur votre site et dans vos soumissions.",
@@ -992,7 +992,7 @@ const fr = {
     "Une soumission approuvée devient une facture qui ressemble à la soumission, parce qu'elle en est faite.",
   "feature.invoice_send.name": "Envoyer une facture",
   "feature.invoice_send.summary":
-    "Envoyée par courriel depuis votre adresse, PDF en pièce jointe et lien de paiement à l'intérieur.",
+    "Envoyée par courriel depuis votre adresse, avec un lien vers la facture et un bouton de paiement à l'intérieur.",
   "feature.invoice_changes.name": "Factures modifiées, avec l'historique",
   "feature.invoice_changes.summary":
     "Modifiez une facture émise et l'ancienne est conservée, pour qu'on ne discute jamais de ce qui a été convenu.",
@@ -1424,7 +1424,7 @@ const es = {
     "Planea las calles, asígnalas, y ve marcando las paradas mientras tu equipo recorre el barrio.",
   "feature.review_requests.name": "Solicitudes de reseña",
   "feature.review_requests.summary":
-    "Cuando el trabajo está hecho y pagado, el cliente recibe una sola petición amable de reseña.",
+    "Cuando el trabajo se marca como terminado, el cliente recibe una sola petición amable de reseña.",
   "feature.testimonials.name": "Testimonios en tu sitio",
   "feature.testimonials.summary":
     "Recoge lo que dijeron tus clientes y muéstralo en tu sitio y en tus presupuestos.",
@@ -1496,7 +1496,7 @@ const es = {
     "Un presupuesto aprobado se vuelve una factura igual al presupuesto, porque está hecha de él.",
   "feature.invoice_send.name": "Enviar una factura",
   "feature.invoice_send.summary":
-    "Sale por correo desde tu dirección, con el PDF adjunto y un enlace para pagar dentro.",
+    "Sale por correo desde tu dirección, con un enlace a la factura y un botón para pagar dentro.",
   "feature.invoice_changes.name": "Facturas modificadas, con historial",
   "feature.invoice_changes.summary":
     "Corrige una factura emitida y la anterior se conserva, así nunca se discute lo acordado.",
@@ -1929,7 +1929,7 @@ const uk = {
     "Сплануйте вулиці, розподіліть їх і відмічайте зупинки, поки бригада обходить район.",
   "feature.review_requests.name": "Запити на відгук",
   "feature.review_requests.summary":
-    "Коли роботу зроблено й оплачено, клієнт отримує одне ввічливе прохання залишити відгук.",
+    "Коли роботу позначено як завершену, клієнт отримує одне ввічливе прохання залишити відгук.",
   "feature.testimonials.name": "Відгуки на вашому сайті",
   "feature.testimonials.summary":
     "Збирайте те, що сказали клієнти, і показуйте це на сайті та в кошторисах.",
@@ -2001,7 +2001,7 @@ const uk = {
     "Погоджений кошторис перетворюється на рахунок, схожий на кошторис, бо зроблений із нього.",
   "feature.invoice_send.name": "Надсилання рахунку",
   "feature.invoice_send.summary":
-    "Іде поштою з вашої адреси, з PDF у вкладенні та посиланням на оплату всередині.",
+    "Іде поштою з вашої адреси, з посиланням на рахунок і кнопкою оплати всередині.",
   "feature.invoice_changes.name": "Зміни в рахунках зберігаються",
   "feature.invoice_changes.summary":
     "Виправте виставлений рахунок — старий залишається, тож питання про домовлене не виникає.",
@@ -2433,7 +2433,7 @@ const pa = {
     "ਗਲੀਆਂ ਦੀ ਯੋਜਨਾ ਬਣਾਓ, ਵੰਡੋ, ਅਤੇ ਜਿਵੇਂ-ਜਿਵੇਂ ਤੁਹਾਡਾ ਕਰੂ ਮੁਹੱਲਾ ਕਰਦਾ ਹੈ, ਟਿੱਕ ਲਾਉਂਦੇ ਜਾਓ।",
   "feature.review_requests.name": "ਰਿਵਿਊ ਦੀ ਬੇਨਤੀ",
   "feature.review_requests.summary":
-    "ਕੰਮ ਪੂਰਾ ਤੇ ਭੁਗਤਾਨ ਹੋਣ ਮਗਰੋਂ ਗਾਹਕ ਨੂੰ ਇੱਕ ਨਿਮਰ ਬੇਨਤੀ ਜਾਂਦੀ ਹੈ।",
+    "ਕੰਮ ਪੂਰਾ ਹੋਇਆ ਨਿਸ਼ਾਨਬੱਧ ਹੋਣ ਮਗਰੋਂ ਗਾਹਕ ਨੂੰ ਰਿਵਿਊ ਲਈ ਇੱਕ ਨਿਮਰ ਬੇਨਤੀ ਜਾਂਦੀ ਹੈ।",
   "feature.testimonials.name": "ਤੁਹਾਡੀ ਸਾਈਟ 'ਤੇ ਗਾਹਕਾਂ ਦੇ ਬੋਲ",
   "feature.testimonials.summary":
     "ਗਾਹਕਾਂ ਨੇ ਜੋ ਕਿਹਾ ਉਹ ਇਕੱਠਾ ਕਰੋ ਅਤੇ ਆਪਣੀ ਵੈੱਬਸਾਈਟ ਤੇ ਕੋਟਾਂ ਵਿੱਚ ਵਿਖਾਓ।",
@@ -2505,7 +2505,7 @@ const pa = {
     "ਮਨਜ਼ੂਰ ਕੋਟ ਇਨਵੌਇਸ ਬਣ ਜਾਂਦਾ ਹੈ ਜੋ ਕੋਟ ਵਰਗਾ ਹੀ ਲੱਗਦਾ ਹੈ, ਕਿਉਂਕਿ ਉਸੇ ਤੋਂ ਬਣਿਆ ਹੈ।",
   "feature.invoice_send.name": "ਇਨਵੌਇਸ ਭੇਜੋ",
   "feature.invoice_send.summary":
-    "ਤੁਹਾਡੇ ਪਤੇ ਤੋਂ ਈਮੇਲ, ਨਾਲ PDF ਅਤੇ ਅੰਦਰ ਭੁਗਤਾਨ ਦਾ ਲਿੰਕ।",
+    "ਤੁਹਾਡੇ ਪਤੇ ਤੋਂ ਈਮੇਲ, ਅੰਦਰ ਇਨਵੌਇਸ ਦਾ ਲਿੰਕ ਅਤੇ ਹੁਣੇ ਭੁਗਤਾਨ ਕਰਨ ਦਾ ਬਟਨ।",
   "feature.invoice_changes.name": "ਬਦਲੇ ਹੋਏ ਇਨਵੌਇਸ, ਰਿਕਾਰਡ ਸਮੇਤ",
   "feature.invoice_changes.summary":
     "ਜਾਰੀ ਹੋਏ ਇਨਵੌਇਸ ਵਿੱਚ ਸੋਧ ਕਰੋ ਤੇ ਪੁਰਾਣਾ ਸਾਂਭਿਆ ਰਹਿੰਦਾ ਹੈ, ਤਾਂ ਜੋ ਤੈਅ ਗੱਲ 'ਤੇ ਕਦੇ ਸਵਾਲ ਨਾ ਉੱਠੇ।",
@@ -2942,7 +2942,7 @@ const tl = {
     "Planuhin ang mga kalye, i-assign ang mga ito, at markahan ang bawat hinto habang nililibot ng crew mo ang lugar.",
   "feature.review_requests.name": "Paghingi ng review",
   "feature.review_requests.summary":
-    "Kapag tapos na at bayad na ang trabaho, isang magalang na hiling ng review ang natatanggap ng kliyente.",
+    "Kapag minarkahang tapos na ang trabaho, isang magalang na hiling ng review ang natatanggap ng kliyente.",
   "feature.testimonials.name": "Mga testimonial sa site mo",
   "feature.testimonials.summary":
     "Tipunin ang sinabi ng mga kliyente at ipakita ito sa website at sa mga quote mo.",
@@ -3014,7 +3014,7 @@ const tl = {
     "Ang aprubadong quote ay nagiging invoice na kamukha ng quote, dahil doon mismo galing.",
   "feature.invoice_send.name": "Magpadala ng invoice",
   "feature.invoice_send.summary":
-    "Ipinapadala sa email mula sa address mo, may kalakip na PDF at link para makabayad agad.",
+    "Ipinapadala sa email mula sa address mo, may link sa invoice at button para makabayad agad.",
   "feature.invoice_changes.name": "Nababago ang invoice, may tala",
   "feature.invoice_changes.summary":
     "Baguhin ang naipadalang invoice at nananatili ang luma, kaya walang tanong sa napagkasunduan.",
@@ -3373,7 +3373,7 @@ const de = {
   "feature.door_hanger_routes.name": "Verteilrouten für Türhänger",
   "feature.door_hanger_routes.summary": "Straßen planen, zuweisen und die Stopps abhaken, während Ihr Team durch das Viertel geht.",
   "feature.review_requests.name": "Bewertungen anfragen",
-  "feature.review_requests.summary": "Wenn der Auftrag erledigt und bezahlt ist, bekommt der Kunde eine höfliche Bitte um eine Bewertung.",
+  "feature.review_requests.summary": "Wenn der Auftrag als erledigt markiert ist, bekommt der Kunde eine höfliche Bitte um eine Bewertung.",
   "feature.testimonials.name": "Kundenstimmen auf Ihrer Website",
   "feature.testimonials.summary": "Sammeln Sie, was Kunden gesagt haben, und zeigen Sie es auf Ihrer Website und in Ihren Angeboten.",
   "feature.referrals.name": "Einen anderen Betrieb empfehlen",
@@ -3422,7 +3422,7 @@ const de = {
   "feature.invoices.name": "Rechnungen",
   "feature.invoices.summary": "Aus einem angenommenen Angebot wird eine Rechnung, die aussieht wie das Angebot — weil sie daraus gebaut ist.",
   "feature.invoice_send.name": "Rechnung senden",
-  "feature.invoice_send.summary": "Von Ihrer Adresse verschickt, mit PDF im Anhang und einem Link zum Sofortbezahlen darin.",
+  "feature.invoice_send.summary": "Von Ihrer Adresse verschickt, mit einem Link zur Rechnung und einem Sofort-bezahlen-Button darin.",
   "feature.invoice_changes.name": "Geänderte Rechnungen, nachvollziehbar",
   "feature.invoice_changes.summary": "Ändern Sie eine ausgestellte Rechnung, und die alte bleibt erhalten — es gibt nie eine Frage, was vereinbart war.",
   "feature.card_payments.name": "Per Karte bezahlt werden",
@@ -3740,7 +3740,7 @@ const zh = {
   "feature.door_hanger_routes.name": "挂门广告路线",
   "feature.door_hanger_routes.summary": "规划街道、分配给人，班组扫街时一站一站打勾。",
   "feature.review_requests.name": "邀请客户评价",
-  "feature.review_requests.summary": "活干完、钱收到之后，客气地请客户留一条评价。",
+  "feature.review_requests.summary": "工单标记为完工之后，客气地请客户留一条评价。",
   "feature.testimonials.name": "网站上的客户评价",
   "feature.testimonials.summary": "把客户说的话收集起来，展示在你的网站和报价单上。",
   "feature.referrals.name": "推荐给同行",
@@ -3789,7 +3789,7 @@ const zh = {
   "feature.invoices.name": "账单",
   "feature.invoices.summary": "被批准的报价单变成账单，长得跟报价单一样，因为本来就是从它生成的。",
   "feature.invoice_send.name": "发送账单",
-  "feature.invoice_send.summary": "从你自己的邮箱发出，附上 PDF，里面带一个立即付款的链接。",
+  "feature.invoice_send.summary": "从你自己的邮箱发出，里面带一个账单链接和一个立即付款按钮。",
   "feature.invoice_changes.name": "改过的账单，有迹可循",
   "feature.invoice_changes.summary": "修改已开出的账单时，旧版本会保留，双方谈定的是什么永远不会说不清。",
   "feature.card_payments.name": "刷卡收款",
@@ -4198,7 +4198,7 @@ const it = {
     "Pianifichi le vie, le assegni e spunti le tappe mentre la sua squadra gira il quartiere.",
   "feature.review_requests.name": "Richieste di recensione",
   "feature.review_requests.summary":
-    "A lavoro finito e pagato, al cliente arriva una sola richiesta garbata di lasciare una recensione.",
+    "Quando il lavoro viene segnato come finito, al cliente arriva una sola richiesta garbata di lasciare una recensione.",
   "feature.testimonials.name": "Recensioni sul suo sito",
   "feature.testimonials.summary":
     "Raccolga quello che dicono i clienti e lo mostri sul suo sito e nei suoi preventivi.",
@@ -4270,7 +4270,7 @@ const it = {
     "Un preventivo approvato diventa una fattura identica al preventivo, perché nasce da lui.",
   "feature.invoice_send.name": "Invio della fattura",
   "feature.invoice_send.summary":
-    "Inviata dal suo indirizzo con il PDF allegato e un link per pagare subito.",
+    "Inviata dal suo indirizzo con un link alla fattura e un pulsante per pagare subito.",
   "feature.invoice_changes.name": "Fatture modificate, con storico",
   "feature.invoice_changes.summary":
     "Rettifichi una fattura già emessa e la precedente resta agli atti, così non ci sono mai dubbi su cosa era stato concordato.",

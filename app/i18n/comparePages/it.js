@@ -86,6 +86,7 @@ const it = {
   "compare.capability.field_worker_quotes": "La squadra in cantiere può valorizzare e inviare un preventivo dal furgone",
   "compare.capability.entry_price_below_our_floor": "Un piano a pagamento sotto il gradino più economico di FieldQuo",
   "compare.capability.ai_receptionist_no_monthly_floor": "Centralino telefonico AI su ogni piano, senza minimo mensile",
+  "compare.capability.bank_debit_capped": "Addebito bancario in Canada con un massimo di cinque dollari per pagamento",
   "compare.capability.self_serve_signup": "Iscriversi e cominciare senza parlare con nessuno",
   "compare.capability.published_price": "Prezzo pubblicato apertamente, senza chiamata commerciale",
   "compare.capability.monthly_billing": "Si paga mese per mese, senza impegno annuale",

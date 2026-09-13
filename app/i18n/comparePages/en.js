@@ -98,6 +98,7 @@ const en = {
   "compare.capability.field_worker_quotes": "Field crew can price and send a quote from the van",
   "compare.capability.entry_price_below_our_floor": "A paid plan below FieldQuo's cheapest rung",
   "compare.capability.ai_receptionist_no_monthly_floor": "AI phone receptionist on every plan, with no monthly minimum",
+  "compare.capability.bank_debit_capped": "Bank debit in Canada capped at five dollars per payment",
   "compare.capability.self_serve_signup": "Sign up and start without talking to anyone",
   "compare.capability.published_price": "Price published openly, no sales call",
   "compare.capability.monthly_billing": "Pay monthly, no annual commitment required",

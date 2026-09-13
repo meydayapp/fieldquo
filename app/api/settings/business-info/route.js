@@ -10,6 +10,7 @@ import { normaliseHours } from "@/lib/company/businessHours";
 import { clampWindow } from "@/lib/booking/arrivalWindow";
 import { currencyForCountry } from "@/lib/currency";
 import { containsMarkupCharacters } from "@/lib/security/rejectMarkupCharacters";
+import { sanitisePaymentMethods } from "@/lib/payments/paymentMethodOptions";
 
 /**
  * Coordinates for a stored address that has none.
@@ -256,6 +257,22 @@ export async function PATCH(request) {
     );
   }
 
+  // Filtered to the known set, never stored raw: whatever lands in this column
+  // is printed on the invoice email, the portal and the PDF under the
+  // company's name (see lib/payments/paymentMethodOptions.js). A body that
+  // sends something other than an array is refused rather than quietly
+  // clearing the list — "cleared" and "malformed" must not look the same.
+  let cleanPaymentMethods;
+  if (paymentMethods !== undefined) {
+    cleanPaymentMethods = sanitisePaymentMethods(paymentMethods);
+    if (cleanPaymentMethods === null) {
+      return NextResponse.json(
+        { error: "paymentMethods must be a list of cash, e_transfer or cheque." },
+        { status: 400 },
+      );
+    }
+  }
+
   // Validated before anything is written, so a bad cancellation window can't
   // land alongside a good logo change and leave the settings half-saved.
   let noticeHours;
@@ -361,7 +378,7 @@ export async function PATCH(request) {
       ...(paymentTerms !== undefined && { paymentTerms }),
       ...(defaultProcessNotes !== undefined && { defaultProcessNotes }),
       ...(taxRate !== undefined && { taxRate }),
-      ...(paymentMethods !== undefined && { paymentMethods }),
+      ...(cleanPaymentMethods !== undefined && { paymentMethods: cleanPaymentMethods }),
       ...(shareAnonymizedPricing !== undefined && { shareAnonymizedPricing }),
       ...(discoverable !== undefined && { discoverable }),
       ...(taxIdName !== undefined && { taxIdName }),

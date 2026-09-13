@@ -20,6 +20,7 @@ import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import ProcessingFeesCard from "./ProcessingFeesCard";
 import InstantPayoutCard from "./InstantPayoutCard";
+import PaymentMethodsCard from "./PaymentMethodsCard";
 
 function PaymentsPageScreen() {
   const { t } = useTranslation();
@@ -455,12 +456,17 @@ function PaymentsPageScreen() {
       <ProcessingFeesCard
         currency={company?.currency}
         offerFinancing={Boolean(company?.offerFinancing)}
+        connected={Boolean(active)}
+        bankDebit={status?.bankDebit || null}
       />
       <InstantPayoutCard
         connected={Boolean(active)}
         onOpenDashboard={handleManageInStripe}
         openingDashboard={openingDashboard}
       />
+      {/* The offline methods the invoice email, portal and PDF print as
+          "Accepted: …" — Company.paymentMethods had no writer until this. */}
+      <PaymentMethodsCard company={company} onSaved={loadCompany} />
 
       {/* ── Your Stripe account ────────────────────────────────────────────
           The contractor holds the Stripe relationship; FieldQuo holds the

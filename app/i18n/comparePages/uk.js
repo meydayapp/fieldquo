@@ -88,6 +88,7 @@ const uk = {
   "compare.capability.field_worker_quotes": "Бригада в полі може оцінити й надіслати кошторис прямо з фургона",
   "compare.capability.entry_price_below_our_floor": "Платний план, дешевший за найдешевший щабель FieldQuo",
   "compare.capability.ai_receptionist_no_monthly_floor": "ШІ-секретар на телефоні в кожному плані, без місячного мінімуму",
+  "compare.capability.bank_debit_capped": "Банківський дебет у Канаді з обмеженням п'ять доларів за платіж",
   "compare.capability.self_serve_signup": "Зареєструватися і почати, ні з ким не розмовляючи",
   "compare.capability.published_price": "Ціна опублікована відкрито, без дзвінка з продажів",
   "compare.capability.monthly_billing": "Оплата помісячно, без обов’язкового річного зобов’язання",

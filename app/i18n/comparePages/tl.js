@@ -90,6 +90,7 @@ const tl = {
   "compare.capability.field_worker_quotes": "Kayang magpresyo at magpadala ng quote ng field crew mula mismo sa van",
   "compare.capability.entry_price_below_our_floor": "Bayad na planong mas mababa sa pinakamurang baitang ng FieldQuo",
   "compare.capability.ai_receptionist_no_monthly_floor": "AI phone receptionist sa bawat plano, walang buwanang minimum",
+  "compare.capability.bank_debit_capped": "Bank debit sa Canada na may limit na limang dolyar bawat bayad",
   "compare.capability.self_serve_signup": "Mag-sign up at magsimula nang walang kausap na kahit sino",
   "compare.capability.published_price": "Hayagang inilathalang presyo, walang sales call",
   "compare.capability.monthly_billing": "Buwanang bayad, walang kailangang taunang commitment",

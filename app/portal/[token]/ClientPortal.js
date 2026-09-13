@@ -22,6 +22,8 @@ import {
   Receipt,
   Check,
   AlertCircle,
+  Landmark,
+  Clock,
 } from "lucide-react";
 
 export default function ClientPortal({ token }) {
@@ -29,15 +31,20 @@ export default function ClientPortal({ token }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [payingId, setPayingId] = useState("");
-  const [justPaid, setJustPaid] = useState(false);
+  // "true" after a card payment, "bank" after a bank debit was submitted —
+  // two different sentences, because a bank debit is not received on
+  // return: it clears in 3–5 business days.
+  const [justPaid, setJustPaid] = useState(null);
 
   useEffect(() => {
-    // Stripe sends the client back here with ?paid=true. Acknowledge it, then
-    // strip the parameter so a later refresh doesn't keep claiming success.
+    // Stripe sends the client back here with ?paid=true (card) or
+    // ?paid=bank. Acknowledge it, then strip the parameter so a later refresh
+    // doesn't keep claiming success.
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
-      if (url.searchParams.get("paid") === "true") {
-        setJustPaid(true);
+      const paid = url.searchParams.get("paid");
+      if (paid === "true" || paid === "bank") {
+        setJustPaid(paid);
         url.searchParams.delete("paid");
         window.history.replaceState({}, "", url.toString());
       }
@@ -61,14 +68,16 @@ export default function ClientPortal({ token }) {
     load();
   }, [load]);
 
-  async function pay(invoiceId) {
+  // `method` is "card" or "bank" — HOW, never how much. The bank button only
+  // renders when the server said the company can take it (data.bankDebit).
+  async function pay(invoiceId, method = "card") {
     setPayingId(invoiceId);
     setError("");
     try {
       const res = await fetch(`/api/portal/${token}/pay`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: jsonBody({ invoiceId }, "payment"),
+        body: jsonBody({ invoiceId, method }, "payment"),
       });
       const d = await res.json().catch(() => null);
       if (!res.ok || !d?.checkoutUrl) {
@@ -131,6 +140,9 @@ export default function ClientPortal({ token }) {
   // (the raw Stripe account id never crosses to a public endpoint) — see
   // app/api/portal/[token]/route.js.
   const onlinePayments = Boolean(data.onlinePayments);
+  // The bank-debit method Stripe has activated for this company, or null —
+  // decides whether a second, bank button renders (lib/stripe/bankDebit.js).
+  const onlineBank = onlinePayments ? data.bankDebit || null : null;
   const offlineLines = offlinePaymentLines(c, copy);
 
   // Every invoice here has already been filtered to ISSUED ones server-side
@@ -175,10 +187,16 @@ export default function ClientPortal({ token }) {
         </div>
       </div>
 
-      {justPaid && (
+      {justPaid === "true" && (
         <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-6 flex items-start gap-2 text-sm text-green-800">
           <Check size={16} className="shrink-0 mt-0.5" />
           <div>{copy.paymentReceived}</div>
+        </div>
+      )}
+      {justPaid === "bank" && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-6 flex items-start gap-2 text-sm text-amber-900">
+          <Clock size={16} className="shrink-0 mt-0.5" />
+          <div>{copy.bankPendingBanner}</div>
         </div>
       )}
 
@@ -245,20 +263,44 @@ export default function ClientPortal({ token }) {
                       </span>
                     ))}
                   </span>
+                ) : due > 0.005 && inv.pendingPayment ? (
+                  // A bank debit on its way — pending, not unpaid.
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-800 shrink-0">
+                    <Clock size={13} /> {copy.bankPending}
+                  </span>
                 ) : due > 0.005 ? (
-                  <button
-                    onClick={() => pay(inv.id)}
-                    disabled={Boolean(payingId)}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60 shrink-0"
-                    style={{ backgroundColor: accent, color: accentOn }}
-                  >
-                    {payingId === inv.id ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <CreditCard size={14} />
+                  <span className="flex flex-col items-end gap-1.5 shrink-0">
+                    {inv.failedPayment && (
+                      <span className="text-xs text-red-700 text-right max-w-[15rem]">
+                        {copy.bankFailed(inv.failedPayment.reason)}
+                      </span>
                     )}
-                    {copy.pay(money(due))}
-                  </button>
+                    <button
+                      onClick={() => pay(inv.id, "card")}
+                      disabled={Boolean(payingId)}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
+                      style={{ backgroundColor: accent, color: accentOn }}
+                    >
+                      {payingId === inv.id ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <CreditCard size={14} />
+                      )}
+                      {onlineBank ? copy.payCard(money(due)) : copy.pay(money(due))}
+                    </button>
+                    {onlineBank && (
+                      <button
+                        data-pay-bank={onlineBank}
+                        onClick={() => pay(inv.id, "bank")}
+                        disabled={Boolean(payingId)}
+                        className="inline-flex items-center gap-2 px-5 py-2 rounded-full text-xs font-semibold border disabled:opacity-60"
+                        style={{ borderColor: accent, color: accent }}
+                      >
+                        <Landmark size={13} />
+                        {copy.payBank(money(due))}
+                      </button>
+                    )}
+                  </span>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 text-sm font-medium text-green-700 shrink-0">
                     <Check size={14} /> {copy.paid}

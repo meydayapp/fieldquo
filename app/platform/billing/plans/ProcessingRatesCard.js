@@ -82,13 +82,7 @@ export default function ProcessingRatesCard() {
         </div>
       </dl>
       <p className="mt-3 text-xs text-muted-foreground">
-        Stripe charges the platform {pct(STRIPE_CARD_RATE_BPS)} + 30¢ on cards; FieldQuo keeps{" "}
-        {pct(margin)} of each card payment. Bank debit, surcharges, instant payouts and the dispute
-        fee are passed through at cost. Express account fees Stripe bills the platform (monthly
-        active account, 0.25% + 25¢ per payout) are recovered on the company&apos;s next payment
-        — see the ledger below. Set the instant-payout fee to {INSTANT_PAYOUT_RATE.formula} in
-        Stripe → Settings → Connect → Platform pricing → Instant payouts, and Settings → Connect →
-        Payouts → Allow debit cards = Yes.
+        {`Stripe charges the platform ${pct(STRIPE_CARD_RATE_BPS)} + 30¢ on cards; FieldQuo keeps ${pct(margin)} of each card payment. Bank debit, surcharges, instant payouts and the dispute fee are passed through at cost. Express account fees Stripe bills the platform (monthly active account, 0.25% + 25¢ per payout) are recovered on the company's next payment — see the ledger below. Set the instant-payout fee to ${INSTANT_PAYOUT_RATE.formula} in Stripe → Settings → Connect → Platform pricing → Instant payouts, and Settings → Connect → Payouts → Allow debit cards = Yes.`}
       </p>
 
       <h3 className="mt-5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">

@@ -80,6 +80,7 @@ const de = {
   "compare.capability.field_worker_quotes": "Das Team vor Ort kann ein Angebot aus dem Transporter kalkulieren und senden",
   "compare.capability.entry_price_below_our_floor": "Ein bezahlter Tarif unterhalb der günstigsten Stufe von FieldQuo",
   "compare.capability.ai_receptionist_no_monthly_floor": "KI-Telefonassistent in jedem Tarif, ohne monatliche Mindestabnahme",
+  "compare.capability.bank_debit_capped": "Bankeinzug in Kanada, gedeckelt auf fünf Dollar pro Zahlung",
   "compare.capability.self_serve_signup": "Anmelden und loslegen, ohne mit jemandem zu sprechen",
   "compare.capability.published_price": "Preis offen veröffentlicht, kein Verkaufsgespräch",
   "compare.capability.monthly_billing": "Monatlich zahlen, keine Jahresbindung nötig",

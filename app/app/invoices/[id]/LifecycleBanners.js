@@ -143,6 +143,12 @@ function sentence({ banner, t, money, formatDate }) {
         total: money(d.total),
         due: money(d.due),
       });
+    case "bankPending":
+      return t("app.invoiceLifecycle.bankPending", { since: formatDate(d.since) });
+    case "bankFailed":
+      return d.reason
+        ? t("app.invoiceLifecycle.bankFailedReason", { reason: d.reason })
+        : t("app.invoiceLifecycle.bankFailed");
     case "disputed":
       // Carries no figure at all — the disputed AMOUNT is Stripe's own
       // dispute.amount, which this codebase doesn't fetch or store (see

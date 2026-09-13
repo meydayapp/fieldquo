@@ -68,6 +68,12 @@ const INVOICE_SELECT = {
   amountRefunded: true,
   paidDate: true,
   paidVia: true,
+  // A bank debit on its way / bounced — selectInvoiceBanners turns these
+  // into the bankPending / bankFailed banners.
+  pendingPaymentMethod: true,
+  pendingPaymentAt: true,
+  pendingPaymentFailedAt: true,
+  pendingPaymentFailure: true,
   dueDate: true,
   sentAt: true,
   sentToEmail: true,

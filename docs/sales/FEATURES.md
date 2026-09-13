@@ -107,7 +107,7 @@ Everything between a stranger hearing your name and a signed price: where the en
 | **Lead funnels** | Multi-step landing pages for an ad or a flyer, with numbers on where people drop out. | `funnels` | Shipped |
 | **Email campaigns** | Write once, send to your client list from your own address, and see who it reached. | `marketing_campaigns` | Shipped |
 | **Door-hanger routes** | Plan the streets, assign them, and tick off the stops as your crew works the neighbourhood. | `marketing_campaigns` | **Partial** |
-| **Review requests** | After the job is done and paid, the client gets one polite ask for a review. | — | Shipped |
+| **Review requests** | After the job is marked done, the client gets one polite ask for a review. | — | Shipped |
 | **Testimonials on your site** | Collect what clients said and show it on your website and in your quotes. | — | Shipped |
 | **Refer another contractor** | Send an invite; when they sign up you both get a free month added to your account. | — | Shipped |
 | **Drop-in widgets** | Paste one line into any website you already have to embed your booking, quote form or reviews. | — | Shipped |
@@ -159,7 +159,7 @@ Invoicing that mirrors your quote, payment the client can make from their phone,
 | Feature | What it does | Gate | State |
 |---|---|---|---|
 | **Invoices** | An approved quote turns into an invoice that looks like the quote, because it is built from it. | — | Shipped |
-| **Send an invoice** | Emailed from your address with the PDF attached and a pay-now link inside. | — | Shipped |
+| **Send an invoice** | Emailed from your address with a link to the invoice and a pay-now button inside. | — | Shipped |
 | **Changed invoices, tracked** | Amend an issued invoice and the old one is kept, so there is never a question about what was agreed. | — | Shipped |
 | **Get paid by card** | The client pays from their phone and the money goes to your account, not ours. | — | Shipped |
 | **Your own payout account** | Connect your bank once; every client payment settles into it directly. | — | Shipped |

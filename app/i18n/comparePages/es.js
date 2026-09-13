@@ -81,6 +81,7 @@ const es = {
   "compare.capability.field_worker_quotes": "La cuadrilla puede poner precio y enviar un presupuesto desde la camioneta",
   "compare.capability.entry_price_below_our_floor": "Un plan de pago por debajo del peldaño más barato de FieldQuo",
   "compare.capability.ai_receptionist_no_monthly_floor": "Recepcionista telefónica con IA en todos los planes, sin mínimo mensual",
+  "compare.capability.bank_debit_capped": "Débito bancario en Canadá con tope de cinco dólares por pago",
   "compare.capability.self_serve_signup": "Registrarte y empezar sin hablar con nadie",
   "compare.capability.published_price": "Precio publicado abiertamente, sin llamada de ventas",
   "compare.capability.monthly_billing": "Pago mensual, sin compromiso anual obligatorio",

@@ -124,6 +124,25 @@ the card shows whatever gross − net Stripe reports, the rate is not in code),
 and Settings → Connect → Payouts → **Allow debit cards = Yes** (Canada pays
 out instantly to a debit card only).
 
+**Bank debit on invoices and refunds (2026-09-12).** The client portal offers
+"Pay from bank account" beside "Pay by card" once Stripe has ACTIVATED the
+account's bank-debit capability — `acss_debit_payments` for a Canadian
+account, `us_bank_account_ach_payments` for a US one, requested by country on
+the status poll (`ensureChargeCapabilities`) and mirrored into
+`Company.stripeBankDebitEnabled` from the poll and `account.updated`. Each
+button mints its own single-method Checkout session with that method's exact
+fee (PAD 1% + 40¢ capped at $5). A debit completes Checkout unpaid and clears
+in 3–5 business days: the invoice shows "Bank payment pending" from
+`checkout.session.completed`, paid from `async_payment_succeeded`, and "Bank
+payment failed: <Stripe's reason>" from `async_payment_failed` — both event
+destinations already carry the three events. Refunds: the invoice's payment
+rows carry a Refund action (owner/admin, or the `payments` toggle with invoice
+editing) — `stripe.refunds.create` with `reverse_transfer: true` and
+`refund_application_fee: false`, recorded as its own negative Payment row
+(`kind: "refund"`); `charge.refunded` subtracts app-issued refunds before
+writing the original's `refundedAmount`, so nothing is counted twice. Cash /
+cheque refunds are recorded with no Stripe call.
+
 ### `RETELL_WEBHOOK_SECRET` is not a secret you invent
 
 It used to be listed above as "generate it with `openssl rand`", and that was

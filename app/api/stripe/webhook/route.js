@@ -6,7 +6,8 @@ import { stripe } from "@/lib/stripe";
 import { db } from "@/lib/db";
 import { earnMilestone, recordActivation, MILESTONES } from "@/lib/sales/commission";
 import { settleOccurrenceFromIntent } from "@/lib/servicePlans/run";
-import { settleCheckoutSession } from "@/lib/stripe/settleCheckoutSession";
+import { settleCheckoutSession, failCheckoutSession } from "@/lib/stripe/settleCheckoutSession";
+import { bankDebitMethodFor } from "@/lib/stripe/bankDebit";
 import { settleChargeEvent } from "@/lib/stripe/settleChargeEvent";
 
 // There is deliberately no route-local invoice recorder here any more. Both
@@ -58,6 +59,9 @@ export async function POST(request) {
         data: {
           stripeOnboarded: account.details_submitted,
           stripeChargesEnabled: account.charges_enabled,
+          // Bank debit on invoices renders only once Stripe has ACTIVATED
+          // the capability — lib/stripe/bankDebit.js.
+          stripeBankDebitEnabled: Boolean(bankDebitMethodFor(account)),
         },
       });
 
@@ -147,9 +151,13 @@ export async function POST(request) {
       break;
     }
 
-    // The delayed payment failed (e.g. Affirm declined after redirect). Nothing
-    // to record — the invoice stays unpaid, which is already its state.
+    // The delayed payment failed — a pre-authorized debit bounced, an Affirm
+    // declined after redirect. The invoice stays unpaid, but not silently:
+    // the pending-payment columns say it failed and why, so the contractor
+    // sees "Bank payment failed" rather than a balance owing that looks like
+    // the client never tried. See lib/stripe/settleCheckoutSession.js.
     case "checkout.session.async_payment_failed": {
+      await failCheckoutSession(event.data.object);
       break;
     }
 

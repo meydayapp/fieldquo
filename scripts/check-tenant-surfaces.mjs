@@ -206,7 +206,19 @@ for (const file of BOOK_PAGES) {
   // ledger: the route reads them to keep only the LATEST version of each
   // amended invoice on offer (lib/invoices/family.js latestPerFamily), and a
   // homeowner has no use for either — the version they see IS the invoice.
-  const COMPUTED_ONLY = new Set(["taxEnabled", "createdAt", "parentInvoiceId", "version"]);
+  // The four pendingPayment* columns (2026-09-12, bank debit on invoices)
+  // are read to build `pendingPayment` / `failedPayment` — a state and
+  // Stripe's reason, without the intent id — which ARE forwarded.
+  const COMPUTED_ONLY = new Set([
+    "taxEnabled",
+    "createdAt",
+    "parentInvoiceId",
+    "version",
+    "pendingPaymentMethod",
+    "pendingPaymentAt",
+    "pendingPaymentFailedAt",
+    "pendingPaymentFailure",
+  ]);
   for (const field of selected) {
     ok(
       `the portal payload forwards or explicitly withholds \`${field}\``,

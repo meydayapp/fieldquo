@@ -25,6 +25,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { stripe, ensureChargeCapabilities } from "@/lib/stripe";
+import { bankDebitMethodFor } from "@/lib/stripe/bankDebit";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 // The requirement wording and the identity gate both live in lib/stripe/ now:
@@ -71,6 +72,7 @@ export async function GET(request) {
       stripeAccountId: true,
       stripeOnboarded: true,
       stripeChargesEnabled: true,
+      stripeBankDebitEnabled: true,
     },
   });
 
@@ -122,15 +124,20 @@ export async function GET(request) {
 
     // Write it back, so the rest of the app — invoice pay links, the platform
     // company view — sees the same truth without each having to call Stripe.
+    const bankDebitEnabled = Boolean(bankDebitMethodFor(account));
     if (
       summary.chargesEnabled !== company.stripeChargesEnabled ||
-      summary.detailsSubmitted !== company.stripeOnboarded
+      summary.detailsSubmitted !== company.stripeOnboarded ||
+      bankDebitEnabled !== company.stripeBankDebitEnabled
     ) {
       await db.company.update({
         where: { id: company.id },
         data: {
           stripeChargesEnabled: summary.chargesEnabled,
           stripeOnboarded: summary.detailsSubmitted,
+          // Bank debit on invoices — lib/stripe/bankDebit.js. Only Stripe's
+          // `active` counts; requested-but-pending stays false.
+          stripeBankDebitEnabled: bankDebitEnabled,
         },
       });
     }
@@ -172,6 +179,11 @@ export async function GET(request) {
     return NextResponse.json({
       connected: true,
       ...shared,
+      // Which bank-debit method Stripe has activated ("acss_debit",
+      // "us_bank_account") or null — the settings page says which way
+      // clients can pay, in words, rather than leaving it to be discovered
+      // from the portal.
+      bankDebit: bankDebitMethodFor(account),
       accountDetails: accountIdentityFor(member, summary),
     });
   } catch (err) {

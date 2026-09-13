@@ -17,7 +17,7 @@ import { publishedRates, publishedSurcharges, feeBreakdown } from "@/lib/stripe/
 // The example every contractor sees: a mid-sized job, paid by card.
 const EXAMPLE_CENTS = 226_000;
 
-export default function ProcessingFeesCard({ currency, offerFinancing }) {
+export default function ProcessingFeesCard({ currency, offerFinancing, connected, bankDebit }) {
   const { t } = useTranslation();
   const money = useCompanyMoney();
   const rates = publishedRates(currency);
@@ -49,6 +49,18 @@ export default function ProcessingFeesCard({ currency, offerFinancing }) {
           </div>
         ))}
       </dl>
+      {/* Which ways a client can actually pay an invoice today — read from
+          Stripe's capability answer (status.bankDebit), so this sentence
+          and the portal's buttons cannot disagree. */}
+      {connected && (
+        <p className="mt-3 text-sm text-foreground">
+          {bankDebit
+            ? t("app.setPayments.bankDebitOn", {
+                method: t(`app.setPayments.bankDebitMethod.${bankDebit}`),
+              })
+            : t("app.setPayments.bankDebitOff")}
+        </p>
+      )}
       <p className="mt-2 text-xs text-muted-foreground">{t("app.setPayments.surchargeNote")}</p>
       <p className="mt-1.5 text-xs text-muted-foreground">{t("app.setPayments.accountFeesNote")}</p>
 

@@ -261,7 +261,7 @@ const summary = file(emailed, "summary").csv;
 ok("it states it is not a filing", /not a filing/i.test(summary));
 ok("it states there are no tax codes", /tax codes/i.test(summary));
 ok("it states expenses carry no tax", /Input tax credits/i.test(summary));
-ok("it states there are no refunds or credit notes", /no refunds and no credit notes/i.test(summary));
+ok("it states how refunds appear and that credit notes do not exist", /own negative lines[^\n]*Credit notes do not exist/i.test(summary));
 ok("it states the timezone rule", /UTC calendar day/i.test(summary));
 // A blank Tax column on the expenses file would read as "we charge no tax",
 // which is a statement nobody made.

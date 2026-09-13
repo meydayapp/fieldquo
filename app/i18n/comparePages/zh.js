@@ -78,6 +78,7 @@ const zh = {
   "compare.capability.field_worker_quotes": "现场班组可以在车上定价并发出报价单",
   "compare.capability.entry_price_below_our_floor": "有比 FieldQuo 最便宜的一档更低的付费套餐",
   "compare.capability.ai_receptionist_no_monthly_floor": "AI 电话接线员每个套餐都有，没有每月最低消费",
+  "compare.capability.bank_debit_capped": "加拿大银行扣款，每笔付款最高五加元",
   "compare.capability.self_serve_signup": "注册就能开始，不用跟任何人说话",
   "compare.capability.published_price": "价格公开，不必先跟销售通话",
   "compare.capability.monthly_billing": "按月付，不必承诺一年",

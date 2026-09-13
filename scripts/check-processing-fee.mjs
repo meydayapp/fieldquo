@@ -282,6 +282,114 @@ const NO_LEDGER = { ledger: async () => 0 };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+console.log("\n── 2b. Bank debit on invoices: one method, its own fee, only when Stripe activated it ──\n");
+
+{
+  const bank = await import("@/lib/stripe/bankDebit.js");
+  ok("a Canadian account needs acss_debit_payments, a US one us_bank_account_ach_payments, anywhere else nothing",
+    bank.debitCapabilityForCountry("CA") === "acss_debit_payments" && bank.debitCapabilityForCountry("us") === "us_bank_account_ach_payments" && bank.debitCapabilityForCountry("GB") === null);
+  ok("only an ACTIVE capability is a method: active → acss_debit; pending / inactive / absent → null",
+    bank.bankDebitMethodFor({ capabilities: { acss_debit_payments: "active" } }) === "acss_debit" &&
+      bank.bankDebitMethodFor({ capabilities: { acss_debit_payments: "pending" } }) === null &&
+      bank.bankDebitMethodFor({ capabilities: { us_bank_account_ach_payments: "inactive" } }) === null &&
+      bank.bankDebitMethodFor({ capabilities: {} }) === null && bank.bankDebitMethodFor(null) === null);
+  ok("a company: flag on + CAD → acss_debit; flag on + USD → us_bank_account; flag off → null; flag on + GBP → null (no guess)",
+    bank.companyBankDebitMethod({ stripeBankDebitEnabled: true, currency: "CAD" }) === "acss_debit" &&
+      bank.companyBankDebitMethod({ stripeBankDebitEnabled: true, currency: "usd" }) === "us_bank_account" &&
+      bank.companyBankDebitMethod({ stripeBankDebitEnabled: false, currency: "CAD" }) === null &&
+      bank.companyBankDebitMethod({ stripeBankDebitEnabled: true, currency: "GBP" }) === null);
+  const pad = bank.bankDebitSessionOptions("acss_debit", { client: { type: "company" } });
+  ok("one-off PAD options: sporadic schedule, business/personal from the client record, automatic verification",
+    pad.acss_debit.mandate_options.payment_schedule === "sporadic" && pad.acss_debit.mandate_options.transaction_type === "business" &&
+      pad.acss_debit.verification_method === "automatic" &&
+      bank.bankDebitSessionOptions("acss_debit", { client: { type: "residential" } }).acss_debit.mandate_options.transaction_type === "personal");
+  ok("ACH options: automatic verification; an unknown method → null",
+    bank.bankDebitSessionOptions("us_bank_account").us_bank_account.verification_method === "automatic" && bank.bankDebitSessionOptions("paypal") === null);
+  ok("the service-plan mandate shares the transaction_type rule", /acssTransactionType\(client\)/.test(read("lib/servicePlans/stripeMandate.js")));
+
+  // The sessions themselves, against the scripted Stripe.
+  captured.length = 0;
+  await stripeLib.createInvoiceCheckoutSession({ invoice: { ...invoice, total: 5000, client: { type: "residential" } }, company: COMPANY, successUrl: "s", cancelUrl: "c", method: "acss_debit" }, NO_LEDGER);
+  const padSession = captured.find((x) => x.op === "checkout.sessions.create");
+  ok("a PAD session names ONLY acss_debit and carries the PAD fee: $5,000 → $5.00 (not the card's $150.30)",
+    padSession.params.payment_method_types.join() === "acss_debit" && padSession.params.payment_intent_data.application_fee_amount === 500, padSession.params.payment_intent_data);
+  ok("  ^ with the mandate options and on_behalf_of, and the invoice in the intent's metadata",
+    padSession.params.payment_method_options.acss_debit.mandate_options.payment_schedule === "sporadic" &&
+      padSession.params.payment_intent_data.on_behalf_of === "acct_contractor" && padSession.params.payment_intent_data.metadata.invoiceId === "inv1");
+  captured.length = 0;
+  await stripeLib.createInvoiceCheckoutSession({ invoice: { ...invoice, total: 5000 }, company: { ...COMPANY, offerFinancing: true }, successUrl: "s", cancelUrl: "c", method: "card" }, NO_LEDGER);
+  const cardSession = captured.find((x) => x.op === "checkout.sessions.create");
+  ok("a card session never names a bank method (card + affirm at most), at the card fee $150.30",
+    !cardSession.params.payment_method_types.some((m) => bank.isBankDebitMethod(m)) && cardSession.params.payment_intent_data.application_fee_amount === 15_030);
+  captured.length = 0;
+  await stripeLib.createInvoiceCheckoutSession({ invoice: { ...invoice, total: 5000 }, company: { ...COMPANY, currency: "USD" }, successUrl: "s", cancelUrl: "c", method: "us_bank_account" }, NO_LEDGER);
+  const ach = captured.find((x) => x.op === "checkout.sessions.create");
+  ok("an ACH session (USD): only us_bank_account, 0.8% = $40 → capped $5.00", ach.params.payment_method_types.join() === "us_bank_account" && ach.params.payment_intent_data.application_fee_amount === 500);
+  let bad = null;
+  try { await stripeLib.createInvoiceCheckoutSession({ invoice, company: COMPANY, successUrl: "s", cancelUrl: "c", method: "paypal" }, NO_LEDGER); } catch (e) { bad = e; }
+  ok("an unknown method is refused before Stripe is asked", bad?.status === 400);
+  bad = null; captured.length = 0;
+  try { await stripeLib.createInvoiceCheckoutSession({ invoice, company: { ...COMPANY, currency: "USD" }, successUrl: "s", cancelUrl: "c", method: "acss_debit" }, NO_LEDGER); } catch (e) { bad = e; }
+  ok("PAD on a USD company throws (no published rate) and creates no session", Boolean(bad) && captured.length === 0);
+
+  // The portal: no button without the capability; the fee never in the payload.
+  const portal = read("app/api/portal/[token]/route.js");
+  const pay = read("app/api/portal/[token]/pay/route.js");
+  ok("the portal payload derives bankDebit from companyBankDebitMethod(company) and exposes the method only",
+    /bankDebit = onlinePayments \? companyBankDebitMethod\(client\.company\) : null/.test(portal) && !/processingFee|feeCents|application_fee/.test(portal));
+  ok("the pay route accepts method 'card' | 'bank' only and re-checks the capability server-side (hiding a button is not access control)",
+    /requestedMethod !== "card" && requestedMethod !== "bank"/.test(pay) && /const bankMethod = companyBankDebitMethod\(company\)/.test(pay) && /requestedMethod === "bank" && !bankMethod/.test(pay));
+  ok("  ^ and reads no amount or fee from the body", !/body\.amount|body\.fee|amountCents\s*=\s*body/.test(pay));
+  ok("  ^ a bank return says pending (?paid=bank), a card return says received (?paid=true)", /paid=\$\{method === "card" \? "true" : "bank"\}/.test(pay));
+  for (const f of ["app/portal/[token]/ClientPortal.js", "app/portal/[token]/invoices/[id]/PortalInvoice.js"]) {
+    const src = read(f);
+    ok(`${f.split("/").pop()}: the bank button renders only behind data.bankDebit and sends method 'bank'; no fee is printed`,
+      /data-pay-bank=/.test(src) && /pay\((inv\.id, )?"bank"\)/.test(src) && !/fee/i.test(src.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "")));
+  }
+  const { CLIENT_DOC_COPY } = await import("@/lib/i18n/clientDocCopy.js");
+  ok("the client copy has payCard / payBank / bankNote / bankPending / bankFailed in all 8 portal languages",
+    Object.values(CLIENT_DOC_COPY).every((c) => typeof c.payBank === "function" && typeof c.payCard === "function" && c.bankNote && c.bankPending && c.bankPendingBanner && typeof c.bankFailed === "function"));
+  ok("  ^ the note says 3–5 business days", /3–5 business days/.test(CLIENT_DOC_COPY.en.bankNote));
+
+  // The async lifecycle on the invoice: pending → paid, pending → failed.
+  const settle = await import("@/lib/stripe/settleCheckoutSession.js");
+  const invoices = new Map([["inv_b", { id: "inv_b", parentInvoiceId: null, version: 1, pendingPaymentIntentId: null }]]);
+  const writes = [];
+  const fakeDb = {
+    invoice: {
+      findUnique: async ({ where }) => invoices.get(where.id) ? { ...invoices.get(where.id) } : null,
+      findMany: async () => [...invoices.values()].map((i) => ({ id: i.id, version: i.version, parentInvoiceId: i.parentInvoiceId })),
+      update: async ({ where, data }) => { writes.push(data); invoices.set(where.id, { ...invoices.get(where.id), ...data }); return invoices.get(where.id); },
+    },
+  };
+  await settle.markPendingPayment(fakeDb, { invoiceId: "inv_b", session: { payment_method_types: ["acss_debit"] }, paymentIntentId: "pi_pad" });
+  ok("completed-but-unpaid marks the invoice pending with the method and the intent",
+    invoices.get("inv_b").pendingPaymentMethod === "acss_debit" && invoices.get("inv_b").pendingPaymentIntentId === "pi_pad" && invoices.get("inv_b").pendingPaymentAt instanceof Date);
+  const fakeStripe = { paymentIntents: { retrieve: async () => ({ last_payment_error: { message: "Insufficient funds" } }) } };
+  const failed = await settle.failCheckoutSession({ metadata: { invoiceId: "inv_b" }, payment_intent: "pi_pad", payment_method_types: ["acss_debit"] }, { db: fakeDb, stripe: fakeStripe });
+  ok("async_payment_failed records the failure with Stripe's own reason",
+    failed.recorded && invoices.get("inv_b").pendingPaymentFailedAt instanceof Date && invoices.get("inv_b").pendingPaymentFailure === "Insufficient funds");
+  await settle.markPendingPayment(fakeDb, { invoiceId: "inv_b", session: { payment_method_types: ["acss_debit"] }, paymentIntentId: "pi_pad2" });
+  ok("a new attempt clears the old failure", invoices.get("inv_b").pendingPaymentFailedAt === null && invoices.get("inv_b").pendingPaymentIntentId === "pi_pad2");
+  const stale = await settle.clearPendingPayment(fakeDb, { invoiceId: "inv_b", paymentIntentId: "pi_pad" });
+  ok("a late webhook for the FIRST attempt does not clear the second's pending mark", stale.cleared === false && invoices.get("inv_b").pendingPaymentIntentId === "pi_pad2");
+  const cleared = await settle.clearPendingPayment(fakeDb, { invoiceId: "inv_b", paymentIntentId: "pi_pad2" });
+  ok("async_payment_succeeded (via the paid branch) clears the pending mark for its own intent", cleared.cleared && invoices.get("inv_b").pendingPaymentIntentId === null);
+  const failNotInvoice = await settle.failCheckoutSession({ metadata: { bookingId: "bk" }, payment_intent: "pi_x" }, { db: fakeDb, stripe: fakeStripe });
+  ok("a failed session that is not an invoice's is left alone", failNotInvoice.handled === false);
+  ok("both webhook routes dispatch async_payment_failed to failCheckoutSession",
+    /failCheckoutSession\(event\.data\.object\)/.test(read("app/api/stripe/webhook/route.js")) && /failCheckoutSession\(event\.data\.object\)/.test(read("app/api/platform/billing/webhook/route.js")));
+  ok("the paid branch clears the pending mark and the unpaid branch sets it", /clearPendingPayment\(db, \{ invoiceId, paymentIntentId \}\)/.test(read("lib/stripe/settleCheckoutSession.js")) && /markPendingPayment\(db, \{ invoiceId, session, paymentIntentId \}\)/.test(read("lib/stripe/settleCheckoutSession.js")));
+  const { selectInvoiceBanners } = await import("@/lib/invoices/lifecycle.js");
+  const pendingBanners = selectInvoiceBanners({ invoice: { id: "i", status: "sent", total: 100, amountPaid: 0, amountDue: 100, pendingPaymentAt: new Date(), pendingPaymentMethod: "acss_debit", sentAt: new Date(), client: { email: "x@y" } } });
+  ok("the contractor's invoice shows a bankPending banner while a debit clears", pendingBanners.some((b) => b.id === "bankPending"));
+  const failedBanners = selectInvoiceBanners({ invoice: { id: "i", status: "sent", total: 100, amountPaid: 0, amountDue: 100, pendingPaymentAt: new Date(), pendingPaymentFailedAt: new Date(), pendingPaymentFailure: "Insufficient funds", sentAt: new Date(), client: { email: "x@y" } } });
+  ok("  ^ and a bankFailed banner carrying the reason once it bounces", failedBanners.some((b) => b.id === "bankFailed" && b.data.reason === "Insufficient funds") && !failedBanners.some((b) => b.id === "bankPending"));
+  ok("the status poll and account.updated both write stripeBankDebitEnabled from Stripe's capability answer",
+    /stripeBankDebitEnabled: bankDebitEnabled/.test(read("app/api/stripe/connect/status/route.js")) && /stripeBankDebitEnabled: Boolean\(bankDebitMethodFor\(account\)\)/.test(read("app/api/stripe/webhook/route.js")));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 console.log("\n── 3. Capabilities: new accounts request card_payments + transfers; old ones are repaired ──\n");
 
 {
@@ -295,11 +403,20 @@ console.log("\n── 3. Capabilities: new accounts request card_payments + tran
   const calls = [];
   const fake = { accounts: { update: async (id, p) => { calls.push({ id, p }); return {}; } } };
   const did = await ensureChargeCapabilities({ id: "acct_old", capabilities: { transfers: "active" } }, { stripe: fake });
-  ok("an existing account missing card_payments gets it requested (and only it)",
+  ok("an existing account (no country yet) missing card_payments gets it requested (and only it)",
     did === true && calls.length === 1 && Object.keys(calls[0].p.capabilities).join() === "card_payments");
   calls.length = 0;
   const none = await ensureChargeCapabilities({ id: "acct_ok", capabilities: { card_payments: "pending", transfers: "active" } }, { stripe: fake });
   ok("an account with both (in any status) is left alone", none === false && calls.length === 0);
+  calls.length = 0;
+  await ensureChargeCapabilities({ id: "acct_ca", country: "CA", capabilities: { card_payments: "active", transfers: "active" } }, { stripe: fake });
+  ok("a Canadian account additionally gets acss_debit_payments requested", calls.length === 1 && Object.keys(calls[0].p.capabilities).join() === "acss_debit_payments");
+  calls.length = 0;
+  await ensureChargeCapabilities({ id: "acct_us", country: "US", capabilities: { card_payments: "active", transfers: "active" } }, { stripe: fake });
+  ok("  ^ a US account us_bank_account_ach_payments, never acss", calls.length === 1 && Object.keys(calls[0].p.capabilities).join() === "us_bank_account_ach_payments");
+  calls.length = 0;
+  await ensureChargeCapabilities({ id: "acct_ca2", country: "CA", capabilities: { card_payments: "active", transfers: "active", acss_debit_payments: "pending" } }, { stripe: fake });
+  ok("  ^ and once requested (pending) it is not requested again", calls.length === 0);
   const nul = await ensureChargeCapabilities(null, { stripe: fake });
   ok("a null account is a no-op, not a throw", nul === false);
   ok("the status poll calls ensureChargeCapabilities", /ensureChargeCapabilities\(account\)/.test(read("app/api/stripe/connect/status/route.js")));
@@ -648,6 +765,123 @@ console.log("\n── 6b. Connect account fees: the ledger, the cap, the carry-f
   ok("the platform card reads the ledger totals through its own gated route",
     /getCurrentPlatformAdmin/.test(read("app/api/platform/billing/connect-fees/route.js")) && /\/api\/platform\/billing\/connect-fees/.test(read("app/platform/billing/plans/ProcessingRatesCard.js")));
   ok("the invoice screen prints the account fee as its own line", /app\.invoiceDetail\.accountFeeLine/.test(read("app/app/invoices/[id]/page.js")));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+console.log("\n── 6c. Refunds from FieldQuo: full, partial, refused, never counted twice ──\n");
+
+{
+  const { refundableCents, planRefund, issueRefund } = await import("@/lib/invoices/refund.js");
+  const { computeInvoiceState } = await import("@/lib/invoices/computeInvoiceState.js");
+  const { recordStripeRefund } = await import("@/lib/invoices/recordStripeRefund.js");
+  const pay = { id: "pay1", invoiceId: "inv_r", amount: 2260, method: "stripe", stripePaymentIntentId: "pi_r", refundedAmount: 0, kind: "payment" };
+  ok("a $2,260 payment can refund $2,260; after a $500 refund row, $1,760; after a $200 dashboard refund too, $1,560",
+    refundableCents(pay, []) === 226_000 &&
+      refundableCents(pay, [{ kind: "refund", refundOfPaymentId: "pay1", amount: -500 }]) === 176_000 &&
+      refundableCents({ ...pay, refundedAmount: 200 }, [{ kind: "refund", refundOfPaymentId: "pay1", amount: -500 }]) === 156_000);
+  ok("planRefund: zero, negative, over the limit, no reason, a refund of a refund — all refused",
+    planRefund({ payment: pay, refundRows: [], amountCents: 0, reason: "x" }).ok === false &&
+      planRefund({ payment: pay, refundRows: [], amountCents: -100, reason: "x" }).ok === false &&
+      planRefund({ payment: pay, refundRows: [], amountCents: 226_001, reason: "x" }).ok === false &&
+      planRefund({ payment: pay, refundRows: [], amountCents: 100, reason: "  " }).ok === false &&
+      planRefund({ payment: { ...pay, kind: "refund" }, refundRows: [], amountCents: 100, reason: "x" }).ok === false);
+  ok("  ^ a Stripe payment cannot be refunded 'manually', a cash payment cannot be refunded through Stripe",
+    planRefund({ payment: pay, refundRows: [], amountCents: 100, reason: "x", method: "manual" }).ok === false &&
+      planRefund({ payment: { ...pay, method: "cash", stripePaymentIntentId: null }, refundRows: [], amountCents: 100, reason: "x", method: "stripe" }).ok === false &&
+      planRefund({ payment: { ...pay, method: "cash", stripePaymentIntentId: null }, refundRows: [], amountCents: 100, reason: "x", method: "manual" }).ok === true);
+
+  // Executed end to end against a fake db and a scripted Stripe.
+  const rows = new Map([["pay1", { ...pay }]]);
+  const inv = { id: "inv_r", companyId: "co1", parentInvoiceId: null, version: 1, total: 2260, status: "paid", refundedAt: null };
+  const invUpdates = [];
+  const stripeCalls = [];
+  const db = {
+    invoice: {
+      findFirst: async ({ where }) => (where.id === "inv_r" && where.companyId === "co1" ? { id: "inv_r", companyId: "co1" } : null),
+      findUnique: async () => ({ ...inv }),
+      findMany: async () => [{ id: "inv_r", version: 1, parentInvoiceId: null }],
+      update: async ({ data }) => { invUpdates.push(data); Object.assign(inv, data); return inv; },
+    },
+    payment: {
+      findFirst: async ({ where }) => {
+        if (where.stripeRefundId) return [...rows.values()].find((r) => r.stripeRefundId === where.stripeRefundId) || null;
+        if (where.stripePaymentIntentId) return [...rows.values()].find((r) => r.stripePaymentIntentId === where.stripePaymentIntentId) || null;
+        const r = rows.get(where.id); return r && (!where.invoiceId || where.invoiceId.in.includes(r.invoiceId)) ? { ...r } : null;
+      },
+      findMany: async ({ where = {} }) => [...rows.values()].filter((r) => (where.refundOfPaymentId ? r.refundOfPaymentId === where.refundOfPaymentId : true) && (where.invoiceId?.in ? where.invoiceId.in.includes(r.invoiceId) : true)),
+      create: async ({ data }) => { if (data.stripeRefundId && [...rows.values()].some((r) => r.stripeRefundId === data.stripeRefundId)) { const e = new Error("dup"); e.code = "P2002"; throw e; } const row = { id: `ref${rows.size}`, ...data }; rows.set(row.id, row); return row; },
+      update: async ({ where, data }) => { Object.assign(rows.get(where.id), data); return rows.get(where.id); },
+    },
+  };
+  const stripeFake = { refunds: { create: async (params, opts) => { stripeCalls.push({ params, opts }); return { id: `re_${opts.idempotencyKey}`, status: "succeeded", amount: params.amount }; } } };
+  const args = { companyId: "co1", invoiceId: "inv_r", paymentId: "pay1", amountCents: 50_000, method: "stripe", reason: "Job cancelled", requestId: "req-1", memberUserId: "u1" };
+  const r1 = await issueRefund(args, { db, stripe: stripeFake });
+  const call = stripeCalls[0];
+  ok("a $500 partial Stripe refund: refunds.create on the intent with reverse_transfer: true and refund_application_fee: false",
+    r1.ok && call.params.payment_intent === "pi_r" && call.params.amount === 50_000 && call.params.reverse_transfer === true && call.params.refund_application_fee === false, call?.params);
+  ok("  ^ idempotency key per request", call.opts.idempotencyKey === "fq-refund-req-1");
+  ok("  ^ recorded as its own row: kind refund, −500, pointing at the payment, with the Stripe refund id, reason and who",
+    r1.row.kind === "refund" && r1.row.amount === -500 && r1.row.refundOfPaymentId === "pay1" && r1.row.stripeRefundId === "re_fq-refund-req-1" && r1.row.refundReason === "Job cancelled" && r1.row.refundedById === "u1");
+  ok("  ^ the invoice recomputes: paid 1760, due 500, partially_refunded",
+    r1.state.amountPaid === 1760 && r1.state.amountDue === 500 && r1.state.status === "partially_refunded" && invUpdates[0].amountRefunded === 500);
+  const again = await issueRefund(args, { db, stripe: stripeFake });
+  ok("the same request again (retry / double-click): Stripe returns the same refund, no second row",
+    again.ok && [...rows.values()].filter((r) => r.kind === "refund").length === 1);
+  const over = await issueRefund({ ...args, requestId: "req-2", amountCents: 180_000 }, { db, stripe: stripeFake });
+  ok("more than what is left ($1,800 > $1,760) is refused, and Stripe is not called", over.ok === false && stripeCalls.length === 2);
+  const rest = await issueRefund({ ...args, requestId: "req-3", amountCents: 176_000 }, { db, stripe: stripeFake });
+  ok("the remaining $1,760 refunds in full: paid 0, due 2260, refunded", rest.ok && rest.state.amountPaid === 0 && rest.state.status === "refunded");
+  const wrongCo = await issueRefund({ ...args, requestId: "req-4", companyId: "co2" }, { db, stripe: stripeFake });
+  ok("another company's invoice id is not found", wrongCo.ok === false && wrongCo.status === 404);
+
+  // The webhook must not count FieldQuo's own refunds twice.
+  const charge = { payment_intent: "pi_r", amount_refunded: 226_000 };
+  const notifyDb = { ...db, invoice: { ...db.invoice, findUnique: async () => ({ ...inv, total: 2260 }) } };
+  const rec = await recordStripeRefund(notifyDb, charge);
+  const original = rows.get("pay1");
+  ok("charge.refunded for the two app-issued refunds writes refundedAmount 0 on the original (both already exist as rows)",
+    rec.recorded && Number(original.refundedAmount) === 0, original.refundedAmount);
+  ok("  ^ and the invoice still reads paid 0 / refunded 2260 — not refunded 4520",
+    computeInvoiceState({ total: 2260, payments: [...rows.values()], priorStatus: "paid" }).amountRefunded === 2260 &&
+      computeInvoiceState({ total: 2260, payments: [...rows.values()], priorStatus: "paid" }).amountPaid === 0);
+  const dashboardToo = await recordStripeRefund(notifyDb, { payment_intent: "pi_r", amount_refunded: 226_000 + 10_000 });
+  ok("  ^ a further $100 refunded in the Stripe dashboard shows as refundedAmount 100 on the original — only the part the app did not do",
+    dashboardToo.recorded && Number(rows.get("pay1").refundedAmount) === 100);
+
+  // A manual (cash) refund: no Stripe call.
+  rows.set("pay2", { id: "pay2", invoiceId: "inv_r", amount: 300, method: "cash", stripePaymentIntentId: null, refundedAmount: 0, kind: "payment" });
+  const manual = await issueRefund({ ...args, requestId: "req-5", paymentId: "pay2", amountCents: 30_000, method: "manual", reason: "Returned in cash" }, { db, stripe: stripeFake });
+  ok("a cash refund records a −300 'cash' refund row with no Stripe call and no stripeRefundId",
+    manual.ok && manual.row.method === "cash" && manual.row.amount === -300 && manual.row.stripeRefundId === null && stripeCalls.length === 3);
+
+  // Permission and UI.
+  const route = read("app/api/invoices/[id]/refund/route.js");
+  ok("the refund route refuses impersonation, then requires the payments toggle AND invoice editing",
+    /member\.impersonation/.test(route) && /requireToggle\(full, "payments"/.test(route) && /requireLevel\(full, "invoices", "view_create_edit"\)/.test(route));
+  const page = read("app/app/invoices/[id]/page.js");
+  ok("the Refund button renders only behind the same gate and only on a payment row with money left",
+    /canRefund = canRecordPayment && hasLevel\(caller, "invoices", "view_create_edit"\)/.test(page) && /p\.kind !== "refund" &&\s*canRefund/.test(page) && /refundableCents\(p, invoice\.payments\) > 0/.test(page));
+  ok("  ^ and Record Payment renders only for members POST /api/payments would let through", /owing && canRecordPayment && \(/.test(page) && /hasToggle\(caller, "payments"\)/.test(page));
+  const dialog = read("app/app/invoices/[id]/RefundDialog.js");
+  ok("the dialog mints one requestId per open and says Stripe does not return its fee",
+    /useMemo\([\s\S]*randomUUID/.test(dialog) && /refundStripeNote/.test(dialog));
+  const { APP_MESSAGES: M } = await import("@/app/i18n/appMessages.js");
+  ok("  ^ the English note says so, in all 9 languages", /does not return its processing fee/.test(M.en["app.invoiceDetail.refundStripeNote"]) && Object.keys(M).every((l) => M[l]["app.invoiceDetail.refundStripeNote"] && M[l]["app.invoiceDetail.refundAction"]));
+
+  // The export line.
+  const { buildAccountingExport } = await import("@/lib/export/accountingExport.js");
+  const out = buildAccountingExport({
+    from: "2026-09-01", to: "2026-09-30", currency: "CAD",
+    invoices: [{ id: "i1", invoiceNumber: "INV-1", total: 2260, tax: 0, amountPaid: 1760, status: "partially_refunded", createdAt: new Date("2026-09-10"), client: { name: "H" } }],
+    payments: [
+      { id: "p1", invoiceId: "i1", amount: 2260, method: "stripe", date: new Date("2026-09-11"), stripePaymentIntentId: "pi_1", invoice: { invoiceNumber: "INV-1", client: { name: "H" } } },
+      { id: "r1", invoiceId: "i1", amount: -500, method: "stripe", kind: "refund", refundOfPaymentId: "p1", stripeRefundId: "re_1", refundReason: "Job cancelled", date: new Date("2026-09-12"), invoice: { invoiceNumber: "INV-1", client: { name: "H" } } },
+    ],
+  });
+  const lines = out.files.find((f) => f.kind === "payments").csv.split("\n");
+  ok("the export lists the refund as its own line: method 'refund', −500.00, the Stripe refund id, the reason", /refund,CAD,-500\.00,,,,,re_1,Job cancelled/.test(lines[2]), lines[2]);
+  ok("  ^ no negative_payment warning for it, Payments received stays 2260 gross, Refunds totals 500",
+    !out.warnings.some((w) => w.code === "negative_payment") && out.totals.CAD.paid === 2260 && out.totals.CAD.refunded === 500 && /Refunds/.test(out.files.find((f) => f.kind === "summary").csv));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { syncSubscriptionFromStripeEvent } from "@/lib/platform/stripeBilling";
-import { settleCheckoutSession } from "@/lib/stripe/settleCheckoutSession";
+import { settleCheckoutSession, failCheckoutSession } from "@/lib/stripe/settleCheckoutSession";
 import { invoiceSubscriptionId } from "@/lib/billing/subscriptionChargeEvent";
 import { settleChargeEvent } from "@/lib/stripe/settleChargeEvent";
 import { grantAiBundlePeriod, resolveAiBundleSubscription } from "@/lib/ai/creditBundle";
@@ -116,11 +116,14 @@ export async function POST(request) {
     }
   }
 
-  // The delayed payment was declined after the redirect. Nothing to record —
-  // the invoice or booking is still unpaid, which is already its state. Answered
-  // explicitly so it never reaches the subscription handler and files a
-  // spurious billing error.
+  // The delayed payment was declined after the redirect. The invoice or
+  // booking is still unpaid, but the invoice's pending-payment columns say
+  // so and why (lib/stripe/settleCheckoutSession.js failCheckoutSession) —
+  // dispatched here as well as on the Connect endpoint for the same reason
+  // completed is. Answered explicitly so it never reaches the subscription
+  // handler and files a spurious billing error.
   if (event.type === "checkout.session.async_payment_failed") {
+    await failCheckoutSession(event.data.object);
     return NextResponse.json({ received: true, settled: "async_payment_failed" });
   }
 

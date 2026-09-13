@@ -7,6 +7,7 @@ import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
 import { latestPerFamily } from "@/lib/invoices/family";
 import { resolveClientLanguage } from "@/lib/i18n/resolveLanguage";
 import { taxStatement } from "@/lib/tax/documentTax";
+import { companyBankDebitMethod } from "@/lib/stripe/bankDebit";
 
 export async function GET(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -53,6 +54,7 @@ export async function GET(request, { params }) {
           // see the note on `onlinePayments`.
           stripeAccountId: true,
           stripeChargesEnabled: true,
+          stripeBankDebitEnabled: true,
           paymentMethods: true,
           // ── For the tax line, and stripped from the payload below ────────
           //
@@ -142,6 +144,12 @@ export async function GET(request, { params }) {
           tax: true,
           taxEnabled: true,
           createdAt: true,
+          // A bank debit on its way, or one that bounced — the portal says
+          // so beside the balance (lib/stripe/settleCheckoutSession.js).
+          pendingPaymentMethod: true,
+          pendingPaymentAt: true,
+          pendingPaymentFailedAt: true,
+          pendingPaymentFailure: true,
           // Payment-schedule stages this invoice carries — only the fields
           // safe for a stranger's browser: a label and an amount, never the
           // internal trigger/percentage/job link. `requested` only: a
@@ -232,12 +240,17 @@ export async function GET(request, { params }) {
   const {
     stripeAccountId,
     stripeChargesEnabled,
+    stripeBankDebitEnabled: _bankDebitEnabled,
     taxRate: _taxRate,
     autoApplyLocalTax: _autoApply,
     vatRegistered: _vatRegistered,
     ...companyView
   } = client.company || {};
   const onlinePayments = Boolean(stripeAccountId && stripeChargesEnabled);
+  // "Pay from bank account" renders only when Stripe has ACTIVATED the
+  // capability and the company bills in that method's currency — the method
+  // name only, never a fee (non-negotiable #4: the fee is the contractor's).
+  const bankDebit = onlinePayments ? companyBankDebitMethod(client.company) : null;
 
   // Per invoice, because each was raised on its own day with its own decision
   // about tax. `asOf` is the invoice's creation date so a rate change last
@@ -284,6 +297,14 @@ export async function GET(request, { params }) {
       // Already narrow at the source: id, label and amountCents only, and only
       // `requested` stages. Nothing further to strip here.
       jobPaymentStages: invoice.jobPaymentStages,
+      // Pending / failed bank debit, as a state and Stripe's reason — no
+      // intent id, nothing the browser can act on.
+      pendingPayment: invoice.pendingPaymentAt && !invoice.pendingPaymentFailedAt
+        ? { method: invoice.pendingPaymentMethod, at: invoice.pendingPaymentAt }
+        : null,
+      failedPayment: invoice.pendingPaymentFailedAt
+        ? { method: invoice.pendingPaymentMethod, at: invoice.pendingPaymentFailedAt, reason: invoice.pendingPaymentFailure }
+        : null,
       taxKind: statement.kind,
       taxAssumedRegion: statement.assumed ? statement.assumedRegion : null,
     };
@@ -297,6 +318,7 @@ export async function GET(request, { params }) {
     language: resolveClientLanguage(client, client.company),
     company: companyView,
     onlinePayments,
+    bankDebit,
     quotes: client.quotes,
     invoices,
     // No `jobs` — see the comment on the query above.
