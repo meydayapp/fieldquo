@@ -70,236 +70,236 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-09-12 — 311 articles in the tree; written: en 1, fr 0, es 0; “Only in FieldQuo”: 35._
+_Generated 2026-09-13 — 311 articles in the tree; written: en 189, fr 189, es 189; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
-| `what-fieldquo-is` — What FieldQuo is, and the pipeline it runs | · | · | · |  | white_label |  |
-| `start-your-free-trial` — Start your free trial | · | · | · |  |  |  |
-| `your-first-day-setup-checklist` — Your first day: the setup checklist | · | · | · |  |  |  |
-| `the-sidebar-and-where-everything-is` — The sidebar, and where everything is | · | · | · | home |  |  |
-| `the-dashboard` — The dashboard: what is waiting on you | · | · | · | home | dashboard |  |
-| `company-settings-basics` — Company settings basics | · | · | · | settings-company |  |  |
-| `set-up-your-branding` — Set up your branding | · | · | · | settings-branding | white_label |  |
-| `choose-your-language` — Choose your language, and your company's | · | · | · | settings-language | languages |  |
-| `import-clients-from-a-csv` — Import clients from a CSV | · | · | · | clients | clients |  |
-| `import-past-jobs` — Import past jobs from your old system | · | · | · | jobs |  |  |
-| `import-a-quote-from-another-system` — Import a quote from another system | · | · | · | quotes |  |  |
-| `the-data-migration-service` — The data migration service | · | · | · | settings-migration |  |  |
-| `how-fieldquo-works-for-owners-and-admins` — How FieldQuo works for owners and administrators | · | · | · |  | team_access |  |
-| `how-fieldquo-works-for-dispatchers` — How FieldQuo works for dispatchers and managers | · | · | · |  | team_access |  |
-| `how-fieldquo-works-for-estimators` — How FieldQuo works for estimators and salespeople | · | · | · |  | team_access |  |
-| `how-fieldquo-works-for-crew` — How FieldQuo works for crew | · | · | · |  | crew_shifts |  |
-| `fieldquo-ai-ask-about-your-business` — FieldQuo AI: ask about your own business | · | · | · | ai | ai_copilot | ✓ |
-| `replay-the-setup-walkthrough` — Replay the setup walkthrough | · | · | · | help |  |  |
-| `how-to-get-help` — How to get help | · | · | · | help |  |  |
-| `troubleshooting` — Troubleshooting: the five things that go wrong first | · | · | · |  |  |  |
-| `faq` — Frequently asked questions | · | · | · |  |  |  |
-| `glossary` — Glossary | · | · | · |  |  |  |
-| `what-your-clients-get` — What your clients get out of it | · | · | · |  | client_portal |  |
+| `what-fieldquo-is` — What FieldQuo is, and the pipeline it runs | ✓ | ✓ | ✓ |  | white_label |  |
+| `start-your-free-trial` — Start your free trial | ✓ | ✓ | ✓ |  |  |  |
+| `your-first-day-setup-checklist` — Your first day: the setup checklist | ✓ | ✓ | ✓ |  |  |  |
+| `the-sidebar-and-where-everything-is` — The sidebar, and where everything is | ✓ | ✓ | ✓ | home |  |  |
+| `the-dashboard` — The dashboard: what is waiting on you | ✓ | ✓ | ✓ | home | dashboard |  |
+| `company-settings-basics` — Company settings basics | ✓ | ✓ | ✓ | settings-company |  |  |
+| `set-up-your-branding` — Set up your branding | ✓ | ✓ | ✓ | settings-branding | white_label |  |
+| `choose-your-language` — Choose your language, and your company's | ✓ | ✓ | ✓ | settings-language | languages |  |
+| `import-clients-from-a-csv` — Import clients from a CSV | ✓ | ✓ | ✓ | clients | clients |  |
+| `import-past-jobs` — Import past jobs from your old system | ✓ | ✓ | ✓ | jobs |  |  |
+| `import-a-quote-from-another-system` — Import a quote from another system | ✓ | ✓ | ✓ | quotes |  |  |
+| `the-data-migration-service` — The data migration service | ✓ | ✓ | ✓ | settings-migration |  |  |
+| `how-fieldquo-works-for-owners-and-admins` — How FieldQuo works for owners and administrators | ✓ | ✓ | ✓ |  | team_access |  |
+| `how-fieldquo-works-for-dispatchers` — How FieldQuo works for dispatchers and managers | ✓ | ✓ | ✓ |  | team_access |  |
+| `how-fieldquo-works-for-estimators` — How FieldQuo works for estimators and salespeople | ✓ | ✓ | ✓ |  | team_access |  |
+| `how-fieldquo-works-for-crew` — How FieldQuo works for crew | ✓ | ✓ | ✓ |  | crew_shifts |  |
+| `fieldquo-ai-ask-about-your-business` — FieldQuo AI: ask about your own business | ✓ | ✓ | ✓ | ai | ai_copilot | ✓ |
+| `replay-the-setup-walkthrough` — Replay the setup walkthrough | ✓ | ✓ | ✓ | help |  |  |
+| `how-to-get-help` — How to get help | ✓ | ✓ | ✓ | help |  |  |
+| `troubleshooting` — Troubleshooting: the five things that go wrong first | ✓ | ✓ | ✓ |  |  |  |
+| `faq` — Frequently asked questions | ✓ | ✓ | ✓ |  |  |  |
+| `glossary` — Glossary | ✓ | ✓ | ✓ |  |  |  |
+| `what-your-clients-get` — What your clients get out of it | ✓ | ✓ | ✓ |  | client_portal |  |
 
 ### leads-and-quotes (39)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
-| `the-leads-board` — The Leads board | · | · | · | requests | leads |  |
-| `lead-scoring-hot-warm-cold` — Lead scoring: Hot, Warm, Cold | · | · | · |  | leads |  |
-| `where-leads-come-from` — Where leads come from | · | · | · |  | lead_form |  |
-| `the-lead-form-on-your-website` — The lead form on your website | · | · | · | settings-lead-form | lead_form |  |
-| `facebook-lead-forms` — Facebook lead forms | · | · | · | settings-meta-ads | marketing_spend |  |
-| `import-leads` — Import leads | · | · | · | requests |  |  |
-| `convert-a-lead-to-a-quote` — Convert a lead to a quote | · | · | · |  | leads |  |
-| `the-quotes-list` — The Quotes list | · | · | · | quotes | quotes |  |
-| `build-a-quote` — Build a quote | · | · | · |  | quotes |  |
-| `quote-types-and-takeoffs` — Quote types and takeoffs | · | · | · | settings-services | quotes |  |
-| `lines-from-your-price-book` — Lines from your price book | · | · | · | settings-products | price_book |  |
-| `group-a-quote-by-room-or-scope` — Group a quote by room or scope | · | · | · |  | quotes |  |
-| `photos-on-a-quote` — Photos on a quote | · | · | · |  | quotes |  |
-| `ai-quote-review` — AI quote review | · | · | · |  | ai_quote_review | ✓ |
-| `the-ai-deep-photo-read` — The AI deep photo read | · | · | · |  | ai_vision | ✓ |
-| `upsell-add-ons` — Upsell add-ons the client can accept | · | · | · |  | add_on_upsell | ✓ |
-| `good-better-best-options` — Good, better, best options | · | · | · |  | priced_options |  |
-| `cost-and-margin-on-a-quote` — Cost and margin on a quote | · | · | · | settings-material-costs | material_costs |  |
-| `the-break-even-price` — The break-even price | · | · | · | settings-overhead | break_even | ✓ |
-| `send-a-quote` — Send a quote | · | · | · |  | quote_send |  |
-| `the-quote-pdf` — The quote PDF | · | · | · | settings-pdf-templates | quote_pdf |  |
-| `quote-statuses-and-what-they-mean` — Quote statuses, and what each one means | · | · | · |  | quotes |  |
-| `quote-validity-and-expiry` — How long a quote stays valid | · | · | · |  | quotes |  |
-| `quote-language` — A quote keeps its language | · | · | · |  | languages |  |
-| `online-approval-and-signature` — Online approval and signature | · | · | · |  | online_approval |  |
-| `deposits-on-quotes` — Deposits on quotes | · | · | · |  | booking_deposit |  |
-| `edit-a-sent-quote` — Edit a quote that was already sent | · | · | · |  | quotes |  |
-| `convert-a-quote-to-a-job` — What happens when a quote is approved | · | · | · |  | jobs |  |
-| `quotes-sent-with-no-response` — Quotes sent with no response | · | · | · |  | follow_ups |  |
-| `estimate-reviews` — Estimate Reviews: approve instant estimates | · | · | · | estimate-reviews | instant_quotes | ✓ |
-| `instant-quotes-on-your-website` — Instant quotes on your website | · | · | · | settings-instant-quotes | instant_quotes | ✓ |
-| `the-self-quote-form` — The self-quote form | · | · | · |  | self_quote | ✓ |
-| `aerial-roof-measurement` — Roof measurement from the air | · | · | · |  | aerial_measure | ✓ |
-| `the-kitchen-designer` — The kitchen designer | · | · | · | settings-cabinet-rates | kitchen_designer | ✓ |
-| `call-to-quote` — From a phone call to a draft quote | · | · | · | receptionist | call_to_quote | ✓ |
-| `import-a-subcontractor-quote` — Import a subcontractor's quote | · | · | · |  | subcontractor_bids |  |
-| `references-and-photos-in-the-quote-email` — References and before-and-after photos in the quote email | · | · | · | settings-quote-email | quote_email_wording |  |
-| `scope-of-work-and-terms` — Scope of work and payment terms on every quote | · | · | · | settings-company | contract_terms |  |
-| `the-large-quote-alert` — The large-quote alert | · | · | · | settings-notifications |  |  |
+| `the-leads-board` — The Leads board | ✓ | ✓ | ✓ | requests | leads |  |
+| `lead-scoring-hot-warm-cold` — Lead scoring: Hot, Warm, Cold | ✓ | ✓ | ✓ |  | leads |  |
+| `where-leads-come-from` — Where leads come from | ✓ | ✓ | ✓ |  | lead_form |  |
+| `the-lead-form-on-your-website` — The lead form on your website | ✓ | ✓ | ✓ | settings-lead-form | lead_form |  |
+| `facebook-lead-forms` — Facebook lead forms | ✓ | ✓ | ✓ | settings-meta-ads | marketing_spend |  |
+| `import-leads` — Import leads | ✓ | ✓ | ✓ | requests |  |  |
+| `convert-a-lead-to-a-quote` — Convert a lead to a quote | ✓ | ✓ | ✓ |  | leads |  |
+| `the-quotes-list` — The Quotes list | ✓ | ✓ | ✓ | quotes | quotes |  |
+| `build-a-quote` — Build a quote | ✓ | ✓ | ✓ |  | quotes |  |
+| `quote-types-and-takeoffs` — Quote types and takeoffs | ✓ | ✓ | ✓ | settings-services | quotes |  |
+| `lines-from-your-price-book` — Lines from your price book | ✓ | ✓ | ✓ | settings-products | price_book |  |
+| `group-a-quote-by-room-or-scope` — Group a quote by room or scope | ✓ | ✓ | ✓ |  | quotes |  |
+| `photos-on-a-quote` — Photos on a quote | ✓ | ✓ | ✓ |  | quotes |  |
+| `ai-quote-review` — AI quote review | ✓ | ✓ | ✓ |  | ai_quote_review | ✓ |
+| `the-ai-deep-photo-read` — The AI deep photo read | ✓ | ✓ | ✓ |  | ai_vision | ✓ |
+| `upsell-add-ons` — Upsell add-ons the client can accept | ✓ | ✓ | ✓ |  | add_on_upsell | ✓ |
+| `good-better-best-options` — Good, better, best options | ✓ | ✓ | ✓ |  | priced_options |  |
+| `cost-and-margin-on-a-quote` — Cost and margin on a quote | ✓ | ✓ | ✓ | settings-material-costs | material_costs |  |
+| `the-break-even-price` — The break-even price | ✓ | ✓ | ✓ | settings-overhead | break_even | ✓ |
+| `send-a-quote` — Send a quote | ✓ | ✓ | ✓ |  | quote_send |  |
+| `the-quote-pdf` — The quote PDF | ✓ | ✓ | ✓ | settings-pdf-templates | quote_pdf |  |
+| `quote-statuses-and-what-they-mean` — Quote statuses, and what each one means | ✓ | ✓ | ✓ |  | quotes |  |
+| `quote-validity-and-expiry` — How long a quote stays valid | ✓ | ✓ | ✓ |  | quotes |  |
+| `quote-language` — A quote keeps its language | ✓ | ✓ | ✓ |  | languages |  |
+| `online-approval-and-signature` — Online approval and signature | ✓ | ✓ | ✓ |  | online_approval |  |
+| `deposits-on-quotes` — Deposits on quotes | ✓ | ✓ | ✓ |  | booking_deposit |  |
+| `edit-a-sent-quote` — Edit a quote that was already sent | ✓ | ✓ | ✓ |  | quotes |  |
+| `convert-a-quote-to-a-job` — What happens when a quote is approved | ✓ | ✓ | ✓ |  | jobs |  |
+| `quotes-sent-with-no-response` — Quotes sent with no response | ✓ | ✓ | ✓ |  | follow_ups |  |
+| `estimate-reviews` — Estimate Reviews: approve instant estimates | ✓ | ✓ | ✓ | estimate-reviews | instant_quotes | ✓ |
+| `instant-quotes-on-your-website` — Instant quotes on your website | ✓ | ✓ | ✓ | settings-instant-quotes | instant_quotes | ✓ |
+| `the-self-quote-form` — The self-quote form | ✓ | ✓ | ✓ |  | self_quote | ✓ |
+| `aerial-roof-measurement` — Roof measurement from the air | ✓ | ✓ | ✓ |  | aerial_measure | ✓ |
+| `the-kitchen-designer` — The kitchen designer | ✓ | ✓ | ✓ | settings-cabinet-rates | kitchen_designer | ✓ |
+| `call-to-quote` — From a phone call to a draft quote | ✓ | ✓ | ✓ | receptionist | call_to_quote | ✓ |
+| `import-a-subcontractor-quote` — Import a subcontractor's quote | ✓ | ✓ | ✓ |  | subcontractor_bids |  |
+| `references-and-photos-in-the-quote-email` — References and before-and-after photos in the quote email | ✓ | ✓ | ✓ | settings-quote-email | quote_email_wording |  |
+| `scope-of-work-and-terms` — Scope of work and payment terms on every quote | ✓ | ✓ | ✓ | settings-company | contract_terms |  |
+| `the-large-quote-alert` — The large-quote alert | ✓ | ✓ | ✓ | settings-notifications |  |  |
 
 ### jobs-and-scheduling (29)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
-| `the-jobs-list` — The Jobs list | · | · | · | jobs | jobs |  |
-| `create-a-job` — Create a job | · | · | · |  | jobs |  |
-| `the-job-page` — The job page | · | · | · |  | jobs |  |
-| `visits-and-appointments` — Visits and appointments | · | · | · | calendar | scheduling |  |
-| `the-appointments-calendar` — The Appointments calendar | · | · | · | calendar | scheduling |  |
-| `book-a-visit-for-a-client` — Book a visit for a client | · | · | · |  | scheduling |  |
-| `arrival-windows-and-travel-buffer` — Arrival windows and travel buffer | · | · | · | settings-booking-page | booking_page |  |
-| `appointment-reminders` — Appointment reminders | · | · | · | settings-notifications | appointment_reminders |  |
-| `the-on-my-way-text` — The “On my way” text | · | · | · | settings-messages | appointment_reminders |  |
-| `clients-rescheduling-and-cancelling` — When a client reschedules or cancels | · | · | · |  | client_reschedule |  |
-| `recurring-jobs` — Recurring jobs | · | · | · |  | recurring_jobs |  |
-| `tasks` — Tasks | · | · | · | tasks | tasks |  |
-| `suggested-tasks` — Suggested tasks | · | · | · |  | suggested_tasks |  |
-| `checklists-on-site` — Checklists on site | · | · | · | settings-checklists | checklists |  |
-| `job-photos-and-tags` — Job photos and tags | · | · | · | settings-job-photo-tags | job_photos |  |
-| `job-notes` — Notes on a job | · | · | · |  | jobs |  |
-| `work-areas` — Work areas | · | · | · | settings-work-areas | work_areas |  |
-| `the-scheduler-and-crew-shifts` — The Scheduler: draft and publish the crew's week | · | · | · | scheduler | crew_shifts |  |
-| `the-team-schedule` — The Team Schedule | · | · | · | team-schedule | scheduling |  |
-| `the-time-clock` — The time clock | · | · | · | clock | time_clock |  |
-| `timesheets-and-approving-hours` — Timesheets: review and approve hours | · | · | · | timesheets | timesheets |  |
-| `time-off-requests` — Time off requests | · | · | · | time-off | time_off |  |
-| `safety-incidents` — Safety incidents and near-misses | · | · | · | safety | proof | ✓ |
-| `job-costing` — Job costing: quoted against actual | · | · | · |  | job_costing | ✓ |
-| `materials-on-a-job` — Materials on a job | · | · | · |  | materials |  |
-| `cancel-or-archive-a-job` — Cancel or archive a job | · | · | · |  | jobs |  |
-| `when-a-job-is-completed` — When a job is completed | · | · | · |  | review_requests |  |
-| `a-chat-room-for-every-job` — A chat room for every job | · | · | · | chat | team_chat | ✓ |
-| `supervisor-required-visits` — Visits that need a supervisor | · | · | · |  | scheduling |  |
+| `the-jobs-list` — The Jobs list | ✓ | ✓ | ✓ | jobs | jobs |  |
+| `create-a-job` — Create a job | ✓ | ✓ | ✓ |  | jobs |  |
+| `the-job-page` — The job page | ✓ | ✓ | ✓ |  | jobs |  |
+| `visits-and-appointments` — Visits and appointments | ✓ | ✓ | ✓ | calendar | scheduling |  |
+| `the-appointments-calendar` — The Appointments calendar | ✓ | ✓ | ✓ | calendar | scheduling |  |
+| `book-a-visit-for-a-client` — Book a visit for a client | ✓ | ✓ | ✓ |  | scheduling |  |
+| `arrival-windows-and-travel-buffer` — Arrival windows and travel buffer | ✓ | ✓ | ✓ | settings-booking-page | booking_page |  |
+| `appointment-reminders` — Appointment reminders | ✓ | ✓ | ✓ | settings-notifications | appointment_reminders |  |
+| `the-on-my-way-text` — The “On my way” text | ✓ | ✓ | ✓ | settings-messages | appointment_reminders |  |
+| `clients-rescheduling-and-cancelling` — When a client reschedules or cancels | ✓ | ✓ | ✓ |  | client_reschedule |  |
+| `recurring-jobs` — Recurring jobs | ✓ | ✓ | ✓ |  | recurring_jobs |  |
+| `tasks` — Tasks | ✓ | ✓ | ✓ | tasks | tasks |  |
+| `suggested-tasks` — Suggested tasks | ✓ | ✓ | ✓ |  | suggested_tasks |  |
+| `checklists-on-site` — Checklists on site | ✓ | ✓ | ✓ | settings-checklists | checklists |  |
+| `job-photos-and-tags` — Job photos and tags | ✓ | ✓ | ✓ | settings-job-photo-tags | job_photos |  |
+| `job-notes` — Notes on a job | ✓ | ✓ | ✓ |  | jobs |  |
+| `work-areas` — Work areas | ✓ | ✓ | ✓ | settings-work-areas | work_areas |  |
+| `the-scheduler-and-crew-shifts` — The Scheduler: draft and publish the crew's week | ✓ | ✓ | ✓ | scheduler | crew_shifts |  |
+| `the-team-schedule` — The Team Schedule | ✓ | ✓ | ✓ | team-schedule | scheduling |  |
+| `the-time-clock` — The time clock | ✓ | ✓ | ✓ | clock | time_clock |  |
+| `timesheets-and-approving-hours` — Timesheets: review and approve hours | ✓ | ✓ | ✓ | timesheets | timesheets |  |
+| `time-off-requests` — Time off requests | ✓ | ✓ | ✓ | time-off | time_off |  |
+| `safety-incidents` — Safety incidents and near-misses | ✓ | ✓ | ✓ | safety | proof | ✓ |
+| `job-costing` — Job costing: quoted against actual | ✓ | ✓ | ✓ |  | job_costing |  |
+| `materials-on-a-job` — Materials on a job | ✓ | ✓ | ✓ |  | materials |  |
+| `cancel-or-archive-a-job` — Cancel or archive a job | ✓ | ✓ | ✓ |  | jobs |  |
+| `when-a-job-is-completed` — When a job is completed | ✓ | ✓ | ✓ |  | review_requests |  |
+| `a-chat-room-for-every-job` — A chat room for every job | ✓ | ✓ | ✓ | chat | team_chat | ✓ |
+| `supervisor-required-visits` — Visits that need a supervisor | ✓ | ✓ | ✓ |  | scheduling |  |
 
 ### invoices-and-payments (27)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
-| `the-invoices-list` — The Invoices list | · | · | · | invoices | invoices |  |
-| `create-an-invoice` — Create an invoice | · | · | · |  | invoices |  |
-| `invoices-mirror-quotes` — Invoices mirror quotes | · | · | · |  | invoices |  |
-| `send-an-invoice` — Send an invoice | · | · | · |  | invoice_send |  |
-| `edit-an-invoice-after-sending` — Edit an invoice after it was sent | · | · | · |  | invoice_changes |  |
-| `record-a-manual-payment` — Record a cash, cheque or e-transfer payment | · | · | · |  | invoices |  |
-| `how-clients-pay-online` — How clients pay online | · | · | · |  | card_payments |  |
-| `connect-stripe-and-get-verified` — Connecting Stripe and getting verified | · | · | · | settings-payments | stripe_connect |  |
-| `what-stripe-asks-for-and-why` — What Stripe asks for, and why | · | · | · |  | stripe_connect |  |
-| `payment-processing-fees-and-payouts` — Payment processing fees and payouts | ✓ | · | · | settings-payments | card_payments |  |
-| `bank-debit-in-canada` — Bank debit in Canada: 1% capped at $5 | · | · | · |  | service_plans | ✓ |
-| `instant-payouts` — Instant payouts | · | · | · |  | card_payments |  |
-| `payouts-held-or-under-review` — Payouts held or under review | · | · | · |  | stripe_connect |  |
-| `refunds` — Refunds | · | · | · |  | card_payments |  |
-| `disputes-and-chargebacks` — Disputes and chargebacks | · | · | · |  | card_payments |  |
-| `deposits-and-payment-schedules` — Deposits and payment schedules | · | · | · | settings-company | booking_deposit |  |
-| `progress-payments-by-stage` — Progress payments: how each stage is requested | · | · | · |  | booking_deposit |  |
-| `invoice-reminders-and-chasing` — Invoice reminders and chasing | · | · | · | settings-follow-ups | follow_ups |  |
-| `payment-terms` — Payment terms | · | · | · | settings-company | contract_terms |  |
-| `sales-tax-on-invoices` — Sales tax on invoices | · | · | · | settings-company | sales_tax |  |
-| `pay-over-time-financing` — Pay-over-time financing | · | · | · |  | financing |  |
-| `service-plans` — Service plans (recurring billing) | · | · | · | plans | service_plans | ✓ |
-| `service-plan-bank-debit-mandates` — Service plans paid by bank debit: the mandate | · | · | · |  | service_plans | ✓ |
-| `the-client-portal` — The client portal | · | · | · |  | client_portal |  |
-| `the-accounting-export` — The accounting export (CSV for QuickBooks, Xero or your bookkeeper) | · | · | · | expenses | expenses |  |
-| `booking-fees-and-visit-deposits` — Booking fees and visit deposits | · | · | · | settings-booking-page | booking_deposit |  |
-| `money-owed-and-receivables-aging` — Money owed and receivables aging | · | · | · | home | dashboard |  |
+| `the-invoices-list` — The Invoices list | ✓ | ✓ | ✓ | invoices | invoices |  |
+| `create-an-invoice` — Create an invoice | ✓ | ✓ | ✓ |  | invoices |  |
+| `invoices-mirror-quotes` — Invoices mirror quotes | ✓ | ✓ | ✓ |  | invoices |  |
+| `send-an-invoice` — Send an invoice | ✓ | ✓ | ✓ |  | invoice_send |  |
+| `edit-an-invoice-after-sending` — Edit an invoice after it was sent | ✓ | ✓ | ✓ |  | invoice_changes |  |
+| `record-a-manual-payment` — Record a cash, cheque or e-transfer payment | ✓ | ✓ | ✓ |  | invoices |  |
+| `how-clients-pay-online` — How clients pay online | ✓ | ✓ | ✓ |  | card_payments |  |
+| `connect-stripe-and-get-verified` — Connecting Stripe and getting verified | ✓ | ✓ | ✓ | settings-payments | stripe_connect |  |
+| `what-stripe-asks-for-and-why` — What Stripe asks for, and why | ✓ | ✓ | ✓ |  | stripe_connect |  |
+| `payment-processing-fees-and-payouts` — Payment processing fees and payouts | ✓ | ✓ | ✓ | settings-payments | card_payments |  |
+| `bank-debit-in-canada` — Bank debit in Canada: 1% capped at $5 | ✓ | ✓ | ✓ |  | service_plans | ✓ |
+| `instant-payouts` — Instant payouts | ✓ | ✓ | ✓ |  | card_payments |  |
+| `payouts-held-or-under-review` — Payouts held or under review | ✓ | ✓ | ✓ |  | stripe_connect |  |
+| `refunds` — Refunds | ✓ | ✓ | ✓ |  | card_payments |  |
+| `disputes-and-chargebacks` — Disputes and chargebacks | ✓ | ✓ | ✓ |  | card_payments |  |
+| `deposits-and-payment-schedules` — Deposits and payment schedules | ✓ | ✓ | ✓ | settings-company | invoices |  |
+| `progress-payments-by-stage` — Progress payments: how each stage is requested | ✓ | ✓ | ✓ |  | invoices |  |
+| `invoice-reminders-and-chasing` — Invoice reminders and chasing | ✓ | ✓ | ✓ | settings-follow-ups | follow_ups |  |
+| `payment-terms` — Payment terms | ✓ | ✓ | ✓ | settings-company | contract_terms |  |
+| `sales-tax-on-invoices` — Sales tax on invoices | ✓ | ✓ | ✓ | settings-company | sales_tax |  |
+| `pay-over-time-financing` — Pay-over-time financing | ✓ | ✓ | ✓ |  | financing |  |
+| `service-plans` — Service plans (recurring billing) | ✓ | ✓ | ✓ | plans | service_plans | ✓ |
+| `service-plan-bank-debit-mandates` — Service plans paid by bank debit: the mandate | ✓ | ✓ | ✓ |  | service_plans | ✓ |
+| `the-client-portal` — The client portal | ✓ | ✓ | ✓ |  | client_portal |  |
+| `the-accounting-export` — The accounting export (CSV for QuickBooks, Xero or your bookkeeper) | ✓ | ✓ | ✓ | expenses | expenses |  |
+| `booking-fees-and-visit-deposits` — Booking fees and visit deposits | ✓ | ✓ | ✓ | settings-booking-page | booking_deposit |  |
+| `money-owed-and-receivables-aging` — Money owed and receivables aging | ✓ | ✓ | ✓ | home | dashboard |  |
 
 ### clients (12)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
-| `the-clients-list` — The Clients list | · | · | · | clients | clients |  |
-| `add-a-client` — Add a client | · | · | · |  | clients |  |
-| `the-client-record` — The client record | · | · | · |  | clients |  |
-| `business-clients-and-contacts` — Business clients and their contact person | · | · | · |  | clients |  |
-| `client-notes` — Client notes | · | · | · |  | clients |  |
-| `a-clients-language` — A client's language | · | · | · |  | languages |  |
-| `client-equipment-and-warranties` — Client equipment and warranties | · | · | · | client-equipment | proof | ✓ |
-| `client-consent-and-unsubscribes` — Client consent and unsubscribes | · | · | · |  | review_requests |  |
-| `review-requests` — Review requests after a job | · | · | · | settings-reviews | review_requests |  |
-| `testimonials-on-your-website` — Testimonials on your website | · | · | · | settings-reviews | testimonials |  |
-| `referrals-from-clients` — Referrals from clients | · | · | · |  | referrals |  |
-| `duplicate-clients` — Duplicate clients | · | · | · |  | clients |  |
+| `the-clients-list` — The Clients list | ✓ | ✓ | ✓ | clients | clients |  |
+| `add-a-client` — Add a client | ✓ | ✓ | ✓ |  | clients |  |
+| `the-client-record` — The client record | ✓ | ✓ | ✓ |  | clients |  |
+| `business-clients-and-contacts` — Business clients and their contact person | ✓ | ✓ | ✓ |  | clients |  |
+| `client-notes` — Client notes | ✓ | ✓ | ✓ |  | clients |  |
+| `a-clients-language` — A client's language | ✓ | ✓ | ✓ |  | languages |  |
+| `client-equipment-and-warranties` — Client equipment and warranties | ✓ | ✓ | ✓ | client-equipment | proof | ✓ |
+| `client-consent-and-unsubscribes` — Client consent and unsubscribes | ✓ | ✓ | ✓ |  | review_requests |  |
+| `review-requests` — Review requests after a job | ✓ | ✓ | ✓ | settings-reviews | review_requests |  |
+| `testimonials-on-your-website` — Testimonials on your website | ✓ | ✓ | ✓ | settings-reviews | testimonials |  |
+| `referrals-from-clients` — Referrals from clients | ✓ | ✓ | ✓ |  |  |  |
+| `duplicate-clients` — Duplicate clients | ✓ | ✓ | ✓ |  | clients |  |
 
 ### team-and-access (21)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
-| `manage-team` — Manage Team | · | · | · | team | team_access |  |
-| `invite-a-team-member` — Invite a team member | · | · | · |  | team_access |  |
-| `access-levels-overview` — Access levels: who sees what | · | · | · |  | team_access |  |
-| `role-crew` — The Crew level | · | · | · |  | team_access |  |
-| `role-estimator` — The Estimator level | · | · | · |  | team_access |  |
-| `role-dispatcher` — The Dispatcher level | · | · | · |  | team_access |  |
-| `role-manager` — The Manager level | · | · | · |  | team_access |  |
-| `administrators` — Administrators | · | · | · |  | team_access |  |
-| `the-custom-access-editor` — The Custom access editor | · | · | · |  | team_access |  |
-| `seats-and-crew-logins` — Seats and crew logins | · | · | · |  | team_access |  |
-| `deactivate-a-team-member` — Deactivate a team member | · | · | · |  | team_access |  |
-| `working-hours-and-bookable-hours` — Working hours and bookable hours | · | · | · | settings-availability | booking_page |  |
-| `time-off-policies` — Time off policies | · | · | · | settings-leave | time_off |  |
-| `payroll-runs` — Payroll runs | · | · | · | payroll | payroll | ✓ |
-| `payroll-settings` — Payroll settings | · | · | · | settings-payroll | payroll |  |
-| `payslips` — Payslips | · | · | · |  | payroll |  |
-| `subcontractors-and-insurance` — Subcontractors and their insurance | · | · | · | subcontractors | contractor_payouts |  |
-| `the-t5018-year-end-list` — The T5018 year-end list | · | · | · | subcontractors | contractor_payouts |  |
-| `vehicles-and-fleet` — Vehicles and fleet | · | · | · | fleet | proof | ✓ |
-| `purchasing-orders-stock-and-suppliers` — Purchasing: orders, stock and suppliers | · | · | · | purchasing | proof | ✓ |
-| `the-activity-log` — The Activity Log | · | · | · | settings-activity | activity_log |  |
+| `manage-team` — Manage Team | ✓ | ✓ | ✓ | team | team_access |  |
+| `invite-a-team-member` — Invite a team member | ✓ | ✓ | ✓ |  | team_access |  |
+| `access-levels-overview` — Access levels: who sees what | ✓ | ✓ | ✓ |  | team_access |  |
+| `role-crew` — The Crew level | ✓ | ✓ | ✓ |  | team_access |  |
+| `role-estimator` — The Estimator level | ✓ | ✓ | ✓ |  | team_access |  |
+| `role-dispatcher` — The Dispatcher level | ✓ | ✓ | ✓ |  | team_access |  |
+| `role-manager` — The Manager level | ✓ | ✓ | ✓ |  | team_access |  |
+| `administrators` — Administrators | ✓ | ✓ | ✓ |  | team_access |  |
+| `the-custom-access-editor` — The Custom access editor | ✓ | ✓ | ✓ |  | team_access |  |
+| `seats-and-crew-logins` — Seats and crew logins | ✓ | ✓ | ✓ |  | team_access |  |
+| `deactivate-a-team-member` — Deactivate a team member | ✓ | ✓ | ✓ |  | team_access |  |
+| `working-hours-and-bookable-hours` — Working hours and bookable hours | ✓ | ✓ | ✓ | settings-availability | booking_page |  |
+| `time-off-policies` — Time off policies | ✓ | ✓ | ✓ | settings-leave | time_off |  |
+| `payroll-runs` — Payroll runs | ✓ | ✓ | ✓ | payroll | payroll | ✓ |
+| `payroll-settings` — Payroll settings | ✓ | ✓ | ✓ | settings-payroll | payroll |  |
+| `payslips` — Payslips | ✓ | ✓ | ✓ |  | payroll |  |
+| `subcontractors-and-insurance` — Subcontractors and their insurance | ✓ | ✓ | ✓ | subcontractors | contractor_payouts |  |
+| `the-t5018-year-end-list` — The T5018 year-end list | ✓ | ✓ | ✓ | subcontractors | contractor_payouts |  |
+| `vehicles-and-fleet` — Vehicles and fleet | ✓ | ✓ | ✓ | fleet | proof | ✓ |
+| `purchasing-orders-stock-and-suppliers` — Purchasing: orders, stock and suppliers | ✓ | ✓ | ✓ | purchasing | proof | ✓ |
+| `the-activity-log` — The Activity Log | ✓ | ✓ | ✓ | settings-activity | activity_log |  |
 
 ### marketing-and-website (20)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
-| `the-website-builder` — The website builder | · | · | · | settings-website | website_builder | ✓ |
-| `website-pages-and-blocks` — Website pages and blocks | · | · | · |  | website_builder |  |
-| `your-website-address` — Your website address: subdomain and custom domain | · | · | · |  | website_builder |  |
-| `the-site-by-fieldquo-footer` — The “Site by FieldQuo” footer | · | · | · |  | white_label |  |
-| `share-your-links` — Share your links | · | · | · | settings-lead-form | embeds |  |
-| `embed-booking-and-quote-forms` — Embed booking and quote forms on any site | · | · | · |  | embeds |  |
-| `the-bio-link` — The bio link | · | · | · | settings-bio-link | bio_link |  |
-| `funnels` — Lead funnels | · | · | · | funnels | funnels | ✓ |
-| `build-a-funnel` — Build a funnel and read its drop-off | · | · | · |  | funnels |  |
-| `marketing-campaigns` — Marketing campaigns | · | · | · | marketing | marketing_campaigns |  |
-| `pamphlet-routes` — Pamphlet and door-hanger routes | · | · | · |  | door_hanger_routes | ✓ |
-| `email-campaigns-and-subscribers` — Email campaigns and subscribers | · | · | · |  | email_campaigns |  |
-| `marketing-spend` — Marketing spend | · | · | · |  | marketing_spend |  |
-| `the-marketing-designer` — The Marketing Designer | · | · | · | marketing-designer | marketing_designer | ✓ |
-| `make-a-post-from-a-job` — Make a post from a job | · | · | · |  | marketing_designer |  |
-| `social-posting-and-scheduling` — Post to Facebook and Instagram, now or later | · | · | · |  | page_messaging |  |
-| `connect-meta-ads` — Connect your Meta ad account | · | · | · | settings-meta-ads | marketing_spend |  |
-| `ask-for-reviews-automatically` — Ask for reviews automatically | · | · | · | settings-reviews | review_requests |  |
-| `refer-another-business` — Refer another business, earn a free month | · | · | · | refer | referrals |  |
-| `instant-estimates-as-marketing` — The instant estimate as a lead magnet | · | · | · |  | instant_quotes |  |
+| `the-website-builder` — The website builder | ✓ | ✓ | ✓ | settings-website | website_builder | ✓ |
+| `website-pages-and-blocks` — Website pages and blocks | ✓ | ✓ | ✓ |  | website_builder |  |
+| `your-website-address` — Your website address: subdomain and custom domain | ✓ | ✓ | ✓ |  | website_builder |  |
+| `the-site-by-fieldquo-footer` — The “Site by FieldQuo” footer | ✓ | ✓ | ✓ |  | white_label |  |
+| `share-your-links` — Share your links | ✓ | ✓ | ✓ | settings-lead-form | embeds |  |
+| `embed-booking-and-quote-forms` — Embed booking and quote forms on any site | ✓ | ✓ | ✓ |  | embeds |  |
+| `the-bio-link` — The bio link | ✓ | ✓ | ✓ | settings-bio-link | bio_link |  |
+| `funnels` — Lead funnels | ✓ | ✓ | ✓ | funnels | funnels | ✓ |
+| `build-a-funnel` — Build a funnel and read its drop-off | ✓ | ✓ | ✓ |  | funnels |  |
+| `marketing-campaigns` — Marketing campaigns | ✓ | ✓ | ✓ | marketing | marketing_campaigns |  |
+| `pamphlet-routes` — Pamphlet and door-hanger routes | ✓ | ✓ | ✓ |  | door_hanger_routes | ✓ |
+| `email-campaigns-and-subscribers` — Email campaigns and subscribers | ✓ | ✓ | ✓ |  | email_campaigns |  |
+| `marketing-spend` — Marketing spend | ✓ | ✓ | ✓ |  | marketing_spend |  |
+| `the-marketing-designer` — The Marketing Designer | ✓ | ✓ | ✓ | marketing-designer | marketing_designer | ✓ |
+| `make-a-post-from-a-job` — Make a post from a job | ✓ | ✓ | ✓ |  | marketing_designer |  |
+| `social-posting-and-scheduling` — Post to Facebook and Instagram, now or later | ✓ | ✓ | ✓ |  | page_messaging |  |
+| `connect-meta-ads` — Connect your Meta ad account | ✓ | ✓ | ✓ | settings-meta-ads | marketing_spend |  |
+| `ask-for-reviews-automatically` — Ask for reviews automatically | ✓ | ✓ | ✓ | settings-reviews | review_requests |  |
+| `refer-another-business` — Refer another business, earn a free month | ✓ | ✓ | ✓ | refer | referrals |  |
+| `instant-estimates-as-marketing` — The instant estimate as a lead magnet | ✓ | ✓ | ✓ |  | instant_quotes |  |
 
 ### messages (18)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
-| `the-messages-inbox` — The Messages inbox | · | · | · | messages | page_messaging | ✓ |
-| `connect-your-facebook-page-and-instagram` — Connecting your Facebook Page and Instagram | · | · | · | settings-meta-ads | page_messaging |  |
-| `whatsapp-business` — WhatsApp Business messages | · | · | · |  | whatsapp_messaging | ✓ |
-| `conversation-status-and-who-looks-after-it` — Conversation status and who is looking after it | · | · | · |  | page_messaging |  |
-| `private-notes-and-temperature` — Private notes and the temperature chip | · | · | · |  | page_messaging |  |
-| `the-ai-employee` — The AI employee: drafts you approve | · | · | · | settings-ai-employee | ai_employee | ✓ |
-| `the-monthly-review` — The monthly review of your inbox | · | · | · |  | page_messaging |  |
-| `client-texts-on-my-way-and-reminders` — The two texts your clients get | · | · | · | settings-messages | appointment_reminders |  |
-| `email-templates` — Email templates | · | · | · | settings-email-templates | quote_email_wording |  |
-| `follow-up-rules` — Follow-up rules | · | · | · | settings-follow-ups | follow_ups |  |
-| `notifications-for-you` — Notifications for you: email and browser | · | · | · | settings-notifications |  |  |
-| `send-from-your-own-domain` — Send email from your own domain | · | · | · | settings-email-domain | own_email_domain |  |
-| `the-phone-receptionist` — The phone receptionist | · | · | · | settings-voice | voice_receptionist | ✓ |
-| `the-receptionist-call-log` — The receptionist's call log | · | · | · | receptionist | voice_receptionist |  |
-| `quote-callbacks` — Quote callbacks | · | · | · |  | voice_callbacks | ✓ |
-| `the-crew-inbox` — The crew inbox: photos and updates by text | · | · | · | crew-inbox | crew_inbox | ✓ |
-| `team-chat` — Team chat | · | · | · | chat | team_chat | ✓ |
-| `texting-clients-what-is-and-is-not-automated` — Texting clients: what is automated and what is not | · | · | · |  | appointment_reminders |  |
+| `the-messages-inbox` — The Messages inbox | ✓ | ✓ | ✓ | messages | page_messaging | ✓ |
+| `connect-your-facebook-page-and-instagram` — Connecting your Facebook Page and Instagram | ✓ | ✓ | ✓ | settings-meta-ads | page_messaging |  |
+| `whatsapp-business` — WhatsApp Business messages | ✓ | ✓ | ✓ |  | whatsapp_messaging | ✓ |
+| `conversation-status-and-who-looks-after-it` — Conversation status and who is looking after it | ✓ | ✓ | ✓ |  | page_messaging |  |
+| `private-notes-and-temperature` — Private notes and the temperature chip | ✓ | ✓ | ✓ |  | page_messaging |  |
+| `the-ai-employee` — The AI employee: drafts you approve | ✓ | ✓ | ✓ | settings-ai-employee | ai_employee | ✓ |
+| `the-monthly-review` — The monthly review of your inbox | ✓ | ✓ | ✓ |  | page_messaging |  |
+| `client-texts-on-my-way-and-reminders` — The two texts your clients get | ✓ | ✓ | ✓ | settings-messages | appointment_reminders |  |
+| `email-templates` — Email templates | ✓ | ✓ | ✓ | settings-email-templates | quote_email_wording |  |
+| `follow-up-rules` — Follow-up rules | ✓ | ✓ | ✓ | settings-follow-ups | follow_ups |  |
+| `notifications-for-you` — Notifications for you: email and browser | ✓ | ✓ | ✓ | settings-notifications |  |  |
+| `send-from-your-own-domain` — Send email from your own domain | ✓ | ✓ | ✓ | settings-email-domain | own_email_domain |  |
+| `the-phone-receptionist` — The phone receptionist | ✓ | ✓ | ✓ | settings-voice | voice_receptionist | ✓ |
+| `the-receptionist-call-log` — The receptionist's call log | ✓ | ✓ | ✓ | receptionist | voice_receptionist |  |
+| `quote-callbacks` — Quote callbacks | ✓ | ✓ | ✓ |  | voice_callbacks | ✓ |
+| `the-crew-inbox` — The crew inbox: photos and updates by text | ✓ | ✓ | ✓ | crew-inbox | crew_inbox | ✓ |
+| `team-chat` — Team chat | ✓ | ✓ | ✓ | chat | team_chat | ✓ |
+| `texting-clients-what-is-and-is-not-automated` — Texting clients: what is automated and what is not | ✓ | ✓ | ✓ |  | appointment_reminders |  |
 
 ### mobile-and-crew (13)
 
