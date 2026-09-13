@@ -595,6 +595,15 @@ section("7b. The stored approval and the unattended slice");
         async findUnique() { return budget ? { ...budget } : null; },
         async upsert({ create, update }) { budget = budget ? { ...budget, ...update } : { ...create }; return { ...budget }; },
         async update({ data }) { budget = { ...budget, ...data }; return { ...budget }; },
+        async updateMany({ where, data }) {
+          if (!budget || (where.active !== undefined && budget.active !== where.active)) return { count: 0 };
+          if (where.OR) {
+            const free = budget.sliceLeaseUntil == null || (where.OR[1]?.sliceLeaseUntil?.lt && budget.sliceLeaseUntil < where.OR[1].sliceLeaseUntil.lt);
+            if (!free) return { count: 0 };
+          }
+          budget = { ...budget, ...data };
+          return { count: 1 };
+        },
       },
       platformAiUsage: {
         async aggregate({ where }) {
@@ -681,11 +690,31 @@ section("7b. The stored approval and the unattended slice");
     const stopped = await clearTradeSuggestAiApproval(f.db, { reason: "stopped", now: T0 });
     ok("a superadmin's stop clears with its own reason", stopped.active === false && /stopped by a superadmin/.test(stopped.note) && CLEAR_REASONS.stopped);
   }
+  // 6. Two ticks at once: the second finds the lease held and does nothing; a stale lease is reclaimed; a throw releases it.
+  {
+    const f = makeDb({ rows: 4 });
+    await approveTradeSuggestAi(f.db, { approvedBy: "test", now: T0 });
+    let release;
+    const slow = () => new Promise((resolve) => { release = resolve; });
+    const first = runTradeSuggestAiSlice({ db: f.db, deadlineMs: 60_000, now: new Date(T0.getTime() + 1000), run: async () => { await slow(); return { remaining: 3, stopped: null, batches: 1, considered: 100, written: 100, unknown: 0, notContractor: 0, byTrade: {}, costMicros: 0, model: "m", seconds: 1 }; } });
+    await new Promise((r) => setTimeout(r, 10));
+    const second = await runTradeSuggestAiSlice({ db: f.db, deadlineMs: 60_000, now: new Date(T0.getTime() + 2000), run: async () => { throw new Error("must not run while the lease is held"); } });
+    ok("a second tick while the first runs: skipped, another slice holds the job", second.ran === false && /holds the job/.test(second.skipped) && f.budget.sliceLeaseUntil > new Date(T0.getTime() + 60_000));
+    release();
+    const r1 = await first;
+    ok("the first slice ran and released the lease", r1.ran && f.budget.sliceLeaseUntil === null);
+    f.budget.sliceLeaseUntil = new Date(T0.getTime() - 1); // a dead slice's lease, already past
+    const third = await runTradeSuggestAiSlice({ db: f.db, deadlineMs: 60_000, now: T0, run: async () => ({ remaining: 3, stopped: null, batches: 0, considered: 0, written: 0, unknown: 0, notContractor: 0, byTrade: {}, costMicros: 0, model: null, seconds: 0 }) });
+    ok("a stale lease is reclaimed", third.ran === true);
+    await runTradeSuggestAiSlice({ db: f.db, deadlineMs: 60_000, now: T0, run: async () => { throw new Error("vendor exploded"); } }).catch(() => {});
+    ok("a slice that throws still releases the lease", f.budget.sliceLeaseUntil === null && f.budget.active === true);
+  }
   ok("the cap constant is $10", TRADE_SUGGEST_AI_CAP_MICROS === 10_000_000);
   ok("approving needs a name and a non-zero budget", await approveTradeSuggestAi(makeDb().db, { approvedBy: "", now: T0 }).then(() => false, (e) => /approvedBy/.test(e.message)) && await approveTradeSuggestAi(makeDb().db, { approvedBy: "x", budgetMicros: 0, now: T0 }).then(() => false, (e) => /zero budget/.test(e.message)));
   ok("clearing with a made-up reason throws", await clearTradeSuggestAiApproval(makeDb().db, { reason: "bored" }).then(() => false, (e) => /reason/.test(e.message)));
   const schema = read("prisma/schema.prisma");
-  ok("PlatformAiBudget carries approvedAt / approvedBy / note", /approvedAt DateTime\?/.test(schema) && /approvedBy String\?/.test(schema) && schema.includes("A \"job\" budget"));
+  ok("PlatformAiBudget carries approvedAt / approvedBy / note / sliceLeaseUntil", /approvedAt DateTime\?/.test(schema) && /approvedBy String\?/.test(schema) && /sliceLeaseUntil DateTime\?/.test(schema) && schema.includes("A \"job\" budget"));
+  ok("the claim is a guarded updateMany on the lease, never a read-then-write", /updateMany\(\{\s*where: \{ scope: JOB_SCOPE, scopeId: TRADE_SUGGEST_AI_JOB, active: true, OR: \[\{ sliceLeaseUntil: null \}, \{ sliceLeaseUntil: \{ lt: now \} \}\] \}/.test(read("lib/sales/discovery/suggestTradesAiApproval.js")));
   ok("the approval audit action is registered", Boolean(AUDIT_ACTIONS.sales_trade_suggestions_ai_approval));
   const aiRoute = read("app/api/platform/sales/review/suggested/ai/route.js");
   ok("the button approves then runs the first slice; { clear } withdraws", aiRoute.includes("approveTradeSuggestAi(") && aiRoute.includes("runTradeSuggestAiSlice(") && aiRoute.includes("body?.clear === true"));

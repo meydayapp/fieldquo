@@ -12362,6 +12362,14 @@ model PlatformAiBudget {
   /// What was known at approval, and why it ended: "153,748 rows remained ·
   /// estimate $6.86 · cleared 2026-09-14: done". Human text, appended to.
   note       String?
+  /// Held by the slice that is running the job right now, until this
+  /// instant; null when none is. Measured 2026-09-13 in the first twenty
+  /// minutes of the AI pass: the sales-pipeline cron fires every minute and
+  /// a slice runs three, so three slices overlapped, each started at the
+  /// top of the same selection, and 58 calls answered 2,100 rows — the same
+  /// hundred names asked three times. A lease with a time on it, the way
+  /// SalesPipelineTask claims a task, so a crashed slice frees itself.
+  sliceLeaseUntil DateTime?
 
   active    Boolean  @default(true)
   createdAt DateTime @default(now())

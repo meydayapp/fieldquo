@@ -817,7 +817,15 @@ chips said, because the bottleneck was a person looking at one row at a time.
   --by=…` set it on 2026-09-13 at 19:12 UTC ("owner via chat 2026-09-13",
   153,748 rows remained). An unattended slice writes no audit row
   (`platformAdminId` is NOT NULL) — the ledger and the budget row are its
-  record; a button-triggered slice audits as the admin.
+  record; a button-triggered slice audits as the admin. **Measured in the
+  first twenty minutes**: 58 calls answered 2,100 rows — the cron fires every
+  minute, a slice runs three, three overlapped and asked the same hundred
+  names three times ($17 to finish against the $10 cap). Paused, and a
+  `sliceLeaseUntil` lease added (a guarded updateMany claim, the runner's
+  pattern; a dead slice's lease expires by itself) so one slice runs at a
+  time; re-approved after the deploy. Observed rate before the pause: ~4.5
+  calls/min, 2,100 prompt + 3,500 completion tokens a call, $0.22 for 5,800
+  names sent — about $5.8 for the pile once each name is asked once.
 - `scripts/check-trade-suggestions.mjs` (209 checks, in check:all): the six
   examples, hostile names, the domain guards, the stored form, the batch's
   cursor and idempotence against a fake client, the per-row trade sources, the
