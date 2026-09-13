@@ -58,6 +58,38 @@ export default function CompanyActions({ companyId, companyName, trialEndsAt, on
 
   const canSubmit = Number(days) >= 1 && reason.trim().length >= 3 && !busy;
 
+  // ── End the trial now ──────────────────────────────────────────────────
+  // The other direction: bill the first invoice today. Its own reason and
+  // its own result, because "free until March" and "charged just now" must
+  // never share a success line.
+  const [endReason, setEndReason] = useState("");
+  const [endBusy, setEndBusy] = useState(false);
+  const [endResult, setEndResult] = useState(null);
+  const [endError, setEndError] = useState("");
+
+  async function endTrial() {
+    if (!window.confirm(`Charge ${companyName} now? Stripe will create and pay the first invoice immediately.`)) return;
+    setEndBusy(true);
+    setEndError("");
+    setEndResult(null);
+    try {
+      const res = await fetch(`/api/platform/companies/${companyId}/end-trial`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: endReason }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || `Request failed (${res.status}).`);
+      setEndResult(json);
+      setEndReason("");
+      onDone?.();
+    } catch (e) {
+      setEndError(e.message);
+    } finally {
+      setEndBusy(false);
+    }
+  }
+
   return (
     <div className="bg-card border border-border rounded-xl p-5">
       <h2 className="font-semibold text-foreground mb-1 flex items-center gap-2">
@@ -129,6 +161,49 @@ export default function CompanyActions({ companyId, companyName, trialEndsAt, on
             {/* Said out loud: a grant Stripe doesn't know about still bills. */}
             {result.note && <p className="text-amber-700 dark:text-amber-400 mt-0.5">{result.note}</p>}
           </div>
+        )}
+      </div>
+
+      <div className="rounded-lg border border-border p-4 mt-3">
+        <div className="flex items-center gap-2 mb-3">
+          <ShieldAlert size={15} className="text-muted-foreground" />
+          <span className="text-sm font-semibold text-foreground">End trial now</span>
+          <span className="text-xs text-muted-foreground">· Stripe bills the first invoice today</span>
+        </div>
+        <PlatformWriteGate
+          status={roleStatus}
+          allowed={canExtend}
+          error={roleError}
+          action="Ending a free period"
+          who="superadmin"
+        >
+          <div className="flex items-end gap-2 flex-wrap">
+            <label className="flex flex-col gap-1 flex-1 min-w-[12rem]">
+              <span className="text-[11px] text-muted-foreground">Reason (required)</span>
+              <input
+                value={endReason}
+                onChange={(e) => setEndReason(e.target.value)}
+                placeholder="e.g. owner's live payment test"
+                className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
+              />
+            </label>
+            <button
+              onClick={endTrial}
+              disabled={endReason.trim().length < 3 || endBusy}
+              className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-1.5 border border-border text-foreground rounded-full px-4 py-2 text-xs font-bold disabled:opacity-50"
+            >
+              {endBusy && <Loader2 size={13} className="animate-spin" />}
+              End trial and charge now
+            </button>
+          </div>
+        </PlatformWriteGate>
+        {endError && <p className="text-xs text-red-600 mt-2">{endError}</p>}
+        {endResult && (
+          <p className="text-xs text-emerald-700 dark:text-emerald-300 font-semibold mt-2">
+            Stripe status now &quot;{endResult.stripeStatus}&quot;
+            {endResult.latestInvoice ? ` · invoice ${endResult.latestInvoice}` : ""}
+            {endResult.currentPeriodEnd ? ` · next renewal ${new Date(endResult.currentPeriodEnd).toLocaleDateString()}` : ""}
+          </p>
         )}
       </div>
     </div>
