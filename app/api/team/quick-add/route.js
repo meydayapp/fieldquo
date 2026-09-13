@@ -21,6 +21,7 @@ import { takeInviteEmailOutcome } from "@/lib/email/teamInvite";
 import { validateInvite } from "@/lib/permissions/inviteGuard";
 import { validateWorkProfile } from "@/lib/team/workProfile";
 import { resolveQuickAddWorker } from "@/lib/team/ensureWorker";
+import { normaliseTitle } from "@/lib/team/personLabel";
 
 export async function POST(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -65,6 +66,9 @@ export async function POST(request) {
     // created. See lib/team/workProfile.js.
     workType,
     scheduledHoursPerWeek,
+    // What the company calls them — Receptionist, Foreman. Distinct from
+    // `role` above, which is the seat. See lib/team/personLabel.js.
+    title,
   } = await request.json();
 
   // `name` is what the full New User page sends, and now what the popup sends
@@ -219,6 +223,10 @@ export async function POST(request) {
   if (!profile.ok) {
     return NextResponse.json({ error: profile.error }, { status: 400 });
   }
+  const jobTitle = normaliseTitle(title);
+  if (!jobTitle.ok) {
+    return NextResponse.json({ error: jobTitle.error }, { status: 400 });
+  }
 
   // ── Reattach to an archived Worker, don't shadow it with a second row ────
   //
@@ -241,6 +249,7 @@ export async function POST(request) {
     workerType,
     profile,
     hourlyRate: vetted.laborCostPerHour,
+    title: jobTitle.value,
   });
   const worker = workerResult.worker;
 

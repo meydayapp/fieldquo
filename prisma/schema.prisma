@@ -1924,6 +1924,10 @@ model PendingTeamProfile {
   country            String?
   imageUrl           String?
   laborCostPerHour   Decimal? @db.Decimal(10, 2)
+  // The job title typed on the New User form, carried until the invite is
+  // accepted and a Worker row exists to hold it — see Worker.title. The
+  // Member never gets one; a title belongs to the person on the books.
+  title              String?
   permissions        Json?
   // The granular FieldQuo role (admin/supervisor/employee) captured at invite
   // time. Better Auth's invitation can only carry admin/member, so this is the
@@ -5787,6 +5791,32 @@ model Worker {
   province                  String?
   type                      WorkerType @default(contractor)
   hourlyRate                Decimal?   @db.Decimal(10, 2)
+
+  /// What the company CALLS this person — Receptionist, Clerk, Foreman, Lead
+  /// installer, Estimator, Office manager. Free text, up to 60 characters,
+  /// shown wherever the person is listed as a person.
+  ///
+  /// NOT the seat. Member.role (owner/admin/supervisor/employee) and the
+  /// permission grid decide what somebody may DO, and their labels — Owner,
+  /// Administrator, Manager, Worker — kept turning up beside names on rosters
+  /// and pickers, so a receptionist read as "Worker" and a foreman with no
+  /// login read as nothing at all. The owner asked for the two to stop being
+  /// one word: the seat label stays where access is edited, the title goes
+  /// where the person is listed.
+  ///
+  /// Free text rather than an enum because every trade names its people
+  /// differently — the owner's own examples span the office (receptionist,
+  /// clerk) and the field (supervisor, estimator) — and a fixed list would
+  /// only ever be somebody else's org chart. The suggestions the input offers
+  /// are suggestions; nothing validates against them.
+  ///
+  /// On Worker rather than Member because the Worker row is the PERSON: the
+  /// crew list, the schedule, timesheets and payroll all key off it, and
+  /// office staff with no login are Workers with no Member at all. A title
+  /// on Member would leave those people — the receptionist this was asked
+  /// for — with nowhere to carry one. Null means no title was given, and
+  /// nothing invents one ("Staff") in its place.
+  title                     String?
 
   /// Where this person's time COSTS the business: on a job, or on the business.
   ///

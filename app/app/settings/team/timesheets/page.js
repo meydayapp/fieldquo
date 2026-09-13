@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { fetchJson } from "@/lib/fetchJson";
+import { personOptionLabel } from "@/lib/team/personLabel";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 
@@ -302,7 +303,7 @@ function TimesheetsPageScreen() {
               <option value="">{t("app.timesheets.selectWorker")}</option>
               {workers.map((w) => (
                 <option key={w.id} value={w.id}>
-                  {w.name}
+                  {personOptionLabel(w)}
                 </option>
               ))}
             </select>

@@ -103,14 +103,14 @@ export async function GET(request) {
         take: 200,
         include: {
           policy: { select: { name: true, kind: true, paid: true } },
-          worker: { select: { id: true, name: true } },
+          worker: { select: { id: true, name: true, title: true } },
         },
       }),
       db.leaveBalance.findMany({
         where: { year, policy: { companyId: member.companyId } },
         include: {
           policy: { select: { id: true, name: true, kind: true, accrualMethod: true } },
-          worker: { select: { id: true, name: true } },
+          worker: { select: { id: true, name: true, title: true } },
         },
       }),
       // Read, never create: someone browsing the team's leave who has no Worker

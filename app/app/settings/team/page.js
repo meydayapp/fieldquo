@@ -14,6 +14,7 @@ import AccessEditor, {
   presetForValues,
 } from "@/app/components/team/AccessEditor";
 import { describeAccess } from "@/lib/permissions/accessPresets";
+import { personTitle } from "@/lib/team/personLabel";
 import { PERMISSION_PRESETS, PRESET_TO_ROLE } from "@/lib/permissions";
 import {
   ROLE_LABELS,
@@ -797,7 +798,20 @@ export default function TeamOverviewPage() {
                 <div className="text-sm font-medium text-foreground truncate">
                   {m.user.name}
                 </div>
-                <div className="text-xs text-muted-foreground truncate">{m.user.email}</div>
+                {/* Their job title (Receptionist, Foreman), when one is set
+                    on their worker record. The Role column to the right is
+                    the SEAT — what they may do — and stays; this is what
+                    the company calls them. Nothing is printed for a person
+                    without one. See lib/team/personLabel.js. */}
+                <div className="text-xs text-muted-foreground truncate">
+                  {personTitle(m) ? (
+                    <>
+                      <span className="text-foreground/80">{personTitle(m)}</span>
+                      {" · "}
+                    </>
+                  ) : null}
+                  {m.user.email}
+                </div>
               </div>
 
               {/* Read-only badge when this member is at or above the viewer's
@@ -1008,8 +1022,12 @@ export default function TeamOverviewPage() {
                   <div className="text-sm font-medium text-foreground truncate">
                     {w.name}
                   </div>
-                  {w.email && (
+                  {(personTitle(w) || w.email) && (
                     <div className="text-xs text-muted-foreground truncate">
+                      {personTitle(w) ? (
+                        <span className="text-foreground/80">{personTitle(w)}</span>
+                      ) : null}
+                      {personTitle(w) && w.email ? " · " : ""}
                       {w.email}
                     </div>
                   )}

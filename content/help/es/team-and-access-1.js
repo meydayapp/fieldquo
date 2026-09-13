@@ -14,7 +14,7 @@ export const ARTICLES = {
     title: "Gestionar equipo",
     summary:
       "La pantalla del equipo: quién forma parte de él, qué puede ver y hacer cada persona, el panel de licencias, las invitaciones pendientes y los botones Agregar usuario, Agregar cuadrilla y Agregar una licencia.",
-    updated: "2026-09-12",
+    updated: "2026-09-13",
     intro: [
       "**Gestionar equipo** es donde viven las personas de su empresa en FieldQuo. Es una sola pantalla a la que se llega de dos maneras — **Tu equipo** en la barra lateral principal, bajo Personas, y **Configuración → Gestionar equipo** bajo Equipo y horarios — y muestra a cada persona con inicio de sesión, el nivel de acceso que tiene, y cuántas licencias y plazas de cuadrilla de su plan están en uso.",
       "Todo lo relativo al acceso de una persona se cambia aquí. Sus horas, su tarifa y sus ausencias viven en otras pantallas — Hojas de tiempo, Trabajadores, Ausencias — a las que esta página enlaza.",
@@ -70,6 +70,15 @@ export const ARTICLES = {
               ["Solo soy yo — ahora mismo no tengo cuadrilla.", "Registra que usted trabaja solo y quita el paso de invitación de la lista de configuración. Desmárquela el día que contrate a alguien."],
             ],
           } },
+        ],
+      },
+      {
+        id: "job-title-vs-level",
+        heading: "Cargo y nivel de acceso",
+        blocks: [
+          { p: "Una persona lleva dos etiquetas distintas en FieldQuo, y a propósito no son la misma palabra. Su **nivel de acceso** — Cuadrilla, Estimador, Despachador, Gerente, Administrador — es el asiento: decide qué puede ver y hacer, y se define aquí, en la columna **Rol**. Su **cargo** — Recepcionista, Auxiliar administrativo, Capataz, Instalador principal, Gerente de oficina — es cómo la llama su empresa: no cambia nada del acceso y se muestra junto a su nombre donde se listan personas: esta lista, el horario del equipo, la barra Miembros del chat y los selectores de asignación de citas, tareas y visitas." },
+          { p: "El cargo se define en la ficha de trabajador de la persona — pestaña **Trabajadores**, **Editar** — o se escribe en el formulario Nuevo usuario al invitarla. Es texto libre de hasta 60 caracteres; las sugerencias que ofrece el campo son solo sugerencias. Una persona sin cargo no muestra nada en su lugar, nunca una palabra inventada." },
+          { note: "La misma palabra puede ser un cargo para una persona y un nivel para otra. «Estimador» como cargo dice qué hace alguien; el nivel Estimador dice qué puede abrir. Dar a una recepcionista el nivel Cuadrilla y el cargo Recepcionista es el caso normal: el nivel mantiene sus precios tras la puerta, el cargo dice quién es." },
         ],
       },
       {

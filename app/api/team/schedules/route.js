@@ -10,6 +10,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { can } from "@/lib/permissions";
+import { workerTitlesByUserId } from "@/lib/team/workerTitles";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -29,6 +30,14 @@ export async function GET(request) {
 
   const now = new Date();
   const horizon = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+  // Job titles (Foreman, Receptionist) from the Worker rows, so the page can
+  // say who somebody is instead of which seat they hold. One query for the
+  // whole roster; see lib/team/workerTitles.js.
+  const titles = await workerTitlesByUserId(
+    member.companyId,
+    members.map((m) => m.userId),
+  );
 
   const team = [];
   for (const m of members) {
@@ -86,6 +95,7 @@ export async function GET(request) {
       userId: m.userId,
       name: m.user?.name || "Team member",
       role: m.role,
+      title: titles.get(m.userId) || null,
       hasAvailability: availability.length > 0,
       availability,
       upcoming,

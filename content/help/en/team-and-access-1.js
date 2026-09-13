@@ -16,7 +16,7 @@ export const ARTICLES = {
     title: "Manage Team",
     summary:
       "The roster screen: who is on your team, what each person can see and do, the seat panel, pending invitations, and the Add User, Add crew and Add a seat buttons.",
-    updated: "2026-09-12",
+    updated: "2026-09-13",
     intro: [
       "**Manage Team** is where your company's people live in FieldQuo. It is one screen reached two ways — **Your team** in the main sidebar under People, and **Settings → Manage Team** under Team & scheduling — and it shows everyone with a login, the access level each person holds, and how many of your plan's seats and crew places are in use.",
       "Everything about a person's access is changed from here. Their hours, their pay rate and their leave live on other screens — Timesheets, Workers, Time Off — which this page links to.",
@@ -72,6 +72,15 @@ export const ARTICLES = {
               ["It's just me — no crew right now.", "Records that you work alone and removes the invite step from the setup checklist. Untick it the day you take somebody on."],
             ],
           } },
+        ],
+      },
+      {
+        id: "job-title-vs-level",
+        heading: "Job title vs. access level",
+        blocks: [
+          { p: "A person has two different labels in FieldQuo, and they are deliberately not the same word. Their **access level** — Crew, Estimator, Dispatcher, Manager, Administrator — is the seat: it decides what they can see and do, and it is set here, in the **Role** column. Their **job title** — Receptionist, Clerk, Foreman, Lead installer, Office manager — is what your company calls them: it changes nothing about access and is shown beside their name wherever people are listed: this roster, the team schedule, the chat's Members bar, and the assignee pickers on appointments, tasks and visits." },
+          { p: "Set the title on the person's worker record — **Workers** tab, **Edit** — or type it on the New User form when you invite them. It is free text up to 60 characters; the suggestions the field offers are only suggestions. A person with no title shows nothing in its place, never a made-up word." },
+          { note: "The same word can be a title for one person and a level for another. \"Estimator\" as a title says what someone does; the Estimator level says what they may open. Giving a receptionist the Crew level and the title Receptionist is the normal case — the level keeps your prices behind the door, the title says who they are." },
         ],
       },
       {

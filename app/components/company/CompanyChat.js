@@ -44,6 +44,7 @@ import { notify } from "@/lib/notify/browser";
 import { chatApi, CHAT_REFUSAL_KEYS } from "@/lib/company/chat/client";
 import { groupOf, GROUP_ORDER } from "@/lib/company/chat/rules";
 import { layoutThread } from "@/lib/chat/threadLayout";
+import { personTitle } from "@/lib/team/personLabel";
 import {
   ChatLayout,
   PANE_LIST,
@@ -67,6 +68,16 @@ const LABEL_KEYS = {
   supervisor: "app.companyChat.label.supervisor",
   employee: "app.companyChat.label.employee",
 };
+
+// The word under a name: the person's JOB TITLE when they have one
+// (Receptionist, Foreman — Worker.title), else the seat word as before. A
+// person list is not the place for the permission tier, and the owner asked
+// for the two to stop being one word; the seat label keeps its place where
+// access is edited. No invented title for the rows without one — the seat
+// word there is a fact, not a fallback. See lib/team/personLabel.js.
+function personLine(t, p) {
+  return personTitle(p) || t(LABEL_KEYS[p.label] || LABEL_KEYS.employee);
+}
 
 /** A room's printed name: "#general" translated, a job's title, a person. */
 function useRoomName() {
@@ -128,7 +139,7 @@ function PeoplePicker({ people, loading, error, query, onQuery, onPick, excludeI
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-foreground">{p.name || p.email}</span>
                   <span className="block truncate text-xs text-muted-foreground">
-                    {t(LABEL_KEYS[p.label] || LABEL_KEYS.employee)}
+                    {personLine(t, p)}
                     {p.email && p.email !== p.name ? ` · ${p.email}` : ""}
                   </span>
                 </span>
@@ -242,7 +253,7 @@ function MentionPopup({ members, query, cursor, onHover, onPick }) {
             <Avatar initials={initialsOf(m.name || m.email || "?")} size="sm" />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium text-foreground">{m.name || m.email}</span>
-              <span className="block truncate text-xs text-muted-foreground">{t(LABEL_KEYS[m.label] || LABEL_KEYS.employee)}</span>
+              <span className="block truncate text-xs text-muted-foreground">{personLine(t, m)}</span>
             </span>
           </button>
         ))
@@ -749,7 +760,7 @@ function MembersBar({ roomId, onClose }) {
                     {m.isYou ? <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">{t("app.companyChat.you")}</span> : null}
                   </span>
                   <span className="block truncate text-xs text-muted-foreground">
-                    {m.departed ? t("app.companyChat.departed") : t(LABEL_KEYS[m.label] || LABEL_KEYS.employee)}
+                    {m.departed ? t("app.companyChat.departed") : personLine(t, m)}
                   </span>
                 </span>
               </li>

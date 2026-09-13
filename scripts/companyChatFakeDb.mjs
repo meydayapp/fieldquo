@@ -79,6 +79,9 @@ export function fakeDb(seed = {}) {
     company: [],
     user: [],
     member: [],
+    // Read by lib/team/workerTitles.js for the job title beside a name in the
+    // directory and the Members bar. Empty here: no title, nothing printed.
+    worker: [],
     job: [],
     jobVisit: [],
     companyChatRoom: [],

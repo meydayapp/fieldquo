@@ -9,6 +9,7 @@ import {
 } from "@/lib/permissions/enforce";
 import { db } from "@/lib/db";
 import { validateWorkProfile } from "@/lib/team/workProfile";
+import { normaliseTitle } from "@/lib/team/personLabel";
 import { managementChain } from "@/lib/org/reportingLine";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission, can } from "@/lib/permissions";
@@ -92,6 +93,14 @@ export async function PATCH(request, { params }) {
 
   const body = await request.json();
   const { name, email, phone, hourlyRate, active, hiredOn, managerId } = body;
+
+  // Job title — what the company calls them, not what they may do. Only
+  // judged when sent, so a PATCH that renames somebody leaves their title
+  // alone; "" sent on purpose clears it to null. See lib/team/personLabel.js.
+  const title = body.title !== undefined ? normaliseTitle(body.title) : null;
+  if (title && !title.ok) {
+    return NextResponse.json({ error: title.error }, { status: 400 });
+  }
 
   // Only validated when one of the two was actually sent: a PATCH that only
   // renames somebody must not be made to restate their work profile, and
@@ -229,6 +238,7 @@ export async function PATCH(request, { params }) {
     data: {
       ...(name !== undefined && { name }),
       ...(email !== undefined && { email }),
+      ...(title?.ok && { title: title.value }),
       ...(phone !== undefined && { phone: phoneValue }),
       ...(hourlyRate !== undefined && { hourlyRate }),
       ...(profile?.ok && body.workType !== undefined && { workType: profile.workType }),

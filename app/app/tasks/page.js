@@ -10,6 +10,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { personOptionLabel } from "@/lib/team/personLabel";
 import Link from "next/link";
 import {
   Plus,
@@ -381,7 +382,7 @@ export default function TasksPage() {
                 <option value="">{t("app.tasks.nobody")}</option>
                 {members.map((m) => (
                   <option key={m.id} value={m.user?.id || m.userId}>
-                    {m.user?.name || m.user?.email}
+                    {personOptionLabel(m, m.user?.name || m.user?.email)}
                   </option>
                 ))}
               </select>

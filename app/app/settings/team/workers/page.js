@@ -27,6 +27,8 @@ import { formatDateOnly, isoDateOnly } from "@/lib/format/companyDate";
 import { formatPhoneInput } from "@/lib/validation";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
+import JobTitleInput from "@/app/components/team/JobTitleInput";
+import { personTitle } from "@/lib/team/personLabel";
 
 // hiredOn is a calendar day. Both reading it into the <input type="date"> and
 // displaying it must use the UTC getters, or the date shifts a day each way.
@@ -158,6 +160,9 @@ function WorkerRow({ worker, workers = [], reload, onConnect }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
     name: worker.name || "",
+    // What the company calls them. "" round-trips to null on the server —
+    // clearing a title is a real edit. See lib/team/personLabel.js.
+    title: worker.title || "",
     phone: worker.phone || "",
     hourlyRate: worker.hourlyRate == null ? "" : String(worker.hourlyRate),
     hiredOn: dateInput(worker.hiredOn),
@@ -191,6 +196,7 @@ function WorkerRow({ worker, workers = [], reload, onConnect }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: form.name,
+          title: form.title,
           // "" clears the mobile back to unset, which is a real state: it means
           // the crew inbox stops recognising that person's texts, and the
           // prompt to add one comes back rather than silently matching nothing.
@@ -232,7 +238,7 @@ function WorkerRow({ worker, workers = [], reload, onConnect }) {
         className="rounded-xl border border-border bg-card p-4 space-y-3"
       >
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block sm:col-span-2">
+          <label className="block">
             <span className="text-xs font-medium text-muted-foreground">
               {t("app.field.name")}
             </span>
@@ -243,6 +249,16 @@ function WorkerRow({ worker, workers = [], reload, onConnect }) {
               className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
             />
           </label>
+          {/* ── Job title, beside the name ─────────────────────────────────
+              Receptionist, Foreman, Lead installer — what the company calls
+              this person, shown wherever they are listed. NOT their access:
+              that is the Role column on Manage Team, and it stays there. The
+              owner asked for the two words to stop being one. */}
+          <JobTitleInput
+            value={form.title}
+            onChange={(title) => setForm({ ...form, title })}
+            className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+          />
           {/* ── Mobile ────────────────────────────────────────────────────
               The number the crew inbox matches an inbound text against. It was
               writable exactly once, on the invite form, and nowhere after —
@@ -419,6 +435,12 @@ function WorkerRow({ worker, workers = [], reload, onConnect }) {
             </span>
           )}
         </div>
+        {/* The title on its own line, in the person's own words — not
+            capitalised by CSS like the meta line below, because "lead
+            installer" and "Lead Installer" are both what somebody typed. */}
+        {personTitle(worker) && (
+          <div className="text-xs text-foreground/80">{personTitle(worker)}</div>
+        )}
         <div className="text-xs text-muted-foreground capitalize">
           {worker.type}
           {worker.hourlyRate != null

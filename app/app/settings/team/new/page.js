@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Info, Upload, User as UserIcon } from "lucide-react";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
+import JobTitleInput from "@/app/components/team/JobTitleInput";
 import SeatCapUpgradeNotice from "@/app/components/SeatCapUpgradeNotice";
 import { formatPhoneInput } from "@/lib/validation";
 import {
@@ -64,6 +65,10 @@ function NewUserForm() {
   const [personal, setPersonal] = useState({
     imageUrl: "",
     name: "",
+    // Job title — Receptionist, Foreman. NOT the access level chosen further
+    // down; that is the seat. Carried on the pending profile and written to
+    // their Worker row when they accept. See lib/team/personLabel.js.
+    title: "",
     email: "",
     phone: "",
     address: "",
@@ -232,6 +237,7 @@ function NewUserForm() {
           email: personal.email,
           role,
           name: personal.name,
+          title: personal.title,
           phone: personal.phone,
           address: personal.address,
           city: personal.city,
@@ -396,6 +402,15 @@ function NewUserForm() {
                 onChange={(e) =>
                   setPersonal({ ...personal, email: e.target.value })
                 }
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <JobTitleInput
+                value={personal.title}
+                onChange={(title) => setPersonal({ ...personal, title })}
+                className={inputClass}
+                labelClassName="text-sm font-medium text-foreground block mb-1"
+                hintClassName="mt-1 block text-xs text-muted-foreground"
               />
             </div>
             <div className="sm:col-span-2">

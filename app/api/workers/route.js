@@ -10,6 +10,7 @@ import {
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
+import { normaliseTitle } from "@/lib/team/personLabel";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -49,6 +50,14 @@ export async function POST(request) {
 
   const body = await request.json();
   const { name, email, type, hourlyRate, userId } = body;
+
+  // What the company calls this person (Receptionist, Foreman). Not payroll,
+  // not access — anyone who may add a worker may name their job. Refused, not
+  // truncated, past the limit: a title cut mid-word is a title nobody typed.
+  const title = normaliseTitle(body.title);
+  if (!title.ok) {
+    return NextResponse.json({ error: title.error }, { status: 400 });
+  }
 
   // ── Creating a rate is setting a rate ────────────────────────────────────
   //
@@ -157,6 +166,7 @@ export async function POST(request) {
       email: cleanEmail,
       type,
       hourlyRate: hourlyRate ?? null,
+      title: title.value,
     },
   });
 

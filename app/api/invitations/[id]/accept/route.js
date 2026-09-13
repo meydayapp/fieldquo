@@ -105,7 +105,10 @@ export async function POST(request, { params }) {
         email: invitation.email.toLowerCase(),
       },
     },
-    select: { role: true },
+    // `title` is read here, BEFORE reconcilePendingProfiles deletes the
+    // pending row in step 3, because the Worker row that holds it is only
+    // made in step 4.
+    select: { role: true, title: true },
   });
   const fieldquoRole =
     pending?.role || (invitation.role === "admin" ? "admin" : "employee");
@@ -144,6 +147,7 @@ export async function POST(request, { params }) {
   await ensureWorkerForMember({
     companyId: company.id,
     userId: session.user.id,
+    title: pending?.title || null,
   }).catch((err) =>
     console.error("[accept invitation] worker link failed", err?.message),
   );

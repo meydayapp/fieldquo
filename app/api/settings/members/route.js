@@ -41,6 +41,8 @@ import { takeInviteEmailOutcome } from "@/lib/email/teamInvite";
 import { reconcilePendingProfiles } from "@/lib/team/reconcilePendingProfile";
 import { ensureWorkersForCompany } from "@/lib/team/ensureWorker";
 import { isSupported, LANGUAGE_CODES } from "@/app/i18n/languages";
+import { normaliseTitle } from "@/lib/team/personLabel";
+import { workerTitlesByUserId, withWorkerTitles } from "@/lib/team/workerTitles";
 
 // What a caller WITHOUT "user:view" gets back. Deliberately not the Member row:
 // the full row carries laborCostPerHour, home address, phone number and the
@@ -96,8 +98,15 @@ export async function GET(request) {
       orderBy: { createdAt: "asc" },
     });
     // Still a plain array, and still carrying `user`, `userId` and `active` —
-    // the five pages listed above key off exactly those.
-    return NextResponse.json(roster);
+    // the five pages listed above key off exactly those. Plus `title`: the job
+    // title from the person's Worker row (Receptionist, Foreman), so a picker
+    // can say who somebody IS without printing the seat word beside the name.
+    // Roster information, not payroll — see lib/team/workerTitles.js.
+    const titles = await workerTitlesByUserId(
+      member.companyId,
+      roster.map((m) => m.userId),
+    );
+    return NextResponse.json(withWorkerTitles(roster, titles));
   }
 
   const members = await db.member.findMany({
@@ -131,8 +140,15 @@ export async function GET(request) {
   // are yours to see.
   const full = await loadEnforceableMember(db, member.id);
 
+  // Same decoration as the roster branch: the person's job title, read from
+  // their Worker row in THIS company.
+  const titles = await workerTitlesByUserId(
+    member.companyId,
+    withLastLogin.map((m) => m.userId),
+  );
+
   return NextResponse.json(
-    withLastLogin.map((m) => {
+    withWorkerTitles(withLastLogin, titles).map((m) => {
       const out = redactPay(full, m, {
         fields: ["laborCostPerHour"],
         ownUserId: member.userId,
@@ -200,10 +216,18 @@ export async function POST(request) {
     laborCostPerHour,
     permissions,
     invitationLanguage,
+    // Job title — what the company calls them, distinct from `role`, the seat.
+    // Held on the PendingTeamProfile and written to the Worker row on accept.
+    title,
   } = await request.json();
 
   if (!email)
     return NextResponse.json({ error: "email is required" }, { status: 400 });
+
+  const jobTitle = normaliseTitle(title);
+  if (!jobTitle.ok) {
+    return NextResponse.json({ error: jobTitle.error }, { status: 400 });
+  }
 
   if (!["admin", "supervisor", "employee"].includes(role)) {
     return NextResponse.json(
@@ -412,6 +436,7 @@ export async function POST(request) {
       country: country || null,
       imageUrl: imageUrl || null,
       laborCostPerHour: safeLaborCost,
+      title: jobTitle.value,
       permissions: safePermissions || null,
       role,
       invitationLanguage: safeInvitationLanguage,
@@ -426,6 +451,7 @@ export async function POST(request) {
       country: country || null,
       imageUrl: imageUrl || null,
       laborCostPerHour: safeLaborCost,
+      title: jobTitle.value,
       permissions: safePermissions || null,
       role,
       invitationLanguage: safeInvitationLanguage,

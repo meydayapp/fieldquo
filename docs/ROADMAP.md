@@ -10,6 +10,49 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## A job title beside every name, and the seat word only where the seat is edited (13 September 2026)
+
+The owner: "under the crew can we add 'title' that is more honorific, like
+receptionist or clerk, or even for the seats manager / admin / supervisor /
+estimator — so some are only used for the seat and not for the crew, so that
+there is no confusion." A receptionist read as "Worker" on every roster
+because the permission tier was the only word beside a name.
+
+- **`Worker.title`** — free text, 60 characters, nullable. On Worker, not
+  Member: the crew row IS the person, and office staff with no login are
+  Workers with no Member at all. Free text, not an enum: every trade names its
+  people differently. The schema comment carries both decisions.
+  `PendingTeamProfile.title` carries it from the New User form to the
+  Worker row that `ensureWorkerForMember` makes on accept (read before
+  `reconcilePendingProfiles` deletes the pending row; fills in, never
+  overwrites a title an admin already set).
+- **Written everywhere a Worker is** — POST/PATCH `/api/workers`, quick-add,
+  the members invite — all through one normaliser,
+  `normaliseTitle` in `lib/team/personLabel.js` (trim, collapse
+  whitespace, "" → null, >60 refused with a 400, never truncated).
+- **Read everywhere a person is listed** — `personTitle()` /
+  `personOptionLabel()` from the same file, with NO invented fallback: no
+  title, nothing printed. Manage Team roster and its no-login section, the
+  Workers list, the team schedule (title, else the tier as before), the staff
+  chat directory / @-popup / Members bar (title, else the seat word), the
+  timesheet, appointment, task, visit and invoice-job assignee pickers
+  ("Ana — Foreman"), and Time off. The Member-based lists get it from
+  `lib/team/workerTitles.js`, one company-scoped query joining Worker on
+  userId — never `User.worker`, which could be another company's row.
+- **Where the seat stays the seat** — Manage Team's Role column, the access
+  editor, the quick-add tier note, seat counts and billing are untouched.
+- **One input** — `app/components/team/JobTitleInput.js`: text + datalist
+  of ten i18n'd suggestions (Receptionist, Clerk, Office manager, Dispatcher,
+  Foreman, Lead installer, Installer, Apprentice, Estimator, Supervisor),
+  shared by the Workers editor, the New User form and the quick-add popup.
+- **Help** — "Job title vs. access level" in the Manage Team article, EN/FR/ES.
+- **Gate** — `check:worker-title` (92 assertions: every write route, the
+  normaliser against hostile input, every reader, the seat editor still on
+  ROLE_LABELS, the catalogue in three languages).
+- **Not done here** — `/app/scheduler` (being rebuilt by another agent; its
+  DayBoard reads `worker.title` behind `?.` and `/api/shifts` needs
+  `title: true` added to its worker select now the column exists).
+
 ## Demo companies are real-looking businesses (12 September 2026)
 
 The owner: "use fake real names and real addresses and random phone numbers

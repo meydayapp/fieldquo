@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { fetchJson } from "@/lib/fetchJson";
+import { personOptionLabel } from "@/lib/team/personLabel";
 import { dayKey, monthGrid, localeFormat, localeDateTime } from "@/lib/calendar/monthGrid";
 import { travelLegs, describeTravel } from "@/lib/booking/travel";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
@@ -881,7 +882,7 @@ export default function AppointmentsPage() {
                   <option value="">{t("app.appts.unassigned")}</option>
                   {members.map((m) => (
                     <option key={m.userId} value={m.userId}>
-                      {m.user.name}
+                      {personOptionLabel(m, m.user.name)}
                       {appt.requiresSupervisor &&
                       !["owner", "admin", "supervisor"].includes(m.role)
                         ? " (not a supervisor)"
@@ -1347,7 +1348,7 @@ function NewAppointmentModal({ members, onClose, onCreated }) {
               <option value="">{t("app.appts.unassigned")}</option>
               {members.map((m) => (
                 <option key={m.userId} value={m.userId}>
-                  {m.user.name}
+                  {personOptionLabel(m, m.user.name)}
                 </option>
               ))}
             </select>

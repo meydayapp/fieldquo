@@ -14,6 +14,7 @@ import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { X, AlertTriangle } from "lucide-react";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
+import JobTitleInput from "@/app/components/team/JobTitleInput";
 import { PERMISSION_PRESETS, PRESET_TO_ROLE } from "@/lib/permissions";
 import { ROLE_LABELS } from "@/lib/permissions/roleManagement";
 import { seatFits } from "@/lib/pricing/seatLimit";
@@ -67,6 +68,9 @@ export default function AddEmployeeModal({ onClose, onAdded }) {
 
   const [form, setForm] = useState({
     name: "",
+    // Job title (Receptionist, Foreman) — what the company calls them, not
+    // the access level picked below. See lib/team/personLabel.js.
+    title: "",
     email: "",
     phone: "",
     address: "",
@@ -138,6 +142,7 @@ export default function AddEmployeeModal({ onClose, onAdded }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: form.name,
+          title: form.title,
           email: form.email,
           phone: form.phone,
           address: form.address,
@@ -233,6 +238,14 @@ export default function AddEmployeeModal({ onClose, onAdded }) {
                 className={`${inputClass} mt-1`}
               />
             </div>
+
+            <JobTitleInput
+              value={form.title}
+              onChange={(title) => set({ title })}
+              className={`${inputClass} mt-1`}
+              labelClassName="text-sm font-medium text-foreground"
+              hintClassName="mt-1 block text-xs text-muted-foreground"
+            />
 
             <div>
               <label className="text-sm font-medium text-foreground">Email</label>

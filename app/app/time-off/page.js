@@ -30,6 +30,7 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { personTitle } from "@/lib/team/personLabel";
 import { formatDateOnly, isoDateOnly } from "@/lib/format/companyDate";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -582,6 +583,11 @@ function RequestRow({ request, reload, canCancel, canReview, showWho }) {
             {showWho && (
               <span className="font-semibold text-foreground">
                 {request.worker?.name}
+                {personTitle(request.worker) && (
+                  <span className="font-normal text-muted-foreground">
+                    {" "}· {personTitle(request.worker)}
+                  </span>
+                )}
               </span>
             )}
             <span className="text-sm text-foreground">{request.policy?.name}</span>
@@ -776,7 +782,14 @@ function TeamTimeOff({ data, reload }) {
                   const isMoney = b.policy?.accrualMethod === "percent_of_gross";
                   return (
                     <tr key={b.id} className="border-t border-border">
-                      <td className="px-3 py-2 text-foreground">{b.worker?.name}</td>
+                      <td className="px-3 py-2 text-foreground">
+                        {b.worker?.name}
+                        {personTitle(b.worker) && (
+                          <span className="block text-xs text-muted-foreground">
+                            {personTitle(b.worker)}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-3 py-2 text-muted-foreground">
                         {b.policy?.name}
                       </td>

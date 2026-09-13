@@ -23,6 +23,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { personOptionLabel } from "@/lib/team/personLabel";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, AlertCircle, Loader2, ClipboardList } from "lucide-react";
@@ -238,7 +239,7 @@ export default function NewVisitPage() {
                 <option value="">{t("app.visitNew.unassigned", "Not assigned yet")}</option>
                 {members.map((m) => (
                   <option key={m.id} value={m.user?.id || m.userId}>
-                    {m.user?.name || m.user?.email}
+                    {personOptionLabel(m, m.user?.name || m.user?.email)}
                   </option>
                 ))}
               </select>

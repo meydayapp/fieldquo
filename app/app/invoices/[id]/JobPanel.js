@@ -32,6 +32,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { personOptionLabel } from "@/lib/team/personLabel";
 import Link from "next/link";
 import {
   Briefcase,
@@ -409,7 +410,7 @@ export default function JobPanel({
                     <option value="">{t("app.invoiceJob.unassigned")}</option>
                     {members.map((m) => (
                       <option key={m.id} value={m.user?.id || m.userId}>
-                        {m.user?.name || m.user?.email}
+                        {personOptionLabel(m, m.user?.name || m.user?.email)}
                       </option>
                     ))}
                   </select>

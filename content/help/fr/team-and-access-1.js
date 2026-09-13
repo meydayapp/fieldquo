@@ -14,7 +14,7 @@ export const ARTICLES = {
     title: "Gérer l'équipe",
     summary:
       "L'écran de l'effectif : qui fait partie de votre équipe, ce que chacun peut voir et faire, le panneau des sièges, les invitations en attente, et les boutons Ajouter un utilisateur, Ajouter un équipier et Ajouter un siège.",
-    updated: "2026-09-12",
+    updated: "2026-09-13",
     intro: [
       "**Gérer l'équipe** est l'écran où vivent les gens de votre entreprise dans FieldQuo. C'est un seul écran, accessible de deux façons — **Votre équipe** dans la barre latérale principale, sous Personnes, et **Paramètres → Gérer l'équipe** sous Équipe et horaires — et il montre chaque personne qui a un identifiant, le niveau d'accès qu'elle détient, et combien de sièges et de places d'équipiers de votre forfait sont utilisés.",
       "Tout ce qui concerne l'accès d'une personne se change ici. Ses heures, son taux horaire et ses congés vivent sur d'autres écrans — Feuilles de temps, Travailleurs, Congés — vers lesquels cette page renvoie.",
@@ -70,6 +70,15 @@ export const ARTICLES = {
               ["Je travaille seul — aucune équipe pour l'instant.", "Enregistre que vous travaillez seul et retire l'étape d'invitation de la liste de configuration. Décochez-la le jour où vous embauchez."],
             ],
           } },
+        ],
+      },
+      {
+        id: "job-title-vs-level",
+        heading: "Titre du poste et niveau d'accès",
+        blocks: [
+          { p: "Une personne porte deux étiquettes différentes dans FieldQuo, et ce n'est volontairement pas le même mot. Son **niveau d'accès** — Équipe, Estimateur, Répartiteur, Gestionnaire, Administrateur — est le siège : il décide de ce qu'elle peut voir et faire, et il se règle ici, dans la colonne **Rôle**. Son **titre du poste** — Réceptionniste, Commis, Contremaître, Installateur principal, Gestionnaire de bureau — est le nom que votre entreprise lui donne : il ne change rien aux accès et s'affiche à côté de son nom partout où les personnes sont listées : cette liste, l'horaire de l'équipe, la barre Membres du clavardage et les sélecteurs d'assignation des rendez-vous, des tâches et des visites." },
+          { p: "Le titre se règle sur la fiche de travailleur de la personne — onglet **Travailleurs**, **Modifier** — ou se saisit dans le formulaire Nouvel utilisateur au moment de l'invitation. C'est un texte libre de 60 caractères au plus ; les suggestions proposées par le champ ne sont que des suggestions. Une personne sans titre n'affiche rien à sa place, jamais un mot inventé." },
+          { note: "Le même mot peut être un titre pour l'un et un niveau pour l'autre. « Estimateur » comme titre dit ce que fait la personne ; le niveau Estimateur dit ce qu'elle peut ouvrir. Donner à une réceptionniste le niveau Équipe et le titre Réceptionniste est le cas normal — le niveau garde vos prix derrière la porte, le titre dit qui elle est." },
         ],
       },
       {

@@ -29,6 +29,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { orderedWeekdayNames } from "@/lib/format/localeDate";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { ROLE_LABELS, tierNote } from "@/lib/permissions/roleManagement";
+import { personTitle } from "@/lib/team/personLabel";
 
 
 function initials(name) {
@@ -129,17 +130,20 @@ export default function TeamSchedulePage() {
                 </span>
                 <div>
                   <p className="text-sm font-semibold text-foreground">{m.name}</p>
-                  {/* The TIER, not the person's access level. Two presets
-                      share `supervisor`, so this word cannot distinguish a
-                      Dispatcher from a Manager — and this payload deliberately
-                      carries no permission grid (it is a schedule, not a
-                      roster of access), so the tooltip is what makes the word
-                      honest rather than a substitution. */}
+                  {/* The person's JOB TITLE (Foreman, Receptionist) when they
+                      have one — a schedule lists people, and the seat word
+                      beside a name is what made a receptionist read as
+                      "Worker". Without a title the line falls back to the
+                      TIER, as before: not the person's access level, since
+                      two presets share `supervisor` and this payload carries
+                      no permission grid, which is why the tooltip names it as
+                      a tier. Either way the tooltip keeps the seat reachable
+                      as a hint, never as the headline. */}
                   <p
                     className="text-xs text-muted-foreground"
                     title={tierNote(m.role)}
                   >
-                    {ROLE_LABEL[m.role] || m.role}
+                    {personTitle(m) || ROLE_LABEL[m.role] || m.role}
                   </p>
                 </div>
                 {/* flex-wrap, because at 375px the name, the "no availability"
