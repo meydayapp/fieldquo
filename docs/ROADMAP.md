@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 13 September 2026 (the HR file — employee documents with expiry reminders, new-hire onboarding checklists with TD1/W-4 forms, policies with per-version acknowledgement, a performance file, the manager's log book and the HR & compliance overview; lib/hr, lib/onboarding, check:hr executes it against a two-company fake database.)
+Last updated: 13 September 2026 (team management in the Homebase shape: publishing tells the crew, My schedule at /app/me/schedule, labour cost and overtime on the board before publish, a time-clock watch cron that asks "still clocked in?" and flags late / no-show / early-out, an audit trail on every shift edit and punch, blackout dates + a most-off-at-once cap + a statutory-holiday table by province/state, and the raw timesheet CSV — lib/shifts/attendance.js, lib/shifts/labourCost.js, lib/leave/rules.js, lib/leave/statutoryHolidays.js; check:shift-notify executes them.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -95,6 +95,71 @@ a gridless legacy member (no permission grid at all) receives no
 worker-facing HR notification, because the feed's audience floor fails
 closed — the invite flow always writes a grid, so this touches only
 pre-grid accounts.
+
+## Team management in the Homebase shape: seven reactive pieces (13 September 2026)
+
+The owner wants team management / scheduling / time clock to behave like
+Homebase. A read-only audit found the bones (shifts, breaks, the day board,
+the time clock, leave) and seven reactive pieces missing. All seven —
+commits `55999f30`, `804e9bd4`.
+
+1. **Publishing tells the crew.** `POST /api/shifts/publish` reads the rows
+   whose `published` is about to flip, scopes the update to them, and sends
+   each worker ONE notification summarising their newly visible shifts
+   ("Your schedule is out: Mon 14 Sep, 8:00 – 16:00 at Sophie Dubois,
+   12 rue Principale, and 4 more"). A published shift moved, re-jobbed,
+   deleted or unpublished → `shift.changed` / `shift.cancelled`. Drafts
+   never notify (`lib/shifts/shiftNotify.js`, `shiftEvents()` is pure).
+   The catalog gained six types and `notifyEvent` a `recipientUserIds`
+   narrowing — the resolver intersects the named people with the type's
+   audience, never widens (lib/notifications/recipients.js). No email or
+   SMS: the catalog's v1 stance (in-app + web push) stands.
+2. **My schedule** — `app/app/me/schedule/page.js` inside the employee
+   home's `MeShell` (the shell and the other tabs are another agent's): one
+   card per day for 14 days, big hours, job + site, co-workers on the same
+   job as avatars (`coworkers` from lib/shifts/boardExtras.js), breaks, the
+   note quoted, the availability-override flag, **Clock in** on today's
+   card (→ /app/clock, which owns the punch), **Add to calendar**
+   (`GET /api/shifts/ics`, multi-VEVENT via `buildIcsCalendar`), Request
+   time off. Sidebar row **My schedule** under People for every role.
+3. **Cost before publish** — `lib/shifts/labourCost.js` imports
+   `splitOvertime` / `OVERTIME_MULTIPLIER` from computePayRun (now
+   exported) rather than restating 1.5. The board shows "38.5h this week"
+   per person (amber past 40 h), a This day / This week money line for
+   callers `canSeeAllPay` admits (rates leave the route only then), hours
+   for everyone else, and names people with no rate instead of pricing
+   them at zero. Week view has a Hours-this-week panel.
+4. **The time-clock watch** — `app/api/cron/time-clock-watch` every 15 min
+   (96 invocations/day, bounded reads): "Still clocked in?" to the worker
+   and a note to the reporting line 30 min after a published shift ended
+   (14 h with no shift), once per entry (`TimeEntry.overrunNotifiedAt`);
+   never closes an entry. And `ShiftAttendance` (a child row, not columns
+   on Shift — recomputed until final) with late (>10 min), no-show (none
+   by +60 min), early-out (>15 min before end), on_time; thresholds are
+   named constants in `lib/shifts/attendance.js`, policy to become
+   settings. Chip on the block and the timesheet row; 30-day counts on the
+   worker's card in Manage Team; the manager told once on a no-show.
+5. **Audit trail** — `recordActivity` on shift create / edit / delete /
+   publish (old → new times, job, who) and on every punch (in, out,
+   switch, break start/end), with `summaryKey`s in nine languages.
+6. **Time-off limits** — `Company.leaveRules` (blackouts, maxConcurrent,
+   holidayRegion) via `lib/leave/rules.js`; `lib/leave/statutoryHolidays.js`
+   computes CA federal + every province/territory and US federal by rule
+   (Easter, nth weekday, observed days), executed against known 2026/2027
+   dates. The request route and the approve path judge blackout (refused,
+   range named), the cap (approved leave only, names who is off) and pass
+   holidays to `countWorkingDays`. Settings → Time off policies gained the
+   Limits card; the Team view of /app/time-off is the Homebase layout
+   (Requests table with ✓ ✕ ›, details sheet with post-balance and "other
+   employees off", Add time off on behalf — same request, pre-approved
+   with the manager as reviewer — Hours approved by type, Upcoming cards,
+   Policies card with the limits); the day board bands holidays and
+   blackouts.
+7. **Raw timesheet CSV** — `GET /api/time-entries/export?from&to[&workerId]`
+   from the Timesheets page, gated at the page's own level, hours never
+   pay, `csvCell` formula-guarded, filename carries the range.
+
+`npm run check:shift-notify` (63 assertions) executes all of it.
 
 ## The scheduler's day board, lunches and breaks, and a dot the time clock drives (13 September 2026)
 

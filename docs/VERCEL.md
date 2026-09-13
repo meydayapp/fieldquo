@@ -277,6 +277,7 @@ as "for development, not for production apps used by real advertisers."
   days, open `OnboardingRun` rows), and one feed row + Web Push per reminder
   — no email, no SMS, no AI. A company with nobody on a checklist and no
   dated certificate costs nothing beyond the invocation.
+- **`/api/cron/time-clock-watch` — every 15 minutes (2026-09-13). Nothing to set** beyond `CRON_SECRET`. Asks a worker "Still clocked in?" (push + bell) and tells their manager once when an open time entry has outlived its published shift by 30 min (14 h with no shift), and writes the late / no-show / early-out verdict per published shift (`ShiftAttendance`). It never closes an entry. Cost: **96 invocations a day** (~2,900 a month), each a handful of indexed reads bounded at 500 open entries and 2,000 shifts; a company with no published shifts and nobody clocked in costs one query per run. `vercel.json` carries the schedule.
 - **Rotate three secrets** — they were pasted into a chat transcript:
   Cloudinary API secret, the Neon database password, `BETTER_AUTH_SECRET`.
 - **Resend DNS for `fieldquo.com`**: TXT at `resend._domainkey` with Resend's
